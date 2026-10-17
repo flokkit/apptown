@@ -180,3 +180,97 @@ func TestAnIntranetStackStartsANeedByItsScript(t *testing.T) {
 		t.Fatalf("the app waits on the store with %q\n%s", got, out)
 	}
 }
+
+// composeReads is what Compose makes of a value in a compose file it was
+// given no variables for: $$ is a literal $, and any other $ starts an
+// interpolation, so the value is not the one written (ok is false).
+func composeReads(v string) (string, bool) {
+	var out strings.Builder
+	for i := 0; i < len(v); i++ {
+		if v[i] != '$' {
+			out.WriteByte(v[i])
+			continue
+		}
+		if i+1 < len(v) && v[i+1] == '$' {
+			out.WriteByte('$')
+			i++
+			continue
+		}
+		return "", false
+	}
+	return out.String(), true
+}
+
+// dollarValues are values with $ a person sets: a plain password, a
+// variable reference, a bcrypt hash and an already doubled $.
+var dollarValues = []string{"pa$word", "x${HOME}y", "$2a$10$abc", "lit$$eral"}
+
+// A value containing $ reaches every service of a Portainer stack as it is
+// written, wherever it came from (a contract's environment, a secret, a
+// need's environment, a part's, an init step's, a healthcheck, a data
+// folder), as docker run -e and -v give it on a Docker host: Compose interpolates $ in the file, so
+// the forge writes each $ as $$.
+func TestAnIntranetStackKeepsEveryDollarLiteral(t *testing.T) {
+	t.Parallel()
+	for _, v := range dollarValues {
+		t.Run(v, func(t *testing.T) {
+			t.Parallel()
+			st := IntranetStack{Slug: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
+				Image: "reg/app:" + v, Port: 8080, PublicPart: "web", DataDir: "/data/" + v,
+				Env:     map[string]string{"FROM_CONTRACT": v},
+				Secrets: staticSecrets{"FROM_SECRET": v},
+				Needs:   []IntranetNeed{{Name: "postgres", Image: "postgres:16", Env: map[string]string{"POSTGRES_PASSWORD": v}, Health: "check " + v, Data: "/pg/" + v}},
+				Init:    []appcontract.InitContainer{{Name: "migrate", Image: "reg/app@sha256:x", Env: map[string]string{"FROM_INIT": v}}},
+				Parts:   []appcontract.Part{{Name: "worker", Image: "reg/app@sha256:x", Env: map[string]string{"FROM_PART": v}, Health: "check " + v, DataDir: "/part/" + v}},
+			}
+			out := IntranetCompose(st)
+			var stack struct {
+				Services map[string]struct {
+					Environment map[string]string `yaml:"environment"`
+					Healthcheck struct {
+						Test []string `yaml:"test"`
+					} `yaml:"healthcheck"`
+					Volumes []string `yaml:"volumes"`
+					Image   string   `yaml:"image"`
+				}
+			}
+			if err := yaml.Unmarshal([]byte(out), &stack); err != nil {
+				t.Fatalf("the stack is not one Compose accepts: %v\n%s", err, out)
+			}
+			mountPath := func(service string) string {
+				if vols := stack.Services[service].Volumes; len(vols) == 1 {
+					_, path, _ := strings.Cut(vols[0], ":")
+					return path
+				}
+				return ""
+			}
+			for _, c := range []struct{ service, name, written, want string }{
+				{"app", "FROM_CONTRACT", stack.Services["app"].Environment["FROM_CONTRACT"], v},
+				{"app", "FROM_SECRET", stack.Services["app"].Environment["FROM_SECRET"], v},
+				{"postgres", "POSTGRES_PASSWORD", stack.Services["postgres"].Environment["POSTGRES_PASSWORD"], v},
+				{"init-migrate", "FROM_INIT", stack.Services["init-migrate"].Environment["FROM_INIT"], v},
+				{"init-migrate", "FROM_SECRET", stack.Services["init-migrate"].Environment["FROM_SECRET"], v},
+				{"worker", "FROM_PART", stack.Services["worker"].Environment["FROM_PART"], v},
+				{"postgres", "healthcheck", last(stack.Services["postgres"].Healthcheck.Test), "check " + v},
+				{"worker", "healthcheck", last(stack.Services["worker"].Healthcheck.Test), "check " + v},
+				{"app", "image", stack.Services["app"].Image, "reg/app:" + v},
+				// The app's data is mounted where it is told its data is.
+				{"app", "DATA_DIR", stack.Services["app"].Environment["DATA_DIR"], "/data/" + v},
+				{"app", "data mount", mountPath("app"), "/data/" + v},
+				{"worker", "data mount", mountPath("worker"), "/part/" + v},
+				{"postgres", "data mount", mountPath("postgres"), "/pg/" + v},
+			} {
+				if got, ok := composeReads(c.written); !ok || got != c.want {
+					t.Errorf("%s %s: written %q, which Compose reads as %q (literal: %v); want %q\n%s", c.service, c.name, c.written, got, ok, c.want, out)
+				}
+			}
+		})
+	}
+}
+
+func last(s []string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	return s[len(s)-1]
+}

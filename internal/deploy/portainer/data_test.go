@@ -205,3 +205,30 @@ func TestTheDockerProxyForwardsWithTheCurrentKey(t *testing.T) {
 		t.Fatalf("forwarded %v, want %v", seen, want)
 	}
 }
+
+// noSecrets delivers no secrets to any consumer.
+type noSecrets struct{}
+
+func (noSecrets) EnvFor(string) map[string]string { return nil }
+
+// A data folder with $ in its path is found where the app was told its
+// data is: the stack file writes the $ as $$ for Compose, and the layout
+// data protection reads is the path Compose mounts.
+func TestTheLayoutFindsADataFolderAtThePathTheAppWasGiven(t *testing.T) {
+	t.Parallel()
+	compose := deploy.IntranetCompose(deploy.IntranetStack{Secrets: noSecrets{}, Slug: "app", Hosts: []string{"app.apps.example.com"},
+		Domain: "apps.example.com", Image: "reg/app@sha256:x", Port: 8080, PublicPart: "web", DataDir: "/data/$tenant",
+		Needs: []deploy.IntranetNeed{{Name: "postgres", Image: "postgres:16", Data: "/pg/$$x"}}})
+	layout, err := ReadLayout("forge-app", "app", compose)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for volume, want := range map[string]Mount{
+		"forge-app_forge-data-app":          {Service: "app", Path: "/data/$tenant"},
+		"forge-app_forge-need-app-postgres": {Service: "postgres", Path: "/pg/$$x"},
+	} {
+		if got, ok := layout.MountOf(volume); !ok || got != want {
+			t.Errorf("%s is mounted at %+v (found: %v); want %+v\n%s", volume, got, ok, want, compose)
+		}
+	}
+}

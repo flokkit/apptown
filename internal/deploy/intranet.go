@@ -70,6 +70,9 @@ type IntranetStack struct {
 // the platform enforces it, not a sleep.
 func IntranetCompose(st IntranetStack) string {
 	var b strings.Builder
+	// quoted writes one value from data as a YAML string that Compose
+	// reads back unchanged (ComposeLiteral).
+	quoted := func(s string) string { return strconv.Quote(ComposeLiteral(s)) }
 	b.WriteString("# forge-owned stack: deployed by forged at release time (design/subsystems/lan-release.md).\n")
 	b.WriteString("# Managed by the forge, not by your infrastructure-as-code.\n")
 	b.WriteString("services:\n")
@@ -97,18 +100,16 @@ func IntranetCompose(st IntranetStack) string {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			fmt.Fprintf(&b, "      %s: %q\n", k, merged[k])
+			fmt.Fprintf(&b, "      %s: %s\n", k, quoted(merged[k]))
 		}
 	}
-	// Compose interpolates $ in the file, so a literal $ (a start script's
-	// shell variables) is written $$.
 	writeList := func(key string, cmd []string) {
 		if len(cmd) == 0 {
 			return
 		}
 		parts := make([]string, len(cmd))
 		for i, c := range cmd {
-			parts[i] = fmt.Sprintf("%q", strings.ReplaceAll(c, "$", "$$"))
+			parts[i] = quoted(c)
 		}
 		fmt.Fprintf(&b, "    %s: [%s]\n", key, strings.Join(parts, ", "))
 	}
@@ -128,7 +129,7 @@ func IntranetCompose(st IntranetStack) string {
 		if cmd == "" {
 			return
 		}
-		fmt.Fprintf(&b, "    healthcheck:\n      test: [\"CMD-SHELL\", %q]\n      interval: 3s\n      timeout: 3s\n      retries: 20\n      start_period: 2m\n", cmd)
+		fmt.Fprintf(&b, "    healthcheck:\n      test: [\"CMD-SHELL\", %s]\n      interval: 3s\n      timeout: 3s\n      retries: 20\n      start_period: 2m\n", quoted(cmd))
 	}
 	// needsReady: the depends_on block every consumer of the needs shares.
 	needsReady := func() []string {
@@ -154,14 +155,14 @@ func IntranetCompose(st IntranetStack) string {
 
 	// The app: the public part, behind Traefik.
 	b.WriteString("  app:\n")
-	fmt.Fprintf(&b, "    image: %s\n", st.Image)
+	fmt.Fprintf(&b, "    image: %s\n", ComposeLiteral(st.Image))
 	b.WriteString("    restart: unless-stopped\n")
 	writeResources(st.Resources)
 	writeCommand(st.Command)
 	writeEnv(appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart)), [2]string{"DATA_DIR", st.DataDir}, [2]string{"FORGE_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release})
 	if st.DataDir != "" {
 		b.WriteString("    volumes:\n")
-		fmt.Fprintf(&b, "      - %s:%s\n", dataVolumeName(st.Slug), st.DataDir)
+		fmt.Fprintf(&b, "      - %s:%s\n", dataVolumeName(st.Slug), ComposeLiteral(st.DataDir))
 		volumes = append(volumes, dataVolumeName(st.Slug))
 	}
 	deps := needsReady()
@@ -183,12 +184,12 @@ func IntranetCompose(st IntranetStack) string {
 	router := lanStackName(st.Slug) // the Traefik router and service share the stack's name
 	b.WriteString("    labels:\n")
 	b.WriteString("      traefik.enable: \"true\"\n")
-	fmt.Fprintf(&b, "      traefik.http.routers.%s.rule: %q\n", router, strings.Join(rules, " || "))
+	fmt.Fprintf(&b, "      traefik.http.routers.%s.rule: %s\n", router, quoted(strings.Join(rules, " || ")))
 	fmt.Fprintf(&b, "      traefik.http.routers.%s.tls: \"true\"\n", router)
 	fmt.Fprintf(&b, "      traefik.http.routers.%s.tls.certresolver: \"le\"\n", router)
-	fmt.Fprintf(&b, "      traefik.http.routers.%s.tls.domains[0].main: \"*.%s\"\n", router, st.Domain)
+	fmt.Fprintf(&b, "      traefik.http.routers.%s.tls.domains[0].main: %s\n", router, quoted("*."+st.Domain))
 	for i, h := range st.Hosts[1:] {
-		fmt.Fprintf(&b, "      traefik.http.routers.%s.tls.domains[%d].main: %q\n", router, i+1, h)
+		fmt.Fprintf(&b, "      traefik.http.routers.%s.tls.domains[%d].main: %s\n", router, i+1, quoted(h))
 	}
 	fmt.Fprintf(&b, "      traefik.http.services.%s.loadbalancer.server.port: \"%d\"\n", router, st.Port)
 
@@ -196,7 +197,7 @@ func IntranetCompose(st IntranetStack) string {
 	// the need's network alias, the same {host} the connection env names.
 	for _, n := range st.Needs {
 		fmt.Fprintf(&b, "  %s:\n", n.Name)
-		fmt.Fprintf(&b, "    image: %s\n", n.Image)
+		fmt.Fprintf(&b, "    image: %s\n", ComposeLiteral(n.Image))
 		b.WriteString("    restart: unless-stopped\n")
 		writeResources(n.Resources)
 		writeList("entrypoint", n.Entrypoint)
@@ -206,7 +207,7 @@ func IntranetCompose(st IntranetStack) string {
 		if n.Data != "" {
 			vol := lanNeedVolumeName(st.Slug, n.Name)
 			b.WriteString("    volumes:\n")
-			fmt.Fprintf(&b, "      - %s:%s\n", vol, n.Data)
+			fmt.Fprintf(&b, "      - %s:%s\n", vol, ComposeLiteral(n.Data))
 			volumes = append(volumes, vol)
 		}
 	}
@@ -216,7 +217,7 @@ func IntranetCompose(st IntranetStack) string {
 	for _, it := range st.Init {
 		img := it.Image
 		fmt.Fprintf(&b, "  init-%s:\n", it.Name)
-		fmt.Fprintf(&b, "    image: %s\n", img)
+		fmt.Fprintf(&b, "    image: %s\n", ComposeLiteral(img))
 		b.WriteString("    restart: \"no\"\n")
 		writeCommand(it.Command)
 		writeEnv(appcontract.MergeEnv(it.Env, st.Secrets.EnvFor("init-"+it.Name)))
@@ -227,7 +228,7 @@ func IntranetCompose(st IntranetStack) string {
 	for _, p := range st.Parts {
 		img := p.Image
 		fmt.Fprintf(&b, "  %s:\n", p.Name)
-		fmt.Fprintf(&b, "    image: %s\n", img)
+		fmt.Fprintf(&b, "    image: %s\n", ComposeLiteral(img))
 		b.WriteString("    restart: unless-stopped\n")
 		writeResources(p.Resources)
 		writeCommand(p.Command)
@@ -240,7 +241,7 @@ func IntranetCompose(st IntranetStack) string {
 		if p.DataDir != "" {
 			vol := dataVolumeName(st.Slug + "-" + p.Name)
 			b.WriteString("    volumes:\n")
-			fmt.Fprintf(&b, "      - %s:%s\n", vol, p.DataDir)
+			fmt.Fprintf(&b, "      - %s:%s\n", vol, ComposeLiteral(p.DataDir))
 			volumes = append(volumes, vol)
 		}
 		writeDepends(needsReady())
@@ -254,6 +255,19 @@ func IntranetCompose(st IntranetStack) string {
 	}
 	return b.String()
 }
+
+// ComposeLiteral is s written so that Compose reads it back unchanged.
+// Compose interpolates every value in a compose file: $NAME and ${NAME}
+// are replaced from the environment of whoever runs Compose (on Portainer,
+// variables the forge never sets, so they read as empty), and $$ is a
+// literal $. The forge never relies on that: a value it writes (a secret,
+// a contract's environment, a start script's shell variables) means what
+// it says, as with docker run -e on a Docker host. So each $ is $$.
+func ComposeLiteral(s string) string { return strings.ReplaceAll(s, "$", "$$") }
+
+// ComposeRead is what Compose reads from a value the forge wrote with
+// ComposeLiteral: each $$ is one $.
+func ComposeRead(s string) string { return strings.ReplaceAll(s, "$$", "$") }
 
 func PreparedReleaseApp(c *appcontract.Plan, image string) (*appcontract.Plan, error) {
 	cc := *c

@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"flokkit.io/forge/internal/deploy"
 )
 
 // StackLayout is what a stack's compose file says about its data: the
@@ -58,6 +60,9 @@ func ReadLayout(stack, slug, compose string) (StackLayout, error) {
 				continue
 			}
 			path, _, _ = strings.Cut(path, ":") // a mode (:ro) after the path
+			// The forge writes each $ in a path as $$ (deploy.ComposeLiteral);
+			// the path the app was given is the one Compose reads.
+			path = deploy.ComposeRead(path)
 			if v, ok := byKey[key]; ok {
 				l.mounts[v.Name] = Mount{Service: service, Path: path}
 			}

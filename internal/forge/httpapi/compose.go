@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"flokkit.io/forge/internal/deploy"
 	"flokkit.io/forge/internal/deploy/docker"
 
 	"gopkg.in/yaml.v3"
@@ -74,16 +75,16 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 	for _, in := range c.Init {
 		svc := map[string]any{"restart": "no"}
 		if in.Image != "" {
-			svc["image"] = in.Image
+			svc["image"] = deploy.ComposeLiteral(in.Image)
 		} else {
-			svc["build"] = orDot(in.Build)
+			svc["build"] = deploy.ComposeLiteral(orDot(in.Build))
 		}
 		if len(in.Command) > 0 {
-			svc["command"] = in.Command
+			svc["command"] = composeLiteral(in.Command)
 		}
 		env := appcontract.MergeEnv(in.Env, plan.Env)
 		if len(env) > 0 {
-			svc["environment"] = env
+			svc["environment"] = composeEnv(env)
 		}
 		if len(needDep) > 0 {
 			svc["depends_on"] = needDep
@@ -98,16 +99,16 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 		case p.Static != "":
 			svc["image"] = docker.StaticServerImage
 			mounts = []string{"./" + p.Static + ":/srv:ro"}
-			svc["command"] = docker.StaticServerCommand(p.Port)
+			svc["command"] = composeLiteral(docker.StaticServerCommand(p.Port))
 		case p.Image != "":
-			svc["image"] = p.Image
+			svc["image"] = deploy.ComposeLiteral(p.Image)
 			if len(p.Command) > 0 {
-				svc["command"] = p.Command
+				svc["command"] = composeLiteral(p.Command)
 			}
 		default: // build
-			svc["build"] = orDot(p.Build)
+			svc["build"] = deploy.ComposeLiteral(orDot(p.Build))
 			if len(p.Command) > 0 {
-				svc["command"] = p.Command
+				svc["command"] = composeLiteral(p.Command)
 			}
 		}
 		// Env: the part's own, plus the dependency connection env so the app can
@@ -117,7 +118,7 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 			env["PORT"] = fmt.Sprint(p.Port)
 		}
 		if len(env) > 0 {
-			svc["environment"] = env
+			svc["environment"] = composeEnv(env)
 		}
 		// The public part is reachable from the host; other parts stay internal.
 		if p.Public && p.Port != 0 {
@@ -129,7 +130,7 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 			volumes[vol] = map[string]any{}
 		}
 		if len(mounts) > 0 {
-			svc["volumes"] = mounts
+			svc["volumes"] = composeLiteral(mounts)
 		}
 		if hc := composePartHealth(p); hc != nil {
 			svc["healthcheck"] = hc
@@ -270,7 +271,7 @@ func probeShellCmd(pr *appcontract.Probe, partPort int) string {
 
 func composeHealth(cmd string) map[string]any {
 	return map[string]any{
-		"test":         []any{"CMD-SHELL", cmd},
+		"test":         []any{"CMD-SHELL", deploy.ComposeLiteral(cmd)},
 		"interval":     "3s",
 		"timeout":      "3s",
 		"retries":      20,
@@ -295,7 +296,7 @@ func portOr(p, d int) int {
 func composeNeed(s dependency.LocalService) map[string]any {
 	// forge dev is where the app's own tests run, as in a step.
 	s = s.ForSteps()
-	svc := map[string]any{"image": s.Image}
+	svc := map[string]any{"image": deploy.ComposeLiteral(s.Image)}
 	if len(s.Entrypoint) > 0 {
 		svc["entrypoint"] = composeLiteral(s.Entrypoint)
 	}
@@ -303,7 +304,7 @@ func composeNeed(s dependency.LocalService) map[string]any {
 		svc["command"] = composeLiteral(s.Command)
 	}
 	if len(s.Env) > 0 {
-		svc["environment"] = s.Env
+		svc["environment"] = composeEnv(s.Env)
 	}
 	if s.Health != "" {
 		svc["healthcheck"] = composeHealth(s.Health)
@@ -312,7 +313,7 @@ func composeNeed(s dependency.LocalService) map[string]any {
 	// the forge's own throwaway starts give it. S3's emulator exits at once
 	// without /data.
 	if s.Data != "" {
-		svc["volumes"] = []string{s.Data}
+		svc["volumes"] = composeLiteral([]string{s.Data})
 	}
 	return svc
 }
@@ -333,12 +334,23 @@ func composeSizedNeed(s dependency.LocalService, c *appcontract.Contract) map[st
 	return svc
 }
 
-// composeLiteral keeps a need's arguments as written: Compose interpolates
-// $ in the file, so a start script's shell variables are written $$.
+// composeLiteral keeps each value as written (deploy.ComposeLiteral): a
+// start script's shell variables reach the container's shell, and a mount
+// is at the path the app was given.
 func composeLiteral(args []string) []string {
 	out := make([]string, len(args))
 	for i, a := range args {
-		out[i] = strings.ReplaceAll(a, "$", "$$")
+		out[i] = deploy.ComposeLiteral(a)
+	}
+	return out
+}
+
+// composeEnv keeps environment values as written (deploy.ComposeLiteral),
+// as docker run -e gives them on a Docker host.
+func composeEnv(env map[string]string) map[string]string {
+	out := make(map[string]string, len(env))
+	for k, v := range env {
+		out[k] = deploy.ComposeLiteral(v)
 	}
 	return out
 }

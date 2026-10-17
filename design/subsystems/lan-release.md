@@ -12,6 +12,11 @@ secrets. Runtime consumers receive their declared values; provider credentials
 are for the operation that needs them. Target-specific domains, volumes and
 networking are rendered by the Portainer/Docker implementation.
 
+Every value the stack carries means what it says, as with `docker run` on a
+Docker host: Compose interpolates `$` in a stack file, so the renderer writes
+each `$` in an environment value, command, healthcheck or mount path as `$$`
+(`deploy.ComposeLiteral`; the `forge dev` compose files follow the same rule).
+
 A deployment on Portainer can also be released by name through the general
 release door (`RequestRelease`). Both doors render the same stack, needs
 included, with one builder; see
