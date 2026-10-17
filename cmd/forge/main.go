@@ -1,0 +1,91 @@
+// forge is the CLI for a forged instance — the invocation surface for humans
+// and agents alike. Every mutation is attributed via X-Forge-Actor.
+//
+// Configuration: FORGE_URL (default http://localhost:7777), FORGE_USER
+// (default $USER).
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"flokkit.io/forge/internal/clock"
+)
+
+func envOr(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
+}
+
+// loadCredentials fills FORGE_URL / FORGE_TOKEN / FORGE_USER from
+// ~/.config/forge/credentials (KEY=VALUE lines, 0600) when the
+// environment hasn't set them. Environment always wins — the file is
+// where a minted token LIVES, not another layer of indirection.
+func loadCredentials() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	raw, err := os.ReadFile(filepath.Join(home, ".config", "forge", "credentials"))
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if !ok || os.Getenv(k) != "" {
+			continue
+		}
+		v = strings.TrimSpace(v)
+		switch strings.TrimSpace(k) {
+		case "FORGE_URL":
+			api.base = v
+		case "FORGE_TOKEN":
+			_ = os.Setenv("FORGE_TOKEN", v)
+		case "FORGE_USER":
+			api.actor = v
+		}
+	}
+}
+
+// now is the CLI's one clock, the real one. Its commands share it, as they
+// share the API client (api), rather than each being handed one; a test
+// replaces it.
+var now = clock.Or(nil)
+
+// root is the CLI's process context: one command, then the process ends,
+// and Ctrl-C ends it. A command's waits and git runs start from it.
+var root = context.Background()
+
+func main() {
+	loadCredentials()
+	if len(os.Args) < 2 {
+		usage()
+		os.Exit(2)
+	}
+	c := lookup(os.Args[1])
+	if c == nil {
+		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", os.Args[1])
+		usage()
+		os.Exit(2)
+	}
+	if err := c.invoke(os.Args[2:]); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		if unknown := (*unknownOutcome)(nil); errors.As(err, &unknown) {
+			os.Exit(exitUnknown)
+		}
+		if unknown := (*operationUnknown)(nil); errors.As(err, &unknown) {
+			os.Exit(exitUnknown)
+		}
+		os.Exit(1)
+	}
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "record": "design/qualification/worker-vm-2026-10-01.md",
+    "name": "worker-vm",
+    "os": "linux Debian GNU/Linux 13 (trixie)",
+    "architecture": "x86_64",
+    "cgroup": "v2 (systemd)",
+    "storageDriver": "overlay2",
+    "dockerMajor": "26",
+    "dindDigest": "docker@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce",
+    "dindVersion": "27.5.1, build 4c9b3b0"
+  }
+]

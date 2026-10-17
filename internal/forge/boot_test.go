@@ -1,0 +1,1034 @@
+package forge
+
+import (
+	"archive/tar"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"flokkit.io/forge/internal/console/consoletest"
+	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/dbtest"
+	"flokkit.io/forge/internal/forge/dbschema"
+	"flokkit.io/forge/internal/forge/deployment"
+	"flokkit.io/forge/internal/forge/jobs"
+	"flokkit.io/forge/internal/ids"
+	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/riverqueue/river/rivertype"
+
+	"flokkit.io/forge/internal/deploy/docker"
+	"flokkit.io/forge/internal/forge/schema"
+	"flokkit.io/forge/internal/forge/workflow"
+	"flokkit.io/forge/internal/gitexec"
+)
+
+// The one boot sequence, pinned per path through the recording fake: needs
+// (healthy) → init → non-public parts → the public app → probe, with the
+// labels and restart policy each target carries. Every path in this file
+// went through bootStack; the assertions are on the docker argv it issued.
+
+// bootFixtureYAML: a need (postgres, with a healthcheck), an init step, a
+// non-public worker and a public web part with a data dir.
+const bootFixtureYAML = `app:
+  web:
+    image: reg.example/app:1
+    ports: ["8080"]
+    public: true
+    dataDir: /data
+  worker:
+    image: reg.example/worker:1
+    command: ["node", "worker.js"]
+init:
+  - name: migrate
+    image: reg.example/app:1
+    command: ["./migrate.sh"]
+needs:
+  postgres: {}
+`
+
+func writeBootFixture(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"), []byte(bootFixtureYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// An unrelated Dockerfile must not override an image declaration.
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// bootWorld: a forge with the stock dependency catalog, a fake daemon whose
+// mapped port is a real HTTP server (the probe must get an answer), and no
+// probe settle.
+func bootWorld(t *testing.T, configs ...Config) (*App, *fakeDocker) {
+	t.Helper()
+	cfg := Config{}
+	if len(configs) != 0 {
+		cfg = configs[0]
+	}
+	f := newFakeDocker()
+	cfg.DockerClient = f
+	cfg.DockerProbe = &docker.Probe{Settle: time.Millisecond}
+	a := testApp(t, cfg)
+	a.SyncStockDependencies(context.Background())
+	if id := createReadTestProject(t, a, "p"); id != idstest.N(1) {
+		t.Fatalf("project fixture ID = %d, want 1", id)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("<html><body><script>/* app */</script></body></html>"))
+	}))
+	t.Cleanup(srv.Close)
+	_, portStr, _ := net.SplitHostPort(srv.Listener.Addr().String())
+	f.port, _ = strconv.Atoi(portStr)
+	return a, f
+}
+
+// ran is one `docker run` the fake saw.
+type ran struct {
+	name, class, owner string
+	restart, rm        bool
+	call               string
+}
+
+func containersRun(f *fakeDocker) []ran {
+	var out []ran
+	for _, c := range f.joined() {
+		if !strings.HasPrefix(c, "run ") {
+			continue
+		}
+		out = append(out, ran{
+			name: containerNameOf(c), class: labelOf(c, "forge.class"), owner: labelOf(c, "forge.owner"),
+			restart: strings.Contains(c, "--restart unless-stopped"), rm: hasArg(c, "--rm"), call: c,
+		})
+	}
+	return out
+}
+
+// expectBootSequence pins the order and the per-target labels/policy for a
+// stack owned by stackID whose public app is appName.
+func expectBootSequence(t *testing.T, f *fakeDocker, stackID, appName string, persistent bool) []ran {
+	t.Helper()
+	runs := containersRun(f)
+	names := make([]string, len(runs))
+	for i, r := range runs {
+		names[i] = r.name
+	}
+	want := []string{docker.ServiceName(stackID, "postgres"), docker.InitName(stackID, "migrate"), docker.ServiceName(stackID, "worker"), appName}
+	if strings.Join(names, ",") != strings.Join(want, ",") {
+		t.Fatalf("boot order: got %v, want %v\ncalls:\n%s", names, want, strings.Join(f.joined(), "\n"))
+	}
+	pg, init, worker, app := runs[0], runs[1], runs[2], runs[3]
+
+	// The network exists before anything runs on it.
+	ni := -1 // a throwaway stack's network carries labels before its name
+	for i, c := range f.joined() {
+		if strings.HasPrefix(c, "network create ") && strings.HasSuffix(c, " "+docker.NetworkName(stackID)) {
+			ni = i
+			break
+		}
+	}
+	if ri := f.indexOf("run "); ni < 0 || ni > ri {
+		t.Fatalf("the stack network must be created before the first container; calls:\n%s", strings.Join(f.joined(), "\n"))
+	}
+	// needs are WAITED healthy before init runs.
+	hi := f.indexOf("inspect -f {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} " + pg.name)
+	ii := f.indexOf("run --rm --init --name " + init.name)
+	if hi < 0 || ii < 0 || hi > ii {
+		t.Fatalf("init must wait for the need's health (health inspect at %d, init at %d)", hi, ii)
+	}
+	// init: run to completion on the stack network, class step, owner = the stack.
+	if init.class != "step" || init.owner != stackID || !init.rm || !hasArg(init.call, "--network") {
+		t.Fatalf("init container: %+v", init)
+	}
+	// The need is started with the password made for this deployment or
+	// preview, never the catalogue's, and init and the app are given it.
+	password := ""
+	for _, f := range strings.Fields(pg.call) {
+		if v, ok := strings.CutPrefix(f, "POSTGRES_PASSWORD="); ok {
+			password = v
+		}
+	}
+	if len(password) != 64 {
+		t.Fatalf("the need's password is not one the forge made: %q in %s", password, pg.call)
+	}
+	url := "-e DATABASE_URL=postgres://app:" + password + "@postgres:5432/app"
+	if !strings.Contains(init.call, url) {
+		t.Fatalf("init must see the need's connection env: %s", init.call)
+	}
+	// the non-public part: a service on the stack, with the merged env.
+	// A standing deployment's own parts live with it: class env, restart
+	// unless-stopped, never --rm (finding 6); a preview's are throwaway.
+	wantClass := "service"
+	if persistent {
+		wantClass = "env"
+	}
+	if worker.class != wantClass || worker.owner != stackID || !hasArg(worker.call, "--network-alias") ||
+		!strings.Contains(worker.call, "-e DATABASE_URL=") || worker.restart != persistent || worker.rm == persistent {
+		t.Fatalf("worker part: %+v", worker)
+	}
+	// the public app: env merged, data volume, port published, class + policy per target.
+	if !strings.Contains(app.call, url) ||
+		!strings.Contains(app.call, "-v "+docker.DataVolumeName(appName)+":/data") ||
+		!strings.Contains(app.call, "-e DATA_DIR=/data") || !strings.Contains(app.call, "-e PORT=8080") ||
+		app.owner != appName || app.rm {
+		t.Fatalf("app container: %+v", app)
+	}
+	if persistent {
+		if pg.class != "env" || pg.owner != stackID || !pg.restart || pg.rm {
+			t.Fatalf("a standing deployment's need must be class env, restart unless-stopped, not --rm: %+v", pg)
+		}
+		if app.class != "env" || !app.restart {
+			t.Fatalf("a standing deployment's app must be class env with restart unless-stopped: %+v", app)
+		}
+	} else {
+		if pg.class != "service" || pg.owner != stackID || pg.restart || !pg.rm || !hasArg(pg.call, "--init") ||
+			!strings.Contains(pg.call, "--health-cmd test -f /tmp/forge-ready && pg_isready") {
+			t.Fatalf("a preview's need must be a throwaway --rm --init service with its healthcheck: %+v", pg)
+		}
+		if app.class != "preview" || app.restart || !strings.Contains(app.call, "-p 127.0.0.1::8080") {
+			t.Fatalf("a preview's app must be class preview, no restart policy, forge-assigned port: %+v", app)
+		}
+	}
+	return runs
+}
+
+func TestRunPreviewSequence(t *testing.T) {
+	t.Parallel()
+	a, f := bootWorld(t)
+	run, stepID := bootRun(t, a, "working", "preview")
+	runID := run.ID
+	ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+	writeBootFixture(t, ws)
+	commitFolder(t, ws) // a run's preview boots the run's commit
+
+	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+
+	step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID)
+	if err != nil || step.Status != workflow.StatusPass {
+		t.Fatalf("preview step: %+v %v\ncalls:\n%s", step, err, strings.Join(f.joined(), "\n"))
+	}
+	runs := expectBootSequence(t, f, docker.RunStepStackID(stepID), docker.PreviewRunName(runID), false)
+	if len(f.matching("build ")) != 0 || f.indexOf("pull reg.example/app:1") < 0 || !strings.HasSuffix(runs[3].call, " reg.example/app:1") {
+		t.Fatalf("preview step must run its declared image: %s", runs[3].call)
+	}
+	artifacts, err := a.Work.RunArtifacts(asPerson("bls"), runID, workflow.ArtifactSelection{Kinds: []string{"preview"}})
+	if err != nil || len(artifacts) != 1 {
+		t.Fatalf("the preview URL must be recorded as one artifact: %+v %v", artifacts, err)
+	}
+}
+
+// Admit the declared effect, then pause automatic dispatch so each test can
+// arrange its external provider and explicitly execute the selected step.
+func bootRun(t *testing.T, a *App, role, effect string) (*workflow.Run, ids.ID) {
+	t.Helper()
+	return bootStep(t, a, role, schema.Step{Name: effect, Uses: effect})
+}
+func bootStep(t *testing.T, a *App, role string, step schema.Step) (*workflow.Run, ids.ID) {
+	t.Helper()
+	effect := step.Uses
+	installFakeGit(t, a, nil)
+	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "boot-" + effect, Version: 1}, Spec: schema.Spec{
+		Kind: "pipeline", Role: role, Stages: []schema.Stage{{Name: "boot", Steps: []schema.Step{step}}},
+	}})
+	a.Work.Stop()
+	changeID := createReadTestChange(t, a, idstest.N(1), "boot "+effect)
+	run, err := a.Work.StartRun(asPerson("bls"), workflow.StartChangeRun{ChangeID: changeID, Workflow: "boot-" + effect})
+	if !errors.Is(err, workflow.ErrDispatchStopped) {
+		t.Fatal(err)
+	}
+	snapshot, err := a.Work.Snapshot(asPerson("bls"), run.ID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range snapshot.Steps {
+		if step.Type == effect {
+			return run, step.ID
+		}
+	}
+	t.Fatalf("declared %s step was not materialized: %+v", effect, snapshot.Steps)
+	return nil, ids.Nil
+}
+
+func deployRun(t *testing.T, a *App) (runID, stepID ids.ID) {
+	t.Helper()
+	a.SeedTargets(t.Context()) // The daemon establishes target bindings before workflow dispatch.
+	run, stepID := bootRun(t, a, "landing", "deploy")
+	runID = run.ID
+	ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+	writeBootFixture(t, ws)
+	// A standing deployment identifies committed source before contacting Docker.
+	for _, args := range [][]string{{"init", "-q"}, {"add", "."}, {"-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qm", "deployment fixture"}} {
+		if out, err := gitexec.Run(t.Context(), ws, args...); err != nil {
+			t.Fatalf("git fixture: %v: %s", err, out)
+		}
+	}
+	return runID, stepID
+}
+
+func TestRunDeploySequence(t *testing.T) {
+	t.Parallel()
+	a, f := bootWorld(t)
+	runID, stepID := deployRun(t, a)
+
+	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+
+	step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID)
+	if err != nil || step.Status != workflow.StatusPass {
+		t.Fatalf("deploy step: %+v %v\ncalls:\n%s", step, err, strings.Join(f.joined(), "\n"))
+	}
+	runs := expectBootSequence(t, f, docker.StackID("p", "main"), docker.ContainerName("p", "main"), true)
+	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+	if err != nil || env.Container != docker.ContainerName("p", "main") || env.ReleaseRun != runID || env.HostPort == 0 {
+		t.Fatalf("environment record: %+v %v", env, err)
+	}
+	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(env.HostPort)+":8080") {
+		t.Fatalf("a standing deployment publishes its stable port: %s", runs[3].call)
+	}
+}
+
+func TestRunDeployReusesStandingNeeds(t *testing.T) {
+	t.Parallel()
+	a, f := bootWorld(t)
+	_, stepID := deployRun(t, a)
+	pg := docker.ServiceName(docker.StackID("p", "main"), "postgres")
+	kind, err := a.Dependencies.ByCapability(t.Context(), "postgres")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.markStartedAs(pg, kind.ResolveLocal(nil, "", nil).Spec()) // the env's postgres from the last release, data and all
+
+	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+
+	step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID)
+	if err != nil || step.Status != workflow.StatusPass {
+		t.Fatalf("deploy step: %+v %v\ncalls:\n%s", step, err, strings.Join(f.joined(), "\n"))
+	}
+	for _, r := range containersRun(f) {
+		if r.name == pg {
+			t.Fatalf("a standing need must be reused, never restarted (its data is the persistence): %s", r.call)
+		}
+	}
+	// ...but still waited healthy before the init step runs against it.
+	hi := f.indexOf("inspect -f {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} " + pg)
+	ii := f.indexOf("run --rm --init --name " + docker.InitName(docker.StackID("p", "main"), "migrate"))
+	if hi < 0 || ii < 0 || hi > ii {
+		t.Fatalf("init must wait for the reused need's health (inspect at %d, init at %d)", hi, ii)
+	}
+}
+
+func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
+	t.Parallel()
+	a, f := bootWorld(t)
+	runID, stepID := deployRun(t, a)
+	run, err := workflow.ReadRunIn(context.Background(), a.DB, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+	if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+	if err != nil || env.ObservedGeneration != 1 {
+		t.Fatalf("initial deployment generation: %+v %v", env, err)
+	}
+	reservedPort := env.HostPort
+	f.reset()
+	f.mu.Lock()
+	f.started = map[string]bool{}
+	f.objects = map[string]bool{} // the host lost its networks and volumes too
+	f.labels = map[string]map[string]string{}
+	f.mu.Unlock()
+
+	a.ensureDeploymentsOnce(context.Background()) // the container is not running: a rebuild job is asked for
+	runQueuedJobForTest(t, a, "rebuild", "p/main")
+
+	runs := expectBootSequence(t, f, docker.StackID("p", "main"), docker.ContainerName("p", "main"), true)
+	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(reservedPort)+":8080") {
+		t.Fatalf("a rebuilt environment keeps its stable port: %s", runs[3].call)
+	}
+	if audits := auditCount(t, a.DB, "deployment.rebuilt"); audits != 1 {
+		t.Fatalf("the rebuild must be on the audit record, got %d", audits)
+	}
+	// A standing deployment is left standing.
+	f.reset()
+	a.ensureDeploymentsOnce(context.Background())
+	requireJobs(t, a, 0, func(j *rivertype.JobRow, r jobs.Request) bool {
+		return r.Operation == "rebuild" && slices.Contains([]rivertype.JobState{rivertype.JobStateAvailable, rivertype.JobStateRunning, rivertype.JobStateRetryable, rivertype.JobStateScheduled}, j.State)
+	})
+}
+
+// Complaint #77: startup recovery rebuilt a change's preview from the
+// project repo (main), and the reuse check then handed that container back
+// as the change's preview. Recovery leaves previews cold.
+func TestRecoveryLeavesPreviewsCold(t *testing.T) {
+	t.Parallel()
+	a, f := bootWorld(t)
+	writeBootFixture(t, a.projectRepoPath("p"))
+	if err := a.Deployment.Deployments.RecordPreview(context.Background(), idstest.N(1), idstest.N(235), ids.Nil, docker.PreviewChangeName(idstest.N(235)), 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	a.ensureDeploymentsOnce(context.Background())
+	if got := containersRun(f); len(got) != 0 {
+		t.Fatalf("a preview is never rebuilt from the project repo; ran %v", got)
+	}
+	previews, err := a.Deployment.Deployments.Previews(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(previews, func(d *deployment.Deployment) bool { return d.ChangeID == idstest.N(235) }) {
+		t.Fatal("a preview whose container is gone is forgotten, not left reading missing")
+	}
+}
+
+// A preview's row goes when Preview stops it for want of a look, and the
+// standing-deployment watchers (health, rebuild, backups) never see previews.
+func TestAStoppedPreviewLosesItsRow(t *testing.T) {
+	t.Parallel()
+	a, f := bootWorld(t)
+	name := docker.PreviewChangeName(idstest.N(41))
+	if err := a.Deployment.Deployments.RecordPreview(context.Background(), idstest.N(1), idstest.N(41), ids.Nil, name, 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range a.hosts.Watched(context.Background(), a.deployments) {
+		if e.Name == "preview-41" {
+			t.Fatal("a preview is not a standing deployment")
+		}
+	}
+	f.reply = func(args []string) (string, error, bool) {
+		if args[0] == "ps" && slices.Contains(args, "label=forge.class=preview") {
+			return name + "\t" + docker.ChangeStackID(idstest.N(41)) + "\n", nil, true
+		}
+		return "", nil, false
+	}
+	a.Preview.Tend(context.Background(), false)
+	if named, err := a.Deployment.Deployments.Named(t.Context(), "preview-41"); err != nil || len(named) != 0 {
+		t.Fatal("the stopped preview's row must go with its container")
+	}
+}
+
+// The data directory says which layout wrote it: a directory from before the
+// file is marked with this build's layout, the same layout is accepted, and
+// a newer build's directory is refused by name rather than misread.
+func TestTheDataDirectorySaysWhichLayoutWroteIt(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := PrepareDataLayout(dir); err != nil {
+		t.Fatal(err)
+	}
+	if raw, err := os.ReadFile(filepath.Join(dir, "layout")); err != nil || strings.TrimSpace(string(raw)) != strconv.Itoa(DataLayoutVersion) {
+		t.Fatalf("an unmarked directory is marked with this layout: %q %v", raw, err)
+	}
+	if err := PrepareDataLayout(dir); err != nil {
+		t.Fatalf("the same layout: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "layout"), []byte(strconv.Itoa(DataLayoutVersion+1)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := PrepareDataLayout(dir); !errors.Is(err, ErrNewerDataLayout) {
+		t.Fatalf("a newer build's directory: %v", err)
+	}
+}
+
+// updateUpgradeFixture freezes the forge this build makes as the named
+// release's upgrade fixture (testdata/upgrade/<release>): run at a release's
+// tag, once, and commit the result.
+var updateUpgradeFixture = flag.String("update-upgrade-fixture", "", "write the upgrade fixture for this release name from the current build")
+
+// upgradeSubjects names the records the upgrade reads: what the fixture made.
+// Pack is the team's own pack, which fixtures frozen from rc.1 on hold; the
+// 1.0 baseline was frozen before it and names none, and is read as frozen.
+type upgradeSubjects struct {
+	Change, Run, Accept ids.ID
+	Pack                string `json:",omitempty"`
+}
+
+type upgradeFixture struct {
+	Subjects upgradeSubjects `json:"subjects"`
+	Reads    map[string]any  `json:"reads"`
+}
+
+// upgradeConfig is the configuration the fixture forge and the upgraded one
+// run with: a chat can be opened, and one is.
+func upgradeConfig(t *testing.T, dataDir string, agent *consoletest.Agent) Config {
+	return Config{DataDir: dataDir, DockerClient: newFakeDocker(), ConsoleCLI: fixtureCLI(t), ConsoleAgent: agent,
+		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}}
+}
+
+// upgradeApprovalMeans is what the fixture's approval says assent means.
+const upgradeApprovalMeans = "the change does what its title says"
+
+// upgradeWorld makes, through the product, the forge a release leaves
+// behind: a project with a repository; a change on it with its own branch
+// and folder, its run and a person's acceptance of the branch's commit, an
+// approval whose stated meaning is recorded with the vote; adopted ways of
+// working with a guidance block, and the team's own pack pinning it; a
+// release of the repository's main; an ended chat with its transcript.
+func upgradeWorld(t *testing.T) (*App, upgradeSubjects) {
+	t.Helper()
+	agent := consoletest.NewAgent()
+	a := authzActors(t, upgradeConfig(t, t.TempDir(), agent))
+	authzWorkflow(t, a, workflow.ApprovalConfig{Means: upgradeApprovalMeans})
+	configureConsoleModel(t, a)
+	rebuildWork(t, a, func(deps *workflow.Dependencies) { deps.Git = workflow.GitWorkspace{DataDir: a.cfg.dataDir} })
+	h := a.Handler()
+	call := func(who, method, path, body string, want int) []byte {
+		t.Helper()
+		w := authzCall(h, who, method, path, body)
+		if w.Code != want {
+			t.Fatalf("%s %s: %d %s", method, path, w.Code, w.Body.String())
+		}
+		return w.Body.Bytes()
+	}
+	call("owner", "POST", "/api/v1/projects/game/repo", `{}`, 200)
+	var made struct{ Change struct{ ID ids.ID } }
+	if err := json.Unmarshal(call("owner", "POST", "/api/v1/projects/game/changes", `{"type":"change","title":"Make the duck faster"}`, 201), &made); err != nil {
+		t.Fatal(err)
+	}
+	run, err := a.Work.StartRun(asPerson("owner"), workflow.StartChangeRun{ChangeID: made.Change.ID, Workflow: "implement"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Work.Wait()
+	snapshot, err := a.Work.Snapshot(asPerson("owner"), run.ID, workflow.DetailView)
+	if err != nil || len(snapshot.Steps) != 2 || snapshot.Steps[0].Name != "accept" {
+		t.Fatalf("the fixture's run: %+v %v", snapshot.Steps, err)
+	}
+	accept := snapshot.Steps[0].ID
+	// The person is shown the approval's question, what the change adds
+	// among it, and accepts what they were shown.
+	question, err := a.Work.ApprovalQuestion(asPerson("owner"), accept)
+	if err != nil || question.Adds == nil || question.Adds.Digest == "" {
+		t.Fatalf("the acceptance's question: %+v %v", question, err)
+	}
+	call("owner", "POST", "/api/v1/steps/"+accept.String()+"/approve", fmt.Sprintf(`{"decision":"approve","adds":%q}`, question.Adds.Digest), 200)
+	adopt(t, a, idstest.N(1), "upgrade-guidance", 1, "[]")
+	// The team's own way of working: a pack of its own, pinning that block,
+	// which the project adopts.
+	call("boss", "POST", "/api/v1/packs", `{"name":"upgrade-team","description":"How the team works","guidance":["upgrade-guidance"]}`, 200)
+	var offer struct {
+		ExpectedRevision int64            `json:"expectedRevision"`
+		Packs            []map[string]any `json:"packs"`
+	}
+	if err := json.Unmarshal(call("owner", "POST", "/api/v1/projects/game/adoption/prepare", `{"packs":[{"pack":"upgrade-team","version":1}]}`, 200), &offer); err != nil {
+		t.Fatal(err)
+	}
+	adoptBody, _ := json.Marshal(map[string]any{"expectedRevision": offer.ExpectedRevision, "packs": offer.Packs, "viaChange": false})
+	call("boss", "POST", "/api/v1/projects/game/adoption/adopt", string(adoptBody), 200)
+	main, err := gitexec.ResolveCommit(t.Context(), a.projectRepoPath("game"), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	releasedPreviewFixture(t, a, idstest.N(1), main)
+	var opened struct{ Session struct{ ID string } }
+	if err := json.Unmarshal(call("owner", "POST", "/api/v1/projects/game/console", `{"model":"fake/model"}`, 201), &opened); err != nil {
+		t.Fatal(err)
+	}
+	call("owner", "POST", "/api/v1/console/"+opened.Session.ID+"/say", `{"text":"what does it do"}`, 200)
+	agent.Reply(opened.Session.ID, "ok")
+	call("owner", "DELETE", "/api/v1/console/"+opened.Session.ID, "", 200)
+	a.Work.Wait()
+	return a, upgradeSubjects{Change: made.Change.ID, Run: run.ID, Accept: accept, Pack: "upgrade-team"}
+}
+
+// upgradeReads is what the fixture's records say, read through the router as
+// people read them, kept to the recorded facts: identities, numbers, names,
+// links between records, decisions, meanings and words, not what the page
+// works out at read time. The release's commit is resolved in the project's
+// repository and a file read from it, so the repository's bytes are part of
+// what must survive.
+func upgradeReads(t *testing.T, a *App, s upgradeSubjects) map[string]any {
+	t.Helper()
+	h := a.Handler()
+	get := func(path string) map[string]any {
+		t.Helper()
+		w := authzCall(h, "boss", "GET", path, "")
+		if w.Code != 200 {
+			t.Fatalf("GET %s: %d %s", path, w.Code, w.Body.String())
+		}
+		var v any
+		if err := json.Unmarshal(w.Body.Bytes(), &v); err != nil {
+			t.Fatal(err)
+		}
+		if list, ok := v.([]any); ok {
+			return map[string]any{"list": list}
+		}
+		return v.(map[string]any)
+	}
+	pick := func(m any, keys ...string) map[string]any {
+		out := map[string]any{}
+		if mm, ok := m.(map[string]any); ok {
+			for _, k := range keys {
+				out[k] = mm[k]
+			}
+		}
+		return out
+	}
+	change := get("/api/v1/changes/" + s.Change.String())
+	detail := change["detail"].(map[string]any)
+	var approval map[string]any
+	for _, step := range detail["steps"].([]any) {
+		if st := step.(map[string]any); st["id"] == s.Accept.String() {
+			approval = pick(st, "id", "runId", "name", "type", "status", "config", "evidence")
+		}
+	}
+	var releases []any
+	for _, r := range get("/api/v1/projects/game/releases")["list"].([]any) {
+		releases = append(releases, pick(r, "id", "number", "state", "deployment", "deploymentId", "commitSha", "externalRef", "approvedBy", "generation"))
+	}
+	repository := map[string]any{}
+	if len(releases) > 0 {
+		sha, _ := releases[0].(map[string]any)["commitSha"].(string)
+		resolved, err := gitexec.ResolveCommit(t.Context(), a.projectRepoPath("game"), sha)
+		if err != nil {
+			t.Fatalf("the release's commit in the project's repository: %v", err)
+		}
+		file, err := gitexec.Output(t.Context(), a.projectRepoPath("game"), "show", resolved+":.gitignore")
+		if err != nil {
+			t.Fatalf("a file of the release's commit: %v", err)
+		}
+		repository = map[string]any{"commit": resolved, ".gitignore": file}
+	}
+	// The commit the person accepted, resolved in the change's own folder.
+	workspace := map[string]any{}
+	if ev, ok := approval["evidence"].(map[string]any); ok {
+		candidate, _ := ev["candidate"].(string)
+		source, err := workflow.ReadSourceIn(t.Context(), a.DB, workflow.RunRef{ID: s.Run, ProjectID: idstest.N(1)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		folder := source.Workspace(a.cfg.dataDir)
+		resolved, err := gitexec.ResolveCommit(t.Context(), folder, candidate)
+		if err != nil {
+			t.Fatalf("the accepted commit %q in the change's folder: %v", candidate, err)
+		}
+		file, err := gitexec.Output(t.Context(), folder, "show", resolved+":.gitignore")
+		if err != nil {
+			t.Fatalf("a file of the accepted commit: %v", err)
+		}
+		workspace = map[string]any{"candidate": resolved, ".gitignore": file}
+		if s.Pack != "" {
+			// The branch is a name the forge gave outside itself: an upgrade
+			// keeps it.
+			workspace["branch"] = source.Branch
+		}
+	}
+	adoption := get("/api/v1/projects/game/adoption")
+	var sessions []any
+	for _, sess := range get("/api/v1/projects/game/transcript")["sessions"].([]any) {
+		var words []any
+		for _, m := range sess.(map[string]any)["messages"].([]any) {
+			words = append(words, pick(m, "role", "text"))
+		}
+		p := pick(sess, "id", "actor", "ended")
+		p["messages"] = words
+		sessions = append(sessions, p)
+	}
+	reads := map[string]any{
+		"change":     pick(change["change"], "id", "number", "title", "type", "openedBy", "openedByPrincipal", "projectId", "runId"),
+		"run":        pick(detail["run"], "id", "number", "projectId", "workflowName", "workflowVersion", "kind", "changeId", "adoptionId"),
+		"approval":   approval,
+		"adoption":   pick(adoption["current"], "id", "revision", "kind", "reason", "digest", "createdBy", "receipt"),
+		"releases":   releases,
+		"repository": repository,
+		"workspace":  workspace,
+		"transcript": sessions,
+	}
+	if s.Pack != "" {
+		pack := get("/api/v1/packs/" + s.Pack)
+		reads["pack"] = map[string]any{"pack": pick(pack, "name", "description", "origin", "declaration", "recommended", "latest"), "versions": pack["versions"]}
+	}
+	return reads
+}
+
+// writeTarGz packs dir's files (directories, regular files, links) into path.
+func writeTarGz(t *testing.T, dir, path string) {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gz := gzip.NewWriter(f)
+	tw := tar.NewWriter(gz)
+	err = filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+		if err != nil || p == dir {
+			return err
+		}
+		rel, _ := filepath.Rel(dir, p)
+		link := ""
+		if info.Mode()&os.ModeSymlink != 0 {
+			if link, err = os.Readlink(p); err != nil {
+				return err
+			}
+		} else if !info.Mode().IsRegular() && !info.IsDir() {
+			return nil // sockets and pipes are not records
+		}
+		hdr, err := tar.FileInfoHeader(info, link)
+		if err != nil {
+			return err
+		}
+		hdr.Name, hdr.ModTime, hdr.Uname, hdr.Gname, hdr.Uid, hdr.Gid = filepath.ToSlash(rel), time.Unix(0, 0), "", "", 0, 0
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if info.Mode().IsRegular() {
+			src, err := os.Open(p)
+			if err != nil {
+				return err
+			}
+			defer src.Close()
+			_, err = io.Copy(tw, src)
+			return err
+		}
+		return nil
+	})
+	if err == nil {
+		err = errors.Join(tw.Close(), gz.Close(), f.Close())
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// readTarGz unpacks path into dir.
+func readTarGz(t *testing.T, path, dir string) {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := tar.NewReader(gz)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		target := filepath.Join(dir, filepath.FromSlash(hdr.Name))
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			err = os.MkdirAll(target, os.FileMode(hdr.Mode))
+		case tar.TypeSymlink:
+			err = os.Symlink(hdr.Linkname, target)
+		case tar.TypeReg:
+			var out *os.File
+			if out, err = os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode)); err == nil {
+				_, err = io.Copy(out, tr)
+				err = errors.Join(err, out.Close())
+			}
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func writeUpgradeFixture(t *testing.T, dir string) {
+	t.Helper()
+	a, subjects := upgradeWorld(t)
+	reads := upgradeReads(t, a, subjects)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	schemaSQL, err := os.ReadFile(filepath.Join("dbschema", "schema.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "release-schema.sql"), schemaSQL, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// River's tables are the job library's: job rows are not history, and a
+	// restarted forge recreates its queue.
+	rows, err := dbtest.Snapshot(t.Context(), a.DB, func(table string) bool { return strings.HasPrefix(table, "river_") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dbtest.WriteRows(filepath.Join(dir, "rows.jsonl.gz"), rows); err != nil {
+		t.Fatal(err)
+	}
+	// forged marks its data directory at startup; the fixture's is marked the same way.
+	if err := PrepareDataLayout(a.cfg.dataDir); err != nil {
+		t.Fatal(err)
+	}
+	writeTarGz(t, a.cfg.dataDir, filepath.Join(dir, "files.tar.gz"))
+	raw, err := json.MarshalIndent(upgradeFixture{Subjects: subjects, Reads: reads}, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "reads.json"), append(raw, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// restoreRelease gives db and a fresh data directory the forge the fixture's
+// release left, as it left it: not yet upgraded.
+func restoreRelease(t *testing.T, dir string, db *database.DB) string {
+	t.Helper()
+	schemaSQL, err := os.ReadFile(filepath.Join(dir, "release-schema.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := dbtest.ReadRows(filepath.Join(dir, "rows.jsonl.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: restoring a release's storage is what no owner operation can do; the upgrade under test starts from it.
+	if err := dbtest.Restore(t.Context(), db, string(schemaSQL), rows); err != nil {
+		t.Fatal(err)
+	}
+	dataDir := t.TempDir()
+	readTarGz(t, filepath.Join(dir, "files.tar.gz"), dataDir)
+	return dataDir
+}
+
+// upgradeForge is what forged does to a forge when it starts: the data
+// directory's layout, then the normal open path's migrations.
+func upgradeForge(t *testing.T, db *database.DB, dataDir string) {
+	t.Helper()
+	if err := PrepareDataLayout(dataDir); err != nil {
+		t.Fatalf("the release's data directory: %v", err)
+	}
+	if _, err := dbschema.Migrate(t.Context(), db); err != nil {
+		t.Fatalf("upgrading the release's database: %v", err)
+	}
+	if err := jobs.Migrate(t.Context(), db.Pool()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// forgeRecords is a forge's stored records (the job library's queue left
+// out) and the digest of its data directory: what the copies taken before
+// an upgrade hold.
+func forgeRecords(t *testing.T, db *database.DB, dataDir string) (string, string) {
+	t.Helper()
+	rows, err := dbtest.Snapshot(t.Context(), db, func(table string) bool { return strings.HasPrefix(table, "river_") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.New()
+	err = filepath.Walk(dataDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(dataDir, p)
+		fmt.Fprintf(digest, "%s %v\n", rel, info.Mode().Type())
+		switch {
+		case info.Mode()&os.ModeSymlink != 0:
+			link, err := os.Readlink(p)
+			fmt.Fprintln(digest, link)
+			return err
+		case info.Mode().IsRegular():
+			body, err := os.ReadFile(p)
+			digest.Write(body)
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw), hex.EncodeToString(digest.Sum(nil))
+}
+
+// A forge an earlier release left behind, its database and its files,
+// upgrades with this build's startup and keeps what it recorded: the same
+// records read back through the router with the same identities, links and
+// meaning, the release's commit still resolves in its repository, and the
+// upgraded schema is a fresh one's. Rolling back is restoring the copies
+// taken, with forged stopped, before the upgrade: after the new build has
+// upgraded and written, the restored database and data directory are the
+// copies exactly, with the new build's write gone.
+//
+// Kills: a migration that drops, renumbers or re-means a record or the link
+// between two; a reader that no longer reads what an earlier release wrote;
+// a lost repository; a schema step that a fresh database and an upgraded one
+// take differently.
+func TestAnUpgradeKeepsWhatThePreviousReleaseRecorded(t *testing.T) {
+	t.Parallel()
+	if *updateUpgradeFixture != "" {
+		writeUpgradeFixture(t, filepath.Join("testdata", "upgrade", *updateUpgradeFixture))
+	}
+	fixtures, err := filepath.Glob(filepath.Join("testdata", "upgrade", "*", "reads.json"))
+	if err != nil || len(fixtures) == 0 {
+		t.Fatalf("no upgrade fixture (testdata/upgrade/<release>): %v", err)
+	}
+	fresh, err := dbtest.Shape(t.Context(), testDB(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, readsPath := range fixtures {
+		dir := filepath.Dir(readsPath)
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			raw, err := os.ReadFile(readsPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var want upgradeFixture
+			if err := json.Unmarshal(raw, &want); err != nil {
+				t.Fatal(err)
+			}
+			wantReads, _ := json.Marshal(want.Reads)
+			db := testDB(t)
+			dataDir := restoreRelease(t, dir, db)
+			// The copies the upgrade guide has an operator take, forged stopped.
+			copiedRows, copiedFiles := forgeRecords(t, db, dataDir)
+			copyArchive := filepath.Join(t.TempDir(), "data-directory.tar.gz")
+			writeTarGz(t, dataDir, copyArchive)
+
+			upgradeForge(t, db, dataDir)
+			if shape, err := dbtest.Shape(t.Context(), db); err != nil || shape != fresh {
+				t.Fatalf("the upgraded schema is not a fresh one's: %v\n%s", err, lineDiff(fresh, shape))
+			}
+			a := newApp(t, db, upgradeConfig(t, dataDir, consoletest.NewAgent()))
+			gotReads, _ := json.Marshal(upgradeReads(t, a, want.Subjects))
+			if string(gotReads) != string(wantReads) {
+				t.Fatalf("an upgraded record reads differently:\nwant %s\n got %s", wantReads, gotReads)
+			}
+			// The new build's first write: a change, with its branch in the repository.
+			if w := authzCall(a.Handler(), "owner", "POST", "/api/v1/projects/game/changes", `{"type":"feature","title":"after the upgrade"}`); w.Code != 201 {
+				t.Fatalf("a write after the upgrade: %d %s", w.Code, w.Body.String())
+			}
+			if rows, files := forgeRecords(t, db, dataDir); rows == copiedRows || files == copiedFiles {
+				t.Fatalf("the write after the upgrade changed nothing to roll back (rows changed %v, files changed %v)", rows != copiedRows, files != copiedFiles)
+			}
+
+			// Rollback: the upgraded forge stopped, the copies put back in its place.
+			if err := a.ShutdownBackground(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			copiedSchema, err := os.ReadFile(filepath.Join(dir, "release-schema.sql"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var copied []dbtest.Row
+			if err := json.Unmarshal([]byte(copiedRows), &copied); err != nil {
+				t.Fatal(err)
+			}
+			// sql-guarantee: the rollback under test is restoring a dump, which is storage, not an owner operation.
+			if err := dbtest.Restore(t.Context(), db, string(copiedSchema), copied); err != nil {
+				t.Fatal(err)
+			}
+			backDir := t.TempDir()
+			readTarGz(t, copyArchive, backDir)
+			if rows, files := forgeRecords(t, db, backDir); rows != copiedRows || files != copiedFiles {
+				t.Fatalf("the rollback did not give back the copies (rows %v, files %v)", rows == copiedRows, files == copiedFiles)
+			}
+		})
+	}
+}
+
+// lineDiff names the lines one text has and the other lacks.
+func lineDiff(a, b string) string {
+	in := func(s string) map[string]bool {
+		m := map[string]bool{}
+		for _, l := range strings.Split(s, "\n") {
+			m[l] = true
+		}
+		return m
+	}
+	ma, mb := in(a), in(b)
+	var out []string
+	for l := range ma {
+		if !mb[l] {
+			out = append(out, "- "+l)
+		}
+	}
+	for l := range mb {
+		if !ma[l] {
+			out = append(out, "+ "+l)
+		}
+	}
+	slices.Sort(out)
+	return strings.Join(out, "\n")
+}
+
+// A preview step and a landing's deploy whose migration fails printing its
+// DATABASE_URL keep, as evidence, a failure that does not hold the password
+// the forge made for that preview or deployment.
+func TestAFailedBootsEvidenceHoldsNoNeedCredential(t *testing.T) {
+	t.Parallel()
+	for _, effect := range []string{"preview", "deploy"} {
+		t.Run(effect, func(t *testing.T) {
+			t.Parallel()
+			a, f := bootWorld(t)
+			var stepID ids.ID
+			if effect == "deploy" {
+				_, stepID = deployRun(t, a)
+			} else {
+				var run *workflow.Run
+				run, stepID = bootRun(t, a, "working", "preview")
+				ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+				writeBootFixture(t, ws)
+				commitFolder(t, ws)
+			}
+			var mu sync.Mutex
+			password := ""
+			f.reply = func(args []string) (string, error, bool) {
+				mu.Lock()
+				defer mu.Unlock()
+				line := strings.Join(args, " ")
+				if args[0] != "run" {
+					return "", nil, false
+				}
+				for _, a := range args {
+					if v, ok := strings.CutPrefix(a, "POSTGRES_PASSWORD="); ok {
+						password = v
+					}
+				}
+				if strings.Contains(line, "-migrate ") && password != "" {
+					return "django.db.utils.OperationalError: connection to postgres://app:" + password + "@postgres:5432/app failed", errors.New("exit status 1"), true
+				}
+				return "", nil, false
+			}
+			a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+			step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(password) != 64 {
+				t.Fatalf("the need's password: %q", password)
+			}
+			evidence := string(step.Evidence)
+			if step.Status == workflow.StatusPass || !strings.Contains(evidence, "OperationalError") {
+				t.Fatalf("the failed migration is not the step's evidence: %s %s", step.Status, evidence)
+			}
+			if strings.Contains(evidence, password[:16]) {
+				t.Fatalf("the evidence holds the password: %s", evidence)
+			}
+		})
+	}
+}

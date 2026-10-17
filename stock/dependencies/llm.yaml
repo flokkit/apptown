@@ -1,0 +1,30 @@
+# Dependency: AI models.
+# A NEED fulfilled by REGISTERING with OpenRouter: each deployment, and each
+# preview, gets its own OpenRouter API key with a credit limit, made through
+# the project's attached `llm` connector and revoked when the deployment is
+# taken down or the preview ends. The connector's provisioning key never
+# reaches the app.
+#
+# Parameters, in .forge/app.yaml:
+#   needs:
+#     llm:
+#       limit: 5            # US dollars of credit; omitted = the connector's default
+#       limitReset: monthly # daily | weekly | monthly; omitted = never resets
+# The limit may not exceed the connector's maximum. Previews always get the
+# connector's preview limit.
+capability: llm
+title: AI models
+icon: ✨
+description: "Experimental: no deployed app has used its own key yet. Lets the app call AI models (chat, summarising, extraction) through OpenRouter, with its own key and a spending limit. The app reads OPENROUTER_API_KEY and OPENROUTER_BASE_URL."
+
+# The contract with the app, the same on every target and for a preview.
+provides:
+  OPENROUTER_API_KEY: this deployment's (or preview's) own key, with its spending limit
+  OPENROUTER_BASE_URL: the API address to call
+
+register:
+  connector: openrouter     # capability=llm provider in the connector catalog
+  adapter: openrouter-key   # creates one key per deployment or preview
+  inject:
+    OPENROUTER_API_KEY: "${key}"
+    OPENROUTER_BASE_URL: "${base_url}"

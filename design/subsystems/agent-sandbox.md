@@ -1,0 +1,67 @@
+# Agent isolation limits
+
+Status: worker-machine isolation implemented; network and execution isolation
+on the worker still proposed. Checked on 8 October 2026.
+
+## Implemented
+
+Agents run through the configured executor. Docker model execution uses prepared
+workspaces and generated configuration, with Forge runtime credentials for the
+private inference gateway. Local model execution is refused because filtering its
+environment cannot isolate a local process from daemon credentials.
+
+**A separate worker machine.** With `-worker-url`, project code runs on
+`forge-worker`, not on the forge's host: Docker script steps, tests, agent and
+review steps, checks and scans, change and run previews, release builds, and new
+change chats by default. A script step without `executor: docker` is refused
+(without a worker it runs as a local process on the forge host). The forge and
+worker share no files; the forge sends one commit as a Git bundle over mutual
+TLS and receives the task's commits back. A task the worker cannot run or reach
+is refused or an error, never moved to the host. A step's or chat's container is
+configured with the forge's console and inference listeners and a credential
+minted for it; that is not a network restriction, and what else it can reach on
+the forge host or elsewhere depends on the operator's network and firewall. An
+optional check worker keeps checks off the machine agents use, so a gate's
+evidence did not run beside the agent it judges. With `-no-local-docker` the
+forge host has no Docker and runs no project process at all. Otherwise project
+chats, chats continuing a step's agent, and change chats placed on the forge or
+already running there still run on the forge host. The operating guide
+([workers](../operations/workers.md#what-a-worker-isolates-and-what-it-does-not))
+lists exactly what moved and the verified limits; `internal/execution` and
+`internal/worker` own the task contract.
+
+**Private Docker.** Agent steps that declare `docker: true` and writable change
+chats can use a private Docker daemon. `-no-private-docker` turns it off for
+both. On a worker, agent steps get it, and release builds run, only when the
+operator opts in with `-private-docker`; change chats on a worker get it unless
+`-no-private-docker` is set.
+That avoids handing them the host Docker socket, but the privileged sidecar
+is not a strong boundary against hostile code. Registry mirrors provide routing,
+not an enforced egress allowlist.
+
+## Not implemented
+
+A worker moves project code off the forge's host; it does not contain that code
+on the worker. Containers there use Docker's default bridge network (or `none`
+where a task's admission says so), and the worker profile sets no resource
+limits by default. Several projects' work can share one worker. A worker does not
+make the forge safe for untrusted projects.
+
+The accepted direction is explicit network and execution isolation, including
+nested build/container traffic. A future design must specify where policy is
+enforced, what destinations are allowed, how blocked traffic is reported and how
+it interacts with declared services and provider access.
+
+MicroVMs, alternative container runtimes and an enforced egress proxy are options,
+not installed controls at this revision. The [threat register](../architecture/threat-register.md)
+tracks the risk. The [runtime guide](../../stock/docs/guides/runtime-environments.md)
+describes actual mounts, tools and grants.
+
+## Implementation references
+
+- [internal/forge/agentenv/inference.go](../../internal/forge/agentenv/inference.go)
+- [internal/forge/agentenv/model_process.go](../../internal/forge/agentenv/model_process.go)
+- [internal/forge/agentenv/workshop.go](../../internal/forge/agentenv/workshop.go)
+- [internal/execution/README.md](../../internal/execution/README.md)
+- [internal/worker/README.md](../../internal/worker/README.md)
+- [internal/forge/no_local_docker.go](../../internal/forge/no_local_docker.go)

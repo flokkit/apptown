@@ -1,0 +1,105 @@
+# Stock workflow: dependency-uplift — the maintenance lane. Patch/minor
+# updates applied and verified; majors surfaced with changelogs, never
+# applied unattended. The post-uplift dep-scan gate proves the RESULT is
+# clean, not just the intent. Scheduled monthly; invoke any time.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: dependency-uplift
+  tier: core
+  category: maintenance
+  description: >-
+    Keep dependencies current: apply patch and minor updates, build and test the result, list major updates with their changelogs, and scan the dependencies for known vulnerabilities.
+spec:
+  kind: lifecycle
+  role: working
+  workspace: project
+  on:
+    schedule: { cron: "0 6 1 * *" }
+  defaults:
+    thinking: medium
+  stages:
+    - name: uplift
+      onEnter:
+        - name: update
+          uses: agent/pi
+          with:
+            # Nothing to update is a complete answer: when the review of
+            # the report leaves nothing for a person, the change closes
+            # without asking anyone to accept it.
+            mayChangeNothing: true
+            skills: [skill/implementation]
+            docker: true
+            needs: true # the app contract's declared needs run as emulators + env
+            output: { kind: uplift-report, name: uplift-report, file: .forge/UPLIFT.md }
+            timeoutMinutes: 40
+            prompt: |
+              This workspace holds the project as it stands on main: the work
+              landed so far, which may be only the starting seed. Do not
+              assume it builds or that any feature is finished: run the build
+              and tests once before changing anything, and report what
+              already failed so it is not blamed on an update.
+              Bring its dependencies current:
+
+              - Apply PATCH and MINOR updates. Prioritise anything with a
+                known vulnerability.
+              - MAJOR updates: list each with its changelog link and a one-line
+                risk note; do NOT apply them.
+              - Toolchain pins (mise.toml or equivalent): bump patch levels.
+                When the pinned RUNTIME LINE (Go/Node/JVM minor line) has
+                unfixable known vulnerabilities because the line is
+                end-of-life, moving to the current supported line is
+                security-priority maintenance, NOT a major — do it, verify
+                hard, and call it out in the report.
+              - After updating, run the full build and test suite and exercise
+                the app's main flows. Revert any update that breaks something
+                and record the reversion with the reason.
+              - Nothing to update (no declared dependencies, or all current)
+                is a complete answer: change nothing and say so in the report.
+                With nothing under "Needs a human", the change then closes
+                without asking anyone to accept it.
+              - If a reviewer previously rejected this uplift, their feedback:
+                ${{feedback.latest}}
+
+              WRITE .forge/UPLIFT.md EARLY — as soon as the updates are applied —
+              and refine it as verification proceeds; a report that exists
+              at 90% beats a perfect one the timeout eats. Two sections:
+              "Mechanical (all green)" — versions before → after with the
+              verification commands and outcomes; and "Needs a human" —
+              deferred majors, reverted updates, anything ambiguous.
+              The report describes the WHOLE change: the full branch diff
+              against the base, not just this session's edits. After rework
+              rounds, run git diff against the base branch and account for
+              EVERY changed file — an unclaimed change reads as deception to
+              the reviewer. Files a generator wrote (rails new, uv init) are
+              accounted for by naming their directory (`app/`, `config`,
+              `bin`); a file at the top level, a dotfile included, is named
+              itself.
+              Chat output is not captured.
+        - name: boot
+          uses: preview
+      steps:
+        - name: dep-scan
+          uses: scan
+          with: { scanner: osv }
+        - name: report-exists
+          uses: artifact/require
+          with: { kind: uplift-report }
+        - name: review-uplift
+          uses: agent/review
+          with:
+            model: review
+            of: uplift-report
+            prompt: >-
+              Verify the report's claims against the diff: are the bumps
+              really patch/minor, were majors deferred not applied, do the
+              verification commands and outcomes look real? Every item the
+              report lists under "Needs a human" (a deferred major, a reverted
+              update) is a finding, so a person sees it even when the change
+              is empty.
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "I checked every item marked 'needs a human'; the routine updates ship on the strength of their build, tests and scan."
+            instructions: "Open the uplift report: read its 'Needs a human' section first, then the list of routine updates. To send it back, reject with a comment."

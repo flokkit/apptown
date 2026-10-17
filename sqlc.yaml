@@ -1,0 +1,892 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/dependency/internal/dependencysql/queries.sql
+    gen:
+      go:
+        package: dependencysql
+        out: internal/forge/dependency/internal/dependencysql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/identity/internal/accesssql/queries.sql
+    gen:
+      go:
+        package: accesssql
+        out: internal/forge/identity/internal/accesssql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/deployment/internal/releasesql/queries.sql
+    gen:
+      go:
+        package: releasesql
+        out: internal/forge/deployment/internal/releasesql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/workflow/internal/workflowsql/queries.sql
+    gen:
+      go:
+        package: workflowsql
+        out: internal/forge/workflow/internal/workflowsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/wow/internal/wowsql/queries.sql
+    gen:
+      go:
+        package: wowsql
+        out: internal/forge/wow/internal/wowsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/deployment/internal/deploymentsql/queries.sql
+    gen:
+      go:
+        package: deploymentsql
+        out: internal/forge/deployment/internal/deploymentsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/preview/internal/previewsql/queries.sql
+    gen:
+      go:
+        package: previewsql
+        out: internal/forge/preview/internal/previewsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/dataprotection/internal/protectionsql/queries.sql
+    gen:
+      go:
+        package: protectionsql
+        out: internal/forge/dataprotection/internal/protectionsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/integration/internal/integrationsql/queries.sql
+    gen:
+      go:
+        package: integrationsql
+        out: internal/forge/integration/internal/integrationsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/adoption/internal/adoptionsql/queries.sql
+    gen:
+      go:
+        package: adoptionsql
+        out: internal/forge/adoption/internal/adoptionsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/complaint/internal/complaintsql/queries.sql
+    gen:
+      go:
+        package: complaintsql
+        out: internal/forge/complaint/internal/complaintsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/secret/internal/secretsql/queries.sql
+    gen:
+      go:
+        package: secretsql
+        out: internal/forge/secret/internal/secretsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/adrs/internal/adrssql/queries.sql
+    gen:
+      go:
+        package: adrssql
+        out: internal/forge/adrs/internal/adrssql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/conformance/internal/conformancesql/queries.sql
+    gen:
+      go:
+        package: conformancesql
+        out: internal/forge/conformance/internal/conformancesql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/remediation/internal/remediationsql/queries.sql
+    gen:
+      go:
+        package: remediationsql
+        out: internal/forge/remediation/internal/remediationsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/model/internal/modelsql/queries.sql
+    gen:
+      go:
+        package: modelsql
+        out: internal/forge/model/internal/modelsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/project/internal/projectsql/queries.sql
+    gen:
+      go:
+        package: projectsql
+        out: internal/forge/project/internal/projectsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/usage/internal/usagesql/queries.sql
+    gen:
+      go:
+        package: usagesql
+        out: internal/forge/usage/internal/usagesql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/audit/internal/auditsql/queries.sql
+    gen:
+      go:
+        package: auditsql
+        out: internal/forge/audit/internal/auditsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/scm/internal/scmsql/queries.sql
+    gen:
+      go:
+        package: scmsql
+        out: internal/forge/scm/internal/scmsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/tasks/internal/taskssql/queries.sql
+    gen:
+      go:
+        package: taskssql
+        out: internal/forge/tasks/internal/taskssql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/jobs/internal/jobsql/river-schema.sql
+    queries: internal/forge/jobs/internal/jobsql/queries.sql
+    gen:
+      go:
+        package: jobsql
+        out: internal/forge/jobs/internal/jobsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/evals/internal/evalssql/queries.sql
+    gen:
+      go:
+        package: evalssql
+        out: internal/forge/evals/internal/evalssql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true
+  - engine: postgresql
+    schema:
+      - internal/forge/dbschema/version.sql
+      - internal/forge/identity/schema.sql
+      - internal/forge/audit/schema.sql
+      - internal/forge/operations/schema.sql
+      - internal/forge/complaint/schema.sql
+      - internal/forge/dependency/schema.sql
+      - internal/forge/integration/schema.sql
+      - internal/forge/model/schema.sql
+      - internal/forge/project/schema.sql
+      - internal/forge/secret/schema.sql
+      - internal/forge/usage/schema.sql
+      - internal/forge/wow/schema.sql
+      - internal/forge/adoption/schema.sql
+      - internal/forge/adrs/schema.sql
+      - internal/forge/conformance/schema.sql
+      - internal/forge/remediation/schema.sql
+      - internal/forge/workflow/schema.sql
+      - internal/forge/deployment/schema.sql
+      - internal/forge/preview/schema.sql
+      - internal/forge/dataprotection/schema.sql
+      - internal/forge/scm/schema.sql
+      - internal/forge/tasks/schema.sql
+      - internal/forge/evals/schema.sql
+    queries: internal/forge/operations/internal/operationssql/queries.sql
+    gen:
+      go:
+        package: operationssql
+        out: internal/forge/operations/internal/operationssql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: flokkit.io/forge/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: flokkit.io/forge/internal/ids.ID
+        omit_unused_structs: true

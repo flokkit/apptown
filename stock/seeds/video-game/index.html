@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Star Drive</title>
+  <script src="/_forge/env.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e1a; }
+    #hud {
+      position: fixed; top: 10px; left: 12px; color: #fff;
+      font: 600 20px system-ui, sans-serif; text-shadow: 0 1px 3px #000;
+    }
+    #help {
+      position: fixed; bottom: 10px; left: 12px; color: #cfd6ff;
+      font: 14px system-ui, sans-serif; text-shadow: 0 1px 3px #000;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">Stars: 0</div>
+  <div id="help">Drive with WASD or the arrow keys, or hold the screen (left or right to steer, bottom to reverse). Collect the stars.</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

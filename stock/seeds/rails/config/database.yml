@@ -1,0 +1,30 @@
+# Seeded by the forge; `rails new --skip` keeps it. Every environment
+# connects through DATABASE_URL, which the forge's Postgres need injects
+# into agent steps, tests, previews and deployments alike, so nothing here
+# names a host, user or password (one that did failed the init step).
+# Production's cache, queue and cable connections point at the same
+# database, because the need provides exactly one.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV["DATABASE_URL"] %>
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  primary: &primary_production
+    <<: *default
+  cache:
+    <<: *primary_production
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_production
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_production
+    migrations_paths: db/cable_migrate

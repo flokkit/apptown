@@ -1,0 +1,18 @@
+# Stock policy library (design/subsystems/policy.md): instance-level, named policy
+# definitions. Packs reference these by NAME; projects adopt them (via packs
+# or directly), copying the definition with an origin — same store/pin
+# pattern as guidance blocks and workflows. Stock entries re-sync with the
+# release; clone to customize.
+policies:
+  - name: deploy-requires-scan
+    description: Cannot deploy without a security check first
+    rule: requireStepBefore
+    with: { uses: deploy, requires: scan }
+  - name: scanner-bound
+    description: Forge must have a working security scanner
+    rule: requireCapabilityBound
+    with: { capability: scanner }
+  - name: scan-failon-ceiling
+    description: Nobody may tell the security scan to ignore serious problems
+    rule: scanFailOnCeiling
+    with: { max: high }

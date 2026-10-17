@@ -1,0 +1,11 @@
+app:
+  web:
+    build: .
+    ports: ["8080"]
+    public: true
+    resources: { memory: 256M }
+    health:
+      readiness: { http: /healthz }
+needs:
+  postgres:
+    version: "16"

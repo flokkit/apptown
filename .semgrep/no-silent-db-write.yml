@@ -1,0 +1,18 @@
+rules:
+  - id: silent-db-write
+    languages: [go]
+    severity: ERROR
+    message: >
+      Silent database write: its error is discarded, so a failed write can
+      report success. Return the error from the owning operation or its checked
+      transaction; genuinely best-effort writes must explicitly log failures.
+    patterns:
+      - pattern-either:
+          - pattern: _, _ = $A.DB.Exec(...)
+          - pattern: _, _ = $TX.Exec(...)
+          - pattern: _, _ = $TX.ExecContext(...)
+    paths:
+      include:
+        - "**/internal/**/*.go"
+      exclude:
+        - "*_test.go"

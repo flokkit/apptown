@@ -1,0 +1,85 @@
+# Stock workflow: research — find something out, with sources, through gates.
+# The work item title is the question; the body is context/constraints.
+# The notes and the report are the run's artifacts, written under .forge/
+# (which git ignores): research output is a record, not a change to the
+# app, so accepting a report puts nothing into the repository. Its role is
+# record: accepting the report closes the change, and nothing lands.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: research
+  tier: extra
+  category: knowledge
+  description: >-
+    Experimental: little use so far. Answer a question. An agent investigates and records every source, a person checks the direction, then the agent writes a report with citations.
+spec:
+  role: record
+  kind: lifecycle
+  defaults:
+    thinking: medium
+  stages:
+    - name: investigate
+      onEnter:
+        - name: gather
+          uses: agent/pi
+          with:
+            output: { kind: research-notes, name: notes, file: .forge/NOTES.md }
+            timeoutMinutes: 20
+            prompt: |
+              Research question: ${{change.title}}
+
+              Context and constraints:
+              ${{change.body}}
+
+              Investigate using your tools — fetch web pages and APIs with curl,
+              read any files you create. Track EVERY source URL as you go; a
+              claim without a source is a guess and must be labeled as one.
+
+              WRITE .forge/NOTES.md: findings so far, each with its source URL;
+              contradictions between sources; open questions; what you'd
+              investigate next. Chat output is not captured. Do not commit it
+              and do not change the project's files: the forge collects the
+              notes from the workspace, and .forge/ is ignored.
+      steps:
+        - name: notes-exist
+          uses: artifact/require
+          with: { kind: research-notes }
+        - name: scope-check
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "The investigation is aimed where I want it, and more work on it is worth doing."
+            instructions: "Check the direction. If it is wrong, reject with a comment saying where to look instead."
+    - name: synthesize
+      onEnter:
+        - name: report
+          uses: agent/pi
+          with:
+            output: { kind: research-report, name: report, file: .forge/REPORT.md }
+            timeoutMinutes: 15
+            prompt: |
+              Synthesize the investigation below into a final research report.
+              Every claim cites its source inline. Distinguish established
+              findings from inference. Lead with the answer to the question;
+              detail after. If the reviewer left feedback, address it:
+              ${{feedback.latest}}
+
+              WRITE .forge/REPORT.md. Do not commit it and do not change the
+              project's files: the forge collects the report from the
+              workspace, and .forge/ is ignored.
+
+              --- QUESTION ---
+              ${{change.title}}
+
+              --- INVESTIGATION NOTES ---
+              ${{artifact.research-notes}}
+      steps:
+        - name: report-exists
+          uses: artifact/require
+          with: { kind: research-report }
+        - name: accept-report
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "The report answers the question I asked, well enough to act on."
+            instructions: "Read the report. To ask for more, reject with a comment."

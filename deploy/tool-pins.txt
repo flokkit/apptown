@@ -1,0 +1,46 @@
+# The versions of the tools the forge runs for projects: the agent image's
+# downloads and packages, the scanners, the sh checks' image and the private
+# Docker sidecar. One version per tool. The versions are still written where
+# they are used (the agent Dockerfile's ARG beside its SHA-256 sums, the
+# scanner images in stock/scanners.yaml, the integration catalog's presets);
+# `make check-pins` (scripts/pins-check.py) fails where one of those differs
+# from this list, where the agent Dockerfile or stock/scanners.yaml pins a
+# tool this list does not name, and where a tool here is pinned nowhere.
+# To change a version: change it here, run `make check-pins`, change what it
+# names (and the SHA-256 sums beside a Dockerfile ARG).
+#
+# Each line: tool, version, then where it is pinned, comma-separated:
+#   image R   every R:<tag> whose tag starts with a version; the version is
+#             the tag up to its first "-" (1.27.0-alpine is 1.27.0)
+#   arg A     ARG A=<version> in deploy/forge-agent/Dockerfile
+#
+# Not here: the forge's own build and CI toolchain (go.mod, .gitlab-ci.yml,
+# deploy/ci-heavy, cmd/forge-gate), and what a project owns once adopted
+# (stock/toolchains, stock/seeds).
+
+# tool          version       pinned as
+node            24            image node
+golang          1.27.0        image golang
+uv              0.13.0        arg UV_VERSION, image ghcr.io/astral-sh/uv
+mise            v2026.8.12    arg MISE_VERSION
+hivemind        1.1.0         arg HIVEMIND_VERSION
+glab            1.55.0        arg GLAB_VERSION
+docker-cli      27.5.1        arg DOCKER_VERSION
+buildx          0.19.3        arg BUILDX_VERSION
+compose         5.5.0         arg COMPOSE_VERSION
+docker-dind     27            image docker
+ruff            0.17.0        arg RUFF_VERSION
+biome           2.3.14        arg BIOME_VERSION
+gopls           v0.23.0       arg GOPLS_VERSION
+pi              0.84.3        arg PI_VERSION
+pi-subagents    0.61.0        arg PI_SUBAGENTS_VERSION
+pi-lsp          0.49.6        arg PI_LSP_VERSION
+alpine-git      v2.47.2       image alpine/git
+osv-scanner     v2.2.4        image ghcr.io/google/osv-scanner
+gitleaks        v8.30.0       image zricethezav/gitleaks
+syft            v1.29.1       image anchore/syft
+trivy           0.66.0        image aquasec/trivy
+semgrep         1.99.0        image semgrep/semgrep
+hadolint        v2.12.0       image hadolint/hadolint
+godot           4.4.1         image barichello/godot-ci
+ruby            3.4.11        image ruby

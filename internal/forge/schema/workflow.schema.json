@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flokkit.io/schemas/workflow-v1.json",
+  "title": "Forge workflow (apiVersion forge.flokkit.io/v1)",
+  "description": "A workflow as a team saves it. Rules a schema cannot express (unique stage and step names, gate references, role-specific rules) are the forge's; a save checks them, and POST /api/v1/workflows/validate reports them without saving.",
+  "type": "object",
+  "required": [
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {
+      "description": "Ignored; a place for YAML anchors the document reuses."
+    }
+  },
+  "properties": {
+    "apiVersion": {
+      "const": "forge.flokkit.io/v1",
+      "description": "The format version; absent means this one."
+    },
+    "kind": {
+      "const": "Workflow"
+    },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "change",
+            "landing",
+            "maintenance",
+            "integration",
+            "knowledge"
+          ]
+        },
+        "deprecated": {
+          "type": "boolean"
+        },
+        "project": {
+          "type": "string"
+        },
+        "system": {
+          "type": "boolean"
+        },
+        "tier": {
+          "enum": [
+            "core",
+            "extra"
+          ]
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "required": [
+        "kind",
+        "stages"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "lifecycle",
+            "pipeline"
+          ]
+        },
+        "role": {
+          "enum": [
+            "working",
+            "landing",
+            "record"
+          ]
+        },
+        "on": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "manual": {
+              "type": "object"
+            },
+            "schedule": {
+              "type": "object",
+              "required": [
+                "cron"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cron": {
+                  "type": "string",
+                  "description": "Five-field cron."
+                },
+                "skipIfActive": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "webhook": {
+              "type": "object"
+            },
+            "workItem": {
+              "type": "object"
+            }
+          }
+        },
+        "workspace": {
+          "enum": [
+            "run",
+            "project"
+          ]
+        },
+        "defaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "type": "string",
+              "description": "provider/model for agent steps."
+            },
+            "thinking": {
+              "type": "string"
+            },
+            "executor": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string"
+            }
+          }
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "onEnter": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "uses"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uses": {
+                      "enum": [
+                        "script",
+                        "approval",
+                        "artifact/require",
+                        "adr/require",
+                        "agent/pi",
+                        "scm/mr",
+                        "preview",
+                        "deploy",
+                        "workflow/call",
+                        "scan",
+                        "agent/review",
+                        "guidance/conformance",
+                        "tests",
+                        "reconcile"
+                      ]
+                    },
+                    "with": {
+                      "type": "object",
+                      "description": "The step kind's options, checked when the workflow is saved (POST /api/v1/workflows/validate says what is wrong)."
+                    }
+                  }
+                }
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "uses"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uses": {
+                      "enum": [
+                        "script",
+                        "approval",
+                        "artifact/require",
+                        "adr/require",
+                        "agent/pi",
+                        "scm/mr",
+                        "preview",
+                        "deploy",
+                        "workflow/call",
+                        "scan",
+                        "agent/review",
+                        "guidance/conformance",
+                        "tests",
+                        "reconcile"
+                      ]
+                    },
+                    "with": {
+                      "type": "object",
+                      "description": "The step kind's options, checked when the workflow is saved (POST /api/v1/workflows/validate says what is wrong)."
+                    }
+                  }
+                }
+              },
+              "gate": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "require": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

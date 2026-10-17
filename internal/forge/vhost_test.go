@@ -1,0 +1,313 @@
+package forge
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"sort"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"flokkit.io/forge/internal/forge/schema"
+	"flokkit.io/forge/internal/ids"
+	"flokkit.io/forge/internal/worker"
+)
+
+// The vhost router: pass-through for the forge's own host, a plain-words
+// answer for dead names, and a real proxy to a live backend.
+func TestVHostRouting(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{TierDomains: []string{"preview=preview.example.com", "main=main.example.com"}})
+	shop := engineProject(t, a, "shop")
+	dead, live := engineChange(t, a, shop), engineChange(t, a, shop)
+
+	h := a.Handler()
+
+	// Forge's own hostname falls through to the API.
+	req := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
+	req.Host = "forge.example.com"
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("non-tier host must reach the forge: %d", w.Code)
+	}
+
+	// A tier hostname with nothing behind it gets the plain-words page.
+	req = httptest.NewRequest("GET", "/", nil)
+	req.Host = fmt.Sprintf("change-%d.preview.example.com", dead.ID)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != 502 || !strings.Contains(w.Body.String(), "Nothing is running at") {
+		t.Fatalf("dead preview: %d %s", w.Code, w.Body.String())
+	}
+	// A name that belongs to no project is served nothing.
+	req = httptest.NewRequest("GET", "/", nil)
+	req.Host = "change-00000006-7932-7000-8000-000000000000.preview.example.com"
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != 404 {
+		t.Fatalf("a preview of no change: %d %s", w.Code, w.Body.String())
+	}
+
+	// A live backend: inject the port cache the way docker would fill it.
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "hello from the app")
+	}))
+	defer backend.Close()
+	var port int
+	fmt.Sscanf(backend.URL[strings.LastIndex(backend.URL, ":")+1:], "%d", &port)
+	a.vhostMu.Lock()
+	a.vhostCache = map[string]vhostEntry{fmt.Sprintf("forge-preview-change-%d", live.ID): {port: port, at: time.Now()}}
+	a.vhostMu.Unlock()
+	req = httptest.NewRequest("GET", "/", nil)
+	req.Host = fmt.Sprintf("change-%d.preview.example.com", live.ID)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != 200 || w.Body.String() != "hello from the app" {
+		t.Fatalf("proxy to live backend: %d %q", w.Code, w.Body.String())
+	}
+}
+
+// Tier domains (vhost.go): the hostname is the lookup key; only
+// deterministic forge container names are reachable; unset domains change
+// nothing.
+func TestTierDomains(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{TierDomains: []string{"preview=preview.example.com", "main=https://main.example.com"}})
+
+	// Unset: URLs mint as host:port, VHost is a no-op wrapper.
+	if u := (configuration{}).routing().PreviewURL("change-00000000-0061-7000-8000-000000000000", 5000); !strings.Contains(u, ":5000") {
+		t.Fatalf("unset domains must keep port URLs: %s", u)
+	}
+
+	if u := a.cfg.routing().PreviewURL("change-00000000-0061-7000-8000-000000000000", 5000); u != "https://change-00000000-0061-7000-8000-000000000000.preview.example.com" {
+		t.Fatalf("preview URL: %s", u)
+	}
+	if u := a.cfg.routing().DeploymentURL("reading-list", 5000); u != "https://reading-list.main.example.com" {
+		t.Fatalf("env URL: %s", u)
+	}
+	if err := (Config{TierDomains: []string{"intranet=x.example.com"}}).Validate(); err == nil {
+		t.Fatal("unknown tier accepted")
+	}
+	if err := (Config{TierDomains: []string{"eval=eval.example.com"}}).Validate(); err != nil {
+		t.Fatalf("the eval tier: %v", err)
+	}
+
+	cases := []struct {
+		host, container string
+		ok              bool
+	}{
+		{"change-00000000-0061-7000-8000-000000000000.preview.example.com", "forge-preview-change-00000000-0061-7000-8000-000000000000", true},
+		{"run-00000000-0038-7000-8000-000000000000.preview.example.com:443", "forge-preview-run-00000000-0038-7000-8000-000000000000", true},
+		{"reading-list.main.example.com", "forge-env-reading-list-main", true},
+		{"forge.example.com", "", false},
+		{"evil..preview.example.com", "", false},
+		// A hostile label must not reach beyond forge-owned names.
+		{"change-97x.preview.example.com", "", false},
+		{"Sneaky.main.example.com", "", false},
+	}
+	for _, c := range cases {
+		got, ok := a.vhostContainer(c.host)
+		if ok != c.ok || got.container != c.container {
+			t.Errorf("%s: got (%q,%v) want (%q,%v)", c.host, got.container, ok, c.container, c.ok)
+		}
+	}
+}
+
+// With previews on a worker, a change's and a run's preview are forwarded
+// there, with the visitor's Host and request target, and still never
+// cached; a release preview the forge did not boot there and a standing
+// deployment stay on this machine.
+func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
+	t.Parallel()
+	// The forge has a worker for previews (Deployment decides what is served
+	// there); its forwarding client is pointed at this test's plain server.
+	a := testApp(t, withPreviewWorker(t, &fakePreviewWorker{}, Config{TierDomains: []string{"preview=preview.example.com", "main=main.example.com"}}))
+	shop := createReadTestProject(t, a, "shop")
+	change := struct{ ID ids.ID }{createReadTestChange(t, a, shop, "previewed")}
+	run := startReadTestRun(t, a, createReadTestChange(t, a, shop, "run"), waitingStage).Run
+	var mu sync.Mutex
+	var atWorker []string
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		atWorker = append(atWorker, r.URL.Path+" "+r.Header.Get(worker.PreviewHostHeader)+" "+r.Header.Get(worker.PreviewTargetHeader))
+		mu.Unlock()
+		fmt.Fprint(w, "from the worker")
+	}))
+	defer fake.Close()
+	a.workerPreviews = &worker.Previews{URL: fake.URL, Client: fake.Client()}
+	local := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "from here") }))
+	defer local.Close()
+	port := local.Listener.Addr().(*net.TCPAddr).Port
+	a.vhostMu.Lock()
+	a.vhostCache = map[string]vhostEntry{"forge-preview-shop-release-2": {port: port, at: time.Now()}, "forge-env-shop-main": {port: port, at: time.Now()}}
+	a.vhostMu.Unlock()
+
+	h := a.Handler()
+	for host, want := range map[string]string{
+		fmt.Sprintf("change-%d.preview.example.com", change.ID): "from the worker", fmt.Sprintf("run-%d.preview.example.com", run.ID): "from the worker",
+		"shop-release-2.preview.example.com": "from here", "shop.main.example.com": "from here",
+	} {
+		req := httptest.NewRequest("GET", "/a%2Fb?x=1", nil)
+		req.Host = host
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		if w.Code != 200 || w.Body.String() != want {
+			t.Errorf("%s: %d %q, want %q", host, w.Code, w.Body.String(), want)
+		}
+		if want == "from the worker" && w.Header().Get("Cache-Control") != "no-cache" {
+			t.Errorf("%s: a preview from the worker may be cached: %q", host, w.Header().Get("Cache-Control"))
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	sort.Strings(atWorker)
+	want := []string{
+		fmt.Sprintf("/v1/previews/forge-preview-change-%d/http change-%d.preview.example.com /a%%2Fb?x=1", change.ID, change.ID),
+		fmt.Sprintf("/v1/previews/forge-preview-run-%d/http run-%d.preview.example.com /a%%2Fb?x=1", run.ID, run.ID),
+	}
+	sort.Strings(want)
+	if !slices.Equal(atWorker, want) {
+		t.Fatalf("the worker was asked %q, want %q", atWorker, want)
+	}
+}
+
+// The forge's own proxy passes an app only the forwarding headers it sets
+// itself: whatever a visitor sent of the X-Forwarded-* family, Forwarded or
+// X-Real-Ip never reaches the app.
+func TestTheLocalProxyPassesOnlyItsOwnForwardingHeaders(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{TierDomains: []string{"preview=preview.example.com"}})
+	change := engineChange(t, a, engineProject(t, a, "shop"))
+	var got http.Header
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { got = r.Header.Clone() }))
+	defer backend.Close()
+	a.vhostMu.Lock()
+	a.vhostCache = map[string]vhostEntry{fmt.Sprintf("forge-preview-change-%d", change.ID): {port: backend.Listener.Addr().(*net.TCPAddr).Port, at: time.Now()}}
+	a.vhostMu.Unlock()
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Host = fmt.Sprintf("change-%d.preview.example.com", change.ID)
+	for h, v := range map[string]string{"X-Forwarded-Prefix": "/attacker", "X-Forwarded-Proto": "http", "Forwarded": "for=6.6.6.6", "X-Real-Ip": "6.6.6.6"} {
+		req.Header.Set(h, v)
+	}
+	a.Handler().ServeHTTP(httptest.NewRecorder(), req)
+	if got == nil {
+		t.Fatal("the app was not reached")
+	}
+	for _, h := range []string{"X-Forwarded-Prefix", "Forwarded", "X-Real-Ip"} {
+		if got.Get(h) != "" {
+			t.Errorf("a visitor's %s reached the app: %q", h, got.Get(h))
+		}
+	}
+	if got.Get("X-Forwarded-Proto") != "https" {
+		t.Errorf("the forge's own proto: %q", got.Get("X-Forwarded-Proto"))
+	}
+}
+
+// waitingStage is a run that stays where it is: one approval no one gives.
+var waitingStage = schema.Stage{Name: "wait", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"means": "I accept this work"}}}}
+
+// evalCopyForTest makes projectID, made by the lifecycle as an ordinary
+// project, an eval copy for eval 1: Project's purpose and Evals' copy
+// record. These tests need the lifecycle's ownership and adoption (changes,
+// runs, previews, history), which only Create (ordinary) or CreateCopy
+// (which needs a source repository) compose.
+func evalCopyForTest(t *testing.T, a *App, projectID ids.ID) {
+	t.Helper()
+	// sql-guarantee: no operation changes a purpose, and CreateCopy needs a source repository these tests have no use for (see above).
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE projects SET purpose = 'eval-copy' WHERE id = $1`, projectID); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: the copy record, written with the purpose as above.
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `INSERT INTO eval_copies (project_id, eval_id, arm_id, arm) VALUES ($1, '00000000-0001-7000-8000-000000000000', '00000000-0001-7000-8000-000000000000', 'baseline')`, projectID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The eval domain serves eval copies only, and the preview and main
+// domains never serve one: a copy's standing deployment, change, run and
+// release previews answer at their eval-domain names and are refused at
+// their ordinary ones; a real project's are refused on the eval domain.
+// The copy's addresses are minted on the eval domain.
+func TestTheEvalDomainServesCopiesAndNothingElse(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{TierDomains: []string{"preview=preview.example.com", "main=main.example.com", "eval=eval.example.com"}})
+	real, copy := createReadTestProject(t, a, "shop"), createReadTestProject(t, a, "shop-copy")
+	evalCopyForTest(t, a, copy)
+	realChange, copyChange := struct{ ID ids.ID }{createReadTestChange(t, a, real, "real")}, struct{ ID ids.ID }{createReadTestChange(t, a, copy, "copy")}
+	copyRun := startReadTestRun(t, a, createReadTestChange(t, a, copy, "run"), waitingStage).Run
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "the app") }))
+	defer backend.Close()
+	port := backend.Listener.Addr().(*net.TCPAddr).Port
+	cache := map[string]vhostEntry{}
+	for _, name := range []string{"forge-env-shop-main", "forge-env-shop-copy-main", "forge-preview-shop-copy-release-1",
+		fmt.Sprintf("forge-preview-change-%d", realChange.ID), fmt.Sprintf("forge-preview-change-%d", copyChange.ID), fmt.Sprintf("forge-preview-run-%d", copyRun.ID)} {
+		cache[name] = vhostEntry{port: port, at: time.Now()}
+	}
+	a.vhostMu.Lock()
+	a.vhostCache = cache
+	a.vhostMu.Unlock()
+	h := a.Handler()
+	for host, served := range map[string]bool{
+		"shop-copy.eval.example.com": true, "shop-copy.main.example.com": false,
+		"shop.main.example.com": true, "shop.eval.example.com": false,
+		fmt.Sprintf("change-%d.eval.example.com", copyChange.ID): true, fmt.Sprintf("change-%d.preview.example.com", copyChange.ID): false,
+		fmt.Sprintf("change-%d.preview.example.com", realChange.ID): true, fmt.Sprintf("change-%d.eval.example.com", realChange.ID): false,
+		fmt.Sprintf("run-%d.eval.example.com", copyRun.ID): true, fmt.Sprintf("run-%d.preview.example.com", copyRun.ID): false,
+		"shop-copy-release-1.eval.example.com": true, "shop-copy-release-1.preview.example.com": false,
+	} {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Host = host
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		if served != (w.Code == 200 && w.Body.String() == "the app") || (!served && w.Code != 404) {
+			t.Errorf("%s: %d %q, served=%v wanted", host, w.Code, w.Body.String(), served)
+		}
+	}
+	if u := a.environment.RoutesFor(t.Context(), copy).PreviewURL(fmt.Sprintf("change-%d", copyChange.ID), 0); u != fmt.Sprintf("https://change-%d.eval.example.com", copyChange.ID) {
+		t.Errorf("a copy's preview address: %s", u)
+	}
+	if u := a.environment.RoutesFor(t.Context(), copy).DeploymentURL("shop-copy", 0); u != "https://shop-copy.eval.example.com" {
+		t.Errorf("a copy's deployment address: %s", u)
+	}
+	if u := a.environment.RoutesFor(t.Context(), real).DeploymentURL("shop", 0); u != "https://shop.main.example.com" {
+		t.Errorf("a real project's deployment address: %s", u)
+	}
+}
+
+// A request to a preview through the forge is a look at it: Preview's
+// tending keeps a preview someone looked at, and stops one nobody has.
+func TestARequestToAPreviewIsALook(t *testing.T) {
+	t.Parallel()
+	f := newFakeDocker()
+	looked, unseen := "forge-preview-shop-release-3", "forge-preview-shop-release-2"
+	f.reply = func(args []string) (string, error, bool) {
+		if args[0] == "ps" && slices.Contains(args, "label=forge.class=preview") {
+			return looked + "\tpvrel-shop-3\n" + unseen + "\tpvrel-shop-2\n", nil, true
+		}
+		return "", nil, false
+	}
+	a := testApp(t, Config{DockerClient: f, TierDomains: []string{"preview=preview.example.com"}})
+	createReadTestProject(t, a, "shop")
+	local := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "the app") }))
+	defer local.Close()
+	a.vhostMu.Lock()
+	a.vhostCache = map[string]vhostEntry{looked: {port: local.Listener.Addr().(*net.TCPAddr).Port, at: time.Now()}}
+	a.vhostMu.Unlock()
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Host = "shop-release-3.preview.example.com"
+	w := httptest.NewRecorder()
+	a.Handler().ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("the preview was not served: %d %s", w.Code, w.Body.String())
+	}
+	a.Preview.Tend(context.Background(), false)
+	if got := f.matching("rm -f -v "); !slices.Equal(got, []string{"rm -f -v " + unseen}) {
+		t.Fatalf("stopped %v, want only the preview nobody looked at", got)
+	}
+}

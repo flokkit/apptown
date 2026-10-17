@@ -1,0 +1,134 @@
+# golangci-lint runs forbidigo alone: the house rules below, not a style set.
+# make check-lint runs it through scripts/lint-check.go, which holds the
+# violations that predate a rule to a per-package count in
+# scripts/lint-baseline.json that may fall and may not rise. The check asks
+# for every violation, each counted even when two share a line.
+version: "2"
+run:
+  # Every test tier's files, so a sleep in an integration test is seen. The
+  # one file built only without them (!integration && !journey) has none.
+  build-tags: [integration, journey, browser, pi, inference_docker]
+linters:
+  default: none
+  enable:
+    - forbidigo
+  settings:
+    forbidigo:
+      # Resolve names by type, so a renamed import of time is caught too.
+      analyze-types: true
+      forbid:
+        - pattern: '^time\.(Now|Since|Until)$'
+          pkg: '^time$'
+          msg: "clock rule: read the time through the owner's clock (a now func() time.Time from its dependencies, defaulted with clock.Or), so a test can set it"
+        - pattern: '^time\.Sleep$'
+          pkg: '^time$'
+          msg: "sleep rule: time.Sleep ignores cancellation; in production wait on a timer in a select with ctx.Done; in a test, poll with a deadline (poll.Until) or let time pass under testing/synctest"
+        # A bounded wait for nothing to happen is a sleep in disguise. Held
+        # to the allow-list of sites below, not to a count.
+        - pattern: '^polltest\.Holds$'
+          pkg: '/internal/poll/polltest$'
+          msg: "absence rule: a bounded wait for nothing to happen proves nothing; witness the owner's decision (its done signal, a recorded refusal, its fence, an idempotent effect) and then assert; only unowned asynchrony is allow-listed, by site, in .golangci.yml"
+        # An operation runs on its caller's context, so a cancelled request
+        # or a stopping forge stops it. Only an entry point makes a fresh
+        # one: a process's main, an owner's lifetime, a loop the daemon
+        # starts. Those are allow-listed by site below, and nothing else
+        # may: the rule is hard (scripts/lint-check.go), with no baseline.
+        - pattern: '^context\.(Background|TODO)$'
+          pkg: '^context$'
+          msg: "context rule: use the caller's context (context.WithoutCancel(ctx) for work that must finish though the caller stops); only an entry point makes a fresh one, allow-listed by site in .golangci.yml"
+  exclusions:
+    # Generated production code is held to the rules too; none breaks them.
+    generated: disable
+    rules:
+      # The clock rule is for production code. Tests, and the helper packages
+      # only tests import, may read the wall clock (testing/synctest fakes
+      # it inside a bubble). time.Sleep is forbidden in tests too.
+      - path: '(_test\.go$|(test|fake)/[^/]+\.go$)'
+        linters: [forbidigo]
+        # Matched by the rule's own marker, not the call's spelling: forbidigo
+        # reports a renamed import of time by the name it was given.
+        text: '^use of .* forbidden because "clock rule:'
+
+      # The context rule is for production code: a test is its own entry
+      # point.
+      - path: '(_test\.go$|(test|fake)/[^/]+\.go$)'
+        linters: [forbidigo]
+        text: '^use of .* forbidden because "context rule:'
+
+      # The one place the real clock is named.
+      - path: '^internal/clock/'
+        linters: [forbidigo]
+        text: 'forbidden because "clock rule:'
+
+      # The absence allow-list: each entry is one call site of polltest.Holds
+      # (path and source), with its reason above it. Only asynchrony nothing
+      # owns may wait for nothing to happen. scripts/lint-check.go fails an
+      # entry without a reason, or one whose site is gone.
+      # Holds' own tests.
+      - path: '^internal/poll/polltest/'
+        linters: [forbidigo]
+        text: 'forbidden because "absence rule:'
+
+      # Allow-listed sites (a fixture tree, which has none of them, is
+      # checked without what follows this line).
+      # The script waits on gitexec's in-process folder mutex, which records
+      # nothing while it waits: no owner fact says "waiting for the folder".
+      - path: '^internal/forge/folder_writers_test\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "absence rule:'
+        source: 'polltest\.Holds\(ctx, 300\*time\.Millisecond'
+
+      # The context allow-list: each entry is one entry point that makes a
+      # fresh context (path and source), with its reason above it.
+      # scripts/lint-check.go fails an entry without a reason, or one whose
+      # site is gone. Everything else that makes one is held to a count.
+      # The gate process's root, cancelled by its signal.
+      - path: '^cmd/forge-gate/main\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'signal\.NotifyContext\(context\.Background\(\)'
+      # The daemon's root, cancelled by its signal.
+      - path: '^cmd/forged/runtime\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'signal\.NotifyContext\(context\.Background\(\)'
+      # forged's startup and its one-shots, before any signal is handled.
+      - path: '^cmd/forged/main\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'ctx := context\.Background\(\)'
+      # The forge CLI's process root: one command, then the process ends.
+      - path: '^cmd/forge/main\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'var root = context\.Background\(\)'
+      # forge-check's main: one evaluation, then the process ends.
+      - path: '^cmd/forge-check/main\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'ctx := context\.Background\(\)'
+      # The worker process's root: it runs until the process is killed.
+      - path: '^cmd/forge-worker/main\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'ctx := context\.Background\(\)'
+      # forge-deploy's main: one deploy, then the process ends.
+      - path: '^cmd/forge-deploy/main\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'ctx := context\.Background\(\)'
+      # forge-console's run is its main's body: one chat, then it ends.
+      - path: '^cmd/forge-console/main\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'ctx := context\.Background\(\)'
+      # A chat runtime's lifetime, cancelled by Close.
+      - path: '^internal/console/pi/runtime\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'context\.WithCancel\(context\.Background\(\)\)'
+      # A worker's remote chats' lifetime, cancelled by Close.
+      - path: '^internal/worker/remote_agent\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'context\.WithCancel\(context\.Background\(\)\)'

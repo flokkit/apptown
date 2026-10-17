@@ -1,0 +1,190 @@
+{
+  "subjects": {
+    "Change": "01a1362d-883d-7000-8be3-005574c05b5e",
+    "Run": "01a1362d-888a-7000-8111-cf8705344711",
+    "Accept": "01a1362d-888a-7005-94fc-508fafe3b069",
+    "Pack": "upgrade-team"
+  },
+  "reads": {
+    "adoption": {
+      "createdBy": "boss",
+      "digest": "7b5c2adcd8f1817db1e15013849ce3a9b77337dde702b2fbfa82547fa8860874",
+      "id": "01a1362d-8a0c-7002-8596-021ea872ddc6",
+      "kind": "adopt",
+      "reason": "adopted under Settings › Guidance: upgrade-team v1, 1 block(s) of its own",
+      "receipt": {
+        "extensions": [],
+        "guidance": [
+          {
+            "blockId": "01a1362d-89ca-7000-8214-c17930a8b503",
+            "name": "upgrade-guidance",
+            "position": 0,
+            "version": 1
+          }
+        ],
+        "pack": "upgrade-team",
+        "policies": [],
+        "resolver": 1,
+        "workflows": []
+      },
+      "revision": 3
+    },
+    "approval": {
+      "config": {
+        "means": "the change does what its title says"
+      },
+      "evidence": {
+        "approvals": 1,
+        "approver": "owner",
+        "at": "2026-10-13T16:51:56.482641Z",
+        "candidate": "d4410edece94d9ace5cae57160ff355058e4b8af",
+        "decision": "approve",
+        "decisions": [
+          {
+            "adds": {
+              "base": "d4410edece94d9ace5cae57160ff355058e4b8af",
+              "digest": "d697e72492d8a31a37df8dfc8523a360a4dce56838082b3e7bec3b6f27395e72",
+              "head": "d4410edece94d9ace5cae57160ff355058e4b8af",
+              "lines": [],
+              "nothingNew": "Nothing new in secrets, services or app parts",
+              "readFrom": "secrets, services and app parts",
+              "rows": [
+                {
+                  "added": [],
+                  "name": "secrets",
+                  "removed": []
+                },
+                {
+                  "added": [],
+                  "name": "services",
+                  "removed": []
+                },
+                {
+                  "added": [],
+                  "name": "app parts",
+                  "removed": []
+                }
+              ]
+            },
+            "approver": "owner",
+            "at": "2026-10-13T16:51:56.482641Z",
+            "candidate": "d4410edece94d9ace5cae57160ff355058e4b8af",
+            "comment": "",
+            "decision": "approve",
+            "principal": "01a1362d-87b1-7000-9ebb-3d87feb4497d",
+            "via": "open"
+          }
+        ],
+        "means": "the change does what its title says",
+        "quorum": 1
+      },
+      "id": "01a1362d-888a-7005-94fc-508fafe3b069",
+      "name": "accept",
+      "runId": "01a1362d-888a-7000-8111-cf8705344711",
+      "status": "pass",
+      "type": "approval"
+    },
+    "change": {
+      "id": "01a1362d-883d-7000-8be3-005574c05b5e",
+      "number": 1,
+      "openedBy": "owner",
+      "openedByPrincipal": "01a1362d-87b1-7000-9ebb-3d87feb4497d",
+      "projectId": "00000000-0001-7000-8000-000000000000",
+      "runId": "01a1362d-888a-7000-8111-cf8705344711",
+      "title": "Make the duck faster",
+      "type": "change"
+    },
+    "pack": {
+      "pack": {
+        "declaration": {
+          "guidance": [
+            "upgrade-guidance"
+          ],
+          "policies": [],
+          "workflows": []
+        },
+        "description": "How the team works",
+        "latest": 1,
+        "name": "upgrade-team",
+        "origin": "",
+        "recommended": 1
+      },
+      "versions": [
+        {
+          "at": "2026-10-13T16:51:56Z",
+          "declaration": {
+            "guidance": [
+              "upgrade-guidance"
+            ],
+            "policies": [],
+            "workflows": []
+          },
+          "note": "published contents",
+          "pins": {
+            "blocks": {
+              "upgrade-guidance": 1
+            },
+            "workflows": {}
+          },
+          "spec": {
+            "guidance": [
+              "upgrade-guidance"
+            ],
+            "policies": [],
+            "workflows": []
+          },
+          "version": 1
+        }
+      ]
+    },
+    "releases": [
+      {
+        "approvedBy": "preview-owner",
+        "commitSha": "d4410edece94d9ace5cae57160ff355058e4b8af",
+        "deployment": "main",
+        "deploymentId": "01a1362d-8a1b-7000-89a8-667448710e30",
+        "externalRef": "registry.example/original@sha256:receipt",
+        "generation": 1,
+        "id": "01a1362d-8a20-7000-98d3-2dcfae5cca31",
+        "number": 1,
+        "state": "released"
+      }
+    ],
+    "repository": {
+      ".gitignore": ".forge/*\n!.forge/app.yaml\nnode_modules/",
+      "commit": "d4410edece94d9ace5cae57160ff355058e4b8af"
+    },
+    "run": {
+      "adoptionId": "01a1362d-87bc-7000-a83d-05bc7cc16941",
+      "changeId": "01a1362d-883d-7000-8be3-005574c05b5e",
+      "id": "01a1362d-888a-7000-8111-cf8705344711",
+      "kind": "lifecycle",
+      "number": 1,
+      "projectId": "00000000-0001-7000-8000-000000000000",
+      "workflowName": "implement",
+      "workflowVersion": 1
+    },
+    "transcript": [
+      {
+        "actor": "owner",
+        "ended": true,
+        "id": "01a1362d-8a36-7000-8246-1bc365c357b8",
+        "messages": [
+          {
+            "role": "you",
+            "text": "what does it do"
+          },
+          {
+            "role": "helper",
+            "text": "ok"
+          }
+        ]
+      }
+    ],
+    "workspace": {
+      ".gitignore": ".forge/*\n!.forge/app.yaml\nnode_modules/",
+      "branch": "forge/change-01a1362d-883d-7000-8be3-005574c05b5e",
+      "candidate": "d4410edece94d9ace5cae57160ff355058e4b8af"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+:8080 {
+	root * /srv
+	encode zstd gzip
+	# A Godot web build is big and immutable per release: cache the engine
+	# and the game pack hard, keep index.html fresh so a release shows up.
+	@blobs path *.wasm *.pck *.js
+	header @blobs Cache-Control "public, max-age=31536000"
+	@rest not path *.wasm *.pck *.js
+	header @rest Cache-Control no-cache
+	file_server
+}

@@ -1,0 +1,125 @@
+# Stock workflow: plan-execute — the interactive lane for broader scope.
+# The agent explores and writes a PLAN with acceptance criteria; the human
+# approves THE PLAN (that's the judgment moment); execution then implements
+# against it and is reviewed against the plan's criteria verbatim. The
+# approved plan is a first-class artifact — "what was agreed" is a fact.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: plan-execute
+  tier: extra
+  category: change
+  description: >-
+    Plan, then build. An agent writes a plan with acceptance criteria, a person approves it, and the finished work is checked against each criterion.
+spec:
+  kind: lifecycle
+  role: working
+  workspace: project
+  defaults:
+    thinking: medium
+  stages:
+    - name: plan
+      onEnter:
+        - name: draft-plan
+          uses: agent/pi
+          with:
+            skills: [skill/implementation]
+            docker: true
+            needs: true # the app contract's declared needs run as emulators + env
+            output: { kind: plan, name: plan, file: .forge/PLAN.md }
+            timeoutMinutes: 20
+            prompt: |
+              Explore the CURRENT WORKING DIRECTORY and draft a plan for the
+              task below. Do NOT implement anything in this step — read code,
+              run read-only commands, understand the territory.
+
+              WRITE .forge/PLAN.md:
+              - Problem: what we're solving, in one paragraph
+              - Approach: the chosen approach and one rejected alternative
+              - Steps: ordered, each small enough to verify
+              - Affected surface: files/areas that will change
+              - Risks: what could go wrong, and the mitigation
+              - Acceptance criteria: objective, testable statements the
+                execution will be judged against, one per line
+              - Out of scope: what this change deliberately does not do
+
+              If a reviewer rejected a previous plan, their feedback is:
+              ${{feedback.latest}}
+              Address it precisely. Chat output is not captured.
+
+              --- TASK ---
+
+              ${{change.body}}
+      steps:
+        - name: plan-exists
+          uses: artifact/require
+          with: { kind: plan }
+        - name: approve-plan
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "The work will be checked against this plan's acceptance criteria, not against my memory of what I wanted."
+            instructions: "Read the plan. Approving locks it, and the work is checked against its acceptance criteria. To have it redrafted, reject with a comment."
+    - name: execute
+      onEnter:
+        - name: execute-plan
+          uses: agent/pi
+          with:
+            skills: [skill/implementation]
+            docker: true
+            needs: true # the app contract's declared needs run as emulators + env
+            output: { kind: exec-report, name: exec-report, file: .forge/EXEC.md }
+            timeoutMinutes: 40
+            prompt: |
+              .forge/PLAN.md is the APPROVED plan for this
+              Change. Implement it step by step. Deviate only where the code
+              forces you to, and record every deviation.
+
+              Verify each acceptance criterion from the plan with your bash
+              tool as you satisfy it, and capture the evidence.
+
+              If a reviewer rejected a previous execution, their feedback:
+              ${{feedback.latest}}
+              Address it precisely.
+
+              WRITE .forge/EXEC.md:
+              - The plan's acceptance criteria, verbatim, one per line, each
+                marked PASS/FAIL with the command and output that proves it
+              - Deviations from the plan, each with its reason
+              - Anything remaining
+              Chat output is not captured.
+              The report describes the WHOLE change: the full branch diff
+              against the base, not just this session's edits. After rework
+              rounds, run git diff against the base branch and account for
+              EVERY changed file — an unclaimed change reads as deception to
+              the reviewer. Files a generator wrote (rails new, uv init) are
+              accounted for by naming their directory (`app/`, `config`,
+              `bin`); a file at the top level, a dotfile included, is named
+              itself.
+        - name: boot
+          uses: preview
+      steps:
+        - name: exec-report-exists
+          uses: artifact/require
+          with: { kind: exec-report }
+        - name: review-execution
+          uses: agent/review
+          with:
+            model: review
+            of: exec-report
+            prompt: >-
+              Judge the diff against .forge/PLAN.md's acceptance criteria VERBATIM,
+              item by item — the report claims PASS per criterion; verify each
+              claim against the diff and evidence. Unexplained deviations from
+              the plan fail the review.
+              If the diff adds or changes a form, or a handler a form posts
+              to, the report must say the form was submitted once against
+              the running app and what came back (the status, and the page
+              or redirect). A form that was never submitted, or whose submit
+              failed, is a finding.
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "The locked plan's acceptance criteria are met, per the report and the diff."
+            instructions: "Read the execution report's checklist of criteria and the diff. To send it back, reject with a comment."

@@ -1,0 +1,3 @@
+#!/bin/sh
+set -eu
+exec php /usr/local/bin/wp-cli.phar --path=/app/web/wp "$@"

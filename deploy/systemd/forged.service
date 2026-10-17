@@ -1,0 +1,25 @@
+# Forge daemon. Install: copy to /etc/systemd/system/, put the release in
+# /opt/forge (bin/forged, bin/forge-linux, deploy/forge-agent), copy
+# forged.env.example to /etc/forge/forged.env and edit it, then
+# `systemctl enable --now forged`. Guide: Running a forge, Install.
+# It runs as root: on Linux a forge that runs containers on its own Docker
+# must read and remove what root-run steps leave in its folders (Running a
+# forge, Prepare the host).
+[Unit]
+Description=Forge daemon
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+# The working directory holds deploy/forge-agent, the agent image's context.
+WorkingDirectory=/opt/forge
+# Every forged flag is also its FORGE_ variable (forged -h).
+EnvironmentFile=/etc/forge/forged.env
+ExecStart=/opt/forge/bin/forged
+Restart=on-failure
+RestartSec=5
+# forged stops its own work within its shutdown budget; give it time.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

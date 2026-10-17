@@ -1,0 +1,63 @@
+package workflow
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/fault"
+	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
+	"flokkit.io/forge/internal/ids"
+)
+
+// ChangeIDByNumberIn is the id of the project's change with that number,
+// the number people read and type ("egg-catch#12"). A number no change has
+// is not found, in words naming the friendly form.
+func ChangeIDByNumberIn(ctx context.Context, q database.Queryer, projectID ids.ID, slug string, number int64) (ids.ID, error) {
+	id, err := workflowsql.New(q.SQL()).ChangeIDByNumber(ctx, workflowsql.ChangeIDByNumberParams{ProjectID: projectID, Number: number})
+	if errors.Is(err, sql.ErrNoRows) {
+		return ids.Nil, missingNumbered{"change", slug, number}
+	}
+	return id, err
+}
+
+// RunIDByNumberIn is the id of the project's run with that number ("run 40",
+// typed "egg-catch#40" where a run is expected). A number no run has is not
+// found, in words naming the friendly form.
+func RunIDByNumberIn(ctx context.Context, q database.Queryer, projectID ids.ID, slug string, number int64) (ids.ID, error) {
+	id, err := workflowsql.New(q.SQL()).RunIDByNumber(ctx, workflowsql.RunIDByNumberParams{ProjectID: projectID, Number: number})
+	if errors.Is(err, sql.ErrNoRows) {
+		return ids.Nil, missingNumbered{"run", slug, number}
+	}
+	return id, err
+}
+
+type missingNumbered struct {
+	what   string // change or run
+	slug   string
+	number int64
+}
+
+func (e missingNumbered) Error() string {
+	return fmt.Sprintf("no %s %s#%d", e.what, e.slug, e.number)
+}
+func (missingNumbered) FaultKind() fault.Kind { return fault.NotFound }
+func (missingNumbered) Unwrap() error         { return sql.ErrNoRows }
+
+// ParseChangeNumber reads the friendly form of a change or a run,
+// "<slug>#<n>": the project's current slug and the record's number within it.
+func ParseChangeNumber(s string) (slug string, number int64, ok bool) {
+	slug, digits, found := strings.Cut(s, "#")
+	if !found || slug == "" {
+		return "", 0, false
+	}
+	n, err := strconv.ParseInt(digits, 10, 64)
+	if err != nil || n <= 0 {
+		return "", 0, false
+	}
+	return slug, n, true
+}

@@ -1,0 +1,15 @@
+# Seeded by the forge; `rails new --skip` keeps it. Action Cable runs
+# in-process (async) in every environment but test: the forge's Postgres
+# need is one database, and `db:prepare` never loads Rails' separate
+# Solid Cable schema, so the solid_cable adapter rails new writes would
+# find no table in production. Async reaches the clients of this process
+# only; when the app runs more than one, move cable onto the database
+# with Solid Cable's tables as ordinary migrations and say so in an ADR.
+development:
+  adapter: async
+
+test:
+  adapter: test
+
+production:
+  adapter: async

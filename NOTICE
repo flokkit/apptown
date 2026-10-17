@@ -1,0 +1,19 @@
+Flokkit AppRoost
+Copyright 2026 Blair Strang
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+"Flokkit" is a name used by Blair Strang for this software. The licence
+grants no right to use it: a fork or a product built on this code must not
+present itself as Flokkit, or as made or endorsed by its author, without
+permission (Apache License 2.0, section 6).
+
+This product includes third-party software and assets under their own
+licences. Every Go module compiled into its binaries and every package in its
+web bundle is listed with its licence, copyright and notice files, verbatim,
+in THIRD_PARTY_NOTICES (shipped with each release; scripts/third-party-notices.py
+writes it). River, the job queue, is under the Mozilla Public License 2.0 and
+used unmodified; THIRD_PARTY_NOTICES gives the address of its exact source.
+The web interface's fonts (IBM Plex Sans, IBM Plex Mono, Source Serif 4) are
+under the SIL Open Font License 1.1; their copyright lines and licence are in
+web/public/third-party-fonts.txt, served with them as /third-party-fonts.txt.

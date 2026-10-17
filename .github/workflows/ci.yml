@@ -1,0 +1,122 @@
+# Tests of the published tree (design/operations/github.md).
+#
+# What runs: make check's web stages, its Go checker stages and the Go unit
+# tests, split four ways by package. What does not: the Docker integration,
+# journey and opt-in tiers and the race detector. They need a Docker daemon
+# and images for 10 to 60 minutes each, and run in the development
+# repository's CI and local gates, not here, to keep within the free plan's
+# minutes. The tests' PostgreSQL is the harness's own disposable container
+# (internal/dbtest), as for a local `make check`.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["design/**", "releases/**", "*.md", ".claude/**"]
+  pull_request:
+    paths-ignore: ["design/**", "releases/**", "*.md", ".claude/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GOFLAGS: -buildvcs=false
+
+# bash with pipefail: a failed go list fails the step.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+      - run: npx tsc --noEmit
+        working-directory: web
+      - run: npx vite build
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+          retention-days: 1
+          include-hidden-files: true
+
+  # The checker stages of make check-go-gate, and govulncheck. Vet and every
+  # analyzer load web/, which embeds web/dist, so this needs the web build.
+  checks:
+    needs: web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+      # The analyzers the Makefile pins, by the Makefile's hash.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: tools
+        with:
+          path: ~/go/bin
+          key: go-tools-${{ runner.os }}-${{ hashFiles('Makefile', 'go.mod') }}
+      - if: steps.tools.outputs.cache-hit != 'true'
+        run: make tools
+      - env:
+          MAKE: make
+        run: >-
+          python3 scripts/gate.py
+          check-go-source check-vet check-staticcheck check-lint-test check-lint
+          check-shape check-exec check-sqlnow check-reachability
+          check-vuln
+      - run: make check-gate
+
+  # The Go unit tests, partitioned: the root package's two halves (as the
+  # gate splits it), the rest of internal/forge, and everything else.
+  test:
+    needs: web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [root-a, root-b, forge, rest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+      - name: go test (${{ matrix.part }})
+        run: |
+          root=flokkit.io/forge/internal/forge
+          case "${{ matrix.part }}" in
+          root-a) make check-test-root-a ;;
+          root-b) make check-test-root-b ;;
+          forge) go list ./internal/forge/... | grep -vx "$root" | xargs go test -count=1 ;;
+          rest) go list ./... | grep -vE "^$root(/|\$)" | xargs go test -count=1 ;;
+          esac

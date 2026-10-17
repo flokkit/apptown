@@ -1,0 +1,6 @@
+# Forge stock toolchain: .NET
+# Way of working: the current LTS-line SDK via mise's dotnet plugin. NuGet
+# packages through the ambient NuGet.Config (RestoreConfigFile); the SDK
+# itself downloads from Microsoft's dist host, which is not mirrored yet.
+[tools]
+dotnet = "9.0"

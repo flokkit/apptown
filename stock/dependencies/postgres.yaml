@@ -1,0 +1,290 @@
+# Dependency: a PostgreSQL database.
+# The app declares `x-forge-needs: {postgres: {version: "16", database: app}}`
+# (or bare `postgres` for the defaults below). The docker provider runs a local
+# postgres container; App Platform makes a DigitalOcean managed database
+# (cloud.digitalocean below). The app reads the same DATABASE_URL / PG* env
+# either way.
+capability: postgres
+resources: {memory: 256M}
+title: PostgreSQL
+icon: 🐘
+description: A relational database. The app connects with DATABASE_URL or the PG* vars.
+
+# Parameters the app may set; these are the assumed values when omitted. They
+# interpolate as {name} into the fulfillment below (Tier-1 passthrough), so a
+# pinned version or named database flows through without a schema.
+defaults:
+  version: "16"
+  database: app
+  user: app
+
+# The forge sets the password; an app that names one is refused, since a
+# managed target makes its own (dependency.RefusesNeeds). Each deployment
+# and each preview gets a password of its own (generate); the value here is
+# only for the servers the forge starts beside its own steps and forge dev.
+# The start script sets the password at every start (configAtStart), so a
+# standing server takes a new one at its next deploy.
+credentials:
+  password: app
+generate: [password]
+
+# The contract with the app, the same on every target (the services-and-data guide, "What
+# each need gives the app"). The app's user is an ordinary user that owns
+# its database: it may create schemas, tables, views, functions, sequences
+# and the extensions Postgres marks trusted. It is never a superuser of a
+# deployment's or a preview's server, and no other user on the server may
+# connect to its database. Roles, other databases and untrusted extensions
+# are outside the contract. (Several apps on one server would also need a
+# password per deployment, which the forge does not make yet: today every
+# deployment's server is its own.)
+# Only the servers the forge starts beside its own steps (tests, agent
+# steps, forge dev) make it a superuser (stepEnv below), so test runners
+# can make their own test databases and load fixtures.
+provides:
+  DATABASE_URL: the connection URL, with the sslmode the server needs
+  PGHOST: the server's host
+  PGPORT: the server's port
+  PGDATABASE: the app's database
+  PGUSER: the app's user, which owns the database
+  PGPASSWORD: the user's password, set by the forge
+  PGSSLMODE: disable or require, as the URL says
+
+# Docker provider: a local postgres container. {host} = its network alias.
+#
+# The image makes the server with the app's user as its own (bootstrap)
+# superuser, and a bootstrap user can never stop being one. The start
+# script, run at every start, makes that user the server's own postgres,
+# reached only over the container's socket (no password, so never over the
+# network), and gives the app an ordinary user of the same name: it owns
+# the app's database, its public schema and everything in it, has the
+# forge's password and no other right, and the database refuses every
+# other user. A server made before October 2026, whose app user was the
+# superuser, converts at its first start with the script, keeping its data:
+# a standing one is remade on its volume by its next deploy (configAtStart),
+# which also brings a password an app once chose to the forge's. Its image
+# is not configuration (keepsImage): a new major version cannot read the
+# old files, so a version change is refused as before.
+local:
+  image: postgres:{version}-alpine
+  port: 5432
+  configAtStart: true
+  keepsImage: true
+  entrypoint: ["/bin/sh", "-c"]
+  command:
+    - |
+      set -eu
+      rm -f /tmp/forge-ready
+      if [ "$POSTGRES_USER" = postgres ]; then
+        echo "forge: the user postgres is the server's own; the app's user needs another name"
+        exit 1
+      fi
+      docker-entrypoint.sh postgres &
+      server=$!
+      trap 'kill -INT "$server" 2>/dev/null' INT TERM
+      # Whatever ends this script ends the server cleanly first: a container
+      # whose first process exits takes the rest with it.
+      trap 'status=$?; kill -INT "$server" 2>/dev/null; while kill -0 "$server" 2>/dev/null; do wait "$server" || :; done; exit "$status"' EXIT
+      # The image's first start runs a socket-only server to make the cluster,
+      # then the real one: TCP answers only on the real one.
+      until pg_isready -q -h 127.0.0.1 -U postgres -d postgres; do
+        kill -0 "$server" 2>/dev/null || exit 1
+        sleep 0.2
+      done
+      sql() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
+      if ! sql -U postgres -d postgres -c 'select' >/dev/null 2>&1; then
+        # The image makes the server with the app's user as its own superuser,
+        # which can never stop being one. That user becomes the server's
+        # postgres, reached only from inside this container, and the app gets
+        # an ordinary user of the same name.
+        echo "forge: making $POSTGRES_USER an ordinary owner of $POSTGRES_DB"
+        # An interrupted start may have left the temporary superuser.
+      sql -U "$POSTGRES_USER" -d postgres -c 'drop role if exists forge_convert' -c 'create role forge_convert superuser login'
+        sql -U forge_convert -d postgres -v user="$POSTGRES_USER" <<'SQL'
+      begin;
+      alter role :"user" rename to postgres;
+      create role :"user" login;
+      commit;
+      SQL
+      fi
+      sql -U postgres -d postgres -c 'drop role if exists forge_convert' 2>/dev/null
+      if [ "$(echo "select count(*) from pg_database where datname = :'db'" | sql -U postgres -d postgres -tA -v db="$POSTGRES_DB")" != 1 ]; then
+        echo "forge: the database $POSTGRES_DB is not on this server"
+        exit 1
+      fi
+      sql -U postgres -d "$POSTGRES_DB" -v user="$POSTGRES_USER" -v password="$POSTGRES_PASSWORD" -v db="$POSTGRES_DB" -v superuser="$APP_SUPERUSER" <<'SQL'
+      select format('create role %I login', :'user') where not exists (select 1 from pg_roles where rolname = :'user') \gexec
+      alter role :"user" with login nosuperuser nocreaterole nocreatedb noreplication nobypassrls password :'password';
+      \if :superuser
+      alter role :"user" superuser;
+      \endif
+      alter role postgres password null;
+      alter database :"db" owner to :"user";
+      revoke all on database :"db" from public;
+      alter schema public owner to :"user";
+      select set_config('forge.user', :'user', false) \g /dev/null
+      do $$
+      declare
+        app text := current_setting('forge.user');
+        r record;
+      begin
+        for r in select n.nspname from pg_namespace n
+            where n.nspowner = 'postgres'::regrole and n.oid >= 16384 loop
+          execute format('alter schema %I owner to %I', r.nspname, app);
+        end loop;
+        for r in select c.oid::regclass as name, c.relkind from pg_class c
+            where c.relowner = 'postgres'::regrole and c.oid >= 16384
+              and c.relkind in ('r', 'p', 'v', 'm', 'f', 'S')
+              and not exists (select 1 from pg_depend d where d.classid = 'pg_class'::regclass
+                              and d.objid = c.oid and (d.deptype = 'e'
+                                or (c.relkind = 'S' and d.deptype in ('a', 'i') and d.refobjsubid > 0))) loop
+          execute format('alter %s %s owner to %I',
+            case r.relkind when 'v' then 'view' when 'm' then 'materialized view'
+              when 'f' then 'foreign table' when 'S' then 'sequence' else 'table' end, r.name, app);
+        end loop;
+        for r in select p.oid::regprocedure as name, p.prokind from pg_proc p
+            where p.proowner = 'postgres'::regrole and p.oid >= 16384
+              and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass
+                              and d.objid = p.oid and d.deptype = 'e') loop
+          execute format('alter %s %s owner to %I',
+            case r.prokind when 'a' then 'aggregate' when 'p' then 'procedure' else 'function' end, r.name, app);
+        end loop;
+        for r in select t.oid::regtype as name, t.typtype from pg_type t
+            where t.typowner = 'postgres'::regrole and t.oid >= 16384
+              and t.typtype in ('d', 'e', 'r', 'c')
+              and (t.typtype <> 'c' or (select relkind from pg_class where oid = t.typrelid) = 'c')
+              and not exists (select 1 from pg_depend d where d.classid = 'pg_type'::regclass
+                              and d.objid = t.oid and d.deptype = 'e') loop
+          execute format('alter %s %s owner to %I',
+            case r.typtype when 'd' then 'domain' else 'type' end, r.name, app);
+        end loop;
+        -- An extension has no ALTER ... OWNER; its owner may drop and update it.
+        update pg_extension set extowner = app::regrole
+         where extowner = 'postgres'::regrole and oid >= 16384;
+        for r in select oid from pg_largeobject_metadata where lomowner = 'postgres'::regrole loop
+          execute format('alter large object %s owner to %I', r.oid, app);
+        end loop;
+      end $$;
+      SQL
+      touch /tmp/forge-ready
+      # A signal interrupts wait; the exit trap waits for the server's end.
+      wait "$server"
+  health: test -f /tmp/forge-ready && pg_isready -q -h 127.0.0.1 -U postgres -d postgres
+  data: /var/lib/postgresql/data
+  env:
+    POSTGRES_DB: "{database}"
+    POSTGRES_USER: "{user}"
+    POSTGRES_PASSWORD: "{password}"
+    APP_SUPERUSER: "false"
+  stepEnv:
+    APP_SUPERUSER: "true"
+  # Injected INTO THE APP so it reaches the database. Both a single URL and the
+  # discrete PG* vars, so any framework/driver finds what it expects. The
+  # emulator speaks no TLS, and the URL says so: Go's lib/pq requires TLS
+  # unless told otherwise, and reading-list crash-looped on "SSL is not
+  # enabled on the server" until it was (2026-09-06). A managed database's
+  # URL comes from the provider with its own sslmode.
+  inject:
+    DATABASE_URL: "postgres://{user}:{password}@{host}:5432/{database}?sslmode=disable"
+    PGSSLMODE: "disable"
+    PGHOST: "{host}"
+    PGPORT: "5432"
+    PGDATABASE: "{database}"
+    PGUSER: "{user}"
+    PGPASSWORD: "{password}"
+
+# The copy (design/subsystems/deployment.md, "Backups and restore"): a
+# pg_dump custom-format file wherever the database runs, a consistent copy
+# of a live database, never a tar of its files. The commands read the
+# standard PG* variables, which the forge sets to the app's own connection:
+# on a Docker host inside the database's own container, as the user it was
+# started with; for a managed database in a throwaway container of the
+# client image. Restore puts a copy back in place, over what is there;
+# import fills only a new, empty database, which the provider makes. Verify
+# checks either before anything is said to hold it.
+copy:
+  format: pg-custom                 # filled only into a kind that reads this format
+  ext: dump
+  client: postgres:{version}-alpine
+  export: pg_dump -Fc --no-owner
+  import: pg_restore -d "$PGDATABASE" --no-owner --exit-on-error
+  restore: pg_restore -d "$PGDATABASE" --clean --if-exists --no-owner
+  # The connection each command is given: the app user's, over TLS on a
+  # managed cluster. The app's user owns everything in its database, so a
+  # copy made and put back as it is whole.
+  env:
+    PGHOST: "{host}"
+    PGPORT: "{port}"
+    PGDATABASE: "{database}"
+    PGUSER: "{user}"
+    PGPASSWORD: "{password}"
+    PGSSLMODE: "{sslmode}"
+  # The copy on stdin. Exit 0 only when every read succeeded and every
+  # table the copy lists exists.
+  verify: |
+    set -e
+    pg_restore -l > /tmp/list
+    awk '$4=="TABLE" && $5!="DATA" {print $5"."$6}' /tmp/list | sort > /tmp/want
+    test -s /tmp/want || { echo "the copy lists no table"; exit 1; }
+    psql -v ON_ERROR_STOP=1 -tA -c "select schemaname||'.'||tablename from pg_tables
+      where schemaname not in ('pg_catalog','information_schema')" > /tmp/got
+    sort -o /tmp/got /tmp/got
+    comm -23 /tmp/want /tmp/got > /tmp/missing
+    test ! -s /tmp/missing || { echo "missing after import: $(tr '\n' ' ' < /tmp/missing)"; exit 1; }
+
+  # Exit 0 only when the database holds nothing of anyone's: a take-down
+  # deletes a cluster only when every database a copy does not cover says
+  # so, whatever its name (defaultdb is connectable and writable). Empty
+  # means no relation of any kind (table, partitioned table, materialized
+  # view, view, foreign table, sequence) outside the system schemas, owner
+  # and privileges aside, and no large object. Only a view an extension
+  # owns is let pass: it is the extension's, and a view stores nothing.
+  # A database the app's user cannot connect to is not shown empty.
+  empty: |
+    set -e
+    found=$(psql -v ON_ERROR_STOP=1 -tA -F ' ' -c "
+      select count(*) filter (where k <> 'lo'), count(*) filter (where k = 'lo') from (
+        select c.relkind::text as k from pg_class c join pg_namespace n on n.oid = c.relnamespace
+         where c.relkind in ('r','p','m','v','f','S')
+           and n.nspname not in ('pg_catalog','information_schema')
+           and n.nspname not like 'pg\_toast%' and n.nspname not like 'pg\_temp\_%'
+           and not (c.relkind = 'v' and exists (select 1 from pg_depend d
+                    where d.classid = 'pg_class'::regclass and d.objid = c.oid and d.deptype = 'e'))
+        union all select 'lo' from pg_largeobject_metadata) o")
+    set -- $found
+    test "$1" = 0 && test "$2" = 0 || { echo "it holds $1 tables, views or sequences and $2 large objects"; exit 1; }
+
+# Managed fulfilment (design/subsystems/deployment.md §2.6, §15.5a): a cloud target's
+# need module makes the database through the provider's API. Whatever the
+# provider, the app is handed the same DATABASE_URL / PG* — through the
+# target's own binding where it has one (App Platform: ${postgres.DATABASE_URL}).
+#
+# The isolation contract — what an app on a managed Postgres can rely on,
+# and what it cannot. The forge's checks hold the module to it.
+contract:
+  # What the app owns: a database of its own, and a user of its own that
+  # OWNS that database (so migrations can create in the public schema on
+  # Postgres 15+). Nothing else on the cluster is reachable as that user.
+  own: [database, user]
+  # What it shares: the cluster's compute, storage and connection limits,
+  # with every other database the cluster serves. Noisy neighbours are
+  # possible; data is not.
+  shared: [compute, storage, connections]
+  # The cluster's admin credential is used by the forge to create the
+  # database and the user and to hand ownership over. It is resolved at
+  # reconcile time from the provider and reaches neither the app's spec,
+  # nor its secrets, nor any record the forge keeps.
+  admin: forge-only, never delivered, never recorded
+  # The deployment owns its cluster. Taking it down deletes the app, takes
+  # a final copy to the forge's backup store, fills a new database from it
+  # and verifies it, and only then deletes the cluster; a copy that falls
+  # short keeps the cluster as a recorded resource for a person to settle.
+  retained: false
+
+cloud:
+  digitalocean:
+    kind: managed-database        # the DO need module in internal/deploy/digitalocean
+    # The forge copies it from the copy runner named on the target, as the
+    # app's own user over TLS (the cluster's admin credential stays the
+    # forge's), and shows DigitalOcean's own daily backups beside its copies.
+    reach: { how: connect, from: named-host, credential: app-user }
+    native: { mechanism: do-database-backups }

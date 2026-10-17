@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Egg Catch</title>
+<style>
+  /* The whole game lives in this one file. Change things and see what happens! */
+  html, body { margin: 0; height: 100%; background: #1a2238; touch-action: none; }
+  #game { display: block; margin: 0 auto; background: #87ceeb; }
+  #ui {
+    position: fixed; top: 8px; left: 0; right: 0; text-align: center;
+    font-family: sans-serif; color: white; font-size: 20px; user-select: none;
+  }
+</style>
+</head>
+<body>
+<div id="ui"></div>
+<canvas id="game"></canvas>
+<script>
+// ===== EGG CATCH — the starter game =====
+// Every new game project starts with this small, complete game so you have
+// something working to change instead of a blank page. Ask the helper to
+// reshape it into YOUR game — nothing here is precious.
+// The game: a chicken walks along the top and drops eggs. Move the basket
+// to catch them. Miss three and it's game over. The more you catch, the
+// faster the eggs fall!
+
+const canvas = document.getElementById("game");
+const screen = canvas.getContext("2d");
+const ui = document.getElementById("ui");
+
+// The playing field is always 400 wide and 600 tall inside the code.
+// The browser stretches it to fit the window, so it works on phones too.
+canvas.width = 400;
+canvas.height = 600;
+function fitToWindow() {
+  const scale = Math.min(window.innerWidth / 400, window.innerHeight / 600);
+  canvas.style.width = 400 * scale + "px";
+  canvas.style.height = 600 * scale + "px";
+}
+window.addEventListener("resize", fitToWindow);
+fitToWindow();
+
+// ----- The things in the game -----
+let basket = { x: 170, width: 60 };       // the basket you move
+let chicken = { x: 50, speed: 2 };        // walks back and forth up top
+let eggs = [];                            // every falling egg: {x, y, speed}
+let score = 0;
+let misses = 0;
+let playing = true;
+let timeUntilNextEgg = 60;                // frames until the chicken lays again
+
+// ----- Controls: arrow keys OR touch/mouse -----
+let keys = {};
+window.addEventListener("keydown", (e) => { keys[e.key] = true; });
+window.addEventListener("keyup",   (e) => { keys[e.key] = false; });
+function moveBasketTo(pageX) {
+  const box = canvas.getBoundingClientRect();
+  const gameX = (pageX - box.left) / box.width * 400;
+  basket.x = Math.max(0, Math.min(400 - basket.width, gameX - basket.width / 2));
+}
+window.addEventListener("pointermove", (e) => { if (e.buttons || e.pointerType === "touch") moveBasketTo(e.pageX); });
+window.addEventListener("pointerdown", (e) => {
+  if (!playing) { restart(); return; }    // tap anywhere to play again
+  moveBasketTo(e.pageX);
+});
+window.addEventListener("keydown", (e) => { if (!playing && e.key === " ") restart(); });
+
+function restart() {
+  eggs = []; score = 0; misses = 0; playing = true;
+}
+
+// ----- One step of the game (runs 60 times a second) -----
+function update() {
+  if (!playing) return;
+
+  // The basket listens to the arrow keys.
+  if (keys.ArrowLeft)  basket.x -= 6;
+  if (keys.ArrowRight) basket.x += 6;
+  basket.x = Math.max(0, Math.min(400 - basket.width, basket.x));
+
+  // The chicken walks back and forth, and turns around at the walls.
+  chicken.x += chicken.speed;
+  if (chicken.x < 20 || chicken.x > 340) chicken.speed = -chicken.speed;
+
+  // Every so often the chicken lays an egg. The more you catch,
+  // the sooner the next egg comes — that's what makes it get harder.
+  timeUntilNextEgg -= 1;
+  if (timeUntilNextEgg <= 0) {
+    eggs.push({ x: chicken.x + 15, y: 70, speed: 2 + score * 0.08 });
+    timeUntilNextEgg = Math.max(20, 60 - score);
+  }
+
+  // Every egg falls. Caught eggs score; eggs that hit the ground count
+  // as a miss. Three misses ends the game.
+  for (const egg of eggs) egg.y += egg.speed;
+  eggs = eggs.filter((egg) => {
+    const caught = egg.y > 540 && egg.y < 580 &&
+                   egg.x > basket.x - 8 && egg.x < basket.x + basket.width + 8;
+    if (caught) score += 1;
+    if (egg.y >= 590) misses += 1;
+    return !caught && egg.y < 590;
+  });
+  if (misses >= 3) playing = false;
+}
+
+// ----- Drawing everything -----
+function draw() {
+  screen.clearRect(0, 0, 400, 600);
+
+  // grass
+  screen.fillStyle = "#7ec850";
+  screen.fillRect(0, 580, 400, 20);
+
+  // the chicken (emoji make fine game art)
+  screen.font = "40px sans-serif";
+  screen.fillText("🐔", chicken.x, 60);
+
+  // the eggs
+  screen.font = "24px sans-serif";
+  for (const egg of eggs) screen.fillText("🥚", egg.x, egg.y);
+
+  // the basket
+  screen.font = "44px sans-serif";
+  screen.fillText("🧺", basket.x, 585);
+
+  // score and lives up top
+  ui.textContent = playing
+    ? `Score ${score}   ${"❤️".repeat(3 - misses)}`
+    : `Game over! You caught ${score} eggs — tap or press space to play again`;
+}
+
+// The heartbeat: update, draw, repeat forever.
+function tick() {
+  update();
+  draw();
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>

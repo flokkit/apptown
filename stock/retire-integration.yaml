@@ -1,0 +1,69 @@
+# Stock workflow: retire-integration — the half nobody does: when the org
+# retires or replaces a cross-cutting service, unwire it cleanly. The lane
+# proves nothing still references the retired service.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: retire-integration
+  system: true
+  category: integration
+  description: >-
+    Remove a retired integration from the app, and check that nothing still refers to it and the app runs without it.
+spec:
+  kind: lifecycle
+  role: working
+  workspace: project
+  defaults:
+    thinking: medium
+  stages:
+    - name: unwire
+      onEnter:
+        - name: unwire-integration
+          uses: agent/pi
+          with:
+            skills: [skill/implementation]
+            docker: true
+            needs: true # the app contract's declared needs run as emulators + env
+            output: { kind: retire-report, name: retire-report, file: .forge/RETIRE.md }
+            timeoutMinutes: 25
+            prompt: |
+              An organisational service is being retired from this project —
+              the Change below names it. Remove its wiring completely:
+
+              - Delete the SDK initialisation, config plumbing, and any
+                dependency used only for that service.
+              - Search the tree for remaining references (env var names, SDK
+                imports, config keys) and remove them; list your search
+                commands and their (empty) results as proof.
+              - The app must build, pass tests, and run cleanly afterwards.
+              - If a reviewer previously rejected this work, their feedback:
+                ${{feedback.latest}}
+
+              WRITE .forge/RETIRE.md: what was removed,
+              dependencies dropped, the reference-search proof, verification
+              results. Chat output is not captured.
+
+              --- CHANGE ---
+
+              ${{change.body}}
+        - name: boot
+          uses: preview
+      steps:
+        - name: report-exists
+          uses: artifact/require
+          with: { kind: retire-report }
+        - name: review-removal
+          uses: agent/review
+          with:
+            model: review
+            of: retire-report
+            prompt: >-
+              Grep the diff and report for leftovers: any remaining import,
+              env var read, or dependency of the retired service fails the
+              review. Confirm the removal is complete, not commented out.
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "I confirmed the removal is complete: nothing is left commented out or unused."
+            instructions: "Read the retire report and the diff. To send it back, reject with a comment."

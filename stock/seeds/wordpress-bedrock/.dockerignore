@@ -1,0 +1,6 @@
+vendor
+web/wp
+web/app/plugins
+web/app/uploads
+.git
+.env

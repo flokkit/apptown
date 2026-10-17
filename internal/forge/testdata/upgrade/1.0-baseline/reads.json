@@ -1,0 +1,144 @@
+{
+  "subjects": {
+    "Change": "01a1323b-3302-7000-a270-299c50db199c",
+    "Run": "01a1323b-3388-7000-ae44-05d190c2d55b",
+    "Accept": "01a1323b-3388-7005-974e-4594b5ec47e8"
+  },
+  "reads": {
+    "adoption": {
+      "createdBy": "forge-system",
+      "digest": "1b4e1d2e92a7394a02586de9b980ee781de3ccb4e5a11f4dbbfcc4e091798ced",
+      "id": "01a1323b-35fb-7001-bab0-98ef2884b7dd",
+      "kind": "adopt",
+      "reason": "fixture explicitly adopts check",
+      "receipt": {
+        "extensions": [],
+        "guidance": [
+          {
+            "blockId": "01a1323b-35d5-7000-b4bd-5bb35482bc1f",
+            "name": "upgrade-guidance",
+            "position": 0,
+            "version": 1
+          }
+        ],
+        "policies": [],
+        "resolver": 1,
+        "workflows": []
+      },
+      "revision": 2
+    },
+    "approval": {
+      "config": {
+        "means": "the change does what its title says"
+      },
+      "evidence": {
+        "approvals": 1,
+        "approver": "owner",
+        "at": "2026-10-12T22:28:23.626726Z",
+        "candidate": "012c3166b50485fc71b5177af78d914e70478f23",
+        "decision": "approve",
+        "decisions": [
+          {
+            "adds": {
+              "base": "012c3166b50485fc71b5177af78d914e70478f23",
+              "digest": "f37e3b2902a952ae33dec687b17be9d56f2459859ce66975d1063ecf23cd723e",
+              "head": "012c3166b50485fc71b5177af78d914e70478f23",
+              "lines": [],
+              "nothingNew": "Nothing new in secrets, services or app parts",
+              "readFrom": "secrets, services and app parts",
+              "rows": [
+                {
+                  "added": [],
+                  "name": "secrets",
+                  "removed": []
+                },
+                {
+                  "added": [],
+                  "name": "services",
+                  "removed": []
+                },
+                {
+                  "added": [],
+                  "name": "app parts",
+                  "removed": []
+                }
+              ]
+            },
+            "approver": "owner",
+            "at": "2026-10-12T22:28:23.626726Z",
+            "candidate": "012c3166b50485fc71b5177af78d914e70478f23",
+            "comment": "",
+            "decision": "approve",
+            "principal": "01a1323b-3223-7000-8a25-46c836f5aff2",
+            "via": "open"
+          }
+        ],
+        "means": "the change does what its title says",
+        "quorum": 1
+      },
+      "id": "01a1323b-3388-7005-974e-4594b5ec47e8",
+      "name": "accept",
+      "runId": "01a1323b-3388-7000-ae44-05d190c2d55b",
+      "status": "pass",
+      "type": "approval"
+    },
+    "change": {
+      "id": "01a1323b-3302-7000-a270-299c50db199c",
+      "number": 1,
+      "openedBy": "owner",
+      "openedByPrincipal": "01a1323b-3223-7000-8a25-46c836f5aff2",
+      "projectId": "00000000-0001-7000-8000-000000000000",
+      "runId": "01a1323b-3388-7000-ae44-05d190c2d55b",
+      "title": "Make the duck faster",
+      "type": "change"
+    },
+    "releases": [
+      {
+        "approvedBy": "preview-owner",
+        "commitSha": "012c3166b50485fc71b5177af78d914e70478f23",
+        "deployment": "main",
+        "deploymentId": "01a1323b-361c-7000-8439-36917a37d0fc",
+        "externalRef": "registry.example/original@sha256:receipt",
+        "generation": 1,
+        "id": "01a1323b-3622-7000-b553-7dcffaff66c8",
+        "number": 1,
+        "state": "released"
+      }
+    ],
+    "repository": {
+      ".gitignore": ".forge/*\n!.forge/app.yaml\nnode_modules/",
+      "commit": "012c3166b50485fc71b5177af78d914e70478f23"
+    },
+    "run": {
+      "adoptionId": "01a1323b-3230-7000-9a7b-8434967160a7",
+      "changeId": "01a1323b-3302-7000-a270-299c50db199c",
+      "id": "01a1323b-3388-7000-ae44-05d190c2d55b",
+      "kind": "lifecycle",
+      "number": 1,
+      "projectId": "00000000-0001-7000-8000-000000000000",
+      "workflowName": "implement",
+      "workflowVersion": 1
+    },
+    "transcript": [
+      {
+        "actor": "owner",
+        "ended": true,
+        "id": "01a1323b-3653-7000-af1a-91556e91c366",
+        "messages": [
+          {
+            "role": "you",
+            "text": "what does it do"
+          },
+          {
+            "role": "helper",
+            "text": "ok"
+          }
+        ]
+      }
+    ],
+    "workspace": {
+      ".gitignore": ".forge/*\n!.forge/app.yaml\nnode_modules/",
+      "candidate": "012c3166b50485fc71b5177af78d914e70478f23"
+    }
+  }
+}

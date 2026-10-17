@@ -1,0 +1,8 @@
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1b1f24; background: #fafafa; }
+main { max-width: 32rem; margin: 0 auto; padding: 1rem; }
+form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+input { flex: 1; min-width: 10rem; padding: 0.4rem; font: inherit; }
+button { padding: 0.4rem 0.8rem; font: inherit; }
+ul { padding: 0; list-style: none; }
+li { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid #ddd; }
+#empty[hidden] { display: none; }

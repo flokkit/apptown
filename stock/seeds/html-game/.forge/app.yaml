@@ -1,0 +1,4 @@
+app:
+  game:
+    static: .
+    public: true

@@ -1,0 +1,9 @@
+{
+  "name": "node-seed-fixture",
+  "private": true,
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "build": "npm run build --workspace web",
+    "start": "node server/index.js"
+  }
+}

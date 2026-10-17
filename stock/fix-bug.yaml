@@ -1,0 +1,151 @@
+# Stock workflow: fix-bug — the non-interactive bug lane. The discipline
+# that makes it trustworthy is REPRO-FIRST: the agent must produce a failing
+# reproduction (test preferred) before touching a fix, and "cannot
+# reproduce" is an honest stop, not a licence to guess. The receipt reads:
+# failing repro -> fix -> same repro passing. The regression test stays in
+# the tree.
+#
+# How the stop works: a reproducer that cannot reproduce commits nothing and
+# says so in .forge/REPRO.md. Its report is reviewed against the diff, so a
+# step that changed nothing fails with its own report as the reason, and the
+# run waits for a person (retry with more to go on, or abandon). The judge
+# asks its own question, whether the report is honest, not the shared "does
+# the diff satisfy the request?": asked that, it failed every honest "no"
+# back to the agent, which then faked a reproduction and applied the fix.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: fix-bug
+  tier: core
+  category: change
+  description: >-
+    Reproduce a reported bug with a committed failing test, fix it with the smallest change, and show the test now passes. If the bug cannot be reproduced, the run stops and a person reads the agent's report.
+spec:
+  kind: lifecycle
+  role: working
+  workspace: project
+  defaults:
+    thinking: medium
+  stages:
+    - name: repro
+      onEnter:
+        - name: reproduce
+          uses: agent/pi
+          with:
+            skills: [skill/implementation]
+            docker: true
+            needs: true # the app contract's declared needs run as emulators + env
+            output: { kind: repro-report, name: repro-report, file: .forge/REPRO.md }
+            timeoutMinutes: 20
+            prompt: |
+              A bug has been reported against the application in the CURRENT
+              WORKING DIRECTORY. Your ONLY job in this step is to reproduce
+              it — do NOT fix anything yet.
+
+              Reproduce it carefully: prefer a failing automated test added
+              to the project's test suite; a committed repro script is
+              acceptable when a test genuinely cannot express it. Run it and
+              capture the failing output.
+
+              WRITE .forge/REPRO.md:
+              - Reproduced: yes / no  (first line, exactly)
+              - How: the test/script you added and the command to run it
+              - Evidence: the failing output, verbatim
+              - Suspected cause: one or two sentences, if apparent
+
+              If you CANNOT reproduce the bug, say so plainly in .forge/REPRO.md
+              ("Reproduced: no") with what you tried and why each attempt came
+              up empty, and STOP. Commit NOTHING: put back anything you
+              changed while trying, so the code is exactly as you found it.
+              The run then stops for a person, who reads your report and
+              decides what happens next; that is the right outcome, not a
+              failure to hide. Never fake a reproduction and never fix the
+              bug in this step. Chat output is not captured.
+
+              --- BUG REPORT ---
+
+              ${{change.body}}
+      steps:
+        - name: repro-exists
+          uses: artifact/require
+          with: { kind: repro-report }
+        - name: repro-judged
+          uses: agent/review
+          with:
+            model: review
+            of: repro-report
+            question: >-
+              Is the report an honest account of trying to reproduce the
+              reported bug? Two answers are honest. "Reproduced: yes" with a
+              genuine reproduction: a failing test or script, committed,
+              whose output matches the reported bug, and no fix. Or
+              "Reproduced: no" with what was tried and why each attempt came
+              up empty, and nothing committed: a person decides what follows,
+              so never fail an honest "no" to make the agent try again.
+              Answer no if a claimed reproduction is missing its evidence,
+              shows a failure unrelated to the report, or does not fail; if
+              the step fixed the bug; or if a "no" left changes committed.
+    - name: fix
+      onEnter:
+        - name: fix-bug
+          uses: agent/pi
+          with:
+            skills: [skill/implementation]
+            docker: true
+            needs: true # the app contract's declared needs run as emulators + env
+            output: { kind: fix-report, name: fix-report, file: .forge/FIX.md }
+            timeoutMinutes: 25
+            prompt: |
+              The workspace contains a reproduced bug: read .forge/REPRO.md and run
+              its reproduction to see the failure yourself. Then apply the
+              MINIMAL fix — no refactors, nothing the fix doesn't require.
+
+              Prove it: run the reproduction again and capture it passing;
+              run the project's test suite. The regression test STAYS in the
+              tree — do not delete or weaken it.
+
+              If a reviewer previously rejected this fix, their feedback is:
+              ${{feedback.latest}}
+              Address it precisely.
+
+              WRITE .forge/FIX.md: root cause, what changed
+              (files + why), reproduction output before and after, test
+              suite result. Chat output is not captured.
+              The report describes the WHOLE change: the full branch diff
+              against the base, not just this session's edits. After rework
+              rounds, run git diff against the base branch and account for
+              EVERY changed file — an unclaimed change reads as deception to
+              the reviewer. Files a generator wrote (rails new, uv init) are
+              accounted for by naming their directory (`app/`, `config`,
+              `bin`); a file at the top level, a dotfile included, is named
+              itself.
+
+              --- BUG REPORT ---
+
+              ${{change.body}}
+        - name: boot
+          uses: preview
+      steps:
+        - name: fix-report-exists
+          uses: artifact/require
+          with: { kind: fix-report }
+        - name: review-fix
+          uses: agent/review
+          with:
+            model: review
+            of: fix-report
+            prompt: >-
+              Judge the diff against the report: is the fix minimal, does the
+              before/after reproduction evidence hold, is the regression test
+              still present and meaningful?
+              If the diff adds or changes a form, or a handler a form posts
+              to, the report must say the form was submitted once against
+              the running app and what came back (the status, and the page
+              or redirect). A form that was never submitted, or whose submit
+              failed, is a finding.
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "I am satisfied the bug is actually fixed and the regression test would catch its return."
+            instructions: "Read the fix report and the diff. To send it back, reject with a comment."

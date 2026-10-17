@@ -1,0 +1,79 @@
+# Stock workflow: excavate — reverse-engineer the codebase in the project
+# workspace BACK into requirements (design/subsystems/resurrection.md). The output is
+# REQUIREMENTS.md at the repo root — a committed deliverable, not a lane
+# report. The reviewer's job is discipline enforcement: anchors that
+# exist, a surface inventory with no blank cells, intent proposed rather
+# than promoted. The accept gate IS the adjudication surface: the human
+# works the queue and rejects with rulings, which loop back as feedback.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: excavate
+  tier: extra
+  category: knowledge
+  description: >-
+    Experimental: little use so far. Write a requirements document from the existing code. Each requirement points at the code it comes from; a second agent reviews the document, and a person rules on its open questions before accepting it.
+spec:
+  kind: lifecycle
+  role: working
+  workspace: project
+  defaults:
+    thinking: medium
+  stages:
+    - name: excavate
+      onEnter:
+        - name: extract
+          uses: agent/pi
+          with:
+            skills: [skill/excavation]
+            resources: [resource/requirements-template]
+            output: { kind: requirements, name: requirements, file: REQUIREMENTS.md }
+            timeoutMinutes: 40
+            prompt: |
+              The codebase in the CURRENT WORKING DIRECTORY is your
+              excavation target. Recover its requirements per your
+              excavation skill: sweep by enforcement surface, grade every
+              claim by what its authors paid to express, anchor and probe
+              everything, and account for the whole surface.
+
+              If the program can be run here (interpreter present, or via
+              your docker daemon), run it and prefer observed receipts to
+              code reading.
+
+              WRITE REQUIREMENTS.md at the repo root, following the
+              requirements template resource exactly. Write it
+              INCREMENTALLY — surface inventory and entity cards first.
+
+              If a reviewer or adjudicator previously rejected this
+              document, their rulings are: ${{feedback.latest}}
+              Fold every ruling into the document: adjudicated items get
+              their (adjudicated: ...) status recorded verbatim.
+
+              Focus / context for this excavation:
+
+              ${{change.body}}
+      steps:
+        - name: requirements-exists
+          uses: artifact/require
+          with: { kind: requirements }
+        - name: review-excavation
+          uses: agent/review
+          with:
+            model: review
+            of: requirements
+            timeoutMinutes: 25
+            prompt: >-
+              Enforce the excavation discipline against the ACTUAL
+              codebase: spot-check anchors (an anchor that does not exist
+              or does not say what is claimed = fail), check the surface
+              inventory covers the reachable surface with no blank cells,
+              check evidence tiers are honest (a [proven] claim needs a
+              real test; a guess must be marked (inferred), never
+              promoted), and check absences produced open questions
+              rather than silent decisions. Judge recovery, not style.
+        - name: adjudicate
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "Every open question now has my ruling; the document states my decisions, not the agent's guesses."
+            instructions: "Answer the open questions in section 8. Reject with your rulings, one per line, to have them written into the document; accept when every question has a ruling."

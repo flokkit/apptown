@@ -1,0 +1,19 @@
+app:
+  web:
+    build: .
+    ports: ["8080"]
+    public: true
+    resources: {memory: 256M}
+    health:
+      readiness: {http: /healthz.php}
+init:
+  - name: install
+    build: .
+    command: ["/app/bin/initialize"]
+needs:
+  mariadb: {version: "11.4.13"}
+  s3: {}
+profiles:
+  preview:
+    web:
+      environment: {WP_ENVIRONMENT_TYPE: staging}

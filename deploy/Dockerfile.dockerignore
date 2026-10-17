@@ -1,0 +1,18 @@
+# Only what deploy/Dockerfile's builds read. Everything else, including
+# design/, local data and web/node_modules, stays out of the build context.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/
+!stock/
+!web/
+web/node_modules/
+web/dist/
+!deploy/forge-agent/
+!scripts/third-party-notices.py
+!LICENSE
+!NOTICE
+internal/**/*_test.go
+cmd/**/*_test.go
+internal/**/testdata/

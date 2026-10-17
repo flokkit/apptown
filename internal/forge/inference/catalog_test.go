@@ -1,0 +1,119 @@
+package inference
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"flokkit.io/forge/internal/dbtest"
+	"flokkit.io/forge/internal/forge/dbschema"
+	"flokkit.io/forge/internal/poll"
+
+	"flokkit.io/forge/internal/forge/secret"
+
+	"flokkit.io/forge/internal/forge/integration"
+)
+
+func TestIntegrationAdaptersPreserveOrderingAndErrors(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	bindings := integration.New(db)
+	catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
+	t.Cleanup(db.FailNextStatement("-- name: Bindings :many"))
+	if got, err := catalog.providers(context.Background()); err == nil || got != nil {
+		t.Fatal("failed read returned inference providers")
+	}
+	if _, err := bindings.Upsert(t.Context(), "bad", "model", "test", `{"models":42}`, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := catalog.providers(context.Background()); err == nil || got != nil || strings.Contains(err.Error(), "42") {
+		t.Fatalf("malformed config must fail without exposing content: %v", err)
+	}
+}
+
+var databaseSuite = dbtest.NewSuite(dbschema.Open)
+
+func TestMain(m *testing.M) { os.Exit(databaseSuite.Run(m)) }
+
+// The model picker lists through the gateway's own resolution: a binding's
+// default, its curated list and what its provider lists live. Concurrent
+// readers of one binding ask its provider once, a curation change shows at
+// once, and an unsaved binding's provider is asked with the same rules.
+//
+// Kills: a second resolver for the picker (its own key rules or cache); a
+// discovery cache asked per reader; a stale snapshot hiding a saved change;
+// a discovery cache aged by the real clock rather than the forge's.
+func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	var probes atomic.Int32
+	// The provider holds its first answer until the test releases it, so the
+	// concurrent readers overlap the probe.
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probes.Add(1)
+		<-release
+		if r.URL.Path != "/models" || r.Header.Get("Authorization") != "Bearer provider-key" {
+			t.Errorf("unexpected probe %s %q", r.URL.Path, r.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":"live"}]}`))
+	}))
+	defer server.Close()
+	bindings := integration.New(db)
+	save := func(pattern string) {
+		t.Helper()
+		raw, _ := json.Marshal(map[string]any{"model": pattern, "baseUrl": server.URL, "providerDef": map[string]any{"apiKey": "provider-key"}})
+		if _, err := bindings.Save(context.Background(), "provider", "model", "provider", string(raw), "fixture"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	save("provider/first")
+	catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
+	var clockMu sync.Mutex
+	at := time.Now().Add(time.Hour)
+	catalog.Now = func() time.Time { clockMu.Lock(); defer clockMu.Unlock(); return at }
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			if entries, err := catalog.Models(context.Background()); err != nil || len(entries) != 2 {
+				t.Errorf("models: %+v %v", entries, err)
+			}
+		})
+	}
+	if !poll.Until(context.Background(), time.Minute, time.Millisecond, func() bool { return probes.Load() > 0 }) {
+		t.Fatal("no reader asked the provider")
+	}
+	close(release)
+	wg.Wait()
+	if got := probes.Load(); got != 1 {
+		t.Fatalf("concurrent readers made %d probes", got)
+	}
+	save("provider/second")
+	entries, err := catalog.Models(context.Background())
+	if err != nil || len(entries) != 2 || entries[0] != (ModelEntry{Pattern: "provider/second", Binding: "provider", Source: "default"}) || entries[1].Pattern != "provider/live" || entries[1].Source != "live" {
+		t.Fatalf("a saved change shows at once: %+v %v", entries, err)
+	}
+	// The provider's list is kept a minute by the forge's clock, then asked
+	// again; no real time passes.
+	clockMu.Lock()
+	at = at.Add(2 * time.Minute)
+	clockMu.Unlock()
+	if _, err := catalog.Models(context.Background()); err != nil || probes.Load() != 2 {
+		t.Fatalf("a list kept past its minute on the forge's clock: probes %d, %v", probes.Load(), err)
+	}
+	ids, err := catalog.Discover(context.Background(), "unsaved", map[string]any{"baseUrl": server.URL, "providerDef": map[string]any{"apiKey": "provider-key"}})
+	if err != nil || len(ids) != 1 || ids[0] != "live" {
+		t.Fatalf("an unsaved binding: %v %v", ids, err)
+	}
+	if _, err := catalog.Discover(context.Background(), "unsaved", map[string]any{"baseUrl": server.URL, "api": "anthropic-messages"}); !errors.Is(err, ErrNoEndpoint) {
+		t.Fatalf("a provider with no model list: %v", err)
+	}
+}

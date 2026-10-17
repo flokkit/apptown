@@ -1,0 +1,56 @@
+# The stack each company app is built on, chosen by hand: spread across
+# every supported server pack so a long-running test operates all of them,
+# matched to what the app does, and rolled out a company per wave to fit the
+# host's memory. The runner creates each app with this pack and still records
+# the forge's own pack suggestion beside it (the picker is measured, not used).
+#
+# Starting memory per pack (stock guidance, measured 13 Oct): java-spring and
+# rails 256M, django-htmx 160M, dotnet and node-fullstack 128M, go-small and
+# rust-service 48M, frontend-only 32M; plus the app's database where it has one.
+
+waves:
+  - harbourline-freight
+  - coldwater-shire
+  - bramble-street-cu
+  - marrow-finch-vets
+  - tidewell-grammar
+
+apps:
+  harbourline-freight:
+    dock-scheduler: { pack: rails, why: bookings with scheduled reminders }
+    driver-hours: { pack: java-spring, why: regulated records with a nightly check job }
+    freight-claims: { pack: django-htmx, why: forms and photo uploads to object storage }
+    fuel-reconciler: { pack: go-small, why: a batch job and one report page }
+    depot-directory: { pack: frontend-only, why: static content }
+    website: { pack: wordpress-bedrock, why: a marketing site with a contact form }
+    driver-recruitment: { pack: node-fullstack, why: a campaign site with an expression-of-interest form }
+  coldwater-shire:
+    pothole-reports: { pack: django-htmx, why: a public form with photos and a staff map }
+    dog-registration: { pack: rails, why: renewals and scheduled reminder emails }
+    hall-bookings: { pack: dotnet, why: rates, bonds and refunds }
+    planning-notices: { pack: frontend-only, why: a static site regenerated from data }
+    meeting-papers: { pack: java-spring, why: a document archive in object storage }
+    website: { pack: wordpress-bedrock, why: a council information site }
+    main-street-upgrade: { pack: node-fullstack, why: a project site with a feedback form }
+  bramble-street-cu:
+    hardship-requests: { pack: dotnet, why: assessment rules and approvals }
+    cash-orders: { pack: go-small, why: a small service with two-person approval }
+    complaints-register: { pack: rails, why: deadlines and a daily job }
+    rate-sheet: { pack: frontend-only, why: static content updated with sign-off }
+    website: { pack: django-htmx, why: an information site with pages staff edit }
+    first-home: { pack: node-fullstack, why: a calculator and an enquiry form }
+  marrow-finch-vets:
+    vaccine-stock: { pack: dotnet, why: stock, expiry and reorder rules }
+    referral-tracker: { pack: node-fullstack, why: a status tracker }
+    drugs-register: { pack: java-spring, why: an append-only legal register }
+    roster-swap: { pack: rust-service, why: rule-heavy swap logic }
+    website: { pack: django-htmx, why: clinics, hours and a new-client form }
+    dental-month: { pack: go-small, why: a campaign site with a booking request form }
+  tidewell-grammar:
+    excursion-consents: { pack: django-htmx, why: consent forms and medical notes }
+    library-loans: { pack: rails, why: loans and a nightly overdue job }
+    relief-board: { pack: rust-service, why: allocation rules }
+    uniform-shop: { pack: dotnet, why: stock and orders }
+    sports-results: { pack: frontend-only, why: a static results table }
+    website: { pack: go-small, why: an information site with an enquiry form }
+    open-day: { pack: go-small, why: an event site with tour bookings }

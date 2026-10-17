@@ -1,0 +1,87 @@
+# Stock workflow: quick-change (design/subsystems/console.md §5). One
+# approval: an agent applies a small described change and a person accepts
+# it; landing ships it. No merge request and a short timeout. For anything
+# bigger than "fix this typo / tweak this copy / bump this default", use
+# implement.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: quick-change
+  tier: core
+  category: change
+  description: >-
+    A small change with one approval. An agent makes the change on the change's branch and a person accepts it; landing ships it. Rejecting with a comment sends it back for another round.
+spec:
+  kind: lifecycle
+  role: working
+  workspace: project
+  defaults:
+    thinking: low
+  stages:
+    - name: apply
+      onEnter:
+        - name: apply-change
+          uses: agent/pi
+          with:
+            skills: [skill/implementation]
+            docker: true
+            needs: true # the app contract's declared needs run as emulators + env
+            output: { kind: change-report, name: change-report, file: .forge/CHANGE.md }
+            timeoutMinutes: 10
+            prompt: |
+              The current working directory is this project's repository.
+              Apply the SMALL change below: the minimal edit that satisfies
+              it, nothing else. Verify the changed behavior with your bash
+              tool.
+
+              If the application does not exist yet (the repository holds
+              only what the project started with: a packaging recipe, a
+              README, ignore rules, .forge/app.yaml), first build the
+              smallest working application your steering guidance describes
+              for an empty repository (for example its generator command),
+              then make the change in it. Say in the report that you
+              created the application.
+
+              If a reviewer has previously rejected this change, their
+              feedback is: ${{feedback.latest}}
+              Address it precisely.
+
+              WRITE a short change report to .forge/CHANGE.md:
+              what changed and how you verified it. Chat output is not
+              captured. Do not commit the report: the forge
+              collects it from the workspace, and .forge/ is ignored.
+              The report describes the WHOLE change: the full branch diff
+              against the base, not just this session's edits. After rework
+              rounds, run git diff against the base branch and account for
+              EVERY changed file — an unclaimed change reads as deception to
+              the reviewer. Files a generator wrote (rails new, uv init) are
+              accounted for by naming their directory (`app/`, `config`,
+              `bin`); a file at the top level, a dotfile included, is named
+              itself.
+
+              --- CHANGE ---
+
+              ${{change.body}}
+        - name: boot
+          uses: preview
+      steps:
+        - name: report-exists
+          uses: artifact/require
+          with: { kind: change-report }
+        - name: review-change
+          uses: agent/review
+          with:
+            model: review
+            of: change-report
+            prompt: >-
+              If the diff adds or changes a form, or a handler a form posts
+              to, the report must say the form was submitted once against
+              the running app and what came back (the status, and the page
+              or redirect). A form that was never submitted, or whose submit
+              failed, is a finding.
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "This change is small and low-risk enough that a quick look is enough, and I have looked at it."
+            instructions: "Look at CHANGE.md and the diff. To send it back, reject with a comment."

@@ -1,0 +1,7 @@
+v1.1 — 2026-08-29. v1 froze after calibration; v1.1 clarifies ONE spec
+sentence (ledger summary income/expense_cents are magnitudes, by_category
+signed) after the model grid showed 3 of 5 models reading it the other
+way. No test changed v1 → v1.1, so scores carry over except the ledger
+"monthly summary" check, where v1 asterisked results (17/18*) reflect
+the ambiguity. Any change to tests/*.py or apps/*/SPEC.md bumps this
+version; results are only comparable within a version.

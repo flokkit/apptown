@@ -1,0 +1,5 @@
+# Forge stock toolchain: Python
+# Way of working: uv for everything (venv + install, ambient index);
+# precompiled interpreter (python-build-standalone via the github mirror).
+[tools]
+python = "3.12"

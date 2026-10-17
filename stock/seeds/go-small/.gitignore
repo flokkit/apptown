@@ -1,0 +1,9 @@
+# The Go build's output (go build writes the binary beside the source).
+/app
+/bin/
+*.exe
+*.test
+*.out
+# A web frontend, when the app has one: what npm and Vite write.
+node_modules/
+dist/

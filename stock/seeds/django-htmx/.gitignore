@@ -1,0 +1,8 @@
+# What Python and uv write.
+__pycache__/
+*.py[cod]
+.venv/
+# collectstatic's output: the image build makes it.
+staticfiles/
+# A local SQLite database, if one is ever used outside the container.
+db.sqlite3

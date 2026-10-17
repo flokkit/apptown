@@ -1,0 +1,6 @@
+# What Maven writes.
+target/
+# IDE state.
+.idea/
+*.iml
+.vscode/

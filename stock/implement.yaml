@@ -1,0 +1,168 @@
+# Stock workflow: implement — build an application (or a substantial new
+# capability) from a brief or an accepted specification, on the Change
+# branch. Merged from `build` (brief-driven) and the old `implement`
+# (spec-driven), 2026-09-03 (design/decisions/workflows-as-lanes.md): one lane, one
+# human acceptance; the agent follows a spec's technology decisions when
+# one is attached and the change's description otherwise. Landing ships.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: implement
+  tier: core
+  category: change
+  description: >-
+    Build an application or a larger feature from a brief or an accepted spec. An agent builds it, testing as it goes, then checks it end to end with the app's declared services running; a second agent reviews the report, and one person accepts it.
+spec:
+  kind: lifecycle
+  role: working
+  workspace: project
+  defaults:
+    thinking: medium
+  stages:
+    - name: build
+      onEnter:
+        - name: build-app
+          uses: agent/pi
+          with:
+            skills: [skill/implementation]
+            docker: true
+            needs: true # the app contract's declared needs run as emulators + env
+            output: { kind: build-report, name: build-report, file: .forge/REPORT.md }
+            timeoutMinutes: 40
+            prompt: |
+              Build what is described below in the CURRENT WORKING DIRECTORY —
+              source files and config, and BUILD.md at the root when the
+              project has a toolchain (an install, build or test command).
+              If an accepted
+              SPECIFICATION is included, follow its technology decisions
+              exactly; otherwise the DESCRIPTION is your brief. Use your bash
+              tool to verify what you build as you go. Follow your steering
+              guidance, including the attached-integration sections — wire
+              each attached service exactly as its steering says. Keep
+              dependencies minimal. You are building inside a Linux container.
+              Never commit build artifacts, compiled binaries, or database
+              files: when anything you build or run writes them, write a
+              .gitignore that covers them before you first build or run it.
+              A project of plain files that ship as they are (nothing to
+              install or build) needs neither BUILD.md nor a .gitignore, and
+              adding one is a change the request did not ask for.
+
+              Before finishing, bring dependencies to their current patch and
+              minor levels (your training-era pins are stale and will trip
+              the landing's vulnerability scan) and re-verify.
+
+              Write .forge/REPORT.md EARLY — create it as soon as the shape of the
+              build is clear and keep it updated as you verify; a report that
+              exists at 90% is worth more than a perfect one that never gets
+              written. Also write the run contract to .forge/app.yaml — the
+              forge-native contract with two sections. `app:` is a map of your
+              app's own containers (each with build:/image:/static:, ports,
+              environment, command); exactly one part is `public: true` (the
+              front door). `needs:` is a map of dependencies the forge provisions
+              and injects env for — `needs: { postgres: { version: "16" } }` —
+              read the injected DATABASE_URL / PG* / REDIS_URL / AWS_*, never
+              hard-code a host. Get the schema with `forge config schema` and
+              check your file with `forge config validate`; rehearse locally with
+              `forge dev up`. The app must listen on $PORT when set.
+
+              If a reviewer has previously rejected this work, their feedback
+              is: ${{feedback.latest}}
+              Address it precisely.
+
+              When done, WRITE your build report to .forge/REPORT.md (what you built, what you verified with which commands,
+              deviations). Chat output is not captured. Do not commit the report: the forge
+              collects it from the workspace, and .forge/ is ignored.
+              The report describes the WHOLE change: the full branch diff
+              against the base, not just this session's edits. After rework
+              rounds, run git diff against the base branch and account for
+              EVERY changed file — an unclaimed change reads as deception to
+              the reviewer. Files a generator wrote (rails new, uv init) are
+              accounted for by naming their directory (`app/`, `config`,
+              `bin`); a file at the top level, a dotfile included, is named
+              itself.
+
+              --- SPECIFICATION (if any) ---
+
+              ${{latest.spec-final}}
+
+              --- DESCRIPTION ---
+
+              ${{change.body}}
+        - name: self-verify
+          uses: agent/pi
+          with:
+            skills: [skill/implementation]
+            docker: true
+            needs: true
+            output: { kind: verify-report, name: verify-report, file: .forge/VERIFY.md }
+            timeoutMinutes: 25
+            prompt: |
+              You are in the workspace of the freshly implemented application
+              (BUILD.md or README.md at the root says how to run it, the build
+              report is in .forge/REPORT.md).
+              Verify it end to end with your bash tool: install, build, run the
+              test suite, start the app and exercise its main flows. Your app's
+              declared needs are running as emulators, reachable by capability
+              hostname (postgres, redis, …, NOT localhost), with their
+              connection env already set ($DATABASE_URL, $PG*, $REDIS_URL, …) —
+              read it; do NOT install database servers or hard-code hosts.
+
+              You VERIFY this change; you do not widen it. Fix only defects in
+              what this change itself did. If verifying needs something the app
+              lacks — a runtime contract, a health endpoint, a build file, a
+              dependency — do NOT add it: record it under "Defects remaining"
+              and stop there. Anything you do change must be listed in
+              VERIFY.md under "Also changed, and why", one line per file; an
+              unexplained change fails review. The change's request, with its
+              scope, is:
+
+              ${{change.body}}
+
+              You are also the step a rejection comes back to: when the
+              reviewer, a check or a person rejects this work, this step runs
+              again with their words. If there is feedback here, address it
+              precisely — fixing what it names is within this change's scope —
+              and then verify again: ${{feedback.latest}}
+
+              WRITE your verification report to .forge/VERIFY.md. It is the
+              report the reviewer reads, so it describes the change as it
+              stands NOW, not as the first build left it: run git diff
+              against the base branch and start with what the change does,
+              accounting for EVERY changed file (the build report in
+              .forge/REPORT.md is a starting point, but it is not updated
+              after rework). Then: commands run, results, defects fixed,
+              feedback addressed, defects remaining. Chat output is not
+              captured. Do not commit the report: the forge collects it from
+              the workspace, and .forge/ is ignored.
+        - name: boot
+          uses: preview
+      steps:
+        - name: report-exists
+          uses: artifact/require
+          with: { kind: build-report }
+        - name: verify-report-exists
+          uses: artifact/require
+          with: { kind: verify-report }
+        - name: guidance-conformance
+          uses: guidance/conformance
+        # The review reads the verification report: rework and retries
+        # rerun self-verify (the stage's last agent step), which rewrites
+        # VERIFY.md every round, while REPORT.md stays as the first build
+        # left it.
+        - name: review-build
+          uses: agent/review
+          with:
+            model: review
+            of: verify-report
+            prompt: >-
+              If the diff adds or changes a form, or a handler a form posts
+              to, the report must say the form was submitted once against
+              the running app and what came back (the status, and the page
+              or redirect). A form that was never submitted, or whose submit
+              failed, is a finding.
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "I read the report and the diff, and this is work I am willing to ship under my name."
+            instructions: "Read VERIFY.md (the change as it stands) and the diff, and try the preview. To send it back, reject with a comment."

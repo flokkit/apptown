@@ -1,0 +1,457 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "forge app.yaml — the runtime contract",
+  "type": "object",
+  "required": [
+    "app"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "app": {
+      "description": "The app's own containers. A map of named parts; exactly one has public: true (the front door).",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "build": {
+            "type": "string",
+            "description": "Build context — the forge builds this repo's Dockerfile. Exactly one of build/image/static."
+          },
+          "image": {
+            "type": "string",
+            "description": "A pushed image reference to run as-is."
+          },
+          "static": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "description": "A static site, served by the forge's own file server. A string is a committed folder, served as it is. A map builds the site first: the Dockerfile in build (its target stage, default the last) is built, and the folder output inside that stage's files is served.",
+            "properties": {
+              "build": {
+                "type": "string",
+                "description": "Build context: the folder whose Dockerfile builds the site."
+              },
+              "target": {
+                "type": "string",
+                "description": "The Dockerfile stage holding the site (default: the last stage)."
+              },
+              "output": {
+                "type": "string",
+                "description": "The folder inside that stage's files to serve, e.g. dist. No symbolic links are allowed in it."
+              }
+            },
+            "required": [
+              "build",
+              "output"
+            ],
+            "additionalProperties": false
+          },
+          "command": {
+            "description": "Override the container command (compose form: string or list).",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "replicas": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "default": 1,
+            "description": "Instances of this app part. Omitted or null means 1. Only 1 is currently supported; larger counts are not supported and are refused by the contract validator before execution. Not a profile or init-container field."
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Compose-style ports; the forge assigns the host port, so the container port is what matters (e.g. [\"8080\"])."
+          },
+          "environment": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            }
+          },
+          "dataDir": {
+            "type": "string",
+            "description": "A directory backed by a named volume that survives redeploys."
+          },
+          "seed": {
+            "type": "string",
+            "description": "Reserved. The forge accepts this field but runs it nowhere: not in development, preview or deployment. Use an init step for a command that must run before the app starts."
+          },
+          "healthcheck": {
+            "type": "string",
+            "description": "Legacy: a shell command; exit 0 means healthy. Prefer health."
+          },
+          "public": {
+            "type": "boolean",
+            "description": "Marks the one front-door part the preview/deploy URL points at."
+          },
+          "health": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Structured health intent for this part (design/subsystems/healthchecks.md).",
+            "properties": {
+              "readiness": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "One probe. Exactly one target: http, tcp or exec.",
+                "properties": {
+                  "http": {
+                    "type": "string",
+                    "description": "A request path, e.g. /healthz."
+                  },
+                  "tcp": {
+                    "type": "integer",
+                    "description": "A port; 0 infers it from the part."
+                  },
+                  "exec": {
+                    "type": "array",
+                    "description": "A command run inside the container.",
+                    "items": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    }
+                  },
+                  "requestContext": {
+                    "type": "string",
+                    "enum": [
+                      "frontDoor",
+                      "direct"
+                    ],
+                    "description": "Readiness only: probe through the front door or the container directly."
+                  },
+                  "expect": {
+                    "type": "integer",
+                    "description": "Readiness only: the HTTP status that means ready (default 200)."
+                  },
+                  "checksDeps": {
+                    "type": "boolean",
+                    "description": "Readiness only: the app asserts this probe checks its dependencies. Recorded, not proven."
+                  },
+                  "startupGrace": {
+                    "type": "string",
+                    "description": "A duration with a unit, e.g. 90s. The minimum wait before failures count."
+                  },
+                  "period": {
+                    "type": "string",
+                    "description": "A duration with a unit, e.g. 10s."
+                  },
+                  "timeout": {
+                    "type": "string",
+                    "description": "A duration with a unit, e.g. 5s."
+                  },
+                  "failureThreshold": {
+                    "type": "integer"
+                  },
+                  "successThreshold": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "liveness": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "One probe. Exactly one target: http, tcp or exec.",
+                "properties": {
+                  "http": {
+                    "type": "string",
+                    "description": "A request path, e.g. /healthz."
+                  },
+                  "tcp": {
+                    "type": "integer",
+                    "description": "A port; 0 infers it from the part."
+                  },
+                  "exec": {
+                    "type": "array",
+                    "description": "A command run inside the container.",
+                    "items": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    }
+                  },
+                  "requestContext": {
+                    "type": "string",
+                    "enum": [
+                      "frontDoor",
+                      "direct"
+                    ],
+                    "description": "Readiness only: probe through the front door or the container directly."
+                  },
+                  "expect": {
+                    "type": "integer",
+                    "description": "Readiness only: the HTTP status that means ready (default 200)."
+                  },
+                  "checksDeps": {
+                    "type": "boolean",
+                    "description": "Readiness only: the app asserts this probe checks its dependencies. Recorded, not proven."
+                  },
+                  "startupGrace": {
+                    "type": "string",
+                    "description": "A duration with a unit, e.g. 90s. The minimum wait before failures count."
+                  },
+                  "period": {
+                    "type": "string",
+                    "description": "A duration with a unit, e.g. 10s."
+                  },
+                  "timeout": {
+                    "type": "string",
+                    "description": "A duration with a unit, e.g. 5s."
+                  },
+                  "failureThreshold": {
+                    "type": "integer"
+                  },
+                  "successThreshold": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "resources": {
+            "type": "object",
+            "description": "The most this part may use. A part that declares nothing has no limit. A cap, not a reservation.",
+            "additionalProperties": false,
+            "properties": {
+              "memory": {
+                "type": "string",
+                "pattern": "^[0-9]+(M|G|Mi|Gi)$",
+                "description": "Memory, swap included: a whole number of M or G (MiB or GiB), at least 32M. E.g. 512M, 2G."
+              },
+              "cpu": {
+                "type": [
+                  "number",
+                  "string"
+                ],
+                "description": "A positive number of CPUs, e.g. 0.5 or 2."
+              }
+            }
+          }
+        }
+      }
+    },
+    "init": {
+      "description": "Ordered run-to-completion containers that must SUCCEED before the app parts start (migrations, asset builds). Maps to ECS containers the app dependsOn with condition SUCCESS.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "build": {
+            "type": "string",
+            "description": "Build context (usually '.', sharing the app image). Exactly one of build/image."
+          },
+          "image": {
+            "type": "string"
+          },
+          "command": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "environment": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "needs": {
+      "description": "Dependencies fulfilled per deployment from the catalog (postgres, s3, sso, ...). A map of capability -> parameters.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "description": "Typed params (version, database, flow, ...) vary by capability; each is a single value. 'properties' is an escape hatch for esoteric provisioning params not modelled ahead of time.",
+        "properties": {
+          "properties": {
+            "type": "object",
+            "description": "Escape hatch: arbitrary key/value provisioning params, passed through to fulfillment. Names are un-schema'd on purpose; each value is a single value.",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            }
+          },
+          "resources": {
+            "type": "object",
+            "description": "The most this need's service may use, as a part's resources. A need that declares nothing has no limit. Not a parameter: the catalogue never sees it. Refused for a need whose kind runs no service.",
+            "additionalProperties": false,
+            "properties": {
+              "memory": {
+                "type": "string",
+                "pattern": "^[0-9]+(M|G|Mi|Gi)$",
+                "description": "Memory, swap included: a whole number of M or G (MiB or GiB), at least 32M. E.g. 512M, 2G."
+              },
+              "cpu": {
+                "type": [
+                  "number",
+                  "string"
+                ],
+                "description": "A positive number of CPUs, e.g. 0.5 or 2."
+              }
+            }
+          },
+          "size": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Catalogue-owned local-container size (needs only); cannot combine with resources."
+          }
+        },
+        "additionalProperties": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      }
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The contract's shape version. Absent means 1; a version this forge does not know is an error, never a partial read."
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the forge must know about the app's secrets beyond secretspec.toml.",
+      "properties": {
+        "spec": {
+          "type": "string",
+          "description": "The secretspec file, secretspec.toml by default."
+        },
+        "generate": {
+          "type": "object",
+          "description": "Secrets the forge generates, by name, with their stability domain.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "deployment",
+              "project"
+            ]
+          }
+        },
+        "deliver": {
+          "type": "object",
+          "description": "How each named secret reaches the app. Only env is built.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "env"
+            ]
+          }
+        }
+      }
+    },
+    "rehearsal": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What a restore rehearsal asks the app besides its readiness and its front page.",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "description": "Data checks: paths the app answers without its own sign-in that read its database, each \"GET /path\" or \"GET /path expect <status>\". The forge records only the status each answers.",
+          "items": {
+            "type": "string",
+            "pattern": "^GET /\\S*( expect [1-5][0-9][0-9])?$"
+          }
+        }
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "description": "Named profiles. A deployment uses one profile (chosen per deployment, shared with secretspec.toml); previews use preview when declared. Each profile maps part and need names to what it changes: a part's resources and environment, a need's resources or catalogue size; resources replace the part's field by field, environment merges key by key. default is the parts themselves and is not declared here.",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "not": {
+          "const": "default"
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "Part or need name → what this profile changes of it (a need: resources or catalogue size).",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "resources": {
+              "type": "object",
+              "description": "The most this part may use. A part that declares nothing has no limit. A cap, not a reservation.",
+              "additionalProperties": false,
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(M|G|Mi|Gi)$",
+                  "description": "Memory, swap included: a whole number of M or G (MiB or GiB), at least 32M. E.g. 512M, 2G."
+                },
+                "cpu": {
+                  "type": [
+                    "number",
+                    "string"
+                  ],
+                  "description": "A positive number of CPUs, e.g. 0.5 or 2."
+                }
+              }
+            },
+            "environment": {
+              "type": "object",
+              "description": "Environment merged over the part's own.",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
+              }
+            },
+            "size": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "description": "Catalogue-owned local-container size (needs only); cannot combine with resources."
+            }
+          }
+        }
+      }
+    }
+  }
+}

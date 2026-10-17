@@ -1,0 +1,14 @@
+# What Bundler, Rails and a local run write (as `rails new` lists them).
+/.bundle
+/log/*
+!/log/.keep
+/tmp/*
+!/tmp/.keep
+/storage/*
+!/storage/.keep
+/public/assets
+# Secrets never live in the repository. (`rails new` appends its own
+# /config/*.key rule with its master key; listing it here too would
+# leave the rule twice.)
+/config/credentials/*.key
+.env*

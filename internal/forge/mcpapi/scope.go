@@ -1,0 +1,119 @@
+package mcpapi
+
+import (
+	"context"
+
+	"flokkit.io/forge/internal/ids"
+
+	"flokkit.io/forge/internal/access"
+	"flokkit.io/forge/internal/forge/identity"
+	"flokkit.io/forge/internal/forge/project"
+	"flokkit.io/forge/internal/forge/workflow"
+)
+
+type Scope struct {
+	projects  *project.Projects
+	authority *identity.Service
+}
+
+func NewScope(projects *project.Projects, authority *identity.Service) Scope {
+	return Scope{projects, authority}
+}
+func (s Scope) bySlug(ctx context.Context, slug string) (*project.Project, error) {
+	p, err := s.projects.BySlug(ctx, slug)
+	return &p, err
+}
+func (s Scope) mayRead(c *Call, p *project.Project) bool {
+	pr := c.principal()
+	return s.authority.Evaluate(c.Context, pr, access.DelegationOf(pr), access.CapProjectRead, project.ObservedResource(c.Context, s.projects, p), access.Context{}).Allow
+}
+
+// readable returns the project with this id if the caller may read it. A
+// missing project and one the caller may not see are refused alike; a failed
+// read is an error, not "no such project".
+func (s Scope) readable(c *Call, id ids.ID, refusal error) (*project.Project, error) {
+	p, err := s.projects.ByID(c.Context, id)
+	if absent(err) {
+		return nil, refusal
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !s.mayRead(c, &p) {
+		return nil, refusal
+	}
+	return &p, nil
+}
+func (s Scope) projectForRead(c *Call, slug string) (*project.Project, error) {
+	if slug == "" {
+		return nil, refuse("say which project: pass its slug (list_projects shows them)")
+	}
+	nope := refuse("there is no project %q you can see", slug)
+	p, err := s.bySlug(c.Context, slug)
+	if absent(err) {
+		return nil, nope
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !s.mayRead(c, p) {
+		return nil, nope
+	}
+	return p, nil
+}
+func (s Scope) changeForRead(work *workflow.Service, c *Call, args map[string]any) (*workflow.Change, *project.Project, error) {
+	id, err := argID(args, "id")
+	if err != nil {
+		return nil, nil, err
+	}
+	nope := refuse("there is no Change %s you can see", id)
+	ch, err := work.Change(c.Context, id)
+	if absent(err) {
+		return nil, nil, nope
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	p, err := s.readable(c, ch.ProjectID, nope)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ch, p, nil
+}
+func (s Scope) runForRead(work *workflow.Service, c *Call, args map[string]any) (*workflow.Run, *project.Project, error) {
+	id, err := argID(args, "id")
+	if err != nil {
+		return nil, nil, err
+	}
+	nope := refuse("there is no run %d you can see", id)
+	run, err := work.Run(c.Context, id)
+	if absent(err) {
+		return nil, nil, nope
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	p, err := s.readable(c, run.ProjectID, nope)
+	if err != nil {
+		return nil, nil, err
+	}
+	return run, p, nil
+}
+func (s Scope) changeForWrite(work *workflow.Service, c *Call, args map[string]any) (*workflow.Change, *project.Project, error) {
+	ch, p, err := s.changeForRead(work, c, args)
+	if err != nil {
+		return nil, nil, err
+	}
+	if ch.State == workflow.ChangeShipped || ch.State == workflow.ChangeAbandoned {
+		return nil, nil, refuse("Change %d is %s; nothing more can be done to it", ch.ID, ch.State)
+	}
+	return ch, p, nil
+}
+func (s Scope) authorize(c *Call, tool string, cap access.Capability, res access.Resource) error {
+	pr := c.principal()
+	dec := s.authority.Evaluate(c.Context, pr, access.DelegationOf(pr), cap, res, access.Context{Consequential: true, Route: "mcp:" + tool})
+	if !dec.Allow {
+		return refuse("%s", dec.Reason)
+	}
+	return nil
+}

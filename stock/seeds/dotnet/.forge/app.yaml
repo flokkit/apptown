@@ -1,0 +1,15 @@
+app:
+  web:
+    build: .
+    ports: ["8080"]
+    public: true
+    resources: { memory: 128M }
+    health:
+      readiness: { http: /healthz }
+init:
+  - name: schema
+    build: .
+    command: ["dotnet", "App.dll", "--init"]
+needs:
+  postgres:
+    version: "16"

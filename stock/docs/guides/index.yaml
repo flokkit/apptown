@@ -1,0 +1,38 @@
+# The Docs page's groups and reading order. Each group lists guide slugs
+# (file names without .md) in the order a reader should take them; the page
+# opens on the first guide of the first group.
+#
+# A guide on disk that no group names is still shown, under "Other", so a new
+# guide is never hidden. A slug here with no guide on disk is skipped; the
+# httpapi docs tests fail on such a slug unless it is a guide being written.
+groups:
+  - title: Start here
+    guides:
+      - quickstart
+      - what-forge-is-for
+  - title: Building on Forge
+    guides:
+      - changes-and-main
+      - connect-a-coding-agent
+      - how-apps-run
+      - runtime-environments
+      - services-and-data
+      - wordpress
+      - secrets
+      - container-lifecycle
+      - toolchains
+      - contract-reference
+      - ways-of-working-formats
+      - conformance
+  - title: Running a forge
+    guides:
+      - running-a-forge
+      - compatibility
+      - cli-json
+  - title: How Forge works
+    guides:
+      - architecture
+      - the-change
+      - dev-loops
+      - glossary
+      - roadmap

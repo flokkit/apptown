@@ -1,0 +1,31 @@
+package project
+
+import (
+	"context"
+
+	"flokkit.io/forge/internal/ids"
+
+	"flokkit.io/forge/internal/access"
+	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/forge/project/internal/projectsql"
+)
+
+// Catalogue supplies authorization facts before the authorized Project service
+// is constructed. It contains no policy, cache or caller-facing project content.
+type Catalogue struct{ db *database.DB }
+
+func NewCatalogue(db *database.DB) Catalogue { return Catalogue{db: db} }
+
+// ProjectResources returns complete project scope facts, optionally for one ID.
+// Zero selects the catalogue; a missing positive ID yields an empty catalogue.
+func (c Catalogue) ProjectResources(ctx context.Context, id ids.ID) ([]access.Resource, error) {
+	rows, err := projectsql.New(c.db.SQL()).ProjectAuthorityCatalogue(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]access.Resource, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, access.Resource{Type: "project", ID: r.ID.String(), ProjectID: r.ID, ProjectName: r.Name, Group: r.OwnerGroup})
+	}
+	return out, nil
+}

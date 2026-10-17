@@ -1,0 +1,198 @@
+# Stock scanner manifests (design/subsystems/integrations.md §5: the generic `tool`
+# provider). Each becomes a scanner-capability binding at startup: run this
+# image against the workspace, interpret the exit code, keep the report.
+# Exit-code contract: 0 = clean, 1 = findings (step fails), else = error.
+scanners:
+  - name: osv
+    description: Finds known vulnerabilities in the app's dependencies (Google osv-scanner)
+    image: ghcr.io/google/osv-scanner:v2.2.4
+    command: ["scan", "--format", "json", "--output", "/work/.forge/osv-report.json", "-r", "/work"]
+    report: .forge/osv-report.json
+    network: true   # queries the OSV API
+    format: osv
+    kind: vuln
+  - name: gitleaks
+    description: Finds keys, passwords and tokens committed to the repository (gitleaks)
+    image: zricethezav/gitleaks:v8.30.0
+    command: ["detect", "--source", "/work", "--no-git", "--redact",
+              "--report-format", "sarif", "--report-path", "/work/.forge/gitleaks-report.sarif", "--exit-code", "1"]
+    # At a landing: every commit the landing adds, so a secret committed
+    # and then deleted is still found before it reaches main's history.
+    # Merges are shown against each parent: git log shows no diff for a
+    # merge by default, so a secret added in a merge resolution would pass.
+    historyCommand: ["git", "/history", "--log-opts", "${HISTORY_RANGE} --diff-merges=separate", "--redact",
+                     "--report-format", "sarif", "--report-path", "/work/.forge/gitleaks-report.sarif", "--exit-code", "1"]
+    report: .forge/gitleaks-report.sarif
+    network: false
+    format: sarif
+    kind: secret
+  - name: sbom
+    description: Lists every package in the app as a CycloneDX 1.6 SBOM (Anchore syft)
+    image: anchore/syft:v1.29.1
+    command: ["scan", "dir:/work", "-o", "cyclonedx-json=/work/.forge/sbom.cdx.json", "-q"]
+    report: .forge/sbom.cdx.json
+    network: false
+    artifactKind: sbom   # evidence of what shipped, not findings
+  # Reports every severity: the forge judges a SARIF finding by its CVSS
+  # score, which can be high where trivy's label (the vendor's rating) says
+  # MEDIUM, so a --severity filter would hide findings the gate fails on.
+  # Over a full OS image the report is large (27 MB for rust:1.84.1);
+  # execution.MaxReport is set above that.
+  - name: trivy
+    description: Finds known vulnerabilities in the built container image, which is what runs (Aqua trivy)
+    image: aquasec/trivy:0.66.0
+    command: ["image", "--input", "${IMAGE_TAR}", "--format", "sarif", "--output", "/work/.forge/trivy.sarif",
+              "--exit-code", "1", "--ignore-unfixed", "--severity", "CRITICAL,HIGH,MEDIUM,LOW", "--scanners", "vuln", "--quiet"]
+    report: .forge/trivy.sarif
+    network: true   # vulnerability database download
+    format: sarif
+    kind: vuln
+    target: image   # runs at the `on: image` scan point, after the image is built
+  # Licence policy over what ships: trivy's licence
+  # classifier over the language packages installed in the built image.
+  # Policy: a FORBIDDEN licence (AGPL, SSPL, non-commercial terms — trivy's
+  # CRITICAL class) is a finding that fails the landing; copyleft in a
+  # library (GPL, LGPL — trivy's RESTRICTED class) is not judged, because
+  # these apps are run, not distributed (recipe-book's psycopg is LGPL and
+  # is fine). OS packages are not the app's choice and are not judged. A Go
+  # or Java binary carries no package licence data, so those images read
+  # clean rather than judged; the SBOM on the release says what shipped.
+  - name: trivy-license
+    description: Checks the licences of the app's installed packages (trivy). AGPL, SSPL and non-commercial licences are findings; other copyleft licences are allowed because the app is run, not distributed
+    image: aquasec/trivy:0.66.0
+    command: ["image", "--input", "${IMAGE_TAR}", "--scanners", "license", "--pkg-types", "library", "--format", "sarif", "--output", "/work/.forge/trivy-license.sarif",
+              "--exit-code", "1", "--severity", "CRITICAL", "--quiet"]
+    report: .forge/trivy-license.sarif
+    network: false
+    format: sarif
+    kind: license
+    target: image
+
+  # --- Way-of-working-specific tools (design/subsystems/conformance.md §13) ------------
+  # These are `manual`: invoked ONLY by name from a way of working's `tool`
+  # check, never fanned out at a scan point. Attaching them does not make them
+  # run everywhere — only a project that ADOPTS the way of working runs them.
+  - name: semgrep-django
+    description: Finds security problems in Django and Python code (semgrep, community Django and Python rules)
+    image: semgrep/semgrep:1.99.0
+    command: ["semgrep", "--config", "p/django", "--config", "p/python",
+              "--sarif", "--output", "/work/.forge/semgrep.sarif", "--quiet",
+              "--metrics=off", "--disable-version-check", "/work"]
+    report: .forge/semgrep.sarif
+    network: true   # pulls the rulesets from the semgrep registry
+    format: sarif
+    kind: sast
+    target: source
+    manual: true
+  - name: django-check-deploy
+    description: Runs Django's deployment checks (manage.py check --deploy) inside the app image
+    # Run the app's OWN interpreter: prefer the uv/.venv python, fall back to
+    # system python, so the check works whether deps live in a venv or system
+    # site-packages (a bare `python` misses a uv/.venv layout). manage.py is at
+    # the image WORKDIR.
+    command: ["sh", "-c", "P=/app/.venv/bin/python; [ -x \"$P\" ] || P=$(command -v python3 || command -v python); exec \"$P\" manage.py check --deploy --fail-level WARNING"]
+    network: false
+    target: exec-image   # the command runs INSIDE the app's own built image
+    manual: true
+  - name: godot-web-export
+    description: Exports the Godot 4 game for the browser in the pinned engine image; the export must succeed (game/godot-web)
+    image: barichello/godot-ci:4.4.1
+    # Import first (the .godot cache is never committed), then export the Web
+    # preset. Success = index.wasm + index.pck exist and the folder is under
+    # the size budget; Godot's own exit code is not trusted for either.
+    command: ["sh", "-c", "cd /work && mkdir -p /work/build/web && (godot --headless --import >/dev/null 2>&1 || true); godot --headless --export-release Web /work/build/web/index.html 2>&1 | grep -iE 'error|fail' | head -20; [ -f /work/build/web/index.wasm ] && [ -f /work/build/web/index.pck ] || { echo 'the web export produced no index.wasm/index.pck — see the errors above (a missing Web preset, a script that does not parse, a missing template)'; exit 1; }; s=$(du -sm /work/build/web | cut -f1); [ \"$s\" -le 80 ] || { echo \"the web export is ${s} MB — over the 80 MB budget; shrink textures/audio or split scenes\"; exit 1; }; echo \"web export ok: ${s} MB\"; exit 0"]
+    network: false
+    target: source
+    manual: true
+  # Dockerfile hygiene (build/container-image): hadolint over the Dockerfile
+  # the forge builds. Exit-code contract at the warning threshold — the
+  # tool's own words are the evidence. Package-version pinning rules (apt,
+  # apk, pip, npm, gem) are ignored: pinning every distro package is not a
+  # convention the forge holds anyone to; base-image tags are.
+  - name: hadolint
+    description: "Checks the Dockerfile with hadolint: pinned base tag, COPY not ADD, absolute WORKDIR, JSON CMD, no package cache left behind (build/container-image)"
+    image: hadolint/hadolint:v2.12.0-alpine
+    # A Dockerfile hadolint cannot parse (heredoc COPY <<EOF, waypoint) is
+    # not a finding against the project: exit 2 → an error verdict, "the
+    # forge could not judge", never a fail the agent is told to fix.
+    command: ["sh", "-c", "cd /work && { [ -f Dockerfile ] || { echo 'no Dockerfile: the app is not built from this repository'; exit 0; }; }; out=$(hadolint --no-color --failure-threshold warning --ignore DL3008 --ignore DL3013 --ignore DL3016 --ignore DL3018 --ignore DL3028 Dockerfile 2>&1); e=$?; echo \"$out\"; if [ $e -ne 0 ] && ! echo \"$out\" | grep -q ' DL[0-9]'; then echo 'hadolint could not parse this Dockerfile (a syntax it does not know, such as a heredoc); not judged'; exit 2; fi; exit $e"]
+    network: false
+    target: source
+    manual: true
+  # Lockfile agreement (the lane selection blocks' lockfile-in-step check):
+  # the manifest and the lockfile say the same thing, judged by each
+  # ecosystem's own tool in its pinned image. A project declares its tool by
+  # the lockfile it commits; a manifest with no lockfile fails with words.
+  - name: go-mod-tidy
+    description: Checks that go.mod and go.sum match what the code imports (go mod tidy -diff; lang/selection/go-for-services)
+    image: golang:1.27.0-alpine
+    # GOTOOLCHAIN=auto: the module's own go directive picks the toolchain
+    # (downloaded into the shared module cache), so a module on a newer Go
+    # than the image is judged, not refused (N37; four projects read
+    # "go.mod requires go >= 1.26.7 (running go 1.25.14)", 2026-09-08).
+    command: ["sh", "-c", "cd /work && { [ -f go.mod ] || { echo 'no go.mod'; exit 0; }; }; export GOTOOLCHAIN=auto; out=$(go mod tidy -diff 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'go.mod and go.sum are not tidy — run go mod tidy and commit the result:'; echo \"$out\" | head -40; exit 1"]
+    network: true   # module downloads
+    target: source
+    manual: true
+  - name: npm-lock-check
+    description: Checks that package.json and package-lock.json agree in every package directory (npm ci --dry-run; lang/selection/node-fullstack, typescript-for-web)
+    image: node:24-alpine
+    command: ["sh", "-c", "cd /work && bad=0; for f in $(find . -maxdepth 3 -name package.json -not -path '*/node_modules/*'); do d=$(dirname \"$f\"); [ -f \"$d/package-lock.json\" ] || { echo \"$d: no package-lock.json — commit the lockfile (npm install, then git add package-lock.json)\"; bad=1; continue; }; out=$(cd \"$d\" && npm ci --dry-run --ignore-scripts --no-audit --no-fund 2>&1); [ $? -eq 0 ] || { echo \"$d: package.json and package-lock.json disagree — run npm install and commit the lockfile\"; echo \"$out\" | grep -i 'error' | head -6; bad=1; }; done; exit $bad"]
+    network: true   # npm resolves against the registry when the lock is stale
+    target: source
+    manual: true
+  # The project's own npm scripts (frontend/vite-typescript): install exactly
+  # the lockfile, then run the script package.json declares. The script is
+  # the project's declaration; npm, tsc, Vite and Vitest are the tools. A
+  # package.json without the script fails with words, since the Dockerfile
+  # and the people reading the README run it.
+  - name: npm-build
+    description: Installs the locked dependencies and runs the project's build script (npm run build); the build must succeed
+    image: node:24-alpine
+    command: ["sh", "-c", "cd /work && { [ -f package.json ] || { echo 'no package.json: nothing to build'; exit 0; }; }; [ -f package-lock.json ] || { echo 'no package-lock.json: commit the lockfile (npm install, then git add package-lock.json)'; exit 1; }; out=$(npm ci --no-audit --no-fund 2>&1) || { echo 'npm ci failed, so nothing was built:'; echo \"$out\" | tail -20; exit 2; }; npm pkg get scripts.build | grep -q '\"' || { echo 'package.json declares no build script; add one (for example \"build\": \"tsc --noEmit && vite build\")'; exit 1; }; out=$(NO_COLOR=1 npm run build 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'npm run build failed:'; echo \"$out\" | tail -40; exit 1"]
+    network: true   # npm ci downloads the locked packages
+    target: source
+    manual: true
+  - name: npm-test
+    description: Installs the locked dependencies and runs the project's tests (npm test); every test must pass
+    image: node:24-alpine
+    command: ["sh", "-c", "cd /work && { [ -f package.json ] || { echo 'no package.json: no tests to run'; exit 0; }; }; [ -f package-lock.json ] || { echo 'no package-lock.json: commit the lockfile (npm install, then git add package-lock.json)'; exit 1; }; out=$(npm ci --no-audit --no-fund 2>&1) || { echo 'npm ci failed, so no test ran:'; echo \"$out\" | tail -20; exit 2; }; npm pkg get scripts.test | grep -q '\"' || { echo 'package.json declares no test script; add one (for example \"test\": \"vitest run\")'; exit 1; }; out=$(CI=1 NO_COLOR=1 npm test 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'npm test failed:'; echo \"$out\" | tail -40; exit 1"]
+    network: true   # npm ci downloads the locked packages
+    target: source
+    manual: true
+  - name: uv-lock-check
+    description: Checks that pyproject.toml and uv.lock agree (uv lock --check; lang/selection/django-fullstack)
+    image: ghcr.io/astral-sh/uv:0.13.0-python3.12-alpine
+    command: ["sh", "-c", "cd /work && { [ -f pyproject.toml ] || { echo 'no pyproject.toml'; exit 0; }; }; if [ -f poetry.lock ]; then echo 'poetry.lock present: not judged by this check'; exit 0; fi; [ -f uv.lock ] || { echo 'pyproject.toml has no uv.lock — commit the lockfile (uv lock)'; exit 1; }; out=$(uv lock --check 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'pyproject.toml and uv.lock disagree — run uv lock and commit the result'; echo \"$out\" | tail -3; exit 1"]
+    network: true   # resolution needs the index when the lock is stale
+    target: source
+    manual: true
+  # Bundler's own frozen-mode comparison of the Gemfile with its lock, made
+  # without resolving or installing anything: offline, and blind to which
+  # platforms the lock was made on (a lock made on macOS judges the same).
+  # The comparison is Bundler internals, so the image tag stays pinned. A
+  # Gemfile that cannot be read exits 2: not judged, never a finding.
+  - name: bundle-lock-check
+    description: Checks that Gemfile and Gemfile.lock agree (Bundler's frozen check; lang/selection/rails)
+    image: ruby:3.4.11-slim
+    command: ["sh", "-c", "cd /work && { [ -f Gemfile ] || { echo 'no Gemfile: not a Bundler project, nothing to judge'; exit 0; }; }; [ -f Gemfile.lock ] || { echo 'Gemfile has no Gemfile.lock — commit the lockfile (bundle install, then git add Gemfile.lock)'; exit 1; }; out=$(BUNDLE_GEMFILE=/work/Gemfile ruby -e 'require \"bundler\"; begin; Bundler.settings.temporary(frozen: true) { Bundler.definition.ensure_equivalent_gemfile_and_lockfile }; rescue Bundler::ProductionError => e; puts e.message; exit 1; rescue StandardError, ScriptError => e; puts e.message; exit 2; end' 2>&1); e=$?; [ $e -eq 0 ] && exit 0; if [ $e -eq 1 ]; then echo 'Gemfile and Gemfile.lock disagree — run bundle install and commit Gemfile.lock'; echo \"$out\" | sed -n -e '1s/, but the lockfile can.t be updated because frozen mode is set//p' -e '/^You have/p' -e '/^\\* /p'; exit 1; fi; echo 'could not read the Gemfile, so the lockfile was not judged:'; echo \"$out\" | head -5; exit 2"]
+    network: false
+    target: source
+    manual: true
+  # Go formatting and vetting (lang/go/formatting): the two mechanical checks
+  # the forge holds itself to, run over the committed tree in a pinned Go
+  # image. Exit-code contract: 0 clean, 1 findings; the output is the words.
+  - name: gofmt
+    description: Checks that every committed Go file is formatted with gofmt (lang/go/formatting)
+    image: golang:1.27.0-alpine
+    command: ["sh", "-c", "cd /work && export GOTOOLCHAIN=auto; out=$(gofmt -l . 2>&1); if [ -n \"$out\" ]; then echo 'not gofmt-clean — run gofmt -w on:'; echo \"$out\"; exit 1; fi"]
+    network: false
+    target: source
+    manual: true
+  - name: go-vet
+    description: Runs go vet over the committed Go code to find likely mistakes (lang/go/formatting)
+    image: golang:1.27.0-alpine
+    command: ["sh", "-c", "cd /work && out=$(GOTOOLCHAIN=auto GOFLAGS=-mod=mod go vet ./... 2>&1) || { echo \"$out\" | tail -40; exit 1; }"]
+    network: true   # module downloads
+    target: source
+    manual: true

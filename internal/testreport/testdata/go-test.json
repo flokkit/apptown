@@ -1,0 +1,45 @@
+{"ImportPath":"ex/b [ex/b.test]","Action":"build-output","Output":"# ex/b [ex/b.test]\n"}
+{"ImportPath":"ex/b [ex/b.test]","Action":"build-output","Output":"b/b.go:2:23: cannot use \"x\" (untyped string constant) as int value in return statement\n"}
+{"ImportPath":"ex/b [ex/b.test]","Action":"build-fail"}
+{"Action":"start","Package":"ex/a"}
+{"Action":"start","Package":"ex/b"}
+{"Action":"output","Package":"ex/b","Output":"FAIL\tex/b [build failed]\n"}
+{"Action":"start","Package":"ex/c"}
+{"Action":"fail","Package":"ex/b","Elapsed":0,"FailedBuild":"ex/b [ex/b.test]"}
+{"Action":"start","Package":"ex/d"}
+{"Action":"output","Package":"ex/c","Output":"?   \tex/c\t[no test files]\n"}
+{"Action":"skip","Package":"ex/c","Elapsed":0}
+{"Action":"run","Package":"ex/a","Test":"TestRun"}
+{"Action":"output","Package":"ex/a","Test":"TestRun","Output":"=== RUN   TestRun\n"}
+{"Action":"run","Package":"ex/d","Test":"TestFail"}
+{"Action":"output","Package":"ex/a","Test":"TestRun","Output":"--- PASS: TestRun (0.00s)\n"}
+{"Action":"pass","Package":"ex/a","Test":"TestRun","Elapsed":0}
+{"Action":"run","Package":"ex/a","Test":"TestSkip"}
+{"Action":"output","Package":"ex/a","Test":"TestSkip","Output":"=== RUN   TestSkip\n"}
+{"Action":"output","Package":"ex/a","Test":"TestSkip","Output":"    a_test.go:4: X not set\n"}
+{"Action":"output","Package":"ex/a","Test":"TestSkip","Output":"--- SKIP: TestSkip (0.00s)\n"}
+{"Action":"skip","Package":"ex/a","Test":"TestSkip","Elapsed":0}
+{"Action":"run","Package":"ex/a","Test":"TestSub"}
+{"Action":"output","Package":"ex/a","Test":"TestSub","Output":"=== RUN   TestSub\n"}
+{"Action":"run","Package":"ex/a","Test":"TestSub/one"}
+{"Action":"output","Package":"ex/a","Test":"TestSub/one","Output":"=== RUN   TestSub/one\n"}
+{"Action":"output","Package":"ex/a","Test":"TestSub/one","Output":"--- PASS: TestSub/one (0.00s)\n"}
+{"Action":"pass","Package":"ex/a","Test":"TestSub/one","Elapsed":0}
+{"Action":"run","Package":"ex/a","Test":"TestSub/two"}
+{"Action":"output","Package":"ex/a","Test":"TestSub/two","Output":"=== RUN   TestSub/two\n"}
+{"Action":"output","Package":"ex/a","Test":"TestSub/two","Output":"    a_test.go:5: nope\n"}
+{"Action":"output","Package":"ex/a","Test":"TestSub/two","Output":"--- SKIP: TestSub/two (0.00s)\n"}
+{"Action":"skip","Package":"ex/a","Test":"TestSub/two","Elapsed":0}
+{"Action":"output","Package":"ex/a","Test":"TestSub","Output":"--- PASS: TestSub (0.00s)\n"}
+{"Action":"pass","Package":"ex/a","Test":"TestSub","Elapsed":0}
+{"Action":"output","Package":"ex/a","Output":"PASS\n"}
+{"Action":"output","Package":"ex/d","Test":"TestFail","Output":"=== RUN   TestFail\n"}
+{"Action":"output","Package":"ex/d","Test":"TestFail","Output":"    d_test.go:3: hello\n"}
+{"Action":"output","Package":"ex/d","Test":"TestFail","Output":"    d_test.go:3: boom\n"}
+{"Action":"output","Package":"ex/d","Test":"TestFail","Output":"--- FAIL: TestFail (0.00s)\n"}
+{"Action":"fail","Package":"ex/d","Test":"TestFail","Elapsed":0}
+{"Action":"output","Package":"ex/d","Output":"FAIL\n"}
+{"Action":"output","Package":"ex/a","Output":"ok  \tex/a\t0.385s\n"}
+{"Action":"output","Package":"ex/d","Output":"FAIL\tex/d\t0.385s\n"}
+{"Action":"fail","Package":"ex/d","Elapsed":0.387}
+{"Action":"pass","Package":"ex/a","Elapsed":0.39}

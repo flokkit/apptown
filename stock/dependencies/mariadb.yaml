@@ -1,0 +1,137 @@
+# Local MariaDB, fulfilled by the generic dependency catalogue.
+capability: mariadb
+resources: {memory: 256M}
+title: MariaDB
+icon: 🐬
+description: A deployment-owned relational database, reached with DB_* variables.
+defaults:
+  version: "11.4.13"
+  database: app
+  user: app
+# The forge sets the password. Each deployment and each preview gets one of
+# its own (generate); the value here is only for the servers the forge
+# starts beside its own steps and forge dev.
+credentials:
+  password: app
+generate: [password]
+# The contract with the app, the same on every target.
+provides:
+  DB_HOST: the server's host
+  DB_PORT: the server's port
+  DB_NAME: the app's database
+  DB_USER: the app's user, with every right on the database
+  DB_PASSWORD: the user's password, set by the forge
+  DB_SSL_MODE: DISABLED or REQUIRED (MySQL's words), whether the connection must use TLS
+local:
+  image: mariadb:{version}
+  port: 3306
+  # The image makes the app's user, with its password, only in an empty data
+  # directory. So the start script sets that user's password again at every
+  # later start, through the server's own init file, which runs with every
+  # right and needs no root password (the image's root has a random one
+  # nobody keeps): a standing server takes a new password at its next deploy
+  # and keeps its data (configAtStart). Its data is in the image's own
+  # format, so a new image is not a reason to remake it (keepsImage). The
+  # command stays the server's own flags (sizes replace it): the script
+  # passes them on.
+  configAtStart: true
+  keepsImage: true
+  entrypoint:
+    - /bin/sh
+    - -c
+    - |
+      set -eu
+      if [ -d /var/lib/mysql/mysql ]; then
+        quoted() { printf "'%s'" "$(printf %s "$1" | sed -e 's/\\/\\\\/g' -e "s/'/\\\\'/g")"; }
+        user=$(quoted "$MARIADB_USER")
+        umask 077
+        {
+          echo "CREATE USER IF NOT EXISTS $user@'%';"
+          echo "ALTER USER $user@'%' IDENTIFIED BY $(quoted "$MARIADB_PASSWORD");"
+          echo "GRANT ALL PRIVILEGES ON \`$(printf %s "$MARIADB_DATABASE" | sed 's/`/``/g')\`.* TO $user@'%';"
+        } > /tmp/forge-init.sql
+        chown mysql:mysql /tmp/forge-init.sql
+        set -- --init-file=/tmp/forge-init.sql "$@"
+      fi
+      exec docker-entrypoint.sh mariadbd "$@"
+    - mariadb
+  command: ["--innodb-buffer-pool-size=64M", "--max-connections=20", "--performance-schema=OFF"]
+  health: healthcheck.sh --connect --innodb_initialized
+  data: /var/lib/mysql
+  env:
+    MARIADB_DATABASE: "{database}"
+    MARIADB_USER: "{user}"
+    MARIADB_PASSWORD: "{password}"
+    MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    MARIADB_ROOT_HOST: localhost
+  inject:
+    DB_HOST: "{host}"
+    DB_PORT: "3306"
+    DB_NAME: "{database}"
+    DB_USER: "{user}"
+    DB_PASSWORD: "{password}"
+    DB_SSL_MODE: DISABLED
+# Deterministic SQL: no timestamps, bulk INSERT groups, or transient locks.
+# Verification preserves DDL order and sorts only complete INSERT lines (which
+# carry their table name). Never globally sort SQL: that detaches column
+# definitions from their tables and can falsely verify a changed schema.
+# DELIMITER blocks (triggers) stay intact, including their INSERT statements.
+copy:
+  format: mariadb-sql
+  ext: sql
+  client: mariadb:{version}
+  export: >-
+    mariadb-dump --host="$DB_HOST" --port="$DB_PORT" --user="$DB_USER"
+    --single-transaction --skip-comments --skip-extended-insert --skip-add-locks
+    --order-by-primary --hex-blob "$DB_NAME"
+  import: mariadb --host="$DB_HOST" --port="$DB_PORT" --user="$DB_USER" "$DB_NAME"
+  restore: mariadb --host="$DB_HOST" --port="$DB_PORT" --user="$DB_USER" "$DB_NAME"
+  env:
+    DB_HOST: "{host}"
+    DB_PORT: "{port}"
+    DB_NAME: "{database}"
+    DB_USER: "{user}"
+    MYSQL_PWD: "{password}"
+  verify: |
+    set -eu
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    cat > "$work/copy"
+    test -s "$work/copy" || { echo 'empty logical copy'; exit 1; }
+    mariadb-dump --host="$DB_HOST" --port="$DB_PORT" --user="$DB_USER" \
+      --single-transaction --skip-comments --skip-extended-insert --skip-add-locks \
+      --order-by-primary --hex-blob "$DB_NAME" > "$work/live"
+    for name in copy live; do
+      : > "$work/$name.rows"
+      awk -v rows="$work/$name.rows" '
+        /^DELIMITER / { delimiter = $2 }
+        /^INSERT INTO / && (delimiter == "" || delimiter == ";") { print > rows; next }
+        { print }
+      ' "$work/$name" > "$work/$name.schema"
+      LC_ALL=C sort -o "$work/$name.rows" "$work/$name.rows"
+    done
+    cmp "$work/copy.schema" "$work/live.schema" && cmp "$work/copy.rows" "$work/live.rows"
+  caveat: >-
+    Logical tables, views and triggers only; routines, events, users and grants
+    are not copied. Use transactional tables and avoid concurrent DDL during
+    export. Verification compares the complete schema and rows at verification
+    time, so verify a quiescent restore, not a database receiving writes.
+    Restore replaces tables named by the copy; extra destination objects remain
+    and cause verification to fail. This is not a coordinated S3/database backup.
+
+sizes:
+  small:
+    description: Dedicated low-concurrency MariaDB container; validate workload and maintenance within 128 MiB.
+    resources: {memory: 128M}
+    command:
+      - --innodb-buffer-pool-size=32M
+      - --innodb-log-buffer-size=4M
+      - --aria-pagecache-buffer-size=8M
+      - --key-buffer-size=64K
+      - --max-connections=10
+      - --thread-cache-size=2
+      - --table-open-cache=128
+      - --table-definition-cache=400
+      - --tmp-table-size=4M
+      - --max-heap-table-size=4M
+      - --performance-schema=OFF

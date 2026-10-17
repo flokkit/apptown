@@ -1,0 +1,165 @@
+import { RuntimeObservation, RuntimeStatus } from '../runtime'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useGet } from '../data'
+import { ReadStatus, StaleNote } from '../ReadGate'
+import { relTime } from '../format'
+import { ConnIcon } from '../icons'
+import { FIND_BOX_ID } from '../TopBar'
+import type { ProjectCleanupList, ProjectPage, ProjectRow } from '../wire.gen'
+
+// Projects: find yours. The big find filters the grid as you type; the
+// bar's small find on other pages hands a query here as ?q=.
+
+// The server's row, with its observation read as the hand-written union.
+type ProjRow = Omit<ProjectRow, keyof RuntimeObservation> & RuntimeObservation
+type ProjPage = Omit<ProjectPage, 'projects'> & { projects: ProjRow[] }
+
+const TOOL_ICON: Record<string, string> = {
+  go: 'go', rust: 'rust', node: 'node', python: 'pypi', java: 'maven', maven: 'maven',
+}
+
+// A stable, subtle per-project tint so cards are tellable-apart at a
+// glance: it helps people find their project.
+function tint(slug: string): string {
+  let h = 0
+  for (const c of slug) h = (h * 31 + c.charCodeAt(0)) % 360
+  return `hsl(${h} 55% 50% / 0.55)`
+}
+
+const rel = (ts: string): string => relTime(ts) || 'nothing shipped yet'
+
+// After a delete (?removed=<slug>): the records are gone at once, and a
+// queued cleanup takes down the app and removes previews, volumes and
+// folders. This follows that cleanup until it is done or needs a person.
+function RemovalNotice({ slug, onDismiss }: { slug: string; onDismiss: () => void }) {
+  const [done, setDone] = useState(false)
+  const q = useGet<ProjectCleanupList>('/project-cleanups', { poll: done ? 0 : 3000 })
+  // The newest cleanup for this address is this deletion's (the list is newest first).
+  const c = q.data?.cleanups.find((x) => x.slug === slug)
+  const finished = c?.state === 'done'
+  useEffect(() => { if (finished) setDone(true) }, [finished])
+  if (c?.state === 'done') {
+    return (
+      <div className="card tone-ok row" style={{ maxWidth: 760 }}>
+        <span><strong>{slug}</strong> has been removed: its app, previews and folders are cleaned up.</span>
+        <span style={{ flex: 1 }} />
+        <button className="subtle" onClick={onDismiss}>Dismiss</button>
+      </div>
+    )
+  }
+  if (c?.state === 'needs-attention') {
+    return (
+      <div className="card tone-bad" style={{ maxWidth: 760 }}>
+        <strong>{slug}</strong> was deleted, but cleaning up after it stopped: {c.detail}.{' '}
+        <Link to="/infrastructure">Try again on Infrastructure</Link>.
+      </div>
+    )
+  }
+  return (
+    <div className="card tone-busy" style={{ maxWidth: 760 }}>
+      <strong>{slug}</strong> is being removed: its app, previews and folders are being cleaned up.
+      {q.err && <div className="error small" style={{ marginTop: 4 }}>The cleanup's progress could not be read: {q.err}</div>}
+    </div>
+  )
+}
+
+export default function Projects() {
+  // The big find: filters the grid as you type. The bar's small find on
+  // other pages hands a query here as ?q=.
+  const [params, setParams] = useSearchParams()
+  const removed = params.get('removed')
+  const [filter, setFilter] = useState(params.get('q') ?? '')
+  const [offset, setOffset] = useState(0)
+  const pageQ = useGet<ProjPage>(`/projects?limit=50&offset=${offset}&q=${encodeURIComponent(filter.trim())}`, { poll: 5000 })
+  const page = pageQ.data
+  const projects = page?.projects
+
+  if (!projects) return <ReadStatus q={pageQ} what="the projects" />
+
+  const q = filter.trim().toLowerCase()
+  const shown = projects
+  const byNs = new Map<string, ProjRow[]>()
+  for (const p of shown) byNs.set(p.namespace, [...(byNs.get(p.namespace) ?? []), p])
+  const namespaces = [...byNs.keys()].sort((a, b) => (a || 'zz').localeCompare(b || 'zz'))
+  const grouped = namespaces.length > 1 || (namespaces.length === 1 && namespaces[0] !== '')
+
+  return (
+    <div>
+      <div className="row" style={{ marginBottom: 12, gap: 10 }}>
+        <h1 style={{ margin: 0 }}>Projects</h1>
+        <input
+          id={FIND_BOX_ID}
+          autoFocus
+          value={filter}
+          onChange={(e) => { setFilter(e.target.value); setOffset(0) }}
+          placeholder="Find a project"
+          style={{ flex: 1, maxWidth: 480, fontSize: 'var(--fs-base)', padding: '9px 12px', boxSizing: 'border-box' }}
+        />
+        <span style={{ flex: 1 }} />
+        <Link to="/projects/_new"><button className="primary btn-big">+ New project</button></Link>
+      </div>
+      <StaleNote q={pageQ} />
+      {removed && <RemovalNotice slug={removed} onDismiss={() => { params.delete('removed'); setParams(params, { replace: true }) }} />}
+      {page?.total === 0 && !q && (
+        <div className="card" style={{ padding: 18, maxWidth: 560 }}>
+          <strong>No projects yet.</strong>
+          <div className="muted small" style={{ marginTop: 4 }}>
+            A project is an app with its own repository, workflows and checks. Make one and the forge
+            sets everything up, then builds the first version with you.
+          </div>
+        </div>
+      )}
+      {q !== '' && shown.length === 0 && (
+        <div className="muted" style={{ padding: 12 }}>Nothing matches “{filter}”.</div>
+      )}
+      {namespaces.map((ns) => (
+        <section key={ns || '_'} className="conn-section">
+          {grouped && (
+            <div className="conn-section-head">
+              <h2>{ns || 'ungrouped'}</h2>
+              <span className="muted small">{(byNs.get(ns) ?? []).length} project{(byNs.get(ns) ?? []).length === 1 ? '' : 's'}</span>
+            </div>
+          )}
+          <div className="conn-grid even">
+            {(byNs.get(ns) ?? []).map((p) => (
+              <Link key={p.id} to={`/projects/${p.slug}`} className="proj-card"
+                style={{ borderTop: `3px solid ${tint(p.slug)}` }}>
+                <div className="row" style={{ padding: '12px 14px 4px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 'var(--fs-xl)', lineHeight: '34px', marginRight: 4 }} aria-hidden>
+                    {p.icon || '🛠️'}
+                  </span>
+                  <span>
+                    <strong style={{ fontSize: 'var(--fs-base)' }}>{p.name}</strong>
+                    {p.blurb && <div className="small" style={{ marginTop: 2, maxWidth: 260 }}>{p.blurb}</div>}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <RuntimeStatus observation={p} />
+                </div>
+                <div className="row" style={{ padding: '2px 14px 10px', gap: 6 }}>
+                  {(p.toolchain ?? []).map((t) => (
+                    <span key={t} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      {TOOL_ICON[t] && <ConnIcon name={TOOL_ICON[t]} size={11} />}{t}
+                    </span>
+                  ))}
+                </div>
+                <div className="conn-foot">
+                  <span className={`small ${p.activeItems ? '' : 'muted'}`}>{p.activeItems ?? 0} in progress</span>
+                  <span className="muted small">· {p.doneRuns} shipped</span>
+                  <span style={{ flex: 1 }} />
+                  <span className="muted small">{rel(p.lastRunAt)}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <div className="row" style={{ gap: 12, marginTop: 16 }}>
+        <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Previous</button>
+        <span className="muted small">{projects.length ? `${offset + 1}–${offset + projects.length} of ${page?.total}` : `0 of ${page?.total}`} projects</span>
+        <button disabled={offset + 50 >= (page?.total ?? 0)} onClick={() => setOffset(offset + 50)}>Next</button>
+      </div>
+    </div>
+  )
+}

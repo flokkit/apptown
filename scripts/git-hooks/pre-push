@@ -1,0 +1,13 @@
+#!/bin/sh
+# Pre-push gate: run the same fast checks CI's unit+web stages gate on (gofmt,
+# vet, test, tsc, build), so a failure is caught here rather than in CI after
+# the push: unformatted commits that reach CI fail it and block landing.
+# `git push --no-verify` skips the hook.
+#
+# Git hands hooks its own environment (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE,
+# GIT_PREFIX; absolute paths when pushing from a linked worktree). Tests that
+# spawn real git would inherit it and run against THIS repository instead of
+# their fixtures, and can then move this repository's branches or change its
+# configuration. The gate runs with git's environment removed.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+exec make check

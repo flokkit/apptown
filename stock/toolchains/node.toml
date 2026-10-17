@@ -1,0 +1,5 @@
+# Forge stock toolchain: Node.js
+# Way of working: current LTS line; npm via the ambient registry; lockfile
+# committed; `npm ci` in steps, `npm install` only to change deps.
+[tools]
+node = "24"

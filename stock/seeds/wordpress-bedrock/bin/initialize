@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+cd /app
+if ! bin/wp core is-installed >/dev/null 2>&1; then
+    : "${WP_ADMIN_PASSWORD:?initial administrator password required}"
+    # WP-CLI echoes noninteractive prompts/expanded commands to stdout. Discard
+    # that stream; failures still report stderr and stop initialization.
+    printf '%s\n' "$WP_ADMIN_PASSWORD" | bin/wp core install \
+      --url="${WP_HOME:-http://localhost}" --title="${WP_SITE_TITLE:-WordPress}" \
+      --admin_user="${WP_ADMIN_USER:-editor}" --admin_email="${WP_ADMIN_EMAIL:-editor@example.invalid}" \
+      --skip-email --quiet --prompt=admin_password >/dev/null
+    # The install writes its URL (a placeholder unless WP_HOME is bound) into
+    # stored data that the configuration does not override: the administrator's
+    # website and WordPress's sample post and pages, one of which links to the
+    # dashboard. Remove both; this starter installs no example content.
+    bin/wp user update "${WP_ADMIN_USER:-editor}" --user_url= --quiet
+    ids=$(bin/wp post list --post_type=post,page --post_status=any --format=ids)
+    # shellcheck disable=SC2086 # space-separated numeric IDs, split on purpose
+    [ -z "$ids" ] || bin/wp post delete $ids --force --quiet
+else
+    bin/wp core update-db
+fi
+# Initial starter enablement is idempotent; no users, options or content are reset.
+bin/wp plugin activate s3-uploads
+bin/wp theme activate forge-site

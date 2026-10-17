@@ -1,0 +1,313 @@
+# Packs: complete ways-of-working a new project opts into (state-model §6.4).
+# guidance = pinned manifest imports; workflows = installed from the library.
+packs:
+  # The platform tier (design/subsystems/ways-of-working-versions.md §1.1): the forge's
+  # own coupling — health, the front door, no build artifacts — and the
+  # system workflows. Every repo-backed project is on it directly; it is
+  # never included in another pack and never offered in the wizard.
+  - name: forge
+    platform: true
+    description: >-
+      What any app the forge runs must do, and the forge's own workflows.
+      Every project with a repository is on it.
+    guidance:
+      - deploy/health-declared
+      - deploy/browser-values
+      - deploy/memory-declared
+      - repo/no-build-artifacts
+    workflows: [land, ship, adopt-integration, retire-integration]
+  - name: conventions-only
+    description: >-
+      The forge's own conventions and nothing else: no language, no
+      framework, no data opinion. Anything with a Dockerfile or a static
+      folder gets previews, review, landing and deployment.
+    guidance:
+      - build/container-image
+      - build/registries
+      - build/toolchain-mise
+      - deploy/health-declared
+      - repo/no-build-artifacts
+      - prose/no-claude-speak
+    workflows: [land, implement, quick-change, fix-bug, research, excavate]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: go-small
+    resources: {memory: 48M}
+    description: >-
+      Go services, Postgres, a React UI built with Vite, REST and
+      server-sent events, and few dependencies.
+    toolchain: go
+    extensions: [lsp]
+    guidance:
+      - arch/boring-technology
+      - dev/process-and-container-mode
+      - arch/modular-monolith
+      - data/networked-database
+      - data/postgres-maximalism
+      - lang/selection/go-for-services
+      - lang/go/formatting
+      - lang/selection/typescript-for-web
+      - lang/go/errors-are-values
+      - lang/shell/fifty-line-budget
+      - api/rest-pragmatist
+      - api/sse-over-websockets
+      - deps/minimal-deps
+      - build/registries
+      - build/container-image
+      - build/toolchain-mise
+      - prose/terse-style
+      - prose/no-claude-speak
+      - prose/readme-plain
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: html-game
+    description: >-
+      Browser games in plain HTML, CSS and JavaScript: no server, no build
+      step, no dependencies. The file you edit is the file that ships.
+      Starts with a small working game to change.
+    guidance:
+      - game/client-only
+      - game/no-toolchain
+      - game/kid-readable
+      - game/playable-everywhere
+      - prose/readme-plain
+      - prose/no-claude-speak
+    workflows: [land, ship, implement, quick-change, fix-bug]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: godot-3d
+    resources: {memory: 32M}
+    description: >-
+      Experimental: the current starter has not shipped an app yet. 3D games built with the Godot 4 engine and exported to the browser as
+      WebAssembly. GDScript, the Compatibility renderer, threads off, and a
+      Dockerfile that exports and serves the game. Starts with a small
+      working first-person game to change.
+    guidance:
+      - game/godot-web
+      - game/player-first
+      - build/registries
+      - build/container-image
+      - prose/readme-plain
+      - prose/no-claude-speak
+    workflows: [land, ship, implement, quick-change, fix-bug]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: video-game
+    resources: {memory: 32M}
+    description: >-
+      Experimental: the current starter has not shipped an app yet. Browser games built with npm libraries such as three.js, a bundler,
+      and TypeScript where it helps. Players need only the link. Starts
+      with a small working 3D game to change.
+    toolchain: node
+    guidance:
+      - game/open-toolchain
+      - game/player-first
+      - game/playable-everywhere
+      - build/registries
+      - build/container-image
+      - prose/readme-plain
+      - prose/no-claude-speak
+    workflows: [land, ship, implement, quick-change, fix-bug]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: frontend-only
+    description: >-
+      Apps that run entirely in the browser: no server. TypeScript built
+      with Vite, a few npm libraries, tests with Vitest, data kept in the
+      browser, and working offline where the app needs it. Starts with a
+      small working app to change.
+    toolchain: node
+    extensions: [lsp]
+    guidance:
+      - frontend/browser-only
+      - frontend/vite-typescript
+      - data/large-data-files
+      - deps/minimal-deps
+      - build/registries
+      - build/container-image
+      - build/toolchain-mise
+      - prose/terse-style
+      - prose/readme-plain
+      - prose/no-claude-speak
+    workflows: [land, ship, implement, quick-change, fix-bug, dependency-uplift, research]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: node-fullstack
+    resources: {memory: 128M}
+    description: >-
+      Experimental: its landing fixes have not shipped a new app yet. TypeScript on Node: a Fastify server, Postgres, one npm package graph,
+      one image that runs `node --run start`. A browser UI, when the app
+      needs one, is React built with Vite. The repository starts with the
+      packaging recipe and runtime contract only; the first change writes
+      the app.
+    toolchain: node
+    extensions: [lsp]
+    services:
+      - name: postgres
+        image: postgres:16
+        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
+    guidance:
+      - arch/boring-technology
+      - dev/process-and-container-mode
+      - arch/modular-monolith
+      - data/postgres-maximalism
+      - lang/selection/node-fullstack
+      - api/rest-pragmatist
+      - build/registries
+      - build/container-image
+      - build/toolchain-mise
+      - prose/terse-style
+      - prose/no-claude-speak
+      - prose/readme-plain
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: django-htmx
+    resources: {memory: 160M}
+    description: >-
+      Django with server-rendered templates and HTMX, Postgres, and the
+      Django admin.
+    toolchain: python
+    extensions: [lsp]
+    services:
+      - name: postgres
+        image: postgres:16
+        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
+    guidance:
+      - arch/boring-technology
+      - dev/process-and-container-mode
+      - data/postgres-maximalism
+      - lang/selection/django-fullstack
+      - frontend/hypermedia-htmx
+      - build/registries
+      - build/container-image
+      - build/toolchain-mise
+      - prose/terse-style
+      - prose/no-claude-speak
+      - prose/readme-plain
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: java-spring
+    resources: {memory: 256M}
+    description: >-
+      Experimental: its landing fixes have not shipped a new app yet. Spring Boot on Temurin 21, Maven, Postgres + Flyway, deployed as
+      an executable jar. Starts from Spring Initializr on the first change.
+      Toolchain pinned in mise.toml; dependencies are fetched through the
+      package registries this forge is set up with.
+    toolchain: java
+    services:
+      - name: postgres
+        image: postgres:16
+        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
+    guidance:
+      - arch/boring-technology
+      - dev/process-and-container-mode
+      - arch/modular-monolith
+      - data/postgres-maximalism
+      - lang/selection/java-spring-boot
+      - lang/java/spring-conventions
+      - observability/error-reporting
+      - api/rest-pragmatist
+      - deps/minimal-deps
+      - build/registries
+      - build/container-image
+      - build/toolchain-mise
+      - prose/terse-style
+      - prose/no-claude-speak
+      - prose/readme-plain
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: dotnet
+    resources: {memory: 128M}
+    description: >-
+      Experimental: not yet run in production by the maintainers for two weeks, and its SDK download is not mirrored. ASP.NET Core on .NET 9: minimal APIs, EF Core on Postgres, one
+      published app. Starts from the SDK's own templates on the first change.
+      Toolchain pinned in mise.toml; packages are fetched through the
+      package registries this forge is set up with.
+    toolchain: dotnet
+    services:
+      - name: postgres
+        image: postgres:16
+        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
+    guidance:
+      - arch/boring-technology
+      - dev/process-and-container-mode
+      - arch/modular-monolith
+      - data/postgres-maximalism
+      - lang/selection/dotnet-aspnet
+      - observability/error-reporting
+      - api/rest-pragmatist
+      - deps/minimal-deps
+      - build/registries
+      - build/container-image
+      - build/toolchain-mise
+      - prose/terse-style
+      - prose/no-claude-speak
+      - prose/readme-plain
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: rails
+    resources: {memory: 256M}
+    description: >-
+      Rails 8 on Ruby 3.4: server-rendered pages with Hotwire, Postgres,
+      Puma, propshaft — no Node toolchain. Starts from `rails new` on the
+      first change. Toolchain pinned in mise.toml; gems are fetched through
+      the package registries this forge is set up with.
+    toolchain: ruby
+    services:
+      - name: postgres
+        image: postgres:16
+        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
+    guidance:
+      - arch/boring-technology
+      - dev/process-and-container-mode
+      - arch/modular-monolith
+      - data/postgres-maximalism
+      - lang/selection/rails
+      - observability/error-reporting
+      - api/rest-pragmatist
+      - deps/minimal-deps
+      - build/registries
+      - build/container-image
+      - build/toolchain-mise
+      - prose/terse-style
+      - prose/no-claude-speak
+      - prose/readme-plain
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
+    policies: [deploy-requires-scan, scanner-bound]
+  - name: rust-service
+    resources: {memory: 48M}
+    description: >-
+      Experimental: not yet run in production by the maintainers for two weeks with a clean image scan. Stable Rust via mise, std-first services, minimal crates, deployed
+      as a release binary. Toolchain and crates are fetched through the
+      package registries this forge is set up with.
+    toolchain: rust
+    guidance:
+      - arch/boring-technology
+      - dev/process-and-container-mode
+      - arch/modular-monolith
+      - lang/selection/rust
+      - deps/minimal-deps
+      - build/registries
+      - build/container-image
+      - build/toolchain-mise
+      - prose/terse-style
+      - prose/no-claude-speak
+      - prose/readme-plain
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
+    policies: [deploy-requires-scan, scanner-bound]
+
+  - name: wordpress-bedrock
+    resources: {memory: 256M}
+    description: >-
+      Experimental: no app shipped from the current starter yet. WordPress with Composer-locked core and plugins, an immutable PHP/Apache
+      image, deployment-owned MariaDB, and uploads in the deployment's own object storage, served by the site.
+      Starts with a small neutral theme; code updates go through reviewed builds.
+    services:
+      - name: mariadb
+        image: mariadb:11.4.13
+        env: {MARIADB_DATABASE: app, MARIADB_USER: app, MARIADB_PASSWORD: app, MARIADB_RANDOM_ROOT_PASSWORD: "1"}
+      # No image: the s3 kind has no version for the wizard to read from a tag.
+      - name: s3
+    guidance:
+      - lang/selection/wordpress-bedrock
+      - build/registries
+      - build/container-image
+      - prose/readme-plain
+      - prose/no-claude-speak
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, product-spec, research]
+    policies: [deploy-requires-scan, scanner-bound]

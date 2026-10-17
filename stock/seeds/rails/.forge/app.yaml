@@ -1,0 +1,15 @@
+app:
+  web:
+    build: .
+    ports: ["8080"]
+    public: true
+    resources: { memory: 256M }
+    health:
+      readiness: { http: /up }
+init:
+  - name: migrate
+    build: .
+    command: ["bundle", "exec", "rake", "db:prepare"]
+needs:
+  postgres:
+    version: "16"

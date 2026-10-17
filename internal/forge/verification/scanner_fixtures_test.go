@@ -1,0 +1,215 @@
+package verification
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"flokkit.io/forge/internal/access"
+	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/deploy/docker"
+	"flokkit.io/forge/internal/deploy/docker/dockerfake"
+	"flokkit.io/forge/internal/execution"
+	"flokkit.io/forge/internal/forge/conformance"
+	"flokkit.io/forge/internal/forge/dependency"
+	"flokkit.io/forge/internal/forge/identity"
+	"flokkit.io/forge/internal/forge/integration"
+	"flokkit.io/forge/internal/forge/modelcall"
+	"flokkit.io/forge/internal/forge/project"
+	"flokkit.io/forge/internal/ids"
+)
+
+// scannerEffects answers commands with report, and model questions with
+// answer when one is set. It keeps the image of every command and the model
+// of every question it was asked.
+type scannerEffects struct {
+	t      *testing.T
+	report string
+	answer string
+
+	mu     sync.Mutex
+	images []string
+	models []string
+}
+
+func (e *scannerEffects) ran(image string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Contains(e.images, image)
+}
+
+func (e *scannerEffects) asked(model string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Contains(e.models, model)
+}
+
+func (e *scannerEffects) Run(ctx context.Context, req execution.Request) execution.Outcome {
+	e.t.Helper()
+	e.mu.Lock()
+	e.images = append(e.images, req.Image)
+	e.mu.Unlock()
+	dst := filepath.Join(req.Workspace, ".forge", "semgrep.sarif")
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		e.t.Fatal(err)
+	}
+	if err := os.WriteFile(dst, []byte(e.report), 0o644); err != nil {
+		e.t.Fatal(err)
+	}
+	// Answered as a runner answers: a normal exit, and the declared report
+	// carried back in the outcome.
+	out := execution.Outcome{Termination: execution.Exited}
+	if req.Report != "" {
+		out.Report, out.ReportErr = execution.ReadReport(req.Workspace, req.Report)
+	}
+	return out
+}
+func (e *scannerEffects) Ask(_ context.Context, call modelcall.Call) (string, *modelcall.Usage, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.models = append(e.models, call.Model)
+	if e.answer == "" {
+		return "", nil, errors.New("scanner fixtures make no model calls")
+	}
+	return e.answer, &modelcall.Usage{}, nil
+}
+func (*scannerEffects) Observe(context.Context, ids.ID, string, string) (conformance.Outcome, string) {
+	return conformance.CannotAssess, ""
+}
+
+type scannerOwnerFixture struct {
+	DB          *database.DB
+	ProjectID   ids.ID
+	Context     context.Context
+	Conformance *conformance.Service
+	Scanners    *Scanners
+	Daemon      *dockerfake.Daemon
+	Effects     *scannerEffects
+}
+
+func newScannerOwnerFixture(t *testing.T) scannerOwnerFixture {
+	t.Helper()
+	db := testDB(t)
+	directory := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
+	if err := directory.SeedAdministrator(context.Background(), "bls"); err != nil {
+		t.Fatal(err)
+	}
+	projects := project.New(db, identity.Scoped(directory, "project"))
+	projectID, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "p", Name: "P"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true})
+	service := conformance.New(db, access.Checked{Authority: identity.Scoped(directory, "conformance"), Projects: projects}, noAdoptedChecks{}, nil)
+	daemon := dockerfake.New()
+	scope := docker.Scope{Client: daemon}
+	effects := &scannerEffects{t: t}
+	scanners := NewScanners(ScannerDependencies{DB: db, Docker: &scope, Executor: daemonExecutor(scope), Conformance: service,
+		Evaluator: NewEvaluator(effects, nil), Integrations: integration.NewService(db, integration.Dependencies{Projects: projects}), Dependencies: dependency.NewCatalog(db, nil)})
+	return scannerOwnerFixture{DB: db, ProjectID: projectID, Context: ctx, Conformance: service, Scanners: scanners, Daemon: daemon, Effects: effects}
+}
+
+// noAdoptedChecks is a check source with nothing adopted: the fixture's
+// projects adopt no way of working. It reads no repository head.
+type noAdoptedChecks struct{ conformance.Source }
+
+func (noAdoptedChecks) HistoricalChecksIn(context.Context, database.Queryer, []conformance.CheckVersion) ([]conformance.DeclaredCheck, error) {
+	return nil, nil
+}
+
+func (noAdoptedChecks) ChecksIn(context.Context, database.Queryer, []ids.ID) (map[ids.ID][]conformance.DeclaredCheck, error) {
+	return map[ids.ID][]conformance.DeclaredCheck{}, nil
+}
+
+func (f scannerOwnerFixture) bind(t *testing.T, name string, cfg map[string]any) {
+	t.Helper()
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := integration.New(f.DB).Upsert(f.Context, name, ScannerCapability, "tool", string(b), true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func scannerSARIF(n int) string {
+	var results []string
+	for i := 0; i < n; i++ {
+		results = append(results, `{"ruleId":"django.security.audit.sql-injection","level":"error","message":{"text":"Potential SQL injection"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"app/views.py"},"region":{"startLine":12}}}]}`)
+	}
+	return `{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"semgrep","rules":[` +
+		`{"id":"django.security.audit.sql-injection","defaultConfiguration":{"level":"error"},"properties":{"security-severity":"7.5"}}]}},` +
+		`"results":[` + strings.Join(results, ",") + `]}]}`
+}
+
+func (f scannerOwnerFixture) semgrep(t *testing.T) {
+	f.bind(t, "semgrep-django", map[string]any{
+		"image": "semgrep/semgrep:test", "command": []string{"semgrep", "/work"},
+		"report": ".forge/semgrep.sarif", "network": true, "format": "sarif",
+		"kind": "sast", "target": "source", "manual": true,
+	})
+}
+
+// daemonExecutor is a check executor backed by a fake daemon: the same
+// Docker commands the local executor would issue, so a test sees and
+// answers them.
+func daemonExecutor(scope docker.Scope) Executor {
+	inspect := func(ref string) (execution.ImageAnswer, bool) {
+		if _, err := scope.Run(context.Background(), "image", "inspect", ref); err != nil {
+			return execution.ImageAnswer{}, false
+		}
+		return execution.ImageAnswer{ID: ref}, true
+	}
+	return Executor{
+		Local: true,
+		Image: func(_ context.Context, req execution.ImageRequest) execution.ImageAnswer {
+			if req.Tag != "" {
+				if a, ok := inspect(req.Tag); ok {
+					return a
+				}
+			}
+			switch {
+			case req.Pull != "":
+				if out, err := scope.Run(context.Background(), "pull", req.Pull); err != nil {
+					return execution.ImageAnswer{Err: string(out)}
+				}
+				return execution.ImageAnswer{ID: req.Pull}
+			case req.Context != "":
+				if !req.AllowBuild {
+					return execution.ImageAnswer{NotBuilt: true}
+				}
+				if out, err := scope.Run(context.Background(), "build", "-t", req.Tag, filepath.Join(req.Tree, req.Context)); err != nil {
+					return execution.ImageAnswer{Err: fmt.Sprintf("building the app image: %v: %s", err, out)}
+				}
+				return execution.ImageAnswer{ID: req.Tag}
+			}
+			return execution.ImageAnswer{}
+		},
+		Run: func(_ context.Context, req execution.Request) execution.Outcome {
+			args := []string{"run", "--rm", "--network", req.Network}
+			for _, e := range req.Env {
+				args = append(args, "-e", e)
+			}
+			out, err := scope.Run(context.Background(), append(append(args, req.Image), req.Argv...)...)
+			var ee *exec.ExitError
+			switch {
+			case err == nil:
+				return execution.Outcome{Termination: execution.Exited, Output: out}
+			case errors.As(err, &ee):
+				return execution.Outcome{Termination: execution.Exited, ExitCode: ee.ExitCode(), Output: out}
+			}
+			return execution.Outcome{Termination: execution.LaunchFailed, ExitCode: -1, RunErr: err, Output: out}
+		},
+	}
+}

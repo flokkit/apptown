@@ -1,0 +1,59 @@
+{
+  "allowed": {
+    "internal/console/pi": "runs the agent console's container with an interactive terminal",
+    "internal/deploy/docker": "the docker CLI: which daemon a command talks to, and the build environment it must not inherit",
+    "internal/execution": "the generic process runner: process groups, timeouts, the environment, streamed and bounded output, and the docker runs it places work in",
+    "internal/gitexec": "git: gitexec.Command is the one constructor for every git the repository starts by name (and tar, to unpack a commit's tree)",
+    "internal/worker": "the execution host: runs the tasks, checks and sessions a forge sends it"
+  },
+  "git": {
+    "file": "internal/gitexec/gitexec.go",
+    "why": "gitexec.Command, the one constructor every git the repository starts by name builds on; inside the allowed packages too"
+  },
+  "packages": {
+    "cmd/forge": {
+      "count": 3,
+      "why": "forge dev up runs the person's docker compose on their terminal with their whole environment, their Buildx builder included (docker.CLI drops it, as the forge's own builds must); dev_test runs compose config in a project folder, as dev up does"
+    },
+    "cmd/forge-check": {
+      "count": 1,
+      "why": "the checklist completer gives the prompt to the person's command on stdin and passes its stderr to their terminal; execution.Runner takes no stdin and merges the streams"
+    },
+    "cmd/forge-worker": {
+      "count": 1,
+      "why": "the -docker test starts the built forge-worker as a server with a PATH holding only the fake docker, and stops it by its pid"
+    },
+    "cmd/forged": {
+      "count": 1,
+      "why": "the SIGTERM test runs this test binary as a child and signals it"
+    },
+    "internal/console": {
+      "count": 1,
+      "why": "toolchain_test reads the command's stdout and stderr apart, with a PATH of its own first; execution.Runner merges them"
+    },
+    "internal/console/consoletest": {
+      "count": 1,
+      "why": "the fake runtime's Script streams a script's stdout alone to the caller, as the real runtime's container does; execution.Runner merges stderr into it"
+    },
+    "internal/forge": {
+      "count": 1,
+      "why": "inference_pi_test runs the pinned Pi SDK with exactly PATH, HOME and its own variables, so no ambient provider key reaches it; execution.Runner passes the process's environment through"
+    },
+    "internal/forge/jobs": {
+      "count": 1,
+      "why": "the River crash test starts this test binary as a child, reads its progress as it streams and kills it mid-job: a process it holds, which no owner's interface hands back"
+    },
+    "internal/forge/workflowexec": {
+      "count": 1,
+      "why": "reconcile_guidance_test runs the chat's catch-up command with only the variables it names (no HOME, so no personal git config); execution.Runner would add the process's environment"
+    },
+    "internal/worker/workertest": {
+      "count": 1,
+      "why": "StartOnHost runs forge-worker as a long-lived process on this machine and stops and restarts it by its pid"
+    },
+    "scripts": {
+      "count": 1,
+      "why": "lint-check runs golangci-lint and reads its report: a gate's own program starting the tool it checks"
+    }
+  }
+}

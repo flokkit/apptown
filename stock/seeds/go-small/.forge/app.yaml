@@ -1,0 +1,8 @@
+app:
+  web:
+    build: .
+    ports: ["8080"]
+    public: true
+    resources: { memory: 48M }
+    health:
+      readiness: { http: /healthz }

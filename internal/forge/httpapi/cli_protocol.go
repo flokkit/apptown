@@ -1,0 +1,28 @@
+package httpapi
+
+import (
+	"net/http"
+	"strconv"
+
+	"flokkit.io/forge/internal/version"
+)
+
+// CLIProtocol names this forge's version on every response and refuses a
+// CLI that states a protocol outside the range this forge accepts, with a
+// sentence the CLI prints. A request that states none (a browser, an MCP
+// client, curl, or a CLI built before protocols were stated) is served.
+func CLIProtocol(next http.Handler) http.Handler {
+	v := version.String()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(version.Header, v)
+		if h := r.Header.Get(version.CLIProtocolHeader); h != "" {
+			n, err := strconv.Atoi(h)
+			if err != nil || n < version.CLIProtocolMin || n > version.CLIProtocolMax {
+				WriteError(w, http.StatusUpgradeRequired, "this forge (%s) accepts CLI protocols %d to %d; this CLI speaks %q: use the forge CLI from the same release as the forge",
+					v, version.CLIProtocolMin, version.CLIProtocolMax, h)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}

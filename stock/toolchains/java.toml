@@ -1,0 +1,7 @@
+# Forge stock toolchain: Java
+# Way of working: PIN TEMURIN — other vendors (zulu, corretto) download from
+# their own CDNs and bypass the mirror. Maven deps via the ambient
+# settings.xml (MAVEN_ARGS); the maven tool itself via the apache-dist mirror.
+[tools]
+java = "temurin-21.0.5+11.0.LTS"
+maven = "3.9.9"

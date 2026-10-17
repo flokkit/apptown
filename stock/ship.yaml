@@ -1,0 +1,37 @@
+# Stock workflow: ship — the shared ship lane (design/subsystems/composition.md §2).
+# A callable pipeline: deploy to prod, require the release record. Change
+# lanes may end with `workflow/call: ship` so the shipping gate lives in ONE
+# place. Its scans are POINTS (on: source, on: image) that expand to every
+# attached scanner with that target — attach one, every lane gets it.
+apiVersion: forge.flokkit.io/v1
+kind: Workflow
+metadata:
+  name: ship
+  system: true
+  category: landing
+  description: >-
+    Scan the source and the image, deploy to the main deployment, and require the release record. Other workflows call it; a pack's shipping checks are kept here.
+spec:
+  role: landing
+  kind: pipeline
+  workspace: project
+  stages:
+    # Security gates run before anything reaches prod. Because every change
+    # lane calls this workflow, hardening every lane == editing this file.
+    - name: scan
+      steps:
+        - name: scan-source
+          uses: scan
+          with: { on: source }
+        - name: scan-image
+          uses: scan
+          with: { on: image, failOn: high }
+    - name: ship
+      onEnter:
+        - name: redeploy
+          uses: deploy
+          with: { deployment: main }
+      steps:
+        - name: release-exists
+          uses: artifact/require
+          with: { kind: release }

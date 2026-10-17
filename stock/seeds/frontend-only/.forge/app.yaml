@@ -1,0 +1,6 @@
+app:
+  web:
+    static:
+      build: .
+      output: dist
+    public: true

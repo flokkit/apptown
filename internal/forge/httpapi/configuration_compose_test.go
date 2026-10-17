@@ -1,0 +1,61 @@
+package httpapi
+
+import (
+	"encoding/json"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"gopkg.in/yaml.v3"
+)
+
+func TestDevComposeHTTPDistinguishesHostNeedsFromFullApplication(t *testing.T) {
+	t.Parallel()
+	h := configurationFixture(t)
+	source := `app:
+  web: {build: ., command: ["./web"], ports: ["8080"], public: true}
+  worker: {image: worker:1, command: ["./worker"]}
+needs:
+  postgres: {version: "16"}
+`
+	for _, mode := range []string{"", "full"} {
+		raw, _ := json.Marshal(map[string]string{"appYaml": source, "mode": mode})
+		r := httptest.NewRequest("POST", "/", strings.NewReader(string(raw)))
+		w := httptest.NewRecorder()
+		h.DevCompose(w, r)
+		var out struct {
+			Compose, Procfile string
+			Env               map[string]string
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 200 {
+			t.Fatalf("compose: %d %s %v", w.Code, w.Body.String(), err)
+		}
+		var compose struct {
+			Services map[string]struct {
+				Image       string
+				Ports       []string
+				Environment map[string]string
+			}
+		}
+		if err := yaml.Unmarshal([]byte(out.Compose), &compose); err != nil {
+			t.Fatal(err)
+		}
+		_, hasWeb := compose.Services["web"]
+		if hasWeb != (mode == "full") || compose.Services["postgres"].Image != "postgres:16-alpine" || !strings.Contains(out.Env["DATABASE_URL"], "localhost:5432") || out.Procfile != "web: ./web\nworker: ./worker\n" {
+			t.Fatalf("wrong local run plan for %q: %+v", mode, out)
+		}
+		if mode == "" && (len(compose.Services) != 1 || len(compose.Services["postgres"].Ports) != 1 || compose.Services["postgres"].Ports[0] != "5432:5432") {
+			t.Fatalf("needs must be reachable from host: %s", out.Compose)
+		}
+		if mode == "full" && !strings.Contains(compose.Services["web"].Environment["DATABASE_URL"], "postgres:5432") {
+			t.Fatalf("container needs address: %s", out.Compose)
+		}
+	}
+	for _, body := range []string{`{`, `{"appYaml":"app: ["}`, `{"appYaml":"app: {web: {image: web:1, public: true}}"}`, `{"appYaml":"app: {web: {image: web:1, public: true}}\nneeds: {unknown: {}}"}`} {
+		w := httptest.NewRecorder()
+		h.DevCompose(w, httptest.NewRequest("POST", "/", strings.NewReader(body)))
+		if w.Code != 400 {
+			t.Fatalf("invalid compose request: %d %s", w.Code, w.Body.String())
+		}
+	}
+}

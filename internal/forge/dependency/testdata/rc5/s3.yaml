@@ -1,0 +1,363 @@
+# Dependency: S3-compatible object storage.
+# The app declares `needs: {s3: {}}`. Each target fulfils it: a Docker host
+# and Portainer run a local S3 server beside the app; App Platform makes a
+# Spaces bucket and a key for it alone (internal/deploy/digitalocean,
+# storage.go). The app reads the same variables wherever it runs (provides,
+# below).
+capability: s3
+title: Object storage (S3)
+icon: 🪣
+description: Read and write objects to an S3-compatible store.
+
+# The contract with the app, the same on every target (the services-and-data guide, "What
+# each need gives the app"): the bucket exists before the app starts and is
+# the deployment's; the key reaches that bucket alone; address it
+# path-style. The forge gives no public address for objects; creating a
+# bucket is refused everywhere, and listing buckets, deleting the bucket and
+# object ACLs are outside the contract.
+provides:
+  AWS_ENDPOINT_URL_S3: the store's S3 endpoint, always set (AWS SDKs read it)
+  AWS_ACCESS_KEY_ID: the key for this deployment's bucket
+  AWS_SECRET_ACCESS_KEY: the key's secret
+  AWS_REGION: the store's region
+  S3_BUCKET: the deployment's bucket, which exists before the app starts
+
+# Docker provider: a local S3 server stands in for S3. It is the Versity S3
+# Gateway (Apache-2.0, versioned releases on Docker Hub) over plain files:
+# each bucket is a directory under /data and each object a file in it, with
+# its metadata (content type, user metadata, ETag) in extended attributes.
+# MinIO was the emulator until October 2026, when its images stopped being
+# pullable from Docker Hub and quay.io; a fresh host could not start it.
+#
+# The start script readies the store for the app before it says it is
+# healthy, so the app starts only after it: the bucket app exists, and the
+# app's key is an account with the gateway's user role that owns it. That
+# account can put, get, list and delete objects there and is refused
+# making a bucket, as a key for one bucket is on a cloud store. The
+# gateway's root key is the forge's and is never given to the app. The
+# accounts live in /tmp, out of the data and its backups, and are made
+# again, with the bucket's owner, at every start: so a changed key or
+# script remakes the store on its own volume (configAtStart).
+#
+# The forge's values, in the words a copy's connection uses: the app's
+# access key is its user, the key's secret its password, and the bucket its
+# database.
+credentials:
+  user: local
+  password: localsecret
+  database: app
+  root_key: forge-s3-root
+  root_secret: forge-s3-root-secret
+local:
+  image: versity/versitygw:v1.8.0
+  data: /data
+  port: 9000
+  configAtStart: true
+  entrypoint: ["/bin/sh", "-c"]
+  command:
+    - |
+      set -eu
+      rm -rf /tmp/forge-iam /tmp/forge-ready
+      mkdir -p /tmp/forge-iam "/data/$BUCKET"
+      versitygw --port :9000 --admin-port 127.0.0.1:9001 --iam-dir /tmp/forge-iam posix /data &
+      gateway=$!
+      trap 'kill -TERM "$gateway"' TERM INT
+      admin() { versitygw admin -a "$ROOT_ACCESS_KEY_ID" -s "$ROOT_SECRET_ACCESS_KEY" --endpoint-url http://127.0.0.1:9001 "$@" >/dev/null; }
+      until admin list-users 2>/dev/null; do
+        kill -0 "$gateway" 2>/dev/null || exit 1
+        sleep 0.2
+      done
+      admin create-user -a "$APP_ACCESS_KEY_ID" -s "$APP_SECRET_ACCESS_KEY" -r user
+      admin change-bucket-owner -b "$BUCKET" -o "$APP_ACCESS_KEY_ID"
+      touch /tmp/forge-ready
+      wait "$gateway"
+  health: test -f /tmp/forge-ready
+  env:
+    ROOT_ACCESS_KEY_ID: "{root_key}"
+    ROOT_SECRET_ACCESS_KEY: "{root_secret}"
+    APP_ACCESS_KEY_ID: "{user}"
+    APP_SECRET_ACCESS_KEY: "{password}"
+    BUCKET: "{database}"
+  # Injected INTO THE APP so it talks to the emulator. {host} = the emulator's
+  # network alias (the capability name).
+  inject:
+    AWS_ENDPOINT_URL_S3: "http://{host}:9000"
+    AWS_ACCESS_KEY_ID: "{user}"
+    AWS_SECRET_ACCESS_KEY: "{password}"
+    AWS_REGION: us-east-1
+    S3_BUCKET: "{database}"
+
+# On App Platform the bucket is a Spaces bucket the target's storage module
+# makes (internal/deploy/digitalocean, storage.go). The forge copies it from
+# the copy runner named on the target, as the deployment's own key for that
+# bucket, and checks a copy by filling a new store of this kind there.
+cloud:
+  digitalocean:
+    kind: bucket
+    reach: { how: connect, from: named-host, credential: app-user }
+
+# The copy (design/subsystems/deployment.md, "Backups and restore"): the
+# bucket's objects through the S3 API, wherever the bucket is, so a copy
+# keeps each object's content type and metadata and fills any S3 store.
+# The program below is the whole copy: export writes a tar of every
+# object (its bytes, and its key, size, checksums and headers), import
+# fills an empty bucket from it, restore puts it back in place (every
+# object, then deletes those not in the copy), and verify, with the copy
+# on stdin, holds the bucket to it: the same keys, sizes, headers and
+# bytes (the store's MD5 ETag, else the object read back and hashed). It
+# runs in a client container beside the store (runIn), because the
+# gateway's image has no copy tool.
+copy:
+  format: s3-objects
+  ext: tar
+  client: python:3.13.16-alpine3.24
+  runIn: client
+  export: python3 -c "$S3_COPY_PROGRAM" export
+  import: python3 -c "$S3_COPY_PROGRAM" import
+  restore: python3 -c "$S3_COPY_PROGRAM" restore
+  verify: python3 -c "$S3_COPY_PROGRAM" verify
+  caveat: object ACLs, tags and versions are not copied; restored objects have new modification times, and an object uploaded in parts comes back with a different ETag
+  env:
+    S3_HOST: "{host}"
+    S3_PORT: "{port}"
+    S3_TLS: "{sslmode}"
+    S3_BUCKET: "{database}"
+    S3_ACCESS_KEY_ID: "{user}"
+    S3_SECRET_ACCESS_KEY: "{password}"
+    S3_COPY_PROGRAM: |
+      import base64, datetime, hashlib, hmac, http.client, io, json, os, re, sys, tarfile, tempfile, urllib.parse
+      import xml.etree.ElementTree as ET
+
+      # The forge's copy of one bucket, through the S3 API. A copy is a tar:
+      # for each object obj/<n> (its bytes) then meta/<n>.json (its key, size,
+      # ETag, MD5, SHA-256 and the headers below); manifest.json last, with the
+      # count and bytes. export writes it to stdout; import, restore and verify
+      # read it from stdin. Any error, short read or mismatch exits 1 with why.
+      E = os.environ
+      HOST, PORT, TLS = E["S3_HOST"], int(E["S3_PORT"]), E.get("S3_TLS") == "require"
+      BUCKET, KEY, SECRET = E["S3_BUCKET"], E["S3_ACCESS_KEY_ID"], E["S3_SECRET_ACCESS_KEY"]
+      REGION = "us-east-1"  # answered by every S3-compatible store the forge uses
+      KEPT = ("content-type", "cache-control", "content-disposition", "content-encoding", "content-language", "expires")
+      LARGEST = 5 * 1024 ** 3  # one PUT
+
+
+      def fail(why):
+          sys.stderr.write(why + "\n")
+          sys.exit(1)
+
+
+      def connect():
+          if TLS:
+              return http.client.HTTPSConnection(HOST, PORT, timeout=300)
+          return http.client.HTTPConnection(HOST, PORT, timeout=300)
+
+
+      conn = connect()
+      netloc = HOST if PORT in (80, 443) else HOST + ":" + str(PORT)
+
+
+      def call(method, key="", query=None, headers=None, body=None, length=None):
+          global conn
+          path = "/" + urllib.parse.quote(BUCKET, safe="")
+          if key:
+              path += "/" + urllib.parse.quote(key, safe="/~")
+          q = "&".join(urllib.parse.quote(k, safe="~") + "=" + urllib.parse.quote(v, safe="~") for k, v in sorted((query or dict()).items()))
+          now = datetime.datetime.now(datetime.timezone.utc)
+          stamp, day = now.strftime("%Y%m%dT%H%M%SZ"), now.strftime("%Y%m%d")
+          h = dict((k.lower(), v) for k, v in (headers or dict()).items())
+          h.update(host=netloc)
+          h["x-amz-date"], h["x-amz-content-sha256"] = stamp, "UNSIGNED-PAYLOAD"
+          if length is not None:
+              h["content-length"] = str(length)
+          names = sorted(h)
+          # SigV4 signs each header value trimmed, with runs of spaces as one;
+          # the value itself is sent as it is.
+          canonical = "\n".join([method, path, q, "".join(n + ":" + re.sub(" +", " ", str(h[n]).strip()) + "\n" for n in names), ";".join(names), "UNSIGNED-PAYLOAD"])
+          scope = day + "/" + REGION + "/s3/aws4_request"
+          to_sign = "\n".join(["AWS4-HMAC-SHA256", stamp, scope, hashlib.sha256(canonical.encode()).hexdigest()])
+          k = ("AWS4" + SECRET).encode()
+          for part in (day, REGION, "s3", "aws4_request"):
+              k = hmac.new(k, part.encode(), hashlib.sha256).digest()
+          h["authorization"] = "AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s" % (
+              KEY, scope, ";".join(names), hmac.new(k, to_sign.encode(), hashlib.sha256).hexdigest())
+          for attempt in (1, 2):
+              try:
+                  conn.putrequest(method, path + ("?" + q if q else ""), skip_host=True, skip_accept_encoding=True)
+                  for n in names + ["authorization"]:
+                      conn.putheader(n, h[n])
+                  conn.endheaders()
+                  if body is not None:
+                      while True:
+                          chunk = body.read(1 << 20)
+                          if not chunk:
+                              break
+                          conn.send(chunk)
+                  return conn.getresponse()
+              except (http.client.HTTPException, OSError) as e:
+                  conn.close()
+                  conn = connect()
+                  # A request with a body is not sent twice: its body is spent.
+                  if attempt == 2 or body is not None:
+                      fail("%s %s: %s" % (method, key or BUCKET, e))
+
+
+      def ok(r, what):
+          if r.status // 100 != 2:
+              fail("%s: the store answered %d %s" % (what, r.status, r.read(300).decode(errors="replace").strip()))
+          return r
+
+
+      def listing():
+          token = None
+          while True:
+              q = {"list-type": "2"}
+              if token:
+                  q["continuation-token"] = token
+              root = ET.fromstring(ok(call("GET", query=q), "listing bucket " + BUCKET).read())
+              ns = root.tag.split("}")[0] + "}" if root.tag.startswith("{") else ""
+              for c in root.findall(ns + "Contents"):
+                  yield c.find(ns + "Key").text, int(c.find(ns + "Size").text)
+              if root.findtext(ns + "IsTruncated") != "true":
+                  return
+              token = root.findtext(ns + "NextContinuationToken")
+
+
+      def described(headers):
+          headers = dict((k.lower(), v) for k, v in headers)
+          m = {"etag": headers.get("etag", "").strip('"'), "size": int(headers.get("content-length", "0")), "headers": dict()}
+          for k, v in headers.items():
+              if k in KEPT or k.startswith("x-amz-meta-"):
+                  m["headers"][k] = v
+          return m
+
+
+      class Hashing:
+          def __init__(self, f):
+              self.f, self.md5, self.sha, self.n = f, hashlib.md5(), hashlib.sha256(), 0
+
+          def read(self, n=-1):
+              b = self.f.read(n)
+              self.md5.update(b)
+              self.sha.update(b)
+              self.n += len(b)
+              return b
+
+
+      def member(out, name, data):
+          info = tarfile.TarInfo(name)
+          info.size = len(data)
+          out.addfile(info, io.BytesIO(data))
+
+
+      def export():
+          out = tarfile.open(fileobj=sys.stdout.buffer, mode="w|")
+          count = total = 0
+          for key, size in listing():
+              if size > LARGEST:
+                  fail("%s is larger than 5 GiB, which the copy could not put back in one PUT" % key)
+              r = ok(call("GET", key), "reading " + key)
+              m = described(r.getheaders())
+              body = Hashing(r)
+              info = tarfile.TarInfo("obj/%d" % count)
+              info.size = m["size"]
+              out.addfile(info, body)
+              if body.n != m["size"]:
+                  fail("%s: read %d of its %d bytes" % (key, body.n, m["size"]))
+              m.update(key=key, md5=body.md5.hexdigest(), sha256=body.sha.hexdigest())
+              if m["etag"] and "-" not in m["etag"] and m["etag"] != m["md5"]:
+                  fail("%s: what was read does not match the store's checksum (ETag)" % key)
+              member(out, "meta/%d.json" % count, json.dumps(m).encode())
+              count, total = count + 1, total + m["size"]
+          member(out, "manifest.json", json.dumps({"bucket": BUCKET, "objects": count, "bytes": total}).encode())
+          out.close()
+          sys.stderr.write("copied %d objects, %d bytes\n" % (count, total))
+
+
+      def read_copy(each):
+          # obj/<n> comes before meta/<n>.json: its bytes wait in a temporary
+          # file until its description is read.
+          t = tarfile.open(fileobj=sys.stdin.buffer, mode="r|")
+          held, keys, manifest = None, set(), None
+          for e in t:
+              f = t.extractfile(e)
+              if e.name.startswith("obj/"):
+                  held = tempfile.TemporaryFile()
+                  while True:
+                      chunk = f.read(1 << 20)
+                      if not chunk:
+                          break
+                      held.write(chunk)
+              elif e.name.startswith("meta/"):
+                  m = json.loads(f.read())
+                  if held is None:
+                      fail("the copy is malformed: %s has no bytes before it" % m["key"])
+                  held.seek(0)
+                  each(m, held)
+                  held.close()
+                  held = None
+                  keys.add(m["key"])
+              elif e.name == "manifest.json":
+                  manifest = json.loads(f.read())
+          if manifest is None or manifest["objects"] != len(keys):
+              fail("the copy is incomplete: it has no manifest, or its count differs from the objects it holds")
+          return keys, manifest
+
+
+      def put(m, f):
+          if m["size"] > LARGEST:
+              fail("%s is larger than 5 GiB, which the forge's copy does not put back" % m["key"])
+          h = dict(m["headers"])
+          h["content-md5"] = base64.b64encode(bytes.fromhex(m["md5"])).decode()
+          ok(call("PUT", m["key"], headers=h, body=f, length=m["size"]), "writing " + m["key"]).read()
+
+
+      def fill(in_place):
+          if not in_place:
+              for key, _ in listing():
+                  fail("bucket %s already holds objects (%s); a copy fills only an empty one" % (BUCKET, key))
+          keys, manifest = read_copy(put)
+          if in_place:
+              for key, _ in list(listing()):
+                  if key not in keys:
+                      ok(call("DELETE", key), "deleting " + key).read()
+          sys.stderr.write("put %d objects, %d bytes\n" % (len(keys), manifest["bytes"]))
+
+
+      def verify():
+          want = dict()
+          keys, manifest = read_copy(lambda m, f: want.__setitem__(m["key"], m))
+          got = dict(listing())
+          missing, extra = sorted(set(want) - set(got)), sorted(set(got) - set(want))
+          if missing or extra:
+              fail("bucket %s holds %d objects and the copy %d (missing: %s; not in the copy: %s)" % (BUCKET, len(got), len(want), missing[:5], extra[:5]))
+          bad = []
+          for key, m in sorted(want.items()):
+              r = ok(call("HEAD", key), "reading " + key)
+              r.read()
+              h = described(r.getheaders())
+              if h["size"] != m["size"] or h["headers"] != m["headers"]:
+                  bad.append(key)
+              elif h["etag"] and "-" not in h["etag"]:
+                  # A one-part ETag is the object's MD5: the store vouches for its bytes.
+                  if h["etag"] != m["md5"]:
+                      bad.append(key)
+              else:
+                  # No checksum from the store (an object uploaded in parts): its
+                  # bytes are read back and hashed.
+                  body = Hashing(ok(call("GET", key), "reading " + key))
+                  while body.read(1 << 20):
+                      pass
+                  if body.n != m["size"] or body.sha.hexdigest() != m["sha256"]:
+                      bad.append(key)
+          if bad:
+              fail("%d objects differ from the copy in size, checksum, content type or metadata: %s" % (len(bad), bad[:5]))
+          sys.stderr.write("verified %d objects, %d bytes\n" % (len(want), manifest["bytes"]))
+
+
+      steps = {"export": export, "import": lambda: fill(False), "restore": lambda: fill(True), "verify": verify}
+      if len(sys.argv) != 2 or sys.argv[1] not in steps:
+          fail("usage: export | import | restore | verify")
+      try:
+          steps[sys.argv[1]]()
+      except (tarfile.TarError, ValueError, KeyError) as e:
+          fail("the copy cannot be read: %s" % e)

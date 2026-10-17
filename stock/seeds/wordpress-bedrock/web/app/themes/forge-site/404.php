@@ -1,0 +1,1 @@
+<?php get_header(); ?><main id="main" class="wrap article"><h1>Page not found</h1><p>Try a search or return to <a href="<?php echo esc_url(home_url('/')); ?>">the home page</a>.</p><?php get_search_form(); ?></main><?php get_footer(); ?>

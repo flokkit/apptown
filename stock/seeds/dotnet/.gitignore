@@ -1,0 +1,8 @@
+# What the .NET build writes.
+[Bb]in/
+[Oo]bj/
+# IDE and test-run state.
+.vs/
+.idea/
+*.user
+TestResults/

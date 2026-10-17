@@ -1,0 +1,102 @@
+{
+  "foreign": [
+    {
+      "file": "internal/forge/jobs/internal/jobsql/queries.sql",
+      "declaration": "SettleInterruptedOperation",
+      "table": "river_job",
+      "declaration_hash": "",
+      "owner": null,
+      "reason": "River v0.47.0 owns this external table. Reviewed exclusive-startup settlement only, fenced by kind/running state/last client; pinned contract and subprocess-crash tests protect transition semantics."
+    }
+  ],
+  "dynamic": [
+    {
+      "file": "internal/database/database.go",
+      "declaration": "DB.Exec",
+      "text": "Rebind(query)",
+      "declaration_hash": "f7bde37acfd8c413f4878fd23d6f064273c80a8557b74af36df7e05268ecd15d",
+      "tables": [],
+      "reason": "Database adapter forwards its caller SQL through placeholder rebinding; callsite literals checked separately."
+    },
+    {
+      "file": "internal/database/database.go",
+      "declaration": "Tx.Exec",
+      "text": "Rebind(query)",
+      "declaration_hash": "d46b727990163f662c015232566e238791ba90ba4ec8afeb46e85eb9d0794006",
+      "tables": [],
+      "reason": "Transaction adapter forwards its caller SQL through placeholder rebinding; callsite literals checked separately."
+    },
+    {
+      "file": "internal/database/queries.go",
+      "declaration": "Handle.ExecContext",
+      "text": "q",
+      "declaration_hash": "6ccc758415601cd041dd92c62f6e36d8d1e6e6157f087ceaeb64288c5f3b63d0",
+      "tables": [],
+      "reason": "Database handle forwards its caller SQL through the injected executor; callsite literals checked separately."
+    },
+    {
+      "file": "internal/dbtest/suite.go",
+      "declaration": "Suite.New",
+      "text": "fmt.Sprintf(`CREATE DATABASE %s TEMPLATE %s STRATEGY FILE_COPY`, name, s.template)",
+      "declaration_hash": "2944c10fda8736e561e1ae961741979ea0838230b4ce131791f1487e6b487f8b",
+      "tables": [],
+      "reason": "Test harness clones a private database, not application table DML."
+    },
+    {
+      "file": "internal/dbtest/suite.go",
+      "declaration": "Suite.setup",
+      "text": "fmt.Sprintf(`CREATE DATABASE %s`, s.template)",
+      "declaration_hash": "0262f1503441b8283b9944ffeeca27692f7e5ea4a3a5188e0c801ba5100b38b2",
+      "tables": [],
+      "reason": "Test harness creates its private template database."
+    },
+    {
+      "file": "internal/dbtest/suite.go",
+      "declaration": "Suite.drop",
+      "text": "fmt.Sprintf(`DROP DATABASE IF EXISTS %s WITH (FORCE)`, name)",
+      "declaration_hash": "66cc5ef381082cb18ba9aded5b1c81465ce06f7553a3db94b8ebe2c68276188e",
+      "tables": [],
+      "reason": "Test harness removes only its own generated database names."
+    },
+    {
+      "file": "internal/deploy/digitalocean/database.go",
+      "declaration": "ownDatabase",
+      "text": "ctx",
+      "declaration_hash": "cc50f0fcff5577be5b1469d1ee8d5caf05acd3f3190b9f3e74166410f3ae4c9d",
+      "tables": [],
+      "reason": "Cloud execution.Runner.Exec(ctx, request) is a process port, not database SQL."
+    },
+    {
+      "file": "internal/forge/dbschema/schema.go",
+      "declaration": "Migrate",
+      "text": "schemaSQL",
+      "declaration_hash": "665970e0c52b53fb50db5e05347c6586295151e1ae6f66a82201753b7915c3be",
+      "tables": [],
+      "reason": "Executes the embedded canonical DDL for an empty database only."
+    },
+    {
+      "file": "internal/forge/dbschema/schema.go",
+      "declaration": "applyMigration",
+      "text": "q",
+      "declaration_hash": "b9f5807283cd6e2535a7d4551d003e9aeee8125d8f8c042e686a95534e207ea5",
+      "tables": [],
+      "reason": "Executes statements from the central checked numbered migration list."
+    },
+    {
+      "file": "internal/dbtest/snapshot.go",
+      "declaration": "Restore",
+      "text": "schemaSQL",
+      "declaration_hash": "23e3bc07b9676edf057fa87197edc9a145ef0a6eccbb425991ad7ca2a4a575f9",
+      "tables": [],
+      "reason": "Test harness: Restore runs a frozen release's own schema into an emptied test database so the upgrade test can start from that release; never reached by production."
+    },
+    {
+      "file": "internal/dbtest/snapshot.go",
+      "declaration": "Restore",
+      "text": "stmt",
+      "declaration_hash": "23e3bc07b9676edf057fa87197edc9a145ef0a6eccbb425991ad7ca2a4a575f9",
+      "tables": [],
+      "reason": "Test harness: Restore puts a frozen release's rows back into the tables of that release's schema, built from the catalog, for the upgrade test; never reached by production."
+    }
+  ]
+}

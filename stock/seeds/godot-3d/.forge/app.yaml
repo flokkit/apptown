@@ -1,0 +1,9 @@
+app:
+  game:
+    build: .
+    ports: ["8080"]
+    public: true
+    resources: { memory: 32M }
+    health:
+      readiness:
+        http: /healthz

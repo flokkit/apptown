@@ -1,0 +1,59 @@
+# Dependency: a Redis cache / key-value store.
+# The app declares `x-forge-needs: [redis]` (or {redis: {version: "7"}}). The
+# docker provider runs a local redis container; no managed target offers it
+# yet, so they refuse it. The app reads REDIS_URL.
+capability: redis
+resources: {memory: 64M}
+title: Redis
+icon: ⚡
+description: "Experimental: no app has shipped with it yet. An in-memory cache / key-value store. The app connects with REDIS_URL."
+
+defaults:
+  version: "7"
+
+# The contract with the app, the same on every target. The data is kept
+# across restarts and backed up where the target backs up, unless the app
+# marks the need disposable: true; a target that cannot keep it refuses a
+# Redis that is not disposable.
+provides:
+  REDIS_URL: the connection URL, redis:// or rediss:// (TLS), with a user and password when the server needs them
+
+local:
+  image: redis:{version}-alpine
+  data: /data
+  port: 6379
+  health: "redis-cli ping"
+  # REDIS_URL alone: a managed Redis needs a password and TLS, which a
+  # host and port cannot carry (REDIS_HOST and REDIS_PORT were withdrawn
+  # before 1.0).
+  inject:
+    REDIS_URL: "redis://{host}:6379"
+
+# A copy of what Redis holds now, and a restore Redis has loaded, both run
+# inside its own container. It fills no new place (no format or import).
+# The image runs redis-server with no config: snapshots go to
+# /data/dump.rdb and there is no append-only file, so dump.rdb is all of it.
+copy:
+  # SAVE writes everything in memory to dump.rdb before it is copied; the
+  # file on its own is only the last automatic snapshot, minutes old.
+  export: '[ "$(redis-cli SAVE)" = OK ] && cat /data/dump.rdb'
+  ext: rdb
+  # Redis reads dump.rdb only when it starts, and saves over it when it
+  # stops. So the restore runs with the container stopped (after its
+  # shutdown save), puts the copy in place, and Redis loads it on start.
+  restoreStopped: true
+  restore: 'cat > /data/dump.rdb.restoring && chown redis:redis /data/dump.rdb.restoring && mv /data/dump.rdb.restoring /data/dump.rdb'
+  # Confirmed only when the file in place is the copy and Redis, once it
+  # answers, holds as many keys as the copy does, across every logical
+  # database: redis-check-rdb counts them all, and INFO keyspace has one
+  # line per database (DBSIZE alone is database 0). Keys already expired
+  # in the copy are not loaded.
+  verify: |
+    cmp -s - /data/dump.rdb || { echo "the data file is not the copy"; exit 1; }
+    check=$(redis-check-rdb /data/dump.rdb) || { echo "$check" | tail -3; exit 1; }
+    copied=$(echo "$check" | sed -n 's/^\[info\] \([0-9]*\) keys read$/\1/p')
+    expired=$(echo "$check" | sed -n 's/^\[info\] \([0-9]*\) already expired$/\1/p')
+    want=$(( ${copied:-0} - ${expired:-0} ))
+    i=0; until [ "$(redis-cli PING 2>/dev/null)" = PONG ]; do i=$((i+1)); [ $i -ge 60 ] && { echo "redis did not answer"; exit 1; }; sleep 1; done
+    keys=$(redis-cli INFO keyspace | tr -d '\r' | sed -n 's/^db[0-9]*:keys=\([0-9]*\),.*/\1/p' | awk '{n += $1} END {print n + 0}')
+    [ -n "$copied" ] && [ "$keys" = "$want" ] || { echo "the copy holds ${want} keys and redis holds ${keys}"; exit 1; }

@@ -1,0 +1,26 @@
+# Forge worker: runs agents, checks and previews for a forge. Install: copy
+# to /etc/systemd/system/, put the release in /opt/forge-worker
+# (bin/forge-worker, deploy/forge-agent), copy forge-worker.env.example to
+# /etc/forge-worker/forge-worker.env and edit it, put the worker's
+# certificate, key and the forge's CA in /etc/forge-worker/, then
+# `systemctl enable --now forge-worker`. Guide: Running a forge, Workers.
+[Unit]
+Description=Forge worker
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+WorkingDirectory=/opt/forge-worker
+EnvironmentFile=/etc/forge-worker/forge-worker.env
+ExecStart=/opt/forge-worker/bin/forge-worker -installation ${INSTALLATION} \
+  -state /var/lib/forge-worker -listen ${LISTEN} \
+  -cert /etc/forge-worker/worker.pem -key /etc/forge-worker/worker-key.pem \
+  -client-ca /etc/forge-worker/ca.pem -agent-context /opt/forge-worker/deploy/forge-agent
+Restart=on-failure
+RestartSec=5
+# The worker stops its own work on SIGTERM; give it time.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target
