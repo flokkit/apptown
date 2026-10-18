@@ -1,6 +1,6 @@
 # GitHub: CI and images
 
-The public repository, `github.com/flokkit/approost`, tests every push and
+The public repository, `github.com/flokkit/apptown`, tests every push and
 pull request with GitHub Actions and builds the container images on a
 release tag. The workflows are in `.github/workflows/`. The repository is
 exported from the maintainers' development repository, one commit per
@@ -56,9 +56,9 @@ tag's workflow.
 
 | Image | Built from | Runs |
 | --- | --- | --- |
-| `ghcr.io/flokkit/approost` | `deploy/Dockerfile`, target `server` | `forged`, with `forge`, `forge-linux` and the agent recipe beside it in `/opt/forge`, as the release archive lays them out |
-| `ghcr.io/flokkit/approost-worker` | `deploy/Dockerfile`, target `worker` | `forge-worker -agent-context /opt/forge-worker/deploy/forge-agent` |
-| `ghcr.io/flokkit/approost-agent` | `deploy/forge-agent/Dockerfile` | the agent image; workers and forges still build their own from the recipe |
+| `ghcr.io/flokkit/apptown` | `deploy/Dockerfile`, target `server` | `forged`, with `forge`, `forge-linux` and the agent recipe beside it in `/opt/forge`, as the release archive lays them out |
+| `ghcr.io/flokkit/apptown-worker` | `deploy/Dockerfile`, target `worker` | `forge-worker -agent-context /opt/forge-worker/deploy/forge-agent` |
+| `ghcr.io/flokkit/apptown-agent` | `deploy/forge-agent/Dockerfile` | the agent image; workers and forges still build their own from the recipe |
 
 The server image is a forge with no local Docker
 (`FORGE_NO_LOCAL_DOCKER=true`). A forge bind-mounts its own folders and

@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Report it privately through GitHub's private vulnerability reporting: on
-[github.com/flokkit/approost](https://github.com/flokkit/approost), open the
+[github.com/flokkit/apptown](https://github.com/flokkit/apptown), open the
 **Security** tab and choose **Report a vulnerability**. Please do not open a
 public issue, pull request or discussion about it.
 

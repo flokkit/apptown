@@ -5,7 +5,7 @@ Thank you for your interest. Please read this before you open anything.
 ## Issues are welcome
 
 Bug reports, questions and suggestions are welcome as
-[issues](https://github.com/flokkit/approost/issues). Use the bug report
+[issues](https://github.com/flokkit/apptown/issues). Use the bug report
 template, and never paste secrets, tokens, passwords or private host names
 into an issue. A security problem goes through private reporting instead
 ([SECURITY.md](SECURITY.md)).

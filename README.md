@@ -1,6 +1,6 @@
-# Flokkit AppRoost
+# Flokkit AppTown
 
-Flokkit AppRoost is the accountable home for a team's internal software and the
+Flokkit AppTown is the accountable home for a team's internal software and the
 changes made to it. Coding agents do the work, the team's way of working
 governs it, and every change leaves a record of who asked, which rules
 applied, what was checked, who approved it and what is running. It is for
@@ -45,8 +45,8 @@ You need Go (the version in [go.mod](go.mod)), Node.js 24 with npm, Git, and a
 running Docker (the forge starts its own PostgreSQL in a container).
 
 ```sh
-git clone https://github.com/flokkit/approost.git
-cd approost
+git clone https://github.com/flokkit/apptown.git
+cd apptown
 npm ci --prefix web   # the web interface's dependencies (make build also does this when they are missing)
 make build            # web/dist, then bin/forged, bin/forge, bin/forge-worker and bin/forge-linux
 ./bin/forged -addr 127.0.0.1:7777 -console-addr '' -admins trial

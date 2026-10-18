@@ -23,7 +23,7 @@
 #   without local Docker). Data is under /var/lib/forge.
 #
 #     docker run -d -p 7777:7777 -v forge-data:/var/lib/forge \
-#       -v /etc/forge/worker:/etc/forge/worker:ro --env-file forged.env ghcr.io/flokkit/approost:<version>
+#       -v /etc/forge/worker:/etc/forge/worker:ro --env-file forged.env ghcr.io/flokkit/apptown:<version>
 #
 # - worker: runs work on the host's Docker through its socket. It mounts its
 #   state folder into the task containers it starts, so the state folder has
@@ -33,7 +33,7 @@
 #
 #     docker run -d --network host -v /var/run/docker.sock:/var/run/docker.sock \
 #       -v /var/lib/forge-worker:/var/lib/forge-worker -v /etc/forge-worker:/etc/forge-worker:ro \
-#       ghcr.io/flokkit/approost-worker:<version> -installation forge.example.com \
+#       ghcr.io/flokkit/apptown-worker:<version> -installation forge.example.com \
 #       -state /var/lib/forge-worker -listen 10.0.0.5:7790 \
 #       -cert /etc/forge-worker/worker.pem -key /etc/forge-worker/worker-key.pem \
 #       -client-ca /etc/forge-worker/ca.pem

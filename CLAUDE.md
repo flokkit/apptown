@@ -7,7 +7,7 @@ their owning code or guide.
 
 ## What Forge is for
 
-Forge (product name Flokkit AppRoost) is the accountable home for a team's internal
+Forge (product name Flokkit AppTown) is the accountable home for a team's internal
 software and the changes made to it. Coding agents make producing code cheap;
 owning software remains expensive. Forge addresses four problems: unauditable
 work, inconsistent applications, organisational knowledge that does not reliably

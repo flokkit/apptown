@@ -1,7 +1,7 @@
 # The forge's container images, on a release tag (design/operations/github.md):
-#   ghcr.io/flokkit/approost         the forge server (deploy/Dockerfile, target server)
-#   ghcr.io/flokkit/approost-worker  the worker (deploy/Dockerfile, target worker)
-#   ghcr.io/flokkit/approost-agent   the agent image (deploy/forge-agent)
+#   ghcr.io/flokkit/apptown         the forge server (deploy/Dockerfile, target server)
+#   ghcr.io/flokkit/apptown-worker  the worker (deploy/Dockerfile, target worker)
+#   ghcr.io/flokkit/apptown-agent   the agent image (deploy/forge-agent)
 #
 # PUBLISH (below) decides the mode. It follows the repository's visibility;
 # set it to true or false to override.
@@ -57,9 +57,9 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - { name: approost, context: ., file: deploy/Dockerfile, target: server }
-          - { name: approost-worker, context: ., file: deploy/Dockerfile, target: worker }
-          - { name: approost-agent, context: deploy/forge-agent, file: deploy/forge-agent/Dockerfile, target: "" }
+          - { name: apptown, context: ., file: deploy/Dockerfile, target: server }
+          - { name: apptown-worker, context: ., file: deploy/Dockerfile, target: worker }
+          - { name: apptown-agent, context: deploy/forge-agent, file: deploy/forge-agent/Dockerfile, target: "" }
         platform: ${{ fromJSON(needs.plan.outputs.platforms) }}
     env:
       PUBLISH: ${{ needs.plan.outputs.publish }}
@@ -116,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [approost, approost-worker, approost-agent]
+        name: [apptown, apptown-worker, apptown-agent]
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
     steps:
