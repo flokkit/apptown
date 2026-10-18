@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"flokkit.io/forge/internal/check"
 	"flokkit.io/forge/internal/clock"
 	"flokkit.io/forge/internal/deploy"
 	"flokkit.io/forge/internal/deploy/appcontract"
@@ -386,6 +387,7 @@ func ProbeLiveness(ctx context.Context, dk Scope, container string, hostPort int
 		return true
 	default:
 		client := &http.Client{
+			Transport:     check.ProbeTransport,
 			Timeout:       2 * time.Second,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		}

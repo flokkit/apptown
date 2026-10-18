@@ -73,12 +73,11 @@ func TestProbeAppFrontDoorShaping(t *testing.T) {
 // A probe reads what it is answered to the end (up to a bound) before
 // closing it, so its next check reuses the connection: a boot's checks make
 // one connection to the app, not one per check, each of which would hold a
-// local port for 30 s once closed.
-//
-// Not parallel: the probe's client uses the shared default transport, and
-// another test's httptest server closing clears that transport's idle
-// connections, which would make this count more than the probe made.
+// local port for 30 s once closed. The connection is the probe's own:
+// closing the default transport's idle connections (every
+// httptest.Server.Close does) does not close it.
 func TestAProbeReusesItsConnection(t *testing.T) {
+	t.Parallel()
 	var opened atomic.Int64
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(strings.Repeat("<p>the app's page</p>\n", 200)))
@@ -95,6 +94,7 @@ func TestAProbeReusesItsConnection(t *testing.T) {
 		if up, tail := probe.Check(t.Context(), Scope{Client: &fakeDaemon{exists: true, running: true}}, "app", srv.URL, 2*time.Second, rendered); !up {
 			t.Fatalf("%+v: not up: %s", rendered, tail)
 		}
+		http.DefaultTransport.(*http.Transport).CloseIdleConnections()
 	}
 	if n := opened.Load(); n != 1 {
 		t.Fatalf("four checks opened %d connections, want 1", n)

@@ -31,7 +31,16 @@ type PageProbe struct {
 // lands.
 const pageRedirects = 5
 
+// ProbeTransport is the transport every probe of an app uses: a pool of
+// its own, so a boot's checks still reuse one connection, but one that
+// nothing else in the process closes. A connection pooled on
+// http.DefaultTransport is closed under the probe whenever anything calls
+// CloseIdleConnections on it (every httptest.Server.Close does), and the
+// probe read that as an app that gave no answer.
+var ProbeTransport http.RoundTripper = http.DefaultTransport.(*http.Transport).Clone()
+
 var pageClient = &http.Client{
+	Transport:     ProbeTransport,
 	Timeout:       8 * time.Second,
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 }

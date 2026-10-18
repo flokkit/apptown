@@ -2,9 +2,11 @@ package check
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -71,5 +73,44 @@ func TestThePageProbeJudgesWhatAVisitorGets(t *testing.T) {
 	}
 	if ps, err := ParseProbe("page"); err != nil || !ps.Page {
 		t.Fatalf("the page probe does not parse: %+v %v", ps, err)
+	}
+}
+
+// A probe's connections are its own: closing the shared default transport's
+// idle connections, as every httptest.Server.Close does, does not close
+// them under the probe. On http.DefaultTransport the gate's boot check read
+// that as "GET / as a visitor got no answer" (8 Oct and 19 Oct).
+//
+// Kills: a probe client on http.DefaultTransport.
+func TestProbesKeepTheirConnectionsToThemselves(t *testing.T) {
+	t.Parallel()
+	var opened atomic.Int64
+	app := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			w.Header().Set("Location", "/dashboard")
+			w.WriteHeader(http.StatusFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	app.Config.ConnState = func(_ net.Conn, s http.ConnState) {
+		if s == http.StateNew {
+			opened.Add(1)
+		}
+	}
+	app.Start()
+	t.Cleanup(app.Close)
+	for range 2 {
+		if status, path, err := ProbePage(t.Context(), PageProbe{URL: app.URL}); err != nil || status != http.StatusOK || path != "/dashboard" {
+			t.Fatalf("page probe: %d %q %v", status, path, err)
+		}
+		http.DefaultTransport.(*http.Transport).CloseIdleConnections()
+		if status, err := HTTPProber.Probe(t.Context(), app.URL+"/dashboard"); err != nil || status != http.StatusOK {
+			t.Fatalf("runtime probe: %d %v", status, err)
+		}
+		http.DefaultTransport.(*http.Transport).CloseIdleConnections()
+	}
+	if n := opened.Load(); n != 1 {
+		t.Fatalf("six probe requests opened %d connections, want 1", n)
 	}
 }

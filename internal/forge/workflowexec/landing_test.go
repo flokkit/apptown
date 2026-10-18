@@ -132,7 +132,10 @@ func TestACleanBuildSaysWhenTheTreeDeclaresNoGo(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			amb := agentenv.Ambient{Env: []string{"PATH=" + bin + ":/usr/bin:/bin", "MISE_DATA_DIR=" + data}}
+			// PATH is bin alone: the script uses only shell builtins and
+			// mise, and a go anywhere on the host's PATH (a CI runner's
+			// /usr/bin, say) would answer "no Go declared" wrongly.
+			amb := agentenv.Ambient{Env: []string{"PATH=" + bin, "MISE_DATA_DIR=" + data}}
 			checks := CompileCheck{Image: "agent:image", Run: func(ctx context.Context, req execution.Request) execution.Outcome {
 				return (execution.Runner{}).Run(ctx, execution.Local, execution.Request{Workspace: req.Workspace, Argv: req.Argv, Env: req.Env, Timeout: time.Minute})
 			}}

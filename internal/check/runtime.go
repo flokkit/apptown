@@ -117,6 +117,7 @@ func (f ProberFunc) Probe(ctx context.Context, url string) (int, error) { return
 // probeClient does one probe request without following redirects — a 301 is
 // the finding, not something to chase — and with a short timeout.
 var probeClient = &http.Client{
+	Transport:     ProbeTransport,
 	Timeout:       8 * time.Second,
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 }

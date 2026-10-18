@@ -7,6 +7,7 @@ import (
 	neturl "net/url"
 	"time"
 
+	"flokkit.io/forge/internal/check"
 	"flokkit.io/forge/internal/deploy/appcontract"
 )
 
@@ -78,7 +79,7 @@ func RenderColdBootProbe(pub *appcontract.Part, frontDoor map[string]string) Ren
 // markup: requiring a <script> or <canvas> would be a guess no declaration
 // backs.
 func staticPageServes(url string) (status int, ok bool, verdict string) {
-	client := &http.Client{Timeout: 4 * time.Second}
+	client := &http.Client{Transport: check.ProbeTransport, Timeout: 4 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
 		return 0, false, err.Error()

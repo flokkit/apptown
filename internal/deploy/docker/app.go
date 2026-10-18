@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/dockerlabel"
-	"flokkit.io/forge/internal/execution"
-
+	"flokkit.io/forge/internal/check"
 	"flokkit.io/forge/internal/deploy"
 	"flokkit.io/forge/internal/deploy/appcontract"
+	"flokkit.io/forge/internal/dockerlabel"
+	"flokkit.io/forge/internal/execution"
 	"flokkit.io/forge/internal/gitexec"
 	"flokkit.io/forge/internal/poll"
 	"flokkit.io/forge/internal/strs"
@@ -351,6 +351,7 @@ func (p *Probe) check(ctx context.Context, dk Scope, container, url string, time
 	// front-door headers stop the 301 in the first place; refusing to follow
 	// makes any stray 3xx a visible status, not a masked failure.
 	client := &http.Client{
+		Transport:     check.ProbeTransport,
 		Timeout:       2 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
