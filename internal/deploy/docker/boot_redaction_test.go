@@ -52,7 +52,7 @@ func padTo(at int) string { return strings.Repeat("x", at) }
 // are what preview and landing evidence and a worker's answer keep.
 func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 	t.Parallel()
-	const password = "6f1c0a9e5b7d24c38e0f19a6d5b2c7e48a3f60d1b9c2e7a54f0d8b3c6e1a9f27"
+	const password = "6f1c0a9e5b7d24c38e0f19a6d5b2c7e48a3f60d1b9c2e7a54f0d8b3c6e1a9f27" // gitleaks:allow (a made-up test value)
 	closed, _ := net.Listen("tcp", "127.0.0.1:0")
 	port := strconv.Itoa(closed.Addr().(*net.TCPAddr).Port)
 	closed.Close() // nothing answers there: the probe fails
