@@ -53,7 +53,12 @@ GATE_WEB_STAGES = check-web-tsc check-web-lint check-web-test
 GATE_LOCAL_STAGES = check-migrations
 # check-gate tests the gate's stopping with signals of its own, so it runs
 # last and alone: no other stage can be running when it sends one.
-check: check-web-build   ## run the fast CI gates locally
+# The web build would take minutes before gate.py refuses a gate demoted by
+# macOS Game Mode, so the refusal runs first (scripts/gate.py, "Demotion"):
+# recipe lines, which run in order even under make -j, not prerequisites.
+check:                   ## run the fast CI gates locally
+	@python3 scripts/gate.py --refuse-if-throttled
+	@$(MAKE) --no-print-directory check-web-build
 	@MAKE='$(MAKE)' python3 scripts/gate.py $(GATE_GO_STAGES) $(GATE_WEB_STAGES) $(GATE_LOCAL_STAGES)
 	@echo "== check-gate (alone, after the other stages) =="
 	@$(MAKE) --no-print-directory check-gate

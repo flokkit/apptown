@@ -24,9 +24,15 @@ Make passes TERM on to the command it is running; whatever that command
 leaves running is reached by the caller's signal to the group (the queue's
 TERM and KILL, a terminal's INT), not by the gate.
 (It is Python, not sh, because a shell reaps its children on its own.)
+
+Demotion. On macOS a gate whose own process runs in the kernel's throttled
+band is refused before any stage starts (exit 3), and one demoted part-way
+and still is at the end says so in its summary (priority, throttled).
 """
+import ctypes
 import os
 import signal
+import struct
 import sys
 import tempfile
 import time
@@ -38,6 +44,59 @@ stopping = 0
 def on_signal(signum, _frame):
     global stopping
     stopping = stopping or STOPPING[signum]
+
+
+# XNU clamps a throttled ("darwin background") thread to this priority
+# (MAXPRI_THROTTLE, osfmk/kern/sched.h). macOS Game Mode puts every app but
+# the game there while a game is the frontmost full-screen app, and on Apple
+# Silicon such threads run on the efficiency cores only: on 18 October 2026
+# a 16-core Mac then ran a one-thread loop 68 times slower, and every gate
+# failed on go test's 10-minute timeouts, which read like broken code.
+MAXPRI_THROTTLE = 4
+REFUSED = 3
+
+
+def priority():
+    """This process's scheduling priority as the kernel reports it (what
+    `ps -o pri` shows), or None where it cannot be read: not macOS, or the
+    call failed. Read in-process, through libproc, so the gate starts no
+    process it would then have to reap."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+        libproc.proc_pidinfo.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int]
+        # struct proc_taskinfo: six uint64s, then int32s ending in pti_priority.
+        buf = ctypes.create_string_buffer(96)
+        n = libproc.proc_pidinfo(os.getpid(), 4, 0, buf, 96)  # PROC_PIDTASKINFO
+    except OSError:
+        return None
+    if n != 96:
+        return None
+    return struct.unpack_from("i", buf, 92)[0]
+
+
+def throttled(pri):
+    return pri is not None and pri <= MAXPRI_THROTTLE
+
+
+REFUSAL = """gate: refused: this gate runs in macOS's throttled band (priority %d): it gets
+only the CPU the rest of the machine leaves, so its timeouts would fail as if
+the code were broken. macOS Game Mode puts every other app there while a game
+is the frontmost full-screen app; if one is, leave it or take it out of full
+screen, then run the gate again."""
+
+
+def refuse_if_throttled():
+    """Whether this process is in the throttled band, saying so if it is."""
+    pri = priority()
+    if throttled(pri):
+        print(REFUSAL % pri, file=sys.stderr, flush=True)
+        return True
+    if pri is None and sys.platform == "darwin":
+        print("gate: could not read this gate's scheduling priority; running without the Game Mode check",
+              file=sys.stderr, flush=True)
+    return False
 
 
 class Stage:
@@ -60,6 +119,8 @@ def main(stages):
     if not stages:
         print("gate.py: no stages", file=sys.stderr)
         return 2
+    if refuse_if_throttled():
+        return REFUSED
     make = os.environ.get("MAKE", "make")
     base = os.environ.get("GATE_LOG_DIR") or tempfile.gettempdir()
     os.makedirs(base, exist_ok=True)
@@ -110,6 +171,12 @@ def main(stages):
         print("%-20s exit %-4s %5ss" % (stage, code, secs))
         if code != 0:
             failed.append(stage)
+    # Game Mode may have come on after the gate started. A game started and
+    # left again within one run goes unnoticed; one still frontmost does not.
+    pri = priority()
+    if throttled(pri):
+        print("\ngate: this gate now runs in macOS's throttled band (priority %d; Game Mode does this); "
+              "timeouts in this run may be that rather than the code." % pri)
     for stage in failed:
         with open(os.path.join(logs, stage + ".log"), errors="replace") as f:
             lines = f.readlines()
@@ -155,4 +222,8 @@ def go_failures(lines, follow=40):
 
 
 if __name__ == "__main__":
+    # --refuse-if-throttled: only the check, for make check to run before its
+    # web build, so a demoted gate is refused at once rather than minutes in.
+    if sys.argv[1:] == ["--refuse-if-throttled"]:
+        sys.exit(REFUSED if refuse_if_throttled() else 0)
     sys.exit(main(sys.argv[1:]))

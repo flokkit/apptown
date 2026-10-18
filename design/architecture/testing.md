@@ -131,6 +131,18 @@ service, never a mock.
   `make check-go` and `make check-web` still run their parts one after
   another. The in-repo **pre-push hook** (`make hooks` installs it) runs
   `make check`; a push that fails it does not leave the machine.
+- On a Mac the gate refuses to start while its own process is in macOS's
+  throttled band (task priority 4, `MAXPRI_THROTTLE`), which is where Game
+  Mode puts every other app while a game is the frontmost full-screen app.
+  There it gets only the CPU the game leaves: on 18 October 2026 a one-thread
+  loop ran 68 times slower than from a launchd job, and every gate failed on
+  go test's 10-minute timeouts across 30 packages, which read like broken
+  code. `make check` runs the check before its web build;
+  `gate.py` repeats it before any stage and exits 3,
+  and when a gate ends still in that band its summary says its timeouts may
+  be the demotion rather than the code, without changing its result. The
+  remedy is to leave the game or take it out of full screen. CI's Linux jobs
+  have no such band and skip the check.
 - The public repository's CI is `.github/workflows/ci.yml`, on GitHub
   Actions, for every push to `main` and every pull request that changes
   code. Its `web` job runs make check's web stages (`npm ci`, `tsc

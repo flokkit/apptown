@@ -22,6 +22,7 @@ import ast
 import os
 import shutil
 import signal
+import sys
 import tempfile
 import textwrap
 import time
@@ -161,6 +162,10 @@ STUB = textwrap.dedent("""\
         i=0; while [ $i -lt 70 ]; do echo "ok  	example/fine$i	0.1s"; i=$((i+1)); done
         echo FAIL; exit 1 ;;
     killed) kill -KILL $$ ;;
+    demote-gate)
+        # Moves the gate (this stub's parent) into the throttled band, as
+        # Game Mode coming on part-way through a run does.
+        taskpolicy -b -p $PPID && echo demoted ;;
     slow-cleanup)
         # Takes three seconds to clean up after TERM, as go test may.
         trap 'sleep 3; echo cleaned > "$PIDS.cleaned"; exit 1' TERM
@@ -245,8 +250,40 @@ class Gate(unittest.TestCase):
         self.assertRegex(out, r"fail\s+exit 7 ")
         self.assertIn("the reason it failed", out)
         self.assertIn("gate FAILED: fail", out)
+        self.assertNotIn("throttled band", out)
         p, out = self.run_gate("pass", "pass")
         self.assertEqual(p.returncode, 0, out)
+        self.assertNotIn("throttled band", out)
+
+    @unittest.skipUnless(sys.platform == "darwin", "the throttled band and taskpolicy are macOS's")
+    def test_a_gate_in_the_throttled_band_starts_no_stage_and_says_why(self):
+        # taskpolicy -b starts it as Game Mode leaves every app but the game.
+        p = start_fixture(["taskpolicy", "-b", "python3", GATE, "pass"], env=self.env, own_group=True)
+        out = finish(p)
+        self.assertEqual(p.returncode, 3, out)
+        self.assertIn("gate: refused: this gate runs in macOS's throttled band", out)
+        self.assertIn("Game Mode", out)
+        self.assertEqual(self.stage_pids(), [], "a refused gate started a stage")
+        self.assertFalse(os.path.exists(self.env["GATE_LOG_DIR"]), "a refused gate made a log directory")
+        # make check runs the check alone before its web build.
+        p = start_fixture(["taskpolicy", "-b", "python3", GATE, "--refuse-if-throttled"], env=self.env)
+        out = finish(p)
+        self.assertEqual(p.returncode, 3, out)
+        self.assertIn("gate: refused", out)
+        p = start_fixture(["python3", GATE, "--refuse-if-throttled"], env=self.env)
+        out = finish(p)
+        self.assertEqual(p.returncode, 0, out)
+
+    @unittest.skipUnless(sys.platform == "darwin", "the throttled band and taskpolicy are macOS's")
+    def test_a_gate_demoted_part_way_says_so_and_keeps_its_result(self):
+        p, out = self.run_gate("demote-gate")
+        self.assertEqual(p.returncode, 0, out)
+        self.assertIn("gate: this gate now runs in macOS's throttled band", out)
+        self.assertIn("gate passed", out)
+        p, out = self.run_gate("demote-gate", "fail")
+        self.assertEqual(p.returncode, 1, out)
+        self.assertIn("gate: this gate now runs in macOS's throttled band", out)
+        self.assertIn("gate FAILED: fail", out)
 
     def test_a_failed_go_test_is_shown_even_when_passing_packages_follow_it(self):
         p, out = self.run_gate("go-fail")
