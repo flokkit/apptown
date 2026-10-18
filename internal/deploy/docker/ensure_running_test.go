@@ -12,7 +12,8 @@ import (
 
 // A named service container is left running, started when stopped, created
 // when missing, and a create that loses a race to another process uses the
-// winner's container instead of failing.
+// winner's container instead of failing, though Docker answers "no such
+// container" for a moment after the name conflict.
 func TestEnsureRunningStartsCreatesOrLeavesAlone(t *testing.T) {
 	run := []string{"-d", "--name", "db", "postgres:16-alpine"}
 	count := func(d *dockerfake.Daemon, prefix string) int { return len(d.Matching(prefix)) }
@@ -45,7 +46,10 @@ func TestEnsureRunningStartsCreatesOrLeavesAlone(t *testing.T) {
 		switch {
 		case args[0] == "inspect" && len(args) == 2:
 			inspections++
-			if inspections == 1 {
+			// Absent before the run and for the first looks after the
+			// conflict: Docker reserves the name before the winner's
+			// container can be inspected.
+			if inspections <= 3 {
 				return []byte("No such container"), errors.New("absent"), true
 			}
 			return []byte("[]"), nil, true
@@ -55,7 +59,7 @@ func TestEnsureRunningStartsCreatesOrLeavesAlone(t *testing.T) {
 		return nil, nil, false
 	})
 	// The winner's container is running, so it is used, not run again.
-	if err := (docker.Scope{Client: raced}).EnsureRunning(context.Background(), "db", run); err != nil || count(raced, "run") != 1 || count(raced, "inspect db") != 2 {
+	if err := (docker.Scope{Client: raced}).EnsureRunning(context.Background(), "db", run); err != nil || count(raced, "run") != 1 || count(raced, "inspect db") != 4 {
 		t.Fatalf("a lost create race uses the winner's container: %v %v", err, raced.Commands())
 	}
 

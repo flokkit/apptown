@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"flokkit.io/forge/internal/dind"
+	"flokkit.io/forge/internal/poll"
 	"flokkit.io/forge/internal/strs"
 )
 
@@ -101,7 +102,11 @@ func (dk Scope) Running(ctx context.Context, container string) bool {
 // a stopped one is started, and a missing one is created with `docker run`
 // and runArgs (which must name it). Another process may create it at the same
 // moment; a failed run that leaves the container existing is treated as that
-// race and the existing container is started instead.
+// race and the existing container is started instead. Docker reserves the
+// name before the winner's container can be inspected, so after a name
+// conflict the loser waits a bounded time for it to appear: test binaries
+// starting together on a machine without the image (a fresh CI runner) all
+// pull it, and one that asked once read the winner's container as missing.
 func (dk Scope) EnsureRunning(ctx context.Context, name string, runArgs []string) error {
 	if dk.OK(ctx, "inspect", name) {
 		return dk.startExisting(ctx, name)
@@ -110,11 +115,19 @@ func (dk Scope) EnsureRunning(ctx context.Context, name string, runArgs []string
 	if err == nil {
 		return nil
 	}
-	if dk.OK(ctx, "inspect", name) {
+	appears := dk.OK(ctx, "inspect", name)
+	if !appears && strings.Contains(string(out), "is already in use") {
+		appears = poll.Until(ctx, nameConflictWait, 200*time.Millisecond, func() bool { return dk.OK(ctx, "inspect", name) })
+	}
+	if appears {
 		return dk.startExisting(ctx, name)
 	}
 	return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 }
+
+// nameConflictWait bounds how long a lost create race waits for the
+// winner's container to become visible.
+const nameConflictWait = 30 * time.Second
 
 func (dk Scope) startExisting(ctx context.Context, name string) error {
 	if dk.Running(ctx, name) {
