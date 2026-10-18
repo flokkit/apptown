@@ -244,7 +244,7 @@ func TestAProjectHasOneDeploymentOnAPortainerTarget(t *testing.T) {
 	p, b, _ := newPortainerNeeds(t)
 	seeded := p.target(t, IntranetTargetName)
 	attached, err := p.s.Targets.Put(t.Context(), &Target{Name: "office", Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached,
-		Address:      map[string]any{"urlFrom": "PORTAINER_URL", "apiKeyFrom": "PORTAINER_API_KEY", "environment": "prd-forge"},
+		Address:      map[string]any{"urlFrom": "PORTAINER_URL", "apiKeyFrom": "PORTAINER_API_KEY", "environment": "office"},
 		Capabilities: seeded.Capabilities, Ingress: map[string]any{"binding": "traefik", "domain": "office.example"}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: TargetReady})
 	if err != nil {
 		t.Fatal(err)

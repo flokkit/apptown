@@ -18,6 +18,7 @@ import (
 	"flokkit.io/forge/internal/clock"
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/execution"
+	"flokkit.io/forge/internal/forge/integration"
 	"flokkit.io/forge/internal/forge/projectlifecycle"
 
 	"flokkit.io/forge/internal/forge"
@@ -63,6 +64,7 @@ type daemonFlags struct {
 	otlpProtocol                                     string
 	errorsURL                                        string
 	agentConc                                        int
+	portainerEnv                                     string
 	verifyOnly                                       bool
 	noPrivateDocker                                  bool
 	noLocalDocker                                    bool
@@ -83,6 +85,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.agentExecutor, "agent-executor", "docker", "default executor for agent/pi steps: docker | local (local is experimental, for development)")
 	fs.StringVar(&o.agentImage, "agent-image", "forge-agent", "docker image for containerized steps")
 	fs.StringVar(&o.agentModel, "agent-model", "", "default model for agent/pi steps, e.g. gpu1/Qwen3.6 (empty = pi's default)")
+	fs.StringVar(&o.portainerEnv, "portainer-environment", integration.DefaultPortainerEnvironment, "the Portainer environment the intranet target releases to, when the Portainer secrets (PORTAINER_URL, PORTAINER_API_KEY, FORGE_APPS_DOMAIN) are set; recorded in the portainer-deploy integration at every start")
 	fs.StringVar(&o.dbURL, "db-url", "", "Postgres URL for the forge's own database (env FORGE_DB_URL; empty = the built-in container on this box, design/subsystems/postgres-migration.md)")
 	fs.BoolVar(&o.gitImportPrivate, "git-import-allow-private", false, "let a project that starts from an https repository fetch from private, loopback and link-local addresses (an internal GitLab); by default only public addresses are fetched (design/operations/start-from-existing-code.md)")
 	fs.Int64Var(&o.bundleMaxBytes, "import-bundle-max-bytes", projectlifecycle.DefaultBundleMaxBytes, "the largest Git bundle a project that starts from existing code may upload")
@@ -153,15 +156,7 @@ func main() {
 	if o.taskCPUs <= 0 || o.taskMemoryMiB <= 0 || o.taskPIDs <= 0 || o.chatCPUs <= 0 || o.chatMemoryMiB <= 0 || o.chatPIDs <= 0 {
 		log.Fatal("-task-* and -chat-* limits must be above zero: no container runs unbounded")
 	}
-	cfg := forge.Config{
-		HostScripts: o.hostScripts,
-		TaskLimits:  execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
-		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, DrainLocalDocker: o.drainLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
-		AgentConcurrency: o.agentConc, AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, AgentModel: o.agentModel,
-		Features: o.features, AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
-		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,
-		Defaults:     forge.InstanceDefaults{MirrorBase: o.mirrorBase, ErrorsURL: o.errorsURL},
-		OTLPEndpoint: o.otlpEndpoint, OTLPProtocol: o.otlpProtocol}
+	cfg := o.forgeConfig(dataDir)
 	workerAt := func(url string) *forge.WorkerConfig {
 		return &forge.WorkerConfig{URL: url, Cert: o.workerCert, Key: o.workerKey, CA: o.workerCA}
 	}
@@ -380,6 +375,20 @@ func main() {
 	// Process exit is the final boundary, including hijacked connections and
 	// older detached work. Do not add an unbounded DB.Close/Wait here after
 	// the shared deadline or close resources still used by timed-out work.
+}
+
+// forgeConfig is the forge's configuration as the flags state it, before
+// the worker, console and inference settings main adds.
+func (o *daemonFlags) forgeConfig(dataDir string) forge.Config {
+	return forge.Config{
+		HostScripts: o.hostScripts,
+		TaskLimits:  execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
+		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, DrainLocalDocker: o.drainLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
+		AgentConcurrency: o.agentConc, AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, AgentModel: o.agentModel, PortainerEnvironment: o.portainerEnv,
+		Features: o.features, AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
+		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,
+		Defaults:     forge.InstanceDefaults{MirrorBase: o.mirrorBase, ErrorsURL: o.errorsURL},
+		OTLPEndpoint: o.otlpEndpoint, OTLPProtocol: o.otlpProtocol}
 }
 
 // holdsDatabase says whether this start takes the one-daemon lock: every

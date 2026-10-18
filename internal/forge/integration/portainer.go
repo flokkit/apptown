@@ -28,8 +28,8 @@ func (s *Service) PortainerTarget(ctx context.Context) (*portainer.Target, error
 		EnvName:           ref("environment", ""),
 		ReleaseDeployment: ref("releaseDeployment", "lan"),
 	}
-	if cfg.EnvName == "" {
-		cfg.EnvName = "prd-forge"
+	if cfg.EnvName == "" { // a binding written without one; the seed always names it
+		cfg.EnvName = DefaultPortainerEnvironment
 	}
 	var missing []string
 	for k, v := range map[string]string{

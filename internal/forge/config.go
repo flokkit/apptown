@@ -20,6 +20,7 @@ import (
 	"flokkit.io/forge/internal/deploy/digitalocean"
 	"flokkit.io/forge/internal/deploy/docker"
 	"flokkit.io/forge/internal/execution"
+	"flokkit.io/forge/internal/forge/integration"
 	"flokkit.io/forge/internal/forge/secret"
 	"flokkit.io/forge/internal/worker"
 
@@ -103,15 +104,19 @@ type Config struct {
 	// AgentContext is the agent image's build context, relative to the
 	// forge's working directory: the forge builds it, and a worker's image
 	// is named by it (worker.AgentImage). "" is deploy/forge-agent.
-	AgentContext      string
-	AgentModel        string
-	AgentConcurrency  int
-	Features          string
-	TierDomains       []string
-	TrustedProxies    []string
-	Defaults          InstanceDefaults
-	InferenceURL      string
-	InferenceNetworks []string
+	AgentContext     string
+	AgentModel       string
+	AgentConcurrency int
+	// PortainerEnvironment is the Portainer environment the seeded intranet
+	// target releases to (the portainer-deploy binding's environment). ""
+	// is integration.DefaultPortainerEnvironment.
+	PortainerEnvironment string
+	Features             string
+	TierDomains          []string
+	TrustedProxies       []string
+	Defaults             InstanceDefaults
+	InferenceURL         string
+	InferenceNetworks    []string
 	// OTLPEndpoint turns forged's own telemetry on: host:port, or a URL whose
 	// scheme says whether the receiver speaks TLS. Empty means nothing is sent.
 	OTLPEndpoint string
@@ -183,6 +188,7 @@ type configuration struct {
 	agentExecutor, agentImage, agentModel                           string
 	agentContext                                                    string
 	agentConcurrency                                                int
+	portainerEnvironment                                            string
 	taskLimits, chatLimits                                          execution.Limits
 	hostScripts                                                     bool
 	features                                                        map[string]bool
@@ -241,6 +247,9 @@ func (c Config) prepare() (configuration, error) {
 	if c.AgentImage == "" {
 		c.AgentImage = "forge-agent"
 	}
+	if c.PortainerEnvironment == "" {
+		c.PortainerEnvironment = integration.DefaultPortainerEnvironment
+	}
 	if c.AgentConcurrency == 0 {
 		c.AgentConcurrency = 2
 	}
@@ -295,7 +304,7 @@ func (c Config) prepare() (configuration, error) {
 	}
 	return configuration{clock: clock, worker: worker, checkWorker: checkWorker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, drainLocalDocker: c.DrainLocalDocker, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
-		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, agentModel: c.AgentModel, agentConcurrency: c.AgentConcurrency,
+		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, agentModel: c.AgentModel, agentConcurrency: c.AgentConcurrency, portainerEnvironment: c.PortainerEnvironment,
 		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits), hostScripts: c.HostScripts,
 		features: features, tierDomains: tiers, proxies: proxyPolicy{networks: parseCIDRs(c.TrustedProxies)}, defaults: c.Defaults,
 		inferenceURL: c.InferenceURL, inferenceNetworks: networks, otlpEndpoint: strings.TrimSpace(c.OTLPEndpoint), otlpProtocol: strings.ToLower(strings.TrimSpace(c.OTLPProtocol))}, nil

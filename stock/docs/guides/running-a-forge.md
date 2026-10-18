@@ -227,6 +227,15 @@ a forge secret; set it there, or with `forge secret set <NAME> < file`.
 | DigitalOcean App Platform | an API token, the region, and the container registry it copies images into. Run the registry's garbage collection occasionally to free space taken-down projects left; it blocks pushes (and so releases) while it runs. An app that needs object storage gets a Spaces bucket, so the account needs Spaces enabled, and the token makes and deletes Spaces keys: for each bucket a key that reaches it alone, and for a moment while it makes or deletes one, a full-access key it deletes again |
 | Bucket website | an S3-compatible endpoint, region, website address and keys. Each deployment gets its own bucket, and taking the deployment down deletes it; use a key made for the forge alone |
 
+The intranet target is the Portainer environment the forge is configured
+with rather than one added here: it appears when the secrets `PORTAINER_URL`,
+`PORTAINER_API_KEY` and `FORGE_APPS_DOMAIN` are set, and releases to the
+environment `forged -portainer-environment` names (`FORGE_PORTAINER_ENVIRONMENT`;
+default `local`, the name Portainer gives the Docker it is installed on). The
+forge records the setting in the `portainer-deploy` integration at every
+start, so starting without it sends intranet releases to the environment
+named `local`, or has them refused when that Portainer has none.
+
 A project's deployments are made on the project's **Settings → Deployments**.
 What each kind runs, and what a deployment owns and deletes when taken
 down, is in [Previews and deployments](/docs/guides/container-lifecycle).

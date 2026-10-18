@@ -84,3 +84,32 @@ func TestTheAPIServersCutOffSlowAndIdleClients(t *testing.T) {
 		t.Fatalf("timeouts: header %v idle %v read %v write %v", s.ReadHeaderTimeout, s.IdleTimeout, s.ReadTimeout, s.WriteTimeout)
 	}
 }
+
+// -portainer-environment reaches the forge's configuration, local unless
+// stated; FORGE_PORTAINER_ENVIRONMENT states it as well.
+//
+// Kills: the flag not carried into forge.Config, so live's environment name
+// would be ignored and the default used.
+func TestThePortainerEnvironmentFlagReachesTheForgeConfig(t *testing.T) {
+	for _, c := range []struct {
+		args []string
+		env  map[string]string
+		want string
+	}{
+		{nil, nil, "local"},
+		{[]string{"-portainer-environment", "office"}, nil, "office"},
+		{nil, map[string]string{"FORGE_PORTAINER_ENVIRONMENT": "office"}, "office"},
+	} {
+		fs := flag.NewFlagSet("forged", flag.ContinueOnError)
+		o := defineFlags(fs)
+		if err := fs.Parse(c.args); err != nil {
+			t.Fatal(err)
+		}
+		if err := bindEnv(fs, func(k string) string { return c.env[k] }); err != nil {
+			t.Fatal(err)
+		}
+		if got := o.forgeConfig("/data").PortainerEnvironment; got != c.want {
+			t.Fatalf("%v %v: %q, want %q", c.args, c.env, got, c.want)
+		}
+	}
+}

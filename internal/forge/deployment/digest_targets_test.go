@@ -69,7 +69,7 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 	portainer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/endpoints":
-			fmt.Fprint(w, `[{"Id":3,"Name":"prd-forge"}]`)
+			fmt.Fprint(w, `[{"Id":3,"Name":"local"},{"Id":3,"Name":"office"}]`)
 		case "/api/endpoints/3/docker/version":
 			fmt.Fprint(w, *p.platform.Load())
 		case "/api/endpoints/3/docker/info":

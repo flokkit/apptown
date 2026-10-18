@@ -33,7 +33,14 @@ type SeedConfig struct {
 	AgentImage       string
 	AgentModel       string // provider/model; its provider names the model binding
 	AgentConcurrency int
+	// PortainerEnvironment is the Portainer environment the intranet
+	// releases to (forged -portainer-environment).
+	PortainerEnvironment string
 }
+
+// DefaultPortainerEnvironment is the environment name Portainer gives the
+// Docker it runs on when installed with its defaults.
+const DefaultPortainerEnvironment = "local"
 
 func seedJSON(v any) string {
 	b, err := json.Marshal(v)
@@ -86,7 +93,7 @@ func Seeds(cfg SeedConfig) []Seed {
 		// see them.
 		mk("portainer-deploy", CapDeploy, "portainer", map[string]any{
 			"urlFrom": "PORTAINER_URL", "apiKeyFrom": "PORTAINER_API_KEY",
-			"appsDomainFrom": "FORGE_APPS_DOMAIN", "environment": "prd-forge",
+			"appsDomainFrom": "FORGE_APPS_DOMAIN", "environment": cfg.PortainerEnvironment,
 			// releaseDeployment: the tier name release rows carry and the
 			// DEFAULT target of the big Release button (the button's face is
 			// the default; other targets live behind the chevron).
