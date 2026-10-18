@@ -78,7 +78,6 @@ and supplies the artifact explicitly for `go run`.
   trust model in short.
 - [CONTRIBUTING.md](CONTRIBUTING.md): issues are welcome; pull requests by
   arrangement.
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Development
 

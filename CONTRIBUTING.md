@@ -36,5 +36,4 @@ A pull request opened without an issue may be closed with a pointer here.
   [design/README.md](design/README.md) for where each part is described.
 
 By contributing you agree that your contribution is licensed under the Apache
-License 2.0 ([LICENSE](LICENSE)), and that you follow the
-[code of conduct](CODE_OF_CONDUCT.md).
+License 2.0 ([LICENSE](LICENSE)).
