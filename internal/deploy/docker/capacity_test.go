@@ -354,7 +354,7 @@ func TestABootRefusesAPartLargerThanItsHost(t *testing.T) {
 }
 
 // Every boot reads its own daemon's data disk before anything is pulled,
-// built or started: below the floor (max 1 GiB, 5%), or with the disk
+// built or started: below the floor (5%, at least 1 GiB, at most 20 GiB), or with the disk
 // unread, it is refused in its resolve phase with what is free; at the
 // floor it goes on. What runs now is not touched.
 //

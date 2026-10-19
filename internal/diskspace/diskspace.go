@@ -2,8 +2,8 @@
 // disk-heavy work may start on it.
 //
 // The rule is a headroom guard, not a reservation: new work is refused while
-// less than Floor is free (the larger of 1 GiB and a twentieth of the
-// filesystem), and a filesystem that could not be read is refused too, with
+// less than Floor is free (a twentieth of the filesystem, but at least
+// 1 GiB and at most 20 GiB), and a filesystem that could not be read is refused too, with
 // the reason. Work admitted above the floor can still fill the disk (two
 // admissions at once, an image larger than it looked); what fails then fails
 // as it always did. Low, a tenth free, is a warning only.
@@ -28,9 +28,14 @@ type Space struct {
 // small the filesystem.
 const MinFloor = 1 << 30
 
-// Floor is the free space below which new work is refused on s: 1 GiB,
-// or a twentieth of the filesystem when that is more.
-func (s Space) Floor() int64 { return max(MinFloor, s.TotalBytes/20) }
+// MaxFloor caps the floor on a large filesystem: a twentieth of a 3.6 TiB
+// disk is 186 GiB, far more than any one pull, build or task needs, and
+// refusing work with that much free reads as a fault.
+const MaxFloor = 20 << 30
+
+// Floor is the free space below which new work is refused on s: a
+// twentieth of the filesystem, but at least MinFloor and at most MaxFloor.
+func (s Space) Floor() int64 { return max(MinFloor, min(MaxFloor, s.TotalBytes/20)) }
 
 // Low says less than a tenth is free: a warning, not a refusal.
 func (s Space) Low() bool { return s.FreeBytes*10 < s.TotalBytes }

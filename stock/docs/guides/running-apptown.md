@@ -399,9 +399,9 @@ down, is in [Previews and deployments](/docs/guides/container-lifecycle).
   are not read.
 
 **Disk space.** New work is refused while a disk it would write to has less
-free than its floor, the larger of 1 GiB and a twentieth of the disk, or
-when the disk cannot be read; the refusal says what is free. Each disk is
-read again when the work starts, not taken from the page's reading:
+free than its floor, a twentieth of the disk but at least 1 GiB and at most
+20 GiB, or when the disk cannot be read; the refusal says what is free. Each
+disk is read again when the work starts, not taken from the page's reading:
 - a release, recovery or preview on a Docker host reads Docker's data
   folder there before it pulls or starts anything; the deployment keeps
   serving what it served;

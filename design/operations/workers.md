@@ -360,8 +360,8 @@ did not run; check after installing and after a reboot.
 ### Disk space on the worker
 
 The worker refuses new work while a disk it writes to is short of space:
-less free than its **floor**, the larger of 1 GiB and a twentieth of the
-filesystem, or a disk it could not read. A new task is admitted once,
+less free than its **floor**, a twentieth of the filesystem but at least
+1 GiB and at most 20 GiB, or a disk it could not read. A new task is admitted once,
 before the first thing of it is written: when its own workspace is
 uploaded, or, for a task without one, at its ensure before its record. Both
 disks are read then, not from a cache:

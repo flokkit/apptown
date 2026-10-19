@@ -1020,7 +1020,7 @@ A boot on a Docker host (a release, a recovery rebuild, a preview) reads the
 filesystem of the daemon's data folder before it pulls, builds or starts
 anything (`docker.AdmitDisk`): `docker info` names the folder and a
 throwaway `df` container of the pinned busybox image reads it. Below the
-floor, the larger of 1 GiB and a twentieth of the filesystem, or when the
+floor, a twentieth of the filesystem but at least 1 GiB and at most 20 GiB, or when the
 disk cannot be read, the boot is refused in its resolve phase with what is
 free; the attempt fails with nothing changed on the host and the deployment
 keeps serving its generation. The read is made for each boot; the capacity

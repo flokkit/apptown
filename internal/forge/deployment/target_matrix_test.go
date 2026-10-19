@@ -89,7 +89,7 @@ var targetMatrix = []matrixRow{
 		cells:    [4]string{"fixed: memory and CPUs it has, the limits Docker enforces, the containers' use, and the disk holding Docker's data (its folder, when it was read, and whether new releases are refused)", "fixed: what the endpoint has, and AppTown's own deployments' limits; use and disk not read", "elastic: each part's size and listed price, and an estimated monthly cost", "none: a site has no runtime"},
 		pinnedBy: []string{"TestAHostsCapacityIsWhatItsDaemonReports", "TestAnElasticTargetShowsSizesAndAnEstimate"}},
 	{row: "A host short of disk",
-		cells:    [4]string{"a release or preview is refused before anything is pulled or started while Docker's data folder has less than max(1 GiB, 5%) free or cannot be read, read when it starts; what runs is not touched", "not checked: disk is not read through Portainer", "not applicable: the platform's disks", "not applicable"},
+		cells:    [4]string{"a release or preview is refused before anything is pulled or started while Docker's data folder has less than 5% free (at least 1 GiB, at most 20 GiB) or cannot be read, read when it starts; what runs is not touched", "not checked: disk is not read through Portainer", "not applicable: the platform's disks", "not applicable"},
 		pinnedBy: []string{"TestAReleaseToAHostShortOfDiskChangesNothingThere", "TestABootIsRefusedOnADaemonShortOfDisk"}},
 	{row: "Container logs",
 		cells:    [4]string{"every container AppTown starts from this release on logs through `json-file`, rotated at 10 MiB, three files kept; one started earlier keeps its own until it is made again", "the endpoint daemon's default; not set by AppTown in 1.0", "the platform's", "none: a site has no runtime"},

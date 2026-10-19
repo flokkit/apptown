@@ -26,12 +26,13 @@ func TestTheDiskIsReadAsDFReportsIt(t *testing.T) {
 	}
 }
 
-// New work is refused below the floor, max(1 GiB, 5% of the filesystem),
-// and admitted at it; a filesystem not read is refused with the reason;
+// New work is refused below the floor, 5% of the filesystem but at least
+// 1 GiB and at most 20 GiB, and admitted at it; a filesystem not read is refused with the reason;
 // a tenth free is only a warning.
 //
 // Kills: the floor as 5% alone (a small disk admits work with 250 MiB
-// free); as 1 GiB alone (a large disk admits with 1.1 GiB of 2 TiB); a
+// free); as 1 GiB alone (a large disk admits with 1.1 GiB of 2 TiB); the
+// 20 GiB cap removed (a 4 TiB disk refuses work with 100 GiB free); a
 // refusal at exactly the floor; an unread disk admitted.
 func TestNewWorkIsRefusedBelowTheFloorAndWhenUnread(t *testing.T) {
 	t.Parallel()
@@ -44,8 +45,10 @@ func TestNewWorkIsRefusedBelowTheFloorAndWhenUnread(t *testing.T) {
 		{"a small disk above 1 GiB", Space{5 * gib, gib + 1}, false, false},
 		{"a small disk at exactly 1 GiB", Space{5 * gib, gib}, false, false},
 		{"a small disk below 1 GiB, though over 5%", Space{5 * gib, gib - 1}, true, false},
-		{"a large disk at exactly 5%", Space{2000 * gib, 100 * gib}, false, true},
-		{"a large disk below 5%, though over 1 GiB", Space{2000 * gib, 100*gib - 1}, true, true},
+		{"a mid-size disk at exactly 5%", Space{200 * gib, 10 * gib}, false, true},
+		{"a mid-size disk below 5%, though over 1 GiB", Space{200 * gib, 10*gib - 1}, true, true},
+		{"a large disk with 20 GiB free, under 5%", Space{4096 * gib, 20 * gib}, false, true},
+		{"a large disk below 20 GiB, though over 1 GiB", Space{4096 * gib, 20*gib - 1}, true, true},
 		{"a disk between 5% and 10%", Space{100 * gib, 7 * gib}, false, true},
 	} {
 		err := Admit("the disk", c.s, nil)
