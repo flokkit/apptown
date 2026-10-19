@@ -63,7 +63,7 @@ low-code, and it doesn't replace your Git host or ticket tracker.
 - [What 1.0 promises](stock/docs/guides/compatibility.md) and
   [what is next](stock/docs/guides/roadmap.md).
 - [Running one](stock/docs/guides/running-a-forge.md): installing and
-  operating a forge, including model-backed agents.
+  operating AppTown, including model-backed agents.
 
 ## What is here
 
@@ -139,7 +139,7 @@ which one to choose.
 ## From source
 
 You need Go (the version in [go.mod](go.mod)), Node.js 24 with npm, Git, and a
-running Docker (the forge starts its own PostgreSQL in a container).
+running Docker (AppTown starts its own PostgreSQL in a container).
 
 ```sh
 git clone https://github.com/flokkit/apptown.git
@@ -159,7 +159,7 @@ that name an administrator. Open mode trusts that name, so keep it on
 Chats and agent workflows also need a model provider, a private inference
 listener, container network settings and an agent image: follow Install in
 [Running AppTown](stock/docs/guides/running-a-forge.md). It also covers running
-work on a separate worker machine and running a forge with no local Docker
+work on a separate worker machine and running AppTown with no local Docker
 (`-no-local-docker`).
 
 The daemon mounts `bin/forge-linux` into agent and console containers. `make build`
@@ -189,14 +189,6 @@ is the generated bundle embedded by the daemon. See [schema ownership](design/ar
 After editing a query or schema, run `make generate-sql` and commit the generated
 Go alongside the SQL. Local checks and CI use `sqlc diff` to reject stale output.
 See [schema ownership](design/architecture/schema-ownership.md).
-
-## Names in the code
-
-Inside the code the product is still called Forge: the daemon is `forged`,
-the command-line tool `forge`, the worker `forge-worker`, the Go module
-`flokkit.io/forge`, request headers `X-Forge-*`, environment variables
-`FORGE_*`, workflow files `apiVersion: forge.flokkit.io/v1` and project
-folders `.forge/`. Those names stay as they are.
 
 ## Layout
 
