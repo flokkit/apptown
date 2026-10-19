@@ -38,8 +38,8 @@ It's a 1.0 release candidate. Release notes are in [releases/](releases/).
 
 ## What it's good for
 
-AppTown suits the ordinary software a team runs for itself, such as an
-internal tool, a form, a dashboard, a small API or a static site. The ways of
+Primarily, web applications: the ordinary software a team runs for itself,
+such as an internal tool, a form, a dashboard, a small API or a static site. The ways of
 working it ships are proven for Go, Django, Rails and plain front-end
 projects. Java, Node, .NET, Rust, WordPress and games work, but are less
 proven.
