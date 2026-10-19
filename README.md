@@ -13,9 +13,10 @@ later, usually after the person who made it has lost interest.
 AppTown makes that handover boring and repeatable. You can bring in an app you
 made with a coding agent on your own computer, or have AppTown's own agents
 build it, and AppTown looks after it from there. Every app gets the habits of
-a careful engineering team: changes are tested and looked at by a person
-before they go live, you can try them on a preview first, and there's a
-record of who asked for what and what's running now.
+a careful engineering team: AppTown runs the tests itself instead of taking
+the agent's word for it, a person looks at each change before it goes live,
+you can try it on a preview first, and there's a record of who asked for what
+and what's running now.
 
 Those habits come from a way of working. It's a team's engineering
 conventions written down, such as the language and framework, the linter, the
