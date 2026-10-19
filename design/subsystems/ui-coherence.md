@@ -1,7 +1,5 @@
 # Web interface organization
 
-Status: current implementation. Checked on 18 September 2026.
-
 The React application defines navigation and routes in `web/src/App.tsx`.
 Dashboard, project, Change, deployment, conformance and console pages consume
 HTTP projections and invoke the corresponding application commands.

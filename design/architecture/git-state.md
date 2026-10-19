@@ -1,36 +1,31 @@
 # Forge — Git-Backed State
 
-Status: **as built**, refreshed 2026-09-06. The founding draft (2026-08-24)
-had runs as worktrees, GitLab as the remote of record, and process files
-synced into the repository. §3a, written 2026-09-01, already recorded the
-turn to the collaborative model; this version makes the whole document
-describe that model and marks what the founding phases became. Shipped
-version for operators and agents: Docs → "How changes reach main".
+The shipped version for operators and agents is Docs → "How changes reach
+main".
 
 ## 1. Roles: the forge hosts the repository; a mirror is optional
 
 - **The hub is the project repository**, at
   `<dataDir>/workspaces/project-<slug>`. It is where `main` lives and it is
-  written by exactly one thing: the landing flow, which merges locally.
+  written by exactly one thing: the landing flow, which merges locally (or
+  through a recorded GitLab merge request, §4).
   Everything the forge does — branch, commit, merge, deploy — works against
   the hub and its clones. No remote is required for any of it.
 - **GitLab is a mirror**, when a project attaches one: landed branches are
   pushed to it for backup and for people who want to read code there. It
-  is never the thing the engine blocks on. The founding "remote of record"
-  and the SCM adapter behind which GitLab would sit were not built.
+  is never the thing the engine blocks on.
 
 The forge owns process state (the ledger, in Postgres); git owns content
 state; a mirror hosts a copy.
 
 ## 2. Change ↔ branch ↔ clone
 
-The founding scheme was a branch and a worktree per run. As built, the
-**Change** is the branch, and every workspace is a **self-contained clone**:
+The **Change** is the branch, and every workspace is a **self-contained
+clone**:
 
 - Opening a change clones the hub into `workspaces/change-<id>` on its own
   branch. The clone has real git inside every container (a worktree's
-  pointer file resolved to a host path a container could not see; that is
-  why worktrees went). It has **no push remote**: transport is exclusively
+  pointer file would resolve to a host path a container cannot see). It has **no push remote**: transport is exclusively
   the host's job, so an agent can commit but never push.
 - The clone is the **authority for its branch** until it lands. The host
   mirrors it into the hub at every commit point, forced, so a rework that
@@ -57,7 +52,7 @@ The founding scheme was a branch and a worktree per run. As built, the
 
 ## 3. Freshness and conflicts
 
-The founding "fetch on start, block on conflict at merge" became a gate:
+Freshness is a gate, not a fetch at start:
 
 - The first landing gate is **reconcile** (`reconcile.go`): the host fetches
   the hub's `main` into the change's own clone and merges it there, before
@@ -70,7 +65,7 @@ The founding "fetch on start, block on conflict at merge" became a gate:
   conformance baseline to tell findings the change introduced from ones it
   inherited.
 
-### 3a. The collaborative model (2026-09-01)
+### 3a. The collaborative model
 
 The rule that explains everything: **every workspace is a real,
 self-contained clone; the hub is the project repo; the host moves commits
@@ -84,8 +79,7 @@ trusted:
   Change workspace takes before cloning and refuses once the project has any
   Change (`409`, code `project-established`), so after that `main` changes
   only through a landing. Applying a pack to an established project still
-  adopts it; its files are reported as not written. Until 28 September 2026
-  each of the three wrote to any project's hub.
+  adopts it; its files are reported as not written.
 
 - A **pre-receive hook on the hub** (`installNoPushHook`) refuses every push
   but two narrow ones: a Change ticket's push to its holding ref, and a
@@ -129,11 +123,12 @@ trusted:
 - **Pushes to the mirror are automatic and unglamorous**: after a landing,
   the hub pushes the branch to the attached remote (`pushBranch`). Failure
   never blocks the engine; it is logged and surfaced.
-- **Merge requests are not the gate.** A `scm/mr` step exists and one stock
-  lane uses it to open a merge request for people who review in GitLab, but
-  the landing decides, merges locally, and pushes. The founding "merge via
-  the GitLab API so the MR closes properly", `scm/mr-check` and commit
-  statuses were not built.
+- **Merge requests are not the gate.** A `scm/mr` step opens a merge request
+  for people who review in GitLab, but the landing decides. A landing whose
+  run records a merge request merges through it only when GitLab guarantees
+  that what merges is exactly the checked candidate; otherwise it is refused
+  ([SCM package guide](../../internal/forge/scm/README.md)). There is no
+  `scm/mr-check` and no commit status.
 
 ## 5. GitLab specifics
 
@@ -149,9 +144,8 @@ trusted:
 
 ## 6. What lives in the repository (`.forge/`)
 
-The founding plan exported workflows, the guidance manifest and ADRs into
-the tree and then made the tree the truth. **Neither phase was built, and
-the library model superseded the idea** (`state-model.md` §3). In the tree:
+Workflows, the guidance manifest and ADRs are not kept in the tree; the
+library and adoption receipts hold them (`state-model.md` §3). In the tree:
 
 - `.forge/app.yaml` — the runtime contract, the one `.forge` path that
   belongs in history (`contracts.md`).
@@ -160,21 +154,15 @@ the library model superseded the idea** (`state-model.md` §3). In the tree:
 - Everything else under `.forge/` is runtime: the steering file for the
   current step, transcripts and session records, scan outputs, attachments,
   the agent's Docker credentials. `stageAll` stages by pathspec and refuses
-  all of it after an agent once replaced a project's `.gitignore` and the
-  engine committed credentials into branch history.
+  all of it, so an agent that replaces a project's `.gitignore` cannot get
+  credentials committed into branch history.
 
 ADRs live in the `adrs` table. Workflows, guidance and policies live in the
 library, and a project's adoption receipt names the versions it is on.
 
-## 7. Build phases, and what became of them
+## 7. Scope across protocols
 
-| Phase | Founding contents | Fate |
-|---|---|---|
-| **G1 — local plumbing** | repo per project, branches, commit-per-step with trailers, local merge, conflict handling, diff materialization | built; worktrees replaced by clones, conflict handling moved into the reconcile gate |
-| **G2 — GitLab remote** | adapter, auto-push, `scm/mr` + API merge, push webhook, `forge did` | partly: attach-remote and post-landing push; `scm/mr` opens a request but never merges; no adapter, no webhook, no `forge did` |
-| **G3 — state in repo** | export, then repo as truth for workflows, manifests, ADRs; commit statuses | not built; superseded by the library and adoption receipts |
-
-**Scope across protocols (2026-10-03, from an independent review).** Every
+Every
 credential on the git endpoint is scoped, so the backend speaks protocol v0
 only (the client's `Git-Protocol` header is not passed on): protocol v2's
 fetch serves any object named by its ID, hidden refs notwithstanding, while v0

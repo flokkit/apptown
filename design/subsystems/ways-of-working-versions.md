@@ -1,12 +1,12 @@
 # Versioned ways of working
 
-Status: current implementation. Checked on 18 September 2026.
-
 Ways of Working (`wow`) owns published guidance blocks, workflows, packs, library
 policies and system bindings. Adoption owns each project's selections, installed
 rules and revision history.
 
-Publishing a new version does not update a project's recorded adoption.
+Workflows live in the library and projects select them
+([decision](../decisions/workflows-as-lanes.md)). Publishing a new version does
+not update a project's recorded adoption.
 
 An explicit pack pull records its captured selected publication as the primary
 membership in the same transaction as lane selections, primary pack identity and
@@ -53,15 +53,12 @@ facade coordinates that work; a catalog publication alone does not perform it.
 Current-edit commands own complete metadata/version updates and required
 persistence rather than having handlers compose partial writes.
 
-## Historical evidence
+## Evidence at recorded versions
 
 Conformance reads the declarations at their recorded versions. A base/head
 comparison distinguishes introduced findings from existing ones; publishing
 stricter guidance alone must not silently rewrite an earlier verdict. Exceptions,
 required evidence and adoption history remain separate records.
-
-The earlier design contains broader assurance and migration proposals. They do
-not add runtime compatibility readers or unsupported policy states.
 
 ## Implementation references
 

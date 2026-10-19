@@ -1,6 +1,6 @@
 # What chats and workflow steps are provided
 
-Status: as built, 2026-09-09. This is the runtime contract for Forge's own
+This is the runtime contract for Forge's own
 helpers and workflow execution, supporting requirements C2–C6 and C26.
 It describes the behaviour to preserve when changing the implementation.
 The [runtime guide](../../stock/docs/guides/runtime-environments.md) holds the
@@ -174,11 +174,9 @@ residual risks and rollout requirements are in
 
 ## RE11. Work on a separate machine
 
-Status: built. Script steps and change chats moved to the worker first
-(30 September 2026); a change's chat runs on the worker whenever one is
-configured. Agent and review steps, tests steps, checks, previews and release
-builds have moved since; the [workers guide](../operations/workers.md) says
-which work runs where.
+A change's chat runs on the worker whenever one is configured, as do script,
+agent, review and tests steps, checks, previews and release builds; the
+[workers guide](../operations/workers.md) says which work runs where.
 
 **The model.** A worker is another machine that runs a project's code so that
 it does not run on the forge's host. It shares no files with the forge. Work

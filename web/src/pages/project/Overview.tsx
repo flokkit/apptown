@@ -47,7 +47,7 @@ export function BigChangeBox({ slug }: { slug: string }) {
   const addressed = envs.filter((e) => !!e.url && !e.hostOnly)
   const best = addressed.find((e) => e.name === 'lan') ?? addressed.find((e) => e.running) ?? addressed[0]
 
-  // The Build-the-first-version door (design/decisions/interactive-vs-pipeline.md):
+  // The Build-the-first-version door:
   // while a project has no running app, building v1 is overwhelmingly the
   // likely intent — a standing primary action, not a hint. Not a workflow:
   // a Change + workshop with the project's remembered intent (blurb) seeded.

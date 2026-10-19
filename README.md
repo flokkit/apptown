@@ -203,7 +203,7 @@ folders `.forge/`. Those names stay as they are.
 - `cmd/forged` — entrypoint (`forged [flags]`)
 - `internal/<x>` — libraries that know nothing of forge (`console`, `deploy`, `database`, ...)
 - `internal/forge/<x>` — forge's subsystems (`workflow`, `deployment`, `identity`, ...);
-  see `design/architecture/architecture.md`
+  see `design/architecture/domains.md`
 - `internal/forge` — the App: composes the subsystems, serves the HTTP API
 - `web` — React/TS frontend (Vite), embedded into the binary from `web/dist`
 - `design` — architecture and workflow spec documents

@@ -2,7 +2,7 @@
 // per project at a time, worked by a declared pool of workers, verified by a
 // review, with "stuck" as a named state a person sees.
 //
-// It is a facade (design/architecture/architecture.md §6, §11): it composes
+// It is a facade (design/architecture/domains.md, principle 6): it composes
 // Work and Conformance, owns the transaction, and owns four tables of its own
 // — remediations, remediation_items, remediation_attempts and worker_pools —
 // together with the pass that moves them, run as the job queue's

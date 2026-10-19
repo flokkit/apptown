@@ -1,10 +1,5 @@
 # Container and workspace cleanup
 
-Status: current implementation. Checked on 18 September 2026;
-workers and deployments checked on 8 October 2026; step
-networks and the one-daemon limit, 11 October 2026; previews' looks and kept
-builds, 11 October 2026.
-
 Maintenance owns periodic cleanup policy; Docker implements the commands.
 Normal operation cleanup handles completed work. The periodic reaper provides
 a fallback for resources left behind by missed cleanup or process interruption.
@@ -27,12 +22,9 @@ and removes one, by listed ID, once its execution owner has finished, under the
 same rule as the containers: an unknown owner or a failed read keeps it. Docker
 refuses one that a container is still on, so it goes on a later pass after its
 containers. Each network held takes one of Docker's address pools, and a step
-that cannot get one fails at `network create`. Networks made before the labels
-(11 October 2026) are never selected. On a forge that has them, the leftover
-`forge-net-<step>` (a number, not `env-…` or `pv…`) and `forge-dind-step-<step>`
-networks of finished steps are a one-time manual cleanup with
-`docker network rm`, which refuses a network still in use. Not
-`docker network prune`: it would also take a stopped deployment's network.
+that cannot get one fails at `network create`. A network without the forge's
+labels is never selected. Do not clear networks with `docker network prune`:
+it would also take a stopped deployment's network.
 
 One forge owns one Docker daemon. The labels name a class and an owner but not
 the forge, and step IDs are numbered per forge, so two forges sharing a daemon
@@ -100,8 +92,7 @@ worker.
   removes the image it replaced once nothing else names it. Thirty days
   after the last look, Preview removes the kept images (on a worker, by
   asking it) and the snapshot, then the look. Snapshots and local build
-  images of a change's preview with no look and nothing present go too:
-  nothing from before 11 October counts as looked at.
+  images of a change's preview with no look and nothing present go too.
 - **Project deletion** removes everything at once, kept or not.
 
 Accepted limits: a forge without a preview domain sees no request to a
@@ -109,9 +100,8 @@ local preview at its published port, so such a preview stops eight hours
 after its last boot even in use. A WebSocket or a long streaming response is
 one look when it opens. Any request counts, a polling tab's or a bot's.
 Times are approximate to a few minutes. A reopen is a build: quick when the
-kept image or BuildKit's cache match, not guaranteed. A change preview's
-images left on a worker from before 11 October have no look and are removed
-by hand. Kept images are not bounded in size.
+kept image or BuildKit's cache match, not guaranteed. Kept images are not
+bounded in size.
 
 ## Implementation references
 

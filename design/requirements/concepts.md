@@ -1,8 +1,7 @@
 # The concepts: what each thing is, how to think about it, and where it appears
 
-Status: requirements vocabulary recorded 2026-09-06; targeted corrections
-18 September 2026. This is product intent and historical terminology, not the
-current Go model or a blanket implementation claim. Start with the
+This is product vocabulary, not the Go model or a blanket implementation
+claim. Start with the
 [current product model](../subsystems/product-model.md), [authority](../subsystems/auth.md)
 and [workflow guarantees](../subsystems/workflow-domain.md). Companion to `requirements.md`, mined from
 it: every noun the use cases lean on, with what it is, the picture to hold
@@ -26,11 +25,11 @@ below use the first word in each row.
 | **project** | app (C Changes, B Services), repository; sometimes heard as "product" | one codebase the forge governs; "app" is the running software; see [project](#project) |
 | **change** | ordinary change, catalogued change, uplift change, fix, work | the unit of work; see [change](#change) |
 | **helper** | the forge's own coding agent, agent, agent session, chat, console, terminal, instrument | the forge's agent acting for a person; the chat is where you talk to it; a console is its container; see [helper](#helper) |
-| **deployment** | environment (historical name; API paths, CLI and database now say deployment), instance, standing environment | a project's app standing on one target under a name; see [deployment](#deployment). Not a [tier](#tier): its audience, data class and feed say what a tier used to. The act of putting a bundle on it is a [deploy](#deploy) |
+| **deployment** | environment, instance, standing environment | a project's app standing on one target under a name; see [deployment](#deployment). Not a [tier](#tier): its audience, data class and feed say who it serves. The act of putting a bundle on it is a [deploy](#deploy) |
 | **target** | place, host, endpoint, "the cloud" | where a deployment stands, reached through one [provider](#provider); see [target and offer](#target-and-offer). "Cloud" is also the name of a [tier](#tier), which is a different thing: the tier says who a release reaches, the target says where it runs |
 | **accept** | approve | two different acts: a maintainer *accepts* a change (C7); an approver *approves* a step (C13, B22). Acceptance starts the landing and counts for the landing's approval where the accepter may give it; see [acceptance](#acceptance) and [approval](#approval) |
 | **acceptance** (a change's) | the check's expectation carried as acceptance (B21) | second sense: what an uplift or remediation change must prove before it may land; see [acceptance criteria](#acceptance-criteria) |
-| **adopt** | update, prepare and adopt; formerly "pull" | move a project to a new revision (B13). Two unrelated uses: *adopt a branch* (C11) opens a change on existing work; *adopt-integration* (B27) wires a service in |
+| **adopt** | update, prepare and adopt; "pull" | move a project to a new revision (B13). Two unrelated uses: *adopt a branch* (C11) opens a change on existing work; *adopt-integration* (B27) wires a service in |
 | **uplift** | adopt through a change (B13) | a change that carries a move to a new revision. Unrelated: the *dependency-uplift* lane (C4, B14) updates dependencies |
 | **fleet** | the store (A12); sometimes heard as "estate" | every project on the instance; see [fleet](#fleet) |
 | **need** | service (B24), dependency | what an app declares it needs to run (a database); see [need](#need). Not the same as an [integration](#integration), which B Services also calls a service |
@@ -297,8 +296,7 @@ the receipt; an old release can be looked at, never restored (C14).
 ### Deploy
 The act of putting a bundle on a deployment through its target, as a
 numbered generation with a log written as it happens; rolling back is
-deploying an earlier bundle. (Until 2026-09-08 this entry was named
-"deployment"; the noun moved to the standing thing, below.) *Rules:* after a restart the forge resumes
+deploying an earlier bundle. *Rules:* after a restart the forge resumes
 from what the provider had already named or fails honestly; it never
 adopts a deployment on a guess. *Appears:* B9, B10, the rules under B Deployments and releases, B7.
 
@@ -309,11 +307,9 @@ A project's app standing on one target under a name: the `main`
 deployment every repo-backed project has, the intranet, or a **standing
 deployment** on a cloud target with an audience and a data class. A
 **protected deployment** (partners, public, production data) takes the
-release grant. Decided 2026-09-08: the word was *environment*, which
-most people hear as a tier; the UI says deployment, and the API paths,
-CLI, database and older design text still say environment until they are
-brought across. A deployment is not a [tier](#tier): its audience, data
-class and feed say what a tier used to. *Lifecycle:* created against an offered target, deployed to,
+release grant. The interface, API paths, CLI and database all say
+deployment. A deployment is not a [tier](#tier): its
+audience, data class and feed say who it serves. *Lifecycle:* created against an offered target, deployed to,
 torn down; what holds data is left behind as [retained](#retained).
 *Appears:* C13, B9, C18, B6, B7, B24.
 
@@ -356,10 +352,9 @@ is torn down (what held data is [retained](#retained)). *Appears:*
 
 ### Renderer and driver
 The pair a target's kind names: the **renderer** turns the runtime
-contract into that platform's shape (a compose file, a Kubernetes
-manifest, an App Platform spec), the **driver** pushes it there and reads
-back the handle. Kinds today: `docker-host`, `portainer`, `kubernetes`,
-`ecs`, `cloud-run`, `container-apps`, `app-platform`. *Appears:*
+contract into that platform's shape (a compose file, an App Platform spec),
+the **driver** pushes it there and reads back the handle. The kinds are
+`docker-host`, `portainer`, `do-app` and `s3-bucket`. *Appears:*
 `../subsystems/deploy-targets.md`, `../subsystems/deployment.md` §2.4.
 
 ### Retained

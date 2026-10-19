@@ -1,12 +1,5 @@
 # What the forge does for people: the supported workflows
 
-> Product intent and journeys, recorded at the dates below. Their past “live”
-> and “today” wording is not a fresh deployment audit. Use the
-> [current product model](../subsystems/product-model.md) and its topic guides
-> for checked implementation; preserve requirement gaps rather than silently
-> redefining promises to match code.
-
-Status: as built, 2026-09-06; reorganised the same day by responsibility.
 This is the business-requirements view of the product — every journey a
 person can complete, who does it, how, and what counts as done — written
 in plain English and kept true to the current code and guides. The
@@ -229,9 +222,6 @@ flight; its records go with it. Standing deployments must be torn down
 first (B7). *Settings → General → Delete.*
 
 ## Deployments and releases
-
-(Called *environments* until 2026-09-08; the identifiers and the API
-paths keep the old word, the product says deployment.)
 
 **B6 Create a deployment.** An owner creates a standing deployment
 bound to a target the project was offered, with its audience and data

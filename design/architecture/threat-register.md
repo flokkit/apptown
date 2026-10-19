@@ -1,19 +1,16 @@
 # Forge threat register
 
-The entries in this register are the baseline of 9 September 2026: what a
-source review of that date found, with dated updates added under some entries
-since. Each entry keeps its baseline observation, a proposed control and a
-verification scenario. Proposed controls and verification scenarios are not
-claims that anything is built. Read with the [threat model](threat-model.md),
-which defines scope, priorities and residual trust. For current identity and
-visibility behaviour, read [authentication and authority](../subsystems/auth.md)
-rather than the baseline's broad-read and profile observations.
+Each entry names a threat, its attack and impact, its status, the control
+that answers it and how that control would be verified. A proposed control or
+verification scenario is not a claim that anything is built. Read with the
+[threat model](threat-model.md), which defines scope, priorities and residual
+trust. For identity and visibility behaviour, read
+[authentication and authority](../subsystems/auth.md).
 
-The **Status (18 Oct 2026)** column of the inventory, and the status line at
-the top of each entry, say where each entry stood on 18 October 2026. Each
-status rests only on a current guide (under `design/subsystems`,
+The **Status** column of the inventory, and the status line at the top of each
+entry, rest only on a current guide (under `design/subsystems`,
 `design/architecture`, `design/operations` or `stock/docs/guides`) or a test
-in the code that was read for it:
+in the code:
 
 - **Mitigated**: a guide or test shows the proposed control, or an equivalent
   one, for the paths the entry names.
@@ -22,20 +19,12 @@ in the code that was read for it:
 - **Accepted**: the remaining risk is a recorded choice; the status line says
   where it is recorded.
 - **Open**: no guide or test shows the control. An entry whose current state
-  could not be shown is open.
+  cannot be shown is open.
 
 A status is about the product, not about any installation. It is not a
 penetration test, and it does not verify a deployment's own firewall, edge
 proxy, provider limits or backups. Several entries are partly one status and
 partly another; their status line says which part is which.
-
-Dated update, 9 September 2026: the first
-[browser-security batch](../subsystems/browser-security.md) and the
-[lifecycle-token inference proxy](../subsystems/inference-security.md) were
-deployed. Live checks verified credential and network admission, streaming and
-attribution, revocation, runtime configuration and browser request
-protections. The entries below keep their baseline observations from the
-source review of the same day.
 
 STRIDE: S = spoofing, T = tampering, R = repudiation, I = information
 disclosure, D = denial of service, E = elevation of privilege. Ratings are
@@ -44,7 +33,7 @@ the enabling behavior is clear in source, not that a live exploit was run.
 
 ## Inventory
 
-| ID | Threat | Priority | STRIDE | Evidence confidence (baseline) | Status (18 Oct 2026) |
+| ID | Threat | Priority | STRIDE | Evidence confidence | Status |
 |---|---|---|---|---|---|
 | TM-01 | Reusable model-provider keys escape runtimes | P0 | I, E | High | Mitigated |
 | TM-02 | Model use has no enforceable shared spending ceiling | P0 | D | High | Open |
@@ -79,39 +68,25 @@ the enabling behavior is clear in source, not that a live exploit was run.
 
 ### TM-01 — reusable model-provider keys escape runtimes
 
-**Status, 18 October 2026: mitigated.** Provider keys stay on the forge.
+**Status: mitigated.** Provider keys stay on the forge.
 Chats, steps and their delegates get only a Forge credential for the private
 inference listener, local model execution is refused, and a known provider
 key passed back in through a step secret or an integration setting stops the
 runtime's preparation ([inference security](../subsystems/inference-security.md);
 `TestInferenceAdmissionAndCredentialBoundary` and the other tests in
-`internal/forge/inference/gateway_test.go`). An installation that ran a build
-from before 9 September 2026 still has to rotate the keys delivered then.
-Spending through the gateway is TM-02.
+`internal/forge/inference/gateway_test.go`). A provider key ever delivered into
+a runtime must still be rotated. Spending through the gateway is TM-02.
 
 **Attack and impact.** A package script, malicious tool, persuaded agent or
 person with shell access reads provider keys and exports them. The attacker
 can spend against the provider independently of Forge or its session lifetime.
 No container escape is required.
 
-**Observed controls/gap.** Step environment selection filters model secret
-prefixes, but consoles receive the configured model secret environment and
-`generatePiModelsJSON` resolves keys for custom providers into a generated
-file. Filtering only environment variables therefore leaves another path.
-File mode 0600 protects against different OS identities, not the process
-running as the file owner. The baseline functions (`modelSecretEnv`,
-`modelSecretEnvFor`, `generatePiModelsJSON`, `stagePiConfig`) no longer exist.
-Their current counterparts: [models.go](../../internal/forge/agentharness/pi/models.go)
-(the generated `models.json`),
-[environment.go](../../internal/forge/workflowexec/environment.go) (`agentEnv`),
-[invocation.go](../../internal/forge/workflowexec/invocation.go) (`piInvoke`),
-[provision.go](../../internal/console/pi/provision.go) (chat containers).
-
 **Proposed control.** Trusted inference gateway with reusable keys outside
 the worker trust boundary, grant-only runtime configuration, no direct-key
 fallback and no arbitrary upstream forwarding. Cover console, step,
-worker/scout delegation, custom provider JSON and local execution. Rotate
-old keys and recreate credential-bearing runtimes at cutover.
+worker/scout delegation, custom provider JSON and local execution. Rotate any
+key ever delivered to a runtime.
 
 **Verify.** Seed distinct fake keys for multiple providers. Inspect the env,
 mounts, generated config, child processes and observable output of every
@@ -119,17 +94,9 @@ runtime class. None may contain an upstream key. Allowed inference succeeds
 through the gateway; direct provider authentication and alternate model/config
 paths cannot recover the old behavior.
 
-**Deployment progress, 9 September 2026.** The
-[inference proxy](../subsystems/inference-security.md) uses existing lifecycle
-session tokens plus an explicit direct-peer network allowlist. It removes
-provider secrets from console/step/delegate config and env, refuses local model
-execution, redacts legacy model-config reads and provides a startup cutover.
-Live network and inference verification passed; previously delivered
-provider-key rotation remains operational work.
-
 ### TM-02 — inference spending can exceed the intended allowance
 
-**Status, 18 October 2026: open.** The gateway limits a request to 32 MiB
+**Status: open.** The gateway limits a request to 32 MiB
 and allows eight concurrent requests per runtime credential and 64 per daemon;
 that is not a monetary budget, and new sessions get new capacity
 ([inference security](../subsystems/inference-security.md), "Provider
@@ -142,17 +109,11 @@ model access").
 requests, forks delegates or opens many sessions. A post-hoc cost dashboard
 cannot prevent the charge. Stolen provider keys bypass it entirely.
 
-**Observed controls/gap.** [accounting.go](../../internal/forge/workflowexec/accounting.go)
-derives usage from Pi output/session records after observation. That is useful
-accounting, not trusted pre-dispatch budget enforcement. Step deadlines and
-execution concurrency do not bound off-platform use or total model charge.
+**What exists.** Configured model allowlists, request and concurrency limits and
+transport-observed usage receipts. Attributable inference is otherwise
+unbounded; there is no monetary budget.
 
-**Accepted initial scope.** The first proxy batch supplies configured model
-allowlists, request/concurrency limits and transport-observed usage receipts.
-It permits fairly arbitrary attributable inference; hard monetary budgets are
-explicitly deferred. TM-02 remains open after credential containment.
-
-**Follow-up control.** Reserve maximum request cost transactionally at the
+**Proposed control.** Reserve maximum request cost transactionally at the
 gateway, across replicas, using parent/delegate and user/project/instance
 ceilings. Restrict models, request/output size, rate and concurrency. Reconcile
 trusted usage conservatively across disconnects/retries; use provider account
@@ -166,7 +127,7 @@ the maximum already-in-flight exposure.
 
 ### TM-03 — privileged execution compromises the control plane
 
-**Status, 18 October 2026: partly mitigated; the root daemon is accepted.**
+**Status: partly mitigated; the root daemon is accepted.**
 With a worker, steps, checks, previews, release builds and new change chats
 run on a separate machine; with `-no-local-docker` the forge's host runs no
 Docker and no project process; a script step runs as a host process only with
@@ -184,15 +145,6 @@ the forge's host has root there.
 or attacks a privileged container/kernel boundary to reach the Forge host.
 Host compromise exposes its database, model keys and deployment authority.
 
-**Observed controls/gap.** Private console DinD avoids handing out the host
-Docker socket; owner checks restrict sidecar reuse. Both console and step
-DinD still use `--privileged`. Local runner execution inherits `os.Environ()`.
-The deployed daemon runs as root. Outer host confinement was not assessed.
-See [the chat's private Docker](../../internal/console/pi/dind.go),
-[a step's private Docker](../../internal/forge/agentenv/workshop.go),
-[runner.go](../../internal/execution/runner.go),
-[agent image](../../deploy/forge-agent/Dockerfile).
-
 **Proposed control.** Separate control plane/secrets from worker hosts or
 VMs; make the untrusted execution contract explicit. Do not permit local
 backend selection for untrusted work. Run workloads with the least privilege
@@ -207,7 +159,7 @@ separate review of the chosen kernel/VM boundary.
 
 ### TM-04 — attacker-controlled Git metadata drives host execution
 
-**Status, 18 October 2026: partly mitigated.** Before the forge runs Git in
+**Status: partly mitigated.** Before the forge runs Git in
 a change's or run's folder that an agent or person may have changed, it checks
 the metadata by reading files only (a real `.git` directory, no symbolic
 links, no shared or borrowed metadata, only the config its own clone writes,
@@ -230,15 +182,6 @@ workspace's Git indirection before Forge runs status, add, stash, archive or
 commit. Git may invoke configured helpers, filters or hooks on the host.
 Potential impact is host execution under the daemon identity.
 
-**Observed controls/gap.** `newGitCmd` (now [gitexec](../../internal/gitexec/gitexec.go)) invokes host Git in the supplied
-directory without a centralized untrusted-repository policy. Some worktrees
-point to metadata outside their mount; do not assume every existing hook is
-writable from every runtime. The workspace itself is writable in relevant
-classes, and metadata replacement needs adversarial verification. Stage
-exclusions protect runtime paths from ordinary commits, not Git execution.
-See [gitrepo.go](../../internal/forge/gitrepo.go) and
-[app.go](../../internal/deploy/docker/app.go) (`StagedBuildContext`).
-
 **Proposed control.** Keep trusted repository metadata out of workload control;
 perform untrusted Git operations in a credential-free sandbox. Centralize
 sanitized environment/config/protocol/helper handling and validate worktree
@@ -252,7 +195,7 @@ not just project import.
 
 ### TM-05 — paths and symlinks cross the workspace boundary
 
-**Status, 18 October 2026: partly mitigated.** Deployment builds and static
+**Status: partly mitigated.** Deployment builds and static
 output refuse symlinks and paths that leave the source tree
 (`internal/deploy/docker/source_confinement_test.go`,
 `internal/deploy/docker/static_build_test.go`); image exports and runner
@@ -270,22 +213,6 @@ symlink before a privileged host read/write/mount. Files outside the intended
 root may be disclosed, modified or served. Race conditions can defeat a
 check performed well before the actual open.
 
-**Observed controls/gap.** Basename checks constrain uploaded filenames, but
-attachment synchronization uses ordinary writes into `.forge/attachments`
-inside the writable worktree. Secret-spec reads and static serving use joined
-paths. Joining/cleaning a path is not filesystem containment. Shared safe-open
-semantics were not found in these paths. See
-[workspace_attachments.go](../../internal/forge/workflow/workspace_attachments.go)
-(`SyncAttachments`), [spec.go](../../internal/forge/secret/spec.go) (`ReadSpec`),
-[app.go](../../internal/deploy/docker/app.go) (`StartAppContainer`).
-
-Update, 10 September 2026 (a local change, not yet deployed then): standing Docker preparation
-uses a private selected Git archive and rejects escaping build/static paths and
-symlinks before contract/secret resolution and image preparation. Standing static
-files are packaged instead of mounted from the live workspace. Focused and real
-Docker checks cover this path. Mutable attachment/preview paths and general
-root-bound filesystem operations remain open; this does not close TM-05.
-
 **Proposed control.** Validate declarative paths centrally and use root-bound
 filesystem operations that resist symlink traversal at use time. Keep runtime
 credentials outside writable source trees; stage immutable build inputs.
@@ -298,7 +225,7 @@ mounts. Expected denial must not alter the outside canary.
 
 ### TM-06 — writable cache crosses workload trust boundaries
 
-**Status, 18 October 2026: partly mitigated.** Each project's steps and
+**Status: partly mitigated.** Each project's steps and
 checks mount a cache volume of their own, `forge-cache-<project>`, and each
 chat has its own ([running a forge](../../stock/docs/guides/running-a-forge.md),
 "Workers and running without local Docker"; `TestAStepsCacheIsItsProjectsAlone`
@@ -311,14 +238,6 @@ container can leave files another project's reads
 or shared executable/cache configuration. A later workload consumes it and
 executes attacker code with its own credentials.
 
-**Observed controls/gap.** mise selects per-workspace subdirectories, reducing
-normal collisions. Runtimes still mount the full writable `forge-cache`
-volume, including shared package/cache locations; path naming does not
-prevent deliberate writes to neighboring directories. See
-[registries.go](../../internal/forge/agentenv/registries.go) (`miseWorkspaceKey`;
-`stageAmbient` is now `AmbientFor`), [execution.go](../../internal/forge/agentenv/execution.go)
-(`CacheVolume`), [provision.go](../../internal/console/pi/provision.go).
-
 **Proposed control.** Mount only a workload/project-owned cache root, selected
 according to the confidentiality policy. Shared artifacts should be immutable
 and verified, with a trusted publisher. Separate caches for more privileged
@@ -330,7 +249,7 @@ performance optimizations do not reintroduce a shared writable parent.
 
 ### TM-07 — network access permits private-infrastructure pivots and SSRF
 
-**Status, 18 October 2026: open.** The inference listener admits only
+**Status: open.** The inference listener admits only
 configured worker networks, and a worker can check that the cloud metadata
 address is blocked (`forge-worker -check-metadata`), but the block itself is
 the operator's firewall rule ([running a forge](../../stock/docs/guides/running-a-forge.md)).
@@ -344,16 +263,6 @@ an authorized configuration field persuades Forge to make a credential-bearing
 HTTP request to an unintended destination. Redirects and DNS changes can
 defeat naive URL checks. Consequences include credential disclosure and
 access to metadata, management or other project services.
-
-**Observed controls/gap.** Runtime construction adds
-`host.docker.internal:host-gateway`; package mirrors route traffic but do not
-enforce egress. Integration clients use configured endpoints, including model
-discovery. The sandbox egress document is a proposal. No assertion is made
-that all private addresses are currently reachable. See
-[execution.go](../../internal/forge/agentenv/execution.go) (`Decorate`, host routing),
-[app.go](../../internal/deploy/docker/app.go),
-[the integration package](../../internal/forge/integration/),
-[agent-sandbox.md](../subsystems/agent-sandbox.md).
 
 **Proposed control.** Separate worker networks and enforce allowed control
 endpoints plus purpose-specific egress. Validate server-side destinations,
@@ -371,7 +280,7 @@ reach the disallowed destination.
 
 ### TM-08 — active attachments execute at the Forge origin
 
-**Status, 18 October 2026: mitigated.** Change attachments, chat uploads
+**Status: mitigated.** Change attachments, chat uploads
 and chat history files are served as downloads (`application/octet-stream`,
 `Content-Disposition: attachment`) with `nosniff` and a `sandbox` CSP; only
 content that is really a picture is shown inline
@@ -387,16 +296,6 @@ more privileged person to open it. If rendered at the Forge origin, script
 can make authenticated requests as that viewer. HttpOnly prevents reading
 the cookie, not using ambient session authority.
 
-**Observed controls/gap.** Upload names and selected file sizes are constrained.
-`handleGetAttachment` serves the file with `http.ServeFile`, without forced
-download or a handler-level restrictive CSP. The Forge handler chain does not
-add a general content-isolation policy. Sanitizing Markdown does not cover
-this raw-file response. Edge behavior and browser execution were not tested.
-See [attachments.go](../../internal/forge/httpapi/attachments.go),
-[untrusted_file.go](../../internal/forge/httpapi/untrusted_file.go) (the current
-serving),
-[routes.go](../../internal/forge/routes.go), [md.ts](../../web/src/md.ts).
-
 **Proposed control.** Serve arbitrary attachments as downloads with safe
 Content-Disposition and `nosniff`, or from a separate untrusted-content
 origin. Allow inline display only for deliberately supported inert formats;
@@ -409,7 +308,7 @@ workflows through safe rendering.
 
 ### TM-09 — cross-origin requests borrow a victim's authority
 
-**Status, 18 October 2026: mitigated.** Unsafe methods require the exact
+**Status: mitigated.** Unsafe methods require the exact
 configured origin when a browser sends one; sibling application domains are
 not trusted; the console WebSocket requires the origin; HTTPS sign-in uses a
 `__Host-` cookie with `Secure`; OAuth consent is a short-lived server record
@@ -426,17 +325,6 @@ same registrable domain, sends browser-authenticated requests or opens a
 terminal WebSocket. A forged OAuth consent POST can authorize an attacker-owned
 client whose PKCE challenge the attacker chose.
 
-**Observed controls/gap.** Console `CheckOrigin` always returns true. OAuth
-consent validates client, redirect and PKCE parameters but the POST carries
-unsigned request fields and no server-bound anti-forgery token. No global
-mutation-origin protection was found in `Handler`. The cookie is host-only,
-HttpOnly, SameSite=Lax but lacks Secure. Same-site is not same-origin.
-These are not authentication bypass claims: victim credentials and sufficient
-authority still have to accompany the request. See
-[console_pty.go](../../internal/forge/console_pty.go),
-[oauth.go](../../internal/forge/oauth.go) (`handleOAuthAuthorize`),
-[internal_auth.go](../../internal/forge/internal_auth.go) (`issueSession`).
-
 **Proposed control.** Exact trusted-origin checks for WebSocket handshakes;
 CSRF protection for browser mutations and session-bound, expiring, one-use
 consent state. Production `Secure` host-only cookies, preferably `__Host-`
@@ -450,7 +338,7 @@ according to the actual client contract; do not indiscriminately exempt them.
 
 ### TM-10 — authority and revocation differ by authentication path
 
-**Status, 18 October 2026: partly mitigated.** Disabling an account ends its
+**Status: partly mitigated.** Disabling an account ends its
 sessions and stops sign-in, and wherever authority is decided a name without
 an enabled account is refused ([authentication and authority](../subsystems/auth.md);
 `TestDisabledAccountCannotSignInOrUseSession`). A chat terminal opened to
@@ -465,18 +353,6 @@ have no expiry (auth guide).
 terminal retains access that a fresh personal-token request would lose.
 Different route guards give different answers for equivalent actions.
 
-**Observed controls/gap.** Personal tokens check disabled/current authority.
-The kernel rejects disabled user principals, but console instruments are
-converted to a person after the initial disabled check. Session resolution
-does not itself reject disabled accounts. Some routes use legacy guards;
-established terminal connections do not reauthorize each frame. The exact
-reachable privilege difference needs a complete matrix. See
-[auth.go](../../internal/forge/auth.go),
-[internal_auth.go](../../internal/forge/internal_auth.go),
-[authz_kernel.go](../../internal/forge/authz_kernel.go),
-[route_table.go](../../internal/forge/route_table.go),
-[console_pty.go](../../internal/forge/console_pty.go).
-
 **Proposed control.** Normalize principals and check current account/delegation
 state before every authorization path. Make legacy and kernel routes converge;
 route inventory is coverage, not proof of enforcement. On revocation close
@@ -489,7 +365,7 @@ and delegated-person conversion, not only direct user principals.
 
 ### TM-11 — project privacy is assumed where reads are broad
 
-**Status, 18 October 2026: partly mitigated.** The confidentiality decision
+**Status: partly mitigated.** The confidentiality decision
 is made: reads follow the caller's current read grants on each project;
 aggregate reads select readable projects before limits and counts; reads
 about the instance keep an instance capability; a refusal does not name the
@@ -503,15 +379,6 @@ the entry lists (Git, MCP, events, error metadata).
 prompts, transcripts, attachments, evidence or operational metadata. The loss
 is disclosure if people believed rosters made those resources private.
 
-**Observed controls/gap.** Many reads use `gOpen`; project rosters primarily
-gate mutation. OAuth read coverage is broad by design. Some instruments are
-bounded on consequential actions without an equivalent universal read filter.
-This can be intentional transparency. See [routes.go](../../internal/forge/routes.go),
-[authz_kernel.go](../../internal/forge/authz_kernel.go),
-[oauth.go](../../internal/forge/oauth.go),
-[internal_auth_test.go](../../internal/forge/internal_auth_test.go)
-(`TestProjectRosterGate`).
-
 **Proposed control.** Decide confidentiality by data category and document it
 in the UI. If private projects are promised, authorize list and object reads,
 search, downloads, events, Git, MCP and error metadata consistently. Instruments
@@ -523,7 +390,7 @@ reads, test that secrets and security-sensitive runtime data remain excluded.
 
 ### TM-12 — bootstrap, login and proxy trust are attack surfaces
 
-**Status, 18 October 2026: partly mitigated.** Under internal sign-in the
+**Status: partly mitigated.** Under internal sign-in the
 first account needs the setup token the forge writes to its data directory,
 and concurrent bootstrap has one winner (`TestTheFirstAccountNeedsTheSetupToken`,
 `TestBootstrapAdministratorRollsBackAndHasOneWinner`); the doors that take a
@@ -539,16 +406,6 @@ there is no second factor.
 attacker; concurrent bootstrap requests create extra administrators; password
 guessing consumes bcrypt CPU; proxy/header mistakes permit identity spoofing.
 
-**Observed controls/gap.** Unknown auth modes panic; trusted-header mode needs
-a matching proxy secret; passwords use bcrypt. Bootstrap tests account count
-before inserting and granting admin, without an atomic one-owner claim around
-the whole operation. Login has no handler-level rate limiter. Admin network
-restrictions default unrestricted when unset and depend on trusted forwarding
-semantics. Current external edge policy was not audited. See
-[internal_auth.go](../../internal/forge/internal_auth.go),
-[auth.go](../../internal/forge/auth.go),
-[adminnet.go](../../internal/forge/adminnet.go).
-
 **Proposed control.** One-use out-of-band/bootstrap-local authority plus atomic
 owner creation; explicit production auth configuration. Login/registration
 limits and administrative reauthentication or MFA through the chosen identity
@@ -561,7 +418,7 @@ Test direct-listener access rather than only the public proxy route.
 
 ### TM-13 — runtime tokens or reports are used outside their purpose
 
-**Status, 18 October 2026: partly mitigated.** A run credential is accepted
+**Status: partly mitigated.** A run credential is accepted
 only while its run is running and its attempt is the step's live attempt
 ([inference security](../subsystems/inference-security.md); the credential
 table in the [threat model](threat-model.md)); a chat's credential reaches its
@@ -578,16 +435,6 @@ listener or another transport, submits a forged completion report, or keeps
 acting after the intended turn. Its legitimate token must not make arbitrary
 claims into trusted outcomes.
 
-**Observed controls/gap.** Instrument capability tables and project checks
-exist; GETOnly blocks PTY and most writes. Console tokens persist with session
-metadata; run tokens are derived from the step attempt and refused once
-the attempt is no longer live (one check at the gateway and the API). Runtime possession
-of its own bearer is expected and therefore cannot distinguish the agent loop
-from arbitrary child code. See [runtime_tokens.go](../../internal/forge/identity/runtime_tokens.go),
-[session.go](../../internal/console/session.go),
-[console.go](../../internal/forge/console.go),
-[authz_kernel.go](../../internal/forge/authz_kernel.go).
-
 **Proposed control.** Narrow grants to resource, action, audience, expiry and
 current lease. Treat reports as claims until correlated with trusted runner
 state and immutable inputs. Enforce bounds on every listener; separate the
@@ -602,7 +449,7 @@ resource cleanup fails.
 
 ### TM-14 — development or changed code receives production authority
 
-**Status, 18 October 2026: partly mitigated.** Values are bound per
+**Status: partly mitigated.** Values are bound per
 deployment; with scopes, each part of an app receives only the secrets its
 scope lists; a preview uses the `preview` profile when one is declared; a
 restore rehearsal gets only what a non-inheriting `rehearsal` profile names
@@ -619,15 +466,6 @@ the project's bindings and explicit step secrets.
 credential through a reused binding, broad integration or secret profile.
 Changed code sends it away or uses it against production.
 
-**Observed controls/gap.** The broker binds by project/environment and delivers
-to declared consumers. Preview selects a `preview` profile when present,
-otherwise `default`; that selection does **not** by itself select a production
-environment binding. Risk arises from binding values, shared secret domains,
-integration delivery and the trust of the code receiving them. Live mappings
-were not inspected. See [delivery.go](../../internal/forge/secret/delivery.go),
-[environment.go](../../internal/forge/workflowexec/environment.go) (`agentEnv`, `startAgentSandbox`),
-[app.go](../../internal/deploy/docker/app.go) (`StartAppContainer`).
-
 **Proposed control.** Classify secrets as control-plane, production-runtime or
 development; deny high-value classes in chats/tests/previews by policy. Use
 unique sandbox accounts and data. A repository declaration may request a
@@ -641,7 +479,7 @@ including unapproved init/migration code.
 
 ### TM-15 — secrets escape through retained output and build artifacts
 
-**Status, 18 October 2026: partly mitigated.** Recorded step output,
+**Status: partly mitigated.** Recorded step output,
 evidence and chat messages replace current secret-store values with `[secret]`
 ([secrets](../../stock/docs/guides/secrets.md), "What is masked, and what is
 not"); build-source selection now refuses rather than falling back to the live
@@ -656,15 +494,6 @@ not prevented.
 build includes runtime state. Values persist in transcripts, images, downloads,
 Git history or backups after the runtime ends.
 
-**Observed controls/gap.** `stageAll` excludes `.forge` independently of
-`.gitignore`, following an earlier accidental runtime-file commit documented
-in code. `stagedBuildContext` normally archives tracked state, but falls back
-to the live path on some errors/non-repo paths. An agent can copy a secret
-outside `.forge`; ignore rules cannot stop that. See
-[repository.go](../../internal/forge/scm/repository.go) (`StageAll`),
-[app.go](../../internal/deploy/docker/app.go) (`StagedBuildContext`),
-[session.go](../../internal/console/session.go).
-
 **Proposed control.** Remove valuable secrets from workloads first. Fail closed
 when constructing protected build contexts; keep runtime state outside source.
 Redact known credentials at logging boundaries, use standard secret scanning,
@@ -678,7 +507,7 @@ must prevent. Validate deletion and upstream rotation independently.
 
 ### TM-16 — database and backup access reveals instance credentials
 
-**Status, 18 October 2026: accepted for the built-in secret store; backups
+**Status: accepted for the built-in secret store; backups
 open.** The built-in store keeps its key in the same database and is
 documented as not a vault: anyone with a dump or backup can read every value,
 and the guide says to use Infisical for anything that matters
@@ -696,14 +525,6 @@ from a backup.
 application secrets and the ability to forge grants/history. A restored backup
 can also revive credentials or vulnerable configuration.
 
-**Observed controls/gap.** Built-in AES-GCM uses a key stored in the same DB;
-it does not protect against whole-DB theft. External secret-store identities
-and resolved values are held on the Forge side. Backup access/encryption and
-off-host copies were not verified. See
-[store.go](../../internal/forge/secret/store.go),
-[runtime.go](../../internal/forge/secret/runtime.go),
-[backups.go](../../internal/forge/dataprotection/backups.go).
-
 **Proposed control.** Separate encryption/unlock authority from backup data,
 restrict DB credentials/network, encrypt and inventory backups, and keep
 recoverable off-host copies under different access authority. Define retention
@@ -716,7 +537,7 @@ credentials. Record recovery objectives and measured results.
 
 ### TM-17 — editable workflows and checks become a confused deputy
 
-**Status, 18 October 2026: partly mitigated.** Merging into the default
+**Status: partly mitigated.** Merging into the default
 branch and deploying need a person's approval or a run admitted by someone
 holding `change:land`, checked at the effect itself; agents, consoles, step
 runs and the forge's triggers cannot approve or land
@@ -733,15 +554,6 @@ test or agent report so dangerous work appears approved. Prompt injection
 persuades an agent to call a privileged tool. A check that tests itself can be
 green without demonstrating the intended property.
 
-**Observed controls/gap.** Forge has grants, approval eligibility, versioned
-workflow/guidance state and authorization receipts. Those controls are useful;
-they do not make agent text or project-controlled tests independent authority.
-Changes to governing definitions and adoption are security-sensitive. See
-[authz_kernel.go](../../internal/forge/authz_kernel.go),
-[library.go](../../internal/forge/library.go),
-[approval_authority.go](../../internal/forge/workflow/approval_authority.go),
-[guidance-checks.md](../subsystems/guidance-checks.md).
-
 **Proposed control.** Keep policy authorship/adoption and consequential
 approval distinct from producing code/evidence. Bind checks to immutable
 definitions and inputs; label self-reported versus runner-observed evidence.
@@ -755,7 +567,7 @@ the same denial as a direct API caller.
 
 ### TM-18 — released bits differ from reviewed or tested bits
 
-**Status, 18 October 2026: partly mitigated.** On a forge with a worker,
+**Status: partly mitigated.** On a forge with a worker,
 a landing's images are built once from the landed commit and recorded by
 digest in a bundle that never changes; every later release, preview and
 promotion uses those digests and builds nothing
@@ -768,22 +580,6 @@ commit the checks ran against is bound to the digests released.
 between evidence collection, approval and deployment. A malicious or simply
 different artifact reaches a standing environment under an older green result.
 
-**Observed controls/gap.** Source fingerprints, contract snapshots, bundles
-and expected-tip Git operations provide identity controls. Different build,
-preview and deployment paths still need end-to-end proof; a tag or live
-worktree name is not immutable identity. See
-[bundles.go](../../internal/forge/deployment/bundles.go),
-[contract_snapshots.go](../../internal/forge/project/contract_snapshots.go),
-[deploy.go](../../internal/forge/deployment/deploy.go).
-
-Update, 10 September 2026 (a local change, not yet deployed then): Docker landing, bundle release
-and rebuild now consume selected source/configuration and run prepared image IDs.
-Rebuild restores the original request; recovery requires matching generation,
-artifact and image proof. A/B checkout drift and interrupted real Docker settlement
-have regression coverage. This does not yet prove identical reviewed and released
-bits across mutable build dependencies or complete approval/evidence binding, and
-does not fence an older provider operation. TM-18 remains open.
-
 **Proposed control.** Build from a fixed source snapshot, record artifact
 digests and provenance, bind approval/evidence to them, and deploy the same
 artifact by digest. Invalidate evidence when governing inputs change. Keep
@@ -795,7 +591,7 @@ require new evidence. Check rollback identity as carefully as forward release.
 
 ### TM-19 — supply-chain content becomes executable authority
 
-**Status, 18 October 2026: partly mitigated.** The agent image recipe pins
+**Status: partly mitigated.** The agent image recipe pins
 every archive it fetches by version and SHA-256
 ([running a forge](../../stock/docs/guides/running-a-forge.md)); source and
 image scans run as checks ([workers](../operations/workers.md)); a Forge
@@ -807,16 +603,6 @@ project-selected code with whatever the container holds.
 **Attack and impact.** A compromised image, installer, package, mise backend
 or agent extension runs during a legitimate task or Forge deployment. Its
 privilege is whatever the build/agent process already has.
-
-**Observed controls/gap.** Some tool versions and lockfiles are pinned; the
-agent image also uses mutable base tags and downloaded installers/binaries.
-Package installation deliberately runs project-selected code. At the
-baseline, Forge itself was deployed by building a source checkout on the
-production host. See
-[agent Dockerfile](../../deploy/forge-agent/Dockerfile),
-[home.go](../../internal/forge/agentharness/pi/home.go),
-[registries.go](../../internal/forge/agentenv/registries.go),
-[releasing](../operations/releasing.md) (how a release is built now).
 
 **Proposed control.** Pin/verify critical artifacts by digest or trusted
 signature/checksum; update deliberately. Use standard vulnerability and secret
@@ -832,7 +618,7 @@ chain. Test mirror failure and updates without bypassing verification.
 
 ### TM-20 — shared resources are exhausted
 
-**Status, 18 October 2026: partly mitigated.** Every container the forge
+**Status: partly mitigated.** Every container the forge
 starts, on its host or a worker, has CPU, memory and PID limits
 ([running a forge](../../stock/docs/guides/running-a-forge.md)); services
 beside tests and checks have their own limits ([workers](../operations/workers.md),
@@ -844,18 +630,6 @@ instance admission quotas; no disk, image or log quotas.
 **Attack and impact.** Jobs fork processes, fill disk/cache/images, emit logs,
 hold terminals or open many sessions; public clients send expensive requests.
 The result is lost availability for every project and difficult recovery.
-
-**Observed controls/gap.** Runner timeouts and output caps, MCP body/batch
-limits and some upload size limits exist. Generic Docker execution lacks
-uniform CPU/memory/PID/disk limits; console WebSocket reads have no explicit
-message limit in the handler. `ParseMultipartForm`'s memory threshold does
-not cap the entire request. HTTP servers lack explicit header timeouts in
-their constructors. Edge/global limits were not verified. See
-[runner.go](../../internal/execution/runner.go),
-[mcp_server.go](../../internal/forge/mcp_server.go),
-[attachments.go](../../internal/forge/httpapi/attachments.go),
-[console_pty.go](../../internal/forge/console_pty.go),
-[main.go](../../cmd/forged/main.go).
 
 **Proposed control.** Admission limits per person/project/instance; workload
 CPU/memory/PID, storage/image, network and lifetime quotas, including nested
@@ -869,7 +643,7 @@ request. Legitimate long-running jobs retain bounded resource leases.
 
 ### TM-21 — webhook reuse or replay starts unwanted paid work
 
-**Status, 18 October 2026: partly mitigated; the shared token is accepted
+**Status: partly mitigated; the shared token is accepted
 for 1.0.** The token is accepted only in the `X-Forge-Token` header and
 compared in constant time; a token in the URL is refused. That one
 instance-wide token can fire any webhook workflow in any project, which is
@@ -879,11 +653,6 @@ there is no per-event replay protection.
 **Attack and impact.** A shared webhook token leaks from a URL/log or sender;
 an attacker replays requests or targets another enabled workflow. Consequences
 include attribution confusion, unwanted changes and model/service spending.
-
-**Observed controls/gap.** Webhooks require a configured token and an enabled
-workflow. `FORGE_WEBHOOK_TOKEN` is instance-wide; the handler accepts it in a
-query parameter as well as a header and has no per-event replay claim. See
-[triggers.go](../../internal/forge/triggers.go) (`handleWebhook`).
 
 **Proposed control.** Separate credentials by project/workflow/sender, prefer
 signed timestamped payloads or scoped bearer headers, reject duplicate event
@@ -895,7 +664,7 @@ a legitimate event return the established result.
 
 ### TM-22 — development services become data or network footholds
 
-**Status, 18 October 2026: partly mitigated.** Each deployment and each
+**Status: partly mitigated.** Each deployment and each
 preview gets its own credentials for its databases and stores, and a preview
 gets its own empty data ([services and data](../../stock/docs/guides/services-and-data.md));
 services beside tests and checks are bounded ([workers](../operations/workers.md)).
@@ -907,15 +676,6 @@ network ([agent isolation limits](../subsystems/agent-sandbox.md)).
 **Attack and impact.** A project reaches another service instance, receives
 production-like data/credentials, or leaves a reachable database alive after
 work ends. Manually published Docker ports may widen access unexpectedly.
-
-**Observed controls/gap.** Eligible steps can request catalog dependencies
-and services. Private DinD permits user-created services. Automatic managed
-service provisioning for change chats is a proposal, not a current guarantee.
-“Ephemeral” alone does not establish credentials, data or network isolation.
-See [environment.go](../../internal/forge/workflowexec/environment.go) (`startAgentSandbox`),
-[catalog.go](../../internal/forge/dependency/catalog.go),
-[services.go](../../internal/execution/services.go),
-[runtime-environments.md](../requirements/runtime-environments.md).
 
 **Proposed control.** Typed, policy-approved service requests with unique
 instances/credentials, synthetic data, explicit client attachment, quotas and
@@ -930,7 +690,7 @@ abandoned chats and failed cleanup.
 
 ### TM-23 — deployment adapters exercise excessive target authority
 
-**Status, 18 October 2026: open.** Targets are explicit and each credential
+**Status: open.** Targets are explicit and each credential
 is a named forge secret resolved on the forge
 ([running a forge](../../stock/docs/guides/running-a-forge.md), "Deployment
 targets"; [deploy targets](../subsystems/deploy-targets.md)), but what each
@@ -941,14 +701,6 @@ host-wide, and SSH host keys are accepted on first use
 **Attack and impact.** A compromised control plane or insufficiently bounded
 deployment request uses registry, SSH, Docker or cloud credentials to affect
 unrelated applications, accounts or environments.
-
-**Observed controls/gap.** Targets and project integrations make provider
-selection explicit, but credential permissions are ultimately provider-side.
-Remote Docker/SSH authority can be effectively host-wide. Live account scopes
-were not inspected. See [target.go](../../internal/forge/deployment/target.go),
-[target_attachment.go](../../internal/forge/httpapi/target_attachment.go),
-[the App Platform driver](../../internal/deploy/digitalocean/driver.go),
-[deploy.go](../../internal/forge/deployment/deploy.go).
 
 **Proposed control.** Separate identities per target/environment, least-privilege
 provider policies, fixed resource namespaces, authenticated target identity
@@ -963,7 +715,7 @@ Verify SSH/TLS identity and provider policy in deployment configuration.
 
 ### TM-24 — cancellation and recovery leave authority alive
 
-**Status, 18 October 2026: partly mitigated.** At startup a recorded task
+**Status: partly mitigated.** At startup a recorded task
 whose step has moved on is stopped and none is started twice
 ([daemon lifecycle](../subsystems/daemon-lifecycle.md)); a worker stops a task
 whose admission expired ([container lifecycle](../subsystems/container-lifecycle.md));
@@ -976,15 +728,6 @@ does not prove the provider stopped billing for it.
 **Attack and impact.** A stopped job continues in a nested daemon/provider;
 cleanup fails but its credential remains usable; restart resumes stale work
 or grants it new authority. Waiting indefinitely is itself a denial of service.
-
-**Observed controls/gap.** Execution deadlines, bounded Docker operations,
-console resource ownership checks, startup repair and overall bounded shutdown
-are useful controls. Some console/DinD resources intentionally survive restart.
-Lifetime-coupled token cleanup is not the same as a hard credential lease.
-See [runner.go](../../internal/execution/runner.go),
-[dind.go](../../internal/console/pi/dind.go),
-[console_wiring.go](../../internal/forge/console_wiring.go) (`RecoverConsoles`),
-[runtime_tokens.go](../../internal/forge/identity/runtime_tokens.go).
 
 **Proposed control.** Durable owner/attempt identities and independently expiring
 grants/resources. Recheck current account, policy and scope before resume;
@@ -999,7 +742,7 @@ that cannot be cancelled rather than claiming it stopped.
 
 ### TM-25 — destructive maintenance affects the wrong state
 
-**Status, 18 October 2026: partly mitigated.** Cleanup selects resources by
+**Status: partly mitigated.** Cleanup selects resources by
 labels and observed IDs, and an unknown owner or a failed read keeps the
 resource ([container lifecycle](../subsystems/container-lifecycle.md)). A
 deployment restore stops the app's parts first, checks what it copied back and
@@ -1014,14 +757,6 @@ archive path or cleanup race causes deletion/restore into a live or unrelated
 resource. A technically successful restore may combine inconsistent DB,
 repository and application-volume snapshots.
 
-**Observed controls/gap.** Resource labels/owner checks and backup checksums
-provide useful defenses. Backup/restore still performs destructive volume
-operations; checksums identify bytes, not an authorized destination or safe
-archive contents. End-to-end hostile-manifest and race handling was not
-established. See [backups.go](../../internal/forge/dataprotection/backups.go),
-[dind.go](../../internal/console/pi/dind.go),
-[container-lifecycle.md](../subsystems/container-lifecycle.md).
-
 **Proposed control.** Validate immutable owner/resource identity immediately
 before mutation; bind manifests to project/environment/volume identity; safe
 archive extraction with size/path/link limits. Restore into isolated new
@@ -1035,7 +770,7 @@ partial failure accurately and be safely repeatable.
 
 ### TM-26 — mutable evidence gives misleading assurance
 
-**Status, 18 October 2026: partly mitigated.** Inference receipts are
+**Status: partly mitigated.** Inference receipts are
 written by the gateway, before dispatch and from the response transport
 ([inference security](../subsystems/inference-security.md), "Receipts"); a
 tests step's answer comes only from a witnessed exit
@@ -1047,14 +782,6 @@ advisory.
 **Attack and impact.** A workload edits its usage/transcript/report, or a
 privileged DB actor rewrites decisions. People mistake an attributable claim
 for independently observed execution or tamper-resistant history.
-
-**Observed controls/gap.** Forge records authorization decisions/audits and
-transactional state transitions; this improves accountability. Usage is derived
-from runtime output and local session files. Database audit rows share the
-database's administrative trust boundary; they are not an external immutable
-ledger. See [accounting.go](../../internal/forge/workflowexec/accounting.go),
-[authz_kernel.go](../../internal/forge/authz_kernel.go),
-[evidence.go](../../internal/forge/workflowexec/evidence.go).
 
 **Proposed control.** Label evidence provenance; capture exits/artifact identity
 from trusted runners and usage from the gateway. Export consequential events
@@ -1069,7 +796,7 @@ or durable retry, not an unrecorded successful action.
 
 ### TM-27 — external clients exceed consent or confuse identities
 
-**Status, 18 October 2026: partly mitigated.** OAuth consent is bound and
+**Status: partly mitigated.** OAuth consent is bound and
 consumed once (TM-09); an MCP session belongs to the user whose credential
 opened it and idle sessions close after a day ([MCP](../subsystems/mcp.md));
 an agent token is bounded like an OAuth connection holding every scope and
@@ -1081,18 +808,6 @@ the MCP endpoint was not checked in this pass.
 another user's session, exchanges/replays tokens or Git tickets, or persuades
 a user that its requested authority is narrower than it is. Tool results can
 also carry prompt injection into the external agent.
-
-**Observed controls/gap.** MCP requires bearer credentials, not ambient cookies;
-requests reauthenticate and known session IDs bind to App/user. OAuth has exact
-redirect matching, S256 PKCE, audience/scopes, hashed tokens, transactional code
-consumption/refresh rotation and reuse response. Git tickets are expiring,
-one-use and ref/expected-tip constrained. These are substantial controls.
-Consent forgery is TM-09; private-read policy is TM-11. Explicit MCP Origin
-validation was not found, and session creation has no reviewed global cap.
-See [mcp_server.go](../../internal/forge/mcp_server.go),
-[oauth.go](../../internal/forge/oauth.go),
-[authz_tickets.go](../../internal/forge/authz_tickets.go),
-[githttp.go](../../internal/forge/githttp.go).
 
 **Proposed control.** Preserve the existing protocol constraints; add consent
 binding, appropriate Origin validation, session quotas/expiry and uniform
@@ -1106,7 +821,7 @@ disconnect/restart without widening authorization or leaking bearer values.
 
 ### TM-28 — application hosting has unintended exposure and browser trust
 
-**Status, 18 October 2026: partly mitigated.** Application origins are not
+**Status: partly mitigated.** Application origins are not
 trusted for Forge mutations, and Forge's `__Host-` cookie cannot be set by a
 sibling application ([browser security](../subsystems/browser-security.md),
 [application ingress](../subsystems/ingress.md);
@@ -1118,14 +833,6 @@ application domains from Forge's registrable domain is the operator's choice.
 **Attack and impact.** A sensitive preview is reachable without Forge login;
 a hostile application phishes an owner, attacks same-site browser assumptions,
 exposes internal data, or uses Forge hosting/network capacity for abuse.
-
-**Observed controls/gap.** `VHost` maps recognized hosts to owned container
-ports and is outside `AuthMiddleware`. App requests therefore do not inherit
-Forge API authentication. Forwarded origin information and app-domain
-wildcards aid normal operation, but they are not a viewer-authorization or
-cross-application trust policy. See [vhost.go](../../internal/forge/vhost.go),
-[routes.go](../../internal/forge/routes.go),
-[host.go](../../internal/deploy/docker/host.go) (`PublicOrigins` use).
 
 **Proposed control.** Decide preview visibility explicitly; add viewer gates
 where required. Isolate untrusted app domains from Forge and keep application

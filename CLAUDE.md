@@ -204,8 +204,9 @@ should reason or work across the repository.
 Update the owning current guide when behaviour changes. Package documentation
 owns concepts and API obligations; subsystem guides own cross-package behaviour;
 operating guides own setup and rollout procedures.
-Preserve dated history with a supersession link instead of rewriting it to
-describe later reality.
+Current guides state the current rule in the present tense, without dates,
+status headers or history; git history records what changed when. A reason
+that matters is written into the guide.
 
 For live operation, read the [Forge operating skill](.claude/skills/forge/SKILL.md).
 Satisfy gates rather than working around them. Local code or passing tests do not

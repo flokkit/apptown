@@ -471,7 +471,7 @@ tbody tr:hover td { background: var(--hover); }
 .warn-line { color: var(--warn); background: var(--warn-bg); border-left: 3px solid var(--warn-mark); padding: 2px 8px; margin: 2px 0; }
 
 .console { display: flex; flex-direction: column; height: calc(100vh - var(--topbar-h) - 48px); }
-/* Two rooms, unmistakable at a glance (design/decisions/interactive-vs-pipeline.md):
+/* Two rooms, unmistakable at a glance:
    the FRONT DESK (project chat — amber, questions/setup/dispatch) and the
    WORKSHOP (change chat — accent, where building happens). */
 .console-desk { border-top: 3px solid var(--warn-mark); padding-top: 10px; }

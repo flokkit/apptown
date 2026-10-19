@@ -3,9 +3,8 @@
 A worker is a separate machine that runs a forge's script steps, tests
 steps, agent and review steps, checks and change previews, and its change
 chats, so project code in those does
-not run on the forge's own host. It is the first
-part of isolated execution. This
-guide says how to run one and what it does and does not isolate today.
+not run on the forge's own host. This guide says how to run one and what it
+does and does not isolate.
 
 ## What a worker isolates, and what it does not
 
@@ -284,11 +283,9 @@ container. The forge's environment points mise's download cache
 host. What it holds is what mise fetches: release listings (kept an hour,
 mise's `fetch_remote_versions_cache`), some tools' archives, and the lock
 files mise takes, so concurrent installs of the same tool wait for one
-another rather than write over each other. Three installs of Node 24,
-Python 3.13 and Ruby 3.4 run at once on an empty cache all succeeded, and a
-second install within the hour read the listings from the cache and asked
-GitHub's API nothing (mise 2026.8.12, the agent image's, on Docker Desktop,
-3 October 2026).
+another rather than write over each other. Several tools installed at once on an empty cache all succeed, and a
+second install within the hour reads the listings from the cache and asks
+GitHub's API nothing.
 
 What it is not:
 - **not the installs.** Each container installs the tools into its own
@@ -400,6 +397,7 @@ byte offset while it runs, and the container goes when the task is released.
 
 ### Checks on the worker
 
+
 Each check is one request to the worker (`POST /v1/checks`), not a recorded
 task:
 - The forge resolves the commit the check reads once, stages its tree, and
@@ -450,6 +448,7 @@ chats.
 
 ### A check worker
 
+
 A worker has a role, `-role agent` (the default: chats, tasks, previews,
 checks) or `-role check` (checks and nothing else). The role is written to
 `<state>/role`, with the time, the first time the worker starts on an empty
@@ -494,6 +493,7 @@ A check worker is an option, not a requirement for private Docker
 on a worker.
 
 ### Previews on the worker
+
 
 With a worker configured, every preview of a change or a run boots on the
 worker, and none on the forge's host. That covers:
@@ -603,6 +603,7 @@ the forge's loopback to the preview on the worker.
   cannot assess.
 
 ### Agent and review steps on the worker
+
 
 With a worker configured, every agent step (`agent/pi`) and review step
 (`agent/review`) runs on the worker, in the worker's agent image (built from
@@ -792,6 +793,7 @@ The forge has no command yet to list or release held workspaces.
 
 ### Private Docker on the worker
 
+
 An agent step that declares `docker: true` gets a private Docker daemon on
 the worker, for one invocation of the agent: from its start to its exit.
 Services the step declares, and those the app's needs resolve to, run
@@ -804,14 +806,14 @@ on that network (`DOCKER_HOST=tcp://dind:2375`), with a buildx builder,
 is refused on the worker with "private Docker on a worker is the
 operator's opt-in: start the forge with -private-docker".
 
-**Qualified, or not.** The `worker-vm` profile was qualified on a separate
-Linux host on 1 October 2026, on the facts that
-host measured. The maintainers keep the qualification records; the facts
-each qualified set rests on ship in `internal/execution/qualified_profiles.json`.
+**Qualified, or not.** The `worker-vm` profile is qualified on the facts a
+separate Linux host measured; the facts each qualified set rests on ship in
+`internal/execution/qualified_profiles.json`, and the maintainers keep the
+qualification records.
 Every attempt admitted with private Docker or services
 records the worker's profile (`workerProfile`) and what it rests on
 (`privateDocker`):
-- `qualified: worker-vm (design/qualification/worker-vm-2026-10-01.md)`
+- `qualified: worker-vm (design/reviews/qualification/worker-vm-2026-10-01.md)`
   when the worker's measured facts match a qualified set: Debian 13,
   `x86_64`, cgroup `v2 (systemd)`, `overlay2`, Docker 26, the daemon image
   `docker@sha256:aa3df78e…` whose dockerd is `27.5.1, build 4c9b3b0`,
@@ -901,9 +903,7 @@ The worker can also run chats
 ([requirement RE11](../requirements/runtime-environments.md#re11-work-on-a-separate-machine),
 [chat guide](../subsystems/console.md#chats-on-a-worker)). On a forge with a
 worker configured, a change's chat opens on the worker unless the person
-chooses the forge; a chat keeps the placement it opened with. (The
-`worker-chats` feature that used to switch this on is gone: remove it from
-`-features` or `FORGE_FEATURES`, which refuse an unknown name.) A forge
+chooses the forge; a chat keeps the placement it opened with. A forge
 started with `-no-local-docker` refuses every chat the worker cannot take. A chat on
 the worker is the chat's container and its private Docker daemon, on the
 worker's Docker. For that daemon the worker must be able to run privileged
@@ -985,6 +985,7 @@ private daemons of sessions it has no live record of.
 
 ## Running a forge without a local Docker daemon
 
+
 A forge started with `-no-local-docker` (`FORGE_NO_LOCAL_DOCKER=true`) has no
 Docker daemon of its own and runs no project command on its host. It can
 be a plain process on a droplet or a container with no Docker socket.
@@ -1034,8 +1035,7 @@ be a plain process on a droplet or a container with no Docker socket.
 
 **Integrations.** `docker-deploy` reads the attached Docker hosts, each
 asked to answer when the page is read: working when one answers, naming
-those that do not; not working when none is attached or none answers
-(3 October 2026). `portainer-deploy` is not read as Docker and shows as not
+those that do not; not working when none is attached or none answers. `portainer-deploy` is not read as Docker and shows as not
 checked.
 
 Previews on the worker are reached through the forge's preview domain:
@@ -1107,14 +1107,11 @@ with the deployment named; a deployment on a Portainer or App Platform
 target still has to be torn down first
 ([deleting a project](../subsystems/project-deletion.md)).
 
-**Known gaps.** None from the no-local-Docker proof. Its gaps were fixed on
-1 October 2026: deletion of a landed project, the release list's
-`observed: unknown`, an attached host's title and URL, a model binding
-saved with a quoted `concurrency`, and the main tier, `get_project` and
-the conformance runtime check, which now observe a `main` on its own
-target and probe it at that host.
+The main tier, `get_project` and the conformance runtime check observe a
+`main` on its own target and probe it at that host.
 
 ### Releases built on the worker
+
 
 On a forge with a worker, in the no-local-Docker mode or not, **every
 landing builds its release on the worker**. The deploy step fixes the
@@ -1178,7 +1175,7 @@ the forge never deletes from a registry, and the registry's retention
 decides how long a release can be redeployed. Every image byte passes
 through the forge, and builds are cold.
 
-A forge without a worker keeps building on its targets, as before.
+A forge without a worker builds on its targets.
 
 #### Offering a registry before the rollout
 
@@ -1291,166 +1288,45 @@ before the next start in it. The drain sees containers only: an agent run as
 a host process (`-agent-executor local`) is not observed, so stop such a
 forge's agents before draining.
 
-## Verified limits
+## What the tests show, and what is not verified
 
-The maintainers keep the records of these proofs and qualifications.
+Integration tests (`-tags integration`) run real Docker through the worker:
 
-On 2 October 2026, releases built on the worker, on
-the no-local-Docker topology below plus a `registry:2` as the project's registry, a second
-Docker host (a `docker:dind` container with its own address, not a second
-machine) and a FAKE DigitalOcean API with a `registry:2` standing for
-DOCR. One journey through the CLI and API: a landing built on the worker
-and published, its digest read back from the registry and found in the
-target's `RepoDigests`; promotion to the second host and recovery after
-image loss, each by pull with no build; a release preview booted by
-digest; and App Platform by promotion, against the fake. A real App
-Platform run and a separate daemon-free VM are outstanding.
+- the task lifecycle conformance suite; a worker process killed and
+  restarted mid-task, the task found again by key and not started twice; a
+  duplicate request with a different body refused after the restart; another
+  installation's certificate refused before any request is read;
+- a script step end to end from a forge through the worker, its commit
+  published and the forge's workspace brought forward
+  (`TestIntegrationAScriptStepRunsOnAWorkerInItsOwnContainer`);
+- an agent and a review step on the worker and nowhere else, against a
+  controlled model behind the forge's gateway, settled once across a forge
+  rebuild, with a settled attempt's token then refused
+  (`TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse`);
+- an agent step with private Docker and a catalog service, then a tests step,
+  with and without a check worker
+  (`TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker`);
+- a chat on the worker from opening to its end, across forge and worker
+  restarts (`TestIntegrationAChatOnAWorkerFromOpeningToItsEnd`), and a chat
+  session's limits held by the kernel and its nested containers refused forks
+  past the daemon's limit;
+- tasks and checks reading their generated files from a read-only mount
+  (`TestIntegrationAWorkerTaskAndCheckReadTheirGeneratedFiles`).
 
-On 1 October 2026, a forge with no local Docker. Everything ran
-on one Linux test host, `lab.example.com`: the forge in a container with no
-Docker socket or daemon, `forge-worker` as a process, Postgres in a
-container, and the host's own daemon attached over ssh. One journey through the CLI and API
-covered:
-- an agent step and a review on the worker, calling the forge's
-  inference and console listeners, with attributed receipts;
-- checks on the worker;
-- a landing on the attached host, whose recorded image ID was observed
-  running there;
-- a SIGKILL of the forge during an agent step, settled once afterwards;
-- read views with the worker stopped, which said "unavailable";
-- a project cleanup.
+`TestNoScriptOrTestsStepRunsOnThisMachineWhenAWorkerIsConfigured` shows,
+without real Docker, that nothing runs on the forge's machine when a worker is
+configured, and that an unreachable worker is an error.
 
-The model was controlled. This is one machine, not a separate
-daemon-free VM.
+The maintainers also run the whole topology (a forge with no local Docker, a
+worker, attached Docker hosts, a registry, App Platform against a fake API)
+through one journey before a release that changes it.
 
-On 1 October 2026, private Docker on the worker: `TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker`
-(`-tags integration`, `./internal/forge`) runs a workflow of an agent step
-declaring `docker: true` and the app's need for a catalog service (redis),
-then a tests step, through a forge composed with `-private-docker` and an
-in-process worker over mutual TLS, on this machine's Docker; the forge's own
-Docker and agent process refuse everything but a container listing. The
-agent (a scripted `pi` in the Docker CLI's image) built an image with its
-private daemon, ran it, ran a container with its tree at the same path, and
-reached the service by name; its work was published; the tests ran over it
-and the stage's gate passed. Without a check worker the tests ran on the
-same worker (placement `{"worker": ...}`); with one, on the check worker
-only (placement `{"worker": ..., "role": "check"}`, no check request reached
-the agent worker). The attempt's evidence said "unqualified" and carried
-the worker's measured profile. It passed on the Mac (Docker Desktop, engine
-29.7.2) and on the Linux test host, where the profile measured `linux Debian
-GNU/Linux 13 (trixie)`, `x86_64`, kernel 6.17, cgroup `v2
-(systemd)`, Docker `26.1.5+dfsg1`, `overlay2`, `docker:27-dind@sha256:d2dc198f…`,
-privileged `yes`. In both, the worker ran in the test process on the same
-machine as the forge: this is dispatch confinement, not host separation.
-The worker's private Docker suite (`./internal/worker`,
-`TestIntegration...PrivateDocker...` and the lifecycle, stop, restart and
-limit tests) passed on the test host with requests carrying the profile.
-(These runs predate the profile's daemon digest and version, and the
-qualification.)
-
-On 1 October 2026, the qualification of the `worker-vm` profile
-ran the forge's side
-on the Mac and `forge-worker` as its own processes on the Linux test host,
-sharing no files: the lifecycle with a service and frozen parameters, the
-worker killed and restarted mid-task, the stop and its fence, expiry by the
-worker's own sweep, limits observed in the host's cgroups, disk exhaustion
-on the host's real disk, and the composed proof with and without a check
-worker. All passed; the evidence said `qualified: worker-vm (...)`.
-
-On 1 October 2026, on the Linux test host (a Debian 13 LXC container, kernel
-6.17, cgroup v2, Docker 26.1.5, 2 CPUs, 4 GB), with `forge-worker` run
-as a process on that machine and driving its Docker directly, two levels
-(`workertest.StartOnHost`; `go test -tags integration ./internal/worker -run
-'TestIntegrationASessionOnARealWorker|TestIntegrationARealChatOnAWorker'`),
-with the `forge-agent` image built there:
-- a chat session started, stopped, found again after the worker process was
-  killed and restarted, started again and removed, leaving nothing labelled
-  with it on the worker's Docker, its cache volume included;
-- its container and its daemon each mounted the session's own cache volume,
-  not `forge-cache`; Docker recorded 1 CPU, 1 GiB (swap the same) and 512
-  processes for each (`-chat-cpus 1 -chat-memory-mib 1024 -chat-pids 512`),
-  and the kernel held each to them (`cpu.max`, `memory.max`, `pids.max` read
-  inside the container);
-- the daemon ran with the worker's resolver and the mirror the session
-  carried (`docker info` listed it; the builder's configuration named it),
-  and a nested container's resolver was the worker's;
-- a nested container that started 700 processes was refused forks under the
-  daemon's 512;
-- a real chat (pi under tmux) through the forge's chat service, as on 30
-  September below, ended with nothing left, its cache volume included.
-
-The worker-in-container fixture (`StartInContainer`) loading `forge-agent`
-(2.7 GB) into the worker's own daemon also worked there:
-`TestIntegrationAChatOnAWorkerFromOpeningToItsEnd` passed (96 s). The load
-that has failed on the Mac since 30 September was not reproduced on Linux;
-the Mac's Docker disk was full at the time, and the load writes the image a
-second time into the worker container's volume on the same disk. That
-cause was not confirmed on the Mac. The chat tests now use the supported
-topology instead; the journey test still uses the worker in a container.
-
-Verified on 29 September 2026 on one Mac (Docker Desktop, engine 29.7.2),
-with the worker in a `docker:27-dind` container and nothing mounted from the
-host (`go test -tags integration ./internal/worker ./internal/forge -run
-TestIntegration`):
-
-- the task lifecycle conformance suite against the worker with real Docker;
-- a worker process killed and restarted while a task ran: the task was found
-  again by key and not started twice;
-- another installation's certificate refused;
-- a script step run end to end from a forge through the worker, its commit
-  published and the forge's workspace brought forward.
-
-On 30 September 2026, the same way, with the `forge-agent` image:
-- a chat session on the worker started (container and private daemon
-  running), stopped, found again after the worker process restarted, started
-  again, and removed, leaving nothing labelled with it on the worker's Docker;
-- a real chat (pi under tmux) run through the forge's chat service on the
-  worker: its screen shown through the terminal, a message typed in and
-  confirmed against pi's record, that record copied back to the forge, and
-  the chat ended with nothing left on the worker's Docker. The model call
-  itself was not made (no model endpoint in the test).
-- the forge's journey for a chat on the worker
-  (`TestIntegrationAChatOnAWorkerFromOpeningToItsEnd`, `-tags integration`):
-  opening a change's chat (on the worker by default), a
-  commit in its container saved to the change's branch, a forge restart and a
-  worker restart with the chat carrying on and saving, a landing request that
-  saved the chat's latest commit first and pinned it as the candidate (the
-  landing itself is not approved or merged in this test), and the end, with
-  nothing left on the worker and the change free. The model was not called.
-
-On 1 October 2026, without real Docker (the worker's Docker is a recording
-fake and this machine's Docker refuses everything but a listing):
-`TestNoScriptOrTestsStepRunsOnThisMachineWhenAWorkerIsConfigured` runs a
-workflow with a script step, on a project bound to a registry, and a tests
-step through a forge composed as startup composes it, and a worker over
-mutual TLS. The worker held the script's generated configuration in its
-task folder; the tests passed and failed by the worker's exit code, and a
-failure's base rerun ran on the worker too; with the worker unreachable,
-both were errors. Nothing ran on this machine. That a task and a check read
-their generated files from a read-only mount is shown with real Docker by
-`TestIntegrationAWorkerTaskAndCheckReadTheirGeneratedFiles`.
-
-On 1 October 2026, with real Docker and the packaged Pi runtime
-(`forge-agent:latest`, Pi 0.84.3):
-`TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse` runs a
-workflow of an agent step and a review step through the worker server over
-mutual TLS, against a controlled model endpoint behind the forge's gateway.
-The agent called the model with its attempt's token, committed in its own
-repository and diffed against `main`, and ran `forge check` through the
-packaged CLI, which named the agent's commit and was refused as not on the
-forge yet (`--published` checked the published commit); the
-forge was rebuilt while the agent ran, and the restarted forge settled the
-step once; its work was published and the forge's folder brought forward;
-its artifact existed while the review ran; the review ran on the worker and
-passed; usage was recorded once per invocation; a settled attempt's token
-was then refused by the gateway; this machine's Docker was asked only for a
-container listing. The worker ran in the test process, and the restart was
-a rebuilt App, not a killed process.
-
-Not verified: an agent's own repository on a Linux worker whose user is not
-the agent image's (the step sets `safe.directory` for `/work`; Docker
-Desktop maps ownership, so the setting was not exercised), a worker on a second physical machine, a worker behind a proxy
-or load balancer, certificate rotation, a worker losing its state directory,
-network policy beyond Docker's default bridge and `none`, and resource limits
-(the worker profile imposes none; zero limits are recorded as none). The
-worker does not clean up workspaces of tasks the forge never released.
+Not verified: a worker on a second physical machine in the test suites, a
+daemon-free VM, a real App Platform round trip in the suites, an agent's own
+repository on a Linux worker whose user is not the agent image's, a worker
+behind a proxy or load balancer, certificate rotation, a worker losing its
+state directory, a network partition longer than the forge's retry, the
+worker's Docker daemon restarting, network policy beyond Docker's default
+bridge and `none`, and resource limits (the worker profile imposes none; zero
+limits are recorded as none). The worker does not clean up workspaces of tasks
+the forge never released.

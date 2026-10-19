@@ -1,9 +1,5 @@
 # Daemon startup and shutdown
 
-Status: current implementation. Startup checked on 18 September 2026; shutdown
-updated with narrative ownership on 18 September 2026; Docker modes checked
-on 8 October 2026.
-
 `cmd/forged` owns startup ordering, listeners and background-task lifetime.
 Application constructors build their dependencies; they do not repair persisted
 work or start workers.

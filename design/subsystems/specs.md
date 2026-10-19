@@ -1,15 +1,13 @@
 # Product specifications
 
-Status: specification workflow implemented; registry proposed. Checked on 18 September 2026.
-
 The stock `product-spec` workflow produces and reviews a specification artifact.
 It uses normal agent, artifact and approval steps with the spec-development skill
 and template. Those documents can guide later implementation work.
 
-## Proposed specification registry
+## No specification registry
 
-A separate registry of requirement identities, diff-scoped compliance judgments
-and recurring per-spec posture audits remains proposed. The existing specification
+There is no registry of requirement identities, diff-scoped compliance
+judgments or recurring per-spec posture audits. The existing specification
 artifact does not imply that every requirement has an executable check or a
 persistent status record.
 

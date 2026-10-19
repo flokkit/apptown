@@ -1,7 +1,5 @@
 # Starting a project from existing code, and moving one to another forge
 
-Current procedure, 4 October 2026.
-
 A new project's repository can begin with the history of existing code.
 **Only the code comes**: its default branch and its tags. Changes, runs,
 chats, approvals and the ledger start fresh on the new project. Nothing

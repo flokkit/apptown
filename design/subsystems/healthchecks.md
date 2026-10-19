@@ -1,7 +1,5 @@
 # Application health checks
 
-Status: current implementation. Checked on 18 September 2026.
-
 Appcontract validates per-part readiness and liveness declarations. Deployment
 supplies target selection and application context. The Docker library implements
 probes and the standing-deployment health controller.
@@ -42,9 +40,8 @@ and container identities. When that exact generation has a released record,
 the same best-effort transaction appends a timestamped post-release note to its
 release log. The original successful release remains successful; its later
 crash loop and the confirmed stop (or unconfirmed stop attempt) are separate
-facts. The current release permalink continues refreshing that log. Older
-receipts without a generation witness are historical and are not attached to a
-release by name or timing.
+facts. The current release permalink continues refreshing that log. A receipt
+without a generation witness is never attached to a release by name or timing.
 
 Health-control receipts and post-release notes are best effort. A probe or read failure is not a successful
 health observation. Display samples are refreshed by a separate observer and

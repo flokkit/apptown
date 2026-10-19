@@ -2,7 +2,7 @@
 
 Accepting a change can count as approving its landing. Whether it does is
 decided in one place, `landings.carry` in `internal/forge/workflow`, for each
-approval step of the landing in turn (28 September 2026).
+approval step of the landing in turn.
 
 ## When the acceptance counts
 
@@ -92,16 +92,8 @@ A failed or suppressed required write rolls back the whole handoff.
 Concurrent retries reuse one handoff without duplicating receipts. After
 commit, the coordinator prepares the run workspace and asks the engine to
 advance that exact snapshot, which is when the first stage's approvals are
-judged. The existing durable completion job owns retry scheduling. On retry,
+judged. The durable completion job owns retry scheduling. On retry,
 the handoff can advance only its recorded stage/revision, never a later stage
-or new revision. A superseded or terminal run is not resumed.
-
-Older applied receipts lack this scope metadata. If an old completion job must
-retry that handoff, the command refuses to infer an advancement scope from the
-current run. An operator can explicitly advance the current run after
-inspecting it.
-
-Until 28 September the handoff pinned the landing's first-stage approval
-steps at creation and cast the accepter's vote on each without checking
-eligibility, and later stages received nothing. Migration 85 dropped the
-pins; the votes they produced remain in step evidence and approval receipts.
+or new revision. A superseded or terminal run is not resumed. A handoff whose
+receipt lacks that scope is never given one inferred from the current run; an
+operator advances the run explicitly after inspecting it.

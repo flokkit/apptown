@@ -1,7 +1,5 @@
 # Scanner findings and dispositions
 
-Status: current implementation. Checked on 18 September 2026.
-
 The Check library normalizes supported scanner output into canonical findings.
 Conformance adds baseline/provenance and human-disposition observations. Verification
 runs tools, compares sources and applies gating policy. The original report remains

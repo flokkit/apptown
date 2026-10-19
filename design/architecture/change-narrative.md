@@ -12,12 +12,12 @@ no SQL transaction remains open during them. Chat evidence retains the last two
 substantial helper reports per matching session. Committed Git comparisons read
 the change workspace directly, falling back to the project repository only when
 the workspace is absent. Broken or unreadable workspaces remain errors; neither
-narrative collection nor the detail/diff GET routes publish refs. A recorded base preserves the historical diff after
-landing. Git uses the existing bounded process runner, with cancellation and a
+narrative collection nor the detail/diff GET routes publish refs. A recorded base
+keeps the diff readable after landing. Git uses the bounded process runner, with cancellation and a
 one-minute command limit; the model retains its one-minute HTTP timeout. The
 builder supplies a two-minute context for source reads, effects and publication.
-Model-slot/secret lookup and session mutexes still use their existing adapters;
-this slice does not claim their complete context propagation or extract Sessions.
+Model-slot and secret lookup and session mutexes go through their own adapters,
+which do not all honour that context.
 
 Publication takes the project lock and rechecks repository configuration, Change
 scope, body, lifecycle, attached run, branch, base and the previously observed
@@ -30,26 +30,23 @@ not evidence used to authorize shipping or recover workflow execution.
 A generated title applies only while generated-owned and still equal to its observed
 words. Pinning even the same words is a human ownership decision. Title-only or
 empty model output never changes a title. Stored notes are bounded to 2,000 UTF-8
-bytes without splitting a code point; accepted title limits retain their existing
-90-byte bound.
+bytes without splitting a code point; a title is bounded to 90 bytes.
 
 Title/summary, eligible empty notes on same-project linked releases, and the
 required audit commit together. Delivery owns the named release-note transaction
 participant, preserves nonempty notes and checks complete affected-row counts.
-This retains the existing linked-release behavior, including releases with more
-than one Change; it does not invent a combined narrative for them. Suppression,
+A release linked to more than one Change gets no invented combined narrative. Suppression,
 read/write/receipt failures and deferred commit rejection roll back publication.
 
 Model usage is already incurred before publication. It is recorded independently
-even for empty output, conflict or cancellation. Existing best-effort accounting
-now has a five-second detached write limit; failed spend writes remain logged,
-not durably retried. This is not a complete accounting-domain extraction.
+even for empty output, conflict or cancellation. That accounting is best-effort,
+with a five-second detached write limit; a failed spend write is logged, not
+retried.
 
 Explicit HTTP refresh returns failure instead of claiming success with an old
 summary. Job and background invocations log failure and retain their best-effort
-policy; a summary failure does not replay jobs or undo accepted Work. Long-lived
-chat sessions and historical application contracts are unchanged. The first-chat
-naming now uses [explicit title ownership](change-titles.md), with no prefix heuristic.
+policy; a summary failure does not replay jobs or undo accepted Work. First-chat
+naming uses [explicit title ownership](change-titles.md), with no prefix heuristic.
 
 Background console and branch-import refreshes share one narrative owner created
 in `New`. It closes admission before cancellation and draining, under the same

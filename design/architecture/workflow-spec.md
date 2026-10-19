@@ -1,16 +1,12 @@
 # Forge — Workflow & Policy Spec
 
-> For the formats as a team writes them (versions, strict keys, the served
-> workflow schema, pinned policies), see the shipped
-> [ways-of-working formats guide](../../stock/docs/guides/ways-of-working-formats.md)
-> (October 2026); the save-time rules there supersede anything looser below.
+For the formats as a team writes them (versions, strict keys, the served
+workflow schema, pinned policies), see the shipped
+[ways-of-working formats guide](../../stock/docs/guides/ways-of-working-formats.md);
+its save-time rules are the authority where this page is looser.
 
-Status: **as built**, refreshed 2026-09-06 against `internal/schema` and the
-stock workflows in `stock/`. The founding draft (2026-08-24) proposed an
-expression language, a `policy` step type that fanned out over a prose
-document's bindings, SCM and Kubernetes step types, and a JSON Schema
-published for editors. What was built is smaller and more specific. The
-validator is `internal/schema`; a schema test strict-validates every stock
+There is no expression language, no `policy` step type and no SCM or
+Kubernetes step types. The validator is `internal/schema`; a schema test strict-validates every stock
 workflow, so stock cannot drift below the bar it holds everyone else to.
 
 ## 1. Document shape
@@ -64,8 +60,8 @@ spec:
   working on a change that a person picks; a **landing** workflow is the
   system's, run for every project when a change is accepted.
 
-The founding `context:` (declared, typed inputs) and expression language
-were not built. See §2.3.
+There are no declared, typed inputs (`context:`) and no expression language;
+see §2.3.
 
 ### 2.2 Triggers — `on`
 
@@ -99,8 +95,8 @@ placeholders, substituted as text at step start:
 | `${{feedback.latest}}` | the last rejection comment or reviewer finding on this change |
 
 No comparisons, no functions, no loops. Anything that needs logic is a
-`script` or an agent step. The founding `if:`, `when:` and `steps.<name>.result.*`
-namespaces were not built.
+`script` or an agent step. There is no `if:`, `when:` or
+`steps.<name>.result.*`.
 
 ### 2.4 Stages, steps, gates
 
@@ -113,7 +109,7 @@ stages:
       require: [report-exists, review-change, accept]   # default: every step passes
 ```
 
-The enforcement contract, as built:
+The enforcement contract:
 
 1. A run is in exactly one stage, or terminal: `done`, `failed`, `cancelled`.
 2. Entering a stage runs its `onEnter` steps in order; the stage's `steps`
@@ -210,11 +206,11 @@ from state, and kinds it runs in the background.
 | `script` | run a command; exit 0 passes | `run`, `env`, `executor`, `image` |
 
 Results: `pass`, `fail`, `needs_human`, `error`, `skipped`, always with
-evidence. Not built from the founding table: `policy` (superseded by
-guidance checks and `agent/review`), `scm/branch`, `scm/mr-check`,
-`deploy/health` (health is *declared* in the contract and rendered per
-environment: `design/subsystems/healthchecks.md`), and `workflow` as a
-sub-invocation trigger.
+evidence. There are no `policy`, `scm/branch`, `scm/mr-check` or
+`deploy/health` step types: guidance checks and `agent/review` judge prose
+rules, and health is *declared* in the contract and rendered per environment
+(`design/subsystems/healthchecks.md`). `workflow` is not a sub-invocation
+trigger.
 
 `artifact/require` and `adr/require` are judged from state each time the
 stage's evidence changes. While another working step of the same stage is
@@ -224,8 +220,7 @@ They fail only once the stage's work has finished; approvals do not hold them.
 
 ## 3. Policies
 
-The founding "policy" was a prose document with script, agent and manual
-bindings, fanned out by a `policy` step. That split in two:
+Rules come in two kinds:
 
 - **Prose rules with teeth are guidance blocks.** A block's front matter
   carries `checks` — shell or model-judged, with a severity — and the same

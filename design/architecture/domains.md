@@ -1,8 +1,5 @@
 # Current package ownership
 
-Status: current reference, checked against the tree of 18 September 2026.
-Scope: package responsibilities and navigation; owned by Forge composition.
-
 Forge is assembled in [App.New](../../internal/forge/app.go). HTTP handlers in
 `httpapi` and tools in `mcpapi` translate requests into operations on concrete
 owners. They do not acquire unrestricted access to App through a replacement
@@ -70,15 +67,29 @@ cross-owner guarantees. Independent persistence assertions and narrowly justifie
 fault injection remain useful; moving SQL behind a fixture wrapper is not a
 substitute for testing through the correct owner.
 
-## Design and history
+## Principles
 
-[Architecture](architecture.md) records the target principles and original sketches;
-its illustrative types are not the public API catalogue. [Layout](layout.md) and
-the package guides describe how to contribute now. The
-retained inventory records specific
-exceptions and unresolved work, including test-only constructors and cancellation
-limits; consult its evidence date rather than infer live deployment status.
-
-The earlier map and
-[code-structure proposal](code-structure.md) preserve the reasoning and intermediate
-states. They are not alternative current implementation instructions.
+1. **A subsystem is one type, built once, with its dependencies declared.** Its
+   constructor takes a dependencies struct whose fields are small interfaces the
+   subsystem defines for itself. It names no other subsystem's package except
+   through those, or where a direct import is stable and obvious.
+2. **Bounded acts take their inputs; things worked over time take a source.** A
+   deploy or a console session gets everything it needs from its caller. Work
+   acts on a repository for weeks, so it declares a source it calls back into.
+3. **Objects own their rules; services load, call, save and record.** A command
+   on a value checks its invariants and changes it; the service wraps that in a
+   transaction with the row read for update and the receipt written.
+4. **Authorization happens inside the operation.** Transports establish the
+   caller; domains ask the shared authorizer, naming the capability and the full
+   resource, before effects. Domain eligibility stays with its owner. A missing
+   caller never becomes system authority.
+5. **Receipts are part of the operation.** A consequential command writes its
+   receipt in the same transaction, and a receipt that fails fails the command.
+   Operations that must share a transaction have an `…In(tx, …)` form.
+6. **A facade is a complete operation across subsystems.** It imports its
+   participants, owns the ordering of transactions and effects, and owns tables
+   only when it has durable state of its own.
+7. **Cross-cutting concerns are supplied, not imported from a hub.** Database,
+   receipts, jobs, execution, models, secrets, configuration and logging reach a
+   subsystem as a package it imports or a value it is constructed with.
+8. **Uneven by design.** The shape follows the domain rather than a template.

@@ -1,8 +1,5 @@
 # Chats and agent runtime
 
-Status: current implementation. Checked on 18 September 2026;
-looking and acting revised 4 October 2026; owners of chat saves named 5 October 2026.
-
 Conversation prepares Forge-specific session scope and briefing. Console owns
 session persistence and process lifetime. Changeconsole owns what becomes of
 a change's chat's work: its saves, its end, the boot rehearsal of its work and
@@ -23,15 +20,14 @@ Reopening refreshes launch configuration. An unpinned chat follows the project's
 chat model slot; an explicit model pin remains selected. Missing provider bindings
 can fall back to the instance model.
 
-The current harness is Pi. Model selection does not select a harness. Codex
-workflow support and
-chat support are separate proposed work.
+The harness is Pi. Model selection does not select a harness; other harnesses
+(Codex) are not supported.
 The Pi adapters render Pi configuration and manage its container, PTY and tmux.
 Workflowexec owns step execution and settlement through Workflow.
 
 ## Looking and acting
 
-A chat is not private to the person who opened it (an owner decision of 4 October 2026).
+A chat is not private to the person who opened it.
 Anyone who can read its project may look at it: its conversation, its
 terminal's screen and who opened it. Acting on it needs `change:invoke-lane`
 on its project, the authority that opens a chat: saying something, pasting a
@@ -157,8 +153,7 @@ chat always open on the forge: a project's chat, and a chat that continues a
 step's agent. A forge started with `-no-local-docker` runs no chats itself:
 it refuses those two kinds, and a chat chosen for the forge, with the reason. The model, its guarantees and its accepted failures are
 requirement
-[RE11](../requirements/runtime-environments.md#re11-work-on-a-separate-machine);
-the design is the
+[RE11](../requirements/runtime-environments.md#re11-work-on-a-separate-machine).
 
 **Where it runs.** The chat's record carries its placement, set when it opens
 and never changed. `console.Placed` gives each chat the runtime its record names:

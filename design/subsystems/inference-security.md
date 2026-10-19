@@ -1,8 +1,5 @@
 # Inference access and provider credentials
 
-Status: current implementation. Checked on 18 September 2026;
-worker placement checked on 8 October 2026.
-
 ## The boundary
 
 Forge holds the provider credentials. Pi, its tools, installed packages and
@@ -138,10 +135,8 @@ routing in the deployment; do not infer protection from an RFC1918 address or
 an application proxy's access rules. Use a protected transport/network between
 hosts; the listener does not add TLS itself.
 
-Startup repairs unfinished inference receipts; it no longer runs the one-time
-legacy-container/key cutover. Do not rely on a new restart to scrub historical
-credential copies. The original rollout record
-retains the cutover and its production evidence.
+Startup repairs unfinished inference receipts. A restart does not scrub
+credential copies made elsewhere.
 
 Consoles recreate their generated homes and drop old Pi auth files when
 provisioned. Their root mount is read-only so tools cannot rewrite the persisted
@@ -149,18 +144,15 @@ actor/token for the next restart. Only Pi home, sessions, scratch, uploads and
 Docker client state are writable. Raw upload reads are confined to the upload
 directory, preventing symlinks into sibling credentials. Known provider credentials reintroduced through explicit step
 secrets or integration environment settings cause runtime preparation to fail.
-Model-config API reads redact legacy inline keys and custom headers too.
+Model-config API reads redact inline keys and custom headers too.
 
-Deployment still requires rotating previously delivered upstream keys and
-reviewing retained transcripts/backups with secret-scanning tools. Deleting a
-file or container cannot invalidate a copy already exfiltrated. Do not roll
-back to a binary that injects the newly rotated keys into workers.
-
+Deleting a file or container cannot invalidate a copy of a key already taken.
+If an upstream provider key has ever been delivered into a workspace or
+transcript, rotate it and review retained transcripts and backups with a secret
+scanner.
 
 Gateway tests cover native routes, credential and network checks, receipt
-failure, error containment, cancellation and revocation. Optional Pi and Docker
-checks are recorded in the rollout record.
-Budget enforcement and host isolation remain open in the
+failure, error containment, cancellation and revocation. Budget enforcement and host isolation remain open in the
 [threat register](../architecture/threat-register.md).
 
 ## Implementation references

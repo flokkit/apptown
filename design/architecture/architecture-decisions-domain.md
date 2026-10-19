@@ -32,7 +32,7 @@ is no recovery journal or automatic replay.
 Detail reads keep the decision, its successor and lifecycle options in one read-only
 repeatable-read snapshot. An accepted successor takes precedence over still-draft
 proposals in the link shown for the old record. The UI consumes these lifecycle
-options and no longer duplicates a transition table or content-lock predicates.
+options and does not duplicate a transition table or content-lock predicates.
 Options are current eligibility observations; commands still check authority and
 fresh state. Display labels/styles remain client presentation. The binary and its
 embedded UI ship together; no legacy-options fallback is introduced.
@@ -41,14 +41,11 @@ Two named composition operations cover existing cross-domain work:
 
 - `MatchingIn` returns typed, exact-tag matches under Work's project lock and its
   committing assertion transaction. Matching rows stay share-locked through the
-  Work result and receipt. Ordinary assertion SQL no longer reaches ADR storage.
+  Work result and receipt. Ordinary assertion SQL never reaches ADR storage.
 - `RemoveProjectIn` owns the ADR part of project deletion and verifies that no
   scoped records remain before commit. Project authorization and the wider deletion
-  operation remain composition concerns. Whole-project deletion still has older
-  multi-step/filesystem behavior outside this slice; it is not newly claimed atomic.
+  operation remain composition concerns; whole-project deletion as a whole is
+  not atomic.
 
-Strict decoding adds no migration or runtime repair. Before rollout, inspect any
-historical rows with an unknown state, missing/foreign Change link or predecessor,
-or multiple accepted successors. Preserve historical content when correcting such
-records. The new commands refuse invalid links/retirement instead of guessing an
-intended history. No production data has been changed by this extraction.
+Stored records decode strictly, with no runtime repair. Commands refuse invalid
+links and retirements instead of guessing an intended history.

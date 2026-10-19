@@ -1,7 +1,5 @@
 # Checks, conformance and remediation
 
-Status: current implementation. Checked on 18 September 2026.
-
 ## From a declaration to a decision
 
 Ways of working (`wow`) publishes versioned guidance and workflows. Adoption
@@ -49,18 +47,17 @@ item carries a reason rather than authorizing an infinite retry. The remediation
 worker has its own lifecycle; it is not interchangeable with River's durable
 job delivery.
 
-Remediation does not create a separate approval bypass. Unattended-policy levels
-in the earlier design are proposals, not authority to approve or land. Workflow
-and [current authorization](auth.md) still decide those actions.
+Remediation does not create a separate approval bypass: there are no
+unattended-approval levels. Workflow and [authorization](auth.md) decide
+approval and landing.
 
 ## Evidence and open design
 
 Prefer maintained static tools for properties they understand. For interpretive
 requirements, explain the intent to the agent and demand relevant evidence.
 README checks should require needed information without forbidding extra
-sections; commands can be exercised where feasible. This accepted direction is
-recorded in the check review queue, not a
-claim every stock check has already been rewritten.
+sections; commands can be exercised where feasible. Not every stock check
+follows this yet.
 
 For individual operations, see [conformance](conformance.md),
 [findings and decisions](conformance-surface.md), [guidance checks](guidance-checks.md)

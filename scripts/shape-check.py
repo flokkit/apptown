@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The shape checker (design/architecture/architecture.md).
+"""The shape checker (design/architecture/layout.md, design/architecture/domains.md).
 
 Rules over the Go tree, each producing a count of violations:
   layering      a library (internal/<x>) imports forge (internal/forge/...): libraries know
@@ -9,7 +9,7 @@ Rules over the Go tree, each producing a count of violations:
   transport     only forge or the same transport may import httpapi / mcpapi
   methods       production method declarations on App (pointer or value receiver)
   fields        a subsystem's Service struct exports a field: its parts are reached
-                only through operations (architecture.md §1)
+                only through operations (domains.md, principle 1)
   constructors  a subsystem's constructor (<pkg>.New...( ) is called in forge outside app.go
   aliases       forge aliases a subsystem's name (type x = pkg.X, or x = pkg.X in a const/var block)
   rootfiles     production .go files in internal/forge itself, the composition root
@@ -54,12 +54,12 @@ SUBSYSTEMS = ["identity", "project", "integration", "wow", "adoption", "deployme
               "dependency", "usage", "agentenv", "tasks"]
 FACADES = ["changeconsole", "remediation", "projectlifecycle", "modelcall", "conversation", "workflowexec",
            "verification", "maintenance", "workcommands", "inference", "changeadds", "evals"]
-# jobs is the queue the daemon builds once with every subsystem's handlers bound (architecture.md §4): a
+# jobs is the queue the daemon builds once with every subsystem's handlers bound: a
 # cross-cutting facility, not a subsystem.
 LEAVES = {"database", "audit", "enum", "fault", "gitexec", "stamp", "strs", "wiregen", "schema", "execution", "dbtest", "dbschema", "appcontract", "jobs",
           "projectsql", "releasesql", "accesssql", "librarysql", "progress", "httpx", "resources",
           "dependency"}
-# The arrows of architecture.md §2. A subsystem may import only the subsystems
+# The arrows between subsystems. A subsystem may import only the subsystems
 # named here. A facade composes owners, so its set is wider, but it is still a
 # set: each facade lists every forge package it imports beyond leaves, kernels
 # and libraries (each set began as the facade's actual imports), so a
@@ -170,7 +170,7 @@ def doors():
                     v.append(f"{p} -> {d} (not in the facade's import allowance)")
                 continue
             if d in SUBSYSTEMS and d not in ALLOWED.get(p, set()):
-                v.append(f"{p} -> {d} (no arrow in architecture.md §2)")
+                v.append(f"{p} -> {d} (no arrow in ALLOWED)")
     return v
 
 def transport():

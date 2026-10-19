@@ -35,12 +35,11 @@ than silently excluded from ownership.
 A new table's key is a UUIDv7 minted in Go
 ([mergeable forge data](../decisions/mergeable-forge-data.md)), never an integer
 identity: `TestNoNewIntegerIdentity` refuses one, and
-`internal/forge/dbschema/integer-identity-baseline.txt` is empty since the
-identity cutover converted the last.
+`internal/forge/dbschema/integer-identity-baseline.txt` is empty: no integer
+identity remains.
 
 The migration chain only appends. Schema 147 is the 1.0 baseline: the
-migrations up to it, and the identity cutover that reached it, were folded
-into the fragments. A written migration keeps its number and statements:
+migrations up to it are folded into the fragments. A written migration keeps its number and statements:
 `migrations.lock` records each, `TestMigrationsMatchTheirLock` holds the
 chain to it, and `make check-migrations` (a local stage of `make check`, run
 before landing) refuses a lock that changes a line `origin/main` released.

@@ -1,11 +1,10 @@
 # A forge on a public gitlab.com group
 
-Setup for a forge's projects in a public gitlab.com group, written 9 October
-2026 against GitLab's published documentation. The operator does this setup on
-gitlab.com by hand; the forge does not automate it. What the forge writes on
-a merge request and its merge commit is in the
+Setup for a forge's projects in a public gitlab.com group, following GitLab's
+published documentation. The operator does this setup on gitlab.com by hand;
+the forge does not automate it. What the forge writes on a merge request and
+its merge commit is in the
 [SCM package guide](../../internal/forge/scm/README.md#what-gitlab-is-told).
-The plan and its reviews are in
 
 ## Setup
 

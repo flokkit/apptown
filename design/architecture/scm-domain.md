@@ -25,6 +25,13 @@ or retains an unresolved operation with a required audit. It never replays work
 or resumes a workflow. Fresh inspection can record an old effect after Work ends;
 a stale prepared Work snapshot cannot settle it or reopen the run.
 
+Merge admission and SCM assertions resolve the repository, branch, adoption and
+merge request facts in one database observation and pass them to the adapter by
+value; dynamic merge gates compare them again before committing an outcome.
+Missing or unreadable facts are errors: they never grant permission by
+pretending a run has no repository or merge request. A malformed recorded merge
+request blocks merging; it never selects a local merge instead.
+
 A provider merge uses the previously recorded MR identity and exact published
 source SHA. The adapter verifies source/target branches and the provider's actual
 merge, squash or fast-forward result, then proves it on the fetched default
@@ -76,8 +83,8 @@ entries are removed. There is no process-global merge mutex.
 Git commands in this adapter use the existing execution runner, including process
 group cancellation, bounded output and a ten-minute command timeout. Provider
 requests use the operation context. This does not impose a lifetime on chats or
-change the bounded application shutdown policy. Other legacy Git call sites
-remain outside this adapter and are not claimed to have migrated.
+change the bounded application shutdown policy. Other Git call sites
+do not go through this adapter and do not have its guarantees.
 
 Repository drift has one checked reader, shared by merging, the project view and
 drift resolution. NUL-delimited status preserves exact paths and rename pairs;
@@ -87,7 +94,5 @@ an unavailable Git read is an error, not a clean tree.
 
 SCM alone accesses `run_merges` in ordinary application code. Schema declarations,
 one-time migrations and explicit database-fault injection tests are representation
-or validation sites, not alternative state owners. The migration that moved the
-merge records into this table predates the current schema baseline and has
-been removed. No compatibility reader or recovery framework is
-introduced by this boundary.
+or validation sites, not alternative state owners. There is no compatibility
+reader or recovery framework.

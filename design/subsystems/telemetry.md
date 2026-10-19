@@ -1,7 +1,5 @@
 # Telemetry
 
-Status: current implementation. Checked on 18 September 2026.
-
 ## Enablement and lifetime
 
 `forged --otlp-endpoint host:port` (or `FORGE_OTLP_ENDPOINT`) enables exports.
@@ -73,16 +71,13 @@ multiple Forge installations. This limitation does not alter access policy.
 ## Limits and verification
 
 Admission-to-run and enqueue-to-job correlation, change IDs, health/deployment
-spans and monetary cost are not implemented. The dashboard's multi-instance
-filtering issue is recorded in the work index.
+spans and monetary cost are not implemented, and the dashboard does not filter
+by instance when several forges report to one backend.
 
 Provider, gateway, observer and wiring tests cover export behaviour and settlement
 failure. Daemon tests cover flush ordering and shutdown bounds. Existing canary
 tests protect specific surfaces; arbitrary log text can still contain sensitive
 information. Keep prompts, credentials and transcripts out of telemetry.
-
-Dated live observations belong to the telemetry execution record
-and dashboard record.
 
 ## Implementation references
 

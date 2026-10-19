@@ -1,8 +1,5 @@
 # Agent isolation limits
 
-Status: worker-machine isolation implemented; network and execution isolation
-on the worker still proposed. Checked on 8 October 2026.
-
 ## Implemented
 
 Agents run through the configured executor. Docker model execution uses prepared
@@ -47,13 +44,12 @@ where a task's admission says so), and the worker profile sets no resource
 limits by default. Several projects' work can share one worker. A worker does not
 make the forge safe for untrusted projects.
 
-The accepted direction is explicit network and execution isolation, including
-nested build/container traffic. A future design must specify where policy is
-enforced, what destinations are allowed, how blocked traffic is reported and how
-it interacts with declared services and provider access.
-
-MicroVMs, alternative container runtimes and an enforced egress proxy are options,
-not installed controls at this revision. The [threat register](../architecture/threat-register.md)
+Explicit network and execution isolation, nested build and container traffic
+included, is not built. It needs a design of its own: where policy is enforced,
+which destinations are allowed, how blocked traffic is reported, and how it
+interacts with declared services and provider access. MicroVMs, alternative
+container runtimes and an enforced egress proxy are options, not installed
+controls. The [threat register](../architecture/threat-register.md)
 tracks the risk. The [runtime guide](../../stock/docs/guides/runtime-environments.md)
 describes actual mounts, tools and grants.
 

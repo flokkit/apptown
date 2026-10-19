@@ -336,7 +336,7 @@ class DoorsTest(unittest.TestCase):
              mock.patch.object(self.shape.os.path, "isdir", return_value=True):
             self.assertEqual(self.shape.doors(), [])
             imports["workflow"].add("wow")
-            self.assertEqual(self.shape.doors(), ["workflow -> wow (no arrow in architecture.md §2)"])
+            self.assertEqual(self.shape.doors(), ["workflow -> wow (no arrow in ALLOWED)"])
 
     def test_kernels_allow_consumers_but_refuse_dependencies_back(self):
         imports = {"workflow": {"identity", "audit"}, "identity": {"audit", "dbschema"}}

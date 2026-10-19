@@ -1,7 +1,7 @@
 # Operating Forge
 
-Current navigation, checked on 8 October 2026. This page
-routes to operating contracts; it does not certify the state of a live instance.
+This page routes to operating contracts; it does not certify the state of a
+live instance.
 The admin guide shipped in the product, [Running a forge](../../stock/docs/guides/running-a-forge.md),
 is the short entry point; this page keeps the routing table and host-specific
 procedures.

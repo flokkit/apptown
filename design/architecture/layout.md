@@ -1,18 +1,17 @@
 # Layout: where code goes and what it is called
 
-Status: adopted, 17 September 2026. Apply to touched code; this is not a
-mandate for a repository-wide cosmetic rename.
+Apply these rules to code you touch; they are not a mandate for a
+repository-wide cosmetic rename.
 
-A decision page, deliberately short. [domains.md](domains.md) is the map of what
-owns which tables; [code-structure.md](code-structure.md) is the reasoning that
-produced the boundaries. This answers a narrower question: *I am about to add a
+[domains.md](domains.md) is the map of what owns what and the principles behind
+the boundaries. This page answers a narrower question: *I am about to add a
 file — where does it go and what is it called?*
 
 Some boundaries have mechanical checks; others require review. A **gate** is an
 automated rule with a baseline in `scripts/shape-baseline.json`. `make check`
 fails when a measured count grows. Tighten the baseline after deleting bypasses;
 do not hide bypasses behind helpers. Additional independent persistence assertions
-may increase `testreads`, with their guarantee and reason recorded in the ledger.
+may increase `testreads`, with their guarantee and reason stated at the site.
 
 The checks have specific limits. `fields` counts exported fields on registered
 subsystem Service types, not fields on App. `constructors` checks registered
@@ -86,14 +85,13 @@ be read, tested and understood without knowing what a Change is.
 *Gate: `layering`.*
 
 **`internal/forge/<x>` — a subsystem.** Forge-specific. Usually owns tables,
-but **owning tables is not the entry requirement** (decided 16 September): being
-forge-specific is. `httpapi` owns no tables and belongs here.
+but **owning tables is not the entry requirement**: being forge-specific is. `httpapi` owns no tables and belongs here.
 *Gates: `doors`, `fields`, `transportaudit`, `transportdb`, `hubpaths`, `kindbranches`.*
 
 **`internal/forge` — the composition root.** Construction, route declarations,
 authentication, instance startup/shutdown and protocol wiring are deliberate
 responsibilities. Remaining application operations must have a documented owner
-or a specific retained reason. Nothing arrives here by default. See the current
+or a specific retained reason. Nothing arrives here by default.
 A protocol handler here keeps the protocol and asks the owner for the rule:
 the Git handler asks `workflow` what a step's token may push, and the
 `-drain-local-docker` startup asks `maintenance` what local work is left.
@@ -169,7 +167,7 @@ group holds only the collaborators its handlers use — a handful should be expl
 unrelated dependencies is a reason to revisit the grouping, not a fixed quota. It never holds the App, a runtime holder, or a callback
 bundle that gives equivalent reach. *Gates: `transport`, `doors`.*
 
-**The standard is most logic outside handlers, not none** (decided 16 September).
+**The standard is most logic outside handlers, not none.**
 Logic in a handler is reasonable when all three hold:
 
 1. It is needed in one place only.
@@ -183,10 +181,9 @@ only one transport can reach was never an operation. "It only has one caller
 today" is condition 1; "it renders a contract into YAML" fails condition 2
 whatever its caller count.
 
-Known retained candidates are `httpapi/compose.go` and workflow timing/summary
-projections in `httpapi/timing.go`. They are deliberately outside the current
-extraction roadmap. Review them when those features change; a projection does
-not automatically need another owner.
+`httpapi/compose.go` and the workflow timing/summary projections in
+`httpapi/timing.go` are handler logic kept on purpose. Review them when those
+features change; a projection does not automatically need another owner.
 
 Route declarations, authentication and guards stay in `internal/forge`.
 
@@ -213,7 +210,7 @@ A fake of something outside the forge — Docker, a cloud API, a coding harness,
 secret store — lives in **its own package beside the code whose contract it
 imitates**, named `<system>fake`, and is imported by everyone who needs it.
 
-`internal/deploy/digitalocean/dofake` is the worked example: 223 lines serving
+`internal/deploy/digitalocean/dofake` is the worked example: a small server for
 `/v2/account`, `/v2/registry`, `/v2/apps` and `/v2/databases`, used by both the
 driver's own tests and the assembled Forge deployment tests. Its package comment
 states the boundary — *"It is not a deployment driver."*
@@ -232,9 +229,9 @@ A fake shared by several packages belongs beside the driver; owner-private
 collaborator fakes remain in their tests. Do not export constructors for Forge's
 owned records or build a shared App fixture package to make test moves easier.
 
-This matters more as harness independence lands: every new harness and every new
-deploy provider wants a fake, and the convention decides whether that is one
-package or a growing pile of near-copies.
+Every new harness and every new deploy provider wants a fake, and this
+convention decides whether that is one package or a growing pile of
+near-copies.
 
 ## Tests
 
@@ -248,16 +245,15 @@ Searching `Approval` returns `ApprovalPolicyRequiresCurrentAuthorityAndReceipt`,
 `ApprovalRollsBackWhole`, `ApprovalQuorumUnderRace`,
 `ApprovalWithdrawalPreservesVotesAndReopensAsANewRound` — fourteen guarantees,
 readable without opening a file. A name like `TestCore3` would make the search
-useless, which is the real cost of a bad test name and the reason the 16
-September renaming was worth doing.
+useless, which is the real cost of a bad test name.
 
 It also works because a guarantee lives with its owner: the search is one
 package, not 225 files. That is the return on test ownership beyond tidiness.
 
 No gate can enforce this. Duplicate coverage is invisible to every mechanical
-check — on 16 September the repository held 1,708 tests with zero identical
-bodies and two hand-written fakes of the same cloud API in different packages.
-The defence is a cheap habit plus names good enough for the habit to work.
+check: tests with no identical bodies can still assert the same guarantee, and
+two hand-written fakes of one cloud API can live in different packages. The
+defence is a cheap habit plus names good enough for the habit to work.
 
 Where a vocabulary is enumerable from the code — routes, step types, capability
 kinds — prefer a **completeness test** that fails when the vocabulary grows

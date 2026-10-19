@@ -1,7 +1,5 @@
 # Browser game projects
 
-Status: current implementation. Checked on 18 September 2026.
-
 The HTML game seed is an ordinary web project with a Docker packaging recipe.
 Caddy serves the committed files and uses no-cache responses so clients can
 revalidate after a release. The video-game and `frontend-only` seeds build
@@ -20,10 +18,8 @@ game is playable. Browser checks should exercise input, rendering and relevant
 game behaviour. Tool/model guidance can assist, but it is not a substitute for
 observing those behaviours.
 
-Published historical games use the selected revision's source and packaging.
-The native history cutover
-records earlier launch evidence, including Night Racer. It is not a guarantee
-that every original game bug has been repaired or every version was retested now.
+A published game's earlier versions boot from their own revision's source and
+packaging.
 
 ## Implementation references
 

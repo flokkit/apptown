@@ -1,8 +1,5 @@
 # Deployment runtime
 
-Status: current implementation, checked on 18 September 2026;
-release bundles by digest checked on 2 October 2026.
-
 Deployment owns targets, named placements, releases, attempts and the
 resources their placements created or retained. Drivers perform external effects through `internal/deploy`. The
 [package documentation](../../internal/forge/deployment/doc.go) owns API and
@@ -10,7 +7,7 @@ transaction contracts; the [package map](../../internal/forge/deployment/README.
 shows where to change them.
 
 Previews of changes, runs and releases are the
-[preview](../../internal/forge/preview/doc.go) owner's since 11 October 2026:
+[preview](../../internal/forge/preview/doc.go) owner's:
 boot admission and status, booting here or on the worker, what each preview
 serves, discarding and reconciling them, and their AI models keys
 (`preview_owned`). A change preview's placement row stays a Deployment row,
@@ -77,7 +74,7 @@ request does not repeat preparation or prove that the original succeeded.
 Inspect the release and attempt outcome. Workflow and preview paths have their
 own entry points and use the package's attempt and settlement rules.
 
-**Preflight** (`preflight.go`, October 2026). Before anything is built
+**Preflight** (`preflight.go`). Before anything is built
 for a release, `Service.Preflight` judges the selected commit's staged
 contract against its deployment with delivery's own rules: the target's
 refusal of the effective contract (profile, overrides and memory defaults
@@ -99,10 +96,10 @@ still refuses there. Existing target and registry selection at landing is
 unchanged. A deployment policy other than `compatible-update` cannot be
 saved, so the check has no policy to refuse.
 
-**Needs fulfilled by registering** (5 October 2026). A need whose dependency
+**Needs fulfilled by registering.** A need whose dependency
 kind has a `register:` block is not asked of the target (`refusesContract`,
-`reconcileNeeds` skip it; a static-only bucket still refuses any need). This
-slice runs one adapter, `openrouter-key` (`llm`): the project must have
+`reconcileNeeds` skip it; a static-only bucket still refuses any need). There is
+one adapter, `openrouter-key` (`llm`): the project must have
 attached AI models, or the boot is refused before any provider call; the
 deployment or preview then gets its own OpenRouter key, kept on its owned
 list, and the kind's `inject` templates render `OPENROUTER_API_KEY` and
@@ -125,9 +122,8 @@ request with the attempt. Rebuild restores those inputs; for a digest bundle
 it pulls the recorded digests instead of building. Prepared paths must stay
 inside the staged tree; settlement records source and image identity. This does
 not freeze upstream image tags, package downloads, secret values or target
-configuration. Historical apps can still fail on unavailable dependencies or
-original application bugs. See the [contract reference](../../stock/docs/guides/contract-reference.md)
-and the dated historical-source cutover.
+configuration. An earlier revision can still fail on unavailable dependencies or
+its own bugs. See the [contract reference](../../stock/docs/guides/contract-reference.md).
 
 ## Deploy step progress
 
@@ -139,7 +135,7 @@ heartbeat continues during long operations. Messages describe work being entered
 the step outcome and deployment observation establish success. They contain names,
 not environment values, credentials, command arguments or raw build output.
 The existing progress feed retains its last 500 lines and captures that tail for
-the step's historical log on return, including failure. This is best-effort
+the step's log on return, including failure. This is best-effort
 history: a daemon crash can lose the in-memory tail, and restart settlement and
 provider observations remain authoritative. Detailed BuildKit and container output
 are not streamed by these phase messages.
@@ -149,7 +145,7 @@ are not streamed by these phase messages.
 A release bundle is what a landing produced and every later release ships.
 It has one of two forms.
 
-- **By digest** (a forge with a worker, since 2 October 2026). The landing's
+- **By digest** (a forge with a worker). The landing's
   deploy step has the worker build every image once, from the landed commit,
   in private Docker. The forge, not the worker, publishes each image to the
   project's container-registry attachment (the one container-registry
@@ -176,10 +172,8 @@ It has one of two forms.
   names DOCR's confirmed digest in the app spec. App Platform runs one
   version of a DOCR repository per app: a spec naming two digests of one
   repository is accepted by its propose endpoint and refused at create
-  ("not configured for this app"; restore test RT-L3, 8 October 2026,
-  confirmed the same day by direct creates: two digests of one repository
-  were refused whether or not the images named their registry, and the same
-  two digests from two repositories were created and went active). A
+  ("not configured for this app"), whether or not the images name their
+  registry, while the same two digests from two repositories are accepted. A
   refused create can still leave an app with no deployment on the account.
   A release whose parts and init steps are different images (they all go
   to the project's one repository) is therefore refused for App Platform
@@ -200,8 +194,8 @@ It has one of two forms.
   bundle's. A project has one deployment on a Portainer target, named by the
   target's tier (`lan` for a target attached without one), because the stack,
   its volumes and its route are named for the project; another name is
-  refused before a release is numbered. Naming them per deployment is after
-  1.0. The intranet release refuses a need the forge fills by registering (an
+  refused before a release is numbered. Naming them per deployment is not
+  built. The intranet release refuses a need the forge fills by registering (an
   AI models key), which it could not revoke, and names the door that can: a
   release by name;
 - release previews, booted where change previews boot.
@@ -221,8 +215,7 @@ the rule of one platform per forge (the worker's), as an accepted
 limitation.
 Readable registry tags (`change-<id>-<image>`, `release-<n>-<image>`) are
 for people; the digest is the record. The operating details, refusals and
-rollout procedure are in [workers](../operations/workers.md#releases-built-on-the-worker);
-the plan is release builds on the worker.
+rollout procedure are in [workers](../operations/workers.md#releases-built-on-the-worker).
 
 ## Uncertain outcomes and restart
 
@@ -241,9 +234,9 @@ asked too early keeps that answer for the zone's negative-cache time (the
 `ondigitalocean.app` SOA minimum, 1800 seconds). DigitalOcean's VPC resolver
 answers from several caches that disagree, so in that window a name flips
 between "no such host" and its addresses from one look-up to the next, and the
-A and AAAA answers come and go separately (restore tests RT-L2 and R3-1,
-8 October 2026: the probes and recoveries were spent inside the window, and a
-person had to press Check again). Until 35 minutes after the platform created
+A and AAAA answers come and go separately; without allowing for it, the probes
+and recoveries are spent inside the window and a person has to press Check
+again. Until 35 minutes after the platform created
 the app (`ProviderNameGrace`: the 30-minute negative cache plus 5 for the
 platform to publish the name, measured from the app's `created_at`, so a
 resumed attempt keeps the same bound), each request of the front door's
@@ -271,7 +264,7 @@ Startup checks settlement consistency and queues interrupted attempts without
 polling providers. A deployment whose own records contradict each other (an
 attempt still open while the deployment reads settled, or a release still
 releasing after its attempt ended) does not stop startup and is not
-reconstructed there (3 October 2026). Startup marks that one deployment as
+reconstructed there. Startup marks that one deployment as
 needing attention: its readiness becomes uncertain, an open attempt becomes
 uncertain and is queued for observation, and the ledger records
 `deployment.needs-attention` once. Other deployments and the rest of startup
@@ -297,8 +290,7 @@ rewrites stored objects), and nothing in the contract says whether it will.
 So before a release onto a deployment is admitted, through either door
 (`RequestRelease`, and the intranet's `ReleaseLAN`), Deployment asks data
 protection whether it can copy what that deployment holds now
-(`DataCopyCheck`, answered by `dataprotection` `CannotCopy`;
-plan, 17 October 2026). It cannot when
+(`DataCopyCheck`, answered by `dataprotection` `CannotCopy`). It cannot when
 the held-data plan cannot be read, when an item in it cannot be copied (a
 need whose kind the catalogue cannot read), or when the target cannot take a
 copy (an App Platform target with no backup store or copy runner; a Portainer
@@ -366,9 +358,8 @@ named on its target, is taken down by a data operation instead (answered
 off-host** below). Project deletion admits such a deployment's take-down
 the same way, `main` included, and runs it itself when it claims it first
 (else waits for the worker that has it): one that does not end succeeded
-and verified refuses the deletion with what the operation left (`TakeDownWithProject`, 8 October
-2026; before, it removed the app and kept the cluster as a retained row
-with no final copy). An eval copy's deployments get no final copy or
+and verified refuses the deletion with what the operation left
+(`TakeDownWithProject`). An eval copy's deployments get no final copy or
 backup on any target: their data is synthetic. Any other
 deployment, App Platform without a store included, goes as follows:
 
@@ -429,9 +420,8 @@ same name when that is unambiguous (`placeCopies`, below), and refuses
 before any change when an item has nowhere certain to go.
 
 **Backups and restore** (Docker hosts; `dataprotection/backup_execution.go`,
-`dataprotection/backup_witness.go`, `dataprotection/backup_move.go`;
-plan; what a set holds:
-`dataprotection/held_data.go`, plan).
+`dataprotection/backup_witness.go`, `dataprotection/backup_move.go`; what a set
+holds: `dataprotection/held_data.go`).
 A set copies every data volume the standing deployment holds: each on its
 list plus each its running release declares (the contract at
 `releaseSha`, read through the release sources: the app's `dataDir`
@@ -489,14 +479,12 @@ service's files, which may be inconsistent: the app volume of an ordinary
 set, the tar fallback). A restore records per item what witnessed it:
 `verified` (the kind's `verify` ran in the need after the restore, with the
 copy on stdin, and passed), `loaded` (a declared restore ran in the running
-service and succeeded, and the set records no check: a Postgres set from
-before 11 October 2026), `copied` (files put in place, not verified: the app
-volume, the fallback, any set from before 8 October 2026), `failed` or
+service and succeeded, and the set records no check), `copied` (files put in
+place, not verified: the app volume, the fallback), `failed` or
 `skipped`; the restore is `restored`, `restored, not verified` or `partly
 restored` accordingly, in the operation's result (`RestoreResult`, under
 `restore`) and the `restored` receipt. **A restore is an operation**
-(`deployment.restore`, `dataprotection/restore_operation.go`;
-plan, 19 October 2026): the
+(`deployment.restore`, `dataprotection/restore_operation.go`): the
 door (`RequestRestore`, deploy grant) refuses what would refuse it before
 any change and admits it holding the deployment's data (`DataHold`; a
 release is not held off); the worker runs it once, asking the admitting
@@ -514,8 +502,7 @@ stopped, the restore runs in a throwaway container of its image with
 `--volumes-from` it, and the need is started again whatever the restore
 did; such a kind must declare `verify` (Parse refuses it otherwise), since
 putting files in place is not the service loading them. Redis uses it.
-Object storage declares a copy through the S3 API (`format: s3-objects`;
-plan, 17 October 2026): a Python
+Object storage declares a copy through the S3 API (`format: s3-objects`): a Python
 program in its copy's `env`, run in its `client` image beside the store
 (`copy.runIn: client`: a throwaway container sharing the need container's
 network, since the gateway's image has no copy tool; the connection's
@@ -536,7 +523,8 @@ stock sync stores a shipped kind file that does not parse in place of the
 previous definition and returns `ErrStockUnreadable` naming it, which boot
 logs; it never keeps the older definition in use.
 
-**On Portainer**. The same planner, commands and records as a
+**On Portainer** (`dataprotection/held_portainer.go`, `deploy/portainer/dockerproxy.go`,
+`deploy/docker/step.go`). The same planner, commands and records as a
 Docker host's, through Portainer's Docker proxy for the environment
 (`/api/endpoints/<id>/docker`). `Providers.PortainerDataScope` serves that
 proxy on a private Unix socket (one per target and environment, for the
@@ -567,9 +555,7 @@ are taken after each LAN release and by the nightly sweep.
 
 **Protecting data off-host** (cloud targets; `dataprotection/backup_store.go`,
 `dataprotection/operations.go`, `dataprotection/managed_copy.go`, `dataprotection/data_operations.go`,
-`dataprotection/start_from_copy.go`, `dataprotection/protection.go`;
-plan, first slice, 8 October
-2026). Three owners: the dependency kind declares what a copy is
+`dataprotection/start_from_copy.go`, `dataprotection/protection.go`). Three owners: the dependency kind declares what a copy is
 (`copy:` — format, extension, client image, export, import, verify, and
 the connection `env` its commands read, from the app user's host, port,
 database, user, password and sslmode); the provider says how the forge
@@ -579,13 +565,11 @@ own it has (`native`, read for recency); the forge keeps copies in the one
 backup store. Postgres declares all three for DigitalOcean; on a Docker
 host its copy is the same export (see "Backups and restore"), restored in
 place by `copy.restore` and checked by the same `copy.verify`. `Parse`
-refuses a kind that still declares the old `local.backup` block, naming
-`copy:`: ignored, it would turn a database's copy into a tar of its live
-files. **One data list:** what a deployment holds is answered by
+refuses a kind that declares a `local.backup` block, naming `copy:`: ignored,
+it would turn a database's copy into a tar of its live files. **One data list:** what a deployment holds is answered by
 `heldData` on every target the forge copies (a Docker host's list plus
 release, looked up on the host; a managed target's recorded managed
-instances and the object storage buckets on its owned list, `heldManaged`;
-plan, 17 October 2026), as one item
+instances and the object storage buckets on its owned list, `heldManaged`), as one item
 type. A bucket is copied by the s3 kind's copy, as the deployment's own key
 for it (`deploy.BucketData.BucketConnection`), and its check fills a new
 store of the kind started on the copy runner for the check and removed
@@ -636,7 +620,7 @@ the release declares disposable empty; any other item fails it, by name.
   when no copy, check or take-down is running (the deployment cards and
   the home page show them). A copy that finishes in the old bucket after
   the change is recorded there and is never read from the new one; it
-  reads as unavailable until the old bucket is attached again. Every earlier set reads `forge-disk`, as recorded. The
+  reads as unavailable until the old bucket is attached again. The
   store's key never enters a copy job; whoever holds it can read the copies.
 - **A copy** runs the kind's export in a throwaway container of its client
   image on the target's copy runner (a Docker host named in the target's
@@ -792,13 +776,11 @@ the release declares disposable empty; any other item fails it, by name.
   ordinary store sets keep the newest 14 (production) or 7, final copies 30
   days.
 
-**Restore rehearsals** (`dataprotection/rehearsal.go`, `docker/sealed.go`;
-plan, first slice, 8 October
-2026). A rehearsal is a data operation on the deployment it rehearses
+**Restore rehearsals** (`dataprotection/rehearsal.go`, `docker/sealed.go`).
+A rehearsal is a data operation on the deployment it rehearses
 (`rehearsal`), started on request only: it needs `deployment:restore` in
-that project, and no agent carries it. (The plan's monthly rehearsal and the
-take-down's offer wait until rehearsals have been used, review RB-05.) It
-runs only
+that project, and no agent carries it. There is no scheduled rehearsal, and a
+take-down does not offer one. It runs only
 on the one attached Docker host a platform administrator keeps for
 rehearsals (`ingress.rehearsals`, set by a target edit whose receipt keeps
 `RehearsalHostMeaning`); the built-in host and provider targets never take
@@ -850,8 +832,7 @@ recorded rehearsal is kept beside it as `previous`, never shown as the
 latest); or "never rehearsed" / "never rehearsed: no rehearsal place".
 
 **Restored copies** (`dataprotection/restored_copy.go`, `deploy.Gate`, `internal/gate`,
-`cmd/forge-gate`; plan, first slice,
-8 October 2026). A restored copy is a temporary deployment (kind
+`cmd/forge-gate`). A restored copy is a temporary deployment (kind
 `restored-copy`) of a standing production deployment's current release, by
 digest, on the source's own target, started from a chosen store copy, behind
 the forge's access gate. A **restore test** is one with no lifetime: nobody
@@ -859,8 +840,8 @@ is admitted and it is taken down as soon as its checks are recorded. An
 **opened copy** stays for its lifetime (4 hours by default, 15 minutes to 24
 hours, extendable) and people may enter it.
 - **Where.** App Platform targets that make their databases only: the
-  renderer places the gate (probed live 8 October 2026: an internal service
-  has no route and its health check runs on its private port). Anything else
+  renderer places the gate (an internal service has no route, and its health
+  check runs on its private port). Anything else
   is refused. The forge needs `-restore-gate-image <ref@sha256:...>` (built
   by `make gate-image`) and a `-public-host` origin. The gate image is
   copied by digest into the registry's `forge_gate` repository, never the
@@ -882,7 +863,7 @@ hours, extendable) and people may enter it.
 - **Checks** run from the forge to the gate's address with the secret in
   `Forge-Restore-Token`: readiness, the front page, `rehearsal.checks`; no
   redirects followed, only status codes kept.
-- **The gate check** (`checkGate`, 9 October 2026) follows, on every copy,
+- **The gate check** (`checkGate`) follows, on every copy,
   so a restore test proves the door without a person signing in. From
   outside, the forge asks the readiness path (which just answered its
   probe) with no token and with a wrong one, and enters with a made-up
@@ -939,13 +920,12 @@ hours, extendable) and people may enter it.
   (`RestoredCopyWarning`) and who outside the forge can read it
   (`ProviderBoundary`).
 
-A retained row is settled `released` once a person has deleted it by hand;
-`kept` is no longer a settlement (rows settled kept before 4 October 2026
-stay as history). While a row holding data is open, a new deployment of that
+A retained row is settled `released` once a person has deleted it by hand.
+While a row holding data is open, a new deployment of that
 name on that target is refused (`ErrNameHeldByData`). The release the
 deployment was serving gets a last line in its log: "taken down — <who>
 deleted the deployment <name> on <target>; it no longer serves this
-release" (3 October 2026).
+release".
 
 A release is live (`isLive` on its detail) only while it is the newest
 released on its deployment and that deployment still stands; a deployment
@@ -954,14 +934,12 @@ and on a change, `serving` is true only when the release is live by that same
 rule (`Releases.Live`) and its own deployment (by the id the release
 recorded) is observed running: the same commit or landing running on another
 deployment, or on a deployment made again under the same name, does not
-count. A release from before releases recorded the deployment's id is matched
-by name. A deployment on a Docker host is observed by asking its daemon for
+count. A deployment on a Docker host is observed by asking its daemon for
 its container; one on a provider's platform (App Platform), which has no
 container, by the background observer's latest fresh observation, the one its
 deployment listing shows. Until that observer has looked, it is unknown, "not
-observed yet". (Until 4 October 2026 the list matched the deployment's
-landing run or commit, which a promotion to App Platform has neither of, so
-the list said "not serving" while the release's page said live.)
+observed yet". The list does not match a deployment's landing run or commit,
+which a promotion to App Platform has neither of.
 
 ## Display observations and health
 
@@ -1060,7 +1038,7 @@ preview's throwaway needs, a standing need, an init step) logs through
 Docker's `json-file` driver rotated at 10 MiB with three files kept
 (`execution.LogFlags`): at most about 30 MiB a container, its oldest output
 discarded. The daemon's own defaults are not changed. A container started
-before this keeps its unbounded log until it is made again: the public part
+without these flags keeps its own logging until it is made again: the public part
 and the other parts are replaced by the next deploy; an init step runs anew;
 a standing need's container is kept across deploys (its data is the point)
 and takes the bound only when it is made again (its image or settings
@@ -1073,8 +1051,7 @@ truncate that container's log file on the host (`truncate -s 0` on the path
 
 [Target support](deploy-targets.md) lists the implemented drivers and their
 differences. Terraform orchestration, arbitrary shared-service provisioning and
-additional cloud drivers remain proposals. Historical rollout commands are kept
-under operations and are not routine maintenance instructions.
+further cloud drivers are not built.
 
 ## Fresh-generation memory defaults
 
@@ -1097,19 +1074,10 @@ bucket hosting are excluded from container default resolution.
 
 Explicit `memory: none` is a recorded operator override on Docker/Portainer,
 protected by the existing deployment/release authority and reason requirement.
-`memory_unlimited` distinguishes it from zero/omitted override fields and clear;
-old rows migrate to false. It survives committed-memory omission until an
-explicit clear, and applied records preserve it for replay. Defaults/unlimited
-are visible on the existing resource card; no new profile/lifecycle exists.
-
-Rollout qualification is a separate operator gate: inventory all existing running
-app, need and supplied sidecar containers, including static legacy, intranet and
-demo placements. Pre-cap previously unlimited stacks through ordinary recorded
-positive overrides or governed declarations and measured safe headroom before
-landing this behavior. Unknown provider observations are not a gate pass. Static
-application declaration exemption does not exempt Forge's runtime file server
-from that inventory or fresh-generation caps. The dated implementation plan owns
-the exact no-surprise landing report; source acceptance alone is not rollout.
+`memory_unlimited` distinguishes it from zero/omitted override fields and clear. It survives committed-memory omission until an
+explicit clear, and applied records preserve it for replay. Defaults and
+unlimited are visible on the resource card. A static application's declaration
+does not exempt the forge's own file server from the caps.
 
 Supplied workflow services remain visible in deployment resource rows with their
 `suppliedService` origin. Their limits are set in the workflow ServiceSpec
@@ -1168,20 +1136,6 @@ in a container's output before it cuts it short for a failure, and in the
 failure it returns (`docker.Scope.Redact`, `Host.Boot`). Rotation is not
 built.
 The stock Postgres script makes the app's user an ordinary owner at every
-start, converting a server whose app user was the superuser (before
-October 2026) at its first start with the script, and sets the forge's
-password; the servers started beside the forge's own steps make the user a
+start (converting a server whose app user is the superuser) and sets the
+forge's password; the servers started beside the forge's own steps make the user a
 superuser (`stepEnv`, `dependency.LocalRuntime.Steps`).
-
-## Proposed: seed data for previews
-
-Moved here from the shipped services guide on 17 October 2026: it is a design
-proposal, not built.
-
-The contract parser accepts an app part's `seed:` string, but the preview and deployment paths do **not** execute that field. Declaring it alone will not populate a preview. The following is a design proposal, not a setup instruction:
-
-- After needs are ready and schema migrations finish, run an app-owned seed command before announcing a preview ready. Keep fixtures in the repository at the same revision as the schema and use fake data.
-- Run it only for previews and explicitly non-production deployments. Never run it for production, and bind that rule to the environment tier rather than a user-controlled boot flag.
-- A pack could supply a fixture and seed command. Tests could then check known records. A preview page could eventually offer a non-production **Reset test data** action. These behaviors are not implemented by the parsed `seed:` field.
-
-The proposed seed command belongs with the versioned app contract because its fixtures must match that revision. This does not make it equivalent to migrations: schema initialization may be needed for production, while sample data must remain disposable.

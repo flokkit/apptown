@@ -79,7 +79,7 @@ type Kind struct {
 	// Defaults are the parameter values assumed when the app declares the need
 	// bare (`postgres`) or omits a param. The app's declared params override
 	// these; both are interpolated as {name} tokens into the fulfillments
-	// (Tier-1 passthrough, design/decisions/needs-and-fulfillment.md).
+	// (Tier-1 passthrough).
 	Defaults map[string]string `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	// Credentials are values the forge sets and an app may not: interpolated
 	// as {name} like a parameter, after the app's parameters, and refused as a
@@ -151,8 +151,8 @@ type Kind struct {
 	// org singleton (SSO/Authentik, error reporting) rather than provisioning a
 	// per-app instance — the connector + the provision adapter that mints the
 	// client/key, and the env it yields. Parsed and catalog-visible so the
-	// unified catalog is honest; EXECUTION wraps project_integrations in the
-	// next slice (design/decisions/needs-and-fulfillment.md — no live consumers yet).
+	// unified catalog is honest (design/subsystems/deployment.md, "Needs
+	// fulfilled by registering").
 	Register *struct {
 		Connector string            `yaml:"connector" json:"connector"`
 		Adapter   string            `yaml:"adapter,omitempty" json:"adapter,omitempty"`

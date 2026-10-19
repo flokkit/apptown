@@ -1,54 +1,33 @@
-# Policy v2: rules anyone can follow
+# Policy: rules anyone can follow
 
-Designed 2026-08-30. Status: legibility slice BUILT; the
-other axes are staged.
+Every policy must be explainable to a first-time user who is not a developer.
+Two questions always have visible answers: "what are our rules?" and "why
+can't I release my software?" A policy that cannot say why it blocked someone,
+in one plain sentence with what to do about it, is not finished.
 
-## The bar
+## Three layers
 
-Every policy must be explainable to a first-time user who is not a
-developer. Not dumbed down — clear. Two questions must always have visible answers:
-"what are our rules?" and "why can't I release my software?" A policy
-that cannot say why it blocked someone, in one plain sentence with a
-what-to-do, is not finished.
+1. **The sentence**: the author's description. "Nothing goes out without a
+   security scan first."
+2. **The precise reading**: rendered by the server from the rule and its
+   options, so there is one source of truth and no drift in the interface. "Any
+   workflow containing a `deploy` step must have a `scan` step in a strictly
+   earlier stage; checked when workflows are saved."
+3. **Standing**: who complies right now. Every adopting project, in line or
+   not, with each violation naming the workflow, the reason and the fix ("add a
+   scan step to a stage before the deploy step").
 
-Three layers per policy, same layering principle as everywhere:
+## Named rule types, never a predicate language
 
-1. **The sentence** — the author-written description. "Nothing goes
-   out without a security scan first."
-2. **The precise reading** — rendered by the SERVER from rule+params
-   (one source of truth, no UI drift): "any workflow containing a
-   `deploy` step must have a `scan` step in a strictly earlier stage;
-   checked when workflows are saved."
-3. **Standing** — who complies right now: every adopting project,
-   in line or not, each violation naming the workflow, the reason, and
-   THE FIX ("add a scan step to a stage before the deploy step").
+Rules are named types in the core with parameters
+([formats guide](../../stock/docs/guides/ways-of-working-formats.md#policies)).
+A single operator needs perhaps six rule forms. The rule vocabulary is shared
+reality: growing it is a core change, made through the core's own gates. Packs
+carry the adoption, with its origin; a rule blocks a workflow at save and is
+checked again at each run.
 
-## What stays from v1 (deliberately)
+## Policies and guidance are different things
 
-Named rule types in core with parameters — never a predicate language.
-The founding comment survives: "a single operator needs perhaps six
-rule forms." Rule vocabulary is shared reality (design/subsystems/plugins.md):
-growing it is a core change through the core's gates. Sentence-first
-descriptions; pack-carried adoption with origins; block-at-save,
-warn-per-run.
-
-## The staged axes
-
-- **Vocabulary** (as needed, each a core change): requireStepAfter,
-  requireWorkflowExists, requireGuidanceImported (the policy↔guidance
-  bridge), requireApprovalBy, allowedModelProviders, releaseRequires
-  (promotion preflight), timeoutCeiling.
-- **Enforcement points and modes**: each rule type declares where it
-  bites (save / run preflight / release preflight / config change);
-  each adoption picks warn or enforce → the warn→observe→enforce
-  rollout. Instance-wide adoption beside per-project.
-- **Waivers**: justified, attributed, time-boxed exceptions reusing the
-  suppression machinery. Amber in standing with reason and expiry.
-  Governance, not handcuffs.
-
-## Taxonomy (do not merge)
-
-Policies watch the RAILS — the system of work: workflow shapes,
-bindings, promotions. Guidance watches the CARGO — the code produced.
-Gates are per-run enforcement instances of both. Cross-linked by
-requireGuidanceImported; never merged.
+Policies watch the rails: the system of work, its workflow shapes, bindings and
+releases. Guidance watches the cargo: the code produced. Gates are per-run
+enforcement of both. They cross-link; they are never merged.

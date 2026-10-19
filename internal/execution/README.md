@@ -99,6 +99,6 @@ reads the qualified fact sets from `qualified_profiles.json`, each naming the
 record of the qualification run behind it: `WorkerProfile.Qualification`
 names the record a profile's measured facts match, or "" (unqualified). It
 compares facts; it does not run or read a qualification. The shipped facts
-are the maintainers' attestation: the records (`design/qualification/` in
+are the maintainers' attestation: the records (`design/reviews/qualification/` in
 their development repository) are not published with the code. Qualifying
 another set of facts is a data change with its record, not a code change.

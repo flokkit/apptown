@@ -1,8 +1,5 @@
 # Conformance records and reviews
 
-Status: current implementation. Checked on 18 September 2026;
-pack versions and what-if checked on 8 October 2026.
-
 Conformance owns reviews, verdicts, confirmations, exceptions and current-status
 projections. Verification executes checks; the Check library defines evaluator
 results and provenance. The [quality guide](quality.md) describes the full flow.
@@ -42,7 +39,7 @@ join). It needs the same authority as a fleet review over the selected projects.
 A request that names no projects runs on every eligible one, read after that
 authority and stored as the list it was: an active ordinary repository-backed
 project that directly holds the pack below that version
-(`adoption.ProjectsBelowIn`; rollout plan).
+(`adoption.ProjectsBelowIn`).
 For each project, Verification prepares the candidate adoption without saving it
 (`adoption.Service.PicksWith`, then `Prepare`), judges the version's checks and
 the project's adopted ones on the same committed `main`, and compares them by
@@ -88,9 +85,8 @@ answer on both trees. It uses the same assessment as a what-if.
 ## Boundaries
 
 A review does not itself create a fix or bypass an approval. Remediation is a
-separate application operation. The old dimension-assurance, override and separate
-batch prototypes were removed; their historical designs do not describe supported
-records or public operations.
+separate application operation. There are no dimension-assurance or override
+records.
 
 ## Implementation references
 

@@ -1,4 +1,4 @@
-.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins
+.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-docs
 
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
@@ -46,7 +46,7 @@ build: web go            ## build frontend then the single forged binary
 # fails if any stage fails, and prints that stage's log.
 GATE_GO_STAGES = check-test check-test-root-a check-test-root-b check-go-source check-vet check-staticcheck \
 	check-shape check-exec check-sqlnow check-lint-test check-lint \
-	check-reachability check-pins
+	check-reachability check-pins check-docs
 GATE_WEB_STAGES = check-web-tsc check-web-lint check-web-test
 # Stages that run on a developer's machine and not in CI: landing, where the
 # migration lock is held to origin/main's.
@@ -69,7 +69,7 @@ check:                   ## run the fast CI gates locally
 # failed gate cycle; the gate's full run stays the witness. BASE is what the
 # branch will merge onto.
 BASE ?= origin/main
-PRECHECK_STAGES = check-pins check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-reachability check-migrations check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
+PRECHECK_STAGES = check-pins check-docs check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-reachability check-migrations check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
 precheck:               ## the fast gates and the tests of affected packages, before the gate
 	@MAKE='$(MAKE)' python3 scripts/gate.py $(PRECHECK_STAGES)
 
@@ -107,6 +107,10 @@ check-go-gate:          ## make check's Go and checker stages (CI's unit job)
 check-pins:             ## the tools the forge runs for projects have one version each: deploy/tool-pins.txt
 	python3 scripts/pins-check_test.py
 	python3 scripts/pins-check.py
+
+check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews
+	python3 scripts/docs-current_test.py
+	python3 scripts/docs-current.py
 
 check-migrations:       ## a released migration keeps its number and statements: the lock only grows from origin/main's
 	sh scripts/migrations-append-only.sh

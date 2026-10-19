@@ -1,8 +1,7 @@
 # Deleting a project
 
 A project's deletion is soft. It moves through four states, each saying
-truthfully where it got to (since 9 October 2026; `project.Lifecycle`,
-`project_lifecycle`):
+truthfully where it got to (`project.Lifecycle`, `project_lifecycle`):
 
 | State | What holds | Leaves by |
 |---|---|---|
@@ -196,15 +195,6 @@ held while the project is kept and, after the purge, until the cleanup is
 done: creating a project with it, or renaming one to it, is refused
 (`project.ErrSlugHeldByCleanup`, a `409`). Change and run ids are never
 reused, so their resources need no hold.
-
-## Projects deleted before this
-
-Projects deleted before 9 October 2026 had their records removed at once
-and their backup sets left behind (only a newer set ever pruned a set). The
-schema's migration 128 listed those sets in one `backups.orphans-listed`
-receipt; the purge pass removes each 30 days after its project's deletion
-date (`project_deletions`), records first being already gone
-(`dataprotection.PurgeOrphanBackups`).
 
 ## What it does not do
 

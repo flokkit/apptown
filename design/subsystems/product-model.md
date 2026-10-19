@@ -1,8 +1,5 @@
 # Product objects and ownership
 
-Status: current implementation. Checked on 18 September 2026;
-"Where work runs" and deployment ownership checked on 8 October 2026.
-
 ## Project, work and conversation
 
 A project groups repository identity, settings, adopted ways of working and its

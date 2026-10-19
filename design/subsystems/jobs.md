@@ -1,8 +1,5 @@
 # Background jobs
 
-Status: current implementation, including exclusive-startup settlement, 18 September 2026;
-calendar duties checked on 8 October 2026.
-
 Forge uses River OSS v0.47.0 in its existing PostgreSQL database and daemon.
 River owns admission, deduplication, claiming, retry timing, periodic scheduling,
 and rescue after a worker dies. Forge owns workflow gates, deployment attempts,
@@ -139,9 +136,7 @@ Run the pinned contract and crash tests on every River upgrade, including patche
 go test -race -tags=integration ./internal/forge/jobs
 ```
 
-Schema 68 was a one-time queue cutover. Its procedure and receipts are retained
-in the earlier design linked below; they are not the current schema upgrade path.
-See [database startup and migration](postgres-migration.md).
+See [database startup and migration](postgres-migration.md) for River's tables.
 
 ## Implementation references
 

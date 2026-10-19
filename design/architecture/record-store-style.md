@@ -1,10 +1,8 @@
 # The record-store style: how a domain package talks to its tables
 
-Written 12 September 2026 for the sqlc conversion window. This is the
-house style for every domain package's SQL from now on. It replaces the
-habit that grew during the extraction: one hand-written statement per
-question, column lists kept in Go constants, filters assembled from
-string fragments, and a scan function per shape.
+This is the house style for every domain package's SQL. It rules out one
+hand-written statement per question, column lists kept in Go constants,
+filters assembled from string fragments, and a scan function per shape.
 
 ## The idea in one paragraph
 
@@ -154,19 +152,15 @@ An operation reads its clock once: the rows it writes and its receipt carry
 that one reading, passed to helpers that write for it, so a record and the
 receipt describing it never disagree by a second.
 
-## What a converted package looks like
+## What a package looks like
 
 - `queries.sql` reads top to bottom as the package's contract with its
   tables: records first, grouped by table; locks; writes; reports last.
 - The Go files hold rules and words, not SQL. `grep -c 'Exec(\`\|QueryRow(\`\|Query(\`\|InsertID(\`' *.go` is zero
   outside tests. `database.QueryRecords` and `RowScanner` are gone from
   the package.
-- The existing tests pass without being weakened. They are the behaviour
-  the conversion must preserve; a test may change only where it asserted
-  on an implementation detail (a column list, a statement count).
-- The package's ledger records the before and after count of hand-written
-  statements and named queries, and any place where the over-read was
-  deliberately refused (a body column) with the reason.
+- A place where the over-read is deliberately refused (a body column) says
+  why at the site.
 
 ## What not to do
 
@@ -188,8 +182,8 @@ only go down. Three places are exempt because raw SQL is correct there:
 `dbschema` writes the migrations, `database` is the driver layer, and
 `dbtest` creates and drops the databases a test runs in.
 
-The baseline was 509 on 15 September 2026, after `complaint` was converted
-as the worked example of this style: a query file, a `queries.go` binding
-it to a pool or transaction, a `record` function turning the generated row
-into the package's own words, and no SQL left in the package's Go.
+`complaint` is the worked example of this style: a query file, a
+`queries.go` binding it to a pool or transaction, a `record` function turning
+the generated row into the package's own words, and no SQL left in the
+package's Go.
 

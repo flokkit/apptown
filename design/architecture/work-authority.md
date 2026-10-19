@@ -2,30 +2,28 @@
 
 `internal/forge/workflow` owns Changes, Runs, Steps and their lifecycle operations.
 `Service` is the caller-facing entry point. Forge binds verified identity and
-assembles external effects for these migrated operations. Stores
-and generated SQL are private. Work never imports Forge or a shared models package.
+assembles external effects. Stores and generated SQL are private. Work never
+imports Forge or a shared models package.
 
-This boundary is substantially implemented, but it is not yet the sole path to all
-Work data throughout Forge: some consumers still read Work data directly.
-
-## App adapter retirement, 14 September 2026
-
-Forge now uses Work's Source, MergeSource, ReadyStep, DispatchPlan, Reworked and
-merge-result records directly. The old workflowStore, parser forwarders and local
-record conversions are removed. Existing trusted record consumers call the
-owner's Read*In functions; this cleanup does not claim to migrate all of them to
+Work is not the only path to Work data: some consumers (Delivery, agent and
+console adapters, project handlers, MCP) read Work's SQL directly, and trusted
+record consumers call the owner's `Read*In` functions rather than
 caller-authorized Service queries.
 
-Work connects Assertions to Merges itself. Its Dependencies no longer asks forge
-to relay merge assertions back into the same service. RefreshAssertions owns
+## Records and assertions
+
+Forge uses Work's Source, MergeSource, ReadyStep, DispatchPlan, Reworked and
+merge-result records directly, with no local conversions.
+
+Work connects Assertions to Merges itself; Forge does not relay merge assertions
+back into the same service. RefreshAssertions owns
 current-stage selection, evaluation, stale-check reset and redispatch, with current
 caller checks. Independent assertion failures are collected and returned while
 other eligible checks continue; failed reset transactions never trigger dispatch.
 
-Forge still binds caller identity, supplies executors and cross-domain receipt
-participants, and translates transport errors. The eleven automatic executor
-implementations remain outside Work, largely on App. Their proper extraction is
-separate from retiring the obsolete workflow representations.
+Forge binds caller identity, supplies executors and cross-domain receipt
+participants, and translates transport errors. The automatic executor
+implementations live outside Work, largely on App.
 
 ## Caller authority and execution authority
 
@@ -44,18 +42,17 @@ operations. MCP retains the person's client attribution in receipts without usin
 that label as authority. Disabled accounts, current grants, OAuth scope limits,
 instrument project restrictions and approval eligibility remain enforced.
 
-Bootstrap's explicit open policy is preserved, including public reads before an
-administrator exists. Once bootstrapped, an arbitrary HTTP actor header cannot
-establish authority. The default Auditor grant to the all-users group still
-intentionally allows signed-in project reads until an administrator revokes it. Approval checks preserve current groups,
+Bootstrap's explicit open policy allows public reads before an administrator
+exists. Once bootstrapped, an arbitrary HTTP actor header cannot establish
+authority. The default Auditor grant to the all-users group deliberately allows signed-in project reads until an administrator revokes it. Approval checks preserve current groups,
 named approvers and author separation.
 
 Queries identify minimal routing scope before checking permission. Detail and
 artifact reads recheck stored associations. Batched activity refuses the entire
 result if a root is unavailable or unauthorized; it follows only current,
 same-project child-call attempts. Global lists select readable projects before
-filtering/ordering/limiting records. Content reads remain batched; permission is
-evaluated per project through the existing policy implementation.
+filtering/ordering/limiting records. Content reads are batched; permission is
+evaluated per project.
 
 Already-admitted owners such as Starter, StepAttempts, Advancer, Landings and
 Merges are execution APIs, not alternative authenticated user APIs. Their records
@@ -76,13 +73,13 @@ configuration before mutation. Required writes check affected rows, including
 trigger-suppressed writes. A required receipt failing rolls back its state change.
 Stored configuration, evidence and external receipts forwarded by lifecycle
 operations retain exact JSON or binary bytes. Those round trips do not decode
-through generic maps or floating-point numbers. Workflow declarations still use
-the existing schema.Spec, whose extensible Step.With configuration is an imported
-map-bearing type; the zero direct-map measure does not claim that parser is typed.
+through generic maps or floating-point numbers. Workflow declarations use
+`schema.Spec`, whose extensible `Step.With` configuration is a map; that parser
+is not typed.
 
 CreateChangeIn and other explicitly admitted participants do not establish user
-permission. Change creation followed by root Run creation still has its existing
-partial-success semantics; this API does not claim atomic Change-plus-Run creation.
+permission. Change creation followed by separate root Run creation can partly
+succeed; only `CreateAndRun` admits both atomically.
 
 ## Run start and workspace preparation
 
@@ -126,7 +123,7 @@ outcomes, overrides and votes are fresh. The completed source remains history.
 Continuation links, inference ownership, readiness, feedback and receipts are atomic.
 A known source inference owner is retained; genuinely unattributed history uses
 its explicit source-Run attribution. Continuations do not bypass disabled-owner
-inference checks. No historical application source is edited by this operation.
+inference checks. It edits no application source.
 
 ## Advancement, assertions and completion
 
@@ -156,8 +153,7 @@ transaction. Changed identity/state/revision refuses retry before the participan
 Completion follow-ups consume typed tasks. Parent advancement requires the actual
 completed child, same-project parent, owned call Step and current attempt/result.
 Changing any of those associations invalidates the handoff. A replay cannot
-advance a newer parent stage. Existing historical child-call representations are
-preserved without a new fallback policy.
+advance a newer parent stage.
 
 Landings owns accepted-source handoff and its one-time acceptance/adoption
 receipts. It checks the selected Change/project before availability and uses the
@@ -169,7 +165,7 @@ supplies availability and dispatches the committed result.
 
 DispatchPlans reads pinned Runs and materialized Steps in one repeatable snapshot.
 Recorded scanner expansion and entry/gate ordering survive changes to today's
-bindings. Plans grant no execution claim; StepAttempts still admits actual work.
+bindings. Plans grant no execution claim; StepAttempts admits actual work.
 Dispatcher's runner registry is copied at construction. Its three collaborators
 are runner effects, preparation/advancement and error reporting. Its store is
 private, not an exported repository interface.
@@ -197,11 +193,10 @@ titles remain protected. Delivery release notes join through a named transaction
 participant; any failed participant/audit write rolls back publication. Model calls,
 Git inspection and Delivery evidence remain external effects.
 
-Forge's workflow adapters now contain no direct database calls. Adoption revision
+Forge's workflow adapters contain no direct database calls. Adoption revision
 pairs use the Ways of Working owner twice in the supplied transaction, checking
-both project identities. Its existing reader also validates each adoption record;
-there is no local SQL fallback. The receipts are immutable, and a future owner
-pair API could reduce two reads to one without changing Work's port.
+both project identities; its reader validates each adoption record, with no
+local SQL fallback.
 
 Jobs owns typed run-operation selection and explicit retry. It locks all matched
 River rows in ID order until the supplied transaction ends, then retries failed
@@ -210,7 +205,7 @@ left alone; selected active jobs count as pending. River owns queue state and
 attempt policy. No second connection or worker is created by the participant.
 
 Startup interruption, remediation supersession summaries and uplift adoption
-stamps now use named Work transaction participants. Startup checks every selected
+stamps use named Work transaction participants. Startup checks every selected
 Step write and preserves only the matching same-project live child call; its
 counts become a report only after the whole startup transaction commits.
 Remediation requires the same-project abandoned Change. Uplift replay and stamping
@@ -219,7 +214,7 @@ revision/provenance checks and its adoption receipt in that same transaction.
 
 Inference observes its issued project/run scope, live step attempt and durable
 owner through one Work statement snapshot. Work owns lifecycle interpretation and
-historical run attribution; Forge retains runtime/network and disabled-account
+run attribution; Forge retains runtime/network and disabled-account
 policy. Continued and long-lived consoles use their own lifecycle, without a Work
 run-liveness check or a new expiry.
 
@@ -236,9 +231,3 @@ child durations are excluded and merge receipts remain scoped to the Change.
 Forge owns display formatting and Git inspection. Read failures are reported,
 not presented as empty activity.
 
-Other consumers, including Delivery, agent/console adapters, project handlers and
-MCP, retain Work SQL reads outside this lane. The exact remaining sites are in the
-ledger and handoff.
-The unimported Forge Work SQLC package and its configuration were removed at the
-afternoon integration. Delivery consumers were not changed in this lane. These are
-the next boundaries, not claims of completed global ownership.

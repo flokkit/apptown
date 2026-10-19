@@ -9,7 +9,7 @@ in order:
 3. [package ownership](architecture/domains.md);
 4. the [code navigation guide](../internal/forge/README.md).
 
-You should not need historical plans to understand the current system.
+You should not need a plan to understand the current system.
 
 ## Current reading path
 
@@ -62,7 +62,7 @@ a contributor should not need a historical design to understand current rules.
 | `requirements/` | Product promises, use cases and vocabulary; implementation gaps stay explicit |
 | `architecture/` | Cross-system rules, boundaries and ownership; adopted decisions distinguished from sketches |
 | `subsystems/` | Current subsystem behaviour and explicit implementation gaps |
-| `decisions/` | The reason for a choice and what explicitly supersedes it |
+| `decisions/` | A choice and why it holds |
 | `operations/` | Operating navigation and specific procedures |
 | Package `README.md` | Contributor navigation, principal call sequences and tests |
 | `stock/` | Shipped content, templates and importable artifacts with their usage instructions |
@@ -70,16 +70,13 @@ a contributor should not need a historical design to understand current rules.
 
 [Requirements](requirements/requirements.md), [concepts](requirements/concepts.md),
 [key journeys](requirements/key-use-cases.md) and [unsupported scenarios](requirements/not-yet.md)
-retain product intent. Their old “live” statements are dated observations, not
-proof of today's deployment. [Architecture](architecture/architecture.md) retains
-accepted direction and illustrative sketches; it is not an exported Go API list.
-Where code and intent differ, document the gap rather than silently changing the
-promise. Later accepted decisions name what they supersede.
+state product intent. Where code and intent differ, document the gap rather than
+silently changing the promise.
 
 
-Makefile and CI define executable build/test commands. Plans, reviews and
-experiments are kept in the development repository and are not published
-with the public tree; a guide's mention of one names that history.
+Makefile and CI define executable build/test commands. Plans and reviews are
+kept in the development repository and are not published with the public tree;
+a current guide never cites one.
 
 ## When implementing a change
 
@@ -88,9 +85,15 @@ or decisions when accepted intent changes, and operating instructions when setup
 or rollout changes. Append deployment evidence only when observed. Internal
 changes that invalidate no documented claim need no new prose.
 
+A current guide states the current rule in the present tense. When behaviour
+changes, rewrite the guide to the new rule: no dates, no "previously", no
+"superseded by", no status header; git history records what changed when. A
+reason that matters is written into the guide, not left in a plan. Unbuilt
+work is said plainly ("not built: …") or listed in
+[unsupported scenarios](requirements/not-yet.md); a proposal lives in a plan
+until it is built.
 
 Write current guides in plain technical language: name the owning package,
 describe the operation and its failure behaviour, and link to implementation.
-Distinguish an implemented feature from an accepted requirement or a proposal.
-Keep author conversations, rhetorical summaries and rollout chronology in the
-dated plan or review. A checked date records a source review, not a deployment.
+Distinguish an implemented feature from an accepted requirement. Keep author
+conversations and rollout chronology in plans and reviews.

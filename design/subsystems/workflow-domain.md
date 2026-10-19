@@ -1,7 +1,5 @@
 # Workflow state and ownership
 
-Status: current implementation. Checked on 18 September 2026.
-
 ## The model
 
 A Change is proposed work and its repository identity. A Run executes a pinned
@@ -14,7 +12,9 @@ Workflow owns `ChangeState`, `RunState` and `StepState`. Their zero values are
 invalid; parse/string/transition operations live beside them. A Change can be
 proposed, in progress, landing, shipped or abandoned. A Run is running, done or
 abandoned. Step outcomes are a different vocabulary. Do not infer these rules
-from free-form activity text, a UI label or a deployment state.
+from free-form activity text, a UI label or a deployment state. Stored words
+decode strictly: an unknown word is an error, never read as a default, terminal
+or successful state.
 
 A run pins its workflow definition. Editing a library workflow does not rewrite
 that run. A run retry revision fences decisions made before reset/rework; it is
@@ -88,9 +88,9 @@ approve. `RecheckStage` is its way on: it plans the stage again from the
 run's pinned definition, records a new receipt of expected checks, and starts a
 new attempt of every check and approval in the stage, keeping the earlier
 results in `step.invalidated` receipts. It refuses a stage with nothing missing;
-single steps are retried instead. (Run 422 opened its checks stage the day
-before the scanner record existed and waited three weeks as "ready to
-advance"; 28 September 2026.)
+single steps are retried instead. Without it, a stage entered before the
+record of its expected scanners existed would wait forever as "ready to
+advance".
 
 Durable completion/abandonment effects run through Jobs and `workcommands` after
 commit. Queue delivery is not proof of a successful domain outcome. Repeated
@@ -132,3 +132,4 @@ Storage tests retain independent SQL assertions where representation matters.
 - [internal/forge/workflow/execution.go](../../internal/forge/workflow/execution.go)
 - [internal/forge/workflow/change_create_run_test.go](../../internal/forge/workflow/change_create_run_test.go)
 - [internal/forge/workflow/retry_transactions_test.go](../../internal/forge/workflow/retry_transactions_test.go)
+

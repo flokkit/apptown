@@ -37,9 +37,7 @@ How a Flokkit release is made, in order. The release script is
 
 ## While a release candidate runs in production
 
-The maintainers run each release candidate in production before the release.
-Current practice since `v1.0.0-rc.3` (14 October 2026), recorded here pending
-the owner's confirmation:
+The maintainers run each release candidate in production before the release:
 
 - **Main keeps moving.** Reviewed and gated work lands on `main` as usual.
   There is no separate release branch; the candidate is its tag.
@@ -53,5 +51,3 @@ the owner's confirmation:
 - **Work after the tag goes into the next notes.** A release candidate cut
   from a later `main` carries everything since the previous tag, so its notes
   name every HTTP and declaration change since then, not only the fix.
-  Since `v1.0.0-rc.3`, `app.yaml` accepts `replicas` (only `1`) and a need's
-  catalogue `size`.

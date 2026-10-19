@@ -1,7 +1,5 @@
 # Integrations and runtime credentials
 
-Status: current implementation, checked on 18 September 2026; wiring section 28 September 2026.
-
 This guide explains how configuration reaches applications and agents. The
 [integration package](../../internal/forge/integration/doc.go) owns bindings,
 attachments and service-kind rendering; the [secret package](../../internal/forge/secret/doc.go)
@@ -67,7 +65,7 @@ the persisted records through the owners' reads.
 
 ## AI models keys
 
-The `llm` connector (provider `openrouter`, 5 October 2026) holds a reference
+The `llm` connector (provider `openrouter`) holds a reference
 to an OpenRouter provisioning key and the limits (`maxLimit` required,
 `defaultLimit`, `previewLimit`). `Bindings.Save` refuses a reference starting
 `STEP_` (those reach steps and workers), and every use checks again. Its
@@ -84,7 +82,7 @@ an app only through its deployment's or preview's boot
 
 A static part is served as files; it cannot read its container's environment.
 Values an attached integration gives an app therefore reach a static page
-another way (29 September 2026; tightened after the independent review the same day):
+another way:
 
 - **Marked at the source.** Only values safe for any visitor to read are given
   to browsers: the error-reporting DSN in its public form (a password typed in
@@ -101,8 +99,8 @@ another way (29 September 2026; tightened after the independent review the same 
   answering `FORGE_RELEASE` (`<part>@<revision>`, what App Platform's readiness witnesses), and
   `/_forge/env.js` answering `window.__FORGE_ENV__ = Object.freeze(Object.assign(new Object(), …))`
   from `FORGE_BROWSER_ENV` at request time; unset, an empty object. A static
-  site's image carries that command itself (`docker.StaticSiteDockerfile`,
-  since 3 October 2026), so no target adds one; previews and generated
+  site's image carries that command itself (`docker.StaticSiteDockerfile`),
+  so no target adds one; previews and generated
   compose mount the files into the stock file server and give it the command. Only static
   parts are given it (a part packed into the file server keeps `ServesStatic`),
   and it is set after the contract's env and secrets. A contract or
@@ -111,7 +109,7 @@ another way (29 September 2026; tightened after the independent review the same 
   hands that value to the public container, so a failed read leaves the whole
   running stack as it was. It fails in its own boot phase, `config`, which the
   landing and the Docker driver settle as a known failure (as they do an
-  unknown need or a missing secret), so a fixed setting can be deployed again. A historical release preview's image is the file
+  unknown need or a missing secret), so a fixed setting can be deployed again. An earlier release's preview image is the file
   server and keeps `ServesStatic`, so it is given its values too. The forge's own Docker host delivers them; intranet and DigitalOcean
   deploys do not, so a deploy there of a static site whose page is given values
   is refused before any effect, naming the values.
@@ -200,8 +198,6 @@ as `\n`, which the Docker-host connection unfolds.
 The built-in store keeps obfuscated values; it is not a vault. Its values are
 encrypted with a key held in the same database, so anyone with a dump or backup
 of the database can read them. Preserve the original key when restoring values.
-Key rotation and additional cloud secret stores remain proposed. The [threat register](../architecture/threat-register.md)
-tracks the broader security work.
-
-Earlier designs are retained for integration configuration,
-contributions and
+Key rotation and further cloud secret stores are not built. The
+[threat register](../architecture/threat-register.md) tracks the broader
+security work.

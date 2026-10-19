@@ -1,7 +1,5 @@
 # Scheduled and webhook invocation
 
-Status: current implementation. Checked on 18 September 2026.
-
 Triggers are declared in a workflow's `on` configuration. There is no separate
 trigger entity with its own editable lifecycle.
 

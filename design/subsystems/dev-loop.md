@@ -1,7 +1,5 @@
 # Working on a Change
 
-Status: current implementation. Checked on 18 September 2026.
-
 A Change is the shared unit for editing, checking, previewing and landing work.
 Its repository branch and worktree are separate from the project's published
 branch. Workflow runs and chats can work on that Change under their own authority.

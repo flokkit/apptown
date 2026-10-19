@@ -1,7 +1,5 @@
 # Guidance checks
 
-Status: current implementation. Checked on 18 September 2026.
-
 Guidance blocks can carry check declarations alongside prose. Ways of Working
 publishes their versions; Adoption records the project's selection. Checks run
 against those pinned declarations, not whichever version is newest in the library.
@@ -84,9 +82,8 @@ need interpretation, supply intent and context to the agent and require evidence
 A README requirement can mandate information while allowing additional sections;
 run its instructions where feasible rather than checking only headings.
 
-This direction is accepted, but the check review queue
-still contains implementation work. Do not assume every stock check already
-follows it. See [quality](quality.md) for ownership and limitations.
+Not every stock check follows this yet; do not assume one does. See
+[quality](quality.md) for ownership and limitations.
 
 ## Implementation references
 

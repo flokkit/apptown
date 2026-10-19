@@ -1,7 +1,5 @@
 # Changes and runs
 
-Status: current implementation. Checked on 18 September 2026.
-
 Workflow owns Change state and run/step lifecycle. A Change records a unit of
 repository work; a run executes a pinned workflow definition. A Change can have
 several runs over its lifetime.

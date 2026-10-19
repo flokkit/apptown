@@ -1,7 +1,5 @@
 # Godot web projects
 
-Status: current implementation. Checked on 18 September 2026.
-
 The Godot seed and guidance provide a starting point for browser games. They use
 the same project, workflow, Docker build and deployment mechanisms as other apps;
 there is no Godot-specific execution engine in Forge.
@@ -18,8 +16,7 @@ A cold preview still builds independently of the session's warm state.
 
 Guidance covers browser export, input and readable scripts. Passing a headless
 export establishes build evidence; it does not prove controls, rendering or game
-behaviour in a browser. Test those separately. Historical demonstrations in the
-original design are not a smoke of the current seed or deployed applications.
+behaviour in a browser. Test those separately.
 
 ## Implementation references
 

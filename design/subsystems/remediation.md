@@ -1,7 +1,5 @@
 # Remediation jobs
 
-Status: current implementation. Checked on 18 September 2026.
-
 Remediation creates and manages work to address selected conformance findings.
 It owns remediation jobs/items and composes Workflow admission with a subsequent
 Conformance review. It is separate from River's generic durable-job delivery.

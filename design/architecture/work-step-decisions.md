@@ -2,8 +2,8 @@
 
 Ordinary approval and override enter `stepDecisions` with a verified `Principal`
 and a typed request. HTTP parses input and translates errors; it does not own the
-approver policy. There is no public actor-string approval method. A future internal
-transport must resolve identity before calling this command, just as HTTP does.
+approver policy. There is no public actor-string approval method. Any transport
+resolves identity before calling this command, as HTTP does.
 
 The command reads the exact step/run/project/change, attempt, run revision, current
 stage, step type and configuration. Its Access adapter checks the current account,
@@ -19,7 +19,7 @@ change author. Empty step approvers use the project default; named people, activ
 groups and active scoped roles are supported. Revoked/expired memberships and retired
 groups do not satisfy a group expression. Required fact reads return errors rather
 than substituting an empty author or role. Malformed grant conditions cannot become
-an unconditional grant. Console and run instruments still cannot approve or override;
+an unconditional grant. Console and run instruments cannot approve or override;
 OAuth scopes only subtract from the person's authority.
 
 Current vote evidence is read under the lock. It is deliberately absent from the
@@ -33,5 +33,3 @@ are HTTP 409, invalid commands 400, denied authority 403 and failed required wri
 Accepted-Work inheritance is a separate command with its own source/landing proof;
 see [Work landing acceptance](work-landing-acceptance.md). It uses the same private
 vote transaction participant without pretending to be a newly authenticated person.
-The ordinary command and its stores remain within Forge while the larger Work
-boundary is canonicalized; this slice does not claim a completed Work extraction.

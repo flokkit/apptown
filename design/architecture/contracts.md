@@ -1,7 +1,6 @@
 # Contracts: the interfaces between code and the platform
 
-Written 2026-08-30; runtime format checked against source on
-2026-09-18. This is the map of the promises that
+This is the map of the promises that
 cross the line between an app's code and the systems that build, run,
 and ship it. Each contract has a direction (who promises what to whom),
 an artifact (where the promise is written), and an enforcement point
@@ -10,8 +9,6 @@ the numbering is used elsewhere in the repo.
 
 This file is the map. For supported runtime fields, validation and local
 development, use the shipped [contract reference](../../stock/docs/guides/contract-reference.md).
-The native-format [decision](../decisions/forge-native-contract.md) records why
-the earlier Compose decision below was reversed.
 
 ## Type 1 — code → platform: "how to run me"
 
@@ -33,28 +30,11 @@ the native contract, not a second authored runtime contract. `mise.toml` or
 `.mise.toml` declares development toolchains; deployed images and Dockerfiles
 supply their own tools. See [toolchains](../../stock/docs/guides/toolchains.md).
 
-### Superseded format ruling (2026-09-01)
-
-The earlier ruling replaced bespoke `.forge/app.json` with a constrained
-`.forge/compose.yaml`. Its rationale remains useful: familiar `build`, `image`,
-`command` and `ports` vocabulary avoids reinventing container concepts, while
-Forge must own host bindings, restart policy, volume placement and credentials.
-That design used `x-forge-*` fields for Forge intent and a closed allowlist so an
-unsupported Compose key failed loudly instead of being silently ignored. Full
-Compose was unsuitable on a shared host because it mixes app intent with host
-topology and permits unsafe controls.
-
-The subsequent [native-contract decision](../decisions/forge-native-contract.md)
-superseded the on-disk format: dependencies could not be expressed as runnable
-Compose services merely by naming them in `x-forge-needs`, so the apparently
-runnable file misled local developers. The native `app:` and `needs:` sections
-keep app intent explicit; `forge dev up` renders the actual local services.
-`.forge/app.json` and `.forge/compose.yaml` are retired inputs, not runtime
-fallbacks. The prior Compose reader and migration description is historical;
-current parsing is in `internal/deploy/appcontract/parse.go`. The original
-proposal for preview-only `seed` and a stricter health path must not be read as
-a statement of current execution; consult the shipped reference and target
-owner for supported behavior.
+Forge owns host bindings, restart policy, volume placement and credentials, so
+full Compose is not accepted as the contract: it mixes app intent with host
+topology and permits unsafe controls. `.forge/app.json` and
+`.forge/compose.yaml` are not read. The [native-contract decision](../decisions/forge-native-contract.md)
+says why the contract is not a Compose file.
 
 ## Type 2 — platform → code: the ABI
 

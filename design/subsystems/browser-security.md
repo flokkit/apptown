@@ -1,7 +1,5 @@
 # Browser request security
 
-Status: current implementation. Checked on 18 September 2026.
-
 Root Forge applies browser security to Forge responses inside the virtual-host
 router. Hosted applications retain their own origin and security policy.
 
@@ -26,8 +24,7 @@ cannot issue another code. Failure after consumption requires reopening consent.
 
 These checks do not establish provider-key containment, tenant isolation or complete
 CSRF/XSS resistance across every hosted app. See [authentication](auth.md) and
-[inference security](inference-security.md). Dated live checks remain in the
-archived rollout record; no production smoke was performed in this audit.
+[inference security](inference-security.md).
 
 ## Implementation references
 

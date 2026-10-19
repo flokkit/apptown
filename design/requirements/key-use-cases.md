@@ -1,12 +1,6 @@
 # The key use cases
 
-> Product intent and journeys, recorded at the dates below. Their past “live”
-> and “today” wording is not a fresh deployment audit. Use the
-> [current product model](../subsystems/product-model.md) and its topic guides
-> for checked implementation; preserve requirement gaps rather than silently
-> redefining promises to match code.
-
-Status: as built, 2026-09-06. These are the end-to-end journeys the forge
+These are the end-to-end journeys the forge
 exists for. Each one crosses more than one role, and the points where one
 role hands to another are where the product earns its keep: a decision is
 made by the person answerable for it, and a receipt is written at the

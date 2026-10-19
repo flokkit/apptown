@@ -1,25 +1,12 @@
 # Mergeable forge data
 
-Status: **accepted direction**, 9 October 2026. Applied by the plans
-mergeable-data-2026-10-09 and
-principal-ids-2026-10-09. Project import
-stays parked; this decision is about the shape of the data, not a merge feature.
+A value that only one database can interpret (an integer identity, a username,
+a slug, a number counted per project) leaks into Git refs and trailers, receipts,
+JSON payloads, file paths and generated text. Two forges' data would collide
+everywhere: both have a change 293, a user `alice`, a `go-service` version 3.
+So identity inside the forge never uses such values.
 
-## Context
-
-Every durable record in a forge is identified by something only that database
-can interpret: a `BIGINT` identity, a username, a slug, a number counted per
-project or per library item. Those values leak into Git (`forge/change-293`,
-`Forge-Run: 512`), ledger subjects (`change 293 run 512`), JSON payloads,
-file paths and generated text. Two forges' data collide everywhere: both have a
-change 293, a user `alice`, a `go-service` version 3.
-
-The parked project import paid for this: renumbering every row, rewriting refs,
-parsing ledger subjects with regular expressions and qualifying every actor
-string, several thousand lines across eight owners for one move. People have
-the same problem inside one forge: history names actors by free-text username,
-so a rename breaks attribution, a reused name inherits authorship and authority,
-and removing an SSO account frees its name.
+This is about the shape of the data, not a merge feature.
 
 ## Decision
 
@@ -78,23 +65,14 @@ assent. A digest identifies content; it is not its author's authority.
 
 ## Why
 
-- **People:** rename, reuse and SSO removal are live problems (the principal plan).
+- **People.** History that names actors by free-text username breaks on a
+  rename, lets a reused name inherit authorship and authority, and frees a
+  name when its sign-in account is removed. A principal does none of those.
 - **Moves, splits and consolidations** keep their records' identities instead
   of a renumbering map built by every owner.
 - **Backups and exports** read elsewhere still name the records they are about.
-- **Witness, do not assert:** "change 293" is ambiguous once it leaves its
+- **Witness, do not assert.** "Change 293" is ambiguous once it leaves its
   forge; a UUID is not.
-- **Now, not later:** there is one forge instance and a demo, and every new
-  table and reference adds to the cost. Decided 9 October: make the change early, while it is cheapest.
 
-## Cost
-
-- Every key, foreign key, generated query, route, Go identifier type and web
-  type changes from integer to UUID: 111 tables, 65 identity keys, about 150
-  reference columns, 945 named queries. It is the largest change to date.
-- One cutover in a quiet window, rehearsed on a restored backup, with the
-  pre-cutover dump as the rollback.
-- Existing forge-wide numbers are renumbered per project once; old numbers stay
-  findable as data.
-- New tables follow the rule from the start; a schema test refuses an integer
-  identity.
+New tables follow the rule from the start; a schema test refuses an integer
+identity.

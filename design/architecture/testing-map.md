@@ -1,9 +1,6 @@
 # The workflow map, and how to test through it
 
-Status: **as built**, refreshed 2026-09-06. Written 2026-08-31;
-the journey tier it describes is built and has grown; the era snapshot it
-relies on predates the Postgres move and has not been re-cut (§5). Extends
-`testing.md` with the tier between integration tests and live fire:
+This extends `testing.md` with the tier between integration tests and live fire:
 **journeys** — whole operational flows driven through the public API and
 CLI, the way a person or agent actually uses the forge.
 
@@ -33,8 +30,8 @@ D6  coding agent       (a connected agent over MCP opens and drives a change)
     → main environment → RELEASE → intranet, or a cloud environment
 ```
 
-D6 was added with MCP (2026-09-05); it is the same change and the same
-landing, driven by an agent acting as the person who connected it.
+D6 is the same change and the same landing, driven by an agent acting as the
+person who connected it.
 Cross-cutting on every door: previews and the boot gate, approvals (means,
 quorum, groups), overrides, rework loops, abandon, complaints, the
 current-rules pause, and packaging (one rail: releasable = an image
@@ -51,9 +48,8 @@ create → adopt (pack or direct) → amend (propagates?) → deprecate → remo
 
 Applied to: guidance blocks · library workflows · policies · packs ·
 catalog changes · integrations and targets · accounts, groups, roles and
-grants · model slots · project rosters · adoption revisions (the noun added
-2026-09-06: amend never propagates on its own; a project moves only by
-adopting).
+grants · model slots · project rosters · adoption revisions (amend never
+propagates on its own; a project moves only by adopting).
 
 ### The matrix
 
@@ -129,27 +125,13 @@ standing probes, asserted continuously and at the end:
 - pinned copies are byte-identical before and after every propagation
   event.
 
-### 5. The aged-instance corpus (the upgrade answer)
+### 5. Old data (the upgrade answer)
 
-"Don't break people's stuff while changing the forge" means: current
-binary, **yesterday's data**. After a release, the journey suite's final
-data directory is archived as an **era snapshot**; the upgrade test boots
-the current binary against each era and runs a smoke journey — read every
-page-shaped endpoint, land a change, release it, pull a pack. Migrations
-and the travel lessons get exercised against data that really is old.
-
-**State today.** There is no era snapshot yet, and the era test is
-**not running**. The first era was cut in the SQLite format, which the
-forge no longer opens since its move to Postgres, so it was retired. The
-test returns when a Postgres-era format exists: a data directory plus a
-`pg_dump`, restored into a clone database before boot.
-The stopped-service upgrade procedure in
-`design/subsystems/postgres-migration.md` §9 is the manual version of the
-same idea and is what protected the live instance meanwhile.
-
-The capture and upgrade journeys were removed with the SQLite format
-(fba9fe5b); re-establishing them means writing them again for the
-Postgres-era format.
+"Don't break people's stuff while changing the forge" means: current binary,
+yesterday's data. Each release freezes a forge's data in
+`internal/forge/testdata/upgrade/<version>`, and `make upgrade-test` boots the
+candidate against every one of them and checks that it upgrades and keeps its
+records ([releasing](../operations/releasing.md)).
 
 ### 6. CI shape
 
@@ -159,13 +141,13 @@ integration         every push       ~8 min       (docker-host runner; nightly o
 journeys            every push       ~1 min       (docker-host runner, fake pi; nightly on a Mac)
 browser, pi,        nightly on a Mac seconds      (Playwright, the pinned Pi, the forge-agent image)
  inference_docker
-era upgrades        not run — removed with the SQLite format (§5)
+upgrade             each release candidate (`make upgrade-test`, §5)
 ```
 
 The nightly run is `make nightly` (testing.md, "The gates the repository
 holds itself to").
 
-## Status
+## The journeys
 
 ```
 go test -tags=journey ./internal/forge/ -run TestJourney -v
@@ -178,12 +160,11 @@ internal auth, roster, quorum, three signed-in people) · **StackMigration**
 (W1, re-pack under a standing probe) · **LedgerComplete** (the matrix,
 every cell dispositioned) · **PackDeliversItsPromises** and
 **ServerPacksDeliver** (a project made from each stock pack previews,
-lands and serves). The era journeys (EraCapture, EraUpgrade) were removed
-with the SQLite format in fba9fe5b and are not run (§5).
+lands and serves).
 
-First-day yield, still the argument for the tier: the journeys found
-deploy-before-merge (main environments served the *previous* landing's
-content) within an hour of existing. Honest gaps: release to the intranet
+The argument for the tier: a journey catches the kind of fault no unit test
+sees, such as deploying before merging, so that main serves the previous
+landing's content. Gaps: release to the intranet
 and `scm/mr` need backing services (a throwaway Portainer, a GitLab); the
 chat door (D2) has no containerised harness, so a real pi loading the
 generated home and a real delegation round-trip are verified live only;

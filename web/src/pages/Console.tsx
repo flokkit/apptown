@@ -55,7 +55,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   const status = useTerminal(session?.id ?? null, !!session?.mayAct, termRef)
   useKickoff(kickoff, slug, changeId, session, status === 'attached')
 
-  // Two visually distinct kinds of chat (design/decisions/interactive-vs-pipeline.md):
+  // Two visually distinct kinds of chat:
   // the project chat (questions, setup, starting work) and the change chat
   // (where building happens). People were confusing them; the chat says
   // which it is before a word is typed.

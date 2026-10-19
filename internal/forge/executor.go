@@ -10,8 +10,8 @@ import (
 // Executors: where a step's process runs. The abstraction is the executor;
 // sandboxing is a property (local has none, docker does). The full contract is
 // stage-in → run → stage-out; local and local-docker collapse staging via
-// cwd/bind-mount — Prepare/Collect materialize when a remote backend lands
-// (see design/architecture/architecture.md §5.3).
+// cwd/bind-mount; a remote backend materializes them through Prepare/Collect
+// (design/operations/workers.md).
 
 const (
 	ExecutorLocal  = "local"

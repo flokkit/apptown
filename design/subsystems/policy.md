@@ -1,7 +1,5 @@
 # Workflow policy rules
 
-Status: current implementation. Checked on 18 September 2026.
-
 Ways of Working owns policy declarations and their validation. Adoption owns
 the rules installed on a project and evaluates them against workflow definitions.
 These rules are separate from Identity's authorization policy.

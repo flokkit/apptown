@@ -1,13 +1,9 @@
 # Deployment target support
 
-Status: current implementation. Checked on 18 September 2026;
-release sources checked on 2 October 2026.
-
 The implemented target kinds are `docker-host`, `portainer`, `do-app` and
-`s3-bucket` (since 4 October 2026, [bucket websites](#bucket-websites)).
-Deployment owns target records, offers, bindings and lifecycle. Drivers own
-rendering, provider calls and observation. The earlier provider comparison is
-historical research, not a list of supported Forge adapters.
+`s3-bucket` ([bucket websites](#bucket-websites)). Deployment owns target
+records, offers, bindings and lifecycle. Drivers own rendering, provider calls
+and observation.
 
 ## Target lifecycle
 
@@ -45,9 +41,9 @@ sync that changes nothing writes nothing. The built-in host takes no edits,
 so all of its record is the forge's own. A sync, a settings edit and a retirement each
 take the targets table lock before the target's row, so overlapping ones
 queue rather than deadlock; an edit started before a sync that changed the
-record is refused as moved. Until 8 October 2026 a sync replaced
-the whole record, silently dropping an App Platform target's copy runner at
-every start (restore-test finding RT-L1).
+record is refused as moved. A sync changes only the facts its source owns, so
+it never drops a setting someone saved on the target (an App Platform target's
+copy runner, for one).
 
 Docker scope is resolved for the selected target. Remote host routing, credentials
 and daemon reachability must come from that target's configuration rather than
@@ -63,8 +59,7 @@ implements it identically.
 
 Recovery resumes observation of the admitted provider identity. Display observations
 are separate from both deployment settlement and health enforcement. Kubernetes,
-ECS, Cloud Run and other adapters described in earlier research are not implemented
-target kinds at this revision.
+ECS, Cloud Run and other providers are not target kinds.
 
 ## What each target supports
 
@@ -154,16 +149,14 @@ resource, never an ignored listing failure.
 ## Static sites and readiness
 
 A static site's release image is the pinned file server with the site's files
-and the command that serves them (`docker.StaticSiteDockerfile`, since
-3 October 2026). Every builder writes it: a Docker host's own build, the
+and the command that serves them (`docker.StaticSiteDockerfile`). Every
+builder writes it: a Docker host's own build, the
 worker's release build (one Dockerfile per static image, since the command
 names its port) and the intranet's. No driver adds a command, so every target
-runs the image the same way. Before, the image held only the files and each
-driver added the command; App Platform's renderer did not, and the site served
-the file server's default page while the release read released.
+runs the image the same way, and no target can serve the file server's default
+page while the release reads released.
 
-A static site may declare its build (`static: { build, target, output }`,
-since 4 October 2026, plan). Its
+A static site may declare its build (`static: { build, target, output }`). Its
 files come from that build instead of the tree: `docker build --output`
 exports the target stage, every folder on the way to `output` and
 everything in it must be a plain folder or file (`docker.ConfineStaticExport`;
@@ -184,8 +177,7 @@ never rebuilt.
 
 The file server answers two forge paths. `/_forge/env.js` gives the page its
 browser values (`FORGE_BROWSER_ENV`), and answers `{}` when the variable is
-unset or empty, whatever the target set (App Platform sets none; until
-4 October 2026 its file ended `new Object(), ))`). `/_forge/release` answers
+unset or empty, whatever the target set (App Platform sets none). `/_forge/release` answers
 `FORGE_RELEASE`, the public static part's release identity,
 `<part>@<revision>` (`appcontract.Contract.PublicRelease`). The forge sets it
 from the selected source, never from a component's environment, on every
@@ -233,14 +225,14 @@ others.
 App Platform keeps the copies in the account's one DOCR registry, one
 repository per project, named after its slug. The repository is the
 forge's: the first copy creates it and the forge records it per project and
-connector (since 4 October 2026). A repository of that name the forge did
+connector. A repository of that name the forge did
 not create refuses the release, at preflight and before any copy; the
 one-time ownership inspection can propose one an earlier release made, for
 an administrator to approve. When the project's last deployment on that
 connector, on any App Platform target, is taken down, every image in the
 repository is deleted. The forge starts no garbage collection: while one runs
-DOCR takes no pushes, and one started by a take-down failed the next
-release on the live round trip (8 October 2026). The space, and the empty
+DOCR takes no pushes, so one started by a take-down would fail the next
+release. The space, and the empty
 repository's name (DOCR has no call to delete a repository and lists it
 until a collection runs), are freed by a collection an operator runs or
 DigitalOcean schedules. An image someone else pushed into the forge's
@@ -268,10 +260,9 @@ the refusing answer's host (DOCR's registry or its token service), not from
 the step the copy was in: the copy reads the source's layers while it
 pushes. A refusal by the release's own registry is said as it is.
 
-On a forge without a worker, and for bundles recorded before 2 October
-2026, Docker hosts build from the committed tree and record image IDs;
-those bundles keep their earlier rules (the no-local-Docker mode reuses
-them only on the target their images live on).
+On a forge without a worker, Docker hosts build from the committed tree and
+record image IDs; such a bundle is reused only on the target its images live
+on.
 
 ## Object storage on App Platform
 
@@ -308,7 +299,7 @@ the driver's need module (`internal/deploy/digitalocean/storage.go`):
 An `s3-bucket` target is an S3-compatible store (DigitalOcean Spaces first)
 that serves static-only apps as files: one public static part, no init
 steps, no needs, released by digest. Anything else is refused with a
-sentence. The plan is static hosting.
+sentence.
 
 - **Attaching** names the store's endpoint, region, website address
   template (`https://{bucket}.{region}-static.digitaloceanspaces.com`) and

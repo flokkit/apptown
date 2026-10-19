@@ -1,97 +1,14 @@
 # Forge threat model
 
-> Security intent and dated threat assessment, not a fresh audit of HEAD.
-> Current identity/visibility behaviour: [Authentication and authority](../subsystems/auth.md).
-> Individual risks remain open until their stated verification is completed.
-
-Status: living security model; initial source-backed baseline, 9 September
-2026. Mitigations described as proposed are not implemented by this document.
-Where each threat stood on 18 October 2026 is the status column of the
-[threat register](threat-register.md). Deployment progress, 9 September 2026:
-browser protections and the lifecycle-token inference proxy were deployed;
-rotating provider keys delivered before then remained open. The chosen
-inference boundary and accepted limits are recorded in
-[inference security](../subsystems/inference-security.md).
-
-Baseline: the Forge source of 9 September 2026, plus the runtime-environment
-documentation then pending. Owner: the Forge maintainer. Revisit this model
-when authority, execution, credentials, networking or deployment changes.
-
-Implementation update, 9–10 September 2026 (local, not deployed then): Docker standing
-deployments now build from a selected Git archive and reject selected build/static
-paths or symlinks escaping that tree. Static files are packaged into images instead
-of retaining host source mounts. Admitted configuration is captured before secret
-broker resolution; runtime receipts contain image/generation identity and no resolved
-secret values. See [deployment](../subsystems/deployment.md) for the recovery contract.
-Runtime labels and a committed boot checkpoint prevent accidental adoption of a
-different deployment; they are not attestation against a hostile Docker operator.
-These changes do not sandbox arbitrary Dockerfiles, freeze dependency supply chains,
-or fence an older in-flight provider operation. Model-provider credential boundaries
-and long-lived chat behavior are unchanged.
-
-Implementation update, 14 September 2026 (local, not deployed then): Access now checks current
-account authority inside SaveUser, RemoveName, SaveGroup and DeleteGroup. The
-authority read and writes share a transaction and users-table lock, preventing
-stale caller roles or concurrent demotion from authorizing a mutation. Disabled
-accounts and instruments are refused; token role bounds and OAuth scopes only
-subtract authority. The explicit unseeded open-instance exception is retained and
-closes atomically when the first administrator is created. The current OAuth
-scope catalog does not grant these administrative operations.
-
-This closes four internal Service bypasses of HTTP-only checks. Protocol adapters
-must still authenticate credentials and construct Principal values; accepting a
-Principal from arbitrary request JSON would defeat that trust boundary. Other
-administrative commands remain outside this slice. Required mutation receipts
-are atomic, but these legacy-role operations do not add authz_decisions records.
-Local direct-call, HTTP, concurrency, failure-injection and race tests plus the
-full Go gate passed; this is not evidence of live deployment or containment of
-untrusted workloads.
-
-Change-preview update, 14 September 2026 (local, not deployed then): HTTP, restart, console
-and MCP now call Deployment.RequestChangePreview. Current Workflow/Project scope,
-Access policy and the required decision receipt are checked internally before
-source preparation or provider work. Console principals additionally resolve a
-current session and must name its own actor, project and change. Missing caller,
-disabled account, narrowed delegation, unreadable policy or failed receipt cannot
-reach the host. Trusted adapters still authenticate credentials and construct
-principals. Grants are not rechecked after waiting for a preceding boot, and
-credential revocation does not cancel admitted work. Automatic chat rehearsal
-remains trusted runtime execution; release-image preview and workflow step
-execution are separate boundaries. This changes no sandbox, inference credential
-or shutdown limit.
-
-Historical-preview update, 14 September 2026 (local, not deployed then): release-image previews
-now use Deployment.RequestReleasePreview. Current project-scoped deployment:operate
-and a required consequential decision receipt precede release lookup and host
-execution. The Release model selects only a released version's recorded image and
-source; transports cannot supply replacement launch inputs. Preview ownership
-covers staging and cleanup, and failed boots clean only their disposable preview
-resources. HTTP guards remain defense in depth. Credential verification remains
-the transport's responsibility, and authorization is not repeated after waiting.
-This adds no workload isolation, health-probe policy or revocation cancellation.
-
-Token-administration update, 14 September 2026 (local, not deployed then): issuance, listing
-and revocation now check current administrator-account authority inside Access.
-On a seeded instance, member-bounded tokens cannot issue stronger tokens through
-these operations; the unseeded open-instance exception remains.
-Account demotion/disabling is serialized with the command, and failed token
-insert/update/receipt writes cannot return plaintext or successful revocation.
-Metadata and receipts contain no plaintext or hashes. Issuance may still name another
-or not-yet-observed owner; resolution applies that owner's current standing and
-role bound. Token lifetimes and runtime/chat credentials are unchanged. The
-Principal remains the trusted adapter's observation; command execution does not
-revalidate the calling credential's revocation.
-
-Configuration-boundary update, 14 September 2026 (local, not deployed then): administrator
-networks and authorization profiles now have checked Access commands, replacing
-the public arbitrary-setting writer. They preserve their capability-grant policy
-and require authorization facts and a decision receipt to succeed before writing.
-AdministratorNetworks owns lockout prevention; trusted adapters still establish
-the caller's address, including the existing unknown-address/loopback exceptions.
-Per-key serialization keeps network before/after history coherent and commits
-each mutation receipt with its setting. Authorization remains a preceding
-transaction and does not fence simultaneous grant revocation. No credential or
-runtime isolation policy changed.
+This is the security model: what Forge must protect, from whom, and how each
+gap would be closed. Mitigations it describes as proposed are not implemented.
+Where each threat stands is the status column of the
+[threat register](threat-register.md); current identity and visibility
+behaviour is [authentication and authority](../subsystems/auth.md), and the
+inference boundary and its accepted limits are
+[inference security](../subsystems/inference-security.md). A risk stays open
+until its stated verification is done. Revisit this model when authority,
+execution, credentials, networking or deployment changes.
 
 ## Assessment
 
@@ -112,7 +29,7 @@ identifies credible attack paths, records controls found in code, and defines
 what evidence would close each gap. It does not claim every path is exploitable
 on the live network or every relevant vulnerability has been found.
 
-The detailed [threat register](threat-register.md) contains 28 stable threat
+The detailed [threat register](threat-register.md) holds the stable threat
 IDs, supporting code, priorities and verification scenarios. This document
 sets the context and the implementation sequence.
 
@@ -127,7 +44,7 @@ malicious content introduced through otherwise legitimate work.
 | Deployment | Security expectation | Consequence for this model |
 |---|---|---|
 | Trusted small team | Members generally cooperate; accounts, packages and prompts can still be compromised | Credential theft, browser attacks, host compromise and accidental destructive operations remain material |
-| Known users with untrusted workloads — baseline | Running a project must not confer authority over Forge or other projects | Enforce boundaries outside the agent and the project's code |
+| Known users with untrusted workloads (the working model) | Running a project must not confer authority over Forge or other projects | Enforce boundaries outside the agent and the project's code |
 | Hostile public users or tenants | Assume deliberate, repeated attempts to escape and consume resources | Isolated workers, private-project authorization, admission controls and abuse operations are release prerequisites |
 
 In scope: browser UI and terminal; HTTP API; CLI, Git and MCP; internal and
@@ -349,7 +266,7 @@ Important current distinctions:
 - Local execution inherits the daemon environment, less any `GIT_*`
   variable and with no system or global git config (`gitexec.Environ`),
   and runs on the host. It is a
-  trusted-operator mode, unsuitable for the baseline's untrusted work.
+  trusted-operator mode, unsuitable for the working model's untrusted work.
 - The console API's GET-only wrapper has deliberate POST exceptions and
   rejects PTY access. It is useful defense in depth; authorization must hold
   on the main listener too.
@@ -361,13 +278,13 @@ Important current distinctions:
 
 ## 6. Credential and sensitive-data flows
 
-| Credential/data | Baseline holder/delivery, with pending changes noted | Scope/lifetime and consequence |
+| Credential/data | Holder and delivery | Scope/lifetime and consequence |
 |---|---|---|
-| Model-provider key | Baseline: console/step env and Pi model JSON. After proxy rollout: Forge only | Reusable provider authority; old delivered copies require rotation |
-| Inference credential (deployed 9 September 2026) | Existing chat/step session token; provider keys remain on Forge | Lifecycle-bound, explicitly allowed worker peer AND token, restricted binding/models, concurrency limits and receipts; monetary budgets deferred |
+| Model-provider key | Forge only; runtimes' generated model configuration names the session token, never the key | Reusable provider authority; any copy ever delivered into a runtime must be rotated |
+| Inference credential | Existing chat/step session token; provider keys remain on Forge | Lifecycle-bound, explicitly allowed worker peer AND token, restricted binding/models, concurrency limits and receipts; monetary budgets deferred |
 | Console token | Console process and persisted session metadata | Project/instrument restrictions; lifetime follows session management rather than a hard independent token TTL |
 | Run token | Step env; derived from the step attempt under a key in the Forge data folder (`runtime-token-key`), nothing stored per token | Run/project attribution; accepted at the inference gateway and the API only while the run is running, the attempt is the step's live attempt and the run owner's account is enabled; survives a daemon restart; no independent expiry, and anyone holding the key can mint tokens |
-| Browser session | HttpOnly cookie; token hash in DB | 30-day session; SameSite=Lax, host-only; Secure not set by `issueSession` |
+| Browser session | HttpOnly cookie (`__Host-forge_session`, Secure, over HTTPS); token hash in DB | 30-day session; SameSite=Lax, host-only; Secure follows the public origin, so a plain-HTTP development forge uses a separate, non-Secure cookie |
 | Personal token | Human/external client; hash in DB | Reusable until revoked; current user authority narrows it; generally broader than a purpose-specific OAuth grant |
 | OAuth tokens | External client; token hashes and delegation in DB | Access 1 hour, refresh/delegation horizon 30 days; scoped/audience-bound, rotation and reuse handling |
 | Git push ticket | Authorized external client; hash and constraints in DB | Short-lived, one-use, change/ref/expected-tip constrained; recheck authority at use |
@@ -392,9 +309,9 @@ or a shared service remains high value. Deleting a container does not revoke
 an upstream key or erase copies from transcripts, Git history and backups.
 
 The [runtime requirements](../requirements/runtime-environments.md) describe
-the current provisioned environments and proposed service lifecycle. This
-model adds security acceptance criteria; it does not silently turn the
-service or model-gateway proposals into implemented guarantees.
+the provisioned environments, and [inference security](../subsystems/inference-security.md)
+the model gateway. This model adds security acceptance criteria; a proposed
+control here is not an implemented guarantee.
 
 ## 7. Concrete attack chains
 
@@ -430,9 +347,9 @@ not reports that an attacker has performed them.
 
 ## 8. Prioritized implementation sequence
 
-Priorities reflect the baseline, impact and prerequisites, not a numerical
+Priorities reflect the working model, impact and prerequisites, not a numerical
 prediction of exploit probability. **P0** means address in the first security
-batches before expanding exposure; **P1** means required baseline hardening;
+batches before expanding exposure; **P1** means required hardening;
 **P2** means assurance and operational depth after the immediate boundaries.
 P0 does not assert active compromise. Conditional findings require their
 stated preconditions to be verified.
@@ -476,19 +393,20 @@ a credential, not proof of the human's intent. The shared-host and privileged
 worker risks remain. If those residuals become unacceptable, move the model loop
 and the worker onto separately enforced trust boundaries as well.
 
-Cutover removes legacy credential-bearing runtimes and generated configuration,
-but deployment also requires rotating the old provider keys. Deleting files
-cannot invalidate copies already made. See the inference security contract for deployment evidence and remaining rotation work.
+Deleting files cannot invalidate copies of a provider key already made; a key
+ever delivered into a runtime must be rotated
+([inference security](../subsystems/inference-security.md)).
 
 ## 9. Decisions and residual risk
 
-These are unresolved product/operational decisions, not tacit approvals:
+Project source, prompts, transcripts and attachments are read through current
+project grants, not visible to every authenticated member
+([authorization decisions](../subsystems/authorization-capabilities.md)). That
+every representation, including Git, MCP, events and error metadata, applies
+the same filter is still to be shown (TM-11).
 
-- Decided since the baseline: project source, prompts, transcripts and
-  attachments are read through current project grants, not visible to every
-  authenticated member ([authorization decisions](../subsystems/authorization-capabilities.md)).
-  Still to show: that every representation, including Git, MCP, events and
-  error metadata, applies the same filter (TM-11).
+These are unresolved product and operational decisions, not tacit approvals:
+
 - Which users may run arbitrary code, start privileged builds, provision
   services, expose previews or consume paid inference? What are the hard
   per-user/project/instance allowances?
@@ -507,9 +425,8 @@ code reading its own production secrets, a compromised provider seeing data
 sent to it, a stolen inference grant spending its remaining allowance, supply
 chain/kernel defects, and a trusted administrator accessing instance data.
 Risk acceptance should record the threat ID, owner, scope, reason, compensating
-control and review date. This initial model marked no risk accepted; the
-register's status column (18 October 2026) names the accepted ones and where
-each acceptance is recorded.
+control and review date. The register's status column names the accepted
+ones and where each acceptance is recorded.
 
 ## 10. Verification and maintenance
 
@@ -521,7 +438,7 @@ or independent tests of trust boundaries. This follows the project's intent
 for conformance: test valuable guarantees rather than mandate incidental
 wording or count arbitrary patterns.
 
-The initial focused regression command, completed successfully on 2026-09-09:
+A focused regression command for the trust boundaries:
 
 ```sh
 env -u FORGE_TEST_DB_URL go test ./internal/forge \
@@ -529,9 +446,9 @@ env -u FORGE_TEST_DB_URL go test ./internal/forge \
   -count=1
 ```
 
-The test fixture uses the local disposable test databases. This was not a
-full-suite run, a dependency audit, a browser exploit test or a live firewall
-assessment. Each register entry's **Verify** paragraph is proposed future
+It uses the local disposable test databases; it is not a full-suite run, a
+dependency audit, a browser exploit test or a firewall assessment. Each register
+entry's **Verify** paragraph is proposed future
 evidence, not a statement that its tests already exist.
 
 For security changes, test allowed behavior as well as denial. Include

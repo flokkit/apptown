@@ -1,8 +1,5 @@
 # MCP interface
 
-Status: current implementation. Updated 27 September 2026 for the move to the
-official Go SDK.
-
 The user MCP endpoint is `/mcp/user`. The official MCP Go SDK
 (`github.com/modelcontextprotocol/go-sdk`) handles JSON-RPC framing, the
 streamable HTTP transport, protocol-version negotiation and sessions. Root Forge
@@ -40,7 +37,7 @@ credentials.
 An external coding agent uses its own runtime. Connecting over MCP does not
 provision a container, private Docker or the agent's model service. Follow the
 [connection guide](../../stock/docs/guides/connect-a-coding-agent.md) for client
-setup; the larger tool/protocol proposals in the old design are not all shipped.
+setup.
 
 ## Implementation references
 

@@ -1,27 +1,21 @@
-# Historical source and migration support
+# Earlier revisions and database versions
 
-Status: current implementation. Checked on 18 September 2026.
+Startup accepts the native application contract and the supported PostgreSQL
+schema baseline. There is no general compatibility layer for former application
+formats or older database versions.
 
-Current startup accepts the native application contract and the supported
-PostgreSQL schema baseline. It does not carry a general compatibility layer for
-all former application formats or historical database versions.
+An earlier revision of an application boots only if its own revision carries
+valid packaging. Application bugs and unavailable external dependencies can
+still stop an old version running. A runtime never guesses missing source or
+attempt inputs from the project's current head.
 
-Historical applications need valid packaging at their selected revision. The
-one-time native-source cutover
-normalized the recorded estate and retained original evidence. That maintenance
-operation is not part of every application launch and must not be replayed blindly.
-Application bugs and unavailable external dependencies can still prevent an old
-version running.
+Database upgrades use checked numbered migrations from the supported baseline;
+see [database support](postgres-migration.md).
 
-Database upgrades use checked numbered migrations from a supported baseline.
-Earlier backups require the explicitly documented maintenance path; see
-[database support](postgres-migration.md). A new runtime must not guess missing
-source or attempt inputs from current project head.
-
-Versioned runtime capsules, broad historical interpreters and automatic semantic
-application migrations in the earlier proposal are not implemented guarantees.
-Future compatibility work needs an explicit supported range and a concrete
-migration/recovery procedure.
+Versioned runtime capsules, interpreters for former formats and automatic
+semantic migration of applications are not built. Compatibility work beyond the
+baseline needs an explicit supported range and a concrete migration and
+recovery procedure.
 
 ## Implementation references
 

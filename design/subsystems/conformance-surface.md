@@ -1,7 +1,5 @@
 # Conformance decisions and display
 
-Status: current implementation. Checked on 18 September 2026.
-
 A verdict records an evaluation. A confirmation or exception records a person's
 decision about that evidence. The current-status display combines those records;
 it must not rewrite the original evaluation as if the evaluator had said something
@@ -18,8 +16,7 @@ reads apply project visibility internally; a narrowed query parameter is not an
 authorization grant.
 
 Use [conformance](conformance.md) for record ownership and [remediation](remediation.md)
-for acting on findings. The earlier design contains proposed assurance controls
-that are not part of these current operations.
+for acting on findings.
 
 ## Implementation references
 

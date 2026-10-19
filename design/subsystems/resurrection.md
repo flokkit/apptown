@@ -1,7 +1,5 @@
 # Reverse engineering and replacement evaluation
 
-Status: workflow and experimental tools; no separate subsystem. Checked on 18 September 2026.
-
 The stock `excavate` workflow and excavation skill support producing an evidence-
 based requirements document from existing software. They use ordinary Workflow
 execution, reports, review and human approval. There is no separate resurrection
@@ -18,10 +16,8 @@ normalizations. It is an experiment, not a general proof that an arbitrary rewri
 preserves behaviour. For example, some generated images are checked for presence
 rather than pixel equivalence.
 
-The archived document retains the selected applications, historical results and
-broader evaluation proposal. Those observations are not current deployment results.
-Adapting a new target requires reviewing its corpus, comparison rules and execution
-setup; this documentation pass did not run the experiments.
+Adapting it to a new target requires reviewing that target's corpus, comparison
+rules and execution setup.
 
 ## Implementation references
 

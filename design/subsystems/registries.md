@@ -1,9 +1,5 @@
 # Package and container registries
 
-Status: current implementation. Checked on 18 September 2026;
-release-build registries checked on 8 October 2026; the shared download cache
-checked on 17 October 2026.
-
 Integration stores package-registry bindings and project container-registry
 attachments. Agentenv translates supported package formats into helper environment
 settings and configuration files. Docker preparation supplies its daemon/build

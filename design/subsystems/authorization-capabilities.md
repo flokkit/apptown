@@ -1,8 +1,5 @@
 # Authorization decisions
 
-Status: current implementation. Checked on 18 September 2026;
-project-member reads revised 3 October 2026; chats and steps 4 October 2026.
-
 Identity resolves current accounts and grants. The Access library evaluates a
 permission against those facts and the caller's credential restrictions. HTTP
 and MCP establish authenticated caller context before invoking application code.
@@ -78,9 +75,37 @@ is reached by its address. That report is presentation, never the boundary.
 A refusal on a project says "this project" and never its name, so guessing a
 project's address reveals nothing about it.
 
-See [authentication and authority](auth.md) for modes and credential lifetime,
-and the [accepted policy](../decisions/authority-policy-2026-09.md) for rulings.
-The old instance-wide profiles and configurable administrator reach are retired.
+## Rules every owner keeps
+
+- Only a current instance-administrator grant confers root, and root reaches
+  every project through one grant rule, after credential limits. Identity and
+  grant administration require root. Root is exempt from approver eligibility
+  and from the self-approval refusal; named approvers and author segregation
+  still constrain everyone else.
+- A token exercises root only when its ceiling permits it and its owner still
+  holds root. OAuth and instrument bounds apply before root. Long-lived callers
+  re-read grants.
+- Initial setup creates authority explicitly. An empty administrator set grants
+  nothing and never turns an absent caller into system work.
+- A missing caller or missing provenance is an authentication failure, never a
+  silent system fallback. An unverified caller cannot invoke ordinary commands.
+  Anonymous callers act only through explicit read grants.
+- One caller value carries identity, verification and receipt attribution
+  separately. Attribution never grants authority; commands that take an actor
+  check it equals the verified receipt actor.
+- A failed policy read is an operational error, never an authorization answer.
+  Required receipts stay required.
+- Creating a conformance exception requires `exception:approve`; there is no
+  pending-request stage.
+- Refusal comes before any record write, run admission or container start, and
+  each operation's tests show it there. A shared kernel test does not replace
+  them.
+- The kernel is not a universal eligibility order: Work checks disabled
+  accounts and approver eligibility before its approval capability,
+  Conformance checks instrument scope before the human path, and Adoption
+  keeps its receipt-actor equality check. General denial is `access.Denied`.
+
+See [authentication and authority](auth.md) for modes and credential lifetime.
 
 ## Implementation references
 
@@ -90,3 +115,4 @@ The old instance-wide profiles and configurable administrator reach are retired.
 - [internal/forge/usage/service.go](../../internal/forge/usage/service.go)
 - [internal/forge/routes.go](../../internal/forge/routes.go)
 - [internal/forge/mcpapi/catalog.go](../../internal/forge/mcpapi/catalog.go)
+

@@ -1,7 +1,5 @@
 # Authentication and authority
 
-Status: current implementation. Checked on 18 September 2026.
-
 ## Authentication establishes a caller
 
 There are three configured authentication modes, selected by `forged --auth`:
@@ -213,9 +211,9 @@ projects, and instance-only pages are left out of the menu and refused (see
 [authorization decisions](authorization-capabilities.md)); the executable
 evidence is `checkMemberScopedReads` in the route policy evidence suite.
 
-
-The [authority decision](../decisions/authority-policy-2026-09.md) records policy
-intent. The [threat model](../architecture/threat-model.md) and
+The rules every owner keeps are in
+[authorization decisions](authorization-capabilities.md#rules-every-owner-keeps).
+The [threat model](../architecture/threat-model.md) and
 [threat register](../architecture/threat-register.md) track security risks and
 unimplemented controls.
 

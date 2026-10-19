@@ -1,17 +1,14 @@
 # Database initialization and upgrades
 
-Status: current implementation. Checked on 18 September 2026.
-
 Forge uses PostgreSQL. Each owner maintains its schema fragment and named queries;
 Dbschema embeds the generated schema bundle and applies central numbered migrations.
 River manages its own tables/migrations through the jobs integration.
 
 New databases are initialized from the assembled schema. Existing databases must
-meet the supported baseline before normal migrations run. At this revision the
-baseline is schema 88, the version production ran on 28 September 2026 at
-b04e2f07. An older database must first be upgraded by a daemon built at that
-revision; normal startup is not a historical upgrader. Forge refuses retired SQLite data
-rather than silently starting a new database beside it.
+meet the supported baseline before normal migrations run. The baseline is
+schema 147, the 1.0 baseline ([schema ownership](../architecture/schema-ownership.md));
+normal startup refuses an older database rather than upgrading it. Forge refuses
+SQLite data rather than silently starting a new database beside it.
 
 `-db-url` or `FORGE_DB_URL` selects an external database. With neither configured,
 startup manages the built-in PostgreSQL container. Database opening performs

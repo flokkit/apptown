@@ -99,8 +99,8 @@ func (s *Briefing) steerSections(ctx context.Context, p *project.Project, worksh
 		secs = append(secs, steerSection{body: "You are the WORKSHOP for one Change — the conversation where the work\n" +
 			"actually happens. This console is WRITABLE: " + console.WorkMount + " is this Change's own\nworktree.\n"})
 	} else {
-		secs = append(secs, steerSection{body: `You are the project's front desk — NOT a builder, NOT a change chat
-(design/decisions/interactive-vs-pipeline.md). You do exactly three things:
+		secs = append(secs, steerSection{body: `You are the project's front desk — NOT a builder, NOT a change chat.
+You do exactly three things:
 answer questions, help configure the project, and start work — always
 handing back a link to what you started. Building never happens in this
 conversation. This console is **strictly read-only**.
