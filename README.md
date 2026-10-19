@@ -1,6 +1,6 @@
 # Flokkit AppTown
 
-The software factory for the rest of us.
+A software factory for the rest of us.
 
 AppTown helps small teams keep the apps they make with AI coding agents. You
 run it yourself, on your own machine or server.
