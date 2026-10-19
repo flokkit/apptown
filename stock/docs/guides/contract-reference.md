@@ -94,6 +94,41 @@ when a `Dockerfile` sits beside it. AppTown installs no `mise` tools inside
 a built or pulled image: the `Dockerfile` or the image carries its own
 runtime.
 
+## One architecture
+
+Pick one CPU architecture for an AppTown, `linux/amd64` or `linux/arm64`,
+and run its workers and its deployment targets on it. App Platform runs
+`linux/amd64` only. AppTown builds no multi-architecture image.
+
+- **A release built on a worker** is built natively, for the worker's
+  architecture. A release to a target of another architecture is refused
+  before anything is built, naming both: "the worker builds for
+  linux/arm64 and droplet-1 runs linux/amd64". AppTown asks a Docker host
+  or Portainer for its platform at each release, and a release published
+  by digest is refused on a target of another platform.
+- **A Docker host without a worker** builds the app's images on the host
+  itself, so they match it.
+- **Portainer without a worker** builds on AppTown's own Docker, for the
+  platform the Portainer machines report. A build that runs programs of
+  that other architecture needs AppTown's Docker to emulate it, and is
+  slow; one that only copies files, such as a static site, does not.
+- **An `image` part** must already be built for the target's architecture.
+  A release published from a worker checks every image's platform and
+  refuses a mismatch. Portainer without a worker checks the public part's
+  image when its manifest can be read. An image no check caught fails when
+  it starts.
+- **A bucket website is files**, so it goes to a bucket whatever the
+  architecture.
+- **The app must run on that architecture.** A dependency shipped only for
+  another architecture fails the build, or fails when the app starts.
+- **Moving a project to an AppTown of another architecture** means building
+  its releases again there: an earlier release's images cannot run on the
+  other architecture (a bucket website's release still can). Its data moves
+  through a restore. Database backups are dumps (`pg_dump`, `mariadb-dump`),
+  and object storage and `dataDir` copies are files; none of them depend on
+  the architecture, though files an app writes in its own format are the
+  app's to keep portable.
+
 ## The process
 
 - **Listen on the declared port**, the container's own port. A public
