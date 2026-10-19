@@ -1,17 +1,34 @@
 # Flokkit AppTown
 
-AppTown is where a small team builds and keeps the apps it makes with AI
-coding agents. You run it yourself, on your own machine or server.
+The software factory for the rest of us.
 
-Coding agents have dropped the cost of small custom apps to nearly zero, but
-owning an app that people can rely on is still a lot of work. Someone has to
-deploy it, back it up, keep it patched and still understand it a year later,
-usually after the person who made it has lost interest.
+AppTown helps small teams keep the apps they make with AI coding agents. You
+run it yourself, on your own machine or server.
 
-AppTown makes that handover boring and repeatable. You bring an app, or have
-the agents build it (that part is optional), and AppTown looks after it from
-there. Every change goes through the same steps, so you can see who asked for
-what, what was checked and what's actually running.
+Coding agents have dropped the cost of small custom apps to almost nothing,
+but owning an app that people can rely on is still a lot of work. Someone has
+to deploy it, back it up, keep it patched and still understand it a year
+later, usually after the person who made it has lost interest.
+
+AppTown makes that handover boring and repeatable. You can bring in an app you
+made with a coding agent on your own computer, or have AppTown's own agents
+build it, and AppTown looks after it from there. Every app gets the habits of
+a careful engineering team: changes are tested and looked at by a person
+before they go live, you can try them on a preview first, and there's a
+record of who asked for what and what's running now.
+
+Those habits come from a way of working. It's a team's engineering
+conventions written down, such as the language and framework, the linter, the
+checks that run on every change, and the guidance the agents follow. A team
+can have several, say one for Python web apps and one for static sites. Each
+project adopts one, and takes up newer versions when someone on the project
+accepts them.
+
+One or more admins run AppTown for everyone else. They set it up and keep it
+going. They invite people, connect the places apps get deployed to (a Docker
+host, a Portainer environment or DigitalOcean), plug in the AI model provider,
+and choose the way of working new projects start with. They don't approve
+other people's changes. Each project's own people do that.
 
 What comes out is ordinary software: a git repository and a container image
 you can take somewhere else. It's open source (Apache-2.0).
