@@ -33,21 +33,20 @@ detector and the semgrep SQL rule. Run them locally
 **`images.yml`** runs on a tag `v*` only. Every tag pushes each image to
 GHCR by digest with BuildKit's provenance (`mode=max`) and SBOM attached,
 joined into one tag per version (`1.0.0`; also `1.0` and `latest` for a
-release that is not a pre-release). The repository's visibility decides the
-rest:
+release that is not a pre-release). Each image is built natively on amd64
+and arm64 runners; arm64 runners are free for public repositories and
+billed by the minute for private ones, within the organisation's Actions
+budget. The repository's visibility decides the rest:
 
-- While private, each image is built for linux/amd64 only and pushed to
-  private packages. Private package storage and downloads beyond GitHub's
-  free allowance are billed to the organisation, capped by its Packages
-  budget. Pulling one needs `docker login ghcr.io` with a token that can
-  read packages. Nothing is signed.
-- When public, each image is built natively on amd64 and arm64 runners
-  (arm64 runners are free for public repositories) and signed keyless with
-  cosign. GitHub's own artifact attestations need Enterprise Cloud for a
-  private repository, so the provenance and SBOM are BuildKit's, stored
-  with the image. Signing waits for public because a keyless signature is
-  recorded in Sigstore's public transparency log with the repository's
-  name.
+- While private, the images go to private packages. Private package storage
+  and downloads beyond GitHub's free allowance are billed to the
+  organisation, capped by its Packages budget. Pulling one needs `docker
+  login ghcr.io` with a token that can read packages. Nothing is signed.
+- When public, each image is signed keyless with cosign. GitHub's own
+  artifact attestations need Enterprise Cloud for a private repository, so
+  the provenance and SBOM are BuildKit's, stored with the image. Signing
+  waits for public because a keyless signature is recorded in Sigstore's
+  public transparency log with the repository's name.
 
 GHCR packages start private, also for a public repository. For anonymous
 pulls, make each package public in its package settings on GitHub. A

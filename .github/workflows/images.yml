@@ -6,11 +6,12 @@
 # Every tag pushes: each image is pushed by digest with BuildKit's provenance
 # (mode=max) and SBOM, and joined into one tag per version. PUBLIC (below)
 # follows the repository's visibility and decides the rest:
-# - private: linux/amd64 only (arm64 runners are free only for public
-#   repositories), into private GHCR packages (billed beyond the free
-#   allowance), and not signed.
-# - public: built natively on amd64 and arm64 runners, and signed keyless
-#   with cosign (GitHub's OIDC token; the signature is recorded in Sigstore's
+# Each image is built natively on amd64 and arm64 runners in both cases
+# (arm64 runners are free for public repositories and billed by the minute
+# for private ones).
+# - private: into private GHCR packages (billed beyond the free allowance),
+#   and not signed.
+# - public: signed keyless with cosign (GitHub's OIDC token; the signature is recorded in Sigstore's
 #   public log with the repository's name, which is why a private repository
 #   does not sign).
 name: images
@@ -30,22 +31,8 @@ defaults:
     shell: bash
 
 jobs:
-  plan:
-    runs-on: ubuntu-24.04
-    outputs:
-      platforms: ${{ steps.mode.outputs.platforms }}
-    steps:
-      - id: mode
-        run: |
-          if [ "$PUBLIC" = true ]; then
-            echo 'platforms=[{"platform":"linux/amd64","slug":"amd64","runner":"ubuntu-24.04"},{"platform":"linux/arm64","slug":"arm64","runner":"ubuntu-24.04-arm"}]' >> "$GITHUB_OUTPUT"
-          else
-            echo 'platforms=[{"platform":"linux/amd64","slug":"amd64","runner":"ubuntu-24.04"}]' >> "$GITHUB_OUTPUT"
-          fi
-
   build:
     name: build ${{ matrix.image.name }} ${{ matrix.platform.slug }}
-    needs: plan
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 90
     permissions:
@@ -58,7 +45,9 @@ jobs:
           - { name: apptown, context: ., file: deploy/Dockerfile, target: server }
           - { name: apptown-worker, context: ., file: deploy/Dockerfile, target: worker }
           - { name: apptown-agent, context: deploy/forge-agent, file: deploy/forge-agent/Dockerfile, target: "" }
-        platform: ${{ fromJSON(needs.plan.outputs.platforms) }}
+        platform:
+          - { platform: linux/amd64, slug: amd64, runner: ubuntu-24.04 }
+          - { platform: linux/arm64, slug: arm64, runner: ubuntu-24.04-arm }
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}
     steps:
@@ -100,7 +89,7 @@ jobs:
   # One tag per version from the per-platform digests; signed when public.
   merge:
     name: merge and sign ${{ matrix.name }}
-    needs: [plan, build]
+    needs: build
     runs-on: ubuntu-24.04
     permissions:
       contents: read
