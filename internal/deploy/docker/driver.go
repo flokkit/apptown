@@ -111,7 +111,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	}
 	url := d.URL(slug, p.Name, res.HostPort)
 	if dk.Remote() {
-		url = dk.FrontDoor(slug, res.HostPort)
+		url = dk.FrontDoor(slug, p.Name, res.HostPort)
 	}
 	o, err := RecordBoot(ctx, dk, id, name, res.Image(), url, res.HostPort, checkpoint)
 	if err != nil {

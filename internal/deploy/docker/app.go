@@ -124,8 +124,8 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// the traefik network and only then started: Traefik reads a container
 	// when it starts and does not see a network joined later, so a container
 	// that joined after starting is routed to an address Traefik cannot
-	// reach.
-	routed := dk.Remote() && dk.Domain != "" && !sealed
+	// reach. Only main is routed there (RoutesDeployment).
+	routed := dk.Remote() && dk.RoutesDeployment(t.Deployment) && !sealed
 	args := []string{"run", "-d", "--name", name}
 	if routed {
 		args = []string{"create", "--name", name}
@@ -203,11 +203,11 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	args = append(args, "-e", fmt.Sprintf("PORT=%d", c.Port))
 	if routed {
 		// The attached host's own Traefik routes <slug>.<domain> to this
-		// container (design/subsystems/deployment.md §8.3a): the labels are
+		// container, main's (design/subsystems/ingress.md): the labels are
 		// the contract, entrypoint websecure, resolver letsencrypt, and the
 		// container joins the network named traefik before it starts, which
 		// Traefik is told to use when the container is on several.
-		slugName := strings.TrimSuffix(strings.TrimPrefix(name, "forge-env-"), "-"+deploymentOfName(name))
+		slugName := strings.TrimSuffix(strings.TrimPrefix(name, containerPrefix), "-"+t.Deployment)
 		router := "forge-" + slugName
 		args = append(args,
 			"-l", "traefik.enable=true",
@@ -473,15 +473,6 @@ func WorktreeFingerprint(ws string) string {
 		}
 	}
 	return hex.EncodeToString(h.Sum(nil))[:16]
-}
-
-// deploymentOfName is the environment part of a standing container name
-// (forge-env-<slug>-<env>): the last dash-separated word.
-func deploymentOfName(container string) string {
-	if i := strings.LastIndexByte(container, '-'); i >= 0 {
-		return container[i+1:]
-	}
-	return container
 }
 
 // ContainerHostPort is the host port a container's inner port is mapped to,

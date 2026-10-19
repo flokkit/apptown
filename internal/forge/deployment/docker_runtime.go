@@ -89,7 +89,7 @@ func (s *Service) reachedAt(ctx context.Context, slug string, d *Deployment, t *
 			return Reach{URL: routes.PublicURL(d.HostPort), HostOnly: routes.PortAddressesHostOnly()}
 		case OriginAttached:
 			if addr, _, err := HostTargetAddress(t); err == nil {
-				return Reach{URL: attachedFrontDoor(t, addr.Host).FrontDoor(slug, d.HostPort)}
+				return Reach{URL: attachedFrontDoor(t, addr.Host).FrontDoor(slug, d.Name, d.HostPort)}
 			}
 		}
 	}

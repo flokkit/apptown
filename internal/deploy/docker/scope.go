@@ -233,12 +233,25 @@ func (dk Scope) DialAddress(hostPort int) string {
 	return fmt.Sprintf("%s:%d", dk.Hostname, hostPort)
 }
 
-// FrontDoor is where people reach an environment on an attached host: a
-// name under the target's ingress domain when it has one (the host's own
-// Traefik routes it, design/subsystems/deployment.md §8.3a), else the host
-// by address and published port.
-func (dk Scope) FrontDoor(slug string, hostPort int) string {
-	if dk.Domain != "" {
+// RoutesDeployment says whether the host's ingress serves this deployment
+// at <slug>.<domain>: the host has an ingress domain (only an attached host
+// does; a scope naming it for its address only, as attachedFrontDoor
+// builds, has no Host), and the deployment is main. The project's name is
+// main's, as the main tier domain is on the forge's own host (vhost.go):
+// Traefik joins every container that declares one router into one service
+// and splits requests between them, so a second deployment carrying main's
+// route would take main's visitors (soak finding 55). Any other deployment
+// is reached at the host and its published port.
+func (dk Scope) RoutesDeployment(deployment string) bool {
+	return dk.Domain != "" && deployment == "main"
+}
+
+// FrontDoor is where people reach a deployment on an attached host: main
+// under the target's ingress domain when it has one (RoutesDeployment,
+// design/subsystems/ingress.md), else the host by address and published
+// port.
+func (dk Scope) FrontDoor(slug, deployment string, hostPort int) string {
+	if dk.RoutesDeployment(deployment) {
 		return "https://" + slug + "." + dk.Domain
 	}
 	return fmt.Sprintf("http://%s:%d", dk.Hostname, hostPort)

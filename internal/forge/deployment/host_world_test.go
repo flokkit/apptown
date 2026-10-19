@@ -103,6 +103,27 @@ func TestAPortAddressWithAPublicHostIsMarkedForTheForgeHostOnly(t *testing.T) {
 	}
 }
 
+// On an attached host with an ingress domain, main is shown at the
+// project's name and any other deployment at the host and its port, as its
+// container is routed (docker.Scope.RoutesDeployment), whatever address was
+// recorded before: a second deployment shown at main's name was given
+// main's route too (soak finding 55).
+func TestAnAttachedHostShowsTheProjectsNameForMainOnly(t *testing.T) {
+	t.Parallel()
+	s, _, _, _, projectID := hostWorld(t, "")
+	attached, err := s.Targets.Put(t.Context(), &Target{Name: "droplet", Kind: KindDockerHost, Origin: OriginAttached, Status: TargetReady,
+		Address: map[string]any{"host": "ssh://deploy@droplet.example", "keyFrom": "DROPLET_KEY"}, Ingress: map[string]any{"domain": "apps.example.com"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{"main": "https://p.apps.example.com", "fresh": "http://droplet.example:40002"} {
+		d := &Deployment{ProjectID: projectID, Name: name, Kind: Standing, TargetID: attached.ID, HostPort: 40002, URL: "https://p.apps.example.com"}
+		if got := s.Reach(t.Context(), "p", d); got.URL != want || got.HostOnly {
+			t.Errorf("%s reached at %+v, want %s", name, got, want)
+		}
+	}
+}
+
 // Boot reconcile forgets a preview its host says is gone, never one whose
 // host could not be asked because reconcile itself was stopped: that is
 // unknown, and its row stays.

@@ -87,8 +87,8 @@ func TestAttachHostTarget(t *testing.T) {
 	if dk.Host != "ssh://forge-target-droplet" || dk.Hostname != "droplet.example" || dk.Domain != "apps.example.com" {
 		t.Fatalf("attached scope: %+v", dk)
 	}
-	if dk.FrontDoor("waypoint", 40001) != "https://waypoint.apps.example.com" || dk.ProbeURL(40001) != "http://droplet.example:40001" {
-		t.Fatalf("attached URLs: %q %q", dk.FrontDoor("waypoint", 40001), dk.ProbeURL(40001))
+	if dk.FrontDoor("waypoint", "main", 40001) != "https://waypoint.apps.example.com" || dk.ProbeURL(40001) != "http://droplet.example:40001" {
+		t.Fatalf("attached URLs: %q %q", dk.FrontDoor("waypoint", "main", 40001), dk.ProbeURL(40001))
 	}
 	local, err := w.hosts.DockerScopeFor(context.Background(), builtin.ID)
 	if err != nil || local.Host != "" || local.ProbeURL(40001) != "http://127.0.0.1:40001" {

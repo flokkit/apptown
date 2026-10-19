@@ -40,7 +40,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 	dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
 	c := &appcontract.Part{Build: ".", Port: 8080, DataDir: "/data"}
-	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-waypoint-main", Workspace: ws, Persistent: true}, c, "", nil)
+	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-waypoint-main", Deployment: "main", Workspace: ws, Persistent: true}, c, "", nil)
 	if err != nil || port != 40001 {
 		t.Fatalf("start on the attached host: port=%d err=%v calls=%v", port, err, client.calls)
 	}
@@ -99,7 +99,7 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost(tc.host, "192.0.2.10", "")
-			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-site-main", Workspace: t.TempDir(), Persistent: true},
+			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-site-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -135,7 +135,7 @@ func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", tc.domain)
-			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-waypoint-main", Workspace: t.TempDir(), Persistent: true},
+			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-waypoint-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil); err != nil {
 				t.Fatal(err)
 			}
@@ -175,10 +175,49 @@ func TestAFailedStartKeepsTheEndOfTheDaemonsAnswer(t *testing.T) {
 				return nil, nil
 			}}
 			dk := (Scope{Client: client}).WithHost("ssh://h", "h.example", c.domain)
-			_, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-shop-main", Workspace: t.TempDir()}, &appcontract.Part{Image: "shop:1", Port: 8080}, "", nil)
+			_, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-shop-main", Deployment: "main", Workspace: t.TempDir()}, &appcontract.Part{Image: "shop:1", Port: 8080}, "", nil)
 			if err == nil || !strings.Contains(err.Error(), "docker "+c.fails+": …(") || !strings.HasSuffix(err.Error(), "Error: port 8080 is already allocated") || len(err.Error()) > startFailureTail+100 {
 				t.Fatalf("start failure (%d bytes): %v", len(fmt.Sprint(err)), err)
 			}
 		})
+	}
+}
+
+// Two deployments of one project on an attached host with an ingress
+// domain: the host's Traefik routes the project's name to main alone.
+// Traefik joins containers that carry the same router into one service and
+// splits requests between them, so a second deployment carrying main's
+// router took about half of main's visitors (soak finding 55). Any other
+// deployment carries no router and is reached at the host and its port.
+func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
+	t.Parallel()
+	started := map[string]string{}
+	for _, deployment := range []string{"main", "fresh"} {
+		client := &remoteAppClient{}
+		dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
+		name := ContainerName("bkproof", deployment)
+		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Deployment: deployment, Workspace: t.TempDir(), Persistent: true},
+			&appcontract.Part{Image: "example/bkproof:1", Port: 8080}, "", nil); err != nil {
+			t.Fatal(err)
+		}
+		for _, call := range client.calls {
+			if strings.HasPrefix(call.command, "run ") || strings.HasPrefix(call.command, "create ") {
+				started[deployment] = call.command
+			}
+		}
+	}
+	if !strings.Contains(started["main"], "traefik.http.routers.forge-bkproof.rule=Host(`bkproof.apps.example.com`)") {
+		t.Fatalf("main is not routed at the project's name:\n%s", started["main"])
+	}
+	if strings.Contains(started["fresh"], "traefik.") {
+		t.Fatalf("another deployment carries a Traefik route, so it can take main's visitors:\n%s", started["fresh"])
+	}
+	// The addresses the forge shows and records agree with the route.
+	dk := (Scope{}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
+	if got := dk.FrontDoor("bkproof", "main", 40001); got != "https://bkproof.apps.example.com" {
+		t.Fatalf("main is shown at %s", got)
+	}
+	if got := dk.FrontDoor("bkproof", "fresh", 40002); got != "http://droplet.example:40002" {
+		t.Fatalf("another deployment is shown at %s, want the host and its port", got)
 	}
 }

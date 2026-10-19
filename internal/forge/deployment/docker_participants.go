@@ -117,7 +117,7 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 		// An attached host is reached at that host, main too: this
 		// forge's routes serve only its own host.
 		if dk.Remote() {
-			return dk.FrontDoor(p.Slug, port)
+			return dk.FrontDoor(p.Slug, dep.Name, port)
 		}
 		routes := s.env.RoutesFor(ctx, projectID)
 		if dep.Name == "main" {
