@@ -152,9 +152,9 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		}
 		if creating {
 			if err := d.Repository.Created(ctx, registry, slug); err != nil {
-				return doImage{}, fmt.Errorf("recording the repository %s the forge created: %w", slug, err)
+				return doImage{}, fmt.Errorf("recording the repository %s AppTown created: %w", slug, err)
 			}
-			logf("created the image repository %s/%s; it is the forge's, emptied when the project's last deployment on this account goes", registry, slug)
+			logf("created the image repository %s/%s; it is AppTown's, emptied when the project's last deployment on this account goes", registry, slug)
 			creating = false
 		}
 		img := doImage{RegistryType: "DOCR", Repository: slug, Digest: digest}
@@ -337,13 +337,13 @@ const GateComponent = "forge-gate"
 func gatedRenderable(g *deploy.Gate, c *appcontract.Contract) error {
 	switch {
 	case g.Secret == "":
-		return errors.New("a gated app is rendered only while the forge starts it, with its gate secret")
+		return errors.New("a gated app is rendered only while AppTown starts it, with its gate secret")
 	case !strings.Contains(g.Image, "@sha256:"):
 		return fmt.Errorf("the gate image %q is not pinned by digest", g.Image)
 	case g.Forge == "":
-		return errors.New("the gate needs the forge's public address to redeem tickets at")
+		return errors.New("the gate needs AppTown's public address to redeem tickets at")
 	case len(g.Marker) < 32:
-		return errors.New("a gated app is rendered only with the random mark the forge recorded for it")
+		return errors.New("a gated app is rendered only with the random mark AppTown recorded for it")
 	}
 	for _, p := range c.Parts {
 		if p.Name == GateComponent {

@@ -34,7 +34,7 @@ func cmdVersion(args []string) error {
 	} else {
 		stated := v.Forge.Version
 		if stated == "" {
-			stated = "unknown (a forge from before versions were stated)"
+			stated = "unknown (an AppTown from before versions were stated)"
 		}
 		fmt.Printf("forge at %s: %s\n", api.base, stated)
 	}

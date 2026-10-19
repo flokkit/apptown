@@ -226,10 +226,10 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 		t.Fatalf("the set's manifest: %s %v", manifest.Body, err)
 	}
 	if left := w.stagingEntries(); len(left) != 0 {
-		t.Fatalf("staging left on the forge's disk: %v", left)
+		t.Fatalf("staging left on AppTown's disk: %v", left)
 	}
 	if got, _ := os.ReadDir(filepath.Join(w.dir, "backups", "oh", "main")); len(got) != 1 {
-		t.Fatalf("the forge's disk holds %d sets; only the one taken before the store", len(got))
+		t.Fatalf("AppTown's disk holds %d sets; only the one taken before the store", len(got))
 	}
 	if p, err = w.s.DeploymentProtection(ctx, w.pid, "main"); err != nil || !p.OffHost || p.Note != "" || p.Items[1].LastCopy.Backup != b.ID || p.Items[1].CopyNote != "" {
 		t.Fatalf("protection with a store: %+v %v", p, err)

@@ -135,7 +135,7 @@ func releaseOf(src deploy.Source) (ref, release string, err error) {
 	}
 	ref = src.Images[c.Parts[0].Name]
 	if !strings.Contains(ref, "@sha256:") {
-		return "", "", deploy.Terminal(fmt.Errorf("part %s has no image by digest in this release (%q); release it from a forge with a worker", c.Parts[0].Name, ref))
+		return "", "", deploy.Terminal(fmt.Errorf("part %s has no image by digest in this release (%q); release it from an AppTown with a worker", c.Parts[0].Name, ref))
 	}
 	if release = c.PublicRelease(src.Revision); release == "" {
 		return "", "", deploy.Terminal(errors.New("the release names no revision, so its publication has no identity"))
@@ -238,7 +238,7 @@ func (d *Driver) create(ctx context.Context, c *Client, deployment string, logf 
 	var refusal *Error
 	switch {
 	case errors.As(err, &refusal) && refusal.Status == 409:
-		return "", deploy.Terminal(fmt.Errorf("the bucket name %s is taken (%s); the forge never adopts a bucket it did not create — release again for another name", bucket, refusal.Code))
+		return "", deploy.Terminal(fmt.Errorf("the bucket name %s is taken (%s); AppTown never adopts a bucket it did not create — release again for another name", bucket, refusal.Code))
 	case errors.As(err, &refusal):
 		return "", deploy.Terminal(fmt.Errorf("creating the bucket %s: %w", bucket, err))
 	case err != nil:
@@ -313,7 +313,7 @@ func (d *Driver) Resume(ctx context.Context, _ deploy.Placement, generation int6
 	address, _ := noted["address"].(string)
 	identity, _ := noted["identity"].(string)
 	if bucket == "" || address == "" || identity == "" {
-		return deploy.Observation{}, errors.New("the forge restarted before it recorded which publication it was making; release again")
+		return deploy.Observation{}, errors.New("AppTown restarted before it recorded which publication it was making; release again")
 	}
 	if err := staticsite.Witness(ctx, address, identity, d.options.WitnessTries, d.options.WitnessInterval, logf); err != nil {
 		return deploy.Observation{}, err

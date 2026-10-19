@@ -311,7 +311,7 @@ type mainConflict struct {
 
 // line says the conflict and the catch-up, in the forge's words.
 func (c mainConflict) line(id string) string {
-	return fmt.Sprintf("! change %s: %s has moved and the forge could not merge it in before step %s: %s conflict. Catch up in the change's chat: %s",
+	return fmt.Sprintf("! change %s: %s has moved and AppTown could not merge it in before step %s: %s conflict. Catch up in the change's chat: %s",
 		id, c.MainBranch, c.Step, strings.Join(c.Files, ", "), c.CatchUp)
 }
 
@@ -1119,7 +1119,7 @@ func cmdExecuting(args []string) error {
 		return err
 	}
 	if ops < 0 && len(out.Executing) == 0 {
-		return errors.New("no step is executing, but this forge does not report its operations (copies, restores, take-downs), so whether one is running is not known")
+		return errors.New("no step is executing, but this AppTown does not report its operations (copies, restores, take-downs), so whether one is running is not known")
 	}
 	exitProcess(3)
 	return nil

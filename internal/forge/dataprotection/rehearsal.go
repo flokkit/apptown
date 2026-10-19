@@ -121,7 +121,7 @@ type RehearsalRef struct {
 
 // RehearsalUnknown is the outcome of a rehearsal the forge stopped in the
 // middle of: whether the app answered is not known.
-const RehearsalUnknown = "unknown: the forge stopped while it ran"
+const RehearsalUnknown = "unknown: AppTown stopped while it ran"
 
 const egressNotBlocked = "outbound network not blocked"
 

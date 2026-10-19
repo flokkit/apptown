@@ -99,7 +99,7 @@ func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, it
 							fb += "\n--- container log tail ---\n" + ev.LogTail
 						}
 						if ev.ReviewerSummary != "" {
-							return fb + " (— the forge's file check; the reviewer itself passed the work)"
+							return fb + " (— AppTown's file check; the reviewer itself passed the work)"
 						}
 						return fb + " (— automated reviewer)"
 					}

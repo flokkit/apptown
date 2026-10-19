@@ -55,12 +55,12 @@ var sections = []section{
                                         a run that ended without finishing is named with why and what next`, cmdWait},
 			{[]string{"approve"}, `  approve <step-id> [-m comment] [-y]   show what approving means, then approve`, func(args []string) error { return cmdDecide(args, "approve") }},
 			{[]string{"release"}, `  release <project-slug> <deployment>   release what landed on main to that deployment and follow its log` + "\n" +
-				`                                        (--accept-uncopied-data: release though the forge cannot copy the data it holds now;` + "\n" +
+				`                                        (--accept-uncopied-data: release though AppTown cannot copy the data it holds now;` + "\n" +
 				`                                        --accept-unchecked-copy: fill a deployment that starts from a copy not shown to come back whole)` + "\n" +
 				`  release <project-slug> [-domain host] release what landed on main to the intranet and follow its log`, cmdRelease},
 			{[]string{"complain"}, `  complain "<what happened>" [-why W] [-wish W] [-about forge|way-of-working|project]
-                                        file a complaint (default: about the forge itself, platform friction)`, cmdComplain},
-			{[]string{"version", "-version", "--version"}, `  version                               this CLI's version and the forge's`, cmdVersion},
+                                        file a complaint (default: about AppTown itself, platform friction)`, cmdComplain},
+			{[]string{"version", "-version", "--version"}, `  version                               this CLI's version and AppTown's`, cmdVersion},
 		},
 	},
 	{
@@ -105,7 +105,7 @@ var sections = []section{
 			{[]string{"runs"}, `  runs [-p <slug>] [--status all|done|running]
                                         list runs (default: running)`, cmdRuns},
 			{[]string{"executing"}, `  executing                             steps and operations executing right now, in every project (admin):
-                                        what a forge restart would interrupt; exit 0 none, 3 some`, cmdExecuting},
+                                        what an AppTown restart would interrupt; exit 0 none, 3 some`, cmdExecuting},
 			{[]string{"status"}, `  status                                your home: what is waiting on you and what is running
   status <run-id>                       run state: stages, current checks, step ids`, cmdStatusOrHome},
 			{[]string{"timing"}, `  timing [<workflow>] [-days N] [-r <run-id>]
@@ -121,7 +121,7 @@ var sections = []section{
                                         agent = a coding agent's MCP connection (may not approve, land or administer)`, cmdToken},
 			{[]string{"export-project"}, `  export-project -p <proj> > <file>     a project with its history and chats, to move it to another forge (admin)`, cmdExportProject},
 			{[]string{"secret"}, `  secret set <NAME> < file · secret remove <NAME>
-                                        put a credential the forge uses (a target's token) in its secrets file (admin);
+                                        put a credential AppTown uses (a target's token) in its secrets file (admin);
                                         the value comes from standard input, never the command line`, cmdSecret},
 			{[]string{"reject"}, `  reject  <step-id> [-m comment]        reject an approval step`, func(args []string) error { return cmdDecide(args, "reject") }},
 			{[]string{"run-step"}, `  run-step <step-id>                    (re)run a script step or re-check an assertion`, cmdRunStep},
@@ -162,7 +162,7 @@ var sections = []section{
 		},
 	},
 	{
-		heading: "not promised in 1.x, chats (the forge's own helper):",
+		heading: "not promised in 1.x, chats (AppTown's own helper):",
 		commands: []command{
 			{[]string{"chat"}, `  chat -p <slug> [-c <change-id> [-step <id>]]  start a chat: read-only on the project, working on a change, or taking a stopped step to chat`, cmdChat},
 			{[]string{"say"}, `  say <session-id> "<message>"          send the helper one message`, cmdSay},
@@ -247,7 +247,7 @@ func usage() { fmt.Print(helpText()) }
 
 func helpText() string {
 	var b strings.Builder
-	b.WriteString("forge — command-line client for a Forge instance\n")
+	b.WriteString("forge — command-line client for an AppTown instance\n")
 	for _, s := range sections {
 		b.WriteString("\n")
 		if s.heading != "" {

@@ -334,7 +334,7 @@ func (c *Service) lastSave(ctx context.Context, id string) error {
 	case save.Outcome == repositoryedit.ChatSaveUnknown:
 		return fmt.Errorf("not confirmed: %s", save.Reason)
 	}
-	return fmt.Errorf("refused, and not kept on the forge, so the chat's work stays on the worker: %s", save.Reason)
+	return fmt.Errorf("refused, and not kept on AppTown, so the chat's work stays on the worker: %s", save.Reason)
 }
 
 // workerChatSource bundles the change's folder for a worker chat's work

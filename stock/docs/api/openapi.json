@@ -3343,8 +3343,8 @@
     }
   },
   "info": {
-    "description": "Every route a forge serves, generated from its route table. The HTTP API is experimental in 1.0: routes and shapes may change in a 1.x release, and the release notes name each change. The stable surfaces are the CLI's core loop (with --json) and the MCP tools; see What 1.0 promises. Request and response shapes are described for every route the core-loop commands call with --json, with any of their options (x-forge-used-by: cli), and for failures that answer with their own result; other routes answer a refusal as Error.",
-    "title": "Forge HTTP API",
+    "description": "Every route an AppTown serves, generated from its route table. The HTTP API is experimental in 1.0: routes and shapes may change in a 1.x release, and the release notes name each change. The stable surfaces are the CLI's core loop (with --json) and the MCP tools; see What 1.0 promises. Request and response shapes are described for every route the core-loop commands call with --json, with any of their options (x-forge-used-by: cli), and for failures that answer with their own result; other routes answer a refusal as Error.",
+    "title": "AppTown HTTP API",
     "version": "v1"
   },
   "openapi": "3.1.0",
@@ -3741,7 +3741,7 @@
         "operationId": "postAuthBootstrap",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.handleAuthBootstrap: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.handleAuthBootstrap: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -3811,7 +3811,7 @@
         "operationId": "postAuthInvite",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (invites.ShowInvite: the invite token in the body is the credential), not the forge's JSON"
+            "description": "this route speaks its protocol (invites.ShowInvite: the invite token in the body is the credential), not AppTown's JSON"
           }
         },
         "tags": [
@@ -3829,7 +3829,7 @@
         "operationId": "postAuthInviteAccept",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (invites.AcceptInvite: the invite token in the body is the credential), not the forge's JSON"
+            "description": "this route speaks its protocol (invites.AcceptInvite: the invite token in the body is the credential), not AppTown's JSON"
           }
         },
         "tags": [
@@ -3847,7 +3847,7 @@
         "operationId": "postAuthLogin",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.handleAuthLogin: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.handleAuthLogin: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -3865,7 +3865,7 @@
         "operationId": "postAuthLogout",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.handleAuthLogout: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.handleAuthLogout: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -6235,7 +6235,7 @@
           "docs"
         ],
         "x-forge-access": {
-          "contract": "docs.ListDocs: shared Forge documentation",
+          "contract": "docs.ListDocs: shared AppTown documentation",
           "kind": "public"
         },
         "x-forge-stability": "experimental"
@@ -6266,7 +6266,7 @@
           "docs"
         ],
         "x-forge-access": {
-          "contract": "docs.GuideDoc: shared Forge documentation",
+          "contract": "docs.GuideDoc: shared AppTown documentation",
           "kind": "public"
         },
         "x-forge-stability": "experimental"
@@ -6725,7 +6725,7 @@
         ],
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (webhook.Webhook: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (webhook.Webhook: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -13212,7 +13212,7 @@
         "operationId": "postGateRedeem",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (dataProtection.RedeemGateTicket: credential verification (a restored copy's gate secret)), not the forge's JSON"
+            "description": "this route speaks its protocol (dataProtection.RedeemGateTicket: credential verification (a restored copy's gate secret)), not AppTown's JSON"
           }
         },
         "tags": [
@@ -13249,7 +13249,7 @@
         ],
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.handleGitHTTP: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.handleGitHTTP: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -13350,7 +13350,7 @@
         "operationId": "anyMcpUser",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.serveMCP: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.serveMCP: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -13368,7 +13368,7 @@
         "operationId": "getOauthAuthorize",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.handleOAuthAuthorize: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.handleOAuthAuthorize: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -13384,7 +13384,7 @@
         "operationId": "postOauthAuthorize",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.handleOAuthAuthorize: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.handleOAuthAuthorize: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -13423,7 +13423,7 @@
         "operationId": "postOauthRevoke",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.handleOAuthRevoke: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.handleOAuthRevoke: credential verification), not AppTown's JSON"
           }
         },
         "tags": [
@@ -13441,7 +13441,7 @@
         "operationId": "postOauthToken",
         "responses": {
           "default": {
-            "description": "this route speaks its protocol (a.handleOAuthToken: credential verification), not the forge's JSON"
+            "description": "this route speaks its protocol (a.handleOAuthToken: credential verification), not AppTown's JSON"
           }
         },
         "tags": [

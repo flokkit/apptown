@@ -26,7 +26,7 @@ import (
 type UnsafePath struct{ Path, Why string }
 
 func (e *UnsafePath) Error() string {
-	return fmt.Sprintf("the forge will not write %s: %s", e.Path, e.Why)
+	return fmt.Sprintf("AppTown will not write %s: %s", e.Path, e.Why)
 }
 func (e *UnsafePath) FaultKind() fault.Kind { return fault.Unprocessable }
 

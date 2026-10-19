@@ -65,7 +65,7 @@ func (a *Executor) dockerRefusal(step *workflow.Step, k agentKnobs) string {
 	case workflow.StartedUnderOldDockerRule(step.Config):
 		return workflow.OldDockerRuleRefusal
 	case k.useDind && a.cfg.NoPrivateDocker:
-		return "this step declares private Docker (docker: true), and this forge was started with -no-private-docker"
+		return "this step declares private Docker (docker: true), and this AppTown was started with -no-private-docker"
 	}
 	return ""
 }

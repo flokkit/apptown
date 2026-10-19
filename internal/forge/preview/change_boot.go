@@ -130,7 +130,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	defer func() {
 		if err == nil {
 			if !s.recordServedSince(name, discards, servedRecord{Incarnation: b.incarnation, Source: b.commit, Public: b.public}) {
-				log.Printf("change %d: its preview was discarded while it booted; the forge keeps no record of it", ch.ID)
+				log.Printf("change %d: its preview was discarded while it booted; AppTown keeps no record of it", ch.ID)
 			}
 			if rerr := b.source.Retain(b.tree); rerr != nil {
 				log.Printf("change %d: removing snapshots its preview no longer serves: %v", ch.ID, rerr)

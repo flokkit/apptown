@@ -207,7 +207,7 @@ func TestStoppingAChatEndsItsTerminalOnTheForge(t *testing.T) {
 			t.Fatalf("the terminal ended with %v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("stopping the chat left the forge's terminal open")
+		t.Fatal("stopping the chat left AppTown's terminal open")
 	}
 	if _, err := c.Rebuild(ctx, id); err != nil {
 		t.Fatalf("a stopped chat could not be rebuilt: %v", err)
@@ -304,6 +304,6 @@ func TestATerminalThatEndsOnTheWorkerEndsForTheForge(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		term.Close()
 		<-done
-		t.Fatal("the chat's screen ended, but the forge's terminal stayed open")
+		t.Fatal("the chat's screen ended, but AppTown's terminal stayed open")
 	}
 }

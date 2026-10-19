@@ -51,7 +51,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 		return deploy.Artifact{}, err
 	}
 	if !src.Published {
-		return deploy.Artifact{}, refused("%s pulls every image from the project's registry, and this release was not published there; land the change again on a forge with a worker", d.target.Name)
+		return deploy.Artifact{}, refused("%s pulls every image from the project's registry, and this release was not published there; land the change again on an AppTown with a worker", d.target.Name)
 	}
 	cfg, err := d.Config(d.TargetID)
 	if err != nil {

@@ -37,7 +37,7 @@ func toolchainPrelude(work, scratch string) string {
 // toolchainInstallNote is what an agent is told, after its prompt, when the
 // declared toolchain did not install.
 func toolchainInstallNote(scratch string) string {
-	return "(From the forge: the toolchain this project declares in mise.toml did not install before this session, so its tools may be missing. What the installer said is in " + scratch + "/forge-toolchain-install.log.)"
+	return "(From AppTown: the toolchain this project declares in mise.toml did not install before this session, so its tools may be missing. What the installer said is in " + scratch + "/forge-toolchain-install.log.)"
 }
 
 func toolchainArgs(work, scratch string, argv []string) []string {

@@ -198,7 +198,7 @@ func TestAStepsStartAndFinishAreTheForgesClock(t *testing.T) {
 		t.Fatalf("the finished step's times: %+v %+v", step.StartedAt, step.FinishedAt)
 	}
 	if took := step.FinishedAt.Time.Sub(step.StartedAt.Time); took <= 0 || took > time.Minute {
-		t.Fatalf("the step took %s by its stored times, want the forge's few seconds", took)
+		t.Fatalf("the step took %s by its stored times, want AppTown's few seconds", took)
 	}
 }
 
@@ -248,7 +248,7 @@ func TestARunsAndChangesOwnTimesAreTheForgesClock(t *testing.T) {
 	ahead := time.Now().Add(30 * time.Minute)
 	for name, at := range map[string]string{"the Change's making": ch.CreatedAt, "the run's making": moved.CreatedAt, "the run's decision fence": fenced.UpdatedAt, "the run's last move": moved.UpdatedAt} {
 		if parsed, err := time.Parse(time.RFC3339Nano, at); err != nil || !parsed.After(ahead) {
-			t.Errorf("%s is %q, want the forge's time, an hour ahead: %v", name, at, err)
+			t.Errorf("%s is %q, want AppTown's time, an hour ahead: %v", name, at, err)
 		}
 	}
 }
@@ -273,7 +273,7 @@ func TestAContinuedRunIsMadeByTheForgesClock(t *testing.T) {
 	ahead := time.Now().Add(30 * time.Minute)
 	for name, at := range map[string]string{"its making": continued.CreatedAt, "its last move": continued.UpdatedAt} {
 		if parsed, err := time.Parse(time.RFC3339Nano, at); err != nil || !parsed.After(ahead) {
-			t.Errorf("the continued run's time of %s is %q, want the forge's, an hour ahead: %v", name, at, err)
+			t.Errorf("the continued run's time of %s is %q, want AppTown's, an hour ahead: %v", name, at, err)
 		}
 	}
 }

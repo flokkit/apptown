@@ -496,7 +496,7 @@ func TestRequestReleaseRefusesUnreadableOrIncompatibleContract(t *testing.T) {
 			}
 			got, err := s.RequestRelease(context.Background(), in)
 			var contract *ContractReadError
-			refusals := map[string]string{"integration-need": "errors is an integration, not a need", "password": "the forge sets the password", "same-variable": "DATABASE_URL is given by pg-alt and postgres"}
+			refusals := map[string]string{"integration-need": "errors is an integration, not a need", "password": "AppTown sets the password", "same-variable": "DATABASE_URL is given by pg-alt and postgres"}
 			if scenario == "incompatible" || scenario == "browser-values" || refusals[scenario] != "" {
 				if !errors.Is(err, ErrRefusedContract) {
 					t.Fatal(err)

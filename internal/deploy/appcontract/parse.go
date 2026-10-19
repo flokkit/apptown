@@ -219,7 +219,7 @@ func Parse(raw []byte) (*Contract, error) {
 			return nil, fmt.Errorf(".forge/app.yaml: %w", err)
 		}
 		if _, reserved := p.Environment[BrowserEnvVar]; reserved {
-			return nil, fmt.Errorf(".forge/app.yaml: app part %q sets %s, which only the forge sets", name, BrowserEnvVar)
+			return nil, fmt.Errorf(".forge/app.yaml: app part %q sets %s, which only AppTown sets", name, BrowserEnvVar)
 		}
 		built, err := p.Static.staticBuild(name)
 		if err != nil {

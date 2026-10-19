@@ -25,7 +25,7 @@ func TestAWorkerThatCannotReportMemoryKillsRefusesThisForge(t *testing.T) {
 		return w.Code
 	}
 	if code := ask(servedRange(1, 1, ok), Protocol); code != http.StatusUpgradeRequired {
-		t.Fatalf("an old worker served this forge: %d", code)
+		t.Fatalf("an old worker served this AppTown: %d", code)
 	}
 	if code := ask(served(ok), Protocol-1); code != http.StatusOK {
 		t.Fatalf("this worker refused the previous forge: %d", code)

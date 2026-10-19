@@ -93,7 +93,7 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 	runner := a.builds.Tasks
 	driver, ok := runner.Driver.(ReleaseTaskDriver)
 	if !ok {
-		releaseRefused(task, "the forge's task backend ("+runner.backend()+") cannot build releases: it reports no images")
+		releaseRefused(task, "AppTown's task backend ("+runner.backend()+") cannot build releases: it reports no images")
 		return nil, false
 	}
 	run, step := task.Run(), task.Step()
@@ -118,7 +118,7 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 		return nil, false
 	}
 	if !a.builds.PrivateDocker {
-		releaseRefused(task, "a release is built in private Docker on the worker, which is the operator's opt-in: start the forge with -private-docker")
+		releaseRefused(task, "a release is built in private Docker on the worker, which is the operator's opt-in: start AppTown with -private-docker")
 		return nil, false
 	}
 	profile, err := driver.Profile(ctx)

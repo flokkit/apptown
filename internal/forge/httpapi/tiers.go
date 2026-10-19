@@ -273,7 +273,7 @@ type TierView struct {
 // previewsUnobserved words why the previews alive now could not be listed.
 func previewsUnobserved(err error) (observed, reason string) {
 	if errors.Is(err, docker.ErrNoLocalBackend) {
-		return "unavailable", "previews run on a worker or this forge's own Docker, and this forge has neither"
+		return "unavailable", "previews run on a worker or this AppTown's own Docker, and this AppTown has neither"
 	}
 	return "unknown", err.Error()
 }

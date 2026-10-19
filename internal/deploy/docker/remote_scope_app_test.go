@@ -93,7 +93,7 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 	for _, tc := range []struct {
 		name, host, want, probe string
 	}{
-		{"the forge's own daemon", "", "-p 127.0.0.1::8080 ", "http://127.0.0.1:40001"},
+		{"AppTown's own daemon", "", "-p 127.0.0.1::8080 ", "http://127.0.0.1:40001"},
 		{"an attached host", "ssh://forge-target-lab", "-p 0.0.0.0::8080 ", "http://192.0.2.10:40001"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

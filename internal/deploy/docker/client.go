@@ -44,7 +44,7 @@ type CLI struct{ Binary string }
 // ErrNoLocalBackend refuses a call to the forge's own Docker on a forge
 // started with -no-local-docker. It is a backstop: owners answer from the
 // mode first (Scope.Absent), and never read it as "not running".
-var ErrNoLocalBackend = errors.New("this forge has no local Docker")
+var ErrNoLocalBackend = errors.New("this AppTown has no local Docker")
 
 // Refusing is the client of a forge with no local Docker daemon: every call
 // is refused with ErrNoLocalBackend. An admitted target's scope (WithHost)

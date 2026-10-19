@@ -108,7 +108,7 @@ func cmdIntegrations(args []string) error {
 		state := ""
 		switch {
 		case !a.Wirable:
-			state = "used by the forge's deploy"
+			state = "used by AppTown's deploy"
 		case a.Wire == nil:
 			state = "not wired in yet"
 		case a.Wire.State == "shipped":

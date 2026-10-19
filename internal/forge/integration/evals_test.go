@@ -73,12 +73,12 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 		t.Fatal(err)
 	}
 	if got, err := s.EvalPublication(t.Context(), ordinary); err == nil {
-		t.Fatalf("an ordinary project publishes through the forge's credential: %+v", got)
+		t.Fatalf("an ordinary project publishes through AppTown's credential: %+v", got)
 	}
 	if _, err := s.Bindings.Upsert(t.Context(), "gitlab-registry", CapContainerRegistry, "gitlab", `{"provider":"gitlab","url":"registry.gitlab.example"}`, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.EvalPublication(t.Context(), copy); err == nil {
-		t.Fatal("with two registry connectors the forge cannot choose one for a copy")
+		t.Fatal("with two registry connectors AppTown cannot choose one for a copy")
 	}
 }

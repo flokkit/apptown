@@ -151,7 +151,7 @@ func (s *Service) AttachedDockerHostsHealth(ctx context.Context) ProviderHealth 
 			silent = append(silent, t.Name+" ("+strs.Truncate(words, 120)+")")
 		}
 	}
-	const own = "this forge has no Docker of its own; it deploys to attached Docker hosts"
+	const own = "this AppTown has no Docker of its own; it deploys to attached Docker hosts"
 	switch {
 	case len(answered) == 0 && len(silent) == 0:
 		return ProviderHealth{OK: false, Detail: own + ", and none is attached: attach one under Infrastructure"}

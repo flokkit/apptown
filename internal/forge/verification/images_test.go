@@ -45,7 +45,7 @@ func TestCheckEnvironmentIsDerivedFromTheDeclaration(t *testing.T) {
 		t.Fatal("FORGE_ORIGINS is set as it is in every environment")
 	}
 	if _, invented := env["DEBUG"]; invented {
-		t.Fatal("nothing the forge does not set in a deployment is set here")
+		t.Fatal("nothing AppTown does not set in a deployment is set here")
 	}
 	// No declaration: only what the forge sets everywhere.
 	bare := t.TempDir()

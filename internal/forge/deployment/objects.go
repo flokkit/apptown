@@ -118,7 +118,7 @@ func (e *Deployment) Admit(base *int64) (generation int64, readiness Readiness, 
 // deployments still bound to it (named by the caller) is refused.
 func (t *Target) Retire(bound string) (TargetState, error) {
 	if t.Origin == OriginBuiltIn {
-		return t.Status, fmt.Errorf("%w: %s is this forge's own host and cannot be retired", ErrTargetConflict, t.Name)
+		return t.Status, fmt.Errorf("%w: %s is this AppTown's own host and cannot be retired", ErrTargetConflict, t.Name)
 	}
 	next, err := t.Status.Retire()
 	if err != nil {

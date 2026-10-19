@@ -28,7 +28,7 @@ func (a *App) browserSecurity(next http.Handler) http.Handler {
 			// Fetch Metadata. When Origin is present, additionally require the
 			// exact scheme/host/port rather than just the Host comparison.
 			if err := csrf.Check(r); err != nil || (len(r.Header.Values("Origin")) != 0 && !a.sameBrowserOrigin(r)) {
-				writeErr(w, http.StatusForbidden, "open Forge directly to make this request")
+				writeErr(w, http.StatusForbidden, "open AppTown directly to make this request")
 				return
 			}
 		}

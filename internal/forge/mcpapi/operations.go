@@ -20,7 +20,7 @@ func NewOperationReads(deps OperationReadsDependencies) []Tool {
 		order: 24,
 		Description: "Returns an operation: a long action someone asked for, such as a data copy, a restore check or a take-down. " +
 			"Its state is queued, running, succeeded, failed, unknown or cancelled; verification (verified or not-verified) is a separate fact from success. " +
-			"Unknown means the forge stopped while it ran and whether its effect happened is not known: look before asking again. Steps say what happened, in order.",
+			"Unknown means AppTown stopped while it ran and whether its effect happened is not known: look before asking again. Steps say what happened, in order.",
 		InputSchema: schemaObject(map[string]any{"id": schemaID("The operation's id.")}, "id"),
 		command:     ownerCommand("operations.getOperation", h.getOperation),
 	}}

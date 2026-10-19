@@ -280,7 +280,7 @@ type NoFinalCopy struct {
 }
 
 func (e *NoFinalCopy) Error() string {
-	return fmt.Sprintf("%s holds data the forge cannot take a final copy of now. %s To take it down anyway, choose to take it down without a final copy: its data stays where it is, as a retained resource for a person to settle", e.Deployment, e.Cause.Why)
+	return fmt.Sprintf("%s holds data AppTown cannot take a final copy of now. %s To take it down anyway, choose to take it down without a final copy: its data stays where it is, as a retained resource for a person to settle", e.Deployment, e.Cause.Why)
 }
 func (e *NoFinalCopy) Unwrap() error         { return e.Cause }
 func (e *NoFinalCopy) FaultKind() fault.Kind { return fault.Conflict }
@@ -488,7 +488,7 @@ func (s *Service) runTakeDown(ctx context.Context, t *tracker, withProject bool)
 	}
 	if err != nil {
 		if t.providerFailed(ctx, err) {
-			return OperationFailed, "deleting the app got no answer the forge can trust, so whether the app still stands is not known; nothing else was changed. Look at the provider before asking again: " + err.Error(), nil
+			return OperationFailed, "deleting the app got no answer AppTown can trust, so whether the app still stands is not known; nothing else was changed. Look at the provider before asking again: " + err.Error(), nil
 		}
 		return OperationFailed, "the provider refused to delete the app, so nothing was changed: " + err.Error(), nil
 	}
@@ -554,7 +554,7 @@ func (s *Service) runTakeDown(ctx context.Context, t *tracker, withProject bool)
 		}
 		if err := md.DeleteInstance(ctx, it.Instance); err != nil {
 			if t.providerFailed(ctx, err) {
-				return OperationFailed, fmt.Sprintf("%sSet %d came back; deleting the cluster %s got no answer the forge can trust, so whether it still stands is not known. Look at the provider before asking again: %s", kept, final.ID, it.Cluster, err), result
+				return OperationFailed, fmt.Sprintf("%sSet %d came back; deleting the cluster %s got no answer AppTown can trust, so whether it still stands is not known. Look at the provider before asking again: %s", kept, final.ID, it.Cluster, err), result
 			}
 			return OperationFailed, fmt.Sprintf("%sSet %d came back; the provider refused to delete the cluster %s: %s", kept, final.ID, it.Cluster, err), result
 		}
@@ -705,7 +705,7 @@ func (s *Service) refusesInstanceDeletion(ctx context.Context, md deploy.Managed
 // removal as the operation's authority, asking it again before each effect.
 func (s *Service) runRemoval(ctx context.Context, t *tracker, withProject bool) (runEnd, string, map[string]any) {
 	in := RemoveDeployment{ProjectID: t.op.ProjectID, Name: t.op.Deployment, withProject: withProject}
-	t.begin(ctx, "taking "+t.op.Deployment+" down: its final backup, then what the forge made for it")
+	t.begin(ctx, "taking "+t.op.Deployment+" down: its final backup, then what AppTown made for it")
 	res, err := s.remove(ctx, in, t.op.Authority, t.allowed, t.stop)
 	if err != nil {
 		t.fail(ctx, err.Error())

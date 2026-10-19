@@ -170,7 +170,7 @@ func expectBootSequence(t *testing.T, f *fakeDocker, stackID, appName string, pe
 		}
 	}
 	if len(password) != 64 {
-		t.Fatalf("the need's password is not one the forge made: %q in %s", password, pg.call)
+		t.Fatalf("the need's password is not one AppTown made: %q in %s", password, pg.call)
 	}
 	url := "-e DATABASE_URL=postgres://app:" + password + "@postgres:5432/app"
 	if !strings.Contains(init.call, url) {

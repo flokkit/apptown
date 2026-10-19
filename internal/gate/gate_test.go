@@ -196,7 +196,7 @@ func expectEmpty404(t *testing.T, res *http.Response, body string) {
 		t.Fatalf("Cache-Control %q, want no-store", got)
 	}
 	if got := res.Header.Get(RefusedHeader); got != RefusedValue {
-		t.Fatalf("%s %q, want %q: the forge cannot tell this refusal from the app's 404", RefusedHeader, got, RefusedValue)
+		t.Fatalf("%s %q, want %q: AppTown cannot tell this refusal from the app's 404", RefusedHeader, got, RefusedValue)
 	}
 }
 
@@ -395,7 +395,7 @@ func TestFailedRedemptionIsRefusedWithoutASession(t *testing.T) {
 		res, body := h.get(t, EnterPath, nil)
 		expectRefusedEntry(t, res, body)
 		if len(h.forge.tickets) != 0 {
-			t.Fatal("an empty ticket was sent to the forge")
+			t.Fatal("an empty ticket was sent to AppTown")
 		}
 	})
 }

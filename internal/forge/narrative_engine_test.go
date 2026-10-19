@@ -51,13 +51,13 @@ func TestTheForgesNarrativeRefreshPublishesAfterARunEndsButNeverTheBrief(t *test
 	}
 	entries, err := audit.Recent(context.Background(), a.DB, audit.Filter{KindPrefix: "change.narrative-updated"})
 	if err != nil || len(entries) != 1 || entries[0].Actor != "forge-system" {
-		t.Fatalf("the narrative is recorded as the forge's: %+v %v", entries, err)
+		t.Fatalf("the narrative is recorded as AppTown's: %+v %v", entries, err)
 	}
-	body, rev := "the forge's words", ch.EditRevision
+	body, rev := "AppTown's words", ch.EditRevision
 	_, err = a.Work.Edit(a.asEngine(context.Background()), workflow.ChangeEdit{ProjectID: ch.ProjectID, ID: ch.ID, Body: &body, ExpectedRevision: &rev})
 	var denied *access.Denied
 	if !errors.As(err, &denied) || !strings.Contains(err.Error(), "brief") {
-		t.Fatalf("the forge edited the person's brief: %v", err)
+		t.Fatalf("AppTown edited the person's brief: %v", err)
 	}
 	if after, _ := a.Work.Change(asPerson("alice"), ch.ID); after.Body != ch.Body {
 		t.Fatalf("the brief changed: %q", after.Body)
@@ -102,7 +102,7 @@ func TestANarrativeRequestIsOneJobRunAsTheForge(t *testing.T) {
 	}
 	entries, err := audit.Recent(context.Background(), a.DB, audit.Filter{KindPrefix: "change.narrative-updated"})
 	if err != nil || len(entries) != 1 || entries[0].Actor != "forge-system" {
-		t.Fatalf("the narrative is recorded as the forge's: %+v %v", entries, err)
+		t.Fatalf("the narrative is recorded as AppTown's: %+v %v", entries, err)
 	}
 	refused = errors.New("the model is unavailable")
 	if err := a.narratives.Request(context.Background(), change); err != nil {

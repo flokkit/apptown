@@ -72,7 +72,7 @@ func TestAnOwnersGeneratedCredentialsReplaceTheCatalogues(t *testing.T) {
 func TestEveryStockCredentialIsGeneratedOrSaidWhyNot(t *testing.T) {
 	t.Parallel()
 	shared := map[string]string{
-		"s3.database": "the bucket's name: not a secret, the same everywhere, and the forge's so an app cannot choose it",
+		"s3.database": "the bucket's name: not a secret, the same everywhere, and AppTown's so an app cannot choose it",
 	}
 	files, err := fs.Glob(stock.FS, "dependencies/*.yaml")
 	if err != nil {

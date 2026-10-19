@@ -24,7 +24,7 @@ func TestGateReadsWhatTheForgeSends(t *testing.T) {
 	}
 	cfg, err := gate.ConfigFromEnv(func(k string) string { return env[k] })
 	if err != nil {
-		t.Fatalf("the gate refuses the environment the forge renders: %v", err)
+		t.Fatalf("the gate refuses the environment AppTown renders: %v", err)
 	}
 	if cfg.Listen != ":8080" {
 		t.Fatalf("listen %q", cfg.Listen)

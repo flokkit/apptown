@@ -143,7 +143,7 @@ func TestAPublishedReleasesPreviewBootsOnTheWorkerFromItsDigests(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !w.holds(name) || !s.ServedOnWorker(name) {
-		t.Fatalf("the release's preview is not kept as one the forge booted: held %v, recorded %v", w.holds(name), s.ServedOnWorker(name))
+		t.Fatalf("the release's preview is not kept as one AppTown booted: held %v, recorded %v", w.holds(name), s.ServedOnWorker(name))
 	}
 }
 

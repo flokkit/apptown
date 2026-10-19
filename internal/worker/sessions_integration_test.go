@@ -218,18 +218,18 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	}
 	term.Close()
 
-	if err := svc.Send(ctx, s.ID, "hello from the forge"); err != nil {
+	if err := svc.Send(ctx, s.ID, "hello from AppTown"); err != nil {
 		t.Fatalf("a message to a real chat on the worker: %v\nscreen:\n%s", err, screenOf(t, svc, s.ID))
 	}
 	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
 		for _, m := range s.Messages() {
-			if strings.Contains(m.Text, "hello from the forge") {
+			if strings.Contains(m.Text, "hello from AppTown") {
 				return true
 			}
 		}
 		return false
 	}) {
-		t.Fatal("the message never appeared in the forge's copy of the record")
+		t.Fatal("the message never appeared in AppTown's copy of the record")
 	}
 
 	// A commit in the chat's container is saved: the worker bundles it
@@ -243,7 +243,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	}
 	_, imported, cleanup, err := gitexec.Quarantine(ctx, repo, dest, worker.SaveRef, "change/7", source)
 	if err != nil || imported != tip {
-		t.Fatalf("the forge's import of the save: %q %v", imported, err)
+		t.Fatalf("AppTown's import of the save: %q %v", imported, err)
 	}
 	cleanup()
 
@@ -275,7 +275,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 		}
 		quarantine, imported, cleanup, err := gitexec.Quarantine(ctx, repo, dest, worker.SaveRef, "change/7", source)
 		if err != nil || imported != tip {
-			t.Errorf("the forge's import of the last save: %q %v", imported, err)
+			t.Errorf("AppTown's import of the last save: %q %v", imported, err)
 			return err
 		}
 		files, _ := gitexec.Output(ctx, quarantine, "ls-tree", "--name-only", tip)

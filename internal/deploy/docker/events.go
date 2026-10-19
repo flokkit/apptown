@@ -60,7 +60,7 @@ func ParseContainerEvents(out []byte) ([]ContainerEvent, error) {
 			} `json:"Actor"`
 		}
 		if err := json.Unmarshal([]byte(line), &e); err != nil {
-			return nil, fmt.Errorf("docker events reported a line the forge cannot read: %w", err)
+			return nil, fmt.Errorf("docker events reported a line AppTown cannot read: %w", err)
 		}
 		name := e.Actor.Attributes["name"]
 		if name == "" || e.TimeNano == 0 {

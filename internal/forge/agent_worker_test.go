@@ -47,8 +47,8 @@ func workerClientConfig(t *testing.T, ca *workertest.CA, url string) *WorkerConf
 type localTripwire struct{ t *testing.T }
 
 func (l localTripwire) Run(_ context.Context, _ string, req ExecRequest) ExecOutcome {
-	l.t.Errorf("the forge's own machine was asked to run %v", req.Argv)
-	return ExecOutcome{RunErr: errors.New("nothing runs on the forge's own machine")}
+	l.t.Errorf("AppTown's own machine was asked to run %v", req.Argv)
+	return ExecOutcome{RunErr: errors.New("nothing runs on AppTown's own machine")}
 }
 
 // onlyOnTheWorker gives a's agent executor the tripwire as its local
@@ -141,7 +141,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		"an unknown need": {with: map[string]any{"needs": true}, want: "the app needs no-such-kind, which is not in the dependency catalog",
 			files: map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  no-such-kind: {}\n"}},
 		// The forge was started without -private-docker.
-		"private Docker without the operator's opt-in": {with: map[string]any{"docker": true}, want: "private Docker on a worker is the operator's opt-in: start the forge with -private-docker"},
+		"private Docker without the operator's opt-in": {with: map[string]any{"docker": true}, want: "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

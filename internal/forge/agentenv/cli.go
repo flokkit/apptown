@@ -67,7 +67,7 @@ func (cli *CLI) Path() (string, error) {
 		}
 		if cli.err != nil {
 			cli.err = fmt.Errorf("console CLI unavailable (build with make console-cli or set -console-cli): %w", cli.err)
-			log.Printf("console: %v — sessions will run WITHOUT the forge CLI", cli.err)
+			log.Printf("console: %v — sessions will run WITHOUT the agents' CLI (forge-linux)", cli.err)
 		}
 	})
 	if cli.err != nil {

@@ -49,7 +49,7 @@ func exportProject(slug string, out, report io.Writer) error {
 	}
 	got, want := hex.EncodeToString(h.Sum(nil)), res.Header.Get("X-Forge-Export-Sha256")
 	if got != want {
-		return fmt.Errorf("the file that arrived (sha256 %s) is not the one the forge made (%s): export again", got, want)
+		return fmt.Errorf("the file that arrived (sha256 %s) is not the one AppTown made (%s): export again", got, want)
 	}
 	var counts struct {
 		Counts             map[string]int `json:"counts"`
@@ -69,15 +69,15 @@ func exportProject(slug string, out, report io.Writer) error {
 		counts.Counts["changes"], counts.Counts["runs"], counts.Counts["steps"], counts.Counts["chats"], counts.EmptyChats,
 		counts.Counts["refs"], counts.Counts["ledger"])
 	if len(counts.Skipped) > 0 || counts.SkippedChats > 0 {
-		fmt.Fprintf(report, "  stays on this forge (only landed history moves; the file lists it): %d chats live or on a change not landed\n", counts.SkippedChats)
+		fmt.Fprintf(report, "  stays on this AppTown (only landed history moves; the file lists it): %d chats live or on a change not landed\n", counts.SkippedChats)
 		for _, s := range counts.Skipped {
 			fmt.Fprintf(report, "    %s %d (%s): %s\n", s.Kind, s.ID, s.State, s.Title)
 		}
 	}
 	for _, m := range counts.MissingTranscripts {
-		fmt.Fprintf(report, "  a step transcript this forge no longer holds: %s\n", m)
+		fmt.Fprintf(report, "  a step transcript this AppTown no longer holds: %s\n", m)
 	}
-	fmt.Fprintln(report, "  this file is as sensitive as the forge's database: logs, chats and artifacts are in it as they are")
-	fmt.Fprintln(report, "  only a forge running this same build reads it: the export is experimental, not a format kept across releases")
+	fmt.Fprintln(report, "  this file is as sensitive as AppTown's database: logs, chats and artifacts are in it as they are")
+	fmt.Fprintln(report, "  only an AppTown running this same build reads it: the export is experimental, not a format kept across releases")
 	return nil
 }

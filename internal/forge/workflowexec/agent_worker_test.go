@@ -549,7 +549,7 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	// A change's step on a worker is told the forge merges main in for it
 	// (main_merge.go).
 	for _, want := range []string{"- /forge/in/attachments/spec.txt", "- /forge/in/resources/res--notes.md", "under /forge/state/sessions", "Delegating (subagent tool)",
-		"If main moves, the forge merges it into this change before your step when it can; you don't need to catch up yourself."} {
+		"If main moves, AppTown merges it into this change before your step when it can; you don't need to catch up yourself."} {
 		if !strings.Contains(steering, want) {
 			t.Errorf("the steering lacks %q", want)
 		}
@@ -570,8 +570,8 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	f = agentOnWorkerFixture(t, nil)
 	landing, _ := json.Marshal(schema.Spec{Kind: "pipeline", Role: "landing"})
 	f.call.run.DefinitionJSON = string(landing)
-	if req := f.build(t); strings.Contains(req.steering.Text, "the forge merges it into this change") {
-		t.Error("a landing's step is told the forge merges main in for it")
+	if req := f.build(t); strings.Contains(req.steering.Text, "AppTown merges it into this change") {
+		t.Error("a landing's step is told AppTown merges main in for it")
 	}
 
 	// A worker image without the subagent extension is promised none, even
@@ -580,7 +580,7 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	delete(f.worker.image.Labels, piharness.SubagentsLabel)
 	req = f.build(t)
 	if strings.Contains(req.steering.Text, "Delegating") || strings.Contains(strings.Join(req.spec.Argv, " "), "ln -s") {
-		t.Error("delegation promised from the forge's own image's labels")
+		t.Error("delegation promised from AppTown's own image's labels")
 	}
 	if _, ok := inputsByPath(t, req.spec)["/forge/in/pi-home/.pi/agent/agents/worker.md"]; ok {
 		t.Error("a delegate roster for an image without the extension")
@@ -893,10 +893,10 @@ func TestAnAgentOnTheForgeIsSteeredToTheFolder(t *testing.T) {
 		}
 	}
 	if strings.Contains(st.Text, "/forge/in") || strings.Contains(st.Text, "/forge/state") {
-		t.Error("an agent on the forge is steered to a worker's paths")
+		t.Error("an agent on AppTown is steered to a worker's paths")
 	}
-	if strings.Contains(st.Text, "the forge merges it into this change") {
-		t.Error("an agent on the forge, which is given no merge of main, is told it is")
+	if strings.Contains(st.Text, "AppTown merges it into this change") {
+		t.Error("an agent on AppTown, which is given no merge of main, is told it is")
 	}
 	if body, err := os.ReadFile(filepath.Join(ws, ".forge", "resources", "res--notes.md")); err != nil || string(body) != "resource body" {
 		t.Errorf("the resource in the folder: %q %v", body, err)
@@ -905,7 +905,7 @@ func TestAnAgentOnTheForgeIsSteeredToTheFolder(t *testing.T) {
 		t.Errorf("the steering in the folder: %v", err)
 	}
 	if f.worker.imageReads != 0 {
-		t.Error("an agent on the forge asked the worker for its image")
+		t.Error("an agent on AppTown asked the worker for its image")
 	}
 }
 
@@ -971,7 +971,7 @@ func TestPrivateDockerOnAWorkerNeedsTheOperatorsOptIn(t *testing.T) {
 	f.worker.imageAllowed = false
 	_, err := f.exec.prepareAgentOnWorker(context.Background(), f.call)
 	var refusal *WorkerRefusal
-	if !errors.As(err, &refusal) || !strings.Contains(refusal.Reason, "private Docker on a worker is the operator's opt-in: start the forge with -private-docker") {
+	if !errors.As(err, &refusal) || !strings.Contains(refusal.Reason, "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker") {
 		t.Fatalf("without the opt-in: %v", err)
 	}
 	if f.worker.imageReads != 0 {

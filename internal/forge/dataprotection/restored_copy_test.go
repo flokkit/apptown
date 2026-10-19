@@ -66,7 +66,7 @@ const (
 	gateCacheable    = "lets its refusals be stored"
 	gateAnyTicket    = "lets any ticket in"
 	gateReplays      = "lets a ticket in twice"
-	gateNoForge      = "cannot reach the forge"
+	gateNoForge      = "cannot reach AppTown"
 	gateForgets      = "forgets its sessions"
 	gateForwards     = "passes the ticket on to the app"
 	gateNoSession    = "lets in without a session"
@@ -406,7 +406,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 		{Name: "refuses a request with no token", Path: "/", Status: 404, Passed: true},
 		{Name: "refuses a wrong token", Path: "/", Status: 404, Passed: true},
 		{Name: "refuses a made-up ticket", Path: gate.EnterPath, Status: 403, Passed: true},
-		{Name: "lets the forge's own ticket in", Path: gate.EnterPath, Status: 303, Passed: true},
+		{Name: "lets AppTown's own ticket in", Path: gate.EnterPath, Status: 303, Passed: true},
 		{Name: "refuses that ticket a second time", Path: gate.EnterPath, Status: 403, Passed: true},
 		{Name: "serves the app to that session", Path: "/", Status: 200, Passed: true},
 	}
@@ -426,7 +426,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 		t.Fatalf("gate-checked receipts: %+v", checked)
 	}
 	if n := len(operationReceipts(t, w.db, "deployment.gate-entered", w.project)); n != 0 || len(c.Entries) != 0 {
-		t.Fatalf("the forge's check was recorded as an entry: %d receipts, entries %+v", n, c.Entries)
+		t.Fatalf("AppTown's check was recorded as an entry: %d receipts, entries %+v", n, c.Entries)
 	}
 	// Its app had the gate as its only public component.
 	var spec map[string]any
@@ -661,22 +661,22 @@ func TestARestoreFailsWhenItsGateDoesNotHold(t *testing.T) {
 		failed   []string // the gate checks that fail
 		step     string
 	}{
-		{name: gateDown, broken: gateDown, failed: []string{"refuses a request with no token", "refuses a wrong token", "refuses a made-up ticket", "lets the forge's own ticket in", "refuses that ticket a second time", "serves the app to that session"}, step: "asking the app through the gate"},
+		{name: gateDown, broken: gateDown, failed: []string{"refuses a request with no token", "refuses a wrong token", "refuses a made-up ticket", "lets AppTown's own ticket in", "refuses that ticket a second time", "serves the app to that session"}, step: "asking the app through the gate"},
 		{name: gateLetsAnyoneIn, broken: gateLetsAnyoneIn, failed: []string{"refuses a request with no token"}, step: gateCheckStep},
 		// GC-01: the app's own 404 at / must not pass for the gate's refusal.
 		{name: gateLetsAnyoneIn + " to an API whose root is 404", broken: gateLetsAnyoneIn, contract: api, answer: map[string]int{"/": 404}, failed: []string{"refuses a request with no token"}, step: gateCheckStep},
 		{name: gateLetsAnyoneIn + " to an app that answers 404", broken: gateLetsAnyoneIn, answer: map[string]int{"*": 404}, failed: []string{"refuses a request with no token", "serves the app to that session"}, step: "asking the app through the gate"},
 		{name: gateGuardsRoot, broken: gateGuardsRoot, contract: api, answer: map[string]int{"/": 404}, failed: []string{"refuses a request with no token"}, step: gateCheckStep},
 		{name: gateSoftRefusal, broken: gateSoftRefusal, failed: []string{"refuses a request with no token", "refuses a wrong token", "refuses a made-up ticket", "refuses that ticket a second time"}, step: gateCheckStep},
-		{name: gateForwardsAll + " (which refuses it)", broken: gateForwardsAll, answer: map[string]int{gate.EnterPath: 403}, failed: []string{"refuses a made-up ticket", "lets the forge's own ticket in", "refuses that ticket a second time", "serves the app to that session"}, step: gateCheckStep},
+		{name: gateForwardsAll + " (which refuses it)", broken: gateForwardsAll, answer: map[string]int{gate.EnterPath: 403}, failed: []string{"refuses a made-up ticket", "lets AppTown's own ticket in", "refuses that ticket a second time", "serves the app to that session"}, step: gateCheckStep},
 		{name: gateCacheable, broken: gateCacheable, failed: []string{"refuses a request with no token", "refuses a wrong token"}, step: gateCheckStep},
 		{name: gateTalks, broken: gateTalks, failed: []string{"refuses a request with no token", "refuses a wrong token"}, step: gateCheckStep},
 		{name: gateAnyTicket, broken: gateAnyTicket, failed: []string{"refuses a made-up ticket", "refuses that ticket a second time", "serves the app to that session"}, step: gateCheckStep},
 		{name: gateReplays, broken: gateReplays, failed: []string{"refuses that ticket a second time"}, step: gateCheckStep},
-		{name: gateNoForge, broken: gateNoForge, failed: []string{"lets the forge's own ticket in", "serves the app to that session"}, step: gateCheckStep},
+		{name: gateNoForge, broken: gateNoForge, failed: []string{"lets AppTown's own ticket in", "serves the app to that session"}, step: gateCheckStep},
 		{name: gateForgets, broken: gateForgets, failed: []string{"serves the app to that session"}, step: gateCheckStep},
-		{name: gateForwards, broken: gateForwards, failed: []string{"lets the forge's own ticket in"}, step: gateCheckStep},
-		{name: gateNoSession, broken: gateNoSession, failed: []string{"lets the forge's own ticket in", "serves the app to that session"}, step: gateCheckStep},
+		{name: gateForwards, broken: gateForwards, failed: []string{"lets AppTown's own ticket in"}, step: gateCheckStep},
+		{name: gateNoSession, broken: gateNoSession, failed: []string{"lets AppTown's own ticket in", "serves the app to that session"}, step: gateCheckStep},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -1189,7 +1189,7 @@ func TestARestoredCopysTimeIsTheForgesClock(t *testing.T) {
 	w.s.clock = func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }
 	_, c := w.start(RestoredCopyRequest{Minutes: 30})
 	if !c.Open {
-		t.Fatalf("a copy just opened is not open by the forge's clock: %+v", c)
+		t.Fatalf("a copy just opened is not open by AppTown's clock: %+v", c)
 	}
 	if n, _, err := w.s.SweepRestoredCopies(ctx); err != nil || n != 0 {
 		t.Fatalf("swept before its time: %d %v", n, err)
@@ -1197,7 +1197,7 @@ func TestARestoredCopysTimeIsTheForgesClock(t *testing.T) {
 	ahead.Add(int64(time.Hour))
 	copies, err := w.s.RestoredCopiesOf(ctx, w.prod, 5)
 	if err != nil || len(copies) == 0 || copies[0].Open {
-		t.Fatalf("still open after its time by the forge's clock: %+v %v", copies, err)
+		t.Fatalf("still open after its time by AppTown's clock: %+v %v", copies, err)
 	}
 	if n, _, err := w.s.SweepRestoredCopies(ctx); err != nil || n != 1 {
 		t.Fatalf("not swept after its time: %d %v", n, err)

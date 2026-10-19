@@ -81,7 +81,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 			case candidate != "":
 				why = "no preview is proven to run the landing's candidate " + strs.ShortSHA(candidate) + "; boot the change's preview (forge preview <change>, or restart on the change page: a request to boot it boots the candidate while the change is landing, opening a running one does not), then run this step again"
 			case other:
-				why = "the running preview is not the checked commit " + strs.ShortSHA(commit) + " as this forge booted it; boot it again to probe it"
+				why = "the running preview is not the checked commit " + strs.ShortSHA(commit) + " as this AppTown booted it; boot it again to probe it"
 			default:
 				why = "the change's preview is not running — the boot step provides it; nothing to probe yet"
 			}

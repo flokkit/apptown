@@ -29,7 +29,7 @@ Fix the WHOLE of what the check asks, not only the sentence the review
 quoted: the review names the first thing it saw, the check judges everything
 it lists, and a change that fixes one item bounces on the next.
 
-ACCEPTANCE — all three must hold, and the forge re-checks them on landing:
+ACCEPTANCE — all three must hold, and AppTown re-checks them on landing:
   1. the check %q re-evaluates to CONFORMS against your change's tree;
   2. the app's ordinary gates still pass (tests, boot/preview, review) — do not
      satisfy the check by deleting a feature or weakening the app;

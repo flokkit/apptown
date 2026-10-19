@@ -56,7 +56,7 @@ func (h WorkflowSelection) PutProjectLane(w http.ResponseWriter, r *http.Request
 			return
 		}
 		if doc.Metadata.System {
-			WriteError(w, 422, "%q is a system workflow — the forge runs it for every project; nothing to select", in.Name)
+			WriteError(w, 422, "%q is a system workflow — AppTown runs it for every project; nothing to select", in.Name)
 			return
 		}
 		// A deprecated workflow stays runnable where it is already selected,

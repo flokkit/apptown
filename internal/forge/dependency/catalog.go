@@ -414,7 +414,7 @@ func (k *Kind) checkCopy() error {
 			// No export: the forge copies the data directory as files, and
 			// the kind may say only what that copy leaves out.
 			if !blank(c.Format+c.Ext+c.Client+c.Import+c.Restore+c.Verify+c.Empty) || c.RestoreStopped || len(c.Env) > 0 {
-				return bad("with no export: a copy without one is the forge's file copy of the data directory and may declare only its caveat")
+				return bad("with no export: a copy without one is AppTown's file copy of the data directory and may declare only its caveat")
 			}
 		case blank(c.Ext) || blank(c.Verify):
 			// An export nothing ever confirms came back is not a copy.
@@ -467,7 +467,7 @@ func (k *Kind) checkCopy() error {
 				return fmt.Errorf("%w: dependency %q on %s: a %s reached for a copy declares the check that a database holds nothing (copy.empty)", ErrSpec, k.Capability, provider, ManagedDatabaseKind)
 			}
 			if r.How != ReachConnect || r.From != FromNamedHost || r.Credential != CredentialAppUser {
-				return fmt.Errorf("%w: dependency %q on %s: the forge reaches a cloud instance by connect, from the named host, as the app's user (how: %s, from: %s, credential: %s), got how %q, from %q, credential %q",
+				return fmt.Errorf("%w: dependency %q on %s: AppTown reaches a cloud instance by connect, from the named host, as the app's user (how: %s, from: %s, credential: %s), got how %q, from %q, credential %q",
 					ErrSpec, k.Capability, provider, ReachConnect, FromNamedHost, CredentialAppUser, r.How, r.From, r.Credential)
 			}
 			if cloud.Kind != ManagedDatabaseKind && cloud.Kind != BucketKind {
@@ -475,7 +475,7 @@ func (k *Kind) checkCopy() error {
 			}
 		}
 		if n := cloud.Native; n != nil && !(provider == "digitalocean" && n.Mechanism == NativeDOBackups) {
-			return fmt.Errorf("%w: dependency %q on %s: the forge reads no native protection called %q there", ErrSpec, k.Capability, provider, n.Mechanism)
+			return fmt.Errorf("%w: dependency %q on %s: AppTown reads no native protection called %q there", ErrSpec, k.Capability, provider, n.Mechanism)
 		}
 	}
 	return nil

@@ -242,7 +242,7 @@ func (d *Deletion) request(ctx context.Context, projectID ids.ID, actor access.P
 		kept = 0
 	}
 	decision := map[string]any{
-		"meaning":    "delete this project: take its deployments down (main last, each with its final copy where the forge takes one), keep it read-only with its backups, then purge it",
+		"meaning":    "delete this project: take its deployments down (main last, each with its final copy where AppTown takes one), keep it read-only with its backups, then purge it",
 		"keptDays":   int(kept / (24 * time.Hour)),
 		"purge":      "after the kept period the project's backups, hub repository and records are removed and its GitLab copy is archived",
 		"deleter":    actor.Name,

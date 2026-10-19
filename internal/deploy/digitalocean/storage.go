@@ -210,19 +210,19 @@ func (d *Driver) fulfilStorage(ctx context.Context, p deploy.Placement, logf fun
 				}
 				bucket = deploy.Owned{Kind: KindBucket, ID: name, Name: name, Data: true, Need: needS3}
 				if err := d.Holdings.Created(context.WithoutCancel(ctx), bucket); err != nil {
-					return fmt.Errorf("recording the bucket %s the forge made: %w; it is at the provider, empty, and not on the deployment's records", name, err)
+					return fmt.Errorf("recording the bucket %s AppTown made: %w; it is at the provider, empty, and not on the deployment's records", name, err)
 				}
 				haveBucket = true
 			}
 			if haveKey && secret == "" {
 				// A key whose secret is gone cannot be given to the app.
 				if err := d.deleteKey(ctx, c, key.ID); err != nil {
-					return fmt.Errorf("deleting the Spaces key %s, whose secret the forge no longer holds: %w", key.ID, err)
+					return fmt.Errorf("deleting the Spaces key %s, whose secret AppTown no longer holds: %w", key.ID, err)
 				}
 				if err := d.Holdings.Forget(context.WithoutCancel(ctx), KindSpacesKey, key.ID); err != nil {
 					return fmt.Errorf("forgetting the deleted Spaces key %s: %w", key.ID, err)
 				}
-				logf("deleted the Spaces key %s, whose secret the forge no longer holds, to make another", key.ID)
+				logf("deleted the Spaces key %s, whose secret AppTown no longer holds, to make another", key.ID)
 				haveKey = false
 			}
 			if !haveKey {
@@ -232,7 +232,7 @@ func (d *Driver) fulfilStorage(ctx context.Context, p deploy.Placement, logf fun
 				}
 				key = deploy.Owned{Kind: KindSpacesKey, ID: k.AccessKey, Name: k.Name, Need: needS3}
 				if err := d.Holdings.Created(context.WithoutCancel(ctx), key); err != nil {
-					return fmt.Errorf("recording the Spaces key %s the forge made: %w", k.AccessKey, err)
+					return fmt.Errorf("recording the Spaces key %s AppTown made: %w", k.AccessKey, err)
 				}
 				if err := d.Secrets.Put(context.WithoutCancel(ctx), SpacesSecretName, k.SecretKey); err != nil {
 					return fmt.Errorf("keeping the Spaces key %s's secret: %w", k.AccessKey, err)
@@ -278,7 +278,7 @@ func (d *Driver) makeBucket(ctx context.Context, s3 *s3bucket.Client, deployment
 	var refusal *s3bucket.Error
 	switch {
 	case errors.As(err, &refusal) && refusal.Status == 409:
-		return "", deploy.Terminal(fmt.Errorf("the bucket name %s is taken (%s); the forge never adopts a bucket it did not make — release again for another name", name, refusal.Code))
+		return "", deploy.Terminal(fmt.Errorf("the bucket name %s is taken (%s); AppTown never adopts a bucket it did not make — release again for another name", name, refusal.Code))
 	case errors.As(err, &refusal) && refusal.Status < 500:
 		return "", deploy.Terminal(fmt.Errorf("making the bucket %s: %w", name, err))
 	case err != nil:
@@ -334,7 +334,7 @@ func (d *Driver) BucketConnection(ctx context.Context, bucket string) (deploy.Co
 		return deploy.Connection{}, fmt.Errorf("reading the deployment's Spaces key secret: %w", err)
 	}
 	if secret == "" {
-		return deploy.Connection{}, fmt.Errorf("the forge no longer holds the secret of the Spaces key %s", key.ID)
+		return deploy.Connection{}, fmt.Errorf("AppTown no longer holds the secret of the Spaces key %s", key.ID)
 	}
 	_, cfg, err := d.Client(ctx)
 	if err != nil {

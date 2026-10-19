@@ -287,7 +287,7 @@ func TestBrowserPolicyLeavesHostedAppPolicy(t *testing.T) {
 	w := httptest.NewRecorder()
 	a.Handler().ServeHTTP(w, r)
 	if w.Code != 201 || w.Header().Get("X-Frame-Options") != "" || w.Header().Get("Content-Security-Policy") != "frame-ancestors https://embed.example.test" {
-		t.Fatalf("Forge policy leaked into hosted app: %d %v", w.Code, w.Header())
+		t.Fatalf("AppTown policy leaked into hosted app: %d %v", w.Code, w.Header())
 	}
 }
 

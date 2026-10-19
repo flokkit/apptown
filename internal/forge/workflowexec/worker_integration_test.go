@@ -39,7 +39,7 @@ func TestIntegrationAScriptStepRunsOnAWorkerInItsOwnContainer(t *testing.T) {
 		t.Fatalf("the published branch holds %q; evidence %s", got, settled.Evidence)
 	}
 	if got := gittest.Run(t, ws, "rev-parse", "HEAD"); got != tip {
-		t.Fatalf("the forge's workspace is at %s, want %s", got, tip)
+		t.Fatalf("AppTown's workspace is at %s, want %s", got, tip)
 	}
 	attempt, err := tasks.New(a.db).Get(context.Background(), taskKeyOf(step))
 	if err != nil || attempt.Backend != "worker at "+w.URL || attempt.Observed != tasks.Settled || attempt.Source == "" {

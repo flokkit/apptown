@@ -35,7 +35,7 @@ func TestShutdownClosesAllOwnersBeforeWaiting(t *testing.T) {
 			// Its process was killed with the forge: a failure seen now is
 			// not recorded, and the step is left for startup repair.
 			if err := task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": "exit 143"}, nil)); !errors.Is(err, workflow.ErrShuttingDown) {
-				t.Errorf("a failure settled while the forge stops: %v", err)
+				t.Errorf("a failure settled while AppTown stops: %v", err)
 			}
 		}}
 	})
@@ -94,7 +94,7 @@ func TestShutdownClosesAllOwnersBeforeWaiting(t *testing.T) {
 		t.Fatal("shutdown advanced to queued workflow work")
 	}
 	if state, err = a.Work.Step(asPerson("bls"), runningID); err != nil || state.Step.Status != workflow.StatusRunning {
-		t.Fatalf("the step that failed while the forge stopped: %+v %v; want it still running, for startup repair", state, err)
+		t.Fatalf("the step that failed while AppTown stopped: %+v %v; want it still running, for startup repair", state, err)
 	}
 }
 

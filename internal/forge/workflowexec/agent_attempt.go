@@ -338,7 +338,7 @@ func (a *Executor) RecoverAgent(task *workflow.Execution) {
 	// forge leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
 	if a.worker == nil || a.worker.Tasks == nil {
-		log.Printf("run %d step %d: its attempt ran on a worker, and this forge has none; it stays running", run.ID, step.ID)
+		log.Printf("run %d step %d: its attempt ran on a worker, and this AppTown has none; it stays running", run.ID, step.ID)
 		return
 	}
 	r := a.worker.Tasks

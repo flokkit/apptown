@@ -85,7 +85,7 @@ func JudgeBrowserEnv(ctx context.Context, f Fetcher, base string, want BrowserEx
 		return ProbeVerdict{Outcome: Conforms, Detail: "nothing attached gives the page a value"}
 	}
 	if want.Installed == nil {
-		return unknown("the forge could not read what this deployment was started with, so it cannot say what its page is given")
+		return unknown("AppTown could not read what this deployment was started with, so it cannot say what its page is given")
 	}
 	if !sameValues(want.Installed, want.Attached) {
 		return unknown(fmt.Sprintf("this deployment was started with %s, but the integrations now give the page %s: start it again so it serves today's settings", valueNames(want.Installed), valueNames(want.Attached)))
@@ -94,16 +94,16 @@ func JudgeBrowserEnv(ctx context.Context, f Fetcher, base string, want BrowserEx
 	code, body, err := f.Fetch(ctx, base+BrowserEnvPath)
 	switch {
 	case err != nil:
-		return unknown("the app did not answer, so the forge could not read what it serves the page: " + err.Error())
+		return unknown("the app did not answer, so AppTown could not read what it serves the page: " + err.Error())
 	case code != 200:
-		return unknown(fmt.Sprintf("the forge's %s answered %d; the static server should always serve it", BrowserEnvPath, code))
+		return unknown(fmt.Sprintf("AppTown's %s answered %d; the static server should always serve it", BrowserEnvPath, code))
 	}
 	served, ok := browserEnvValues(body)
 	if !ok {
-		return unknown("the forge's " + BrowserEnvPath + " could not be read")
+		return unknown("AppTown's " + BrowserEnvPath + " could not be read")
 	}
 	if !sameValues(served, want.Installed) {
-		return unknown(fmt.Sprintf("the forge's %s serves %s, not the %s this deployment was started with: the forge's delivery is at fault, not the app", BrowserEnvPath, valueNames(served), valueNames(want.Installed)))
+		return unknown(fmt.Sprintf("AppTown's %s serves %s, not the %s this deployment was started with: AppTown's delivery is at fault, not the app", BrowserEnvPath, valueNames(served), valueNames(want.Installed)))
 	}
 	named := valueNames(want.Attached)
 	code, page, err := f.Fetch(ctx, base+"/")
@@ -116,7 +116,7 @@ func JudgeBrowserEnv(ctx context.Context, f Fetcher, base string, want BrowserEx
 	if why := loaderProblem(page); why != "" {
 		return ProbeVerdict{Outcome: DoesNotConform, Detail: fmt.Sprintf("%s, so %s may never reach the app's code: put <script src=\"%s\"></script> in the page's <head> before any other script, with no attribute but src (a CSP nonce is fine), no <base href> in the page, and read window.__FORGE_ENV__", why, named, BrowserEnvPath)}
 	}
-	return ProbeVerdict{Outcome: Conforms, Detail: fmt.Sprintf("the forge serves %s at %s and the page's HTML loads it before its own scripts; whether a browser runs it is not checked", named, BrowserEnvPath)}
+	return ProbeVerdict{Outcome: Conforms, Detail: fmt.Sprintf("AppTown serves %s at %s and the page's HTML loads it before its own scripts; whether a browser runs it is not checked", named, BrowserEnvPath)}
 }
 
 // javaScriptTypes are the script types a browser runs as a classic script

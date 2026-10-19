@@ -201,9 +201,9 @@ func (w dispatchPlans) Resume(ctx context.Context, runID, stepID ids.ID) (bool, 
 	if err := requireAttemptWrite(count, err); err != nil {
 		return false, err
 	}
-	reason := "the forge restarted; the step resumes"
+	reason := "AppTown restarted; the step resumes"
 	if current.Type == "agent/pi" {
-		reason = "the forge restarted; the agent continues its session"
+		reason = "AppTown restarted; the agent continues its session"
 	}
 	if err := recordReceiptIn(ctx, tx, runID, "step.resumed", struct {
 		Step   ids.ID `json:"step"`

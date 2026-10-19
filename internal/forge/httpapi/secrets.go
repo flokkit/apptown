@@ -405,7 +405,7 @@ func (h Secrets) BindSecret(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if v, ok := values[in.Ref]; !ok || v == "" {
-				WriteError(w, 422, "Infisical has no key %s in the project and environment this forge reads", in.Ref)
+				WriteError(w, 422, "Infisical has no key %s in the project and environment this AppTown reads", in.Ref)
 				return
 			}
 			b.Store, b.Ref, b.Version = secret.StoreInfisical, in.Ref, "infisical"

@@ -203,7 +203,7 @@ func TestDigitalOceanRefusesSomebodyElsesCluster(t *testing.T) {
 	last := events[len(events)-1].Text
 	state := provider.Snapshot()
 	if release.State != ReleaseFailed || !strings.Contains(last, "not this deployment's") || len(state.Apps) != 0 {
-		t.Fatalf("a cluster without the forge's marker is refused, not adopted: %s %q apps=%d", release.State, last, len(state.Apps))
+		t.Fatalf("a cluster without AppTown's marker is refused, not adopted: %s %q apps=%d", release.State, last, len(state.Apps))
 	}
 }
 

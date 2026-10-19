@@ -114,7 +114,7 @@ func dockerContextHost(configDir, name string) (string, error) {
 	}
 	tls := filepath.Join(configDir, "contexts", "tls", sum, "docker")
 	if _, err := os.Stat(tls); err == nil || !errors.Is(err, os.ErrNotExist) || meta.Endpoints.Docker.SkipTLSVerify {
-		return "", fmt.Errorf("Docker context %q uses TLS settings the forge cannot pin to one daemon; select it with DOCKER_HOST, DOCKER_TLS_VERIFY and DOCKER_CERT_PATH instead", name)
+		return "", fmt.Errorf("Docker context %q uses TLS settings AppTown cannot pin to one daemon; select it with DOCKER_HOST, DOCKER_TLS_VERIFY and DOCKER_CERT_PATH instead", name)
 	}
 	return meta.Endpoints.Docker.Host, nil
 }

@@ -71,7 +71,7 @@ func (s *Service) evalRegistry(ctx context.Context, projectID ids.ID) (*Registry
 		return nil, err
 	}
 	if len(connectors) != 1 {
-		return nil, fmt.Errorf("an eval copy publishes its releases to the one container-registry connector the forge offers, and it offers %d", len(connectors))
+		return nil, fmt.Errorf("an eval copy publishes its releases to the one container-registry connector AppTown offers, and it offers %d", len(connectors))
 	}
 	connector := connectors[0]
 	cfg := parseJSONMap(connector.ConfigJSON)

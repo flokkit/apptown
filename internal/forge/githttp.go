@@ -131,7 +131,7 @@ func (a *App) handleGitHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if isPush && ticket != nil && onReadOnlyPlane(r) {
-		http.Error(w, "git: this port takes no Change ticket pushes; push to the forge's address checkout_change gave you", http.StatusForbidden)
+		http.Error(w, "git: this port takes no Change ticket pushes; push to AppTown's address checkout_change gave you", http.StatusForbidden)
 		return
 	}
 	if isPush && ticket == nil && scratch == nil {

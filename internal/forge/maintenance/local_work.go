@@ -63,7 +63,7 @@ func LocalWorkLeft(ctx context.Context, db *database.DB, records *tasks.Records,
 	}
 	for _, meta := range chats {
 		if !conversation.OnWorkerRecord(meta) {
-			left = append(left, "chat "+meta.ID+" on the forge, not ended")
+			left = append(left, "chat "+meta.ID+" on AppTown, not ended")
 		}
 	}
 	deletions, err := projects.OutstandingDeletions(ctx)
@@ -94,8 +94,8 @@ func LocalWorkLeft(ctx context.Context, db *database.DB, records *tasks.Records,
 	if left = append(left, cleanups...); len(left) == 0 {
 		return nil
 	}
-	return fmt.Errorf("-drain-local-docker: this forge's records hold local work that may still be running on its own Docker:\n  %s\n"+
-		"Start the forge without -no-local-docker so it settles and removes that work (end those chats, let the runs finish or stop them, and retry any cleanup waiting for a person), stop it, then run forged -drain-local-docker again", strings.Join(left, "\n  "))
+	return fmt.Errorf("-drain-local-docker: this AppTown's records hold local work that may still be running on its own Docker:\n  %s\n"+
+		"Start AppTown without -no-local-docker so it settles and removes that work (end those chats, let the runs finish or stop them, and retry any cleanup waiting for a person), stop it, then run forged -drain-local-docker again", strings.Join(left, "\n  "))
 }
 
 // ExecutionContainers lists the containers on the forge's own Docker that

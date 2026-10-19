@@ -478,7 +478,7 @@ func TestNoLocalDockerRefusesOtherTargetsBeforeAnyBuild(t *testing.T) {
 	}
 	want := map[string]string{
 		"other":  "this release's images live only on remote",
-		"local":  "this forge has no local Docker; attach a Docker host",
+		"local":  "this AppTown has no local Docker; attach a Docker host",
 		"lan":    "needs this release's images in the project's registry",
 		"cloud":  "needs this release's images in the project's registry",
 		"remote": "",

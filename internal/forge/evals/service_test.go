@@ -396,7 +396,7 @@ func TestStartingAnEvalIsAStandardsManagersShownAct(t *testing.T) {
 		t.Fatalf("not shown the meaning: %v", err)
 	}
 	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Profile: "unknown", BudgetMicros: 1, Shown: Meaning}); !errors.Is(err, ErrSubject) {
-		t.Fatalf("a profile the forge does not offer: %v", err)
+		t.Fatalf("a profile AppTown does not offer: %v", err)
 	}
 	if n := w.passes.Load(); n != 0 {
 		t.Fatalf("refused starts asked for %d passes", n)
@@ -1080,7 +1080,7 @@ func TestAnEvalIsStampedByTheForgesClock(t *testing.T) {
 	w.at.Store(started.Unix())
 	e := w.start(t, "alice")
 	if !e.StartedAt.Equal(started) {
-		t.Fatalf("started at %v, want the forge's %v", e.StartedAt, started)
+		t.Fatalf("started at %v, want AppTown's %v", e.StartedAt, started)
 	}
 	w.at.Store(deleted.Unix())
 	if err := w.service.Delete(as("alice"), e.ID); err != nil {

@@ -55,7 +55,7 @@ func judgeMemoryDeclared(c *appcontract.Contract) check.ProbeVerdict {
 			"%s declares no memory; an enforced default is not an app declaration: add  resources: { memory: <size> }  under the part in .forge/app.yaml, measured to fit (deploy/memory-declared says how for each runtime)",
 			partList(missing))}
 	case len(declared) == 0:
-		return check.ProbeVerdict{Outcome: check.Conforms, Detail: "only static parts: the forge's own file server serves them and they declare nothing"}
+		return check.ProbeVerdict{Outcome: check.Conforms, Detail: "only static parts: AppTown's own file server serves them and they declare nothing"}
 	}
 	return check.ProbeVerdict{Outcome: check.Conforms, Detail: "declared: " + strings.Join(declared, ", ")}
 }
@@ -116,7 +116,7 @@ func (o Runtime) memoryWithin(ctx context.Context, t Target, share int) check.Pr
 		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: "what the deployment's generation applied could not be read: " + err.Error(), Fault: true}
 	}
 	if !applied.Recorded() {
-		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: "the deployment was settled before the forge recorded what it applied; deploy it again to judge it"}
+		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: "the deployment was settled before AppTown recorded what it applied; deploy it again to judge it"}
 	}
 	running, err := o.deployment.MemoryOfRecordedGeneration(ctx, t.Deployment)
 	if err != nil {
@@ -221,7 +221,7 @@ func judgeMemoryWithin(static, declaredNeeds map[string]bool, used []deployment.
 	case len(unknown) > 0:
 		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: "memory use is not known: " + strings.Join(unknown, "; ")}
 	case len(used) > 0 && served == 0:
-		return check.ProbeVerdict{Outcome: check.Conforms, Detail: "only static parts: the forge's own file server serves them, and this check judges nothing of it"}
+		return check.ProbeVerdict{Outcome: check.Conforms, Detail: "only static parts: AppTown's own file server serves them, and this check judges nothing of it"}
 	case len(within) == 0:
 		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: "the deployment's generation recorded no parts"}
 	}

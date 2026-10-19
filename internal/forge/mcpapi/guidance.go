@@ -27,7 +27,7 @@ func guidanceOffer(ctx context.Context, adoptions *adoption.Service, projectID i
 	}
 	out := map[string]any{"guidance": blocks, "guidanceBytes": total}
 	if len(blocks) > 0 {
-		out["guidanceNote"] = fmt.Sprintf("Strongly recommended before writing code here: get_project_guidance returns these %d blocks as one text (about %s). The Forge's own agents are steered by exactly this, and landing checks hold every Change to it.", len(blocks), humanBytes(total))
+		out["guidanceNote"] = fmt.Sprintf("Strongly recommended before writing code here: get_project_guidance returns these %d blocks as one text (about %s). AppTown's own agents are steered by exactly this, and landing checks hold every Change to it.", len(blocks), humanBytes(total))
 	}
 	return out
 }

@@ -45,12 +45,12 @@ type Secrets interface {
 type BundleTooLarge struct{ Limit int64 }
 
 func (e *BundleTooLarge) Error() string {
-	return fmt.Sprintf("the bundle is larger than this forge accepts (%d bytes; the operator sets -import-bundle-max-bytes)", e.Limit)
+	return fmt.Sprintf("the bundle is larger than this AppTown accepts (%d bytes; the operator sets -import-bundle-max-bytes)", e.Limit)
 }
 func (e *BundleTooLarge) FaultKind() fault.Kind { return fault.Invalid }
 
 // ErrNoSuchSecret refuses a credential name the forge does not hold.
-var ErrNoSuchSecret = fault.New(fault.Invalid, "the forge holds no secret by that name")
+var ErrNoSuchSecret = fault.New(fault.Invalid, "AppTown holds no secret by that name")
 
 // FromURL is a seed from an https repository. CredentialSecret names one of
 // the forge's own secrets to offer as the password; the caller has already
@@ -70,7 +70,7 @@ func (s *Service) SeedFromURL(ctx context.Context, p *project.Project, in FromUR
 	if in.CredentialSecret != "" {
 		values, err := s.secrets.WithContext(ctx)
 		if err != nil {
-			return fault.Wrap(fault.Unavailable, fmt.Errorf("the forge's secrets could not be read: %w", err))
+			return fault.Wrap(fault.Unavailable, fmt.Errorf("AppTown's secrets could not be read: %w", err))
 		}
 		value, ok := values[in.CredentialSecret]
 		if !ok || value == "" {

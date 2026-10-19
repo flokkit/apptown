@@ -29,7 +29,7 @@ func ForgeIDIn(ctx context.Context, q database.Queryer, at time.Time) (ids.ID, e
 	}
 	id, err := ids.Parse(value)
 	if err != nil || id.IsZero() {
-		return ids.Nil, fmt.Errorf("the forge's id %q is not a UUID", value)
+		return ids.Nil, fmt.Errorf("AppTown's id %q is not a UUID", value)
 	}
 	return id, nil
 }

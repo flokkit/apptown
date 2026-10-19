@@ -28,7 +28,7 @@ import (
 
 // ErrCannotBackUp refuses data work in an environment the forge cannot
 // reach for it.
-var ErrCannotBackUp = errors.New("the forge cannot back up deployments in this Portainer environment")
+var ErrCannotBackUp = errors.New("AppTown cannot back up deployments in this Portainer environment")
 
 // Environment is one of Portainer's environments as the forge reads it for
 // data work.

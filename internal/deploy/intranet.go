@@ -74,7 +74,7 @@ func IntranetCompose(st IntranetStack) string {
 	// reads back unchanged (ComposeLiteral).
 	quoted := func(s string) string { return strconv.Quote(ComposeLiteral(s)) }
 	b.WriteString("# forge-owned stack: deployed by forged at release time (design/subsystems/lan-release.md).\n")
-	b.WriteString("# Managed by the forge, not by your infrastructure-as-code.\n")
+	b.WriteString("# Managed by AppTown, not by your infrastructure-as-code.\n")
 	b.WriteString("services:\n")
 	var volumes []string
 

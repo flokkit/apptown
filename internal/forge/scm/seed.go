@@ -57,7 +57,7 @@ func (p URLPolicy) Check(ctx context.Context, raw string) (gitexec.Remote, error
 		return gitexec.Remote{}, refused("only https URLs can be fetched, not %q", u.Scheme+":")
 	}
 	if u.User != nil {
-		return gitexec.Remote{}, refused("put no user or password in the URL; name a forge secret for the credential instead")
+		return gitexec.Remote{}, refused("put no user or password in the URL; name an AppTown secret for the credential instead")
 	}
 	host := u.Hostname()
 	if host == "" {
@@ -79,7 +79,7 @@ func (p URLPolicy) Check(ctx context.Context, raw string) (gitexec.Remote, error
 	for _, a := range addrs {
 		a = a.Unmap()
 		if why := nonPublic(a); why != "" && !p.AllowPrivate {
-			return gitexec.Remote{}, refused("%s is at %s, %s; this forge fetches only from public addresses", host, a, why)
+			return gitexec.Remote{}, refused("%s is at %s, %s; this AppTown fetches only from public addresses", host, a, why)
 		}
 		if !pinned.IsValid() || (a.Is4() && !pinned.Is4()) {
 			pinned = a

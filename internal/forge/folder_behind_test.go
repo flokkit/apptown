@@ -359,7 +359,7 @@ func TestACaughtUpFolderIsReadAgain(t *testing.T) {
 			t.Fatalf("a folder the save brought along is still not shown: %d %s", out.Code, out.Body.String())
 		}
 	})
-	t.Run("by a chat on the forge opening", func(t *testing.T) {
+	t.Run("by a chat on AppTown opening", func(t *testing.T) {
 		t.Parallel()
 		w := newWorkerChatWorld(t)
 		s, err := w.openOnWorker(t, conversation.ProjectOpen{ChangeID: w.change.ID})
@@ -797,6 +797,6 @@ func TestADivergedFolderOffersTheChatOnTheForge(t *testing.T) {
 		t.Fatalf("opening on the worker from a diverged folder: %v", err)
 	}
 	if fault.CodeOf(err) != conversation.CodeChatOnForge {
-		t.Fatalf("the refusal does not say the chat can open on the forge: %q", fault.CodeOf(err))
+		t.Fatalf("the refusal does not say the chat can open on AppTown: %q", fault.CodeOf(err))
 	}
 }

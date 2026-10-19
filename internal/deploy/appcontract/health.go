@@ -77,7 +77,7 @@ func validateHealth(part string, h *Health) error {
 	// hands it no HTTP request (open question §10.2). Bar it explicitly rather
 	// than silently ignore requestContext.
 	if h.Readiness != nil && len(h.Readiness.Exec) > 0 && h.Readiness.RequestContext == "frontDoor" {
-		return fmt.Errorf("part %q: an exec readiness probe cannot be requestContext:frontDoor — the forge cannot shape a command with a header; use http/tcp for a fronted probe", part)
+		return fmt.Errorf("part %q: an exec readiness probe cannot be requestContext:frontDoor — AppTown cannot shape a command with a header; use http/tcp for a fronted probe", part)
 	}
 	return nil
 }

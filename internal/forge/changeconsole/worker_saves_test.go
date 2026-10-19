@@ -139,7 +139,7 @@ func TestAWorkerChatThatCannotBeReachedKeepsItsChange(t *testing.T) {
 		t.Fatal("a chat ended while its worker could not be reached")
 	}
 	if _, err := w.sessions.Get(ctx, s.ID); err != nil {
-		t.Fatalf("the chat is gone from the forge: %v", err)
+		t.Fatalf("the chat is gone from AppTown: %v", err)
 	}
 	if w.holder(t) != scm.ChatHolder(s.ID) {
 		t.Fatalf("the change was released: %s", w.holder(t))

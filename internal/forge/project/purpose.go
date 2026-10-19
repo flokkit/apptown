@@ -32,7 +32,7 @@ func purposeOf(s string) (Purpose, error) {
 			return p, nil
 		}
 	}
-	return "", fmt.Errorf("project purpose %q is not one this forge knows", s)
+	return "", fmt.Errorf("project purpose %q is not one this AppTown knows", s)
 }
 
 // The allowances: one row per purpose. A further purpose starts as a row

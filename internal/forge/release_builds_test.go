@@ -751,7 +751,7 @@ func TestAReleaseBuildIsRefusedBeforeAnythingIsBuilt(t *testing.T) {
 		{name: "registry credential not held", prepare: func(t *testing.T, w *releaseWorld) {
 			w.offerRegistry(t, "registry-a", "NOT_IN_THE_STORE")
 		}, want: "names its credential NOT_IN_THE_STORE, which the secrets store does not hold"},
-		{name: "no private docker", config: func(c *Config) { c.PrivateDocker = false }, want: "start the forge with -private-docker"},
+		{name: "no private docker", config: func(c *Config) { c.PrivateDocker = false }, want: "start AppTown with -private-docker"},
 		{name: "main on portainer", prepare: func(t *testing.T, w *releaseWorld) {
 			lan, err := w.a.Deployment.Targets.Put(context.Background(), &deployment.Target{Name: "lan", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, Status: deployment.TargetReady})
 			if err != nil {
@@ -1066,7 +1066,7 @@ func TestARestartDuringTheBuildEndsTheStepAndARetryCommitsOneBundle(t *testing.T
 			w.worker.block = stage == "started"
 			w.a.Work.ExecuteStep(w.a.asEngine(context.Background()), stepID)
 			if step := w.step(t, stepID); step.Status != workflow.StatusRunning {
-				t.Fatalf("the step the forge died in: %s", step.Status)
+				t.Fatalf("the step AppTown died in: %s", step.Status)
 			}
 			key := fmt.Sprintf("step-%d-attempt-1-release-build", stepID)
 			w.restart(t)

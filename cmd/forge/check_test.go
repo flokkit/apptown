@@ -121,7 +121,7 @@ func TestForgeCheckAsksAboutThisFoldersHead(t *testing.T) {
 	if err == nil || (*w.bodies)[1]["commit"] != w.unpublished {
 		t.Fatalf("an unpublished HEAD was not refused: sent %v\n%s", *w.bodies, out)
 	}
-	for _, words := range []string{"commit " + w.unpublished + " is not on the forge yet", "it becomes available once the step's work is collected", "forge check --published"} {
+	for _, words := range []string{"commit " + w.unpublished + " is not on AppTown yet", "it becomes available once the step's work is collected", "forge check --published"} {
 		if !strings.Contains(err.Error(), words) {
 			t.Fatalf("the refusal does not say %q: %v", words, err)
 		}
@@ -144,7 +144,7 @@ func TestForgeCheckPublishedSaysWhatItChecks(t *testing.T) {
 	if len(*w.bodies) != 1 || len((*w.bodies)[0]) != 1 || (*w.bodies)[0]["published"] != true {
 		t.Fatalf("--published sent %v, want exactly {\"published\": true}", *w.bodies)
 	}
-	for _, words := range []string{"--published: checking the published tip of change 00000000-0007-7000-8000-000000000000's branch on the forge, not this folder's work", "commit " + w.published + " (the published tip of change 00000000-0007-7000-8000-000000000000's branch)\n", "gate clear for commit " + w.published} {
+	for _, words := range []string{"--published: checking the published tip of change 00000000-0007-7000-8000-000000000000's branch on AppTown, not this folder's work", "commit " + w.published + " (the published tip of change 00000000-0007-7000-8000-000000000000's branch)\n", "gate clear for commit " + w.published} {
 		if !strings.Contains(out, words) {
 			t.Fatalf("the output does not say %q:\n%s", words, out)
 		}
@@ -178,7 +178,7 @@ func TestForgeCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
-	if len((*w.bodies)[0]) != 0 || !strings.Contains(out, "not in a Git repository: checking change 00000000-0007-7000-8000-000000000000's latest commit on the forge") || !strings.Contains(out, "commit "+w.published+"\n") {
+	if len((*w.bodies)[0]) != 0 || !strings.Contains(out, "not in a Git repository: checking change 00000000-0007-7000-8000-000000000000's latest commit on AppTown") || !strings.Contains(out, "commit "+w.published+"\n") {
 		t.Fatalf("sent %v\n%s", *w.bodies, out)
 	}
 }

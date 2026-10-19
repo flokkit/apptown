@@ -145,9 +145,9 @@ func TestTheMachinesGitConfigDoesNotReachThePlainCommands(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
 	if out, err := Run(t.Context(), dir, "commit", "-q", "--allow-empty", "-m", "unsigned"); err != nil {
-		t.Fatalf("the home config's signing reached the forge's git: %v: %s", err, out)
+		t.Fatalf("the home config's signing reached AppTown's git: %v: %s", err, out)
 	}
 	if out, err := Output(t.Context(), dir, "config", "--get", "commit.gpgsign"); err == nil {
-		t.Fatalf("the forge's git reads commit.gpgsign=%s from the home config", out)
+		t.Fatalf("AppTown's git reads commit.gpgsign=%s from the home config", out)
 	}
 }

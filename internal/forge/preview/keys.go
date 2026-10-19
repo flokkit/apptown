@@ -127,7 +127,7 @@ func (s *Service) previewStands(ctx context.Context, name string) (bool, error) 
 	}
 	there, err := s.hosts.Local().Exists(ctx, "inspect", name)
 	if err != nil {
-		return false, fmt.Errorf("asking this forge's Docker about the preview %s: %w", name, err)
+		return false, fmt.Errorf("asking this AppTown's Docker about the preview %s: %w", name, err)
 	}
 	return there, nil
 }
@@ -140,7 +140,7 @@ func (s *Service) releasePreviewKey(ctx context.Context, r previewsql.PreviewOwn
 	case !ok:
 		why = fmt.Errorf("the record %q does not name a key", r.Ident)
 	case s.integrations == nil:
-		why = errors.New("this forge has no integrations to revoke it with")
+		why = errors.New("this AppTown has no integrations to revoke it with")
 	default:
 		why = s.integrations.ReleaseLLMKey(ctx, held, "llm:preview:"+r.Preview)
 	}

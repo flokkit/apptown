@@ -129,7 +129,7 @@ func (s *Service) RunPreview(ctx context.Context, claim deployment.ClaimedExecut
 		return out, err
 	}
 	if !s.recordServedSince(name, discards, servedRecord{Incarnation: incarnation, Source: tree.Revision, Public: public}) {
-		log.Printf("run %d: its preview was discarded while it booted; the forge keeps no record of it", runID)
+		log.Printf("run %d: its preview was discarded while it booted; AppTown keeps no record of it", runID)
 	}
 	if rerr := source.Retain(tree); rerr != nil {
 		log.Printf("run %d: removing snapshots its preview no longer serves: %v", runID, rerr)

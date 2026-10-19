@@ -42,7 +42,7 @@ func (s *Service) uncopiedData(ctx context.Context, dep *Deployment, t *Target, 
 		return "", "", nil
 	}
 	if !accepted {
-		return fmt.Sprintf("the forge cannot copy the data %s holds (%s), so this release could change it with no copy to go back to; make that data copyable, or release accepting uncopied data (acceptUncopiedData, forge release --accept-uncopied-data)", dep.Name, why), "", nil
+		return fmt.Sprintf("AppTown cannot copy the data %s holds (%s), so this release could change it with no copy to go back to; make that data copyable, or release accepting uncopied data (acceptUncopiedData, forge release --accept-uncopied-data)", dep.Name, why), "", nil
 	}
-	return "", fmt.Sprintf("; released by %s accepting that the forge cannot copy the data %s holds: %s", actor, dep.Name, why), nil
+	return "", fmt.Sprintf("; released by %s accepting that AppTown cannot copy the data %s holds: %s", actor, dep.Name, why), nil
 }

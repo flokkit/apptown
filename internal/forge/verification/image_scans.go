@@ -194,10 +194,10 @@ func (s *Scanners) baseImageFingerprints(ctx context.Context, projectID ids.ID, 
 		if absent {
 			// Said plainly: "no local Docker" reads as a fault to fix,
 			// but it is how this forge runs.
-			b.Note = "no earlier image to compare with, so every finding is treated as introduced by this change: the image of the commit it started from was not available (" + preparation + "), and this forge runs no Docker of its own, so it cannot read the image the app runs now"
+			b.Note = "no earlier image to compare with, so every finding is treated as introduced by this change: the image of the commit it started from was not available (" + preparation + "), and this AppTown runs no Docker of its own, so it cannot read the image the app runs now"
 			return b
 		}
-		b.Note = preparation + "; the serving release image is on the forge's host, not the worker — every finding is treated as introduced"
+		b.Note = preparation + "; the serving release image is on AppTown's host, not the worker — every finding is treated as introduced"
 		return b
 	}
 	if imgID == "" {

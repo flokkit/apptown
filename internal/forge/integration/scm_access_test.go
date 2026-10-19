@@ -388,7 +388,7 @@ func TestAWriteTokenNeedsAProtectedDefaultBranch(t *testing.T) {
 		{"maintainers only", `[` + rule("main", maint, maint) + `]`, true, ""},
 		{"no one pushes, maintainers merge", `[` + rule("main", none, maint) + `]`, true, ""},
 		{"a wildcard for maintainers", `[` + rule("ma*", maint, maint) + `]`, true, ""},
-		{"a full page may hide a rule", `[` + strings.TrimSuffix(strings.Repeat(rule("main", maint, maint)+`,`, protectionRulesRead), `,`) + `]`, false, "more than the forge reads in one page"},
+		{"a full page may hide a rule", `[` + strings.TrimSuffix(strings.Repeat(rule("main", maint, maint)+`,`, protectionRulesRead), `,`) + `]`, false, "more than AppTown reads in one page"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

@@ -17,8 +17,8 @@ import (
 func cmdRelease(args []string) error {
 	fs := newFlags("release")
 	domain := fs.String("domain", "", "intranet only: an extra hostname to serve on (kept for later releases; DNS is managed by the platform)")
-	asJSON := fs.Bool("json", false, "print the release as JSON once the forge accepts it (no following)")
-	acceptUncopied := fs.Bool("accept-uncopied-data", false, "release though the forge cannot copy the data the deployment holds now (the release records your choice): a change this release makes to that data has no copy to go back to")
+	asJSON := fs.Bool("json", false, "print the release as JSON once AppTown accepts it (no following)")
+	acceptUncopied := fs.Bool("accept-uncopied-data", false, "release though AppTown cannot copy the data the deployment holds now (the release records your choice): a change this release makes to that data has no copy to go back to")
 	acceptUnchecked := fs.Bool("accept-unchecked-copy", false, "a deployment's first release that starts from a copy: fill it though an item of the copy was not shown to come back by its last check (the release records your choice)")
 	args = parseArgs(fs, args)
 	if len(args) < 1 || len(args) > 2 {

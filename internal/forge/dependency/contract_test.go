@@ -76,7 +76,7 @@ func TestAContractsNeedsAreRefusedAsDeclared(t *testing.T) {
 		{name: "the alternative alone", needs: []string{"pg-alt"}},
 		{name: "a parameter of its own", needs: []string{"postgres"}, params: map[string]map[string]string{"postgres": {"database": "ledger", "user": "keeper"}}},
 		{name: "both alternatives", needs: []string{"postgres", "pg-alt"}, want: "DATABASE_URL is given by postgres and pg-alt"},
-		{name: "a password", needs: []string{"postgres"}, params: map[string]map[string]string{"postgres": {"password": "sourdough"}}, want: "the forge sets the password of the postgres need"},
+		{name: "a password", needs: []string{"postgres"}, params: map[string]map[string]string{"postgres": {"password": "sourdough"}}, want: "AppTown sets the password of the postgres need"},
 		{name: "a mariadb password", needs: []string{"mariadb"}, params: map[string]map[string]string{"mariadb": {"password": "x"}}, want: "remove password from needs.mariadb"},
 		{name: "error reporting", needs: []string{"errors"}, want: "errors is an integration, not a need"},
 		// Withdrawn before 1.0 (sso and telemetry): attached integrations

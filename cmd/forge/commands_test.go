@@ -151,7 +151,7 @@ func TestBadIDsFailBeforeAnythingIsSent(t *testing.T) {
 		}
 	}
 	if len(*seen) != 0 {
-		t.Fatalf("bad ids reached the forge: %+v", *seen)
+		t.Fatalf("bad ids reached AppTown: %+v", *seen)
 	}
 }
 
@@ -575,7 +575,7 @@ func TestLoopWaitsForTheLandingTheForgeQueued(t *testing.T) {
 	})
 	for _, r := range *seen {
 		if r.Method == "POST" {
-			t.Fatalf("the loop sent %s %s while the forge's landing was queued", r.Method, r.Path)
+			t.Fatalf("the loop sent %s %s while AppTown's landing was queued", r.Method, r.Path)
 		}
 	}
 	if !followed {
@@ -791,7 +791,7 @@ func TestWhatIfJudgesAVersionOnNamedProjects(t *testing.T) {
 		case method == "POST" && path == "/conformance/what-if":
 			return 202, `{"id":"00000000-0009-7000-8000-000000000000"}`
 		case path == "/conformance/what-if/00000000-0009-7000-8000-000000000000":
-			return 200, `{"state":"` + state + `","detail":"the forge restarted","projectsDone":` + strconv.Itoa(done) + `,"projectsTotal":2,"rows":[
+			return 200, `{"state":"` + state + `","detail":"AppTown restarted","projectsDone":` + strconv.Itoa(done) + `,"projectsTotal":2,"rows":[
 				{"projectSlug":"hello-rust","block":"lang/selection/rust","check":"runtime-stage-not-build-image","result":"would-fail","detail":"the final stage runs FROM rust:1.84.1"},
 				{"projectSlug":"shop","block":"lang/selection/rust","check":"runtime-stage-not-build-image","result":"unchanged"},
 				{"projectSlug":"shop","block":"build/container-image","check":"dockerfile-lint","result":"not-assessed","reason":"no-image","detail":"the app ships none"},
@@ -812,7 +812,7 @@ func TestWhatIfJudgesAVersionOnNamedProjects(t *testing.T) {
 	}
 	state, done = "interrupted", 1
 	out, err = run(t, "whatif", "rust-service", "7", "-p", "hello-rust,shop")
-	if err == nil || !strings.Contains(err.Error(), "ended interrupted — the forge restarted") ||
+	if err == nil || !strings.Contains(err.Error(), "ended interrupted — AppTown restarted") ||
 		!strings.Contains(out, "partial: 1 of 2 projects judged") || strings.Contains(out, "✓") {
 		t.Fatalf("an interrupted what-if: %v\n%s", err, out)
 	}
@@ -989,7 +989,7 @@ func TestWhatIfAdoptOpensAChangePerNamedProject(t *testing.T) {
 		if r.Method == "POST" {
 			asked = append(asked, r.Path)
 			if r.Body["fromWhatIf"] != "00000000-0007-7000-8000-000000000000" || r.Body["viaChange"] != true || len(r.Body) != 2 {
-				t.Fatalf("the forge was asked with more than the what-if: %+v", r.Body)
+				t.Fatalf("AppTown was asked with more than the what-if: %+v", r.Body)
 			}
 		}
 	}

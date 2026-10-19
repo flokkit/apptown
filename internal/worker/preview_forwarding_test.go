@@ -108,7 +108,7 @@ func TestAWorkerPreviewSeesTheVisitorsRequestThroughBothHops(t *testing.T) {
 		t.Fatalf("the app saw %q %q %q", s.Host, s.Path, s.Query)
 	}
 	if s.Header.Get("X-Forwarded-For") != "127.0.0.1" || s.Header.Get("X-Forwarded-Host") != "change-7.preview.example" || s.Header.Get("X-Forwarded-Proto") != "https" {
-		t.Fatalf("forwarding headers the forge did not set reached the app: %v", s.Header)
+		t.Fatalf("forwarding headers AppTown did not set reached the app: %v", s.Header)
 	}
 	if s.Header.Get("Cookie") != "session=1" || s.Header.Get("Authorization") != "Bearer app-token" {
 		t.Fatalf("the app's own headers did not pass: %v", s.Header)

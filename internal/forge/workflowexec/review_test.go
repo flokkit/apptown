@@ -228,8 +228,8 @@ func TestTheForgesFileCheckFailureIsNotPresentedAsTheReviewers(t *testing.T) {
 		verdict, wantReason string
 		reviewerSummary     any
 	}{
-		{`{"verdict":"pass","summary":"says hello as asked","findings":[]}`, "the forge's file check failed: 1 changed file the report doesn't mention", "says hello as asked"},
-		{`{"verdict":"fail","summary":"the greeting is wrong","findings":["wrong word"]}`, "reviewer rejected: the greeting is wrong; the forge's file check also failed: 1 changed file the report doesn't mention", nil},
+		{`{"verdict":"pass","summary":"says hello as asked","findings":[]}`, "AppTown's file check failed: 1 changed file the report doesn't mention", "says hello as asked"},
+		{`{"verdict":"fail","summary":"the greeting is wrong","findings":["wrong word"]}`, "reviewer rejected: the greeting is wrong; AppTown's file check also failed: 1 changed file the report doesn't mention", nil},
 	} {
 		work, ctx, stepIDs, run, _ := reviewFixtureSteps(t, []schema.Step{{Name: "review", Uses: ReviewKind, With: map[string]any{"of": "change-report"}}},
 			func(req execution.Request) execution.Outcome { return reviewFile(t, req, c.verdict) },

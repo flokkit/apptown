@@ -236,7 +236,7 @@ func TestATakeDownIsStampedByTheForgesClock(t *testing.T) {
 	}
 	resources, err := s.Retained.ForProject(context.Background(), dep.ProjectID)
 	if err != nil || len(resources) != 1 || !resources[0].RetainedAt.Time.Equal(at) {
-		t.Fatalf("retained %+v %v, want it at the forge's %v", resources, err, at)
+		t.Fatalf("retained %+v %v, want it at AppTown's %v", resources, err, at)
 	}
 	lines, err := audit.Recent(context.Background(), s.db, audit.Filter{KindPrefix: "deployment.torn-down", Limit: 1})
 	if err != nil || len(lines) != 1 || lines[0].At != at.Format(time.RFC3339) {

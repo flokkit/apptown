@@ -813,7 +813,7 @@ func TestAPreviewBootRefusesTheNeedsAReleaseRefuses(t *testing.T) {
 	}
 	_, err = w.s.env.PrepareBoot(t.Context(), w.project, "p", "preview", t.TempDir(), c, nil)
 	var boot *docker.BootError
-	if !errors.As(err, &boot) || boot.Phase != docker.PhaseResolve || !strings.Contains(err.Error(), "the forge sets the password of the postgres need") {
+	if !errors.As(err, &boot) || boot.Phase != docker.PhaseResolve || !strings.Contains(err.Error(), "AppTown sets the password of the postgres need") {
 		t.Fatalf("a preview boot with a password parameter: %v", err)
 	}
 }

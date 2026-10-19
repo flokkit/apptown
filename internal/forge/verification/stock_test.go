@@ -289,7 +289,7 @@ func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 		{"no contract", "", true},
 		{"nothing served", "app:\n  worker:\n    build: .\n", true},
 		{"served, no readiness", "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n", false},
-		{"static part: the forge's file server, nothing to declare", "app:\n  web:\n    static: site\n    public: true\n", true},
+		{"static part: AppTown's file server, nothing to declare", "app:\n  web:\n    static: site\n    public: true\n", true},
 		{"static front, built api without readiness", "app:\n  site:\n    static: web\n    public: true\n  api:\n    build: .\n    ports: [\"8080\"]\n", false},
 		{"every built part declares", "app:\n    api:\n        build: .\n        ports: [\"8080\"]\n        health: { readiness: { http: /healthz } }\n    site:\n        static: web\n        public: true\nneeds:\n  postgres: { version: \"16\" }\n", true},
 		{"block style", "app:\n  web:\n    ports: [\"8080\"]\n    health:\n      readiness:\n        http: /healthz\n", true},

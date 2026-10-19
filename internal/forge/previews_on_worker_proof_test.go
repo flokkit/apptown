@@ -83,7 +83,7 @@ func proofWorld(t *testing.T) (*App, *fakeDocker, *fakePreviewWorker, *workflow.
 	a := workAuthorityFixture(t, withPreviewWorker(t, fake, Config{DockerClient: local, DockerProbe: &docker.Probe{Settle: 1},
 		TierDomains: []string{"preview=preview.example.com"}}))
 	if !a.Preview.PreviewsOnWorker() {
-		t.Fatal("a forge composed with a worker keeps its previews on this machine")
+		t.Fatal("an AppTown composed with a worker keeps its previews on this machine")
 	}
 	ch, err := a.Work.Create(asPerson("owner"), workflow.ChangeDraft{ProjectID: idstest.N(1), Title: "The proof"})
 	if err != nil {

@@ -454,7 +454,7 @@ func (s *Service) planOf(ctx context.Context, evalID, armID ids.ID) (armPlan, er
 // as why, never as a comparison with nothing in it.
 func (s *Service) compare(ctx context.Context, e evalssql.Eval, a Arm, arms []Arm) (*verification.ArmCompared, string) {
 	if s.deps.Comparer == nil {
-		return nil, "this forge does not compare arms"
+		return nil, "this AppTown does not compare arms"
 	}
 	plan, err := s.planOf(ctx, e.ID, a.ID)
 	if err != nil {

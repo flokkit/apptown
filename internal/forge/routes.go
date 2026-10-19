@@ -367,7 +367,7 @@ func formerID(ctx context.Context, db database.Queryer, kind, old string) (ids.I
 	}
 	forge, err := ids.Parse(value)
 	if err != nil || forge.IsZero() {
-		return ids.Nil, fault.New(fault.NotFound, "this forge kept no identities from before 1.0")
+		return ids.Nil, fault.New(fault.NotFound, "this AppTown kept no identities from before 1.0")
 	}
 	return audit.FormerID(ctx, db, forge, kind, old)
 }

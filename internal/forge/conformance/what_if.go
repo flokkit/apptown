@@ -126,7 +126,7 @@ func (u NotAssessed) Words() string {
 	case NotAssessedJudgesAChange:
 		return "judges a change, not a commit; an eval judges it on re-run work"
 	case NotAssessedNoEvaluator:
-		return "the forge has no evaluator for this check"
+		return "AppTown has no evaluator for this check"
 	case NotAssessedNoMain:
 		return "no committed main to read"
 	case NotAssessedNotAdoptable:
@@ -364,7 +364,7 @@ func (r *WhatIfRun) Finish(ctx context.Context, walkErr error) error {
 	state, detail := WhatIfDone, ""
 	switch {
 	case errors.Is(walkErr, ErrInterrupted):
-		state, detail = WhatIfInterrupted, "the forge stopped this what-if before it finished; projects it did not reach were not evaluated"
+		state, detail = WhatIfInterrupted, "AppTown stopped this what-if before it finished; projects it did not reach were not evaluated"
 	case walkErr != nil:
 		state, detail = WhatIfError, walkErr.Error()
 	}
@@ -460,7 +460,7 @@ func whatIfWithRows(ctx context.Context, db database.Queryer, r conformancesql.W
 // delivers a queued one finds it ended. The caller owns the commit. at is
 // the forge's clock, which stamps their ends.
 func RepairInterruptedWhatIfs(ctx context.Context, tx *database.Tx, at time.Time) (int64, error) {
-	return queries(tx).InterruptUnfinishedWhatIfs(ctx, conformancesql.InterruptUnfinishedWhatIfsParams{Detail: "the forge restarted before this what-if finished; projects it did not reach were not evaluated", At: at.UTC()})
+	return queries(tx).InterruptUnfinishedWhatIfs(ctx, conformancesql.InterruptUnfinishedWhatIfsParams{Detail: "AppTown restarted before this what-if finished; projects it did not reach were not evaluated", At: at.UTC()})
 }
 
 // RubricSpend is a what-if's rubric spend so far and its limit, read

@@ -25,7 +25,7 @@ type workCommands struct {
 func NewWorkCommands(deps WorkCommandsDependencies) []Tool {
 	h := workCommands{scope: deps.Scope, work: deps.Work, actions: deps.Actions, db: deps.DB}
 	return []Tool{{Name: "request_change_landing",
-		order: 14, Description: "Hands an in-progress Change off for approval: freezes its current revision and starts the landing attempt (gates, then the project's approvers). " + "You cannot approve or land it yourself; the person does that in the Forge.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("work_commands.requestChangeLanding", h.requestChangeLanding)}, {Name: "send_change_back",
+		order: 14, Description: "Hands an in-progress Change off for approval: freezes its current revision and starts the landing attempt (gates, then the project's approvers). " + "You cannot approve or land it yourself; the person does that in AppTown.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("work_commands.requestChangeLanding", h.requestChangeLanding)}, {Name: "send_change_back",
 		order: 15, Description: "Sends a Change back to the agent that worked on it with a note saying what to change. The agent continues from where it was.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id."), "note": schemaString("What to change, in plain words — this is what the agent works from.")}, "id", "note"),
 		command: ownerCommand("work_commands.sendChangeBack", h.sendChangeBack),
 	},

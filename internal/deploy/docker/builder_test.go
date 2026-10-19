@@ -47,7 +47,7 @@ func TestABuildNamesTheSelectedDaemonsOwnBuilder(t *testing.T) {
 	}
 	own := &fakeClient{reply: answer("docker", true)}
 	if _, err := (Scope{Client: own}).Build(context.Background(), "-t", "x", "ctx"); err != nil || strings.Join(builds(own), "|") != "build --builder desktop-linux -t x ctx" {
-		t.Fatalf("the forge's own daemon: %q %v", builds(own), err)
+		t.Fatalf("AppTown's own daemon: %q %v", builds(own), err)
 	}
 	remote := &fakeClient{reply: answer("remote", true)}
 	if _, err := (Scope{Client: remote}).Build(context.Background(), "-t", "x", "ctx"); err == nil || !strings.Contains(err.Error(), `its driver is "remote"`) || len(builds(remote)) != 0 {

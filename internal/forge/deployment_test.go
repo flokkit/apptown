@@ -134,7 +134,7 @@ func TestNoLocalDockerLandingNeedsAnAttachedDockerHost(t *testing.T) {
 			a, f := bootWorld(t, Config{NoLocalDocker: true, Worker: workerClientConfig(t, workertest.NewCA(t), "https://worker.invalid")})
 			a.SeedTargets(t.Context())
 			if _, err := a.Deployment.Targets.ByName(context.Background(), deployment.BuiltInTargetName); err == nil {
-				t.Fatal("a forge with no local Docker has no built-in host")
+				t.Fatal("an AppTown with no local Docker has no built-in host")
 			}
 			want := "no attached Docker host is offered to p for it; offer one to the project"
 			var before *deployment.Deployment

@@ -37,6 +37,6 @@ func TestTheForgesDisksAreEachTheirOwnReading(t *testing.T) {
 		t.Fatalf("a worker that did not answer: %+v", down)
 	}
 	if alone := (Disks{DataDir: dir}).Read(t.Context()); len(alone) != 1 {
-		t.Fatalf("a forge with no worker: %+v", alone)
+		t.Fatalf("an AppTown with no worker: %+v", alone)
 	}
 }

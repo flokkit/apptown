@@ -58,10 +58,10 @@ func TestACrashLoopNoteNamesTheReleasedGeneration(t *testing.T) {
 				t.Fatalf("missing post-release note: %+v", events)
 			}
 			text := events[len(events)-1].Text
-			if failed && (!strings.Contains(text, "stop could not be confirmed") || strings.Contains(text, "Forge stopped")) {
+			if failed && (!strings.Contains(text, "stop could not be confirmed") || strings.Contains(text, "AppTown stopped")) {
 				t.Fatalf("unconfirmed stop claimed success: %s", text)
 			}
-			if !failed && !strings.Contains(text, "Forge stopped its container") {
+			if !failed && !strings.Contains(text, "AppTown stopped its container") {
 				t.Fatalf("confirmed stop: %s", text)
 			}
 			current, err := releases.Events(t.Context(), next.ID)

@@ -139,7 +139,7 @@ func FirstUse(dir, url string, now func() time.Time) (time.Time, error) {
 		err = fmt.Errorf("the record names %s", kept.URL)
 	}
 	if err != nil {
-		return time.Time{}, fmt.Errorf("this forge's first use of the worker at %s: %w", url, err)
+		return time.Time{}, fmt.Errorf("this AppTown's first use of the worker at %s: %w", url, err)
 	}
 	return kept.First, nil
 }
@@ -170,7 +170,7 @@ func RequireCheckWorker(ctx context.Context, client *http.Client, url string, fi
 		return fmt.Errorf("the check worker at %s is not a check worker: it reports the role %q", url, role.Role)
 	}
 	if !role.Since.Before(first) {
-		return fmt.Errorf("the check worker at %s was made a check worker at %s, after this forge first used that address at %s: a machine the forge used before is not a fresh check worker",
+		return fmt.Errorf("the check worker at %s was made a check worker at %s, after this AppTown first used that address at %s: a machine AppTown used before is not a fresh check worker",
 			url, role.Since.Format(time.RFC3339), first.Format(time.RFC3339))
 	}
 	return nil

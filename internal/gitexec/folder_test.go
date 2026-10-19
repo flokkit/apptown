@@ -140,7 +140,7 @@ func TestAForgeCloneIsBroughtForwardAndReset(t *testing.T) {
 	t.Parallel()
 	w := newFolderWorld(t)
 	if err := CheckFolder(t.Context(), w.folder); err != nil {
-		t.Fatalf("the forge's own clone is refused: %v", err)
+		t.Fatalf("AppTown's own clone is refused: %v", err)
 	}
 	if held, err := FolderHolds(context.Background(), w.folder, "work", w.b); err != nil || held {
 		t.Fatalf("a folder at A holds B: %v %v", held, err)
@@ -354,7 +354,7 @@ func TestAStoppedFolderCheckIsNotARefusal(t *testing.T) {
 	stopped, cancel := context.WithCancel(t.Context())
 	cancel()
 	if err := CheckFolder(stopped, w.folder); err == nil || errors.Is(err, ErrFolderRefused) {
-		t.Fatalf("a stopped check of the forge's own clone: %v, want an error that is not a refusal", err)
+		t.Fatalf("a stopped check of AppTown's own clone: %v, want an error that is not a refusal", err)
 	}
 }
 

@@ -32,7 +32,7 @@ func ValidName(name string) error {
 	case strings.Contains(name, " via "):
 		reason = `it contains " via ", which names someone acting through something`
 	case SystemActor(name):
-		reason = "it is one of the forge's own names"
+		reason = "it is one of AppTown's own names"
 	default:
 		return nil
 	}

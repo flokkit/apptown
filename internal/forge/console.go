@@ -65,7 +65,7 @@ var consoleCarveOuts = []consoleCarveOut{
 	{regexp.MustCompile(`^/api/v1/changes/[0-9a-f-]{36}/check$`), "forge check -c <change>",
 		"run a change's declared checks against its committed tree", ""},
 	{regexp.MustCompile(`^/api/v1/complaints$`), "forge complain",
-		"file a complaint about the forge itself", ""},
+		"file a complaint about AppTown itself", ""},
 	{regexp.MustCompile(`^/api/v1/config/validate$`), "forge config validate",
 		"check a contract file (writes nothing)", ""},
 	{regexp.MustCompile(`^/api/v1/dev-compose$`), "forge dev / forge dev up",
@@ -139,7 +139,7 @@ func GETOnly(h http.Handler) http.Handler {
 func ReadOnly(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			writeErr(w, http.StatusMethodNotAllowed, "this forge is running in verify-only mode: reads only until the move is accepted")
+			writeErr(w, http.StatusMethodNotAllowed, "this AppTown is running in verify-only mode: reads only until the move is accepted")
 			return
 		}
 		h.ServeHTTP(w, r)

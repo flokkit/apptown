@@ -571,8 +571,8 @@ func TestLinksOutsideInternalSignInSayWhereToGo(t *testing.T) {
 	testAdministrator(t, a, "boss")
 	h := a.Handler()
 	for path, want := range map[string]string{
-		"/api/v1/password-links": "Password reset links need Forge's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.",
-		"/api/v1/invites":        "Invites need Forge's own sign-in (--auth internal); with single sign-on, add people in your identity provider.",
+		"/api/v1/password-links": "Password reset links need AppTown's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.",
+		"/api/v1/invites":        "Invites need AppTown's own sign-in (--auth internal); with single sign-on, add people in your identity provider.",
 	} {
 		req := httptest.NewRequest("POST", path, strings.NewReader(`{"username":"kim"}`))
 		req.Header.Set("X-Forge-Proxy-Secret", "hush")
@@ -726,10 +726,10 @@ func TestTheFirstAccountNeedsTheSetupToken(t *testing.T) {
 		t.Fatalf("a second first account: %d", w.Code)
 	}
 	if again, err := a.Access.EnsureSetupToken(t.Context()); err != nil || again != "" {
-		t.Fatalf("a forge with an account made a token: %q %v", again, err)
+		t.Fatalf("an AppTown with an account made a token: %q %v", again, err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatal("a forge with an account wrote a token file")
+		t.Fatal("an AppTown with an account wrote a token file")
 	}
 }
 

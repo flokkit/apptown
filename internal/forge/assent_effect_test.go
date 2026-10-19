@@ -116,7 +116,7 @@ func TestARemediationRunDoesNotDeployWithoutAPerson(t *testing.T) {
 	}
 	a.Work.Wait()
 	if deployed {
-		t.Fatal("the forge's own remediation deployed with no person")
+		t.Fatal("AppTown's own remediation deployed with no person")
 	}
 	requireStepWaitingOnAPerson(t, a, run.ID, "deploy")
 }

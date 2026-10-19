@@ -334,12 +334,12 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 		return out, s.dockerProtection(ctx, out, dep, t, store != nil)
 	case t.DataAccess() != deployment.DataOnManagedPlatform:
 		out.Note = "copies of this deployment's data are on the Backups page"
-		out.Coverage.NotAssessed = append(out.Coverage.NotAssessed, "the deployment's own data: the forge does not read what a deployment on "+t.Kind+" holds")
+		out.Coverage.NotAssessed = append(out.Coverage.NotAssessed, "the deployment's own data: AppTown does not read what a deployment on "+t.Kind+" holds")
 		return out, nil
 	case store == nil && dep.DataClass == "production":
 		out.Note = "not protected off-host: no backup store is attached"
 	case store == nil:
-		out.Note = "no backup store is attached, so the forge keeps no copies of this data"
+		out.Note = "no backup store is attached, so AppTown keeps no copies of this data"
 	case t.CopyRunner() == "":
 		// Operations says why, and what an administrator does about it.
 	default:

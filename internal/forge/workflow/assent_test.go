@@ -117,7 +117,7 @@ func TestOnlyAPersonsApprovalIsAssent(t *testing.T) {
 	}{
 		{"a person's approval", step(StatusPass, "bls", ""), true},
 		{"a person's override", step(StatusPass, "", "bls"), true},
-		{"the forge itself", step(StatusPass, "forge-system", ""), false},
+		{"AppTown itself", step(StatusPass, "forge-system", ""), false},
 		{"a step run", step(StatusPass, "run/3", ""), false},
 		{"a chat", step(StatusPass, "bls via console/x", ""), false},
 		{"pending", step(StatusPending, "bls", ""), false},

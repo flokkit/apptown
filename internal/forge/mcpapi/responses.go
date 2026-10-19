@@ -72,7 +72,7 @@ func mcpWaiting(d *workflow.RunSnapshot) map[string]any {
 		}
 		switch {
 		case s.Status == workflow.StatusRunning:
-			who := "the forge"
+			who := "AppTown"
 			if s.Type == "agent/pi" {
 				who = "an agent"
 			}
@@ -91,9 +91,9 @@ func mcpWaiting(d *workflow.RunSnapshot) map[string]any {
 	case workflow.ActivityWaiting:
 		return map[string]any{"on": "a person", "why": why}
 	case "":
-		return map[string]any{"on": "not known", "why": "the forge did not say what the run is doing"}
+		return map[string]any{"on": "not known", "why": "AppTown did not say what the run is doing"}
 	}
-	return map[string]any{"on": "the forge", "why": why}
+	return map[string]any{"on": "AppTown", "why": why}
 }
 func mcpStepOf(s *workflow.Step) mcpStep {
 	return mcpStep{ID: s.ID, Stage: s.Stage, Name: s.Name, Type: s.Type, Status: s.Status,

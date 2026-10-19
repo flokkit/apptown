@@ -283,7 +283,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	}
 	for _, r := range all {
 		if r.Need == "image repository" {
-			t.Fatalf("the forge's repository was retained: %+v", r)
+			t.Fatalf("AppTown's repository was retained: %+v", r)
 		}
 	}
 }

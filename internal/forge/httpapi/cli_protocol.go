@@ -18,7 +18,7 @@ func CLIProtocol(next http.Handler) http.Handler {
 		if h := r.Header.Get(version.CLIProtocolHeader); h != "" {
 			n, err := strconv.Atoi(h)
 			if err != nil || n < version.CLIProtocolMin || n > version.CLIProtocolMax {
-				WriteError(w, http.StatusUpgradeRequired, "this forge (%s) accepts CLI protocols %d to %d; this CLI speaks %q: use the forge CLI from the same release as the forge",
+				WriteError(w, http.StatusUpgradeRequired, "this AppTown (%s) accepts CLI protocols %d to %d; this CLI speaks %q: use the CLI from the same release as AppTown",
 					v, version.CLIProtocolMin, version.CLIProtocolMax, h)
 				return
 			}

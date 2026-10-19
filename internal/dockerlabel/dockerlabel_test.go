@@ -19,7 +19,7 @@ var notLabels = map[string]string{
 	"forge.example":    "an example hostname in help and errors",
 	"forge.local":      "a hostname",
 	"forge.flokkit.io": "a hostname",
-	"forge.id":         "the forge's identity setting",
+	"forge.id":         "AppTown's identity setting",
 	"forge.operation":  "the job queue's kind for an operation",
 }
 

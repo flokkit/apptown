@@ -128,7 +128,7 @@ func (h Complaints) ComplaintSteering(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, ComplaintSteeringText{
 		Step:    h.stepSteering,
 		Console: h.consoleSteering,
-		Note: "Fixed platform text, compiled into the forge (not editable guidance — a project must not be able to silence its own agents). " +
+		Note: "Fixed platform text, compiled into AppTown (not editable guidance — a project must not be able to silence its own agents). " +
 			"Every step's full steering, this included, is archived on its run as a receipt.",
 	})
 }

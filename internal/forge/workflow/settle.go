@@ -49,7 +49,7 @@ func (s Settlement) Retry(ctx context.Context, settle func() error) error {
 
 // ErrShuttingDown is Settle's answer to a verdict other than a pass while
 // the forge stops: nothing was recorded, and the step stays running.
-var ErrShuttingDown = errors.New("the forge is stopping: the step's outcome is not recorded, and startup repair takes the step up")
+var ErrShuttingDown = errors.New("AppTown is stopping: the step's outcome is not recorded, and startup repair takes the step up")
 
 // Settle records outcome as Finish does, trying a failed write again within
 // the default Settlement bound, so one transient database failure does not

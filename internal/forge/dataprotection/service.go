@@ -86,7 +86,7 @@ func (s *core) manifest(ctx context.Context, b Backup) ([]byte, error) {
 	if b.Store != StoreBackupStore {
 		rel, err := filepath.Rel(filepath.Join(s.dataDir, "backups"), b.Path)
 		if err != nil || strings.HasPrefix(rel, "..") {
-			return nil, fmt.Errorf("set %s is not under the forge's backups: %s", b.ID, b.Path)
+			return nil, fmt.Errorf("set %s is not under AppTown's backups: %s", b.ID, b.Path)
 		}
 		path = filepath.ToSlash(rel)
 	}

@@ -130,7 +130,7 @@ func TestRebuildJobGuardsTheTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	receipt, err := deploymentJobsForTest(a).Rebuild(context.Background(), p.Slug+"/cloud", nil)
-	if err != nil || receipt["skipped"] != "not on a Docker host the forge talks to" {
+	if err != nil || receipt["skipped"] != "not on a Docker host AppTown talks to" {
 		t.Fatalf("a cloud deployment is never rebuilt locally: %v %v", receipt, err)
 	}
 }

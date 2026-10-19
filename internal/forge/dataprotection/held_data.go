@@ -92,7 +92,7 @@ func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *depl
 	case managedProvider(t) != "":
 		return s.heldManaged(ctx, dep, t)
 	}
-	return heldItems{}, fmt.Errorf("the forge copies no data of deployments on %s", t.Name)
+	return heldItems{}, fmt.Errorf("AppTown copies no data of deployments on %s", t.Name)
 }
 
 // heldOnHost plans a copy of each data volume a deployment on a Docker host

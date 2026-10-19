@@ -187,17 +187,17 @@ func TestAFullDOCRRegistryRefusesANewProjectBeforeAnythingIsMade(t *testing.T) {
 			}
 		}
 	})
-	t.Run("full, project's repository there but not the forge's", func(t *testing.T) {
+	t.Run("full, project's repository there but not AppTown's", func(t *testing.T) {
 		t.Parallel()
 		rel, log, state := release(t, func(f *dofake.API) { f.SeedRegistry("forge-test", "basic", 5, "a", "b", "c", "d", "expense") })
-		if rel.State != ReleaseFailed || !strings.Contains(log, "already has a repository named expense that the forge did not create") {
+		if rel.State != ReleaseFailed || !strings.Contains(log, "already has a repository named expense that AppTown did not create") {
 			t.Fatalf("release %s:\n%s", rel.State, log)
 		}
 		if len(state.Databases) != 0 || len(state.Apps) != 0 {
 			t.Fatalf("a refused release made %d databases, %d apps", len(state.Databases), len(state.Apps))
 		}
 	})
-	t.Run("full, the forge's repository there", func(t *testing.T) {
+	t.Run("full, AppTown's repository there", func(t *testing.T) {
 		t.Parallel()
 		w := newDOCRWorld(t)
 		w.api.SeedRegistry("forge-test", "basic", 5, "a", "b", "c", "d")
@@ -268,7 +268,7 @@ func TestTheTargetsCheckReadsTheRegistrysPlan(t *testing.T) {
 		"room": {func(f *dofake.API) { f.SeedRegistry("forge-test", "basic", 5, "a", "b") },
 			RegistryReading{Registry: "forge-test", Tier: "basic", Included: 5, Used: 2}, "container registry forge-test: 2 of 5 repositories used, basic tier"},
 		"gate": {func(f *dofake.API) { f.SeedRegistry("forge-test", "basic", 5, "a", digitalocean.GateRepository) },
-			RegistryReading{Registry: "forge-test", Tier: "basic", Included: 5, Used: 2, Gate: true}, "2 of 5 repositories used, basic tier (one holds the forge's gate image, forge_gate)"},
+			RegistryReading{Registry: "forge-test", Tier: "basic", Included: 5, Used: 2, Gate: true}, "2 of 5 repositories used, basic tier (one holds AppTown's gate image, forge_gate)"},
 		"unreadable": {func(f *dofake.API) {
 			f.SeedRegistry("forge-test", "basic", 5, "a")
 			f.Fail("GET", "/v2/registry/subscription", 500)

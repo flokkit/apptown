@@ -44,7 +44,7 @@ func TestADerivedValueIsTheOwnersAloneAndTheSameEachTime(t *testing.T) {
 		seen[got] = other[0] + " " + other[1]
 	}
 	if elsewhere := derive(NewVault(testDB(t)), "need:deployment:a", "postgres.password"); elsewhere == first {
-		t.Fatal("another forge, with its own key, derives this forge's value")
+		t.Fatal("another forge, with its own key, derives this AppTown's value")
 	}
 	if values, err := v.Current(t.Context()); err != nil || len(values) != 0 {
 		t.Fatalf("deriving stored something: %d values %v", len(values), err)

@@ -138,7 +138,7 @@ func (w WorkerTasks) Ensure(ctx context.Context, spec TaskSpec) (TaskObservation
 		return TaskObservation{}, err
 	}
 	if spec.Workspace != "" || len(spec.Mounts) > 0 || len(spec.ExtraHosts) > 0 || spec.Network != "" {
-		return TaskObservation{}, fmt.Errorf("%w: a worker shares no files or host routes with the forge", ErrUnsupported)
+		return TaskObservation{}, fmt.Errorf("%w: a worker shares no files or host routes with AppTown", ErrUnsupported)
 	}
 	if err := ValidFiles(spec.Files); err != nil {
 		return TaskObservation{}, err

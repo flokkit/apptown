@@ -184,7 +184,7 @@ func parseWorkflow(src []byte, strict bool) (*Doc, error) {
 			}
 		}
 		if d.APIVersion != "" && d.APIVersion != APIVersion {
-			return nil, fmt.Errorf("apiVersion %q is not one this forge reads (%s)", d.APIVersion, APIVersion)
+			return nil, fmt.Errorf("apiVersion %q is not one this AppTown reads (%s)", d.APIVersion, APIVersion)
 		}
 		if legacyChangeAlias.Match(src) {
 			return nil, fmt.Errorf("${{workItem.*}} is the old name of ${{change.*}}; write change")

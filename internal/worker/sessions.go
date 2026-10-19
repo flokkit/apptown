@@ -330,7 +330,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request) {
 		}
 		if !has {
 			http.Error(w, "this worker does not have the image "+rec.Spec.Image+
-				"; a forge-agent image is built by the worker from its own deploy/forge-agent, so the worker and the forge may be different versions",
+				"; a forge-agent image is built by the worker from its own deploy/forge-agent, so the worker and AppTown may be different versions",
 				http.StatusUnprocessableEntity)
 			return
 		}

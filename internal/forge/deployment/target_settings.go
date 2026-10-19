@@ -44,7 +44,7 @@ var (
 	ErrTargetSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
 	ErrTargetEditEmpty                = fault.New(fault.Invalid, "nothing to change: send domain, persistentVolumes, previews, needsMode, evals, rehearsals or copyRunner")
 	ErrTargetRehearsals               = fault.New(fault.Invalid, "only an attached Docker host can be kept for restore rehearsals, and not one kept for evals")
-	ErrTargetCopyRunner               = fault.New(fault.Invalid, "a copy runner is a Docker host target the forge reaches, named on an App Platform target")
+	ErrTargetCopyRunner               = fault.New(fault.Invalid, "a copy runner is a Docker host target AppTown reaches, named on an App Platform target")
 	ErrTargetEvals                    = fault.New(fault.Invalid, "only an attached Docker host with a domain can be kept for evals: its domain is the eval domain")
 	ErrTargetDomain                   = fault.New(fault.Invalid, "the domain must be a bare hostname, such as apps.example.com")
 	ErrTargetNeedsMode                = fault.New(fault.Invalid, "needsMode must be emulators, managed or register")
@@ -137,7 +137,7 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 			return nil, err
 		}
 		if t.Origin == OriginBuiltIn {
-			return nil, fault.New(fault.Conflict, fmt.Sprintf("%s is this forge's own host; its facts are its own", t.Name))
+			return nil, fault.New(fault.Conflict, fmt.Sprintf("%s is this AppTown's own host; its facts are its own", t.Name))
 		}
 		if err := t.Status.Available(); err != nil {
 			return nil, fault.New(fault.Conflict, fmt.Sprintf("%s is retired", t.Name))

@@ -186,9 +186,9 @@ func TestRecordedMainIsAlwaysAnAncestorOfMain(t *testing.T) {
 		previous = kind
 		switch kind {
 		case "outside":
-			commitIn(t, hub, "outside the forge")
+			commitIn(t, hub, "outside AppTown")
 		default:
-			commitIn(t, hub, "a forge move")
+			commitIn(t, hub, "an AppTown move")
 			record(t, db, hub, id, ViaGenesis)
 		}
 		recorded := recordedMain(t, db, id)
@@ -222,7 +222,7 @@ func TestMainStandingNotes(t *testing.T) {
 		}
 		return s
 	}
-	if s := read(); s.State != "unknown" || s.Note != "the forge has no record of where main stands" {
+	if s := read(); s.State != "unknown" || s.Note != "AppTown has no record of where main stands" {
 		t.Fatalf("unknown: %+v", s)
 	}
 	record(t, db, hub, id, ViaInit)
@@ -232,7 +232,7 @@ func TestMainStandingNotes(t *testing.T) {
 	recorded := recordedMain(t, db, id)
 	commitIn(t, hub, "one")
 	commitIn(t, hub, "two")
-	if s := read(); s.State != "ahead" || s.Ahead != 2 || s.Note != "main is 2 commits ahead of the forge's record at "+strs.ShortSHA(recorded) {
+	if s := read(); s.State != "ahead" || s.Ahead != 2 || s.Note != "main is 2 commits ahead of AppTown's record at "+strs.ShortSHA(recorded) {
 		t.Fatalf("ahead: %+v", s)
 	}
 	for _, claim := range []string{"outside", "by "} {
@@ -277,16 +277,16 @@ func TestMainStandingComparesTheLastFetchedUpstream(t *testing.T) {
 	pushed := commitIn(t, hub, "pushed straight to the upstream")
 	gittest.Run(t, hub, "checkout", "-q", "main")
 	gittest.Run(t, hub, "update-ref", "refs/remotes/origin/main", pushed)
-	if u := upstream(); u.Ahead != 1 || u.Behind != 0 || u.Note != "last fetched upstream has 1 commit the forge's record does not" {
+	if u := upstream(); u.Ahead != 1 || u.Behind != 0 || u.Note != "last fetched upstream has 1 commit AppTown's record does not" {
 		t.Fatalf("upstream ahead: %+v", u)
 	}
-	commitIn(t, hub, "a forge landing")
+	commitIn(t, hub, "an AppTown landing")
 	record(t, db, hub, id, ViaLanding)
-	if u := upstream(); u.Ahead != 1 || u.Behind != 1 || u.Note != "last fetched upstream has 1 commit the forge's record does not and lacks 1 commit of the forge's record" {
+	if u := upstream(); u.Ahead != 1 || u.Behind != 1 || u.Note != "last fetched upstream has 1 commit AppTown's record does not and lacks 1 commit of AppTown's record" {
 		t.Fatalf("diverged: %+v", u)
 	}
 	gittest.Run(t, hub, "update-ref", "refs/remotes/origin/main", base)
-	if u := upstream(); u.Ahead != 0 || u.Behind != 1 || u.Note != "last fetched upstream lacks 1 commit of the forge's record" {
+	if u := upstream(); u.Ahead != 0 || u.Behind != 1 || u.Note != "last fetched upstream lacks 1 commit of AppTown's record" {
 		t.Fatalf("upstream behind: %+v", u)
 	}
 }

@@ -93,7 +93,7 @@ func (s *Service) ObservedMemory(ctx context.Context, d *Deployment) ([]PartMemo
 		return out
 	}
 	if d.Container == "" {
-		return unknown("its target does not report memory use to the forge"), nil
+		return unknown("its target does not report memory use to AppTown"), nil
 	}
 	dk, err := s.hosts.DockerScopeFor(ctx, d.TargetID)
 	if errors.Is(err, ErrNoLocalDocker) || err != nil {

@@ -39,7 +39,7 @@ func linuxForgeCLI(t *testing.T) string {
 	if out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{"go", "build", "-o", cli, "../../cmd/forge"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 2 * time.Minute,
 	}); out.RunErr != nil {
-		t.Fatalf("building the forge CLI: %v: %s", out.RunErr, out.Output)
+		t.Fatalf("building the agents' CLI: %v: %s", out.RunErr, out.Output)
 	}
 	return cli
 }
@@ -97,11 +97,11 @@ func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testi
 		ConsoleCLI: linuxForgeCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
 	api = a.Handler()
 	a.tasks.Poll = 100 * time.Millisecond
-	run, steps := agentWorkerChange(t, a, []schema.Step{{Name: "build", Uses: "agent/pi", With: map[string]any{"prompt": "ask the forge", "executor": "docker"}}},
+	run, steps := agentWorkerChange(t, a, []schema.Step{{Name: "build", Uses: "agent/pi", With: map[string]any{"prompt": "ask AppTown", "executor": "docker"}}},
 		map[string]string{"fake-pi.sh": `
 forge status "$FORGE_RUN_ID" > cli.txt 2>&1; echo "exit $?" >> cli.txt
 FORGE_SESSION_TOKEN=rt_1_1_bogus forge status "$FORGE_RUN_ID" > denied.txt 2>&1; echo "exit $?" >> denied.txt
-say "asked the forge"`})
+say "asked AppTown"`})
 	p, err := a.Projects.BySlug(context.Background(), "agents")
 	if err != nil {
 		t.Fatal(err)

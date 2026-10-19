@@ -122,7 +122,7 @@ func ProposeTaskSource(ctx context.Context, dataDir string, source workflow.Sour
 	out := TaskSource{repo: repo, branch: source.Branch}
 	own, err := gitexec.FolderTip(ctx, wt, source.Branch)
 	if errors.Is(err, gitexec.ErrFolderRefused) {
-		log.Printf("run %d: the forge runs no Git in the run's folder, so the task works from the published branch: %v", source.RunID, err)
+		log.Printf("run %d: AppTown runs no Git in the run's folder, so the task works from the published branch: %v", source.RunID, err)
 		own = ""
 	} else if err != nil {
 		return TaskSource{}, fmt.Errorf("reading the run's folder: %w", err)
@@ -326,7 +326,7 @@ func fastForward(ctx context.Context, who string, folder *gitexec.Folder, repo, 
 	err := folder.FastForward(ctx, repo, branch)
 	switch {
 	case errors.Is(err, gitexec.ErrFolderRefused):
-		log.Printf("%s: the forge runs no Git in the folder, so it stays where it is; the branch holds the published commits: %v", who, err)
+		log.Printf("%s: AppTown runs no Git in the folder, so it stays where it is; the branch holds the published commits: %v", who, err)
 	case err != nil:
 		log.Printf("%s: the folder cannot fast-forward to the published commits; the branch holds them: %v", who, err)
 	}

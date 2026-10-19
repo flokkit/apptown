@@ -102,10 +102,10 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	}
 	mounted := strings.SplitN(launch.Mounts[0], ":", 2)[0]
 	if got, err := os.ReadFile(mounted); err != nil || string(got) != "#!/bin/sh\necho forge\n" {
-		t.Fatalf("the forge binary on the worker: %q %v", got, err)
+		t.Fatalf("the agents' CLI binary on the worker: %q %v", got, err)
 	}
 	if fi, err := os.Stat(mounted); err != nil || fi.Mode()&0o111 == 0 {
-		t.Fatalf("the forge binary is not executable on the worker: %v", err)
+		t.Fatalf("the agents' CLI binary is not executable on the worker: %v", err)
 	}
 	for _, name := range []string{"pi-home/.pi/agent/models.json", console.SteeringFile} {
 		if _, err := os.Stat(filepath.Join(launch.Dir, name)); err != nil {
@@ -116,7 +116,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 		t.Fatalf("the chat's record, with its credential, reached the worker: %v", err)
 	}
 
-	eventually(t, "the message in the forge's copy", func() bool {
+	eventually(t, "the message in AppTown's copy", func() bool {
 		for _, m := range s.Messages() {
 			if strings.Contains(m.Text, "hello there") {
 				return true
@@ -125,12 +125,12 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 		return false
 	})
 	c.runtime.Reply(s.ID, "hi, how can I help")
-	eventually(t, "the reply in the forge's copy", func() bool {
+	eventually(t, "the reply in AppTown's copy", func() bool {
 		msgs := s.Messages()
 		return len(msgs) > 0 && strings.Contains(msgs[len(msgs)-1].Text, "how can I help")
 	})
 	// The copy's time is written after its files, so it can trail the reply.
-	eventually(t, "a time for the forge's copy of the record", func() bool { return !recordAsOf(s.Dir).IsZero() })
+	eventually(t, "a time for AppTown's copy of the record", func() bool { return !recordAsOf(s.Dir).IsZero() })
 
 	if err := c.service.Interrupt(ctx, s.ID); err != nil || !c.runtime.Interrupted(s.ID) {
 		t.Fatalf("interrupt: %v", err)
@@ -215,7 +215,7 @@ func TestAChatWhoseWorkerCannotBeReachedIsUnavailable(t *testing.T) {
 		t.Fatal("a chat ended while its worker could not be reached")
 	}
 	if _, err := c.service.Get(ctx, s.ID); err != nil {
-		t.Fatalf("the chat is gone from the forge: %v", err)
+		t.Fatalf("the chat is gone from AppTown: %v", err)
 	}
 }
 
@@ -278,7 +278,7 @@ func TestAChatsFilesStayInsideItsDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "pi-home", "b")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("a file the forge no longer sends stayed: %v", err)
+		t.Fatalf("a file AppTown no longer sends stayed: %v", err)
 	}
 }
 
@@ -417,7 +417,7 @@ func TestASaveIsTheChatsCommitsSinceItsBase(t *testing.T) {
 	}
 	_, imported, cleanup, err := gitexec.Quarantine(ctx, repo, dest, worker.SaveRef, "change/7", commit)
 	if err != nil || imported != tip {
-		t.Fatalf("the forge's import of the save: %q %v", imported, err)
+		t.Fatalf("AppTown's import of the save: %q %v", imported, err)
 	}
 	cleanup()
 	if _, err := c.agent.Save(ctx, s.ID, "not-a-commit", dest); err == nil {

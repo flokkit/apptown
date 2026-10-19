@@ -33,13 +33,13 @@ type laneCommands struct {
 func NewLaneCommands(deps LaneCommandsDependencies) []Tool {
 	h := laneCommands{scope: deps.Scope, work: deps.Work, adoption: deps.Adoption, db: deps.DB, now: deps.Now}
 	return []Tool{{Name: "create_change",
-		order: 10, Description: "Opens a Change on a project in your name: a title and, in `intent`, what should be done and why. " + "With `lane` (a workflow the project can run, e.g. \"implement\"), the Forge's own agent starts on it at once; without, the Change is open and waiting for work.", InputSchema: schemaObject(map[string]any{"slug": slugArg, "title": schemaString("A short title for the Change, in plain words."), "intent": schemaString("What should be done and why — the brief the agent (or a person) works from."), "lane": schemaString("Optional: a lane to start on it now, e.g. \"implement\" or \"quick-change\" (get_project lists them)."), "type": schemaString("Optional: feature (default), fix, chore.")}, "slug", "title"),
+		order: 10, Description: "Opens a Change on a project in your name: a title and, in `intent`, what should be done and why. " + "With `lane` (a workflow the project can run, e.g. \"implement\"), AppTown's own agent starts on it at once; without, the Change is open and waiting for work.", InputSchema: schemaObject(map[string]any{"slug": slugArg, "title": schemaString("A short title for the Change, in plain words."), "intent": schemaString("What should be done and why — the brief the agent (or a person) works from."), "lane": schemaString("Optional: a lane to start on it now, e.g. \"implement\" or \"quick-change\" (get_project lists them)."), "type": schemaString("Optional: feature (default), fix, chore.")}, "slug", "title"),
 		command: ownerCommand("lane_commands.createChange", h.createChange),
 	},
 		{
 			Name:        "start_change_lane",
 			order:       11,
-			Description: "Starts a lane (a workflow the project can run, e.g. \"implement\") on an open Change: the Forge's own agent works from the Change's brief.",
+			Description: "Starts a lane (a workflow the project can run, e.g. \"implement\") on an open Change: AppTown's own agent works from the Change's brief.",
 			InputSchema: schemaObject(map[string]any{
 				"id":   schemaID("The Change's id."),
 				"lane": schemaString("The lane to start, e.g. \"implement\" (get_project lists them)."),

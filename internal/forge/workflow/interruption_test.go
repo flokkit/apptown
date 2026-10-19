@@ -172,10 +172,10 @@ func TestAStepThatFailsWhileTheForgeStopsIsRunAgainAfterTheRestart(t *testing.T)
 		outcome  StepState
 		want     StepState
 	}{
-		{"error while the forge keeps running", false, StatusError, StatusError},
-		{"error while the forge stops", true, StatusError, StatusRunning},
-		{"failure while the forge stops", true, StatusFail, StatusRunning},
-		{"pass while the forge stops", true, StatusPass, StatusPass},
+		{"error while AppTown keeps running", false, StatusError, StatusError},
+		{"error while AppTown stops", true, StatusError, StatusRunning},
+		{"failure while AppTown stops", true, StatusFail, StatusRunning},
+		{"pass while AppTown stops", true, StatusPass, StatusPass},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

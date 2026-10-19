@@ -121,7 +121,7 @@ func TestStepTokenNamesOnlyTheAttemptItsMACHoldsFor(t *testing.T) {
 	}
 	var keyless RuntimeTokens
 	if _, _, ok := keyless.StepAttempt(keyless.Step(idstest.N(12), 3)); ok {
-		t.Error("a forge without a key recognised a token")
+		t.Error("an AppTown without a key recognised a token")
 	}
 }
 

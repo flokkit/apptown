@@ -43,9 +43,9 @@ func (s *Service) recordHealth(ctx context.Context, w docker.Watched, kind strin
 			}
 			if err == nil {
 				payload["releaseId"], payload["releaseNumber"] = r.ID, r.Number
-				text := fmt.Sprintf("After release: the app crash-looped (%v restarts in %v); Forge stopped its container.", payload["restarts"], payload["window"])
+				text := fmt.Sprintf("After release: the app crash-looped (%v restarts in %v); AppTown stopped its container.", payload["restarts"], payload["window"])
 				if payload["ok"] != true {
-					text = fmt.Sprintf("After release: the app crash-looped (%v restarts in %v); Forge attempted to stop its container, but the stop could not be confirmed: %v", payload["restarts"], payload["window"], payload["detail"])
+					text = fmt.Sprintf("After release: the app crash-looped (%v restarts in %v); AppTown attempted to stop its container, but the stop could not be confirmed: %v", payload["restarts"], payload["window"], payload["detail"])
 				}
 				if _, err := releasesql.New(tx.SQL()).AppendReleaseEvent(ctx, releasesql.AppendReleaseEventParams{ID: ids.New(at), ReleaseID: r.ID, At: at, Text: text}); err != nil {
 					return err

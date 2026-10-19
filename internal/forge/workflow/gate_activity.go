@@ -24,7 +24,7 @@ func judgedByGate(a Activity, stage *schema.Stage, checks []Check, steps []*Step
 	// The check worker's rule too, as advancing and merging apply it.
 	gate, err := evaluateGate(stage, checks, steps, placement)
 	if err != nil {
-		return Activity{State: ActivityBlocked, Detail: "the forge cannot judge this stage: " + err.Error()}
+		return Activity{State: ActivityBlocked, Detail: "AppTown cannot judge this stage: " + err.Error()}
 	}
 	if len(gate.Missing) > 0 {
 		missing := make([]string, 0, len(gate.Missing))
@@ -78,7 +78,7 @@ func judgedByGateInSnapshot(ctx context.Context, q database.Queryer, run *Run, s
 	}
 	_, stage, err := run.currentStage()
 	if err != nil {
-		return Activity{State: ActivityBlocked, Detail: "the forge cannot judge this stage: " + err.Error()}, nil
+		return Activity{State: ActivityBlocked, Detail: "AppTown cannot judge this stage: " + err.Error()}, nil
 	}
 	checks, err := readStageChecks(ctx, q, run.ID, run.CurrentStage)
 	if err != nil {

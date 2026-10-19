@@ -66,7 +66,7 @@ type databaseBackup struct {
 
 func (b databaseBackup) Run(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
 	if !b.enabled {
-		return map[string]any{"skipped": "the forge's database is not the built-in one"}, nil
+		return map[string]any{"skipped": "AppTown's database is not the built-in one"}, nil
 	}
 	if err := b.take(ctx); err != nil {
 		return nil, err

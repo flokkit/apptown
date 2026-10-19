@@ -87,9 +87,9 @@ func confirmCommandWord(verb, body string, mayAsk bool) error {
 		return nil
 	}
 	if !isTTY || !mayAsk {
-		return fmt.Errorf("%q is a forge command: for that, run forge %s …; to ask for a change, describe it in more than one word", body, body)
+		return fmt.Errorf("%q is an AppTown command: for that, run forge %s …; to ask for a change, describe it in more than one word", body, body)
 	}
-	if ans := ask(fmt.Sprintf("%q is also a forge command (forge %s). open a %s change asking just %q? [y/N] ", body, body, verb, body)); !strings.EqualFold(ans, "y") {
+	if ans := ask(fmt.Sprintf("%q is also an AppTown command (forge %s). open a %s change asking just %q? [y/N] ", body, body, verb, body)); !strings.EqualFold(ans, "y") {
 		return fmt.Errorf("nothing opened; for the command, run forge %s …", body)
 	}
 	return nil
@@ -249,7 +249,7 @@ func followChange(changeID, runID ids.ID, slug string, yes bool) error {
 	}
 	// Working run done → offer the landing, when the forge offers one.
 	if _, ok := actOf(cv.Next, "land"); !ok {
-		fmt.Printf("%s the forge offers no landing for change %s now — forge show %s\n", yellow("⏸"), name, name)
+		fmt.Printf("%s AppTown offers no landing for change %s now — forge show %s\n", yellow("⏸"), name, name)
 		return nil
 	}
 	ans := "y"

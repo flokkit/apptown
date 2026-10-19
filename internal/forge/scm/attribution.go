@@ -86,7 +86,7 @@ type AttributedCheck struct {
 // no line the forge writes starts with "/", so no quick action runs.
 func MergeRequestDescription(a Attribution, changeURL string) string {
 	var b strings.Builder
-	b.WriteString("**Forge change")
+	b.WriteString("**AppTown change")
 	if a.ChangeNumber > 0 {
 		fmt.Fprintf(&b, " %d", a.ChangeNumber)
 	}
@@ -98,22 +98,22 @@ func MergeRequestDescription(a Attribution, changeURL string) string {
 	if block := codeBlock(inert(strings.TrimSpace(a.Title + "\n\n" + a.Body))); block != "" {
 		b.WriteString(block + "\n\n")
 	}
-	where := "on the forge's change page"
+	where := "on AppTown's change page"
 	if changeURL != "" {
 		where = changeURL
 	}
 	if a.Candidate == "" {
-		b.WriteString("Waiting for approval in Forge. Checks, approvals and the full change record: " + where + "\n")
+		b.WriteString("Waiting for approval in AppTown. Checks, approvals and the full change record: " + where + "\n")
 		return b.String()
 	}
 	commit := codeSpan(strs.ShortSHA(a.Candidate))
-	fmt.Fprintf(&b, "**Approvals recorded by Forge for commit %s**\n\n", commit)
+	fmt.Fprintf(&b, "**Approvals recorded by AppTown for commit %s**\n\n", commit)
 	if len(a.Approvals) == 0 {
 		b.WriteString("- None.\n")
 	}
 	for _, v := range a.Approvals {
 		if v.Eval != "" {
-			fmt.Fprintf(&b, "- Step %s: settled by Forge eval %s; no person approved it.\n", codeSpan(inert(v.Step)), codeSpan(inert(v.Eval)))
+			fmt.Fprintf(&b, "- Step %s: settled by AppTown eval %s; no person approved it.\n", codeSpan(inert(v.Step)), codeSpan(inert(v.Eval)))
 			continue
 		}
 		fmt.Fprintf(&b, "- Step %s: approved by %s at %s", codeSpan(inert(v.Step)), publicName(v.By, true), when(v.At))
@@ -134,7 +134,7 @@ func MergeRequestDescription(a Attribution, changeURL string) string {
 		b.WriteString("Landing started by " + publicName(a.LandingAuthority, true) + ", who held landing authority on this change when the run was admitted.\n\n")
 	}
 	if a.EvalAuthority != "" {
-		b.WriteString("Landing admitted by the authority of Forge eval " + codeSpan(inert(a.EvalAuthority)) + ", in its copy of the project.\n\n")
+		b.WriteString("Landing admitted by the authority of AppTown eval " + codeSpan(inert(a.EvalAuthority)) + ", in its copy of the project.\n\n")
 	}
 	if len(a.Overrides) > 0 {
 		b.WriteString("**Overrides**\n\n")
@@ -148,9 +148,9 @@ func MergeRequestDescription(a Attribution, changeURL string) string {
 		b.WriteString("- None.\n")
 	}
 	for _, c := range a.Checks {
-		fmt.Fprintf(&b, "- %s: %s (Forge step %d, attempt %d)\n", codeSpan(inert(c.Step)), oneLine(c.Result), c.StepID, c.Attempt)
+		fmt.Fprintf(&b, "- %s: %s (AppTown step %d, attempt %d)\n", codeSpan(inert(c.Step)), oneLine(c.Result), c.StepID, c.Attempt)
 	}
-	b.WriteString("\nForge merges this request with its GitLab account on these approvals. Checks, approvals and the full change record: " + where + "\n")
+	b.WriteString("\nAppTown merges this request with its GitLab account on these approvals. Checks, approvals and the full change record: " + where + "\n")
 	return b.String()
 }
 
@@ -213,7 +213,7 @@ func mergeMessage(source Source, operation, changeURL string) string {
 // withheld stands for an account name that looks like an email address.
 // Single sign-on names usually are one, and no such name goes on a public
 // page; the change page keeps it for those who may read it.
-const withheld = "a Forge account (name withheld)"
+const withheld = "an AppTown account (name withheld)"
 
 // publicName is how a receipt name appears on GitLab: the forge itself as
 // "Forge", a run or eval by number, a person by account name (in a code span
@@ -226,11 +226,11 @@ func publicName(receipt string, code bool) string {
 	case name == "":
 		return "nobody recorded"
 	case name == "forge-system" || name == "system":
-		shown = "Forge"
+		shown = "AppTown"
 	case strings.HasPrefix(name, "run/") && recordID(name[4:]):
-		shown = "Forge run " + name[4:]
+		shown = "AppTown run " + name[4:]
 	case strings.HasPrefix(name, "eval/") && recordID(name[5:]):
-		shown = "Forge eval " + name[5:]
+		shown = "AppTown eval " + name[5:]
 	case strings.Contains(name, "@"):
 		shown = withheld
 	case code:
@@ -293,7 +293,7 @@ func declaredApprover(expression string) string {
 		return codeSpan(inert(expression))
 	}
 	if strings.HasPrefix(expression, "group:") {
-		return "a Forge group (name withheld)"
+		return "an AppTown group (name withheld)"
 	}
 	return withheld
 }

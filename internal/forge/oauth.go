@@ -40,7 +40,7 @@ func (a *App) handleOAuthProtectedResource(w http.ResponseWriter, r *http.Reques
 		"authorization_servers":    []string{base},
 		"scopes_supported":         access.ScopeNames(),
 		"bearer_methods_supported": []string{"header"},
-		"resource_name":            "Forge user MCP",
+		"resource_name":            "AppTown user MCP",
 	})
 }
 
@@ -68,7 +68,7 @@ func (a *App) handleOAuthServerMetadata(w http.ResponseWriter, r *http.Request) 
 // desktop agents use; https is fine too. http to a non-loopback host is not.
 func (a *App) handleOAuthRegister(w http.ResponseWriter, r *http.Request) {
 	if a.authModeName() == "open" {
-		oauthError(w, 400, "invalid_request", "this forge runs in open mode; connecting an agent needs internal auth or SSO (design/subsystems/mcp.md §3)")
+		oauthError(w, 400, "invalid_request", "this AppTown runs in open mode; connecting an agent needs internal auth or SSO (design/subsystems/mcp.md §3)")
 		return
 	}
 	var in struct {
@@ -139,7 +139,7 @@ func parseAuthorizeReq(r *http.Request) identity.AuthorizationRequest {
 // behind SSO and needs no client-side state.
 func (a *App) handleOAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 	if a.authModeName() == "open" {
-		http.Error(w, "This forge runs in open mode, which has no identity to delegate. Connecting a coding agent needs internal auth or SSO.", 400)
+		http.Error(w, "This AppTown runs in open mode, which has no identity to delegate. Connecting a coding agent needs internal auth or SSO.", 400)
 		return
 	}
 	in := parseAuthorizeReq(r)
@@ -267,7 +267,7 @@ func authorizationParams(in identity.AuthorizationRequest) map[string]string {
 
 var oauthPage = template.Must(template.New("oauth").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Connect {{.Client}} to Forge</title>
+<title>Connect {{.Client}} to AppTown</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#0f1117;color:#e6e8ef;display:grid;place-items:center;min-height:100vh}
 .card{background:#181b25;border:1px solid #2a2e3d;border-radius:12px;padding:28px;max-width:440px;width:calc(100% - 40px)}
@@ -279,7 +279,7 @@ button.primary{background:#4f6ef7;border-color:#4f6ef7;color:#fff}.row{display:f
 </style></head><body><div class="card">
 {{if .NeedsLogin}}
 <h1>Sign in to connect {{.Client}}</h1>
-<p class="muted">{{.Client}} wants to use your Forge account. Sign in first; you will then see exactly what it may do.</p>
+<p class="muted">{{.Client}} wants to use your AppTown account. Sign in first; you will then see exactly what it may do.</p>
 {{if eq .Mode "internal"}}
 <form id="login"><input name="username" placeholder="username" autocomplete="username" required>
 <input name="password" type="password" placeholder="password" autocomplete="current-password" required>
@@ -289,9 +289,9 @@ document.getElementById('login').onsubmit=async e=>{e.preventDefault();const f=n
 const r=await fetch('/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:f.get('username'),password:f.get('password')})});
 if(r.ok){location.reload()}else{document.getElementById('err').textContent=(await r.json().catch(()=>({}))).error||'sign-in failed'}};
 </script>
-{{else}}<p class="muted">Your sign-on did not reach this page. Open the Forge in this browser, sign in, and try again.</p>{{end}}
+{{else}}<p class="muted">Your sign-on did not reach this page. Open AppTown in this browser, sign in, and try again.</p>{{end}}
 {{else}}
-<h1>{{.Client}} wants to use your Forge account</h1>
+<h1>{{.Client}} wants to use your AppTown account</h1>
 <p class="muted">Signed in as <b>{{.User}}</b>. If allowed, {{.Client}} can:</p>
 <ul>{{range .Scopes}}<li>{{.}}</li>{{end}}</ul>
 <p class="muted">It cannot approve, land, administer, or write main. You can disconnect it any time from People → Connected coding agents.</p>

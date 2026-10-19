@@ -75,7 +75,7 @@ func TestSecretsBoundToInfisical(t *testing.T) {
 	// sql-guarantee: absence from storage in every scope is the guarantee; the owner reads one scope and name at a time
 	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM secret_values WHERE name IN ('STRIPE_API_KEY','MIGRATION_DB_ROLE')`).Scan(&n)
 	if n != 0 {
-		t.Fatal("an Infisical-bound value must never be stored by the forge")
+		t.Fatal("an Infisical-bound value must never be stored by AppTown")
 	}
 	if rec := mustJSON(res.Stack.Secrets.Receipts); strings.Contains(rec, "sk_from") || !strings.Contains(rec, `"store":"infisical"`) {
 		t.Fatalf("receipt: %s", rec)

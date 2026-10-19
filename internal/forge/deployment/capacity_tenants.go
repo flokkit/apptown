@@ -77,7 +77,7 @@ func tenantOf(l docker.ContainerLimit, owners containerOwners, deps map[ids.ID]P
 	case workClasses[l.Class]:
 		return TenantWork, "agent work", nil
 	case l.Class == "infra":
-		return TenantForge, "the forge", nil
+		return TenantForge, "AppTown", nil
 	}
 	return TenantUnrecorded, "forge containers not on record", nil
 }
@@ -185,7 +185,7 @@ func (s *Service) hostUse(ctx context.Context, t *Target, dk docker.Scope, daemo
 		return unknownErr(err)
 	}
 	if m.TotalBytes != daemonTotal {
-		return unknown(fmt.Sprintf("this forge sees %d bytes of memory and the daemon %d", m.TotalBytes, daemonTotal))
+		return unknown(fmt.Sprintf("this AppTown sees %d bytes of memory and the daemon %d", m.TotalBytes, daemonTotal))
 	}
 	return known(float64(m.UsedBytes()))
 }
@@ -208,11 +208,11 @@ func (s *Service) sameMachine(ctx context.Context, targetID ids.ID, dk docker.Sc
 	same, why := false, ""
 	switch read, rerr := docker.ReadMark(ctx, dk, path, mark); {
 	case err != nil:
-		why = "the forge could not write its marker: " + err.Error()
+		why = "AppTown could not write its marker: " + err.Error()
 	case rerr != nil:
-		why = "the daemon does not run where this forge does, as far as the forge can witness (it could not read the forge's marker)"
+		why = "the daemon does not run where this AppTown does, as far as AppTown can witness (it could not read AppTown's marker)"
 	case !read:
-		why = "the daemon does not run where this forge does, as far as the forge can witness (it read a different marker)"
+		why = "the daemon does not run where this AppTown does, as far as AppTown can witness (it read a different marker)"
 	default:
 		same = true
 	}

@@ -98,7 +98,7 @@ func startReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft, descri
 // follow-up intent stay atomic.
 func CreateReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (NumberedRelease, error) {
 	if d.At.IsZero() {
-		return NumberedRelease{}, fmt.Errorf("a release needs the forge's time it was made")
+		return NumberedRelease{}, fmt.Errorf("a release needs AppTown's time it was made")
 	}
 	// Every release door (explicit, workflow completion) holds the project
 	// lock here: a project that is not active releases nothing.

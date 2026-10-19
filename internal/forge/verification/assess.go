@@ -96,7 +96,7 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 func probeRunning(ctx context.Context, sc conformance.DeclaredCheck, app runningApp, probe func(context.Context, Target, string) check.ProbeVerdict) treeAssessment {
 	a := treeAssessment{Check: sc, State: conformance.CannotAssess, Reason: conformance.NotAssessedError}
 	if probe == nil {
-		a.Reason, a.Detail = conformance.NotAssessedNoRunningApp, "the forge cannot observe deployments here"
+		a.Reason, a.Detail = conformance.NotAssessedNoRunningApp, "AppTown cannot observe deployments here"
 		return a
 	}
 	v := probe(ctx, app.Target, sc.Check.Probe)

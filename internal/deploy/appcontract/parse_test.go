@@ -121,7 +121,7 @@ app:
 func TestAContractCannotSetTheForgesBrowserValues(t *testing.T) {
 	t.Parallel()
 	_, err := appcontract.Parse([]byte("app:\n  web:\n    static: .\n    public: true\n    environment: {FORGE_BROWSER_ENV: '{}'}\n"))
-	if err == nil || !strings.Contains(err.Error(), "only the forge sets") {
+	if err == nil || !strings.Contains(err.Error(), "only AppTown sets") {
 		t.Fatalf("a contract naming the reserved variable: %v", err)
 	}
 }

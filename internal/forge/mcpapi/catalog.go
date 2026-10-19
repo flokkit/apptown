@@ -184,10 +184,10 @@ func Assemble(groups ...[]Tool) Catalog {
 }
 func Instructions() string {
 	return strings.TrimSpace(`
-This is the Forge's user surface for a coding agent. You act as the person who connected you, within what they allowed.
+This is AppTown's user surface for a coding agent. You act as the person who connected you, within what they allowed.
 Read: projects, Changes, diffs, evidence, runs, what is waiting on the person (get_waiting_on_you), what a pack version's checks would say about projects (get_what_if, hypothetical), how a model or pack version did against what projects run now (get_eval), and how a long operation such as a data copy or take-down stands (get_operation).
-Before writing code on a project, get_project_guidance is strongly recommended: it returns the ways of working its landing checks hold every Change to, at the pinned versions the Forge's own agents are steered by. It is offered, sized (get_project shows the size), and never pushed into your context.
-Do: create a project (create_project), open a Change (create_change), put the Forge's own agent on it (start_change_lane), run its checks, boot its preview, hand it off for approval (request_change_landing), send it back with a note, or abandon it.
-Work locally: checkout_change gives you a repository URL and a short-lived credential for one Change branch; push with git, then call sync_change. If the Forge itself gets in your way (a tool fails, a documented promise does not hold, you had to guess), file_complaint — even if you found a workaround. You cannot approve, land, administer, or write main; the person does those in the Forge.
+Before writing code on a project, get_project_guidance is strongly recommended: it returns the ways of working its landing checks hold every Change to, at the pinned versions AppTown's own agents are steered by. It is offered, sized (get_project shows the size), and never pushed into your context.
+Do: create a project (create_project), open a Change (create_change), put AppTown's own agent on it (start_change_lane), run its checks, boot its preview, hand it off for approval (request_change_landing), send it back with a note, or abandon it.
+Work locally: checkout_change gives you a repository URL and a short-lived credential for one Change branch; push with git, then call sync_change. If AppTown itself gets in your way (a tool fails, a documented promise does not hold, you had to guess), file_complaint — even if you found a workaround. You cannot approve, land, administer, or write main; the person does those in AppTown.
 Every answer carries a webUrl you can hand the person.`)
 }

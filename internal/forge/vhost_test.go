@@ -34,7 +34,7 @@ func TestVHostRouting(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 200 {
-		t.Fatalf("non-tier host must reach the forge: %d", w.Code)
+		t.Fatalf("non-tier host must reach AppTown: %d", w.Code)
 	}
 
 	// A tier hostname with nothing behind it gets the plain-words page.
@@ -233,7 +233,7 @@ func TestTheLocalProxyPassesOnlyItsOwnForwardingHeaders(t *testing.T) {
 		}
 	}
 	if got.Get("X-Forwarded-Proto") != "https" {
-		t.Errorf("the forge's own proto: %q", got.Get("X-Forwarded-Proto"))
+		t.Errorf("AppTown's own proto: %q", got.Get("X-Forwarded-Proto"))
 	}
 }
 

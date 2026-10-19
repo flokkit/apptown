@@ -343,7 +343,7 @@ func joinsPack(ctx context.Context, f Fleet, projectID ids.ID, pack string) (boo
 // app's contract is in its tree), so one probe answers for both sides.
 func (f Fleet) servingCommit(ctx context.Context, projectID ids.ID, sha string) (*runningApp, string) {
 	if f.runtime == nil {
-		return nil, "the forge cannot observe deployments here"
+		return nil, "AppTown cannot observe deployments here"
 	}
 	t, commit, still, why := f.runtime.mainAt(ctx, projectID)
 	switch {

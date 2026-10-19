@@ -388,7 +388,7 @@ func (h ProjectAttachments) WireIntegration(w http.ResponseWriter, r *http.Reque
 	}
 	cap := r.PathValue("capability")
 	if cap == integration.CapContainerRegistry {
-		WriteError(w, 422, "a container registry is used by the forge's deploy, not by the app — there is nothing to wire")
+		WriteError(w, 422, "a container registry is used by AppTown's deploy, not by the app — there is nothing to wire")
 		return
 	}
 	attached, err := h.integrations.Attachments.IsAttached(r.Context(), p.ID, cap)

@@ -38,7 +38,7 @@ func TestExportProjectWritesTheFileAndChecksItsHash(t *testing.T) {
 	if err := exportProject("app", &out, &report); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(out.Bytes(), body) || !strings.Contains(report.String(), header) || !strings.Contains(report.String(), "chats 3 (1 empty, not moved)") || !strings.Contains(report.String(), "sensitive") || !strings.Contains(report.String(), "only a forge running this same build reads it") || !strings.Contains(report.String(), "change 00000000-0008-7000-8000-000000000000 (abandoned): try blue") {
+	if !bytes.Equal(out.Bytes(), body) || !strings.Contains(report.String(), header) || !strings.Contains(report.String(), "chats 3 (1 empty, not moved)") || !strings.Contains(report.String(), "sensitive") || !strings.Contains(report.String(), "only an AppTown running this same build reads it") || !strings.Contains(report.String(), "change 00000000-0008-7000-8000-000000000000 (abandoned): try blue") {
 		t.Fatalf("file %q, report %q", out.String(), report.String())
 	}
 	header = strings.Repeat("0", 64)

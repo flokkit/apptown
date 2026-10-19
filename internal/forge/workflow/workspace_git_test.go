@@ -263,7 +263,7 @@ func TestANewFolderTakesNothingFromAPersonalGitTemplate(t *testing.T) {
 				}
 			}
 			if err := gitexec.CheckFolder(t.Context(), folder); err != nil {
-				t.Fatalf("the forge refuses its own new folder: %v", err)
+				t.Fatalf("AppTown refuses its own new folder: %v", err)
 			}
 		})
 	}
@@ -288,7 +288,7 @@ func TestAWritersCloneCannotChangeTheForgesRepository(t *testing.T) {
 	git(repo, "init", "-b", "main")
 	git(repo, "config", "user.name", "test")
 	git(repo, "config", "user.email", "test@example.invalid")
-	if err := os.WriteFile(filepath.Join(repo, "a.txt"), []byte("the forge's\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "a.txt"), []byte("AppTown's\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	git(repo, "add", "a.txt")
@@ -316,7 +316,7 @@ func TestAWritersCloneCannotChangeTheForgesRepository(t *testing.T) {
 		t.Fatalf("overwriting the clone's objects: %d files, %v", overwritten, err)
 	}
 	git(repo, "fsck", "--strict")
-	if got := git(repo, "show", "forge/change-1:a.txt"); got != "the forge's" {
+	if got := git(repo, "show", "forge/change-1:a.txt"); got != "AppTown's" {
 		t.Fatalf("the repository's file now reads %q", got)
 	}
 }
@@ -353,7 +353,7 @@ func TestAFolderEnsureCloneMakesIsOneTheForgeRunsGitIn(t *testing.T) {
 				t.Fatal(err)
 			}
 			if err := gitexec.CheckFolder(t.Context(), wt); err != nil {
-				t.Fatalf("the forge's own clone is refused: %v", err)
+				t.Fatalf("AppTown's own clone is refused: %v", err)
 			}
 			// The branch as published moves on; the folder follows it.
 			git(repo, "checkout", "-q", "-B", branch)

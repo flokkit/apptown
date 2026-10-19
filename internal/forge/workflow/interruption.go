@@ -13,7 +13,7 @@ import (
 )
 
 // EndedByRestart is the reason a step a restart does not continue ends with.
-const EndedByRestart = "the forge restarted while this step ran; it is not continued: run the step again"
+const EndedByRestart = "AppTown restarted while this step ran; it is not continued: run the step again"
 
 // InterruptedSteps describes changes in the caller's startup transaction. It is
 // a committed report only after every startup participant and the caller commit.

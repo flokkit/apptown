@@ -37,7 +37,7 @@ func (w commandAuthority) mayApprove(ctx context.Context, run *Run, step *Step, 
 	// principals, by an account it could not place) is not carried: its
 	// name could now be someone else's.
 	if who.Principal.IsZero() {
-		return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance names %s but no account the forge can tie it to; a person approves", person)}
+		return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance names %s but no account AppTown can tie it to; a person approves", person)}
 	}
 	// The yes is the person's own only if they gave it directly; through a
 	// chat, a ticket or an agent it is not their assent to carry.

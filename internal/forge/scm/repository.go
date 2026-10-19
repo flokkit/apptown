@@ -113,9 +113,9 @@ func InstallNoPushHook(hubDir string) error {
 		return fmt.Errorf("installing the no-push hook in %s: %w", hubDir, err)
 	}
 	body := "#!/bin/sh\n" +
-		"# Forge: the hub is written only by the landing contract, never by a push —\n" +
+		"# AppTown: the hub is written only by the landing contract, never by a push —\n" +
 		"# with ONE exception: a Change Git ticket (internal/forge/githttp.go) lets a\n" +
-		"# local checkout push to the ticket's holding ref. The forge then publishes\n" +
+		"# local checkout push to the ticket's holding ref. AppTown then publishes\n" +
 		"# it to the Change's branch if the ticket still holds the branch. This hook\n" +
 		"# refuses early, with facts, a push that publication would refuse: one from\n" +
 		"# a tip that has moved, or one that does not build on it. Workspaces fetch\n" +
@@ -128,7 +128,7 @@ func InstallNoPushHook(hubDir string) error {
 		"    if [ \"$ref\" != \"$FORGE_SCRATCH_REF\" ]; then\n" +
 		"      echo \"forge: this step may push only $FORGE_SCRATCH_REF, not $ref\" >&2; exit 1\n" +
 		"    fi\n" +
-		"    case \"$new\" in $zero) echo 'forge: the forge removes a scratch ref; deleting it is refused' >&2; exit 1;; esac\n" +
+		"    case \"$new\" in $zero) echo 'forge: AppTown removes a scratch ref; deleting it is refused' >&2; exit 1;; esac\n" +
 		"  done\n" +
 		"  exit 0\n" +
 		"fi\n" +

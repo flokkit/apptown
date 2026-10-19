@@ -172,7 +172,7 @@ func TestAChatOpenedOnTheWorkerRunsThere(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !w.onWork.Running(s.ID) || w.agent.Exists(s.ID) {
-		t.Fatalf("on the worker %v, on the forge %v", w.onWork.Running(s.ID), w.agent.Exists(s.ID))
+		t.Fatalf("on the worker %v, on AppTown %v", w.onWork.Running(s.ID), w.agent.Exists(s.ID))
 	}
 	folderHead := gittest.Run(t, w.folder, "rev-parse", "HEAD")
 	if head := gittest.Run(t, w.onWork.Started(s.ID).Workspace.Path, "rev-parse", "HEAD"); head != folderHead {
@@ -202,7 +202,7 @@ func TestOpeningAChatOnTheWorkerIsRefusedWhatItCannotDo(t *testing.T) {
 	p, _ := h.a.Projects.BySlug(context.Background(), "game")
 	if _, err := h.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: h.change.ID, Placement: conversation.PlaceOnWorker, Model: "fake/model"}, "owner"); err == nil ||
 		!strings.Contains(err.Error(), "no worker") {
-		t.Fatalf("a worker chat on a forge without one: %v", err)
+		t.Fatalf("a worker chat on an AppTown without one: %v", err)
 	}
 }
 
@@ -270,7 +270,7 @@ func TestAChangesChatOpensOnTheWorkerByDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !conversation.OnWorkerRecord(s.Meta) {
-		t.Fatal("a change's chat opened on the forge by default")
+		t.Fatal("a change's chat opened on AppTown by default")
 	}
 	project, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{Model: "fake/model"}, "owner")
 	if err != nil {
@@ -294,13 +294,13 @@ func TestAChangesChatCanBeOpenedOnTheForge(t *testing.T) {
 		t.Fatal(err)
 	}
 	if conversation.OnWorkerRecord(s.Meta) {
-		t.Fatal("the chat chosen for the forge opened on the worker")
+		t.Fatal("the chat chosen for AppTown opened on the worker")
 	}
 	if err := w.a.Console.Warm(context.Background(), s.ID); err != nil {
 		t.Fatal(err)
 	}
 	if !w.agent.Running(s.ID) || w.onWork.Exists(s.ID) {
-		t.Fatal("the chat did not run on the forge")
+		t.Fatal("the chat did not run on AppTown")
 	}
 }
 
@@ -341,7 +341,7 @@ func TestInTheNoLocalDockerModeChatsTheWorkerCannotTakeAreRefused(t *testing.T) 
 		}
 	}
 	if w.agent.Running(s.ID) {
-		t.Fatal("a chat ran on the forge in the mode")
+		t.Fatal("a chat ran on AppTown in the mode")
 	}
 }
 
@@ -376,7 +376,7 @@ func TestOpeningOnTheWorkerPublishesTheFolderFirst(t *testing.T) {
 		t.Fatalf("opening on the worker from a folder whose work is refused: %v", err)
 	}
 	if fault.CodeOf(err) != conversation.CodeChatOnForge {
-		t.Fatalf("the refusal does not say the chat can open on the forge: %q", fault.CodeOf(err))
+		t.Fatalf("the refusal does not say the chat can open on AppTown: %q", fault.CodeOf(err))
 	}
 	if head := gittest.Run(t, v.folder, "rev-parse", "HEAD"); head != refused {
 		t.Fatalf("the refused work left the folder: %s", head)
@@ -394,8 +394,8 @@ func TestAChatIsNotOpenedOnAWorkerThatCannotReachItsRegistry(t *testing.T) {
 		noLocal bool
 		code    string
 	}{
-		{"on a forge that runs chats", false, conversation.CodeChatOnForge},
-		{"on a forge that runs none", true, ""},
+		{"on an AppTown that runs chats", false, conversation.CodeChatOnForge},
+		{"on an AppTown that runs none", true, ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -419,8 +419,8 @@ func TestAChatIsNotOpenedOnAWorkerThatCannotReachItsRegistry(t *testing.T) {
 			if fault.CodeOf(err) != c.code {
 				t.Fatalf("the refusal is coded %q, want %q", fault.CodeOf(err), c.code)
 			}
-			if says := strings.Contains(err.Error(), "on the forge"); says != (c.code != "") {
-				t.Fatalf("the refusal's sentence names the forge as the way round = %v on this forge: %v", says, err)
+			if says := strings.Contains(err.Error(), "on AppTown"); says != (c.code != "") {
+				t.Fatalf("the refusal's sentence names AppTown as the way round = %v on this AppTown: %v", says, err)
 			}
 		})
 	}

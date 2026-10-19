@@ -28,7 +28,7 @@ import (
 // review judges the change as it is, and a landing publishes nothing.
 
 // mainMergeBrief is what an agent step on a worker is told about main.
-const mainMergeBrief = "# Main\n\nIf main moves, the forge merges it into this change before your step when it can; you don't need to catch up yourself.\n\n"
+const mainMergeBrief = "# Main\n\nIf main moves, AppTown merges it into this change before your step when it can; you don't need to catch up yourself.\n\n"
 
 // mergeMainFirst is the merge of main the step at commit is to start from
 // (scm.MergeMain), made but not published; a zero MainMerge when the branch
@@ -50,7 +50,7 @@ func (a *Executor) mergeMainFirst(ctx context.Context, run *workflow.Run, step *
 		return scm.MainMerge{}
 	}
 	message := trailer.Message(repositoryedit.MergeTitle(source.DefaultBranch, source.Branch),
-		fmt.Sprintf("The forge merged %s into this change before step %s of run %d: the branch was behind %s and the merge had no conflicts.", source.DefaultBranch, step.Name, run.Number, source.DefaultBranch),
+		fmt.Sprintf("AppTown merged %s into this change before step %s of run %d: the branch was behind %s and the merge had no conflicts.", source.DefaultBranch, step.Name, run.Number, source.DefaultBranch),
 		trailer.Line{Key: trailer.RunID, Value: run.ID.String()}, trailer.Line{Key: trailer.Step, Value: step.Name}) + "\n"
 	merge, err := scm.MergeMain(ctx, source.Repository(a.cfg.DataDir), commit, source.DefaultBranch, message)
 	if err != nil {

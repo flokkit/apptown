@@ -265,7 +265,7 @@ func TestTheForgeQueueTakesOnlyAnEvalsComplaintsAboutTheForge(t *testing.T) {
 		t.Fatalf("a way-of-working complaint outside evals, with its packs: %+v", c)
 	}
 	if c := got[filed["real-default"]]; c.About != AboutForge {
-		t.Fatalf("about defaults to the forge: %+v", c)
+		t.Fatalf("about defaults to AppTown: %+v", c)
 	}
 	if c := got[filed["copy-forge"]]; c.EvalID != idstest.N(9) || c.About != AboutForge {
 		t.Fatalf("an eval's forge complaint reaches the queue marked with its eval: %+v", c)
@@ -286,7 +286,7 @@ func TestTheBoxKeepsTimeByTheForgesClock(t *testing.T) {
 	}
 	all, err := box.All(context.Background(), 10)
 	if err != nil || len(all) != 1 || all[0].At != filed.Format(time.RFC3339) {
-		t.Fatalf("filed %+v %v, want it at the forge's %v", all, err, filed)
+		t.Fatalf("filed %+v %v, want it at AppTown's %v", all, err, filed)
 	}
 	archived := filed.Add(Retention - time.Hour)
 	at.Store(archived.Unix())

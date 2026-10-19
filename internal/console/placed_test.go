@@ -112,7 +112,7 @@ func TestAForgeWithNoLocalChatsRefusesWakingOne(t *testing.T) {
 		t.Fatal(err)
 	}
 	if gone, err := after.Gone(ctx, s.ID); err != nil || !gone {
-		t.Fatalf("an ended chat on a forge with none: gone=%v %v", gone, err)
+		t.Fatalf("an ended chat on an AppTown with none: gone=%v %v", gone, err)
 	}
 	if live, err := after.Unended(); err != nil || len(live) != 0 {
 		t.Fatalf("after its end: %+v %v", live, err)

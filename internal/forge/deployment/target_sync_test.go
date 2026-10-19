@@ -104,7 +104,7 @@ func TestStartsAndConnectorSavesKeepACloudTargetsSettings(t *testing.T) {
 		name string
 		run  func()
 	}{
-		{"a forge start", func() { w.s.SeedTargets(ctx, []string{"team=apps.example"}) }},
+		{"an AppTown start", func() { w.s.SeedTargets(ctx, []string{"team=apps.example"}) }},
 		{"a connector save", func() { w.saveConnector(t, "syd") }},
 	} {
 		step.run()

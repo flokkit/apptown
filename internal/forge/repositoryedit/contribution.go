@@ -249,7 +249,7 @@ func (c *Contributions) Sync(ctx context.Context, changeID ids.ID, pushed, expec
 	if staged, err := gitexec.Staged(ctx, ws); err != nil {
 		return SyncedRevision{}, err
 	} else if staged {
-		return SyncedRevision{}, contributionRefusal("the Change's workspace has uncommitted work (a chat or hand edits); the hub has your revision, but adopting it would discard that work. Land or sweep it in the Forge first")
+		return SyncedRevision{}, contributionRefusal("the Change's workspace has uncommitted work (a chat or hand edits); the hub has your revision, but adopting it would discard that work. Land or sweep it in AppTown first")
 	}
 	if expected != "" && wsTip != "" && !strings.HasPrefix(wsTip, expected) && wsTip != hubTip {
 		return SyncedRevision{}, contributionRefusal("the workspace was at %s, not the %s you expected: another writer advanced it. Fetch %s, merge, push again with a fresh ticket",

@@ -44,7 +44,7 @@ func TestAReleaseOverDataTheForgeCannotCopyIsAPersonsChoice(t *testing.T) {
 		t.Fatalf("the person's choice: %v", err)
 	}
 	events, err := w.s.Releases.Events(ctx, accepted.ID)
-	if err != nil || len(events) == 0 || !strings.Contains(events[0].Text, "released by alice accepting that the forge cannot copy the data prod holds") {
+	if err != nil || len(events) == 0 || !strings.Contains(events[0].Text, "released by alice accepting that AppTown cannot copy the data prod holds") {
 		t.Fatalf("the release's record: %+v %v", events, err)
 	}
 	w.protect()

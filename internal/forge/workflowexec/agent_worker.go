@@ -60,11 +60,11 @@ type AgentWorker struct {
 // driver is the worker's driver, as an agent step needs it.
 func (w *AgentWorker) driver() (AgentTaskDriver, error) {
 	if w == nil || w.Tasks == nil {
-		return nil, errors.New("this forge has no worker for agent steps")
+		return nil, errors.New("this AppTown has no worker for agent steps")
 	}
 	d, ok := w.Tasks.Driver.(AgentTaskDriver)
 	if !ok {
-		return nil, fmt.Errorf("the forge's task backend (%s) cannot run agent steps: it reports no agent image or result files", w.Tasks.backend())
+		return nil, fmt.Errorf("AppTown's task backend (%s) cannot run agent steps: it reports no agent image or result files", w.Tasks.backend())
 	}
 	return d, nil
 }
@@ -77,7 +77,7 @@ func (r *WorkerRefusal) Error() string { return r.Reason }
 
 // needsWhatTheWorkerLacks refuses a step for something it needs.
 func needsWhatTheWorkerLacks(what string) error {
-	return &WorkerRefusal{Reason: "this step needs " + what + ", which the forge's worker cannot provide yet; it is not run on the forge's own machine instead"}
+	return &WorkerRefusal{Reason: "this step needs " + what + ", which AppTown's worker cannot provide yet; it is not run on AppTown's own machine instead"}
 }
 
 // Where an agent on a worker finds what the forge sends it (read-only, under
@@ -227,7 +227,7 @@ const privateDockerUnqualified = "unqualified: private Docker on a worker whose 
 
 // privateDockerOptIn is why a step declaring private Docker is refused on a
 // worker without the operator's opt-in.
-const privateDockerOptIn = "private Docker on a worker is the operator's opt-in: start the forge with -private-docker"
+const privateDockerOptIn = "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker"
 
 // privateOnWorker is what an agent step has beside it on the worker, frozen
 // now: the services it declares, and those fulfilling the app's needs as
@@ -309,7 +309,7 @@ func (a *Executor) admitOnWorker(ctx context.Context, c workerAgentCall) (agentC
 func (a *Executor) refuseOnWorker(c workerAgentCall, cfg *agentConfig, k agentKnobs) error {
 	switch {
 	case !c.source.RepoBacked():
-		return &WorkerRefusal{Reason: "this step's project is not repository-backed, and the forge's worker works only from a repository's commit; it is not run on the forge's own machine instead"}
+		return &WorkerRefusal{Reason: "this step's project is not repository-backed, and AppTown's worker works only from a repository's commit; it is not run on AppTown's own machine instead"}
 	case k.executor != execution.Docker:
 		return needsWhatTheWorkerLacks(fmt.Sprintf("the %q executor", k.executor))
 	case k.image != a.cfg.Image:
@@ -607,11 +607,11 @@ func (a *Executor) attachmentsFor(changeID ids.ID) ([]steeringResource, error) {
 func (a *Executor) agentCLI() ([]byte, error) {
 	at, err := a.cli.Path()
 	if err != nil {
-		return nil, fmt.Errorf("the forge CLI for agents is not available: %w", err)
+		return nil, fmt.Errorf("the agents' CLI (forge-linux) is not available: %w", err)
 	}
 	cli, err := os.ReadFile(at)
 	if err != nil {
-		return nil, fmt.Errorf("reading the forge CLI for agents: %w", err)
+		return nil, fmt.Errorf("reading the agents' CLI (forge-linux): %w", err)
 	}
 	return cli, nil
 }

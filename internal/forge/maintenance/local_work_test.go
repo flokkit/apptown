@@ -52,7 +52,7 @@ func TestLocalWorkLeftNamesUnendedLocalChatsAndOutstandingCleanups(t *testing.T)
 		t.Fatalf("a chat on the worker only: %v", err)
 	}
 	local := open(nil)
-	if err := left(); err == nil || !strings.Contains(err.Error(), "chat "+local+" on the forge, not ended") {
+	if err := left(); err == nil || !strings.Contains(err.Error(), "chat "+local+" on AppTown, not ended") {
 		t.Fatalf("an unended local chat: %v", err)
 	}
 	if _, err := sessions.End(ctx, local); err != nil {

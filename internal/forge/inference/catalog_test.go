@@ -107,7 +107,7 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	at = at.Add(2 * time.Minute)
 	clockMu.Unlock()
 	if _, err := catalog.Models(context.Background()); err != nil || probes.Load() != 2 {
-		t.Fatalf("a list kept past its minute on the forge's clock: probes %d, %v", probes.Load(), err)
+		t.Fatalf("a list kept past its minute on AppTown's clock: probes %d, %v", probes.Load(), err)
 	}
 	ids, err := catalog.Discover(context.Background(), "unsaved", map[string]any{"baseUrl": server.URL, "providerDef": map[string]any{"apiKey": "provider-key"}})
 	if err != nil || len(ids) != 1 || ids[0] != "live" {

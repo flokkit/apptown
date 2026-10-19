@@ -42,7 +42,7 @@ func TestASetPutsAssetsThenEntriesThenTheMarkerLast(t *testing.T) {
 		t.Fatalf("env.js = %s", env)
 	}
 	if set.Files[0].NoStore() || !set.Files[3].NoStore() || !last.NoStore() {
-		t.Fatal("only entry files and the forge's files are no-store")
+		t.Fatal("only entry files and AppTown's files are no-store")
 	}
 }
 

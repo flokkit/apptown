@@ -194,7 +194,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 	token := inferenceToken(r)
 	_, err := g.authenticate(r.Context(), token)
 	if err != nil {
-		fail(401, "a live Forge runtime credential is required")
+		fail(401, "a live AppTown runtime credential is required")
 		return
 	}
 	if !g.acquire(token) {
@@ -209,7 +209,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 	}
 	ps, err := g.providers(r.Context())
 	if err != nil {
-		fail(503, "model provider configuration is unavailable; ask the Forge administrator")
+		fail(503, "model provider configuration is unavailable; ask AppTown administrator")
 		return
 	}
 	p := ps[parts[0]]
@@ -250,7 +250,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !p.allows(model) {
-		fail(403, "model is not enabled in this Forge provider binding")
+		fail(403, "model is not enabled in this AppTown provider binding")
 		return
 	}
 	// The route, model and charge attribution cannot be chosen by an agent's

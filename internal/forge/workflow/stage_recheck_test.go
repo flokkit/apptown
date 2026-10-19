@@ -42,7 +42,7 @@ func TestAStageOpenedBeforeItsRulesSaysSoAndCanRunItsChecksAgain(t *testing.T) {
 
 	blocked := func(where string, a Activity, err error) {
 		t.Helper()
-		if err != nil || a.State != ActivityBlocked || !strings.Contains(a.Detail, "opened before the forge recorded which scanners it expects") || !strings.Contains(a.Detail, "Run its checks again.") {
+		if err != nil || a.State != ActivityBlocked || !strings.Contains(a.Detail, "opened before AppTown recorded which scanners it expects") || !strings.Contains(a.Detail, "Run its checks again.") {
 			t.Fatalf("%s: %+v %v", where, a, err)
 		}
 	}

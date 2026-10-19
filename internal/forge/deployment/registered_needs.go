@@ -184,7 +184,7 @@ func (s *Service) AIModels(ctx context.Context, projectID ids.ID, name string) (
 		case !ok:
 			k.Unknown = "the record does not name a key"
 		case s.env.integrations == nil:
-			k.Unknown = "this forge has no integrations to ask OpenRouter with"
+			k.Unknown = "this AppTown has no integrations to ask OpenRouter with"
 		default:
 			a, err := s.env.integrations.LLMAllowance(ctx, held)
 			if err != nil {

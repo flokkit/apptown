@@ -40,7 +40,7 @@ func TestIntegrationADisconnectedCheckLeavesNothing(t *testing.T) {
 	out := checks.Run(ctx, execution.Request{Workspace: t.TempDir(), Image: "alpine:3", Argv: []string{"sleep", "60"},
 		Network: "none", Timeout: time.Minute, Name: "disconnect"})
 	if out.Exited0() {
-		t.Fatalf("a check the forge stopped waiting for passed: %+v", out)
+		t.Fatalf("a check AppTown stopped waiting for passed: %+v", out)
 	}
 	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
 		entries, _ := os.ReadDir(filepath.Join(srv.State, "checks"))

@@ -270,7 +270,7 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 	}
 	if dep.Container == "" {
 		_, words := s.LimitEventsSource(ctx, dep)
-		out.Unsupported = "its target does not report each part's container to the forge (" + words + ")"
+		out.Unsupported = "its target does not report each part's container to AppTown (" + words + ")"
 		for _, p := range diagnosedParts(applied) {
 			p.Presence, p.Reason = PresenceUnknown, "not reported by its target"
 			out.Parts = append(out.Parts, p)
@@ -468,7 +468,7 @@ func (s *Service) RecentLog(ctx context.Context, projectID ids.ID, name, part st
 		return PartLog{}, fault.New(fault.Conflict, "nothing has been deployed here yet")
 	}
 	if dep.Container == "" {
-		return PartLog{}, fault.New(fault.Unprocessable, "its target does not give the forge container logs")
+		return PartLog{}, fault.New(fault.Unprocessable, "its target does not give AppTown container logs")
 	}
 	applied, err := s.SettledApplied(ctx, dep)
 	if err != nil {

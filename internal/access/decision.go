@@ -189,7 +189,7 @@ func InstrumentMay(kind string, c Capability) bool {
 func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, facts Facts) Decision {
 	def, known := Definitions[c]
 	if !known {
-		return Decision{Code: DenyMissingCapability, Reason: fmt.Sprintf("%s is not a capability this forge knows", c)}
+		return Decision{Code: DenyMissingCapability, Reason: fmt.Sprintf("%s is not a capability this AppTown knows", c)}
 	}
 	// 1. A disabled account, or a name with no account, fails before
 	// anything else.
@@ -232,7 +232,7 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 			return Decision{Allow: true, Reason: "an eval's driver in one of its copies, within its table"}
 		}
 		if pr.Instrument == "forge" {
-			return Decision{Allow: true, Reason: "the forge's own trigger, within its table"}
+			return Decision{Allow: true, Reason: "AppTown's own trigger, within its table"}
 		}
 		pr = Principal{ID: pr.ID, Kind: "user", Name: pr.Person, Via: pr.Via, Role: pr.Role}
 	}
@@ -341,7 +341,7 @@ func containsCap(xs []Capability, c Capability) bool {
 // and guessing an address must not reveal what it is called.
 func denialProse(pr Principal, c Capability, res Resource) string {
 	def := Definitions[c]
-	where := "on this forge"
+	where := "on this AppTown"
 	if !res.ProjectID.IsZero() {
 		where = "on this project"
 	}
@@ -427,7 +427,7 @@ var Scopes = []Scope{
 	// The rest of what the MCP door offers an agent. Approving, landing and
 	// administration are in no scope: an agent never inherits them.
 	{"forge:project:create", "create projects in your name", []Capability{CapProjectCreate}},
-	{"forge:change:run", "put the forge's own agent to work on a Change", []Capability{CapChangeInvokeLane}},
+	{"forge:change:run", "put AppTown's own agent to work on a Change", []Capability{CapChangeInvokeLane}},
 	{"forge:change:return", "send a Change back with a note, or abandon it", []Capability{CapChangeSendBack, CapChangeAbandon}},
 }
 

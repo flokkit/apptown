@@ -106,10 +106,10 @@ func TestAStaticSiteBootRequiresTheForgesFileServer(t *testing.T) {
 		return err
 	}
 	if be := AsBootError(boot(pathProbe{refuses: "/_forge/env.js"})); be == nil || be.Phase != PhaseProbe || !strings.Contains(be.Error(), "does not answer /_forge/env.js") {
-		t.Fatalf("a file server without the forge's configuration passed: %v", be)
+		t.Fatalf("a file server without AppTown's configuration passed: %v", be)
 	}
 	if err := boot(pathProbe{}); err != nil {
-		t.Fatalf("the forge's file server failed its boot: %v", err)
+		t.Fatalf("AppTown's file server failed its boot: %v", err)
 	}
 }
 

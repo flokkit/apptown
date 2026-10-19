@@ -40,7 +40,7 @@ import (
 var (
 	// ErrNotReachable: nothing of the deployment's data is reached for a
 	// copy on its target.
-	ErrNotReachable error = &deployment.Unavailable{Reason: "not-reachable", Why: "Nothing the deployment holds is copied by the forge on its target."}
+	ErrNotReachable error = &deployment.Unavailable{Reason: "not-reachable", Why: "Nothing the deployment holds is copied by AppTown on its target."}
 )
 
 // CopiesOn says whether the forge can run copies of the managed data of
@@ -529,7 +529,7 @@ func (s *Service) drill(ctx context.Context, t *tracker, b *Backup, target *depl
 		details = append(details, d)
 	}
 	if len(details) == 0 {
-		return false, "the set holds no copy the forge can fill into a new place", nil
+		return false, "the set holds no copy AppTown can fill into a new place", nil
 	}
 	return passed, strings.Join(details, "; "), nil
 }
@@ -560,7 +560,7 @@ func (s *Service) drillOne(ctx context.Context, t *tracker, c *s3bucket.Client, 
 		if t.providerFailed(ctx, err) {
 			// It may stand: named as left, never forgotten, and not
 			// removed on a guess.
-			res.Detail = "making the new database got no answer the forge can trust, so whether it was made is not known: " + err.Error()
+			res.Detail = "making the new database got no answer AppTown can trust, so whether it was made is not known: " + err.Error()
 			res.Left = place + " on " + it.Instance + " (it may have been made: " + err.Error() + ")"
 			return res
 		}

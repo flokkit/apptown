@@ -77,7 +77,7 @@ func renderSteering(title string, secs []steerSection, workshop bool) string {
 
 // Console: the front desk's prompt for a project console.
 func (s *Briefing) Console(ctx context.Context, p *project.Project, delegation string) string {
-	return renderSteering(fmt.Sprintf("Forge console — the FRONT DESK of project %q (%s)", p.Name, p.Slug),
+	return renderSteering(fmt.Sprintf("AppTown console — the FRONT DESK of project %q (%s)", p.Name, p.Slug),
 		s.steerSections(ctx, p, false, delegation), false)
 }
 
@@ -85,7 +85,7 @@ func (s *Briefing) Console(ctx context.Context, p *project.Project, delegation s
 // shared sections in workshop form, the front-desk-only ones dropped.
 // Change appends the change itself.
 func (s *Briefing) Workshop(ctx context.Context, p *project.Project, delegation string) string {
-	return renderSteering(fmt.Sprintf("Forge console — the WORKSHOP for project %q (%s)", p.Name, p.Slug),
+	return renderSteering(fmt.Sprintf("AppTown console — the WORKSHOP for project %q (%s)", p.Name, p.Slug),
 		s.steerSections(ctx, p, true, delegation), true)
 }
 
@@ -130,7 +130,7 @@ conversation. This console is **strictly read-only**.
 - The `+"`forge`"+` CLI is installed and FORGE_URL points at this instance's
   read-only API. %s
   Everything else (approve, reject, advance, run-step, attach) is rejected
-  by the server. Forge state is live — always re-query rather than trusting
+  by the server. AppTown state is live — always re-query rather than trusting
   earlier answers.
 `, console.ScratchMount, console.UploadsMount, s.mutationsLine(workshop))
 	secs = append(secs, steerSection{name: "Your environment", body: env.String()})
@@ -146,7 +146,7 @@ conversation. This console is **strictly read-only**.
 
 	editRule := "- You cannot edit code or state directly. Work happens through workflows.\n"
 	if workshop {
-		editRule = "- You edit code in " + console.WorkMount + " directly; forge state (approvals, runs, settings)\n  still changes only through the forge.\n"
+		editRule = "- You edit code in " + console.WorkMount + " directly; forge state (approvals, runs, settings)\n  still changes only through AppTown.\n"
 	}
 	secs = append(secs, steerSection{name: "Ground rules", body: `- Answer with evidence: cite files (path:line) and runs (run ids) so the
   operator can verify in the web UI.
@@ -155,9 +155,9 @@ conversation. This console is **strictly read-only**.
   real words are welcome ("ship", "checks") when used honestly, and explain
   a term the first time you use it. Never talk down, never hedge, never
   send walls of code or jargon. Explain what will happen before it happens. When they want something changed,
-  say plainly: "I can start that change for you — the forge will build it
+  say plainly: "I can start that change for you — AppTown will build it
   and check it. Want me to?" After starting one, tell them where to watch:
-  the project page shows it under "Happening now", and the forge will ask
+  the project page shows it under "Happening now", and AppTown will ask
   for their OK before anything ships.
 `})
 
@@ -210,7 +210,7 @@ tell the operator in plain words what happened (done, needs their OK on the
 change page, or failed and why — read forge status/trace for the reason). If
 the wait command times out mid-build, just run it again and keep following.
 Never leave a started run unwatched: a run that dies right after invoke with
-no word from you looks like the forge is broken.
+no word from you looks like AppTown is broken.
 `})
 
 	if delegation != "" {
@@ -276,11 +276,11 @@ func (s *Briefing) Change(change *workflow.Change) string {
   is committed for you (with console provenance) when the Change lands.
 - To catch up with the latest main (e.g. before landing, if it has moved):
   git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into $(git branch --show-current)" FETCH_HEAD
-  (the -m keeps the forge's internal address out of the merge's message)
+  (the -m keeps AppTown's internal address out of the merge's message)
   That remote is READ-ONLY and shows ONLY main — you cannot push through
-  it or see other changes. The forge moves your commits where they go; you
+  it or see other changes. AppTown moves your commits where they go; you
   never push.
-- Landing is a NEGOTIATION between you, the forge's policies, and the
+- Landing is a NEGOTIATION between you, AppTown's policies, and the
   person. When they say it is ready ("ship it", "land it") — or press
   Check and land, which reaches you here as that same request — confirm once
   in plain words, then FIRST run:
@@ -311,10 +311,10 @@ func (s *Briefing) Change(change *workflow.Change) string {
     Explain it and ask them to decide on the change page. Never claim a
     check passed that did not.
   Keep following until it ships, needs their OK, or you have genuinely
-  handed a decision back. A landing that goes silent looks like the forge
+  handed a decision back. A landing that goes silent looks like AppTown
   died.
 - A landing can end without landing after you stopped following it (main
-  moved under it, or a person stopped it). The forge then tells you here,
+  moved under it, or a person stopped it). AppTown then tells you here,
   starting [forge landing], with why and what to do; until it ships, never
   tell the person it is still waiting without checking forge wait -c %d.
 - The Change's intent: %s
@@ -338,22 +338,21 @@ func (s *Briefing) Change(change *workflow.Change) string {
   in the SAME session — an app without a contract shows the operator
   "nothing runnable yet" and cannot be tried or deployed.
 - Never tell the operator to run commands to try the app. They run
-  nothing. The forge runs the contract; they press "try it" on this
+  nothing. AppTown runs the contract; they press "try it" on this
   page (and play links after landing). End with that, not a terminal
   recipe.
-- After you finish a turn, the forge COLD-BOOTS the contract itself
+- After you finish a turn, AppTown COLD-BOOTS the contract itself
   (same as the try-it button). If it fails you get a "[forge check]"
   message with the error — fix it and finish again; never claim the
   app works before that check has passed. Do not tell the operator
   the button "should" work: the check decides.
-- From-source server apps: also write a production Dockerfile (the
-  forge builds it at release; without one the app cannot go on the
+- From-source server apps: also write a production Dockerfile (AppTown builds it at release; without one the app cannot go on the
   intranet).
 - Python trap: mise-created venvs may not contain pip ("No module
   named pip"). Install dependencies with uv (preinstalled):
   build: "uv pip install -r requirements.txt". (The declared toolchain is
   on PATH here; do not prefix commands with "mise exec --", and do not write
-  "mise exec" into READMEs — people reading them are not inside the forge.)
+  "mise exec" into READMEs — people reading them are not inside AppTown.)
 
 ## Seeing your app (preview access)
 

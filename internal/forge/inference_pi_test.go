@@ -31,7 +31,7 @@ func TestInferencePinnedPi(t *testing.T) {
 			t.Error("missing trusted upstream credential")
 		}
 		if token != "" && strings.Contains(fmt.Sprint(r.Header), token) {
-			t.Error("Forge token leaked upstream")
+			t.Error("AppTown token leaked upstream")
 		}
 		http.Error(w, "upstream-canary", 418)
 	}))

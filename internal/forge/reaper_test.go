@@ -342,7 +342,7 @@ func TestStartingRemovesBootConfigurationsAStopLeft(t *testing.T) {
 	}
 	a.ReapPreviewOrphans(context.Background())
 	if _, err := os.Stat(left.Config); !os.IsNotExist(err) {
-		t.Fatalf("a boot's configuration outlived the forge's start: %v", err)
+		t.Fatalf("a boot's configuration outlived AppTown's start: %v", err)
 	}
 }
 

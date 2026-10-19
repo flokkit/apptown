@@ -39,7 +39,7 @@ import (
 func cmdCheck(args []string) error {
 	fs := newFlags("check")
 	change := fs.String("c", "", "the change: its id or <project>#<number> (default: $FORGE_CHANGE, set in agent steps)")
-	published := fs.Bool("published", false, "check the tip of the change's published branch on the forge, not this folder's HEAD")
+	published := fs.Bool("published", false, "check the tip of the change's published branch on AppTown, not this folder's HEAD")
 	parseArgs(fs, args)
 	var cid ids.ID
 	if *change != "" {
@@ -59,14 +59,14 @@ func cmdCheck(args []string) error {
 	switch {
 	case *published:
 		body["published"] = true
-		fmt.Println(dim(fmt.Sprintf("--published: checking the published tip of change %s's branch on the forge, not this folder's work", cid)))
+		fmt.Println(dim(fmt.Sprintf("--published: checking the published tip of change %s's branch on AppTown, not this folder's work", cid)))
 	default:
 		head, dirty, err := folderHead()
 		if err != nil {
 			return err
 		}
 		if head == "" {
-			fmt.Println(dim(fmt.Sprintf("not in a Git repository: checking change %s's latest commit on the forge", cid)))
+			fmt.Println(dim(fmt.Sprintf("not in a Git repository: checking change %s's latest commit on AppTown", cid)))
 			break
 		}
 		asked = head
@@ -78,7 +78,7 @@ func cmdCheck(args []string) error {
 		if ref := os.Getenv("FORGE_SCRATCH_REF"); ref != "" {
 			if err := sendScratch(head, ref); err != nil {
 				// The forge may have the commit anyway; if not, it says so.
-				fmt.Println(yellow("  could not send this commit to the forge for checking: " + err.Error()))
+				fmt.Println(yellow("  could not send this commit to AppTown for checking: " + err.Error()))
 			}
 		}
 	}
@@ -117,10 +117,10 @@ func cmdCheck(args []string) error {
 	// A result is shown only for the commit asked about: an answer for any
 	// other commit (an older one, say) is not this work's result.
 	if asked != "" && out.Commit != asked {
-		return fmt.Errorf("the forge answered for commit %q, not %s which was asked about; its result is not shown", out.Commit, asked)
+		return fmt.Errorf("AppTown answered for commit %q, not %s which was asked about; its result is not shown", out.Commit, asked)
 	}
 	if out.Commit == "" {
-		return fmt.Errorf("the forge's answer names no commit; its result is not shown")
+		return fmt.Errorf("AppTown's answer names no commit; its result is not shown")
 	}
 	if *published {
 		fmt.Println("commit " + out.Commit + " (the published tip of change " + cid.String() + "'s branch)")
@@ -210,7 +210,7 @@ func folderHead() (head string, dirty bool, err error) {
 		head, err = theirGit(ctx, cwd, theirs, "rev-parse", "--verify", "HEAD^{commit}")
 		if err != nil || !gitexec.IsObjectID(head) {
 			head = ""
-			return fmt.Errorf("this folder's repository has no commit to check: commit your work, or pass --published to check the change's latest commit on the forge")
+			return fmt.Errorf("this folder's repository has no commit to check: commit your work, or pass --published to check the change's latest commit on AppTown")
 		}
 		status, _ := theirGit(ctx, cwd, theirs, "status", "--porcelain")
 		dirty = status != ""

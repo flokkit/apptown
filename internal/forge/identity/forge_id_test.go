@@ -30,11 +30,11 @@ func TestTheForgesIDIsMintedOnce(t *testing.T) {
 	wg.Wait()
 	later, err := ForgeIDIn(context.Background(), db, time.Now().Add(time.Hour))
 	if err != nil || later.IsZero() {
-		t.Fatalf("the forge's id: %s %v", later, err)
+		t.Fatalf("AppTown's id: %s %v", later, err)
 	}
 	for _, id := range got {
 		if id != later {
-			t.Fatalf("the forge's id changed: %s then %s", id, later)
+			t.Fatalf("AppTown's id changed: %s then %s", id, later)
 		}
 	}
 }

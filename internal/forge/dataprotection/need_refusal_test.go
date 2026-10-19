@@ -47,7 +47,7 @@ func TestARehearsalRefusesAWithdrawnNeedDeclaration(t *testing.T) {
 	if endedAs(op, OperationVerified) {
 		t.Fatalf("legacy password declaration rehearsed as verified: %s", op.Detail)
 	}
-	if !strings.Contains(op.Detail, "the forge sets the password") {
+	if !strings.Contains(op.Detail, "AppTown sets the password") {
 		t.Fatalf("missing contract refusal: %s", op.Detail)
 	}
 }

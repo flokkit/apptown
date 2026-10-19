@@ -87,6 +87,6 @@ func TestAShellChecksDurationIsTheForgesClock(t *testing.T) {
 	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "quick", Expects: "e", Evaluator: "sh", Sh: "exit 0", Severity: "low"}}
 	results, _, _ := e.runShChecks(context.Background(), []conformance.DeclaredCheck{sc}, t.TempDir(), "t-clock")
 	if len(results) != 1 || results[0].DurationMs == nil || *results[0].DurationMs != 7000 {
-		t.Fatalf("a check seven seconds long on the forge's clock: %+v", results)
+		t.Fatalf("a check seven seconds long on AppTown's clock: %+v", results)
 	}
 }

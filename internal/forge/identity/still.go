@@ -172,7 +172,7 @@ func (s *Service) stillPrincipal(ctx context.Context, c access.Principal) (acces
 		pr.Credential = c.Credential
 		return pr, nil
 	}
-	return gone("%q is not a credential the forge can check", kind)
+	return gone("%q is not a credential AppTown can check", kind)
 }
 
 // samePerson is whether a credential's owner is the person who asked: by

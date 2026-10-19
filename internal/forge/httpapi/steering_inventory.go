@@ -52,7 +52,7 @@ func (s SteeringInventory) sections(ctx context.Context, projectID ids.ID) []ste
 		s.Bytes = len(s.BodyMD)
 		out = append(out, s)
 	}
-	add(steeringSection{Name: "platform/complaints-box", Source: "the forge", Always: true, BodyMD: s.text.Complaints,
+	add(steeringSection{Name: "platform/complaints-box", Source: "AppTown", Always: true, BodyMD: s.text.Complaints,
 		Note: "First in every agent step's steering: platform friction gets reported to the complaints box, even with a workaround."})
 	add(steeringSection{Name: "ambient/registries", Source: "registry bindings", Always: true, BodyMD: s.source.Registry(ctx),
 		Note: "Injected into every agent step's steering after the pinned guidance, and refreshed into console steering on each provision. The exact text each step received is attached to the step as a 'steering' artifact (sha256 in evidence)."})
@@ -61,13 +61,13 @@ func (s SteeringInventory) sections(ctx context.Context, projectID ids.ID) []ste
 			BodyMD: s.source.Integrations(ctx, projectID),
 			Note:   "What this project has attached (error tracker, feedback, databases) and how the app is expected to use it."})
 	}
-	add(steeringSection{Name: "platform/workspace-hygiene", Source: "the forge", Always: true, BodyMD: s.text.Hygiene,
+	add(steeringSection{Name: "platform/workspace-hygiene", Source: "AppTown", Always: true, BodyMD: s.text.Hygiene,
 		Note: "Keeps agents out of .forge/sessions, whose transcripts would flood their context."})
 	add(steeringSection{Name: "platform/delegation", Source: "model slots", BodyMD: s.delegation.Delegation(ctx),
 		Note: "Only steps that run in the container executor: which models the agent may hand work to."})
-	add(steeringSection{Name: "platform/runtime-contract", Source: "the forge", BodyMD: s.text.Runtime,
+	add(steeringSection{Name: "platform/runtime-contract", Source: "AppTown", BodyMD: s.text.Runtime,
 		Note: "Only steps with the implementation skill: how apps deploy (cold containers, mise pins, the boot gate)."})
-	add(steeringSection{Name: "platform/docker-in-docker", Source: "the forge", BodyMD: s.text.Docker,
+	add(steeringSection{Name: "platform/docker-in-docker", Source: "AppTown", BodyMD: s.text.Docker,
 		Note: "Only steps that build container images: the private Docker daemon and the org registry."})
 	return out
 }

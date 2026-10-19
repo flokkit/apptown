@@ -138,7 +138,7 @@ func (e *UnavailableError) FaultKind() fault.Kind { return fault.Unavailable }
 
 // ErrNoDomain refuses previews on a worker without a preview domain:
 // they are reached only through the forge's preview proxy, by name.
-var ErrNoDomain = fault.Wrap(fault.Unprocessable, errors.New("previews run on the worker, and are reached through the forge's preview domain, which this forge does not have (-tier-domain preview=<domain>)"))
+var ErrNoDomain = fault.Wrap(fault.Unprocessable, errors.New("previews run on the worker, and are reached through AppTown's preview domain, which this AppTown does not have (-tier-domain preview=<domain>)"))
 
 // IsAppBootFailure says whether a preview's failure is the app's to answer
 // for: anything but a place previews run that could not be asked, or a forge
@@ -234,7 +234,7 @@ func (s *Service) bootOnWorker(ctx context.Context, spec worker.PreviewSpec, pre
 		return worker.PreviewState{}, ErrNoDomain
 	}
 	if s.startClearPending() {
-		return worker.PreviewState{}, &UnavailableError{Cause: errors.New("the previews on the worker from before the forge started are not yet removed")}
+		return worker.PreviewState{}, &UnavailableError{Cause: errors.New("the previews on the worker from before AppTown started are not yet removed")}
 	}
 	st, err := s.worker.Boot(ctx, spec, prepared, tree)
 	if err != nil {

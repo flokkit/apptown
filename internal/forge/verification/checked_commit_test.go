@@ -102,13 +102,13 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 			t.Fatalf("%s: read %s at %s (scratch %v, %v), want %s at %s", tc.name, sha, repo, inScratch, err, tc.sha, tc.repo)
 		}
 	}
-	for name, commit := range map[string]string{"not on the forge": elsewhere, "only on a sibling's branch": sibling, "only on another change's scratch ref": othersScratch} {
+	for name, commit := range map[string]string{"not on AppTown": elsewhere, "only on a sibling's branch": sibling, "only on another change's scratch ref": othersScratch} {
 		_, sha, err := changes.CheckedCommit(ctx, ch, Selection{Commit: commit})
 		var refused *CommitNotOnForgeError
 		if !errors.As(err, &refused) || refused.Commit != commit || sha != "" || fault.KindOf(err) != fault.NotFound {
 			t.Fatalf("%s: read %q (%v), want a refusal naming %s", name, sha, err, commit)
 		}
-		for _, words := range []string{"commit " + commit + " is not on the forge yet", "it becomes available once the step's work is collected", "forge check --published"} {
+		for _, words := range []string{"commit " + commit + " is not on AppTown yet", "it becomes available once the step's work is collected", "forge check --published"} {
 			if !strings.Contains(err.Error(), words) {
 				t.Fatalf("%s: the refusal does not say %q: %v", name, words, err)
 			}
@@ -142,6 +142,6 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 		t.Fatalf("a check of an unpublished change answered %v (%v)", out, err)
 	}
 	if out, err := changes.Check(ctx, ch, Selection{Commit: elsewhere}); !errors.As(err, new(*CommitNotOnForgeError)) || out != nil {
-		t.Fatalf("a check of a commit not on the forge answered %v (%v)", out, err)
+		t.Fatalf("a check of a commit not on AppTown answered %v (%v)", out, err)
 	}
 }

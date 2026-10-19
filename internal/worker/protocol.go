@@ -47,7 +47,7 @@ func servedRange(min, max int, next http.Handler) http.Handler {
 		if h := r.Header.Get(ProtocolHeader); h != "" {
 			n, err := strconv.Atoi(h)
 			if err != nil || n < min || n > max {
-				http.Error(w, fmt.Sprintf("this worker (%s) serves forge protocols %d to %d; the forge speaks %q: install the forge and its worker from the same release",
+				http.Error(w, fmt.Sprintf("this worker (%s) serves forge protocols %d to %d; AppTown speaks %q: install AppTown and its worker from the same release",
 					version.String(), min, max, h), http.StatusUpgradeRequired)
 				return
 			}

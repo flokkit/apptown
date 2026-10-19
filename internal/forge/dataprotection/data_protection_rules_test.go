@@ -961,7 +961,7 @@ func TestADrillIsDueByTheForgesOwnClock(t *testing.T) {
 	}
 	ahead.Add(int64(8 * 24 * time.Hour))
 	if !w.s.drillDue(ctx, dep, set) {
-		t.Fatal("eight days after a drill, by the forge's clock, the next is not due")
+		t.Fatal("eight days after a drill, by AppTown's clock, the next is not due")
 	}
 }
 
@@ -988,7 +988,7 @@ func TestAManagedInstanceTheForgeCannotCopyStaysInTheList(t *testing.T) {
 	}
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || p.Unknown != "" || len(p.Items) != 1 || p.Items[0].Copy != CopyNone || !strings.Contains(p.Items[0].CopyNote, "names no instance") || p.Operations.FinalCopy.Available {
-		t.Fatalf("an instance the forge cannot copy: %+v %v", p, err)
+		t.Fatalf("an instance AppTown cannot copy: %+v %v", p, err)
 	}
 	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, ErrNoFinalCopy) {
 		t.Fatalf("a take-down with nothing it can copy: %v", err)

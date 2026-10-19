@@ -21,7 +21,7 @@ func recordEvent(ctx context.Context, db database.Queryer, runID ids.ID, kind st
 		return fmt.Errorf("invalid %s receipt", kind)
 	}
 	if at.IsZero() {
-		return fmt.Errorf("workflow event %q needs the forge's time", kind)
+		return fmt.Errorf("workflow event %q needs AppTown's time", kind)
 	}
 	n, err := workflowsql.New(db.SQL()).InsertRunEvent(ctx, workflowsql.InsertRunEventParams{ID: ids.New(at), RunID: runID, At: at, Kind: kind, PayloadJson: payload})
 	if err != nil {

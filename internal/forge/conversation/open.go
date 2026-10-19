@@ -167,7 +167,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 	// change's existing chat is returned wherever it runs.
 	if onWorker {
 		if err := c.workers.Ready(ctx); err != nil {
-			return nil, c.workerRefusal(fmt.Errorf("the worker cannot take this chat: %w", err), "open it on the forge")
+			return nil, c.workerRefusal(fmt.Errorf("the worker cannot take this chat: %w", err), "open it on AppTown")
 		}
 	}
 	// The chat takes the change before anything touches its folder, under
@@ -209,14 +209,14 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		if diverged && onWorker {
 			// Its saves build on the published branch, which this folder
 			// has left: a chat on the forge merges it first.
-			return nil, c.workerRefusal(fmt.Errorf("change #%d's folder and its published branch have both moved", change.ID), "open a chat on the forge to merge them first")
+			return nil, c.workerRefusal(fmt.Errorf("change #%d's folder and its published branch have both moved", change.ID), "open a chat on AppTown to merge them first")
 		}
 		if onWorker {
 			// The worker is sent the folder's branch, and its saves build
 			// on the published one: the folder's committed work is published
 			// first, with the checks; work they refuse stays in the folder.
 			if err := c.workers.Publish(ctx, p, change, scm.ChatHolder(id)); err != nil {
-				return nil, c.workerRefusal(fmt.Errorf("change #%d's folder has committed work that could not be published (%w)", change.ID, err), "open a chat on the forge to sort it out")
+				return nil, c.workerRefusal(fmt.Errorf("change #%d's folder has committed work that could not be published (%w)", change.ID, err), "open a chat on AppTown to sort it out")
 			}
 		}
 		// The change's own folder, borrowed: it stays when the chat ends.
@@ -314,7 +314,7 @@ func (c *Admission) onWorker(in ProjectOpen) (bool, error) {
 	var cannot error
 	switch {
 	case c.workers == nil:
-		cannot = fmt.Errorf("this forge has no worker for chats")
+		cannot = fmt.Errorf("this AppTown has no worker for chats")
 	case in.ChangeID.IsZero():
 		cannot = fmt.Errorf("only a change's chat can run on the worker")
 	case !in.ContinueStep.IsZero():
@@ -326,7 +326,7 @@ func (c *Admission) onWorker(in ProjectOpen) (bool, error) {
 			return true, nil
 		}
 		if c.noLocal {
-			return false, &AdmissionConflict{Err: fmt.Errorf("%w, and this forge runs no chats itself", cannot)}
+			return false, &AdmissionConflict{Err: fmt.Errorf("%w, and this AppTown runs no chats itself", cannot)}
 		}
 		if in.Placement == PlaceOnWorker {
 			return false, &AdmissionConflict{Err: cannot}
@@ -334,7 +334,7 @@ func (c *Admission) onWorker(in ProjectOpen) (bool, error) {
 		return false, nil
 	case PlaceOnForge:
 		if c.noLocal {
-			return false, &AdmissionConflict{Err: fmt.Errorf("this forge runs no chats itself; open the chat on the worker")}
+			return false, &AdmissionConflict{Err: fmt.Errorf("this AppTown runs no chats itself; open the chat on the worker")}
 		}
 		return false, nil
 	}

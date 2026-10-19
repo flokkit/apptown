@@ -235,7 +235,7 @@ func checkNames(tr *tar.Reader) error {
 		}
 		top := strings.SplitN(name, "/", 2)[0]
 		if slices.Contains(workerOwned, top) {
-			return fmt.Errorf("%q is the worker's, not the forge's", hdr.Name)
+			return fmt.Errorf("%q is the worker's, not AppTown's", hdr.Name)
 		}
 		for dir := filepath.Dir(name); dir != "."; dir = filepath.Dir(dir) {
 			if links[dir] {

@@ -165,7 +165,7 @@ func drained(t *testing.T, a *App) {
 	select {
 	case <-done:
 	case <-time.After(30 * time.Second):
-		t.Fatal("the forge's dispatched work did not finish")
+		t.Fatal("AppTown's dispatched work did not finish")
 	}
 }
 

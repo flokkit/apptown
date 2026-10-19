@@ -188,7 +188,7 @@ func (h *Hosts) materialiseTargetKey(ctx context.Context, targetName, keyFrom st
 	}
 	key := values[keyFrom]
 	if strings.TrimSpace(key) == "" {
-		return "", fmt.Errorf("no secret named %q in the forge's secrets store (the SSH private key for this host goes there, never in a row)", keyFrom)
+		return "", fmt.Errorf("no secret named %q in AppTown's secrets store (the SSH private key for this host goes there, never in a row)", keyFrom)
 	}
 	// The file store keeps one line per secret; a key pasted there with
 	// its newlines written as \n is unfolded here.
@@ -223,7 +223,7 @@ func (h *Hosts) prepareHostTarget(ctx context.Context, name string, addr SSHAddr
 		return "", err
 	}
 	if err := upsertSSHStanza(h.settings.SSHConfigPath, name, sshStanza(name, addr, keyPath)); err != nil {
-		return "", fmt.Errorf("writing the forge's ssh config: %w", err)
+		return "", fmt.Errorf("writing AppTown's ssh config: %w", err)
 	}
 	return "ssh://" + sshAlias(name), nil
 }

@@ -255,7 +255,7 @@ func (s *Service) execute(ctx context.Context, op *Operation) (*Operation, error
 	log := &StepLog{s: s, op: op, kind: k}
 	var out Outcome
 	if !ok {
-		out = Outcome{State: Failed, Detail: fmt.Sprintf("the forge does not know how to run a %s", op.Kind)}
+		out = Outcome{State: Failed, Detail: fmt.Sprintf("AppTown does not know how to run a %s", op.Kind)}
 	} else {
 		out = s.guarded(ctx, k, *op, log)
 	}
@@ -267,7 +267,7 @@ func (s *Service) execute(ctx context.Context, op *Operation) (*Operation, error
 	if ctx.Err() != nil && out.State != Unknown {
 		// What it last did was cut off; whether its effect ended is not known.
 		out.State = Unknown
-		out.Detail = strings.TrimSpace(out.Detail + " It was stopped (the forge stopped or its two-hour budget ran out) before it could be said how it ended; look before asking again.")
+		out.Detail = strings.TrimSpace(out.Detail + " It was stopped (AppTown stopped or its two-hour budget ran out) before it could be said how it ended; look before asking again.")
 	}
 	if log.lost != nil {
 		out.Detail = strings.TrimSpace(out.Detail + " (some steps were not recorded as they happened: " + log.lost.Error() + ")")
@@ -308,7 +308,7 @@ func (s *Service) settleIn(ctx context.Context, tx *database.Tx, op *Operation, 
 		case Unknown:
 			cur.Unknown = true
 			if cur.Detail == "" {
-				cur.Detail = "not known: the forge stopped or got no answer"
+				cur.Detail = "not known: AppTown stopped or got no answer"
 			}
 		case Failed, Cancelled:
 			cur.Failed = true
@@ -430,7 +430,7 @@ func interruptedDetail(op *Operation) string {
 			done = append(done, st.Name)
 		}
 	}
-	detail := "the forge stopped while this ran; whether it finished is not known."
+	detail := "AppTown stopped while this ran; whether it finished is not known."
 	if len(done) > 0 {
 		detail += " Confirmed: " + strings.Join(done, "; ") + "."
 	} else {

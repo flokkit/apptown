@@ -36,7 +36,7 @@ func TestAmbientPreparationPreservesProjectConfigurationAndIsolatesInstalls(t *t
 				install = strings.TrimPrefix(value, "MISE_DATA_DIR=")
 			}
 			if strings.HasPrefix(value, "PATH=") && !strings.HasPrefix(value, "PATH=/opt/forge/bin:") {
-				t.Fatal("toolchain can shadow Forge CLI")
+				t.Fatal("toolchain can shadow the agents' CLI")
 			}
 		}
 		if install == "" {

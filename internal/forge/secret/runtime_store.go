@@ -20,12 +20,12 @@ type StoreInfo struct {
 func (a *Service) Stores() []StoreInfo {
 	out := []StoreInfo{{
 		Name: StoreInternal, Title: "Built-in store", Available: true,
-		Note: "Part of the forge itself: no separate service, nothing to run. Values are kept in the forge's own database, obfuscated with a key the forge generated. That stops accidental disclosure; it is not a vault, and anyone holding the database can read the values. For anything that matters, connect a real secret store.",
+		Note: "Part of AppTown itself: no separate service, nothing to run. Values are kept in AppTown's own database, obfuscated with a key AppTown generated. That stops accidental disclosure; it is not a vault, and anyone holding the database can read the values. For anything that matters, connect a real secret store.",
 	}}
 	inf := StoreInfo{Name: StoreInfisical, Title: "Infisical", Available: infisicalConfig(a.fileSecrets()).Configured(),
-		Note: "A binding names a key in the Infisical project and environment this forge is configured for. Values never enter the forge's database."}
+		Note: "A binding names a key in the Infisical project and environment this AppTown is configured for. Values never enter AppTown's database."}
 	if !inf.Available {
-		inf.Note = "Not set up on this forge: INFISICAL_URL, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET and INFISICAL_PROJECT_ID go in secrets.env."
+		inf.Note = "Not set up on this AppTown: INFISICAL_URL, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET and INFISICAL_PROJECT_ID go in secrets.env."
 	}
 	return append(out, inf)
 }
@@ -65,7 +65,7 @@ func GenerateValue() (string, error) {
 func (a *Service) InfisicalValues(ctx context.Context) (map[string]string, error) {
 	cfg := infisicalConfig(a.fileSecrets())
 	if !cfg.Configured() {
-		return nil, errors.New("Infisical is not set up on this forge (secrets.env)")
+		return nil, errors.New("Infisical is not set up on this AppTown (secrets.env)")
 	}
 	m, err := a.infisicalFetch(ctx, cfg)
 	if m == nil {

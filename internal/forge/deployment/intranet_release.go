@@ -91,7 +91,7 @@ func (s *Service) ReleaseLAN(ctx context.Context, p *project.Project, who string
 func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who string, bundle *ReleaseBundle, in LANReleaseRequest) (*LANReleaseStarted, int, error) {
 	var err error
 	if bundle == nil && s.hosts.settings.NoLocalDocker {
-		return nil, 422, refused("an intranet release from a forge with no local Docker ships a release published to the project's registry, and the latest landing published none; land the change again")
+		return nil, 422, refused("an intranet release from an AppTown with no local Docker ships a release published to the project's registry, and the latest landing published none; land the change again")
 	}
 	cfg, err := s.IntranetConfig(ctx)
 	if err != nil {
@@ -130,7 +130,7 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	if needs, err := s.env.registeredNeeds(ctx, c); err != nil {
 		return nil, 422, err
 	} else if len(needs) > 0 {
-		return nil, 422, refusal(fmt.Sprintf("this app needs %s, which the forge gives only to a deployment released by name, where it can revoke it at take-down: release it with forge release %s %s", needs[0].name, p.Slug, cfg.ReleaseDeployment))
+		return nil, 422, refusal(fmt.Sprintf("this app needs %s, which AppTown gives only to a deployment released by name, where it can revoke it at take-down: release it with forge release %s %s", needs[0].name, p.Slug, cfg.ReleaseDeployment))
 	}
 	if _, err := s.env.ResolveDockerStack(ctx, c, nil, nil); err != nil {
 		return nil, 422, err // an unknown need fails at the door, before a number is minted

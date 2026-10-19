@@ -67,13 +67,13 @@ func TestTheForgesClockDecidesWhatExpires(t *testing.T) {
 
 	moveDatabaseClock(t, s.db, "40 days")
 	if pending, err := s.Invites(ctx, testPrincipal("ops")); err != nil || len(pending) != 1 || pending[0].State != "pending" {
-		t.Fatalf("a pending invite by the forge's clock: %+v %v", pending, err)
+		t.Fatalf("a pending invite by AppTown's clock: %+v %v", pending, err)
 	}
 	if err := s.oauth.SweepExpired(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if conn, err := s.oauth.Connection(ctx, delegation); err != nil || conn == nil || !conn.LiveAt(time.Now()) {
-		t.Fatalf("a live delegation by the forge's clock was swept: %+v %v", conn, err)
+		t.Fatalf("a live delegation by AppTown's clock was swept: %+v %v", conn, err)
 	}
 	if n, err := enabledRoots(ctx, s.db, time.Now()); err != nil || n != before {
 		t.Fatalf("administrators with the database's clock ahead: %d %v, want %d", n, err, before)
@@ -189,7 +189,7 @@ func TestEveryLifetimeIsJudgedByTheForgesClock(t *testing.T) {
 		}
 		result, err := s.DecideConsent(ctx, ConsentDecision{Browser: browser, Token: prepared.Token, Choice: ConsentAllow})
 		if err != nil {
-			t.Fatalf("a consent request just made, by the forge's clock: %v", err)
+			t.Fatalf("a consent request just made, by AppTown's clock: %v", err)
 		}
 		return prepared, result.Code
 	}
@@ -199,7 +199,7 @@ func TestEveryLifetimeIsJudgedByTheForgesClock(t *testing.T) {
 	_, first := code()
 	pair, err := exchange(first)
 	if err != nil {
-		t.Fatalf("a code just issued, by the forge's clock: %v", err)
+		t.Fatalf("a code just issued, by AppTown's clock: %v", err)
 	}
 	_, unexchanged := code()
 	undecided, err := s.PrepareConsent(ctx, browser)
@@ -257,10 +257,10 @@ func TestEveryLifetimeIsJudgedByTheForgesClock(t *testing.T) {
 	}
 
 	if !session() || inviteState() != "pending" || !granted() || !ticketLive() {
-		t.Fatalf("live by the forge's clock: session %v, invite %s, grant %v, ticket %v", session(), inviteState(), granted(), ticketLive())
+		t.Fatalf("live by AppTown's clock: session %v, invite %s, grant %v, ticket %v", session(), inviteState(), granted(), ticketLive())
 	}
 	if _, err := s.ResolveOAuth(ctx, pair.Access, AudienceUser); err != nil {
-		t.Fatalf("an access token live by the forge's clock: %v", err)
+		t.Fatalf("an access token live by AppTown's clock: %v", err)
 	}
 
 	// Two hours on: the short lifetimes have ended, the long ones have not.
@@ -327,7 +327,7 @@ func TestTheLastAdministratorIsJudgedByTheForgesClock(t *testing.T) {
 			continue
 		}
 		if at, err := time.Parse(time.RFC3339Nano, g.CreatedAt); err != nil || !at.Equal(clk.now()) {
-			t.Fatalf("grant %d stamped %s, not the forge's clock %s: %v", g.ID, g.CreatedAt, clk.now(), err)
+			t.Fatalf("grant %d stamped %s, not AppTown's clock %s: %v", g.ID, g.CreatedAt, clk.now(), err)
 		}
 		switch g.Subject {
 		case "ops":
@@ -337,10 +337,10 @@ func TestTheLastAdministratorIsJudgedByTheForgesClock(t *testing.T) {
 		}
 	}
 	if revoked, err := s.Revoke(context.Background(), ops, "ops"); err != nil || !revoked {
-		t.Fatalf("may administers for another hour by the forge's clock: %v %v", revoked, err)
+		t.Fatalf("may administers for another hour by AppTown's clock: %v %v", revoked, err)
 	}
 	if revoked, err := s.Revoke(context.Background(), may, "may"); !errors.Is(err, ErrLastAdministrator) || revoked {
-		t.Fatalf("may is the last administrator by the forge's clock: %v %v", revoked, err)
+		t.Fatalf("may is the last administrator by AppTown's clock: %v %v", revoked, err)
 	}
 }
 

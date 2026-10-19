@@ -95,7 +95,7 @@ func (b *baselineSet) evaluations(target workflow.AcceptanceScope) []check.Evalu
 
 const (
 	notePreexisting = "already fails on main, nothing new here — not this change's to fix; the fleet review opens its own remediation"
-	noteUndecided   = "fails on main too; the check reports no occurrences, so the forge cannot tell whether this change made it worse — the reviewer judges the diff"
+	noteUndecided   = "fails on main too; the check reports no occurrences, so AppTown cannot tell whether this change made it worse — the reviewer judges the diff"
 )
 
 // headEvaluations reads each head finding as the evaluation that produced it:

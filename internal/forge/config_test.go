@@ -225,7 +225,7 @@ func TestGuideLinksNameTheAddressesTheForgeServes(t *testing.T) {
 		t.Helper()
 		path, ok := strings.CutPrefix(url, got.Origin.URL)
 		if !ok {
-			t.Fatalf("%s is not on the forge's origin", url)
+			t.Fatalf("%s is not on AppTown's origin", url)
 		}
 		return servedPattern(path)
 	}

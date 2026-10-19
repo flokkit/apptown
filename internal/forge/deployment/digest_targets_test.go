@@ -188,7 +188,7 @@ func (p *promotionTargets) expectForgeDockerIdle(t *testing.T) {
 	for _, c := range p.hosts.commands("") {
 		for _, verb := range []string{"build", "buildx", "push", "tag", "login"} {
 			if strings.HasPrefix(c, verb+" ") {
-				t.Errorf("the forge's own Docker ran %q", c)
+				t.Errorf("AppTown's own Docker ran %q", c)
 			}
 		}
 	}

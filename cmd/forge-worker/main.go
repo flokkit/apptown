@@ -52,7 +52,7 @@ func main() {
 		servicePIDs   = flag.Int64("service-pids", execution.DefaultServiceLimits.PIDs, "processes for each service run beside a check or a task")
 		exclusive     = flag.Bool("exclusive", false, "declare that this machine is the installation's alone: nothing else runs on it. Recorded in the worker's profile with every private-Docker attempt; it is not measured")
 		checkMetadata = flag.Bool("check-metadata", false, "say whether a container on this host reaches the cloud metadata service ("+metadataAddress+"), then exit; the install blocks it")
-		showVersion   = flag.Bool("version", false, "print this build's version and the forge protocols it serves, and exit")
+		showVersion   = flag.Bool("version", false, "print this build's version and AppTown protocols it serves, and exit")
 		roleFlag      = flag.String("role", worker.RoleAgent, "agent: chats, tasks and previews; check: checks and nothing else. Fixed on the first start with an empty -state, never changed")
 	)
 	flag.Parse()

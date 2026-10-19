@@ -66,7 +66,7 @@ func (editor *Integrity) Resolve(ctx context.Context, p *project.Project, action
 			return IntegrityResult{}, fmt.Errorf("staging: %w", err)
 		}
 		msg := fmt.Sprintf("forge: adopt out-of-band edits (decided by %s)\n\n"+
-			"These files were changed outside the forge; an admin chose to keep them.", who)
+			"These files were changed outside AppTown; an admin chose to keep them.", who)
 		if _, err := gitexec.Run(ctx, repo, "commit", "-m", msg); err != nil {
 			return IntegrityResult{}, fmt.Errorf("committing: %w", err)
 		}

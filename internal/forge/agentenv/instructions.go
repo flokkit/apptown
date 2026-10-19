@@ -71,7 +71,7 @@ func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) s
 		"from that env var (never hardcode it). See the observability guidance.\n" +
 		"A static site cannot read env vars: its page loads /_forge/env.js and\n" +
 		"reads window.__FORGE_ENV__.SENTRY_DSN (guidance deploy/browser-values);\n" +
-		"the forge checks the page loads it.\n" +
+		"AppTown checks the page loads it.\n" +
 		"Test hooks are part of the wiring, not optional: a server app serves\n" +
 		"GET /_forge/boom (captures a tagged \"forge test boom\" error, returns\n" +
 		"500, no auth); a browser app throws the same on the typed sequence\n" +

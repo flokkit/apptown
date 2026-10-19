@@ -44,7 +44,7 @@ const (
 	// enterRefused is shown for every failed entry. It does not say why:
 	// telling an outsider whether a ticket existed, was used or expired
 	// helps nobody but them.
-	enterRefused = "This link was already used or has expired. Press Open again in the forge.\n"
+	enterRefused = "This link was already used or has expired. Press Open again in AppTown.\n"
 
 	redeemTimeout = 10 * time.Second
 	// maxRedeemBody bounds how much of the forge's answer the gate reads.

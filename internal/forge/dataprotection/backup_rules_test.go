@@ -34,7 +34,7 @@ func TestBackupSafetyCopyDoesNotPrune(t *testing.T) {
 func TestTargetHoldsBackups(t *testing.T) {
 	for _, kind := range []string{deployment.KindDockerHost, deployment.KindPortainer} {
 		if err := (&deployment.Target{Kind: kind}).HoldsBackups(); err != nil {
-			t.Fatalf("a %s target holds the forge's backups: %v", kind, err)
+			t.Fatalf("a %s target holds AppTown's backups: %v", kind, err)
 		}
 	}
 	for _, kind := range []string{deployment.KindDOApp, deployment.KindS3Bucket} {

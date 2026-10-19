@@ -15,7 +15,7 @@ func TestCatalogStateOf(t *testing.T) {
 
 func TestBlockTierWords(t *testing.T) {
 	if TierOrdinary.String() != "" || TierPlatform.String() != "platform" {
-		t.Fatal("the stored words: empty for ordinary, platform for the forge's own contract")
+		t.Fatal("the stored words: empty for ordinary, platform for AppTown's own contract")
 	}
 	var zero BlockTier
 	if zero.String() != "invalid-tier" {

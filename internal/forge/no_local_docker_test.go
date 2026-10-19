@@ -40,7 +40,7 @@ type ownDockerTripwire struct{ t *testing.T }
 
 func (d ownDockerTripwire) Run(_ context.Context, host string, req docker.Command) ([]byte, error) {
 	if host == "" {
-		d.t.Errorf("the forge's own Docker was asked: docker %s", strings.Join(req.Args, " "))
+		d.t.Errorf("AppTown's own Docker was asked: docker %s", strings.Join(req.Args, " "))
 	}
 	return nil, errors.New("no daemon in this test")
 }
@@ -95,7 +95,7 @@ func TestTheNoLocalDockerModeRefusesTheForgesOwnDockerAndProjectProcesses(t *tes
 	t.Parallel()
 	a := modeApp(t, testDB(t), "")
 	if _, err := a.docker.Run(context.Background(), "ps"); !errors.Is(err, docker.ErrNoLocalBackend) {
-		t.Fatalf("the forge's own Docker: %v", err)
+		t.Fatalf("AppTown's own Docker: %v", err)
 	}
 	marker := filepath.Join(t.TempDir(), "ran")
 	for _, backend := range []string{execution.Local, execution.Docker} {
@@ -105,10 +105,10 @@ func TestTheNoLocalDockerModeRefusesTheForgesOwnDockerAndProjectProcesses(t *tes
 		}
 	}
 	if _, err := os.Stat(marker); !os.IsNotExist(err) {
-		t.Fatalf("a project process ran on the forge: %v", err)
+		t.Fatalf("a project process ran on AppTown: %v", err)
 	}
 	if out := a.processRunner.Run(context.Background(), execution.Local, execution.Request{Argv: []string{"git", "--version"}, Timeout: time.Minute}); !out.Exited0() {
-		t.Fatalf("the forge's own Git: %+v", out)
+		t.Fatalf("AppTown's own Git: %+v", out)
 	}
 	if _, err := a.docker.WithHost("ssh://forge-target-lab", "lab", "").Run(context.Background(), "info"); err == nil || errors.Is(err, docker.ErrNoLocalBackend) {
 		t.Fatalf("an attached target's call did not reach its transport: %v", err)
@@ -216,7 +216,7 @@ func TestTheDrainIntoTheNoLocalDockerModeWitnessesTheForgesOwnDocker(t *testing.
 	for _, left := range []string{agent, "forge-task-ns-op\t\top\t\t", "forge-script\t\t\t7\t/data/runs/1"} {
 		name, _, _ := strings.Cut(left, "\t")
 		if err := drainApp(t, a.DB, a.cfg.dataDir, left).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), name) {
-			t.Fatalf("a drain with %s on the forge's Docker: %v", name, err)
+			t.Fatalf("a drain with %s on AppTown's Docker: %v", name, err)
 		}
 		if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil {
 			t.Fatalf("the mode started after a drain that saw %s", name)

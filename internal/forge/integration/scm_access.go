@@ -242,7 +242,7 @@ func pushProtected(ctx context.Context, gl *gitlab.Client, projectID int64, bran
 	// Every matching rule applies, so a rule not read could be the
 	// permissive one: a full page may not be the whole list, and is refused.
 	if len(rules) >= protectionRulesRead {
-		return fmt.Errorf("the project has %d or more branch protection rules, more than the forge reads in one page, so it cannot tell whether a step's write token could change %s around landing; no write token was minted", protectionRulesRead, branch)
+		return fmt.Errorf("the project has %d or more branch protection rules, more than AppTown reads in one page, so it cannot tell whether a step's write token could change %s around landing; no write token was minted", protectionRulesRead, branch)
 	}
 	matched := false
 	for _, rule := range rules {
@@ -254,7 +254,7 @@ func pushProtected(ctx context.Context, gl *gitlab.Client, projectID int64, bran
 			for _, e := range entries {
 				switch {
 				case e.User != nil || e.Group != nil || e.DeployK != nil:
-					return refuse(fmt.Sprintf("the protection rule %q lets a named user, group or deploy key %s to %s, which the forge does not judge", rule.Name, kind, branch))
+					return refuse(fmt.Sprintf("the protection rule %q lets a named user, group or deploy key %s to %s, which AppTown does not judge", rule.Name, kind, branch))
 				case e.Level == nil || (*e.Level != 0 && *e.Level < 40):
 					return refuse(fmt.Sprintf("the protection rule %q lets Developers %s to %s", rule.Name, kind, branch))
 				}

@@ -517,6 +517,6 @@ func TestAChatsFirstWordsNameItsChangeByTheForgesClock(t *testing.T) {
 		t.Fatal(err)
 	}
 	if forge := hw.a.cfg.clock.Now(); at.Sub(forge).Abs() > time.Hour {
-		t.Fatalf("change.titled stamped %v, the forge's clock says %v", at, forge)
+		t.Fatalf("change.titled stamped %v, AppTown's clock says %v", at, forge)
 	}
 }

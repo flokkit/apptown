@@ -135,7 +135,7 @@ func PreviewNeedScope(preview string) string { return "need:preview:" + preview 
 func NeedCredentials(vault *secret.Vault, scope string) dependency.Credentials {
 	return func(ctx context.Context, capability, name string) (string, error) {
 		if vault == nil {
-			return "", errors.New("this forge has no secret store to make it with")
+			return "", errors.New("this AppTown has no secret store to make it with")
 		}
 		return vault.Derived(ctx, scope, capability+"."+name)
 	}

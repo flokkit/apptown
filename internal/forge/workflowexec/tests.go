@@ -343,7 +343,7 @@ func (a *Commands) testServices(ctx context.Context, staged string) (services []
 	case len(c.Needs) == 0:
 		return nil, nil, nil, c.SecretSpecPath, nil
 	case a.catalog == nil:
-		return nil, nil, nil, "", errors.New("the app declares needs, and this forge has no dependency catalog to fulfil them")
+		return nil, nil, nil, "", errors.New("the app declares needs, and this AppTown has no dependency catalog to fulfil them")
 	}
 	services, needEnv, err := (dependency.LocalRuntime{Catalog: a.catalog, Steps: true}).Fulfil(ctx, c.Needs, c.NeedParams)
 	var unknownNeeds *dependency.UnknownNeeds

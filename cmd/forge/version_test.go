@@ -24,7 +24,7 @@ func TestTheCLIStatesItsProtocolAndNamesBothVersions(t *testing.T) {
 		w.Header().Set(version.Header, "dev-forgeforge01")
 		if refuse {
 			w.WriteHeader(http.StatusUpgradeRequired)
-			_, _ = io.WriteString(w, `{"error":"this forge (dev-forgeforge01) accepts CLI protocols 2 to 2; this CLI speaks \"1\": use the forge CLI from the same release as the forge"}`)
+			_, _ = io.WriteString(w, `{"error":"this AppTown (dev-forgeforge01) accepts CLI protocols 2 to 2; this CLI speaks \"1\": use the CLI from the same release as AppTown"}`)
 			return
 		}
 		_, _ = io.WriteString(w, `{}`)
@@ -49,7 +49,7 @@ func TestTheCLIStatesItsProtocolAndNamesBothVersions(t *testing.T) {
 	var err error
 	_ = capture(t, func() { err = cmdVersion(nil) })
 	if err == nil || !strings.Contains(err.Error(), "accepts CLI protocols 2 to 2") {
-		t.Fatalf("a refusal carries the forge's sentence: %v", err)
+		t.Fatalf("a refusal carries AppTown's sentence: %v", err)
 	}
 	if err := api.get("/projects", nil); err == nil || !strings.Contains(err.Error(), "same release") || protocols[len(protocols)-1] != "1" {
 		t.Fatalf("any command is refused with the sentence: %v %q", err, protocols)

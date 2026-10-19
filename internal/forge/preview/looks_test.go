@@ -197,7 +197,7 @@ func TestAWorkerPreviewStopsEightHoursAfterItsLastLook(t *testing.T) {
 		t.Fatal("a worker preview nobody looked at for eight hours is still there")
 	}
 	if _, ok := s.servedRecordOf(name); ok {
-		t.Fatal("the forge kept a record of a stopped preview")
+		t.Fatal("AppTown kept a record of a stopped preview")
 	}
 	if len(f.images) != 0 {
 		t.Fatalf("stopping a worker preview removed its build: %v", f.images)

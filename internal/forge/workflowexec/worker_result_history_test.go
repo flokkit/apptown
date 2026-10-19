@@ -47,7 +47,7 @@ func TestAWorkerResultWithRuntimeInItsHistoryIsRefused(t *testing.T) {
 		t.Errorf("forbidden history published: branch moved from %s to %s; ancestor %s contains %q", given, tip, hidden, gittest.Run(t, hub, "show", hidden+":.forge/runtime.json"))
 	}
 	if got := gittest.Run(t, ws, "rev-parse", "HEAD"); got != before {
-		t.Errorf("forbidden history reached the forge workspace: %s", got)
+		t.Errorf("forbidden history reached AppTown workspace: %s", got)
 	}
 	if settled.Status != workflow.StatusError || !strings.Contains(string(settled.Evidence), ".forge/runtime.json") {
 		t.Errorf("result was not refused with its runtime path: status=%s evidence=%s", settled.Status, settled.Evidence)
@@ -83,7 +83,7 @@ func TestAWorkerResultReplacingForgeIsRefused(t *testing.T) {
 				t.Errorf("reserved path replacement published: %s", gittest.Run(t, hub, "ls-tree", tip, "--", ".forge"))
 			}
 			if got := gittest.Run(t, ws, "rev-parse", "HEAD"); got != before {
-				t.Errorf("reserved path replacement reached the forge workspace: %s", got)
+				t.Errorf("reserved path replacement reached AppTown workspace: %s", got)
 			}
 			if settled.Status != workflow.StatusError || !strings.Contains(string(settled.Evidence), ".forge") {
 				t.Errorf("result was not refused with its reserved path: status=%s evidence=%s", settled.Status, settled.Evidence)

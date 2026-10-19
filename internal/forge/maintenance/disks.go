@@ -29,7 +29,7 @@ type Disks struct {
 func (d Disks) Read(ctx context.Context) []diskspace.Reading {
 	now := clock.Or(d.Now)
 	space, err := diskspace.Statfs(d.DataDir)
-	own := diskspace.NewReading("this forge's data folder", d.DataDir, space, err, now())
+	own := diskspace.NewReading("this AppTown's data folder", d.DataDir, space, err, now())
 	// No new work is admitted against the forge's own folder: its reading
 	// warns (Low), and refuses nothing.
 	own.Refuses, own.FloorBytes = false, 0

@@ -197,7 +197,7 @@ func parseProfiles(doc map[string]map[string]appYamlProfilePart, c *Contract) er
 				return fmt.Errorf("profiles: %s: %s: changes neither resources nor environment", name, part)
 			}
 			if _, reserved := in.Environment[BrowserEnvVar]; reserved {
-				return fmt.Errorf("profiles: %s: %s: sets %s, which only the forge sets", name, part, BrowserEnvVar)
+				return fmt.Errorf("profiles: %s: %s: sets %s, which only AppTown sets", name, part, BrowserEnvVar)
 			}
 			r, err := in.Resources.parse()
 			if err != nil {

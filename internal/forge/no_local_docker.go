@@ -64,11 +64,11 @@ func drainLocalDocker(ctx context.Context, db *database.DB, records *tasks.Recor
 	}
 	left, err := maintenance.ExecutionContainers(ctx, dk)
 	if err != nil {
-		return fmt.Errorf("-drain-local-docker: this forge's Docker could not be asked which execution containers remain, so no drain is recorded: %w", err)
+		return fmt.Errorf("-drain-local-docker: this AppTown's Docker could not be asked which execution containers remain, so no drain is recorded: %w", err)
 	}
 	if len(left) > 0 {
-		return fmt.Errorf("-drain-local-docker: this forge's Docker still has execution containers:\n  %s\n"+
-			"Start the forge without -no-local-docker so it finishes or removes them, or remove them yourself once you know they have stopped, then run forged -drain-local-docker again", strings.Join(left, "\n  "))
+		return fmt.Errorf("-drain-local-docker: this AppTown's Docker still has execution containers:\n  %s\n"+
+			"Start AppTown without -no-local-docker so it finishes or removes them, or remove them yourself once you know they have stopped, then run forged -drain-local-docker again", strings.Join(left, "\n  "))
 	}
 	return identity.RecordLocalDockerDrainedIn(ctx, db)
 }
@@ -85,6 +85,6 @@ func switchAdmitted(ctx context.Context, db *database.DB) error {
 	case identity.LocalDockerNone, identity.LocalDockerDrained, "":
 		return nil
 	}
-	return fmt.Errorf("-no-local-docker: this forge last started with its own Docker (local_docker = %s), and a forge in the mode cannot see what is left there. "+
+	return fmt.Errorf("-no-local-docker: this AppTown last started with its own Docker (local_docker = %s), and an AppTown in the mode cannot see what is left there. "+
 		"Run forged -drain-local-docker with your current settings, without -no-local-docker, first: it serves nothing, and records the drain once it has seen that no local work is left", last)
 }

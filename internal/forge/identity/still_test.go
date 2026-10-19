@@ -166,7 +166,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 			t.Fatalf("a disabled account: %v", err)
 		}
 		if err := s.RequireStill(ctx, access.Principal{Kind: "instrument", Name: "forge-system", Instrument: "forge", Credential: "system:scheduled-copy"}, read); err != nil {
-			t.Fatalf("the forge's own binding: %v", err)
+			t.Fatalf("AppTown's own binding: %v", err)
 		}
 	})
 }

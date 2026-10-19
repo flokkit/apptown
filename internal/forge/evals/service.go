@@ -83,7 +83,7 @@ var (
 	ErrBudget   = fault.New(fault.Invalid, "an eval needs a budget above zero")
 	ErrMissing  = fault.New(fault.NotFound, "no such eval")
 	ErrNotHeld  = fault.New(fault.Conflict, "the eval is not held")
-	ErrSubject  = fault.New(fault.Invalid, "name the one thing that varies: a model profile this forge offers, or a published pack version")
+	ErrSubject  = fault.New(fault.Invalid, "name the one thing that varies: a model profile this AppTown offers, or a published pack version")
 	ErrDeleting = fault.New(fault.Conflict, "the eval's copies could not all be deleted")
 )
 

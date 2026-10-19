@@ -225,7 +225,7 @@ func (s *Service) Export(ctx context.Context, p *project.Project, actor string, 
 	if found, err := scm.NonSourceIn(ctx, hub, refTips(refs)...); err != nil {
 		return nil, err
 	} else if runtime := slices.DeleteFunc(found, src.ReportFile); len(runtime) > 0 {
-		return nil, &ExportRefusal{Reasons: []string{"the carried history holds the forge's runtime files, which can hold credentials: " + strings.Join(runtime, ", ")}}
+		return nil, &ExportRefusal{Reasons: []string{"the carried history holds AppTown's runtime files, which can hold credentials: " + strings.Join(runtime, ", ")}}
 	}
 	moving := map[ids.ID]bool{}
 	idList, err := docs.work.ChangeIDs()

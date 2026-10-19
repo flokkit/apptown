@@ -67,10 +67,10 @@ func TestAStepsContainersAgeOnTheForgesClock(t *testing.T) {
 		return New(db, Dependencies{Docker: docker.Scope{Client: daemon}, Sessions: sessions, Now: func() time.Time { return at }}, t.TempDir())
 	}
 	if got := reaper(made).Containers(context.Background(), true); len(got) != 0 {
-		t.Fatalf("reaped containers just made by the forge's clock: %v", got)
+		t.Fatalf("reaped containers just made by AppTown's clock: %v", got)
 	}
 	if got := reaper(made.Add(3*time.Hour)).Containers(context.Background(), true); len(got) != 2 {
-		t.Fatalf("would reap %v three hours later by the forge's clock, want the step's and its daemon's", got)
+		t.Fatalf("would reap %v three hours later by AppTown's clock, want the step's and its daemon's", got)
 	}
 }
 

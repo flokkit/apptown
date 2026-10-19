@@ -204,7 +204,7 @@ func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep 
 		if err := d.awaitProviderName(ctx, url, until, logf); err != nil {
 			return deploy.Observation{}, err
 		}
-		logf("the front door is the forge's gate; the forge asks the app through it with the gate's secret")
+		logf("the front door is AppTown's gate; AppTown asks the app through it with the gate's secret")
 		return deploy.Observation{Generation: generation, Rollout: "active", Health: "unknown", URL: url,
 			Handle: map[string]any{"appId": app.ID, "appName": name, "deploymentId": dep.ID}}, nil
 	}
@@ -234,10 +234,10 @@ func (d *Driver) resume(ctx context.Context, p deploy.Placement, generation int6
 	name, _ := noted["appName"].(string)
 	depID, _ := noted["deploymentId"].(string)
 	if appID == "" {
-		return deploy.Observation{}, errors.New("the forge restarted before the platform named the app; inspect the provider before resolving this attempt")
+		return deploy.Observation{}, errors.New("AppTown restarted before the platform named the app; inspect the provider before resolving this attempt")
 	}
 	if depID == "" {
-		return deploy.Observation{}, errors.New("the forge has no recorded deployment identity; cannot adopt the app's current or pending deployment")
+		return deploy.Observation{}, errors.New("AppTown has no recorded deployment identity; cannot adopt the app's current or pending deployment")
 	}
 	c, _, err := d.Client(ctx)
 	if err != nil {

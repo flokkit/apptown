@@ -320,7 +320,7 @@ func (e *NothingPublishedError) Error() string {
 	if e.Branch == "" {
 		return fmt.Sprintf("change #%d has no branch, so nothing is published to check", e.Change)
 	}
-	return fmt.Sprintf("change #%d has nothing published to check: the forge has no branch %s for it", e.Change, e.Branch)
+	return fmt.Sprintf("change #%d has nothing published to check: AppTown has no branch %s for it", e.Change, e.Branch)
 }
 func (e *NothingPublishedError) FaultKind() fault.Kind { return fault.NotFound }
 
@@ -354,7 +354,7 @@ func withinScratch(ctx context.Context, hub string, changeID ids.ID, commit stri
 type CommitNotOnForgeError struct{ Commit string }
 
 func (e *CommitNotOnForgeError) Error() string {
-	return fmt.Sprintf("commit %s is not on the forge yet; it becomes available once the step's work is collected. `forge check --published` checks the last published commit", e.Commit)
+	return fmt.Sprintf("commit %s is not on AppTown yet; it becomes available once the step's work is collected. `forge check --published` checks the last published commit", e.Commit)
 }
 func (e *CommitNotOnForgeError) FaultKind() fault.Kind { return fault.NotFound }
 

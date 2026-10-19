@@ -20,7 +20,7 @@ func (a *App) handleConsolePTY(w http.ResponseWriter, r *http.Request) {
 	// A forged GET must not start a container or attach a terminal: this
 	// browser-only door requires Origin, even for a GET.
 	if !a.sameBrowserOrigin(r) {
-		writeErr(w, http.StatusForbidden, "open the terminal from Forge")
+		writeErr(w, http.StatusForbidden, "open the terminal from AppTown")
 		return
 	}
 	s := httpapi.ConsoleFromPath(a.Console, w, r)

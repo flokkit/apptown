@@ -39,7 +39,7 @@ func TestAScanBaselineWithNoLocalDockerIsUnknown(t *testing.T) {
 			servingMain(t, f, deployments, sha)
 			f.Scanners.deployments, f.Scanners.docker, f.Scanners.exec = deployments, &docker.Scope{Client: spy}, exec
 			base := f.Scanners.baseImageFingerprints(f.Context, f.ProjectID, repo, sha, check.Scanner{}, "scanner", t.TempDir(), nil, "scan")
-			if base.OK || !strings.Contains(base.Note, "this forge runs no Docker of its own, so it cannot read the image the app runs now") || strings.Contains(base.Note, "no local Docker") || len(spy.asked) != 0 {
+			if base.OK || !strings.Contains(base.Note, "this AppTown runs no Docker of its own, so it cannot read the image the app runs now") || strings.Contains(base.Note, "no local Docker") || len(spy.asked) != 0 {
 				t.Fatalf("baseline: %+v, asked %v", base, spy.asked)
 			}
 		})

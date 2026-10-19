@@ -136,7 +136,7 @@ func (c *client) afterGateway(res *http.Response, method, path string, attempt f
 	var err error
 	for n := 1; err == nil && gatewayFailure(res.StatusCode) && n <= 4; n++ {
 		res.Body.Close()
-		fmt.Fprintf(os.Stderr, "… the forge is restarting (HTTP %d), retrying\n", res.StatusCode)
+		fmt.Fprintf(os.Stderr, "… AppTown is restarting (HTTP %d), retrying\n", res.StatusCode)
 		c.wait(time.Duration(n*4) * time.Second)
 		res, err = attempt()
 	}
@@ -165,7 +165,7 @@ func (e *unknownOutcome) Error() string {
 	}
 	msg := fmt.Sprintf("%s %s: %s; the outcome is unknown — check with `forge show …` before trying again", e.Method, e.Path, got)
 	if e.Said != "" {
-		msg += " (the forge said: " + e.Said + ")"
+		msg += " (AppTown said: " + e.Said + ")"
 	}
 	return msg
 }

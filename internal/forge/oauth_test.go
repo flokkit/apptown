@@ -80,7 +80,7 @@ func authorizeAndExchange(t *testing.T, h http.Handler, who *http.Cookie, client
 	req.AddCookie(who)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "Claude Code wants to use your Forge account") {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "Claude Code wants to use your AppTown account") {
 		t.Fatalf("consent page: %d %s", w.Code, w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), `name="code_challenge" value="`+challenge+`"`) || strings.Contains(w.Body.String(), "action=\"/oauth/authorize?") {

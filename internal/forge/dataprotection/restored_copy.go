@@ -73,7 +73,7 @@ const (
 // RestoredCopyWarning is what the card says of what a restored copy can
 // still do outside: withholding secrets reduces outside effects, it does
 // not prevent them.
-const RestoredCopyWarning = "Forge integration secrets are withheld and background workers are stopped. Outbound calls are not blocked: this copy can still send mail, payments or webhooks using configuration or credentials in its data."
+const RestoredCopyWarning = "AppTown integration secrets are withheld and background workers are stopped. Outbound calls are not blocked: this copy can still send mail, payments or webhooks using configuration or credentials in its data."
 
 // ProviderBoundary names who outside the forge can read a restored copy.
 const ProviderBoundary = "DigitalOcean team Owners and Members with console access can read this copy, its gate secret and its logs, as they can production's."
@@ -82,13 +82,13 @@ var (
 	// ErrRestoredCopy: a restored copy cannot be made, opened or changed.
 	ErrRestoredCopy = fault.New(fault.Conflict, "this restored copy cannot do that")
 	// ErrNoGate: this forge has no gate image, so it makes no restored copy.
-	ErrNoGate = fault.New(fault.Conflict, "this forge has no access gate image: start it with -restore-gate-image <ref@sha256:...> and its public address, so restored copies have a door only the forge opens")
+	ErrNoGate = fault.New(fault.Conflict, "this AppTown has no access gate image: start it with -restore-gate-image <ref@sha256:...> and its public address, so restored copies have a door only AppTown opens")
 	// ErrGateCredential refuses a redemption that does not come from a
 	// standing copy's gate.
 	ErrGateCredential = fault.New(fault.Forbidden, "not a restored copy's gate")
 	// ErrTicket refuses a ticket that was used, has expired, or is not this
 	// copy's.
-	ErrTicket = fault.New(fault.Forbidden, "this link was already used or has expired; press Open again in the forge")
+	ErrTicket = fault.New(fault.Forbidden, "this link was already used or has expired; press Open again in AppTown")
 	// ErrRestoreNotStopped: a restored copy's start runs to its end; what
 	// it made is taken down from the card, or when its time runs out.
 	ErrRestoreNotStopped = fault.New(fault.Conflict, "a restored copy's start is not stopped part way: take the copy down from the card once it has started")
@@ -100,7 +100,7 @@ var (
 	ErrRestoredCopiesStand = fault.New(fault.Conflict, "restored copies of this deployment still stand")
 	// ErrBrowserOnly: a ticket is issued only to a person's browser
 	// session, never to a token or an agent.
-	ErrBrowserOnly = fault.New(fault.Forbidden, "a restored copy is opened from the forge in a browser, as yourself")
+	ErrBrowserOnly = fault.New(fault.Forbidden, "a restored copy is opened from AppTown in a browser, as yourself")
 )
 
 // RestoredCopyDependencies is what restored copies ask of the world.
@@ -190,7 +190,7 @@ func (s *Service) restoredCopyRecord(ctx context.Context, r protectionsql.Restor
 	c.Open = !r.IsTest && !r.EndedAt.Valid && r.CheckedAt.Valid && readinessPassed(c.Facts) && gateHeld(c.Facts) && r.GateUrl != "" &&
 		r.ExpiresAt.Valid && s.now().Before(r.ExpiresAt.Time)
 	if r.CheckedAt.Valid && readinessPassed(c.Facts) && gateHeld(c.Facts) {
-		c.Protection = "the forge gate, then the app's own sign-in where it has one"
+		c.Protection = "AppTown gate, then the app's own sign-in where it has one"
 	}
 	rows, err := protectionsql.New(s.db.SQL()).RestoredCopyEntries(ctx, r.ID)
 	if err != nil {
@@ -886,7 +886,7 @@ func (s *Service) checkGate(ctx context.Context, t *tracker, url string, copyID 
 	})
 	ticket, issued := s.issueTicket(ctx, copyID, operations.SystemActor, t.op.ID)
 	session := ""
-	check("lets the forge's own ticket in", gate.EnterPath, func() (int, bool, string) {
+	check("lets AppTown's own ticket in", gate.EnterPath, func() (int, bool, string) {
 		if issued != nil {
 			return 0, false, "the ticket could not be issued: " + issued.Error()
 		}
@@ -1167,7 +1167,7 @@ func (s *Service) restoredSourceInstances(ctx context.Context, copyID ids.ID) (m
 func (s *Service) restoredUncertain(ctx context.Context, t *tracker, copyID ids.ID, what string, err error) string {
 	if !deploy.Refused(err) {
 		t.indeterminate = true
-		left := fmt.Sprintf("removing %s got no answer the forge can trust, so whether it still stands is not known; the forge tries again: %v", what, err)
+		left := fmt.Sprintf("removing %s got no answer AppTown can trust, so whether it still stands is not known; AppTown tries again: %v", what, err)
 		t.log.Unknown(ctx, left)
 		s.noteRestoredLeft(ctx, copyID, left)
 		return left
@@ -1178,7 +1178,7 @@ func (s *Service) restoredUncertain(ctx context.Context, t *tracker, copyID ids.
 // restoredLeft records what a take-down could not remove; the copy stays
 // standing on its card, and the sweep tries again.
 func (s *Service) restoredLeft(ctx context.Context, t *tracker, copyID ids.ID, why string) string {
-	left := "left standing, so the forge tries again: " + why
+	left := "left standing, so AppTown tries again: " + why
 	t.fail(ctx, left)
 	s.noteRestoredLeft(ctx, copyID, left)
 	return left
@@ -1427,7 +1427,7 @@ func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (
 		grant = GateEntryGrant{Person: person, Until: until}
 		return audit.At(at).RecordIn(as, tx, person, r.ProjectID, "deployment.gate-entered", r.Source, map[string]any{
 			"copy": r.ID, "deployment": r.Deployment, "backup": r.BackupID, "until": until,
-			"meaning": "the forge gate admitted this person to the restored copy; it does not record signing in to the app or what was read"})
+			"meaning": "AppTown gate admitted this person to the restored copy; it does not record signing in to the app or what was read"})
 	})
 	return grant, err
 }
@@ -1455,7 +1455,7 @@ func (s *Service) redeemCheckTicket(ctx context.Context, tx *database.Tx, r prot
 	grant := GateEntryGrant{Person: operations.SystemActor, Until: at.UTC().Add(gateCheckFor)}
 	return grant, audit.At(at).RecordIn(ctx, tx, operations.SystemActor, r.ProjectID, "deployment.gate-checked", r.Source, map[string]any{
 		"copy": r.ID, "deployment": r.Deployment, "operation": checkOp, "until": grant.Until,
-		"meaning": "the forge's own check of the restored copy's gate: a ticket its start issued to itself, redeemed once through the gate; nobody entered"})
+		"meaning": "AppTown's own check of the restored copy's gate: a ticket its start issued to itself, redeemed once through the gate; nobody entered"})
 }
 
 // SweepRestoredCopies takes down every restored copy whose time is up, and

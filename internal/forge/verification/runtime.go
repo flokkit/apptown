@@ -109,7 +109,7 @@ func (o Runtime) browserExpectation(ctx context.Context, t Target) (check.Browse
 		return want, ""
 	}
 	if o.browserValues == nil {
-		return want, "the forge cannot read what its integrations give the page"
+		return want, "AppTown cannot read what its integrations give the page"
 	}
 	values, err := o.browserValues(ctx, t.ProjectID)
 	if err != nil {
@@ -338,7 +338,7 @@ func (o Runtime) Observe(ctx context.Context, projectID ids.ID, source, probe st
 // app with no readiness declared has not met the way of working. Read as
 // "cannot assess", such projects would sit there indefinitely while the
 // shell check passed them for having no .forge/app.yaml at all.
-const undeclaredReadiness = "the forge serves this app but nothing declares when it is ready: .forge/app.yaml names no health.readiness.http for the public part (a retired compose.yaml or app.json does not count), so the forge falls back to probing GET /. Declare the contract in .forge/app.yaml with  health: { readiness: { http: /healthz } }  under the served part, and give the app a /healthz that answers 200 without touching the database"
+const undeclaredReadiness = "AppTown serves this app but nothing declares when it is ready: .forge/app.yaml names no health.readiness.http for the public part (a retired compose.yaml or app.json does not count), so AppTown falls back to probing GET /. Declare the contract in .forge/app.yaml with  health: { readiness: { http: /healthz } }  under the served part, and give the app a /healthz that answers 200 without touching the database"
 
 // readinessReadStopped is a readiness check whose contract read was cut
 // short: a stopped read says nothing about what the app declares, so it is

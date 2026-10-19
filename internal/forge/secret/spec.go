@@ -113,7 +113,7 @@ func ParseSpec(raw []byte) (*Spec, error) {
 		return nil, err
 	}
 	if doc.Project.Revision != specRevision {
-		return nil, fmt.Errorf("[project] revision must be %q (the forge reads SecretSpec %s); got %q", specRevision, specRevision, doc.Project.Revision)
+		return nil, fmt.Errorf("[project] revision must be %q (AppTown reads SecretSpec %s); got %q", specRevision, specRevision, doc.Project.Revision)
 	}
 	if doc.Project.Name == "" {
 		return nil, fmt.Errorf("[project] name is required")
@@ -135,10 +135,10 @@ func ParseSpec(raw []byte) (*Spec, error) {
 	out := &Spec{Name: doc.Project.Name, Revision: doc.Project.Revision,
 		Profiles: map[string]map[string]DeclaredSecret{}, Inherits: map[string]bool{}, Scopes: map[string][]string{}}
 	if len(doc.Project.Extends) > 0 {
-		out.Ignored = append(out.Ignored, "[project] extends (the forge reads one file)")
+		out.Ignored = append(out.Ignored, "[project] extends (AppTown reads one file)")
 	}
 	if len(doc.Providers) > 0 {
-		out.Ignored = append(out.Ignored, "[providers] (where values live is the forge's binding, not the repo's)")
+		out.Ignored = append(out.Ignored, "[providers] (where values live is AppTown's binding, not the repo's)")
 	}
 	// Per profile: split the `defaults` pseudo-entry from real secrets.
 	type rawProfile struct {
@@ -164,7 +164,7 @@ func ParseSpec(raw []byte) (*Spec, error) {
 				return nil, fmt.Errorf("[profiles.%s] %q is not an environment variable name (A-Z, 0-9, _)", pname, sname)
 			}
 			if sname == appcontract.BrowserEnvVar {
-				return nil, fmt.Errorf("[profiles.%s] %s is set by the forge alone; name the secret something else", pname, sname)
+				return nil, fmt.Errorf("[profiles.%s] %s is set by AppTown alone; name the secret something else", pname, sname)
 			}
 			rp.entries[sname] = e
 		}
@@ -191,7 +191,7 @@ func ParseSpec(raw []byte) (*Spec, error) {
 			s.Generate = true // a `generate = { type = ... }` table: the forge generates a random value
 		}
 		if len(e.Providers) > 0 || e.Ref != nil {
-			out.Ignored = append(out.Ignored, fmt.Sprintf("[profiles.%s] %s providers/ref (bound in the forge instead)", pname, sname))
+			out.Ignored = append(out.Ignored, fmt.Sprintf("[profiles.%s] %s providers/ref (bound in AppTown instead)", pname, sname))
 		}
 		if e.AsPath {
 			out.Ignored = append(out.Ignored, fmt.Sprintf("[profiles.%s] %s as_path (file delivery is not built yet; delivered as env)", pname, sname))

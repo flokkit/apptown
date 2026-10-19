@@ -44,14 +44,14 @@ func NextSession(file string, now func() time.Time) (int64, error) {
 	switch {
 	case err == nil:
 		if prev, err = strconv.ParseInt(strings.TrimSpace(string(body)), 10, 64); err != nil || prev <= 0 {
-			return 0, fmt.Errorf("the forge's session count in %s cannot be read: %q", file, strings.TrimSpace(string(body)))
+			return 0, fmt.Errorf("AppTown's session count in %s cannot be read: %q", file, strings.TrimSpace(string(body)))
 		}
 	case !errors.Is(err, os.ErrNotExist):
 		return 0, err
 	}
 	next := max(clock.Or(now)().UnixNano(), prev+1)
 	if err := writeDurable(filepath.Dir(file), filepath.Base(file), []byte(strconv.FormatInt(next, 10)+"\n")); err != nil {
-		return 0, fmt.Errorf("keeping the forge's session count in %s: %w", file, err)
+		return 0, fmt.Errorf("keeping AppTown's session count in %s: %w", file, err)
 	}
 	return next, nil
 }

@@ -51,7 +51,7 @@ func (a *Service) readFileSecrets() (map[string]string, error) {
 		return out, nil
 	}
 	if err != nil {
-		return out, fmt.Errorf("reading the forge's secrets file: %w", err)
+		return out, fmt.Errorf("reading AppTown's secrets file: %w", err)
 	}
 	for _, line := range strings.Split(string(raw), "\n") {
 		line = strings.TrimSpace(line)

@@ -208,7 +208,7 @@ func RepairInterruptedReleasesIn(ctx context.Context, tx *database.Tx, queuedRel
 	// Each repaired release's history says why, written with the repair.
 	rq := releasesql.New(tx.SQL())
 	for _, id := range repaired {
-		if _, err := rq.AppendReleaseEvent(ctx, releasesql.AppendReleaseEventParams{ID: ids.New(at), ReleaseID: id, At: at, Text: "the forge restarted mid-release — this attempt is dead; press release again"}); err != nil {
+		if _, err := rq.AppendReleaseEvent(ctx, releasesql.AppendReleaseEventParams{ID: ids.New(at), ReleaseID: id, At: at, Text: "AppTown restarted mid-release — this attempt is dead; press release again"}); err != nil {
 			return 0, 0, fmt.Errorf("repairing interrupted releases and their history: %w", err)
 		}
 	}

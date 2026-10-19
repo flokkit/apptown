@@ -32,7 +32,7 @@ func NewContributions(deps ContributionsDependencies) []Tool {
 		{
 			Name:  "sync_change",
 			order: 19,
-			Description: "Tells the forge you pushed a revision to a Change's ref: the Change's workspace adopts that tip, earlier check results no longer answer for it, and the valid next actions are returned. " +
+			Description: "Tells AppTown you pushed a revision to a Change's ref: the Change's workspace adopts that tip, earlier check results no longer answer for it, and the valid next actions are returned. " +
 				"Pass the SHA you pushed and the tip you expected before you pushed; a mismatch is reported with facts, never resolved silently.",
 			InputSchema: schemaObject(map[string]any{
 				"id":                    schemaID("The Change's id."),
@@ -105,7 +105,7 @@ func (h contributions) mintCheckout(c *Call, ch *workflow.Change, p *project.Pro
 				"push":  shellWithTicket(tok, "push", "origin", ch.Branch+":"+pushRef),
 			},
 		},
-		"next": "commit locally, push with the credential using the push command (it lands in a holding ref; the forge then moves the Change's branch if this credential still holds it), then call sync_change with the pushed SHA and this expectedTip",
+		"next": "commit locally, push with the credential using the push command (it lands in a holding ref; AppTown then moves the Change's branch if this credential still holds it), then call sync_change with the pushed SHA and this expectedTip",
 	}
 	// The ways of working are offered at the moment work starts, sized, and
 	// left to the agent to fetch (get_project_guidance) — never injected.

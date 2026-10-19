@@ -15,7 +15,7 @@ type MergeEvidence struct {
 // A conflict is a Git problem; drift is an integrity event with its own remedy.
 func MergeBlockEvidence(conflicts, drift []string) MergeEvidence {
 	if len(drift) > 0 {
-		return MergeEvidence{OutOfBandFiles: slices.Clone(drift), Reason: "the project's stored files have edits that did not come through the forge — " +
+		return MergeEvidence{OutOfBandFiles: slices.Clone(drift), Reason: "the project's stored files have edits that did not come through AppTown — " +
 			"there is no authorized way to do that. An admin must decide on the project page: " +
 			"keep those edits or throw them away. Then re-check this step."}
 	}

@@ -141,7 +141,7 @@ func TestSeedSecretDeclarationsParse(t *testing.T) {
 			continue
 		}
 		if len(spec.Ignored) > 0 {
-			t.Errorf("%s declares what the forge ignores: %v", path, spec.Ignored)
+			t.Errorf("%s declares what AppTown ignores: %v", path, spec.Ignored)
 		}
 	}
 }

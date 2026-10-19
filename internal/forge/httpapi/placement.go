@@ -118,7 +118,7 @@ func (h ProjectAdoption) placementOf(ctx context.Context, p *project.Project, ad
 	}
 	if p.DefaultBranch != "" && !onForge {
 		view.Conditions = append(view.Conditions, placementCondition{Kind: "no-platform",
-			Sentence: "this project is not on the forge pack: one of the platform blocks is missing from its guidance"})
+			Sentence: "this project is not on the platform pack (forge): one of the platform blocks is missing from its guidance"})
 	}
 	drift := ""
 	state, err := h.adoption.Current(ctx, p.ID)
@@ -131,7 +131,7 @@ func (h ProjectAdoption) placementOf(ctx context.Context, p *project.Project, ad
 	}
 	if drift != "" {
 		view.Conditions = append(view.Conditions, placementCondition{Kind: "drift",
-			Sentence: "the guidance or lanes moved outside the forge's own door (" + drift + "); gates and steering still read revision " + fmt.Sprint(ad.Revision) + " — save under Guidance to record what the project should be on"})
+			Sentence: "the guidance or lanes moved outside AppTown's own door (" + drift + "); gates and steering still read revision " + fmt.Sprint(ad.Revision) + " — save under Guidance to record what the project should be on"})
 	}
 	if ad.Receipt.Pack != "" && ad.Receipt.Pack != "forge" {
 		placed := false

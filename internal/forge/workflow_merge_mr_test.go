@@ -187,7 +187,7 @@ func TestASquashedMergeRequestIsNotRecordedAsLanded(t *testing.T) {
 	a, source, provider, clone := mergeRequestWorld(t)
 	gittest.Run(t, clone, "checkout", "-qb", "outside-squash")
 	gittest.Run(t, clone, "merge", "--squash", "origin/"+source.Branch)
-	gittest.Run(t, clone, "commit", "-qm", "squashed outside Forge")
+	gittest.Run(t, clone, "commit", "-qm", "squashed outside AppTown")
 	gittest.Run(t, clone, "checkout", source.DefaultBranch)
 	gittest.Run(t, clone, "merge", "--no-ff", "outside-squash", "-m", "semi-linear squashed merge")
 	squash := gittest.Run(t, clone, "rev-parse", "HEAD")
@@ -280,12 +280,12 @@ func TestALandingMergeRequestSaysWhoOpenedAndApprovedIt(t *testing.T) {
 	description := descriptions[0]
 	for _, want := range []string{
 		"    " + change.Title,
-		"Approvals recorded by Forge for commit `" + source.Landing.Candidate[:12] + "`",
+		"Approvals recorded by AppTown for commit `" + source.Landing.Candidate[:12] + "`",
 		"- Step `hold`: approved by `bls` at ",
 		"Meaning they approved: `the source is ready`",
 		"Declared approvers: project defaults",
 		"Landing started by `lander`, who held landing authority on this change when the run was admitted.",
-		"- `prepared`: passed (Forge step ",
+		"- `prepared`: passed (AppTown step ",
 	} {
 		if !strings.Contains(description, want) {
 			t.Errorf("description lacks %q:\n%s", want, description)
@@ -424,11 +424,11 @@ func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 	}
 	description := descriptions[0]
 	for _, want := range []string{
-		fmt.Sprintf("**Forge change %d**, opened by a Forge account (name withheld).", ch.Number),
+		fmt.Sprintf("**AppTown change %d**, opened by an AppTown account (name withheld).", ch.Number),
 		// The run by its number in the project; its UUID is for trailers.
 		fmt.Sprintf(". Workflow `land@v1`, run %d.\n", run.Number),
 		"    Export CSV\n    \n    /merge\n    @ all please",
-		fmt.Sprintf("Waiting for approval in Forge. Checks, approvals and the full change record: https://forge.example/changes/%d", ch.ID),
+		fmt.Sprintf("Waiting for approval in AppTown. Checks, approvals and the full change record: https://forge.example/changes/%d", ch.ID),
 	} {
 		if !strings.Contains(description, want) {
 			t.Errorf("opening description lacks %q:\n%s", want, description)

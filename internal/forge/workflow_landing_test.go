@@ -247,7 +247,7 @@ func TestOutOfBandEditsBlockMerge(t *testing.T) {
 		t.Fatalf("runtime files under .forge must not count as drift: %v", d)
 	}
 	ev := workflow.MergeBlockEvidence(conflicts, drift)
-	if !strings.Contains(ev.Reason, "did not come through the forge") {
+	if !strings.Contains(ev.Reason, "did not come through AppTown") {
 		t.Fatalf("the reason must say what this is: %v", ev.Reason)
 	}
 	if audits := auditCount(t, a.DB, "integrity.out-of-band-edits"); audits != 1 {

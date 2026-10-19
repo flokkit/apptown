@@ -61,7 +61,7 @@ func TestScopeCarriesItsHost(t *testing.T) {
 	c := &fakeClient{out: "a\nb\n\nc\n"}
 	local := Scope{Client: c}
 	if local.Remote() {
-		t.Fatal("the forge's own daemon is not remote")
+		t.Fatal("AppTown's own daemon is not remote")
 	}
 	remote := local.WithHost("ssh://droplet", "203.0.113.5", "apps.example")
 	if !remote.Remote() || remote.Hostname != "203.0.113.5" || remote.Domain != "apps.example" || remote.Client != c {

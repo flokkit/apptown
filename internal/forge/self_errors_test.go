@@ -48,7 +48,7 @@ func TestForgeReportsItsOwnErrorsThroughItsAttachment(t *testing.T) {
 	admitted := func() int { a.selfErr.mu.Lock(); defer a.selfErr.mu.Unlock(); return a.selfErr.sent }
 	selfErrorsFor(a).Report("panic", "RunAgent", "boom", nil, "stack")
 	if n := admitted(); n != 0 {
-		t.Fatalf("nothing must be sent while the forge project is unattached: %d sent", n)
+		t.Fatalf("nothing must be sent while the self-reporting project (forge) is unattached: %d sent", n)
 	}
 
 	pid, _, _ := fleetRepo(t, a, selfErrorsProject, map[string]string{"README.md": "# forge"})

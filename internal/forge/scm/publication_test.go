@@ -198,7 +198,7 @@ func TestAHandoverWaitsForAGitProcessThatOutlivedTheForge(t *testing.T) {
 	f := newPublicationFixture(t)
 	gen := f.authority().Generation
 	w := f.writer("w")
-	proposed := commitIn(t, w, "in flight when the forge died")
+	proposed := commitIn(t, w, "in flight when AppTown died")
 	gittest.RunAsTester(t, f.hub, "fetch", "-q", w, "work:refs/forge/incoming/test")
 	expected := f.tip()
 	if _, err := f.publisher.begin(context.Background(), Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "work", Grant: Grant{Generation: gen}}, expected, proposed); err != nil {

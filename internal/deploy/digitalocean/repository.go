@@ -33,7 +33,7 @@ type RepositoryOwner interface {
 // ErrRepositoryNotOurs refuses a release whose project's repository exists
 // in the account's registry but was not made by the forge.
 func errRepositoryNotOurs(registry, repo string) error {
-	return deploy.Terminal(fmt.Errorf("the container registry %s already has a repository named %s that the forge did not create; nothing was created on DigitalOcean. Rename or remove that repository, or attach another account, then release again", registry, repo))
+	return deploy.Terminal(fmt.Errorf("the container registry %s already has a repository named %s that AppTown did not create; nothing was created on DigitalOcean. Rename or remove that repository, or attach another account, then release again", registry, repo))
 }
 
 // RepositoryExists asks the registry whether it holds repo.
@@ -62,7 +62,7 @@ func (d *Driver) claimRepository(ctx context.Context, c *Client, registry string
 	}
 	owned, err := d.Repository.Owns(ctx, registry, d.Slug)
 	if err != nil {
-		return false, fmt.Errorf("reading whether the forge made the repository %s: %w", d.Slug, err)
+		return false, fmt.Errorf("reading whether AppTown made the repository %s: %w", d.Slug, err)
 	}
 	if owned {
 		return false, nil

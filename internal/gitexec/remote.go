@@ -136,9 +136,9 @@ func remoteFailure(stderr string) string {
 	case strings.Contains(s, "ssl") || strings.Contains(s, "certificate") || strings.Contains(s, "tls"):
 		return "the repository's https certificate was not accepted"
 	case strings.Contains(s, "redirect"):
-		return "the repository answered with a redirect, which the forge does not follow; use the address it redirects to"
+		return "the repository answered with a redirect, which AppTown does not follow; use the address it redirects to"
 	case strings.Contains(s, "fsck") || strings.Contains(s, "bad object") || strings.Contains(s, "invalid"):
-		return "the repository sent objects that failed the forge's checks"
+		return "the repository sent objects that failed AppTown's checks"
 	}
 	return "the fetch failed (the server's own message is not shown: it could repeat a credential)"
 }

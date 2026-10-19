@@ -62,7 +62,7 @@ func instanceReceipts(t *testing.T, s *Service) []audit.Entry {
 // remove that leaves the line; a change with no receipt.
 func TestAnInstanceSecretIsSetAndRemovedWithReceiptsAndNoValue(t *testing.T) {
 	t.Parallel()
-	s := instanceService(t, "# the forge's credentials\nOTHER=kept\nDIGITALOCEAN_ACCESS_TOKEN=old\n", nil, nil)
+	s := instanceService(t, "# AppTown's credentials\nOTHER=kept\nDIGITALOCEAN_ACCESS_TOKEN=old\n", nil, nil)
 	ctx := context.Background()
 	if err := s.SetInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", instanceValue, "boss"); err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestAnInstanceSecretIsSetAndRemovedWithReceiptsAndNoValue(t *testing.T) {
 		t.Fatalf("runtime lookup after set: %d names, OTHER=%q", len(got), got["OTHER"])
 	}
 	raw, err := os.ReadFile(filepath.Join(s.dataDir, "secrets.env"))
-	if err != nil || !strings.HasPrefix(string(raw), "# the forge's credentials\n") || strings.Count(string(raw), "DIGITALOCEAN_ACCESS_TOKEN=") != 1 {
+	if err != nil || !strings.HasPrefix(string(raw), "# AppTown's credentials\n") || strings.Count(string(raw), "DIGITALOCEAN_ACCESS_TOKEN=") != 1 {
 		t.Fatalf("the file after set keeps its comment and one line per name: %v", err)
 	}
 	if fi, err := os.Stat(filepath.Join(s.dataDir, "secrets.env")); err != nil || fi.Mode().Perm() != 0o600 {
@@ -160,7 +160,7 @@ func TestAnInstanceSecretInfisicalHoldsIsRefused(t *testing.T) {
 		t.Fatalf("set with Infisical unreadable: %v", err)
 	}
 	if _, held := fresh.fileSecrets()["ANOTHER_TOKEN"]; held {
-		t.Fatal("a set the forge could not check was written")
+		t.Fatal("a set AppTown could not check was written")
 	}
 	if got := instanceReceipts(t, s); len(got) != 1 || got[0].Subject != "PORTAINER_API_KEY" {
 		t.Fatalf("receipts: %+v", got)
@@ -190,7 +190,7 @@ func TestAFailedInfisicalRefreshDoesNotAuthorizeAnInstanceSecret(t *testing.T) {
 		t.Fatalf("set after a failed refresh: %v", err)
 	}
 	if _, written := s.fileSecrets()["TOKEN"]; written {
-		t.Fatal("a set the forge could not check was written")
+		t.Fatal("a set AppTown could not check was written")
 	}
 	if names, err := s.InstanceNames(ctx); !errors.Is(err, ErrSecretsUnread) || names != nil {
 		t.Fatalf("names after a failed refresh: %v %v", names, err)

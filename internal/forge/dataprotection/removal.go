@@ -419,7 +419,7 @@ func (s *Service) releaseDeploymentKeys(ctx context.Context, dep *deployment.Dep
 		case !ok:
 			err = fmt.Errorf("the record %q does not name a key", o.ID)
 		case s.integrations == nil:
-			err = errors.New("this forge has no integrations to revoke it with")
+			err = errors.New("this AppTown has no integrations to revoke it with")
 		default:
 			err = s.integrations.ReleaseLLMKey(ctx, held, fmt.Sprintf("llm:deployment:%d", dep.ID))
 		}

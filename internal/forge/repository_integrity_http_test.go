@@ -61,8 +61,8 @@ func TestRepositoryIntegrityHTTPChoices(t *testing.T) {
 		}
 		return body.Main.State, body.Main.Note
 	}
-	if state, note := standing(); state != "ahead" || !strings.HasPrefix(note, "main is 1 commit ahead of the forge's record at ") {
-		t.Fatalf("main standing after a commit outside the forge: %q %q", state, note)
+	if state, note := standing(); state != "ahead" || !strings.HasPrefix(note, "main is 1 commit ahead of AppTown's record at ") {
+		t.Fatalf("main standing after a commit outside AppTown: %q %q", state, note)
 	}
 	path := "/api/v1/projects/integrity/repo/integrity"
 	write("outside edit\n")

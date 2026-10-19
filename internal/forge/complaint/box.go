@@ -127,7 +127,7 @@ type PackVersions interface {
 
 var (
 	ErrText    = errors.New("a complaint needs text")
-	ErrAbout   = fault.New(fault.Unprocessable, "a complaint is about the forge, the way-of-working or the project")
+	ErrAbout   = fault.New(fault.Unprocessable, "a complaint is about AppTown, the way-of-working or the project")
 	ErrAnswer  = errors.New("an answer is required")
 	ErrMissing = fault.New(fault.NotFound, "no complaint")
 )

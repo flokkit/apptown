@@ -262,7 +262,7 @@ func previewWorkerWorld(t *testing.T, noDomain bool) (*App, *fakeDocker, *fakePr
 	}
 	a := workAuthorityFixture(t, withPreviewWorker(t, fake, cfg))
 	if !a.Preview.PreviewsOnWorker() {
-		t.Fatal("a forge with a worker keeps its previews on this machine")
+		t.Fatal("an AppTown with a worker keeps its previews on this machine")
 	}
 	ch, err := a.Work.Create(asPerson("owner"), workflow.ChangeDraft{ProjectID: idstest.N(1), Title: "Try it on the worker"})
 	if err != nil {

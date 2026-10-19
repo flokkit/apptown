@@ -230,7 +230,7 @@ func (s side) file(ctx context.Context) File {
 		}
 		switch {
 		case fields[0] == "120000":
-			return nil, false, fmt.Errorf("%s is a link, which the forge does not follow", path)
+			return nil, false, fmt.Errorf("%s is a link, which AppTown does not follow", path)
 		case fields[1] != "blob":
 			return nil, false, fmt.Errorf("%s is not a file", path)
 		}
@@ -261,7 +261,7 @@ func (s side) parentsAreFolders(ctx context.Context, path string) error {
 		case len(fields) != 3:
 			return fmt.Errorf("unexpected entry for %s", dir)
 		case fields[0] == "120000":
-			return fmt.Errorf("%s is a link, which the forge does not follow", dir)
+			return fmt.Errorf("%s is a link, which AppTown does not follow", dir)
 		case fields[1] != "tree":
 			return fmt.Errorf("%s is not a folder", dir)
 		}

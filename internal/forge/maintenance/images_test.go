@@ -115,7 +115,7 @@ func TestAContainersAgeIsJudgedOnTheForgesClock(t *testing.T) {
 	sessions := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: t.TempDir()}})
 	r := New(databaseSuite.New(t), Dependencies{Docker: docker.Scope{Client: daemon}, Sessions: sessions, Now: func() time.Time { return forgeNow }}, t.TempDir())
 	if got := r.Containers(context.Background(), true); len(got) != 1 || got[0] != "forge-step-00000006-7932-7000-8000-000000000000" {
-		t.Fatalf("would reap %v, want the step's container three hours old on the forge's clock, and no preview", got)
+		t.Fatalf("would reap %v, want the step's container three hours old on AppTown's clock, and no preview", got)
 	}
 }
 

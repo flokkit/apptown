@@ -44,7 +44,7 @@ const (
 
 // ErrFolderRefused: the folder's Git metadata is not what the forge's own
 // clone makes, so the forge runs no Git in it. A FolderRefusal says why.
-var ErrFolderRefused = errors.New("the folder's Git metadata is not the forge's own clone")
+var ErrFolderRefused = errors.New("the folder's Git metadata is not AppTown's own clone")
 
 // FolderRefusal is a refused folder and the reason.
 type FolderRefusal struct{ Folder, Reason string }
@@ -273,7 +273,7 @@ func checkConfig(ctx context.Context, folder, gitdir string, refuse func(string,
 	}
 	for _, e := range entries {
 		if want, ok := allowed[e.key]; !ok || want != e.value {
-			return refuse("its config has %s=%q, which the forge's clone does not write", e.key, e.value)
+			return refuse("its config has %s=%q, which AppTown's clone does not write", e.key, e.value)
 		}
 	}
 	return nil

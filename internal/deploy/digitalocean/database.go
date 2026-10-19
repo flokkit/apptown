@@ -215,7 +215,7 @@ func (d *Driver) validateDiscovered(db *doDatabase, version, slug, deploymentNam
 		return fmt.Sprintf("it runs Postgres %s, the contract asks for %s", db.Version, version)
 	}
 	if !containsString(db.Tags, "forge-project-"+slug) || !containsString(db.Tags, "forge-env-"+deploymentName) {
-		return "it does not carry this forge deployment's tags (forge-project-" + slug + ", forge-env-" + deploymentName + ")"
+		return "it does not carry this AppTown deployment's tags (forge-project-" + slug + ", forge-env-" + deploymentName + ")"
 	}
 	return ""
 }

@@ -86,7 +86,7 @@ func (h Configuration) ConfigValidate(w http.ResponseWriter, r *http.Request) {
 				errs = append(errs, secret.SpecFile+": "+err.Error())
 			} else {
 				for _, ig := range spec.Ignored {
-					warns = append(warns, secret.SpecFile+": "+ig+" is not read by the forge")
+					warns = append(warns, secret.SpecFile+": "+ig+" is not read by AppTown")
 				}
 			}
 		}
@@ -115,7 +115,7 @@ func (h Configuration) ConfigValidate(w http.ResponseWriter, r *http.Request) {
 		// data.
 		for _, p := range c.Parts {
 			if p.Seed != "" {
-				warns = append(warns, "app part "+p.Name+" declares seed:, which the forge does not run anywhere; put a command that must run before the app starts in an init step")
+				warns = append(warns, "app part "+p.Name+" declares seed:, which AppTown does not run anywhere; put a command that must run before the app starts in an init step")
 			}
 		}
 		parts := make([]string, 0, len(c.Parts))

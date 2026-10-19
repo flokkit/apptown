@@ -236,7 +236,7 @@ func TestAScratchCommitIsCheckedAsFeedbackOnly(t *testing.T) {
 		t.Fatalf("a check of scratch work moved the change's branch from %q to %q", branchBefore, got)
 	}
 	gittest.Run(t, w.work, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "--allow-empty", "-qm", "not sent")
-	if code, _, body := check(gittest.Run(t, w.work, "rev-parse", "HEAD")); code != 404 || !strings.Contains(body, "not on the forge yet") {
+	if code, _, body := check(gittest.Run(t, w.work, "rev-parse", "HEAD")); code != 404 || !strings.Contains(body, "not on AppTown yet") {
 		t.Fatalf("a commit the step did not send: %d %s", code, body)
 	}
 }

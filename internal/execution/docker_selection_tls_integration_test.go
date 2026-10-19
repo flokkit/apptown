@@ -73,7 +73,7 @@ func TestIntegrationTheDefaultTLSDaemonIsNotTheLocalSocket(t *testing.T) {
 	})
 	obs, err := d.Ensure(ctx, dockerSpec(taskKey, "must not run", 0, false))
 	if obs.ID != "" || err == nil {
-		t.Fatalf("CLI selected %s, Forge selected %s and created local task %s: %v", expected, selected.Host, obs.ID, err)
+		t.Fatalf("CLI selected %s, AppTown selected %s and created local task %s: %v", expected, selected.Host, obs.ID, err)
 	}
-	t.Fatalf("Forge selected %s instead of CLI endpoint %s (create failed: %v)", selected.Host, expected, err)
+	t.Fatalf("AppTown selected %s instead of CLI endpoint %s (create failed: %v)", selected.Host, expected, err)
 }

@@ -178,7 +178,7 @@ func Reading(rule string, with map[string]any) string {
 		return fmt.Sprintf("any workflow containing a %q step must have a %q step in a strictly earlier stage; checked when workflows are saved (a save that breaks this is refused), warned on runs of workflows saved before the policy",
 			optString(with, "uses"), optString(with, "requires"))
 	case "requireCapabilityBound":
-		return fmt.Sprintf("this forge must have a working %q integration; checked when workflows are saved", optString(with, "capability"))
+		return fmt.Sprintf("this AppTown must have a working %q integration; checked when workflows are saved", optString(with, "capability"))
 	case "scanFailOnCeiling":
 		return fmt.Sprintf("no workflow may tell a security scan to ignore findings worse than %q; checked when workflows are saved", optString(with, "max"))
 	}

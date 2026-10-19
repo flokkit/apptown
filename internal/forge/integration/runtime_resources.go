@@ -51,7 +51,7 @@ var errNoErrorsDefinition = errors.New("no error-reporting definition gives an a
 // could not be read is another error.
 func (s *Service) errorsInject(ctx context.Context) (map[string]string, error) {
 	if s.kinds == nil {
-		return nil, fmt.Errorf("%w: this forge has no dependency catalog", errNoErrorsDefinition)
+		return nil, fmt.Errorf("%w: this AppTown has no dependency catalog", errNoErrorsDefinition)
 	}
 	k, err := s.kinds.ByCapability(ctx, "errors")
 	if errors.Is(err, dependency.ErrUnknown) {

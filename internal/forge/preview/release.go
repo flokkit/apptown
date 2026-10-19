@@ -50,7 +50,7 @@ var (
 	ErrReleaseInputs          = fault.New(fault.Unprocessable, "a recorded image and selected source are required before this release can be previewed")
 	// A release not published to a registry is previewed from the image it
 	// recorded on this forge's own Docker.
-	ErrReleaseNoLocalDocker = fault.New(fault.Unprocessable, "this release was not published to a registry, and this forge has no local Docker to run the image it recorded; a release landed since releases are built on the worker can be previewed")
+	ErrReleaseNoLocalDocker = fault.New(fault.Unprocessable, "this release was not published to a registry, and this AppTown has no local Docker to run the image it recorded; a release landed since releases are built on the worker can be previewed")
 )
 
 // recordedImage is a release's eligibility and a copy of the inputs it

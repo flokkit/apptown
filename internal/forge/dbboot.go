@@ -47,7 +47,7 @@ const (
 // once into db.env.
 func EnsureBuiltinDB(ctx context.Context, dataDir string) (string, error) {
 	if _, err := exec.LookPath("docker"); err != nil {
-		return "", errors.New("no -db-url and docker is not available: the forge's database is Postgres; pass -db-url or install docker for the built-in one")
+		return "", errors.New("no -db-url and docker is not available: AppTown's database is Postgres; pass -db-url or install docker for the built-in one")
 	}
 	url, password, err := builtinDBCredentials(dataDir)
 	if err != nil {
@@ -99,7 +99,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 			if owner != "" {
 				whose = fmt.Sprintf("belongs to another forge installation (instance %s)", owner)
 			}
-			return "", fmt.Errorf("volume %s %s, and this one is %s; it keeps its data in %s. If that installation is gone, remove the volume with `docker volume rm %s` (the folder is left as it is) and start again; otherwise give this forge its own database with -db-url",
+			return "", fmt.Errorf("volume %s %s, and this one is %s; it keeps its data in %s. If that installation is gone, remove the volume with `docker volume rm %s` (the folder is left as it is) and start again; otherwise give this AppTown its own database with -db-url",
 				builtinDBVolume, whose, instance, strings.TrimSpace(folder), builtinDBVolume)
 		}
 	} else {
@@ -150,7 +150,7 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 	}
 	password = hex.EncodeToString(raw)
 	url = fmt.Sprintf("postgres://postgres:%s@127.0.0.1:%s/%s", password, builtinDBPort, builtinDBName)
-	body := "# The forge's built-in database (design/subsystems/postgres-migration.md §3.9).\n" +
+	body := "# AppTown's built-in database (design/subsystems/postgres-migration.md §3.9).\n" +
 		"# Minted once by forged. If this file is lost while the data volume\n" +
 		"# survives, reset the password inside the container (docker exec\n" +
 		"# forge-db psql -U postgres -c \"ALTER USER postgres PASSWORD '...'\")\n" +

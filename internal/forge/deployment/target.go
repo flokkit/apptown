@@ -445,7 +445,7 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 
 // ErrTargetKeepsBackups is a target whose deployments the forge does not
 // back up: a scheduled backup there is skipped, not failed.
-var ErrTargetKeepsBackups = errors.New("it keeps its own backups; the forge backs up what it holds on a Docker host or a Portainer environment it talks to")
+var ErrTargetKeepsBackups = errors.New("it keeps its own backups; AppTown backs up what it holds on a Docker host or a Portainer environment it talks to")
 
 // DataAccess is how the forge reaches the data of a target's deployments
 // for its own copies: on a Docker host it talks to; in a Portainer

@@ -89,7 +89,7 @@ func (e *Environment) Probe() *docker.Probe { return e.probe }
 
 // errNoPurposes: an environment built without the project record cannot
 // say what a project is for, so it refuses rather than guess "ordinary".
-var errNoPurposes = errors.New("this forge's deployment environment cannot read project purposes")
+var errNoPurposes = errors.New("this AppTown's deployment environment cannot read project purposes")
 
 // Purpose is Project's purpose for projectID. A project Project cannot
 // read, or an environment without the record, is an error, never ordinary.
@@ -351,7 +351,7 @@ func (e *Environment) registeredNeeds(ctx context.Context, c *appcontract.Contra
 			continue
 		}
 		if k.Register.Adapter != integration.AdapterOpenRouterKey {
-			return nil, fault.Wrap(fault.Unprocessable, fmt.Errorf("this app needs %s, which is fulfilled by registering through %q, and the forge cannot do that yet", need, k.Register.Adapter))
+			return nil, fault.Wrap(fault.Unprocessable, fmt.Errorf("this app needs %s, which is fulfilled by registering through %q, and AppTown cannot do that yet", need, k.Register.Adapter))
 		}
 		out = append(out, registeredNeed{name: need, kind: k})
 	}
@@ -452,7 +452,7 @@ func (e *Environment) registrableNeeds(ctx context.Context, c *appcontract.Contr
 		return nil, err
 	}
 	if e.integrations == nil {
-		return nil, fault.New(fault.Unprocessable, "this app needs AI models, and this forge has no integrations to make a key with")
+		return nil, fault.New(fault.Unprocessable, "this app needs AI models, and this AppTown has no integrations to make a key with")
 	}
 	return needs, nil
 }

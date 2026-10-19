@@ -113,7 +113,7 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 		t.Fatalf("the restarted forge lost the chat: %v", err)
 	}
 	if st := b.Console.State(ctx, s); st == console.Unavailable || st == console.Dead {
-		t.Fatalf("the chat after a forge restart: %s", st)
+		t.Fatalf("the chat after an AppTown restart: %s", st)
 	}
 	if err := b.Console.Warm(ctx, id); err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 	two := commit("two.txt")
 	b.changeConsole.SaveAfterTurn(id)
 	if tip() != two {
-		t.Fatalf("a save after the forge restarted: branch at %s, want %s", tip(), two)
+		t.Fatalf("a save after AppTown restarted: branch at %s, want %s", tip(), two)
 	}
 
 	// The worker restarts: the chat carries on.

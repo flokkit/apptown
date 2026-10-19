@@ -49,7 +49,7 @@ func TestDockerNameInverses(t *testing.T) {
 		t.Fatalf("stackOfNetwork: %q %v", s, ok)
 	}
 	if _, ok := StackOfNetwork("bridge"); ok {
-		t.Error("bridge is not a forge network")
+		t.Error("bridge is not an AppTown network")
 	}
 	if c, ok := ContainerOfDataVolume("forge-data-forge-preview-run-00000000-0038-7000-8000-000000000000"); !ok || c != "forge-preview-run-00000000-0038-7000-8000-000000000000" {
 		t.Fatalf("containerOfDataVolume: %q %v", c, ok)

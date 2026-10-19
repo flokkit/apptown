@@ -321,10 +321,10 @@ func (a *Executor) settleReview(task *workflow.Execution, v reviewVerdict, failu
 			// reviewer's own summary is kept apart as the pass it was.
 			if check, _ := evidence["fileCheck"].(string); check != "" {
 				if evidence["reviewerVerdict"] == "pass" {
-					evidence["reason"] = "the forge's file check failed: " + check
+					evidence["reason"] = "AppTown's file check failed: " + check
 					evidence["summary"], evidence["reviewerSummary"] = evidence["reason"], v.Summary
 				} else {
-					evidence["reason"] = "reviewer rejected: " + v.Summary + "; the forge's file check also failed: " + check
+					evidence["reason"] = "reviewer rejected: " + v.Summary + "; AppTown's file check also failed: " + check
 				}
 			}
 			// A machine verdict earns a machine rework: the findings are
@@ -529,7 +529,7 @@ func mandatedOutputsNote(steps []*workflow.Step) string {
 	}
 	note := ""
 	if len(collected) > 0 {
-		note += "\nWORKFLOW-MANDATED REPORTS: the workflow requires the implementer to write\n" + strings.Join(collected, ", ") + " and NOT commit it: the forge collects it from the\nworkspace, and nothing under .forge but .forge/app.yaml may be committed.\nIt is correctly ABSENT from the diff — never a finding, never ask for it to be\ncommitted. The report under review is shown above as THE IMPLEMENTER'S CLAIM.\n"
+		note += "\nWORKFLOW-MANDATED REPORTS: the workflow requires the implementer to write\n" + strings.Join(collected, ", ") + " and NOT commit it: AppTown collects it from the\nworkspace, and nothing under .forge but .forge/app.yaml may be committed.\nIt is correctly ABSENT from the diff — never a finding, never ask for it to be\ncommitted. The report under review is shown above as THE IMPLEMENTER'S CLAIM.\n"
 	}
 	if len(committed) > 0 {
 		note += "\nWORKFLOW-MANDATED OUTPUTS: the workflow itself requires the implementer to\nwrite these report files: " + strings.Join(committed, ", ") + ". Changes to them are REQUIRED, not scope\ncreep — do not count them against the request.\n"
@@ -746,7 +746,7 @@ Check, in order:
 1. %[6]s
 2. Does the claim match the diff? Judge the report's substantive claims:
    a change it describes that the diff does not make, or a change the
-   diff makes that it hides or misdescribes, is a finding. The forge
+   diff makes that it hides or misdescribes, is a finding. AppTown
    itself checks that every changed file is named in the report, so do
    not fail on a file list's omissions alone: a file written by a
    generator the report says it ran (for example "ran rails new"), or

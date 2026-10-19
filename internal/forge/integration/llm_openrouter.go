@@ -145,7 +145,7 @@ func (s *Service) provisioningKey(ctx context.Context, cfg llmConfig) (string, e
 	}
 	values, err := s.secrets.WithContext(ctx)
 	if err != nil {
-		return "", fmt.Errorf("reading the forge's secrets: %w", err)
+		return "", fmt.Errorf("reading AppTown's secrets: %w", err)
 	}
 	for _, ref := range cfg.KeyFrom {
 		if v := values[ref]; v != "" {

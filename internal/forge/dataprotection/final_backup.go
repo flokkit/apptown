@@ -121,7 +121,7 @@ func (s *Service) finalBackup(ctx context.Context, dep *deployment.Deployment, t
 		}
 	}
 	if len(uncovered) > 0 {
-		return finalCopy{}, fmt.Errorf("%w: the forge has no way to copy %s", ErrFinalBackupIncomplete, strings.Join(uncovered, "; "))
+		return finalCopy{}, fmt.Errorf("%w: AppTown has no way to copy %s", ErrFinalBackupIncomplete, strings.Join(uncovered, "; "))
 	}
 	if err := oneFileEach(plan); err != nil {
 		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, err)
@@ -176,7 +176,7 @@ func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.De
 		}
 	}
 	if len(uncovered) > 0 {
-		return finalCopy{}, fmt.Errorf("%w: the forge has no way to copy %s", ErrFinalBackupIncomplete, strings.Join(uncovered, "; "))
+		return finalCopy{}, fmt.Errorf("%w: AppTown has no way to copy %s", ErrFinalBackupIncomplete, strings.Join(uncovered, "; "))
 	}
 	writers, err := s.stackWriters(ctx, held.dk, *held.layout)
 	if err != nil {
@@ -251,7 +251,7 @@ func containerHeldData(ctx context.Context, dk docker.Scope, kinds *dependency.C
 	if len(held) == 0 {
 		return "", nil
 	}
-	return "the forge has no way to copy the data in " + strings.Join(held, "; "), nil
+	return "AppTown has no way to copy the data in " + strings.Join(held, "; "), nil
 }
 
 // keptOffList is each held volume not on the list: nothing deletes it, so
@@ -262,7 +262,7 @@ func keptOffList(b *Backup, plan []backupPlanItem) []deploy.Left {
 		if p.Listed {
 			continue
 		}
-		why := "kept: not on the deployment's list, so the forge did not delete it; "
+		why := "kept: not on the deployment's list, so AppTown did not delete it; "
 		if c := b.copyOf(p); c != nil {
 			why += fmt.Sprintf("final set %d holds a copy", b.ID)
 		} else {

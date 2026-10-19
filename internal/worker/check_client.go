@@ -38,7 +38,7 @@ type Checks struct {
 // pass.
 func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcome {
 	if len(req.Mounts) > 0 || len(req.ExtraHosts) > 0 {
-		return notRun(errors.New("a check on the worker takes no mounts or host routes of the forge's"))
+		return notRun(errors.New("a check on the worker takes no mounts or host routes of AppTown's"))
 	}
 	if req.Network != "" && req.Network != "none" {
 		return notRun(fmt.Errorf("a check on the worker has no network or the worker's egress, not %q", req.Network))

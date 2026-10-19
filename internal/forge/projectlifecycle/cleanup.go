@@ -210,7 +210,7 @@ func (c Cleanup) archiveGitLab(ctx context.Context, plan CleanupPlan) error {
 	}
 	if !p.Archived {
 		if err := gl.ArchiveProject(ctx, p.ID); err != nil {
-			return fmt.Errorf("archiving GitLab project %d (the forge's token needs Owner to archive): %w", p.ID, err)
+			return fmt.Errorf("archiving GitLab project %d (AppTown's token needs Owner to archive): %w", p.ID, err)
 		}
 	}
 	return nil

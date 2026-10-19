@@ -198,7 +198,7 @@ func (h Remediations) Workers(w http.ResponseWriter, r *http.Request) {
 func (h Remediations) writeWorkers(ctx context.Context, w http.ResponseWriter) {
 	WriteJSON(w, 200, WorkerPools{Pools: []WorkerPool{{
 		Kind: remediation.WorkerKindRemediation, Count: h.fixes.WorkerCount(ctx, remediation.WorkerKindRemediation),
-		Gloss: fmt.Sprintf("how many fixes the forge works on at once (each one a Change on its own project); the pool holds off for %s after a provider rate limit", remediation.Cooldown),
+		Gloss: fmt.Sprintf("how many fixes AppTown works on at once (each one a Change on its own project); the pool holds off for %s after a provider rate limit", remediation.Cooldown),
 	}}})
 }
 

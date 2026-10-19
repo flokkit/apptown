@@ -164,8 +164,8 @@ func TestForgeCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 	ran := len(saw) // the change's tree, then its base's
 	elsewhere := strings.Repeat("0f", 20)
 	code, body, out := check(`{"commit":"` + elsewhere + `"}`)
-	if code != 404 || !strings.Contains(body, "commit "+elsewhere+" is not on the forge yet") || out["ok"] != nil || out["commit"] != nil || len(saw) != ran {
-		t.Fatalf("a commit not on the forge: %d %s, ran %d checks", code, body, len(saw))
+	if code != 404 || !strings.Contains(body, "commit "+elsewhere+" is not on AppTown yet") || out["ok"] != nil || out["commit"] != nil || len(saw) != ran {
+		t.Fatalf("a commit not on AppTown: %d %s, ran %d checks", code, body, len(saw))
 	}
 	if code, body, _ := check(`{"commit":"HEAD"}`); code != 400 || !strings.Contains(body, "not a full commit id") {
 		t.Fatalf("a revision name as the commit: %d %s", code, body)

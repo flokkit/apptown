@@ -33,7 +33,7 @@ func TestTheForgesClockStampsAndExpiresExceptions(t *testing.T) {
 	}
 	active, err := s.Dispositions(caller("ops"), id, true)
 	if err != nil || len(active) != 1 {
-		t.Fatalf("an exception within its hour by the forge's clock: %+v %v", active, err)
+		t.Fatalf("an exception within its hour by AppTown's clock: %+v %v", active, err)
 	}
 	review, err := s.BeginReview(caller("ops"), ReviewRequest{Projects: []ids.ID{id}})
 	if err != nil {
@@ -44,7 +44,7 @@ func TestTheForgesClockStampsAndExpiresExceptions(t *testing.T) {
 	}
 	clock = at.Add(2 * time.Hour)
 	if active, err := s.Dispositions(caller("ops"), id, true); err != nil || len(active) != 0 {
-		t.Fatalf("an exception past its end by the forge's clock: %+v %v", active, err)
+		t.Fatalf("an exception past its end by AppTown's clock: %+v %v", active, err)
 	}
 }
 

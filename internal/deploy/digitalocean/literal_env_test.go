@@ -74,7 +74,7 @@ func TestAppPlatformRefusesAValueItWouldRewriteBeforeAnyEffect(t *testing.T) {
 	}
 	// Values the platform leaves alone go through, and so do the driver's
 	// own references to the platform's variables.
-	t.Run("literal values and the forge's references", func(t *testing.T) {
+	t.Run("literal values and AppTown's references", func(t *testing.T) {
 		t.Parallel()
 		d, _, _ := driver(t)
 		src, secrets := release("pa$word", "a${b"), scopedRenderSecrets{"web": {"HASH": "$2a$10$abc", "BRACE": "}${"}}

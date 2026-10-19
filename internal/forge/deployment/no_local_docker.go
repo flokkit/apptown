@@ -27,7 +27,7 @@ import (
 
 // ErrNoLocalDocker is the built-in Docker host in a forge with no local
 // Docker: unavailable, never "not running".
-var ErrNoLocalDocker = fault.New(fault.Unprocessable, "this forge has no local Docker")
+var ErrNoLocalDocker = fault.New(fault.Unprocessable, "this AppTown has no local Docker")
 
 // ErrReleaseRefused is a release, or a deployment's recovery, that this
 // forge refuses before preparing anything; its message names the next action.
@@ -100,7 +100,7 @@ func (s *Service) LandingTarget(ctx context.Context, projectID ids.ID, name stri
 	if !s.hosts.settings.NoLocalDocker {
 		t, err := s.Targets.ByName(ctx, s.hosts.settings.BuiltInTarget)
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("deployment %s does not exist and this forge has no built-in Docker host to create it on; attach a Docker host and create %s there", name, name)
+			return nil, fmt.Errorf("deployment %s does not exist and this AppTown has no built-in Docker host to create it on; attach a Docker host and create %s there", name, name)
 		}
 		return t, err
 	}

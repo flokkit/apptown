@@ -69,7 +69,7 @@ func TestGatedDeploymentFailureCopiesNoComponentLog(t *testing.T) {
 		t.Fatalf("the failure is not the platform's sentence: %v", err)
 	}
 	if strings.Contains(log, row) || strings.Contains(err.Error(), row) {
-		t.Fatalf("a production row reached the forge's log:\n%s", log)
+		t.Fatalf("a production row reached AppTown's log:\n%s", log)
 	}
 	if !strings.Contains(log, "web failed; its log is not copied here") {
 		t.Fatalf("the log does not say why no tail is shown:\n%s", log)
@@ -94,7 +94,7 @@ func TestGatedDeploymentIsNotProbedAnonymously(t *testing.T) {
 	if len(probed) != 0 {
 		t.Fatalf("the gated front door was asked anonymously: %v", probed)
 	}
-	if !strings.Contains(log, "the front door is the forge's gate") {
+	if !strings.Contains(log, "the front door is AppTown's gate") {
 		t.Fatalf("log:\n%s", log)
 	}
 	if _, err := resumeOn(t, srv, deploy.Placement{Name: "cloud"}, &probed); err != nil {

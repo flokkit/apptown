@@ -74,7 +74,7 @@ func TestObserveDoesNotInferLivenessFromTheRecord(t *testing.T) {
 		t.Fatalf("released: %+v %v", obs, err)
 	}
 	if _, err := d.Teardown(context.Background(), deploy.Placement{Generation: 4}, 4, deploy.TakeDown{}); err == nil || !strings.Contains(err.Error(), "did not record creating") {
-		t.Fatalf("a stack the forge did not make was taken down: %v", err)
+		t.Fatalf("a stack AppTown did not make was taken down: %v", err)
 	}
 	if c := d.Controls(); !c.Liveness || !c.Rollout {
 		t.Fatal("Portainer owns liveness and rollout")

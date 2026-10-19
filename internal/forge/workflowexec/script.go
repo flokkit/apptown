@@ -107,13 +107,13 @@ func (a *Commands) RunScript(task *workflow.Execution) {
 	plan.folder = folder
 	if a.tasks != nil && a.tasks.Remote != nil && plan.executor != execution.Docker {
 		// An isolated forge runs no project script on its own host.
-		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": "this forge runs scripts only on its worker, in a container; give the step executor: docker"}, nil))
+		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": "this AppTown runs scripts only on its worker, in a container; give the step executor: docker"}, nil))
 		return
 	}
 	if plan.executor != execution.Docker && !a.cfg.HostScripts {
 		// A project's script is the project's code: it runs in a container
 		// unless the operator chose no isolation for agents.
-		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": "this forge runs no project script on its own host: drop executor: local so the step runs in a container (a forge started with -host-scripts allows it)"}, nil))
+		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": "this AppTown runs no project script on its own host: drop executor: local so the step runs in a container (an AppTown started with -host-scripts allows it)"}, nil))
 		return
 	}
 	if plan.executor == execution.Docker && a.tasks != nil {

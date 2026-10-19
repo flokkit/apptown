@@ -309,7 +309,7 @@ func printProtection(w io.Writer, p protection) {
 	}
 	// What the copies, checks and restores above speak for, and what they
 	// do not: data outside the deployment is never assessed.
-	covers := "no data the forge knows of"
+	covers := "no data AppTown knows of"
 	if len(p.Coverage.Assessed) > 0 {
 		covers = strings.Join(p.Coverage.Assessed, ", ")
 	}
@@ -373,7 +373,7 @@ func printProtection(w io.Writer, p protection) {
 				state = "open until " + c.ExpiresAt
 			}
 		}
-		fmt.Fprintf(w, "  restored copy %d of %s from set %s · %s · %s (open it from the forge in a browser)\n", c.Number, p.Deployment, c.Backup, state, opened)
+		fmt.Fprintf(w, "  restored copy %d of %s from set %s · %s · %s (open it from AppTown in a browser)\n", c.Number, p.Deployment, c.Backup, state, opened)
 		fmt.Fprintf(w, "    %s\n", c.Warning)
 	}
 	if op := p.Running; op != nil {

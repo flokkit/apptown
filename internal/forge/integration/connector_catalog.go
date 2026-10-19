@@ -100,7 +100,7 @@ func ConnectorCatalog() []ConnectorSpec {
 		},
 		{
 			Capability: "model", Provider: "pi", Title: "Model provider (pi)", Multi: true, Icon: "model",
-			Description: "An inference backend reached through pi. Credentials stay on the Forge server; agents authenticate to its private inference proxy with their session token.",
+			Description: "An inference backend reached through pi. Credentials stay on AppTown's server; agents authenticate to its private inference proxy with their session token.",
 			Presets: []ConnectorPreset{
 				{Name: "openrouter", Title: "OpenRouter", Icon: "openrouter", Suggest: "openrouter",
 					Description: "Paid multi-model gateway; pi's built-in provider. Curate which models are enabled.",
@@ -116,11 +116,11 @@ func ConnectorCatalog() []ConnectorSpec {
 			Fields: []ConnectorField{
 				{Key: "model", Label: "Default model pattern", Type: "string", Placeholder: "openrouter/~anthropic/claude-haiku-latest"},
 				{Key: "concurrency", Label: "Steps at once", Type: "number", Placeholder: "8", Help: "How many steps this backend serves at the same time: a GPU box its stream count, a hosted API what its plan allows. Empty = 8 for a hosted provider, 1 for a custom endpoint. Steps beyond it wait their turn here, not at the server."},
-				{Key: "secretEnv", Label: "Provider credentials", Type: "secretRef", Help: "Secret references used by the Forge inference proxy for built-in providers; never injected into agent containers."},
+				{Key: "secretEnv", Label: "Provider credentials", Type: "secretRef", Help: "Secret references used by AppTown inference proxy for built-in providers; never injected into agent containers."},
 				{Key: "models", Label: "Enabled models", Type: "modelList", Help: "Curated list offered to model-slot selectors as <binding>/<id>. Discovery pulls the provider's live catalog."},
 				{Key: "baseUrl", Label: "Base URL", Type: "string", Placeholder: "https://my-inference-host/v1", Help: "For CUSTOM OpenAI-compatible endpoints (LM Studio, vLLM…). Leave empty for built-in providers."},
 				{Key: "api", Label: "API dialect", Type: "select", Options: ",openai-completions,openai-responses,anthropic-messages", Help: "Custom endpoints only."},
-				{Key: "apiKeyFrom", Label: "Endpoint API key", Type: "secretRef", Help: "Secret holding the custom endpoint's key; resolved only on the Forge server."},
+				{Key: "apiKeyFrom", Label: "Endpoint API key", Type: "secretRef", Help: "Secret holding the custom endpoint's key; resolved only on AppTown's server."},
 				{Key: "modelsJson", Label: "Models (JSON array)", Type: "string", Placeholder: "[{\"id\":\"my-model\",\"contextWindow\":131072,\"maxTokens\":16384}]", Help: "pi model entries for the custom endpoint."},
 			},
 		},
@@ -201,10 +201,10 @@ func ConnectorCatalog() []ConnectorSpec {
 		},
 		{
 			Capability: CapLLM, Provider: "openrouter", Title: "AI models (OpenRouter)", Multi: true, Icon: "model",
-			Description: "AI models for the apps people build here. Bind an OpenRouter provisioning key once; a project that attaches AI models gets its own OpenRouter key, with a spending limit, for each deployment and each preview of an app that declares the llm need. The keys are revoked when the deployment is taken down or the preview ends. The provisioning key stays on the Forge server.",
+			Description: "AI models for the apps people build here. Bind an OpenRouter provisioning key once; a project that attaches AI models gets its own OpenRouter key, with a spending limit, for each deployment and each preview of an app that declares the llm need. The keys are revoked when the deployment is taken down or the preview ends. The provisioning key stays on AppTown's server.",
 			Fields: []ConnectorField{
 				{Key: "provisioningKeyFrom", Label: "Provisioning key", Type: "secretRef", Placeholder: "OPENROUTER_PROVISIONING_KEY",
-					Help: "The secret holding an OpenRouter provisioning key (Settings › Provisioning API keys at openrouter.ai). Read only on the Forge server; a STEP_ secret is refused, because those reach workflow steps."},
+					Help: "The secret holding an OpenRouter provisioning key (Settings › Provisioning API keys at openrouter.ai). Read only on AppTown's server; a STEP_ secret is refused, because those reach workflow steps."},
 				{Key: "maxLimit", Label: "Most per key ($)", Type: "number", Placeholder: "20", Help: "The largest limit any one key may have, in US dollars. An app that asks for more is refused."},
 				{Key: "defaultLimit", Label: "Default limit ($)", Type: "number", Placeholder: "1", Help: "A deployment's key limit when the app declares none. Empty = $1."},
 				{Key: "previewLimit", Label: "Preview limit ($)", Type: "number", Placeholder: "1", Help: "Every preview's key limit, whatever the app declares. Empty = $1."},
@@ -217,11 +217,11 @@ func ConnectorCatalog() []ConnectorSpec {
 		},
 		{
 			Capability: "secrets", Provider: "infisical", Title: "Infisical", Managed: true, Icon: "infisical",
-			Description: "Secrets kept in Infisical and read by the forge server. Keys starting STEP_ are given to step containers and model credentials to agent containers. A project's application secrets stored in Infisical (Settings → Secrets) are read from the same Infisical project and environment.",
+			Description: "Secrets kept in Infisical and read by AppTown's server. Keys starting STEP_ are given to step containers and model credentials to agent containers. A project's application secrets stored in Infisical (Settings → Secrets) are read from the same Infisical project and environment.",
 		},
 		{
 			Capability: "secrets", Provider: "internal", Title: "Built-in secret store", Managed: true, Icon: "secrets",
-			Description: "Keeps application secrets in the forge's own database, obfuscated with a key the forge generated. It is built into the forge server, with no separate service. Obfuscation prevents accidental disclosure, but this is not a vault: anyone with the database can read the values. Use Infisical for anything that matters.",
+			Description: "Keeps application secrets in AppTown's own database, obfuscated with a key AppTown generated. It is built into AppTown's server, with no separate service. Obfuscation prevents accidental disclosure, but this is not a vault: anyone with the database can read the values. Use Infisical for anything that matters.",
 		},
 		{
 			Capability: "executor", Provider: "docker", Title: "Docker executor", Managed: true, Icon: "docker",

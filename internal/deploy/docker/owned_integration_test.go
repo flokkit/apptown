@@ -119,7 +119,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 	}
 	TearDownOwned(context.Background(), dk, owned, "", true)
 	if !dk.OK(context.Background(), "network", "inspect", NetworkName(stack)) {
-		t.Fatal("a network the forge did not make was deleted")
+		t.Fatal("a network AppTown did not make was deleted")
 	}
 }
 

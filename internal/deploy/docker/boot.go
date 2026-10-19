@@ -496,11 +496,11 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	switch {
 	case t.release != "" && selfServing:
 		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: appcontract.ReleasePath, Expect: 200, Body: t.release}); !up {
-			return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("the static site's file server does not answer %s with this release (%s): its image does not carry the forge's file server configuration, or it serves another release", appcontract.ReleasePath, t.release), LogTail: logTail}
+			return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("the static site's file server does not answer %s with this release (%s): its image does not carry AppTown's file server configuration, or it serves another release", appcontract.ReleasePath, t.release), LogTail: logTail}
 		}
 	case wasStatic || plan.PublicPart().ServesStatic:
 		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: "/_forge/env.js", Expect: 200}); !up {
-			return res, &BootError{Phase: PhaseProbe, Err: errors.New("the static site's file server does not answer /_forge/env.js: its image does not carry the forge's file server configuration (an image built before 3 October 2026 does not); release it again to rebuild the image"), LogTail: logTail}
+			return res, &BootError{Phase: PhaseProbe, Err: errors.New("the static site's file server does not answer /_forge/env.js: its image does not carry AppTown's file server configuration (an image built before 3 October 2026 does not); release it again to rebuild the image"), LogTail: logTail}
 		}
 	}
 	if t.PageCheck {

@@ -18,7 +18,7 @@ func (s *Service) refusesCopyPreview(ctx context.Context, projectID ids.ID) erro
 		return err
 	}
 	if purpose.EvalDomainOnly() && s.env.Routes().EvalDomain == "" {
-		return fmt.Errorf("%w: this project is an eval copy, whose previews are served only on the eval domain, and this forge has none: start it with -tier-domain eval=<domain>", deployment.ErrReleaseRefused)
+		return fmt.Errorf("%w: this project is an eval copy, whose previews are served only on the eval domain, and this AppTown has none: start it with -tier-domain eval=<domain>", deployment.ErrReleaseRefused)
 	}
 	return nil
 }

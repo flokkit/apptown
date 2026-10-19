@@ -14,7 +14,7 @@ type KindInfo struct {
 }
 
 var kindCatalog = []KindInfo{
-	{ContainerMemoryLimits: true, Kind: KindDockerHost, Title: "Built-in Docker host", Family: "built-in", Vendor: "this forge"},
+	{ContainerMemoryLimits: true, Kind: KindDockerHost, Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
 	{ContainerMemoryLimits: true, Kind: KindPortainer, Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "the intranet"},
 	{Kind: KindDOApp, Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region"},
 	{Kind: KindS3Bucket, Title: "Bucket website", Family: "cloud", Vendor: "S3-compatible storage", Region: "region"},

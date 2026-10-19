@@ -17,7 +17,7 @@ SERVER APP (with a database, a cache, etc.):
     web:
       build: .              # forge builds your repo-root Dockerfile
       # image: <pushed ref> #   ...OR run a pushed image instead
-      ports: ["8080"]       # CONTAINER port; the forge assigns the host
+      ports: ["8080"]       # CONTAINER port; AppTown assigns the host
       public: true          # the front door (exactly one part is public)
       dataDir: /data        # directory that survives redeploys
       health: { readiness: { http: /healthz } }  # answers 200 when ready
@@ -30,7 +30,7 @@ SERVER APP (with a database, a cache, etc.):
       command: ["./migrate.sh"]
   needs:
     postgres: { version: "16" }
-The forge provisions each need per deployment (a local container here, a
+AppTown provisions each need per deployment (a local container here, a
 managed resource in cloud) and injects its connection env — DATABASE_URL +
 PG* (postgres), REDIS_URL (redis), AWS_* and S3_BUCKET (s3), reachable at
 hostname = the capability name. READ that env; never hard-code a host or

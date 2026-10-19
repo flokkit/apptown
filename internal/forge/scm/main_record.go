@@ -197,16 +197,16 @@ func ReadMainStanding(ctx context.Context, q database.Queryer, hub string, proje
 	case s.Hub == "":
 		s.State, s.Note = "unreadable", "could not read main"
 	case !known:
-		s.State, s.Note = "unknown", "the forge has no record of where main stands"
+		s.State, s.Note = "unknown", "AppTown has no record of where main stands"
 	case recorded.SHA == s.Hub:
 		s.State = "recorded"
 	case isAncestor(ctx, hub, recorded.SHA, s.Hub):
 		s.State = "ahead"
 		if n, ok := countBetween(ctx, hub, recorded.SHA, s.Hub); ok {
 			s.Ahead = n
-			s.Note = fmt.Sprintf("main is %s ahead of the forge's record at %s", commits(n), strs.ShortSHA(recorded.SHA))
+			s.Note = fmt.Sprintf("main is %s ahead of AppTown's record at %s", commits(n), strs.ShortSHA(recorded.SHA))
 		} else {
-			s.Note = fmt.Sprintf("main is ahead of the forge's record at %s", strs.ShortSHA(recorded.SHA))
+			s.Note = fmt.Sprintf("main is ahead of AppTown's record at %s", strs.ShortSHA(recorded.SHA))
 		}
 	default:
 		s.State = "rewritten"
@@ -231,10 +231,10 @@ func upstreamStanding(ctx context.Context, hub, branch, recorded string) *Upstre
 	u := &UpstreamMain{Known: true, Ahead: ahead, Behind: behind}
 	var parts []string
 	if ahead > 0 {
-		parts = append(parts, "has "+commits(ahead)+" the forge's record does not")
+		parts = append(parts, "has "+commits(ahead)+" AppTown's record does not")
 	}
 	if behind > 0 {
-		parts = append(parts, "lacks "+commits(behind)+" of the forge's record")
+		parts = append(parts, "lacks "+commits(behind)+" of AppTown's record")
 	}
 	if len(parts) > 0 {
 		u.Note = "last fetched upstream " + strings.Join(parts, " and ")

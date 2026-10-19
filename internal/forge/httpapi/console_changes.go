@@ -104,7 +104,7 @@ func (h ConsoleChanges) ConsoleLand(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 422, "%v", err)
 		return
 	}
-	WriteJSON(w, 201, LandingStarted{RunID: run.ID, Message: "landing started — the forge runs its checks, then asks a person for the final OK"})
+	WriteJSON(w, 201, LandingStarted{RunID: run.ID, Message: "landing started — AppTown runs its checks, then asks a person for the final OK"})
 }
 
 // ConsoleRecheck: POST /console/{sid}/recheck — after fixing what a

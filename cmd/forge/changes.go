@@ -746,7 +746,7 @@ func disputeText(d loopRunDetail) string {
 		// failed is the forge's failure, not the reviewer's rejection.
 		reviewerPassed, _ := s.Evidence["reviewerSummary"].(string)
 		if reviewerPassed != "" {
-			who = "the forge's file check"
+			who = "AppTown's file check"
 		}
 		fmt.Fprintf(&b, "  %s %s (%s, %s):\n", red("✗"), s.Name, who, s.Status)
 		if sum, ok := s.Evidence["summary"].(string); ok && sum != "" {
@@ -805,9 +805,9 @@ func previewLine(p previewStatus) string {
 // the run now — and names the door that can.
 func retryHint(changeID, runID, blockerID ids.ID, blockerName string) string {
 	if !blockerID.IsZero() {
-		return fmt.Sprintf("change %d is blocked at %s (%d) in run %d, and the forge offers no agent round to retry there.\nSend it back with a note for the agent:\n  forge sendback %d \"what to change\"", changeID, blockerName, blockerID, runID, changeID)
+		return fmt.Sprintf("change %d is blocked at %s (%d) in run %d, and AppTown offers no agent round to retry there.\nSend it back with a note for the agent:\n  forge sendback %d \"what to change\"", changeID, blockerName, blockerID, runID, changeID)
 	}
-	return fmt.Sprintf("the forge offers no agent round to retry on run %d now (forge status %d says what it is doing); if the change needs a code change, send it back:\n  forge sendback %d \"what to change\"", runID, runID, changeID)
+	return fmt.Sprintf("AppTown offers no agent round to retry on run %d now (forge status %d says what it is doing); if the change needs a code change, send it back:\n  forge sendback %d \"what to change\"", runID, runID, changeID)
 }
 
 // cmdSendBack: the CLI's twin of the page's "Send it back with a note".
@@ -935,7 +935,7 @@ func cmdLand(args []string) error {
 			if err := api.post("/console/"+sid+"/land", map[string]any{}, nil); err != nil {
 				return err
 			}
-			fmt.Println("landing started — the forge runs its checks, then asks a person for the final OK")
+			fmt.Println("landing started — AppTown runs its checks, then asks a person for the final OK")
 			return nil
 		}
 		return fmt.Errorf("usage: forge land <change-id> [-y] [--no-follow]")

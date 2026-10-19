@@ -190,7 +190,7 @@ func newRehearsalHost() *rehearsalHost {
 			return nil, nil, true
 		case strings.Contains(script, "pg_restore -d"):
 			if c.Stdin != nil {
-				return []byte("the copy came from the forge, not the host's volume"), errors.New("exit status 9"), true
+				return []byte("the copy came from AppTown, not the host's volume"), errors.New("exit status 9"), true
 			}
 			data := h.volumes[stagedFile(c.Args)]
 			if h.failWith["import"] {
@@ -717,7 +717,7 @@ func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) 
 					return nil
 				}
 				if body, _ := os.ReadFile(path); bytes.Contains(body, []byte("orders: 41, 42")) {
-					t.Errorf("the copy is on the forge's disk at %s", path)
+					t.Errorf("the copy is on AppTown's disk at %s", path)
 				}
 				return nil
 			})

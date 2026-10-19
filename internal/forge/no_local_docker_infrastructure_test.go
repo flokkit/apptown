@@ -48,7 +48,7 @@ type absentDocker struct {
 }
 
 func (d absentDocker) Run(_ context.Context, _ string, c docker.Command) ([]byte, error) {
-	d.t.Errorf("the forge's own Docker was asked: docker %s", strings.Join(c.Args, " "))
+	d.t.Errorf("AppTown's own Docker was asked: docker %s", strings.Join(c.Args, " "))
 	return nil, docker.ErrNoLocalBackend
 }
 
@@ -92,7 +92,7 @@ func TestInTheNoLocalDockerModeMaintenanceAndHealthAskNoLocalDocker(t *testing.T
 	t.Parallel()
 	a := infrastructureModeApp(t)
 	if a.DockerAvailable(context.Background()) {
-		t.Fatal("a forge with no local Docker has a daemon")
+		t.Fatal("an AppTown with no local Docker has a daemon")
 	}
 	a.EnsureAgentImage()
 	if state, _ := a.setup.ImageState(); state != "no local backend" {
@@ -106,7 +106,7 @@ func TestInTheNoLocalDockerModeMaintenanceAndHealthAskNoLocalDocker(t *testing.T
 	if h := health.Health(t.Context(), integration.CapExecutor, "docker", nil); !h.OK || !strings.Contains(h.Detail, "worker · image forge-agent:fixture") {
 		t.Fatalf("executor health: %+v", h)
 	}
-	if h := health.Health(t.Context(), integration.CapDeploy, "docker", nil); h.OK || !strings.HasPrefix(h.Detail, "this forge has no Docker of its own") {
+	if h := health.Health(t.Context(), integration.CapDeploy, "docker", nil); h.OK || !strings.HasPrefix(h.Detail, "this AppTown has no Docker of its own") {
 		t.Fatalf("Docker deploys with no attached host: %+v", h)
 	}
 	if h := health.Test(t.Context(), verification.ScannerCapability, "trivy", map[string]any{"image": "scanner:1"}); !h.OK || h.Detail != "image pulled on the worker" {
@@ -349,7 +349,7 @@ func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 			t.Fatalf("lab target: %+v", target)
 		}
 	}
-	if w := authzCall(h, "boss", "GET", "/api/v1/infrastructure", ""); w.Code != 200 || strings.Contains(w.Body.String(), "this forge") || !strings.Contains(w.Body.String(), `"place":"Docker host · over SSH · 192.0.2.10"`) {
+	if w := authzCall(h, "boss", "GET", "/api/v1/infrastructure", ""); w.Code != 200 || strings.Contains(w.Body.String(), "this AppTown") || !strings.Contains(w.Body.String(), `"place":"Docker host · over SSH · 192.0.2.10"`) {
 		t.Fatalf("infrastructure: %d %s", w.Code, w.Body.String())
 	}
 	if url := projectReadsMainURL(t, a); url != "http://192.0.2.10:40001" {
@@ -357,7 +357,7 @@ func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 	}
 	// The host is reached through the SSH config the forge was given.
 	if b, err := os.ReadFile(a.cfg.sshConfigPath); err != nil || !strings.Contains(string(b), "Host forge-target-lab\n  HostName 192.0.2.10\n") {
-		t.Fatalf("the forge's SSH config %s: %q %v", a.cfg.sshConfigPath, b, err)
+		t.Fatalf("AppTown's SSH config %s: %q %v", a.cfg.sshConfigPath, b, err)
 	}
 }
 
@@ -541,13 +541,13 @@ func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
 		t.Fatalf("get_project deployment: %v", d)
 	}
 
-	if state, why := a.evaluator.Observe(t.Context(), idstest.N(1), "", "GET /"); state != conformance.CannotAssess || !strings.Contains(why, "unavailable: this forge has no local Docker") {
+	if state, why := a.evaluator.Observe(t.Context(), idstest.N(1), "", "GET /"); state != conformance.CannotAssess || !strings.Contains(why, "unavailable: this AppTown has no local Docker") {
 		t.Fatalf("runtime: %s %q", state, why)
 	}
 
 	rec := httptest.NewRecorder()
 	a.VHost(http.NotFoundHandler()).ServeHTTP(rec, httptest.NewRequest("GET", "http://game.main.example.test/", nil))
-	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "unavailable: this forge has no local Docker") {
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "unavailable: this AppTown has no local Docker") {
 		t.Fatalf("vhost: %d %s", rec.Code, rec.Body.String())
 	}
 }

@@ -282,10 +282,10 @@ func (c Config) prepare() (configuration, error) {
 		}
 	}
 	if c.DrainLocalDocker && (c.NoLocalDocker || c.VerifyOnly) {
-		return configuration{}, fmt.Errorf("-drain-local-docker observes the forge's own Docker: run it without -no-local-docker or -verify-only")
+		return configuration{}, fmt.Errorf("-drain-local-docker observes AppTown's own Docker: run it without -no-local-docker or -verify-only")
 	}
 	if c.NoLocalDocker && (c.Worker == nil || c.UsingBuiltinDB) {
-		return configuration{}, fmt.Errorf("-no-local-docker needs a worker (-worker-url) and an external database (-db-url): this forge runs nothing on its own Docker, and the built-in database is a container there")
+		return configuration{}, fmt.Errorf("-no-local-docker needs a worker (-worker-url) and an external database (-db-url): this AppTown runs nothing on its own Docker, and the built-in database is a container there")
 	}
 	// The worker drivers judge a task's expiry on the clock that wrote it.
 	clock := &forgeClock{}

@@ -30,7 +30,7 @@ func NewDrafter(tokens *identity.RuntimeTokens, selection model.Selection, compl
 	return Drafter{tokens: tokens, selection: selection, complete: complete}
 }
 
-const assistReference = `You write workflow YAML for Forge. Output ONLY a complete YAML document
+const assistReference = `You write workflow YAML for AppTown. Output ONLY a complete YAML document
 (optionally in a single fenced code block) — no commentary before or after.
 
 Document shape:

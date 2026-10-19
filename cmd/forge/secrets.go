@@ -29,13 +29,13 @@ func cmdSecret(args []string) error {
 		if _, err := api.request("PUT", "/secrets/"+name, map[string]string{"value": value}); err != nil {
 			return err
 		}
-		fmt.Printf("%s the forge holds %s (the value is not shown again)\n", green("✓"), name)
+		fmt.Printf("%s AppTown holds %s (the value is not shown again)\n", green("✓"), name)
 		return nil
 	case "remove", "rm":
 		if _, err := api.request("DELETE", "/secrets/"+name, nil); err != nil {
 			return err
 		}
-		fmt.Printf("%s removed %s from the forge's secrets file\n", green("✓"), name)
+		fmt.Printf("%s removed %s from AppTown's secrets file\n", green("✓"), name)
 		return nil
 	}
 	return usage
@@ -66,7 +66,7 @@ func readSecretValue(name string, in *os.File) (string, error) {
 func secretValue(raw string) (string, error) {
 	value := strings.TrimSuffix(strings.TrimSuffix(raw, "\n"), "\r")
 	if strings.ContainsAny(value, "\r\n") {
-		return "", fmt.Errorf("the value has several lines; the forge's secrets file keeps one line per secret (write an SSH key's line breaks as \\n)")
+		return "", fmt.Errorf("the value has several lines; AppTown's secrets file keeps one line per secret (write an SSH key's line breaks as \\n)")
 	}
 	if strings.TrimSpace(value) == "" {
 		return "", fmt.Errorf("no value on standard input")

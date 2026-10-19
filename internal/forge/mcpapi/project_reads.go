@@ -56,8 +56,8 @@ func NewProjectReads(deps ProjectReadsDependencies) []Tool {
 		{
 			Name:  "get_project_guidance",
 			order: 2,
-			Description: "Returns the project's adopted ways of working as one text: the exact guidance, at the exact pinned versions, that the Forge's own agents are steered by and that the landing checks hold every Change to. " +
-				"Strongly recommended before you write code on a project; the Forge does not push it into your context, so read it when you choose. get_project reports its size first so you can decide.",
+			Description: "Returns the project's adopted ways of working as one text: the exact guidance, at the exact pinned versions, that AppTown's own agents are steered by and that the landing checks hold every Change to. " +
+				"Strongly recommended before you write code on a project; AppTown does not push it into your context, so read it when you choose. get_project reports its size first so you can decide.",
 			InputSchema: schemaObject(map[string]any{"slug": slugArg}, "slug"),
 			command:     ownerCommand("project_reads.getProjectGuidance", h.getProjectGuidance),
 		},

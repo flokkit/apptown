@@ -249,7 +249,7 @@ func TestWaitSaysMainThatConflictsWithTheChange(t *testing.T) {
 			`"catchUp":"git fetch \"$FORGE_MAIN_REMOTE\" main && git merge --no-edit -m \"Merge main into change-00000000-0004-7000-8000-000000000000\" FETCH_HEAD"}}`
 	})
 	out, err := run(t, "wait", "-c", "00000000-0004-7000-8000-000000000000", "-i", "0")
-	want := `! change 00000000-0004-7000-8000-000000000000: main has moved and the forge could not merge it in before step rework: README.md, app.go conflict. Catch up in the change's chat: git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-00000000-0004-7000-8000-000000000000" FETCH_HEAD`
+	want := `! change 00000000-0004-7000-8000-000000000000: main has moved and AppTown could not merge it in before step rework: README.md, app.go conflict. Catch up in the change's chat: git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-00000000-0004-7000-8000-000000000000" FETCH_HEAD`
 	if err != nil || !strings.Contains(out, want) {
 		t.Fatalf("wait -c said (%v):\n%s\nwant\n%s", err, out, want)
 	}

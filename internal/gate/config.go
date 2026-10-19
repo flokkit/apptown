@@ -118,7 +118,7 @@ func checkSecret(s string) error {
 
 func parseForge(raw string) (*url.URL, error) {
 	if raw == "" {
-		return nil, errors.New("required, the forge's public origin such as https://forge.example")
+		return nil, errors.New("required, AppTown's public origin such as https://forge.example")
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {

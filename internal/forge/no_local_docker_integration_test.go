@@ -37,7 +37,7 @@ func TestIntegrationAnAttachedTargetAnswersInTheNoLocalDockerMode(t *testing.T) 
 	a := newApp(t, db, Config{NoLocalDocker: true, ConsoleCLI: fixtureCLI(t),
 		Worker: workerClientConfig(t, workertest.NewCA(t), "https://worker.invalid")})
 	if _, err := a.docker.Run(context.Background(), "info"); !errors.Is(err, docker.ErrNoLocalBackend) {
-		t.Fatalf("the forge's own Docker: %v", err)
+		t.Fatalf("AppTown's own Docker: %v", err)
 	}
 	// The connection check an attachment makes (ProbeHostTarget), on the
 	// target's scope.

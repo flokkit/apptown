@@ -682,7 +682,7 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 		} else {
 			class += " data"
 		}
-		return fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); this deployment holds %s, so the forge will not replace it — retire the deployment's services under Deployments to recreate them from the contract",
+		return fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); this deployment holds %s, so AppTown will not replace it — retire the deployment's services under Deployments to recreate them from the contract",
 			svc.Name, strings.Join(drift, ", "), class)
 	}
 	vol := NeedVolumeName(stackID, svc.Name)
@@ -695,7 +695,7 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 			if err == nil {
 				err = errors.New("it was there before this deployment and is not on its records")
 			}
-			return fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); its data volume %s is not one this deployment recorded making (%v), so the forge will not reset it — move or delete that volume yourself, or change the contract back",
+			return fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); its data volume %s is not one this deployment recorded making (%v), so AppTown will not reset it — move or delete that volume yourself, or change the contract back",
 				svc.Name, strings.Join(drift, ", "), vol, err)
 		}
 	}

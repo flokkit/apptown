@@ -288,7 +288,7 @@ func TestASpendLinesTimeRunsOutByTheForgesClock(t *testing.T) {
 	at = at.Add(2 * time.Minute)
 	mu.Unlock()
 	if got := w.spent(t); got.Incomplete != 1 {
-		t.Fatalf("a line past its time on the forge's clock is not unknown: %+v", got)
+		t.Fatalf("a line past its time on AppTown's clock is not unknown: %+v", got)
 	}
 	if w.settle(t, late, paid, "") {
 		t.Fatal("a settlement past the line's time was accepted")

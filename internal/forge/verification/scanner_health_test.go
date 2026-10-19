@@ -17,7 +17,7 @@ import (
 func TestAScannersTestConnectionAsksForItsImageWhereChecksRun(t *testing.T) {
 	t.Parallel()
 	never := func(context.Context, execution.ImageRequest) execution.ImageAnswer {
-		t.Error("the worker was asked for an image while this forge has Docker")
+		t.Error("the worker was asked for an image while this AppTown has Docker")
 		return execution.ImageAnswer{}
 	}
 	if h := TestScannerImage(t.Context(), "", &docker.Scope{Client: dockerfake.New()}, never); h.OK || h.Detail != "image is required" {

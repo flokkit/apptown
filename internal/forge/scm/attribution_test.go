@@ -93,8 +93,8 @@ func TestNamesOnGitLabAreAccountNamesOrWithheld(t *testing.T) {
 		"bls via mcp/claude":                {"`bls` (through a coding agent)", "bls (through a coding agent)"},
 		"alice@corp.example":                {withheld, withheld},
 		"alice@corp.example via git ticket": {withheld + " (through a Git push)", withheld + " (through a Git push)"},
-		"forge-system":                      {"Forge", "Forge"},
-		"run/7":                             {"Forge run 7", "Forge run 7"},
+		"forge-system":                      {"AppTown", "AppTown"},
+		"run/7":                             {"AppTown run 7", "AppTown run 7"},
 	} {
 		if got := publicName(receipt, true); got != want[0] {
 			t.Errorf("%q in a description: %q, want %q", receipt, got, want[0])
@@ -110,7 +110,7 @@ func TestNamesOnGitLabAreAccountNamesOrWithheld(t *testing.T) {
 	if strings.Contains(text, "corp.example") {
 		t.Fatalf("an email-shaped account name reached GitLab:\n%s", text)
 	}
-	if !strings.Contains(text, "Declared approvers: "+withheld+", a Forge group (name withheld), `role:project-approver`") {
+	if !strings.Contains(text, "Declared approvers: "+withheld+", an AppTown group (name withheld), `role:project-approver`") {
 		t.Fatalf("declared approvers are not shown with names withheld:\n%s", text)
 	}
 }
@@ -146,7 +146,7 @@ func TestAnOpeningDescriptionNamesTheOpenerAndWaits(t *testing.T) {
 	a := landingAttribution("")
 	a.Approvals, a.Overrides, a.Checks, a.LandingAuthority = nil, nil, nil, ""
 	description := MergeRequestDescription(*a, "https://forge.example/changes/412")
-	for _, want := range []string{"**Forge change 412**, opened by `bls` (through a chat).", "    Add CSV export\n    \n    So finance can reconcile.", "Waiting for approval in Forge. Checks, approvals and the full change record: https://forge.example/changes/412"} {
+	for _, want := range []string{"**AppTown change 412**, opened by `bls` (through a chat).", "    Add CSV export\n    \n    So finance can reconcile.", "Waiting for approval in AppTown. Checks, approvals and the full change record: https://forge.example/changes/412"} {
 		if !strings.Contains(description, want) {
 			t.Errorf("opening description lacks %q:\n%s", want, description)
 		}
@@ -166,7 +166,7 @@ func landingRepository(t *testing.T) (repo, remote, base, candidate string) {
 	t.Helper()
 	repo = t.TempDir()
 	gittest.RunAsTester(t, repo, "init", "-b", "main")
-	gittest.RunAsTester(t, repo, "config", "user.name", "Forge test")
+	gittest.RunAsTester(t, repo, "config", "user.name", "AppTown test")
 	gittest.RunAsTester(t, repo, "config", "user.email", "forge@example.invalid")
 	gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", "base")
 	base = gittest.RunAsTester(t, repo, "rev-parse", "HEAD")
@@ -281,7 +281,7 @@ func TestAMergeRequestMergedOnGitLabIsNotDescribedAsTheForges(t *testing.T) {
 		t.Fatalf("a merged request was not settled as existing: %+v %v", plan, err)
 	}
 	if got := fake.Descriptions("group/project", 7); len(got) != 0 {
-		t.Fatalf("described a request the forge did not merge: %q", got)
+		t.Fatalf("described a request AppTown did not merge: %q", got)
 	}
 }
 

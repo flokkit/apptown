@@ -45,7 +45,7 @@ func TestTheForgesOwnDockerRefusesWhileAnAttachedTargetKeepsItsHost(t *testing.T
 	own := Scope{Client: Refusing{Attached: hostEcho{}}}
 	for _, dk := range []Scope{own, own.WithHost("", "", "")} {
 		if out, err := dk.Run(context.Background(), "ps"); !errors.Is(err, ErrNoLocalBackend) || len(out) != 0 || !dk.Absent() {
-			t.Fatalf("the forge's own Docker answered %q %v", out, err)
+			t.Fatalf("AppTown's own Docker answered %q %v", out, err)
 		}
 	}
 	target := own.WithHost("ssh://forge-target-lab", "lab.example", "")

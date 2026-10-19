@@ -154,12 +154,12 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 		}
 		recorded, err := h.recordedResources(r.Context(), t)
 		if err != nil {
-			WriteError(w, 503, "not removed: the forge's records could not be read, so it cannot tell whether %s %s is claimed: %v", in.Kind, in.Name, err)
+			WriteError(w, 503, "not removed: AppTown's records could not be read, so it cannot tell whether %s %s is claimed: %v", in.Kind, in.Name, err)
 			return
 		}
 		for _, rec := range recorded {
 			if rec.Kind == in.Kind && (rec.Name == in.Name || (in.ID != "" && rec.ID == in.ID)) {
-				WriteError(w, 409, "%s %s is on the forge's records (%s) — retire its deployment instead", in.Kind, in.Name, hostsWords(rec.Hosts))
+				WriteError(w, 409, "%s %s is on AppTown's records (%s) — retire its deployment instead", in.Kind, in.Name, hostsWords(rec.Hosts))
 				return
 			}
 		}

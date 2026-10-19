@@ -48,7 +48,7 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 	before := len(w.api.Snapshot().Requests)
 	w.api.SeedDatabase(map[string]any{"id": "other-cluster", "name": "forge-ledger-pay-copy-1", "engine": "pg", "version": "16", "status": "online", "tags": []string{"forge-project-ledger", "forge-env-pay-copy-1"}})
 	op, c := w.start(RestoredCopyRequest{Test: true})
-	if op.State != operations.Failed || !strings.Contains(op.Detail, "does not carry this forge deployment") {
+	if op.State != operations.Failed || !strings.Contains(op.Detail, "does not carry this AppTown deployment") {
 		t.Fatalf("start = %s: %s", op.State, op.Detail)
 	}
 	for _, r := range w.api.Snapshot().Requests[before:] {

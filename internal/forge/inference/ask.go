@@ -48,7 +48,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 		return "", nil, fmt.Errorf("the model %q does not name one model of a configured provider", call.Model)
 	}
 	if call.Purpose == "" {
-		return "", nil, errors.New("a forge model call must say what it is for")
+		return "", nil, errors.New("an AppTown model call must say what it is for")
 	}
 	ps, err := g.providers(ctx)
 	if err != nil {

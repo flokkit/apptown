@@ -452,7 +452,7 @@ func TestTheForgeKeepsOnlyTheWorkerPreviewsItRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 	if w.holds("forge-preview-run-00000000-0003-7000-8000-000000000000") {
-		t.Fatal("a preview no boot holds and the forge has no record of was kept")
+		t.Fatal("a preview no boot holds and AppTown has no record of was kept")
 	}
 }
 

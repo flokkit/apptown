@@ -86,15 +86,15 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.agentImage, "agent-image", "forge-agent", "docker image for containerized steps")
 	fs.StringVar(&o.agentModel, "agent-model", "", "default model for agent/pi steps, e.g. gpu1/Qwen3.6 (empty = pi's default)")
 	fs.StringVar(&o.portainerEnv, "portainer-environment", integration.DefaultPortainerEnvironment, "the Portainer environment the intranet target releases to, when the Portainer secrets (PORTAINER_URL, PORTAINER_API_KEY, FORGE_APPS_DOMAIN) are set; recorded in the portainer-deploy integration at every start")
-	fs.StringVar(&o.dbURL, "db-url", "", "Postgres URL for the forge's own database (env FORGE_DB_URL; empty = the built-in container on this box, design/subsystems/postgres-migration.md)")
+	fs.StringVar(&o.dbURL, "db-url", "", "Postgres URL for AppTown's own database (env FORGE_DB_URL; empty = the built-in container on this box, design/subsystems/postgres-migration.md)")
 	fs.BoolVar(&o.gitImportPrivate, "git-import-allow-private", false, "let a project that starts from an https repository fetch from private, loopback and link-local addresses (an internal GitLab); by default only public addresses are fetched (design/operations/start-from-existing-code.md)")
 	fs.Int64Var(&o.bundleMaxBytes, "import-bundle-max-bytes", projectlifecycle.DefaultBundleMaxBytes, "the largest Git bundle a project that starts from existing code may upload")
 	fs.BoolVar(&o.privateDocker, "private-docker", false, "admit agent steps that declare private Docker (docker: true) on the worker: the operator's opt-in; every such attempt records whether the worker's measured profile is qualified (design/operations/workers.md)")
 	fs.BoolVar(&o.noPrivateDocker, "no-private-docker", false, "refuse agent steps that declare private Docker (docker: true), and give change consoles none")
-	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url); a forge that last ran with its own Docker first needs -drain-local-docker (design/operations/workers.md)")
-	fs.BoolVar(&o.drainLocalDocker, "drain-local-docker", false, "one-shot, with this forge's normal settings and its own Docker, while it is not serving: repair interrupted work, check that no local work or execution container is left, record the drain that admits a start with -no-local-docker, and exit (non-zero, naming what is left, otherwise)")
-	fs.BoolVar(&o.backfillMain, "backfill-recorded-main", false, "one-shot, with this forge's normal settings while no forged serves its database: record each repository-backed project's current main as where recording began (projects already recorded are kept, an unreadable main stays unknown), print the counts, and exit without serving (for projects created before the forge recorded main)")
-	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this forge's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names forge-operator (host)), print only that password on stdout, and exit without serving (design/operations/README.md, Locked out of the admin account)")
+	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url); an AppTown that last ran with its own Docker first needs -drain-local-docker (design/operations/workers.md)")
+	fs.BoolVar(&o.drainLocalDocker, "drain-local-docker", false, "one-shot, with this AppTown's normal settings and its own Docker, while it is not serving: repair interrupted work, check that no local work or execution container is left, record the drain that admits a start with -no-local-docker, and exit (non-zero, naming what is left, otherwise)")
+	fs.BoolVar(&o.backfillMain, "backfill-recorded-main", false, "one-shot, with this AppTown's normal settings while no forged serves its database: record each repository-backed project's current main as where recording began (projects already recorded are kept, an unreadable main stays unknown), print the counts, and exit without serving (for projects created before AppTown recorded main)")
+	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names forge-operator (host)), print only that password on stdout, and exit without serving (design/operations/README.md, Locked out of the admin account)")
 	fs.BoolVar(&o.verifyOnly, "verify-only", false, "start normally, which upgrades the database and the data directory to this build, then serve reads only: no recovery, no workers, no scheduler (the verification startup after a move or restore; not a dry run of an upgrade)")
 	fs.StringVar(&o.authMode, "auth", "open", "auth mode: open | internal | trusted-header (design/subsystems/auth.md)")
 	fs.BoolVar(&o.openOnNetwork, "open-on-network", false, "with -auth open, serve on addresses other machines can reach; without it open mode refuses any listener but loopback, since in open mode a caller names itself")
@@ -115,13 +115,13 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.inferenceAddr, "inference-addr", "", "private inference listener (empty = disabled; never route through public ingress)")
 	fs.StringVar(&o.inferenceURL, "inference-url", "", "inference origin reachable from worker containers")
 	fs.StringVar(&o.inferenceNetworks, "inference-networks", "", "explicit comma-separated worker CIDRs allowed to use inference; direct connection peers only")
-	fs.StringVar(&o.restoreGateImage, "restore-gate-image", "", "the forge access gate's image, pinned by digest (<ref>@sha256:...), built with `make gate-image` and pushed where the deployment targets can read it: restored copies of production run behind it; empty = this forge makes no restored copy (it also needs a -public-host origin for the gate to redeem tickets at)")
-	fs.StringVar(&o.publicHost, "public-host", "", "the forge's public hostname, or its whole origin (https://forge.example) to state how people reach it: only a stated origin is shown as a link in the guides (empty = localhost only); app ports stay on this host's loopback, so without a -tier-domain preview and deployment addresses answer on this host only, and the UI says so")
+	fs.StringVar(&o.restoreGateImage, "restore-gate-image", "", "AppTown's access gate image, pinned by digest (<ref>@sha256:...), built with `make gate-image` and pushed where the deployment targets can read it: restored copies of production run behind it; empty = this AppTown makes no restored copy (it also needs a -public-host origin for the gate to redeem tickets at)")
+	fs.StringVar(&o.publicHost, "public-host", "", "AppTown's public hostname, or its whole origin (https://forge.example) to state how people reach it: only a stated origin is shown as a link in the guides (empty = localhost only); app ports stay on this host's loopback, so without a -tier-domain preview and deployment addresses answer on this host only, and the UI says so")
 	fs.StringVar(&o.mirrorBase, "mirror-base", "", "base URL of the artifact mirror the registry presets point at, e.g. https://nexus.example.com (env FORGE_MIRROR_BASE; empty = no suggestion)")
-	fs.StringVar(&o.features, "features", "", "comma-separated feature flags to turn on for this forge (env FORGE_FEATURES), e.g. dev-tools")
+	fs.StringVar(&o.features, "features", "", "comma-separated feature flags to turn on for this AppTown (env FORGE_FEATURES), e.g. dev-tools")
 	fs.StringVar(&o.otlpEndpoint, "otlp-endpoint", "", "OTLP receiver for forged's own traces, metrics and logs, host:port or URL (env FORGE_OTLP_ENDPOINT); empty sends nothing")
 	fs.StringVar(&o.otlpProtocol, "otlp-protocol", "", "OTLP transport: http (default) or grpc (env FORGE_OTLP_PROTOCOL)")
-	fs.StringVar(&o.workerURL, "worker-url", "", "a forge-worker to run script tasks on, https://host:port; the forge then runs no script on this host (design/operations/workers.md)")
+	fs.StringVar(&o.workerURL, "worker-url", "", "a forge-worker to run script tasks on, https://host:port; AppTown then runs no script on this host (design/operations/workers.md)")
 	fs.StringVar(&o.workerCert, "worker-cert", "", "this installation's client certificate for the worker (PEM)")
 	fs.StringVar(&o.workerKey, "worker-key", "", "the key for -worker-cert (PEM)")
 	fs.StringVar(&o.workerCA, "worker-ca", "", "the CA that signed the worker's certificate (PEM)")
@@ -260,7 +260,7 @@ func main() {
 	}
 	app.LogStartupConfiguration()
 	if o.noLocalDocker {
-		log.Printf("no local backend: this forge has no Docker of its own; agents, checks and previews run on the worker, releases on attached Docker hosts")
+		log.Printf("no local backend: this AppTown has no Docker of its own; agents, checks and previews run on the worker, releases on attached Docker hosts")
 	} else if o.agentExecutor == forge.ExecutorDocker && !app.DockerAvailable(ctx) {
 		log.Printf("WARNING: docker unavailable; model agents cannot run until Docker is available")
 	}
@@ -269,7 +269,7 @@ func main() {
 		if err := app.RecoverInterruptedWork(ctx); err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("drained: no local work or execution container is left on this forge's Docker; it may now start with -no-local-docker")
+		log.Printf("drained: no local work or execution container is left on this AppTown's Docker; it may now start with -no-local-docker")
 		return
 	}
 	if o.verifyOnly {
@@ -313,7 +313,7 @@ func main() {
 		// the former ids a cutover keeps are named by it.
 		forgeID, err := app.Access.ForgeID(ctx)
 		if err != nil {
-			return fmt.Errorf("the forge's id: %w", err)
+			return fmt.Errorf("AppTown's id: %w", err)
 		}
 		log.Printf("forge %s", forgeID)
 		// After seeding: -admins completes setup, and then no token is due.

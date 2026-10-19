@@ -161,7 +161,7 @@ func (r RegistryReading) Words() string {
 	room := digitalocean.RegistryRoom{Tier: r.Tier, Included: r.Included, Repositories: make([]string, r.Used)}
 	words := "container registry " + r.Registry + ": " + room.String()
 	if r.Gate {
-		words += " (one holds the forge's gate image, " + digitalocean.GateRepository + ")"
+		words += " (one holds AppTown's gate image, " + digitalocean.GateRepository + ")"
 	}
 	if r.Full {
 		words += "; registry plan full — a project that has not released here before cannot until the plan is upgraded or a deployment is taken down"
@@ -274,7 +274,7 @@ func (p *Providers) checkAppPlatform(ctx context.Context, t *Target) TargetCheck
 
 // S3BucketWords is what attaching and checking a bucket target say about
 // the key and the buckets, every time, in these words.
-const S3BucketWords = "the forge creates one bucket per deployment, so this key must be able to create buckets: a full-access key, which can read, write and configure every bucket in its team (not Droplets or the control panel). Use a key made for the forge alone, and a team of its own where other data must be out of its reach. Don't store anything else in a deployment's bucket: taking the deployment down deletes it"
+const S3BucketWords = "AppTown creates one bucket per deployment, so this key must be able to create buckets: a full-access key, which can read, write and configure every bucket in its team (not Droplets or the control panel). Use a key made for AppTown alone, and a team of its own where other data must be out of its reach. Don't store anything else in a deployment's bucket: taking the deployment down deletes it"
 
 // CheckS3Bucket asks the store whether the key pair is accepted, by
 // listing the account's buckets.

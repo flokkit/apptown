@@ -73,7 +73,7 @@ func (s *Service) PrepareRebuild(ctx context.Context, dep *Deployment, selectedD
 		return plan, err
 	}
 	if t.Kind != KindDockerHost {
-		plan.Skipped = "not on a Docker host the forge talks to"
+		plan.Skipped = "not on a Docker host AppTown talks to"
 		return plan, nil
 	}
 	if err := s.refusesPlacement(ctx, dep.ProjectID, t); err != nil {

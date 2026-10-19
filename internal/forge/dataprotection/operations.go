@@ -223,7 +223,7 @@ func (t *tracker) providerFailed(ctx context.Context, err error) bool {
 		return false
 	}
 	t.indeterminate = true
-	t.log.Unknown(ctx, "no answer the forge can trust, so whether it happened is not known: "+err.Error())
+	t.log.Unknown(ctx, "no answer AppTown can trust, so whether it happened is not known: "+err.Error())
 	return true
 }
 

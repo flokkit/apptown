@@ -149,7 +149,7 @@ func applyMigrations(ctx context.Context, db *database.DB, list []migration) (ap
 		latest = m.n
 	}
 	if version < schemaBaseline || version > latest {
-		return 0, fmt.Errorf("schema: version %d is unsupported by this daemon (supported %d–%d); a forge older than the 1.0 baseline must first be converted by forged -identity-cutover in a development build from before 1.0.0-rc.1", version, schemaBaseline, latest)
+		return 0, fmt.Errorf("schema: version %d is unsupported by this daemon (supported %d–%d); an AppTown older than the 1.0 baseline must first be converted by forged -identity-cutover in a development build from before 1.0.0-rc.1", version, schemaBaseline, latest)
 	}
 	for _, m := range list {
 		if m.n <= version {

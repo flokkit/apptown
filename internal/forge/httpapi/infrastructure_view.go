@@ -24,7 +24,7 @@ import (
 func (h Infrastructure) recordedResources(ctx context.Context, t *deployment.Target) ([]deploy.Resource, error) {
 	var out []deploy.Resource
 	if t.Origin == deployment.OriginBuiltIn && h.builtinDB {
-		forge := []deploy.ResourceHost{{Project: "the forge itself", Deployment: "its database"}}
+		forge := []deploy.ResourceHost{{Project: "AppTown itself", Deployment: "its database"}}
 		out = append(out, deploy.Resource{Kind: "container", Name: h.dbContainer, Record: deploy.RecordRecorded, Hosts: forge})
 		out = append(out, deploy.Resource{Kind: "volume", Name: h.dbVolume, Record: deploy.RecordRecorded, Hosts: forge})
 	}
@@ -260,7 +260,7 @@ func coalesceInventory(in []deploy.Resource) []deploy.Resource {
 func targetFacts(t *deployment.Target) string {
 	var parts []string
 	if t.Origin == deployment.OriginBuiltIn {
-		parts = append(parts, "this forge's own Docker daemon")
+		parts = append(parts, "this AppTown's own Docker daemon")
 	}
 	if u, _ := t.Address["user"].(string); u != "" {
 		if h, _ := t.Address["hostname"].(string); h != "" {

@@ -44,10 +44,10 @@ func TestTheDisagreementShowsEachOutputOnce(t *testing.T) {
 func TestTheDisagreementKeepsTheFileCheckApartFromTheReviewer(t *testing.T) {
 	d := detailFrom(t, `{"run":{"id":"00000000-0005-7000-8000-000000000000","status":"running","currentStage":"build"},"steps":[
 		{"stage":"build","name":"review","type":"agent/review","status":"fail","evidence":{"verdict":"fail","reviewerVerdict":"pass",
-		 "reason":"the forge's file check failed: 2 changed files the report doesn't mention","summary":"the forge's file check failed: 2 changed files the report doesn't mention",
+		 "reason":"AppTown's file check failed: 2 changed files the report doesn't mention","summary":"AppTown's file check failed: 2 changed files the report doesn't mention",
 		 "reviewerSummary":"all claims verified","findings":["unclaimed change: Gemfile, bin/rails"]}}]}`)
 	out := disputeText(d)
-	if !strings.Contains(out, "review (the forge's file check, fail)") || !strings.Contains(out, "the reviewer itself passed it: all claims verified") || strings.Contains(out, "(reviewer,") {
+	if !strings.Contains(out, "review (AppTown's file check, fail)") || !strings.Contains(out, "the reviewer itself passed it: all claims verified") || strings.Contains(out, "(reviewer,") {
 		t.Fatalf("the file check and the reviewer's pass are not told apart:\n%s", out)
 	}
 }

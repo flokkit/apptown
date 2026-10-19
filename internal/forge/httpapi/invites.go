@@ -55,9 +55,9 @@ func NewInvites(access *identity.Service, browser BrowserSession, address Client
 // What each kind of link says outside Forge's own sign-in: with single
 // sign-on, people and their passwords live in the identity provider.
 const (
-	invitesNeedInternal       = "Invites need Forge's own sign-in (--auth internal); with single sign-on, add people in your identity provider."
-	passwordLinksNeedInternal = "Password reset links need Forge's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider."
-	linksNeedInternal         = "Invite and password reset links need Forge's own sign-in (--auth internal); with single sign-on, use your identity provider."
+	invitesNeedInternal       = "Invites need AppTown's own sign-in (--auth internal); with single sign-on, add people in your identity provider."
+	passwordLinksNeedInternal = "Password reset links need AppTown's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider."
+	linksNeedInternal         = "Invite and password reset links need AppTown's own sign-in (--auth internal); with single sign-on, use your identity provider."
 )
 
 func (h Invites) refuseOutsideInternal(w http.ResponseWriter, why string) bool {
@@ -81,7 +81,7 @@ func (h Invites) CreateInvite(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		WriteJSON(w, 201, InviteLink{Invite: issued.Invite, Link: h.browser.Origin(r) + "/invite/" + issued.Token,
-			Note: "send this link to " + issued.Invite.Username + " yourself — it is shown once and Forge sends no email"})
+			Note: "send this link to " + issued.Invite.Username + " yourself — it is shown once and AppTown sends no email"})
 	})
 }
 
@@ -98,7 +98,7 @@ func (h Invites) CreatePasswordLink(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		WriteJSON(w, 201, InviteLink{Invite: issued.Invite, Link: h.browser.Origin(r) + "/invite/" + issued.Token,
-			Note: "give this link to " + issued.Invite.Username + " yourself — it is shown once and Forge sends no email. Their current password works until they use it."})
+			Note: "give this link to " + issued.Invite.Username + " yourself — it is shown once and AppTown sends no email. Their current password works until they use it."})
 	})
 }
 

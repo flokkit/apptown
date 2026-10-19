@@ -14,7 +14,7 @@ const appYamlPath = ".forge/app.yaml"
 func readLocalAppYaml() (string, error) {
 	b, err := os.ReadFile(appYamlPath)
 	if err != nil {
-		return "", fmt.Errorf("no %s here — run from the repo root of a forge project", appYamlPath)
+		return "", fmt.Errorf("no %s here — run from the repo root of an AppTown project", appYamlPath)
 	}
 	return string(b), nil
 }

@@ -24,7 +24,7 @@ var ErrSetupToken = errors.New("the setup token is missing or wrong")
 type SetupTokenError struct{ Path string }
 
 func (e *SetupTokenError) Error() string {
-	return fmt.Sprintf("%v: it is in %s on the forge's host", ErrSetupToken, e.Path)
+	return fmt.Sprintf("%v: it is in %s on AppTown's host", ErrSetupToken, e.Path)
 }
 
 func (e *SetupTokenError) Unwrap() error { return ErrSetupToken }

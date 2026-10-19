@@ -37,7 +37,7 @@ func TestParseSSHAddressAndStanza(t *testing.T) {
 	got, _ := os.ReadFile(cfg)
 	s := string(got)
 	if strings.Count(s, "BEGIN forge target box") != 1 || !strings.Contains(s, "IdentityFile /k/two") || strings.Contains(s, "/k/one") || !strings.HasPrefix(s, "Host mine\n  User me\n") {
-		t.Fatalf("the forge replaces exactly its own block and keeps the rest:\n%s", s)
+		t.Fatalf("AppTown replaces exactly its own block and keeps the rest:\n%s", s)
 	}
 }
 

@@ -247,7 +247,7 @@ type Driver struct {
 func (d *Driver) Resume(ctx context.Context, p deploy.Placement, generation int64, noted map[string]any, logf func(string, ...any)) (deploy.Observation, error) {
 	// A lost apply response does not prove whether this generation reached
 	// Portainer. Until the adapter can verify it, leave the attempt unresolved.
-	return deploy.Observation{}, errors.New("the forge restarted while Portainer was applying the stack; its generation cannot be verified automatically, so inspect the stack before resolving the attempt")
+	return deploy.Observation{}, errors.New("AppTown restarted while Portainer was applying the stack; its generation cannot be verified automatically, so inspect the stack before resolving the attempt")
 }
 
 func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {
@@ -309,7 +309,7 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 		}
 	}
 	if len(stacks) == 0 {
-		return out, errors.New("the forge did not record creating this deployment's stack, so taking it down is done in Portainer by its owner")
+		return out, errors.New("AppTown did not record creating this deployment's stack, so taking it down is done in Portainer by its owner")
 	}
 	cfg, err := d.Config(d.TargetID)
 	if err != nil {
@@ -343,7 +343,7 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 			out.Deleted = append(out.Deleted, st.Label())
 		}
 		for _, v := range vols {
-			why := "kept: not made by the forge's deploy, so not the deployment's to delete; delete it in Portainer, then mark it deleted"
+			why := "kept: not made by AppTown's deploy, so not the deployment's to delete; delete it in Portainer, then mark it deleted"
 			if listed[v] {
 				if td.BackedUp || td.Synthetic {
 					if err := deleteVolume(ctx, cfg, endpointID, v); err != nil {
@@ -465,9 +465,9 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 	if applied.Created && p.Owner != nil {
 		if applied.ID <= 0 {
 			// Not recorded, so never deleted by the forge: a safe miss.
-			p.Log("Portainer created the stack %s without saying its ID; it is not recorded as the forge's, so taking it down is done in Portainer", p.Stack)
+			p.Log("Portainer created the stack %s without saying its ID; it is not recorded as AppTown's, so taking it down is done in Portainer", p.Stack)
 		} else if err := p.Owner.Created(ctx, deploy.Owned{Kind: "stack", ID: strconv.FormatInt(applied.ID, 10), Name: p.Stack}); err != nil {
-			return deploy.Observation{}, fmt.Errorf("recording the stack %s the forge created: %w", p.Stack, err)
+			return deploy.Observation{}, fmt.Errorf("recording the stack %s AppTown created: %w", p.Stack, err)
 		}
 	}
 	if p.Owner != nil && verr == nil {

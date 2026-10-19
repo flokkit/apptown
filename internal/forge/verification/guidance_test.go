@@ -190,7 +190,7 @@ func TestGateForgeFaultIsNotRework(t *testing.T) {
 	target := workflow.AcceptanceScopeOf(&workflow.Change{AcceptanceJSON: `{"checks":[{"block":"deploy/health-declared","check":"readiness-redirect-safe"}]}`})
 	unmet := unmetAcceptance(res, target)
 	if !onlyForgeFaults(res, unmet) {
-		t.Fatalf("no preview is the forge's fault, got unmet=%v res=%v", unmet, res)
+		t.Fatalf("no preview is AppTown's fault, got unmet=%v res=%v", unmet, res)
 	}
 	res[0].Verdict, res[0].ForgeFault = workflow.VerdictFail, false
 	if onlyForgeFaults(res, unmetAcceptance(res, target)) {

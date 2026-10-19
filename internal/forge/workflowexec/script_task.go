@@ -143,7 +143,7 @@ func (r *TaskRunner) Resume(ctx context.Context, work Recoverer) ([]ids.ID, erro
 			continue
 		}
 		if attempt.Backend != r.backend() {
-			log.Printf("task %s was admitted to backend %q, and this forge runs tasks on %q; it is left recorded and its step running", attempt.Operation, attempt.Backend, r.backend())
+			log.Printf("task %s was admitted to backend %q, and this AppTown runs tasks on %q; it is left recorded and its step running", attempt.Operation, attempt.Backend, r.backend())
 			continue
 		}
 		if attempt.Observed == tasks.Held {
@@ -319,7 +319,7 @@ const requestFile = "request.json"
 // requestDir is the folder an operation's admitted request is kept in.
 func (r *TaskRunner) requestDir(operation string) (string, error) {
 	if r.Requests == "" {
-		return "", errors.New("this forge has no folder for admitted task requests")
+		return "", errors.New("this AppTown has no folder for admitted task requests")
 	}
 	if operation == "" || operation == "." || operation == ".." || strings.ContainsAny(operation, `/\`) {
 		return "", fmt.Errorf("an operation key cannot name a folder: %q", operation)

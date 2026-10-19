@@ -214,7 +214,7 @@ var Definitions = map[Capability]Definition{
 	CapDeploymentRestore:   {"fill a deployment's data from a copy, or check a copy comes back", nil, "mutate"},
 	// Not "read": a read is carried by every scope and instrument, and this
 	// one shows production rows.
-	CapDeploymentOpenRestored: {"open a restored copy of production data through the forge gate", nil, "mutate"},
+	CapDeploymentOpenRestored: {"open a restored copy of production data through AppTown gate", nil, "mutate"},
 
 	CapIdentityUsers:  {"manage user accounts", nil, "admin"},
 	CapIdentityGroups: {"manage groups", nil, "admin"},

@@ -45,7 +45,7 @@ func (o Ownership) created(r deploy.Owned) error {
 		return nil
 	}
 	if err := o.Record(r); err != nil {
-		return fmt.Errorf("recording the %s the forge created: %w", r.Label(), err)
+		return fmt.Errorf("recording the %s AppTown created: %w", r.Label(), err)
 	}
 	return nil
 }

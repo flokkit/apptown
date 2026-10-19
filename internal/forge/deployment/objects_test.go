@@ -87,7 +87,7 @@ func TestTargetRetire(t *testing.T) {
 	t.Parallel()
 	own := &Target{Name: "built-in-docker", Origin: OriginBuiltIn, Status: TargetReady}
 	if _, err := own.Retire(""); !errors.Is(err, ErrTargetConflict) {
-		t.Fatalf("the forge's own host is never retired: %v", err)
+		t.Fatalf("AppTown's own host is never retired: %v", err)
 	}
 	t1 := &Target{Name: "cloud", Origin: OriginAttached, Status: TargetReady}
 	if _, err := t1.Retire("app-main"); !errors.Is(err, ErrTargetConflict) {

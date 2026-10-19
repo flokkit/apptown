@@ -40,7 +40,7 @@ func (c *Client) InstanceSizes(ctx context.Context) ([]InstanceSize, error) {
 		mem, err2 := strconv.ParseInt(s.MemoryBytes, 10, 64)
 		usd, err3 := strconv.ParseFloat(s.USDPerMonth, 64)
 		if err1 != nil || err2 != nil || err3 != nil || s.Slug == "" {
-			return nil, fmt.Errorf("App Platform listed an instance size the forge cannot read (%q)", s.Slug)
+			return nil, fmt.Errorf("App Platform listed an instance size AppTown cannot read (%q)", s.Slug)
 		}
 		out = append(out, InstanceSize{Slug: s.Slug, CPUs: cpus, MemoryBytes: mem, USDPerMonth: usd, Deprecated: s.Deprecation != nil && *s.Deprecation})
 	}

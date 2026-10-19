@@ -51,7 +51,7 @@ func TestChangeCheckHTTPRunScopeAndErrors(t *testing.T) {
 		// The commit the caller asks about reaches the owner as sent; the
 		// owner's refusal of it keeps its kind and words.
 		{name: "named commit", id: fmt.Sprint(f.ChangeID), receipt: "alice", body: `{"commit":"` + named + `"}`, sel: verification.Selection{Commit: named}, code: 200, calls: 1, words: `"ok":true`},
-		{name: "named commit not here", id: fmt.Sprint(f.ChangeID), receipt: "alice", body: `{"commit":"` + named + `"}`, sel: verification.Selection{Commit: named}, failure: fault.Wrap(fault.NotFound, fmt.Errorf("commit %s is not on the forge yet", named)), code: 404, calls: 1, words: "commit " + named + " is not on the forge yet"},
+		{name: "named commit not here", id: fmt.Sprint(f.ChangeID), receipt: "alice", body: `{"commit":"` + named + `"}`, sel: verification.Selection{Commit: named}, failure: fault.Wrap(fault.NotFound, fmt.Errorf("commit %s is not on AppTown yet", named)), code: 404, calls: 1, words: "commit " + named + " is not on AppTown yet"},
 		// --published is its own request, distinct from an empty body.
 		{name: "published tip", id: fmt.Sprint(f.ChangeID), receipt: "alice", body: `{"published":true}`, sel: verification.Selection{Published: true}, code: 200, calls: 1, words: `"ok":true`},
 		{name: "empty body", id: fmt.Sprint(f.ChangeID), receipt: "alice", body: `{}`, code: 200, calls: 1, words: `"ok":true`},

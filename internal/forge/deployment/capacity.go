@@ -360,7 +360,7 @@ func (s *Service) disk(ctx context.Context, targetID ids.ID, dk docker.Scope, ro
 // read in 1.0.
 func (s *Service) portainerCapacity(ctx context.Context, t *Target) TargetCapacity {
 	const notRead = "not read through Portainer in 1.0"
-	out := TargetCapacity{Words: "A fixed host behind Portainer: it does not grow. The limits shown are those the forge's deployments declare; Portainer's other stacks, use and disk are not read.",
+	out := TargetCapacity{Words: "A fixed host behind Portainer: it does not grow. The limits shown are those AppTown's deployments declare; Portainer's other stacks, use and disk are not read.",
 		Memory: &ResourceCapacity{InUse: &Split{Forge: unknown(notRead), Other: unknown(notRead)}},
 		CPU:    &ResourceCapacity{},
 		Disk:   &DiskCapacity{Total: unknown(notRead), Free: unknown(notRead)}}

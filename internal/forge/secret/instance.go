@@ -28,8 +28,8 @@ var (
 	ErrInstanceValue    = fault.New(fault.Invalid, "an instance secret's value is one non-empty line")
 	ErrHeldByInfisical  = fault.New(fault.Conflict, "held in Infisical")
 	ErrInfisicalUnknown = fault.New(fault.Unavailable, "Infisical could not be read")
-	ErrInstanceAbsent   = fault.New(fault.NotFound, "the forge's secrets file holds no such secret")
-	ErrSecretsUnread    = fault.New(fault.Unavailable, "the forge's secrets could not be read")
+	ErrInstanceAbsent   = fault.New(fault.NotFound, "AppTown's secrets file holds no such secret")
+	ErrSecretsUnread    = fault.New(fault.Unavailable, "AppTown's secrets could not be read")
 )
 
 // InstanceStore is what the receipts and answers call the bootstrap file.
@@ -46,7 +46,7 @@ func (a *Service) SetInstance(ctx context.Context, name, value, who string) erro
 	if strings.TrimSpace(value) == "" || strings.ContainsAny(value, "\n\r") {
 		return ErrInstanceValue
 	}
-	if err := a.refuseInfisicalName(ctx, name, "a line in the forge's secrets file would silently win over Infisical's value; change it in Infisical, or remove it there first"); err != nil {
+	if err := a.refuseInfisicalName(ctx, name, "a line in AppTown's secrets file would silently win over Infisical's value; change it in Infisical, or remove it there first"); err != nil {
 		return err
 	}
 	return a.instanceReceipt(ctx, who, "secret.instance-set", name, func() (bool, error) {
@@ -65,7 +65,7 @@ func (a *Service) RemoveInstance(ctx context.Context, name, who string) error {
 		return fmt.Errorf("%w: %w", ErrSecretsUnread, err)
 	}
 	if _, held := file[name]; !held {
-		if err := a.refuseInfisicalName(ctx, name, "the forge's secrets file does not hold it; remove it in Infisical"); err != nil {
+		if err := a.refuseInfisicalName(ctx, name, "AppTown's secrets file does not hold it; remove it in Infisical"); err != nil {
 			return err
 		}
 		return fmt.Errorf("%w: %s", ErrInstanceAbsent, name)
@@ -92,7 +92,7 @@ func (a *Service) instanceReceipt(ctx context.Context, who, kind, name string, c
 		return struct{}{}, audit.At(a.now()).RecordIn(ctx, tx, who, ids.Nil, kind, name, map[string]any{"store": InstanceStore, "replaced": had && kind == "secret.instance-set"})
 	})
 	if err != nil && wrote {
-		return fmt.Errorf("the forge's secrets file was changed for %s, but its receipt was not recorded: %w", name, err)
+		return fmt.Errorf("AppTown's secrets file was changed for %s, but its receipt was not recorded: %w", name, err)
 	}
 	return err
 }
@@ -113,7 +113,7 @@ func (a *Service) refuseInfisicalName(ctx context.Context, name, why string) err
 	// serves running credentials, but it cannot say what Infisical holds now.
 	values, err := a.infisicalFetch(ctx, cfg)
 	if err != nil || values == nil {
-		return fmt.Errorf("%w, so the forge cannot tell whether it holds %s: %w", ErrInfisicalUnknown, name, err)
+		return fmt.Errorf("%w, so AppTown cannot tell whether it holds %s: %w", ErrInfisicalUnknown, name, err)
 	}
 	if _, held := values[name]; held {
 		return fmt.Errorf("%w: %s — %s", ErrHeldByInfisical, name, why)

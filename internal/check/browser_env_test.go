@@ -68,7 +68,7 @@ func TestAStaticPageMustLoadTheValuesTheForgeGivesIt(t *testing.T) {
 		{"a repeated src, read as a browser reads it", given, 200, served, `<script src="game.js" src="/_forge/env.js"></script>`, DoesNotConform, false, "first script is not"},
 		// What the forge supplies, it must establish; failing that is its own
 		// fault, never a pass and never the app's to fix.
-		{"started with values the forge cannot read", BrowserExpectation{Static: true, Attached: values}, 200, served, loads, CannotAssess, true, "could not read what this deployment was started with"},
+		{"started with values AppTown cannot read", BrowserExpectation{Static: true, Attached: values}, 200, served, loads, CannotAssess, true, "could not read what this deployment was started with"},
 		{"started before the settings changed", BrowserExpectation{Static: true, Attached: values, Installed: map[string]string{}}, 200, servedEnv(""), loads, CannotAssess, true, "start it again"},
 		{"served empty though started with values", given, 200, servedEnv(""), loads, CannotAssess, true, "delivery is at fault"},
 		{"served the wrong values", given, 200, servedEnv(`{"SENTRY_DSN":"https://other@x/1"}`), loads, CannotAssess, true, "delivery is at fault"},
@@ -99,7 +99,7 @@ func TestAStaticPageMustLoadTheValuesTheForgeGivesIt(t *testing.T) {
 		return 0, "", errors.New("refused")
 	})
 	if got := JudgeBrowserEnv(context.Background(), pageDown, "http://127.0.0.1:1", given); got.Outcome != CannotAssess || got.Fault {
-		t.Fatalf("a page that does not answer is not the forge's fault: %+v", got)
+		t.Fatalf("a page that does not answer is not AppTown's fault: %+v", got)
 	}
 	if ps, err := ParseProbe("browser-env"); err != nil || !ps.BrowserEnv {
 		t.Fatalf("parse: %+v %v", ps, err)

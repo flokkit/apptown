@@ -93,7 +93,7 @@ func TestACheckRunsOnTheWorkerAndAnswersLikeTheLocalRunner(t *testing.T) {
 		t.Fatalf("a check's answer: %+v (%s)", out, out.Output)
 	}
 	if _, err := os.Stat(filepath.Join(tree, ".forge", "r.json")); err == nil {
-		t.Fatal("the check wrote into the forge's tree: only its report comes back")
+		t.Fatal("the check wrote into AppTown's tree: only its report comes back")
 	}
 	if out := run("escape", time.Minute); !out.Exited0() || out.ReportErr == nil || len(out.Report) != 0 {
 		t.Fatalf("a report that links out of the tree: %+v", out)
@@ -174,9 +174,9 @@ func TestACheckThatCannotRunOnTheWorkerIsNotRun(t *testing.T) {
 	tree := t.TempDir()
 	req := execution.Request{Workspace: tree, Image: "x", Argv: []string{"true"}, Timeout: time.Minute, Name: "c"}
 	for name, r := range map[string]execution.Request{
-		"a mount of the forge's": func() execution.Request { r := req; r.Mounts = []string{"/etc:/etc"}; return r }(),
-		"a host route":           func() execution.Request { r := req; r.ExtraHosts = []string{"h:1.2.3.4"}; return r }(),
-		"a named network":        func() execution.Request { r := req; r.Network = "host"; return r }(),
+		"a mount of AppTown's": func() execution.Request { r := req; r.Mounts = []string{"/etc:/etc"}; return r }(),
+		"a host route":         func() execution.Request { r := req; r.ExtraHosts = []string{"h:1.2.3.4"}; return r }(),
+		"a named network":      func() execution.Request { r := req; r.Network = "host"; return r }(),
 	} {
 		if out := checks.Run(context.Background(), r); out.Termination != execution.LaunchFailed || out.RunErr == nil {
 			t.Errorf("%s: %+v", name, out)

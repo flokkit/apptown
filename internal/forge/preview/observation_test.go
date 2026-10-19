@@ -86,7 +86,7 @@ type absentDaemon struct {
 }
 
 func (d absentDaemon) Run(_ context.Context, _ string, c docker.Command) ([]byte, error) {
-	d.t.Errorf("the forge's own Docker was asked: docker %s", strings.Join(c.Args, " "))
+	d.t.Errorf("AppTown's own Docker was asked: docker %s", strings.Join(c.Args, " "))
 	return nil, docker.ErrNoLocalBackend
 }
 
@@ -96,7 +96,7 @@ func TestInTheNoLocalDockerModeAPreviewWithNowhereToRunIsUnavailable(t *testing.
 	t.Parallel()
 	s := observationService(t, absentDaemon{t: t})
 	got := s.ChangeStatus(context.Background(), ids.Nil, idstest.N(7), true)
-	if got.State != Unavailable || got.Reason != "this forge has no local Docker" {
+	if got.State != Unavailable || got.Reason != "this AppTown has no local Docker" {
 		t.Fatalf("preview: %+v", got)
 	}
 }

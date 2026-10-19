@@ -75,7 +75,7 @@ func TestAScriptOnAWorkerPublishesWhatItMade(t *testing.T) {
 		t.Fatalf("the task's commit builds on %s, want %s", parent, given)
 	}
 	if got := gittest.Run(t, ws, "rev-parse", "HEAD"); got != tip {
-		t.Fatalf("the forge's workspace is at %s, want the published %s", got, tip)
+		t.Fatalf("AppTown's workspace is at %s, want the published %s", got, tip)
 	}
 	records, key := tasks.New(a.db), taskKeyOf(step)
 	attempt, err := records.Get(context.Background(), key)
@@ -159,7 +159,7 @@ func TestAnIsolatedForgeRunsNoScriptOnItsHost(t *testing.T) {
 		t.Fatalf("the step's evidence: %s", settled.Evidence)
 	}
 	if _, err := os.Stat(filepath.Join(ws, "ran-on-the-forge")); !os.IsNotExist(err) {
-		t.Fatalf("the script ran on the forge's host: %v", err)
+		t.Fatalf("the script ran on AppTown's host: %v", err)
 	}
 	if fake.Starts(taskKeyOf(step)) != 0 {
 		t.Fatal("a refused script started a task")
@@ -203,7 +203,7 @@ func TestAWorkerThatStopsAnsweringIsAskedAgain(t *testing.T) {
 		current, err := workflow.ReadStepIn(context.Background(), a.db, step.ID)
 		return refused.Load() >= 2 || err != nil || current.Status != workflow.StatusRunning
 	}) {
-		t.Fatal("the forge neither asked the unanswering worker again nor settled the step")
+		t.Fatal("AppTown neither asked the unanswering worker again nor settled the step")
 	}
 	if current, err := workflow.ReadStepIn(context.Background(), a.db, step.ID); err != nil || current.Status != workflow.StatusRunning {
 		t.Fatalf("while the worker did not answer, the step became %v: %v", current.Status, err)
@@ -293,7 +293,7 @@ func TestAForgeRunsNoScriptOnItsHostUnlessAllowed(t *testing.T) {
 		t.Fatalf("the step's evidence: %s", settled.Evidence)
 	}
 	if _, err := os.Stat(filepath.Join(ws, "ran-on-the-forge")); !os.IsNotExist(err) {
-		t.Fatalf("the script ran on the forge's host: %v", err)
+		t.Fatalf("the script ran on AppTown's host: %v", err)
 	}
 	if fake.Starts(taskKeyOf(step)) != 0 {
 		t.Fatal("a refused script started a task")

@@ -69,7 +69,7 @@ func (h Extensions) SetExtension(w http.ResponseWriter, r *http.Request) {
 		Enabled bool   `json:"enabled"`
 	}) {
 		if !slices.ContainsFunc(h.catalog, func(e CuratedExtension) bool { return e.Name == in.Name }) {
-			WriteError(w, 422, "%q is not a blessed extension — the forge only enables baked, curated extensions", in.Name)
+			WriteError(w, 422, "%q is not a blessed extension — AppTown only enables baked, curated extensions", in.Name)
 			return
 		}
 		if err := h.adoption.SetExtension(r.Context(), p.ID, in.Name, in.Enabled); err != nil {

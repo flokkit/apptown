@@ -69,7 +69,7 @@ func TestInfrastructureInventoryIsCachedAndDroppedByForgeActs(t *testing.T) {
 	before := asks()
 	v = read("")
 	if asks() != before+1 || len(v.Resources) < 2 {
-		t.Fatalf("after the forge acts the next visit asks again: asks %d -> %d, %d resources", before, asks(), len(v.Resources))
+		t.Fatalf("after AppTown acts the next visit asks again: asks %d -> %d, %d resources", before, asks(), len(v.Resources))
 	}
 }
 
@@ -112,13 +112,13 @@ func TestAnInventoryListAgesByTheForgesClock(t *testing.T) {
 		"demo-docker": {items: []deploy.Resource{{Kind: "container", Name: "forge-env-app-main"}}, at: at.Add(-time.Second), asked: at.Add(-time.Second)},
 	}}
 	if _, _, _, refreshing := c.Live(context.Background(), &jobs.Queue{}, "demo-docker", nil, false); refreshing {
-		t.Fatal("a list read a second ago by the forge's clock was asked for again")
+		t.Fatal("a list read a second ago by AppTown's clock was asked for again")
 	}
 	mu.Lock()
 	clock = at.Add(inventoryTTL)
 	mu.Unlock()
 	if _, _, _, refreshing := c.Live(context.Background(), &jobs.Queue{}, "demo-docker", nil, false); !refreshing {
-		t.Fatal("a list past its lifetime by the forge's clock was not asked for again")
+		t.Fatal("a list past its lifetime by AppTown's clock was not asked for again")
 	}
 }
 

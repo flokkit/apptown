@@ -98,10 +98,10 @@ func TestACheckWorkerRefusesEverythingButChecks(t *testing.T) {
 		t.Errorf("a check worker refused a check: %s", body)
 	}
 	if err := worker.RequireCheckWorker(context.Background(), client, srv.URL, time.Now()); err != nil {
-		t.Errorf("a check worker provisioned before the forge first used it: %v", err)
+		t.Errorf("a check worker provisioned before AppTown first used it: %v", err)
 	}
-	if err := worker.RequireCheckWorker(context.Background(), client, srv.URL, since.Add(-time.Minute)); err == nil || !strings.Contains(err.Error(), "after this forge first used that address") {
-		t.Errorf("a check worker provisioned after the forge first used its address: %v", err)
+	if err := worker.RequireCheckWorker(context.Background(), client, srv.URL, since.Add(-time.Minute)); err == nil || !strings.Contains(err.Error(), "after this AppTown first used that address") {
+		t.Errorf("a check worker provisioned after AppTown first used its address: %v", err)
 	}
 }
 

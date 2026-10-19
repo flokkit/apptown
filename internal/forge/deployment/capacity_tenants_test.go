@@ -72,7 +72,7 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 		"shop/main":                      {TenantDeployment, 2, 256 << 20, 1, (1 + 2) << 20, 1, 0, 1},
 		"previews":                       {TenantPreviews, 2, 192 << 20, 0, (3 + 4) << 20, 0, 0, 2},
 		"agent work":                     {TenantWork, 2, 2 << 30, 1, (5 + 6) << 20, 2, 1, 0},
-		"the forge":                      {TenantForge, 1, 0, 1, 7 << 20, 0, 0, 1},
+		"AppTown":                        {TenantForge, 1, 0, 1, 7 << 20, 0, 0, 1},
 		"forge containers not on record": {TenantUnrecorded, 1, 64 << 20, 0, 8 << 20, 0, 0, 1},
 		"other containers":               {TenantOther, 1, 256 << 20, 0, 9 << 20, 0, 0, 1},
 	}
@@ -199,7 +199,7 @@ func TestTheHostsOwnUseIsKnownOnlyWhereTheDaemonReadsTheForgesMarker(t *testing.
 	for _, a := range []string{"absent", "other"} {
 		answer = a
 		fresh()
-		if host := w.s.hostUse(t.Context(), builtin, dk, 8<<30); host.Known || !strings.Contains(host.Reason, "does not run where this forge does") {
+		if host := w.s.hostUse(t.Context(), builtin, dk, 8<<30); host.Known || !strings.Contains(host.Reason, "does not run where this AppTown does") {
 			t.Errorf("%s marker with equal totals: %+v", a, host)
 		}
 	}
@@ -233,7 +233,7 @@ func TestForgedsMemoryIsCountedOnceWhereverItRuns(t *testing.T) {
 	for _, tn := range ts {
 		sum += tn.Used.Value
 	}
-	if f := tenantNamed(ts, "the forge"); f == nil || f.Used.Value != 100<<20 || sum != 500<<20 {
+	if f := tenantNamed(ts, "AppTown"); f == nil || f.Used.Value != 100<<20 || sum != 500<<20 {
 		t.Errorf("forged counted twice or lost: %+v (sum %v)", ts, sum)
 	}
 }

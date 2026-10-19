@@ -283,10 +283,10 @@ func TestBehindRunsNoGitInAFolderItWillNotTrust(t *testing.T) {
 			for _, call := range strings.Split(strings.TrimSpace(string(log)), "\n") {
 				pwd, args, _ := strings.Cut(call, " ")
 				if at, _ := filepath.EvalSymlinks(pwd); strings.HasPrefix(at, inside) {
-					t.Fatalf("Git ran in a folder the forge does not trust: %s", call)
+					t.Fatalf("Git ran in a folder AppTown does not trust: %s", call)
 				}
 				if strings.Contains(args, folder) && !strings.HasPrefix(args, "config --file "+filepath.Join(folder, ".git", "config")+" ") {
-					t.Fatalf("Git ran on a folder the forge does not trust: %s", call)
+					t.Fatalf("Git ran on a folder AppTown does not trust: %s", call)
 				}
 			}
 		})

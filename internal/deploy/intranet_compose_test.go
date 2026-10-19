@@ -105,7 +105,7 @@ func TestAnIntranetStackSetsTheForgesValuesOnceAndLast(t *testing.T) {
 			}
 			env := stack.Services["app"].Environment
 			if env["FORGE_RELEASE"] != "web@selected" || env["DATA_DIR"] != "/data" || env["FORGE_ORIGINS"] != "https://*.apps.example.com" {
-				t.Fatalf("the forge's values did not win: %v", env)
+				t.Fatalf("AppTown's values did not win: %v", env)
 			}
 		})
 	}

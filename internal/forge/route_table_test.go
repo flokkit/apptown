@@ -413,7 +413,7 @@ func TestALinkMadeBefore1Point0FindsItsRecord(t *testing.T) {
 	}
 	for _, path := range []string{"/changes/46", "/changes/47", "/changes/" + fx.Change.String(), "/changes/game%231"} {
 		if w := authzCall(h, "boss", "GET", path, ""); w.Code == 301 {
-			t.Errorf("page %s moved to %s; only a former number this forge kept moves", path, w.Header().Get("Location"))
+			t.Errorf("page %s moved to %s; only a former number this AppTown kept moves", path, w.Header().Get("Location"))
 		}
 	}
 }
@@ -730,7 +730,7 @@ func apiDescription() (map[string]any, error) {
 		}
 		responses := map[string]any{}
 		if protocol {
-			responses["default"] = map[string]any{"description": "this route speaks its protocol (" + access["contract"].(string) + "), not the forge's JSON"}
+			responses["default"] = map[string]any{"description": "this route speaks its protocol (" + access["contract"].(string) + "), not AppTown's JSON"}
 		} else {
 			responses["default"] = map[string]any{"$ref": "#/components/responses/Refusal"}
 			responses["2XX"] = map[string]any{"description": "the operation's result; its shape is not described in 1.0"}
@@ -804,9 +804,9 @@ func apiDescription() (map[string]any, error) {
 	return map[string]any{
 		"openapi": "3.1.0",
 		"info": map[string]any{
-			"title":   "Forge HTTP API",
+			"title":   "AppTown HTTP API",
 			"version": "v1",
-			"description": "Every route a forge serves, generated from its route table. " +
+			"description": "Every route an AppTown serves, generated from its route table. " +
 				"The HTTP API is experimental in 1.0: routes and shapes may change in a 1.x release, " +
 				"and the release notes name each change. The stable surfaces are the CLI's core loop " +
 				"(with --json) and the MCP tools; see What 1.0 promises. Request and response shapes " +

@@ -53,7 +53,7 @@ func TestConfigValidationRefusesNeedsAsDeclared(t *testing.T) {
 	h := configurationFixture(t)
 	for yaml, want := range map[string]string{
 		"needs: {errors: {}}\n":                   "errors is an integration, not a need",
-		"needs: {mariadb: {password: chosen}}\n":  "the forge sets the password of the mariadb need",
+		"needs: {mariadb: {password: chosen}}\n":  "AppTown sets the password of the mariadb need",
 		"needs: {postgres: {database: ledger}}\n": "",
 	} {
 		body, _ := json.Marshal(map[string]string{"appYaml": "app: {web: {image: nginx, public: true}}\n" + yaml})

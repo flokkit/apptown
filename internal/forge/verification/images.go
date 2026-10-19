@@ -94,7 +94,7 @@ const (
 	cachedImageNote = "the image cached for this commit (built for the checks, or the release image recorded at this commit)"
 	// staticPublicNote: the public part is a static site, which an image
 	// check skips; where its files then run depends on the target.
-	staticPublicNote = "the public part is a static site, which is skipped here: at release its files are packed into the forge's file-server image, run as a container on container targets and published as files to a bucket"
+	staticPublicNote = "the public part is a static site, which is skipped here: at release its files are packed into AppTown's file-server image, run as a container on container targets and published as files to a bucket"
 )
 
 // reuseReleaseImage reuses a standing deployment's release image for a

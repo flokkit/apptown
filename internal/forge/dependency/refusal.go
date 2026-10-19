@@ -80,7 +80,7 @@ func (k *Kind) RefusesDeclaration(params map[string]string) string {
 	}
 	if len(owned) > 0 {
 		slices.Sort(owned)
-		return fmt.Sprintf("the forge sets the %s of the %s need, and an app cannot: remove %s from needs.%s in .forge/app.yaml and read the value from the variables the app is given", strings.Join(owned, " and "), k.Capability, strings.Join(owned, ", "), k.Capability)
+		return fmt.Sprintf("AppTown sets the %s of the %s need, and an app cannot: remove %s from needs.%s in .forge/app.yaml and read the value from the variables the app is given", strings.Join(owned, " and "), k.Capability, strings.Join(owned, ", "), k.Capability)
 	}
 	return ""
 }

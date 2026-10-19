@@ -138,7 +138,7 @@ func TestAProviderSettingChangeCannotLandAnUncheckedTree(t *testing.T) {
 		t.Fatalf("an unchecked provider merge was reported as landed: %+v %v", result, err)
 	}
 	if after := gittest.Run(t, repo, "rev-parse", "refs/heads/"+source.DefaultBranch); after != before {
-		t.Fatalf("the forge's main followed an unchecked provider merge: %s -> %s", before, after)
+		t.Fatalf("AppTown's main followed an unchecked provider merge: %s -> %s", before, after)
 	}
 }
 

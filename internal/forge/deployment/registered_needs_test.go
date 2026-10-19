@@ -216,7 +216,7 @@ func TestAttachedErrorReportingStillArrivesBesideAKey(t *testing.T) {
 	}
 	odd, ws := llmContract(t, "app:\n  web:\n    image: reg.example/app:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  mystery: {}\n")
 	if _, err := bootDeployment(s, client, llmDeployment(t, s, db, projectID, "odd"), odd, ws); err == nil || !strings.Contains(err.Error(), "mystery-adapter") {
-		t.Fatalf("an adapter the forge does not run: %v", err)
+		t.Fatalf("an adapter AppTown does not run: %v", err)
 	}
 }
 

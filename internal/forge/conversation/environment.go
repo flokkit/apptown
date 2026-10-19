@@ -217,11 +217,11 @@ func mainRemote(base, token, slug string) []string {
 // (design/operations/workers.md, "Chats on the worker").
 const workerNotes = `
 This chat runs on a separate machine, the worker. Your work reaches the change
-when it is saved: after each turn the forge collects your commits, checks them
+when it is saved: after each turn AppTown collects your commits, checks them
 as it checks any publication, and puts them on the change's branch. Only
 committed work is saved, so commit as you go. If a save is refused you are told
 why, with how to fix it. ` + "`forge check`" + ` saves your commits first and checks what
 was saved, so commit before asking. Previews work the same way: ` + "`forge preview`" + `
-saves first and boots what was saved, and after each saved turn the forge
+saves first and boots what was saved, and after each saved turn AppTown
 boots your saved commit like the try-it button and tells you if it fails.
 `

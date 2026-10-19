@@ -24,7 +24,7 @@ func TestAnIntranetReleaseOverUncopiedDataIsAPersonsChoice(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	p.land(t)
-	p.s.copyCheck = copyCheckSays("the forge cannot back up deployments in the Portainer environment \"local\": it is an edge environment in async mode")
+	p.s.copyCheck = copyCheckSays("AppTown cannot back up deployments in the Portainer environment \"local\": it is an edge environment in async mode")
 	proj, err := p.projects.ByID(context.Background(), p.project)
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestAnIntranetReleaseOverUncopiedDataIsAPersonsChoice(t *testing.T) {
 		t.Fatal(err)
 	}
 	events, err := p.s.Releases.Events(context.Background(), rel.ID)
-	if err != nil || len(events) == 0 || !strings.Contains(events[0].Text, "released by boss accepting that the forge cannot copy the data") || !strings.Contains(events[0].Text, "async mode") {
+	if err != nil || len(events) == 0 || !strings.Contains(events[0].Text, "released by boss accepting that AppTown cannot copy the data") || !strings.Contains(events[0].Text, "async mode") {
 		t.Fatalf("the release's record of the choice: %+v %v", events, err)
 	}
 	if saved, err := p.projects.ByID(context.Background(), p.project); err != nil || saved.ReleaseDomain != "feedback.example" {

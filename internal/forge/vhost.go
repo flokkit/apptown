@@ -252,7 +252,7 @@ func (a *App) VHost(next http.Handler) http.Handler {
 		if serves, err := a.vhostRules.serves(r.Context(), route); err != nil {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			fmt.Fprintf(w, "%s is unavailable: the forge could not read which project it belongs to.\n", r.Host)
+			fmt.Fprintf(w, "%s is unavailable: AppTown could not read which project it belongs to.\n", r.Host)
 			return
 		} else if !serves {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -275,14 +275,14 @@ func (a *App) VHost(next http.Handler) http.Handler {
 			// Never "nothing is running": this forge cannot see.
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			fmt.Fprintf(w, "%s is unavailable: this forge has no local Docker, so it serves no app from its own host. An app on an attached Docker host is reached at that host.\n", r.Host)
+			fmt.Fprintf(w, "%s is unavailable: this AppTown has no local Docker, so it serves no app from its own host. An app on an attached Docker host is reached at that host.\n", r.Host)
 			return
 		} else {
 			port := a.vhostPort(r.Context(), container)
 			if port == 0 {
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusBadGateway)
-				fmt.Fprintf(w, "Nothing is running at %s right now.\n\nPreviews stop when their change closes; a standing deployment may still be starting. The forge itself is at %s://%s.\n",
+				fmt.Fprintf(w, "Nothing is running at %s right now.\n\nPreviews stop when their change closes; a standing deployment may still be starting. AppTown itself is at %s://%s.\n",
 					r.Host, "https", a.cfg.publicHost)
 				return
 			}
