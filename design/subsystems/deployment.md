@@ -745,7 +745,15 @@ the release declares disposable empty; any other item fails it, by name.
   release is in flight. `deployment.started-from-copy` names the release, the
   set and each copy's digest, and the instance and database each came from
   and went into. A deployment that has run is never filled; one fed by
-  every landing cannot start from a copy.
+  every landing cannot start from a copy. The first release fills only
+  from a copy each item of which (each good copy with a portable format,
+  the ones the fill reads) was shown to come back by its last check of that
+  set (`backup_drills` by set and item); otherwise it is refused before
+  anything is made, naming each item and its last check or "never
+  checked". A person may release anyway with `acceptUncheckedCopy`
+  (`forge release --accept-unchecked-copy`): the release's first log line
+  then says who chose it and which items were not shown to come back. The
+  offer says "checked" only when every such item was.
 - **Authority.** Putting a copy's data into a deployment needs
   `deployment:restore` (granted where `deployment:teardown` is; no scope or
   instrument carries it, so no agent does) in the copy's project and in the
@@ -779,7 +787,8 @@ the release declares disposable empty; any other item fails it, by name.
   of still says what is not assessed; the card and `forge data` show the
   same lists beside the evidence.
   The daily sweep starts a copy of every production App Platform deployment
-  ready for one, and drills it when its last drill is a week old or failed;
+  ready for one, and drills it when any item it would fill has no drill
+  on this deployment, or its own last drill failed or is a week old;
   ordinary store sets keep the newest 14 (production) or 7, final copies 30
   days.
 

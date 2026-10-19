@@ -14,7 +14,6 @@ import (
 	"flokkit.io/forge/internal/deploy/digitalocean"
 	"flokkit.io/forge/internal/deploy/s3bucket/s3fake"
 	"flokkit.io/forge/internal/fault"
-	"flokkit.io/forge/internal/forge/dataprotection/internal/protectionsql"
 	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/operations"
 	"flokkit.io/forge/internal/ids"
@@ -516,8 +515,8 @@ func TestAStoreCopyIsNeverRestoredInPlace(t *testing.T) {
 	if !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "start a new deployment from it") {
 		t.Fatalf("restore in place: %v", err)
 	}
-	if drills, err := protectionsql.New(w.db.SQL()).PassedDrillOf(context.Background(), set.ID); err != nil || !drills.Passed {
-		t.Fatalf("drill: %+v %v", drills, err)
+	if unchecked, err := w.s.uncheckedItems(context.Background(), set); err != nil || len(unchecked) != 0 {
+		t.Fatalf("the final set's checks after a refused restore: %v %v", unchecked, err)
 	}
 }
 
@@ -943,7 +942,11 @@ func TestADrillIsDueByTheForgesOwnClock(t *testing.T) {
 	if got := w.run(op); !endedAs(got, OperationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
-	if !w.s.drillDue(ctx, dep) {
+	set, err := w.s.newestStoreSet(ctx, w.project, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !w.s.drillDue(ctx, dep, set) {
 		t.Fatal("a production deployment never drilled is not due")
 	}
 	drill, err := w.s.RequestDrill(ctx, w.project, "prod")
@@ -953,11 +956,11 @@ func TestADrillIsDueByTheForgesOwnClock(t *testing.T) {
 	if got := w.run(drill); !endedAs(got, OperationVerified) {
 		t.Fatalf("drill %s: %s", got.State, got.Detail)
 	}
-	if w.s.drillDue(ctx, dep) {
+	if w.s.drillDue(ctx, dep, set) {
 		t.Fatal("a drill just passed left the next one due")
 	}
 	ahead.Add(int64(8 * 24 * time.Hour))
-	if !w.s.drillDue(ctx, dep) {
+	if !w.s.drillDue(ctx, dep, set) {
 		t.Fatal("eight days after a drill, by the forge's clock, the next is not due")
 	}
 }

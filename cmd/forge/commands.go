@@ -55,7 +55,8 @@ var sections = []section{
                                         a run that ended without finishing is named with why and what next`, cmdWait},
 			{[]string{"approve"}, `  approve <step-id> [-m comment] [-y]   show what approving means, then approve`, func(args []string) error { return cmdDecide(args, "approve") }},
 			{[]string{"release"}, `  release <project-slug> <deployment>   release what landed on main to that deployment and follow its log` + "\n" +
-				`                                        (--accept-uncopied-data: release though the forge cannot copy the data it holds now)` + "\n" +
+				`                                        (--accept-uncopied-data: release though the forge cannot copy the data it holds now;` + "\n" +
+				`                                        --accept-unchecked-copy: fill a deployment that starts from a copy not shown to come back whole)` + "\n" +
 				`  release <project-slug> [-domain host] release what landed on main to the intranet and follow its log`, cmdRelease},
 			{[]string{"complain"}, `  complain "<what happened>" [-why W] [-wish W] [-about forge|way-of-working|project]
                                         file a complaint (default: about the forge itself, platform friction)`, cmdComplain},

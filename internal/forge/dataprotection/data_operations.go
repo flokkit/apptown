@@ -318,7 +318,7 @@ func (s *Service) runCopy(ctx context.Context, t *tracker) (runEnd, string, map[
 	}
 	// The forge's own daily copy of production data is also drilled once a
 	// week: the newest copy is filled into a new place and checked.
-	if t.op.AskedBy == SystemActor && s.drillDue(ctx, dep) {
+	if t.op.AskedBy == SystemActor && s.drillDue(ctx, dep, b) {
 		passed, detail, err := s.drill(ctx, t, b, target)
 		if err != nil {
 			return OperationFailed, fmt.Sprintf("set %d is in the store (%d bytes); its weekly check could not run: %v", b.ID, b.Bytes, err), result
@@ -334,17 +334,25 @@ func (s *Service) runCopy(ctx context.Context, t *tracker) (runEnd, string, map[
 // DrillEvery is how often the forge drills production data on its own.
 const DrillEvery = 7 * 24 * time.Hour
 
-// drillDue says whether a production deployment's copies were last
-// checked to come back more than DrillEvery ago, or never.
-func (s *Service) drillDue(ctx context.Context, dep *deployment.Deployment) bool {
+// drillDue says whether a production deployment's set b is to be drilled:
+// any item the drill would fill (a good copy with a portable format) whose
+// own last drill on this deployment failed, is more than DrillEvery old, or
+// is missing. A drill records each item alone, so the deployment's newest
+// row is only its last item's.
+func (s *Service) drillDue(ctx context.Context, dep *deployment.Deployment, b *Backup) bool {
 	if dep.DataClass != "production" {
 		return false
 	}
-	last, err := protectionsql.New(s.db.SQL()).LatestDrill(ctx, dep.ID)
-	if err != nil {
-		return true
+	for _, it := range b.Items {
+		if it.Error != "" || it.Format == "" {
+			continue
+		}
+		last, err := protectionsql.New(s.db.SQL()).LatestDrillOf(ctx, protectionsql.LatestDrillOfParams{DeploymentID: dep.ID, Need: it.Name})
+		if err != nil || !last.Passed || s.now().Sub(last.DrilledAt) > DrillEvery {
+			return true
+		}
 	}
-	return !last.Passed || s.now().Sub(last.DrilledAt) > DrillEvery
+	return false
 }
 
 // ScheduledCopies starts the forge's own daily copy of every production

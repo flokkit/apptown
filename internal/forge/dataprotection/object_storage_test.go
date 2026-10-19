@@ -196,7 +196,8 @@ func TestAStartFromASetWithoutTheBucketIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	apps := len(w.api.Snapshot().Apps)
-	rel, log := w.release("copy")
+	// The set was never checked; accepting that, the fill still refuses it.
+	rel, log := w.releaseAs(deployment.DeploySelection{ProjectID: w.project, DeploymentName: "copy", BundleID: w.bundle.ID, AcceptUncheckedCopy: true})
 	if rel.State == deployment.Released || !strings.Contains(log, "holds no copy of the s3 bucket's objects") {
 		t.Fatalf("a start from a set without the bucket: %s\n%s", rel.State, log)
 	}

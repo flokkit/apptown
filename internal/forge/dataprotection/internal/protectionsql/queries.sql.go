@@ -574,12 +574,19 @@ func (q *Queries) InsertRestoredCopy(ctx context.Context, arg InsertRestoredCopy
 	return i, err
 }
 
-const latestDrill = `-- name: LatestDrill :one
-SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE deployment_id=$1 AND deployment_id IS NOT NULL ORDER BY id DESC LIMIT 1
+const latestDrillOf = `-- name: LatestDrillOf :one
+SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE deployment_id=$1 AND deployment_id IS NOT NULL AND need=$2 ORDER BY id DESC LIMIT 1
 `
 
-func (q *Queries) LatestDrill(ctx context.Context, deploymentID ids.ID) (BackupDrill, error) {
-	row := q.db.QueryRowContext(ctx, latestDrill, deploymentID)
+type LatestDrillOfParams struct {
+	DeploymentID ids.ID
+	Need         string
+}
+
+// An item's own last drill: a drill fills each item of a set in turn, so
+// the deployment's newest row is only its last item's.
+func (q *Queries) LatestDrillOf(ctx context.Context, arg LatestDrillOfParams) (BackupDrill, error) {
+	row := q.db.QueryRowContext(ctx, latestDrillOf, arg.DeploymentID, arg.Need)
 	var i BackupDrill
 	err := row.Scan(
 		&i.ID,
@@ -599,19 +606,19 @@ func (q *Queries) LatestDrill(ctx context.Context, deploymentID ids.ID) (BackupD
 	return i, err
 }
 
-const latestDrillOf = `-- name: LatestDrillOf :one
-SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE deployment_id=$1 AND deployment_id IS NOT NULL AND need=$2 ORDER BY id DESC LIMIT 1
+const latestDrillOfSet = `-- name: LatestDrillOfSet :one
+SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE backup_id=$1 AND need=$2 ORDER BY id DESC LIMIT 1
 `
 
-type LatestDrillOfParams struct {
-	DeploymentID ids.ID
-	Need         string
+type LatestDrillOfSetParams struct {
+	BackupID ids.ID
+	Need     string
 }
 
-// An item's own last drill: a drill fills each item of a set in turn, so
-// the deployment's newest row is only its last item's.
-func (q *Queries) LatestDrillOf(ctx context.Context, arg LatestDrillOfParams) (BackupDrill, error) {
-	row := q.db.QueryRowContext(ctx, latestDrillOf, arg.DeploymentID, arg.Need)
+// An item's last drill of one set: whether that copy of the item was last
+// shown to come back.
+func (q *Queries) LatestDrillOfSet(ctx context.Context, arg LatestDrillOfSetParams) (BackupDrill, error) {
+	row := q.db.QueryRowContext(ctx, latestDrillOfSet, arg.BackupID, arg.Need)
 	var i BackupDrill
 	err := row.Scan(
 		&i.ID,
@@ -897,31 +904,6 @@ func (q *Queries) OrphanBackupsDue(ctx context.Context, arg OrphanBackupsDuePara
 		return nil, err
 	}
 	return items, nil
-}
-
-const passedDrillOf = `-- name: PassedDrillOf :one
-SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE backup_id=$1 AND passed ORDER BY id DESC LIMIT 1
-`
-
-func (q *Queries) PassedDrillOf(ctx context.Context, backupID ids.ID) (BackupDrill, error) {
-	row := q.db.QueryRowContext(ctx, passedDrillOf, backupID)
-	var i BackupDrill
-	err := row.Scan(
-		&i.ID,
-		&i.BackupID,
-		&i.ProjectID,
-		&i.Deployment,
-		&i.DrilledAt,
-		&i.Passed,
-		&i.Target,
-		&i.Place,
-		&i.AsUser,
-		&i.Detail,
-		&i.OperationID,
-		&i.DeploymentID,
-		&i.Need,
-	)
-	return i, err
 }
 
 const placeRestoredCopy = `-- name: PlaceRestoredCopy :execrows

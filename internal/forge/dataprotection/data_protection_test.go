@@ -441,7 +441,13 @@ func (w *dataWorld) bind(project ids.ID, name, data string, from ids.ID) (*deplo
 // does, answering the release and its log.
 func (w *dataWorld) release(name string) (*deployment.Release, string) {
 	w.t.Helper()
-	accepted, err := w.s.RequestRelease(context.Background(), deployment.DeploySelection{ProjectID: w.project, DeploymentName: name, BundleID: w.bundle.ID})
+	return w.releaseAs(deployment.DeploySelection{ProjectID: w.project, DeploymentName: name, BundleID: w.bundle.ID})
+}
+
+// releaseAs requests the release in, runs it and reads back its log.
+func (w *dataWorld) releaseAs(in deployment.DeploySelection) (*deployment.Release, string) {
+	w.t.Helper()
+	accepted, err := w.s.RequestRelease(context.Background(), in)
 	if err != nil {
 		w.t.Fatal(err)
 	}

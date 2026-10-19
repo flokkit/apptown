@@ -130,7 +130,7 @@ func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{optional: true, strict: true}, func(in DeployRequest) {
-		accepted, err := h.deployment.RequestRelease(r.Context(), deployment.DeploySelection{ProjectID: p.ID, DeploymentName: r.PathValue("name"), BundleID: in.BundleID, AcceptUncopiedData: in.AcceptUncopiedData})
+		accepted, err := h.deployment.RequestRelease(r.Context(), deployment.DeploySelection{ProjectID: p.ID, DeploymentName: r.PathValue("name"), BundleID: in.BundleID, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy})
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -178,6 +178,10 @@ type DeployRequest struct {
 	// AcceptUncopiedData is a person's choice to release onto a deployment
 	// holding data the forge cannot copy now; the release records it.
 	AcceptUncopiedData bool `json:"acceptUncopiedData,omitempty"`
+	// AcceptUncheckedCopy is a person's choice to fill a deployment that
+	// starts from a copy, on its first release, from a copy an item of
+	// which its last check did not show to come back; the release records it.
+	AcceptUncheckedCopy bool `json:"acceptUncheckedCopy,omitempty"`
 }
 
 // DeploymentResources is GET /projects/{slug}/deployments/{name}/resources:

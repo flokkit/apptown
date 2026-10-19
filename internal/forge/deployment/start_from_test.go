@@ -15,6 +15,7 @@ import (
 type copyStarter struct{ fills int }
 
 func (c *copyStarter) CheckStart(context.Context, ids.ID, ids.ID, string) error { return nil }
+func (c *copyStarter) UncheckedStart(context.Context, ids.ID) (string, error)   { return "", nil }
 func (c *copyStarter) FillStart(_ context.Context, in StartFill) (StartReceipt, error) {
 	c.fills++
 	return StartReceipt{Set: in.Deployment.StartFrom, FromDeployment: "prod", FromProject: in.Deployment.ProjectID}, nil

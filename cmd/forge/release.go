@@ -19,6 +19,7 @@ func cmdRelease(args []string) error {
 	domain := fs.String("domain", "", "intranet only: an extra hostname to serve on (kept for later releases; DNS is managed by the platform)")
 	asJSON := fs.Bool("json", false, "print the release as JSON once the forge accepts it (no following)")
 	acceptUncopied := fs.Bool("accept-uncopied-data", false, "release though the forge cannot copy the data the deployment holds now (the release records your choice): a change this release makes to that data has no copy to go back to")
+	acceptUnchecked := fs.Bool("accept-unchecked-copy", false, "a deployment's first release that starts from a copy: fill it though an item of the copy was not shown to come back by its last check (the release records your choice)")
 	args = parseArgs(fs, args)
 	if len(args) < 1 || len(args) > 2 {
 		return fmt.Errorf("usage: forge release <project-slug> <deployment>, or forge release <project-slug> [-domain host] for the intranet (either with --json)")
@@ -39,6 +40,9 @@ func cmdRelease(args []string) error {
 		if *acceptUncopied {
 			body["acceptUncopiedData"] = true
 		}
+		if *acceptUnchecked {
+			body["acceptUncheckedCopy"] = true
+		}
 		if err := api.post("/projects/"+slug+"/deployments/"+where+"/deploy", body, &out); err != nil {
 			return err
 		}
@@ -49,6 +53,9 @@ func cmdRelease(args []string) error {
 			Number int64  `json:"number"`
 			URL    string `json:"url"`
 			State  string `json:"state"`
+		}
+		if *acceptUnchecked {
+			return fmt.Errorf("--accept-unchecked-copy is for a deployment that starts from a copy; the intranet does not")
 		}
 		body := map[string]any{"domain": *domain}
 		if *acceptUncopied {

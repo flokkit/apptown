@@ -1397,6 +1397,9 @@
       "DeployRequest": {
         "additionalProperties": false,
         "properties": {
+          "acceptUncheckedCopy": {
+            "type": "boolean"
+          },
           "acceptUncopiedData": {
             "type": "boolean"
           },

@@ -34,7 +34,8 @@ type FinalCopy struct {
 	TakenAt    string `json:"takenAt"`
 	Bytes      int64  `json:"bytes"`
 	DataClass  string `json:"dataClass"`
-	// Verified says it came back into a new place and passed its check.
+	// Verified says every item a start would fill from it was last
+	// checked, on this copy, to come back into a new place.
 	Verified bool `json:"verified"`
 }
 
@@ -56,11 +57,11 @@ func (s *Service) FinalCopies(ctx context.Context, projectID ids.ID) ([]FinalCop
 		if managedFillable(&b, deployment.ErrStartFrom) != nil {
 			continue
 		}
-		_, derr := protectionsql.New(s.db.SQL()).PassedDrillOf(ctx, b.ID)
-		if derr != nil && !errors.Is(derr, sql.ErrNoRows) {
-			return nil, derr
+		unchecked, err := s.uncheckedItems(ctx, &b)
+		if err != nil {
+			return nil, err
 		}
-		out = append(out, FinalCopy{Backup: b.ID, Deployment: b.Deployment, TakenAt: b.TakenAt, Bytes: b.Bytes, DataClass: b.DataClass, Verified: derr == nil})
+		out = append(out, FinalCopy{Backup: b.ID, Deployment: b.Deployment, TakenAt: b.TakenAt, Bytes: b.Bytes, DataClass: b.DataClass, Verified: len(unchecked) == 0})
 	}
 	return out, nil
 }
@@ -87,6 +88,46 @@ func (s *Starter) CheckStart(ctx context.Context, set, destinationProject ids.ID
 		return deployment.ErrProductionCopy
 	}
 	return nil
+}
+
+// UncheckedStart names each item a start would fill from set that its
+// last check of this set did not show to come back, with that check: ""
+// when every one did. A drill fills a set's items in turn and records each
+// alone, so one item's pass says nothing of another's. The first release
+// of a deployment that starts from set is refused on a non-empty answer
+// unless a person accepts it (deployment.DeploySelection.AcceptUncheckedCopy).
+func (s *Starter) UncheckedStart(ctx context.Context, set ids.ID) (string, error) {
+	b, err := s.startSet(ctx, set)
+	if err != nil {
+		return "", err
+	}
+	unchecked, err := s.uncheckedItems(ctx, b)
+	if err != nil || len(unchecked) == 0 {
+		return "", err
+	}
+	return fmt.Sprintf("set %d is not shown to come back whole: %s", b.ID, strings.Join(unchecked, "; ")), nil
+}
+
+// uncheckedItems are the items a start would fill from b (FillStart's: a
+// good copy with a portable format) whose last check of b did not pass,
+// each with that check or "never checked".
+func (s *core) uncheckedItems(ctx context.Context, b *Backup) ([]string, error) {
+	var out []string
+	for _, it := range b.Items {
+		if it.Error != "" || it.Format == "" {
+			continue
+		}
+		d, err := protectionsql.New(s.db.SQL()).LatestDrillOfSet(ctx, protectionsql.LatestDrillOfSetParams{BackupID: b.ID, Need: it.Name})
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			out = append(out, it.Name+": never checked")
+		case err != nil:
+			return nil, err
+		case !d.Passed:
+			out = append(out, fmt.Sprintf("%s: its last check (%s) failed: %s", it.Name, d.DrilledAt.UTC().Format("2006-01-02 15:04 UTC"), d.Detail))
+		}
+	}
+	return out, nil
 }
 
 // storeSet is a set a new place may be filled from: a whole set in the

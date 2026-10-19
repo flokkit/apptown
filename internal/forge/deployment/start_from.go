@@ -46,10 +46,12 @@ var (
 // copy: whether the caller may start a deployment of destinationProject
 // holding dataClass from a set (the set must be a whole store copy a new
 // managed database can be filled from; deployment:restore in the set's
-// project and the destination's; production only into production), and
-// the fill itself.
+// project and the destination's; production only into production), which
+// of the set's items were not shown to come back by their last check of it
+// (UncheckedStart, "" when none), and the fill itself.
 type CopyStarter interface {
 	CheckStart(ctx context.Context, setID ids.ID, destinationProject ids.ID, dataClass string) error
+	UncheckedStart(ctx context.Context, setID ids.ID) (string, error)
 	FillStart(ctx context.Context, in StartFill) (StartReceipt, error)
 }
 
@@ -97,6 +99,24 @@ func (s *Service) checkStart(ctx context.Context, set, projectID ids.ID, dataCla
 		return errNoCopyStarter
 	}
 	return s.starter.CheckStart(ctx, set, projectID, dataClass)
+}
+
+// uncheckedStart refuses the first release of dep, which starts from a
+// copy, when an item of the copy was not shown to come back by its last
+// check of it, unless the person accepted that: then note is the words for
+// the release's first log line, as releasing over uncopied data has.
+func (s *Service) uncheckedStart(ctx context.Context, dep *Deployment, accepted bool, actor string) (note string, err error) {
+	if s.starter == nil {
+		return "", errNoCopyStarter
+	}
+	why, err := s.starter.UncheckedStart(ctx, dep.StartFrom)
+	if err != nil || why == "" {
+		return "", err
+	}
+	if !accepted {
+		return "", fmt.Errorf("%w: %s; release accepting an unchecked copy (acceptUncheckedCopy, forge release --accept-unchecked-copy)", ErrStartFrom, why)
+	}
+	return fmt.Sprintf("; released by %s accepting a copy not shown to come back whole: %s", actor, why), nil
 }
 
 // chooseStartFrom records that a deployment just bound starts from a set,

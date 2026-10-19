@@ -44,16 +44,15 @@ INSERT INTO backup_drills (id, backup_id, project_id, deployment, need, passed, 
   VALUES (sqlc.arg(id), sqlc.arg(backup_id), sqlc.arg(project_id), sqlc.arg(deployment), sqlc.arg(need), sqlc.arg(passed), sqlc.arg(target), sqlc.arg(place), sqlc.arg(as_user), sqlc.arg(detail), sqlc.arg(operation_id), sqlc.arg(deployment_id), sqlc.arg(drilled_at))
   RETURNING *;
 
--- name: LatestDrill :one
-SELECT * FROM backup_drills WHERE deployment_id=sqlc.arg(deployment_id) AND deployment_id IS NOT NULL ORDER BY id DESC LIMIT 1;
-
 -- An item's own last drill: a drill fills each item of a set in turn, so
 -- the deployment's newest row is only its last item's.
 -- name: LatestDrillOf :one
 SELECT * FROM backup_drills WHERE deployment_id=sqlc.arg(deployment_id) AND deployment_id IS NOT NULL AND need=sqlc.arg(need) ORDER BY id DESC LIMIT 1;
 
--- name: PassedDrillOf :one
-SELECT * FROM backup_drills WHERE backup_id=sqlc.arg(backup_id) AND passed ORDER BY id DESC LIMIT 1;
+-- An item's last drill of one set: whether that copy of the item was last
+-- shown to come back.
+-- name: LatestDrillOfSet :one
+SELECT * FROM backup_drills WHERE backup_id=sqlc.arg(backup_id) AND need=sqlc.arg(need) ORDER BY id DESC LIMIT 1;
 
 -- name: InsertRestoreRehearsal :one
 INSERT INTO restore_rehearsals (id, project_id, deployment, deployment_id, operation_id, backup_id, release_number, host, outcome, failed_step, asked_by, asked_by_principal, asked_by_via, facts_json, rehearsed_at)

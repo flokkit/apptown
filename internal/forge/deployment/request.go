@@ -29,6 +29,11 @@ type DeploySelection struct {
 	// holding data the forge cannot copy now (DataCopyCheck); the release
 	// records it with who and why.
 	AcceptUncopiedData bool
+	// AcceptUncheckedCopy is a person's choice to fill a deployment that
+	// starts from a copy, on its first release, though an item of the copy
+	// was not shown to come back by its last check (CopyStarter.UncheckedStart);
+	// the release records it with who and which items.
+	AcceptUncheckedCopy bool
 }
 type ReleaseProject struct {
 	Application
@@ -147,8 +152,14 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 	// The first release of a deployment that starts from a copy fills its
 	// data: it is a restore, so its caller needs the restore grant in the
 	// copy's project and in this one, as whoever chose the start did.
+	// It fills only from a copy each item of which its last check showed
+	// to come back, unless a person accepts one that was not.
+	uncheckedNote := ""
 	if !dep.StartFrom.IsZero() && !dep.StartedFrom.Valid {
 		if err := s.checkStart(ctx, dep.StartFrom, in.ProjectID, dep.DataClass); err != nil {
+			return AcceptedRelease{}, err
+		}
+		if uncheckedNote, err = s.uncheckedStart(ctx, dep, in.AcceptUncheckedCopy, actor.Principal.Name); err != nil {
 			return AcceptedRelease{}, err
 		}
 	}
@@ -222,7 +233,7 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 	}
 	var admitted AcceptedRelease
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
-		rel, err := startReleaseIn(ctx, tx, ReleaseDraft{Source: ReleaseFromBundle, ProjectID: in.ProjectID, DeploymentID: dep.ID, BundleID: bundle.ID, Deployment: dep.Name, Revision: revision, Actor: actor.Principal.Name, At: s.now()}, fmt.Sprintf("to %s started by %s — bundle %d (tree %s) on %s", dep.Name, actor.Principal.Name, bundle.ID, strs.ShortSHA(revision), t.Name)+accepted)
+		rel, err := startReleaseIn(ctx, tx, ReleaseDraft{Source: ReleaseFromBundle, ProjectID: in.ProjectID, DeploymentID: dep.ID, BundleID: bundle.ID, Deployment: dep.Name, Revision: revision, Actor: actor.Principal.Name, At: s.now()}, fmt.Sprintf("to %s started by %s — bundle %d (tree %s) on %s", dep.Name, actor.Principal.Name, bundle.ID, strs.ShortSHA(revision), t.Name)+accepted+uncheckedNote)
 		if err != nil {
 			return err
 		}
