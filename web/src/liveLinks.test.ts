@@ -39,8 +39,8 @@ describe('live links in a guide', () => {
   it('say so in words when the forge does not know its address', () => {
     const el = show('Open {forge:origin}. Connect at {forge:mcp}.\n\n```\nclaude mcp add forge {forge:mcp}\n```', unknown)
     expect(el.querySelectorAll('a')).toHaveLength(0)
-    expect(el.querySelector('p')?.textContent).toBe("Open your forge's address. Connect at your forge's address followed by /mcp/user.")
-    expect(el.querySelector('pre code')?.textContent).toBe("claude mcp add forge <your forge's address>/mcp/user\n")
+    expect(el.querySelector('p')?.textContent).toBe("Open AppTown's address. Connect at AppTown's address followed by /mcp/user.")
+    expect(el.querySelector('pre code')?.textContent).toBe("claude mcp add forge <AppTown's address>/mcp/user\n")
   })
 
   // An unknown name is left as written, for the docs test to catch.

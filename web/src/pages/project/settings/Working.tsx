@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../../brand'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { GuidanceBlock, GuidanceImport, HttpError, ProjectGuidance, SteeringSection, del, post, put } from '../../../api'
@@ -251,7 +252,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
                 <button className="subtle" aria-label="move up" title="move up" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
                 <button className="subtle" aria-label="move down" title="move down" onClick={() => move(i, 1)} disabled={i === imports.length - 1}>↓</button>
               </td>
-              <td className="stack-lead"><Link to={`/guidance/${im.blockId}`}><code>{im.name}</code></Link>{im.withdrawn && <> <span className="chip" title="the forge no longer ships this block; this project keeps its version until it removes it">No longer shipped</span></>}</td>
+              <td className="stack-lead"><Link to={`/guidance/${im.blockId}`}><code>{im.name}</code></Link>{im.withdrawn && <> <span className="chip" title={`${PRODUCT} no longer ships this block; this project keeps its version until it removes it`}>No longer shipped</span></>}</td>
               <td data-label="pinned">
                 v{im.version}
                 {im.version < im.latestVersion && (
@@ -276,7 +277,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
       {imports.length > 0 && (
         <div className="muted small" style={{ marginTop: 6 }}>
           {enabled.length} of {imports.length} enabled, <span title={sizeTitle(enabledBytes)}>{fmtSize(enabledBytes)}</span> of blocks.
-          {generatedAlways > 0 && <> The forge adds <span title={sizeTitle(generatedAlways)}>{fmtSize(generatedAlways)}</span> of generated sections to every agent step, <strong title={sizeTitle(enabledBytes + generatedAlways)}>{fmtSize(enabledBytes + generatedAlways)}</strong> all together</>}
+          {generatedAlways > 0 && <> {PRODUCT} adds <span title={sizeTitle(generatedAlways)}>{fmtSize(generatedAlways)}</span> of generated sections to every agent step, <strong title={sizeTitle(enabledBytes + generatedAlways)}>{fmtSize(enabledBytes + generatedAlways)}</strong> all together</>}
           {generatedConditional > 0 && <>; some steps get up to <span title={sizeTitle(generatedConditional)}>{fmtSize(generatedConditional)}</span> more</>}.
         </div>
       )}
@@ -417,7 +418,7 @@ export function WorkflowsTab({ slug }: { slug: string }) {
     <label key={l.name} className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 8, cursor: selectable ? 'pointer' : 'default', opacity: l.deprecated ? 0.6 : 1 }}>
       {selectable
         ? <input type="checkbox" checked={l.selected} disabled={busy === l.name} onChange={() => toggle(l)} style={{ marginTop: 4 }} />
-        : <span className="chip" style={{ marginTop: 2 }}>forge runs it</span>}
+        : <span className="chip" style={{ marginTop: 2 }}>{PRODUCT} runs it</span>}
       <span style={{ flex: 1, minWidth: 0 }}>
         <span className="row" style={{ gap: 8 }}>
           <strong>{l.name}</strong>
@@ -426,7 +427,7 @@ export function WorkflowsTab({ slug }: { slug: string }) {
           {l.summary && <span className="chip" title={l.summary.pacing === 'paced by people'
             ? 'stops at gates and waits for a person' : 'advances by itself when checks pass'}>{l.summary.pacing}</span>}
           {l.deprecated && <span className="chip">deprecated</span>}
-          {l.withdrawn && <span className="chip" title="the forge no longer ships this workflow; this project keeps it until it unselects it">No longer shipped</span>}
+          {l.withdrawn && <span className="chip" title={`${PRODUCT} no longer ships this workflow; this project keeps it until it unselects it`}>No longer shipped</span>}
           <span className="muted small">{l.runsCount > 0 ? `used ${l.runsCount}× here` : 'never used here'}</span>
         </span>
         <span className="muted small" style={{ display: 'block', marginTop: 4 }}>{l.description}</span>
@@ -448,7 +449,7 @@ export function WorkflowsTab({ slug }: { slug: string }) {
           {lanes.filter((l) => l.tier === k).length === 0 && <div className="muted small">none in the library</div>}
         </div>
       ))}
-      <h3 style={{ margin: '10px 0 6px' }}>System <span className="muted small" style={{ fontWeight: 400 }}>— the forge runs these for every project</span></h3>
+      <h3 style={{ margin: '10px 0 6px' }}>System <span className="muted small" style={{ fontWeight: 400 }}>— {PRODUCT} runs these for every project</span></h3>
       {system.map((l) => row(l, false))}
       {err && <div className="error">{err}</div>}
       <h2>Rules</h2>

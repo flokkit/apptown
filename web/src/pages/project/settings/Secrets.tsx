@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../../brand'
 import { useState } from 'react'
 import { del, get, put } from '../../../api'
 import type { ProjectSecrets, SecretDeployment, SecretRevealed, SecretStatus, SecretStoreInfo as SecretStore } from '../../../wire.gen'
@@ -46,7 +47,7 @@ export function SecretsTab({ slug }: { slug: string }) {
         <p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
           This app declares no secrets. When it needs one — a signing key, an API key — it
           commits a <code>secretspec.toml</code> naming the secret (never the value), and this
-          page is where each deployment gets its value from. The forge generates keys it can
+          page is where each deployment gets its value from. {PRODUCT} generates keys it can
           make itself.
         </p>
         <StoresNote internal={internal} infisical={infisical} />
@@ -61,7 +62,7 @@ export function SecretsTab({ slug }: { slug: string }) {
         Each deployment says where its values come from. A value you put here goes into the
         built-in store and is never shown again; a value in Infisical is named, not copied.
         {(data.ignored?.length ?? 0) > 0 && (
-          <> The forge does not use these parts of the declaration: {data.ignored!.join('; ')}.</>
+          <> {PRODUCT} does not use these parts of the declaration: {data.ignored!.join('; ')}.</>
         )}
       </p>
       <StaleNote q={q} />
@@ -146,7 +147,7 @@ function DeploymentCard({ env, profiles, declared, onProfile, onEdit, onUnbind, 
 
 function Source({ s }: { s: SecretStatus }) {
   if (s.bound && s.generated) {
-    return <span className="small">made by the forge <span className="muted">· built-in store v{s.version}</span></span>
+    return <span className="small">made by {PRODUCT} <span className="muted">· built-in store v{s.version}</span></span>
   }
   if (s.bound && s.store === 'internal') {
     return <span className="small">built-in store v{s.version} <span className="muted">· set by {s.updatedBy}{s.updatedAt ? `, ${relTime(s.updatedAt)}` : ''}</span></span>
@@ -154,7 +155,7 @@ function Source({ s }: { s: SecretStatus }) {
   if (s.bound && s.store === 'infisical') {
     return <span className="small">Infisical key <code>{s.ref}</code> <span className="muted">· bound by {s.updatedBy}</span></span>
   }
-  if (s.generated) return <span className="small muted">the forge will make one on the first boot</span>
+  if (s.generated) return <span className="small muted">{PRODUCT} will make one on the first boot</span>
   if (s.default) return <span className="small muted">the declaration's default</span>
   if (!s.required) return <span className="small muted">not set (optional)</span>
   return <span className="chip fail">not set</span>
@@ -183,12 +184,12 @@ function BindModal({ slug, env, name, stores, onClose, onDone }: {
       {store === 'internal' ? (
         <>
           <textarea rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="the value — pasted once, never shown again" autoFocus style={{ width: '100%' }} />
-          <p className="muted small">Kept by the forge itself, in its own database, with the key that encrypts it. Anyone with a dump or backup of the database can read every value: it is not a vault. For a team, use Infisical.</p>
+          <p className="muted small">Kept by {PRODUCT} itself, in its own database, with the key that encrypts it. Anyone with a dump or backup of the database can read every value: it is not a vault. For a team, use Infisical.</p>
         </>
       ) : (
         <>
           <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="KEY_NAME in Infisical" autoFocus style={{ width: '100%' }} />
-          <p className="muted small">The key must already exist in the Infisical project and environment this forge reads. The forge names it and never copies it.</p>
+          <p className="muted small">The key must already exist in the Infisical project and environment {PRODUCT} reads. {PRODUCT} names it and never copies it.</p>
         </>
       )}
       {err && <div className="error">{err}</div>}

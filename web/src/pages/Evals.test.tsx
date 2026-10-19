@@ -79,7 +79,7 @@ describe('the eval scorecard', () => {
       expect(text).toContain('at least $0.25')
       expect(text).toContain('About the way of working (1)')
       expect(text).toContain('go-small@4')
-      expect(text).toContain('About the forge (1)')
+      expect(text).toContain('About AppTown (1)')
       expect(text).toContain('acceptance is not measured')
       // Changes are named by their numbers: the source and each copy's.
       expect(text).toContain('Change 12, re-run')

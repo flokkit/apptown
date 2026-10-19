@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HttpError, patch, post } from '../../api'
@@ -37,7 +38,7 @@ export function RegistryLine({ r }: { r: RegistryReading }) {
   return (
     <div className="small" style={{ marginTop: 6 }}>
       Container registry {r.registry}: {r.tier} plan, {used}
-      {r.gate && <span className="muted"> (one holds the forge's gate image, for restored copies)</span>}
+      {r.gate && <span className="muted"> (one holds {PRODUCT}'s gate image, for restored copies)</span>}
       {r.full && <> · <span className="chip fail">plan full</span> a project that has not released here before cannot until the plan is upgraded or a deployment is taken down</>}
       <span className="muted">{when}</span>
     </div>
@@ -204,7 +205,7 @@ export function TargetPage() {
               onYes={retire} yes="Retire" className="subtle" title="take this target out of service" />
           </div>
         )}
-        {data.builtIn && <div className="muted small" style={{ marginTop: 18 }}>This is the forge's own host; it cannot be retired.</div>}
+        {data.builtIn && <div className="muted small" style={{ marginTop: 18 }}>This is {PRODUCT}'s own host; it cannot be retired.</div>}
       </div>
     </div>
   )

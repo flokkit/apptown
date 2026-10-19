@@ -1,3 +1,4 @@
+import { PRODUCT } from './brand'
 import type { CSSProperties } from 'react'
 import { openAfter, post } from './api'
 import { useAction, useGet } from './data'
@@ -41,7 +42,7 @@ export function TryIt({ changeId, label, style, className }: {
   if (state === 'live' && st?.url && st.hostOnly) {
     return (
       <span className="row" style={{ gap: 6 }}>
-        <span className="chip pass" title={`${st.url} answers on the forge host only`}>preview running</span>
+        <span className="chip pass" title={`${st.url} answers on ${PRODUCT}'s host only`}>preview running</span>
         <span className="muted small">{hostOnlyWords(st.url)}</span>
         <button className="subtle" title="Stop the preview and start it again from the current files"
           onClick={() => boot(`/changes/${changeId}/preview/restart`)}>restart</button>

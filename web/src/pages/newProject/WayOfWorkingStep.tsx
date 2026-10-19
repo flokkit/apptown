@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useEffect, useMemo, useState, type Dispatch } from 'react'
 import { Link } from 'react-router-dom'
 import { post } from '../../api'
@@ -47,7 +48,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
       {pack === null && !choosing && questions.length === 0 && (
         <>
           <div className="muted small mb-3">
-            A few sentences about what {name || 'the project'} is and does. The forge uses this to
+            A few sentences about what {name || 'the project'} is and does. {PRODUCT} uses this to
             suggest a way of working, and may ask a question or two.
           </div>
           <textarea className="prose" rows={3} value={d.description} onChange={(e) => act({ type: 'describe', description: e.target.value })} autoFocus

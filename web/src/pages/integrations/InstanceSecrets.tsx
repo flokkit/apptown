@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { del, put } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
@@ -14,7 +15,7 @@ import type { InstanceSecret, SecretNameList } from '../../wire.gen'
 const NAME = /^[A-Z][A-Z0-9_]*$/
 
 export function storeWords(store: string | undefined) {
-  return store === 'secrets.env' ? "the forge's secrets file" : store === 'infisical' ? 'Infisical' : store ?? ''
+  return store === 'secrets.env' ? `${PRODUCT}'s secrets file` : store === 'infisical' ? 'Infisical' : store ?? ''
 }
 
 // SetSecretNow: a password field that sets one named secret. Closed, it is
@@ -28,7 +29,7 @@ export function SetSecretNow({ name, held, label }: { name: string; held?: boole
   if (!open) {
     return (
       <span className="row" style={{ gap: 6 }}>
-        {done && <span className="small">✓ the forge holds {name}</span>}
+        {done && <span className="small">✓ {PRODUCT} holds {name}</span>}
         <button type="button" className="subtle" disabled={!valid} title={valid ? '' : 'a secret name is upper case letters, digits and _'}
           onClick={() => { setOpen(true); setDone(false) }}>
           {label ?? (held || done ? 'replace its value' : 'set this secret now')}
@@ -66,7 +67,7 @@ export function SecretNameStatus({ name }: { name: string }) {
       {namesQ.err ? <span className="error">unknown — the secrets could not be read: {namesQ.reason}</span>
         : !namesQ.data ? <span className="muted">checking…</span>
           : store ? <span className="muted">held in {storeWords(store)}</span>
-            : <span className="muted">the forge does not hold this yet</span>}
+            : <span className="muted">{PRODUCT} does not hold this yet</span>}
       {namesQ.err || !namesQ.data ? null
         : store === 'infisical'
           ? <span className="muted">change it in Infisical</span>
@@ -94,11 +95,11 @@ export function InstanceSecretsPanel() {
         each set and removal is on the record with who did it. A secret held in Infisical is changed in Infisical.
       </div>
       {/* Here a failed refresh hides the list too, rather than marking it stale. */}
-      {namesQ.err && <div className="error small">Unknown: the forge's secrets could not be read. {namesQ.reason}</div>}
-      {!namesQ.err && <ReadStatus q={namesQ} what="the forge's secrets" className="small" />}
+      {namesQ.err && <div className="error small">Unknown: {PRODUCT}'s secrets could not be read. {namesQ.reason}</div>}
+      {!namesQ.err && <ReadStatus q={namesQ} what={`${PRODUCT}'s secrets`} className="small" />}
       {known && (
         <div style={{ borderTop: '1px solid var(--rule)' }}>
-          {names.length === 0 && <div className="muted small" style={{ padding: '10px 0' }}>The forge holds no secrets yet.</div>}
+          {names.length === 0 && <div className="muted small" style={{ padding: '10px 0' }}>{PRODUCT} holds no secrets yet.</div>}
           {names.map((n) => (
             <div key={n} className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--rule-faint)' }}>
               <div style={{ minWidth: 0 }}>

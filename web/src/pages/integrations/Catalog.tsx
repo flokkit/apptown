@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { renderMd } from '../../md'
 import { ConnIcon } from '../../icons'
@@ -66,10 +67,10 @@ export function CatalogPicker({ catalog, onPick, onClose }: {
         })}
         {(!q || managed.some((m) => match(m.title))) && (
           <div>
-            <h3 className="catalog-section">Managed by the forge</h3>
+            <h3 className="catalog-section">Managed by {PRODUCT}</h3>
             <div className="cat-grid">
               {managed.filter((m) => !q || match(m.title)).map((m) => (
-                <div key={m.title} className="cat-tile cat-tile-managed" title="Configured by the forge. Open it in the list to see its status or clone it to change it.">
+                <div key={m.title} className="cat-tile cat-tile-managed" title={`Configured by ${PRODUCT}. Open it in the list to see its status or clone it to change it.`}>
                   <ConnIcon name={m.icon ?? m.capability} size={24} />
                   <div style={{ minWidth: 0 }}>
                     <strong>{m.title}</strong>

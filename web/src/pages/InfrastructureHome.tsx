@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -11,7 +12,7 @@ import { FAMILY_TITLE, familyRank } from '../targets'
 // inventory — deployments, resources at the provider, unrecorded resources,
 // backups — and its own page one click in.
 
-const JOB_WORDS: Record<string, string> = { backup: 'backup of', inventory: 'inventory of', rebuild: 'rebuild of', 'backup-sweep': 'backup sweep,', 'db-backup': "the forge's own database backup," }
+const JOB_WORDS: Record<string, string> = { backup: 'backup of', inventory: 'inventory of', rebuild: 'rebuild of', 'backup-sweep': 'backup sweep,', 'db-backup': `${PRODUCT}'s own database backup,` }
 const jobReceipt = (j: Job) => {
   if (j.error) return j.error
   const r = j.receipt ?? {}
@@ -44,7 +45,7 @@ export function InfrastructureHome() {
       <StaleNote q={[infra, targets, backups]} />
       <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>
         <h1 style={{ margin: 0 }}>Infrastructure</h1>
-        <span className="muted">{tab === 'jobs' ? "the forge's own background jobs" : 'deployment targets and their inventory'}</span>
+        <span className="muted">{tab === 'jobs' ? `${PRODUCT}'s own background jobs` : 'deployment targets and their inventory'}</span>
         <span style={{ flex: 1 }} />
         {tab === 'targets' && <button className="subtle" onClick={refresh} disabled={refreshing}>{refreshing ? 'refreshing…' : 'Refresh all'}</button>}
       </div>
@@ -116,7 +117,7 @@ export function InfrastructureHome() {
 // A deployment target's own disk is on its page (its capacity).
 export function ForgeDisks() {
   const q = useGet<DiskReadings>('/infrastructure/disks', { poll: 60000 })
-  if (!q.data) return <div style={{ marginTop: 16 }}><ReadStatus q={q} what="this forge's disks" className="small" /></div>
+  if (!q.data) return <div style={{ marginTop: 16 }}><ReadStatus q={q} what={`${PRODUCT}'s disks`} className="small" /></div>
   return (
     <div style={{ marginTop: 16 }}>
       <StaleNote q={q} />

@@ -200,7 +200,7 @@ describe('one integration', () => {
     stubForge({ 'GET /integrations': json({ integrations: [gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(page.text()).toContain('authenticated as forge-bot'))
-    expect(page.text()).toMatch(/Checked by the forge 5m ago \(\d{1,2}:\d\d/)
+    expect(page.text()).toMatch(/Checked by AppTown 5m ago \(\d{1,2}:\d\d/)
     const sections = [...page.el.querySelectorAll('section')]
     const credentials = sections.find((s) => s.querySelector('h2')?.textContent === 'Credentials')!
     expect(credentials.textContent).toContain('tokenFrom')

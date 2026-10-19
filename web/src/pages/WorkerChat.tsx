@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import React from 'react'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -29,7 +30,7 @@ export function SaveStatus({ s }: { s: ConsoleSessionView }) {
     // A live chat's refused commits wait on the worker; an ended chat's are
     // kept on the forge, and its change page offers them.
     line = <span style={{ color: 'var(--bad)' }}>Last save refused at {when(saved.at)}: {saved.reason}{' '}
-      {s.state === 'dead' ? 'Its commits are kept on the forge.' : 'The chat was told; its commits stay on the worker until they are fixed.'}</span>
+      {s.state === 'dead' ? `Its commits are kept on ${PRODUCT}.` : 'The chat was told; its commits stay on the worker until they are fixed.'}</span>
   } else if (saved.outcome === 'not-confirmed') {
     line = <>Last save not confirmed at {when(saved.at)} ({saved.reason}); it is tried again after the next turn.</>
   } else if (saved.outcome === 'nothing-new') {

@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { del, post, type Change } from '../api'
@@ -200,7 +201,7 @@ export function EvalScorecardPage() {
           {e.reason && e.state !== 'held' && <div className="small" style={{ marginBottom: 8 }}>{e.reason}</div>}
           {e.state === 'held' && (
             <div className="card" style={{ borderLeft: '3px solid var(--warn)', marginBottom: 12 }}>
-              <div>Held: the next arm waits. Continuing says you answer for spend the forge could not count; the cost stays “at least”.</div>
+              <div>Held: the next arm waits. Continuing says you answer for spend {PRODUCT} could not count; the cost stays “at least”.</div>
               <button disabled={busy} style={{ marginTop: 6 }} onClick={() => run(() => post(`/evals/${e.id}/continue`))}>Continue</button>
             </div>
           )}
@@ -382,7 +383,7 @@ function Cell({ r }: { r?: CheckRow }) {
   return <span>{parts.join('; ')}</span>
 }
 
-const ABOUT_WORDS: Record<string, string> = { forge: 'the forge', 'way-of-working': 'the way of working', project: 'the project' }
+const ABOUT_WORDS: Record<string, string> = { forge: PRODUCT, 'way-of-working': 'the way of working', project: 'the project' }
 
 function armLabel(arms: Arm[], id?: string | null): string {
   const a = id ? arms.find((x) => x.id === id) : undefined
@@ -398,7 +399,7 @@ function ComplaintsByAbout({ complaints, arms }: { complaints: Complaint[]; arms
   return (
     <section className="card">
       <h3 style={{ marginTop: 0 }}>Complaints filed in the eval</h3>
-      <p className="muted small" style={{ marginTop: 0 }}>A signal, not a defect count. Only those about the forge also reach the forge's queue.</p>
+      <p className="muted small" style={{ marginTop: 0 }}>A signal, not a defect count. Only those about {PRODUCT} also reach {PRODUCT}'s queue.</p>
       {[...groups.entries()].map(([about, list]) => (
         <div key={about} style={{ marginBottom: 8 }}>
           <strong className="small">About {ABOUT_WORDS[about] ?? about} ({list.length})</strong>

@@ -37,13 +37,13 @@ describe('the try-it button', () => {
   // link that fails elsewhere: the page says where it works.
   it('says where a host-only preview answers instead of opening it', async () => {
     const text = await render({ state: 'live', url: 'http://forge.example:40001', hostOnly: true })
-    expect(text).toContain('on the forge host only, at localhost:40001')
+    expect(text).toContain("on AppTown's host only, at localhost:40001")
     expect(text).not.toContain('Open')
   })
   it('opens a preview that answers at its address', async () => {
     const text = await render({ state: 'live', url: 'https://change-7.preview.example' })
     expect(text).toContain('Open')
-    expect(text).not.toContain('forge host only')
+    expect(text).not.toContain("AppTown's host only")
   })
   it('offers the preview when it is cold', async () => {
     const text = await render({ state: 'cold' })

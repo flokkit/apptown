@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { del, post } from '../api'
@@ -35,7 +36,7 @@ const SECTIONS: Record<string, { title: string; blurb: string }> = {
   slots: { title: 'Model slots', blurb: 'Map the model names workflows ask for to real models, per project profile.' },
   targets: { title: 'Deployment targets', blurb: 'Deployment targets and who they are offered to.' },
   services: { title: 'Service kinds', blurb: 'Organisational services described in YAML, which projects can attach.' },
-  secrets: { title: 'Secrets', blurb: 'Credentials the forge itself uses. Values are never shown.' },
+  secrets: { title: 'Secrets', blurb: `Credentials ${PRODUCT} itself uses. Values are never shown.` },
 }
 
 export default function Integrations() {
@@ -136,12 +137,12 @@ const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-dig
 // uncheckedWords is what an unchecked reading means for a kind: one the
 // forge cannot check at all, or one only Test connection asks.
 export const uncheckedWords = (testable: boolean) => testable
-  ? 'The forge does not check this kind of service on its own; Test connection asks it now.'
-  : 'The forge has no live check for this kind of service, so whether it works is unknown.'
+  ? `${PRODUCT} does not check this kind of service on its own; Test connection asks it now.`
+  : `${PRODUCT} has no live check for this kind of service, so whether it works is unknown.`
 
 function StatusChip({ state, stale, testable }: { state: HealthState; stale: boolean; testable: boolean }) {
   if (stale && state !== 'unchecked') {
-    return <span className="chip stale" title="The forge could not check again; this is the last answer it gave.">{HEALTH_WORDS[state]} at last check</span>
+    return <span className="chip stale" title={`${PRODUCT} could not check again; this is the last answer it gave.`}>{HEALTH_WORDS[state]} at last check</span>
   }
   return <span className={`chip ${HEALTH_CHIP[state]}`}
     title={state === 'unchecked' ? uncheckedWords(testable) : undefined}>{HEALTH_WORDS[state]}</span>
@@ -204,7 +205,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
       <div className="int-pagehead">
         <div>
           <h1>Integrations</h1>
-          <div className="int-sub">Outside services this forge connects to.</div>
+          <div className="int-sub">Outside services {PRODUCT} connects to.</div>
         </div>
         <button className="primary btn-big" onClick={onNew} disabled={offered.length === 0}
           title={offered.length === 0 ? 'The connector catalogue has not been read' : undefined}>Connect a service</button>
@@ -345,7 +346,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
           <h1>{b.name}</h1>
           <div className="int-sub">{kindOf(b, spec)} · {usedFor(b, spec)}</div>
         </div>
-        {b.managed && <span className="chip" title="Configured by the forge; it re-syncs with each release.">managed by the forge</span>}
+        {b.managed && <span className="chip" title={`Configured by ${PRODUCT}; it re-syncs with each release.`}>managed by {PRODUCT}</span>}
       </div>
 
       <div className={`card tone-${tone} int-state`}>
@@ -358,7 +359,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         <div className="muted int-checked">
           {state === 'unchecked' || !at
             ? (b.testable ? 'Its answer is shown here; nothing is saved.' : 'This kind has no test either.')
-            : `Checked by the forge ${ago(at, reading.now)} (${clock(at)}).`}
+            : `Checked by ${PRODUCT} ${ago(at, reading.now)} (${clock(at)}).`}
         </div>
         <StaleNote q={reading.q} />
         {test?.h && testState && (
@@ -401,7 +402,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
       {creds.length > 0 && (
         <section>
           <h2>Credentials</h2>
-          <p className="muted int-section-note">Read from the secret store by name. The values never leave the forge.</p>
+          <p className="muted int-section-note">Read from the secret store by name. The values never leave {PRODUCT}.</p>
           <table className="kv">
             <tbody>
               {creds.map((k) => (
@@ -442,7 +443,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
           </tbody>
         </table>
         <p className="muted int-section-note">Each run records the version and configuration hash it used.
-          {b.managed ? ' The forge configures this one itself and re-syncs it with each release; clone it to change it.' : ''}</p>
+          {b.managed ? ` ${PRODUCT} configures this one itself and re-syncs it with each release; clone it to change it.` : ''}</p>
       </section>
     </div>
   )
@@ -458,7 +459,7 @@ function UsedBy({ use }: { use: IntegrationUse }) {
       <h2>Used by</h2>
       {none ? (
         <p className="muted int-section-note">No project attaches it and no deployment runs on a target it reaches.
-          A service the whole forge uses, such as source control, is not attached by projects.</p>
+          A service the whole of {PRODUCT} uses, such as source control, is not attached by projects.</p>
       ) : <>
         {use.projects.length > 0 && <>
           <div className="int-section-note">Projects that attach it</div>

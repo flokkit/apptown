@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GuidanceBlock, post } from '../api'
@@ -22,7 +23,7 @@ function GeneratedGuidance() {
       <StaleNote q={q} />
       <div className="conn-section-head">
         <h2>Generated</h2>
-        <span className="muted small">written by the forge from instance state; the exact text each step used is saved on the run</span>
+        <span className="muted small">written by {PRODUCT} from instance state; the exact text each step used is saved on the run</span>
       </div>
       <div className="muted small" style={{ marginBottom: 8 }}>
         <span title={sizeTitle(always)}>{fmtSize(always)}</span> of this goes into every agent step on top of the project's blocks
@@ -86,7 +87,7 @@ export default function GuidanceLibrary() {
   return (
     <div>
       <p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
-        Nothing here affects a run until a project takes it in. To change a forge block, write your own and
+        Nothing here affects a run until a project takes it in. To change a block that ships with {PRODUCT}, write your own and
         swap it in through a pack.
       </p>
       <div className="row" style={{ marginBottom: 16 }}>
@@ -96,7 +97,7 @@ export default function GuidanceLibrary() {
         <div className="row" style={{ gap: 4 }}>
           {(['all', 'stock', 'mine'] as const).map((s) => (
             <button key={s} className={src === s ? 'primary' : 'subtle'} onClick={() => setSrc(s)}>
-              {s === 'all' ? 'All' : s === 'stock' ? 'Forge' : 'Yours'}
+              {s === 'all' ? 'All' : s === 'stock' ? PRODUCT : 'Yours'}
             </button>
           ))}
         </div>

@@ -1,3 +1,4 @@
+import { PRODUCT } from './brand'
 // One chip, one tooltip, everywhere something can be forge-shipped or
 // yours (design/subsystems/ui-coherence.md — five copies became this).
 export function OriginChip({ origin, modified }: { origin?: string; modified?: boolean }) {
@@ -5,9 +6,9 @@ export function OriginChip({ origin, modified }: { origin?: string; modified?: b
   if (stock) {
     return (
       <span className="chip" title={modified
-        ? 'Came with the forge; edited here. The edit stays until you take the next update.'
-        : 'Came with the forge; read-only here. Updates arrive with each release.'}>
-        forge{modified ? '*' : ''}
+        ? `Came with ${PRODUCT}; edited here. The edit stays until you take the next update.`
+        : `Came with ${PRODUCT}; read-only here. Updates arrive with each release.`}>
+        {PRODUCT}{modified ? '*' : ''}
       </span>
     )
   }

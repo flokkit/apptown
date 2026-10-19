@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useEffect, useMemo, useState } from 'react'
 import { QuietConfirm } from '../QuietConfirm'
 import { Link, useParams } from 'react-router-dom'
@@ -121,7 +122,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
               : <span className="row" style={{ gap: 'var(--space-2)' }}>
                   {s && s.findings > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix all findings</button>}
                   <button className="primary" disabled={busy} onClick={() => run()}>{busy ? 'Starting…' : 'Run a review now'}</button>
-                  {features.includes('dev-tools') && <QuietConfirm label="Start clean…" title="Remove every review, verdict, AI flag, exception, fix record and remediation job on this forge, recorded in the audit log. Scanner suppressions on each project's Security page are kept."
+                  {features.includes('dev-tools') && <QuietConfirm label="Start clean…" title={`Remove every review, verdict, AI flag, exception, fix record and remediation job in ${PRODUCT}, recorded in the audit log. Scanner suppressions on each project's Security page are kept.`}
                     ask="Delete all conformance history? Every review and everything derived from one goes; the next review starts from nothing. Recorded in the audit log."
                     disabled={busy} onYes={startClean} />}
                 </span>}
@@ -132,7 +133,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       {shownErr && <div className="error small mb-3">{shownErr}</div>}
       <StaleNote q={[viewQ, liveQ]} />
       {following !== '' && <ReadStatus q={liveQ} what="the running review" className="small" />}
-      {!featuresQ.data && featuresQ.err && <ReadStatus q={featuresQ} what="the forge's features" className="small" />}
+      {!featuresQ.data && featuresQ.err && <ReadStatus q={featuresQ} what={`${PRODUCT}'s features`} className="small" />}
 
       <div className="tabs">
         <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>

@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { del, post, put } from '../api'
@@ -22,7 +23,7 @@ export const operationWords: Record<Operation['state'], string> = {
   running: 'running',
   succeeded: 'done',
   failed: 'failed',
-  unknown: 'unknown: the forge stopped while it ran',
+  unknown: `unknown: ${PRODUCT} stopped while it ran`,
   cancelled: 'cancelled',
 }
 
@@ -80,9 +81,9 @@ export function itemLabel(it: ItemProtection, all: ItemProtection[]): string {
 export function copyLine(it: ItemProtection): string {
   const last = it.lastCopy ? `newest copy ${fmtWhen(it.lastCopy.takenAt)}, ${fmtBytes(it.lastCopy.bytes)}` : ''
   switch (it.copy) {
-    case 'fresh': return `forge copies: ${last}`
-    case 'stale': return `forge copies: ${[it.copyNote, last].filter(Boolean).join('; ')}`
-    case 'unknown': return `forge copies: ${[it.copyNote, last].filter(Boolean).join('; ')}`
+    case 'fresh': return `${PRODUCT} copies: ${last}`
+    case 'stale': return `${PRODUCT} copies: ${[it.copyNote, last].filter(Boolean).join('; ')}`
+    case 'unknown': return `${PRODUCT} copies: ${[it.copyNote, last].filter(Boolean).join('; ')}`
     case 'disposable': return 'disposable: starts empty'
     default: return `no copy${it.copyNote ? ` — ${it.copyNote}` : ''}`
   }
@@ -168,7 +169,7 @@ export function copyHead(c: RestoredCopy, source: string): string {
 export function CoverageLines({ c, unknown }: { c: Coverage; unknown?: boolean }) {
   return (
     <div style={{ overflowWrap: 'anywhere' }}>
-      <div className="muted">covers: {c.assessed.length ? c.assessed.join(', ') : unknown ? 'nothing assessed' : 'no data the forge knows of'}</div>
+      <div className="muted">covers: {c.assessed.length ? c.assessed.join(', ') : unknown ? 'nothing assessed' : `no data ${PRODUCT} knows of`}</div>
       {c.notAssessed.map((n) => <div key={n}><span className="chip pending">not assessed</span> {n}</div>)}
     </div>
   )
@@ -276,8 +277,8 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   )
 }
 
-const restoreTestTitle = 'start its release from its newest copy on its own platform, behind the forge gate, check it through the gate, record the answer and take it down: about 10 to 20 minutes and a few cents on DigitalOcean'
-const openCopyTitle = 'start its release from its newest copy on its own platform, behind the forge gate, for 4 hours: people who may see this production data can open it from here and sign in to the app; it costs well under a dollar on DigitalOcean'
+const restoreTestTitle = `start its release from its newest copy on its own platform, behind ${PRODUCT}'s gate, check it through the gate, record the answer and take it down: about 10 to 20 minutes and a few cents on DigitalOcean`
+const openCopyTitle = `start its release from its newest copy on its own platform, behind ${PRODUCT}'s gate, for 4 hours: people who may see this production data can open it from here and sign in to the app; it costs well under a dollar on DigitalOcean`
 
 // RestoredCopyLines is one standing restored copy on its source's card:
 // what it is and until when, what it can still do outside and who else
@@ -297,7 +298,7 @@ function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; so
       <div className="row" style={{ gap: 6, marginTop: 4 }}>
         {c.open && (
           <form method="post" action={`/api/v1/projects/${slug}/restored-copies/${c.id}/open`} target="_blank" style={{ display: 'inline' }}>
-            <button className="subtle" type="submit" title="open it in a new tab through the forge gate; the app's own sign-in follows">Open</button>
+            <button className="subtle" type="submit" title={`open it in a new tab through ${PRODUCT}'s gate; the app's own sign-in follows`}>Open</button>
           </form>
         )}
         {!c.test && c.checkedAt && <button className="subtle" disabled={busy} onClick={() => run(() => post(`/projects/${slug}/restored-copies/${c.id}/extend`, { minutes: 120 }))} title="keep it open for 2 hours from now">Extend 2 hours</button>}

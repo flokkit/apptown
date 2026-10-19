@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LibraryWorkflow, del, post, put } from '../api'
@@ -78,7 +79,7 @@ spec:
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="row" style={{ marginBottom: 6 }}>
             <strong>Custom workflow</strong>
-            <span className="muted small">saved by its metadata.name; a forge-shipped name is read-only</span>
+            <span className="muted small">saved by its metadata.name; a name that ships with {PRODUCT} is read-only</span>
           </div>
           <textarea rows={16} value={editor.yaml} onChange={(e) => setEditor({ yaml: e.target.value })}
             style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
@@ -101,7 +102,7 @@ spec:
       <div className="muted small" style={{ marginBottom: 10 }}>
         {tier === 'core' && 'The short list: the ways of working every project is likely to need.'}
         {tier === 'extra' && 'Workflows for particular situations.'}
-        {tier === 'system' && 'The forge runs these itself (landing, shipping, wiring integrations in and out). An admin can replace one with a custom workflow.'}
+        {tier === 'system' && `${PRODUCT} runs these itself (landing, shipping, wiring integrations in and out). An admin can replace one with a custom workflow.`}
       </div>
       {libs.filter((l) => (l.tier ?? 'extra') === tier).sort((a, b) => a.name.localeCompare(b.name)).map((l) => (
         <div className="card" key={l.name}>
@@ -121,7 +122,7 @@ spec:
             const b = bindings.bindings.find((x) => x.stock === l.name)!
             return (
               <div className="row small" style={{ margin: '4px 0 8px' }}>
-                <span className="muted">the forge runs:</span>
+                <span className="muted">{PRODUCT} runs:</span>
                 <select value={b.custom ? b.name : ''} disabled={busy} onChange={(e) => void bind(l.name, e.target.value)}>
                   <option value="">{l.name} (stock)</option>
                   {bindings.candidates.map((c) => <option key={c} value={c}>{c} (yours)</option>)}

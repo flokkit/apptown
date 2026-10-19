@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { fmtCost, fmtDuration, fmtTokens } from '../format'
 import { useGet } from '../data'
@@ -282,7 +283,7 @@ export default function UsagePage() {
     <div>
       <h1>Usage</h1>
       <div className="muted small" style={{ marginBottom: 14 }}>
-        Token accounting for the projects you can read (the whole forge, if you read it
+        Token accounting for the projects you can read (the whole of {PRODUCT}, if you read it
         all) — workflow (batch) and interactive (chat) use, by model and project. Costs are
         pi's own per-message pricing; local backends are $0.
       </div>

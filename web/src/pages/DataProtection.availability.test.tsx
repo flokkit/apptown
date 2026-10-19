@@ -184,7 +184,7 @@ describe('what a deployment card covers', () => {
   it('says what is not assessed when it holds no data the forge knows of', async () => {
     const el = await read({ deployment: 'main', dataClass: 'production', offHost: false, target: 'home', recent: [], running: null, restoredCopies: [], items: [],
       coverage: { assessed: [], notAssessed: [outside] } })
-    expect(el.textContent).toContain('covers: no data the forge knows of')
+    expect(el.textContent).toContain('covers: no data AppTown knows of')
     expect(el.textContent).toContain(`not assessed ${outside}`)
   })
 })

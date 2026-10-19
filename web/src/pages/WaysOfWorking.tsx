@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { NavLink } from 'react-router-dom'
 import Packs from './Packs'
 import WorkflowLibrary from './WorkflowLibrary'
@@ -25,10 +26,10 @@ export default function WaysOfWorking({ tab }: { tab: WowTab }) {
       <h1 style={{ marginBottom: 4 }}>Ways of working</h1>
       <p className="muted small" style={{ maxWidth: 680, marginTop: 0 }}>
         How projects get built: <strong>workflows</strong> are the steps (Core for everyone, Extras for
-        particular situations, System for the forge's own jobs), <strong>guidance</strong> is
+        particular situations, System for {PRODUCT}'s own jobs), <strong>guidance</strong> is
         what the agents are told, <strong>policies</strong> are the rules every workflow must keep,
         and a <strong>pack</strong> bundles all three so a new project starts with a way of working.
-        Ones marked <span className="chip">forge</span> ship with the forge. A forge release adds new
+        Ones marked <span className="chip">{PRODUCT}</span> ship with {PRODUCT}. A new {PRODUCT} release adds new
         versions; a project moves to them when it adopts the update under Settings › Way of working.
         To change one, make a pack of your own that includes it.
       </p>

@@ -18,7 +18,7 @@ describe('a past chat says who opened it, when, and where it came from', () => {
     expect(chatByline(chat({}))).toBe('opened 2026-10-01 09:30 by bls')
   })
   it('says a chat moved from another forge is history only', () => {
-    expect(chatByline(chat({ imported: true, actor: 'alice on forge.example.com' }))).toContain('alice on forge.example.com · moved from another forge, history only')
+    expect(chatByline(chat({ imported: true, actor: 'alice on forge.example.com' }))).toContain('alice on forge.example.com · moved from another AppTown, history only')
   })
   it('lists a chat by its first words', () => {
     expect(chatOpening(chat({}))).toBe('Make the duck faster')
@@ -51,14 +51,14 @@ describe('a chat record that cannot be read is said, never hidden', () => {
     const client = newQueryClient()
     client.setQueryData(getKey(`/changes/${CHANGE}/transcript`), { sessions: [], unreadable: 1 })
     const html = renderToStaticMarkup(<QueryClientProvider client={client}><ConversationLog changeId={CHANGE} /></QueryClientProvider>)
-    expect(html).toContain('1 chat record on this forge could not be read; some chats may be missing here.')
+    expect(html).toContain('1 chat record in AppTown could not be read; some chats may be missing here.')
     expect(html).not.toContain('No chat on this change')
   })
   it('names the folders to an administrator', () => {
     const client = newQueryClient()
     client.setQueryData(getKey(`/changes/${CHANGE}/transcript`), { sessions: [], unreadable: 2, unreadableFolders: ['abc', 'def'] })
     const html = renderToStaticMarkup(<QueryClientProvider client={client}><ConversationLog changeId={CHANGE} /></QueryClientProvider>)
-    expect(html).toContain('2 chat records on this forge could not be read')
+    expect(html).toContain('2 chat records in AppTown could not be read')
     expect(html).toContain('Folders: abc, def.')
   })
 })

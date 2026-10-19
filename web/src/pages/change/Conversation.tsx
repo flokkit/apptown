@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { renderMd } from '../../md'
 import { useGet } from '../../data'
@@ -32,7 +33,7 @@ export function ConversationLog({ changeId }: { changeId: string }) {
 // Who opened a chat and when; a chat moved from another forge says so.
 export function chatByline(se: ChatHistoryEntry): string {
   return `opened ${se.createdAt.slice(0, 16).replace('T', ' ')} by ${se.actor}` +
-    (se.imported ? ' · moved from another forge, history only' : '')
+    (se.imported ? ` · moved from another ${PRODUCT}, history only` : '')
 }
 
 // A chat's opening words, for a list of chats.
@@ -112,7 +113,7 @@ export function UnreadableNote({ view }: { view: ChatHistoryView }) {
   const n = view.unreadable
   return (
     <div className="small" style={{ margin: '6px 0', color: 'var(--warn, var(--muted))' }}>
-      {n} chat record{n === 1 ? '' : 's'} on this forge could not be read; some chats may be missing here.
+      {n} chat record{n === 1 ? '' : 's'} in {PRODUCT} could not be read; some chats may be missing here.
       {(view.unreadableFolders?.length ?? 0) > 0 && <> Folders: {view.unreadableFolders!.join(', ')}.</>}
     </div>
   )

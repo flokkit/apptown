@@ -73,7 +73,7 @@ describe('the docs page', () => {
   // An empty list says there is nothing, rather than a blank page.
   it('says when there is no documentation', async () => {
     const { el, root } = await render(() => json({ groups: [], integrations: [] }))
-    await vi.waitFor(() => expect(el.textContent).toContain('This forge ships no documentation.'))
+    await vi.waitFor(() => expect(el.textContent).toContain('AppTown ships no documentation.'))
     expect(where).toBe('/docs')
     act(() => root.unmount())
   })

@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { del, post } from '../../api'
@@ -29,7 +30,7 @@ export function TargetsPanel() {
     <div>
       <StaleNote q={q} />
       <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-        A target is a place software can run: this forge's own Docker host, the intranet, a region of a
+        A target is a place software can run: {PRODUCT}'s own Docker host, the intranet, a region of a
         cloud. Connecting a cloud account brings its targets here. A target is usable by a project only
         once it is <b>offered</b> to that project's group — or to everyone — and the offer can cap what
         goes there.

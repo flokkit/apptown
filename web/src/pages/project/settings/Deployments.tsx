@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../../brand'
 import { AppAddress, RuntimeStatus } from '../../../runtime'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -52,8 +53,8 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         <div style={{ marginTop: 22 }}>
           <h3 style={{ marginBottom: 4 }}>Left behind</h3>
           <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-            What a taken-down deployment left at its target: data the forge took no final copy of (Portainer
-            volumes; an App Platform database when no backup store is attached), and anything the forge failed
+            What a taken-down deployment left at its target: data {PRODUCT} took no final copy of (Portainer
+            volumes; an App Platform database when no backup store is attached), and anything {PRODUCT} failed
             to delete, with why. Delete it at the provider, then say so here. Until then, data left here keeps a new
             deployment from taking the old one's name on that target.
           </p>
@@ -142,7 +143,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
       {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host') && <ProtectionLines slug={slug} name={e.name} />}
       {e.readiness === 'uncertain' && (
         <div className="small">
-          The forge does not know whether this deployment stands: its last attempt was cut off, or its
+          {PRODUCT} does not know whether this deployment stands: its last attempt was cut off, or its
           records disagree. Check again asks its host and settles what it finds; it deploys nothing.
         </div>
       )}
@@ -321,9 +322,9 @@ export function tearDownWords(kind?: string) {
     case 's3-bucket':
       return 'The bucket and every file in it are deleted, and the site stops answering. A static site holds no data, so there is nothing to back up.'
     case 'portainer':
-      return 'Its data is backed up first, through Portainer; then the stack the forge made and the volumes its deploys made are deleted. A volume that was there before its first deploy is copied and kept. When the forge cannot reach the environment for its data, the take-down is refused unless you choose to go without a final copy, and the volumes stay.'
+      return `Its data is backed up first, through Portainer; then the stack ${PRODUCT} made and the volumes its deploys made are deleted. A volume that was there before its first deploy is copied and kept. When ${PRODUCT} cannot reach the environment for its data, the take-down is refused unless you choose to go without a final copy, and the volumes stay.`
     default:
-      return 'Its data is backed up first; then everything the forge made for it is deleted. Stop anything outside this deployment that writes to its data before you go on.'
+      return `Its data is backed up first; then everything ${PRODUCT} made for it is deleted. Stop anything outside this deployment that writes to its data before you go on.`
   }
 }
 
@@ -422,7 +423,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
           {r.parts.map((p) => (
             <tr key={p.part || 'app'}>
               <td>{p.part || 'app'}{p.public && p.part ? <span className="muted"> (front door)</span> : null}{p.need ? <span className="muted"> (service)</span> : null}{p.suppliedService ? <span className="muted"> (workflow service)</span> : null}</td>
-              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'pack' ? `pack ${p.memoryDefault.name} v${p.memoryDefault.version}` : p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : p.memoryDefault.kind === 'forge' ? 'forge' : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="chip pending">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
+              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'pack' ? `pack ${p.memoryDefault.name} v${p.memoryDefault.version}` : p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : p.memoryDefault.kind === 'forge' ? PRODUCT : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="chip pending">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
               <td>{p.cpu}</td>
               <td>{p.observed.known ? fmtBytes(p.observed.usedBytes) : <span className="muted" title={p.observed.reason}>unknown</span>}</td>
               <td>

@@ -115,7 +115,7 @@ describe('the registry line', () => {
   it('says when the gate image takes one of the repositories', () => {
     const text = show({ registry: 'flokkit', tier: 'basic', included: 5, used: 2, full: false, gate: true, readAt })
     expect(text).toContain('2 of 5 repositories')
-    expect(text).toContain("one holds the forge's gate image")
+    expect(text).toContain("one holds AppTown's gate image")
     expect(show({ registry: 'flokkit', tier: 'basic', included: 5, used: 2, full: false, readAt })).not.toContain('gate image')
   })
   it('says an unreadable registry is unknown, with why', () => {

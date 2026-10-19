@@ -1,3 +1,4 @@
+import { PRODUCT } from './brand'
 import type { CSSProperties, ReactNode } from 'react'
 import { relTime } from './format'
 
@@ -49,7 +50,7 @@ export function AppAddress({ url, hostOnly, className, style, title, children }:
 }) {
   if (hostOnly) {
     return (
-      <span className={className} style={style} title={`${url} answers on the forge host only`}>
+      <span className={className} style={style} title={`${url} answers on ${PRODUCT}'s host only`}>
         {children}{children ? ' ' : null}<span className="muted small">{hostOnlyWords(url)}</span>
       </span>
     )
@@ -61,5 +62,5 @@ export function AppAddress({ url, hostOnly, className, style, title, children }:
 export function hostOnlyWords(url: string): string {
   let port = ''
   try { port = new URL(url).port } catch { /* not a URL: say where, without the port */ }
-  return port ? `on the forge host only, at localhost:${port}` : 'on the forge host only'
+  return port ? `on ${PRODUCT}'s host only, at localhost:${port}` : `on ${PRODUCT}'s host only`
 }

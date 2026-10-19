@@ -24,7 +24,7 @@ describe('the invite link page', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => { root.render(<InvitePage token="forge_invite_abc" />) })
-    await vi.waitFor(() => expect(el.textContent).toContain('bls invited you to this forge as kim'))
+    await vi.waitFor(() => expect(el.textContent).toContain('bls invited you to AppTown as kim'))
     const [pw, again] = [...el.querySelectorAll('input[type=password]')] as HTMLInputElement[]
     const type = async (input: HTMLInputElement, value: string) => act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)

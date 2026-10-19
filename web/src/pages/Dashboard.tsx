@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { AppAddress, RuntimeObservation, RuntimeStatus } from '../runtime'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -41,7 +42,7 @@ function SetupCard() {
     <>
       {setup.openNonLoopback && (
         <div className="card tone-warn" style={{ marginBottom: 10 }}>
-          ⚠ This forge is listening on a non-loopback address with open auth — anyone who can
+          ⚠ {PRODUCT} is listening on a non-loopback address with open auth — anyone who can
           reach the port has full control. Bind to 127.0.0.1, or put an authenticating proxy
           in front and use trusted-header auth.
         </div>
@@ -50,7 +51,7 @@ function SetupCard() {
         <div className="card tone-accent" style={{ padding: 18, marginBottom: 12 }}>
           <strong style={{ fontSize: 'var(--fs-md)' }}>Add a model API key to start building</strong>
           <div className="muted small" style={{ margin: '4px 0 10px' }}>
-            It is kept in this forge's secrets file, is not shown again, and is sent only to steps
+            It is kept in {PRODUCT}'s secrets file, is not shown again, and is sent only to steps
             that use that provider.
           </div>
           <div className="row">

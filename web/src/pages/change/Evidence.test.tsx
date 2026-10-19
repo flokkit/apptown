@@ -112,7 +112,7 @@ describe('the disagreement', () => {
   const [v] = disputeOf(detail([{ name: 'review', type: 'agent/review', status: 'fail', evidence: {
    verdict: 'fail', reviewerVerdict: 'pass', reviewerSummary: 'all claims verified',
    summary: "the forge's file check failed: 2 changed files the report doesn't mention", findings: ['unclaimed change: Gemfile, bin/rails'] } }]))
-  expect(v.who).toBe("the forge's file check")
+  expect(v.who).toBe("AppTown's file check")
   expect(v.text).toBe("the forge's file check failed: 2 changed files the report doesn't mention")
   expect(v.reviewerPassed).toBe('all claims verified')
   expect(disputeOf(detail([{ name: 'review', type: 'agent/review', status: 'fail', evidence: { summary: 'scope creep' } }]))[0].who).toBe('reviewer')

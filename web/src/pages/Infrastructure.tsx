@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { get, post } from '../api'
@@ -45,9 +46,9 @@ export function InfrastructureView() {
     <div>
       <StaleNote q={q} />
       <p className="muted small" style={{ maxWidth: 760, marginTop: 0 }}>
-        Every deployment target and its inventory. Each resource is <b>recorded</b> (made by the forge for a deployment),
+        Every deployment target and its inventory. Each resource is <b>recorded</b> (made by {PRODUCT} for a deployment),
         <b> retained</b> (left behind when its deployment was torn down), <b>unrecorded</b> (present at the target, absent from the
-        forge's records) or <b>missing</b> (recorded, gone from the target).
+        {PRODUCT}'s records) or <b>missing</b> (recorded, gone from the target).
       </p>
       <div style={{ marginBottom: 16 }}>
         <div className="row" style={{ gap: 10 }}>
@@ -129,7 +130,7 @@ function TargetSection({ t: tIn, onRefresh, refreshing, onChanged }: { t: Target
         {t.facts && <span>{t.facts}</span>}
         {check && <span className={check.ok ? '' : 'error'}> · {check.ok ? '✓' : '✗'} {check.detail}</span>}
       </div>
-      {t.error && !t.live && <div className="error small" style={{ marginBottom: 8 }}>{t.error}{t.asOf ? ' — showing the last inventory read.' : ' — showing the forge\'s records only.'}</div>}
+      {t.error && !t.live && <div className="error small" style={{ marginBottom: 8 }}>{t.error}{t.asOf ? ' — showing the last inventory read.' : ` — showing ${PRODUCT}'s records only.`}</div>}
       <ResourceTables t={t} onChanged={onChanged} />
       {t.shared && <div className="muted small" style={{ marginTop: 6 }}>{t.shared}</div>}
     </section>
@@ -187,8 +188,8 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
       
         {removable && (
           <div style={{ marginTop: 4 }}>
-            <QuietConfirm label="remove" ask={`Remove ${r.kind} ${r.name} from ${target}? The forge has no record of it${r.kind === 'volume' ? ', and a volume\'s data goes with it' : ''}.`}
-              onYes={remove} yes="Remove" className="subtle danger" title="Remove it; the forge has no record of it" disabled={busy} />
+            <QuietConfirm label="remove" ask={`Remove ${r.kind} ${r.name} from ${target}? ${PRODUCT} has no record of it${r.kind === 'volume' ? ', and a volume\'s data goes with it' : ''}.`}
+              onYes={remove} yes="Remove" className="subtle danger" title={`Remove it; ${PRODUCT} has no record of it`} disabled={busy} />
             {err && <div className="error small">{err}</div>}
           </div>
         )}</td>
@@ -215,9 +216,9 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
         {!r.retained && (r.hosts ?? []).length === 0 && <span className="muted">none recorded</span>}
       </td>
       <td>
-        {r.record === 'recorded' && <span className="chip pass" title="the forge made this and the provider confirms it">recorded</span>}
-        {r.record === 'unrecorded' && <span className="chip pending" title="at the provider, not in the forge's records — made outside the forge, or by a forge that lost its record">unrecorded</span>}
-        {r.record === 'missing' && <span className="chip fail" title="in the forge's records; the provider has no trace of it">missing</span>}
+        {r.record === 'recorded' && <span className="chip pass" title={`${PRODUCT} made this and the provider confirms it`}>recorded</span>}
+        {r.record === 'unrecorded' && <span className="chip pending" title={`at the provider, not in ${PRODUCT}'s records — made outside ${PRODUCT}, or before ${PRODUCT} lost its record`}>unrecorded</span>}
+        {r.record === 'missing' && <span className="chip fail" title={`in ${PRODUCT}'s records; the provider has no trace of it`}>missing</span>}
         {r.tags && r.tags.length > 0 && <div className="muted small" title="the provider's tags">{r.tags.join(', ')}</div>}
       </td>
     </tr>

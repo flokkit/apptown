@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { type Dispatch, type ReactNode } from 'react'
 import { useGet } from '../../data'
 import { useHolds } from '../../instancePages'
@@ -40,15 +41,15 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
       <div className="mb-2"><strong>Where does the code live?</strong></div>
       {!gitlab ? (
         <div className="muted small mb-3">
-          {namespacesQ.loading ? 'Checking whether this forge can make a GitLab copy…'
-            : <>The code lives in a git repository on this forge.{' '}
+          {namespacesQ.loading ? `Checking whether ${PRODUCT} can make a GitLab copy…`
+            : <>The code lives in a git repository in {PRODUCT}.{' '}
               {namespacesQ.err
                 ? <span className="error">Whether a GitLab copy can be made could not be checked ({namespacesQ.reason}); you can add one later in the project's settings.</span>
                 : <>No GitLab connection is set up here, so there is no copy to make; one can be added later.</>}</>}
         </div>
       ) : <>
       <div className="muted small mb-3">
-        Every project gets a git repository on this forge. Also create a copy on GitLab?
+        Every project gets a git repository in {PRODUCT}. Also create a copy on GitLab?
       </div>
       <label className="row" style={{ gap: 'var(--space-2)', cursor: 'pointer', padding: '4px 0' }}>
         <input type="radio" name="remote" checked={remote} onChange={() => setRepo({ remoteChoice: true })} />
@@ -74,7 +75,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
       )}
       <label className="row" style={{ gap: 'var(--space-2)', cursor: 'pointer', padding: '4px 0' }}>
         <input type="radio" name="remote" checked={!remote} onChange={() => setRepo({ remoteChoice: false })} />
-        <span>No — keep it only on this forge <span className="muted small">(you can add GitLab later)</span></span>
+        <span>No — keep it only in {PRODUCT} <span className="muted small">(you can add GitLab later)</span></span>
       </label>
       </>}
 
@@ -104,7 +105,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
                 <input type="file" accept=".bundle,application/x-git-bundle" aria-label="Git bundle file"
                   onChange={(e) => setRepo({ bundleFile: e.target.files?.[0] ?? null })} style={{ maxWidth: '100%' }} />
                 <div className="muted small mt-1">
-                  From another forge: its project's Repository › Download code. Or make one with <code>git bundle create code.bundle main --tags</code>.
+                  From another {PRODUCT}: its project's Repository › Download code. Or make one with <code>git bundle create code.bundle main --tags</code>.
                 </div>
               </div>
             )}
@@ -119,10 +120,10 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
                       <option value="">none (a public repository)</option>
                       {(secretNamesQ.data?.names ?? []).map((n) => <option key={n} value={n}>{n}</option>)}
                     </select>
-                    {secretNamesQ.err && <span className="error">the forge's secrets could not be read: {secretNamesQ.reason}</span>}
+                    {secretNamesQ.err && <span className="error">{PRODUCT}'s secrets could not be read: {secretNamesQ.reason}</span>}
                   </label>
                 )}
-                <div className="muted small">Fetched by this forge from a public address, over https only.</div>
+                <div className="muted small">Fetched by {PRODUCT} from a public address, over https only.</div>
               </div>
             )}
             <label className="row small" style={{ gap: 'var(--space-2)' }}>

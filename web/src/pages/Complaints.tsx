@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { del, post } from '../api'
@@ -73,7 +74,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
         )}
       </div>
       <p className="muted" style={{ maxWidth: 720, marginTop: 4 }}>
-        Agents file these when the forge gets in their way. Filing one does not start any work.
+        Agents file these when {PRODUCT} gets in their way. Filing one does not start any work.
       </p>
       {actErr && <div className="error">{actErr}</div>}
       {showSteering && (

@@ -1,3 +1,4 @@
+import { PRODUCT } from './brand'
 // The one-line warning for a forge opened on this computer's own address:
 // the desktop trial (and a source-built one) runs everything on this
 // machine's Docker. It is read from the browser's own address, so a forge
@@ -14,9 +15,9 @@ export function LocalTrialNote({ hostname = window.location.hostname }: { hostna
   if (!onThisComputer(hostname)) return null
   return (
     <div className="small muted">
-      For trying AppTown on your own computer: it has full control of your Docker, and the
+      For trying {PRODUCT} on your own computer: it has full control of your Docker, and the
       agents and apps it runs are containers on this machine. For a server or anything other
-      people use, follow <a href={RUNNING_GUIDE}>Running AppTown</a>.
+      people use, follow <a href={RUNNING_GUIDE}>Running {PRODUCT}</a>.
     </div>
   )
 }

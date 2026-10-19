@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { ChangeState, ChangeView, Doing, post } from '../../api'
@@ -90,7 +91,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId }: { chan
           <TryIt changeId={changeId} className="primary btn-big" />
           <Link className="go-change" to={`/changes/${changeId}`}><button className="btn-big">Go to change</button></Link>
           <button className="finish btn-big" disabled={robotBusy}
-            title={robotBusy ? 'the helper is still working — check and land when it hands back' : 'your helper runs the forge\u2019s checks and starts the landing; nothing goes live until it is approved'}
+            title={robotBusy ? 'the helper is still working — check and land when it hands back' : `your helper runs ${PRODUCT}'s checks and starts the landing; nothing goes live until it is approved`}
             onClick={() => setConfirming(true)}>✓ Check and land</button>
         </>
       ) : (

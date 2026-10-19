@@ -13,11 +13,11 @@ const EVENT = '00000000-0001-7000-8000-000000000000'
 describe('eventSentence', () => {
   it('says the forge merged main into the change', () => {
     expect(eventSentence({ kind: 'main.merged', payload: { by: 'forge', step: 'rework', mainBranch: 'main', main: 'abcdef0123456789', sha: '0123456789abcdef' } }))
-      .toBe('The forge merged main (abcdef01) into this change before step rework, as commit 01234567.')
+      .toBe('AppTown merged main (abcdef01) into this change before step rework, as commit 01234567.')
   })
   it('names the files when main could not be merged', () => {
     expect(eventSentence({ kind: 'main.conflict', payload: { step: 'rework', mainBranch: 'main', main: 'abcdef0123456789', conflicts: ['README.md', 'app.go'] } }))
-      .toBe("The forge could not merge main (abcdef01) into this change before step rework: README.md, app.go conflict. Catch up in the change's chat.")
+      .toBe("AppTown could not merge main (abcdef01) into this change before step rework: README.md, app.go conflict. Catch up in the change's chat.")
   })
   it('leaves other events as recorded', () => {
     expect(eventSentence({ kind: 'commit.created', payload: { sha: 'x' } })).toBeNull()
@@ -33,7 +33,7 @@ describe('the change history', () => {
     const el = document.createElement('div')
     el.innerHTML = renderToStaticMarkup(<MemoryRouter><HistoryTab view={view} runHref={(id) => `/runs/${id}`} /></MemoryRouter>)
     const cells = [...el.querySelectorAll('tbody td')].map((td) => td.textContent)
-    expect(cells).toContain('The forge merged main (abcdef01) into this change before step rework, as commit 01234567.')
+    expect(cells).toContain('AppTown merged main (abcdef01) into this change before step rework, as commit 01234567.')
     expect(el.querySelector('tbody code')).toBeNull()
   })
 })

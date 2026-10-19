@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../../brand'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { get } from '../../../api'
@@ -104,8 +105,8 @@ export function DiagnosticsLines({ slug, name }: { slug: string; name: string })
       {d.hold && (
         <div>
           {d.hold.confirmed
-            ? <>Forge stopped it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}; the next deploy replaces it.</>
-            : <>Forge tried to stop it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}, but the stop was not confirmed{d.hold.detail ? `: ${d.hold.detail}` : ''}.</>}
+            ? <>{PRODUCT} stopped it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}; the next deploy replaces it.</>
+            : <>{PRODUCT} tried to stop it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}, but the stop was not confirmed{d.hold.detail ? `: ${d.hold.detail}` : ''}.</>}
           {' '}<span className="muted">receipt {d.hold.receipt}</span>
           {d.releaseNumber ? <> · <Link to={`/projects/${slug}/releases/${d.releaseNumber}`}>release #{d.releaseNumber}</Link></> : null}
         </div>

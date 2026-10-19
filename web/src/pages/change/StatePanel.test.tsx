@@ -40,7 +40,7 @@ describe('main that conflicts with the change', () => {
       catchUp: 'git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-4" FETCH_HEAD' }} />)
     const el = document.createElement('div')
     el.innerHTML = html
-    expect(el.textContent).toBe('main has moved and the forge could not merge it in before step rework: README.md conflicts. Catch up in the change\'s chat: git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-4" FETCH_HEAD')
+    expect(el.textContent).toBe('main has moved and AppTown could not merge it in before step rework: README.md conflicts. Catch up in the change\'s chat: git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-4" FETCH_HEAD')
   })
 })
 
@@ -51,7 +51,7 @@ describe('the state panel', () => {
     const html = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
       <StatePanel view={v} onChange={() => {}} workTab={() => '/work'} />
     </QueryClientProvider></MemoryRouter>)
-    expect(html(view)).toContain('the forge could not merge it in before step rework')
+    expect(html(view)).toContain('AppTown could not merge it in before step rework')
     expect(html({ ...view, mainConflict: null })).not.toContain('could not merge')
   })
 })

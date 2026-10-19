@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import type { ApprovalConfig, ChangeView, RunEvent, Step } from '../../api'
 import type { NextAct } from '../../wire.gen'
 import { changeStateLabel, chipFor, closedNothingToChange } from '../../states'
@@ -150,7 +151,7 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
   const ch = view.change
   const d = view.detail
   if (ch.state === 'abandoned' && closedNothingToChange(ch.closedAs)) {
-    return { tone: 'neutral', stamp: 'closed', headline: 'Closed: nothing to change', sentence: view.stateDetail || 'The forge found nothing to change.', primary: 'none' }
+    return { tone: 'neutral', stamp: 'closed', headline: 'Closed: nothing to change', sentence: view.stateDetail || `${PRODUCT} found nothing to change.`, primary: 'none' }
   }
   if (ch.state === 'abandoned') {
     return { tone: 'neutral', stamp: 'abandoned', headline: 'Abandoned', sentence: view.stateDetail || 'No reason was recorded.', primary: 'none' }
@@ -185,7 +186,7 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
     if (run.status === 'done' && d.landingQueued) {
       return {
         tone: 'neutral', stamp: 'queued', headline: 'Queued to land',
-        sentence: 'The work was accepted; its landing starts on its own.', waitingOn: 'the forge', primary: 'none',
+        sentence: 'The work was accepted; its landing starts on its own.', waitingOn: PRODUCT, primary: 'none',
       }
     }
     if (run.status === 'done' && offered(view.next, 'land')) {
@@ -210,7 +211,7 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
   if (!KNOWN.includes(state)) {
     return {
       tone: 'unknown', stamp: 'not known', headline: 'What this run is doing is not known',
-      sentence: view.stateDetail || 'The forge did not say what the run is doing.', primary: 'none',
+      sentence: view.stateDetail || `${PRODUCT} did not say what the run is doing.`, primary: 'none',
     }
   }
   if (state === 'waiting on you') {
@@ -270,7 +271,7 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
     if (interrupted(failing)) {
       return {
         tone: 'warn', stamp: 'interrupted', step: failing,
-        headline: `“${failing.name}” was interrupted`, sentence: 'The forge restarted while it ran. Nothing was lost.',
+        headline: `“${failing.name}” was interrupted`, sentence: `${PRODUCT} restarted while it ran. Nothing was lost.`,
         primary: offered(d.next, 'retry', failing.id) ? 'pick-up' : 'take-to-chat',
       }
     }
@@ -313,7 +314,7 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
   if (!running) {
     return {
       tone: 'busy', stamp: 'working', headline: landing ? 'Starting the landing' : 'Working',
-      sentence: view.stateDetail, waitingOn: 'the forge', primary: 'none', sentBack,
+      sentence: view.stateDetail, waitingOn: PRODUCT, primary: 'none', sentBack,
     }
   }
   const agent = state === 'agent working'
@@ -323,6 +324,6 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
       : landing ? `Landing: ${running.name} is running`
       : agent ? `The agent is working: ${running.name}` : `Running: ${running.name}`,
     sentence: sentBack ? undefined : view.stateDetail && view.stateDetail !== running.name ? view.stateDetail : undefined,
-    waitingOn: agent ? 'the agent' : 'the forge', primary: 'none', sentBack,
+    waitingOn: agent ? 'the agent' : PRODUCT, primary: 'none', sentBack,
   }
 }

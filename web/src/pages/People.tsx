@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
 import { HttpError, del, post, put } from '../api'
 import { useAction, useGet } from '../data'
@@ -126,7 +127,7 @@ export function AdminNetworksCard({ canEdit }: { canEdit: boolean }) {
       <div className="muted small">
         An administrator account can sign in, connect a coding agent, or use an
         administrator token only from these networks. Members are not limited.
-        Empty means anywhere; the machine the Forge runs on always passes.
+        Empty means anywhere; the machine {PRODUCT} runs on always passes.
         You are connecting from <code>{you || '…'}</code>{nets.length > 0 && (inside ? ', which is inside' : ', which is outside the list')}.
       </div>
       {err && <div className="error small">{err}</div>}
@@ -237,7 +238,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
   }
   return (
     <div className="card" style={{ display: 'grid', gap: 10 }}>
-      <b>Roles on this forge</b>
+      <b>Roles in {PRODUCT}</b>
       <div className="muted small">
         A role is a named bundle of things a person may do. Nothing is
         implied: if it is not on this list or a project's Members tab, nobody
@@ -305,7 +306,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
       <b>Accounts</b>
       {canEdit && sso && (
         <div className="muted small">
-          Password reset links need Forge's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.
+          Password reset links need {PRODUCT}'s own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.
         </div>
       )}
       {reset.err && <div className="error small">{reset.err}</div>}
@@ -442,7 +443,7 @@ export function InvitePerson() {
     <div style={{ display: 'grid', gap: 8 }}>
       <b className="small">Invite a person</b>
       <div className="muted small">
-        Forge makes a link for one account. Send it to the person yourself;
+        {PRODUCT} makes a link for one account. Send it to the person yourself;
         they choose their own password and are signed in. It works once,
         for seven days.
       </div>
@@ -457,7 +458,7 @@ export function InvitePerson() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input placeholder="username (e.g. kim)" value={name} onChange={e => setName(e.target.value)} />
         <input placeholder="name or email (optional)" value={label} onChange={e => setLabel(e.target.value)}
-          title="a label for you; Forge sends no email" />
+          title={`a label for you; ${PRODUCT} sends no email`} />
         <select value={role} onChange={e => setRole(e.target.value)}>
           <option value="member">member</option>
           <option value="admin">admin</option>

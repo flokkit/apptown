@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { del, post } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
@@ -51,7 +52,7 @@ export function ServiceKindsPanel() {
   return (
     <div style={{ maxWidth: 720 }}>
       <div className="muted small" style={{ marginBottom: 12 }}>
-        A service kind teaches forge a new organisational service in YAML: the fields an admin
+        A service kind teaches {PRODUCT} a new organisational service in YAML: the fields an admin
         connector carries, the fields a project enters, the env injected into app containers,
         and the steering agents read. Projects attach them on their Settings › Services tab.
       </div>

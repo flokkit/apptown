@@ -1,3 +1,4 @@
+import { PRODUCT } from './brand'
 import type { DocLinks } from './wire.gen'
 
 // Live links: a shipped guide writes {forge:mcp} where this forge's own
@@ -14,7 +15,7 @@ import type { DocLinks } from './wire.gen'
 
 export const livePlaceholder = /\{forge:([a-z-]+)\}/g
 
-const unknownAddress = "your forge's address"
+const unknownAddress = `${PRODUCT}'s address`
 
 function isName(links: DocLinks, name: string): name is keyof DocLinks {
   return Object.prototype.hasOwnProperty.call(links, name)

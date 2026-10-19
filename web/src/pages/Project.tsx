@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { AppAddress, runtimeChip, runtimeDescription } from '../runtime'
 import { NavLink, useParams } from 'react-router-dom'
 import { post } from '../api'
@@ -44,10 +45,10 @@ function IntegrityBanner({ slug, files, onResolved }: {
   const resolve = (action: 'adopt' | 'discard') => run(() => post(`/projects/${slug}/repo/integrity`, { action }))
   return (
     <div className="card" style={{ border: '1px solid var(--bad)', marginBottom: 14 }}>
-      <div style={{ fontWeight: 600 }}>Someone changed this project's stored files directly, outside the forge.</div>
+      <div style={{ fontWeight: 600 }}>Someone changed this project's stored files directly, outside {PRODUCT}.</div>
       <div className="muted small" style={{ marginTop: 4 }}>
         There is no authorized way to do that — until an admin explains it, treat it as tampering.
-        The forge will not merge or ship over it. Changed: {files.join(', ')}.
+        {PRODUCT} will not merge or ship over it. Changed: {files.join(', ')}.
         The audit log holds what was found.
       </div>
       <div className="row" style={{ marginTop: 8, gap: 8 }}>

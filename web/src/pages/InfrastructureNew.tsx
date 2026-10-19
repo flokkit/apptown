@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { patch, post } from '../api'
@@ -17,10 +18,10 @@ import { SecretNameStatus } from './integrations/InstanceSecrets'
 type Kind = 'docker-host' | 'portainer' | 'do-app' | 's3-bucket'
 const DO_REGIONS = ['syd', 'sgp', 'blr', 'nyc', 'sfo', 'tor', 'lon', 'fra', 'ams']
 const KINDS: { kind: Kind; title: string; vendor: string; blurb: string }[] = [
-  { kind: 'docker-host', title: 'Docker host', vendor: 'over SSH', blurb: 'A machine with Docker, reached over SSH (for example a droplet). The forge builds on the host, gives the data volume to the image\'s user, and routes apps through the host\'s Traefik when it has an apps domain.' },
+  { kind: 'docker-host', title: 'Docker host', vendor: 'over SSH', blurb: `A machine with Docker, reached over SSH (for example a droplet). ${PRODUCT} builds on the host, gives the data volume to the image's user, and routes apps through the host's Traefik when it has an apps domain.` },
   { kind: 'portainer', title: 'Portainer environment', vendor: 'Portainer', blurb: 'Experimental: no qualification has released a real app to it yet. An environment Portainer administers. Portainer owns restarts; apps are reached under the apps domain through its Traefik.' },
   { kind: 'do-app', title: 'DigitalOcean App Platform', vendor: 'DigitalOcean', blurb: 'Experimental: no qualification has released a real app to it yet. A DigitalOcean team: App Platform runs the app, Managed Databases hold its data, the container registry holds its images. One target per account and region.' },
-  { kind: 's3-bucket', title: 'Bucket website', vendor: 'S3-compatible storage', blurb: 'Experimental: no qualification has released a real app to it yet. Static-only apps published as files to a bucket (DigitalOcean Spaces first) and served from its website address. Each deployment gets a bucket of its own; taking the deployment down deletes it, so keep nothing else there. The key must be able to create buckets: a full-access key reaches every bucket in its team, so use one made for the forge alone.' },
+  { kind: 's3-bucket', title: 'Bucket website', vendor: 'S3-compatible storage', blurb: `Experimental: no qualification has released a real app to it yet. Static-only apps published as files to a bucket (DigitalOcean Spaces first) and served from its website address. Each deployment gets a bucket of its own; taking the deployment down deletes it, so keep nothing else there. The key must be able to create buckets: a full-access key reaches every bucket in its team, so use one made for ${PRODUCT} alone.` },
 ]
 
 export function InfrastructureNew() {
@@ -111,8 +112,8 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
   return (
     <div className="card" style={{ padding: 14 }}>
       <p className="muted small" style={{ marginTop: 0 }}>
-        {KINDS.find((k) => k.kind === kind)?.blurb} Each credential is the name of a forge secret. Set any missing one below; its value is stored
-        in the forge's secrets file, not on the target, and is not shown again.
+        {KINDS.find((k) => k.kind === kind)?.blurb} Each credential is the name of a secret {PRODUCT} holds. Set any missing one below; its value is stored
+        in {PRODUCT}'s secrets file, not on the target, and is not shown again.
       </p>
       <div className="wiz-fields">
         {field('name', name, setName, kind === 'do-app' ? 'do-syd' : kind === 'portainer' ? 'home-portainer' : kind === 's3-bucket' ? 'spaces-syd' : 'droplet-syd', 160)}
@@ -150,7 +151,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
       {kind === 'do-app' && checked && answer.registry === '' && (
         <div className="wiz-fields" style={{ marginTop: 8 }}>
           {field('container registry to create', registry, setRegistry, 'forge', 200)}
-          <span className="muted small">The account has no container registry. App Platform pulls images from one, so the forge creates it on the first release. Names are unique across DigitalOcean.</span>
+          <span className="muted small">The account has no container registry. App Platform pulls images from one, so {PRODUCT} creates it on the first release. Names are unique across DigitalOcean.</span>
         </div>
       )}
       <div className="row" style={{ gap: 8, marginTop: 10, alignItems: 'center' }}>
@@ -197,7 +198,7 @@ function OfferStep({ target, onDone }: { target: Target; onDone: () => void }) {
   const cloud = target.kind === 'do-app'
   return (
     <div className="card" style={{ padding: 14 }}>
-      <p className="muted small" style={{ marginTop: 0 }}><b>{target.name}</b> is added. Choose who it is offered to, and describe what the forge cannot detect.</p>
+      <p className="muted small" style={{ marginTop: 0 }}><b>{target.name}</b> is added. Choose who it is offered to, and describe what {PRODUCT} cannot detect.</p>
       <div className="wiz-section">Offer</div>
       <div className="form-grid" style={{ maxWidth: 'none' }}>
         <label>To</label>

@@ -8,7 +8,9 @@ import './fonts'
 import './styles.css'
 import { bootTheme } from './theme'
 import { bootErrorReporting } from './errors'
+import { PRODUCT } from './brand'
 
+document.title = PRODUCT
 bootTheme()
 void bootErrorReporting()
 

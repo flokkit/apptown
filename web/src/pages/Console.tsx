@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ChangeView, post } from '../api'
@@ -127,13 +128,13 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
         <div className="error">
           {openErr}
           {forgeInstead && (
-            <> <button className="subtle" onClick={() => void open('forge')}>Open it on the forge instead</button></>
+            <> <button className="subtle" onClick={() => void open('forge')}>Open it on {PRODUCT} instead</button></>
           )}
         </div>
       )}
       {session?.cliMissing && (
         <div className="error">
-          This helper is missing its forge tools (a build problem on the
+          This helper is missing its {PRODUCT} tools (a build problem on the
           server) — it can chat and edit, but can't preview, start work, or
           file complaints. The server log says why.
         </div>
@@ -213,7 +214,7 @@ function ChatIntro({ changeName, slug, onDismiss }: { changeName?: string; slug:
         {changeName ? (
           <>This chat works on <strong>{changeName}</strong>. Say what you want changed. The helper
           reads and edits this change's copy of the app, and its work is saved on the change. When the
-          change is ready, the forge checks it and asks for approval before it lands on main.</>
+          change is ready, {PRODUCT} checks it and asks for approval before it lands on main.</>
         ) : (
           <>This is the project chat for <strong>{slug}</strong>. Ask how something works, get help
           setting the project up, or start work. Nothing is built here: when you want something made,

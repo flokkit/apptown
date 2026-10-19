@@ -4,7 +4,8 @@ Terms used throughout the forge. One meaning each.
 
 ## The work
 
-**Instance** — one deployment of the forge. It hosts the projects.
+**Instance** — one installation of AppTown. It hosts the projects. Pages call
+it just AppTown; the command-line tool is still called `forge`.
 Governance, security controls, deployment targets, system integrations and
 ways of working are defined at the instance level and consumed by projects.
 

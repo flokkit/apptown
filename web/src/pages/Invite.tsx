@@ -91,7 +91,7 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
               </div>
             </> : <>
               <div>
-                <b>{offer.invitedBy}</b> invited you to this forge as <b>{offer.username}</b>
+                <b>{offer.invitedBy}</b> invited you to {PRODUCT} as <b>{offer.username}</b>
                 {offer.role === 'admin' ? ', an administrator' : ''}.
               </div>
               <div className="muted small">

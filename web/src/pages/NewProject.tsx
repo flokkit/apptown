@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useReducer, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { post } from '../api'
@@ -169,7 +170,7 @@ function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuildV0: () 
         <div className="small" style={{ marginTop: 'var(--space-2)', lineHeight: 1.5 }}>
           <strong>Build the first version</strong> opens a chat on a new change with what you wrote
           about {m.project.name}, and the helper starts building. Try it when the helper says it is
-          ready; the forge checks the work before it goes live.
+          ready; {PRODUCT} checks the work before it goes live.
         </div>
       </div>
 

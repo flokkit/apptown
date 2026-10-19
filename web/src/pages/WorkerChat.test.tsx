@@ -77,7 +77,7 @@ describe("a change's chats on the worker", () => {
     expect(html).toContain(`/api/v1/changes/${CHANGE}/worker-chats/abc123def456/refused`)
     expect(html).toContain('a file over the size limit')
     expect(html).toContain('has ended')
-    expect(html).toContain('kept on the forge')
+    expect(html).toContain('kept on AppTown')
     expect(html).not.toContain('stay on the worker')
   })
   it("shows a live chat's last save and nothing to download", async () => {

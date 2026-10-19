@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../../brand'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -296,7 +297,7 @@ export function RepoCard({ slug }: { slug: string }) {
       </div>
       <div className="row small" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
         <a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>
-        <span className="muted">the {data.repo.defaultBranch} branch and tags as a Git bundle; another forge can start a project from it</span>
+        <span className="muted">the {data.repo.defaultBranch} branch and tags as a Git bundle; another {PRODUCT} can start a project from it</span>
       </div>
       {data.repo.cloneCmd && (
         <div className="row" style={{ marginTop: 8 }}>

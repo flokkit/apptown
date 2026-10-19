@@ -285,7 +285,7 @@ describe('a password reset link', () => {
       </QueryClientProvider>)
     })
     expect(buttons(el).map((b) => b.textContent)).not.toContain('reset password')
-    expect(el.textContent).toContain("Password reset links need Forge's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.")
+    expect(el.textContent).toContain("Password reset links need AppTown's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.")
     act(() => root.unmount())
   })
 })

@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { renderMd } from '../md'
@@ -64,7 +65,7 @@ export default function DocsPage() {
     <div>
       <h1>Docs</h1>
       <StaleNote q={q} />
-      {!first ? <div className="muted">This forge ships no documentation.</div> : (
+      {!first ? <div className="muted">{PRODUCT} ships no documentation.</div> : (
         <div className="docs-layout">
           {/* On a phone the list is a picker above the page, so the page
               keeps the screen's width (styles.css .docs-pick). */}

@@ -12,9 +12,9 @@ const item = (over: Partial<ItemProtection>): ItemProtection => ({ need: 'postgr
 describe('how a cloud deployment\'s data is protected, in words', () => {
   it('tells fresh, stale, unknown and none apart, with the newest copy where there is one', () => {
     const last = { backup: SET, takenAt: '2026-10-08T06:10:00Z', bytes: 3 * 1024 * 1024, sha256: 'ab' }
-    expect(copyLine(item({ copy: 'fresh', lastCopy: last }))).toMatch(/^forge copies: newest copy .*, 3\.0 MB$/)
-    expect(copyLine(item({ copy: 'stale', copyNote: 'the last copy failed: could not connect', lastCopy: last }))).toContain('forge copies: the last copy failed: could not connect; newest copy')
-    expect(copyLine(item({ copy: 'unknown', copyNote: 'the last copy was interrupted' }))).toBe('forge copies: the last copy was interrupted')
+    expect(copyLine(item({ copy: 'fresh', lastCopy: last }))).toMatch(/^AppTown copies: newest copy .*, 3\.0 MB$/)
+    expect(copyLine(item({ copy: 'stale', copyNote: 'the last copy failed: could not connect', lastCopy: last }))).toContain('AppTown copies: the last copy failed: could not connect; newest copy')
+    expect(copyLine(item({ copy: 'unknown', copyNote: 'the last copy was interrupted' }))).toBe('AppTown copies: the last copy was interrupted')
     expect(copyLine(item({ copy: 'none' }))).toBe('no copy')
     expect(copyLine(item({ copy: 'disposable' }))).toBe('disposable: starts empty')
   })
@@ -50,7 +50,7 @@ describe('how a cloud deployment\'s data is protected, in words', () => {
     expect(stateWords({ ...op, verification: 'not-verified' })).toBe('done; nothing has checked the copy comes back')
     expect(operationTone({ ...op, verification: 'not-verified' })).toBe('pending')
     expect(stateWords({ ...op, kind: 'deployment.rehearsal', verification: 'verified' })).toBe('passed: the app answered on the copy')
-    expect(stateWords({ ...op, state: 'unknown' })).toBe('unknown: the forge stopped while it ran')
+    expect(stateWords({ ...op, state: 'unknown' })).toBe('unknown: AppTown stopped while it ran')
     expect(operationTone({ ...op, state: 'unknown' })).toBe('fail')
     expect(currentStep({ ...op, state: 'queued' }, Date.parse('2026-10-08T00:00:40Z'))).toBe('Copy waiting to start (asked 40s ago)')
   })

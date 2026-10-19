@@ -90,7 +90,7 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
   {
     name: 'the landing starting with the change’s acceptance',
     v: view({ change: 'landing', state: 'working', stateDetail: "starting the landing with the change's acceptance" }),
-    primary: 'none', headline: /^Starting the landing$/, waitingOn: /the forge/,
+    primary: 'none', headline: /^Starting the landing$/, waitingOn: /AppTown/,
   },
   {
     name: 'landing blocked by a gate',
@@ -168,7 +168,7 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
   {
     name: 'accepted work whose landing the forge queued',
     v: view({ runStatus: 'done', landingQueued: true, state: 'queued', stateDetail: 'landing' }),
-    primary: 'none', headline: /^Queued to land$/, waitingOn: /the forge/,
+    primary: 'none', headline: /^Queued to land$/, waitingOn: /AppTown/,
   },
   {
     name: 'finished work the forge offers no landing for',

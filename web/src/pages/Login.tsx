@@ -39,8 +39,8 @@ export default function Login({ needsBootstrap, onSignedIn }: {
           <div className="muted small">
             No accounts exist yet. Create the first one — it will be the
             administrator. It needs the setup token in the file
-            {' '}<code>setup-token</code> in AppTown's data directory on its
-            host (AppTown's log says where; the desktop trial's ready link fills it in).
+            {' '}<code>setup-token</code> in {PRODUCT}'s data directory on its
+            host ({PRODUCT}'s log says where; the desktop trial's ready link fills it in).
           </div>
         ) : (
           <div className="muted small">Sign in to continue.</div>

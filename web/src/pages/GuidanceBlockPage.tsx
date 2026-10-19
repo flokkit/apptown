@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { renderMd } from '../md'
@@ -47,7 +48,7 @@ export default function GuidanceBlockPage() {
         <span className="chip">v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}</span>
         <span className="chip" title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)}</span>
         {block.origin === 'stock'
-          ? <span className="chip" title="Ships with the forge; read-only, updates with each release">forge</span>
+          ? <span className="chip" title={`Ships with ${PRODUCT}; read-only, updates with each release`}>{PRODUCT}</span>
           : <span className="chip pass" title="You authored this — editable">yours</span>}
       </div>
       <div className="muted small" style={{ marginBottom: 12 }}>
@@ -73,7 +74,7 @@ export default function GuidanceBlockPage() {
         {!editing && !viewingOld && block.origin !== 'stock' &&
           <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit (creates v{block.latestVersion + 1})</button>}
         {!viewingOld && block.origin === 'stock' &&
-          <span className="muted small">Ships with the forge and updates with each release. To change it, write your own block and use it in a pack instead of this one.</span>}
+          <span className="muted small">Ships with {PRODUCT} and updates with each release. To change it, write your own block and use it in a pack instead of this one.</span>}
         {viewingOld && <span className="muted small">an older version, read-only</span>}
       </div>
       <StaleNote q={viewQ} />

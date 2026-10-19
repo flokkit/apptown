@@ -1,3 +1,4 @@
+import { PRODUCT } from './brand'
 import type { ReactNode } from 'react'
 import { useGet } from './data'
 import type { AuthzHoldings } from './wire.gen'
@@ -46,7 +47,7 @@ export function NotAvailable({ page, heading = true }: { page: InstancePage; hea
       <div className="card" role="status">
         <b>Not available to you.</b>
         <div className="muted small" style={{ marginTop: 6 }}>
-          This page is about the whole forge, not one project, and your account
+          This page is about the whole of {PRODUCT}, not one project, and your account
           does not hold the role that reads it. Your own projects are under
           Projects. Ask an administrator if you need it.
         </div>

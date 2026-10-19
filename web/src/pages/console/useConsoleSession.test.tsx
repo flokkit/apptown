@@ -171,7 +171,7 @@ describe('a chat the worker refused', () => {
   }
   it('offers the forge when the refusal is coded so, and opens it there', async () => {
     const { el, opens, done } = await refused('chat-on-forge')
-    const button = [...el.querySelectorAll('button')].find((b) => b.textContent === 'Open it on the forge instead')!
+    const button = [...el.querySelectorAll('button')].find((b) => b.textContent === 'Open it on AppTown instead')!
     expect(button).toBeDefined()
     await act(async () => { button.click() })
     await vi.waitFor(() => expect(opens).toEqual([{ changeId: C1 }, { changeId: C1, placement: 'forge' }]))
@@ -179,7 +179,7 @@ describe('a chat the worker refused', () => {
   })
   it('does not offer the forge on the same sentence without the code', async () => {
     const { el, done } = await refused('')
-    expect(el.textContent).not.toContain('Open it on the forge instead')
+    expect(el.textContent).not.toContain('Open it on AppTown instead')
     done()
   })
 })

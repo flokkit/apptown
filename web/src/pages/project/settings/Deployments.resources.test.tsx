@@ -88,3 +88,9 @@ describe("a deployment's resources", () => {
   })
 
 })
+
+// AP-C01: the stored kind stays forge; the UI names its source AppTown.
+it('names the product that supplied the memory default', () => {
+  const html = render({ parts: [{ part: 'web', public: true, memory: '160M', cpu: 'no limit', memoryDefault: { kind: 'forge' }, overrideApplied: false, observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } }] })
+  expect(html).toContain('AppTown default')
+})

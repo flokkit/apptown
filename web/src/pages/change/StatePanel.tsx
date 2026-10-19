@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TryIt } from '../../TryIt'
@@ -401,7 +402,7 @@ export function SendBack({ changeId, onDone, primary }: { changeId: string; onDo
 export function MainConflictLine({ conflict }: { conflict: MainConflict }) {
   return (
     <div className="ch-sentence">
-      {conflict.mainBranch} has moved and the forge could not merge it in before step {conflict.step}: {conflict.files.join(', ')}{' '}
+      {conflict.mainBranch} has moved and {PRODUCT} could not merge it in before step {conflict.step}: {conflict.files.join(', ')}{' '}
       {conflict.files.length === 1 ? 'conflicts' : 'conflict'}. Catch up in the change's chat:{' '}
       <code style={{ overflowWrap: 'anywhere' }}>{conflict.catchUp}</code>
     </div>

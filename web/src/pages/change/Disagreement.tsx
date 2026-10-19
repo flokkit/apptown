@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { Link } from 'react-router-dom'
 import type { Artifact, RunDetail, Step } from '../../api'
 import { renderMd } from '../../md'
@@ -34,7 +35,7 @@ export function disputeOf(d: RunDetail): Verdict[] {
       // forge's failure; the reviewer's pass is shown apart.
       const reviewerPassed = ev.reviewerSummary || undefined
       return {
-        step: s, who: reviewerPassed ? "the forge's file check" : WHO[s.type] ?? 'machine check', text, log, reviewerPassed,
+        step: s, who: reviewerPassed ? `${PRODUCT}'s file check` : WHO[s.type] ?? 'machine check', text, log, reviewerPassed,
         findings: Array.isArray(ev.findings) ? ev.findings.map(String) : [],
         repeatOf: repeatText ?? repeatLog,
       }

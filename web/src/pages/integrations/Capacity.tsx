@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useGet } from '../../data'
 import { StaleNote } from '../../ReadGate'
 import { fmtBytes, relTime } from '../../format'
@@ -38,13 +39,13 @@ function ResourceRow({ label, r, format }: { label: string; r: Resource; format:
       <td>{label}</td>
       <td><FigureWords f={r.total} format={format} /></td>
       <td>
-        <FigureWords f={p.forge} format={format} /> <span className="muted">forge</span>{' + '}
+        <FigureWords f={p.forge} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}
         <FigureWords f={p.other} format={format} /> <span className="muted">other</span>
         <div className="muted">{countWords(r)}</div>
         {r.overcommitted && <span className="chip pending" title="the limits add up to more than the host has; limits are caps, so this is allowed">overcommitted</span>}
       </td>
       <td>
-        {r.inUse ? <><FigureWords f={r.inUse.forge} format={format} /> <span className="muted">forge</span>{' + '}<FigureWords f={r.inUse.other} format={format} /> <span className="muted">other</span></> : <span className="muted">—</span>}
+        {r.inUse ? <><FigureWords f={r.inUse.forge} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}<FigureWords f={r.inUse.other} format={format} /> <span className="muted">other</span></> : <span className="muted">—</span>}
       </td>
     </tr>
   )
@@ -66,7 +67,7 @@ export function Capacity({ name }: { name: string }) {
       <div>{c.words} <span className="muted">· read {relTime(c.readAt)}</span></div>
       {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
         <table className="small" style={{ marginTop: 4 }}>
-          <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? "declared by the forge's deployments" : 'promised to containers'}</th><th>in use by containers</th></tr></thead>
+          <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'promised to containers'}</th><th>in use by containers</th></tr></thead>
           <tbody>
             <ResourceRow label="memory" r={c.memory} format={fmtBytes} />
             <ResourceRow label="CPUs" r={c.cpu} format={cpuWords} />

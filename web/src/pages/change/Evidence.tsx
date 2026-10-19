@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ChangeView, Run, Step, TestsEvidence } from '../../api'
@@ -99,7 +100,7 @@ const secs = (ms?: number) => ms == null ? '' : ms < 60000 ? `${(ms / 1000).toFi
 // (it stays in the step's full record), not something a reader acts on.
 const where = (s: Step) => {
   const p = s.checkReading?.placement
-  return p?.worker ? 'on the worker' : p?.local ? 'on the forge host' : ''
+  return p?.worker ? 'on the worker' : p?.local ? `on ${PRODUCT}'s host` : ''
 }
 const join = (...parts: (string | undefined | false)[]) => parts.filter(Boolean).join(' · ')
 

@@ -61,7 +61,7 @@ describe('instance secrets', () => {
   it('sets a named secret the forge does not hold, write-only', async () => {
     const calls = stubForge({})
     const { el, root } = await mount(<SecretNameStatus name="DIGITALOCEAN_ACCESS_TOKEN" />)
-    expect(el.textContent).toContain('the forge does not hold this yet')
+    expect(el.textContent).toContain('AppTown does not hold this yet')
     await act(async () => { button(el, 'set this secret now').click() })
     const input = el.querySelector('input[type=password]') as HTMLInputElement
     expect(input).toBeTruthy()
@@ -70,7 +70,7 @@ describe('instance secrets', () => {
     await advance(0)
     expect(calls.filter((c) => c.method === 'PUT')).toEqual([{ method: 'PUT', path: '/secrets/DIGITALOCEAN_ACCESS_TOKEN', body: { value: 'dop_v1_secret' } }])
     expect(el.innerHTML).not.toContain('dop_v1_secret')
-    expect(el.textContent).toContain("held in the forge's secrets file")
+    expect(el.textContent).toContain("held in AppTown's secrets file")
     act(() => root.unmount())
   })
 
@@ -125,7 +125,7 @@ describe('instance secrets', () => {
     const unreadable = { on: false }
     stubForge({}, unreadable)
     const field = await mount(<SecretNameStatus name="DIGITALOCEAN_ACCESS_TOKEN" />)
-    expect(field.el.textContent).toContain('the forge does not hold this yet')
+    expect(field.el.textContent).toContain('AppTown does not hold this yet')
     unreadable.on = true
     await act(async () => { void field.client.invalidateQueries() })
     await advance(retries)
