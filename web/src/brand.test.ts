@@ -19,7 +19,7 @@ const codeNames: [RegExp, string][] = [
   [/<code>[^<]*<\/code>|\bforge (check|dev|test|token|wait|show|approve|executing|version)\b/g, 'the forge command and its subcommands'],
   [/\b[A-Za-z_]+\.forge\b|[{,]\s*forge:\s|\bforge\?/g, 'identifiers: p.forge, an object key such as { forge: PRODUCT }'],
   [/['"]forge['"]\s*(\)|\||,|\])|[!=]==?\s*['"]forge['"]/g, "data values compared or typed: about 'forge', capacity kind 'forge'"],
-  [/running-a-forge|apptown|forge\.flokkit\.io|[a-z]-forge\b/g, 'file names, addresses, the workflow apiVersion and keys such as chat-on-forge'],
+  [/apptown|forge\.flokkit\.io|[a-z]-forge\b/g, 'file names, addresses, the workflow apiVersion and keys such as chat-on-forge'],
 ]
 
 function strayNames(file: string, src: string): string[] {

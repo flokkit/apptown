@@ -102,7 +102,7 @@ that is not a monetary budget, and new sessions get new capacity
 ([inference security](../subsystems/inference-security.md), "Provider
 operations and limits"). The forge sets no spending limit; the operating guide
 says to set one with the model provider
-([running a forge](../../stock/docs/guides/running-a-forge.md), "Configure
+([running a forge](../../stock/docs/guides/running-apptown.md), "Configure
 model access").
 
 **Attack and impact.** A user, stolen grant or looping agent runs parallel
@@ -137,7 +137,7 @@ not"). Remaining: private Docker is still a privileged container; without
 `-no-local-docker`, project chats, continued chats and chats placed on the
 forge still run on its host; a worker moves code off the forge's host but
 does not contain it there. Running `forged` as root on Linux is a documented
-choice ([running a forge](../../stock/docs/guides/running-a-forge.md),
+choice ([running a forge](../../stock/docs/guides/running-apptown.md),
 "Prepare the host"; `deploy/systemd/forged.service`), so code that escapes to
 the forge's host has root there.
 
@@ -227,7 +227,7 @@ mounts. Expected denial must not alter the outside canary.
 
 **Status: partly mitigated.** Each project's steps and
 checks mount a cache volume of their own, `forge-cache-<project>`, and each
-chat has its own ([running a forge](../../stock/docs/guides/running-a-forge.md),
+chat has its own ([running a forge](../../stock/docs/guides/running-apptown.md),
 "Workers and running without local Docker"; `TestAStepsCacheIsItsProjectsAlone`
 in `internal/forge/agentenv`). Remaining: a worker's mise download cache is
 one folder writable by every container on that worker, so one project's
@@ -252,7 +252,7 @@ performance optimizations do not reintroduce a shared writable parent.
 **Status: open.** The inference listener admits only
 configured worker networks, and a worker can check that the cloud metadata
 address is blocked (`forge-worker -check-metadata`), but the block itself is
-the operator's firewall rule ([running a forge](../../stock/docs/guides/running-a-forge.md)).
+the operator's firewall rule ([running a forge](../../stock/docs/guides/running-apptown.md)).
 No guide or test shows an enforced egress policy for workloads (the
 [agent isolation limits](../subsystems/agent-sandbox.md) list it as not
 implemented) or server-side validation of integration destinations and
@@ -397,7 +397,7 @@ and concurrent bootstrap has one winner (`TestTheFirstAccountNeedsTheSetupToken`
 secret share a per-client rate limit; open sign-in refuses a listener other
 machines can reach unless `-open-on-network` is given
 ([authentication and authority](../subsystems/auth.md); [running a
-forge](../../stock/docs/guides/running-a-forge.md)). Remaining: an empty
+forge](../../stock/docs/guides/running-apptown.md)). Remaining: an empty
 administrator-network list still means anywhere (`internal/forge/adminnet.go`);
 stripping identity and forwarding headers at the edge is the operator's job;
 there is no second factor.
@@ -517,7 +517,7 @@ from the same key ([services and data](../../stock/docs/guides/services-and-data
 Open: the forge's nightly dumps and its data directory (which holds
 `secrets.env`, `runtime-token-key` and attached hosts' SSH keys) are not
 encrypted by Forge, and protecting them is left to the operator
-([running a forge](../../stock/docs/guides/running-a-forge.md), "The forge's
+([running a forge](../../stock/docs/guides/running-apptown.md), "The forge's
 own backups"); no guide describes invalidating sessions or tokens restored
 from a backup.
 
@@ -593,7 +593,7 @@ require new evidence. Check rollback identity as carefully as forward release.
 
 **Status: partly mitigated.** The agent image recipe pins
 every archive it fetches by version and SHA-256
-([running a forge](../../stock/docs/guides/running-a-forge.md)); source and
+([running a forge](../../stock/docs/guides/running-apptown.md)); source and
 image scans run as checks ([workers](../operations/workers.md)); a Forge
 release is built from a tagged checkout into archives with `SHA256SUMS`
 ([releasing](../operations/releasing.md)). Remaining: apt packages and package
@@ -620,7 +620,7 @@ chain. Test mirror failure and updates without bypassing verification.
 
 **Status: partly mitigated.** Every container the forge
 starts, on its host or a worker, has CPU, memory and PID limits
-([running a forge](../../stock/docs/guides/running-a-forge.md)); services
+([running a forge](../../stock/docs/guides/running-apptown.md)); services
 beside tests and checks have their own limits ([workers](../operations/workers.md),
 "Limits on services"). The HTTP servers set header timeouts
 (`cmd/forged/main.go`) and the terminal WebSocket limits a frame to 1 MiB
@@ -692,7 +692,7 @@ abandoned chats and failed cleanup.
 
 **Status: open.** Targets are explicit and each credential
 is a named forge secret resolved on the forge
-([running a forge](../../stock/docs/guides/running-a-forge.md), "Deployment
+([running a forge](../../stock/docs/guides/running-apptown.md), "Deployment
 targets"; [deploy targets](../subsystems/deploy-targets.md)), but what each
 credential may do is decided at the provider, a Docker host's SSH key is
 host-wide, and SSH host keys are accepted on first use
@@ -747,7 +747,7 @@ labels and observed IDs, and an unknown owner or a failed read keeps the
 resource ([container lifecycle](../subsystems/container-lifecycle.md)). A
 deployment restore stops the app's parts first, checks what it copied back and
 says "restored" only when every item is verified; a rehearsal restores into a
-new place ([running a forge](../../stock/docs/guides/running-a-forge.md),
+new place ([running a forge](../../stock/docs/guides/running-apptown.md),
 "Deployment backups"). Remaining: a restore writes over the deployment's own
 volumes in place; safe extraction of a hostile archive and binding a manifest
 to its destination were not shown in this pass.

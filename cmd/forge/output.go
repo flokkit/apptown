@@ -52,8 +52,8 @@ type ChangeDetail struct {
 	Change      ChangeRef   `json:"change" doc:"the change"`
 	Title       string      `json:"title" doc:"its title"`
 	State       string      `json:"state" doc:"proposed, in_progress, landing, shipped or abandoned"`
-	ClosedAs    string      `json:"closedAs,omitempty" doc:"nothing-to-change when the forge closed an abandoned change because its run found nothing to change; absent otherwise"`
-	StateDetail string      `json:"stateDetail" doc:"the forge's sentence for where it is"`
+	ClosedAs    string      `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; absent otherwise"`
+	StateDetail string      `json:"stateDetail" doc:"AppTown's sentence for where it is"`
 	Branch      string      `json:"branch" doc:"its branch, empty before its first run"`
 	Runs        []RunDetail `json:"runs" doc:"its runs, newest first"`
 	Commits     []Commit    `json:"commits" doc:"its commits not on main, newest first"`
@@ -92,7 +92,7 @@ type ChangeRow struct {
 	State  string    `json:"state" doc:"its board column: proposed, in_progress, landing, shipped or abandoned"`
 	// ClosedAs is how a closed change was closed, when that is more than
 	// its state (workflow.Change.ClosedAs).
-	ClosedAs string `json:"closedAs,omitempty" doc:"nothing-to-change when the forge closed an abandoned change because its run found nothing to change; absent otherwise"`
+	ClosedAs string `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; absent otherwise"`
 }
 
 // WaitOutcome is what wait prints when it stops: what it waited on, how that
@@ -103,7 +103,7 @@ type WaitOutcome struct {
 	ExitCode int     `json:"exitCode" doc:"the command's exit code, as outcome says"`
 	Run      *RunRef `json:"run" doc:"the run the outcome is about, or null"`
 	Step     *ids.ID `json:"step" doc:"the approval waiting (needs_decision) or the failed step (blocked) when the run holds it; null otherwise, including an approval inside a called workflow (detail names it)"`
-	Detail   string  `json:"detail" doc:"the forge's sentence: the step's name, how the run ended, or the operation's detail"`
+	Detail   string  `json:"detail" doc:"AppTown's sentence: the step's name, how the run ended, or the operation's detail"`
 }
 
 // Target is what a command acted on or waited on.
@@ -125,7 +125,7 @@ type ReleaseRequested struct {
 	Deployment string `json:"deployment" doc:"the deployment named (forge release <project> <deployment>); empty for the intranet"`
 	Number     int64  `json:"number" doc:"the release's number within its project: forge wait -p <project> -r <number>"`
 	URL        string `json:"url" doc:"where the intranet will serve it; empty for a named deployment, which keeps its own address"`
-	State      string `json:"state" doc:"the release's state when the forge accepted it"`
+	State      string `json:"state" doc:"the release's state when AppTown accepted it"`
 }
 
 // ComplaintFiled is what complain prints.
@@ -143,7 +143,7 @@ type ProjectCreated struct {
 // Versions is what version prints.
 type Versions struct {
 	CLI   CLIVersion   `json:"cli" doc:"this CLI"`
-	Forge ForgeVersion `json:"forge" doc:"the forge it talks to"`
+	Forge ForgeVersion `json:"forge" doc:"the AppTown it talks to"`
 }
 
 // CLIVersion is this CLI's version.

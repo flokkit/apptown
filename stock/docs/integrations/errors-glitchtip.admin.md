@@ -8,8 +8,8 @@ place where it is grouped, counted and kept, with the stack trace and
 context. This guide sets that place up once for the whole instance;
 each project then attaches with one click.
 
-Platform pattern: you bind one admin credential; forge provisions a
-GlitchTip project (and DSN) for each forge project that attaches.
+Platform pattern: you bind one admin credential; AppTown provisions a
+GlitchTip project (and DSN) for each AppTown project that attaches.
 
 ## 1. Stand up GlitchTip
 
@@ -17,7 +17,7 @@ Any Sentry-compatible backend works; GlitchTip is the boring self-hosted
 choice. You need: the base URL, an organization, and an auth token created by an
 admin user (Profile → Auth Tokens) with scopes:
 `project:read project:write team:read team:write org:read`
-(team:write only exercised if the org has no team yet — forge then
+(team:write only exercised if the org has no team yet — AppTown then
 creates a 'forge' team; projects in GlitchTip live under teams). Store the token in the secrets backend (e.g.
 `GLITCHTIP_TOKEN`) — never paste it anywhere.
 
@@ -31,12 +31,15 @@ token accepted.
 
 A project attaches from its Settings › Services page, under "Connected
 to" (`+ Error reporting`), or with
-`POST /projects/{slug}/integrations` `{"capability":"errors"}`. Forge
-creates a provider project named after the forge project (adopting it
+`POST /projects/{slug}/integrations` `{"capability":"errors"}`. AppTown
+creates a provider project named after the AppTown project (adopting it
 if it already exists), reads its DSN, and stores it as the attachment's
-resource. From then on: app containers (previews and deployed copies)
-receive `SENTRY_DSN`/`GLITCHTIP_DSN`, and so do the agents of
-implementation steps, so they can fire the test hook; agent steering
+resource. From then on the app's public part receives
+`SENTRY_DSN`/`GLITCHTIP_DSN` on a Docker host, in previews and
+deployments; Portainer and App Platform releases do not deliver them and
+record that they did not ([the app contract](/docs/guides/contract-reference)
+says where each value arrives). The agents of implementation steps receive
+them too, so they can fire the test hook; agent steering
 gains a generated "error reporting attached" section. Detaching stops
 the injection; the provider project and its history are left alone.
 
@@ -49,24 +52,24 @@ the state from the app's side — *not wired in yet*, *wiring · #N*,
 *wired in* — beside when the provider last saw an event from that
 project. `forge integrations` prints the same from a shell.
 
-DSNs are attachment resources, shown redacted in the UI; app containers
-and implementation-step agents receive the value.
+DSNs are attachment resources, shown redacted in the UI; the app's public
+part and implementation-step agents receive the value.
 
-## 4. The forge itself
+## 4. AppTown itself
 
-The forge reports its own failures the same way it asks every app to.
-Attach the `forge` project (Settings › Services on the forge project, or
-`POST /projects/forge/integrations {"capability":"errors"}`): the forge
+AppTown reports its own failures the same way it asks every app to.
+Attach the `forge` project (Settings › Services on the `forge` project, or
+`POST /projects/forge/integrations {"capability":"errors"}`): AppTown
 provisions a GlitchTip project named `forge` and from then on forged
 sends there, tagged by run and step:
 
 - a panic in any runner, with its stack;
-- a step that ended in *error* — the forge's failure to judge, never the
+- a step that ended in *error* — AppTown's failure to judge, never the
   change's;
 - a fleet review that could not run;
 - an environment the health controller could not rebuild.
 
-Nothing is sent while the forge project is unattached, nothing is sent
+Nothing is sent while AppTown project is unattached, nothing is sent
 synchronously, and a burst is capped at thirty events a minute so a
 crash loop cannot flood the tracker. The event's release is the build's
 commit.

@@ -17,9 +17,11 @@ under Settings › Services opens it for you with **Wire it in →**.
 
 - A provider-side project (same name as yours) collecting errors, at
   the instance's GlitchTip.
-- `SENTRY_DSN` / `GLITCHTIP_DSN` injected into your app's containers —
-  preview and production alike. Nothing to configure, nothing in the
-  repo.
+- `SENTRY_DSN` / `GLITCHTIP_DSN` in your app's public part on a Docker
+  host, in previews and deployments alike. Nothing to configure, nothing
+  in the repo. Other parts, and deployments on Portainer or App Platform,
+  do not receive them; [the app contract](/docs/guides/contract-reference)
+  says where each value arrives.
 - The same DSN in the environment of implementation-step agents, so the
   agent wiring it in can fire the test hook and check the provider
   (`forge integrations`) before it reports.
@@ -35,7 +37,7 @@ environment — and only from the environment:
   error reports then cross-reference)
 
 A static site (a `static:` part: files served as they are) cannot read
-its environment. Its page loads `/_forge/env.js`, which the forge serves
+its environment. Its page loads `/_forge/env.js`, which AppTown serves
 with the values safe for any visitor to read, and takes the DSN from
 `window.__FORGE_ENV__`:
 
@@ -49,13 +51,13 @@ with the values safe for any visitor to read, and takes the DSN from
 
 It must be the first script in `<head>`, written exactly as shown, with no
 attribute but `src` (a CSP `nonce` is fine), and the page must not
-use `<base href>`. The forge checks, against the running preview, that the
+use `<base href>`. AppTown checks, against the running preview, that the
 values are served and the page's HTML loads them first. That does not show
 that reports arrive: a content security policy can still stop the script.
 
-Only a Docker host delivers these values today. A deploy of a static site
-given values to an intranet or DigitalOcean target is refused before it
-starts.
+These values are delivered on a Docker host and on a bucket website. A
+deploy of a static site that has them to Portainer or App Platform is
+refused before it starts.
 
 The agents know this: the observability guidance steers them to wire
 the SDK exactly this way, and the `adopt-integration` workflow that
@@ -66,7 +68,7 @@ review and your OK.
 ## Test hooks — the house standard
 
 Every app with error reporting carries two hooks, so anyone can prove
-the wiring in any environment — preview, main, the intranet — by hand,
+the wiring in any deployment or preview by hand,
 without reading code:
 
 - **Server apps:** open `/_forge/boom` on the app. It captures one

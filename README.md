@@ -57,12 +57,12 @@ low-code, and it doesn't replace your Git host or ticket tracker.
 
 ## Reading about it
 
-- [What it is for](stock/docs/guides/what-forge-is-for.md): the problems it
+- [What it is for](stock/docs/guides/what-apptown-is-for.md): the problems it
   addresses and what it is not.
 - [How it works](stock/docs/guides/architecture.md): the pieces, as built.
 - [What 1.0 promises](stock/docs/guides/compatibility.md) and
-  [what is next](stock/docs/guides/roadmap.md).
-- [Running one](stock/docs/guides/running-a-forge.md): installing and
+  [what is next](stock/docs/guides/compatibility.md#not-in-10).
+- [Running one](stock/docs/guides/running-apptown.md): installing and
   operating AppTown, including model-backed agents.
 
 ## What is here
@@ -99,7 +99,7 @@ this machine. Only port 7777 is published, on this computer's own address.
 The link it prints carries the setup token, so that token is in the
 container's log until you create the administrator. For a server, or
 anything other people use, follow
-[Running AppTown](stock/docs/guides/running-a-forge.md).
+[Running AppTown](stock/docs/guides/running-apptown.md).
 
 Stop it with Ctrl-C (or `docker stop apptown`); `docker start -a apptown`
 starts it again with everything kept. To remove it and everything it made:
@@ -133,7 +133,7 @@ agents' code and your apps don't run where AppTown keeps its records. It
 takes more setup: a worker with its own certificates, a PostgreSQL
 database, a preview domain and a container registry.
 
-[Running AppTown](stock/docs/guides/running-a-forge.md) covers both, and
+[Running AppTown](stock/docs/guides/running-apptown.md) covers both, and
 which one to choose.
 
 ## From source
@@ -158,7 +158,7 @@ that name an administrator. Open mode trusts that name, so keep it on
 `127.0.0.1` and never expose it; use `-auth internal` for anything shared.
 Chats and agent workflows also need a model provider, a private inference
 listener, container network settings and an agent image: follow Install in
-[Running AppTown](stock/docs/guides/running-a-forge.md). It also covers running
+[Running AppTown](stock/docs/guides/running-apptown.md). It also covers running
 work on a separate worker machine and running AppTown with no local Docker
 (`-no-local-docker`).
 

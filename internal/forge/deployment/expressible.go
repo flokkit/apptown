@@ -102,7 +102,7 @@ func (e *Deployment) DeployableByHand() error {
 // landing-fed deployment takes by hand only that bundle: deploying what runs
 // again changes nothing a landing would choose, and it records the release's
 // rebuild inputs, which a release made before they were recorded lacks
-// (running-a-forge.md, "The forge's own backups").
+// (running-apptown.md, "The forge's own backups").
 func (e *Deployment) DeployableByHandAt(bundle, running ids.ID) error {
 	err := e.DeployableByHand()
 	if errors.Is(err, ErrFedByLanding) && !running.IsZero() && bundle == running {

@@ -1,6 +1,6 @@
 # What chats and steps can use
 
-Forge gives its helpers a workspace, development tools and access to the
+AppTown gives its helpers a workspace, development tools and access to the
 services their task needs. The provision differs between a project chat, a
 change chat and a workflow step. This guide describes the helper's
 environment; `.forge/app.yaml` describes how the application itself runs
@@ -16,45 +16,44 @@ environment; `.forge/app.yaml` describes how the application itself runs
 | Other agent step using Docker | The run's workspace at `/work`; configured agent image | No |
 | Other workflow step | Defined by the step: for example a test container, scanner, approval or engine operation | No blanket grant |
 | Local model-agent execution | Refused: a local process cannot isolate the daemon’s provider credentials | Not provisioned |
-| Your own agent connected over MCP | Your agent's own computer or runtime and its tools | Connecting to Forge does not supply one |
+| Your own agent connected over MCP | Your agent's own computer or runtime and its tools | Connecting to AppTown does not supply one |
 
 A step asks for private Docker with `docker: true` in its `with:`; its skills
-and name do not. forged's `-no-private-docker` disables it: a step that
-declares it is refused with that reason, and change chats get no daemon.
-Existing consoles change their Docker access when stopped or after the current
-agent turn finishes. A step of a run started before steps declared private
-Docker, which uses `skill/implementation` and says nothing of `docker`, is
-refused when dispatched or retried; start a new run.
+and name do not. The operator's `-no-private-docker` setting turns it off: a
+step that declares it is refused with that reason, and change chats get no
+daemon. A running chat takes up a change of this setting when it is stopped
+or after its current turn.
 
 ## Where it runs
 
-Without a worker, all of this runs on the forge's own host: chats, agent
-steps, checks and previews in containers on its Docker, and a script step
-as a plain shell process on the host, with the forge's environment, unless
-the step says `executor: docker`.
+Without a worker, all of this runs on AppTown's own host, in containers on
+its Docker: chats, agent steps, checks, previews and script steps. A script
+step runs on the host itself only when the operator started AppTown with
+`-host-scripts` ([Running AppTown](/docs/guides/running-apptown));
+otherwise `executor: local` is refused.
 
-A forge can have a **worker**: a separate machine with its own Docker that
-takes most of that work off the forge's host. With a worker:
+AppTown can have a **worker**: a separate machine with its own Docker that
+takes most of that work off AppTown's host. With a worker:
 
 | What | Where |
 |---|---|
-| New change chat | On the worker by default; the person opening it can choose the forge. A chat keeps the place it opened in. |
-| Project chat, and a chat that continues a step's agent | On the forge |
+| New change chat | On the worker by default; the person opening it can choose AppTown's host. A chat keeps the place it opened in. |
+| Project chat, and a chat that continues a step's agent | On AppTown's host |
 | Agent, review and tests steps, and script steps with `executor: docker` | On the worker. A script step with `executor: local` is refused. |
 | Checks and scans | On the worker |
-| Previews of a change or a run | On the worker, with no fallback to the forge |
+| Previews of a change or a run | On the worker, with no fallback to AppTown's host |
 | A landing's release images | Built on the worker and pushed to the project's container registry |
-| Deployments on the built-in Docker host | On the forge |
+| Deployments on the built-in Docker host | On AppTown's host |
 
-A forge run with no Docker of its own (`-no-local-docker`) refuses any
-chat that would open on the forge, with the reason, and deploys only to
+An AppTown run with no Docker of its own (`-no-local-docker`) refuses any
+chat that would open on its host, with the reason, and deploys only to
 attached targets. A chat on the worker has its private Docker daemon on the
 worker too. A worker that cannot be reached shows its chats as unavailable,
 not ended, and its previews' state as not known.
 
-A worker keeps project code off the forge's host for the work listed
+A worker keeps project code off AppTown's host for the work listed
 above. It is not a strong sandbox: code on it can reach the network, and a
-private Docker daemon is not a boundary against hostile code. The forge
+private Docker daemon is not a boundary against hostile code. The
 addresses a container is given for model access and the `forge` CLI are
 configuration, not a network restriction; what else it can reach is up to
 the operator's network.
@@ -94,17 +93,15 @@ Exact versions are listed in `deploy/tool-pins.txt` (the agent image's tools and
 the scanners), recorded in the image's build labels, and declared for a project's
 own toolchain in its `mise.toml`. The image has no Go: a Go project declares its
 Go in `mise.toml`, and gopls uses that Go. A custom step image can provide a different
-inventory. Forge mounts a packaged Linux CLI into standard containerized agent sessions.
-Build it with `make console-cli`; by default Forge reads `forge-linux` beside
-`forged`, or the path set by `-console-cli` / `FORGE_CONSOLE_CLI`. It does not
-build source at runtime. A missing/non-executable artifact is logged and leaves
-the helper without it; availability is checked once per daemon process.
+inventory. Every agent container has the `forge` command line for Linux,
+which AppTown mounts from its own install ([Running AppTown](/docs/guides/running-apptown)
+says where it comes from); without it the helper has no `forge`, and
+AppTown's log says so.
 
-Pin the tools the project needs in `mise.toml` (or `.mise.toml`). Forge attempts
-toolchain installation before starting the agent and uses shared caches, but
-this preparation is currently best-effort. Verify that the required command
-actually works; an agent starting successfully is not proof that installation
-succeeded. On a writable change, for example:
+Pin the tools the project needs in `mise.toml` (or `.mise.toml`). AppTown
+installs them before starting the agent and uses shared caches, but an
+install can fail: check the command you need actually works. An agent that
+started is not proof every tool installed. On a writable change, for example:
 
 ```toml
 [tools]
@@ -139,21 +136,19 @@ curl http://dind:8080/
 
 Substitute the project's image, test command and container port. Published
 ports are reached at `dind`, not the helper's `localhost`, and are not published
-on the Forge host for the person's browser. Use `forge preview` for a served
+on AppTown's host for the person's browser. Use `forge preview` for a served
 preview URL.
 
-Forge configures a `forge` Buildx builder with DNS and the bound Docker Hub
-mirror. Change consoles load local builds into their daemon automatically;
-explicit `--load` makes the intent clear across both chat and step builders.
-Step setup attempts to preload the Forge agent image in the background; change
-console daemons start without that preload. Inspect before assuming any image,
+AppTown sets up a `forge` Buildx builder with DNS and the bound Docker Hub
+mirror. A change chat loads local builds into its daemon by itself; an
+explicit `--load` says so in both chats and steps. A step's daemon may have
+the agent image preloaded; a chat's does not. Look before assuming any image,
 container or build cache exists.
 
-Readiness differs today: a new or upgraded change console reports an error if
-its daemon or builder cannot be prepared. A step may continue with a progress
-message saying private Docker or its builder is unavailable. Check `docker info`
-and the step's progress when a build cannot connect; do not infer availability
-from the presence of the CLI alone.
+A change chat reports an error when its daemon or builder cannot be set up.
+A step carries on, with a progress message saying private Docker or its
+builder is unavailable. Check `docker info` and the step's progress when a
+build cannot connect; the CLI being there does not mean a daemon is.
 
 Package and image mirrors are routing configuration, not an outbound firewall.
 Nested Docker builds and containers do not inherit the helper's environment:
@@ -165,8 +160,8 @@ against hostile code on the host.
 
 Chats do not automatically receive a running database, cache or the production
 app's environment. A change chat can ask `forge preview` to boot the declared
-application and its needs as a preview (on the worker when the forge has
-one, otherwise on the forge's host), or start development services using
+application and its needs as a preview (on the worker when AppTown has
+one, otherwise on AppTown's host), or start development services using
 its private Docker. `forge dev` uses that private Docker to bring up the
 declared needs and write their connection settings; see
 [How apps run](/docs/guides/how-apps-run). Docker agent steps receive explicitly configured sidecar
@@ -176,17 +171,17 @@ emulators. Other executors do not automatically provide those Docker services.
 The permissions follow the task, independently of which CLIs are installed:
 
 - Chats receive a session identity and generated model configuration. Pi and
-  delegates authenticate to Forge's private inference proxy with the chat
-  token; upstream provider credentials remain on the Forge server. The same
-  chat token survives idle periods and restarts and ends with the chat.
-  The Forge API permits reads and the chat-specific actions through normal gates.
-- Agent steps receive an attempt-scoped Forge token and model access through
+  delegates authenticate to AppTown's inference gateway with the chat
+  token; provider credentials stay on AppTown's server. The chat token
+  survives idle periods and restarts and ends with the chat. AppTown's API
+  allows reads and the chat's own actions, through the usual gates.
+- Agent steps receive a token for that attempt and model access through
   the same proxy. The token is revoked at completion and does not survive a
   daemon restart. A continued chat receives its own token. Generated config
   carries a token environment reference, never an upstream provider key.
 - Inference requires both a live runtime token and an explicitly allowed worker
-  network. It is attributable and concurrency-limited, but has no hard monetary
-  budget in this first version. Local model execution is refused because it
+  network. It is attributed and limited in how many requests run at once,
+  but has no spending limit. Local model execution is refused because it
   cannot isolate the daemon's credentials.
 - The `STEP_` secret namespace supplies explicit step environment values, with
   that prefix removed. Chats do not receive this namespace automatically.
@@ -204,7 +199,7 @@ credential files to diagnose availability; probe the specific tool or service.
 
 | Event | Chat records and change files | Console runtime | Private console Docker |
 |---|---|---|---|
-| Forge restart | Kept | Container remains; Forge reconnects | Kept |
+| AppTown restart | Kept | Container remains; AppTown reconnects | Kept |
 | Unattached and inactive for 30 minutes | Kept | Stopped; shell processes end | Stopped; images and container records remain |
 | About two hours idle, with reaping enabled | Kept for resume | Container can be removed | Daemon, nested state and private network removed |
 | End session | Conversation retained; change worktree retained | Removed | Removed |
@@ -216,8 +211,8 @@ idle stop according to their own restart policy. Step containers and daemons
 are cleaned up after execution; their workspace and recorded evidence have
 separate retention rules.
 
-Forge shutdown cancels console Docker control operations within its bounded
-shutdown policy. It preserves console containers instead of waiting for every
+When AppTown shuts down it cancels a chat's Docker control operations within
+its shutdown time limit. It preserves console containers instead of waiting for every
 job running inside them. A resumed conversation must inspect current state
 rather than assuming that an earlier process, image or service still exists.
 

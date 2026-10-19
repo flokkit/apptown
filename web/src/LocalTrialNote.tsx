@@ -9,7 +9,7 @@ export function onThisComputer(hostname: string): boolean {
 
 // The published guide, not /docs: this note shows on the first-account page,
 // before anyone can sign in, and the built-in docs need a signed-in session.
-export const RUNNING_GUIDE = 'https://github.com/flokkit/apptown/blob/main/stock/docs/guides/running-a-forge.md'
+export const RUNNING_GUIDE = 'https://github.com/flokkit/apptown/blob/main/stock/docs/guides/running-apptown.md'
 
 export function LocalTrialNote({ hostname = window.location.hostname }: { hostname?: string }) {
   if (!onThisComputer(hostname)) return null

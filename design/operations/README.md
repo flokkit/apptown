@@ -2,15 +2,15 @@
 
 This page routes to operating contracts; it does not certify the state of a
 live instance.
-The admin guide shipped in the product, [Running a forge](../../stock/docs/guides/running-a-forge.md),
+The admin guide shipped in the product, [Running a forge](../../stock/docs/guides/running-apptown.md),
 is the short entry point; this page keeps the routing table and host-specific
 procedures.
 
 | Task | Primary reference |
 | --- | --- |
-| Install a forge, package the Linux console CLI | [Running a forge: Install](../../stock/docs/guides/running-a-forge.md#install), [Repository README](../../README.md) and Makefile |
+| Install a forge, package the Linux console CLI | [Running a forge: Install](../../stock/docs/guides/running-apptown.md#install), [Repository README](../../README.md) and Makefile |
 | Configure authentication and access | [Identity and authority](../subsystems/auth.md) |
-| Invite people, grant roles, make tokens | [Running a forge: People](../../stock/docs/guides/running-a-forge.md#people-invites-roles-and-grants), [Invites](../subsystems/auth.md#invites), [Authorization decisions](../subsystems/authorization-capabilities.md) |
+| Invite people, grant roles, make tokens | [Running a forge: People](../../stock/docs/guides/running-apptown.md#people-invites-roles-and-grants), [Invites](../subsystems/auth.md#invites), [Authorization decisions](../subsystems/authorization-capabilities.md) |
 | Configure the private model gateway and worker networks | [Inference security](../subsystems/inference-security.md) |
 | Understand startup, interrupted work and bounded shutdown | [Daemon lifecycle](../subsystems/daemon-lifecycle.md) |
 | Make a release: notes, tag, build, frozen upgrade fixture | [Releasing](releasing.md) |
@@ -21,13 +21,13 @@ procedures.
 | A personal token is refused with "the token has no purpose" | [Tokens made before purposes](#tokens-made-before-purposes) |
 | Start a project from existing code, or move one to another forge | [Starting from existing code](start-from-existing-code.md) |
 | Keep projects in a public gitlab.com group, with attributed merge requests | [A forge on a public gitlab.com group](gitlab-com.md) |
-| Add deployment targets (Docker host, Portainer, App Platform, bucket website) | [Running a forge: Deployment targets](../../stock/docs/guides/running-a-forge.md#deployment-targets), [Deploy targets](../subsystems/deploy-targets.md) |
+| Add deployment targets (Docker host, Portainer, App Platform, bucket website) | [Running a forge: Deployment targets](../../stock/docs/guides/running-apptown.md#deployment-targets), [Deploy targets](../subsystems/deploy-targets.md) |
 | Diagnose deployments, uncertainty and stale dashboard observations | [Deployment runtime](../subsystems/deployment.md) |
-| Back up and restore the forge's own database; move a forge to another host | [Running a forge: The forge's own backups](../../stock/docs/guides/running-a-forge.md#the-forges-own-backups) |
-| Deployment backups, take-down and final backups | [Running a forge: Deployment backups](../../stock/docs/guides/running-a-forge.md#deployment-backups), [Deployment runtime](../subsystems/deployment.md) |
-| Upgrade a forge | [Running a forge: Upgrading](../../stock/docs/guides/running-a-forge.md#upgrading) |
+| Back up and restore the forge's own database; move a forge to another host | [Running a forge: The forge's own backups](../../stock/docs/guides/running-apptown.md#the-forges-own-backups) |
+| Deployment backups, take-down and final backups | [Running a forge: Deployment backups](../../stock/docs/guides/running-apptown.md#deployment-backups), [Deployment runtime](../subsystems/deployment.md) |
+| Upgrade a forge | [Running a forge: Upgrading](../../stock/docs/guides/running-apptown.md#upgrading) |
 | Approve ownership for deployments made before ownership was recorded | [Deployment runtime](../subsystems/deployment.md) (the one-time inspection) |
-| Manage packs: offer, recommend a version, what-if | [Running a forge: Packs](../../stock/docs/guides/running-a-forge.md#packs-versions-and-what-if), [Ways-of-working versions](../subsystems/ways-of-working-versions.md) |
+| Manage packs: offer, recommend a version, what-if | [Running a forge: Packs](../../stock/docs/guides/running-apptown.md#packs-versions-and-what-if), [Ways-of-working versions](../subsystems/ways-of-working-versions.md) |
 | A deployment reads "uncertain" or the ledger says `deployment.needs-attention` | [A deployment needs attention](#a-deployment-needs-attention) |
 | Diagnose chat tools, private Docker and retained session state | [Runtime guide](../../stock/docs/guides/runtime-environments.md) |
 | Export telemetry and import dashboards | [Telemetry](../subsystems/telemetry.md), [the Forge dashboard](../../stock/observability/README.md) |

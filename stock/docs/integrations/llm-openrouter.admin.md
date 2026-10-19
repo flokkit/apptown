@@ -13,11 +13,11 @@ when the deployment is taken down or the preview ends.
 
 At openrouter.ai, under Settings › Provisioning API keys, create a
 provisioning key. It can create, read, change and delete ordinary API keys
-on your account; it cannot call models. Put it in the forge's secrets as
-`OPENROUTER_PROVISIONING_KEY` (Infisical, or the forge's secrets file).
+on your account; it cannot call models. Put it in AppTown's secrets as
+`OPENROUTER_PROVISIONING_KEY` (Infisical, or AppTown's secrets file).
 
 Do not give it a name starting `STEP_`: those secrets are handed to
-workflow steps and workers, and the forge refuses a provisioning key from
+workflow steps and workers, and AppTown refuses a provisioning key from
 one, when the connector is saved and every time it is used.
 
 ## 2. Bind it
@@ -53,7 +53,7 @@ For an app that declares `needs: { llm: … }`:
 
 - **A deployment's first deploy** makes an OpenRouter key named
   `forge-<project>-<deployment>-<id>`, with the declared limit and reset.
-  The forge records it on the deployment's list of what it owns, then keeps
+  AppTown records it on the deployment's list of what it owns, then keeps
   the key in its built-in store. The app gets `OPENROUTER_API_KEY` and
   `OPENROUTER_BASE_URL`.
 - **Every later deploy** keeps the same key and sets its limit and reset
@@ -64,9 +64,8 @@ For an app that declares `needs: { llm: … }`:
   at openrouter.ai, then mark the row released.
 - **A preview** gets its own key, named `forge-preview-<preview>`, with the
   preview limit. Starting the same preview again keeps it. Once the
-  preview no longer stands on the worker or this forge's Docker (stopped,
-  discarded, reaped for age, removed with its project, or cleared when the
-  forge started again), the forge revokes its key within a minute. A failed
+  preview no longer stands on the worker or this AppTown's Docker (stopped,
+  discarded, reaped for age, removed with its project, or cleared when AppTown started again), AppTown revokes its key within a minute. A failed
   revoke becomes a retained row too.
 
 An intranet release (Portainer) is refused for an app that needs AI
@@ -78,12 +77,12 @@ what it has spent in all, read from OpenRouter when the card shows, or
 
 ## Known limits
 
-- If the forge stops between OpenRouter making a key and the forge
+- If AppTown stops between OpenRouter making a key and AppTown
   recording it, the key is left at OpenRouter. Its name says which
   deployment or preview it was for: delete it by hand.
 - On a worker, a preview counts as there while the worker still lists it,
   and the worker lists a preview's folder too: a preview container removed
   by hand on the worker keeps its key until the preview is removed through
-  the forge or the forge starts again.
+  AppTown or AppTown starts again.
 - To move to another OpenRouter account, take the deployments down first
   (their keys are revoked), change the connector, then deploy again.

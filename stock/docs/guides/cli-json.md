@@ -11,13 +11,13 @@ With `--json` a command:
 - prints one JSON document on standard output and nothing else there; what it
   says along the way, and any error, goes to standard error;
 - never follows a run and never asks a question: `fix`, `quick`, `plan`,
-  `build`, `land` and `release` return once the forge has accepted the
+  `build`, `land` and `release` return once AppTown has accepted the
   request, and `approve` needs `-y` (read what approving means first:
   `forge approve <step>` prints it, and without a terminal approves nothing);
 - ends with the exit code it has without `--json`. `wait` prints its document
   for every outcome it waited to, including the ones that exit non-zero. A
-  command that fails before it has an answer (a record that does not exist, a
-  forge out of reach, a refusal) prints no document and says why on standard
+  command that fails before it has an answer (a record that does not exist, an
+  AppTown out of reach, a refusal) prints no document and says why on standard
   error, with the exit code it has without `--json` (1, or 4 when a change was
   sent but the answer was lost).
 
@@ -74,8 +74,8 @@ it refuses before starting anything.
 | `change` | `ChangeRef` | the change |
 | `title` | string | its title |
 | `state` | string | proposed, in_progress, landing, shipped or abandoned |
-| `closedAs` | string | nothing-to-change when the forge closed an abandoned change because its run found nothing to change; absent otherwise |
-| `stateDetail` | string | the forge's sentence for where it is |
+| `closedAs` | string | nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; absent otherwise |
+| `stateDetail` | string | AppTown's sentence for where it is |
 | `branch` | string | its branch, empty before its first run |
 | `runs` | array of `RunDetail` | its runs, newest first |
 | `commits` | array of `Commit` | its commits not on main, newest first |
@@ -96,7 +96,7 @@ it refuses before starting anything.
 | `exitCode` | number | the command's exit code, as outcome says |
 | `run` | `RunRef` or null | the run the outcome is about, or null |
 | `step` | UUID string or null | the approval waiting (needs_decision) or the failed step (blocked) when the run holds it; null otherwise, including an approval inside a called workflow (detail names it) |
-| `detail` | string | the forge's sentence: the step's name, how the run ended, or the operation's detail |
+| `detail` | string | AppTown's sentence: the step's name, how the run ended, or the operation's detail |
 
 ### approve → `Decided`
 
@@ -114,7 +114,7 @@ it refuses before starting anything.
 | `deployment` | string | the deployment named (forge release <project> <deployment>); empty for the intranet |
 | `number` | number | the release's number within its project: forge wait -p <project> -r <number> |
 | `url` | string | where the intranet will serve it; empty for a named deployment, which keeps its own address |
-| `state` | string | the release's state when the forge accepted it |
+| `state` | string | the release's state when AppTown accepted it |
 
 ### complain → `ComplaintFiled`
 
@@ -127,7 +127,7 @@ it refuses before starting anything.
 | Field | Type | Meaning |
 |---|---|---|
 | `cli` | `CLIVersion` | this CLI |
-| `forge` | `ForgeVersion` | the forge it talks to |
+| `forge` | `ForgeVersion` | the AppTown it talks to |
 
 ### `ChangeRef`
 
@@ -175,7 +175,7 @@ it refuses before starting anything.
 | `change` | `ChangeRef` | the change |
 | `title` | string | its title |
 | `state` | string | its board column: proposed, in_progress, landing, shipped or abandoned |
-| `closedAs` | string | nothing-to-change when the forge closed an abandoned change because its run found nothing to change; absent otherwise |
+| `closedAs` | string | nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; absent otherwise |
 
 ### `Target`
 

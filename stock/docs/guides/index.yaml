@@ -9,8 +9,8 @@ groups:
   - title: Start here
     guides:
       - quickstart
-      - what-forge-is-for
-  - title: Building on Forge
+      - what-apptown-is-for
+  - title: Building on AppTown
     guides:
       - changes-and-main
       - connect-a-coding-agent
@@ -24,15 +24,13 @@ groups:
       - contract-reference
       - ways-of-working-formats
       - conformance
-  - title: Running a forge
+  - title: Running AppTown
     guides:
-      - running-a-forge
+      - running-apptown
       - compatibility
       - cli-json
-  - title: How Forge works
+  - title: How AppTown works
     guides:
       - architecture
       - the-change
-      - dev-loops
       - glossary
-      - roadmap

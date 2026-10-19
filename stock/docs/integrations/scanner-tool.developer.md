@@ -2,7 +2,7 @@
 
 ## What it's for
 
-Before anything ships, the forge checks it for the
+Before anything ships, AppTown checks it for the
 things you would not want to discover later: dependencies with known
 security holes, a password or token committed by accident, and it
 records exactly what is inside the build. A scan that finds something
@@ -16,7 +16,7 @@ image: pulled by its declared reference, or built from the landing's commit
 resolves its own images, so the scan's receipt names the image it scanned and
 how it got it, not the release's digest, and lists the other parts and init
 steps, which it does not scan. A public static site is skipped with a note
-(its files are packed into the forge's file-server image at release), still
+(its files are packed into AppTown's file-server image at release), still
 naming the other parts and init steps; an app with no `.forge/app.yaml`
 passes the image point with a note.
 

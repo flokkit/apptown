@@ -1,8 +1,7 @@
 # Ways-of-working formats
 
 A way of working is data: workflows, packs, policies and guidance blocks with
-their checks. This page says which shape each takes when you write one, how the
-forge reads it, and what it promises to keep reading.
+their checks. This page says which shape each takes when you write one, how AppTown reads it, and what it promises to keep reading.
 
 ## What you write, and where
 
@@ -42,9 +41,8 @@ step names, gates naming steps that exist).
   ```
 
 - Steps read the change as `${{change.title}}`, `${{change.body}}`,
-  `${{change.type}}` and `${{change.id}}`. The older name `${{workItem.*}}` is
-  refused in a save. Workflow versions saved before 28 September 2026 that use
-  it keep running as they are.
+  `${{change.type}}` and `${{change.id}}`. `${{workItem.*}}` is refused in a
+  save.
 
 ## Packs
 
@@ -55,10 +53,8 @@ does not define them: add a policy to the library first, then pick it.
 Each saved version records exactly what it contains: each block and workflow at
 a version, and each policy's definition as it was when the version was
 published. Changing a library policy later does not change an existing pack
-version; the forge publishes a new version of each pack that names it, which
-you recommend when you are ready. Versions published before October 2026
-recorded policy names only, and read the library's current definition when
-applied.
+version; AppTown publishes a new version of each pack that names it, which
+you recommend when you are ready.
 
 `requires` names instance capabilities a project on the pack needs (a scanner);
 adopting the pack is refused until each is attached.
@@ -94,6 +90,6 @@ what each evaluator proves.
 
 ## What stays readable
 
-The forge keeps running what it accepted. A workflow version, a pack version
+AppTown keeps running what it accepted. A workflow version, a pack version
 and a block version are publications: they are never rewritten, and the stricter
 rules on this page apply to what is saved from now on, not to history.

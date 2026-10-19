@@ -22,8 +22,8 @@ container preserves that database. This declaration does not provision a managed
 MariaDB service. Database connection variables are injected from the need.
 
 Uploaded media lives in the deployment's own object storage: the app
-declares the `s3` need, and S3 Uploads writes to the bucket the forge makes
-for it, with the key the forge gives it. Nobody enters an S3 setting. A
+declares the `s3` need, and S3 Uploads writes to the bucket AppTown makes
+for it, with the key AppTown gives it. Nobody enters an S3 setting. A
 preview gets its own empty bucket and never main's key.
 
 The need gives no public address for objects, so the site serves its own
@@ -59,7 +59,7 @@ migrations require that plugin's own documented procedure.
 
 The site's address is the address each deployment is served at, so nobody
 supplies it: the starter takes a request's Host when it matches an origin in
-`FORGE_ORIGINS` (where the forge's front door routes the deployment) and refuses
+`FORGE_ORIGINS` (where AppTown's front door routes the deployment) and refuses
 any other Host with 400. `FORGE_ORIGINS` may list several origins or wildcards
 and is never used as the URL itself. To pin one canonical address, bind
 `WP_HOME` for that deployment; a preview `WP_HOME` binding is shared by all of
@@ -77,7 +77,7 @@ a separate fast endpoint; it does not prove database or object-store health.
 Functional checks must render a page and upload/read actual media, including
 thumbnail creation and media access after replacing the web container.
 
-The current runtime supports one replica. Larger `replicas` values are rejected.
+An app runs one replica; larger `replicas` values are refused.
 The starter uses WordPress's normal request-triggered cron. Before moving to a
 coordinated external scheduler, disable request-triggered cron and arrange exactly
 one scheduler for the deployment. Object storage alone does not make the whole
@@ -100,11 +100,11 @@ profiles:
     web: {resources: {memory: 192M}}
 ```
 
-This keeps the starter's current unsized main database at 256M. Main may select
+This keeps the starter's unsized main database at 256M. Main may select
 small explicitly too. A need selects either `size` or explicit `resources`,
 including values inherited by a profile. A named size is available for local
 containers (Docker/Portainer), not managed database instances or shared databases.
-There are no PostgreSQL presets or expert database tuning overrides yet.
+There are no PostgreSQL sizes and no database tuning overrides.
 
 The stock WordPress image passed bounded page, login, media upload and media
 regeneration checks at 192M; 128M OOMed during regeneration. MariaDB small passed
@@ -122,18 +122,14 @@ catalogue changes.
 
 ## Recovery obligations
 
-The MariaDB catalogue declares logical SQL export, import, restore and verification.
-It copies tables, views and triggers, and excludes routines, events, accounts and
-grants. Export requires transactional tables and no concurrent schema changes.
-Verification compares complete table definitions and rows against a quiescent
-restored database. A destination receiving writes can legitimately fail verification.
-Restore replaces tables present in the copy; unexpected destination objects remain
-and make verification fail. Use a clean destination for an exact recovery.
+How MariaDB is copied and restored, and what its copy leaves out (routines,
+events, accounts and grants), is in
+[Services and data](/docs/guides/services-and-data).
 
-The forge's copies of the database and of the bucket are separate copies,
+AppTown's copies of the database and of the bucket are separate copies,
 not a coordinated multi-store recovery point. Before a change that may
 rewrite data incompatibly, stop writes and make and test copies of every affected
 store under an operator's recovery procedure. A previous container image may not
-understand the new schema or changed objects. Current deployment policy is
-`compatible-update`; `protected-maintenance` is reserved and fails as unsupported.
-This pack does not provide automatic rollback or execute that maintenance procedure.
+understand the new schema or changed objects. A deploy does not put data back
+if the new release fails ([Previews and deployments](/docs/guides/container-lifecycle)),
+and this pack adds no rollback of its own.

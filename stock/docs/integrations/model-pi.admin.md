@@ -2,7 +2,7 @@
 
 ## What it's for
 
-Every agent on this forge needs a language model to
+Every agent on this AppTown needs a language model to
 think with, and you decide which ones, at what cost, for which jobs.
 Providers are the backends agents can reach; slots are the routing
 table — "review" goes to the careful model, "cheap" to the fast one —
@@ -20,21 +20,20 @@ Integrations → Model providers. Two kinds:
   the enabled models from its live catalog — only curated models appear
   in slot selectors.
 - **Custom OpenAI-compatible endpoints** (LM Studio, vLLM, llama.cpp):
-  base URL, API dialect, endpoint key as a secret reference. Forge
+  base URL, API dialect, endpoint key as a secret reference. AppTown
   GENERATES pi's config per container from the binding — including
   live-discovering what the endpoint currently serves, so swapping
   models on the box needs no binding edit.
 
-Provider credentials stay on Forge. Pi and its delegates use their Forge
+Provider credentials stay on AppTown. Pi and its delegates use their AppTown
 session token through the private inference proxy. The curated model list is
 also an admission allowlist; when using fuzzy `~` selectors, curate concrete
-model IDs. Model agents run in containers. Without a worker they run on the
-forge's own Docker. With a worker, agent and review steps and most change
+model IDs. Model agents run in containers. Without a worker they run on AppTown's own Docker. With a worker, agent and review steps and most change
 chats run there, while project chats and chats that continue a step's agent
-stay on the forge; with `-no-local-docker` the forge runs none and refuses
+stay on AppTown; with `-no-local-docker` AppTown runs none and refuses
 what the worker cannot take. They
-also need the forge's private inference listener; setting it up is under
-Install in [Running a forge](/docs/guides/running-a-forge).
+also need AppTown's private inference listener; setting it up is under
+Install in [Running an AppTown](/docs/guides/running-apptown).
 
 ## Slots
 

@@ -74,6 +74,51 @@ class DocsCurrent(unittest.TestCase):
                          "[stock](../../stock/docs/guides/a.md).\n"})
         self.assertEqual(code, 0, out)
 
+    def test_a_shipped_guide_is_held_to_the_same_rules(self):
+        code, out = run({"stock/docs/guides/a.md": "See the [plan](../../../design/plans/a.md).\n",
+                         "stock/docs/guides/b-2026-10-19.md": "# B\n"})
+        self.assertEqual(code, 1)
+        self.assertIn("links a plan or review", out)
+        self.assertIn("has a date in it", out)
+
+    def test_a_shipped_guide_calling_the_product_forge_fails(self):
+        cases = {
+            "the forge": "AppTown hosts it, and the forge restarts it.\n",
+            "across a line": "Ask this\nforge for its address.\n",
+            "possessive": "Read forge's log.\n",
+            "capital": "Forge keeps the record.\n",
+            "an article": "On a forge with a worker.\n",
+        }
+        for name, text in cases.items():
+            with self.subTest(name=name):
+                code, out = run({"stock/docs/guides/a.md": "# A\n\n" + text})
+                self.assertEqual(code, 1, out)
+                self.assertIn("says forge for the product", out)
+
+    def test_code_names_in_a_shipped_guide_pass(self):
+        text = ("Run `forge wait` and `the forge` in code. The `forge` command, `forged`, "
+                "forge-worker and {forge:mcp} are names.\n\n```sh\nthe forge\n```\n\n"
+                "    Forge in indented code\n\n[guide](/docs/guides/running-a-forge)\n")
+        code, out = run({"stock/docs/guides/a.md": text})
+        self.assertEqual(code, 0, out)
+
+    def test_prose_after_indented_code_is_still_checked(self):
+        code, out = run({"stock/docs/guides/a.md":
+                         "    forge help\n\nForge restarts the app.\n"})
+        self.assertEqual(code, 1, out)
+        self.assertIn("a.md:3: says forge for the product", out)
+
+    def test_design_guides_are_not_held_to_the_product_name(self):
+        code, out = run({"design/subsystems/a.md": "The forge's engine runs steps.\n"})
+        self.assertEqual(code, 0, out)
+
+    def test_product_names_before_sentence_punctuation_are_checked(self):
+        for text in ("Install Forge.\n", "This is the forge.\n", "Configure Forge:\n"):
+            with self.subTest(text=text):
+                code, out = run({"stock/docs/guides/a.md": text})
+                self.assertEqual(code, 1, out)
+                self.assertIn("says forge for the product", out)
+
 
 if __name__ == "__main__":
     unittest.main()

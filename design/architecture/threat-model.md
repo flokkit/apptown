@@ -88,7 +88,7 @@ not establish the proposed controls in the register.
 
 This is what the shipped unit files (`deploy/systemd/forged.service`,
 `deploy/systemd/forge-worker.service` and their `.env.example` files) and
-[running a forge](../../stock/docs/guides/running-a-forge.md) set up. It
+[running a forge](../../stock/docs/guides/running-apptown.md) set up. It
 describes no particular installation.
 
 - **The daemon runs as root.** On Linux, `forged` runs as root when it runs

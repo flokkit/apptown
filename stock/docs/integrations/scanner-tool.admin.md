@@ -33,7 +33,7 @@ with its own receipt. Nobody edits a workflow to add a scanner.
 ## How scans run
 
 Scans execute against a staged `git archive HEAD` — the committed tree,
-never the working directory — so forge runtime state and agent scratch
+never the working directory — so AppTown's runtime state and agent scratch
 can't pollute findings. Findings normalize into severity buckets;
 verdicts are actionable = findings − active suppressions; suppressions
 are VEX-shaped with justification and expiry, exportable as OpenVEX.

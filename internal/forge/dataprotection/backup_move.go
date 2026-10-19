@@ -28,7 +28,7 @@ import (
 // A forge that stops after the row changes and before the folder is
 // removed leaves the folder: the row is the place of record and points at
 // the checked objects, so nothing reads it again, and a person removes it
-// (stock/docs/guides/running-a-forge.md). The move logs its name first.
+// (stock/docs/guides/running-apptown.md). The move logs its name first.
 
 // MoveSetsToStore moves every set still on the forge's disk to the
 // attached store; without a store there is nothing to move. It answers

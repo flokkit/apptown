@@ -116,7 +116,7 @@ export function BackupsView() {
 }
 
 // backupsGuide is where the rules this page shows the facts of are said.
-const backupsGuide = '/docs/guides/running-a-forge'
+const backupsGuide = '/docs/guides/running-apptown'
 
 // itemBadge is how an item was copied, as a fact: a database's own dump, a
 // service's own copy, or files, which a running service may change mid-copy.

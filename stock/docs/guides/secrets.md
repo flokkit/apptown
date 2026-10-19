@@ -1,9 +1,9 @@
 # Secrets
 
 An app needs things it must never commit: a key that signs its cookies,
-a token for a payment service, a password for a service the forge does
-not run. The forge's rule has three parts. The app **declares** which
-secrets it needs. A **store** holds the values. The forge **delivers**
+a token for a payment service, a password for a service AppTown does
+not run. AppTown's rule has three parts. The app **declares** which
+secrets it needs. A **store** holds the values. AppTown **delivers**
 each value to the containers that need it, and writes down that it did,
 never what the value was.
 
@@ -44,30 +44,31 @@ secrets = ["SECRET_KEY_BASE"]
   scopes, every part receives every secret. With scopes, a part gets
   only what its scope lists, so a migration password never reaches the
   web server.
-- `generate = true` means the forge makes the value itself, once per
+- `generate = true` means AppTown makes the value itself, once per
   deployment (all previews share one), and keeps using it. Signing keys
   are the usual case.
 
-This is the SecretSpec format. The forge reads names, descriptions,
+This is the SecretSpec format. AppTown reads names, descriptions,
 requiredness, defaults, `generate`, profiles and scopes. It does not use
 `[providers]` or per-secret `ref` and `providers`: where a value lives is
-decided in the forge, never in the repo.
+decided in AppTown, never in the repo.
 
 ## Binding
 
 A project's **Settings › Secrets** page shows each deployment and, for
 every declared secret, where its value comes from:
 
-- **Type a value.** It goes into the forge's built-in store and is never
-  shown again. The built-in store is part of the forge itself: there is
-  no separate service and nothing to run or connect. The forge reads and
-  writes it in its own process, and the values sit in the forge's own
-  database, encrypted with a key the forge generated and keeps in that
-  same database. **Anyone with a dump or backup of the database has every
-  value and the key to read them.** It is not a vault. For a team, or for
+- **Type a value.** It goes into AppTown's built-in store and is never
+  shown again. The built-in store is part of AppTown itself: there is
+  no separate service and nothing to run or connect. AppTown reads and
+  writes it in its own process, and the values sit in AppTown's own
+  database, encrypted with a key AppTown generated and keeps in that
+  same database. That is obfuscation, not protection: **anyone with a dump
+  or backup of the database has every value and the key to read them.** It
+  is not a vault. For a team, or for
   any value that matters, connect Infisical and name keys there instead.
-- **Name an Infisical key.** When this forge is connected to Infisical,
-  a secret can point at a key there by name. The forge fetches it at boot
+- **Name an Infisical key.** When this AppTown is connected to Infisical,
+  a secret can point at a key there by name. AppTown fetches it at boot
   and never copies it into its database. Use this for anything that
   matters.
 
@@ -75,11 +76,11 @@ A boot stops, before any container exists, when a required secret has
 no value for that deployment or preview. The message names the secret and this page.
 
 A deploy checks the same thing earlier, before anything is built. When a
-landing or a manual deploy selects a commit, the forge reads that commit's
+landing or a manual deploy selects a commit, AppTown reads that commit's
 declaration and the deployment's bindings and stops if a required secret
 has no value there. The deploy step says `missing-settings`, names the
 deployment, the secret and the parts it would reach, and points here; no
-image is built or published and no secret is generated. A secret the forge
+image is built or published and no secret is generated. A secret AppTown
 generates is not missing: it is made at boot. Values a service gives the
 app (a database's `DATABASE_URL`) are not secrets and are not checked. If
 a store cannot be read (Infisical unreachable), the deploy stops as
@@ -131,7 +132,7 @@ production's own platform, so remember that its data can still hold
 credentials and webhook addresses of its own: withholding secrets reduces
 what it can do outside, it does not stop it.
 
-## What the forge records
+## What AppTown records
 
 Every preview and deploy records which secrets it delivered, to which
 parts, from which store, at which version. Never a value. Unbinding a
@@ -140,7 +141,7 @@ it is.
 
 ## What is masked, and what is not
 
-Text the forge records and shows replaces every current value its stores
+Text AppTown records and shows replaces every current value its stores
 hold, eight characters or longer, with `[secret]`: a step's recorded output and
 evidence, and a chat's messages as the chat and history pages show them.
 This catches an accidental echo, not a determined one: a value the agent
@@ -152,5 +153,5 @@ the live terminal of a chat.
 
 Do not commit values, in any form. Do not commit an encrypted bundle
 that one key unlocks (Rails' `credentials.yml.enc` and `master.key` are
-the well-known case): the forge cannot see inside it and cannot make its
+the well-known case): AppTown cannot see inside it and cannot make its
 key. Declare each secret on its own and read it from the environment.

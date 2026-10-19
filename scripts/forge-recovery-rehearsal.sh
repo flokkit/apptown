@@ -1,6 +1,6 @@
 #!/bin/bash
 # Restore a whole forge onto a replacement host and check it, timing each step
-# (the procedure is the guide's, stock/docs/guides/running-a-forge.md
+# (the procedure is the guide's, stock/docs/guides/running-apptown.md
 # "The forge's own backups").
 #
 #   FORGE_URL=<source url> FORGE_TOKEN=<source CLI token> \

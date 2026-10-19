@@ -8,14 +8,14 @@ Mirrors fetch each package once for the whole instance and serve it
 from next door: faster builds, fewer mystery failures, and one place to
 see (and if needed, block) what enters the building.
 
-Forge routes all dependency and toolchain traffic through instance-local
-mirrors. You stand up the mirrors; forge wires every container to them.
+AppTown routes all dependency and toolchain traffic through instance-local
+mirrors. You stand up the mirrors; AppTown wires every container to them.
 
 ## 1. Stand up the proxy repositories
 
 Any product that can proxy the upstream works (Sonatype Nexus, JFrog
 Artifactory). Per ecosystem you want covered, create a proxy repo of the
-upstream (immutable artifacts → never re-validate). The formats forge
+upstream (immutable artifacts → never re-validate). The formats AppTown
 understands, with typical upstreams:
 
 | format | upstream | serves |
@@ -35,17 +35,17 @@ Anonymous read is expected; if your proxy path strips auth headers
 (recommended — some clients forward foreign credentials), do it at the
 proxy edge.
 
-## 2. Bind the formats in forge
+## 2. Bind the formats in AppTown
 
 Integrations → Package registries → New integration. One binding per
 format: pick the format, paste the repo URL, Test (fetches a known-small
 artifact through the mirror), Save. Presets exist for Nexus URL shapes.
 Bind only what you have — unbound ecosystems simply go direct.
 
-## 3. What forge does with the bindings
+## 3. What AppTown does with the bindings
 
 Per step/app container: injects the env vars (GOPROXY etc.), generates
-client config at the SYSTEM layer (/etc/mise/config.toml, a forge-owned
+client config at the SYSTEM layer (/etc/mise/config.toml, an AppTown-owned
 CARGO_HOME config, a generated Maven settings.xml), records the bindings
 used in step evidence, and renders the live inventory into agent
 steering. Bindings point tools at the mirror; they do not block the
@@ -59,30 +59,30 @@ a workflow for any of this.
 ## 4. When the mirror itself is the problem
 
 A proxy can serve its index (200) and refuse the downloads (403) — the
-symptom of a product-side cap, not a forge bug. Sonatype Nexus
+symptom of a product-side cap, not an AppTown bug. Sonatype Nexus
 Community Edition stops caching new components once its usage ceiling
 is hit; agents then report "the mirror 403s nearly every package" while
 a handful of already-cached ones still work (complaint #37 on this
-forge). Check the mirror's own status page before hunting in forge;
+AppTown). Check the mirror's own status page before hunting in AppTown;
 builds recover the moment the mirror serves again.
 
 ## 5. Container registries for releases
 
-Package mirrors are what builds read. A container registry is where a
-forge with a worker publishes each landing's release images: the worker
-builds them, the forge pushes them to the project's container registry and
+Package mirrors are what builds read. A container registry is where an
+AppTown with a worker publishes each landing's release images: the worker
+builds them, AppTown pushes them to the project's container registry and
 records each by digest, and every deployment target pulls those digests.
-Nothing is built on a target. This needs the forge started with
+Nothing is built on a target. This needs AppTown started with
 `-private-docker`.
 
 Offer one container-registry connector under Integrations: a project with
 no registry is given it at its first landing, recorded as an attachment.
 With several connectors, attach each project to one yourself; with none,
 the landing is refused before anything happens, naming what to do. The
-connector's credential (the name of a forge secret, or for a GitLab
+connector's credential (the name of an AppTown secret, or for a GitLab
 connector a deploy token it makes for each project) must be able to push
 and pull every project's repository. Every target must be able to
-reach the registry and trust its TLS certificate. The forge does not delete
+reach the registry and trust its TLS certificate. AppTown does not delete
 release images from the project's container registry; the registry's own
 retention decides how long a release can be
 deployed again. The repository's `design/operations/workers.md` ("Releases

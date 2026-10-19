@@ -3,8 +3,40 @@
 Every change is a branch off `main`, and `main` is the authority. Nobody
 writes to `main` directly — not a person, not an agent, not a `git push`.
 The only path from a branch to `main` is **landing**, through the gates.
-This guide is how that works, and how a change stays close to `main`
-while it's being built.
+This guide is how that works, the ways to work on a change, and how a change
+stays close to `main` while it's being built.
+
+## Ways to work on a change
+
+A change can be worked in its chat, from your own computer, or by a
+**lane**: a workflow named for what it is for. Every lane works on the
+change's branch and ends at a person; only the landing merges.
+
+- **Fix a bug** (`forge fix`): the agent reproduces the bug first, as a
+  failing test it commits, and a judge confirms the reproduction is real
+  before a fix is tried. "Cannot reproduce" stops the lane. Its record
+  reads: failing test, fix, the same test passing.
+- **Quick change** (`forge quick`): a small described task with one
+  approval.
+- **Plan and execute** (`forge plan`): the agent drafts a plan with
+  acceptance criteria, you approve the plan, and the work is then judged
+  against those criteria one by one.
+- **Implement** (`forge build`): an application or a substantial new
+  capability, from a description or an accepted spec; the project's
+  attached integrations are wired in.
+- **Dependency uplift** (`forge uplift`): patch and minor updates checked by
+  build and tests, majors listed with their changelogs, the result checked
+  by a dependency scan.
+- **Adopt or retire an integration** (`forge adopt`, `forge retire`): wire
+  an attached service into the app, or prove it fully unwired.
+- **Adopt a branch** (`forge import <branch>`, or Settings › General): bring
+  in work done outside AppTown as a change. Its history is marked as
+  reconstructed, not witnessed, and it lands like any other.
+
+A change worked in a chat by a person is recorded as that, not as an
+agent's work. Whatever the route, the landing asks the same things: a
+summary that matches the diff, passing checks, and the approvals the
+workflow names.
 
 ## The shape
 
@@ -27,8 +59,8 @@ its branch"]
     B == land ==> M
 ```
 
-Two rules make this safe on a shared, multi-participant box, and they're
-enforced by machinery, not by trust:
+Two rules keep this safe when many people and agents share one AppTown,
+and AppTown enforces them rather than trusting anyone:
 
 - **You can pull `main`, you can't push it.** A workspace can fetch the
   latest `main` to stay current. Nothing pushes to `main`: the only write
@@ -77,14 +109,14 @@ lost.
 ## Staying current while you work
 
 `main` moves under you — other changes land while yours is open. You can
-catch up any time with a read-only, scoped remote the forge provides:
+catch up any time with a read-only, scoped remote AppTown provides:
 
 ```sh
 git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into $(git branch --show-current)" FETCH_HEAD
 ```
 
 The `-m` gives the merge a plain message. Without it git names what it
-merged by the remote's address, which is the forge's internal one
+merged by the remote's address, which is AppTown's internal one
 ("Merge branch 'main' of http://192.0.2.10:7778/...") and means nothing in
 the project's history.
 
@@ -96,10 +128,10 @@ you cannot push through it. Staying current is a pull; it never risks the
 gates.
 
 A workflow's agent steps don't need to. Before each agent step of a
-change's run on a worker, the forge merges `main` into the change itself
+change's run on a worker, AppTown merges `main` into the change itself
 when the branch is behind it and the merge has no conflicts: an ordinary
-merge commit, "Merge main into <branch>", made by the forge and shown in
-the change's history. When the merge would conflict, the forge leaves the
+merge commit, "Merge main into <branch>", made by AppTown and shown in
+the change's history. When the merge would conflict, AppTown leaves the
 branch alone and the step works on it as it is. The change's page and
 `forge wait -c` then say which files conflict, until you catch up in the
 change's chat with the command above.
@@ -161,7 +193,7 @@ moved).
 A landing merges into `main` and deploys only when a person has approved
 it, or a person allowed to land changes started it. The check is made at the
 merge and at the deploy, so it holds however the landing was started.
-Coding agents, chats, workflow steps and the forge's own schedules can ask
+Coding agents, chats, workflow steps and AppTown's own schedules can ask
 for a landing; they cannot approve one, and they cannot stand in for that
 person.
 
@@ -178,7 +210,7 @@ the point where its branch meets `main` (their common ancestor) did not.
 It is what the branch adds, not a comparison with today's `main`: something
 `main` has removed since is not listed, and something both added is. For a
 change that moves the project to a newer pack version, the list also names
-the ways of working it brings. The forge reads this from `secretspec.toml`,
+the ways of working it brings. AppTown reads this from `secretspec.toml`,
 `.forge/app.yaml` and the recorded pack version, never by guessing from
 source code. A file it could not read is shown as its own line, not as
 "nothing new". What the form showed is
@@ -195,15 +227,15 @@ stock `dependency-uplift` carries `0 6 1 * *`, 06:00 UTC on the 1st of each
 month.
 
 - **What fires.** Every project that adopted and selected the workflow gets
-  its own firing: a change opened by the forge, with its run started. An
+  its own firing: a change opened by AppTown, with its run started. An
   eval copy runs no schedules.
-- **When.** The cron is read in UTC, the forge's time. The forge looks
+- **When.** The cron is read in UTC, AppTown's time. AppTown looks
   every 30 seconds, so a firing starts within a minute of its time.
 - **Skipped while active.** If the project's previous run of that workflow
   is still active, the firing is skipped and recorded as skipped. A
   workflow can turn this off with `skipIfActive: false`.
-- **No replay.** A schedule counts from when the forge first saw it. Firings
-  missed while the forge was stopped are not made up: one fires at the next
+- **No replay.** A schedule counts from when AppTown first saw it. Firings
+  missed while AppTown was stopped are not made up: one fires at the next
   look, then the schedule continues from there.
 - **By hand.** Run one now like any other change:
   `forge invoke -p <slug> -w dependency-uplift -t "Dependency uplift"`.
@@ -214,9 +246,37 @@ month.
 The project overview lists each schedule with its next firing and what its
 last firing did; `forge schedules -p <slug>` shows the same in UTC.
 
+## From a terminal
+
+The `forge` command line stays with the work, from the request to the
+running app:
+
+    forge fix "the /pulse endpoint reports the wrong service name"
+    # shows the reproduction and the fix, asks you to approve, offers the
+    # landing, and ends at:
+    #   ⚑ change #57 shipped · release #8 · the main URL
+
+    forge status          # what's waiting on you, what's in flight
+    forge changes         # what's in flight and what each waits on (--all: shipped too)
+    forge show 57         # one change: now, what it's for, so far, runs, commits
+    forge follow 57       # re-attach to anything in flight
+    forge preview 57      # boot (or reuse) the change's preview and print its address
+    forge wait 57         # wait until it ships, stops, or needs a person
+
+At an approval it shows the briefing and asks: approve, reject, show the
+plan, spec or report the stage asks for, or see the diff. Rejecting takes a
+comment and sends the work back with it. With `-y` each approval is one
+line saying what it agreed to; without a terminal and without `-y`, it
+stops and names the `forge approve` or `forge follow -y` command, and the
+page.
+
+`forge review [-p project]` checks every project (or one) against the ways
+of working it adopted. `forge delete <slug>` deletes a project after you
+type its slug back, and follows its clean-up until it is done.
+
 ## Why `main` is write-protected
 
-The whole point of the forge is that a change's landing is *evidenced* —
+The whole point of AppTown is that a change's landing is *evidenced* —
 tests, scans, an accountable approval, a receipt. The one thing that would
 make all of that optional is a `git push` straight to `main`. So that door
 is shut, at both layers a workspace could reach:

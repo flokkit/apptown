@@ -2,7 +2,7 @@
 
 Most agentic coding platforms organize themselves around their
 machinery: where the agents run, how they're orchestrated, which
-models, what sandbox. The forge organizes itself around the **change**
+models, what sandbox. AppTown organizes itself around the **change**
 — one unit of intent becoming one difference in the software — because
 that is the thing that has value. Nobody wants an agent fleet. They
 want the game to have headlights that point forward. The infrastructure
@@ -110,8 +110,7 @@ flowchart LR
   its notes are the changes' own narratives.
 
 Everything else — runs, steps, workspaces, containers, models, slots —
-is machinery, deliberately absent from the verbs. A person using the
-forge should be able to live entirely in *"I changed it"* and *"I
+is machinery, deliberately absent from the verbs. A person using AppTown should be able to live entirely in *"I changed it"* and *"I
 released it"*, and drill into machinery only when they choose to. The
 machinery pages exist and hide nothing; they are just never the
 subject.

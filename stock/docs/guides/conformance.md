@@ -23,7 +23,7 @@ The page has three tabs, in the order people need them:
   checks — shows exactly what that review recorded, at the commits it
   looked at, with the exceptions that were in force then. Nothing is
   recomputed. A person starts one with **Review now** or `forge review`;
-  the forge starts one for a project by itself whenever that project's
+  AppTown starts one for a project by itself whenever that project's
   adopted ways of working change (adopting a pack or a version, a guidance
   edit), shown as "adoption" beside the review.
 - **Checks** — every adopted check: what it requires in plain words, how it
@@ -82,7 +82,7 @@ checks on every project on an earlier version (or `forge whatif <pack>
 <version>`) and shows, project by project, what would newly fail and what
 it could not assess, without changing anyone's standing. A project that
 then adopts the version is reviewed against it automatically. See Packs in
-[Running a forge](/docs/guides/running-a-forge).
+[Running AppTown](/docs/guides/running-apptown).
 
 ## Two kinds of check
 
@@ -103,7 +103,7 @@ A few runtime checks are judged **only on the running deployment**: "each
 part uses under 90% of its memory limit" needs the deployment's steady use,
 which a change's fresh preview does not have. They are skipped at landing
 and judged in every review. No change can prove one before it lands, so such
-a finding is not remediation work: the forge refuses to open a remediation
+a finding is not remediation work: AppTown refuses to open a remediation
 for it and skips a queued item with the reason. Fix it with an ordinary
 change the finding describes (declare more memory) and deploy, or override
 the deployment's resources on its card.
@@ -114,14 +114,14 @@ A **remediation** is a job that fixes findings across the estate, one Change
 per project at a time. Start one from a check ("Fix everywhere"), a project
 ("Fix all on this project"), or the page header ("Fix all findings"). The
 **Remediations** tab shows each job's progress and the **remediation
-workers**: how many fixes the forge works on at once (two by default; change
+workers**: how many fixes AppTown works on at once (two by default; change
 it on the tab). A bigger pool costs more per hour and hits provider rate
 limits sooner; when a provider refuses, the pool holds off for a few minutes
 and the item goes back in the queue by itself.
 
 Each item walks: queued, working (an agent on the implement lane), **waiting
 on you** (accept it on the change page; it lands itself), landing, verifying
-(a fresh review of that project), done. An item the forge cannot finish is
+(a fresh review of that project), done. An item AppTown cannot finish is
 **stuck** with a reason, and you can retry it with a note or skip it with a
 reason. A project's page keeps a **Fixed** history: what got fixed, by which
 change, proven by which review.

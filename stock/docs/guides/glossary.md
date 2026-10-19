@@ -1,6 +1,6 @@
 # Glossary
 
-Terms used throughout the forge. One meaning each.
+Terms used throughout AppTown. One meaning each.
 
 ## The work
 
@@ -26,7 +26,7 @@ chat, the detailed form, a catalog change, or an imported branch — it
 accumulates commits and ends shipped or abandoned. A change whose workflow
 keeps a record instead of commits (research, a product spec) closes when
 its record is accepted; nothing lands, and it reads **finished** rather
-than shipped. A change the forge closed because its run found nothing to
+than shipped. A change AppTown closed because its run found nothing to
 change (a dependency update with nothing to update) reads **closed:
 nothing to change** rather than abandoned. While its landing runs, a
 change reads **landing**; a run that stopped on a failed step reads
@@ -44,11 +44,9 @@ on the project's changes.
 workflow's stages, performs its steps, and records everything it does.
 
 **Overview** — a project's front page: the Open / Change / Release doors,
-its releases, what is happening now, and its history. (The separate
-"Board" view is retired; the Overview and the instance Home page carry
-what it showed.)
+its releases, what is happening now, and its history.
 
-**Home** — the instance's front page (once called the Dashboard): one
+**Home** — the instance's front page: one
 sentence on the situation, then what needs you, what is running across every
 project, projects, recently finished.
 
@@ -58,14 +56,14 @@ project, projects, recently finished.
 a gate to pass before leaving each stage. Stored as YAML in the library
 (Ways of working › Workflows), in three tiers: **Core** (the short list
 most projects use), **Extras** (for particular situations), **System**
-(the forge runs these itself — landing, shipping, wiring integrations in
+(AppTown runs these itself — landing, shipping, wiring integrations in
 and out — nobody picks them). A project *selects* the lanes it uses under
 Settings › Way of working; nothing is copied, and every run records which
 library version ran.
 
 **Lane** — a workflow a person picks as a way of working on a change
 (quick-change, implement, fix-bug, dependency-uplift, …), as opposed to a
-system workflow the forge runs for every project.
+system workflow AppTown runs for every project.
 
 **Scan point** — a step in a system workflow that says `on: source` or
 `on: image` instead of naming a scanner. It runs every attached scanner
@@ -112,17 +110,17 @@ merge, deploy, release record. "Land" is the verb.
 tier. Numbered per project; each release keeps a timestamped log, the
 commit, and the image digest it shipped.
 
-**Runtime contract** — the file `.forge/app.yaml` (forge-native). Two sections:
-`app:` — a map of the app's own containers, each `build:`/`image:`/`static:`,
-one `public: true`; and `needs:` — a map of dependencies (postgres, s3, …)
-fulfilled per deployment. `forge dev up` generates a runnable
-`.forge/docker-compose.yml` from it for local dev. No contract, no deploy.
+**Runtime contract** — the file `.forge/app.yaml`: `app:`, the app's own
+containers, each `build:`/`image:`/`static:`, one `public: true`; and
+`needs:`, the services (postgres, s3, …) provided per deployment. No
+contract, no deploy. [The app contract](/docs/guides/contract-reference)
+says what it promises.
 
 **Capacity** — how full a deployment target is. A fixed host shows what it can
 give containers, the limits they hold, what they use and its disk. An elastic
 one (App Platform) grows, and shows each part's size and an estimated cost.
 
-**Boot check** — the forge starting an app cold from its contract to prove
+**Boot check** — AppTown starting an app cold from its contract to prove
 it comes up, before a person is asked to try it.
 
 **Profile** — the one named set of differences a deployment uses: in
@@ -136,8 +134,7 @@ exit is an observation, not proof a limit was hit. Read from the event log, so
 a gap is possible: an empty list is never proof that nothing happened.
 
 **Preview** — a temporary deployment serving a change's working tree. One
-per change; removed when the change closes. Boots on the worker when the
-forge has one.
+per change; removed when the change closes. Boots on the worker when AppTown has one.
 
 **Departures** — the log of movement through the tiers, newest first: the
 first tab of the Deployments page. The second tab is the fleet as a table,
@@ -146,8 +143,7 @@ one row per app, tiers as columns.
 ## Where things run
 
 **Tier** — a rung of the promotion ladder: preview, main, intranet.
-Moving right is a release, and each rung reaches more people. An internet
-rung is planned, not built.
+Moving right is a release, and each rung reaches more people.
 
 **Deployment** — a named, standing copy of a project's app on a deployment
 target. `main` is fed by every landing. It stays until a new release
@@ -158,14 +154,14 @@ a Docker host attached over SSH, a Portainer environment, DigitalOcean App
 Platform, or a bucket website (static sites only). An administrator
 attaches targets and offers them to projects.
 
-**Take down** — remove a deployment and everything the forge recorded
+**Take down** — remove a deployment and everything AppTown recorded
 creating for it. On a Docker host its data is backed up first, and that
 final backup is kept with the project.
 
 **Worker** — a separate machine with its own Docker that runs most project
-work off the forge's own host: steps, checks, previews, release builds, and
-new change chats by default. Project chats, chats opened on the forge and
-deployments on the built-in Docker host stay on the forge.
+work off AppTown's own host: steps, checks, previews, release builds, and
+new change chats by default. Project chats, chats opened on AppTown and
+deployments on the built-in Docker host stay on AppTown.
 
 **Main (tier)** — the standing copy of each project's main branch, updated
 by landings.
@@ -196,7 +192,7 @@ fixed or suppressed.
 **Suppression** — a recorded decision to accept a finding, with a reason and
 an author.
 
-**Complaint** — a report, usually from an agent, that the forge itself got
+**Complaint** — a report, usually from an agent, that AppTown itself got
 in the way: what happened, why it mattered, what they wish had been true.
 Filing one triggers nothing; the list exists to be read and acted on by
 people.
@@ -227,10 +223,10 @@ that includes it.
 **Recommended version** — the version of a pack that new projects get and
 that projects on another version are offered. Saving a pack makes a new
 version without recommending it; a person recommends it on the pack's page.
-A forge release's new stock versions wait the same way. No project moves
+An AppTown release's new stock versions wait the same way. No project moves
 until its owner adopts the version.
 
-**Follow version** — a version of a pack cut by the forge when a pack it
+**Follow version** — a version of a pack cut by AppTown when a pack it
 includes gets a new recommended version. It is not recommended; its note
 names any item you replace or drop that the included pack changed.
 
@@ -260,13 +256,13 @@ app or game fires on the typed sequence `boom!!!`. Both send one tagged
 pulls from it.
 
 **Origin** — what a run actually ran, recorded on the run, e.g.
-`stock/quick-change@10` (shipped with the forge) or `lib/our-land@2`
+`stock/quick-change@10` (shipped with AppTown) or `lib/our-land@2`
 (yours). Guidance imports carry the same kind of receipt.
 
 **System binding** — the instance's choice of which library workflow
 stands in for a stock system one (landing runs `our-land`, say). Set on
 the System tab of Ways of working › Workflows; a stand-in must declare
-`system: true`. This is how an admin customises the forge's own jobs for
+`system: true`. This is how an admin customises AppTown's own jobs for
 every project at once.
 
 **Current-rules check** — if the rules change while a landing is waiting,
@@ -286,17 +282,21 @@ a role (admin or member). Managed on the People page.
 **Invite** — a one-time link an administrator gives a new person so they
 choose their own password and are signed in. It is for one account, lasts
 seven days unless the administrator says otherwise, and can be withdrawn on
-the People page. Forge sends no email; the administrator passes the link on.
+the People page. AppTown sends no email; the administrator passes the link on.
 
 **Group** — a named set of people. An approval step may name a group as
 its approver; any member's approval counts, and the record keeps the
 person's name.
 
-**Member (project)** — a person or group on a project's roster. A project
-with no members is open to everyone; adding the first member closes new
-work (changes, chats) to the roster. Everyone can still read everything.
+**Role** — a named set of things a person may do, such as instance
+administrator, auditor, project creator, or a project's owner or
+contributor.
 
-**Permission** — a granted privilege: *amend* (change workflows,
-policies, guidance, packs, and the catalog) or *release* (promote to a
-wider tier). Admins hold every permission; a permission nobody holds
-belongs to everyone until the first grant.
+**Grant** — a role given to a person or a group, on the whole AppTown
+(**People → Roles on this AppTown**) or on one project (its **Settings →
+Members**). Nothing is implied: a power nobody was granted, nobody holds.
+A new AppTown grants every signed-in person the Auditor role, which reads
+everything; revoking that grant makes each project readable by its members
+only ([Running AppTown](/docs/guides/running-apptown)).
+
+**Member (project)** — a person or group granted a role on a project.

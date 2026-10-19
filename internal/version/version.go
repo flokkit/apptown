@@ -56,7 +56,7 @@ func of(release, stamped string, info *debug.BuildInfo, ok bool) string {
 }
 
 // The CLI protocol says which CLIs a forge accepts (design/operations,
-// running-a-forge, "Versions"). The CLI states the number it speaks on
+// running-apptown, "Versions"). The CLI states the number it speaks on
 // every request; a forge accepts a range and refuses another by name. A CLI
 // a forge hands its agents is built from the forge's own tree, so it always
 // matches; a person's own CLI can lag or lead.

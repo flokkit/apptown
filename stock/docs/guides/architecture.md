@@ -1,4 +1,4 @@
-# How the forge works
+# How AppTown works
 
 This is the orchestration map: how a wish typed into a chat becomes
 running software, and what machinery moves it at each step. Every box
@@ -7,13 +7,13 @@ one-line gloss where they first appear.
 
 ## The pieces
 
-The forge is one program, `forged`: the API, the engine that runs
+AppTown is one program, `forged`: the API, the engine that runs
 workflows, the chat sessions, and the front door that routes preview
 traffic. Around it: containers for agents, checks and previews, git
 repositories for anything that must be remembered, and model providers
-for the thinking, which agents reach only through the forge's own
+for the thinking, which agents reach only through AppTown's own
 **inference gateway** (it holds the provider keys and counts the usage; an
-agent's container holds a session token, never a provider key). That work runs on the forge's own host, or mostly on a
+agent's container holds a session token, never a provider key). That work runs on AppTown's own host, or mostly on a
 separate worker machine when one is configured (see "Where work runs",
 below).
 
@@ -29,7 +29,7 @@ flowchart TD
         C[forge CLI]
         AG[coding agent on your computer]
     end
-    subgraph forged["forged (the forge's host)"]
+    subgraph forged["forged (AppTown's host)"]
         API[API]
         ENG[engine: runs and steps]
         CON[chat sessions]
@@ -83,30 +83,29 @@ Docker host · Portainer · App Platform · bucket website]
 
 ## Where work runs
 
-A forge runs in one of three ways. The choice is the operator's, made
+An AppTown runs in one of three ways. The choice is the operator's, made
 with `forged`'s start-up flags.
 
-| | Where project code runs | What stays on the forge's own host |
+| | Where project code runs | What stays on AppTown's own host |
 |---|---|---|
-| no worker | the forge's own host: agents, checks, previews and chats in containers on its Docker; a script step runs as a plain process there unless it says `executor: docker` | everything |
-| `-worker-url` | `forge-worker`, a separate machine with its own Docker: agent, review, tests and script steps (a script must say `executor: docker`), checks, change previews, and new change chats by default | project chats, chats that continue a step's agent, change chats opened on the forge or already running there, deployments on the built-in Docker host, and intranet releases of a landing that has no published images |
+| no worker | AppTown's own host: agents, checks, previews, chats and script steps in containers on its Docker; a script step runs as a plain process on the host only under `-host-scripts` | everything |
+| `-worker-url` | `forge-worker`, a separate machine with its own Docker: agent, review, tests and script steps, checks, change previews, and new change chats by default | project chats, chats that continue a step's agent, change chats opened on AppTown or already running there, deployments on the built-in Docker host, and intranet releases of a landing that has no published images |
 | `-no-local-docker` (needs a worker and an external database) | the worker | nothing: the host has no Docker and runs no project process; what the worker cannot run (project chats, continuations) is refused, and releases go to attached targets |
 
-With a worker, a step the worker cannot run is refused, not moved to the
-forge's host, and a worker that cannot be reached is an error. The two
-machines share no files. The forge sends a step the one commit it works
+With a worker, a step the worker cannot run is refused, not moved to AppTown's host, and a worker that cannot be reached is an error. The two
+machines share no files. AppTown sends a step the one commit it works
 on, as a Git bundle, over a connection where each side proves who it is
 (mutual TLS); the worker sends back the commits the step made. Agents are
-given two forge addresses to call back to, for model access and the
+given two AppTown addresses to call back to, for model access and the
 `forge` CLI, each with a credential minted for that step or chat. Those
-addresses are what the forge configures, not a network restriction: what
+addresses are what AppTown configures, not a network restriction: what
 else a container can reach is decided by the operator's network and
 firewall. A landing's release images are built on the worker too, and
 pushed to the project's container registry, where every target pulls
 them by digest.
 
-A worker takes most project work off the forge's host, not all of it:
-what the table lists as staying on the forge's host still runs there. Only
+A worker takes most project work off AppTown's host, not all of it:
+what the table lists as staying on AppTown's host still runs there. Only
 `-no-local-docker` keeps every project process off it. Nor is the worker
 a strong sandbox: code on it can reach the network, and
 the private Docker a step or chat may get is not a boundary against
@@ -122,7 +121,7 @@ quietly depends on it.
 
 ```mermaid
 flowchart LR
-    subgraph contract["what the forge requires of a harness"]
+    subgraph contract["what AppTown requires of a harness"]
         H1[headless mode with a
 machine-readable session record]
         H2[any model provider
@@ -134,7 +133,7 @@ named in receipts]
         H5[extension surface
 the platform curates]
     end
-    contract --> PI[pi satisfies all five today]
+    contract --> PI[pi satisfies all five]
 ```
 
 Why each requirement rules out a closed harness:
@@ -148,17 +147,17 @@ Why each requirement rules out a closed harness:
   harness with its own account, login state, auto-updates, or
   phone-home behavior steers runs with things the record cannot see.
 - **The record is the product.** Evidence, billing, and the chat UI all
-  read the session record. It must be an open, stable format the forge
+  read the session record. It must be an open, stable format AppTown
   can parse — not a proprietary app's internal state.
 - **Pinned and receipted.** The runtime version is baked into the agent
   image and named in every step's evidence. Self-updating harnesses
   make "which procedure ran" unanswerable.
-- **Curated extensions.** The forge decides what code runs inside the
+- **Curated extensions.** AppTown decides what code runs inside the
   agent (one delegation extension, at a pinned version) and what is
   content (skills in the repo). That line can only be drawn on a
   harness that exposes it.
 
-The deeper point: the forge's promises — steering is inspectable,
+The deeper point: AppTown's promises — steering is inspectable,
 evidence is complete, model choice is policy — are enforceable only on
 a harness that can be read and configured down to the file. The harness
 is part of the institution's law, and law you cannot read is not law.
@@ -179,7 +178,7 @@ and story).
 - **Invoke**: a **workflow** (a written procedure: stages of steps with
   gates) is started on the project, and agents execute its steps.
 - **A coding agent of your own**, on your computer, connected to
-  `/mcp/user`. It opens a change, puts the forge's agent on it, runs its
+  `/mcp/user`. It opens a change, puts AppTown's agent on it, runs its
   checks, boots its preview and hands it off — or works in a checkout on
   your machine and pushes the result to the change. It acts as you, with
   a short-lived credential bound to that one address.
@@ -232,7 +231,7 @@ Three guarantees inside that loop:
 - **The record wins.** The session file (JSONL) is the source of truth
   for what was said; the UI and billing both read it, never the screen.
 - **Rehearsal.** When the helper hands back a turn and the workspace
-  has a runnable app, the forge boots it cold — the same way a deploy
+  has a runnable app, AppTown boots it cold — the same way a deploy
   would — and feeds failures back to the *helper*, not the person.
 - **Complaints.** Platform friction gets filed to the complaints box by
   the agent itself; the wording that demands this is compiled into the
@@ -255,7 +254,7 @@ flowchart TD
     end
     CC -->|edits files, commits| WS
     SC -->|edits files| WS
-    WS -->|sweep: uncommitted chat work<br/>committed with console provenance| BR
+    CC -->|publishes its commits| BR
     SC -->|engine commits with run trailers| BR
     SC -->|outputs become artifacts| REC
     CC -->|reads via forge CLI - read-only| REC
@@ -267,10 +266,11 @@ Three lanes, nothing else:
 - **Files**: the same workspace directory is mounted into both. `.forge/`
   inside it is runtime state (step steering, transcripts, the app
   contract) — visible to both, owned by whoever wrote it.
-- **Git**: the branch is the durable handoff. A landing run **sweeps**
-  first — uncommitted chat work is committed with console provenance —
-  so gates always run on exactly what will merge; step commits carry
-  run trailers. The history reads as an attributed conversation between
+- **Git**: the branch is the durable handoff. Work travels as commits: a
+  landing takes what is committed and published to the branch, never
+  uncommitted files ([How changes reach main](/docs/guides/changes-and-main)),
+  so the gates run on exactly what will merge; step commits carry run
+  trailers. The history reads as an attributed conversation between
   the two surfaces.
 - **The record**: everything non-file goes through forged — the chat
   helper reads run state with the read-only CLI, step outputs become
@@ -314,7 +314,7 @@ Step types, by what gates them:
 | `preview` / boot gate | the app cold-boots from the workspace | it came up and looks like an app |
 | `guidance/conformance` | the project's guidance checks run against the committed tree | every gating check passed |
 | `artifact/require` | a required document exists | it is attached to the run |
-| `reconcile` | the branch catches up with main before landing | merged clean |
+| `reconcile` | the branch already contains main; it changes neither branch ([How changes reach main](/docs/guides/changes-and-main)) | contains main, and the candidate is pinned |
 | `scm/merged` | the landing merge | merged clean — or blocked with the reason in plain words |
 | `policy/current` | law re-checked at merge time | today's rules still allow this landing |
 
@@ -382,7 +382,7 @@ Consequences, each deliberate:
 - The workspace is the **authority for its branch** until it lands; the
   mirror into the hub is forced, so a rework that rewinds history
   mirrors faithfully.
-- The hub's working tree is touched only by forge writers, which all
+- The hub's working tree is touched only by AppTown's own writers, which all
   commit and leave it clean — so **any dirt on the hub is an integrity
   event**: recorded with a diff snapshot, shown to everyone on the
   project page, resolvable only by an admin's recorded decision (keep
@@ -477,25 +477,20 @@ flowchart LR
 
 ## From code to running app
 
-Every app carries a **runtime contract** — `.forge/app.yaml`, the
-forge-native contract with two sections: `app:` (a map of the containers
-the app IS, one marked `public: true`) and `needs:` (a map of the
-dependencies it uses). Each app part declares one of build/image/static.
-The forge never invents packaging: it builds YOUR Dockerfile, it never
-writes one. Backing services (a database, a cache) are declared under
-`needs:` and fulfilled per deployment, not hand-written. For local dev,
-`forge dev up` generates a runnable `.forge/docker-compose.yml` from this
-contract (gitignored); compose is a build target, not the contract.
+Every app carries [the app contract](/docs/guides/contract-reference),
+`.forge/app.yaml`: `app:` (the containers the app is, one marked
+`public: true`) and `needs:` (the services it uses). Each part declares
+one of `build`, `image` or `static`. AppTown never writes packaging: it
+builds the app's own `Dockerfile`. Services (a database, a cache) are
+declared under `needs:` and provided per deployment. For local work,
+`forge dev up` generates a Compose file from the contract.
 
-| form | the public part says | build happens |
+| form | the public part says | what is built |
 |---|---|---|
-| static | `static: public` (a committed folder) | never; the folder's files are packed into a pinned file server's image (caddy) |
-| static, built | `static: { build: ., target: site, output: dist }` | the declared Dockerfile stage runs, and only its `output` folder is packed into the same file server's image |
-| build | `build: .` (+ `ports:`, default 8080) | at every cold boot, from YOUR Dockerfile |
-| image | `image: <pushed ref>` (+ `ports:`) | once, before the contract was written |
-
-There is no other form: the retired `app.json` and `compose.yaml`
-contracts are not read. See the [contract reference](/docs/guides/contract-reference).
+| static | `static: public` (a committed folder) | nothing; the folder is served by AppTown's file server |
+| static, built | `static: { build: ., target: site, output: dist }` | the declared `Dockerfile` stage, and only its `output` folder is served |
+| build | `build: .` (+ `ports:`, default 8080) | the app's `Dockerfile`, from the committed tree |
+| image | `image: <pushed ref>` (+ `ports:`) | nothing; the image is pulled as it is |
 
 Four surfaces consume the contract, with rising strictness:
 
@@ -508,11 +503,11 @@ flowchart LR
     BLD -->|digest recorded as receipt| REL[release<br/>on a target]
 ```
 
-- **Preview**: boots from the change's WORKING tree — a preview exists
-  to show the latest edit. Build and static previews are
-  fingerprint-gated (a changed tree kills and rebuilds the container);
-  image contracts are rebuilt from the worktree Dockerfile so edits show.
-  With a worker, every change preview boots there.
+- **Preview**: boots from the change's folder, its committed files and
+  tracked edits (never untracked or ignored files): a preview exists to
+  show the latest edit. A changed tree rebuilds it. An `image` part runs
+  its image, even with a `Dockerfile` beside it. With a worker, every
+  change preview boots there.
 - **Boot gate**: the same cold boot, as a gate — the app must come up
   from nothing, because that is exactly what a deploy will demand.
 - **Deployment**: after landing, the deploy step boots the contract
@@ -525,13 +520,18 @@ flowchart LR
   is built on a target. Without a worker, a landing's deploy builds on the
   Docker host and records image IDs. An intranet release (`forge
   release`) of a landing without published digests builds a build or
-  static contract again on the forge's Docker and pushes to the project's container registry, for
-  Portainer to pull.
+  static contract again on AppTown's Docker and pushes to the project's
+  container registry, for Portainer to pull.
+- **Rebuild and recovery**: a release by digest comes back from its
+  recorded images. A release built on a Docker host without digests is
+  rebuilt from its recorded commit's inputs, not today's source, so it
+  needs its build inputs (base images, package registries) to be
+  reachable; [Running AppTown](/docs/guides/running-apptown) says what
+  comes back by itself.
 
-The asymmetry is the design: previews trade purity for freshness
-(working tree, rebuilt constantly); releases trade freshness for purity
-(committed tree, exact digest, never rebuilt at deploy); deployments
-sit between (committed main, redeployed per landing).
+Previews favour freshness (the folder, rebuilt as it changes); releases
+favour exactness (the committed tree, by digest where there is a worker);
+deployments sit between (committed `main`, redeployed per landing).
 
 ### Where a release can go
 
@@ -539,7 +539,7 @@ A **deployment target** is a place releases run. There are four kinds:
 
 | kind | what it runs | gets a landing? |
 |---|---|---|
-| Built-in Docker host | containers on the forge's own Docker (absent under `-no-local-docker`); an attached Docker host is the same kind, reached over SSH | yes, `main` |
+| Built-in Docker host | containers on AppTown's own Docker (absent under `-no-local-docker`); an attached Docker host is the same kind, reached over SSH | yes, `main` |
 | Portainer environment | a stack on the intranet, one deployment per project | by promotion, or the intranet release |
 | App Platform (DigitalOcean) | an app; images copied into the account's container registry | by promotion |
 | Bucket website (S3-compatible) | a static-only app, served as files from its own bucket | by promotion |
@@ -549,9 +549,9 @@ part.
 
 ### What a deployment owns
 
-A deployment owns what the forge recorded creating for it, and nothing
+A deployment owns what AppTown recorded creating for it, and nothing
 else: on a Docker host its containers, network, data volumes and images;
-on App Platform the app and the forge's registry repository; on Portainer
+on App Platform the app and AppTown's registry repository; on Portainer
 the stack and the volumes its deploys made; on a bucket website the bucket; and any AI-model key made for
 the app. Finding something already there, or matching its name, never
 makes it the deployment's. The one exception is explicit: for deployments
@@ -559,7 +559,7 @@ made before ownership was recorded, an administrator can approve what a
 one-time inspection proposes, and exactly what is approved is recorded.
 
 **Taking a deployment down** deletes what it owns. Data goes only after
-a backup: on a Docker host the forge stops the app, copies every data
+a backup: on a Docker host AppTown stops the app, copies every data
 volume, and deletes the data only when every copy succeeded; otherwise it
 starts the app again and deletes nothing. That final backup is kept with
 the project, until the project is purged, and can be restored into a
@@ -568,7 +568,7 @@ every item in it. A Portainer deployment is backed up the same way,
 through Portainer's Docker proxy, and its take-down deletes the volumes
 its deploys made after a complete final set. An App Platform database or
 bucket is deleted after a checked final copy, or stays until a person
-removes it. A bucket website holds no data. What the forge could not delete is listed too, with why. Deleting a
+removes it. A bucket website holds no data. What AppTown could not delete is listed too, with why. Deleting a
 project stops its new work at once, takes each of its deployments down
 this way, `main` last, and stops, naming the deployment, if one is
 refused. The deleted project is then kept, read-only, with its backups,

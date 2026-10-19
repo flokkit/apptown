@@ -1,6 +1,6 @@
 // Package evals answers "is this model profile, or this pack version,
 // better or worse than what projects run now?" (design/subsystems/conformance.md,
-// stock/docs/guides/running-a-forge.md). An eval re-runs up
+// stock/docs/guides/running-apptown.md). An eval re-runs up
 // to five landed Changes in throwaway copies of their projects: one arm as
 // the project runs now (the baseline) and one with the one thing
 // substituted (the variant): the profile, or the candidate adoption the
