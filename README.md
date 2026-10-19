@@ -8,7 +8,7 @@ run it yourself, on your own machine or server.
 Coding agents have dropped the cost of small custom apps to almost nothing,
 but owning an app that people can rely on is still a lot of work. Someone has
 to deploy it, back it up, keep it patched and still understand it a year
-later, usually after the person who made it has lost interest.
+later, usually after the person who made it has moved on.
 
 AppTown makes that handover boring and repeatable. You can bring in an app you
 made with a coding agent on your own computer, or have AppTown's own agents
@@ -35,6 +35,25 @@ What comes out is ordinary software: a git repository and a container image
 you can take somewhere else. It's open source (Apache-2.0).
 
 It's a 1.0 release candidate. Release notes are in [releases/](releases/).
+
+## What it's good for
+
+AppTown suits the ordinary software a team runs for itself, such as an
+internal tool, a form, a dashboard, a small API or a static site. The ways of
+working it ships are proven for Go, Django, Rails and plain front-end
+projects. Java, Node, .NET, Rust, WordPress and games work, but are less
+proven.
+
+Apps run on a Docker host. Roughly, if you can express it in a Compose stack,
+you can ship it in AppTown. The difference is that you don't run your own
+database or storage containers: the app says it needs Postgres, MariaDB or S3,
+and AppTown provides them and backs them up. Portainer, DigitalOcean App
+Platform and static bucket websites also work, but haven't yet released a
+real app in our testing.
+
+It isn't built for mobile apps, for large systems with many services and
+teams, or for hosting software for paying customers at scale. It isn't
+low-code, and it doesn't replace your Git host or ticket tracker.
 
 ## Reading about it
 
