@@ -57,7 +57,12 @@ func EnsureBuiltinDB(ctx context.Context, dataDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dk := docker.Scope{Client: docker.CLI{}}
+	return ensureBuiltinDB(ctx, docker.Scope{Client: docker.CLI{}}, dataDir, url, password, instance, waitForDB)
+}
+
+// ensureBuiltinDB is EnsureBuiltinDB's Docker part, with the daemon and the
+// wait for the database given, so a test can run it against a fake.
+func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, password, instance string, waitForDB func(context.Context, string) error) (string, error) {
 	if out, err := dk.Run(ctx, "inspect", "-f", `{{.State.Running}} {{index .Config.Labels "`+dockerlabel.Instance+`"}}`, builtinDBContainer); err == nil {
 		fields := strings.Fields(string(out))
 		if len(fields) == 2 && fields[1] != instance {
@@ -80,7 +85,24 @@ func EnsureBuiltinDB(ctx context.Context, dataDir string) (string, error) {
 	if err := os.MkdirAll(pgdata, 0o700); err != nil {
 		return "", err
 	}
-	if !dk.OK(ctx, "volume", "inspect", builtinDBVolume) {
+	// An existing volume is this installation's only if it carries this
+	// installation's id. A leftover from another one binds to that one's
+	// pgdata, so using it would run on another forge's database (and fail on
+	// its password). forged has always labelled the volume, so an unlabelled
+	// one is not this installation's either.
+	if out, err := dk.Run(ctx, "volume", "inspect", "-f", `{{index .Labels "`+dockerlabel.Instance+`"}}`+"\t"+`{{index .Options "device"}}`, builtinDBVolume); err == nil {
+		// Split before trimming: an unlabelled volume's line starts with the tab.
+		owner, folder, _ := strings.Cut(string(out), "\t")
+		owner = strings.TrimSpace(owner)
+		if owner != instance {
+			whose := "has no installation label"
+			if owner != "" {
+				whose = fmt.Sprintf("belongs to another forge installation (instance %s)", owner)
+			}
+			return "", fmt.Errorf("volume %s %s, and this one is %s; it keeps its data in %s. If that installation is gone, remove the volume with `docker volume rm %s` (the folder is left as it is) and start again; otherwise give this forge its own database with -db-url",
+				builtinDBVolume, whose, instance, strings.TrimSpace(folder), builtinDBVolume)
+		}
+	} else {
 		if out, err := dk.Run(ctx, "volume", "create", "--driver", "local",
 			"--opt", "type=none", "--opt", "o=bind", "--opt", "device="+pgdata,
 			"--label", dockerlabel.Class+"=infra", "--label", dockerlabel.Owner+"="+builtinDBContainer, "--label", dockerlabel.Instance+"="+instance,

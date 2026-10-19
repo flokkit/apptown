@@ -26,6 +26,7 @@ import (
 	"flokkit.io/forge/internal/console/consoletest"
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/dbtest"
+	"flokkit.io/forge/internal/deploy/docker/dockerfake"
 	"flokkit.io/forge/internal/forge/dbschema"
 	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/jobs"
@@ -1028,6 +1029,80 @@ func TestAFailedBootsEvidenceHoldsNoNeedCredential(t *testing.T) {
 			}
 			if strings.Contains(evidence, password[:16]) {
 				t.Fatalf("the evidence holds the password: %s", evidence)
+			}
+		})
+	}
+}
+
+// builtinDBDaemon is a daemon with no forge-db container and, when label is
+// not nil, a forge-data-forge-db volume carrying that installation label and
+// binding to /old/data/pgdata.
+func builtinDBDaemon(label *string) *dockerfake.Daemon {
+	d := dockerfake.New()
+	d.SetReply(func(args []string) ([]byte, error, bool) {
+		if len(args) == 4 && args[0] == "inspect" && args[1] == "-f" && args[3] == builtinDBContainer {
+			return []byte("Error: No such object: " + builtinDBContainer), errors.New("exit status 1"), true
+		}
+		if len(args) >= 2 && args[0] == "volume" && args[1] == "inspect" {
+			if label == nil {
+				return []byte("Error response from daemon: get " + builtinDBVolume + ": no such volume"), errors.New("exit status 1"), true
+			}
+			return []byte(*label + "\t/old/data/pgdata\n"), nil, true
+		}
+		return nil, nil, false
+	})
+	return d
+}
+
+func ranContainer(d *dockerfake.Daemon) bool {
+	return slices.ContainsFunc(d.Commands(), func(c []string) bool { return len(c) > 0 && c[0] == "run" })
+}
+
+func TestBuiltinDBRefusesAVolumeOfAnotherInstallation(t *testing.T) {
+	for name, label := range map[string]string{"another installation's id": "0ther1nstall", "no label": ""} {
+		t.Run(name, func(t *testing.T) {
+			d := builtinDBDaemon(&label)
+			waited := false
+			_, err := ensureBuiltinDB(context.Background(), docker.Scope{Client: d}, t.TempDir(), "postgres://db", "pw", "th1s1nstall",
+				func(context.Context, string) error { waited = true; return nil })
+			if err == nil {
+				t.Fatal("a volume that is not this installation's was used")
+			}
+			for _, want := range []string{builtinDBVolume, "th1s1nstall", "it keeps its data in /old/data/pgdata", "docker volume rm " + builtinDBVolume, "-db-url"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("the refusal does not name %q: %v", want, err)
+				}
+			}
+			if label == "" && !strings.Contains(err.Error(), "has no installation label") {
+				t.Errorf("the refusal does not identify the missing label: %v", err)
+			}
+			if label != "" && !strings.Contains(err.Error(), label) {
+				t.Errorf("the refusal does not name the other installation %q: %v", label, err)
+			}
+			if ranContainer(d) || waited {
+				t.Errorf("a container was started on the refused volume (ran %v, waited %v)", ranContainer(d), waited)
+			}
+		})
+	}
+}
+
+func TestBuiltinDBStartsOnItsOwnOrANewVolume(t *testing.T) {
+	own := "th1s1nstall"
+	for name, label := range map[string]*string{"its own volume": &own, "no volume yet": nil} {
+		t.Run(name, func(t *testing.T) {
+			d := builtinDBDaemon(label)
+			waited := false
+			url, err := ensureBuiltinDB(context.Background(), docker.Scope{Client: d}, t.TempDir(), "postgres://db", "pw", own,
+				func(context.Context, string) error { waited = true; return nil })
+			if err != nil || url != "postgres://db" {
+				t.Fatalf("got %q, %v", url, err)
+			}
+			if !ranContainer(d) || !waited {
+				t.Errorf("the database was not started and waited for (ran %v, waited %v)", ranContainer(d), waited)
+			}
+			created := slices.ContainsFunc(d.Commands(), func(c []string) bool { return len(c) > 1 && c[0] == "volume" && c[1] == "create" })
+			if created != (label == nil) {
+				t.Errorf("volume created %v with an existing volume %v", created, label != nil)
 			}
 		})
 	}
