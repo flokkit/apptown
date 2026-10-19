@@ -6,10 +6,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"flokkit.io/forge/internal/deploy/docker"
 )
@@ -30,7 +33,76 @@ type Daemon struct {
 	port         int
 	reply        func([]string) ([]byte, error, bool)
 	commandReply func(docker.Command) ([]byte, error, bool)
-	configs      []string // each command's --config, "" for the ambient one
+	configs      []string              // each command's --config, "" for the ambient one
+	published    map[string]*published // nil: every container answers at port (PublishPorts)
+}
+
+// published is one container's published port: fixed is the host port its
+// run named (0: Docker picks one at each start), ln the listener that
+// relays there, and up whether the container runs to answer it. A fixed
+// port's listener is kept from run to rm, and a stopped container's
+// connections are dropped: listening again at each start could lose the
+// port to another socket in the test process, which Docker's own hold of a
+// published port does not.
+type published struct {
+	fixed int
+	ln    net.Listener
+	up    atomic.Bool
+}
+
+// start opens the container's published port, relaying to target: the
+// fixed port, kept, or one picked now.
+func (p *published) start(target int) error {
+	if p.fixed > 0 && p.ln != nil {
+		p.up.Store(true)
+		return nil
+	}
+	p.close()
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p.fixed))
+	if err != nil {
+		return err
+	}
+	p.ln = ln
+	p.up.Store(true)
+	go func() {
+		for {
+			in, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			if !p.up.Load() {
+				_ = in.Close() // stopped: nothing answers
+				continue
+			}
+			go func() {
+				defer in.Close()
+				out, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", target))
+				if err != nil {
+					return
+				}
+				defer out.Close()
+				go func() { _, _ = io.Copy(out, in) }()
+				_, _ = io.Copy(in, out)
+			}()
+		}
+	}()
+	return nil
+}
+
+// stop is the container stopping: a fixed port stops answering, a picked
+// one is given up.
+func (p *published) stop() {
+	p.up.Store(false)
+	if p.fixed == 0 {
+		p.close()
+	}
+}
+
+func (p *published) close() {
+	if p.ln != nil {
+		_ = p.ln.Close()
+		p.ln = nil
+	}
 }
 
 func New() *Daemon {
@@ -41,6 +113,42 @@ func (d *Daemon) SetPort(port int) {
 	d.mu.Lock()
 	d.port = port
 	d.mu.Unlock()
+}
+
+// PublishPorts makes the daemon publish a container's port as Docker does:
+// a container run with `-p addr:N:inner` answers at N from every start, and
+// one run with `-p addr::inner` answers at a port Docker picks at each start
+// (run, start, restart), so the port it had before goes dead. Each published
+// port relays to the port SetPort names. Without it every running container
+// answers at that port. Close stops the relays.
+func (d *Daemon) PublishPorts() {
+	d.mu.Lock()
+	d.published = map[string]*published{}
+	d.mu.Unlock()
+}
+
+// Close stops every published port's relay.
+func (d *Daemon) Close() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, p := range d.published {
+		p.close()
+	}
+}
+
+// publishedPort reads a run's -p: the fixed host port it names, 0 for one
+// Docker picks; ok is false when it publishes none.
+func publishedPort(args []string) (fixed int, ok bool) {
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == "-p" {
+			parts := strings.Split(args[i+1], ":")
+			if len(parts) == 3 {
+				fmt.Sscan(parts[1], &fixed)
+			}
+			return fixed, true
+		}
+	}
+	return 0, false
 }
 
 // SetReply scripts a daemon response after recording the command. Returning
@@ -118,6 +226,19 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 				d.running[args[i+1]] = true
 				d.labels[args[i+1]] = make(map[string]string)
 				delete(d.started, args[i+1])
+				if d.published != nil {
+					if p := d.published[args[i+1]]; p != nil {
+						p.close()
+						delete(d.published, args[i+1])
+					}
+					if fixed, ok := publishedPort(args); ok {
+						p := &published{fixed: fixed}
+						if err := p.start(d.port); err != nil {
+							return []byte("docker: Error response from daemon: " + err.Error()), err
+						}
+						d.published[args[i+1]] = p
+					}
+				}
 				// The forge names the image right after --entrypoint: what
 				// follows it is the container's Cmd.
 				for j := range args {
@@ -138,15 +259,34 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if args[0] == "rm" && len(args) > 1 {
 		delete(d.running, args[len(args)-1])
 		delete(d.stopped, args[len(args)-1])
+		if p := d.published[args[len(args)-1]]; p != nil {
+			p.close()
+			delete(d.published, args[len(args)-1])
+		}
 	}
 	if args[0] == "stop" && len(args) > 1 {
 		name := args[len(args)-1]
 		d.stopped[name] = d.running[name] || d.stopped[name] // still there, not running
 		d.running[name] = false                              // as Docker does; unless-stopped then leaves it
+		if p := d.published[name]; p != nil {
+			p.stop()
+		}
 	}
 	if args[0] == "start" && len(args) > 1 && d.stopped[args[len(args)-1]] {
 		d.running[args[len(args)-1]] = true
 		delete(d.stopped, args[len(args)-1])
+		if p := d.published[args[len(args)-1]]; p != nil {
+			if err := p.start(d.port); err != nil {
+				return []byte(err.Error()), err
+			}
+		}
+	}
+	if args[0] == "restart" && len(args) > 1 && d.running[args[len(args)-1]] {
+		if p := d.published[args[len(args)-1]]; p != nil {
+			if err := p.start(d.port); err != nil {
+				return []byte(err.Error()), err
+			}
+		}
 	}
 	if d.reply != nil {
 		if out, err, ok := d.reply(append([]string(nil), args...)); ok {
@@ -167,6 +307,9 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if args[0] == "port" && len(args) > 1 {
 		if !d.running[args[1]] {
 			return []byte("No such container"), fmt.Errorf("container %s absent", args[1])
+		}
+		if p := d.published[args[1]]; p != nil && p.ln != nil {
+			return []byte(fmt.Sprintf("0.0.0.0:%d\n", p.ln.Addr().(*net.TCPAddr).Port)), nil
 		}
 		return []byte(fmt.Sprintf("0.0.0.0:%d\n", d.port)), nil
 	}

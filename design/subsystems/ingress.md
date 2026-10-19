@@ -31,6 +31,16 @@ second deployment carrying main's route took about half of main's visitors
 plan). A name per
 deployment is after 1.0, as it is on Portainer.
 
+Every standing deployment on a Docker host is published at one host port,
+picked and recorded before its first start, whether a landing or a release
+starts it (`deployment.Deployments.StablePort`). Docker keeps a port it was
+given at every start of the container, and picks a port it chose itself
+again at every start, while the forge probes and shows the recorded one
+(soak finding 58, 19 October 2026,
+plan). Previews take a
+port Docker picks: they are never restarted in place, and their port is
+asked of Docker each time it is used.
+
 Previews are reached under the preview tier domain (`change-<n>`,
 `<slug>-release-<n>`), never at a deployment's name.
 

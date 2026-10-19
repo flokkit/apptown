@@ -5,56 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
-	"net"
-	"strings"
 
 	"flokkit.io/forge/internal/ids"
 
 	"flokkit.io/forge/internal/forge/deployment"
 )
-
-// reserveDeploymentPort returns the deployment's stable host port,
-// allocating one on first use of an explicitly bound deployment. Two deploys
-// racing for an unallocated port both listen on a free port; one update wins,
-// and the other reads the winner's port. A constraint cannot reserve an OS
-// port, so the port is one the kernel just handed out; if docker then finds
-// it taken, the boot fails with that reason and the next deploy allocates
-// afresh through releasePortIfTaken.
-func (a *Shipping) reserveDeploymentPort(ctx context.Context, projectID ids.ID, deployment, container string) (int, error) {
-	e, err := a.deployment.Deployments.ByName(ctx, projectID, deployment)
-	if err != nil || e.TargetID.IsZero() {
-		return 0, fmt.Errorf("reserving a port requires an explicitly bound deployment: %w", err)
-	}
-	if e.HostPort > 0 {
-		return e.HostPort, nil
-	}
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	candidate := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-	return a.deployment.Deployments.ReserveHostPort(ctx, projectID, deployment, container, candidate)
-}
-
-// releasePortIfTaken: when a boot failed because the reserved port was in
-// use by something else, forget the reservation so the next deploy
-// allocates a new one.
-func (a *Shipping) releasePortIfTaken(ctx context.Context, projectID ids.ID, deployment string, bootErr error) {
-	if bootErr == nil || !strings.Contains(bootErr.Error(), "address already in use") {
-		return
-	}
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return
-	}
-	fresh := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-	if err := a.deployment.Deployments.ResetHostPort(ctx, projectID, deployment, fresh); err != nil {
-		log.Printf("deployment %s: re-reserving its port after a bind failure: %v", deployment, err)
-	}
-}
 
 // deploymentDataClass is what a deployment declares it holds
 // (Deployments.DataClassOf): unknown protects its data.

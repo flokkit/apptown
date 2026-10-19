@@ -131,7 +131,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, SelfServing: bundle.BuiltFrom.SelfServing, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration}
 	var staged string
 	var cleanup func()
+	docked := false // a standing deployment on a Docker host: booted at its recorded port
 	if t.Kind == KindDockerHost {
+		docked = dep.Standing()
 		// A digest bundle's images are pulled by digest; without local
 		// Docker a bundle of image IDs is reused on the target that holds
 		// them; otherwise the host builds the source, as before.
@@ -206,7 +208,19 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err := ctx.Err(); err != nil {
 		return fail(err)
 	}
+	// A standing deployment on a Docker host boots at its one recorded
+	// port, picked now if this is its first boot, as a landing's is: Docker
+	// keeps a port it was given at every start, and picks a port it chose
+	// again (StablePort).
+	if docked {
+		if dep.HostPort, err = s.Deployments.StablePort(ctx, rel.ProjectID, dep.Name, docker.ContainerName(project.Slug, dep.Name)); err != nil {
+			return fail(fmt.Errorf("reserving the deployment's host port: %w", err))
+		}
+	}
 	_, err = s.execute(ctx, NumberedRelease{ID: rel.ID, Number: rel.Number}, dep, t, req)
+	if docked {
+		s.Deployments.ForgetTakenPort(ctx, rel.ProjectID, dep.Name, err)
+	}
 	return err
 }
 

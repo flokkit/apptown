@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+	"net"
+	"strings"
 	"time"
 
 	"flokkit.io/forge/internal/ids"
@@ -120,6 +123,56 @@ func (s *Deployments) ReserveHostPort(ctx context.Context, projectID ids.ID, nam
 	now := s.now()
 	r, err := deploymentsql.New(s.db.SQL()).ReserveHostPort(ctx, deploymentsql.ReserveHostPortParams{Candidate: int64(candidate), Container: container, UpdatedAt: now, ProjectID: projectID, Name: name})
 	return int(r.HostPort), err
+}
+
+// StablePort is the deployment's host port on a Docker host, picked and
+// recorded before its first start when it has none. Every standing
+// deployment is published at this one port, so Docker keeps it at every
+// start of the container and the port the forge probes and shows is the
+// one the app answers at (soak finding 58: a port Docker picks is picked
+// again at each start). Two boots racing for an unallocated port both pick
+// a free one; the first reservation wins and the other reads it. Nothing
+// here can hold an OS port: if Docker then finds it taken, the boot fails
+// with that reason and ForgetTakenPort gives the next boot a fresh one.
+func (s *Deployments) StablePort(ctx context.Context, projectID ids.ID, name, container string) (int, error) {
+	e, err := s.ByName(ctx, projectID, name)
+	if err != nil || e.TargetID.IsZero() {
+		return 0, fmt.Errorf("reserving a port requires an explicitly bound deployment: %w", err)
+	}
+	if e.HostPort > 0 {
+		return e.HostPort, nil
+	}
+	candidate, err := freePort()
+	if err != nil {
+		return 0, err
+	}
+	return s.ReserveHostPort(ctx, projectID, name, container, candidate)
+}
+
+// ForgetTakenPort: when a boot failed because the deployment's port was in
+// use by something else, record a fresh one so the next boot does not fail
+// the same way.
+func (s *Deployments) ForgetTakenPort(ctx context.Context, projectID ids.ID, name string, bootErr error) {
+	if bootErr == nil || !strings.Contains(bootErr.Error(), "address already in use") {
+		return
+	}
+	fresh, err := freePort()
+	if err != nil {
+		return
+	}
+	if err := s.ResetHostPort(ctx, projectID, name, fresh); err != nil {
+		log.Printf("deployment %s: re-reserving its port after a bind failure: %v", name, err)
+	}
+}
+
+// freePort is a port the kernel just handed out on this machine.
+func freePort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
 // ResetHostPort forgets a reservation whose port turned out to be in use.

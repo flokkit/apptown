@@ -160,7 +160,7 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	}
 
 	// Reserve a port only after the deployment has an explicit target.
-	hostPort, err := a.reserveDeploymentPort(task.Context(), run.ProjectID, cfg.Deployment, name)
+	hostPort, err := a.deployment.Deployments.StablePort(task.Context(), run.ProjectID, cfg.Deployment, name)
 	if err != nil {
 		finish(workflow.StatusError, map[string]any{"reason": "recording the deployment: " + err.Error()})
 		return
@@ -186,7 +186,7 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	})
 	result := out.Execution
 	if out.Boot.Err != nil {
-		a.releasePortIfTaken(task.Context(), run.ProjectID, cfg.Deployment, out.Boot.Err)
+		a.deployment.Deployments.ForgetTakenPort(task.Context(), run.ProjectID, cfg.Deployment, out.Boot.Err)
 	}
 	var failure *deployment.RunError
 	if errors.As(err, &failure) && failure.Persistence != nil {

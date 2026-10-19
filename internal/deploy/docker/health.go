@@ -298,10 +298,14 @@ func (c *HealthController) hold(ctx context.Context, e Watched, dk Scope, ph *pa
 	ph.fails, ph.passes = 0, 0
 }
 
-// restartUnhealthyDeployment restarts a running-but-unhealthy env container in place —
-// stop+start keeps its data volume, network and mapped port, the least-invasive
-// "restart the part" for a single instance (drain-then-replace waits on replicas,
-// §6). The vhost re-resolves the port on the next request, so routing self-heals.
+// restart restarts a running-but-unhealthy env container in place: it keeps
+// its data volume and network, the least-invasive "restart the part" for a
+// single instance (drain-then-replace waits on replicas, §6). It keeps its
+// host port only because every standing deployment is published at a fixed
+// one (deployment.Deployments.StablePort): Docker picks a port it chose
+// itself again at every start, and the probe asks the recorded port (soak
+// finding 58). A container from before rc.6 whose only release was its
+// first still has a port Docker chose, until it is released again.
 func (c *HealthController) restart(ctx context.Context, e Watched, dk Scope, ph *partHealth) {
 	log.Printf("health controller: %s/%s failed liveness %d× past grace — restarting (attempt %d)",
 		e.Slug, e.Name, HealthFailThreshold, ph.restarts+1)
