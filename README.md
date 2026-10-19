@@ -3,10 +3,10 @@
 AppTown is where a small team builds and keeps the apps it makes with AI
 coding agents. You run it yourself, on your own machine or server.
 
-Coding agents make it cheaper to create an app, but owning one is still
-expensive. Someone has to deploy it, back it up, keep it patched and still
-understand it a year later, usually after the person who made it has lost
-interest.
+Coding agents have dropped the cost of small custom apps to nearly zero, but
+owning an app that people can rely on is still a lot of work. Someone has to
+deploy it, back it up, keep it patched and still understand it a year later,
+usually after the person who made it has lost interest.
 
 AppTown makes that handover boring and repeatable. You bring an app, or have
 the agents build it (that part is optional), and AppTown looks after it from
