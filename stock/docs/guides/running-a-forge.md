@@ -1,9 +1,9 @@
-# Running a forge
+# Running AppTown
 
 <!-- A word like forge:origin in braces is a live link: the Docs page of a
 forge shows that forge's own address there. -->
 
-This page is for the person who installs and looks after a forge: its host,
+This page is for the person who installs and looks after AppTown: its host,
 its workers, where it deploys, who can sign in, its backups and its
 upgrades. Each section is short and says where the detail is. Building apps
 on a forge is in [Start here](/docs/guides/quickstart); how the parts fit
@@ -15,14 +15,80 @@ environment variable: `-db-url` is `FORGE_DB_URL`, `-tier-domain` is
 
 ## Install
 
-Start Forge, configure model access, then add a model provider. Starting
-the web server alone does not enable model agents. A production install
-adds the pieces the later sections describe: workers for agent containers,
-deployment targets, sign-in, backups and upgrades.
+There are two ways to install AppTown on a server. Both keep the same
+records and run the same workflows. They differ in which machines run
+your projects' code.
 
 To try AppTown on your own computer instead, the repository's README has a
 one-command desktop trial (`docker run --privileged … ghcr.io/flokkit/apptown`);
 it is not for a server or for anything other people use.
+
+### Single-server install
+
+AppTown, its agents and its apps all run on one machine, using that
+machine's Docker. AppTown starts its own PostgreSQL container there too.
+It is the quickest install: the four steps below, on one machine.
+
+It suits one person, or a small team whose projects are all written by
+people trusted as much as the machine itself. The usual case is a team
+trying AppTown on real work, or running a few internal apps.
+
+Each agent, step and preview runs in its own container with CPU, memory
+and process limits. Disk is not limited per container, so one piece of
+work can still fill the machine's disk ("Disk space" under "Deployment
+targets"). Apps are
+published on the machine's loopback address only. None of that protects
+AppTown's records from a project's code. On Linux those containers run as
+root and can reach the network, and a container is not a strong sandbox.
+Code that gets out of one is on the machine that holds AppTown's database,
+its secrets file and its keys.
+
+### Split install
+
+AppTown runs on its own machine with no Docker. Agents, steps, checks and
+previews run on a separate worker machine (`forge-worker`). Apps run on
+separate Docker hosts, and can also go to Portainer or DigitalOcean App
+Platform. The database is a PostgreSQL you provide, such
+as a managed one.
+
+The reason to do it is that the agents' code and your apps don't run where
+AppTown keeps its records. Code that gets out of a container is on the
+worker or on an app host, and neither holds the database or AppTown's
+data directory. It suits a team that shares AppTown, or one whose apps
+other people rely on.
+
+It does not make a project's code harmless. Every project's work shares
+the worker, can reach the network from it, and can use the credentials
+AppTown gives each step. Apps on one Docker host share that host. It also
+takes more to set up: certificates for the worker, a preview domain, a
+container registry for each project, and an SSH key for each Docker host.
+
+A worker on its own, without `-no-local-docker`, is a halfway point.
+Agents, steps, checks and previews move to the worker, but some work stays
+on AppTown's machine, such as project chats and the apps on the built-in
+Docker host. The full list is in "Workers and running without local Docker".
+
+A split install starts with the same four steps, with the differences
+given in each. "Workers and running without local Docker" below then says
+what to add, in order.
+
+### Which one is for me
+
+Start with a single-server install if you are one person or a small team
+that trusts everyone who writes projects. Use a split install if a
+misbehaving agent or app must not reach AppTown's records, or once other
+people depend on the apps.
+
+Choose before the first project if you can. Moving a single server to a
+split install later means moving the database to a PostgreSQL you provide,
+draining AppTown's own Docker ("Switching to no local Docker" below), and
+moving each deployment on the built-in Docker host to an attached one,
+since a split install has no built-in host.
+
+Either way, start AppTown, configure model access, then add a model
+provider. Starting the web server alone does not enable model agents. A
+production install then adds the pieces the later sections describe:
+deployment targets, sign-in, backups and upgrades.
 
 ### Prepare the host
 
@@ -88,6 +154,12 @@ files under `<data directory>/pgdata`. That container belongs to one
 installation: for a second forge on the same machine, give it a separate
 PostgreSQL database with `-db-url`; changing only `-data` is refused.
 
+On a split install, AppTown's machine runs no Docker daemon. It needs Git,
+an `ssh` client and the `docker` command (only to reach attached Docker
+hosts), and a PostgreSQL database named with `-db-url`. Skip the agent
+image and running as root there: the worker builds its own agent image,
+and runs as root itself.
+
 ### Configure model access
 
 Agents reach models through a private listener on the forge, separate from
@@ -123,6 +195,13 @@ address. If the start-up log says `inference disabled`, model agents cannot
 run: stop the forge and fix the three settings. For a look at the web
 interface only, leave them unset and add `-console-addr ''`; that forge
 cannot run agents.
+
+On a split install the containers that use these listeners are on the
+worker. Bind both listeners to an address the worker can reach and the
+internet cannot, set `-console-url` to the console listener's address as
+the worker sees it, and name in `FORGE_INFERENCE_NETWORKS` the addresses
+the worker's containers arrive from. The section on addresses in
+`design/operations/workers.md` says which addresses those were in testing.
 
 ### Add a provider and choose sign-in
 
@@ -198,10 +277,42 @@ shows both).
 
 With `-no-local-docker` the forge's host runs no Docker and no project
 process. It needs a worker and an external database (`-db-url`), and
-deploys a landing to an attached Docker host instead of its own. A forge that
-last ran with its own Docker first runs once, stopped and with its normal
-settings, with `-drain-local-docker`: it checks that no local work or
-execution container is left, records that, and exits.
+deploys a landing to an attached Docker host instead of its own. This is
+the split install.
+
+### Setting up a split install
+
+1. **The database.** A PostgreSQL database AppTown alone uses, named with
+   `-db-url`.
+2. **The worker.** A machine with Docker, running `forge-worker` as root.
+   The release has an example unit, `deploy/systemd/forge-worker.service`.
+   You issue its server certificate and AppTown's client certificate; the
+   client certificate's Common Name is the worker's `-installation`. On a
+   cloud machine, block the metadata service (below).
+3. **AppTown.** Start `forged` with `-no-local-docker`, `-db-url`,
+   `-worker-url`, `-worker-cert`, `-worker-key` and `-worker-ca`, the
+   addresses from "Configure model access", a preview domain
+   (`-tier-domain preview=<domain>`) and `-private-docker`, so that
+   release images can be built on the worker.
+4. **An app host.** Attach a Docker host and offer it to the projects that
+   may use it ("Deployment targets" below). A project's first landing
+   creates its `main` deployment there.
+5. **A registry for each project.** Each landing publishes its images to
+   the project's container registry, and the Docker host pulls them from
+   there (see the [package registries](/docs/registry/registry) Admin tab).
+
+The full procedure, with the API calls, is in the repository at
+`design/operations/workers.md`, "Running a forge without a local Docker
+daemon".
+
+### Switching to no local Docker
+
+A forge that last ran with its own Docker first runs once, stopped and with
+its normal settings, with `-drain-local-docker`: it checks that no local
+work or execution container is left, records that, and exits. A fresh
+installation does not need this.
+
+### Limits and the metadata service
 
 Every container the forge starts is bounded. Steps, checks and tasks, here
 or on a worker, and a step's private Docker get `-task-cpus` (4),

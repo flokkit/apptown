@@ -116,6 +116,26 @@ If something looks stuck:
   own Docker inside its container, so these containers do not show in
   Docker Desktop or in your own `docker ps`.
 
+A hosted demo is available by invitation from the maintainers.
+
+## Installing on a server
+
+There are two ways to install AppTown on a server.
+
+A single-server install puts AppTown, its agents and its apps on one
+machine. It is quick to set up and suits a small team that trusts everyone
+who writes projects. The agents' code runs in containers on the machine
+that holds AppTown's records, and a container is not a strong sandbox.
+
+A split install puts AppTown on its own machine, the agents on a
+separate worker, and the apps on separate Docker hosts or a cloud. The
+agents' code and your apps don't run where AppTown keeps its records. It
+takes more setup: a worker with its own certificates, a PostgreSQL
+database, a preview domain and a container registry.
+
+[Running AppTown](stock/docs/guides/running-a-forge.md) covers both, and
+which one to choose.
+
 ## From source
 
 You need Go (the version in [go.mod](go.mod)), Node.js 24 with npm, Git, and a
@@ -138,7 +158,7 @@ that name an administrator. Open mode trusts that name, so keep it on
 `127.0.0.1` and never expose it; use `-auth internal` for anything shared.
 Chats and agent workflows also need a model provider, a private inference
 listener, container network settings and an agent image: follow Install in
-[Running a forge](stock/docs/guides/running-a-forge.md). It also covers running
+[Running AppTown](stock/docs/guides/running-a-forge.md). It also covers running
 work on a separate worker machine and running a forge with no local Docker
 (`-no-local-docker`).
 

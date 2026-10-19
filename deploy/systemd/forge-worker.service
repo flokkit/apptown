@@ -3,7 +3,7 @@
 # (bin/forge-worker, deploy/forge-agent), copy forge-worker.env.example to
 # /etc/forge-worker/forge-worker.env and edit it, put the worker's
 # certificate, key and the forge's CA in /etc/forge-worker/, then
-# `systemctl enable --now forge-worker`. Guide: Running a forge, Workers.
+# `systemctl enable --now forge-worker`. Guide: Running AppTown, Workers.
 [Unit]
 Description=Forge worker
 After=network-online.target docker.service
