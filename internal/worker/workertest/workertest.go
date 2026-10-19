@@ -28,6 +28,7 @@ import (
 
 	"flokkit.io/forge/internal/deploy/docker"
 	"flokkit.io/forge/internal/deploy/docker/dockertest"
+	"flokkit.io/forge/internal/diskspace"
 	"flokkit.io/forge/internal/execution"
 	"flokkit.io/forge/internal/poll"
 	"flokkit.io/forge/internal/worker"
@@ -104,8 +105,20 @@ func StartServerWith(t *testing.T, ca *CA, srv *worker.Server, wrap func(http.Ha
 	return serve(t, ca, srv, wrap)
 }
 
+// Disk is the state folder a test worker reads unless its test gives its
+// own (worker.Server.StateDisk): a roomy, fixed reading, well above the
+// floor. A test's worker never reads the disk of the machine the tests run
+// on, so whether its work is admitted never depends on how full that disk
+// is (soak finding 54). A test of the floor gives its own reading.
+func Disk(string) (diskspace.Space, error) {
+	return diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 50 << 30}, nil
+}
+
 func serve(t *testing.T, ca *CA, w *worker.Server, wrap func(http.Handler) http.Handler) *httptest.Server {
 	t.Helper()
+	if w.StateDisk == nil {
+		w.StateDisk = Disk
+	}
 	handler := w.Handler()
 	if wrap != nil {
 		handler = wrap(handler)

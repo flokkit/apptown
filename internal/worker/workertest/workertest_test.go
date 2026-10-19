@@ -33,3 +33,18 @@ func TestAWorkerThatExitsBeforeListeningFailsFastWithItsOutput(t *testing.T) {
 		t.Fatalf("the start took %s to notice the worker had exited", took)
 	}
 }
+
+// A test's worker reads the fixed Disk for its state folder, never the disk
+// of the machine the tests run on: whether a test's work is admitted must
+// not depend on how full that machine is (soak finding 54).
+//
+// Kills: serve leaving StateDisk nil, so the worker reads the real disk.
+func TestATestWorkerNeverReadsTheMachinesDisk(t *testing.T) {
+	t.Parallel()
+	ca, state := NewCA(t), t.TempDir()
+	got, err := Driver(t, ca, Start(t, ca, state, nil)).Disks(t.Context())
+	want, _ := Disk(state)
+	if err != nil || len(got) != 1 || got[0].Path != state || got[0].TotalBytes != want.TotalBytes || got[0].FreeBytes != want.FreeBytes || got[0].Refuses {
+		t.Fatalf("the test worker's disks: %+v %v", got, err)
+	}
+}

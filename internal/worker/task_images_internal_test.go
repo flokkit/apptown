@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"testing"
 
+	"flokkit.io/forge/internal/diskspace"
 	"flokkit.io/forge/internal/execution"
 )
 
@@ -18,7 +19,13 @@ import (
 // or too large with its size. What is copied is every file, byte for byte.
 func TestAnImageIsCapturedConfined(t *testing.T) {
 	t.Parallel()
-	s := &Server{State: t.TempDir()}
+	// A roomy state folder, as workertest.Disk gives (not imported here:
+	// workertest imports this package), never the machine's own disk. The
+	// capture's disk refusal is
+	// TestAnImageWhoseCopyWouldFillTheStateFolderIsRefused's.
+	s := &Server{State: t.TempDir(), StateDisk: func(string) (diskspace.Space, error) {
+		return diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 50 << 30}, nil
+	}}
 	state := s.statePath("ws")
 	outside := t.TempDir()
 	write := func(path, body string) {
