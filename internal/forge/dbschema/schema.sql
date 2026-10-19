@@ -1708,7 +1708,8 @@ CREATE TABLE IF NOT EXISTS backup_drills (
   as_user      TEXT NOT NULL,
   detail       TEXT NOT NULL DEFAULT '',
   operation_id UUID,
-  deployment_id UUID -- the deployment drilled, by id; 0: not provably one
+  deployment_id UUID, -- the deployment drilled, by id; 0: not provably one
+  need         TEXT NOT NULL DEFAULT '' -- the item of the set filled and checked
 );
 -- A restore rehearsal (design/subsystems/deployment.md): a
 -- throwaway place started from a copy, the app booted on it, checked and

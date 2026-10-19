@@ -110,7 +110,7 @@ type Coverage struct {
 
 // OutsideNotAssessed is the limit every protection answer carries. The
 // backup store holds the forge's copies; it is not an app's own bucket.
-const OutsideNotAssessed = "data kept outside this deployment, such as uploads in an S3 bucket or a database the app reaches itself"
+const OutsideNotAssessed = "data the app keeps outside the needs it declares, such as a bucket or a database it reaches with its own settings"
 
 // assess adds an item's row and says whether it was assessed: an item
 // whose kind or place could not be read is listed with why, not assessed.
@@ -244,17 +244,25 @@ type NativeBackups struct {
 	Unknown   string     `json:"unknown,omitempty"`
 }
 
-// DrillRef is the last time a copy of the deployment was filled into a new
-// place and checked: "came back on <date> from set <n> on <target> as
-// <user>", or that it did not.
+// DrillRef is the last time an item's copy was filled into a new place and
+// checked: "came back on <date> from set <n> into <place> as <user>", or
+// that it did not.
 type DrillRef struct {
 	At     stamp.Time `json:"at"`
 	Backup ids.ID     `json:"backup"`
-	Target string     `json:"target"`
-	Place  string     `json:"place"`
-	User   string     `json:"user"`
-	Passed bool       `json:"passed"`
-	Detail string     `json:"detail,omitempty"`
+	// Target is the deployment's target. It is not where the check ran: a
+	// bucket's copy is filled into a new store on the copy runner, and a
+	// database's into a new database on the item's own instance. Place says
+	// which.
+	Target string `json:"target"`
+	// Place is where the copy was filled and checked: "a new database on
+	// the deployment's cluster", or "a new <need> store on <runner>".
+	Place string `json:"place"`
+	// User is the app's database user the copy was filled as; empty for a
+	// bucket, whose new store is filled with the check's own key.
+	User   string `json:"user"`
+	Passed bool   `json:"passed"`
+	Detail string `json:"detail,omitempty"`
 }
 
 // DeploymentProtection reads a standing deployment's protection now, with
@@ -356,12 +364,6 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	if err != nil {
 		return nil, err
 	}
-	var drill *DrillRef
-	if d, err := protectionsql.New(s.db.SQL()).LatestDrill(ctx, dep.ID); err == nil {
-		drill = &DrillRef{At: stamp.Of(d.DrilledAt), Backup: d.BackupID, Target: d.Target, Place: d.Place, User: d.AsUser, Passed: d.Passed, Detail: d.Detail}
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
 	// The last copy is asked of the ledger by the operations' own order,
 	// not read from the few shown above: other work on the deployment must
 	// not push a failed or interrupted copy out of the reckoning.
@@ -373,6 +375,10 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	}
 	md := s.providers.ManagedData(t)
 	for _, it := range items {
+		drill, err := s.lastDrillOf(ctx, dep.ID, it.Name)
+		if err != nil {
+			return nil, err
+		}
 		row := ItemProtection{Need: it.Name, Where: it.where(), Drill: drill}
 		if it.Unresolved != "" {
 			row.Copy, row.CopyNote = CopyNone, it.Unresolved
@@ -385,6 +391,20 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 		out.assess(row, "")
 	}
 	return out, nil
+}
+
+// lastDrillOf is the item's own last drill on the deployment, or nil when
+// it has none: a drill fills each item of a set in turn, and one item's
+// result is never another's.
+func (s *Service) lastDrillOf(ctx context.Context, deploymentID ids.ID, need string) (*DrillRef, error) {
+	d, err := protectionsql.New(s.db.SQL()).LatestDrillOf(ctx, protectionsql.LatestDrillOfParams{DeploymentID: deploymentID, Need: need})
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &DrillRef{At: stamp.Of(d.DrilledAt), Backup: d.BackupID, Target: d.Target, Place: d.Place, User: d.AsUser, Passed: d.Passed, Detail: d.Detail}, nil
 }
 
 // newestCopyOf is the newest good copy in the store of this item, held to

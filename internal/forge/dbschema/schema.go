@@ -72,6 +72,18 @@ var migrations = []migration{
 	}},
 	{n: 151, note: "explicit unlimited memory resource overrides", stmts: []string{"ALTER TABLE deployment_overrides ADD COLUMN memory_unlimited BOOLEAN NOT NULL DEFAULT false"}},
 	{n: 152, note: "deployment limit events: the generation each happened under, when known", stmts: []string{"ALTER TABLE deployment_limit_events ADD COLUMN generation BIGINT"}},
+	{n: 153, note: "backup drills: the item of the set each filled and checked", stmts: []string{
+		"ALTER TABLE backup_drills ADD COLUMN need TEXT NOT NULL DEFAULT ''",
+		// Earlier rows name their item only in their place: a bucket's new
+		// store ("a new s3 store on <runner>"), or a new database on the
+		// set item's instance ("<database> on <instance id>"), which now
+		// reads as the cluster it was made on.
+		`UPDATE backup_drills SET need = substring(place from '^a new (.+) store on ') WHERE place ~ '^a new .+ store on '`,
+		`UPDATE backup_drills d SET need = e->>'name', place = 'a new database on the deployment''s cluster'
+  FROM backups b, jsonb_array_elements(b.items_json) e
+  WHERE d.need = '' AND b.id = d.backup_id AND e->>'kind' = 'need' AND COALESCE(e->>'bucket', '') = ''
+    AND COALESCE(e->>'instance', '') <> '' AND right(d.place, length(e->>'instance') + 4) = ' on ' || (e->>'instance')`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

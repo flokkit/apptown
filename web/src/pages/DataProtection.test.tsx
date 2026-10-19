@@ -31,7 +31,9 @@ describe('how a cloud deployment\'s data is protected, in words', () => {
   })
   it('says whether a copy came back, from which set, where and as whom', () => {
     expect(drillLine(item({}))).toBe('never checked to come back')
-    expect(drillLine(item({ drill: { at: '2026-10-07T06:10:00Z', backup: SET, target: 'do-syd', place: 'app_check_9', user: 'app', passed: true } }))).toMatch(/^came back on .+ from a backup set on do-syd as app$/)
+    expect(drillLine(item({ drill: { at: '2026-10-07T06:10:00Z', backup: SET, target: 'do-syd', place: "a new database on the deployment's cluster", user: 'app', passed: true } }))).toMatch(/^came back on .+ from a backup set into a new database on the deployment's cluster as app$/)
+    // A bucket's check ran on the copy runner, as no app user.
+    expect(drillLine(item({ drill: { at: '2026-10-07T06:10:00Z', backup: SET, target: 'do-syd', place: 'a new s3 store on demo-docker', user: '', passed: true } }))).toMatch(/^came back on .+ from a backup set into a new s3 store on demo-docker$/)
     expect(drillLine(item({ drill: { at: '2026-10-07T06:10:00Z', backup: SET, target: 'do-syd', place: 'app_check_9', user: 'app', passed: false, detail: 'missing after import' } }))).toMatch(/^did not come back .+ from a backup set: missing after import$/)
   })
   it('names the step a running operation is in and how long it has run', () => {

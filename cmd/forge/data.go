@@ -172,7 +172,7 @@ type protection struct {
 		Drill *struct {
 			At     string `json:"at"`
 			Backup ids.ID `json:"backup"`
-			Target string `json:"target"`
+			Place  string `json:"place"`
 			User   string `json:"user"`
 			Passed bool   `json:"passed"`
 			Detail string `json:"detail"`
@@ -295,7 +295,14 @@ func printProtection(w io.Writer, p protection) {
 		case d == nil:
 			fmt.Fprintln(w, "    never checked to come back")
 		case d.Passed:
-			fmt.Fprintf(w, "    came back on %s from set %s on %s as %s\n", d.At, d.Backup, d.Target, d.User)
+			// Where it came back is the place it was filled, not the
+			// deployment's target; a bucket's new store is filled as no
+			// app user.
+			line := fmt.Sprintf("    came back on %s from set %s into %s", d.At, d.Backup, d.Place)
+			if d.User != "" {
+				line += " as " + d.User
+			}
+			fmt.Fprintln(w, line)
 		default:
 			fmt.Fprintf(w, "    did not come back on %s from set %s: %s\n", d.At, d.Backup, d.Detail)
 		}

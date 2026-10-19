@@ -409,7 +409,7 @@ func shortDigest(sum string) string {
 
 // fillResult is what filling a new place from a copy found.
 type fillResult struct {
-	Place   string // the database filled, inside its instance
+	Place   string // where the copy was filled, in a reader's words
 	Passed  bool
 	Detail  string
 	Left    string // a place made and not removed, for a person to remove
@@ -514,7 +514,7 @@ func (s *Service) drill(ctx context.Context, t *tracker, b *Backup, target *depl
 			res = s.drillOne(ctx, t, c, store.Bucket, dk, md, kind.Copy, b, it, dir, runner)
 		}
 		drilled := s.now().UTC()
-		if _, err := protectionsql.New(s.db.SQL()).InsertBackupDrill(ctx, protectionsql.InsertBackupDrillParams{ID: ids.New(drilled), BackupID: b.ID, ProjectID: b.ProjectID, Deployment: b.Deployment,
+		if _, err := protectionsql.New(s.db.SQL()).InsertBackupDrill(ctx, protectionsql.InsertBackupDrillParams{ID: ids.New(drilled), BackupID: b.ID, ProjectID: b.ProjectID, Deployment: b.Deployment, Need: it.Name,
 			Passed: res.Passed, Target: target.Name, Place: res.Place, AsUser: user, Detail: res.Detail, OperationID: t.op.ID, DeploymentID: t.op.DeploymentID, DrilledAt: drilled}); err != nil {
 			return false, "", fmt.Errorf("recording the drill: %w", err)
 		}
@@ -537,7 +537,9 @@ func (s *Service) drill(ctx context.Context, t *tracker, b *Backup, target *depl
 func (s *Service) drillOne(ctx context.Context, t *tracker, c *s3bucket.Client, bucket string, dk docker.Scope, md deploy.ManagedData, cp *dependency.Copy, b *Backup, it *BackupItem, dir, runner string) fillResult {
 	user := it.AsUser
 	place := checkPlace(it.Database, t.op.ID)
-	res := fillResult{Place: place + " on " + it.Instance}
+	// The place shown is where the copy came back, in words a reader
+	// knows: the database's own name is gone once it is removed.
+	res := fillResult{Place: "a new database on the deployment's cluster"}
 	start := s.now()
 	t.begin(ctx, fmt.Sprintf("reading set %d's copy of %s back from the store", b.ID, it.Name))
 	path, err := readBack(ctx, c, bucket, b, it, dir)

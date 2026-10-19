@@ -40,12 +40,17 @@ INSERT INTO backup_store (id, endpoint, region, bucket, access_key_from, secret_
 
 -- drilled_at is the forge's clock, which judges when the next drill is due.
 -- name: InsertBackupDrill :one
-INSERT INTO backup_drills (id, backup_id, project_id, deployment, passed, target, place, as_user, detail, operation_id, deployment_id, drilled_at)
-  VALUES (sqlc.arg(id), sqlc.arg(backup_id), sqlc.arg(project_id), sqlc.arg(deployment), sqlc.arg(passed), sqlc.arg(target), sqlc.arg(place), sqlc.arg(as_user), sqlc.arg(detail), sqlc.arg(operation_id), sqlc.arg(deployment_id), sqlc.arg(drilled_at))
+INSERT INTO backup_drills (id, backup_id, project_id, deployment, need, passed, target, place, as_user, detail, operation_id, deployment_id, drilled_at)
+  VALUES (sqlc.arg(id), sqlc.arg(backup_id), sqlc.arg(project_id), sqlc.arg(deployment), sqlc.arg(need), sqlc.arg(passed), sqlc.arg(target), sqlc.arg(place), sqlc.arg(as_user), sqlc.arg(detail), sqlc.arg(operation_id), sqlc.arg(deployment_id), sqlc.arg(drilled_at))
   RETURNING *;
 
 -- name: LatestDrill :one
 SELECT * FROM backup_drills WHERE deployment_id=sqlc.arg(deployment_id) AND deployment_id IS NOT NULL ORDER BY id DESC LIMIT 1;
+
+-- An item's own last drill: a drill fills each item of a set in turn, so
+-- the deployment's newest row is only its last item's.
+-- name: LatestDrillOf :one
+SELECT * FROM backup_drills WHERE deployment_id=sqlc.arg(deployment_id) AND deployment_id IS NOT NULL AND need=sqlc.arg(need) ORDER BY id DESC LIMIT 1;
 
 -- name: PassedDrillOf :one
 SELECT * FROM backup_drills WHERE backup_id=sqlc.arg(backup_id) AND passed ORDER BY id DESC LIMIT 1;

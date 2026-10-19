@@ -717,8 +717,9 @@ no data.
 **What a deployment's backups cover.** Each deployment card (and `forge
 data`) says what its backups cover, item by item ("covers: postgres ·
 volume …"), and marks the rest **not assessed**: an item nothing could
-copy, and always data kept outside the deployment, such as uploads in an
-S3 bucket or a database the app reaches with its own settings. The forge
+copy, and always data the app keeps outside the needs it declares, such as
+a bucket or a database it reaches with its own settings (a bucket from the
+app's `s3` need is one of the items covered). The forge
 cannot tell from an app's settings which outside stores hold its data, so a
 fresh backup, a passed check, rehearsal or restore test is evidence for the
 items it covers, not for the whole application. Protect an outside store

@@ -349,9 +349,9 @@ func (q *Queries) InsertBackup(ctx context.Context, arg InsertBackupParams) (Bac
 }
 
 const insertBackupDrill = `-- name: InsertBackupDrill :one
-INSERT INTO backup_drills (id, backup_id, project_id, deployment, passed, target, place, as_user, detail, operation_id, deployment_id, drilled_at)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-  RETURNING id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id
+INSERT INTO backup_drills (id, backup_id, project_id, deployment, need, passed, target, place, as_user, detail, operation_id, deployment_id, drilled_at)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+  RETURNING id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need
 `
 
 type InsertBackupDrillParams struct {
@@ -359,6 +359,7 @@ type InsertBackupDrillParams struct {
 	BackupID     ids.ID
 	ProjectID    ids.ID
 	Deployment   string
+	Need         string
 	Passed       bool
 	Target       string
 	Place        string
@@ -376,6 +377,7 @@ func (q *Queries) InsertBackupDrill(ctx context.Context, arg InsertBackupDrillPa
 		arg.BackupID,
 		arg.ProjectID,
 		arg.Deployment,
+		arg.Need,
 		arg.Passed,
 		arg.Target,
 		arg.Place,
@@ -399,6 +401,7 @@ func (q *Queries) InsertBackupDrill(ctx context.Context, arg InsertBackupDrillPa
 		&i.Detail,
 		&i.OperationID,
 		&i.DeploymentID,
+		&i.Need,
 	)
 	return i, err
 }
@@ -572,7 +575,7 @@ func (q *Queries) InsertRestoredCopy(ctx context.Context, arg InsertRestoredCopy
 }
 
 const latestDrill = `-- name: LatestDrill :one
-SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id FROM backup_drills WHERE deployment_id=$1 AND deployment_id IS NOT NULL ORDER BY id DESC LIMIT 1
+SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE deployment_id=$1 AND deployment_id IS NOT NULL ORDER BY id DESC LIMIT 1
 `
 
 func (q *Queries) LatestDrill(ctx context.Context, deploymentID ids.ID) (BackupDrill, error) {
@@ -591,6 +594,39 @@ func (q *Queries) LatestDrill(ctx context.Context, deploymentID ids.ID) (BackupD
 		&i.Detail,
 		&i.OperationID,
 		&i.DeploymentID,
+		&i.Need,
+	)
+	return i, err
+}
+
+const latestDrillOf = `-- name: LatestDrillOf :one
+SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE deployment_id=$1 AND deployment_id IS NOT NULL AND need=$2 ORDER BY id DESC LIMIT 1
+`
+
+type LatestDrillOfParams struct {
+	DeploymentID ids.ID
+	Need         string
+}
+
+// An item's own last drill: a drill fills each item of a set in turn, so
+// the deployment's newest row is only its last item's.
+func (q *Queries) LatestDrillOf(ctx context.Context, arg LatestDrillOfParams) (BackupDrill, error) {
+	row := q.db.QueryRowContext(ctx, latestDrillOf, arg.DeploymentID, arg.Need)
+	var i BackupDrill
+	err := row.Scan(
+		&i.ID,
+		&i.BackupID,
+		&i.ProjectID,
+		&i.Deployment,
+		&i.DrilledAt,
+		&i.Passed,
+		&i.Target,
+		&i.Place,
+		&i.AsUser,
+		&i.Detail,
+		&i.OperationID,
+		&i.DeploymentID,
+		&i.Need,
 	)
 	return i, err
 }
@@ -864,7 +900,7 @@ func (q *Queries) OrphanBackupsDue(ctx context.Context, arg OrphanBackupsDuePara
 }
 
 const passedDrillOf = `-- name: PassedDrillOf :one
-SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id FROM backup_drills WHERE backup_id=$1 AND passed ORDER BY id DESC LIMIT 1
+SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE backup_id=$1 AND passed ORDER BY id DESC LIMIT 1
 `
 
 func (q *Queries) PassedDrillOf(ctx context.Context, backupID ids.ID) (BackupDrill, error) {
@@ -883,6 +919,7 @@ func (q *Queries) PassedDrillOf(ctx context.Context, backupID ids.ID) (BackupDri
 		&i.Detail,
 		&i.OperationID,
 		&i.DeploymentID,
+		&i.Need,
 	)
 	return i, err
 }

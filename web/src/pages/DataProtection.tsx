@@ -101,11 +101,13 @@ export function nativeLine(it: ItemProtection): string {
 
 // drillLine is when a copy last came back, or that it never has. A backup
 // set has no number people read, so these lines do not name it by its id.
+// Where it came back is the place it was filled, not the deployment's
+// target; a bucket's new store is filled as no app user.
 export function drillLine(it: ItemProtection): string {
   const d = it.drill
   if (!d) return 'never checked to come back'
   if (!d.passed) return `did not come back on ${fmtWhen(d.at)} from a backup set: ${d.detail ?? ''}`
-  return `came back on ${fmtWhen(d.at)} from a backup set on ${d.target} as ${d.user}`
+  return `came back on ${fmtWhen(d.at)} from a backup set into ${d.place}${d.user ? ` as ${d.user}` : ''}`
 }
 
 // rehearsalLine is the last restore rehearsal: whether the app answered on

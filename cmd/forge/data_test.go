@@ -18,7 +18,9 @@ func TestDataSaysHowEachItemIsProtected(t *testing.T) {
 		"items":[{"need":"postgres","where":"database app on forge-ledger-prod","copy":"stale","copyNote":"the last copy failed: could not connect",
 		  "lastCopy":{"backup":"00000000-0003-7000-8000-000000000000","takenAt":"2026-10-07T06:10:00Z","bytes":2048},
 		  "native":{"mechanism":"do-database-backups","count":0,"unknown":"DigitalOcean answered 500"},
-		  "drill":{"at":"2026-10-07T07:00:00Z","backup":"00000000-0003-7000-8000-000000000000","target":"do-syd","user":"app","passed":true}}],
+		  "drill":{"at":"2026-10-07T07:00:00Z","backup":"00000000-0003-7000-8000-000000000000","target":"do-syd","place":"a new database on the deployment's cluster","user":"app","passed":true}},
+		  {"need":"s3","where":"bucket forge-ledger-prod-b0b0","copy":"fresh",
+		  "drill":{"at":"2026-10-07T07:00:01Z","backup":"00000000-0003-7000-8000-000000000000","target":"do-syd","place":"a new s3 store on demo-docker","passed":true}}],
 		"running":{"id":"00000000-0009-7000-8000-000000000000","kind":"deployment.take-down","state":"running","askedBy":"alice","createdAt":"2026-10-08T00:00:00Z","startedAt":"2026-10-08T00:00:01Z","result":{"writesStopped":true},
 		  "steps":[{"name":"deleting the app, so nothing writes","started":"x","ended":"y"},{"name":"copying postgres","started":"y"}]},
 		"coverage":{"assessed":["postgres · database app on forge-ledger-prod"],"notAssessed":["data the app keeps outside this deployment"]}}`), &p); err != nil {
@@ -30,7 +32,8 @@ func TestDataSaysHowEachItemIsProtected(t *testing.T) {
 		"started from set 00000000-0025-7000-8000-000000000000, filled 2026-10-08T04:53:44Z",
 		"copies stale: newest set 00000000-0003-7000-8000-000000000000, 2026-10-07T06:10:00Z, 2048 bytes (the last copy failed: could not connect)",
 		"do-database-backups: unknown — DigitalOcean answered 500",
-		"came back on 2026-10-07T07:00:00Z from set 00000000-0003-7000-8000-000000000000 on do-syd as app",
+		"came back on 2026-10-07T07:00:00Z from set 00000000-0003-7000-8000-000000000000 into a new database on the deployment's cluster as app\n",
+		"came back on 2026-10-07T07:00:01Z from set 00000000-0003-7000-8000-000000000000 into a new s3 store on demo-docker\n",
 		"running: deployment.take-down 00000000-0009-7000-8000-000000000000, asked by alice at 2026-10-08T00:00:00Z — copying postgres (writes stopped)",
 		"covers: postgres · database app on forge-ledger-prod\n  not assessed: data the app keeps outside this deployment\n",
 	} {

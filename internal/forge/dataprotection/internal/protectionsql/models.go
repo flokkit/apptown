@@ -45,6 +45,7 @@ type BackupDrill struct {
 	Detail       string
 	OperationID  ids.ID
 	DeploymentID ids.ID
+	Need         string
 }
 
 type BackupStore struct {

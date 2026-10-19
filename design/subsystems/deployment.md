@@ -673,8 +673,9 @@ the release declares disposable empty; any other item fails it, by name.
   it never adopts one) and hands to the app's user; the kind's import runs
   as that user and its verify checks it there. A **drill** fills the
   newest copy into `<database>_check_<operation>` on the same cluster,
-  checks it and drops it, and records whether it came back, from which set,
-  on which target, as whom (`backup_drills`). It reports pass or fail and
+  checks it and drops it (a bucket's into a new store on the copy runner),
+  and records, item by item, whether it came back, from which set, into
+  which place and as whom (`backup_drills`). It reports pass or fail and
   why, never the data. A set in the store is never restored in place
   (`RestoreBackup` refuses it).
 - **Data operations.** A copy (`deployment.copy`), a drill
@@ -757,8 +758,8 @@ the release declares disposable empty; any other item fails it, by name.
   deployment card, `forge data`): per item, the forge's copies — fresh
   (within a day plus six hours), stale (older, or the last copy failed),
   unknown (the last copy was interrupted) or none — with the newest; the
-  provider's backups as it answers now, or unknown with why; and the last
-  drill. The copies are those taken of this deployment's own instance and
+  provider's backups as it answers now, or unknown with why; and the
+  item's own last drill. The copies are those taken of this deployment's own instance and
   database, and the operations and drill those that ran on this deployment
   (the operation's subject and `backup_drills.deployment_id`): a deployment re-created under a
   taken-down one's name does not show the old one's as its own, though
@@ -768,9 +769,9 @@ the release declares disposable empty; any other item fails it, by name.
   the forge assessed (its need with its volume or place) and `notAssessed`
   names, with why, each item it could not (its kind or place unread), the
   deployment's own data when what it holds is unknown or not read on its
-  target kind, and always data kept outside the deployment
-  (`OutsideNotAssessed`: an uploads bucket, a database the app reaches
-  itself). The forge cannot tell from an app's settings which outside
+  target kind, and always data the app keeps outside the needs it
+  declares (`OutsideNotAssessed`: a bucket or a database it reaches with
+  its own settings; a bucket its s3 need gives it is an assessed item). The forge cannot tell from an app's settings which outside
   stores hold its data, so no answer is a whole application's protection:
   a fresh copy, a passed check, rehearsal or restore test speaks for the
   assessed items only. The backup store holds the forge's copies and is

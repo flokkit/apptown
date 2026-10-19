@@ -15,7 +15,7 @@ const SET = '00000000-0002-7000-8000-000000000000'
 const why = "Backups and restore tests need a copy runner: a Docker host that runs the copy commands. An administrator can choose one in the target's settings."
 const yes = { available: true }
 const no = { available: false, reason: 'no-copy-runner', why }
-const outside = 'data kept outside this deployment, such as uploads in an S3 bucket or a database the app reaches itself'
+const outside = 'data the app keeps outside the needs it declares, such as a bucket or a database it reaches with its own settings'
 const coverage = { assessed: ['postgres · database app on forge-ledger-prod'], notAssessed: [outside] }
 const all = (a: unknown) => ({ copy: a, check: a, restore: a, rehearsal: a, startFromCopy: a, finalCopy: a })
 const protection = (operations: unknown) => ({

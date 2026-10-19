@@ -391,3 +391,53 @@ func TestABucketsTakeDownAsksAgainBeforeDeletingIt(t *testing.T) {
 		})
 	}
 }
+
+// Each item of a drill keeps its own result: a deployment with a database
+// and a bucket shows the database came back into a new database on its
+// instance as the app's user, and the bucket into a new store on the copy
+// runner as no app user, never the last item's line on both. The limit on
+// what is not assessed does not name the bucket the deployment's own s3
+// need covers.
+//
+// Kills: reading the deployment's newest drill row for every item;
+// recording a drill without its item.
+func TestEachItemSaysWhereItsOwnCopyCameBack(t *testing.T) {
+	t.Parallel()
+	w := heldOnAppPlatform(t, "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\n  s3: {}\n")
+	ctx := context.Background()
+	putObjects(w, bucketOfProd)
+	op, err := w.s.RequestCopy(ctx, w.project, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := w.run(op); !endedAs(got, OperationNotVerified) {
+		t.Fatalf("copy %s: %s", got.State, got.Detail)
+	}
+	drill, err := w.s.RequestDrill(ctx, w.project, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := w.run(drill); !endedAs(got, OperationVerified) {
+		t.Fatalf("drill %s: %s", got.State, got.Detail)
+	}
+	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	drills := map[string]*DrillRef{}
+	for _, it := range p.Items {
+		drills[it.Need] = it.Drill
+	}
+	pg, s3 := drills["postgres"], drills["s3"]
+	if pg == nil || !pg.Passed || pg.User != "app" || pg.Place != "a new database on the deployment's cluster" {
+		t.Fatalf("postgres's drill: %+v", pg)
+	}
+	if s3 == nil || !s3.Passed || s3.User != "" || s3.Place != "a new s3 store on "+w.target.CopyRunner() {
+		t.Fatalf("s3's drill: %+v", s3)
+	}
+	for _, n := range p.Coverage.NotAssessed {
+		if strings.Contains(n, "S3 bucket") {
+			t.Fatalf("not assessed names the bucket the s3 need covers: %q", n)
+		}
+	}
+}
