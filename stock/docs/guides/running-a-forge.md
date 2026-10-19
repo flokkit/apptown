@@ -20,6 +20,10 @@ the web server alone does not enable model agents. A production install
 adds the pieces the later sections describe: workers for agent containers,
 deployment targets, sign-in, backups and upgrades.
 
+To try AppTown on your own computer instead, the repository's README has a
+one-command desktop trial (`docker run --privileged … ghcr.io/flokkit/apptown`);
+it is not for a server or for anything other people use.
+
 ### Prepare the host
 
 You need Docker running, Git, a model-provider account, and the Forge
@@ -187,7 +191,10 @@ on the built-in Docker host, and intranet releases of a landing that has no
 published images. Nor is a worker a strong sandbox: code on it can reach
 the network, and the private Docker a step or chat may get is not a
 boundary against hostile code. Only `-no-local-docker` keeps every project
-process off the forge's host.
+process off the forge's host. The `ghcr.io/flokkit/apptown` image runs this way
+when `FORGE_NO_LOCAL_DOCKER=true` is in its environment; without it, the
+image starts as the desktop trial (the comment in `deploy/Dockerfile`
+shows both).
 
 With `-no-local-docker` the forge's host runs no Docker and no project
 process. It needs a worker and an external database (`-db-url`), and

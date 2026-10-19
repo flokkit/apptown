@@ -77,7 +77,46 @@ and [code navigation](internal/forge/README.md). The [documentation index](desig
 distinguishes current guides from accepted intent. Authentication and resource
 access are checked separately; an actor name is not permission.
 
-## Quickstart: a local trial
+## Desktop trial
+
+To try AppTown on your own computer you need Docker (Docker Desktop on a
+Mac, or Docker Engine on Linux) and a model-provider key (Anthropic or
+OpenRouter). Run:
+
+```sh
+docker run --name apptown --privileged -p 127.0.0.1:7777:7777 -v apptown:/var/lib/apptown ghcr.io/flokkit/apptown:<version>
+```
+
+and open the link it prints when it says `AppTown is ready`. The first start
+takes a few minutes. Create the administrator (the link fills in the
+one-time setup token), give your model key, and start a project from the
+dashboard. Previews open at `*.preview.localhost:7777`.
+
+**This is for trying AppTown on your own computer.** It has full control of
+your Docker (`--privileged` is root on a Linux machine, and root in Docker
+Desktop's VM on a Mac), and the agents and apps it runs are containers on
+this machine. Only port 7777 is published, on this computer's own address.
+The link it prints carries the setup token, so that token is in the
+container's log until you create the administrator. For a server, or
+anything other people use, follow
+[Running AppTown](stock/docs/guides/running-a-forge.md).
+
+Stop it with Ctrl-C (or `docker stop apptown`); `docker start -a apptown`
+starts it again with everything kept. To remove it and everything it made:
+
+```sh
+docker rm -f apptown
+docker volume rm apptown
+```
+
+If something looks stuck:
+
+- `docker logs apptown` is AppTown's own log.
+- `docker exec apptown docker ps` lists what it started. AppTown runs its
+  own Docker inside its container, so these containers do not show in
+  Docker Desktop or in your own `docker ps`.
+
+## From source
 
 You need Go (the version in [go.mod](go.mod)), Node.js 24 with npm, Git, and a
 running Docker (the forge starts its own PostgreSQL in a container).

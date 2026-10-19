@@ -119,6 +119,34 @@ func TestTierDomains(t *testing.T) {
 	}
 }
 
+// A tier domain may carry a port, for a forge reached on one (the desktop
+// trial's preview=http://preview.localhost:7777): the forge mints URLs with
+// it and routes requests by hostname, as it does a request on :443.
+func TestTierDomainWithAPortRoutesByHostname(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{TierDomains: []string{"preview=http://preview.localhost:7777", "main=http://main.localhost:7777"}})
+	const label = "change-00000000-0061-7000-8000-000000000000"
+	if u := a.cfg.routing().PreviewURL(label, 5000); u != "http://"+label+".preview.localhost:7777" {
+		t.Fatalf("preview URL: %s", u)
+	}
+	cases := []struct {
+		host, container string
+		ok              bool
+	}{
+		{label + ".preview.localhost:7777", "forge-preview-" + label, true},
+		{label + ".preview.localhost", "forge-preview-" + label, true},
+		{"reading-list.main.localhost:7777", "forge-env-reading-list-main", true},
+		{"localhost:7777", "", false},
+		{label + ".preview.example.com:7777", "", false},
+	}
+	for _, c := range cases {
+		got, ok := a.vhostContainer(c.host)
+		if ok != c.ok || got.container != c.container {
+			t.Errorf("%s: got (%q,%v) want (%q,%v)", c.host, got.container, ok, c.container, c.ok)
+		}
+	}
+}
+
 // With previews on a worker, a change's and a run's preview are forwarded
 // there, with the visitor's Host and request target, and still never
 // cached; a release preview the forge did not boot there and a standing

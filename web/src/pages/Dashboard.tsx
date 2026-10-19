@@ -8,6 +8,7 @@ import { relTime } from '../format'
 import { ActiveRunList, ChangeHistoryTable, ChangeRow, RunRow } from '../parts/runActivity'
 import type { Operation, ProjectRow, SetupState } from '../wire.gen'
 import { endedWords, operationTone } from './DataProtection'
+import { LocalTrialNote } from '../LocalTrialNote'
 
 // Home (the glossary's front page of the instance): what is my whole forge
 // doing right now — what needs me, what's running, what shipped lately. Folding this into the projects
@@ -63,11 +64,18 @@ function SetupCard() {
             <button className="primary" disabled={busy || !key} onClick={save}>{busy ? '…' : 'Save'}</button>
           </div>
           {err && <div className="error small" style={{ marginTop: 6 }}>{err}</div>}
+          <div style={{ marginTop: 10 }}><LocalTrialNote /></div>
         </div>
       )}
       {setup.agentImage === 'building' && (
         <div className="card" style={{ marginBottom: 10 }} >
           <span className="chip running">working</span> Building the agent image (first run only) — a few
+          minutes; agents queue until it finishes.
+        </div>
+      )}
+      {setup.agentImage === 'pulling' && (
+        <div className="card" style={{ marginBottom: 10 }} >
+          <span className="chip running">working</span> Downloading the agent image (first run only) — a few
           minutes; agents queue until it finishes.
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { post } from '../api'
+import { LocalTrialNote, takeSetupToken } from '../LocalTrialNote'
 
 // The front door for internal-auth instances. First run has no accounts,
 // so the same screen creates the first one (as admin), with the setup token
@@ -11,7 +12,7 @@ export default function Login({ needsBootstrap, onSignedIn }: {
 }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [setupToken, setSetupToken] = useState('')
+  const [setupToken, setSetupToken] = useState(takeSetupToken)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -38,11 +39,12 @@ export default function Login({ needsBootstrap, onSignedIn }: {
             No accounts exist yet. Create the first one — it will be the
             administrator. It needs the setup token in the file
             {' '}<code>setup-token</code> in the forge's data directory on its
-            host (the forge's log says where).
+            host (the forge's log says where; the desktop trial's ready link fills it in).
           </div>
         ) : (
           <div className="muted small">Sign in to continue.</div>
         )}
+        {needsBootstrap && <LocalTrialNote />}
         <label className="small muted">Username
           <input value={username} onChange={e => setUsername(e.target.value)}
             autoFocus autoComplete="username" style={{ width: '100%' }} />

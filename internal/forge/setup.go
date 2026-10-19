@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -26,7 +27,7 @@ import (
 
 type setupState struct {
 	mu         sync.Mutex
-	agentImage string // "present" | "building" | "missing" | "failed" | "skipped" | "no local backend"
+	agentImage string // "present" | "building" | "pulling" | "missing" | "failed" | "skipped" | "no local backend"
 	buildErr   string
 }
 
@@ -99,37 +100,78 @@ func (a *App) EnsureAgentImage() {
 		a.setup.mu.Unlock()
 		return
 	}
-	ctx := a.cfg.agentContext
-	if _, err := os.Stat(filepath.Join(ctx, "Dockerfile")); err != nil {
-		a.setup.mu.Lock()
-		a.setup.agentImage = "missing"
-		a.setup.buildErr = "image " + a.cfg.agentImage + " not found and no " + ctx + " build context beside the binary"
-		a.setup.mu.Unlock()
-		return
+	a.setup.fetch(a.life, a.docker, a.cfg.agentImage, a.cfg.agentContext, filepath.Join(a.cfg.dataDir, "agent-image-build.log"), func(status string) {
+		a.audit(context.WithoutCancel(a.life), "forge-system", ids.Nil, "setup.agent-image", status, nil)
+	})
+}
+
+// fetch gets a missing agent image in the background, recording its state
+// as it goes and reporting where it ended; it stops with ctx. An image
+// named in a registry is pulled, never built: a local build would carry a
+// name that says it is the published image. So the pull needs no build
+// context.
+func (s *setupState) fetch(ctx context.Context, dk docker.Scope, image, buildContext, logPath string, settled func(status string)) {
+	pull := namesRegistry(image)
+	if !pull {
+		if _, err := os.Stat(filepath.Join(buildContext, "Dockerfile")); err != nil {
+			s.mu.Lock()
+			s.agentImage = "missing"
+			s.buildErr = "image " + image + " not found and no " + buildContext + " build context beside the binary"
+			s.mu.Unlock()
+			return
+		}
 	}
-	a.setup.mu.Lock()
-	a.setup.agentImage = "building"
-	a.setup.mu.Unlock()
+	s.mu.Lock()
+	s.agentImage = "building"
+	if pull {
+		s.agentImage = "pulling"
+	}
+	s.mu.Unlock()
 	go func() {
-		logPath := filepath.Join(a.cfg.dataDir, "agent-image-build.log")
 		f, _ := os.Create(logPath)
-		req := docker.Command{Args: []string{"build", "-t", a.cfg.agentImage, ctx}}
+		var out io.Writer
 		if f != nil {
-			req.Stdout, req.Stderr = f, f
+			out = f
 			defer f.Close()
 		}
-		_, err := a.docker.Command(a.life, req) // a background build: it stops with the App
-		a.setup.mu.Lock()
+		err := fetchAgentImage(ctx, dk, image, buildContext, pull, out)
+		s.mu.Lock()
 		if err != nil {
-			a.setup.agentImage = "failed"
-			a.setup.buildErr = "build failed — see " + logPath
+			s.agentImage = "failed"
+			s.buildErr = err.Error() + " — see " + logPath
 		} else {
-			a.setup.agentImage = "present"
+			s.agentImage = "present"
 		}
-		status := a.setup.agentImage
-		a.setup.mu.Unlock()
-		a.audit(context.WithoutCancel(a.life), "forge-system", ids.Nil, "setup.agent-image", status, nil)
+		status := s.agentImage
+		s.mu.Unlock()
+		settled(status)
 	}()
+}
+
+// fetchAgentImage pulls the agent image (pull) or builds it from the
+// build context, writing Docker's output to out when it is given.
+func fetchAgentImage(ctx context.Context, dk docker.Scope, image, buildContext string, pull bool, out io.Writer) error {
+	req := docker.Command{Args: []string{"build", "-t", image, buildContext}}
+	what := "build"
+	if pull {
+		req, what = docker.Command{Args: []string{"pull", image}}, "pull of "+image
+	}
+	if out != nil {
+		req.Stdout, req.Stderr = out, out
+	}
+	if _, err := dk.Command(ctx, req); err != nil {
+		return fmt.Errorf("%s failed", what)
+	}
+	return nil
+}
+
+// namesRegistry says whether an image reference names a registry, by
+// Docker's rule: the first path component is a registry host when it has a
+// dot or a port, or is localhost ("ghcr.io/flokkit/apptown-agent:1.0.0",
+// "localhost:5000/agent"); "forge-agent" and "library/ubuntu" do not.
+func namesRegistry(ref string) bool {
+	first, _, ok := strings.Cut(ref, "/")
+	return ok && (strings.ContainsAny(first, ".:") || first == "localhost")
 }
 
 func (s *setupState) ImageState() (string, string) {

@@ -80,14 +80,12 @@ type vhostRoute struct {
 // same containers as the preview and main domains together; which project
 // may be served where is vhostRules's to decide.
 func (a *App) vhostContainer(host string) (vhostRoute, bool) {
-	if h, _, ok := strings.Cut(host, ":"); ok {
-		host = h
-	}
+	host = hostnameOf(host)
 	preview := func(label string) bool {
 		return docker.IsWorkPreviewLabel(label) || releasePreviewRe.MatchString(label)
 	}
 	if d, ok := a.cfg.tierDomains["eval"]; ok {
-		if label, found := strings.CutSuffix(host, "."+d.Domain); found {
+		if label, found := strings.CutSuffix(host, "."+hostnameOf(d.Domain)); found {
 			switch {
 			case preview(label):
 				return vhostRoute{container: docker.PreviewLabelName(label), label: label, eval: true}, true
@@ -97,16 +95,27 @@ func (a *App) vhostContainer(host string) (vhostRoute, bool) {
 		}
 	}
 	if d, ok := a.cfg.tierDomains["preview"]; ok {
-		if label, found := strings.CutSuffix(host, "."+d.Domain); found && preview(label) {
+		if label, found := strings.CutSuffix(host, "."+hostnameOf(d.Domain)); found && preview(label) {
 			return vhostRoute{container: docker.PreviewLabelName(label), label: label}, true
 		}
 	}
 	if d, ok := a.cfg.tierDomains["main"]; ok {
-		if label, found := strings.CutSuffix(host, "."+d.Domain); found && slugRe.MatchString(label) {
+		if label, found := strings.CutSuffix(host, "."+hostnameOf(d.Domain)); found && slugRe.MatchString(label) {
 			return vhostRoute{container: docker.ContainerName(label, "main"), label: label}, true
 		}
 	}
 	return vhostRoute{}, false
+}
+
+// hostnameOf is a host without its port. Routing is by hostname only, on
+// both sides: a request's Host may carry a port (change-….preview.localhost:7777,
+// or :443), and so may a configured tier domain, whose port is for the
+// URLs the forge mints (preview=http://preview.localhost:7777).
+func hostnameOf(host string) string {
+	if h, _, ok := strings.Cut(host, ":"); ok {
+		return h
+	}
+	return host
 }
 
 // vhostRules is the one routing rule for evals: the eval domain serves

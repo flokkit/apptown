@@ -1,8 +1,16 @@
 package forge
 
 import (
+	"context"
+	"errors"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
+
+	"flokkit.io/forge/internal/deploy/docker"
+	"flokkit.io/forge/internal/poll"
 )
 
 func TestLoopbackAddr(t *testing.T) {
@@ -66,5 +74,88 @@ func TestOpenModeServesOnlyThisMachineUnlessAsked(t *testing.T) {
 				t.Errorf("%s: the refusal does not name %q: %v", c.name, want, err)
 			}
 		}
+	}
+}
+
+// recordingDocker records each Docker command and fails them all when told to.
+type recordingDocker struct {
+	mu       sync.Mutex
+	commands []string
+	fail     bool
+}
+
+func (r *recordingDocker) Run(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.commands = append(r.commands, strings.Join(req.Args, " "))
+	if r.fail {
+		return []byte("denied"), errors.New("exit status 1")
+	}
+	return nil, nil
+}
+
+func (r *recordingDocker) seen() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.commands...)
+}
+
+// agentImageSettled waits for the background fetch to end and returns the state.
+func agentImageSettled(t *testing.T, s *setupState) (string, string) {
+	t.Helper()
+	var state, reason string
+	if !poll.Until(t.Context(), 10*time.Second, 10*time.Millisecond, func() bool {
+		state, reason = s.ImageState()
+		return state != "pulling" && state != "building"
+	}) {
+		t.Fatalf("the agent image is still %q", state)
+	}
+	return state, reason
+}
+
+// An agent image named in a registry (the desktop trial's
+// ghcr.io/flokkit/apptown-agent:<version>) is pulled when missing, never
+// built under the published name, and so needs no build context beside the
+// binary. A failed pull says so.
+func TestAMissingAgentImageInARegistryIsPulledNotBuilt(t *testing.T) {
+	t.Parallel()
+	const image = "ghcr.io/flokkit/apptown-agent:1.0.0"
+	for _, fail := range []bool{false, true} {
+		var s setupState
+		rec := &recordingDocker{fail: fail}
+		dir := t.TempDir() // no Dockerfile there
+		s.fetch(t.Context(), docker.Scope{Client: rec}, image, dir, filepath.Join(dir, "log"), func(string) {})
+		state, reason := agentImageSettled(t, &s)
+		if got := rec.seen(); len(got) != 1 || got[0] != "pull "+image {
+			t.Fatalf("commands: %v", got)
+		}
+		switch {
+		case !fail && state != "present":
+			t.Fatalf("after a pull: %q %q", state, reason)
+		case fail && (state != "failed" || !strings.Contains(reason, "pull of "+image+" failed")):
+			t.Fatalf("after a failed pull: %q %q", state, reason)
+		}
+	}
+	for _, ref := range []string{"forge-agent", "forge-agent:abc123", "library/ubuntu"} {
+		if namesRegistry(ref) {
+			t.Fatalf("%s names no registry", ref)
+		}
+	}
+	if !namesRegistry("localhost:5000/agent") {
+		t.Fatal("localhost:5000/agent names a registry")
+	}
+}
+
+// A bare agent image name is still built from the build context.
+func TestAMissingBareAgentImageIsBuilt(t *testing.T) {
+	t.Parallel()
+	var s setupState
+	rec := &recordingDocker{}
+	s.fetch(t.Context(), docker.Scope{Client: rec}, "forge-agent", "../../deploy/forge-agent", filepath.Join(t.TempDir(), "log"), func(string) {})
+	if state, reason := agentImageSettled(t, &s); state != "present" {
+		t.Fatalf("after a build: %q %q", state, reason)
+	}
+	if got := rec.seen(); len(got) != 1 || got[0] != "build -t forge-agent ../../deploy/forge-agent" {
+		t.Fatalf("commands: %v", got)
 	}
 }

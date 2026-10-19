@@ -10,6 +10,7 @@
 web/node_modules/
 web/dist/
 !deploy/forge-agent/
+!deploy/apptown-start.sh
 !scripts/third-party-notices.py
 !LICENSE
 !NOTICE
