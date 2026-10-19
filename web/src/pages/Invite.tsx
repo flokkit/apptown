@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { post } from '../api'
+import { PRODUCT } from '../brand'
 import type { InviteOffer, SignedInAs } from '../wire.gen'
 
 // The page an invite link or a password reset link opens
@@ -63,7 +64,7 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box' }}>
       <div className="card" style={{ width: 'min(380px, 100%)', boxSizing: 'border-box', display: 'grid', gap: 12, padding: 24 }}>
-        <div style={{ fontSize: 'var(--fs-lg)' }}>⚒ <b>forge</b></div>
+        <div style={{ fontSize: 'var(--fs-lg)' }}>⚒ <b>{PRODUCT}</b></div>
         {!token && <>
           <div>Open the link you were given again. For safety this page does not keep it after it is loaded.</div>
           <a href="/" className="small">Go to sign in</a>

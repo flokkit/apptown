@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { post } from '../api'
+import { PRODUCT } from '../brand'
 import { LocalTrialNote, takeSetupToken } from '../LocalTrialNote'
 
 // The front door for internal-auth instances. First run has no accounts,
@@ -33,13 +34,13 @@ export default function Login({ needsBootstrap, onSignedIn }: {
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
       <form onSubmit={submit} className="card" style={{ width: 340, display: 'grid', gap: 12, padding: 24 }}>
-        <div style={{ fontSize: 'var(--fs-lg)' }}>⚒ <b>forge</b></div>
+        <div style={{ fontSize: 'var(--fs-lg)' }}>⚒ <b>{PRODUCT}</b></div>
         {needsBootstrap ? (
           <div className="muted small">
             No accounts exist yet. Create the first one — it will be the
             administrator. It needs the setup token in the file
-            {' '}<code>setup-token</code> in the forge's data directory on its
-            host (the forge's log says where; the desktop trial's ready link fills it in).
+            {' '}<code>setup-token</code> in AppTown's data directory on its
+            host (AppTown's log says where; the desktop trial's ready link fills it in).
           </div>
         ) : (
           <div className="muted small">Sign in to continue.</div>

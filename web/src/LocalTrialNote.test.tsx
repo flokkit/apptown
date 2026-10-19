@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import Login from './pages/Login'
-import { LocalTrialNote } from './LocalTrialNote'
+import { LocalTrialNote, RUNNING_GUIDE } from './LocalTrialNote'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -31,5 +31,19 @@ describe('the desktop trial first run', () => {
     expect(render(<LocalTrialNote hostname="localhost" />).textContent).toContain('full control of your Docker')
     expect(render(<LocalTrialNote hostname="127.0.0.1" />).textContent).toContain('Running AppTown')
     expect(render(<LocalTrialNote hostname="forge.example.com" />).textContent).toBe('')
+  })
+
+  // The note shows before anyone can sign in, so its guide link must not be
+  // a /docs page, which needs a signed-in session.
+  it('links to the guide outside the app', () => {
+    const a = render(<LocalTrialNote hostname="localhost" />).querySelector('a')
+    expect(a?.getAttribute('href')).toBe(RUNNING_GUIDE)
+    expect(a?.getAttribute('href')).toMatch(/^https:\/\//)
+  })
+
+  it('names the product on the first-account page', () => {
+    const el = render(<Login needsBootstrap onSignedIn={() => {}} />)
+    expect(el.querySelector('b')?.textContent).toBe('AppTown')
+    expect(el.textContent).not.toContain("forge's")
   })
 })

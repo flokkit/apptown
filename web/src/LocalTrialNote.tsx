@@ -6,13 +6,17 @@ export function onThisComputer(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1'
 }
 
+// The published guide, not /docs: this note shows on the first-account page,
+// before anyone can sign in, and the built-in docs need a signed-in session.
+export const RUNNING_GUIDE = 'https://github.com/flokkit/apptown/blob/main/stock/docs/guides/running-a-forge.md'
+
 export function LocalTrialNote({ hostname = window.location.hostname }: { hostname?: string }) {
   if (!onThisComputer(hostname)) return null
   return (
     <div className="small muted">
       For trying AppTown on your own computer: it has full control of your Docker, and the
       agents and apps it runs are containers on this machine. For a server or anything other
-      people use, follow <a href="/docs/guides/running-a-forge">Running AppTown</a>.
+      people use, follow <a href={RUNNING_GUIDE}>Running AppTown</a>.
     </div>
   )
 }
