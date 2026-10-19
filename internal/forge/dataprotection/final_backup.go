@@ -46,11 +46,16 @@ type stoppedParts struct {
 	idle []string
 }
 
-func (p stoppedParts) restart(ctx context.Context) []string {
+func (p stoppedParts) restart(ctx context.Context) []string { return p.restartEach(ctx, nil) }
+
+// restartEach is restart, telling started of each part as it starts.
+func (p stoppedParts) restartEach(ctx context.Context, started func(id string)) []string {
 	var failed []string
 	for _, id := range p.ids {
 		if out, err := p.dk.Run(ctx, "start", id); err != nil {
 			failed = append(failed, fmt.Sprintf("%s: %s", id, strings.TrimSpace(string(out))))
+		} else if started != nil {
+			started(id)
 		}
 	}
 	return failed
@@ -121,7 +126,7 @@ func (s *Service) finalBackup(ctx context.Context, dep *deployment.Deployment, t
 	if err := oneFileEach(plan); err != nil {
 		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, err)
 	}
-	stopped, err := stopParts(ctx, dk, owned)
+	stopped, err := stopParts(ctx, dk, owned, nil)
 	refuse := func(why string) (finalCopy, error) {
 		if failed := stopped.restart(ctx); len(failed) > 0 {
 			why += "; these could not be started again, so the deployment is not serving: " + strings.Join(failed, "; ")
@@ -177,7 +182,7 @@ func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.De
 	if err != nil {
 		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, err)
 	}
-	stopped, err := stopParts(ctx, held.dk, writers)
+	stopped, err := stopParts(ctx, held.dk, writers, nil)
 	refuse := func(why string) (finalCopy, error) {
 		if failed := stopped.restart(ctx); len(failed) > 0 {
 			why += "; these could not be started again, so the deployment is not serving: " + strings.Join(failed, "; ")
@@ -316,8 +321,9 @@ func (b *Backup) uncovered(plan []backupPlanItem) string {
 // exactly those again, so a completed init container or a worker someone
 // stopped stays as it was. Need containers keep running for their copy
 // commands. A container the daemon cannot be asked about refuses: it may be
-// running and writing.
-func stopParts(ctx context.Context, dk docker.Scope, owned []deploy.Owned) (stoppedParts, error) {
+// running and writing. before, when set, is told each container just
+// before it is stopped; its error refuses that stop.
+func stopParts(ctx context.Context, dk docker.Scope, owned []deploy.Owned, before func(id string) error) (stoppedParts, error) {
 	out := stoppedParts{dk: dk}
 	for _, o := range owned {
 		if o.Kind != "container" || o.Need != "" || slices.Contains(out.ids, o.ID) {
@@ -332,6 +338,11 @@ func stopParts(ctx context.Context, dk docker.Scope, owned []deploy.Owned) (stop
 				out.idle = append(out.idle, o.ID)
 			}
 			continue
+		}
+		if before != nil {
+			if err := before(o.ID); err != nil {
+				return out, err
+			}
 		}
 		if res, err := dk.Run(ctx, "stop", o.ID); err != nil {
 			return out, fmt.Errorf("stopping %s: %s", o.Label(), strings.TrimSpace(string(res)))

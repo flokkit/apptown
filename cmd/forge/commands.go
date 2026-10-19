@@ -103,7 +103,7 @@ var sections = []section{
   invoke -c <change-id> -w <workflow>   start a run on an existing change`, cmdInvoke},
 			{[]string{"runs"}, `  runs [-p <slug>] [--status all|done|running]
                                         list runs (default: running)`, cmdRuns},
-			{[]string{"executing"}, `  executing                             steps executing right now, in every project (admin):
+			{[]string{"executing"}, `  executing                             steps and operations executing right now, in every project (admin):
                                         what a forge restart would interrupt; exit 0 none, 3 some`, cmdExecuting},
 			{[]string{"status"}, `  status                                your home: what is waiting on you and what is running
   status <run-id>                       run state: stages, current checks, step ids`, cmdStatusOrHome},

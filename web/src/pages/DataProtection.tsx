@@ -49,7 +49,7 @@ export const deploymentOf = (op: Operation) => (typeof op.input.deployment === '
 
 const kindWords: Record<string, string> = {
   'deployment.copy': 'Copy', 'deployment.drill': 'Check', 'deployment.take-down': 'Take-down', 'deployment.rehearsal': 'Restore rehearsal',
-  'deployment.restored-copy': 'Restored copy', 'deployment.restored-copy-end': 'Restored copy take-down',
+  'deployment.restored-copy': 'Restored copy', 'deployment.restored-copy-end': 'Restored copy take-down', 'deployment.restore': 'Restore',
 }
 
 // elapsed is how long since a time, in words a person reads at a glance.

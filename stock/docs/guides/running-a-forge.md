@@ -680,7 +680,11 @@ All sets are on **Deployments → Backups**. **Restore** first copies what is
 there now to a safety set, then stops every part of the deployment, puts the
 set back and starts them all again. A part that will not stop refuses the
 restore before anything is written; a part the running release names that is
-not there is reported as not started. Each copy goes
+not there is reported as not started. The restore runs as an operation,
+which `forge executing` lists while it runs, so a deploy waits for it. If the
+forge restarts in the middle, the restore ends `unknown` and names what it
+may have left stopped; check the host for a restore still running, then
+release the deployment again. Each copy goes
 back into the volume it was taken from. A set from another deployment (a
 final set), or from before October 2026, goes by role: the app's data into
 the app's volume, each need into that need's. If the deployment holds two
@@ -699,10 +703,13 @@ services under Deployments so they are made again from the contract.
 
 ## Upgrading
 
-1. **Check nothing is executing.** `forge executing` lists the steps a
-   restart would interrupt; it exits 0 when there are none and 3 when
-   there are some. A step cut off by a restart may be left in error and
-   need a retry.
+1. **Check nothing is executing.** `forge executing` lists the steps and
+   the operations (copies, restores, take-downs) a restart would interrupt;
+   it exits 0 when there are none and 3 when there are some. A step cut off
+   by a restart may be left in error and need a retry; an operation cut off
+   ends unknown with what it had done. Asked of a forge from before rc.6,
+   which does not report its operations, it says so and fails: look at the
+   forge's operations yourself, then upgrade without asking.
 2. **Stop the forge, then copy it, and stop if a copy fails.** Stop
    `forged` (leave `forge-db` running), so nobody writes between the two
    copies and they describe one moment. Take the database dump with the

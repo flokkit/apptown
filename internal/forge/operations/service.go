@@ -46,6 +46,10 @@ type Kind struct {
 	// SettleIn, when set, writes the owner's own records about the end in
 	// the settlement's transaction (also when a restart settles it unknown).
 	SettleIn func(ctx context.Context, tx *database.Tx, op Operation, out Outcome) error
+	// Interrupted, when set, says from the operation's recorded facts what
+	// a stop of the forge left (a restore's stopped app): words the restart
+	// repair adds to its unknown detail. It reads only op; it acts on nothing.
+	Interrupted func(op Operation) string
 }
 
 // Outcome is how an execution ended. State is Succeeded, Failed, Unknown or
@@ -370,7 +374,13 @@ func (s *Service) RepairInterruptedIn(ctx context.Context, tx *database.Tx) (Res
 		if err != nil {
 			return out, err
 		}
-		if err := s.settleIn(ctx, tx, op, Outcome{State: Unknown, Detail: interruptedDetail(op), Result: map[string]any{"interrupted": true}}, Running); err != nil {
+		detail := interruptedDetail(op)
+		if k, ok := s.kind(op.Kind); ok && k.Interrupted != nil {
+			if left := strings.TrimSpace(k.Interrupted(*op)); left != "" {
+				detail += " " + left
+			}
+		}
+		if err := s.settleIn(ctx, tx, op, Outcome{State: Unknown, Detail: detail, Result: map[string]any{"interrupted": true}}, Running); err != nil {
 			return out, err
 		}
 		out.Settled++
@@ -622,6 +632,17 @@ func (s *Service) Allowed(ctx context.Context, pr access.Principal, c access.Cap
 // deployments), newest first.
 func (s *Service) UnderProject(ctx context.Context, projectID ids.ID, limit int) ([]Operation, error) {
 	rows, err := operationssql.New(s.db.SQL()).OperationsUnderProject(ctx, operationssql.OperationsUnderProjectParams{ProjectID: projectID, Root: sql.NullString{String: fmt.Sprintf("project:%d", projectID), Valid: true}, RowLimit: int64(limit)})
+	if err != nil {
+		return nil, err
+	}
+	return records(rows)
+}
+
+// Running is every running operation, oldest first: what a forge restart
+// would interrupt, for `forge executing`. Unchecked: the route asks for
+// the instance-wide read first.
+func (s *Service) Running(ctx context.Context) ([]Operation, error) {
+	rows, err := operationssql.New(s.db.SQL()).RunningOperations(ctx)
 	if err != nil {
 		return nil, err
 	}

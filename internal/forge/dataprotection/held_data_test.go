@@ -122,7 +122,7 @@ func TestAnOrdinaryBackupCopiesANeedTheHeadNoLongerDeclares(t *testing.T) {
 	if indexOf(commandsOf(client), "stop ") >= 0 {
 		t.Fatalf("an ordinary backup stopped a part:\n%s", strings.Join(commandsOf(client), "\n"))
 	}
-	if _, err := s.RestoreBackup(context.Background(), dep.ProjectID, dep.Name, b.ID, "bls"); err != nil {
+	if _, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, dep.Name, b.ID, "bls"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(h.restored(), "copy of v-pg.dump <- exec -i "+pgConnection+" c-pg sh -c pg_restore") {
@@ -299,7 +299,7 @@ func TestTwoVolumesOfOneRoleStayApart(t *testing.T) {
 			t.Fatalf("the row for %s shows %+v", row.Volume, row.LastCopy)
 		}
 	}
-	if _, err := s.RestoreBackup(context.Background(), dep.ProjectID, dep.Name, b.ID, "bls"); err != nil {
+	if _, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, dep.Name, b.ID, "bls"); err != nil {
 		t.Fatal(err)
 	}
 	got := h.restored()
@@ -344,7 +344,7 @@ func TestARoleOnlySetRestoresOnlyWhenUnambiguous(t *testing.T) {
 		var h hostLog
 		h.answer(s.hosts.Local().Client.(*dockerfake.Daemon))
 		b := legacySet(t, s, dep, "leg")
-		if _, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls"); err != nil {
+		if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls"); err != nil {
 			t.Fatal(err)
 		}
 		if got := h.restored(); !strings.Contains(got, "copy of data.tar.gz <- run --rm -i --entrypoint  --network none -v forge-data-forge-env-leg-main:/dst") ||
@@ -357,7 +357,7 @@ func TestARoleOnlySetRestoresOnlyWhenUnambiguous(t *testing.T) {
 		s, client, dep, h := twoOfEachWorld(t, "amb", 40023)
 		b := legacySet(t, s, dep, "amb")
 		client.ResetCommands()
-		_, err := s.RestoreBackup(context.Background(), dep.ProjectID, dep.Name, b.ID, "bls")
+		_, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, dep.Name, b.ID, "bls")
 		if !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "not certain which") {
 			t.Fatalf("an ambiguous restore: %v", err)
 		}

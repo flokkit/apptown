@@ -27,7 +27,6 @@ import (
 	"flokkit.io/forge/internal/access"
 	"flokkit.io/forge/internal/dbtest"
 	"flokkit.io/forge/internal/forge/adrs"
-	"flokkit.io/forge/internal/forge/dataprotection"
 	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/httpapi"
 	"flokkit.io/forge/internal/forge/project"
@@ -561,8 +560,6 @@ type failureResult struct {
 var failureResults = []failureResult{
 	{handler: "writeBackupTaken", routes: []string{"POST /api/v1/projects/{slug}/deployments/{name}/backups"},
 		status: 502, body: httpapi.BackupTaken{}, why: "a backup that failed is recorded; the answer is that record, ok false"},
-	{handler: "Backups.RestoreBackup", routes: []string{"POST /api/v1/projects/{slug}/deployments/{name}/backups/{id}/restore"},
-		status: 502, body: dataprotection.RestoreResult{}, why: "a restore that failed part way says what it did, with the error"},
 	{handler: "ProjectExport.Export", routes: []string{"GET /api/v1/projects/{slug}/export"},
 		status: 409, body: httpapi.ProjectExportRefused{}, why: "a refused export lists each reason"},
 	{handler: "ProjectDeletion.answer", status: 0, why: "writes the 200 or 202 its callers name; not a failure"},

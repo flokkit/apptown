@@ -625,6 +625,57 @@ func (q *Queries) RequestOperationCancel(ctx context.Context, arg RequestOperati
 	return result.RowsAffected()
 }
 
+const runningOperations = `-- name: RunningOperations :many
+SELECT id, number, kind, project_id, subject, holds, asked_by, asked_by_principal, authority, input, state, steps, result, detail, cancel_requested, job_id, created_at, started_at, touched_at, finished_at, dismissed_at FROM operations WHERE state = 'running' ORDER BY id
+`
+
+// What a forge restart would interrupt: every running operation, oldest
+// first (forge executing).
+func (q *Queries) RunningOperations(ctx context.Context) ([]Operation, error) {
+	rows, err := q.db.QueryContext(ctx, runningOperations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Operation
+	for rows.Next() {
+		var i Operation
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.Kind,
+			&i.ProjectID,
+			&i.Subject,
+			&i.Holds,
+			&i.AskedBy,
+			&i.AskedByPrincipal,
+			&i.Authority,
+			&i.Input,
+			&i.State,
+			&i.Steps,
+			&i.Result,
+			&i.Detail,
+			&i.CancelRequested,
+			&i.JobID,
+			&i.CreatedAt,
+			&i.StartedAt,
+			&i.TouchedAt,
+			&i.FinishedAt,
+			&i.DismissedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setOperationJob = `-- name: SetOperationJob :execrows
 UPDATE operations SET job_id=$1 WHERE id=$2
 `

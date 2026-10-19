@@ -493,8 +493,23 @@ service and succeeded, and the set records no check: a Postgres set from
 before 11 October 2026), `copied` (files put in place, not verified: the app
 volume, the fallback, any set from before 8 October 2026), `failed` or
 `skipped`; the restore is `restored`, `restored, not verified` or `partly
-restored` accordingly, in the response (`RestoreResult`) and the `restored`
-receipt. A kind may declare `restoreStopped`: the need's container is
+restored` accordingly, in the operation's result (`RestoreResult`, under
+`restore`) and the `restored` receipt. **A restore is an operation**
+(`deployment.restore`, `dataprotection/restore_operation.go`;
+plan, 19 October 2026): the
+door (`RequestRestore`, deploy grant) refuses what would refuse it before
+any change and admits it holding the deployment's data (`DataHold`; a
+release is not held off); the worker runs it once, asking the admitting
+credential again before the safety set and before each item. It records
+each step, the safety set, each container before it is stopped and again
+once started, and each item's outcome as it ends; its `restored` receipt is
+written by its settlement. When the forge stops in the middle, the restart
+settles it unknown with what it confirmed, and the kind's interruption
+words name the containers that *may* be stopped (a stop recorded, no start
+recorded: their state is not known), the items restored and the safety
+set; the receipt says `status: unknown` with `mayBeStopped`. Nothing starts
+them again: a restore's writer on the host can outlive the forge, so a
+person checks the host and releases the deployment again. A kind may declare `restoreStopped`: the need's container is
 stopped, the restore runs in a throwaway container of its image with
 `--volumes-from` it, and the need is started again whatever the restore
 did; such a kind must declare `verify` (Parse refuses it otherwise), since

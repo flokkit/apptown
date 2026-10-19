@@ -6,14 +6,19 @@ import (
 
 	"flokkit.io/forge/internal/ids"
 
+	"flokkit.io/forge/internal/forge/operations"
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
 // Runs translates run and evidence requests into Work operations.
 // Authentication and route guards establish caller context before invocation.
-type Runs struct{ work *workflow.Service }
+// ops is the operations ledger, read for what is executing besides steps.
+type Runs struct {
+	work *workflow.Service
+	ops  *operations.Service
+}
 
-func NewRuns(work *workflow.Service) Runs { return Runs{work: work} }
+func NewRuns(work *workflow.Service, ops *operations.Service) Runs { return Runs{work: work, ops: ops} }
 
 // Artifact reports can exceed the ordinary JSON body limit.
 const maxArtifactBody = 64 << 20

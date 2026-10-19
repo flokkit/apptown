@@ -184,12 +184,12 @@ func TestWorkflowActivityRequiredReadsFailAtHTTP(t *testing.T) {
 			case "runs":
 				r := httptest.NewRequest("GET", "/api/v1/runs", nil).WithContext(f.Context)
 				out = httptest.NewRecorder()
-				NewRuns(f.Work).ListRuns(out, r)
+				NewRuns(f.Work, nil).ListRuns(out, r)
 			case "run":
 				r := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/runs/%d", f.RunID), nil).WithContext(f.Context)
 				r.SetPathValue("id", fmt.Sprint(f.RunID))
 				out = httptest.NewRecorder()
-				NewRuns(f.Work).GetRun(out, r)
+				NewRuns(f.Work, nil).GetRun(out, r)
 			}
 			if out.Code != 500 {
 				t.Fatalf("required read failure: %d %s", out.Code, out.Body.String())

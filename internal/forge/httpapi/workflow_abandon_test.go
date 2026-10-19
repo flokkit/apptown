@@ -19,7 +19,7 @@ func TestAbandonmentHTTPReportsFailure(t *testing.T) {
 		r := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/runs/%d/abandon", f.RunID), strings.NewReader(`{"reason":"stop"}`)).WithContext(f.Context)
 		r.SetPathValue("id", fmt.Sprint(f.RunID))
 		w := httptest.NewRecorder()
-		NewRuns(f.Work).AbandonRun(w, r)
+		NewRuns(f.Work, nil).AbandonRun(w, r)
 		return w
 	}
 	t.Cleanup(f.DB.FailNextStatement("INSERT INTO audit_log"))
@@ -55,7 +55,7 @@ func TestAbandonRunCascades(t *testing.T) {
 		r := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/runs/%d/abandon", f.RunID), strings.NewReader(fmt.Sprintf(`{"reason":%q}`, reason))).WithContext(f.Context)
 		r.SetPathValue("id", fmt.Sprint(f.RunID))
 		w := httptest.NewRecorder()
-		NewRuns(f.Work).AbandonRun(w, r)
+		NewRuns(f.Work, nil).AbandonRun(w, r)
 		return w
 	}
 	if w := call("testing teardown"); w.Code != 200 {
@@ -79,7 +79,7 @@ func TestAbandonRunHTTPRejectsMalformedInputBeforeStoppingWork(t *testing.T) {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
 		r.SetPathValue("id", fmt.Sprint(f.RunID))
 		w := httptest.NewRecorder()
-		NewRuns(f.Work).AbandonRun(w, r)
+		NewRuns(f.Work, nil).AbandonRun(w, r)
 		return w
 	}
 	for _, body := range []string{`{"reason":`, `{"reason":42}`} {

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { HttpError, post } from '../api'
+import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { fmtBytes, fmtWhen } from '../format'
 import { QuietConfirm } from '../QuietConfirm'
-import type { AllBackups, BackupItem, BackupTaken, ProjectBackup, RestoreResult } from '../wire.gen'
+import type { AllBackups, BackupItem, BackupTaken, OperationAdmitted, ProjectBackup } from '../wire.gen'
 import { StoreSection } from './DataProtection'
 
 // Backups: what the forge holds of each deployment's state, newest first.
@@ -17,9 +17,6 @@ import { StoreSection } from './DataProtection'
 
 const itemName = (i: { kind: string; name: string }) => i.kind === 'volume' ? 'data volume' : i.name
 
-const isRestoreResult = (v: unknown): v is RestoreResult =>
-  typeof v === 'object' && v !== null && Array.isArray((v as RestoreResult).items) && typeof (v as RestoreResult).status === 'string'
-
 // caveatNote is what a set's copies do not hold, as each need's kind
 // declares it (object storage's ACLs and versions), for the question before a restore:
 // a known loss is said where the decision is made. Empty when none.
@@ -28,45 +25,10 @@ export function caveatNote(items: { kind: string; name: string; caveat?: string 
   return said.length ? ` Not in this set — ${said.join('; ')}.` : ''
 }
 
-// restoreNote says what a restore did: its status, every item that is less
-// than restored and verified (files put in place are not data a service was
-// seen to load; a failure says why), what each restored copy does not hold
-// (its kind's caveat), the error if it failed, and the safety set that holds
-// what was there before, which leaves out the same. A set has no number
-// people read, so it is named by when it was taken.
-export function restoreNote(where: string, takenAt: string, r: RestoreResult): string {
-  const unsure = r.items.filter((i) => (i.outcome !== 'verified' && i.outcome !== 'loaded') || i.caveat)
-    .map((i) => `${itemName(i)}: ${outcomeWords[i.outcome]}${i.outcome === 'failed' && i.detail ? ` — ${i.detail}` : ''}${i.caveat ? ` — ${i.caveat}` : ''}`)
-  const lossy = r.items.some((i) => i.caveat)
-  // The data's outcome and whether the app came back are separate facts.
-  const app = r.started === false
-    ? `. The app is not running again: ${(r.notStarted ?? []).join('; ') || 'none of its parts was running'}`
-    : r.started == null ? '. Whether the app came back is not known'
-      : r.ready === false ? '. The app has not answered yet'
-        : r.ready == null ? '. Whether the app answers was not checked' : ''
-  return `${where}: ${r.status} from the set taken ${fmtWhen(takenAt)}${unsure.length ? ` (${unsure.join('; ')})` : ''}${r.error ? `. ${r.error}` : ''}${app}; what was there before is in a new safety set${lossy ? ', which leaves out the same' : ''}`
-}
-
-// restoreDone: the data is back and the app is known to have started again
-// and not to have failed its probe. A part that would not start or is not
-// there, an app that did not answer, or no word on the app at all, is not
-// done.
-export const restoreDone = (r: RestoreResult) =>
-  r.status === 'restored' && !r.error && r.started === true && r.ready !== false
-
-// What a restore can claim about one item, in words.
-const outcomeWords: Record<RestoreResult['items'][number]['outcome'], string> = {
-  verified: 'restored and verified',
-  loaded: 'loaded by its declared restore',
-  copied: 'files copied, not verified',
-  failed: 'failed',
-  skipped: 'left as it was',
-}
-
 export function BackupsView() {
   const q = useGet<AllBackups>('/backups', { poll: 30000 })
   const { data, reload } = q
-  const [note, setNote] = useState<{ text: string; done: boolean } | null>(null)
+  const [note, setNote] = useState<{ text: string; done: boolean; operation?: string } | null>(null)
   const { run, busy, err: actErr } = useAction()
   if (!data) return <ReadStatus q={q} what="the backups" />
   const latest = new Map<string, ProjectBackup>()
@@ -76,18 +38,17 @@ export function BackupsView() {
     const r = await run(() => post<BackupTaken>(`/projects/${project}/deployments/${deployment}/backups`, {}))
     if (r?.backup) { setNote({ text: `${project}/${deployment}: ${r.backup.status}, ${fmtBytes(r.backup.bytes)}`, done: r.backup.status === 'ok' }); reload() }
   }
+  // A restore runs as an operation: the answer is the operation, whose
+  // page shows each step and each item's outcome as it finishes.
   const restore = async (b: ProjectBackup, into = b.deployment) => {
     setNote(null)
-    // A restore an item of which failed answers with an error status and
-    // its receipt: that receipt says what changed, what failed and where
-    // the safety set is, so it is shown, not just the error line.
-    const r = await run(() => post<RestoreResult>(`/projects/${b.project}/deployments/${into}/backups/${b.id}/restore`, { confirm: into })
-      .catch((e: unknown) => { if (e instanceof HttpError && isRestoreResult(e.body)) return e.body; throw e }))
+    const r = await run(() => post<OperationAdmitted>(`/projects/${b.project}/deployments/${into}/backups/${b.id}/restore`, { confirm: into }))
     if (r) {
-      setNote({ text: restoreNote(`${b.project}/${into}`, b.takenAt, r), done: restoreDone(r) })
+      setNote({ text: `${b.project}/${into}: restore from the set taken ${fmtWhen(b.takenAt)} started.`, done: true, operation: r.operationId ?? undefined })
       reload()
     }
   }
+
   return (
     <div>
       <StaleNote q={q} />
@@ -96,7 +57,7 @@ export function BackupsView() {
         Keeps newest {data.keep} · 14 for production · final sets until their date · <Link to={backupsGuide}>How backups work</Link>
       </div>
       <div className="row" style={{ gap: 10, alignItems: 'center', minHeight: 24 }}>
-        {note && <span className="small">{note.done ? '✓ ' : '! '}{note.text}</span>}
+        {note && <span className="small">{note.done ? '✓ ' : '! '}{note.text}{note.operation && <> <Link to={`/operations/${note.operation}`}>Follow it</Link></>}</span>}
         {actErr && <span className="error small">{actErr}</span>}
       </div>
       {latest.size === 0 && <div className="muted">No backups yet. The first is taken within a day.</div>}

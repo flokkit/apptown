@@ -20,7 +20,7 @@ func TestRunAdvanceHTTPRejectsUnverifiedActor(t *testing.T) {
 	r.SetPathValue("id", fx.Run.String())
 	r.Header.Set("X-Forge-Actor", "owner")
 	out := httptest.NewRecorder()
-	httpapi.NewRuns(a.Work).Advance(out, r.WithContext(callerContext(r)))
+	httpapi.NewRuns(a.Work, nil).Advance(out, r.WithContext(callerContext(r)))
 	if out.Code != 401 {
 		t.Fatalf("spoofed advance %d %s", out.Code, out.Body.String())
 	}

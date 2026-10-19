@@ -512,7 +512,7 @@ func TestAStoreCopyIsNeverRestoredInPlace(t *testing.T) {
 	if _, err := w.bind(w.project, "prod", "production", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
-	_, err := w.s.RestoreBackup(context.Background(), w.project, "prod", set.ID, "alice")
+	_, err := w.s.restoreBackup(context.Background(), nil, w.project, "prod", set.ID, "alice")
 	if !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "start a new deployment from it") {
 		t.Fatalf("restore in place: %v", err)
 	}

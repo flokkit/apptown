@@ -41,7 +41,7 @@ func TestEvidenceOwnersRefreshWorkWithoutTransportFollowUp(t *testing.T) {
 				req = testRequestAs(req, "alice")
 				req.SetPathValue("id", fmt.Sprint(run.ID))
 				response := httptest.NewRecorder()
-				httpapi.NewRuns(a.Work).AddArtifact(response, req.WithContext(callerContext(req)))
+				httpapi.NewRuns(a.Work, nil).AddArtifact(response, req.WithContext(callerContext(req)))
 				if response.Code != 201 {
 					t.Fatalf("attachment: %d %s", response.Code, response.Body.String())
 				}
@@ -58,7 +58,7 @@ func TestEvidenceOwnersRefreshWorkWithoutTransportFollowUp(t *testing.T) {
 				denied = testRequestAs(denied, "alice")
 				denied.SetPathValue("id", fmt.Sprint(run.ID))
 				response = httptest.NewRecorder()
-				httpapi.NewRuns(a.Work).AddArtifact(response, denied.WithContext(callerContext(denied)))
+				httpapi.NewRuns(a.Work, nil).AddArtifact(response, denied.WithContext(callerContext(denied)))
 				if response.Code != 403 {
 					t.Fatalf("command denial became %d: %s", response.Code, response.Body.String())
 				}

@@ -67,7 +67,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	// The worker will not stop: nothing is written and the app, already
 	// stopped, is started again.
 	failStop, lifecycle = worker, nil
-	if _, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls"); err == nil || !strings.Contains(err.Error(), "nothing was restored") {
+	if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls"); err == nil || !strings.Contains(err.Error(), "nothing was restored") {
 		t.Fatalf("a part that will not stop refuses the restore: %v", err)
 	}
 	lc := strings.Join(lifecycle, "\n")
@@ -80,7 +80,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	// running, and so it is here.)
 	client.SetRunning(worker, true)
 	failStop, lifecycle = "", nil
-	res, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	// The worker will not start again: the data is back and says so, and
 	// the result names the part that is not running.
 	failStart = worker
-	res, err = s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls")
+	res, err = s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestARestoreNamesAPartThatIsNotThere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestARestoreStartsAgainOnlyWhatItStopped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,5 +206,42 @@ func TestARestoreStartsAgainOnlyWhatItStopped(t *testing.T) {
 	}
 	if !res.Stopped || res.Started == nil || !*res.Started || len(res.NotStarted) != 0 || res.Ready == nil || !*res.Ready {
 		t.Fatalf("the restore's account: stopped %v started %v not started %v ready %v", res.Stopped, res.Started, res.NotStarted, res.Ready)
+	}
+}
+
+// A part the running release names that is not there cannot be started,
+// so a restore that ran through the operation fails and names it, though
+// the data is back (code review R1).
+//
+// Kills: a restore operation that succeeds while the app is not whole.
+func TestARestoreOperationFailsAndNamesAPartThatIsNotThere(t *testing.T) {
+	t.Parallel()
+	s, _, client, _, pid := backupWorld(t, "rm", 40003)
+	releaseMain(t, s, "rm", "app:\n  web:\n    image: registry.example/rm:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n  worker:\n    image: registry.example/rm:1\n    command: [\"work\"]\nneeds:\n  postgres: {}\n")
+	app := docker.ContainerName("rm", "main")
+	worker := docker.ServiceName(docker.StackID("rm", "main"), "worker")
+	client.SetRunning(app, true) // the worker's container is gone
+	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
+		if req.Stdout != nil {
+			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			return nil, err
+		}
+		if req.Stdin != nil {
+			_, err := io.ReadAll(req.Stdin)
+			return nil, err
+		}
+		return nil, nil
+	})
+	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	op, res := restoreThroughOperation(t, s, pid, "main", b.ID)
+	if op.State.String() != "failed" || !strings.Contains(op.Detail, worker) {
+		t.Errorf("a missing part fails the restore, named: %s %q", op.State, op.Detail)
+	}
+	if res.Status != RestoreNotVerified || res.Started == nil || *res.Started || res.Ready != nil ||
+		len(res.NotStarted) != 1 || !strings.Contains(res.NotStarted[0], worker) || !strings.Contains(res.NotStarted[0], "not there") {
+		t.Fatalf("the data is back and the missing worker is named: %+v", res)
 	}
 }

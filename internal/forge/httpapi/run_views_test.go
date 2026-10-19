@@ -49,7 +49,7 @@ func TestHandleListRunsState(t *testing.T) {
 	call := func(query string) []map[string]any {
 		r := httptest.NewRequest("GET", "/api/v1/runs?project=shop"+query, nil).WithContext(f.Context)
 		w := httptest.NewRecorder()
-		NewRuns(f.Work).ListRuns(w, r)
+		NewRuns(f.Work, nil).ListRuns(w, r)
 		if w.Code != 200 {
 			t.Fatalf("list: %d %s", w.Code, w.Body.String())
 		}

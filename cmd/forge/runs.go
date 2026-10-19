@@ -1075,21 +1075,51 @@ func cmdExecuting(args []string) error {
 			Type     string
 			ElapsedS int
 		}
+		// Operations is nil from an older forge, which does not report
+		// them: only its steps are known.
+		Operations *[]struct {
+			Number     int64
+			Kind       string
+			Deployment string
+			Step       string
+			AskedBy    string
+			ElapsedS   int
+		}
 	}
 	if err := api.get("/runs/executing", &out); err != nil {
 		return err
 	}
-	if len(out.Executing) == 0 {
+	// An older forge answers steps only: what its operations are doing is
+	// not known, which is not idle.
+	ops := -1
+	if out.Operations != nil {
+		ops = len(*out.Operations)
+	}
+	if len(out.Executing) == 0 && ops == 0 {
 		fmt.Println("nothing is executing")
 		return nil
 	}
 	w := tw()
-	fmt.Fprintln(w, "PROJECT\tRUN\tSTEP\tTYPE\tFOR\tCHANGE")
-	for _, s := range out.Executing {
-		fmt.Fprintf(w, "%s\t%d\t%s (%d)\t%s\t%s\t%s\n", s.Project, s.RunID, s.Step, s.StepID, s.Type, time.Duration(s.ElapsedS)*time.Second, s.Title)
+	if len(out.Executing) > 0 {
+		fmt.Fprintln(w, "PROJECT\tRUN\tSTEP\tTYPE\tFOR\tCHANGE")
+		for _, s := range out.Executing {
+			fmt.Fprintf(w, "%s\t%d\t%s (%d)\t%s\t%s\t%s\n", s.Project, s.RunID, s.Step, s.StepID, s.Type, time.Duration(s.ElapsedS)*time.Second, s.Title)
+		}
+	}
+	if ops > 0 {
+		if len(out.Executing) > 0 {
+			fmt.Fprintln(w)
+		}
+		fmt.Fprintln(w, "OPERATION\tKIND\tDEPLOYMENT\tSTEP\tFOR\tASKED BY")
+		for _, o := range *out.Operations {
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n", o.Number, o.Kind, o.Deployment, o.Step, time.Duration(o.ElapsedS)*time.Second, o.AskedBy)
+		}
 	}
 	if err := w.Flush(); err != nil {
 		return err
+	}
+	if ops < 0 && len(out.Executing) == 0 {
+		return errors.New("no step is executing, but this forge does not report its operations (copies, restores, take-downs), so whether one is running is not known")
 	}
 	exitProcess(3)
 	return nil

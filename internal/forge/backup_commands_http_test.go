@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"flokkit.io/forge/internal/forge/dataprotection"
+	"flokkit.io/forge/internal/forge/httpapi"
+	"flokkit.io/forge/internal/forge/operations"
 	"flokkit.io/forge/internal/ids"
 	"flokkit.io/forge/internal/ids/idstest"
 
@@ -57,6 +59,8 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 	if _, err := a.Deployment.Outcomes.Complete(context.Background(), deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy"}}); err != nil {
 		t.Fatal(err)
 	}
+	// main's app runs, so a restore stops it and starts it again.
+	f.markStarted(docker.ContainerName("game", "main"))
 	// The host holds main's data volume, as its boot made it.
 	if _, err := f.run("volume", "create", docker.DataVolumeName(docker.ContainerName("game", "main"))); err != nil {
 		t.Fatal(err)
@@ -100,14 +104,25 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 		{"outsider", path, `{"confirm":"main"}`, 403},
 		{"boss", path, `{"confirm":"nope"}`, 400},
 		{"boss", path, `{"confirm":"main","confirm":false}`, 400},
-		{"boss", strings.Replace(path, "game", "open", 1), `{"confirm":"main"}`, 422},
+		{"boss", strings.Replace(path, "game", "open", 1), `{"confirm":"main"}`, 404},
 	} {
 		w := authzCall(h, tc.who, "POST", tc.path, tc.body)
 		if w.Code != tc.code || calls != before {
 			t.Fatalf("refused restore: %d %s calls %d -> %d", w.Code, w.Body.String(), before, calls)
 		}
 	}
+	// The restore is an operation: the answer is the operation, which runs
+	// once and keeps the receipt in its result.
 	w = authzCall(h, "boss", "POST", path, `{"confirm":" main "}`)
+	var admitted httpapi.OperationAdmitted
+	if err := json.Unmarshal(w.Body.Bytes(), &admitted); err != nil || w.Code != 202 || admitted.OperationID.IsZero() {
+		t.Fatalf("restore admitted: %d %s %v", w.Code, w.Body.String(), err)
+	}
+	op, err := a.operations.RunHere(context.Background(), admitted.OperationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(op.Result["restore"])
 	var receipt struct {
 		Backup, SafetyBackup ids.ID
 		Status               string
@@ -115,8 +130,8 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 	}
 	// The app's data volume goes back as files nothing checks: the
 	// receipt says so rather than "restored".
-	if err := json.Unmarshal(w.Body.Bytes(), &receipt); err != nil || w.Code != 200 || receipt.Backup != source || receipt.SafetyBackup.Compare(source) <= 0 || receipt.Status != "restored, not verified" || len(receipt.Items) != 1 || receipt.Items[0].Outcome != "copied" || !strings.Contains(receipt.Items[0].Detail, "not verified") || len(restored) != 1 || restored[0] != copied[0] {
-		t.Fatalf("restore receipt/bytes: %d %s restored=%v %v", w.Code, w.Body.String(), restored, err)
+	if err := json.Unmarshal(raw, &receipt); err != nil || op.State != operations.Succeeded || receipt.Backup != source || receipt.SafetyBackup.Compare(source) <= 0 || receipt.Status != "restored, not verified" || len(receipt.Items) != 1 || receipt.Items[0].Outcome != "copied" || !strings.Contains(receipt.Items[0].Detail, "not verified") || len(restored) != 1 || restored[0] != copied[0] {
+		t.Fatalf("restore receipt/bytes: %s %q %s restored=%v %v", op.State, op.Detail, raw, restored, err)
 	}
 	sets, err := a.DataProtection.DeploymentSets(context.Background(), idstest.N(1), "main", 50)
 	if err != nil || len(sets) != 2 || sets[0].ID != receipt.SafetyBackup || sets[0].Trigger != dataprotection.TriggerPreRestore || sets[0].Actor != "boss" {

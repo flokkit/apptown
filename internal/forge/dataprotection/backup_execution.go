@@ -27,7 +27,6 @@ import (
 	"flokkit.io/forge/internal/deploy/docker"
 	"flokkit.io/forge/internal/deploy/s3bucket"
 	"flokkit.io/forge/internal/fault"
-	"flokkit.io/forge/internal/forge/audit"
 	"flokkit.io/forge/internal/forge/dependency"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/strs"
@@ -380,7 +379,7 @@ func containerConnection(ctx context.Context, dk docker.Scope, kind *dependency.
 	return conn, cfg.Image, nil
 }
 
-// RestoreBackup puts a set back into a deployment: any set of the
+// restoreBackup puts a set back into a deployment: any set of the
 // project's, its own or another deployment's (a taken-down deployment's
 // final set). Items go by role: the set's data volume into the
 // destination's app volume, whatever either is named, and each need's
@@ -391,40 +390,25 @@ func containerConnection(ctx context.Context, dk docker.Scope, kind *dependency.
 // restored, and the app is started again. The safety set and the outcome
 // are on the record; each item says what witnessed it (RestoreOutcome), so
 // files put in place are never reported as data a service loaded.
-func (s *Service) RestoreBackup(ctx context.Context, projectID ids.ID, deploymentName string, backupID ids.ID, actor string) (*RestoreResult, error) {
+//
+// It is the body of a restore operation (RequestRestore, restore_operation.go):
+// rec writes each step and each fact as it happens, a container's id
+// before it is stopped and again once it is started, so a forge that stops
+// part way leaves what was done on the record, and what it stopped and did
+// not start again is named. It asks the admitting authority again before
+// the safety set and before each item.
+func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID ids.ID, deploymentName string, backupID ids.ID, actor string) (*RestoreResult, error) {
 	now := s.now()
 	files, err := LockBackupFiles(filepath.Join(s.dataDir, "backups"), false)
 	if err != nil {
 		return nil, err
 	}
 	defer files.Close()
-	if err := project.RefuseUnlessActive(ctx, s.db, projectID); err != nil {
+	b, dep, slug, err := s.restorable(ctx, projectID, deploymentName, backupID)
+	if err != nil {
 		return nil, err
 	}
-	b, err := s.backups.InProject(ctx, projectID, backupID)
-	if err != nil {
-		return nil, fmt.Errorf("no backup %d in this project", backupID)
-	}
-	if err := b.Status.Restorable(); err != nil {
-		return nil, fmt.Errorf("backup %d: %w", backupID, err)
-	}
-	// A managed database's copy is only ever filled into a new place: a
-	// new deployment starts from it. A Docker host's set is restored in
-	// place wherever it is kept.
-	for _, it := range b.Items {
-		if it.Instance != "" {
-			return nil, fmt.Errorf("%w: set %d is a copy of a managed database; start a new deployment from it instead", ErrRestoreMismatch, backupID)
-		}
-	}
-	slugMeta, slugErr := project.ByIDIn(ctx, s.db, projectID)
-	slug := slugMeta.Slug
-	if err := slugErr; err != nil {
-		return nil, fmt.Errorf("no such project")
-	}
-	dep, err := s.deployments.ByName(ctx, projectID, deploymentName)
-	if err != nil || !dep.Standing() {
-		return nil, fmt.Errorf("no standing deployment named %q", deploymentName)
-	}
+	rec.record(ctx, "from", b.Deployment)
 	// The restore holds its deployment until it ends: a take-down (a
 	// deletion's too) is refused meanwhile, and one under way refuses
 	// this. The lifecycle is asked again once it is held, so a project
@@ -461,6 +445,7 @@ func (s *Service) RestoreBackup(ctx context.Context, projectID ids.ID, deploymen
 		paths[i] = filepath.Join(b.Path, m.item.File)
 	}
 	if b.Store == StoreBackupStore {
+		rec.begin(ctx, fmt.Sprintf("reading set %d back from the backup store", backupID))
 		c, store, err := s.storeOf(ctx, b)
 		if err != nil {
 			return nil, fmt.Errorf("reading set %d back from the backup store: %w; nothing was restored", backupID, err)
@@ -476,10 +461,15 @@ func (s *Service) RestoreBackup(ctx context.Context, projectID ids.ID, deploymen
 			}
 		}
 	}
+	if err := rec.allowed(ctx); err != nil {
+		return nil, fmt.Errorf("%w; nothing was restored", err)
+	}
+	rec.begin(ctx, "taking a safety set of what is there now")
 	safety, err := s.TakeBackup(ctx, projectID, deploymentName, TriggerPreRestore, actor)
 	if err != nil {
 		return nil, fmt.Errorf("taking the safety set first: %w", err)
 	}
+	rec.record(ctx, "safetyBackup", safety.ID)
 	// Nothing is overwritten unless every item of what is there now was
 	// copied first: a partial safety set leaves data with no copy.
 	if safety.Status != BackupOK {
@@ -491,6 +481,7 @@ func (s *Service) RestoreBackup(ctx context.Context, projectID ids.ID, deploymen
 		}
 		return nil, fmt.Errorf("the safety set %d is %s (%s); nothing was restored", safety.ID, safety.Status, strings.Join(missing, "; "))
 	}
+	rec.end(ctx, fmt.Sprintf("set %d", safety.ID))
 	if container == "" {
 		container = docker.ContainerName(slug, deploymentName)
 	}
@@ -521,7 +512,10 @@ func (s *Service) RestoreBackup(ctx context.Context, projectID ids.ID, deploymen
 		}
 		owned = nil
 	}
-	parts, err := stopParts(ctx, dk, append(writers, owned...))
+	rec.begin(ctx, "stopping the app, so nothing writes while the data goes back")
+	recordStop := func(id string) error { return rec.stopping(ctx, id) }
+	recordStart := func(id string) { rec.started(ctx, id) }
+	parts, err := stopParts(ctx, dk, append(writers, owned...), recordStop)
 	// A part the running release names that Docker does not have cannot
 	// write, so the data still goes back; but the app does not come back
 	// without it, and the result says so. (A list entry with no container is
@@ -535,20 +529,42 @@ func (s *Service) RestoreBackup(ctx context.Context, projectID ids.ID, deploymen
 	}
 	if err != nil {
 		why := err.Error()
-		if failed := parts.restart(ctx); len(failed) > 0 {
+		if failed := parts.restartEach(ctx, recordStart); len(failed) > 0 {
 			why += "; these could not be started again, so the deployment is not serving: " + strings.Join(failed, "; ")
 		}
 		return nil, fmt.Errorf("%s; nothing was restored", why)
 	}
+	rec.end(ctx, strings.Join(parts.ids, ", "))
 	result := &RestoreResult{Backup: backupID, From: b.Deployment, SafetyBackup: safety.ID, Stopped: len(parts.ids) > 0}
+	var withdrawn error
 	for i, m := range moves {
-		result.Items = append(result.Items, s.restoreItem(ctx, dk, m, paths[i]))
+		if withdrawn == nil {
+			withdrawn = rec.allowed(ctx)
+		}
+		if withdrawn != nil {
+			result.Items = append(result.Items, RestoredItem{Kind: m.into.Kind, Name: m.into.Name, Outcome: RestoreSkipped, Detail: "not restored: " + withdrawn.Error()})
+			continue
+		}
+		rec.begin(ctx, "restoring "+m.into.Name)
+		it := s.restoreItem(ctx, rec, dk, m, paths[i])
+		result.Items = append(result.Items, it)
+		rec.record(ctx, "items", result.Items)
+		if it.Outcome == RestoreFailed {
+			rec.fail(ctx, it.Detail)
+		} else {
+			rec.end(ctx, it.Outcome.String())
+		}
 	}
 	for _, p := range untouched {
 		result.Items = append(result.Items, RestoredItem{Kind: p.Kind, Name: p.Name, Outcome: RestoreSkipped, Detail: "the set holds no good copy of this item; it is left as it is"})
 	}
+	rec.record(ctx, "items", result.Items)
 	if result.Stopped {
-		result.NotStarted = parts.restart(ctx)
+		rec.begin(ctx, "starting the app again")
+		result.NotStarted = parts.restartEach(ctx, recordStart)
+		if len(result.NotStarted) > 0 {
+			rec.fail(ctx, strings.Join(result.NotStarted, "; "))
+		}
 	}
 	result.NotStarted = append(result.NotStarted, absent...)
 	started := result.Stopped && len(result.NotStarted) == 0
@@ -558,20 +574,29 @@ func (s *Service) RestoreBackup(ctx context.Context, projectID ids.ID, deploymen
 		// the door waits for readiness and says whether it arrived, rather
 		// than returning while the front door still answers 502.
 		if hostPort > 0 {
+			rec.begin(ctx, "waiting for the app to answer")
 			probe := docker.RenderColdBootProbe(c.PublicPart(), s.env.FrontDoorHeaders())
 			up, _ := s.env.Probe().Check(ctx, dk, container, dk.ProbeURL(hostPort), 90*time.Second, probe)
 			result.Ready = &up
+			if up {
+				rec.end(ctx, "it answers")
+			} else {
+				rec.end(ctx, "it did not answer within 90 s")
+			}
 		}
 	}
 	result.Status = restoreStatus(result.Items)
-	// The outcome's time is when it was established, after the safety copy,
-	// the restore and the restart, not when the restore began.
-	audit.At(s.now()).BestEffort(ctx, s.db, actor, projectID, "restored", deploymentName, map[string]any{"backup": backupID, "from": b.Deployment, "safetyBackup": safety.ID, "status": result.Status, "items": result.Items})
+	// The restored receipt is written when the operation settles
+	// (settleRestore), in the same transaction, also when a restart
+	// settles it unknown.
 	failed := 0
 	for _, it := range result.Items {
 		if it.Outcome == RestoreFailed {
 			failed++
 		}
+	}
+	if withdrawn != nil {
+		return result, fmt.Errorf("%w; the items before it are restored and the safety set %d holds what was there before", withdrawn, safety.ID)
 	}
 	if failed > 0 {
 		return result, fmt.Errorf("%d item(s) did not restore; the safety set %d holds what was there before", failed, safety.ID)
@@ -587,7 +612,7 @@ func (s *Service) RestoreBackup(ctx context.Context, projectID ids.ID, deploymen
 // restoreStopped, in a throwaway container of its image on its volumes
 // while it is stopped, after which it is started again. Then the need's
 // verify, if declared, runs in it with the copy on stdin.
-func (s *Service) restoreItem(ctx context.Context, dk docker.Scope, m restoreMove, path string) RestoredItem {
+func (s *Service) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope, m restoreMove, path string) RestoredItem {
 	it, p := m.item, m.into
 	// What the copy does not hold is the set's to say; a set from before
 	// copies carried it says what the destination's kind declares.
@@ -651,7 +676,7 @@ func (s *Service) restoreItem(ctx context.Context, dk docker.Scope, m restoreMov
 		return dk.RunStep(ctx, step)
 	}
 	if stoppedMode {
-		if out, err := restoreIntoStopped(ctx, dk, p.Container, path, restore); err != nil {
+		if out, err := restoreIntoStopped(ctx, rec, dk, p.Container, path, restore); err != nil {
 			return fail(string(out) + " " + err.Error())
 		}
 	} else if out, err := inService(restore); err != nil {
@@ -675,10 +700,13 @@ func (s *Service) restoreItem(ctx context.Context, dk docker.Scope, m restoreMov
 // copy on stdin in a throwaway container of the same image on the same
 // volumes, and starts the need again whatever the restore did, so a failed
 // restore never leaves the service down.
-func restoreIntoStopped(ctx context.Context, dk docker.Scope, container, path, restore string) ([]byte, error) {
+func restoreIntoStopped(ctx context.Context, rec *restoreLog, dk docker.Scope, container, path, restore string) ([]byte, error) {
 	image := dk.Text(ctx, "inspect", "--format", "{{.Config.Image}}", container)
 	if image == "" {
 		return nil, fmt.Errorf("could not read the image of %s", container)
+	}
+	if err := rec.stopping(ctx, container); err != nil {
+		return nil, err
 	}
 	if out, err := dk.Run(ctx, "stop", container); err != nil {
 		return out, fmt.Errorf("stopping %s: %w", container, err)
@@ -692,6 +720,7 @@ func restoreIntoStopped(ctx context.Context, dk docker.Scope, container, path, r
 	if sout, err := dk.Run(ctx, "start", container); err != nil {
 		return append(out, sout...), errors.Join(rerr, fmt.Errorf("starting %s again: %w", container, err))
 	}
+	rec.started(ctx, container)
 	return out, rerr
 }
 

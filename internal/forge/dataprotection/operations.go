@@ -23,7 +23,8 @@ import (
 // hour, so each is a row in the operations ledger, admitted here with its
 // River job and run once by the operations worker. This file registers
 // deployment's kinds and admits them; the kinds' bodies are in
-// data_operations.go, rehearsal.go and restored_copy.go.
+// data_operations.go, rehearsal.go, restored_copy.go and
+// restore_operation.go.
 
 // Deployment's operation kinds.
 const (
@@ -98,6 +99,12 @@ func (s *Service) registerKinds() {
 		{Name: OperationRehearsal, Capability: access.CapDeploymentRestore, CancelRefusal: ErrRehearsalNotStopped, Execute: body(s.runRehearsal)},
 		{Name: OperationRestore, Capability: access.CapDeploymentRestore, CancelRefusal: ErrRestoreNotStopped, Execute: body(s.runRestore)},
 		{Name: OperationRestoredCopyEnd, Capability: access.CapDeploymentRestore, CancelRefusal: ErrRestoredCopyEndNotStopped, Execute: body(s.runRestoredTakeDown)},
+		// A restore of a set over a deployment runs to its end once started;
+		// it needs the deploy grant, as its door always has. Its receipt is
+		// written with its end, and a forge's stop leaves what it may have
+		// stopped named, never started on a guess (restore_operation.go).
+		{Name: OperationRestoreSet, Capability: access.CapDeploymentDeploy, CancelRefusal: ErrRestoreSetNotStopped, Execute: body(s.runRestoreSet),
+			SettleIn: s.settleRestore, Interrupted: restoreInterrupted},
 	} {
 		k.Read = access.CapDeploymentRead
 		s.ops.Register(k)
@@ -190,6 +197,9 @@ func (t *tracker) record(ctx context.Context, key string, v any) error {
 	return t.log.Record(ctx, key, v)
 }
 func (t *tracker) cancelled(ctx context.Context) bool { return t.log.CancelRequested(ctx) }
+
+// facts are what the operation has recorded so far (record).
+func (t *tracker) facts() map[string]any { return t.log.Operation().Result }
 
 // stop says whether a person asked the operation to stop, and records that
 // it stops here. A kind asks it only at a safe boundary between steps.

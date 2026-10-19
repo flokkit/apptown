@@ -86,7 +86,10 @@ func writeBackupTaken(w http.ResponseWriter, b *dataprotection.Backup) {
 }
 
 // RestoreBackup: POST /projects/{slug}/deployments/{name}/backups/{id}/restore
-// {confirm} — confirm must equal the deployment's name.
+// {confirm} — confirm must equal the deployment's name. The restore runs
+// as an operation: the answer is the operation admitted (202), which
+// forge wait operation and its page follow; its result's restore is the
+// receipt.
 func (h Backups) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	p, ok := ProjectFromPath(h.projects, w, r)
 	if !ok {
@@ -104,18 +107,12 @@ func (h Backups) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 400, "confirm must equal the deployment name %q — a restore replaces what is there", r.PathValue("name"))
 			return
 		}
-		// A restore, once begun, finishes though the request ends.
-		res, err := h.data.RestoreBackup(context.WithoutCancel(r.Context()), p.ID, r.PathValue("name"), id, Actor(r))
+		op, err := h.data.RequestRestore(r.Context(), p.ID, r.PathValue("name"), id)
 		if err != nil {
-			if res != nil {
-				res.Error = err.Error()
-				WriteJSON(w, 502, res)
-				return
-			}
-			WriteError(w, 422, "%v", err)
+			WriteFaultOr(w, err, 422)
 			return
 		}
-		WriteJSON(w, 200, res)
+		WriteAdmitted(w, op)
 	})
 }
 

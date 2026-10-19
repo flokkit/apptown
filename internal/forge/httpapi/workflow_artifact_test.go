@@ -8,7 +8,7 @@ import (
 func TestWorkflowArtifactHTTPMissingAndUnavailable(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, true)
-	h := NewRuns(f.Work)
+	h := NewRuns(f.Work, nil)
 	r := httptest.NewRequest("GET", "/api/v1/artifacts/00000001-869f-7000-8000-000000000000", nil).WithContext(f.Context)
 	r.SetPathValue("id", "00000001-869f-7000-8000-000000000000")
 	out := httptest.NewRecorder()

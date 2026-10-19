@@ -467,7 +467,7 @@ func TestDockerDataDoorsAskTheProjectsLifecycle(t *testing.T) {
 	if _, err := w.s.TakeBackup(ctx, w.pid, "main", "manual", "alice"); !errors.Is(err, project.ErrNotActive) {
 		t.Fatalf("a backup in a project being deleted: %v", err)
 	}
-	if _, err := w.s.RestoreBackup(ctx, w.pid, "main", kept.ID, "alice"); !errors.Is(err, project.ErrNotActive) {
+	if _, err := w.s.restoreBackup(ctx, nil, w.pid, "main", kept.ID, "alice"); !errors.Is(err, project.ErrNotActive) {
 		t.Fatalf("a restore in a project being deleted: %v", err)
 	}
 	dep, err := w.s.Deployments.ByName(ctx, w.pid, "main")
@@ -559,7 +559,7 @@ func TestARestoreUnderWayHoldsADeletionsTakeDown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.s.RestoreBackup(ctx, w.pid, "main", set.ID, "alice"); err == nil || !strings.Contains(err.Error(), "a take-down of main is under way") {
+	if _, err := w.s.restoreBackup(ctx, nil, w.pid, "main", set.ID, "alice"); err == nil || !strings.Contains(err.Error(), "a take-down of main is under way") {
 		t.Fatalf("a restore during a take-down: %v", err)
 	}
 	release()
@@ -580,7 +580,7 @@ func TestARestoreUnderWayHoldsADeletionsTakeDown(t *testing.T) {
 		return nil, nil
 	})
 	restored := make(chan error, 1)
-	go func() { _, err := w.s.RestoreBackup(ctx, w.pid, "main", set.ID, "alice"); restored <- err }()
+	go func() { _, err := w.s.restoreBackup(ctx, nil, w.pid, "main", set.ID, "alice"); restored <- err }()
 	<-writing
 	if err := w.s.db.InTx(ctx, func(tx *database.Tx) error {
 		return project.MarkDeletingIn(ctx, tx, w.pid, access.Actor{Name: "alice"}, ids.Nil, false, time.Now())

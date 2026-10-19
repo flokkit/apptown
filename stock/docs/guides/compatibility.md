@@ -31,7 +31,7 @@ definitions it pinned; a run keeps the workflow version it was admitted under.
 | --- | --- |
 | `forge wait` (a run or change) | 0 finished, 1 failed, 2 needs a person |
 | `forge wait operation` | 0 succeeded, 1 failed or cancelled, 4 unknown: look before asking again |
-| `forge executing` | 0 nothing would be interrupted, 3 something would |
+| `forge executing` | 0 nothing would be interrupted, 3 something would (a step or a running operation), 1 the forge cannot say (one from before rc.6 does not report its operations) |
 | any command that sends a change | 4 the change was sent but the answer was lost: look before trying again |
 
 Each of these commands takes `--json`: it prints one JSON document whose field

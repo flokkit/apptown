@@ -246,7 +246,7 @@ needs:
 	psql("delete from notes")
 	s3("-X", "PUT", "-H", "Content-Type: text/plain", "--data-binary", "changed", "http://s3:9000/app/logo.png")
 	_ = dockertest.Run("exec", app, "rm", "/data/notes.txt")
-	res, err := s.RestoreBackup(ctx, pid, "lan", b.ID, "bls")
+	res, err := s.restoreBackup(ctx, nil, pid, "lan", b.ID, "bls")
 	if err != nil || res.Status != RestoreNotVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}

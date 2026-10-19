@@ -144,7 +144,7 @@ func appRoutes(a *App) []routeSpec {
 	if a != nil {
 		former = a.DB
 		docs = docsForRoutes(a.cfg.browserSession().PublicOrigin)
-		runs = httpapi.NewRuns(a.Work)
+		runs = httpapi.NewRuns(a.Work, a.operations)
 		workflowDrafts = httpapi.NewWorkflowDrafts(a.Projects, a.Ways, a.Adoption, draftAgentFor(a))
 		findings = httpapi.NewFindings(a.Projects, a.Work, a.conformance, a.DB, a.cfg.dataDir)
 		tiers = httpapi.NewTiers(a.Projects, a.Integrations, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir)

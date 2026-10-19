@@ -150,7 +150,12 @@ takes none there.
   deployment, so nothing writes while the data goes back, and starts them
   again afterwards. A part that will not stop refuses the restore before
   anything is written; a part the running release names that is not there is
-  reported as not started. The
+  reported as not started. A restore runs as an operation: `forge wait
+  operation <n>` and its page show each step and each item's outcome as it
+  finishes. If the forge restarts in the middle, the restore ends `unknown`
+  with what it had done, and names the containers it may have left stopped;
+  the forge does not start them, because a restore on the host may still be
+  writing. Check the host, then release the deployment again. The
   set's data volume goes into the app's `dataDir` volume and each need into
   the need of the same name, as the project's contract declares them. If
   the set holds something with nowhere to go (data but no `dataDir`, or a

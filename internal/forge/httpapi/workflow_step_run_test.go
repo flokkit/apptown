@@ -43,7 +43,7 @@ func TestWorkflowRetryHTTPRejectsInvalidJSONAndReportsPending(t *testing.T) {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
 		r.SetPathValue("id", fmt.Sprint(stepID))
 		resp := httptest.NewRecorder()
-		NewRuns(f.Work).StepRun(resp, r)
+		NewRuns(f.Work, nil).StepRun(resp, r)
 		if resp.Code != 400 {
 			t.Fatalf("invalid retry: %d %s", resp.Code, resp.Body.String())
 		}
@@ -57,7 +57,7 @@ func TestWorkflowRetryHTTPRejectsInvalidJSONAndReportsPending(t *testing.T) {
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{}`)).WithContext(f.Context)
 	r.SetPathValue("id", fmt.Sprint(stepID))
 	resp := httptest.NewRecorder()
-	NewRuns(f.Work).StepRun(resp, r)
+	NewRuns(f.Work, nil).StepRun(resp, r)
 	if resp.Code != 202 || !strings.Contains(resp.Body.String(), `"pending"`) {
 		t.Fatalf("accepted response: %d %s", resp.Code, resp.Body.String())
 	}
@@ -90,7 +90,7 @@ func TestStepRunHTTPReturnsEvaluatedAssertionAndRefusesApproval(t *testing.T) {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(`{}`)).WithContext(f.Context)
 		r.SetPathValue("id", fmt.Sprint(step.ID))
 		out := httptest.NewRecorder()
-		NewRuns(f.Work).StepRun(out, r)
+		NewRuns(f.Work, nil).StepRun(out, r)
 		if step.Type == "approval" {
 			if out.Code != 400 {
 				t.Fatalf("approval execution: %d %s", out.Code, out.Body.String())

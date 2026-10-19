@@ -28,7 +28,7 @@ func TestWorkflowTimingHTTPFailures(t *testing.T) {
 		r := httptest.NewRequest("GET", "/api/v1/runs/"+id+"/timing", nil).WithContext(f.Context)
 		r.SetPathValue("id", id)
 		w := httptest.NewRecorder()
-		NewRuns(f.Work).RunTiming(w, r)
+		NewRuns(f.Work, nil).RunTiming(w, r)
 		return w
 	}
 	w := callRun(fmt.Sprint(rid))
@@ -66,7 +66,7 @@ func TestWorkflowTimingHTTPFailures(t *testing.T) {
 	t.Cleanup(f.DB.FailNextStatement("WITH selected AS"))
 	r := httptest.NewRequest("GET", "/api/v1/timing", nil).WithContext(f.Context)
 	w = httptest.NewRecorder()
-	NewRuns(f.Work).Timing(w, r)
+	NewRuns(f.Work, nil).Timing(w, r)
 	if w.Code != 500 {
 		t.Fatalf("summary read failure: %d %s", w.Code, w.Body.String())
 	}
@@ -80,7 +80,7 @@ func TestTimingDoorsEnforceVisibilityWithoutRouteGuards(t *testing.T) {
 		r := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/runs/%d/timing", f.RunID), nil).WithContext(ctx)
 		r.SetPathValue("id", fmt.Sprint(f.RunID))
 		out := httptest.NewRecorder()
-		NewRuns(f.Work).RunTiming(out, r)
+		NewRuns(f.Work, nil).RunTiming(out, r)
 		want := 403
 		if who == "owner" {
 			want = 200
@@ -89,7 +89,7 @@ func TestTimingDoorsEnforceVisibilityWithoutRouteGuards(t *testing.T) {
 			t.Fatalf("%s run: %d %s", who, out.Code, out.Body.String())
 		}
 		out = httptest.NewRecorder()
-		NewRuns(f.Work).Timing(out, r)
+		NewRuns(f.Work, nil).Timing(out, r)
 		var got struct{ Workflows []json.RawMessage }
 		if err := json.Unmarshal(out.Body.Bytes(), &got); err != nil || out.Code != 200 {
 			t.Fatalf("%s window: %d %s: %v", who, out.Code, out.Body.String(), err)

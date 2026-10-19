@@ -35,9 +35,12 @@
 //
 // # Operations
 //
-// Copies, drills, take-downs, rehearsals and restored copies run as
-// operations in the ledger (internal/forge/operations), under the kind
-// names they always had. A restore and a removal of the same deployment
-// exclude each other through one in-memory claim, which a restart releases
-// (design/subsystems/daemon-lifecycle.md, "Shutdown").
+// Copies, drills, take-downs, rehearsals, restored copies and restores
+// of a set over a deployment run as operations in the ledger
+// (internal/forge/operations). A restore and a Docker host's removal
+// (which is not an operation) of the same deployment also exclude each
+// other through one in-memory claim, which a restart releases
+// (design/subsystems/daemon-lifecycle.md, "Shutdown"). A restore the
+// forge's stop cut off ends unknown naming what it may have left stopped;
+// nothing starts it again on a guess (restore_operation.go).
 package dataprotection

@@ -168,7 +168,7 @@ func TestIntegrationStockS3IsCopiedThroughItsAPIAndRestoredVerified(t *testing.T
 	// fresh has an object of its own, made after the copy: the restore puts
 	// the bucket back as the copy holds it, so it goes.
 	must("fresh", "-X", "PUT", "--data-binary", "made later", "http://s3:9000/app/late.txt")
-	res, err := s.RestoreBackup(context.Background(), pid, "fresh", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "fresh", b.ID, "bls")
 	if err != nil || res.Status != RestoreDone || len(res.Items) != 1 || res.Items[0].Outcome != RestoreVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
@@ -216,7 +216,7 @@ func TestIntegrationStockS3IsCopiedThroughItsAPIAndRestoredVerified(t *testing.T
 	if err := verify(); err == nil {
 		t.Fatal("an object changed to the same size passed the check")
 	}
-	if _, err := s.RestoreBackup(context.Background(), pid, "fresh", b.ID, "bls"); err != nil {
+	if _, err := s.restoreBackup(context.Background(), nil, pid, "fresh", b.ID, "bls"); err != nil {
 		t.Fatal(err)
 	}
 	inParts("fresh", "media/large.bin", "UPLOADED IN PARTS")

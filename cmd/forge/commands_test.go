@@ -1210,7 +1210,7 @@ func TestSchedulesListsNextAndLastFiring(t *testing.T) {
 // step named by its run's and its own id.
 func TestExecutingExitsThreeWhenSomethingWouldBeInterrupted(t *testing.T) {
 	run1, step1 := idstest.N(7), idstest.N(8)
-	executing := `{"executing":[]}`
+	executing := `{"executing":[],"operations":[]}`
 	fakeForge(t, func(_, path string) (int, string) {
 		if path != "/runs/executing" {
 			return 404, `{"error":"no"}`
@@ -1231,5 +1231,51 @@ func TestExecutingExitsThreeWhenSomethingWouldBeInterrupted(t *testing.T) {
 	}
 	if !strings.Contains(out, run1.String()) || !strings.Contains(out, step1.String()) {
 		t.Fatalf("each executing step is named by its run's and its own id: %q", out)
+	}
+}
+
+// A running operation (a restore, a copy, a take-down) is interrupted by a
+// restart as a step is: forge executing names it and exits 3 though no
+// step runs, so a deploy waits for it.
+//
+// Kills: forge executing reading only the steps (soak finding 56).
+func TestExecutingCountsARunningOperation(t *testing.T) {
+	fakeForge(t, func(_, path string) (int, string) {
+		if path != "/runs/executing" {
+			return 404, `{"error":"no"}`
+		}
+		return 200, `{"executing":[],"operations":[{"number":41,"kind":"deployment.restore","deployment":"fresh","step":"restoring s3","askedBy":"bls","elapsedS":75}]}`
+	})
+	code := -1
+	prev := exitProcess
+	exitProcess = func(c int) { code = c }
+	t.Cleanup(func() { exitProcess = prev })
+	out, err := run(t, "executing")
+	if err != nil || code != 3 {
+		t.Fatalf("a running operation alone: %v exit %d; want 3\n%s", err, code, out)
+	}
+	for _, want := range []string{"41", "deployment.restore", "fresh", "restoring s3"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("the operation is named (%q): %q", want, out)
+		}
+	}
+}
+
+// A forge from before operations were reported answers steps only: with
+// no step running, whether an operation runs is not known, which is an
+// error, never "nothing is executing" (plan review R3).
+//
+// Kills: reading an absent operations list as an empty one.
+func TestExecutingOnAForgeThatDoesNotReportOperationsIsNotIdle(t *testing.T) {
+	fakeForge(t, func(_, path string) (int, string) {
+		return 200, `{"executing":[]}`
+	})
+	code := -1
+	prev := exitProcess
+	exitProcess = func(c int) { code = c }
+	t.Cleanup(func() { exitProcess = prev })
+	out, err := run(t, "executing")
+	if err == nil || code != -1 || strings.Contains(out, "nothing is executing") || !strings.Contains(err.Error(), "does not report its operations") {
+		t.Fatalf("an old forge's answer: %v exit %d %q", err, code, out)
 	}
 }

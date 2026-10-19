@@ -83,6 +83,8 @@ type world struct {
 	ran    atomic.Int32
 	body   func(context.Context, operations.Operation, *operations.StepLog) operations.Outcome
 	settle func(context.Context, *database.Tx, operations.Operation, operations.Outcome) error
+	// interrupted is the kind's words for what a stop of the forge left.
+	interrupted func(operations.Operation) string
 	// at is the ledger's clock, in Unix seconds; zero reads the real clock.
 	at atomic.Int64
 }
@@ -111,6 +113,12 @@ func newWorld(t *testing.T) *world {
 				return w.settle(ctx, tx, op, out)
 			}
 			return nil
+		},
+		Interrupted: func(op operations.Operation) string {
+			if w.interrupted != nil {
+				return w.interrupted(op)
+			}
+			return ""
 		}})
 	return w
 }
@@ -302,13 +310,14 @@ func TestADuplicateDeliveryExecutesOnce(t *testing.T) {
 
 // A restart settles a running operation unknown, with the steps it
 // confirmed, the step it was in marked not known, its kind's records
-// settled and its holds released; a queued one whose job is gone gets a
-// job, one whose job waits is left to it; an ended one is untouched. The
-// worker that was running it can no longer settle it.
+// settled and its holds released, and the kind's words for what the stop
+// left added to its detail; a queued one whose job is gone gets a job, one
+// whose job waits is left to it; an ended one is untouched. The worker that
+// was running it can no longer settle it.
 //
 // Kills: resuming or rerunning an interrupted operation; leaving it
 // running (holds forever); losing a queued operation with its job; a
-// repair that skips the kind's records.
+// repair that skips the kind's records or its words for what was left.
 func TestARestartSettlesRunningUnknownAndRequeuesQueued(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t)
@@ -317,6 +326,9 @@ func TestARestartSettlesRunningUnknownAndRequeuesQueued(t *testing.T) {
 	w.body = func(_ context.Context, _ operations.Operation, log *operations.StepLog) operations.Outcome {
 		log.Begin(ctx, "deleting the app")
 		log.Begin(ctx, "copying postgres")
+		if err := log.Record(ctx, "left", "forge-env-a"); err != nil {
+			t.Error(err)
+		}
 		close(inStep)
 		<-release
 		return operations.Outcome{State: operations.Succeeded}
@@ -349,13 +361,18 @@ func TestARestartSettlesRunningUnknownAndRequeuesQueued(t *testing.T) {
 		t.Fatal(err)
 	}
 	settled = nil
+	// The kind says, from what the operation recorded, what the stop left.
+	w.interrupted = func(op operations.Operation) string {
+		left, _ := op.Result["left"].(string)
+		return "It left " + left + " stopped."
+	}
 
 	r := w.restart()
 	if r.Settled != 1 || r.Requeued != 1 {
 		t.Fatalf("repair: %+v", r)
 	}
 	got := w.read(running.ID)
-	if got.State != operations.Unknown || !strings.Contains(got.Detail, "Confirmed: deleting the app.") || !strings.Contains(got.Detail, "It was in: copying postgres.") {
+	if got.State != operations.Unknown || !strings.Contains(got.Detail, "Confirmed: deleting the app.") || !strings.Contains(got.Detail, "It was in: copying postgres.") || !strings.HasSuffix(got.Detail, "Look before asking again. It left forge-env-a stopped.") {
 		t.Fatalf("the interrupted operation: %s %q", got.State, got.Detail)
 	}
 	if last := got.Steps[len(got.Steps)-1]; !last.Unknown || last.Ended == nil {

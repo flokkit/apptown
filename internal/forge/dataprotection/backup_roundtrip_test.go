@@ -24,6 +24,7 @@ import (
 	"flokkit.io/forge/internal/forge/dependency"
 	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/jobs"
+	"flokkit.io/forge/internal/forge/operations"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/secret"
 	"flokkit.io/forge/internal/ids"
@@ -46,7 +47,11 @@ func backupWorldFor(t *testing.T, purpose project.Purpose, slug string, port int
 		t.Fatal(err)
 	}
 	client := dockerfake.New()
-	s := assembled(db, testRuntime{Scope: docker.Scope{Client: client}, Probe: &docker.Probe{Settle: time.Millisecond}, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: "test-helper", BuiltInTarget: "local"}, deployment.Dependencies{Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
+	// Restores run through the operations ledger, as bls, whose grants
+	// the test may change.
+	who := &grants{who: "bls", deny: map[string]bool{}}
+	ops := operations.New(db, who, who, nil)
+	s := assembled(db, testRuntime{Scope: docker.Scope{Client: client}, Probe: &docker.Probe{Settle: time.Millisecond}, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: "test-helper", BuiltInTarget: "local"}, deployment.Dependencies{Operations: ops, Authority: who, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
 	target, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
@@ -300,9 +305,9 @@ func TestRestoreBackup(t *testing.T) {
 		}
 	}
 	client.SetRunning(docker.ContainerName("rs", "main"), true) // a standing deployment's app runs
-	res, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls")
-	if err != nil {
-		t.Fatalf("restore: %v %v", err, res)
+	op, res := restoreThroughOperation(t, s, pid, "main", b.ID)
+	if op.State != operations.Succeeded {
+		t.Fatalf("restore: %s %s", op.State, op.Detail)
 	}
 	if res.Status != RestoreNotVerified || res.SafetyBackup.Compare(b.ID) <= 0 {
 		t.Fatalf("a safety set is taken first and the outcome recorded: %v", res)
@@ -336,7 +341,7 @@ func TestRestoreBackup(t *testing.T) {
 	}
 	// Tampered file: refused by digest.
 	_ = os.WriteFile(filepath.Join(b.Path, "forge-need-env-rs-main-postgres.dump"), []byte("changed"), 0o600)
-	res, err = s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls")
+	res, err = s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
 	if err == nil || res.Status != RestorePartial {
 		t.Fatalf("a file that does not match its digest is not restored: %v %v", err, res)
 	}
@@ -381,7 +386,7 @@ func TestARestoreWhoseSafetySetIsIncompleteWritesNothing(t *testing.T) {
 			if err != nil || b.Status != BackupOK {
 				t.Fatalf("the set to restore: %+v %v", b, err)
 			}
-			res, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls")
+			res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
 			if err == nil || !strings.Contains(err.Error(), "nothing was restored") {
 				t.Fatalf("a restore over an incomplete safety set: %v %v", res, err)
 			}

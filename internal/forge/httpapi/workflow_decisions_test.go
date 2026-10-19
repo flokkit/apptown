@@ -34,7 +34,7 @@ func TestStepDecisionHTTPRejectsInvalidRequestsWithoutRecordingDecisions(t *test
 	}
 	step := before.Steps[0]
 	id := fmt.Sprint(step.ID)
-	h := NewRuns(f.Work)
+	h := NewRuns(f.Work, nil)
 	outsider := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "outsider", Via: "session"}, Verified: true})
 	for _, tc := range []struct {
 		name, id, body string
@@ -89,7 +89,7 @@ func TestApprovalHTTPRejectionPreservesFeedbackAndCannotBeReplaced(t *testing.T)
 		t.Fatalf("approval fixture: %+v %v", snapshot, err)
 	}
 	stepID := snapshot.Steps[0].ID
-	h := NewRuns(f.Work)
+	h := NewRuns(f.Work, nil)
 	w := stepDecisionRequest(h.Approve, f.Context, fmt.Sprint(stepID), `{"user":"forged-reviewer","decision":"reject","comment":"Keep the old controls.\nFix the keyboard input."}`)
 	var out struct {
 		ID       ids.ID `json:"id"`

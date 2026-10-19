@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"flokkit.io/forge/internal/dbtest"
 	"flokkit.io/forge/internal/forge/audit"
+	"flokkit.io/forge/internal/forge/httpapi"
 	"flokkit.io/forge/internal/forge/operations"
 	"flokkit.io/forge/internal/ids"
 	"flokkit.io/forge/internal/ids/idstest"
@@ -547,6 +549,53 @@ func testAccountRole(t *testing.T, a *App, user, want string) {
 	got, found, err := a.Access.Role(context.Background(), user)
 	if err != nil || !found || got != want {
 		t.Fatalf("%s role: %s found=%v want %s: %v", user, got, found, want, err)
+	}
+}
+
+// What a restart would interrupt includes a running operation (a restore,
+// a copy, a take-down), not only executing steps, so a deploy's guard
+// waits for it; with none, the list is there and empty.
+//
+// Kills: forge executing's route reading only the steps (soak finding 56).
+func TestExecutingNamesARunningOperation(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t)
+	h := a.Handler()
+	ctx := context.Background()
+	read := func() httpapi.ExecutingStepsView {
+		t.Helper()
+		var v httpapi.ExecutingStepsView
+		w := authzCall(h, "boss", "GET", "/api/v1/runs/executing", "")
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &v) != nil {
+			t.Fatalf("executing: %d %s", w.Code, w.Body.String())
+		}
+		return v
+	}
+	if v := read(); v.Operations == nil || len(v.Operations) != 0 {
+		t.Fatalf("with nothing running the operations are an empty list: %+v", v)
+	}
+	inStep, release := make(chan struct{}), make(chan struct{})
+	a.operations.Register(operations.Kind{Name: "test.restore", Capability: access.CapDeploymentDeploy,
+		Execute: func(ctx context.Context, _ operations.Operation, log *operations.StepLog) operations.Outcome {
+			log.Begin(ctx, "restoring postgres")
+			close(inStep)
+			<-release
+			return operations.Outcome{State: operations.Succeeded}
+		}})
+	op, err := database.Transact(ctx, a.DB, func(tx *database.Tx) (*operations.Operation, error) {
+		return a.operations.AdmitIn(ctx, tx, operations.Spec{Kind: "test.restore", ProjectID: idstest.N(1), Subject: "project:1/deployment:9",
+			Input: map[string]any{"deployment": "fresh"}, Authority: access.Principal{Kind: "user", Name: "owner", Via: "open", Credential: identity.HeaderCredential("owner")}})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() { defer close(done); _, _ = a.operations.Run(ctx, op.ID) }()
+	t.Cleanup(func() { close(release); <-done })
+	<-inStep
+	v := read()
+	if len(v.Operations) != 1 || v.Operations[0].Number != op.Number || v.Operations[0].Kind != "test.restore" || v.Operations[0].Deployment != "fresh" || v.Operations[0].Step != "restoring postgres" || v.Operations[0].AskedBy != "owner" {
+		t.Fatalf("the running operation: %+v", v.Operations)
 	}
 }
 

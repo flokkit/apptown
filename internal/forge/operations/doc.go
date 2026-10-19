@@ -1,6 +1,6 @@
 // Package operations owns the ledger of long actions someone asked for
 // (design/subsystems/deployment.md, "Protecting data off-host"): a data copy, a restore drill, a
-// rehearsal, a restored copy, a take-down, a project's purge. An operation is one row that
+// rehearsal, a restored copy, a restore of a set, a take-down, a project's purge. An operation is one row that
 // says who asked for what, with which credential, on which subjects, which
 // steps happened and how it ended.
 //
@@ -20,8 +20,10 @@
 //     receipt) is one transaction; a receipt that cannot be written leaves
 //     the operation running, with its holds, until a restart settles it.
 //   - A restart (RepairInterruptedIn, exclusive startup) settles a running
-//     operation unknown with the steps it confirmed, and gives a queued one
-//     whose job is gone a new job. Nothing is resumed or retried.
+//     operation unknown with the steps it confirmed, and the kind's words
+//     for what the stop left (Kind.Interrupted, read from what it
+//     recorded), and gives a queued one whose job is gone a new job.
+//     Nothing is resumed or retried.
 //
 // Holds. An admission names paths it holds while queued or running, such as
 // project:7/deployment:12 or project:7/deployment:12/data. Two holds
@@ -69,6 +71,9 @@
 //	                       deploy the gated app                       bootRestoredCopy, before the attempt
 //	                       take a failed or tested copy down          own cleanup
 //	restored-copy-end      remove each app, each cluster, the records takeDownRestored(allowed), before each
+//	restore                take the safety set and stop the app       restoreBackup (internal/forge/dataprotection), before the safety set
+//	                       put each item back                         restoreBackup, before each item
+//	                       start the app again                        own cleanup
 //	take-down (a removal)  final backup on the host                   remove(allowed), before finalBackup
 //	                       delete what the forge made                 remove(allowed), before Teardown
 //	                       revoke its keys, remove its records        remove(allowed), after Teardown
@@ -88,9 +93,10 @@
 // deletes the app, before its final copy, before checking that copy and
 // before each cluster, and ends cancelled; a take-down that is a removal
 // stops before its final backup and before its teardown, keeping the
-// backup and starting stopped parts again. A copy, a drill, a rehearsal and
-// a restored copy's start and end run to their end once started (their
-// CancelRefusal says why); any queued operation can be cancelled.
+// backup and starting stopped parts again. A copy, a drill, a rehearsal, a
+// restore and a restored copy's start and end run to their end once
+// started (their CancelRefusal says why); any queued operation can be
+// cancelled.
 //
 // An effect's answer the forge cannot trust (a timeout, a lost response,
 // a server error, as deploy.Refused classifies it) leaves the step and the

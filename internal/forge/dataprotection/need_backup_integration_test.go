@@ -40,7 +40,7 @@ func TestIntegrationRedisBackupRestoresIntoAFreshDeployment(t *testing.T) {
 		t.Fatalf("take: %+v %v", b, err)
 	}
 
-	res, err := s.RestoreBackup(context.Background(), pid, "fresh", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "fresh", b.ID, "bls")
 	if err != nil || res.Status != RestoreDone || len(res.Items) != 1 || res.Items[0].Outcome != RestoreVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
@@ -89,7 +89,7 @@ func TestIntegrationPostgresBackupRestoresInPlaceAndIsVerified(t *testing.T) {
 	if err != nil || b.Status != BackupOK || len(b.Items) != 1 || b.Items[0].Format != "pg-custom" {
 		t.Fatalf("take: %+v %v", b, err)
 	}
-	res, err := s.RestoreBackup(context.Background(), pid, "fresh", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "fresh", b.ID, "bls")
 	if err != nil || res.Status != RestoreDone || len(res.Items) != 1 || res.Items[0].Outcome != RestoreVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}

@@ -26,7 +26,7 @@ func TestWorkHTTPRefusesIdentitySpoofAndPrivateEvidence(t *testing.T) {
 	req.SetPathValue("id", fx.Run.String())
 	req.Header.Set("X-Forge-Actor", "owner")
 	out := httptest.NewRecorder()
-	httpapi.NewRuns(a.Work).GetRun(out, req.WithContext(callerContext(req)))
+	httpapi.NewRuns(a.Work, nil).GetRun(out, req.WithContext(callerContext(req)))
 	if out.Code != 401 {
 		t.Fatalf("unverified header: %d %s", out.Code, out.Body.String())
 	}
@@ -74,7 +74,7 @@ func TestWorkAbandonHTTPRejectsUnverifiedActor(t *testing.T) {
 	req.SetPathValue("id", fx.Run.String())
 	req.Header.Set("X-Forge-Actor", "owner")
 	out := httptest.NewRecorder()
-	httpapi.NewRuns(a.Work).AbandonRun(out, req.WithContext(callerContext(req)))
+	httpapi.NewRuns(a.Work, nil).AbandonRun(out, req.WithContext(callerContext(req)))
 	if out.Code != 401 {
 		t.Fatalf("unverified stop: %d %s", out.Code, out.Body.String())
 	}

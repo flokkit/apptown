@@ -2817,120 +2817,6 @@
         },
         "type": "object"
       },
-      "RestoreOutcome": {
-        "enum": [
-          "verified",
-          "loaded",
-          "copied",
-          "failed",
-          "skipped"
-        ],
-        "type": "string"
-      },
-      "RestoreResult": {
-        "properties": {
-          "backup": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "error": {
-            "type": "string"
-          },
-          "from": {
-            "type": "string"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/RestoredItem"
-            },
-            "type": "array"
-          },
-          "notStarted": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "ready": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "safetyBackup": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "started": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "status": {
-            "$ref": "#/components/schemas/RestoreStatus"
-          },
-          "stopped": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "backup",
-          "from",
-          "safetyBackup",
-          "stopped",
-          "status",
-          "items"
-        ],
-        "type": "object"
-      },
-      "RestoreStatus": {
-        "enum": [
-          "restored",
-          "restored, not verified",
-          "partly restored"
-        ],
-        "type": "string"
-      },
-      "RestoredItem": {
-        "properties": {
-          "caveat": {
-            "type": "string"
-          },
-          "detail": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "outcome": {
-            "$ref": "#/components/schemas/RestoreOutcome"
-          }
-        },
-        "required": [
-          "kind",
-          "name",
-          "outcome"
-        ],
-        "type": "object"
-      },
       "Run": {
         "properties": {
           "adoptionId": {
@@ -8816,16 +8702,6 @@
         "responses": {
           "2XX": {
             "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RestoreResult"
-                }
-              }
-            },
-            "description": "a restore that failed part way says what it did, with the error"
           },
           "default": {
             "$ref": "#/components/responses/Refusal"

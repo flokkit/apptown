@@ -17,6 +17,7 @@ import (
 	"flokkit.io/forge/internal/deploy/docker"
 	"flokkit.io/forge/internal/forge/audit"
 	"flokkit.io/forge/internal/forge/dependency"
+	"flokkit.io/forge/internal/forge/operations"
 )
 
 // fileCopyKind is a custom kind that keeps local data and declares no
@@ -136,7 +137,7 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 	for _, scenario := range []string{"check passes", "check fails"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
-			s, db, client, _, pid := backupWorld(t, "bww", 40011)
+			s, db, client, _, pid := backupWorld(t, "bww", answeringPort(t))
 			withFileCopyKind(t, s)
 			releaseMain(t, s, "bww", "app:\n  web:\n    image: registry.example/bww:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  redis: {}\n  s3: {}\n  notes: {}\n  postgres: {database: ledger, user: keeper}\n")
 			var calls, s3Steps []string
@@ -175,7 +176,8 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 			if err != nil || b.Status != BackupOK {
 				t.Fatalf("the set: %+v %v", b, err)
 			}
-			res, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls")
+			client.SetRunning(docker.ContainerName("bww", "main"), true) // the app runs, so it is stopped and started again
+			op, res := restoreThroughOperation(t, s, pid, "main", b.ID)
 			outcomes := map[string]RestoreOutcome{}
 			for _, it := range res.Items {
 				outcomes[it.Name] = it.Outcome
@@ -196,11 +198,11 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 				t.Fatalf("the s3 restore and its check:\n%s", strings.Join(s3Steps, "\n"))
 			}
 			if scenario == "check passes" {
-				if err != nil || res.Status != RestoreNotVerified || outcomes["redis"] != RestoreVerified || outcomes["postgres"] != RestoreVerified || outcomes["s3"] != RestoreVerified {
-					t.Fatalf("restore: %+v %v", res, err)
+				if op.State != operations.Succeeded || res.Status != RestoreNotVerified || outcomes["redis"] != RestoreVerified || outcomes["postgres"] != RestoreVerified || outcomes["s3"] != RestoreVerified {
+					t.Fatalf("restore: %+v %s %s", res, op.State, op.Detail)
 				}
-			} else if err == nil || res.Status != RestorePartial || outcomes["redis"] != RestoreFailed || outcomes["postgres"] != RestoreFailed || outcomes["s3"] != RestoreFailed {
-				t.Fatalf("a failed check is a failed item: %+v %v", res, err)
+			} else if op.State != operations.Failed || res.Status != RestorePartial || outcomes["redis"] != RestoreFailed || outcomes["postgres"] != RestoreFailed || outcomes["s3"] != RestoreFailed {
+				t.Fatalf("a failed check is a failed item: %+v %s %s", res, op.State, op.Detail)
 			}
 			// The password is the one the container was started with: the
 			// deployment's own, never the catalogue's.
@@ -253,7 +255,7 @@ func TestARestoreOfAnOldSetClaimsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := &Backup{Path: dir, Items: []BackupItem{{Kind: "need", Name: "postgres", File: "postgres.dump", Restore: "pg_restore"}}}
-	row := s.restoreItem(context.Background(), docker.Scope{Client: client}, restoreMove{item: b.Items[0], into: plan}, filepath.Join(b.Path, b.Items[0].File))
+	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: b.Items[0], into: plan}, filepath.Join(b.Path, b.Items[0].File))
 	if row.Outcome != RestoreCopied {
 		t.Fatalf("an old set's item: %+v", row)
 	}
@@ -282,7 +284,7 @@ func TestAnObjectStoreTarSetGoesBackAsFilesInTheStore(t *testing.T) {
 	}
 	old := BackupItem{Kind: "need", Name: "s3", File: "s3.tar.gz", Restore: "tar xz -C /data", Copy: CopyLiveFiles, Caveat: "object metadata is not in the copy"}
 	into := needItem(kind, "s3", "forge-svc-env-bwt-main-s3")
-	row := s.restoreItem(context.Background(), docker.Scope{Client: client}, restoreMove{item: old, into: into}, path)
+	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: old, into: into}, path)
 	if row.Outcome != RestoreCopied || !strings.Contains(row.Detail, "not verified") || !strings.Contains(row.Caveat, "metadata") {
 		t.Fatalf("an old tar set of a store: %+v", row)
 	}
@@ -347,7 +349,7 @@ func TestABackupNamesDeclaredNeedsItCannotRead(t *testing.T) {
 	if len(plan) != 3 || notCopied != 2 {
 		t.Fatalf("the plan says what it cannot copy: %+v", plan)
 	}
-	if _, err := s.RestoreBackup(context.Background(), pid, "main", b.ID, "bls"); !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "kv") || len(writes) != 0 {
+	if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls"); !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "kv") || len(writes) != 0 {
 		t.Fatalf("a restore into a deployment with an unread need is refused before any write: %v %v", err, writes)
 	}
 }

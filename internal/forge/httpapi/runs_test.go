@@ -10,7 +10,7 @@ import (
 // Invalid input is rejected before any Work call; no database or service is needed.
 func TestRunInputErrors(t *testing.T) {
 	t.Parallel()
-	h := NewRuns(nil)
+	h := NewRuns(nil, nil)
 	for _, tc := range []struct {
 		name, id, body, message string
 		handler                 http.HandlerFunc

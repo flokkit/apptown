@@ -9,10 +9,10 @@ import { BackupsView } from './Backups'
 
 // Record ids are UUIDv7 strings.
 const SET = '00000000-0012-7000-8000-000000000000'
-const SAFETY = '00000000-0013-7000-8000-000000000000'
 const PROJECT = '00000000-0001-7000-8000-000000000000'
 const DOCKER_SET = '00000000-0020-7000-8000-000000000000'
 const CLOUD_SET = '00000000-0021-7000-8000-000000000000'
+const OPERATION = '00000000-0030-7000-8000-000000000000'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -24,23 +24,19 @@ const set = {
 describe('restoring a backup set', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
-  // RB-02 (review of 8 October 2026): a restore one item of which failed
-  // answers 502 with its receipt. The page showed only the error line, so
-  // nobody could see which item failed, why, or that another item had
-  // already been put back. The receipt is shown, and not as a success.
-  it('a partly failed restore shows each item, why it failed and the safety set', async () => {
+  // A restore runs as an operation (soak finding 56): the page says it
+  // started and links to the operation, whose page shows each step and
+  // each item's outcome (what failed and why, and the safety set) as it
+  // finishes. The known loss is said before the restore is asked for.
+  it('a restore answers with its operation, which the page links to', async () => {
     const client = newQueryClient()
     client.setQueryData(getKey('/backups'), { keep: 7, where: '/b', backups: [set] })
-    const receipt = {
-      backup: SET, from: 'main', safetyBackup: SAFETY, stopped: true, started: true, status: 'partly restored',
-      items: [
-        { kind: 'need', name: 'redis', outcome: 'failed', detail: 'the copy holds 2 keys and redis holds 1' },
-        { kind: 'need', name: 's3', outcome: 'copied', detail: 'files copied, not verified', caveat: 'object metadata is not in the copy' },
-      ],
-      error: '1 item(s) did not restore; the safety set 13 holds what was there before',
-    }
+    const asked: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      if (init?.method === 'POST' && url.endsWith(`/backups/${SET}/restore`)) return new Response(JSON.stringify(receipt), { status: 502 })
+      if (init?.method === 'POST' && url.endsWith(`/backups/${SET}/restore`)) {
+        asked.push(String(init.body))
+        return new Response(JSON.stringify({ operationId: OPERATION, state: 'queued', url: `/api/v1/operations/${OPERATION}` }), { status: 202 })
+      }
       return new Response(JSON.stringify({ keep: 7, where: '/b', backups: [set] }))
     }))
     const el = document.createElement('div')
@@ -55,14 +51,10 @@ describe('restoring a backup set', () => {
       await act(async () => { button('Restore over main').click() })
       expect(el.textContent).toContain('Not in this set — s3: object metadata is not in the copy.')
       await act(async () => { button('Restore').click() })
-      // The restore's answer is on the page once its receipt is.
-      await vi.waitFor(() => expect(el.textContent).toContain('shop/main: partly restored from the set taken 10-08 01:00'))
-      const text = el.textContent ?? ''
-      expect(text).toContain('shop/main: partly restored from the set taken 10-08 01:00')
-      expect(text).toContain('redis: failed — the copy holds 2 keys and redis holds 1')
-      expect(text).toContain('s3: files copied, not verified — object metadata is not in the copy')
-      expect(text).toContain('what was there before is in a new safety set, which leaves out the same')
-      expect(text).not.toContain('✓ shop/main')
+      await vi.waitFor(() => expect(el.textContent).toContain('shop/main: restore from the set taken 10-08 01:00 started.'))
+      expect(asked).toEqual([JSON.stringify({ confirm: 'main' })])
+      const follow = [...el.querySelectorAll('a')].find((a) => a.textContent === 'Follow it')
+      expect(follow?.getAttribute('href')).toBe(`/operations/${OPERATION}`)
     } finally {
       act(() => root.unmount())
       client.clear()

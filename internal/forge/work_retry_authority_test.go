@@ -36,13 +36,13 @@ func TestWorkRetryHTTPUsesVerifiedActorAndRunner(t *testing.T) {
 	r.SetPathValue("id", stepID.String())
 	r.Header.Set("X-Forge-Actor", "owner")
 	out := httptest.NewRecorder()
-	httpapi.NewRuns(a.Work).StepRun(out, r.WithContext(callerContext(r)))
+	httpapi.NewRuns(a.Work, nil).StepRun(out, r.WithContext(callerContext(r)))
 	if out.Code != 401 {
 		t.Fatalf("spoofed actor: %d %s", out.Code, out.Body.String())
 	}
 	r = r.WithContext(context.WithValue(r.Context(), authCtxKey{}, &authIdentity{User: "owner", Via: "token"}))
 	out = httptest.NewRecorder()
-	httpapi.NewRuns(a.Work).StepRun(out, r.WithContext(callerContext(r)))
+	httpapi.NewRuns(a.Work, nil).StepRun(out, r.WithContext(callerContext(r)))
 	if out.Code != 202 {
 		t.Fatalf("verified retry: %d %s", out.Code, out.Body.String())
 	}

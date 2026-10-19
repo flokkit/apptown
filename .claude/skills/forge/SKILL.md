@@ -49,7 +49,8 @@ Repeat until `advanced — run is done ✓`.
   happened *outside* runs (workflow saves, ADR transitions, guidance edits), with actors
 - `forge runs [-p slug] [--status all]` — find runs to inspect
 - `forge executing` — before restarting or deploying a forge: the steps
-  executing now in every project (exit 0 none, 3 some). A run waiting on a
+  and the operations (copies, restores, take-downs) executing now in every
+  project (exit 0 none, 3 some, 1 the forge cannot say). A run waiting on a
   person survives a restart; `forge runs` lists it as running, so do not
   read that list as "busy"
 
