@@ -203,5 +203,5 @@ See [schema ownership](design/architecture/schema-ownership.md).
 ## Licence
 
 Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). The code is
-free to use, change and run, commercially too. The name "Flokkit" is not part
-of the licence: a fork may use the code, not the name.
+free to use, change and run, commercially too. The names "Flokkit" and
+"AppTown" are not part of the licence: a fork may use the code, not the names.

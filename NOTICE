@@ -3,10 +3,10 @@ Copyright 2026 Blair Strang
 
 This product is licensed under the Apache License, Version 2.0 (see LICENSE).
 
-"Flokkit" is a name used by Blair Strang for this software. The licence
-grants no right to use it: a fork or a product built on this code must not
-present itself as Flokkit, or as made or endorsed by its author, without
-permission (Apache License 2.0, section 6).
+"Flokkit" and "AppTown" are names used by Blair Strang for this software.
+The licence grants no right to use them: a fork or a product built on this
+code must not call itself Flokkit or AppTown, or present itself as made or
+endorsed by its author, without permission (Apache License 2.0, section 6).
 
 This product includes third-party software and assets under their own
 licences. Every Go module compiled into its binaries and every package in its
