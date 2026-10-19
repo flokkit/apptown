@@ -1,21 +1,22 @@
 # Flokkit AppTown
 
-Flokkit AppTown is the accountable home for a team's internal software and the
-changes made to it. Coding agents do the work, the team's way of working
-governs it, and every change leaves a record of who asked, which rules
-applied, what was checked, who approved it and what is running. It is for
-organisations that run many small, ordinary internal applications and need
-them to stay consistent and maintainable after the people who asked for them
-have moved on.
+AppTown is where a small team builds and keeps the apps it makes with AI
+coding agents. You run it yourself, on your own machine or server.
 
-**Status:** 1.0 release candidate. Release notes are in [releases/](releases/).
+Coding agents make it cheaper to create an app, but owning one is still
+expensive. Someone has to deploy it, back it up, keep it patched and still
+understand it a year later, usually after the person who made it has lost
+interest.
 
-Inside the code the product is still called **Forge**: the daemon is
-`forged`, the command-line tool `forge`, the worker `forge-worker`, the Go
-module `flokkit.io/forge`, request headers `X-Forge-*`, environment variables
-`FORGE_*`, workflow files `apiVersion: forge.flokkit.io/v1` and project
-folders `.forge/`. Those names stay as they are; the rename covers what people
-read, and comes in a later release.
+AppTown makes that handover boring and repeatable. You bring an app, or have
+the agents build it (that part is optional), and AppTown looks after it from
+there. Every change goes through the same steps, so you can see who asked for
+what, what was checked and what's actually running.
+
+What comes out is ordinary software: a git repository and a container image
+you can take somewhere else. It's open source (Apache-2.0).
+
+It's a 1.0 release candidate. Release notes are in [releases/](releases/).
 
 ## Reading about it
 
@@ -92,6 +93,14 @@ is the generated bundle embedded by the daemon. See [schema ownership](design/ar
 After editing a query or schema, run `make generate-sql` and commit the generated
 Go alongside the SQL. Local checks and CI use `sqlc diff` to reject stale output.
 See [schema ownership](design/architecture/schema-ownership.md).
+
+## Names in the code
+
+Inside the code the product is still called Forge: the daemon is `forged`,
+the command-line tool `forge`, the worker `forge-worker`, the Go module
+`flokkit.io/forge`, request headers `X-Forge-*`, environment variables
+`FORGE_*`, workflow files `apiVersion: forge.flokkit.io/v1` and project
+folders `.forge/`. Those names stay as they are.
 
 ## Layout
 
