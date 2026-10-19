@@ -153,6 +153,11 @@ is supported; `file` delivery is refused. A declared secret still needs a suitab
 binding or generation rule. No provider-key grant follows from declaring an app
 need. See [Secrets](/docs/guides/secrets).
 
+Values reach the app as written on every target. App Platform cannot promise
+that for `${…}`: it replaces `${NAME}` with its own variable of that name, in
+secrets too, and has no escape, so a deploy there refuses an environment value
+or secret containing `${…}` before anything is made.
+
 ## Resources and profiles
 
 A part may declare the most it may use:

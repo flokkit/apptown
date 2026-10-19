@@ -53,12 +53,13 @@ type Renderer interface {
 
 // Preflighter is a driver that can refuse a release before any effect,
 // from a read of the target's own limits (App Platform: whether its
-// container registry has room for the project's repository). It changes
-// nothing; a refusal fails the release before its needs are fulfilled or
-// its artifact rendered. A limit it cannot read is not a refusal: the
-// effect that needs the room is still the authority.
+// container registry has room for the project's repository) or from what
+// the release would send it (App Platform: a value it would rewrite). It
+// changes nothing; a refusal fails the release before its needs are
+// fulfilled or its artifact rendered. A limit it cannot read is not a
+// refusal: the effect that needs the room is still the authority.
 type Preflighter interface {
-	Preflight(ctx context.Context, p Placement, log Logf) error
+	Preflight(ctx context.Context, p Placement, src Source, secrets ConsumerSecrets, log Logf) error
 }
 
 // SizePricer is a target that bills per instance size: its listed monthly

@@ -76,7 +76,7 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	// A target that can tell from its own limits that this release cannot
 	// go through says so before anything is made on it.
 	if pf, ok := d.(deploy.Preflighter); ok && req.Artifact == nil {
-		if err := pf.Preflight(ctx, dep.Placement(), logf); err != nil {
+		if err := pf.Preflight(ctx, dep.Placement(), req.Source, req.Secrets, logf); err != nil {
 			return ExecutionResult{}, fail("%v", err)
 		}
 	}

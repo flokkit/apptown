@@ -302,13 +302,17 @@ func (c *Client) RegistryRoom(ctx context.Context, registry string) (RegistryRoo
 	return room, nil
 }
 
-// Preflight refuses, before anything is created or copied, a release whose
+// Preflight refuses, before anything is created or copied, a release that
+// would send a value App Platform rewrites (unrewritable), and one whose
 // images would need a new repository in a registry whose plan is full: the
 // copy into DOCR would fail only after the database was made. It is the one
 // refusal for a full registry. A registry the
 // account does not have yet is created empty on this release. A registry
 // whose room cannot be read is logged as unknown and the release goes on.
-func (d *Driver) Preflight(ctx context.Context, p deploy.Placement, logf deploy.Logf) error {
+func (d *Driver) Preflight(ctx context.Context, p deploy.Placement, src deploy.Source, secrets deploy.ConsumerSecrets, logf deploy.Logf) error {
+	if err := unrewritable(src.Contract, secrets); err != nil {
+		return err
+	}
 	client, _, err := d.Client(ctx)
 	if err != nil {
 		return err

@@ -161,7 +161,7 @@ func TestPreflightCountsTheGatesRepository(t *testing.T) {
 		api := &dofake.API{}
 		api.SeedRegistry("forge-test", "basic", 5, tc.repos...)
 		d, _ := gateRepositoryDriver(t, api)
-		err := d.Preflight(context.Background(), tc.p, func(string, ...any) {})
+		err := d.Preflight(context.Background(), tc.p, deploy.Source{}, nil, func(string, ...any) {})
 		if tc.refuse != (err != nil) {
 			t.Fatalf("%s: preflight %v", tc.name, err)
 		}

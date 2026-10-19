@@ -652,7 +652,7 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	// they are the platform's and the forge's own words.
 	logf := func(format string, args ...any) { t.begin(ctx, fmt.Sprintf(format, args...)) }
 	if pf, ok := d.(deploy.Preflighter); ok {
-		if err := pf.Preflight(ctx, dep.Placement(), logf); err != nil {
+		if err := pf.Preflight(ctx, dep.Placement(), src, secrets, logf); err != nil {
 			return "", c, "checking the target's room", err
 		}
 	}

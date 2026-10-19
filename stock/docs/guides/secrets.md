@@ -85,6 +85,11 @@ app (a database's `DATABASE_URL`) are not secrets and are not checked. If
 a store cannot be read (Infisical unreachable), the deploy stops as
 `unassessable`, which says nothing about whether the value exists.
 
+On App Platform, a deploy stops before anything is made when a secret or a
+declared environment value contains `${…}`: the platform replaces `${NAME}`
+with its own variable of that name, in secrets too, and has no way to write
+it literally. The message names the variable and the part, not the value.
+
 The early check is not a promise. The boot checks again, so a secret
 removed while the release is being built still stops the deploy there.
 

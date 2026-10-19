@@ -115,7 +115,7 @@ func TestTheProjectsRepositoryIsMadeAndRecordedNeverAdopted(t *testing.T) {
 			}
 			d := repoDriver(t, api, book)
 			src := deploy.Source{Images: map[string]string{"web": "app:1"}, Contract: &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true, Image: "app:1", Port: 8080}}}, Revision: "r1"}
-			preflight := d.Preflight(context.Background(), deploy.Placement{Name: "cloud"}, func(string, ...any) {})
+			preflight := d.Preflight(context.Background(), deploy.Placement{Name: "cloud"}, src, scopedRenderSecrets{}, func(string, ...any) {})
 			_, err := d.Render(context.Background(), deploy.Placement{Name: "cloud"}, src, nil, scopedRenderSecrets{}, func(string, ...any) {})
 			if scenario == "someone else's" {
 				for _, e := range []error{preflight, err} {

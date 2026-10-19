@@ -92,6 +92,11 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	if src.Images == nil || c == nil {
 		return deploy.Artifact{}, fmt.Errorf("App Platform renders from built images and their contract")
 	}
+	// Render writes the spec, so it refuses a value the platform would
+	// rewrite whichever caller reached it, before the registry is touched.
+	if err := unrewritable(c, secrets); err != nil {
+		return deploy.Artifact{}, err
+	}
 	gate := p.Gate
 	if gate != nil {
 		if err := gatedRenderable(gate, c); err != nil {
