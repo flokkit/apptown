@@ -32,7 +32,7 @@ func startAdoptionForTest(ctx context.Context, a *App, req workflow.StartRequest
 func defineWorkflows(t *testing.T, a *App, definitions ...workflow.PreparedRun) {
 	t.Helper()
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
-		deps.Resolve = workcommands.NewPreparation(a.DB, definedWorkflows{Service: a.Adoption, definitions: definitions}, a.branches, a.cfg.dataDir, holderPresenceFor(a), a.chatSaves, nil).Resolve
+		deps.Resolve = workcommands.NewPreparation(a.DB, definedWorkflows{Service: a.Adoption, definitions: definitions}, a.branches, a.cfg.dataDir, holderPresenceFor(a), a.chatSaves, a.Secrets, nil).Resolve
 	})
 }
 

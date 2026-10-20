@@ -314,7 +314,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.scanSteps = scanStepsFor(a)
 	a.verification = changesFor(a)
 	a.guidance = guidanceFor(a)
-	a.preparation = workcommands.NewPreparation(db, a.Adoption, a.branches, cfg.dataDir, holderPresenceFor(a), a.chatSaves, cfg.clock.Now)
+	a.preparation = workcommands.NewPreparation(db, a.Adoption, a.branches, cfg.dataDir, holderPresenceFor(a), a.chatSaves, a.Secrets, cfg.clock.Now)
 	a.Work = workflow.New(a.life, db, a.workDependencies())
 	a.ADRs = adrs.New(db, access.Checked{Authority: identity.Scoped(a.Access, "adrs"), Projects: a.Projects}, refreshADREvidence(a.Work, a.asEngine(a.life)), cfg.clock.Now)
 	a.Fixes = remediation.New(db, a.remediationDependencies())

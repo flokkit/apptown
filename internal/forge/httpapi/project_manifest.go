@@ -18,10 +18,17 @@ type ProjectManifest struct {
 	adoption *adoption.Service
 	db       *database.DB
 	dataDir  string
+	stores   SecretStores
 }
 
-func NewProjectManifest(projects *project.Projects, adoption *adoption.Service, db *database.DB, dataDir string) ProjectManifest {
-	return ProjectManifest{projects: projects, adoption: adoption, db: db, dataDir: dataDir}
+// SecretStores is the secret owner's answer to which stores this AppTown
+// can use now, by provider name.
+type SecretStores interface {
+	AvailableProviders() map[string]bool
+}
+
+func NewProjectManifest(projects *project.Projects, adoption *adoption.Service, db *database.DB, dataDir string, stores SecretStores) ProjectManifest {
+	return ProjectManifest{projects: projects, adoption: adoption, db: db, dataDir: dataDir, stores: stores}
 }
 
 // ProjectManifest: GET /projects/{slug}/manifest — the declarative
@@ -91,10 +98,23 @@ func (h ProjectManifest) ProjectManifest(w http.ResponseWriter, r *http.Request)
 	if policiesOut == nil {
 		policiesOut = []adoption.Policy{}
 	}
-	// bindings (existence + identity; live health lives on /integrations)
+	// bindings (existence + identity; live health lives on /integrations).
+	// Secrets lists every store this AppTown can use now: the built-in store,
+	// and Infisical when it is set up.
 	bindings := []ManifestBinding{}
 	for _, c := range []string{"scm", "secrets", "executor", "model", "deploy"} {
-		if b, err := integration.Selected(r.Context(), h.db, c, ""); err == nil {
+		var bs []integration.Binding
+		if c == integration.CapSecrets {
+			all, err := integration.ForCapability(r.Context(), h.db, c)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+			bs = integration.WithProviders(all, h.stores.AvailableProviders())
+		} else if b, err := integration.Selected(r.Context(), h.db, c, ""); err == nil {
+			bs = []integration.Binding{b}
+		}
+		for _, b := range bs {
 			bindings = append(bindings, ManifestBinding{c, b.Name, b.Provider, b.Version, deploy.ConfigHash(b.ConfigJSON)})
 		}
 	}

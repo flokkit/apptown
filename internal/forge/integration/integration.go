@@ -116,6 +116,18 @@ func ForCapability(ctx context.Context, q database.Queryer, capability string) (
 	return out, nil
 }
 
+// WithProviders keeps, in order, the bindings whose provider is in
+// providers: for secrets, the stores the secret owner says are available.
+func WithProviders(bs []Binding, providers map[string]bool) []Binding {
+	out := make([]Binding, 0, len(bs))
+	for _, b := range bs {
+		if providers[b.Provider] {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
 // Count is how many bindings carry a name for a capability (0 or 1).
 func (s *Bindings) Count(ctx context.Context, name, capability string) (int, error) {
 	b, err := s.ByName(ctx, name)

@@ -41,6 +41,13 @@ type Preparation struct {
 	chats    workflow.Presence
 	workers  WorkerChats
 	clock    func() time.Time // the forge's clock; nil is the real one
+	stores   SecretStores
+}
+
+// SecretStores says which secrets stores are available when a run is
+// admitted, by provider name; nil records none.
+type SecretStores interface {
+	AvailableProviders() map[string]bool
 }
 
 func (a *Preparation) now() time.Time { return clock.Or(a.clock)() }
@@ -56,8 +63,8 @@ type WorkerChats interface {
 	SaveFirst(ctx context.Context, holder string) (onWorker bool, err error)
 }
 
-func NewPreparation(db *database.DB, adopted AdoptedWorkflows, branches *scm.Branches, dataDir string, chats workflow.Presence, workers WorkerChats, now func() time.Time) *Preparation {
-	return &Preparation{db: db, adoption: adopted, branches: branches, dataDir: dataDir, chats: chats, workers: workers, clock: now}
+func NewPreparation(db *database.DB, adopted AdoptedWorkflows, branches *scm.Branches, dataDir string, chats workflow.Presence, workers WorkerChats, stores SecretStores, now func() time.Time) *Preparation {
+	return &Preparation{db: db, adoption: adopted, branches: branches, dataDir: dataDir, chats: chats, workers: workers, stores: stores, clock: now}
 }
 
 // Resolve prepares immutable receipts. Only the start store writes

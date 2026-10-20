@@ -209,7 +209,7 @@ func appRoutes(a *App) []routeSpec {
 		chatHistory = httpapi.NewChatHistory(a.Console, a.Projects, a.Access, a.cfg.dataDir, a.Secrets.Masker)
 		projectServices = httpapi.NewProjectServices(a.Projects, a.Access, a.repositoryEdits, a.cfg.dataDir, a.authModeName())
 		workflowCatalog = httpapi.NewWorkflowCatalog(a.DB, a.Ways)
-		projectManifest = httpapi.NewProjectManifest(a.Projects, a.Adoption, a.DB, a.cfg.dataDir)
+		projectManifest = httpapi.NewProjectManifest(a.Projects, a.Adoption, a.DB, a.cfg.dataDir, a.Secrets)
 		workflowSelection = httpapi.NewWorkflowSelection(a.Projects, a.Access, a.Adoption, a.Ways, a.lifecycle, a.DB)
 		projectWorkflows = httpapi.NewProjectWorkflows(a.Projects, a.Adoption, a.Ways, a.Work, a.DB)
 		projectSchedules = httpapi.NewProjectSchedules(a.Projects, changeactions.Schedules{Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)

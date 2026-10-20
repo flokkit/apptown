@@ -212,3 +212,29 @@ describe('an interview that answers before the pack list', () => {
     }
   })
 })
+
+// An AppTown with Infisical set up has two secrets stores: the summary
+// shows both, each its own chip (keyed by binding, not capability alone).
+describe('the new project summary', () => {
+  it('shows every secrets store this AppTown can use', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { ManifestView } = await import('./NewProject')
+    const bind = (binding: string, provider: string) => ({ capability: 'secrets', binding, provider, version: 1, configHash: 'h' })
+    const m = {
+      project: { slug: 'shop', name: 'Shop' }, repo: { backed: true }, packs: [], workflows: [], guidance: [], guidanceHash: 'x',
+      policies: [], bindings: [bind('built-in-secrets', 'internal'), bind('infisical', 'infisical')],
+    }
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const root = createRoot(el)
+    await act(async () => {
+      root.render(<MemoryRouter><ManifestView m={m} onBuildV0={() => {}} onConsole={() => {}} /></MemoryRouter>)
+    })
+    expect(el.textContent).toContain('secrets → built-in-secrets v1')
+    expect(el.textContent).toContain('secrets → infisical v1')
+    expect(errors.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false)
+    act(() => root.unmount())
+    el.remove()
+    errors.mockRestore()
+  })
+})

@@ -45,7 +45,7 @@ func stubRemediationStartWithSpec(t *testing.T, a *App, fail error, spec schema.
 			if err != nil {
 				return remediation.StartDefinition{}, err
 			}
-			prep := workcommands.NewPreparation(a.DB, definedWorkflows{Service: a.Adoption, definitions: []workflow.PreparedRun{{Workflow: workflow.DefinitionRef{Name: "implement", Version: 1}, Spec: spec}}}, a.branches, a.cfg.dataDir, holderPresenceFor(a), a.chatSaves, nil)
+			prep := workcommands.NewPreparation(a.DB, definedWorkflows{Service: a.Adoption, definitions: []workflow.PreparedRun{{Workflow: workflow.DefinitionRef{Name: "implement", Version: 1}, Spec: spec}}}, a.branches, a.cfg.dataDir, holderPresenceFor(a), a.chatSaves, a.Secrets, nil)
 			run, err := prep.Resolve(context.Background(), req, source)
 			body := "fix " + it.Check
 			if it.Reason != "" {

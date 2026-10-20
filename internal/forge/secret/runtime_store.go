@@ -25,7 +25,7 @@ func (a *Service) Stores() []StoreInfo {
 	inf := StoreInfo{Name: StoreInfisical, Title: "Infisical", Available: infisicalConfig(a.fileSecrets()).Configured(),
 		Note: "A binding names a key in the Infisical project and environment this AppTown is configured for. Values never enter AppTown's database."}
 	if !inf.Available {
-		inf.Note = "Not set up on this AppTown: INFISICAL_URL, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET and INFISICAL_PROJECT_ID go in secrets.env."
+		inf.Note = "N" + ErrInfisicalNotSetUp.Error()[1:] + "."
 	}
 	return append(out, inf)
 }
@@ -72,4 +72,43 @@ func (a *Service) InfisicalValues(ctx context.Context) (map[string]string, error
 		return nil, fmt.Errorf("Infisical could not be reached: %w", err)
 	}
 	return m, nil
+}
+
+// ErrInfisicalNotSetUp is an Infisical store this AppTown has no
+// credentials for: its message says what goes in secrets.env.
+var ErrInfisicalNotSetUp = errors.New("not set up on this AppTown: INFISICAL_URL, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET and INFISICAL_PROJECT_ID go in secrets.env")
+
+// AvailableProviders is the set of stores this AppTown can use now, by the
+// name their integrations carry as provider: the built-in store always,
+// Infisical when its credentials are in secrets.env. Availability is
+// configuration, not a live check (CheckInfisical is that).
+func (a *Service) AvailableProviders() map[string]bool {
+	out := map[string]bool{}
+	for _, s := range a.Stores() {
+		if s.Available {
+			out[s.Name] = true
+		}
+	}
+	return out
+}
+
+// CheckInfisical reads Infisical now, through the same fetch the runtime
+// uses, so its failure and recovery receipts are written as for any read.
+// Unlike a runtime read it answers the fetch's error even when last-known
+// values are cached. Not configured is ErrInfisicalNotSetUp.
+func (a *Service) CheckInfisical(ctx context.Context) error {
+	cfg := infisicalConfig(a.fileSecrets())
+	if !cfg.Configured() {
+		return ErrInfisicalNotSetUp
+	}
+	_, err := a.infisicalFetch(ctx, cfg)
+	return err
+}
+
+// CheckBuiltIn reads the built-in store's key, which every built-in read
+// needs; the first use makes it. It says the store's key is readable, not
+// that every stored value decrypts.
+func (a *Service) CheckBuiltIn(ctx context.Context) error {
+	_, err := a.Vault.Key(ctx)
+	return err
 }

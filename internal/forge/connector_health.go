@@ -77,11 +77,21 @@ func (h connectorHealth) check(ctx context.Context, capability, provider string,
 		}
 		return integration.Health{OK: true, Detail: "authenticated as " + user.Username}, true
 	case integration.CapSecrets:
-		keys := h.secrets.All(ctx)
-		if len(keys) == 0 {
-			return integration.Health{OK: false, Detail: "no secrets resolved"}, true
+		// Each store answers for itself: a count of everything AppTown
+		// resolves said a store with no credentials was working.
+		switch provider {
+		case secret.StoreInfisical:
+			if err := h.secrets.CheckInfisical(ctx); err != nil {
+				return integration.Health{OK: false, Detail: strs.Truncate(err.Error(), 200)}, true
+			}
+			return integration.Health{OK: true, Detail: "read its secrets just now"}, true
+		case secret.StoreInternal:
+			if err := h.secrets.CheckBuiltIn(ctx); err != nil {
+				return integration.Health{OK: false, Detail: strs.Truncate(err.Error(), 200)}, true
+			}
+			return integration.Health{OK: true, Detail: "its key is readable in AppTown's own database"}, true
 		}
-		return integration.Health{OK: true, Detail: strconv.Itoa(len(keys)) + " keys resolved"}, true
+		return integration.Health{}, false
 	case integration.CapExecutor, integration.CapDeploy:
 		if capability == integration.CapDeploy && provider != "docker" {
 			// Another provider's deploys (Portainer) are not Docker's:

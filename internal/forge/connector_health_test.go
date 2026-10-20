@@ -49,7 +49,7 @@ func TestIntegrationHealthSaysWhetherAndWhenItWasChecked(t *testing.T) {
 	if h := health.Test(t.Context(), "objectstore", "minio", map[string]any{}); h.Checked || h.OK {
 		t.Fatalf("a test of a kind with no check passed: %+v", h)
 	}
-	if h := health.Health(t.Context(), integration.CapSecrets, "", nil); !h.Checked || h.CheckedAt == "" {
+	if h := health.Health(t.Context(), integration.CapSecrets, "internal", nil); !h.Checked || h.CheckedAt == "" {
 		t.Fatalf("a checked kind's reading is unstamped: %+v", h)
 	}
 }

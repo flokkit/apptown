@@ -50,7 +50,7 @@ func newScheduleWorld(t *testing.T) scheduleWorld {
 	if err != nil {
 		t.Fatal(err)
 	}
-	preparation := workcommands.NewPreparation(db, adopt, scm.NewBranches(db, locks), dataDir, nil, nil, nil)
+	preparation := workcommands.NewPreparation(db, adopt, scm.NewBranches(db, locks), dataDir, nil, nil, nil, nil)
 	work := workflow.New(context.Background(), db, workflow.Dependencies{Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
 		Git: workflow.GitWorkspace{DataDir: dataDir}, DataDir: dataDir})
 	t.Cleanup(work.Stop)

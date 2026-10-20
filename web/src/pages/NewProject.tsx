@@ -113,8 +113,9 @@ function ProgressLog({ lines }: { lines: { text: string; warn?: boolean }[] }) {
 }
 
 // The landing view: everything the project is wired to, pinned. Reads like a
-// receipt because it is one — the same facts every run will pin.
-function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuildV0: () => void; onConsole: () => void }) {
+// receipt because it is one: the same wiring a run records when it is
+// admitted (what was available then, not what the run read).
+export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuildV0: () => void; onConsole: () => void }) {
   return (
     <div style={{ maxWidth: 760 }}>
       <h1>{m.project.name} <span className="chip pass">created</span></h1>
@@ -158,7 +159,7 @@ function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuildV0: () 
         <strong>Bindings</strong>
         <div className="row" style={{ marginTop: 'var(--space-2)', gap: 'var(--space-1)' }}>
           {m.bindings.map((b) => (
-            <span key={b.capability} className="chip" title={`config sha256:${b.configHash}`}>
+            <span key={`${b.capability}/${b.binding}`} className="chip" title={`config sha256:${b.configHash}`}>
               {b.capability} → {b.binding} v{b.version}
             </span>
           ))}

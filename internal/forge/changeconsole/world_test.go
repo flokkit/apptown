@@ -185,7 +185,7 @@ func newWorldWith(t *testing.T, previews preview.Worker) world {
 	}
 	narratives := &askedNarratives{}
 	chats := New(saves, Dependencies{DB: db, Sessions: sessions, Chats: conversation.Chats{Sessions: sessions, DB: db}, Previews: previewer,
-		Usage: usage.New(db), Narratives: narratives, Folders: workcommands.NewPreparation(db, nil, branches, dataDir, nil, saves, nil),
+		Usage: usage.New(db), Narratives: narratives, Folders: workcommands.NewPreparation(db, nil, branches, dataDir, nil, saves, nil, nil),
 		DataDir: dataDir, Stop: make(chan struct{}), Engine: context.Background()})
 	t.Cleanup(remote.Close) // first: no copy or save outlives the world
 	return world{db: db, dataDir: dataDir, hub: hub, folder: filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", change.ID)),
