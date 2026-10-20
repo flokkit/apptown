@@ -106,6 +106,10 @@ ALLOWED = [
      "the upgrade's text rename names what it renames"),
     ("static-path", r"^internal/forge/projectlifecycle/upgrade_test\.go$", r".", "the upgrade's text rename names what it renames"),
     ("api-version", r"^internal/forge/projectlifecycle/upgrade_test\.go$", r".", "the upgrade's text rename names what it renames"),
+    # The built-in database's db.env from a release before the rename is read
+    # once under its old keys and rewritten; the test plants that file.
+    ("env", r"^internal/forge/(dbboot|db_test)\.go$", r"FORGE_DB_", "db.env from before the rename is rewritten under the new keys"),
+    ("command", r"^internal/forge/db_test\.go$", r"forged", "the test plants db.env as forged minted it"),
     # The operator's one-time upgrade step names what it moves from (push 4).
     ("repo-folder", r"^stock/docs/guides/upgrading\.md$", r"moves the repository folder `\.forge/` to `\.apptown/`",
      "the upgrade step tells an operator which folder it renames"),

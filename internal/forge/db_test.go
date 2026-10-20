@@ -64,8 +64,10 @@ func mustJSON(v any) string {
 }
 
 // db.env holds the only copy of the built-in database's password. One
-// written before the AppTown rename (FORGE_DB_PASSWORD) is read with the same
-// URL and password and rewritten once as APPTOWN_DB_PASSWORD at 0600; an
+// written before the AppTown rename — by a release before it (FORGE_DB_URL and
+// FORGE_DB_PASSWORD, as live's was) or by the rename's first pushes
+// (FORGE_DB_PASSWORD only) — is read with the same URL and password and
+// rewritten once under the APPTOWN_DB_ names at 0600, comments kept; an
 // incomplete or unreadable file stops with its path and is never replaced by
 // new credentials; an absent one is minted under the new name.
 func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
@@ -85,6 +87,29 @@ func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
 		info, _ := os.Stat(path)
 		if string(raw) != "# kept comment\nAPPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nAPPTOWN_DB_PASSWORD=pw\n" || info.Mode().Perm() != 0o600 {
 			t.Fatalf("rewritten as %q, mode %v", raw, info.Mode().Perm())
+		}
+	}
+
+	// The file forged minted from 5 Sep 2026 until the rename.
+	released := t.TempDir()
+	comments := "# The forge's built-in database (design/postgres-migration.md §3.9).\n" +
+		"# Minted once by forged. If this file is lost while the data volume\n" +
+		"# survives, reset the password inside the container (docker exec\n" +
+		"# forge-db psql -U postgres -c \"ALTER USER postgres PASSWORD '...'\")\n" +
+		"# and write it here.\n"
+	wantURL := "postgres://postgres:ab12@127.0.0.1:5433/forge"
+	if err := os.WriteFile(filepath.Join(released, "db.env"), []byte(comments+"FORGE_DB_URL="+wantURL+"\nFORGE_DB_PASSWORD=ab12\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		url, pw, err := builtinDBCredentials(released)
+		if err != nil || pw != "ab12" || url != wantURL {
+			t.Fatalf("reading the released file: %q %q %v", url, pw, err)
+		}
+		raw, _ := os.ReadFile(filepath.Join(released, "db.env"))
+		info, _ := os.Stat(filepath.Join(released, "db.env"))
+		if string(raw) != comments+"APPTOWN_DB_URL="+wantURL+"\nAPPTOWN_DB_PASSWORD=ab12\n" || info.Mode().Perm() != 0o600 {
+			t.Fatalf("released file rewritten as %q, mode %v", raw, info.Mode().Perm())
 		}
 	}
 

@@ -134,27 +134,29 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 	path := filepath.Join(dataDir, "db.env")
 	raw, err := os.ReadFile(path)
 	if err == nil {
-		var oldPassword string
+		// Releases before the AppTown rename wrote FORGE_DB_URL and
+		// FORGE_DB_PASSWORD. A key missing under its new name is taken from
+		// its old one and the file is rewritten once, whole or not at all
+		// (it holds the only copy of the database's password).
+		values := map[string]string{}
 		for _, line := range strings.Split(string(raw), "\n") {
-			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "APPTOWN_DB_URL="); ok {
-				url = v
-			}
-			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "APPTOWN_DB_PASSWORD="); ok {
-				password = v
-			}
-			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "FORGE_DB_PASSWORD="); ok {
-				oldPassword = v
+			if k, v, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
+				values[k] = v
 			}
 		}
-		if url != "" && password == "" && oldPassword != "" {
-			// AppTown's own file from before the rename: its password key
-			// is renamed in place, whole, or not at all (the file holds the
-			// only copy of the database's password).
-			if err := migrateDBEnv(dataDir, string(raw)); err != nil {
-				return "", "", fmt.Errorf("renaming FORGE_DB_PASSWORD to APPTOWN_DB_PASSWORD in %s: %w", path, err)
+		url, password = values["APPTOWN_DB_URL"], values["APPTOWN_DB_PASSWORD"]
+		renames := map[string]string{}
+		if old, ok := values["FORGE_DB_URL"]; ok && url == "" && old != "" {
+			url, renames["FORGE_DB_URL"] = old, "APPTOWN_DB_URL"
+		}
+		if old, ok := values["FORGE_DB_PASSWORD"]; ok && password == "" && old != "" {
+			password, renames["FORGE_DB_PASSWORD"] = old, "APPTOWN_DB_PASSWORD"
+		}
+		if url != "" && password != "" && len(renames) > 0 {
+			if err := migrateDBEnv(dataDir, string(raw), renames); err != nil {
+				return "", "", fmt.Errorf("renaming the FORGE_DB_ settings to APPTOWN_DB_ in %s: %w", path, err)
 			}
-			log.Printf("built-in database: %s now names the password APPTOWN_DB_PASSWORD", path)
-			password = oldPassword
+			log.Printf("built-in database: %s now uses the APPTOWN_DB_ names", path)
 		}
 		if url != "" && password != "" {
 			return url, password, nil
@@ -187,13 +189,13 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 	return url, password, nil
 }
 
-// migrateDBEnv rewrites db.env with its FORGE_DB_PASSWORD line keyed
-// APPTOWN_DB_PASSWORD and everything else as it was, atomically at 0600.
-func migrateDBEnv(dataDir, raw string) error {
+// migrateDBEnv rewrites db.env with each old key in renames keyed by its
+// new name and everything else as it was, atomically at 0600.
+func migrateDBEnv(dataDir, raw string, renames map[string]string) error {
 	lines := strings.Split(raw, "\n")
 	for i, line := range lines {
-		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "FORGE_DB_PASSWORD="); ok {
-			lines[i] = "APPTOWN_DB_PASSWORD=" + v
+		if k, v, ok := strings.Cut(strings.TrimSpace(line), "="); ok && renames[k] != "" {
+			lines[i] = renames[k] + "=" + v
 		}
 	}
 	_, err := durable.Write(dataDir, "db.env", []byte(strings.Join(lines, "\n")), 0o600, false)
