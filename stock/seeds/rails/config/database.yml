@@ -1,5 +1,5 @@
-# Seeded by the forge; `rails new --skip` keeps it. Every environment
-# connects through DATABASE_URL, which the forge's Postgres need injects
+# Seeded by AppTown; `rails new --skip` keeps it. Every environment
+# connects through DATABASE_URL, which AppTown's Postgres need injects
 # into agent steps, tests, previews and deployments alike, so nothing here
 # names a host, user or password (one that did failed the init step).
 # Production's cache, queue and cable connections point at the same

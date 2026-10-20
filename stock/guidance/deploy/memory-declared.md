@@ -2,10 +2,10 @@
 name: deploy/memory-declared
 tags: deploy,resources,memory,platform
 tier: platform
-checks: [{"name": "memory-declared", "expects": "each part the forge runs from a build or an image declares its memory (resources.memory) in .forge/app.yaml; a static part is served by the forge's own file server and declares nothing", "severity": "medium", "evaluator": "runtime", "probe": "memory-declared", "title": "Declare the memory each part may use"}, {"name": "memory-within", "expects": "each part of the standing main deployment uses under 90% of the memory limit the forge applied to it, as the forge observes it; a part running with no limit does not meet this, and use the forge cannot observe is not judged", "severity": "high", "evaluator": "runtime", "probe": "memory-within", "title": "Run within the declared memory"}]
+checks: [{"name": "memory-declared", "expects": "each part AppTown runs from a build or an image declares its memory (resources.memory) in .forge/app.yaml; a static part is served by AppTown's own file server and declares nothing", "severity": "medium", "evaluator": "runtime", "probe": "memory-declared", "title": "Declare the memory each part may use"}, {"name": "memory-within", "expects": "each part of the standing main deployment uses under 90% of the memory limit AppTown applied to it, as AppTown observes it; a part running with no limit does not meet this, and use AppTown cannot observe is not judged", "severity": "high", "evaluator": "runtime", "probe": "memory-within", "title": "Run within the declared memory"}]
 ---
-Every part the forge runs from your build or image declares the most memory
-it may use. A `static:` part is the exception: the forge serves its folder
+Every part AppTown runs from your build or image declares the most memory
+it may use. A `static:` part is the exception: AppTown serves its folder
 from its own file server, so there is nothing to declare.
 
     app:
@@ -17,7 +17,7 @@ from its own file server, so there is nothing to declare.
 
 A part that declares nothing runs with **no limit**: one leak or one busy
 hour can take the whole host's memory, and with it every other app on it.
-The forge holds each part to what it declares (a Docker host or Portainer
+AppTown holds each part to what it declares (a Docker host or Portainer
 exactly; App Platform on the smallest size that covers it). Production and
 previews can differ through profiles:
 
@@ -66,10 +66,10 @@ memory they can see. Inside a limit, each wants telling or already knows:
 - **Go and Rust:** nothing to set. A small service uses 5–15 MB; 48M holds
   it. A Caddy file server uses about 11 MB; 32M holds it.
 
-Two checks hold this. The first reads the contract as the forge parses it,
+Two checks hold this. The first reads the contract as AppTown parses it,
 at every landing and in every review. The second is judged in reviews on the
-standing deployment: each part's use, as the forge observes it, against the
-limit the forge applied. Where the target does not report use (App
+standing deployment: each part's use, as AppTown observes it, against the
+limit AppTown applied. Where the target does not report use (App
 Platform, Portainer), it is not judged and says so.
 
 For a deployment-owned need, inspect `GET /api/v1/dependencies` for catalogue
@@ -80,4 +80,4 @@ managed instances or shared databases support them. Do not combine a selected
 size and explicit need resources, including inherited profile values. An operator
 cap override is separately recorded and does not retune the database. A changed
 command on real/unknown data requires reviewed maintenance before deployment;
-Forge refuses it before resizing. Measure normal requests and maintenance jobs.
+AppTown refuses it before resizing. Measure normal requests and maintenance jobs.

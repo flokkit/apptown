@@ -1,4 +1,4 @@
-# Packaging recipe for this way of working (built by the forge at release).
+# Packaging recipe for this way of working (built by AppTown at release).
 # Adapt the binary name; keep the rust/debian base family. The rust minor
 # matches the mise.toml pin — dev and release build with the same compiler.
 # cargo install stages ONLY the built binaries under /out/bin (a raw

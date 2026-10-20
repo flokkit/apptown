@@ -19,11 +19,11 @@ func (t *Target) RefusesContract(c *appcontract.Contract) string {
 	}
 	if !t.Capabilities.PersistentVolumes {
 		if c.PublicPart().DataDir != "" {
-			return fmt.Sprintf("this app keeps data in a directory (%s); %s has no persistent volumes — use a networked database (design/subsystems/deployment.md §0.1a)", c.PublicPart().DataDir, t.Name)
+			return fmt.Sprintf("this app keeps data in a directory (%s); %s has no persistent volumes — keep the data in a need such as postgres instead, or release to a Docker host", c.PublicPart().DataDir, t.Name)
 		}
 		for _, p := range c.Parts {
 			if p.DataDir != "" {
-				return fmt.Sprintf("part %s keeps data in a directory (%s); %s has no persistent volumes — use a networked database (design/subsystems/deployment.md §0.1a)", p.Name, p.DataDir, t.Name)
+				return fmt.Sprintf("part %s keeps data in a directory (%s); %s has no persistent volumes — keep the data in a need such as postgres instead, or release to a Docker host", p.Name, p.DataDir, t.Name)
 			}
 		}
 	}

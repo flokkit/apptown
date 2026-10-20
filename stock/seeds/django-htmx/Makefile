@@ -1,7 +1,7 @@
-# The project's tests, as the forge's landing runs them: `make test`.
+# The project's tests, as AppTown's landing runs them: `make test`.
 # Keep this target running the whole suite as the app grows. Until the
 # app exists there is nothing to test, and the target says so.
-# Settings refuse to load without DJANGO_SECRET_KEY. The forge gives the
+# Settings refuse to load without DJANGO_SECRET_KEY. AppTown gives the
 # tests a generated one; where none is set (your own workspace), the
 # target generates a throwaway for this run, so no key is ever written down.
 # .PHONY: without it, a folder named test makes make skip the target.

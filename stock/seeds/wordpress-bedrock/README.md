@@ -2,17 +2,17 @@
 
 This custom minimal starter follows the Roots Bedrock 1.31.7 layout, with
 Composer-locked core, Human Made S3 Uploads (media in a private bucket,
-served by the site) and an owned Forge Site theme.
+served by the site) and an owned AppTown Site theme.
 
 ## Build and run
 
     docker build -t wordpress-starter .
 
 Prepare a MariaDB 11.4.13 database and application user on a Docker network named
-`site`. Supply DB_HOST, DB_PORT, DB_NAME, DB_USER and DB_PASSWORD. On Forge the
+`site`. Supply DB_HOST, DB_PORT, DB_NAME, DB_USER and DB_PASSWORD. On AppTown the
 `mariadb` need supplies them and retains its database volume across releases.
 Uploads need a bucket: S3_BUCKET, AWS_REGION, AWS_ENDPOINT_URL_S3,
-AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY; on Forge the `s3` need supplies them.
+AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY; on AppTown the `s3` need supplies them.
 Use uncommitted, permission-restricted env files. Put the shared DB, URL, S3
 and KEY/SALT settings in `site.env`; put only `WP_ADMIN_PASSWORD` and optional
 initial administrator/title settings in `install.env`. Run the same image for both:
@@ -20,14 +20,14 @@ initial administrator/title settings in `install.env`. Run the same image for bo
     docker run --rm --network site --env-file site.env --env-file install.env wordpress-starter /app/bin/initialize
     docker run --rm --network site --env-file site.env -p 8080:8080 wordpress-starter
 
-Forge serves the site at its own address; elsewhere, and for WP-CLI runs that
+AppTown serves the site at its own address; elsewhere, and for WP-CLI runs that
 write content or links, set WP_HOME to the public URL. The bucket stays
 private and objects carry no ACL: media URLs are the site's own
 (/app/uploads/...), and web/media.php reads each object from the bucket.
 
-Supply all eight KEY/SALT values named in secretspec.toml. Forge generates and
+Supply all eight KEY/SALT values named in secretspec.toml. AppTown generates and
 retains them per deployment with WP_ADMIN_PASSWORD, delivered only to init-install.
-Outside Forge generate these once and retain them privately. Never commit
+Outside AppTown generate these once and retain them privately. Never commit
 credentials or put passwords in command arguments. Initial defaults are user
 `editor`, email `editor@example.invalid` and title `WordPress`; set WP_ADMIN_USER,
 WP_ADMIN_EMAIL and WP_SITE_TITLE in init's environment before first install.
@@ -51,10 +51,10 @@ process only. Check pages, login, uploads and thumbnails after web replacement.
 
 ## Data and recovery
 
-On Forge each deployment and preview has its own bucket, and backups copy its
+On AppTown each deployment and preview has its own bucket, and backups copy its
 objects and MariaDB, not as one snapshot. Elsewhere, arrange and test both. Core updates
 do not run every plugin migration. Default request-driven cron serves one replica;
 an external coordinated scheduler is a separate operational choice.
 compatible-update certifies no backwards compatibility or automatic data rollback.
-Protected maintenance and multiple replicas are unavailable. See Forge's WordPress
+Protected maintenance and multiple replicas are unavailable. See AppTown's WordPress
 guide for deployment and recovery obligations.

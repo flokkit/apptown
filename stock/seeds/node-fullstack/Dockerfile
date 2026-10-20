@@ -1,4 +1,4 @@
-# Packaging recipe for this way of working (built by the forge at release).
+# Packaging recipe for this way of working (built by AppTown at release).
 # Adapt the build and entry to the app; keep the node base.
 # npm builds; it does not ship. The runtime stage removes the package
 # managers the node image carries (npm, corepack, yarn): the app never runs

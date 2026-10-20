@@ -26,7 +26,7 @@ canonical address. WP-CLI has no request: run a WP-CLI command that creates
 content or writes links with `WP_HOME=<the deployment's URL>` in its
 environment, or what it stores names `http://localhost`. Nobody enters an
 S3 setting: never declare the need's variables or `S3_PUBLIC_URL` in
-`secretspec.toml`. The Forge generates stable signing keys/salts and the initial administrator
+`secretspec.toml`. AppTown generates stable signing keys/salts and the initial administrator
 password. Only initialization receives the password; it never appears in argv.
 
 Initialization installs an absent database, updates the core schema of an existing
@@ -77,4 +77,4 @@ managed instances or shared databases support them. Do not combine a selected
 size and explicit need resources, including inherited profile values. An operator
 cap override is separately recorded and does not retune the database. A changed
 command on real/unknown data requires reviewed maintenance before deployment;
-Forge refuses it before resizing. Measure normal requests and maintenance jobs.
+AppTown refuses it before resizing. Measure normal requests and maintenance jobs.

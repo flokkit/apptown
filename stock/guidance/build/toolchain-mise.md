@@ -10,12 +10,12 @@ live in build/registries; this block is the mise layer on top.)
 - Declare tools and versions in `mise.toml` at the repo root (stock
   defaults live in stock/toolchains/). Steps install the declared
   toolchain automatically; resolved versions are recorded in run evidence.
-- Inside the forge (steps, chats, previews) the declared tools are already on
+- Inside AppTown (steps, chats, previews) the declared tools are already on
   PATH: the workspace's mise shims come first and the toolchain is installed
   on entry. Run plain commands — `go test ./...`, `bundle exec rails test`,
   `npm test` — and write plain commands in READMEs and BUILD.md; people
   reading them are not inside a step. `mise exec -- <cmd>` is only for a
-  shell outside the forge that has not activated mise.
+  shell outside AppTown that has not activated mise.
 - Never `curl | sh` installers, never `apt-get` toolchains inside steps.
 - mise's `ubi` backend is disabled (it cannot be mirrored) — use `aqua:`
   or `github:` backends. For Java, pin Temurin: other vendors download

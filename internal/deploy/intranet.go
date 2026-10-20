@@ -73,7 +73,7 @@ func IntranetCompose(st IntranetStack) string {
 	// quoted writes one value from data as a YAML string that Compose
 	// reads back unchanged (ComposeLiteral).
 	quoted := func(s string) string { return strconv.Quote(ComposeLiteral(s)) }
-	b.WriteString("# forge-owned stack: deployed by forged at release time (design/subsystems/lan-release.md).\n")
+	b.WriteString("# AppTown-owned stack: deployed by forged at release time.\n")
 	b.WriteString("# Managed by AppTown, not by your infrastructure-as-code.\n")
 	b.WriteString("services:\n")
 	var volumes []string

@@ -33,7 +33,7 @@ scanners:
     report: .forge/sbom.cdx.json
     network: false
     artifactKind: sbom   # evidence of what shipped, not findings
-  # Reports every severity: the forge judges a SARIF finding by its CVSS
+  # Reports every severity: AppTown judges a SARIF finding by its CVSS
   # score, which can be high where trivy's label (the vendor's rating) says
   # MEDIUM, so a --severity filter would hide findings the gate fails on.
   # Over a full OS image the report is large (27 MB for rust:1.84.1);
@@ -105,16 +105,16 @@ scanners:
     target: source
     manual: true
   # Dockerfile hygiene (build/container-image): hadolint over the Dockerfile
-  # the forge builds. Exit-code contract at the warning threshold — the
+  # AppTown builds. Exit-code contract at the warning threshold — the
   # tool's own words are the evidence. Package-version pinning rules (apt,
   # apk, pip, npm, gem) are ignored: pinning every distro package is not a
-  # convention the forge holds anyone to; base-image tags are.
+  # convention AppTown holds anyone to; base-image tags are.
   - name: hadolint
     description: "Checks the Dockerfile with hadolint: pinned base tag, COPY not ADD, absolute WORKDIR, JSON CMD, no package cache left behind (build/container-image)"
     image: hadolint/hadolint:v2.12.0-alpine
     # A Dockerfile hadolint cannot parse (heredoc COPY <<EOF, waypoint) is
-    # not a finding against the project: exit 2 → an error verdict, "the
-    # forge could not judge", never a fail the agent is told to fix.
+    # not a finding against the project: exit 2 → an error verdict, "AppTown
+    # could not judge", never a fail the agent is told to fix.
     command: ["sh", "-c", "cd /work && { [ -f Dockerfile ] || { echo 'no Dockerfile: the app is not built from this repository'; exit 0; }; }; out=$(hadolint --no-color --failure-threshold warning --ignore DL3008 --ignore DL3013 --ignore DL3016 --ignore DL3018 --ignore DL3028 Dockerfile 2>&1); e=$?; echo \"$out\"; if [ $e -ne 0 ] && ! echo \"$out\" | grep -q ' DL[0-9]'; then echo 'hadolint could not parse this Dockerfile (a syntax it does not know, such as a heredoc); not judged'; exit 2; fi; exit $e"]
     network: false
     target: source
@@ -180,7 +180,7 @@ scanners:
     target: source
     manual: true
   # Go formatting and vetting (lang/go/formatting): the two mechanical checks
-  # the forge holds itself to, run over the committed tree in a pinned Go
+  # AppTown holds itself to, run over the committed tree in a pinned Go
   # image. Exit-code contract: 0 clean, 1 findings; the output is the words.
   - name: gofmt
     description: Checks that every committed Go file is formatted with gofmt (lang/go/formatting)

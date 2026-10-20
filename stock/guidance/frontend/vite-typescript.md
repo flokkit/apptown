@@ -42,7 +42,7 @@ repository's Dockerfile builds it in a Node stage (`npm ci`,
     FROM scratch AS site
     COPY --from=build /app/dist /dist
 
-The forge builds that stage for previews and releases and serves its
+AppTown builds that stage for previews and releases and serves its
 `dist/` with its own file server; Node never ships. Keep the
 Dockerfile's Node major version the same as `mise.toml`'s. The built
 folder holds only folders and files: a symbolic link in it is refused.

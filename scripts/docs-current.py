@@ -9,7 +9,8 @@ the file and line, on:
   - a Markdown link into design/plans/ or design/reviews/;
   - a line starting "Status:" or "> Superseded".
 
-In stock/docs/ it also fails on the old product name in prose: "the forge",
+In stock/docs/ and in the guidance AppTown gives agents (stock/guidance/, the
+body and its checks) it also fails on the old product name in prose: "the forge",
 "this forge", "a forge", "forge's" or "Forge". The product is AppTown; the
 command `forge`, `.forge/`, `FORGE_*` and the like are code and are written
 in backticks, which this skips, as it skips fenced and indented code.
@@ -89,6 +90,12 @@ def problems(root):
                 to = link_target(path, target, root)
                 if to and to.startswith(("design/plans/", "design/reviews/")):
                     out.append(f"{rel}:{n}: links a plan or review ({to}); write the reason into the guide")
+    guidance = root / "stock" / "guidance"
+    if guidance.exists():
+        for path in sorted(guidance.rglob("*.md")):
+            rel = path.relative_to(root).as_posix()
+            for n in old_names(path.read_text()):
+                out.append(f"{rel}:{n}: says forge for the product; write AppTown, or put the command in backticks")
     return out
 
 

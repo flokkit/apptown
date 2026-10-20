@@ -2,7 +2,7 @@
 name: dev/process-and-container-mode
 tags: dev,runtime,workflow
 ---
-How to run an app while you build it, and how it runs at the gates. The forge is
+How to run an app while you build it, and how it runs at the gates. AppTown is
 opinionated here so the simple case stays simple and the hard case stays
 possible. (This is a stock way of working; a project that wants a different
 stance forks it in its own pack.)
@@ -22,8 +22,11 @@ stance forks it in its own pack.)
   put them in a `Procfile` (`web: …`, `worker: …`) and run `hivemind` (baked
   into your environment) — it starts them together, aggregates logs, and stops
   them cleanly. Do NOT hand-background each process with `&` — that orphans
-  processes and interleaves output. `forge dev` generates the Procfile from
-  your app parts; a single-process app needs none — just run it.
+  processes and interleaves output. On your own computer, `forge dev` starts
+  the needs, writes their connection env to `.forge/dev.env` and, for an app
+  with several parts, a Procfile at `.forge/Procfile`; run it with
+  `hivemind -f .forge/Procfile` after `set -a && . ./.forge/dev.env && set +a`.
+  A single-process app needs no Procfile — just run it.
 
 - **Never in the foreground of your shell.** A server (or `hivemind`, or
   `docker run` without `-d`) does not return, so it holds your step until its

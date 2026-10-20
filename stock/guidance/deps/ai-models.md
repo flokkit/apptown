@@ -5,7 +5,7 @@ tags: deps,ai,llm,security
 AI models (the `llm` need), when the app calls a model:
 
 - Declare the need in `.forge/app.yaml` (`needs: { llm: { limit: 5 } }`).
-  The forge gives each deployment and each preview its own key with a
+  AppTown gives each deployment and each preview its own key with a
   spending limit. Never ask for, paste or commit a key of your own.
 - Use an OpenAI-compatible client. Take the base URL from
   `OPENROUTER_BASE_URL` and the key from `OPENROUTER_API_KEY`, and from

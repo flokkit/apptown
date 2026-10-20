@@ -1,4 +1,4 @@
-# Packaging recipe for this way of working (built by the forge at release).
+# Packaging recipe for this way of working (built by AppTown at release).
 # Generate the app with `rails new . --skip-docker …` (see the rails
 # selection guidance) so this recipe is kept: gems from the committed
 # Gemfile.lock, assets precompiled at build. CMD, not ENTRYPOINT, so the

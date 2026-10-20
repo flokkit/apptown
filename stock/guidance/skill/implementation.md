@@ -44,7 +44,7 @@ Method:
      do not change the contract, Dockerfile or health path on a guess.
 4. If the app needs a backing service — a database, cache, object store —
    declare it under `needs:` in the contract, not as a hand-written container:
-   `needs: { postgres: { version: "16" } }`. The forge provisions it in every
+   `needs: { postgres: { version: "16" } }`. AppTown provisions it in every
    environment and injects the connection env — DATABASE_URL and the PG* vars
    for postgres, REDIS_URL for redis, the AWS_* vars and S3_BUCKET for s3. Read that
    injected env; never hard-code a host or credentials, and never localhost —
@@ -60,7 +60,7 @@ Method:
    declared toolchain is on your PATH (mise shims come first), so use plain
    commands (`go test ./...`, `bundle exec rails test`, `npm test`) and write
    plain commands in BUILD.md and README.md; never `mise exec --`, which
-   only matters in a shell outside the forge.
+   only matters in a shell outside AppTown.
 6. Keep dependencies minimal per steering; no gold-plating. Record any forced
    deviation from the spec under "Deviations" with the reason. Change only
    what the request needs; if something else must change for it to work,
@@ -71,7 +71,7 @@ Method:
    file or a dependency the app lacked — report it as a defect remaining and
    stop. The same holds for review feedback: when a rejection asks for
    something the request does not need (a service, a need, a contract for a
-   tool the forge does not run), do not build it to satisfy the reviewer.
+   tool AppTown does not run), do not build it to satisfy the reviewer.
    Check its premise against the code, and say in your report, with the
    evidence, why the change stays as it is. When you write or rewrite a
    document (README.md, BUILD.md, a report), every claim in it must be true of the code as it is now: read
@@ -93,15 +93,15 @@ Method:
    against what was asked: a part of the request that is not done, or was
    done differently, is stated first, never reported as success. Chat text is not
    captured — anything not in the file is lost.
-8. ALWAYS write the run contract to .forge/app.yaml — the forge-native contract.
+8. ALWAYS write the run contract to .forge/app.yaml — the app contract AppTown runs.
    Commit it with the first runnable version, and update it in the same Change
    whenever build, ports, services, or initialization requirements change.
    Historical previews read that revision's contract. Do not rely on startup
    repair, a current checkout's configuration, or runtime detection to supply
    missing declarations. A specification-only revision or a CLI/library that
-   Forge does not host need not invent a served application contract.
+   AppTown does not host need not invent a served application contract.
    `app:` is a map of your app's own containers; each declares exactly one of
-   `build: .` (the forge builds your repo Dockerfile), `image:` (a pushed ref),
+   `build: .` (AppTown builds your repo Dockerfile), `image:` (a pushed ref),
    or `static: <dir>` (a client-only site), plus ports/command/environment;
    exactly one part is `public: true` (the front door), and each served part
    declares its readiness: `health: { readiness: { http: /healthz } }`.
@@ -117,17 +117,17 @@ Method:
    uploads, sessions that matter), declare a need for it under `needs:`
    FROM THE FIRST VERSION (postgres for records, s3 for files, redis for a
    shared cache) and read the injected connection env — every environment
-   fulfils the need, and the deployment targets the forge prefers have no
+   fulfils the need, and the deployment targets AppTown prefers have no
    disk. `dataDir:` is only for a cache or scratch the app can rebuild;
    anything else written to local files lives in the container and dies
    with every preview reboot (an app that kept its records in a local file
    has lost them this way).
    If the app reads a secret — a framework signing key, an API key — declare
    it in a committed `secretspec.toml` (name and description, never a value;
-   `generate = true` for a key the forge can make itself) and read it from the
-   environment; the forge delivers it to the parts that need it and stops the
+   `generate = true` for a key AppTown can make itself) and read it from the
+   environment; AppTown delivers it to the parts that need it and stops the
    boot with a sentence when one is missing. The file is SecretSpec 1.0 and
-   the forge refuses any other shape (`forge config validate` checks it):
+   AppTown refuses any other shape (`forge config validate` checks it):
 
        [project]
        name = "my-app"
@@ -163,10 +163,10 @@ Method:
      a command timeout of at least 10 minutes, or run it in the background
      with its output to a file and wait for that.
    - On a separate machine (a worker) it works the same way: commit, then run
-     `forge check`. It sends your commit to the forge for checking only, and
+     `forge check`. It sends your commit to AppTown for checking only, and
      says the result is feedback; the landing checks your work again. Do not
      use `--published` instead, which checks older work. If it answers that
-     your commit **is not on the forge yet**, the send failed: make the
+     your commit **is not on AppTown yet**, the send failed: make the
      formatter, build and tests pass, commit, and hand back.
    - **See the diff the reviewer sees.** The reviewer reads the whole
      change: every commit on your branch since it left the base branch (the

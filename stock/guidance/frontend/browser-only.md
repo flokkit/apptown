@@ -2,8 +2,8 @@
 name: frontend/browser-only
 tags: frontend,simplicity
 ---
-The app runs entirely in the browser. There is no server of its own: the
-forge serves the built files and nothing else, so every feature works from
+The app runs entirely in the browser. There is no server of its own:
+AppTown serves the built files and nothing else, so every feature works from
 those files and from what the browser keeps.
 
 - **State lives in the browser.** Small settings and lists go in

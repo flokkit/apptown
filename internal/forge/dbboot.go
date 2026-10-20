@@ -150,7 +150,7 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 	}
 	password = hex.EncodeToString(raw)
 	url = fmt.Sprintf("postgres://postgres:%s@127.0.0.1:%s/%s", password, builtinDBPort, builtinDBName)
-	body := "# AppTown's built-in database (design/subsystems/postgres-migration.md §3.9).\n" +
+	body := "# AppTown's built-in database.\n" +
 		"# Minted once by forged. If this file is lost while the data volume\n" +
 		"# survives, reset the password inside the container (docker exec\n" +
 		"# forge-db psql -U postgres -c \"ALTER USER postgres PASSWORD '...'\")\n" +

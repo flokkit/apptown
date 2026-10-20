@@ -22,7 +22,7 @@ Wrapper scripts are excluded on purpose (the rule below); `--skip-old-files`
 keeps the seed's `.gitignore` and README. In the same change, add the
 managed-version overrides below to the generated `pom.xml`: without them
 the first landing's image scan fails on the Tomcat and Jackson that
-Initializr's Boot manages. The forge's Dockerfile builds
+Initializr's Boot manages. The seeded Dockerfile builds
 with plain `mvn` and runs the jar as an unprivileged user. Add a
 `/healthz` endpoint (one `@GetMapping` returning 200, no database) — the
 seeded contract at `.forge/app.yaml` names it as the readiness path and
@@ -97,7 +97,7 @@ add one controller and one test that hits it (`mvn test`).
   adopted, or a large multi-module project where build time demonstrably
   hurts. Deviating is fine — record it in an ADR referencing this guidance,
   and expect Gradle's plugins to come straight from plugins.gradle.org, not
-  through the forge's package mirrors: the plugin proxy and init script that
+  through AppTown's package mirrors: the plugin proxy and init script that
   would route them there do not exist yet.
 - Wrapper scripts (mvnw/gradlew) are unnecessary — the toolchain is
   declared in mise.toml, not vendored into the repo.
@@ -107,7 +107,7 @@ add one controller and one test that hits it (`mvn test`).
 - One deployable per repo: an executable jar. The service starts with
   `java -jar` and reads ALL environment-specific config from env vars
   (Spring's relaxed binding: `SERVER_PORT`, `SPRING_DATASOURCE_URL`).
-- **Trust the front door.** The forge terminates TLS and forwards the
+- **Trust the front door.** AppTown terminates TLS and forwards the
   scheme and host (`X-Forwarded-Proto: https`, `X-Forwarded-Host`). Set
 
       server.forward-headers-strategy=framework
@@ -117,8 +117,8 @@ add one controller and one test that hits it (`mvn test`).
   (`redirect:/items`) sends the browser to `http://`, and only the front
   door's own bounce back to HTTPS hides it.
 
-**Database from the environment, on any tier.** The
-forge delivers a postgres need as environment variables, on every tier:
+**Database from the environment, on any tier.**
+AppTown delivers a postgres need as environment variables, on every tier:
 `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` (and a libpq-form
 `DATABASE_URL`). On the built-in host `PGHOST` is a hostname. A Google
 Cloud SQL database reached from Cloud Run without a VPC arrives instead

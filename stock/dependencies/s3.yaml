@@ -12,7 +12,7 @@ description: Read and write objects to an S3-compatible store.
 # The contract with the app, the same on every target (the services-and-data guide, "What
 # each need gives the app"): the bucket exists before the app starts and is
 # the deployment's; the key reaches that bucket alone; address it
-# path-style. The forge gives no public address for objects; creating a
+# path-style. AppTown gives no public address for objects; creating a
 # bucket is refused everywhere, and listing buckets, deleting the bucket and
 # object ACLs are outside the contract.
 provides:
@@ -34,17 +34,17 @@ provides:
 # app's key is an account with the gateway's user role that owns it. That
 # account can put, get, list and delete objects there and is refused
 # making a bucket, as a key for one bucket is on a cloud store. The
-# gateway's root key is the forge's and is never given to the app. The
+# gateway's root key is AppTown's and is never given to the app. The
 # accounts live in /tmp, out of the data and its backups, and are made
 # again, with the bucket's owner, at every start: so a changed key or
 # script remakes the store on its own volume (configAtStart).
 #
-# The forge's values, in the words a copy's connection uses: the app's
+# AppTown's values, in the words a copy's connection uses: the app's
 # access key is its user, the key's secret its password, and the bucket its
 # database. Each deployment and each preview gets its own app key and
 # secret and its own root key (generate); the values here are only for the
-# servers the forge starts beside its own steps and forge dev. The bucket's
-# name is the forge's too, and the same everywhere. The start script makes
+# servers AppTown starts beside its own steps and forge dev. The bucket's
+# name is AppTown's too, and the same everywhere. The start script makes
 # the accounts again at every start, so a new key takes effect at the next
 # deploy and the objects stay.
 credentials:
@@ -94,7 +94,7 @@ local:
     S3_BUCKET: "{database}"
 
 # On App Platform the bucket is a Spaces bucket the target's storage module
-# makes (internal/deploy/digitalocean, storage.go). The forge copies it from
+# makes (internal/deploy/digitalocean, storage.go). AppTown copies it from
 # the copy runner named on the target, as the deployment's own key for that
 # bucket, and checks a copy by filling a new store of this kind there.
 cloud:
@@ -134,7 +134,7 @@ copy:
       import base64, datetime, hashlib, hmac, http.client, io, json, os, re, sys, tarfile, tempfile, urllib.parse
       import xml.etree.ElementTree as ET
 
-      # The forge's copy of one bucket, through the S3 API. A copy is a tar:
+      # AppTown's copy of one bucket, through the S3 API. A copy is a tar:
       # for each object obj/<n> (its bytes) then meta/<n>.json (its key, size,
       # ETag, MD5, SHA-256 and the headers below); manifest.json last, with the
       # count and bytes. export writes it to stdout; import, restore and verify
@@ -142,7 +142,7 @@ copy:
       E = os.environ
       HOST, PORT, TLS = E["S3_HOST"], int(E["S3_PORT"]), E.get("S3_TLS") == "require"
       BUCKET, KEY, SECRET = E["S3_BUCKET"], E["S3_ACCESS_KEY_ID"], E["S3_SECRET_ACCESS_KEY"]
-      REGION = "us-east-1"  # answered by every S3-compatible store the forge uses
+      REGION = "us-east-1"  # answered by every S3-compatible store AppTown uses
       KEPT = ("content-type", "cache-control", "content-disposition", "content-encoding", "content-language", "expires")
       LARGEST = 5 * 1024 ** 3  # one PUT
 
@@ -311,7 +311,7 @@ copy:
 
       def put(m, f):
           if m["size"] > LARGEST:
-              fail("%s is larger than 5 GiB, which the forge's copy does not put back" % m["key"])
+              fail("%s is larger than 5 GiB, which AppTown's copy does not put back" % m["key"])
           h = dict(m["headers"])
           h["content-md5"] = base64.b64encode(bytes.fromhex(m["md5"])).decode()
           ok(call("PUT", m["key"], headers=h, body=f, length=m["size"]), "writing " + m["key"]).read()

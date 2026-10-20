@@ -1,4 +1,4 @@
-# Packaging recipe for this way of working (built by the forge at release).
+# Packaging recipe for this way of working (built by AppTown at release).
 # Stage 1 exports the game for the web with the pinned Godot; stage 2 serves
 # the static result. Neither the engine nor the toolchain ships to players.
 FROM barichello/godot-ci:4.4.1 AS export

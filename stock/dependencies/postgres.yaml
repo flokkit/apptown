@@ -18,10 +18,10 @@ defaults:
   database: app
   user: app
 
-# The forge sets the password; an app that names one is refused, since a
+# AppTown sets the password; an app that names one is refused, since a
 # managed target makes its own (dependency.RefusesNeeds). Each deployment
 # and each preview gets a password of its own (generate); the value here is
-# only for the servers the forge starts beside its own steps and forge dev.
+# only for the servers AppTown starts beside its own steps and forge dev.
 # The start script sets the password at every start (configAtStart), so a
 # standing server takes a new one at its next deploy.
 credentials:
@@ -35,9 +35,9 @@ generate: [password]
 # deployment's or a preview's server, and no other user on the server may
 # connect to its database. Roles, other databases and untrusted extensions
 # are outside the contract. (Several apps on one server would also need a
-# password per deployment, which the forge does not make yet: today every
+# password per deployment, which AppTown does not make yet: today every
 # deployment's server is its own.)
-# Only the servers the forge starts beside its own steps (tests, agent
+# Only the servers AppTown starts beside its own steps (tests, agent
 # steps, forge dev) make it a superuser (stepEnv below), so test runners
 # can make their own test databases and load fixtures.
 provides:
@@ -46,7 +46,7 @@ provides:
   PGPORT: the server's port
   PGDATABASE: the app's database
   PGUSER: the app's user, which owns the database
-  PGPASSWORD: the user's password, set by the forge
+  PGPASSWORD: the user's password, set by AppTown
   PGSSLMODE: disable or require, as the URL says
 
 # Docker provider: a local postgres container. {host} = its network alias.
@@ -57,11 +57,11 @@ provides:
 # reached only over the container's socket (no password, so never over the
 # network), and gives the app an ordinary user of the same name: it owns
 # the app's database, its public schema and everything in it, has the
-# forge's password and no other right, and the database refuses every
+# AppTown's password and no other right, and the database refuses every
 # other user. A server made before October 2026, whose app user was the
 # superuser, converts at its first start with the script, keeping its data:
 # a standing one is remade on its volume by its next deploy (configAtStart),
-# which also brings a password an app once chose to the forge's. Its image
+# which also brings a password an app once chose to AppTown's. Its image
 # is not configuration (keepsImage): a new major version cannot read the
 # old files, so a version change is refused as before.
 local:
@@ -195,7 +195,7 @@ local:
 # The copy (design/subsystems/deployment.md, "Backups and restore"): a
 # pg_dump custom-format file wherever the database runs, a consistent copy
 # of a live database, never a tar of its files. The commands read the
-# standard PG* variables, which the forge sets to the app's own connection:
+# standard PG* variables, which AppTown sets to the app's own connection:
 # on a Docker host inside the database's own container, as the user it was
 # started with; for a managed database in a throwaway container of the
 # client image. Restore puts a copy back in place, over what is there;
@@ -259,7 +259,7 @@ copy:
 # target's own binding where it has one (App Platform: ${postgres.DATABASE_URL}).
 #
 # The isolation contract — what an app on a managed Postgres can rely on,
-# and what it cannot. The forge's checks hold the module to it.
+# and what it cannot. AppTown's checks hold the module to it.
 contract:
   # What the app owns: a database of its own, and a user of its own that
   # OWNS that database (so migrations can create in the public schema on
@@ -269,13 +269,13 @@ contract:
   # with every other database the cluster serves. Noisy neighbours are
   # possible; data is not.
   shared: [compute, storage, connections]
-  # The cluster's admin credential is used by the forge to create the
+  # The cluster's admin credential is used by AppTown to create the
   # database and the user and to hand ownership over. It is resolved at
   # reconcile time from the provider and reaches neither the app's spec,
-  # nor its secrets, nor any record the forge keeps.
+  # nor its secrets, nor any record AppTown keeps.
   admin: forge-only, never delivered, never recorded
   # The deployment owns its cluster. Taking it down deletes the app, takes
-  # a final copy to the forge's backup store, fills a new database from it
+  # a final copy to AppTown's backup store, fills a new database from it
   # and verifies it, and only then deletes the cluster; a copy that falls
   # short keeps the cluster as a recorded resource for a person to settle.
   retained: false
@@ -283,8 +283,8 @@ contract:
 cloud:
   digitalocean:
     kind: managed-database        # the DO need module in internal/deploy/digitalocean
-    # The forge copies it from the copy runner named on the target, as the
+    # AppTown copies it from the copy runner named on the target, as the
     # app's own user over TLS (the cluster's admin credential stays the
-    # forge's), and shows DigitalOcean's own daily backups beside its copies.
+    # AppTown's), and shows DigitalOcean's own daily backups beside its copies.
     reach: { how: connect, from: named-host, credential: app-user }
     native: { mechanism: do-database-backups }

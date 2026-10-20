@@ -11,9 +11,9 @@ description: "Experimental: no app has shipped with it yet. An in-memory cache /
 defaults:
   version: "7"
 
-# The forge sets the password (requirepass), and an app cannot. Each
+# AppTown sets the password (requirepass), and an app cannot. Each
 # deployment and each preview gets one of its own (generate); the value here
-# is only for the servers the forge starts beside its own steps and forge
+# is only for the servers AppTown starts beside its own steps and forge
 # dev.
 credentials:
   password: forge-redis

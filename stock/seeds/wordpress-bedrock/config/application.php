@@ -8,7 +8,7 @@ function required_env(string $name): string {
     return $value;
 }
 // The site's address. A bound WP_HOME is the canonical address. Otherwise it
-// is this deployment's own address: the forge's front door routes a request
+// is this deployment's own address: AppTown's front door routes a request
 // here by its Host and passes that Host on, and FORGE_ORIGINS lists the
 // origins the app is served at, so a Host matching one of them (exactly, or
 // under a *. wildcard) is where the visitor reached this deployment; that
@@ -78,7 +78,7 @@ define('AUTOMATIC_UPDATER_DISABLED', true);
 define('WP_AUTO_UPDATE_CORE', false);
 define('WP_DEBUG', false);
 define('WP_TEMP_DIR', sys_get_temp_dir());
-// Uploads live in the deployment's s3 need, whose variables the forge
+// Uploads live in the deployment's s3 need, whose variables AppTown
 // injects. The store has no public address, so media URLs are the site's
 // own (/app/uploads/..., where WordPress keeps uploads on disk) and
 // web/media.php serves them from the bucket. No object is made public.

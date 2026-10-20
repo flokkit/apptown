@@ -1,4 +1,4 @@
-# Forge stock toolchain: Ruby
+# AppTown stock toolchain: Ruby
 # Way of working: current stable line; mise installs precompiled builds
 # (ruby/ruby-builder releases — the github-releases mirror covers them).
 # Gems through the ambient Bundler mirror; lockfile committed.

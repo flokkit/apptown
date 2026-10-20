@@ -68,7 +68,7 @@ func (a *App) handleOAuthServerMetadata(w http.ResponseWriter, r *http.Request) 
 // desktop agents use; https is fine too. http to a non-loopback host is not.
 func (a *App) handleOAuthRegister(w http.ResponseWriter, r *http.Request) {
 	if a.authModeName() == "open" {
-		oauthError(w, 400, "invalid_request", "this AppTown runs in open mode; connecting an agent needs internal auth or SSO (design/subsystems/mcp.md §3)")
+		oauthError(w, 400, "invalid_request", "this AppTown runs in open mode; connecting an agent needs people to sign in: start AppTown with -auth internal or -auth trusted-header")
 		return
 	}
 	var in struct {

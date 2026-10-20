@@ -23,7 +23,7 @@ hand-kept skeleton.
     mkdir server && (cd server && npm init -y && npm i fastify pg && npm i -D typescript tsx @types/node @types/pg)
     npm create vite@latest web -- --template react-ts   # only when the app has a browser UI
 
-The forge's Dockerfile runs `npm ci` and `npm run build` at the root, then
+The seeded Dockerfile runs `npm ci` and `npm run build` at the root, then
 `npm prune --omit=dev`, and starts the app with `node --run start` in an
 image that carries no npm and no dev dependencies. Both stages are
 `node:24-slim`; the final one copies the built app and removes npm,

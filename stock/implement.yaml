@@ -58,7 +58,7 @@ spec:
               forge-native contract with two sections. `app:` is a map of your
               app's own containers (each with build:/image:/static:, ports,
               environment, command); exactly one part is `public: true` (the
-              front door). `needs:` is a map of dependencies the forge provisions
+              front door). `needs:` is a map of dependencies AppTown provisions
               and injects env for — `needs: { postgres: { version: "16" } }` —
               read the injected DATABASE_URL / PG* / REDIS_URL / AWS_*, never
               hard-code a host. Get the schema with `forge config schema` and
@@ -70,7 +70,7 @@ spec:
               Address it precisely.
 
               When done, WRITE your build report to .forge/REPORT.md (what you built, what you verified with which commands,
-              deviations). Chat output is not captured. Do not commit the report: the forge
+              deviations). Chat output is not captured. Do not commit the report: AppTown
               collects it from the workspace, and .forge/ is ignored.
               The report describes the WHOLE change: the full branch diff
               against the base, not just this session's edits. After rework
@@ -132,7 +132,7 @@ spec:
               .forge/REPORT.md is a starting point, but it is not updated
               after rework). Then: commands run, results, defects fixed,
               feedback addressed, defects remaining. Chat output is not
-              captured. Do not commit the report: the forge collects it from
+              captured. Do not commit the report: AppTown collects it from
               the workspace, and .forge/ is ignored.
         - name: boot
           uses: preview

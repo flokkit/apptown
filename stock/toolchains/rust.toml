@@ -1,4 +1,4 @@
-# Forge stock toolchain: Rust
+# AppTown stock toolchain: Rust
 # Way of working: crates through the ambient cargo mirror (generated
 # CARGO_HOME config); the rustup toolchain itself through the rust-dist
 # mirror (RUSTUP_DIST_SERVER/RUSTUP_UPDATE_ROOT ambient env).

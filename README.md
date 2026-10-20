@@ -60,8 +60,8 @@ low-code, and it doesn't replace your Git host or ticket tracker.
 - [What it is for](stock/docs/guides/what-apptown-is-for.md): the problems it
   addresses and what it is not.
 - [How it works](stock/docs/guides/architecture.md): the pieces, as built.
-- [What 1.0 promises](stock/docs/guides/compatibility.md) and
-  [what is next](stock/docs/guides/compatibility.md#not-in-10).
+- [What 1.0 promises](stock/docs/guides/compatibility.md), and
+  [what is not in 1.0](stock/docs/guides/compatibility.md#not-in-10).
 - [Running one](stock/docs/guides/running-apptown.md): installing and
   operating AppTown, including model-backed agents.
 - [Supported platforms and system requirements](stock/docs/guides/platforms.md).

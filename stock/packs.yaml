@@ -1,14 +1,14 @@
 # Packs: complete ways-of-working a new project opts into (state-model §6.4).
 # guidance = pinned manifest imports; workflows = installed from the library.
 packs:
-  # The platform tier (design/subsystems/ways-of-working-versions.md §1.1): the forge's
+  # The platform tier (design/subsystems/ways-of-working-versions.md §1.1): AppTown's
   # own coupling — health, the front door, no build artifacts — and the
   # system workflows. Every repo-backed project is on it directly; it is
   # never included in another pack and never offered in the wizard.
   - name: forge
     platform: true
     description: >-
-      What any app the forge runs must do, and the forge's own workflows.
+      What any app AppTown runs must do, and AppTown's own workflows.
       Every project with a repository is on it.
     guidance:
       - deploy/health-declared
@@ -18,7 +18,7 @@ packs:
     workflows: [land, ship, adopt-integration, retire-integration]
   - name: conventions-only
     description: >-
-      The forge's own conventions and nothing else: no language, no
+      AppTown's own conventions and nothing else: no language, no
       framework, no data opinion. Anything with a Dockerfile or a static
       folder gets previews, review, landing and deployment.
     guidance:
@@ -187,7 +187,7 @@ packs:
       Experimental: its landing fixes have not shipped a new app yet. Spring Boot on Temurin 21, Maven, Postgres + Flyway, deployed as
       an executable jar. Starts from Spring Initializr on the first change.
       Toolchain pinned in mise.toml; dependencies are fetched through the
-      package registries this forge is set up with.
+      package registries AppTown is set up with.
     toolchain: java
     services:
       - name: postgres
@@ -217,7 +217,7 @@ packs:
       Experimental: not yet run in production by the maintainers for two weeks, and its SDK download is not mirrored. ASP.NET Core on .NET 9: minimal APIs, EF Core on Postgres, one
       published app. Starts from the SDK's own templates on the first change.
       Toolchain pinned in mise.toml; packages are fetched through the
-      package registries this forge is set up with.
+      package registries AppTown is set up with.
     toolchain: dotnet
     services:
       - name: postgres
@@ -246,7 +246,7 @@ packs:
       Rails 8 on Ruby 3.4: server-rendered pages with Hotwire, Postgres,
       Puma, propshaft — no Node toolchain. Starts from `rails new` on the
       first change. Toolchain pinned in mise.toml; gems are fetched through
-      the package registries this forge is set up with.
+      the package registries AppTown is set up with.
     toolchain: ruby
     services:
       - name: postgres
@@ -274,7 +274,7 @@ packs:
     description: >-
       Experimental: not yet run in production by the maintainers for two weeks with a clean image scan. Stable Rust via mise, std-first services, minimal crates, deployed
       as a release binary. Toolchain and crates are fetched through the
-      package registries this forge is set up with.
+      package registries AppTown is set up with.
     toolchain: rust
     guidance:
       - arch/boring-technology

@@ -38,7 +38,7 @@ spec:
               WRITE .forge/NOTES.md: findings so far, each with its source URL;
               contradictions between sources; open questions; what you'd
               investigate next. Chat output is not captured. Do not commit it
-              and do not change the project's files: the forge collects the
+              and do not change the project's files: AppTown collects the
               notes from the workspace, and .forge/ is ignored.
       steps:
         - name: notes-exist
@@ -65,7 +65,7 @@ spec:
               ${{feedback.latest}}
 
               WRITE .forge/REPORT.md. Do not commit it and do not change the
-              project's files: the forge collects the report from the
+              project's files: AppTown collects the report from the
               workspace, and .forge/ is ignored.
 
               --- QUESTION ---

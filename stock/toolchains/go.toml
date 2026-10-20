@@ -1,4 +1,4 @@
-# Forge stock toolchain: Go
+# AppTown stock toolchain: Go
 # Way of working: modules via GOPROXY (ambient); pin the toolchain minor.
 # Build `go build ./...`, test `go test ./...`, vuln posture via osv scan.
 [tools]

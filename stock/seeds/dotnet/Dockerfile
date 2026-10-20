@@ -1,4 +1,4 @@
-# Packaging recipe for this way of working (built by the forge at release).
+# Packaging recipe for this way of working (built by AppTown at release).
 # Generate the app with `dotnet new web -o App` (see the dotnet selection
 # guidance). The SDK image builds; the aspnet runtime image runs. CMD, not
 # ENTRYPOINT, so the init step in .forge/app.yaml can run the same image

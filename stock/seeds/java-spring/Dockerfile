@@ -1,4 +1,4 @@
-# Packaging recipe for this way of working (built by the forge at release).
+# Packaging recipe for this way of working (built by AppTown at release).
 # Generate the app from Spring Initializr (see the java-spring selection
 # guidance). Maven comes from the build image — this pack declares its
 # toolchain in mise.toml and vendors NO wrapper scripts, so the recipe must

@@ -53,7 +53,7 @@ spec:
 
               WRITE .forge/ADOPT.md: what was wired, files
               changed and why, how both modes were verified. Chat output is
-              not captured. Do not commit the report: the forge collects it
+              not captured. Do not commit the report: AppTown collects it
               from the workspace, and .forge/ is ignored.
 
               --- CHANGE ---

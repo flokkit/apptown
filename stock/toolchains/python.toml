@@ -1,4 +1,4 @@
-# Forge stock toolchain: Python
+# AppTown stock toolchain: Python
 # Way of working: uv for everything (venv + install, ambient index);
 # precompiled interpreter (python-build-standalone via the github mirror).
 [tools]

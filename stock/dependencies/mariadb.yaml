@@ -8,8 +8,8 @@ defaults:
   version: "11.4.13"
   database: app
   user: app
-# The forge sets the password. Each deployment and each preview gets one of
-# its own (generate); the value here is only for the servers the forge
+# AppTown sets the password. Each deployment and each preview gets one of
+# its own (generate); the value here is only for the servers AppTown
 # starts beside its own steps and forge dev.
 credentials:
   password: app
@@ -20,7 +20,7 @@ provides:
   DB_PORT: the server's port
   DB_NAME: the app's database
   DB_USER: the app's user, with every right on the database
-  DB_PASSWORD: the user's password, set by the forge
+  DB_PASSWORD: the user's password, set by AppTown
   DB_SSL_MODE: DISABLED or REQUIRED (MySQL's words), whether the connection must use TLS
 local:
   image: mariadb:{version}

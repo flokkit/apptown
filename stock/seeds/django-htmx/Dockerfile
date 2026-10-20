@@ -1,4 +1,4 @@
-# Packaging recipe for this way of working (built by the forge at release).
+# Packaging recipe for this way of working (built by AppTown at release).
 # Adapt the project module (`app` here, as `django-admin startproject app .`
 # names it) to the app; keep the python base. Dependencies via uv from the
 # committed lockfile — the declared way of working (uv for everything,

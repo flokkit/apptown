@@ -1,5 +1,5 @@
-# Stock workflow: product-spec. The accepted specification is a record the
-# forge keeps (the spec-final artifact), not a file in the repository: an
+# Stock workflow: product-spec. The accepted specification is a record
+# AppTown keeps (the spec-final artifact), not a file in the repository: an
 # implement run reads it as ${{latest.spec-final}}. Its role is record:
 # accepting the spec closes the change, and nothing lands.
 apiVersion: forge.flokkit.io/v1

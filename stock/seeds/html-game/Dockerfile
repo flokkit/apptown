@@ -1,4 +1,4 @@
-# Packaging recipe for this way of working (built by the forge at release).
+# Packaging recipe for this way of working (built by AppTown at release).
 # Base image is part of the way of working — keep the caddy family.
 # no-cache (with ETags): after a release, players must see the new game on
 # the next load — a silent server invites browsers' heuristic caching.

@@ -2,7 +2,7 @@
 name: data/large-data-files
 tags: data,repo,size
 ---
-The forge refuses to save work that adds a file over 10 MiB, or more than
+AppTown refuses to save work that adds a file over 10 MiB, or more than
 50 MiB of new files at once, to a project's repository: history is hard to
 undo, and every clone, preview and build carries it. A chat or a step that
 writes a large file cannot save until the file is gone, so plan for data

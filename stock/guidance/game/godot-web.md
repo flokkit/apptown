@@ -5,11 +5,11 @@ checks: [{"name": "web-export-preset", "expects": "export_presets.cfg has a Web 
 ---
 The game is a Godot 4 project that ships to the browser. Godot's web export
 is a static folder — `index.html`, the engine as `.wasm`, the game as
-`.pck`, a small loader — and that folder is what the forge serves.
+`.pck`, a small loader — and that folder is what AppTown serves.
 
 **One rail for the build: the Dockerfile.** A multi-stage image exports the
 game headlessly in the pinned Godot image and serves the result with caddy.
-The forge builds that image for previews, the gate and the deploy, and the
+AppTown builds that image for previews, the gate and the deploy, and the
 `web-export-builds` check runs the same export on every change, so "check
 passes" means "the game builds for the web".
 
@@ -17,7 +17,7 @@ passes" means "the game builds for the web".
 declare `docker: true` have private Docker at `DOCKER_HOST=tcp://dind:2375`,
 unless the operator disables it with `-no-private-docker`. Read-only project chats
 have no daemon. Run `forge preview` in a change chat to build and boot the
-Dockerfile independently on the forge server, including when private Docker
+Dockerfile independently on AppTown's server, including when private Docker
 is disabled. The Godot executable lives in the pinned build image, not
 necessarily on the chat's PATH. For direct headless checks, declare the matching engine in
 `mise.toml` and run `mise install`, then `mise exec -- godot --headless ...`.

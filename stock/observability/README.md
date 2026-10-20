@@ -1,8 +1,8 @@
-# The Forge dashboard
+# AppTown dashboard
 
 Current signal semantics and limitations: [Telemetry](../../design/subsystems/telemetry.md).
 
-`forge-dashboard.json` is a Grafana dashboard for forge's own telemetry: what
+`forge-dashboard.json` is a Grafana dashboard for AppTown's own telemetry: what
 forged exports when `--otlp-endpoint` is set. It is a file, not a feature:
 forge does not provision Grafana or manage this dashboard. Load it, change it
 in Grafana if you like, export it and commit it back; the commit is the record.
@@ -20,14 +20,14 @@ the Grafana that holds Tempo, or set it to that Grafana's address.
 
 ## What the stack must do
 
-Forge exports cumulative counters and histograms and seeds nothing at zero.
+AppTown exports cumulative counters and histograms and seeds nothing at zero.
 A series therefore does not exist in Prometheus until its first event, and
 Prometheus's `rate()` and `increase()` cannot see the jump from no series to
 the first value. Without help, the first step attempt, the first inference
 call and the first request on each route after every forged restart show in
 the raw counters but never on a rate panel.
 
-The remedy is the stack's, not forge's: OpenTelemetry marks every cumulative
+The remedy is the stack's, not AppTown's: OpenTelemetry marks every cumulative
 series with its start time, and Prometheus can write a zero sample at that
 time so the first event is a visible increase. The M in `otel-lgtm` is
 Prometheus, not Mimir, and the setting is Prometheus's feature flag, passed
@@ -39,7 +39,7 @@ The OTLP receiver (`--web.enable-otlp-receiver`) must be on as well, which
 `otel-lgtm` already does. The maintainers' stack runs Prometheus 3.14 with both
 set, read back from its status API on 18 September 2026. On a new stack,
 enable the flag and verify it by restarting forged, running one step, and
-checking that the "How attempts ended" panel shows the attempt. Forge used
+checking that the "How attempts ended" panel shows the attempt. AppTown used
 to seed one counter's closed label space at zero as a stopgap; that covered
 nothing the flag does not, and was removed on 18 September 2026 once the flag
 was on.
@@ -65,7 +65,7 @@ was on.
   them.
 
 The variable called `instance` filters the OpenTelemetry `job` label, normally
-`forge/forged`. It distinguishes jobs, not multiple Forge deployments with the
+`forge/forged`. It distinguishes jobs, not multiple AppTown installations with the
 same namespace/service name. Tempo job panels only filter service name. Do not
 use this dashboard as proof of per-instance isolation until unique instance
 attributes are mapped by the receiver and applied consistently to its queries.
