@@ -52,6 +52,17 @@ GHCR packages start private, also for a public repository. For anonymous
 pulls, make each package public in its package settings on GitHub. A
 failed run can be retried by re-running the tag's workflow.
 
+After every image is merged, the `site` job publishes apptown.dev
+(`site/publish.sh <version>`): the landing page and the `try` script, which
+starts the version just published. A test tag (`-test.N`) skips it, so the
+public install command never names a test build. The job signs in to AWS with
+GitHub's OIDC token as `apptown-site-publisher`, a role that may only write the
+site bucket and invalidate its distribution, and only for this repository's
+`v*` tags; no AWS key is stored in GitHub. The role, the bucket and the
+distribution are made by `tf/products/apptown/site` in the maintainers'
+infrastructure repository. A maintainer with AWS credentials can still publish
+by hand with the same script.
+
 ## The images
 
 | Image | Built from | Runs |

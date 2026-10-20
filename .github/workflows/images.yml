@@ -138,3 +138,25 @@ jobs:
         env:
           DIGEST: ${{ steps.index.outputs.digest }}
         run: cosign sign --yes "$IMAGE@$DIGEST"
+
+  # apptown.dev's try script starts the version just published, so the site
+  # is published only once every image is merged. A test tag (-test.N) builds
+  # and publishes images but leaves the public site alone. GitHub's OIDC token
+  # signs in to AWS as apptown-site-publisher (tf/products/apptown/site in the
+  # maintainers' infrastructure repository), which may write the site bucket
+  # and invalidate its distribution, for this repository's v* tags only.
+  site:
+    name: publish apptown.dev
+    needs: merge
+    if: ${{ !contains(github.ref_name, '-test.') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::762435587066:role/apptown-site-publisher
+          aws-region: us-east-1
+      - run: sh site/publish.sh "${GITHUB_REF_NAME#v}"
