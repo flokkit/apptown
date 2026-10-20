@@ -9,6 +9,10 @@ lives in `web/app/themes/forge-site`. The public document root is `web`.
 Code changes, core/plugin upgrades and theme changes are reviewed image builds.
 Never install code from the dashboard or edit a running container. The runtime
 is non-root and cannot write application source; `/tmp` remains writable.
+The image's `app.ini` sets `display_errors=Off` and logs errors to stderr: keep
+it so. Shown errors reach visitors as a page with status 200, which no check
+can tell from a working page; hidden, a fatal error is a 500 that fails the
+preview, with its reason in the log.
 
 Build and test with the Docker recipes in README.md. PHP and Composer are not
 promised on the agent host. Raise dependency versions deliberately with the

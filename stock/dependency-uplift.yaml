@@ -97,6 +97,19 @@ spec:
               report lists under "Needs a human" (a deferred major, a reverted
               update) is a finding, so a person sees it even when the change
               is empty.
+
+              Open the running app yourself. This change's preview is recorded at
+              ${{preview.url}}. Request its home page and each page the request names
+              or the diff changes, as a visitor would:
+              curl -sS -D /tmp/head.txt -o /tmp/page.html -w '%{http_code}' -H "Host: ${{preview.host}}" "$APPTOWN_URL/<path>"
+              (AppTown serves the preview by that host) and read the saved page. A page
+              that is an error (a 5xx, an exception or stack trace, PHP's "Fatal
+              error"), that is empty, or that is plainly unstyled where the request asked
+              for a look, is a finding. Follow a redirect to the same preview by
+              requesting its path the same way; a redirect elsewhere (an outside sign-in)
+              is an answer, not a failure. Name each URL you opened and its status in
+              the summary. If no preview URL is recorded, say so; if the preview could
+              not be opened, say that separately.
         - name: accept
           uses: approval
           with:

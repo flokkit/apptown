@@ -5,17 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"regexp"
 	"strings"
 
 	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/deploy/docker"
 )
 
 var interpRe = regexp.MustCompile(`\$\{\{\s*([a-zA-Z]+)\.([a-zA-Z0-9_-]+)\s*\}\}`)
 
 // Interpolate expands ${{change.*}} (alias ${{workItem.*}}), ${{run.*}},
 // ${{project.*}} and
-// ${{artifact.<kind>}} (latest artifact body of that kind on this run).
+// ${{artifact.<kind>}} (latest artifact body of that kind on this run) and
+// ${{preview.url}} / ${{preview.host}} (this run's latest recorded preview).
 func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, item *Change, projectSlug string) string {
 	return interpRe.ReplaceAllStringFunc(s, func(m string) string {
 		parts := interpRe.FindStringSubmatch(m)
@@ -67,6 +70,10 @@ func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, it
 				return reports[0].Body
 			}
 			return "(no artifact of kind \"" + key + "\" on this run yet)"
+		case "preview":
+			if key == "url" || key == "host" {
+				return previewValue(ctx, q, run, key)
+			}
 		case "feedback":
 			// ${{feedback.latest}}: the most recent rejection on this run —
 			// a reviewer's words, an approver's comment, or a failed boot
@@ -137,4 +144,37 @@ func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, it
 		}
 		return m
 	})
+}
+
+// previewValue is ${{preview.url}} or ${{preview.host}}: the address the
+// run's preview step recorded last (its artifact's ref; a record, not a
+// check that the preview still answers). host is the URL's authority with
+// its port, because AppTown forwards the Host unchanged and an app builds
+// its links from it (the trial's change-….preview.localhost:7777). A
+// reviewer reaches the preview by sending that Host to APPTOWN_URL, which
+// routes by host name only when the preview has a preview label as its
+// first name; a direct published-port URL has none, and the sentence says
+// so rather than handing out a Host that reaches AppTown itself.
+func previewValue(ctx context.Context, q database.Queryer, run *Run, key string) string {
+	previews, err := ReadRunArtifactsIn(ctx, q, RunRef{ID: run.ID, ProjectID: run.ProjectID}, ArtifactSelection{Kinds: []string{"preview"}, Latest: true})
+	if _, lookupErr := database.Lookup(err); lookupErr != nil {
+		log.Printf("read failed: %v", lookupErr)
+		return "AppTown could not read this run's preview URL."
+	}
+	if err != nil || len(previews) == 0 || previews[0].Ref == "" {
+		return "No preview URL has been recorded for this run."
+	}
+	address := previews[0].Ref
+	if key == "url" {
+		return address
+	}
+	u, err := url.Parse(address)
+	if err != nil || u.Host == "" {
+		return "AppTown could not read this run's preview URL."
+	}
+	label, _, _ := strings.Cut(u.Hostname(), ".")
+	if !docker.IsWorkPreviewLabel(label) {
+		return "This preview is not host routed; the console Host-header method cannot open it."
+	}
+	return u.Host
 }

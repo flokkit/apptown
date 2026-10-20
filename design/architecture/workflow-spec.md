@@ -93,6 +93,7 @@ placeholders, substituted as text at step start:
 | `${{artifact.<kind>}}` | the body of this run's latest artifact of that kind |
 | `${{latest.<kind>}}` | the project's latest artifact of that kind, any run |
 | `${{feedback.latest}}` | the last rejection comment or reviewer finding on this change |
+| `${{preview.url}}`, `${{preview.host}}` | this run's latest recorded preview address, and its Host (with any port) for reaching it through `APPTOWN_URL`; a sentence instead when none is recorded or the preview is not host routed |
 
 No comparisons, no functions, no loops. Anything that needs logic is a
 `script` or an agent step. There is no `if:`, `when:` or

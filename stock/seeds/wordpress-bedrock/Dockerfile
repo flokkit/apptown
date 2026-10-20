@@ -18,8 +18,12 @@ RUN curl -fsSL https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli
 COPY . .
 COPY config/apache.conf /etc/apache2/sites-available/000-default.conf
 COPY config/prefork.conf /etc/apache2/mods-available/mpm_prefork.conf
+# The image ships no php.ini, so PHP's own default shows errors on the page:
+# a fatal error then reaches visitors as text with status 200, and AppTown's
+# front-page check sees a page that answered. Hidden and logged, a fatal is a
+# 500 the check fails, and the container's log (stderr) says why.
 RUN chmod -R a-w /app && chmod a+rx /app/bin/* \
-    && printf 'expose_php=Off\nupload_max_filesize=16M\npost_max_size=20M\nmemory_limit=96M\n' > /usr/local/etc/php/conf.d/app.ini
+    && printf 'expose_php=Off\ndisplay_errors=Off\nlog_errors=On\nerror_log=/dev/stderr\nupload_max_filesize=16M\npost_max_size=20M\nmemory_limit=96M\n' > /usr/local/etc/php/conf.d/app.ini
 ENV APACHE_RUN_DIR=/tmp/apache2 APACHE_LOCK_DIR=/tmp/apache2-lock APACHE_PID_FILE=/tmp/apache2/apache2.pid WP_CLI_CACHE_DIR=/tmp/wp-cli-cache HOME=/tmp
 USER www-data
 EXPOSE 8080
