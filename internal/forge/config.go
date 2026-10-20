@@ -87,8 +87,11 @@ type Config struct {
 	// DrainLocalDocker makes startup repair the witnessed switch into the
 	// no-local-docker mode (-drain-local-docker): see drainLocalDocker.
 	DrainLocalDocker bool
-	DataDir          string
-	PublicHost       string
+	// LocalTLS is this forge serving itself over HTTPS from its own local
+	// certificate authority (-local-tls, the desktop trial); nil otherwise.
+	LocalTLS   *console.LocalTLS
+	DataDir    string
+	PublicHost string
 	// RestoreGateImage is the access gate's image by digest
 	// (-restore-gate-image): without it, and a -public-host origin for the
 	// gate to redeem tickets at, the forge makes no restored copy.
@@ -191,6 +194,7 @@ type configuration struct {
 	portainerEnvironment                                            string
 	taskLimits, chatLimits                                          execution.Limits
 	hostScripts                                                     bool
+	localTLS                                                        *console.LocalTLS
 	features                                                        map[string]bool
 	tierDomains                                                     map[string]tierDomain
 	proxies                                                         proxyPolicy
@@ -302,7 +306,7 @@ func (c Config) prepare() (configuration, error) {
 		}
 		checkWorker.Now = clock.Now
 	}
-	return configuration{clock: clock, worker: worker, checkWorker: checkWorker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, drainLocalDocker: c.DrainLocalDocker, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
+	return configuration{clock: clock, worker: worker, checkWorker: checkWorker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, drainLocalDocker: c.DrainLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
 		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, agentModel: c.AgentModel, agentConcurrency: c.AgentConcurrency, portainerEnvironment: c.PortainerEnvironment,
 		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits), hostScripts: c.HostScripts,

@@ -68,6 +68,7 @@ type daemonFlags struct {
 	verifyOnly                                       bool
 	noPrivateDocker                                  bool
 	noLocalDocker                                    bool
+	localTLS                                         bool
 	drainLocalDocker                                 bool
 	resetPassword                                    string
 	backfillMain                                     bool
@@ -91,6 +92,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.Int64Var(&o.bundleMaxBytes, "import-bundle-max-bytes", projectlifecycle.DefaultBundleMaxBytes, "the largest Git bundle a project that starts from existing code may upload")
 	fs.BoolVar(&o.privateDocker, "private-docker", false, "admit agent steps that declare private Docker (docker: true) on the worker: the operator's opt-in; every such attempt records whether the worker's measured profile is qualified (design/operations/workers.md)")
 	fs.BoolVar(&o.noPrivateDocker, "no-private-docker", false, "refuse agent steps that declare private Docker (docker: true), and give change consoles none")
+	fs.BoolVar(&o.localTLS, "local-tls", false, "serve -addr over HTTPS from a certificate authority AppTown makes in <data>/local-tls, which vouches only for localhost names; plain HTTP there is sent to https. For the desktop trial: a server has its own TLS in front. Needs an https:// -public-host")
 	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url); an AppTown that last ran with its own Docker first needs -drain-local-docker (design/operations/workers.md)")
 	fs.BoolVar(&o.drainLocalDocker, "drain-local-docker", false, "one-shot, with this AppTown's normal settings and its own Docker, while it is not serving: repair interrupted work, check that no local work or execution container is left, record the drain that admits a start with -no-local-docker, and exit (non-zero, naming what is left, otherwise)")
 	fs.BoolVar(&o.backfillMain, "backfill-recorded-main", false, "one-shot, with this AppTown's normal settings while no forged serves its database: record each repository-backed project's current main as where recording began (projects already recorded are kept, an unreadable main stays unknown), print the counts, and exit without serving (for projects created before AppTown recorded main)")
@@ -153,10 +155,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	mainTLS, chatTLS, err := localTLS(o.localTLS, o.publicHost, o.addr, dataDir, o.tierDomains)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if o.taskCPUs <= 0 || o.taskMemoryMiB <= 0 || o.taskPIDs <= 0 || o.chatCPUs <= 0 || o.chatMemoryMiB <= 0 || o.chatPIDs <= 0 {
 		log.Fatal("-task-* and -chat-* limits must be above zero: no container runs unbounded")
 	}
 	cfg := o.forgeConfig(dataDir)
+	cfg.LocalTLS = chatTLS
 	workerAt := func(url string) *forge.WorkerConfig {
 		return &forge.WorkerConfig{URL: url, Cert: o.workerCert, Key: o.workerKey, CA: o.workerCA}
 	}
@@ -341,7 +348,8 @@ func main() {
 		verification.SyncStockScanners(ctx, app.Integrations, stock.FS)
 		app.SyncStockDependencies(ctx)
 		runtime := daemonRuntime{
-			servers: []*http.Server{servedAt(o.addr, app.Handler())},
+			servers:  []*http.Server{servedAt(o.addr, app.Handler())},
+			wrapMain: mainTLS,
 			// The first remediation pass after a start reconciles what the
 			// last process left, without waiting for the schedule.
 			start: func() { app.Fixes.Wake(ctx) },

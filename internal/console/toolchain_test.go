@@ -33,8 +33,7 @@ func TestAFailedToolchainInstallIsSaidToTheLogAndTheAgent(t *testing.T) {
 			t.Fatal(err)
 		}
 		argv := toolchainArgs(work, scratch, []string{"sh", "-c", `printf '%s|%s' "$1" "$2"`, "sh", "--flag", "Implement the change."})
-		cmd := exec.Command(argv[0], argv[1:]...)
-		cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
+		cmd := command(argv, append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH")))
 		var stderr strings.Builder
 		cmd.Stderr = &stderr
 		out, err := cmd.Output()
@@ -51,4 +50,12 @@ func TestAFailedToolchainInstallIsSaidToTheLogAndTheAgent(t *testing.T) {
 			t.Fatalf("fails=%v: said %v, told the agent %v\nstderr: %s\nargv: %q", fails, said, told, stderr.String(), got)
 		}
 	}
+}
+
+// command is the one place these tests start a process: a launcher's shell
+// text, run as the container would run it.
+func command(argv, env []string) *exec.Cmd {
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Env = env
+	return cmd
 }

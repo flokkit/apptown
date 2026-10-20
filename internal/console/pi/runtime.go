@@ -67,6 +67,10 @@ type Config struct {
 	// shared tool cache, worker/tool_cache.go). Its daemon and its script
 	// get none of them.
 	Mounts []string
+	// LocalTLS, when set, is the forge's own local HTTPS (forged
+	// -local-tls): each chat gets the authority's certificate and the
+	// prelude that trusts it and reaches the forge's addresses.
+	LocalTLS *console.LocalTLS
 }
 
 // CLI is a Config.Run for a program with no daemon scope of its own

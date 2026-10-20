@@ -694,3 +694,32 @@ func TestTheForgesChatsShareForgeCache(t *testing.T) {
 		}
 	}
 }
+
+// On a forge with its own local HTTPS, a chat gets the authority's
+// certificate (never its key) in /console and a launcher that trusts it and
+// reaches the forge before pi starts; on any other forge it gets neither.
+func TestAChatOnALocalTLSForgeTrustsTheAuthority(t *testing.T) {
+	r, in, _ := fixture(t)
+	if err := r.provision(in); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(in.Dir, console.LocalCAFile)); err == nil {
+		t.Fatal("a chat on a forge without local HTTPS got a certificate")
+	}
+	if run, _ := os.ReadFile(filepath.Join(in.Dir, "run-pi.sh")); strings.Contains(string(run), console.LocalCAFile) {
+		t.Fatalf("a chat on a forge without local HTTPS got the prelude: %s", run)
+	}
+
+	tls := &console.LocalTLS{CACert: []byte("THE-CA-CERT"), Port: 7777, Target: "host.docker.internal:7777"}
+	r.cfg.LocalTLS = tls
+	if err := r.provision(in); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(in.Dir, console.LocalCAFile)); string(got) != "THE-CA-CERT" {
+		t.Fatalf("staged certificate %q", got)
+	}
+	run, _ := os.ReadFile(filepath.Join(in.Dir, "run-pi.sh"))
+	if at := strings.Index(string(run), console.LocalTLSPrelude(*tls)); at < 0 || at > strings.Index(string(run), "exec pi ") {
+		t.Fatalf("the launcher does not run the local HTTPS prelude before pi: %s", run)
+	}
+}

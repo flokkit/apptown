@@ -27,6 +27,7 @@ groups:
   - title: Running AppTown
     guides:
       - running-apptown
+      - platforms
       - compatibility
       - cli-json
   - title: How AppTown works

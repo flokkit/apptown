@@ -38,7 +38,7 @@ APP = MOD + "forge"     # the App, the composition root; forge's subsystems live
 DOMAIN = APP + "/"
 # Libraries sit at internal/<x>: they know nothing of forge and could be lifted into another
 # program. A library may not import the App or anything under it.
-LIBRARIES = {"access", "check", "clock", "console", "database", "dbtest", "deploy", "diskspace", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "stamp", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
+LIBRARIES = {"access", "check", "clock", "console", "database", "dbtest", "deploy", "diskspace", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "localtls", "stamp", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
 
 # A kernel is a subsystem every other subsystem may import, and which may import
 # only leaves, libraries and kernels. access is no longer one: the rule and its
@@ -56,7 +56,7 @@ FACADES = ["changeconsole", "remediation", "projectlifecycle", "modelcall", "con
            "verification", "maintenance", "workcommands", "inference", "changeadds", "evals"]
 # jobs is the queue the daemon builds once with every subsystem's handlers bound: a
 # cross-cutting facility, not a subsystem.
-LEAVES = {"database", "audit", "enum", "fault", "gitexec", "stamp", "strs", "wiregen", "schema", "execution", "dbtest", "dbschema", "appcontract", "jobs",
+LEAVES = {"database", "audit", "enum", "fault", "gitexec", "localtls", "stamp", "strs", "wiregen", "schema", "execution", "dbtest", "dbschema", "appcontract", "jobs",
           "projectsql", "releasesql", "accesssql", "librarysql", "progress", "httpx", "resources",
           "dependency"}
 # The arrows between subsystems. A subsystem may import only the subsystems

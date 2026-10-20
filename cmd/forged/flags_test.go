@@ -37,7 +37,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			v = "1.5"
 		case "task-memory-mib", "task-pids", "chat-memory-mib", "chat-pids":
 			v = "512"
-		case "verify-only", "no-private-docker", "private-docker", "no-local-docker", "drain-local-docker", "git-import-allow-private", "backfill-recorded-main", "open-on-network", "host-scripts":
+		case "verify-only", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "drain-local-docker", "git-import-allow-private", "backfill-recorded-main", "open-on-network", "host-scripts":
 			v = "true"
 		case "tier-domain":
 			v = "preview=p.example,main=m.example"

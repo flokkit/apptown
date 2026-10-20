@@ -92,12 +92,16 @@ else
 fi
 : "${FORGE_DATA:=$root/forge}"
 : "${FORGE_AUTH:=internal}"
-: "${FORGE_PUBLIC_HOST:=http://localhost:7777}"
-: "${FORGE_TIER_DOMAIN:=preview=http://preview.localhost:7777,main=http://main.localhost:7777}"
+# HTTPS from AppTown's own certificate authority (forged -local-tls), so
+# every app sees on a laptop what it sees on a server: requests arrive as
+# HTTPS (design/plans/trial-https-2026-10-20.md).
+: "${FORGE_LOCAL_TLS:=true}"
+: "${FORGE_PUBLIC_HOST:=https://localhost:7777}"
+: "${FORGE_TIER_DOMAIN:=preview=https://preview.localhost:7777,main=https://main.localhost:7777}"
 : "${FORGE_INFERENCE_ADDR:=10.213.0.1:7779}"
 : "${FORGE_INFERENCE_URL:=http://host.docker.internal:7779}"
 : "${FORGE_INFERENCE_NETWORKS:=10.213.0.0/16}"
-export FORGE_AGENT_IMAGE FORGE_DATA FORGE_AUTH FORGE_PUBLIC_HOST FORGE_TIER_DOMAIN \
+export FORGE_AGENT_IMAGE FORGE_DATA FORGE_AUTH FORGE_LOCAL_TLS FORGE_PUBLIC_HOST FORGE_TIER_DOMAIN \
 	FORGE_INFERENCE_ADDR FORGE_INFERENCE_URL FORGE_INFERENCE_NETWORKS
 
 say "starting AppTown; the first start takes a few minutes"
@@ -107,11 +111,27 @@ if [ -n "$stopping" ]; then kill -TERM "$forged_pid" 2>/dev/null || :; fi
 
 port=${FORGE_ADDR:-:7777}
 port=${port##*:}
-until curl -fsS -o /dev/null "http://127.0.0.1:$port/healthz" 2>/dev/null; do
+ca="$FORGE_DATA/local-tls/ca.pem"
+answers() {
+	if [ "$FORGE_LOCAL_TLS" = true ]; then
+		[ -s "$ca" ] && curl -fsS -o /dev/null --cacert "$ca" "https://localhost:$port/healthz" 2>/dev/null
+	else
+		curl -fsS -o /dev/null "http://127.0.0.1:$port/healthz" 2>/dev/null
+	fi
+}
+until answers; do
 	if [ -n "$stopping" ] || ! kill -0 "$forged_pid" 2>/dev/null; then break; fi
 	sleep 1
 done
 if [ -z "$stopping" ] && kill -0 "$forged_pid" 2>/dev/null; then
+	if [ "$FORGE_LOCAL_TLS" = true ]; then
+		say "AppTown serves itself and your apps at https://…localhost addresses on this computer,"
+		say "using its own certificate authority. Until this computer trusts it, your browser warns"
+		say "about each address. It can vouch only for localhost names, never for a real website."
+		say "Trust it once: copy it out with"
+		say "  docker cp $(hostname):$ca apptown-local-ca.pem"
+		say "and follow \"Trust the trial's certificate\" in Running AppTown (docs/guides/running-apptown)."
+	fi
 	if [ -s "$FORGE_DATA/setup-token" ]; then
 		say "AppTown is ready. Open $FORGE_PUBLIC_HOST/?setup=$(tr -d '[:space:]' <"$FORGE_DATA/setup-token") to create the administrator."
 	else

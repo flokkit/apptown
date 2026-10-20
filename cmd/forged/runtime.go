@@ -24,11 +24,13 @@ type daemonTask struct {
 
 type daemonRuntime struct {
 	servers []*http.Server
-	tasks   []daemonTask
-	start   func()
-	stop    func(context.Context) error
-	flush   func(context.Context) error // after every producer has drained: telemetry
-	grace   time.Duration
+	// wrapMain, when set, wraps the first server's listener (-local-tls).
+	wrapMain func(net.Listener) net.Listener
+	tasks    []daemonTask
+	start    func()
+	stop     func(context.Context) error
+	flush    func(context.Context) error // after every producer has drained: telemetry
+	grace    time.Duration
 }
 
 // Install signal handling after synchronous boot. Before then the process keeps
@@ -53,6 +55,9 @@ func (d daemonRuntime) serve(ctx context.Context) error {
 				_ = opened.Close()
 			}
 			return fmt.Errorf("listening on %s: %w", server.Addr, err)
+		}
+		if len(listeners) == 0 && d.wrapMain != nil {
+			listener = d.wrapMain(listener)
 		}
 		listeners = append(listeners, listener)
 	}

@@ -26,12 +26,14 @@ trap 'echo dind-term >> "$CALLS"; exit 0' TERM
 while [ -d "$STUB_DIR" ]; do sleep 0.1; done
 """,
     "docker": r"""[ -e "$STUB_DIR/docker-ready" ]""",
-    "curl": r"""[ -e "$STUB_DIR/forged-ready" ]""",
-    "forged": r"""echo "forged data=$FORGE_DATA auth=${FORGE_AUTH:-} tier=${FORGE_TIER_DOMAIN:-}" >> "$CALLS"
+    # The health check: records how it was asked (last call wins).
+    "curl": r"""echo "$*" > "$STUB_DIR/curl-args"; [ -e "$STUB_DIR/forged-ready" ]""",
+    "forged": r"""echo "forged data=$FORGE_DATA auth=${FORGE_AUTH:-} tier=${FORGE_TIER_DOMAIN:-} tls=${FORGE_LOCAL_TLS:-} public=${FORGE_PUBLIC_HOST:-}" >> "$CALLS"
 case "$FORGED_MODE" in
 exit37) exit 37 ;;
 serve)
-	mkdir -p "$FORGE_DATA" && echo 0123abcd > "$FORGE_DATA/setup-token"
+	mkdir -p "$FORGE_DATA/local-tls" && echo 0123abcd > "$FORGE_DATA/setup-token"
+	[ "${FORGE_LOCAL_TLS:-}" = true ] && echo cert > "$FORGE_DATA/local-tls/ca.pem"
 	trap 'echo forged-term >> "$CALLS"; exit 0' TERM
 	touch "$STUB_DIR/forged-ready"
 	while [ -d "$STUB_DIR" ]; do sleep 0.1; done ;;
@@ -100,7 +102,7 @@ class TrialEntrypoint(unittest.TestCase):
         while "is ready" not in line:
             line = p.stdout.readline()
             self.assertTrue(line, "the script ended before the ready line")
-        self.assertIn("Open http://localhost:7777/?setup=0123abcd to create the administrator.", line)
+        self.assertIn("Open https://localhost:7777/?setup=0123abcd to create the administrator.", line)
         p.send_signal(signal.SIGINT)
         out, _ = p.communicate(timeout=HANG_GUARD)
         self.assertEqual(p.returncode, 0, out)
@@ -108,13 +110,18 @@ class TrialEntrypoint(unittest.TestCase):
         self.assertLess(calls.index("forged-term"), calls.index("dind-term"), calls)
         forged = [c for c in calls if c.startswith("forged data=")][0]
         self.assertIn("auth=internal", forged)
-        self.assertIn("tier=preview=http://preview.localhost:7777", forged)
+        # HTTPS from AppTown's own authority: the trial's addresses, the
+        # flag that serves them and a health check that trusts that authority.
+        self.assertIn("tier=preview=https://preview.localhost:7777,main=https://main.localhost:7777", forged)
+        self.assertIn("tls=true public=https://localhost:7777", forged)
+        with open(os.path.join(self.tmp, "curl-args")) as f:
+            self.assertRegex(f.read(), r"--cacert \S+/local-tls/ca\.pem https://localhost:7777/healthz")
 
     def test_the_server_runs_forged_alone_with_its_own_data_directory(self):
         p = self.start(FORGE_NO_LOCAL_DOCKER="true", FORGED_MODE="exit37")
         out, _ = p.communicate(timeout=HANG_GUARD)
         self.assertEqual(p.returncode, 37, out)
-        self.assertEqual([c for c in self.called() if c], ["forged data=/var/lib/forge auth= tier="])
+        self.assertEqual([c for c in self.called() if c], ["forged data=/var/lib/forge auth= tier= tls= public="])
         self.assertNotIn("setup=", out)
 
     def test_a_container_that_cannot_run_docker_is_told_so(self):

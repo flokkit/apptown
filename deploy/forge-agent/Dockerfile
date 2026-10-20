@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libpq-dev libyaml-dev libffi-dev libssl-dev zlib1g-dev \
       tmux \
       chromium-headless-shell fonts-liberation \
+      socat libnss3-tools \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /usr/bin/fdfind /usr/local/bin/fd
 # fd as pi's tools manager looks for it, so a chat never downloads it.

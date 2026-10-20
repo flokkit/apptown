@@ -64,6 +64,7 @@ low-code, and it doesn't replace your Git host or ticket tracker.
   [what is next](stock/docs/guides/compatibility.md#not-in-10).
 - [Running one](stock/docs/guides/running-apptown.md): installing and
   operating AppTown, including model-backed agents.
+- [Supported platforms and system requirements](stock/docs/guides/platforms.md).
 
 ## What is here
 
@@ -90,7 +91,13 @@ docker run --name apptown --privileged -p 127.0.0.1:7777:7777 -v apptown:/var/li
 and open the link it prints when it says `AppTown is ready`. The first start
 takes a few minutes. Create the administrator (the link fills in the
 one-time setup token), give your model key, and start a project from the
-dashboard. Previews open at `*.preview.localhost:7777`.
+dashboard. AppTown and your apps are served over HTTPS at
+`https://localhost:7777` and `https://*.preview.localhost:7777`, from a
+certificate authority the trial makes for itself that can vouch only for
+`localhost` names. Your browser warns about these addresses until you trust
+it once: [Running AppTown](stock/docs/guides/running-apptown.md) says how
+("Trust the trial's certificate"). What it runs on is in
+[Supported platforms and system requirements](stock/docs/guides/platforms.md).
 
 **This is for trying AppTown on your own computer.** It has full control of
 your Docker (`--privileged` is root on a Linux machine, and root in Docker

@@ -49,7 +49,14 @@ func (r *Runtime) provision(in console.Launch) error {
 	if in.Model != "" {
 		piCmd += " --model '" + strings.ReplaceAll(in.Model, "'", "") + "'"
 	}
-	if err := os.WriteFile(filepath.Join(in.Dir, "run-pi.sh"), []byte("#!/bin/sh\ncd "+console.WorkMount+"\n"+console.ToolchainPrelude+"\n"+piCmd+"\n"), 0o755); err != nil {
+	prelude := console.ToolchainPrelude + "\n"
+	if t := r.cfg.LocalTLS; t != nil {
+		if err := os.WriteFile(filepath.Join(in.Dir, console.LocalCAFile), t.CACert, 0o644); err != nil {
+			return err
+		}
+		prelude += console.LocalTLSPrelude(*t) + "\n"
+	}
+	if err := os.WriteFile(filepath.Join(in.Dir, "run-pi.sh"), []byte("#!/bin/sh\ncd "+console.WorkMount+"\n"+prelude+piCmd+"\n"), 0o755); err != nil {
 		return err
 	}
 	// status off: pi owns the screen; escape-time: don't lag ESC in the TUI.

@@ -41,6 +41,7 @@ func (a *App) consoleDependencies(agent console.Agent, remote *worker.RemoteAgen
 			// writable package cache with another project's work.
 			CachePerSession: true,
 			Now:             a.cfg.clock.Now,
+			LocalTLS:        a.cfg.localTLS,
 		})
 		agent = a.consoleRuntime
 	}
