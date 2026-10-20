@@ -2,17 +2,18 @@
 # Publishes apptown.dev: this folder's page and the try script, with the
 # AppTown version the script starts, then refreshes CloudFront's cache.
 #
-#   SITE_BUCKET=… SITE_DISTRIBUTION=… sh site/publish.sh <version>
+#   sh site/publish.sh <version>
 #
-# The bucket and distribution are the outputs of tf/products/apptown/site in
-# the maintainers' infrastructure repository; publishing needs AWS
-# credentials that can write the bucket and invalidate the distribution.
+# The bucket and distribution are made by tf/products/apptown/site in the
+# maintainers' infrastructure repository; neither is a secret. Publishing
+# needs AWS credentials that can write the bucket and invalidate the
+# distribution.
 # <version> is an image tag on ghcr.io/flokkit/apptown, such as 1.0.0.
 set -eu
 
 version=${1:?usage: sh site/publish.sh <version>}
-: "${SITE_BUCKET:?set SITE_BUCKET}"
-: "${SITE_DISTRIBUTION:?set SITE_DISTRIBUTION}"
+: "${SITE_BUCKET:=apptown-dev-site-762435587066}"
+: "${SITE_DISTRIBUTION:=E1BE07O7LY01KL}"
 here=$(cd "$(dirname "$0")" && pwd)
 
 out=$(mktemp -d)
