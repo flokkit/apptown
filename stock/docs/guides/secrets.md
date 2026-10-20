@@ -9,7 +9,7 @@ never what the value was.
 
 ## Declaring
 
-The app commits a `secretspec.toml` next to its `.forge/app.yaml`. It
+The app commits a `secretspec.toml` next to its `.apptown/app.yaml`. It
 names each secret and says which parts of the app use it. It never
 contains a value.
 

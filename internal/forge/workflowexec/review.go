@@ -184,7 +184,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	_ = os.MkdirAll(filepath.Join(ws, ".forge"), 0o755)
+	_ = os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755)
 	// What the reviewer leaves in the folder is discarded afterwards
 	// (discardReviewerChanges): the folder goes back to this commit.
 	var reviewed string
@@ -200,13 +200,13 @@ func (a *Executor) Review(task *workflow.Execution) {
 	// review container died at exec with "argument list too long" (run
 	// 102). Large claims are staged as a workspace file instead; the
 	// reviewer works in the same worktree and reads it from disk.
-	if staged, pointer := stagedClaim(brief.claim, ".forge/review-claim.md"); staged != nil {
-		if err := os.WriteFile(filepath.Join(ws, ".forge", "review-claim.md"), staged, 0o644); err == nil {
+	if staged, pointer := stagedClaim(brief.claim, ".apptown/review-claim.md"); staged != nil {
+		if err := os.WriteFile(filepath.Join(ws, ".apptown", "review-claim.md"), staged, 0o644); err == nil {
 			brief.claim = pointer
 		}
 	}
 
-	verdictPath := filepath.Join(ws, ".forge", "review.json")
+	verdictPath := filepath.Join(ws, ".apptown", "review.json")
 	_ = os.Remove(verdictPath) // never trust a stale verdict
 
 	thinking := cfg.Thinking
@@ -230,7 +230,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 			finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 			return
 		}
-		env = append(env, "HOME=/work/.forge/pi-home")
+		env = append(env, "HOME=/work/.apptown/pi-home")
 	}
 	timeout := reviewTimeout
 	if cfg.TimeoutMinutes > 0 {
@@ -286,7 +286,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 }
 
 // discardReviewerChanges puts the run's folder back at the commit the
-// reviewer was given, keeping .forge (the verdict, the sessions, the
+// reviewer was given, keeping .apptown (the verdict, the sessions, the
 // collected reports). A review commits nothing: reviewers judge the work,
 // they do not change it (design/architecture/workflow-spec.md, "agent/review").
 // Whatever a reviewer leaves behind (a __pycache__ from running the tests, a
@@ -294,7 +294,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 // review would fail the implementer for it, and left in the folder, the next
 // producing step would commit it under its own name. An error means the folder may still hold them.
 func discardReviewerChanges(ctx context.Context, folder *gitexec.Folder, reviewed string) error {
-	if err := folder.Reset(ctx, reviewed, ".forge"); err != nil {
+	if err := folder.Reset(ctx, reviewed, ".apptown"); err != nil {
 		return fmt.Errorf("discarding what the reviewer left in the folder: %w", err)
 	}
 	return nil
@@ -501,12 +501,12 @@ func boundedDiff(d string) string {
 }
 
 // mandatedOutputsNote names the report files the producing steps are
-// REQUIRED to write (e.g. .forge/CHANGE.md), under the publication rule
-// (scm.RuntimeOnly): a report under .forge is forge state the forge collects
+// REQUIRED to write (e.g. .apptown/CHANGE.md), under the publication rule
+// (scm.RuntimeOnly): a report under .apptown is forge state the forge collects
 // from the workspace, never committed (publication refuses it), so it is
 // rightly absent from the diff; a report elsewhere is committed source.
 // Without the note the reviewer either flags a committed report as scope
-// creep, or fails every round demanding a .forge report in the diff.
+// creep, or fails every round demanding a .apptown report in the diff.
 func mandatedOutputsNote(steps []*workflow.Step) string {
 	var collected, committed []string
 	for _, step := range steps {
@@ -529,7 +529,7 @@ func mandatedOutputsNote(steps []*workflow.Step) string {
 	}
 	note := ""
 	if len(collected) > 0 {
-		note += "\nWORKFLOW-MANDATED REPORTS: the workflow requires the implementer to write\n" + strings.Join(collected, ", ") + " and NOT commit it: AppTown collects it from the\nworkspace, and nothing under .forge but .forge/app.yaml may be committed.\nIt is correctly ABSENT from the diff — never a finding, never ask for it to be\ncommitted. The report under review is shown above as THE IMPLEMENTER'S CLAIM.\n"
+		note += "\nWORKFLOW-MANDATED REPORTS: the workflow requires the implementer to write\n" + strings.Join(collected, ", ") + " and NOT commit it: AppTown collects it from the\nworkspace, and nothing under .apptown but .apptown/app.yaml may be committed.\nIt is correctly ABSENT from the diff — never a finding, never ask for it to be\ncommitted. The report under review is shown above as THE IMPLEMENTER'S CLAIM.\n"
 	}
 	if len(committed) > 0 {
 		note += "\nWORKFLOW-MANDATED OUTPUTS: the workflow itself requires the implementer to\nwrite these report files: " + strings.Join(committed, ", ") + ". Changes to them are REQUIRED, not scope\ncreep — do not count them against the request.\n"
@@ -559,7 +559,7 @@ func (a *Executor) scopeNote(ctx context.Context, run *workflow.Run, scope scope
 		return "", err
 	}
 	if files := repositoryedit.IgnoredChanges(changed); len(files) > 0 {
-		note += "\nIGNORED FILES COMMITTED: this change committed " + strings.Join(files, ", ") + ", which the\nrepository's own .gitignore says is not source (build output, or forge runtime\nfiles under .forge/). The verdict must be \"fail\" and the findings must name those\nfiles so the implementer removes them from git (git rm --cached).\n"
+		note += "\nIGNORED FILES COMMITTED: this change committed " + strings.Join(files, ", ") + ", which the\nrepository's own .gitignore says is not source (build output, or forge runtime\nfiles under .apptown/). The verdict must be \"fail\" and the findings must name those\nfiles so the implementer removes them from git (git rm --cached).\n"
 	}
 	if files := repositoryedit.DependencyChangesOutOfScope(changed, workflow.AcceptanceScopeOf(ch)); len(files) > 0 {
 		note += "\nOUT-OF-SCOPE DEPENDENCY CHANGES: this change exists to close one conformance\ncheck, and it changed " + strings.Join(files, ", ") + " beyond adding a package. Moving\ndependencies is not its job, however small or well-meant the bump; the verdict\nmust be \"fail\" and the findings must name those files so the implementer\nreverts them.\n"
@@ -603,7 +603,7 @@ func undecidedFindingsNote(steps []*workflow.Step) string {
 // is still no usable verdict.
 //
 // Timeout is a PAUSE, not a kill: the session transcript
-// survives in .forge/sessions, so instead of discarding 20+ minutes of paid
+// survives in .apptown/sessions, so instead of discarding 20+ minutes of paid
 // work we resume it ONCE with a wrap-up order and a small grace budget. The
 // verdict file is a paragraph — a resumed session writes it in one turn from
 // work already done. The same net catches a clean exit that forgot the file:
@@ -619,7 +619,7 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, t
 		if timedOut {
 			return reviewVerdict{}, "review timed out (no verdict even after wrap-up resume)"
 		}
-		return reviewVerdict{}, "reviewer produced no .forge/review.json verdict"
+		return reviewVerdict{}, "reviewer produced no .apptown/review.json verdict"
 	}
 	v, ok := parseReviewVerdict(raw)
 	if !ok && evidence["resumed"] == nil {
@@ -682,7 +682,7 @@ func (a *Executor) guardReviewScope(ctx context.Context, run *workflow.Run, scop
 	if files := repositoryedit.IgnoredChanges(changed); len(files) > 0 {
 		failed = append(failed, countFiles(len(files), "ignored file")+" committed")
 		v.Verdict = "fail"
-		v.Findings = append([]string{"ignored files committed: " + strings.Join(files, ", ") + " — the repository's own .gitignore says these are not source (build output, or forge runtime files under .forge/); remove them from git (git rm --cached <path>) and commit only the fix"}, v.Findings...)
+		v.Findings = append([]string{"ignored files committed: " + strings.Join(files, ", ") + " — the repository's own .gitignore says these are not source (build output, or forge runtime files under .apptown/); remove them from git (git rm --cached <path>) and commit only the fix"}, v.Findings...)
 		guard = append(guard, files...)
 	}
 	if files := repositoryedit.DependencyChangesOutOfScope(changed, workflow.AcceptanceScopeOf(ch)); len(files) > 0 {
@@ -717,12 +717,12 @@ func countFiles(n int, noun string) string {
 
 // The resume orders for a reviewer that left no usable verdict.
 const reviewWrapUp = `TIME IS UP. Do not investigate further. Based ONLY on what you have
-already examined, write .forge/review.json NOW:
+already examined, write .apptown/review.json NOW:
 {"verdict": "pass" or "fail", "summary": "...", "findings": [...]}
 If you verified some claims and found no lies, but did not finish
 everything, say exactly what was and was not checked in the summary.`
 
-const reviewFixUp = `Your .forge/review.json is INVALID or truncated. Rewrite the COMPLETE
+const reviewFixUp = `Your .apptown/review.json is INVALID or truncated. Rewrite the COMPLETE
 file now — {"verdict": "pass"|"fail", "summary": "...", "findings": [...]} —
 valid JSON, nothing else. Do not investigate further.`
 
@@ -793,7 +793,7 @@ validate" passed, run "apptown check" yourself (it re-runs this change's declare
 gates — guidance, tool checks, AND the source security scans — read-only) and
 judge the claim by that.
 
-WRITE the file .forge/review.json containing EXACTLY:
+WRITE the file .apptown/review.json containing EXACTLY:
 {"verdict": "pass" or "fail", "summary": "one short paragraph", "findings": ["specific problem", ...]}
 verdict must be "fail" if %[9]s or the claim
 misrepresents the diff. Chat output is ignored; only the file counts.`

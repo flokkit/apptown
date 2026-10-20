@@ -245,7 +245,7 @@ func (c *Contributions) Sync(ctx context.Context, changeID ids.ID, pushed, expec
 		return SyncedRevision{}, err
 	}
 	// What StageAll staged is the work an adoption would discard; the
-	// forge's untracked runtime files under .forge survive the reset.
+	// forge's untracked runtime files under .apptown survive the reset.
 	if staged, err := gitexec.Staged(ctx, ws); err != nil {
 		return SyncedRevision{}, err
 	} else if staged {

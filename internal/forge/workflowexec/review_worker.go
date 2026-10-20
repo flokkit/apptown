@@ -81,7 +81,7 @@ func reviewStep(invocation string, res invocationResult) (v reviewVerdict, next,
 	case f.State == execution.ResultAbsent && first:
 		return v, reviewWrapUpInvocation, ""
 	case f.State == execution.ResultAbsent:
-		return v, "", "reviewer produced no .forge/review.json verdict, even after the wrap-up"
+		return v, "", "reviewer produced no .apptown/review.json verdict, even after the wrap-up"
 	case f.State == execution.ResultRefused:
 		return v, "", "the review's report could not be read: the worker refused to read it (" + f.Reason + ")"
 	case f.State == execution.ResultTooLarge:

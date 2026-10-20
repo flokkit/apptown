@@ -45,7 +45,7 @@ func needWorld(t *testing.T, need string) (*both, ids.ID, map[string]string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dir, "workspaces", "project-"+slug, ".forge")
+	repo := filepath.Join(dir, "workspaces", "project-"+slug, ".apptown")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}

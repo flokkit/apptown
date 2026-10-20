@@ -304,7 +304,7 @@ func (s *Spec) CheckScopesAgainst(c *appcontract.Contract) error {
 	}
 	sort.Strings(bad)
 	if len(bad) > 0 {
-		return fmt.Errorf("%s: [scopes.%s] names no app part or init step in .forge/app.yaml (parts are scoped by name, init steps as init-<name>)", SpecFile, strings.Join(bad, "], [scopes."))
+		return fmt.Errorf("%s: [scopes.%s] names no app part or init step in .apptown/app.yaml (parts are scoped by name, init steps as init-<name>)", SpecFile, strings.Join(bad, "], [scopes."))
 	}
 	return nil
 }

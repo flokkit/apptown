@@ -24,7 +24,7 @@ import (
 type Git interface {
 	EnsureClone(ctx context.Context, in CloneRequest) (WorkspaceResult, error)
 	// SyncAttachments copies a change's attachments into a workspace (the
-	// change's folder, or a run's clone) under .forge/attachments.
+	// change's folder, or a run's clone) under .apptown/attachments.
 	SyncAttachments(ctx context.Context, changeID ids.ID, workspace string) error
 	// BringToBranch fast-forwards a change's folder to its published branch.
 	BringToBranch(ctx context.Context, workspace, repository, branch string) error

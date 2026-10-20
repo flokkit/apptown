@@ -22,8 +22,8 @@ func TestSourcePackagedSignals(t *testing.T) {
 
 	httpTestProject(t, db, "src", "S")
 	repo := filepath.Join(dataDir, "workspaces", "project-src")
-	_ = os.MkdirAll(filepath.Join(repo, ".forge"), 0o755)
-	_ = os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644)
+	_ = os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755)
+	_ = os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644)
 
 	check := func(wantReady bool) {
 		var out struct {
@@ -47,8 +47,8 @@ func TestSourcePackagedSignals(t *testing.T) {
 	// renderer packages it with the same file server as a local preview.
 	httpTestProject(t, db, "st", "T")
 	repo2 := filepath.Join(dataDir, "workspaces", "project-st")
-	_ = os.MkdirAll(filepath.Join(repo2, ".forge"), 0o755)
-	_ = os.WriteFile(filepath.Join(repo2, ".forge", "app.yaml"), []byte("app:\n  web:\n    static: .\n    public: true\n"), 0o644)
+	_ = os.MkdirAll(filepath.Join(repo2, ".apptown"), 0o755)
+	_ = os.WriteFile(filepath.Join(repo2, ".apptown", "app.yaml"), []byte("app:\n  web:\n    static: .\n    public: true\n"), 0o644)
 	var out2 struct {
 		RuntimeForm   string `json:"runtimeForm"`
 		IntranetReady bool   `json:"intranetReady"`

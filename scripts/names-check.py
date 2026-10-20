@@ -84,6 +84,25 @@ ALLOWED = [
     ("cli-invocation", r"^web/src/(pages/console/Bubbles\.tsx|brand\.test\.ts)$", r"apptown\\?\|forge\\?\) check",
      "chats from before the rename keep their [forge check] messages as written"),
     ("cli-invocation", r"^web/src/brand\.test\.ts$", r"strayNames\(", "the web name test plants old names to show it catches them"),
+    # History readers and the upgrade (push 4): revisions recorded before the
+    # rename keep .forge/, refs/forge/ and forge/change-N; these read them or
+    # move from them. Nothing writes the old names.
+    ("repo-folder", r"^internal/deploy/docker/contract_(bytes|history_test)\.go$|^internal/forge/changeadds/(changeadds|apptown_rename_test)\.go$"
+     r"|^internal/forge/repositoryedit/(scope|apptown_rename_test)\.go$|^internal/forge/scm/(repository|staging_test)\.go$"
+     r"|^internal/forge/projectlifecycle/(upgrade|upgrade_test|apptown_rename_test)\.go$|^internal/forge/workflow/workspace_git(_test)?\.go$",
+     r".", "reads or moves the contract folder as revisions before the rename hold it"),
+    ("refs", r"^internal/forge/projectlifecycle/upgrade(_test)?\.go$", r".", "the upgrade moves refs/forge/ to refs/apptown/"),
+    ("branch", r"^internal/forge/projectlifecycle/(export|export_refs_test|upgrade_test)\.go$", r".",
+     "changes and runs from before the rename keep their recorded branch names"),
+    ("env", r"^internal/forge/projectlifecycle/upgrade(_test)?\.go$", r"__FORGE_ENV__|FORGE_(ORIGINS|BROWSER_ENV|RELEASE|TOKEN)",
+     "the upgrade's text rename names what it renames"),
+    ("static-path", r"^internal/forge/projectlifecycle/upgrade_test\.go$", r".", "the upgrade's text rename names what it renames"),
+    ("api-version", r"^internal/forge/projectlifecycle/upgrade_test\.go$", r".", "the upgrade's text rename names what it renames"),
+    # The operator's one-time upgrade step names what it moves from (push 4).
+    ("repo-folder", r"^stock/docs/guides/running-apptown\.md$", r"moves the repository folder `\.forge/` to `\.apptown/`",
+     "the upgrade step tells an operator which folder it renames"),
+    ("refs", r"^stock/docs/guides/running-apptown\.md$", r"moves `refs/forge/` to `refs/apptown/`",
+     "the upgrade step tells an operator which refs it moves"),
     # History readers (push 3): records written before the rename keep their
     # names, so these readers know the old spelling. Nothing writes it.
     ("trailer-or-header", r"^internal/trailer/trailer\.go$", r"OldOperation = \"Forge-Operation\"",

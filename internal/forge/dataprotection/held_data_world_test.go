@@ -18,7 +18,7 @@ import (
 )
 
 // releasedContracts is the canonical repository as release sources read
-// it: each revision's .forge/app.yaml. A revision it does not hold cannot
+// it: each revision's .apptown/app.yaml. A revision it does not hold cannot
 // be read, as an unreachable commit cannot.
 type releasedContracts struct {
 	mu sync.Mutex
@@ -115,7 +115,7 @@ func mustProjectOf(t *testing.T, s *both, slug string) ids.ID {
 	return p.ID
 }
 
-// runRelease commits yaml as revision's .forge/app.yaml (when the sources
+// runRelease commits yaml as revision's .apptown/app.yaml (when the sources
 // are releasedContracts; other sources answer for themselves) and settles a
 // generation of dep running it, through the deployment's own outcome
 // operations: the deployment then records that revision as what it runs.

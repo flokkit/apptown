@@ -129,7 +129,7 @@ func sessionFiles(dir, session string) ([]string, string) {
 		return nil, fmt.Sprintf("session %q cannot name a transcript", session)
 	}
 	for d := dir; ; d = filepath.Dir(d) {
-		if base := filepath.Base(d); base != ".forge" && base != "sessions" {
+		if base := filepath.Base(d); base != ".apptown" && base != "sessions" {
 			break
 		}
 		if fi, err := os.Lstat(d); os.IsNotExist(err) {

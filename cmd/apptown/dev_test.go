@@ -11,10 +11,10 @@ import (
 	"flokkit.io/forge/internal/deploy/docker/dockertest"
 )
 
-// apptown dev writes its compose file under .forge/, but the file's relative
+// apptown dev writes its compose file under .apptown/, but the file's relative
 // paths name the app's tree: compose must resolve them from the repo root.
 // The layout is reading-list's (a Dockerfile at the root that copies a
-// frontend/ subfolder), where compose run from .forge/ failed with
+// frontend/ subfolder), where compose run from .apptown/ failed with
 // "open Dockerfile: no such file or directory".
 func TestDevComposeResolvesPathsFromTheRepoRoot(t *testing.T) {
 	args := devComposeArgs("up", "-d")
@@ -28,7 +28,7 @@ func TestDevComposeResolvesPathsFromTheRepoRoot(t *testing.T) {
 		t.Skip("no docker compose client here; the argument contract above still holds")
 	}
 	root := t.TempDir()
-	for _, dir := range []string{".forge", "frontend"} {
+	for _, dir := range []string{".apptown", "frontend"} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
 			t.Fatal(err)
 		}

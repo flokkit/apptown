@@ -31,7 +31,7 @@ import (
 func TestTheGuidanceStepActsOnWhatTheBrowserCheckEstablishes(t *testing.T) {
 	t.Parallel()
 	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
-	const loads = `<html><head><script src="/_forge/env.js"></script><script src="game.js"></script></head></html>`
+	const loads = `<html><head><script src="/_apptown/env.js"></script><script src="game.js"></script></head></html>`
 	const never = `<html><script src="game.js"></script></html>`
 	booted, gone, lands := browserLane{boots: true, running: true}, browserLane{boots: true}, browserLane{}
 	for _, tc := range []struct {
@@ -81,7 +81,7 @@ type browserLane struct{ boots, running, later bool }
 func runBrowserGate(t *testing.T, lane browserLane, installed, served, page string, acceptance bool) *workflow.Step {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/_forge/env.js" {
+		if r.URL.Path == "/_apptown/env.js" {
 			w.Write([]byte(docker.BrowserEnvScript(served)))
 			return
 		}
@@ -131,10 +131,10 @@ func runBrowserGate(t *testing.T, lane browserLane, installed, served, page stri
 		t.Fatal(err)
 	}
 	ws := source.Workspace(a.cfg.dataDir)
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commitFolder(t, ws) // a check reads a commit

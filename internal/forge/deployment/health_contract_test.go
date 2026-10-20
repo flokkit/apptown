@@ -34,7 +34,7 @@ func (r *revisionSources) Contract(_ context.Context, _ ReleaseProject, rev stri
 // project's newest contract: an unreleased change to the health check does
 // not change how running software is judged. A new release moves it.
 //
-// Kills: reading .forge/app.yaml from the project's repository folder.
+// Kills: reading .apptown/app.yaml from the project's repository folder.
 func TestHealthProbesTheContractOfTheReleaseThatRuns(t *testing.T) {
 	t.Parallel()
 	s, in, _, _ := requestFixture(t)

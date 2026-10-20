@@ -193,7 +193,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 			return
 		}
 	}
-	_ = os.MkdirAll(filepath.Join(ws, ".forge", "resources"), 0o755)
+	_ = os.MkdirAll(filepath.Join(ws, ".apptown", "resources"), 0o755)
 
 	st, err := a.buildSteering(task.Context(), run, step, &cfg, ws, k)
 	if err != nil {
@@ -254,7 +254,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 			"them by invoking their workflows. Never echo the environment.\n" +
 			"(glab auth status misreports env-based auth; trust actual calls.)\n"
 		st.Hash = deploy.ConfigHash(st.Text)
-		if err := os.WriteFile(filepath.Join(ws, ".forge", "steering.md"), []byte(st.Text), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(ws, ".apptown", "steering.md"), []byte(st.Text), 0o644); err != nil {
 			fail(workflow.StatusError, map[string]any{"reason": "writing steering: " + err.Error()})
 			return
 		}

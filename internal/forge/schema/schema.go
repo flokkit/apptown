@@ -153,7 +153,7 @@ func ParseWorkflowStored(src []byte) (*Doc, error) { return parseWorkflow(src, f
 
 // APIVersion is the one workflow format version this forge reads; a
 // document without one is this version.
-const APIVersion = "forge.flokkit.io/v1"
+const APIVersion = "apptown.dev/v1"
 
 // legacyChangeAlias is ${{workItem.*}}, the older name of ${{change.*}}.
 // Stored versions that use it stay runnable; a save may not use it.

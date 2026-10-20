@@ -17,7 +17,7 @@ const turn = `{"type":"message","message":{"role":"assistant","content":[{"type"
 
 func sessionsDir(t *testing.T) string {
 	t.Helper()
-	dir := filepath.Join(t.TempDir(), ".forge", "sessions")
+	dir := filepath.Join(t.TempDir(), ".apptown", "sessions")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -93,13 +93,13 @@ func TestStepTranscriptRefusesALinkedSessionDirectory(t *testing.T) {
 	ws := t.TempDir()
 	elsewhere := t.TempDir()
 	write(t, filepath.Join(elsewhere, "x.jsonl"), header("s")+turn)
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(elsewhere, filepath.Join(ws, ".forge", "sessions")); err != nil {
+	if err := os.Symlink(elsewhere, filepath.Join(ws, ".apptown", "sessions")); err != nil {
 		t.Fatal(err)
 	}
-	if raw, reason := StepTranscript(filepath.Join(ws, ".forge", "sessions"), "s"); raw != nil || !strings.Contains(reason, "not a directory") {
+	if raw, reason := StepTranscript(filepath.Join(ws, ".apptown", "sessions"), "s"); raw != nil || !strings.Contains(reason, "not a directory") {
 		t.Fatalf("read through a link: %q %s", raw, reason)
 	}
 }

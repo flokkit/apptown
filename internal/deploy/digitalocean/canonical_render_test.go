@@ -28,7 +28,7 @@ func TestDigitalOceanRendersCanonicalPortsAndScopedConnections(t *testing.T) {
 		return &Client{Base: server.URL, HTTP: server.Client()}, Config{Region: "syd", Registry: "forge-test"}, nil
 	}}, Options{PushImage: push})
 	c, err := appcontract.Parse([]byte(`app:
-  web: {image: app:1, public: true, environment: {PUBLIC_ONLY: web, DATABASE_URL: wrong, FORGE_ORIGINS: https://typed.example}}
+  web: {image: app:1, public: true, environment: {PUBLIC_ONLY: web, DATABASE_URL: wrong, APPTOWN_ORIGINS: https://typed.example}}
   worker: {image: worker:1, environment: {WORKER_ONLY: worker, DATABASE_URL: wrong}}
 init:
   - {name: migrate, image: migrate:1, environment: {DATABASE_URL: wrong}}
@@ -64,8 +64,8 @@ init:
 		}
 		// The public part is told where a browser reaches it, as on Docker:
 		// the platform's URL for the app, over what the app typed.
-		if (env["FORGE_ORIGINS"] == "${APP_URL}") != (comp.Name == "web") {
-			t.Fatalf("FORGE_ORIGINS in %s: %q", comp.Name, env["FORGE_ORIGINS"])
+		if (env["APPTOWN_ORIGINS"] == "${APP_URL}") != (comp.Name == "web") {
+			t.Fatalf("APPTOWN_ORIGINS in %s: %q", comp.Name, env["APPTOWN_ORIGINS"])
 		}
 		if (env["WORKER_SECRET"] == "scoped") != (comp.Name == "worker") {
 			t.Fatalf("secret scope changed in %s", comp.Name)

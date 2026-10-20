@@ -112,7 +112,7 @@ func PageRefusal(status int, path string) string {
 	case status >= 500:
 		return fmt.Sprintf("GET %s answered %d: the page a visitor opens fails with a server error — the app's log says why", path, status)
 	case status == http.StatusBadRequest || status == http.StatusForbidden:
-		return fmt.Sprintf("GET %s answered %d: a visitor who opens the app is refused. A host allow-list that does not take its hosts from FORGE_ORIGINS refuses exactly this way (Rails config.hosts answers 403, Django ALLOWED_HOSTS 400); the readiness path is usually exempt, so readiness passing does not show it", path, status)
+		return fmt.Sprintf("GET %s answered %d: a visitor who opens the app is refused. A host allow-list that does not take its hosts from APPTOWN_ORIGINS refuses exactly this way (Rails config.hosts answers 403, Django ALLOWED_HOSTS 400); the readiness path is usually exempt, so readiness passing does not show it", path, status)
 	}
 	return ""
 }

@@ -49,8 +49,8 @@ for arg in "$@"; do
 done
 last=""; for arg in "$@"; do last="$arg"; done
 case "$last" in
-findings) mkdir -p "$work/.forge"; echo '{"found":1}' > "$work/.forge/r.json"; cat "$work/src.txt"; exit 1;;
-escape) mkdir -p "$work/.forge"; ln -s /etc/passwd "$work/.forge/r.json"; exit 0;;
+findings) mkdir -p "$work/.apptown"; echo '{"found":1}' > "$work/.apptown/r.json"; cat "$work/src.txt"; exit 1;;
+escape) mkdir -p "$work/.apptown"; ln -s /etc/passwd "$work/.apptown/r.json"; exit 0;;
 history-*) git -C "$history" log --format=%s "${last#history-}"; exit 0;;
 slow) sleep 5; exit 0;;
 esac
@@ -86,13 +86,13 @@ func TestACheckRunsOnTheWorkerAndAnswersLikeTheLocalRunner(t *testing.T) {
 	}
 	run := func(cmd string, timeout time.Duration) execution.Outcome {
 		return checks.Run(context.Background(), execution.Request{Workspace: tree, Image: "scanner:test", Argv: []string{cmd},
-			Network: "none", Timeout: timeout, Report: ".forge/r.json", Name: "check-test"})
+			Network: "none", Timeout: timeout, Report: ".apptown/r.json", Name: "check-test"})
 	}
 	out := run("findings", time.Minute)
 	if out.Termination != execution.Exited || out.ExitCode != 1 || out.RunErr != nil || string(out.Report) != "{\"found\":1}\n" || !strings.Contains(string(out.Output), "the staged tree") {
 		t.Fatalf("a check's answer: %+v (%s)", out, out.Output)
 	}
-	if _, err := os.Stat(filepath.Join(tree, ".forge", "r.json")); err == nil {
+	if _, err := os.Stat(filepath.Join(tree, ".apptown", "r.json")); err == nil {
 		t.Fatal("the check wrote into AppTown's tree: only its report comes back")
 	}
 	if out := run("escape", time.Minute); !out.Exited0() || out.ReportErr == nil || len(out.Report) != 0 {

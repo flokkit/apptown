@@ -47,7 +47,7 @@ func engineChange(t *testing.T, a *App, p *project.Project) *workflow.Change {
 func engineLandingChange(t *testing.T, a *App, p *project.Project) *workflow.Change {
 	t.Helper()
 	landingYAML := `
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: land }
 spec:
@@ -107,7 +107,7 @@ func engineLandingRun(t *testing.T, a *App, p *project.Project, ch *workflow.Cha
 }
 
 const lifecycleYAML = `
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: flow }
 spec:

@@ -69,7 +69,7 @@ type State struct {
 	// FrontDoor makes each app's live URL a path on this fake
 	// (/apps/<name>), where it answers as the public service's image would:
 	// ReleasePath answers the identity its spec gives that service
-	// (FORGE_RELEASE), or 404 when FrontDoorStock says the image runs the
+	// (APPTOWN_RELEASE), or 404 when FrontDoorStock says the image runs the
 	// file server's stock configuration. Off, the live URL is a platform
 	// host name nothing answers.
 	FrontDoor, FrontDoorStock                                           bool
@@ -600,8 +600,8 @@ func (f *API) Handler() http.Handler {
 		}
 	}
 	// The front door routes to the ingress rule's component, as App
-	// Platform does: only that service's FORGE_RELEASE answers.
-	mux.HandleFunc("GET /apps/{name}/_forge/release", func(w http.ResponseWriter, r *http.Request) {
+	// Platform does: only that service's APPTOWN_RELEASE answers.
+	mux.HandleFunc("GET /apps/{name}/_apptown/release", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		for _, app := range f.state.Apps {
@@ -623,7 +623,7 @@ func (f *API) Handler() http.Handler {
 				}
 				envs, _ := s.(map[string]any)["envs"].([]any)
 				for _, e := range envs {
-					if env, _ := e.(map[string]any); env["key"] == "FORGE_RELEASE" {
+					if env, _ := e.(map[string]any); env["key"] == "APPTOWN_RELEASE" {
 						_, _ = io.WriteString(w, env["value"].(string))
 						return
 					}

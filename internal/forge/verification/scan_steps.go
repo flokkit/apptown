@@ -141,7 +141,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	ws := source.Workspace(a.dataDir)
 	// Scan one COMMITTED tree, resolved once and staged outside every
 	// writer's folder, never the working directory: the working tree
-	// carries forge runtime state (.forge/sessions with agent transcripts,
+	// carries forge runtime state (.apptown/sessions with agent transcripts,
 	// pi-home, ambient config) that is gitignored and never ships, and that
 	// legitimately contains material a secrets scanner must flag if ever
 	// committed. Posture is about what ships. A landing scans its pinned
@@ -168,7 +168,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		return
 	}
 	defer cleanup()
-	_ = os.MkdirAll(filepath.Join(scanSrc, ".forge"), 0o755)
+	_ = os.MkdirAll(filepath.Join(scanSrc, ".apptown"), 0o755)
 	if strings.Contains(m.Image, "osv") {
 		if _, err := os.Stat(filepath.Join(scanSrc, "go.mod")); err == nil {
 			if v := goToolchainVersion(scanSrc); v != "" && writeOSVGoOverride(scanSrc, v) {
@@ -222,7 +222,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			}
 		}
 		for i := range argv {
-			argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.forge/image.tar")
+			argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.apptown/image.tar")
 		}
 	}
 

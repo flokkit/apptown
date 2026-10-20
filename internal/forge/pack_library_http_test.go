@@ -114,7 +114,7 @@ func TestSystemWorkflowHTTPRequiresExplicitSystemDeclarationAndCanReset(t *testi
 	t.Parallel()
 	a := authzActors(t)
 	h := a.Handler()
-	source := `apiVersion: forge.flokkit.io/v1
+	source := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: my-land, description: Custom acceptance}
 spec:
@@ -330,7 +330,7 @@ func TestRecommendingIsAPersonsActAndMovesNoProject(t *testing.T) {
 	}
 }
 
-const keptLaneYAML = `apiVersion: forge.flokkit.io/v1
+const keptLaneYAML = `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: %s}
 spec:

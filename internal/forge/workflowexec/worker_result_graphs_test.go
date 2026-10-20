@@ -31,23 +31,23 @@ func TestTheSourceCheckCoversEveryCommitGraph(t *testing.T) {
 			switch shape {
 			case "merge-only-runtime":
 				side := git("commit-tree", tree, "-p", given, "-m", "clean side")
-				reviewRound6Write(t, remote, ".forge/runtime.json", "merge-only forbidden content\n")
-				git("add", "-f", "--", ".forge/runtime.json")
+				reviewRound6Write(t, remote, ".apptown/runtime.json", "merge-only forbidden content\n")
+				git("add", "-f", "--", ".apptown/runtime.json")
 				changedTree := git("write-tree")
 				merged := git("commit-tree", changedTree, "-p", given, "-p", side, "-m", "runtime appears only in merge")
 				// Remove it again, leaving every ordinary commit's tree clean.
 				tip := git("commit-tree", tree, "-p", merged, "-m", "remove runtime")
 				git("reset", "--hard", tip)
 			case "unrelated-root":
-				reviewRound6Write(t, remote, ".forge/runtime.json", "unrelated forbidden root\n")
-				git("add", "-f", "--", ".forge/runtime.json")
+				reviewRound6Write(t, remote, ".apptown/runtime.json", "unrelated forbidden root\n")
+				git("add", "-f", "--", ".apptown/runtime.json")
 				root := git("commit-tree", git("write-tree"), "-m", "unrelated root")
 				side := git("commit-tree", tree, "-p", root, "-m", "remove runtime on side")
 				tip := git("commit-tree", tree, "-p", given, "-p", side, "-m", "merge unrelated history")
 				git("reset", "--hard", tip)
 			case "gitlink":
-				git("rm", "-rf", "--ignore-unmatch", "--", ".forge")
-				git("update-index", "--add", "--cacheinfo", "160000,"+given+",.forge")
+				git("rm", "-rf", "--ignore-unmatch", "--", ".apptown")
+				git("update-index", "--add", "--cacheinfo", "160000,"+given+",.apptown")
 				bad := git("commit-tree", git("write-tree"), "-p", given, "-m", "reserved gitlink")
 				tip := git("commit-tree", tree, "-p", bad, "-m", "remove reserved gitlink")
 				git("reset", "--hard", tip)
@@ -67,7 +67,7 @@ func TestTheSourceCheckCoversEveryCommitGraph(t *testing.T) {
 				if settled.Status != workflow.StatusPass || tip == given || workspace != tip {
 					t.Fatalf("normal merge not published: status=%s branch=%s workspace=%s evidence=%s", settled.Status, tip, workspace, settled.Evidence)
 				}
-			} else if settled.Status != workflow.StatusError || tip != given || workspace != before || !strings.Contains(string(settled.Evidence), ".forge") {
+			} else if settled.Status != workflow.StatusError || tip != given || workspace != before || !strings.Contains(string(settled.Evidence), ".apptown") {
 				t.Fatalf("forbidden graph accepted: status=%s branch=%s (base %s) workspace=%s (before %s) evidence=%s", settled.Status, tip, given, workspace, before, settled.Evidence)
 			}
 		})

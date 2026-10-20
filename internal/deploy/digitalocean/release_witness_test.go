@@ -16,7 +16,7 @@ import (
 
 // The identity the front door must answer comes from the selected source:
 // the public part's name and the release's revision, when that part is a
-// static site. Another service's declared FORGE_RELEASE, or a private static
+// static site. Another service's declared APPTOWN_RELEASE, or a private static
 // part behind a dynamic public one, never decides it: a service declaring
 // the previous release's value must not pass as "the front door serves this
 // release".
@@ -26,7 +26,7 @@ func TestTheReleaseWitnessIsTheSelectedPublicStaticPart(t *testing.T) {
 		name, contract, want string
 		witnessed            bool
 	}{
-		{"another service declares a release", "app:\n  api:\n    image: api:1\n    ports: [\"9000\"]\n    environment: {FORGE_RELEASE: previous-release}\n  web:\n    static: site\n    public: true\n", "web@selected-new", true},
+		{"another service declares a release", "app:\n  api:\n    image: api:1\n    ports: [\"9000\"]\n    environment: {APPTOWN_RELEASE: previous-release}\n  web:\n    static: site\n    public: true\n", "web@selected-new", true},
 		{"a private static part behind a dynamic public one", "app:\n  assets:\n    static: site\n    ports: [\"8081\"]\n  web:\n    image: web:1\n    public: true\n", "", false},
 	} {
 		t.Run(c.name, func(t *testing.T) {

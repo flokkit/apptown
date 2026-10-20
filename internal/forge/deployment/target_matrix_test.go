@@ -72,7 +72,7 @@ var targetMatrix = []matrixRow{
 		bundle: &ReleaseBundle{ID: idstest.N(3), Parts: map[string]string{"site": "reg/site:1"}},
 		want:   map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "built before static images served themselves", KindS3Bucket: ""}},
 	{row: "A static site given browser values by an integration",
-		cells:    [4]string{"yes, as /_forge/env.js", "refused: cannot deliver browser values yet", "refused: cannot deliver browser values yet", "yes, published as /_forge/env.js"},
+		cells:    [4]string{"yes, as /_apptown/env.js", "refused: cannot deliver browser values yet", "refused: cannot deliver browser values yet", "yes, published as /_apptown/env.js"},
 		pinnedBy: []string{"TestRequestReleaseRefusesUnreadableOrIncompatibleContract"}},
 	{row: "Secrets",
 		cells: [4]string{"each part's environment", "each part's environment", "each component's environment", "none: a site has no runtime"}},

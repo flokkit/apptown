@@ -1,7 +1,7 @@
 // apptown-deploy runs a described application on a Docker host with nothing
 // but the deploy library: the proof that internal/deploy stands alone. No
 // database and no forge package (the shape checker asserts it): a tree with
-// a .forge/app.yaml, a Docker daemon, and what the host said.
+// a .apptown/app.yaml, a Docker daemon, and what the host said.
 //
 //	apptown-deploy -app game -tree /path/to/checkout                 # run it as generation 1
 //	apptown-deploy -app game -tree ... -generation 2 -port 41233     # the next generation, same port
@@ -80,7 +80,7 @@ func main() {
 		}
 		fmt.Printf("removed %s\n", container)
 	default:
-		if _, err := appcontract.Parse(mustRead(*tree + "/.forge/app.yaml")); err != nil {
+		if _, err := appcontract.Parse(mustRead(*tree + "/.apptown/app.yaml")); err != nil {
 			fail("the contract in %s: %v", *tree, err)
 		}
 		revision, err := (deploy.SelectedSource{Repository: *tree, Revision: "HEAD"}).Resolve(ctx)

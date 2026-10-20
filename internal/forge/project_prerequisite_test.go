@@ -84,7 +84,7 @@ func TestAgentRequiresArtifactPreflight(t *testing.T) {
 	if !strings.Contains(string(agentStep.Evidence), "spec-final") {
 		t.Fatalf("the reason must name the missing artifact: %s", agentStep.Evidence)
 	}
-	// No agent session was ever created (the workspace has no .forge/sessions).
+	// No agent session was ever created (the workspace has no .apptown/sessions).
 	if started := workEventCount(t, a, func(e workflow.Event) bool {
 		return e.RunID == runID && e.Kind == "step.started" && payloadField(e, "step") == "build-v1"
 	}); started != 1 {

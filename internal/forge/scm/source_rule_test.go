@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/gitexec"
 )
 
-// What is not source is anything a result changes under .forge (added,
+// What is not source is anything a result changes under .apptown (added,
 // edited, deleted, or moved out) except the native app contract; changes
 // elsewhere are source.
 func TestNonSourceIsEverythingUnderForgeButTheContract(t *testing.T) {
@@ -34,25 +34,25 @@ func TestNonSourceIsEverythingUnderForgeButTheContract(t *testing.T) {
 		}
 	}
 	git("init", "-q", "-b", "main")
-	for _, name := range []string{"src.txt", ".forge/app.yaml", ".forge/old.json", ".forge/moved.txt"} {
+	for _, name := range []string{"src.txt", ".apptown/app.yaml", ".apptown/old.json", ".apptown/moved.txt"} {
 		write(name, name+"\n")
 	}
 	git("add", "-A", "-f")
 	git("commit", "-qm", "base")
 	base := git("rev-parse", "HEAD")
 	write("src.txt", "changed\n")
-	write(".forge/app.yaml", "changed\n")
-	write(".forge/runtime.json", "{}\n")
-	write(".forge/cache/item", "x\n")
-	git("rm", "-q", ".forge/old.json")
-	git("mv", ".forge/moved.txt", "moved.txt")
+	write(".apptown/app.yaml", "changed\n")
+	write(".apptown/runtime.json", "{}\n")
+	write(".apptown/cache/item", "x\n")
+	git("rm", "-q", ".apptown/old.json")
+	git("mv", ".apptown/moved.txt", "moved.txt")
 	git("add", "-A", "-f")
 	git("commit", "-qm", "result")
 	got, err := nonSourceIn(context.Background(), repo, base+".."+git("rev-parse", "HEAD"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{".forge/cache/item", ".forge/moved.txt", ".forge/old.json", ".forge/runtime.json"}
+	want := []string{".apptown/cache/item", ".apptown/moved.txt", ".apptown/old.json", ".apptown/runtime.json"}
 	if slices.Sort(got); !slices.Equal(got, want) {
 		t.Fatalf("not source: %q, want %q", got, want)
 	}
@@ -60,8 +60,8 @@ func TestNonSourceIsEverythingUnderForgeButTheContract(t *testing.T) {
 
 // The rule reads a result's whole history, not its last tree: a runtime file
 // added in one commit and removed in the next is still not source, as is
-// one brought in through a merge. The .forge entry itself (a file or link in
-// its place), and .forge in another case, are not source either.
+// one brought in through a merge. The .apptown entry itself (a file or link in
+// its place), and .apptown in another case, are not source either.
 func TestNonSourceReadsEveryNewCommit(t *testing.T) {
 	t.Parallel()
 	repo := t.TempDir()
@@ -87,24 +87,24 @@ func TestNonSourceReadsEveryNewCommit(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-qm", "base")
 	base := git("rev-parse", "HEAD")
-	write(".forge/runtime.json", "{}\n")
+	write(".apptown/runtime.json", "{}\n")
 	git("add", "-A", "-f")
 	git("commit", "-qm", "adds a runtime file")
-	git("rm", "-q", "-r", ".forge")
+	git("rm", "-q", "-r", ".apptown")
 	write(".FORGE/other.json", "{}\n")
 	git("add", "-A", "-f")
 	git("commit", "-qm", "removes it; another case")
 	git("checkout", "-q", "-b", "side", base)
-	write(".forge", "a file in the directory's place\n")
+	write(".apptown", "a file in the directory's place\n")
 	git("add", "-A", "-f")
-	git("commit", "-qm", "replaces .forge")
+	git("commit", "-qm", "replaces .apptown")
 	git("checkout", "-q", "main")
 	git("merge", "-q", "--no-edit", "side")
 	got, err := nonSourceIn(context.Background(), repo, base+".."+git("rev-parse", "HEAD"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{".FORGE/other.json", ".forge", ".forge/runtime.json"}
+	want := []string{".FORGE/other.json", ".apptown", ".apptown/runtime.json"}
 	if slices.Sort(got); !slices.Equal(got, want) {
 		t.Fatalf("not source: %q, want %q", got, want)
 	}

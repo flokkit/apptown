@@ -11,7 +11,7 @@ import (
 
 func TestAbandonWithoutRoleKeepsTheChange(t *testing.T) {
 	t.Parallel()
-	doc, err := schema.ParseWorkflow([]byte(`apiVersion: forge.flokkit.io/v1
+	doc, err := schema.ParseWorkflow([]byte(`apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: research}
 spec:

@@ -62,7 +62,7 @@ func TestGitLandingMachinery(t *testing.T) {
 	gi, _ := os.ReadFile(filepath.Join(repo, ".gitignore"))
 	// The CURRENT contract form must be whitelisted (change-99 lesson; the
 	// compose→app.yaml pivot re-broke this and eight-ball shipped undeployed).
-	if !strings.Contains(string(gi), "!.forge/app.yaml") {
+	if !strings.Contains(string(gi), "!.apptown/app.yaml") {
 		t.Fatalf("the contract must stay versioned: %s", gi)
 	}
 
@@ -237,14 +237,14 @@ func TestOutOfBandEditsBlockMerge(t *testing.T) {
 	if len(drift) != 1 || drift[0] != "tampered.txt" {
 		t.Fatalf("drift must name the files: %v", drift)
 	}
-	// The forge's own runtime leftovers under .forge/ are not drift; a
+	// The forge's own runtime leftovers under .apptown/ are not drift; a
 	// touched contract file is.
 	repoDir := a.projectRepoPath("p")
-	_ = os.MkdirAll(filepath.Join(repoDir, ".forge", "sessions"), 0o755)
-	_ = os.WriteFile(filepath.Join(repoDir, ".forge", "sessions", "old.jsonl"), []byte("{}"), 0o644)
-	_ = os.WriteFile(filepath.Join(repoDir, ".forge", "steering.md"), []byte("x"), 0o644)
+	_ = os.MkdirAll(filepath.Join(repoDir, ".apptown", "sessions"), 0o755)
+	_ = os.WriteFile(filepath.Join(repoDir, ".apptown", "sessions", "old.jsonl"), []byte("{}"), 0o644)
+	_ = os.WriteFile(filepath.Join(repoDir, ".apptown", "steering.md"), []byte("x"), 0o644)
 	if d, err := scm.Drift(context.Background(), a.processRunner, repoDir); err != nil || len(d) != 1 || d[0] != "tampered.txt" {
-		t.Fatalf("runtime files under .forge must not count as drift: %v", d)
+		t.Fatalf("runtime files under .apptown must not count as drift: %v", d)
 	}
 	ev := workflow.MergeBlockEvidence(conflicts, drift)
 	if !strings.Contains(ev.Reason, "did not come through AppTown") {
@@ -258,7 +258,7 @@ func TestOutOfBandEditsBlockMerge(t *testing.T) {
 	if _, err := gitexec.Run(t.Context(), repo, "checkout", "--", "."); err != nil {
 		t.Fatal(err)
 	}
-	_, _ = gitexec.Run(t.Context(), repo, "clean", "-fd", "-e", ".forge")
+	_, _ = gitexec.Run(t.Context(), repo, "clean", "-fd", "-e", ".apptown")
 	if d, err := scm.Drift(context.Background(), a.processRunner, repo); err != nil || len(d) != 0 {
 		t.Fatalf("tree must be clean after discard: %v", d)
 	}

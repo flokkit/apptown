@@ -225,13 +225,13 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	// The embedded DNS first (it knows the private network's names, e.g.
 	// `dind`), then the host's resolvers for LAN names like the mirror.
 	toml := w.BuildkitConfig(ctx)
-	_ = os.WriteFile(filepath.Join(ws, ".forge", "buildkitd.toml"), []byte(toml), 0o644)
+	_ = os.WriteFile(filepath.Join(ws, ".apptown", "buildkitd.toml"), []byte(toml), 0o644)
 	buildxArgs := []string{"exec",
 		"-e", "DOCKER_HOST=tcp://localhost:2375",
 		"-e", "DOCKER_CONFIG=" + filepath.Join("/work", clientConfigDir),
 		name, "docker", "buildx", "create", "--name", "apptown",
 		"--driver", "docker-container", "--driver-opt", "network=host",
-		"--config", "/work/.forge/buildkitd.toml", "--use"}
+		"--config", "/work/.apptown/buildkitd.toml", "--use"}
 	if out, err := w.docker.Run(ctx, buildxArgs...); err != nil {
 		// Non-fatal: plain docker builds still work; the agent just lacks
 		// the preconfigured builder.

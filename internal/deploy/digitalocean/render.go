@@ -219,12 +219,12 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 			return deploy.Artifact{}, err
 		}
 		// The public part is told where a browser reaches it, as a Docker
-		// deployment's is (FORGE_ORIGINS), so its framework trusts its front
+		// deployment's is (APPTOWN_ORIGINS), so its framework trusts its front
 		// door: the platform's own URL for the app, its primary domain,
 		// which App Platform binds when the app runs.
 		wiring := map[string]string{}
 		if p.Public {
-			wiring["FORGE_ORIGINS"] = appURL
+			wiring["APPTOWN_ORIGINS"] = appURL
 		}
 		// A static part's image answers its release identity at
 		// ReleasePath: the front door is witnessed serving this part of

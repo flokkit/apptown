@@ -131,7 +131,7 @@ func TestBootFailureCarriesItsPhase(t *testing.T) {
 	ws := filepath.Join(dir, "workspaces", "change-00000000-000a-7000-8000-000000000000")
 	writePreviewBootFixture(t, ws)
 	contract := strings.Replace(resolvedStackFixture, "postgres: {}", "quantumdb: {}", 1)
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(contract), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(contract), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err = s.RehearseChange(context.Background(), Change{ID: idstest.N(10), ProjectID: projectID}, false)
@@ -189,7 +189,7 @@ func TestAFailedPreparationLeavesThePreviewRunning(t *testing.T) {
 	s, _, client, dir, projectID := previewBootWorld(t, "")
 	ws := filepath.Join(dir, "workspaces", "change-00000000-0009-7000-8000-000000000000")
 	writePreviewBootFixture(t, ws)
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte("version: 1\napp:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  no-such-thing: {}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("version: 1\napp:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  no-such-thing: {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	client.SetRunning(docker.PreviewChangeName(idstest.N(9)), true)
@@ -212,10 +212,10 @@ func TestImageContractPreviewReportsPullFailure(t *testing.T) {
 		return nil, nil, false
 	})
 	ws := filepath.Join(dir, "workspaces", "change-00000000-0007-7000-8000-000000000000")
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(`app:
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(`app:
   web:
     image: registry.example/x@sha256:abc
     ports: ["8080"]
@@ -435,7 +435,7 @@ func TestAnOversizedPreviewLeavesTheRunningOneAlone(t *testing.T) {
 			client.SetHostInfo(8<<30, 8, "/var/lib/docker")
 			ws := filepath.Join(dir, "workspaces", "change-00000000-0009-7000-8000-000000000000")
 			writePreviewBootFixture(t, ws)
-			if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(app), 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(app), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			client.SetRunning(docker.PreviewChangeName(idstest.N(9)), true)

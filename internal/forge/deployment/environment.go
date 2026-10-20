@@ -503,11 +503,11 @@ func (e *Environment) refusesNeeds(ctx context.Context, c *appcontract.Contract)
 
 // RefusesBrowserValues is the sentence for a static site whose page the
 // project's integrations give values, bound for a target kind that cannot
-// deliver them, or "". Every static image serves /_forge/env.js, but only a
+// deliver them, or "". Every static image serves /_apptown/env.js, but only a
 // Docker host gives it the values; anywhere else the page would silently be
 // given nothing, which breaks the integration's absence contract.
 func (e *Environment) RefusesBrowserValues(ctx context.Context, kind string, projectID ids.ID, c *appcontract.Contract) (string, error) {
-	// A bucket publishes the values as /_forge/env.js with each release.
+	// A bucket publishes the values as /_apptown/env.js with each release.
 	if kind == KindDockerHost || kind == KindS3Bucket || e.integrations == nil {
 		return "", nil
 	}

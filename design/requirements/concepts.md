@@ -121,7 +121,7 @@ GitLab copy that landed branches are pushed to; never the gate. *Appears:*
 B4, A14, C9, C11.
 
 ### Runtime contract
-`.forge/app.yaml`: the app's own containers (build, image or static, one
+`.apptown/app.yaml`: the app's own containers (build, image or static, one
 public) and its [needs](#need). *Mental model:* the one file that says
 how to run me; the forge never invents packaging and never writes a
 Dockerfile. *Lifecycle:* written by the excavate lane on import or by the

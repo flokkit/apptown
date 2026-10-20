@@ -24,7 +24,7 @@ func TestWebhookDoor(t *testing.T) {
 	}
 	plainTestProject(t, a.DB, "hooky", "H")
 	p, _ := a.Projects.BySlug(context.Background(), "hooky")
-	wf := `apiVersion: forge.flokkit.io/v1
+	wf := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: on-push, category: change}
 spec:

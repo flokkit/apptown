@@ -96,10 +96,10 @@ func TestALandedChangePreviewsItsLandedCommitAndAnOpenOneItsFolder(t *testing.T)
 	repo := s.hosts.ProjectRepository("game")
 	write := func(dir, image string) {
 		t.Helper()
-		if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"), []byte("app:\n  web:\n    image: "+image+"\n    public: true\n    ports: [\"8080\"]\n"), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"), []byte("app:\n  web:\n    image: "+image+"\n    public: true\n    ports: [\"8080\"]\n"), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}

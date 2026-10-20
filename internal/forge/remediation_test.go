@@ -81,7 +81,7 @@ func stubVerify(t *testing.T, a *App, state conformance.ObservationState) {
 // fixture project, so remediation uses production eligibility rules.
 func enableImplementLane(t *testing.T, a *App) {
 	t.Helper()
-	const yaml = `apiVersion: forge.flokkit.io/v1
+	const yaml = `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: implement}
 spec:

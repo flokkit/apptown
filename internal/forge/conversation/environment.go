@@ -152,7 +152,7 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 	// Its files are written into the session's own folder (never a
 	// project's tree), afresh for each start, and mounted from there.
 	amb := agentenv.AmbientFor(integration.RegistryBindingsIn(ctx, e.db), s.Dir)
-	dir := filepath.Join(s.Dir, ".forge", "ambient")
+	dir := filepath.Join(s.Dir, ".apptown", "ambient")
 	if err := os.RemoveAll(dir); err != nil {
 		return console.Provision{}, fmt.Errorf("the chat's generated configuration: %w", err)
 	}

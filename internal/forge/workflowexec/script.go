@@ -195,7 +195,7 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 			// fails the step loudly (exit 97).
 			runCmd = `export PATH="$MISE_DATA_DIR/shims:$PATH"; ` +
 				`mise install -y -q || { echo "apptown: mise install failed" >&2; exit 97; }; ` +
-				`mise ls --current --json > /work/.forge/mise-resolved.json 2>/dev/null; ` + cfg.Run
+				`mise ls --current --json > /work/.apptown/mise-resolved.json 2>/dev/null; ` + cfg.Run
 		}
 	}
 	return scriptPlan{cache: agentenv.CacheVolume(ctx), cfg: cfg, executor: executor, timeout: timeout, ambient: amb, ws: ws, candidate: candidate.Candidate, cleanup: cleanup,

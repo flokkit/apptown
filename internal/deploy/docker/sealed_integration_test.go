@@ -17,7 +17,7 @@ import (
 )
 
 // testdata/sealed-app is an app behind a host allow-list built from
-// FORGE_ORIGINS, as stock guidance has Rails and Django build theirs: its
+// APPTOWN_ORIGINS, as stock guidance has Rails and Django build theirs: its
 // readiness path answers anyone, its pages answer only a host it was told,
 // and /data answers 200 only when its database holds orders, printing a
 // customer's address in the body. It is busybox nc in the Postgres image,

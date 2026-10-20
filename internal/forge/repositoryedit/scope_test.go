@@ -83,21 +83,21 @@ func TestChangedFilesSinceMarksWhatTheRepositoryIgnores(t *testing.T) {
 	run("init", "-b", "main")
 	run("config", "user.email", "t@t")
 	run("config", "user.name", "t")
-	write(".gitignore", "target/\n.forge/*\n!.forge/app.yaml\n")
+	write(".gitignore", "target/\n.apptown/*\n!.apptown/app.yaml\n")
 	write("README.md", "hello")
-	write(".forge/compose.yaml", "services: {}")
+	write(".apptown/compose.yaml", "services: {}")
 	run("add", "-A")
-	run("add", "-f", "--", ".forge/compose.yaml")
+	run("add", "-f", "--", ".apptown/compose.yaml")
 	run("commit", "-q", "-m", "base")
 	base, _ := gitexec.Run(t.Context(), wt, "rev-parse", "HEAD")
 	write("README.md", "hello again")
 	write("src/Main.java", "class Main {}")
 	write("target/surefire-reports/TEST-x.xml", "<xml/>")
-	write(".forge/CHANGE.md", "report")
-	write(".forge/app.yaml", "app: {}")
+	write(".apptown/CHANGE.md", "report")
+	write(".apptown/app.yaml", "app: {}")
 	run("add", "-A")
-	run("add", "-f", "--", "target/surefire-reports/TEST-x.xml", ".forge/CHANGE.md", ".forge/app.yaml")
-	run("rm", "-q", "--cached", ".forge/compose.yaml") // the deletion is the fix, never the fault
+	run("add", "-f", "--", "target/surefire-reports/TEST-x.xml", ".apptown/CHANGE.md", ".apptown/app.yaml")
+	run("rm", "-q", "--cached", ".apptown/compose.yaml") // the deletion is the fix, never the fault
 	run("commit", "-q", "-m", "change")
 	changed, err := ChangedFilesSince(t.Context(), wt, strings.TrimSpace(base))
 	if err != nil {
@@ -107,7 +107,7 @@ func TestChangedFilesSinceMarksWhatTheRepositoryIgnores(t *testing.T) {
 	for _, c := range changed {
 		got[c.Path] = c.Ignored
 	}
-	want := map[string]bool{"README.md": false, "src/Main.java": false, "target/surefire-reports/TEST-x.xml": true, ".forge/CHANGE.md": true, ".forge/app.yaml": false, ".forge/compose.yaml": false}
+	want := map[string]bool{"README.md": false, "src/Main.java": false, "target/surefire-reports/TEST-x.xml": true, ".apptown/CHANGE.md": true, ".apptown/app.yaml": false, ".apptown/compose.yaml": false}
 	for p, ig := range want {
 		if v, ok := got[p]; !ok || v != ig {
 			t.Fatalf("%s: want ignored=%v, got %v (present %v); all %v", p, ig, v, ok, got)
@@ -378,15 +378,15 @@ func TestAdditiveDiff(t *testing.T) {
 // Every changed file must be named in the report, by path or basename;
 // a report artifact the change CREATED is the claim and is not counted,
 // but one that was already tracked is the project's file (a build report
-// kept at .forge/REPORT.md) and counts like any other.
+// kept at .apptown/REPORT.md) and counts like any other.
 func TestUnclaimedChangesAreNamed(t *testing.T) {
 	t.Parallel()
-	changed := []ChangedFile{{Path: "Dockerfile"}, {Path: ".forge/app.yaml"}, {Path: "REPORT.md"},
-		{Path: "src/main/java/com/example/GreetingController.java"}, {Path: ".forge/CHANGE.md", Added: true}}
-	if got := UnclaimedChanges([]ChangedFile{{Path: ".forge/REPORT.md"}}, "removed the stale report"); len(got) != 1 {
+	changed := []ChangedFile{{Path: "Dockerfile"}, {Path: ".apptown/app.yaml"}, {Path: "REPORT.md"},
+		{Path: "src/main/java/com/example/GreetingController.java"}, {Path: ".apptown/CHANGE.md", Added: true}}
+	if got := UnclaimedChanges([]ChangedFile{{Path: ".apptown/REPORT.md"}}, "removed the stale report"); len(got) != 1 {
 		t.Fatalf("a rewritten TRACKED report artifact is a change to claim, got %v", got)
 	}
-	claim := "Added `Dockerfile` and `.forge/app.yaml`; GreetingController.java serves /healthz."
+	claim := "Added `Dockerfile` and `.apptown/app.yaml`; GreetingController.java serves /healthz."
 	got := UnclaimedChanges(changed, claim)
 	if len(got) != 1 || got[0] != "REPORT.md" {
 		t.Fatalf("want REPORT.md unclaimed, got %v", got)

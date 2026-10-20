@@ -113,7 +113,7 @@ func (s *Service) validateCandidateIn(ctx context.Context, q database.Queryer, p
 			return fmt.Errorf("invalid or duplicate candidate pack %q", pick.Pack)
 		}
 		seenPacks[pick.Pack] = true
-		if selectedPack == "" || selectedPack == "forge" {
+		if selectedPack == "" || selectedPack == PlatformPack {
 			selectedPack = pick.Pack
 		}
 		publication, err := wow.PackVersionIn(ctx, q, pick.Pack, pick.Version)

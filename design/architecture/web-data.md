@@ -120,7 +120,7 @@ value is never read into the cache at all.
 | Target settings | `targets.settings_revision` (never moved by status checks) | `settings-moved` |
 | Guidance list | the project's adoption revision | `settings-moved` |
 | Administrator networks | the list the edit started from | `settings-moved` |
-| App services (`needs:`) | a hash of `main`'s `.forge/app.yaml` | `settings-moved` |
+| App services (`needs:`) | a hash of `main`'s `.apptown/app.yaml` | `settings-moved` |
 | Architecture decision (ADR) title, body, tags | the text each changed field started from (an ADR keeps no versions) | `adr-text-moved` |
 
 ## Last-write-wins editor

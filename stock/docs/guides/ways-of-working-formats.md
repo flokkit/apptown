@@ -7,7 +7,7 @@ their checks. This page says which shape each takes when you write one, how AppT
 
 | Content | You write it as | Through |
 | --- | --- | --- |
-| Workflow | YAML, `apiVersion: forge.flokkit.io/v1` | the Workflows page, or `POST /api/v1/workflows/library` |
+| Workflow | YAML, `apiVersion: apptown.dev/v1` | the Workflows page, or `POST /api/v1/workflows/library` |
 | Pack | the Packs page's form (JSON underneath) | `POST /api/v1/packs` |
 | Policy | a library entry: a rule and its options | the Policies page |
 | Guidance block | markdown, with tags and checks | the Guidance page, or the block API |
@@ -23,7 +23,7 @@ The schema is served at `GET /api/v1/workflows/schema` for editors and agents;
 what is wrong, including the rules a schema cannot express (unique stage and
 step names, gates naming steps that exist).
 
-- `apiVersion: forge.flokkit.io/v1` is the format; leaving it out means the
+- `apiVersion: apptown.dev/v1` is the format; leaving it out means the
   same. Any other value is refused by name.
 - Top-level keys are `apiVersion`, `kind`, `metadata` and `spec`. A top-level
   key starting `x-` is ignored, so it can hold YAML anchors you reuse:

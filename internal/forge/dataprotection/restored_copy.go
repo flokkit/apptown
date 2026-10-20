@@ -605,7 +605,7 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	}
 	c, revision, err := s.sources.Contract(ctx, project, p.bundle.ContractRevision)
 	if err != nil || c == nil {
-		return "", nil, step, &safeFailure{"the release's .forge/app.yaml could not be read"}
+		return "", nil, step, &safeFailure{"the release's .apptown/app.yaml could not be read"}
 	}
 	if why, err := s.env.RefusesContract(ctx, p.target, c); err != nil || why != "" {
 		return "", nil, step, errors.Join(err, refusal(why))

@@ -28,6 +28,7 @@ const (
 	ViaGenesis        MainVia = "genesis"
 	ViaIntegrityAdopt MainVia = "integrity-adopt"
 	ViaBackfill       MainVia = "backfill"
+	ViaUpgrade        MainVia = "upgrade" // apptown upgrade's rename commit
 )
 
 // ErrMainChanged: the recorded main changed between a move's preparation and

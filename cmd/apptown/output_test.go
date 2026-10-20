@@ -99,7 +99,7 @@ func TestLandJSONNamesTheLandingRun(t *testing.T) {
 // waits on.
 func TestShowJSONCarriesTheApprovalItWaitsOn(t *testing.T) {
 	jsonForge(t, func(method, path string) (int, string) {
-		return 200, `{"projectSlug":"shop","change":{"id":"` + changeUUID + `","number":61,"title":"footer","state":"in_progress","branch":"forge/change-61"},
+		return 200, `{"projectSlug":"shop","change":{"id":"` + changeUUID + `","number":61,"title":"footer","state":"in_progress","branch":"apptown/change-61"},
 			"state":"waiting on you","stateDetail":"accept",
 			"runs":[{"id":"` + runUUID + `","number":812,"workflowName":"quick-change","role":"working","status":"running","currentStage":"build"}],
 			"commits":[{"sha":"abc1234","subject":"Add a footer","when":"1 minute ago"}],
@@ -111,7 +111,7 @@ func TestShowJSONCarriesTheApprovalItWaitsOn(t *testing.T) {
 	}
 	var got ChangeDetail
 	oneDocument(t, out, &got)
-	if got.Change.Name != "shop#61" || got.State != "in_progress" || got.StateDetail != "accept" || got.Branch != "forge/change-61" ||
+	if got.Change.Name != "shop#61" || got.State != "in_progress" || got.StateDetail != "accept" || got.Branch != "apptown/change-61" ||
 		len(got.Runs) != 1 || got.Runs[0] != (RunDetail{Run: RunRef{ID: mustID(t, runUUID), Number: 812}, Workflow: "quick-change", Role: "working", Status: "running", Stage: "build"}) ||
 		len(got.Commits) != 1 || got.Commits[0] != (Commit{SHA: "abc1234", Subject: "Add a footer"}) ||
 		got.WaitingOn == nil || got.WaitingOn.Step != mustID(t, stepUUID) {
@@ -217,7 +217,7 @@ func TestWaitJSONGivesWhatAScriptActsOn(t *testing.T) {
 		t.Fatalf("a blocked run: exit %d, %+v", code, got)
 	}
 
-	const ending = "forge/change-61 is behind main; catch up, then land again."
+	const ending = "apptown/change-61 is behind main; catch up, then land again."
 	jsonForge(t, func(_, path string) (int, string) {
 		return 200, `{"change":{"id":"` + changeUUID + `","state":"in_progress"},"state":"in progress",
 			"detail":{"run":{"id":"` + runUUID + `","number":812,"status":"abandoned","workflowName":"land"},"ending":"` + ending + `"}}`

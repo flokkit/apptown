@@ -25,7 +25,7 @@ func TestADiscardDuringPreparationWins(t *testing.T) {
 			s, w, _, dir, pid := workerPreviewWorld(t)
 			ws := filepath.Join(dir, "workspaces", "change-00000000-0009-7000-8000-000000000000")
 			writePreviewBootFixture(t, ws)
-			contract := filepath.Join(ws, ".forge", "app.yaml")
+			contract := filepath.Join(ws, ".apptown", "app.yaml")
 			body, err := os.ReadFile(contract)
 			if err != nil {
 				t.Fatal(err)

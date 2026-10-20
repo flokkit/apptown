@@ -239,7 +239,7 @@ func TestRemediationAttemptConcurrentAdmissionAndSupersession(t *testing.T) {
 	// acceptance_json->'checks'->0->>'check', by exact keys.
 	var checks []json.RawMessage
 	rawChecks, _ := exactKey(json.RawMessage(admitted.AcceptanceJSON), "checks")
-	if json.Unmarshal(rawChecks, &checks) != nil || len(checks) == 0 || exactText(checks[0], "check") != "clean" || !strings.HasPrefix(admitted.Branch, "forge/change-") {
+	if json.Unmarshal(rawChecks, &checks) != nil || len(checks) == 0 || exactText(checks[0], "check") != "clean" || !strings.HasPrefix(admitted.Branch, "apptown/change-") {
 		t.Fatalf("admitted change: acceptance %s branch %q", admitted.AcceptanceJSON, admitted.Branch)
 	}
 	if n := len(ledgerEntries(t, a, ids.Nil, "remediation.item.started")); n != 2 {

@@ -28,9 +28,9 @@ describe('a chat on the worker says where its work stands', () => {
     expect(html).toContain('Conversation as of')
   })
   it('says a refused save was refused, why, and where its commits are', () => {
-    const html = line(session({ saved: { at: '2026-09-30T01:00:00Z', outcome: 'refused', reason: 'a .forge path', kept: true } }))
+    const html = line(session({ saved: { at: '2026-09-30T01:00:00Z', outcome: 'refused', reason: 'a .apptown path', kept: true } }))
     expect(html).toContain('Last save refused')
-    expect(html).toContain('a .forge path')
+    expect(html).toContain('a .apptown path')
     expect(html).toContain('stay on the worker')
   })
   it('says a save that was not confirmed was not confirmed, never saved', () => {

@@ -5,7 +5,7 @@
 # taken down or the preview ends. The connector's provisioning key never
 # reaches the app.
 #
-# Parameters, in .forge/app.yaml:
+# Parameters, in .apptown/app.yaml:
 #   needs:
 #     llm:
 #       limit: 5            # US dollars of credit; omitted = the connector's default

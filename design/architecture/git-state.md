@@ -100,7 +100,7 @@ trusted:
 - **A step's scratch push** is the one push the read-only listener takes.
   An agent step's runtime token (live attempt, enabled owner, as for the
   API) may push to exactly one ref, its attempt's
-  `refs/forge/scratch/change-<change>/step-<step>-a<attempt>`, so that
+  `refs/apptown/scratch/change-<change>/step-<step>-a<attempt>`, so that
   `apptown check` can check work the forge has not collected yet. Every other
   ref is hidden from that push, which git itself refuses, and the hook
   refuses any other ref and a deletion again. The token fetches nothing:
@@ -142,16 +142,16 @@ trusted:
 - **The forge's own repository** is on GitLab and uses GitLab CI
   (`testing.md`); that is the only place GitLab is load-bearing.
 
-## 6. What lives in the repository (`.forge/`)
+## 6. What lives in the repository (`.apptown/`)
 
 Workflows, the guidance manifest and ADRs are not kept in the tree; the
 library and adoption receipts hold them (`state-model.md` §3). In the tree:
 
-- `.forge/app.yaml` — the runtime contract, the one `.forge` path that
+- `.apptown/app.yaml` — the runtime contract, the one `.apptown` path that
   belongs in history (`contracts.md`).
 - `.agents/skills/` — on-demand skills, content pinned by the same snapshot
   as the code.
-- Everything else under `.forge/` is runtime: the steering file for the
+- Everything else under `.apptown/` is runtime: the steering file for the
   current step, transcripts and session records, scan outputs, attachments,
   the agent's Docker credentials. `stageAll` stages by pathspec and refuses
   all of it, so an agent that replaces a project's `.gitignore` cannot get

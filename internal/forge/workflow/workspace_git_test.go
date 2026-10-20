@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,7 +36,7 @@ func TestWorkspaceRejectsPointerWithoutMutatingIt(t *testing.T) {
 	git(repo, "commit", "--allow-empty", "-m", "initial")
 	wt := filepath.Join(g.DataDir, "workspaces", "change-9")
 	// The OLD scheme, built by hand: a worktree with a pointer .git file.
-	git(repo, "worktree", "add", "-b", "forge/change-9", wt)
+	git(repo, "worktree", "add", "-b", "apptown/change-9", wt)
 	// One committed file and one dirty edit on top.
 	if err := os.WriteFile(filepath.Join(wt, "a.txt"), []byte("committed\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -50,7 +51,7 @@ func TestWorkspaceRejectsPointerWithoutMutatingIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.EnsureClone(context.Background(), CloneRequest{Repository: repo, Workspace: wt, Branch: "forge/change-9"}); err == nil || !strings.Contains(err.Error(), "self-contained") {
+	if _, err := g.EnsureClone(context.Background(), CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-9"}); err == nil || !strings.Contains(err.Error(), "self-contained") {
 		t.Fatalf("unsupported workspace must fail explicitly: %v", err)
 	}
 	after, err := os.ReadFile(filepath.Join(wt, ".git"))
@@ -111,10 +112,10 @@ func TestAnExistingFolderIsTakenOnlyOnItsBranch(t *testing.T) {
 	repo := t.TempDir()
 	git(repo, "init", "-q", "-b", "main")
 	git(repo, "commit", "-q", "--allow-empty", "-m", "initial")
-	git(repo, "branch", "forge/change-1")
-	want := git(repo, "rev-parse", "refs/heads/forge/change-1")
+	git(repo, "branch", "apptown/change-1")
+	want := git(repo, "rev-parse", "refs/heads/apptown/change-1")
 	wt := filepath.Join(g.DataDir, "workspaces", "change-1")
-	in := CloneRequest{Repository: repo, Workspace: wt, Branch: "forge/change-1"}
+	in := CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-1"}
 	for _, created := range []bool{true, false} {
 		got, err := g.EnsureClone(context.Background(), in)
 		if err != nil || got.Tip != want || got.Created != created {
@@ -132,7 +133,7 @@ func TestAnExistingFolderIsTakenOnlyOnItsBranch(t *testing.T) {
 		git(wt, move.args...)
 		before := git(wt, "rev-parse", "--symbolic-full-name", "HEAD")
 		_, err := g.EnsureClone(context.Background(), in)
-		if err == nil || !strings.Contains(err.Error(), "workspace is on "+move.on+`, expected "forge/change-1"`) {
+		if err == nil || !strings.Contains(err.Error(), "workspace is on "+move.on+`, expected "apptown/change-1"`) {
 			t.Fatalf("after %v: %v", move.args, err)
 		}
 		if after := git(wt, "rev-parse", "--symbolic-full-name", "HEAD"); after != before {
@@ -167,7 +168,7 @@ func TestANewFolderIsTheCloneTheForgeAlwaysMade(t *testing.T) {
 	git(repo, "add", "a.txt")
 	git(repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "first")
 	git(repo, "tag", "v1")
-	git(repo, "branch", "forge/change-1")
+	git(repo, "branch", "apptown/change-1")
 	git(repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "second")
 	git(repo, "branch", "other")
 	describe := func(dir string) string {
@@ -202,7 +203,7 @@ func TestANewFolderIsTheCloneTheForgeAlwaysMade(t *testing.T) {
 			"metadata: " + strings.Join(files, " "),
 		}, "\n")
 	}
-	for _, branch := range []string{"forge/change-1", "forge/change-2"} {
+	for _, branch := range []string{"apptown/change-1", "apptown/change-2"} {
 		t.Run(branch, func(t *testing.T) {
 			g := GitWorkspace{DataDir: t.TempDir()}
 			wt := filepath.Join(g.DataDir, "workspaces", "change")
@@ -293,9 +294,9 @@ func TestAWritersCloneCannotChangeTheForgesRepository(t *testing.T) {
 	}
 	git(repo, "add", "a.txt")
 	git(repo, "commit", "-m", "initial")
-	git(repo, "branch", "forge/change-1")
+	git(repo, "branch", "apptown/change-1")
 	wt := filepath.Join(g.DataDir, "workspaces", "run-1")
-	if _, err := g.EnsureClone(context.Background(), CloneRequest{Repository: repo, Workspace: wt, Branch: "forge/change-1"}); err != nil {
+	if _, err := g.EnsureClone(context.Background(), CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-1"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(wt, ".git", "objects", "info", "alternates")); err == nil {
@@ -316,7 +317,7 @@ func TestAWritersCloneCannotChangeTheForgesRepository(t *testing.T) {
 		t.Fatalf("overwriting the clone's objects: %d files, %v", overwritten, err)
 	}
 	git(repo, "fsck", "--strict")
-	if got := git(repo, "show", "forge/change-1:a.txt"); got != "AppTown's" {
+	if got := git(repo, "show", "apptown/change-1:a.txt"); got != "AppTown's" {
 		t.Fatalf("the repository's file now reads %q", got)
 	}
 }
@@ -327,7 +328,7 @@ func TestAWritersCloneCannotChangeTheForgesRepository(t *testing.T) {
 // fast-forward, whichever branch it checks out.
 func TestAFolderEnsureCloneMakesIsOneTheForgeRunsGitIn(t *testing.T) {
 	t.Parallel()
-	for _, branch := range []string{"main", "forge/change-1", "forge/new"} {
+	for _, branch := range []string{"main", "apptown/change-1", "forge/new"} {
 		t.Run(branch, func(t *testing.T) {
 			t.Parallel()
 			git := func(dir string, args ...string) string {
@@ -347,7 +348,7 @@ func TestAFolderEnsureCloneMakesIsOneTheForgeRunsGitIn(t *testing.T) {
 			git(repo, "config", "user.name", "test")
 			git(repo, "config", "user.email", "test@example.invalid")
 			git(repo, "commit", "-q", "--allow-empty", "-m", "initial")
-			git(repo, "branch", "forge/change-1")
+			git(repo, "branch", "apptown/change-1")
 			wt := filepath.Join(g.DataDir, "workspaces", "run-1")
 			if _, err := g.EnsureClone(context.Background(), CloneRequest{Repository: repo, Workspace: wt, Branch: branch, DefaultBranch: "main"}); err != nil {
 				t.Fatal(err)
@@ -368,5 +369,44 @@ func TestAFolderEnsureCloneMakesIsOneTheForgeRunsGitIn(t *testing.T) {
 				t.Fatalf("the folder is at %s, want %s", got, tip)
 			}
 		})
+	}
+}
+
+// A repository that still keeps AppTown's files in .forge/ takes no new
+// workspace until the upgrade renames it; once .apptown/ is there, it does.
+func TestANewWorkspaceIsRefusedUntilTheRepositoryIsUpgraded(t *testing.T) {
+	t.Parallel()
+	g := GitWorkspace{DataDir: t.TempDir()}
+	repo := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		if out, err := gitexec.Run(t.Context(), repo, args...); err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, out)
+		}
+	}
+	write := func(rel string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Join(repo, filepath.Dir(rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(repo, rel), []byte("app: {}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	git("init", "-q", "-b", "main")
+	write(".forge/app.yaml")
+	git("add", "-f", "-A")
+	git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "before")
+	wt := filepath.Join(g.DataDir, "workspaces", "change-1")
+	if _, err := g.EnsureClone(t.Context(), CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-1"}); !errors.Is(err, ErrNotUpgraded) {
+		t.Fatalf("before the upgrade: %v, want ErrNotUpgraded", err)
+	}
+	if _, err := os.Stat(wt); !os.IsNotExist(err) {
+		t.Fatalf("a refused workspace made a folder: %v", err)
+	}
+	git("mv", ".forge", ".apptown")
+	git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "upgrade")
+	if _, err := g.EnsureClone(t.Context(), CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-1"}); err != nil {
+		t.Fatalf("after the upgrade: %v", err)
 	}
 }

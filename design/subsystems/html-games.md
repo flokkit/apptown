@@ -6,7 +6,7 @@ revalidate after a release. The video-game and `frontend-only` seeds build
 with npm and Vite and declare a static site with a build
 (`static: { build: ., output: dist }`): their Dockerfile ends with a stage of
 the built files, and the forge serves that output with its own file server,
-so the page gets `/_forge/env.js` and the release witness
+so the page gets `/_apptown/env.js` and the release witness
 ([deploy targets](deploy-targets.md#static-sites-and-readiness)).
 
 Projects still declare native `app.yaml` inputs and use normal Change, check,

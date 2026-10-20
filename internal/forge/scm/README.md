@@ -95,7 +95,7 @@ It checks two things together, under the repository lock:
   refused once its ticket has expired or been revoked.
 - **What it brings in.** Every commit a publication adds (reachable from its
   tip, and neither from the branch as published nor from the default branch,
-  the hub's `HEAD`), against each of its parents: nothing under `.forge` but
+  the hub's `HEAD`), against each of its parents: nothing under `.apptown` but
   the native contract, no file over 10 MiB, and 50 MiB of new files in all.
   The budget is per publication, over the distinct new file contents
   (blobs): each version of a file counts, identical content counts once.
@@ -129,7 +129,7 @@ new holder, no publication). To resolve one, confirm no git process is working
 in that repository, remove the stale `refs/heads/<branch>.lock`, then restart
 or retry: the next publication or startup settles it by reading the branch.
 
-A desktop push with a ticket lands in `refs/forge/incoming/ticket-<id>`. The
+A desktop push with a ticket lands in `refs/apptown/incoming/ticket-<id>`. The
 hub's pre-receive hook refuses early a push from a moved tip or one that does
 not build on it; the forge then publishes the holding ref if the ticket still
 holds the branch, and removes it either way.
@@ -255,7 +255,7 @@ published as written; only account names are withheld.
 ## Scratch refs
 
 `ScratchRef` names the one ref a step attempt's runtime token may push
-(`refs/forge/scratch/change-<change>/step-<step>-a<attempt>`), so that
+(`refs/apptown/scratch/change-<change>/step-<step>-a<attempt>`), so that
 `apptown check` can check an agent's commit on a worker before the step's work
 is collected. The git endpoint and the hub's pre-receive hook admit that push
 and no other for the token; a scratch commit moves no branch and is checked as

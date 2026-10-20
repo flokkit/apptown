@@ -39,7 +39,7 @@ func TestPreviewObservationAndWireShape(t *testing.T) {
 		t.Fatalf("historical snapshot remains bootable: %+v", got)
 	}
 	inProgress = true
-	dir := filepath.Join(s.dataDir, "workspaces", "change-00000000-0007-7000-8000-000000000000", ".forge")
+	dir := filepath.Join(s.dataDir, "workspaces", "change-00000000-0007-7000-8000-000000000000", ".apptown")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}

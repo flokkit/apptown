@@ -92,7 +92,7 @@ func TestAQueuedReviewBuildsWhenItWasAskedTo(t *testing.T) {
 	testAdministrator(t, a, "reviewer")
 	attachScanner(t, a, "self-check", map[string]any{"command": []string{"python", "manage.py", "check"}, "target": "exec-image", "manual": true})
 	calls := onWorkerWithATripwire(t, a)
-	id, _, _ := fleetRepo(t, a, "built", map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n", "Dockerfile": "FROM scratch\n"})
+	id, _, _ := fleetRepo(t, a, "built", map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n", "Dockerfile": "FROM scratch\n"})
 	adopt(t, a, id, "image-checks", 1, `[{"name":"image","evaluator":"tool","tool":"self-check","severity":"high"}]`)
 	rev, err := fleetReviewsFor(a).StartFleetReviewWith(testConformanceContext("reviewer"), "manual", conformance.ReviewOptions{Projects: []ids.ID{id}, Build: true})
 	if err != nil {

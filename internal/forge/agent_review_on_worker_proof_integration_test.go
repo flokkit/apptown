@@ -112,7 +112,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		`apptown check --published > published.txt 2>&1; echo "exit $?" >> published.txt`,
 		`echo worked`,
 	}, "; ")
-	reviewWork := `mkdir -p .forge && printf '{"verdict":"pass","summary":"the change is what was asked","findings":[]}' > .forge/review.json && echo reviewed`
+	reviewWork := `mkdir -p .apptown && printf '{"verdict":"pass","summary":"the change is what was asked","findings":[]}' > .apptown/review.json && echo reviewed`
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer provider-canary" {
 			t.Error("the gateway did not present the provider's credential")
@@ -316,7 +316,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	if behind, err := scm.Behind(context.Background(), folder, hub); err != nil || behind {
 		t.Fatalf("the run's folder is behind: %v %v", behind, err)
 	}
-	if refused := gittest.Run(t, hub, "for-each-ref", "refs/forge/refused"); refused != "" {
+	if refused := gittest.Run(t, hub, "for-each-ref", "refs/apptown/refused"); refused != "" {
 		t.Fatalf("work was refused: %s", refused)
 	}
 
@@ -334,7 +334,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	// drop), so a moment after the step reads as passed.
 	var left string
 	poll.Until(t.Context(), 30*time.Second, 100*time.Millisecond, func() bool {
-		left = gittest.Run(t, hub, "for-each-ref", "refs/forge/scratch")
+		left = gittest.Run(t, hub, "for-each-ref", "refs/apptown/scratch")
 		return left == ""
 	})
 	if left != "" {

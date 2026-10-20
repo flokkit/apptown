@@ -18,7 +18,7 @@ func TestProjectSchedulesAreAProjectReadThatNeverReadsFailureAsNone(t *testing.T
 	a := authzActors(t)
 	revokeReadingForAll(t, a) // only the project's own people read it
 	h := a.Handler()
-	yaml := `apiVersion: forge.flokkit.io/v1
+	yaml := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: monthly}
 spec:

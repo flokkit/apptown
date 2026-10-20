@@ -216,7 +216,7 @@ func TestPolicyReportBatchesWorkflowSelectionAndCapabilityFacts(t *testing.T) {
 	for i := range 20 {
 		name := fmt.Sprintf("workflow-%02d", i)
 		system := i == 19
-		source := fmt.Sprintf("apiVersion: forge.flokkit.io/v1\nkind: Workflow\nmetadata: {name: %s, system: %t}\nspec:\n  kind: pipeline\n  stages:\n    - name: ship\n      steps: [{name: deploy, uses: deploy}]\n", name, system)
+		source := fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, system: %t}\nspec:\n  kind: pipeline\n  stages:\n    - name: ship\n      steps: [{name: deploy, uses: deploy}]\n", name, system)
 		if _, _, err := wf.Put(t.Context(), source, "alice"); err != nil {
 			t.Fatal(err)
 		}
@@ -295,7 +295,7 @@ func TestEvaluatePolicyRules(t *testing.T) {
 		return &d.Spec
 	}
 	deployAfterScan := specOf(`
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: ok}
 spec:
@@ -307,7 +307,7 @@ spec:
       steps: [{name: d, uses: deploy}]
 `)
 	deployNoScan := specOf(`
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: bad}
 spec:
@@ -325,7 +325,7 @@ spec:
 	}
 	// Rule not applicable (no deploy step at all) — silence, not violation.
 	noDeploy := specOf(`
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: quiet}
 spec:

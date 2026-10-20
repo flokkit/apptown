@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The forge-native runtime contract (.forge/app.yaml, design/decisions/forge-native-contract.md).
+// The forge-native runtime contract (.apptown/app.yaml, design/decisions/forge-native-contract.md).
 // The source of truth: what the app IS (app: a map of parts) and what it DEPENDS
 // on (needs: a map of catalog capabilities). Compose is no longer the contract —
 // it is generated from this for local dev (compose_gen.go). No x- prefixes: the
@@ -152,13 +152,13 @@ type appYamlSecrets struct {
 	Deliver  map[string]string `yaml:"deliver"`
 }
 
-// currentContractVersion is the highest .forge/app.yaml shape this binary
+// currentContractVersion is the highest .apptown/app.yaml shape this binary
 // understands.
 const currentContractVersion = 1
 
 var secretNameRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
-// Parse parses .forge/app.yaml into the internal contract. Errors
+// Parse parses .apptown/app.yaml into the internal contract. Errors
 // name the offending field and are written for a human or an agent to fix.
 func Parse(raw []byte) (*Contract, error) {
 	var doc appYamlDoc
@@ -168,7 +168,7 @@ func Parse(raw []byte) (*Contract, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(raw))
 	dec.KnownFields(true)
 	if err := dec.Decode(&doc); err != nil {
-		return nil, fmt.Errorf(".forge/app.yaml: %w", err)
+		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 	}
 	// Version rules: absent == 1 (pre-version files); explicit 0 is invalid;
 	// anything past what we know needs a newer forge.
@@ -176,12 +176,12 @@ func Parse(raw []byte) (*Contract, error) {
 	case doc.Version == nil:
 		// pre-version file — treat as v1
 	case *doc.Version == 0:
-		return nil, fmt.Errorf(".forge/app.yaml: version: 0 is invalid — omit version (means 1) or set the version your contract is written for")
+		return nil, fmt.Errorf(".apptown/app.yaml: version: 0 is invalid — omit version (means 1) or set the version your contract is written for")
 	case *doc.Version > currentContractVersion:
-		return nil, fmt.Errorf(".forge/app.yaml: contract version %d requires a newer forge (this build understands up to %d)", *doc.Version, currentContractVersion)
+		return nil, fmt.Errorf(".apptown/app.yaml: contract version %d requires a newer forge (this build understands up to %d)", *doc.Version, currentContractVersion)
 	}
 	if len(doc.App) == 0 {
-		return nil, fmt.Errorf(".forge/app.yaml: no app parts declared under `app:`")
+		return nil, fmt.Errorf(".apptown/app.yaml: no app parts declared under `app:`")
 	}
 
 	var c Contract
@@ -197,10 +197,10 @@ func Parse(raw []byte) (*Contract, error) {
 		if p.Replicas != nil {
 			replicas, ok := p.Replicas.(int)
 			if !ok || replicas < 1 {
-				return nil, fmt.Errorf(".forge/app.yaml: app part %q: replicas must be a positive integer", name)
+				return nil, fmt.Errorf(".apptown/app.yaml: app part %q: replicas must be a positive integer", name)
 			}
 			if replicas > 1 {
-				return nil, fmt.Errorf(".forge/app.yaml: app part %q: replicas: %d is not supported yet; only 1 replica per app part is supported", name, replicas)
+				return nil, fmt.Errorf(".apptown/app.yaml: app part %q: replicas: %d is not supported yet; only 1 replica per app part is supported", name, replicas)
 			}
 		}
 		sources := 0
@@ -213,26 +213,26 @@ func Parse(raw []byte) (*Contract, error) {
 			sources++
 		}
 		if sources != 1 {
-			return nil, fmt.Errorf(".forge/app.yaml: app part %q must declare exactly one of build:, image:, or static: (got %d)", name, sources)
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q must declare exactly one of build:, image:, or static: (got %d)", name, sources)
 		}
 		if err := validateHealth(name, p.Health); err != nil {
-			return nil, fmt.Errorf(".forge/app.yaml: %w", err)
+			return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 		}
 		if _, reserved := p.Environment[BrowserEnvVar]; reserved {
-			return nil, fmt.Errorf(".forge/app.yaml: app part %q sets %s, which only AppTown sets", name, BrowserEnvVar)
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q sets %s, which only AppTown sets", name, BrowserEnvVar)
 		}
 		built, err := p.Static.staticBuild(name)
 		if err != nil {
-			return nil, fmt.Errorf(".forge/app.yaml: %w", err)
+			return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 		}
 		if built != nil && !p.Public {
 			// The forge builds and serves a static site as the front door;
 			// a second, built one beside it has no use case yet.
-			return nil, fmt.Errorf(".forge/app.yaml: app part %q: a static site with a build must be the public part", name)
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: a static site with a build must be the public part", name)
 		}
 		resources, err := p.Resources.parse()
 		if err != nil {
-			return nil, fmt.Errorf(".forge/app.yaml: app part %q: %w", name, err)
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %w", name, err)
 		}
 		part := Part{
 			Resources: resources,
@@ -243,7 +243,7 @@ func Parse(raw []byte) (*Contract, error) {
 		}
 		port, err := containerPort(p.Ports)
 		if err != nil {
-			return nil, fmt.Errorf(".forge/app.yaml: app part %q: %w", name, err)
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %w", name, err)
 		}
 		// Default the public port once, in the canonical declaration. Workers
 		// without ports stay workers; static servers listen on 80.
@@ -260,7 +260,7 @@ func Parse(raw []byte) (*Contract, error) {
 		}
 	}
 	if publicCount != 1 {
-		return nil, fmt.Errorf(".forge/app.yaml: exactly one app part must be marked `public: true` (got %d) — it is the front door the preview/deploy URL points at", publicCount)
+		return nil, fmt.Errorf(".apptown/app.yaml: exactly one app part must be marked `public: true` (got %d) — it is the front door the preview/deploy URL points at", publicCount)
 	}
 
 	// init: ordered run-to-completion containers that must succeed before the
@@ -277,7 +277,7 @@ func Parse(raw []byte) (*Contract, error) {
 			}
 		}
 		if sources != 1 {
-			return nil, fmt.Errorf(".forge/app.yaml: init %q must declare exactly one of build: or image:", name)
+			return nil, fmt.Errorf(".apptown/app.yaml: init %q must declare exactly one of build: or image:", name)
 		}
 		c.Init = append(c.Init, InitContainer{
 			Name: name, Build: it.Build, Image: it.Image,
@@ -287,26 +287,26 @@ func Parse(raw []byte) (*Contract, error) {
 
 	// needs: a map of capability → {typed params + a properties escape hatch}.
 	if err := parseAppYamlNeeds(doc.Needs, &c); err != nil {
-		return nil, fmt.Errorf(".forge/app.yaml: needs: %w", err)
+		return nil, fmt.Errorf(".apptown/app.yaml: needs: %w", err)
 	}
 	// A part and a need share the stack's network, each aliased by its
 	// name, and a profile names either: one name is one of them.
 	for _, p := range c.Parts {
 		if slices.Contains(c.Needs, p.Name) {
-			return nil, fmt.Errorf(".forge/app.yaml: %q is both a part under app: and a need: rename the part", p.Name)
+			return nil, fmt.Errorf(".apptown/app.yaml: %q is both a part under app: and a need: rename the part", p.Name)
 		}
 	}
 	if doc.Secrets != nil {
 		c.SecretSpecPath = doc.Secrets.Spec
 		for name, domain := range doc.Secrets.Generate {
 			if !secretNameRe.MatchString(name) {
-				return nil, fmt.Errorf(".forge/app.yaml: secrets: generate: %q is not an environment variable name", name)
+				return nil, fmt.Errorf(".apptown/app.yaml: secrets: generate: %q is not an environment variable name", name)
 			}
 			if domain == "environment" {
-				return nil, fmt.Errorf(".forge/app.yaml: secrets: generate: %s: the stability domain once called environment is now called deployment: write %s: deployment", name, name)
+				return nil, fmt.Errorf(".apptown/app.yaml: secrets: generate: %s: the stability domain once called environment is now called deployment: write %s: deployment", name, name)
 			}
 			if domain != "deployment" && domain != "project" {
-				return nil, fmt.Errorf(".forge/app.yaml: secrets: generate: %s: %q is not a stability domain (deployment | project)", name, domain)
+				return nil, fmt.Errorf(".apptown/app.yaml: secrets: generate: %s: %q is not a stability domain (deployment | project)", name, domain)
 			}
 			if c.SecretGenerate == nil {
 				c.SecretGenerate = map[string]string{}
@@ -318,23 +318,23 @@ func Parse(raw []byte) (*Contract, error) {
 				continue
 			}
 			if channel == "file" {
-				return nil, fmt.Errorf(".forge/app.yaml: secrets: deliver: %s: file delivery is not built yet — secrets reach the app as environment variables", name)
+				return nil, fmt.Errorf(".apptown/app.yaml: secrets: deliver: %s: file delivery is not built yet — secrets reach the app as environment variables", name)
 			}
-			return nil, fmt.Errorf(".forge/app.yaml: secrets: deliver: %s: %q is not a delivery channel (env)", name, channel)
+			return nil, fmt.Errorf(".apptown/app.yaml: secrets: deliver: %s: %q is not a delivery channel (env)", name, channel)
 		}
 	}
 	if err := parseProfiles(doc.Profiles, &c); err != nil {
-		return nil, fmt.Errorf(".forge/app.yaml: %w", err)
+		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 	}
 	for _, name := range append([]string{DefaultProfile}, c.ProfileNames()...) {
 		if err := c.ForProfile(name).CheckNeedSizes(); err != nil {
-			return nil, fmt.Errorf(".forge/app.yaml: profile %s: %w", name, err)
+			return nil, fmt.Errorf(".apptown/app.yaml: profile %s: %w", name, err)
 		}
 	}
 	if doc.Rehearsal != nil {
 		for _, line := range doc.Rehearsal.Checks {
 			if _, _, err := ParseDataCheck(line); err != nil {
-				return nil, fmt.Errorf(".forge/app.yaml: rehearsal: checks: %w", err)
+				return nil, fmt.Errorf(".apptown/app.yaml: rehearsal: checks: %w", err)
 			}
 			c.RehearsalChecks = append(c.RehearsalChecks, strings.Join(strings.Fields(line), " "))
 		}
@@ -410,7 +410,7 @@ func parseAppYamlNeeds(needs map[string]map[string]any, c *Contract) error {
 			}
 			s, ok := scalarString(v)
 			if !ok {
-				return fmt.Errorf(".forge/app.yaml: needs: %s: %s: a parameter is a single value, not %s", name, k, shapeOf(v))
+				return fmt.Errorf(".apptown/app.yaml: needs: %s: %s: a parameter is a single value, not %s", name, k, shapeOf(v))
 			}
 			params[k] = s
 		}
@@ -418,7 +418,7 @@ func parseAppYamlNeeds(needs map[string]map[string]any, c *Contract) error {
 		// too (a property named the same as a typed field would override it).
 		props, ok := spec["properties"].(map[string]any)
 		if raw, present := spec["properties"]; present && raw != nil && !ok {
-			return fmt.Errorf(".forge/app.yaml: needs: %s: properties: a map of single values, not %s", name, shapeOf(raw))
+			return fmt.Errorf(".apptown/app.yaml: needs: %s: properties: a map of single values, not %s", name, shapeOf(raw))
 		}
 		for k, v := range props {
 			if k == "size" {
@@ -426,7 +426,7 @@ func parseAppYamlNeeds(needs map[string]map[string]any, c *Contract) error {
 			}
 			s, ok := scalarString(v)
 			if !ok {
-				return fmt.Errorf(".forge/app.yaml: needs: %s: properties: %s: a property is a single value, not %s", name, k, shapeOf(v))
+				return fmt.Errorf(".apptown/app.yaml: needs: %s: properties: %s: a property is a single value, not %s", name, k, shapeOf(v))
 			}
 			params[k] = s
 		}
@@ -434,7 +434,7 @@ func parseAppYamlNeeds(needs map[string]map[string]any, c *Contract) error {
 		// is never copied and starts empty. A misspelt value would silently
 		// protect, or silently not protect, so only the two words are read.
 		if v, ok := params["disposable"]; ok && v != "true" && v != "false" {
-			return fmt.Errorf(".forge/app.yaml: needs: %s: disposable is true or false, not %q", name, v)
+			return fmt.Errorf(".apptown/app.yaml: needs: %s: disposable is true or false, not %q", name, v)
 		}
 		if len(params) > 0 {
 			if c.NeedParams == nil {

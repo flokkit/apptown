@@ -79,34 +79,34 @@ func TestCheckFileGlobsSpanDirectoriesOnlyWhereTheySayTo(t *testing.T) {
 }
 
 // A file a check names by its exact path is evidence even inside a directory
-// the walk skips: the runtime-contract check names .forge/app.yaml, and a
+// the walk skips: the runtime-contract check names .apptown/app.yaml, and a
 // committed contract must not read as missing. The forge's own runtime state
 // beside it stays out, and a symlinked directory never leads outside the tree.
 func TestNamedFilesAreEvidenceEvenUnderSkippedDirectories(t *testing.T) {
 	t.Parallel()
-	globs := []string{"README.md", ".forge/app.yaml", ".forge/compose.yaml", "**/*.md", "**/*.yaml"}
+	globs := []string{"README.md", ".apptown/app.yaml", ".apptown/compose.yaml", "**/*.md", "**/*.yaml"}
 
 	without := t.TempDir()
 	writeFile(t, without, "README.md", "an app")
-	writeFile(t, without, ".forge/CHANGE.md", "the implementer's report")
-	writeFile(t, without, ".forge/sessions/s.md", "a transcript")
+	writeFile(t, without, ".apptown/CHANGE.md", "the implementer's report")
+	writeFile(t, without, ".apptown/sessions/s.md", "a transcript")
 	if bundle, files := check.PackEvidence(without, globs); len(files) != 1 || files[0] != "README.md" || strings.Contains(bundle, "transcript") || strings.Contains(bundle, "report") {
 		t.Fatalf("without a contract only README.md is evidence, got %v\n%s", files, bundle)
 	}
 
 	with := t.TempDir()
 	writeFile(t, with, "README.md", "an app")
-	writeFile(t, with, ".forge/app.yaml", "app:\n  web: { build: ., public: true }\n")
-	writeFile(t, with, ".forge/CHANGE.md", "the implementer's report")
+	writeFile(t, with, ".apptown/app.yaml", "app:\n  web: { build: ., public: true }\n")
+	writeFile(t, with, ".apptown/CHANGE.md", "the implementer's report")
 	bundle, files := check.PackEvidence(with, globs)
-	if strings.Join(files, ",") != ".forge/app.yaml,README.md" || !strings.Contains(bundle, "=== .forge/app.yaml ===\napp:") {
+	if strings.Join(files, ",") != ".apptown/app.yaml,README.md" || !strings.Contains(bundle, "=== .apptown/app.yaml ===\napp:") {
 		t.Fatalf("a committed contract is evidence, got %v\n%s", files, bundle)
 	}
 
 	outside := t.TempDir()
 	writeFile(t, outside, "app.yaml", "secret: outside the tree")
 	linked := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(linked, ".forge")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(linked, ".apptown")); err != nil {
 		t.Fatal(err)
 	}
 	if bundle, files := check.PackEvidence(linked, globs); len(files) != 0 || strings.Contains(bundle, "outside") {

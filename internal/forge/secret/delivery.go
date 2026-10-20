@@ -169,7 +169,7 @@ func (a *Service) resolve(ctx context.Context, projectID ids.ID, slug, deploymen
 	}
 	if !present {
 		if len(c.SecretGenerate) > 0 {
-			return d, fault.Wrap(fault.Invalid, fmt.Errorf(".forge/app.yaml declares secrets: but the app has no %s", SpecFile))
+			return d, fault.Wrap(fault.Invalid, fmt.Errorf(".apptown/app.yaml declares secrets: but the app has no %s", SpecFile))
 		}
 		return d, nil
 	}

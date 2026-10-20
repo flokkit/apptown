@@ -19,12 +19,12 @@ import (
 
 // The static site's image, built from StaticSiteDockerfile and run with no
 // command, as App Platform and every other target runs it: it serves the
-// site, /_forge/env.js with the values it was started with, and the
+// site, /_apptown/env.js with the values it was started with, and the
 // release identity it was told at ReleasePath. (An image without its own
 // command would serve the file server's default page on App Platform.)
 func TestIntegrationAStaticSiteImageServesItselfWithNoCommand(t *testing.T) {
 	site := t.TempDir()
-	page := `<html><script src="/_forge/env.js"></script></html>`
+	page := `<html><script src="/_apptown/env.js"></script></html>`
 	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte(page), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -72,7 +72,7 @@ func TestIntegrationTheStockHistoryScanFindsASecretInAMergeResolution(t *testing
 	git("commit", "-qm", "remove token")
 	commits := base + ".." + git("rev-parse", "HEAD")
 	work := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(work, ".forge"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(work, ".apptown"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	args := []string{"run", "--rm", "--network", "none", "-v", repo + ":/history:ro", "-v", work + ":/work", scanner.Image}

@@ -33,10 +33,10 @@ func TestUndeclaredReadinessIsANonConformance(t *testing.T) {
 	t.Parallel()
 	observer := Runtime{}
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	v := observer.Probe(context.Background(), Target{Slug: "x", ContractDir: dir}, "readiness")
@@ -52,10 +52,10 @@ func TestUndeclaredReadinessIsANonConformance(t *testing.T) {
 func TestStaticPartReadinessIsItsRootAnswering(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"), []byte("app:\n  game:\n    static: .\n    public: true\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"), []byte("app:\n  game:\n    static: .\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	var mu sync.Mutex

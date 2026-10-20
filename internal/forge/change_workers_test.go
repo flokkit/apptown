@@ -273,7 +273,7 @@ func TestAWorkflowALandingCallsChecksItsCandidate(t *testing.T) {
 
 // A desktop sync refuses to reset a folder holding source nobody committed,
 // including source git could not stage, but the forge's own untracked
-// runtime files under .forge are not such work, even where the project's
+// runtime files under .apptown are not such work, even where the project's
 // .gitignore does not hide them: the reset keeps them.
 func TestASyncRefusesUncommittedSourceButNotRuntimeFiles(t *testing.T) {
 	t.Parallel()
@@ -285,7 +285,7 @@ func TestASyncRefusesUncommittedSourceButNotRuntimeFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(w.folder, ".gitignore"), []byte("/bin/\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	gittest.Run(t, w.folder, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qam", "a .gitignore without .forge")
+	gittest.Run(t, w.folder, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qam", "a .gitignore without .apptown")
 	if err := w.a.changeConsole.End(context.Background(), chat, "owner"); err != nil {
 		t.Fatal(err)
 	}
@@ -294,10 +294,10 @@ func TestASyncRefusesUncommittedSourceButNotRuntimeFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(w.folder, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(w.folder, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(w.folder, ".forge", "steering.md"), []byte("runtime\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(w.folder, ".apptown", "steering.md"), []byte("runtime\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	// An edit git cannot stage (unreadable) is refused, not reset away.
@@ -332,7 +332,7 @@ func TestASyncRefusesUncommittedSourceButNotRuntimeFiles(t *testing.T) {
 	if _, err := c.Sync(asPerson("owner"), w.change.ID, checkout.Tip, checkout.Tip); err != nil {
 		t.Fatalf("a sync over runtime files alone: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(w.folder, ".forge", "steering.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(w.folder, ".apptown", "steering.md")); err != nil {
 		t.Fatalf("the sync removed the runtime file: %v", err)
 	}
 }
@@ -441,10 +441,10 @@ func TestAnUncommittedAppContractDoesNotLandEmpty(t *testing.T) {
 	if code != 201 {
 		t.Fatalf("open: %d %s", code, body)
 	}
-	if err := os.MkdirAll(filepath.Join(w.folder, ".forge"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(w.folder, ".apptown"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(w.folder, ".forge", "app.yaml"), []byte("app:\n  web: {image: nginx:alpine, ports: [\"80\"], public: true}\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(w.folder, ".apptown", "app.yaml"), []byte("app:\n  web: {image: nginx:alpine, ports: [\"80\"], public: true}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	defineWorkflows(t, w.a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "done", Steps: []schema.Step{{Name: "hold", Uses: "approval"}}}}}})

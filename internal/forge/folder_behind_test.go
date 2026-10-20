@@ -699,7 +699,7 @@ func TestARefusedSaveLeavesTheFolderShown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.commitOnWorker(t, chat.ID, ".forge/not-source", "refused\n")
+	w.commitOnWorker(t, chat.ID, ".apptown/not-source", "refused\n")
 	w.a.changeConsole.SaveAfterTurn(chat.ID)
 	if save, _, err := repositoryedit.LastChatSave(chat.Dir); err != nil || save.Outcome != repositoryedit.ChatSaveRefused || save.Kept == "" {
 		t.Fatalf("precondition: a save refused at publication: %+v %v", save, err)

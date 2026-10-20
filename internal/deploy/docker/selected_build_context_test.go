@@ -21,8 +21,8 @@ func TestDockerSelectedImagesUseLocalAndRemoteBuildContexts(t *testing.T) {
 		t.Run(fmt.Sprint(remote), func(t *testing.T) {
 			fake := &fakeClient{}
 			repo := selectedSourceRepo(t, map[string]string{
-				".forge/app.yaml": "app:\n  web:\n    public: true\n    static: site\n  mirror:\n    static: site\n    ports: [\"9090\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n",
-				"site/index.html": "selected A", "worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n",
+				".apptown/app.yaml": "app:\n  web:\n    public: true\n    static: site\n  mirror:\n    static: site\n    ports: [\"9090\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n",
+				"site/index.html":   "selected A", "worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n",
 			})
 			art, cleanup, err := PrepareSource(context.Background(), repo, "HEAD", "p", []deploy.ServiceSpec{{Name: "selected-service", Image: "example/service:1"}})
 			if err != nil {

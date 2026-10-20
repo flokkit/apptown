@@ -41,7 +41,7 @@ func (g GitWorkspace) SyncAttachments(ctx context.Context, changeID ids.ID, work
 	if !info.IsDir() {
 		return fmt.Errorf("attachment workspace must be standalone")
 	}
-	dst := filepath.Join(workspace, ".forge", "attachments")
+	dst := filepath.Join(workspace, ".apptown", "attachments")
 	if err := os.MkdirAll(dst, 0755); err != nil {
 		return err
 	}

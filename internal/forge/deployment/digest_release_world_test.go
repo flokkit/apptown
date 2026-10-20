@@ -207,7 +207,7 @@ type digestHosts struct {
 	held     map[string]map[string]bool // host -> references by digest it holds
 	platform string                     // what `docker info` answers
 	// told keeps the last release identity a `run` gave a static part
-	// (FORGE_RELEASE): what the forge's file server answers.
+	// (APPTOWN_RELEASE): what the forge's file server answers.
 	told atomic.Pointer[string]
 }
 
@@ -399,7 +399,7 @@ func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*d
 		daemons: map[string]*dockerfake.Daemon{"": dockerfake.New(), digestHostOf("lab"): dockerfake.New(), digestHostOf("lab2"): dockerfake.New()}}
 	w.project = createTestProject(t, db, "p", "P")
 	// One front door for every daemon: the forge's file server, which
-	// answers /_forge/release with the release its last container was told.
+	// answers /_apptown/release with the release its last container was told.
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == appcontract.ReleasePath {
 			if v := w.hosts.told.Load(); v != nil {
@@ -421,7 +421,7 @@ func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*d
 	}
 	w.repo = filepath.Join(w.dir, "workspaces", "project-p")
 	w.contract = []byte(strings.ReplaceAll(appYAML, "%[1]s", w.registry.host))
-	files := map[string]string{".forge/app.yaml": string(w.contract), "site/index.html": "<html>p</html>",
+	files := map[string]string{".apptown/app.yaml": string(w.contract), "site/index.html": "<html>p</html>",
 		"worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n"}
 	for name, body := range files {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(w.repo, name)), 0o755); err != nil {

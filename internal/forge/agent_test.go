@@ -84,7 +84,7 @@ func admittedAgentStep(t *testing.T, a *App, config string, also ...schema.Step)
 func piKeepsSession(t *testing.T, req ExecRequest, text string) string {
 	t.Helper()
 	session := sessionIDOf(req)
-	dir := filepath.Join(req.Workspace, ".forge", "sessions")
+	dir := filepath.Join(req.Workspace, ".apptown", "sessions")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}

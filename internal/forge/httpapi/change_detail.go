@@ -165,7 +165,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	if ws := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", id)); hasGitDirectory(ws) {
 		if out, err := gitexec.Run(r.Context(), ws, "status", "--porcelain"); err == nil {
 			for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
-				if l != "" && !strings.Contains(l, ".forge/") {
+				if l != "" && !strings.Contains(l, ".apptown/") {
 					editing++
 				}
 			}

@@ -115,10 +115,10 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 			if err != nil {
 				return nil, &DeclarationError{err}
 			}
-			if err := scm.WriteInTree(dir, filepath.Join(".forge", "app.yaml"), updated, 0o644); err != nil {
+			if err := scm.WriteInTree(dir, filepath.Join(".apptown", "app.yaml"), updated, 0o644); err != nil {
 				return nil, err
 			}
-			return []string{".forge/app.yaml"}, nil
+			return []string{".apptown/app.yaml"}, nil
 		})
 		if err != nil {
 			return nil, err
@@ -176,10 +176,10 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 	if err != nil {
 		return nil, &DeclarationError{err}
 	}
-	if err := os.MkdirAll(filepath.Join(wt, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(wt, ".apptown"), 0o755); err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(filepath.Join(wt, ".forge", "app.yaml"), updated, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(wt, ".apptown", "app.yaml"), updated, 0o644); err != nil {
 		return nil, err
 	}
 	if err := scm.StageAll(ctx, wt); err != nil {

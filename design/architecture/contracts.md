@@ -12,7 +12,7 @@ development, use the shipped [contract reference](../../stock/docs/guides/contra
 
 ## Type 1 — code → platform: "how to run me"
 
-The runtime declaration is `.forge/app.yaml`, read from the selected source
+The runtime declaration is `.apptown/app.yaml`, read from the selected source
 revision. `internal/deploy/appcontract` parses it into app parts, ordered
 initialization, needs and secret metadata. Each app part selects a build context,
 image or static assets; exactly one is public. A `dataDir` declares where that
@@ -32,8 +32,8 @@ supply their own tools. See [toolchains](../../stock/docs/guides/toolchains.md).
 
 Forge owns host bindings, restart policy, volume placement and credentials, so
 full Compose is not accepted as the contract: it mixes app intent with host
-topology and permits unsafe controls. `.forge/app.json` and
-`.forge/compose.yaml` are not read. The [native-contract decision](../decisions/forge-native-contract.md)
+topology and permits unsafe controls. `.apptown/app.json` and
+`.apptown/compose.yaml` are not read. The [native-contract decision](../decisions/forge-native-contract.md)
 says why the contract is not a Compose file.
 
 ## Type 2 — platform → code: the ABI

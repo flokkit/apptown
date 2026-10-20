@@ -19,7 +19,7 @@ func TestStartupBindsConstructedVerificationRunners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	seedLibraryWorkflow(t, a, p.ID, "verify-startup", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, p.ID, "verify-startup", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: verify-startup}
 spec:

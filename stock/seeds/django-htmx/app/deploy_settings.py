@@ -25,7 +25,7 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
 DEBUG = os.environ.get("DJANGO_DEBUG") == "1"
 
-# The database is the Postgres the runtime contract (.forge/app.yaml)
+# The database is the Postgres the runtime contract (.apptown/app.yaml)
 # needs. Wherever AppTown runs the app with it (a deployment, a change's
 # preview, an agent's emulator) it injects the PG* variables (and
 # DATABASE_URL, which says the same thing); libpq reads the rest itself

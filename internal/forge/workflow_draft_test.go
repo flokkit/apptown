@@ -33,7 +33,7 @@ import (
 func TestWorkflowDraftIsAModelCallThroughTheInferenceOwner(t *testing.T) {
 	t.Parallel()
 	alice := access.Principal{Kind: "user", Name: "alice", Via: "session"}
-	valid := "apiVersion: forge.flokkit.io/v1\nkind: Workflow\nmetadata: {name: draft-fixture}\nspec:\n  kind: pipeline\n  stages:\n    - name: work\n      steps:\n        - name: done\n          uses: script\n          with: {run: \"true\"}"
+	valid := "apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: draft-fixture}\nspec:\n  kind: pipeline\n  stages:\n    - name: work\n      steps:\n        - name: done\n          uses: script\n          with: {run: \"true\"}"
 	var calls atomic.Int32
 	var prompts []string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +118,7 @@ func TestWorkflowDraftIsAModelCallThroughTheInferenceOwner(t *testing.T) {
 // second upstream call. (A disabled console owner: TestDraftingRefusesADisabledConsoleOwner.)
 func TestWorkflowDraftActsAsTheAuthenticatedPersonWhileTheirConsoleLives(t *testing.T) {
 	t.Parallel()
-	valid := "apiVersion: forge.flokkit.io/v1\nkind: Workflow\nmetadata: {name: draft-fixture}\nspec:\n  kind: pipeline\n  stages:\n    - name: work\n      steps:\n        - name: done\n          uses: script\n          with: {run: \"true\"}"
+	valid := "apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: draft-fixture}\nspec:\n  kind: pipeline\n  stages:\n    - name: work\n      steps:\n        - name: done\n          uses: script\n          with: {run: \"true\"}"
 	var calls atomic.Int32
 	var onCall func(n int32) string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

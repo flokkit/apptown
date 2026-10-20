@@ -10,7 +10,7 @@ func TestSlotConsumersNamesWorkflows(t *testing.T) {
 	t.Parallel()
 	ways := wow.New(databaseSuite.New(t), wow.Dependencies{})
 	// A library workflow whose YAML names the 'plan' slot on a step.
-	_, _, err := ways.PublishWorkflow(t.Context(), `apiVersion: forge.flokkit.io/v1
+	_, _, err := ways.PublishWorkflow(t.Context(), `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: planner}
 spec:

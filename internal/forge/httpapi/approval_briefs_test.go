@@ -101,7 +101,7 @@ func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 	base := git("rev-parse", "HEAD")
-	git("checkout", "-q", "-b", "forge/change-00000000-0001-7000-8000-000000000000")
+	git("checkout", "-q", "-b", "apptown/change-00000000-0001-7000-8000-000000000000")
 	write("settings.tsx", "export const dark = true\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "the change")
@@ -113,7 +113,7 @@ func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := ApprovalBriefs{db: f.DB, dataDir: dataDir}
-	inputs := workflow.ApprovalBriefInputs{StepContext: workflow.StepContext{Run: run}, Change: &workflow.Change{ID: f.ChangeID, Branch: "forge/change-00000000-0001-7000-8000-000000000000", BaseSHA: base}}
+	inputs := workflow.ApprovalBriefInputs{StepContext: workflow.StepContext{Run: run}, Change: &workflow.Change{ID: f.ChangeID, Branch: "apptown/change-00000000-0001-7000-8000-000000000000", BaseSHA: base}}
 	if stat := h.diffStat(f.Context, inputs); !strings.Contains(stat, "settings.tsx | 1 +") || !strings.Contains(stat, "1 file changed") {
 		t.Fatalf("the diff stat: %q", stat)
 	}
@@ -123,12 +123,12 @@ func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
 	write("main_test.go", "package main\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "on main")
-	git("checkout", "-q", "forge/change-00000000-0001-7000-8000-000000000000")
-	git("merge", "-q", "--no-edit", "-m", "Merge main into forge/change-00000000-0001-7000-8000-000000000000", "main")
+	git("checkout", "-q", "apptown/change-00000000-0001-7000-8000-000000000000")
+	git("merge", "-q", "--no-edit", "-m", "Merge main into apptown/change-00000000-0001-7000-8000-000000000000", "main")
 	if stat := h.diffStat(f.Context, inputs); strings.Contains(stat, "main_test.go") || !strings.Contains(stat, "1 file changed") {
 		t.Fatalf("after catching up with main, the diff stat: %q", stat)
 	}
-	inputs.Change.Branch = "forge/change-gone"
+	inputs.Change.Branch = "apptown/change-gone"
 	if stat := h.diffStat(f.Context, inputs); !strings.HasPrefix(stat, "could not be read: ") {
 		t.Fatalf("an unreadable diff: %q", stat)
 	}

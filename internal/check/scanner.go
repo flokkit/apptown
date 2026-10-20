@@ -20,7 +20,7 @@ type Scanner struct {
 	ArtifactKind string `yaml:"artifactKind" json:"artifactKind"`
 	// Target: what the scanner looks at — "source" (the committed tree,
 	// default), "image" (the app's built container image, handed over
-	// as a saved tarball at /work/.forge/image.tar; use ${IMAGE_TAR} in
+	// as a saved tarball at /work/.apptown/image.tar; use ${IMAGE_TAR} in
 	// the command), or "exec-image" (run the command INSIDE the app's built
 	// image — a framework self-check that must import settings;
 	// design/subsystems/conformance.md §13.5). Scan POINTS in system workflows

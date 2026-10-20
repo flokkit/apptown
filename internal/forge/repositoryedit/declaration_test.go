@@ -41,10 +41,10 @@ needs:
 func writeContract(t *testing.T, body string) string {
 	t.Helper()
 	repo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return repo

@@ -40,13 +40,13 @@ func harvestWorkspace(ws string, start time.Time, finalText, outputFile string) 
 			if rel == "." {
 				return nil
 			}
-			// Skip forge's own injected dirs and hidden dirs — but NOT .forge
+			// Skip forge's own injected dirs and hidden dirs — but NOT .apptown
 			// itself: agents sometimes write outputs there.
-			if rel == filepath.Join(".forge", "resources") || rel == filepath.Join(".forge", "sessions") ||
-				rel == filepath.Join(".forge", "pi-home") {
+			if rel == filepath.Join(".apptown", "resources") || rel == filepath.Join(".apptown", "sessions") ||
+				rel == filepath.Join(".apptown", "pi-home") {
 				return filepath.SkipDir
 			}
-			if strings.HasPrefix(info.Name(), ".") && info.Name() != ".forge" {
+			if strings.HasPrefix(info.Name(), ".") && info.Name() != ".apptown" {
 				return filepath.SkipDir
 			}
 			// Dependency/build output dirs are not authored outcomes.
@@ -56,12 +56,12 @@ func harvestWorkspace(ws string, start time.Time, finalText, outputFile string) 
 			}
 			return nil
 		}
-		if rel == filepath.Join(".forge", "steering.md") || strings.HasPrefix(filepath.Base(rel), ".") {
+		if rel == filepath.Join(".apptown", "steering.md") || strings.HasPrefix(filepath.Base(rel), ".") {
 			return nil
 		}
 		// Forge-generated runtime config (ambient build env) is re-staged at
 		// step start — never an authored outcome.
-		if strings.HasPrefix(rel, filepath.Join(".forge", "ambient")+string(filepath.Separator)) {
+		if strings.HasPrefix(rel, filepath.Join(".apptown", "ambient")+string(filepath.Separator)) {
 			return nil
 		}
 		if info.ModTime().Before(start) || info.Size() > 256*1024 || len(wrote) >= 40 {

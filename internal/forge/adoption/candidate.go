@@ -21,6 +21,10 @@ type Request struct {
 	Additions            []string   `json:"additions"`
 }
 
+// PlatformPack is the stock platform tier's name (stock/packs.yaml): every
+// project with a repository is on it, beside the pack it chose.
+const PlatformPack = "apptown"
+
 type PackPick struct {
 	Pack    string `json:"pack"`
 	Version int64  `json:"version"`
@@ -248,7 +252,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 	if len(c.Packs) > 0 {
 		receipt.Pack = c.Packs[0].Pack
 		for _, pk := range c.Packs {
-			if pk.Pack != "forge" {
+			if pk.Pack != PlatformPack {
 				receipt.Pack = pk.Pack
 				break
 			}

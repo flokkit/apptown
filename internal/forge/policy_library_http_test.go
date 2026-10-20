@@ -14,7 +14,7 @@ func TestPolicyLibraryHTTPPinsAdoptionAndReportsUsage(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	h := a.Handler()
-	seedLibraryWorkflow(t, a, idstest.N(1), "review", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, idstest.N(1), "review", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: review}
 spec: {kind: lifecycle, stages: [{name: work, steps: [{name: accept, uses: approval, with: {means: "reviewed"}}]}]}

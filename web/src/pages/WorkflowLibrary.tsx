@@ -50,7 +50,7 @@ export default function WorkflowLibrary() {
     })
   }
 
-  const NEW_TEMPLATE = `apiVersion: forge.flokkit.io/v1
+  const NEW_TEMPLATE = `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: team/my-workflow

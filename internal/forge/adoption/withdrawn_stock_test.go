@@ -35,7 +35,7 @@ func releaseStock(t *testing.T, extra map[string]string) fstest.MapFS {
 	return out
 }
 
-const retiredLane = `apiVersion: forge.flokkit.io/v1
+const retiredLane = `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: retired-lane, description: an old lane}
 spec:

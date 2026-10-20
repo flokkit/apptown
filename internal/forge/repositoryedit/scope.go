@@ -248,7 +248,7 @@ func changedFiles(git func(...string) ([]byte, error), base, rev string, ignored
 		}
 		files = append(files, c)
 		// A deletion is the fix, not the fault: removing a tracked
-		// .forge/compose.yaml is exactly what the check asks for, and must
+		// .apptown/compose.yaml is exactly what the check asks for, and must
 		// not be refused.
 		if !strings.HasPrefix(status, "D") {
 			present = append(present, c)
@@ -391,9 +391,13 @@ func targetIsAboutDependencies(t workflow.AcceptanceScope) bool {
 // reportArtifacts are the files a lane asks the agent to write as its
 // report; a NEW one is the claim, not a change to be claimed. One that was
 // already tracked on the base is the project's file (letterbox keeps its
-// build report at .forge/REPORT.md), and rewriting it is a change like any
+// build report at .apptown/REPORT.md), and rewriting it is a change like any
 // other.
-var reportArtifacts = map[string]bool{".forge/CHANGE.md": true, ".forge/REPORT.md": true, ".forge/VERIFY.md": true, ".forge/review.json": true}
+//
+// Commits from before the AppTown rename hold the same reports under .forge,
+// and history does not change: export still reads them as prose.
+var reportArtifacts = map[string]bool{".apptown/CHANGE.md": true, ".apptown/REPORT.md": true, ".apptown/VERIFY.md": true, ".apptown/review.json": true,
+	".forge/CHANGE.md": true, ".forge/REPORT.md": true, ".forge/VERIFY.md": true, ".forge/review.json": true}
 
 // ReportArtifact reports whether path is one of the files a lane asks the
 // agent to write as its report: prose the forge collects, never the agent's

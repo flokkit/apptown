@@ -312,7 +312,7 @@ func (s *Server) gitDir(key string) string        { return filepath.Join(s.State
 
 // sourceRef names, in a workspace's Git directory, the commit it was
 // uploaded with.
-const sourceRef = "refs/forge/source"
+const sourceRef = "refs/apptown/source"
 
 // writeRecord makes the record durable before the worker acts: written to a
 // temporary file, fsynced, renamed, and the directory fsynced.
@@ -423,7 +423,7 @@ func (s *Server) putWorkspace(w http.ResponseWriter, r *http.Request) {
 	}
 	// A workspace has no remote: results leave only as bundles.
 	_, _ = s.runGit(r.Context(), "", "--git-dir", gitDir, "remote", "remove", "origin")
-	// The forge's runtime files under .forge (a step's report, its agent's
+	// The forge's runtime files under .apptown (a step's report, its agent's
 	// home) are not the task's work, whatever the project's own ignore rules
 	// say: a repository started from existing code need not ignore them.
 	// Git's own exclude file, apart from the tree, keeps them out of what is
@@ -432,7 +432,7 @@ func (s *Server) putWorkspace(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
-	if err := os.WriteFile(filepath.Join(gitDir, "info", "exclude"), []byte(".forge/*\n!.forge/app.yaml\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(gitDir, "info", "exclude"), []byte(".apptown/*\n!.apptown/app.yaml\n"), 0o600); err != nil {
 		httpError(w, err)
 		return
 	}
@@ -513,14 +513,14 @@ func (s *Server) workspaceResult(w http.ResponseWriter, r *http.Request) {
 		httpError(w, fmt.Errorf("staging the task's changes: %w: %s", err, out))
 		return
 	}
-	contract := filepath.Join(s.workspacePath(key), ".forge", "app.yaml")
-	tracked, err := s.git(r.Context(), key, "ls-files", "--", ".forge/app.yaml")
+	contract := filepath.Join(s.workspacePath(key), ".apptown", "app.yaml")
+	tracked, err := s.git(r.Context(), key, "ls-files", "--", ".apptown/app.yaml")
 	if err != nil {
 		httpError(w, err)
 		return
 	}
 	if _, statErr := os.Lstat(contract); statErr == nil || tracked != "" {
-		if _, err := s.git(r.Context(), key, "add", "-A", "-f", "--", ".forge/app.yaml"); err != nil {
+		if _, err := s.git(r.Context(), key, "add", "-A", "-f", "--", ".apptown/app.yaml"); err != nil {
 			httpError(w, err)
 			return
 		}

@@ -329,7 +329,7 @@ func recordTestReport(evidence map[string]any, o execution.Outcome, output strin
 }
 
 // testServices are the services fulfilling the app's declared needs
-// (.forge/app.yaml in the staged tree), with the environment that reaches
+// (.apptown/app.yaml in the staged tree), with the environment that reaches
 // them, the needs the catalog does not know, and where the app's secret
 // declaration is. No declaration is no needs; one that cannot be read
 // leaves the tests' setting unknown.
@@ -339,7 +339,7 @@ func (a *Commands) testServices(ctx context.Context, staged string) (services []
 	case errors.Is(err, docker.ErrNoContract):
 		return nil, nil, nil, "", nil
 	case err != nil:
-		return nil, nil, nil, "", fmt.Errorf("the app's declared needs (.forge/app.yaml) could not be read: %w", err)
+		return nil, nil, nil, "", fmt.Errorf("the app's declared needs (.apptown/app.yaml) could not be read: %w", err)
 	case len(c.Needs) == 0:
 		return nil, nil, nil, c.SecretSpecPath, nil
 	case a.catalog == nil:

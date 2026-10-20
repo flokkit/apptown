@@ -447,8 +447,8 @@ func TestIntegrationARecoveredInvocationKeepsItsFrozenNeed(t *testing.T) {
 	t.Parallel()
 	const app = "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  kv:\n    flavour: "
 	w := newAgentWorkerWorld(t, map[string]any{"needs": true}, map[string]string{
-		".forge/app.yaml": app + "sourdough\n",
-		"fake-pi.sh":      `sleep 3; nc -z kv 6379 && echo reached > kv.txt; echo "$KV_URL" > url.txt; say "done"`,
+		".apptown/app.yaml": app + "sourdough\n",
+		"fake-pi.sh":        `sleep 3; nc -z kv 6379 && echo reached > kv.txt; echo "$KV_URL" > url.txt; say "done"`,
 	})
 	if _, err := w.a.Dependencies.Save(context.Background(), kvKind("redis:7-alpine", "redis"), "tester"); err != nil {
 		t.Fatal(err)
@@ -461,7 +461,7 @@ func TestIntegrationARecoveredInvocationKeepsItsFrozenNeed(t *testing.T) {
 	// The folder now declares another parameter, and the catalog another
 	// service and connection.
 	folder := w.source.Workspace(w.a.cfg.dataDir)
-	if err := os.WriteFile(filepath.Join(folder, ".forge", "app.yaml"), []byte(app+"rye\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(folder, ".apptown", "app.yaml"), []byte(app+"rye\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	gittest.Run(t, folder, "-c", "user.name=alice", "-c", "user.email=alice@example.org", "commit", "-q", "-am", "another flavour")
@@ -638,7 +638,7 @@ func TestIntegrationATimedOutInvocationWhosePrivateDockerWillNotStopIsHeld(t *te
 	if gittest.Command("-C", hub, "cat-file", "-e", scm.Ref(t.Context(), hub, "refs/heads/"+w.source.Branch)+":made.txt").Run() == nil {
 		t.Fatal("the agent's work was published to the branch")
 	}
-	if candidates := gittest.Run(t, hub, "for-each-ref", "refs/forge/candidates"); candidates != "" {
+	if candidates := gittest.Run(t, hub, "for-each-ref", "refs/apptown/candidates"); candidates != "" {
 		t.Fatalf("a candidate was recorded: %s", candidates)
 	}
 	if _, err := w.a.tasks.ReleaseSettled(context.Background()); err != nil {
@@ -902,7 +902,7 @@ func TestReviewS5OldRunContinuesItsFolderTranscriptOnWorker(t *testing.T) {
 	if _, err := w.a.DB.Exec("DELETE FROM agent_transcripts WHERE step_id=$1", w.step.ID); err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(w.source.Workspace(w.a.cfg.dataDir), ".forge", "sessions")
+	dir := filepath.Join(w.source.Workspace(w.a.cfg.dataDir), ".apptown", "sessions")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}

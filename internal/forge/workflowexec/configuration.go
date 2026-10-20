@@ -80,5 +80,5 @@ func hasSkill(cfg *agentConfig, name string) bool {
 }
 
 // steeringFile is the assembled system-prompt appendix: its text (written to
-// .forge/steering.md and attached as the "steering" artifact), its hash, and
+// .apptown/steering.md and attached as the "steering" artifact), its hash, and
 // what went into it, for evidence.

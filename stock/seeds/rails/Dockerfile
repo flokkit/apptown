@@ -2,7 +2,7 @@
 # Generate the app with `rails new . --skip-docker …` (see the rails
 # selection guidance) so this recipe is kept: gems from the committed
 # Gemfile.lock, assets precompiled at build. CMD, not ENTRYPOINT, so the
-# init step in .forge/app.yaml can run the same image with db:prepare.
+# init step in .apptown/app.yaml can run the same image with db:prepare.
 # Two stages on the same ruby image: the build stage carries the compiler
 # and headers that native gems (pg, psych) need; the runtime stage carries
 # only the libraries those gems load, so no compiler ships with the app.

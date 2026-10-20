@@ -17,7 +17,7 @@ func TestARehearsalRefusesAWithdrawnNeedDeclaration(t *testing.T) {
 	w := newRehearsalWorld(t)
 	repo := filepath.Join(w.s.dataDir, "workspaces", "project-ledger")
 	legacy := strings.Replace(rehearsalContract, "version: \"16\"", "version: \"16\"\n    password: app", 1)
-	if err := os.WriteFile(filepath.Join(repo, ".forge/app.yaml"), []byte(legacy), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown/app.yaml"), []byte(legacy), 0644); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"add", "."}, {"-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qm", "legacy password declaration"}} {

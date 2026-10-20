@@ -210,7 +210,7 @@ func TestEveryLifetimeIsJudgedByTheForgesClock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ticket, _, err := s.IssueTicket(ctx, "ops", delegation, idstest.N(1), "refs/heads/forge/change-1", "")
+	ticket, _, err := s.IssueTicket(ctx, "ops", delegation, idstest.N(1), "refs/heads/apptown/change-1", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestAnOperationsReceiptCarriesItsRecordsTime(t *testing.T) {
 	}
 	same("oauth.client-registered", reading, receiptAt("oauth.client-registered"))
 
-	_, ticket, err := s.IssueTicket(ctx, "alice", ids.Nil, idstest.N(40), "refs/heads/forge/change-40", "abc")
+	_, ticket, err := s.IssueTicket(ctx, "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "abc")
 	if err != nil {
 		t.Fatal(err)
 	}

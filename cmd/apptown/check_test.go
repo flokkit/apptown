@@ -191,7 +191,7 @@ func TestForgeCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 func TestForgeCheckSendsTheStepsWorkToItsScratchRefFirst(t *testing.T) {
 	w := newCheckWorld(t, nil)
 	head := w.unpublished // a commit the forge does not have until it is sent
-	const ref = "refs/forge/scratch/change-00000000-0007-7000-8000-000000000000/step-00000000-0003-7000-8000-000000000000-a1"
+	const ref = "refs/apptown/scratch/change-00000000-0007-7000-8000-000000000000/step-00000000-0003-7000-8000-000000000000-a1"
 	bare := filepath.Join(t.TempDir(), "app")
 	if out, err := gittest.Command("init", "-q", "--bare", bare).CombinedOutput(); err != nil {
 		t.Fatalf("%v %s", err, out)

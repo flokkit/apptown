@@ -6,7 +6,7 @@
 #
 # app ∈ ledger|clip|roomie|qkue|mdlite. Everything executes inside one
 # forge-agent container: toolchains via the workspace's mise.toml, HTTP
-# apps launched via their .forge/app.json contract (build && start), CLI
+# apps launched via their .apptown/app.json contract (build && start), CLI
 # apps built via the contract's build command (contract may omit port).
 # The controllable clock runs before the app so CLOCK_URL is live at boot.
 #
@@ -35,14 +35,14 @@ export PATH="$MISE_DATA_DIR/shims:$PATH"
 [ -f mise.toml ] && mise install -y -q 2>/dev/null || true
 mode='"$mode"'; app='"$app"'; stage='"$stage"'
 contract() { python3 -c "import json,sys
-try: print(json.load(open(\".forge/app.json\")).get(sys.argv[1]) or \"\")
+try: print(json.load(open(\".apptown/app.json\")).get(sys.argv[1]) or \"\")
 except Exception: print(\"\")" "$1"; }
 build=$(contract build); start=$(contract start); port=$(contract port)
 python3 /gym/kit.py 18099 &            # the clock, before anything else
 export CLOCK_URL=http://127.0.0.1:18099
 if [ -n "$build" ]; then sh -c "$build" >/tmp/build.log 2>&1 || { echo "BUILD FAILED:" >&2; tail -20 /tmp/build.log >&2; exit 3; }; fi
 if [ "$mode" = http ]; then
-  [ -n "$start" ] || { echo "no start in .forge/app.json" >&2; exit 3; }
+  [ -n "$start" ] || { echo "no start in .apptown/app.json" >&2; exit 3; }
   port=${port:-8080}
   PORT=$port DATA_DIR=/tmp/data sh -c "mkdir -p /tmp/data; $start" >/tmp/app.log 2>&1 &
   i=0; until python3 -c "import socket;socket.create_connection((\"127.0.0.1\",$port),1)" 2>/dev/null; do

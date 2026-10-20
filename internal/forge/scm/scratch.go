@@ -21,7 +21,7 @@ import (
 // removed once its step attempt is no longer live (SweepScratch).
 
 // ScratchPrefix is where every scratch ref of a project's repository lives.
-const ScratchPrefix = "refs/forge/scratch/"
+const ScratchPrefix = "refs/apptown/scratch/"
 
 // ScratchRef is the one ref a step attempt's runtime token may push, for
 // the change the step's run works on.

@@ -471,13 +471,13 @@ const postgresApp = "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    publ
 
 const postgresURL = "DATABASE_URL=postgres://app:app@postgres:5432/app?sslmode=disable"
 
-// commitAppDeclaration commits .forge/app.yaml into the change's folder.
+// commitAppDeclaration commits .apptown/app.yaml into the change's folder.
 func commitAppDeclaration(t *testing.T, folder, body string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(folder, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(folder, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(folder, ".forge", "app.yaml"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(folder, ".apptown", "app.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commitFolder(t, folder)

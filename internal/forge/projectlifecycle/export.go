@@ -68,7 +68,7 @@ func (e *ExportRefusal) Unwrap() error { return ErrExportRefused }
 // ExportSources are what an export reads beyond the database and the
 // project's repository.
 type ExportSources struct {
-	// ReportFile says whether a .forge path is a lane's report file
+	// ReportFile says whether a .apptown path is a lane's report file
 	// (repositoryedit.ReportArtifact): prose committed by older lanes,
 	// which may move; every other runtime path refuses.
 	ReportFile func(path string) bool
@@ -616,6 +616,9 @@ func exportRefs(ctx context.Context, hub, defaultBranch string, branches []strin
 		carried["refs/heads/"+b] = true
 	}
 	for _, id := range runs {
+		carried[fmt.Sprintf("refs/heads/apptown/run-%d", id)] = true
+		// A run made before the AppTown rename keeps the branch it was made
+		// on (forge/run-N): its name is its identity, and history stays.
 		carried[fmt.Sprintf("refs/heads/forge/run-%d", id)] = true
 	}
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
@@ -635,25 +638,28 @@ func exportRefs(ctx context.Context, hub, defaultBranch string, branches []strin
 }
 
 func transientRef(name string) bool {
-	for _, prefix := range []string{scm.ScratchPrefix, "refs/forge/incoming/", "refs/forge/commits/"} {
+	for _, prefix := range []string{scm.ScratchPrefix, "refs/apptown/incoming/", "refs/apptown/commits/"} {
 		if strings.HasPrefix(name, prefix) {
 			return true
 		}
 	}
-	return name == "refs/forge/published"
+	return name == "refs/apptown/published"
 }
 
 func refKind(name, defaultBranch string) string {
 	switch {
 	case defaultBranch != "" && name == "refs/heads/"+defaultBranch:
 		return "default"
-	case strings.HasPrefix(name, "refs/heads/forge/change-"):
+	// Changes and runs made before the AppTown rename keep their recorded
+	// branch names (forge/change-N, forge/run-N): a branch is its change's
+	// identity, and history does not change.
+	case strings.HasPrefix(name, "refs/heads/apptown/change-"), strings.HasPrefix(name, "refs/heads/forge/change-"):
 		return "change"
-	case strings.HasPrefix(name, "refs/heads/forge/run-"):
+	case strings.HasPrefix(name, "refs/heads/apptown/run-"), strings.HasPrefix(name, "refs/heads/forge/run-"):
 		return "run"
-	case strings.HasPrefix(name, "refs/forge/candidates/"):
+	case strings.HasPrefix(name, "refs/apptown/candidates/"):
 		return "candidate"
-	case strings.HasPrefix(name, "refs/forge/refused/"):
+	case strings.HasPrefix(name, "refs/apptown/refused/"):
 		return "refused"
 	}
 	return "other"

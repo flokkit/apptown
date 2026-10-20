@@ -112,7 +112,7 @@ class DocsCurrent(unittest.TestCase):
     # and in its checks (titles, expects and the messages they print), and
     # its code names pass as in a guide.
     def test_guidance_calling_the_product_forge_fails(self):
-        block = ('---\nname: a\nchecks: [{"name": "trusts-forge-front-door", '
+        block = ('---\nname: a\nchecks: [{"name": "trusts-front-door", '
                  '"title": "%s", "expects": "x"}]\n---\n%s')
         for name, (title, body) in {
             "body": ("Front door", "The forge serves the files.\n"),
@@ -122,7 +122,7 @@ class DocsCurrent(unittest.TestCase):
                 code, out = run({"stock/guidance/deploy/a.md": block % (title, body)})
                 self.assertEqual(code, 1, out)
                 self.assertIn("stock/guidance/deploy/a.md", out)
-        code, out = run({"stock/guidance/deploy/a.md": block % ("Front door", "Run `apptown dev` in `.forge/`.\n")})
+        code, out = run({"stock/guidance/deploy/a.md": block % ("Front door", "Run `apptown dev` in `.apptown/`.\n")})
         self.assertEqual(code, 0, out)
 
     def test_design_guides_are_not_held_to_the_product_name(self):

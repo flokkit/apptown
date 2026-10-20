@@ -90,7 +90,7 @@ func TestScanPointsExpandToAttachedScanners(t *testing.T) {
 	if _, err := a.Integrations.Bindings.Upsert(t.Context(), "manual-image", verification.ScannerCapability, "tool", mustJSON(map[string]any{"image": "x", "command": []string{"y"}, "target": "image", "manual": true}), true); err != nil {
 		t.Fatal(err)
 	}
-	spec := `apiVersion: forge.flokkit.io/v1
+	spec := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: land-ish, system: true}
 spec:

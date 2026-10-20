@@ -58,7 +58,7 @@ func (e *scannerEffects) Run(ctx context.Context, req execution.Request) executi
 	e.mu.Lock()
 	e.images = append(e.images, req.Image)
 	e.mu.Unlock()
-	dst := filepath.Join(req.Workspace, ".forge", "semgrep.sarif")
+	dst := filepath.Join(req.Workspace, ".apptown", "semgrep.sarif")
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		e.t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func scannerSARIF(n int) string {
 func (f scannerOwnerFixture) semgrep(t *testing.T) {
 	f.bind(t, "semgrep-django", map[string]any{
 		"image": "semgrep/semgrep:test", "command": []string{"semgrep", "/work"},
-		"report": ".forge/semgrep.sarif", "network": true, "format": "sarif",
+		"report": ".apptown/semgrep.sarif", "network": true, "format": "sarif",
 		"kind": "sast", "target": "source", "manual": true,
 	})
 }

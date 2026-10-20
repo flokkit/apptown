@@ -139,7 +139,7 @@ func lineTexts(a *workflow.ChangeAdds) []string {
 func TestARejectionNeedsNoList(t *testing.T) {
 	t.Parallel()
 	f := newAddsFixture(t, "adds-reject")
-	f.commit(map[string]string{".forge/app.yaml": addsContract})
+	f.commit(map[string]string{".apptown/app.yaml": addsContract})
 	if _, err := f.a.Work.Approve(asPerson("bls"), workflow.Approval{StepID: f.acceptID, Decision: workflow.VoteReject, Comment: "not yet"}); err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestARejectionNeedsNoList(t *testing.T) {
 func TestTheApproveAPIRefusesAVoteWithoutTheList(t *testing.T) {
 	t.Parallel()
 	f := newAddsFixture(t, "adds-api")
-	f.commit(map[string]string{".forge/app.yaml": addsContract})
+	f.commit(map[string]string{".apptown/app.yaml": addsContract})
 	h := f.a.Handler()
 	w := authzCall(h, "bls", "POST", "/api/v1/steps/"+f.acceptID.String()+"/approve", `{"decision":"approve","alsoApproves":["merge the accepted work"]}`)
 	if w.Code != 400 || w.Header().Get("X-AppTown-Deny-Code") != "adds-not-shown" {
@@ -203,7 +203,7 @@ func landAccepted(t *testing.T, f addsFixture) ids.ID {
 func TestAnAcceptanceCarriesWithTheListItWasShown(t *testing.T) {
 	t.Parallel()
 	f := newAddsFixture(t, "carry-same-list")
-	f.commit(map[string]string{".forge/app.yaml": addsContract, "secretspec.toml": addsSpec})
+	f.commit(map[string]string{".apptown/app.yaml": addsContract, "secretspec.toml": addsSpec})
 	ctx := asPerson("bls")
 	q, err := f.a.Work.ApprovalQuestion(ctx, f.acceptID)
 	if err != nil || q.Adds == nil {
@@ -238,7 +238,7 @@ func TestAnAcceptanceCarriesWithTheListItWasShown(t *testing.T) {
 func TestChangeReadsCarryWhatTheWaitingApprovalAdds(t *testing.T) {
 	t.Parallel()
 	f := newAddsFixture(t, "adds-reads")
-	f.commit(map[string]string{".forge/app.yaml": addsContract, "secretspec.toml": addsSpec})
+	f.commit(map[string]string{".apptown/app.yaml": addsContract, "secretspec.toml": addsSpec})
 	w := authzCall(f.a.Handler(), "bls", "GET", "/api/v1/changes/"+f.work.ChangeID.String(), "")
 	if w.Code != 200 {
 		t.Fatalf("change read: %d %s", w.Code, w.Body.String())
@@ -292,7 +292,7 @@ func TestAnUnreadableAcceptedCommitRefusesTheVote(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := newAddsFixture(t, strings.ReplaceAll("unreadable "+name, " ", "-"))
-			f.commit(map[string]string{".forge/app.yaml": addsContract})
+			f.commit(map[string]string{".apptown/app.yaml": addsContract})
 			source := workflowSourceForTest(t, f.a, f.work)
 			breakRef(t, source.Workspace(f.a.cfg.dataDir), source.Branch)
 			if both {

@@ -19,7 +19,7 @@ import (
 // folder's file imported once, at startup (BackfillTranscripts), so no path
 // reads a folder's file instead.
 
-func sessionDir(workspace string) string { return filepath.Join(workspace, ".forge", "sessions") }
+func sessionDir(workspace string) string { return filepath.Join(workspace, ".apptown", "sessions") }
 
 // earlierHistory is the transcript a continuing session resumes: the bytes
 // its earlier attempt's receipt names, checked against their digest. A new

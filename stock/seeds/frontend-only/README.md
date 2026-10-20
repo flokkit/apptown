@@ -14,4 +14,4 @@ add is saved in this browser only.
     npm run build    # checks the types, then writes the finished app to dist/
 
 The Dockerfile builds the app into `dist/`, and AppTown serves those
-files for previews and releases (`.forge/app.yaml`).
+files for previews and releases (`.apptown/app.yaml`).

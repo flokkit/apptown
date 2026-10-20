@@ -15,7 +15,7 @@ func TestSeedIgnoreRulesMerge(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	dst := filepath.Join(dir, ".gitignore")
-	if err := os.WriteFile(dst, []byte("# forge\n.forge/sessions\nnode_modules/\n"), 0o644); err != nil {
+	if err := os.WriteFile(dst, []byte("# forge\n.apptown/sessions\nnode_modules/\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	seed := []byte("# Godot's import cache\n.godot/\n# the export\nbuild/\nnode_modules/\n")

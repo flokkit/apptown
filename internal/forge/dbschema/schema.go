@@ -90,6 +90,14 @@ var migrations = []migration{
 		"ALTER TABLE complaints ALTER COLUMN about SET DEFAULT 'apptown'",
 		"UPDATE complaints SET about = 'apptown' WHERE about = 'forge'",
 	}},
+	{n: 155, note: "the AppTown rename: the stock platform pack is apptown, in the library and in each project's current pack", stmts: []string{
+		"UPDATE packs SET name = 'apptown' WHERE name = 'forge' AND NOT EXISTS (SELECT 1 FROM packs WHERE name = 'apptown')",
+		"UPDATE pack_versions SET included_pack = 'apptown' WHERE included_pack = 'forge'",
+		"UPDATE adoptions SET pack = 'apptown' WHERE pack = 'forge'",
+		// apptown upgrade moves main with a door of its own.
+		"ALTER TABLE project_main DROP CONSTRAINT project_main_tuple",
+		"ALTER TABLE project_main ADD CONSTRAINT project_main_tuple CHECK (branch<>'' AND sha<>'' AND via IN ('landing','init','seed','copy','genesis','integrity-adopt','backfill','upgrade'))",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

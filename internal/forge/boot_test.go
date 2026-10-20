@@ -66,10 +66,10 @@ needs:
 
 func writeBootFixture(t *testing.T, dir string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"), []byte(bootFixtureYAML), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"), []byte(bootFixtureYAML), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	// An unrelated Dockerfile must not override an image declaration.

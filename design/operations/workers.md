@@ -103,9 +103,9 @@ The worker shares no files with the forge.
    repository of their own; see "Agent and review steps on the worker".)
 3. When the task exits, the worker commits what it changed in `/work` as
    git takes it (the project's `.gitignore` applies, and the workspace's own
-   Git directory also ignores untracked files under `.forge`, so a step's
+   Git directory also ignores untracked files under `.apptown`, so a step's
    report there stays out of a repository whose rules do not mention
-   `.forge`; the native app contract `.forge/app.yaml` is taken even where
+   `.apptown`; the native app contract `.apptown/app.yaml` is taken even where
    ignored) and returns the
    commits made after the given commit as a Git bundle. Collecting again
    (after a lost reply) returns the same commits. The worker decides
@@ -119,7 +119,7 @@ The worker shares no files with the forge.
    scratch repository first. A bundle that fails any of these is kept
    nowhere.
 5. The checked tip is kept in the project's repository as the attempt's
-   candidate, `refs/forge/candidates/step-<step>-a<attempt>`, beside the
+   candidate, `refs/apptown/candidates/step-<step>-a<attempt>`, beside the
    commit the attempt was given (recorded on its task attempt). A task that
    changed nothing has a candidate too: the commit it was given. Collection
    is done only once that ref exists; a forge that restarts after it finds
@@ -128,7 +128,7 @@ The worker shares no files with the forge.
    in the project's repository, under the authority the step was admitted
    with, and only if the branch is still at the commit the task was given.
    Only source may enter the branch: a result any of whose commits changes
-   `.forge` itself or anything under it other than `.forge/app.yaml`
+   `.apptown` itself or anything under it other than `.apptown/app.yaml`
    (runtime files, which never travel) is refused, naming the files, as is
    a file over the publication's size limits. Every returned commit is
    checked, not only the last one. A branch handed to someone else, or
@@ -141,7 +141,7 @@ The worker shares no files with the forge.
    twice), and if it is still undecided the step and task stay recorded
    for a restarted forge to finish from the branch.
 7. A refused result is not lost: the candidate is renamed to
-   `refs/forge/refused/step-<step>-a<attempt>`, the run's
+   `refs/apptown/refused/step-<step>-a<attempt>`, the run's
    `commit.unpublished` notice names that ref, the commit and the reason,
    the branch is unchanged and the step fails with the reason. The step's
    evidence (`result`) names the ref that keeps the result, its commit and
@@ -643,8 +643,8 @@ With a worker configured, every agent step (`agent/pi`) and review step
 - What Pi reads is sent as bytes under `/apptown/in`: steering, resources,
   attachments, a long review brief, Pi's settings, the `apptown` CLI,
   registry files, a continued session's transcript, and the declared
-  output files of the run's earlier steps (`.forge/PLAN.md`,
-  `.forge/REPRO.md`), which the entry copies into the tree at their
+  output files of the run's earlier steps (`.apptown/PLAN.md`,
+  `.apptown/REPRO.md`), which the entry copies into the tree at their
   declared paths where the tree has nothing there. Pi's home and
   sessions are in `/apptown/state`, beside the tree, so nothing Pi writes for
   itself is committed.
@@ -681,7 +681,7 @@ With a worker configured, every agent step (`agent/pi`) and review step
 **`apptown check` inside a step** checks the agent's committed HEAD. The
 forge does not have that commit until the step's work is collected, so the
 CLI first pushes it to the attempt's scratch ref (`APPTOWN_SCRATCH_REF`,
-`refs/forge/scratch/change-<change>/step-<step>-a<attempt>` in the
+`refs/apptown/scratch/change-<change>/step-<step>-a<attempt>` in the
 project's repository) through the read-only listener, with the step's
 runtime token, which may push that ref and no other. The forge then checks
 it as it checks any commit and says the result is feedback only: nothing
@@ -693,7 +693,7 @@ published commit, and names it. The scratch ref is removed when the
 attempt settles; the scheduler's sweep (every five minutes, and at start)
 removes any left by a crash.
 
-**Reviews.** The verdict is `.forge/review.json`. The worker removes any
+**Reviews.** The verdict is `.apptown/review.json`. The worker removes any
 such file before each invocation and reads it when the invocation exits; a
 link, a path outside the tree or a file over 256 KiB is refused. A verdict
 counts only from an invocation that exited 0, with no model-provider error
@@ -764,7 +764,7 @@ says how many: `startup repair: agent histories read from folders=… recorded
 unavailable=… failed=…`. Nothing reads a folder's file after that.
 
 **Refused work.** When the branch owner's rules refuse a candidate, it is
-kept under `refs/forge/refused/step-<id>-a<attempt>` in the project's
+kept under `refs/apptown/refused/step-<id>-a<attempt>` in the project's
 repository, and the branch does not move. The run's `commit.unpublished`
 notice and the step's evidence (`result`) name the ref, the commit and the
 reason. Anyone who can read the run can download it as a Git bundle and
@@ -773,7 +773,7 @@ fetch it:
 ```sh
 curl -H "Authorization: Bearer $TOKEN" -o refused.bundle \
   https://forge.example/api/v1/runs/<run>/steps/<step>/attempts/<attempt>/refused
-git fetch refused.bundle refs/forge/refused/step-<step>-a<attempt>:refused-work
+git fetch refused.bundle refs/apptown/refused/step-<step>-a<attempt>:refused-work
 ```
 
 **Held workspaces.** When the forge cannot know how an invocation ended (the

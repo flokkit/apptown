@@ -32,7 +32,7 @@ func snapshotWorld(t *testing.T) (*Contracts, string, ids.ID, map[string]string)
 		t.Fatal(err)
 	}
 	repo := filepath.Join(dataDir, "workspaces", "project-p")
-	_ = os.MkdirAll(filepath.Join(repo, ".forge"), 0o755)
+	_ = os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755)
 	git := func(args ...string) string {
 		c := gittest.Command(args...)
 		c.Dir = repo
@@ -46,7 +46,7 @@ func snapshotWorld(t *testing.T) (*Contracts, string, ids.ID, map[string]string)
 	git("init", "-q")
 	sha := map[string]string{}
 	commit := func(tag string) { sha[tag] = strings.TrimSpace(git("rev-parse", "HEAD")) }
-	write := func(name, body string) { _ = os.WriteFile(filepath.Join(repo, ".forge", name), []byte(body), 0o644) }
+	write := func(name, body string) { _ = os.WriteFile(filepath.Join(repo, ".apptown", name), []byte(body), 0o644) }
 
 	// era 1: legacy compose.yaml (static site)
 	write("compose.yaml", "services:\n  site:\n    x-forge-app: true\n    x-forge-static: site\n")
@@ -54,13 +54,13 @@ func snapshotWorld(t *testing.T) (*Contracts, string, ids.ID, map[string]string)
 	git("commit", "-q", "-m", "compose era")
 	commit("compose")
 	// era 2: native app.yaml with a need + init
-	_ = os.Remove(filepath.Join(repo, ".forge", "compose.yaml"))
+	_ = os.Remove(filepath.Join(repo, ".apptown", "compose.yaml"))
 	write("app.yaml", "version: 1\napp:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\ninit:\n  - {name: migrate, build: ., command: [\"x\"]}\nneeds:\n  postgres: {version: \"16\"}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "app.yaml era")
 	commit("appyaml")
 	// era 3: no contract at all (a non-application change)
-	_ = os.Remove(filepath.Join(repo, ".forge", "app.yaml"))
+	_ = os.Remove(filepath.Join(repo, ".apptown", "app.yaml"))
 	_ = os.WriteFile(filepath.Join(repo, "README.md"), []byte("no app here\n"), 0o644)
 	git("add", "-A")
 	git("commit", "-q", "-m", "no contract")

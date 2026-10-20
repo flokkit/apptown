@@ -43,7 +43,7 @@ under Settings › Services (`+ AI models`), or with
 `POST /projects/{slug}/integrations {"capability":"llm"}`. Attaching is
 only the project's choice of connector: no key is made then. A person who
 can deploy but not configure integrations cannot attach it, and declaring
-the need in `.forge/app.yaml` without the attachment makes no key: the
+the need in `.apptown/app.yaml` without the attachment makes no key: the
 deploy is refused with "attach AI models first", and OpenRouter is not
 called.
 
@@ -57,7 +57,7 @@ For an app that declares `needs: { llm: … }`:
   the key in its built-in store. The app gets `OPENROUTER_API_KEY` and
   `OPENROUTER_BASE_URL`.
 - **Every later deploy** keeps the same key and sets its limit and reset
-  again, so a change in `.forge/app.yaml` (including only the reset period)
+  again, so a change in `.apptown/app.yaml` (including only the reset period)
   takes effect. If OpenRouter refuses the change, the deploy fails.
 - **Take-down** revokes the key and deletes the stored copy. A revoke that
   fails is kept as a retained row naming the key's hash: revoke it by hand

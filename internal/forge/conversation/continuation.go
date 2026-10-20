@@ -92,9 +92,9 @@ func continueLane(dataDir string, ctx context.Context, work continuationWork, ch
 	if c.Record != nil {
 		b.WriteString("This conversation CONTINUES your own session from that lane: the messages before this briefing are yours and the commits on the branch are yours. Do not redo work that is done. Start by saying, in two or three plain sentences, where things stand and what you think went wrong; then ask what they want.\n")
 	} else if historyGone != "" {
-		b.WriteString("The lane's agent session cannot be continued (" + historyGone + "), so you start fresh: read the branch first (git log, git diff against main, the report under .forge/) before saying anything, then say where things stand in plain words.\n")
+		b.WriteString("The lane's agent session cannot be continued (" + historyGone + "), so you start fresh: read the branch first (git log, git diff against main, the report under .apptown/) before saying anything, then say where things stand in plain words.\n")
 	} else {
-		b.WriteString("The lane's agent session could not be found, so you start fresh: read the branch first (git log, git diff against main, the report under .forge/) before saying anything, then say where things stand in plain words.\n")
+		b.WriteString("The lane's agent session could not be found, so you start fresh: read the branch first (git log, git diff against main, the report under .apptown/) before saying anything, then say where things stand in plain words.\n")
 	}
 	c.steer = b.String()
 	return c, nil

@@ -96,7 +96,7 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, mode Mode, nameP
 	if j.Run == nil {
 		return cannot(d, mode, "no way to run a command here")
 	}
-	_ = os.MkdirAll(filepath.Join(src.Tree, ".forge"), 0o755)
+	_ = os.MkdirAll(filepath.Join(src.Tree, ".apptown"), 0o755)
 	if s.Report != "" {
 		_ = os.Remove(filepath.Join(src.Tree, s.Report)) // never trust a stale report
 	}

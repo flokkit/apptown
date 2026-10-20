@@ -12,7 +12,7 @@ import (
 // validation rules so a refactor cannot silently loosen them.
 
 const validWorkflow = `
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: build
@@ -257,7 +257,7 @@ func TestASaveIsHeldToTheFormatAndHistoryStillReads(t *testing.T) {
 	refused := map[string]string{
 		"misspelt step key": strings.Replace(validWorkflow, "uses: agent/pi", "uses: agent/pi\n          withh: {}", 1),
 		"unknown top key":   "extra: 1\n" + validWorkflow,
-		"other version":     strings.Replace(validWorkflow, "forge.flokkit.io/v1", "forge.flokkit.io/v2", 1),
+		"other version":     strings.Replace(validWorkflow, "apptown.dev/v1", "forge.flokkit.io/v2", 1),
 		"old change alias":  strings.Replace(validWorkflow, "name: build-app", "name: build-app\n          with: {prompt: \"${{ workItem.title }}\"}", 1),
 	}
 	for name, src := range refused {
@@ -269,7 +269,7 @@ func TestASaveIsHeldToTheFormatAndHistoryStillReads(t *testing.T) {
 		}
 	}
 	for name, src := range map[string]string{
-		"no apiVersion":   strings.Replace(validWorkflow, "apiVersion: forge.flokkit.io/v1\n", "", 1),
+		"no apiVersion":   strings.Replace(validWorkflow, "apiVersion: apptown.dev/v1\n", "", 1),
 		"an x- anchor":    "x-shared: &shared {prompt: hi}\n" + validWorkflow,
 		"the change name": strings.Replace(validWorkflow, "name: build-app", "name: build-app\n          with: {prompt: \"${{ change.title }}\"}", 1),
 	} {

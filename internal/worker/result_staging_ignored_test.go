@@ -38,11 +38,11 @@ func TestACollectionWorksWhenTheProjectIgnoresForge(t *testing.T) {
 				}
 				return out
 			}
-			write(filepath.Join(hub, ".gitignore"), ".forge/\n")
+			write(filepath.Join(hub, ".gitignore"), ".apptown/\n")
 			git("add", ".gitignore")
 			if change == "edit contract" || change == "delete contract" {
-				write(filepath.Join(hub, ".forge/app.yaml"), "name: before\n")
-				git("add", "-f", ".forge/app.yaml")
+				write(filepath.Join(hub, ".apptown/app.yaml"), "name: before\n")
+				git("add", "-f", ".apptown/app.yaml")
 			}
 			git("commit", "-qm", "ignore runtime directory")
 			base := git("rev-parse", "HEAD")
@@ -52,12 +52,12 @@ func TestACollectionWorksWhenTheProjectIgnoresForge(t *testing.T) {
 				t.Fatal(err)
 			}
 			work := filepath.Join(state, "workspaces", spec.Key)
-			write(filepath.Join(work, ".forge/runtime.json"), "{}\n")
+			write(filepath.Join(work, ".apptown/runtime.json"), "{}\n")
 			write(filepath.Join(work, "made.txt"), "ordinary output\n")
 			if change == "add contract" || change == "edit contract" {
-				write(filepath.Join(work, ".forge/app.yaml"), "name: after\n")
+				write(filepath.Join(work, ".apptown/app.yaml"), "name: after\n")
 			} else if change == "delete contract" {
-				if err := os.Remove(filepath.Join(work, ".forge/app.yaml")); err != nil {
+				if err := os.Remove(filepath.Join(work, ".apptown/app.yaml")); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -74,7 +74,7 @@ func TestACollectionWorksWhenTheProjectIgnoresForge(t *testing.T) {
 			if got, err := gitexec.Output(ctx, dir, "show", tip+":made.txt"); err != nil || got != "ordinary output" {
 				t.Fatalf("ordinary output: %q %v", got, err)
 			}
-			got, contractErr := gitexec.Output(ctx, dir, "show", tip+":.forge/app.yaml")
+			got, contractErr := gitexec.Output(ctx, dir, "show", tip+":.apptown/app.yaml")
 			if change == "add contract" || change == "edit contract" {
 				if contractErr != nil || got != "name: after" {
 					t.Fatalf("contract: %q %v", got, contractErr)
@@ -82,7 +82,7 @@ func TestACollectionWorksWhenTheProjectIgnoresForge(t *testing.T) {
 			} else if contractErr == nil {
 				t.Fatal("result unexpectedly contains app contract")
 			}
-			if _, err := gitexec.Output(ctx, dir, "show", tip+":.forge/runtime.json"); err == nil {
+			if _, err := gitexec.Output(ctx, dir, "show", tip+":.apptown/runtime.json"); err == nil {
 				t.Fatal("result contains runtime file")
 			}
 			if again, err := driver.Collect(ctx, spec.Key, base, "task result", bundle); err != nil || again != tip {
@@ -93,7 +93,7 @@ func TestACollectionWorksWhenTheProjectIgnoresForge(t *testing.T) {
 }
 
 // A staging failure fails the collection instead of returning a result
-// without what git could not take: with .forge ignored and a source
+// without what git could not take: with .apptown ignored and a source
 // directory git cannot add (a repository with no commit), there is no
 // result.
 func TestAStagingFailureFailsTheCollection(t *testing.T) {
@@ -101,7 +101,7 @@ func TestAStagingFailureFailsTheCollection(t *testing.T) {
 	ca, state := workertest.NewCA(t), t.TempDir()
 	driver := workertest.Driver(t, ca, workertest.Start(t, ca, state, &executionfake.Tasks{}))
 	hub := sourceRepo(t)
-	if err := os.WriteFile(filepath.Join(hub, ".gitignore"), []byte(".forge/\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(hub, ".gitignore"), []byte(".apptown/\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"add", ".gitignore"}, {"commit", "-qm", "ignore runtime directory"}} {
@@ -116,12 +116,12 @@ func TestAStagingFailureFailsTheCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 	work := filepath.Join(state, "workspaces", spec.Key)
-	for _, dir := range []string{".forge", "src/scratch"} {
+	for _, dir := range []string{".apptown", "src/scratch"} {
 		if err := os.MkdirAll(filepath.Join(work, dir), 0700); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(work, ".forge/runtime.json"), []byte("{}\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(work, ".apptown/runtime.json"), []byte("{}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if out, err := gitexec.Run(ctx, filepath.Join(work, "src/scratch"), "init", "-q"); err != nil {

@@ -78,7 +78,7 @@ func (s *Scanners) RunImageScans(ctx context.Context, projectID ids.ID, src, sha
 		argv := append([]string{}, m.Command...)
 		base := s.baseImageFingerprints(ctx, projectID, repo, baseSHA, m, sc.Name, src, argv, namePrefix+"-scan-"+sc.Name)
 		for i := range argv {
-			argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.forge/image.tar")
+			argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.apptown/image.tar")
 		}
 		if m.Report != "" {
 			_ = os.Remove(filepath.Join(src, m.Report))
@@ -94,7 +94,7 @@ func (s *Scanners) RunImageScans(ctx context.Context, projectID ids.ID, src, sha
 		// The image is saved into the tree only if no file is there: the
 		// next image scanner's base and head scans save theirs to the same
 		// path.
-		_ = os.Remove(filepath.Join(src, ".forge", "image.tar"))
+		_ = os.Remove(filepath.Join(src, ".apptown", "image.tar"))
 		res.DurationMs = new(s.now().Sub(start).Milliseconds())
 		if answer.failure != "" {
 			fail(answer.failure)
@@ -222,10 +222,10 @@ func (s *Scanners) baseImageFingerprints(ctx context.Context, projectID ids.ID, 
 	// into every OS-package finding's fingerprint and location, so a
 	// different name would make identical CVEs look introduced. The base
 	// scan runs first and removes its tar before the real image is saved.
-	defer os.Remove(filepath.Join(scanSrc, ".forge", "image.tar"))
+	defer os.Remove(filepath.Join(scanSrc, ".apptown", "image.tar"))
 	argv := append([]string{}, argvTemplate...)
 	for i := range argv {
-		argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.forge/image.tar")
+		argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.apptown/image.tar")
 	}
 	if m.Report != "" {
 		_ = os.Remove(filepath.Join(scanSrc, m.Report))

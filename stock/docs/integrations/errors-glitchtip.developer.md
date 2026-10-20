@@ -37,14 +37,14 @@ environment — and only from the environment:
   error reports then cross-reference)
 
 A static site (a `static:` part: files served as they are) cannot read
-its environment. Its page loads `/_forge/env.js`, which AppTown serves
+its environment. Its page loads `/_apptown/env.js`, which AppTown serves
 with the values safe for any visitor to read, and takes the DSN from
-`window.__FORGE_ENV__`:
+`window.__APPTOWN_ENV__`:
 
     <head>
-      <script src="/_forge/env.js"></script>
+      <script src="/_apptown/env.js"></script>
       <script>
-        const dsn = (window.__FORGE_ENV__ || {}).SENTRY_DSN;
+        const dsn = (window.__APPTOWN_ENV__ || {}).SENTRY_DSN;
         // start the browser SDK only when dsn is set
       </script>
     </head>
@@ -71,7 +71,7 @@ Every app with error reporting carries two hooks, so anyone can prove
 the wiring in any deployment or preview by hand,
 without reading code:
 
-- **Server apps:** open `/_forge/boom` on the app. It captures one
+- **Server apps:** open `/_apptown/boom` on the app. It captures one
   tagged error (message "forge test boom", tag `forge.probe=boom`) and
   returns 500. Not authenticated; it does nothing else.
 - **Browser apps and games:** type `boom!!!` anywhere on the page — the

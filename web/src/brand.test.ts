@@ -12,7 +12,7 @@ import { PRODUCT } from './brand'
 const codeNames: [RegExp, string][] = [
   [/X-AppTown-[A-Za-z-]+/g, 'request headers'],
   [/FORGE_[A-Z_]*/g, 'settings and constants'],
-  [/\.forge\/|\/_forge\/|refs\/forge\//g, 'folders, paths and refs'],
+  [/\.(?:apptown|forge)\/|\/_(?:apptown|forge)\/|refs\/(?:apptown|forge)\//g, 'folders, paths and refs'],
   [/forge:[a-z:-]+|\{forge:/g, 'token scopes and link placeholders'],
   [/\[apptown check\]/g, 'the chat marker a check sends'],
   [/\(\?:apptown\|forge\) check/g, "the same marker in chats from before the rename, as they were written"],
@@ -63,7 +63,7 @@ describe('the product name', () => {
       "d.scopes.includes('apptown:user:read')",
       "x.text.startsWith('[apptown check]')",
       'Run the full checks first (apptown check), fix',
-      '<code>git fetch the.bundle refs/forge/refused/chat-1</code>',
+      '<code>git fetch the.bundle refs/apptown/refused/chat-1</code>',
       "{c.about && c.about !== 'forge' && <span/>}",
       "export type Kind = 'deployment' | 'forge' | 'other'",
       '<FigureWords f={p.forge} />',

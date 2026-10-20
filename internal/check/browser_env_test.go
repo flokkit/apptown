@@ -8,14 +8,14 @@ import (
 )
 
 func servedEnv(json string) string {
-	return "window.__FORGE_ENV__ = Object.freeze(Object.assign(new Object(), " + json + "));"
+	return "window.__APPTOWN_ENV__ = Object.freeze(Object.assign(new Object(), " + json + "));"
 }
 
 const dsn = "https://k@errors.example/3"
 
 // Judged from what the forge knows, not what the response says: a static site
 // given values must have been started with exactly those, serve exactly what
-// it was started with, and load /_forge/env.js by the supported convention. A
+// it was started with, and load /_apptown/env.js by the supported convention. A
 // server app, or a static site given nothing, is not judged. Anything the
 // forge supplies and cannot establish is its own fault, never the app's.
 func TestAStaticPageMustLoadTheValuesTheForgeGivesIt(t *testing.T) {
@@ -23,7 +23,7 @@ func TestAStaticPageMustLoadTheValuesTheForgeGivesIt(t *testing.T) {
 	values := map[string]string{"SENTRY_DSN": dsn}
 	given := BrowserExpectation{Static: true, Attached: values, Installed: values}
 	served := servedEnv(`{"SENTRY_DSN":"` + dsn + `"}`)
-	loads := `<html><head><script src="/_forge/env.js"></script><script src="game.js"></script></head></html>`
+	loads := `<html><head><script src="/_apptown/env.js"></script><script src="game.js"></script></head></html>`
 	for _, tc := range []struct {
 		name       string
 		want       BrowserExpectation
@@ -41,31 +41,31 @@ func TestAStaticPageMustLoadTheValuesTheForgeGivesIt(t *testing.T) {
 		{"loads it first", given, 200, served, loads, Conforms, false, "whether a browser runs it is not checked"},
 		// Only src and a nonce may be on the loader, and a legacy language
 		// decides whether a script runs at all.
-		{"a legacy language loader", given, 200, served, `<head><script language="vbscript" src="/_forge/env.js"></script><script src="game.js"></script></head>`, DoesNotConform, false, "first script is not"},
-		{"after a script no browser runs", given, 200, served, `<head><script language="vbscript">x</script><script src="/_forge/env.js"></script><script src="game.js"></script></head>`, Conforms, false, "loads it before"},
-		{"with a nonce", given, 200, served, `<head><script nonce="r4nd0m" src="/_forge/env.js"></script><script src="game.js"></script></head>`, Conforms, false, "loads it before"},
-		{"with crossorigin", given, 200, served, `<head><script crossorigin src="/_forge/env.js"></script></head>`, DoesNotConform, false, "only src"},
+		{"a legacy language loader", given, 200, served, `<head><script language="vbscript" src="/_apptown/env.js"></script><script src="game.js"></script></head>`, DoesNotConform, false, "first script is not"},
+		{"after a script no browser runs", given, 200, served, `<head><script language="vbscript">x</script><script src="/_apptown/env.js"></script><script src="game.js"></script></head>`, Conforms, false, "loads it before"},
+		{"with a nonce", given, 200, served, `<head><script nonce="r4nd0m" src="/_apptown/env.js"></script><script src="game.js"></script></head>`, Conforms, false, "loads it before"},
+		{"with crossorigin", given, 200, served, `<head><script crossorigin src="/_apptown/env.js"></script></head>`, DoesNotConform, false, "only src"},
 		{"started with other empty-valued keys", BrowserExpectation{Static: true, Attached: map[string]string{"EXPECTED": ""}, Installed: map[string]string{"OTHER": ""}}, 200, servedEnv(`{"OTHER":""}`), loads, CannotAssess, true, "start it again"},
-		{"after a data block", given, 200, served, `<head><script type="application/json">{}</script><script src="/_forge/env.js"></script><script src="game.js"></script></head>`, Conforms, false, "loads it before"},
-		{"in markup a browser repairs", given, 200, served, `<head><script src="/_forge/env.js"></script><div><script src="game.js">`, Conforms, false, "loads it before"},
+		{"after a data block", given, 200, served, `<head><script type="application/json">{}</script><script src="/_apptown/env.js"></script><script src="game.js"></script></head>`, Conforms, false, "loads it before"},
+		{"in markup a browser repairs", given, 200, served, `<head><script src="/_apptown/env.js"></script><div><script src="game.js">`, Conforms, false, "loads it before"},
 		{"never loads it", given, 200, served, `<script src="game.js"></script>`, DoesNotConform, false, "first script is not"},
 		// A mention is not a loader.
-		{"only in a comment", given, 200, served, `<!-- <script src="/_forge/env.js"></script> --><script src="game.js"></script>`, DoesNotConform, false, "first script is not"},
-		{"after the app's code", given, 200, served, `<script src="game.js"></script><script src="/_forge/env.js"></script>`, DoesNotConform, false, "first script is not"},
-		{"after inline app code", given, 200, served, `<script>start()</script><script src="/_forge/env.js"></script>`, DoesNotConform, false, "first script is not"},
-		{"async", given, 200, served, `<script async src="/_forge/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "with async"},
-		{"deferred", given, 200, served, `<script defer src="/_forge/env.js"></script>`, DoesNotConform, false, "with defer"},
-		{"as a module", given, 200, served, `<script type="module" src="/_forge/env.js"></script>`, DoesNotConform, false, "with type"},
-		{"from another origin", given, 200, served, `<script src="https://other.example/_forge/env.js"></script>`, DoesNotConform, false, "first script is not"},
-		{"in the body", given, 200, served, `<html><head></head><body><script src="/_forge/env.js"></script></body></html>`, DoesNotConform, false, "outside <head>"},
-		{"with integrity", given, 200, served, `<script integrity="sha384-x" src="/_forge/env.js"></script>`, DoesNotConform, false, "with integrity"},
+		{"only in a comment", given, 200, served, `<!-- <script src="/_apptown/env.js"></script> --><script src="game.js"></script>`, DoesNotConform, false, "first script is not"},
+		{"after the app's code", given, 200, served, `<script src="game.js"></script><script src="/_apptown/env.js"></script>`, DoesNotConform, false, "first script is not"},
+		{"after inline app code", given, 200, served, `<script>start()</script><script src="/_apptown/env.js"></script>`, DoesNotConform, false, "first script is not"},
+		{"async", given, 200, served, `<script async src="/_apptown/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "with async"},
+		{"deferred", given, 200, served, `<script defer src="/_apptown/env.js"></script>`, DoesNotConform, false, "with defer"},
+		{"as a module", given, 200, served, `<script type="module" src="/_apptown/env.js"></script>`, DoesNotConform, false, "with type"},
+		{"from another origin", given, 200, served, `<script src="https://other.example/_apptown/env.js"></script>`, DoesNotConform, false, "first script is not"},
+		{"in the body", given, 200, served, `<html><head></head><body><script src="/_apptown/env.js"></script></body></html>`, DoesNotConform, false, "outside <head>"},
+		{"with integrity", given, 200, served, `<script integrity="sha384-x" src="/_apptown/env.js"></script>`, DoesNotConform, false, "with integrity"},
 		// The convention is narrow so that markup a browser would load elsewhere, or skip, never passes.
-		{"relative", given, 200, served, `<script src="_forge/env.js"></script>`, DoesNotConform, false, "first script is not"},
-		{"a base moving a root-relative loader", given, 200, served, `<base href="https://cdn.example/"><script src="/_forge/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "<base href>"},
-		{"a base moving a relative loader", given, 200, served, `<base href="/assets/"><script src="_forge/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "<base href>"},
-		{"in an inert template", given, 200, served, `<template><script src="/_forge/env.js"></script></template><script src="game.js"></script>`, DoesNotConform, false, "first script is not"},
-		{"nomodule", given, 200, served, `<script nomodule src="/_forge/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "with nomodule"},
-		{"a repeated src, read as a browser reads it", given, 200, served, `<script src="game.js" src="/_forge/env.js"></script>`, DoesNotConform, false, "first script is not"},
+		{"relative", given, 200, served, `<script src="_apptown/env.js"></script>`, DoesNotConform, false, "first script is not"},
+		{"a base moving a root-relative loader", given, 200, served, `<base href="https://cdn.example/"><script src="/_apptown/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "<base href>"},
+		{"a base moving a relative loader", given, 200, served, `<base href="/assets/"><script src="_apptown/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "<base href>"},
+		{"in an inert template", given, 200, served, `<template><script src="/_apptown/env.js"></script></template><script src="game.js"></script>`, DoesNotConform, false, "first script is not"},
+		{"nomodule", given, 200, served, `<script nomodule src="/_apptown/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "with nomodule"},
+		{"a repeated src, read as a browser reads it", given, 200, served, `<script src="game.js" src="/_apptown/env.js"></script>`, DoesNotConform, false, "first script is not"},
 		// What the forge supplies, it must establish; failing that is its own
 		// fault, never a pass and never the app's to fix.
 		{"started with values AppTown cannot read", BrowserExpectation{Static: true, Attached: values}, 200, served, loads, CannotAssess, true, "could not read what this deployment was started with"},

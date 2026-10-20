@@ -9,7 +9,7 @@ function required_env(string $name): string {
 }
 // The site's address. A bound WP_HOME is the canonical address. Otherwise it
 // is this deployment's own address: AppTown's front door routes a request
-// here by its Host and passes that Host on, and FORGE_ORIGINS lists the
+// here by its Host and passes that Host on, and APPTOWN_ORIGINS lists the
 // origins the app is served at, so a Host matching one of them (exactly, or
 // under a *. wildcard) is where the visitor reached this deployment; that
 // origin gives the scheme. Any other Host is refused, as Django and Rails
@@ -24,7 +24,7 @@ function deployment_home(): string {
     if (PHP_SAPI === 'cli') {
         return 'http://localhost';
     }
-    $origins = array_filter(array_map('trim', explode(',', getenv('FORGE_ORIGINS') ?: '')));
+    $origins = array_filter(array_map('trim', explode(',', getenv('APPTOWN_ORIGINS') ?: '')));
     if (!$origins) {
         return required_env('WP_HOME');
     }

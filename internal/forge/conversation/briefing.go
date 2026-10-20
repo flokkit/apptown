@@ -378,7 +378,7 @@ You can look at the RUNNING app, not just its code:
   words ("There is no visible heading; I changed the browser tab title
   instead. Is that what you meant?"), and ask how to go on. Never say
   "done" or "verified" for something you did not do or did not see.
-`, ".forge/app.yaml", console.WorkMount)
+`, ".apptown/app.yaml", console.WorkMount)
 	return b.String()
 }
 
@@ -392,7 +392,7 @@ func attachmentSteer(dataDir string, changeID ids.ID) string {
 		if i > 0 {
 			out += ", "
 		}
-		out += ".forge/attachments/" + n
+		out += ".apptown/attachments/" + n
 	}
 	return out + "\n"
 }

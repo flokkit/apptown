@@ -19,7 +19,7 @@ func TestAToolsReportFailsClosed(t *testing.T) {
 		{"declared unstructured report missing", "", nil, errors.New("missing")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			j := &check.Judge{Scanners: oneScanner{Name: "t", Image: "x", Report: ".forge/report", Format: tc.format}, Run: func(req execution.Request) execution.Outcome {
+			j := &check.Judge{Scanners: oneScanner{Name: "t", Image: "x", Report: ".apptown/report", Format: tc.format}, Run: func(req execution.Request) execution.Outcome {
 				return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: tc.report, ReportErr: tc.err}
 			}}
 			ev := j.EvaluateTool(check.Declared{Declaration: check.Declaration{Name: "tool", Tool: "t"}}, check.Source{Tree: t.TempDir()}, check.Gate, "review")

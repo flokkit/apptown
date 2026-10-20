@@ -4,7 +4,7 @@
 # (spec-driven), 2026-09-03 (design/decisions/workflows-as-lanes.md): one lane, one
 # human acceptance; the agent follows a spec's technology decisions when
 # one is attached and the change's description otherwise. Landing ships.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: implement
@@ -27,7 +27,7 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: build-report, name: build-report, file: .forge/REPORT.md }
+            output: { kind: build-report, name: build-report, file: .apptown/REPORT.md }
             timeoutMinutes: 40
             prompt: |
               Build what is described below in the CURRENT WORKING DIRECTORY —
@@ -51,10 +51,10 @@ spec:
               minor levels (your training-era pins are stale and will trip
               the landing's vulnerability scan) and re-verify.
 
-              Write .forge/REPORT.md EARLY — create it as soon as the shape of the
+              Write .apptown/REPORT.md EARLY — create it as soon as the shape of the
               build is clear and keep it updated as you verify; a report that
               exists at 90% is worth more than a perfect one that never gets
-              written. Also write the run contract to .forge/app.yaml — the
+              written. Also write the run contract to .apptown/app.yaml — the
               forge-native contract with two sections. `app:` is a map of your
               app's own containers (each with build:/image:/static:, ports,
               environment, command); exactly one part is `public: true` (the
@@ -69,9 +69,9 @@ spec:
               is: ${{feedback.latest}}
               Address it precisely.
 
-              When done, WRITE your build report to .forge/REPORT.md (what you built, what you verified with which commands,
+              When done, WRITE your build report to .apptown/REPORT.md (what you built, what you verified with which commands,
               deviations). Chat output is not captured. Do not commit the report: AppTown
-              collects it from the workspace, and .forge/ is ignored.
+              collects it from the workspace, and .apptown/ is ignored.
               The report describes the WHOLE change: the full branch diff
               against the base, not just this session's edits. After rework
               rounds, run git diff against the base branch and account for
@@ -94,12 +94,12 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true
-            output: { kind: verify-report, name: verify-report, file: .forge/VERIFY.md }
+            output: { kind: verify-report, name: verify-report, file: .apptown/VERIFY.md }
             timeoutMinutes: 25
             prompt: |
               You are in the workspace of the freshly implemented application
               (BUILD.md or README.md at the root says how to run it, the build
-              report is in .forge/REPORT.md).
+              report is in .apptown/REPORT.md).
               Verify it end to end with your bash tool: install, build, run the
               test suite, start the app and exercise its main flows. Your app's
               declared needs are running as emulators, reachable by capability
@@ -124,16 +124,16 @@ spec:
               precisely — fixing what it names is within this change's scope —
               and then verify again: ${{feedback.latest}}
 
-              WRITE your verification report to .forge/VERIFY.md. It is the
+              WRITE your verification report to .apptown/VERIFY.md. It is the
               report the reviewer reads, so it describes the change as it
               stands NOW, not as the first build left it: run git diff
               against the base branch and start with what the change does,
               accounting for EVERY changed file (the build report in
-              .forge/REPORT.md is a starting point, but it is not updated
+              .apptown/REPORT.md is a starting point, but it is not updated
               after rework). Then: commands run, results, defects fixed,
               feedback addressed, defects remaining. Chat output is not
               captured. Do not commit the report: AppTown collects it from
-              the workspace, and .forge/ is ignored.
+              the workspace, and .apptown/ is ignored.
         - name: boot
           uses: preview
       steps:

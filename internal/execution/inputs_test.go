@@ -54,19 +54,21 @@ func TestARequestsDigestCoversItsInputsAndResults(t *testing.T) {
 	t.Parallel()
 	in, _ := NewInput("/apptown/in/steering.md", []byte("steer"), 0o644)
 	base := TaskSpec{Key: "k", Image: "i", Argv: []string{"a"}, Admission: Admission{Profile: "p", Network: NetworkNone},
-		Inputs: []Input{in}, Results: []Result{{Name: "verdict", Path: "/work/.forge/review.json", Max: 10, Fresh: true}}}
+		Inputs: []Input{in}, Results: []Result{{Name: "verdict", Path: "/work/.apptown/review.json", Max: 10, Fresh: true}}}
 	named := base
 	named.Inputs = []Input{{Blob: in.Blob, Path: in.Path, Mode: in.Mode}}
 	if named.Digest() != base.Digest() {
 		t.Fatal("the bytes carried beside an input changed the request's identity")
 	}
 	changes := map[string]func(*TaskSpec){
-		"blob":  func(s *TaskSpec) { s.Inputs = []Input{{Blob: strings.Repeat("a", 64), Path: in.Path, Mode: in.Mode}} },
-		"path":  func(s *TaskSpec) { s.Inputs = []Input{{Blob: in.Blob, Path: "/apptown/in/other.md", Mode: in.Mode}} },
-		"mode":  func(s *TaskSpec) { s.Inputs = []Input{{Blob: in.Blob, Path: in.Path, Mode: 0o755}} },
-		"fresh": func(s *TaskSpec) { s.Results = []Result{{Name: "verdict", Path: "/work/.forge/review.json", Max: 10}} },
+		"blob": func(s *TaskSpec) { s.Inputs = []Input{{Blob: strings.Repeat("a", 64), Path: in.Path, Mode: in.Mode}} },
+		"path": func(s *TaskSpec) { s.Inputs = []Input{{Blob: in.Blob, Path: "/apptown/in/other.md", Mode: in.Mode}} },
+		"mode": func(s *TaskSpec) { s.Inputs = []Input{{Blob: in.Blob, Path: in.Path, Mode: 0o755}} },
+		"fresh": func(s *TaskSpec) {
+			s.Results = []Result{{Name: "verdict", Path: "/work/.apptown/review.json", Max: 10}}
+		},
 		"max": func(s *TaskSpec) {
-			s.Results = []Result{{Name: "verdict", Path: "/work/.forge/review.json", Max: 11, Fresh: true}}
+			s.Results = []Result{{Name: "verdict", Path: "/work/.apptown/review.json", Max: 11, Fresh: true}}
 		},
 		"result": func(s *TaskSpec) { s.Results = nil },
 	}
@@ -131,7 +133,7 @@ func TestInvalidInputsAreRefused(t *testing.T) {
 
 func TestInvalidResultsAreRefused(t *testing.T) {
 	t.Parallel()
-	ok := []Result{{Name: "verdict", Path: "/work/.forge/review.json", Max: 256 << 10, Fresh: true},
+	ok := []Result{{Name: "verdict", Path: "/work/.apptown/review.json", Max: 256 << 10, Fresh: true},
 		{Name: "transcript", Path: "/apptown/state/sessions/s.jsonl", Max: 32 << 20}}
 	if err := ValidResults(ok); err != nil {
 		t.Fatalf("valid results refused: %v", err)

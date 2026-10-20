@@ -1,7 +1,7 @@
 ---
 name: lang/selection/wordpress-bedrock
 tags: lang,php,wordpress,storage
-checks: [{"name":"runtime-stage-not-build-image","expects":"the final Docker stage runs PHP/Apache, not the Composer dependency installer","severity":"medium","evaluator":"sh","sh":"[ -f Dockerfile ] || exit 0; image=$(awk 'toupper($1)==\"FROM\"{v=$2} END{print v}' Dockerfile); case \"$image\" in composer:*|composer@*|docker.io/library/composer:*|docker.io/library/composer@*) echo 'Composer is the dependency build image, not the web runtime'; exit 1;; esac","title":"Keep the dependency installer out of the runtime base"},{"name":"uploads-through-s3-need","expects":"S3 Uploads writes to the deployment's own s3 need: .forge/app.yaml declares it, and secretspec.toml declares none of the variables the need gives the app nor S3_PUBLIC_URL","severity":"high","evaluator":"sh","sh":"grep -q '\"humanmade/s3-uploads\"' composer.json 2>/dev/null || exit 0; bad=0; sed -n '/^needs:/,/^[^ ]/p' .forge/app.yaml 2>/dev/null | grep -Eq '^  s3:' || { echo '.forge/app.yaml declares no s3 need: uploads belong in the deployment'\"'\"'s own object storage'; bad=1; }; for n in $(grep -Eo '^(S3_BUCKET|AWS_REGION|AWS_ENDPOINT_URL_S3|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|S3_PUBLIC_URL)[[:space:]]*=' secretspec.toml 2>/dev/null | tr -d ' ='); do if [ \"$n\" = S3_PUBLIC_URL ]; then echo 'secretspec.toml declares S3_PUBLIC_URL: the s3 need gives no public address, so media is served by the site (web/media.php)'; else echo \"secretspec.toml declares $n, which the s3 need gives the app\"; fi; bad=1; done; [ \"$bad\" = 0 ]","occurrences":"lines","title":"Keep uploads in the deployment's s3 need"}]
+checks: [{"name":"runtime-stage-not-build-image","expects":"the final Docker stage runs PHP/Apache, not the Composer dependency installer","severity":"medium","evaluator":"sh","sh":"[ -f Dockerfile ] || exit 0; image=$(awk 'toupper($1)==\"FROM\"{v=$2} END{print v}' Dockerfile); case \"$image\" in composer:*|composer@*|docker.io/library/composer:*|docker.io/library/composer@*) echo 'Composer is the dependency build image, not the web runtime'; exit 1;; esac","title":"Keep the dependency installer out of the runtime base"},{"name":"uploads-through-s3-need","expects":"S3 Uploads writes to the deployment's own s3 need: .apptown/app.yaml declares it, and secretspec.toml declares none of the variables the need gives the app nor S3_PUBLIC_URL","severity":"high","evaluator":"sh","sh":"grep -q '\"humanmade/s3-uploads\"' composer.json 2>/dev/null || exit 0; bad=0; sed -n '/^needs:/,/^[^ ]/p' .apptown/app.yaml 2>/dev/null | grep -Eq '^  s3:' || { echo '.apptown/app.yaml declares no s3 need: uploads belong in the deployment'\"'\"'s own object storage'; bad=1; }; for n in $(grep -Eo '^(S3_BUCKET|AWS_REGION|AWS_ENDPOINT_URL_S3|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|S3_PUBLIC_URL)[[:space:]]*=' secretspec.toml 2>/dev/null | tr -d ' ='); do if [ \"$n\" = S3_PUBLIC_URL ]; then echo 'secretspec.toml declares S3_PUBLIC_URL: the s3 need gives no public address, so media is served by the site (web/media.php)'; else echo \"secretspec.toml declares $n, which the s3 need gives the app\"; fi; bad=1; done; [ \"$bad\" = 0 ]","occurrences":"lines","title":"Keep uploads in the deployment's s3 need"}]
 ---
 Use the seeded Bedrock layout: Composer's committed `composer.lock` installs
 WordPress core in `web/wp`, plugins in `web/app/plugins`, and the owned theme
@@ -19,9 +19,9 @@ The declared needs are MariaDB and `s3`. The app reads their injected env:
 `DB_*`, and `S3_BUCKET`, `AWS_REGION`, `AWS_ENDPOINT_URL_S3`,
 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
 The site's address is the deployment's own: `config/application.php` takes the
-request's Host when it matches an origin in `FORGE_ORIGINS` (the front door
+request's Host when it matches an origin in `APPTOWN_ORIGINS` (the front door
 routes by Host and passes it on) and refuses any other Host with 400. Never use
-`FORGE_ORIGINS` itself as the URL. A bound `WP_HOME` overrides it with one
+`APPTOWN_ORIGINS` itself as the URL. A bound `WP_HOME` overrides it with one
 canonical address. WP-CLI has no request: run a WP-CLI command that creates
 content or writes links with `WP_HOME=<the deployment's URL>` in its
 environment, or what it stores names `http://localhost`. Nobody enters an
@@ -52,7 +52,7 @@ or a data directory are not a fallback.
 
 An existing project from the earlier starter (six S3 settings in
 `secretspec.toml`, `S3_PUBLIC_URL`, `public-read`) moves to this: add
-`s3: {}` under `needs:` in `.forge/app.yaml`; remove `S3_BUCKET`,
+`s3: {}` under `needs:` in `.apptown/app.yaml`; remove `S3_BUCKET`,
 `AWS_REGION`, `AWS_ENDPOINT_URL_S3`, `S3_PUBLIC_URL`, `AWS_ACCESS_KEY_ID` and
 `AWS_SECRET_ACCESS_KEY` from `secretspec.toml`'s profile and scopes; in
 `config/application.php` set `S3_UPLOADS_BUCKET_URL` to `WP_CONTENT_URL` and

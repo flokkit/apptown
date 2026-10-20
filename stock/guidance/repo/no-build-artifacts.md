@@ -2,7 +2,7 @@
 name: repo/no-build-artifacts
 tags: repo,hygiene,platform
 tier: platform
-checks: [{"name": "no-ignored-files-tracked", "expects": "nothing the repository's own .gitignore covers is committed — the project declared what is not source. Decide what each named file is before fixing: build output or an AppTown runtime file under .forge/ gets untracked (git rm --cached); a source file or a test fixture means the ignore rule is wrong, so fix the rule (anchor it, narrow it, or add an explicit !path). Never move, rename or delete a file to make the check stop seeing it", "severity": "medium", "evaluator": "sh", "sh": "t=$(mktemp -d) && git -c init.defaultBranch=main init -q \"$t\" || exit 2; find . -type f -not -path './.git/*' | sed 's|^\\./||' | git --git-dir=\"$t/.git\" --work-tree=. -c core.excludesFile=/dev/null check-ignore --no-index --stdin; s=$?; [ $s -eq 1 ] && exit 0; [ $s -eq 0 ] && exit 1; exit 2", "occurrences": "lines", "title": "Reconcile tracked files with the repository’s ignore rules"}, {"name": "no-build-artifacts-tracked", "expects": "no compiled program is committed — an ELF, Mach-O or Windows executable, or a Java class file, by its own format signature; the build makes those, git keeps sources", "severity": "medium", "evaluator": "sh", "sh": "bad=0; for f in $(find . -type f -not -path './.git/*' -not -path '*/node_modules/*' -not -path '*/vendor/*'); do h=$(head -c 4 \"$f\" | od -An -tx1 | tr -d ' \\n'); case \"$h\" in 7f454c46|cffaedfe|cefaedfe|feedfacf|feedface|cafebabe|4d5a*) echo \"${f#./}\"; bad=1;; esac; done; exit $bad", "occurrences": "lines", "title": "Remove compiled programs from version control"}]
+checks: [{"name": "no-ignored-files-tracked", "expects": "nothing the repository's own .gitignore covers is committed — the project declared what is not source. Decide what each named file is before fixing: build output or an AppTown runtime file under .apptown/ gets untracked (git rm --cached); a source file or a test fixture means the ignore rule is wrong, so fix the rule (anchor it, narrow it, or add an explicit !path). Never move, rename or delete a file to make the check stop seeing it", "severity": "medium", "evaluator": "sh", "sh": "t=$(mktemp -d) && git -c init.defaultBranch=main init -q \"$t\" || exit 2; find . -type f -not -path './.git/*' | sed 's|^\\./||' | git --git-dir=\"$t/.git\" --work-tree=. -c core.excludesFile=/dev/null check-ignore --no-index --stdin; s=$?; [ $s -eq 1 ] && exit 0; [ $s -eq 0 ] && exit 1; exit 2", "occurrences": "lines", "title": "Reconcile tracked files with the repository’s ignore rules"}, {"name": "no-build-artifacts-tracked", "expects": "no compiled program is committed — an ELF, Mach-O or Windows executable, or a Java class file, by its own format signature; the build makes those, git keeps sources", "severity": "medium", "evaluator": "sh", "sh": "bad=0; for f in $(find . -type f -not -path './.git/*' -not -path '*/node_modules/*' -not -path '*/vendor/*'); do h=$(head -c 4 \"$f\" | od -An -tx1 | tr -d ' \\n'); case \"$h\" in 7f454c46|cffaedfe|cefaedfe|feedfacf|feedface|cafebabe|4d5a*) echo \"${f#./}\"; bad=1;; esac; done; exit $bad", "occurrences": "lines", "title": "Remove compiled programs from version control"}]
 ---
 Git keeps sources; the build makes the rest. Build output committed to
 the repository bloats every clone, drifts from the source it was built
@@ -14,12 +14,12 @@ is the declaration, and git's matcher is the reference: a file that is
 both committed and ignored is the project contradicting itself. Each way
 of working makes its ignore list name what its own tools write (`target/`
 for Maven and Cargo, `node_modules/` and `dist/` for Node, `__pycache__/`
-for Python), and AppTown's `.forge/*` runtime files are ignored on
-every project with the contract `.forge/app.yaml` as the one exception.
+for Python), and AppTown's `.apptown/*` runtime files are ignored on
+every project with the contract `.apptown/app.yaml` as the one exception.
 
 Agents make this mistake when they build locally to test and then
-`git add -A`, or force-add a report under `.forge/`. Before fixing, look
-at what the named file is. Build output or an AppTown runtime file under `.forge/`:
+`git add -A`, or force-add a report under `.apptown/`. Before fixing, look
+at what the named file is. Build output or an AppTown runtime file under `.apptown/`:
 
     git rm --cached <path>
 

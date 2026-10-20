@@ -34,8 +34,8 @@ var HTTPFetcher = FetcherFunc(func(ctx context.Context, url string) (int, string
 })
 
 // BrowserEnvPath is the file a static part's server answers with the values
-// the forge gives its page (window.__FORGE_ENV__).
-const BrowserEnvPath = "/_forge/env.js"
+// the forge gives its page (window.__APPTOWN_ENV__).
+const BrowserEnvPath = "/_apptown/env.js"
 
 // BrowserExpectation is what the caller knows from trusted sources, not from
 // the response being judged: whether the app's contract serves a static site,
@@ -63,7 +63,7 @@ type ProbeVerdict struct {
 
 // JudgeBrowserEnv judges a running app at base: a static site whose
 // integrations give its page values must have been started with exactly
-// those, must serve exactly what it was started with in /_forge/env.js, and
+// those, must serve exactly what it was started with in /_apptown/env.js, and
 // its HTML must load that file by the supported convention. A server app is
 // not judged. Conforming says the values are served and the markup loads
 // them first; it does not say a browser ran the script (a content security
@@ -114,7 +114,7 @@ func JudgeBrowserEnv(ctx context.Context, f Fetcher, base string, want BrowserEx
 		return ProbeVerdict{Outcome: CannotAssess, Detail: fmt.Sprintf("the page answered %d", code)}
 	}
 	if why := loaderProblem(page); why != "" {
-		return ProbeVerdict{Outcome: DoesNotConform, Detail: fmt.Sprintf("%s, so %s may never reach the app's code: put <script src=\"%s\"></script> in the page's <head> before any other script, with no attribute but src (a CSP nonce is fine), no <base href> in the page, and read window.__FORGE_ENV__", why, named, BrowserEnvPath)}
+		return ProbeVerdict{Outcome: DoesNotConform, Detail: fmt.Sprintf("%s, so %s may never reach the app's code: put <script src=\"%s\"></script> in the page's <head> before any other script, with no attribute but src (a CSP nonce is fine), no <base href> in the page, and read window.__APPTOWN_ENV__", why, named, BrowserEnvPath)}
 	}
 	return ProbeVerdict{Outcome: Conforms, Detail: fmt.Sprintf("AppTown serves %s at %s and the page's HTML loads it before its own scripts; whether a browser runs it is not checked", named, BrowserEnvPath)}
 }
@@ -128,7 +128,7 @@ var javaScriptTypes = map[string]bool{"": true, "application/ecmascript": true, 
 
 // loaderProblem says how the page departs from the supported loader
 // convention, or "" when it follows it: the first script a browser would run
-// is a classic script in <head> whose src is exactly /_forge/env.js, with
+// is a classic script in <head> whose src is exactly /_apptown/env.js, with
 // nothing that lets a browser skip, delay or re-address it. The convention is
 // deliberately narrow; it is lint over markup, not evidence of execution.
 func loaderProblem(page string) string {
@@ -224,7 +224,7 @@ func valueNames(values map[string]string) string {
 func sameValues(a, b map[string]string) bool { return maps.Equal(a, b) }
 
 // browserEnvValues reads the values from the file the forge serves:
-// window.__FORGE_ENV__ = Object.freeze(Object.assign(new Object(), {json}));
+// window.__APPTOWN_ENV__ = Object.freeze(Object.assign(new Object(), {json}));
 func browserEnvValues(body string) (map[string]string, bool) {
 	const open = "Object.assign(new Object(), "
 	i := strings.Index(body, open)

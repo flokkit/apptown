@@ -109,7 +109,7 @@ func (c ChangeLifecycle) Apply(move ChangeMove) (ChangeLifecycle, error) {
 		out.RunID = move.RunID
 	}
 	if move.NameBranch && out.Branch == "" {
-		out.Branch = fmt.Sprintf("forge/change-%d", c.ID)
+		out.Branch = fmt.Sprintf("apptown/change-%d", c.ID)
 	}
 	return out, nil
 }

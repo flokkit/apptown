@@ -19,7 +19,7 @@ func TestLanCompose(t *testing.T) {
 	one := IntranetCompose(IntranetStack{Secrets: noSecrets{}, Slug: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
 		Image: "reg/app@sha256:x", Port: 8080})
 	if !strings.Contains(one, "Host(`app.apps.example.com`)") ||
-		strings.Contains(one, "||") || strings.Contains(one, "FORGE_RELEASE") || strings.Contains(one, "volumes:") || strings.Contains(one, "depends_on") {
+		strings.Contains(one, "||") || strings.Contains(one, "APPTOWN_RELEASE") || strings.Contains(one, "volumes:") || strings.Contains(one, "depends_on") {
 		t.Fatalf("single-host compose wrong:\n%s", one)
 	}
 	// Vanity domain: both hosts on one router, extra cert domain, and the
@@ -33,9 +33,9 @@ func TestLanCompose(t *testing.T) {
 		"tls.domains[1].main: \"feedback.example.com\"",
 		"forge-data-app:/data",
 		`DATA_DIR: "/data"`,
-		`FORGE_ORIGINS: "https://*.apps.example.com"`,
+		`APPTOWN_ORIGINS: "https://*.apps.example.com"`,
 		`LOG: "info"`,
-		`FORGE_RELEASE: "web@abc"`,
+		`APPTOWN_RELEASE: "web@abc"`,
 		"loadbalancer.server.port: \"8080\"",
 	} {
 		if !strings.Contains(two, want) {
@@ -82,11 +82,11 @@ type staticSecrets map[string]string
 func (s staticSecrets) EnvFor(string) map[string]string { return s }
 
 // The forge's own values in a stack (the release identity, DATA_DIR,
-// FORGE_ORIGINS) win over a contract's or a secret's of the same name, and
+// APPTOWN_ORIGINS) win over a contract's or a secret's of the same name, and
 // each key appears once: Compose refuses a mapping that repeats one.
 func TestAnIntranetStackSetsTheForgesValuesOnceAndLast(t *testing.T) {
 	t.Parallel()
-	declared := map[string]string{"FORGE_RELEASE": "web@declared", "DATA_DIR": "/elsewhere", "FORGE_ORIGINS": "https://declared"}
+	declared := map[string]string{"APPTOWN_RELEASE": "web@declared", "DATA_DIR": "/elsewhere", "APPTOWN_ORIGINS": "https://declared"}
 	for name, st := range map[string]IntranetStack{
 		"contract": {Secrets: noSecrets{}, Env: declared},
 		"secret":   {Secrets: staticSecrets(declared)},
@@ -104,7 +104,7 @@ func TestAnIntranetStackSetsTheForgesValuesOnceAndLast(t *testing.T) {
 				t.Fatalf("the stack is not one Compose accepts: %v\n%s", err, out)
 			}
 			env := stack.Services["app"].Environment
-			if env["FORGE_RELEASE"] != "web@selected" || env["DATA_DIR"] != "/data" || env["FORGE_ORIGINS"] != "https://*.apps.example.com" {
+			if env["APPTOWN_RELEASE"] != "web@selected" || env["DATA_DIR"] != "/data" || env["APPTOWN_ORIGINS"] != "https://*.apps.example.com" {
 				t.Fatalf("AppTown's values did not win: %v", env)
 			}
 		})

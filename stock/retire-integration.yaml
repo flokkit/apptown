@@ -1,7 +1,7 @@
 # Stock workflow: retire-integration — the half nobody does: when the org
 # retires or replaces a cross-cutting service, unwire it cleanly. The lane
 # proves nothing still references the retired service.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: retire-integration
@@ -24,7 +24,7 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: retire-report, name: retire-report, file: .forge/RETIRE.md }
+            output: { kind: retire-report, name: retire-report, file: .apptown/RETIRE.md }
             timeoutMinutes: 25
             prompt: |
               An organisational service is being retired from this project —
@@ -39,7 +39,7 @@ spec:
               - If a reviewer previously rejected this work, their feedback:
                 ${{feedback.latest}}
 
-              WRITE .forge/RETIRE.md: what was removed,
+              WRITE .apptown/RETIRE.md: what was removed,
               dependencies dropped, the reference-search proof, verification
               results. Chat output is not captured.
 

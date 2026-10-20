@@ -7,7 +7,7 @@ while read -r line; do
   case "$line" in [Hh]ost:*) host=$(printf '%s' "${line#*:}" | tr -d ' ');; esac
 done
 allowed=no
-for o in $(printf '%s' "$FORGE_ORIGINS" | tr ',' ' '); do
+for o in $(printf '%s' "$APPTOWN_ORIGINS" | tr ',' ' '); do
   [ "${o#https://}" = "$host" ] && allowed=yes
 done
 answer() { printf 'HTTP/1.1 %s\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n%s\n' "$1" "$2"; }

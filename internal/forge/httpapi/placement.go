@@ -133,7 +133,7 @@ func (h ProjectAdoption) placementOf(ctx context.Context, p *project.Project, ad
 		view.Conditions = append(view.Conditions, placementCondition{Kind: "drift",
 			Sentence: "the guidance or lanes moved outside AppTown's own door (" + drift + "); gates and steering still read revision " + fmt.Sprint(ad.Revision) + " — save under Guidance to record what the project should be on"})
 	}
-	if ad.Receipt.Pack != "" && ad.Receipt.Pack != "forge" {
+	if ad.Receipt.Pack != "" && ad.Receipt.Pack != adoption.PlatformPack {
 		placed := false
 		for _, pp := range view.Packs {
 			if pp.Pack == ad.Receipt.Pack {

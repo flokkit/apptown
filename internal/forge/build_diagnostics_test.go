@@ -42,12 +42,12 @@ func TestConsolePreviewReportsBuildFailureAfterLongProgressLog(t *testing.T) {
 	}
 	project, change := p.ID, ch.ID
 	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(change)
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	for name, body := range map[string]string{
-		".forge/app.yaml": "app:\n  game:\n    " + declaration + "\n    ports: [\"8080\"]\n    public: true\n",
-		"Dockerfile":      "FROM example/godot:4.4.1\n",
+		".apptown/app.yaml": "app:\n  game:\n    " + declaration + "\n    ports: [\"8080\"]\n    public: true\n",
+		"Dockerfile":        "FROM example/godot:4.4.1\n",
 	} {
 		if err := os.WriteFile(filepath.Join(ws, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)

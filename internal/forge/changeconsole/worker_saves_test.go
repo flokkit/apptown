@@ -49,7 +49,7 @@ func TestARefusedSaveIsToldToTheChat(t *testing.T) {
 	w := newWorld(t)
 	s := w.warmOnWorker(t)
 	before := w.branchTip()
-	w.commitOnWorker(t, s.ID, ".forge/not-source", "x\n")
+	w.commitOnWorker(t, s.ID, ".apptown/not-source", "x\n")
 	w.chats.SaveAfterTurn(s.ID)
 	if w.branchTip() != before {
 		t.Fatal("a refused commit reached the branch")
@@ -115,7 +115,7 @@ func TestARefusedLastSaveIsKeptAndTheChatEnds(t *testing.T) {
 	ctx := context.Background()
 	w := newWorld(t)
 	s := w.warmOnWorker(t)
-	refused := w.commitOnWorker(t, s.ID, ".forge/not-source", "x\n")
+	refused := w.commitOnWorker(t, s.ID, ".apptown/not-source", "x\n")
 	if err := w.chats.End(ctx, s.ID, "owner"); err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestARefusedLastSaveThatCouldNotBeKeptKeepsTheChat(t *testing.T) {
 	ctx := context.Background()
 	w := newWorld(t)
 	s := w.warmOnWorker(t)
-	refused := w.commitOnWorker(t, s.ID, ".forge/not-source", "refused work\n")
+	refused := w.commitOnWorker(t, s.ID, ".apptown/not-source", "refused work\n")
 	// A held ref lock makes keeping the refused commit fail.
 	lock := filepath.Join(w.hub, ".git", repositoryedit.RefusedChatRef(s.ID)+".lock")
 	if err := os.MkdirAll(filepath.Dir(lock), 0o755); err != nil {
@@ -216,21 +216,21 @@ func TestALastSaveCarriesTheContractsDeletion(t *testing.T) {
 	ctx := context.Background()
 	w := newWorld(t)
 	s := w.warmOnWorker(t)
-	w.commitOnWorker(t, s.ID, ".forge/app.yaml", "name: review\n")
+	w.commitOnWorker(t, s.ID, ".apptown/app.yaml", "name: review\n")
 	w.chats.SaveAfterTurn(s.ID)
-	if names := gittest.Run(t, w.hub, "ls-tree", "--name-only", w.branchTip(), "--", ".forge/app.yaml"); names == "" {
+	if names := gittest.Run(t, w.hub, "ls-tree", "--name-only", w.branchTip(), "--", ".apptown/app.yaml"); names == "" {
 		t.Fatal("the contract was not saved")
 	}
-	if err := os.Remove(filepath.Join(w.onWork.Started(s.ID).Workspace.Path, ".forge/app.yaml")); err != nil {
+	if err := os.Remove(filepath.Join(w.onWork.Started(s.ID).Workspace.Path, ".apptown/app.yaml")); err != nil {
 		t.Fatal(err)
 	}
-	w.writeOnWorker(t, s.ID, ".forge/runtime-state", "not source\n")
+	w.writeOnWorker(t, s.ID, ".apptown/runtime-state", "not source\n")
 	if err := w.chats.End(ctx, s.ID, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	tree := gittest.Run(t, w.hub, "ls-tree", "-r", "--name-only", w.branchTip())
-	if strings.Contains(tree, ".forge/") {
-		t.Fatalf("the saved tree has .forge files: %s", tree)
+	if strings.Contains(tree, ".apptown/") {
+		t.Fatalf("the saved tree has .apptown files: %s", tree)
 	}
 }
 
@@ -244,17 +244,17 @@ func TestAContractThatCannotBeStagedKeepsTheChat(t *testing.T) {
 	s := w.warmOnWorker(t)
 	work := w.onWork.Started(s.ID).Workspace.Path
 	w.writeOnWorker(t, s.ID, "pending.txt", "ordinary leftovers\n")
-	w.writeOnWorker(t, s.ID, ".forge/app.yaml", "name: keep-this-contract\n")
+	w.writeOnWorker(t, s.ID, ".apptown/app.yaml", "name: keep-this-contract\n")
 	gittest.Run(t, work, "config", "filter.failing.clean", "false")
 	gittest.Run(t, work, "config", "filter.failing.required", "true")
-	w.writeOnWorker(t, s.ID, ".git/info/attributes", ".forge/app.yaml filter=failing\n")
+	w.writeOnWorker(t, s.ID, ".git/info/attributes", ".apptown/app.yaml filter=failing\n")
 	if err := w.chats.End(ctx, s.ID, "owner"); err == nil {
 		t.Fatal("the chat ended though its contract could not be staged")
 	}
 	if st, err := w.workers.Status(ctx, s.ID); err != nil || st.Removed {
 		t.Fatalf("the chat was removed on the worker: %+v %v", st, err)
 	}
-	if _, err := os.Stat(filepath.Join(work, ".forge", "app.yaml")); err != nil {
+	if _, err := os.Stat(filepath.Join(work, ".apptown", "app.yaml")); err != nil {
 		t.Fatalf("the unsaved contract is gone: %v", err)
 	}
 }
@@ -288,7 +288,7 @@ func TestAnEndThatCannotBeRecordedKeepsTheChat(t *testing.T) {
 	if w.branchTip() != good {
 		t.Fatal("first save failed")
 	}
-	refused := w.commitOnWorker(t, s.ID, ".forge/not-source", "refused work\n")
+	refused := w.commitOnWorker(t, s.ID, ".apptown/not-source", "refused work\n")
 	// Simulate a failed atomic record replacement without changing the old
 	// readable saved result (e.g. a directory obstructing its temporary file).
 	if err := os.Mkdir(filepath.Join(s.Dir, repositoryedit.ChatSaveFile+".tmp"), 0700); err != nil {
@@ -362,7 +362,7 @@ func TestARefusalFixedBeforeTheEndIsNotListed(t *testing.T) {
 	ctx := context.Background()
 	w := newWorld(t)
 	s := w.warmOnWorker(t)
-	w.commitOnWorker(t, s.ID, ".forge/not-source", "refused\n")
+	w.commitOnWorker(t, s.ID, ".apptown/not-source", "refused\n")
 	w.chats.SaveAfterTurn(s.ID)
 	gittest.Run(t, w.onWork.Started(s.ID).Workspace.Path, "reset", "-q", "--hard", "HEAD~1")
 	w.commitOnWorker(t, s.ID, "fixed.txt", "fixed\n")
@@ -382,7 +382,7 @@ func TestADiscardedRefusalIsNotARefusedLastSave(t *testing.T) {
 	ctx := context.Background()
 	w := newWorld(t)
 	s := w.warmOnWorker(t)
-	w.commitOnWorker(t, s.ID, ".forge/not-source", "refused\n")
+	w.commitOnWorker(t, s.ID, ".apptown/not-source", "refused\n")
 	w.chats.SaveAfterTurn(s.ID)
 	save, ok, err := repositoryedit.LastChatSave(s.Dir)
 	if err != nil || !ok || save.Outcome != repositoryedit.ChatSaveRefused || save.Saved == "" {
@@ -411,7 +411,7 @@ func TestASettledRefusalIsNotOfferedWhenItsRefStays(t *testing.T) {
 	if err := w.sessions.Warm(context.Background(), s.ID); err != nil {
 		t.Fatal(err)
 	}
-	w.commitOnWorker(t, s.ID, ".forge/not-source", "refused\n")
+	w.commitOnWorker(t, s.ID, ".apptown/not-source", "refused\n")
 	w.chats.SaveAfterTurn(s.ID)
 	save, ok, err := repositoryedit.LastChatSave(s.Dir)
 	if err != nil || !ok || save.Kept == "" {

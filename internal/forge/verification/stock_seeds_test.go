@@ -58,7 +58,7 @@ func TestSeedsPassTheirPacksOwnShellChecks(t *testing.T) {
 		seeded++
 		dir := t.TempDir()
 		// What the repository init writes before the seed arrives.
-		writeTree(t, dir, map[string]string{".gitignore": ".forge/*\n!.forge/app.yaml\nnode_modules/\n"})
+		writeTree(t, dir, map[string]string{".gitignore": ".apptown/*\n!.apptown/app.yaml\nnode_modules/\n"})
 		if err := fs.WalkDir(stock.FS, root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return err
@@ -105,7 +105,7 @@ func TestSeedsPassTheirPacksOwnShellChecks(t *testing.T) {
 // before any app exists. Each must parse as the forge reads it at boot.
 func TestSeedContractsParse(t *testing.T) {
 	t.Parallel()
-	paths, err := fs.Glob(stock.FS, "seeds/*/.forge/app.yaml")
+	paths, err := fs.Glob(stock.FS, "seeds/*/.apptown/app.yaml")
 	if err != nil || len(paths) < 8 {
 		t.Fatalf("expected the stock seeds' contracts, found %d (%v)", len(paths), err)
 	}
@@ -158,7 +158,7 @@ func TestSeedsDeclareTheServicesTheirPacksPropose(t *testing.T) {
 	}
 	compared := 0
 	for _, p := range packs {
-		raw, err := stock.FS.ReadFile("seeds/" + p.Name + "/.forge/app.yaml")
+		raw, err := stock.FS.ReadFile("seeds/" + p.Name + "/.apptown/app.yaml")
 		if err != nil {
 			continue
 		}
@@ -173,7 +173,7 @@ func TestSeedsDeclareTheServicesTheirPacksPropose(t *testing.T) {
 				found = found || n == svc.Name
 			}
 			if !found {
-				t.Errorf("pack %s proposes %s; its seed's .forge/app.yaml does not declare it under needs", p.Name, svc.Name)
+				t.Errorf("pack %s proposes %s; its seed's .apptown/app.yaml does not declare it under needs", p.Name, svc.Name)
 			}
 		}
 	}
@@ -200,7 +200,7 @@ func TestSeedsShipTheInitStepTheirGuidanceShows(t *testing.T) {
 	}
 	shown := 0
 	for _, p := range packs {
-		raw, err := stock.FS.ReadFile("seeds/" + p.Name + "/.forge/app.yaml")
+		raw, err := stock.FS.ReadFile("seeds/" + p.Name + "/.apptown/app.yaml")
 		if err != nil {
 			continue
 		}
@@ -350,7 +350,7 @@ func TestSeedsDeclareTheirMemory(t *testing.T) {
 	}
 	seeded := 0
 	for _, p := range packs {
-		raw, err := fs.ReadFile(stock.FS, "seeds/"+p.Name+"/.forge/app.yaml")
+		raw, err := fs.ReadFile(stock.FS, "seeds/"+p.Name+"/.apptown/app.yaml")
 		if err != nil {
 			continue
 		}

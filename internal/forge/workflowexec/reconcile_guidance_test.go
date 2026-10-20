@@ -43,11 +43,11 @@ func TestTheCatchUpCommandGivesTheMergeAPlainMessage(t *testing.T) {
 	git(hub, "init", "-q", "-b", "main")
 	commit(hub, "README.md")
 	git(dir, "clone", "-q", hub, chat)
-	git(chat, "switch", "-q", "-c", "forge/change-00000000-0001-7000-8000-000000000000")
+	git(chat, "switch", "-q", "-c", "apptown/change-00000000-0001-7000-8000-000000000000")
 	commit(chat, "fix.go")
 	commit(hub, "later.go")
 
-	reason := behindMain("main", "forge/change-00000000-0001-7000-8000-000000000000")["reason"].(string)
+	reason := behindMain("main", "apptown/change-00000000-0001-7000-8000-000000000000")["reason"].(string)
 	_, command, found := strings.Cut(reason, "chat (")
 	if !found {
 		t.Fatalf("no chat instruction in %q", reason)
@@ -61,7 +61,7 @@ func TestTheCatchUpCommandGivesTheMergeAPlainMessage(t *testing.T) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%s: %v\n%s", command, err, out)
 	}
-	if subject := git(chat, "log", "-1", "--format=%s"); subject != "Merge main into forge/change-00000000-0001-7000-8000-000000000000" {
+	if subject := git(chat, "log", "-1", "--format=%s"); subject != "Merge main into apptown/change-00000000-0001-7000-8000-000000000000" {
 		t.Fatalf("the merge's message is %q", subject)
 	}
 }

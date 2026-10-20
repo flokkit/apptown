@@ -5,7 +5,7 @@ packs:
   # own coupling — health, the front door, no build artifacts — and the
   # system workflows. Every repo-backed project is on it directly; it is
   # never included in another pack and never offered in the wizard.
-  - name: forge
+  - name: apptown
     platform: true
     description: >-
       What any app AppTown runs must do, and AppTown's own workflows.

@@ -29,7 +29,7 @@ func TestIntegrationStaticServerKeepsValuesIntact(t *testing.T) {
 	}
 	for _, value := range []string{string(raw), ""} {
 		t.Run(fmt.Sprintf("bytes-%d", len(value)), func(t *testing.T) {
-			args := []string{"run", "-d", "-p", "127.0.0.1::8080", "-e", "PRIVATE_CANARY=should-not-expand;FORGE_BROWSER_ENV=canary", "-e", "PREFIX_FORGE_BROWSER_ENV=canary", "-e", "FORGE_BROWSER_ENV_SUFFIX=canary"}
+			args := []string{"run", "-d", "-p", "127.0.0.1::8080", "-e", "PRIVATE_CANARY=should-not-expand;APPTOWN_BROWSER_ENV=canary", "-e", "PREFIX_FORGE_BROWSER_ENV=canary", "-e", "APPTOWN_BROWSER_ENV_SUFFIX=canary"}
 			if value != "" {
 				args = append(args, "-e", BrowserEnvVar+"="+value)
 			}
@@ -72,7 +72,7 @@ func TestIntegrationStaticServerKeepsValuesIntact(t *testing.T) {
 			if body != BrowserEnvScript(want) {
 				t.Fatalf("body changed during Caddy replacement: %q", body)
 			}
-			cmd := exec.Command("node", "-e", `const fs=require('fs');const vm=require('vm');const ctx={window:{}};vm.runInNewContext(fs.readFileSync(0,'utf8'),ctx);process.stdout.write(JSON.stringify(ctx.window.__FORGE_ENV__));`)
+			cmd := exec.Command("node", "-e", `const fs=require('fs');const vm=require('vm');const ctx={window:{}};vm.runInNewContext(fs.readFileSync(0,'utf8'),ctx);process.stdout.write(JSON.stringify(ctx.window.__APPTOWN_ENV__));`)
 			cmd.Stdin = strings.NewReader(body)
 			got, err := cmd.CombinedOutput()
 			if err != nil {

@@ -61,11 +61,11 @@ func doReleaseWorldNeeding(t *testing.T, more string) (*Service, *dofake.API, *d
 	pid := createTestProject(t, db, "expense", "Expense")
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "workspaces", "project-expense")
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	contractBytes := []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    health:\n      readiness: { http: /healthz }\ninit:\n  - name: migrate\n    build: .\n    command: [\"dotnet\", \"App.dll\", \"--init\"]\nneeds:\n  postgres:\n    version: \"16\"\n" + more)
-	if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), contractBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), contractBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(repo, "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {

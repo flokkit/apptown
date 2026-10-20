@@ -11,10 +11,10 @@ import (
 func TestSourceArtifactUsesTheAlreadySelectedDeclaration(t *testing.T) {
 	t.Parallel()
 	ws := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(ws, ".forge", "app.yaml")
+	path := filepath.Join(ws, ".apptown", "app.yaml")
 	if err := os.WriteFile(path, []byte("app:\n  web:\n    image: selected:v1\n    public: true\n    ports: [\"8080\"]\n"), 0600); err != nil {
 		t.Fatal(err)
 	}

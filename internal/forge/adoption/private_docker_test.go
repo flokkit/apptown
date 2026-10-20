@@ -16,7 +16,7 @@ import (
 )
 
 func dockerLane(name, with string) string {
-	return "apiVersion: forge.flokkit.io/v1\nkind: Workflow\nmetadata:\n  name: " + name +
+	return "apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata:\n  name: " + name +
 		"\nspec:\n  kind: pipeline\n  role: working\n  stages:\n    - name: work\n      steps:\n        - name: build\n          uses: agent/pi\n          with:\n            prompt: do it\n" + with
 }
 

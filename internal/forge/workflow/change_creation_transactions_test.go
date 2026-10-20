@@ -148,7 +148,7 @@ func TestChangeCreationKeepsTypedAcceptanceAttributionAndCommittedIdentity(t *te
 				t.Fatalf("stored change: %s %s %v", stored.State, stored.TitleOwnership, err)
 			}
 			noWorkspace := mode == "backlog" || mode == "no repository"
-			if noWorkspace && (calls != 0 || ch.Branch != "") || !noWorkspace && (calls != 1 || ch.Branch != fmt.Sprintf("forge/change-%d", ch.ID)) {
+			if noWorkspace && (calls != 0 || ch.Branch != "") || !noWorkspace && (calls != 1 || ch.Branch != fmt.Sprintf("apptown/change-%d", ch.ID)) {
 				t.Fatalf("workspace eligibility: %+v calls %d", ch, calls)
 			}
 			// sql-guarantee: creation writes exactly one change row in any project.

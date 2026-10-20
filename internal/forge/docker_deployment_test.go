@@ -209,7 +209,7 @@ func TestLandingContractDecisionUsesSelectedCommit(t *testing.T) {
 				t.Fatal(err)
 			}
 			ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
-			path := filepath.Join(ws, ".forge/app.yaml")
+			path := filepath.Join(ws, ".apptown/app.yaml")
 			if drift == "added" {
 				if err := os.Remove(path); err != nil {
 					t.Fatal(err)

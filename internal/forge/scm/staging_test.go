@@ -12,8 +12,8 @@ import (
 func TestStageAllExcludesForgeRuntime(t *testing.T) {
 	t.Parallel()
 	// Change 99: the build agent replaced .gitignore and `git add -A`
-	// committed .forge/pi-home (docker credentials, model keys) and pushed
-	// it. StageAll must exclude .forge by PATHSPEC, trusting no gitignore,
+	// committed .apptown/pi-home (docker credentials, model keys) and pushed
+	// it. StageAll must exclude .apptown by PATHSPEC, trusting no gitignore,
 	// while still staging the one tree-worthy file: the app contract.
 	wt := t.TempDir()
 	run := func(args ...string) {
@@ -27,7 +27,7 @@ func TestStageAllExcludesForgeRuntime(t *testing.T) {
 	run("init", "-b", "main")
 	run("config", "user.email", "t@t")
 	run("config", "user.name", "t")
-	// A hostile .gitignore — exactly what the agent wrote: no .forge rules.
+	// A hostile .gitignore — exactly what the agent wrote: no .apptown rules.
 	if err := os.WriteFile(filepath.Join(wt, ".gitignore"), []byte("/bin/\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -42,9 +42,13 @@ func TestStageAllExcludesForgeRuntime(t *testing.T) {
 		}
 	}
 	mustWrite("main.go", "package main")
+	mustWrite(".apptown/app.yaml", "app:\n  web:\n    static: .\n    public: true\n")
+	mustWrite(".apptown/pi-home/.docker/config.json", `{"auths":{"reg":{"auth":"SECRET"}}}`)
+	mustWrite(".apptown/sessions/transcript.jsonl", `{"secret":"tokens"}`)
+	// A folder made before the AppTown rename: its runtime under .forge is
+	// retired, never source; its contract there is.
+	mustWrite(".forge/pi-home/.docker/config.json", `{"auths":{"reg":{"auth":"OLD"}}}`)
 	mustWrite(".forge/app.yaml", "app:\n  web:\n    static: .\n    public: true\n")
-	mustWrite(".forge/pi-home/.docker/config.json", `{"auths":{"reg":{"auth":"SECRET"}}}`)
-	mustWrite(".forge/sessions/transcript.jsonl", `{"secret":"tokens"}`)
 
 	if err := StageAll(t.Context(), wt); err != nil {
 		t.Fatal(err)
@@ -58,8 +62,8 @@ func TestStageAllExcludesForgeRuntime(t *testing.T) {
 	if !strings.Contains(staged, "main.go") || !strings.Contains(staged, ".gitignore") {
 		t.Fatalf("real work not staged:\n%s", staged)
 	}
-	if !strings.Contains(staged, ".forge/app.yaml") {
-		t.Fatalf("the contract must be staged:\n%s", staged)
+	if !strings.Contains(staged, ".apptown/app.yaml") || !strings.Contains(staged, ".forge/app.yaml") {
+		t.Fatalf("the contract, at either path, must be staged:\n%s", staged)
 	}
 	if strings.Contains(staged, "pi-home") || strings.Contains(staged, "sessions") {
 		t.Fatalf("forge runtime leaked into the index:\n%s", staged)

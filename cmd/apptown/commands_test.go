@@ -1018,8 +1018,8 @@ func TestHelpFlagPrintsTheCommandsHelpAndDoesNothingElse(t *testing.T) {
 	if err != nil || out != dev.help+"\n" {
 		t.Fatalf("apptown dev up --help: err=%v out=%q", err, out)
 	}
-	if _, statErr := os.Stat(".forge"); !os.IsNotExist(statErr) {
-		t.Fatalf("apptown dev up --help wrote .forge: %v", statErr)
+	if _, statErr := os.Stat(".apptown"); !os.IsNotExist(statErr) {
+		t.Fatalf("apptown dev up --help wrote .apptown: %v", statErr)
 	}
 
 	var got []string
@@ -1031,7 +1031,7 @@ func TestHelpFlagPrintsTheCommandsHelpAndDoesNothingElse(t *testing.T) {
 
 const questionWithAdds = `{"step":"accept","status":"pending","means":"I read it","landingMeans":[],
 	"adds":{"base":"b","head":"h","digest":"d1","readFrom":"secrets, services and app parts","nothingNew":"",
-	"rows":[],"lines":[{"kind":"added","text":"Secrets: STRIPE_KEY"},{"kind":"unknown","text":"App parts: unknown, .forge/app.yaml at h does not parse"}]}}`
+	"rows":[],"lines":[{"kind":"added","text":"Secrets: STRIPE_KEY"},{"kind":"unknown","text":"App parts: unknown, .apptown/app.yaml at h does not parse"}]}}`
 
 // What the change adds is shown before an approval is sent, naming what was
 // read, and the approval sends back the digest of the list it showed.

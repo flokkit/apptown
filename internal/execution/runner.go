@@ -47,7 +47,7 @@ type Request struct {
 	// History is a repository presented read-only at /history: the commits
 	// a check reads beyond its tree (a landing's history scan).
 	History *History
-	// ExportImage names an image (by ID) saved to .forge/image.tar in the
+	// ExportImage names an image (by ID) saved to .apptown/image.tar in the
 	// workspace before the command runs: an image scan reads the image
 	// there, on the machine that has it.
 	ExportImage string
@@ -437,7 +437,7 @@ func ReadReport(workspace, path string) ([]byte, error) {
 	return b, nil
 }
 
-// exportImage writes the image to .forge/image.tar in the workspace, through
+// exportImage writes the image to .apptown/image.tar in the workspace, through
 // a file created there exclusively and inside it: a link in the tree (the
 // project's own) can never choose where the archive is written.
 func (r Runner) exportImage(ctx context.Context, workspace, image string) error {
@@ -446,13 +446,13 @@ func (r Runner) exportImage(ctx context.Context, workspace, image string) error 
 		return err
 	}
 	defer root.Close()
-	if err := root.Mkdir(".forge", 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+	if err := root.Mkdir(".apptown", 0o755); err != nil && !errors.Is(err, os.ErrExist) {
 		return err
 	}
-	if fi, err := root.Lstat(".forge"); err != nil || !fi.IsDir() {
-		return fmt.Errorf("the tree's .forge is not a folder")
+	if fi, err := root.Lstat(".apptown"); err != nil || !fi.IsDir() {
+		return fmt.Errorf("the tree's .apptown is not a folder")
 	}
-	f, err := root.OpenFile(filepath.Join(".forge", "image.tar"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	f, err := root.OpenFile(filepath.Join(".apptown", "image.tar"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}

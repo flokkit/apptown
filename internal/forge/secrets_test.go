@@ -103,7 +103,7 @@ func secretsWorld(t *testing.T) (*App, *fakeDocker, string) {
 	t.Helper()
 	a, f := bootWorld(t)
 	ws := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	contract := `version: 1
@@ -125,7 +125,7 @@ secrets:
   generate:
     SECRET_KEY_BASE: deployment
 `
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(contract), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(contract), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(ws, secret.SpecFile), []byte(testSpec), 0o644); err != nil {

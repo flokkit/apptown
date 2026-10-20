@@ -64,7 +64,7 @@ func NewProjectReads(deps ProjectReadsDependencies) []Tool {
 		{
 			Name:        "get_application_contract",
 			order:       3,
-			Description: "Returns the project's committed application contract (.forge/app.yaml on its default branch) as text, plus the parsed form when it is valid.",
+			Description: "Returns the project's committed application contract (.apptown/app.yaml on its default branch) as text, plus the parsed form when it is valid.",
 			InputSchema: schemaObject(map[string]any{"slug": slugArg}, "slug"),
 			command:     ownerCommand("project_reads.getApplicationContract", h.getApplicationContract),
 		},
@@ -180,11 +180,11 @@ func (h projectReads) getApplicationContract(c *Call, args map[string]any) (any,
 		return nil, refuse("project %q is not repo-backed, so there is no contract to read", p.Slug)
 	}
 	repo := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
-	raw, err := gitexec.Run(c.Context, repo, "show", p.DefaultBranch+":.forge/app.yaml")
+	raw, err := gitexec.Run(c.Context, repo, "show", p.DefaultBranch+":.apptown/app.yaml")
 	if err != nil {
-		return nil, refuse("project %q has no .forge/app.yaml committed on %s", p.Slug, p.DefaultBranch)
+		return nil, refuse("project %q has no .apptown/app.yaml committed on %s", p.Slug, p.DefaultBranch)
 	}
-	out := map[string]any{"slug": p.Slug, "branch": p.DefaultBranch, "path": ".forge/app.yaml",
+	out := map[string]any{"slug": p.Slug, "branch": p.DefaultBranch, "path": ".apptown/app.yaml",
 		"text": raw, "webUrl": c.projectURL(p.Slug)}
 	if contract, perr := appcontract.Parse([]byte(raw)); perr == nil {
 		out["parsed"] = contract

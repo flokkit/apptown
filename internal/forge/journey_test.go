@@ -171,14 +171,14 @@ func staticSiteTask(text, page string) string {
 	return text + ". " +
 		"[test:write-b64 site/index.html " + b64(page) + "] " +
 		"[test:write-b64 site/healthz " + b64("ok\n") + "] " +
-		"[test:write-b64 .forge/app.yaml " + b64(contract) + "]"
+		"[test:write-b64 .apptown/app.yaml " + b64(contract) + "]"
 }
 
 // journeyWorkflows: a minimal working lane + landing lane. The agent
 // step's prompt carries the change body, which is how tests hand the
 // fake agent its directives.
 const journeyQuickChange = `
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: quick-change, category: change }
 spec:
@@ -203,7 +203,7 @@ spec:
 // landing with no scan before its deploy, so the law it adds has something
 // to catch.
 const unscannedLand = `
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: unscanned-land, system: true, category: landing }
 spec:
@@ -1193,7 +1193,7 @@ func TestJourneyServerPacksDeliver(t *testing.T) {
 		if _, err := docker.ReadWorkspaceContract(repo); err != nil {
 			t.Fatalf("%s: the seed must declare a readable runtime contract: %v", c.pack, err)
 		}
-		if !slices.Contains(res.Seeded, ".forge/app.yaml") || !slices.Contains(res.Seeded, "Dockerfile") {
+		if !slices.Contains(res.Seeded, ".apptown/app.yaml") || !slices.Contains(res.Seeded, "Dockerfile") {
 			t.Fatalf("%s: the recipe and the contract are seeded, got %v", c.pack, res.Seeded)
 		}
 		// Nothing of the app is seeded: the ecosystem's generator makes it

@@ -44,8 +44,8 @@ for arg in "$@"; do
   case "$arg" in *:/work) [ "$prev" = "-v" ] && work="${arg%:/work}";; esac
   prev="$arg"
 done
-mkdir -p "$work/.forge"
-cat > "$work/.forge/secrets.sarif" <<'EOF'
+mkdir -p "$work/.apptown"
+cat > "$work/.apptown/secrets.sarif" <<'EOF'
 {"version":"2.1.0","runs":[{"tool":{"driver":{"name":"gitleaks","rules":[{"id":"github-pat"}]}},"results":[{"ruleId":"github-pat","level":"error","message":{"text":"a GitHub token"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"cfg.js"},"region":{"startLine":1}}}]}]}]}
 EOF
 exit 1
@@ -56,7 +56,7 @@ exit 1
 	attachScanner(t, a, "secrets", map[string]any{
 		"image": "gitleaks:test", "command": []string{"detect", "--source", "/work", "--no-git"},
 		"historyCommand": []string{"git", "/history", "--log-opts", "${HISTORY_RANGE}"},
-		"report":         ".forge/secrets.sarif", "format": "sarif", "kind": "secret", "target": "source",
+		"report":         ".apptown/secrets.sarif", "format": "sarif", "kind": "secret", "target": "source",
 	})
 	run, source := reviewLanding(t, a, []schema.Step{{Name: "secrets", Uses: "scan", With: map[string]any{"scanner": "secrets"}}}, map[string]string{"work.txt": "the change\n"}, nil)
 	a.processRunner = execution.Runner{DockerBinary: fake}

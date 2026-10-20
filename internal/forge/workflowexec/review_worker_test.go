@@ -38,7 +38,7 @@ func TestTheReviewVerdictTable(t *testing.T) {
 		followUp string // why no verdict counts, on a wrap-up or fixup ("" = as failure)
 	}{
 		{name: "exit 0, a valid report", res: result(0, pass), verdict: "pass"},
-		{name: "exit 0, no report", res: result(0, absent), next: reviewWrapUpInvocation, followUp: "no .forge/review.json verdict"},
+		{name: "exit 0, no report", res: result(0, absent), next: reviewWrapUpInvocation, followUp: "no .apptown/review.json verdict"},
 		{name: "exit 0, an invalid report", res: result(0, invalid), next: reviewFixUpInvocation, followUp: "unparseable"},
 		{name: "exit 0, a refused report", res: result(0, execution.ResultFile{State: execution.ResultRefused, Reason: execution.RefusedSymlink}), failure: "refused to read it (symlink)"},
 		{name: "exit 0, a report too large", res: result(0, execution.ResultFile{State: execution.ResultTooLarge, Size: 300 << 10}), failure: "over the 256 KiB"},

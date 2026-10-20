@@ -21,7 +21,7 @@ func (f selectedSourceBoot) Boot(_ context.Context, req BootRequest, c *appcontr
 func TestDockerDeploymentUsesSelectedSource(t *testing.T) {
 	t.Parallel()
 	repo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	contract := func(marker string) string {
@@ -29,7 +29,7 @@ func TestDockerDeploymentUsesSelectedSource(t *testing.T) {
 	}
 	write := func(marker string) {
 		t.Helper()
-		if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte(contract(marker)), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(contract(marker)), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

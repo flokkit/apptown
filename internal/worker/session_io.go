@@ -435,12 +435,12 @@ type chatScript interface {
 // names the chat's current commit, and bundles the commits since BASE. It
 // exits 3 when there is nothing new. The worker's git never reads the
 // chat's repository. What it stages follows the forge's own rule for a
-// change's folder: never the .forge runtime, always .forge/app.yaml.
+// change's folder: never the .apptown runtime, always .apptown/app.yaml.
 const saveScript = `set -e
 if [ -n "$LEFTOVERS" ] && [ -n "$(git status --porcelain)" ]; then
-  git add -A -- ':(exclude).forge'
-  if [ -e .forge/app.yaml ] || [ -L .forge/app.yaml ] || git ls-files --error-unmatch -- .forge/app.yaml >/dev/null 2>&1; then
-    git add -f -A -- .forge/app.yaml
+  git add -A -- ':(exclude).apptown'
+  if [ -e .apptown/app.yaml ] || [ -L .apptown/app.yaml ] || git ls-files --error-unmatch -- .apptown/app.yaml >/dev/null 2>&1; then
+    git add -f -A -- .apptown/app.yaml
   fi
   if ! git diff --cached --quiet; then
     git -c user.name=apptown -c user.email=apptown@localhost commit -q -m "$LEFTOVERS"
@@ -448,12 +448,12 @@ if [ -n "$LEFTOVERS" ] && [ -n "$(git status --porcelain)" ]; then
 fi
 head=$(git rev-parse --verify HEAD^{commit})
 [ "$head" = "$BASE" ] && exit 3
-git update-ref refs/forge/save "$head"
-git bundle create -q - refs/forge/save "^$BASE"
+git update-ref refs/apptown/save "$head"
+git bundle create -q - refs/apptown/save "^$BASE"
 `
 
 // SaveRef is the ref a save's bundle names its tip by.
-const SaveRef = "refs/forge/save"
+const SaveRef = "refs/apptown/save"
 
 // save answers a bundle of the chat's commits since base, made with the
 // chat's own tools, with the tip it holds in AppTown-Head; 204 when there is

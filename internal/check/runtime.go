@@ -29,7 +29,7 @@ import (
 //	GET <path> [expect <status>]   probe that path
 //	readiness                      probe the path the contract declares as the
 //	                               public part's readiness (the caller resolves it)
-//	browser-env                    a static app's page loads /_forge/env.js
+//	browser-env                    a static app's page loads /_apptown/env.js
 //	                               whenever the forge gives it values
 //	page                           the root a visitor opens, through the front
 //	                               door only, is not refused (page.go)
@@ -48,7 +48,7 @@ type ProbeSpec struct {
 	Path       string
 	Expect     int
 	Readiness  bool // resolve the path from the contract's declared readiness
-	BrowserEnv bool // judge the page against the forge's /_forge/env.js
+	BrowserEnv bool // judge the page against the forge's /_apptown/env.js
 	Page       bool // judge the front page through the front door (JudgePage)
 	// MemoryDeclared judges the contract, not the running app.
 	MemoryDeclared bool

@@ -203,7 +203,7 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 
 func reviewFile(t *testing.T, req execution.Request, verdict string) execution.Outcome {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(req.Workspace, ".forge", "review.json"), []byte(verdict), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(req.Workspace, ".apptown", "review.json"), []byte(verdict), 0600); err != nil {
 		t.Fatal(err)
 	}
 	return execution.Outcome{Output: []byte(`{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"working"}]}}` + "\n")}

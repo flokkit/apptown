@@ -56,7 +56,7 @@ can disappear when the runtime is replaced. Custom images have their own invento
 
 ## Build and deployment
 
-A `build` part in `.forge/app.yaml` is a Docker build context: its
+A `build` part in `.apptown/app.yaml` is a Docker build context: its
 `Dockerfile` supplies the build tools and the final runtime. An `image` source already carries its runtime; a `static`
 source serves prepared files. AppTown does not automatically install mise tools
 inside those deployed images.

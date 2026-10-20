@@ -7,7 +7,7 @@ package agentenv
 const RuntimeContractInstructions = `# Runtime contract
 
 Your app is deployed COLD: nothing carries over from this dev session.
-Declare how it runs in .forge/app.yaml — the forge-native contract. Two
+Declare how it runs in .apptown/app.yaml — the forge-native contract. Two
 sections: app (the containers your app IS) and needs (what it depends on).
 Get the schema with ` + "`apptown config schema`" + ` and check your file with
 ` + "`apptown config validate`" + `.
@@ -47,7 +47,7 @@ CLIENT-ONLY SITE OR GAME (static files, no server):
 The boot gate requires an app shell — a <script> or <canvas> in
 index.html; a 404 or empty page fails.
 
-LOCAL DEV: ` + "`apptown dev up`" + ` generates .forge/docker-compose.yml from this
+LOCAL DEV: ` + "`apptown dev up`" + ` generates .apptown/docker-compose.yml from this
 contract (your app parts + the needs' local emulators, wired) and runs it —
 that generated file is gitignored, never hand-edited. When your session has
 its own Docker daemon (DOCKER_HOST=tcp://dind:2375), the app's published

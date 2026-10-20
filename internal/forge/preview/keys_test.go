@@ -60,10 +60,10 @@ func llmBootWorld(t *testing.T, attached bool) (*Service, *world, ids.ID, *openr
 
 func llmWorkspace(t *testing.T, ws, yaml string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(yaml), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

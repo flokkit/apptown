@@ -32,11 +32,11 @@ func TestAWorkerResultWithRuntimeInItsHistoryIsRefused(t *testing.T) {
 		prefix := []string{"--git-dir", workerGit, "--work-tree", remote, "-c", "core.bare=false", "-c", "user.name=review", "-c", "user.email=review@example.invalid"}
 		return gittest.Run(t, "", append(prefix, args...)...)
 	}
-	reviewRound6Write(t, remote, ".forge/runtime.json", "runtime marker that must not enter history\n")
-	git("add", "-f", "--", ".forge/runtime.json")
+	reviewRound6Write(t, remote, ".apptown/runtime.json", "runtime marker that must not enter history\n")
+	git("add", "-f", "--", ".apptown/runtime.json")
 	git("commit", "-qm", "worker commits runtime")
 	hidden := git("rev-parse", "HEAD")
-	git("rm", "-q", "--", ".forge/runtime.json")
+	git("rm", "-q", "--", ".apptown/runtime.json")
 	reviewRound6Write(t, remote, "made.txt", "ordinary result\n")
 	git("add", "--", "made.txt")
 	git("commit", "-qm", "worker removes runtime from final tree")
@@ -44,18 +44,18 @@ func TestAWorkerResultWithRuntimeInItsHistoryIsRefused(t *testing.T) {
 	settled := reviewRound6Terminal(t, a, step.ID)
 	tip := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 	if tip != given {
-		t.Errorf("forbidden history published: branch moved from %s to %s; ancestor %s contains %q", given, tip, hidden, gittest.Run(t, hub, "show", hidden+":.forge/runtime.json"))
+		t.Errorf("forbidden history published: branch moved from %s to %s; ancestor %s contains %q", given, tip, hidden, gittest.Run(t, hub, "show", hidden+":.apptown/runtime.json"))
 	}
 	if got := gittest.Run(t, ws, "rev-parse", "HEAD"); got != before {
 		t.Errorf("forbidden history reached AppTown workspace: %s", got)
 	}
-	if settled.Status != workflow.StatusError || !strings.Contains(string(settled.Evidence), ".forge/runtime.json") {
+	if settled.Status != workflow.StatusError || !strings.Contains(string(settled.Evidence), ".apptown/runtime.json") {
 		t.Errorf("result was not refused with its runtime path: status=%s evidence=%s", settled.Status, settled.Evidence)
 	}
 }
 
 // A task can replace the reserved runtime directory itself with a file or
-// symlink. Neither spelling has the .forge/ prefix used by the new check.
+// symlink. Neither spelling has the .apptown/ prefix used by the new check.
 // These cases use the normal worker collection, without editing its Git dir.
 func TestAWorkerResultReplacingForgeIsRefused(t *testing.T) {
 	t.Parallel()
@@ -66,26 +66,26 @@ func TestAWorkerResultReplacingForgeIsRefused(t *testing.T) {
 			hub, ws := source.Repository(a.dir), source.Workspace(a.dir)
 			given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 			before := gittest.Run(t, ws, "rev-parse", "HEAD")
-			if err := os.RemoveAll(filepath.Join(remote, ".forge")); err != nil {
+			if err := os.RemoveAll(filepath.Join(remote, ".apptown")); err != nil {
 				t.Fatal(err)
 			}
 			if kind == "file" {
-				reviewRound6Write(t, remote, ".forge", "blocks the runtime directory\n")
+				reviewRound6Write(t, remote, ".apptown", "blocks the runtime directory\n")
 			} else {
 				reviewRound6Write(t, remote, "runtime-target/marker", "target\n")
-				if err := os.Symlink("runtime-target", filepath.Join(remote, ".forge")); err != nil {
+				if err := os.Symlink("runtime-target", filepath.Join(remote, ".apptown")); err != nil {
 					t.Fatal(err)
 				}
 			}
 			fake.Exit(taskKeyOf(step), 0)
 			settled := reviewRound6Terminal(t, a, step.ID)
 			if tip := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch); tip != given {
-				t.Errorf("reserved path replacement published: %s", gittest.Run(t, hub, "ls-tree", tip, "--", ".forge"))
+				t.Errorf("reserved path replacement published: %s", gittest.Run(t, hub, "ls-tree", tip, "--", ".apptown"))
 			}
 			if got := gittest.Run(t, ws, "rev-parse", "HEAD"); got != before {
 				t.Errorf("reserved path replacement reached AppTown workspace: %s", got)
 			}
-			if settled.Status != workflow.StatusError || !strings.Contains(string(settled.Evidence), ".forge") {
+			if settled.Status != workflow.StatusError || !strings.Contains(string(settled.Evidence), ".apptown") {
 				t.Errorf("result was not refused with its reserved path: status=%s evidence=%s", settled.Status, settled.Evidence)
 			}
 		})

@@ -21,7 +21,7 @@ COPY --from=build /src/target/*.jar /app.jar
 USER app
 EXPOSE 8080
 # The JVM sizes its heap from the memory it can see: the part's declared
-# limit (256M in .forge/app.yaml), of which it takes a quarter by default.
+# limit (256M in .apptown/app.yaml), of which it takes a quarter by default.
 # 75% gives the heap room and leaves the rest for the JVM's own (metaspace,
 # threads, code cache). The serial collector suits a small service on one
 # or two CPUs: no collector threads and the least memory of its own. Virtual

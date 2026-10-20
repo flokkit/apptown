@@ -147,7 +147,7 @@ func rehearsalWorld(t *testing.T) (world, *workerPreviews, *console.Session) {
 	f := &workerPreviews{}
 	w := newWorldWith(t, f)
 	s := w.warmOnWorker(t)
-	w.commitOnWorker(t, s.ID, ".forge/app.yaml", staticSiteContract)
+	w.commitOnWorker(t, s.ID, ".apptown/app.yaml", staticSiteContract)
 	return w, f, s
 }
 
@@ -189,7 +189,7 @@ func TestASavedTurnIsRehearsedOnTheWorker(t *testing.T) {
 	saved := w.branchTip()
 	name := docker.PreviewChangeName(w.change.ID)
 	eventually(t, "the saved commit booted on the worker", func() bool { return len(fake.bootsNamed(name)) == 1 })
-	if b := fake.bootsNamed(name)[0]; b.files[".forge/app.yaml"] != staticSiteContract {
+	if b := fake.bootsNamed(name)[0]; b.files[".apptown/app.yaml"] != staticSiteContract {
 		t.Fatalf("the rehearsal booted another tree: %+v", b.files)
 	}
 	eventually(t, "the commit marked rehearsed", func() bool { return rehearsed(s) == saved })

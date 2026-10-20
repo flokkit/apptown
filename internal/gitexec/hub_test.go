@@ -36,17 +36,17 @@ func TestGitInTheHubIgnoresTheEnvironmentAndHooks(t *testing.T) {
 	if read, err := HubReadRef(ctx, hub, "refs/heads/main"); err != nil || read != want {
 		t.Fatalf("the hub's tip, read error-aware, = %q %v", read, err)
 	}
-	if out, err := HubRun(ctx, hub, "update-ref", "refs/forge/candidates/x", tip); err != nil {
+	if out, err := HubRun(ctx, hub, "update-ref", "refs/apptown/candidates/x", tip); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
-	txn, err := PrepareUpdate(ctx, hub, "refs/forge/candidates/y", tip, "")
+	txn, err := PrepareUpdate(ctx, hub, "refs/apptown/candidates/y", tip, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := txn.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	for _, ref := range []string{"refs/forge/candidates/x", "refs/forge/candidates/y"} {
+	for _, ref := range []string{"refs/apptown/candidates/x", "refs/apptown/candidates/y"} {
 		if got := HubRef(ctx, hub, ref); got != tip {
 			t.Fatalf("%s in the hub = %q", ref, got)
 		}

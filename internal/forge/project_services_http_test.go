@@ -80,19 +80,19 @@ func TestProjectServicesHTTPKeepsDeclarationEditsOnProposedChange(t *testing.T) 
 		t.Fatalf("proposed needs: %+v %v", c, err)
 	}
 	read("none", 0) // no side effect on accepted main before landing
-	if _, err := os.Stat(filepath.Join(a.projectRepoPath("game"), ".forge", "app.yaml")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(a.projectRepoPath("game"), ".apptown", "app.yaml")); !os.IsNotExist(err) {
 		t.Fatalf("main edited by proposal: %v", err)
 	}
 	// Main's declaration moves (as a landing would move it): an edit that
 	// started from the older one is refused, and opens no Change.
 	repo := a.projectRepoPath("game")
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte("app:\n  web: {build: ., ports: [\"8080\"], public: true}\nneeds:\n  redis: {}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web: {build: ., ports: [\"8080\"], public: true}\nneeds:\n  redis: {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"add", "-f", ".forge/app.yaml"}, {"-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", "landed"}} {
+	for _, args := range [][]string{{"add", "-f", ".apptown/app.yaml"}, {"-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", "landed"}} {
 		if out, err := gitexec.Run(t.Context(), repo, args...); err != nil {
 			t.Fatalf("%v: %s", args, out)
 		}
@@ -163,7 +163,7 @@ func TestMainIsWrittenOutsideALandingOnlyBeforeTheFirstChange(t *testing.T) {
 	if _, err := a.Work.Create(asPerson("boss"), workflow.ChangeDraft{ProjectID: p.ID, Title: "first change"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"starter", "forge"} {
+	for _, name := range []string{"starter", "apptown"} {
 		if _, err := a.Ways.PublishPack(t.Context(), name, "A pack", `{}`, ""); err != nil {
 			t.Fatal(err)
 		}
@@ -209,13 +209,13 @@ func TestProjectServicesEditIsJudgedOnTheWorkspaceItCommitsTo(t *testing.T) {
 	repo := a.projectRepoPath("game")
 	write := func(image string) {
 		t.Helper()
-		if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte("app:\n  web: {image: "+image+", ports: [\"8080\"], public: true}\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web: {image: "+image+", ports: [\"8080\"], public: true}\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
-		for _, args := range [][]string{{"add", "-f", ".forge/app.yaml"}, {"-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", image}} {
+		for _, args := range [][]string{{"add", "-f", ".apptown/app.yaml"}, {"-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", image}} {
 			if out, err := gitexec.Run(t.Context(), repo, args...); err != nil {
 				t.Fatalf("commit: %s %v", out, err)
 			}

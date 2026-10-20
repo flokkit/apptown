@@ -82,7 +82,7 @@ func releasePreviewWorldWithSize(t *testing.T, size bool) (s *Service, w *fakePr
 	contract := resolvedStackFixture
 	if size {
 		contract = strings.Replace(contract, "  postgres: {}", "  mariadb: {}", 1) + "profiles:\n  preview:\n    mariadb: {size: small}\n"
-		if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte(contract), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(contract), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -232,7 +232,7 @@ func sizedLocalRelease(t *testing.T) (*Service, *fakePreviewWorker, *world, func
 	repo := filepath.Join(dir, "workspaces", "project-p")
 	writePreviewBootFixture(t, repo)
 	sized := strings.Replace(resolvedStackFixture, "    public: true\n", "    public: true\n    resources: { memory: 4G }\n", 1)
-	if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte(sized), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(sized), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commit := gitCommitAll(t, repo, "release fixture")

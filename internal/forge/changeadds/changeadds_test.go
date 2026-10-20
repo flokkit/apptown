@@ -295,8 +295,8 @@ func TestALinkedFolderMakesItsDeclarationUnknownNotEmpty(t *testing.T) {
 		contract, link, target string
 		unknown                []string
 	}{
-		"secrets folder": {contract + "secrets:\n  spec: config/secrets.toml\n", "config", "real", []string{Secrets}},
-		".forge folder":  {"", ".forge", "real", []string{Secrets, Services, Parts}},
+		"secrets folder":  {contract + "secrets:\n  spec: config/secrets.toml\n", "config", "real", []string{Secrets}},
+		".apptown folder": {"", ".apptown", "real", []string{Secrets, Services, Parts}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			hub := t.TempDir()

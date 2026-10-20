@@ -9,7 +9,7 @@ rules, in [What chats and steps can use](/docs/guides/runtime-environments).
 
 ## Previews
 
-A preview boots the app **cold** from the `.forge/app.yaml` of the commit
+A preview boots the app **cold** from the `.apptown/app.yaml` of the commit
 being previewed: nothing carries over from a chat's warm session. If it
 comes up, it comes up from the declared contract alone. Use **Try it** on a
 change, `apptown preview <change>`, or a workflow's preview step.

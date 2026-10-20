@@ -41,8 +41,8 @@ type fakeDocker struct {
 	reply func(args []string) (out string, err error, ok bool)
 	port  int // what `docker port` reports for any started container
 	// told, when set, keeps the last release identity a `run` gave a
-	// static part (FORGE_RELEASE): what the forge's file server answers at
-	// /_forge/release. Daemons that share one front door share it.
+	// static part (APPTOWN_RELEASE): what the forge's file server answers at
+	// /_apptown/release. Daemons that share one front door share it.
 	told *atomic.Pointer[string]
 }
 

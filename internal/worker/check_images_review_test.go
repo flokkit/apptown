@@ -27,7 +27,7 @@ func TestAnImageExportStaysInsideTheRequestTree(t *testing.T) {
 	if err := os.WriteFile(target, []byte("must survive"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(outside, filepath.Join(tree, ".forge")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(tree, ".apptown")); err != nil {
 		t.Fatal(err)
 	}
 	out := checks.Run(context.Background(), execution.Request{Workspace: tree, Image: "scanner:test", Argv: []string{"true"}, Network: "none", Timeout: time.Second, ExportImage: "sha256:app"})

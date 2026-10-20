@@ -1853,7 +1853,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS branch_publications_one ON branch_publications
 -- back from the hub under the repository lock, recorded in the transaction
 -- that settled the move. It exists and is an ancestor of (or equal to) the
 -- hub's main unless main was rewritten outside the forge. via names the door
--- (landing, init, seed, copy, genesis, integrity-adopt, backfill); run_id is
+-- (landing, init, seed, copy, genesis, integrity-adopt, backfill, upgrade); run_id is
 -- the landing run, 0 for other doors. Absence is unknown.
 CREATE TABLE IF NOT EXISTS project_main (
   project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
@@ -1862,7 +1862,7 @@ CREATE TABLE IF NOT EXISTS project_main (
   via TEXT NOT NULL,
   run_id UUID,
   recorded_at TIMESTAMPTZ NOT NULL,
-  CONSTRAINT project_main_tuple CHECK (branch<>'' AND sha<>'' AND via IN ('landing','init','seed','copy','genesis','integrity-adopt','backfill'))
+  CONSTRAINT project_main_tuple CHECK (branch<>'' AND sha<>'' AND via IN ('landing','init','seed','copy','genesis','integrity-adopt','backfill','upgrade'))
 );
 
 -- Source: internal/forge/tasks/schema.sql

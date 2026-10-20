@@ -16,7 +16,7 @@ import (
 // Which names it knows is the platform's and grows, so any ${ closed by a
 // } is refused: the app would otherwise read a value nobody wrote. The
 // message names the variable and its consumer, never the value. The
-// driver's own values (need bindings, FORGE_ORIGINS, the gate's) use the
+// driver's own values (need bindings, APPTOWN_ORIGINS, the gate's) use the
 // platform's variables on purpose and are not checked here.
 func unrewritable(c *appcontract.Contract, secrets deploy.ConsumerSecrets) error {
 	if c == nil {

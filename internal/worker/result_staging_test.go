@@ -69,10 +69,10 @@ func TestACollectionKeepsTheNativeAppContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	work := filepath.Join(state, "workspaces", spec.Key)
-	if err := os.Mkdir(filepath.Join(work, ".forge"), 0700); err != nil {
+	if err := os.Mkdir(filepath.Join(work, ".apptown"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	for path, body := range map[string]string{".forge/app.yaml": "name: example\n", "made.txt": "task output\n"} {
+	for path, body := range map[string]string{".apptown/app.yaml": "name: example\n", "made.txt": "task output\n"} {
 		if err := os.WriteFile(filepath.Join(work, path), []byte(body), 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -87,7 +87,7 @@ func TestACollectionKeepsTheNativeAppContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := gitexec.Output(t.Context(), dir, "show", tip+":.forge/app.yaml"); err != nil || got != "name: example" {
+	if got, err := gitexec.Output(t.Context(), dir, "show", tip+":.apptown/app.yaml"); err != nil || got != "name: example" {
 		t.Fatalf("worker result lost the native app contract: %q %v", got, err)
 	}
 }

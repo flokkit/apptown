@@ -22,7 +22,7 @@ func TestTheDraftersInterpolationsPassTheSave(t *testing.T) {
 	}
 	for _, e := range examples {
 		doc := strings.Join([]string{
-			"apiVersion: forge.flokkit.io/v1",
+			"apiVersion: apptown.dev/v1",
 			"kind: Workflow",
 			"metadata: {name: drafted}",
 			"spec:",

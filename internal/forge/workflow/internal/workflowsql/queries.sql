@@ -1217,3 +1217,15 @@ RETURNING changes;
 INSERT INTO project_numbers (project_id, runs) VALUES (sqlc.arg(project_id), 1)
 ON CONFLICT (project_id) DO UPDATE SET runs = project_numbers.runs + 1
 RETURNING runs;
+
+-- Every run still open anywhere, for an operation that must wait for none
+-- (the AppTown rename's upgrade).
+-- name: OpenRunsEverywhere :many
+SELECT r.id, r.number, p.slug AS project FROM runs r JOIN projects p ON p.id = r.project_id
+WHERE r.status = sqlc.arg(running) ORDER BY p.slug, r.number;
+
+-- The recorded branches of a project's changes that are not finished.
+-- name: OpenChangeBranches :many
+SELECT c.number, c.branch FROM changes c
+WHERE c.project_id = sqlc.arg(project_id) AND c.branch <> '' AND c.state IN (sqlc.arg(proposed), sqlc.arg(in_progress), sqlc.arg(landing))
+ORDER BY c.number;

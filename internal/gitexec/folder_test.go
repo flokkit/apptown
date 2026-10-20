@@ -156,7 +156,7 @@ func TestAForgeCloneIsBroughtForwardAndReset(t *testing.T) {
 	if held, err := FolderHolds(context.Background(), w.folder, "work", w.b); err != nil || !held {
 		t.Fatalf("a folder brought to B does not hold it: %v %v", held, err)
 	}
-	for _, name := range []string{"untracked.txt", filepath.Join(".forge", "kept.txt")} {
+	for _, name := range []string{"untracked.txt", filepath.Join(".apptown", "kept.txt")} {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(w.folder, name)), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -164,13 +164,13 @@ func TestAForgeCloneIsBroughtForwardAndReset(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := f.Reset(context.Background(), w.a, ".forge"); err != nil {
+	if err := f.Reset(context.Background(), w.a, ".apptown"); err != nil {
 		t.Fatal(err)
 	}
 	if got := headOf(t, w.folder); got != w.a {
 		t.Fatalf("the folder is at %s, want A %s", got, w.a)
 	}
-	for name, want := range map[string]bool{"b.txt": false, "untracked.txt": false, filepath.Join(".forge", "kept.txt"): true} {
+	for name, want := range map[string]bool{"b.txt": false, "untracked.txt": false, filepath.Join(".apptown", "kept.txt"): true} {
 		if _, err := os.Stat(filepath.Join(w.folder, name)); (err == nil) != want {
 			t.Errorf("%s present = %v after the reset, want %v", name, err == nil, want)
 		}

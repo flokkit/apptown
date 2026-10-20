@@ -43,7 +43,7 @@ func TestReleasePreviewUsesSelectedTreeAndOriginalImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, ".forge/app.yaml"), []byte("invalid: current worktree must not supply the contract\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown/app.yaml"), []byte("invalid: current worktree must not supply the contract\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cut := releasedPreviewFixture(t, a, idstest.N(1), source)

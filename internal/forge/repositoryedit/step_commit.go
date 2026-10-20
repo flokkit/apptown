@@ -138,7 +138,7 @@ func ProposeTaskSource(ctx context.Context, dataDir string, source workflow.Sour
 			if _, err := rand.Read(token); err != nil {
 				return TaskSource{}, err
 			}
-			out.staged = "refs/forge/incoming/task-" + hex.EncodeToString(token)
+			out.staged = "refs/apptown/incoming/task-" + hex.EncodeToString(token)
 			if msg, err := gitexec.HubRun(ctx, repo, "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "--end-of-options", wt, "+refs/heads/"+source.Branch+":"+out.staged); err != nil {
 				out.Discard(ctx)
 				return TaskSource{}, fmt.Errorf("reading the run's folder's commits: %w: %s", err, msg)

@@ -1,7 +1,7 @@
 """The health probe asks by the app's address; nothing else may.
 
 Seeded with app/health.py. A health probe by address sends its Host as
-an IP and port, never a name from FORGE_ORIGINS, and no forwarded HTTPS.
+an IP and port, never a name from APPTOWN_ORIGINS, and no forwarded HTTPS.
 /healthz must answer it with 200; every other path must still refuse that
 host, so the health answer never widens ALLOWED_HOSTS.
 """

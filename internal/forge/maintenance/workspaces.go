@@ -23,7 +23,7 @@ import (
 // abandoned, or a run is done, the hub holds the commits, the ledger
 // holds the reports, verdicts and the step's terminal, and a preview of a
 // shipped change is built from the hub. The one thing only the worktree
-// holds is the agent's raw session transcripts (.forge/sessions/*.jsonl),
+// holds is the agent's raw session transcripts (.apptown/sessions/*.jsonl),
 // the complete record of every tool call — kept because old sessions are
 // something to learn from. The sweep moves them under
 // <data>/transcripts/<entry>/ and removes the rest, after a day's grace.
@@ -84,7 +84,7 @@ func humanAgo(d time.Duration) string {
 // <data>/transcripts/<entry>/ (merging with any kept earlier) before the
 // workspace goes. Returns how many files it kept.
 func (r *Reaper) keepTranscripts(entry, ws string) (int, error) {
-	src := filepath.Join(ws, ".forge", "sessions")
+	src := filepath.Join(ws, ".apptown", "sessions")
 	files, err := os.ReadDir(src)
 	if os.IsNotExist(err) {
 		return 0, nil

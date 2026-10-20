@@ -96,7 +96,7 @@ starting, the chat ending) what's committed is published to the branch and
 checked first; a publication is refused, and nothing leaves the folder, when
 it would add:
 
-- a file under `.forge` other than `.forge/app.yaml` (runtime files never
+- a file under `.apptown` other than `.apptown/app.yaml` (runtime files never
   travel);
 - a file over 10 MiB, or more than 50 MiB of new files.
 
@@ -211,7 +211,7 @@ It is what the branch adds, not a comparison with today's `main`: something
 `main` has removed since is not listed, and something both added is. For a
 change that moves the project to a newer pack version, the list also names
 the ways of working it brings. AppTown reads this from `secretspec.toml`,
-`.forge/app.yaml` and the recorded pack version, never by guessing from
+`.apptown/app.yaml` and the recorded pack version, never by guessing from
 source code. A file it could not read is shown as its own line, not as
 "nothing new". What the form showed is
 recorded with the decision. If it changed before the approval was saved,

@@ -91,3 +91,27 @@ func (s *Service) GuidanceSnapshot(ctx context.Context, projectID ids.ID) (Guida
 	}
 	return view, nil
 }
+
+// AdvanceToLatest moves a project to the newest version of everything it
+// already adopts, as one revision: each guidance import keeps its place and
+// disabled choice and is pinned to its block's latest version, and each
+// selected workflow resolves to the library's latest. Pack memberships,
+// lanes, policies and extensions are unchanged. An adoption already at the
+// latest records nothing new (Advance keeps an unchanged receipt).
+func (s *Service) AdvanceToLatest(ctx context.Context, projectID ids.ID, reason, by string) (*RecordedRevision, error) {
+	return s.Advance(ctx, projectID, AdoptionEdit, reason, by, func(tx *database.Tx, _ *RecordedRevision, now time.Time) (Receipt, error) {
+		imports, err := importsIn(ctx, tx, projectID)
+		if err != nil {
+			return Receipt{}, err
+		}
+		pins := make([]wow.ResolvedPin, 0, len(imports))
+		for _, im := range imports {
+			pins = append(pins, wow.ResolvedPin{BlockID: im.BlockID, Name: im.Name, Version: im.LatestVersion, Disabled: im.Disabled})
+		}
+		if err := PutImportsIn(ctx, tx, projectID, pins, now); err != nil {
+			return Receipt{}, err
+		}
+		// No prior receipt: its workflow pins are what this moves past.
+		return s.UnionIn(ctx, tx, projectID, nil)
+	})
+}

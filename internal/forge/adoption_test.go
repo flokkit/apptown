@@ -340,7 +340,7 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 	for _, pp := range packs {
 		names[pp.Pack] = pp.Version
 	}
-	if names["forge"] == 0 || names["go-small"] == 0 {
+	if names["apptown"] == 0 || names["go-small"] == 0 {
 		t.Fatalf("on forge and go-small: %+v", packs)
 	}
 	view := testPlacement(t, a, p.Slug)
@@ -349,7 +349,7 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 	}
 	// The wizard never offers the apptown pack.
 	for _, pk := range mustRecords(a.Ways.OfferedPacks(t.Context())) {
-		if pk.Name == "forge" {
+		if pk.Name == "apptown" {
 			t.Fatal("the platform pack is not a choice")
 		}
 	}
@@ -402,7 +402,7 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 	recordFixtureAdoptions(t, a)
 	adoptTestPlatform(t, a, h.ID)
 	view = testPlacement(t, a, h.Slug)
-	if len(view.Packs) != 1 || view.Packs[0].Pack != "forge" || !view.Packs[0].Platform || len(view.Additions) != 1 {
+	if len(view.Packs) != 1 || view.Packs[0].Pack != "apptown" || !view.Packs[0].Platform || len(view.Additions) != 1 {
 		t.Fatalf("hand-assembled: forge alone plus additions: %+v", view)
 	}
 }
@@ -458,7 +458,7 @@ func (a *App) ensurePlatformGuidanceFor(projectID ids.ID) []string {
 // Preserve hand-added guidance, and scope the choice to this project.
 func adoptTestPlatform(t *testing.T, a *App, projectID ids.ID) {
 	t.Helper()
-	pack, err := a.Ways.Pack(t.Context(), "forge")
+	pack, err := a.Ways.Pack(t.Context(), "apptown")
 	if err != nil {
 		t.Fatal(err)
 	}

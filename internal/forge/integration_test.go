@@ -51,10 +51,10 @@ func requireDocker(t *testing.T) {
 // contract and a page that the static page check accepts.
 func staticFixture(t *testing.T, dir, marker string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"),
+	if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"),
 		[]byte("app:\n  web:\n    static: site\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -134,8 +134,8 @@ func TestIntegrationServiceBackedPreviewBoots(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(ws, "site"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	_ = os.MkdirAll(filepath.Join(ws, ".forge"), 0o755)
-	_ = os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(`
+	_ = os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755)
+	_ = os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(`
 app:
   site:
     static: site
@@ -167,7 +167,7 @@ needs:
 	}
 }
 
-// The contract, end to end: a `.forge/app.yaml` with a build: public part and
+// The contract, end to end: a `.apptown/app.yaml` with a build: public part and
 // a need boots a preview — the forge builds the repo Dockerfile, runs it, and
 // stands the sidecar network up beside it. Proves the one contract form maps
 // onto the runtime for a from-source app with a dependency.
@@ -182,10 +182,10 @@ func TestIntegrationBuildContractBoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", chID))
-	_ = os.MkdirAll(filepath.Join(ws, ".forge"), 0o755)
+	_ = os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755)
 	_ = os.WriteFile(filepath.Join(ws, "Dockerfile"),
 		[]byte("FROM busybox\nRUN echo 'build contract lives' > /index.html\nEXPOSE 8080\nCMD [\"httpd\",\"-f\",\"-p\",\"8080\",\"-h\",\"/\"]\n"), 0o644)
-	_ = os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(`
+	_ = os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(`
 app:
   web:
     build: .

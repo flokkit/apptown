@@ -166,7 +166,7 @@ func TestReviewWithAnUnreadableScopeIsAnError(t *testing.T) {
 	}
 }
 
-// A report the workflow requires under .forge is collected, never committed
+// A report the workflow requires under .apptown is collected, never committed
 // (publication refuses it), so the reviewer is told its absence from the
 // diff is correct; a report elsewhere is committed source and required.
 func TestTheReviewerIsToldWhereMandatedReportsLive(t *testing.T) {
@@ -174,9 +174,9 @@ func TestTheReviewerIsToldWhereMandatedReportsLive(t *testing.T) {
 	agent := func(file string) *workflow.Step {
 		return &workflow.Step{Type: "agent/pi", Config: json.RawMessage(`{"output":{"kind":"change-report","file":"` + file + `"}}`)}
 	}
-	collected := mandatedOutputsNote([]*workflow.Step{agent(".forge/CHANGE.md")})
-	if !strings.Contains(collected, ".forge/CHANGE.md") || !strings.Contains(collected, "ABSENT from the diff") || strings.Contains(collected, "Changes to them are REQUIRED") {
-		t.Fatalf("a .forge report must be described as collected and absent from the diff, got:\n%s", collected)
+	collected := mandatedOutputsNote([]*workflow.Step{agent(".apptown/CHANGE.md")})
+	if !strings.Contains(collected, ".apptown/CHANGE.md") || !strings.Contains(collected, "ABSENT from the diff") || strings.Contains(collected, "Changes to them are REQUIRED") {
+		t.Fatalf("a .apptown report must be described as collected and absent from the diff, got:\n%s", collected)
 	}
 	committed := mandatedOutputsNote([]*workflow.Step{agent("REPORT.md")})
 	if !strings.Contains(committed, "REPORT.md") || !strings.Contains(committed, "Changes to them are REQUIRED") || strings.Contains(committed, "ABSENT") {

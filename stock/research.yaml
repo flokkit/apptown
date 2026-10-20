@@ -1,10 +1,10 @@
 # Stock workflow: research — find something out, with sources, through gates.
 # The work item title is the question; the body is context/constraints.
-# The notes and the report are the run's artifacts, written under .forge/
+# The notes and the report are the run's artifacts, written under .apptown/
 # (which git ignores): research output is a record, not a change to the
 # app, so accepting a report puts nothing into the repository. Its role is
 # record: accepting the report closes the change, and nothing lands.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: research
@@ -23,7 +23,7 @@ spec:
         - name: gather
           uses: agent/pi
           with:
-            output: { kind: research-notes, name: notes, file: .forge/NOTES.md }
+            output: { kind: research-notes, name: notes, file: .apptown/NOTES.md }
             timeoutMinutes: 20
             prompt: |
               Research question: ${{change.title}}
@@ -35,11 +35,11 @@ spec:
               read any files you create. Track EVERY source URL as you go; a
               claim without a source is a guess and must be labeled as one.
 
-              WRITE .forge/NOTES.md: findings so far, each with its source URL;
+              WRITE .apptown/NOTES.md: findings so far, each with its source URL;
               contradictions between sources; open questions; what you'd
               investigate next. Chat output is not captured. Do not commit it
               and do not change the project's files: AppTown collects the
-              notes from the workspace, and .forge/ is ignored.
+              notes from the workspace, and .apptown/ is ignored.
       steps:
         - name: notes-exist
           uses: artifact/require
@@ -55,7 +55,7 @@ spec:
         - name: report
           uses: agent/pi
           with:
-            output: { kind: research-report, name: report, file: .forge/REPORT.md }
+            output: { kind: research-report, name: report, file: .apptown/REPORT.md }
             timeoutMinutes: 15
             prompt: |
               Synthesize the investigation below into a final research report.
@@ -64,9 +64,9 @@ spec:
               detail after. If the reviewer left feedback, address it:
               ${{feedback.latest}}
 
-              WRITE .forge/REPORT.md. Do not commit it and do not change the
+              WRITE .apptown/REPORT.md. Do not commit it and do not change the
               project's files: AppTown collects the report from the
-              workspace, and .forge/ is ignored.
+              workspace, and .apptown/ is ignored.
 
               --- QUESTION ---
               ${{change.title}}

@@ -3,7 +3,7 @@
 AppTown gives its helpers a workspace, development tools and access to the
 services their task needs. The provision differs between a project chat, a
 change chat and a workflow step. This guide describes the helper's
-environment; `.forge/app.yaml` describes how the application itself runs
+environment; `.apptown/app.yaml` describes how the application itself runs
 ([contract reference](/docs/guides/contract-reference)).
 
 ## Which environment am I in?

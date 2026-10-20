@@ -106,7 +106,7 @@ func TestTheContractRefusesResourcesAndProfilesItCannotHonour(t *testing.T) {
 		{"a profile part that is not a part", base + "profiles:\n  prod:\n    api: { resources: { memory: 1G } }\n", `"api" is not a part`},
 		{"a profile changing a command", base + "profiles:\n  prod:\n    web: { command: [\"x\"] }\n", "field command not found"},
 		{"a profile changing nothing", base + "profiles:\n  prod:\n    web: {}\n", "changes neither"},
-		{"a profile setting the browser values", base + "profiles:\n  prod:\n    web: { environment: { FORGE_BROWSER_ENV: x } }\n", "only AppTown sets"},
+		{"a profile setting the browser values", base + "profiles:\n  prod:\n    web: { environment: { APPTOWN_BROWSER_ENV: x } }\n", "only AppTown sets"},
 		{"a profile with a bad memory", base + "profiles:\n  prod:\n    web: { resources: { memory: lots } }\n", "profiles: prod: web: resources"},
 	} {
 		_, err := Parse([]byte(c.yaml))

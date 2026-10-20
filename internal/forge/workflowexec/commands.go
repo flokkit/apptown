@@ -58,7 +58,7 @@ type CommandDependencies struct {
 	// the worker when one is configured, else this machine. Its zero value
 	// runs them through Runner, here.
 	Checks CompileCheck
-	// Catalog fulfils the app's declared needs (.forge/app.yaml) as the
+	// Catalog fulfils the app's declared needs (.apptown/app.yaml) as the
 	// services a tests step's command runs beside.
 	Catalog *dependency.Catalog
 	// Now is the forge's clock; nil is the real one.

@@ -68,16 +68,16 @@ func TestGuidanceChecksKeepImageAndSourceOnOneCommit(t *testing.T) {
 	a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"step1-image","severity":"high"}]`)
 	attachScanner(t, a, "step1-image", map[string]any{"command": []string{"true"}, "target": "exec-image", "manual": true})
 	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(ws, "source.txt"), []byte("first"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	gittest.Run(t, ws, "add", "-f", ".forge/app.yaml", "source.txt")
+	gittest.Run(t, ws, "add", "-f", ".apptown/app.yaml", "source.txt")
 	gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "first")
 	daemon := dockerfake.New()
 	a.docker.Client = daemon

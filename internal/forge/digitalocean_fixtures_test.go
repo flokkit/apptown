@@ -54,14 +54,14 @@ func doWorld(t *testing.T) (*App, *digitalOceanWorld, *project.Project, *deploym
 		t.Fatal(err)
 	}
 	pid, sha, _ := fleetRepo(t, a, "expense", map[string]string{
-		".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    health:\n      readiness: { http: /healthz }\ninit:\n  - name: migrate\n    build: .\n    command: [\"dotnet\", \"App.dll\", \"--init\"]\nneeds:\n  postgres:\n    version: \"16\"\n",
-		"Dockerfile":      "FROM scratch\n",
+		".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    health:\n      readiness: { http: /healthz }\ninit:\n  - name: migrate\n    build: .\n    command: [\"dotnet\", \"App.dll\", \"--init\"]\nneeds:\n  postgres:\n    version: \"16\"\n",
+		"Dockerfile":        "FROM scratch\n",
 	})
 	if _, err := a.Integrations.Bindings.Save(context.Background(), "do-syd", digitalocean.CapCloudAccount, "digitalocean", mustJSON(map[string]any{"tokenFrom": "DIGITALOCEAN_ACCESS_TOKEN", "region": "syd", "registry": "forge-test"}), "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	a.SeedTargets(t.Context())
-	contractBytes, err := os.ReadFile(filepath.Join(a.projectRepoPath("expense"), ".forge", "app.yaml"))
+	contractBytes, err := os.ReadFile(filepath.Join(a.projectRepoPath("expense"), ".apptown", "app.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

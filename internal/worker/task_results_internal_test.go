@@ -33,7 +33,7 @@ func TestAResultFileIsReadConfined(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write(filepath.Join(tree, ".forge", "review.json"), `{"ok":true}`)
+	write(filepath.Join(tree, ".apptown", "review.json"), `{"ok":true}`)
 	write(filepath.Join(state, "sessions", "s.jsonl"), "{}\n")
 	write(filepath.Join(tree, "big"), "0123456789abcdefghij")
 	write(filepath.Join(tree, "empty"), "")
@@ -42,7 +42,7 @@ func TestAResultFileIsReadConfined(t *testing.T) {
 	link(filepath.Join(outside, "secret"), filepath.Join(tree, "to-outside"))
 	link("inside", filepath.Join(tree, "to-inside"))
 	link(outside, filepath.Join(tree, "out"))
-	link(filepath.Join(tree, ".forge"), filepath.Join(tree, "forge-link"))
+	link(filepath.Join(tree, ".apptown"), filepath.Join(tree, "forge-link"))
 	if err := os.Mkdir(filepath.Join(tree, "folder"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestAResultFileIsReadConfined(t *testing.T) {
 		path string
 		want execution.ResultFile
 	}{
-		{"/work/.forge/review.json", execution.ResultFile{State: execution.ResultPresent, Content: []byte(`{"ok":true}`), Size: 11}},
+		{"/work/.apptown/review.json", execution.ResultFile{State: execution.ResultPresent, Content: []byte(`{"ok":true}`), Size: 11}},
 		{"/apptown/state/sessions/s.jsonl", execution.ResultFile{State: execution.ResultPresent, Content: []byte("{}\n"), Size: 3}},
 		{"/work/empty", execution.ResultFile{State: execution.ResultPresent, Size: 0}},
 		{"/work/nothing", execution.ResultFile{State: execution.ResultAbsent}},

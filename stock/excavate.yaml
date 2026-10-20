@@ -5,7 +5,7 @@
 # exist, a surface inventory with no blank cells, intent proposed rather
 # than promoted. The accept gate IS the adjudication surface: the human
 # works the queue and rejects with rulings, which loop back as feedback.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: excavate

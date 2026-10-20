@@ -34,7 +34,7 @@ small jobs. `package-lock.json` is committed beside `package.json` and
 agrees with it; change dependencies with `npm install <name>` so both
 move together. `node_modules/` and `dist/` are in `.gitignore`.
 
-**Building and serving.** `.forge/app.yaml` declares the app a static
+**Building and serving.** `.apptown/app.yaml` declares the app a static
 site with a build (`static: { build: ., output: dist }`). The
 repository's Dockerfile builds it in a Node stage (`npm ci`,
 `npm run build`) and ends with a stage that holds only the files:
@@ -49,7 +49,7 @@ folder holds only folders and files: a symbolic link in it is refused.
 
 What the file server does, and does not do:
 
-- It serves `/_forge/env.js` (guidance `deploy/browser-values`), so the
+- It serves `/_apptown/env.js` (guidance `deploy/browser-values`), so the
   page loads it first in `<head>`, and readiness is the site's root.
 - It serves only files that exist. A path with no file is a 404, so an
   app with several screens uses hash routes (`#/items/42`), which a

@@ -74,7 +74,7 @@ func TestWorkspacePreservesDefaultBaseStandaloneCloneAndHumanWork(t *testing.T) 
 	if _, err := os.Stat(filepath.Join(path, "game.txt")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("clone used the hub checkout instead of the declared default")
 	}
-	branch := fmt.Sprintf("forge/change-%d", ref.ID)
+	branch := fmt.Sprintf("apptown/change-%d", ref.ID)
 	if got := workspaceGit(t, w.git, path, "symbolic-ref", "--short", "HEAD"); got != branch {
 		t.Fatal(got)
 	}
@@ -93,7 +93,7 @@ func TestWorkspacePreservesDefaultBaseStandaloneCloneAndHumanWork(t *testing.T) 
 	if e1 != nil || e2 != nil || os.SameFile(hubInfo, cloneInfo) {
 		t.Fatalf("clone shares mutable Git objects: %v %v", e1, e2)
 	}
-	if data, err := os.ReadFile(filepath.Join(path, ".forge", "attachments", "reference.txt")); err != nil || string(data) != "original reference" {
+	if data, err := os.ReadFile(filepath.Join(path, ".apptown", "attachments", "reference.txt")); err != nil || string(data) != "original reference" {
 		t.Fatalf("attachments: %q %v", data, err)
 	}
 	if err := os.WriteFile(filepath.Join(path, "human.txt"), []byte("unsaved human work"), 0644); err != nil {
@@ -351,7 +351,7 @@ func TestRunWorkspacePublishesBothBasesAndReceiptAtomically(t *testing.T) {
 				t.Fatalf("prepare/retry: %v", err)
 			}
 			wantEqual(t, "run base", storedRunRow(t, w.db, run.ID).BaseSha, base)
-			wantEqual(t, "change source", changeSource(storedChange(t, w.db, ch.ID)), [2]string{base, fmt.Sprintf("forge/change-%d", ch.ID)})
+			wantEqual(t, "change source", changeSource(storedChange(t, w.db, ch.ID)), [2]string{base, fmt.Sprintf("apptown/change-%d", ch.ID)})
 			wantRunEventCount(t, w.db, run.ID, 1, kindWith("workspace.prepared", "tip", base))
 		})
 	}

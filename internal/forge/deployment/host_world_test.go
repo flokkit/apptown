@@ -59,10 +59,10 @@ func hostWorld(t *testing.T, publicHost string) (*Service, *database.DB, *docker
 // writeBootFixture writes an app declaring resolvedStackFixture into dir.
 func writeBootFixture(t *testing.T, dir string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"), []byte(resolvedStackFixture), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"), []byte(resolvedStackFixture), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {

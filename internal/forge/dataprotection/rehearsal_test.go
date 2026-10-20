@@ -284,7 +284,7 @@ func newRehearsalWorldWith(t *testing.T, contract string, dw *dataWorld, seed fu
 	w.protect()
 	ctx := context.Background()
 	repo := filepath.Join(w.s.dataDir, "workspaces", "project-ledger")
-	for name, body := range map[string]string{".forge/app.yaml": contract, "secretspec.toml": rehearsalSpec} {
+	for name, body := range map[string]string{".apptown/app.yaml": contract, "secretspec.toml": rehearsalSpec} {
 		if err := os.WriteFile(filepath.Join(repo, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -413,7 +413,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 	}
 	dep, _ := w.s.Deployments.ByName(t.Context(), w.project, "prod")
 	origin, _ := rehearsalOrigin(dep)
-	if !slices.Contains(run, "FORGE_ORIGINS=https://"+origin) {
+	if !slices.Contains(run, "APPTOWN_ORIGINS=https://"+origin) {
 		t.Errorf("the app does not trust only the deployment's address %s: %s", origin, joined)
 	}
 	if strings.Contains(joined, "SMTP_PASSWORD") {

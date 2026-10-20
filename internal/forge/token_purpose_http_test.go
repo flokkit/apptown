@@ -62,7 +62,7 @@ func TestAnAgentTokenMayNotApproveOrLandWhatItsPersonMay(t *testing.T) {
 	t.Parallel()
 	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "land", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}
 	a, ctx, ch := changeScenario(t, spec)
-	seedLibraryWorkflow(t, a, ch.ProjectID, "test", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, ch.ProjectID, "test", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: test}
 spec:

@@ -2,7 +2,7 @@
 # AppTown keeps (the spec-final artifact), not a file in the repository: an
 # implement run reads it as ${{latest.spec-final}}. Its role is record:
 # accepting the spec closes the change, and nothing lands.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: product-spec
@@ -23,7 +23,7 @@ spec:
           with:
             skills: [skill/spec-development]
             resources: [resource/spec-template]
-            output: { kind: spec, name: spec-draft, file: .forge/SPEC.md }
+            output: { kind: spec, name: spec-draft, file: .apptown/SPEC.md }
             timeoutMinutes: 12
             prompt: |
               Half-formed product idea, titled "${{change.title}}":
@@ -33,7 +33,7 @@ spec:
               Develop this into a complete FIRST-ITERATION specification using your
               spec-development skill and the spec template resource file. Your
               steering guidance defines the technology stack — follow it. WRITE
-              the completed specification to .forge/SPEC.md —
+              the completed specification to .apptown/SPEC.md —
               the file is the deliverable; keep chat output to a one-line note.
       steps:
         - name: spec-exists
@@ -51,13 +51,13 @@ spec:
           uses: agent/pi
           with:
             skills: [skill/spec-development]
-            output: { kind: spec-final, name: spec-final, file: .forge/SPEC.md }
+            output: { kind: spec-final, name: spec-final, file: .apptown/SPEC.md }
             timeoutMinutes: 12
             prompt: |
               Below is a reviewed draft specification. Critique it against your
               skill's quality bar, then produce the FINAL version: cut anything
               that is not first-iteration, resolve vagueness, keep the same
-              template structure. WRITE the final document to .forge/SPEC.md in the
+              template structure. WRITE the final document to .apptown/SPEC.md in the
               workspace root (overwrite it) — the file is the deliverable.
 
               ---

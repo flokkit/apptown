@@ -16,18 +16,21 @@ import (
 	"flokkit.io/forge/internal/trailer"
 )
 
-// StageAll stages everything EXCEPT .forge runtime — by pathspec, not by
+// StageAll stages everything EXCEPT .apptown runtime — by pathspec, not by
 // trusting .gitignore. Change 99's build agent replaced the project's
 // .gitignore with its own; the engine's add -A then committed pi-home
 // (docker credentials, pi auth), sessions and ambient config into branch
-// history and pushed it. The contract file is the one .forge path that
+// history and pushed it. The contract file is the one .apptown path that
 // belongs in the tree, re-added explicitly.
 //
 // A failure is returned: source git could not stage is still source, and a
 // caller reading an unchanged index after a failed add would take it for
 // none (and a desktop sync would then reset it away).
 func StageAll(ctx context.Context, wt string) error {
-	if out, err := gitexec.Run(ctx, wt, "add", "-A", "--", ":(exclude).forge"); err != nil {
+	// .forge is the runtime folder's name before the AppTown rename: a
+	// workspace from then can still hold its credentials and sessions, so
+	// it stays excluded for good (a retired secret path, not a reader).
+	if out, err := gitexec.Run(ctx, wt, "add", "-A", "--", ":(exclude).apptown", ":(exclude).forge"); err != nil {
 		return fmt.Errorf("staging the folder's source: %w: %s", err, out)
 	}
 	// Only the native app contract belongs in source; generated runtime files
@@ -36,25 +39,32 @@ func StageAll(ctx context.Context, wt string) error {
 	// exception). A contract on disk is force-added; with none, any the index
 	// still holds has its deletion staged (git add would refuse a path that
 	// matches nothing).
-	args := []string{"add", "-f", "--", ".forge/app.yaml"}
-	if _, err := os.Lstat(filepath.Join(wt, ".forge", "app.yaml")); errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
-		args = []string{"rm", "--cached", "--ignore-unmatch", "--quiet", "--", ".forge/app.yaml"}
-	} else if err != nil {
-		return fmt.Errorf("reading the folder's app contract: %w", err)
-	}
-	if out, err := gitexec.Run(ctx, wt, args...); err != nil {
-		return fmt.Errorf("staging the folder's app contract: %w: %s", err, out)
+	//
+	// A folder made before the AppTown rename can still hold its contract at
+	// the old path, .forge/app.yaml, until it catches up with the upgrade's
+	// commit; that file is source too, so an edit to it is committed rather
+	// than lost.
+	for _, contract := range []string{".apptown/app.yaml", ".forge/app.yaml"} {
+		args := []string{"add", "-f", "--", contract}
+		if _, err := os.Lstat(filepath.Join(wt, filepath.FromSlash(contract))); errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
+			args = []string{"rm", "--cached", "--ignore-unmatch", "--quiet", "--", contract}
+		} else if err != nil {
+			return fmt.Errorf("reading the folder's app contract: %w", err)
+		}
+		if out, err := gitexec.Run(ctx, wt, args...); err != nil {
+			return fmt.Errorf("staging the folder's app contract: %w: %s", err, out)
+		}
 	}
 	return nil
 }
 
 // nonSourceIn lists what the commits revs selects change that is not
-// source: the .forge entry itself (replaced by a file, a link or a
+// source: the .apptown entry itself (replaced by a file, a link or a
 // submodule) and anything under it except the native app contract, the
 // same rule StageAll applies when the forge commits locally. Each commit is
 // read against each of its parents, not only the last tree: a commit that
 // adds a runtime file puts it in the branch's history even when a later one
-// removes it. .forge is matched whatever its case, as a case-insensitive
+// removes it. .apptown is matched whatever its case, as a case-insensitive
 // disk would.
 func nonSourceIn(ctx context.Context, repo string, revs ...string) ([]string, error) {
 	out, err := gitexec.HubOutput(ctx, repo, nil, append([]string{"log", "--no-ext-diff", "--no-textconv", "--format=", "--name-only", "--no-renames", "-m", "--root", "-z"}, revs...)...)
@@ -80,12 +90,22 @@ func NonSourceIn(ctx context.Context, repo string, revs ...string) ([]string, er
 	return nonSourceIn(ctx, repo, revs...)
 }
 
-// RuntimeOnly reports whether path is the forge's runtime state in a
-// working copy (.forge, whatever its case), never source. The one exception
-// is the application's native contract, .forge/app.yaml, which is source.
+// RuntimeOnly reports whether path is AppTown's runtime state in a working
+// copy (.apptown, whatever its case), never source. The one exception is
+// the application's native contract, .apptown/app.yaml, which is source.
+// .forge, the folder's name before the AppTown rename, is held to the same
+// rule for good: an old runtime file anywhere in history stays non-source,
+// while the historical contract .forge/app.yaml stays source, so history
+// from before the upgrade still publishes and exports.
 func RuntimeOnly(path string) bool {
 	top, _, _ := strings.Cut(path, "/")
-	return strings.EqualFold(top, ".forge") && path != ".forge/app.yaml"
+	switch {
+	case strings.EqualFold(top, ".apptown"):
+		return path != ".apptown/app.yaml"
+	case strings.EqualFold(top, ".forge"):
+		return path != ".forge/app.yaml"
+	}
+	return false
 }
 
 // InstallNoPushHook makes the hub refuse every push but a Change ticket's
@@ -180,11 +200,11 @@ func InitializeRepository(ctx context.Context, dir, defaultBranch string) error 
 			}
 		}
 	}
-	// .forge/* is runtime state (steering, sessions, pi-home) EXCEPT the
+	// .apptown/* is runtime state (steering, sessions, pi-home) EXCEPT the
 	// durable app contract, which is versioned with the code it describes.
 	// An existing .gitignore, even a link, is the repository's own: it is
 	// kept and never followed.
-	if _, err := CreateInTree(dir, ".gitignore", []byte(".forge/*\n!.forge/app.yaml\nnode_modules/\n"), 0o644); err != nil {
+	if _, err := CreateInTree(dir, ".gitignore", []byte(".apptown/*\n!.apptown/app.yaml\nnode_modules/\n"), 0o644); err != nil {
 		return err
 	}
 	if err := StageAll(ctx, dir); err != nil {
@@ -241,7 +261,7 @@ var ErrNoWorkspace = fault.New(fault.Invalid, "repository workspace is unavailab
 // An absent repository, or a folder whose source matches its last commit,
 // produces no commit and an empty SHA. Whether to commit is read from what
 // StageAll staged, not the working tree's status: an agent that committed
-// its own work leaves only untracked runtime files under .forge, which the
+// its own work leaves only untracked runtime files under .apptown, which the
 // status shows but no commit can record.
 func CommitWorkspace(ctx context.Context, dir, message string) (sha string, committed bool, err error) {
 	if !gitexec.IsRepo(dir) {

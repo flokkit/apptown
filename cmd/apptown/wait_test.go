@@ -159,7 +159,7 @@ func TestAnApprovalDecidedMeanwhileReadsAsDecided(t *testing.T) {
 // catch-up, not only "a person's move" (change 61's chat went on saying
 // its landing awaited approval). A run waited on directly says the same.
 func TestWaitNamesWhyTheLastRunEnded(t *testing.T) {
-	const ending = `forge/change-61 is behind main; catch-up-with-main (fail): behind main: main has moved ahead and forge/change-61 does not contain it. Catch up in the change's chat (git fetch "$APPTOWN_MAIN_REMOTE" main && git merge --no-edit FETCH_HEAD), then land again.`
+	const ending = `apptown/change-61 is behind main; catch-up-with-main (fail): behind main: main has moved ahead and apptown/change-61 does not contain it. Catch up in the change's chat (git fetch "$APPTOWN_MAIN_REMOTE" main && git merge --no-edit FETCH_HEAD), then land again.`
 	var d runDetail
 	body, _ := json.Marshal(map[string]any{"run": map[string]any{"id": "00000000-032c-7000-8000-000000000000", "status": "abandoned", "workflowName": "land"}, "state": "abandoned", "ending": ending})
 	if err := json.Unmarshal(body, &d); err != nil {

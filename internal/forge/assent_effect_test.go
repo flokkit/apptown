@@ -22,7 +22,7 @@ import (
 func TestAnOptionalApprovalDoesNotLetAnAgentMerge(t *testing.T) {
 	t.Parallel()
 	a, agent, ch, before := shipFixture(t)
-	seedLibraryWorkflow(t, a, ch.ProjectID, "optional-assent", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, ch.ProjectID, "optional-assent", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: optional-assent}
 spec:
@@ -48,7 +48,7 @@ spec:
 func TestCompletedWorkIsNotAPersonsAcceptance(t *testing.T) {
 	t.Parallel()
 	a, agent, ch, before := shipFixture(t)
-	seedLibraryWorkflow(t, a, ch.ProjectID, "quiet-work", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, ch.ProjectID, "quiet-work", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: quiet-work}
 spec:
@@ -127,7 +127,7 @@ func TestARemediationRunDoesNotDeployWithoutAPerson(t *testing.T) {
 func TestAnAgentsSendBackDoesNotRedeploy(t *testing.T) {
 	t.Parallel()
 	a, agent, ch, _ := shipFixture(t)
-	seedLibraryWorkflow(t, a, ch.ProjectID, "work-and-deploy", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, ch.ProjectID, "work-and-deploy", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: work-and-deploy}
 spec:

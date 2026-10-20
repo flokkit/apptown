@@ -110,8 +110,8 @@ func NewPreparer(models Configuration, selection modelSlots, extensions extensio
 // environment reference. The generated file is
 // 0600 inside the workspace pi-home (gitignored, excluded from harvest).
 func (home Preparer) Stage(ctx context.Context, ws string, projectID ids.ID) (string, error) {
-	dst := filepath.Join(ws, ".forge", "pi-home", ".pi", "agent")
-	if err := os.RemoveAll(filepath.Join(ws, ".forge", "pi-home")); err != nil {
+	dst := filepath.Join(ws, ".apptown", "pi-home", ".pi", "agent")
+	if err := os.RemoveAll(filepath.Join(ws, ".apptown", "pi-home")); err != nil {
 		return "", err
 	}
 	if err := os.MkdirAll(dst, 0o755); err != nil {
@@ -129,7 +129,7 @@ func (home Preparer) Stage(ctx context.Context, ws string, projectID ids.ID) (st
 	if err := home.StageAgentDir(ctx, dst, projectID); err != nil {
 		return "", err
 	}
-	return filepath.Join(ws, ".forge", "pi-home"), nil
+	return filepath.Join(ws, ".apptown", "pi-home"), nil
 }
 
 // StageAgentDir resolves the project's selected slots and extensions into

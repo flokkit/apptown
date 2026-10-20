@@ -105,8 +105,8 @@ limits=$(docker exec "$name" docker run --rm --memory 1024m --memory-swap 1024m 
 step "a project from a one-page app"
 docker exec -e APPTOWN_URL=http://127.0.0.1:7777 -e "APPTOWN_TOKEN=$cli" "$name" sh -eu -c '
 	app=$(mktemp -d)/hello
-	mkdir -p "$app/.forge" "$app/site"
-	printf "app:\n  web: {static: site, public: true}\n" > "$app/.forge/app.yaml"
+	mkdir -p "$app/.apptown" "$app/site"
+	printf "app:\n  web: {static: site, public: true}\n" > "$app/.apptown/app.yaml"
 	printf "<!doctype html><title>hello</title><p>Hello from the trial.</p>\n" > "$app/site/index.html"
 	git -C "$app" init -q -b main
 	git -C "$app" add -A

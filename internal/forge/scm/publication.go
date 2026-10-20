@@ -101,7 +101,7 @@ func TicketHolder(ticketID ids.ID) string { return fmt.Sprintf("ticket:%d", tick
 // IncomingRef is where a ticket's push lands. The branch moves only when the
 // forge publishes it, after checking the ticket still holds the branch.
 func IncomingRef(ticketID ids.ID) string {
-	return fmt.Sprintf("refs/forge/incoming/ticket-%d", ticketID)
+	return fmt.Sprintf("refs/apptown/incoming/ticket-%d", ticketID)
 }
 
 // Grant is what a publisher presents: the exact generation it was admitted
@@ -392,7 +392,7 @@ func stageProposal(ctx context.Context, pub Publication) (string, func(), error)
 	if _, err := rand.Read(token); err != nil {
 		return "", func() {}, err
 	}
-	incoming := "refs/forge/incoming/" + hex.EncodeToString(token)
+	incoming := "refs/apptown/incoming/" + hex.EncodeToString(token)
 	// The staged ref goes though the publication was cancelled.
 	cleanup := func() {
 		if out, err := gitexec.HubRun(context.WithoutCancel(ctx), pub.Repository, "update-ref", "-d", incoming); err != nil {

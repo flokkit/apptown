@@ -134,7 +134,7 @@ func TestAStepPushesOnlyItsOwnScratchRef(t *testing.T) {
 		"main":                     "refs/heads/main",
 		"the change's branch":      "refs/heads/" + w.ch.Branch,
 		"a new branch":             "refs/heads/elsewhere",
-		"another forge ref":        "refs/forge/incoming/ticket-1",
+		"another forge ref":        "refs/apptown/incoming/ticket-1",
 		"another step's scratch":   w.scratchRef(w.second),
 		"another change's scratch": scm.ScratchRef(idstest.N(999999), w.first, w.steps[w.first].Attempt),
 	} {

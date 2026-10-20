@@ -85,7 +85,7 @@ func (h ProjectServices) ListProjectServices(w http.ResponseWriter, r *http.Requ
 
 // SetProjectServices: POST /projects/{slug}/services {needs, title,
 // expectedDeclaration} — open a Change that sets the needs in
-// .forge/app.yaml. {needs, direct: true} seeds a new project's main instead,
+// .apptown/app.yaml. {needs, direct: true} seeds a new project's main instead,
 // refused once the project has a Change.
 func (h ProjectServices) SetProjectServices(w http.ResponseWriter, r *http.Request) {
 	p, ok := ProjectFromPath(h.projects, w, r)

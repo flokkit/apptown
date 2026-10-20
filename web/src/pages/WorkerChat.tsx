@@ -89,7 +89,7 @@ export function ChangeWorkerChats({ changeId }: { changeId: string }) {
               <strong>Commits it could not save</strong>
               <div className="muted small" style={{ margin: '4px 0 6px' }}>
                 They are kept here, not on the change.
-                Download them as a Git bundle, fetch it into a clone (<code>git fetch the.bundle refs/forge/refused/chat-{c.chat}</code>),
+                Download them as a Git bundle, fetch it into a clone (<code>git fetch the.bundle refs/apptown/refused/chat-{c.chat}</code>),
                 fix what was refused, and bring the work back.
               </div>
               <div className="row">

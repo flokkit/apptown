@@ -53,7 +53,7 @@ func TestLibraryCatalogReadsDoNotGrowWithWorkflowCount(t *testing.T) {
 		projects = append(projects, id)
 	}
 	declaration := func(name, description string) string {
-		return fmt.Sprintf("apiVersion: forge.flokkit.io/v1\nkind: Workflow\nmetadata: {name: %s, description: %s}\nspec: {kind: pipeline, stages: [{name: work, steps: [{name: work, uses: script, with: {run: 'true'}}]}]}\n", name, description)
+		return fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, description: %s}\nspec: {kind: pipeline, stages: [{name: work, steps: [{name: work, uses: script, with: {run: 'true'}}]}]}\n", name, description)
 	}
 	library := wow.NewWorkflows(db)
 	selection := adoption.New(db, adoption.Dependencies{Ways: wow.New(db, wow.Dependencies{})})

@@ -8,7 +8,7 @@ Anything this page does not list is not promised.
 ## Stable through 1.x
 
 **Your app's contract.** Everything [the app contract](/docs/guides/contract-reference)
-promises: `.forge/app.yaml` with `version: 1` (or no version, which means 1),
+promises: `.apptown/app.yaml` with `version: 1` (or no version, which means 1),
 what a build sees, the environment, the startup order, the front door and
 health, target by target as it states them. A higher version is refused by
 name, never guessed at.
@@ -19,7 +19,7 @@ app, what they mean, and what the app may rely on, as
 target may learn to fulfil a need it refuses today; a need's variables and
 their meaning do not change.
 
-**Your ways of working.** Workflows (`apiVersion: forge.flokkit.io/v1`), packs,
+**Your ways of working.** Workflows (`apiVersion: apptown.dev/v1`), packs,
 policies, guidance blocks and their checks, in the shapes the
 [formats guide](/docs/guides/ways-of-working-formats) gives. A version you saved is read
 as it was saved: a pack version keeps the blocks, workflows and policy

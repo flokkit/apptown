@@ -62,7 +62,7 @@ func (s SteeringInventory) sections(ctx context.Context, projectID ids.ID) []ste
 			Note:   "What this project has attached (error tracker, feedback, databases) and how the app is expected to use it."})
 	}
 	add(steeringSection{Name: "platform/workspace-hygiene", Source: "AppTown", Always: true, BodyMD: s.text.Hygiene,
-		Note: "Keeps agents out of .forge/sessions, whose transcripts would flood their context."})
+		Note: "Keeps agents out of .apptown/sessions, whose transcripts would flood their context."})
 	add(steeringSection{Name: "platform/delegation", Source: "model slots", BodyMD: s.delegation.Delegation(ctx),
 		Note: "Only steps that run in the container executor: which models the agent may hand work to."})
 	add(steeringSection{Name: "platform/runtime-contract", Source: "AppTown", BodyMD: s.text.Runtime,

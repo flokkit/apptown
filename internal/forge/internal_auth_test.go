@@ -211,7 +211,7 @@ func TestAmendGateOnWorkflowSave(t *testing.T) {
 	}
 	kid := sessionFrom(t, postJSON(h, "/api/v1/auth/login", map[string]string{"username": "kid", "password": "kid-password"}))
 	wf := map[string]string{"yaml": `
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: gates }
 spec:

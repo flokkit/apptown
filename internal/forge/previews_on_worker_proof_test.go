@@ -90,10 +90,10 @@ func proofWorld(t *testing.T) (*App, *fakeDocker, *fakePreviewWorker, *workflow.
 		t.Fatal(err)
 	}
 	folder := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
-	if err := os.MkdirAll(filepath.Join(folder, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(folder, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for path, body := range map[string]string{".forge/app.yaml": staticSiteContract, "index.html": "<html>the game</html>"} {
+	for path, body := range map[string]string{".apptown/app.yaml": staticSiteContract, "index.html": "<html>the game</html>"} {
 		if err := os.WriteFile(filepath.Join(folder, path), []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -128,9 +128,9 @@ func ownerConsole(a *App, id string, ch *workflow.Change) *console.Session {
 func proofGate(t *testing.T, fake *fakePreviewWorker, local *fakeDocker, afterBoot func()) (*workflow.Step, map[string][2]string, ids.ID) {
 	t.Helper()
 	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
-	const loads = `<html><head><script src="/_forge/env.js"></script><script src="game.js"></script></head></html>`
+	const loads = `<html><head><script src="/_apptown/env.js"></script><script src="game.js"></script></head></html>`
 	fake.app = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/_forge/env.js" {
+		if r.URL.Path == "/_apptown/env.js" {
 			w.Write([]byte(docker.BrowserEnvScript(given)))
 			return
 		}
@@ -168,10 +168,10 @@ func proofGate(t *testing.T, fake *fakePreviewWorker, local *fakeDocker, afterBo
 		t.Fatal(err)
 	}
 	ws := source.Workspace(a.cfg.dataDir)
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commitFolder(t, ws)
@@ -200,7 +200,7 @@ func proofGate(t *testing.T, fake *fakePreviewWorker, local *fakeDocker, afterBo
 	front.Host = fmt.Sprintf("run-%d.preview.example.com", run.ID)
 	rec := httptest.NewRecorder()
 	a.Handler().ServeHTTP(rec, front)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "/_forge/env.js") {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "/_apptown/env.js") {
 		t.Fatalf("the front door did not reach the preview on the worker: %d %s", rec.Code, rec.Body.String())
 	}
 	if afterBoot != nil {
@@ -332,7 +332,7 @@ func TestNoPreviewBootsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		if err := w.a.Console.Send(context.Background(), s.ID, "go"); err != nil {
 			t.Fatal(err)
 		}
-		w.commitOnWorker(t, s.ID, ".forge/app.yaml", staticSiteContract)
+		w.commitOnWorker(t, s.ID, ".apptown/app.yaml", staticSiteContract)
 		w.a.changeConsole.SaveAfterTurn(s.ID)
 		saved := w.branchTip(t)
 		eventually(t, "the saved commit rehearsed on the worker", func() bool {

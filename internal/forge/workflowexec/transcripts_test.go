@@ -23,7 +23,7 @@ import (
 func piKeepsSession(t *testing.T, req execution.Request, text string) string {
 	t.Helper()
 	session := sessionIDOf(req)
-	dir := filepath.Join(req.Workspace, ".forge", "sessions")
+	dir := filepath.Join(req.Workspace, ".apptown", "sessions")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestContinueRetriesResumeTheKeptTranscript(t *testing.T) {
 	for attempt := 2; attempt <= 3; attempt++ {
 		// Something writes the folder's file after it was kept; a
 		// continuation resumes the kept bytes, not these.
-		files, _ := filepath.Glob(filepath.Join(f.requests()[0].Workspace, ".forge", "sessions", "*.jsonl"))
+		files, _ := filepath.Glob(filepath.Join(f.requests()[0].Workspace, ".apptown", "sessions", "*.jsonl"))
 		for _, file := range files {
 			if err := os.WriteFile(file, []byte(first+`{"type":"message","note":"never kept"}`+"\n"), 0o644); err != nil {
 				t.Fatal(err)
@@ -208,7 +208,7 @@ func TestAnOldRunsFolderHistoryIsImportedAtStartupThenContinued(t *testing.T) {
 				t.Fatal(err)
 			}
 			if folder == "gone" {
-				if err := os.RemoveAll(filepath.Join(f.requests()[0].Workspace, ".forge", "sessions")); err != nil {
+				if err := os.RemoveAll(filepath.Join(f.requests()[0].Workspace, ".apptown", "sessions")); err != nil {
 					t.Fatal(err)
 				}
 			}

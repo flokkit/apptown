@@ -372,7 +372,7 @@ type Ticket struct {
 	User         string
 	DelegationID ids.ID
 	ChangeID     ids.ID
-	Ref          string // refs/heads/forge/change-N
+	Ref          string // refs/heads/apptown/change-N
 	ExpectedTip  string // the hub's ref when minted; "" for a ref that does not exist yet
 	ExpiresAt    string
 	ConsumedAt   stamp.Time

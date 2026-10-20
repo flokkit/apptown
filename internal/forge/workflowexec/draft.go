@@ -34,7 +34,7 @@ const assistReference = `You write workflow YAML for AppTown. Output ONLY a comp
 (optionally in a single fenced code block) — no commentary before or after.
 
 Document shape:
-  apiVersion: forge.flokkit.io/v1
+  apiVersion: apptown.dev/v1
   kind: Workflow
   metadata: { name: kebab-case, description: one line }
   spec:

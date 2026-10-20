@@ -31,7 +31,7 @@ func TestSyncStockGuidance(t *testing.T) {
 		t.Fatalf("skill/implementation must be origin=stock, got %q", skill.Origin)
 	}
 	body, _ := s.BlockVersionBody(t.Context(), skill.ID, skill.LatestVersion)
-	if !strings.Contains(body, ".forge/app.yaml") || strings.Contains(body, "run contract to .forge/compose.yaml") {
+	if !strings.Contains(body, ".apptown/app.yaml") || strings.Contains(body, "run contract to .apptown/compose.yaml") {
 		t.Fatalf("stock skill/implementation body is stale (should teach app.yaml)")
 	}
 

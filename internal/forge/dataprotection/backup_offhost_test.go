@@ -66,7 +66,7 @@ func newOffhostWorld(t *testing.T, slug string, port int) *offhostWorld {
 	if _, err := w.s.Deployments.ReserveHostPort(t.Context(), w.pid, "main", docker.ContainerName(slug, "main"), port); err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(w.dir, "workspaces", "project-"+slug, ".forge")
+	repo := filepath.Join(w.dir, "workspaces", "project-"+slug, ".apptown")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}

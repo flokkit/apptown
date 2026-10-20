@@ -13,7 +13,7 @@ import (
 )
 
 // A result is what the task changed as git takes it: an untracked file
-// under .forge is left out even where the project's rules do not ignore it
+// under .apptown is left out even where the project's rules do not ignore it
 // (a project started from existing code need not, and a step's report is
 // written there), but one the rules re-include, or one already tracked, is
 // in it (whether it may enter the change's branch is the forge's check on
@@ -29,13 +29,13 @@ func TestACollectionReturnsWhatGitTakes(t *testing.T) {
 		writeRuntime    bool
 		runtimeReturned bool
 	}{
-		{"partially ignored directory", ".forge/cache/\n", false, false, true, true, false},
-		{"rules that do not mention .forge", "vendor/\n", false, false, false, true, false},
-		{"negated runtime ignore", ".forge/*\n!.forge/runtime.json\n", false, false, true, true, true},
-		{"tracked runtime in ignored directory", ".forge/\n", false, true, true, true, true},
-		{"untracked runtime in ignored directory", ".forge/\n", false, false, true, true, false},
-		{"only tracked contract in ignored directory", ".forge/\n", true, false, false, false, false},
-		{"only new contract then repeat collection", ".forge/\n", false, false, false, false, false},
+		{"partially ignored directory", ".apptown/cache/\n", false, false, true, true, false},
+		{"rules that do not mention .apptown", "vendor/\n", false, false, false, true, false},
+		{"negated runtime ignore", ".apptown/*\n!.apptown/runtime.json\n", false, false, true, true, true},
+		{"tracked runtime in ignored directory", ".apptown/\n", false, true, true, true, true},
+		{"untracked runtime in ignored directory", ".apptown/\n", false, false, true, true, false},
+		{"only tracked contract in ignored directory", ".apptown/\n", true, false, false, false, false},
+		{"only new contract then repeat collection", ".apptown/\n", false, false, false, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -63,12 +63,12 @@ func TestACollectionReturnsWhatGitTakes(t *testing.T) {
 			write(hub, ".gitignore", tc.ignore)
 			git("add", ".gitignore")
 			if tc.trackedContract {
-				write(hub, ".forge/app.yaml", "name: before\n")
-				git("add", "-f", ".forge/app.yaml")
+				write(hub, ".apptown/app.yaml", "name: before\n")
+				git("add", "-f", ".apptown/app.yaml")
 			}
 			if tc.trackedRuntime {
-				write(hub, ".forge/runtime.json", "before\n")
-				git("add", "-f", ".forge/runtime.json")
+				write(hub, ".apptown/runtime.json", "before\n")
+				git("add", "-f", ".apptown/runtime.json")
 			}
 			git("commit", "-qm", "source ignore rules")
 			base := git("rev-parse", "HEAD")
@@ -79,12 +79,12 @@ func TestACollectionReturnsWhatGitTakes(t *testing.T) {
 			}
 			work := filepath.Join(state, "workspaces", spec.Key)
 			write(work, "made.txt", "ordinary output\n")
-			write(work, ".forge/app.yaml", "name: after\n")
+			write(work, ".apptown/app.yaml", "name: after\n")
 			if tc.ignoredSibling {
-				write(work, ".forge/cache/item", "ignored cache\n")
+				write(work, ".apptown/cache/item", "ignored cache\n")
 			}
 			if tc.writeRuntime {
-				write(work, ".forge/runtime.json", "runtime must not travel\n")
+				write(work, ".apptown/runtime.json", "runtime must not travel\n")
 			}
 			bundle := filepath.Join(t.TempDir(), "result.bundle")
 			tip, err := driver.Collect(ctx, spec.Key, base, "task result", bundle)
@@ -96,12 +96,12 @@ func TestACollectionReturnsWhatGitTakes(t *testing.T) {
 			if err != nil || imported != tip {
 				t.Fatalf("import: tip=%q err=%v", imported, err)
 			}
-			for name, want := range map[string]string{"made.txt": "ordinary output", ".forge/app.yaml": "name: after"} {
+			for name, want := range map[string]string{"made.txt": "ordinary output", ".apptown/app.yaml": "name: after"} {
 				if got, err := gitexec.Output(ctx, dir, "show", tip+":"+name); err != nil || got != want {
 					t.Errorf("source %s: %q %v", name, got, err)
 				}
 			}
-			got, runtimeErr := gitexec.Output(ctx, dir, "show", tip+":.forge/runtime.json")
+			got, runtimeErr := gitexec.Output(ctx, dir, "show", tip+":.apptown/runtime.json")
 			if tc.runtimeReturned {
 				if runtimeErr != nil || got != "runtime must not travel" {
 					t.Errorf("the runtime file git takes is not in the result: %q %v", got, runtimeErr)
@@ -109,7 +109,7 @@ func TestACollectionReturnsWhatGitTakes(t *testing.T) {
 			} else if runtimeErr == nil {
 				t.Errorf("the result holds a runtime file git should leave out: %q", got)
 			}
-			if _, err := gitexec.Output(ctx, dir, "show", tip+":.forge/cache/item"); err == nil {
+			if _, err := gitexec.Output(ctx, dir, "show", tip+":.apptown/cache/item"); err == nil {
 				t.Error("result contains ignored cache")
 			}
 			if again, err := driver.Collect(ctx, spec.Key, base, "task result", bundle); err != nil || again != tip {

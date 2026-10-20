@@ -22,21 +22,21 @@ the app itself runs:
 ## As processes: the quick loop
 
 `apptown dev` starts the app's needs in containers and writes their connection
-variables to `.forge/dev.env`. You then run the app with its own tooling:
+variables to `.apptown/dev.env`. You then run the app with its own tooling:
 
 ```sh
 apptown dev
-set -a && . ./.forge/dev.env && set +a && npm run dev
+set -a && . ./.apptown/dev.env && set +a && npm run dev
 ```
 
 An app with several parts (web, worker, a watcher) also gets
-`.forge/Procfile`, one line per part with a command. Run them together with
-`hivemind -f .forge/Procfile`: it starts them, merges their logs, and stops
+`.apptown/Procfile`, one line per part with a command. Run them together with
+`hivemind -f .apptown/Procfile`: it starts them, merges their logs, and stops
 them all on Ctrl-C. Edit the lines if your dev commands differ from the run
 commands. Do not start each with `&` by hand: that leaves orphans and
 tangled logs.
 
-Everything `apptown dev` writes is under `.forge/`, which never lands.
+Everything `apptown dev` writes is under `.apptown/`, which never lands.
 
 In an agent step there is no Ctrl-C: a server left in the foreground holds
 the step until it times out. Start the one command (`npm run dev`,
@@ -73,10 +73,10 @@ when AppTown has one, otherwise on AppTown's host.
 
 ## `apptown dev` in full
 
-- `apptown dev`: start the needs, write `.forge/dev.env` (and
-  `.forge/Procfile` when the app has more than one part); you run the app.
+- `apptown dev`: start the needs, write `.apptown/dev.env` (and
+  `.apptown/Procfile` when the app has more than one part); you run the app.
 - `apptown dev up`: run the whole app in containers with Docker Compose.
-- `apptown dev generate`: write `.forge/docker-compose.yml` and stop.
+- `apptown dev generate`: write `.apptown/docker-compose.yml` and stop.
 - `apptown dev down`: stop either, and remove its volumes.
 
 `apptown dev` asks your AppTown to render the files, so it needs the address

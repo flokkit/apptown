@@ -239,7 +239,7 @@ func TestALandingSavesTheWorkerChatFirst(t *testing.T) {
 	}
 	w.commitOnWorker(t, s.ID, "saved.txt", "earlier turn\n")
 	w.a.changeConsole.SaveAfterTurn(s.ID)
-	w.commitOnWorker(t, s.ID, ".forge/not-source", "x\n")
+	w.commitOnWorker(t, s.ID, ".apptown/not-source", "x\n")
 	if _, err := w.a.Work.RequestLanding(conversation.Context(context.Background(), s), w.change.ID); err == nil || !strings.Contains(err.Error(), "not saved") {
 		t.Fatalf("a landing whose save was refused: %v", err)
 	}
@@ -370,7 +370,7 @@ func TestOpeningOnTheWorkerPublishesTheFolderFirst(t *testing.T) {
 	if err := v.a.Work.PrepareWorkspace(asPerson("owner"), v.change.ID); err != nil {
 		t.Fatal(err)
 	}
-	refused := commitIn(t, v.folder, ".forge/not-source", "refused\n")
+	refused := commitIn(t, v.folder, ".apptown/not-source", "refused\n")
 	_, err = v.openOnWorker(t, conversation.ProjectOpen{ChangeID: v.change.ID})
 	if err == nil || !strings.Contains(err.Error(), "could not be published") {
 		t.Fatalf("opening on the worker from a folder whose work is refused: %v", err)
@@ -463,7 +463,7 @@ func TestAWorkerChatsChangePreviewsItsSavedWork(t *testing.T) {
 	if err := w.a.Console.Send(ctx, s.ID, "go"); err != nil {
 		t.Fatal(err)
 	}
-	saved := w.commitOnWorker(t, s.ID, ".forge/app.yaml", "version: 1\napp:\n  web:\n    static: .\n    public: true\n")
+	saved := w.commitOnWorker(t, s.ID, ".apptown/app.yaml", "version: 1\napp:\n  web:\n    static: .\n    public: true\n")
 	// Asked for before the turn's save: the preview saves first.
 	resp := authzCall(w.a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/preview", w.change.ID), `{}`)
 	if resp.Code == 409 || resp.Code == 422 || resp.Code == 403 {
@@ -473,7 +473,7 @@ func TestAWorkerChatsChangePreviewsItsSavedWork(t *testing.T) {
 	if err != nil || !ok || last.Saved != saved {
 		t.Fatalf("the chat was not saved first: %+v %v %v", last, ok, err)
 	}
-	if _, err := os.Stat(filepath.Join(w.a.cfg.dataDir, "workspaces", fmt.Sprintf("asof-change-%d", w.change.ID), saved, ".forge", "app.yaml")); err != nil {
+	if _, err := os.Stat(filepath.Join(w.a.cfg.dataDir, "workspaces", fmt.Sprintf("asof-change-%d", w.change.ID), saved, ".apptown", "app.yaml")); err != nil {
 		t.Fatalf("the preview did not boot the saved commit: %v", err)
 	}
 	if err := w.a.Console.Warm(ctx, s.ID); err != nil {
@@ -511,7 +511,7 @@ func TestAWorkerChatsSavesAreShownAndARefusedOneDownloads(t *testing.T) {
 		t.Fatalf("the chat as listed: %+v %+v", v, v.Saved)
 	}
 
-	refused := w.commitOnWorker(t, s.ID, ".forge/not-source", "x\n")
+	refused := w.commitOnWorker(t, s.ID, ".apptown/not-source", "x\n")
 	if err := w.a.changeConsole.End(ctx, s.ID, "owner"); err != nil {
 		t.Fatal(err)
 	}
@@ -635,7 +635,7 @@ func TestForgeCheckIsRefusedWhenTheSaveIs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.commitOnWorker(t, s.ID, ".forge/not-source", "refused\n")
+	w.commitOnWorker(t, s.ID, ".apptown/not-source", "refused\n")
 	out := authzCall(w.a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/check", w.change.ID), `{}`)
 	if out.Code != 409 || !strings.Contains(out.Body.String(), "was not checked") {
 		t.Fatalf("HTTP: a refused save did not refuse the check: %d %s", out.Code, out.Body.String())
@@ -988,7 +988,7 @@ func TestALiveChatsRefusedTurnIsNotAnEndedChatsRefusedSave(t *testing.T) {
 	if err := w.a.Console.Warm(context.Background(), s.ID); err != nil {
 		t.Fatal(err)
 	}
-	w.commitOnWorker(t, s.ID, ".forge/not-source", "refused\n")
+	w.commitOnWorker(t, s.ID, ".apptown/not-source", "refused\n")
 	w.a.changeConsole.SaveAfterTurn(s.ID)
 	save, ok, err := repositoryedit.LastChatSave(s.Dir)
 	if err != nil || !ok || save.Outcome != repositoryedit.ChatSaveRefused || save.Kept == "" {
@@ -1138,7 +1138,7 @@ func TestARefusedSaveDoesNotHideAnEarlierSave(t *testing.T) {
 			}
 			if ending {
 				// SaveLast must commit these leftovers before attempting publication.
-				w.commitOnWorker(t, chat.ID, ".forge/not-source", "refused commit\n")
+				w.commitOnWorker(t, chat.ID, ".apptown/not-source", "refused commit\n")
 				w.writeOnWorker(t, chat.ID, "left.txt", "last leftovers\n")
 				if err := w.a.changeConsole.End(context.Background(), chat.ID, "owner"); err != nil {
 					t.Fatal(err)
@@ -1147,7 +1147,7 @@ func TestARefusedSaveDoesNotHideAnEarlierSave(t *testing.T) {
 					t.Fatalf("end failed: %v %v", gone, err)
 				}
 			} else {
-				w.commitOnWorker(t, chat.ID, ".forge/not-source", "refused turn\n")
+				w.commitOnWorker(t, chat.ID, ".apptown/not-source", "refused turn\n")
 				w.a.changeConsole.SaveAfterTurn(chat.ID)
 			}
 			save, ok, err := repositoryedit.LastChatSave(chat.Dir)

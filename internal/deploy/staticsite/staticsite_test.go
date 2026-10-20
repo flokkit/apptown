@@ -17,7 +17,7 @@ var site = []oci.File{
 	{Path: "index.html", Body: []byte("<script src=/assets/app-1.js></script>")},
 	{Path: "assets/app-1.js", Body: []byte("js")},
 	{Path: "about/index.htm", Body: []byte("about")},
-	{Path: "_forge/release", Body: []byte("a file of the site's own")},
+	{Path: "_apptown/release", Body: []byte("a file of the site's own")},
 }
 
 // A set uploads assets, then entry files and the browser values, then the
@@ -31,7 +31,7 @@ func TestASetPutsAssetsThenEntriesThenTheMarkerLast(t *testing.T) {
 	for _, f := range set.Files {
 		order = append(order, f.Key)
 	}
-	if got := strings.Join(order, " "); got != "assets/app-1.js _forge/env.js about/index.htm index.html _forge/release" {
+	if got := strings.Join(order, " "); got != "assets/app-1.js _apptown/env.js about/index.htm index.html _apptown/release" {
 		t.Fatalf("order = %s", got)
 	}
 	last := set.Files[len(set.Files)-1]

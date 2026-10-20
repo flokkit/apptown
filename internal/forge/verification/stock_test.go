@@ -65,21 +65,21 @@ func TestNoIgnoredFilesTrackedAsksTheTreeItself(t *testing.T) {
 	check := sourcedNamed(t, "repo/no-build-artifacts", "no-ignored-files-tracked")
 
 	clean := t.TempDir()
-	writeTree(t, clean, map[string]string{".gitignore": "target/\n.forge/*\n!.forge/app.yaml\n", "src/Main.java": "class Main {}", ".forge/app.yaml": "app: {}"})
+	writeTree(t, clean, map[string]string{".gitignore": "target/\n.apptown/*\n!.apptown/app.yaml\n", "src/Main.java": "class Main {}", ".apptown/app.yaml": "app: {}"})
 	results, findings, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, clean, "t-ign-clean")
 	if len(results) != 1 || results[0].Verdict != workflow.VerdictPass || len(findings) != 0 || errs != 0 {
 		t.Fatalf("a tree that honours its own ignore list passes: %+v %+v %d", results, findings, errs)
 	}
 
 	bad := t.TempDir()
-	writeTree(t, bad, map[string]string{".gitignore": "target/\n.forge/*\n!.forge/app.yaml\n", "src/Main.java": "class Main {}",
-		"target/surefire-reports/TEST-x.xml": "<xml/>", ".forge/CHANGE.md": "report", ".forge/app.yaml": "app: {}"})
+	writeTree(t, bad, map[string]string{".gitignore": "target/\n.apptown/*\n!.apptown/app.yaml\n", "src/Main.java": "class Main {}",
+		"target/surefire-reports/TEST-x.xml": "<xml/>", ".apptown/CHANGE.md": "report", ".apptown/app.yaml": "app: {}"})
 	results, findings, errs = evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, bad, "t-ign-bad")
 	if len(results) != 1 || results[0].Verdict != workflow.VerdictFail || errs != 0 || len(findings) != 1 {
 		t.Fatalf("a force-added ignored file fails: %+v %+v %d", results, findings, errs)
 	}
 	got := strings.Join(findings[0].Items, ",")
-	if !strings.Contains(got, "target/surefire-reports/TEST-x.xml") || !strings.Contains(got, ".forge/CHANGE.md") || strings.Contains(got, "app.yaml") || strings.Contains(got, "Main.java") {
+	if !strings.Contains(got, "target/surefire-reports/TEST-x.xml") || !strings.Contains(got, ".apptown/CHANGE.md") || strings.Contains(got, "app.yaml") || strings.Contains(got, "Main.java") {
 		t.Fatalf("the occurrences name the ignored files and only them: %v", findings[0].Items)
 	}
 
@@ -299,7 +299,7 @@ func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 	for _, c := range cases {
 		dir := t.TempDir()
 		if c.contract != "" {
-			writeTree(t, dir, map[string]string{".forge/app.yaml": c.contract})
+			writeTree(t, dir, map[string]string{".apptown/app.yaml": c.contract})
 		}
 		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-ready")
 		if got := results[0].Verdict == workflow.VerdictPass; got != c.pass || errs != 0 {
@@ -309,7 +309,7 @@ func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 }
 
 // The Django and Rails front-door checks: an app behind the forge's front
-// door is told where it is served in FORGE_ORIGINS, wildcards included
+// door is told where it is served in APPTOWN_ORIGINS, wildcards included
 // (https://*.preview.<domain>). A host list must be built from it with the
 // wildcard written in the framework's leading-dot form; reading the
 // variable alone lets a raw origin, which matches no Host, pass, and a
@@ -319,11 +319,11 @@ func TestFrontDoorChecksWantTranslatedOrigins(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil)
 	djangoGood := "import os\nfrom urllib.parse import urlsplit\n" +
-		"FORGE_ORIGINS = [o for o in os.environ.get(\"FORGE_ORIGINS\", \"\").split(\",\") if o]\n" +
-		"ALLOWED_HOSTS = [\n    \".\" + h[2:] if h.startswith(\"*.\") else h\n    for h in (urlsplit(o).hostname for o in FORGE_ORIGINS)\n] or [\"localhost\", \"127.0.0.1\"]\n" +
-		"CSRF_TRUSTED_ORIGINS = FORGE_ORIGINS\n"
+		"APPTOWN_ORIGINS = [o for o in os.environ.get(\"APPTOWN_ORIGINS\", \"\").split(\",\") if o]\n" +
+		"ALLOWED_HOSTS = [\n    \".\" + h[2:] if h.startswith(\"*.\") else h\n    for h in (urlsplit(o).hostname for o in APPTOWN_ORIGINS)\n] or [\"localhost\", \"127.0.0.1\"]\n" +
+		"CSRF_TRUSTED_ORIGINS = APPTOWN_ORIGINS\n"
 	railsGood := "Rails.application.configure do\n" +
-		"  config.hosts = ENV.fetch(\"FORGE_ORIGINS\", \"\").split(\",\").map { |o| URI(o).host.sub(/\\A\\*\\./, \".\") }\n" +
+		"  config.hosts = ENV.fetch(\"APPTOWN_ORIGINS\", \"\").split(\",\").map { |o| URI(o).host.sub(/\\A\\*\\./, \".\") }\n" +
 		"  config.host_authorization = { exclude: ->(request) { request.path == \"/up\" } }\nend\n"
 	cases := []struct {
 		name, block, file, body string
@@ -333,27 +333,27 @@ func TestFrontDoorChecksWantTranslatedOrigins(t *testing.T) {
 		{"django: the recommended lines", "lang/selection/django-fullstack", "app/settings.py", djangoGood, true},
 		{"django: origins never read", "lang/selection/django-fullstack", "app/settings.py", "ALLOWED_HOSTS = []\n", false},
 		{"django: every host trusted", "lang/selection/django-fullstack", "app/settings.py", "ALLOWED_HOSTS = ['*']\n" + djangoGood, false},
-		{"django: every host trusted without FORGE_ORIGINS", "lang/selection/django-fullstack", "app/settings.py",
+		{"django: every host trusted without APPTOWN_ORIGINS", "lang/selection/django-fullstack", "app/settings.py",
 			strings.Replace(djangoGood, `["localhost", "127.0.0.1"]`, `['*']`, 1), false},
 		{"django: a comment naming the wildcard fallback", "lang/selection/django-fullstack", "app/settings.py",
-			"# Never fall back to or [\"*\"]: an unset FORGE_ORIGINS must not trust every host.\n" + djangoGood, true},
+			"# Never fall back to or [\"*\"]: an unset APPTOWN_ORIGINS must not trust every host.\n" + djangoGood, true},
 		{"django: origins used untranslated", "lang/selection/django-fullstack", "app/settings.py",
-			"ALLOWED_HOSTS = os.environ.get(\"FORGE_ORIGINS\", \"\").split(\",\")\n", false},
+			"ALLOWED_HOSTS = os.environ.get(\"APPTOWN_ORIGINS\", \"\").split(\",\")\n", false},
 		{"rails: no app yet", "lang/selection/rails", "", "", true},
 		{"rails: the recommended lines", "lang/selection/rails", "config/environments/production.rb", railsGood, true},
 		{"rails: origins never read", "lang/selection/rails", "config/environments/production.rb", "Rails.application.configure do\nend\n", false},
 		{"rails: hosts cleared", "lang/selection/rails", "config/environments/production.rb", railsGood + "config.hosts.clear\n", false},
 		{"rails: origins used untranslated", "lang/selection/rails", "config/environments/production.rb",
-			"config.hosts = ENV.fetch(\"FORGE_ORIGINS\", \"\").split(\",\")\nconfig.host_authorization = { exclude: ->(r) { r.path == \"/up\" } }\n", false},
+			"config.hosts = ENV.fetch(\"APPTOWN_ORIGINS\", \"\").split(\",\")\nconfig.host_authorization = { exclude: ->(r) { r.path == \"/up\" } }\n", false},
 		{"rails: probe not excluded", "lang/selection/rails", "config/environments/production.rb",
-			"config.hosts = ENV.fetch(\"FORGE_ORIGINS\", \"\").split(\",\").map { |o| URI(o).host.sub(/\\A\\*\\./, \".\") }\n", false},
+			"config.hosts = ENV.fetch(\"APPTOWN_ORIGINS\", \"\").split(\",\").map { |o| URI(o).host.sub(/\\A\\*\\./, \".\") }\n", false},
 	}
 	for _, c := range cases {
 		dir := t.TempDir()
 		if c.file != "" {
 			writeTree(t, dir, map[string]string{c.file: c.body})
 		}
-		check := sourcedNamed(t, c.block, "trusts-forge-front-door")
+		check := sourcedNamed(t, c.block, "trusts-front-door")
 		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-front-door")
 		if got := results[0].Verdict == workflow.VerdictPass; got != c.pass || errs != 0 {
 			t.Fatalf("%s: want pass=%v, got %+v", c.name, c.pass, results)

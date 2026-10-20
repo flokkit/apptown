@@ -14,7 +14,7 @@ workflow, so stock cannot drift below the bar it holds everyone else to.
 A Kubernetes-style envelope; one loader handles every document kind.
 
 ```yaml
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: quick-change
@@ -251,7 +251,7 @@ Rules come in two kinds:
 The friction-floor working lane, as shipped (prompt abbreviated):
 
 ```yaml
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: quick-change, tier: core, category: change }
 spec:
@@ -267,13 +267,13 @@ spec:
           with:
             skills: [skill/implementation]
             docker: true
-            output: { kind: change-report, name: change-report, file: .forge/CHANGE.md }
+            output: { kind: change-report, name: change-report, file: .apptown/CHANGE.md }
             timeoutMinutes: 10
             prompt: |
               Apply the SMALL change below: the minimal edit that satisfies it.
               If a reviewer has previously rejected this change, their
               feedback is: ${{feedback.latest}}
-              WRITE a short change report to .forge/CHANGE.md.
+              WRITE a short change report to .apptown/CHANGE.md.
               --- CHANGE ---
               ${{workItem.body}}
         - name: boot
@@ -327,7 +327,7 @@ its own report). `agent/review` is adversarial verification as a step:
   request, the authoritative diff (branch vs base) and the implementer's
   report as a claim to check, explicitly told not to trust it;
 - it inspects the workspace when the diff is not conclusive and writes a
-  structured verdict (`.forge/review.json`: verdict, summary, findings) that
+  structured verdict (`.apptown/review.json`: verdict, summary, findings) that
   gates like any check;
 - it judges the work and never changes it: nothing a reviewer leaves in the
   workspace (a test cache, a scratch edit) is committed or published, and

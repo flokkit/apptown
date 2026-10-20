@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const appYamlPath = ".forge/app.yaml"
+const appYamlPath = ".apptown/app.yaml"
 
 func readLocalAppYaml() (string, error) {
 	b, err := os.ReadFile(appYamlPath)
@@ -109,11 +109,11 @@ func cmdDev(args []string) error {
 		if err := json.Unmarshal(raw, &out); err != nil {
 			return err
 		}
-		// Generated files live under .forge/, which the forge never stages
+		// Generated files live under .apptown/, which the forge never stages
 		// and every step ignores — so running `apptown dev` in a change's
 		// workspace leaves no trace in the tree and touches no .gitignore
 		// (an agent's README fix once carried a .gitignore line for this).
-		if err := os.MkdirAll(".forge", 0o755); err != nil {
+		if err := os.MkdirAll(".apptown", 0o755); err != nil {
 			return err
 		}
 		if err := os.WriteFile(devComposePath, []byte(out.Compose), 0o644); err != nil {
@@ -143,7 +143,7 @@ func cmdDev(args []string) error {
 			return nil
 		}
 		if sub == "generate" {
-			fmt.Printf("wrote %s (generated; under .forge/, never committed)\n", devComposePath)
+			fmt.Printf("wrote %s (generated; under .apptown/, never committed)\n", devComposePath)
 			return nil
 		}
 		fmt.Println("$ docker compose up -d --build")
@@ -160,16 +160,16 @@ func cmdDev(args []string) error {
 	return fmt.Errorf("usage: apptown dev [ | up | generate | down]")
 }
 
-// Generated local-dev files live under .forge/: the forge never stages that
+// Generated local-dev files live under .apptown/: the forge never stages that
 // directory and steps ignore it, so `apptown dev` leaves no trace in the tree.
 const (
-	devComposePath  = ".forge/docker-compose.yml"
-	devEnvPath      = ".forge/dev.env"
-	devProcfilePath = ".forge/Procfile"
+	devComposePath  = ".apptown/docker-compose.yml"
+	devEnvPath      = ".apptown/dev.env"
+	devProcfilePath = ".apptown/Procfile"
 )
 
 // devComposeArgs runs compose on the generated file from the repo root: the
-// file sits under .forge/, but its relative paths (build contexts, static
+// file sits under .apptown/, but its relative paths (build contexts, static
 // mounts) name the app's own tree, and compose resolves them against the
 // project directory, which defaults to the file's own folder.
 func devComposeArgs(dcArgs ...string) []string {

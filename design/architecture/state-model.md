@@ -39,7 +39,7 @@ Consequences the design committed to, and how each stands:
 A project has three components:
 
 1. **State** — the code, in the project's hub repository; the app's runtime
-   contract `.forge/app.yaml` in that tree; and the project's **adoption
+   contract `.apptown/app.yaml` in that tree; and the project's **adoption
    revision** — the receipt naming every guidance block at its version and
    every workflow at its library version, plus additions and exclusions.
    Settings rows (members, environments, secrets bindings, decisions,
@@ -84,11 +84,11 @@ from the record.
 ## 3. Where state lives
 
 State does not live in the repository. Workflows, policies and ADRs are not
-files under `.forge/`, and the database is not an index of the tree:
+files under `.apptown/`, and the database is not an index of the tree:
 
 - **Code lives in git**, in a hub the forge hosts (`git-state.md`). The only
-  process file in the tree is `.forge/app.yaml`, the runtime contract, and
-  optionally skills under `.agents/skills`. The rest of `.forge/` is runtime
+  process file in the tree is `.apptown/app.yaml`, the runtime contract, and
+  optionally skills under `.agents/skills`. The rest of `.apptown/` is runtime
   scratch the engine refuses to stage.
 - **Ways of working live in the library**, versioned append-only, and a
   project holds a **receipt** naming the versions it is on. That makes a
@@ -155,7 +155,7 @@ materializations produce rubber stamps.** The ladder:
 |---|---|---|
 | **read** | rendered text | change report, review verdict, steering text, trace |
 | **compare** | diffs | the change's diff against its base, on the page and in the reviewer's brief |
-| **browse** | served artifacts | attachments on a change (`.forge/attachments/`), scan reports, SBOMs |
+| **browse** | served artifacts | attachments on a change (`.apptown/attachments/`), scan reports, SBOMs |
 | **use** | preview environment | one preview per change from its working tree; the boot gate; **rehearsal** after every chat turn that leaves a runnable app |
 | **inhabit** | a shell in the workspace | the change chat's terminal — the workshop *is* the workspace |
 

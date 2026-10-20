@@ -73,7 +73,7 @@ func (a *Executor) agentEnv(ctx context.Context, run *workflow.Run, step *workfl
 		if _, err := a.home.Stage(ctx, ws, run.ProjectID); err != nil {
 			return nil, "", err
 		}
-		env = append(env, "HOME=/work/.forge/pi-home")
+		env = append(env, "HOME=/work/.apptown/pi-home")
 
 	}
 	return env, scmGranted, nil

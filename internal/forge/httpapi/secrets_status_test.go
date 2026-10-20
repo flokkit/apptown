@@ -24,7 +24,7 @@ func TestSecretsAPI(t *testing.T) {
 	httpTestProject(t, db, "p", "Project")
 	h := NewSecrets(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), projects, nil, db, dir, nil)
 	repo := filepath.Join(dir, "workspaces", "project-p")
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	contract := `version: 1
@@ -46,7 +46,7 @@ secrets:
   generate:
     SECRET_KEY_BASE: deployment
 `
-	if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte(contract), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(contract), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	spec, err := os.ReadFile("../secret/testdata/declaration.toml")

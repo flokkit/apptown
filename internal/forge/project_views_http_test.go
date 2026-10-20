@@ -85,7 +85,7 @@ func TestRepositoryHTTPDiffAndManifestIdentifyCurrentProjectWork(t *testing.T) {
 			t.Fatalf("%v: %s", args, out)
 		}
 	}
-	seedLibraryWorkflow(t, a, idstest.N(1), "review", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, idstest.N(1), "review", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: review}
 spec:

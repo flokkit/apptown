@@ -17,7 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// editDeclaration returns the project's .forge/app.yaml bytes with its
+// editDeclaration returns the project's .apptown/app.yaml bytes with its
 // `needs:` set to the given picks (design/decisions/forge-native-contract.md).
 // It edits needs only; the app's parts are the app's and change through a
 // Change like any other source (an editor that wrote raw image parts could
@@ -32,7 +32,7 @@ func editDeclaration(repo string, needs []NeedSelection) ([]byte, error) {
 	current := &appcontract.Contract{}
 	// Read without following a link the repository holds: what is read is
 	// committed back into the repository (scm.ReadInTree).
-	if raw, err := scm.ReadInTree(repo, filepath.Join(".forge", "app.yaml")); err == nil {
+	if raw, err := scm.ReadInTree(repo, filepath.Join(".apptown", "app.yaml")); err == nil {
 		if current, err = appcontract.Parse(raw); err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func editDeclaration(repo string, needs []NeedSelection) ([]byte, error) {
 	for _, n := range needs {
 		for k, v := range n.Params {
 			if got := edited.NeedParams[n.Capability][k]; got != fmt.Sprint(v) {
-				return nil, fmt.Errorf("need %s: %s would read %q, not %q; edit .forge/app.yaml through a change", n.Capability, k, got, fmt.Sprint(v))
+				return nil, fmt.Errorf("need %s: %s would read %q, not %q; edit .apptown/app.yaml through a change", n.Capability, k, got, fmt.Sprint(v))
 			}
 		}
 	}
@@ -114,7 +114,7 @@ var ErrNeedsUnchanged = errors.New("these are the services declared now; nothing
 // DeclarationVersion names the app.yaml an edit starts from: a hash of its
 // bytes, or "" when there is none.
 func DeclarationVersion(repo string) (string, error) {
-	raw, err := os.ReadFile(filepath.Join(repo, ".forge", "app.yaml"))
+	raw, err := os.ReadFile(filepath.Join(repo, ".apptown", "app.yaml"))
 	if errors.Is(err, os.ErrNotExist) {
 		return "", nil
 	}

@@ -61,7 +61,7 @@ func TestChangeApplyRefusesWrongActs(t *testing.T) {
 	change := ChangeLifecycle{ID: idstest.N(3), ProjectID: idstest.N(1), State: ChangeProposed}
 
 	started, err := change.Apply(ChangeMove{Action: StartChange, NameBranch: true})
-	if err != nil || started.State != ChangeInProgress || started.Branch != "forge/change-"+idstest.N(3).String() {
+	if err != nil || started.State != ChangeInProgress || started.Branch != "apptown/change-"+idstest.N(3).String() {
 		t.Fatalf("start names the branch: %+v err=%v", started, err)
 	}
 	if _, err := started.Apply(ChangeMove{Action: LandChange}); err == nil {

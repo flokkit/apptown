@@ -467,7 +467,7 @@ func TestALandedPushSpendsItsTicketThoughTheClientHangsUp(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	testAccounts(t, a.DB, "alice")
-	_, ticket, err := a.Access.IssueTicket(context.Background(), "alice", ids.Nil, idstest.N(7), "refs/heads/forge/change-00000000-0007-7000-8000-000000000000", "")
+	_, ticket, err := a.Access.IssueTicket(context.Background(), "alice", ids.Nil, idstest.N(7), "refs/heads/apptown/change-00000000-0007-7000-8000-000000000000", "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -52,7 +52,7 @@ func judgeMemoryDeclared(c *appcontract.Contract) check.ProbeVerdict {
 	switch {
 	case len(missing) > 0:
 		return check.ProbeVerdict{Outcome: check.DoesNotConform, Detail: fmt.Sprintf(
-			"%s declares no memory; an enforced default is not an app declaration: add  resources: { memory: <size> }  under the part in .forge/app.yaml, measured to fit (deploy/memory-declared says how for each runtime)",
+			"%s declares no memory; an enforced default is not an app declaration: add  resources: { memory: <size> }  under the part in .apptown/app.yaml, measured to fit (deploy/memory-declared says how for each runtime)",
 			partList(missing))}
 	case len(declared) == 0:
 		return check.ProbeVerdict{Outcome: check.Conforms, Detail: "only static parts: AppTown's own file server serves them and they declare nothing"}
@@ -83,7 +83,7 @@ func (o Runtime) contractJudged(ctx context.Context, t Target) (*appcontract.Con
 	}
 	switch {
 	case errors.Is(err, docker.ErrNoContract):
-		return nil, "the app has no .forge/app.yaml, so nothing declares what its parts may use"
+		return nil, "the app has no .apptown/app.yaml, so nothing declares what its parts may use"
 	case err != nil:
 		return nil, "the app's contract could not be read: " + err.Error()
 	case c == nil:

@@ -3,7 +3,7 @@
 # approves THE PLAN (that's the judgment moment); execution then implements
 # against it and is reviewed against the plan's criteria verbatim. The
 # approved plan is a first-class artifact — "what was agreed" is a fact.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: plan-execute
@@ -26,14 +26,14 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: plan, name: plan, file: .forge/PLAN.md }
+            output: { kind: plan, name: plan, file: .apptown/PLAN.md }
             timeoutMinutes: 20
             prompt: |
               Explore the CURRENT WORKING DIRECTORY and draft a plan for the
               task below. Do NOT implement anything in this step — read code,
               run read-only commands, understand the territory.
 
-              WRITE .forge/PLAN.md:
+              WRITE .apptown/PLAN.md:
               - Problem: what we're solving, in one paragraph
               - Approach: the chosen approach and one rejected alternative
               - Steps: ordered, each small enough to verify
@@ -68,10 +68,10 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: exec-report, name: exec-report, file: .forge/EXEC.md }
+            output: { kind: exec-report, name: exec-report, file: .apptown/EXEC.md }
             timeoutMinutes: 40
             prompt: |
-              .forge/PLAN.md is the APPROVED plan for this
+              .apptown/PLAN.md is the APPROVED plan for this
               Change. Implement it step by step. Deviate only where the code
               forces you to, and record every deviation.
 
@@ -82,7 +82,7 @@ spec:
               ${{feedback.latest}}
               Address it precisely.
 
-              WRITE .forge/EXEC.md:
+              WRITE .apptown/EXEC.md:
               - The plan's acceptance criteria, verbatim, one per line, each
                 marked PASS/FAIL with the command and output that proves it
               - Deviations from the plan, each with its reason
@@ -108,7 +108,7 @@ spec:
             model: review
             of: exec-report
             prompt: >-
-              Judge the diff against .forge/PLAN.md's acceptance criteria VERBATIM,
+              Judge the diff against .apptown/PLAN.md's acceptance criteria VERBATIM,
               item by item — the report claims PASS per criterion; verify each
               claim against the diff and evidence. Unexplained deviations from
               the plan fail the review.

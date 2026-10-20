@@ -112,8 +112,8 @@ func TestARefusedResultIsKeptForItsDownload(t *testing.T) {
 				}
 				why = "moved: expected " + given[:12]
 			case "not source":
-				files[".gitignore"], files[".forge/runtime.json"] = "!.forge/runtime.json\n", "{}\n"
-				why = ".forge/runtime.json"
+				files[".gitignore"], files[".apptown/runtime.json"] = "!.apptown/runtime.json\n", "{}\n"
+				why = ".apptown/runtime.json"
 			case "too large":
 				files["big.bin"] = strings.Repeat("x", 11<<20)
 				why = "big.bin"

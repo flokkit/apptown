@@ -25,17 +25,17 @@ func TestAgentsAndTestsStartAPostgresForTheirTests(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := "app: {web: {image: nginx, public: true}}\nneeds: {postgres: {}}\n"
-	f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": body})
+	f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": body})
 	req := f.build(t)
 	if p := req.spec.Private; p == nil || len(p.Services) != 1 || p.Services[0].Env["APP_SUPERUSER"] != "true" {
 		t.Errorf("an agent on a worker: %+v", req.spec.Private)
 	}
 
 	staged := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(staged, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(staged, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(staged, ".forge/app.yaml"), []byte(body), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(staged, ".apptown/app.yaml"), []byte(body), 0644); err != nil {
 		t.Fatal(err)
 	}
 	services, _, _, _, err := (&Commands{catalog: f.exec.dependencies}).testServices(t.Context(), staged)

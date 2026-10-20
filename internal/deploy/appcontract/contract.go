@@ -2,7 +2,7 @@ package appcontract
 
 import "maps"
 
-// Contract is the canonical declaration parsed from .forge/app.yaml. Callers
+// Contract is the canonical declaration parsed from .apptown/app.yaml. Callers
 // retain it as source intent and use Prepare for mutable execution inputs.
 type Contract struct {
 	Needs      []string
@@ -52,7 +52,7 @@ type InitContainer struct {
 	Env     map[string]string
 }
 
-// Part is one app-owned container from .forge/app.yaml's `app:` map. Compose
+// Part is one app-owned container from .apptown/app.yaml's `app:` map. Compose
 // conventions for the run mechanics; Public marks the front door (exactly one).
 type Part struct {
 	Name   string
@@ -96,17 +96,17 @@ func (p *Part) IsStatic() bool {
 // BrowserEnvVar carries a static part's browser-safe values. The forge alone
 // sets it; a contract or secret that names it is refused, so nothing can
 // replace what the page is given.
-const BrowserEnvVar = "FORGE_BROWSER_ENV"
+const BrowserEnvVar = "APPTOWN_BROWSER_ENV"
 
 // ReleaseEnvVar carries a static part's release identity
 // (ReleaseIdentity); its file server answers it at ReleasePath, so a target
 // whose front door the forge can only reach from outside (App Platform) can
 // witness that the part it deployed, in this release, is what answers. The
 // forge sets it.
-const ReleaseEnvVar = "FORGE_RELEASE"
+const ReleaseEnvVar = "APPTOWN_RELEASE"
 
 // ReleasePath is where a static site's file server answers ReleaseEnvVar.
-const ReleasePath = "/_forge/release"
+const ReleasePath = "/_apptown/release"
 
 // ReleaseIdentity is what a static part's file server is told to answer:
 // the part by name and the revision its release was cut from.

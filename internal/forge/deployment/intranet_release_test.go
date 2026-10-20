@@ -58,12 +58,12 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	commit := func(marker string) string {
 		t.Helper()
-		if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte("app:\n  web:\n    image: example/app:1\n    ports: ['8080']\n    public: true\n    environment:\n      MARKER: "+marker+"\n"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web:\n    image: example/app:1\n    ports: ['8080']\n    public: true\n    environment:\n      MARKER: "+marker+"\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := releaseGit(t.Context(), repo, "add", "-A"); err != nil {

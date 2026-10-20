@@ -470,7 +470,7 @@ func newReleaseWorld(t *testing.T, configure func(*Config)) *releaseWorld {
 		t.Fatalf("project fixture ID = %d, want 1", id)
 	}
 	// One front door for every daemon: the forge's file server, which
-	// answers /_forge/release with the release its container was told.
+	// answers /_apptown/release with the release its container was told.
 	told := &atomic.Pointer[string]{}
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == appcontract.ReleasePath {
@@ -541,7 +541,7 @@ func (w *releaseWorld) landingRun(t *testing.T) (*workflow.Run, ids.ID) {
 	if appYAML == "" {
 		appYAML = releaseAppYAML
 	}
-	files := map[string]string{".forge/app.yaml": strings.ReplaceAll(appYAML, "%[1]s", w.registry.host), "site/index.html": "<html>p</html>",
+	files := map[string]string{".apptown/app.yaml": strings.ReplaceAll(appYAML, "%[1]s", w.registry.host), "site/index.html": "<html>p</html>",
 		"worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n"}
 	for name, body := range w.files {
 		files[name] = body
@@ -1582,7 +1582,7 @@ func TestAReleaseDetailShowsItsBundlesFormAndDigests(t *testing.T) {
 		}
 	}
 	// A bundle of image IDs, cut as a forge without a worker cuts one.
-	contract, err := os.ReadFile(filepath.Join(p.a.projectRepoPath("p"), ".forge", "app.yaml"))
+	contract, err := os.ReadFile(filepath.Join(p.a.projectRepoPath("p"), ".apptown", "app.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

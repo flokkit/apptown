@@ -23,17 +23,17 @@ func TestAgentsAndTestsRefuseTheNeedsAReleaseRefuses(t *testing.T) {
 				t.Fatal(err)
 			}
 			body := "app: {web: {image: nginx, public: true}}\nneeds: " + declaration + "\n"
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": body})
+			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": body})
 			_, err := f.exec.prepareAgentOnWorker(t.Context(), f.call)
 			if err == nil {
 				t.Error("worker agent accepted a withdrawn declaration")
 			}
 
 			staged := t.TempDir()
-			if err := os.MkdirAll(filepath.Join(staged, ".forge"), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Join(staged, ".apptown"), 0755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(staged, ".forge/app.yaml"), []byte(body), 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(staged, ".apptown/app.yaml"), []byte(body), 0644); err != nil {
 				t.Fatal(err)
 			}
 			commands := &Commands{catalog: f.exec.dependencies}

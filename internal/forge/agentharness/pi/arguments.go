@@ -10,8 +10,8 @@ import "path/filepath"
 type StepPaths struct{ Sessions, Steering, SessionFile string }
 
 // FolderStepPaths: Pi on the forge's host works in the run's folder, with
-// its transcripts and steering under .forge.
-var FolderStepPaths = StepPaths{Sessions: filepath.Join(".forge", "sessions"), Steering: filepath.Join(".forge", "steering.md")}
+// its transcripts and steering under .apptown.
+var FolderStepPaths = StepPaths{Sessions: filepath.Join(".apptown", "sessions"), Steering: filepath.Join(".apptown", "steering.md")}
 
 func StepArgs(at StepPaths, sessionID, executor string, steered bool, model, thinking, prompt string) []string {
 	args := []string{"--print", "--mode", "json", "--no-context-files"}
@@ -39,9 +39,9 @@ func StepArgs(at StepPaths, sessionID, executor string, steered bool, model, thi
 }
 
 // ReviewArgs is a review's argv on the forge's own machine: its sessions
-// under .forge/sessions, a wrap-up or fixup continuing the newest one.
+// under .apptown/sessions, a wrap-up or fixup continuing the newest one.
 func ReviewArgs(model, thinking string, resume bool, message string) []string {
-	session := []string{"--session-dir", filepath.Join(".forge", "sessions")}
+	session := []string{"--session-dir", filepath.Join(".apptown", "sessions")}
 	if resume {
 		session = append(session, "--continue")
 	}

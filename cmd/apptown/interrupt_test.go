@@ -33,7 +33,7 @@ const interruptChild = "APPTOWN_TEST_INTERRUPT_CHILD"
 // gone.
 func TestAnInterruptedCheckLeavesNoGitBehind(t *testing.T) {
 	if dir := os.Getenv(interruptChild); dir != "" {
-		go func() { _ = sendScratch("0123456789012345678901234567890123456789", "refs/forge/scratch/1") }()
+		go func() { _ = sendScratch("0123456789012345678901234567890123456789", "refs/apptown/scratch/1") }()
 		if !poll.Until(context.Background(), 10*time.Second, 10*time.Millisecond, func() bool {
 			_, err := os.Stat(filepath.Join(dir, "started"))
 			return err == nil

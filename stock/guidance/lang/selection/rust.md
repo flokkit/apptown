@@ -17,7 +17,7 @@ Rust services and tools: stable toolchain pinned in mise.toml
   integration tests only when a binary boundary exists. The landing runs
   `make test`, and the seeded Makefile runs `cargo test --locked`: keep
   that target running the whole suite.
-- The release binary is the deployable: the seeded `.forge/app.yaml`
+- The release binary is the deployable: the seeded `.apptown/app.yaml`
   builds it with `build: .` (the seeded Dockerfile runs `cargo install
   --locked`, so `Cargo.lock` is committed, and starts the binary as an
   unprivileged user), or runs a pushed `image:`. The app listens on
@@ -38,5 +38,5 @@ everything Cargo writes.
 
 **Fits a container limit.** A Rust service needs nothing set; a small one
 uses a few megabytes, so declare `resources: { memory: 48M }` in
-`.forge/app.yaml` and raise it when the deployment's card shows it near the
+`.apptown/app.yaml` and raise it when the deployment's card shows it near the
 limit. deploy/memory-declared says how to choose and check it.

@@ -93,7 +93,7 @@ func TestFirstLandingUsesStartingImageWithoutAServingRelease(t *testing.T) {
 	binary := scannerProcess(t, 0)
 	// Images come from the fake daemon; the scanner process is the script.
 	f.Scanners.exec.Run = LocalExecutor(execution.Runner{DockerBinary: binary}, f.Scanners.docker, "", nil).Run
-	base := f.Scanners.baseImageFingerprints(f.Context, f.ProjectID, repo, sha, check.Scanner{Image: "scanner", Format: "sarif", Report: ".forge/semgrep.sarif", Kind: "sast"}, "scanner", scan, []string{"scan", "${IMAGE_TAR}"}, "scan")
+	base := f.Scanners.baseImageFingerprints(f.Context, f.ProjectID, repo, sha, check.Scanner{Image: "scanner", Format: "sarif", Report: ".apptown/semgrep.sarif", Kind: "sast"}, "scanner", scan, []string{"scan", "${IMAGE_TAR}"}, "scan")
 	if !base.OK || len(base.Findings) != 1 || !strings.Contains(base.Note, "compared with starting revision's image at ") {
 		t.Fatalf("baseline: %+v", base)
 	}
@@ -118,10 +118,10 @@ func baselineTree(t *testing.T, contract string) (string, string) {
 	}
 	git("init", "-q")
 	if contract != "" {
-		if err := os.Mkdir(filepath.Join(repo, ".forge"), 0o755); err != nil {
+		if err := os.Mkdir(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte(contract), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(contract), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

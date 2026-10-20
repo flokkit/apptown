@@ -202,7 +202,7 @@ func gitOut(t *testing.T, dir string, args ...string) string {
 
 // linkingBundle is code whose tree links out of itself: a .gitignore and a
 // Dockerfile that point at files not yet made outside, a mise.toml that
-// points at one, and a .forge that points at a directory outside. Git
+// points at one, and a .apptown that points at a directory outside. Git
 // keeps links as links; the forge must never write through them.
 func linkingBundle(t *testing.T, outside string) []byte {
 	t.Helper()
@@ -219,7 +219,7 @@ func linkingBundle(t *testing.T, outside string) []byte {
 		".gitignore": filepath.Join(outside, "ignore"),
 		"Dockerfile": filepath.Join(outside, "dockerfile"),
 		"mise.toml":  filepath.Join(outside, "mise"),
-		".forge":     filepath.Join(outside, "forgedir"),
+		".apptown":   filepath.Join(outside, "forgedir"),
 	} {
 		if err := os.Symlink(target, filepath.Join(dir, name)); err != nil {
 			t.Fatal(err)
@@ -267,7 +267,7 @@ func TestSetupNeverWritesThroughALinkInImportedCode(t *testing.T) {
 		t.Fatalf("pack: %d %s", w.Code, w.Body.String())
 	}
 	if !slices.Contains(applied.Seeded, "README.md") ||
-		!slices.ContainsFunc(applied.Missing, func(m string) bool { return strings.Contains(m, ".forge/app.yaml not written") }) ||
+		!slices.ContainsFunc(applied.Missing, func(m string) bool { return strings.Contains(m, ".apptown/app.yaml not written") }) ||
 		!slices.ContainsFunc(applied.Missing, func(m string) bool { return strings.Contains(m, ".gitignore not written") }) {
 		t.Fatalf("the pack should write the rest and name each refused file: %+v", applied)
 	}

@@ -114,11 +114,11 @@ func TestARuntimeCheckIsNotAttributedToAnUnprovenPreview(t *testing.T) {
 	t.Parallel()
 	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/_forge/env.js" {
+		if r.URL.Path == "/_apptown/env.js" {
 			w.Write([]byte(docker.BrowserEnvScript(given)))
 			return
 		}
-		w.Write([]byte(`<html><script src="/_forge/env.js"></script><script src="game.js"></script></html>`))
+		w.Write([]byte(`<html><script src="/_apptown/env.js"></script><script src="game.js"></script></html>`))
 	}))
 	defer server.Close()
 	_, port, _ := net.SplitHostPort(server.Listener.Addr().String())
@@ -126,7 +126,7 @@ func TestARuntimeCheckIsNotAttributedToAnUnprovenPreview(t *testing.T) {
 	daemon.port, _ = strconv.Atoi(port)
 	a := testApp(t, Config{DockerClient: daemon})
 	run, source := reviewLanding(t, a, []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
-		".forge/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html>does not load browser values</html>",
+		".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html>does not load browser values</html>",
 	}, func(pid ids.ID) {
 		adopt(t, a, pid, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 		if err := a.Integrations.Attachments.Remember(t.Context(), pid, "errors", "glitchtip", `{"dsn":"https://key@errors.example/3"}`); err != nil {
@@ -160,7 +160,7 @@ func TestGuidanceScopeAndReworkEvidenceUseTheCandidate(t *testing.T) {
 		t.Run(fmt.Sprintf("change-live-ignore=%t", mutateIgnore), func(t *testing.T) {
 			a := testApp(t, Config{DockerClient: newFakeDocker()})
 			run, source := reviewLanding(t, a, []schema.Step{{Name: "catch-up", Uses: "reconcile"}, {Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
-				".gitignore": "artifacts/\n", "artifacts/output.txt": "generated output", ".forge/app.yaml": "app:\n  web: {static: ., public: true}\n",
+				".gitignore": "artifacts/\n", "artifacts/output.txt": "generated output", ".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n",
 			}, func(pid ids.ID) {
 				adopt(t, a, pid, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 			})
@@ -206,11 +206,11 @@ func landingWithAPage(t *testing.T, beforeLanding func(*App, ids.ID)) (*App, *fa
 	t.Helper()
 	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/_forge/env.js" {
+		if r.URL.Path == "/_apptown/env.js" {
 			w.Write([]byte(docker.BrowserEnvScript(given)))
 			return
 		}
-		w.Write([]byte(`<html><script src="/_forge/env.js"></script><script src="game.js"></script></html>`))
+		w.Write([]byte(`<html><script src="/_apptown/env.js"></script><script src="game.js"></script></html>`))
 	}))
 	t.Cleanup(server.Close)
 	_, port, _ := net.SplitHostPort(server.Listener.Addr().String())
@@ -219,7 +219,7 @@ func landingWithAPage(t *testing.T, beforeLanding func(*App, ids.ID)) (*App, *fa
 	a := testApp(t, Config{DockerClient: daemon, DockerProbe: &docker.Probe{Settle: time.Millisecond}})
 	a.SyncStockDependencies(context.Background()) // error reporting's definition says what the page is given
 	run, source := reviewLanding(t, a, []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
-		".forge/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html>the change's page</html>",
+		".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html>the change's page</html>",
 	}, func(pid ids.ID) {
 		adopt(t, a, pid, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 		if err := a.Integrations.Attachments.Remember(t.Context(), pid, "errors", "glitchtip", `{"dsn":"https://key@errors.example/3"}`); err != nil {

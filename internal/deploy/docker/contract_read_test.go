@@ -9,21 +9,21 @@ import (
 
 func TestReadAppContract(t *testing.T) {
 	t.Parallel()
-	// Only .forge/app.yaml supplies the runtime; absence is ErrNoContract.
+	// Only .apptown/app.yaml supplies the runtime; absence is ErrNoContract.
 	if _, err := ReadWorkspaceContract(t.TempDir()); err != ErrNoContract {
 		t.Fatalf("missing contract must be ErrNoContract, got %v", err)
 	}
 	repo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, ".forge/app.json"), []byte(`{"static":"."}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown/app.json"), []byte(`{"static":"."}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ReadWorkspaceContract(repo); err != ErrNoContract {
 		t.Fatalf("retired file must not supply a runtime: %v", err)
 	}
-	if err := os.Mkdir(filepath.Join(repo, ".forge/app.yaml"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(repo, ".apptown/app.yaml"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ReadWorkspaceContract(repo); err == nil || err == ErrNoContract {

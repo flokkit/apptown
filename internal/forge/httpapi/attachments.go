@@ -126,7 +126,7 @@ func (h Attachments) DeleteAttachment(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = os.Remove(filepath.Join((workflow.GitWorkspace{DataDir: h.dataDir}).AttachmentDir(ch.ID), name))
 	wt := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
-	_ = os.Remove(filepath.Join(wt, ".forge", "attachments", name))
+	_ = os.Remove(filepath.Join(wt, ".apptown", "attachments", name))
 	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "change.attachment-removed", fmt.Sprintf("change %d: %s", ch.ID, name), nil)
 	WriteJSON(w, 200, Done{OK: true})
 }

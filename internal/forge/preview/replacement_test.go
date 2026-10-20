@@ -79,7 +79,7 @@ func TestAFailedPreparationLeavesTheServedSnapshotAlone(t *testing.T) {
 	t.Parallel()
 	s, _, client, dir, projectID := previewBootWorld(t, "")
 	repo := filepath.Join(dir, "workspaces", "project-p")
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	write := func(path, body string) {
@@ -97,7 +97,7 @@ func TestAFailedPreparationLeavesTheServedSnapshotAlone(t *testing.T) {
 		return strings.TrimSpace(out)
 	}
 	contract := "version: 1\napp:\n  web:\n    static: .\n    public: true\n"
-	write(".forge/app.yaml", contract)
+	write(".apptown/app.yaml", contract)
 	write("index.html", "original site")
 	git("init", "-q")
 	git("add", ".")
@@ -107,7 +107,7 @@ func TestAFailedPreparationLeavesTheServedSnapshotAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	client.ResetCommands()
-	write(".forge/app.yaml", contract+"needs:\n  no-such-thing: {}\n")
+	write(".apptown/app.yaml", contract+"needs:\n  no-such-thing: {}\n")
 	write("index.html", "replacement site")
 	git("add", ".")
 	git("-c", "user.name=review", "-c", "user.email=review@example.invalid", "commit", "-qm", "invalid replacement")

@@ -12,7 +12,7 @@ func TestWorkflowLibraryHTTPSelectionHistoryAndValidation(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	h := a.Handler()
-	source := `apiVersion: forge.flokkit.io/v1
+	source := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: custom-review, description: A review lane}
 spec:
@@ -42,7 +42,7 @@ spec:
 	}
 	// The format a save holds a workflow to is published for editors and
 	// agents, and a save refuses what it does not describe.
-	if w := authzCall(h, "owner", "GET", "/api/v1/workflows/schema", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"forge.flokkit.io/v1"`) {
+	if w := authzCall(h, "owner", "GET", "/api/v1/workflows/schema", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"apptown.dev/v1"`) {
 		t.Fatalf("workflow schema: %d %.200s", w.Code, w.Body.String())
 	}
 	if w := authzCall(h, "owner", "POST", "/api/v1/workflows/validate", body(strings.Replace(source, "kind: Workflow", "kind: Workflow\nlabels: [x]", 1))); !strings.Contains(w.Body.String(), "labels") {

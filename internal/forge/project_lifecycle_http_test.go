@@ -209,7 +209,7 @@ func plantCommit(t *testing.T, hub, base, path, body string) string {
 func heldRun(t *testing.T, a *App, projectID, changeID ids.ID) ids.ID {
 	t.Helper()
 	held := `
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: held }
 spec:
@@ -279,9 +279,9 @@ func TestAProjectExportsWithItsHistoryAndChats(t *testing.T) {
 	// download, as repositoryedit.SaveChat keeps one; the chat's save record
 	// names it.
 	hub := a.projectRepoPath("app")
-	credential := plantCommit(t, hub, "main", ".forge/pi-home/auth.json", "planted-credential-7f3a")
-	gittest.Run(t, hub, "update-ref", "refs/forge/refused/chat-"+projectChat, credential)
-	if err := repositoryedit.RecordChatSave(filepath.Join(a.cfg.dataDir, "console", projectChat), repositoryedit.ChatSave{Outcome: "refused", Reason: "a .forge path", Kept: "refs/forge/refused/chat-" + projectChat}); err != nil {
+	credential := plantCommit(t, hub, "main", ".apptown/pi-home/auth.json", "planted-credential-7f3a")
+	gittest.Run(t, hub, "update-ref", "refs/apptown/refused/chat-"+projectChat, credential)
+	if err := repositoryedit.RecordChatSave(filepath.Join(a.cfg.dataDir, "console", projectChat), repositoryedit.ChatSave{Outcome: "refused", Reason: "a .apptown path", Kept: "refs/apptown/refused/chat-" + projectChat}); err != nil {
 		t.Fatal(err)
 	}
 	w.call(t, "POST", "/api/v1/projects/app/adrs", `{"title":"Use a canvas"}`, 201)
@@ -347,7 +347,7 @@ func TestAProjectExportsWithItsHistoryAndChats(t *testing.T) {
 		if r.ID == running {
 			t.Fatalf("the running run %d moved", running)
 		}
-		runBranches[fmt.Sprintf("refs/heads/forge/run-%d", r.ID)] = true
+		runBranches[fmt.Sprintf("refs/heads/apptown/run-%d", r.ID)] = true
 	}
 	var want []string
 	for _, line := range strings.Split(gittest.Run(t, hub, "for-each-ref", "--format=%(objectname) %(refname)"), "\n") {
@@ -473,7 +473,7 @@ func TestAProjectExportsWithItsHistoryAndChats(t *testing.T) {
 		}
 	}
 	var saved map[string]any
-	if err := json.Unmarshal(files["chats/"+projectChat+"/"+console.SavedFile], &saved); err != nil || saved["kept"] != nil || saved["keptOnSource"] != "refs/forge/refused/chat-"+projectChat {
+	if err := json.Unmarshal(files["chats/"+projectChat+"/"+console.SavedFile], &saved); err != nil || saved["kept"] != nil || saved["keptOnSource"] != "refs/apptown/refused/chat-"+projectChat {
 		t.Fatalf("the save record still points at refused work as carried: %v %v", saved, err)
 	}
 	if _, ok := files["chats/"+projectChat+"/uploads/picture-1.png"]; !ok {
@@ -666,16 +666,16 @@ func TestAnExportRefusesWhatWouldMakeItWrongAndNamesIt(t *testing.T) {
 	// A lane's build report committed on the default branch, as older lanes
 	// did: prose, which moves.
 	hub := a.projectRepoPath("app")
-	report := plantCommit(t, hub, p.DefaultBranch, ".forge/REPORT.md", "# Build report\n")
+	report := plantCommit(t, hub, p.DefaultBranch, ".apptown/REPORT.md", "# Build report\n")
 	gittest.Run(t, hub, "update-ref", "refs/heads/"+p.DefaultBranch, report)
 	if res := bearerCall(a, w.boss, "GET", "/api/v1/projects/app/export", ""); res.Code != 200 {
 		t.Fatalf("a committed build report refused the export: %d %s", res.Code, res.Body.String())
 	}
 	// The default branch holding an agent's home, as history from before the
 	// publication's source rule could: never carried.
-	planted := plantCommit(t, hub, p.DefaultBranch, ".forge/pi-home/auth.json", "planted-credential")
+	planted := plantCommit(t, hub, p.DefaultBranch, ".apptown/pi-home/auth.json", "planted-credential")
 	gittest.Run(t, hub, "update-ref", "refs/heads/"+p.DefaultBranch, planted)
-	refused(".forge/pi-home/auth.json")
+	refused(".apptown/pi-home/auth.json")
 
 	evalCopyForTest(t, a, p.ID)
 	refused("eval copy")

@@ -8,7 +8,7 @@ import (
 func TestWorkflowSummary(t *testing.T) {
 	t.Parallel()
 	sum := summarizeWorkflow(`
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: build, description: builds things}
 spec:
@@ -45,7 +45,7 @@ spec:
 func TestSummaryApprovalGloss(t *testing.T) {
 	t.Parallel()
 	sum := summarizeWorkflow(`
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: g }
 spec:
@@ -73,7 +73,7 @@ spec:
 
 	// Pre-rule stored documents still read (prospective law).
 	old := summarizeWorkflow(`
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: old }
 spec:
@@ -94,7 +94,7 @@ spec:
 func TestSummaryAgentGlossDoesNotQuoteThePrompt(t *testing.T) {
 	t.Parallel()
 	sum := summarizeWorkflow(`
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: g }
 spec:

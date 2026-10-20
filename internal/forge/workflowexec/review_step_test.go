@@ -47,7 +47,7 @@ func admittedReviewStep(t *testing.T) (*taskForge, ids.ID, ids.ID) {
 
 func writeVerdict(t *testing.T, ws, body string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "review.json"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "review.json"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -78,7 +78,7 @@ func TestReviewVerdictSettlementRetriesWithoutReviewingAgain(t *testing.T) {
 // the change's folder while judging it (a cache from running the tests, an
 // edit to a tracked file) is discarded, so neither the review's step nor
 // the next producing step commits it as the change's. The verdict, under
-// .forge, is kept and counts.
+// .apptown, is kept and counts.
 func TestAReviewCommitsNothingAndLeavesNothing(t *testing.T) {
 	t.Parallel()
 	a, _, stepID := admittedReviewStep(t)
@@ -111,7 +111,7 @@ func TestAReviewCommitsNothingAndLeavesNothing(t *testing.T) {
 	if head := gittest.Run(t, ws, "rev-parse", "HEAD"); head != reviewed {
 		t.Fatalf("the review committed: the folder is at %s, it was given %s\n%s", head, reviewed, gittest.Run(t, ws, "log", "--stat", "-1"))
 	}
-	if left := gittest.Run(t, ws, "status", "--porcelain", "--", ".", ":(exclude).forge"); left != "" {
+	if left := gittest.Run(t, ws, "status", "--porcelain", "--", ".", ":(exclude).apptown"); left != "" {
 		t.Fatalf("the reviewer's changes are still in the folder:\n%s", left)
 	}
 }

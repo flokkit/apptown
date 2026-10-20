@@ -113,10 +113,10 @@ func TestRunToolChecksExecImageSharedBuild(t *testing.T) {
 	})
 	// A build-based contract so appImageForCommit reaches the image branch.
 	src := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(src, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(src, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(src, ".forge", "app.yaml"),
+	if err := os.WriteFile(filepath.Join(src, ".apptown", "app.yaml"),
 		[]byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -159,8 +159,8 @@ func TestRunToolChecksExecImageCrashIsError(t *testing.T) {
 		"target":  "exec-image", "manual": true,
 	})
 	src := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(src, ".forge"), 0o755)
-	_ = os.WriteFile(filepath.Join(src, ".forge", "app.yaml"),
+	_ = os.MkdirAll(filepath.Join(src, ".apptown"), 0o755)
+	_ = os.WriteFile(filepath.Join(src, ".apptown", "app.yaml"),
 		[]byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644)
 
 	// A cached image is present, but the command crashes inside it.

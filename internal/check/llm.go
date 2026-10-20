@@ -66,14 +66,14 @@ func LLMEvaluatorVersion(c Declaration) string {
 // --- evidence packing ---------------------------------------------------------
 
 // skipDirs are never walked for a glob: dependencies, build output and the
-// forge's own runtime state (.forge holds agent sessions and staged reports).
+// forge's own runtime state (.apptown holds agent sessions and staged reports).
 // A file a check names by its exact path is still evidence wherever it lives
-// (namedFiles): the runtime contract is .forge/app.yaml, and a rubric that
+// (namedFiles): the runtime contract is .apptown/app.yaml, and a rubric that
 // asks whether it is committed must see it, or it reports a false "missing
 // app.yaml".
 var skipDirs = map[string]bool{
 	".git": true, "node_modules": true, "vendor": true, "dist": true, "build": true,
-	".venv": true, "__pycache__": true, ".forge": true, ".next": true, "target": true,
+	".venv": true, "__pycache__": true, ".apptown": true, ".forge": true, ".next": true, "target": true,
 }
 
 // globMatch matches a check's file glob against a slash-separated relative

@@ -77,10 +77,10 @@ func llmWorld(t *testing.T, attached bool) (*Service, *database.DB, *dockerfake.
 func llmContract(t *testing.T, yaml string) (*appcontract.Contract, string) {
 	t.Helper()
 	ws := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(yaml), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	c, err := docker.ReadWorkspaceContract(ws)

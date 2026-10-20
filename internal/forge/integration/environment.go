@@ -41,7 +41,7 @@ type EnvironmentEntry struct {
 	Key   string `yaml:"key" json:"key"`
 	Value string `yaml:"value" json:"value"`
 	// Browser marks a value that is safe for anyone to read, so a static app's
-	// page may be given it (/_forge/env.js): a public key or endpoint, never a
+	// page may be given it (/_apptown/env.js): a public key or endpoint, never a
 	// credential. A value drawn from a secret is refused this mark.
 	Browser bool `yaml:"browser,omitempty" json:"browser,omitempty"`
 }

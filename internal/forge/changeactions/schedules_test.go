@@ -72,7 +72,7 @@ func (w scheduleWorld) runs(t *testing.T) []workflow.RunSummary {
 func TestScheduleUsesRecordedWorkflowAndExplicitIdentity(t *testing.T) {
 	t.Parallel()
 	w := newScheduleWorld(t)
-	yaml := `apiVersion: forge.flokkit.io/v1
+	yaml := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: clock}
 spec:
@@ -131,7 +131,7 @@ spec:
 func TestAScheduledFiringIsRecordedWhenItsRunCannotStart(t *testing.T) {
 	t.Parallel()
 	w := newScheduleWorld(t)
-	yaml := `apiVersion: forge.flokkit.io/v1
+	yaml := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: hourly}
 spec:
@@ -194,7 +194,7 @@ func TestAnEvalCopyFiresNoSchedule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	yaml := `apiVersion: forge.flokkit.io/v1
+	yaml := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: clock}
 spec:
@@ -235,7 +235,7 @@ spec:
 // its run stays active, and selects it in the project.
 func (w scheduleWorld) adoptScheduled(t *testing.T, name, cron string) {
 	t.Helper()
-	yaml := `apiVersion: forge.flokkit.io/v1
+	yaml := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: ` + name + `}
 spec:

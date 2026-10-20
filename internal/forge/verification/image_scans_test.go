@@ -33,7 +33,7 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 	for name, format := range scanners {
 		cfg := map[string]any{"image": "aquasec/trivy:test", "command": []string{"image", "--input", "${IMAGE_TAR}"}, "network": false, "kind": "vuln", "target": "image"}
 		if format != "" {
-			cfg["format"], cfg["report"] = format, ".forge/semgrep.sarif"
+			cfg["format"], cfg["report"] = format, ".apptown/semgrep.sarif"
 		}
 		f.bind(t, name, cfg)
 	}
@@ -51,16 +51,16 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 		}
 		return strings.TrimSpace(string(out))
 	}
-	if err := os.MkdirAll(filepath.Join(hub, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(hub, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	contract := filepath.Join(hub, ".forge", "app.yaml")
+	contract := filepath.Join(hub, ".apptown", "app.yaml")
 	git("init", "-q", "-b", "main")
 	if seedContract {
 		if err := os.WriteFile(contract, []byte(buildContract), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		git("add", "-f", ".forge/app.yaml")
+		git("add", "-f", ".apptown/app.yaml")
 	}
 	git("commit", "-q", "--allow-empty", "-m", "seed")
 	seed := git("rev-parse", "HEAD")
@@ -69,7 +69,7 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 	if err := os.WriteFile(contract, []byte(buildContract+"# the app\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	git("add", "-f", ".forge/app.yaml")
+	git("add", "-f", ".apptown/app.yaml")
 	git("commit", "-q", "-m", "the app")
 	head := git("rev-parse", "HEAD")
 
@@ -93,7 +93,7 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 func scannerProcess(t *testing.T, exit int) string {
 	t.Helper()
 	binary := filepath.Join(t.TempDir(), "scanner")
-	script := "#!/bin/sh\nif [ \"$1\" = save ]; then exit 0; fi\ncase \"$1\" in inspect) echo false; exit 0;; rm) exit 0;; esac\nfor arg do\n case \"$arg\" in *:/work) dir=${arg%:/work};; esac\ndone\nmkdir -p \"$dir/.forge\"\ncat > \"$dir/.forge/semgrep.sarif\" <<'REPORT'\n" + scannerSARIF(1) + "\nREPORT\nexit " + strconv.Itoa(exit) + "\n"
+	script := "#!/bin/sh\nif [ \"$1\" = save ]; then exit 0; fi\ncase \"$1\" in inspect) echo false; exit 0;; rm) exit 0;; esac\nfor arg do\n case \"$arg\" in *:/work) dir=${arg%:/work};; esac\ndone\nmkdir -p \"$dir/.apptown\"\ncat > \"$dir/.apptown/semgrep.sarif\" <<'REPORT'\n" + scannerSARIF(1) + "\nREPORT\nexit " + strconv.Itoa(exit) + "\n"
 	if err := execfile.Write(binary, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -91,7 +91,7 @@ func TestPrepareThenAdopt(t *testing.T) {
 	if _, err := a.Ways.CutPacksOnPinChange(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	forgePack, err := a.Ways.Pack(t.Context(), "forge")
+	forgePack, err := a.Ways.Pack(t.Context(), "apptown")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestPrepareThenAdopt(t *testing.T) {
 		t.Fatalf("the project stays on land v%d until it adopts: v%d", landV, rw.Version)
 	}
 
-	w := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/tidy/adoption/prepare", `{"packs":[{"pack":"forge","version":2},{"pack":"house-style","version":1}]}`, map[string]string{"slug": "tidy"})
+	w := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/tidy/adoption/prepare", `{"packs":[{"pack":"apptown","version":2},{"pack":"house-style","version":1}]}`, map[string]string{"slug": "tidy"})
 	var c adoption.Candidate
 	_ = json.Unmarshal(w.Body.Bytes(), &c)
 	if w.Code != 200 || len(c.Problems) != 0 || !containsString(c.Added, "prose/terse-style@1") || !containsString(c.LanesAdded, "quick-change") || c.ExpectedRevision != 2 || !containsString(c.Changed, fmt.Sprintf("workflow land v%d→v%d", landV, landV+1)) {
@@ -112,10 +112,10 @@ func TestPrepareThenAdopt(t *testing.T) {
 		t.Fatal("prepare never touches the project")
 	}
 	// A stale expectation is refused; the right one adopts.
-	if code, body := adoptReq(t, a, "tidy", `{"expectedRevision":7,"packs":[{"pack":"forge","version":2},{"pack":"house-style","version":1}]}`); code != 409 {
+	if code, body := adoptReq(t, a, "tidy", `{"expectedRevision":7,"packs":[{"pack":"apptown","version":2},{"pack":"house-style","version":1}]}`); code != 409 {
 		t.Fatalf("stale: %d %s", code, body)
 	}
-	code, body := adoptReq(t, a, "tidy", `{"expectedRevision":2,"packs":[{"pack":"forge","version":2},{"pack":"house-style","version":1}]}`)
+	code, body := adoptReq(t, a, "tidy", `{"expectedRevision":2,"packs":[{"pack":"apptown","version":2},{"pack":"house-style","version":1}]}`)
 	if code != 200 || !strings.Contains(body, `"revision":3`) {
 		t.Fatalf("adopt: %d %s", code, body)
 	}
@@ -130,7 +130,7 @@ func TestPrepareThenAdopt(t *testing.T) {
 	for _, pp := range testProjectPacks(t, a, pid) {
 		on[pp.Pack] = pp.Version
 	}
-	if on["house-style"] != 1 || on["forge"] != 2 || !laneOn(t, a.Adoption, pid, "quick-change") {
+	if on["house-style"] != 1 || on["apptown"] != 2 || !laneOn(t, a.Adoption, pid, "quick-change") {
 		t.Fatalf("on both packs with the lane: %v", on)
 	}
 	if drift := a.VerifyAdoptions(t.Context()); len(drift) != 0 {
@@ -163,7 +163,7 @@ func TestPrepareNamesProblemsAndWeakening(t *testing.T) {
 	}
 	testPack(t, a, "sqlite-house", []string{"data/sqlite-everywhere"})
 	testPack(t, a, "postgres-house", []string{"data/networked-database"})
-	w := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/p/adoption/prepare", `{"packs":[{"pack":"forge","version":1},{"pack":"sqlite-house","version":1},{"pack":"postgres-house","version":1}]}`, map[string]string{"slug": "p"})
+	w := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/p/adoption/prepare", `{"packs":[{"pack":"apptown","version":1},{"pack":"sqlite-house","version":1},{"pack":"postgres-house","version":1}]}`, map[string]string{"slug": "p"})
 	if !strings.Contains(w.Body.String(), "contradicts") {
 		t.Fatalf("a contradiction is a problem: %s", w.Body.String())
 	}
@@ -177,21 +177,21 @@ func TestPrepareNamesProblemsAndWeakening(t *testing.T) {
 		t.Fatal(err)
 	}
 	testPack(t, a, "b-house", []string{"prose/terse-style"})
-	w = tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/p/adoption/prepare", `{"packs":[{"pack":"forge","version":1},{"pack":"a-house","version":1},{"pack":"b-house","version":1}]}`, map[string]string{"slug": "p"})
+	w = tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/p/adoption/prepare", `{"packs":[{"pack":"apptown","version":1},{"pack":"a-house","version":1},{"pack":"b-house","version":1}]}`, map[string]string{"slug": "p"})
 	if !strings.Contains(w.Body.String(), "the packs disagree") {
 		t.Fatalf("two versions of one block is the authors' problem: %s", w.Body.String())
 	}
 	// Adopting a pack with gating checks is a project's own choice; dropping
 	// it afterwards weakens what the project is held to and needs the
 	// standards authority (tgReq's actor holds none).
-	code, body := adoptReq(t, a, "p", `{"expectedRevision":2,"packs":[{"pack":"forge","version":1},{"pack":"postgres-house","version":1}]}`)
+	code, body := adoptReq(t, a, "p", `{"expectedRevision":2,"packs":[{"pack":"apptown","version":1},{"pack":"postgres-house","version":1}]}`)
 	if code != 200 {
 		t.Fatalf("adopt a strict pack: %d %s", code, body)
 	}
 	// The test harness runs with open auth, where every actor holds every
 	// capability, so the 403 cannot be shown here; what can is that the
 	// candidate names the weakening the handler checks the authority for.
-	w = tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/p/adoption/prepare", `{"packs":[{"pack":"forge","version":1}]}`, map[string]string{"slug": "p"})
+	w = tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/p/adoption/prepare", `{"packs":[{"pack":"apptown","version":1}]}`, map[string]string{"slug": "p"})
 	var c adoption.Candidate
 	_ = json.Unmarshal(w.Body.Bytes(), &c)
 	if len(c.Weakens) != 1 || c.Weakens[0] != "data/networked-database" || !containsString(c.Removed, "data/networked-database@2") && !strings.Contains(w.Body.String(), "data/networked-database@") {
@@ -213,7 +213,7 @@ func TestAdoptViaChangeLandsAndFlips(t *testing.T) {
 	recordFixtureAdoptions(t, a)
 	adoptTestPlatform(t, a, pid)
 	testPack(t, a, "networked", []string{"data/networked-database"})
-	code, body := adoptReq(t, a, "sq", `{"expectedRevision":2,"viaChange":true,"packs":[{"pack":"forge","version":1},{"pack":"networked","version":1}]}`)
+	code, body := adoptReq(t, a, "sq", `{"expectedRevision":2,"viaChange":true,"packs":[{"pack":"apptown","version":1},{"pack":"networked","version":1}]}`)
 	if code != 200 || !strings.Contains(body, `"changeId":`) {
 		t.Fatalf("via change: %d %s", code, body)
 	}
@@ -236,7 +236,7 @@ func TestAdoptViaChangeLandsAndFlips(t *testing.T) {
 		t.Fatal("nothing moves before the landing")
 	}
 	// A second one is refused while this is open.
-	if code, body := adoptReq(t, a, "sq", `{"expectedRevision":2,"viaChange":true,"packs":[{"pack":"forge","version":1}]}`); code != 409 {
+	if code, body := adoptReq(t, a, "sq", `{"expectedRevision":2,"viaChange":true,"packs":[{"pack":"apptown","version":1}]}`); code != 409 {
 		t.Fatalf("one open adoption change: %d %s", code, body)
 	}
 	// Its runs read the target; the target's checks are judged outright.
@@ -265,7 +265,7 @@ func TestAdoptViaChangeLandsAndFlips(t *testing.T) {
 	if _, err := a.Work.Abandon(asPerson("bls"), workflow.StopWork{ChangeID: chID, Reason: "superseded by a fresh adoption target"}); err != nil {
 		t.Fatal(err)
 	}
-	code, body = adoptReq(t, a, "sq", `{"expectedRevision":3,"viaChange":true,"packs":[{"pack":"forge","version":1},{"pack":"networked","version":1}]}`)
+	code, body = adoptReq(t, a, "sq", `{"expectedRevision":3,"viaChange":true,"packs":[{"pack":"apptown","version":1},{"pack":"networked","version":1}]}`)
 	if code != 200 {
 		t.Fatalf("again: %d %s", code, body)
 	}
@@ -351,18 +351,18 @@ func TestPrepareMovesAnAdditionToANamedVersion(t *testing.T) {
 	if err := a.Ways.BumpBlock(t.Context(), bid, "newer", "[]", "fixture", "prose/terse-style"); err != nil {
 		t.Fatal(err)
 	}
-	same := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/own/adoption/prepare", `{"packs":[{"pack":"forge","version":1}],"additions":["prose/terse-style"]}`, map[string]string{"slug": "own"})
+	same := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/own/adoption/prepare", `{"packs":[{"pack":"apptown","version":1}],"additions":["prose/terse-style"]}`, map[string]string{"slug": "own"})
 	var c adoption.Candidate
 	_ = json.Unmarshal(same.Body.Bytes(), &c)
 	if same.Code != 200 || containsString(c.Changed, fmt.Sprintf("prose/terse-style v%d→v%d", latest, latest+1)) {
 		t.Fatalf("an addition named without a version keeps the one it holds: %d %s", same.Code, same.Body.String())
 	}
-	moved := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/own/adoption/prepare", fmt.Sprintf(`{"packs":[{"pack":"forge","version":1}],"additions":["prose/terse-style@%d"]}`, latest+1), map[string]string{"slug": "own"})
+	moved := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/own/adoption/prepare", fmt.Sprintf(`{"packs":[{"pack":"apptown","version":1}],"additions":["prose/terse-style@%d"]}`, latest+1), map[string]string{"slug": "own"})
 	_ = json.Unmarshal(moved.Body.Bytes(), &c)
 	if moved.Code != 200 || len(c.Problems) != 0 || !containsString(c.Changed, fmt.Sprintf("prose/terse-style v%d→v%d", latest, latest+1)) {
 		t.Fatalf("block@N moves the addition: %d %s", moved.Code, moved.Body.String())
 	}
-	bad := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/own/adoption/prepare", `{"packs":[{"pack":"forge","version":1}],"additions":["prose/terse-style@99"]}`, map[string]string{"slug": "own"})
+	bad := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/own/adoption/prepare", `{"packs":[{"pack":"apptown","version":1}],"additions":["prose/terse-style@99"]}`, map[string]string{"slug": "own"})
 	_ = json.Unmarshal(bad.Body.Bytes(), &c)
 	if len(c.Problems) == 0 || !strings.Contains(c.Problems[0], "no version 99") {
 		t.Fatalf("a version that does not exist is a problem: %s", bad.Body.String())

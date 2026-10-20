@@ -62,7 +62,7 @@ func backupWorldFor(t *testing.T, purpose project.Purpose, slug string, port int
 	if _, err := s.Deployments.ReserveHostPort(t.Context(), pid, "main", docker.ContainerName(slug, "main"), port); err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dir, "workspaces", "project-"+slug, ".forge")
+	repo := filepath.Join(dir, "workspaces", "project-"+slug, ".apptown")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}

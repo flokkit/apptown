@@ -95,16 +95,16 @@ another way:
   is an error naming it, never an empty set; the static part's boot fails.
 - **Served by the forge, set by the forge alone.** Every static server (preview,
   local deployment, release image, generated compose) runs
-  `docker.StaticServerCommand`: the site from `/srv`, `/_forge/release`
-  answering `FORGE_RELEASE` (`<part>@<revision>`, what App Platform's readiness witnesses), and
-  `/_forge/env.js` answering `window.__FORGE_ENV__ = Object.freeze(Object.assign(new Object(), …))`
-  from `FORGE_BROWSER_ENV` at request time; unset, an empty object. A static
+  `docker.StaticServerCommand`: the site from `/srv`, `/_apptown/release`
+  answering `APPTOWN_RELEASE` (`<part>@<revision>`, what App Platform's readiness witnesses), and
+  `/_apptown/env.js` answering `window.__APPTOWN_ENV__ = Object.freeze(Object.assign(new Object(), …))`
+  from `APPTOWN_BROWSER_ENV` at request time; unset, an empty object. A static
   site's image carries that command itself (`docker.StaticSiteDockerfile`),
   so no target adds one; previews and generated
   compose mount the files into the stock file server and give it the command. Only static
   parts are given it (a part packed into the file server keeps `ServesStatic`),
   and it is set after the contract's env and secrets. A contract or
-  `secretspec.toml` that names `FORGE_BROWSER_ENV` is refused. `Host.Boot`
+  `secretspec.toml` that names `APPTOWN_BROWSER_ENV` is refused. `Host.Boot`
   reads the values before needs, init containers or other parts change, and
   hands that value to the public container, so a failed read leaves the whole
   running stack as it was. It fails in its own boot phase, `config`, which the
@@ -120,18 +120,18 @@ another way:
   unrecorded is unknown, never the working tree). A server app, or a static site
   given nothing, is not judged. Otherwise three facts are compared, in order:
   1. What the page must be given: the integration settings now.
-  2. What the container was started with: its `FORGE_BROWSER_ENV`, read by
+  2. What the container was started with: its `APPTOWN_BROWSER_ENV`, read by
      `docker.InspectBrowserValues`, which reads that one variable and the
      container's id and nothing else of its environment. It is read before and
      after the probe; a container replaced in between is unknown.
-  3. What `/_forge/env.js` serves.
+  3. What `/_apptown/env.js` serves.
 
   Any difference, or any of them unreadable, is `cannot-assess` with the forge
   at fault: settings changed since the start ("start it again") or delivery
   broken. Then the page's HTML must follow the loader convention: the first
   script a browser would run (data blocks and `<template>` contents do not; a
   missing `type` falls back to `language`, as browsers do) is in `<head>` with
-  `src` exactly `/_forge/env.js` and no other attribute except a CSP `nonce`,
+  `src` exactly `/_apptown/env.js` and no other attribute except a CSP `nonce`,
   and the page has no `<base href>`. The
   convention is lint over markup: a pass says the values are served and the
   markup loads them first, not that a browser ran them or that reports arrive.

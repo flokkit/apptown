@@ -113,7 +113,7 @@ card reads a key's allowance from OpenRouter on its own route
 
 ## Selected source and reproducibility
 
-The application declaration is native `.forge/app.yaml`. Contract parsing and
+The application declaration is native `.apptown/app.yaml`. Contract parsing and
 runtime preparation are separate operations. Missing inputs are errors; Forge
 does not infer them from an older format or current project head.
 
@@ -799,7 +799,7 @@ one, and a host kept for evals or rehearsals takes nothing else
    no published port, no ingress, the needs started empty and filled by the
    kind's `copy.import` and `copy.verify` on that network as the emulator's
    user, then the init steps and the public part only, with the source
-   deployment's address as the only `FORGE_ORIGINS`, no integrations, and
+   deployment's address as the only `APPTOWN_ORIGINS`, no integrations, and
    secrets resolved by `secret.ResolveRehearsal` (bound secrets only when a
    non-inheriting `rehearsal` profile names them, and never for an entry
    that declares its own `default`, which is delivered instead; every

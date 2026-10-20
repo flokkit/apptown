@@ -8,9 +8,9 @@ generated section):
 - Initialize a Sentry-compatible SDK at app startup, DSN from the
   `SENTRY_DSN` env var ONLY. Absent env = reporting off; never hardcode
   or commit a DSN.
-- A static site cannot read env vars: its page loads `/_forge/env.js`
+- A static site cannot read env vars: its page loads `/_apptown/env.js`
   as the first script in its `<head>` and takes the DSN from
-  `window.__FORGE_ENV__.SENTRY_DSN` (guidance `deploy/browser-values`).
+  `window.__APPTOWN_ENV__.SENTRY_DSN` (guidance `deploy/browser-values`).
 - Set `release` to the commit SHA when available, `environment` from the
   deployment environment. Keep SDK config minimal — defaults are fine.
 - Do not wrap everything in try/except-and-report: let the SDK's
@@ -23,7 +23,7 @@ Test hooks — the house standard. Every app with error reporting has
 these, so anyone can prove the wiring works in any environment, by hand,
 without reading code:
 
-- Server apps: `GET /_forge/boom` captures one tagged error (message
+- Server apps: `GET /_apptown/boom` captures one tagged error (message
   "forge test boom", tag `forge.probe=boom`) and returns 500. It is not
   authenticated and does nothing else — it only proves the reporting path.
 - Browser apps and games: typing the sequence `boom!!!` anywhere on the

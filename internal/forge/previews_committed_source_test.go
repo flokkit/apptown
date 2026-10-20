@@ -39,7 +39,7 @@ func TestAPreviewStepDecidesFromTheCommitItBoots(t *testing.T) {
 		t.Run(fmt.Sprint(onWorker), func(t *testing.T) {
 			for name, edit := range map[string]string{"deleted": "", "malformed": "app: [this is not a contract"} {
 				_, verdict, detail := runtimeGate(t, gatePlace{onWorker: onWorker}, func(_ *App, _ ids.ID, ws string, _ *fakePreviewWorker) {
-					path := filepath.Join(ws, ".forge/app.yaml")
+					path := filepath.Join(ws, ".apptown/app.yaml")
 					var err error
 					if edit == "" {
 						err = os.Remove(path)
@@ -56,7 +56,7 @@ func TestAPreviewStepDecidesFromTheCommitItBoots(t *testing.T) {
 			}
 			booted := -1
 			runtimeGate(t, gatePlace{onWorker: onWorker}, func(_ *App, _ ids.ID, ws string, _ *fakePreviewWorker) {
-				path := filepath.Join(ws, ".forge/app.yaml")
+				path := filepath.Join(ws, ".apptown/app.yaml")
 				body, err := os.ReadFile(path)
 				if err != nil {
 					t.Fatal(err)

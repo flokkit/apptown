@@ -263,7 +263,7 @@ flowchart TD
 
 Three lanes, nothing else:
 
-- **Files**: the same workspace directory is mounted into both. `.forge/`
+- **Files**: the same workspace directory is mounted into both. `.apptown/`
   inside it is runtime state (step steering, transcripts, the app
   contract) — visible to both, owned by whoever wrote it.
 - **Git**: the branch is the durable handoff. Work travels as commits: a
@@ -478,7 +478,7 @@ flowchart LR
 ## From code to running app
 
 Every app carries [the app contract](/docs/guides/contract-reference),
-`.forge/app.yaml`: `app:` (the containers the app is, one marked
+`.apptown/app.yaml`: `app:` (the containers the app is, one marked
 `public: true`) and `needs:` (the services it uses). Each part declares
 one of `build`, `image` or `static`. AppTown never writes packaging: it
 builds the app's own `Dockerfile`. Services (a database, a cache) are

@@ -87,7 +87,7 @@ func (editor *Integrity) Resolve(ctx context.Context, p *project.Project, action
 		if _, err := editor.git(discard, repo, "checkout", "--", "."); err != nil {
 			return IntegrityResult{}, fmt.Errorf("restoring: %w", err)
 		}
-		if out, err := editor.git(discard, repo, "clean", "-fd", "-e", ".forge"); err != nil {
+		if out, err := editor.git(discard, repo, "clean", "-fd", "-e", ".apptown"); err != nil {
 			return IntegrityResult{}, fmt.Errorf("removing the untracked files: %v: %s", err, out)
 		}
 	}

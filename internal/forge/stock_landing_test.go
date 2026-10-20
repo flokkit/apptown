@@ -22,7 +22,7 @@ func TestStockLandingImageFailureLeavesMainUntouchedAndApprovalUnavailable(t *te
 	if _, err := a.recordAdoption(a.projectByID(context.Background(), pid), "edit", "stock landing fixture", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	attachScanner(t, a, "test-image", map[string]any{"image": "test:scanner", "command": []string{"scan"}, "report": ".forge/report.json", "format": "sarif", "target": "image", "kind": "vulnerability"})
+	attachScanner(t, a, "test-image", map[string]any{"image": "test:scanner", "command": []string{"scan"}, "report": ".apptown/report.json", "format": "sarif", "target": "image", "kind": "vulnerability"})
 	rebuildWork(t, a, func(d *workflow.Dependencies) {
 		d.Runners = map[string]workflow.Runner{}
 		for _, kind := range []string{"reconcile", "tests", "scan", "guidance/conformance", "deploy"} {

@@ -214,7 +214,7 @@ func commandCompleter(command string) check.Completer {
 // declaredReadiness reads the readiness path the tree's own contract declares
 // for its public part.
 func declaredReadiness(src check.Source) (string, bool) {
-	raw, err := os.ReadFile(filepath.Join(src.Tree, ".forge", "app.yaml"))
+	raw, err := os.ReadFile(filepath.Join(src.Tree, ".apptown", "app.yaml"))
 	if err != nil {
 		return "", false
 	}

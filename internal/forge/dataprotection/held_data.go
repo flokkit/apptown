@@ -129,7 +129,7 @@ func (s *core) heldOnHost(ctx context.Context, dk docker.Scope, slug string, dep
 	return heldItems{items: items, contract: c}, nil
 }
 
-// releaseContract is the .forge/app.yaml of the release the deployment
+// releaseContract is the .apptown/app.yaml of the release the deployment
 // runs (its recorded revision), read through the release sources.
 func (s *core) releaseContract(ctx context.Context, dep *deployment.Deployment) (*appcontract.Contract, error) {
 	if dep.ReleaseSHA == "" {
@@ -144,7 +144,7 @@ func (s *core) releaseContract(ctx context.Context, dep *deployment.Deployment) 
 	}
 	c, _, err := s.sources.Contract(ctx, proj, dep.ReleaseSHA)
 	if err != nil || c == nil {
-		return nil, fmt.Errorf("reading .forge/app.yaml at its release %s: %v", dep.ReleaseSHA, err)
+		return nil, fmt.Errorf("reading .apptown/app.yaml at its release %s: %v", dep.ReleaseSHA, err)
 	}
 	return c, nil
 }

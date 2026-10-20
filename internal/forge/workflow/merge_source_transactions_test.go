@@ -85,7 +85,7 @@ func TestMergeSourceAbsenceAndDefaultBranchNames(t *testing.T) {
 	t.Parallel()
 	store, run, _ := completionFixture(t, "working")
 	source, err := readMergeSourceForRun(context.Background(), store, run)
-	if err != nil || source.RepoBacked() || source.MR.IID != 0 || source.Branch != fmt.Sprintf("forge/change-%d", run.ChangeID) {
+	if err != nil || source.RepoBacked() || source.MR.IID != 0 || source.Branch != fmt.Sprintf("apptown/change-%d", run.ChangeID) {
 		t.Fatalf("non-repository source: %+v %v", source, err)
 	}
 	run = insertStoredRun(t, store, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, WorkflowName: "standalone", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: []byte(run.DefinitionJSON)})
@@ -95,7 +95,7 @@ func TestMergeSourceAbsenceAndDefaultBranchNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	source, err = readMergeSourceForRun(context.Background(), store, run)
-	if err != nil || !source.RepoBacked() || source.Branch != fmt.Sprintf("forge/run-%d", run.ID) || source.Workspace("/forge") != filepath.Join("/forge", "workspaces", fmt.Sprintf("run-%d", run.ID)) {
+	if err != nil || !source.RepoBacked() || source.Branch != fmt.Sprintf("apptown/run-%d", run.ID) || source.Workspace("/forge") != filepath.Join("/forge", "workspaces", fmt.Sprintf("run-%d", run.ID)) {
 		t.Fatalf("run-owned source: %+v %v", source, err)
 	}
 }

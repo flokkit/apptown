@@ -134,12 +134,12 @@ func (s *Scanners) reuseReleaseImage(ctx context.Context, projectID ids.ID, sha,
 // short stand-in SECRET_KEY can fail a framework's own length rule that the
 // real key meets); every
 // declared need gets the connection env its emulator injects, pointed at a
-// host that does not answer (the check runs with no network); FORGE_ORIGINS
+// host that does not answer (the check runs with no network); APPTOWN_ORIGINS
 // is set as the forge sets it in every environment. Nothing else — what the
 // forge does not set in a deployment it does not set here either.
 func (s *Scanners) checkEnvironment(ctx context.Context, buildDir string) []string {
 	const host = "check.forge.local"
-	env := map[string]string{"FORGE_ORIGINS": "https://" + host}
+	env := map[string]string{"APPTOWN_ORIGINS": "https://" + host}
 	if spec, present, err := secret.ReadSpec(buildDir, ""); err == nil && present {
 		profile := "default"
 		if _, ok := spec.Profiles[profile]; !ok {

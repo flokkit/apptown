@@ -79,7 +79,7 @@ describe('what the change adds', () => {
   const question = {
     step: 'accept', status: 'pending', means: 'I read it', instructions: '', landingMeans: [],
     adds: { base: 'b', head: 'h', digest: 'd1', rows: [], readFrom: 'secrets, services and app parts', nothingNew: '',
-      lines: [{ kind: 'added', text: 'Secrets: STRIPE_KEY' }, { kind: 'unknown', text: 'App parts: unknown, .forge/app.yaml at h does not parse' }] },
+      lines: [{ kind: 'added', text: 'Secrets: STRIPE_KEY' }, { kind: 'unknown', text: 'App parts: unknown, .apptown/app.yaml at h does not parse' }] },
   }
   const mount = async (answer: unknown) => {
     const sent: { url: string; body: Record<string, unknown> }[] = []

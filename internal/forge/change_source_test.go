@@ -54,7 +54,7 @@ func TestChangePreviewUsesPreparedHistoricalSource(t *testing.T) {
 	gittest.Run(t, repo, "add", ".")
 	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qm", "historical game")
 	original := gittest.Run(t, repo, "rev-parse", "HEAD")
-	if err := os.WriteFile(filepath.Join(repo, ".forge/app.yaml"), []byte("invalid: current tree must not supply the contract\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown/app.yaml"), []byte("invalid: current tree must not supply the contract\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	gittest.Run(t, repo, "add", ".")

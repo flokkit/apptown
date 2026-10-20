@@ -20,13 +20,13 @@ func TestCheckEnvironmentIsDerivedFromTheDeclaration(t *testing.T) {
 	}
 	s := Scanners{dependencies: catalog}
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "secretspec.toml"), []byte("[project]\nname = \"x\"\nrevision = \"1.0\"\n\n[profiles.default]\nSECRET_KEY = { description = \"key\", generate = true }\nSTRIPE_KEY = { description = \"stripe\", required = true }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	env := map[string]string{}
@@ -41,15 +41,15 @@ func TestCheckEnvironmentIsDerivedFromTheDeclaration(t *testing.T) {
 	if !strings.HasPrefix(env["DATABASE_URL"], "postgres://") || !strings.Contains(env["DATABASE_URL"], "check.forge.local") {
 		t.Fatalf("a declared need brings its emulator's connection env: %q", env["DATABASE_URL"])
 	}
-	if env["FORGE_ORIGINS"] == "" {
-		t.Fatal("FORGE_ORIGINS is set as it is in every environment")
+	if env["APPTOWN_ORIGINS"] == "" {
+		t.Fatal("APPTOWN_ORIGINS is set as it is in every environment")
 	}
 	if _, invented := env["DEBUG"]; invented {
 		t.Fatal("nothing AppTown does not set in a deployment is set here")
 	}
 	// No declaration: only what the forge sets everywhere.
 	bare := t.TempDir()
-	if got := s.checkEnvironment(t.Context(), bare); len(got) != 1 || !strings.HasPrefix(got[0], "FORGE_ORIGINS=") {
+	if got := s.checkEnvironment(t.Context(), bare); len(got) != 1 || !strings.HasPrefix(got[0], "APPTOWN_ORIGINS=") {
 		t.Fatalf("an app declaring nothing gets nothing invented: %v", got)
 	}
 }

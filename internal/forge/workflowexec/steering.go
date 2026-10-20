@@ -39,8 +39,8 @@ type steeringFile struct {
 type steeringPaths struct{ Resources, Attachments, Sessions string }
 
 // folderSteering: an agent on the forge's host finds them in the run's
-// folder, under .forge.
-var folderSteering = steeringPaths{Resources: ".forge/resources", Attachments: ".forge/attachments", Sessions: ".forge/sessions"}
+// folder, under .apptown.
+var folderSteering = steeringPaths{Resources: ".apptown/resources", Attachments: ".apptown/attachments", Sessions: ".apptown/sessions"}
 
 // steeringResource is a resource file the steering names, at Path.
 type steeringResource struct {
@@ -50,7 +50,7 @@ type steeringResource struct {
 
 // buildSteering assembles the steering file (composeSteering) for an agent
 // in the run's folder, stages resource files into the workspace, records
-// the steering artifact, and writes .forge/steering.md.
+// the steering artifact, and writes .apptown/steering.md.
 func (a *Executor) buildSteering(ctx context.Context, run *workflow.Run, step *workflow.Step, cfg *agentConfig, ws string, k agentKnobs) (steeringFile, error) {
 	var attachments []string
 	if !run.ChangeID.IsZero() {
@@ -73,7 +73,7 @@ func (a *Executor) buildSteering(ctx context.Context, run *workflow.Run, step *w
 		}
 	}
 	a.recordSteering(ctx, step, st)
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "steering.md"), []byte(st.Text), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "steering.md"), []byte(st.Text), 0o644); err != nil {
 		return st, err
 	}
 	return st, nil
@@ -169,7 +169,7 @@ func (a *Executor) composeSteering(ctx context.Context, run *workflow.Run, cfg *
 				"    docker build -t $IMAGE_REPO:<tag> .\n" +
 				"    docker push $IMAGE_REPO:<tag>\n\n" +
 				"A pushed image is the preferred unit of release: set image: on the\n" +
-				"app part in .forge/app.yaml to the pushed ref and deploys run that\n" +
+				"app part in .apptown/app.yaml to the pushed ref and deploys run that\n" +
 				"exact image.\n\n")
 		}
 	}
@@ -280,7 +280,7 @@ func (a *Executor) restartFromBase(ctx context.Context, run *workflow.Run, step 
 	// The reset and the rewind are one restart: once the folder moves, the
 	// branch follows though the caller stops.
 	ctx = context.WithoutCancel(ctx)
-	if err := folder.Reset(ctx, baseSHA, ".forge"); err != nil {
+	if err := folder.Reset(ctx, baseSHA, ".apptown"); err != nil {
 		return fmt.Errorf("restart: resetting the workspace to %s: %w", baseSHA, err)
 	}
 	if _, err := a.branches.Publish(ctx, scm.Publication{ProjectID: run.ProjectID, Repository: repo,

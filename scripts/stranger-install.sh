@@ -88,8 +88,8 @@ apptown projects >/dev/null
 
 step "a project from a one-page app"
 app=$work/hello
-mkdir -p "$app/.forge" "$app/site"
-printf 'app:\n  web: {static: site, public: true}\n' > "$app/.forge/app.yaml"
+mkdir -p "$app/.apptown" "$app/site"
+printf 'app:\n  web: {static: site, public: true}\n' > "$app/.apptown/app.yaml"
 printf '<!doctype html><title>hello</title><p>Hello from a stranger.</p>\n' > "$app/site/index.html"
 git -C "$app" init -q -b main
 git -C "$app" add -A

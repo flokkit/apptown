@@ -51,9 +51,9 @@ type IntranetStack struct {
 	// PublicPart names the public part, the consumer the app service is.
 	PublicPart string
 	DataDir    string
-	Origins    string // FORGE_ORIGINS: the tiers a browser reaches the app at
+	Origins    string // APPTOWN_ORIGINS: the tiers a browser reaches the app at
 	// Release is the public part's release identity
-	// (appcontract.Contract.PublicRelease), FORGE_RELEASE, which its file
+	// (appcontract.Contract.PublicRelease), APPTOWN_RELEASE, which its file
 	// server answers at ReleasePath; "" when the public part is not static.
 	Release string
 	Needs   []IntranetNeed
@@ -79,7 +79,7 @@ func IntranetCompose(st IntranetStack) string {
 	var volumes []string
 
 	// writeEnv writes one environment mapping. The forge's own values
-	// (extra: DATA_DIR, FORGE_ORIGINS, FORGE_RELEASE) are set last into
+	// (extra: DATA_DIR, APPTOWN_ORIGINS, APPTOWN_RELEASE) are set last into
 	// the same map, so each key appears once and theirs wins over a
 	// contract's or a secret's of the same name, as the last -e does on a
 	// Docker host; Compose refuses a mapping that repeats a key.
@@ -159,7 +159,7 @@ func IntranetCompose(st IntranetStack) string {
 	b.WriteString("    restart: unless-stopped\n")
 	writeResources(st.Resources)
 	writeCommand(st.Command)
-	writeEnv(appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart)), [2]string{"DATA_DIR", st.DataDir}, [2]string{"FORGE_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release})
+	writeEnv(appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart)), [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release})
 	if st.DataDir != "" {
 		b.WriteString("    volumes:\n")
 		fmt.Fprintf(&b, "      - %s:%s\n", dataVolumeName(st.Slug), ComposeLiteral(st.DataDir))
@@ -277,7 +277,7 @@ func PreparedReleaseApp(c *appcontract.Plan, image string) (*appcontract.Plan, e
 		p := &cc.Parts[i]
 		if p.Public {
 			// A static site's release image is the file server: it still
-			// serves /_forge/env.js and must still be given its values.
+			// serves /_apptown/env.js and must still be given its values.
 			p.ServesStatic = p.IsStatic()
 			p.Build, p.Image, p.Static, p.StaticBuild = "", image, "", nil
 		} else if p.Build != "" {

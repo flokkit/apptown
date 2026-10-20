@@ -67,7 +67,7 @@ func TestSystemBindingsAndLanes(t *testing.T) {
 	}
 }
 
-const laneYAML = `apiVersion: forge.flokkit.io/v1
+const laneYAML = `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: %s

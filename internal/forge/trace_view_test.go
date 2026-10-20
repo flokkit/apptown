@@ -100,7 +100,7 @@ func TestHandleTraceShape(t *testing.T) {
 	}
 
 	// The pinned workflow YAML: the library version the run names (version 1).
-	seedLibraryWorkflow(t, a, pid, "build", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, pid, "build", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: build}
 spec:

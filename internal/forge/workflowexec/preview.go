@@ -61,7 +61,7 @@ func (a *Shipping) RunPreview(task *workflow.Execution) {
 	if errors.Is(err, docker.ErrNoContract) {
 		// Nothing to boot is a fact, not a failure — but say so in the
 		// evidence rather than manufacturing a hollow "app is up".
-		finish(workflow.StatusPass, map[string]any{"skipped": "no .forge/app.yaml in the run's commit — project declares no runtime contract, boot gate vacuous"})
+		finish(workflow.StatusPass, map[string]any{"skipped": "no .apptown/app.yaml in the run's commit — project declares no runtime contract, boot gate vacuous"})
 		return
 	}
 	var unreadable *preview.ContractError

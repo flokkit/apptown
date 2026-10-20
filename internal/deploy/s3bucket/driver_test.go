@@ -170,7 +170,7 @@ func TestTheFirstReleaseOwnsABucketAndPublishesInOrder(t *testing.T) {
 			puts = append(puts, c.Key)
 		}
 	}
-	want := []string{"assets/app-1.js", "logo.png", "_forge/env.js", "index.html", "_forge/release"}
+	want := []string{"assets/app-1.js", "logo.png", "_apptown/env.js", "index.html", "_apptown/release"}
 	if !slices.Equal(puts, want) {
 		t.Fatalf("uploads %v, want %v", puts, want)
 	}
@@ -180,7 +180,7 @@ func TestTheFirstReleaseOwnsABucketAndPublishesInOrder(t *testing.T) {
 	if status, body := get(t, o.URL+"/"); status != 200 || body != "<h1>one</h1>" {
 		t.Fatalf("GET / = %d %q", status, body)
 	}
-	if status, body := get(t, o.URL+"/_forge/release"); status != 200 || !strings.HasPrefix(body, "web@abc+") {
+	if status, body := get(t, o.URL+"/_apptown/release"); status != 200 || !strings.HasPrefix(body, "web@abc+") {
 		t.Fatalf("marker = %d %q", status, body)
 	}
 	if obj, _ := w.store.Get(bucket, "index.html"); !obj.Public || obj.CacheControl != "no-store" {
@@ -258,7 +258,7 @@ func TestARefusedUploadIsAnIncompletePublication(t *testing.T) {
 	if !deploy.IsTerminal(err) || !strings.Contains(err.Error(), "incomplete") {
 		t.Fatalf("err = %v", err)
 	}
-	if _, body := get(t, first.URL+"/_forge/release"); body != first.Handle.(map[string]any)["identity"] {
+	if _, body := get(t, first.URL+"/_apptown/release"); body != first.Handle.(map[string]any)["identity"] {
 		t.Fatalf("the address answers %q, not the previous marker", body)
 	}
 }
@@ -345,7 +345,7 @@ func TestTakeDownDeletesTheBucketOrSaysWhatIsStillPublic(t *testing.T) {
 	if slices.Contains(w.store.Buckets(), bucket) {
 		t.Fatal("the bucket is deleted")
 	}
-	if status, _ := get(t, o.URL+"/_forge/release"); status == 200 {
+	if status, _ := get(t, o.URL+"/_apptown/release"); status == 200 {
 		t.Fatal("the address stopped answering")
 	}
 }

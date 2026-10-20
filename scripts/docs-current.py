@@ -12,7 +12,7 @@ the file and line, on:
 In stock/docs/ and in the guidance AppTown gives agents (stock/guidance/, the
 body and its checks) it also fails on the old product name in prose: "the forge",
 "this forge", "a forge", "forge's" or "Forge". The product is AppTown; the
-command `apptown`, `.forge/`, `FORGE_*` and the like are code and are written
+command `apptown`, `.apptown/`, `FORGE_*` and the like are code and are written
 in backticks, which this skips, as it skips fenced and indented code.
 
 The reading of a guide for history in its sentences stays a reviewer's job;

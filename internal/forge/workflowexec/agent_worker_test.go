@@ -53,7 +53,7 @@ const (
 	databaseURLCanary    = "database-url-canary"    // the forge's database
 	instanceCredCanary   = "instance-cred-canary"   // the forge's own admin token
 	stepSecretCanary     = "step-secret-canary"     // STEP_CANARY: delivered, by design
-	evilFolderSteering   = "folder-steering-canary" // what a .forge link in the folder would offer
+	evilFolderSteering   = "folder-steering-canary" // what a .apptown link in the folder would offer
 	workerSubagents      = "worker-subagents-1.2"
 	hostSubagents        = "host-subagents-9.9"
 	workerAgentImageName = "forge-agent-worker:sha256-abc"
@@ -280,7 +280,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 		Worker:       &AgentWorker{Tasks: &TaskRunner{Driver: worker, Profile: TaskProfile{Name: "worker", Network: execution.NetworkDefault}}},
 	}, Config{DataDir: dir, Image: "forge-agent", Backend: execution.Docker, APIURL: "http://forge.test:7700", PrivateDockerOnWorker: true})
 
-	cfg := map[string]any{"prompt": "Implement the change.", "resources": []string{"res/notes"}, "output": map[string]any{"file": ".forge/REPORT.md"}, "timeoutMinutes": 20}
+	cfg := map[string]any{"prompt": "Implement the change.", "resources": []string{"res/notes"}, "output": map[string]any{"file": ".apptown/REPORT.md"}, "timeoutMinutes": 20}
 	for k, v := range config {
 		cfg[k] = v
 	}
@@ -446,7 +446,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 
 	if len(spec.Results) != 2 ||
 		spec.Results[0] != (execution.Result{Name: "transcript", Path: "/apptown/state/sessions/" + session, Max: 32 << 20}) ||
-		spec.Results[1] != (execution.Result{Name: "output", Path: "/work/.forge/REPORT.md", Max: 1 << 20}) {
+		spec.Results[1] != (execution.Result{Name: "output", Path: "/work/.apptown/REPORT.md", Max: 1 << 20}) {
 		t.Errorf("declared results: %+v", spec.Results)
 	}
 
@@ -554,7 +554,7 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 			t.Errorf("the steering lacks %q", want)
 		}
 	}
-	if strings.Contains(steering, ".forge/attachments") || strings.Contains(steering, ".forge/resources") || strings.Contains(steering, ".forge/sessions") {
+	if strings.Contains(steering, ".apptown/attachments") || strings.Contains(steering, ".apptown/resources") || strings.Contains(steering, ".apptown/sessions") {
 		t.Errorf("the steering names the folder's paths:\n%s", steering)
 	}
 	inputs := inputsByPath(t, req.spec)
@@ -599,7 +599,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 	}{
 		{"a service named dind", map[string]any{"docker": true, "services": []map[string]any{{"name": "dind", "image": "busybox"}}}, nil, "cannot be named dind"},
 		{"two services of one name", map[string]any{"services": []map[string]any{{"name": "postgres", "image": "busybox"}}, "needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n"})
+			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n"})
 		}, "two services are named postgres"},
 		{"scm", map[string]any{"scm": "write"}, nil, "source-control access"},
 		{"its own image", map[string]any{"image": "custom-agent"}, nil, `own agent image "custom-agent"`},
@@ -612,22 +612,22 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		{"an unreadable step configuration", nil, func(t *testing.T, f *agentOnWorker) { f.call.step.Config = json.RawMessage(`{"services":1}`) }, "configuration could not be read"},
 		{"a project without a repository", nil, func(t *testing.T, f *agentOnWorker) { f.call.source.DefaultBranch = "" }, "not repository-backed"},
 		{"a need the catalog does not know", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  mongodb: {}\n"})
+			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  mongodb: {}\n"})
 		}, "the app needs mongodb, which is not in the dependency catalog"},
 		{"a malformed declaration", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": "needs: [unterminated\n"})
+			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "needs: [unterminated\n"})
 		}, "could not be read from commit"},
 		{"a need parameter that is a list", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    database: [sourdough]\n"})
+			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    database: [sourdough]\n"})
 		}, "needs: postgres: database: a parameter is a single value, not a list"},
 		{"need properties that are not a map", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties: sourdough\n"})
+			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties: sourdough\n"})
 		}, "needs: postgres: properties: a map of single values, not string"},
 		{"a need property that is a list", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties:\n      database: [sourdough]\n"})
+			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties:\n      database: [sourdough]\n"})
 		}, "needs: postgres: properties: database: a property is a single value, not a list"},
 		{"a declaration that is a link", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{"elsewhere.yaml": "needs:\n  postgres: {}\n", ".forge/app.yaml": "link:../elsewhere.yaml"})
+			f.call.commit = hubCommit(t, f.hub, map[string]string{"elsewhere.yaml": "needs:\n  postgres: {}\n", ".apptown/app.yaml": "link:../elsewhere.yaml"})
 		}, "not a regular file"},
 		{"a commit the hub does not hold", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
 			f.call.commit = strings.Repeat("ab", 20)
@@ -657,7 +657,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 	// A declaration without needs, or none at all, needs nothing.
 	f := agentOnWorkerFixture(t, map[string]any{"needs": true})
 	f.build(t)
-	f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"})
+	f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"})
 	f.build(t)
 }
 
@@ -734,7 +734,7 @@ func TestAReviewOnAWorkerIsSentItsBrief(t *testing.T) {
 	}
 	want := []execution.Result{
 		{Name: "transcript", Path: sessionFile, Max: maxTranscriptResult},
-		{Name: "review", Path: "/work/.forge/review.json", Max: 256 << 10, Fresh: true},
+		{Name: "review", Path: "/work/.apptown/review.json", Max: 256 << 10, Fresh: true},
 	}
 	if !slices.Equal(req.spec.Results, want) || req.spec.Key != "step-00000000-0009-7000-8000-000000000000-attempt-2-review" {
 		t.Errorf("the review's results: %+v %q", req.spec.Results, req.spec.Key)
@@ -810,7 +810,7 @@ func TestAContinuedSessionIsSentItsTranscript(t *testing.T) {
 	}
 }
 
-// A run's folder whose .forge is a link to somewhere else offers the
+// A run's folder whose .apptown is a link to somewhere else offers the
 // forge nothing it reads and gets nothing it writes: the request is built
 // without the folder.
 func TestAFolderLinkChangesNothingInTheRequest(t *testing.T) {
@@ -828,7 +828,7 @@ func TestAFolderLinkChangesNothingInTheRequest(t *testing.T) {
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(elsewhere, filepath.Join(folder, ".forge")); err != nil {
+	if err := os.Symlink(elsewhere, filepath.Join(folder, ".apptown")); err != nil {
 		t.Fatal(err)
 	}
 	before := listTree(t, elsewhere)
@@ -841,7 +841,7 @@ func TestAFolderLinkChangesNothingInTheRequest(t *testing.T) {
 	if after := listTree(t, elsewhere); !slices.Equal(before, after) {
 		t.Errorf("the link's target changed:\n%v\n%v", before, after)
 	}
-	if after := listTree(t, folder); !slices.Equal(after, []string{".forge"}) {
+	if after := listTree(t, folder); !slices.Equal(after, []string{".apptown"}) {
 		t.Errorf("the folder changed: %v", after)
 	}
 }
@@ -871,12 +871,12 @@ func listTree(t *testing.T, dir string) []string {
 }
 
 // An agent on the forge's host is steered as before: to the run's folder's
-// .forge paths, with what the forge's own agent image carries, and its
+// .apptown paths, with what the forge's own agent image carries, and its
 // resources and steering written into the folder it is given.
 func TestAnAgentOnTheForgeIsSteeredToTheFolder(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil)
 	ws := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(ws, ".forge", "resources"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown", "resources"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	var cfg agentConfig
@@ -887,7 +887,7 @@ func TestAnAgentOnTheForgeIsSteeredToTheFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"- .forge/attachments/spec.txt", "- .forge/resources/res--notes.md", "under .forge/sessions", "Delegating (subagent tool)"} {
+	for _, want := range []string{"- .apptown/attachments/spec.txt", "- .apptown/resources/res--notes.md", "under .apptown/sessions", "Delegating (subagent tool)"} {
 		if !strings.Contains(st.Text, want) {
 			t.Errorf("the steering lacks %q", want)
 		}
@@ -898,10 +898,10 @@ func TestAnAgentOnTheForgeIsSteeredToTheFolder(t *testing.T) {
 	if strings.Contains(st.Text, "AppTown merges it into this change") {
 		t.Error("an agent on AppTown, which is given no merge of main, is told it is")
 	}
-	if body, err := os.ReadFile(filepath.Join(ws, ".forge", "resources", "res--notes.md")); err != nil || string(body) != "resource body" {
+	if body, err := os.ReadFile(filepath.Join(ws, ".apptown", "resources", "res--notes.md")); err != nil || string(body) != "resource body" {
 		t.Errorf("the resource in the folder: %q %v", body, err)
 	}
-	if body, err := os.ReadFile(filepath.Join(ws, ".forge", "steering.md")); err != nil || string(body) != st.Text {
+	if body, err := os.ReadFile(filepath.Join(ws, ".apptown", "steering.md")); err != nil || string(body) != st.Text {
 		t.Errorf("the steering in the folder: %v", err)
 	}
 	if f.worker.imageReads != 0 {
@@ -925,7 +925,7 @@ func postgresKind(version string) string {
 // is another request, so only the kept one is ever sent again.
 func TestPrivateDockerOnTheWorkerIsFrozenInTheRequest(t *testing.T) {
 	f := agentOnWorkerFixture(t, map[string]any{"docker": true, "needs": true, "services": []map[string]any{{"name": "cache", "image": "redis:7-alpine"}}})
-	f.call.commit = hubCommit(t, f.hub, map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    database: sourdough\n"})
+	f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    database: sourdough\n"})
 	req := f.build(t)
 	p := req.spec.Private
 	if p == nil || !p.Daemon || len(p.Services) != 2 || p.Services[0].Name != "cache" || p.Services[1].Name != "postgres" ||

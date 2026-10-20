@@ -133,7 +133,7 @@ func TestGatedAppHasOnlyTheGatePublic(t *testing.T) {
 			}
 		}
 	}
-	if we["FORGE_ORIGINS"].Value != appURL || we["APP_KEY"].Value != "kept" {
+	if we["APPTOWN_ORIGINS"].Value != appURL || we["APP_KEY"].Value != "kept" {
 		t.Fatalf("the app's origin or its own secrets changed: %+v", we)
 	}
 	if strings.Contains(art.Hash, secret) {

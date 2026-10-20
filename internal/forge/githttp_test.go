@@ -37,13 +37,13 @@ func TestGitHTTPScoped(t *testing.T) {
 
 	// Another change's branch with a secret file — must stay invisible.
 	wt := filepath.Join(a.cfg.dataDir, "workspaces", "change-00000000-0001-7000-8000-000000000000")
-	if err := ensureWorkspaceCloneForTest(a, hub, wt, "forge/change-00000000-0001-7000-8000-000000000000"); err != nil {
+	if err := ensureWorkspaceCloneForTest(a, hub, wt, "apptown/change-00000000-0001-7000-8000-000000000000"); err != nil {
 		t.Fatal(err)
 	}
 	_ = os.WriteFile(filepath.Join(wt, "secret.txt"), []byte("another change's private work\n"), 0o644)
 	_, _ = gitexec.Run(t.Context(), wt, "add", "-A")
 	_, _ = gitexec.Run(t.Context(), wt, "commit", "-m", "private")
-	mirrorBranchForTest(hub, wt, "forge/change-00000000-0001-7000-8000-000000000000")
+	mirrorBranchForTest(hub, wt, "apptown/change-00000000-0001-7000-8000-000000000000")
 
 	tok, err := a.Access.RuntimePullToken(context.Background(), pid)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestGitHTTPScoped(t *testing.T) {
 	if !strings.Contains(ls, "refs/heads/main") {
 		t.Fatalf("main must be advertised: %s", ls)
 	}
-	if strings.Contains(ls, "forge/change-00000000-0001-7000-8000-000000000000") {
+	if strings.Contains(ls, "apptown/change-00000000-0001-7000-8000-000000000000") {
 		t.Fatalf("another change's branch leaked in the advertisement: %s", ls)
 	}
 
@@ -99,7 +99,7 @@ func TestGitHTTPScoped(t *testing.T) {
 	// Git's old plain-file reads serve nothing: neither the ref listing
 	// (which would name the hidden branch) nor another change's object by
 	// its name (http.getanyfile=false for every credential).
-	private, err := gitexec.Run(t.Context(), hub, "rev-parse", "refs/heads/forge/change-00000000-0001-7000-8000-000000000000")
+	private, err := gitexec.Run(t.Context(), hub, "rev-parse", "refs/heads/apptown/change-00000000-0001-7000-8000-000000000000")
 	if err != nil {
 		t.Fatalf("private tip: %s", private)
 	}
@@ -113,7 +113,7 @@ func TestGitHTTPScoped(t *testing.T) {
 		}
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		if resp.StatusCode == http.StatusOK || strings.Contains(string(body), "forge/change-00000000-0001-7000-8000-000000000000") {
+		if resp.StatusCode == http.StatusOK || strings.Contains(string(body), "apptown/change-00000000-0001-7000-8000-000000000000") {
 			t.Fatalf("plain-file GET %s served %d: %.120s", path, resp.StatusCode, body)
 		}
 	}

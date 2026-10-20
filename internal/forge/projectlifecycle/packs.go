@@ -33,12 +33,12 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, pack *w
 		return nil, fmt.Errorf("pack %s has no published version to apply", pack.Name)
 	}
 	picks := []adoption.PackPick{{Pack: pack.Name, Version: pack.Version}}
-	if p.DefaultBranch != "" && pack.Name != "forge" {
-		platform, err := s.ways.Pack(ctx, "forge")
+	if p.DefaultBranch != "" && pack.Name != adoption.PlatformPack {
+		platform, err := s.ways.Pack(ctx, adoption.PlatformPack)
 		if err != nil {
 			return nil, fmt.Errorf("selecting published pack forge: %w", err)
 		}
-		picks = append(picks, adoption.PackPick{Pack: "forge", Version: platform.Version})
+		picks = append(picks, adoption.PackPick{Pack: adoption.PlatformPack, Version: platform.Version})
 	}
 	c, err := s.adoption.PreparePack(ctx, p.ID, picks)
 	if err != nil {
@@ -139,11 +139,11 @@ func (s *Service) seedPackFiles(ctx execcontext.Context, p *project.Project, pac
 }
 
 // StarterIsStatic says whether a pack's starter app, as its seed's
-// .forge/app.yaml declares it, is static files only: no part runs a server
+// .apptown/app.yaml declares it, is static files only: no part runs a server
 // and nothing is needed, so a database or cache would have nothing to serve.
 // A pack whose seed declares no contract (or no seed) says nothing: false.
 func StarterIsStatic(packName string) bool {
-	raw, err := stock.FS.ReadFile("seeds/" + packName + "/.forge/app.yaml")
+	raw, err := stock.FS.ReadFile("seeds/" + packName + "/.apptown/app.yaml")
 	if err != nil {
 		return false
 	}

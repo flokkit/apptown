@@ -3,7 +3,7 @@
 # it; landing ships it. No merge request and a short timeout. For anything
 # bigger than "fix this typo / tweak this copy / bump this default", use
 # implement.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: quick-change
@@ -26,7 +26,7 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: change-report, name: change-report, file: .forge/CHANGE.md }
+            output: { kind: change-report, name: change-report, file: .apptown/CHANGE.md }
             timeoutMinutes: 10
             prompt: |
               The current working directory is this project's repository.
@@ -36,7 +36,7 @@ spec:
 
               If the application does not exist yet (the repository holds
               only what the project started with: a packaging recipe, a
-              README, ignore rules, .forge/app.yaml), first build the
+              README, ignore rules, .apptown/app.yaml), first build the
               smallest working application your steering guidance describes
               for an empty repository (for example its generator command),
               then make the change in it. Say in the report that you
@@ -46,10 +46,10 @@ spec:
               feedback is: ${{feedback.latest}}
               Address it precisely.
 
-              WRITE a short change report to .forge/CHANGE.md:
+              WRITE a short change report to .apptown/CHANGE.md:
               what changed and how you verified it. Chat output is not
               captured. Do not commit the report: AppTown
-              collects it from the workspace, and .forge/ is ignored.
+              collects it from the workspace, and .apptown/ is ignored.
               The report describes the WHOLE change: the full branch diff
               against the base, not just this session's edits. After rework
               rounds, run git diff against the base branch and account for

@@ -22,11 +22,11 @@ func NewConfiguration(catalog *dependency.Catalog) Configuration {
 
 // The forge-native contract's tooling surface (design/decisions/forge-native-contract.md):
 // a schema models can author against, a validator they can run, and the
-// local-dev compose generator. All take the .forge/app.yaml text so they work
+// local-dev compose generator. All take the .apptown/app.yaml text so they work
 // on the dev's local working copy, not only what's committed.
 
 // handleConfigSchema: GET /api/v1/config/schema — the JSON Schema for
-// .forge/app.yaml. Models fetch this to author a contract; editors can use it
+// .apptown/app.yaml. Models fetch this to author a contract; editors can use it
 // for completion. Semantic rules the schema can't express (exactly one public
 // part, needs must be in the catalog) are enforced by validate below.
 func (h Configuration) ConfigSchema(w http.ResponseWriter, r *http.Request) {

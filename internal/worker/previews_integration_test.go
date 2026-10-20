@@ -42,7 +42,7 @@ func startPreviewWorker(t *testing.T) previewWorker {
 func siteTree(t *testing.T, contract string, files map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
-	files[".forge/app.yaml"] = contract
+	files[".apptown/app.yaml"] = contract
 	for path, body := range files {
 		full := filepath.Join(dir, path)
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
@@ -166,7 +166,7 @@ func TestIntegrationAFailedWorkerBootLeavesNothing(t *testing.T) {
 // With real Docker: an ordinary change preview of a static site with a
 // declared build (no deployment identity, no recorded images) is built,
 // packed into the file server's image and run as that image, not a mount
-// of the tree: it serves the built page and the forge's /_forge/env.js.
+// of the tree: it serves the built page and the forge's /_apptown/env.js.
 func TestIntegrationAWorkerPreviewBuildsAndServesADeclaredStaticSite(t *testing.T) {
 	w := startPreviewWorker(t)
 	contract := "version: 1\napp:\n  web:\n    static: { build: ., output: dist }\n    public: true\n"
@@ -194,13 +194,13 @@ func TestIntegrationAWorkerPreviewBuildsAndServesADeclaredStaticSite(t *testing.
 	}
 	forge := httptest.NewServer(w.previews.Forward(w.name, "https"))
 	defer forge.Close()
-	resp, err := http.Get(forge.URL + "/_forge/env.js")
+	resp, err := http.Get(forge.URL + "/_apptown/env.js")
 	if err != nil {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if resp.StatusCode != 200 || !strings.Contains(string(body), "__FORGE_ENV__") {
-		t.Fatalf("/_forge/env.js: %d %q", resp.StatusCode, body)
+	if resp.StatusCode != 200 || !strings.Contains(string(body), "__APPTOWN_ENV__") {
+		t.Fatalf("/_apptown/env.js: %d %q", resp.StatusCode, body)
 	}
 }

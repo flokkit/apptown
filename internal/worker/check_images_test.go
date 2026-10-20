@@ -116,7 +116,7 @@ func TestAnImageIsScannedAndRunWhereItWasPrepared(t *testing.T) {
 	ca := workertest.NewCA(t)
 	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
 	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	scan := checks.Run(context.Background(), execution.Request{Workspace: t.TempDir(), Image: "trivy:test", Argv: []string{"image", "--input", "/work/.forge/image.tar"},
+	scan := checks.Run(context.Background(), execution.Request{Workspace: t.TempDir(), Image: "trivy:test", Argv: []string{"image", "--input", "/work/.apptown/image.tar"},
 		Network: "none", Timeout: time.Minute, Name: "s", ExportImage: "sha256:app"})
 	inImage := checks.Run(context.Background(), execution.Request{Image: "sha256:app", Argv: []string{"python", "manage.py", "check"}, Env: []string{"A=1"},
 		Network: "none", Timeout: time.Minute, Name: "e"})

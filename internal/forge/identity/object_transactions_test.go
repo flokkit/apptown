@@ -175,7 +175,7 @@ func TestTicketReceiptFailureAndConcurrentConsumption(t *testing.T) {
 	db := testDB(t)
 	testAccounts(t, db, "alice")
 	s := New(db, Config{})
-	_, ticket, err := s.IssueTicket(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/forge/change-40", "abc")
+	_, ticket, err := s.IssueTicket(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "abc")
 	if err != nil {
 		t.Fatal(err)
 	}

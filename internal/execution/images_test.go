@@ -67,8 +67,8 @@ func TestARequestsLoginUsesTheSameDocker(t *testing.T) {
 	}
 }
 
-// An image is exported into the tree only: neither a linked .forge nor a
-// linked image.tar in a real .forge chooses where the archive is written.
+// An image is exported into the tree only: neither a linked .apptown nor a
+// linked image.tar in a real .apptown chooses where the archive is written.
 func TestAnImageExportNeverFollowsALink(t *testing.T) {
 	t.Parallel()
 	docker := filepath.Join(t.TempDir(), "docker")
@@ -76,14 +76,14 @@ func TestAnImageExportNeverFollowsALink(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, plant := range map[string]func(tree, outside string) error{
-		"a linked .forge": func(tree, outside string) error {
-			return os.Symlink(filepath.Dir(outside), filepath.Join(tree, ".forge"))
+		"a linked .apptown": func(tree, outside string) error {
+			return os.Symlink(filepath.Dir(outside), filepath.Join(tree, ".apptown"))
 		},
 		"a linked image.tar": func(tree, outside string) error {
-			if err := os.Mkdir(filepath.Join(tree, ".forge"), 0o755); err != nil {
+			if err := os.Mkdir(filepath.Join(tree, ".apptown"), 0o755); err != nil {
 				return err
 			}
-			return os.Symlink(outside, filepath.Join(tree, ".forge", "image.tar"))
+			return os.Symlink(outside, filepath.Join(tree, ".apptown", "image.tar"))
 		},
 	} {
 		tree, outside := t.TempDir(), filepath.Join(t.TempDir(), "image.tar")

@@ -129,7 +129,7 @@ func TestSourceAndResultsTravelAsBundles(t *testing.T) {
 	if err != nil || tip == "" {
 		t.Fatalf("collecting: %q %v", tip, err)
 	}
-	dir, imported, cleanup, err := gitexec.Quarantine(context.Background(), hub, result, "work", "forge/change-1", base)
+	dir, imported, cleanup, err := gitexec.Quarantine(context.Background(), hub, result, "work", "apptown/change-1", base)
 	if err != nil {
 		t.Fatal(err)
 	}

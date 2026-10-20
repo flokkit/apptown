@@ -253,7 +253,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	if files := repositoryedit.IgnoredChanges(changed); len(files) > 0 {
 		evidence["summary"] = fmt.Sprintf("scope: %d file(s) the repository ignores were committed", len(files))
 		evidence["findings"] = []string{"ignored files committed: " + strings.Join(files, ", ")}
-		evidence["reason"] = "the repository's own .gitignore says these are not source (build output, or forge runtime files under .forge/): " + strings.Join(files, ", ") + " — remove them from git (git rm --cached <path>) and commit only the fix"
+		evidence["reason"] = "the repository's own .gitignore says these are not source (build output, or forge runtime files under .apptown/): " + strings.Join(files, ", ") + " — remove them from git (git rm --cached <path>) and commit only the fix"
 		rework(evidence)
 		return
 	}

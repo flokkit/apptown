@@ -80,7 +80,7 @@ func TestSystemWorkflowBinding(t *testing.T) {
 	}
 	p, _ := f.lifecycle.projects.BySlug(context.Background(), "p")
 	// An admin's own landing, in the library, marked system.
-	custom := `apiVersion: forge.flokkit.io/v1
+	custom := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: our-land, description: land plus compliance, system: true}
 spec:

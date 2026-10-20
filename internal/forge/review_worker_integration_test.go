@@ -26,8 +26,8 @@ import (
 // own agent process is a tripwire.
 
 // Shell the fake reviewer runs: pass writes a valid passing report, as a
-// reviewer does, in the tree's .forge.
-const reviewPass = `mkdir -p .forge; printf '{"verdict":"pass","summary":"fine","findings":[]}' > .forge/review.json; `
+// reviewer does, in the tree's .apptown.
+const reviewPass = `mkdir -p .apptown; printf '{"verdict":"pass","summary":"fine","findings":[]}' > .apptown/review.json; `
 
 func newReviewWorkerWorld(t *testing.T, with map[string]any, files map[string]string) *agentWorkerWorld {
 	t.Helper()
@@ -91,7 +91,7 @@ func TestIntegrationAReviewRunsOnTheWorker(t *testing.T) {
 // committed nothing.
 func TestIntegrationAReviewOnTheWorkerCatchesTheImplementersScope(t *testing.T) {
 	t.Parallel()
-	w := newReviewWorkerWorld(t, nil, map[string]string{".gitignore": ".forge/*\n!.forge/app.yaml\ntarget/\n", "fake-pi.sh": reviewPass + `say "looks fine"`})
+	w := newReviewWorkerWorld(t, nil, map[string]string{".gitignore": ".apptown/*\n!.apptown/app.yaml\ntarget/\n", "fake-pi.sh": reviewPass + `say "looks fine"`})
 	ws := w.source.Workspace(w.a.cfg.dataDir)
 	if err := os.MkdirAll(filepath.Join(ws, "target"), 0o755); err != nil {
 		t.Fatal(err)
@@ -154,15 +154,15 @@ func TestIntegrationTheReviewVerdictTableOnTheWorker(t *testing.T) {
 		reason      string
 		invocations string
 	}{
-		"an invalid report, fixed": {script: `if [ "$PI_INVOCATION" = 1 ]; then mkdir -p .forge; echo '{"verdict":' > .forge/review.json; else ` + reviewPass + `fi; say "ok"`,
+		"an invalid report, fixed": {script: `if [ "$PI_INVOCATION" = 1 ]; then mkdir -p .apptown; echo '{"verdict":' > .apptown/review.json; else ` + reviewPass + `fi; say "ok"`,
 			status: workflow.StatusPass, invocations: "review,review-fixup"},
-		"an invalid report, twice": {script: `mkdir -p .forge; echo '{"verdict":"maybe"}' > .forge/review.json; say "ok"`,
+		"an invalid report, twice": {script: `mkdir -p .apptown; echo '{"verdict":"maybe"}' > .apptown/review.json; say "ok"`,
 			status: workflow.StatusError, reason: "reviewer verdict unparseable", invocations: "review,review-fixup"},
-		"an oversized report": {script: `mkdir -p .forge; head -c 300000 /dev/zero | tr '\000' ' ' > .forge/review.json; say "ok"`,
+		"an oversized report": {script: `mkdir -p .apptown; head -c 300000 /dev/zero | tr '\000' ' ' > .apptown/review.json; say "ok"`,
 			status: workflow.StatusError, reason: "over the 256 KiB", invocations: "review"},
-		"a report behind a linked folder": {script: `mkdir -p /apptown/state/elsewhere; printf '{"verdict":"pass","summary":"s","findings":[]}' > /apptown/state/elsewhere/review.json; rm -rf .forge; ln -s /apptown/state/elsewhere .forge; say "ok"`,
+		"a report behind a linked folder": {script: `mkdir -p /apptown/state/elsewhere; printf '{"verdict":"pass","summary":"s","findings":[]}' > /apptown/state/elsewhere/review.json; rm -rf .apptown; ln -s /apptown/state/elsewhere .apptown; say "ok"`,
 			status: workflow.StatusError, reason: "refused to read it (symlink)", invocations: "review"},
-		"a report linked to its parent": {script: `printf '{"verdict":"pass","summary":"s","findings":[]}' > /apptown/state/review.json; mkdir -p .forge; ln -s ../../apptown/state/review.json .forge/review.json; say "ok"`,
+		"a report linked to its parent": {script: `printf '{"verdict":"pass","summary":"s","findings":[]}' > /apptown/state/review.json; mkdir -p .apptown; ln -s ../../apptown/state/review.json .apptown/review.json; say "ok"`,
 			status: workflow.StatusError, reason: "refused to read it", invocations: "review"},
 		"a pass, then exit 1": {script: reviewPass + `say "ok"; exit 1`,
 			status: workflow.StatusError, reason: "exited with code 1", invocations: "review"},
@@ -196,7 +196,7 @@ func TestIntegrationTheReviewVerdictTableOnTheWorker(t *testing.T) {
 // A review that times out, its stop confirmed, earns one wrap-up, whose
 // report counts. A pass the timed-out invocation left in the tree is seeded
 // before the wrap-up starts, and never counts: the report is Fresh. (The
-// branch cannot carry a seed: .forge/review.json is not source, and the
+// branch cannot carry a seed: .apptown/review.json is not source, and the
 // run's source is refused with it.)
 func TestIntegrationATimedOutReviewIsWrappedUpOnce(t *testing.T) {
 	t.Parallel()
@@ -206,7 +206,7 @@ func TestIntegrationATimedOutReviewIsWrappedUpOnce(t *testing.T) {
 		reason string
 	}{
 		"the wrap-up writes its verdict":            {wrapUp: reviewPass + `say "wrapped: $PI_PROMPT"`, status: workflow.StatusPass},
-		"the wrap-up writes nothing, a pass seeded": {wrapUp: `say "nothing"`, status: workflow.StatusError, reason: "no .forge/review.json verdict"},
+		"the wrap-up writes nothing, a pass seeded": {wrapUp: `say "nothing"`, status: workflow.StatusError, reason: "no .apptown/review.json verdict"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -348,7 +348,7 @@ func TestIntegrationAReviewWhoseScopeCannotBeReadIsNotAssessed(t *testing.T) {
 // spaces, and the evidence names it exactly.
 func TestReviewS6ScopePreservesPathsWithSpaces(t *testing.T) {
 	t.Parallel()
-	w := newReviewWorkerWorld(t, nil, map[string]string{".gitignore": ".forge/*\n!.forge/app.yaml\ntarget/\n", "fake-pi.sh": reviewPass + `say "looks fine"`})
+	w := newReviewWorkerWorld(t, nil, map[string]string{".gitignore": ".apptown/*\n!.apptown/app.yaml\ntarget/\n", "fake-pi.sh": reviewPass + `say "looks fine"`})
 	ws := w.source.Workspace(w.a.cfg.dataDir)
 	if err := os.MkdirAll(filepath.Join(ws, "target"), 0o755); err != nil {
 		t.Fatal(err)

@@ -135,7 +135,7 @@ func TestAMergeOnlyReleaseIsNotScoredAsDeployed(t *testing.T) {
 	ch := &workflow.Change{State: workflow.ChangeShipped}
 	landing := &workflow.Run{ID: idstest.N(77)}
 	w.work.snapshots[idstest.N(77)] = &workflow.RunSnapshot{Steps: []*workflow.Step{{Name: "deploy", Type: "deploy", Status: workflow.StatusPass,
-		Evidence: json.RawMessage(`{"skipped":"no .forge/app.yaml — nothing to deploy; merge is the release"}`)}}}
+		Evidence: json.RawMessage(`{"skipped":"no .apptown/app.yaml — nothing to deploy; merge is the release"}`)}}}
 	if got := w.service.score(context.Background(), Arm{}, ch, nil, landing); got.Deploy == "deployed" {
 		t.Fatalf("a merge-only release scored as %q", got.Deploy)
 	}

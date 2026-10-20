@@ -20,7 +20,7 @@ func TestMissingRequiredArtifact(t *testing.T) {
 	owner := newRunAdmissions(db, NewStages(nil, func(string) bool { return true }), nil)
 	project := workflowTestProject(t, db, "p", "P", "")
 	doc, err := schema.ParseWorkflowStored([]byte(`
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: t, category: change }
 spec:

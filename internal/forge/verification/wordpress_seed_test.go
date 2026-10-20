@@ -42,7 +42,7 @@ func TestWordPressStarterScopesItsInitialAdministratorCredential(t *testing.T) {
 	if !found {
 		t.Fatal("WordPress pack is absent from the stock library")
 	}
-	raw, err := fs.ReadFile(stock.FS, "seeds/wordpress-bedrock/.forge/app.yaml")
+	raw, err := fs.ReadFile(stock.FS, "seeds/wordpress-bedrock/.apptown/app.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestWordPressStarterScopesItsInitialAdministratorCredential(t *testing.T) {
 // declares none of what the need gives the app (read from the catalogue's
 // contract) nor a public media address, which the need does not have.
 func TestWordPressStarterTakesItsUploadsStoreFromTheS3Need(t *testing.T) {
-	raw, err := fs.ReadFile(stock.FS, "seeds/wordpress-bedrock/.forge/app.yaml")
+	raw, err := fs.ReadFile(stock.FS, "seeds/wordpress-bedrock/.apptown/app.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,9 +157,9 @@ func TestWordPressUploadsCheckFailsOnTheHandEnteredS3Starter(t *testing.T) {
 	}
 	dir := t.TempDir()
 	writeTree(t, dir, map[string]string{
-		"composer.json":   `{"require": {"humanmade/s3-uploads": "3.0.13"}}`,
-		".forge/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  mariadb: {version: \"11.4.13\"}\n",
-		"secretspec.toml": spec.String(),
+		"composer.json":     `{"require": {"humanmade/s3-uploads": "3.0.13"}}`,
+		".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  mariadb: {version: \"11.4.13\"}\n",
+		"secretspec.toml":   spec.String(),
 	})
 	results, _, errs := NewEvaluator(localChecks{}, nil).runShChecks(context.Background(), []conformance.DeclaredCheck{{Block: "lang/selection/wordpress-bedrock", Version: 1, Check: *check}}, dir, "t-wordpress-rc5")
 	if errs != 0 || len(results) != 1 {

@@ -116,7 +116,7 @@ func TestANewRunAfterKeepingAnOlderPackDeclaresPrivateDocker(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	lane := func(prompt string) string {
-		return "apiVersion: forge.flokkit.io/v1\nkind: Workflow\nmetadata:\n  name: build\nspec:\n  kind: pipeline\n  role: working\n  stages:\n    - name: work\n      steps:\n        - name: build\n          uses: agent/pi\n          with:\n            prompt: " + prompt + "\n            skills: [skill/implementation]\n"
+		return "apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata:\n  name: build\nspec:\n  kind: pipeline\n  role: working\n  stages:\n    - name: work\n      steps:\n        - name: build\n          uses: agent/pi\n          with:\n            prompt: " + prompt + "\n            skills: [skill/implementation]\n"
 	}
 	if _, _, err := a.Ways.PublishWorkflow(t.Context(), lane("first"), "alice"); err != nil {
 		t.Fatal(err)

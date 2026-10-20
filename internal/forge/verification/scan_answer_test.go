@@ -15,7 +15,7 @@ import (
 // ran the scanner (an exit 1 from a worker carries no *exec.ExitError).
 func TestAScannersAnswerFailsClosed(t *testing.T) {
 	t.Parallel()
-	structured := check.Scanner{Image: "semgrep:test", Report: ".forge/r.sarif", Format: "sarif"}
+	structured := check.Scanner{Image: "semgrep:test", Report: ".apptown/r.sarif", Format: "sarif"}
 	clean := []byte(`{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"x"}},"results":[]}]}`)
 	finding := []byte(`{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"x","rules":[{"id":"r"}]}},"results":[{"ruleId":"r","level":"error","message":{"text":"m"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"a.go"},"region":{"startLine":1}}}]}]}]}`)
 	exited := func(code int, report []byte, reportErr error) execution.Outcome {
@@ -48,7 +48,7 @@ func TestAScannersAnswerFailsClosed(t *testing.T) {
 			}
 		})
 	}
-	if a := readScan(exited(128, nil, nil), check.Scanner{Image: "osv-scanner:test", Report: ".forge/o.json", Format: "osv"}, "osv"); !a.nothingToScan || a.failure != "" {
+	if a := readScan(exited(128, nil, nil), check.Scanner{Image: "osv-scanner:test", Report: ".apptown/o.json", Format: "osv"}, "osv"); !a.nothingToScan || a.failure != "" {
 		t.Fatalf("osv with no package sources: %+v", a)
 	}
 }

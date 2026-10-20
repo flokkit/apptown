@@ -55,7 +55,7 @@ run)
     prev="$arg"
   done
   for arg in "$@"; do
-    case "$arg" in /work/.forge/*.sarif) mkdir -p "$work/.forge"; echo '{"version":"2.1.0","runs":[]}' > "$work/${arg#/work/}";; esac
+    case "$arg" in /work/.apptown/*.sarif) mkdir -p "$work/.apptown"; echo '{"version":"2.1.0","runs":[]}' > "$work/${arg#/work/}";; esac
   done
   for arg in "$@"; do
     case "$arg" in *"exit 7"*) exit 7;; esac
@@ -155,11 +155,11 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		t.Parallel()
 		a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"self-check","severity":"high"}]`)
 		attachScanner(t, a, "self-check", map[string]any{"command": []string{"python", "manage.py", "check"}, "target": "exec-image", "manual": true})
-		attachScanner(t, a, "semgrep", map[string]any{"image": "semgrep:test", "command": []string{"semgrep", "--sarif", "--output", "/work/.forge/semgrep.sarif", "/work"},
-			"report": ".forge/semgrep.sarif", "format": "sarif", "kind": "sast", "target": "source"})
+		attachScanner(t, a, "semgrep", map[string]any{"image": "semgrep:test", "command": []string{"semgrep", "--sarif", "--output", "/work/.apptown/semgrep.sarif", "/work"},
+			"report": ".apptown/semgrep.sarif", "format": "sarif", "kind": "sast", "target": "source"})
 		calls := onWorkerWithATripwire(t, a)
 		ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
-		for name, body := range map[string]string{".forge/app.yaml": app, "Dockerfile": "FROM scratch\n"} {
+		for name, body := range map[string]string{".apptown/app.yaml": app, "Dockerfile": "FROM scratch\n"} {
 			if err := os.MkdirAll(filepath.Dir(filepath.Join(ws, name)), 0o755); err != nil {
 				t.Fatal(err)
 			}
@@ -182,20 +182,20 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		t.Parallel()
 		a := testApp(t)
 		attachScanner(t, a, "self-check", map[string]any{"command": []string{"python", "manage.py", "check"}, "target": "exec-image", "manual": true})
-		attachScanner(t, a, "semgrep", map[string]any{"image": "semgrep:test", "command": []string{"semgrep", "--sarif", "--output", "/work/.forge/semgrep.sarif", "/work"},
-			"report": ".forge/semgrep.sarif", "format": "sarif", "kind": "sast", "target": "source"})
-		attachScanner(t, a, "trivy", map[string]any{"image": "trivy:test", "command": []string{"image", "--input", "${IMAGE_TAR}", "--format", "sarif", "--output", "/work/.forge/trivy.sarif"},
-			"report": ".forge/trivy.sarif", "format": "sarif", "kind": "vuln", "target": "image"})
-		attachScanner(t, a, "secrets", map[string]any{"image": "gitleaks:test", "command": []string{"detect", "--source", "/work", "--report-path", "/work/.forge/secrets.sarif"},
-			"historyCommand": []string{"git", "/history", "--log-opts", "${HISTORY_RANGE}", "--report-path", "/work/.forge/secrets.sarif"},
-			"report":         ".forge/secrets.sarif", "format": "sarif", "kind": "secret", "target": "source"})
+		attachScanner(t, a, "semgrep", map[string]any{"image": "semgrep:test", "command": []string{"semgrep", "--sarif", "--output", "/work/.apptown/semgrep.sarif", "/work"},
+			"report": ".apptown/semgrep.sarif", "format": "sarif", "kind": "sast", "target": "source"})
+		attachScanner(t, a, "trivy", map[string]any{"image": "trivy:test", "command": []string{"image", "--input", "${IMAGE_TAR}", "--format", "sarif", "--output", "/work/.apptown/trivy.sarif"},
+			"report": ".apptown/trivy.sarif", "format": "sarif", "kind": "vuln", "target": "image"})
+		attachScanner(t, a, "secrets", map[string]any{"image": "gitleaks:test", "command": []string{"detect", "--source", "/work", "--report-path", "/work/.apptown/secrets.sarif"},
+			"historyCommand": []string{"git", "/history", "--log-opts", "${HISTORY_RANGE}", "--report-path", "/work/.apptown/secrets.sarif"},
+			"report":         ".apptown/secrets.sarif", "format": "sarif", "kind": "secret", "target": "source"})
 		calls := onWorkerWithATripwire(t, a)
 		run, _ := reviewLanding(t, a, []schema.Step{
 			{Name: "guidance", Uses: "guidance/conformance"},
 			{Name: "source", Uses: "scan", With: map[string]any{"scanner": "semgrep"}},
 			{Name: "image", Uses: "scan", With: map[string]any{"scanner": "trivy"}},
 			{Name: "history", Uses: "scan", With: map[string]any{"scanner": "secrets"}},
-		}, map[string]string{".forge/app.yaml": app, "Dockerfile": "FROM scratch\n"}, func(pid ids.ID) {
+		}, map[string]string{".apptown/app.yaml": app, "Dockerfile": "FROM scratch\n"}, func(pid ids.ID) {
 			adopt(t, a, pid, "worker-gates", 1, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"self-check","severity":"high"}]`)
 		})
 		for _, name := range []string{"guidance", "source", "image", "history"} {
@@ -203,7 +203,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 				t.Fatalf("the landing's %s gate on the worker: %s %s", name, step.Status, step.Evidence)
 			}
 		}
-		onlyTheWorker(t, calls, "python manage.py check", "semgrep --sarif", "worker save sha256:", "image --input /work/.forge/image.tar", "git /history --log-opts")
+		onlyTheWorker(t, calls, "python manage.py check", "semgrep --sarif", "worker save sha256:", "image --input /work/.apptown/image.tar", "git /history --log-opts")
 	})
 	t.Run("the merge-only compile check", func(t *testing.T) {
 		t.Parallel()

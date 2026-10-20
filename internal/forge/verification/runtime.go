@@ -164,7 +164,7 @@ type Target struct {
 	// Host is the daemon a standing deployment's container runs on, its
 	// own target's; nil is the forge's own.
 	Host        *docker.Scope
-	ContractDir string // when set, the tree whose .forge/app.yaml declares readiness (a change's committed tree at the gate)
+	ContractDir string // when set, the tree whose .apptown/app.yaml declares readiness (a change's committed tree at the gate)
 	ReleaseSHA  string
 	// Served is a preview opened for probing, wherever it runs: what its
 	// container was started with is read through it.
@@ -337,8 +337,8 @@ func (o Runtime) Observe(ctx context.Context, projectID ids.ID, source, probe st
 // own inability (the app not running when the review looked); a served
 // app with no readiness declared has not met the way of working. Read as
 // "cannot assess", such projects would sit there indefinitely while the
-// shell check passed them for having no .forge/app.yaml at all.
-const undeclaredReadiness = "AppTown serves this app but nothing declares when it is ready: .forge/app.yaml names no health.readiness.http for the public part (a retired compose.yaml or app.json does not count), so AppTown falls back to probing GET /. Declare the contract in .forge/app.yaml with  health: { readiness: { http: /healthz } }  under the served part, and give the app a /healthz that answers 200 without touching the database"
+// shell check passed them for having no .apptown/app.yaml at all.
+const undeclaredReadiness = "AppTown serves this app but nothing declares when it is ready: .apptown/app.yaml names no health.readiness.http for the public part (a retired compose.yaml or app.json does not count), so AppTown falls back to probing GET /. Declare the contract in .apptown/app.yaml with  health: { readiness: { http: /healthz } }  under the served part, and give the app a /healthz that answers 200 without touching the database"
 
 // readinessReadStopped is a readiness check whose contract read was cut
 // short: a stopped read says nothing about what the app declares, so it is

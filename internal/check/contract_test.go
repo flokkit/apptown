@@ -23,7 +23,7 @@ func TestAJudgeReadsTheOutcomeNotTheProcess(t *testing.T) {
 			Run: func(execution.Request) execution.Outcome {
 				return execution.Outcome{Termination: execution.Exited, ExitCode: code, Report: report, ReportErr: reportErr}
 			},
-			Scanners: oneScanner{Name: "t", Image: "t:1", Report: ".forge/r.sarif", Format: "sarif"},
+			Scanners: oneScanner{Name: "t", Image: "t:1", Report: ".apptown/r.sarif", Format: "sarif"},
 		}
 	}
 	sh := sourced("b", 1, "rule", "true", "high")

@@ -237,7 +237,7 @@ func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 	secrets := secret.NewService(db, secret.Config{DataDir: w.dir})
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secrets})
 	w.repo = filepath.Join(w.dir, "workspaces", "project-game")
-	files := map[string]string{".forge/app.yaml": yaml, "site/index.html": "<html>game</html>", "worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n"}
+	files := map[string]string{".apptown/app.yaml": yaml, "site/index.html": "<html>game</html>", "worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n"}
 	for name, body := range files {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(w.repo, name)), 0o755); err != nil {
 			t.Fatal(err)
@@ -370,7 +370,7 @@ func expectRecordedBoot(t *testing.T, w *noLocalWorld, b *ReleaseBundle, contain
 			if !strings.HasSuffix(run, want) || !strings.Contains(run, docker.BrowserEnvVar+"=") {
 				t.Fatalf("the static part is not run as its bundle says (self-serving %v): %s", b.BuiltFrom.SelfServing, run)
 			}
-			// It is told the release it serves, answered at /_forge/release.
+			// It is told the release it serves, answered at /_apptown/release.
 			if !strings.Contains(run, " -e "+appcontract.ReleaseEnvVar+"="+appcontract.ReleaseIdentity("web", b.ContractRevision)+" ") {
 				t.Fatalf("the static part is not told its release %s: %s", b.ContractRevision, run)
 			}

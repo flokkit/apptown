@@ -17,7 +17,7 @@ resolves its own images, so the scan's receipt names the image it scanned and
 how it got it, not the release's digest, and lists the other parts and init
 steps, which it does not scan. A public static site is skipped with a note
 (its files are packed into AppTown's file-server image at release), still
-naming the other parts and init steps; an app with no `.forge/app.yaml`
+naming the other parts and init steps; an app with no `.apptown/app.yaml`
 passes the image point with a note.
 
 An image scan compares with an earlier image: the image of the commit the

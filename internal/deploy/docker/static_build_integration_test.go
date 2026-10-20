@@ -45,7 +45,7 @@ func TestIntegrationAStaticBuildIsPackedOnTheSelectedDaemon(t *testing.T) {
 		t.Fatalf("the packed image's site: %q %v", out, err)
 	}
 	cmd, err := exec.Command("docker", "image", "inspect", "--format", "{{json .Config.Cmd}}", tag).Output()
-	if err != nil || !strings.Contains(string(cmd), "/_forge/env.js") {
+	if err != nil || !strings.Contains(string(cmd), "/_apptown/env.js") {
 		t.Fatalf("the packed image does not serve itself: %s %v", cmd, err)
 	}
 

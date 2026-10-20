@@ -68,7 +68,7 @@ func TestSelectedSourceStagesExactRevisionAndCleansUp(t *testing.T) {
 		t.Fatalf("identity: %+v", tree)
 	}
 	assertSourceFile(t, tree.Directory, "index.html", "original game\n")
-	if _, err := os.Stat(filepath.Join(tree.Directory, ".forge/app.yaml")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(tree.Directory, ".apptown/app.yaml")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("invented contract: %v", err)
 	}
 	cleanup()
@@ -161,13 +161,13 @@ func TestSnapshotMarkerDoesNotFollowSourceSymlinks(t *testing.T) {
 			}
 			outside := t.TempDir()
 			sourceFile(t, outside, "snapshot-sha", "do not overwrite")
-			name, target := filepath.Join(repo, ".forge"), outside
+			name, target := filepath.Join(repo, ".apptown"), outside
 			if kind == "marker" {
 				if err := os.Mkdir(name, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				name, target = filepath.Join(name, "snapshot-sha"), filepath.Join(outside, "snapshot-sha")
-				sourceFile(t, repo, ".forge/app.yaml", "native contract bytes\n")
+				sourceFile(t, repo, ".apptown/app.yaml", "native contract bytes\n")
 			}
 			if err := os.Symlink(target, name); err != nil {
 				t.Fatal(err)
@@ -176,15 +176,15 @@ func TestSnapshotMarkerDoesNotFollowSourceSymlinks(t *testing.T) {
 			tree, err := (SelectedSource{Repository: repo, Revision: revision}).Snapshot(context.Background(), destination)
 			if kind == "directory" {
 				if err == nil {
-					t.Fatal("source-supplied .forge symlink accepted")
+					t.Fatal("source-supplied .apptown symlink accepted")
 				}
-				assertSourceFile(t, destination, ".forge/snapshot-sha", original+"\n")
+				assertSourceFile(t, destination, ".apptown/snapshot-sha", original+"\n")
 			} else {
 				if err != nil {
 					t.Fatal(err)
 				}
-				assertSourceFile(t, tree.Directory, ".forge/snapshot-sha", revision+"\n")
-				assertSourceFile(t, tree.Directory, ".forge/app.yaml", "native contract bytes\n")
+				assertSourceFile(t, tree.Directory, ".apptown/snapshot-sha", revision+"\n")
+				assertSourceFile(t, tree.Directory, ".apptown/app.yaml", "native contract bytes\n")
 			}
 			assertSourceFile(t, outside, "snapshot-sha", "do not overwrite")
 		})
@@ -227,12 +227,12 @@ func TestSnapshotCacheRejectsSymlinkMarkersAndDirectories(t *testing.T) {
 			repo, revision := sourceRepo(t)
 			destination := filepath.Join(t.TempDir(), "snapshot")
 			outside := t.TempDir()
-			sourceFile(t, outside, ".forge/snapshot-sha", revision+"\n")
+			sourceFile(t, outside, ".apptown/snapshot-sha", revision+"\n")
 			sourceFile(t, outside, "index.html", "different game\n")
 			link, target := destination, outside
 			if kind != "root" {
 				sourceFile(t, destination, "index.html", "stale game\n")
-				link, target = filepath.Join(destination, ".forge"), filepath.Join(outside, ".forge")
+				link, target = filepath.Join(destination, ".apptown"), filepath.Join(outside, ".apptown")
 			}
 			if kind == "marker" {
 				if err := os.Mkdir(link, 0o755); err != nil {

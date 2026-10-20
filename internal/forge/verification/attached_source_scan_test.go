@@ -17,15 +17,15 @@ func TestRunAttachedSourceScans(t *testing.T) {
 	// A universal source scanner (fanned out) and a manual one (must be skipped).
 	f.bind(t, "semgrep", map[string]any{
 		"image": "semgrep/semgrep:test", "command": []string{"semgrep", "/work"},
-		"report": ".forge/semgrep.sarif", "network": true, "format": "sarif",
+		"report": ".apptown/semgrep.sarif", "network": true, "format": "sarif",
 		"kind": "sast", "target": "source",
 	})
 	f.bind(t, "semgrep-django", map[string]any{
 		"image": "semgrep/semgrep:test", "command": []string{"semgrep", "/work"},
-		"report": ".forge/semgrep.sarif", "format": "sarif", "target": "source", "manual": true,
+		"report": ".apptown/semgrep.sarif", "format": "sarif", "target": "source", "manual": true,
 	})
 
-	f.Effects.report = scannerSARIF(2) // writes .forge/semgrep.sarif with 2 results
+	f.Effects.report = scannerSARIF(2) // writes .apptown/semgrep.sarif with 2 results
 	src := t.TempDir()
 	results, findings, errs := f.Scanners.RunSourceScans(context.Background(), src, "test", "", "")
 
@@ -58,7 +58,7 @@ func TestStoppedScannerDiscoveryIsNotAPass(t *testing.T) {
 	f := newScannerOwnerFixture(t)
 	f.bind(t, "semgrep", map[string]any{
 		"image": "semgrep/semgrep:test", "command": []string{"semgrep", "/work"},
-		"report": ".forge/semgrep.sarif", "format": "sarif", "kind": "sast", "target": "source",
+		"report": ".apptown/semgrep.sarif", "format": "sarif", "kind": "sast", "target": "source",
 	})
 	stopped, cancel := context.WithCancel(t.Context())
 	cancel()

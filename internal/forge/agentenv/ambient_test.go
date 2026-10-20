@@ -57,7 +57,7 @@ func TestAmbientPreparationPreservesProjectConfigurationAndIsolatesInstalls(t *t
 			t.Fatal("missing system-layer toolchain restrictions")
 		}
 		// Generated beside the tree: nothing is written into the workspace.
-		if _, err := os.Lstat(filepath.Join(ws, ".forge")); !os.IsNotExist(err) {
+		if _, err := os.Lstat(filepath.Join(ws, ".apptown")); !os.IsNotExist(err) {
 			t.Fatalf("ambient preparation wrote into the workspace: %v", err)
 		}
 	}
@@ -92,13 +92,13 @@ func TestGeneratedFilesKeepTheirContainerPaths(t *testing.T) {
 	}
 }
 
-// A project's .forge that is a link out of its tree reaches nothing: the
+// A project's .apptown that is a link out of its tree reaches nothing: the
 // configuration is generated as bytes and written by the runner in a folder
 // of its own, so the link's target is never written.
 func TestAProjectsForgeLinkReachesNothing(t *testing.T) {
 	t.Parallel()
 	ws, outside := t.TempDir(), t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(ws, ".forge")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(ws, ".apptown")); err != nil {
 		t.Fatal(err)
 	}
 	amb := AmbientFor(map[string]integration.BoundRegistry{"npm": {Name: "npm", URL: "https://mirror.invalid/npm/"}}, ws)

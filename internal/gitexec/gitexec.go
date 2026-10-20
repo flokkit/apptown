@@ -166,7 +166,7 @@ func IsRepo(dir string) bool {
 // Staged reports whether dir's index differs from HEAD (from the empty tree
 // on a branch with no commit yet): whether a commit would record anything.
 // The working tree's status is not the question: files nothing staged, such
-// as the forge's runtime state under .forge, would make a commit with
+// as the forge's runtime state under .apptown, would make a commit with
 // nothing to record. A directory git cannot read is an error, never "nothing
 // staged".
 func Staged(ctx context.Context, dir string) (bool, error) {

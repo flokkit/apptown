@@ -77,15 +77,15 @@ func TestForgeCheckChecksOneCommitWhileTheBranchMoves(t *testing.T) {
 	a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"step1-image","severity":"high"}]`)
 	attachScanner(t, a, "step1-image", map[string]any{"command": []string{"true"}, "target": "exec-image", "manual": true})
 	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	for name, body := range map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n", "source.txt": "first"} {
+	for name, body := range map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n", "source.txt": "first"} {
 		if err := os.WriteFile(filepath.Join(ws, name), []byte(body), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	gittest.Run(t, ws, "add", "-f", ".forge/app.yaml", "source.txt")
+	gittest.Run(t, ws, "add", "-f", ".apptown/app.yaml", "source.txt")
 	gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "first")
 	checked := gittest.Run(t, ws, "rev-parse", "HEAD")
 	daemon := dockerfake.New()

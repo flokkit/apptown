@@ -18,7 +18,7 @@ import (
 // artifact's bytes and hash, and its emulated services.
 
 // ErrNoContract says the selected tree declares no hosted application.
-var ErrNoContract = errors.New(".forge/app.yaml not found — the app must declare its runtime contract")
+var ErrNoContract = errors.New(".apptown/app.yaml not found — the app must declare its runtime contract")
 
 // Selected configuration, before resolving credentials. Only this request and
 // its hash are durable; a staged directory belongs to one execution.
@@ -55,7 +55,7 @@ func PrepareSource(ctx context.Context, repo, revision, slug string, services []
 func SourceAt(ws, commit, slug string, services []deploy.ServiceSpec) (deploy.Artifact, error) {
 	c, err := ReadSelectedContract(ws)
 	if err != nil {
-		return deploy.Artifact{}, fmt.Errorf("selected Docker source requires .forge/app.yaml: %w", err)
+		return deploy.Artifact{}, fmt.Errorf("selected Docker source requires .apptown/app.yaml: %w", err)
 	}
 	return SourceArtifact(deploy.Source{Workspace: ws, Revision: commit, Slug: slug, Contract: c}, services)
 }
@@ -145,23 +145,28 @@ func RelativePath(root, path string) (string, error) {
 
 // Read contract presence from selected source before deciding whether this is a
 // runtime deployment. A symlink must not turn that decision into a host-file read.
+// A tree selected at a revision recorded before the AppTown rename holds its
+// contract at HistoricalContractPath (ContractFileAt).
 func ReadSelectedContract(root string) (*appcontract.Contract, error) {
-	_, err := os.Lstat(filepath.Join(root, ".forge/app.yaml"))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, ErrNoContract
+	for _, name := range []string{ContractPath, HistoricalContractPath} {
+		_, err := os.Lstat(filepath.Join(root, name))
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		path, err := SelectedPath(root, name)
+		if err != nil {
+			return nil, err
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		return appcontract.Parse(raw)
 	}
-	if err != nil {
-		return nil, err
-	}
-	path, err := SelectedPath(root, ".forge/app.yaml")
-	if err != nil {
-		return nil, err
-	}
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return appcontract.Parse(raw)
+	return nil, ErrNoContract
 }
 
 func SelectedPath(root, path string) (string, error) {
@@ -190,7 +195,7 @@ func SelectedPath(root, path string) (string, error) {
 // ReadWorkspaceContract reads the native declaration in a live workspace.
 // Selected immutable source continues to use ReadSelectedContract and its confinement.
 func ReadWorkspaceContract(ws string) (*appcontract.Contract, error) {
-	raw, err := os.ReadFile(filepath.Join(ws, ".forge", "app.yaml"))
+	raw, err := os.ReadFile(filepath.Join(ws, ".apptown", "app.yaml"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, ErrNoContract
 	}
@@ -206,19 +211,19 @@ const StaticServerImage = "caddy:2-alpine"
 // BrowserEnvVar carries a static part's browser-safe values, a JSON object.
 const BrowserEnvVar = appcontract.BrowserEnvVar
 
-// BrowserEnvScript is /_forge/env.js around a JSON object of values. No
+// BrowserEnvScript is /_apptown/env.js around a JSON object of values. No
 // literal braces: the static server's config would read them as a
 // placeholder.
 func BrowserEnvScript(values string) string {
-	return "window.__FORGE_ENV__ = Object.freeze(Object.assign(new Object(), " + values + "));"
+	return "window.__APPTOWN_ENV__ = Object.freeze(Object.assign(new Object(), " + values + "));"
 }
 
 // StaticServerCommand serves a static part: the site from /srv, and
-// /_forge/env.js answered from BrowserEnvVar at request time, so one image
+// /_apptown/env.js answered from BrowserEnvVar at request time, so one image
 // serves every deployment its own values. A static site cannot read its
 // container's environment; this file is how the attached integrations' public
 // values (an error-reporting DSN, a feedback key) reach the page, as
-// window.__FORGE_ENV__; without it a static app could adopt error reporting
+// window.__APPTOWN_ENV__; without it a static app could adopt error reporting
 // that never reports, with nothing putting the DSN in the page. Unset or
 // empty, the file answers {} whatever the target set (App Platform sets
 // nothing, and a bare expansion would end the script mid-expression).
@@ -238,7 +243,7 @@ func StaticServerCommand(port int) []string {
 
 :%d {
 	@novalues vars {env.%s} ""
-	handle /_forge/env.js {
+	handle /_apptown/env.js {
 		header Content-Type "application/javascript; charset=utf-8"
 		header Cache-Control "no-store"
 		respond @novalues "%s"

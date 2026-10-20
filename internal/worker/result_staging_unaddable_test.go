@@ -12,13 +12,13 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// A scratch repository a task leaves under .forge is runtime, not source:
+// A scratch repository a task leaves under .apptown is runtime, not source:
 // whatever the project's ignore rules say, collection leaves it out and
 // returns the ordinary source and the native contract, including on a
 // retry. (Unaddable content elsewhere still fails the collection with
 // git's reason: TestAStagingFailureFailsTheCollection.)
 func TestAScratchRepositoryUnderForgeIsLeftOut(t *testing.T) {
-	for _, ignore := range []string{"", ".forge/other-cache/\n", ".forge/\n"} {
+	for _, ignore := range []string{"", ".apptown/other-cache/\n", ".apptown/\n"} {
 		t.Run("ignore="+ignore, func(t *testing.T) {
 			ctx := context.Background()
 			ca, state := workertest.NewCA(t), t.TempDir()
@@ -42,10 +42,10 @@ func TestAScratchRepositoryUnderForgeIsLeftOut(t *testing.T) {
 				t.Fatal(err)
 			}
 			work := filepath.Join(state, "workspaces", spec.Key)
-			if out, err := gitexec.Run(ctx, work, "init", "-q", ".forge/cache/repo"); err != nil {
+			if out, err := gitexec.Run(ctx, work, "init", "-q", ".apptown/cache/repo"); err != nil {
 				t.Fatal(err, out)
 			}
-			for name, body := range map[string]string{"made.txt": "ordinary output\n", ".forge/app.yaml": "name: after\n"} {
+			for name, body := range map[string]string{"made.txt": "ordinary output\n", ".apptown/app.yaml": "name: after\n"} {
 				if err := os.WriteFile(filepath.Join(work, name), []byte(body), 0600); err != nil {
 					t.Fatal(err)
 				}
@@ -60,12 +60,12 @@ func TestAScratchRepositoryUnderForgeIsLeftOut(t *testing.T) {
 			if err != nil || imported != tip {
 				t.Fatalf("import: tip=%q err=%v", imported, err)
 			}
-			for name, want := range map[string]string{"made.txt": "ordinary output", ".forge/app.yaml": "name: after"} {
+			for name, want := range map[string]string{"made.txt": "ordinary output", ".apptown/app.yaml": "name: after"} {
 				if got, err := gitexec.Output(ctx, dir, "show", tip+":"+name); err != nil || got != want {
 					t.Errorf("source %s: %q %v", name, got, err)
 				}
 			}
-			if got, err := gitexec.Output(ctx, dir, "ls-tree", "-r", "--name-only", tip, "--", ".forge/cache"); err != nil || got != "" {
+			if got, err := gitexec.Output(ctx, dir, "ls-tree", "-r", "--name-only", tip, "--", ".apptown/cache"); err != nil || got != "" {
 				t.Errorf("excluded runtime tree: %q %v", got, err)
 			}
 			if again, err := driver.Collect(ctx, spec.Key, base, "task result", bundle); err != nil || again != tip {

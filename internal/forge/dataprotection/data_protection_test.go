@@ -262,14 +262,14 @@ type dataWorld struct {
 type dataWorldOptions struct {
 	docker      docker.Client
 	ownDatabase func(context.Context, string, string, string) error
-	// contract replaces the app's .forge/app.yaml.
+	// contract replaces the app's .apptown/app.yaml.
 	contract []byte
 	// opsNow is the operations ledger's clock; nil is the real one.
 	opsNow func() time.Time
 }
 
 // ledgerTemplates are the ledger repositories dataWorlds copy, one per
-// contract: .forge/app.yaml and a Dockerfile in one commit on main.
+// contract: .apptown/app.yaml and a Dockerfile in one commit on main.
 var ledgerTemplates sync.Map // contract -> *ledgerTemplate
 
 type ledgerTemplate struct {
@@ -284,7 +284,7 @@ func ledgerRepository(t *testing.T, repo string, contract []byte) string {
 	fresh := &ledgerTemplate{}
 	fresh.Template = gittest.NewTemplate(func(t testing.TB, dir string) {
 		fresh.revision = gittest.Repository(t, dir, "main", gittest.Commit{Message: "ledger",
-			Files: map[string]string{".forge/app.yaml": string(contract), "Dockerfile": "FROM scratch\n"}})[0]
+			Files: map[string]string{".apptown/app.yaml": string(contract), "Dockerfile": "FROM scratch\n"}})[0]
 	})
 	got, _ := ledgerTemplates.LoadOrStore(string(contract), fresh)
 	tp := got.(*ledgerTemplate)

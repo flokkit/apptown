@@ -59,8 +59,8 @@ migrations require that plugin's own documented procedure.
 
 The site's address is the address each deployment is served at, so nobody
 supplies it: the starter takes a request's Host when it matches an origin in
-`FORGE_ORIGINS` (where AppTown's front door routes the deployment) and refuses
-any other Host with 400. `FORGE_ORIGINS` may list several origins or wildcards
+`APPTOWN_ORIGINS` (where AppTown's front door routes the deployment) and refuses
+any other Host with 400. `APPTOWN_ORIGINS` may list several origins or wildcards
 and is never used as the URL itself. To pin one canonical address, bind
 `WP_HOME` for that deployment; a preview `WP_HOME` binding is shared by all of
 a project's previews, so leave it unbound there. WP-CLI has no request, so

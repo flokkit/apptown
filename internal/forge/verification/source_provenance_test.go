@@ -55,7 +55,7 @@ func TestScanGateHoldsOnlyIntroducedFindings(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	if _, err := integration.New(db).Upsert(t.Context(), "semgrep", ScannerCapability, "tool",
-		`{"image":"semgrep/semgrep:test","command":["semgrep","/work"],"report":".forge/semgrep.sarif","format":"sarif","target":"source","kind":"sast"}`, true); err != nil {
+		`{"image":"semgrep/semgrep:test","command":["semgrep","/work"],"report":".apptown/semgrep.sarif","format":"sarif","target":"source","kind":"sast"}`, true); err != nil {
 		t.Fatal(err)
 	}
 	reports := &provenanceReports{scannerEffects: scannerEffects{t: t}, base: sarifOf(oldFinding)}

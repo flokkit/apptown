@@ -30,9 +30,9 @@ import (
 func runtimeGate(t *testing.T, place gatePlace, beforeBoot, afterBoot func(*App, ids.ID, string, *fakePreviewWorker)) (*workflow.Step, string, string) {
 	t.Helper()
 	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
-	const loads = `<html><head><script src="/_forge/env.js"></script><script src="game.js"></script></head></html>`
+	const loads = `<html><head><script src="/_apptown/env.js"></script><script src="game.js"></script></head></html>`
 	page := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/_forge/env.js" {
+		if r.URL.Path == "/_apptown/env.js" {
 			w.Write([]byte(docker.BrowserEnvScript(given)))
 			return
 		}
@@ -76,10 +76,10 @@ func runtimeGate(t *testing.T, place gatePlace, beforeBoot, afterBoot func(*App,
 		t.Fatal(err)
 	}
 	ws := source.Workspace(a.cfg.dataDir)
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commitFolder(t, ws)
@@ -188,7 +188,7 @@ func TestRuntimeChecksNeverJudgeAPreviewOfAnEarlierCommit(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(ws, "dist/index.html"), []byte("old static page"), 0644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(ws, ".forge/app.yaml"), []byte("app:\n  web: {static: dist, public: true}\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(ws, ".apptown/app.yaml"), []byte("app:\n  web: {static: dist, public: true}\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
 		commitFolder(t, ws)
@@ -229,7 +229,7 @@ func TestRuntimeChecksJudgeTheContractThePreviewBooted(t *testing.T) {
 	for _, onWorker := range []bool{false, true} {
 		t.Run(fmt.Sprint(onWorker), func(t *testing.T) {
 			before := func(_ *App, _ ids.ID, ws string, _ *fakePreviewWorker) {
-				path := filepath.Join(ws, ".forge/app.yaml")
+				path := filepath.Join(ws, ".apptown/app.yaml")
 				if err := os.WriteFile(path, []byte("app:\n  web: {static: ., public: true}\n"), 0644); err != nil {
 					t.Fatal(err)
 				}

@@ -139,7 +139,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		want  string
 	}{
 		"an unknown need": {with: map[string]any{"needs": true}, want: "the app needs no-such-kind, which is not in the dependency catalog",
-			files: map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  no-such-kind: {}\n"}},
+			files: map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  no-such-kind: {}\n"}},
 		// The forge was started without -private-docker.
 		"private Docker without the operator's opt-in": {with: map[string]any{"docker": true}, want: "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker"},
 	} {
@@ -191,7 +191,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 			if after, err := gitexec.FolderTip(context.Background(), source.Workspace(a.cfg.dataDir), source.Branch); err != nil || after != folderBefore {
 				t.Fatalf("the folder moved from %q to %q (%v)", folderBefore, after, err)
 			}
-			if left := gittest.Run(t, hub, "for-each-ref", "refs/forge/incoming"); left != "" {
+			if left := gittest.Run(t, hub, "for-each-ref", "refs/apptown/incoming"); left != "" {
 				t.Fatalf("a proposed source was left in the hub: %s", left)
 			}
 		})

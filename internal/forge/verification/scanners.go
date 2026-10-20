@@ -294,7 +294,7 @@ func (s *Scanners) baseScanFingerprints(ctx context.Context, repo, baseSHA strin
 		return b
 	}
 	defer cleanup()
-	_ = os.MkdirAll(filepath.Join(src, ".forge"), 0o755)
+	_ = os.MkdirAll(filepath.Join(src, ".apptown"), 0o755)
 	if strings.Contains(m.Image, "osv") {
 		if _, err := os.Stat(filepath.Join(src, "go.mod")); err == nil {
 			if v := goToolchainVersion(src); v != "" {
@@ -338,7 +338,7 @@ func (s *Scanners) baseScanFingerprints(ctx context.Context, repo, baseSHA strin
 // apptown check previews exactly what the land gate will hold against the
 // change (scan_provenance.go). Pass "" to compare against nothing.
 func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefix string, repo, baseSHA string) (results Results, findings []conformance.Finding, scanErrors int) {
-	_ = os.MkdirAll(filepath.Join(scanSrc, ".forge"), 0o755)
+	_ = os.MkdirAll(filepath.Join(scanSrc, ".apptown"), 0o755)
 	attached, err := s.attachedScanners(ctx)
 	if err != nil {
 		// The scans were not assessed: an errored result, not a pass.

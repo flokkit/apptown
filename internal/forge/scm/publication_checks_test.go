@@ -11,7 +11,7 @@ import (
 )
 
 // Every publication checks what it brings into the repository, whoever made
-// it: a change to .forge but its native contract, a new file over 10 MiB,
+// it: a change to .apptown but its native contract, a new file over 10 MiB,
 // or new files over 50 MiB in all is refused, the branch does not move, and
 // the work stays where it was made. The same files within the limits, and
 // the contract, are published.
@@ -22,10 +22,10 @@ func TestAPublicationIsCheckedForWhatItBringsIn(t *testing.T) {
 		files   map[string]int // path -> size in bytes
 		refused string
 	}{
-		{"a runtime file under .forge", map[string]int{".forge/runtime.json": 10}, ".forge/runtime.json"},
+		{"a runtime file under .apptown", map[string]int{".apptown/runtime.json": 10}, ".apptown/runtime.json"},
 		{"a file over the limit", map[string]int{"dump.bin": maxPublishedFile + 1}, "dump.bin"},
 		{"too much in all", map[string]int{"a.bin": 9 << 20, "b.bin": 9 << 20, "c.bin": 9 << 20, "d.bin": 9 << 20, "e.bin": 9 << 20, "f.bin": 9 << 20}, "over the 50 MiB"},
-		{"source and the contract", map[string]int{"main.go": 10, ".forge/app.yaml": 10}, ""},
+		{"source and the contract", map[string]int{"main.go": 10, ".apptown/app.yaml": 10}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

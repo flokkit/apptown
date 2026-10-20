@@ -93,7 +93,7 @@ func TestAppPlatformRefusesAValueItWouldRewriteBeforeAnyEffect(t *testing.T) {
 		for _, e := range spec.Services[0].Envs {
 			env[e.Key] = e.Value
 		}
-		if env["GREETING"] != "pa$word" || env["HASH"] != "$2a$10$abc" || env["BRACE"] != "}${" || env["DATABASE_URL"] != "${postgres.DATABASE_URL}" || env["FORGE_ORIGINS"] != appURL {
+		if env["GREETING"] != "pa$word" || env["HASH"] != "$2a$10$abc" || env["BRACE"] != "}${" || env["DATABASE_URL"] != "${postgres.DATABASE_URL}" || env["APPTOWN_ORIGINS"] != appURL {
 			t.Fatalf("values changed: %v", env)
 		}
 	})

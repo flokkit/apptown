@@ -26,7 +26,7 @@ func TestLandingRestartHTTPValidatesCurrentLaneBeforeAbandoningAndIdentifiesFres
 	if err != nil || prior.Run.Status != workflow.RunRunning {
 		t.Fatalf("preflight abandoned parked run: %+v %v", prior, err)
 	}
-	seedLibraryWorkflow(t, a, ch.ProjectID, "test", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, ch.ProjectID, "test", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: test}
 spec:

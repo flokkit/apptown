@@ -57,10 +57,10 @@ func TestPreflightJudgesTheReleaseWithoutEffects(t *testing.T) {
 	t.Parallel()
 	s, _, client, dir, projectID := hostWorld(t, "")
 	ws := filepath.Join(dir, "tree")
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte(preflightApp), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(preflightApp), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(ws, secret.SpecFile), []byte(preflightSpec), 0o644); err != nil {

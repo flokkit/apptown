@@ -38,11 +38,11 @@ func TestReleasePreflightUsesCommittedDeclaration(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo := filepath.Join(dir, "workspaces", "project-"+p.Slug)
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	declaration := "app:\n  web:\n    image: game:v1\n    public: true\n    ports: [\"8080\"]\n"
-	path := filepath.Join(repo, ".forge", "app.yaml")
+	path := filepath.Join(repo, ".apptown", "app.yaml")
 	if err := os.WriteFile(path, []byte(declaration+"needs:\n  unknown-service: {}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}

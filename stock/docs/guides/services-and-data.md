@@ -1,6 +1,6 @@
 # Services and data
 
-An app declares the services it needs in the `.forge/app.yaml` committed with its source. AppTown reads that contract for the revision it is previewing or deploying. This keeps a service change reviewable with the code that uses it.
+An app declares the services it needs in the `.apptown/app.yaml` committed with its source. AppTown reads that contract for the revision it is previewing or deploying. This keeps a service change reviewable with the code that uses it.
 
 ## Declare a service
 
@@ -47,7 +47,7 @@ Object storage on App Platform: the deployment gets a DigitalOcean Spaces bucket
 
 For a container outside the catalog, declare an `app:` part with `image:`. That part belongs to the app, like its code; it is different from a catalog need, and you change it through a change like any other source. The Services page edits `needs:` only and leaves every `app:` part as written. Credentials are declared separately, in `secretspec.toml` ([Secrets](/docs/guides/secrets)); every file AppTown reads is listed in [the app contract](/docs/guides/contract-reference).
 
-In the project UI, **Settings › Services › Runs against** shows the declared catalog needs. Adding or changing one saves a Change that updates `.forge/app.yaml`; review and preview that Change before landing it. The Change touches only the needs you changed: a need you left alone keeps its entry as written. If the app's services change on `main` while you are editing, the save is refused and the page shows what changed, so you can keep your edits on top or discard them. **Connected to** lists integrations, such as error reporting, which are attached in AppTown rather than declared as app dependencies. At project creation, choosing a pack can preselect services from the same catalog; you can adjust that selection, and it is written as the new project's first commit. The pack's starter files and its suggested services are independent, so check that the resulting app boots with the services it actually uses.
+In the project UI, **Settings › Services › Runs against** shows the declared catalog needs. Adding or changing one saves a Change that updates `.apptown/app.yaml`; review and preview that Change before landing it. The Change touches only the needs you changed: a need you left alone keeps its entry as written. If the app's services change on `main` while you are editing, the save is refused and the page shows what changed, so you can keep your edits on top or discard them. **Connected to** lists integrations, such as error reporting, which are attached in AppTown rather than declared as app dependencies. At project creation, choosing a pack can preselect services from the same catalog; you can adjust that selection, and it is written as the new project's first commit. The pack's starter files and its suggested services are independent, so check that the resulting app boots with the services it actually uses.
 
 ## Initialization and data
 

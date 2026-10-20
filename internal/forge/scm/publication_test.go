@@ -199,7 +199,7 @@ func TestAHandoverWaitsForAGitProcessThatOutlivedTheForge(t *testing.T) {
 	gen := f.authority().Generation
 	w := f.writer("w")
 	proposed := commitIn(t, w, "in flight when AppTown died")
-	gittest.RunAsTester(t, f.hub, "fetch", "-q", w, "work:refs/forge/incoming/test")
+	gittest.RunAsTester(t, f.hub, "fetch", "-q", w, "work:refs/apptown/incoming/test")
 	expected := f.tip()
 	if _, err := f.publisher.begin(context.Background(), Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "work", Grant: Grant{Generation: gen}}, expected, proposed); err != nil {
 		t.Fatal(err)
@@ -232,7 +232,7 @@ func TestACrashAfterGitMovedTheBranchSettlesWithoutReplay(t *testing.T) {
 	gen := f.authority().Generation
 	w := f.writer("w")
 	proposed := commitIn(t, w, "published just before the crash")
-	gittest.RunAsTester(t, f.hub, "fetch", "-q", w, "work:refs/forge/incoming/test")
+	gittest.RunAsTester(t, f.hub, "fetch", "-q", w, "work:refs/apptown/incoming/test")
 	expected := f.tip()
 	if _, err := f.publisher.begin(context.Background(), Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "work", Grant: Grant{Generation: gen}}, expected, proposed); err != nil {
 		t.Fatal(err)
@@ -268,7 +268,7 @@ func TestAnUnsettledPublicationHoldsTheNextOne(t *testing.T) {
 	gen := f.authority().Generation
 	w := f.writer("w")
 	proposed := commitIn(t, w, "held")
-	gittest.RunAsTester(t, f.hub, "fetch", "-q", w, "work:refs/forge/incoming/test")
+	gittest.RunAsTester(t, f.hub, "fetch", "-q", w, "work:refs/apptown/incoming/test")
 	if _, err := f.publisher.begin(context.Background(), Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "work", Grant: Grant{Generation: gen}}, f.tip(), proposed); err != nil {
 		t.Fatal(err)
 	}

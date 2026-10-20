@@ -57,7 +57,7 @@ say plainly when you cannot find the answer.
 
 // DockerConfigDir is relative to the workspace mounted at /work. Pi runs with
 // its generated home, so its Docker CLI uses the same client configuration.
-const DockerConfigDir = ".forge/pi-home/.docker"
+const DockerConfigDir = ".apptown/pi-home/.docker"
 
 // Home selects the baked extensions and already-resolved delegate models.
 // Project policy and model selection happen before reaching this adapter.

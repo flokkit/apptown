@@ -1,6 +1,6 @@
 // Package changeadds reads what a change brings into its app that main does
 // not have, from declarations only: the secrets secretspec.toml declares, the services and app parts
-// .forge/app.yaml declares, and for an uplift the ways of working its
+// .apptown/app.yaml declares, and for an uplift the ways of working its
 // recorded adoption target brings. Nothing is inferred from source.
 //
 // Each row compares the commit an approval assents to with the commit
@@ -37,7 +37,12 @@ const (
 	Ways     = "ways of working"
 )
 
-const contractPath = ".forge/app.yaml"
+const contractPath = ".apptown/app.yaml"
+
+// historicalContractPath is where the contract lived before the AppTown
+// rename. A change open across the upgrade meets main at a commit from
+// before it, so a side without the new path is read at the old one.
+const historicalContractPath = ".forge/app.yaml"
 
 // Comparer answers Work's AddsReader from the project's repositories.
 type Comparer struct{}
@@ -111,19 +116,24 @@ type declared struct {
 
 func readSide(file File, name string) declared {
 	var d declared
-	raw, found, err := file(contractPath)
+	path := contractPath
+	raw, found, err := file(path)
+	if err == nil && !found {
+		path = historicalContractPath
+		raw, found, err = file(path)
+	}
 	var contract *appcontract.Contract
 	switch {
 	case err != nil:
-		d.contractErr = fmt.Errorf("reading %s at %s: %w", contractPath, name, err)
+		d.contractErr = fmt.Errorf("reading %s at %s: %w", path, name, err)
 	case found:
 		if contract, err = appcontract.Parse(raw); err != nil {
-			d.contractErr = fmt.Errorf("%s at %s does not parse: %v", contractPath, name, strings.TrimPrefix(err.Error(), contractPath+": "))
+			d.contractErr = fmt.Errorf("%s at %s does not parse: %v", path, name, strings.TrimPrefix(err.Error(), contractPath+": "))
 		}
 	}
 	if d.contractErr != nil {
 		// Which file declares the secrets is named in the contract.
-		d.secretsErr = fmt.Errorf("the secrets file is named in %s, which could not be read at %s", contractPath, name)
+		d.secretsErr = fmt.Errorf("the secrets file is named in %s, which could not be read at %s", path, name)
 		return d
 	}
 	specPath := secret.SpecFile

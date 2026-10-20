@@ -27,7 +27,7 @@ var ErrNotPublished = fault.New(fault.Conflict, "the work was not published")
 // (current, empty on its first publication) nor from the default branch
 // (the hub's HEAD, which only landings move), against each of
 // its parents (the change's history, not only its last tree). Nothing may
-// change .forge but its native app contract, no new file may exceed
+// change .apptown but its native app contract, no new file may exceed
 // maxPublishedFile, and the new files together (each counted once) may not
 // exceed maxPublishedTotal. Every publication (a run's step, a chat's
 // commits, a desktop push, a worker's result) is checked here, whoever made
@@ -44,7 +44,7 @@ func checkNewWork(ctx context.Context, repo, proposed, current string) error {
 		return err
 	}
 	if len(extra) > 0 {
-		return fmt.Errorf("%w: it changes files that are not source (%s); only .forge/app.yaml may change under .forge", ErrNotPublished, strings.Join(extra, ", "))
+		return fmt.Errorf("%w: it changes files that are not source (%s); only .apptown/app.yaml may change under .apptown", ErrNotPublished, strings.Join(extra, ", "))
 	}
 	listed, err := gitexec.HubOutput(ctx, repo, nil, append([]string{"rev-list", "--objects"}, revs...)...)
 	if err != nil {

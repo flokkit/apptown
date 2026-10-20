@@ -437,7 +437,7 @@ func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 	if run.Number == 0 || strings.Contains(description, run.ID.String()) || strings.Contains(description, "corp.example") || strings.Contains(description, "Approvals recorded") {
 		t.Fatalf("opening description:\n%s", description)
 	}
-	branch := fmt.Sprintf("forge/change-%d", ch.ID)
+	branch := fmt.Sprintf("apptown/change-%d", ch.ID)
 	if published, offered := gittest.Run(t, hub, "rev-parse", "refs/heads/"+branch), gittest.Run(t, remote, "rev-parse", "refs/heads/"+branch); offered != published {
 		t.Fatalf("the merge request offers %s, not the published branch %s", offered, published)
 	}

@@ -18,7 +18,7 @@ import (
 
 // A step on a worker reads what earlier steps of its run wrote where they
 // declared it, as it would in the run's folder: the plan step's
-// .forge/PLAN.md is sent to the step that carries out the plan and put in
+// .apptown/PLAN.md is sent to the step that carries out the plan and put in
 // its tree unless the tree has that file already. The latest step to write
 // a path wins. Another step's output at the step's own path is never sent
 // to it; the step's own report from its earlier attempt is, with the order
@@ -33,10 +33,10 @@ func TestAStepOnAWorkerIsGivenEarlierStepsOutputs(t *testing.T) {
 	}
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "planner", Via: "session"}, Verified: true})
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{
-		{Name: "draft-plan", Uses: AgentKind, With: map[string]any{"prompt": "plan", "output": map[string]any{"kind": "plan", "file": ".forge/PLAN.md"}}},
-		{Name: "redraft-plan", Uses: AgentKind, With: map[string]any{"prompt": "plan again", "output": map[string]any{"kind": "plan", "name": "plan", "file": ".forge/PLAN.md"}}},
-		{Name: "first-execution", Uses: AgentKind, With: map[string]any{"prompt": "execute", "output": map[string]any{"kind": "exec-report", "file": ".forge/EXEC.md"}}},
-		{Name: "execute-plan", Uses: AgentKind, With: map[string]any{"prompt": "execute", "output": map[string]any{"kind": "exec-report", "file": ".forge/EXEC.md"}}},
+		{Name: "draft-plan", Uses: AgentKind, With: map[string]any{"prompt": "plan", "output": map[string]any{"kind": "plan", "file": ".apptown/PLAN.md"}}},
+		{Name: "redraft-plan", Uses: AgentKind, With: map[string]any{"prompt": "plan again", "output": map[string]any{"kind": "plan", "name": "plan", "file": ".apptown/PLAN.md"}}},
+		{Name: "first-execution", Uses: AgentKind, With: map[string]any{"prompt": "execute", "output": map[string]any{"kind": "exec-report", "file": ".apptown/EXEC.md"}}},
+		{Name: "execute-plan", Uses: AgentKind, With: map[string]any{"prompt": "execute", "output": map[string]any{"kind": "exec-report", "file": ".apptown/EXEC.md"}}},
 	}}}}
 	work := workflow.New(context.Background(), db, workflow.Dependencies{
 		Authority: access.Checked{Authority: directory, Projects: project.New(db, directory)},
@@ -88,23 +88,23 @@ func TestAStepOnAWorkerIsGivenEarlierStepsOutputs(t *testing.T) {
 
 	req := f.build(t)
 	inputs := inputsByPath(t, req.spec)
-	in, ok := inputs["/apptown/in/carried/.forge/PLAN.md"]
+	in, ok := inputs["/apptown/in/carried/.apptown/PLAN.md"]
 	if !ok || string(inputContent(t, in)) != "the approved plan" {
 		t.Fatalf("the plan was not sent: %+v", in)
 	}
-	if in, ok := inputs["/apptown/in/carried/.forge/EXEC.md"]; !ok || string(inputContent(t, in)) != "an earlier attempt's report" {
+	if in, ok := inputs["/apptown/in/carried/.apptown/EXEC.md"]; !ok || string(inputContent(t, in)) != "an earlier attempt's report" {
 		t.Errorf("the step's own earlier report was not sent to it: %+v", in)
 	}
-	if argv := strings.Join(req.spec.Argv, " "); !strings.Contains(argv, "Your report from the earlier attempt is in .forge/EXEC.md. UPDATE it") {
+	if argv := strings.Join(req.spec.Argv, " "); !strings.Contains(argv, "Your report from the earlier attempt is in .apptown/EXEC.md. UPDATE it") {
 		t.Errorf("the agent is not told to update its earlier report: %s", argv)
 	}
 	entry := req.spec.Argv[2]
-	if !strings.Contains(entry, "if [ ! -e '/work/.forge/PLAN.md' ] && [ ! -L '/work/.forge/PLAN.md' ]; then\n  mkdir -p '/work/.forge'\n  cp '/apptown/in/carried/.forge/PLAN.md' '/work/.forge/PLAN.md'\nfi\n") {
+	if !strings.Contains(entry, "if [ ! -e '/work/.apptown/PLAN.md' ] && [ ! -L '/work/.apptown/PLAN.md' ]; then\n  mkdir -p '/work/.apptown'\n  cp '/apptown/in/carried/.apptown/PLAN.md' '/work/.apptown/PLAN.md'\nfi\n") {
 		t.Errorf("the entry does not put the plan in the tree:\n%s", entry)
 	}
 
 	// A restart goes back to the base: no earlier report comes with it.
-	f.call.step.Config = []byte(`{"prompt":"execute","output":{"kind":"exec-report","file":".forge/EXEC.md"},"retryMode":"restart"}`)
+	f.call.step.Config = []byte(`{"prompt":"execute","output":{"kind":"exec-report","file":".apptown/EXEC.md"},"retryMode":"restart"}`)
 	for at := range inputsByPath(t, f.build(t).spec) {
 		if strings.Contains(at, "EXEC.md") {
 			t.Errorf("a restart was sent an earlier report: %s", at)

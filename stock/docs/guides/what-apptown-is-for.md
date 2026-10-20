@@ -32,7 +32,7 @@ policies and approvals, versioned and adopted per project. A team can have
 several, one for its Python web apps and one for its static sites, say.
 Changing how a team works is a change to that data, not to AppTown.
 
-Apps describe how they run in one small file, `.forge/app.yaml`
+Apps describe how they run in one small file, `.apptown/app.yaml`
 ([the app contract](/docs/guides/contract-reference)). AppTown runs them on a
 Docker host, in a Portainer environment, on DigitalOcean App Platform or as a
 bucket website, and gives each app the databases and storage it declares,

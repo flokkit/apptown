@@ -31,7 +31,7 @@ func (c pageClient) Run(_ context.Context, _ string, req Command) ([]byte, error
 
 // A gate's boot asks the page a visitor opens, not only the readiness
 // path: an app that answers /healthz 200 and refuses / (a Rails host list
-// that never took FORGE_ORIGINS; /up is exempt from it) would otherwise pass
+// that never took APPTOWN_ORIGINS; /up is exempt from it) would otherwise pass
 // the preview, the deploy and the runtime check. The visitor's host name is sent, so an app that trusts it
 // is not refused.
 func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
@@ -90,7 +90,7 @@ func (p pathProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Durat
 	return probe.Path != p.refuses, ""
 }
 
-// A static site that answers "/" but not /_forge/env.js is not running the
+// A static site that answers "/" but not /_apptown/env.js is not running the
 // forge's file server configuration (an image built before the image
 // carried it runs the file server's stock page): the boot fails saying so, rather than
 // calling the stock page the site.
@@ -105,7 +105,7 @@ func TestAStaticSiteBootRequiresTheForgesFileServer(t *testing.T) {
 			Name: "forge-preview-run-5", StackID: "pv5", Workspace: t.TempDir(), Slug: "site", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c)
 		return err
 	}
-	if be := AsBootError(boot(pathProbe{refuses: "/_forge/env.js"})); be == nil || be.Phase != PhaseProbe || !strings.Contains(be.Error(), "does not answer /_forge/env.js") {
+	if be := AsBootError(boot(pathProbe{refuses: "/_apptown/env.js"})); be == nil || be.Phase != PhaseProbe || !strings.Contains(be.Error(), "does not answer /_apptown/env.js") {
 		t.Fatalf("a file server without AppTown's configuration passed: %v", be)
 	}
 	if err := boot(pathProbe{}); err != nil {
@@ -126,13 +126,13 @@ func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Du
 }
 
 // A standing static deployment is told its release, as App Platform's is
-// (FORGE_RELEASE, set by the forge after anything the contract says), and
-// a self-serving image is witnessed answering it at /_forge/release; one
+// (APPTOWN_RELEASE, set by the forge after anything the contract says), and
+// a self-serving image is witnessed answering it at /_apptown/release; one
 // answering another release fails. An image of the earlier form, and a
-// preview with no revision, keep the /_forge/env.js check.
+// preview with no revision, keep the /_apptown/env.js check.
 func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n    environment:\n      FORGE_RELEASE: web@apptownd\n"))
+	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n    environment:\n      APPTOWN_RELEASE: web@apptownd\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 			var witnessed, envJS bool
 			for _, p := range asked {
 				witnessed = witnessed || (p.Path == appcontract.ReleasePath && p.Body == tc.wantRelease && p.Expect == 200)
-				envJS = envJS || p.Path == "/_forge/env.js"
+				envJS = envJS || p.Path == "/_apptown/env.js"
 			}
 			switch {
 			case tc.wantRelease != "" && (told != tc.wantRelease || !witnessed || envJS):

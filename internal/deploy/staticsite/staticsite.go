@@ -38,7 +38,7 @@ const MaxBytes = 200 << 20
 
 // EnvKey and ReleaseKey are the two files the forge writes into every set.
 var (
-	EnvKey     = strings.TrimPrefix("/_forge/env.js", "/")
+	EnvKey     = strings.TrimPrefix("/_apptown/env.js", "/")
 	ReleaseKey = strings.TrimPrefix(appcontract.ReleasePath, "/")
 )
 
@@ -104,7 +104,7 @@ func canonical(browser map[string]string) (string, error) {
 }
 
 // Publish is the set for a release: the site's files, the browser values
-// as /_forge/env.js and the identity as /_forge/release, replacing any
+// as /_apptown/env.js and the identity as /_apptown/release, replacing any
 // file of those names. release is <part>@<revision>.
 func Publish(files []oci.File, release, imageDigest string, browser map[string]string) (Set, error) {
 	if release == "" {

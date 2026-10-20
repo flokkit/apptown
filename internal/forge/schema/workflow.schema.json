@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://flokkit.io/schemas/workflow-v1.json",
-  "title": "Forge workflow (apiVersion forge.flokkit.io/v1)",
+  "title": "Forge workflow (apiVersion apptown.dev/v1)",
   "description": "A workflow as a team saves it. Rules a schema cannot express (unique stage and step names, gate references, role-specific rules) are the forge's; a save checks them, and POST /api/v1/workflows/validate reports them without saving.",
   "type": "object",
   "required": [
@@ -17,7 +17,7 @@
   },
   "properties": {
     "apiVersion": {
-      "const": "forge.flokkit.io/v1",
+      "const": "apptown.dev/v1",
       "description": "The format version; absent means this one."
     },
     "kind": {

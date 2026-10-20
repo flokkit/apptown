@@ -12,18 +12,18 @@ import (
 )
 
 // commitWorkspaceFolder is a step's folder as change 338's was: a project
-// .gitignore with no .forge rule, so the runtime files a step leaves under
-// .forge show in git status.
+// .gitignore with no .apptown rule, so the runtime files a step leaves under
+// .apptown show in git status.
 func commitWorkspaceFolder(t *testing.T) string {
 	t.Helper()
 	wt := filepath.Join(t.TempDir(), "wt")
 	gittest.Repository(t, wt, "main", gittest.Commit{Message: "start", Files: map[string]string{
-		".gitignore": "/bin/\n", "main.go": "package main\n", ".forge/app.yaml": "app: {}\n",
+		".gitignore": "/bin/\n", "main.go": "package main\n", ".apptown/app.yaml": "app: {}\n",
 	}})
 	for rel, body := range map[string]string{
-		".forge/pi-home/settings.json":     "{}",
-		".forge/sessions/transcript.jsonl": "{}",
-		".forge/steering.md":               "steer",
+		".apptown/pi-home/settings.json":     "{}",
+		".apptown/sessions/transcript.jsonl": "{}",
+		".apptown/steering.md":               "steer",
 	} {
 		writeIn(t, wt, rel, body)
 	}
@@ -42,7 +42,7 @@ func writeIn(t *testing.T, wt, rel, body string) {
 }
 
 // Change 338: the agent committed its own work, leaving only untracked
-// runtime files under .forge. The step has nothing to commit, which is not
+// runtime files under .apptown. The step has nothing to commit, which is not
 // a failure.
 //
 // Kills: deciding to commit from the working tree's status.
@@ -71,8 +71,8 @@ func TestCommitWorkspaceCommitsChangedSourceAndTheAppContract(t *testing.T) {
 	t.Parallel()
 	for name, change := range map[string][2]string{
 		"source":               {"main.go", "package main\n\nfunc main() {}\n"},
-		"app contract":         {".forge/app.yaml", "app:\n  web: {}\n"},
-		"app contract removed": {".forge/app.yaml", ""},
+		"app contract":         {".apptown/app.yaml", "app:\n  web: {}\n"},
+		"app contract removed": {".apptown/app.yaml", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -112,7 +112,7 @@ func TestCommitWorkspaceReportsARefusedCommit(t *testing.T) {
 	}
 }
 
-// Adopting a repository whose own .gitignore does not hide .forge, with
+// Adopting a repository whose own .gitignore does not hide .apptown, with
 // only runtime files there, makes no commit and is not a failure.
 //
 // Kills: the adoption deciding to commit from the working tree's status.
@@ -136,7 +136,7 @@ func TestAdoptingARepositoryWithOnlyRuntimeFilesCommitsNothing(t *testing.T) {
 // Kills: StageAll discarding either add's failure.
 func TestCommitWorkspaceReportsSourceItCouldNotStage(t *testing.T) {
 	t.Parallel()
-	for _, rel := range []string{"main.go", ".forge/app.yaml"} {
+	for _, rel := range []string{"main.go", ".apptown/app.yaml"} {
 		t.Run(rel, func(t *testing.T) {
 			t.Parallel()
 			wt := commitWorkspaceFolder(t)

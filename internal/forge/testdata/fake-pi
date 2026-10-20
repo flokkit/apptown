@@ -6,8 +6,8 @@
 #   [test:write-b64 <path> <base64>]   write a file (dirs created)
 #   [test:fail <message>]              exit nonzero after speaking
 #
-# Review prompts (they name .forge/review.json) get a pass verdict unless
-# the workspace contains .forge/test-review-fail.
+# Review prompts (they name .apptown/review.json) get a pass verdict unless
+# the workspace contains .apptown/test-review-fail.
 import base64, json, os, re, sys
 
 prompt = sys.argv[-1] if len(sys.argv) > 1 else ""
@@ -20,13 +20,13 @@ for m in re.finditer(r"\[test:write-b64 (\S+) (\S+)\]", prompt):
         f.write(base64.b64decode(b64))
     did.append("wrote " + path)
 
-if ".forge/review.json" in prompt or "review.json" in prompt:
+if ".apptown/review.json" in prompt or "review.json" in prompt:
     verdict = "pass"
     summary = "test reviewer: looks right"
-    if os.path.exists(".forge/test-review-fail"):
+    if os.path.exists(".apptown/test-review-fail"):
         verdict, summary = "fail", "test reviewer: instructed to fail"
-    os.makedirs(".forge", exist_ok=True)
-    with open(".forge/review.json", "w") as f:
+    os.makedirs(".apptown", exist_ok=True)
+    with open(".apptown/review.json", "w") as f:
         json.dump({"verdict": verdict, "summary": summary, "findings": []}, f)
     did.append("verdict " + verdict)
 

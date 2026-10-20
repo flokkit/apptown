@@ -246,7 +246,7 @@ type Ambient struct {
 	// Files are the generated client configuration, as bytes: whoever runs
 	// the container writes them in a folder of its own and mounts them
 	// read-only (execution.File). Nothing is written into a project's tree,
-	// so nothing there (a .forge that is a link) can choose where they go
+	// so nothing there (a .apptown that is a link) can choose where they go
 	// (design/operations/workers.md).
 	Files []execution.File
 	Bound map[string]string // format → binding name, for receipts/evidence
@@ -451,7 +451,7 @@ func DeclaresToolchain(ws string) bool {
 // ResolvedToolchain parses the mise ls --current --json snapshot the
 // implicit install leaves behind: tool → resolved version, for step evidence.
 func ResolvedToolchain(ws string) map[string]string {
-	raw, err := os.ReadFile(filepath.Join(ws, ".forge", "mise-resolved.json"))
+	raw, err := os.ReadFile(filepath.Join(ws, ".apptown", "mise-resolved.json"))
 	if err != nil {
 		return nil
 	}

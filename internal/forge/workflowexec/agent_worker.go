@@ -35,7 +35,7 @@ import (
 // what was admitted: the step's recorded configuration, the run's
 // definition and adoption, the attempt's source commit in the project's
 // hub, the attachment store and the worker's own agent image. Nothing is
-// written into or read from the run's folder, so nothing in it (a .forge
+// written into or read from the run's folder, so nothing in it (a .apptown
 // that is a link) can choose what is sent or where anything is written.
 // A step that needs what the worker cannot provide yet is refused before
 // any effect (WorkerRefusal), and never falls back to the forge's host.
@@ -106,7 +106,7 @@ const (
 )
 
 // workerReviewReport is where a reviewer on a worker writes its verdict.
-const workerReviewReport = workerTree + "/.forge/review.json"
+const workerReviewReport = workerTree + "/.apptown/review.json"
 
 // workerAgentCall is one invocation of Pi for an agent step attempt on the
 // worker.
@@ -325,14 +325,14 @@ var commitPattern = regexp.MustCompile(`^[0-9a-f]{40}([0-9a-f]{24})?$`)
 // maxContractBytes bounds the app declaration read from a commit.
 const maxContractBytes = 1 << 20
 
-// appContractAt is the app's declaration (.forge/app.yaml) at commit, in
+// appContractAt is the app's declaration (.apptown/app.yaml) at commit, in
 // the project's hub; nil when there is none. One that is not a regular
 // file, or cannot be read or parsed, is an error, never "nothing".
 func appContractAt(ctx context.Context, repo, commit string) (*appcontract.Contract, error) {
 	if !commitPattern.MatchString(commit) {
 		return nil, fmt.Errorf("%q is not a commit", commit)
 	}
-	entry, err := gitexec.HubOutput(ctx, repo, nil, "ls-tree", "-z", "--full-tree", commit, "--", ".forge/app.yaml")
+	entry, err := gitexec.HubOutput(ctx, repo, nil, "ls-tree", "-z", "--full-tree", commit, "--", ".apptown/app.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("listing it: %w", err)
 	}
@@ -342,14 +342,14 @@ func appContractAt(ctx context.Context, repo, commit string) (*appcontract.Contr
 	meta, _, ok := bytes.Cut(bytes.TrimSuffix(entry, []byte{0}), []byte("\t"))
 	fields := strings.Fields(string(meta))
 	if !ok || len(fields) != 3 || fields[1] != "blob" || (fields[0] != "100644" && fields[0] != "100755") {
-		return nil, fmt.Errorf(".forge/app.yaml is not a regular file (%s)", meta)
+		return nil, fmt.Errorf(".apptown/app.yaml is not a regular file (%s)", meta)
 	}
 	raw, err := gitexec.HubOutput(ctx, repo, nil, "cat-file", "blob", fields[2])
 	if err != nil {
 		return nil, fmt.Errorf("reading it: %w", err)
 	}
 	if len(raw) > maxContractBytes {
-		return nil, fmt.Errorf(".forge/app.yaml is %d bytes, over %d", len(raw), maxContractBytes)
+		return nil, fmt.Errorf(".apptown/app.yaml is %d bytes, over %d", len(raw), maxContractBytes)
 	}
 	return appcontract.Parse(raw)
 }
@@ -687,7 +687,7 @@ func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''
 // earlierOutputs are the declared output files of the run's other steps, as
 // their passing outcomes recorded them, at the paths they declared. In the
 // run's folder on the forge they stay where the earlier step wrote them
-// (.forge/PLAN.md for the step that carries out the plan); a worker starts
+// (.apptown/PLAN.md for the step that carries out the plan); a worker starts
 // each attempt from committed files, so it is sent them. Another step's
 // output at this step's own path is never sent: it must not pass for this
 // attempt's; this step's own report from its earlier attempt is sent beside

@@ -17,7 +17,7 @@ is in [Running AppTown](/docs/guides/running-apptown).
    existing app, use **Change**. Check the helper answers before you ask for
    a large task.
 4. Use **Try it** to boot a preview. The commit needs a valid
-   `.forge/app.yaml`: a process running in the chat is not packaging.
+   `.apptown/app.yaml`: a process running in the chat is not packaging.
 5. Use **Check and land**, and follow the checks and approval the project's
    workflow asks for. A landing updates `main` and deploys it. Use **Open**
    once the deployment has an address. Deploying anywhere else needs a
@@ -38,7 +38,7 @@ of who asked, what ran and who approved.
    catching up with `main`, and one worker at a time.
    [What chats and steps can use](/docs/guides/runtime-environments) covers
    the tools, where work runs and who can use a chat.
-2. **Preview.** **Try it** boots the change cold from its `.forge/app.yaml`.
+2. **Preview.** **Try it** boots the change cold from its `.apptown/app.yaml`.
    [The app contract](/docs/guides/contract-reference) says how to declare
    the app, [Services and data](/docs/guides/services-and-data) its database
    and other needs, [Secrets](/docs/guides/secrets) its credentials, and

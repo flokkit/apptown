@@ -11,7 +11,7 @@ stance forks it in its own pack.)
 
 - **Iterate in process-mode.** Run the app with its own tooling — `npm run dev`,
   `go run .`, `manage.py runserver`. Its declared needs (`needs:` in
-  .forge/app.yaml) are already running as emulators and their connection env is
+  .apptown/app.yaml) are already running as emulators and their connection env is
   in your environment ($DATABASE_URL, $PG*, $REDIS_URL, …). Read that env; reach
   services by the injected host, never localhost-assumed or hard-coded. Do NOT
   build an image or run compose to develop — that's slow and it's not where the
@@ -23,9 +23,9 @@ stance forks it in its own pack.)
   into your environment) — it starts them together, aggregates logs, and stops
   them cleanly. Do NOT hand-background each process with `&` — that orphans
   processes and interleaves output. On your own computer, `apptown dev` starts
-  the needs, writes their connection env to `.forge/dev.env` and, for an app
-  with several parts, a Procfile at `.forge/Procfile`; run it with
-  `hivemind -f .forge/Procfile` after `set -a && . ./.forge/dev.env && set +a`.
+  the needs, writes their connection env to `.apptown/dev.env` and, for an app
+  with several parts, a Procfile at `.apptown/Procfile`; run it with
+  `hivemind -f .apptown/Procfile` after `set -a && . ./.apptown/dev.env && set +a`.
   A single-process app needs no Procfile — just run it.
 
 - **Never in the foreground of your shell.** A server (or `hivemind`, or

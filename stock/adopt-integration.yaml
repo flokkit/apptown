@@ -2,7 +2,7 @@
 # service to this project (SSO, error tracking, telemetry, …), this lane
 # wires the product into it. The generated steering already says exactly how
 # — the agent's job is to follow it, minimally, and prove the app still runs.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: adopt-integration
@@ -25,7 +25,7 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: adopt-report, name: adopt-report, file: .forge/ADOPT.md }
+            output: { kind: adopt-report, name: adopt-report, file: .apptown/ADOPT.md }
             timeoutMinutes: 25
             prompt: |
               This project has been attached to an organisational service —
@@ -39,11 +39,11 @@ spec:
                 env vars; never hardcode endpoints, DSNs, or names.
               - The app must still run cleanly when the service's env vars
                 are absent (local dev).
-              - A static site (a `static:` part in .forge/app.yaml) cannot
-                read env vars: load /_forge/env.js as the first script in
+              - A static site (a `static:` part in .apptown/app.yaml) cannot
+                read env vars: load /_apptown/env.js as the first script in
                 the page's <head>, exactly as guidance
                 deploy/browser-values shows, and read the values from
-                window.__FORGE_ENV__ (guidance
+                window.__APPTOWN_ENV__ (guidance
                 deploy/browser-values). Only values marked safe for
                 browsers are there; never put a secret in a page.
               - Verify both modes with your bash tool: build, tests, run
@@ -51,10 +51,10 @@ spec:
               - If a reviewer previously rejected this work, their feedback:
                 ${{feedback.latest}}
 
-              WRITE .forge/ADOPT.md: what was wired, files
+              WRITE .apptown/ADOPT.md: what was wired, files
               changed and why, how both modes were verified. Chat output is
               not captured. Do not commit the report: AppTown collects it
-              from the workspace, and .forge/ is ignored.
+              from the workspace, and .apptown/ is ignored.
 
               --- CHANGE ---
 

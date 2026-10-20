@@ -15,7 +15,7 @@ import (
 // bypassed the forge: an integrity event, never routine state.
 func Drift(ctx context.Context, runner execution.Runner, repo string) ([]string, error) {
 	// NUL separation preserves whitespace, quotes, newlines and rename paths.
-	out := runner.Run(ctx, execution.Local, execution.Request{Workspace: repo, Argv: []string{"git", "status", "--porcelain=v1", "-z", "--", ".", ":(exclude).forge", ".forge/app.yaml", ".forge/compose.yaml", ".forge/app.json"}, Timeout: 10 * time.Minute})
+	out := runner.Run(ctx, execution.Local, execution.Request{Workspace: repo, Argv: []string{"git", "status", "--porcelain=v1", "-z", "--", ".", ":(exclude).apptown", ":(exclude).forge", ".apptown/app.yaml", ".apptown/compose.yaml", ".apptown/app.json"}, Timeout: 10 * time.Minute})
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}

@@ -24,7 +24,7 @@ func TestAChangesCostIsEveryRunsSpending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	seedLibraryWorkflow(t, a, ch.ProjectID, "test", `apiVersion: forge.flokkit.io/v1
+	seedLibraryWorkflow(t, a, ch.ProjectID, "test", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: test}
 spec:

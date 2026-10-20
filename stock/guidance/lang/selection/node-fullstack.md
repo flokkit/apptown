@@ -35,7 +35,7 @@ script must not call npm or npx, and a `prestart` script does not run. It
 runs the built JavaScript with `node` (never `tsx` or `ts-node`), and
 anything the app imports at run time is a dependency, not a
 devDependency: dev dependencies are not in the image. The
-seeded runtime contract at `.forge/app.yaml` declares the web part on
+seeded runtime contract at `.apptown/app.yaml` declares the web part on
 port 8080 with `GET /healthz` as its readiness path, so serve that, and
 the Postgres the app gets at deploy (add an `init:` step for migrations
 once you have a migration tool):

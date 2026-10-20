@@ -129,8 +129,8 @@ func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
 	for _, tc := range []struct {
 		name, domain, want string
 	}{
-		{"routed by the attached host", "apps.example.com", "FORGE_ORIGINS=https://change-1.previews.example,https://*.apps.example.com "},
-		{"an attached host with no ingress domain", "", "FORGE_ORIGINS=https://change-1.previews.example "},
+		{"routed by the attached host", "apps.example.com", "APPTOWN_ORIGINS=https://change-1.previews.example,https://*.apps.example.com "},
+		{"an attached host with no ingress domain", "", "APPTOWN_ORIGINS=https://change-1.previews.example "},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}

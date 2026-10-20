@@ -174,7 +174,7 @@ export function ChangeBrief({ view, current = true, reload }: { view: ChangeView
 }
 
 // Reference material pinned to the Change: visible to agents and consoles at
-// .forge/attachments/ in the worktree; never merges (gitignored).
+// .apptown/attachments/ in the worktree; never merges (gitignored).
 export function Attachments({ changeId, readOnly }: { changeId: string; readOnly: boolean }) {
   const itemsQ = useGet<ChangeAttachment[]>(`/changes/${changeId}/attachments`)
   const items = itemsQ.data ?? []
@@ -196,7 +196,7 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
       <ReadStatus q={itemsQ} what="the attachments" className="small" />
       <StaleNote q={itemsQ} />
       {items.map((i) => (
-        <span key={i.name} className="chip" title={`${(i.bytes / 1024).toFixed(1)} KB · agents see .forge/attachments/${i.name}`}>
+        <span key={i.name} className="chip" title={`${(i.bytes / 1024).toFixed(1)} KB · agents see .apptown/attachments/${i.name}`}>
           <a href={`/api/v1/changes/${changeId}/attachments/${encodeURIComponent(i.name)}`} target="_blank" rel="noreferrer">{i.name}</a>
           {!readOnly && <button className="subtle" style={{ marginLeft: 4, padding: 0 }} aria-label={`remove ${i.name}`} title="remove" disabled={busy} onClick={() => remove(i.name)}>✕</button>}
         </span>

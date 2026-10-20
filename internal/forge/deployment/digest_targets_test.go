@@ -300,7 +300,7 @@ func TestAStaticSiteOnAppPlatformIsWitnessedServingItsRelease(t *testing.T) {
 			web = s.(map[string]any)
 		}
 	}
-	if web == nil || web["run_command"] != nil || !strings.Contains(asJSON(web["envs"]), `{"key":"FORGE_RELEASE","scope":"RUN_TIME","type":"GENERAL","value":"web@`+rel.CommitSHA+`"}`) {
+	if web == nil || web["run_command"] != nil || !strings.Contains(asJSON(web["envs"]), `{"key":"APPTOWN_RELEASE","scope":"RUN_TIME","type":"GENERAL","value":"web@`+rel.CommitSHA+`"}`) {
 		t.Fatalf("the static service: %s", asJSON(web))
 	}
 
@@ -491,7 +491,7 @@ func TestAnIntranetReleaseNamesEveryImageByDigest(t *testing.T) {
 		t.Errorf("the compose gives the static site a command:\n%s", compose)
 	}
 	// It is told the release it serves, which it answers at
-	// /_forge/release, as on App Platform.
+	// /_apptown/release, as on App Platform.
 	if want := fmt.Sprintf("      %s: %q\n", appcontract.ReleaseEnvVar, appcontract.ReleaseIdentity("web", b.ContractRevision)); !strings.Contains(compose, want) {
 		t.Errorf("the compose does not tell the static site its release %q:\n%s", want, compose)
 	}

@@ -92,10 +92,10 @@ func TestWorkshopCleanupOwnsOnlyItsNetwork(t *testing.T) {
 				integrations := integration.NewService(databaseSuite.New(t), integration.Dependencies{})
 				workshop := NewWorkshop(&scope, integrations, feeds, t.TempDir(), "test-agent", nil)
 				ws := t.TempDir()
-				if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				_, got, cleanup, err := workshop.StartStep(t.Context(), idstest.N(91), ws, network, ".forge/custom-home/.docker", nil)
+				_, got, cleanup, err := workshop.StartStep(t.Context(), idstest.N(91), ws, network, ".apptown/custom-home/.docker", nil)
 				if fail {
 					if err == nil || cleanup != nil {
 						t.Fatal("failed provision did not dispose its resources")
@@ -113,7 +113,7 @@ func TestWorkshopCleanupOwnsOnlyItsNetwork(t *testing.T) {
 					case <-time.After(time.Second):
 						t.Fatal("preload worker did not finish")
 					}
-					if !client.called("exec -e DOCKER_HOST=tcp://localhost:2375 -e DOCKER_CONFIG=/work/.forge/custom-home/.docker") {
+					if !client.called("exec -e DOCKER_HOST=tcp://localhost:2375 -e DOCKER_CONFIG=/work/.apptown/custom-home/.docker") {
 						t.Fatal("Docker client config ignored the supplied harness location")
 					}
 				}
@@ -139,11 +139,11 @@ func TestAWorkshopIsTornDownAfterItsContextEnds(t *testing.T) {
 	integrations := integration.NewService(databaseSuite.New(t), integration.Dependencies{})
 	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", nil)
 	ws := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
-	_, _, cleanup, err := workshop.StartStep(ctx, idstest.N(92), ws, "", ".forge/home/.docker", nil)
+	_, _, cleanup, err := workshop.StartStep(ctx, idstest.N(92), ws, "", ".apptown/home/.docker", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,10 +172,10 @@ func TestAStepsPrivateDockerIsBoundedAndSharesOnlyItsProjectsCache(t *testing.T)
 	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", nil)
 	workshop.Limits = execution.Limits{CPUs: 3, MemoryBytes: 2 << 30, PIDs: 512}
 	ws := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	_, _, cleanup, err := workshop.StartStep(WithCacheScope(t.Context(), "game"), idstest.N(92), ws, "", ".forge/home/.docker", nil)
+	_, _, cleanup, err := workshop.StartStep(WithCacheScope(t.Context(), "game"), idstest.N(92), ws, "", ".apptown/home/.docker", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

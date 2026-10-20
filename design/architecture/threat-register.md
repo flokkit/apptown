@@ -204,7 +204,7 @@ results refuse links out of the tree (`internal/execution/images_test.go`,
 open them through `os.Root` (`internal/forge/httpapi/workspaces.go`); chat
 upload reads are confined to the upload directory
 ([inference security](../subsystems/inference-security.md)). Remaining:
-attachment synchronisation still writes `.forge/attachments` into the
+attachment synchronisation still writes `.apptown/attachments` into the
 worktree with ordinary joined paths (`SyncAttachments`), and `secret.ReadSpec`
 reads `secretspec.toml` by a joined path.
 

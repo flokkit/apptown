@@ -27,18 +27,18 @@ import (
 // The attempt's source commit, which the candidate must build on, is kept
 // beside it on the attempt's task record (tasks.Admission.Source): the
 // candidate's ref name carries the step and attempt that key that record.
-// Refs under refs/forge/ are the forge's; the refs are kept, as a
+// Refs under refs/apptown/ are the forge's; the refs are kept, as a
 // publication's history is.
 
 // CandidateRef is where a step attempt's collected result is kept.
 func CandidateRef(stepID ids.ID, attempt int64) string {
-	return fmt.Sprintf("refs/forge/candidates/step-%d-a%d", stepID, attempt)
+	return fmt.Sprintf("refs/apptown/candidates/step-%d-a%d", stepID, attempt)
 }
 
 // RefusedStepRef is where a step attempt's result whose publication was
 // refused is kept, for its download.
 func RefusedStepRef(stepID ids.ID, attempt int64) string {
-	return fmt.Sprintf("refs/forge/refused/step-%d-a%d", stepID, attempt)
+	return fmt.Sprintf("refs/apptown/refused/step-%d-a%d", stepID, attempt)
 }
 
 // Candidate is a step attempt's collected result in the project's
@@ -119,11 +119,11 @@ func refuseCandidate(ctx context.Context, hub string, c Candidate) (Candidate, e
 	if c.Refused {
 		return c, nil
 	}
-	stepAttempt, ok := strings.CutPrefix(c.Ref, "refs/forge/candidates/")
+	stepAttempt, ok := strings.CutPrefix(c.Ref, "refs/apptown/candidates/")
 	if !ok {
 		return c, fmt.Errorf("%s is not a candidate", c.Ref)
 	}
-	refused := "refs/forge/refused/" + stepAttempt
+	refused := "refs/apptown/refused/" + stepAttempt
 	script := fmt.Sprintf("update %s %s\ndelete %s %s\n", refused, c.Tip, c.Ref, c.Tip)
 	if _, err := gitexec.HubOutput(ctx, hub, strings.NewReader(script), "update-ref", "--stdin"); err != nil {
 		if gitexec.HubRef(ctx, hub, refused) != c.Tip {
@@ -181,10 +181,10 @@ func (k RefusedStepWork) Bundle(ctx context.Context, w io.Writer) error {
 var errNoRefusedStep = fault.New(fault.NotFound, "no refused result is kept for this step attempt")
 
 // bundleKept writes a bundle of a kept refusal (a ref under
-// refs/forge/refused/), less what branch already holds, to w. missing is
+// refs/apptown/refused/), less what branch already holds, to w. missing is
 // returned when the ref names nothing.
 func bundleKept(ctx context.Context, hub, branch, ref string, missing error, w io.Writer) error {
-	if !strings.HasPrefix(ref, "refs/forge/refused/") || gitexec.HubRef(ctx, hub, ref) == "" {
+	if !strings.HasPrefix(ref, "refs/apptown/refused/") || gitexec.HubRef(ctx, hub, ref) == "" {
 		return missing
 	}
 	args := []string{"bundle", "create", "-q", "-", ref}

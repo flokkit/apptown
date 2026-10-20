@@ -73,7 +73,7 @@ func TestSecretSpecParse(t *testing.T) {
 // for them.
 func TestASecretCannotBeNamedForTheForgesBrowserValues(t *testing.T) {
 	t.Parallel()
-	_, err := ParseSpec([]byte("[project]\nname = \"app\"\nrevision = \"1.0\"\n\n[profiles.default]\nFORGE_BROWSER_ENV = { description = \"no\", required = true }\n"))
+	_, err := ParseSpec([]byte("[project]\nname = \"app\"\nrevision = \"1.0\"\n\n[profiles.default]\nAPPTOWN_BROWSER_ENV = { description = \"no\", required = true }\n"))
 	if err == nil || !strings.Contains(err.Error(), "set by AppTown alone") {
 		t.Fatalf("a secret named for the reserved variable: %v", err)
 	}

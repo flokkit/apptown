@@ -85,7 +85,7 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 		if ws := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", oc.ChangeID)); hasGitDirectory(ws) {
 			if out, err := gitexec.Run(ctx, ws, "status", "--porcelain"); err == nil {
 				for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-					if line != "" && !strings.Contains(line, ".forge/") {
+					if line != "" && !strings.Contains(line, ".apptown/") {
 						oc.Editing++
 					}
 				}

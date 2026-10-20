@@ -57,7 +57,7 @@ func BundleCommit(ctx context.Context, repo, commit, branch, dest string) error 
 }
 
 // BundleCommits writes to dest a bundle holding each of commits, with their
-// full histories, as refs/forge/commits/<n>: enough for a repository made
+// full histories, as refs/apptown/commits/<n>: enough for a repository made
 // from it to answer questions about those commits and the ranges between
 // them.
 func BundleCommits(ctx context.Context, repo string, commits []string, dest string) error {
@@ -74,7 +74,7 @@ func BundleCommits(ctx context.Context, repo string, commits []string, dest stri
 	}
 	args := []string{"bundle", "create", "-q", dest}
 	for i, commit := range commits {
-		ref := fmt.Sprintf("refs/forge/commits/%d", i)
+		ref := fmt.Sprintf("refs/apptown/commits/%d", i)
 		if out, err := HubRun(ctx, dir, "update-ref", ref, commit); err != nil {
 			return fmt.Errorf("naming %s for its bundle: %w: %s", commit, err, out)
 		}

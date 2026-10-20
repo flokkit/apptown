@@ -249,10 +249,10 @@ func TestGateJudgesTheMemoryContractAndSkipsTheStandingCheck(t *testing.T) {
 	t.Parallel()
 	a := &Guidance{runtime: &Runtime{}}
 	tree := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tree, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tree, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tree, ".forge", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tree, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	checks := []conformance.DeclaredCheck{

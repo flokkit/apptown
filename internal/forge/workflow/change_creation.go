@@ -161,7 +161,7 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 	}
 	id := row.ID
 	if origin.autoBranch && !in.Propose && created.DefaultBranch != "" {
-		n, err := workflowsql.New(tx.SQL()).SetChangeBranch(ctx, workflowsql.SetChangeBranchParams{Branch: fmt.Sprintf("forge/change-%d", id), ID: id, ProjectID: in.ProjectID})
+		n, err := workflowsql.New(tx.SQL()).SetChangeBranch(ctx, workflowsql.SetChangeBranchParams{Branch: fmt.Sprintf("apptown/change-%d", id), ID: id, ProjectID: in.ProjectID})
 		if err != nil {
 			return CreatedChange{}, err
 		}

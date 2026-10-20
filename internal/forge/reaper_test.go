@@ -115,12 +115,12 @@ func TestReapWorkspacesKeepsTranscripts(t *testing.T) {
 	open := createReadTestChange(t, a, pid, "live")
 	mk := func(entry string, withSessions bool) string {
 		ws := filepath.Join(a.cfg.dataDir, "workspaces", entry)
-		if err := os.MkdirAll(filepath.Join(ws, ".forge", "sessions"), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Join(ws, ".apptown", "sessions"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 		_ = os.WriteFile(filepath.Join(ws, "main.go"), []byte("package main"), 0o644)
 		if withSessions {
-			_ = os.WriteFile(filepath.Join(ws, ".forge", "sessions", "step-00000000-0001-7000-8000-000000000000.jsonl"), []byte(`{"tool":"bash"}`), 0o644)
+			_ = os.WriteFile(filepath.Join(ws, ".apptown", "sessions", "step-00000000-0001-7000-8000-000000000000.jsonl"), []byte(`{"tool":"bash"}`), 0o644)
 		}
 		return ws
 	}
@@ -140,7 +140,7 @@ func TestReapWorkspacesKeepsTranscripts(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.reaper.Workspaces(context.Background(), false)
-	original := filepath.Join(oldWS, ".forge", "sessions", "step-00000000-0001-7000-8000-000000000000.jsonl")
+	original := filepath.Join(oldWS, ".apptown", "sessions", "step-00000000-0001-7000-8000-000000000000.jsonl")
 	if data, err := os.ReadFile(original); err != nil || string(data) != `{"tool":"bash"}` {
 		t.Fatalf("failed preservation lost transcript: %q %v", data, err)
 	}

@@ -3798,6 +3798,53 @@ func (q *Queries) NextRunNumber(ctx context.Context, projectID ids.ID) (int64, e
 	return runs, err
 }
 
+const openChangeBranches = `-- name: OpenChangeBranches :many
+SELECT c.number, c.branch FROM changes c
+WHERE c.project_id = $1 AND c.branch <> '' AND c.state IN ($2, $3, $4)
+ORDER BY c.number
+`
+
+type OpenChangeBranchesParams struct {
+	ProjectID  ids.ID
+	Proposed   string
+	InProgress string
+	Landing    string
+}
+
+type OpenChangeBranchesRow struct {
+	Number int64
+	Branch string
+}
+
+// The recorded branches of a project's changes that are not finished.
+func (q *Queries) OpenChangeBranches(ctx context.Context, arg OpenChangeBranchesParams) ([]OpenChangeBranchesRow, error) {
+	rows, err := q.db.QueryContext(ctx, openChangeBranches,
+		arg.ProjectID,
+		arg.Proposed,
+		arg.InProgress,
+		arg.Landing,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OpenChangeBranchesRow
+	for rows.Next() {
+		var i OpenChangeBranchesRow
+		if err := rows.Scan(&i.Number, &i.Branch); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const openChangesWithoutRunsMeta = `-- name: OpenChangesWithoutRunsMeta :many
 SELECT c.id,c.number,c.title,c.state FROM changes c WHERE c.project_id=$1 AND c.state IN ($2,$3)
 AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.status=$4)
@@ -3841,6 +3888,42 @@ func (q *Queries) OpenChangesWithoutRunsMeta(ctx context.Context, arg OpenChange
 			&i.Title,
 			&i.State,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const openRunsEverywhere = `-- name: OpenRunsEverywhere :many
+SELECT r.id, r.number, p.slug AS project FROM runs r JOIN projects p ON p.id = r.project_id
+WHERE r.status = $1 ORDER BY p.slug, r.number
+`
+
+type OpenRunsEverywhereRow struct {
+	ID      ids.ID
+	Number  int64
+	Project string
+}
+
+// Every run still open anywhere, for an operation that must wait for none
+// (the AppTown rename's upgrade).
+func (q *Queries) OpenRunsEverywhere(ctx context.Context, running string) ([]OpenRunsEverywhereRow, error) {
+	rows, err := q.db.QueryContext(ctx, openRunsEverywhere, running)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OpenRunsEverywhereRow
+	for rows.Next() {
+		var i OpenRunsEverywhereRow
+		if err := rows.Scan(&i.ID, &i.Number, &i.Project); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

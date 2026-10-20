@@ -54,7 +54,7 @@ func TestStaticReleaseUsesTheDeclaredFilesAndServer(t *testing.T) {
 		t.Fatalf("static context %q: %v", dir, err)
 	}
 	raw, err := os.ReadFile(file)
-	// The same server every path runs: the site, and the forge's /_forge/env.js.
+	// The same server every path runs: the site, and the forge's /_apptown/env.js.
 	var cmd []string
 	line := string(raw)[strings.Index(string(raw), "CMD ")+4:]
 	if jerr := json.Unmarshal([]byte(strings.TrimSpace(line)), &cmd); jerr != nil || !slices.Equal(cmd, docker.StaticServerCommand(8088)) || strings.Contains(line, `\u003e`) {

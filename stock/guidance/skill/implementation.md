@@ -93,7 +93,7 @@ Method:
    against what was asked: a part of the request that is not done, or was
    done differently, is stated first, never reported as success. Chat text is not
    captured — anything not in the file is lost.
-8. ALWAYS write the run contract to .forge/app.yaml — the app contract AppTown runs.
+8. ALWAYS write the run contract to .apptown/app.yaml — the app contract AppTown runs.
    Commit it with the first runnable version, and update it in the same Change
    whenever build, ports, services, or initialization requirements change.
    Historical previews read that revision's contract. Do not rely on startup
@@ -106,7 +106,7 @@ Method:
    exactly one part is `public: true` (the front door), and each served part
    declares its readiness: `health: { readiness: { http: /healthz } }`.
    A `static:` part cannot read env vars; values an attached integration
-   gives the page arrive through `/_forge/env.js` (guidance
+   gives the page arrive through `/_apptown/env.js` (guidance
    `deploy/browser-values`).
    `needs:` is step 4. Setup that must run before the app starts
    — a migration, an asset build — goes in `init:` (an ordered list of
@@ -137,7 +137,7 @@ Method:
        DJANGO_SECRET_KEY = { description = "Django signing key", generate = true }
        STRIPE_API_KEY = { description = "Stripe secret key", required = true }
  Never commit a value, and never
-   an encrypted bundle that one key unlocks. (.forge/compose.yaml and app.json
+   an encrypted bundle that one key unlocks. (.apptown/compose.yaml and app.json
    are retired contract forms — do not write them.)
 9. STICK THE LANDING — before you hand the turn back, run the checks that will
    judge your change, and get them green. A run that hands back red just bounces
@@ -146,7 +146,7 @@ Method:
      the same commands your BUILD.md documents (`gofmt -l .` clean, `go build
      ./... && go test ./...`; `npm run build`/`npm test`; `ruff`/`pytest`; etc.).
      Commit the result: the gates judge your COMMITTED tree, not uncommitted work.
-     Commit only source: never `git add -f`, and nothing under `.forge/` but
+     Commit only source: never `git add -f`, and nothing under `.apptown/` but
      `app.yaml` — the reports you write there are collected from the workspace,
      and a committed file the repository ignores fails the landing.
    - Then run **`apptown check`**. It runs this change's declared conformance gates

@@ -74,10 +74,10 @@ func TestMemoryDeclaredReadsTheTreeItIsGiven(t *testing.T) {
 	tree := func(app string) string {
 		dir := t.TempDir()
 		if app != "" {
-			if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(dir, ".forge", "app.yaml"), []byte(app), 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"), []byte(app), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -87,7 +87,7 @@ func TestMemoryDeclaredReadsTheTreeItIsGiven(t *testing.T) {
 	if v := o.Probe(t.Context(), Target{ContractDir: declared}, "memory-declared"); v.Outcome != check.Conforms {
 		t.Fatalf("a declared tree: %+v", v)
 	}
-	if v := o.Probe(t.Context(), Target{ContractDir: tree("")}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "no .forge/app.yaml") {
+	if v := o.Probe(t.Context(), Target{ContractDir: tree("")}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "no .apptown/app.yaml") {
 		t.Fatalf("a tree with no contract: %+v", v)
 	}
 	if v := o.Probe(t.Context(), Target{ContractDir: tree("app: [")}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "could not be read") {
@@ -160,10 +160,10 @@ func TestMemoryDeclaredInAReviewReadsTheDefaultBranch(t *testing.T) {
 	dataDir := t.TempDir()
 	repo := filepath.Join(dataDir, "workspaces", "project-demo")
 	gittest.Repository(t, repo, "main", gittest.Commit{Message: "declared", Files: map[string]string{
-		".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n",
+		".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n",
 	}})
 	// An uncommitted edit in the work tree is not the project's contract.
-	if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	o := Runtime{dataDir: dataDir}
@@ -184,8 +184,8 @@ func TestAFailingContractCheckIsComparedWithTheBaseCommit(t *testing.T) {
 	dataDir := t.TempDir()
 	repo := filepath.Join(dataDir, "workspaces", "project-demo")
 	shas := gittest.Repository(t, repo, "main",
-		gittest.Commit{Message: "declared", Files: map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n"}},
-		gittest.Commit{Message: "undeclared", Files: map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"}},
+		gittest.Commit{Message: "declared", Files: map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n"}},
+		gittest.Commit{Message: "undeclared", Files: map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"}},
 	)
 	a := &Guidance{runtime: &Runtime{dataDir: dataDir}}
 	sc := conformance.DeclaredCheck{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{Name: "memory-declared", Evaluator: "runtime", Probe: "memory-declared", Severity: "medium"}}
@@ -208,10 +208,10 @@ func TestAFailingContractCheckIsComparedWithTheBaseCommit(t *testing.T) {
 func TestAWhatIfJudgesTheContractOnTheAssessedTree(t *testing.T) {
 	t.Parallel()
 	tree := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tree, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tree, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tree, ".forge", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tree, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	declared := conformance.DeclaredCheck{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{Name: "memory-declared", Evaluator: "runtime", Probe: "memory-declared", Severity: "medium"}}

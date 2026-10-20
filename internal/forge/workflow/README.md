@@ -269,7 +269,7 @@ Only the holder publishes the change's branch, under its own grant:
 - a momentary request, for the folder's committed work.
 
 Every publication is checked in `scm` for what it brings in: nothing under
-`.forge` but `.forge/app.yaml`, and size limits per file and per publication
+`.apptown` but `.apptown/app.yaml`, and size limits per file and per publication
 ([how new work and its size are counted](../scm/README.md)). Secrets are not
 scanned here.
 

@@ -69,15 +69,15 @@ func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) s
 		"This project has Sentry-compatible error reporting. The DSN is injected\n" +
 		"into app containers as SENTRY_DSN / GLITCHTIP_DSN — initialize the SDK\n" +
 		"from that env var (never hardcode it). See the observability guidance.\n" +
-		"A static site cannot read env vars: its page loads /_forge/env.js and\n" +
-		"reads window.__FORGE_ENV__.SENTRY_DSN (guidance deploy/browser-values);\n" +
+		"A static site cannot read env vars: its page loads /_apptown/env.js and\n" +
+		"reads window.__APPTOWN_ENV__.SENTRY_DSN (guidance deploy/browser-values);\n" +
 		"AppTown checks the page loads it.\n" +
 		"Test hooks are part of the wiring, not optional: a server app serves\n" +
-		"GET /_forge/boom (captures a tagged \"forge test boom\" error, returns\n" +
+		"GET /_apptown/boom (captures a tagged \"forge test boom\" error, returns\n" +
 		"500, no auth); a browser app throws the same on the typed sequence\n" +
 		"boom!!! . After wiring, PROVE it: your step has the same SENTRY_DSN\n" +
 		"the app containers get. Run the app in your private docker and hit\n" +
-		"/_forge/boom (a server app), or for a browser app send one tagged\n" +
+		"/_apptown/boom (a server app), or for a browser app send one tagged\n" +
 		"\"forge test boom\" event from node with @sentry/node and that DSN.\n" +
 		"Then run `apptown integrations` — it shows when the provider last saw an\n" +
 		"event from this project. Report what it said. That is what \"wired\n" +
@@ -93,7 +93,7 @@ func (s *Instructions) llmDocSection(ctx context.Context, projectID ids.ID) stri
 	}
 	return "\n## AI models (attached, generated)\n\n" +
 		"This project may give its app AI models through OpenRouter. Declare the\n" +
-		"need in .forge/app.yaml: `needs: { llm: { limit: 5 } }` (US dollars;\n" +
+		"need in .apptown/app.yaml: `needs: { llm: { limit: 5 } }` (US dollars;\n" +
 		"optional `limitReset: daily|weekly|monthly`; the connector sets the\n" +
 		"most allowed). Each deployment and each preview then gets its own key,\n" +
 		"injected as OPENROUTER_API_KEY and OPENROUTER_BASE_URL. Use an\n" +
@@ -113,9 +113,9 @@ func (s *Instructions) feedbackDocSection(ctx context.Context, projectID ids.ID)
 	return "\n## Customer feedback (attached, generated)\n\n" +
 		"This project collects user feedback with a widget (floating button +\n" +
 		"dialog, shadow-DOM isolated). Its address and key are never written\n" +
-		"into the code. A static site loads /_forge/env.js (guidance\n" +
+		"into the code. A static site loads /_apptown/env.js (guidance\n" +
 		"deploy/browser-values) and adds the widget from it:\n\n" +
-		"    <script src=\"/_forge/env.js\"></script>\n" +
+		"    <script src=\"/_apptown/env.js\"></script>\n" +
 		"    <script>\n" +
 		"      (function (env) {\n" +
 		"        if (!env.FEEDBACK_URL || !env.FEEDBACK_APP_KEY) return;\n" +
@@ -123,7 +123,7 @@ func (s *Instructions) feedbackDocSection(ctx context.Context, projectID ids.ID)
 		"        s.src = env.FEEDBACK_URL + '/widget.js';\n" +
 		"        s.dataset.appKey = env.FEEDBACK_APP_KEY;\n" +
 		"        document.body.appendChild(s);\n" +
-		"      })(window.__FORGE_ENV__ || {});\n" +
+		"      })(window.__APPTOWN_ENV__ || {});\n" +
 		"    </script>\n\n" +
 		"A server app receives FEEDBACK_URL and FEEDBACK_APP_KEY in its\n" +
 		"environment: render the same widget from them, or POST\n" +

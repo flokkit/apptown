@@ -1,6 +1,6 @@
 # A forge-native contract; Compose is generated for local development
 
-**The application contract is `.forge/app.yaml`, a forge-native document.
+**The application contract is `.apptown/app.yaml`, a forge-native document.
 Compose is a generated target for local development, never authored.** The
 shipped [contract reference](../../stock/docs/guides/contract-reference.md)
 describes the format.
@@ -32,7 +32,7 @@ syntax serves neither.
   inner loop.
 - `apptown dev up` renders the whole app, its parts and each need's local
   fulfillment with the connection environment wired in, to
-  `.forge/docker-compose.yml`, and runs it. `apptown dev down` tears either down.
+  `.apptown/docker-compose.yml`, and runs it. `apptown dev down` tears either down.
 
 The Compose file is regenerated on every run, so it cannot drift from the
 contract; there is no second copy of the truth to keep in sync, and nothing to

@@ -2,7 +2,7 @@
 # updates applied and verified; majors surfaced with changelogs, never
 # applied unattended. The post-uplift dep-scan gate proves the RESULT is
 # clean, not just the intent. Scheduled monthly; invoke any time.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: dependency-uplift
@@ -31,7 +31,7 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: uplift-report, name: uplift-report, file: .forge/UPLIFT.md }
+            output: { kind: uplift-report, name: uplift-report, file: .apptown/UPLIFT.md }
             timeoutMinutes: 40
             prompt: |
               This workspace holds the project as it stands on main: the work
@@ -61,7 +61,7 @@ spec:
               - If a reviewer previously rejected this uplift, their feedback:
                 ${{feedback.latest}}
 
-              WRITE .forge/UPLIFT.md EARLY — as soon as the updates are applied —
+              WRITE .apptown/UPLIFT.md EARLY — as soon as the updates are applied —
               and refine it as verification proceeds; a report that exists
               at 90% beats a perfect one the timeout eats. Two sections:
               "Mechanical (all green)" — versions before → after with the

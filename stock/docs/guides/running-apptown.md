@@ -675,7 +675,7 @@ So, before stopping `apptownd` on the old host, for each such deployment:
    the public part is `forge-env-<project>-<deployment>`, and every other
    part and every need is `forge-svc-env-<project>-<deployment>-<name>`,
    where `<name>` is the part's name under `app:` or the need's name under
-   `needs:` in `.forge/app.yaml`. `docker stop` the public part and each
+   `needs:` in `.apptown/app.yaml`. `docker stop` the public part and each
    other part (a background worker writes too). Leave the need containers
    running: their copies are taken inside them.
 2. **Back up now.** The set is written under the data directory, so it
@@ -882,6 +882,16 @@ a take-down keeps the cluster as before. `apptown data -p <project>
    `GET /api/v1/ownership/inspection`, and approves what it proposes with
    `POST /api/v1/ownership/approvals`. Exactly what is approved is
    recorded.
+6. **From a release before 1.0's names (rc.5 or earlier), once.** When
+   nothing is running, an administrator runs `apptown upgrade`. In every
+   project it moves the repository folder `.forge/` to `.apptown/` on the
+   default branch and on each open change's branch (one commit each, naming
+   you), moves `refs/forge/` to `refs/apptown/`, gives your own guidance
+   blocks and workflows a version with the new names, and moves each
+   project's adoption to the newest version of what it already adopts. It
+   is refused while a run is open, and a project not yet upgraded takes no
+   new change. A branch holding both folders is left for a person and
+   named in the report. Running it again changes nothing.
 
 ### Rolling back
 

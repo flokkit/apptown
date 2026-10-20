@@ -57,7 +57,7 @@ func TestContinuationKeepsCompletedWorkAndDescribesMissingSession(t *testing.T) 
 // step-4-a1 in the folder dataDir/workspaces/run-7.
 func laneWithHistory(t *testing.T, dataDir string, history workflow.TranscriptReceipt) *continuationScenario {
 	t.Helper()
-	folder := filepath.Join(dataDir, "workspaces", "run-7", ".forge", "sessions")
+	folder := filepath.Join(dataDir, "workspaces", "run-7", ".apptown", "sessions")
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}

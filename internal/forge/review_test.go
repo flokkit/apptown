@@ -158,7 +158,7 @@ func admittedReviewStep(t *testing.T, a *App, slug string) (ids.ID, ids.ID) {
 
 func writeVerdict(t *testing.T, ws, body string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "review.json"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "review.json"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

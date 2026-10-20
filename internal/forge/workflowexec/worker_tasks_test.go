@@ -224,7 +224,7 @@ func TestAWorkerThatStopsAnsweringIsAskedAgain(t *testing.T) {
 
 // Only source enters the change's branch from a worker: the forge checks
 // what the result changes where it accepts it, not the worker. A result that
-// changes .forge beyond the native contract (a runtime file the project's
+// changes .apptown beyond the native contract (a runtime file the project's
 // rules re-include) is refused, the step does not pass and the branch does not
 // move; the contract alone, and ordinary files, are published.
 func TestAWorkerResultChangingNonSourceIsRefused(t *testing.T) {
@@ -236,8 +236,8 @@ func TestAWorkerResultChangingNonSourceIsRefused(t *testing.T) {
 	}{
 		// The task's .gitignore re-includes its runtime file, over the
 		// worker's own exclude, so the worker returns it.
-		{"a runtime file", map[string]string{"made.txt": "made\n", ".gitignore": "!.forge/runtime.json\n", ".forge/runtime.json": "{}\n"}, true},
-		{"the native contract", map[string]string{"made.txt": "made\n", ".forge/app.yaml": "name: app\n"}, false},
+		{"a runtime file", map[string]string{"made.txt": "made\n", ".gitignore": "!.apptown/runtime.json\n", ".apptown/runtime.json": "{}\n"}, true},
+		{"the native contract", map[string]string{"made.txt": "made\n", ".apptown/app.yaml": "name: app\n"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, fake, step, run, remote := startOnWorker(t)
@@ -255,13 +255,13 @@ func TestAWorkerResultChangingNonSourceIsRefused(t *testing.T) {
 			fake.Exit(taskKeyOf(step), 0)
 			if !tc.refused {
 				awaitStep(t, a, step.ID, workflow.StatusPass)
-				if got := gittest.Run(t, hub, "show", scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)+":.forge/app.yaml"); got != "name: app" {
+				if got := gittest.Run(t, hub, "show", scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)+":.apptown/app.yaml"); got != "name: app" {
 					t.Fatalf("the published contract: %q", got)
 				}
 				return
 			}
 			got := awaitStep(t, a, step.ID, workflow.StatusError)
-			if !strings.Contains(string(got.Evidence), ".forge/runtime.json") {
+			if !strings.Contains(string(got.Evidence), ".apptown/runtime.json") {
 				t.Fatalf("the refusal does not name the file: %s", got.Evidence)
 			}
 			if tip := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch); tip != given {

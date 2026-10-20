@@ -33,15 +33,15 @@ func TestReadAppContractAtCommit(t *testing.T) {
 		return out
 	}
 	git("init", "-q")
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	_ = os.WriteFile(filepath.Join(repo, ".forge", "app.json"), []byte(`{"image":"reg/old@sha256:1","port":9000}`), 0o644)
+	_ = os.WriteFile(filepath.Join(repo, ".apptown", "app.json"), []byte(`{"image":"reg/old@sha256:1","port":9000}`), 0o644)
 	git("add", ".")
 	git("commit", "-q", "-m", "app.json era")
 	old := git("rev-parse", "HEAD")
-	_ = os.Remove(filepath.Join(repo, ".forge", "app.json"))
-	_ = os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte(commitContractFixture), 0o644)
+	_ = os.Remove(filepath.Join(repo, ".apptown", "app.json"))
+	_ = os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(commitContractFixture), 0o644)
 	git("add", "-A")
 	git("commit", "-q", "-m", "app.yaml era")
 

@@ -29,7 +29,7 @@ type Opts = {
   artifacts?: { kind: string; ref: string }[]; releases?: { number: number; deployment: string; state: string; serving: boolean }[]; merged?: boolean
 }
 const view = (o: Opts): ChangeView => ({
-  change: { id: uuid(9), number: 9, title: 'Say the coin is fair', state: o.change ?? 'in_progress', closedAs: o.closedAs, body: '', branch: 'forge/change-9', createdAt: '2026-10-01T09:00:00Z', editRevision: 0 },
+  change: { id: uuid(9), number: 9, title: 'Say the coin is fair', state: o.change ?? 'in_progress', closedAs: o.closedAs, body: '', branch: 'apptown/change-9', createdAt: '2026-10-01T09:00:00Z', editRevision: 0 },
   projectSlug: 'coin-flip', state: o.state ?? '', stateDetail: o.stateDetail ?? '',
   evidence: { targets: [], merged: !!o.merged, releases: o.releases ?? [] },
   runs: [], commits: [], adrs: [], editing: 0, report: '', diffstat: '1 file changed',

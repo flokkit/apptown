@@ -84,7 +84,7 @@ func Seeds(cfg SeedConfig) []Seed {
 			"image": cfg.AgentImage, "cacheVolume": "forge-cache",
 		}),
 		mk("docker-deploy", CapDeploy, "docker", map[string]any{
-			"target": "docker", "appcontract.Contract": ".forge/app.yaml",
+			"target": "docker", "appcontract.Contract": ".apptown/app.yaml",
 		}),
 		// The intranet (design/subsystems/lan-release.md): the second deploy target.
 		// Same shape as every seam — provider named, secrets referenced by

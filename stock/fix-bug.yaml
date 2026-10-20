@@ -6,13 +6,13 @@
 # the tree.
 #
 # How the stop works: a reproducer that cannot reproduce commits nothing and
-# says so in .forge/REPRO.md. Its report is reviewed against the diff, so a
+# says so in .apptown/REPRO.md. Its report is reviewed against the diff, so a
 # step that changed nothing fails with its own report as the reason, and the
 # run waits for a person (retry with more to go on, or abandon). The judge
 # asks its own question, whether the report is honest, not the shared "does
 # the diff satisfy the request?": asked that, it failed every honest "no"
 # back to the agent, which then faked a reproduction and applied the fix.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: fix-bug
@@ -35,7 +35,7 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: repro-report, name: repro-report, file: .forge/REPRO.md }
+            output: { kind: repro-report, name: repro-report, file: .apptown/REPRO.md }
             timeoutMinutes: 20
             prompt: |
               A bug has been reported against the application in the CURRENT
@@ -47,13 +47,13 @@ spec:
               acceptable when a test genuinely cannot express it. Run it and
               capture the failing output.
 
-              WRITE .forge/REPRO.md:
+              WRITE .apptown/REPRO.md:
               - Reproduced: yes / no  (first line, exactly)
               - How: the test/script you added and the command to run it
               - Evidence: the failing output, verbatim
               - Suspected cause: one or two sentences, if apparent
 
-              If you CANNOT reproduce the bug, say so plainly in .forge/REPRO.md
+              If you CANNOT reproduce the bug, say so plainly in .apptown/REPRO.md
               ("Reproduced: no") with what you tried and why each attempt came
               up empty, and STOP. Commit NOTHING: put back anything you
               changed while trying, so the code is exactly as you found it.
@@ -93,10 +93,10 @@ spec:
             skills: [skill/implementation]
             docker: true
             needs: true # the app contract's declared needs run as emulators + env
-            output: { kind: fix-report, name: fix-report, file: .forge/FIX.md }
+            output: { kind: fix-report, name: fix-report, file: .apptown/FIX.md }
             timeoutMinutes: 25
             prompt: |
-              The workspace contains a reproduced bug: read .forge/REPRO.md and run
+              The workspace contains a reproduced bug: read .apptown/REPRO.md and run
               its reproduction to see the failure yourself. Then apply the
               MINIMAL fix — no refactors, nothing the fix doesn't require.
 
@@ -108,7 +108,7 @@ spec:
               ${{feedback.latest}}
               Address it precisely.
 
-              WRITE .forge/FIX.md: root cause, what changed
+              WRITE .apptown/FIX.md: root cause, what changed
               (files + why), reproduction output before and after, test
               suite result. Chat output is not captured.
               The report describes the WHOLE change: the full branch diff

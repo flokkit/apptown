@@ -112,7 +112,7 @@ function sentence(s: Step, live: boolean): string {
   switch (s.type) {
     case 'agent/pi': {
       if (failing && reason) return clip(reason)
-      const files = (s.evidence.files ?? []).filter((f) => !f.startsWith('.forge/'))
+      const files = (s.evidence.files ?? []).filter((f) => !f.startsWith('.apptown/'))
       if (s.status === 'running') return 'Working now.'
       if (s.status === 'pending') return 'Not started.'
       return files.length ? `Changed ${plural(files.length, 'file')}: ${files.slice(0, 4).join(', ')}${files.length > 4 ? ', …' : ''}.` : 'Changed no files.'

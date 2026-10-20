@@ -112,7 +112,7 @@ func TestChangeStartRequiresItsCompleteRecord(t *testing.T) {
 			}
 			for i := 1; i <= 2; i++ {
 				got, err := beginChangeAs(context.Background(), w, dataDir, "alice", run.ChangeID)
-				if err != nil || got.State != ChangeInProgress || got.Branch != fmt.Sprintf("forge/change-%d", run.ChangeID) || got.ClosedAt.Valid {
+				if err != nil || got.State != ChangeInProgress || got.Branch != fmt.Sprintf("apptown/change-%d", run.ChangeID) || got.ClosedAt.Valid {
 					t.Fatalf("explicit start/repeat: %+v %v", got, err)
 				}
 				started := auditCount(t, w, "change.started", func(e audit.Entry) bool { return e.Actor == "alice" && e.ProjectID == run.ProjectID })

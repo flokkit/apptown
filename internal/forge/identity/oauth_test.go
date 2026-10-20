@@ -154,7 +154,7 @@ func TestADamagedTicketIsRefused(t *testing.T) {
 	testAccounts(t, db, "alice")
 	k := NewTickets(db)
 	for name, damage := range map[string]string{"change": `resource_id='forty'`, "constraints": `constraints_json='["damaged"]'`} {
-		tok, ticket, err := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/forge/change-40", "abc123")
+		tok, ticket, err := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "abc123")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -178,12 +178,12 @@ func TestTickets(t *testing.T) {
 	db := testDB(t)
 	testAccounts(t, db, "alice")
 	k := NewTickets(db)
-	tok, ticket, err := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/forge/change-40", "abc123")
+	tok, ticket, err := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "abc123")
 	if err != nil || !strings.HasPrefix(tok, TicketPrefix) || ticket.ID.IsZero() {
 		t.Fatalf("mint: %v %q %+v", err, tok, ticket)
 	}
 	live, err := k.ByToken(context.Background(), tok)
-	if err != nil || live == nil || live.ChangeID != idstest.N(40) || live.Ref != "refs/heads/forge/change-40" || live.ExpectedTip != "abc123" {
+	if err != nil || live == nil || live.ChangeID != idstest.N(40) || live.Ref != "refs/heads/apptown/change-40" || live.ExpectedTip != "abc123" {
 		t.Fatalf("by token: %v %+v", err, live)
 	}
 	if got, err := k.ByToken(context.Background(), "apptown_git_nope"); err != nil || got != nil {
@@ -201,14 +201,14 @@ func TestTickets(t *testing.T) {
 	if got, _ := k.ByToken(context.Background(), tok); got != nil {
 		t.Fatal("a spent ticket is not live")
 	}
-	tok2, _, _ := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/forge/change-40", "")
+	tok2, _, _ := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "")
 	if err := k.RevokeForChange(context.Background(), idstest.N(40)); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := k.ByToken(context.Background(), tok2); got != nil {
 		t.Fatal("a revoked ticket is not live")
 	}
-	tok3, t3, _ := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(41), "refs/heads/forge/change-41", "")
+	tok3, t3, _ := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(41), "refs/heads/apptown/change-41", "")
 	ticketRow, err := queries(db).TicketByIDForUpdate(context.Background(), t3.ID)
 	if err != nil {
 		t.Fatal(err)

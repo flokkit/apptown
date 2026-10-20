@@ -9,7 +9,7 @@ key anywhere.
 ## Declare it
 
 The project must have AI models attached (Settings › Services). Then, in
-`.forge/app.yaml`:
+`.apptown/app.yaml`:
 
 ```yaml
 needs:

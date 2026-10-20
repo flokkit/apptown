@@ -168,7 +168,7 @@ func Resume(ctx context.Context, dk Scope, p deploy.Placement, generation int64,
 const BrowserValuesFormat = `{"id":{{json .Id}},"env":[{{range .Config.Env}}{{if eq (index (split . "=") 0) "` + BrowserEnvVar + `"}}{{json .}},{{end}}{{end}}null]}`
 
 // InstalledBrowser is what a running static part was started with for
-// /_forge/env.js, read from the container itself.
+// /_apptown/env.js, read from the container itself.
 type InstalledBrowser struct {
 	ID     string
 	Values map[string]string

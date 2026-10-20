@@ -32,16 +32,16 @@ func TestRuntimeEvaluatorWithoutAnDeployment(t *testing.T) {
 func TestAReviewJudgesTheContractAtItsRecordedCommit(t *testing.T) {
 	t.Parallel()
 	a := conformanceTestApp(t)
-	pid, declared, git := fleetRepo(t, a, "mem", map[string]string{".forge/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n"})
+	pid, declared, git := fleetRepo(t, a, "mem", map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n"})
 	if st, why := a.evaluator.Observe(t.Context(), pid, declared, "memory-declared"); st != conformance.Conforms {
 		t.Fatalf("the declared commit, never deployed: %s %q", st, why)
 	}
-	git("rm", "-q", ".forge/app.yaml")
+	git("rm", "-q", ".apptown/app.yaml")
 	git("commit", "-q", "-m", "drop the contract")
 	if st, _ := a.evaluator.Observe(t.Context(), pid, declared, "memory-declared"); st != conformance.Conforms {
 		t.Fatalf("a later commit answered for the reviewed one: %s", st)
 	}
-	if st, why := a.evaluator.Observe(t.Context(), pid, "", "memory-declared"); st != conformance.CannotAssess || !strings.Contains(why, "no .forge/app.yaml") {
+	if st, why := a.evaluator.Observe(t.Context(), pid, "", "memory-declared"); st != conformance.CannotAssess || !strings.Contains(why, "no .apptown/app.yaml") {
 		t.Fatalf("the default branch as it stands: %s %q", st, why)
 	}
 }

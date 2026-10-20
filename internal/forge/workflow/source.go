@@ -64,9 +64,9 @@ func sourceRecord(run RunRef, row workflowsql.WorkflowSourceRow) (Source, error)
 		RunBaseSHA: row.RunBaseSha, RootBaseSHA: row.RootBaseSha, ChangeBaseSHA: row.ChangeBaseSha,
 		RootRole: declaration.Role, Depth: int(row.Depth), WorkspaceRunID: row.WorkspaceRunID, ProjectWorkspace: declaration.Workspace == "project"}
 	if source.Branch == "" {
-		source.Branch = fmt.Sprintf("forge/run-%d", source.RootRunID)
+		source.Branch = fmt.Sprintf("apptown/run-%d", source.RootRunID)
 		if !source.ChangeID.IsZero() {
-			source.Branch = fmt.Sprintf("forge/change-%d", source.ChangeID)
+			source.Branch = fmt.Sprintf("apptown/change-%d", source.ChangeID)
 		}
 	}
 	return source, nil

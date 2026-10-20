@@ -295,7 +295,7 @@ func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name stri
 }
 
 // rehearsalOrigin is the address the deployment's visitors reach it at:
-// the rehearsal's only FORGE_ORIGINS, and the Host its probe sends.
+// the rehearsal's only APPTOWN_ORIGINS, and the Host its probe sends.
 func rehearsalOrigin(dep *deployment.Deployment) (string, error) {
 	u, err := url.Parse(dep.URL)
 	if err != nil || u.Hostname() == "" {
@@ -602,7 +602,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	defer cleanup()
 	c, err := docker.ReadSelectedContract(tree.Directory)
 	if err != nil {
-		return fail(step, "the release's .forge/app.yaml could not be read")
+		return fail(step, "the release's .apptown/app.yaml could not be read")
 	}
 	for _, part := range c.Parts {
 		if !part.Public {

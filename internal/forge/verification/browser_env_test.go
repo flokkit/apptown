@@ -28,10 +28,10 @@ func TestAServerAppIsNotJudgedByTheBrowserCheck(t *testing.T) {
 			}))
 			defer server.Close()
 			dir := t.TempDir()
-			if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(dir, ".forge/app.yaml"), []byte("app:\n  web:\n    image: example/server:1\n    public: true\n    ports: [8080]\n"), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, ".apptown/app.yaml"), []byte("app:\n  web:\n    image: example/server:1\n    public: true\n    ports: [8080]\n"), 0600); err != nil {
 				t.Fatal(err)
 			}
 			if got := (Runtime{}).Probe(context.Background(), Target{Naked: server.URL, ContractDir: dir}, "browser-env"); got.Outcome != check.Conforms {
@@ -48,10 +48,10 @@ func TestAStandingBrowserCheckDoesNotSubstituteAnUnreadableRelease(t *testing.T)
 	t.Parallel()
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "workspaces", "project-demo")
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte("app:\n  web: {image: 'example/server:1', public: true, ports: [8080]}\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web: {image: 'example/server:1', public: true, ports: [8080]}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	for _, sha := range []string{"unavailable-release", ""} {
@@ -67,10 +67,10 @@ func TestAStandingBrowserCheckDoesNotSubstituteAnUnreadableRelease(t *testing.T)
 func TestAContainerReplacedDuringTheBrowserCheckIsUnknown(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge/app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".apptown/app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +78,7 @@ func TestAContainerReplacedDuringTheBrowserCheckIsUnknown(t *testing.T) {
 			w.Write([]byte(docker.BrowserEnvScript(`{"KEY":"value"}`)))
 			return
 		}
-		w.Write([]byte(`<head><script src="/_forge/env.js"></script><script src="app.js"></script></head>`))
+		w.Write([]byte(`<head><script src="/_apptown/env.js"></script><script src="app.js"></script></head>`))
 	}))
 	defer server.Close()
 	calls := 0
@@ -88,7 +88,7 @@ func TestAContainerReplacedDuringTheBrowserCheckIsUnknown(t *testing.T) {
 		if calls > 1 {
 			id = "after"
 		}
-		return json.Marshal(map[string]any{"id": id, "env": []any{`FORGE_BROWSER_ENV={"KEY":"value"}`, nil}})
+		return json.Marshal(map[string]any{"id": id, "env": []any{`APPTOWN_BROWSER_ENV={"KEY":"value"}`, nil}})
 	})}
 	r := Runtime{docker: &dk, browserValues: func(context.Context, ids.ID) (map[string]string, error) {
 		return map[string]string{"KEY": "value"}, nil

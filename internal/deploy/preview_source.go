@@ -91,7 +91,7 @@ func (s SelectedSource) Snapshot(ctx context.Context, destination string) (Sourc
 	if err != nil {
 		return SourceTree{}, err
 	}
-	forgeDir := filepath.Join(destination, ".forge")
+	forgeDir := filepath.Join(destination, ".apptown")
 	marker := filepath.Join(forgeDir, "snapshot-sha")
 	// A marker copied from an untrusted tree must never redirect a cache read.
 	if root, err := os.Lstat(destination); err == nil && root.IsDir() {
@@ -114,9 +114,9 @@ func (s SelectedSource) Snapshot(ctx context.Context, destination string) (Sourc
 		return SourceTree{}, err
 	}
 	defer cleanup()
-	stagedForge := filepath.Join(tree.Directory, ".forge")
+	stagedForge := filepath.Join(tree.Directory, ".apptown")
 	if info, err := os.Lstat(stagedForge); err == nil && !info.IsDir() {
-		return SourceTree{}, errors.New("selected source .forge must be a directory")
+		return SourceTree{}, errors.New("selected source .apptown must be a directory")
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return SourceTree{}, err
 	}

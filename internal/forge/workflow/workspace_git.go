@@ -71,6 +71,9 @@ func (g GitWorkspace) EnsureClone(ctx context.Context, in CloneRequest) (out Wor
 	if err != nil {
 		return out, err
 	}
+	if err := g.requireUpgraded(ctx, in.Repository, start); err != nil {
+		return out, err
+	}
 	if err := os.MkdirAll(filepath.Dir(in.Workspace), 0755); err != nil {
 		return out, err
 	}
@@ -138,7 +141,7 @@ func (g GitWorkspace) existingClone(ctx context.Context, path, branch string) (W
 var ErrFolderDiverged = fault.New(fault.Conflict, "the change's folder and its branch have both moved; merge the branch into the folder (the chat can) and try again")
 
 // PublishedRef is where a diverged folder finds its branch as published.
-const PublishedRef = "refs/forge/published"
+const PublishedRef = "refs/apptown/published"
 
 // leftoverMessage names the commit of what a change's folder had not
 // committed when a new holder took it.
@@ -147,7 +150,7 @@ const leftoverMessage = "apptown: work left in the change's folder by its previo
 // BringToBranch readies a change's folder for a new holder, before it works
 // there. What
 // the folder has not committed is committed first, as the previous worker's
-// (staged as StageAll stages: never .forge runtime files), so it is neither
+// (staged as StageAll stages: never .apptown runtime files), so it is neither
 // discarded nor mistaken for the new holder's work. The folder is then
 // fast-forwarded to its branch as published when it has nothing of its own;
 // one that already contains the branch, or a branch never published, is left
@@ -204,4 +207,25 @@ func (g GitWorkspace) commitLeftovers(ctx context.Context, workspace string) err
 	}
 	_, err := g.git(ctx, workspace, "-c", "user.name=apptown", "-c", "user.email=apptown@localhost", "commit", "--quiet", "-m", leftoverMessage)
 	return err
+}
+
+// ErrNotUpgraded refuses new work on a repository that still keeps AppTown's
+// files in .forge/: the upgrade renames it once, for every project, and work
+// started before that would write the new folder beside the old one.
+var ErrNotUpgraded = fault.New(fault.Conflict, "this project's repository still keeps AppTown's files in .forge/; an administrator runs apptown upgrade once, then start again")
+
+func (g GitWorkspace) requireUpgraded(ctx context.Context, repository, commit string) error {
+	listing, err := g.git(ctx, repository, "ls-tree", "--name-only", commit, "--", ".forge", ".apptown")
+	if err != nil {
+		return err
+	}
+	old, renamed := false, false
+	for _, name := range strings.Split(listing, "\n") {
+		old = old || name == ".forge"
+		renamed = renamed || name == ".apptown"
+	}
+	if old && !renamed {
+		return ErrNotUpgraded
+	}
+	return nil
 }

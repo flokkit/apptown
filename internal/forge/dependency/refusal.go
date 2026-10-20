@@ -70,7 +70,7 @@ func (c *Catalog) RefusesNeeds(ctx context.Context, needs []string, params map[s
 // these parameters, or "".
 func (k *Kind) RefusesDeclaration(params map[string]string) string {
 	if k.Integration {
-		return fmt.Sprintf("%s is an integration, not a need: attach it to the project under Settings › Integrations and remove %s from needs: in .forge/app.yaml; the app is given its values while it is attached and must run without them", k.Capability, k.Capability)
+		return fmt.Sprintf("%s is an integration, not a need: attach it to the project under Settings › Integrations and remove %s from needs: in .apptown/app.yaml; the app is given its values while it is attached and must run without them", k.Capability, k.Capability)
 	}
 	var owned []string
 	for name := range params {
@@ -80,7 +80,7 @@ func (k *Kind) RefusesDeclaration(params map[string]string) string {
 	}
 	if len(owned) > 0 {
 		slices.Sort(owned)
-		return fmt.Sprintf("AppTown sets the %s of the %s need, and an app cannot: remove %s from needs.%s in .forge/app.yaml and read the value from the variables the app is given", strings.Join(owned, " and "), k.Capability, strings.Join(owned, ", "), k.Capability)
+		return fmt.Sprintf("AppTown sets the %s of the %s need, and an app cannot: remove %s from needs.%s in .apptown/app.yaml and read the value from the variables the app is given", strings.Join(owned, " and "), k.Capability, strings.Join(owned, ", "), k.Capability)
 	}
 	return ""
 }

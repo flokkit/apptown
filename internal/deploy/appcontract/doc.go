@@ -1,4 +1,4 @@
-// Package appcontract owns Forge's native .forge/app.yaml declaration, parsing,
+// Package appcontract owns Forge's native .apptown/app.yaml declaration, parsing,
 // validation, and preparation of independent execution inputs.
 //
 // Parse accepts source bytes; callers own file and repository lookup. Prepare

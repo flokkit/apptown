@@ -29,10 +29,10 @@ func checkMCPReadPolicies(t *testing.T) {
 	// A real committed contract and guidance are protected data, not an empty
 	// response that would pass equally with a broken permission check.
 	repo := a.projectRepoPath("app")
-	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, ".forge/app.yaml"), []byte("# private-contract\nparts: []\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".apptown/app.yaml"), []byte("# private-contract\nparts: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	gittest.Run(t, repo, "add", ".")

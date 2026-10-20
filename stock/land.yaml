@@ -3,7 +3,7 @@
 # merge (on entry to ship, role: landing), deploy, release record. Working
 # workflows (quick-change, implement, ...) accrue commits to the branch and
 # never merge; hardening every landing means editing this file once.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: land

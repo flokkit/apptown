@@ -27,7 +27,7 @@ func TestSupersedeWedgedLanding(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.addGrant("user", "test", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "fixture", "test", "fixture")
-	landYAML := `apiVersion: forge.flokkit.io/v1
+	landYAML := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: land, description: d}
 spec:
@@ -38,7 +38,7 @@ spec:
       steps:
         - {name: scanit, uses: scan, with: {scanner: osv}}
 `
-	workYAML := `apiVersion: forge.flokkit.io/v1
+	workYAML := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: work, description: d}
 spec:
@@ -231,7 +231,7 @@ func TestLandingSerialization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	landYAML := `apiVersion: forge.flokkit.io/v1
+	landYAML := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: land, description: d}
 spec:

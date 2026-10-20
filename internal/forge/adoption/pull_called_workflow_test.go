@@ -9,7 +9,7 @@ import (
 )
 
 const pullWorkflowYAML = `
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: { name: flow }
 spec:

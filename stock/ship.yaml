@@ -3,7 +3,7 @@
 # lanes may end with `workflow/call: ship` so the shipping gate lives in ONE
 # place. Its scans are POINTS (on: source, on: image) that expand to every
 # attached scanner with that target — attach one, every lane gets it.
-apiVersion: forge.flokkit.io/v1
+apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: ship

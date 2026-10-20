@@ -67,10 +67,10 @@ func TestIntegrationATaskReadsItsInputsAndLeavesItsResultFiles(t *testing.T) {
 
 	// The source holds a stale verdict, which the task must never see.
 	hub := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(hub, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(hub, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(hub, ".forge", "review.json"), []byte(`{"verdict":"stale"}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(hub, ".apptown", "review.json"), []byte(`{"verdict":"stale"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"init", "-q", "-b", "main"}, {"add", "-A"}, {"-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-q", "-m", "base"}} {
@@ -90,7 +90,7 @@ func TestIntegrationATaskReadsItsInputsAndLeavesItsResultFiles(t *testing.T) {
 		return putInput(t, blobs, path, []byte(body), mode)
 	}
 	script := `
-test -e /work/.forge/review.json && echo FRESH-KEPT
+test -e /work/.apptown/review.json && echo FRESH-KEPT
 cat /apptown/in/steering.md; echo
 /apptown/in/bin/tool
 cat /apptown/in/resources/a.md; echo
@@ -98,7 +98,7 @@ echo "MODES $(stat -c %a /apptown/in/bin/tool) $(stat -c %a /apptown/in/steering
 (echo x > /apptown/in/steering.md) 2>/dev/null && echo INPUT-WRITABLE
 (echo x > /apptown/in/bin/tool) 2>/dev/null && echo INPUT-WRITABLE
 (rm -f /apptown/in/resources/a.md) 2>/dev/null && echo INPUT-REMOVABLE
-mkdir -p /work/.forge && echo '{"verdict":"pass"}' > /work/.forge/review.json
+mkdir -p /work/.apptown && echo '{"verdict":"pass"}' > /work/.apptown/review.json
 mkdir -p /apptown/state/sessions && echo '{"type":"session"}' > /apptown/state/sessions/s.jsonl
 head -c 100 /dev/zero > /apptown/state/big
 ln -s /etc/passwd /work/link.json
@@ -115,7 +115,7 @@ echo done
 			input("/apptown/in/resources/a.md", "resource a", 0o644),
 		},
 		Results: []execution.Result{
-			{Name: "verdict", Path: "/work/.forge/review.json", Max: 1024, Fresh: true},
+			{Name: "verdict", Path: "/work/.apptown/review.json", Max: 1024, Fresh: true},
 			{Name: "transcript", Path: "/apptown/state/sessions/s.jsonl", Max: 1024},
 			{Name: "absent", Path: "/work/nothing.json", Max: 1024},
 			{Name: "big", Path: "/apptown/state/big", Max: 10},
@@ -182,7 +182,7 @@ echo done
 
 	// The tree changes after the task exited: what was captured stays.
 	tree := filepath.Join(state, "workspaces", spec.Key)
-	if err := os.WriteFile(filepath.Join(tree, ".forge", "review.json"), []byte("changed later"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tree, ".apptown", "review.json"), []byte("changed later"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	// The worker service stops and starts again over the same state.

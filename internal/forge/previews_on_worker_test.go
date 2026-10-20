@@ -269,10 +269,10 @@ func previewWorkerWorld(t *testing.T, noDomain bool) (*App, *fakeDocker, *fakePr
 		t.Fatal(err)
 	}
 	folder := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
-	if err := os.MkdirAll(filepath.Join(folder, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(folder, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for path, body := range map[string]string{".forge/app.yaml": staticSiteContract, "index.html": "<html>the game</html>"} {
+	for path, body := range map[string]string{".apptown/app.yaml": staticSiteContract, "index.html": "<html>the game</html>"} {
 		if err := os.WriteFile(filepath.Join(folder, path), []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -300,7 +300,7 @@ func TestTheTryItButtonBootsOnTheWorkerAndNowhereElse(t *testing.T) {
 	}
 	b := boots[0]
 	if b.spec.StackID != docker.ChangeStackID(ch.ID) || b.spec.Incarnation == "" || b.prepared.Contract == nil || b.prepared.Contract.PublicPart() == nil ||
-		b.prepared.Contract.PublicPart().Static == "" || b.files[".forge/app.yaml"] != staticSiteContract || b.files["index.html"] == "" {
+		b.prepared.Contract.PublicPart().Static == "" || b.files[".apptown/app.yaml"] != staticSiteContract || b.files["index.html"] == "" {
 		t.Fatalf("the boot sent: %+v %+v", b.spec, b.files)
 	}
 	if runs := local.matching("run "); len(runs) != 0 {
@@ -433,9 +433,9 @@ type gatePlace struct {
 func runRuntimeGate(t *testing.T, place gatePlace) (*workflow.Step, string, string) {
 	t.Helper()
 	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
-	const loads = `<html><head><script src="/_forge/env.js"></script><script src="game.js"></script></head></html>`
+	const loads = `<html><head><script src="/_apptown/env.js"></script><script src="game.js"></script></head></html>`
 	page := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/_forge/env.js" {
+		if r.URL.Path == "/_apptown/env.js" {
 			w.Write([]byte(docker.BrowserEnvScript(given)))
 			return
 		}
@@ -479,10 +479,10 @@ func runRuntimeGate(t *testing.T, place gatePlace) (*workflow.Step, string, stri
 		t.Fatal(err)
 	}
 	ws := source.Workspace(a.cfg.dataDir)
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commitFolder(t, ws)
@@ -616,7 +616,7 @@ func rehearsalWorld(t *testing.T) (workerChatWorld, *fakePreviewWorker, *console
 	if err := w.a.Console.Send(context.Background(), s.ID, "go"); err != nil {
 		t.Fatal(err)
 	}
-	w.commitOnWorker(t, s.ID, ".forge/app.yaml", staticSiteContract)
+	w.commitOnWorker(t, s.ID, ".apptown/app.yaml", staticSiteContract)
 	return w, fake, s
 }
 

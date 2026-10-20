@@ -77,7 +77,7 @@ through a link, the forge skips that file and the pack's answer names it.
 A `.gitignore` that is a link counts as the project's own and is left
 alone.
 
-The forge reads `mise.toml`, `.forge/app.yaml` and `secretspec.toml` from
+The forge reads `mise.toml`, `.apptown/app.yaml` and `secretspec.toml` from
 the tree, as it does for any project. The command lists the secret names
 `secretspec.toml` declares. Set them in Settings › Secrets: secret values
 never travel with code.
@@ -130,8 +130,8 @@ Secret values, release history, deployments, backups and conformance
 judgments stay too. The export refuses, naming why, for an eval copy, a
 chat's record or a change's attachments that cannot be read, a commit the
 moving records name that the moving refs lack, and carried history holding
-the forge's runtime files (`.forge`, which can hold an agent's credentials;
-a lane's committed report file such as `.forge/REPORT.md` is prose and
+the forge's runtime files (`.apptown`, which can hold an agent's credentials;
+a lane's committed report file such as `.apptown/REPORT.md` is prose and
 moves).
 The file is as sensitive as the forge's database: logs, chats and artifacts
 are in it as they are. The source records `project.exported` with the

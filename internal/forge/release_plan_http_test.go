@@ -42,7 +42,7 @@ func TestReleasePlanHTTPProjectsActualHeadContractAndConfiguration(t *testing.T)
 		t.Fatal(err)
 	}
 	a.SeedTargets(t.Context()) // a restart records the intranet target from the configuration
-	dir := filepath.Join(repo, ".forge")
+	dir := filepath.Join(repo, ".apptown")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}

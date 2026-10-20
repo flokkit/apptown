@@ -1,7 +1,7 @@
 ---
 name: lang/selection/django-fullstack
 tags: lang,python,django
-checks: [{"name": "admin-ships-whole", "expects": "a routed Django admin has collectstatic in the image build (an unstyled admin is a broken build)", "severity": "medium", "evaluator": "sh", "sh": "if grep -rq \"admin.site.urls\" --include='urls.py' . 2>/dev/null && [ -f Dockerfile ] && ! grep -q collectstatic Dockerfile; then echo 'urls.py routes the Django admin but the Dockerfile never runs collectstatic — the deployed admin renders unstyled (broken-looking login page). Add: RUN DJANGO_SECRET_KEY=collectstatic-at-build-only .venv/bin/python manage.py collectstatic --noinput (a throwaway key for this command only; serve statics via whitenoise).'; exit 1; fi", "title": "Include the Django admin’s required assets"}, {"name": "admin-exposed-deliberately", "expects": "shipping the Django admin is a decision: working (statics + a provisioned superuser) and acknowledged, or not routed at all", "severity": "medium", "evaluator": "llm", "scope": "tree", "files": ["**/urls.py", "Dockerfile*", "**/settings.py", "*.sh", "**/entrypoint*", "compose*.y*ml", "docker-compose*.y*ml", "app.yaml", "Procfile", "secretspec.toml"], "rubric": "Decide whether urls.py routes django.contrib.admin (admin.site.urls). If it does NOT, pass: the app has chosen not to ship the admin. If it does, shipping it must be deliberate and whole: (1) the Dockerfile runs collectstatic (with whitenoise or equivalent serving statics) so the admin is not an unstyled login page, AND (2) something provisions a superuser from the environment — createsuperuser --noinput or an equivalent driven by DJANGO_SUPERUSER_* variables in a start script, entrypoint, init step, or compose/app.yaml — never hardcoded credentials in code, AND (3) every variable the provisioning reads is actually supplied: DJANGO_SUPERUSER_PASSWORD declared in secretspec.toml (generate = true, or required) so an environment has a value, and DJANGO_SUPERUSER_USERNAME (and EMAIL if read) set in the start script, entrypoint, or app.yaml environment; a provisioning script guarded by 'if the variables are set' with one of them never set provisions nobody. A routed admin missing any of the three is a violation: an admin nobody can log into, or that renders broken, is attack surface pretending to be a feature. Cite the file and line for what you found.", "title": "Make Django admin access an explicit choice"}, {"name": "trusts-forge-front-door", "expects": "settings trust AppTown's front door: ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS are built from FORGE_ORIGINS, wildcard origins translated to Django's leading-dot form, ALLOWED_HOSTS never a bare [\"*\"] and never falling back to one when FORGE_ORIGINS is unset", "severity": "high", "evaluator": "sh", "sh": "f=$(ls */settings.py settings.py 2>/dev/null | head -1); [ -n \"$f\" ] || exit 0; if ! grep -q FORGE_ORIGINS \"$f\"; then echo \"$f never reads FORGE_ORIGINS — behind AppTown's HTTPS front door Django refuses every form post with CSRF verification failed. Build ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS from FORGE_ORIGINS and set SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO','https') and USE_X_FORWARDED_HOST = True, and list app.health.healthz FIRST in MIDDLEWARE so the health probe, which asks by the app's address, still gets 200 (lang/selection/django-fullstack shows the lines; the seed ships app/health.py).\"; exit 1; fi; if grep -Eq \"^ALLOWED_HOSTS[[:space:]]*=[[:space:]]*\\[[[:space:]]*['\\\"]\\*['\\\"][[:space:]]*\\]\" \"$f\"; then echo \"$f sets ALLOWED_HOSTS = ['*'], so any Host header is trusted. Build ALLOWED_HOSTS from FORGE_ORIGINS: each origin's host, with a leading *. written as . (Django's subdomain form).\"; exit 1; fi; if grep -Eq \"^[^#]*or[[:space:]]*\\[[[:space:]]*['\\\"]\\*['\\\"][[:space:]]*\\]\" \"$f\"; then echo \"$f falls back to ALLOWED_HOSTS = ['*'] when FORGE_ORIGINS is unset, so any Host header is trusted there. Fall back to [\\\"localhost\\\", \\\"127.0.0.1\\\"] (lang/selection/django-fullstack shows the lines).\"; exit 1; fi; if ! grep -Eq '\\*\\\\?\\.' \"$f\"; then echo \"$f reads FORGE_ORIGINS but never translates its wildcard origins (https://*.preview.<domain>): ALLOWED_HOSTS needs .preview.<domain>, or the front door's requests are refused with Bad Request (400). Write each origin's host with a leading *. as ., and keep app.health.healthz FIRST in MIDDLEWARE so the health probe by address still gets 200 (lang/selection/django-fullstack shows the lines).\"; exit 1; fi", "title": "Configure the application to trust AppTown’s front door"}, {"name": "django-check-deploy", "expects": "Django's own deployment-readiness checks pass (manage.py check --deploy)", "severity": "high", "evaluator": "tool", "tool": "django-check-deploy", "title": "Resolve Django deployment-check findings"}, {"name": "python-sast", "expects": "no high-confidence security findings from semgrep's django + python rules", "severity": "medium", "evaluator": "tool", "tool": "semgrep-django", "title": "Resolve Python security-check findings"}, {"name": "gitignore-names-build-output", "expects": "git would ignore what Python writes (__pycache__/), so build output can never be committed by accident. If the project commits that output deliberately, this check does not fit it: say so and stop rather than add the line, since an ignore rule over tracked files makes the repository contradict itself", "severity": "medium", "evaluator": "sh", "sh": "t=$(mktemp -d) && git -c init.defaultBranch=main init -q \"$t\" || exit 2; bad=0; for p in __pycache__/probe.cpython-312.pyc; do git --git-dir=\"$t/.git\" --work-tree=. -c core.excludesFile=/dev/null check-ignore -q \"$p\" || { echo \".gitignore does not cover ${p%/*}/\"; bad=1; }; done; exit $bad", "title": "Declare generated files in the repository’s ignore rules"}, {"name": "lockfile-in-step", "expects": "pyproject.toml and uv.lock agree (uv lock --check succeeds) and the lockfile is committed, so an install resolves exactly what is committed", "severity": "medium", "evaluator": "tool", "tool": "uv-lock-check", "title": "Keep the dependency lockfile in sync"}]
+checks: [{"name": "admin-ships-whole", "expects": "a routed Django admin has collectstatic in the image build (an unstyled admin is a broken build)", "severity": "medium", "evaluator": "sh", "sh": "if grep -rq \"admin.site.urls\" --include='urls.py' . 2>/dev/null && [ -f Dockerfile ] && ! grep -q collectstatic Dockerfile; then echo 'urls.py routes the Django admin but the Dockerfile never runs collectstatic — the deployed admin renders unstyled (broken-looking login page). Add: RUN DJANGO_SECRET_KEY=collectstatic-at-build-only .venv/bin/python manage.py collectstatic --noinput (a throwaway key for this command only; serve statics via whitenoise).'; exit 1; fi", "title": "Include the Django admin’s required assets"}, {"name": "admin-exposed-deliberately", "expects": "shipping the Django admin is a decision: working (statics + a provisioned superuser) and acknowledged, or not routed at all", "severity": "medium", "evaluator": "llm", "scope": "tree", "files": ["**/urls.py", "Dockerfile*", "**/settings.py", "*.sh", "**/entrypoint*", "compose*.y*ml", "docker-compose*.y*ml", "app.yaml", "Procfile", "secretspec.toml"], "rubric": "Decide whether urls.py routes django.contrib.admin (admin.site.urls). If it does NOT, pass: the app has chosen not to ship the admin. If it does, shipping it must be deliberate and whole: (1) the Dockerfile runs collectstatic (with whitenoise or equivalent serving statics) so the admin is not an unstyled login page, AND (2) something provisions a superuser from the environment — createsuperuser --noinput or an equivalent driven by DJANGO_SUPERUSER_* variables in a start script, entrypoint, init step, or compose/app.yaml — never hardcoded credentials in code, AND (3) every variable the provisioning reads is actually supplied: DJANGO_SUPERUSER_PASSWORD declared in secretspec.toml (generate = true, or required) so an environment has a value, and DJANGO_SUPERUSER_USERNAME (and EMAIL if read) set in the start script, entrypoint, or app.yaml environment; a provisioning script guarded by 'if the variables are set' with one of them never set provisions nobody. A routed admin missing any of the three is a violation: an admin nobody can log into, or that renders broken, is attack surface pretending to be a feature. Cite the file and line for what you found.", "title": "Make Django admin access an explicit choice"}, {"name": "trusts-front-door", "expects": "settings trust AppTown's front door: ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS are built from APPTOWN_ORIGINS, wildcard origins translated to Django's leading-dot form, ALLOWED_HOSTS never a bare [\"*\"] and never falling back to one when APPTOWN_ORIGINS is unset", "severity": "high", "evaluator": "sh", "sh": "f=$(ls */settings.py settings.py 2>/dev/null | head -1); [ -n \"$f\" ] || exit 0; if ! grep -q APPTOWN_ORIGINS \"$f\"; then echo \"$f never reads APPTOWN_ORIGINS — behind AppTown's HTTPS front door Django refuses every form post with CSRF verification failed. Build ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS from APPTOWN_ORIGINS and set SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO','https') and USE_X_FORWARDED_HOST = True, and list app.health.healthz FIRST in MIDDLEWARE so the health probe, which asks by the app's address, still gets 200 (lang/selection/django-fullstack shows the lines; the seed ships app/health.py).\"; exit 1; fi; if grep -Eq \"^ALLOWED_HOSTS[[:space:]]*=[[:space:]]*\\[[[:space:]]*['\\\"]\\*['\\\"][[:space:]]*\\]\" \"$f\"; then echo \"$f sets ALLOWED_HOSTS = ['*'], so any Host header is trusted. Build ALLOWED_HOSTS from APPTOWN_ORIGINS: each origin's host, with a leading *. written as . (Django's subdomain form).\"; exit 1; fi; if grep -Eq \"^[^#]*or[[:space:]]*\\[[[:space:]]*['\\\"]\\*['\\\"][[:space:]]*\\]\" \"$f\"; then echo \"$f falls back to ALLOWED_HOSTS = ['*'] when APPTOWN_ORIGINS is unset, so any Host header is trusted there. Fall back to [\\\"localhost\\\", \\\"127.0.0.1\\\"] (lang/selection/django-fullstack shows the lines).\"; exit 1; fi; if ! grep -Eq '\\*\\\\?\\.' \"$f\"; then echo \"$f reads APPTOWN_ORIGINS but never translates its wildcard origins (https://*.preview.<domain>): ALLOWED_HOSTS needs .preview.<domain>, or the front door's requests are refused with Bad Request (400). Write each origin's host with a leading *. as ., and keep app.health.healthz FIRST in MIDDLEWARE so the health probe by address still gets 200 (lang/selection/django-fullstack shows the lines).\"; exit 1; fi", "title": "Configure the application to trust AppTown’s front door"}, {"name": "django-check-deploy", "expects": "Django's own deployment-readiness checks pass (manage.py check --deploy)", "severity": "high", "evaluator": "tool", "tool": "django-check-deploy", "title": "Resolve Django deployment-check findings"}, {"name": "python-sast", "expects": "no high-confidence security findings from semgrep's django + python rules", "severity": "medium", "evaluator": "tool", "tool": "semgrep-django", "title": "Resolve Python security-check findings"}, {"name": "gitignore-names-build-output", "expects": "git would ignore what Python writes (__pycache__/), so build output can never be committed by accident. If the project commits that output deliberately, this check does not fit it: say so and stop rather than add the line, since an ignore rule over tracked files makes the repository contradict itself", "severity": "medium", "evaluator": "sh", "sh": "t=$(mktemp -d) && git -c init.defaultBranch=main init -q \"$t\" || exit 2; bad=0; for p in __pycache__/probe.cpython-312.pyc; do git --git-dir=\"$t/.git\" --work-tree=. -c core.excludesFile=/dev/null check-ignore -q \"$p\" || { echo \".gitignore does not cover ${p%/*}/\"; bad=1; }; done; exit $bad", "title": "Declare generated files in the repository’s ignore rules"}, {"name": "lockfile-in-step", "expects": "pyproject.toml and uv.lock agree (uv lock --check succeeds) and the lockfile is committed, so an install resolves exactly what is committed", "severity": "medium", "evaluator": "tool", "tool": "uv-lock-check", "title": "Keep the dependency lockfile in sync"}]
 ---
 The application is Django — batteries included. Server-rendered templates,
 Django ORM + migrations, the admin for back-office CRUD for free, Postgres underneath,
@@ -37,7 +37,7 @@ image applies migrations when it starts and serves with gunicorn; Django's
 `python:3.12-slim`: uv, the lockfile install, `collectstatic` and any
 compiler a native wheel needs in the first; the final one copies the
 `.venv` and the app and removes pip. Never use the full `python` image
-(Debian's build image, with compilers, about 1 GB). The seeded `.forge/app.yaml` declares
+(Debian's build image, with compilers, about 1 GB). The seeded `.apptown/app.yaml` declares
 the web part, its readiness path and the Postgres need:
 
     needs:
@@ -112,7 +112,7 @@ and someone holds the key.
 Behind AppTown's front door (every environment: previews, main, the
 intranet) the app is reached over HTTPS through a proxy that keeps the
 public host name. AppTown tells the app where it is served in
-`FORGE_ORIGINS`, as origins per tier, wildcards included
+`APPTOWN_ORIGINS`, as origins per tier, wildcards included
 (`https://*.preview.<domain>,https://*.main.<domain>,…`). Build the
 host and origin settings from it, or every form post dies with "CSRF
 verification failed" (or every request with "Bad Request (400)"), and
@@ -121,13 +121,13 @@ instead (below):
 
     from urllib.parse import urlsplit
 
-    FORGE_ORIGINS = [o for o in os.environ.get("FORGE_ORIGINS", "").split(",") if o]
+    APPTOWN_ORIGINS = [o for o in os.environ.get("APPTOWN_ORIGINS", "").split(",") if o]
     # Django spells a wildcard subdomain as a leading dot: *.x.example -> .x.example
     ALLOWED_HOSTS = [
         "." + h[2:] if h.startswith("*.") else h
-        for h in (urlsplit(o).hostname for o in FORGE_ORIGINS)
-    ] or ["localhost", "127.0.0.1"]  # no FORGE_ORIGINS: this machine only
-    CSRF_TRUSTED_ORIGINS = FORGE_ORIGINS  # Django reads https://*.x.example itself
+        for h in (urlsplit(o).hostname for o in APPTOWN_ORIGINS)
+    ] or ["localhost", "127.0.0.1"]  # no APPTOWN_ORIGINS: this machine only
+    CSRF_TRUSTED_ORIGINS = APPTOWN_ORIGINS  # Django reads https://*.x.example itself
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     USE_X_FORWARDED_HOST = True
     MIDDLEWARE = [
@@ -137,7 +137,7 @@ instead (below):
         # ... the rest of startproject's list
     ]
 
-Without `FORGE_ORIGINS` the app is not behind AppTown's front door, so
+Without `APPTOWN_ORIGINS` the app is not behind AppTown's front door, so
 it answers only on this machine: the fallback is exactly
 `["localhost", "127.0.0.1"]`, never `["*"]` (any Host header trusted) and
 never empty (every request refused). Django's tests add `testserver`
@@ -152,12 +152,12 @@ carries no `X-Forwarded-Proto: https`, which `SECURE_SSL_REDIRECT`
 answers with 301. Either way a healthy app looks dead. The seeded
 `app/health.py` answers `/healthz` with 200 before Django looks at the
 host or redirects; it answers no other path, never touches the
-database, and leaves `ALLOWED_HOSTS` exactly as `FORGE_ORIGINS` says.
+database, and leaves `ALLOWED_HOSTS` exactly as `APPTOWN_ORIGINS` says.
 Keep it first in `MIDDLEWARE` (a project adopted without it writes the
 same ten lines), keep the seeded `app/test_health.py`, which holds both
 halves (`/healthz` by address answers 200; any other path by address is
 still refused with 400), and keep `health: { readiness: { http: /healthz } }`
-on the served part in `.forge/app.yaml`. Never widen `ALLOWED_HOSTS`
+on the served part in `.apptown/app.yaml`. Never widen `ALLOWED_HOSTS`
 (an IP, `"*"`) to let the probe in.
 
 **The deploy check fails on warnings.** The landing runs
@@ -194,7 +194,7 @@ django/python security rules — maintained tools, not hand-written greps.
 Run them yourself before handing back with
 `apptown check`; the deploy check gates a landing, the SAST findings are
 advisory. The one thing no external tool knows is AppTown's front-door
-contract above — that `FORGE_ORIGINS` is read, its wildcards translated,
+contract above — that `APPTOWN_ORIGINS` is read, its wildcards translated,
 and the hosts not left wide open — so that stays a small AppTown check.
 
 Build output stays out of git: `.gitignore` names `__pycache__/` (or
@@ -206,6 +206,6 @@ everywhere.
 
 **Fits a container limit.** Gunicorn runs one worker unless
 `WEB_CONCURRENCY` asks for more; a Django worker uses about 80 MB. Declare
-`resources: { memory: 160M }` in `.forge/app.yaml` for one worker and about
+`resources: { memory: 160M }` in `.apptown/app.yaml` for one worker and about
 80 MB more for each extra; deploy/memory-declared says how to choose and
 check it.

@@ -110,7 +110,7 @@ merge, deploy, release record. "Land" is the verb.
 tier. Numbered per project; each release keeps a timestamped log, the
 commit, and the image digest it shipped.
 
-**Runtime contract** — the file `.forge/app.yaml`: `app:`, the app's own
+**Runtime contract** — the file `.apptown/app.yaml`: `app:`, the app's own
 containers, each `build:`/`image:`/`static:`, one `public: true`; and
 `needs:`, the services (postgres, s3, …) provided per deployment. No
 contract, no deploy. [The app contract](/docs/guides/contract-reference)
@@ -248,7 +248,7 @@ in* (it shipped) — and, for error reporting, when the provider last saw an
 event.
 
 **Test hook** — the house-standard way to prove error reporting works in
-any deployment by hand: a server app serves `GET /_forge/boom`; a browser
+any deployment by hand: a server app serves `GET /_apptown/boom`; a browser
 app or game fires on the typed sequence `boom!!!`. Both send one tagged
 "forge test boom" event. Not authenticated, on purpose.
 

@@ -239,12 +239,12 @@ func TestAgentEvidenceSaysWhenUsageIsIncomplete(t *testing.T) {
 // evidence carries the keys other code reads by name.
 func TestAgentEmptyTurnRetriesOnceAndEvidenceKeysAreStable(t *testing.T) {
 	t.Parallel()
-	a, runID, stepID := admittedAgentStep(t, `{"prompt":"write the report","output":{"kind":"report","name":"r","file":".forge/R.md"}}`)
+	a, runID, stepID := admittedAgentStep(t, `{"prompt":"write the report","output":{"kind":"report","name":"r","file":".apptown/R.md"}}`)
 	f := installFakePi(a, func(n int, req execution.Request) execution.Outcome {
 		if n == 1 {
 			return execution.Outcome{Output: []byte(`{"type":"agent_settled"}` + "\n")}
 		}
-		if err := os.WriteFile(filepath.Join(req.Workspace, ".forge", "R.md"), []byte("# Report\n\nall done"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(req.Workspace, ".apptown", "R.md"), []byte("# Report\n\nall done"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		return execution.Outcome{Output: piSays("wrote the report")}
@@ -280,7 +280,7 @@ func TestAgentEmptyTurnRetriesOnceAndEvidenceKeysAreStable(t *testing.T) {
 	}
 	var kinds []string
 	for _, artifact := range artifacts {
-		if artifact.Name == "r" || artifact.Name == ".forge/R.md" {
+		if artifact.Name == "r" || artifact.Name == ".apptown/R.md" {
 			kinds = append(kinds, artifact.Kind)
 		}
 	}
@@ -340,8 +340,8 @@ func TestARestartRetryPublishesItsReplacementWork(t *testing.T) {
 // target, and fails as any other.
 func TestAnImplementingAgentStepThatChangesNothingFails(t *testing.T) {
 	t.Parallel()
-	const output = `{"prompt":"do it","output":{"kind":"change-report","file":".forge/CHANGE.md"}}`
-	const declared = `{"prompt":"do it","mayChangeNothing":true,"output":{"kind":"change-report","file":".forge/CHANGE.md"}}`
+	const output = `{"prompt":"do it","output":{"kind":"change-report","file":".apptown/CHANGE.md"}}`
+	const declared = `{"prompt":"do it","mayChangeNothing":true,"output":{"kind":"change-report","file":".apptown/CHANGE.md"}}`
 	review := func(of string) schema.Step {
 		return schema.Step{Name: "review", Uses: "agent/review", With: map[string]any{"of": of}}
 	}
@@ -374,7 +374,7 @@ func TestAnImplementingAgentStepThatChangesNothingFails(t *testing.T) {
 			t.Parallel()
 			a, runID, stepID := admittedAgentStepOn(t, c.open, c.config, c.review)
 			installFakePi(a, func(_ int, req execution.Request) execution.Outcome {
-				if err := os.WriteFile(filepath.Join(req.Workspace, ".forge", "CHANGE.md"), []byte("Not changed: the page named in the request does not exist."), 0o644); err != nil {
+				if err := os.WriteFile(filepath.Join(req.Workspace, ".apptown", "CHANGE.md"), []byte("Not changed: the page named in the request does not exist."), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				if c.change {
@@ -442,7 +442,7 @@ func TestALocalAgentsReportIsHarvestedWhateverTheForgesClock(t *testing.T) {
 // it: the report describes the whole change, not the rework's note.
 func TestAReworkUpdatesTheStepsEarlierReport(t *testing.T) {
 	t.Parallel()
-	a, runID, stepID := admittedAgentStep(t, `{"prompt":"do it","output":{"kind":"change-report","file":".forge/CHANGE.md"}}`)
+	a, runID, stepID := admittedAgentStep(t, `{"prompt":"do it","output":{"kind":"change-report","file":".apptown/CHANGE.md"}}`)
 	snapshot, err := a.work.Snapshot(a.ctx, runID, workflow.DetailView)
 	if err != nil {
 		t.Fatal(err)
@@ -451,20 +451,20 @@ func TestAReworkUpdatesTheStepsEarlierReport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := filepath.Join(source.Workspace(a.dir), ".forge", "CHANGE.md")
+	report := filepath.Join(source.Workspace(a.dir), ".apptown", "CHANGE.md")
 	var found, told bool
 	installFakePi(a, func(n int, req execution.Request) execution.Outcome {
 		if n == 1 {
-			for name, body := range map[string]string{".forge/CHANGE.md": "CHANGED page.txt: the first round\n", "page.txt": "first\n"} {
+			for name, body := range map[string]string{".apptown/CHANGE.md": "CHANGED page.txt: the first round\n", "page.txt": "first\n"} {
 				if err := os.WriteFile(filepath.Join(req.Workspace, name), []byte(body), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
 			return execution.Outcome{Output: piSays("done")}
 		}
-		got, _ := os.ReadFile(filepath.Join(req.Workspace, ".forge", "CHANGE.md"))
+		got, _ := os.ReadFile(filepath.Join(req.Workspace, ".apptown", "CHANGE.md"))
 		found = string(got) == "CHANGED page.txt: the first round\n"
-		told = strings.Contains(strings.Join(req.Argv, " "), "Your report from the earlier attempt is in .forge/CHANGE.md. UPDATE it")
+		told = strings.Contains(strings.Join(req.Argv, " "), "Your report from the earlier attempt is in .apptown/CHANGE.md. UPDATE it")
 		return execution.Outcome{Output: piSays("done")}
 	})
 	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
@@ -581,9 +581,9 @@ func TestARunWithNothingToChangeEndsWithoutAsking(t *testing.T) {
 				also = append([]schema.Step{{Name: "review-security", Uses: ReviewKind, With: map[string]any{"of": "uplift-report"}}}, also...)
 			}
 			if c.later {
-				also = append([]schema.Step{{Name: "later", Uses: AgentKind, With: map[string]any{"prompt": "change it", "output": map[string]any{"kind": "uplift-report", "file": ".forge/UPLIFT.md"}}}}, also...)
+				also = append([]schema.Step{{Name: "later", Uses: AgentKind, With: map[string]any{"prompt": "change it", "output": map[string]any{"kind": "uplift-report", "file": ".apptown/UPLIFT.md"}}}}, also...)
 			}
-			a, runID, stepID := admittedAgentStep(t, `{"prompt":"update","mayChangeNothing":true,"output":{"kind":"uplift-report","file":".forge/UPLIFT.md"}}`, also...)
+			a, runID, stepID := admittedAgentStep(t, `{"prompt":"update","mayChangeNothing":true,"output":{"kind":"uplift-report","file":".apptown/UPLIFT.md"}}`, also...)
 			installFakePi(a, func(n int, req execution.Request) execution.Outcome {
 				write := func(name, body string) {
 					if err := os.WriteFile(filepath.Join(req.Workspace, name), []byte(body), 0o644); err != nil {
@@ -592,14 +592,14 @@ func TestARunWithNothingToChangeEndsWithoutAsking(t *testing.T) {
 				}
 				switch {
 				case n == 1:
-					write(".forge/UPLIFT.md", "The project declares no dependencies.")
+					write(".apptown/UPLIFT.md", "The project declares no dependencies.")
 				case n == 2 && c.later:
 					write("page.txt", "changed\n")
-					write(".forge/UPLIFT.md", "CHANGED page.txt")
+					write(".apptown/UPLIFT.md", "CHANGED page.txt")
 				case n == 2 && c.second != "":
-					write(".forge/review.json", `{"verdict":"pass","summary":"a major waits","findings":`+c.second+`}`)
+					write(".apptown/review.json", `{"verdict":"pass","summary":"a major waits","findings":`+c.second+`}`)
 				default:
-					write(".forge/review.json", `{"verdict":"pass","summary":"nothing to update","findings":`+c.findings+`}`)
+					write(".apptown/review.json", `{"verdict":"pass","summary":"nothing to update","findings":`+c.findings+`}`)
 				}
 				return execution.Outcome{Output: piSays("done")}
 			})

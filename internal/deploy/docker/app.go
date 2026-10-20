@@ -222,7 +222,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// frameworks trust their front door from this instead of a hand-typed
 	// hostname that is wrong in the next deployment.
 	if o := appOrigins(h.origins(ctx), dk, routed); o != "" {
-		args = append(args, "-e", "FORGE_ORIGINS="+o)
+		args = append(args, "-e", "APPTOWN_ORIGINS="+o)
 	}
 	// Attached-integration runtime contributions: the errors DSN plus every attached
 	// service kind's rendered env. Opt-in by integration — unattached
@@ -247,7 +247,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	if c.DataDir != "" {
 		args = append(args, "-e", "DATA_DIR="+c.DataDir)
 	}
-	// A static part's browser values, for /_forge/env.js: set last, so no
+	// A static part's browser values, for /_apptown/env.js: set last, so no
 	// contract or secret value can stand in for them (docker: the last -e
 	// wins), and only for a static site, so a server app never depends on
 	// them. They were read before the old container was removed.
@@ -449,7 +449,7 @@ func containerLogTail(ctx context.Context, dk Scope, container string) string {
 // Deliberately mtime-based, not a content hash: a spurious mtime bump costs
 // one needless reboot — the safe direction to be wrong in.
 func WorktreeFingerprint(ws string) string {
-	skip := map[string]bool{".git": true, ".forge": true, "node_modules": true, "dist": true}
+	skip := map[string]bool{".git": true, ".apptown": true, ".forge": true, "node_modules": true, "dist": true}
 	h := sha256.New()
 	_ = filepath.Walk(ws, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -468,7 +468,7 @@ func WorktreeFingerprint(ws string) string {
 	// The contract is part of the print — an edit to services/build/env must
 	// re-boot the preview. The native contract is part of the selected source.
 	for _, name := range []string{"app.yaml"} {
-		if b, err := os.ReadFile(filepath.Join(ws, ".forge", name)); err == nil {
+		if b, err := os.ReadFile(filepath.Join(ws, ".apptown", name)); err == nil {
 			h.Write(b)
 		}
 	}
@@ -504,7 +504,7 @@ func StaleEndpoint(out string) bool {
 	return strings.Contains(out, "endpoint with name") && strings.Contains(out, "already exists in network")
 }
 
-// appOrigins is the FORGE_ORIGINS an app is given: this forge's tiers and,
+// appOrigins is the APPTOWN_ORIGINS an app is given: this forge's tiers and,
 // for an app routed by an attached host's own Traefik, that host's ingress
 // domain, where its visitors actually arrive. Without it an app on such a
 // host trusts only the preview tier, and a framework that checks the host

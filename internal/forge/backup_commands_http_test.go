@@ -37,10 +37,10 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 	// main runs a committed contract that keeps data: what it holds is read
 	// from the release it runs.
 	ws := filepath.Join(a.cfg.dataDir, "workspaces", "project-game")
-	if err := os.MkdirAll(filepath.Join(ws, ".forge"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".forge", "app.yaml"), []byte("app:\n  web:\n    image: example/game:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web:\n    image: example/game:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"init", "-q"}, {"add", "."}, {"-c", "user.name=test", "-c", "user.email=test@example.invalid", "commit", "-q", "-m", "runtime contract"}} {

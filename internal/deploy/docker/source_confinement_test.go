@@ -31,7 +31,7 @@ func TestDockerSourceIsSelfContained(t *testing.T) {
 	t.Parallel()
 	for _, path := range []string{"../outside", "/tmp/outside"} {
 		t.Run(path, func(t *testing.T) {
-			repo := selectedSourceRepo(t, map[string]string{".forge/app.yaml": "app:\n  web:\n    public: true\n    static: " + path + "\n"})
+			repo := selectedSourceRepo(t, map[string]string{".apptown/app.yaml": "app:\n  web:\n    public: true\n    static: " + path + "\n"})
 			if _, cleanup, err := PrepareSource(context.Background(), repo, "HEAD", "p", nil); err == nil {
 				cleanup()
 				t.Fatal("escaping source accepted")
@@ -39,7 +39,7 @@ func TestDockerSourceIsSelfContained(t *testing.T) {
 		})
 	}
 	t.Run("symlink", func(t *testing.T) {
-		repo := selectedSourceRepo(t, map[string]string{".forge/app.yaml": "app:\n  web:\n    public: true\n    static: site\n"})
+		repo := selectedSourceRepo(t, map[string]string{".apptown/app.yaml": "app:\n  web:\n    public: true\n    static: site\n"})
 		if err := os.Symlink(t.TempDir(), filepath.Join(repo, "site")); err != nil {
 			t.Fatal(err)
 		}

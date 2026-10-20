@@ -30,7 +30,7 @@ import (
 // only the web container, and prove the same objects and content remain.
 // The app gets only what the needs inject. No WP_HOME is bound, as on a
 // stock deployment: the site takes the address it is reached at when
-// FORGE_ORIGINS lists it, and refuses any other host.
+// APPTOWN_ORIGINS lists it, and refuses any other host.
 func TestIntegrationWordPressSeedKeepsDataAndMediaOutsideTheWebContainer(t *testing.T) {
 	for _, size := range []string{"", "small"} {
 		t.Run(map[bool]string{true: "default", false: size}[size == ""], func(t *testing.T) { wordpressSeedKeepsDataAndMedia(t, size) })
@@ -161,7 +161,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 	if !poll.Until(ctx, 60*time.Second, 250*time.Millisecond, func() bool { _, err := run(nil, "exec", s3, "sh", "-c", store.Health); return err == nil }) {
 		t.Fatalf("the s3 store never became ready: %s", must("logs", s3))
 	}
-	env := map[string]string{"FORGE_ORIGINS": "https://*.preview.test,http://*.site.test"}
+	env := map[string]string{"APPTOWN_ORIGINS": "https://*.preview.test,http://*.site.test"}
 	for _, svc := range []*LocalService{local, store} {
 		for k, v := range svc.Inject {
 			env[k] = v
@@ -274,7 +274,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 	// A wildcard origin matches whole labels: notsite.test is not under *.site.test.
 	for _, host := range []string{"elsewhere.example", "notsite.test"} {
 		if got := must("exec", web, "curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-H", "Host: "+host, "http://localhost:8080/"); got != "400" {
-			t.Fatalf("host %s, outside FORGE_ORIGINS, answered %s, want 400", host, got)
+			t.Fatalf("host %s, outside APPTOWN_ORIGINS, answered %s, want 400", host, got)
 		}
 	}
 	if out, err := ephemeral([]string{"-e", "WP_HOME=https://canonical.example"}, "/app/bin/wp", "eval", "echo home_url();"); err != nil || strings.TrimSpace(out) != "https://canonical.example" {

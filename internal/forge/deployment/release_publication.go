@@ -198,7 +198,7 @@ type ReleasePublication struct {
 	By       AttemptClaim
 	ChangeID ids.ID
 	Tree     string // the landed commit
-	Contract []byte // its .forge/app.yaml
+	Contract []byte // its .apptown/app.yaml
 	Plan     ReleasePlan
 	// Built is each built image's export, by image name, as the worker
 	// captured it. The forge trusts none of it: what it records is what the

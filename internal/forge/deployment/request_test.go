@@ -460,7 +460,7 @@ func TestRequestReleaseRefusesUnreadableOrIncompatibleContract(t *testing.T) {
 			case "incompatible":
 				sources.contract = &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true, DataDir: "/data"}}}
 			case "browser-values":
-				// Only a Docker host serves /_forge/env.js: a static site whose
+				// Only a Docker host serves /_apptown/env.js: a static site whose
 				// page is given values is refused elsewhere, never shipped
 				// with nothing in it.
 				sources.contract = &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true, Static: "."}}}

@@ -193,7 +193,7 @@ func TestOnlyAPublicationIsASave(t *testing.T) {
 		t.Fatalf("a bundle the import refuses: %+v", save)
 	}
 
-	refused := clone.commit(".forge/not-source", "x\n")
+	refused := clone.commit(".apptown/not-source", "x\n")
 	save := w.save(t, w.chat, clone.fetch)
 	if save.Outcome != ChatSaveRefused || w.branchTip() != before {
 		t.Fatalf("a commit publication refuses: %+v", save)

@@ -43,14 +43,14 @@ func TestConformanceWorkObservationsOwnScopeAndState(t *testing.T) {
 	q, run, step := scopeActivityRecord(t, "land", ids.Nil)
 	ctx := context.Background()
 	transitionScopeChange(t, q.db, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, State: "shipped"})
-	if n, err := workflowsql.New(q.db.SQL()).SetChangeBranch(context.Background(), workflowsql.SetChangeBranchParams{ID: run.ChangeID, ProjectID: run.ProjectID, Branch: "forge/change-1"}); err != nil || n != 1 {
+	if n, err := workflowsql.New(q.db.SQL()).SetChangeBranch(context.Background(), workflowsql.SetChangeBranchParams{ID: run.ChangeID, ProjectID: run.ProjectID, Branch: "apptown/change-1"}); err != nil || n != 1 {
 		t.Fatalf("SetChangeBranch: %d %v", n, err)
 	}
 	other := workflowTestProject(t, q.db, "foreign", "Foreign", "")
 	foreign := insertScopeChange(t, q.db, workflowsql.InsertChangeParams{ID: ids.New(time.Now()), CreatedAt: time.Now(), ProjectID: other, Type: "feature", Title: "private", State: "shipped", Branch: "private-branch"})
 	insertScopeChange(t, q.db, workflowsql.InsertChangeParams{ID: ids.New(time.Now()), CreatedAt: time.Now(), ProjectID: run.ProjectID, Type: "feature", Title: "unfinished", State: "in_progress", Branch: "unfinished-branch"})
 	tips, err := ShippedBranchesIn(ctx, q.db, run.ProjectID)
-	if err != nil || len(tips) != 1 || tips[0] != (ChangeBranch{ID: run.ChangeID, Branch: "forge/change-1"}) {
+	if err != nil || len(tips) != 1 || tips[0] != (ChangeBranch{ID: run.ChangeID, Branch: "apptown/change-1"}) {
 		t.Fatalf("tips %+v: %v", tips, err)
 	}
 	recordScopeStep(t, q.db, workflowsql.RecordApprovalParams{At: time.Now(), ID: step, Status: "pass", EvidenceJson: json.RawMessage(`{"approver":"named person","decision":"approve","decisions":[{"approver":"named person","principal":"` + idstest.N(5).String() + `","via":"session","decision":"approve"}]}`)})

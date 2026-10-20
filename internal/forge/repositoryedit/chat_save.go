@@ -88,7 +88,7 @@ type SaveFetch func(ctx context.Context, base, dest string) (tip string, err err
 
 // RefusedChatRef is where a chat's refused commit is kept in the project's
 // repository, for its download.
-func RefusedChatRef(session string) string { return "refs/forge/refused/chat-" + session }
+func RefusedChatRef(session string) string { return "refs/apptown/refused/chat-" + session }
 
 // SaveChat saves a worker chat's committed work. The result is always an
 // outcome, never a silent failure: a worker that cannot answer is "not

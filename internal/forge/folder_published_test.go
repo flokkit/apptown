@@ -162,7 +162,7 @@ exit 0
 
 // madeFiles are what the script makes on the worker: a file, and the
 // native contract and a page so the run's preview boots.
-var madeFiles = map[string]string{"made.txt": "made on the worker\n", ".forge/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html></html>\n"}
+var madeFiles = map[string]string{"made.txt": "made on the worker\n", ".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html></html>\n"}
 
 // runMake runs the script step's attempt on the worker, where it writes
 // files, and waits for its step to settle as want.
@@ -323,7 +323,7 @@ func TestAFolderLeftBehindDoesNotFailTheNextScript(t *testing.T) {
 func TestAResultNeverPublishedLeavesTheFolderShown(t *testing.T) {
 	t.Parallel()
 	w := publishedFolderRun(t, true, false)
-	w.runMake(t, 1, map[string]string{"made.txt": "made\n", ".gitignore": "!.forge/runtime.json\n", ".forge/runtime.json": "{}\n"}, workflow.StatusError)
+	w.runMake(t, 1, map[string]string{"made.txt": "made\n", ".gitignore": "!.apptown/runtime.json\n", ".apptown/runtime.json": "{}\n"}, workflow.StatusError)
 	if tip := scm.Ref(t.Context(), w.hub, "refs/heads/"+w.source.Branch); tip == "" || tip != w.given {
 		t.Fatalf("a refused result moved the branch to %s", tip)
 	}
