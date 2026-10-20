@@ -65,6 +65,6 @@ exactly what is committed, everywhere.
 **Fits a container limit.** Node's heap does not follow a container's limit
 on every version, so the seeded Dockerfile sets
 `NODE_OPTIONS=--max-old-space-size=96` for the declared
-`resources: { memory: 128M }`: about three quarters of it. Change both
+`resources: { memory: 128Mi }`: about three quarters of it. Change both
 together, and raise both when the deployment's card shows the app near its
 limit; deploy/memory-declared says how to choose and check it.

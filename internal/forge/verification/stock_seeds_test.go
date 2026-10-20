@@ -114,8 +114,15 @@ func TestSeedContractsParse(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := appcontract.Parse(raw); err != nil {
+		c, err := appcontract.Parse(raw)
+		if err != nil {
 			t.Errorf("%s: %v", path, err)
+			continue
+		}
+		// A seed without a version is read as version 1, whose sizes the
+		// version 2 contract a project upgrades to refuses.
+		if c.Version != 2 {
+			t.Errorf("%s: contract version %d, want 2", path, c.Version)
 		}
 	}
 }

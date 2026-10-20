@@ -138,5 +138,5 @@ default; do not delete gem metadata to hide it.
 
 **Fits a container limit.** Puma runs in single mode unless
 `WEB_CONCURRENCY` asks for workers, each about 120 MB. Single mode uses about
-120 MB: declare `resources: { memory: 256M }` in `.apptown/app.yaml` and raise
+120 MB: declare `resources: { memory: 256Mi }` in `.apptown/app.yaml` and raise
 it with the workers; deploy/memory-declared says how to choose and check it.

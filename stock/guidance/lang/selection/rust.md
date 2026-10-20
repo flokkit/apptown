@@ -37,6 +37,6 @@ Build output stays out of git: `.gitignore` names `target/`, which is
 everything Cargo writes.
 
 **Fits a container limit.** A Rust service needs nothing set; a small one
-uses a few megabytes, so declare `resources: { memory: 48M }` in
+uses a few megabytes, so declare `resources: { memory: 48Mi }` in
 `.apptown/app.yaml` and raise it when the deployment's card shows it near the
 limit. deploy/memory-declared says how to choose and check it.

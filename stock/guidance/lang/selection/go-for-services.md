@@ -21,6 +21,6 @@ Dependencies are what the files say: `go mod tidy` leaves no diff, so
 build resolves the same thing everywhere.
 
 **Fits a container limit.** A Go service needs nothing set; a small one uses
-5–15 MB, so declare `resources: { memory: 48M }` in `.apptown/app.yaml` and
+5–15 MB, so declare `resources: { memory: 48Mi }` in `.apptown/app.yaml` and
 raise it when the deployment's card shows it near the limit.
 deploy/memory-declared says how to choose and check it.

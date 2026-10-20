@@ -237,7 +237,7 @@ type PartResource struct {
 	Part            string               `json:"part"`
 	Public          bool                 `json:"public"`
 	Need            bool                 `json:"need,omitempty"` // a need's service, not an app part
-	Memory          string               `json:"memory"`         // "512M" or "no limit"
+	Memory          string               `json:"memory"`         // "512Mi" or "no limit"
 	CPU             string               `json:"cpu"`
 	RunsOn          string               `json:"runsOn,omitempty"`
 	Override        *Override            `json:"override,omitempty"`
@@ -331,7 +331,7 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 }
 
 // declaredWords is a declaration as a target that rounds it shows it:
-// "768M declared", or "not declared" (the size it runs on decides).
+// "768Mi declared", or "not declared" (the size it runs on decides).
 func declaredWords(declared bool, words string) string {
 	if !declared {
 		return "not declared"

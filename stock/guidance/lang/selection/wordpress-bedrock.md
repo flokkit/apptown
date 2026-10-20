@@ -72,7 +72,7 @@ for migration, backup and restore obligations.
 For a deployment-owned need, inspect `GET /api/v1/dependencies` for catalogue
 `sizes`. Select an offered `needs.<kind>.size` or a profile's need `size`; the
 catalogue supplies matched memory and startup settings. Only MariaDB `small`
-(128M) ships now, for local containers. Do not invent names or assume PostgreSQL,
+(128Mi) ships now, for local containers. Do not invent names or assume PostgreSQL,
 managed instances or shared databases support them. Do not combine a selected
 size and explicit need resources, including inherited profile values. An operator
 cap override is separately recorded and does not retune the database. A changed

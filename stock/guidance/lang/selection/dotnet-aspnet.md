@@ -152,6 +152,6 @@ accident.
 
 **Fits a container limit.** .NET follows the container's memory limit by
 itself; a small ASP.NET app uses about 64 MB, so declare
-`resources: { memory: 128M }` in `.apptown/app.yaml`, and set
+`resources: { memory: 128Mi }` in `.apptown/app.yaml`, and set
 `DOTNET_GCHeapHardLimitPercent` only when the app needs another share.
 deploy/memory-declared says how to choose and check it.

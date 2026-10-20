@@ -29,7 +29,7 @@ COPY --from=build /app /app
 USER node
 EXPOSE 8080
 # Node's heap does not follow a container's limit on every version: about
-# three quarters of the part's declared memory (128M in .apptown/app.yaml).
+# three quarters of the part's declared memory (128Mi in .apptown/app.yaml).
 # Change both together.
 ENV NODE_OPTIONS=--max-old-space-size=96
 CMD ["node", "--run", "start"]

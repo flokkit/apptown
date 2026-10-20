@@ -206,6 +206,6 @@ everywhere.
 
 **Fits a container limit.** Gunicorn runs one worker unless
 `WEB_CONCURRENCY` asks for more; a Django worker uses about 80 MB. Declare
-`resources: { memory: 160M }` in `.apptown/app.yaml` for one worker and about
+`resources: { memory: 160Mi }` in `.apptown/app.yaml` for one worker and about
 80 MB more for each extra; deploy/memory-declared says how to choose and
 check it.
