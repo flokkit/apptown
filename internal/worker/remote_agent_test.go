@@ -84,8 +84,8 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	if err := execfile.Write(cli, []byte("#!/bin/sh\necho forge\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	env := console.Static{Provision: console.Provision{Model: "m", Env: []string{"FORGE_URL=https://forge.example"},
-		Mounts: []string{cli + ":/opt/apptown/bin/forge:ro"},
+	env := console.Static{Provision: console.Provision{Model: "m", Env: []string{"APPTOWN_URL=https://forge.example"},
+		Mounts: []string{cli + ":/opt/apptown/bin/apptown:ro"},
 		Files:  map[string]console.Staged{"pi-home/.pi/agent/models.json": {Data: []byte(`{"providers":{}}`)}}}}
 	c := startRemoteChats(t, env)
 	s := c.open(t)
@@ -97,7 +97,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	if !strings.HasPrefix(launch.Dir, c.state) || !strings.HasPrefix(launch.Workspace.Path, c.state) {
 		t.Fatalf("the worker's launch names paths outside its state: %+v", launch)
 	}
-	if len(launch.Mounts) != 1 || !strings.HasPrefix(launch.Mounts[0], c.state) || !strings.HasSuffix(launch.Mounts[0], ":/opt/apptown/bin/forge:ro") {
+	if len(launch.Mounts) != 1 || !strings.HasPrefix(launch.Mounts[0], c.state) || !strings.HasSuffix(launch.Mounts[0], ":/opt/apptown/bin/apptown:ro") {
 		t.Fatalf("mounts on the worker: %v", launch.Mounts)
 	}
 	mounted := strings.SplitN(launch.Mounts[0], ":", 2)[0]
@@ -374,7 +374,7 @@ func TestAChatsWorkTreeIsMadeFromItsSource(t *testing.T) {
 	if out, err := commit2.CombinedOutput(); err != nil {
 		t.Fatalf("a chat's commit needs no identity of its own: %v\n%s", err, out)
 	}
-	if author, _ := gittest.Command("-C", work, "log", "-1", "--format=%an <%ae>").Output(); strings.TrimSpace(string(author)) != "forge <forge@localhost>" {
+	if author, _ := gittest.Command("-C", work, "log", "-1", "--format=%an <%ae>").Output(); strings.TrimSpace(string(author)) != "apptown <apptown@localhost>" {
 		t.Fatalf("the chat's commit identity: %q", author)
 	}
 	var other bytes.Buffer

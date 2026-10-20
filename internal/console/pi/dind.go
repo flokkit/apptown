@@ -82,7 +82,7 @@ func (r *Runtime) ensureDind(in console.Launch) error {
 			Options: dind.DaemonOptions(in.Mirror),
 			Args: append(append(writesLabel(in.Workspace), limits...), "--label", dockerlabel.Class+"=console-dind",
 				"--label", dockerlabel.Owner+"="+in.ID, "--label", dockerlabel.Created+"="+r.created(),
-				"-v", in.Workspace.Path+":/work"+readOnlyMount(in.Workspace), "-v", cache+":/forge-cache",
+				"-v", in.Workspace.Path+":/work"+readOnlyMount(in.Workspace), "-v", cache+":/apptown-cache",
 				"-v", clientDir+":/docker-client", "-v", configDir+":/forge-dind:ro")}
 		if err := daemon.Create(ctx, r.command); err != nil {
 			return err

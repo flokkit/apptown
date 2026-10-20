@@ -14,7 +14,7 @@ func TestAnOAuthListThatDoesNotDecodeAllowsNothing(t *testing.T) {
 	if c := client(accesssql.OauthClient{ClientID: "c", RedirectUris: `["https://ok.example/cb", 17]`}); len(c.RedirectURIs) != 0 {
 		t.Fatalf("a partly decoded redirect list: %v", c.RedirectURIs)
 	}
-	if d := connection(accesssql.DelegationsNamed{ScopesJson: []byte(`["forge:change:create", 17]`)}); len(d.Scopes) != 0 {
+	if d := connection(accesssql.DelegationsNamed{ScopesJson: []byte(`["apptown:change:create", 17]`)}); len(d.Scopes) != 0 {
 		t.Fatalf("partly decoded scopes: %v", d.Scopes)
 	}
 	if c := client(accesssql.OauthClient{RedirectUris: `["https://ok.example/cb"]`}); len(c.RedirectURIs) != 1 {

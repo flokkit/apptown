@@ -142,8 +142,8 @@ type ProjectCreated struct {
 
 // Versions is what version prints.
 type Versions struct {
-	CLI   CLIVersion   `json:"cli" doc:"this CLI"`
-	Forge ForgeVersion `json:"forge" doc:"the AppTown it talks to"`
+	CLI     CLIVersion     `json:"cli" doc:"this CLI"`
+	AppTown AppTownVersion `json:"apptown" doc:"the AppTown it talks to"`
 }
 
 // CLIVersion is this CLI's version.
@@ -152,8 +152,8 @@ type CLIVersion struct {
 	Protocol int    `json:"protocol" doc:"the CLI protocol it speaks"`
 }
 
-// ForgeVersion is the forge's version as its answer names it.
-type ForgeVersion struct {
+// AppTownVersion is the AppTown version its answer names.
+type AppTownVersion struct {
 	URL     string `json:"url" doc:"where it was asked"`
 	Reached bool   `json:"reached" doc:"whether it answered"`
 	Version string `json:"version" doc:"its version, empty when not reached or not stated"`

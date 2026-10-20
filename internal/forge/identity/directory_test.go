@@ -368,7 +368,7 @@ func TestAnUnknownNameIsRefused(t *testing.T) {
 	if err := RequireEnabledIn(ctx, s.db, testPrincipal("ops")); err != nil {
 		t.Fatalf("an enabled account passes: %v", err)
 	}
-	for name, want := range map[string]bool{"system": true, "forge-system": true, "run/12": true, "run/": false, "run/x": false, "ops": false, "ghost": false} {
+	for name, want := range map[string]bool{"system": true, "apptown-system": true, "apptown": true, "forge-system": true, "forge": true, "run/12": true, "run/": false, "run/x": false, "ops": false, "ghost": false} {
 		if got := SystemActor(name); got != want {
 			t.Errorf("SystemActor(%q) = %v", name, got)
 		}

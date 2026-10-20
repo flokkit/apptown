@@ -57,7 +57,7 @@ func TestTheCatchUpCommandGivesTheMergeAPlainMessage(t *testing.T) {
 	}
 	cmd := exec.Command("sh", "-c", command)
 	cmd.Dir = chat
-	cmd.Env = append(cmd.Env, "FORGE_MAIN_REMOTE="+hub, "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t", "GIT_EDITOR=false")
+	cmd.Env = append(cmd.Env, "APPTOWN_MAIN_REMOTE="+hub, "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t", "GIT_EDITOR=false")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%s: %v\n%s", command, err, out)
 	}

@@ -64,8 +64,8 @@ func TestConsolePreviewReportsBuildFailureAfterLongProgressLog(t *testing.T) {
 	m.Actor, m.Token = "bls", "test-token"
 	a.Console.Restore(m)
 	r := httptest.NewRequest("POST", "/api/v1/console/00000000-00a5-7000-8000-000000000000/preview", strings.NewReader(`{}`))
-	r.Header.Set("X-Forge-Session-Token", "test-token")
-	r.Header.Set("X-Forge-Actor", "bls")
+	r.Header.Set("X-AppTown-Session-Token", "test-token")
+	r.Header.Set("X-AppTown-Actor", "bls")
 	w := httptest.NewRecorder()
 	GETOnly(a.Handler()).ServeHTTP(w, r)
 	var response struct{ Error string }

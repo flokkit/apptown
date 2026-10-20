@@ -36,7 +36,7 @@ func TestAWorkerResultNamingNoCommitDoesNotPass(t *testing.T) {
 					w.Header().Add(name, value)
 				}
 			}
-			w.Header().Del("Forge-Head")
+			w.Header().Del("AppTown-Head")
 			w.WriteHeader(reply.Code)
 			_, _ = w.Write(reply.Body.Bytes())
 		})

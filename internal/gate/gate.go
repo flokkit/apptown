@@ -20,7 +20,7 @@ import (
 
 const (
 	// TokenHeader carries the gate secret on the forge's probes.
-	TokenHeader = "Forge-Restore-Token"
+	TokenHeader = "AppTown-Restore-Token"
 	// CookieName is the gate's session cookie. The __Host- prefix makes the
 	// browser refuse it unless it is Secure, has Path=/ and no Domain, so
 	// no other site or subdomain can plant or widen it.
@@ -30,10 +30,10 @@ const (
 	// 404 or 403 behind a gate that let the request through. The gate
 	// strips it from every response the app sends, so the app cannot
 	// produce it.
-	RefusedHeader = "Forge-Gate"
+	RefusedHeader = "AppTown-Gate"
 	RefusedValue  = "refused"
 	// EnterPath is where a person arrives with a ticket from the forge.
-	EnterPath = "/_forge/enter"
+	EnterPath = "/_apptown/enter"
 	// RedeemPath is the forge endpoint that exchanges a ticket for a person
 	// and a deadline.
 	// It is outside /api/ on purpose: the gate presents its secret as a

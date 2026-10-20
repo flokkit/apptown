@@ -21,7 +21,7 @@ Commands:
 It acts only through the product: the forge CLI with --json, and the reads the
 CLI has no command for (the pack picker, a target's capacity, a project's
 deployments). Waiting is `apptown wait`. State lives outside the repository:
---state names its file, or the FORGE_EVAL_STATE environment variable names a
+--state names its file, or the APPTOWN_EVAL_STATE environment variable names a
 directory that holds one file per forge (<forge host>.json); with neither the
 runner refuses. It is written before every mutation and after its answer, so a
 rerun never opens the same request twice. A mutation whose answer was lost
@@ -243,7 +243,7 @@ def room_after(cap, pending_apps, admitting=1):
     if host.get("known"):
         used = host["value"]
     else:
-        parts = [(mem.get("inUse") or {}).get(k) or {} for k in ("forge", "other")]
+        parts = [(mem.get("inUse") or {}).get(k) or {} for k in ("apptown", "other")]
         if not all(p.get("known") for p in parts):
             return None
         used = sum(p["value"] for p in parts)
@@ -279,7 +279,7 @@ def capacity_ok(api, st, target, risk, admitting=1):
 class Forge:
     def __init__(self, url, token, cli):
         self.url, self.token, self.cli = url.rstrip("/"), token, cli
-        self.env = {**os.environ, "FORGE_URL": self.url, "FORGE_TOKEN": token}
+        self.env = {**os.environ, "APPTOWN_URL": self.url, "APPTOWN_TOKEN": token}
 
     def run(self, *args):
         """(exit code, parsed JSON or None, stderr)."""
@@ -585,22 +585,22 @@ def cmd_report(st, companies):
 
 
 def state_path(state, state_dir, host):
-    """--state, else FORGE_EVAL_STATE/<host>.json; no default: the runner
+    """--state, else APPTOWN_EVAL_STATE/<host>.json; no default: the runner
     must not write its record somewhere the operator did not choose."""
     if state:
         return Path(state)
     if state_dir:
         return Path(state_dir) / f"{host}.json"
-    sys.exit("no state file: pass --state FILE or set FORGE_EVAL_STATE to a directory")
+    sys.exit("no state file: pass --state FILE or set APPTOWN_EVAL_STATE to a directory")
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--forge", required=True)
     p.add_argument("--token-file", required=True)
-    p.add_argument("--cli", default=os.environ.get("FORGE_CLI", "forge"))
+    p.add_argument("--cli", default=os.environ.get("APPTOWN_CLI", "apptown"))
     p.add_argument("--company", default="all")
-    p.add_argument("--state", help="the state file (or set FORGE_EVAL_STATE to a directory)")
+    p.add_argument("--state", help="the state file (or set APPTOWN_EVAL_STATE to a directory)")
     sub = p.add_subparsers(dest="cmd", required=True)
     for name in ("create", "drive"):
         s = sub.add_parser(name)
@@ -620,7 +620,7 @@ def main(argv=None):
     r.add_argument("change")
     args = p.parse_args(argv)
     host = urllib.parse.urlparse(args.forge).hostname
-    st = State(state_path(args.state, os.environ.get("FORGE_EVAL_STATE"), host))
+    st = State(state_path(args.state, os.environ.get("APPTOWN_EVAL_STATE"), host))
     only = args.company
     if getattr(args, "wave", None):
         waves = load_stacks()["waves"]

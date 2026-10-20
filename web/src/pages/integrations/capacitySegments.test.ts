@@ -10,8 +10,8 @@ const tenant = (name: string, kind: string, used: Figure, prom: number, extra: P
   ({ kind, name, containers: 1, used, promised: fig(prom), unlimited: 0, cpus: 0, cpuUnlimited: 0, cpuUnread: 0, ...extra })
 const cap = (tenants: Tenant[], hostUsed: Figure | null, total = 8 * GiB): TargetCapacity => ({
   target: 'ct', kind: 'docker-host', elastic: false, words: '', readAt: '2026-10-13T00:00:00Z', tenants,
-  memory: { total: fig(total), promised: { sum: { forge: fig(0), other: fig(0) }, limited: { forge: 0, other: 0 }, unlimited: { forge: 0, other: 0 }, unread: { forge: 0, other: 0 } }, hostUsed, overcommitted: false },
-  cpu: { total: fig(8), promised: { sum: { forge: fig(0), other: fig(0) }, limited: { forge: 0, other: 0 }, unlimited: { forge: 0, other: 0 }, unread: { forge: 0, other: 0 } }, overcommitted: false },
+  memory: { total: fig(total), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: { apptown: 0, other: 0 }, unlimited: { apptown: 0, other: 0 }, unread: { apptown: 0, other: 0 } }, hostUsed, overcommitted: false },
+  cpu: { total: fig(8), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: { apptown: 0, other: 0 }, unlimited: { apptown: 0, other: 0 }, unread: { apptown: 0, other: 0 } }, overcommitted: false },
   disk: { total: fig(400 * GiB), free: fig(300 * GiB), low: false, refuses: false },
 })
 
@@ -20,8 +20,8 @@ describe('the capacity bars', () => {
   // free; the segments add up to what the host has.
   // Kills: free drawn when the host's use is unknown; the host's own use left out.
   it('draws used memory as holders, the host itself, then free', () => {
-    const b = usedMemory(cap([tenant('shop/main', 'deployment', fig(700 * MiB), 0), tenant('the forge', 'forge', fig(GiB), 0)], fig(3 * GiB)))!
-    expect(b.segments.map((s) => s.kind)).toEqual(['forge', 'deployment', 'host', 'free'])
+    const b = usedMemory(cap([tenant('shop/main', 'deployment', fig(700 * MiB), 0), tenant('the forge', 'apptown', fig(GiB), 0)], fig(3 * GiB)))!
+    expect(b.segments.map((s) => s.kind)).toEqual(['apptown', 'deployment', 'host', 'free'])
     expect(b.segments.find((s) => s.kind === 'free')!.value).toBe(5 * GiB)
     expect(b.segments.find((s) => s.kind === 'host')!.value).toBe(3 * GiB - GiB - 700 * MiB)
     expect(b.segments.reduce((a, s) => a + s.value, 0)).toBe(8 * GiB)

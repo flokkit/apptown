@@ -204,7 +204,7 @@ func TestReleasePreviewChecksCurrentAuthorityAndHTTP(t *testing.T) {
 	call := func(pr access.Principal) (preview.ReleaseResult, error) {
 		return a.Preview.RequestReleasePreview(verifiedContext(ctx, pr), in)
 	}
-	for _, pr := range []access.Principal{{}, {Kind: "user", Name: "outsider", Via: "session"}, {Kind: "user", Name: "preview-owner", Via: "oauth", Scopes: []string{"forge:user:read"}}} {
+	for _, pr := range []access.Principal{{}, {Kind: "user", Name: "outsider", Via: "session"}, {Kind: "user", Name: "preview-owner", Via: "oauth", Scopes: []string{"apptown:user:read"}}} {
 		if out, err := call(pr); err == nil || out != (preview.ReleaseResult{}) || host.calls != 0 {
 			t.Fatalf("unauthorized preview: %+v %v", out, err)
 		}

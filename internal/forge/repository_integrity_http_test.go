@@ -22,7 +22,7 @@ func TestRepositoryIntegrityHTTPChoices(t *testing.T) {
 	request := func(who, method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req.Header.Set("X-Test-User", who)
-		req.Header.Set("X-Forge-Proxy-Secret", "test-proxy")
+		req.Header.Set("X-AppTown-Proxy-Secret", "test-proxy")
 		w := httptest.NewRecorder()
 		a.Handler().ServeHTTP(w, req)
 		return w

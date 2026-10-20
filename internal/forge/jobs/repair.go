@@ -91,7 +91,7 @@ func RepairInterruptedIn(ctx context.Context, tx *database.Tx, currentClientID s
 			return fail(fmt.Errorf("settlement did not return exactly the selected job"))
 		}
 		receipt.Outcome = string(params.Outcome)
-		if err := audit.At(settledAt).RecordIn(ctx, tx, "forge-system", ids.Nil, "jobs.interruption-settled", strconv.FormatInt(row.ID, 10), receipt); err != nil {
+		if err := audit.At(settledAt).RecordIn(ctx, tx, "apptown-system", ids.Nil, "jobs.interruption-settled", strconv.FormatInt(row.ID, 10), receipt); err != nil {
 			return fail(err)
 		}
 		result.Settled++

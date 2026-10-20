@@ -34,10 +34,10 @@ func TestAStepsCacheIsItsProjectsAlone(t *testing.T) {
 		return Decorate(execution.Request{Name: "step"}, time.Time{}, CacheVolume(ctx)).Mounts
 	}
 	game, shop := mount(WithCacheScope(context.Background(), "game")), mount(WithCacheScope(context.Background(), "shop"))
-	if !slices.Equal(game, []string{"forge-cache-game:/forge-cache"}) || !slices.Equal(shop, []string{"forge-cache-shop:/forge-cache"}) {
+	if !slices.Equal(game, []string{"forge-cache-game:/apptown-cache"}) || !slices.Equal(shop, []string{"forge-cache-shop:/apptown-cache"}) {
 		t.Fatalf("project caches: game %v, shop %v", game, shop)
 	}
-	if none := Decorate(execution.Request{Name: "step"}, time.Time{}, CacheVolume(context.Background())); len(none.Mounts) != 0 || slices.ContainsFunc(none.Env, func(e string) bool { return strings.Contains(e, "/forge-cache") }) {
+	if none := Decorate(execution.Request{Name: "step"}, time.Time{}, CacheVolume(context.Background())); len(none.Mounts) != 0 || slices.ContainsFunc(none.Env, func(e string) bool { return strings.Contains(e, "/apptown-cache") }) {
 		t.Fatalf("unscoped work mounts no cache: %+v", none)
 	}
 }

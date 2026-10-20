@@ -47,7 +47,7 @@ func fakeForgeHeaders(t *testing.T, reply func(method, path string) (int, http.H
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		rec := recorded{Method: r.Method, Path: strings.TrimPrefix(r.URL.Path, "/api/v1"), Query: r.URL.RawQuery,
-			Actor: r.Header.Get("X-Forge-Actor"), Auth: r.Header.Get("Authorization")}
+			Actor: r.Header.Get("X-AppTown-Actor"), Auth: r.Header.Get("Authorization")}
 		_ = json.Unmarshal(raw, &rec.Body)
 		mu.Lock()
 		*seen = append(*seen, rec)
@@ -62,7 +62,7 @@ func fakeForgeHeaders(t *testing.T, reply func(method, path string) (int, http.H
 	t.Cleanup(srv.Close)
 	prev := api
 	api = &client{base: srv.URL, actor: "tester", http: srv.Client(), wait: func(time.Duration) {},
-		getenv: func(k string) string { return map[string]string{"FORGE_TOKEN": "forge_tok"}[k] }}
+		getenv: func(k string) string { return map[string]string{"APPTOWN_TOKEN": "forge_tok"}[k] }}
 	t.Cleanup(func() { api = prev })
 	return seen
 }
@@ -163,9 +163,9 @@ func TestCommandsSendTheirRequests(t *testing.T) {
 		case path == "/projects/shop/changes":
 			return 200, `{"change":{"id":"00000000-0005-7000-8000-000000000000","number":5,"branch":"change-00000000-0005-7000-8000-000000000000"},"run":{"id":"00000000-0009-7000-8000-000000000000"}}`
 		case path == "/invites":
-			return 201, `{"link":"https://forge.test/invite/forge_invite_x","note":"send it","invite":{"username":"kim","role":"admin","expiresAt":"2026-10-10T00:00:00Z"}}`
+			return 201, `{"link":"https://forge.test/invite/apptown_invite_x","note":"send it","invite":{"username":"kim","role":"admin","expiresAt":"2026-10-10T00:00:00Z"}}`
 		case path == "/password-links":
-			return 201, `{"link":"https://forge.test/invite/forge_invite_y","note":"give it","invite":{"username":"kim","expiresAt":"2026-10-10T00:00:00Z"}}`
+			return 201, `{"link":"https://forge.test/invite/apptown_invite_y","note":"give it","invite":{"username":"kim","expiresAt":"2026-10-10T00:00:00Z"}}`
 		case path == "/steps/00000000-0007-7000-8000-000000000000/approve":
 			return 200, `{"name":"accept","status":"pass"}`
 		case path == "/steps/00000000-0007-7000-8000-000000000000/question":
@@ -195,11 +195,11 @@ func TestCommandsSendTheirRequests(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err = run(t, "invite", "kim", "--role", "admin")
-	if err != nil || !strings.Contains(out, "https://forge.test/invite/forge_invite_x") {
+	if err != nil || !strings.Contains(out, "https://forge.test/invite/apptown_invite_x") {
 		t.Fatalf("invite prints its link: %q %v", out, err)
 	}
 	out, err = run(t, "password-link", "kim", "--days", "2")
-	if err != nil || !strings.Contains(out, "https://forge.test/invite/forge_invite_y") || !strings.Contains(out, "password reset for kim") {
+	if err != nil || !strings.Contains(out, "https://forge.test/invite/apptown_invite_y") || !strings.Contains(out, "password reset for kim") {
 		t.Fatalf("password-link prints its link: %q %v", out, err)
 	}
 	// Task text first, flags after: the flags must not end up in the body.

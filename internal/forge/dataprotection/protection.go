@@ -495,7 +495,7 @@ const NativeReadFor = 5 * time.Minute
 var (
 	// ErrOnForgeDisk: with no store attached a Docker host's backups stay
 	// on the forge's own disk, which a rehearsal does not read from.
-	ErrOnForgeDisk error = &deployment.Unavailable{Reason: "on-forge-disk", Why: "A rehearsal needs a backup store."}
+	ErrOnForgeDisk error = &deployment.Unavailable{Reason: "on-apptown-disk", Why: "A rehearsal needs a backup store."}
 	// ErrDockerBackupsPage: a Docker host's deployment is copied by its
 	// backups, from the Backups page, not by a copy operation.
 	ErrDockerBackupsPage error = &deployment.Unavailable{Reason: "backups-page", Why: "A Docker host's deployment is backed up daily and from the Backups page."}
@@ -600,7 +600,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 	// say the same thing.
 	ops := s.operationsOf(ctx, dep, t, nil, nil)
 	out.Operations = ops
-	if out.Rehearsal == nil && !ops.Rehearsal.Available && ops.Rehearsal.Reason == "on-forge-disk" {
+	if out.Rehearsal == nil && !ops.Rehearsal.Available && ops.Rehearsal.Reason == "on-apptown-disk" {
 		out.RehearsalNote = "needs a backup store: its backups are on this host"
 	}
 	if out.RestoreTest == nil {

@@ -170,7 +170,7 @@ func TestLedgerRecordsUnknownSpendAsIncomplete(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	e := Entry{Kind: "narrative", ProjectID: idstest.N(1), Actor: "forge-system", Provider: "openrouter", Model: "m"}
+	e := Entry{Kind: "narrative", ProjectID: idstest.N(1), Actor: "apptown-system", Provider: "openrouter", Model: "m"}
 	if err := l.Record(context.Background(), e, Totals{}, "the provider reported no usage"); err != nil {
 		t.Fatal(err)
 	}

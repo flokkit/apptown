@@ -132,11 +132,11 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 
 	// The forge the agent talks back to, and who it is there: the read-only
 	// listener, the session's token as its credential, and its change.
-	env := []string{"FORGE_URL=" + e.cfg.APIURL, "FORGE_USER=" + s.Actor + " via console/" + s.ID,
-		"FORGE_SESSION_ID=" + s.ID, "FORGE_SESSION_TOKEN=" + s.Token}
+	env := []string{"APPTOWN_URL=" + e.cfg.APIURL, "APPTOWN_USER=" + s.Actor + " via console/" + s.ID,
+		"APPTOWN_SESSION_ID=" + s.ID, "APPTOWN_SESSION_TOKEN=" + s.Token}
 	if changeID := Of(s).ChangeID; !changeID.IsZero() {
 		// `apptown check` and friends infer the change from the session.
-		env = append(env, fmt.Sprintf("FORGE_CHANGE=%d", changeID))
+		env = append(env, fmt.Sprintf("APPTOWN_CHANGE=%d", changeID))
 	}
 	// The scoped git remote: fetch main, read-only, this project only.
 	if p, err := e.projects.BySlug(ctx, Of(s).Slug); err == nil {
@@ -187,7 +187,7 @@ func (e *Environment) chatModelFor(ctx context.Context, s *console.Session) stri
 }
 
 // gitRemote is the environment of the project's read-only fetch endpoint:
-// FORGE_MAIN_REMOTE, a plain URL, and git configuration that sends the pull
+// APPTOWN_MAIN_REMOTE, a plain URL, and git configuration that sends the pull
 // token to that URL only. The token is never part of the URL, so a remote,
 // an error message or a pasted command does not carry it.
 func (e *Environment) gitRemote(ctx context.Context, p project.Project) ([]string, error) {
@@ -209,7 +209,7 @@ func mainRemote(base, token, slug string) []string {
 		return nil
 	}
 	remote := strings.TrimRight(u.String(), "/") + "/git/" + slug
-	return []string{"FORGE_MAIN_REMOTE=" + remote, "GIT_CONFIG_COUNT=1",
+	return []string{"APPTOWN_MAIN_REMOTE=" + remote, "GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=http." + remote + ".extraHeader", "GIT_CONFIG_VALUE_0=Authorization: Bearer " + token}
 }
 

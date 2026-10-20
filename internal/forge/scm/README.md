@@ -223,11 +223,11 @@ attempt (`ErrChanged`) when it differs, so it names what that check-in
 admitted. The check-in's transaction ends before the Git and GitLab calls;
 a withdrawal after it is the same window every merge already has.
 
-Every landing's merge message adds `Forge-Change-Id`, `Forge-Opened-By`,
-`Forge-Approved-By` (account, step, time and sentence; no role),
-`Forge-Landing-Authority`, `Forge-Override` and `Forge-Change-Page` to
-`Forge-Run-Id` and `Forge-Workflow`; a local merge still ends with
-`Forge-Operation`. A GitLab fast-forward makes no merge commit, so there the
+Every landing's merge message adds `AppTown-Change-Id`, `AppTown-Opened-By`,
+`AppTown-Approved-By` (account, step, time and sentence; no role),
+`AppTown-Landing-Authority`, `AppTown-Override` and `AppTown-Change-Page` to
+`AppTown-Run-Id` and `AppTown-Workflow`; a local merge still ends with
+`AppTown-Operation`. A GitLab fast-forward makes no merge commit, so there the
 description is the only GitLab-side record. Before `MergeMR`, `executeMR`
 replaces the merge request's whole description with
 `MergeRequestDescription` (`workflowexec` writes the opening one with the

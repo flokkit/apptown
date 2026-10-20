@@ -142,7 +142,7 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 		}
 		return nil, "", err
 	}
-	audit.At(s.now()).BestEffort(ctx, s.Bindings.db, "forge-system", projectID, "scm.token-rotated", profile,
+	audit.At(s.now()).BestEffort(ctx, s.Bindings.db, "apptown-system", projectID, "scm.token-rotated", profile,
 		map[string]any{"project": path, "scopes": prof.Scopes, "expires": nt.ExpiresAt, "ttl": "72h"})
 	return nt, path, nil
 }

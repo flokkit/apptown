@@ -898,7 +898,7 @@ func cmdStart(args []string) error {
 // rejected, re-run this change's FAILED gates. The session token opens only
 // this one door; approvals stay with a person.
 func cmdRecheck(args []string) error {
-	sid, tok := os.Getenv("FORGE_SESSION_ID"), os.Getenv("FORGE_SESSION_TOKEN")
+	sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN")
 	if sid == "" || tok == "" {
 		return fmt.Errorf("apptown recheck runs inside a change chat (it re-runs that change's failed landing gates); elsewhere use apptown run-step <step-id>")
 	}
@@ -925,7 +925,7 @@ func cmdLand(args []string) error {
 		// Inside a change chat, bare `apptown land` lands THIS session's own
 		// change through the console plane — the session token opens only
 		// that one door. Checks and the person's OK still stand.
-		if sid, tok := os.Getenv("FORGE_SESSION_ID"), os.Getenv("FORGE_SESSION_TOKEN"); sid != "" && tok != "" {
+		if sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN"); sid != "" && tok != "" {
 			// The chat's door answers with the landing's run alone, not the
 			// change; --json names both, so it is refused here, before
 			// anything starts, rather than printed half.
@@ -1041,7 +1041,7 @@ func cmdInvoke(args []string) error {
 	// Inside a console session, invoke goes through the session's scoped
 	// actuator endpoint (the read-only port rejects the general one).
 	path := "/projects/" + *project + "/changes"
-	if sid := os.Getenv("FORGE_SESSION_ID"); sid != "" && os.Getenv("FORGE_SESSION_TOKEN") != "" {
+	if sid := os.Getenv("APPTOWN_SESSION_ID"); sid != "" && os.Getenv("APPTOWN_SESSION_TOKEN") != "" {
 		path = "/console/" + sid + "/invoke"
 	}
 	raw, err := api.request("POST", path,

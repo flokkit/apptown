@@ -5,7 +5,7 @@
 // allows one reload per window of time, so a chunk that is really broken shows
 // its error instead of reloading forever.
 
-const KEY = 'forge.chunk-reload'
+const KEY = 'apptown.chunk-reload'
 const WINDOW_MS = 60_000
 
 export type ReloadEnv = {

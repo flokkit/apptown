@@ -471,7 +471,7 @@ func TestInterruptingAStepStopsItsTaskConfirmed(t *testing.T) {
 				a.tasks.Driver = unconfirmedStops{a.tasks.Driver}
 			}
 			req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/steps/%d/interrupt", stepID), strings.NewReader("{}"))
-			req.Header.Set("X-Forge-Actor", "bls")
+			req.Header.Set("X-AppTown-Actor", "bls")
 			resp := httptest.NewRecorder()
 			asked := len(daemon.joined())
 			a.Handler().ServeHTTP(resp, req)

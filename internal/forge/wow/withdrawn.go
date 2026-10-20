@@ -125,7 +125,7 @@ func (s *Service) withdrawUnshippedPacks(ctx context.Context) {
 		if !p.Enabled || !s.Withdrawn(KindPack, p.Origin, p.Name) {
 			continue
 		}
-		if err := s.packs.SetEnabled(ctx, p.Name, false, "forge-system"); err != nil {
+		if err := s.packs.SetEnabled(ctx, p.Name, false, "apptown-system"); err != nil {
 			log.Printf("stock pack %s: no longer shipped, but turning it off failed: %v", p.Name, err)
 			continue
 		}

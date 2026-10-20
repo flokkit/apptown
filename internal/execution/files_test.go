@@ -225,7 +225,7 @@ func TestGeneratedFilesArePlacedOnlyOutsideTheTree(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	if err := ValidFiles([]File{configFile, {Path: "/forge-cache/cargo/config.toml", Content: []byte("x"), Mode: 0o644}}); err != nil {
+	if err := ValidFiles([]File{configFile, {Path: "/apptown-cache/cargo/config.toml", Content: []byte("x"), Mode: 0o644}}); err != nil {
 		t.Fatal(err)
 	}
 }

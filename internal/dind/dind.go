@@ -129,7 +129,7 @@ func Ready(ctx context.Context, run Run, name string) error {
 	}
 }
 
-// Builder makes the buildx builder forge, the default, in the client state
+// Builder makes the buildx builder apptown, the default, in the client state
 // at clientDir (a path in the daemon's container, shared with the owner's
 // container), with the buildkit configuration at config. network=host puts
 // buildkit in the daemon's own network namespace, where its DNS answers;
@@ -137,10 +137,10 @@ func Ready(ctx context.Context, run Run, name string) error {
 // One already there is kept.
 func Builder(ctx context.Context, run Run, name, clientDir, config string) error {
 	prefix := []string{"exec", "-e", "DOCKER_HOST=tcp://dind:2375", "-e", "DOCKER_CONFIG=" + clientDir, name, "docker", "buildx"}
-	if _, err := run(ctx, append(append([]string{}, prefix...), "inspect", "forge")...); err == nil {
+	if _, err := run(ctx, append(append([]string{}, prefix...), "inspect", "apptown")...); err == nil {
 		return nil
 	}
-	if _, err := run(ctx, append(prefix, "create", "--name", "forge", "--driver", "docker-container",
+	if _, err := run(ctx, append(prefix, "create", "--name", "apptown", "--driver", "docker-container",
 		"--driver-opt", "network=host", "--driver-opt", "default-load=true",
 		"--config", config, "--use", "tcp://dind:2375")...); err != nil {
 		return fmt.Errorf("preparing private Docker builder: %w", err)

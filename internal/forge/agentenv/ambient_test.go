@@ -84,7 +84,7 @@ func TestGeneratedFilesKeepTheirContainerPaths(t *testing.T) {
 			t.Errorf("%s: mode %v, %d bytes", f.Path, f.Mode, len(f.Content))
 		}
 	}
-	if got, want := strings.Join(paths, " "), "/etc/mise/config.toml /etc/apptown/maven-settings.xml /forge-cache/cargo/config.toml"; got != want {
+	if got, want := strings.Join(paths, " "), "/etc/mise/config.toml /etc/apptown/maven-settings.xml /apptown-cache/cargo/config.toml"; got != want {
 		t.Fatalf("paths %q, want %q", got, want)
 	}
 	if err := execution.ValidFiles(amb.Files); err != nil {

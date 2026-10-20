@@ -32,7 +32,7 @@ function forge(list: () => Reply, openReply: (body: { changeId?: string; placeme
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const u = String(url)
     const json = (r: { status?: number; body: unknown; code?: string }) =>
-      new Response(JSON.stringify(r.body), { status: r.status ?? 200, headers: r.code ? { 'X-Forge-Deny-Code': r.code } : {} })
+      new Response(JSON.stringify(r.body), { status: r.status ?? 200, headers: r.code ? { 'X-AppTown-Deny-Code': r.code } : {} })
     if (u === '/api/v1/projects/p/console' && init?.method === 'POST') {
       const body = JSON.parse(String(init.body ?? '{}'))
       opens.push(body)

@@ -123,35 +123,35 @@ func InstallNoPushHook(hubDir string) error {
 		"# A second exception: a step's runtime token may push its work in progress\n" +
 		"# to its own scratch ref (scm.ScratchRef), for checking only. Nothing else.\n" +
 		"zero=0000000000000000000000000000000000000000\n" +
-		"if [ -n \"$FORGE_SCRATCH_REF\" ]; then\n" +
+		"if [ -n \"$APPTOWN_SCRATCH_REF\" ]; then\n" +
 		"  while read old new ref; do\n" +
-		"    if [ \"$ref\" != \"$FORGE_SCRATCH_REF\" ]; then\n" +
-		"      echo \"forge: this step may push only $FORGE_SCRATCH_REF, not $ref\" >&2; exit 1\n" +
+		"    if [ \"$ref\" != \"$APPTOWN_SCRATCH_REF\" ]; then\n" +
+		"      echo \"apptown: this step may push only $APPTOWN_SCRATCH_REF, not $ref\" >&2; exit 1\n" +
 		"    fi\n" +
-		"    case \"$new\" in $zero) echo 'forge: AppTown removes a scratch ref; deleting it is refused' >&2; exit 1;; esac\n" +
+		"    case \"$new\" in $zero) echo 'apptown: AppTown removes a scratch ref; deleting it is refused' >&2; exit 1;; esac\n" +
 		"  done\n" +
 		"  exit 0\n" +
 		"fi\n" +
-		"if [ -n \"$FORGE_PUSH_REF\" ]; then\n" +
+		"if [ -n \"$APPTOWN_PUSH_REF\" ]; then\n" +
 		"  while read old new ref; do\n" +
-		"    if [ \"$ref\" != \"$FORGE_PUSH_REF\" ]; then\n" +
-		"      echo \"forge: this ticket may push only $FORGE_PUSH_REF, not $ref\" >&2; exit 1\n" +
+		"    if [ \"$ref\" != \"$APPTOWN_PUSH_REF\" ]; then\n" +
+		"      echo \"apptown: this ticket may push only $APPTOWN_PUSH_REF, not $ref\" >&2; exit 1\n" +
 		"    fi\n" +
-		"    case \"$new\" in $zero) echo 'forge: deleting the Change ref is refused' >&2; exit 1;; esac\n" +
+		"    case \"$new\" in $zero) echo 'apptown: deleting the Change ref is refused' >&2; exit 1;; esac\n" +
 		"    if [ \"$old\" != \"$zero\" ]; then\n" +
-		"      echo 'forge: this ticket has already pushed; ask for a new ticket' >&2; exit 1\n" +
+		"      echo 'apptown: this ticket has already pushed; ask for a new ticket' >&2; exit 1\n" +
 		"    fi\n" +
-		"    current=$(git rev-parse --verify -q \"$FORGE_PUSH_BRANCH\" || echo $zero)\n" +
-		"    if [ \"$current\" != \"$FORGE_PUSH_EXPECT\" ]; then\n" +
-		"      echo \"forge: the Change moved since your ticket was minted (expected $FORGE_PUSH_EXPECT, found $current): fetch, merge, and ask for a new ticket\" >&2; exit 1\n" +
+		"    current=$(git rev-parse --verify -q \"$APPTOWN_PUSH_BRANCH\" || echo $zero)\n" +
+		"    if [ \"$current\" != \"$APPTOWN_PUSH_EXPECT\" ]; then\n" +
+		"      echo \"apptown: the Change moved since your ticket was minted (expected $APPTOWN_PUSH_EXPECT, found $current): fetch, merge, and ask for a new ticket\" >&2; exit 1\n" +
 		"    fi\n" +
-		"    if [ \"$FORGE_PUSH_EXPECT\" != \"$zero\" ] && ! git merge-base --is-ancestor \"$FORGE_PUSH_EXPECT\" \"$new\"; then\n" +
-		"      echo \"forge: your push does not build on the Change's tip $FORGE_PUSH_EXPECT (non-fast-forward): fetch, merge, and push again\" >&2; exit 1\n" +
+		"    if [ \"$APPTOWN_PUSH_EXPECT\" != \"$zero\" ] && ! git merge-base --is-ancestor \"$APPTOWN_PUSH_EXPECT\" \"$new\"; then\n" +
+		"      echo \"apptown: your push does not build on the Change's tip $APPTOWN_PUSH_EXPECT (non-fast-forward): fetch, merge, and push again\" >&2; exit 1\n" +
 		"    fi\n" +
 		"  done\n" +
 		"  exit 0\n" +
 		"fi\n" +
-		"echo 'forge: pushing to the hub is refused — land through the change, do not git push to main' >&2\n" +
+		"echo 'apptown: pushing to the hub is refused — land through the change, do not git push to main' >&2\n" +
 		"exit 1\n"
 	if err := os.WriteFile(filepath.Join(hooks, "pre-receive"), []byte(body), 0o755); err != nil {
 		return fmt.Errorf("installing the no-push hook in %s: %w", hubDir, err)
@@ -174,7 +174,7 @@ func InitializeRepository(ctx context.Context, dir, defaultBranch string) error 
 	} else {
 		// The identity the hub's own commits carry: the forge's git reads no
 		// machine-wide config, so without it a commit here has none.
-		for _, kv := range [][2]string{{"user.name", "forge"}, {"user.email", "forge@localhost"}} {
+		for _, kv := range [][2]string{{"user.name", "apptown"}, {"user.email", "apptown@localhost"}} {
 			if out, err := gitexec.Run(ctx, dir, "config", kv[0], kv[1]); err != nil {
 				return fmt.Errorf("setting the repository's %s: %s", kv[0], out)
 			}
@@ -196,12 +196,12 @@ func InitializeRepository(ctx context.Context, dir, defaultBranch string) error 
 	}
 	if staged {
 		if out, err := gitexec.Run(ctx, dir, "commit", "-m",
-			trailer.Message("forge: adopt existing workspace", "", trailer.Line{Key: trailer.Actor, Value: "forge-system"})); err != nil {
+			trailer.Message("apptown: adopt existing workspace", "", trailer.Line{Key: trailer.Actor, Value: "apptown-system"})); err != nil {
 			return fmt.Errorf("adopt commit: %s", out)
 		}
 	} else if _, err := gitexec.Run(ctx, dir, "rev-parse", "HEAD"); err != nil {
 		if out, err := gitexec.Run(ctx, dir, "commit", "--allow-empty", "-m",
-			trailer.Message("forge: repository initialized", "", trailer.Line{Key: trailer.Actor, Value: "forge-system"})); err != nil {
+			trailer.Message("apptown: repository initialized", "", trailer.Line{Key: trailer.Actor, Value: "apptown-system"})); err != nil {
 			return fmt.Errorf("init commit: %s", out)
 		}
 	}
@@ -212,7 +212,7 @@ func InitializeRepository(ctx context.Context, dir, defaultBranch string) error 
 
 // repositoryIdentity is the config a new project repository starts with:
 // the identity its own commits carry.
-const repositoryIdentity = "[user]\n\tname = forge\n\temail = forge@localhost\n"
+const repositoryIdentity = "[user]\n\tname = apptown\n\temail = apptown@localhost\n"
 
 // initWithIdentity makes a new repository whose config already holds
 // repositoryIdentity, in one git start: git init copies a template's files,

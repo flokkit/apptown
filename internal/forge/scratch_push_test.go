@@ -88,7 +88,7 @@ func newScratchWorld(t *testing.T) *scratchWorld {
 	gittest.Run(t, w.work, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "work in progress")
 	w.commit = gittest.Run(t, w.work, "rev-parse", "HEAD")
 	// The agent reaches the forge through the read-only listener, as a
-	// step on a worker does ($FORGE_URL).
+	// step on a worker does ($APPTOWN_URL).
 	w.plane = httptest.NewServer(GETOnly(a.Handler()))
 	t.Cleanup(w.plane.Close)
 	w.remote = w.plane.URL + "/git/" + p.Slug
@@ -205,7 +205,7 @@ func TestAScratchCommitIsCheckedAsFeedbackOnly(t *testing.T) {
 	check := func(commit string) (int, map[string]any, string) {
 		t.Helper()
 		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/changes/%d/check", w.plane.URL, w.ch.ID), strings.NewReader(`{"commit":"`+commit+`"}`))
-		req.Header.Set("X-Forge-Session-Token", tok)
+		req.Header.Set("X-AppTown-Session-Token", tok)
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := w.plane.Client().Do(req)
 		if err != nil {

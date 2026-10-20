@@ -28,7 +28,7 @@ func TestRepositorySetupHTTPReceipt(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.Header.Set("X-Forge-Actor", actor)
+		req.Header.Set("X-AppTown-Actor", actor)
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := client.Do(req)
 		if err != nil {

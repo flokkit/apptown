@@ -47,7 +47,7 @@ func codeForge(t *testing.T, bundle []byte) *[]exchange {
 	t.Cleanup(srv.Close)
 	prev := api
 	api = &client{base: srv.URL, actor: "tester", http: srv.Client(), wait: func(time.Duration) {},
-		getenv: func(k string) string { return map[string]string{"FORGE_TOKEN": "forge_tok"}[k] }}
+		getenv: func(k string) string { return map[string]string{"APPTOWN_TOKEN": "forge_tok"}[k] }}
 	t.Cleanup(func() { api = prev })
 	return seen
 }

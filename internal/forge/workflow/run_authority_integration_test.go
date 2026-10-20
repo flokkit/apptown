@@ -32,7 +32,7 @@ func TestWorkRunAuthorityWithoutTransportAndTypedBilling(t *testing.T) {
 	a := stepAuthorityFixture(t, ApprovalConfig{})
 	for _, pr := range []access.Principal{
 		{Kind: "user", Name: "outsider", Via: "token"},
-		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}},
+		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}},
 		{Kind: "instrument", Name: "owner via console/c", Person: "owner", Instrument: "console", Via: "console", ProjectID: a.OtherProjectID},
 	} {
 		for _, call := range []func() (*Run, error){
@@ -57,7 +57,7 @@ func TestWorkAbandonmentEnforcesAuthorityWithoutRoutes(t *testing.T) {
 	a := stepAuthorityFixture(t, ApprovalConfig{})
 	for _, pr := range []access.Principal{
 		{Kind: "user", Name: "outsider", Via: "token"},
-		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}},
+		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}},
 		{Kind: "instrument", Name: "owner via console/c", Person: "owner", Instrument: "console", Via: "console", ProjectID: a.OtherProjectID},
 	} {
 		for _, in := range []StopWork{{RunID: a.RunID}, {ChangeID: a.ChangeID}} {

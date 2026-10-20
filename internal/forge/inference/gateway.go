@@ -459,9 +459,9 @@ func (g *Gateway) now() time.Time { return clock.Or(g.clock)() }
 
 func (g *Gateway) Instrument(tracer trace.Tracer, meter metric.Meter) *Gateway {
 	g.tracer, g.meter = tracer, meter
-	g.requests, _ = meter.Int64Counter("forge_inference_requests_total", metric.WithDescription("inference requests admitted by the gateway, by provider, model and outcome"))
-	g.tokens, _ = meter.Int64Counter("forge_inference_tokens_total", metric.WithDescription("tokens reported by upstream providers, by provider, model and direction"))
-	g.duration, _ = meter.Float64Histogram("forge_inference_request_duration", metric.WithUnit("ms"),
+	g.requests, _ = meter.Int64Counter("apptown_inference_requests_total", metric.WithDescription("inference requests admitted by the gateway, by provider, model and outcome"))
+	g.tokens, _ = meter.Int64Counter("apptown_inference_tokens_total", metric.WithDescription("tokens reported by upstream providers, by provider, model and direction"))
+	g.duration, _ = meter.Float64Histogram("apptown_inference_request_duration", metric.WithUnit("ms"),
 		metric.WithExplicitBucketBoundaries(250, 500, 1000, 2000, 5000, 10000, 20000, 30000, 60000, 120000, 300000),
 		metric.WithDescription("gateway request duration from admission to completion"))
 	return g

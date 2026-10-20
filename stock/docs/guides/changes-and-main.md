@@ -112,7 +112,7 @@ lost.
 catch up any time with a read-only, scoped remote AppTown provides:
 
 ```sh
-git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into $(git branch --show-current)" FETCH_HEAD
+git fetch "$APPTOWN_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into $(git branch --show-current)" FETCH_HEAD
 ```
 
 The `-m` gives the merge a plain message. Without it git names what it

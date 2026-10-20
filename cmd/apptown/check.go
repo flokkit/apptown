@@ -16,7 +16,7 @@ import (
 
 // apptown check [-c changeID] [--published] — run the change's declared gate
 // checks against a commit and report the verdicts. Inside an agent step
-// $FORGE_CHANGE is set, so no flag is needed: the agent verifies against its
+// $APPTOWN_CHANGE is set, so no flag is needed: the agent verifies against its
 // own change before handing the turn back, instead of discovering a red gate
 // after the run ends. Exits nonzero when a check fails at/above the gating
 // severity.
@@ -31,14 +31,14 @@ import (
 // forge checks the change's latest commit it has. Every answer names the
 // commit it is for.
 //
-// In an agent step on a worker ($FORGE_SCRATCH_REF set), the forge does not
+// In an agent step on a worker ($APPTOWN_SCRATCH_REF set), the forge does not
 // have the agent's commits until the step's work is collected. So the CLI
 // first pushes HEAD to that ref, the one its step's token may write, and
 // the forge checks it there. That result is feedback only: nothing is
 // published, and the landing checks the published commit again.
 func cmdCheck(args []string) error {
 	fs := newFlags("check")
-	change := fs.String("c", "", "the change: its id or <project>#<number> (default: $FORGE_CHANGE, set in agent steps)")
+	change := fs.String("c", "", "the change: its id or <project>#<number> (default: $APPTOWN_CHANGE, set in agent steps)")
 	published := fs.Bool("published", false, "check the tip of the change's published branch on AppTown, not this folder's HEAD")
 	parseArgs(fs, args)
 	var cid ids.ID
@@ -48,10 +48,10 @@ func cmdCheck(args []string) error {
 			return err
 		}
 	} else {
-		cid, _ = ids.Parse(os.Getenv("FORGE_CHANGE"))
+		cid, _ = ids.Parse(os.Getenv("APPTOWN_CHANGE"))
 	}
 	if cid.IsZero() {
-		return fmt.Errorf("no change: pass -c <id> (or run inside an agent step, where $FORGE_CHANGE is set)")
+		return fmt.Errorf("no change: pass -c <id> (or run inside an agent step, where $APPTOWN_CHANGE is set)")
 	}
 
 	body := map[string]any{}
@@ -75,7 +75,7 @@ func cmdCheck(args []string) error {
 		if dirty {
 			fmt.Println(yellow("  uncommitted changes here are not checked — commit them first"))
 		}
-		if ref := os.Getenv("FORGE_SCRATCH_REF"); ref != "" {
+		if ref := os.Getenv("APPTOWN_SCRATCH_REF"); ref != "" {
 			if err := sendScratch(head, ref); err != nil {
 				// The forge may have the commit anyway; if not, it says so.
 				fmt.Println(yellow("  could not send this commit to AppTown for checking: " + err.Error()))
@@ -232,12 +232,12 @@ func theirGit(ctx context.Context, dir string, env []string, args ...string) (st
 }
 
 // sendScratch pushes commit to ref, the step's scratch ref, on the forge's
-// Git endpoint ($FORGE_URL/git/$FORGE_PROJECT), with the step's token as a
+// Git endpoint ($APPTOWN_URL/git/$APPTOWN_PROJECT), with the step's token as a
 // header git sends to that URL only: never in the URL or the arguments.
 // The forge accepts only that ref from that token, and replaces what an
 // earlier check sent.
 func sendScratch(commit, ref string) error {
-	base, slug, token := os.Getenv("FORGE_URL"), os.Getenv("FORGE_PROJECT"), os.Getenv("FORGE_SESSION_TOKEN")
+	base, slug, token := os.Getenv("APPTOWN_URL"), os.Getenv("APPTOWN_PROJECT"), os.Getenv("APPTOWN_SESSION_TOKEN")
 	if base == "" || slug == "" || token == "" {
 		return fmt.Errorf("this step has no forge address, project or token to send it with")
 	}

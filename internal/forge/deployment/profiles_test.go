@@ -224,7 +224,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 	for _, e := range entries {
 		kinds[e.Kind+" by "+e.Actor]++
 	}
-	if kinds["deployment.resources-overridden by alice"] != 2 || kinds["deployment.resources-override-cleared by forge-system"] != 1 {
+	if kinds["deployment.resources-overridden by alice"] != 2 || kinds["deployment.resources-override-cleared by apptown-system"] != 1 {
 		t.Errorf("the recorded acts: %v", kinds)
 	}
 

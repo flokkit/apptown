@@ -13,7 +13,7 @@ are not trusted origins. Headerless native clients still authenticate through
 their normal protocol. Console WebSocket attachment separately requires Origin
 because an interactive GET connection can subsequently send input.
 
-HTTPS login uses a host-only `__Host-forge_session` cookie with Secure, HttpOnly,
+HTTPS login uses a host-only `__Host-apptown_session` cookie with Secure, HttpOnly,
 Path=/ and SameSite=Lax. HTTP development uses its separate cookie name. Public
 host/TLS configuration determines the origin; arbitrary forwarded host/protocol
 headers do not select it.

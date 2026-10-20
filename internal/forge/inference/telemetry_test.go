@@ -67,9 +67,9 @@ func TestGatewayObservesRequestsWithoutCredentials(t *testing.T) {
 	var requests, tokens bool
 	for _, m := range receiver.Metrics() {
 		switch m.Name {
-		case "forge_inference_requests_total":
+		case "apptown_inference_requests_total":
 			requests = m.Value == 1 && m.Attributes["provider"] == "paid" && m.Attributes["model"] == "allowed" && m.Attributes["outcome"] != ""
-		case "forge_inference_tokens_total":
+		case "apptown_inference_tokens_total":
 			if m.Attributes["direction"] == "input" {
 				tokens = m.Value == 8
 			}

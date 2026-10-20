@@ -73,11 +73,16 @@ func TestSCMProviderCredentialsAreFrozenForOneOperation(t *testing.T) {
 	}
 }
 
+// A landing's merge is found by its exact Operation trailer, under either
+// spelling: AppTown-Operation, or Forge-Operation on a merge written before
+// the AppTown rename (a landing admitted then and recovered after).
+//
+// Kills: either spelling dropped from mergeCommit's search or its check.
 func TestMergeOperationProofRequiresExactTrailer(t *testing.T) {
 	t.Parallel()
 	repo := t.TempDir()
 	gittest.RunAsTester(t, repo, "init", "-b", "main")
-	for _, message := range []string{"Forge-Operation: land-a.b-extra", "Forge-Operation: land-axb", "prefix Forge-Operation: land-a.b"} {
+	for _, message := range []string{"AppTown-Operation: land-a.b-extra", "AppTown-Operation: land-axb", "prefix AppTown-Operation: land-a.b"} {
 		gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", message)
 	}
 	if sha, err := (&gitDriver{}).mergeCommit(context.Background(), repo, "main", "land-a.b"); err != nil || sha != "" {
@@ -85,9 +90,14 @@ func TestMergeOperationProofRequiresExactTrailer(t *testing.T) {
 	}
 	gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", "merge\n\nForge-Operation: land-a.b")
 	expected := gittest.RunAsTester(t, repo, "rev-parse", "HEAD")
-	gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", "Forge-Operation: land-a.b-extra")
+	gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", "AppTown-Operation: land-a.b-extra")
 	if sha, err := (&gitDriver{}).mergeCommit(context.Background(), repo, "main", "land-a.b"); err != nil || sha != expected {
-		t.Fatalf("exact operation proof: %s %v", sha, err)
+		t.Fatalf("exact operation proof under the old key: %s %v", sha, err)
+	}
+	gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", "merge\n\nAppTown-Operation: land-c.d")
+	current := gittest.RunAsTester(t, repo, "rev-parse", "HEAD")
+	if sha, err := (&gitDriver{}).mergeCommit(context.Background(), repo, "main", "land-c.d"); err != nil || sha != current {
+		t.Fatalf("exact operation proof under the current key: %s %v", sha, err)
 	}
 	if _, err := (&gitDriver{}).mergeCommit(context.Background(), repo, "missing", "land-a.b"); err == nil {
 		t.Fatal("unreadable history treated as absence")

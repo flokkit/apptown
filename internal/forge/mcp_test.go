@@ -130,7 +130,7 @@ func TestMCPRequiresPersonalToken(t *testing.T) {
 	// No token: 401 with the realm, even in open mode (the actor header is
 	// not a credential here).
 	req := httptest.NewRequest("POST", "/mcp/user", strings.NewReader(mcp_rpc(1, "ping", nil)))
-	req.Header.Set("X-Forge-Actor", "bls")
+	req.Header.Set("X-AppTown-Actor", "bls")
 	w := httptest.NewRecorder()
 	a.Handler().ServeHTTP(w, req)
 	if w.Code != 401 || !strings.Contains(w.Header().Get("WWW-Authenticate"), `realm="forge-mcp"`) {
@@ -185,7 +185,7 @@ func TestMCPInitialize(t *testing.T) {
 	if resp.Result.ProtocolVersion != "2025-03-26" {
 		t.Fatalf("protocol negotiation: %q", resp.Result.ProtocolVersion)
 	}
-	if resp.Result.ServerInfo.Name != "forge" || resp.Result.ServerInfo.Version == "" {
+	if resp.Result.ServerInfo.Name != "apptown" || resp.Result.ServerInfo.Version == "" {
 		t.Fatalf("serverInfo: %+v", resp.Result.ServerInfo)
 	}
 	if _, ok := resp.Result.Capabilities["tools"]; !ok {
@@ -651,7 +651,7 @@ func TestTheMCPServerIsBuiltOnceByItsFirstRequest(t *testing.T) {
 	door := a.mcpDoor.(*mcpDoor)
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	req := httptest.NewRequest("GET", "/api/v1/projects", nil)
-	req.Header.Set("X-Forge-Actor", "bls")
+	req.Header.Set("X-AppTown-Actor", "bls")
 	a.Handler().ServeHTTP(httptest.NewRecorder(), req)
 	if w := mcp_post(a, "forge_nope", "", mcp_rpc(1, "ping", nil)); w.Code != 401 {
 		t.Fatalf("a bad token: %d", w.Code)

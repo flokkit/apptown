@@ -32,7 +32,7 @@ func TestDetectTestCommand(t *testing.T) {
 	}
 	_ = os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0o644)
 	// Go writes its own report format to the file the step reads.
-	if got := detectTestCommand(dir); got != `go test -json ./... > "$FORGE_TEST_REPORT"` {
+	if got := detectTestCommand(dir); got != `go test -json ./... > "$APPTOWN_TEST_REPORT"` {
 		t.Fatalf("go.mod must win, got %q", got)
 	}
 	mvn := t.TempDir()
@@ -83,7 +83,7 @@ func TestATestsScriptLeavesAnEmptyReportWhenTheCommandWroteNone(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ command, want string }{
 		{"true", ""},
-		{`echo '{"Action":"pass"}' > "$FORGE_TEST_REPORT"`, `{"Action":"pass"}` + "\n"},
+		{`echo '{"Action":"pass"}' > "$APPTOWN_TEST_REPORT"`, `{"Action":"pass"}` + "\n"},
 	} {
 		report := filepath.Join(t.TempDir(), "report")
 		out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{

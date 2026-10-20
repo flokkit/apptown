@@ -253,7 +253,7 @@ func TestAScriptStepPublishesItsCommit(t *testing.T) {
 	source := mergeSourceForTest(t, a, run)
 	workspace := source.Workspace(a.cfg.dataDir)
 	head := gittest.Run(t, workspace, "rev-parse", "HEAD")
-	if msg := gittest.Run(t, workspace, "log", "-1", "--format=%B"); !strings.Contains(msg, "Forge-Step: make") {
+	if msg := gittest.Run(t, workspace, "log", "-1", "--format=%B"); !strings.Contains(msg, "AppTown-Step: make") {
 		t.Fatalf("the script step did not commit its work: %s", msg)
 	}
 	if got := scm.Ref(ctx, source.Repository(a.cfg.dataDir), "refs/heads/"+source.Branch); got != head {

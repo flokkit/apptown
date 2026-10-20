@@ -22,7 +22,7 @@ import (
 
 // ForgeActor is the actor of the forge's own model calls when the caller
 // names none: the call is the forge's, made for a project or for no one.
-const ForgeActor = "forge-system"
+const ForgeActor = "apptown-system"
 
 // settleWithin bounds a settlement after the call has ended. The spend line
 // stays pending for the gateway's call limit plus this, so a settlement that

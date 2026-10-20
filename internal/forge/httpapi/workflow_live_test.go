@@ -74,7 +74,7 @@ func TestStepLiveChecksAuthorityForMemoryAndPersistedEvidence(t *testing.T) {
 		}
 		r := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/steps/%d/live", stepID), nil).WithContext(ctx)
 		r.SetPathValue("id", fmt.Sprint(stepID))
-		r.Header.Set("X-Forge-Actor", "owner")
+		r.Header.Set("X-AppTown-Actor", "owner")
 		w := httptest.NewRecorder()
 		NewRunProgress(f.Work, &feeds).StepLive(w, r)
 		return w

@@ -30,7 +30,7 @@ func MergeTitle(mainBranch, branch string) string {
 
 // CatchUpCommand is how a change's chat catches up with main itself.
 func CatchUpCommand(mainBranch, branch string) string {
-	return fmt.Sprintf(`git fetch "$FORGE_MAIN_REMOTE" %s && git merge --no-edit -m %q FETCH_HEAD`, mainBranch, MergeTitle(mainBranch, branch))
+	return fmt.Sprintf(`git fetch "$APPTOWN_MAIN_REMOTE" %s && git merge --no-edit -m %q FETCH_HEAD`, mainBranch, MergeTitle(mainBranch, branch))
 }
 
 // MainConflict is main that the forge could not merge into a change, while

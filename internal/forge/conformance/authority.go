@@ -69,7 +69,7 @@ func (a commandAuthority) Actor(ctx context.Context) (string, error) {
 
 	caller, _ := ctx.Value(scopeKey{}).(systemScope)
 	if caller.run != nil || caller.verification != nil || caller.adoption != nil {
-		return "forge-system", nil
+		return "apptown-system", nil
 	}
 	c, ok := access.CallerFrom(ctx)
 	if !ok || !c.Verified || c.Principal.Name == "" {

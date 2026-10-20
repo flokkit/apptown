@@ -84,7 +84,7 @@ var registryAdapters = []registryAdapter{
 		Mechanism: "generated `$CARGO_HOME/config.toml` (source replacement; read-only)",
 		// cargo ignores env for source replacement — generated config file only.
 		CargoConf: func(u string) string {
-			return fmt.Sprintf("[source.crates-io]\nreplace-with = \"forge-local\"\n\n[source.forge-local]\nregistry = %q\n",
+			return fmt.Sprintf("[source.crates-io]\nreplace-with = \"apptown-local\"\n\n[source.apptown-local]\nregistry = %q\n",
 				"sparse+"+strings.TrimSuffix(u, "/")+"/")
 		},
 		testMethod: "GET", testPath: "/config.json",
@@ -154,7 +154,7 @@ var registryAdapters = []registryAdapter{
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
   <mirrors>
     <mirror>
-      <id>forge-local</id>
+      <id>apptown-local</id>
       <mirrorOf>central</mirrorOf>
       <url>%s</url>
     </mirror>
@@ -183,7 +183,7 @@ var registryAdapters = []registryAdapter{
 <configuration>
   <packageSources>
     <clear />
-    <add key="forge-local" value="%s" protocolVersion="3" />
+    <add key="apptown-local" value="%s" protocolVersion="3" />
   </packageSources>
 </configuration>
 `
@@ -372,7 +372,7 @@ func AmbientFor(bound map[string]integration.BoundRegistry, ws string) Ambient {
 	// own business. Only the CONTENT-ADDRESSED download cache (MISE_CACHE_DIR,
 	// keyed by version/hash — nothing a project can subvert) stays shared, so
 	// isolation costs a re-extract, not a re-download.
-	miseData := "/forge-cache/mise/ws/" + miseWorkspaceKey(ws)
+	miseData := "/apptown-cache/mise/ws/" + miseWorkspaceKey(ws)
 	amb.Env = append(amb.Env,
 		"MISE_DATA_DIR="+miseData,
 		"MISE_CACHE_DIR="+execution.ToolCacheMount,
@@ -394,8 +394,8 @@ func AmbientFor(bound map[string]integration.BoundRegistry, ws string) Ambient {
 			"# A repo's own .cargo/config.toml wins on conflict (cwd-upward hierarchy).\n" + cargoConf.String()
 		// Forge-owned CARGO_HOME inside the cache volume (also caches the
 		// registry index + crates); config presented over it read-only.
-		amb.Env = append(amb.Env, "CARGO_HOME=/forge-cache/cargo")
-		amb.Files = append(amb.Files, execution.File{Path: "/forge-cache/cargo/config.toml", Content: []byte(body), Mode: 0o644})
+		amb.Env = append(amb.Env, "CARGO_HOME=/apptown-cache/cargo")
+		amb.Files = append(amb.Files, execution.File{Path: "/apptown-cache/cargo/config.toml", Content: []byte(body), Mode: 0o644})
 	}
 	return amb
 }

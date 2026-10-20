@@ -78,10 +78,10 @@ func cmdRetire(args []string) error {
 // how an agent proves its wiring reached the provider (design: test hooks).
 func cmdIntegrations(args []string) error {
 	fs := newFlags("integrations")
-	proj := fs.String("p", os.Getenv("FORGE_PROJECT"), "project slug (default: $FORGE_PROJECT, set in agent steps)")
+	proj := fs.String("p", os.Getenv("APPTOWN_PROJECT"), "project slug (default: $APPTOWN_PROJECT, set in agent steps)")
 	parseArgs(fs, args)
 	if *proj == "" {
-		return fmt.Errorf("no project: pass -p <slug> (or run inside an agent step, where $FORGE_PROJECT is set)")
+		return fmt.Errorf("no project: pass -p <slug> (or run inside an agent step, where $APPTOWN_PROJECT is set)")
 	}
 	var out struct {
 		Attachments []struct {

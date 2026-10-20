@@ -21,18 +21,18 @@ import (
 // client is the apptownd API as the CLI speaks it: one base URL, one actor, the
 // same credentials on every request, and one rule for when to try again.
 type client struct {
-	base  string // FORGE_URL
-	actor string // FORGE_USER, sent as X-Forge-Actor on every request
+	base  string // APPTOWN_URL
+	actor string // APPTOWN_USER, sent as X-AppTown-Actor on every request
 	http  *http.Client
-	// wait pauses between attempts; getenv reads FORGE_TOKEN and
-	// FORGE_SESSION_TOKEN at call time. Both are replaced in tests.
+	// wait pauses between attempts; getenv reads APPTOWN_TOKEN and
+	// APPTOWN_SESSION_TOKEN at call time. Both are replaced in tests.
 	wait   func(time.Duration)
 	getenv func(string) string
 }
 
 var api = &client{
-	base:   envOr("FORGE_URL", "http://localhost:7777"),
-	actor:  envOr("FORGE_USER", envOr("USER", "anonymous")),
+	base:   envOr("APPTOWN_URL", "http://localhost:7777"),
+	actor:  envOr("APPTOWN_USER", envOr("USER", "anonymous")),
 	http:   http.DefaultClient,
 	wait:   pause,
 	getenv: os.Getenv,
@@ -174,16 +174,16 @@ func (e *unknownOutcome) Error() string {
 const exitUnknown = 4
 
 // authorize sets the same actor and credentials on every verb (complaint
-// #69: diff once answered "sign in required" with a valid FORGE_TOKEN).
+// #69: diff once answered "sign in required" with a valid APPTOWN_TOKEN).
 func (c *client) authorize(req *http.Request) {
 	// The protocol this CLI speaks: a forge outside it refuses by name.
 	req.Header.Set(version.CLIProtocolHeader, strconv.Itoa(version.CLIProtocol))
-	req.Header.Set("X-Forge-Actor", c.actor)
-	if tok := c.getenv("FORGE_TOKEN"); tok != "" {
+	req.Header.Set("X-AppTown-Actor", c.actor)
+	if tok := c.getenv("APPTOWN_TOKEN"); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
-	if tok := c.getenv("FORGE_SESSION_TOKEN"); tok != "" {
-		req.Header.Set("X-Forge-Session-Token", tok)
+	if tok := c.getenv("APPTOWN_SESSION_TOKEN"); tok != "" {
+		req.Header.Set("X-AppTown-Session-Token", tok)
 	}
 }
 
@@ -218,7 +218,7 @@ func (c *client) answer(res *http.Response, method, path string) (json.RawMessag
 		return nil, err
 	}
 	if res.StatusCode >= 400 {
-		code := res.Header.Get("X-Forge-Deny-Code")
+		code := res.Header.Get("X-AppTown-Deny-Code")
 		var e struct{ Error string }
 		if json.Unmarshal(raw, &e) == nil && e.Error != "" {
 			return nil, &httpError{Status: res.StatusCode, Code: code, msg: e.Error}

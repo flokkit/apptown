@@ -63,9 +63,9 @@ func TestStepArgsPointAtTheGivenPaths(t *testing.T) {
 	if !strings.Contains(joined, "--session-dir .forge/sessions --session-id step-1-a1") || !strings.Contains(joined, "--append-system-prompt .forge/steering.md") {
 		t.Fatalf("folder paths: %s", joined)
 	}
-	joined = strings.Join(StepArgs(StepPaths{SessionFile: "/forge/state/sessions/x_step-1-a1.jsonl", Steering: "/forge/in/steering.md"}, "step-1-a1", "docker", true, "", "", "go"), " ")
-	if !strings.Contains(joined, "--session /forge/state/sessions/x_step-1-a1.jsonl") || strings.Contains(joined, "--session-dir") || strings.Contains(joined, "--session-id") ||
-		!strings.Contains(joined, "--append-system-prompt /forge/in/steering.md") || strings.Contains(joined, ".forge") {
+	joined = strings.Join(StepArgs(StepPaths{SessionFile: "/apptown/state/sessions/x_step-1-a1.jsonl", Steering: "/apptown/in/steering.md"}, "step-1-a1", "docker", true, "", "", "go"), " ")
+	if !strings.Contains(joined, "--session /apptown/state/sessions/x_step-1-a1.jsonl") || strings.Contains(joined, "--session-dir") || strings.Contains(joined, "--session-id") ||
+		!strings.Contains(joined, "--append-system-prompt /apptown/in/steering.md") || strings.Contains(joined, ".forge") {
 		t.Fatalf("given paths: %s", joined)
 	}
 }

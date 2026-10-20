@@ -106,7 +106,7 @@ func (s *Outcomes) NeedsAttention(ctx context.Context, at Attempt, cause error) 
 		if !changed {
 			return struct{}{}, nil
 		}
-		return struct{}{}, audit.At(now).RecordIn(ctx, tx, "forge-system", dep.ProjectID, "deployment.needs-attention", dep.Name, map[string]any{
+		return struct{}{}, audit.At(now).RecordIn(ctx, tx, "apptown-system", dep.ProjectID, "deployment.needs-attention", dep.Name, map[string]any{
 			"attempt": at.ID, "generation": at.Generation, "reason": cause.Error(), "was": dep.Readiness.String()})
 	})
 	return err

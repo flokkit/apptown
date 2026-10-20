@@ -16,13 +16,13 @@ import (
 	"golang.org/x/term"
 )
 
-// resolveProject: explicit flag > FORGE_PROJECT > cwd basename when it names a
+// resolveProject: explicit flag > APPTOWN_PROJECT > cwd basename when it names a
 // real project. The goal: inside a checkout, lane verbs need zero flags.
 func resolveProject(flagVal string) (string, error) {
 	if flagVal != "" {
 		return flagVal, nil
 	}
-	if v := os.Getenv("FORGE_PROJECT"); v != "" {
+	if v := os.Getenv("APPTOWN_PROJECT"); v != "" {
 		return v, nil
 	}
 	cwd, err := os.Getwd()
@@ -37,7 +37,7 @@ func resolveProject(flagVal string) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("no project: pass -p <slug>, set FORGE_PROJECT, or run from a directory named after the project")
+	return "", fmt.Errorf("no project: pass -p <slug>, set APPTOWN_PROJECT, or run from a directory named after the project")
 }
 
 func cmdProjects() error {

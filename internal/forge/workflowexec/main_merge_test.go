@@ -175,7 +175,7 @@ func TestTheForgeMergesMainIntoAChangeBeforeAStepWhenItCan(t *testing.T) {
 	if parents := strings.Fields(w.git("rev-list", "--parents", "-n", "1", got.Commit)); !slices.Equal(parents, []string{got.Commit, tip, main}) {
 		t.Fatalf("the merge's parents: %v", parents)
 	}
-	if subject := w.git("log", "-1", "--format=%cn %s", got.Commit); subject != "forge "+repositoryedit.MergeTitle("main", w.source.Branch) {
+	if subject := w.git("log", "-1", "--format=%cn %s", got.Commit); subject != "apptown "+repositoryedit.MergeTitle("main", w.source.Branch) {
 		t.Fatalf("the merge is %q", subject)
 	}
 	if after := w.git("for-each-ref"); after != refs {

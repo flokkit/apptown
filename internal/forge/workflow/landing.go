@@ -166,7 +166,7 @@ type acceptance struct {
 func acceptanceIn(ctx context.Context, tx *database.Tx, workID ids.ID) (acceptance, error) {
 	raw, err := workflowsql.New(tx.SQL()).LandingAcceptedActorEvidence(ctx, workflowsql.LandingAcceptedActorEvidenceParams{RunID: workID, Status: StatusPass.String()})
 	if errors.Is(err, sql.ErrNoRows) {
-		return acceptance{Accepter: "forge-system", Who: access.Actor{Name: "forge-system"}}, nil
+		return acceptance{Accepter: "apptown-system", Who: access.Actor{Name: "apptown-system"}}, nil
 	}
 	if err != nil {
 		return acceptance{}, err
@@ -176,7 +176,7 @@ func acceptanceIn(ctx context.Context, tx *database.Tx, workID ids.ID) (acceptan
 		return acceptance{}, err
 	}
 	if evidence.Approver == "" {
-		return acceptance{Accepter: "forge-system", Who: access.Actor{Name: "forge-system"}}, nil
+		return acceptance{Accepter: "apptown-system", Who: access.Actor{Name: "apptown-system"}}, nil
 	}
 	out := acceptance{Accepter: evidence.Approver}
 	for _, vote := range evidence.Decisions {

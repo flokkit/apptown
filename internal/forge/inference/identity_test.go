@@ -48,7 +48,7 @@ func TestWorkloadAccountsFailClosed(t *testing.T) {
 		{identity.Workload{Actor: "ghost"}, false},
 		{identity.Workload{Actor: "system"}, true},
 		{identity.Workload{Actor: ""}, true},
-		{identity.Workload{Actor: "forge-system"}, true},
+		{identity.Workload{Actor: "apptown-system"}, true},
 		{identity.Workload{Actor: "run/7"}, true},
 		{identity.Workload{Actor: "system", Person: "ghost"}, false},
 		{identity.Workload{Actor: "alice via console/c", Person: "alice", Principal: alice}, true},

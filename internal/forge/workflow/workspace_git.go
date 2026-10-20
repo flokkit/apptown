@@ -142,7 +142,7 @@ const PublishedRef = "refs/forge/published"
 
 // leftoverMessage names the commit of what a change's folder had not
 // committed when a new holder took it.
-const leftoverMessage = "forge: work left in the change's folder by its previous worker"
+const leftoverMessage = "apptown: work left in the change's folder by its previous worker"
 
 // BringToBranch readies a change's folder for a new holder, before it works
 // there. What
@@ -202,6 +202,6 @@ func (g GitWorkspace) commitLeftovers(ctx context.Context, workspace string) err
 	} else if staged.ExitCode != 1 {
 		return fmt.Errorf("reading the change's folder: %w", gitOutcomeError(ctx, staged))
 	}
-	_, err := g.git(ctx, workspace, "-c", "user.name=forge", "-c", "user.email=forge@localhost", "commit", "--quiet", "-m", leftoverMessage)
+	_, err := g.git(ctx, workspace, "-c", "user.name=apptown", "-c", "user.email=apptown@localhost", "commit", "--quiet", "-m", leftoverMessage)
 	return err
 }

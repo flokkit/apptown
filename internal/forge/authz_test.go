@@ -174,7 +174,7 @@ func authzCall(h http.Handler, who, method, path, body string) *httptest.Respons
 		body = `{}`
 	}
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Forge-Actor", who)
+	req.Header.Set("X-AppTown-Actor", who)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
@@ -222,8 +222,8 @@ func TestAuthzExplicitGrantsPreserveScopedAccess(t *testing.T) {
 	w := authzCall(h, "outsider", "POST", "/api/v1/changes/"+fx.Change.String()+"/land", "")
 	// outsider holds the migrated-open grant on the OTHER project, so the
 	// honest code is outside_scope ("you hold it elsewhere, not here").
-	if w.Code != 403 || w.Header().Get("X-Forge-Deny-Code") != access.DenyOutsideScope {
-		t.Fatalf("outsider land: %d %s %s", w.Code, w.Header().Get("X-Forge-Deny-Code"), w.Body.String())
+	if w.Code != 403 || w.Header().Get("X-AppTown-Deny-Code") != access.DenyOutsideScope {
+		t.Fatalf("outsider land: %d %s %s", w.Code, w.Header().Get("X-AppTown-Deny-Code"), w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), "outsider may not") || !strings.Contains(w.Body.String(), "Project contributor") {
 		t.Errorf("denial should say who, what, and which role carries it: %s", w.Body.String())
@@ -276,7 +276,7 @@ func TestAuthzTokenReadsCurrentAuthority(t *testing.T) {
 	h := secured.Handler()
 	// mint a token for boss with the admin snapshot
 	req := httptest.NewRequest("POST", "/api/v1/tokens", strings.NewReader(`{"name":"t","user":"boss","role":"admin","purpose":"cli"}`))
-	req.Header.Set("X-Forge-Actor", "boss")
+	req.Header.Set("X-AppTown-Actor", "boss")
 	// Mint through open mode, using the same configuration wiring as startup.
 	var tok string
 	{
@@ -334,7 +334,7 @@ func TestAuthzApprovalEligibility(t *testing.T) {
 	}
 	a.audit(context.Background(), "owner", idstest.N(1), "change.created", "t", map[string]any{"changeId": 1})
 	w := authzCall(h, "kid", "POST", "/api/v1/steps/"+fx.Accept.String()+"/approve", `{"decision":"approve"}`)
-	if w.Code != 403 || w.Header().Get("X-Forge-Deny-Code") != access.DenyNotEligible {
+	if w.Code != 403 || w.Header().Get("X-AppTown-Deny-Code") != access.DenyNotEligible {
 		t.Errorf("kid is not on the approver list: %d %s", w.Code, w.Body.String())
 	}
 	w = authzCall(h, "owner", "POST", "/api/v1/steps/"+fx.Accept.String()+"/approve", `{"decision":"approve"}`)
@@ -489,7 +489,7 @@ func TestProjectApprovalRuleChangesOnlyNonRootSelfApproval(t *testing.T) {
 				}
 				return
 			}
-			if w.Code != 403 || w.Header().Get("X-Forge-Deny-Code") != access.DenyNotEligible {
+			if w.Code != 403 || w.Header().Get("X-AppTown-Deny-Code") != access.DenyNotEligible {
 				t.Fatalf("author admitted: %d %s", w.Code, w.Body)
 			}
 			requireEvents(t, a, 0, eventKind("approval"))

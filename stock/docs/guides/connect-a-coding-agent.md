@@ -43,7 +43,7 @@ credential, bound to this one door, that stands for *you via that agent*.
 ### Claude Code
 
 ```
-claude mcp add --transport http forge {forge:mcp}
+claude mcp add --transport http apptown {forge:mcp}
 ```
 
 Then in a Claude Code session, `/mcp` shows AppTown; choose it to sign
@@ -54,7 +54,7 @@ in. Afterwards it lists the tools it offers.
 Add this to `~/.codex/config.toml`:
 
 ```toml
-[mcp_servers.forge]
+[mcp_servers.apptown]
 url = "{forge:mcp}"
 ```
 
@@ -92,12 +92,12 @@ The token is shown once. Copy it somewhere safe; it cannot be shown again.
 If it leaks, an admin revokes it with `apptown token revoke laptop-claude`.
 
 ```
-claude mcp add --transport http forge {forge:mcp} \
+claude mcp add --transport http apptown {forge:mcp} \
   --header "Authorization: Bearer <token>"
 ```
 
 or, for Codex, `http_headers = { Authorization = "Bearer <token>" }` under
-the same `[mcp_servers.forge]` table. An agent token cannot approve or
+the same `[mcp_servers.apptown]` table. An agent token cannot approve or
 administer, even on the plain API, and a landing it asks for waits for a
 person. A command-line token (`--purpose cli`),
 which acts as you, is refused here. Use browser sign-in when your client
@@ -154,7 +154,7 @@ agents' work:
 | `sync_change` | tells AppTown a revision was pushed; the Change's workspace adopts it, and the next steps (checks, preview, hand-off) are listed |
 
 The push itself is ordinary `git push`. The credential goes in the
-`FORGE_GIT_TICKET` environment variable and the returned commands read it
+`APPTOWN_GIT_TICKET` environment variable and the returned commands read it
 through a one-line credential helper, so it is never written into the
 remote URL or `.git/config`. An agent whose shell tool starts a fresh
 shell for every command (Claude Code does) must use the returned `shell`
@@ -189,15 +189,15 @@ apptown token create laptop-cli --purpose cli -u <your username>
 ```
 
 The token is shown once. Put it, with the address, in
-`~/.config/forge/credentials` (mode 0600), one `KEY=VALUE` per line:
+`~/.config/apptown/credentials` (mode 0600), one `KEY=VALUE` per line:
 
 ```
-FORGE_URL={forge:origin}
-FORGE_TOKEN=<token>
+APPTOWN_URL={forge:origin}
+APPTOWN_TOKEN=<token>
 ```
 
 Environment variables of the same names win over the file. `apptown status`
-then shows what is waiting on you. `FORGE_USER` names you only on an AppTown
+then shows what is waiting on you. `APPTOWN_USER` names you only on an AppTown
 in open mode, where names are attribution, not sign-in.
 
 Keep the two kinds apart: a command-line token is refused at the MCP

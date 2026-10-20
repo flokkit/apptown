@@ -107,7 +107,7 @@ const docker = { slug: 'shelf', name: 'main' }
 describe('a deployment on a Docker host', () => {
   it('shows only what applies there, and its note as a fact, not an alarm', async () => {
     const elsewhere = (why: string) => ({ available: false, reason: 'not-on-this-platform', why })
-    const onDisk = { available: false, reason: 'on-forge-disk', why: 'Rehearsals read copies from a backup store, and none is attached.' }
+    const onDisk = { available: false, reason: 'on-apptown-disk', why: 'Rehearsals read copies from a backup store, and none is attached.' }
     const body = {
       deployment: 'main', dataClass: 'production', offHost: false, target: 'home', recent: [], running: null, restoredCopies: [], coverage,
       keptOn: 'host', note: "Backups are kept on the forge's own disk.", rehearsalNote: "not available while its backups are only on the forge's own disk",

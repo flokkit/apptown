@@ -24,7 +24,7 @@ func TestValidNameRefusesFormsTheForgeParses(t *testing.T) {
 		"alice": true, "alice@example.com": true, "Alice Smith": true, "o'brien": true,
 		"": false, " alice": false, "alice ": false, "alice\n": false, "al\x00ice": false, "al\x7fice": false,
 		"bob via console/x": false, "bob via git ticket": false, "chat/3": false, "run/12": false, "console/abc": false, "eval/2": false,
-		"system": false, "forge-system": false,
+		"system": false, "apptown-system": false,
 	} {
 		err := ValidName(name)
 		if (err == nil) != ok {
@@ -80,7 +80,7 @@ func TestEveryNameDoorRefusesAnUnusableName(t *testing.T) {
 func TestReservedNamesCannotBecomePeopleThroughAccountDoors(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	for _, name := range []string{"system", "forge-system"} {
+	for _, name := range []string{"system", "apptown-system"} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			fresh := New(testDB(t), Config{})

@@ -159,7 +159,7 @@ func (g lawStore) evaluateIn(ctx context.Context, tx *database.Tx, run *Run, onl
 			if err := recordReceiptIn(ctx, tx, run.ID, "law.changed", receipt, now); err != nil {
 				return nil, err
 			}
-			if err := audit.At(now).RecordIn(ctx, tx, "forge-system", run.ProjectID, "landing.paused-by-law", fmt.Sprintf("run %d", run.ID), receipt); err != nil {
+			if err := audit.At(now).RecordIn(ctx, tx, "apptown-system", run.ProjectID, "landing.paused-by-law", fmt.Sprintf("run %d", run.ID), receipt); err != nil {
 				return nil, err
 			}
 		} else {

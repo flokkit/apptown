@@ -36,7 +36,7 @@ func TestRecentFilters(t *testing.T) {
 		if err := audit.At(time.Now()).RecordIn(ctx, tx, "bls", other, "secret.unbound", "OTHER", nil); err != nil {
 			return err
 		}
-		if err := audit.At(time.Now()).RecordIn(ctx, tx, "forge-system", ids.Nil, "complaints.expired", "1", nil); err != nil {
+		if err := audit.At(time.Now()).RecordIn(ctx, tx, "apptown-system", ids.Nil, "complaints.expired", "1", nil); err != nil {
 			return err
 		}
 		return audit.At(time.Now()).RecordIn(ctx, tx, "bls", pid, "dependency.saved", "sso", nil)

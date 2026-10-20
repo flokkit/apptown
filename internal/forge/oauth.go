@@ -113,7 +113,7 @@ func (a *App) browserIdentity(r *http.Request) *authIdentity {
 		return a.resolveSession(r)
 	case "trusted-header":
 		if a.cfg.authProxySecret != "" &&
-			subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Forge-Proxy-Secret")), []byte(a.cfg.authProxySecret)) == 1 {
+			subtle.ConstantTimeCompare([]byte(r.Header.Get("X-AppTown-Proxy-Secret")), []byte(a.cfg.authProxySecret)) == 1 {
 			if user := r.Header.Get(a.cfg.authHeader); user != "" {
 				role, person := a.ensureUser(r.Context(), user)
 				return &authIdentity{PrincipalID: person, User: user, Role: role, Via: "proxy"}

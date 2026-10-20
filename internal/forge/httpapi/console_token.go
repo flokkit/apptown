@@ -15,7 +15,7 @@ func consoleForTokenRequest(sessions *console.Service, w http.ResponseWriter, r 
 		WriteError(w, 404, "no such session")
 		return nil
 	}
-	id, ok := sessions.Identity(r.Header.Get("X-Forge-Session-Token"))
+	id, ok := sessions.Identity(r.Header.Get("X-AppTown-Session-Token"))
 	if !ok || id.SessionID != s.ID {
 		WriteError(w, 403, "invalid session token")
 		return nil

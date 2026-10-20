@@ -40,7 +40,7 @@ const scorecard = {
   armCosts: { [ARM1]: { costMicros: 1_000_000, tokens: 10, incomplete: 0 }, [ARM2]: { costMicros: 250_000, tokens: 5, incomplete: 1 } },
   complaints: [
     { id: COMPLAINT3, about: 'way-of-working', packVersion: 'go-small@4', armId: ARM2, text: 'the pack asks for tables', source: 'run', seen: false, state: 'new', at: '' },
-    { id: COMPLAINT4, about: 'forge', armId: ARM2, text: 'the CLI hung', source: 'run', seen: false, state: 'new', at: '' },
+    { id: COMPLAINT4, about: 'apptown', armId: ARM2, text: 'the CLI hung', source: 'run', seen: false, state: 'new', at: '' },
   ],
 }
 

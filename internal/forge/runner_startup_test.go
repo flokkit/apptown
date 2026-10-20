@@ -15,7 +15,7 @@ import (
 func TestStartupBindsConstructedVerificationRunners(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
-	p, err := a.lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "startup", Name: "Startup", Actor: "forge-system"})
+	p, err := a.lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "startup", Name: "Startup", Actor: "apptown-system"})
 	if err != nil {
 		t.Fatal(err)
 	}

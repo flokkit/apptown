@@ -97,7 +97,7 @@ func TestLandingWaitsItsTurnOnTheCodeNotTheSentence(t *testing.T) {
 	fakeForgeHeaders(t, func(method, path string) (int, http.Header, string) {
 		tries++
 		if tries == 1 {
-			return 409, http.Header{"X-Forge-Deny-Code": {"landing-occupied"}}, busy
+			return 409, http.Header{"X-AppTown-Deny-Code": {"landing-occupied"}}, busy
 		}
 		return 201, nil, `{"run":{"id":"00000000-005a-7000-8000-000000000000"}}`
 	})

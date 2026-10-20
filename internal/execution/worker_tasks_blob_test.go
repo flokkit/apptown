@@ -34,7 +34,7 @@ func TestABlobTheWorkerLostIsSentAgain(t *testing.T) {
 		})
 	})
 	driver := workertest.Driver(t, ca, srv)
-	in, err := execution.NewInput("/forge/in/steering.md", []byte("steer"), 0o644)
+	in, err := execution.NewInput("/apptown/in/steering.md", []byte("steer"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestReviewFirstInputValidationResendsABlobLostAfterUpload(t *testing.T) {
 		})
 	})
 	driver := workertest.Driver(t, ca, srv)
-	in, err := execution.NewInput("/forge/in/steering.md", []byte("steer"), 0o644)
+	in, err := execution.NewInput("/apptown/in/steering.md", []byte("steer"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}

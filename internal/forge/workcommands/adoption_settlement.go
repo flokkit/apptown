@@ -47,7 +47,7 @@ func (a UpliftSettlement) Complete(ctx context.Context, changeID ids.ID) error {
 	if err := a.Adoption.CheckTarget(ctx, p.ID, changeID, ch.TargetAdoptionID, ch.ExpectedRevision, c); err != nil {
 		return err
 	}
-	_, err = a.Lifecycle.SettleUplift(adoption.WithSystemAuthority(ctx, p.ID), &p, &c, "forge-system", fmt.Sprintf("change %d landed: %s", changeID, strings.Join(c.Words(), ", ")), changeID)
+	_, err = a.Lifecycle.SettleUplift(adoption.WithSystemAuthority(ctx, p.ID), &p, &c, "apptown-system", fmt.Sprintf("change %d landed: %s", changeID, strings.Join(c.Words(), ", ")), changeID)
 	return err
 }
 

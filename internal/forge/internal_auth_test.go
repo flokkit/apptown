@@ -47,7 +47,7 @@ func firstAccount(t *testing.T, a *App, username, password string) map[string]st
 func postJSON(h http.Handler, path string, body any, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	b, _ := json.Marshal(body)
 	req := httptest.NewRequest("POST", path, bytes.NewReader(b))
-	req.Header.Set("X-Forge-Actor", "bls")
+	req.Header.Set("X-AppTown-Actor", "bls")
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}
@@ -62,7 +62,7 @@ func TestInternalModeLocksTheDoor(t *testing.T) {
 
 	// The actor header — open mode's honesty system — is dead here.
 	req := httptest.NewRequest("GET", "/api/v1/projects", nil)
-	req.Header.Set("X-Forge-Actor", "impostor")
+	req.Header.Set("X-AppTown-Actor", "impostor")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 401 {
@@ -262,7 +262,7 @@ func TestConsoleTokenWorksInInternalMode(t *testing.T) {
 	a.Console.Restore(m)
 
 	req := httptest.NewRequest("GET", "/api/v1/me", nil)
-	req.Header.Set("X-Forge-Session-Token", "sekret-token")
+	req.Header.Set("X-AppTown-Session-Token", "sekret-token")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"pi-console via console/s1"`) {
@@ -274,7 +274,7 @@ func TestConsoleTokenWorksInInternalMode(t *testing.T) {
 		t.Fatal("a console must not mint a users row — it is an instrument, not a person")
 	}
 	req = httptest.NewRequest("GET", "/api/v1/projects", nil)
-	req.Header.Set("X-Forge-Session-Token", "wrong")
+	req.Header.Set("X-AppTown-Session-Token", "wrong")
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 401 {
@@ -318,14 +318,14 @@ func TestProjectRosterGate(t *testing.T) {
 
 	h := a.Handler()
 	req := httptest.NewRequest("POST", "/api/v1/projects/game/changes/simple", strings.NewReader(`{"text":"pls"}`))
-	req.Header.Set("X-Forge-Actor", "kid-a")
+	req.Header.Set("X-AppTown-Actor", "kid-a")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 403 || !strings.Contains(w.Body.String(), "may not open a change on this project") {
 		t.Fatalf("non-member starting work must 403 in plain words: %d %s", w.Code, w.Body.String())
 	}
 	req = httptest.NewRequest("GET", "/api/v1/projects/game", nil)
-	req.Header.Set("X-Forge-Actor", "kid-a")
+	req.Header.Set("X-AppTown-Actor", "kid-a")
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 200 {
@@ -367,7 +367,7 @@ func TestTrustedHeaderMode(t *testing.T) {
 	try := func(secret, user string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("GET", "/api/v1/me", nil)
 		if secret != "" {
-			req.Header.Set("X-Forge-Proxy-Secret", secret)
+			req.Header.Set("X-AppTown-Proxy-Secret", secret)
 		}
 		if user != "" {
 			req.Header.Set("X-SSO-User", user)
@@ -404,7 +404,7 @@ func TestOpenModeRefusesAnUnusableActor(t *testing.T) {
 	h := a.Handler()
 	for name, want := range map[string]int{"alice": 200, "alice via console/x": 401, "chat/9": 401} {
 		req := httptest.NewRequest("GET", "/api/v1/me", nil)
-		req.Header.Set("X-Forge-Actor", name)
+		req.Header.Set("X-AppTown-Actor", name)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
 		if w.Code != want {
@@ -575,7 +575,7 @@ func TestLinksOutsideInternalSignInSayWhereToGo(t *testing.T) {
 		"/api/v1/invites":        "Invites need AppTown's own sign-in (--auth internal); with single sign-on, add people in your identity provider.",
 	} {
 		req := httptest.NewRequest("POST", path, strings.NewReader(`{"username":"kim"}`))
-		req.Header.Set("X-Forge-Proxy-Secret", "hush")
+		req.Header.Set("X-AppTown-Proxy-Secret", "hush")
 		req.Header.Set("X-SSO-User", "boss")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)

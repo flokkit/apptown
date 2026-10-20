@@ -37,7 +37,7 @@ const (
 	// maxInviteDays bounds a link that grants an account to whoever holds it.
 	maxInviteDays = 30
 	// InvitePrefix marks an invite token, so a leaked one is recognisable.
-	InvitePrefix = "forge_invite_"
+	InvitePrefix = "apptown_invite_"
 	// PasswordLinkTTL is how long a password reset link lasts when the
 	// administrator does not say: shorter than an invite, because it can
 	// take over an account that is already in use.

@@ -13,8 +13,8 @@ gate blocks you and you cannot legitimately satisfy it, stop and report; do not
 ask for overrides.
 
 Binary: `bin/apptown` (or `apptown` on PATH). Configuration:
-- `FORGE_URL` — apptownd instance, default `http://localhost:7777`
-- `FORGE_USER` — attribution identity; set it to who you act for, e.g. `alice` (all mutations are recorded in the ledger under this name)
+- `APPTOWN_URL` — apptownd instance, default `http://localhost:7777`
+- `APPTOWN_USER` — attribution identity; set it to who you act for, e.g. `alice` (all mutations are recorded in the ledger under this name)
 
 ## The core loop
 

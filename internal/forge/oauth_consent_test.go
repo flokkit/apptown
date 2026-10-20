@@ -13,7 +13,7 @@ import (
 func consentRequest(clientID string) url.Values {
 	_, challenge := pkce()
 	return url.Values{"response_type": {"code"}, "client_id": {clientID}, "redirect_uri": {"http://127.0.0.1:9999/callback"},
-		"scope": {"forge:user:read"}, "state": {"original-state"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}}
+		"scope": {"apptown:user:read"}, "state": {"original-state"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}}
 }
 
 func postConsent(h http.Handler, q url.Values, who *http.Cookie) *httptest.ResponseRecorder {
@@ -42,7 +42,7 @@ func TestOAuthConsentBoundToSessionAndRequest(t *testing.T) {
 		t.Fatalf("same user's different session accepted: %d", w.Code)
 	}
 	for field, value := range map[string]string{
-		"scope": "forge:change:create", "state": "changed-state", "code_challenge": "attacker-challenge",
+		"scope": "apptown:change:create", "state": "changed-state", "code_challenge": "attacker-challenge",
 		"resource": "https://other.test/mcp/user", "client_id": registerClient(t, h),
 	} {
 		changed, _ := url.ParseQuery(q.Encode())
@@ -122,7 +122,7 @@ func TestOAuthProxyConsentBoundToBrowserAndPerson(t *testing.T) {
 		}
 		r := httptest.NewRequest(method, path, strings.NewReader(q.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		r.Header.Set("X-Forge-Proxy-Secret", "test-proxy-secret")
+		r.Header.Set("X-AppTown-Proxy-Secret", "test-proxy-secret")
 		r.Header.Set("X-Test-User", who)
 		if cookie != nil {
 			r.AddCookie(cookie)

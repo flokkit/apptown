@@ -77,13 +77,13 @@ func TestAWorkerServesAnImageByItsIndexAndBlobsAlone(t *testing.T) {
 	hub, base := imageHub(t)
 	spec := execution.TaskSpec{Key: "build", Image: "fake", Argv: []string{"run"}, Admission: admission,
 		Source: &execution.TaskSource{Repository: hub, Commit: base},
-		Images: []execution.ImageResult{{Name: "web", Path: "/forge/state/out/web", Max: 1 << 20}, {Name: "api", Path: "/forge/state/out/api", Max: 1 << 20}}}
+		Images: []execution.ImageResult{{Name: "web", Path: "/apptown/state/out/web", Max: 1 << 20}, {Name: "api", Path: "/apptown/state/out/api", Max: 1 << 20}}}
 	created, err := driver.Ensure(ctx, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
 	escape, _ := json.Marshal(worker.TaskRequest{Key: "escape", Image: "fake", Argv: []string{"run"}, Admission: admission, Workspace: "build", Source: base,
-		Images: []execution.ImageResult{{Name: "web", Path: "/forge/state/../../records", Max: 1 << 20}}})
+		Images: []execution.ImageResult{{Name: "web", Path: "/apptown/state/../../records", Max: 1 << 20}}})
 	if code, body := call(http.MethodPost, "/v1/tasks/escape", string(escape)); code != http.StatusBadRequest || !strings.Contains(body, "images") {
 		t.Errorf("an image declared through ..: %d %s", code, body)
 	}
@@ -180,7 +180,7 @@ func TestAnImageWhoseCopyWouldFillTheStateFolderIsRefused(t *testing.T) {
 	spec := execution.TaskSpec{Key: "build", Image: "fake", Argv: []string{"run"},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: base},
-		Images:    []execution.ImageResult{{Name: "web", Path: "/forge/state/out/web", Max: 1 << 20}}}
+		Images:    []execution.ImageResult{{Name: "web", Path: "/apptown/state/out/web", Max: 1 << 20}}}
 	created, err := driver.Ensure(ctx, spec)
 	if err != nil {
 		t.Fatal(err)

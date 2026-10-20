@@ -254,7 +254,7 @@ does not manage a CA.
 
 **Versions.** `apptown-worker -version` names its build and the forge protocols
 it serves; `GET /v1/version` answers the same. The forge states the protocol
-it speaks on every request (`X-Forge-Worker-Protocol`), and the worker refuses
+it speaks on every request (`X-AppTown-Worker-Protocol`), and the worker refuses
 one outside its range with `426` and a sentence naming both and what to install,
 before any route runs; a check worker's refusal reaches the forge's startup
 error with those words. A request stating none (a forge built before
@@ -277,7 +277,7 @@ worker ran into GitHub's limit on anonymous requests (60 an hour for one
 address).
 
 The worker keeps one folder, `<state>/tool-cache/mise`, and mounts it
-writable at `/forge-cache/mise-cache` in every task's, check's and chat's
+writable at `/apptown-cache/mise-cache` in every task's, check's and chat's
 container. The forge's environment points mise's download cache
 (`MISE_CACHE_DIR`) there, as it does at the `forge-cache` volume on its own
 host. What it holds is what mise fetches: release listings (kept an hour,
@@ -640,13 +640,13 @@ With a worker configured, every agent step (`agent/pi`) and review step
   `review`, then at most one `review-wrapup` (no report, or it timed out) or
   `review-fixup` (an invalid report). The next invocation is started only
   after the worker has said the earlier one exited.
-- What Pi reads is sent as bytes under `/forge/in`: steering, resources,
+- What Pi reads is sent as bytes under `/apptown/in`: steering, resources,
   attachments, a long review brief, Pi's settings, the `apptown` CLI,
   registry files, a continued session's transcript, and the declared
   output files of the run's earlier steps (`.forge/PLAN.md`,
   `.forge/REPRO.md`), which the entry copies into the tree at their
   declared paths where the tree has nothing there. Pi's home and
-  sessions are in `/forge/state`, beside the tree, so nothing Pi writes for
+  sessions are in `/apptown/state`, beside the tree, so nothing Pi writes for
   itself is committed.
 - `/work/.git` is the agent's own repository, made by the worker with the
   workspace: the source commit's history on the change's branch, the base
@@ -680,7 +680,7 @@ With a worker configured, every agent step (`agent/pi`) and review step
 
 **`apptown check` inside a step** checks the agent's committed HEAD. The
 forge does not have that commit until the step's work is collected, so the
-CLI first pushes it to the attempt's scratch ref (`FORGE_SCRATCH_REF`,
+CLI first pushes it to the attempt's scratch ref (`APPTOWN_SCRATCH_REF`,
 `refs/forge/scratch/change-<change>/step-<step>-a<attempt>` in the
 project's repository) through the read-only listener, with the step's
 runtime token, which may push that ref and no other. The forge then checks
@@ -722,7 +722,7 @@ refuses the step too.
 
 
 **Credentials a step carries.**
-- **Runtime token** (`FORGE_SESSION_TOKEN`, also its key for the model
+- **Runtime token** (`APPTOWN_SESSION_TOKEN`, also its key for the model
   gateway). It is derived from the step attempt under a key the forge keeps
   in its data folder as `runtime-token-key` (created once, mode 0600). The
   same attempt has the same token after a forge restart, so a step still
@@ -825,7 +825,7 @@ The qualified sets are data in `internal/execution/qualified_profiles.json`,
 each naming its record. To qualify another set of facts, run the
 qualification tests against a worker on that machine
 (`go test -tags integration ./internal/worker -run '^TestIntegrationQualification'`,
-with the `FORGE_QUAL_*` settings those tests read naming the worker) and add
+with the `APPTOWN_QUAL_*` settings those tests read naming the worker) and add
 its entry with its record.
 
 **The `worker-vm` profile.** A machine, physical or virtual, that runs one
@@ -922,11 +922,11 @@ A chat on the worker runs under the same rules as a task's private Docker:
   the daemon's images and volumes share the worker's disk.
 - **Caches.** Each chat has its own cache volume
   (`forge-cache-console-<session>`, labelled `forge.console=<session>`),
-  mounted at `/forge-cache` in its container and its daemon. It is removed
+  mounted at `/apptown-cache` in its container and its daemon. It is removed
   with the chat's runtime: when the chat ends, when it is rebuilt, and by the
   worker's clean-up at start for a session it has no live record of. The
   chat's container (not its daemon) also mounts the worker's tool cache at
-  `/forge-cache/mise-cache` (see "The tool cache"), the one cache chats on
+  `/apptown-cache/mise-cache` (see "The tool cache"), the one cache chats on
   the worker share. Chats on the forge still share `forge-cache`, as before.
 - **Resolvers and mirror.** The daemon and its builder use the worker's own
   resolvers and search domains (its `/etc/resolv.conf`, loopback entries
@@ -1182,7 +1182,7 @@ A forge without a worker builds on its targets.
 A landing on a forge with a worker publishes to the project's container
 registry. A project with none is given the forge's one container-registry
 connector at its first landing, recorded as an attachment (provenance
-`provisioned`, by `forge-system`, with the run and step in its receipt)
+`provisioned`, by `apptown-system`, with the run and step in its receipt)
 that shows under the project's integrations like one made by hand. With
 no connector, or several, the landing is refused before any effect, naming
 the choice. A project that has a registry keeps it. Before upgrading a

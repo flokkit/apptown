@@ -27,8 +27,8 @@ func TestConsoleInvokeHTTPBindsWorkAndProvenanceToItsAuthenticatedSession(t *tes
 	call := func(sid, token, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
 		r.SetPathValue("sid", sid)
-		r.Header.Set("X-Forge-Session-Token", token)
-		r.Header.Set("X-Forge-Actor", "apptownd-operator")
+		r.Header.Set("X-AppTown-Session-Token", token)
+		r.Header.Set("X-AppTown-Actor", "apptownd-operator")
 		w := httptest.NewRecorder()
 		h.ConsoleInvoke(w, r)
 		return w
@@ -115,7 +115,7 @@ func TestConsoleInvokeHTTPChangeChatCannotCreateSiblingWork(t *testing.T) {
 	h := NewConsoleInvocation(sessions, f.Projects, nil, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB, "forge.example", nil)
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"title":"Escape the chat","workflow":"implementation"}`)).WithContext(f.Context)
 	r.SetPathValue("sid", session.ID)
-	r.Header.Set("X-Forge-Session-Token", session.Token)
+	r.Header.Set("X-AppTown-Session-Token", session.Token)
 	w := httptest.NewRecorder()
 	h.ConsoleInvoke(w, r)
 	if w.Code != 403 || !strings.Contains(w.Body.String(), fmt.Sprintf("change #%d", f.ChangeID)) {

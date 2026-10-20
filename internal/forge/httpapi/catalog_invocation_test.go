@@ -40,7 +40,7 @@ func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
 			call := func(name, body string) *httptest.ResponseRecorder {
 				r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
 				r.SetPathValue("name", name)
-				r.Header.Set("X-Forge-Actor", "apptownd-operator")
+				r.Header.Set("X-AppTown-Actor", "apptownd-operator")
 				w := httptest.NewRecorder()
 				web.CatalogApply(w, r)
 				return w
@@ -56,7 +56,7 @@ func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
 					body = fmt.Sprintf(`{"catalog":%q,`, name) + strings.TrimPrefix(body, "{")
 					r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
 					r.SetPathValue("sid", session.ID)
-					r.Header.Set("X-Forge-Session-Token", session.Token)
+					r.Header.Set("X-AppTown-Session-Token", session.Token)
 					w := httptest.NewRecorder()
 					h.ConsoleInvoke(w, r)
 					return w
@@ -149,7 +149,7 @@ func TestCatalogApplyHTTPKeepsProjectMembershipAndCaller(t *testing.T) {
 		ctx := access.WithCaller(f.Context, access.Caller{Principal: access.Principal{Kind: "user", Name: who, Via: "session"}, Receipt: who, Verified: true})
 		r := httptest.NewRequest("POST", "/", strings.NewReader(fmt.Sprintf(`{"project":%q}`, project))).WithContext(ctx)
 		r.SetPathValue("name", catalog.Name)
-		r.Header.Set("X-Forge-Actor", "bls")
+		r.Header.Set("X-AppTown-Actor", "bls")
 		w := httptest.NewRecorder()
 		h.CatalogApply(w, r)
 		return w

@@ -360,5 +360,5 @@ func (s Abandonments) SupersedeFailedLanding(ctx context.Context, ref RunRef, ne
 	if ref.ProjectID.IsZero() || ref.ID.IsZero() {
 		return nil, fmt.Errorf("supersession requires Run scope")
 	}
-	return s.abandon(ctx, Abandonment{RunID: ref.ID, Who: "forge-system", Reason: fmt.Sprintf("landing wedged on failed gates; superseded by a new %s run", nextWorkflow), failedLandingOnly: true}, ref.ProjectID)
+	return s.abandon(ctx, Abandonment{RunID: ref.ID, Who: "apptown-system", Reason: fmt.Sprintf("landing wedged on failed gates; superseded by a new %s run", nextWorkflow), failedLandingOnly: true}, ref.ProjectID)
 }

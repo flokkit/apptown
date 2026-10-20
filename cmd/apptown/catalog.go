@@ -173,7 +173,7 @@ func cmdApply(args []string) error {
 	// catalog changes is one of the project chat's jobs).
 	path := "/catalog-apply/" + args[0]
 	body := map[string]any{"project": slug, "params": map[string]string(params)}
-	if sid := os.Getenv("FORGE_SESSION_ID"); sid != "" && os.Getenv("FORGE_SESSION_TOKEN") != "" {
+	if sid := os.Getenv("APPTOWN_SESSION_ID"); sid != "" && os.Getenv("APPTOWN_SESSION_TOKEN") != "" {
 		path = "/console/" + sid + "/invoke"
 		body = map[string]any{"catalog": args[0], "params": map[string]string(params)}
 	}

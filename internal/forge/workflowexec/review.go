@@ -785,9 +785,9 @@ The current working directory is the changed tree; use your tools for
 read-only inspection (reading files, builds, greps) if the diff alone is
 not conclusive.
 
-THE FORGE'S OWN CLI is the "forge" command — the platform mounts it first on
-PATH, so "forge" is always the platform's CLI, never a package called "forge"
-on PyPI or npm (never install one; a different tool with that name has nothing
+APPTOWN'S OWN CLI is the "apptown" command — the platform mounts it first on
+PATH, so "apptown" is always the platform's CLI, never a package called
+"apptown" on PyPI or npm (never install one; a different tool with that name has nothing
 to say about this change). When the claim says "apptown check" or "apptown config
 validate" passed, run "apptown check" yourself (it re-runs this change's declared
 gates — guidance, tool checks, AND the source security scans — read-only) and

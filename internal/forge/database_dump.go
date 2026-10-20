@@ -97,7 +97,7 @@ func (b databaseBackup) take(ctx context.Context) error {
 		return nil // today's is done
 	}
 	if err := dumpBuiltinDatabase(ctx, b.docker, name); err != nil {
-		audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "forge-system", ids.Nil, "db.backup-failed", name, map[string]any{"error": err.Error()})
+		audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup-failed", name, map[string]any{"error": err.Error()})
 		return err
 	}
 	fi, _ := os.Stat(name)
@@ -105,7 +105,7 @@ func (b databaseBackup) take(ctx context.Context) error {
 	if fi != nil {
 		size = fi.Size()
 	}
-	audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "forge-system", ids.Nil, "db.backup", name, map[string]any{"bytes": size, "keep": builtinDBBackupKeep})
+	audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup", name, map[string]any{"bytes": size, "keep": builtinDBBackupKeep})
 	// Keep the newest N.
 	entries, _ := filepath.Glob(filepath.Join(dir, "forge-*.sql.gz"))
 	if len(entries) > builtinDBBackupKeep {

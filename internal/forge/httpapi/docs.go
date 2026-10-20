@@ -204,7 +204,7 @@ type DocGuide struct {
 // addresses that are the same for everyone belong here, never a person's
 // token or anything secret: the docs are readable without signing in.
 type DocLinks struct {
-	Origin DocLink `json:"origin"` // the web address people and the CLI's FORGE_URL use
+	Origin DocLink `json:"origin"` // the web address people and the CLI's APPTOWN_URL use
 	MCP    DocLink `json:"mcp"`    // where a coding agent connects
 	Git    DocLink `json:"git"`    // the base of a project's repository address
 }

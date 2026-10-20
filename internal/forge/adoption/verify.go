@@ -44,6 +44,6 @@ func (s *Service) VerifyRevision(ctx context.Context, projectID ids.ID) *Drift {
 	if err := s.NoteDrift(ctx, projectID, diff); err != nil {
 		log.Printf("project %d: noting drift: %v", projectID, err)
 	}
-	audit.At(s.adoptions.now()).BestEffort(ctx, s.db, "forge-system", projectID, "adoption.drift", fmt.Sprintf("r%d", prior.Revision), map[string]any{"diff": diff})
+	audit.At(s.adoptions.now()).BestEffort(ctx, s.db, "apptown-system", projectID, "adoption.drift", fmt.Sprintf("r%d", prior.Revision), map[string]any{"diff": diff})
 	return &Drift{Revision: prior.Revision, Diff: diff}
 }

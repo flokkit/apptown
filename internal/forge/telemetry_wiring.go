@@ -46,7 +46,7 @@ type instrumentation struct {
 func startInstrumentation(ctx context.Context, cfg configuration) (*instrumentation, error) {
 	in := &instrumentation{tracer: nooptrace.NewTracerProvider().Tracer("apptownd"), meter: noopmetric.NewMeterProvider().Meter("apptownd"), links: &attemptLinks{m: map[attemptKey]trace.SpanContext{}}, now: cfg.clock.Now}
 	if cfg.otlpEndpoint == "" {
-		in.httpDuration, _ = in.meter.Float64Histogram("forge_http_request_duration")
+		in.httpDuration, _ = in.meter.Float64Histogram("apptown_http_request_duration")
 		return in, nil
 	}
 	endpoint, insecure := splitOTLPEndpoint(cfg.otlpEndpoint)
@@ -64,7 +64,7 @@ func startInstrumentation(ctx context.Context, cfg configuration) (*instrumentat
 	in.providers = p
 	in.tracer = p.Tracer.Tracer("apptownd")
 	in.meter = p.Meter.Meter("apptownd")
-	in.httpDuration, _ = in.meter.Float64Histogram("forge_http_request_duration", metric.WithUnit("ms"),
+	in.httpDuration, _ = in.meter.Float64Histogram("apptown_http_request_duration", metric.WithUnit("ms"),
 		metric.WithExplicitBucketBoundaries(5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000),
 		metric.WithDescription("HTTP request duration by route pattern, method and status class"))
 	log.Printf("telemetry: exporting to %s over %s", endpoint, orDefault(cfg.otlpProtocol, "http"))

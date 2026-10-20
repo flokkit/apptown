@@ -21,9 +21,9 @@ import (
 // Uses the pinned harness's actual model runtime and native SDKs, not a
 // handcrafted approximation of their URL/auth conventions. No real provider.
 func TestInferencePinnedPi(t *testing.T) {
-	module := os.Getenv("FORGE_PI_MODULE")
+	module := os.Getenv("APPTOWN_PI_MODULE")
 	if module == "" {
-		t.Skip("set FORGE_PI_MODULE to Pi 0.84.3's package directory")
+		t.Skip("set APPTOWN_PI_MODULE to Pi 0.84.3's package directory")
 	}
 	var token string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +72,7 @@ func TestInferencePinnedPi(t *testing.T) {
 		t.Fatalf("finding node: %s %d %v\n%s", found.Termination, found.ExitCode, found.RunErr, found.Output)
 	}
 	cmd := exec.Command(strings.TrimSpace(string(found.Output)), "testdata/inference_pi.mjs")
-	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "FORGE_PI_MODULE=" + module, "FORGE_PI_CONFIG=" + config, "FORGE_PI_PROXY=" + proxy.URL, "FORGE_SESSION_TOKEN=" + token}
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "APPTOWN_PI_MODULE=" + module, "APPTOWN_PI_CONFIG=" + config, "APPTOWN_PI_PROXY=" + proxy.URL, "APPTOWN_SESSION_TOKEN=" + token}
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("pinned Pi: %v\n%s", err, out)
 	} else {

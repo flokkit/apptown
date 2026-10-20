@@ -305,8 +305,8 @@ func TestAProjectExportsWithItsHistoryAndChats(t *testing.T) {
 	}
 	raw := res.Body.Bytes()
 	sum := sha256.Sum256(raw)
-	if hash := hex.EncodeToString(sum[:]); res.Header().Get("X-Forge-Export-Sha256") != hash {
-		t.Fatalf("the header's hash %s is not the file's %s", res.Header().Get("X-Forge-Export-Sha256"), hash)
+	if hash := hex.EncodeToString(sum[:]); res.Header().Get("X-AppTown-Export-Sha256") != hash {
+		t.Fatalf("the header's hash %s is not the file's %s", res.Header().Get("X-AppTown-Export-Sha256"), hash)
 	}
 	order, files := readExport(t, raw)
 	if order[len(order)-1] != "manifest.json" {
@@ -316,7 +316,7 @@ func TestAProjectExportsWithItsHistoryAndChats(t *testing.T) {
 	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Format != projectlifecycle.ExportFormat || manifest.Version != projectlifecycle.ExportVersion || manifest.Slug != "app" || manifest.ExportedBy == "" || manifest.Source.Schema == 0 || manifest.Source.Forge.IsZero() {
+	if manifest.Format != projectlifecycle.ExportFormat || manifest.Version != projectlifecycle.ExportVersion || manifest.Slug != "app" || manifest.ExportedBy == "" || manifest.Source.Schema == 0 || manifest.Source.AppTown.IsZero() {
 		t.Fatalf("manifest: %+v", manifest)
 	}
 	if len(manifest.Entries) != len(order)-1 {
@@ -538,7 +538,7 @@ func TestAProjectExportsWithItsHistoryAndChats(t *testing.T) {
 	}
 	// The receipt names the file the operator received.
 	lines, err := audit.Recent(context.Background(), a.DB, audit.Filter{ProjectID: p.ID, KindPrefix: "project.exported"})
-	if err != nil || len(lines) != 1 || !strings.Contains(string(lines[0].Payload), res.Header().Get("X-Forge-Export-Sha256")) {
+	if err != nil || len(lines) != 1 || !strings.Contains(string(lines[0].Payload), res.Header().Get("X-AppTown-Export-Sha256")) {
 		t.Fatalf("the export receipt: %+v %v", lines, err)
 	}
 	if spools, _ := os.ReadDir(filepath.Join(a.cfg.dataDir, "exports")); len(spools) != 0 {

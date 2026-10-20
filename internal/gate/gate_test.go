@@ -130,7 +130,7 @@ func newHarness(t *testing.T) *harness {
 		return map[string]string{
 			"GATE_UPSTREAM": appSrv.URL,
 			"GATE_SECRET":   testSecret,
-			"GATE_FORGE":    forgeSrv.URL,
+			"GATE_APPTOWN":  forgeSrv.URL,
 		}[k]
 	})
 	if err != nil {

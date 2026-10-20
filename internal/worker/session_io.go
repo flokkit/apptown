@@ -398,7 +398,7 @@ func (s *Server) putSource(w http.ResponseWriter, r *http.Request) {
 	_, _ = s.runGit(r.Context(), tmp, "remote", "remove", "origin")
 	// The chat commits as a step's agent does (seedAgentGit): without an
 	// identity its first commit fails until it sets one.
-	for _, kv := range [][2]string{{"user.name", "forge"}, {"user.email", "forge@localhost"}} {
+	for _, kv := range [][2]string{{"user.name", "apptown"}, {"user.email", "apptown@localhost"}} {
 		if out, err := s.runGit(r.Context(), tmp, "config", kv[0], kv[1]); err != nil {
 			http.Error(w, "giving the work tree its commit identity: "+out, http.StatusInternalServerError)
 			return
@@ -443,7 +443,7 @@ if [ -n "$LEFTOVERS" ] && [ -n "$(git status --porcelain)" ]; then
     git add -f -A -- .forge/app.yaml
   fi
   if ! git diff --cached --quiet; then
-    git -c user.name=forge -c user.email=forge@localhost commit -q -m "$LEFTOVERS"
+    git -c user.name=apptown -c user.email=apptown@localhost commit -q -m "$LEFTOVERS"
   fi
 fi
 head=$(git rev-parse --verify HEAD^{commit})
@@ -456,7 +456,7 @@ git bundle create -q - refs/forge/save "^$BASE"
 const SaveRef = "refs/forge/save"
 
 // save answers a bundle of the chat's commits since base, made with the
-// chat's own tools, with the tip it holds in Forge-Head; 204 when there is
+// chat's own tools, with the tip it holds in AppTown-Head; 204 when there is
 // nothing new. With leftovers set (the chat's end, once it has stopped),
 // uncommitted work is first committed under that message. What it sends is
 // the chat's and untrusted: the forge imports it through its checked
@@ -515,7 +515,7 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Forge-Head", head)
+	w.Header().Set("AppTown-Head", head)
 	_, _ = io.Copy(w, spool)
 }
 

@@ -50,7 +50,7 @@ func TestADRAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 		code string
 	}{
 		{access.Principal{Kind: "user", Name: "outsider", Via: "token"}, access.DenyOutsideScope},
-		{access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:read"}}, access.DenyDelegationNarrow},
+		{access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:read"}}, access.DenyDelegationNarrow},
 		{access.Principal{Kind: "instrument", Name: "run/1", Instrument: "run", Via: "run", ProjectID: projectID}, access.DenyDelegationNarrow},
 		{access.Principal{Kind: "instrument", Name: "owner via console/c", Person: "owner", Instrument: "console", Via: "console", ProjectID: open}, access.DenyOutsideScope},
 	} {

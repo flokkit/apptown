@@ -32,16 +32,16 @@ is read-only; use a change workspace for edits and project-local installs.
 
 ## Test counts
 
-The tests check sets `FORGE_TEST_REPORT` (`/work/.forge-test-report`) for its
+The tests check sets `APPTOWN_TEST_REPORT` (`/work/.forge-test-report`) for its
 command. A command that writes a report there, as JUnit XML or as a
 `go test -json` stream, gets its counts recorded: how many tests passed,
 failed and were skipped, and the first skipped tests' names. AppTown's
-detected Go command, `go test -json ./... > "$FORGE_TEST_REPORT"`, does this
+detected Go command, `go test -json ./... > "$APPTOWN_TEST_REPORT"`, does this
 already, and its receipt's log is rendered from the stream: build output, each
 package's result, and the full output of every test that failed or skipped,
 with the skip's reason. Another runner opts in through its JUnit reporter, for
-example `pytest --junitxml="$FORGE_TEST_REPORT"` or
-`vitest run --reporter=junit --outputFile="$FORGE_TEST_REPORT"` in the step's
+example `pytest --junitxml="$APPTOWN_TEST_REPORT"` or
+`vitest run --reporter=junit --outputFile="$APPTOWN_TEST_REPORT"` in the step's
 `command` or the project's test script.
 
 The exit code alone decides the check. A pass with skipped tests, or whose

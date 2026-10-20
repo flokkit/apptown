@@ -109,7 +109,7 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil); err != nil {
 					log.Printf("recording the skipped firing of %s: %v", c.workflow, err)
 				}
-				audit.At(now).BestEffort(ctx, s.DB, "forge-system", c.projectID, "trigger.skipped", c.workflow,
+				audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "trigger.skipped", c.workflow,
 					map[string]any{"reason": "previous run still active"})
 				continue
 			}
@@ -124,7 +124,7 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 		item, run, err := s.Actions.CreateAndStart(asSchedule(ctx, c.projectID), p, "scheduled", title, "", c.workflow)
 		if err == nil {
 			outcome, changeID = workflow.ScheduleOpened, item.ID
-			audit.At(now).BestEffort(ctx, s.DB, "forge-system", c.projectID, "change.triggered", title,
+			audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "change.triggered", title,
 				map[string]any{"changeId": item.ID, "runId": run.ID, "trigger": "schedule", "cron": c.trigger.Cron})
 		}
 		// The firing is recorded even when the run could not be created:

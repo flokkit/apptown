@@ -158,10 +158,10 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 		switch {
 		case strings.HasPrefix(line, "volume ls"):
 			return []byte("forge-cache-game\nforge-cache-console-c1\nforge-cache-shop\n"), nil, true
-		case strings.HasSuffix(line, "ls /forge-cache/mise/ws"):
+		case strings.HasSuffix(line, "ls /apptown-cache/mise/ws"):
 			for _, a := range args {
-				if strings.HasSuffix(a, ":/forge-cache") {
-					listed = append(listed, strings.TrimSuffix(a, ":/forge-cache"))
+				if strings.HasSuffix(a, ":/apptown-cache") {
+					listed = append(listed, strings.TrimSuffix(a, ":/apptown-cache"))
 				}
 			}
 			return []byte("not-a-workspace\n"), nil, true

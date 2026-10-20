@@ -35,12 +35,14 @@ func RequireEnabledIn(ctx context.Context, q database.Queryer, pr access.Princip
 }
 
 // SystemActor reports whether a name is one the forge acts under itself —
-// its engine, triggers and bindings ("system", "forge-system", "forge") or a run's
+// its engine, triggers and bindings ("system", "apptown-system", "forge"), the
+// author of the commits it writes ("apptown"; "forge-system" and a "forge"
+// author are the same actors in records from before the AppTown rename) or a run's
 // own identity ("run/<id>", a UUID, or a number in history from before
 // UUIDs) — rather than a person's. Such a name holds no account, and no
 // person may take it (ValidName).
 func SystemActor(name string) bool {
-	if name == "system" || name == "forge-system" || name == "forge" {
+	if name == "system" || name == "apptown-system" || name == "apptown" || name == "forge-system" || name == "forge" {
 		return true
 	}
 	id, ok := strings.CutPrefix(name, "run/")

@@ -48,7 +48,7 @@ const subagentsTestImage = "forge-agent:s5-subagents-test"
 //     parent's stream at all: the tool returns at once, and the delegate's
 //     completion, when the parent is still running, arrives only as a
 //     "subagent-notify" custom message with its text and the path of its
-//     own session file under /forge/state/sessions/.
+//     own session file under /apptown/state/sessions/.
 //
 // So the invocation's recorded usage is the parent's assistant calls alone,
 // and it is marked "delegated calls not included" in both cases: a

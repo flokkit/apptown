@@ -383,7 +383,7 @@ function Cell({ r }: { r?: CheckRow }) {
   return <span>{parts.join('; ')}</span>
 }
 
-const ABOUT_WORDS: Record<string, string> = { forge: PRODUCT, 'way-of-working': 'the way of working', project: 'the project' }
+const ABOUT_WORDS: Record<string, string> = { apptown: PRODUCT, 'way-of-working': 'the way of working', project: 'the project' }
 
 function armLabel(arms: Arm[], id?: string | null): string {
   const a = id ? arms.find((x) => x.id === id) : undefined

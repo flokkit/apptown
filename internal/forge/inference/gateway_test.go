@@ -57,7 +57,7 @@ func TestInferenceAdmissionAndCredentialBoundary(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer provider-canary" {
 			t.Error("upstream did not receive its server-side credential")
 		}
-		for _, k := range []string{"Cookie", "X-Forge-Actor", "X-Forwarded-For", "X-Api-Key"} {
+		for _, k := range []string{"Cookie", "X-AppTown-Actor", "X-Forwarded-For", "X-Api-Key"} {
 			if r.Header.Get(k) != "" {
 				t.Errorf("forwarded %s", k)
 			}
@@ -89,7 +89,7 @@ func TestInferenceAdmissionAndCredentialBoundary(t *testing.T) {
 			r.Header.Set("Authorization", "Bearer "+tc.token)
 			r.Header.Set("X-Forwarded-For", "192.0.2.10")
 			r.Header.Set("X-Real-IP", "192.0.2.10")
-			r.Header.Set("X-Forge-Actor", "admin")
+			r.Header.Set("X-AppTown-Actor", "admin")
 			r.Header.Set("Cookie", "session=cookie")
 			w := httptest.NewRecorder()
 			g.ServeHTTP(w, r)

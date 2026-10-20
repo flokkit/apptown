@@ -34,8 +34,8 @@ func TestProjectHTTPSettingsRejectBeforeWritingAndReturnSavedMetadata(t *testing
 		{"boss", `{"expectedRevision":7,"icon":"changed"}`, "settings-moved", 409},
 	} {
 		w := authzCall(h, tc.who, "PATCH", path, tc.body)
-		if w.Code != tc.status || w.Header().Get("X-Forge-Deny-Code") != tc.code {
-			t.Fatalf("settings refusal %s: %d %q %s", tc.body, w.Code, w.Header().Get("X-Forge-Deny-Code"), w.Body.String())
+		if w.Code != tc.status || w.Header().Get("X-AppTown-Deny-Code") != tc.code {
+			t.Fatalf("settings refusal %s: %d %q %s", tc.body, w.Code, w.Header().Get("X-AppTown-Deny-Code"), w.Body.String())
 		}
 		p, err := a.Projects.BySlug(context.Background(), "game")
 		if err != nil || p.Name != "G" || p.Icon != "" || p.Blurb != "" || p.Namespace != "" {

@@ -53,13 +53,13 @@ type Gate struct {
 const (
 	GateEnvUpstream = "GATE_UPSTREAM"
 	GateEnvSecret   = "GATE_SECRET"
-	GateEnvForge    = "GATE_FORGE"
+	GateEnvForge    = "GATE_APPTOWN"
 	GateEnvListen   = "GATE_LISTEN"
 	// GateEnvMarker carries Gate.Marker in the gate's environment; the gate
 	// does not read it.
-	GateEnvMarker = "FORGE_GATED_DEPLOYMENT"
+	GateEnvMarker = "APPTOWN_GATED_DEPLOYMENT"
 	// GatePort is the port the gate listens on.
 	GatePort = 8080
 	// GateProbeHeader carries the gate secret on the forge's own checks.
-	GateProbeHeader = "Forge-Restore-Token"
+	GateProbeHeader = "AppTown-Restore-Token"
 )

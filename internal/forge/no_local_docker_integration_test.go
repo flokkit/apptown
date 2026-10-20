@@ -19,11 +19,11 @@ import (
 // a real daemon through the Docker CLI with that target's --host, while the
 // forge's own Docker refuses, and neither DOCKER_HOST nor DOCKER_CONTEXT
 // chooses a daemon. This host's selected daemon plays the attached target, by
-// its explicit address; FORGE_TEST_ATTACHED_HOST names another (for example
+// its explicit address; APPTOWN_TEST_ATTACHED_HOST names another (for example
 // ssh://root@lab.example).
 func TestIntegrationAnAttachedTargetAnswersInTheNoLocalDockerMode(t *testing.T) {
 	requireDocker(t)
-	target := os.Getenv("FORGE_TEST_ATTACHED_HOST")
+	target := os.Getenv("APPTOWN_TEST_ATTACHED_HOST")
 	if target == "" {
 		target = execution.SelectDocker().Host
 	}

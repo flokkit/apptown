@@ -644,7 +644,7 @@ request. Legitimate long-running jobs retain bounded resource leases.
 ### TM-21 — webhook reuse or replay starts unwanted paid work
 
 **Status: partly mitigated; the shared token is accepted
-for 1.0.** The token is accepted only in the `X-Forge-Token` header and
+for 1.0.** The token is accepted only in the `X-AppTown-Token` header and
 compared in constant time; a token in the URL is refused. That one
 instance-wide token can fire any webhook workflow in any project, which is
 recorded as accepted for 1.0 ([triggers](../subsystems/triggers.md)). Open:

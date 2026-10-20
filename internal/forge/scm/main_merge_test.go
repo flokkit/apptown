@@ -62,7 +62,7 @@ func TestTheForgeMergesMainOnlyWhenTheBranchIsBehindAndTheMergeIsClean(t *testin
 	if parents := strings.Fields(gittest.RunAsTester(t, hub, "rev-list", "--parents", "-n", "1", got.Commit)); !slices.Equal(parents, []string{got.Commit, tip, main}) {
 		t.Fatalf("the merge's parents are %v, want the branch then main", parents[1:])
 	}
-	if who := gittest.RunAsTester(t, hub, "log", "-1", "--format=%an <%ae> / %cn <%ce> / %s", got.Commit); who != "forge <forge@localhost> / forge <forge@localhost> / Merge main into change" {
+	if who := gittest.RunAsTester(t, hub, "log", "-1", "--format=%an <%ae> / %cn <%ce> / %s", got.Commit); who != "apptown <apptown@localhost> / apptown <apptown@localhost> / Merge main into change" {
 		t.Fatalf("the merge is %q", who)
 	}
 	for name, want := range map[string]string{"app.txt": "one\ntwo\nthree\nfour\n", "added.txt": "on main\n", "change.txt": "the change\n"} {

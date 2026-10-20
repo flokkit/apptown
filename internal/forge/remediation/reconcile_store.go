@@ -166,7 +166,7 @@ func (s Reconciliation) Apply(ctx context.Context, observed Observation, decisio
 		}); err != nil {
 			return nil, err
 		}
-		if err := audit.At(now).RecordIn(s.caller, tx, "forge-system", item.ProjectID, "remediation.item.phase", fmt.Sprint(item.ID), map[string]any{"from": item.State, "to": decision.State, "reason": decision.Reason}); err != nil {
+		if err := audit.At(now).RecordIn(s.caller, tx, "apptown-system", item.ProjectID, "remediation.item.phase", fmt.Sprint(item.ID), map[string]any{"from": item.State, "to": decision.State, "reason": decision.Reason}); err != nil {
 			return nil, err
 		}
 	case ActionStuck, ActionBackoff, ActionLanded:

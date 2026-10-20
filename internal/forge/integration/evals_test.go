@@ -37,7 +37,7 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("REGISTRY_PASSWORD=forge-held\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AttachOfferedRegistry(context.Background(), copy, "forge-system", nil); !errors.Is(err, ErrNoIntegrations) {
+	if err := s.AttachOfferedRegistry(context.Background(), copy, "apptown-system", nil); !errors.Is(err, ErrNoIntegrations) {
 		t.Fatalf("the offered registry attached to a copy: %v", err)
 	}
 	if err := s.Attachments.Attach(t.Context(), copy, CapErrors, "errors", `{}`, Entered, "someone", nil); !errors.Is(err, ErrNoIntegrations) {
@@ -47,7 +47,7 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 		t.Fatalf("a remembered resource for a copy: %v", err)
 	}
 	p, _ := s.projects.ByID(context.Background(), copy)
-	if _, _, err := s.ProvisionRegistry(t.Context(), &p, "registry", "forge-system"); !errors.Is(err, ErrNoIntegrations) {
+	if _, _, err := s.ProvisionRegistry(t.Context(), &p, "registry", "apptown-system"); !errors.Is(err, ErrNoIntegrations) {
 		t.Fatalf("a registry provisioned for a copy: %v", err)
 	}
 	if attached, err := s.Attachments.IsAttached(t.Context(), copy, CapContainerRegistry); err != nil || attached {

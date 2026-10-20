@@ -36,15 +36,15 @@ func TestANewProjectRepositoryStartsWithTheForgeIdentity(t *testing.T) {
 	}
 	old := t.TempDir()
 	gittest.Run(t, old, "init", "-q", "-b", "trunk")
-	gittest.Run(t, old, "config", "user.name", "forge")
-	gittest.Run(t, old, "config", "user.email", "forge@localhost")
+	gittest.Run(t, old, "config", "user.name", "apptown")
+	gittest.Run(t, old, "config", "user.email", "apptown@localhost")
 	if got, want := config(dir), config(old); got != want {
 		t.Fatalf("config is\n%s\nwant\n%s", got, want)
 	}
 	if got := gittest.Run(t, dir, "symbolic-ref", "HEAD"); got != "refs/heads/trunk" {
 		t.Fatalf("HEAD is %s", got)
 	}
-	if got := gittest.Run(t, dir, "log", "-1", "--format=%an <%ae> %cn <%ce> %s"); got != "forge <forge@localhost> forge <forge@localhost> forge: adopt existing workspace" {
+	if got := gittest.Run(t, dir, "log", "-1", "--format=%an <%ae> %cn <%ce> %s"); got != "apptown <apptown@localhost> apptown <apptown@localhost> apptown: adopt existing workspace" {
 		t.Fatalf("the first commit is %q", got)
 	}
 	if got := gittest.Run(t, dir, "ls-files"); got != ".gitignore\nmain.go" {
@@ -58,7 +58,7 @@ func TestANewProjectRepositoryStartsWithTheForgeIdentity(t *testing.T) {
 	if err := InitializeRepository(t.Context(), existing, "main"); err != nil {
 		t.Fatal(err)
 	}
-	if got := gittest.Run(t, existing, "log", "-1", "--format=%an <%ae>"); got != "forge <forge@localhost>" {
+	if got := gittest.Run(t, existing, "log", "-1", "--format=%an <%ae>"); got != "apptown <apptown@localhost>" {
 		t.Fatalf("an existing repository's first commit is %q", got)
 	}
 }

@@ -15,7 +15,7 @@ operation. It does not depend on a later best-effort audit write by a transport.
 Initiator attribution matters to approval policy. HTTP records its verified actor;
 MCP retains the person's instrument provenance. Catalog, service and integration
 operations and manual remediation retain their initiating person. Automated
-remediation records `forge-system`, not the worker's output or an invented human.
+remediation records `apptown-system`, not the worker's output or an invented human.
 Initiator queries read the first creation receipt.
 
 The small creator value has one workspace effect. It invokes that effect only after

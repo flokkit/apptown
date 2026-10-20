@@ -37,10 +37,10 @@ import (
 const testsTimeout = 10 * time.Minute
 
 // The test report (internal/testreport): the command may write one at
-// FORGE_TEST_REPORT, which the execution layer carries back from wherever
+// APPTOWN_TEST_REPORT, which the execution layer carries back from wherever
 // the tests ran. Its counts are recorded; the exit code alone decides.
 const (
-	testReportEnv  = "FORGE_TEST_REPORT"
+	testReportEnv  = "APPTOWN_TEST_REPORT"
 	testReportFile = ".forge-test-report"
 	testReportPath = "/work/" + testReportFile
 	skippedShown   = 20
@@ -74,7 +74,7 @@ func detectTestCommand(dir string) string {
 	// way of working — no wrapper scripts); the local repo lives in the
 	// shared cache volume so dependency downloads survive across runs.
 	if _, err := os.Stat(filepath.Join(dir, "pom.xml")); err == nil {
-		return "mvn -q -Dmaven.repo.local=/forge-cache/m2 test"
+		return "mvn -q -Dmaven.repo.local=/apptown-cache/m2 test"
 	}
 	return ""
 }
@@ -369,7 +369,7 @@ func (a *Commands) testServices(ctx context.Context, staged string) (services []
 // same code for a failed install).
 const toolchainUnavailableExit = 97
 
-const toolchainUnavailableMark = "forge: the toolchain this project declares could not be installed"
+const toolchainUnavailableMark = "apptown: the toolchain this project declares could not be installed"
 
 // testsScript runs command over the tree with the declared toolchain
 // installed first. A failed install does not stop the run: the image's own
@@ -380,7 +380,7 @@ const toolchainUnavailableMark = "forge: the toolchain this project declares cou
 // toolchainUnavailableExit.
 func testsScript(command string) string {
 	return `mise trust -q 2>/dev/null; forge_toolchain=ok; ` +
-		`if mise install -y -q; then export PATH="$MISE_DATA_DIR/shims:$PATH"; else forge_toolchain=failed; echo "forge: mise install failed (continuing with image toolchains)" >&2; fi; ` +
+		`if mise install -y -q; then export PATH="$MISE_DATA_DIR/shims:$PATH"; else forge_toolchain=failed; echo "apptown: mise install failed (continuing with image toolchains)" >&2; fi; ` +
 		`(` + command + `) 2>&1; rc=$?; ` +
 		// A command that wrote no report leaves an empty one, so "no report"
 		// reads the same from a worker as from here (a missing file's error

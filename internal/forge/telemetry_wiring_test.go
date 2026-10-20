@@ -54,7 +54,7 @@ func TestForgedExportsRequestSpansAndLogsWhenConfigured(t *testing.T) {
 	}
 	var histogram bool
 	for _, m := range receiver.Metrics() {
-		if m.Name == "forge_http_request_duration" && m.Attributes["http.route"] == "GET /api/v1/projects/{slug}" && m.Attributes["status"] == "2xx" {
+		if m.Name == "apptown_http_request_duration" && m.Attributes["http.route"] == "GET /api/v1/projects/{slug}" && m.Attributes["status"] == "2xx" {
 			histogram = true
 		}
 	}

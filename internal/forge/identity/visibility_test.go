@@ -88,7 +88,7 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 		read(access.Principal{Kind: "instrument", Name: "engine", Instrument: "forge"}, projectIDs)
 		read(access.Principal{Kind: "instrument", Name: "trigger", Instrument: "forge", ProjectID: projectIDs[2]}, projectIDs[2:])
 		read(access.Principal{Kind: "user", Name: "boss", Via: "token", Role: "member"}, nil)
-		read(access.Principal{Kind: "user", Name: "reader", Via: "oauth", Scopes: []string{"forge:change:check"}}, projectIDs[:1])
+		read(access.Principal{Kind: "user", Name: "reader", Via: "oauth", Scopes: []string{"apptown:change:check"}}, projectIDs[:1])
 		read(access.Principal{Kind: "user", Name: "reader", Via: "oauth"}, nil)
 	}
 	checkCases()

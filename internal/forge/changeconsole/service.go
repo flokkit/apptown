@@ -299,7 +299,7 @@ func (c *Service) TellChangeChats(ctx context.Context, projectID, changeID ids.I
 func (c *Service) EndChangeChats(ctx context.Context, projectID, changeID ids.ID) error {
 	var errs []error
 	for _, s := range c.sessions.List(ctx, console.Match{Scope: conversation.Key(projectID, changeID)}) {
-		if err := c.End(ctx, s.ID, "forge: the change closed"); err != nil {
+		if err := c.End(ctx, s.ID, "apptown: the change closed"); err != nil {
 			errs = append(errs, fmt.Errorf("ending chat %s: %w", s.ID, err))
 		}
 	}
@@ -332,7 +332,7 @@ func (c *Service) EndChatsWithoutTheirChange(ctx context.Context) error {
 			// nothing and has nothing to save. It is ended; a chat that
 			// cannot be ended cannot run and blocks nobody, so it never
 			// stops the forge from starting.
-			if endErr := c.End(ctx, s.ID, "forge: the chat's change no longer exists"); endErr != nil {
+			if endErr := c.End(ctx, s.ID, "apptown: the chat's change no longer exists"); endErr != nil {
 				log.Printf("console %s: its change %d no longer exists, and it could not be ended (%v)", s.ID, scope.ChangeID, endErr)
 			}
 			continue
@@ -342,7 +342,7 @@ func (c *Service) EndChatsWithoutTheirChange(ctx context.Context) error {
 			// whether this chat holds it. The chat is ended so it cannot
 			// write the folder; only one that cannot be ended refuses the
 			// start, since another worker may hold the change.
-			if endErr := c.End(ctx, s.ID, "forge: the chat's change cannot be read"); endErr != nil {
+			if endErr := c.End(ctx, s.ID, "apptown: the chat's change cannot be read"); endErr != nil {
 				stuck = append(stuck, fmt.Errorf("chat %s could not be ended, and its change %d cannot be read (%v): %w", s.ID, scope.ChangeID, err, endErr))
 			} else {
 				log.Printf("console %s: its change %d cannot be read (%v); the chat was ended", s.ID, scope.ChangeID, err)
@@ -363,7 +363,7 @@ func (c *Service) EndChatsWithoutTheirChange(ctx context.Context) error {
 				holder = authority.Holder
 			}
 		}
-		endErr := c.End(ctx, s.ID, "forge: the chat does not hold its change")
+		endErr := c.End(ctx, s.ID, "apptown: the chat does not hold its change")
 		switch {
 		case endErr == nil:
 		case holder == "":

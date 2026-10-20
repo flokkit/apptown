@@ -47,13 +47,13 @@ func localTLSPrelude(ca, scratch string, t LocalTLS) string {
 		`fi; true`
 }
 
-// hostsEntry names a change chat's own preview (FORGE_CHANGE) as this
+// hostsEntry names a change chat's own preview (APPTOWN_CHANGE) as this
 // container's loopback in /etc/hosts, where the forwarder answers it.
 func hostsEntry(previewDomain string) string {
 	if previewDomain == "" {
 		return ""
 	}
-	h := `change-$FORGE_CHANGE.` + previewDomain
-	return `[ -n "$FORGE_CHANGE" ] && ! grep -q "` + h + `" /etc/hosts 2>/dev/null && ` +
+	h := `change-$APPTOWN_CHANGE.` + previewDomain
+	return `[ -n "$APPTOWN_CHANGE" ] && ! grep -q "` + h + `" /etc/hosts 2>/dev/null && ` +
 		`printf '127.0.0.1 %s\n::1 %s\n' "` + h + `" "` + h + `" >>/etc/hosts 2>/dev/null; `
 }

@@ -74,8 +74,8 @@ func TestConsoleWorkReadsStayInSessionProject(t *testing.T) {
 	session := a.Console.Restore(sm)
 	request := func(method, path string) *httptest.ResponseRecorder {
 		r := testRequestAs(httptest.NewRequest(method, "/api/v1/console/scoped/"+path, strings.NewReader(`{}`)), "anonymous")
-		r.Header.Set("X-Forge-Actor", "boss")
-		r.Header.Set("X-Forge-Session-Token", "secret")
+		r.Header.Set("X-AppTown-Actor", "boss")
+		r.Header.Set("X-AppTown-Session-Token", "secret")
 		w := httptest.NewRecorder()
 		a.Handler().ServeHTTP(w, r)
 		return w

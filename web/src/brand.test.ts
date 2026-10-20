@@ -10,7 +10,7 @@ import { PRODUCT } from './brand'
 // Code names that stay "forge" because a person types them or a program reads
 // them; each is removed before the word check.
 const codeNames: [RegExp, string][] = [
-  [/X-Forge-[A-Za-z-]+/g, 'request headers'],
+  [/X-AppTown-[A-Za-z-]+/g, 'request headers'],
   [/FORGE_[A-Z_]*/g, 'settings and constants'],
   [/\.forge\/|\/_forge\/|refs\/forge\//g, 'folders, paths and refs'],
   [/forge:[a-z:-]+|\{forge:/g, 'token scopes and link placeholders'],
@@ -57,10 +57,10 @@ describe('the product name', () => {
 
   it('leaves code names alone', () => {
     for (const line of [
-      "headers: { 'X-Forge-Actor': currentUser() }",
-      "const KEY = 'forge-theme'",
-      "localStorage.getItem('forge.user')",
-      "d.scopes.includes('forge:user:read')",
+      "headers: { 'X-AppTown-Actor': currentUser() }",
+      "const KEY = 'apptown-theme'",
+      "localStorage.getItem('apptown.user')",
+      "d.scopes.includes('apptown:user:read')",
       "x.text.startsWith('[apptown check]')",
       'Run the full checks first (apptown check), fix',
       '<code>git fetch the.bundle refs/forge/refused/chat-1</code>',

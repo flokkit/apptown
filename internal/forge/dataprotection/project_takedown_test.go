@@ -520,7 +520,7 @@ func TestAPurgeRemovesFailedAndPartialSets(t *testing.T) {
 		{ProjectID: w.project, Deployment: "prod", TakenAt: now, Trigger: TriggerTakeDown, Status: BackupFailed, Store: StoreBackupStore},
 		{ProjectID: idstest.N(999999), Deployment: "prod", TakenAt: now, Trigger: "scheduled", Status: BackupFailed, Store: StoreForgeDisk},
 	} {
-		if _, err := w.s.backups.Record(ctx, &b, "forge-system"); err != nil {
+		if _, err := w.s.backups.Record(ctx, &b, "apptown-system"); err != nil {
 			t.Fatal(err)
 		}
 	}

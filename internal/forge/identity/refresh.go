@@ -3,6 +3,7 @@ package identity
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"flokkit.io/forge/internal/ids"
@@ -25,6 +26,13 @@ func (s *Service) RefreshForClient(ctx context.Context, refresh, clientID string
 }
 
 func (o *oauthStore) refresh(ctx context.Context, presented, clientID string) (Pair, error) {
+	// A refresh token from before the AppTown rename (forge_rt_…) belongs to
+	// a delegation whose stored scopes (forge:…) no longer grant anything
+	// but reads. It is refused like an unknown one, so the client authorises
+	// again rather than renewing into a connection whose writes fail.
+	if !strings.HasPrefix(presented, RefreshPrefix) {
+		return Pair{}, ErrUnknownRefresh
+	}
 	var pair Pair
 	var outcome error
 	now := o.now().UTC()

@@ -59,31 +59,31 @@ apptown version 2>/dev/null | head -1 || true
 
 step "start apptownd: internal sign-in, its own PostgreSQL"
 addr=127.0.0.1:47777
-export FORGE_URL=http://$addr
+export APPTOWN_URL=http://$addr
 cd "$root"
 APPTOWN_AUTH=internal APPTOWN_ADDR=$addr APPTOWN_CONSOLE_ADDR= APPTOWN_DATA="$work/data" \
 	apptownd > "$work/apptownd.log" 2>&1 &
 apptownd_pid=$!
 trap 'kill "$apptownd_pid" 2>/dev/null; wait "$apptownd_pid" 2>/dev/null || true' EXIT
-until curl -fsS "$FORGE_URL/healthz" >/dev/null 2>&1; do
+until curl -fsS "$APPTOWN_URL/healthz" >/dev/null 2>&1; do
 	kill -0 "$apptownd_pid" 2>/dev/null || { echo "apptownd exited:"; tail -30 "$work/apptownd.log"; exit 1; }
 	[ $(( $(date +%s) - start )) -lt $budget ] || { echo "over budget waiting for /healthz"; tail -30 "$work/apptownd.log"; exit 1; }
 	sleep 2
 done
-curl -fsS "$FORGE_URL/healthz"
+curl -fsS "$APPTOWN_URL/healthz"
 
 step "the first administrator, with the setup token"
 token=$(cat "$work/data/setup-token")
 password=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
 curl -fsS -c "$work/cookies" -H 'Content-Type: application/json' \
-	-d "{\"username\":\"admin\",\"password\":\"$password\",\"setupToken\":\"$token\"}" "$FORGE_URL/api/v1/auth/bootstrap" >/dev/null
+	-d "{\"username\":\"admin\",\"password\":\"$password\",\"setupToken\":\"$token\"}" "$APPTOWN_URL/api/v1/auth/bootstrap" >/dev/null
 [ ! -e "$work/data/setup-token" ] || { echo "the setup token outlived setup"; exit 1; }
 
 step "a CLI token"
-FORGE_TOKEN=$(curl -fsS -b "$work/cookies" -H 'Content-Type: application/json' \
-	-d '{"name":"stranger","purpose":"cli"}' "$FORGE_URL/api/v1/tokens" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
-export FORGE_TOKEN
-[ -n "$FORGE_TOKEN" ] || { echo "no token"; exit 1; }
+APPTOWN_TOKEN=$(curl -fsS -b "$work/cookies" -H 'Content-Type: application/json' \
+	-d '{"name":"stranger","purpose":"cli"}' "$APPTOWN_URL/api/v1/tokens" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+export APPTOWN_TOKEN
+[ -n "$APPTOWN_TOKEN" ] || { echo "no token"; exit 1; }
 apptown projects >/dev/null
 
 step "a project from a one-page app"
@@ -98,8 +98,8 @@ git -C "$app" bundle create "$work/hello.bundle" --all 2>/dev/null
 apptown new hello --from "$work/hello.bundle"
 
 step "a change, and its preview"
-change_response=$(curl -fsS -H "Authorization: Bearer $FORGE_TOKEN" -H 'Content-Type: application/json' \
-	-d '{"title":"first look","type":"feature","body":"","workflow":""}' "$FORGE_URL/api/v1/projects/hello/changes")
+change_response=$(curl -fsS -H "Authorization: Bearer $APPTOWN_TOKEN" -H 'Content-Type: application/json' \
+	-d '{"title":"first look","type":"feature","body":"","workflow":""}' "$APPTOWN_URL/api/v1/projects/hello/changes")
 change=$(printf '%s\n' "$change_response" | python3 -c '
 import json, sys, uuid
 value = json.load(sys.stdin)["change"]["id"]

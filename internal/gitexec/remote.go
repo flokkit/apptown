@@ -43,7 +43,7 @@ func remoteFlags(pin string) []string {
 
 // askpass is the helper git asks for a user name and a password. It reads
 // the password from its own environment, so the value is in no file.
-const askpass = "#!/bin/sh\ncase \"$1\" in\nUsername*) echo forge ;;\n*) printf '%s\\n' \"$FORGE_GIT_PASSWORD\" ;;\nesac\n"
+const askpass = "#!/bin/sh\ncase \"$1\" in\nUsername*) echo forge ;;\n*) printf '%s\\n' \"$APPTOWN_GIT_PASSWORD\" ;;\nesac\n"
 
 // remoteCommand is git against r, hardened as the hub's commands are (only
 // PATH and an empty HOME from the environment, no system or global config),
@@ -66,7 +66,7 @@ func remoteCommand(ctx context.Context, dir string, r Remote, args []string) (*e
 			done()
 			return nil, func() {}, err
 		}
-		cmd.Env = append(cmd.Env, "GIT_ASKPASS="+helper, "FORGE_GIT_PASSWORD="+r.Password)
+		cmd.Env = append(cmd.Env, "GIT_ASKPASS="+helper, "APPTOWN_GIT_PASSWORD="+r.Password)
 	}
 	return cmd, done, nil
 }

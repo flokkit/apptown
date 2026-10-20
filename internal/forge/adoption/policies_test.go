@@ -167,22 +167,22 @@ func TestPolicyInstallationValidatesBeforeWritingAndChecksSuppression(t *testing
 	db := testDB(t)
 	pid := policyProject(t, db, "policy-install")
 	ps := newPolicies(db)
-	if err := ps.Install(t.Context(), pid, "invalid", "", "requireStepBefore", map[string]any{"step": "scan", "before": "deploy"}, "", "forge-system"); !errors.Is(err, wow.ErrPolicyDeclaration) {
+	if err := ps.Install(t.Context(), pid, "invalid", "", "requireStepBefore", map[string]any{"step": "scan", "before": "deploy"}, "", "apptown-system"); !errors.Is(err, wow.ErrPolicyDeclaration) {
 		t.Fatalf("no-op policy installed: %v", err)
 	}
 	if p := policiesOf(t, db, pid); len(p) != 0 { // pid is the only project
 		t.Fatalf("no-op policy installed: %+v", p)
 	}
 	options := map[string]any{"uses": "deploy", "requires": "scan"}
-	if err := ps.Install(t.Context(), pid, "valid", "", "requireStepBefore", options, "", "forge-system"); err != nil {
+	if err := ps.Install(t.Context(), pid, "valid", "", "requireStepBefore", options, "", "apptown-system"); err != nil {
 		t.Fatal(err)
 	}
 	policyExec(t, db, `CREATE FUNCTION veto_policy_install() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	policyExec(t, db, `CREATE TRIGGER veto_policy_install BEFORE INSERT OR UPDATE ON policies FOR EACH ROW EXECUTE FUNCTION veto_policy_install()`)
-	if err := ps.Install(t.Context(), pid, "valid", "new words", "requireStepBefore", options, "", "forge-system"); err == nil {
+	if err := ps.Install(t.Context(), pid, "valid", "new words", "requireStepBefore", options, "", "apptown-system"); err == nil {
 		t.Fatal("suppressed policy update returned success")
 	}
-	if err := ps.Install(t.Context(), pid, "second", "", "requireStepBefore", options, "", "forge-system"); err == nil {
+	if err := ps.Install(t.Context(), pid, "second", "", "requireStepBefore", options, "", "apptown-system"); err == nil {
 		t.Fatal("suppressed policy insert returned success")
 	}
 	if p := policiesOf(t, db, pid); len(p) != 1 || p[0].Name != "valid" || p[0].Description != "" {

@@ -8,7 +8,7 @@ import { Capacity } from './Capacity'
 
 const fig = (value: number): Figure => ({ known: true, value })
 const none = (reason: string): Figure => ({ known: false, value: 0, reason })
-const count = (forge: number, other: number) => ({ forge, other })
+const count = (apptown: number, other: number) => ({ apptown, other })
 
 // A target's capacity says what a fixed host has, what its containers are
 // promised and use, and its disk, with a reading it could not make as
@@ -22,8 +22,8 @@ const render = (c: Partial<TargetCapacity>) => {
 describe("a target's capacity", () => {
   it('shows a fixed host: what it has, what is promised and used, and its disk', () => {
     const html = render({
-      memory: { total: fig(8 * 2 ** 30), promised: { sum: { forge: fig(2 ** 30), other: fig(2 ** 28) }, limited: count(3, 1), unlimited: count(27, 2), unread: count(0, 0) }, inUse: { forge: fig(2 ** 30), other: fig(2 ** 27) }, overcommitted: false },
-      cpu: { total: fig(8), promised: { sum: { forge: fig(4.5), other: fig(0) }, limited: count(5, 0), unlimited: count(25, 3), unread: count(0, 1) }, overcommitted: false },
+      memory: { total: fig(8 * 2 ** 30), promised: { sum: { apptown: fig(2 ** 30), other: fig(2 ** 28) }, limited: count(3, 1), unlimited: count(27, 2), unread: count(0, 0) }, inUse: { apptown: fig(2 ** 30), other: fig(2 ** 27) }, overcommitted: false },
+      cpu: { total: fig(8), promised: { sum: { apptown: fig(4.5), other: fig(0) }, limited: count(5, 0), unlimited: count(25, 3), unread: count(0, 1) }, overcommitted: false },
       disk: { total: fig(719e9), free: fig(512e9), low: false, refuses: false },
     })
     expect(html).toContain('A fixed host: it does not grow.')
@@ -35,8 +35,8 @@ describe("a target's capacity", () => {
   })
   it('says unknown, never 0, for what it could not read, and flags overcommit and a low disk', () => {
     const html = render({
-      memory: { total: fig(2 ** 30), promised: { sum: { forge: fig(2 ** 31), other: fig(0) }, limited: count(2, 0), unlimited: count(0, 0), unread: count(0, 0) }, inUse: { forge: none('docker stats: cannot connect'), other: none('docker stats: cannot connect') }, overcommitted: true },
-      cpu: { total: none('docker info: cannot connect'), promised: { sum: { forge: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, overcommitted: false },
+      memory: { total: fig(2 ** 30), promised: { sum: { apptown: fig(2 ** 31), other: fig(0) }, limited: count(2, 0), unlimited: count(0, 0), unread: count(0, 0) }, inUse: { apptown: none('docker stats: cannot connect'), other: none('docker stats: cannot connect') }, overcommitted: true },
+      cpu: { total: none('docker info: cannot connect'), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, overcommitted: false },
       disk: { total: fig(100e9), free: fig(6e9), low: true, refuses: false },
     })
     expect(html).toContain('title="docker stats: cannot connect">unknown')
@@ -76,7 +76,7 @@ describe("a target's capacity", () => {
   // same numbers in a table, a deployment linking to its page, and unknown
   // host use never called free.
   it('draws a host that reports its holders as bars with a table of the same numbers', () => {
-    const memory = { total: fig(8 * 2 ** 30), promised: { sum: { forge: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, hostUsed: none('not one machine'), overcommitted: false }
+    const memory = { total: fig(8 * 2 ** 30), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, hostUsed: none('not one machine'), overcommitted: false }
     const html = render({
       memory, cpu: { ...memory, total: fig(8), hostUsed: undefined },
       disk: { total: fig(400e9), free: fig(300e9), low: false, refuses: false },
@@ -102,7 +102,7 @@ describe("a target's capacity", () => {
   })
 
   it('says a CPU promise is partial when a limit was not read, never 0 or unpromised', () => {
-    const memory = { total: fig(8 * 2 ** 30), promised: { sum: { forge: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, hostUsed: fig(2 ** 30), overcommitted: false }
+    const memory = { total: fig(8 * 2 ** 30), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, hostUsed: fig(2 ** 30), overcommitted: false }
     const html = render({
       memory, cpu: { ...memory, total: fig(8), hostUsed: undefined },
       tenants: [

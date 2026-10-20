@@ -19,7 +19,7 @@ import (
 // the tar's SHA-256; the same content makes the same blob.
 func TestAnInputIsAContentAddressedBlob(t *testing.T) {
 	t.Parallel()
-	in, err := NewInput("/forge/in/bin/forge", []byte("#!/bin/sh\n"), 0o755)
+	in, err := NewInput("/apptown/in/bin/apptown", []byte("#!/bin/sh\n"), 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,11 +38,11 @@ func TestAnInputIsAContentAddressedBlob(t *testing.T) {
 	if _, err := tr.Next(); err != io.EOF {
 		t.Fatalf("the blob holds more than one entry: %v", err)
 	}
-	again, _ := NewInput("/forge/in/elsewhere", []byte("#!/bin/sh\n"), 0o755)
+	again, _ := NewInput("/apptown/in/elsewhere", []byte("#!/bin/sh\n"), 0o755)
 	if again.Blob != in.Blob {
 		t.Fatal("the same content made another blob")
 	}
-	other, _ := NewInput("/forge/in/bin/forge", []byte("#!/bin/sh\n"), 0o644)
+	other, _ := NewInput("/apptown/in/bin/apptown", []byte("#!/bin/sh\n"), 0o644)
 	if other.Blob == in.Blob {
 		t.Fatal("another mode made the same blob")
 	}
@@ -52,7 +52,7 @@ func TestAnInputIsAContentAddressedBlob(t *testing.T) {
 // declared results, not the bytes carried beside them.
 func TestARequestsDigestCoversItsInputsAndResults(t *testing.T) {
 	t.Parallel()
-	in, _ := NewInput("/forge/in/steering.md", []byte("steer"), 0o644)
+	in, _ := NewInput("/apptown/in/steering.md", []byte("steer"), 0o644)
 	base := TaskSpec{Key: "k", Image: "i", Argv: []string{"a"}, Admission: Admission{Profile: "p", Network: NetworkNone},
 		Inputs: []Input{in}, Results: []Result{{Name: "verdict", Path: "/work/.forge/review.json", Max: 10, Fresh: true}}}
 	named := base
@@ -62,7 +62,7 @@ func TestARequestsDigestCoversItsInputsAndResults(t *testing.T) {
 	}
 	changes := map[string]func(*TaskSpec){
 		"blob":  func(s *TaskSpec) { s.Inputs = []Input{{Blob: strings.Repeat("a", 64), Path: in.Path, Mode: in.Mode}} },
-		"path":  func(s *TaskSpec) { s.Inputs = []Input{{Blob: in.Blob, Path: "/forge/in/other.md", Mode: in.Mode}} },
+		"path":  func(s *TaskSpec) { s.Inputs = []Input{{Blob: in.Blob, Path: "/apptown/in/other.md", Mode: in.Mode}} },
 		"mode":  func(s *TaskSpec) { s.Inputs = []Input{{Blob: in.Blob, Path: in.Path, Mode: 0o755}} },
 		"fresh": func(s *TaskSpec) { s.Results = []Result{{Name: "verdict", Path: "/work/.forge/review.json", Max: 10}} },
 		"max": func(s *TaskSpec) {
@@ -82,35 +82,35 @@ func TestARequestsDigestCoversItsInputsAndResults(t *testing.T) {
 func TestInvalidInputsAreRefused(t *testing.T) {
 	t.Parallel()
 	blob := strings.Repeat("ab", 32)
-	ok := Input{Blob: blob, Path: "/forge/in/a.md", Mode: 0o644}
-	if err := ValidInputs([]Input{ok, {Blob: blob, Path: "/forge/in/bin/forge", Mode: 0o755}}); err != nil {
+	ok := Input{Blob: blob, Path: "/apptown/in/a.md", Mode: 0o644}
+	if err := ValidInputs([]Input{ok, {Blob: blob, Path: "/apptown/in/bin/apptown", Mode: 0o755}}); err != nil {
 		t.Fatalf("valid inputs refused: %v", err)
 	}
 	many := make([]Input, MaxInputs+1)
 	for i := range many {
-		many[i] = Input{Blob: blob, Path: "/forge/in/f" + strings.Repeat("x", i), Mode: 0o644}
+		many[i] = Input{Blob: blob, Path: "/apptown/in/f" + strings.Repeat("x", i), Mode: 0o644}
 	}
 	over := func(n int, size int64) []Input {
 		var out []Input
 		for i := range n {
-			out = append(out, Input{Blob: blob, Path: "/forge/in/f" + strings.Repeat("x", i), Mode: 0o644, size: size})
+			out = append(out, Input{Blob: blob, Path: "/apptown/in/f" + strings.Repeat("x", i), Mode: 0o644, size: size})
 		}
 		return out
 	}
 	cases := map[string][]Input{
-		"the inputs root itself": {{Blob: blob, Path: "/forge/in", Mode: 0o644}},
-		"outside /forge/in":      {{Blob: blob, Path: "/work/a.md", Mode: 0o644}},
+		"the inputs root itself": {{Blob: blob, Path: "/apptown/in", Mode: 0o644}},
+		"outside /apptown/in":    {{Blob: blob, Path: "/work/a.md", Mode: 0o644}},
 		"a sibling of the root":  {{Blob: blob, Path: "/forge/input/a", Mode: 0o644}},
-		"a parent escape":        {{Blob: blob, Path: "/forge/in/../../etc/passwd", Mode: 0o644}},
-		"not clean":              {{Blob: blob, Path: "/forge/in//a", Mode: 0o644}},
+		"a parent escape":        {{Blob: blob, Path: "/apptown/in/../../etc/passwd", Mode: 0o644}},
+		"not clean":              {{Blob: blob, Path: "/apptown/in//a", Mode: 0o644}},
 		"relative":               {{Blob: blob, Path: "forge/in/a", Mode: 0o644}},
-		"a mount separator":      {{Blob: blob, Path: "/forge/in/a:rw", Mode: 0o644}},
-		"no blob":                {{Path: "/forge/in/a", Mode: 0o644}},
-		"not a digest":           {{Blob: "../x", Path: "/forge/in/a", Mode: 0o644}},
-		"another mode":           {{Blob: blob, Path: "/forge/in/a", Mode: 0o600}},
-		"a setuid mode":          {{Blob: blob, Path: "/forge/in/a", Mode: 0o4755}},
+		"a mount separator":      {{Blob: blob, Path: "/apptown/in/a:rw", Mode: 0o644}},
+		"no blob":                {{Path: "/apptown/in/a", Mode: 0o644}},
+		"not a digest":           {{Blob: "../x", Path: "/apptown/in/a", Mode: 0o644}},
+		"another mode":           {{Blob: blob, Path: "/apptown/in/a", Mode: 0o600}},
+		"a setuid mode":          {{Blob: blob, Path: "/apptown/in/a", Mode: 0o4755}},
 		"twice at one path":      {ok, ok},
-		"inside another input":   {ok, {Blob: blob, Path: "/forge/in/a.md/b", Mode: 0o644}},
+		"inside another input":   {ok, {Blob: blob, Path: "/apptown/in/a.md/b", Mode: 0o644}},
 		"too many":               many,
 		"one too large":          over(1, MaxInputBytes+1),
 		"too large together":     over(9, 60<<20),
@@ -120,10 +120,10 @@ func TestInvalidInputsAreRefused(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	if _, err := NewInput("/forge/in/big", make([]byte, MaxInputBytes+1), 0o644); err == nil {
+	if _, err := NewInput("/apptown/in/big", make([]byte, MaxInputBytes+1), 0o644); err == nil {
 		t.Error("an input over the limit was prepared")
 	}
-	spec := TaskSpec{Key: "k", Image: "i", Argv: []string{"a"}, Admission: Admission{Profile: "p", Network: NetworkNone}, Inputs: cases["outside /forge/in"]}
+	spec := TaskSpec{Key: "k", Image: "i", Argv: []string{"a"}, Admission: Admission{Profile: "p", Network: NetworkNone}, Inputs: cases["outside /apptown/in"]}
 	if err := spec.Validate(time.Now()); err == nil {
 		t.Error("a request with an invalid input was valid")
 	}
@@ -132,7 +132,7 @@ func TestInvalidInputsAreRefused(t *testing.T) {
 func TestInvalidResultsAreRefused(t *testing.T) {
 	t.Parallel()
 	ok := []Result{{Name: "verdict", Path: "/work/.forge/review.json", Max: 256 << 10, Fresh: true},
-		{Name: "transcript", Path: "/forge/state/sessions/s.jsonl", Max: 32 << 20}}
+		{Name: "transcript", Path: "/apptown/state/sessions/s.jsonl", Max: 32 << 20}}
 	if err := ValidResults(ok); err != nil {
 		t.Fatalf("valid results refused: %v", err)
 	}
@@ -142,11 +142,11 @@ func TestInvalidResultsAreRefused(t *testing.T) {
 	}
 	cases := map[string][]Result{
 		"the tree itself":       {{Name: "a", Path: "/work", Max: 1}},
-		"the state itself":      {{Name: "a", Path: "/forge/state", Max: 1}},
+		"the state itself":      {{Name: "a", Path: "/apptown/state", Max: 1}},
 		"outside both":          {{Name: "a", Path: "/etc/passwd", Max: 1}},
-		"an input":              {{Name: "a", Path: "/forge/in/steering.md", Max: 1}},
+		"an input":              {{Name: "a", Path: "/apptown/in/steering.md", Max: 1}},
 		"a parent escape":       {{Name: "a", Path: "/work/../etc/passwd", Max: 1}},
-		"a state escape":        {{Name: "a", Path: "/forge/state/../in/x", Max: 1}},
+		"a state escape":        {{Name: "a", Path: "/apptown/state/../in/x", Max: 1}},
 		"relative":              {{Name: "a", Path: "work/a", Max: 1}},
 		"no name":               {{Path: "/work/a", Max: 1}},
 		"a name with a slash":   {{Name: "a/b", Path: "/work/a", Max: 1}},
@@ -190,7 +190,7 @@ func TestACapturedResultIsOneOfFourStates(t *testing.T) {
 // has them, before creating anything; the worker claims both.
 func TestInputsAndResultsNeedABackendThatClaimsThem(t *testing.T) {
 	t.Parallel()
-	in, _ := NewInput("/forge/in/a", []byte("a"), 0o644)
+	in, _ := NewInput("/apptown/in/a", []byte("a"), 0o644)
 	spec := TaskSpec{Key: "k", Image: "i", Argv: []string{"a"}, Admission: Admission{Profile: "p", Network: NetworkNone}}
 	withInputs, withResults := spec, spec
 	withInputs.Inputs = []Input{in}

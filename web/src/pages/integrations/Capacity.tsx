@@ -24,10 +24,10 @@ const usd = (v: number) => `$${v.toFixed(2)}`
 // the whole.
 function countWords(r: Resource): string {
   const p = r.promised
-  const words = [`${p.limited.forge + p.limited.other} limited`]
-  const unlimited = p.unlimited.forge + p.unlimited.other
+  const words = [`${p.limited.apptown + p.limited.other} limited`]
+  const unlimited = p.unlimited.apptown + p.unlimited.other
   if (unlimited > 0) words.push(`${unlimited} with no limit`)
-  const unread = p.unread.forge + p.unread.other
+  const unread = p.unread.apptown + p.unread.other
   if (unread > 0) words.push(`${unread} with a limit not read (the sum is partial)`)
   return words.join(', ')
 }
@@ -39,13 +39,13 @@ function ResourceRow({ label, r, format }: { label: string; r: Resource; format:
       <td>{label}</td>
       <td><FigureWords f={r.total} format={format} /></td>
       <td>
-        <FigureWords f={p.forge} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}
+        <FigureWords f={p.apptown} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}
         <FigureWords f={p.other} format={format} /> <span className="muted">other</span>
         <div className="muted">{countWords(r)}</div>
         {r.overcommitted && <span className="chip pending" title="the limits add up to more than the host has; limits are caps, so this is allowed">overcommitted</span>}
       </td>
       <td>
-        {r.inUse ? <><FigureWords f={r.inUse.forge} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}<FigureWords f={r.inUse.other} format={format} /> <span className="muted">other</span></> : <span className="muted">—</span>}
+        {r.inUse ? <><FigureWords f={r.inUse.apptown} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}<FigureWords f={r.inUse.other} format={format} /> <span className="muted">other</span></> : <span className="muted">—</span>}
       </td>
     </tr>
   )

@@ -40,7 +40,7 @@ func TestAPrincipalIsRecordedByHowItActed(t *testing.T) {
 func TestAnActorIsShownAsThePersonIsNow(t *testing.T) {
 	t.Parallel()
 	p := idstest.N(1)
-	system := func(name string) bool { return name == "forge-system" }
+	system := func(name string) bool { return name == "apptown-system" }
 	for _, c := range []struct {
 		a    Actor
 		now  Person
@@ -51,7 +51,7 @@ func TestAnActorIsShownAsThePersonIsNow(t *testing.T) {
 		{Actor{Principal: p, Name: "alice via console/c1"}, Person{Known: true, Name: "alicia"}, "alicia (then alice) via console/c1"},
 		{Actor{Principal: p, Name: "alice"}, Person{Known: true, Name: "alice", Disabled: true}, "alice (disabled)"},
 		{Actor{Principal: p, Name: "alice"}, Person{Known: true, Name: "alice", Removed: true}, "former user (was: alice)"},
-		{Actor{Name: "forge-system"}, Person{}, "forge-system"},
+		{Actor{Name: "apptown-system"}, Person{}, "apptown-system"},
 		{Actor{Name: "run/0193"}, Person{}, "run/0193"},
 		{Actor{Name: "bob"}, Person{}, "unrecorded actor (written as: bob)"},
 	} {

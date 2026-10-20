@@ -117,11 +117,11 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 				// users row is minted — a console is an instrument the person
 				// wields, not a person (the open-mode sediment of one row per
 				// chat session was a bug in institutional terms).
-				if cs, ok := a.Console.Identity(r.Header.Get("X-Forge-Session-Token")); ok {
+				if cs, ok := a.Console.Identity(r.Header.Get("X-AppTown-Session-Token")); ok {
 					opener, _ := ids.Parse(cs.Labels[conversation.OpenerLabel])
 					id = &authIdentity{PrincipalID: opener, User: cs.Actor + " via console/" + cs.SessionID, Role: "member", Via: "console",
 						ProjectID: conversation.FromLabels(cs.Labels).ProjectID, ConsoleID: cs.SessionID}
-				} else if who, err := inferenceIdentityFor(a).AuthenticateStep(r.Context(), r.Header.Get("X-Forge-Session-Token")); err == nil {
+				} else if who, err := inferenceIdentityFor(a).AuthenticateStep(r.Context(), r.Header.Get("X-AppTown-Session-Token")); err == nil {
 					// A step agent: same species as a console session. The
 					// token is checked as the inference gateway checks it
 					// (the attempt is live, its owner enabled). The
@@ -140,7 +140,7 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 		}
 		if id == nil && a.cfg.authMode == "trusted-header" {
 			if a.cfg.authProxySecret != "" &&
-				subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Forge-Proxy-Secret")), []byte(a.cfg.authProxySecret)) == 1 {
+				subtle.ConstantTimeCompare([]byte(r.Header.Get("X-AppTown-Proxy-Secret")), []byte(a.cfg.authProxySecret)) == 1 {
 				if user := r.Header.Get(a.cfg.authHeader); user != "" {
 					// A name the forge would read as something else
 					// ("x via console/y", "run/3") is refused, not recorded.
@@ -158,12 +158,12 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 			}
 		}
 		if id == nil { // open mode
-			user := r.Header.Get("X-Forge-Actor")
+			user := r.Header.Get("X-AppTown-Actor")
 			if user == "" {
 				user = "anonymous"
 			}
 			if err := identity.ValidName(user); err != nil {
-				writeErr(w, 401, "X-Forge-Actor is not usable as a name: %s", fault.Message(err))
+				writeErr(w, 401, "X-AppTown-Actor is not usable as a name: %s", fault.Message(err))
 				return
 			}
 			role, person := a.ensureUser(r.Context(), user)

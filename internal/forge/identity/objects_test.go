@@ -59,17 +59,17 @@ func TestGrantObject(t *testing.T) {
 
 func TestDelegationBounds(t *testing.T) {
 	t.Parallel()
-	d := Delegation{ID: idstest.N(3), User: "alice", Scopes: []string{"forge:user:read", "forge:change:create"}}
+	d := Delegation{ID: idstest.N(3), User: "alice", Scopes: []string{"apptown:user:read", "apptown:change:create"}}
 	pr := access.Principal{Kind: "user", Name: "alice", Role: "member", Via: "session"}
 	got := d.Bounds(pr, time.Now())
 	if got.Name != pr.Name || got.Role != pr.Role || got.Via != "oauth" || got.DelegationID != idstest.N(3) || !reflect.DeepEqual(got.Scopes, d.Scopes) {
 		t.Fatalf("bound: %+v", got)
 	}
 	got.Scopes[0] = "changed"
-	if d.Scopes[0] != "forge:user:read" {
+	if d.Scopes[0] != "apptown:user:read" {
 		t.Fatal("scope slice shared with caller")
 	}
-	pr.Via, pr.DelegationID, pr.Scopes = "oauth", idstest.N(2), []string{"forge:user:read"}
+	pr.Via, pr.DelegationID, pr.Scopes = "oauth", idstest.N(2), []string{"apptown:user:read"}
 	if got := d.Bounds(pr, time.Now()); !reflect.DeepEqual(got.Scopes, pr.Scopes) {
 		t.Fatalf("widened prior delegation: %+v", got)
 	}
@@ -95,7 +95,7 @@ func TestDelegationBounds(t *testing.T) {
 func TestDelegationRotation(t *testing.T) {
 	t.Parallel()
 	now := time.Now().UTC().Truncate(time.Second)
-	d := Delegation{Scopes: []string{"forge:user:read"}, refresh: refreshCredential{hash: HashToken("presented"), expires: now.Add(time.Hour)}}
+	d := Delegation{Scopes: []string{"apptown:user:read"}, refresh: refreshCredential{hash: HashToken("presented"), expires: now.Add(time.Hour)}}
 	if _, err := d.Rotate("wrong", time.Now()); !errors.Is(err, ErrUnknownRefresh) || d.refresh.revoked.Valid {
 		t.Fatal("wrong credential consumed the token")
 	}
@@ -104,7 +104,7 @@ func TestDelegationRotation(t *testing.T) {
 		t.Fatalf("rotation: %+v %v", pair, err)
 	}
 	pair.Scopes[0] = "changed"
-	if d.Scopes[0] != "forge:user:read" {
+	if d.Scopes[0] != "apptown:user:read" {
 		t.Fatal("pair shares scopes")
 	}
 	d.ExpiresAt = stamp.Of(now.Add(-time.Hour))

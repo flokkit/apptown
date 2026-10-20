@@ -65,7 +65,7 @@ asks, `POST /v1/inputs/check`, before it uploads a source, so a refusal
 leaves no workspace), copied into
 the task's folder (`state/task-inputs/<key>`) and mounted read-only at their
 paths. Each workspace has a state folder (`state/workspace-state/<key>`)
-mounted writable at `/forge/state`, beside the tree, so nothing in it is
+mounted writable at `/apptown/state`, beside the tree, so nothing in it is
 collected; it goes with the workspace. A task's declared result files are
 read once its container has exited, confined as a check's report is, and
 kept durably with the task (`state/task-results/<key>`) until it is released,
@@ -85,7 +85,7 @@ daemon before any exists; the network is made when it is ensured, the
 services (each with the worker's service limits, by default 1 CPU, 1 GiB
 and 256 processes, waited on until healthy)
 and the daemon (`internal/dind`: the task's own limits, its tree at the same
-path, its client state in `/forge/state/docker`, no cache or socket of the
+path, its client state in `/apptown/state/docker`, no cache or socket of the
 worker's, the privileged mark first) when it first starts, and never again.
 A failed start removes what it made and is refused with the reason. When
 the task exits its daemon and services are stopped, confirmed by Docker,

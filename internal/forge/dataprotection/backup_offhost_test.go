@@ -155,7 +155,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 		t.Fatalf("without a store: %+v", disk)
 	}
 	p, err := w.s.DeploymentProtection(ctx, w.pid, "main")
-	if err != nil || p.OffHost || p.Note != OnForgeDiskNote || p.Operations == nil || p.Operations.Rehearsal.Reason != "on-forge-disk" || !strings.Contains(p.RehearsalNote, "backup store") {
+	if err != nil || p.OffHost || p.Note != OnForgeDiskNote || p.Operations == nil || p.Operations.Rehearsal.Reason != "on-apptown-disk" || !strings.Contains(p.RehearsalNote, "backup store") {
 		t.Fatalf("protection without a store: %+v %+v %v", p, p.Operations, err)
 	}
 	if len(p.Items) != 2 || p.Items[1].Copy != CopyFresh {

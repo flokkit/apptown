@@ -158,7 +158,7 @@ func (s *Service) endNothingToChange(ctx context.Context, expected *Run) error {
 			account = "nothing to change"
 		}
 		reason := strings.ToUpper(account[:1]) + account[1:]
-		return s.abandonments.abandonIn(ctx, tx, Abandonment{ChangeID: run.ChangeID, Who: "forge-system", Reason: reason, closedAs: ClosedNothingToChange}, run.ProjectID, closure)
+		return s.abandonments.abandonIn(ctx, tx, Abandonment{ChangeID: run.ChangeID, Who: "apptown-system", Reason: reason, closedAs: ClosedNothingToChange}, run.ProjectID, closure)
 	})
 	return err
 }

@@ -162,7 +162,7 @@ func TestACollectedCommitHoldsNoGeneratedFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := filepath.Join(t.TempDir(), "result.bundle")
-	tip, err := driver.Collect(context.Background(), spec.Key, base, "forge: the task's work", result)
+	tip, err := driver.Collect(context.Background(), spec.Key, base, "apptown: the task's work", result)
 	if err != nil || tip == "" {
 		t.Fatalf("collecting: %q %v", tip, err)
 	}

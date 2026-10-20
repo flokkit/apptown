@@ -141,12 +141,12 @@ func (c *Call) changeOut(ch *workflow.Change, run *workflow.Run) map[string]any 
 }
 func (c *Call) gitURL(p *project.Project) string { return c.BaseURL + "/git/" + p.Slug }
 func gitWithTicket(args ...string) []string {
-	helper := `!f() { echo username=x-forge-ticket; echo "password=$FORGE_GIT_TICKET"; }; f`
+	helper := `!f() { echo username=x-apptown-ticket; echo "password=$APPTOWN_GIT_TICKET"; }; f`
 	return append([]string{"git", "-c", "credential.helper=", "-c", "credential.helper=" + helper}, args...)
 }
 func shellWithTicket(tok string, args ...string) string {
 	q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
-	parts := []string{"FORGE_GIT_TICKET=" + q(tok)}
+	parts := []string{"APPTOWN_GIT_TICKET=" + q(tok)}
 	for _, a := range gitWithTicket(args...) {
 		if a == "<dir>" {
 			parts = append(parts, a)

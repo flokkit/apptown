@@ -35,7 +35,7 @@ func TestWorkAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 		code string
 	}{
 		{access.Principal{Kind: "user", Name: "outsider", Via: "token"}, access.DenyOutsideScope},
-		{access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}}, access.DenyDelegationNarrow},
+		{access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}}, access.DenyDelegationNarrow},
 		{access.Principal{Kind: "instrument", Name: "run/1", Instrument: "run", Via: "run", ProjectID: a.ProjectID}, access.DenyDelegationNarrow},
 		{access.Principal{Kind: "instrument", Name: "owner via console/c", Person: "owner", Instrument: "console", Via: "console", ProjectID: a.OtherProjectID}, access.DenyOutsideScope},
 	} {
@@ -98,7 +98,7 @@ func TestChangeSendBackAuthorityWithoutRoute(t *testing.T) {
 	a := stepAuthorityFixture(t, ApprovalConfig{})
 	for _, pr := range []access.Principal{
 		{Kind: "user", Name: "outsider", Via: "token"},
-		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}},
+		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}},
 		{Kind: "instrument", Name: "owner via console/c", Person: "owner", Instrument: "console", Via: "console", ProjectID: a.OtherProjectID},
 		{Kind: "instrument", Name: "run/1", Instrument: "run", Via: "run", ProjectID: a.ProjectID},
 	} {
@@ -149,7 +149,7 @@ func TestRunAdvanceAuthorityBeforePreparationWithoutRoute(t *testing.T) {
 	eventsBefore := countEvents(storedEvents(t, a.DB), ofKind("run.done", "advance.ok", "run.ready"))
 	for _, pr := range []access.Principal{
 		{Kind: "user", Name: "outsider", Via: "token"},
-		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}},
+		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}},
 		{Kind: "instrument", Name: "owner via console/c", Person: "owner", Instrument: "console", Via: "console", ProjectID: a.OtherProjectID},
 	} {
 		_, err := a.Work.Advance(stepVerifiedContext(context.Background(), pr), a.RunID)
@@ -381,7 +381,7 @@ func TestUpliftAuthorityWithoutDispatcher(t *testing.T) {
 			for _, caller := range []context.Context{
 				ctx,
 				stepVerifiedContext(ctx, access.Principal{Kind: "user", Name: "outsider", Via: "token"}),
-				stepVerifiedContext(ctx, access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}}),
+				stepVerifiedContext(ctx, access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}}),
 			} {
 				if ch, err := open(caller, in); ch != nil || err == nil {
 					t.Fatalf("unauthorized admission: %+v %v", ch, err)

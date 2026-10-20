@@ -21,10 +21,10 @@ func TestAdministrativeCommandsPreserveOpenAndProxyModes(t *testing.T) {
 			h := a.Handler()
 			call := func(who string, trusted bool) *httptest.ResponseRecorder {
 				r := httptest.NewRequest("POST", "/api/v1/groups", strings.NewReader(`{"name":"managed"}`))
-				r.Header.Set("X-Forge-Actor", who)
+				r.Header.Set("X-AppTown-Actor", who)
 				if trusted {
 					r.Header.Set("X-Test-User", who)
-					r.Header.Set("X-Forge-Proxy-Secret", "test-proxy-secret")
+					r.Header.Set("X-AppTown-Proxy-Secret", "test-proxy-secret")
 				}
 				w := httptest.NewRecorder()
 				h.ServeHTTP(w, r)

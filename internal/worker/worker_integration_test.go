@@ -104,7 +104,7 @@ func TestIntegrationAWorkerInItsOwnContainer(t *testing.T) {
 			t.Fatalf("the task: exit %d %v", code, err)
 		}
 		bundle := filepath.Join(t.TempDir(), "result.bundle")
-		tip, err := driver.Collect(ctx, spec.Key, base, "forge: made in a container", bundle)
+		tip, err := driver.Collect(ctx, spec.Key, base, "apptown: made in a container", bundle)
 		if err != nil || tip == "" {
 			t.Fatalf("collecting: %q %v", tip, err)
 		}

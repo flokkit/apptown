@@ -78,7 +78,7 @@ func TestStepInterruptStopsTheStepsContainers(t *testing.T) {
 	// A step that is not running cannot be interrupted.
 	_, done := admittedRunnerStep(t, a, "ir-done", "review2", "agent/review", true)
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/steps/%d/interrupt", done), strings.NewReader("{}"))
-	req.Header.Set("X-Forge-Actor", "bls")
+	req.Header.Set("X-AppTown-Actor", "bls")
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 409 {

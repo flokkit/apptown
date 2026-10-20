@@ -49,7 +49,7 @@ func TestIntegrationTheForgeMergesMainBeforeAWorkerStep(t *testing.T) {
 	if len(parents) != 3 || parents[2] != main {
 		t.Fatalf("the step was given %v, not a merge of main", parents)
 	}
-	if who := gittest.Run(t, hub, "log", "-1", "--format=%an %cn %s", given); who != "forge forge Merge main into "+w.source.Branch {
+	if who := gittest.Run(t, hub, "log", "-1", "--format=%an %cn %s", given); who != "apptown apptown Merge main into "+w.source.Branch {
 		t.Fatalf("the merge is %q", who)
 	}
 	if got := w.branchFile(t, "saw-main.txt"); got != "saw main" {

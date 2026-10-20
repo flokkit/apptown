@@ -34,7 +34,7 @@ func TestWorkRetryHTTPUsesVerifiedActorAndRunner(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{}`))
 	r.SetPathValue("id", stepID.String())
-	r.Header.Set("X-Forge-Actor", "owner")
+	r.Header.Set("X-AppTown-Actor", "owner")
 	out := httptest.NewRecorder()
 	httpapi.NewRuns(a.Work, nil).StepRun(out, r.WithContext(callerContext(r)))
 	if out.Code != 401 {

@@ -58,7 +58,7 @@ func TestABuildContextCannotFollowALinkOutOfTheTree(t *testing.T) {
 // The helper blocks after a dummy login is written, so killing it models a
 // worker lost in the middle of an authenticated image preparation.
 func TestImagePreparationHelper(t *testing.T) {
-	marker := os.Getenv("FORGE_REVIEW_LOGIN_MARKER")
+	marker := os.Getenv("APPTOWN_REVIEW_LOGIN_MARKER")
 	if marker == "" {
 		t.Skip("subprocess helper")
 	}
@@ -75,7 +75,7 @@ func TestImagePreparationHelper(t *testing.T) {
 		}
 		return nil, nil
 	}, execution.ImageRequest{Pull: "example.test/app:1", Registry: &execution.RegistryLogin{Host: "example.test", Username: "test", Token: "dummy"}, Timeout: time.Minute,
-		Scratch: os.Getenv("FORGE_REVIEW_SCRATCH")})
+		Scratch: os.Getenv("APPTOWN_REVIEW_SCRATCH")})
 }
 
 func TestARestartRemovesInterruptedRegistryCredentials(t *testing.T) {
@@ -88,7 +88,7 @@ func TestARestartRemovesInterruptedRegistryCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	child := exec.Command(os.Args[0], "-test.run=^TestImagePreparationHelper$")
-	child.Env = append(os.Environ(), "FORGE_REVIEW_LOGIN_MARKER="+marker, "FORGE_REVIEW_SCRATCH="+scratch)
+	child.Env = append(os.Environ(), "APPTOWN_REVIEW_LOGIN_MARKER="+marker, "APPTOWN_REVIEW_SCRATCH="+scratch)
 	if err := child.Start(); err != nil {
 		t.Fatal(err)
 	}

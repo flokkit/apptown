@@ -84,7 +84,7 @@ func TestPreviewCommandChecksCurrentAuthorityAndTransports(t *testing.T) {
 		return a.Preview.RequestChangePreview(verifiedContext(ctx, pr), selection)
 	}
 	before := host.calls
-	for _, pr := range []access.Principal{{}, {Kind: "user", Name: "outsider", Via: "session"}, {Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}}} {
+	for _, pr := range []access.Principal{{}, {Kind: "user", Name: "outsider", Via: "session"}, {Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}}} {
 		out, err := call(pr)
 		if err == nil || out != (preview.Result{}) || host.calls != before {
 			t.Fatalf("unauthorized %+v: %+v %v", pr, out, err)
@@ -140,7 +140,7 @@ func TestPreviewCommandChecksCurrentAuthorityAndTransports(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/console/preview-session/preview", nil)
 	r.SetPathValue("sid", session.ID)
-	r.Header.Set("X-Forge-Session-Token", session.Token)
+	r.Header.Set("X-AppTown-Session-Token", session.Token)
 	response := httptest.NewRecorder()
 	httpapi.NewConsolePreview(a.Console, a.Preview, a.DB, a.cfg.publicHost, nil).ConsolePreview(response, r.WithContext(callerContext(r)))
 	var consoleOut struct {

@@ -97,7 +97,7 @@ func buildMCPServer(a *App) (_ http.Handler, err error) {
 			err = fmt.Errorf("%v", r)
 		}
 	}()
-	server := mcp.NewServer(&mcp.Implementation{Name: "forge", Version: mcpServerVersion}, &mcp.ServerOptions{
+	server := mcp.NewServer(&mcp.Implementation{Name: "apptown", Version: mcpServerVersion}, &mcp.ServerOptions{
 		Instructions: mcpapi.Instructions(),
 		// Tools only, and the list never changes while the process runs.
 		Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}},
@@ -134,7 +134,7 @@ func (a *App) serveMCP(w http.ResponseWriter, r *http.Request) { a.mcpDoor.Serve
 // token opens this door (design/subsystems/mcp.md §3 "Personal tokens", "Open mode"): no session cookie (a
 // browser's ambient credential must not be reusable by a local agent), no
 // console or run token (instruments work on one project through their own
-// port), and no open-mode X-Forge-Actor header — open mode and attributable
+// port), and no open-mode X-AppTown-Actor header — open mode and attributable
 // remote access are incompatible, so an open-mode forge's MCP surface is
 // token-only too. A bad or missing token is a 401 with the realm named so a
 // client knows which credential to ask for.

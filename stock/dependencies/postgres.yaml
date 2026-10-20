@@ -75,7 +75,7 @@ local:
       set -eu
       rm -f /tmp/forge-ready
       if [ "$POSTGRES_USER" = postgres ]; then
-        echo "forge: the user postgres is the server's own; the app's user needs another name"
+        echo "apptown: the user postgres is the server's own; the app's user needs another name"
         exit 1
       fi
       docker-entrypoint.sh postgres &
@@ -96,7 +96,7 @@ local:
         # which can never stop being one. That user becomes the server's
         # postgres, reached only from inside this container, and the app gets
         # an ordinary user of the same name.
-        echo "forge: making $POSTGRES_USER an ordinary owner of $POSTGRES_DB"
+        echo "apptown: making $POSTGRES_USER an ordinary owner of $POSTGRES_DB"
         # An interrupted start may have left the temporary superuser.
       sql -U "$POSTGRES_USER" -d postgres -c 'drop role if exists forge_convert' -c 'create role forge_convert superuser login'
         sql -U forge_convert -d postgres -v user="$POSTGRES_USER" <<'SQL'
@@ -108,7 +108,7 @@ local:
       fi
       sql -U postgres -d postgres -c 'drop role if exists forge_convert' 2>/dev/null
       if [ "$(echo "select count(*) from pg_database where datname = :'db'" | sql -U postgres -d postgres -tA -v db="$POSTGRES_DB")" != 1 ]; then
-        echo "forge: the database $POSTGRES_DB is not on this server"
+        echo "apptown: the database $POSTGRES_DB is not on this server"
         exit 1
       fi
       sql -U postgres -d "$POSTGRES_DB" -v user="$POSTGRES_USER" -v password="$POSTGRES_PASSWORD" -v db="$POSTGRES_DB" -v superuser="$APP_SUPERUSER" <<'SQL'
@@ -121,10 +121,10 @@ local:
       alter database :"db" owner to :"user";
       revoke all on database :"db" from public;
       alter schema public owner to :"user";
-      select set_config('forge.user', :'user', false) \g /dev/null
+      select set_config('apptown.user', :'user', false) \g /dev/null
       do $$
       declare
-        app text := current_setting('forge.user');
+        app text := current_setting('apptown.user');
         r record;
       begin
         for r in select n.nspname from pg_namespace n

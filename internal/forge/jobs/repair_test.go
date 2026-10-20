@@ -182,7 +182,7 @@ func TestInterruptedJobsPreserveRiverStateAndRemainExecutable(t *testing.T) {
 		if err := json.Unmarshal(entries[0].Payload, &payload); err != nil {
 			t.Fatal(err)
 		}
-		if payload.JobID != id || payload.CurrentClient != q.Client.ID() || payload.PreviousClient != old.AttemptedBy[len(old.AttemptedBy)-1] || payload.Key != key || payload.Outcome != string(row.State) || payload.AttemptBefore != old.Attempt || payload.AttemptAfter != row.Attempt || payload.Reason == "" || entries[0].Actor != "forge-system" || !entries[0].ProjectID.IsZero() || strings.Contains(string(entries[0].Payload), "original") {
+		if payload.JobID != id || payload.CurrentClient != q.Client.ID() || payload.PreviousClient != old.AttemptedBy[len(old.AttemptedBy)-1] || payload.Key != key || payload.Outcome != string(row.State) || payload.AttemptBefore != old.Attempt || payload.AttemptAfter != row.Attempt || payload.Reason == "" || entries[0].Actor != "apptown-system" || !entries[0].ProjectID.IsZero() || strings.Contains(string(entries[0].Payload), "original") {
 			t.Fatalf("receipt: %+v", entries)
 		}
 	}

@@ -31,7 +31,7 @@ func noArgs(f func() error) func([]string) error {
 var sections = []section{
 	{
 		heading: "promised through 1.x (stock/docs/guides/compatibility.md); the loop stays with the work (-y auto-approves, --no-follow fires and returns):",
-		footer: "  (project defaults: -p, else $FORGE_PROJECT, else cwd basename)\n" +
+		footer: "  (project defaults: -p, else $APPTOWN_PROJECT, else cwd basename)\n" +
 			"  (--json on new, fix, quick, plan, build, land, show, changes, wait, approve, release, complain and\n" +
 			"   version prints one JSON document and never follows or asks; stock/docs/guides/cli-json.md)",
 		commands: []command{
@@ -58,7 +58,7 @@ var sections = []section{
 				`                                        (--accept-uncopied-data: release though AppTown cannot copy the data it holds now;` + "\n" +
 				`                                        --accept-unchecked-copy: fill a deployment that starts from a copy not shown to come back whole)` + "\n" +
 				`  release <project-slug> [-domain host] release what landed on main to the intranet and follow its log`, cmdRelease},
-			{[]string{"complain"}, `  complain "<what happened>" [-why W] [-wish W] [-about forge|way-of-working|project]
+			{[]string{"complain"}, `  complain "<what happened>" [-why W] [-wish W] [-about apptown|way-of-working|project]
                                         file a complaint (default: about AppTown itself, platform friction)`, cmdComplain},
 			{[]string{"version", "-version", "--version"}, `  version                               this CLI's version and AppTown's`, cmdVersion},
 		},
@@ -117,7 +117,7 @@ var sections = []section{
                                         print a one-time link that lets a person set their own password (admin)`, cmdInvite},
 			{[]string{"password-link"}, `  password-link <username> [--days N]  print a one-time password reset link for an account that has a password (admin)`, cmdPasswordLink},
 			{[]string{"token"}, `  token create <name> --purpose cli|agent [-u user] [-r role] · token list · token revoke <name>
-                                        personal access tokens (admin); cli = your own command line (FORGE_TOKEN),
+                                        personal access tokens (admin); cli = your own command line (APPTOWN_TOKEN),
                                         agent = a coding agent's MCP connection (may not approve, land or administer)`, cmdToken},
 			{[]string{"export-project"}, `  export-project -p <proj> > <file>     a project with its history and chats, to move it to another forge (admin)`, cmdExportProject},
 			{[]string{"secret"}, `  secret set <NAME> < file · secret remove <NAME>
@@ -247,7 +247,7 @@ func usage() { fmt.Print(helpText()) }
 
 func helpText() string {
 	var b strings.Builder
-	b.WriteString("forge — command-line client for an AppTown instance\n")
+	b.WriteString("apptown — command-line client for an AppTown instance\n")
 	for _, s := range sections {
 		b.WriteString("\n")
 		if s.heading != "" {
@@ -260,7 +260,7 @@ func helpText() string {
 			b.WriteString(s.footer + "\n")
 		}
 	}
-	b.WriteString("\nenvironment: FORGE_URL (default http://localhost:7777), FORGE_USER (default $USER)\n")
+	b.WriteString("\nenvironment: APPTOWN_URL (default http://localhost:7777), APPTOWN_USER (default $USER)\n")
 	b.WriteString("exit 4: a change was sent but its outcome is unknown (the answer was lost); look before trying again\n")
 	return b.String()
 }

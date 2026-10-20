@@ -332,7 +332,7 @@ six seconds; past that they answer 429 with `Retry-After`.
 Start AppTown with `-public-host` set to the origin people reach it by,
 scheme included (for example `https://forge.example.com`). Addresses AppTown hands out are built on it, such as the one coding agents sign in to.
 On this AppTown, coding agents connect at {forge:mcp} and the `apptown` CLI uses
-`FORGE_URL={forge:origin}`. Sign-in, invite and password reset links, and
+`APPTOWN_URL={forge:origin}`. Sign-in, invite and password reset links, and
 coding agents' sign-in all use this one address. A bare name
 (`forge.example.com`) is still accepted, but it does not say whether AppTown is reached over https: AppTown then counts as https only when it
 serves TLS itself or a `-tier-domain` is https, and the guides say "your

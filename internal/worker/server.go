@@ -159,7 +159,7 @@ type TaskRequest struct {
 	// kept in the task's own folder until it is released.
 	Files []execution.File `json:"files,omitempty"`
 	// Inputs name blobs sent to this worker, presented read-only under
-	// /forge/in; Results are files captured when the task exits (task_io.go).
+	// /apptown/in; Results are files captured when the task exits (task_io.go).
 	Inputs  []execution.Input  `json:"inputs,omitempty"`
 	Results []execution.Result `json:"results,omitempty"`
 	// Images are OCI image layouts a release build leaves in its
@@ -534,7 +534,7 @@ func (s *Server) workspaceResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if staged != "" {
-		if out, err := s.git(r.Context(), key, "-c", "user.name=forge", "-c", "user.email=forge@localhost", "commit", "-q", "-m", message); err != nil {
+		if out, err := s.git(r.Context(), key, "-c", "user.name=apptown", "-c", "user.email=apptown@localhost", "commit", "-q", "-m", message); err != nil {
 			http.Error(w, "committing the task's work: "+out, http.StatusInternalServerError)
 			return
 		}
@@ -565,7 +565,7 @@ func (s *Server) workspaceResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Forge-Head", head)
+	w.Header().Set("AppTown-Head", head)
 	f, err := os.Open(out.Name())
 	if err != nil {
 		httpError(w, err)
@@ -691,7 +691,7 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 		}
 		spec.Private, spec.Network = nil, p.Network
 		if p.Spec.Daemon {
-			spec.Env = append(slices.Clone(spec.Env), "DOCKER_HOST=tcp://dind:2375", "DOCKER_CONFIG="+dockerClient, "BUILDX_BUILDER=forge")
+			spec.Env = append(slices.Clone(spec.Env), "DOCKER_HOST=tcp://dind:2375", "DOCKER_CONFIG="+dockerClient, "BUILDX_BUILDER=apptown")
 		}
 	}
 	// The files are kept in the task's own folder from before it is created

@@ -11,7 +11,7 @@ describe('browser error reports', () => {
 
   it('carry no invite or password reset token', async () => {
     const sent: string[] = []
-    window.history.replaceState(null, '', '/invite/forge_invite_CANARY0123abcd')
+    window.history.replaceState(null, '', '/invite/apptown_invite_CANARY0123abcd')
     Sentry.init({
       ...reportingOptions('https://public@errors.example.test/1'),
       transport: () => ({
@@ -19,12 +19,12 @@ describe('browser error reports', () => {
         flush: async () => true,
       }),
     })
-    Sentry.addBreadcrumb({ category: 'navigation', data: { from: '/', to: '/invite/forge_invite_CANARY0123abcd' } })
-    Sentry.captureException(new Error('render fault on /invite/forge_invite_CANARY0123abcd'))
+    Sentry.addBreadcrumb({ category: 'navigation', data: { from: '/', to: '/invite/apptown_invite_CANARY0123abcd' } })
+    Sentry.captureException(new Error('render fault on /invite/apptown_invite_CANARY0123abcd'))
     await Sentry.flush(2000)
     expect(sent.length).toBeGreaterThan(0)
     const all = sent.join('\n')
-    expect(all).toContain('/invite/forge_invite_[removed]')
+    expect(all).toContain('/invite/apptown_invite_[removed]')
     expect(all).not.toContain('CANARY0123abcd')
   })
 

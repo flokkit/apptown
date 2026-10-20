@@ -26,10 +26,10 @@ describe('live links in a guide', () => {
   // Prose gets a link to the forge's own address; code gets the address as
   // text to copy; a placeholder inside a link's text is not nested in another.
   it('name the forge that knows its address', () => {
-    const el = show('Connect at {forge:mcp}.\n\n`FORGE_URL={forge:origin}`\n\n```\ngit remote add forge {forge:git}/demo\n```\n\n[the forge {forge:origin}](/projects)', known)
+    const el = show('Connect at {forge:mcp}.\n\n`APPTOWN_URL={forge:origin}`\n\n```\ngit remote add forge {forge:git}/demo\n```\n\n[the forge {forge:origin}](/projects)', known)
     const links = [...el.querySelectorAll('a')].map((a) => [a.getAttribute('href'), a.textContent])
     expect(links).toEqual([['https://forge.example/mcp/user', 'https://forge.example/mcp/user'], ['/projects', 'the forge https://forge.example']])
-    expect(el.querySelector('p code')?.textContent).toBe('FORGE_URL=https://forge.example')
+    expect(el.querySelector('p code')?.textContent).toBe('APPTOWN_URL=https://forge.example')
     expect(el.querySelector('pre code')?.textContent).toBe('git remote add forge https://forge.example/git/demo\n')
     expect(el.textContent).not.toContain('{forge:')
   })
@@ -37,10 +37,10 @@ describe('live links in a guide', () => {
   // Without a public address nothing links anywhere: prose says so in words
   // and code shows where the address goes.
   it('say so in words when the forge does not know its address', () => {
-    const el = show('Open {forge:origin}. Connect at {forge:mcp}.\n\n```\nclaude mcp add forge {forge:mcp}\n```', unknown)
+    const el = show('Open {forge:origin}. Connect at {forge:mcp}.\n\n```\nclaude mcp add apptown {forge:mcp}\n```', unknown)
     expect(el.querySelectorAll('a')).toHaveLength(0)
     expect(el.querySelector('p')?.textContent).toBe("Open AppTown's address. Connect at AppTown's address followed by /mcp/user.")
-    expect(el.querySelector('pre code')?.textContent).toBe("claude mcp add forge <AppTown's address>/mcp/user\n")
+    expect(el.querySelector('pre code')?.textContent).toBe("claude mcp add apptown <AppTown's address>/mcp/user\n")
   })
 
   // An unknown name is left as written, for the docs test to catch.

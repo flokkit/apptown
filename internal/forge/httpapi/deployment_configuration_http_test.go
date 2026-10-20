@@ -111,7 +111,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 		if sourceReads != beforePolicyReads {
 			t.Fatalf("refused policy %s reached source preparation: %d -> %d", tc.value, beforePolicyReads, sourceReads)
 		}
-		if refused.Code != tc.status || refused.Header().Get("X-Forge-Deny-Code") != tc.code {
+		if refused.Code != tc.status || refused.Header().Get("X-AppTown-Deny-Code") != tc.code {
 			t.Fatalf("policy %s: %d %s %v", tc.value, refused.Code, refused.Body.String(), refused.Header())
 		}
 		if tc.code != "" && (!strings.Contains(refused.Body.String(), "protected-maintenance") || !strings.Contains(refused.Body.String(), "use compatible-update")) {

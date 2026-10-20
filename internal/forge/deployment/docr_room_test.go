@@ -268,7 +268,7 @@ func TestTheTargetsCheckReadsTheRegistrysPlan(t *testing.T) {
 		"room": {func(f *dofake.API) { f.SeedRegistry("forge-test", "basic", 5, "a", "b") },
 			RegistryReading{Registry: "forge-test", Tier: "basic", Included: 5, Used: 2}, "container registry forge-test: 2 of 5 repositories used, basic tier"},
 		"gate": {func(f *dofake.API) { f.SeedRegistry("forge-test", "basic", 5, "a", digitalocean.GateRepository) },
-			RegistryReading{Registry: "forge-test", Tier: "basic", Included: 5, Used: 2, Gate: true}, "2 of 5 repositories used, basic tier (one holds AppTown's gate image, forge_gate)"},
+			RegistryReading{Registry: "forge-test", Tier: "basic", Included: 5, Used: 2, Gate: true}, "2 of 5 repositories used, basic tier (one holds AppTown's gate image, apptown_gate)"},
 		"unreadable": {func(f *dofake.API) {
 			f.SeedRegistry("forge-test", "basic", 5, "a")
 			f.Fail("GET", "/v2/registry/subscription", 500)

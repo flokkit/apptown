@@ -68,7 +68,7 @@ func TestAdoptionFreezesWhatAProjectIsOn(t *testing.T) {
 	// A release: the block and the land workflow move on in the library;
 	// the project does not.
 	body, _ := a.Ways.BlockVersionBody(t.Context(), terse.ID, terse.LatestVersion)
-	if err := a.Ways.BumpBlock(t.Context(), terse.ID, body+"\nA new sentence.\n", "", "forge-system", terse.Name); err != nil {
+	if err := a.Ways.BumpBlock(t.Context(), terse.ID, body+"\nA new sentence.\n", "", "apptown-system", terse.Name); err != nil {
 		t.Fatal(err)
 	}
 	workflows, err := a.Ways.Workflows(t.Context())

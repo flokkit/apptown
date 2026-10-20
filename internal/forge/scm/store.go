@@ -312,7 +312,7 @@ func (p *preparedMerge) reportUnresolved(ctx context.Context, reason string) err
 		if current != p.intent || current.State != Pending {
 			return struct{}{}, ErrChanged
 		}
-		return struct{}{}, audit.At(p.now()).RecordIn(ctx, tx, "forge-system", p.source.ProjectID, "landing.merge-unknown", fmt.Sprintf("run %d", p.source.RunID), struct {
+		return struct{}{}, audit.At(p.now()).RecordIn(ctx, tx, "apptown-system", p.source.ProjectID, "landing.merge-unknown", fmt.Sprintf("run %d", p.source.RunID), struct {
 			Operation string `json:"operation"`
 			Expected  string `json:"expected"`
 			Note      string `json:"note"`

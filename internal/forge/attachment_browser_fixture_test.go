@@ -30,7 +30,7 @@ func att_upload(a *App, changeID ids.ID, filename string, body []byte) *httptest
 	_ = mw.Close()
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/changes/%d/attachments", changeID), &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
-	req.Header.Set("X-Forge-Actor", "bls")
+	req.Header.Set("X-AppTown-Actor", "bls")
 	w := httptest.NewRecorder()
 	a.Handler().ServeHTTP(w, req)
 	return w
@@ -38,7 +38,7 @@ func att_upload(a *App, changeID ids.ID, filename string, body []byte) *httptest
 
 func att_json(a *App, method, path string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, nil)
-	req.Header.Set("X-Forge-Actor", "bls")
+	req.Header.Set("X-AppTown-Actor", "bls")
 	w := httptest.NewRecorder()
 	a.Handler().ServeHTTP(w, req)
 	return w

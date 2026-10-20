@@ -31,8 +31,8 @@ func newCallWorld(t *testing.T) *callWorld {
 
 func (w *callWorld) open(t *testing.T, pending time.Duration) ids.ID {
 	t.Helper()
-	id, err := w.requests.OpenCall(context.Background(), Request{Kind: "forge", Actor: "forge-system", ProjectID: w.project, Provider: "native", Model: "judge"},
-		Entry{Kind: "narrative", ProjectID: w.project, Actor: "forge-system", Provider: "native", Model: "judge"}, pending)
+	id, err := w.requests.OpenCall(context.Background(), Request{Kind: "forge", Actor: "apptown-system", ProjectID: w.project, Provider: "native", Model: "judge"},
+		Entry{Kind: "narrative", ProjectID: w.project, Actor: "apptown-system", Provider: "native", Model: "judge"}, pending)
 	if err != nil {
 		t.Fatal(err)
 	}

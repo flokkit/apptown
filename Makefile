@@ -117,7 +117,7 @@ check-docs:             ## current guides state the current rule: no dated names
 	python3 scripts/names-check.py
 
 # The UI tour (site/tour): a small example team's AppTown, photographed in
-# both themes by Playwright (FORGE_PLAYWRIGHT_MODULE, default the nightly
+# both themes by Playwright (APPTOWN_PLAYWRIGHT_MODULE, default the nightly
 # tier's install: scripts/nightly-tiers.sh prepare). Local only, not CI; run
 # it and commit site/tour before tagging a release (release.sh checks).
 tour: web                ## the UI tour's screenshots and page, from site/tour/tour.yaml; commit site/tour before a release

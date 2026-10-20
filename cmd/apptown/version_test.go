@@ -39,7 +39,7 @@ func TestTheCLIStatesItsProtocolAndNamesBothVersions(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	if !strings.Contains(out, "forge CLI "+version.String()+" (CLI protocol 1)") || !strings.Contains(out, "dev-forgeforge01") {
+	if !strings.Contains(out, "apptown CLI "+version.String()+" (CLI protocol 1)") || !strings.Contains(out, "dev-forgeforge01") {
 		t.Fatalf("version names both sides:\n%s", out)
 	}
 	if len(protocols) != 1 || protocols[0] != "1" {

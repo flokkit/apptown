@@ -25,13 +25,13 @@ have stopped.
 
 | Signal | Meaning and limitations |
 | --- | --- |
-| HTTP span and `forge_http_request_duration` | API, MCP, Git and OAuth paths after authentication reaches the span wrapper. Route-pattern name, method, status and caller/project attributes where available. SPA and earlier middleware refusals are not covered. The span also carries the actual URL path. |
+| HTTP span and `apptown_http_request_duration` | API, MCP, Git and OAuth paths after authentication reaches the span wrapper. Route-pattern name, method, status and caller/project attributes where available. SPA and earlier middleware refusals are not covered. The span also carries the actual URL path. |
 | `inference.request` | An admitted inference call, provider/model, workload scope, outcome and observed token counts. Authentication/provider refusals before admission do not create this span. No body or credential is deliberately attached. |
-| `forge_inference_requests_total`, `forge_inference_tokens_total`, `forge_inference_request_duration` | Admitted calls, provider-reported token categories and elapsed duration. Tokens are usage, not money. Missing usage does not establish zero consumption. Cache/input accounting remains provider-shaped; do not sum overlapping categories. |
+| `apptown_inference_requests_total`, `apptown_inference_tokens_total`, `apptown_inference_request_duration` | Admitted calls, provider-reported token categories and elapsed duration. Tokens are usage, not money. Missing usage does not establish zero consumption. Cache/input accounting remains provider-shaped; do not sum overlapping categories. |
 | `workflow.step` with queued/running children | Agent and review attempts, including preflight failures. These are independent root traces, not all workflow step kinds. Harness outcome and step settlement outcome are separate. |
-| `forge_step_attempts_total` | One sample per observed attempt settlement, including attempts that never started a harness. Labels are step type and outcome. |
-| `forge_step_duration` | Time from the initial harness start to attempt settlement; includes later review wrap-up and settlement work. It is not solely model latency. Only attempts whose harness started contribute. |
-| `forge_step_queued` | Measured slot wait, with step-type label and a zero bucket. Preflight failures before slot acquisition do not contribute. |
+| `apptown_step_attempts_total` | One sample per observed attempt settlement, including attempts that never started a harness. Labels are step type and outcome. |
+| `apptown_step_duration` | Time from the initial harness start to attempt settlement; includes later review wrap-up and settlement work. It is not solely model latency. Only attempts whose harness started contribute. |
+| `apptown_step_queued` | Measured slot wait, with step-type label and a zero bucket. Preflight failures before slot acquisition do not contribute. |
 | `job.<operation>` | Each River execution attempt, with operation, attempt, job ID and key; no dedicated job counter/histogram yet. |
 | Standard logs | Complete lines are exported alongside existing output. Severity is inferred from text. The standard logger has no context, so these records have no request trace ID. |
 

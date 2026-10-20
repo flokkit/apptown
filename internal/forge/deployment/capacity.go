@@ -38,7 +38,7 @@ func (f Figure) or(other Figure) bool { return f.Known && other.Known }
 // Split is a figure for the forge's own containers and for the rest of
 // what runs on the host.
 type Split struct {
-	Forge Figure `json:"forge"`
+	Forge Figure `json:"apptown"`
 	Other Figure `json:"other"`
 }
 
@@ -55,7 +55,7 @@ type Promised struct {
 
 // Count is a number of containers, the forge's and the rest.
 type Count struct {
-	Forge int `json:"forge"`
+	Forge int `json:"apptown"`
 	Other int `json:"other"`
 }
 

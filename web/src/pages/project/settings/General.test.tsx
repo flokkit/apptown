@@ -85,7 +85,7 @@ describe('project settings form', () => {
     let conflict = true
     const reread = vi.fn()
     const f = mount(() => conflict
-      ? new Response(JSON.stringify({ error: 'settings moved' }), { status: 409, headers: { 'X-Forge-Deny-Code': 'settings-moved' } })
+      ? new Response(JSON.stringify({ error: 'settings moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
       : new Response(JSON.stringify(project('theirs', 'Mine', 4))), reread)
     await f.render(project('ours', 'Shop', 2))
     await act(async () => { type(f.inputs()[0], 'Mine') })

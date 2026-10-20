@@ -83,11 +83,11 @@ func (r *Runtime) provision(in console.Launch) error {
 		"--add-host", "host.docker.internal:host-gateway",
 		"-v", work,
 		"-v", in.Dir + ":" + console.Mount + ":ro",
-		"-v", cache + ":/forge-cache",
-		"-e", "npm_config_cache=/forge-cache/npm",
-		"-e", "GOMODCACHE=/forge-cache/gomod",
-		"-e", "GOCACHE=/forge-cache/gobuild",
-		"-e", "UV_CACHE_DIR=/forge-cache/uv",
+		"-v", cache + ":/apptown-cache",
+		"-e", "npm_config_cache=/apptown-cache/npm",
+		"-e", "GOMODCACHE=/apptown-cache/gomod",
+		"-e", "GOCACHE=/apptown-cache/gobuild",
+		"-e", "UV_CACHE_DIR=/apptown-cache/uv",
 		"-e", "HOME=" + console.Mount + "/pi-home",
 		"-e", "TERM=xterm-256color",
 		"-e", "PI_SKIP_VERSION_CHECK=1",
@@ -111,7 +111,7 @@ func (r *Runtime) provision(in console.Launch) error {
 			return fmt.Errorf("preparing console Docker: %w", err)
 		}
 		args = append(args, "--network", dindName(in.ID), "-e", "DOCKER_HOST=tcp://dind:2375",
-			"-e", "DOCKER_CONFIG=/console/docker-client", "-e", "BUILDX_BUILDER=forge")
+			"-e", "DOCKER_CONFIG=/console/docker-client", "-e", "BUILDX_BUILDER=apptown")
 	}
 	// PID1 is sleep; pi runs under tmux via the launcher.
 	// "--" ends Docker's options: nothing from the launch can become one.
@@ -138,7 +138,7 @@ const cacheClass = dockerlabel.Class + "=console-cache"
 func cacheName(id string) string { return "forge-cache-console-" + id }
 
 // cacheVolume is the volume a session's container and daemon mount at
-// /forge-cache: forge-cache, shared, or with CachePerSession the session's
+// /apptown-cache: forge-cache, shared, or with CachePerSession the session's
 // own, made labelled with the session if it is not there.
 func (r *Runtime) cacheVolume(id string) (string, error) {
 	if !r.cfg.CachePerSession {

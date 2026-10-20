@@ -37,7 +37,7 @@ func TestTheForgesClockDecidesWhatExpires(t *testing.T) {
 	}
 	verifier := strings.Repeat("v", 43)
 	sum := sha256.Sum256([]byte(verifier))
-	b := BrowserAuthorization{User: "ops", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "forge:user:read", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
+	b := BrowserAuthorization{User: "ops", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "apptown:user:read", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
 	prepared, err := s.PrepareConsent(ctx, b)
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestARevokedTokenIsKeptADayByTheForgesClock(t *testing.T) {
 	sum := sha256.Sum256([]byte(verifier))
 	connect := func() (CodeExchange, Pair) {
 		t.Helper()
-		b := BrowserAuthorization{User: "alice", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "forge:user:read", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
+		b := BrowserAuthorization{User: "alice", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "apptown:user:read", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
 		prepared, err := s.PrepareConsent(ctx, b)
 		if err != nil {
 			t.Fatal(err)
@@ -180,7 +180,7 @@ func TestEveryLifetimeIsJudgedByTheForgesClock(t *testing.T) {
 	}
 	verifier := strings.Repeat("v", 43)
 	sum := sha256.Sum256([]byte(verifier))
-	browser := BrowserAuthorization{User: "ops", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "forge:user:read", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
+	browser := BrowserAuthorization{User: "ops", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "apptown:user:read", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
 	code := func() (PreparedConsent, string) {
 		t.Helper()
 		prepared, err := s.PrepareConsent(ctx, browser)

@@ -71,15 +71,15 @@ func TestAnImageIsCapturedConfined(t *testing.T) {
 		max  int64
 		want execution.ImageCapture
 	}{
-		{"/forge/state/out/good", size, execution.ImageCapture{State: execution.ResultPresent, Size: size}},
-		{"/forge/state/out/nothing", size, execution.ImageCapture{State: execution.ResultAbsent}},
-		{"/forge/state/out/file/under", size, execution.ImageCapture{State: execution.ResultAbsent}},
-		{"/forge/state/out/big", size - 1, execution.ImageCapture{State: execution.ResultTooLarge, Size: size}},
-		{"/forge/state/out/inner-link", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
-		{"/forge/state/out/linked", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
-		{"/forge/state/via/elsewhere", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
-		{"/forge/state/out/file", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedNotFolder}},
-		{"/forge/state/out/pipe", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedNotRegular}},
+		{"/apptown/state/out/good", size, execution.ImageCapture{State: execution.ResultPresent, Size: size}},
+		{"/apptown/state/out/nothing", size, execution.ImageCapture{State: execution.ResultAbsent}},
+		{"/apptown/state/out/file/under", size, execution.ImageCapture{State: execution.ResultAbsent}},
+		{"/apptown/state/out/big", size - 1, execution.ImageCapture{State: execution.ResultTooLarge, Size: size}},
+		{"/apptown/state/out/inner-link", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
+		{"/apptown/state/out/linked", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
+		{"/apptown/state/via/elsewhere", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
+		{"/apptown/state/out/file", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedNotFolder}},
+		{"/apptown/state/out/pipe", 1 << 20, execution.ImageCapture{State: execution.ResultRefused, Reason: execution.RefusedNotRegular}},
 	}
 	for i, c := range cases {
 		dest := filepath.Join(t.TempDir(), "copy")
@@ -101,7 +101,7 @@ func TestAnImageIsCapturedConfined(t *testing.T) {
 	}
 	// What was copied is every file of the layout, as it was.
 	dest := filepath.Join(t.TempDir(), "copy")
-	if _, err := s.captureImage("ws", execution.ImageResult{Name: "img", Path: "/forge/state/out/good", Max: size}, dest); err != nil {
+	if _, err := s.captureImage("ws", execution.ImageResult{Name: "img", Path: "/apptown/state/out/good", Max: size}, dest); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{"oci-layout", "index.json", filepath.Join("blobs", "sha256", strings.Repeat("a", 64))} {

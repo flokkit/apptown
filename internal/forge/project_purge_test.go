@@ -481,7 +481,7 @@ func TestConsoleRejectedTokenDoesNotBlockProjectDeletion(t *testing.T) {
 	for _, handler := range []func(http.ResponseWriter, *http.Request){httpapi.NewConsolePreview(a.Console, a.Preview, a.DB, a.cfg.publicHost, nil).ConsolePreview, httpapi.NewConsoleInvocation(a.Console, a.Projects, a.Ways, a.Work, a.changeActions, a.DB, a.cfg.publicHost, nil).ConsoleInvoke, httpapi.NewConsoleChanges(a.Console, a.Work, a.changeActions, a.DB).ConsoleLand, httpapi.NewConsoleChanges(a.Console, a.Work, a.changeActions, a.DB).ConsoleRecheck} {
 		req := httptest.NewRequest("POST", "/api/v1/console/private/preview", nil)
 		req.SetPathValue("sid", s.ID)
-		req.Header.Set("X-Forge-Session-Token", "wrong")
+		req.Header.Set("X-AppTown-Session-Token", "wrong")
 		out := httptest.NewRecorder()
 		handler(out, req)
 		if out.Code != 403 || !s.LastUsed().Equal(used) {

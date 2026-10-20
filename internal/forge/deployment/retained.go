@@ -219,7 +219,7 @@ func (s *Retained) RecordPreviewKeyIn(ctx context.Context, tx *database.Tx, k Re
 	handle := fmt.Sprintf(`{"name":%q,"kind":%q,"connector":%q,"hash":%q,"why":%q}`, k.Name, KindOpenRouterKey, k.Connector, k.Hash, k.Why)
 	_, err := deploymentsql.New(tx.SQL()).InsertRetainedResource(ctx, deploymentsql.InsertRetainedResourceParams{ID: ids.New(k.At),
 		ProjectID: k.ProjectID, Deployment: k.Preview, Need: "AI models key", HandleJson: []byte(handle),
-		RetainedBy: "forge-system", RetainedAt: k.At, Disposition: RetainedOpen.String(),
+		RetainedBy: "apptown-system", RetainedAt: k.At, Disposition: RetainedOpen.String(),
 	})
 	return err
 }

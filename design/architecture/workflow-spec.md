@@ -75,7 +75,7 @@ on:
 
 Built: `manual` (always), `schedule` (30-second resolution, no backfill of
 missed fires, `skipIfActive` default true, fires attributed to
-`forge-system`), `webhook` (the JSON payload becomes the change body). A
+`apptown-system`), `webhook` (the JSON payload becomes the change body). A
 scheduled or webhook fire opens a change and its run so it is visible
 where people look. Not built: `scm` triggers (no SCM adapter) and
 `workflow` as a trigger kind — calling a workflow from another is a

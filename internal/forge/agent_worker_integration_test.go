@@ -58,8 +58,8 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-n=$(( $(cat /forge/state/fake-pi-count 2>/dev/null || echo 0) + 1 ))
-echo "$n" > /forge/state/fake-pi-count
+n=$(( $(cat /apptown/state/fake-pi-count 2>/dev/null || echo 0) + 1 ))
+echo "$n" > /apptown/state/fake-pi-count
 sid=$(head -n 1 "$session" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 PI_INVOCATION="$n"; PI_SESSION="$sid"; PI_PROMPT="$prompt"
 say() {
@@ -321,7 +321,7 @@ func (w *agentWorkerWorld) artifacts(t *testing.T, kind string) map[string]strin
 
 // An agent step on a forge with a worker runs there as one invocation, in
 // the attempt's workspace, with the request the forge admitted: the
-// worker's image, the /forge/in inputs, the declared transcript. Its work
+// worker's image, the /apptown/in inputs, the declared transcript. Its work
 // is published to the change's branch, its written files and typed output
 // are recorded with the pass, its usage once under the invocation, its
 // transcript kept and named by the attempt's receipt, and then the
@@ -330,7 +330,7 @@ func (w *agentWorkerWorld) artifacts(t *testing.T, kind string) map[string]strin
 func TestIntegrationAnAgentStepRunsOnTheWorkerAsOneInvocation(t *testing.T) {
 	t.Parallel()
 	w := newAgentWorkerWorld(t, map[string]any{"output": map[string]any{"kind": "report", "name": "summary"}},
-		map[string]string{"fake-pi.sh": `echo "made on the worker" > made.txt; test -x /forge/in/bin/apptown && test -f /forge/in/steering.md && echo inputs > inputs.txt; say "I made it"`})
+		map[string]string{"fake-pi.sh": `echo "made on the worker" > made.txt; test -x /apptown/in/bin/apptown && test -f /apptown/in/steering.md && echo inputs > inputs.txt; say "I made it"`})
 	w.execute(t, w.a)
 	status, ev := stepStatus(t, w.a, w.step.ID)
 	if status != workflow.StatusPass {
@@ -340,7 +340,7 @@ func TestIntegrationAnAgentStepRunsOnTheWorkerAsOneInvocation(t *testing.T) {
 		t.Fatalf("the published branch holds %q", got)
 	}
 	if got := w.branchFile(t, "inputs.txt"); got != "inputs" {
-		t.Fatalf("the CLI and steering were not at their /forge/in paths: %q", got)
+		t.Fatalf("the CLI and steering were not at their /apptown/in paths: %q", got)
 	}
 	invocations := w.invocations(t, 1)
 	if len(invocations) != 1 || invocations[0].Invocation != "agent" || invocations[0].Observed != tasks.Settled || !invocations[0].Released ||
@@ -740,7 +740,7 @@ func TestIntegrationUsageFromATruncatedOutputIsIncomplete(t *testing.T) {
 func TestIntegrationContinuedSessionsOnTheWorkerReadTheirOwnTranscripts(t *testing.T) {
 	t.Parallel()
 	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `
-printf '{"type":"session","version":3,"id":"%s"}\n{"competing":true}\n' "$PI_SESSION" > /forge/state/sessions/9999-competing_$PI_SESSION.jsonl
+printf '{"type":"session","version":3,"id":"%s"}\n{"competing":true}\n' "$PI_SESSION" > /apptown/state/sessions/9999-competing_$PI_SESSION.jsonl
 say "turn: $PI_PROMPT"`})
 	w.execute(t, w.a)
 	if status, ev := stepStatus(t, w.a, w.step.ID); status != workflow.StatusPass {
@@ -858,7 +858,7 @@ func TestReviewS5NonzeroAgentExitIsErrorWithoutRetry(t *testing.T) {
 // Pi reads the named session file: a second file naming the session is
 // not the history, and does not make it unavailable.
 func TestReviewS5AmbiguousWorkerHistoryIsUnavailable(t *testing.T) {
-	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `say "done"; cp "$session" /forge/state/sessions/9999-competing.jsonl`})
+	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `say "done"; cp "$session" /apptown/state/sessions/9999-competing.jsonl`})
 	w.execute(t, w.a)
 	receipt, err := workflow.StepTranscriptIn(context.Background(), w.a.DB, workflow.RunRef{ID: w.run.ID, ProjectID: w.run.ProjectID}, w.step.ID, 1)
 	if err != nil {

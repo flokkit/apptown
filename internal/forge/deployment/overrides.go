@@ -222,7 +222,7 @@ func (s *Service) clearCommittedOverrides(ctx context.Context, dep *Deployment, 
 			if err != nil || n == 0 {
 				return err
 			}
-			return audit.At(s.now()).RecordIn(ctx, tx, "forge-system", dep.ProjectID, "deployment.resources-override-cleared", dep.Name,
+			return audit.At(s.now()).RecordIn(ctx, tx, "apptown-system", dep.ProjectID, "deployment.resources-override-cleared", dep.Name,
 				map[string]any{"deployment": dep.Name, "part": part, "reason": "the committed profile now matches", "revision": revision})
 		})
 		if err != nil {

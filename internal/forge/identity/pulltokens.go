@@ -10,7 +10,7 @@ import (
 )
 
 // PullTokenPrefix marks a project's read-only git token.
-const PullTokenPrefix = "forge_pull_"
+const PullTokenPrefix = "apptown_pull_"
 
 // ProjectOfPullToken is the project a presented token belongs to, found=false for
 // an unknown token.

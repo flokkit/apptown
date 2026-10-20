@@ -219,13 +219,13 @@ export class HttpError extends Error {
 
 async function failure(res: Response): Promise<HttpError> {
   const body = await res.json().catch(() => ({ error: res.statusText }))
-  return new HttpError(res.status, (body as { error?: string }).error || res.statusText, res.headers.get('X-Forge-Deny-Code') ?? '', body)
+  return new HttpError(res.status, (body as { error?: string }).error || res.statusText, res.headers.get('X-AppTown-Deny-Code') ?? '', body)
 }
 
 async function api<T>(path: string, opts?: RequestInit): Promise<T> {
   // A FormData body carries its own multipart content type (with the
   // boundary the browser picks); setting JSON over it breaks the upload.
-  const headers: Record<string, string> = { 'X-Forge-Actor': currentUser() }
+  const headers: Record<string, string> = { 'X-AppTown-Actor': currentUser() }
   if (opts?.body instanceof Blob) headers['Content-Type'] = 'application/octet-stream'
   else if (!(opts?.body instanceof FormData)) headers['Content-Type'] = 'application/json'
   const res = await fetch(`/api/v1${path}`, { headers, ...opts })
@@ -255,16 +255,16 @@ export const del = <T,>(p: string, body?: unknown) =>
   write<T>(p, { method: 'DELETE', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
 // A plain-text resource (a diff), same door as everything else.
 export async function getText(path: string, init?: { signal?: AbortSignal }): Promise<string> {
-  const res = await fetch(`/api/v1${path}`, { headers: { 'X-Forge-Actor': currentUser() }, signal: init?.signal })
+  const res = await fetch(`/api/v1${path}`, { headers: { 'X-AppTown-Actor': currentUser() }, signal: init?.signal })
   if (!res.ok) throw await failure(res)
   return res.text()
 }
 
 export function currentUser(): string {
-  return localStorage.getItem('forge.user') || 'trial'
+  return localStorage.getItem('apptown.user') || 'trial'
 }
 export function setCurrentUser(u: string) {
-  localStorage.setItem('forge.user', u)
+  localStorage.setItem('apptown.user', u)
 }
 
 export function findingFixPayload(f: {

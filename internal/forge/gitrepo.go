@@ -13,7 +13,7 @@ import (
 // Git-backed state, phase G1 (design/architecture/git-state.md): local-authoritative repos.
 // A project with default_branch != '' is repo-backed: every run gets branch
 // forge/run-<id> checked out as a worktree; the engine commits per completed
-// step with Forge-Run trailers; run completion merges --no-ff into the
+// step with AppTown-Run-Id trailers; run completion merges --no-ff into the
 // default branch. No remote required for any of it.
 
 func (a *App) projectRepoPath(slug string) string {

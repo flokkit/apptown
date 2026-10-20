@@ -120,7 +120,7 @@ func TestIntegrationAWorkerRestartKeepsItsTasksFiles(t *testing.T) {
 	collect := func(spec execution.TaskSpec) {
 		t.Helper()
 		result := filepath.Join(t.TempDir(), "result.bundle")
-		tip, err := driver.Collect(ctx, spec.Key, base, "forge: the task's work", result)
+		tip, err := driver.Collect(ctx, spec.Key, base, "apptown: the task's work", result)
 		if err != nil || tip == "" {
 			t.Fatalf("collecting %s: %q %v", spec.Key, tip, err)
 		}

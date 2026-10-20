@@ -18,7 +18,7 @@ import (
 // registry reads back.
 type ImageResult struct {
 	Name string `json:"name"`
-	// Path is under /forge/state/, never in the tree: the source cannot
+	// Path is under /apptown/state/, never in the tree: the source cannot
 	// have put an image there.
 	Path string `json:"path"`
 	// Max is the admitted size, in bytes, of all the layout's files
@@ -52,7 +52,7 @@ const RefusedNotFolder = "not-folder"
 var ErrImageGone = errors.New("the task was released: its image files are gone")
 
 // ValidImages says whether images may be declared: each named once, at its
-// own clean path under /forge/state/, with a positive admitted size.
+// own clean path under /apptown/state/, with a positive admitted size.
 func ValidImages(images []ImageResult) error {
 	names, paths := map[string]bool{}, map[string]bool{}
 	for _, img := range images {

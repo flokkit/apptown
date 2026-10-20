@@ -24,7 +24,7 @@ export async function bootErrorReporting() {
 }
 
 // The options every report is sent under. An invite or password reset link
-// carries a live credential in its URL (/invite/forge_invite_…); the invite
+// carries a live credential in its URL (/invite/apptown_invite_…); the invite
 // page moves it out of the address bar, and every report is scrubbed of any
 // such token wherever it appears — the page URL, breadcrumbs, messages — in
 // case one is captured before or despite that.
@@ -40,14 +40,14 @@ export function reportingOptions(dsn: string, release?: string): Sentry.BrowserO
   }
 }
 
-const linkToken = /forge_invite_[A-Za-z0-9]+/g
+const linkToken = /apptown_invite_[A-Za-z0-9]+/g
 
 // scrubLinkTokens replaces every invite or password reset token in a report
 // with a placeholder, wherever in the report it sits.
 export function scrubLinkTokens<T>(value: T): T {
   const text = JSON.stringify(value)
-  if (text === undefined || !text.includes('forge_invite_')) return value
-  return JSON.parse(text.replace(linkToken, 'forge_invite_[removed]')) as T
+  if (text === undefined || !text.includes('apptown_invite_')) return value
+  return JSON.parse(text.replace(linkToken, 'apptown_invite_[removed]')) as T
 }
 
 // reportRenderFault: what the ErrorBoundary calls; a no-op until booted.

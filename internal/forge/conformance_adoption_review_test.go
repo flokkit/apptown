@@ -41,7 +41,7 @@ func TestAnAdoptionChangeQueuesItsProjectsReview(t *testing.T) {
 	adopt(t, a, alpha, "hygiene", 1, checksJSON(shCheck("no-fixme", noFixmeSh, "high")))
 
 	queued := adoptionReviewsOf(t, a)
-	if len(queued) != 1 || queued[0].Status != conformance.ReviewQueued || queued[0].Actor != "forge-system" || queued[0].ProjectsTotal > 1 {
+	if len(queued) != 1 || queued[0].Status != conformance.ReviewQueued || queued[0].Actor != "apptown-system" || queued[0].ProjectsTotal > 1 {
 		t.Fatalf("the adoption's review: %+v", queued)
 	}
 	jobsFor := map[string]bool{}

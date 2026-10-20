@@ -37,7 +37,7 @@ func BindingCredential(id ids.ID) string { return "system:binding/" + id.String(
 // BindingPrincipal is the forge acting under a binding: its receipts name
 // the forge, the binding and (as Person) who granted it.
 func BindingPrincipal(id ids.ID, grantedBy string) access.Principal {
-	return access.Principal{Kind: "instrument", Name: "forge-system", Instrument: "forge", Person: grantedBy, Via: "binding", Credential: BindingCredential(id)}
+	return access.Principal{Kind: "instrument", Name: "apptown-system", Instrument: "forge", Person: grantedBy, Via: "binding", Credential: BindingCredential(id)}
 }
 
 // GrantBindingIn records a binding in the caller's transaction, with the

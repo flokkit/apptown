@@ -9,27 +9,27 @@ import (
 )
 
 // cmdComplain files a complaint about the platform.
-// Attribution rides along automatically: FORGE_RUN_ID/FORGE_STEP in a run
+// Attribution rides along automatically: APPTOWN_RUN_ID/APPTOWN_STEP in a run
 // container, the session token in a console.
 func cmdComplain(args []string) error {
 	fs := newFlags("complain")
 	why := fs.String("why", "", "why it slowed you down")
 	wish := fs.String("wish", "", "what you wish had been true")
-	about := fs.String("about", "", "what it is about: forge (default), way-of-working or project")
+	about := fs.String("about", "", "what it is about: apptown (default), way-of-working or project")
 	asJSON := fs.Bool("json", false, "print the filed complaint as JSON")
 	// Text and flags in any order (agents write text first, naturally).
 	text := strings.TrimSpace(strings.Join(parseArgs(fs, args), " "))
 	if text == "" {
-		return fmt.Errorf(`usage: apptown complain "what happened" [-why "why it slowed you down"] [-wish "what you wish had been true"] [-about forge|way-of-working|project]`)
+		return fmt.Errorf(`usage: apptown complain "what happened" [-why "why it slowed you down"] [-wish "what you wish had been true"] [-about apptown|way-of-working|project]`)
 	}
 	// Set in run containers; absent or malformed elsewhere, which files the
 	// complaint without a run (Nil, sent as null).
-	runID, _ := ids.Parse(os.Getenv("FORGE_RUN_ID"))
+	runID, _ := ids.Parse(os.Getenv("APPTOWN_RUN_ID"))
 	var out struct {
 		ID ids.ID `json:"id"`
 	}
 	if err := api.post("/complaints", map[string]any{"text": text, "why": *why, "wish": *wish,
-		"runId": runID, "step": os.Getenv("FORGE_STEP"), "about": *about}, &out); err != nil {
+		"runId": runID, "step": os.Getenv("APPTOWN_STEP"), "about": *about}, &out); err != nil {
 		return err
 	}
 	if *asJSON {

@@ -266,7 +266,7 @@ func (s narratives) Publish(ctx context.Context, in NarrativePublication) error 
 		if err := s.notes.FillIn(ctx, tx, ch.ProjectID, ch.ID, draft.Note); err != nil {
 			return err
 		}
-		return audit.At(s.now()).RecordIn(ctx, tx, "forge-system", ch.ProjectID, "change.narrative-updated", fmt.Sprintf("change %d", ch.ID), narrativeReceipt{slot, model, len(draft.Note)})
+		return audit.At(s.now()).RecordIn(ctx, tx, "apptown-system", ch.ProjectID, "change.narrative-updated", fmt.Sprintf("change %d", ch.ID), narrativeReceipt{slot, model, len(draft.Note)})
 	})
 }
 

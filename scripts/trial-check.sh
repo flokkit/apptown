@@ -103,7 +103,7 @@ limits=$(docker exec "$name" docker run --rm --memory 1024m --memory-swap 1024m 
 [ "$limits" = "1073741824 512 " ] || fail "limits inside the container: $limits"
 
 step "a project from a one-page app"
-docker exec -e FORGE_URL=http://127.0.0.1:7777 -e "FORGE_TOKEN=$cli" "$name" sh -eu -c '
+docker exec -e APPTOWN_URL=http://127.0.0.1:7777 -e "APPTOWN_TOKEN=$cli" "$name" sh -eu -c '
 	app=$(mktemp -d)/hello
 	mkdir -p "$app/.forge" "$app/site"
 	printf "app:\n  web: {static: site, public: true}\n" > "$app/.forge/app.yaml"
@@ -123,7 +123,7 @@ value = json.load(sys.stdin)["change"]["id"]
 if not isinstance(value, str) or str(uuid.UUID(value)) != value.lower():
     raise ValueError("not a canonical change UUID")
 print(value)') || fail "the change response carried no change UUID"
-url=$(docker exec -e FORGE_URL=http://127.0.0.1:7777 -e "FORGE_TOKEN=$cli" "$name" apptown preview "$change" |
+url=$(docker exec -e APPTOWN_URL=http://127.0.0.1:7777 -e "APPTOWN_TOKEN=$cli" "$name" apptown preview "$change" |
 	sed -n 's/.*is up[^:]*: \(http[^ ]*\).*/\1/p' | tail -1)
 case $url in
 http://change-*.preview.localhost:$port*) ;;

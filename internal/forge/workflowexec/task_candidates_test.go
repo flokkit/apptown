@@ -194,7 +194,7 @@ func TestAMalformedResultIsKeptNowhere(t *testing.T) {
 					reply.Body.Reset()
 					reply.Body.WriteString("# v2 git bundle\nnot a bundle at all\n")
 				case "another tip":
-					reply.Header().Set("Forge-Head", strings.Repeat("ab", 20))
+					reply.Header().Set("AppTown-Head", strings.Repeat("ab", 20))
 				}
 				pass(w, reply)
 			})

@@ -25,7 +25,7 @@ func NewComplaintIntake(box *complaint.Box, sessions *console.Service, db *datab
 }
 
 // Complain: POST /api/v1/complaints {text, runId?, step?, about?}
-// about is forge (the default), way-of-working or project. A run's own
+// about is apptown (the default), way-of-working or project. A run's own
 // credential decides which project a complaint is filed in: a runId naming
 // a run of another project is refused, so a complaint lands where its filer
 // works (an eval's copy included), never where it says.
@@ -61,7 +61,7 @@ func (h ComplaintIntake) Complain(w http.ResponseWriter, r *http.Request) {
 			source, projectID = "run", caller.Principal.ProjectID
 		}
 		// A console session token identifies the complaining helper exactly.
-		if tok := r.Header.Get("X-Forge-Session-Token"); tok != "" {
+		if tok := r.Header.Get("X-AppTown-Session-Token"); tok != "" {
 			if id, ok := h.sessions.Identity(tok); ok {
 				scope := conversation.FromLabels(id.Labels)
 				source, projectID, sessionID, changeID = "console", scope.ProjectID, id.SessionID, scope.ChangeID

@@ -1,7 +1,7 @@
 {
   "components": {
     "headers": {
-      "X-Forge-Deny-Code": {
+      "X-AppTown-Deny-Code": {
         "description": "the refusal's code, when it has one (for example landing-occupied)",
         "schema": {
           "type": "string"
@@ -19,8 +19,8 @@
         },
         "description": "a refusal or failure, in words",
         "headers": {
-          "X-Forge-Deny-Code": {
-            "$ref": "#/components/headers/X-Forge-Deny-Code"
+          "X-AppTown-Deny-Code": {
+            "$ref": "#/components/headers/X-AppTown-Deny-Code"
           }
         }
       }
@@ -348,6 +348,13 @@
               "null"
             ]
           },
+          "apptown": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "bytes": {
             "type": "integer"
           },
@@ -359,13 +366,6 @@
           },
           "error": {
             "type": "string"
-          },
-          "forge": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "id": {
             "format": "uuid",
@@ -1134,6 +1134,9 @@
       },
       "CheckReceipt": {
         "properties": {
+          "apptownFault": {
+            "type": "boolean"
+          },
           "baseNote": {
             "type": "string"
           },
@@ -1192,9 +1195,6 @@
               "type": "string"
             },
             "type": "array"
-          },
-          "forgeFault": {
-            "type": "boolean"
           },
           "gates": {
             "anyOf": [
@@ -3343,14 +3343,14 @@
     }
   },
   "info": {
-    "description": "Every route an AppTown serves, generated from its route table. The HTTP API is experimental in 1.0: routes and shapes may change in a 1.x release, and the release notes name each change. The stable surfaces are the CLI's core loop (with --json) and the MCP tools; see What 1.0 promises. Request and response shapes are described for every route the core-loop commands call with --json, with any of their options (x-forge-used-by: cli), and for failures that answer with their own result; other routes answer a refusal as Error.",
+    "description": "Every route an AppTown serves, generated from its route table. The HTTP API is experimental in 1.0: routes and shapes may change in a 1.x release, and the release notes name each change. The stable surfaces are the CLI's core loop (with --json) and the MCP tools; see What 1.0 promises. Request and response shapes are described for every route the core-loop commands call with --json, with any of their options (x-apptown-used-by: cli), and for failures that answer with their own result; other routes answer a refusal as Error.",
     "title": "AppTown HTTP API",
     "version": "v1"
   },
   "openapi": "3.1.0",
   "paths": {
     "/": {
-      "x-forge-any-method": {
+      "x-apptown-any-method": {
         "operationId": "any",
         "responses": {
           "2XX": {
@@ -3363,11 +3363,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "webHandler(): SPA assets and fallback; API authentication is independent",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/.well-known/oauth-authorization-server": {
@@ -3384,11 +3384,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleOAuthServerMetadata: OAuth public authorization-server discovery",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/.well-known/oauth-protected-resource/mcp/user": {
@@ -3405,11 +3405,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleOAuthProtectedResource: OAuth public resource discovery",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/adrs/{id}": {
@@ -3436,15 +3436,15 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "formerPage: a redirect naming a record's id; reading it needs its authority",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/": {
-      "x-forge-any-method": {
+      "x-apptown-any-method": {
         "operationId": "anyApi",
         "responses": {
           "2XX": {
@@ -3457,11 +3457,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "missingAPI: unknown API path response",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/activity": {
@@ -3478,11 +3478,11 @@
         "tags": [
           "activity"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "activity.Activity",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/adrs": {
@@ -3499,11 +3499,11 @@
         "tags": [
           "adrs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "adrs.ADRLibrary",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/adrs/{id}": {
@@ -3530,11 +3530,11 @@
         "tags": [
           "adrs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "adrs.GetADR",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "patch": {
         "operationId": "patchAdrsId",
@@ -3559,12 +3559,12 @@
         "tags": [
           "adrs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:attach-evidence",
           "kind": "capability",
           "scope": "adr"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/adrs/{id}/supersede": {
@@ -3591,12 +3591,12 @@
         "tags": [
           "adrs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:attach-evidence",
           "kind": "capability",
           "scope": "adr"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/artifacts/{id}": {
@@ -3623,11 +3623,11 @@
         "tags": [
           "artifacts"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "runs.GetArtifact",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/assist/workflow": {
@@ -3644,11 +3644,11 @@
         "tags": [
           "assist"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "workflowDrafts.AssistWorkflow: authenticated drafting assistance without publication",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/attachables": {
@@ -3665,11 +3665,11 @@
         "tags": [
           "attachables"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "projectAttachments.ListAttachables: shared integration capability catalogue",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/audit": {
@@ -3686,12 +3686,12 @@
         "tags": [
           "audit"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "audit:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/admin-networks": {
@@ -3708,12 +3708,12 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "instance:read-public",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putAuthAdminNetworks",
@@ -3728,12 +3728,12 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-auth",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/bootstrap": {
@@ -3747,11 +3747,11 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleAuthBootstrap: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/delegations": {
@@ -3768,11 +3768,11 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "accounts.ListDelegations",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/delegations/{id}": {
@@ -3799,11 +3799,11 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "accounts.RevokeDelegation",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/invite": {
@@ -3817,11 +3817,11 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "invites.ShowInvite: the invite token in the body is the credential",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/invite/accept": {
@@ -3835,11 +3835,11 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "invites.AcceptInvite: the invite token in the body is the credential",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/login": {
@@ -3853,11 +3853,11 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleAuthLogin: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/logout": {
@@ -3871,11 +3871,11 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleAuthLogout: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/auth/me": {
@@ -3892,11 +3892,11 @@
         "tags": [
           "auth"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleAuthMe: current authentication self-view",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/authz/explain": {
@@ -3913,11 +3913,11 @@
         "tags": [
           "authz"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "authorization.AuthzExplain",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/authz/grants": {
@@ -3934,12 +3934,12 @@
         "tags": [
           "authz"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "institution:read-structure",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postAuthzGrants",
@@ -3954,11 +3954,11 @@
         "tags": [
           "authz"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "authorization.AuthzGrant",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/authz/grants/{id}": {
@@ -3985,11 +3985,11 @@
         "tags": [
           "authz"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "authorization.AuthzRevoke",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/authz/me": {
@@ -4006,11 +4006,11 @@
         "tags": [
           "authz"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "authorization.AuthzMe: current caller capability self-view",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/authz/roles": {
@@ -4027,11 +4027,11 @@
         "tags": [
           "authz"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "authorization.AuthzRoles: compiled stock role and capability catalogue, no grants",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/backup-store": {
@@ -4048,12 +4048,12 @@
         "tags": [
           "backup-store"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putBackupStore",
@@ -4068,12 +4068,12 @@
         "tags": [
           "backup-store"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/backups": {
@@ -4090,12 +4090,12 @@
         "tags": [
           "backups"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/catalog": {
@@ -4112,11 +4112,11 @@
         "tags": [
           "catalog"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "catalogChanges.CatalogList: shared published change templates",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postCatalog",
@@ -4131,12 +4131,12 @@
         "tags": [
           "catalog"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-catalog",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/catalog-apply/{name}": {
@@ -4164,11 +4164,11 @@
         "tags": [
           "catalog-apply"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "catalogChanges.CatalogApply",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/catalog-promote/{name}": {
@@ -4196,12 +4196,12 @@
         "tags": [
           "catalog-promote"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-catalog",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/catalog/{name}": {
@@ -4229,11 +4229,11 @@
         "tags": [
           "catalog"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "catalogDeclarations.CatalogGet: shared change-template definition",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "patch": {
         "operationId": "patchCatalogName",
@@ -4259,12 +4259,12 @@
         "tags": [
           "catalog"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-catalog",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}": {
@@ -4298,13 +4298,13 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       },
       "patch": {
         "operationId": "patchChangesId",
@@ -4329,12 +4329,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:update-brief",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/abandon": {
@@ -4361,12 +4361,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:abandon",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/attachments": {
@@ -4393,12 +4393,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postChangesIdAttachments",
@@ -4423,12 +4423,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:attach-evidence",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/attachments/{name}": {
@@ -4463,12 +4463,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:attach-evidence",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "get": {
         "operationId": "getChangesIdAttachmentsName",
@@ -4501,12 +4501,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/check": {
@@ -4533,12 +4533,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:run-checks",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/diff": {
@@ -4565,12 +4565,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/distill": {
@@ -4597,12 +4597,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:write-narrative",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/land": {
@@ -4636,13 +4636,13 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:request-land",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/changes/{id}/preview": {
@@ -4669,12 +4669,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postChangesIdPreview",
@@ -4699,12 +4699,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:preview",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/preview/restart": {
@@ -4731,12 +4731,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:preview",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/runs": {
@@ -4763,12 +4763,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:invoke-lane",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/sendback": {
@@ -4795,12 +4795,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:send-back",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/start": {
@@ -4827,12 +4827,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:invoke-lane",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/transcript": {
@@ -4859,12 +4859,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/transcript/{chat}/pictures/{name}": {
@@ -4907,12 +4907,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/worker-chats": {
@@ -4939,12 +4939,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/changes/{id}/worker-chats/{chat}/refused": {
@@ -4979,12 +4979,12 @@
         "tags": [
           "changes"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:read",
           "kind": "capability",
           "scope": "change"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/complaints": {
@@ -5001,12 +5001,12 @@
         "tags": [
           "complaints"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postComplaints",
@@ -5038,12 +5038,12 @@
         "tags": [
           "complaints"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "complaintIntake.Complain: complaint intake with its existing optional scope validation",
           "kind": "public"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/complaints/archive-older": {
@@ -5060,10 +5060,10 @@
         "tags": [
           "complaints"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/complaints/seen": {
@@ -5080,12 +5080,12 @@
         "tags": [
           "complaints"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/complaints/steering": {
@@ -5102,11 +5102,11 @@
         "tags": [
           "complaints"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "complaints.ComplaintSteering: shared complaint submission instructions",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/complaints/{id}": {
@@ -5133,10 +5133,10 @@
         "tags": [
           "complaints"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/complaints/{id}/answer": {
@@ -5163,10 +5163,10 @@
         "tags": [
           "complaints"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/complaints/{id}/archive": {
@@ -5193,10 +5193,10 @@
         "tags": [
           "complaints"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/config/schema": {
@@ -5213,11 +5213,11 @@
         "tags": [
           "config"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "configuration.ConfigSchema: shared contract schema",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/config/validate": {
@@ -5234,11 +5234,11 @@
         "tags": [
           "config"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "configuration.ConfigValidate: validate caller-supplied configuration without persisting it",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance": {
@@ -5255,11 +5255,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "conformance.Conformance",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/history/clear": {
@@ -5276,10 +5276,10 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/projects/{slug}/fixes": {
@@ -5306,11 +5306,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "member",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/projects/{slug}/history": {
@@ -5337,11 +5337,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "member",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/remediate": {
@@ -5358,11 +5358,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "remediationChanges.OpenRemediation",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/remediations": {
@@ -5379,12 +5379,12 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postConformanceRemediations",
@@ -5399,12 +5399,12 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:remediate",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/remediations/{id}": {
@@ -5431,12 +5431,12 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/remediations/{id}/items/{item}/{action}": {
@@ -5479,12 +5479,12 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:remediate",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/remediations/{id}/{action}": {
@@ -5519,12 +5519,12 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:remediate",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/review": {
@@ -5541,10 +5541,10 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/reviews": {
@@ -5561,11 +5561,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "conformance.ListReviews",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/reviews/{id}": {
@@ -5592,11 +5592,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "conformance.ReviewDetail",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/verdicts/{id}/confirm": {
@@ -5623,11 +5623,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "conformance.ConfirmVerdict",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/what-if": {
@@ -5644,11 +5644,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "conformance.LatestWhatIf: conformance read",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postConformanceWhatIf",
@@ -5663,11 +5663,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "conformance.BeginWhatIf: the authority of a fleet review",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/conformance/what-if/{id}": {
@@ -5694,11 +5694,11 @@
         "tags": [
           "conformance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "conformance.WhatIf: conformance read",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}": {
@@ -5725,14 +5725,14 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "chat": true,
           "decidedBy": "conversation.Chats.Act: change:invoke-lane on the chat's project, by a person or this chat only, refused in the chat's own words",
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/changes": {
@@ -5759,12 +5759,12 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/interrupt": {
@@ -5791,14 +5791,14 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "chat": true,
           "decidedBy": "conversation.Chats.Act: change:invoke-lane on the chat's project, by a person or this chat only, refused in the chat's own words",
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/invoke": {
@@ -5825,13 +5825,13 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:invoke-lane",
           "chat": true,
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/land": {
@@ -5858,13 +5858,13 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:request-land",
           "chat": true,
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/messages": {
@@ -5891,12 +5891,12 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/preview": {
@@ -5923,13 +5923,13 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:preview",
           "chat": true,
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/pty": {
@@ -5956,12 +5956,12 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/recheck": {
@@ -5988,13 +5988,13 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:request-land",
           "chat": true,
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/say": {
@@ -6021,14 +6021,14 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "chat": true,
           "decidedBy": "conversation.Chats.Act: change:invoke-lane on the chat's project, by a person or this chat only, refused in the chat's own words",
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/upload": {
@@ -6055,14 +6055,14 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "chat": true,
           "decidedBy": "conversation.Chats.Act: change:invoke-lane on the chat's project, by a person or this chat only, refused in the chat's own words",
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/console/{sid}/uploads/{name}": {
@@ -6097,12 +6097,12 @@
         "tags": [
           "console"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "console-session"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/dashboard": {
@@ -6119,11 +6119,11 @@
         "tags": [
           "dashboard"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "dashboard.Dashboard",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/dependencies": {
@@ -6140,11 +6140,11 @@
         "tags": [
           "dependencies"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "dependencies.ListDependencies: shared dependency catalogue",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postDependencies",
@@ -6159,12 +6159,12 @@
         "tags": [
           "dependencies"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "integration:manage-dependency-kinds",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/dev-compose": {
@@ -6181,11 +6181,11 @@
         "tags": [
           "dev-compose"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "configuration.DevCompose: render caller-supplied local compose configuration",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/dispositions/{id}": {
@@ -6212,12 +6212,12 @@
         "tags": [
           "dispositions"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "exception:revoke",
           "kind": "capability",
           "scope": "disposition"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/docs": {
@@ -6234,11 +6234,11 @@
         "tags": [
           "docs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "docs.ListDocs: shared AppTown documentation",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/docs/guides/{slug}": {
@@ -6265,11 +6265,11 @@
         "tags": [
           "docs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "docs.GuideDoc: shared AppTown documentation",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/errors/browser": {
@@ -6286,11 +6286,11 @@
         "tags": [
           "errors"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "browserErrors.BrowserErrors: shared browser diagnostic configuration",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/evals": {
@@ -6307,11 +6307,11 @@
         "tags": [
           "evals"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "evals.List: standards:read-evals",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postEvals",
@@ -6326,11 +6326,11 @@
         "tags": [
           "evals"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "evals.Start: standards:manage-packs and project:read on every source project",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/evals/start": {
@@ -6347,11 +6347,11 @@
         "tags": [
           "evals"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "evals.StartForm: standards:manage-packs",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/evals/{id}": {
@@ -6378,11 +6378,11 @@
         "tags": [
           "evals"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "evals.Delete: an administrator, or the starter still a standards manager",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "get": {
         "operationId": "getEvalsId",
@@ -6407,11 +6407,11 @@
         "tags": [
           "evals"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "evals.Scorecard: standards:read-evals",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/evals/{id}/arms/{arm}/diff": {
@@ -6446,11 +6446,11 @@
         "tags": [
           "evals"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "evals.ArmDiff: standards:read-evals and project:read on the source project, the arm found within its eval",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/evals/{id}/continue": {
@@ -6477,11 +6477,11 @@
         "tags": [
           "evals"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "evals.Continue: the starter, still a standards manager",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/features": {
@@ -6498,11 +6498,11 @@
         "tags": [
           "features"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "features.List: shared instance feature flags",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/groups": {
@@ -6519,12 +6519,12 @@
         "tags": [
           "groups"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "institution:read-structure",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postGroups",
@@ -6539,12 +6539,12 @@
         "tags": [
           "groups"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-groups",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/groups/{name}": {
@@ -6571,12 +6571,12 @@
         "tags": [
           "groups"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-groups",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/guidance/blocks": {
@@ -6593,11 +6593,11 @@
         "tags": [
           "guidance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "guidanceBlocks.ListBlocks: shared guidance library",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postGuidanceBlocks",
@@ -6612,12 +6612,12 @@
         "tags": [
           "guidance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-guidance",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/guidance/blocks/{id}": {
@@ -6644,11 +6644,11 @@
         "tags": [
           "guidance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "guidanceBlocks.GetBlock: shared guidance definition",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "patch": {
         "operationId": "patchGuidanceBlocksId",
@@ -6673,12 +6673,12 @@
         "tags": [
           "guidance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-guidance",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/guidance/generated": {
@@ -6695,11 +6695,11 @@
         "tags": [
           "guidance"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "guidance.GeneratedGuidance",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/hooks/{slug}/{workflow}": {
@@ -6731,11 +6731,11 @@
         "tags": [
           "hooks"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "webhook.Webhook: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/infrastructure": {
@@ -6752,12 +6752,12 @@
         "tags": [
           "infrastructure"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/infrastructure/disks": {
@@ -6774,12 +6774,12 @@
         "tags": [
           "infrastructure"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/infrastructure/{target}/remove": {
@@ -6806,12 +6806,12 @@
         "tags": [
           "infrastructure"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/integrations": {
@@ -6828,12 +6828,12 @@
         "tags": [
           "integrations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postIntegrations",
@@ -6848,12 +6848,12 @@
         "tags": [
           "integrations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "integration:manage-connectors",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/integrations/catalog": {
@@ -6870,11 +6870,11 @@
         "tags": [
           "integrations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "connectors.ConnectorCatalog: shared connector catalogue",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/integrations/discover": {
@@ -6891,12 +6891,12 @@
         "tags": [
           "integrations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "models:manage-bindings",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/integrations/docs/{capability}/{provider}": {
@@ -6931,11 +6931,11 @@
         "tags": [
           "integrations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "integrationDocuments.IntegrationDocs: shared connector usage documentation",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/integrations/test": {
@@ -6952,12 +6952,12 @@
         "tags": [
           "integrations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "integration:manage-connectors",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/integrations/{name}": {
@@ -6984,12 +6984,12 @@
         "tags": [
           "integrations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "integration:manage-connectors",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/invites": {
@@ -7006,12 +7006,12 @@
         "tags": [
           "invites"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postInvites",
@@ -7026,12 +7026,12 @@
         "tags": [
           "invites"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/invites/{id}": {
@@ -7058,12 +7058,12 @@
         "tags": [
           "invites"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/jobs": {
@@ -7080,12 +7080,12 @@
         "tags": [
           "jobs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/me": {
@@ -7102,11 +7102,11 @@
         "tags": [
           "me"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleMe: current verified caller self-view",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/model-catalog": {
@@ -7123,11 +7123,11 @@
         "tags": [
           "model-catalog"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "modelDiscovery.ModelCatalog: shared credential-free model catalogue",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/model-slots": {
@@ -7144,12 +7144,12 @@
         "tags": [
           "model-slots"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putModelSlots",
@@ -7164,12 +7164,12 @@
         "tags": [
           "model-slots"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "models:manage-slots",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/openapi.json": {
@@ -7186,11 +7186,11 @@
         "tags": [
           "openapi.json"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "apiDescription.Serve: the build's shipped API description, the same for every caller",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/operations/{id}": {
@@ -7224,12 +7224,12 @@
         "tags": [
           "operations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "operations.Get",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/operations/{id}/cancel": {
@@ -7256,11 +7256,11 @@
         "tags": [
           "operations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "operations.Cancel",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/operations/{id}/dismiss": {
@@ -7287,11 +7287,11 @@
         "tags": [
           "operations"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "operations.Dismiss",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/ownership/approvals": {
@@ -7308,12 +7308,12 @@
         "tags": [
           "ownership"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/ownership/inspection": {
@@ -7330,12 +7330,12 @@
         "tags": [
           "ownership"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/packs": {
@@ -7352,11 +7352,11 @@
         "tags": [
           "packs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "packs.Packs: shared published pack library",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postPacks",
@@ -7371,12 +7371,12 @@
         "tags": [
           "packs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-packs",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/packs/interview": {
@@ -7393,11 +7393,11 @@
         "tags": [
           "packs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "packAssistance.PackInterview: authenticated pack-selection assistance",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/packs/pick": {
@@ -7414,11 +7414,11 @@
         "tags": [
           "packs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "packAssistance.PickPack: authenticated pack-selection assistance",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/packs/{name}": {
@@ -7445,12 +7445,12 @@
         "tags": [
           "packs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-packs",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "get": {
         "operationId": "getPacksName",
@@ -7475,11 +7475,11 @@
         "tags": [
           "packs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "packs.PackHistory: a pack's declaration, versions and recommendation, like the shared pack library",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/packs/{name}/enabled": {
@@ -7506,12 +7506,12 @@
         "tags": [
           "packs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-packs",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/packs/{name}/recommended": {
@@ -7538,12 +7538,12 @@
         "tags": [
           "packs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-packs",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/password-links": {
@@ -7560,12 +7560,12 @@
         "tags": [
           "password-links"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/policies/{id}": {
@@ -7592,12 +7592,12 @@
         "tags": [
           "policies"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-policies",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/policy-library": {
@@ -7614,11 +7614,11 @@
         "tags": [
           "policy-library"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "policyLibrary.PolicyLibrary",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postPolicyLibrary",
@@ -7633,12 +7633,12 @@
         "tags": [
           "policy-library"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-policies",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/policy-library/{name}": {
@@ -7665,12 +7665,12 @@
         "tags": [
           "policy-library"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "standards:manage-policies",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/policy-library/{name}/usage": {
@@ -7697,11 +7697,11 @@
         "tags": [
           "policy-library"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "policyLibrary.PolicyUsage",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/project-cleanups": {
@@ -7718,10 +7718,10 @@
         "tags": [
           "project-cleanups"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/project-cleanups/{id}/retry": {
@@ -7748,10 +7748,10 @@
         "tags": [
           "project-cleanups"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects": {
@@ -7785,12 +7785,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "projectViews.ListProjects",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       },
       "post": {
         "operationId": "postProjects",
@@ -7822,12 +7822,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "creation.Create",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}": {
@@ -7854,11 +7854,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "projectlifecycle.Request",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "get": {
         "operationId": "getProjectsSlug",
@@ -7883,12 +7883,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "patch": {
         "operationId": "patchProjectsSlug",
@@ -7913,10 +7913,10 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/adoption": {
@@ -7943,12 +7943,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/adoption/adopt": {
@@ -7975,12 +7975,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/adoption/prepare": {
@@ -8007,12 +8007,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/adrs": {
@@ -8039,12 +8039,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugAdrs",
@@ -8069,12 +8069,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:attach-evidence",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/approval-policy": {
@@ -8101,12 +8101,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/board": {
@@ -8140,13 +8140,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/changes": {
@@ -8173,12 +8173,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:list",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugChanges",
@@ -8220,13 +8220,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:create",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/changes/simple": {
@@ -8253,12 +8253,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:create",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/console": {
@@ -8285,12 +8285,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugConsole",
@@ -8315,13 +8315,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:invoke-lane",
           "chat": true,
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deletion": {
@@ -8348,12 +8348,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deletion/cancel": {
@@ -8380,11 +8380,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "projectlifecycle.Cancel",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deletion/revoke": {
@@ -8411,11 +8411,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "projectlifecycle.RevokeBinding",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments": {
@@ -8452,12 +8452,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugDeployments",
@@ -8499,11 +8499,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "deployments.CreateDeployment",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}": {
@@ -8538,11 +8538,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "deployments.DeleteDeployment",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/ai-models": {
@@ -8577,12 +8577,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/backups": {
@@ -8617,12 +8617,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugDeploymentsNameBackups",
@@ -8665,12 +8665,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:deploy",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/backups/{id}/restore": {
@@ -8713,12 +8713,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:deploy",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/check": {
@@ -8753,12 +8753,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:operate",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/copies": {
@@ -8793,12 +8793,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:deploy",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/deploy": {
@@ -8850,12 +8850,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "deployments.DeployDeployment",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/diagnostics": {
@@ -8890,11 +8890,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "deployments.DeploymentDiagnostics",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/drills": {
@@ -8929,12 +8929,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/logs": {
@@ -8969,11 +8969,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "deployments.DeploymentLog",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/protection": {
@@ -9008,12 +9008,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/rehearsals": {
@@ -9048,12 +9048,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/resources": {
@@ -9088,11 +9088,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "deployments.ClearResourceOverride",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "get": {
         "operationId": "getProjectsSlugDeploymentsNameResources",
@@ -9125,11 +9125,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "deployments.DeploymentResources",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putProjectsSlugDeploymentsNameResources",
@@ -9162,11 +9162,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "deployments.SetResourceOverride",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/restored-copies": {
@@ -9201,12 +9201,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/dispositions": {
@@ -9233,12 +9233,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugDispositions",
@@ -9263,12 +9263,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "exception:approve",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/dispositions/openvex": {
@@ -9295,12 +9295,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/export": {
@@ -9337,10 +9337,10 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/extensions": {
@@ -9367,12 +9367,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugExtensions",
@@ -9397,12 +9397,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-extensions",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/final-copies": {
@@ -9429,12 +9429,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/findings": {
@@ -9461,12 +9461,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/guidance": {
@@ -9493,12 +9493,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putProjectsSlugGuidance",
@@ -9523,12 +9523,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-guidance",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/import": {
@@ -9555,12 +9555,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:import",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/integrations": {
@@ -9587,12 +9587,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugIntegrations",
@@ -9617,12 +9617,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-integrations",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/integrations/{capability}": {
@@ -9657,12 +9657,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-integrations",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/integrations/{capability}/wire": {
@@ -9697,12 +9697,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-integrations",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/lanes": {
@@ -9729,12 +9729,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putProjectsSlugLanes",
@@ -9759,12 +9759,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-workflow",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/manifest": {
@@ -9791,12 +9791,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/members": {
@@ -9823,12 +9823,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugMembers",
@@ -9853,12 +9853,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:manage-members",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/members/{grantee}": {
@@ -9893,12 +9893,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:manage-members",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/model-profile": {
@@ -9925,12 +9925,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-model-profile",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/overview": {
@@ -9957,12 +9957,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/owner": {
@@ -9989,11 +9989,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "projectTransfer.TransferProject",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/pack": {
@@ -10037,13 +10037,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:select-way-of-working",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/pack/pull": {
@@ -10070,12 +10070,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:select-way-of-working",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/pack/pull-plan": {
@@ -10102,12 +10102,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/policies": {
@@ -10134,12 +10134,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugPolicies",
@@ -10164,12 +10164,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:select-way-of-working",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/purge": {
@@ -10196,11 +10196,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "projectlifecycle.PurgeNow",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/release": {
@@ -10244,13 +10244,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "release:promote",
           "kind": "capability",
           "scope": "release"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/release/plan": {
@@ -10277,12 +10277,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "release:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/releases": {
@@ -10309,12 +10309,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "release:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/releases/{number}": {
@@ -10356,13 +10356,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "release:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/releases/{number}/preview": {
@@ -10397,12 +10397,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:operate",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/repo": {
@@ -10446,13 +10446,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:import",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/repo/bundle": {
@@ -10479,12 +10479,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/repo/from-bundle": {
@@ -10531,13 +10531,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:import",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/repo/from-url": {
@@ -10581,13 +10581,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:import",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/repo/integrity": {
@@ -10614,10 +10614,10 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/repo/remote": {
@@ -10661,13 +10661,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-integrations",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/restore": {
@@ -10694,11 +10694,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "projectlifecycle.Restore",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/restored-copies/{id}": {
@@ -10733,12 +10733,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/restored-copies/{id}/extend": {
@@ -10773,12 +10773,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/restored-copies/{id}/open": {
@@ -10813,12 +10813,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:open-restored",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/retained": {
@@ -10845,12 +10845,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/retained/{id}": {
@@ -10885,11 +10885,11 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "retention.SettleRetained",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/schedules": {
@@ -10916,12 +10916,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/secrets": {
@@ -10955,13 +10955,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "secret:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/secrets/{deployment}": {
@@ -10996,12 +10996,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "secret:bind",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/secrets/{deployment}/{name}": {
@@ -11044,12 +11044,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "secret:bind",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putProjectsSlugSecretsDeploymentName",
@@ -11090,12 +11090,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "secret:bind",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/secrets/{deployment}/{name}/reveal": {
@@ -11138,10 +11138,10 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/services": {
@@ -11168,12 +11168,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postProjectsSlugServices",
@@ -11198,12 +11198,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:configure-services",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/targets": {
@@ -11230,12 +11230,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/toolchain": {
@@ -11279,13 +11279,13 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:select-way-of-working",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/transcript": {
@@ -11312,12 +11312,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/transcript/{chat}/pictures/{name}": {
@@ -11360,12 +11360,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/workflows": {
@@ -11392,12 +11392,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/workflows/{name}/history": {
@@ -11432,12 +11432,12 @@
         "tags": [
           "projects"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/retained": {
@@ -11454,12 +11454,12 @@
         "tags": [
           "retained"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs": {
@@ -11476,11 +11476,11 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "runs.ListRuns",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/executing": {
@@ -11497,12 +11497,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}": {
@@ -11536,13 +11536,13 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:read",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/runs/{id}/abandon": {
@@ -11569,12 +11569,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:operate",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/advance": {
@@ -11601,12 +11601,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:operate",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/artifacts": {
@@ -11633,12 +11633,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "evidence:attach",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/diff": {
@@ -11665,12 +11665,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:read",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/findings": {
@@ -11697,12 +11697,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/recheck": {
@@ -11729,12 +11729,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:operate",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/restart-landing": {
@@ -11761,12 +11761,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:land",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/steps/{step}/attempts/{attempt}/refused": {
@@ -11809,12 +11809,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:read",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/timing": {
@@ -11841,12 +11841,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:read",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/trace": {
@@ -11873,12 +11873,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/runs/{id}/workspace/{path}": {
@@ -11914,12 +11914,12 @@
         "tags": [
           "runs"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "run"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/scm/namespaces": {
@@ -11943,12 +11943,12 @@
         "tags": [
           "scm"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "scmRemotes.SCMNamespaces: shared SCM namespace discovery",
           "kind": "public"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/secrets/names": {
@@ -11965,12 +11965,12 @@
         "tags": [
           "secrets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "project:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/secrets/stores": {
@@ -11987,11 +11987,11 @@
         "tags": [
           "secrets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "secrets.SecretStores: shared store discovery, not secret values",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/secrets/{name}": {
@@ -12018,10 +12018,10 @@
         "tags": [
           "secrets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putSecretsName",
@@ -12046,10 +12046,10 @@
         "tags": [
           "secrets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/services": {
@@ -12066,11 +12066,11 @@
         "tags": [
           "services"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "serviceKinds.ListServiceKinds: shared service-kind catalogue",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postServices",
@@ -12085,12 +12085,12 @@
         "tags": [
           "services"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "integration:manage-service-kinds",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/services/{capability}": {
@@ -12117,12 +12117,12 @@
         "tags": [
           "services"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "integration:manage-service-kinds",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/setup": {
@@ -12146,12 +12146,12 @@
         "tags": [
           "setup"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "setupStatus.Setup: shared setup readiness projection",
           "kind": "public"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/setup/model": {
@@ -12168,12 +12168,12 @@
         "tags": [
           "setup"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "models:manage-bindings",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/steps/{id}/approve": {
@@ -12217,13 +12217,13 @@
         "tags": [
           "steps"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:approve",
           "kind": "capability",
           "scope": "step"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/steps/{id}/brief": {
@@ -12250,12 +12250,12 @@
         "tags": [
           "steps"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:read",
           "kind": "capability",
           "scope": "step"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/steps/{id}/interrupt": {
@@ -12282,12 +12282,12 @@
         "tags": [
           "steps"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:invoke-lane",
           "kind": "capability",
           "scope": "step"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/steps/{id}/live": {
@@ -12314,12 +12314,12 @@
         "tags": [
           "steps"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:read",
           "kind": "capability",
           "scope": "step"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/steps/{id}/override": {
@@ -12346,12 +12346,12 @@
         "tags": [
           "steps"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "change:override",
           "kind": "capability",
           "scope": "step"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/steps/{id}/question": {
@@ -12385,13 +12385,13 @@
         "tags": [
           "steps"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:read",
           "kind": "capability",
           "scope": "step"
         },
-        "x-forge-stability": "experimental",
-        "x-forge-used-by": "cli"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/steps/{id}/run": {
@@ -12418,12 +12418,12 @@
         "tags": [
           "steps"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "run:operate",
           "kind": "capability",
           "scope": "step"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/system-workflows": {
@@ -12440,11 +12440,11 @@
         "tags": [
           "system-workflows"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "systemWorkflows.SystemWorkflows: shared system workflow declarations",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putSystemWorkflows",
@@ -12459,12 +12459,12 @@
         "tags": [
           "system-workflows"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "execution:manage-workflows",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/targets": {
@@ -12481,12 +12481,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postTargets",
@@ -12501,12 +12501,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/targets/{name}": {
@@ -12533,12 +12533,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "patch": {
         "operationId": "patchTargetsName",
@@ -12563,12 +12563,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/targets/{name}/capacity": {
@@ -12595,12 +12595,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/targets/{name}/check": {
@@ -12627,12 +12627,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/targets/{name}/offers": {
@@ -12659,12 +12659,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/targets/{name}/offers/{id}": {
@@ -12699,12 +12699,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/targets/{name}/retire": {
@@ -12731,12 +12731,12 @@
         "tags": [
           "targets"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/tiers": {
@@ -12753,11 +12753,11 @@
         "tags": [
           "tiers"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "tiers.Tiers",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/tiers/departures": {
@@ -12774,11 +12774,11 @@
         "tags": [
           "tiers"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "tiers.Departures",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/timing": {
@@ -12795,11 +12795,11 @@
         "tags": [
           "timing"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "runs.Timing",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/tokens": {
@@ -12816,11 +12816,11 @@
         "tags": [
           "tokens"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "accounts.ListTokens",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postTokens",
@@ -12835,11 +12835,11 @@
         "tags": [
           "tokens"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "accounts.CreateToken",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/tokens/{name}": {
@@ -12866,11 +12866,11 @@
         "tags": [
           "tokens"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "accounts.RevokeToken",
           "kind": "owner"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/usage": {
@@ -12887,11 +12887,11 @@
         "tags": [
           "usage"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "usage.Usage",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/users": {
@@ -12908,12 +12908,12 @@
         "tags": [
           "users"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "institution:read-structure",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postUsers",
@@ -12928,12 +12928,12 @@
         "tags": [
           "users"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/users/{name}": {
@@ -12960,12 +12960,12 @@
         "tags": [
           "users"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/users/{name}/rename": {
@@ -12992,12 +12992,12 @@
         "tags": [
           "users"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/workers": {
@@ -13014,12 +13014,12 @@
         "tags": [
           "workers"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "conformance:read",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "put": {
         "operationId": "putWorkers",
@@ -13034,10 +13034,10 @@
         "tags": [
           "workers"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "kind": "administrator"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/workflows/library": {
@@ -13054,11 +13054,11 @@
         "tags": [
           "workflows"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "workflowCatalog.LibraryList: shared published workflow library",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postWorkflowsLibrary",
@@ -13073,12 +13073,12 @@
         "tags": [
           "workflows"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "execution:manage-workflows",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/workflows/library/{name}": {
@@ -13105,12 +13105,12 @@
         "tags": [
           "workflows"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "capability": "execution:manage-workflows",
           "kind": "capability",
           "scope": "instance"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/workflows/schema": {
@@ -13127,11 +13127,11 @@
         "tags": [
           "workflows"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "workflowCatalog.WorkflowSchema: shared workflow format schema",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/workflows/validate": {
@@ -13148,11 +13148,11 @@
         "tags": [
           "workflows"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "workflowCatalog.ValidateWorkflow: validate caller-supplied workflow without publication",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/wow": {
@@ -13169,11 +13169,11 @@
         "tags": [
           "wow"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "fleet.Fleet",
           "kind": "filtered"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/changes/{id}": {
@@ -13200,11 +13200,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "formerPage: a redirect naming a record's id; reading it needs its authority",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/gate/redeem": {
@@ -13218,15 +13218,15 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "dataProtection.RedeemGateTicket: credential verification (a restored copy's gate secret)",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/git/{slug}/{gitpath}": {
-      "x-forge-any-method": {
+      "x-apptown-any-method": {
         "operationId": "anyGitSlugGitpath",
         "parameters": [
           {
@@ -13255,11 +13255,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleGitHTTP: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/guidance/{id}": {
@@ -13286,11 +13286,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "formerPage: a redirect naming a record's id; reading it needs its authority",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/healthz": {
@@ -13307,11 +13307,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "httpapi.Health: up or down for a load balancer, nothing else",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/items/{id}": {
@@ -13338,15 +13338,15 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "formerPage: a redirect naming a record's id; reading it needs its authority",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/mcp/user": {
-      "x-forge-any-method": {
+      "x-apptown-any-method": {
         "operationId": "anyMcpUser",
         "responses": {
           "default": {
@@ -13356,11 +13356,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.serveMCP: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/oauth/authorize": {
@@ -13374,11 +13374,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleOAuthAuthorize: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       },
       "post": {
         "operationId": "postOauthAuthorize",
@@ -13390,11 +13390,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleOAuthAuthorize: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/oauth/register": {
@@ -13411,11 +13411,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleOAuthRegister: OAuth dynamic public-client registration",
           "kind": "public"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/oauth/revoke": {
@@ -13429,11 +13429,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleOAuthRevoke: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     },
     "/oauth/token": {
@@ -13447,11 +13447,11 @@
         "tags": [
           "outside /api/v1"
         ],
-        "x-forge-access": {
+        "x-apptown-access": {
           "contract": "a.handleOAuthToken: credential verification",
           "kind": "protocol"
         },
-        "x-forge-stability": "experimental"
+        "x-apptown-stability": "experimental"
       }
     }
   },
@@ -13460,5 +13460,5 @@
       "url": "/"
     }
   ],
-  "x-forge-stability": "experimental"
+  "x-apptown-stability": "experimental"
 }

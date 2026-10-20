@@ -18,7 +18,7 @@ func TestRunAdvanceHTTPRejectsUnverifiedActor(t *testing.T) {
 	eventsBefore := workEventCount(t, a, advanced)
 	r := httptest.NewRequest("POST", "/", nil)
 	r.SetPathValue("id", fx.Run.String())
-	r.Header.Set("X-Forge-Actor", "owner")
+	r.Header.Set("X-AppTown-Actor", "owner")
 	out := httptest.NewRecorder()
 	httpapi.NewRuns(a.Work, nil).Advance(out, r.WithContext(callerContext(r)))
 	if out.Code != 401 {

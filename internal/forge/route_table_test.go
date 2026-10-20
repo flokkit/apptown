@@ -177,7 +177,7 @@ func TestRouteTableMissingProjectIsNotFound(t *testing.T) {
 	} {
 		method, path, _ := strings.Cut(path, " ")
 		r := httptest.NewRequest(method, path, nil)
-		r.Header.Set("X-Forge-Actor", "outsider")
+		r.Header.Set("X-AppTown-Actor", "outsider")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		if w.Code != http.StatusNotFound {
@@ -720,10 +720,10 @@ func apiDescription() (map[string]any, error) {
 			return nil, fmt.Errorf("%s: %w", route.pattern, err)
 		}
 		op := map[string]any{
-			"operationId":       operationID(method, path),
-			"tags":              []string{tagOf(path)},
-			"x-forge-access":    access,
-			"x-forge-stability": "experimental",
+			"operationId":         operationID(method, path),
+			"tags":                []string{tagOf(path)},
+			"x-apptown-access":    access,
+			"x-apptown-stability": "experimental",
 		}
 		if len(params) > 0 {
 			op["parameters"] = params
@@ -742,7 +742,7 @@ func apiDescription() (map[string]any, error) {
 		if d.status != 0 {
 			delete(responses, "2XX")
 			if cli {
-				op["x-forge-used-by"] = "cli"
+				op["x-apptown-used-by"] = "cli"
 			}
 			if d.media != "" {
 				op["requestBody"] = map[string]any{"required": true, "content": map[string]any{d.media: map[string]any{}}}
@@ -796,7 +796,7 @@ func apiDescription() (map[string]any, error) {
 		if method == "" {
 			// A pattern without a method answers every method: a protocol's
 			// door (Git, MCP) or the web app's fallback.
-			item["x-forge-any-method"] = op
+			item["x-apptown-any-method"] = op
 			continue
 		}
 		item[strings.ToLower(method)] = op
@@ -811,16 +811,16 @@ func apiDescription() (map[string]any, error) {
 				"and the release notes name each change. The stable surfaces are the CLI's core loop " +
 				"(with --json) and the MCP tools; see What 1.0 promises. Request and response shapes " +
 				"are described for every route the core-loop commands call with --json, with any of their " +
-				"options (x-forge-used-by: cli), and for " +
+				"options (x-apptown-used-by: cli), and for " +
 				"failures that answer with their own result; other routes answer a refusal as Error.",
 		},
-		"servers":           []any{map[string]any{"url": "/"}},
-		"x-forge-stability": "experimental",
-		"paths":             paths,
+		"servers":             []any{map[string]any{"url": "/"}},
+		"x-apptown-stability": "experimental",
+		"paths":               paths,
 		"components": map[string]any{
 			"schemas": schemas.Components,
 			"headers": map[string]any{
-				"X-Forge-Deny-Code": map[string]any{
+				"X-AppTown-Deny-Code": map[string]any{
 					"description": "the refusal's code, when it has one (for example landing-occupied)",
 					"schema":      map[string]any{"type": "string"},
 				},
@@ -828,7 +828,7 @@ func apiDescription() (map[string]any, error) {
 			"responses": map[string]any{
 				"Refusal": map[string]any{
 					"description": "a refusal or failure, in words",
-					"headers":     map[string]any{"X-Forge-Deny-Code": map[string]any{"$ref": "#/components/headers/X-Forge-Deny-Code"}},
+					"headers":     map[string]any{"X-AppTown-Deny-Code": map[string]any{"$ref": "#/components/headers/X-AppTown-Deny-Code"}},
 					"content":     map[string]any{"application/json": map[string]any{"schema": refusal}},
 				},
 			},

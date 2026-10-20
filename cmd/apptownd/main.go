@@ -101,7 +101,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.authMode, "auth", "open", "auth mode: open | internal | trusted-header (Running AppTown)")
 	fs.BoolVar(&o.openOnNetwork, "open-on-network", false, "with -auth open, serve on addresses other machines can reach; without it open mode refuses any listener but loopback, since in open mode a caller names itself")
 	fs.StringVar(&o.authHeader, "auth-header", "X-Authentik-Username", "trusted-header mode: header carrying the SSO username")
-	fs.StringVar(&o.authSecretEnv, "auth-proxy-secret-env", "FORGE_PROXY_SECRET", "env var holding the proxy shared secret (trusted-header mode)")
+	fs.StringVar(&o.authSecretEnv, "auth-proxy-secret-env", "APPTOWN_PROXY_SECRET", "env var holding the proxy shared secret (trusted-header mode)")
 	fs.StringVar(&o.admins, "admins", "", "comma-separated usernames to seed/promote as admin")
 	fs.StringVar(&o.trustedProxies, "trusted-proxies", "", "comma-separated CIDRs of reverse proxies whose X-Real-IP/X-Forwarded-For name the caller (loopback and this host's own addresses are always trusted)")
 	fs.StringVar(&o.consoleCLI, "console-cli", "", "Linux forge CLI artifact for containers (default: apptown-linux beside apptownd)")

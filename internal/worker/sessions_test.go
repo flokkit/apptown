@@ -138,7 +138,7 @@ func sessionWorker(t *testing.T) (worker.SessionClient, *fakeSessions, string) {
 }
 
 func chatSpec() worker.SessionSpec {
-	return worker.SessionSpec{Image: "forge-agent:test", Model: "m", AgentSession: "console", Docker: true, Env: []string{"FORGE_URL=https://forge.example"}}
+	return worker.SessionSpec{Image: "forge-agent:test", Model: "m", AgentSession: "console", Docker: true, Env: []string{"APPTOWN_URL=https://forge.example"}}
 }
 
 // A session runs its container and private daemon from the forge's spec,

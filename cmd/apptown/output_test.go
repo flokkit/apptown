@@ -78,7 +78,7 @@ func TestLandJSONNamesTheLandingRun(t *testing.T) {
 			return 200, nil, `{"projectSlug":"shop","change":{"id":"` + changeUUID + `","number":61}}`
 		case method == "POST" && path == "/changes/"+changeUUID+"/land":
 			if tries++; tries == 1 {
-				return 409, http.Header{"X-Forge-Deny-Code": {"landing-occupied"}}, `{"error":"shop#60 is landing"}`
+				return 409, http.Header{"X-AppTown-Deny-Code": {"landing-occupied"}}, `{"error":"shop#60 is landing"}`
 			}
 			return 202, nil, `{"run":{"id":"` + runUUID + `","number":813}}`
 		}
@@ -237,7 +237,7 @@ func TestWaitJSONGivesWhatAScriptActsOn(t *testing.T) {
 
 // jsonForge is fakeForge for a --json command: when the test ends, every
 // request it was sent must be a route the shipped API description
-// describes for the CLI (x-forge-used-by: cli), so the description covers
+// describes for the CLI (x-apptown-used-by: cli), so the description covers
 // what the stable commands call.
 func jsonForge(t *testing.T, reply func(method, path string) (int, string)) *[]recorded {
 	t.Helper()
@@ -261,7 +261,7 @@ func jsonForgeHeaders(t *testing.T, reply func(method, path string) (int, http.H
 }
 
 // describedForTheCLI reports whether method and path match an operation
-// the shipped description marks x-forge-used-by: cli.
+// the shipped description marks x-apptown-used-by: cli.
 func describedForTheCLI(t *testing.T, method, path string) bool {
 	t.Helper()
 	raw, err := os.ReadFile("../../stock/docs/api/openapi.json")
@@ -276,7 +276,7 @@ func describedForTheCLI(t *testing.T, method, path string) bool {
 	}
 	for template, item := range doc.Paths {
 		var op struct {
-			UsedBy string `json:"x-forge-used-by"`
+			UsedBy string `json:"x-apptown-used-by"`
 		}
 		if json.Unmarshal(item[strings.ToLower(method)], &op) != nil || op.UsedBy != "cli" {
 			continue
@@ -309,8 +309,8 @@ func captureStderr(t *testing.T, f func()) string {
 // Inside a chat, a bare land answers in words; with --json it refuses
 // before anything starts, rather than printing half a document.
 func TestABareChatLandingRefusesJSON(t *testing.T) {
-	t.Setenv("FORGE_SESSION_ID", "00000000-0007-7000-8000-000000000000")
-	t.Setenv("FORGE_SESSION_TOKEN", "tok")
+	t.Setenv("APPTOWN_SESSION_ID", "00000000-0007-7000-8000-000000000000")
+	t.Setenv("APPTOWN_SESSION_TOKEN", "tok")
 	seen := fakeForge(t, func(_, _ string) (int, string) {
 		return 202, `{"runId":"` + runUUID + `","message":"landing started"}`
 	})
@@ -461,7 +461,7 @@ func TestTheOtherCoreCommandsPrintTheirDocuments(t *testing.T) {
 	jsonForge(t, func(_, _ string) (int, string) { return 200, `{}` })
 	out, err = run(t, "version", "--json")
 	var v Versions
-	if oneDocument(t, out, &v); err != nil || v.CLI.Version == "" || v.CLI.Protocol == 0 || !v.Forge.Reached || v.Forge.URL == "" {
+	if oneDocument(t, out, &v); err != nil || v.CLI.Version == "" || v.CLI.Protocol == 0 || !v.AppTown.Reached || v.AppTown.URL == "" {
 		t.Fatalf("version: %v %+v", err, v)
 	}
 }

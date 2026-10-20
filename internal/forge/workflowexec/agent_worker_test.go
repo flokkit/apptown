@@ -155,7 +155,7 @@ func (agentCatalog) PackPublication(context.Context, string, int64) (wow.PackVer
 type gatewayModels struct{}
 
 func (gatewayModels) ModelsJSON(context.Context) ([]byte, error) {
-	return []byte(`{"providers":{"forge":{"baseUrl":"http://gateway.test/v1","apiKey":"FORGE_SESSION_TOKEN"}}}`), nil
+	return []byte(`{"providers":{"forge":{"baseUrl":"http://gateway.test/v1","apiKey":"APPTOWN_SESSION_TOKEN"}}}`), nil
 }
 
 type agentExtensions []string
@@ -190,7 +190,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 	db := databaseSuite.New(t)
 	dir := t.TempDir()
 	t.Setenv("DATABASE_URL", "postgres://forge:"+databaseURLCanary+"@db/forge")
-	t.Setenv("FORGE_ADMIN_TOKEN", instanceCredCanary)
+	t.Setenv("APPTOWN_ADMIN_TOKEN", instanceCredCanary)
 	t.Setenv("ANTHROPIC_API_KEY", providerKeyCanary)
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("STEP_CANARY="+stepSecretCanary+"\nGITLAB_TOKEN="+engineSecretCanary+"\nANTHROPIC_API_KEY="+providerKeyCanary+"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -365,7 +365,7 @@ func (f *agentOnWorker) build(t *testing.T) workerAgentRequest {
 }
 
 // The request an agent step's invocation sends a worker is built as bytes
-// from what was admitted: the files the agent reads at their /forge/in
+// from what was admitted: the files the agent reads at their /apptown/in
 // paths, the transcript the forge named, the result files it declares, and
 // only the runtime token, step secrets and mirror settings in its
 // environment. The run's folder is never made, read or written.
@@ -410,15 +410,15 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 	}
 	inputs := inputsByPath(t, spec)
 	want := map[string]os.FileMode{
-		"/forge/in/steering.md":                        0o644,
-		"/forge/in/resources/res--notes.md":            0o644,
-		"/forge/in/attachments/spec.txt":               0o644,
-		"/forge/in/pi-home/.pi/agent/models.json":      0o644,
-		"/forge/in/pi-home/.pi/agent/settings.json":    0o644,
-		"/forge/in/pi-home/.pi/agent/agents/worker.md": 0o644,
-		"/forge/in/pi-home/.pi/agent/agents/scout.md":  0o644,
-		"/forge/in/bin/apptown":                        0o755,
-		"/forge/in/sessions/" + session:                0o644,
+		"/apptown/in/steering.md":                        0o644,
+		"/apptown/in/resources/res--notes.md":            0o644,
+		"/apptown/in/attachments/spec.txt":               0o644,
+		"/apptown/in/pi-home/.pi/agent/models.json":      0o644,
+		"/apptown/in/pi-home/.pi/agent/settings.json":    0o644,
+		"/apptown/in/pi-home/.pi/agent/agents/worker.md": 0o644,
+		"/apptown/in/pi-home/.pi/agent/agents/scout.md":  0o644,
+		"/apptown/in/bin/apptown":                        0o755,
+		"/apptown/in/sessions/" + session:                0o644,
 	}
 	for at, mode := range want {
 		if in, ok := inputs[at]; !ok || in.Mode != mode {
@@ -430,22 +430,22 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 			t.Errorf("an input nobody asked for: %s", at)
 		}
 	}
-	if got := string(inputContent(t, inputs["/forge/in/bin/apptown"])); !strings.Contains(got, "packaged forge CLI") {
+	if got := string(inputContent(t, inputs["/apptown/in/bin/apptown"])); !strings.Contains(got, "packaged forge CLI") {
 		t.Errorf("the CLI: %q", got)
 	}
-	if got := string(inputContent(t, inputs["/forge/in/attachments/spec.txt"])); got != "attached spec" {
+	if got := string(inputContent(t, inputs["/apptown/in/attachments/spec.txt"])); got != "attached spec" {
 		t.Errorf("the attachment: %q", got)
 	}
-	if got := string(inputContent(t, inputs["/forge/in/resources/res--notes.md"])); got != "resource body" {
+	if got := string(inputContent(t, inputs["/apptown/in/resources/res--notes.md"])); got != "resource body" {
 		t.Errorf("the resource: %q", got)
 	}
-	header := inputContent(t, inputs["/forge/in/sessions/"+session])
+	header := inputContent(t, inputs["/apptown/in/sessions/"+session])
 	if id, err := piharness.SessionHeaderID(header); err != nil || id != "step-00000000-0009-7000-8000-000000000000-a2" || bytes.Count(header, []byte("\n")) != 1 || !bytes.Contains(header, []byte(`"cwd":"/work"`)) {
 		t.Errorf("a new session is sent its header only: %q %v", header, err)
 	}
 
 	if len(spec.Results) != 2 ||
-		spec.Results[0] != (execution.Result{Name: "transcript", Path: "/forge/state/sessions/" + session, Max: 32 << 20}) ||
+		spec.Results[0] != (execution.Result{Name: "transcript", Path: "/apptown/state/sessions/" + session, Max: 32 << 20}) ||
 		spec.Results[1] != (execution.Result{Name: "output", Path: "/work/.forge/REPORT.md", Max: 1 << 20}) {
 		t.Errorf("declared results: %+v", spec.Results)
 	}
@@ -465,16 +465,16 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		n, _, _ := strings.Cut(kv, "=")
 		ambNames = append(ambNames, n)
 	}
-	wantNames := append([]string{"CANARY", "FORGE_CHANGE", "FORGE_PROJECT", "FORGE_RUN_ID", "FORGE_SCRATCH_REF", "FORGE_SESSION_TOKEN", "FORGE_STEP", "FORGE_URL",
+	wantNames := append([]string{"CANARY", "APPTOWN_CHANGE", "APPTOWN_PROJECT", "APPTOWN_RUN_ID", "APPTOWN_SCRATCH_REF", "APPTOWN_SESSION_TOKEN", "APPTOWN_STEP", "APPTOWN_URL",
 		"GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"}, ambNames...)
 	slices.Sort(wantNames)
 	if !slices.Equal(names, wantNames) {
 		t.Errorf("env names:\n got %v\nwant %v", names, wantNames)
 	}
-	if !slices.Contains(spec.Env, "CANARY="+stepSecretCanary) || !slices.Contains(spec.Env, "FORGE_SESSION_TOKEN="+f.exec.runTok.Step(idstest.N(9), 2)) {
+	if !slices.Contains(spec.Env, "CANARY="+stepSecretCanary) || !slices.Contains(spec.Env, "APPTOWN_SESSION_TOKEN="+f.exec.runTok.Step(idstest.N(9), 2)) {
 		t.Errorf("the step secret and the attempt's token are delivered: %v", names)
 	}
-	if !slices.Contains(spec.Env, "FORGE_SCRATCH_REF="+scm.ScratchRef(f.call.source.ChangeID, idstest.N(9), 2)) {
+	if !slices.Contains(spec.Env, "APPTOWN_SCRATCH_REF="+scm.ScratchRef(f.call.source.ChangeID, idstest.N(9), 2)) {
 		t.Errorf("the attempt's own scratch ref is delivered: %v", spec.Env)
 	}
 	if len(spec.Files) == 0 || !slices.ContainsFunc(spec.Files, func(file execution.File) bool { return file.Path == "/etc/mise/config.toml" }) {
@@ -487,13 +487,13 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 	}
 	entry := spec.Argv[2]
 	for _, line := range []string{
-		"cp -R /forge/in/pi-home /forge/state/home.part",
-		"ln -s '/opt/pi-baked/.pi/agent/npm' '/forge/state/home.part/.pi/agent/npm'",
-		"mv /forge/state/home.part /forge/state/home",
-		"if [ ! -e '/forge/state/sessions/" + session + "' ]; then",
-		"cp '/forge/in/sessions/" + session + "' /forge/state/session.part",
-		"export HOME=/forge/state/home",
-		`export PATH="/forge/in/bin:$PATH"`,
+		"cp -R /apptown/in/pi-home /apptown/state/home.part",
+		"ln -s '/opt/pi-baked/.pi/agent/npm' '/apptown/state/home.part/.pi/agent/npm'",
+		"mv /apptown/state/home.part /apptown/state/home",
+		"if [ ! -e '/apptown/state/sessions/" + session + "' ]; then",
+		"cp '/apptown/in/sessions/" + session + "' /apptown/state/session.part",
+		"export HOME=/apptown/state/home",
+		`export PATH="/apptown/in/bin:$PATH"`,
 		`exec "$@"`,
 	} {
 		if !strings.Contains(entry, line) {
@@ -501,7 +501,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		}
 	}
 	command := strings.Join(spec.Argv[4:], "\x00")
-	for _, arg := range []string{"pi", "--session\x00/forge/state/sessions/" + session, "--append-system-prompt\x00/forge/in/steering.md", "Implement the change."} {
+	for _, arg := range []string{"pi", "--session\x00/apptown/state/sessions/" + session, "--append-system-prompt\x00/apptown/in/steering.md", "Implement the change."} {
 		if !strings.Contains(command, arg) {
 			t.Errorf("pi's argv lacks %q: %q", arg, spec.Argv[4:])
 		}
@@ -540,7 +540,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 
 // Steering and Pi's settings are prepared from the worker's image's labels,
 // never the forge's own Docker's, and name where the worker presents the
-// files: /forge/in for what the forge sends, /forge/state for Pi's own.
+// files: /apptown/in for what the forge sends, /apptown/state for Pi's own.
 func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil, "lsp")
 	f.worker.image.Labels["forge.pi-lsp.version"] = "worker-lsp-3"
@@ -548,7 +548,7 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	steering := req.steering.Text
 	// A change's step on a worker is told the forge merges main in for it
 	// (main_merge.go).
-	for _, want := range []string{"- /forge/in/attachments/spec.txt", "- /forge/in/resources/res--notes.md", "under /forge/state/sessions", "Delegating (subagent tool)",
+	for _, want := range []string{"- /apptown/in/attachments/spec.txt", "- /apptown/in/resources/res--notes.md", "under /apptown/state/sessions", "Delegating (subagent tool)",
 		"If main moves, AppTown merges it into this change before your step when it can; you don't need to catch up yourself."} {
 		if !strings.Contains(steering, want) {
 			t.Errorf("the steering lacks %q", want)
@@ -558,10 +558,10 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 		t.Errorf("the steering names the folder's paths:\n%s", steering)
 	}
 	inputs := inputsByPath(t, req.spec)
-	if got := string(inputContent(t, inputs["/forge/in/steering.md"])); got != steering || req.steering.Hash != deploy.ConfigHash(steering) {
+	if got := string(inputContent(t, inputs["/apptown/in/steering.md"])); got != steering || req.steering.Hash != deploy.ConfigHash(steering) {
 		t.Error("the steering sent is not the steering recorded")
 	}
-	settings := string(inputContent(t, inputs["/forge/in/pi-home/.pi/agent/settings.json"]))
+	settings := string(inputContent(t, inputs["/apptown/in/pi-home/.pi/agent/settings.json"]))
 	if !strings.Contains(settings, "npm:pi-subagents@"+workerSubagents) || !strings.Contains(settings, "@worker-lsp-3") || strings.Contains(settings, hostSubagents) || strings.Contains(settings, "host-lsp") {
 		t.Errorf("pi's settings are not the worker image's: %s", settings)
 	}
@@ -582,7 +582,7 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	if strings.Contains(req.steering.Text, "Delegating") || strings.Contains(strings.Join(req.spec.Argv, " "), "ln -s") {
 		t.Error("delegation promised from AppTown's own image's labels")
 	}
-	if _, ok := inputsByPath(t, req.spec)["/forge/in/pi-home/.pi/agent/agents/worker.md"]; ok {
+	if _, ok := inputsByPath(t, req.spec)["/apptown/in/pi-home/.pi/agent/agents/worker.md"]; ok {
 		t.Error("a delegate roster for an image without the extension")
 	}
 }
@@ -701,7 +701,7 @@ func isRefusal(err error, reason string) bool {
 // never a lookup by id and never --continue),
 // its report is declared a Fresh result of 256 KiB beside the transcript,
 // and it has the review's timeout. A large claim is sent as
-// /forge/in/review-claim.md and the brief points there; a small one
+// /apptown/in/review-claim.md and the brief points there; a small one
 // travels in the brief.
 func TestAReviewOnAWorkerIsSentItsBrief(t *testing.T) {
 	f := agentOnWorkerFixture(t, map[string]any{"timeoutMinutes": 0})
@@ -710,14 +710,14 @@ func TestAReviewOnAWorkerIsSentItsBrief(t *testing.T) {
 	f.call.review = &reviewCall{cfg: reviewConfig{Of: "report", Model: "fake/reviewer"}, brief: reviewBrief{request: "the request", claim: claim, diff: "the diff"}}
 	req := f.build(t)
 	inputs := inputsByPath(t, req.spec)
-	if in, ok := inputs["/forge/in/review-claim.md"]; !ok || string(inputContent(t, in)) != claim {
+	if in, ok := inputs["/apptown/in/review-claim.md"]; !ok || string(inputContent(t, in)) != claim {
 		t.Fatal("the large claim was not sent")
 	}
-	if !strings.Contains(req.claim, "staged at /forge/in/review-claim.md") || len(req.claim) > 200 {
+	if !strings.Contains(req.claim, "staged at /apptown/in/review-claim.md") || len(req.claim) > 200 {
 		t.Errorf("the brief's claim: %q", req.claim)
 	}
 	for path := range inputs {
-		if strings.HasPrefix(path, "/forge/in/steering.md") || strings.HasPrefix(path, "/forge/in/resources/") || strings.HasPrefix(path, "/forge/in/attachments/") {
+		if strings.HasPrefix(path, "/apptown/in/steering.md") || strings.HasPrefix(path, "/apptown/in/resources/") || strings.HasPrefix(path, "/apptown/in/attachments/") {
 			t.Errorf("a review was steered: %s", path)
 		}
 	}
@@ -727,7 +727,7 @@ func TestAReviewOnAWorkerIsSentItsBrief(t *testing.T) {
 		t.Errorf("the prompt does not carry the brief with its pointer")
 	}
 	joined := strings.Join(argv, " ")
-	sessionFile := "/forge/state/sessions/" + piharness.SessionFileName("step-00000000-0009-7000-8000-000000000000-a2", f.call.at)
+	sessionFile := "/apptown/state/sessions/" + piharness.SessionFileName("step-00000000-0009-7000-8000-000000000000-a2", f.call.at)
 	if !strings.Contains(joined, "--session "+sessionFile+" ") || strings.Contains(joined, "--session-id") || strings.Contains(joined, "--session-dir") || strings.Contains(joined, "--continue") ||
 		!strings.Contains(joined, "--no-extensions") || !strings.Contains(joined, "--thinking medium") || strings.Contains(joined, "--append-system-prompt") {
 		t.Errorf("the review's argv: %q", argv[4:len(argv)-1])
@@ -744,7 +744,7 @@ func TestAReviewOnAWorkerIsSentItsBrief(t *testing.T) {
 	}
 	f.call.review.brief.claim = "a small claim"
 	req = f.build(t)
-	if _, ok := inputsByPath(t, req.spec)["/forge/in/review-claim.md"]; ok || req.claim != "a small claim" {
+	if _, ok := inputsByPath(t, req.spec)["/apptown/in/review-claim.md"]; ok || req.claim != "a small claim" {
 		t.Errorf("a small claim: %q", req.claim)
 	}
 }
@@ -798,10 +798,10 @@ func TestAContinuedSessionIsSentItsTranscript(t *testing.T) {
 	f.call.invocation, f.call.sessionAt, f.call.at = "agent-retry", first, first.Add(10*time.Minute)
 	req := f.build(t)
 	name := piharness.SessionFileName("step-00000000-0009-7000-8000-000000000000-a2", first)
-	if in, ok := inputsByPath(t, req.spec)["/forge/in/sessions/"+name]; !ok || !bytes.Equal(inputContent(t, in), stored) {
+	if in, ok := inputsByPath(t, req.spec)["/apptown/in/sessions/"+name]; !ok || !bytes.Equal(inputContent(t, in), stored) {
 		t.Fatal("the stored transcript was not sent under the attempt's name")
 	}
-	if req.spec.Key != "step-00000000-0009-7000-8000-000000000000-attempt-2-agent-retry" || req.spec.SharedWorkspace != "step-00000000-0009-7000-8000-000000000000-a2" || req.spec.Results[0].Path != "/forge/state/sessions/"+name {
+	if req.spec.Key != "step-00000000-0009-7000-8000-000000000000-attempt-2-agent-retry" || req.spec.SharedWorkspace != "step-00000000-0009-7000-8000-000000000000-a2" || req.spec.Results[0].Path != "/apptown/state/sessions/"+name {
 		t.Errorf("the retry: %q %q %+v", req.spec.Key, req.spec.SharedWorkspace, req.spec.Results)
 	}
 	f.call.transcript = piharness.SessionHeader("step-00000000-0009-7000-8000-000000000000-a1", first, "/work")
@@ -892,7 +892,7 @@ func TestAnAgentOnTheForgeIsSteeredToTheFolder(t *testing.T) {
 			t.Errorf("the steering lacks %q", want)
 		}
 	}
-	if strings.Contains(st.Text, "/forge/in") || strings.Contains(st.Text, "/forge/state") {
+	if strings.Contains(st.Text, "/apptown/in") || strings.Contains(st.Text, "/apptown/state") {
 		t.Error("an agent on AppTown is steered to a worker's paths")
 	}
 	if strings.Contains(st.Text, "AppTown merges it into this change") {

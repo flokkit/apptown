@@ -73,13 +73,30 @@ type CheckReceipt struct {
 	Evidence     string       `json:"evidence,omitempty"`
 	Files        []string     `json:"files,omitempty"`
 	Occurrences  []string     `json:"occurrences,omitempty"`
-	// ForgeFault: the forge could not run the check; the commit is not at fault.
-	ForgeFault bool `json:"forgeFault,omitempty"`
+	// ForgeFault: AppTown could not run the check; the commit is not at fault.
+	ForgeFault bool `json:"apptownFault,omitempty"`
 	// Preexisting and Undecided: how a failure read against main — already
 	// there, or not decidable. Neither is the change's.
 	Preexisting bool   `json:"preexisting,omitempty"`
 	Undecided   bool   `json:"undecided,omitempty"`
 	Image       string `json:"image,omitempty"` // the image (by ID) an exec-image check ran in
+}
+
+// UnmarshalJSON reads a receipt as written: evidence recorded before the
+// AppTown rename names the platform fault forgeFault, and that recorded fact
+// is kept. Receipts are always written as apptownFault.
+func (c *CheckReceipt) UnmarshalJSON(data []byte) error {
+	type receipt CheckReceipt
+	var r struct {
+		receipt
+		OldFault bool `json:"forgeFault"`
+	}
+	if err := json.Unmarshal(data, &r); err != nil {
+		return err
+	}
+	*c = CheckReceipt(r.receipt)
+	c.ForgeFault = c.ForgeFault || r.OldFault
+	return nil
 }
 
 // CheckEvidence is the part of a check step's evidence that owners other

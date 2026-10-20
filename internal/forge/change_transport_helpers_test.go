@@ -52,7 +52,7 @@ func startReadTestRun(t *testing.T, a *App, changeID ids.ID, stage schema.Stage)
 func changeRequest(a *App, actor, method, path, body string) *httptest.ResponseRecorder {
 	r := httptest.NewRecorder()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Forge-Actor", actor)
+	req.Header.Set("X-AppTown-Actor", actor)
 	a.Handler().ServeHTTP(r, req)
 	return r
 }

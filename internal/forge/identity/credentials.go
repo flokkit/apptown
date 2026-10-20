@@ -30,7 +30,7 @@ import (
 
 const (
 	SessionTTL  = 30 * 24 * time.Hour
-	TokenPrefix = "forge_"
+	TokenPrefix = "apptown_"
 )
 
 // HashToken is the stored form of any presented secret.

@@ -37,10 +37,10 @@ describe('the approval says when the summary reads the work as short of the requ
 describe('main that conflicts with the change', () => {
   it('names the files and the catch-up', () => {
     const html = renderToStaticMarkup(<MainConflictLine conflict={{ mainBranch: 'main', main: 'abc', step: 'rework', files: ['README.md'],
-      catchUp: 'git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-4" FETCH_HEAD' }} />)
+      catchUp: 'git fetch "$APPTOWN_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-4" FETCH_HEAD' }} />)
     const el = document.createElement('div')
     el.innerHTML = html
-    expect(el.textContent).toBe('main has moved and AppTown could not merge it in before step rework: README.md conflicts. Catch up in the change\'s chat: git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-4" FETCH_HEAD')
+    expect(el.textContent).toBe('main has moved and AppTown could not merge it in before step rework: README.md conflicts. Catch up in the change\'s chat: git fetch "$APPTOWN_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-4" FETCH_HEAD')
   })
 })
 

@@ -65,8 +65,8 @@ func TestAnAcknowledgementCoversOnlyTheUnknownSpendSeen(t *testing.T) {
 	}
 	open := func(pending time.Duration) ids.ID {
 		t.Helper()
-		id, err := requests.OpenCall(context.Background(), usage.Request{Kind: "forge", Actor: "forge-system", ProjectID: copyID, Provider: "native", Model: "judge"},
-			usage.Entry{Kind: "guidance-checklist", ProjectID: copyID, Actor: "forge-system", Provider: "native", Model: "judge"}, pending)
+		id, err := requests.OpenCall(context.Background(), usage.Request{Kind: "forge", Actor: "apptown-system", ProjectID: copyID, Provider: "native", Model: "judge"},
+			usage.Entry{Kind: "guidance-checklist", ProjectID: copyID, Actor: "apptown-system", Provider: "native", Model: "judge"}, pending)
 		if err != nil {
 			t.Fatal(err)
 		}

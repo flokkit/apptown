@@ -68,8 +68,8 @@ func TestLandChangeHTTPReturnsTheSelectedChangesLanding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w := call(fmt.Sprint(waiting.ID)); w.Code != 409 || w.Header().Get("X-Forge-Deny-Code") != "landing-occupied" {
-		t.Fatalf("contended landing: %d %q %s", w.Code, w.Header().Get("X-Forge-Deny-Code"), w.Body.String())
+	if w := call(fmt.Sprint(waiting.ID)); w.Code != 409 || w.Header().Get("X-AppTown-Deny-Code") != "landing-occupied" {
+		t.Fatalf("contended landing: %d %q %s", w.Code, w.Header().Get("X-AppTown-Deny-Code"), w.Body.String())
 	}
 	runs, err = f.Work.ChangeRuns(f.Context, target.ID, workflow.ChangeRuns{})
 	if err != nil || len(runs) != 1 {

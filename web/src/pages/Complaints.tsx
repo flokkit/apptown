@@ -108,7 +108,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
             {c.workflow && <span className="muted small">{c.workflow}{c.step ? ` · ${c.step}` : ''}{c.runNumber ? ` · run ${c.runNumber}` : ''}</span>}
             {c.source === 'console' && <span className="muted small">chat</span>}
             {!!c.changeId && <Link className="small" to={`/changes/${c.changeId}`}>{c.changeNumber ? `change ${c.project ? `${c.project}#` : ''}${c.changeNumber}` : 'the change'}</Link>}
-            {c.about && c.about !== 'forge' && <span className="chip">about the {c.about === 'way-of-working' ? `way of working${c.packVersion ? ` (${c.packVersion})` : ''}` : 'project'}</span>}
+            {c.about && c.about !== 'apptown' && <span className="chip">about the {c.about === 'way-of-working' ? `way of working${c.packVersion ? ` (${c.packVersion})` : ''}` : 'project'}</span>}
             {!!c.evalId && <Link className="small" to={`/evals/${c.evalId}`}>from an eval</Link>}
             <span style={{ flex: 1 }} />
             <span className="muted small">{c.actor && c.actor !== 'anonymous' ? `${c.actor} · ` : ''}{fmtWhen(c.at)}</span>

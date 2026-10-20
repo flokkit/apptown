@@ -122,9 +122,9 @@ else. The check-level sibling is an override with a recorded reason. Every
 accepted change has a run, because landing is the only way to `main`.
 
 **Git history is the syntactic record; run history is
-the semantic record.** Commits carry `Forge-Change`, `Forge-Run`,
-`Forge-Actor`, `Forge-Provenance` and, on a landing merge,
-`Forge-Operation` trailers.
+the semantic record.** Commits carry `AppTown-Change-Id`, `AppTown-Run-Id`,
+`AppTown-Actor`, `AppTown-Provenance` and, on a landing merge,
+`AppTown-Operation` trailers.
 
 ## 4. The Change is the branch; landing is the merge
 

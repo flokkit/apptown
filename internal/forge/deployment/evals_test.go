@@ -146,7 +146,7 @@ func TestACopysLandingPublishesUnderItsOwnRepositoryAndAttachesNothing(t *testin
 		t.Fatal(err)
 	}
 	s := New(context.Background(), db, assembled(db, testRuntime{DataDir: dir, Projects: projects, Integrations: integrations}, Dependencies{}))
-	repo, err := s.LandingRegistry(context.Background(), copy, "forge-system", nil)
+	repo, err := s.LandingRegistry(context.Background(), copy, "apptown-system", nil)
 	if err != nil || repo.Name != "registry.example/team/shop-copy" {
 		t.Fatalf("the copy's repository: %+v %v", repo, err)
 	}

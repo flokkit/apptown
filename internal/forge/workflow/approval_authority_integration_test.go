@@ -178,7 +178,7 @@ func TestStepApprovalEnforcesAuthorityWithoutHTTP(t *testing.T) {
 		code   string
 	}{
 		{access.Principal{Kind: "user", Name: "outsider", Via: "token"}, access.DenyOutsideScope},
-		{access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:read"}}, access.DenyDelegationNarrow},
+		{access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:read"}}, access.DenyDelegationNarrow},
 		{access.Principal{Kind: "instrument", Name: "run/1", Instrument: "run", Via: "run", ProjectID: idstest.N(1)}, access.DenyDelegationNarrow},
 		{access.Principal{Kind: "instrument", Name: "boss via console/c", Person: "boss", Instrument: "console", Via: "console", ProjectID: idstest.N(1)}, access.DenyDelegationNarrow},
 	} {
@@ -374,7 +374,7 @@ func TestStepOverrideEnforcesAuthorityWithoutHTTP(t *testing.T) {
 	eventsBefore := len(storedEvents(t, a.DB))
 	for _, caller := range []access.Principal{
 		{Kind: "user", Name: "outsider", Via: "token"},
-		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:read"}},
+		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:read"}},
 		{Kind: "instrument", Name: "run/1", Instrument: "run", Via: "run", ProjectID: idstest.N(1)},
 		{Kind: "instrument", Name: "owner via console/c", Person: "owner", Instrument: "console", Via: "console", ProjectID: idstest.N(1)},
 	} {

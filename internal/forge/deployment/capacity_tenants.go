@@ -25,7 +25,7 @@ const (
 	TenantDeployment = "deployment" // a standing deployment's (or a restored copy's) parts and needs
 	TenantPreviews   = "previews"   // every change's preview on the host
 	TenantWork       = "work"       // steps, chats and their caches
-	TenantForge      = "forge"      // the forge's own containers (its database); apptownd itself is in "the host itself" or its own container
+	TenantForge      = "apptown"    // AppTown's own containers (its database); apptownd itself is in "the host itself" or its own container
 	TenantUnrecorded = "unrecorded" // forge-labelled containers no record or known class names
 	TenantOther      = "other"      // containers the forge did not start
 )

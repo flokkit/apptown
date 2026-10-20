@@ -1,9 +1,10 @@
-// Package trailer is the one list of the trailer keys Forge writes on the
-// commits it makes, and the one way to write them. Commits leave the forge
-// (they are pushed upstream and read by people and tools that never see the
-// forge's database), so their keys are a format: one list, one case (each
+// Package trailer is the one list of the trailer keys AppTown writes on the
+// commits it makes, and the one way to write them. Commits leave AppTown
+// (they are pushed upstream and read by people and tools that never see
+// AppTown's database), so their keys are a format: one list, one case (each
 // word capitalised), changed only by adding. Commits already written keep the
-// keys they were written with.
+// keys they were written with: before the AppTown rename every key began
+// "Forge-" instead of "AppTown-".
 package trailer
 
 import "strings"
@@ -11,20 +12,25 @@ import "strings"
 // The keys. A reader that finds commits by a key (scm finds a landing's
 // merge by Operation) must use the constant, so the spelling cannot drift.
 const (
-	RunID            = "Forge-Run-Id"            // the run whose work the commit is
-	Step             = "Forge-Step"              // the step that made it
-	Workflow         = "Forge-Workflow"          // name@vN the run was admitted under
-	Operation        = "Forge-Operation"         // the landing operation; found again by it
-	ChangeID         = "Forge-Change-Id"         // the change the commit belongs to
-	ChangePage       = "Forge-Change-Page"       // where the change's record is read
-	OpenedBy         = "Forge-Opened-By"         // who opened the change, as its receipt says
-	ApprovedBy       = "Forge-Approved-By"       // a recorded approving vote and its stated meaning
-	EvalAuthorised   = "Forge-Eval-Authorised"   // a step an eval authorised instead of a person
-	LandingAuthority = "Forge-Landing-Authority" // the authority recorded when the landing was admitted
-	Override         = "Forge-Override"          // a step overridden, by whom and why
-	Actor            = "Forge-Actor"             // who made a commit the forge writes for itself
-	Provenance       = "Forge-Provenance"        // what kind of forge writer made it
+	RunID            = "AppTown-Run-Id"            // the run whose work the commit is
+	Step             = "AppTown-Step"              // the step that made it
+	Workflow         = "AppTown-Workflow"          // name@vN the run was admitted under
+	Operation        = "AppTown-Operation"         // the landing operation; found again by it
+	ChangeID         = "AppTown-Change-Id"         // the change the commit belongs to
+	ChangePage       = "AppTown-Change-Page"       // where the change's record is read
+	OpenedBy         = "AppTown-Opened-By"         // who opened the change, as its receipt says
+	ApprovedBy       = "AppTown-Approved-By"       // a recorded approving vote and its stated meaning
+	EvalAuthorised   = "AppTown-Eval-Authorised"   // a step an eval authorised instead of a person
+	LandingAuthority = "AppTown-Landing-Authority" // the authority recorded when the landing was admitted
+	Override         = "AppTown-Override"          // a step overridden, by whom and why
+	Actor            = "AppTown-Actor"             // who made a commit the forge writes for itself
+	Provenance       = "AppTown-Provenance"        // what kind of forge writer made it
 )
+
+// OldOperation is Operation as commits from before the AppTown rename spell
+// it. It is only read: scm finds a landing's merge by its operation, and a
+// landing admitted before the upgrade carries this key. Nothing writes it.
+const OldOperation = "Forge-Operation"
 
 // Keys is every key, for the test that refuses one written outside this list.
 var Keys = []string{RunID, Step, Workflow, Operation, ChangeID, ChangePage, OpenedBy, ApprovedBy, EvalAuthorised, LandingAuthority, Override, Actor, Provenance}

@@ -281,7 +281,7 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (Outc
 				return "", err
 			}
 			if inputs.Rebuild {
-				if err := audit.At(now).RecordIn(ctx, tx, "forge-system", dep.ProjectID, "deployment.rebuilt", dep.Name, map[string]any{
+				if err := audit.At(now).RecordIn(ctx, tx, "apptown-system", dep.ProjectID, "deployment.rebuilt", dep.Name, map[string]any{
 					"attempt":    at.ID,
 					"generation": at.Generation,
 					"revision":   inputs.Revision,

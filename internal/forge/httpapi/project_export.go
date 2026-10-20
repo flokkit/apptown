@@ -39,7 +39,7 @@ type ProjectExportRefused struct {
 
 // Export: GET /api/v1/projects/{slug}/export — administrators only. The
 // file is spooled and hashed first, so its hash, size and counts come as
-// headers (X-Forge-Export-Sha256, X-Forge-Export-Counts) before its body.
+// headers (X-AppTown-Export-Sha256, X-AppTown-Export-Counts) before its body.
 // The project.exported receipt is recorded once the whole file is written.
 func (h ProjectExport) Export(w http.ResponseWriter, r *http.Request) {
 	if !RequireAdmin(h.access, w, r) {
@@ -54,7 +54,7 @@ func (h ProjectExport) Export(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	origin := projectlifecycle.ExportOrigin{Forge: forge, Host: r.Host, Build: h.build, Schema: h.schema}
+	origin := projectlifecycle.ExportOrigin{AppTown: forge, Host: r.Host, Build: h.build, Schema: h.schema}
 	file, err := h.lifecycle.Export(r.Context(), p, Actor(r), origin, h.sources)
 	var refused *projectlifecycle.ExportRefusal
 	if errors.As(err, &refused) {
@@ -69,9 +69,9 @@ func (h ProjectExport) Export(w http.ResponseWriter, r *http.Request) {
 		"skipped": file.Manifest.Skipped, "skippedChats": len(file.Manifest.SkippedChats)})
 	w.Header().Set("Content-Type", "application/x-tar")
 	w.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fmt.Sprintf("%s-%s.forge-export", p.Slug, h.now().UTC().Format("20060102T150405Z"))))
-	w.Header().Set("X-Forge-Export-Sha256", file.SHA256)
-	w.Header().Set("X-Forge-Export-Counts", string(counts))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fmt.Sprintf("%s-%s.apptown-export", p.Slug, h.now().UTC().Format("20060102T150405Z"))))
+	w.Header().Set("X-AppTown-Export-Sha256", file.SHA256)
+	w.Header().Set("X-AppTown-Export-Counts", string(counts))
 	w.WriteHeader(http.StatusOK)
 	if err := file.Send(r.Context(), w); err != nil {
 		// The status has gone; the receipt was not recorded, and the log

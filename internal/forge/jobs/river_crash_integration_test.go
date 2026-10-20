@@ -20,7 +20,7 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-const crashProbeDSN = "FORGE_TEST_RIVER_CRASH_DSN"
+const crashProbeDSN = "APPTOWN_TEST_RIVER_CRASH_DSN"
 
 // Establishes what a real process death leaves for Forge's startup repair.
 // No expired wait context, fabricated running row, or shortened rescue horizon.

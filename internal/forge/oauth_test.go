@@ -180,10 +180,10 @@ func TestOAuthFlowMintsBoundedTokens(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "Sign in to connect") {
 		t.Fatalf("anonymous authorize: %d %s", w.Code, w.Body.String())
 	}
-	tok := authorizeAndExchange(t, h, admin, clientID, "forge:user:read")
+	tok := authorizeAndExchange(t, h, admin, clientID, "apptown:user:read")
 	accessToken, _ := tok["access_token"].(string)
 	refresh, _ := tok["refresh_token"].(string)
-	if !strings.HasPrefix(accessToken, identity.AccessPrefix) || refresh == "" || tok["scope"] != "forge:user:read" {
+	if !strings.HasPrefix(accessToken, identity.AccessPrefix) || refresh == "" || tok["scope"] != "apptown:user:read" {
 		t.Fatalf("token response: %v", tok)
 	}
 	// The access token opens the MCP door as boss and can read.
@@ -284,7 +284,7 @@ func TestOAuthPKCEAndRevocation(t *testing.T) {
 	}
 	// A real connection shows under the person's connected agents, and
 	// disconnecting it kills the token immediately.
-	tok := authorizeAndExchange(t, h, admin, clientID, "forge:user:read")
+	tok := authorizeAndExchange(t, h, admin, clientID, "apptown:user:read")
 	accessToken := tok["access_token"].(string)
 	req = httptest.NewRequest("GET", "/api/v1/auth/delegations", nil)
 	req.AddCookie(admin)

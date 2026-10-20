@@ -16,7 +16,7 @@ shutdown rather than waiting indefinitely for triggered work.
 
 `POST /api/v1/hooks/{slug}/{workflow}` requires a selected workflow declaring a
 webhook and the configured `FORGE_WEBHOOK_TOKEN`. The handler accepts that token
-only in the `X-Forge-Token` header, compared in constant time; a token in the URL
+only in the `X-AppTown-Token` header, compared in constant time; a token in the URL
 is refused, since proxies and shells record URLs. Missing token configuration
 disables webhooks. The credential is instance-wide, not independently revocable
 per workflow: anyone holding it can fire any workflow that declares `on: webhook`,

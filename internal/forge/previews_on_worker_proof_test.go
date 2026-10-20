@@ -108,7 +108,7 @@ func consolePreview(t *testing.T, a *App, session *console.Session) *httptest.Re
 	t.Helper()
 	r := httptest.NewRequest("POST", "/api/v1/console/"+session.ID+"/preview", nil)
 	r.SetPathValue("sid", session.ID)
-	r.Header.Set("X-Forge-Session-Token", session.Token)
+	r.Header.Set("X-AppTown-Session-Token", session.Token)
 	out := httptest.NewRecorder()
 	httpapi.NewConsolePreview(a.Console, a.Preview, a.DB, a.cfg.publicHost, nil).ConsolePreview(out, r.WithContext(callerContext(r)))
 	return out

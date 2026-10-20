@@ -665,7 +665,7 @@ func TestATestsStepRecordsWhatItsReportSays(t *testing.T) {
 			if step.Status != workflow.StatusPass || committedSeen {
 				t.Fatalf("%s: %s %s (the committed report was in the tree: %v)", name, step.Status, step.Evidence, committedSeen)
 			}
-			if asked.Report != ".forge-test-report" || !slices.Contains(asked.Env, "FORGE_TEST_REPORT=/work/.forge-test-report") {
+			if asked.Report != ".forge-test-report" || !slices.Contains(asked.Env, "APPTOWN_TEST_REPORT=/work/.forge-test-report") {
 				t.Fatalf("the command was not offered the report: %q %q", asked.Report, asked.Env)
 			}
 			counts, _ := json.Marshal(ev["testCounts"])

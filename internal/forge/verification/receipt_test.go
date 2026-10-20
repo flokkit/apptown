@@ -33,7 +33,7 @@ func TestCheckReceiptKeepsZeroValuesAndExactProvenance(t *testing.T) {
 	if wire["exitCode"] != float64(0) || wire["durationMs"] != float64(0) || wire["gates"] != false {
 		t.Fatalf("zero/false observations must survive JSON: %s", data)
 	}
-	if _, exists := wire["forgeFault"]; exists {
+	if _, exists := wire["apptownFault"]; exists {
 		t.Fatalf("absent fault must stay absent: %s", data)
 	}
 }

@@ -23,7 +23,7 @@ describe('the invite link page', () => {
     vi.stubGlobal('location', { ...window.location, replace })
     const el = document.createElement('div')
     const root = createRoot(el)
-    await act(async () => { root.render(<InvitePage token="forge_invite_abc" />) })
+    await act(async () => { root.render(<InvitePage token="apptown_invite_abc" />) })
     await vi.waitFor(() => expect(el.textContent).toContain('bls invited you to AppTown as kim'))
     const [pw, again] = [...el.querySelectorAll('input[type=password]')] as HTMLInputElement[]
     const type = async (input: HTMLInputElement, value: string) => act(async () => {
@@ -37,8 +37,8 @@ describe('the invite link page', () => {
     expect(sent.filter((s) => s.url.endsWith('/accept'))).toHaveLength(0)
     await type(again, 'kims-password')
     await act(async () => { (el.querySelector('form') as HTMLFormElement).requestSubmit() })
-    expect(sent.find((s) => s.url.endsWith('/accept'))).toEqual({ url: '/api/v1/auth/invite/accept', body: { token: 'forge_invite_abc', password: 'kims-password' } })
-    expect(sent[0]).toEqual({ url: '/api/v1/auth/invite', body: { token: 'forge_invite_abc' } })
+    expect(sent.find((s) => s.url.endsWith('/accept'))).toEqual({ url: '/api/v1/auth/invite/accept', body: { token: 'apptown_invite_abc', password: 'kims-password' } })
+    expect(sent[0]).toEqual({ url: '/api/v1/auth/invite', body: { token: 'apptown_invite_abc' } })
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
     act(() => root.unmount())
   })
@@ -57,7 +57,7 @@ describe('the invite link page', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     const moved = vi.spyOn(window.history, 'replaceState')
-    await act(async () => { root.render(<InvitePage token="forge_invite_reset" />) })
+    await act(async () => { root.render(<InvitePage token="apptown_invite_reset" />) })
     await vi.waitFor(() => expect(el.textContent).toContain('bls made a password reset link for kim'))
     // The token leaves the address bar; the page keeps it in memory, and a
     // render without it (the router reading /invite) changes nothing.
@@ -73,7 +73,7 @@ describe('the invite link page', () => {
       })
     }
     await act(async () => { (el.querySelector('form') as HTMLFormElement).requestSubmit() })
-    expect(sent.find((s) => s.url.endsWith('/accept'))).toEqual({ url: '/api/v1/auth/invite/accept', body: { token: 'forge_invite_reset', password: 'kims-new-password' } })
+    expect(sent.find((s) => s.url.endsWith('/accept'))).toEqual({ url: '/api/v1/auth/invite/accept', body: { token: 'apptown_invite_reset', password: 'kims-new-password' } })
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
     act(() => root.unmount())
   })
@@ -82,7 +82,7 @@ describe('the invite link page', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(offer('accepted', 'password')))))
     const el = document.createElement('div')
     const root = createRoot(el)
-    await act(async () => { root.render(<InvitePage token="forge_invite_used" />) })
+    await act(async () => { root.render(<InvitePage token="apptown_invite_used" />) })
     await vi.waitFor(() => expect(el.textContent).toContain('This password reset link has already been used.'))
     expect(el.querySelector('input[type=password]')).toBeNull()
     act(() => root.unmount())
@@ -104,7 +104,7 @@ describe('the invite link page', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(offer('expired')))))
     const el = document.createElement('div')
     const root = createRoot(el)
-    await act(async () => { root.render(<InvitePage token="forge_invite_old" />) })
+    await act(async () => { root.render(<InvitePage token="apptown_invite_old" />) })
     await vi.waitFor(() => expect(el.textContent).toContain('This invite has expired.'))
     expect(el.querySelector('input[type=password]')).toBeNull()
     act(() => root.unmount())

@@ -40,7 +40,7 @@ func TestWorkRetryAuthorityWithoutRouteAndCurrentGrants(t *testing.T) {
 	}
 	for _, pr := range []access.Principal{
 		{Kind: "user", Name: "outsider", Via: "token"},
-		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}},
+		{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}},
 		{Kind: "instrument", Name: "owner via console/c", Person: "owner", Instrument: "console", Via: "console", ProjectID: a.OtherProjectID},
 		{Kind: "instrument", Name: "run/1", Instrument: "run", Via: "run", ProjectID: a.ProjectID},
 	} {

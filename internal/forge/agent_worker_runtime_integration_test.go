@@ -77,7 +77,7 @@ func containerHost(t *testing.T) string {
 }
 
 // The packaged forge CLI runs inside an agent step on the worker, from its
-// /forge/in path, and the forge's API admits it with the attempt's derived
+// /apptown/in path, and the forge's API admits it with the attempt's derived
 // token alone (on a forge that admits no one without credentials); the
 // same request with another token is refused.
 func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testing.T) {
@@ -99,8 +99,8 @@ func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testi
 	a.tasks.Poll = 100 * time.Millisecond
 	run, steps := agentWorkerChange(t, a, []schema.Step{{Name: "build", Uses: "agent/pi", With: map[string]any{"prompt": "ask AppTown", "executor": "docker"}}},
 		map[string]string{"fake-pi.sh": `
-apptown status "$FORGE_RUN_ID" > cli.txt 2>&1; echo "exit $?" >> cli.txt
-FORGE_SESSION_TOKEN=rt_1_1_bogus apptown status "$FORGE_RUN_ID" > denied.txt 2>&1; echo "exit $?" >> denied.txt
+apptown status "$APPTOWN_RUN_ID" > cli.txt 2>&1; echo "exit $?" >> cli.txt
+APPTOWN_SESSION_TOKEN=rt_1_1_bogus apptown status "$APPTOWN_RUN_ID" > denied.txt 2>&1; echo "exit $?" >> denied.txt
 say "asked AppTown"`})
 	p, err := a.Projects.BySlug(context.Background(), "agents")
 	if err != nil {
@@ -143,7 +143,7 @@ func TestIntegrationForgeCheckOnTheWorkerChecksTheAgentsCommitAsFeedback(t *test
 	apiURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(w, r) }))
 	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "forge-agent",
 		ConsoleCLI: linuxForgeCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
-	api = GETOnly(a.Handler()) // the agent's $FORGE_URL is the read-only listener
+	api = GETOnly(a.Handler()) // the agent's $APPTOWN_URL is the read-only listener
 	a.tasks.Poll = 100 * time.Millisecond
 	run, steps := agentWorkerChange(t, a, []schema.Step{{Name: "build", Uses: "agent/pi", With: map[string]any{"prompt": "check your work", "executor": "docker"}}},
 		map[string]string{"fake-pi.sh": `
@@ -301,7 +301,7 @@ func TestIntegrationThePackagedPiRuntimeResumesOnlyTheNamedTranscript(t *testing
 			planted := fmt.Sprintf("{\"type\":\"session\",\"version\":3,\"id\":%q,\"timestamp\":\"9999-12-31T00:00:00.000Z\",\"cwd\":\"/work\"}\n", sid) +
 				"{\"type\":\"message\",\"id\":\"c0000001\",\"parentId\":null,\"timestamp\":\"9999-12-31T00:00:00.000Z\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"COMPETING HISTORY\"}],\"timestamp\":253402214400000}}\n"
 			encoded := base64.StdEncoding.EncodeToString([]byte(planted))
-			command := "for at in 0000-01-01T00-00-00-000Z 9999-12-31T00-00-00-000Z; do echo " + encoded + " | base64 -d > /forge/state/sessions/${at}_" + sid + ".jsonl; done && echo planted"
+			command := "for at in 0000-01-01T00-00-00-000Z 9999-12-31T00-00-00-000Z; do echo " + encoded + " | base64 -d > /apptown/state/sessions/${at}_" + sid + ".jsonl; done && echo planted"
 			args, _ := json.Marshal(map[string]string{"command": command})
 			call, _ := json.Marshal(map[string]any{"role": "assistant", "tool_calls": []any{map[string]any{"index": 0, "id": "call_1", "type": "function",
 				"function": map[string]any{"name": "bash", "arguments": string(args)}}}})

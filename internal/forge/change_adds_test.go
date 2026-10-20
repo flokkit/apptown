@@ -156,7 +156,7 @@ func TestTheApproveAPIRefusesAVoteWithoutTheList(t *testing.T) {
 	f.commit(map[string]string{".forge/app.yaml": addsContract})
 	h := f.a.Handler()
 	w := authzCall(h, "bls", "POST", "/api/v1/steps/"+f.acceptID.String()+"/approve", `{"decision":"approve","alsoApproves":["merge the accepted work"]}`)
-	if w.Code != 400 || w.Header().Get("X-Forge-Deny-Code") != "adds-not-shown" {
+	if w.Code != 400 || w.Header().Get("X-AppTown-Deny-Code") != "adds-not-shown" {
 		t.Fatalf("approved over the API without the list: %d %s", w.Code, w.Body.String())
 	}
 	if votes := votesOn(t, f.a, f.work.ID, "accept"); len(votes) != 0 {

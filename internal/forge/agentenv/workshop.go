@@ -155,7 +155,7 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	// The step's own project cache, at the same path as in the step, so a
 	// nested build sees what the step sees; an unscoped step has none.
 	if cache := CacheVolume(ctx); cache != "" {
-		args = append(args, "-v", cache+":/forge-cache")
+		args = append(args, "-v", cache+":/apptown-cache")
 	}
 	args = append(args, execution.LimitFlags(w.Limits)...)
 	if tar, err := w.agentImageTar(ctx); err == nil {
@@ -229,7 +229,7 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	buildxArgs := []string{"exec",
 		"-e", "DOCKER_HOST=tcp://localhost:2375",
 		"-e", "DOCKER_CONFIG=" + filepath.Join("/work", clientConfigDir),
-		name, "docker", "buildx", "create", "--name", "forge",
+		name, "docker", "buildx", "create", "--name", "apptown",
 		"--driver", "docker-container", "--driver-opt", "network=host",
 		"--config", "/work/.forge/buildkitd.toml", "--use"}
 	if out, err := w.docker.Run(ctx, buildxArgs...); err != nil {

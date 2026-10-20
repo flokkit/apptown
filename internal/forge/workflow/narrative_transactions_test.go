@@ -199,7 +199,7 @@ func TestNarrativePublicationPreservesConcurrentHumanTitle(t *testing.T) {
 	if err := json.Unmarshal(entries[0].Payload, &receipt); err != nil {
 		t.Fatal(err)
 	}
-	if entries[0].Actor != "forge-system" || receipt.Slot != "fast" || receipt.Model != "openrouter/test" || receipt.Chars != 14 {
+	if entries[0].Actor != "apptown-system" || receipt.Slot != "fast" || receipt.Model != "openrouter/test" || receipt.Chars != 14 {
 		t.Fatalf("publication attribution: %+v %+v", entries[0], receipt)
 	}
 }

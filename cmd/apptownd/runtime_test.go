@@ -235,7 +235,7 @@ func TestDaemonReportsWorkerShutdownError(t *testing.T) {
 }
 
 func TestDaemonSIGTERMExitsWithBlockedJob(t *testing.T) {
-	if os.Getenv("FORGE_TEST_SHUTDOWN_CHILD") == "1" {
+	if os.Getenv("APPTOWN_TEST_SHUTDOWN_CHILD") == "1" {
 		server, _ := testDaemonServer(http.NotFoundHandler())
 		server.BaseContext = func(net.Listener) context.Context {
 			fmt.Println("ready")
@@ -252,7 +252,7 @@ func TestDaemonSIGTERMExitsWithBlockedJob(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestDaemonSIGTERMExitsWithBlockedJob$")
-	cmd.Env = append(os.Environ(), "FORGE_TEST_SHUTDOWN_CHILD=1")
+	cmd.Env = append(os.Environ(), "APPTOWN_TEST_SHUTDOWN_CHILD=1")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.StdoutPipe()

@@ -27,8 +27,8 @@ esac
 docker run --rm \
   -v "$ws":/work -w /work \
   -v "$here":/gym:ro \
-  -v forge-cache:/forge-cache \
-  -e npm_config_cache=/forge-cache/npm -e GOMODCACHE=/forge-cache/gomod -e GOCACHE=/forge-cache/gobuild \
+  -v forge-cache:/apptown-cache \
+  -e npm_config_cache=/apptown-cache/npm -e GOMODCACHE=/apptown-cache/gomod -e GOCACHE=/apptown-cache/gobuild \
   forge-agent sh -c '
 set -e
 export PATH="$MISE_DATA_DIR/shims:$PATH"

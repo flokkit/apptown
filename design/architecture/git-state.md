@@ -33,16 +33,16 @@ clone**:
 - Commits carry trailers, which are the semantic-history link:
 
   ```
-  Forge-Change: 41
-  Forge-Run: 133
-  Forge-Actor: alice
-  Forge-Provenance: console
+  AppTown-Change-Id: 41
+  AppTown-Run-Id: 133
+  AppTown-Actor: alice
+  AppTown-Provenance: console
   ```
 
-  The engine commits a step's leftovers with `Forge-Run` and
-  `Forge-Workflow`; a landing **sweeps** uncommitted chat work into a commit
+  The engine commits a step's leftovers with `AppTown-Run-Id` and
+  `AppTown-Workflow`; a landing **sweeps** uncommitted chat work into a commit
   with console provenance before any gate runs; the landing merge carries
-  `Forge-Operation`, the id the recovery pass uses to tell a merge that
+  `AppTown-Operation`, the id the recovery pass uses to tell a merge that
   finished from one that did not.
 - **Landing is the merge.** A child run (a workflow called from another)
   shares its root's clone and branch and never merges on its own. Failed
@@ -90,10 +90,10 @@ trusted:
   behind `net/http/cgi`) lets a container **fetch `main` only**:
   `uploadpack.hideRefs` hides every other ref, so no other change's branch
   is listed or fetchable; the credential is a minted read-only, one-project
-  token (`git_pull_tokens`). A chat gets the endpoint as `FORGE_MAIN_REMOTE`,
+  token (`git_pull_tokens`). A chat gets the endpoint as `APPTOWN_MAIN_REMOTE`,
   a plain URL, and the token as an `Authorization` header that git sends to
   that URL only (`GIT_CONFIG_*`), so no remote, error or pasted command
-  carries it. Each chat start mints its own token (`forge_pull_…`); only its
+  carries it. Each chat start mints its own token (`apptown_pull_…`); only its
   hash is stored, and every token lasts until the project is removed. Containers reach it at `host.docker.internal`, which they already
   resolve, on the read-only listener: a fetch's one POST, to
   `git-upload-pack`, is let through there.

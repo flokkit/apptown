@@ -44,7 +44,7 @@ func TestRecoverLandingsFromGit(t *testing.T) {
 	// Died after the merge: main carries a commit with the operation trailer.
 	after := mkRun("after")
 	pending := pendingMergeForTest(t, a, after.run.ID, after.head)
-	after.git("commit", "-q", "--allow-empty", "-m", fmt.Sprintf("forge: complete wf run\n\nForge-Run-Id: %s\nForge-Operation: %s", after.run.ID, pending.Operation))
+	after.git("commit", "-q", "--allow-empty", "-m", fmt.Sprintf("apptown: complete wf run\n\nAppTown-Run-Id: %s\nAppTown-Operation: %s", after.run.ID, pending.Operation))
 	merged := strings.TrimSpace(after.git("rev-parse", "HEAD"))
 	// Died before the merge: main's head is still what the intent recorded.
 	before := mkRun("before")

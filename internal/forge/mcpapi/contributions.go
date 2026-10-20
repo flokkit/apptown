@@ -91,10 +91,10 @@ func (h contributions) mintCheckout(c *Call, ch *workflow.Change, p *project.Pro
 		// credential helper, never in the remote URL: a URL credential lands
 		// in .git/config and shell history, and the client then has to scrub
 		// it (Claude Code did, on its first live use). Same bounds either way.
-		"credential": map[string]any{"username": "x-forge-ticket", "password": tok, "env": "FORGE_GIT_TICKET",
-			"note": "one Change, one ref, minutes-long, consumed by the first successful push. The git commands below read it from the FORGE_GIT_TICKET environment variable through a one-line credential helper, so it never enters the remote URL or .git/config"},
+		"credential": map[string]any{"username": "x-apptown-ticket", "password": tok, "env": "APPTOWN_GIT_TICKET",
+			"note": "one Change, one ref, minutes-long, consumed by the first successful push. The git commands below read it from the APPTOWN_GIT_TICKET environment variable through a one-line credential helper, so it never enters the remote URL or .git/config"},
 		"git": map[string]any{
-			"note":   "Each command must see FORGE_GIT_TICKET in its own environment. A tool that runs every command in a fresh shell must use the `shell` form, which sets it inline; an `export` in an earlier call does not carry over (that is the 'Authentication failed' you get otherwise).",
+			"note":   "Each command must see APPTOWN_GIT_TICKET in its own environment. A tool that runs every command in a fresh shell must use the `shell` form, which sets it inline; an `export` in an earlier call does not carry over (that is the 'Authentication failed' you get otherwise).",
 			"clone":  gitWithTicket("clone", "--branch", db, c.gitURL(p), "<dir>"),
 			"fetch":  gitWithTicket("fetch", "origin", "+"+ref+":"+ref),
 			"switch": []string{"git", "switch", ch.Branch},

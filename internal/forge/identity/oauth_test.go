@@ -31,7 +31,7 @@ func TestConsentAndExchange(t *testing.T) {
 	}
 	verifier := strings.Repeat("v", 43)
 	sum := sha256.Sum256([]byte(verifier))
-	b := BrowserAuthorization{User: "alice", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "forge:user:read forge:change:create", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
+	b := BrowserAuthorization{User: "alice", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "apptown:user:read apptown:change:create", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
 	prepared, err := s.PrepareConsent(ctx, b)
 	if err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func TestRotationLeaksAndRevocation(t *testing.T) {
 	s := New(db, Config{})
 	o := s.oauth
 	c, _ := o.RegisterClient(context.Background(), "agent", []string{"http://localhost:1/cb"})
-	code, _ := o.IssueCode(context.Background(), c, "alice", "http://localhost:1/cb", []string{"forge:user:read"}, "", "ch")
+	code, _ := o.IssueCode(context.Background(), c, "alice", "http://localhost:1/cb", []string{"apptown:user:read"}, "", "ch")
 	rec, _ := o.CodeByValue(context.Background(), code)
 	did, pair, _, err := o.Exchange(context.Background(), code, rec, c.Name, "internal")
 	if err != nil {
@@ -104,7 +104,7 @@ func TestRotationLeaksAndRevocation(t *testing.T) {
 	if tok, _ := o.Token(context.Background(), next.Access, "access"); !tok.Revoked {
 		t.Fatal("a leak revokes the live tokens")
 	}
-	code2, _ := o.IssueCode(context.Background(), c, "alice", "http://localhost:1/cb", []string{"forge:user:read"}, "", "ch")
+	code2, _ := o.IssueCode(context.Background(), c, "alice", "http://localhost:1/cb", []string{"apptown:user:read"}, "", "ch")
 	rec2, _ := o.CodeByValue(context.Background(), code2)
 	did2, pair2, _, _ := o.Exchange(context.Background(), code2, rec2, c.Name, "internal")
 	if got, found, err := o.DelegationOfToken(context.Background(), pair2.Access); err != nil || !found || got != did2 {
@@ -186,7 +186,7 @@ func TestTickets(t *testing.T) {
 	if err != nil || live == nil || live.ChangeID != idstest.N(40) || live.Ref != "refs/heads/forge/change-40" || live.ExpectedTip != "abc123" {
 		t.Fatalf("by token: %v %+v", err, live)
 	}
-	if got, err := k.ByToken(context.Background(), "forge_git_nope"); err != nil || got != nil {
+	if got, err := k.ByToken(context.Background(), "apptown_git_nope"); err != nil || got != nil {
 		t.Fatalf("unknown ticket: %v %+v", err, got)
 	}
 	if got, _ := k.ByToken(context.Background(), "not-a-ticket"); got != nil {

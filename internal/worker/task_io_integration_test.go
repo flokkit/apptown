@@ -91,16 +91,16 @@ func TestIntegrationATaskReadsItsInputsAndLeavesItsResultFiles(t *testing.T) {
 	}
 	script := `
 test -e /work/.forge/review.json && echo FRESH-KEPT
-cat /forge/in/steering.md; echo
-/forge/in/bin/tool
-cat /forge/in/resources/a.md; echo
-echo "MODES $(stat -c %a /forge/in/bin/tool) $(stat -c %a /forge/in/steering.md)"
-(echo x > /forge/in/steering.md) 2>/dev/null && echo INPUT-WRITABLE
-(echo x > /forge/in/bin/tool) 2>/dev/null && echo INPUT-WRITABLE
-(rm -f /forge/in/resources/a.md) 2>/dev/null && echo INPUT-REMOVABLE
+cat /apptown/in/steering.md; echo
+/apptown/in/bin/tool
+cat /apptown/in/resources/a.md; echo
+echo "MODES $(stat -c %a /apptown/in/bin/tool) $(stat -c %a /apptown/in/steering.md)"
+(echo x > /apptown/in/steering.md) 2>/dev/null && echo INPUT-WRITABLE
+(echo x > /apptown/in/bin/tool) 2>/dev/null && echo INPUT-WRITABLE
+(rm -f /apptown/in/resources/a.md) 2>/dev/null && echo INPUT-REMOVABLE
 mkdir -p /work/.forge && echo '{"verdict":"pass"}' > /work/.forge/review.json
-mkdir -p /forge/state/sessions && echo '{"type":"session"}' > /forge/state/sessions/s.jsonl
-head -c 100 /dev/zero > /forge/state/big
+mkdir -p /apptown/state/sessions && echo '{"type":"session"}' > /apptown/state/sessions/s.jsonl
+head -c 100 /dev/zero > /apptown/state/big
 ln -s /etc/passwd /work/link.json
 ln -s / /work/out
 mkdir /work/adir
@@ -110,15 +110,15 @@ echo done
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: base},
 		Inputs: []execution.Input{
-			input("/forge/in/steering.md", "steer this way", 0o644),
-			input("/forge/in/bin/tool", "#!/bin/sh\necho tool ran\n", 0o755),
-			input("/forge/in/resources/a.md", "resource a", 0o644),
+			input("/apptown/in/steering.md", "steer this way", 0o644),
+			input("/apptown/in/bin/tool", "#!/bin/sh\necho tool ran\n", 0o755),
+			input("/apptown/in/resources/a.md", "resource a", 0o644),
 		},
 		Results: []execution.Result{
 			{Name: "verdict", Path: "/work/.forge/review.json", Max: 1024, Fresh: true},
-			{Name: "transcript", Path: "/forge/state/sessions/s.jsonl", Max: 1024},
+			{Name: "transcript", Path: "/apptown/state/sessions/s.jsonl", Max: 1024},
 			{Name: "absent", Path: "/work/nothing.json", Max: 1024},
-			{Name: "big", Path: "/forge/state/big", Max: 10},
+			{Name: "big", Path: "/apptown/state/big", Max: 10},
 			{Name: "link", Path: "/work/link.json", Max: 1024},
 			{Name: "escape", Path: "/work/out/etc/passwd", Max: 1 << 20},
 			{Name: "folder", Path: "/work/adir", Max: 1024},
@@ -201,7 +201,7 @@ echo done
 
 	// What is collected is the tree alone: no state, no inputs.
 	bundle := filepath.Join(t.TempDir(), "result.bundle")
-	tip, err := driver.Collect(ctx, spec.Key, base, "forge: the task's work", bundle)
+	tip, err := driver.Collect(ctx, spec.Key, base, "apptown: the task's work", bundle)
 	if err != nil || tip == "" {
 		t.Fatalf("collecting: %q %v", tip, err)
 	}

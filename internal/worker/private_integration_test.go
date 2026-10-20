@@ -214,7 +214,7 @@ nc -z cache 6379 && echo "reached the cache"
 test -S /var/run/docker.sock && echo "HOST SOCKET"
 docker -H unix:///var/run/docker.sock info >/dev/null 2>&1 && echo "HOST DAEMON"
 docker volume ls --format '{{.Name}}' | grep -q forge-cache && echo "FORGE CACHE"
-docker buildx inspect forge >/dev/null && echo "builder forge"
+docker buildx inspect apptown >/dev/null && echo "builder apptown"
 echo "DOCKER_CONFIG=$DOCKER_CONFIG"
 `
 	spec := f.spec("build", script, private)
@@ -243,7 +243,7 @@ echo "DOCKER_CONFIG=$DOCKER_CONFIG"
 	if err != nil || code != 0 {
 		t.Fatalf("the task: %d %v\n%s", code, err, out)
 	}
-	for _, want := range []string{"hello from a nested build", "same path", "nested wrote", "reached the cache", "builder forge", "DOCKER_CONFIG=/forge/state/docker"} {
+	for _, want := range []string{"hello from a nested build", "same path", "nested wrote", "reached the cache", "builder apptown", "DOCKER_CONFIG=/apptown/state/docker"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the task's output lacks %q:\n%s", want, out)
 		}
@@ -267,7 +267,7 @@ echo "DOCKER_CONFIG=$DOCKER_CONFIG"
 	mounts := inspect(t, `{{range .Mounts}}{{.Destination}} {{end}}`, daemon)
 	for _, m := range strings.Fields(mounts) {
 		switch m {
-		case "/work", "/forge/state/docker", "/forge-dind", "/var/lib/docker": // the last its own anonymous storage
+		case "/work", "/apptown/state/docker", "/forge-dind", "/var/lib/docker": // the last its own anonymous storage
 		default:
 			t.Errorf("the daemon was given %s (mounts: %s)", m, mounts)
 		}

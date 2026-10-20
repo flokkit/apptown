@@ -56,8 +56,8 @@ func (s *Server) seedAgentGit(ctx context.Context, bundle, branch, commit, tree,
 		{"init", "-q", repo},
 		{"-C", repo, "fetch", "-q", "--no-tags", bundle, "refs/heads/" + branch + ":refs/heads/" + a.Branch},
 		{"-C", repo, "symbolic-ref", "HEAD", "refs/heads/" + a.Branch},
-		{"-C", repo, "config", "user.name", "forge"},
-		{"-C", repo, "config", "user.email", "forge@localhost"},
+		{"-C", repo, "config", "user.name", "apptown"},
+		{"-C", repo, "config", "user.email", "apptown@localhost"},
 		{"-C", repo, "read-tree", "HEAD"},
 	}
 	if a.Base != "" {

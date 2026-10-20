@@ -29,7 +29,7 @@ func TestProjectAuthorityGatesConsoleCreate(t *testing.T) {
 	createReadTestProject(t, a, "game")
 	h := a.Handler()
 	req := httptest.NewRequest("POST", "/api/v1/projects/game/console", strings.NewReader(`{}`))
-	req.Header.Set("X-Forge-Actor", "outsider")
+	req.Header.Set("X-AppTown-Actor", "outsider")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 403 || !strings.Contains(w.Body.String(), "outsider may not start") {
@@ -141,7 +141,7 @@ func TestDraftingRefusesADisabledConsoleOwner(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/api/v1/assist/workflow", strings.NewReader(`{"description":"draft a workflow"}`))
 	r.Header.Set("Content-Type", "application/json")
-	r.Header.Set("X-Forge-Session-Token", m.Token)
+	r.Header.Set("X-AppTown-Session-Token", m.Token)
 	w := httptest.NewRecorder()
 	a.Handler().ServeHTTP(w, r)
 	if calls.Load() != 0 {

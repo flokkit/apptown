@@ -60,7 +60,7 @@ describe('the target editor', () => {
     vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
       sent.push(JSON.parse(String(init?.body)))
       return conflict
-        ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-Forge-Deny-Code': 'settings-moved' } })
+        ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
         : new Response('{"ok":true}')
     }))
     const el = document.createElement('div')

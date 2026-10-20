@@ -63,7 +63,7 @@ func (s *Library) StockInsert(ctx context.Context, b StockBlock) error {
 		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), At: now}); err != nil {
 			return err
 		}
-		return audit.At(now).RecordIn(ctx, tx, "forge-system", ids.Nil, "guidance.stock.seeded", b.Name, nil)
+		return audit.At(now).RecordIn(ctx, tx, "apptown-system", ids.Nil, "guidance.stock.seeded", b.Name, nil)
 	})
 }
 
@@ -91,7 +91,7 @@ func (s *Library) StockUpdateIn(ctx context.Context, tx *database.Tx, b StockBlo
 		if _, err := q.AdvanceStockBlockVersion(ctx, wowsql.AdvanceStockBlockVersionParams{ID: r.ID, Version: int64(version), Tags: NormalizeTags(b.Tags), Tier: b.Tier, Conflicts: NormalizeTags(b.Conflicts), At: now}); err != nil {
 			return err
 		}
-		return audit.At(now).RecordIn(ctx, tx, "forge-system", ids.Nil, "guidance.stock.upgraded", b.Name, map[string]any{"version": version})
+		return audit.At(now).RecordIn(ctx, tx, "apptown-system", ids.Nil, "guidance.stock.upgraded", b.Name, map[string]any{"version": version})
 	}()
 	return blockID, version, err
 }
@@ -159,7 +159,7 @@ func (s *Workflows) StockUpdate(ctx context.Context, name, description, yamlSrc 
 		if _, err := q.AdvanceWorkflowVersion(ctx, wowsql.AdvanceWorkflowVersionParams{ID: r.ID, Version: int64(version), Description: description, At: now}); err != nil {
 			return err
 		}
-		return audit.At(now).RecordIn(ctx, tx, "forge-system", ids.Nil, "library.workflow.updated", name, map[string]any{"version": version})
+		return audit.At(now).RecordIn(ctx, tx, "apptown-system", ids.Nil, "library.workflow.updated", name, map[string]any{"version": version})
 	})
 	return version, err
 }

@@ -31,7 +31,7 @@ func TestMemberRoutesPreserveAuthorizationAndAttribution(t *testing.T) {
 			if w.Code != tc.code {
 				t.Fatalf("response: %d %s", w.Code, w.Body.String())
 			}
-			if tc.code == 403 && w.Header().Get("X-Forge-Deny-Code") == "" {
+			if tc.code == 403 && w.Header().Get("X-AppTown-Deny-Code") == "" {
 				t.Fatal("denial code lost")
 			}
 		})
@@ -68,7 +68,7 @@ func TestMemberRouteRejectsSpoofedProxyIdentity(t *testing.T) {
 	h := a.Handler()
 	req := httptest.NewRequest("POST", "/api/v1/projects/missing/members", strings.NewReader(`{"grantee":"intruder","role":"project-owner"}`))
 	req.Header.Set("X-SSO-User", "boss")
-	req.Header.Set("X-Forge-Actor", "boss")
+	req.Header.Set("X-AppTown-Actor", "boss")
 	out := httptest.NewRecorder()
 	h.ServeHTTP(out, req)
 	if out.Code != 401 {

@@ -213,7 +213,7 @@ func TestStepRuntimeTokenOpensBothDoorsOnlyWhileItsAttemptIsLive(t *testing.T) {
 // stepTokenAPIDoor asks the API who the token's holder is, as the CLI does.
 func stepTokenAPIDoor(h http.Handler, token string) (int, string) {
 	req := httptest.NewRequest("GET", "/api/v1/me", nil)
-	req.Header.Set("X-Forge-Session-Token", token)
+	req.Header.Set("X-AppTown-Session-Token", token)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	return w.Code, w.Body.String()

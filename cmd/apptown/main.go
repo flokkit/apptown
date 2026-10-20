@@ -1,7 +1,7 @@
 // forge is the CLI for a apptownd instance — the invocation surface for humans
-// and agents alike. Every mutation is attributed via X-Forge-Actor.
+// and agents alike. Every mutation is attributed via X-AppTown-Actor.
 //
-// Configuration: FORGE_URL (default http://localhost:7777), FORGE_USER
+// Configuration: APPTOWN_URL (default http://localhost:7777), APPTOWN_USER
 // (default $USER).
 package main
 
@@ -23,8 +23,8 @@ func envOr(k, def string) string {
 	return def
 }
 
-// loadCredentials fills FORGE_URL / FORGE_TOKEN / FORGE_USER from
-// ~/.config/forge/credentials (KEY=VALUE lines, 0600) when the
+// loadCredentials fills APPTOWN_URL / APPTOWN_TOKEN / APPTOWN_USER from
+// ~/.config/apptown/credentials (KEY=VALUE lines, 0600) when the
 // environment hasn't set them. Environment always wins — the file is
 // where a minted token LIVES, not another layer of indirection.
 func loadCredentials() {
@@ -32,7 +32,7 @@ func loadCredentials() {
 	if err != nil {
 		return
 	}
-	raw, err := os.ReadFile(filepath.Join(home, ".config", "forge", "credentials"))
+	raw, err := os.ReadFile(filepath.Join(home, ".config", "apptown", "credentials"))
 	if err != nil {
 		return
 	}
@@ -47,11 +47,11 @@ func loadCredentials() {
 		}
 		v = strings.TrimSpace(v)
 		switch strings.TrimSpace(k) {
-		case "FORGE_URL":
+		case "APPTOWN_URL":
 			api.base = v
-		case "FORGE_TOKEN":
-			_ = os.Setenv("FORGE_TOKEN", v)
-		case "FORGE_USER":
+		case "APPTOWN_TOKEN":
+			_ = os.Setenv("APPTOWN_TOKEN", v)
+		case "APPTOWN_USER":
 			api.actor = v
 		}
 	}

@@ -24,7 +24,7 @@ func TestWorkHTTPRefusesIdentitySpoofAndPrivateEvidence(t *testing.T) {
 	}
 	req := httptest.NewRequest("GET", "/api/v1/runs/"+fx.Run.String(), nil)
 	req.SetPathValue("id", fx.Run.String())
-	req.Header.Set("X-Forge-Actor", "owner")
+	req.Header.Set("X-AppTown-Actor", "owner")
 	out := httptest.NewRecorder()
 	httpapi.NewRuns(a.Work, nil).GetRun(out, req.WithContext(callerContext(req)))
 	if out.Code != 401 {
@@ -72,7 +72,7 @@ func TestWorkAbandonHTTPRejectsUnverifiedActor(t *testing.T) {
 	fx := fixtureWork(t, a)
 	req := httptest.NewRequest("POST", "/api/v1/runs/"+fx.Run.String()+"/abandon", strings.NewReader(`{"reason":"spoofed"}`))
 	req.SetPathValue("id", fx.Run.String())
-	req.Header.Set("X-Forge-Actor", "owner")
+	req.Header.Set("X-AppTown-Actor", "owner")
 	out := httptest.NewRecorder()
 	httpapi.NewRuns(a.Work, nil).AbandonRun(out, req.WithContext(callerContext(req)))
 	if out.Code != 401 {

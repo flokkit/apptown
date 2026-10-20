@@ -21,7 +21,7 @@ func WriteFaultOr(w http.ResponseWriter, err error, unclassified int) {
 	// mark their reads with fault.NotFound; anything else stays a failure.
 	kind := fault.KindOf(err)
 	if code := fault.CodeOf(err); code != "" {
-		w.Header().Set("X-Forge-Deny-Code", code)
+		w.Header().Set("X-AppTown-Deny-Code", code)
 	}
 	if kind == fault.Internal {
 		WriteError(w, unclassified, "%v", err)

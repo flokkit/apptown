@@ -2,7 +2,7 @@
 // signs in to the tour's AppTown and photographs each stop at 1440x900,
 // device scale 2, in the light and the dark theme, with animations and the
 // text caret off. Writes <out>/<id>-light.png and <id>-dark.png.
-const { chromium } = await import(process.env.FORGE_PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.TOUR_URL;
 const shots = JSON.parse(process.env.TOUR_SHOTS);
 const out = process.env.TOUR_OUT;

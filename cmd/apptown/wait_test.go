@@ -159,7 +159,7 @@ func TestAnApprovalDecidedMeanwhileReadsAsDecided(t *testing.T) {
 // catch-up, not only "a person's move" (change 61's chat went on saying
 // its landing awaited approval). A run waited on directly says the same.
 func TestWaitNamesWhyTheLastRunEnded(t *testing.T) {
-	const ending = `forge/change-61 is behind main; catch-up-with-main (fail): behind main: main has moved ahead and forge/change-61 does not contain it. Catch up in the change's chat (git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit FETCH_HEAD), then land again.`
+	const ending = `forge/change-61 is behind main; catch-up-with-main (fail): behind main: main has moved ahead and forge/change-61 does not contain it. Catch up in the change's chat (git fetch "$APPTOWN_MAIN_REMOTE" main && git merge --no-edit FETCH_HEAD), then land again.`
 	var d runDetail
 	body, _ := json.Marshal(map[string]any{"run": map[string]any{"id": "00000000-032c-7000-8000-000000000000", "status": "abandoned", "workflowName": "land"}, "state": "abandoned", "ending": ending})
 	if err := json.Unmarshal(body, &d); err != nil {
@@ -246,10 +246,10 @@ func TestWatchAndHomeSayWhatARunIsDoing(t *testing.T) {
 func TestWaitSaysMainThatConflictsWithTheChange(t *testing.T) {
 	fakeForge(t, func(_, path string) (int, string) {
 		return 200, `{"change":{"id":"00000000-0004-7000-8000-000000000000","state":"shipped"},"mainConflict":{"mainBranch":"main","main":"abc","step":"rework","files":["README.md","app.go"],` +
-			`"catchUp":"git fetch \"$FORGE_MAIN_REMOTE\" main && git merge --no-edit -m \"Merge main into change-00000000-0004-7000-8000-000000000000\" FETCH_HEAD"}}`
+			`"catchUp":"git fetch \"$APPTOWN_MAIN_REMOTE\" main && git merge --no-edit -m \"Merge main into change-00000000-0004-7000-8000-000000000000\" FETCH_HEAD"}}`
 	})
 	out, err := run(t, "wait", "-c", "00000000-0004-7000-8000-000000000000", "-i", "0")
-	want := `! change 00000000-0004-7000-8000-000000000000: main has moved and AppTown could not merge it in before step rework: README.md, app.go conflict. Catch up in the change's chat: git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-00000000-0004-7000-8000-000000000000" FETCH_HEAD`
+	want := `! change 00000000-0004-7000-8000-000000000000: main has moved and AppTown could not merge it in before step rework: README.md, app.go conflict. Catch up in the change's chat: git fetch "$APPTOWN_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into change-00000000-0004-7000-8000-000000000000" FETCH_HEAD`
 	if err != nil || !strings.Contains(out, want) {
 		t.Fatalf("wait -c said (%v):\n%s\nwant\n%s", err, out, want)
 	}

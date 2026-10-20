@@ -222,7 +222,7 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	}
 	recordEvent(task.Context(), a.db, run.ID, "release.deployed", map[string]any{"deployment": cfg.Deployment, "url": url, "digest": depEv.Digest}, deployed)
 	a.backups.AfterRelease(run.ProjectID, cfg.Deployment)
-	audit.At(deployed).BestEffort(task.Context(), a.db, "forge-system", run.ProjectID, "release.deployed", cfg.Deployment,
+	audit.At(deployed).BestEffort(task.Context(), a.db, "apptown-system", run.ProjectID, "release.deployed", cfg.Deployment,
 		map[string]any{"runId": run.ID, "url": url, "image": depEv.Image, "digest": depEv.Digest})
 
 	logf("Deployment completed: %s", url)

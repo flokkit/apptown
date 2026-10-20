@@ -52,7 +52,7 @@ func TestConformanceRemediationMandateCannotChangeProjectOrObservation(t *testin
 		t.Fatal("stale observation admitted new work")
 	}
 	finished, err := admitted.Finish(context.Background(), conformance.Completion{}, conformance.ReviewError)
-	if err != nil || finished.Actor != "forge-system" {
+	if err != nil || finished.Actor != "apptown-system" {
 		t.Fatalf("admitted work lost authority: %+v %v", finished, err)
 	}
 	if n := reviews(); n != reviewsBefore+1 {

@@ -413,7 +413,7 @@ class Message(unittest.TestCase):
 class Capacity(unittest.TestCase):
     def cap(self, total, forge_use, other=0, known=True):
         return {"memory": {"total": {"known": True, "value": total},
-                           "inUse": {"forge": {"known": known, "value": forge_use}, "other": {"known": True, "value": other}}}}
+                           "inUse": {"apptown": {"known": known, "value": forge_use}, "other": {"known": True, "value": other}}}}
 
     def test_apps_opened_but_not_running_count_against_the_room(self):
         total, used = 2048 * MIB, 1400 * MIB

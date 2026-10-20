@@ -514,7 +514,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		// The one ref this attempt's token may push: `apptown check` sends the
 		// agent's HEAD there to have it checked, as feedback only, before
 		// the step's work is collected (scm.ScratchRef).
-		env = append(env, "FORGE_SCRATCH_REF="+scm.ScratchRef(c.source.ChangeID, step.ID, step.Attempt))
+		env = append(env, "APPTOWN_SCRATCH_REF="+scm.ScratchRef(c.source.ChangeID, step.ID, step.Attempt))
 	}
 	env = append(env, amb.Env...)
 	if k.useDind {

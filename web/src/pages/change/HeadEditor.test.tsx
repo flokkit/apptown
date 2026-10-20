@@ -62,7 +62,7 @@ describe('change description editor', () => {
   it('keeps the draft on a conflict and lets the person keep their edits on top', async () => {
     let conflict = true
     const f = mount(() => conflict
-      ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-Forge-Deny-Code': 'change-edit-moved' } })
+      ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'change-edit-moved' } })
       : new Response(JSON.stringify({ id: CHANGE, editRevision: 4 })))
     await f.render(view('the brief', 2))
     await act(async () => { f.button('edit')!.click() })

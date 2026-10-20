@@ -17,7 +17,7 @@ import (
 // a worker installed before its forge (the demo's order) still serves the
 // forge it replaces.
 const (
-	ProtocolHeader = "X-Forge-Worker-Protocol"
+	ProtocolHeader = "X-AppTown-Worker-Protocol"
 	// Protocol is what this build's forge speaks. 2: a task's observation
 	// says whether Docker killed it at its memory limit (OOMKilled), and a
 	// forge that settles scripts by it must not hear a worker that cannot

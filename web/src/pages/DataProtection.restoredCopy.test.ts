@@ -30,12 +30,12 @@ describe('the restore test line', () => {
   it("says the forge's check of the gate, and each check that failed", () => {
     const gate = [
       { name: 'refuses a request with no token', path: '/', status: 404, passed: true },
-      { name: 'refuses that ticket a second time', path: '/_forge/enter', status: 303, passed: false },
+      { name: 'refuses that ticket a second time', path: '/_apptown/enter', status: 303, passed: false },
     ]
     const passed = { ...base, test: true, facts: { ...base.facts, gate: gate.map((k) => ({ ...k, passed: true })) } }
     expect(restoreTestLine(passed)).toContain('· gate: 2 of 2 checks passed')
     const failed = { ...base, test: true, outcome: 'failed', failedStep: 'checking the gate', facts: { ...base.facts, gate } }
-    expect(restoreTestLine(failed)).toContain('while checking the gate · gate: 1 of 2 checks passed; failed: refuses that ticket a second time (/_forge/enter 303)')
+    expect(restoreTestLine(failed)).toContain('while checking the gate · gate: 1 of 2 checks passed; failed: refuses that ticket a second time (/_apptown/enter 303)')
     expect(restoreTestLine({ ...base, test: true })).not.toContain('gate:')
   })
 })

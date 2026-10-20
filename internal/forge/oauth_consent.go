@@ -19,7 +19,7 @@ func (a *App) consentBrowser(w http.ResponseWriter, r *http.Request, create bool
 		}
 		return ""
 	}
-	name := "forge_oauth_browser"
+	name := "apptown_oauth_browser"
 	if a.secureBrowser(r) {
 		name = "__Host-" + name
 	}

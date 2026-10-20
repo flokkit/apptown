@@ -127,7 +127,7 @@ it refuses before starting anything.
 | Field | Type | Meaning |
 |---|---|---|
 | `cli` | `CLIVersion` | this CLI |
-| `forge` | `ForgeVersion` | the AppTown it talks to |
+| `apptown` | `AppTownVersion` | the AppTown it talks to |
 
 ### `ChangeRef`
 
@@ -191,7 +191,7 @@ it refuses before starting anything.
 | `version` | string | its release, or dev-<commit> |
 | `protocol` | number | the CLI protocol it speaks |
 
-### `ForgeVersion`
+### `AppTownVersion`
 
 | Field | Type | Meaning |
 |---|---|---|

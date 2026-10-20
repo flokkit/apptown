@@ -149,7 +149,7 @@ func settleDeploymentReleaseIn(ctx context.Context, tx *database.Tx, at Attempt,
 	}
 	actor := r.actor
 	if actor == "" {
-		actor = "forge-system"
+		actor = "apptown-system"
 	}
 	return audit.At(now).RecordIn(ctx, tx, actor, dep.ProjectID, kind, fmt.Sprintf("r%d", r.number), map[string]any{
 		"attempt": at.ID, "generation": at.Generation, "deployment": dep.Name, "targetId": dep.TargetID,

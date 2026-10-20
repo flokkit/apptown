@@ -30,7 +30,7 @@ func (w commandAuthority) mayApprove(ctx context.Context, run *Run, step *Step, 
 	if base, _, ok := strings.Cut(person, " via "); ok {
 		person = base
 	}
-	if person == "" || person == "forge-system" {
+	if person == "" || person == "apptown-system" {
 		return &DecisionDenied{Code: access.DenyNotEligible, Reason: "no person accepted this change"}
 	}
 	// An acceptance the forge cannot tie to a principal (recorded before

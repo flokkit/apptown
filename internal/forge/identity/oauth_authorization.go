@@ -96,7 +96,7 @@ func (c Client) inspect(in AuthorizationRequest) (AuthorizationView, error) {
 		}
 	}
 	if len(scopes) == 0 {
-		scopes = []string{"forge:user:read"}
+		scopes = []string{"apptown:user:read"}
 	}
 	return AuthorizationView{Client: c, Scopes: scopes}, nil
 }

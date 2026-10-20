@@ -38,7 +38,7 @@ func TestProvidersExportEverySignalWithTheResource(t *testing.T) {
 	_, span := p.Tracer.Tracer("test").Start(ctx, "unit.span")
 	span.SetAttributes(attribute.String("forge.project", "coin-flip"))
 	span.End()
-	counter, _ := p.Meter.Meter("test").Int64Counter("forge_unit_events_total")
+	counter, _ := p.Meter.Meter("test").Int64Counter("apptown_unit_events_total")
 	counter.Add(ctx, 2, metric.WithAttributes(attribute.String("kind", "test")))
 	logger := otelslog.NewLogger("test", otelslog.WithLoggerProvider(p.Logger))
 	logger.InfoContext(ctx, "unit log line", slog.String("forge.run", "42"))
@@ -58,7 +58,7 @@ func TestProvidersExportEverySignalWithTheResource(t *testing.T) {
 		t.Fatal("no metric arrived")
 	}
 	for _, m := range metrics {
-		if m.Name != "forge_unit_events_total" || m.Value != 2 || m.Attributes["kind"] != "test" {
+		if m.Name != "apptown_unit_events_total" || m.Value != 2 || m.Attributes["kind"] != "test" {
 			t.Fatalf("metrics: %+v", metrics)
 		}
 	}

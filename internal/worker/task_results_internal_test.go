@@ -53,12 +53,12 @@ func TestAResultFileIsReadConfined(t *testing.T) {
 		want execution.ResultFile
 	}{
 		{"/work/.forge/review.json", execution.ResultFile{State: execution.ResultPresent, Content: []byte(`{"ok":true}`), Size: 11}},
-		{"/forge/state/sessions/s.jsonl", execution.ResultFile{State: execution.ResultPresent, Content: []byte("{}\n"), Size: 3}},
+		{"/apptown/state/sessions/s.jsonl", execution.ResultFile{State: execution.ResultPresent, Content: []byte("{}\n"), Size: 3}},
 		{"/work/empty", execution.ResultFile{State: execution.ResultPresent, Size: 0}},
 		{"/work/nothing", execution.ResultFile{State: execution.ResultAbsent}},
 		{"/work/no-folder/nothing", execution.ResultFile{State: execution.ResultAbsent}},
 		{"/work/file/under-a-file", execution.ResultFile{State: execution.ResultAbsent}},
-		{"/forge/state/nothing", execution.ResultFile{State: execution.ResultAbsent}},
+		{"/apptown/state/nothing", execution.ResultFile{State: execution.ResultAbsent}},
 		{"/work/big", execution.ResultFile{State: execution.ResultTooLarge, Size: 20}},
 		{"/work/to-outside", execution.ResultFile{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
 		{"/work/to-inside", execution.ResultFile{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},

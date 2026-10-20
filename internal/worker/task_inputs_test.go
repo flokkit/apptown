@@ -57,7 +57,7 @@ func TestInputsStagedForAnotherRequestAreAConflict(t *testing.T) {
 	ctx := context.Background()
 	input := func(content string) execution.Input {
 		t.Helper()
-		in, err := execution.NewInput("/forge/in/steering.md", []byte(content), 0o644)
+		in, err := execution.NewInput("/apptown/in/steering.md", []byte(content), 0o644)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -115,7 +115,7 @@ func refuseInputs(t *testing.T, tasks execution.TaskDriver, spec func(key, outpu
 	sixty := put(bytes.Repeat([]byte("x"), 60<<20))
 	var nine []execution.Input
 	for i := range 9 {
-		nine = append(nine, execution.Input{Blob: sixty, Path: "/forge/in/part" + strings.Repeat("x", i), Mode: 0o644})
+		nine = append(nine, execution.Input{Blob: sixty, Path: "/apptown/in/part" + strings.Repeat("x", i), Mode: 0o644})
 	}
 	unknown := strings.Repeat("0", 64)
 	hub := sourceRepo(t)
@@ -124,8 +124,8 @@ func refuseInputs(t *testing.T, tasks execution.TaskDriver, spec func(key, outpu
 		t.Fatal(err)
 	}
 	for name, inputs := range map[string][]execution.Input{
-		"an unknown blob":     {{Blob: unknown, Path: "/forge/in/a", Mode: 0o644}},
-		"one input too large": {{Blob: large, Path: "/forge/in/big", Mode: 0o644}},
+		"an unknown blob":     {{Blob: unknown, Path: "/apptown/in/a", Mode: 0o644}},
+		"one input too large": {{Blob: large, Path: "/apptown/in/big", Mode: 0o644}},
 		"too large together":  nine,
 	} {
 		// Without a source, with its own workspace, and in a shared one.
@@ -172,8 +172,8 @@ func refuseInputs(t *testing.T, tasks execution.TaskDriver, spec func(key, outpu
 	}
 	for name, body := range map[string]map[string]any{
 		"an input in the tree":         {"inputs": []map[string]any{{"blob": small, "path": "/work/a", "mode": 0o644}}},
-		"an input escaping its folder": {"inputs": []map[string]any{{"blob": small, "path": "/forge/in/../../etc/x", "mode": 0o644}}},
-		"an input with another mode":   {"inputs": []map[string]any{{"blob": small, "path": "/forge/in/a", "mode": 0o4755}}},
+		"an input escaping its folder": {"inputs": []map[string]any{{"blob": small, "path": "/apptown/in/../../etc/x", "mode": 0o644}}},
+		"an input with another mode":   {"inputs": []map[string]any{{"blob": small, "path": "/apptown/in/a", "mode": 0o4755}}},
 		"a result escaping the tree":   {"workspace": "ws", "results": []map[string]any{{"name": "r", "path": "/work/../etc/passwd", "max": 10}}},
 		"a result without a workspace": {"results": []map[string]any{{"name": "r", "path": "/work/r", "max": 10}}},
 	} {

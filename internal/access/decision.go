@@ -417,18 +417,18 @@ type Scope struct {
 }
 
 var Scopes = []Scope{
-	{"forge:user:read", "read your projects, Changes, checks, evidence and runs", ReadCaps},
-	{"forge:change:create", "open Changes in your name", []Capability{CapChangeCreate, CapChangeUpdateBrief, CapChangeNarrative}},
-	{"forge:change:write", "push revisions to Changes you may write", []Capability{CapChangeWriteRevision}},
-	{"forge:change:check", "run a Change's checks", []Capability{CapChangeRunChecks}},
-	{"forge:change:preview", "boot a Change's preview", []Capability{CapChangePreview}},
-	{"forge:change:request-land", "hand a Change off for approval", []Capability{CapChangeRequestLand}},
-	{"forge:evidence:attach", "attach evidence to a Change", []Capability{CapChangeAttach, CapEvidenceAttach}},
+	{"apptown:user:read", "read your projects, Changes, checks, evidence and runs", ReadCaps},
+	{"apptown:change:create", "open Changes in your name", []Capability{CapChangeCreate, CapChangeUpdateBrief, CapChangeNarrative}},
+	{"apptown:change:write", "push revisions to Changes you may write", []Capability{CapChangeWriteRevision}},
+	{"apptown:change:check", "run a Change's checks", []Capability{CapChangeRunChecks}},
+	{"apptown:change:preview", "boot a Change's preview", []Capability{CapChangePreview}},
+	{"apptown:change:request-land", "hand a Change off for approval", []Capability{CapChangeRequestLand}},
+	{"apptown:evidence:attach", "attach evidence to a Change", []Capability{CapChangeAttach, CapEvidenceAttach}},
 	// The rest of what the MCP door offers an agent. Approving, landing and
 	// administration are in no scope: an agent never inherits them.
-	{"forge:project:create", "create projects in your name", []Capability{CapProjectCreate}},
-	{"forge:change:run", "put AppTown's own agent to work on a Change", []Capability{CapChangeInvokeLane}},
-	{"forge:change:return", "send a Change back with a note, or abandon it", []Capability{CapChangeSendBack, CapChangeAbandon}},
+	{"apptown:project:create", "create projects in your name", []Capability{CapProjectCreate}},
+	{"apptown:change:run", "put AppTown's own agent to work on a Change", []Capability{CapChangeInvokeLane}},
+	{"apptown:change:return", "send a Change back with a note, or abandon it", []Capability{CapChangeSendBack, CapChangeAbandon}},
 }
 
 func ScopeNames() []string {

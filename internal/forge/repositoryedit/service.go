@@ -110,7 +110,7 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 	}
 	repo := filepath.Join(editor.dataDir, "workspaces", "project-"+p.Slug)
 	if in.Direct {
-		_, err := editor.genesis.CommitGenesis(ctx, p, "forge: declare services", in.Actor, func(dir string) ([]string, error) {
+		_, err := editor.genesis.CommitGenesis(ctx, p, "apptown: declare services", in.Actor, func(dir string) ([]string, error) {
 			updated, err := editDeclaration(dir, in.Needs)
 			if err != nil {
 				return nil, &DeclarationError{err}
@@ -185,7 +185,7 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 	if err := scm.StageAll(ctx, wt); err != nil {
 		return nil, err
 	}
-	if out, err := gitexec.Run(ctx, wt, "commit", "-m", trailer.Message("forge: "+title, "", trailer.Line{Key: trailer.ChangeID, Value: ch.ID.String()}, trailer.Line{Key: trailer.Provenance, Value: "service-editor"})); err != nil {
+	if out, err := gitexec.Run(ctx, wt, "commit", "-m", trailer.Message("apptown: "+title, "", trailer.Line{Key: trailer.ChangeID, Value: ch.ID.String()}, trailer.Line{Key: trailer.Provenance, Value: "service-editor"})); err != nil {
 		return nil, fmt.Errorf("commit: %s", out)
 	}
 	if _, err := editor.branches.Publish(ctx, scm.Publication{ProjectID: p.ID, Repository: repo, Branch: ch.Branch, From: wt, Grant: scm.Grant{Holder: holder}}); err != nil {

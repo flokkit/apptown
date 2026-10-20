@@ -20,7 +20,7 @@ import (
 // trailers. It is plain data; nothing here is an input to a gate.
 //
 // Names are receipt names as the record holds them ("alice", "alice via
-// console/12", "run/7", "forge-system"); rendering decides what a public page
+// console/12", "run/7", "apptown-system"); rendering decides what a public page
 // shows (publicName).
 type Attribution struct {
 	ChangeID     ids.ID
@@ -155,7 +155,7 @@ func MergeRequestDescription(a Attribution, changeURL string) string {
 }
 
 // attributionTrailers are the merge commit's lines about who opened the
-// change and what admitted the merge, after Forge-Run and Forge-Workflow.
+// change and what admitted the merge, after AppTown-Run-Id and AppTown-Workflow.
 // Each names only what the record holds: Opened-by is the change's creation
 // receipt, Approved-by a recorded approving vote with the sentence its step
 // declared (no role), Landing-authority the run fact as recorded at
@@ -207,7 +207,7 @@ func mergeMessage(source Source, operation, changeURL string) string {
 	if operation != "" {
 		lines = append(lines, trailer.Block(trailer.Line{Key: trailer.Operation, Value: operation}))
 	}
-	return fmt.Sprintf("forge: complete %s run %d\n\n%s", source.WorkflowName, source.RunNumber, strings.Join(lines, "\n"))
+	return fmt.Sprintf("apptown: complete %s run %d\n\n%s", source.WorkflowName, source.RunNumber, strings.Join(lines, "\n"))
 }
 
 // withheld stands for an account name that looks like an email address.
@@ -225,7 +225,7 @@ func publicName(receipt string, code bool) string {
 	switch {
 	case name == "":
 		return "nobody recorded"
-	case name == "forge-system" || name == "system":
+	case name == "apptown-system" || name == "system":
 		shown = "AppTown"
 	case strings.HasPrefix(name, "run/") && recordID(name[4:]):
 		shown = "AppTown run " + name[4:]

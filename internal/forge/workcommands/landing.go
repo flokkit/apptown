@@ -28,7 +28,7 @@ type LandingEffects struct {
 func (m LandingEffects) Driver() scm.Driver { return m.Drivers.Driver() }
 func (m LandingEffects) Observed(ctx context.Context, result scm.Result) {
 	if len(result.Drift) > 0 {
-		audit.At(clock.Or(m.Now)()).BestEffort(ctx, m.DB, "forge-system", result.Source.ProjectID, "integrity.out-of-band-edits", "detected", struct {
+		audit.At(clock.Or(m.Now)()).BestEffort(ctx, m.DB, "apptown-system", result.Source.ProjectID, "integrity.out-of-band-edits", "detected", struct {
 			Files []string `json:"files"`
 			Diff  string   `json:"diff"`
 		}{result.Drift, result.DriftDiff})

@@ -35,7 +35,7 @@ func TestCustomLibraryWorkflow(t *testing.T) {
 	}
 	post := func(body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("POST", "/api/v1/workflows/library", strings.NewReader(body))
-		req.Header.Set("X-Forge-Actor", "bls")
+		req.Header.Set("X-AppTown-Actor", "bls")
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
 		return rec
@@ -87,7 +87,7 @@ func TestCustomLibraryWorkflow(t *testing.T) {
 	// Delete: custom ok, stock refused.
 	del := func(name string) int {
 		req := httptest.NewRequest("DELETE", "/api/v1/workflows/library/"+url.PathEscape(name), nil)
-		req.Header.Set("X-Forge-Actor", "bls")
+		req.Header.Set("X-AppTown-Actor", "bls")
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
 		return rec.Code

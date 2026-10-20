@@ -26,7 +26,7 @@ func cmdExportProject(args []string) error {
 		return fmt.Errorf("usage: apptown export-project -p <project> > <file>")
 	}
 	if term.IsTerminal(int(os.Stdout.Fd())) {
-		return fmt.Errorf("the export is a file: send it somewhere, e.g. apptown export-project -p %s > %s.forge-export", *project, *project)
+		return fmt.Errorf("the export is a file: send it somewhere, e.g. apptown export-project -p %s > %s.apptown-export", *project, *project)
 	}
 	return exportProject(*project, os.Stdout, os.Stderr)
 }
@@ -47,7 +47,7 @@ func exportProject(slug string, out, report io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("the export broke off after %d bytes: %w", n, err)
 	}
-	got, want := hex.EncodeToString(h.Sum(nil)), res.Header.Get("X-Forge-Export-Sha256")
+	got, want := hex.EncodeToString(h.Sum(nil)), res.Header.Get("X-AppTown-Export-Sha256")
 	if got != want {
 		return fmt.Errorf("the file that arrived (sha256 %s) is not the one AppTown made (%s): export again", got, want)
 	}
@@ -63,7 +63,7 @@ func exportProject(slug string, out, report io.Writer) error {
 		} `json:"skipped"`
 		SkippedChats int `json:"skippedChats"`
 	}
-	_ = json.Unmarshal([]byte(res.Header.Get("X-Forge-Export-Counts")), &counts)
+	_ = json.Unmarshal([]byte(res.Header.Get("X-AppTown-Export-Counts")), &counts)
 	fmt.Fprintf(report, "%s exported %s: %d bytes, sha256 %s\n", green("✓"), slug, n, got)
 	fmt.Fprintf(report, "  changes %d · runs %d · steps %d · chats %d (%d empty, not moved) · refs %d · ledger lines %d\n",
 		counts.Counts["changes"], counts.Counts["runs"], counts.Counts["steps"], counts.Counts["chats"], counts.EmptyChats,

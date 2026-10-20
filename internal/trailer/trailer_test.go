@@ -8,13 +8,19 @@ import (
 	"testing"
 )
 
-// Every key is in one case: each hyphen-separated word capitalised.
+// Every key is in one case: "AppTown", then each hyphen-separated word
+// capitalised.
 //
-// Kills: a key added as "Forge-Opened-by".
+// Kills: a key added as "AppTown-Opened-by", or one without the prefix.
 func TestKeysAreInOneCase(t *testing.T) {
 	word := regexp.MustCompile(`^[A-Z][a-z]*$`)
 	for _, k := range Keys {
-		for _, w := range strings.Split(k, "-") {
+		rest, ok := strings.CutPrefix(k, "AppTown-")
+		if !ok {
+			t.Errorf("%s does not start AppTown-", k)
+			continue
+		}
+		for _, w := range strings.Split(rest, "-") {
 			if !word.MatchString(w) {
 				t.Errorf("%s: %q is not a capitalised word", k, w)
 			}
@@ -22,14 +28,15 @@ func TestKeysAreInOneCase(t *testing.T) {
 	}
 }
 
-// Forge's commit trailers are written through this package only: a
-// "Forge-Key: " literal in production Go elsewhere would be a second list.
-// HTTP headers (X-Forge-…, Forge-Head, Forge-Restore-Token) are not trailers
+// AppTown's commit trailers are written through this package only: an
+// "AppTown-Key: " (or, before the rename, "Forge-Key: ") literal in production
+// Go elsewhere would be a second list.
+// HTTP headers (X-AppTown-…, AppTown-Head, AppTown-Restore-Token) are not trailers
 // and are not written as "Key: value" text.
 //
 // Kills: a writer that spells its own trailer key.
 func TestNoTrailerKeyIsWrittenOutsideThisPackage(t *testing.T) {
-	literal := regexp.MustCompile(`(?:^|[^-A-Za-z]|\\n)Forge-[A-Z][A-Za-z-]*: `)
+	literal := regexp.MustCompile(`(?:^|[^-A-Za-z]|\\n)(?:AppTown|Forge)-[A-Z][A-Za-z-]*: `)
 	root := filepath.Join("..", "..")
 	for _, dir := range []string{"internal", "cmd"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d os.DirEntry, err error) error {
@@ -58,8 +65,8 @@ func TestNoTrailerKeyIsWrittenOutsideThisPackage(t *testing.T) {
 
 // A value cannot start a trailer of its own: it is folded onto one line.
 func TestBlockFoldsEachValueOntoOneLine(t *testing.T) {
-	got := Message("forge: x", "", Line{OpenedBy, "a\nForge-Approved-By: b"})
-	if got != "forge: x\n\nForge-Opened-By: a Forge-Approved-By: b" {
+	got := Message("apptown: x", "", Line{OpenedBy, "a\nAppTown-Approved-By: b"})
+	if got != "apptown: x\n\nAppTown-Opened-By: a AppTown-Approved-By: b" {
 		t.Fatalf("%q", got)
 	}
 }

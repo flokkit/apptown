@@ -298,9 +298,9 @@ func TestALandingMergeRequestSaysWhoOpenedAndApprovedIt(t *testing.T) {
 	merged := gittest.Run(t, provider, "rev-parse", "origin/"+source.DefaultBranch)
 	trailers := commitTrailers(t, provider, merged)
 	for _, want := range []string{
-		"Forge-Run-Id: ", "Forge-Change-Id: ", "Forge-Opened-By: ",
-		"Forge-Approved-By: bls (step hold, ", "): the source is ready\n",
-		"Forge-Landing-Authority: lander\n",
+		"AppTown-Run-Id: ", "AppTown-Change-Id: ", "AppTown-Opened-By: ",
+		"AppTown-Approved-By: bls (step hold, ", "): the source is ready\n",
+		"AppTown-Landing-Authority: lander\n",
 	} {
 		if !strings.Contains(trailers, want) {
 			t.Errorf("merge commit trailers lack %q:\n%s", want, trailers)
@@ -346,7 +346,7 @@ func TestALandingIsAdmittedAgainWhenWhatItSaysChanged(t *testing.T) {
 		t.Fatalf("retry: %+v %v", result, err)
 	}
 	landed := gittest.Run(t, repo, "rev-parse", "refs/heads/"+source.DefaultBranch)
-	if trailers := commitTrailers(t, repo, landed); !strings.Contains(trailers, "Forge-Approved-By: bls (step hold, ") {
+	if trailers := commitTrailers(t, repo, landed); !strings.Contains(trailers, "AppTown-Approved-By: bls (step hold, ") {
 		t.Fatalf("the retry's merge commit does not name the approval:\n%s", trailers)
 	}
 }

@@ -85,7 +85,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	}
 	for _, name := range []string{chat, daemon} {
 		// Configured: Docker's own record of the container.
-		if mounts := w.Docker("inspect", "--format", `{{range .Mounts}}{{.Name}}:{{.Destination}} {{end}}`, name); !strings.Contains(mounts, cache+":/forge-cache") ||
+		if mounts := w.Docker("inspect", "--format", `{{range .Mounts}}{{.Name}}:{{.Destination}} {{end}}`, name); !strings.Contains(mounts, cache+":/apptown-cache") ||
 			strings.Contains(mounts, "forge-cache:") {
 			t.Fatalf("%s mounts %s, not the session's own cache", name, mounts)
 		}
@@ -194,9 +194,9 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	t.Cleanup(agent.Close)
 	// A model pi accepts, at an address that answers nothing: pi records the
 	// message, then fails only on asking the model.
-	models := `{"providers":{"fake":{"baseUrl":"http://127.0.0.1:9/v1","api":"openai-completions","apiKey":"$FORGE_SESSION_TOKEN",` +
+	models := `{"providers":{"fake":{"baseUrl":"http://127.0.0.1:9/v1","api":"openai-completions","apiKey":"$APPTOWN_SESSION_TOKEN",` +
 		`"authHeader":true,"models":[{"id":"m1","contextWindow":32768,"maxTokens":1024}]}}}`
-	env := console.Static{Provision: console.Provision{Model: "fake/m1", Env: []string{"FORGE_SESSION_TOKEN=unused"},
+	env := console.Static{Provision: console.Provision{Model: "fake/m1", Env: []string{"APPTOWN_SESSION_TOKEN=unused"},
 		Files: map[string]console.Staged{"pi-home/.pi/agent/models.json": {Data: []byte(models)}}}}
 	svc := console.New(console.Dependencies{Agent: agent, Environment: env, Config: console.Config{DataDir: data}})
 	s, err := svc.Open(ctx, console.OpenRequest{Scope: "change:1", Workspace: console.Workspace{Path: t.TempDir(), Writable: true},

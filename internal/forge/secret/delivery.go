@@ -209,15 +209,15 @@ func (a *Service) resolve(ctx context.Context, projectID ids.ID, slug, deploymen
 				if err != nil {
 					return d, err
 				}
-				if _, err := a.Vault.Put(ctx, scope, s.Name, v, "forge-system"); err != nil {
+				if _, err := a.Vault.Put(ctx, scope, s.Name, v, "apptown-system"); err != nil {
 					return d, err
 				}
-				a.record(ctx, "forge-system", projectID, "secret.generated", s.Name,
+				a.record(ctx, "apptown-system", projectID, "secret.generated", s.Name,
 					map[string]any{"deployment": deployment, "scope": scope})
 			}
 			_, ver, _ := a.Stored(ctx, scope, s.Name)
 			b = Binding{Deployment: deployment, Name: s.Name, Store: StoreInternal, Ref: scope,
-				Version: fmt.Sprint(ver), Generated: true, UpdatedBy: "forge-system"}
+				Version: fmt.Sprint(ver), Generated: true, UpdatedBy: "apptown-system"}
 			if err := a.Bindings.Put(ctx, projectID, b); err != nil {
 				return d, err
 			}

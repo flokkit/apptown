@@ -88,18 +88,18 @@ func TestAStepOnAWorkerIsGivenEarlierStepsOutputs(t *testing.T) {
 
 	req := f.build(t)
 	inputs := inputsByPath(t, req.spec)
-	in, ok := inputs["/forge/in/carried/.forge/PLAN.md"]
+	in, ok := inputs["/apptown/in/carried/.forge/PLAN.md"]
 	if !ok || string(inputContent(t, in)) != "the approved plan" {
 		t.Fatalf("the plan was not sent: %+v", in)
 	}
-	if in, ok := inputs["/forge/in/carried/.forge/EXEC.md"]; !ok || string(inputContent(t, in)) != "an earlier attempt's report" {
+	if in, ok := inputs["/apptown/in/carried/.forge/EXEC.md"]; !ok || string(inputContent(t, in)) != "an earlier attempt's report" {
 		t.Errorf("the step's own earlier report was not sent to it: %+v", in)
 	}
 	if argv := strings.Join(req.spec.Argv, " "); !strings.Contains(argv, "Your report from the earlier attempt is in .forge/EXEC.md. UPDATE it") {
 		t.Errorf("the agent is not told to update its earlier report: %s", argv)
 	}
 	entry := req.spec.Argv[2]
-	if !strings.Contains(entry, "if [ ! -e '/work/.forge/PLAN.md' ] && [ ! -L '/work/.forge/PLAN.md' ]; then\n  mkdir -p '/work/.forge'\n  cp '/forge/in/carried/.forge/PLAN.md' '/work/.forge/PLAN.md'\nfi\n") {
+	if !strings.Contains(entry, "if [ ! -e '/work/.forge/PLAN.md' ] && [ ! -L '/work/.forge/PLAN.md' ]; then\n  mkdir -p '/work/.forge'\n  cp '/apptown/in/carried/.forge/PLAN.md' '/work/.forge/PLAN.md'\nfi\n") {
 		t.Errorf("the entry does not put the plan in the tree:\n%s", entry)
 	}
 

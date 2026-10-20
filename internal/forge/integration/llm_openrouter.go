@@ -294,7 +294,7 @@ func (s *Service) RegisterLLMKey(ctx context.Context, req KeyRequest, rec KeyRec
 		}
 		return nil, fmt.Errorf("recording the new AI models key: %w", err)
 	}
-	if _, err := s.secrets.Vault.Put(ctx, req.Scope, LLMKeyName, value, "forge-system"); err != nil {
+	if _, err := s.secrets.Vault.Put(ctx, req.Scope, LLMKeyName, value, "apptown-system"); err != nil {
 		// Recorded without a value: the next boot revokes and replaces it.
 		return nil, fmt.Errorf("storing the new AI models key: %w", err)
 	}

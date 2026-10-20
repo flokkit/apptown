@@ -125,7 +125,7 @@ func (h *jHarness) jCall(method, path string, body any, out any) int {
 		rd = bytes.NewReader(b)
 	}
 	req, _ := http.NewRequest(method, h.srv.URL+"/api/v1"+path, rd)
-	req.Header.Set("X-Forge-Actor", "journey")
+	req.Header.Set("X-AppTown-Actor", "journey")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		h.t.Fatalf("%s %s: %v", method, path, err)
@@ -482,7 +482,7 @@ func TestJourneyKidStory(t *testing.T) {
 
 	// The record: landed branch, audited acts, evidence on every done step.
 	repo := h.app.projectRepoPath(slug)
-	if out, _ := gitexec.Run(t.Context(), repo, "log", "--oneline", "-5"); !strings.Contains(out, "forge: complete") {
+	if out, _ := gitexec.Run(t.Context(), repo, "log", "--oneline", "-5"); !strings.Contains(out, "apptown: complete") {
 		t.Fatalf("the merge must be on main: %s", out)
 	}
 }

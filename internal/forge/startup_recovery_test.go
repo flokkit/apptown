@@ -540,8 +540,8 @@ func TestStartupRepairClosesModelCallsWithoutTheInferenceListener(t *testing.T) 
 		t.Fatal("the fixture has an inference listener")
 	}
 	pid := createReadTestProject(t, old, "shop")
-	receipt, err := old.Usage.Requests.OpenCall(context.Background(), usage.Request{Kind: "forge", Actor: "forge-system", ProjectID: pid, Provider: "native", Model: "judge"},
-		usage.Entry{Kind: "narrative", ProjectID: pid, Actor: "forge-system", Provider: "native", Model: "judge"}, time.Hour)
+	receipt, err := old.Usage.Requests.OpenCall(context.Background(), usage.Request{Kind: "forge", Actor: "apptown-system", ProjectID: pid, Provider: "native", Model: "judge"},
+		usage.Entry{Kind: "narrative", ProjectID: pid, Actor: "apptown-system", Provider: "native", Model: "judge"}, time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}

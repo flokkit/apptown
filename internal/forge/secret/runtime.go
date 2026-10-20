@@ -130,7 +130,7 @@ func (a *Service) infisicalFetch(ctx context.Context, cfg InfisicalConfig) (map[
 		// caller has gone.
 		detached := context.WithoutCancel(ctx)
 		_, receiptErr := database.Transact(detached, a.Vault.db, func(tx *database.Tx) (struct{}, error) {
-			return struct{}{}, audit.At(a.now()).RecordIn(detached, tx, "forge-system", ids.Nil, kind, subject, payload)
+			return struct{}{}, audit.At(a.now()).RecordIn(detached, tx, "apptown-system", ids.Nil, kind, subject, payload)
 		})
 		if receiptErr != nil {
 			log.Printf("Infisical transition receipt failed: %v", receiptErr)

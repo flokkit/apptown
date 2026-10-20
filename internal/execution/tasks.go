@@ -47,7 +47,7 @@ type Capabilities struct {
 	PrivateDocker bool // the task can run its own containers
 	Terminal      bool // an interactive terminal can attach
 	Persistence   bool // the task's files survive it for capture
-	Inputs        bool // TaskSpec.Inputs are presented under /forge/in (inputs.go)
+	Inputs        bool // TaskSpec.Inputs are presented under /apptown/in (inputs.go)
 	Results       bool // TaskSpec.Results are captured when the task exits
 	Images        bool // TaskSpec.Images are captured when the task exits, and served by file
 }
@@ -116,7 +116,7 @@ type TaskSpec struct {
 	// (files.go). The driver keeps them in a folder the task owns, from
 	// before it is created until it is released, and never rewrites them.
 	Files []File
-	// Inputs are files the task reads under /forge/in, sent to the backend
+	// Inputs are files the task reads under /apptown/in, sent to the backend
 	// as content-addressed blobs (inputs.go). Results are files it declares
 	// it will leave, captured by the backend when it exits. Both need a
 	// backend claiming them (Capabilities).

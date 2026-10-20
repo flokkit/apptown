@@ -98,7 +98,7 @@ func TestProjectServicesHTTPKeepsDeclarationEditsOnProposedChange(t *testing.T) 
 		}
 	}
 	w = authzCall(h, "owner", "POST", base+"/services", `{"needs":[{"capability":"postgres"}],"expectedDeclaration":"`+start+`"}`)
-	if w.Code != 409 || w.Header().Get("X-Forge-Deny-Code") != "settings-moved" {
+	if w.Code != 409 || w.Header().Get("X-AppTown-Deny-Code") != "settings-moved" {
 		t.Fatalf("stale edit: %d %s", w.Code, w.Body.String())
 	}
 	if changes, err := a.Work.Changes(asPerson("owner"), idstest.N(1), workflow.ChangeList{}); err != nil || len(changes) != 2 {
@@ -153,7 +153,7 @@ func TestMainIsWrittenOutsideALandingOnlyBeforeTheFirstChange(t *testing.T) {
 	if seeded == born {
 		t.Fatal("the new project's seeds were not committed")
 	}
-	if log, _ := gitexec.Run(t.Context(), repo, "log", "--format=%B"); !strings.Contains(log, "Forge-Actor: boss") {
+	if log, _ := gitexec.Run(t.Context(), repo, "log", "--format=%B"); !strings.Contains(log, "AppTown-Actor: boss") {
 		t.Fatalf("seed commits do not name their actor:\n%s", log)
 	}
 	p, err := a.Projects.BySlug(context.Background(), "fresh")
@@ -176,7 +176,7 @@ func TestMainIsWrittenOutsideALandingOnlyBeforeTheFirstChange(t *testing.T) {
 		{"/toolchain", `{"name":"go"}`},
 	} {
 		w := authzCall(h, "boss", "POST", base+tc.path, tc.body)
-		if w.Code != 409 || w.Header().Get("X-Forge-Deny-Code") != "project-established" {
+		if w.Code != 409 || w.Header().Get("X-AppTown-Deny-Code") != "project-established" {
 			t.Fatalf("%s on an established project: %d %s", tc.path, w.Code, w.Body.String())
 		}
 	}
@@ -254,7 +254,7 @@ func TestProjectServicesEditIsJudgedOnTheWorkspaceItCommitsTo(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("save did not finish")
 	}
-	if w.Code != 409 || w.Header().Get("X-Forge-Deny-Code") != "settings-moved" {
+	if w.Code != 409 || w.Header().Get("X-AppTown-Deny-Code") != "settings-moved" {
 		t.Fatalf("an edit whose base moved: %d %s", w.Code, w.Body.String())
 	}
 	changes, err := a.Work.Changes(asPerson("owner"), idstest.N(1), workflow.ChangeList{})

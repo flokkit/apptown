@@ -125,7 +125,7 @@ func TestMCPWritesAreBoundedByRoleAndConsent(t *testing.T) {
 	}
 	verifier, challenge := pkce()
 	browser := identity.BrowserAuthorization{User: "boss", Binding: "session", Request: identity.AuthorizationRequest{
-		ClientID: client.ID, RedirectURI: "http://127.0.0.1:9999/callback", Scope: "forge:user:read", Challenge: challenge, Method: "S256", Resource: identity.AudienceUser,
+		ClientID: client.ID, RedirectURI: "http://127.0.0.1:9999/callback", Scope: "apptown:user:read", Challenge: challenge, Method: "S256", Resource: identity.AudienceUser,
 	}}
 	prepared, err := a.Access.PrepareConsent(context.Background(), browser)
 	if err != nil {

@@ -181,10 +181,10 @@ func TestAStepsPrivateDockerIsBoundedAndSharesOnlyItsProjectsCache(t *testing.T)
 	}
 	cleanup()
 	<-client.preload
-	if !client.ran("-v forge-cache-game:/forge-cache --cpus 3 --memory 2147483648 --memory-swap 2147483648 --pids-limit 512") {
+	if !client.ran("-v forge-cache-game:/apptown-cache --cpus 3 --memory 2147483648 --memory-swap 2147483648 --pids-limit 512") {
 		t.Fatal("the private Docker runs without its project's cache or its limits")
 	}
-	if client.ran(" forge-cache:/forge-cache") {
+	if client.ran(" forge-cache:/apptown-cache") {
 		t.Fatal("the private Docker mounts the shared cache")
 	}
 }

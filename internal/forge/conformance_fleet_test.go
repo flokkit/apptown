@@ -130,7 +130,7 @@ func adopt(t *testing.T, a *App, projectID ids.ID, block string, ver int, checks
 			if err := adoption.InitializeIn(ctx, tx, projectID, 0, "", ""); err != nil {
 				return err
 			}
-			_, err := a.Adoption.AdoptIn(ctx, tx, projectID, candidate, 0, "forge-system", "fixture explicitly adopts check", adoption.OperationSelect)
+			_, err := a.Adoption.AdoptIn(ctx, tx, projectID, candidate, 0, "apptown-system", "fixture explicitly adopts check", adoption.OperationSelect)
 			return err
 		})
 	} else if err == nil {
@@ -145,7 +145,7 @@ func adopt(t *testing.T, a *App, projectID ids.ID, block string, ver int, checks
 		if prepareErr != nil {
 			err = prepareErr
 		} else {
-			_, err = a.lifecycle.Adopt(ctx, a.projectByID(ctx, projectID), candidate, "forge-system", "fixture explicitly adopts check", adoption.OperationSelect)
+			_, err = a.lifecycle.Adopt(ctx, a.projectByID(ctx, projectID), candidate, "apptown-system", "fixture explicitly adopts check", adoption.OperationSelect)
 		}
 	}
 	if err != nil {

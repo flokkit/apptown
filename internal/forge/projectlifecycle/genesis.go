@@ -66,7 +66,7 @@ func (s *Service) CommitGenesis(ctx context.Context, p *project.Project, message
 	if out, err := gitexec.Run(ctx, dir, append([]string{"add", "-f", "--"}, written...)...); err != nil {
 		return nil, fmt.Errorf("staging %v: %s", written, out)
 	}
-	if out, err := gitexec.Run(ctx, dir, "-c", "user.name=forge", "-c", "user.email=forge@localhost",
+	if out, err := gitexec.Run(ctx, dir, "-c", "user.name=apptown", "-c", "user.email=apptown@localhost",
 		"commit", "-q", "-m", trailer.Message(message, "", trailer.Line{Key: trailer.Actor, Value: actor})); err != nil {
 		return nil, fmt.Errorf("commit: %s", out)
 	}

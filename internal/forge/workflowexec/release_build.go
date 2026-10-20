@@ -110,7 +110,7 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 		return nil, false
 	}
 	logf("Deployment target: %s (Docker host)", t.Name)
-	if _, err := a.deployment.LandingRegistry(ctx, run.ProjectID, "forge-system", map[string]any{"run": run.ID, "step": step.ID}); errors.Is(err, deployment.ErrReleaseRefused) {
+	if _, err := a.deployment.LandingRegistry(ctx, run.ProjectID, "apptown-system", map[string]any{"run": run.ID, "step": step.ID}); errors.Is(err, deployment.ErrReleaseRefused) {
 		releaseRefused(task, strings.TrimPrefix(err.Error(), deployment.ErrReleaseRefused.Error()+": "))
 		return nil, false
 	} else if err != nil {
@@ -295,7 +295,7 @@ func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform stri
 		context := path.Join("/work", filepath.ToSlash(rel))
 		if img.StaticBuild.Context != "" {
 			// The site's stage is exported inside the task, on the task's
-			// own builder (BUILDX_BUILDER=forge, its private daemon), for
+			// own builder (BUILDX_BUILDER=apptown, its private daemon), for
 			// the builder's own platform: the site is files. Its output is
 			// checked for links before anything reads it, then packed.
 			export := path.Join(releaseStaticExports, img.Name)

@@ -14,7 +14,7 @@ type Provider struct {
 func ModelsJSON(ps []Provider) ([]byte, error) {
 	providers := map[string]any{}
 	for _, p := range ps {
-		def := map[string]any{"baseUrl": p.URL, "api": p.API, "apiKey": "$FORGE_SESSION_TOKEN", "authHeader": true}
+		def := map[string]any{"baseUrl": p.URL, "api": p.API, "apiKey": "$APPTOWN_SESSION_TOKEN", "authHeader": true}
 		for k, v := range p.Metadata {
 			def[k] = v
 		}

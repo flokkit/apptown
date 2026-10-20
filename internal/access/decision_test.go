@@ -61,10 +61,10 @@ func TestDecideTable(t *testing.T) {
 		{"disabled account fails first", alice, full, access.CapProjectRead, project, access.Context{},
 			&fakeFacts{disabled: map[string]bool{"alice": true}, grants: map[string][]access.Grant{"alice": {role(1, "user", "alice", access.RoleInstanceAdmin, access.ScopeInstance, "")}}},
 			false, access.DenyAccountDisabled, "disabled"},
-		{"oauth scopes only subtract", access.Principal{Kind: "user", Name: "alice", Via: "oauth", Scopes: []string{"forge:user:read"}}, access.Channel{Kind: "oauth", ID: "3"}, access.CapChangeCreate, project, access.Context{},
+		{"oauth scopes only subtract", access.Principal{Kind: "user", Name: "alice", Via: "oauth", Scopes: []string{"apptown:user:read"}}, access.Channel{Kind: "oauth", ID: "3"}, access.CapChangeCreate, project, access.Context{},
 			&fakeFacts{grants: map[string][]access.Grant{"alice": {role(1, "user", "alice", access.RoleProjectOwner, access.ScopeProject, p7)}}},
 			false, access.DenyDelegationNarrow, "reconnect"},
-		{"any oauth scope may read", access.Principal{Kind: "user", Name: "alice", Via: "oauth", Scopes: []string{"forge:change:check"}}, access.Channel{Kind: "oauth", ID: "3"}, access.CapProjectRead, project, access.Context{},
+		{"any oauth scope may read", access.Principal{Kind: "user", Name: "alice", Via: "oauth", Scopes: []string{"apptown:change:check"}}, access.Channel{Kind: "oauth", ID: "3"}, access.CapProjectRead, project, access.Context{},
 			&fakeFacts{grants: map[string][]access.Grant{"alice": {role(1, "user", "alice", access.RoleProjectViewer, access.ScopeProject, p7)}}},
 			true, "", "Project viewer"},
 		{"a run holds exactly its table", access.Principal{Kind: "instrument", Name: "run/9", Instrument: "run", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapEvidenceAttach, project, access.Context{}, &fakeFacts{}, true, "", "step agent"},
@@ -178,13 +178,13 @@ func TestDelegationOf(t *testing.T) {
 // Consent scopes: any scope may read; a write needs its own scope; the
 // vocabulary is closed.
 func TestScopes(t *testing.T) {
-	if !access.ScopesCover([]string{"forge:change:check"}, access.CapProjectRead) || access.ScopesCover(nil, access.CapProjectRead) {
+	if !access.ScopesCover([]string{"apptown:change:check"}, access.CapProjectRead) || access.ScopesCover(nil, access.CapProjectRead) {
 		t.Fatal("reads are covered by any scope, and by none")
 	}
-	if access.ScopesCover([]string{"forge:change:check"}, access.CapChangeCreate) || !access.ScopesCover([]string{"forge:change:create"}, access.CapChangeUpdateBrief) {
+	if access.ScopesCover([]string{"apptown:change:check"}, access.CapChangeCreate) || !access.ScopesCover([]string{"apptown:change:create"}, access.CapChangeUpdateBrief) {
 		t.Fatal("writes need their scope")
 	}
-	if len(access.ScopeNames()) != len(access.Scopes) || access.ScopeMeans("forge:user:read") == "" || access.ScopeMeans("nope") != "" {
+	if len(access.ScopeNames()) != len(access.Scopes) || access.ScopeMeans("apptown:user:read") == "" || access.ScopeMeans("nope") != "" {
 		t.Fatal("scope vocabulary")
 	}
 	for _, s := range access.Scopes {

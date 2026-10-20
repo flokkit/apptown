@@ -294,7 +294,7 @@ func TestALocalRunInheritsNoGitVariable(t *testing.T) {
 	t.Setenv("GIT_DIR", "/elsewhere/.git")
 	t.Setenv("GIT_INDEX_FILE", "/elsewhere/index")
 	t.Setenv("GIT_CONFIG_COUNT", "1")
-	t.Setenv("FORGE_ENV_MARK", "kept")
+	t.Setenv("APPTOWN_ENV_MARK", "kept")
 	req := shell(`env`)
 	req.Env = []string{"GIT_TERMINAL_PROMPT=0"}
 	out := Runner{}.Run(context.Background(), Local, req)
@@ -307,7 +307,7 @@ func TestALocalRunInheritsNoGitVariable(t *testing.T) {
 			t.Errorf("the inherited %s reached the run", strings.TrimPrefix(gone, "\n"))
 		}
 	}
-	for _, kept := range []string{"\nGIT_TERMINAL_PROMPT=0\n", "\nFORGE_ENV_MARK=kept\n"} {
+	for _, kept := range []string{"\nGIT_TERMINAL_PROMPT=0\n", "\nAPPTOWN_ENV_MARK=kept\n"} {
 		if !strings.Contains(env, kept) {
 			t.Errorf("%s did not reach the run", strings.TrimSpace(kept))
 		}

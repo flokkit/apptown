@@ -50,24 +50,24 @@ func TestIntegrationImageCapturesAreRefusedWithTheTaskExitKept(t *testing.T) {
 	hub, base := imageHub(t)
 	blob := strings.Repeat("a", 64)
 	script := `set -e
-mkdir -p /forge/state/out/good/blobs/sha256 /forge/state/out/inner/blobs/sha256 /forge/state/out/big
-echo '{"schemaVersion":2,"manifests":[]}' > /forge/state/out/good/index.json
-head -c 8388608 /dev/urandom > /forge/state/out/good/blobs/sha256/` + blob + `
-cp /forge/state/out/good/index.json /forge/state/out/inner/index.json
-ln -s /etc/passwd /forge/state/out/inner/blobs/sha256/` + blob + `
-ln -s /etc /forge/state/out/linked
-head -c 2048 /dev/zero > /forge/state/out/big/index.json
+mkdir -p /apptown/state/out/good/blobs/sha256 /apptown/state/out/inner/blobs/sha256 /apptown/state/out/big
+echo '{"schemaVersion":2,"manifests":[]}' > /apptown/state/out/good/index.json
+head -c 8388608 /dev/urandom > /apptown/state/out/good/blobs/sha256/` + blob + `
+cp /apptown/state/out/good/index.json /apptown/state/out/inner/index.json
+ln -s /etc/passwd /apptown/state/out/inner/blobs/sha256/` + blob + `
+ln -s /etc /apptown/state/out/linked
+head -c 2048 /dev/zero > /apptown/state/out/big/index.json
 exit 3
 `
 	spec := execution.TaskSpec{Key: namespace + "-build", Image: "alpine:3", Argv: []string{"sh", "-c", script},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: base},
 		Images: []execution.ImageResult{
-			{Name: "good", Path: "/forge/state/out/good", Max: 16 << 20},
-			{Name: "inner", Path: "/forge/state/out/inner", Max: 16 << 20},
-			{Name: "linked", Path: "/forge/state/out/linked", Max: 16 << 20},
-			{Name: "big", Path: "/forge/state/out/big", Max: 1024},
-			{Name: "absent", Path: "/forge/state/out/absent", Max: 1024},
+			{Name: "good", Path: "/apptown/state/out/good", Max: 16 << 20},
+			{Name: "inner", Path: "/apptown/state/out/inner", Max: 16 << 20},
+			{Name: "linked", Path: "/apptown/state/out/linked", Max: 16 << 20},
+			{Name: "big", Path: "/apptown/state/out/big", Max: 1024},
+			{Name: "absent", Path: "/apptown/state/out/absent", Max: 1024},
 		}}
 	created, err := driver.Ensure(ctx, spec)
 	if err != nil {
@@ -187,10 +187,10 @@ func TestIntegrationAReleaseBuildExportsOneImageManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	script := `set -e
-docker buildx build --platform ` + platform + ` --provenance=false --sbom=false --output type=oci,dest=/forge/state/out/greeting,tar=false -f /work/Dockerfile /work
+docker buildx build --platform ` + platform + ` --provenance=false --sbom=false --output type=oci,dest=/apptown/state/out/greeting,tar=false -f /work/Dockerfile /work
 `
 	spec := f.spec("release", script, &execution.PrivateDocker{Daemon: true})
-	spec.Images = []execution.ImageResult{{Name: "greeting", Path: "/forge/state/out/greeting", Max: 512 << 20}}
+	spec.Images = []execution.ImageResult{{Name: "greeting", Path: "/apptown/state/out/greeting", Max: 512 << 20}}
 	created, err := f.driver.Ensure(ctx, spec)
 	if err != nil {
 		t.Fatal(err)

@@ -505,7 +505,7 @@ func (w WorkerTasks) Collect(ctx context.Context, key, base, message, dest strin
 	}
 	// Only 204 says "no changes". A bundle must name its tip; a reply that
 	// does not is malformed, and is asked for again, never taken as empty.
-	head := resp.Header.Get("Forge-Head")
+	head := resp.Header.Get("AppTown-Head")
 	if resp.StatusCode != http.StatusOK || !isCommitID(head) {
 		return "", fmt.Errorf("%w: the task's result came back as %d naming commit %q", ErrWorkerUnavailable, resp.StatusCode, head)
 	}

@@ -33,7 +33,7 @@ func cmdPreview(args []string) error {
 		fmt.Printf("preview of change #%s is up%s: %s\n", args[0], at, out.URL)
 		return nil
 	}
-	sid, tok := os.Getenv("FORGE_SESSION_ID"), os.Getenv("FORGE_SESSION_TOKEN")
+	sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN")
 	if sid == "" || tok == "" {
 		return fmt.Errorf("usage: apptown preview <change-id> (inside a change chat, bare apptown preview previews that chat's change)")
 	}

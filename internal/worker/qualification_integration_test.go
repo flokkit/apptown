@@ -25,7 +25,7 @@ import (
 // This test is the forge's side: it sends requests over mutual TLS
 // (workertest.External names the worker), observes the worker's Docker
 // through DOCKER_HOST, and restarts the worker through its machine's
-// control command. Skipped unless FORGE_QUAL_WORKER_URL is set. The record
+// control command. Skipped unless APPTOWN_QUAL_WORKER_URL is set. The record
 // of a run is design/reviews/qualification/.
 
 // newQualFixture is a fixture over the external worker, checked to observe
@@ -66,7 +66,7 @@ nc -z cache 6379 && echo "reached the cache"
 test -S /var/run/docker.sock && echo "HOST SOCKET"
 docker -H unix:///var/run/docker.sock info >/dev/null 2>&1 && echo "HOST DAEMON"
 docker volume ls --format '{{.Name}}' | grep -q forge-cache && echo "FORGE CACHE"
-docker buildx inspect forge >/dev/null && echo "builder forge"
+docker buildx inspect apptown >/dev/null && echo "builder apptown"
 `
 	spec := f.spec("build", script, private)
 	created, err := f.driver.Ensure(ctx, spec)
@@ -93,7 +93,7 @@ docker buildx inspect forge >/dev/null && echo "builder forge"
 		t.Fatalf("the task: %d %v\n%s", code, err, out)
 	}
 	t.Logf("the task said: %s", strings.ReplaceAll(strings.TrimSpace(out), "\n", "; "))
-	for _, want := range []string{"hello from a nested build", "same path", "nested wrote", "reached the cache", "builder forge"} {
+	for _, want := range []string{"hello from a nested build", "same path", "nested wrote", "reached the cache", "builder apptown"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the task's output lacks %q:\n%s", want, out)
 		}
@@ -266,13 +266,13 @@ func TestIntegrationQualificationLimitsHold(t *testing.T) {
 // task is stopped and released, which removes its daemon with everything
 // it wrote; the disk returns to what it was, and new work runs.
 //
-// It fills the worker's real disk, so it runs only with FORGE_QUAL_DISK=1
+// It fills the worker's real disk, so it runs only with APPTOWN_QUAL_DISK=1
 // exactly, and the worker's control command must answer reserve (write a
 // reserve file), unreserve (remove it) and avail (bytes available on the
 // worker's state directory's file system).
 func TestIntegrationQualificationDiskExhaustionIsRefusedAndRecovered(t *testing.T) {
-	if os.Getenv("FORGE_QUAL_DISK") != "1" {
-		t.Skip("FORGE_QUAL_DISK is not 1: this test fills the worker's disk")
+	if os.Getenv("APPTOWN_QUAL_DISK") != "1" {
+		t.Skip("APPTOWN_QUAL_DISK is not 1: this test fills the worker's disk")
 	}
 	f := newQualFixture(t)
 	ctx := context.Background()

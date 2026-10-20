@@ -43,7 +43,7 @@ func TestSendBackHTTPDeliversFeedbackToTheReturnedWork(t *testing.T) {
 	call := func(ctx context.Context, id, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(ctx)
 		r.SetPathValue("id", id)
-		r.Header.Set("X-Forge-Actor", "apptownd-reviewer")
+		r.Header.Set("X-AppTown-Actor", "apptownd-reviewer")
 		w := httptest.NewRecorder()
 		h.SendBack(w, r)
 		return w

@@ -49,7 +49,7 @@ counts only if all of these hold:
 Where all hold, the accepter's vote is cast with the comment "accepted at the
 change gate (run N)" and a `landing.acceptance.carried` receipt. Otherwise
 the step waits for a person and a `landing.acceptance.withheld` receipt says
-why. A completed working run with no named human acceptance (`forge-system`)
+why. A completed working run with no named human acceptance (`apptown-system`)
 carries nothing. The acceptance is the approval in the last stage of a
 change's working run; earlier approvals, such as a plan's, never count for a
 landing. Under a quorum a carried vote is one vote.

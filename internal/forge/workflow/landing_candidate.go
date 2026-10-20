@@ -374,6 +374,6 @@ func (e *Execution) EndLanding(reason string) error {
 	if !e.run.ParentRunID.IsZero() || spec.Role != "landing" {
 		return fmt.Errorf("only a landing's own step ends the landing")
 	}
-	_, err = e.service.abandonments.abandon(e.ctx, Abandonment{RunID: e.run.ID, Who: "forge-system", Reason: reason}, e.run.ProjectID)
+	_, err = e.service.abandonments.abandon(e.ctx, Abandonment{RunID: e.run.ID, Who: "apptown-system", Reason: reason}, e.run.ProjectID)
 	return err
 }

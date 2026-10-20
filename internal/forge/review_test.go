@@ -177,12 +177,12 @@ func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 			if !hasMount(req, ":"+agentenv.CLIDir+"/apptown:ro") {
 				t.Errorf("call %d: no forge CLI mount in %v", i+1, req.Mounts)
 			}
-			tok := envValue(req, "FORGE_SESSION_TOKEN")
+			tok := envValue(req, "APPTOWN_SESSION_TOKEN")
 			if tok == "" {
-				t.Errorf("call %d: no FORGE_SESSION_TOKEN in env", i+1)
+				t.Errorf("call %d: no APPTOWN_SESSION_TOKEN in env", i+1)
 			}
-			if envValue(req, "FORGE_RUN_ID") != fmt.Sprint(runID) || envValue(req, "FORGE_STEP") != "review" {
-				t.Errorf("call %d: FORGE_RUN_ID/FORGE_STEP wrong for run %d: %v", i+1, runID, req.Env)
+			if envValue(req, "APPTOWN_RUN_ID") != fmt.Sprint(runID) || envValue(req, "APPTOWN_STEP") != "review" {
+				t.Errorf("call %d: APPTOWN_RUN_ID/APPTOWN_STEP wrong for run %d: %v", i+1, runID, req.Env)
 			}
 			// pi runs directly, or as the command the toolchain wrapper execs
 			// (sh -c '<install>; exec "$@"' sh pi ...).
@@ -192,7 +192,7 @@ func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 		}
 		if len(reqs) >= 2 {
 			// Same env every time — the token identical, nothing dropped.
-			if envValue(reqs[0], "FORGE_SESSION_TOKEN") != envValue(reqs[1], "FORGE_SESSION_TOKEN") {
+			if envValue(reqs[0], "APPTOWN_SESSION_TOKEN") != envValue(reqs[1], "APPTOWN_SESSION_TOKEN") {
 				t.Error("the resume ran with a different run token than the initial invocation")
 			}
 			if !reviewHasArg(reqs[1], "--continue") || reviewHasArg(reqs[0], "--continue") {
@@ -208,7 +208,7 @@ func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 		var liveTokens []ids.ID
 		f := installFakePi(t, a, func(n int, req ExecRequest) ExecOutcome {
 			// The token must be LIVE while pi runs, not just present.
-			who, _ := inferenceIdentityFor(a).AuthenticateStep(context.Background(), envValue(req, "FORGE_SESSION_TOKEN"))
+			who, _ := inferenceIdentityFor(a).AuthenticateStep(context.Background(), envValue(req, "APPTOWN_SESSION_TOKEN"))
 			liveTokens = append(liveTokens, who.RunID)
 			if n == 2 {
 				writeVerdict(t, req.Workspace, `{"verdict":"pass","summary":"all claims hold","findings":[]}`)

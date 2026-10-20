@@ -673,7 +673,7 @@ func TestALandingBuildsOnTheWorkerPublishesAndPullsByDigest(t *testing.T) {
 		}
 	}
 	script := strings.Join(spec.Argv, " ")
-	for _, flag := range []string{"--platform", releasePlatform, "--provenance=false", "--sbom=false", "type=oci,dest=/forge/state/out/part-web,tar=false", "/work/site", "/work/worker", "/work/migrations"} {
+	for _, flag := range []string{"--platform", releasePlatform, "--provenance=false", "--sbom=false", "type=oci,dest=/apptown/state/out/part-web,tar=false", "/work/site", "/work/worker", "/work/migrations"} {
 		if !strings.Contains(script, flag) {
 			t.Errorf("the build script lacks %q:\n%s", flag, script)
 		}

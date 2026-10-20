@@ -84,6 +84,30 @@ ALLOWED = [
     ("cli-invocation", r"^web/src/(pages/console/Bubbles\.tsx|brand\.test\.ts)$", r"apptown\\?\|forge\\?\) check",
      "chats from before the rename keep their [forge check] messages as written"),
     ("cli-invocation", r"^web/src/brand\.test\.ts$", r"strayNames\(", "the web name test plants old names to show it catches them"),
+    # History readers (push 3): records written before the rename keep their
+    # names, so these readers know the old spelling. Nothing writes it.
+    ("trailer-or-header", r"^internal/trailer/trailer\.go$", r"OldOperation = \"Forge-Operation\"",
+     "scm finds a landing's merge from before the rename by its old Operation trailer"),
+    ("trailer-or-header", r"^internal/trailer/trailer_test\.go$", r"Forge-Opened-by|\"Forge-Key: \"",
+     "the trailer test's comments name the old spelling it guards against"),
+    ("mount-and-builder", r"^internal/forge/identity/enabled\.go$", r"forge-system",
+     "the system actor in records from before the rename is still a system actor, never a person"),
+    ("public-field", r"^internal/forge/dbschema/schema\.go$", r"WHERE store = 'forge-disk'",
+     "migration 154 renames the stored value"),
+    ("public-field", r"^internal/forge/workflow/check_evidence\.go$", r"forgeFault",
+     "check evidence recorded before the rename keeps its platform fault"),
+    ("trailer-or-header", r"^internal/forge/scm/git_driver_test\.go$", r"Forge-Operation",
+     "the merge-proof test plants a merge written before the rename"),
+    ("token-or-cookie", r"^internal/forge/identity/refresh\.go$", r"forge_rt_",
+     "a refresh token from before the rename is refused; the comment names its prefix"),
+    ("token-or-cookie", r"^internal/forge/identity/apptown_rename_test\.go$", r"forge_rt_",
+     "the test plants a refresh token from before the rename"),
+    ("scope", r"^internal/forge/identity/apptown_rename_test\.go$", r"forge:change:create",
+     "the test plants a delegation's stored scope from before the rename"),
+    ("mount-and-builder", r"^internal/forge/identity/directory_test\.go$", r"\"forge-system\": true",
+     "the system actor in records from before the rename stays a system actor"),
+    ("public-field", r"^internal/forge/(dbschema/apptown_rename_migration_test|workflow/apptown_rename_test)\.go$", r"forge-disk|forgeFault",
+     "migration and reader tests plant the stored values from before the rename"),
 ]
 
 

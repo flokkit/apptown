@@ -52,11 +52,11 @@ func ProjectCache(slug string) string { return "forge-cache-" + slug }
 // volume mounts no cache: the run starts cold and shares nothing.
 func Decorate(req execution.Request, at time.Time, volume string) execution.Request {
 	if volume != "" {
-		req.Mounts = append([]string{volume + ":/forge-cache"}, req.Mounts...)
+		req.Mounts = append([]string{volume + ":/apptown-cache"}, req.Mounts...)
 		req.Env = append([]string{
-			"npm_config_cache=/forge-cache/npm", "GOMODCACHE=/forge-cache/gomod",
-			"GOCACHE=/forge-cache/gobuild", "UV_CACHE_DIR=/forge-cache/uv",
-			"BUNDLE_PATH=/forge-cache/bundle", "TRIVY_CACHE_DIR=/forge-cache/trivy",
+			"npm_config_cache=/apptown-cache/npm", "GOMODCACHE=/apptown-cache/gomod",
+			"GOCACHE=/apptown-cache/gobuild", "UV_CACHE_DIR=/apptown-cache/uv",
+			"BUNDLE_PATH=/apptown-cache/bundle", "TRIVY_CACHE_DIR=/apptown-cache/trivy",
 		}, req.Env...)
 	}
 	req.Labels = append([]string{dockerlabel.Class + "=step", dockerlabel.Owner + "=" + req.Name, dockerlabel.Created + "=" + at.UTC().Format(time.RFC3339)}, req.Labels...)

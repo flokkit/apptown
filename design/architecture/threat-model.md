@@ -284,7 +284,7 @@ Important current distinctions:
 | Inference credential | Existing chat/step session token; provider keys remain on Forge | Lifecycle-bound, explicitly allowed worker peer AND token, restricted binding/models, concurrency limits and receipts; monetary budgets deferred |
 | Console token | Console process and persisted session metadata | Project/instrument restrictions; lifetime follows session management rather than a hard independent token TTL |
 | Run token | Step env; derived from the step attempt under a key in the Forge data folder (`runtime-token-key`), nothing stored per token | Run/project attribution; accepted at the inference gateway and the API only while the run is running, the attempt is the step's live attempt and the run owner's account is enabled; survives a daemon restart; no independent expiry, and anyone holding the key can mint tokens |
-| Browser session | HttpOnly cookie (`__Host-forge_session`, Secure, over HTTPS); token hash in DB | 30-day session; SameSite=Lax, host-only; Secure follows the public origin, so a plain-HTTP development forge uses a separate, non-Secure cookie |
+| Browser session | HttpOnly cookie (`__Host-apptown_session`, Secure, over HTTPS); token hash in DB | 30-day session; SameSite=Lax, host-only; Secure follows the public origin, so a plain-HTTP development forge uses a separate, non-Secure cookie |
 | Personal token | Human/external client; hash in DB | Reusable until revoked; current user authority narrows it; generally broader than a purpose-specific OAuth grant |
 | OAuth tokens | External client; token hashes and delegation in DB | Access 1 hour, refresh/delegation horizon 30 days; scoped/audience-bound, rotation and reuse handling |
 | Git push ticket | Authorized external client; hash and constraints in DB | Short-lived, one-use, change/ref/expected-tip constrained; recheck authority at use |
@@ -441,7 +441,7 @@ wording or count arbitrary patterns.
 A focused regression command for the trust boundaries:
 
 ```sh
-env -u FORGE_TEST_DB_URL go test ./internal/forge \
+env -u APPTOWN_TEST_DB_URL go test ./internal/forge \
   -run 'Test(Authz|OAuth|InternalMode|BootstrapThenLogin|PasswordReset|ConsoleToken|ProjectRoster|RouteGuards|GitHTTP|MCP|SecretsDelivered|RevealSecret|StagedBuildContext)' \
   -count=1
 ```

@@ -4,7 +4,7 @@
     forge-restore-check.py capture <source url> <file>     # before the backup
     forge-restore-check.py verify  <target url> <file>     # after the restore
 
-FORGE_TOKEN is a CLI token made on the source before the backup: on the target
+APPTOWN_TOKEN is a CLI token made on the source before the backup: on the target
 it must still authenticate, which is the check that credentials came across.
 `capture` reads only. `verify` reads only and exits non-zero naming every
 difference.
@@ -23,7 +23,7 @@ VOLATILE = {"editing", "next", "stateDetail", "diffstat", "committedDiff"}
 
 def get(base, path, token=None):
     req = urllib.request.Request(base.rstrip("/") + path)
-    req.add_header("Authorization", "Bearer " + (token if token is not None else os.environ["FORGE_TOKEN"]))
+    req.add_header("Authorization", "Bearer " + (token if token is not None else os.environ["APPTOWN_TOKEN"]))
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return r.status, json.load(r)

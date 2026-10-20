@@ -104,7 +104,7 @@ func (h Conformance) OpenVEX(w http.ResponseWriter, r *http.Request) {
 		}
 		s := OpenVEXStatement{
 			Vulnerability: map[string]string{"name": name},
-			Products:      []OpenVEXProduct{{ID: "forge:project/" + p.Slug}},
+			Products:      []OpenVEXProduct{{ID: "apptown:project/" + p.Slug}},
 			Timestamp:     d.CreatedAt,
 		}
 		if d.Status == conformance.FalsePositive {
@@ -119,8 +119,8 @@ func (h Conformance) OpenVEX(w http.ResponseWriter, r *http.Request) {
 	}
 	WriteJSON(w, 200, OpenVEXDocument{
 		Context:    "https://openvex.dev/ns/v0.2.0",
-		ID:         "forge:project/" + p.Slug + "/vex",
-		Author:     "forge",
+		ID:         "apptown:project/" + p.Slug + "/vex",
+		Author:     "apptown",
 		Timestamp:  h.now().UTC().Format(time.RFC3339),
 		Version:    1,
 		Statements: stmts,

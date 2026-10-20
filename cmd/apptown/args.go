@@ -84,7 +84,7 @@ func parseNumber(s, what string) (int64, error) {
 
 // changeRef resolves what a person typed for a change: its id, its friendly
 // form "<slug>#<n>" (the project's current slug and the change's number in
-// it), or a bare number inside a project (-p, $FORGE_PROJECT, or the
+// it), or a bare number inside a project (-p, $APPTOWN_PROJECT, or the
 // directory named after it), which is that project's change n. The forge
 // resolves a friendly form; the id it answers is what commands send.
 func changeRef(s, project string) (ids.ID, error) {

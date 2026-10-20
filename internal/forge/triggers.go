@@ -14,7 +14,7 @@ import (
 
 const reapEvery = 5 * time.Minute
 
-func reapLogOnly() bool { return os.Getenv("FORGE_REAP") != "on" }
+func reapLogOnly() bool { return os.Getenv("APPTOWN_REAP") != "on" }
 
 // RunScheduler ticks every 30s: it fires the schedules due
 // (changeactions.Schedules) and, every few minutes, runs the reaper

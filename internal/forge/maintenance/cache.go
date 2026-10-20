@@ -15,7 +15,7 @@ import (
 // ---- the cache volume ------------------------------------------------------
 //
 // Each workspace gets its own toolchain install under
-// /forge-cache/mise/ws/<workspace> (registries.go: isolation, not sharing).
+// /apptown-cache/mise/ws/<workspace> (registries.go: isolation, not sharing).
 // Nothing removed them when the workspace's change closed, and at a few
 // hundred MB each they fill a disk. Same owner rule: a closed
 // change's or finished run's toolchain goes; a live one stays; anything not
@@ -80,7 +80,7 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 	}
 	var reaped []string
 	for _, volume := range volumes {
-		out, err := r.docker.Run(ctx, "run", "--rm", "--entrypoint", "", "-v", volume+":/forge-cache", check.ShImage, "ls", "/forge-cache/mise/ws")
+		out, err := r.docker.Run(ctx, "run", "--rm", "--entrypoint", "", "-v", volume+":/apptown-cache", check.ShImage, "ls", "/apptown-cache/mise/ws")
 		if err != nil {
 			continue
 		}
@@ -95,7 +95,7 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 				continue
 			}
 			log.Printf("reaper: removing toolchain cache %s in %s (%s)", entry, volume, why)
-			if out, err := r.docker.Run(ctx, "run", "--rm", "--entrypoint", "", "-v", volume+":/forge-cache", check.ShImage, "rm", "-rf", "/forge-cache/mise/ws/"+entry); err != nil {
+			if out, err := r.docker.Run(ctx, "run", "--rm", "--entrypoint", "", "-v", volume+":/apptown-cache", check.ShImage, "rm", "-rf", "/apptown-cache/mise/ws/"+entry); err != nil {
 				log.Printf("reaper: toolchain cache %s in %s not removed: %s", entry, volume, shortOutput(string(out)))
 			}
 		}

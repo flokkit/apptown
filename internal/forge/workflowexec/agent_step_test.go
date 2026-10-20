@@ -650,7 +650,7 @@ func TestARunWithNothingToChangeEndsWithoutAsking(t *testing.T) {
 				t.Fatalf("the change history: %+v %v", history, err)
 			}
 			closed := runIDEvents(t, a, runID, "run.abandoned")
-			if len(closed) == 0 || !strings.HasPrefix(fmt.Sprint(closed[0]["reason"]), "Nothing to change: the build step found nothing to change") || !strings.Contains(fmt.Sprint(closed[0]["reason"]), "no dependencies") || closed[0]["by"] != "forge-system" {
+			if len(closed) == 0 || !strings.HasPrefix(fmt.Sprint(closed[0]["reason"]), "Nothing to change: the build step found nothing to change") || !strings.Contains(fmt.Sprint(closed[0]["reason"]), "no dependencies") || closed[0]["by"] != "apptown-system" {
 				t.Fatalf("closing receipts: %v", closed)
 			}
 		})

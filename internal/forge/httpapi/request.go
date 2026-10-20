@@ -50,7 +50,7 @@ func AuthorizeRequest(authority *identity.Service, w http.ResponseWriter, r *htt
 	}
 	dec := authority.Evaluate(r.Context(), caller.Principal, access.DelegationOf(caller.Principal), c, res, ctx)
 	if !dec.Allow {
-		w.Header().Set("X-Forge-Deny-Code", dec.Code)
+		w.Header().Set("X-AppTown-Deny-Code", dec.Code)
 		WriteError(w, 403, "%s", dec.Reason)
 		return dec, false
 	}

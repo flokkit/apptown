@@ -47,7 +47,7 @@ func TestConsoleLandingHTTPRechecksItsFailedGateAndKeepsHumanApproval(t *testing
 	call := func(handler http.HandlerFunc, token string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(fmt.Sprintf(`{"changeId":%q,"who":"apptownd-operator"}`, f.ChangeID))).WithContext(f.Context)
 		r.SetPathValue("sid", session.ID)
-		r.Header.Set("X-Forge-Session-Token", token)
+		r.Header.Set("X-AppTown-Session-Token", token)
 		w := httptest.NewRecorder()
 		handler(w, r)
 		return w
@@ -166,7 +166,7 @@ func TestConsoleLandingHTTPProjectChatCannotLandOrRecheck(t *testing.T) {
 	for _, handler := range []http.HandlerFunc{h.ConsoleLand, h.ConsoleRecheck} {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(fmt.Sprintf(`{"changeId":%q}`, f.ChangeID))).WithContext(f.Context)
 		r.SetPathValue("sid", session.ID)
-		r.Header.Set("X-Forge-Session-Token", session.Token)
+		r.Header.Set("X-AppTown-Session-Token", session.Token)
 		w := httptest.NewRecorder()
 		handler(w, r)
 		if w.Code != 403 || !strings.Contains(w.Body.String(), "only a change chat") {

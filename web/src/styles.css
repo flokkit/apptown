@@ -1329,17 +1329,17 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
    contrast) against the panel in each theme. Unknown is the hatch, never
    the free colour. */
 :root {
-  --cap-deployment: #2E8B67; --cap-previews: #3B72C4; --cap-work: #8A6BD1; --cap-forge: #C2622F;
+  --cap-deployment: #2E8B67; --cap-previews: #3B72C4; --cap-work: #8A6BD1; --cap-apptown: #C2622F;
   --cap-other: #8A877C; --cap-host: #B9B5A9; --cap-free: var(--panel2, #EFECE4);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-forge: #C8703F;
+    --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
     --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #1A1916;
   }
 }
 :root[data-theme="dark"] {
-  --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-forge: #C8703F;
+  --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
   --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #1A1916;
 }
 .cap { max-width: 720px; }
@@ -1358,7 +1358,7 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 .cap-deployment { background: var(--cap-deployment); }
 .cap-previews { background: var(--cap-previews); }
 .cap-work { background: var(--cap-work); }
-.cap-forge { background: var(--cap-forge); }
+.cap-apptown { background: var(--cap-apptown); }
 .cap-other, .cap-unrecorded { background: var(--cap-other); }
 .cap-unrecorded { background-image: var(--unknown-bg); }
 .cap-host { background: var(--cap-host); }

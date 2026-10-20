@@ -30,7 +30,7 @@ func TestDeploymentVocabularyRoutesKeepAuthorizationAndRetireOldPaths(t *testing
 	h := a.Handler()
 	call := func(who, method, path string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
-		req.Header.Set("X-Forge-Actor", who)
+		req.Header.Set("X-AppTown-Actor", who)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
 		return w

@@ -151,7 +151,7 @@ func (s *libraryStore) AppendPlatformImport(ctx context.Context, projectID ids.I
 		if _, err := q.InsertGuidanceImport(ctx, adoptionsql.InsertGuidanceImportParams{ID: ids.New(clock.Or(s.clock)()), ProjectID: projectID, Position: pos, BlockID: b.ID, Version: int64(b.LatestVersion)}); err != nil {
 			return err
 		}
-		return audit.At(clock.Or(s.clock)()).RecordIn(ctx, tx, "forge-system", projectID, "guidance.platform.adopted", b.Name, map[string]any{"version": b.LatestVersion})
+		return audit.At(clock.Or(s.clock)()).RecordIn(ctx, tx, "apptown-system", projectID, "guidance.platform.adopted", b.Name, map[string]any{"version": b.LatestVersion})
 	})
 }
 

@@ -105,7 +105,7 @@ it('on a moved declaration keeps the picks and puts only the person\'s edits on 
   let server: Declared = { needs: [{ capability: 'postgres', params: { version: '16' } }], contract: 'app.yaml', declaration: 'b' }
   let conflict = true
   const sent = serve(() => server, () => conflict
-    ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-Forge-Deny-Code': 'settings-moved' } })
+    ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
     : new Response(JSON.stringify({ changeId: '00000000-0009-7000-8000-000000000000' })))
   const f = mountServices(client)
   try {
@@ -133,7 +133,7 @@ it('keeping my edits puts only the parameters I changed on top of theirs', async
   let server: Declared = { needs: [{ capability: 'postgres', params: { version: '16', database: 'old_db' } }], contract: 'app.yaml', declaration: 'b' }
   let conflict = true
   const sent = serve(() => server, () => conflict
-    ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-Forge-Deny-Code': 'settings-moved' } })
+    ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
     : new Response(JSON.stringify({ changeId: '00000000-0009-7000-8000-000000000000' })))
   const f = mountServices(client)
   try {

@@ -145,7 +145,7 @@ describe('a finished run with unreadable check evidence', () => {
 describe('a finished run with a tests receipt', () => {
  const run = { id: '00000000-0002-7000-8000-000000000000', number: 2, status: 'done', workflowName: 'land', workflowVersion: 1 } as Run
  const tests = (evidence: object) => ({ id: '00000000-0008-7000-8000-000000000000', runId: run.id, stage: 'check', name: 'tests', type: 'tests', status: 'pass', attempt: 1, config: {}, overrideBy: '',
-  evidence: { command: 'go test -json ./... > "$FORGE_TEST_REPORT"', ...evidence } }) as unknown as Step
+  evidence: { command: 'go test -json ./... > "$APPTOWN_TEST_REPORT"', ...evidence } }) as unknown as Step
  const rendered = (s: Step) => renderToStaticMarkup(<MemoryRouter><Evidence view={{ detail: { steps: [s] }, projectSlug: 'p' } as unknown as ChangeView} runs={[{ run, steps: [s] }]} workTab={() => '#'} /></MemoryRouter>)
  it('folds when the report counted no skips', () => {
   const html = rendered(tests({ testCounts: { passed: 44, failed: 0, skipped: 0 } }))
@@ -154,7 +154,7 @@ describe('a finished run with a tests receipt', () => {
  })
  for (const [name, evidence, note] of [
   ['skips', { testCounts: { passed: 41, failed: 0, skipped: 3 }, skippedTests: ['ex/store TestImport'] }, '41 passed, 3 skipped'],
-  ['no report', { testReport: 'the test command wrote no report to $FORGE_TEST_REPORT, so how many tests ran or were skipped is not known' }, 'test counts not reported'],
+  ['no report', { testReport: 'the test command wrote no report to $APPTOWN_TEST_REPORT, so how many tests ran or were skipped is not known' }, 'test counts not reported'],
   ['an unreadable report', { testReport: 'the test report could not be read (…)', testReportUnreadable: 'line 3 of the report is not a go test -json event' }, 'test report unreadable: line 3 of the report is not a go test -json event'],
   ['a receipt from before reports', {}, 'test counts not reported'],
  ] as const) {

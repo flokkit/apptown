@@ -90,7 +90,7 @@ func TestIntegrationAgentEnvironmentConsoleLaunch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), runtimeURL) || !strings.Contains(string(raw), "$FORGE_SESSION_TOKEN") || strings.Contains(string(raw), "provider-canary") {
+	if !strings.Contains(string(raw), runtimeURL) || !strings.Contains(string(raw), "$APPTOWN_SESSION_TOKEN") || strings.Contains(string(raw), "provider-canary") {
 		t.Fatal("generated inference boundary is wrong")
 	}
 

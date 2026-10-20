@@ -18,7 +18,7 @@ func obtainCode(t *testing.T, h http.Handler, who *http.Cookie, clientID string)
 	t.Helper()
 	verifier, challenge := pkce()
 	q := url.Values{"response_type": {"code"}, "client_id": {clientID}, "redirect_uri": {"http://127.0.0.1:9999/callback"},
-		"scope": {"forge:user:read"}, "state": {"xyz"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}, "decision": {"allow"}}
+		"scope": {"apptown:user:read"}, "state": {"xyz"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}, "decision": {"allow"}}
 	prepareConsent(t, h, who, q)
 	req := httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(q.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -46,7 +46,7 @@ func TestOAuthRefreshRotatedOnceUnderRace(t *testing.T) {
 	t.Parallel()
 	a, h, who := oauthFixture(t)
 	clientID := registerClient(t, h)
-	tok := authorizeAndExchange(t, h, who, clientID, "forge:user:read")
+	tok := authorizeAndExchange(t, h, who, clientID, "apptown:user:read")
 	rt := tok["refresh_token"].(string)
 	refresh := func() *httptest.ResponseRecorder {
 		form := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {rt}, "client_id": {clientID}}

@@ -628,7 +628,7 @@ func (d *Deletion) stall(ctx context.Context, projectID ids.ID, why string) (str
 		if err := project.StallDeletionIn(ctx, tx, projectID, why); err != nil {
 			return err
 		}
-		return audit.At(d.now()).RecordIn(ctx, tx, "forge-system", projectID, "project.deletion-stalled", "", map[string]any{"why": why})
+		return audit.At(d.now()).RecordIn(ctx, tx, "apptown-system", projectID, "project.deletion-stalled", "", map[string]any{"why": why})
 	})
 	return "stalled: " + why, err
 }
@@ -665,7 +665,7 @@ func (d *Deletion) markDeleted(ctx context.Context, l project.Lifecycle) (string
 		if err := project.MarkDeletedIn(ctx, tx, l.ProjectID, now, now.Add(kept)); err != nil {
 			return err
 		}
-		return audit.At(now).RecordIn(ctx, tx, "forge-system", l.ProjectID, "project.deleted-kept", "", map[string]any{
+		return audit.At(now).RecordIn(ctx, tx, "apptown-system", l.ProjectID, "project.deleted-kept", "", map[string]any{
 			"binding": l.BindingID, "deleter": l.RequestedBy, "keptUntil": now.Add(kept)})
 	})
 	if err != nil {

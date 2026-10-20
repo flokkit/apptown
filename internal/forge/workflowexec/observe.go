@@ -45,15 +45,15 @@ func newObserver(tracer trace.Tracer, meter metric.Meter, links AttemptLinks, no
 	// Steps take seconds to many minutes; the SDK's default buckets stop at
 	// ten seconds and would put every attempt in the last one.
 	stepBuckets := metric.WithExplicitBucketBoundaries(1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000, 1200000, 1800000)
-	o.duration, _ = meter.Float64Histogram("forge_step_duration", metric.WithUnit("ms"), stepBuckets, metric.WithDescription("running time of a step attempt, by step type and outcome"))
+	o.duration, _ = meter.Float64Histogram("apptown_step_duration", metric.WithUnit("ms"), stepBuckets, metric.WithDescription("running time of a step attempt, by step type and outcome"))
 	// Queue waits are usually zero; a first boundary of one second would make
 	// interpolation report a zero wait as nearly a second. Start at zero.
 	queueBuckets := metric.WithExplicitBucketBoundaries(0, 100, 500, 1000, 5000, 15000, 60000, 300000, 900000)
-	o.queued, _ = meter.Float64Histogram("forge_step_queued", metric.WithUnit("ms"), queueBuckets, metric.WithDescription("time a step attempt waited for a slot, by step type"))
+	o.queued, _ = meter.Float64Histogram("apptown_step_queued", metric.WithUnit("ms"), queueBuckets, metric.WithDescription("time a step attempt waited for a slot, by step type"))
 	// The duration histogram only sees attempts whose harness started; the
 	// counter sees every settlement, including preflight failures and
 	// unclaimed attempts, which are the ones worth counting.
-	o.attempts, _ = meter.Int64Counter("forge_step_attempts_total", metric.WithDescription("step attempts settled, by step type and outcome"))
+	o.attempts, _ = meter.Int64Counter("apptown_step_attempts_total", metric.WithDescription("step attempts settled, by step type and outcome"))
 	// Nothing is seeded at zero. A series born mid-window is the stack's
 	// problem: Prometheus's created-timestamp zero ingestion writes it, and
 	// stock/observability/README.md says so. Seeding here would cover one

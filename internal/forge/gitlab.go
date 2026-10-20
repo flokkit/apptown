@@ -48,6 +48,6 @@ func (p repositoryPublisher) PushBranch(ctx context.Context, projectID ids.ID, r
 	// The mirror follows a publication that has happened: it is pushed
 	// though the caller stops, and a stop is never recorded as a failed push.
 	if out, err := gitexec.RunEnv(context.WithoutCancel(ctx), repoDir, env, "push", "-u", "origin", branch); err != nil {
-		audit.At(clock.Or(p.now)()).BestEffort(ctx, p.db, "forge-system", projectID, "git.push.failed", branch, map[string]any{"error": strs.Truncate(out, 300)})
+		audit.At(clock.Or(p.now)()).BestEffort(ctx, p.db, "apptown-system", projectID, "git.push.failed", branch, map[string]any{"error": strs.Truncate(out, 300)})
 	}
 }

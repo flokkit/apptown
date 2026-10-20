@@ -47,9 +47,9 @@ func TestLedgerLinesMoveOnlyWhenAboutTheProjectOrMovingWork(t *testing.T) {
 		line("change.run-started", "bls", "change 8 run 11 (verify)", `null`),
 		line("console.invoke", "boss via console/abc123abc123", "run-12", `{}`),
 		line("landing.restarted", "bls", "run 3 -> 11", `null`),
-		line("release.deployed", "forge-system", "main", `{"runId":11}`),
-		line("remediation.item.stuck", "forge-system", "1", `{"change":7,"reason":"private-skipped-attempt-diagnostic"}`),
-		line("remediation.item.started", "forge-system", "4", `{"change":8,"run":11}`),
+		line("release.deployed", "apptown-system", "main", `{"runId":11}`),
+		line("remediation.item.stuck", "apptown-system", "1", `{"change":7,"reason":"private-skipped-attempt-diagnostic"}`),
+		line("remediation.item.started", "apptown-system", "4", `{"change":8,"run":11}`),
 		line("console.say", "bls", "abc123abc123", `{"opener":"bls"}`),
 		line("change.saved", "chat/abc123abc123", "change 8", `{}`),
 		line("change.started", "bls", "change 99", `null`),       // a change not known to move
@@ -67,7 +67,7 @@ func TestLedgerLinesMoveOnlyWhenAboutTheProjectOrMovingWork(t *testing.T) {
 		line("change.run-started", "bls", "change 8 run 12 (verify)", `null`),
 		line("console.say", "bls", "def456def456", `{}`),
 		line("console.invoke", "boss via console/def456def456", "run-12", `{}`),
-		line("remediation.item.stuck", "forge-system", "2", `{"change":8}`),
+		line("remediation.item.stuck", "apptown-system", "2", `{"change":8}`),
 		line("landing.restarted", "bls", "run 12 -> 13", `null`),
 		line("authz.denied", "bls", "change:land", `{"resource":"change:8"}`),
 	}

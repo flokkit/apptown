@@ -61,7 +61,7 @@ func MergeMain(ctx context.Context, repo, tip, mainBranch, message string) (Main
 	if !gitexec.IsObjectID(tree) {
 		return MainMerge{}, fmt.Errorf("merging %s into %s: git wrote no tree (%q)", mainBranch, strs.ShortSHA(tip), tree)
 	}
-	commit, err := gitexec.HubOutput(ctx, repo, strings.NewReader(message), "-c", "user.name=forge", "-c", "user.email=forge@localhost",
+	commit, err := gitexec.HubOutput(ctx, repo, strings.NewReader(message), "-c", "user.name=apptown", "-c", "user.email=apptown@localhost",
 		"commit-tree", tree, "-p", tip, "-p", main)
 	if err != nil {
 		return MainMerge{}, fmt.Errorf("committing the merge of %s into %s: %w: %s", mainBranch, strs.ShortSHA(tip), err, stderrOf(err))

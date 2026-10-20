@@ -126,7 +126,7 @@ func TestGitHTTPScoped(t *testing.T) {
 
 	// A chat reaches the endpoint through the read-only listener, with a
 	// plain URL and its token as a header that git sends to that URL only
-	// (conversation's FORGE_MAIN_REMOTE). Clone and a later fetch of a
+	// (conversation's APPTOWN_MAIN_REMOTE). Clone and a later fetch of a
 	// moved main both work there.
 	ro := httptest.NewServer(GETOnly(a.Handler()))
 	defer ro.Close()

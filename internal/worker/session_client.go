@@ -343,7 +343,7 @@ func (c SessionClient) Save(ctx context.Context, id, base, leftovers, dest strin
 	if resp.StatusCode >= 300 {
 		return "", refusal(resp)
 	}
-	head := resp.Header.Get("Forge-Head")
+	head := resp.Header.Get("AppTown-Head")
 	if resp.StatusCode != http.StatusOK || !commitPattern.MatchString(head) {
 		return "", fmt.Errorf("%w: the chat's save came back as %d naming commit %q", execution.ErrWorkerUnavailable, resp.StatusCode, head)
 	}

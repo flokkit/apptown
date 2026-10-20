@@ -38,7 +38,7 @@ var verbs = map[string]verbSpec{
 func cmdWorkVerb(verb string, args []string) error {
 	spec := verbs[verb]
 	fs := newFlags(verb)
-	project := fs.String("p", "", "project slug (default: FORGE_PROJECT or cwd)")
+	project := fs.String("p", "", "project slug (default: APPTOWN_PROJECT or cwd)")
 	yes := fs.Bool("y", false, "auto-approve gates and landing (recorded as you)")
 	noFollow := fs.Bool("no-follow", false, "start the run and return")
 	title := fs.String("t", "", "change title (default: derived from the task)")

@@ -126,7 +126,7 @@ func TestAnAgentsOwnRepositoryIsNeverTheWorkers(t *testing.T) {
 	}
 	agentGit("add", "agent.txt")
 	agentGit("commit", "-q", "-m", "the agent's own message")
-	if got := agentGit("log", "-1", "--format=%an <%ae>"); got != "forge <forge@localhost>" {
+	if got := agentGit("log", "-1", "--format=%an <%ae>"); got != "apptown <apptown@localhost>" {
 		t.Fatalf("the agent commits as %q", got)
 	}
 
@@ -139,7 +139,7 @@ func TestAnAgentsOwnRepositoryIsNeverTheWorkers(t *testing.T) {
 	}
 
 	bundle := filepath.Join(t.TempDir(), "result.bundle")
-	head, err := driver.Collect(ctx, "step-3-a1", source, "forge: the agent's work", bundle)
+	head, err := driver.Collect(ctx, "step-3-a1", source, "apptown: the agent's work", bundle)
 	if err != nil || head == "" {
 		t.Fatalf("collecting: %q %v", head, err)
 	}
@@ -161,7 +161,7 @@ func TestAnAgentsOwnRepositoryIsNeverTheWorkers(t *testing.T) {
 		t.Fatalf("the collected commit lacks %v: %v", want, paths)
 	}
 	// The agent's commits are squashed into the one the worker makes.
-	if got, _ := gitexec.Output(ctx, hub, "log", "--format=%s", source+"..refs/test/collected"); strings.TrimSpace(got) != "forge: the agent's work" {
+	if got, _ := gitexec.Output(ctx, hub, "log", "--format=%s", source+"..refs/test/collected"); strings.TrimSpace(got) != "apptown: the agent's work" {
 		t.Fatalf("the collected commits: %q", got)
 	}
 

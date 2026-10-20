@@ -84,6 +84,12 @@ var migrations = []migration{
   WHERE d.need = '' AND b.id = d.backup_id AND e->>'kind' = 'need' AND COALESCE(e->>'bucket', '') = ''
     AND COALESCE(e->>'instance', '') <> '' AND right(d.place, length(e->>'instance') + 4) = ' on ' || (e->>'instance')`,
 	}},
+	{n: 154, note: "the AppTown rename: stored names of the backup store on AppTown's disk and of complaints about the platform", stmts: []string{
+		"ALTER TABLE backups ALTER COLUMN store SET DEFAULT 'apptown-disk'",
+		"UPDATE backups SET store = 'apptown-disk' WHERE store = 'forge-disk'",
+		"ALTER TABLE complaints ALTER COLUMN about SET DEFAULT 'apptown'",
+		"UPDATE complaints SET about = 'apptown' WHERE about = 'forge'",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

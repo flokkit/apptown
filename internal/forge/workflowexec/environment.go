@@ -19,21 +19,21 @@ import (
 // forgeEnv is the identity a run agent carries to reach the forge: the
 // complaints box and the CLI (apptown check, status)
 // need the read-only listener's URL, the run, the step and a run token.
-// FORGE_URL is the read-only listener — complaints POST is its sanctioned
+// APPTOWN_URL is the read-only listener — complaints POST is its sanctioned
 // exception. The token is derived from the step attempt, so nothing revokes
 // it: it stops working when the attempt is no longer live.
 func (a *Executor) forgeEnv(ctx context.Context, run *workflow.Run, step *workflow.Step) (env []string) {
 	runTok := a.runTok.Step(step.ID, step.Attempt)
-	env = append(env, "FORGE_URL="+a.cfg.APIURL,
-		fmt.Sprintf("FORGE_RUN_ID=%d", run.ID), "FORGE_STEP="+step.Name,
-		"FORGE_SESSION_TOKEN="+runTok)
+	env = append(env, "APPTOWN_URL="+a.cfg.APIURL,
+		fmt.Sprintf("APPTOWN_RUN_ID=%d", run.ID), "APPTOWN_STEP="+step.Name,
+		"APPTOWN_SESSION_TOKEN="+runTok)
 	if !run.ChangeID.IsZero() {
 		// Lets `apptown check` resolve which change's gate checks to run without a
 		// round-trip — the agent verifies against its own change before handoff.
-		env = append(env, fmt.Sprintf("FORGE_CHANGE=%d", run.ChangeID))
+		env = append(env, fmt.Sprintf("APPTOWN_CHANGE=%d", run.ChangeID))
 	}
 	if proj, err := project.ByIDIn(ctx, a.db, run.ProjectID); err == nil {
-		env = append(env, "FORGE_PROJECT="+proj.Slug)
+		env = append(env, "APPTOWN_PROJECT="+proj.Slug)
 	}
 	return env
 }

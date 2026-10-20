@@ -61,12 +61,12 @@ func of(release, stamped string, info *debug.BuildInfo, ok bool) string {
 // a forge hands its agents is built from the forge's own tree, so it always
 // matches; a person's own CLI can lag or lead.
 const (
-	CLIProtocolHeader = "X-Forge-CLI-Protocol"
+	CLIProtocolHeader = "X-AppTown-CLI-Protocol"
 	// CLIProtocol is what this build's CLI speaks.
 	CLIProtocol = 1
 	// CLIProtocolMin and CLIProtocolMax are what this build's forge accepts.
 	CLIProtocolMin = 1
 	CLIProtocolMax = 1
 	// Header names the forge's version on every API response.
-	Header = "X-Forge-Version"
+	Header = "X-AppTown-Version"
 )

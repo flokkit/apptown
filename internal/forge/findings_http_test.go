@@ -91,7 +91,7 @@ func TestFindingsHTTPAnnotatesOnlyCurrentProjectExceptions(t *testing.T) {
 	states := map[string]string{}
 	for _, s := range vex.Statements {
 		states[s.Status] = s.Action + s.Impact
-		if len(s.Products) != 1 || s.Products[0]["@id"] != "forge:project/game" {
+		if len(s.Products) != 1 || s.Products[0]["@id"] != "apptown:project/game" {
 			t.Fatalf("export scope: %+v", s)
 		}
 	}

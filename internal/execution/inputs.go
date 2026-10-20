@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-// Input is a file a task reads, read-only, at Path under /forge/in/
+// Input is a file a task reads, read-only, at Path under /apptown/in/
 // (design/operations/workers.md, "Agent and review steps on the worker").
 // It is prepared on the forge as bytes and sent to
 // the backend once as a content-addressed blob: a tar holding one regular
@@ -23,7 +23,7 @@ import (
 // a path on either machine, so its identity covers the content.
 type Input struct {
 	Blob string      `json:"blob"` // SHA-256 of the blob's tar, hex
-	Path string      `json:"path"` // absolute and clean, under /forge/in/
+	Path string      `json:"path"` // absolute and clean, under /apptown/in/
 	Mode fs.FileMode `json:"mode"` // 0644 or 0755
 	// tar is the blob on the forge's side (NewInput); nil for an input that
 	// names a blob the backend is expected to hold already. It is never part
@@ -33,18 +33,18 @@ type Input struct {
 }
 
 // InputsRoot is where a task's inputs are presented.
-const InputsRoot = "/forge/in"
+const InputsRoot = "/apptown/in"
 
 // StateRoot is where a workspace's own writable state is presented: beside
 // the tree, never in it, and kept across the tasks that use the workspace.
-const StateRoot = "/forge/state"
+const StateRoot = "/apptown/state"
 
 // ToolCacheMount is where a container finds the shared download cache of
 // the toolchains projects declare (mise's MISE_CACHE_DIR): the forge's
 // forge-cache volume on its own host, a worker's tool cache on a worker.
 // It holds what mise fetches (release listings, tool archives), never a
 // tool's installation, which stays the container's own.
-const ToolCacheMount = "/forge-cache/mise-cache"
+const ToolCacheMount = "/apptown-cache/mise-cache"
 
 // Bounds on a request's inputs: enough for an agent's steering, resources,
 // attachments and the forge CLI, never a way to send a tree.
@@ -100,7 +100,7 @@ func (in Input) WithBlob(blob []byte) (Input, error) {
 }
 
 // ValidInputs says whether inputs may be presented to a task: each a blob
-// digest, at a clean path of its own under /forge/in/ that is no other
+// digest, at a clean path of its own under /apptown/in/ that is no other
 // input's folder, with mode 0644 or 0755, within the bounds. Sizes are
 // checked here for inputs carrying their content, and by the backend, which
 // knows every blob's size, for all.
@@ -161,7 +161,7 @@ func cleanUnder(p, root string) bool {
 // transcript): the backend reads it when the task's container exits and
 // keeps it with the task, so what the forge reads is bound to the task that
 // produced it. Path is in the tree (/work/...) or the workspace's state
-// (/forge/state/...).
+// (/apptown/state/...).
 type Result struct {
 	Name string `json:"name"`
 	Path string `json:"path"`

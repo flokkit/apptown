@@ -76,7 +76,7 @@ git status --porcelain -- agent.txt change.txt > status.txt
 	}
 
 	bundle := filepath.Join(t.TempDir(), "result.bundle")
-	head, err := driver.Collect(ctx, namespace, source, "forge: the agent's work", bundle)
+	head, err := driver.Collect(ctx, namespace, source, "apptown: the agent's work", bundle)
 	if err != nil || head == "" {
 		t.Fatalf("collecting: %q %v", head, err)
 	}
@@ -104,7 +104,7 @@ git status --porcelain -- agent.txt change.txt > status.txt
 		"log.txt":       "the change so far\nbase",
 		"diff.txt":      "change.txt",
 		"agent.txt":     "by the agent",
-		"committed.txt": "forge <forge@localhost> the agent's own message",
+		"committed.txt": "apptown <apptown@localhost> the agent's own message",
 		"status.txt":    "",
 		"after.txt":     "after",
 	} {
@@ -113,7 +113,7 @@ git status --porcelain -- agent.txt change.txt > status.txt
 		}
 	}
 	// The agent's commit is squashed into the one the worker makes.
-	if got, _ := gitexec.Output(ctx, hub, "log", "--format=%s", source+"..refs/test/collected"); strings.TrimSpace(got) != "forge: the agent's work" {
+	if got, _ := gitexec.Output(ctx, hub, "log", "--format=%s", source+"..refs/test/collected"); strings.TrimSpace(got) != "apptown: the agent's work" {
 		t.Fatalf("the collected commits: %q", got)
 	}
 }

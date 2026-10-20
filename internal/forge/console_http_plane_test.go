@@ -82,7 +82,7 @@ func TestConsoleActuatorPlaneAuthenticatesInvocationAndKeepsProjectScope(t *test
 	path := "/api/v1/console/" + session.ID + "/invoke"
 	call := func(token string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", path, strings.NewReader(`{"title":"Through the agent port","workflow":"implement","projectId":"00000000-0002-7000-8000-000000000000"}`))
-		r.Header.Set("X-Forge-Session-Token", token)
+		r.Header.Set("X-AppTown-Session-Token", token)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		return w
@@ -112,7 +112,7 @@ func TestConsoleActuatorPlaneAuthenticatesInvocationAndKeepsProjectScope(t *test
 	a.Work.Wait()
 	// A session token does not make the broader mutation API available here.
 	r := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/console/%s", session.ID), nil)
-	r.Header.Set("X-Forge-Session-Token", session.Token)
+	r.Header.Set("X-AppTown-Session-Token", session.Token)
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusMethodNotAllowed {

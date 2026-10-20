@@ -118,7 +118,7 @@ func TestACheckWorkerRefusesAReleaseBuild(t *testing.T) {
 	build, _ := json.Marshal(worker.TaskRequest{Key: "build-1", Image: "docker:27-cli", Argv: []string{"docker", "buildx", "build", "."},
 		Admission: execution.Admission{Profile: "worker-vm", Network: execution.NetworkDefault, Limits: execution.Limits{CPUs: 1, MemoryBytes: 1 << 30, PIDs: 512}, Expires: time.Now().Add(time.Hour)},
 		Workspace: "build-1", Private: &execution.PrivateDocker{Daemon: true},
-		Images: []execution.ImageResult{{Name: "web", Path: "/forge/state/out/web", Max: 1 << 30}}})
+		Images: []execution.ImageResult{{Name: "web", Path: "/apptown/state/out/web", Max: 1 << 30}}})
 	for _, r := range []struct{ method, path, body string }{
 		{http.MethodPost, "/v1/tasks/build-1", string(build)},
 		{http.MethodGet, "/v1/tasks/build-1/images", ""},

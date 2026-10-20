@@ -63,7 +63,7 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 	if err != nil || len(images) != 1 || len(files) != 1 || images[0].Name != "part-site" {
 		t.Fatalf("request: %+v %+v %v", images, files, err)
 	}
-	export := "/forge/state/static/part-site"
+	export := "/apptown/state/static/part-site"
 	lines := strings.Split(script, "\n")
 	at := func(prefix string) int {
 		for i, l := range lines {

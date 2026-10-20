@@ -151,7 +151,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 		_, err := io.WriteString(req.Stdout, "x")
 		return nil, err
 	})
-	if b, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "forge-system"); err != nil || b.Status != BackupPartial || b.Items[1].Error == "" {
+	if b, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil || b.Status != BackupPartial || b.Items[1].Error == "" {
 		t.Fatalf("partial: %+v %v", b, err)
 	}
 	// Retention: the newest seven stay.
@@ -160,7 +160,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 		return nil, err
 	})
 	for i := 0; i < 8; i++ {
-		if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "forge-system"); err != nil {
+		if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -300,7 +300,7 @@ func TestRestoreBackup(t *testing.T) {
 	// Restore the oldest retained set. Its safety copy would otherwise push
 	// this very source past the retention limit before the first file is read.
 	for i := 1; i < BackupKeep; i++ {
-		if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "forge-system"); err != nil {
+		if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -345,7 +345,7 @@ func TestRestoreBackup(t *testing.T) {
 	if err == nil || res.Status != RestorePartial {
 		t.Fatalf("a file that does not match its digest is not restored: %v %v", err, res)
 	}
-	if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "forge-system"); err != nil {
+	if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
 		t.Fatal(err)
 	}
 	wantN(t, "held backups", backupsWhere(t, db, func(b ProjectBackup) bool { return b.ProjectID == pid && b.Status.Holds() }), BackupKeep)

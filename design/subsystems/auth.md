@@ -8,7 +8,7 @@ There are three configured authentication modes, selected by `apptownd --auth`:
 | --- | --- |
 | `internal` | Forge accounts, password login and session cookies; first-account setup is a separate explicit operation |
 | `trusted-header` | A configured proxy username header plus the configured shared proxy secret |
-| `open` (default) | Caller-supplied `X-Forge-Actor`, or anonymous attribution; this is not authentication of that name |
+| `open` (default) | Caller-supplied `X-AppTown-Actor`, or anonymous attribution; this is not authentication of that name |
 
 Personal bearer tokens work alongside these modes. On `/api/`, a
 present but invalid bearer token is refused; it does not fall back to a cookie or
@@ -25,7 +25,7 @@ exposed instance from impersonation. Browser-origin/cookie rules are described i
 A person's name may not take a form the forge reads as something else:
 `identity.ValidName` refuses one containing `/` (a chat, run or connection)
 or ` via ` (someone acting through something), one of the forge's own names
-(`system`, `forge-system`), control characters, and leading or trailing
+(`system`, `apptown-system`), control characters, and leading or trailing
 spaces. The trusted header and the open-mode actor are refused with 401;
 members, group members, grants (at the shared grant writer), token holders,
 invites, new accounts and the startup administrator seed are refused as
@@ -163,7 +163,7 @@ first and is ended by it, or is refused.
 A link's token is a live credential in its URL. The link page moves it out
 of the address bar as soon as it is read (leaving `/invite`, so reloading
 asks for the link again), the page is served with `Referrer-Policy:
-no-referrer`, and browser error reports have every `forge_invite_` token
+no-referrer`, and browser error reports have every `apptown_invite_` token
 replaced before they are sent.
 Setting a password directly (People → set password, People → Add a person
 with a password you choose instead, or `POST /api/v1/users`) remains for
@@ -184,7 +184,7 @@ and pending invites are revoked in the same transaction; the
 `user.name-removed` receipt lists them. A later sighting of the name starts
 an account that holds none of them. Wherever authority is decided, a name with no
 account is refused like a disabled one, never treated as enabled; only the
-forge's own names (`system`, `forge-system`, `run/<id>`) act without one. A
+forge's own names (`system`, `apptown-system`, `run/<id>`) act without one. A
 grant to a person records that person's account with it (never signed in,
 so it can still be removed), as the grant and member doors always did.
 

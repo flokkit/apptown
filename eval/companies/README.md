@@ -107,7 +107,7 @@ CLI with `--json`, plus the pack picker, a target's capacity and a project's
 deployments, read from the API the web uses.
 
 ```sh
-export FORGE_EVAL_STATE=~/forge-eval-state   # or --state FILE on each command
+export APPTOWN_EVAL_STATE=~/forge-eval-state   # or --state FILE on each command
 python3 eval/companies/run.py --forge https://forge.example --token-file ~/.forge-token \
     create --wave 1 --target built-in-docker      # or --company NAME
 python3 eval/companies/run.py --forge … drive --target built-in-docker
@@ -135,7 +135,7 @@ python3 eval/companies/run.py --forge … report
   counting 256 MiB (an estimate of use) for every app it has opened that is
   not running yet. Unknown use is not free memory.
 - State is kept outside the repository, in the file `--state` names or in a
-  file per forge under the directory `FORGE_EVAL_STATE` names; with neither the
+  file per forge under the directory `APPTOWN_EVAL_STATE` names; with neither the
   runner refuses. It is written before each mutation. If
   the forge's answer to a mutation is lost, that request is not sent again
   until `reconcile` records what a person found.

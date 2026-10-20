@@ -157,7 +157,7 @@ func recordFixIn(ctx context.Context, tx *database.Tx, req verdictAdmission, sav
 	}); err != nil {
 		return err
 	}
-	return audit.At(at).RecordIn(ctx, tx, "forge-system", saved.ProjectID, "conformance.fixed", saved.Check, fixReceipt{Changes: f.Changes, Review: saved.ReviewID, Before: req.PreviousID, After: saved.ID})
+	return audit.At(at).RecordIn(ctx, tx, "apptown-system", saved.ProjectID, "conformance.fixed", saved.Check, fixReceipt{Changes: f.Changes, Review: saved.ReviewID, Before: req.PreviousID, After: saved.ID})
 }
 
 // Required audit payloads are typed at the domain boundary.

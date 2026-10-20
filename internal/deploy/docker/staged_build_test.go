@@ -39,7 +39,7 @@ func TestStagedBuildContextExcludesUntracked(t *testing.T) {
 	// Untracked, gitignored cruft: a .venv with a symlink to a host path that
 	// does not exist inside a container — the exact office-poll failure.
 	_ = os.MkdirAll(filepath.Join(ws, ".venv", "bin"), 0o755)
-	_ = os.Symlink("/forge-cache/mise/installs/python/3.12/bin/python3", filepath.Join(ws, ".venv", "bin", "python"))
+	_ = os.Symlink("/apptown-cache/mise/installs/python/3.12/bin/python3", filepath.Join(ws, ".venv", "bin", "python"))
 	// An uncommitted edit to a TRACKED file — must be carried into the context.
 	write("Dockerfile", "FROM scratch\n# edited")
 

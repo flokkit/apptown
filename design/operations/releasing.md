@@ -26,7 +26,7 @@ How a Flokkit release is made, in order. The release script is
 3. **The tour.** Run `make tour` and commit `site/tour`: the UI tour's
    screenshots, made from a small example team's AppTown (`site/tour/tour.yaml`
    lists the stops). It needs Playwright with Chromium
-   (`scripts/nightly-tiers.sh prepare`, or `FORGE_PLAYWRIGHT_MODULE`), and
+   (`scripts/nightly-tiers.sh prepare`, or `APPTOWN_PLAYWRIGHT_MODULE`), and
    compresses the shots when `oxipng` is installed. Look at the shots before
    committing them.
 4. **The tag.** `git tag -a v<version>` on that commit.
@@ -50,7 +50,7 @@ The maintainers run each release candidate in production before the release:
 - **Main keeps moving.** Reviewed and gated work lands on `main` as usual.
   There is no separate release branch; the candidate is its tag.
 - **Production stays at the candidate tag.** It runs the tagged build and is
-  not redeployed from `main` while the candidate runs. Its `X-Forge-Version`
+  not redeployed from `main` while the candidate runs. Its `X-AppTown-Version`
   response header names the tag.
 - **A fix for the candidate is a new candidate.** A defect found while the
   candidate runs is fixed on `main` and qualified as the next release candidate (a new

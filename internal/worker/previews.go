@@ -37,19 +37,19 @@ const (
 	previewLifetime    = docker.BootLifetime // a boot's upload, build and probe
 	// PreviewHostHeader carries the visitor's Host across the worker hop;
 	// only the forge sets it, over the worker's authenticated connection.
-	PreviewHostHeader = "X-Forge-Preview-Host"
+	PreviewHostHeader = "X-AppTown-Preview-Host"
 	// PreviewTargetHeader carries the visitor's request target (path and
 	// query, escaped as sent), so this server's router never cleans or
 	// redirects a visitor's path.
-	PreviewTargetHeader = "X-Forge-Preview-Target"
+	PreviewTargetHeader = "X-AppTown-Preview-Target"
 	// PreviewSessionHeader and PreviewSeqHeader are the forge session and
 	// the number within it that a request changing a preview carries (see
 	// previewSessions).
-	PreviewSessionHeader = "X-Forge-Preview-Session"
-	PreviewSeqHeader     = "X-Forge-Preview-Seq"
+	PreviewSessionHeader = "X-AppTown-Preview-Session"
+	PreviewSeqHeader     = "X-AppTown-Preview-Seq"
 	// PreviewClaimHeader, "required", answers a request refused because the
 	// worker's fence is lost: the forge claims the worker again.
-	PreviewClaimHeader = "X-Forge-Preview-Claim"
+	PreviewClaimHeader = "X-AppTown-Preview-Claim"
 )
 
 var (

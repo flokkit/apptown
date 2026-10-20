@@ -22,8 +22,8 @@ one triggers nothing; a person reads them. No complaint is still the
 normal case: don't manufacture friction, report the friction you
 actually hit.
 
-Say what it is about with -about (the default is forge):
-  -about forge            the platform itself got in the way
+Say what it is about with -about (the default is apptown):
+  -about apptown          the platform itself got in the way
   -about way-of-working   the project's adopted ways of working (its
                           packs' guidance, checks or workflows) asked
                           for something wrong or unworkable
@@ -51,10 +51,10 @@ const ConsoleRules = `- A reasonable approach that nothing prohibits should WORK
   Platform friction only; no complaint is still the normal case.
 - Everything this document promises about your container (AppTown
   CLI, chromium-headless-shell, the toolchains) is a GUARANTEE. If a promised tool is
-  missing — "forge: not found" — that is not your environment being
+  missing — "apptown: not found" — that is not your environment being
   quirky, it is a platform defect: report it as above. If AppTown
   CLI itself is the broken thing, complain by hand:
-    curl -s -X POST "$FORGE_URL/api/v1/complaints" \
-      -H "X-Forge-Session-Token: $FORGE_SESSION_TOKEN" \
+    curl -s -X POST "$APPTOWN_URL/api/v1/complaints" \
+      -H "X-AppTown-Session-Token: $APPTOWN_SESSION_TOKEN" \
       -d '{"text":"...","why":"...","wish":"..."}'
 `

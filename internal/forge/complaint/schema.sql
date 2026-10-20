@@ -26,10 +26,10 @@ CREATE TABLE IF NOT EXISTS complaints (
   answered_by_via TEXT NOT NULL DEFAULT '',
   answered_at TIMESTAMPTZ,
   archived_at TIMESTAMPTZ,
-  -- What the complaint is about, chosen by the filer: forge (the platform),
+  -- What the complaint is about, chosen by the filer: apptown (the platform),
   -- way-of-working (the project's adopted packs, named in pack_version by
-  -- the forge) or project (the project's own code and guidance).
-  about        TEXT NOT NULL DEFAULT 'forge',
+  -- AppTown) or project (the project's own code and guidance).
+  about        TEXT NOT NULL DEFAULT 'apptown',
   pack_version TEXT NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS complaints_number ON complaints(number);

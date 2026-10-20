@@ -160,7 +160,7 @@ func TestAViewerLooksAtAnotherPersonsChatAndCannotActOnIt(t *testing.T) {
 	}
 	for _, act := range acts {
 		want := "Viewing only: " + act.what + " this chat needs the Project contributor role."
-		if resp := authzCall(h, "vic", act.method, base+act.path, act.body); resp.Code != 403 || !strings.Contains(resp.Body.String(), want) || resp.Header().Get("X-Forge-Deny-Code") == "" {
+		if resp := authzCall(h, "vic", act.method, base+act.path, act.body); resp.Code != 403 || !strings.Contains(resp.Body.String(), want) || resp.Header().Get("X-AppTown-Deny-Code") == "" {
 			t.Fatalf("the viewer's %s %s: %d %s", act.method, act.path, resp.Code, resp.Body.String())
 		}
 		if resp := bearerCall(w.a, vicAgent, act.method, base+act.path, act.body); resp.Code != 403 {
@@ -259,7 +259,7 @@ func TestAViewerWatchesAChatsTerminalWithoutTyping(t *testing.T) {
 	defer srv.Close()
 	dial := func(who string) (*websocket.Conn, *http.Response, error) {
 		u := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/console/" + w.chat + "/pty"
-		return websocket.DefaultDialer.Dial(u, http.Header{"Origin": {srv.URL}, "X-Forge-Actor": {who}})
+		return websocket.DefaultDialer.Dial(u, http.Header{"Origin": {srv.URL}, "X-AppTown-Actor": {who}})
 	}
 	read := func(c *websocket.Conn) string {
 		_ = c.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -379,7 +379,7 @@ func TestATerminalStopsTakingInputWhenItsTypistLosesTheRole(t *testing.T) {
 	defer srv.Close()
 	w.agent.Screen(w.chat, []byte("screen"))
 	u := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/console/" + w.chat + "/pty"
-	conn, _, err := websocket.DefaultDialer.Dial(u, http.Header{"Origin": {srv.URL}, "X-Forge-Actor": {"jenny"}})
+	conn, _, err := websocket.DefaultDialer.Dial(u, http.Header{"Origin": {srv.URL}, "X-AppTown-Actor": {"jenny"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -436,7 +436,7 @@ func TestAChatsCredentialActsOnlyOnItsOwnChat(t *testing.T) {
 	h := a.Handler()
 	say := func(sid, token string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/api/v1/console/"+sid+"/say", strings.NewReader(`{"text":"from a chat"}`))
-		r.Header.Set("X-Forge-Session-Token", token)
+		r.Header.Set("X-AppTown-Session-Token", token)
 		r.Header.Set("Content-Type", "application/json")
 		resp := httptest.NewRecorder()
 		h.ServeHTTP(resp, r)
@@ -446,7 +446,7 @@ func TestAChatsCredentialActsOnlyOnItsOwnChat(t *testing.T) {
 		t.Fatalf("a chat said into another: %d %s", resp.Code, resp.Body.String())
 	}
 	r := httptest.NewRequest("GET", "/api/v1/console/"+other.ID+"/messages?from=0", nil)
-	r.Header.Set("X-Forge-Session-Token", mine.Token)
+	r.Header.Set("X-AppTown-Session-Token", mine.Token)
 	resp := httptest.NewRecorder()
 	h.ServeHTTP(resp, r)
 	if resp.Code != 403 {
@@ -475,7 +475,7 @@ func TestAChatsCredentialReadsNoEval(t *testing.T) {
 	t.Cleanup(func() { _, _ = a.Console.End(context.Background(), s.ID) })
 	for _, path := range []string{"/api/v1/evals", "/api/v1/evals/00000000-0001-7000-8000-000000000000"} {
 		r := httptest.NewRequest("GET", path, nil)
-		r.Header.Set("X-Forge-Session-Token", s.Token)
+		r.Header.Set("X-AppTown-Session-Token", s.Token)
 		resp := httptest.NewRecorder()
 		a.Handler().ServeHTTP(resp, r)
 		if resp.Code != 403 {

@@ -8,7 +8,7 @@
 //	apptown-deploy -app game -observe -generation 2                  # what the host says now
 //	apptown-deploy -app game -teardown -generation 2                 # remove the container
 //
-// Secrets: FORGE_DEPLOY_SECRETS names environment variables handed to every
+// Secrets: APPTOWN_DEPLOY_SECRETS names environment variables handed to every
 // consumer. An app that declares needs is refused by name: this tool
 // fulfils none. An attached host is -host ssh://... with -hostname and -domain.
 package main
@@ -37,7 +37,7 @@ func main() {
 		host       = flag.String("host", "", "an attached host's DOCKER_HOST (ssh://...); empty is the local daemon")
 		hostname   = flag.String("hostname", "", "the attached host's address, for its URL")
 		domain     = flag.String("domain", "", "the attached host's ingress domain, when it has one")
-		secrets    = flag.String("secrets", os.Getenv("FORGE_DEPLOY_SECRETS"), "comma-separated environment variables to hand every consumer (FORGE_DEPLOY_SECRETS)")
+		secrets    = flag.String("secrets", os.Getenv("APPTOWN_DEPLOY_SECRETS"), "comma-separated environment variables to hand every consumer (APPTOWN_DEPLOY_SECRETS)")
 		observe    = flag.Bool("observe", false, "say what the host reports for the placement")
 		teardown   = flag.Bool("teardown", false, "remove the placement's container for the given generation")
 	)

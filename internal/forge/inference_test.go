@@ -38,7 +38,7 @@ func TestInferenceConfigurationAndRuntimeSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(raw), "provider-canary") || strings.Contains(string(raw), "upstream.invalid") || !strings.Contains(string(raw), "$FORGE_SESSION_TOKEN") || !strings.Contains(string(raw), "http://worker:7779/providers/paid") {
+	if strings.Contains(string(raw), "provider-canary") || strings.Contains(string(raw), "upstream.invalid") || !strings.Contains(string(raw), "$APPTOWN_SESSION_TOKEN") || !strings.Contains(string(raw), "http://worker:7779/providers/paid") {
 		t.Fatalf("unsafe runtime config: %s", raw)
 	}
 	if err := a.providers.CheckEnvironment(context.Background(), []string{"ALIAS=provider-canary"}); err == nil || strings.Contains(err.Error(), "provider-canary") {

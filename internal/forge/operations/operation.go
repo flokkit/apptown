@@ -130,7 +130,7 @@ func System(binding string) access.Principal {
 }
 
 // SystemActor is the name the forge acts under for itself.
-const SystemActor = "forge-system"
+const SystemActor = "apptown-system"
 
 // Operation is one row of the ledger.
 type Operation struct {

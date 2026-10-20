@@ -31,7 +31,7 @@ func TestComplaintsArchiveAndDelete(t *testing.T) {
 	call := func(method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Forge-Actor", "boss")
+		req.Header.Set("X-AppTown-Actor", "boss")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
 		return w

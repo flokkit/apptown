@@ -336,7 +336,7 @@ func TestHostedAppProxyPreservesPublicOriginAndRequest(t *testing.T) {
 func TestInviteLinkPagesSendNoReferrer(t *testing.T) {
 	t.Parallel()
 	_, h := internalApp(t)
-	for path, want := range map[string]string{"/invite/forge_invite_abc": "no-referrer", "/people": "same-origin"} {
+	for path, want := range map[string]string{"/invite/apptown_invite_abc": "no-referrer", "/people": "same-origin"} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if got := w.Header().Get("Referrer-Policy"); got != want {

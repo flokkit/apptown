@@ -53,7 +53,7 @@ func TestAuthorizationCannotBypassValidation(t *testing.T) {
 		})
 	}
 	view, err := s.InspectAuthorization(ctx, b.Request)
-	if err != nil || len(view.Scopes) != 1 || view.Scopes[0] != "forge:user:read" {
+	if err != nil || len(view.Scopes) != 1 || view.Scopes[0] != "apptown:user:read" {
 		t.Fatalf("default scope: %+v %v", view, err)
 	}
 }

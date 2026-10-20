@@ -9,7 +9,7 @@ import (
 // takes its friendly form, or its number inside the project.
 func TestCheckTakesAChangesFriendlyForm(t *testing.T) {
 	w := newCheckWorld(t, nil)
-	t.Setenv("FORGE_PROJECT", "shop")
+	t.Setenv("APPTOWN_PROJECT", "shop")
 	for _, ref := range []string{"shop#7", "7"} {
 		*w.bodies = nil
 		out, err := run(t, "check", "-c", ref, "--published")
@@ -63,13 +63,13 @@ func TestInterruptReachesWhatItIsTold(t *testing.T) {
 func TestAComplaintNamesItsRunByID(t *testing.T) {
 	seen := fakeForge(t, func(string, string) (int, string) { return 201, `{"id":"00000000-0001-7000-8000-000000000000"}` })
 	for env, want := range map[string]any{"": nil, "garbled": nil, "00000000-0046-7000-8000-000000000000": "00000000-0046-7000-8000-000000000000"} {
-		t.Setenv("FORGE_RUN_ID", env)
+		t.Setenv("APPTOWN_RUN_ID", env)
 		if _, err := run(t, "complain", "it was slow"); err != nil {
 			t.Fatal(err)
 		}
 		last := (*seen)[len(*seen)-1]
 		if got, ok := last.Body["runId"]; !ok || got != want {
-			t.Fatalf("FORGE_RUN_ID=%q sent runId %v", env, got)
+			t.Fatalf("APPTOWN_RUN_ID=%q sent runId %v", env, got)
 		}
 	}
 }
@@ -88,7 +88,7 @@ func TestARunCommandTakesARunsFriendlyForm(t *testing.T) {
 		}
 		return 404, `{"error":"no"}`
 	})
-	t.Setenv("FORGE_PROJECT", "shop")
+	t.Setenv("APPTOWN_PROJECT", "shop")
 	for _, ref := range []string{"shop#40", "40", runID} {
 		*seen = nil
 		_, _ = run(t, "status", ref)

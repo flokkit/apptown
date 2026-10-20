@@ -120,7 +120,7 @@ func (a *App) handleGitHTTP(w http.ResponseWriter, r *http.Request) {
 		p = tp
 	}
 	if p == nil || p.Slug != slug {
-		w.Header().Set("WWW-Authenticate", `Basic realm="forge"`)
+		w.Header().Set("WWW-Authenticate", `Basic realm="AppTown"`)
 		http.Error(w, "git: authentication required (a Change ticket from checkout_change, the project's pull token, or a step's token for its scratch ref)", http.StatusUnauthorized)
 		return
 	}
@@ -187,7 +187,7 @@ func (a *App) handleGitHTTP(w http.ResponseWriter, r *http.Request) {
 		if expect == "" {
 			expect = strings.Repeat("0", 40)
 		}
-		env = append(env, "REMOTE_USER="+ticket.User, "FORGE_PUSH_REF="+scm.IncomingRef(ticket.ID), "FORGE_PUSH_BRANCH="+ticket.Ref, "FORGE_PUSH_EXPECT="+expect)
+		env = append(env, "REMOTE_USER="+ticket.User, "APPTOWN_PUSH_REF="+scm.IncomingRef(ticket.ID), "APPTOWN_PUSH_BRANCH="+ticket.Ref, "APPTOWN_PUSH_EXPECT="+expect)
 		before = scm.Ref(r.Context(), hub, ticket.Ref)
 	}
 	if scratch != nil {
@@ -204,7 +204,7 @@ func (a *App) handleGitHTTP(w http.ResponseWriter, r *http.Request) {
 		if scratch.Branch != "" && !strings.ContainsAny(scratch.Branch, "' ") {
 			config += " 'receive.hideRefs=!refs/heads/" + scratch.Branch + "'"
 		}
-		env = append(env, "REMOTE_USER="+scratch.Actor, "FORGE_SCRATCH_REF="+scratch.Ref)
+		env = append(env, "REMOTE_USER="+scratch.Actor, "APPTOWN_SCRATCH_REF="+scratch.Ref)
 	}
 	env = append(env, "GIT_CONFIG_PARAMETERS="+config)
 	// The backend starts with an environment of its own (no HOME), so only

@@ -74,11 +74,11 @@ func TestConsoleLifecycleHTTPValidatesBeforeAdmissionAndEndsOnlyItsSession(t *te
 		t.Fatal("session response exposed its token")
 	}
 	launch := agent.Started(session.ID)
-	if launch.Model != "fake/model" || !slices.Contains(launch.Env, "FORGE_SESSION_TOKEN="+session.Token) || !slices.Contains(launch.Mounts, cli+":"+agentenv.CLIDir+"/apptown:ro") {
+	if launch.Model != "fake/model" || !slices.Contains(launch.Env, "APPTOWN_SESSION_TOKEN="+session.Token) || !slices.Contains(launch.Mounts, cli+":"+agentenv.CLIDir+"/apptown:ro") {
 		t.Fatal("console launch did not receive the selected model, session credential and CLI mount")
 	}
 	models, err := os.ReadFile(filepath.Join(session.Dir, "pi-home", ".pi", "agent", "models.json"))
-	if err != nil || !strings.Contains(string(models), runtimeURL) || !strings.Contains(string(models), "$FORGE_SESSION_TOKEN") || strings.Contains(string(models), "provider-canary") {
+	if err != nil || !strings.Contains(string(models), runtimeURL) || !strings.Contains(string(models), "$APPTOWN_SESSION_TOKEN") || strings.Contains(string(models), "provider-canary") {
 		t.Fatalf("console model file must use the gateway and session credential: %v", err)
 	}
 	// Maintenance must observe the same runtime selected for console launches.
@@ -90,7 +90,7 @@ func TestConsoleLifecycleHTTPValidatesBeforeAdmissionAndEndsOnlyItsSession(t *te
 	// Empty bodies have always meant an ordinary project console. Keep that
 	// intentional default distinct from malformed or partially decoded JSON.
 	r := httptest.NewRequest("POST", "/api/v1/projects/open/console", nil)
-	r.Header.Set("X-Forge-Actor", "outsider")
+	r.Header.Set("X-AppTown-Actor", "outsider")
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	var other struct{ Session struct{ ID string } }

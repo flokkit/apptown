@@ -41,7 +41,7 @@ spec:
 	post := func(path, token, body string) int {
 		req := httptest.NewRequest("POST", path, strings.NewReader(body))
 		if token != "" {
-			req.Header.Set("X-Forge-Token", token)
+			req.Header.Set("X-AppTown-Token", token)
 		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
@@ -84,7 +84,7 @@ spec:
 	}
 	// The token never travels in the URL, where proxies log it: a query
 	// token is refused, even a right one, and says to use the header.
-	if c := post("/api/v1/hooks/hooky/on-push?token=s3cret", "", `{}`); c != 403 || !strings.Contains(latest.Body.String(), "X-Forge-Token header") {
+	if c := post("/api/v1/hooks/hooky/on-push?token=s3cret", "", `{}`); c != 403 || !strings.Contains(latest.Body.String(), "X-AppTown-Token header") {
 		t.Fatalf("query token: %d %s", c, latest.Body.String())
 	}
 	// Webhook bodies are intentionally opaque: malformed JSON is a brief,

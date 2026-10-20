@@ -24,21 +24,21 @@ func buildSpec() execution.TaskSpec {
 		Source:  &execution.TaskSource{Repository: "/repo", Commit: strings.Repeat("a", 40)},
 		Files:   []execution.File{{Path: "/forge/build/web.Dockerfile", Content: []byte("FROM busybox\n"), Mode: 0o644}},
 		Private: &execution.PrivateDocker{Daemon: true},
-		Images:  []execution.ImageResult{{Name: "web", Path: "/forge/state/out/web", Max: 1 << 30}}}
+		Images:  []execution.ImageResult{{Name: "web", Path: "/apptown/state/out/web", Max: 1 << 30}}}
 }
 
 // A release build carries no credential or secret: a request declaring
 // images that would carry environment, inputs or services (whose
 // environment travels with it) is refused before anything is sent to the
 // worker, as is one whose images are not in a workspace of its own, made
-// from its source, or are declared outside /forge/state, through "..", twice
+// from its source, or are declared outside /apptown/state, through "..", twice
 // or without their admitted size.
 func TestABuildRequestCarriesNoCredentialOrSecret(t *testing.T) {
 	t.Parallel()
 	if err := buildSpec().Validate(time.Now()); err != nil {
 		t.Fatalf("a release build with its source, build file and daemon: %v", err)
 	}
-	input, err := execution.NewInput("/forge/in/token", []byte("glpat-secret"), 0o644)
+	input, err := execution.NewInput("/apptown/in/token", []byte("glpat-secret"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestABuildRequestCarriesNoCredentialOrSecret(t *testing.T) {
 		},
 		"no source":        func(s *execution.TaskSpec) { s.Source = nil },
 		"a shared space":   func(s *execution.TaskSpec) { s.SharedWorkspace = "step-1" },
-		"a .. path":        func(s *execution.TaskSpec) { s.Images[0].Path = "/forge/state/../../etc" },
+		"a .. path":        func(s *execution.TaskSpec) { s.Images[0].Path = "/apptown/state/../../etc" },
 		"a path in /work":  func(s *execution.TaskSpec) { s.Images[0].Path = "/work/out/web" },
 		"no admitted size": func(s *execution.TaskSpec) { s.Images[0].Max = 0 },
 		"an image twice":   func(s *execution.TaskSpec) { s.Images = append(s.Images, s.Images[0]) },
@@ -59,7 +59,7 @@ func TestABuildRequestCarriesNoCredentialOrSecret(t *testing.T) {
 		},
 		"a name with a slash": func(s *execution.TaskSpec) { s.Images[0].Name = "../web" },
 		"a dotted name":       func(s *execution.TaskSpec) { s.Images[0].Name = ".." },
-		"an uncleaned path":   func(s *execution.TaskSpec) { s.Images[0].Path = "/forge/state/out//web" },
+		"an uncleaned path":   func(s *execution.TaskSpec) { s.Images[0].Path = "/apptown/state/out//web" },
 	}
 	var sent atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

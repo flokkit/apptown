@@ -56,7 +56,7 @@ func (s *Service) recordHealth(ctx context.Context, w docker.Watched, kind strin
 		if err != nil {
 			return err
 		}
-		return audit.Append(ctx, tx, audit.At(at).String(), "forge-system", w.ProjectID, kind, w.Name, string(body))
+		return audit.Append(ctx, tx, audit.At(at).String(), "apptown-system", w.ProjectID, kind, w.Name, string(body))
 	})
 	if err != nil {
 		log.Printf("health controller: best-effort receipt and release note could not be recorded: %v", err)

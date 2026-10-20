@@ -334,8 +334,8 @@ func TestProvisioning(t *testing.T) {
 			} else if mode == "builder failure" {
 				f.fail = "buildx create"
 			}
-			in.Env = []string{"FORGE_URL=http://host.docker.internal:7778"}
-			in.Mounts = []string{"/tools/forge:/opt/apptown/bin/forge:ro"}
+			in.Env = []string{"APPTOWN_URL=http://host.docker.internal:7778"}
+			in.Mounts = []string{"/tools/apptown:/opt/apptown/bin/apptown:ro"}
 			err := r.provision(in)
 			failed := mode == "unavailable" || mode == "builder failure"
 			if (err != nil) != failed {
@@ -360,7 +360,7 @@ func TestProvisioning(t *testing.T) {
 			if create == "" {
 				t.Fatal("console was not created")
 			}
-			for _, want := range []string{in.Dir + ":/console:ro", "FORGE_URL=http://host.docker.internal:7778", "/tools/forge:/opt/apptown/bin/forge:ro", "forge.console.model=m"} {
+			for _, want := range []string{in.Dir + ":/console:ro", "APPTOWN_URL=http://host.docker.internal:7778", "/tools/apptown:/opt/apptown/bin/apptown:ro", "forge.console.model=m"} {
 				if !strings.Contains(create, want) {
 					t.Errorf("create missing %s: %s", want, create)
 				}
@@ -371,7 +371,7 @@ func TestProvisioning(t *testing.T) {
 				}
 			}
 			if mode == "change" {
-				for _, want := range []string{"--network " + dindName(in.ID), "DOCKER_HOST=tcp://dind:2375", "DOCKER_CONFIG=/console/docker-client", "BUILDX_BUILDER=forge", "forge.console.dind=1", in.Workspace.Path + ":/work "} {
+				for _, want := range []string{"--network " + dindName(in.ID), "DOCKER_HOST=tcp://dind:2375", "DOCKER_CONFIG=/console/docker-client", "BUILDX_BUILDER=apptown", "forge.console.dind=1", in.Workspace.Path + ":/work "} {
 					if !strings.Contains(create, want) {
 						t.Errorf("client missing %s", want)
 					}
@@ -450,7 +450,7 @@ func TestANewCLIMountMakesTheChatStale(t *testing.T) {
 		t.Run("model="+model, func(t *testing.T) {
 			r, in, f := fixture(t)
 			in.Model = model
-			in.Mounts = []string{"/blobs/cli-a:/opt/apptown/bin/forge:ro"}
+			in.Mounts = []string{"/blobs/cli-a:/opt/apptown/bin/apptown:ro"}
 			if err := r.provision(in); err != nil {
 				t.Fatal(err)
 			}
@@ -487,11 +487,11 @@ func TestANewCLIMountMakesTheChatStale(t *testing.T) {
 			if stale() {
 				t.Fatal("the container created for this launch is stale")
 			}
-			in.Mounts = []string{"/blobs/cli-b:/opt/apptown/bin/forge:ro"}
+			in.Mounts = []string{"/blobs/cli-b:/opt/apptown/bin/apptown:ro"}
 			if !stale() {
 				t.Fatal("a container pinning the old CLI is current")
 			}
-			in.Mounts = []string{"/blobs/cli-a:/opt/apptown/bin/forge:ro"}
+			in.Mounts = []string{"/blobs/cli-a:/opt/apptown/bin/apptown:ro"}
 			delete(labels, "forge.console.mounts")
 			if !stale() {
 				t.Fatal("a container from before the mounts label is current")
@@ -584,7 +584,7 @@ func TestAWorkersChatHasItsOwnCacheLimitsAndMirror(t *testing.T) {
 	r, in, f := fixture(t)
 	r.cfg.CachePerSession = true
 	r.cfg.Limits = &Limits{CPUs: 1.5, MemoryBytes: 512 << 20, PIDs: 300}
-	toolCache := "/var/lib/apptown-worker/tool-cache/mise:/forge-cache/mise-cache"
+	toolCache := "/var/lib/apptown-worker/tool-cache/mise:/apptown-cache/mise-cache"
 	r.cfg.Mounts = []string{toolCache}
 	in.Mirror = "https://mirror.example:5000"
 	if err := r.provision(in); err != nil {
@@ -603,7 +603,7 @@ func TestAWorkersChatHasItsOwnCacheLimitsAndMirror(t *testing.T) {
 		if args[0] != "create" && args[0] != "run" {
 			continue
 		}
-		for _, want := range []string{cache + ":/forge-cache", limits} {
+		for _, want := range []string{cache + ":/apptown-cache", limits} {
 			if !strings.Contains(call, want) {
 				t.Errorf("%s missing %s: %s", args[0], want, call)
 			}
@@ -689,7 +689,7 @@ func TestTheForgesChatsShareForgeCache(t *testing.T) {
 		if args[0] == "volume" {
 			t.Fatalf("made a volume: %v", args)
 		}
-		if (args[0] == "create" || args[0] == "run") && !strings.Contains(strings.Join(args, " "), "-v forge-cache:/forge-cache") {
+		if (args[0] == "create" || args[0] == "run") && !strings.Contains(strings.Join(args, " "), "-v forge-cache:/apptown-cache") {
 			t.Fatalf("%s without forge-cache: %v", args[0], args)
 		}
 	}

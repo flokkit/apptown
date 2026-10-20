@@ -11,7 +11,7 @@ import (
 func TestTransportCallerSeparatesProvenanceAndReceipt(t *testing.T) {
 	t.Parallel()
 	r := httptest.NewRequest("POST", "/", nil)
-	r.Header.Set("X-Forge-Actor", "root")
+	r.Header.Set("X-AppTown-Actor", "root")
 	c, ok := access.CallerFrom(callerContext(r))
 	if !ok || c.Verified || c.Receipt != "root" {
 		t.Fatalf("header became authority: %+v", c)
@@ -25,7 +25,7 @@ func TestTransportCallerSeparatesProvenanceAndReceipt(t *testing.T) {
 	if c.Verified {
 		t.Fatal("MCP receipt authenticated caller")
 	}
-	c, _ = access.CallerFrom(callerMCPContext(context.Background(), &authIdentity{User: "person", Via: "oauth", Scopes: []string{"forge:user:read"}}, "person via client"))
+	c, _ = access.CallerFrom(callerMCPContext(context.Background(), &authIdentity{User: "person", Via: "oauth", Scopes: []string{"apptown:user:read"}}, "person via client"))
 	if !c.Verified || c.Principal.Name != "person" || c.Receipt != "person via client" {
 		t.Fatalf("MCP attribution: %+v", c)
 	}

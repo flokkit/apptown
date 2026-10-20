@@ -26,7 +26,7 @@ func TestReviewUnknownInputCreatesNoWorkspace(t *testing.T) {
 	}
 	spec := fakeSpec("unknown-input-source", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-	spec.Inputs = []execution.Input{{Blob: strings.Repeat("0", 64), Path: "/forge/in/missing", Mode: 0644}}
+	spec.Inputs = []execution.Input{{Blob: strings.Repeat("0", 64), Path: "/apptown/in/missing", Mode: 0644}}
 	if _, err := driver.Ensure(context.Background(), spec); err == nil {
 		t.Fatal("unknown blob admitted")
 	}

@@ -116,11 +116,11 @@ func TestBrowserSecurityChromium(t *testing.T) {
 	run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{"node", "testdata/browser_security.mjs"},
 		Env: []string{
-			"FORGE_BROWSER_URL=https://" + a.cfg.publicHost,
-			"FORGE_SIBLING_URL=https://evil.preview.example.test:" + port,
-			"FORGE_OTHER_URL=https://evil.other.test:" + port,
-			fmt.Sprintf("FORGE_BROWSER_CHANGE=%d", changeID),
-			"FORGE_BROWSER_CONSOLE=" + session.ID,
+			"APPTOWN_BROWSER_URL=https://" + a.cfg.publicHost,
+			"APPTOWN_SIBLING_URL=https://evil.preview.example.test:" + port,
+			"APPTOWN_OTHER_URL=https://evil.other.test:" + port,
+			fmt.Sprintf("APPTOWN_BROWSER_CHANGE=%d", changeID),
+			"APPTOWN_BROWSER_CONSOLE=" + session.ID,
 			// Chromium keeps its shared memory in a folder of its own: its
 			// child processes drop root's override of folder permissions, so
 			// on CI they cannot write the job's temporary folder, which is
@@ -367,7 +367,7 @@ func TestTour(t *testing.T) {
 		shots = append(shots, shot{ID: s.ID, Path: p, Wait: s.Wait})
 	}
 	shotsJSON, _ := json.Marshal(shots)
-	module := os.Getenv("FORGE_PLAYWRIGHT_MODULE")
+	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
 	if module == "" {
 		home, _ := os.UserHomeDir()
 		module = filepath.Join(home, ".local/share/forge-nightly/playwright/node_modules/playwright/index.mjs")
@@ -375,7 +375,7 @@ func TestTour(t *testing.T) {
 	run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{"node", filepath.Join(tourDir, "shoot.mjs")},
 		Env: []string{
-			"FORGE_PLAYWRIGHT_MODULE=" + module,
+			"APPTOWN_PLAYWRIGHT_MODULE=" + module,
 			"TOUR_URL=https://" + a.cfg.publicHost,
 			"TOUR_USER=sam", "TOUR_PASSWORD=" + password,
 			"TOUR_SHOTS=" + string(shotsJSON),

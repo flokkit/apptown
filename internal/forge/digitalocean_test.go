@@ -196,7 +196,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	// With no backup store no final copy can be taken, so the take-down is
 	// refused until the person chooses to go without one, naming it.
 	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", "", map[string]string{"slug": "expense", "name": "cloud"})
-	if w.Code != 409 || w.Header().Get("X-Forge-Deny-Code") != "no-final-copy" || len(f.Snapshot().Apps) != 1 {
+	if w.Code != 409 || w.Header().Get("X-AppTown-Deny-Code") != "no-final-copy" || len(f.Snapshot().Apps) != 1 {
 		t.Fatalf("a take-down with no final copy possible, unchosen: %d %s", w.Code, w.Body.String())
 	}
 	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", `{"withoutFinalCopy":"cloud"}`, map[string]string{"slug": "expense", "name": "cloud"})

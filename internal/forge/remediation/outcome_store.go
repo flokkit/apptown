@@ -122,7 +122,7 @@ func (s Outcomes) RecordIn(ctx context.Context, tx *database.Tx, item Item, jobS
 		state, reason, attemptOutcome, kind = ItemVerifying, "", "landed", "remediation.item.landed"
 		worker, lease = item.LeaseWorker, sql.NullTime{Time: now.Add(remLease), Valid: true}
 		if jobStatus == RemCompleted || jobStatus == RemCompletedWithStuck {
-			if err := statusIn(ctx, tx, item.RemediationID, RemRunning, "forge-system", now); err != nil {
+			if err := statusIn(ctx, tx, item.RemediationID, RemRunning, "apptown-system", now); err != nil {
 				return nil, err
 			}
 		}
@@ -150,7 +150,7 @@ func (s Outcomes) RecordIn(ctx context.Context, tx *database.Tx, item Item, jobS
 	}); err != nil {
 		return nil, err
 	}
-	if err := audit.At(now).RecordIn(ctx, tx, "forge-system", item.ProjectID, kind, fmt.Sprint(item.ID), payload); err != nil {
+	if err := audit.At(now).RecordIn(ctx, tx, "apptown-system", item.ProjectID, kind, fmt.Sprint(item.ID), payload); err != nil {
 		return nil, err
 	}
 	current, err := ReadItem(ctx, tx, item.ID)

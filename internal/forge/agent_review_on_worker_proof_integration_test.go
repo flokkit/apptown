@@ -176,7 +176,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		// The API takes the step's token as its session header; the Git
 		// endpoint, where `apptown check` sends the agent's commit to the
 		// scratch ref, as a bearer credential git sends to it alone.
-		token := r.Header.Get("X-Forge-Session-Token")
+		token := r.Header.Get("X-AppTown-Session-Token")
 		if strings.HasPrefix(r.URL.Path, "/git/") {
 			token, _ = strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		}

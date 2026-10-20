@@ -14,7 +14,7 @@ import (
 // open required for its directory fsync. No mock or production seam is used.
 // Accepting that visible blob must still require the durability barrier.
 func TestReviewSP01RequestDoesNotBypassFailedBlobDirectorySync(t *testing.T) {
-	input, err := execution.NewInput("/forge/in/prompt", []byte("admitted input"), 0o644)
+	input, err := execution.NewInput("/apptown/in/prompt", []byte("admitted input"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}

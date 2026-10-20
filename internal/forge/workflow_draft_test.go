@@ -151,7 +151,7 @@ func TestWorkflowDraftActsAsTheAuthenticatedPersonWhileTheirConsoleLives(t *test
 	if w := draft("Authorization", "Bearer "+personal); w.Code != 200 || calls.Load() != 1 {
 		t.Fatalf("a person drafting directly: %d %s", w.Code, w.Body.String())
 	}
-	if w := draft("X-Forge-Session-Token", m.Token); w.Code != 200 || calls.Load() != 2 {
+	if w := draft("X-AppTown-Session-Token", m.Token); w.Code != 200 || calls.Load() != 2 {
 		t.Fatalf("a person drafting through their console: %d %s", w.Code, w.Body.String())
 	}
 
@@ -178,7 +178,7 @@ func TestWorkflowDraftActsAsTheAuthenticatedPersonWhileTheirConsoleLives(t *test
 		return "not a workflow"
 	}
 	before := calls.Load()
-	if w := draft("X-Forge-Session-Token", m.Token); w.Code == 200 || calls.Load() != before+1 {
+	if w := draft("X-AppTown-Session-Token", m.Token); w.Code == 200 || calls.Load() != before+1 {
 		t.Fatalf("an ended console kept drafting: %d %s, upstream calls %d", w.Code, w.Body.String(), calls.Load()-before)
 	}
 }

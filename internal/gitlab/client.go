@@ -227,7 +227,7 @@ func (g *Client) AskpassEnv(dataDir string) ([]string, error) {
 			temp.Close()
 			return nil, err
 		}
-		if _, err := temp.WriteString("#!/bin/sh\necho \"$FORGE_GIT_TOKEN\"\n"); err != nil {
+		if _, err := temp.WriteString("#!/bin/sh\necho \"$APPTOWN_GIT_TOKEN\"\n"); err != nil {
 			temp.Close()
 			return nil, err
 		}
@@ -238,7 +238,7 @@ func (g *Client) AskpassEnv(dataDir string) ([]string, error) {
 			return nil, err
 		}
 	}
-	return []string{"GIT_ASKPASS=" + helper, "FORGE_GIT_TOKEN=" + g.token, "GIT_TERMINAL_PROMPT=0"}, nil
+	return []string{"GIT_ASKPASS=" + helper, "APPTOWN_GIT_TOKEN=" + g.token, "GIT_TERMINAL_PROMPT=0"}, nil
 }
 
 type MergeRequest struct {

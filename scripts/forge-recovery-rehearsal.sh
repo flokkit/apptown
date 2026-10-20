@@ -3,7 +3,7 @@
 # (the procedure is the guide's, stock/docs/guides/running-apptown.md
 # "The forge's own backups").
 #
-#   FORGE_URL=<source url> FORGE_TOKEN=<source CLI token> \
+#   APPTOWN_URL=<source url> APPTOWN_TOKEN=<source CLI token> \
 #   forge-recovery-rehearsal.sh <source ssh> <source data dir> <target ssh> <redeploy slug/deployment>
 #
 # Read-only on the source: a database dump with forge-db-backup.sh (what every
@@ -113,7 +113,7 @@ finish() {
 trap finish EXIT
 
 step "capture what the source holds (reads)"
-python3 "$here/forge-restore-check.py" capture "$FORGE_URL" "$work/expected.json"
+python3 "$here/forge-restore-check.py" capture "$APPTOWN_URL" "$work/expected.json"
 # The redeployed app is proved against its recorded release: the revision
 # and artifact its deployment's current generation ran on the source.
 read -r rev art < <(ssh "$src" "docker exec forge-db psql -U postgres -d forge -At -F ' ' -c \"SELECT i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.desired_generation JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname'\"")

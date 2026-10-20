@@ -55,10 +55,10 @@ import (
 // there. The implementation's evidence records the worker's profile and
 // "unqualified".
 //
-// With FORGE_QUAL_WORKER_URL (workertest.External), the worker is instead a
+// With APPTOWN_QUAL_WORKER_URL (workertest.External), the worker is instead a
 // real apptown-worker process on another machine, sharing no files with this
 // one: the qualification's topology (plan step 6). The check-worker
-// variant then runs only with FORGE_QUAL_CHECK_WORKER_URL, and the
+// variant then runs only with APPTOWN_QUAL_CHECK_WORKER_URL, and the
 // evidence must say the profile is qualified.
 func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *testing.T) {
 	requireDocker(t)
@@ -316,7 +316,7 @@ func dockerOwnedBy(owner string) []string {
 
 // failingWithPrivateDocker marks TestIntegrationPrivateDockerIsRemovedWhenATestFails's
 // child run.
-const failingWithPrivateDocker = "FORGE_TEST_FAILING_PRIVATE_DOCKER"
+const failingWithPrivateDocker = "APPTOWN_TEST_FAILING_PRIVATE_DOCKER"
 
 // A test that fails after its worker made private Docker leaves none of it
 // running. The child run is a worker step world's sequence: the removal is

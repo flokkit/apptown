@@ -24,7 +24,7 @@ func TestAChatsGitRemoteSendsItsTokenOutsideTheURL(t *testing.T) {
 			}
 			continue
 		}
-		wantEnv := []string{"FORGE_MAIN_REMOTE=" + want, "GIT_CONFIG_COUNT=1",
+		wantEnv := []string{"APPTOWN_MAIN_REMOTE=" + want, "GIT_CONFIG_COUNT=1",
 			"GIT_CONFIG_KEY_0=http." + want + ".extraHeader", "GIT_CONFIG_VALUE_0=Authorization: Bearer tok"}
 		if !slices.Equal(env, wantEnv) {
 			t.Errorf("%s: %q, want %q", base, env, wantEnv)

@@ -153,7 +153,7 @@ func (s Attempts) Start(ctx context.Context, snapshot Item, def StartDefinition,
 		if _, err := queries(tx).SkipItem(s.caller, remediationsql.SkipItemParams{UpdatedAt: now, ID: item.ID, Reason: def.Skip}); err != nil {
 			return nil, err
 		}
-		if err := audit.At(now).RecordIn(s.caller, tx, "forge-system", item.ProjectID, "remediation.item.skip", fmt.Sprint(item.ID), map[string]any{"reason": def.Skip}); err != nil {
+		if err := audit.At(now).RecordIn(s.caller, tx, "apptown-system", item.ProjectID, "remediation.item.skip", fmt.Sprint(item.ID), map[string]any{"reason": def.Skip}); err != nil {
 			return nil, err
 		}
 		return nil, tx.Commit()
@@ -195,7 +195,7 @@ func (s Attempts) Start(ctx context.Context, snapshot Item, def StartDefinition,
 			}
 		}
 	}
-	created, err := workflow.CreateChangeIn(s.caller, tx, workflow.ChangeDraft{ProjectID: item.ProjectID, Type: "remediation", Title: def.Title, Body: def.Body, Acceptance: def.Acceptance}, "forge-system", now)
+	created, err := workflow.CreateChangeIn(s.caller, tx, workflow.ChangeDraft{ProjectID: item.ProjectID, Type: "remediation", Title: def.Title, Body: def.Body, Acceptance: def.Acceptance}, "apptown-system", now)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (s Attempts) Start(ctx context.Context, snapshot Item, def StartDefinition,
 	}); err != nil {
 		return nil, err
 	}
-	if err := audit.At(now).RecordIn(s.caller, tx, "forge-system", item.ProjectID, "remediation.item.started", fmt.Sprint(item.ID), map[string]any{"change": change, "run": run.ID, "attempt": item.Attempt + 1, "worker": worker}); err != nil {
+	if err := audit.At(now).RecordIn(s.caller, tx, "apptown-system", item.ProjectID, "remediation.item.started", fmt.Sprint(item.ID), map[string]any{"change": change, "run": run.ID, "attempt": item.Attempt + 1, "worker": worker}); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -241,7 +241,7 @@ func (s Attempts) Failed(ctx context.Context, snapshot Item, reason string) erro
 		}); err != nil {
 			return err
 		}
-		return audit.At(now).RecordIn(s.caller, tx, "forge-system", item.ProjectID, "remediation.item.start-failed", fmt.Sprint(item.ID), map[string]any{"reason": reason, "previousAttempt": item.Attempt})
+		return audit.At(now).RecordIn(s.caller, tx, "apptown-system", item.ProjectID, "remediation.item.start-failed", fmt.Sprint(item.ID), map[string]any{"reason": reason, "previousAttempt": item.Attempt})
 	})
 }
 

@@ -50,7 +50,7 @@ func TestTheForgesNarrativeRefreshPublishesAfterARunEndsButNeverTheBrief(t *test
 		t.Fatalf("the automatic narrative: %q after %d model call(s), %v", ch.Summary, calls, err)
 	}
 	entries, err := audit.Recent(context.Background(), a.DB, audit.Filter{KindPrefix: "change.narrative-updated"})
-	if err != nil || len(entries) != 1 || entries[0].Actor != "forge-system" {
+	if err != nil || len(entries) != 1 || entries[0].Actor != "apptown-system" {
 		t.Fatalf("the narrative is recorded as AppTown's: %+v %v", entries, err)
 	}
 	body, rev := "AppTown's words", ch.EditRevision
@@ -101,7 +101,7 @@ func TestANarrativeRequestIsOneJobRunAsTheForge(t *testing.T) {
 		t.Fatalf("the narrative: %q %v", ch.Summary, err)
 	}
 	entries, err := audit.Recent(context.Background(), a.DB, audit.Filter{KindPrefix: "change.narrative-updated"})
-	if err != nil || len(entries) != 1 || entries[0].Actor != "forge-system" {
+	if err != nil || len(entries) != 1 || entries[0].Actor != "apptown-system" {
 		t.Fatalf("the narrative is recorded as AppTown's: %+v %v", entries, err)
 	}
 	refused = errors.New("the model is unavailable")

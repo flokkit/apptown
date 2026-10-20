@@ -72,7 +72,7 @@ func CommitStep(ctx context.Context, db *database.DB, dataDir string, branches *
 // StepCommitMessage is the message of a step's commit: its Forge-* trailers
 // link the commit to its run, step and workflow.
 func StepCommitMessage(run *workflow.Run, step *workflow.Step) string {
-	return trailer.Message(fmt.Sprintf("forge: %s (%s run %d)", step.Name, run.WorkflowName, run.Number), "",
+	return trailer.Message(fmt.Sprintf("apptown: %s (%s run %d)", step.Name, run.WorkflowName, run.Number), "",
 		trailer.Line{Key: trailer.RunID, Value: run.ID.String()},
 		trailer.Line{Key: trailer.Step, Value: step.Name},
 		trailer.Line{Key: trailer.Workflow, Value: fmt.Sprintf("%s@v%d", run.WorkflowName, run.WorkflowVersion)})

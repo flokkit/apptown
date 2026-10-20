@@ -139,8 +139,8 @@ func TestHandlePatchChange(t *testing.T) {
 	if mw := call(fmt.Sprint(f.ChangeID), `{"body":"x"}`); mw.Code != 400 {
 		t.Fatalf("edit without a revision: %d %s", mw.Code, mw.Body.String())
 	}
-	if mw := call(fmt.Sprint(f.ChangeID), `{"expectedEditRevision":0,"body":"x"}`); mw.Code != 409 || mw.Header().Get("X-Forge-Deny-Code") != "change-edit-moved" {
-		t.Fatalf("stale edit: %d %q %s", mw.Code, mw.Header().Get("X-Forge-Deny-Code"), mw.Body.String())
+	if mw := call(fmt.Sprint(f.ChangeID), `{"expectedEditRevision":0,"body":"x"}`); mw.Code != 409 || mw.Header().Get("X-AppTown-Deny-Code") != "change-edit-moved" {
+		t.Fatalf("stale edit: %d %q %s", mw.Code, mw.Header().Get("X-AppTown-Deny-Code"), mw.Body.String())
 	}
 	w = call(fmt.Sprint(f.ChangeID), `{"expectedEditRevision":1,"body":""}`)
 	if w.Code != 200 {

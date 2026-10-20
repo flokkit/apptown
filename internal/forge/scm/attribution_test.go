@@ -67,7 +67,7 @@ func TestTextFromTheRecordReachesGitLabInert(t *testing.T) {
 	}
 	a.Approvals[0].Means = "fixes #12 for @all, see !3"
 	message := mergeMessage(Source{RunID: idstest.N(1903), WorkflowName: "land", WorkflowVersion: 3, Attribution: a}, "", page)
-	for _, want := range []string{"fixes # 12 for @ all, see ! 3", "the follow-up fixes https:// gitlab.com/group/project/-/issues/12", "Forge-Change-Page: " + page + "\n"} {
+	for _, want := range []string{"fixes # 12 for @ all, see ! 3", "the follow-up fixes https:// gitlab.com/group/project/-/issues/12", "AppTown-Change-Page: " + page + "\n"} {
 		if !strings.Contains(message+"\n", want) {
 			t.Errorf("merge message lacks %q:\n%s", want, message)
 		}
@@ -93,7 +93,7 @@ func TestNamesOnGitLabAreAccountNamesOrWithheld(t *testing.T) {
 		"bls via mcp/claude":                {"`bls` (through a coding agent)", "bls (through a coding agent)"},
 		"alice@corp.example":                {withheld, withheld},
 		"alice@corp.example via git ticket": {withheld + " (through a Git push)", withheld + " (through a Git push)"},
-		"forge-system":                      {"AppTown", "AppTown"},
+		"apptown-system":                    {"AppTown", "AppTown"},
 		"run/7":                             {"AppTown run 7", "AppTown run 7"},
 	} {
 		if got := publicName(receipt, true); got != want[0] {
@@ -196,10 +196,10 @@ func TestALandingsMergeCommitNamesWhatAdmittedIt(t *testing.T) {
 	}
 	trailers := trailersOf(t, repo, result.Result)
 	for _, want := range []string{
-		"Forge-Run-Id: " + idstest.N(1903).String(), "Forge-Workflow: land@v3", "Forge-Change-Id: " + idstest.N(412).String(), "Forge-Opened-By: bls (through a chat)",
-		"Forge-Approved-By: alice (step approve-landing, 2026-10-09T03:12:00Z): I am the human answerable for this landing.",
-		"Forge-Landing-Authority: carol", "Forge-Override: lint by bls: flaky upstream mirror",
-		"Forge-Change-Page: https://forge.example/changes/412", "Forge-Operation: land-op.1",
+		"AppTown-Run-Id: " + idstest.N(1903).String(), "AppTown-Workflow: land@v3", "AppTown-Change-Id: " + idstest.N(412).String(), "AppTown-Opened-By: bls (through a chat)",
+		"AppTown-Approved-By: alice (step approve-landing, 2026-10-09T03:12:00Z): I am the human answerable for this landing.",
+		"AppTown-Landing-Authority: carol", "AppTown-Override: lint by bls: flaky upstream mirror",
+		"AppTown-Change-Page: https://forge.example/changes/412", "AppTown-Operation: land-op.1",
 	} {
 		if !strings.Contains(trailers, want+"\n") {
 			t.Errorf("merge commit trailers lack %q:\n%s", want, trailers)
@@ -244,7 +244,7 @@ func TestAMergeRequestIsDescribedBeforeTheForgeMergesIt(t *testing.T) {
 		t.Fatalf("description written: %q", descriptions)
 	}
 	merges := fake.Merges()
-	if len(merges) != 1 || !strings.Contains(merges[0].Message, "\nForge-Approved-By: alice (step approve-landing") || strings.Contains(merges[0].Message, "Forge-Operation") {
+	if len(merges) != 1 || !strings.Contains(merges[0].Message, "\nAppTown-Approved-By: alice (step approve-landing") || strings.Contains(merges[0].Message, "AppTown-Operation") {
 		t.Fatalf("merge calls: %+v", merges)
 	}
 }
@@ -292,7 +292,7 @@ func TestAMergeNamesTheRunByNumberAndCarriesItsID(t *testing.T) {
 	a := landingAttribution("0123456789abcdef0123456789abcdef01234567")
 	a.RunID, a.RunNumber = idstest.N(1903), 40
 	message := mergeMessage(Source{RunID: idstest.N(1903), RunNumber: 40, WorkflowName: "land", WorkflowVersion: 3, Attribution: a}, "", "")
-	if !strings.HasPrefix(message, "forge: complete land run 40\n") || !strings.Contains(message, "Forge-Run-Id: "+idstest.N(1903).String()+"\n") {
+	if !strings.HasPrefix(message, "apptown: complete land run 40\n") || !strings.Contains(message, "AppTown-Run-Id: "+idstest.N(1903).String()+"\n") {
 		t.Fatalf("merge message:\n%s", message)
 	}
 	if description := MergeRequestDescription(*a, ""); !strings.Contains(description, "Workflow `land@v3`, run 40.") || strings.Contains(description, idstest.N(1903).String()) {

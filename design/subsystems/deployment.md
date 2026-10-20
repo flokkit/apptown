@@ -46,7 +46,7 @@ override; supplying it at `.../deployments/{name}/deploy` is invalid (400).
 `protected-maintenance` names a planned procedure: quiescence, a verified complete
 recovery set, private validation and reopening. It is unavailable. An authorized
 selection is refused before source preparation, settings writes or provider
-effects: 422, readable `error`, and `X-Forge-Deny-Code:
+effects: 422, readable `error`, and `X-AppTown-Deny-Code:
 deployment_policy_not_implemented`. The refusal tells the caller to use
 `compatible-update`; existing settings remain committed as they were. Caller
 visibility and binding authority are checked before policy-specific refusal.
@@ -318,7 +318,7 @@ A deployment owns what the forge recorded creating for it. Each creation is reco
   connector, the DOCR repository the first copy created (`owned_repositories`).
   A repository of the project's name the forge did not create refuses the
   release; it is never adopted. The gate image of a restored copy goes to
-  one shared repository per registry, `forge_gate` (no project slug has an
+  one shared repository per registry, `apptown_gate` (no project slug has an
   underscore), made by the first gated copy on the account and counted
   against the registry plan by the room check. It is not a deployment's: no
   take-down empties it, and the gate images in it, pinned by digest, stay
@@ -463,7 +463,7 @@ attached (staged under `backups/.staging/take-*` while it uploads; each
 file is held to its size and digest there, and the manifest is written
 beside it once the set has its id); on the forge's disk otherwise, where
 losing that disk loses it (the protection note and the rehearsal's
-`on-forge-disk` reason say so). Retention counts a deployment's ordinary
+`on-apptown-disk` reason say so). Retention counts a deployment's ordinary
 sets once across both places (`keepFor`: 14 production, 7 otherwise) and
 removes each where it is (`PruneSets`). An in-place restore of a store set
 reads every copy back to staging, held to its digest, before the safety
@@ -844,7 +844,7 @@ hours, extendable) and people may enter it.
   check runs on its private port). Anything else
   is refused. The forge needs `-restore-gate-image <ref@sha256:...>` (built
   by `make gate-image`) and a `-public-host` origin. The gate image is
-  copied by digest into the registry's `forge_gate` repository, never the
+  copied by digest into the registry's `apptown_gate` repository, never the
   project's: App Platform refuses an app naming two versions of one
   repository. A copy therefore needs room for that repository too (the
   starter plan's one repository is not enough).
@@ -861,14 +861,14 @@ hours, extendable) and people may enter it.
   delivered as the provider's `SECRET` to the gate alone, held in memory
   during the start, and kept only as its SHA-256.
 - **Checks** run from the forge to the gate's address with the secret in
-  `Forge-Restore-Token`: readiness, the front page, `rehearsal.checks`; no
+  `AppTown-Restore-Token`: readiness, the front page, `rehearsal.checks`; no
   redirects followed, only status codes kept.
 - **The gate check** (`checkGate`) follows, on every copy,
   so a restore test proves the door without a person signing in. From
   outside, the forge asks the readiness path (which just answered its
   probe) with no token and with a wrong one, and enters with a made-up
   ticket. Each must be the gate's own refusal: the gate marks every refusal
-  `Forge-Gate: refused` and strips that header from whatever the app sends,
+  `AppTown-Gate: refused` and strips that header from whatever the app sends,
   so an app's 404 behind a gate that let the request through never passes
   (review GC-01). The 404s must also be empty and `no-store`; the entry
   refusal is 403. Only status codes and those facts are kept.
@@ -880,7 +880,7 @@ hours, extendable) and people may enter it.
   by the check. Redeeming a check ticket asks nobody's grant: it lets in
   only while the start that issued it is running and only for that copy,
   for two minutes, and its receipt is `deployment.gate-checked` by
-  `forge-system`, never an entry on the card. Each check is a step of the
+  `apptown-system`, never an entry on the card. Each check is a step of the
   operation and a fact (`facts.gate`) on the copy and the
   `deployment.restore-tested` receipt; the card's restore-test line says
   how many passed and names each that failed. Any failure fails the copy
@@ -892,7 +892,7 @@ hours, extendable) and people may enter it.
   read role, scope or instrument): Open is a browser POST under the forge's
   mutation protection; it issues a one-use ticket (SHA-256 kept, one minute,
   bound to the person and copy) and redirects to the gate's
-  `/_forge/enter`. The gate redeems it at `POST /gate/redeem` with its
+  `/_apptown/enter`. The gate redeems it at `POST /gate/redeem` with its
   secret; the forge asks the person's grant again, then uses the ticket and
   writes `deployment.gate-entered` in one transaction. The gate's session
   lasts until the copy's expiry or an hour, and its streams are closed then.

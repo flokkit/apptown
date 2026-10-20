@@ -81,7 +81,7 @@ func TestMCPCheckoutPushSync(t *testing.T) {
 	if !strings.HasPrefix(cred, identity.TicketPrefix) || expected == "" || sc["ref"] != "refs/heads/"+ch.Branch {
 		t.Fatalf("checkout facts: %v", sc)
 	}
-	authed := strings.Replace(repoURL, "http://", "http://x-forge-ticket:"+cred+"@", 1)
+	authed := strings.Replace(repoURL, "http://", "http://x-apptown-ticket:"+cred+"@", 1)
 
 	// Clone main, fetch the Change ref (visible to this ticket), commit, push.
 	clone := filepath.Join(t.TempDir(), "c")
@@ -97,7 +97,7 @@ func TestMCPCheckoutPushSync(t *testing.T) {
 	if out, err := gitexec.Run(t.Context(), clone, "push", "--quiet", "origin", ch.Branch+":main"); err == nil || !strings.Contains(out, "may push only") {
 		t.Fatalf("pushing main must be refused by the hook: %v %s", err, out)
 	}
-	// Push the way the tool tells clients to: the ticket in FORGE_GIT_TICKET,
+	// Push the way the tool tells clients to: the ticket in APPTOWN_GIT_TICKET,
 	// read by the inline credential helper, the remote URL clean.
 	gittest.Run(t, clone, "remote", "set-url", "origin", repoURL)
 	// An inherited helper may have a consumed ticket cached for this host.
@@ -108,12 +108,12 @@ func TestMCPCheckoutPushSync(t *testing.T) {
 	for _, x := range sc["git"].(map[string]any)["push"].([]any) {
 		pushCmd = append(pushCmd, x.(string))
 	}
-	if len(pushCmd) == 0 || pushCmd[0] != "git" || !strings.Contains(strings.Join(pushCmd, " "), "FORGE_GIT_TICKET") {
+	if len(pushCmd) == 0 || pushCmd[0] != "git" || !strings.Contains(strings.Join(pushCmd, " "), "APPTOWN_GIT_TICKET") {
 		t.Fatalf("the push command should read the ticket from the environment: %v", pushCmd)
 	}
 	// The one-line form carries the assignment itself, for fresh-shell tools.
 	shell := sc["git"].(map[string]any)["shell"].(map[string]any)["push"].(string)
-	if !strings.HasPrefix(shell, "FORGE_GIT_TICKET='"+cred+"' 'git'") {
+	if !strings.HasPrefix(shell, "APPTOWN_GIT_TICKET='"+cred+"' 'git'") {
 		t.Fatalf("shell form should assign the ticket inline: %s", shell)
 	}
 	// The read-only listener takes no ticket push (there, a push is only a
@@ -129,13 +129,13 @@ func TestMCPCheckoutPushSync(t *testing.T) {
 	roCmd[slices.Index(roCmd, "origin")] = ro.URL + u.Path
 	rc := gittest.Command(roCmd[1:]...)
 	rc.Dir = clone
-	rc.Env = append(rc.Env, "FORGE_GIT_TICKET="+cred, "GIT_TERMINAL_PROMPT=0")
+	rc.Env = append(rc.Env, "APPTOWN_GIT_TICKET="+cred, "GIT_TERMINAL_PROMPT=0")
 	if out, err := rc.CombinedOutput(); err == nil || !strings.Contains(string(out), "takes no Change ticket pushes") || scm.Ref(t.Context(), hub, "refs/heads/"+ch.Branch) == pushed {
 		t.Fatalf("a ticket push through the read-only listener: %v %s", err, out)
 	}
 	pc := gittest.Command(pushCmd[1:]...)
 	pc.Dir = clone
-	pc.Env = append(pc.Env, "FORGE_GIT_TICKET="+cred, "GIT_TERMINAL_PROMPT=0")
+	pc.Env = append(pc.Env, "APPTOWN_GIT_TICKET="+cred, "GIT_TERMINAL_PROMPT=0")
 	if out, err := pc.CombinedOutput(); err != nil {
 		t.Fatalf("env-helper push: %v\n%s", err, out)
 	}
@@ -180,7 +180,7 @@ func TestMCPCheckoutPushSync(t *testing.T) {
 	if err := mirrorBranchForTest(hub, ws, ch.Branch); err != nil {
 		t.Fatal(err)
 	}
-	authed2 := strings.Replace(repoURL, "http://", "http://x-forge-ticket:"+cred2+"@", 1)
+	authed2 := strings.Replace(repoURL, "http://", "http://x-apptown-ticket:"+cred2+"@", 1)
 	gittest.Run(t, clone, "remote", "set-url", "origin", authed2)
 	// The push lands in the ticket's holding ref; the hook refuses it with
 	// facts because the Change moved since the ticket was minted.
@@ -227,7 +227,7 @@ func TestMCPAnEarlierTicketCannotMoveTheBranch(t *testing.T) {
 	before := scm.Ref(t.Context(), hub, "refs/heads/"+ch.Branch)
 	clone := filepath.Join(t.TempDir(), "clone")
 	cred := first["credential"].(map[string]any)["password"].(string)
-	authed := strings.Replace(first["repositoryUrl"].(string), "http://", "http://x-forge-ticket:"+cred+"@", 1)
+	authed := strings.Replace(first["repositoryUrl"].(string), "http://", "http://x-apptown-ticket:"+cred+"@", 1)
 	if out, err := gitexec.Run(t.Context(), "", "clone", "-q", "--branch", p.DefaultBranch, authed, clone); err == nil {
 		t.Fatalf("a superseded ticket could still fetch: %s", out)
 	}

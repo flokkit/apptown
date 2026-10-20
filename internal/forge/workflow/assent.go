@@ -116,7 +116,7 @@ func votedInPerson(vote ApprovalVote) bool {
 // isPerson: attribution naming a person, not the forge itself, a step run
 // or a chat.
 func isPerson(who string) bool {
-	return who != "" && who != "forge-system" && !strings.HasPrefix(who, "run/") && !strings.Contains(who, " via console/")
+	return who != "" && who != "apptown-system" && !strings.HasPrefix(who, "run/") && !strings.Contains(who, " via console/")
 }
 
 // markLandingAuthorityIn records who admitted run holding change:land.

@@ -125,7 +125,7 @@ func TestSourceAndResultsTravelAsBundles(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := filepath.Join(t.TempDir(), "result.bundle")
-	tip, err := driver.Collect(context.Background(), spec.Key, base, "forge: the task's work", result)
+	tip, err := driver.Collect(context.Background(), spec.Key, base, "apptown: the task's work", result)
 	if err != nil || tip == "" {
 		t.Fatalf("collecting: %q %v", tip, err)
 	}
@@ -142,7 +142,7 @@ func TestSourceAndResultsTravelAsBundles(t *testing.T) {
 	}
 	small := driver
 	small.MaxResultBytes = 16
-	if _, err := small.Collect(context.Background(), spec.Key, base, "forge: again", result); !errors.Is(err, gitexec.ErrBundleRefused) {
+	if _, err := small.Collect(context.Background(), spec.Key, base, "apptown: again", result); !errors.Is(err, gitexec.ErrBundleRefused) {
 		t.Fatalf("an oversized result: %v", err)
 	}
 	if err := driver.Release(context.Background(), execution.TaskRef{Key: spec.Key}); err != nil {
@@ -203,7 +203,7 @@ func TestATaskCannotConfigureTheWorkersGit(t *testing.T) {
 		}
 	}
 	result := filepath.Join(t.TempDir(), "result.bundle")
-	tip, err := driver.Collect(context.Background(), spec.Key, base, "forge: the task's work", result)
+	tip, err := driver.Collect(context.Background(), spec.Key, base, "apptown: the task's work", result)
 	if err != nil || tip == "" {
 		t.Fatalf("collecting: %q %v", tip, err)
 	}

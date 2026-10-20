@@ -156,7 +156,7 @@ func (s needSecrets) Get(ctx context.Context, name string) (string, error) {
 }
 
 func (s needSecrets) Put(ctx context.Context, name, value string) error {
-	_, err := s.vault.Put(ctx, s.scope, name, value, "forge-system")
+	_, err := s.vault.Put(ctx, s.scope, name, value, "apptown-system")
 	return err
 }
 

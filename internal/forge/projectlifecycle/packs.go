@@ -129,7 +129,7 @@ func (s *Service) seedPackFiles(ctx execcontext.Context, p *project.Project, pac
 	if p.DefaultBranch == "" {
 		return nil, nil, nil
 	}
-	written, err = s.CommitGenesis(ctx, p, fmt.Sprintf("forge: seed %s starter (pack apply)", packName), who,
+	written, err = s.CommitGenesis(ctx, p, fmt.Sprintf("apptown: seed %s starter (pack apply)", packName), who,
 		func(dir string) ([]string, error) {
 			var w []string
 			w, refused, err = writePackSeeds(dir, packName)
@@ -222,7 +222,7 @@ func (s *Service) SeedToolchain(ctx execcontext.Context, p *project.Project, nam
 	if err != nil {
 		return false, fmt.Errorf("no stock toolchain %q: %w", name, fs.ErrNotExist)
 	}
-	written, err := s.CommitGenesis(ctx, p, "forge: declare "+name+" toolchain", who,
+	written, err := s.CommitGenesis(ctx, p, "apptown: declare "+name+" toolchain", who,
 		func(dir string) ([]string, error) {
 			created, err := scm.CreateInTree(dir, "mise.toml", body, 0o644)
 			if err != nil || !created {

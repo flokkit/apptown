@@ -101,7 +101,7 @@ func (a *App) EnsureAgentImage() {
 		return
 	}
 	a.setup.fetch(a.life, a.docker, a.cfg.agentImage, a.cfg.agentContext, filepath.Join(a.cfg.dataDir, "agent-image-build.log"), func(status string) {
-		a.audit(context.WithoutCancel(a.life), "forge-system", ids.Nil, "setup.agent-image", status, nil)
+		a.audit(context.WithoutCancel(a.life), "apptown-system", ids.Nil, "setup.agent-image", status, nil)
 	})
 }
 
@@ -219,7 +219,7 @@ func (a *App) SyncSeedIntegrations(ctx context.Context) wow.SyncCounts {
 		Versioned:      true,
 	}
 	c := wow.Sync(kind, items, func(k, name string, payload map[string]any) {
-		audit.At(a.cfg.clock.Now()).BestEffort(ctx, db, "forge-system", ids.Nil, k, name, payload)
+		audit.At(a.cfg.clock.Now()).BestEffort(ctx, db, "apptown-system", ids.Nil, k, name, payload)
 	})
 	log.Print(c)
 	a.Integrations.SeedModelBinding(ctx, cfg)

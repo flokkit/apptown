@@ -127,7 +127,7 @@ conversation. This console is **strictly read-only**.
 - This container may be recycled between conversations: background processes
   and shell state do not survive idle periods (files and installed tools do).
   If a resume notice appears below, believe it over your memory.
-- The `+"`apptown`"+` CLI is installed and FORGE_URL points at this instance's
+- The `+"`apptown`"+` CLI is installed and APPTOWN_URL points at this instance's
   read-only API. %s
   Everything else (approve, reject, advance, run-step, attach) is rejected
   by the server. AppTown state is live — always re-query rather than trusting
@@ -275,7 +275,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
   claims. You MAY commit with clear messages; anything left uncommitted
   is committed for you (with console provenance) when the Change lands.
 - To catch up with the latest main (e.g. before landing, if it has moved):
-  git fetch "$FORGE_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into $(git branch --show-current)" FETCH_HEAD
+  git fetch "$APPTOWN_MAIN_REMOTE" main && git merge --no-edit -m "Merge main into $(git branch --show-current)" FETCH_HEAD
   (the -m keeps AppTown's internal address out of the merge's message)
   That remote is READ-ONLY and shows ONLY main — you cannot push through
   it or see other changes. AppTown moves your commits where they go; you

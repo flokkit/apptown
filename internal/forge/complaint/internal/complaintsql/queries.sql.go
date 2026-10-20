@@ -260,7 +260,7 @@ SELECT c.id, c.number, c.at, c.project_id, c.source, c.run_id, c.workflow, c.ste
 e.eval_id AS eval_id, COALESCE(r.number, 0)::bigint AS run_number, COALESCE(ch.number, 0)::bigint AS change_number
 FROM complaints c LEFT JOIN projects p ON p.id = c.project_id LEFT JOIN eval_copies e ON e.project_id = c.project_id
 LEFT JOIN runs r ON r.id = c.run_id LEFT JOIN changes ch ON ch.id = c.change_id
-WHERE e.project_id IS NULL OR c.about = 'forge'
+WHERE e.project_id IS NULL OR c.about = 'apptown'
 ORDER BY c.id DESC LIMIT $1
 `
 

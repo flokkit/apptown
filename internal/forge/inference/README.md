@@ -36,7 +36,7 @@ settles as incomplete, and a line never settled counts as unknown once its time
 (the call limit plus five minutes) runs out. Callers get the usage back for
 their own budgets and never record spend. The caller is forge code already
 authorized by its route or job, so there is no token and no network check; the
-workload is `forge`, acting as `forge-system` unless the call names an actor.
+workload is `forge`, acting as `apptown-system` unless the call names an actor.
 The gateway is always constructed; `-inference-url` only opens the listener.
 
 `Catalog.Models` lists the patterns a slot may name (default, curated and

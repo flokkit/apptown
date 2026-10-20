@@ -58,7 +58,7 @@ describe('two editors on one decision', () => {
         sent.push(body)
         for (const k of ['title', 'bodyMd', 'tags'] as const) {
           if (k in body && body.expected?.[k] !== rec[k]) {
-            return new Response(JSON.stringify({ error: 'this decision\'s text was edited since this edit started' }), { status: 409, headers: { 'X-Forge-Deny-Code': 'adr-text-moved' } })
+            return new Response(JSON.stringify({ error: 'this decision\'s text was edited since this edit started' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'adr-text-moved' } })
           }
         }
         for (const k of ['title', 'bodyMd', 'tags'] as const) if (k in body) rec[k] = body[k]

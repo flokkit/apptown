@@ -32,7 +32,7 @@ scratch refs. An agent step on a worker commits where the forge cannot see
 until the step's work is collected, so the packaged CLI first pushes the
 agent's `HEAD` to its attempt's scratch ref
 (`refs/forge/scratch/change-<change>/step-<step>-a<attempt>`, given to the
-step as `FORGE_SCRATCH_REF`) with the step's runtime token. That token may
+step as `APPTOWN_SCRATCH_REF`) with the step's runtime token. That token may
 push that one ref and nothing else (see the
 [git state](../architecture/git-state.md) endpoint). An answer for a scratch
 commit is marked `scratch: true` and says the landing checks again. Scratch

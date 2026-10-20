@@ -4,14 +4,14 @@
 // nobody else:
 //
 //   - the forge's own probes, which carry the copy's gate secret in the
-//     Forge-Restore-Token header;
-//   - people the forge has sent through /_forge/enter with a single-use
+//     AppTown-Restore-Token header;
+//   - people the forge has sent through /_apptown/enter with a single-use
 //     ticket, which the gate redeems with the forge for a session cookie.
 //     The forge's own check of the gate enters the same way, with a ticket
 //     it issued itself; the gate does not tell the two apart.
 //
 // Everything else gets an empty 404, so an anonymous caller learns nothing
-// about the app behind it. Every refusal carries the Forge-Gate: refused
+// about the app behind it. Every refusal carries the AppTown-Gate: refused
 // header, which the gate strips from the app's own answers, so the forge's
 // check of the gate can tell a refusal from an app answering 404. The gate logs no request content: the copy holds
 // production data, and paths, headers and bodies can carry it.
@@ -44,7 +44,7 @@ type Config struct {
 const DefaultListen = ":8080"
 
 // ConfigFromEnv reads GATE_LISTEN, GATE_UPSTREAM, GATE_SECRET and
-// GATE_FORGE through getenv. It refuses a missing or malformed value rather
+// GATE_APPTOWN through getenv. It refuses a missing or malformed value rather
 // than starting a gate that would forward to the wrong place or accept a
 // weak secret. Error messages never include the secret's value.
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
@@ -66,9 +66,9 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	}
 	cfg.Secret = secret
 
-	forge, err := parseForge(getenv("GATE_FORGE"))
+	forge, err := parseForge(getenv("GATE_APPTOWN"))
 	if err != nil {
-		problems = append(problems, fmt.Errorf("GATE_FORGE: %w", err))
+		problems = append(problems, fmt.Errorf("GATE_APPTOWN: %w", err))
 	}
 	cfg.Forge = forge
 

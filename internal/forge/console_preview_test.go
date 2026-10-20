@@ -28,9 +28,9 @@ func TestConsolePreviewGate(t *testing.T) {
 
 	do := func(sid, tok string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("POST", "/api/v1/console/"+sid+"/preview", strings.NewReader(`{}`))
-		req.Header.Set("X-Forge-Actor", "bls")
+		req.Header.Set("X-AppTown-Actor", "bls")
 		if tok != "" {
-			req.Header.Set("X-Forge-Session-Token", tok)
+			req.Header.Set("X-AppTown-Session-Token", tok)
 		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)

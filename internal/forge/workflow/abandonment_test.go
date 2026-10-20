@@ -384,7 +384,7 @@ func TestOnlyTheForgesCloseRecordsNothingToChange(t *testing.T) {
 	}{
 		{"a person with the same words", func(r Abandonment) Abandonment { r.Who = "operator"; return r }, ""},
 		{"AppTown's nothing-to-change close", func(r Abandonment) Abandonment {
-			r.Who, r.closedAs = "forge-system", ClosedNothingToChange
+			r.Who, r.closedAs = "apptown-system", ClosedNothingToChange
 			return r
 		}, ClosedNothingToChange},
 	} {

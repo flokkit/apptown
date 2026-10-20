@@ -25,9 +25,9 @@ const BackupKeep = 7
 
 type Backup struct {
 	ID ids.ID `json:"id"`
-	// Forge is the forge that took the set, named in its manifest so a set
+	// Forge is the AppTown that took the set, named in its manifest so a set
 	// read from a bucket says whose it is; records leave it unset.
-	Forge      ids.ID `json:"forge,omitzero"`
+	Forge      ids.ID `json:"apptown,omitzero"`
 	ProjectID  ids.ID `json:"projectId"`
 	Deployment string `json:"deployment"`
 	TakenAt    string `json:"takenAt"`
@@ -56,7 +56,7 @@ type Backup struct {
 
 // Where a set's files are.
 const (
-	StoreForgeDisk   = "forge-disk"
+	StoreForgeDisk   = "apptown-disk"
 	StoreBackupStore = "store"
 )
 
@@ -158,7 +158,7 @@ func (s *Backups) Record(ctx context.Context, b *Backup, who string) (ids.ID, er
 			return err
 		}
 		if who == "" {
-			who = "forge-system"
+			who = "apptown-system"
 		}
 		return audit.At(s.now()).RecordIn(ctx, tx, who, b.ProjectID, "deployment.backup", b.Deployment,
 			map[string]any{"backup": id, "trigger": b.Trigger, "status": b.Status, "bytes": b.Bytes, "items": len(b.Items), "error": b.Error})

@@ -61,7 +61,7 @@ func TestTheLocalTLSPreludeTrustsTheAuthorityAndForwardsThePort(t *testing.T) {
 func TestTheLocalTLSPreludeNamesTheChatsPreview(t *testing.T) {
 	t.Parallel()
 	with := LocalTLSPrelude(LocalTLS{Port: 7777, Target: "host.docker.internal:7777", PreviewDomain: "preview.localhost"})
-	if !strings.Contains(with, `printf '127.0.0.1 %s\n::1 %s\n' "change-$FORGE_CHANGE.preview.localhost"`) || !strings.Contains(with, ">>/etc/hosts") {
+	if !strings.Contains(with, `printf '127.0.0.1 %s\n::1 %s\n' "change-$APPTOWN_CHANGE.preview.localhost"`) || !strings.Contains(with, ">>/etc/hosts") {
 		t.Fatalf("no hosts entry for the chat's preview: %s", with)
 	}
 	if without := LocalTLSPrelude(LocalTLS{Port: 7777, Target: "host.docker.internal:7777"}); strings.Contains(without, "/etc/hosts") {

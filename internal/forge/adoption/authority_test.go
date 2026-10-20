@@ -101,7 +101,7 @@ func TestAdoptionAuthorityBoundsSystemAndMCPContexts(t *testing.T) {
 	if err := authority.require(policyCaller(nil, "owner"), permission); err == nil {
 		t.Fatal("MCP receipt name established identity")
 	}
-	permission = authorization{Operation: OperationSelect, ProjectID: idstest.N(1), Actor: "forge-system", Weakens: true}
+	permission = authorization{Operation: OperationSelect, ProjectID: idstest.N(1), Actor: "apptown-system", Weakens: true}
 	if err := authority.require(context.Background(), permission); !errors.Is(err, access.ErrPrincipalRequired) {
 		t.Fatalf("system actor string granted permission: %v", err)
 	}

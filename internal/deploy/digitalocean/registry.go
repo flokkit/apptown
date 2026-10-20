@@ -103,7 +103,7 @@ func (d *Driver) copyImage(ctx context.Context, c *Client, registry, repo, ref, 
 // image a new gate release leaves unused stays until an operator deletes
 // it. A repository of this name the forge did not make is used as it is:
 // the copy is by digest and DOCR must answer that digest.
-const GateRepository = "forge_gate"
+const GateRepository = "apptown_gate"
 
 // copyGateImage copies the forge's gate image into GateRepository by its
 // digest, read with GateLogin's credential for it (none: anonymously).

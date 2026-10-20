@@ -79,7 +79,7 @@ func TestIntegrationAReviewRunsOnTheWorker(t *testing.T) {
 	}
 	session := fmt.Sprintf("step-%d-a1", w.step.ID)
 	receipt, raw := w.transcript(t, 1)
-	if receipt.Session != session || !bytes.Contains(raw, []byte("--session /forge/state/sessions/")) || !bytes.Contains(raw, []byte("_"+session+".jsonl ")) ||
+	if receipt.Session != session || !bytes.Contains(raw, []byte("--session /apptown/state/sessions/")) || !bytes.Contains(raw, []byte("_"+session+".jsonl ")) ||
 		bytes.Contains(raw, []byte("--session-id")) || bytes.Contains(raw, []byte("--continue")) || !bytes.Contains(raw, []byte("THE ACTUAL DIFF")) {
 		t.Fatalf("the kept transcript: %+v %s", receipt, raw)
 	}
@@ -160,9 +160,9 @@ func TestIntegrationTheReviewVerdictTableOnTheWorker(t *testing.T) {
 			status: workflow.StatusError, reason: "reviewer verdict unparseable", invocations: "review,review-fixup"},
 		"an oversized report": {script: `mkdir -p .forge; head -c 300000 /dev/zero | tr '\000' ' ' > .forge/review.json; say "ok"`,
 			status: workflow.StatusError, reason: "over the 256 KiB", invocations: "review"},
-		"a report behind a linked folder": {script: `mkdir -p /forge/state/elsewhere; printf '{"verdict":"pass","summary":"s","findings":[]}' > /forge/state/elsewhere/review.json; rm -rf .forge; ln -s /forge/state/elsewhere .forge; say "ok"`,
+		"a report behind a linked folder": {script: `mkdir -p /apptown/state/elsewhere; printf '{"verdict":"pass","summary":"s","findings":[]}' > /apptown/state/elsewhere/review.json; rm -rf .forge; ln -s /apptown/state/elsewhere .forge; say "ok"`,
 			status: workflow.StatusError, reason: "refused to read it (symlink)", invocations: "review"},
-		"a report linked to its parent": {script: `printf '{"verdict":"pass","summary":"s","findings":[]}' > /forge/state/review.json; mkdir -p .forge; ln -s ../../forge/state/review.json .forge/review.json; say "ok"`,
+		"a report linked to its parent": {script: `printf '{"verdict":"pass","summary":"s","findings":[]}' > /apptown/state/review.json; mkdir -p .forge; ln -s ../../apptown/state/review.json .forge/review.json; say "ok"`,
 			status: workflow.StatusError, reason: "refused to read it", invocations: "review"},
 		"a pass, then exit 1": {script: reviewPass + `say "ok"; exit 1`,
 			status: workflow.StatusError, reason: "exited with code 1", invocations: "review"},
@@ -282,8 +282,8 @@ func TestIntegrationAWrapUpResumesTheReviewsOwnSession(t *testing.T) {
 	t.Parallel()
 	w := newReviewWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `
 if [ "$PI_INVOCATION" = 1 ]; then
-  printf '{"type":"session","version":3,"id":"someone-else"}\n{"competing":true}\n' > /forge/state/sessions/9999-99-99_someone-else.jsonl
-  printf '{"type":"session","version":3,"id":"%s"}\n{"competing":true}\n' "$PI_SESSION" > "/forge/state/sessions/9999-99-99_$PI_SESSION.jsonl"
+  printf '{"type":"session","version":3,"id":"someone-else"}\n{"competing":true}\n' > /apptown/state/sessions/9999-99-99_someone-else.jsonl
+  printf '{"type":"session","version":3,"id":"%s"}\n{"competing":true}\n' "$PI_SESSION" > "/apptown/state/sessions/9999-99-99_$PI_SESSION.jsonl"
   say "forgot the report"
 else
   ` + reviewPass + `say "wrap-up of $PI_SESSION: $PI_ARGS"
@@ -296,7 +296,7 @@ fi`})
 	session := fmt.Sprintf("step-%d-a1", w.step.ID)
 	_, raw := w.transcript(t, 1)
 	if !bytes.Contains(raw, []byte("forgot the report")) || !bytes.Contains(raw, []byte("wrap-up of "+session+": ")) ||
-		!bytes.Contains(raw, []byte("--session /forge/state/sessions/")) || !bytes.Contains(raw, []byte("_"+session+".jsonl ")) ||
+		!bytes.Contains(raw, []byte("--session /apptown/state/sessions/")) || !bytes.Contains(raw, []byte("_"+session+".jsonl ")) ||
 		bytes.Contains(raw, []byte("--session-id")) || bytes.Contains(raw, []byte("--continue")) || bytes.Contains(raw, []byte("competing")) {
 		t.Fatalf("the kept transcript: %s", raw)
 	}

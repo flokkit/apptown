@@ -25,8 +25,8 @@ func TestExportProjectWritesTheFileAndChecksItsHash(t *testing.T) {
 			_, _ = rw.Write([]byte(`{"error":"the project cannot be exported now: change 7 (t) is open"}`))
 			return
 		}
-		rw.Header().Set("X-Forge-Export-Sha256", header)
-		rw.Header().Set("X-Forge-Export-Counts", `{"counts":{"changes":2,"chats":3},"emptyChats":1,"skipped":[{"kind":"change","id":"00000000-0008-7000-8000-000000000000","title":"try blue","state":"abandoned"}],"skippedChats":1}`)
+		rw.Header().Set("X-AppTown-Export-Sha256", header)
+		rw.Header().Set("X-AppTown-Export-Counts", `{"counts":{"changes":2,"chats":3},"emptyChats":1,"skipped":[{"kind":"change","id":"00000000-0008-7000-8000-000000000000","title":"try blue","state":"abandoned"}],"skippedChats":1}`)
 		_, _ = rw.Write(body)
 	}))
 	defer srv.Close()

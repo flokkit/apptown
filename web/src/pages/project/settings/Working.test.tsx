@@ -101,7 +101,7 @@ describe('the guidance editor', () => {
       if (init?.method === 'PUT') {
         saved.push(JSON.parse(String(init.body)))
         return saved.length === 1
-          ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-Forge-Deny-Code': 'settings-moved' } })
+          ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
           : new Response(JSON.stringify(server))
       }
       return url.endsWith(path) ? new Response(JSON.stringify(server)) : otherReads(url)

@@ -9,7 +9,7 @@ own receipts come from.
 packages. Requires Go, a `git` binary and a **Docker daemon**: the harness starts (or reuses) a `forge-test-db`
 container on port 54329 and clones a template database per test, so every
 DB-shaped test runs against real Postgres with the real migrations
-(`FORGE_TEST_DB_URL` points it at a database of your own instead). That
+(`APPTOWN_TEST_DB_URL` points it at a database of your own instead). That
 container keeps its data in memory and runs with durability off (no fsync,
 no synchronous commit, minimal WAL): nothing in it outlives a test binary,
 and crash safety would cost the suite about a quarter of its wall clock. The
@@ -64,7 +64,7 @@ way a person or agent uses the forge, with the fake pi as every agent
 
 **Opt-in tiers** — one test each, seconds to run, each needing something
 the other tiers do not. Each has its own build tag. `pi` skips, saying
-why, when `FORGE_PI_MODULE` is unset, so read its `-v` output rather than
+why, when `APPTOWN_PI_MODULE` is unset, so read its `-v` output rather than
 trusting a pass; the other two fail without their prerequisites.
 
 
@@ -72,11 +72,11 @@ trusting a pass; the other two fail without their prerequisites.
   TestBrowserSecurityChromium -v`): a real Chromium against
   disposable Forge state — session cookies, cross-origin refusals, the
   terminal's origin check. Needs node and Playwright, named by
-  `FORGE_PLAYWRIGHT_MODULE` (its `index.mjs`). About 2 s.
+  `APPTOWN_PLAYWRIGHT_MODULE` (its `index.mjs`). About 2 s.
 - `pi` (`go test -tags=pi ./internal/forge/ -run TestInferencePinnedPi -v`):
   the Pi version the agent image pins,
   through the inference gateway with each provider's native SDK; no real
-  provider. Needs `FORGE_PI_MODULE`, that Pi package's directory. Under 1 s.
+  provider. Needs `APPTOWN_PI_MODULE`, that Pi package's directory. Under 1 s.
 - `inference_docker` (`go test -tags=inference_docker ./internal/console/pi/
   -run TestInferenceConsoleMountBoundary -v`): a chat's
   mounts in the `forge-agent` image are read-only where they must be.

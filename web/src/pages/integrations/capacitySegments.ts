@@ -5,7 +5,7 @@ import type { Figure, TargetCapacity, Tenant } from '../../wire.gen'
 // could not make is never drawn as free, and a container with no limit is
 // never drawn as a size.
 
-export type Kind = 'deployment' | 'previews' | 'work' | 'forge' | 'unrecorded' | 'other' | 'host' | 'free' | 'unread' | 'over'
+export type Kind = 'deployment' | 'previews' | 'work' | 'apptown' | 'unrecorded' | 'other' | 'host' | 'free' | 'unread' | 'over'
 
 export type Segment = {
   key: string
@@ -35,7 +35,7 @@ export type Bar = {
 export const collapseBelow = 0.02
 
 const tenantKind = (k: string): Kind =>
-  (['deployment', 'previews', 'work', 'forge', 'unrecorded', 'other'] as const).includes(k as never) ? (k as Kind) : 'unrecorded'
+  (['deployment', 'previews', 'work', 'apptown', 'unrecorded', 'other'] as const).includes(k as never) ? (k as Kind) : 'unrecorded'
 
 // collapse folds each kind's small segments into one "N more <kind>", so
 // the bar stays readable on a host with dozens of deployments.

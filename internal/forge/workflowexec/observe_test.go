@@ -93,11 +93,11 @@ func TestObserverDescribesAStepAttempt(t *testing.T) {
 			}
 		}
 		switch m.Name {
-		case "forge_step_duration":
+		case "apptown_step_duration":
 			duration = duration || (m.Attributes["step_type"] == "agent/pi" && m.Attributes["outcome"] == "fail" && m.Value >= 5 && m.Value < 1000)
-		case "forge_step_queued":
+		case "apptown_step_queued":
 			queued = queued || (m.Attributes["step_type"] == "agent/pi" && m.Value >= 20 && m.Value < 1000)
-		case "forge_step_attempts_total":
+		case "apptown_step_attempts_total":
 			counted = counted || (m.Attributes["step_type"] == "agent/pi" && m.Attributes["outcome"] == "fail" && m.Value == 1)
 		}
 	}
@@ -127,10 +127,10 @@ func TestObserverSettlesAnAttemptThatNeverRan(t *testing.T) {
 	// No harness ran, so no duration sample; the attempt is still counted.
 	var counted bool
 	for _, m := range receiver.Metrics() {
-		if m.Name == "forge_step_duration" {
+		if m.Name == "apptown_step_duration" {
 			t.Fatalf("an attempt that never ran recorded a duration: %+v", m)
 		}
-		if m.Name == "forge_step_attempts_total" && m.Attributes["outcome"] == "error" && m.Value == 1 {
+		if m.Name == "apptown_step_attempts_total" && m.Attributes["outcome"] == "error" && m.Value == 1 {
 			counted = true
 		}
 	}

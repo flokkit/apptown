@@ -1658,7 +1658,7 @@ export type Step = {
 
 export type ProjectBackup = {
   id: string | null
-  forge?: string | null
+  apptown?: string | null
   projectId: string | null
   deployment: string
   takenAt: string
@@ -1738,7 +1738,7 @@ export type BackupStore = {
 
 export type Backup = {
   id: string | null
-  forge?: string | null
+  apptown?: string | null
   projectId: string | null
   deployment: string
   takenAt: string
@@ -4174,7 +4174,7 @@ export type Promised = {
 }
 
 export type Split = {
-  forge: Figure
+  apptown: Figure
   other: Figure
 }
 
@@ -4255,7 +4255,7 @@ export type CheckReceipt = {
   evidence?: string
   files?: string[]
   occurrences?: string[]
-  forgeFault?: boolean
+  apptownFault?: boolean
   preexisting?: boolean
   undecided?: boolean
   image?: string
@@ -4356,7 +4356,7 @@ export type Defaults = {
 }
 
 export type Count = {
-  forge: number
+  apptown: number
   other: number
 }
 

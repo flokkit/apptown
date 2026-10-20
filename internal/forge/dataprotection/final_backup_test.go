@@ -267,7 +267,7 @@ func TestFinalBackupsAreKeptUntilTheProjectIsPurged(t *testing.T) {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.backups.Record(context.Background(), &Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: time.Now().UTC().Format(time.RFC3339), Trigger: "scheduled", Path: dir, Status: BackupOK}, "forge-system"); err != nil {
+		if _, err := s.backups.Record(context.Background(), &Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: time.Now().UTC().Format(time.RFC3339), Trigger: "scheduled", Path: dir, Status: BackupOK}, "apptown-system"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -279,7 +279,7 @@ func TestFinalBackupsAreKeptUntilTheProjectIsPurged(t *testing.T) {
 	}
 	// A set the forge cannot remove (its files are not under the backup
 	// root) is named and keeps its record, for the next purge.
-	stray, err := s.backups.Record(context.Background(), &Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: time.Now().UTC().Format(time.RFC3339), Trigger: "scheduled", Path: t.TempDir(), Status: BackupOK}, "forge-system")
+	stray, err := s.backups.Record(context.Background(), &Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: time.Now().UTC().Format(time.RFC3339), Trigger: "scheduled", Path: t.TempDir(), Status: BackupOK}, "apptown-system")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +320,7 @@ func TestOrphanedSetsGoThirtyDaysAfterTheirProjectsDeletion(t *testing.T) {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		id, err := s.backups.Record(context.Background(), &Backup{ProjectID: projectID, Deployment: "main", TakenAt: time.Now().UTC().Format(time.RFC3339), Trigger: "scheduled", Path: dir, Status: BackupOK}, "forge-system")
+		id, err := s.backups.Record(context.Background(), &Backup{ProjectID: projectID, Deployment: "main", TakenAt: time.Now().UTC().Format(time.RFC3339), Trigger: "scheduled", Path: dir, Status: BackupOK}, "apptown-system")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -444,10 +444,10 @@ func TestAFinalCopyCertifiesOnlyItsOwnVolume(t *testing.T) {
 // names the binding and the person in its receipt.
 //
 // Kills: a teardown, key revocation or record removal under withdrawn
-// authority; a receipt that names only forge-system.
+// authority; a receipt that names only apptown-system.
 func TestARemovalAsksAgainBeforeEachEffect(t *testing.T) {
 	t.Parallel()
-	binding := access.Principal{Kind: "instrument", Name: "forge-system", Via: "binding", Instrument: "forge", Person: "bls", Credential: "system:binding/7"}
+	binding := access.Principal{Kind: "instrument", Name: "apptown-system", Via: "binding", Instrument: "forge", Person: "bls", Credential: "system:binding/7"}
 	for _, during := range []string{"before", "final backup", "teardown", "none"} {
 		t.Run(during, func(t *testing.T) {
 			t.Parallel()

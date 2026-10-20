@@ -60,9 +60,9 @@ func TestTheForgesOwnDockerRefusesWhileAnAttachedTargetKeepsItsHost(t *testing.T
 func TestNoDockerCommandInheritsABuilderFromTheForgesEnvironment(t *testing.T) {
 	t.Setenv("BUILDX_BUILDER", "some-remote-builder")
 	t.Setenv("BUILDX_CONFIG", "/ambient/buildx")
-	t.Setenv("FORGE_PROBE_KEPT", "kept")
+	t.Setenv("APPTOWN_PROBE_KEPT", "kept")
 	script := filepath.Join(t.TempDir(), "docker-fixture")
-	if err := execfile.Write(script, []byte("#!/bin/sh\necho \"builder=[${BUILDX_BUILDER-unset}${BUILDX_CONFIG-}] kept=[$FORGE_PROBE_KEPT]\"\n"), 0700); err != nil {
+	if err := execfile.Write(script, []byte("#!/bin/sh\necho \"builder=[${BUILDX_BUILDER-unset}${BUILDX_CONFIG-}] kept=[$APPTOWN_PROBE_KEPT]\"\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	client := CLI{Binary: script}

@@ -89,7 +89,7 @@ func (v *Vault) Key(ctx context.Context) ([]byte, error) {
 		if n != 1 {
 			return nil
 		}
-		return audit.At(v.now()).RecordIn(ctx, tx, "forge-system", ids.Nil, "secrets.store-initialised", "built-in store",
+		return audit.At(v.now()).RecordIn(ctx, tx, "apptown-system", ids.Nil, "secrets.store-initialised", "built-in store",
 			map[string]any{"note": "obfuscation key generated; values are obfuscated, not encrypted against database access"})
 	})
 	if err != nil {

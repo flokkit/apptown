@@ -3,9 +3,9 @@
 ## The boundary
 
 Forge holds the provider credentials. Pi, its tools, installed packages and
-worker/scout delegates receive `FORGE_SESSION_TOKEN`. Generated `models.json`
+worker/scout delegates receive `APPTOWN_SESSION_TOKEN`. Generated `models.json`
 contains public model metadata, a Forge proxy URL and
-`"apiKey": "$FORGE_SESSION_TOKEN"`. The dollar prefix tells the Pi adapter to use the environment value.
+`"apiKey": "$APPTOWN_SESSION_TOKEN"`. The dollar prefix tells the Pi adapter to use the environment value.
 There is no fallback that injects provider credentials when proxy access fails.
 
 Inference requires **both** a live runtime credential and a connection from

@@ -31,13 +31,13 @@ func readJSON(r *http.Request, dst any) error {
 // The two kinds of write outside a transaction. Every site was read and sorted; the name says which it is.
 
 // actor identifies who performed a request: the authenticated identity,
-// else the X-Forge-Actor header (set by the CLI and the web UI), else
+// else the X-AppTown-Actor header (set by the CLI and the web UI), else
 // "anonymous". Attribution for the audit trail, not authentication.
 func actor(r *http.Request) string {
 	if id := identityFrom(r); id != nil {
 		return id.User
 	}
-	if v := r.Header.Get("X-Forge-Actor"); v != "" {
+	if v := r.Header.Get("X-AppTown-Actor"); v != "" {
 		return v
 	}
 	return "anonymous"

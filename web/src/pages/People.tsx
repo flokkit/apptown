@@ -93,7 +93,7 @@ function AgentsCard({ canEdit }: { canEdit: boolean }) {
         <div key={d.id} className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{d.clientName}</span>
           <span>as <b>{d.user}</b></span>
-          <span className="muted">· {d.scopes.includes('forge:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.join(', ')}</span>
+          <span className="muted">· {d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.join(', ')}</span>
           <span className="muted">· connected {d.createdAt.slice(0, 10)}{d.lastUsed ? `, last used ${d.lastUsed.slice(0, 10)}` : ''}</span>
           <span style={{ flex: 1 }} />
           <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`}
@@ -174,7 +174,7 @@ function TokensCard() {
     <div className="card" style={{ display: 'grid', gap: 10 }}>
       <b>API tokens</b>
       <div className="muted small">
-        A command-line token is for your own <code>forge</code> CLI (set <code>FORGE_TOKEN</code>).
+        A command-line token is for your own <code>forge</code> CLI (set <code>APPTOWN_TOKEN</code>).
         An agent token is for a coding agent's MCP connection. A token is shown once.
       </div>
       {err && <div className="error small">{err}</div>}

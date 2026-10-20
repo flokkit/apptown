@@ -183,7 +183,7 @@ func TestForgeCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 	}
 }
 
-// In an agent step on a worker ($FORGE_SCRATCH_REF set), `apptown check`
+// In an agent step on a worker ($APPTOWN_SCRATCH_REF set), `apptown check`
 // first pushes this folder's HEAD to that ref on the forge's Git endpoint,
 // with the step's token as a header (never in the URL), keeping the git
 // configuration the environment already carries; then it asks about that
@@ -226,10 +226,10 @@ func TestForgeCheckSendsTheStepsWorkToItsScratchRefFirst(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	api = &client{base: srv.URL, actor: "tester", http: srv.Client(), wait: func(time.Duration) {}, getenv: func(string) string { return "" }}
-	t.Setenv("FORGE_SCRATCH_REF", ref)
-	t.Setenv("FORGE_URL", srv.URL+"/")
-	t.Setenv("FORGE_PROJECT", "app")
-	t.Setenv("FORGE_SESSION_TOKEN", "rt_3_1_secret")
+	t.Setenv("APPTOWN_SCRATCH_REF", ref)
+	t.Setenv("APPTOWN_URL", srv.URL+"/")
+	t.Setenv("APPTOWN_PROJECT", "app")
+	t.Setenv("APPTOWN_SESSION_TOKEN", "rt_3_1_secret")
 	t.Setenv("GIT_CONFIG_COUNT", "1") // as a worker sets safe.directory
 	t.Setenv("GIT_CONFIG_KEY_0", "http.extraHeader")
 	t.Setenv("GIT_CONFIG_VALUE_0", "X-Kept: yes")

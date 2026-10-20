@@ -92,7 +92,7 @@ func TestGitLandingMachinery(t *testing.T) {
 	}
 	// The title names the run by its number in the project; the trailer
 	// carries its UUID.
-	if out, _ := gitexec.Run(t.Context(), repo, "log", "-1", "--format=%B"); run.Number == 0 || !strings.HasPrefix(out, fmt.Sprintf("forge: complete %s run %d\n", run.WorkflowName, run.Number)) || !strings.Contains(out, "Forge-Run-Id: "+run.ID.String()+"\n") {
+	if out, _ := gitexec.Run(t.Context(), repo, "log", "-1", "--format=%B"); run.Number == 0 || !strings.HasPrefix(out, fmt.Sprintf("apptown: complete %s run %d\n", run.WorkflowName, run.Number)) || !strings.Contains(out, "AppTown-Run-Id: "+run.ID.String()+"\n") {
 		t.Fatalf("merge commit must name the run and carry its trailer: %q", out)
 	}
 	if _, err := os.Stat(filepath.Join(repo, "hello.txt")); err != nil {

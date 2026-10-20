@@ -152,7 +152,7 @@ func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 	}
 	for _, want := range []string{
 		"  postgres:\n    image: postgres:16-alpine\n",
-		`echo \"forge: making $$POSTGRES_USER an ordinary owner of $$POSTGRES_DB\"`,
+		`echo \"apptown: making $$POSTGRES_USER an ordinary owner of $$POSTGRES_DB\"`,
 		`POSTGRES_PASSWORD: "` + password + `"`,
 		"- forge-need-p-postgres:/var/lib/postgresql/data",
 		`DATABASE_URL: "postgres://app:` + password + `@postgres:5432/app?sslmode=disable"`,

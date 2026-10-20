@@ -56,12 +56,12 @@ func TestIntegrationConsoleDind(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log("private daemon ready")
-	agentImage := os.Getenv("FORGE_TEST_AGENT_IMAGE")
+	agentImage := os.Getenv("APPTOWN_TEST_AGENT_IMAGE")
 	if agentImage == "" {
 		agentImage = "forge-agent"
 	}
 	args := []string{"run", "-d", "--name", ContainerName(in.ID), "--entrypoint", "sh", "-v", in.Workspace.Path + ":/work", "-v", in.Dir + ":/console",
-		"--network", dindName(in.ID), "-e", "DOCKER_HOST=tcp://dind:2375", "-e", "DOCKER_CONFIG=/console/docker-client", "-e", "BUILDX_BUILDER=forge",
+		"--network", dindName(in.ID), "-e", "DOCKER_HOST=tcp://dind:2375", "-e", "DOCKER_CONFIG=/console/docker-client", "-e", "BUILDX_BUILDER=apptown",
 		agentImage, "-c", "sleep infinity"}
 	command(args...)
 	client := func(args ...string) string {

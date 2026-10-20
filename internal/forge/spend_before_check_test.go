@@ -37,7 +37,7 @@ func TestSimpleChangeRefusesAViewerBeforeChoosing(t *testing.T) {
 	viewerAndContributor(t, a)
 	h := a.Handler()
 	w := authzCall(h, "vic", "POST", "/api/v1/projects/game/changes/simple", `{"text":"make the cat blue"}`)
-	if w.Code != 403 || w.Header().Get("X-Forge-Deny-Code") == "" || !strings.Contains(w.Body.String(), "vic may not") {
+	if w.Code != 403 || w.Header().Get("X-AppTown-Deny-Code") == "" || !strings.Contains(w.Body.String(), "vic may not") {
 		t.Fatalf("a viewer's one-box change must be refused by authority: %d %s", w.Code, w.Body.String())
 	}
 	changes, err := a.Work.Changes(asPerson("owner"), idstest.N(1), workflow.ChangeList{})

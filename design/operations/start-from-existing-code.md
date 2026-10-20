@@ -116,7 +116,7 @@ changes, runs, evidence, ledger lines, spend and ended chats), an
 administrator exports the whole project:
 
 ```sh
-apptown export-project -p <slug> > <slug>.forge-export
+apptown export-project -p <slug> > <slug>.apptown-export
 ```
 
 Only landed history moves: landed changes with their runs, evidence,

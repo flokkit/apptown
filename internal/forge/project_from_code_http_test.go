@@ -84,8 +84,8 @@ func TestStartingFromExistingCodeIsProjectImportForTheCaller(t *testing.T) {
 	seedPath := "/api/v1/projects/moved/repo/from-bundle"
 	for name, id := range map[string]*authIdentity{
 		"a person with no part in the project":  {User: "outsider", Via: "session"},
-		"the owner's read-only connected agent": {User: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}},
-		"an administrator's read-only agent":    {User: "boss", Via: "oauth", Scopes: []string{"forge:user:read"}},
+		"the owner's read-only connected agent": {User: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}},
+		"an administrator's read-only agent":    {User: "boss", Via: "oauth", Scopes: []string{"apptown:user:read"}},
 		"a chat session in the project":         {User: "owner", Via: "console", ProjectID: p.ID, ConsoleID: "c"},
 		"a step in the project":                 {User: "owner", Via: "run", ProjectID: p.ID},
 	} {
@@ -173,7 +173,7 @@ func TestDownloadCodeStartsAnotherProjectUnchanged(t *testing.T) {
 	if w := callAs(t, mux, &authIdentity{User: "owner", Via: "console", ProjectID: idstest.N(9999), ConsoleID: "c"}, "GET", "/api/v1/projects/source/repo/bundle", nil); w.Code == 200 {
 		t.Fatal("a chat in another project downloaded the code")
 	}
-	w := callAs(t, mux, &authIdentity{User: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}}, "GET", "/api/v1/projects/source/repo/bundle", nil)
+	w := callAs(t, mux, &authIdentity{User: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}}, "GET", "/api/v1/projects/source/repo/bundle", nil)
 	if w.Code != 200 || w.Header().Get("Content-Type") != "application/x-git-bundle" {
 		t.Fatalf("download: %d %s", w.Code, w.Body.String())
 	}

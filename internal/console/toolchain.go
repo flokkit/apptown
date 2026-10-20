@@ -30,7 +30,7 @@ func toolchainPrelude(work, scratch string) string {
 	log, failed := scratch+"/forge-toolchain-install.log", scratch+"/forge-toolchain-install-failed"
 	return `rm -f ` + failed + `; cd ` + work + ` 2>/dev/null && [ -f mise.toml -o -f .mise.toml ] && { mise trust -q >/dev/null 2>&1; ` +
 		`if ! mise install -y -q >` + log + ` 2>&1; then : >` + failed + `; ` +
-		`echo "forge: the toolchain this project declares (mise.toml) did not install; its tools may be missing. The installer said (` + log + `):" >&2; ` +
+		`echo "apptown: the toolchain this project declares (mise.toml) did not install; its tools may be missing. The installer said (` + log + `):" >&2; ` +
 		`tail -n 20 ` + log + ` >&2; fi; mise reshim >/dev/null 2>&1; }; true`
 }
 

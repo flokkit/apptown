@@ -194,7 +194,7 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 			// shims, record what resolved for the receipt. Install failure
 			// fails the step loudly (exit 97).
 			runCmd = `export PATH="$MISE_DATA_DIR/shims:$PATH"; ` +
-				`mise install -y -q || { echo "forge: mise install failed" >&2; exit 97; }; ` +
+				`mise install -y -q || { echo "apptown: mise install failed" >&2; exit 97; }; ` +
 				`mise ls --current --json > /work/.forge/mise-resolved.json 2>/dev/null; ` + cfg.Run
 		}
 	}

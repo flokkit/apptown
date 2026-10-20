@@ -77,7 +77,7 @@ func (s Attempts) Close(ctx context.Context, id ids.ID) error {
 		if stuck > 0 {
 			to = RemCompletedWithStuck
 		}
-		return statusIn(ctx, tx, id, to, "forge-system", s.now())
+		return statusIn(ctx, tx, id, to, "apptown-system", s.now())
 	})
 }
 

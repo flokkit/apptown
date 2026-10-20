@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 
 export type Theme = 'system' | 'light' | 'dark'
-const KEY = 'forge-theme'
+const KEY = 'apptown-theme'
 
 export function currentTheme(): Theme {
   try {

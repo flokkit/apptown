@@ -13,7 +13,7 @@ func validEnv() map[string]string {
 	return map[string]string{
 		"GATE_UPSTREAM": "http://web:8080",
 		"GATE_SECRET":   testSecret,
-		"GATE_FORGE":    "https://forge.example",
+		"GATE_APPTOWN":  "https://forge.example",
 	}
 }
 
@@ -28,7 +28,7 @@ func TestConfigAcceptsTheDocumentedEnvironment(t *testing.T) {
 	}
 	env := validEnv()
 	env["GATE_LISTEN"] = ":9090"
-	env["GATE_FORGE"] = "http://localhost:7777/"
+	env["GATE_APPTOWN"] = "http://localhost:7777/"
 	cfg, err = ConfigFromEnv(envOf(env))
 	if err != nil || cfg.Listen != ":9090" || cfg.Forge.String() != "http://localhost:7777" {
 		t.Fatalf("got %+v %v", cfg, err)
@@ -44,10 +44,10 @@ func TestConfigRefusesMissingOrMalformedValuesWithoutEchoingTheSecret(t *testing
 		"short secret":          {"GATE_SECRET": testSecret[:62]},
 		"uppercase secret":      {"GATE_SECRET": strings.ToUpper(testSecret)},
 		"non-hex secret":        {"GATE_SECRET": strings.Repeat("g", 64)},
-		"no forge":              {"GATE_FORGE": ""},
-		"http forge":            {"GATE_FORGE": "http://forge.example"},
-		"forge with path":       {"GATE_FORGE": "https://forge.example/api"},
-		"forge not a url":       {"GATE_FORGE": "forge.example"},
+		"no forge":              {"GATE_APPTOWN": ""},
+		"http forge":            {"GATE_APPTOWN": "http://forge.example"},
+		"forge with path":       {"GATE_APPTOWN": "https://forge.example/api"},
+		"forge not a url":       {"GATE_APPTOWN": "forge.example"},
 	}
 	for name, override := range cases {
 		t.Run(name, func(t *testing.T) {

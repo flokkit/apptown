@@ -47,7 +47,7 @@ func (w JobWorker) Backup(ctx context.Context, key string, args map[string]any) 
 	if trigger == "" {
 		trigger = "scheduled"
 	}
-	b, err := w.Service.TakeBackup(ctx, p.ID, name, trigger, "forge-system")
+	b, err := w.Service.TakeBackup(ctx, p.ID, name, trigger, "apptown-system")
 	if err != nil {
 		if errors.Is(err, ErrNothingToBackUp) || errors.Is(err, deployment.ErrTargetKeepsBackups) || errors.Is(err, project.ErrNotActive) {
 			return map[string]any{"skipped": err.Error()}, nil

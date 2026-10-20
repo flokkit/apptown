@@ -11,8 +11,8 @@ import (
 // this exact origin over HTTPS; the plain name is for explicit HTTP
 // development deployments.
 const (
-	SessionCookie       = "forge_session"
-	SecureSessionCookie = "__Host-forge_session"
+	SessionCookie       = "apptown_session"
+	SecureSessionCookie = "__Host-apptown_session"
 )
 
 // BrowserSession is this instance's public origin and how it writes a signed-in

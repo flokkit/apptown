@@ -33,11 +33,11 @@ const (
 	CodeTTL       = 10 * time.Minute
 	AccessTTL     = time.Hour
 	RefreshTTL    = 30 * 24 * time.Hour
-	AccessPrefix  = "forge_mcp_"
-	RefreshPrefix = "forge_rt_"
+	AccessPrefix  = "apptown_mcp_"
+	RefreshPrefix = "apptown_rt_"
 	ClientPrefix  = "fc_"
 
-	TicketPrefix = "forge_git_"
+	TicketPrefix = "apptown_git_"
 	TicketTTL    = 20 * time.Minute
 	// TicketKindGit is the object-capability kind of a change git ticket.
 	TicketKindGit = "git-change"

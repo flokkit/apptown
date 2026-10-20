@@ -55,11 +55,11 @@ unavailable: neither is ever "refused with nothing created".
 
 A worker also claims `Inputs` and `Results` (`inputs.go`), which the local
 drivers refuse. `TaskSpec.Inputs` are files a task reads read-only under
-`/forge/in/`, prepared on the forge as bytes and sent ahead of the request
+`/apptown/in/`, prepared on the forge as bytes and sent ahead of the request
 as content-addressed blobs; the request names each by digest, path and mode
 (0644 or 0755), within 256 inputs, 64 MiB each and 512 MiB in all.
 `TaskSpec.Results` are files a task declares it will leave, in its tree
-(`/work/...`) or its workspace's state (`/forge/state/...`), each with a
+(`/work/...`) or its workspace's state (`/apptown/state/...`), each with a
 maximum size and `Fresh` (removed before the task first starts). The worker
 captures them when the task exits; `WorkerTasks.Results` reads each as
 present (its bytes), absent, refused (a link on the way, not a regular file,
@@ -70,7 +70,7 @@ existed.
 
 A worker also claims `Images` (`image_results.go`): `TaskSpec.Images` are
 the OCI image layouts a release build declares it will leave under
-`/forge/state/`, each with its admitted size. A request declaring them is a
+`/apptown/state/`, each with its admitted size. A request declaring them is a
 release build: it carries no environment, inputs or services, so no
 credential or secret travels with it, and works in a workspace of its own
 made from its source. `WorkerTasks.ImageResults` reads each as present,

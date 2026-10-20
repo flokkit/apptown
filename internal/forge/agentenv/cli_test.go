@@ -80,7 +80,7 @@ func TestCLIUnavailableDoesNotBuildOrReturnAMount(t *testing.T) {
 func TestCLIPathPrecedesToolchainWithoutChangingCallerEnvironment(t *testing.T) {
 	t.Parallel()
 	for _, path := range []string{"", "/custom/bin:/usr/bin", CLIDir + ":/mise/shims:/usr/bin"} {
-		input := []string{"FORGE_PROJECT=fixture"}
+		input := []string{"APPTOWN_PROJECT=fixture"}
 		if path != "" {
 			input = append(input, "PATH="+path)
 		}

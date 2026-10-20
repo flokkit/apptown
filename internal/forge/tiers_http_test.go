@@ -13,7 +13,7 @@ func TestTiersHTTP(t *testing.T) {
 	h := a.Handler()
 	get := func(path string) (int, string) {
 		req := httptest.NewRequest("GET", path, nil)
-		req.Header.Set("X-Forge-Actor", "bls")
+		req.Header.Set("X-AppTown-Actor", "bls")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
 		return w.Code, w.Body.String()

@@ -1,11 +1,11 @@
 // Optional real-browser tier. Requires Playwright + Chromium; no live Forge.
 import assert from 'node:assert/strict';
-const { chromium } = await import(process.env.FORGE_PLAYWRIGHT_MODULE || 'playwright');
-const forge = process.env.FORGE_BROWSER_URL;
-const origins = [process.env.FORGE_SIBLING_URL, process.env.FORGE_OTHER_URL];
-const callback = process.env.FORGE_OTHER_URL + '/callback';
-const change = process.env.FORGE_BROWSER_CHANGE;
-const consoleID = process.env.FORGE_BROWSER_CONSOLE;
+const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE || 'playwright');
+const forge = process.env.APPTOWN_BROWSER_URL;
+const origins = [process.env.APPTOWN_SIBLING_URL, process.env.APPTOWN_OTHER_URL];
+const callback = process.env.APPTOWN_OTHER_URL + '/callback';
+const change = process.env.APPTOWN_BROWSER_CHANGE;
+const consoleID = process.env.APPTOWN_BROWSER_CONSOLE;
 const browser = await chromium.launch({
   headless: true,
   // The fixture's self-signed TLS certificate also covers WSS connections.
@@ -23,7 +23,7 @@ try {
     return r.status;
   });
   assert.equal(login, 200);
-  const cookie = (await context.cookies(forge)).find(c => c.name === '__Host-forge_session');
+  const cookie = (await context.cookies(forge)).find(c => c.name === '__Host-apptown_session');
   assert.ok(cookie?.secure && cookie.httpOnly && cookie.path === '/' && !cookie.domain.startsWith('.'));
 
   // The permitted terminal uses the actual handler and carries raw input.
@@ -53,7 +53,7 @@ try {
     return (await r.json()).client_id;
   }, callback);
   const request = { response_type: 'code', client_id: client, redirect_uri: callback,
-    code_challenge_method: 'S256', code_challenge: 'browser-fixture-challenge', scope: 'forge:user:read', state: 'original' };
+    code_challenge_method: 'S256', code_challenge: 'browser-fixture-challenge', scope: 'apptown:user:read', state: 'original' };
   const consentURL = forge + '/oauth/authorize?' + new URLSearchParams(request);
 
   for (const origin of origins) {
@@ -81,7 +81,7 @@ try {
     const headers = await posted.allHeaders();
     if (origin.includes('preview.example.test')) {
       assert.equal(headers['sec-fetch-site'], 'same-site');
-      assert.ok(headers.cookie?.includes('__Host-forge_session='), 'sibling test must carry the real victim cookie');
+      assert.ok(headers.cookie?.includes('__Host-apptown_session='), 'sibling test must carry the real victim cookie');
     }
     await mutationPage.close();
 

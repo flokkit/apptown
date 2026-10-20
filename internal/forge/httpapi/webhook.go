@@ -46,10 +46,10 @@ func (h Webhook) Webhook(w http.ResponseWriter, r *http.Request) {
 	// The token travels in a header only: a query string lands in proxy
 	// access logs and shell history. Compared in constant time.
 	if r.URL.Query().Has("token") {
-		WriteError(w, 403, "send the webhook token in the X-Forge-Token header, not the URL")
+		WriteError(w, 403, "send the webhook token in the X-AppTown-Token header, not the URL")
 		return
 	}
-	if provided := r.Header.Get("X-Forge-Token"); subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
+	if provided := r.Header.Get("X-AppTown-Token"); subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
 		WriteError(w, 403, "bad token")
 		return
 	}

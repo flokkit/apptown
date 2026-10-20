@@ -22,7 +22,7 @@ import (
 // browser, never from here.
 func cmdData(args []string) error {
 	fs := newFlags("data")
-	proj := fs.String("p", os.Getenv("FORGE_PROJECT"), "project slug (default: $FORGE_PROJECT)")
+	proj := fs.String("p", os.Getenv("APPTOWN_PROJECT"), "project slug (default: $APPTOWN_PROJECT)")
 	noWait := fs.Bool("no-wait", false, "print the operation's address and return; follow it with apptown wait operation <id>")
 	without := fs.Bool("without-final-copy", false, "take-down: go without a final copy when none can be taken; the data stays at the provider as a retained resource")
 	args = parseArgs(fs, args)

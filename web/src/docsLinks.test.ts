@@ -127,7 +127,7 @@ describe('shipped docs', () => {
   // not fill is a problem wherever it appears, and integration docs get none.
   it('reject live links the forge does not fill', () => {
     const page = (body: string, route = '/docs/guides/probe') => linkProblems({ file: 'probe.md', route, body }, served)
-    expect(page('Connect at {forge:mcp}; `FORGE_URL={forge:origin}`\n\n```\ngit clone {forge:git}/demo\n```')).toEqual([])
+    expect(page('Connect at {forge:mcp}; `APPTOWN_URL={forge:origin}`\n\n```\ngit clone {forge:git}/demo\n```')).toEqual([])
     expect(page('Connect at {forge:mpc}')).toHaveLength(1)
     expect(page('`{forge:url}`')).toHaveLength(1)
     expect(page('```\n{forge:Origin}\n```')).toHaveLength(1)

@@ -21,7 +21,7 @@ describe('administrator networks', () => {
     vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
       if (init?.method === 'PUT') {
         sent.push(JSON.parse(String(init.body)))
-        return new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-Forge-Deny-Code': 'settings-moved' } })
+        return new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
       }
       return new Response(JSON.stringify({ networks: stored, you: '10.1.2.3', youInside: true }))
     }))
@@ -58,7 +58,7 @@ describe('inviting a person', () => {
       if (method === 'POST') {
         const invite = { id: '00000000-0004-7000-8000-000000000000', username: 'kim', label: 'Kim Lee', role: 'admin', invitedBy: 'bls', createdAt: '2026-10-03T00:00:00Z', expiresAt: '2026-10-10T00:00:00Z', state: 'pending' }
         pending = [invite]
-        return new Response(JSON.stringify({ invite, link: 'https://forge.test/invite/forge_invite_abc', note: '' }), { status: 201 })
+        return new Response(JSON.stringify({ invite, link: 'https://forge.test/invite/apptown_invite_abc', note: '' }), { status: 201 })
       }
       return new Response(JSON.stringify({ invites: pending }))
     }))
@@ -79,10 +79,10 @@ describe('inviting a person', () => {
     })
     await act(async () => { [...el.querySelectorAll('button')].find((b) => b.textContent === 'Create invite link')!.click() })
     expect(sent.find((s) => s.method === 'POST')).toEqual({ method: 'POST', url: '/api/v1/invites', body: { username: 'kim', label: 'Kim Lee', role: 'admin' } })
-    await vi.waitFor(() => expect(el.textContent).toContain('https://forge.test/invite/forge_invite_abc'))
+    await vi.waitFor(() => expect(el.textContent).toContain('https://forge.test/invite/apptown_invite_abc'))
     await vi.waitFor(() => expect(el.textContent).toContain('invited by bls'))
     await act(async () => { [...el.querySelectorAll('button')].find((b) => b.textContent === 'Done')!.click() })
-    expect(el.textContent).not.toContain('forge_invite_abc')
+    expect(el.textContent).not.toContain('apptown_invite_abc')
     expect(el.textContent).toContain('kim')
     act(() => root.unmount())
   })
@@ -212,7 +212,7 @@ describe('a password reset link', () => {
       if (init?.method === 'POST') {
         posted.push({ url, body: JSON.parse(String(init.body)) })
         const invite = { id: '00000000-0007-7000-8000-000000000000', purpose: 'password', username: 'kim', label: '', role: '', invitedBy: 'bls', createdAt: '2026-10-08T00:00:00Z', expiresAt: '2026-10-11T00:00:00Z', state: 'pending' }
-        return new Response(JSON.stringify({ invite, link: 'https://forge.test/invite/forge_invite_reset', note: '' }), { status: 201 })
+        return new Response(JSON.stringify({ invite, link: 'https://forge.test/invite/apptown_invite_reset', note: '' }), { status: 201 })
       }
       return new Response(JSON.stringify({ invites: [] }))
     }))
@@ -228,12 +228,12 @@ describe('a password reset link', () => {
     expect(posted).toHaveLength(0)
     expect(el.textContent).toContain('Make a password reset link for kim?')
     await press(el, 'Make link')
-    await vi.waitFor(() => expect(el.textContent).toContain('https://forge.test/invite/forge_invite_reset'))
+    await vi.waitFor(() => expect(el.textContent).toContain('https://forge.test/invite/apptown_invite_reset'))
     expect(posted).toEqual([{ url: '/api/v1/password-links', body: { username: 'kim' } }])
     expect(el.textContent).toContain('Password reset link for kim')
     expect(buttons(el).map((b) => b.textContent)).toContain('Copy link')
     await press(el, 'Done')
-    expect(el.textContent).not.toContain('forge_invite_reset')
+    expect(el.textContent).not.toContain('apptown_invite_reset')
     act(() => root.unmount())
   })
 
@@ -246,7 +246,7 @@ describe('a password reset link', () => {
       if (init?.method === 'POST') {
         const { username } = JSON.parse(String(init.body)) as { username: string }
         const invite = { id: '00000000-0001-7000-8000-000000000000', purpose: 'password', username, label: '', role: '', invitedBy: 'bls', createdAt: '2026-10-08T00:00:00Z', expiresAt: '2026-10-11T00:00:00Z', state: 'pending' }
-        return new Response(JSON.stringify({ invite, link: `https://forge.test/invite/forge_invite_${username}`, note: '' }), { status: 201 })
+        return new Response(JSON.stringify({ invite, link: `https://forge.test/invite/apptown_invite_${username}`, note: '' }), { status: 201 })
       }
       return new Response(JSON.stringify({ invites: [] }))
     }))
@@ -261,12 +261,12 @@ describe('a password reset link', () => {
       const row = [...el.querySelectorAll('tr')].find((r) => r.textContent?.includes(name))!
       await act(async () => { [...row.querySelectorAll('button')].find((b) => b.textContent === 'reset password')!.click() })
       await press(el, 'Make link')
-      await vi.waitFor(() => expect(el.textContent).toContain(`forge_invite_${name}`))
+      await vi.waitFor(() => expect(el.textContent).toContain(`apptown_invite_${name}`))
     }
     await resetFor('kim')
     await press(el, 'Copy link')
     await vi.waitFor(() => expect(buttons(el).map((b) => b.textContent)).toContain('Copied'))
-    expect(clipboard).toEqual(['https://forge.test/invite/forge_invite_kim'])
+    expect(clipboard).toEqual(['https://forge.test/invite/apptown_invite_kim'])
     await resetFor('lee')
     expect(buttons(el).map((b) => b.textContent)).toContain('Copy link')
     expect(buttons(el).map((b) => b.textContent)).not.toContain('Copied')

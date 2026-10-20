@@ -100,7 +100,7 @@ type Complaint struct {
 // eval's copy is the eval's whatever it is about, and only one about the
 // forge also reaches the forge's queue.
 const (
-	AboutForge        = "forge"
+	AboutForge        = "apptown"
 	AboutWayOfWorking = "way-of-working"
 	AboutProject      = "project"
 )
@@ -324,7 +324,7 @@ func (b *Box) Expire(ctx context.Context) (int64, error) {
 		if n == 0 {
 			return nil
 		}
-		return audit.At(now).RecordIn(ctx, tx, "forge-system", ids.Nil, "complaints.expired", fmt.Sprint(n), map[string]any{"olderThan": cutoff.Format(time.RFC3339)})
+		return audit.At(now).RecordIn(ctx, tx, "apptown-system", ids.Nil, "complaints.expired", fmt.Sprint(n), map[string]any{"olderThan": cutoff.Format(time.RFC3339)})
 	})
 	return n, err
 }

@@ -65,7 +65,7 @@ func TestCheckedPolicyAcrossSetupStates(t *testing.T) {
 				{name: "project owner write", caller: access.Caller{Principal: testPrincipal("owner"), Verified: true, Receipt: "owner via client"}, cap: access.CapChangeCreate},
 				{name: "outside project", caller: access.Caller{Principal: testPrincipal("outsider"), Verified: true}, cap: access.CapChangeCreate, code: access.DenyOutsideScope},
 				{name: "disabled first", caller: access.Caller{Principal: access.Principal{Kind: "user", Name: "disabled", Via: "oauth"}, Verified: true}, cap: access.CapChangeCreate, code: access.DenyAccountDisabled},
-				{name: "oauth narrowed", caller: access.Caller{Principal: access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"forge:user:read"}}, Verified: true}, cap: access.CapChangeCreate, code: access.DenyDelegationNarrow},
+				{name: "oauth narrowed", caller: access.Caller{Principal: access.Principal{Kind: "user", Name: "owner", Via: "oauth", Scopes: []string{"apptown:user:read"}}, Verified: true}, cap: access.CapChangeCreate, code: access.DenyDelegationNarrow},
 				{name: "explicit anonymous read", caller: access.Caller{Principal: nobody, Verified: true}, cap: access.CapProjectRead},
 				{name: "anonymous cannot write", caller: access.Caller{Principal: nobody, Verified: true}, cap: access.CapChangeCreate, code: access.DenyMissingCapability},
 				{name: "run evidence", caller: access.Caller{Principal: access.Principal{Kind: "instrument", Name: "run/9", Instrument: "run", ProjectID: idstest.N(7)}, Verified: true}, cap: access.CapEvidenceAttach},

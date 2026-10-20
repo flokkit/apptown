@@ -25,9 +25,9 @@ import (
 //
 //   - Inputs are blobs the forge sent (PUT /v1/blobs/{sum}), copied when the
 //     task is ensured into a folder the task owns, outside every workspace,
-//     and mounted read-only at their paths under /forge/in. A blob removed
+//     and mounted read-only at their paths under /apptown/in. A blob removed
 //     later changes nothing the task sees.
-//   - A workspace's state folder is mounted writable at /forge/state for
+//   - A workspace's state folder is mounted writable at /apptown/state for
 //     every task in the workspace, and goes with the workspace. It is beside
 //     the tree, not in it: nothing in it is ever collected or committed.
 //   - Declared result files are read once the task's container has exited,

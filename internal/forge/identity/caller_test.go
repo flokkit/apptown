@@ -23,13 +23,13 @@ func (f resourceFunc) AuthorityResource(ctx context.Context, id ids.ID) (access.
 }
 
 func TestCallerCopiesScopesAtBothBoundaries(t *testing.T) {
-	scopes := []string{"forge:user:read"}
+	scopes := []string{"apptown:user:read"}
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Name: "person", Scopes: scopes}, Verified: true, Receipt: "client"})
 	scopes[0] = "changed"
 	c, _ := access.CallerFrom(ctx)
 	c.Principal.Scopes[0] = "changed again"
 	c, _ = access.CallerFrom(ctx)
-	if c.Principal.Scopes[0] != "forge:user:read" || !c.Verified || c.Receipt != "client" {
+	if c.Principal.Scopes[0] != "apptown:user:read" || !c.Verified || c.Receipt != "client" {
 		t.Fatalf("caller aliases: %+v", c)
 	}
 }

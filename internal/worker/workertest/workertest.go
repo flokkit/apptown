@@ -429,18 +429,18 @@ func (w *Container) Restart() {
 // another machine, for the qualification of a worker profile
 // (design/operations/workers.md, "Private Docker on the worker"). The test is the forge's side, on its own machine; the two share
 // no files. It is named by the environment:
-//   - FORGE_QUAL_WORKER_URL: the worker's address;
-//   - FORGE_QUAL_WORKER_CA: the CA that signs the worker's certificate;
-//   - FORGE_QUAL_WORKER_CERT, FORGE_QUAL_WORKER_KEY: the installation's
+//   - APPTOWN_QUAL_WORKER_URL: the worker's address;
+//   - APPTOWN_QUAL_WORKER_CA: the CA that signs the worker's certificate;
+//   - APPTOWN_QUAL_WORKER_CERT, APPTOWN_QUAL_WORKER_KEY: the installation's
 //     client certificate (Common Name Installation) and key;
-//   - FORGE_QUAL_WORKER_STATE: the worker's -state, on its machine (it names
+//   - APPTOWN_QUAL_WORKER_STATE: the worker's -state, on its machine (it names
 //     what the worker labels);
-//   - FORGE_QUAL_WORKER_CTL: a command run with sh -c and a verb appended,
+//   - APPTOWN_QUAL_WORKER_CTL: a command run with sh -c and a verb appended,
 //     that acts on the worker's machine (restart: kill the worker by its
 //     recorded pid and start it again over the same state; fresh: start
 //     the worker, and a check worker, again on empty state, as a new
 //     forge's workers);
-//   - FORGE_QUAL_CHECK_WORKER_URL, optionally: a check worker there, with
+//   - APPTOWN_QUAL_CHECK_WORKER_URL, optionally: a check worker there, with
 //     the same certificates.
 //
 // DOCKER_HOST must name the worker's Docker, so that what the test
@@ -455,7 +455,7 @@ func ExternalWorker(t *testing.T) *External {
 	t.Helper()
 	e := LookupExternal(t)
 	if e == nil {
-		t.Skip("FORGE_QUAL_WORKER_URL names no external worker")
+		t.Skip("APPTOWN_QUAL_WORKER_URL names no external worker")
 	}
 	return e
 }
@@ -463,13 +463,13 @@ func ExternalWorker(t *testing.T) *External {
 // LookupExternal is the worker the environment names, or nil.
 func LookupExternal(t *testing.T) *External {
 	t.Helper()
-	e := &External{URL: os.Getenv("FORGE_QUAL_WORKER_URL"), CheckURL: os.Getenv("FORGE_QUAL_CHECK_WORKER_URL"), CA: os.Getenv("FORGE_QUAL_WORKER_CA"),
-		Cert: os.Getenv("FORGE_QUAL_WORKER_CERT"), Key: os.Getenv("FORGE_QUAL_WORKER_KEY"), State: os.Getenv("FORGE_QUAL_WORKER_STATE"), Control: os.Getenv("FORGE_QUAL_WORKER_CTL")}
+	e := &External{URL: os.Getenv("APPTOWN_QUAL_WORKER_URL"), CheckURL: os.Getenv("APPTOWN_QUAL_CHECK_WORKER_URL"), CA: os.Getenv("APPTOWN_QUAL_WORKER_CA"),
+		Cert: os.Getenv("APPTOWN_QUAL_WORKER_CERT"), Key: os.Getenv("APPTOWN_QUAL_WORKER_KEY"), State: os.Getenv("APPTOWN_QUAL_WORKER_STATE"), Control: os.Getenv("APPTOWN_QUAL_WORKER_CTL")}
 	if e.URL == "" {
 		return nil
 	}
 	if e.CA == "" || e.Cert == "" || e.Key == "" || e.State == "" || e.Control == "" {
-		t.Fatal("an external worker needs FORGE_QUAL_WORKER_CA, _CERT, _KEY, _STATE and _CTL")
+		t.Fatal("an external worker needs APPTOWN_QUAL_WORKER_CA, _CERT, _KEY, _STATE and _CTL")
 	}
 	return e
 }

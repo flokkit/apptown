@@ -21,7 +21,7 @@ import (
 
 // interruptChild names the folder of the child run of
 // TestAnInterruptedCheckLeavesNoGitBehind.
-const interruptChild = "FORGE_TEST_INTERRUPT_CHILD"
+const interruptChild = "APPTOWN_TEST_INTERRUPT_CHILD"
 
 // Ctrl-C during a check's push stops the push as well as the CLI. The
 // terminal interrupts its foreground process group; gitexec puts git in a
@@ -64,7 +64,7 @@ func TestAnInterruptedCheckLeavesNoGitBehind(t *testing.T) {
 	out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{os.Args[0], "-test.run=^TestAnInterruptedCheckLeavesNoGitBehind$"},
 		Env: []string{interruptChild + "=" + dir, "PATH=" + dir + string(os.PathListSeparator) + os.Getenv("PATH"),
-			"FORGE_URL=http://127.0.0.1:1", "FORGE_PROJECT=p", "FORGE_SESSION_TOKEN=t"},
+			"APPTOWN_URL=http://127.0.0.1:1", "APPTOWN_PROJECT=p", "APPTOWN_SESSION_TOKEN=t"},
 		Timeout: 30 * time.Second,
 	})
 	if out.Termination != execution.Exited || out.ExitCode != 128+int(syscall.SIGINT) {

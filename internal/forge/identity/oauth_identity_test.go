@@ -21,7 +21,7 @@ func TestOAuthResolutionUsesCurrentBounds(t *testing.T) {
 	}
 	got.Principal.Scopes[0] = "altered"
 	again, err := s.ResolveOAuth(ctx, pair.Access, AudienceUser)
-	if err != nil || again.Principal.Scopes[0] != "forge:user:read" {
+	if err != nil || again.Principal.Scopes[0] != "apptown:user:read" {
 		t.Fatalf("scope alias: %+v %v", again, err)
 	}
 	if err := testSaveAccount(s.db, accountEdit{Name: "alice", Role: "admin"}, "setup"); err != nil {

@@ -137,7 +137,7 @@ func (s *Suite) New(t testing.TB) *database.DB {
 
 func (s *Suite) setup() {
 	ctx := context.Background() // a test suite is its own entry point
-	base := os.Getenv("FORGE_TEST_DB_URL")
+	base := os.Getenv("APPTOWN_TEST_DB_URL")
 	if base == "" {
 		if err := startServer(ctx); err != nil {
 			s.err = err
@@ -205,7 +205,7 @@ func (s *Suite) setup() {
 // removes it once (`docker rm -f forge-test-db`); the harness never does.
 func startServer(ctx context.Context) error {
 	if _, err := exec.LookPath("docker"); err != nil {
-		return fmt.Errorf("docker is unavailable and FORGE_TEST_DB_URL is not set")
+		return fmt.Errorf("docker is unavailable and APPTOWN_TEST_DB_URL is not set")
 	}
 	err := docker.Scope{Client: docker.CLI{}}.EnsureRunning(ctx, container, []string{"-d", "--name", container, "-p", "127.0.0.1:" + port + ":5432",
 		"-e", "POSTGRES_PASSWORD=forge", "-e", "POSTGRES_INITDB_ARGS=--locale=C.UTF-8",

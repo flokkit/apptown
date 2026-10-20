@@ -85,10 +85,10 @@ type ExportSources struct {
 // ExportOrigin is the forge the file comes from: its UUID, the web address
 // the export was asked on, the build and the schema it ran.
 type ExportOrigin struct {
-	Forge  ids.ID `json:"forge"`
-	Host   string `json:"host"`
-	Build  string `json:"build"`
-	Schema int    `json:"schema"`
+	AppTown ids.ID `json:"apptown"`
+	Host    string `json:"host"`
+	Build   string `json:"build"`
+	Schema  int    `json:"schema"`
 }
 
 // ManifestEntry is one entry of the file, checked by whoever reads it.
@@ -297,7 +297,7 @@ func (s *Service) Export(ctx context.Context, p *project.Project, actor string, 
 	}
 	listed.RefsNotMoved = snap.stay
 	listed.LedgerStayed = ledger.Stayed
-	w, err := newExportWriter(filepath.Join(spool, p.Slug+".forge-export"))
+	w, err := newExportWriter(filepath.Join(spool, p.Slug+".apptown-export"))
 	if err != nil {
 		return nil, err
 	}

@@ -191,7 +191,7 @@ func TestReleaseRefusalLadder(t *testing.T) {
 	h := a.Handler()
 
 	req := httptest.NewRequest("POST", "/api/v1/projects/p/release", strings.NewReader(`{}`))
-	req.Header.Set("X-Forge-Actor", "bls")
+	req.Header.Set("X-AppTown-Actor", "bls")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 422 {

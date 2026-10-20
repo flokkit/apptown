@@ -194,8 +194,8 @@ func TestADRTransitionRules(t *testing.T) {
 	// the editor recognises, so it can offer the current text.
 	w = adrRequest(NewADRs(service, projects).PatchADR, "PATCH", "/api/v1/adrs/"+draft.ID.String(), `{"bodyMd":"mine","expected":{"bodyMd":""}}`,
 		map[string]string{"id": draft.ID.String()})
-	if w.Code != 409 || w.Header().Get("X-Forge-Deny-Code") != "adr-text-moved" {
-		t.Fatalf("an edit from moved text must 409 adr-text-moved: %d %s %q", w.Code, w.Body.String(), w.Header().Get("X-Forge-Deny-Code"))
+	if w.Code != 409 || w.Header().Get("X-AppTown-Deny-Code") != "adr-text-moved" {
+		t.Fatalf("an edit from moved text must 409 adr-text-moved: %d %s %q", w.Code, w.Body.String(), w.Header().Get("X-AppTown-Deny-Code"))
 	}
 }
 
