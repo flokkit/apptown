@@ -6,7 +6,6 @@ import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import { ConnIcon } from '../icons'
-import { FIND_BOX_ID } from '../TopBar'
 import type { ProjectCleanupList, ProjectPage, ProjectRow } from '../wire.gen'
 
 // Projects: find yours. The big find filters the grid as you type; the
@@ -90,11 +89,10 @@ export default function Projects() {
       <div className="row" style={{ marginBottom: 12, gap: 10 }}>
         <h1 style={{ margin: 0 }}>Projects</h1>
         <input
-          id={FIND_BOX_ID}
-          autoFocus
+          aria-label="filter projects"
           value={filter}
           onChange={(e) => { setFilter(e.target.value); setOffset(0) }}
-          placeholder="Find a project"
+          placeholder="Filter projects"
           style={{ flex: 1, maxWidth: 480, fontSize: 'var(--fs-base)', padding: '9px 12px', boxSizing: 'border-box' }}
         />
         <span style={{ flex: 1 }} />
@@ -127,9 +125,11 @@ export default function Projects() {
               <Link key={p.id} to={`/projects/${p.slug}`} className="proj-card"
                 style={{ borderTop: `3px solid ${tint(p.slug)}` }}>
                 <div className="row" style={{ padding: '12px 14px 4px', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: 'var(--fs-xl)', lineHeight: '34px', marginRight: 4 }} aria-hidden>
-                    {p.icon || '🛠️'}
-                  </span>
+                  {p.icon && (
+                    <span style={{ fontSize: 'var(--fs-xl)', lineHeight: '34px', marginRight: 4 }} aria-hidden>
+                      {p.icon}
+                    </span>
+                  )}
                   <span>
                     <strong style={{ fontSize: 'var(--fs-base)' }}>{p.name}</strong>
                     {p.blurb && <div className="small" style={{ marginTop: 2, maxWidth: 260 }}>{p.blurb}</div>}

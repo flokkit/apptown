@@ -147,14 +147,6 @@ function ProjectHeader({ project }: { project: ProjectT }) {
         ))}
         {!q.data && q.err && <span className="chip fail" style={{ marginLeft: 10 }} title={q.err}>deployments could not be read</span>}
         {project.namespace && <span className="chip" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
-        {project.runtimeForm && project.runtimeForm !== 'no app yet' && (
-          <span className="chip" style={{ marginLeft: 6 }}
-            title={project.intranetReady
-              ? 'this form can be released to the intranet'
-              : 'needs packaging into a container before it can go on the intranet — the helper can do it'}>
-            {project.runtimeForm}{project.intranetReady ? '' : ' ⚠'}
-          </span>
-        )}
       </h1>
   )
 }

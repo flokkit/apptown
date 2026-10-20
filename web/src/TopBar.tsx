@@ -91,7 +91,7 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
       {page.chip && <span className={`chip topbar-chip ${page.chip.cls ?? ''}`}>{page.chip.text}</span>}
       <span style={{ flex: 1 }} />
       {!narrow && <>
-        {pathname !== '/projects' && <Find />}
+        <Find />
         <ThemeSwitch />
         <UserLine me={me} />
       </>}

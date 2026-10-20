@@ -39,9 +39,8 @@ export default function Deployments() {
     <div>
       <h1 style={{ marginBottom: 4 }}>Deployments</h1>
       <p className="muted" style={{ maxWidth: 720, marginTop: 0 }}>
-        Where software runs. Left to right is promotion: a preview while a change is being worked
-        on, the standing copy of each project's main branch, the intranet everyone inside can
-        reach — and, someday, the internet. Same proven thing, reaching more people.
+        Where your apps run: a preview while a change is being worked on, each project's
+        standing deployment of its main branch, and any further deployment it is released to.
       </p>
       <div className="tabs">
         <NavLink to="/deployments/departures" className={() => 'tab' + (tab === 'departures' ? ' active' : '')}>Departures</NavLink>

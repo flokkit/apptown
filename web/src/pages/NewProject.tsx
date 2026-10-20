@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { post } from '../api'
 import { useAction } from '../data'
 import type { CreatedChange, ProjectManifestView } from '../wire.gen'
-import { draftReducer, newDraft, rollName, slugOf } from './newProject/draft'
+import { draftReducer, newDraft, slugOf } from './newProject/draft'
 import { createProject, type ProgressLine } from './newProject/create'
 import { NameStep } from './newProject/NameStep'
 import { WayOfWorkingStep } from './newProject/WayOfWorkingStep'
@@ -27,7 +27,7 @@ type Manifest = ProjectManifestView
 
 export default function NewProject() {
   const nav = useNavigate()
-  const [d, act] = useReducer(draftReducer, undefined, () => newDraft(rollName()))
+  const [d, act] = useReducer(draftReducer, undefined, () => newDraft())
   // The assembly log: what was wired (ok) and what was skipped (warn).
   const [progress, setProgress] = useState<ProgressLine[]>([])
   const [showManifest, setShowManifest] = useState(false)

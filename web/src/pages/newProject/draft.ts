@@ -11,10 +11,6 @@ export type Origin = 'empty' | 'bundle' | 'url'
 
 export type Draft = {
   step: 1 | 2 | 3
-  // step 1 — the ghost in the box is already a random roll: the
-  // suggestion sits lightly grey; the 🎲 adopts exactly what you see, and
-  // pressing it again re-rolls in place.
-  suggestion: string
   name: string
   // The address someone typed; null while it follows the name.
   address: string | null
@@ -46,8 +42,8 @@ export type Draft = {
   gitSecret: string
 }
 
-export const newDraft = (suggestion: string): Draft => ({
-  step: 1, suggestion, name: '', address: null,
+export const newDraft = (): Draft => ({
+  step: 1, name: '', address: null,
   description: '', questions: [], answers: {}, pack: null, packWhy: '', icon: '', choosing: false, services: [], servicesEdited: false,
   remoteChoice: null, namespaceId: '', origin: 'empty', bundleFile: null, sourceURL: '', sourceBranch: '', gitSecret: '',
 })
@@ -82,7 +78,7 @@ type RepoField = 'remoteChoice' | 'namespaceId' | 'origin' | 'bundleFile' | 'sou
 export type DraftAct =
   | { type: 'step'; step: Draft['step'] }
   | { type: 'name'; name: string }
-  // The 🎲: an empty box takes the suggestion shown; a filled one takes `next`.
+  // The 🎲: the box takes a freshly rolled name, `next`.
   | { type: 'roll'; next: string }
   | { type: 'address'; address: string }
   | { type: 'describe'; description: string }
@@ -107,7 +103,7 @@ export function draftReducer(d: Draft, a: DraftAct): Draft {
     case 'name':
       return { ...d, name: a.name }
     case 'roll':
-      return d.name ? { ...d, name: a.next, suggestion: a.next } : { ...d, name: d.suggestion }
+      return { ...d, name: a.next }
     case 'address':
       return { ...d, address: a.address }
     case 'describe':

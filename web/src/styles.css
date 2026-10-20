@@ -326,6 +326,9 @@ button.danger { border-color: var(--bad); color: var(--bad); background: var(--p
 button.danger:hover { background: var(--bad-bg); }
 button.subtle { border-color: transparent; color: var(--muted); background: transparent; }
 button.subtle:hover { color: var(--text); border-color: var(--border); }
+/* A card's secondary actions: one compact line of small text buttons. */
+.pack-actions { gap: 2px 4px; }
+.pack-actions button { padding: 3px 6px; font-size: var(--fs-xs); }
 button:disabled { opacity: 0.5; cursor: default; }
 /* A greyed box reads as greyed in both themes: the native dimming is too faint in dark. */
 input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: 0.35; cursor: not-allowed; }

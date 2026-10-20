@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { runtimeDescription } from '../../runtime'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -12,7 +13,7 @@ import { ScheduleRows } from './Schedules'
 import { PastChats } from '../change/Conversation'
 import { fmtWhen } from '../../format'
 import { ActiveRunList, ChangeHistoryTable, type OverviewData } from '../../parts/runActivity'
-import type { DeploymentView, PullPlan, ReleasePreviewStarted, CatalogApplied, CreatedChange, CatalogChangeDetail, CatalogDef, CatalogEntry as GeneratedCatalogEntry, CatalogList, ProjectDetail as ProjectT } from '../../wire.gen'
+import type { DeploymentView, PullPlan, ReleasePlan, ReleasePreviewStarted, CatalogApplied, CreatedChange, CatalogChangeDetail, CatalogDef, CatalogEntry as GeneratedCatalogEntry, CatalogList, ProjectDetail as ProjectT } from '../../wire.gen'
 
 // The project overview's top: the two big doors and the catalog of prepared
 // changes behind one of them.
@@ -33,6 +34,10 @@ export function BigChangeBox({ slug }: { slug: string }) {
   const p = projectQ.data
   const blurb = p?.blurb ?? ''
   const intranetReady = !p || p.intranetReady !== false || p.runtimeForm === 'no app yet'
+  // The Release door releases to the intranet; it is offered only where one
+  // is set up, never as an action this AppTown cannot take.
+  const planQ = useGet<ReleasePlan>(`/projects/${slug}/release/plan`)
+  const canRelease = planQ.data?.configured === true
   // The project's own read is shown by the page around this box.
   const [err, setErr] = useState('')
 
@@ -109,14 +114,17 @@ export function BigChangeBox({ slug }: { slug: string }) {
             { label: '📋 Catalog change', hint: 'run one of the catalogued changes', onClick: () => setCatalogOpen(true) },
             { label: '✏️ New change, detailed', hint: 'pick the title and workflow yourself', onClick: () => setDetailedOpen(true) },
           ]} />
-        <SplitButton icon="🏢" label="Release"
-          sub={intranetReady ? 'publish the latest finished version to the intranet'
-            : 'needs packaging first — the release page explains'}
-          onMain={() => nav(`/projects/${slug}/release`)}
-          items={[]} />
+        {canRelease && (
+          <SplitButton icon="🏢" label="Release"
+            sub={intranetReady ? 'publish the latest finished version to the intranet'
+              : 'needs packaging first — the release page explains'}
+            onMain={() => nav(`/projects/${slug}/release`)}
+            items={[]} />
+        )}
       </div>
       <ReadStatus q={envsQ} what="the deployments" className="small" />
-      <StaleNote q={envsQ} />
+      <ReadStatus q={planQ} what={`whether ${PRODUCT} can release to an intranet`} className="small" />
+      <StaleNote q={[envsQ, planQ]} />
       {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
       {catalogOpen && <CatalogPicker slug={slug} onClose={() => setCatalogOpen(false)} />}
       {detailedOpen && <NewChangeButton slug={slug} external={{ open: true, onClose: () => setDetailedOpen(false) }} />}

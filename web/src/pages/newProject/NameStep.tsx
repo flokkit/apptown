@@ -11,10 +11,10 @@ export function NameStep({ d, act }: { d: Draft; act: Dispatch<DraftAct> }) {
     <div className="card" style={{ padding: 'var(--space-5)' }}>
       <div className="mb-2"><strong>What's it called?</strong></div>
       <div className="row" style={{ gap: 'var(--space-2)' }}>
-        <input value={d.name} onChange={(e) => act({ type: 'name', name: e.target.value })} placeholder={d.suggestion} autoFocus
+        <input value={d.name} onChange={(e) => act({ type: 'name', name: e.target.value })} placeholder="e.g. Lunch Orders" autoFocus
           onKeyDown={(e) => e.key === 'Enter' && next()}
           style={{ flex: 1, fontSize: 'var(--fs-md)', padding: '10px 12px', boxSizing: 'border-box' }} />
-        <button title={d.name ? 'roll another name' : `use “${d.suggestion}” — press again for another`}
+        <button title="pick a name for me — press again for another"
           onClick={() => act({ type: 'roll', next: rollName() })}
           style={{ fontSize: 'var(--fs-lg)', padding: '8px 14px' }}>🎲</button>
       </div>

@@ -133,7 +133,7 @@ export function LensBanner({ view }: { view: ConformanceView }) {
           )}
           {!d && r.status === 'done' && <div className="muted small" style={{ marginTop: 3 }}>No earlier review to compare with.</div>}
           {r.status === 'queued' && <div className="muted small" style={{ marginTop: 3 }}>Queued.</div>}
-          {r.status === 'running' && <div className="muted small" style={{ marginTop: 3 }}>Still running — {r.projectsDone} of {r.projectsTotal || '?'} projects.</div>}
+          {r.status === 'running' && <div className="muted small" style={{ marginTop: 3 }}>Still running — {reviewProgressWords(r.status, r.projectsDone, r.projectsTotal || 0)}.</div>}
         </div>
         <Link to="/conformance" className="subtle small">Back to current →</Link>
       </div>
@@ -151,10 +151,10 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
     <div className={`card${running ? ' tone-busy' : open > 0 ? ' tone-bad' : ''}`} style={{ padding: 0, marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px' }}>
         <div className="row" style={{ gap: 'var(--space-3)', alignItems: 'center' }}>
-          {running && <span style={{ width: 13, height: 13, border: '2px solid var(--border-strong)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />}
-          <strong style={{ fontSize: 'var(--fs-base)' }}>{r.status === 'queued' ? 'Queued…' : running ? 'Reviewing…' : r.status === 'error' ? 'Review errored' : `Review #${r.number}`}</strong>
+          {r.status === 'running' && <span style={{ width: 13, height: 13, border: '2px solid var(--border-strong)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />}
+          <strong style={{ fontSize: 'var(--fs-base)' }}>{r.status === 'queued' ? 'Queued' : running ? 'Reviewing…' : r.status === 'error' ? 'Review errored' : `Review #${r.number}`}</strong>
           <span className="muted small">
-            {r.projectsDone}/{r.projectsTotal || r.projects || '?'} projects · {d.verdicts.length} checks
+            {reviewProgressWords(r.status, r.projectsDone, r.projectsTotal || r.projects || 0)} · {d.verdicts.length} checks
             {running && r.currentProject && <> · now <span className="mono">{r.currentProject}</span></>}
             {open > 0 && <> · <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{open} to look at</span></>}
           </span>
@@ -162,7 +162,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
         {!running && <Link to={`/conformance/reviews/${r.id}`} className="subtle small">open this review →</Link>}
       </div>
       <div style={{ maxHeight: 260, overflowY: 'auto', borderTop: '1px solid var(--border)' }}>
-        {feed.length === 0 && <div className="muted small" style={{ padding: '12px 14px' }}>{running ? 'Starting…' : 'No checks recorded.'}</div>}
+        {feed.length === 0 && <div className="muted small" style={{ padding: '12px 14px' }}>{r.status === 'queued' ? 'Not started yet.' : running ? 'Starting…' : 'No checks recorded.'}</div>}
         {feed.map((v, i) => (
           <div key={i} className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', padding: '5px 14px', borderTop: '1px solid var(--border)' }}>
             <span className="small" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -182,6 +182,14 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
 // A review still to finish: queued behind another, or running.
 export const isUnfinished = (status: string) => status === 'queued' || status === 'running'
 
+// How far a review has got, in words. A queued review has not started, so it
+// shows no count; a running one whose project total is not known yet shows
+// what it has done, never "of ?".
+export function reviewProgressWords(status: string, done: number, total: number): string {
+  if (status === 'queued') return 'not started yet'
+  return total ? `${done} of ${total} projects` : `${done} projects so far`
+}
+
 export function ReviewProgress({ d }: { d: LiveReview }) {
   const r = d.review
   const total = r.projectsTotal || r.projects || 0
@@ -191,9 +199,9 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
     <div style={{ minWidth: 260, maxWidth: 360, flex: '1 1 260px' }}>
       <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-2)', fontSize: 'var(--fs-xs)', marginBottom: 'var(--space-1)' }}>
         <span className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
-          <span style={{ width: 11, height: 11, border: '2px solid var(--border-strong)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+          {r.status === 'running' && <span style={{ width: 11, height: 11, border: '2px solid var(--border-strong)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />}
           <strong>{r.status === 'queued' ? 'Queued' : 'Reviewing'}</strong>
-          <span className="muted">{r.projectsDone} of {total || '?'}{r.currentProject ? <> · <span className="mono">{r.currentProject}</span></> : null}</span>
+          <span className="muted">{reviewProgressWords(r.status, r.projectsDone, total)}{r.currentProject ? <> · <span className="mono">{r.currentProject}</span></> : null}</span>
         </span>
         <span className="muted">
           {open > 0 ? <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{open} to look at</span> : `${d.verdicts.length} checks`}

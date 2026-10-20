@@ -15,6 +15,18 @@ const context = await browser.newContext({
 });
 context.setDefaultTimeout(20000);
 const page = await context.newPage();
+// The disk the tour shows is a fixed, plausible one: the real reading would
+// publish the camera machine's own disk. Only the shot is staged; the page
+// renders this answer exactly as it renders a real one.
+const GiB = 1024 ** 3;
+await page.route('**/api/v1/infrastructure/disks', (route) => route.fulfill({
+  contentType: 'application/json',
+  body: JSON.stringify({ disks: [{
+    what: "this AppTown's data folder", path: '/var/lib/apptown',
+    totalBytes: 500 * GiB, freeBytes: 312 * GiB, floorBytes: 20 * GiB,
+    refuses: false, low: false, readAt: new Date().toISOString(),
+  }] }),
+}));
 try {
   await page.goto(base + '/');
   const status = await page.evaluate(async ([username, password]) => {

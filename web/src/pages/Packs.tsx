@@ -150,12 +150,12 @@ export default function Packs() {
               {p.enabled === false && <span className="chip" title="not offered when a project is made">not offered</span>}
             </div>
             <div className="small" style={{ margin: '6px 0' }}>{p.description}</div>
-            <div className="small" style={{ marginTop: 10 }}>
-              {p.requires.some(r => !r.bound)
-                ? <span className="chip pending">Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</span>
-                : <span className="muted">{p.requires.length > 0 ? 'Required integrations configured' : 'No integration requirements'}</span>}
-            </div>
-            <div className="row" style={{ marginTop: 10 }}>
+            {p.requires.some(r => !r.bound) && (
+              <div className="small" style={{ marginTop: 10 }}>
+                <span className="chip pending">Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</span>
+              </div>
+            )}
+            <div className="row pack-actions" style={{ marginTop: 10 }}>
               <button className="subtle" onClick={() => setInspecting(p)}>View contents</button>
               <button className="subtle" onClick={() => setEditing({ draft: blank(p.name), existing: false })} title="a pack of your own that is this one, with your changes">Include in a new pack…</button>
               {p.enabled === false

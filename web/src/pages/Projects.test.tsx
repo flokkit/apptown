@@ -46,3 +46,31 @@ it('follows a deleted project\'s cleanup to the end', async () => {
   expect(await after('done')).toContain('gone has been removed')
   expect(await after('needs-attention')).toContain('cleaning up after it stopped: docker unreachable')
 })
+
+async function listing(): Promise<HTMLElement> {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.includes('/project-cleanups')) return new Response(JSON.stringify({ cleanups: [] }))
+    return new Response(JSON.stringify({ projects: [
+      { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '' },
+      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: '', icon: '⛵' },
+    ], total: 2 }))
+  }))
+  const client = newQueryClient()
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  await act(async () => {
+    root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects']}><Projects /></MemoryRouter></QueryClientProvider>)
+  })
+  await vi.waitFor(() => expect(el.textContent).toContain('Plain'))
+  return el
+}
+
+// A project shows its own icon or none: no stand-in icon repeated on every
+// card. The page's box filters the list; finding stays in the top bar, so
+// the page box does not take the find box's id.
+it('shows only icons projects chose, and leaves finding to the top bar', async () => {
+  const el = await listing()
+  expect(el.textContent).not.toContain('🛠️')
+  expect(el.textContent).toContain('⛵')
+  expect(el.querySelector('#find-projects')).toBeNull()
+})

@@ -146,7 +146,7 @@ export default function App() {
       {narrow && menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
       <nav id="sidebar" className={'sidebar' + (narrow ? ' narrow' : '') + (menuOpen ? ' open' : '')}>
         <div className="sidebar-inner">
-          {narrow && routePath !== '/projects' && <Find />}
+          {narrow && <Find />}
           <SidebarNav />
           <div className="spacer" />
           {narrow && (

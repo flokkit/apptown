@@ -20,7 +20,7 @@ describe('creating a project whose starter declares its services', () => {
       return new Response('{}')
     }))
     const lines: ProgressLine[] = []
-    const d = { ...newDraft(''), name: 'Lunch Orders', pack: 'django-htmx', services: [{ capability: 'postgres' }] }
+    const d = { ...newDraft(), name: 'Lunch Orders', pack: 'django-htmx', services: [{ capability: 'postgres' }] }
     await createProject(d, { remote: false, namespaceId: '' }, (l) => lines.push(l))
     return { lines, calls }
   }
