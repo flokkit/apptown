@@ -7,7 +7,7 @@ and forge:git as https://<your AppTown host>/git. -->
 
 How to point a coding agent on your own computer — Claude Code, Codex, or
 anything else that speaks MCP — at this AppTown, so it can see your projects
-and Changes while you work, and how to set up the `forge` command line.
+and Changes while you work, and how to set up the `apptown` command line.
 
 ## What you get
 
@@ -85,11 +85,11 @@ secret string that acts for you within the same bounds as browser sign-in.
 Only an admin can make one:
 
 ```
-forge token create laptop-claude --purpose agent -u <your username>
+apptown token create laptop-claude --purpose agent -u <your username>
 ```
 
 The token is shown once. Copy it somewhere safe; it cannot be shown again.
-If it leaks, an admin revokes it with `forge token revoke laptop-claude`.
+If it leaks, an admin revokes it with `apptown token revoke laptop-claude`.
 
 ```
 claude mcp add --transport http forge {forge:mcp} \
@@ -178,14 +178,14 @@ The agent sees what you can see: AppTown checks your identity on every
 call, and a Change or project it names by number is looked up and
 checked, never taken on trust.
 
-## The `forge` command line
+## The `apptown` command line
 
-The `forge` CLI talks to the same AppTown over its API. It needs AppTown's
+The `apptown` CLI talks to the same AppTown over its API. It needs AppTown's
 address and a **command-line token**, which acts as you, with everything
 you yourself may do. An admin makes one, on **People → API tokens** or with:
 
 ```
-forge token create laptop-cli --purpose cli -u <your username>
+apptown token create laptop-cli --purpose cli -u <your username>
 ```
 
 The token is shown once. Put it, with the address, in
@@ -196,13 +196,13 @@ FORGE_URL={forge:origin}
 FORGE_TOKEN=<token>
 ```
 
-Environment variables of the same names win over the file. `forge status`
+Environment variables of the same names win over the file. `apptown status`
 then shows what is waiting on you. `FORGE_USER` names you only on an AppTown
 in open mode, where names are attribution, not sign-in.
 
 Keep the two kinds apart: a command-line token is refused at the MCP
 address, and an agent token cannot approve on the command line. Revoke
-either with `forge token revoke <name>` or on the People page.
+either with `apptown token revoke <name>` or on the People page.
 
 ## What is recorded
 

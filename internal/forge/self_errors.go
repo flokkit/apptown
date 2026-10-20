@@ -28,7 +28,7 @@ import (
 // the error-reporting connector, to the GlitchTip project of the "forge"
 // project on this instance. Attach the forge project under Settings ›
 // Services (or POST /projects/forge/integrations {"capability":"errors"})
-// and forged starts sending its panics, errored steps, cut-short reviews
+// and apptownd starts sending its panics, errored steps, cut-short reviews
 // and failed deployment rebuilds there, tagged by run and step. Nothing
 // is sent while the forge project is unattached; nothing is sent
 // synchronously; a burst is capped so a crash loop cannot flood the
@@ -153,7 +153,7 @@ func (e selfErrorReporter) Report(kind, where, message string, tags map[string]s
 	host, _ := os.Hostname()
 	ev := selfErrorEvent{
 		EventID: hex.EncodeToString(id), Timestamp: now.UTC().Format(time.RFC3339),
-		Platform: "go", Level: "error", Logger: "forged", ServerName: host, Release: forgeRelease(),
+		Platform: "go", Level: "error", Logger: "apptownd", ServerName: host, Release: forgeRelease(),
 		Message: map[string]string{"formatted": where + ": " + message},
 		Tags:    map[string]string{"where": where, "kind": kind},
 		Exception: map[string]any{"values": []map[string]any{{
@@ -181,7 +181,7 @@ func (e selfErrorReporter) send(dsn sentryDSN, ev selfErrorEvent) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Sentry-Auth", fmt.Sprintf("Sentry sentry_version=7, sentry_client=forged/1, sentry_key=%s", dsn.Key))
+	req.Header.Set("X-Sentry-Auth", fmt.Sprintf("Sentry sentry_version=7, sentry_client=apptownd/1, sentry_key=%s", dsn.Key))
 	client := e.state.client
 	if client == nil {
 		client = &http.Client{Timeout: 5 * time.Second}

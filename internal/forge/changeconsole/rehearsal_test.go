@@ -214,7 +214,7 @@ func TestTheRehearsalOfASavedCommit(t *testing.T) {
 		return fake.refused > 0
 	})
 	w.chats.RehearseSaved(ctx, s, saved)
-	if len(fake.bootsNamed(name)) != 0 || rehearsed(s) != "" || toldTheChat(s, "[forge check]") {
+	if len(fake.bootsNamed(name)) != 0 || rehearsed(s) != "" || toldTheChat(s, "[apptown check]") {
 		t.Fatal("a worker that could not be asked was taken as the app's failure, or marked the commit")
 	}
 
@@ -228,7 +228,7 @@ func TestTheRehearsalOfASavedCommit(t *testing.T) {
 	if len(fake.bootsNamed(name)) != 1 || rehearsed(s) != saved {
 		t.Fatalf("a failing boot: boots %d, rehearsed %q", len(fake.bootsNamed(name)), rehearsed(s))
 	}
-	eventually(t, "the chat told of the failed boot", func() bool { return toldTheChat(s, "[forge check]") && toldTheChat(s, saved[:12]) })
+	eventually(t, "the chat told of the failed boot", func() bool { return toldTheChat(s, "[apptown check]") && toldTheChat(s, saved[:12]) })
 
 	w.chats.RehearseSaved(ctx, s, saved)
 	if len(fake.bootsNamed(name)) != 1 {

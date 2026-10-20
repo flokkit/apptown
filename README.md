@@ -154,8 +154,8 @@ running Docker (AppTown starts its own PostgreSQL in a container).
 git clone https://github.com/flokkit/apptown.git
 cd apptown
 npm ci --prefix web   # the web interface's dependencies (make build also does this when they are missing)
-make build            # web/dist, then bin/forged, bin/forge, bin/forge-worker and bin/forge-linux
-./bin/forged -addr 127.0.0.1:7777 -console-addr '' -admins trial
+make build            # web/dist, then bin/apptownd, bin/apptown, bin/apptown-worker and bin/apptown-linux
+./bin/apptownd -addr 127.0.0.1:7777 -console-addr '' -admins trial
 ```
 
 Then open <http://127.0.0.1:7777>. The data directory is `./_data` unless
@@ -171,10 +171,10 @@ listener, container network settings and an agent image: follow Install in
 work on a separate worker machine and running AppTown with no local Docker
 (`-no-local-docker`).
 
-The daemon mounts `bin/forge-linux` into agent and console containers. `make build`
+The daemon mounts `bin/apptown-linux` into agent and console containers. `make build`
 and `make go` build this artifact; runtime source compilation is not required.
-It defaults to `forge-linux` beside the daemon executable. For another location,
-set `-console-cli /absolute/path/forge-linux` (or `FORGE_CONSOLE_CLI`). A missing
+It defaults to `apptown-linux` beside the daemon executable. For another location,
+set `-console-cli /absolute/path/apptown-linux` (or `APPTOWN_CONSOLE_CLI`). A missing
 artifact is reported and sessions continue without the CLI. `make dev-api` builds
 and supplies the artifact explicitly for `go run`.
 
@@ -201,7 +201,7 @@ See [schema ownership](design/architecture/schema-ownership.md).
 
 ## Layout
 
-- `cmd/forged` — entrypoint (`forged [flags]`)
+- `cmd/apptownd` — entrypoint (`apptownd [flags]`)
 - `internal/<x>` — libraries that know nothing of forge (`console`, `deploy`, `database`, ...)
 - `internal/forge/<x>` — forge's subsystems (`workflow`, `deployment`, `identity`, ...);
   see `design/architecture/domains.md`

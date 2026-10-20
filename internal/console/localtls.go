@@ -3,13 +3,13 @@ package console
 import "strconv"
 
 // LocalTLS is a forge serving itself over HTTPS from its own local
-// certificate authority (forged -local-tls, the desktop trial). A chat on
+// certificate authority (apptownd -local-tls, the desktop trial). A chat on
 // that forge trusts the authority and reaches the forge's HTTPS addresses
 // (its change's preview) at their public URLs.
 type LocalTLS struct {
 	CACert []byte // the authority's certificate (PEM), never its key
 	Port   int    // the public port, the one in every https://….localhost:<port> address
-	Target string // where that port really is from the container: host.docker.internal:<forged's port>
+	Target string // where that port really is from the container: host.docker.internal:<apptownd's port>
 	// PreviewDomain is the preview tier's domain (preview.localhost). Tools
 	// that ask the system resolver (Python, Node), unlike curl and
 	// browsers, do not answer *.localhost names themselves, so a change

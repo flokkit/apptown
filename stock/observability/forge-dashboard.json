@@ -691,7 +691,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.service.name=\"forged\" && name=~\"job.*\"} | rate() by (span.forge.job.operation)",
+          "query": "{resource.service.name=\"apptownd\" && name=~\"job.*\"} | rate() by (span.forge.job.operation)",
           "refId": "A",
           "limit": 20
         }
@@ -726,7 +726,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.service.name=\"forged\" && name=~\"job.*\"} | quantile_over_time(duration, .95) by (span.forge.job.operation)",
+          "query": "{resource.service.name=\"apptownd\" && name=~\"job.*\"} | quantile_over_time(duration, .95) by (span.forge.job.operation)",
           "refId": "A",
           "limit": 20
         }

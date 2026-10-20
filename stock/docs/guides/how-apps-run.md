@@ -21,11 +21,11 @@ the app itself runs:
 
 ## As processes: the quick loop
 
-`forge dev` starts the app's needs in containers and writes their connection
+`apptown dev` starts the app's needs in containers and writes their connection
 variables to `.forge/dev.env`. You then run the app with its own tooling:
 
 ```sh
-forge dev
+apptown dev
 set -a && . ./.forge/dev.env && set +a && npm run dev
 ```
 
@@ -36,7 +36,7 @@ them all on Ctrl-C. Edit the lines if your dev commands differ from the run
 commands. Do not start each with `&` by hand: that leaves orphans and
 tangled logs.
 
-Everything `forge dev` writes is under `.forge/`, which never lands.
+Everything `apptown dev` writes is under `.forge/`, which never lands.
 
 In an agent step there is no Ctrl-C: a server left in the foreground holds
 the step until it times out. Start the one command (`npm run dev`,
@@ -49,14 +49,14 @@ Reach services by the host their variables give, never a hard-coded
 
 ## In containers: the preview and the deploy
 
-At a **preview** (**Try it**, `forge preview`) and a **deploy**, AppTown
+At a **preview** (**Try it**, `apptown preview`) and a **deploy**, AppTown
 builds the app from its [contract](/docs/guides/contract-reference) and
 boots it cold. Nothing from your working session carries over: no stray
 variable, no process you left running, no file you did not commit. "It
 worked as I worked" and "it boots cold" are different claims; the preview
 is where they meet.
 
-To rehearse that yourself, `forge dev up` runs the whole app in containers
+To rehearse that yourself, `apptown dev up` runs the whole app in containers
 on your Docker. A static site built by a `Dockerfile` is the exception: use
 its own dev server.
 
@@ -71,15 +71,15 @@ what survives are in
 one, a preview still builds and boots the app on its own: on the worker
 when AppTown has one, otherwise on AppTown's host.
 
-## `forge dev` in full
+## `apptown dev` in full
 
-- `forge dev`: start the needs, write `.forge/dev.env` (and
+- `apptown dev`: start the needs, write `.forge/dev.env` (and
   `.forge/Procfile` when the app has more than one part); you run the app.
-- `forge dev up`: run the whole app in containers with Docker Compose.
-- `forge dev generate`: write `.forge/docker-compose.yml` and stop.
-- `forge dev down`: stop either, and remove its volumes.
+- `apptown dev up`: run the whole app in containers with Docker Compose.
+- `apptown dev generate`: write `.forge/docker-compose.yml` and stop.
+- `apptown dev down`: stop either, and remove its volumes.
 
-`forge dev` asks your AppTown to render the files, so it needs the address
+`apptown dev` asks your AppTown to render the files, so it needs the address
 and token the command line uses.
 
 ## Changing the advice

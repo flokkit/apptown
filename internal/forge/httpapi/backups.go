@@ -88,7 +88,7 @@ func writeBackupTaken(w http.ResponseWriter, b *dataprotection.Backup) {
 // RestoreBackup: POST /projects/{slug}/deployments/{name}/backups/{id}/restore
 // {confirm} — confirm must equal the deployment's name. The restore runs
 // as an operation: the answer is the operation admitted (202), which
-// forge wait operation and its page follow; its result's restore is the
+// apptown wait operation and its page follow; its result's restore is the
 // receipt.
 func (h Backups) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	p, ok := ProjectFromPath(h.projects, w, r)

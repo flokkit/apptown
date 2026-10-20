@@ -1,4 +1,4 @@
-// Package workertest starts a forge-worker in the test process, over real
+// Package workertest starts a apptown-worker in the test process, over real
 // mutual TLS, for tests of the forge's worker path. Its certificates are made
 // per test.
 package workertest
@@ -166,7 +166,7 @@ func (ca *CA) ServerFiles(t *testing.T, dir string) (caFile, certFile, keyFile s
 	return caFile, certFile, keyFile
 }
 
-// Container is forge-worker running in its own Docker-in-Docker container:
+// Container is apptown-worker running in its own Docker-in-Docker container:
 // its own Docker daemon, nothing mounted from this machine. Its binary,
 // certificates and task image are copied in.
 type Container struct {
@@ -192,27 +192,27 @@ func runDocker(t *testing.T, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// buildWorker builds forge-worker at binary, with env added to the build's.
+// buildWorker builds apptown-worker at binary, with env added to the build's.
 func buildWorker(t *testing.T, binary string, env ...string) {
 	t.Helper()
 	run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
-		Argv: []string{"go", "build", "-o", binary, "flokkit.io/forge/cmd/forge-worker"}, Env: env, Timeout: 10 * time.Minute})
+		Argv: []string{"go", "build", "-o", binary, "flokkit.io/forge/cmd/apptown-worker"}, Env: env, Timeout: 10 * time.Minute})
 	if run.RunErr != nil {
-		t.Fatalf("building forge-worker: %v\n%s", run.RunErr, run.Output)
+		t.Fatalf("building apptown-worker: %v\n%s", run.RunErr, run.Output)
 	}
 }
 
-// StartInContainer builds forge-worker for Linux and runs it in a new
+// StartInContainer builds apptown-worker for Linux and runs it in a new
 // docker:27-dind container, with busybox:latest loaded from this machine's
 // Docker. The container is removed when the test ends. It needs a local
 // Docker that can run privileged containers.
 func StartInContainer(t *testing.T, ca *CA) *Container {
 	t.Helper()
 	dir := t.TempDir()
-	binary := filepath.Join(dir, "forge-worker")
+	binary := filepath.Join(dir, "apptown-worker")
 	buildWorker(t, binary, "GOOS=linux", "GOARCH="+runtime.GOARCH, "CGO_ENABLED=0")
 	caFile, certFile, keyFile := ca.ServerFiles(t, dir)
-	name := fmt.Sprintf("forge-worker-it-%d", time.Now().UnixNano())
+	name := fmt.Sprintf("apptown-worker-it-%d", time.Now().UnixNano())
 	// ZFS_MODULE_TIMEOUT=0, as for the product's private daemons: on a ZFS
 	// host containerd's zfs probe otherwise outlasts dockerd's wait for it.
 	runDocker(t, "run", "-d", "--privileged", "--name", name, "-e", "ZFS_MODULE_TIMEOUT=0", "-p", "127.0.0.1::8443", "docker:27-dind")
@@ -222,7 +222,7 @@ func StartInContainer(t *testing.T, ca *CA) *Container {
 	}
 	w := &Container{t: t, container: name}
 	runDocker(t, "exec", name, "mkdir", "-p", "/certs")
-	for in, here := range map[string]string{"/forge-worker": binary, "/certs/ca.pem": caFile, "/certs/worker.pem": certFile, "/certs/worker-key.pem": keyFile} {
+	for in, here := range map[string]string{"/apptown-worker": binary, "/certs/ca.pem": caFile, "/certs/worker.pem": certFile, "/certs/worker-key.pem": keyFile} {
 		runDocker(t, "cp", here, name+":"+in)
 	}
 	// The task image comes from this machine's Docker, not a registry.
@@ -233,7 +233,7 @@ func StartInContainer(t *testing.T, ca *CA) *Container {
 	return w
 }
 
-// StartOnHost builds forge-worker and runs it as a process on this
+// StartOnHost builds apptown-worker and runs it as a process on this
 // machine, over a new state directory, driving this machine's Docker
 // directly: a chat's containers are one level down, what its private daemon
 // runs two, the supported topology. args are added to its flags. The
@@ -242,7 +242,7 @@ func StartInContainer(t *testing.T, ca *CA) *Container {
 func StartOnHost(t *testing.T, ca *CA, args ...string) *Container {
 	t.Helper()
 	dir := t.TempDir()
-	binary := filepath.Join(dir, "forge-worker")
+	binary := filepath.Join(dir, "apptown-worker")
 	buildWorker(t, binary)
 	caFile, certFile, keyFile := ca.ServerFiles(t, dir)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -269,7 +269,7 @@ func (w *Container) stopProcess() {
 	}
 }
 
-// start runs forge-worker, recording its pid, and fails the test if it
+// start runs apptown-worker, recording its pid, and fails the test if it
 // does not come to listen.
 func (w *Container) start() {
 	w.t.Helper()
@@ -284,7 +284,7 @@ func (w *Container) start() {
 // other packages' tests took over 30 s), so it is not a pass condition.
 const listenGuard = 5 * time.Minute
 
-// launch starts forge-worker and waits until it listens, or until it has
+// launch starts apptown-worker and waits until it listens, or until it has
 // exited, whose error carries the worker's output.
 func (w *Container) launch() error {
 	if w.host {
@@ -318,8 +318,8 @@ func (w *Container) launch() error {
 		return fmt.Errorf("clearing the worker's pid file: %v\n%s", err, out)
 	}
 	if out, err := dockertest.CombinedOutput("exec", "-d", w.container, "sh", "-c",
-		"echo $$ > /worker.pid; exec /forge-worker -installation "+Installation+" -state /var/lib/forge-worker -cert /certs/worker.pem -key /certs/worker-key.pem -client-ca /certs/ca.pem > /worker.log 2>&1"); err != nil {
-		return fmt.Errorf("starting forge-worker: %v\n%s", err, out)
+		"echo $$ > /worker.pid; exec /apptown-worker -installation "+Installation+" -state /var/lib/apptown-worker -cert /certs/worker.pem -key /certs/worker-key.pem -client-ca /certs/ca.pem > /worker.log 2>&1"); err != nil {
+		return fmt.Errorf("starting apptown-worker: %v\n%s", err, out)
 	}
 	// Exited: the container is gone, or the recorded pid is not running.
 	// No pid file yet is a worker still starting.
@@ -356,9 +356,9 @@ func (w *Container) awaitListening(exited func() bool, log func() string) error 
 	case listening:
 		return nil
 	case gone:
-		return fmt.Errorf("forge-worker exited before it listened (%v); its output:\n%s", probeErr, log())
+		return fmt.Errorf("apptown-worker exited before it listened (%v); its output:\n%s", probeErr, log())
 	default:
-		return fmt.Errorf("forge-worker did not listen within %s: %v; its output:\n%s", listenGuard, probeErr, log())
+		return fmt.Errorf("apptown-worker did not listen within %s: %v; its output:\n%s", listenGuard, probeErr, log())
 	}
 }
 
@@ -425,7 +425,7 @@ func (w *Container) Restart() {
 	}
 }
 
-// External is a forge-worker this test did not start: a real process on
+// External is a apptown-worker this test did not start: a real process on
 // another machine, for the qualification of a worker profile
 // (design/operations/workers.md, "Private Docker on the worker"). The test is the forge's side, on its own machine; the two share
 // no files. It is named by the environment:

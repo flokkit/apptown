@@ -126,7 +126,7 @@ func TestDispatchTransitionsRequireCurrentScopeAndExplicitRestart(t *testing.T) 
 						if err != nil {
 							t.Fatal(err)
 						}
-						if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: status.String(), EvidenceJson: []byte(`{"reason":"orphaned by forged restart"}`)}); err != nil || rows != 1 {
+						if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: status.String(), EvidenceJson: []byte(`{"reason":"orphaned by apptownd restart"}`)}); err != nil || rows != 1 {
 							t.Fatalf("stored step state: rows=%d err=%v", rows, err)
 						}
 					}
@@ -208,7 +208,7 @@ func TestDispatchTransitionsRequireWritesAndReceipts(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: before.String(), EvidenceJson: []byte(`{"reason":"orphaned by forged restart"}`)}); err != nil || rows != 1 {
+					if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: before.String(), EvidenceJson: []byte(`{"reason":"orphaned by apptownd restart"}`)}); err != nil || rows != 1 {
 						t.Fatalf("stored step state: rows=%d err=%v", rows, err)
 					}
 				}

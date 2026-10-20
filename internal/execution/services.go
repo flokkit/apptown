@@ -24,7 +24,7 @@ const serviceReadiness = time.Minute
 var DefaultServiceLimits = Limits{CPUs: 1, MemoryBytes: 1 << 30, PIDs: 256}
 
 // DefaultTaskLimits bound a step's, check's or task's container when the
-// operator names none (forged -task-cpus, -task-memory-mib, -task-pids):
+// operator names none (apptownd -task-cpus, -task-memory-mib, -task-pids):
 // room for an ordinary build, never the whole host.
 var DefaultTaskLimits = Limits{CPUs: 4, MemoryBytes: 8 << 30, PIDs: 4096}
 

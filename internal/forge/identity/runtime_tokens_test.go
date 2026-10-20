@@ -103,7 +103,7 @@ func TestStepTokenNamesOnlyTheAttemptItsMACHoldsFor(t *testing.T) {
 		t.Fatalf("own token: %d %d %t", step, attempt, ok)
 	}
 	mac := token[strings.LastIndex(token, "_")+1:]
-	for name, forged := range map[string]string{
+	for name, apptownd := range map[string]string{
 		"another step":       fmt.Sprintf("rt_13_3_%s", mac),
 		"another attempt":    fmt.Sprintf("rt_12_4_%s", mac),
 		"another key":        other.Step(idstest.N(12), 3),
@@ -115,8 +115,8 @@ func TestStepTokenNamesOnlyTheAttemptItsMACHoldsFor(t *testing.T) {
 		"empty":              "",
 		"assist-style token": "run_" + mac,
 	} {
-		if step, attempt, ok := tokens.StepAttempt(forged); ok {
-			t.Errorf("%s: %q named step %d attempt %d", name, forged, step, attempt)
+		if step, attempt, ok := tokens.StepAttempt(apptownd); ok {
+			t.Errorf("%s: %q named step %d attempt %d", name, apptownd, step, attempt)
 		}
 	}
 	var keyless RuntimeTokens

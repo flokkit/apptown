@@ -70,7 +70,7 @@ const (
 
 // Runtime tokens: build agents were the only actors in the
 // system with NO credential — consoles have session tokens, humans have
-// logins, so the CLI surface the agents are steered to use (forge check,
+// logins, so the CLI surface the agents are steered to use (apptown check,
 // config validate, status) either 401'd or had to be opened wide.
 //
 // A step attempt's token is derived, not stored:

@@ -214,7 +214,7 @@ Members.*
 
 **B4 Keep a copy on GitLab.** At creation, or later from the project,
 an owner asks for a GitLab copy; landed branches are pushed there. GitLab
-is a mirror, never the gate. *Projects → New → Repository; `forge`
+is a mirror, never the gate. *Projects → New → Repository; `apptown`
 attach-remote.*
 
 **B5 Delete a project.** An owner deletes a project with no run in
@@ -458,12 +458,12 @@ down, the branch kept for the record. *Change page.*
 **C11 Adopt an existing branch as a change.** A maintainer names a branch
 already in the repository and the forge opens a change on it, so work
 done elsewhere lands through the same gates. *Settings → General → Adopt
-a branch; `forge import`.*
+a branch; `apptown import`.*
 
-**C12 Run the app on your own machine.** A developer runs `forge dev up`
+**C12 Run the app on your own machine.** A developer runs `apptown dev up`
 in a checkout; the forge generates a compose file from the runtime
 contract, with the app's needs as local containers. Compose is generated
-output, never the contract. *CLI `forge dev`.*
+output, never the contract. *CLI `apptown dev`.*
 
 **Rules.** When a gate fails, the producing step is reworked with the
 gate's evidence as feedback, up to three times, then a person is asked.
@@ -490,7 +490,7 @@ throwaway services and a blank data volume: a look, never a restore.
 **C15 Judge a change fairly.** The gate splits findings into introduced,
 preexisting (already on `main`, reported not blamed) and undecided (a
 boolean check failing on both trees, handed to the reviewer). *Change
-page → guidance-conformance step; `forge check`.*
+page → guidance-conformance step; `apptown check`.*
 
 **C16 See one project's standing.** Anyone who may read it sees the
 checks it passes, fails, or could not be judged on, and what a person
@@ -518,7 +518,7 @@ a coding agent.*
 **C21 Mint an API token.** A person mints a named token for the CLI or a
 script; its actions are recorded under their name; they revoke it from
 the same list. Connected coding agents' grants are listed and revoked
-beside it. *People → API tokens; Connected coding agents; `forge token`.*
+beside it. *People → API tokens; Connected coding agents; `apptown token`.*
 
 **C22 Read the ledger.** Every run's steps, evidence and events; every
 change's diff, report and receipts; the audit log of who did what.
@@ -572,7 +572,7 @@ Things the forge does without being asked, each with a receipt:
 
 ## Who can drive each journey
 
-Three surfaces reach the product: the web UI, the `forge` CLI (with a
+Three surfaces reach the product: the web UI, the `apptown` CLI (with a
 token minted under a person's name, carrying that person's full
 authority), and a person's own coding agent over MCP (acting as the
 person who connected it, within a deliberately narrower set of tools that
@@ -580,7 +580,7 @@ never approves, lands, releases or administers). The UI reaches every
 journey; the other two do not, and the gaps are part of each journey's
 definition.
 
-| Journeys | Web UI | `forge` CLI | Agent over MCP |
+| Journeys | Web UI | `apptown` CLI | Agent over MCP |
 |---|---|---|---|
 | A Running the forge: setup, integrations, scanners, targets and infrastructure, people, the forge's own jobs | all | `integrations`, `token` | none |
 | B Projects: start, import, configure, mirror, delete | all | `new`, `import`, `pack` | start a project (with a pack) only |

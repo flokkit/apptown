@@ -79,7 +79,7 @@ type BackfillReport struct {
 // recorded main the hub's current main, as backfill: "this is where main was
 // when recording began", not a witnessed landing. A project already recorded
 // is kept; one whose main cannot be read stays unknown. It takes no
-// repository lock, which is per process: run it only while no forged serves
+// repository lock, which is per process: run it only while no apptownd serves
 // this database (internal/forge/scm/README.md, the recorded main).
 // now is the forge's clock; nil is the real one.
 func BackfillRecordedMain(ctx context.Context, db *database.DB, dataDir string, now func() time.Time) (BackfillReport, error) {

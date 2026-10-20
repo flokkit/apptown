@@ -416,7 +416,7 @@ func unansweredReason(o execution.Outcome, timeout time.Duration) string {
 	case "cleanup_failed":
 		return fmt.Sprintf("the tests exited %d, but their container could not be cleaned up, so the run is not an answer: %v", o.ExitCode, o.CleanupErr)
 	case string(execution.OutOfMemory):
-		return "the tests ran out of memory, so they gave no answer: " + errText(o.RunErr) + "; raise forged -task-memory-mib if the suite needs more"
+		return "the tests ran out of memory, so they gave no answer: " + errText(o.RunErr) + "; raise apptownd -task-memory-mib if the suite needs more"
 	}
 	return "the tests gave no answer: " + errText(o.RunErr)
 }

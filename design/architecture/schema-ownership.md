@@ -33,7 +33,7 @@ public table declarations. Unsupported declaration syntax is refused rather
 than silently excluded from ownership.
 
 A new table's key is a UUIDv7 minted in Go
-([mergeable forge data](../decisions/mergeable-forge-data.md)), never an integer
+([mergeable apptown data](../decisions/mergeable-forge-data.md)), never an integer
 identity: `TestNoNewIntegerIdentity` refuses one, and
 `internal/forge/dbschema/integer-identity-baseline.txt` is empty: no integer
 identity remains.

@@ -336,7 +336,7 @@ func TestProvisionAndThePrompt(t *testing.T) {
 	env := &countingEnvironment{p: console.Provision{
 		Model:  "claude-sonnet-5",
 		Env:    []string{"ANTHROPIC_API_KEY=sk-test"},
-		Mounts: []string{"/tools/forge:/opt/forge/bin/forge:ro"},
+		Mounts: []string{"/tools/forge:/opt/apptown/bin/forge:ro"},
 		Files:  map[string]console.Staged{"pi-home/.pi/agent/settings.json": {Data: []byte(`{"quietStartup":true}`)}, "pi-home/.pi/agent/npm": {Link: "/opt/pi-baked/.pi/agent/npm"}},
 		Notes:  "The registry at http://proxy:8080 serves npm.",
 	}}

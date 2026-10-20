@@ -91,7 +91,7 @@ func RuntimeOnly(path string) bool {
 // InstallNoPushHook makes the hub refuse every push but a Change ticket's
 // (to its holding ref) and a step's scratch push (to its own ScratchRef,
 // for checking only), each named by the git endpoint. The hub is the authority
-// for main and is written ONLY by the landing contract (forged merges locally,
+// for main and is written ONLY by the landing contract (apptownd merges locally,
 // it never pushes to the hub); workspaces may fetch (read) but never push
 // (write). Client-side "fetch-only" config is a convention an agent could
 // undo — this enforces it on the hub, so the only path to main stays the

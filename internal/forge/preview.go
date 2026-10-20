@@ -9,7 +9,7 @@ import (
 )
 
 // ReapPreviewOrphans removes every preview at startup, on this machine and on
-// the worker: previews cannot outlive the forged that tracks them (deployed
+// the worker: previews cannot outlive the apptownd that tracks them (deployed
 // deployments DO survive).
 // Nothing boots yet, so every boot's own Docker configuration left by a
 // stop goes too.

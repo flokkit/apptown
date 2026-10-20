@@ -8,7 +8,7 @@ from the source's records is imported.
 ## From a Git bundle
 
 ```sh
-forge new <slug> --from code.bundle [--branch B] [--pack P] [--toolchain T]
+apptown new <slug> --from code.bundle [--branch B] [--pack P] [--toolchain T]
 ```
 
 The default branch is chosen in this order:
@@ -35,7 +35,7 @@ The largest bundle the forge accepts is set by the operator with
 ## From an https repository
 
 ```sh
-forge new <slug> --from https://gitlab.example.com/team/app.git [--secret-for-git GITLAB_TOKEN]
+apptown new <slug> --from https://gitlab.example.com/team/app.git [--secret-for-git GITLAB_TOKEN]
 ```
 
 The forge's server does the fetch. To limit where it can be sent, it
@@ -46,7 +46,7 @@ fetches only under these conditions:
   networks, link-local addresses (including cloud metadata), carrier-grade
   NAT, unspecified and multicast addresses are all refused.
   - An operator who needs an internal server (an internal GitLab, say)
-    starts forged with `-git-import-allow-private`. That allows **every**
+    starts apptownd with `-git-import-allow-private`. That allows **every**
     private address, not just one.
 - Git is pinned to the address that was checked, and redirects are off.
 
@@ -57,7 +57,7 @@ can repeat the credential it was given. One fetch may take at most ten
 minutes.
 
 `--secret-for-git` names one of the forge's own secrets, set with
-`forge secret set` or under Integrations › Secrets. The forge offers its
+`apptown secret set` or under Integrations › Secrets. The forge offers its
 value as the git password, with the user name `forge`. Only an
 administrator may name one, because the value goes to whatever server the
 URL names.
@@ -91,7 +91,7 @@ does not, and neither does a chat session.
 On the source forge, anyone who can read the project can run:
 
 ```sh
-forge bundle -p <slug> > <slug>.bundle
+apptown bundle -p <slug> > <slug>.bundle
 ```
 
 Alternatively, use the **Download code** button under Settings › General ›
@@ -101,7 +101,7 @@ names the default.
 On the destination forge:
 
 ```sh
-forge new <slug> --from <slug>.bundle [--pack P]
+apptown new <slug> --from <slug>.bundle [--pack P]
 ```
 
 Then set the secrets the command lists. Attach the integrations and
@@ -111,12 +111,12 @@ the source.
 
 ### Moving a project with its history and chats
 
-`forge bundle` moves the code only. To keep the project's history (its
+`apptown bundle` moves the code only. To keep the project's history (its
 changes, runs, evidence, ledger lines, spend and ended chats), an
 administrator exports the whole project:
 
 ```sh
-forge export-project -p <slug> > <slug>.forge-export
+apptown export-project -p <slug> > <slug>.forge-export
 ```
 
 Only landed history moves: landed changes with their runs, evidence,
@@ -142,6 +142,6 @@ Importing the file on another forge is not built yet.
 ## When something fails
 
 A seed that fails leaves the project created, with no repository. Delete
-it (`forge delete <slug>`) and run `forge new --from` again. A project
+it (`apptown delete <slug>`) and run `apptown new --from` again. A project
 that already has a repository is never seeded again, so an existing
 history cannot be replaced.

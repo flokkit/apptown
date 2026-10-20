@@ -225,7 +225,7 @@ func ConnectorCatalog() []ConnectorSpec {
 		},
 		{
 			Capability: "executor", Provider: "docker", Title: "Docker executor", Managed: true, Icon: "docker",
-			Description: "Runs workflow steps in Docker containers. The image and cache volume are set by forged's command-line flags.",
+			Description: "Runs workflow steps in Docker containers. The image and cache volume are set by apptownd's command-line flags.",
 		},
 		{
 			Capability: "deploy", Provider: "docker", Title: "Docker deploy", Managed: true, Icon: "deploy",
@@ -248,7 +248,7 @@ func ConnectorCatalog() []ConnectorSpec {
 
 // CatalogDefaults: the facts that vary per installation and used to be
 // compiled into the catalog — one installation's mirror and error-tracker
-// hostnames showed on the first screen of every other instance. Set from forged's flags; empty means "no suggestion".
+// hostnames showed on the first screen of every other instance. Set from apptownd's flags; empty means "no suggestion".
 type CatalogDefaults struct {
 	MirrorBase string // e.g. https://nexus.example.com — presets carry only the repository path
 	ErrorsURL  string // the org's error tracker, e.g. https://errors.example.com

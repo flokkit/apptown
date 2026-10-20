@@ -1,0 +1,7 @@
+# Only what the gate's build copies. Everything else, including web/ and
+# local data, stays out of the build context.
+*
+!go.mod
+!internal/gate/
+!cmd/apptown-gate/
+internal/gate/*_test.go

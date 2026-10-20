@@ -1,5 +1,5 @@
 // precompress writes name.br and name.gz beside each text file in the build
-// output. forged embeds web/dist and serves the smallest variant the browser
+// output. apptownd embeds web/dist and serves the smallest variant the browser
 // accepts (web/static.go), so compression holds behind any proxy and costs
 // nothing per request. Already-compressed formats (fonts, images) are left
 // alone, and a variant is written only when it is meaningfully smaller.

@@ -48,7 +48,7 @@ class PinsCheckTest(unittest.TestCase):
         self.addCleanup(self.tree.cleanup)
         self.root = Path(self.tree.name)
         self.write("deploy/tool-pins.txt", PINS)
-        self.write("deploy/forge-agent/Dockerfile", DOCKERFILE)
+        self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE)
         self.write("stock/scanners.yaml", SCANNERS)
         self.write("internal/forge/integration/catalog.go", CATALOG)
 
@@ -82,12 +82,12 @@ class PinsCheckTest(unittest.TestCase):
 
     # Kills: a Dockerfile ARG drifting from the list.
     def test_a_dockerfile_arg_is_a_pin(self):
-        self.write("deploy/forge-agent/Dockerfile", DOCKERFILE.replace("UV_VERSION=0.13.0", "UV_VERSION=0.12.0"))
-        self.assertFails("deploy/forge-agent/Dockerfile:3: uv is pinned at 0.12.0 (UV_VERSION)")
+        self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE.replace("UV_VERSION=0.13.0", "UV_VERSION=0.12.0"))
+        self.assertFails("deploy/apptown-agent/Dockerfile:3: uv is pinned at 0.12.0 (UV_VERSION)")
 
     # Kills: a new download or scanner the list does not name.
     def test_an_unlisted_pin_in_the_dockerfile_or_scanners_fails(self):
-        self.write("deploy/forge-agent/Dockerfile", DOCKERFILE
+        self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE
                    + "ARG GLAB_VERSION=1.55.0\nFROM golang:1.27.0-bookworm@sha256:ded3 AS gopls\n")
         self.write("stock/scanners.yaml", SCANNERS + "  - name: hadolint\n    image: hadolint/hadolint:v2.12.0-alpine\n")
         self.assertFails("GLAB_VERSION is not in deploy/tool-pins.txt", "the image golang is not in",
@@ -109,7 +109,7 @@ class PinsCheckTest(unittest.TestCase):
 
     # Kills: an example or history in a comment read as a pin.
     def test_a_full_line_comment_is_not_a_pin(self):
-        self.write("deploy/forge-agent/Dockerfile", DOCKERFILE)
+        self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE)
         self.write("internal/forge/integration/catalog.go", CATALOG + "// trivy once ran as aquasec/trivy:0.58.1\n")
         out = self.run_check()
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
@@ -118,7 +118,7 @@ class PinsCheckTest(unittest.TestCase):
     # versions (a client and a daemon); each agrees with its own line.
     def test_the_docker_cli_and_its_daemon_image_are_two_tools(self):
         self.write("deploy/tool-pins.txt", PINS + "docker-cli  27.5.1  arg DOCKER_VERSION\ndocker-dind  27  image docker\n")
-        self.write("deploy/forge-agent/Dockerfile", DOCKERFILE + "ARG DOCKER_VERSION=27.5.1\n")
+        self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE + "ARG DOCKER_VERSION=27.5.1\n")
         self.write("internal/forge/agentenv/workshop.go", 'package agentenv\nconst DindImage = "docker:27-dind"\n')
         out = self.run_check()
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)

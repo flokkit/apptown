@@ -7,7 +7,7 @@ one-line gloss where they first appear.
 
 ## The pieces
 
-AppTown is one program, `forged`: the API, the engine that runs
+AppTown is one program, `apptownd`: the API, the engine that runs
 workflows, the chat sessions, and the front door that routes preview
 traffic. Around it: containers for agents, checks and previews, git
 repositories for anything that must be remembered, and model providers
@@ -17,7 +17,7 @@ agent's container holds a session token, never a provider key). That work runs o
 separate worker machine when one is configured (see "Where work runs",
 below).
 
-Three kinds of caller reach it. A person in a browser or at the `forge`
+Three kinds of caller reach it. A person in a browser or at the `apptown`
 CLI, and — through a separate address — a **coding agent on someone's own
 computer**, speaking MCP (the standard way a coding agent talks to tools
 outside its editor). All three ask the same API for the same records.
@@ -29,7 +29,7 @@ flowchart TD
         C[forge CLI]
         AG[coding agent on your computer]
     end
-    subgraph forged["forged (AppTown's host)"]
+    subgraph apptownd["apptownd (AppTown's host)"]
         API[API]
         ENG[engine: runs and steps]
         CON[chat sessions]
@@ -84,12 +84,12 @@ Docker host · Portainer · App Platform · bucket website]
 ## Where work runs
 
 An AppTown runs in one of three ways. The choice is the operator's, made
-with `forged`'s start-up flags.
+with `apptownd`'s start-up flags.
 
 | | Where project code runs | What stays on AppTown's own host |
 |---|---|---|
 | no worker | AppTown's own host: agents, checks, previews, chats and script steps in containers on its Docker; a script step runs as a plain process on the host only under `-host-scripts` | everything |
-| `-worker-url` | `forge-worker`, a separate machine with its own Docker: agent, review, tests and script steps, checks, change previews, and new change chats by default | project chats, chats that continue a step's agent, change chats opened on AppTown or already running there, deployments on the built-in Docker host, and intranet releases of a landing that has no published images |
+| `-worker-url` | `apptown-worker`, a separate machine with its own Docker: agent, review, tests and script steps, checks, change previews, and new change chats by default | project chats, chats that continue a step's agent, change chats opened on AppTown or already running there, deployments on the built-in Docker host, and intranet releases of a landing that has no published images |
 | `-no-local-docker` (needs a worker and an external database) | the worker | nothing: the host has no Docker and runs no project process; what the worker cannot run (project chats, continuations) is refused, and releases go to attached targets |
 
 With a worker, a step the worker cannot run is refused, not moved to AppTown's host, and a worker that cannot be reached is an error. The two
@@ -97,7 +97,7 @@ machines share no files. AppTown sends a step the one commit it works
 on, as a Git bundle, over a connection where each side proves who it is
 (mutual TLS); the worker sends back the commits the step made. Agents are
 given two AppTown addresses to call back to, for model access and the
-`forge` CLI, each with a credential minted for that step or chat. Those
+`apptown` CLI, each with a credential minted for that step or chat. Those
 addresses are what AppTown configures, not a network restriction: what
 else a container can reach is decided by the operator's network and
 firewall. A landing's release images are built on the worker too, and
@@ -212,18 +212,18 @@ clone, mounted writable at `/work`.
 sequenceDiagram
     participant P as person
     participant UI as web chat
-    participant F as forged
+    participant F as apptownd
     participant Pi as pi (in container)
     participant WS as /work (clone)
     P->>UI: types words (or pastes a picture)
     UI->>F: POST say
     F->>Pi: keystrokes via tmux
-    Note over F,Pi: forged re-presses Enter until the message provably lands in the session record
+    Note over F,Pi: apptownd re-presses Enter until the message provably lands in the session record
     Pi->>WS: reads, edits, runs, commits
     Pi->>Pi: may delegate to worker / scout
     Pi-->>UI: working bubbles, then the answer
     F->>WS: rehearse: cold-boot the app like the try-it button
-    F-->>UI: [forge check] message if the boot fails
+    F-->>UI: [apptown check] message if the boot fails
 ```
 
 Three guarantees inside that loop:
@@ -258,7 +258,7 @@ flowchart TD
     SC -->|engine commits with run trailers| BR
     SC -->|outputs become artifacts| REC
     CC -->|reads via forge CLI - read-only| REC
-    REC -->|forge check messages<br/>injected into the chat| CC
+    REC -->|apptown check messages<br/>injected into the chat| CC
 ```
 
 Three lanes, nothing else:
@@ -272,9 +272,9 @@ Three lanes, nothing else:
   so the gates run on exactly what will merge; step commits carry run
   trailers. The history reads as an attributed conversation between
   the two surfaces.
-- **The record**: everything non-file goes through forged — the chat
+- **The record**: everything non-file goes through apptownd — the chat
   helper reads run state with the read-only CLI, step outputs become
-  artifacts, and rehearsal failures come back as `[forge check]`
+  artifacts, and rehearsal failures come back as `[apptown check]`
   messages in the chat.
 
 The absence is deliberate: no shared memory, no agent-to-agent
@@ -351,7 +351,7 @@ silently grandfathered.
 ## Git: the hub and the clones
 
 One rule explains all of it: **every workspace is a real, self-contained
-clone; the hub is the project repo; forged moves commits between them;
+clone; the hub is the project repo; apptownd moves commits between them;
 nothing but a landing touches main.**
 
 ```mermaid
@@ -483,7 +483,7 @@ Every app carries [the app contract](/docs/guides/contract-reference),
 one of `build`, `image` or `static`. AppTown never writes packaging: it
 builds the app's own `Dockerfile`. Services (a database, a cache) are
 declared under `needs:` and provided per deployment. For local work,
-`forge dev up` generates a Compose file from the contract.
+`apptown dev up` generates a Compose file from the contract.
 
 | form | the public part says | what is built |
 |---|---|---|

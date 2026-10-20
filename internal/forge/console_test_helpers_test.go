@@ -53,7 +53,7 @@ func rebuildConsoleOwners(a *App) {
 // These fixtures inspect mounts; they do not execute the Forge CLI.
 func fixtureCLI(t *testing.T) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "forge-linux")
+	path := filepath.Join(t.TempDir(), "apptown-linux")
 	if err := execfile.Write(path, []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}

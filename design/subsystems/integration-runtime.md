@@ -183,7 +183,7 @@ Do not interpret an empty rendered environment as successful validation.
 
 An administrator sets or removes one of the forge's own credentials (the secret
 a target's `tokenFrom` or `keyFrom` names) with `PUT`/`DELETE /api/v1/secrets/{name}`,
-`forge secret set <NAME>` (the value on standard input) or Integrations → Secrets,
+`apptown secret set <NAME>` (the value on standard input) or Integrations → Secrets,
 and from the target wizard beside the field that names it. The value goes to
 `secrets.env` and is never answered back; each change leaves a
 `secret.instance-set` or `secret.instance-removed` receipt with the actor and

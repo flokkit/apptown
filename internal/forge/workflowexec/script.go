@@ -106,7 +106,7 @@ func (a *Commands) RunScript(task *workflow.Execution) {
 	defer plan.cleanup()
 	plan.folder = folder
 	if a.tasks != nil && a.tasks.Remote != nil && plan.executor != execution.Docker {
-		// An isolated forge runs no project script on its own host.
+		// An isolated apptown runs no project script on its own host.
 		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": "this AppTown runs scripts only on its worker, in a container; give the step executor: docker"}, nil))
 		return
 	}

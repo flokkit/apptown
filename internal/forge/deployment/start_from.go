@@ -114,7 +114,7 @@ func (s *Service) uncheckedStart(ctx context.Context, dep *Deployment, accepted 
 		return "", err
 	}
 	if !accepted {
-		return "", fmt.Errorf("%w: %s; release accepting an unchecked copy (acceptUncheckedCopy, forge release --accept-unchecked-copy)", ErrStartFrom, why)
+		return "", fmt.Errorf("%w: %s; release accepting an unchecked copy (acceptUncheckedCopy, apptown release --accept-unchecked-copy)", ErrStartFrom, why)
 	}
 	return fmt.Sprintf("; released by %s accepting a copy not shown to come back whole: %s", actor, why), nil
 }

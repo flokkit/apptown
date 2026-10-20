@@ -263,7 +263,7 @@ func TestRouteResolutionFailureNeverInvokesProtectedHandler(t *testing.T) {
 }
 
 // A run, change or step id that names nothing says so in words, not as a
-// storage error: `forge wait` given a change's id, and a deleted project's
+// storage error: `apptown wait` given a change's id, and a deleted project's
 // change links, printed "sql: no rows in result set". A deleted project's
 // records are removed with it, so the words name that possibility.
 func TestAMissingRunIsNotFoundInWords(t *testing.T) {
@@ -511,7 +511,7 @@ type described struct {
 // own --json output is the stable contract; these shapes are experimental
 // like every route, described so a client can read them. The CLI's tests
 // check every request its --json commands send is one of these (jsonForge
-// in cmd/forge/output_test.go).
+// in cmd/apptown/output_test.go).
 var cliOperations = map[string]described{
 	"GET /api/v1/projects":                                   {status: 200, response: []httpapi.ProjectRow{}, also: httpapi.ProjectPage{}, alsoWhen: "with limit, offset or q"},
 	"POST /api/v1/projects":                                  {request: httpapi.ProjectDraft{}, status: 201, response: project.Project{}},

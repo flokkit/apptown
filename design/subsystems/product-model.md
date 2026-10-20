@@ -52,7 +52,7 @@ Without a worker, agents, checks, previews and chats run in containers on the
 forge host's Docker, and a script step without `executor: docker` runs as a
 local process there. With `-worker-url`, agent, review, tests and Docker script
 steps, checks, change previews, release builds and new change chats (by
-default) run on `forge-worker`, a separate machine that shares no files with
+default) run on `apptown-worker`, a separate machine that shares no files with
 the forge. A step the worker cannot run is refused, not moved to the host; a
 local script step is refused. Project chats, step continuations, change chats
 placed on the forge or already running there, and deployments on the built-in

@@ -24,7 +24,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
-// The scoped git endpoint (the collaborative git model): forged serves
+// The scoped git endpoint (the collaborative git model): apptownd serves
 // git-over-HTTP so an agent/console container can PULL the project's main
 // branch to stay current — no filesystem mount, and nothing it shouldn't see.
 // The shape is enforced by git's own protocol, not by trust:
@@ -84,7 +84,7 @@ func presentedGitCredential(r *http.Request) string {
 //
 //   - a step attempt's runtime token (design/subsystems/guidance-checks.md,
 //     "Feedback and evidence"): push only, to that attempt's own scratch ref
-//     (scm.ScratchRef), for `forge check` to check work not yet collected.
+//     (scm.ScratchRef), for `apptown check` to check work not yet collected.
 //     Every other ref is hidden, and so refused by git itself; the hub's
 //     pre-receive hook refuses any other ref and a deletion again. A scratch
 //     commit is feedback only, never published and never evidence.

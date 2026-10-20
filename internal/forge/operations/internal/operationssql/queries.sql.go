@@ -630,7 +630,7 @@ SELECT id, number, kind, project_id, subject, holds, asked_by, asked_by_principa
 `
 
 // What a forge restart would interrupt: every running operation, oldest
-// first (forge executing).
+// first (apptown executing).
 func (q *Queries) RunningOperations(ctx context.Context) ([]Operation, error) {
 	rows, err := q.db.QueryContext(ctx, runningOperations)
 	if err != nil {

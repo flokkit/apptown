@@ -101,7 +101,7 @@ func TestRunToolChecksHonorsDispositions(t *testing.T) {
 	}
 }
 
-// The shared build: forge check / the gate reuse a cached image (content-
+// The shared build: apptown check / the gate reuse a cached image (content-
 // addressed by commit) instead of rebuilding, and a nonzero self-check exit
 // becomes a fail at the check's severity.
 func TestRunToolChecksExecImageSharedBuild(t *testing.T) {

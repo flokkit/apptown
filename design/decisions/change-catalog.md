@@ -3,7 +3,7 @@
 A workflow cans the process of a change: how it is made and verified. A
 **catalog change** cans the change itself: a named, versioned definition of a
 specific piece of work and how to know it was done right. The catalog holds
-them; `forge catalog` lists them and `forge apply <catalog-change> -p <project>
+them; `apptown catalog` lists them and `apptown apply <catalog-change> -p <project>
 [--param k=v]` runs one on a project.
 
 ## Terms
@@ -39,7 +39,7 @@ reconcile, build and report, not to make a mechanical edit by hand.
 - **Draft, then catalogued.** A definition enters the catalog only after it has
   run for real against at least one repository with its gates passed. Until
   then it is a draft: invocable by hand, not listed. Promotion
-  (`forge catalog promote`) is an administrator's act that names the
+  (`apptown catalog promote`) is an administrator's act that names the
   evaluation runs as evidence. An agent may prepare drafts and run evaluations;
   it never promotes.
 - **The definition's model pin wins over project model slots.** The pinned

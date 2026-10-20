@@ -1,6 +1,6 @@
 // Package polltest is poll's converse for tests: the check that something
 // does not happen for a while. It lives apart from poll because nothing the
-// forge runs asks it (the reachability gate holds poll to what forged
+// apptown runs asks it (the reachability gate holds poll to what apptownd
 // reaches).
 package polltest
 

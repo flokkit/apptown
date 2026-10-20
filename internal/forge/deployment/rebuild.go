@@ -226,7 +226,7 @@ func (p ContainerPresence) String() string {
 	return "unknown"
 }
 
-// BootReconcile is what a restart does for what the forge runs itself:
+// BootReconcile is what a restart does for what the apptown runs itself:
 // forget preview rows whose container is not running, and ask for a rebuild
 // of every standing deployment whose container is GONE on a host the forge
 // talks to. A standing container that exists but is stopped stays as found —

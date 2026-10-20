@@ -90,7 +90,7 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		}
 		env := append(append([]string{}, c.Env...), amb.Env...)
 		if cli, err := a.cli.Path(); err == nil {
-			mounts = append(mounts, cli+":"+agentenv.CLIDir+"/forge:ro")
+			mounts = append(mounts, cli+":"+agentenv.CLIDir+"/apptown:ro")
 			env = agentenv.WithCLIPath(env)
 		}
 		name := c.Name

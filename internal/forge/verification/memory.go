@@ -5,7 +5,7 @@ package verification
 // a file:
 //
 //	memory-declared  the contract, as the forge's parser reads it: each part
-//	                 the forge runs from a build or an image declares its
+//	                 the apptown runs from a build or an image declares its
 //	                 memory. A static part is served by the forge's own file
 //	                 server and declares nothing.
 //	memory-within    the standing deployment as it runs: each part the
@@ -31,7 +31,7 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// judgeMemoryDeclared says whether every part the forge runs from a build
+// judgeMemoryDeclared says whether every part the apptown runs from a build
 // or an image declares its memory. Only the part's own declaration counts:
 // a profile changes it for the deployments that use that profile, and a
 // part with none of its own runs unlimited wherever no profile sets one,

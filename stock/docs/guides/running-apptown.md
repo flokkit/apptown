@@ -9,9 +9,9 @@ upgrades. Each section is short and says where the detail is. Building apps
 on an AppTown is in [Start here](/docs/guides/quickstart); how the parts fit
 together is in [How AppTown works](/docs/guides/architecture).
 
-`forged -h` lists every start-up flag. Each flag can also be set as an
-environment variable: `-db-url` is `FORGE_DB_URL`, `-tier-domain` is
-`FORGE_TIER_DOMAIN` (comma-separated), and a flag on the command line wins.
+`apptownd -h` lists every start-up flag. Each flag can also be set as an
+environment variable: `-db-url` is `APPTOWN_DB_URL`, `-tier-domain` is
+`APPTOWN_TIER_DOMAIN` (comma-separated), and a flag on the command line wins.
 
 ## Install
 
@@ -142,7 +142,7 @@ its secrets file and its keys.
 ### Split install
 
 AppTown runs on its own machine with no Docker. Agents, steps, checks and
-previews run on a separate worker machine (`forge-worker`). Apps run on
+previews run on a separate worker machine (`apptown-worker`). Apps run on
 separate Docker hosts, and can also go to Portainer or DigitalOcean App
 Platform. The database is a PostgreSQL you provide, such
 as a managed one.
@@ -192,13 +192,13 @@ You need Docker running, Git, a model-provider account, and AppTown
 binaries.
 
 **From a release.** Unpack the archive for your platform (its checksum is in
-`SHA256SUMS`) to `/opt/forge`. It holds `bin/forged`, `bin/forge`,
-`bin/forge-worker`, `bin/forge-linux` (the CLI AppTown gives its containers),
-`deploy/forge-agent` (the agent image's recipe) and example systemd units in
-`deploy/systemd`: copy `forged.service` to `/etc/systemd/system/` and
-`forged.env.example` to `/etc/forge/forged.env`, edit it, then
-`systemctl enable --now forged`. The unit runs `forged` in `/opt/forge`, where
-it finds `bin/forge-linux` and `deploy/forge-agent`. Build the agent image there
+`SHA256SUMS`) to `/opt/apptown`. It holds `bin/apptownd`, `bin/apptown`,
+`bin/apptown-worker`, `bin/apptown-linux` (the CLI AppTown gives its containers),
+`deploy/apptown-agent` (the agent image's recipe) and example systemd units in
+`deploy/systemd`: copy `apptownd.service` to `/etc/systemd/system/` and
+`apptownd.env.example` to `/etc/apptown/apptownd.env`, edit it, then
+`systemctl enable --now apptownd`. The unit runs `apptownd` in `/opt/apptown`, where
+it finds `bin/apptown-linux` and `deploy/apptown-agent`. Build the agent image there
 once (below). Before publishing a release, `scripts/stranger-install.sh
 <archive>` installs it the same way in a fresh container, inside a Docker daemon
 of its own on any Linux machine that may run a privileged container, and
@@ -216,15 +216,15 @@ npm ci --prefix web
 make build
 ```
 
-This builds `bin/forged`, the host `bin/forge` CLI and `bin/forge-linux` for
-containers. Keep `forge-linux` beside `forged`, or pass its absolute path with
-`-console-cli`. Without it, chats and steps run without the `forge` CLI.
+This builds `bin/apptownd`, the host `bin/apptown` CLI and `bin/apptown-linux` for
+containers. Keep `apptown-linux` beside `apptownd`, or pass its absolute path with
+`-console-cli`. Without it, chats and steps run without the `apptown` CLI.
 
 Agents also need the `forge-agent` Docker image, built from the recipe in the
 installation (or repository) directory:
 
 ```sh
-docker build -t forge-agent deploy/forge-agent
+docker build -t forge-agent deploy/apptown-agent
 ```
 
 The recipe pins every archive it fetches by version and SHA-256; apt packages
@@ -234,11 +234,11 @@ release's notes name a new agent image recipe; workers build their own,
 `forge-agent:<recipe hash>`, when they start.
 
 AppTown starts that build in the background if the image is missing and
-`deploy/forge-agent/Dockerfile` exists relative to its working directory; a
+`deploy/apptown-agent/Dockerfile` exists relative to its working directory; a
 lone binary does not include it. A failed build is recorded in
 `<data directory>/agent-image-build.log`.
 
-On Linux, run `forged` as root when it runs containers on its own Docker:
+On Linux, run `apptownd` as root when it runs containers on its own Docker:
 steps and chats run as root in containers that write into AppTown's
 folders, and AppTown must read and remove what they leave. An ordinary
 user in the `docker` group cannot, and its workspaces are never cleaned
@@ -263,9 +263,9 @@ the web address. Set all three:
 
 | Environment variable | Meaning |
 | --- | --- |
-| `FORGE_INFERENCE_ADDR` | The private address and port AppTown listens on, for example a Docker bridge address on port 7779 |
-| `FORGE_INFERENCE_URL` | The address containers use to reach it, including the port |
-| `FORGE_INFERENCE_NETWORKS` | Comma-separated CIDRs of the addresses those containers arrive from, as AppTown sees them |
+| `APPTOWN_INFERENCE_ADDR` | The private address and port AppTown listens on, for example a Docker bridge address on port 7779 |
+| `APPTOWN_INFERENCE_URL` | The address containers use to reach it, including the port |
+| `APPTOWN_INFERENCE_NETWORKS` | Comma-separated CIDRs of the addresses those containers arrive from, as AppTown sees them |
 
 The values depend on Docker and host networking. On Linux, inspect the
 bridge with `docker network inspect bridge`; chat and step networks may use
@@ -279,10 +279,10 @@ limit, so set one with your model provider.
 Then start:
 
 ```sh
-: "${FORGE_INFERENCE_ADDR:?set the private listener address}"
-: "${FORGE_INFERENCE_URL:?set the container-reachable origin}"
-: "${FORGE_INFERENCE_NETWORKS:?set the allowed container CIDRs}"
-./bin/forged -addr 127.0.0.1:7777
+: "${APPTOWN_INFERENCE_ADDR:?set the private listener address}"
+: "${APPTOWN_INFERENCE_URL:?set the container-reachable origin}"
+: "${APPTOWN_INFERENCE_NETWORKS:?set the allowed container CIDRs}"
+./bin/apptownd -addr 127.0.0.1:7777
 ```
 
 AppTown also opens a read-only API for chats on port 7778
@@ -295,7 +295,7 @@ cannot run agents.
 On a split install the containers that use these listeners are on the
 worker. Bind both listeners to an address the worker can reach and the
 internet cannot, set `-console-url` to the console listener's address as
-the worker sees it, and name in `FORGE_INFERENCE_NETWORKS` the addresses
+the worker sees it, and name in `APPTOWN_INFERENCE_NETWORKS` the addresses
 the worker's containers arrive from. The section on addresses in
 `design/operations/workers.md` says which addresses those were in testing.
 
@@ -308,7 +308,7 @@ first. Model choice per job is on the [model providers and
 slots](/docs/model/pi) integration's Admin tab.
 
 The default sign-in mode, `-auth open`, trusts whatever name a caller gives,
-so in open mode `forged` refuses to start on an address another machine can
+so in open mode `apptownd` refuses to start on an address another machine can
 reach (the main or the console listener): bind both to `127.0.0.1`, or pass
 `-open-on-network` to accept that anyone who reaches the port has full
 control. Before sharing AppTown, start it with `-auth internal` (AppTown's own
@@ -318,7 +318,7 @@ accounts and passwords; `-admins` names accounts to make administrators) or
 Under `-auth internal`, the first account is the administrator, and making it
 needs the setup token: while no account exists, AppTown writes a random
 token to `setup-token` in its data directory (readable only by the account
-`forged` runs as) and says so in its log. The sign-in page asks for it. Once
+`apptownd` runs as) and says so in its log. The sign-in page asks for it. Once
 the first account exists the file is removed. Reading a file on the host is
 the proof of being its operator, so a stranger who finds the sign-in page
 first cannot claim AppTown.
@@ -331,7 +331,7 @@ six seconds; past that they answer 429 with `Retry-After`.
 
 Start AppTown with `-public-host` set to the origin people reach it by,
 scheme included (for example `https://forge.example.com`). Addresses AppTown hands out are built on it, such as the one coding agents sign in to.
-On this AppTown, coding agents connect at {forge:mcp} and the `forge` CLI uses
+On this AppTown, coding agents connect at {forge:mcp} and the `apptown` CLI uses
 `FORGE_URL={forge:origin}`. Sign-in, invite and password reset links, and
 coding agents' sign-in all use this one address. A bare name
 (`forge.example.com`) is still accepted, but it does not say whether AppTown is reached over https: AppTown then counts as https only when it
@@ -341,7 +341,7 @@ the origin, or browsers cannot sign in.
 
 ## Workers and running without local Docker
 
-A **worker** is a separate machine, running `forge-worker`, with its own
+A **worker** is a separate machine, running `apptown-worker`, with its own
 Docker. Start AppTown with `-worker-url`, `-worker-cert`, `-worker-key`
 and `-worker-ca`; the two prove who they are to each other with mutual TLS,
 and you issue the certificates. Without a worker, everything runs on AppTown's own host's Docker; a script step runs in a container there, and runs
@@ -363,7 +363,7 @@ published images. Nor is a worker a strong sandbox: code on it can reach
 the network, and the private Docker a step or chat may get is not a
 boundary against hostile code. Only `-no-local-docker` keeps every project
 process off AppTown's host. The `ghcr.io/flokkit/apptown` image runs this way
-when `FORGE_NO_LOCAL_DOCKER=true` is in its environment; without it, the
+when `APPTOWN_NO_LOCAL_DOCKER=true` is in its environment; without it, the
 image starts as the desktop trial (the comment in `deploy/Dockerfile`
 shows both).
 
@@ -376,12 +376,12 @@ the split install.
 
 1. **The database.** A PostgreSQL database AppTown alone uses, named with
    `-db-url`.
-2. **The worker.** A machine with Docker, running `forge-worker` as root.
-   The release has an example unit, `deploy/systemd/forge-worker.service`.
+2. **The worker.** A machine with Docker, running `apptown-worker` as root.
+   The release has an example unit, `deploy/systemd/apptown-worker.service`.
    You issue its server certificate and AppTown's client certificate; the
    client certificate's Common Name is the worker's `-installation`. On a
    cloud machine, block the metadata service (below).
-3. **AppTown.** Start `forged` with `-no-local-docker`, `-db-url`,
+3. **AppTown.** Start `apptownd` with `-no-local-docker`, `-db-url`,
    `-worker-url`, `-worker-cert`, `-worker-key` and `-worker-ca`, the
    addresses from "Configure model access", a preview domain
    (`-tier-domain preview=<domain>`) and `-private-docker`, so that
@@ -418,7 +418,7 @@ own.
 On a cloud host, a container can reach the provider's metadata service
 (169.254.169.254) unless the host blocks it. On a cloud worker add a rule that blocks it (see
 `design/operations/workers.md`) and check it with
-`forge-worker -check-metadata`.
+`apptown-worker -check-metadata`.
 
 What runs where is in [How AppTown works](/docs/guides/architecture).
 Certificates, limits and each kind of work on a worker are in the
@@ -428,7 +428,7 @@ repository at `design/operations/workers.md`.
 
 A deployment target is a place deployments run. Add one under
 **Infrastructure → add a deployment target**. Each credential is the name of
-an AppTown secret; set it there, or with `forge secret set <NAME> < file`.
+an AppTown secret; set it there, or with `apptown secret set <NAME> < file`.
 
 | Kind | What you give it |
 | --- | --- |
@@ -440,7 +440,7 @@ an AppTown secret; set it there, or with `forge secret set <NAME> < file`.
 The intranet target is the Portainer environment AppTown is configured
 with rather than one added here: it appears when the secrets `PORTAINER_URL`,
 `PORTAINER_API_KEY` and `FORGE_APPS_DOMAIN` are set, and releases to the
-environment `forged -portainer-environment` names (`FORGE_PORTAINER_ENVIRONMENT`;
+environment `apptownd -portainer-environment` names (`APPTOWN_PORTAINER_ENVIRONMENT`;
 default `local`, the name Portainer gives the Docker it is installed on). AppTown records the setting in the `portainer-deploy` integration at every
 start, so starting without it sends intranet releases to the environment
 named `local`, or has them refused when that Portainer has none.
@@ -469,19 +469,19 @@ down, is in [Previews and deployments](/docs/guides/container-lifecycle).
   The holders are each deployment (by its record: its public container and
   its stack's services), previews, agent work (steps, chats), AppTown's own
   containers (its database), AppTown containers no record names, and other
-  containers AppTown did not start. `forged` itself is counted once: in the
+  containers AppTown did not start. `apptownd` itself is counted once: in the
   host's own use when it runs on the host, in its container when it runs in
   one. Colour follows
   the kind of holder; each deployment is named on hover and in the table, and
   links to it. Small holders of a kind fold into "N more".
 
   The host's own use, and free memory, are known only on the built-in host,
-  and only when the daemon sees `forged`'s files and the same memory total:
-  `forged` writes a random marker into a file of its temp folder, the daemon
+  and only when the daemon sees `apptownd`'s files and the same memory total:
+  `apptownd` writes a random marker into a file of its temp folder, the daemon
   reads it back through a read-only mount in the same small pinned image as
   the disk read (at most every five minutes), and both report the same total.
-  `forged`'s memory figures are then taken as the daemon machine's. The case
-  this cannot tell is two machines of equal memory sharing `forged`'s temp
+  `apptownd`'s memory figures are then taken as the daemon machine's. The case
+  this cannot tell is two machines of equal memory sharing `apptownd`'s temp
   folder over a network filesystem. Otherwise the rest of the bar is hatched
   "not read", never free. Attached hosts do not
   report the host's own use in 1.0; per-deployment disk use is not shown.
@@ -576,12 +576,12 @@ Accounts are on the **People** page.
 
 - **Invites.** With `-auth internal`, an administrator invites a person
   from **People → Invite a person** or with
-  `forge invite <username> [--role member|admin] [--days N]`. The link is
+  `apptown invite <username> [--role member|admin] [--days N]`. The link is
   shown once and works for 1 to 30 days (7 by default); the person sets
   their own password. AppTown sends no email.
 - **Password reset links.** For an account that already has a password,
   an administrator uses **People → reset password** or
-  `forge password-link <username> [--days N]`. The link is shown once,
+  `apptown password-link <username> [--days N]`. The link is shown once,
   works for 1 to 30 days (3 by default), and you hand it over yourself; a
   newer link for the same person withdraws the older one. Until it is used
   nothing changes. When the person uses it they choose a new password: the
@@ -606,11 +606,11 @@ Accounts are on the **People** page.
   Auditor); then people read the projects they are members of. AppTown
   never puts the grant back. In open mode (`-auth open`, loopback only by
   default) anyone who can reach AppTown reads everything as well.
-- **Tokens.** `forge token create <name> --purpose cli|agent` makes a
+- **Tokens.** `apptown token create <name> --purpose cli|agent` makes a
   personal token. A `cli` token acts as its person; an `agent` token, for a
   coding agent, may not approve, land or administer.
 - **Lost administrator password.** On AppTown's host, with its normal
-  settings: `forged -reset-password <username>` prints a new password for
+  settings: `apptownd -reset-password <username>` prints a new password for
   that existing account, ends its sessions, and exits without serving.
 
 [Connect a coding agent or the CLI](/docs/guides/connect-a-coding-agent)
@@ -643,7 +643,7 @@ the database, so an AppTown restored from a dump keeps it; a copy restored
 alongside the original has the same id, so run only one of them.
 
 **Restoring the database.** This replaces the current database. If it is
-still readable, back it up first (see Upgrading). Stop `forged`, then:
+still readable, back it up first (see Upgrading). Stop `apptownd`, then:
 
 ```sh
 docker exec forge-db dropdb -U postgres forge
@@ -656,19 +656,19 @@ through the normal startup, which upgrades the database and the data
 directory to this build, then serves reads only, with no recovery, scheduler
 or workers. It is not a dry run of an upgrade. Then restart without it.
 
-**Moving an AppTown to another host.** Stop `forged` and `forge-db`, copy the
+**Moving an AppTown to another host.** Stop `apptownd` and `forge-db`, copy the
 whole data directory (with the built-in database, its files in `pgdata`
-come with it), and start `forged` on the new host with the same settings,
+come with it), and start `apptownd` on the new host with the same settings,
 first with `-verify-only`.
 
 That moves AppTown itself, not the data of deployments on its built-in
 Docker host. Their data volumes, and their services' volumes (such as a
 Postgres need), are Docker volumes outside the data directory, and the apps
-keep running and writing on the old host after `forged` stops. On its first
+keep running and writing on the old host after `apptownd` stops. On its first
 normal start the new host rebuilds those deployments with empty volumes.
 Copied backup sets are not restored by themselves.
 
-So, before stopping `forged` on the old host, for each such deployment:
+So, before stopping `apptownd` on the old host, for each such deployment:
 
 1. **Stop every application part, and keep it stopped.** On the host, a
    deployment's containers are named from its project and deployment:
@@ -716,7 +716,7 @@ replacement host that is cut off from the outside world for a rehearsal, is
 `scripts/forge-recovery-rehearsal.sh`; `scripts/forge-restore-check.py` checks the
 result through the API with a CLI token made before the backup. Its steps:
 dump the database with `scripts/forge-db-backup.sh`, copy the data directory
-without `pgdata` and `cache`, install the same `forged` build, start once with
+without `pgdata` and `cache`, install the same `apptownd` build, start once with
 `-verify-only` to make the built-in database, load the dump (the commands under
 "Restoring the database" above), check the key files came across unchanged,
 check read-only with `-verify-only`, then start normally.
@@ -804,7 +804,7 @@ settings turn this on:
    platform administrators): an existing private bucket in an S3-compatible
    store (DigitalOcean Spaces: endpoint `https://syd1.digitaloceanspaces.com`,
    region `syd1`) and the names of the two secrets that hold its key pair
-   (`forge secret set NAME < file`). AppTown writes a private object,
+   (`apptown secret set NAME < file`). AppTown writes a private object,
    reads it back and deletes it before it attaches the bucket. Anyone who
    holds a key to that bucket can read the copies in it. Copies are read
    only from the bucket they were written to, so another bucket can be
@@ -835,20 +835,20 @@ release fills its database from the copy, and checks it, before the app
 starts. That needs the restore grant (project owners have it) in both
 projects; a production copy goes only into a production deployment. Without
 a store, production data on App Platform reads "not protected off-host" and
-a take-down keeps the cluster as before. `forge data -p <project>
+a take-down keeps the cluster as before. `apptown data -p <project>
 <deployment>` prints the same.
 
 ## Upgrading
 
-1. **Check nothing is executing.** `forge executing` lists the steps and
+1. **Check nothing is executing.** `apptown executing` lists the steps and
    the operations (copies, restores, take-downs) a restart would interrupt;
    it exits 0 when there are none and 3 when there are some. A step cut off
    by a restart may be left in error and need a retry; an operation cut off
    ends unknown with what it had done. When the running AppTown cannot
-   report its operations, `forge executing` says so and fails: look at
+   report its operations, `apptown executing` says so and fails: look at
    AppTown's operations yourself, then upgrade without asking.
 2. **Stop AppTown, then copy it, and stop if a copy fails.** Stop
-   `forged` (leave `forge-db` running), so nobody writes between the two
+   `apptownd` (leave `forge-db` running), so nobody writes between the two
    copies and they describe one moment. Take the database dump with the
    checked backup script from the repository (the nightly dump may be a day
    old):
@@ -868,10 +868,10 @@ a take-down keeps the cluster as before. `forge data -p <project>
    tar -C <data directory> --exclude=./pgdata --exclude=./cache -czf <directory>/forge-data-pre-upgrade.tar.gz .
    ```
 3. **Replace the binaries and start.** Unpack the new release over
-   `/opt/forge` (or rebuild with `make build`, which builds `forged`, `forge`
-   and `forge-worker`); when the release notes name a new agent image recipe,
+   `/opt/apptown` (or rebuild with `make build`, which builds `apptownd`, `apptown`
+   and `apptown-worker`); when the release notes name a new agent image recipe,
    rebuild `forge-agent` where you run it; install the worker first, then
-   start `forged`. The new `forged` upgrades the database and the data
+   start `apptownd`. The new `apptownd` upgrades the database and the data
    directory's layout when it starts, including with `-verify-only`.
 4. **Switching to no local Docker** at the same time: run once with
    `-drain-local-docker` before the first start with `-no-local-docker`
@@ -885,7 +885,7 @@ a take-down keeps the cluster as before. `forge data -p <project>
 
 ### Rolling back
 
-The way back is the two copies from step 2: stop `forged`, load the dump
+The way back is the two copies from step 2: stop `apptownd`, load the dump
 (the commands under "Restoring the database"), replace the data directory's
 contents except `pgdata` with the copy, and start the previous release. That
 discards everything since the copies: the new build's database and layout
@@ -898,9 +898,9 @@ every earlier release's AppTown and rolls it back this way
 
 ### Versions
 
-`forged -version`, `forge-worker -version` and `forge version` name the
+`apptownd -version`, `apptown-worker -version` and `apptown version` name the
 build: a release name, or `dev-` and the commit it was built from
-(`-modified` with local changes). `forge version` also names AppTown it
+(`-modified` with local changes). `apptown version` also names AppTown it
 talks to, which states its version on every API answer.
 
 Which binaries work together is decided by two protocol numbers, not by the
@@ -917,7 +917,7 @@ Being served is not evidence that such a caller is compatible.
 
 A release that raises the CLI protocol says so in its notes. The new CLI is
 then refused by the AppTown it replaces, including when an upgrade asks it
-`forge executing`: answer that question with the CLI of the running
+`apptown executing`: answer that question with the CLI of the running
 release, or establish yourself that nothing is executing and upgrade without
 asking.
 
@@ -931,12 +931,12 @@ projects adopt. They are under **Ways of working → Packs**.
   in a new pack** and change your copy.
 - Saving a pack makes a new version. On the pack's page, **Recommend** a
   version to make it the one new projects get and the one others are
-  offered (or `forge pack recommend <pack> <version>`; `forge pack versions
+  offered (or `apptown pack recommend <pack> <version>`; `apptown pack versions
   <pack>` lists them). No project moves until its owner adopts the version.
   A new AppTown release publishes its stock packs' new versions without
   recommending them; AppTown's start-up log names each one waiting
   (`stock pack <name>: vN published, vM recommended`).
-- Before recommending, run **What-if** on that version (or `forge whatif
+- Before recommending, run **What-if** on that version (or `apptown whatif
   <pack> <version>`): by default it runs on every eligible project, one on
   an earlier version of the pack, or on projects you choose (on the pack,
   or not yet on it, with `-p <project>[,<project>…]`). Its checks run on
@@ -945,19 +945,19 @@ projects adopt. They are under **Ways of working → Packs**.
   would no longer cover one), **could not assess** (with why), **no new
   failures**, or **not evaluated**. Recommend the version from there, or tick projects and
   **Adopt** to open one adoption Change per project with exactly what was
-  assessed (or `forge whatif adopt <id> -p <project>[,<project>…]`); each
+  assessed (or `apptown whatif adopt <id> -p <project>[,<project>…]`); each
   Change says which what-if it came from, and a project whose adoption moved
   since is refused (run the what-if again). Recommending from the what-if
-  page, or with `forge pack recommend <pack> <version> --what-if <id>`,
+  page, or with `apptown pack recommend <pack> <version> --what-if <id>`,
   records the what-if on the recommendation it makes; naming a what-if for
   the version already recommended is refused, as nothing would change. Model
   rubrics cost money, so they run only if you include them with a spend
   limit (on the page, or `--rubrics <dollars>`); spend is read before each
   project, and once it reaches the limit no more are sent, so one project's
-  calls may pass it. It never changes a project's standing. `forge whatif show <id>`
+  calls may pass it. It never changes a project's standing. `apptown whatif show <id>`
   prints one again.
 - To see whether work done under the version comes out better, start an
-  **Eval** of it (or `forge eval start --pack <name@version>`): finished
+  **Eval** of it (or `apptown eval start --pack <name@version>`): finished
   Changes are re-run in throwaway copies as their projects run now and with
   the version, and the eval page compares them side by side, check by check.
   Evals are read by standards administrators and auditors and started by
@@ -972,11 +972,11 @@ How projects measure up against what they adopted is in
   its database answers, and 503 otherwise; it needs no sign-in and says nothing
   else, for a load balancer or a service manager.
 - **Usage** shows model tokens and estimated cost, and "Where the time goes" shows time per
-  step (also `forge timing`).
+  step (also `apptown timing`).
 - **Telemetry.** With `-otlp-endpoint` (and `-otlp-protocol http|grpc`) AppTown sends its own traces, metrics and logs to an OpenTelemetry
   receiver. A Grafana dashboard for them is in the repository at
   `stock/observability/forge-dashboard.json`, with a README on loading it.
-- **Errors.** Attach the `forge` project to the error tracker and AppTown reports its own errors there; see the [error
+- **Errors.** Attach the `apptown` project to the error tracker and AppTown reports its own errors there; see the [error
   reporting](/docs/errors/glitchtip) Admin tab.
 - **Complaints** collects what got in agents' way.
 

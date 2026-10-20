@@ -775,7 +775,7 @@ func writeUpgradeFixture(t *testing.T, dir string) {
 	if err := dbtest.WriteRows(filepath.Join(dir, "rows.jsonl.gz"), rows); err != nil {
 		t.Fatal(err)
 	}
-	// forged marks its data directory at startup; the fixture's is marked the same way.
+	// apptownd marks its data directory at startup; the fixture's is marked the same way.
 	if err := PrepareDataLayout(a.cfg.dataDir); err != nil {
 		t.Fatal(err)
 	}
@@ -810,7 +810,7 @@ func restoreRelease(t *testing.T, dir string, db *database.DB) string {
 	return dataDir
 }
 
-// upgradeForge is what forged does to a forge when it starts: the data
+// upgradeForge is what apptownd does to a forge when it starts: the data
 // directory's layout, then the normal open path's migrations.
 func upgradeForge(t *testing.T, db *database.DB, dataDir string) {
 	t.Helper()
@@ -868,7 +868,7 @@ func forgeRecords(t *testing.T, db *database.DB, dataDir string) (string, string
 // records read back through the router with the same identities, links and
 // meaning, the release's commit still resolves in its repository, and the
 // upgraded schema is a fresh one's. Rolling back is restoring the copies
-// taken, with forged stopped, before the upgrade: after the new build has
+// taken, with apptownd stopped, before the upgrade: after the new build has
 // upgraded and written, the restored database and data directory are the
 // copies exactly, with the new build's write gone.
 //
@@ -903,7 +903,7 @@ func TestAnUpgradeKeepsWhatThePreviousReleaseRecorded(t *testing.T) {
 			wantReads, _ := json.Marshal(want.Reads)
 			db := testDB(t)
 			dataDir := restoreRelease(t, dir, db)
-			// The copies the upgrade guide has an operator take, forged stopped.
+			// The copies the upgrade guide has an operator take, apptownd stopped.
 			copiedRows, copiedFiles := forgeRecords(t, db, dataDir)
 			copyArchive := filepath.Join(t.TempDir(), "data-directory.tar.gz")
 			writeTarGz(t, dataDir, copyArchive)

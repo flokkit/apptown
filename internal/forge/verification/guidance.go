@@ -316,7 +316,7 @@ func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope
 
 	// tool checks (design/subsystems/conformance.md §13): source scanners run against the
 	// staged tree; exec-image self-checks run inside the app image, shared
-	// (content-addressed by commit) with forge check so it is not built twice.
+	// (content-addressed by commit) with apptown check so it is not built twice.
 	// The gate runs the full set (AllowBuild).
 	toolResults, toolFindings, toolErrors := a.scanners.RunToolChecks(ctx, checks,
 		ToolContext{Context: conformance.WithRun(ctx, scope), ProjectID: run.ProjectID, SHA: at.Commit, BuildDir: at.Src, AllowBuild: true}, prefix)

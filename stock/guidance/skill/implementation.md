@@ -111,8 +111,8 @@ Method:
    `needs:` is step 4. Setup that must run before the app starts
    — a migration, an asset build — goes in `init:` (an ordered list of
    run-to-completion containers); boot order is needs-healthy → init → app. Get
-   the schema with `forge config schema`, check your file with
-   `forge config validate`, and rehearse the boot with `forge dev up`. The app
+   the schema with `apptown config schema`, check your file with
+   `apptown config validate`, and rehearse the boot with `apptown dev up`. The app
    must respect $PORT when set. If the app must KEEP anything (records,
    uploads, sessions that matter), declare a need for it under `needs:`
    FROM THE FIRST VERSION (postgres for records, s3 for files, redis for a
@@ -127,7 +127,7 @@ Method:
    `generate = true` for a key AppTown can make itself) and read it from the
    environment; AppTown delivers it to the parts that need it and stops the
    boot with a sentence when one is missing. The file is SecretSpec 1.0 and
-   AppTown refuses any other shape (`forge config validate` checks it):
+   AppTown refuses any other shape (`apptown config validate` checks it):
 
        [project]
        name = "my-app"
@@ -149,21 +149,21 @@ Method:
      Commit only source: never `git add -f`, and nothing under `.forge/` but
      `app.yaml` — the reports you write there are collected from the workspace,
      and a committed file the repository ignores fails the landing.
-   - Then run **`forge check`**. It runs this change's declared conformance gates
+   - Then run **`apptown check`**. It runs this change's declared conformance gates
      against your committed tree and reports pass/fail — the exact deterministic
-     checks the gate will enforce, so a green `forge check` means you've stuck
+     checks the gate will enforce, so a green `apptown check` means you've stuck
      the landing. Fix what it flags as yours and re-run until clean; don't hand
      back with it red. A finding it marks **preexisting** already fails on main:
      it is not this change's to fix — leave it alone, mention it in your report,
      and the fleet review opens its own remediation for it. Never widen a change
      to satisfy a rule the app already broke before you arrived.
-     `forge check` can take several minutes (it may build the app's image,
+     `apptown check` can take several minutes (it may build the app's image,
      scan it for known vulnerabilities as the landing will, and compare
      failures with main) and prints nothing until it is done: give it
      a command timeout of at least 10 minutes, or run it in the background
      with its output to a file and wait for that.
    - On a separate machine (a worker) it works the same way: commit, then run
-     `forge check`. It sends your commit to AppTown for checking only, and
+     `apptown check`. It sends your commit to AppTown for checking only, and
      says the result is feedback; the landing checks your work again. Do not
      use `--published` instead, which checks older work. If it answers that
      your commit **is not on AppTown yet**, the send failed: make the

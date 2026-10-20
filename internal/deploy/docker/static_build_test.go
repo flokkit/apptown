@@ -13,7 +13,7 @@ import (
 
 // The exported stage is the project's own output: the site folder is
 // served only when nothing on the way to it, or in it, is a link, so a
-// build cannot make the forge pack files from outside its own output.
+// build cannot make the apptown pack files from outside its own output.
 // Each case names what the refusal must say.
 func TestABuiltStaticSiteWithALinkIsRefused(t *testing.T) {
 	t.Parallel()

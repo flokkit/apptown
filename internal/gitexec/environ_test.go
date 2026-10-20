@@ -126,7 +126,7 @@ func TestCommandGivesGitExactlyTheEnvironmentPassed(t *testing.T) {
 }
 
 // The forge's git reads only the repository's own config: a setting in the
-// global config of the user the forge runs as (here commit signing with a
+// global config of the user the apptown runs as (here commit signing with a
 // signer that always fails, in HOME/.gitconfig and the XDG location) does
 // not reach a plain Run, so a commit behaves the same on every host. Not
 // parallel: it sets the process's environment.

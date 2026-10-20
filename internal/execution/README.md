@@ -36,7 +36,7 @@ driver for callers' tests. The fake passing the suite establishes the
 contract; the Docker driver passing it (`-tags integration`) establishes that
 backend.
 
-`WorkerTasks` is the driver for a `forge-worker` on another machine
+`WorkerTasks` is the driver for a `apptown-worker` on another machine
 (`internal/worker`, the plan's step 4). It speaks HTTPS with the
 installation's client certificate. A task's source goes to the worker as a Git
 bundle of one commit (`TaskSpec.Source`), never as a host path: host paths,

@@ -187,7 +187,7 @@ func TestAdoptionFreezesWhatAProjectIsOn(t *testing.T) {
 }
 
 // §9 step 2: a run reads one revision, resolved at creation; a child
-// inherits it; steering, the gate's checks and forge check read it, so an
+// inherits it; steering, the gate's checks and apptown check read it, so an
 // edit to the project after the run started changes nothing for it.
 func TestARunReadsTheRevisionItStartedWith(t *testing.T) {
 	t.Parallel()
@@ -274,7 +274,7 @@ func TestARunReadsTheRevisionItStartedWith(t *testing.T) {
 	}
 	got, _ := adoption.ProjectAdoptionIn(context.Background(), a.DB, ch.ProjectID, changeRun.AdoptionID)
 	if got == nil || got.Revision != 1 {
-		t.Fatalf("forge check reads the change's run's revision: %+v", got)
+		t.Fatalf("apptown check reads the change's run's revision: %+v", got)
 	}
 
 	// A callable pipeline child inherits, whatever the project is on now.
@@ -315,7 +315,7 @@ func TestARunReadsTheRevisionItStartedWith(t *testing.T) {
 }
 
 // §9 step 4 placement: a project whose blocks and lanes match a published
-// pack version exactly is placed on it and on the forge pack; what it
+// pack version exactly is placed on it and on the apptown pack; what it
 // carries beyond them is an addition, a pack block it disabled an
 // exclusion, and two contradicting blocks in force are a condition.
 func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
@@ -347,7 +347,7 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 	if len(view.Additions) != 0 || len(view.Exclusions) != 0 || len(view.Conditions) != 0 {
 		t.Fatalf("an exact match carries nothing extra: %+v", view)
 	}
-	// The wizard never offers the forge pack.
+	// The wizard never offers the apptown pack.
 	for _, pk := range mustRecords(a.Ways.OfferedPacks(t.Context())) {
 		if pk.Name == "forge" {
 			t.Fatal("the platform pack is not a choice")
@@ -390,7 +390,7 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 		t.Fatalf("the API says what the project is on: %d %s", w.Code, w.Body.String())
 	}
 
-	// A hand-assembled project: on the forge pack alone, everything else an addition.
+	// A hand-assembled project: on the apptown pack alone, everything else an addition.
 	handProjectID := plainTestProject(t, a.DB, "hand", "H")
 	if err := a.Projects.SetDefaultBranch(context.Background(), handProjectID, "main"); err != nil {
 		t.Fatal(err)
@@ -431,13 +431,13 @@ func recordFixtureAdoptions(t *testing.T, a *App) {
 	}
 }
 
-// These fixtures deliberately imported the current forge pack's contents.
+// These fixtures deliberately imported the current apptown pack's contents.
 // Record that declared choice; never infer packs by matching block names.
 // ensurePlatformGuidanceFor adds the platform blocks a project is missing,
 // appended after its own imports at the block's latest version. Returns the
 // names it added. The hand-assembled fixture's way onto the platform tier
 // (design/subsystems/conformance.md §13.1); the product puts a repo-backed
-// project on it by adopting the forge pack (applyPack), and a platform
+// project on it by adopting the apptown pack (applyPack), and a platform
 // block published later reaches an existing project through adoption.
 func (a *App) ensurePlatformGuidanceFor(projectID ids.ID) []string {
 	missing, err := a.Adoption.PlatformBlocksMissingFrom(context.Background(), projectID)

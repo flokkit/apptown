@@ -34,7 +34,7 @@ type ReleaseBuilds struct {
 	// Tasks is the task runner whose driver is the worker's
 	// (ReleaseTaskDriver).
 	Tasks *TaskRunner
-	// PrivateDocker is forged -private-docker: the operator's opt-in to
+	// PrivateDocker is apptownd -private-docker: the operator's opt-in to
 	// private Docker on the worker, which a release build needs.
 	PrivateDocker bool
 }

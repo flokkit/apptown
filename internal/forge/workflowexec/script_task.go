@@ -71,7 +71,7 @@ type TaskRunner struct {
 	// attempts recorded for the backend it has now. Empty is the profile's
 	// name.
 	Backend string
-	// Remote is set when tasks run on another machine (a forge-worker): each
+	// Remote is set when tasks run on another machine (a apptown-worker): each
 	// is given a published commit instead of a mount, its work comes back as a
 	// bundle, and no script step runs on the forge's own host.
 	Remote RemoteResults
@@ -975,7 +975,7 @@ func (a *Commands) collect(task *workflow.Execution, plan scriptPlan, attempt ta
 			outcome = execution.Outcome{Termination: execution.Exited, ExitCode: code, CleanupErr: fmt.Errorf("reading how the task ended: %w", err)}
 		} else if obs.OOMKilled {
 			outcome = execution.Outcome{Termination: execution.OutOfMemory, ExitCode: -1,
-				RunErr: fmt.Errorf("the script ran out of memory at its limit of %d MiB; raise forged -task-memory-mib if it needs more", attempt.Admitted.Limits.MemoryBytes>>20)}
+				RunErr: fmt.Errorf("the script ran out of memory at its limit of %d MiB; raise apptownd -task-memory-mib if it needs more", attempt.Admitted.Limits.MemoryBytes>>20)}
 		}
 	}
 	stopped := true

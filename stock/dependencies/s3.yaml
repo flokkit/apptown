@@ -43,7 +43,7 @@ provides:
 # access key is its user, the key's secret its password, and the bucket its
 # database. Each deployment and each preview gets its own app key and
 # secret and its own root key (generate); the values here are only for the
-# servers AppTown starts beside its own steps and forge dev. The bucket's
+# servers AppTown starts beside its own steps and apptown dev. The bucket's
 # name is AppTown's too, and the same everywhere. The start script makes
 # the accounts again at every start, so a new key takes effect at the next
 # deploy and the objects stay.

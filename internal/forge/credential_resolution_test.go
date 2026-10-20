@@ -240,7 +240,7 @@ func TestRecordedSecretsWiringIsTheAvailableStores(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	authzWorkflow(t, a, workflow.ApprovalConfig{})
-	// The stock integrations, as forged's start seeds them: infisical is the
+	// The stock integrations, as apptownd's start seeds them: infisical is the
 	// older of the two secrets integrations.
 	a.SyncSeedIntegrations(context.Background())
 	start := func(title string) *workflow.Run {

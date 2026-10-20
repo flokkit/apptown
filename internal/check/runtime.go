@@ -33,7 +33,7 @@ import (
 //	                               whenever the forge gives it values
 //	page                           the root a visitor opens, through the front
 //	                               door only, is not refused (page.go)
-//	memory-declared                each part the forge runs from a build or
+//	memory-declared                each part the apptown runs from a build or
 //	                               image declares its memory, in the contract
 //	                               being judged (the caller parses it); needs
 //	                               no running app

@@ -233,7 +233,7 @@ func (a *Executor) agentPrompt(ctx context.Context, run *workflow.Run, cfg *agen
 	case "continue":
 		// Resuming the previous session: the agent already holds the task
 		// and its own work in context — send only what's new. A human
-		// send-back note (forge retry -m) outranks gate feedback.
+		// send-back note (apptown retry -m) outranks gate feedback.
 		fb := cfg.Sendback
 		if fb == "" {
 			fb = workflow.Interpolate(ctx, a.db, "${{feedback.latest}}", run, item, projectSlug)

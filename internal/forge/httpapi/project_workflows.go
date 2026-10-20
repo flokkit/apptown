@@ -31,7 +31,7 @@ type ProjectWorkflowRow struct {
 	Summary   *workflowSummary `json:"summary,omitempty"`
 	RunsCount int              `json:"runsCount"`
 	LastRunAt string           `json:"lastRunAt,omitempty"`
-	System    bool             `json:"system"` // the forge runs it; never a person's pick
+	System    bool             `json:"system"` // the apptown runs it; never a person's pick
 	Tier      string           `json:"tier"`   // core | extra | system
 	// Withdrawn: stock the running release no longer ships; still selected.
 	Withdrawn bool `json:"withdrawn,omitempty"`

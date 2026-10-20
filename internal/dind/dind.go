@@ -27,7 +27,7 @@ import (
 type Run func(ctx context.Context, args ...string) ([]byte, error)
 
 // Missing reports Docker's own answer that there is no such object: the
-// one classifier of "gone" for every Docker command the forge runs. Only an
+// one classifier of "gone" for every Docker command the apptown runs. Only an
 // answer from the daemon or the CLI counts. Anything else, a daemon that
 // could not be asked included, is not absence: "no such file or directory"
 // from a missing socket also says "no such", and once let a cleanup that

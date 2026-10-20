@@ -80,7 +80,7 @@ func refreshes(t *testing.T, w *syncWorld, name string) int {
 }
 
 // The live demo's loss (RT-L1): an administrator names the App Platform
-// target's copy runner and a domain; the next forge start and the next save
+// target's copy runner and a domain; the next apptown start and the next save
 // of its connector keep both, write nothing and leave the revision where the
 // edit put it. A connector change (another region) does reach the target,
 // with a new revision and a receipt naming who saved it, and still keeps the

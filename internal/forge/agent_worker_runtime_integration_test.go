@@ -35,9 +35,9 @@ import (
 // packaging does.
 func linuxForgeCLI(t *testing.T) string {
 	t.Helper()
-	cli := filepath.Join(t.TempDir(), "forge-linux")
+	cli := filepath.Join(t.TempDir(), "apptown-linux")
 	if out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
-		Argv: []string{"go", "build", "-o", cli, "../../cmd/forge"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 2 * time.Minute,
+		Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 2 * time.Minute,
 	}); out.RunErr != nil {
 		t.Fatalf("building the agents' CLI: %v: %s", out.RunErr, out.Output)
 	}
@@ -99,8 +99,8 @@ func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testi
 	a.tasks.Poll = 100 * time.Millisecond
 	run, steps := agentWorkerChange(t, a, []schema.Step{{Name: "build", Uses: "agent/pi", With: map[string]any{"prompt": "ask AppTown", "executor": "docker"}}},
 		map[string]string{"fake-pi.sh": `
-forge status "$FORGE_RUN_ID" > cli.txt 2>&1; echo "exit $?" >> cli.txt
-FORGE_SESSION_TOKEN=rt_1_1_bogus forge status "$FORGE_RUN_ID" > denied.txt 2>&1; echo "exit $?" >> denied.txt
+apptown status "$FORGE_RUN_ID" > cli.txt 2>&1; echo "exit $?" >> cli.txt
+FORGE_SESSION_TOKEN=rt_1_1_bogus apptown status "$FORGE_RUN_ID" > denied.txt 2>&1; echo "exit $?" >> denied.txt
 say "asked AppTown"`})
 	p, err := a.Projects.BySlug(context.Background(), "agents")
 	if err != nil {
@@ -125,7 +125,7 @@ say "asked AppTown"`})
 	}
 }
 
-// `forge check` inside an agent step on the worker checks the agent's own
+// `apptown check` inside an agent step on the worker checks the agent's own
 // commit, which the forge has not collected yet: the packaged CLI pushes it
 // to the attempt's scratch ref through the read-only listener, with the
 // attempt's token, and prints that the result is feedback only. Once the
@@ -150,7 +150,7 @@ func TestIntegrationForgeCheckOnTheWorkerChecksTheAgentsCommitAsFeedback(t *test
 echo "work in progress" > wip.txt
 { git add wip.txt && git -c user.name=agent -c user.email=agent@example.invalid commit -qm "work in progress"; } > committing.txt 2>&1
 git rev-parse HEAD > checked.txt 2>> committing.txt
-forge check > check.txt 2>&1; echo "exit $?" >> check.txt
+apptown check > check.txt 2>&1; echo "exit $?" >> check.txt
 say "checked my work"`})
 	p, err := a.Projects.BySlug(context.Background(), "agents")
 	if err != nil {
@@ -166,7 +166,7 @@ say "checked my work"`})
 	}
 	source := workflowSourceForTest(t, a, run)
 	hub := source.Repository(a.cfg.dataDir)
-	// The commit the agent checked, and what forge check printed, as the
+	// The commit the agent checked, and what apptown check printed, as the
 	// step's collected work brought them back.
 	committed := gittest.Run(t, hub, "show", "refs/heads/"+source.Branch+":checked.txt")
 	if !gitexec.IsObjectID(committed) || gittest.Run(t, hub, "log", "-1", "--format=%s", committed) != "work in progress" {
@@ -174,7 +174,7 @@ say "checked my work"`})
 	}
 	check := gittest.Run(t, hub, "show", "refs/heads/"+source.Branch+":check.txt")
 	if !strings.HasSuffix(strings.TrimSpace(check), "exit 0") || !strings.Contains(check, "commit "+committed+" (your work in progress, sent for checking: this result is feedback only") {
-		t.Fatalf("forge check inside the step on the worker answered:\n%s", check)
+		t.Fatalf("apptown check inside the step on the worker answered:\n%s", check)
 	}
 	refs, err := scm.ScratchRefs(context.Background(), hub, scm.ScratchPrefix)
 	if err != nil || len(refs) != 0 {

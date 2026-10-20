@@ -38,7 +38,7 @@ func withCheckWorker(t *testing.T, a *App) (url, calls string) {
 	calls = filepath.Join(t.TempDir(), "check-calls")
 	srv := provisionedWorker(t, ca, worker.RoleCheck, calls)
 	a.cfg.checkWorker = &execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	a.cfg.agentContext = "../../deploy/forge-agent" // names the worker's agent image
+	a.cfg.agentContext = "../../deploy/apptown-agent" // names the worker's agent image
 	if err := requireCheckWorker(t.Context(), a.cfg); err != nil {
 		t.Fatal(err)
 	}

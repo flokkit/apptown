@@ -173,7 +173,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	if s.servedIncarnation(ctx, name) == incarnation {
 		if prt, err := docker.ContainerHostPort(ctx, s.hosts.Local(), name, c.PublicPart().Port); err == nil && prt > 0 {
 			// A container with a port is not yet an app that answers: the chat's
-			// own rehearsal may be mid-boot when the helper runs `forge preview`,
+			// own rehearsal may be mid-boot when the helper runs `apptown preview`,
 			// and handing back the URL then reads as "connection refused".
 			// Ask the app the same question the cold boot asks,
 			// briefly; a container that never answers is removed so the fresh

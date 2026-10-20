@@ -99,7 +99,7 @@ func New(saves *Saves, d Dependencies) *Service {
 // Rehearse is the chat's boot gate: whenever the helper hands back the
 // turn and the worktree holds an unrehearsed state with a contract, the
 // forge boots it exactly like the try-it button. Failure is fed back to the
-// HELPER as a [forge check] message and it reworks; success leaves the
+// HELPER as a [apptown check] message and it reworks; success leaves the
 // preview container warm.
 //
 // Runs until the session ends or the app stops. A change that is not in
@@ -171,7 +171,7 @@ func (c *Service) Rehearse(ctx context.Context, s *console.Session) {
 		}
 		delivered := true
 		if bootErr != nil {
-			msg := "[forge check] I cold-booted the app from this worktree exactly like the try-it button and it FAILED: " +
+			msg := "[apptown check] I cold-booted the app from this worktree exactly like the try-it button and it FAILED: " +
 				bootErr.Error() + " — fix it in /work and finish your turn; I re-check automatically. " +
 				"The operator already sees this, so just get to work."
 			if derr := c.sessions.Send(c.engine, s.ID, msg); derr != nil {

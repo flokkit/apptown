@@ -27,7 +27,7 @@ import (
 // The chat service is unchanged; only where the agent runs moves.
 //
 // What the forge would mount into a chat's container travels as blobs,
-// each sent once and named by its content, so the forge's `forge` binary
+// each sent once and named by its content, so the forge's `apptown` binary
 // and the project's generated registry configuration reach the chat without
 // any path on either machine. The chat's other files (settings, prompt,
 // pictures) are sent when they change. The chat's record is copied back to

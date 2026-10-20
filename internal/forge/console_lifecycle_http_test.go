@@ -74,7 +74,7 @@ func TestConsoleLifecycleHTTPValidatesBeforeAdmissionAndEndsOnlyItsSession(t *te
 		t.Fatal("session response exposed its token")
 	}
 	launch := agent.Started(session.ID)
-	if launch.Model != "fake/model" || !slices.Contains(launch.Env, "FORGE_SESSION_TOKEN="+session.Token) || !slices.Contains(launch.Mounts, cli+":"+agentenv.CLIDir+"/forge:ro") {
+	if launch.Model != "fake/model" || !slices.Contains(launch.Env, "FORGE_SESSION_TOKEN="+session.Token) || !slices.Contains(launch.Mounts, cli+":"+agentenv.CLIDir+"/apptown:ro") {
 		t.Fatal("console launch did not receive the selected model, session credential and CLI mount")
 	}
 	models, err := os.ReadFile(filepath.Join(session.Dir, "pi-home", ".pi", "agent", "models.json"))

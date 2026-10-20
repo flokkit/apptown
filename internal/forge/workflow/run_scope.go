@@ -36,7 +36,7 @@ func runProject(ctx context.Context, q database.Queryer, id ids.ID) (ids.ID, err
 }
 
 // missingRun is a run id that names no run: not found, in words a caller can
-// act on (`forge wait 1300` with a change's id answered "sql: no rows in
+// act on (`apptown wait 1300` with a change's id answered "sql: no rows in
 // result set").
 type missingRun struct{ id ids.ID }
 

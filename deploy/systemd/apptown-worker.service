@@ -1,0 +1,26 @@
+# AppTown worker: runs agents, checks and previews for AppTown. Install: copy
+# to /etc/systemd/system/, put the release in /opt/apptown-worker
+# (bin/apptown-worker, deploy/apptown-agent), copy apptown-worker.env.example to
+# /etc/apptown-worker/apptown-worker.env and edit it, put the worker's
+# certificate, key and the forge's CA in /etc/apptown-worker/, then
+# `systemctl enable --now apptown-worker`. Guide: Running AppTown, Workers.
+[Unit]
+Description=AppTown worker
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+WorkingDirectory=/opt/apptown-worker
+EnvironmentFile=/etc/apptown-worker/apptown-worker.env
+ExecStart=/opt/apptown-worker/bin/apptown-worker -installation ${INSTALLATION} \
+  -state /var/lib/apptown-worker -listen ${LISTEN} \
+  -cert /etc/apptown-worker/worker.pem -key /etc/apptown-worker/worker-key.pem \
+  -client-ca /etc/apptown-worker/ca.pem -agent-context /opt/apptown-worker/deploy/apptown-agent
+Restart=on-failure
+RestartSec=5
+# The worker stops its own work on SIGTERM; give it time.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -24,7 +24,7 @@ unknown fields and unsupported versions; a missing or invalid declaration
 cannot be repaired by changing a newer revision. The boot gate, previews and
 deployments consume the selected declaration, subject to target support.
 
-`forge dev` prepares local needs for processes; `forge dev up` generates and
+`apptown dev` prepares local needs for processes; `apptown dev up` generates and
 runs Compose for the app and its local needs. Generated Compose is an output of
 the native contract, not a second authored runtime contract. `mise.toml` or
 `.mise.toml` declares development toolchains; deployed images and Dockerfiles

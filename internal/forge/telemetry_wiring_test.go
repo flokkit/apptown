@@ -63,7 +63,7 @@ func TestForgedExportsRequestSpansAndLogsWhenConfigured(t *testing.T) {
 	}
 	var bridged bool
 	for _, l := range receiver.Logs() {
-		if strings.Contains(l.Body, "telemetry bridge canary 42") && !strings.HasPrefix(l.Body, "20") && l.Resource["service.name"] == "forged" {
+		if strings.Contains(l.Body, "telemetry bridge canary 42") && !strings.HasPrefix(l.Body, "20") && l.Resource["service.name"] == "apptownd" {
 			bridged = true
 		}
 	}
@@ -91,7 +91,7 @@ func TestLogBridgeEmitsEveryCompleteLine(t *testing.T) {
 	t.Parallel()
 	receiver := otlpfake.New()
 	defer receiver.Close()
-	providers, err := telemetry.Start(t.Context(), telemetry.Config{Endpoint: receiver.Endpoint(), Insecure: true, ServiceName: "forged", MetricInterval: time.Hour, CloseTimeout: 2 * time.Second})
+	providers, err := telemetry.Start(t.Context(), telemetry.Config{Endpoint: receiver.Endpoint(), Insecure: true, ServiceName: "apptownd", MetricInterval: time.Hour, CloseTimeout: 2 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}

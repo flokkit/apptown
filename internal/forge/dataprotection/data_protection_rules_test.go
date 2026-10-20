@@ -494,7 +494,7 @@ func TestTheBackupStoreIsAttachedOnlyAfterItsCheck(t *testing.T) {
 	}
 	var wrote bool
 	for _, c := range w.store.Calls() {
-		wrote = wrote || (c.Method == "PUT" && strings.HasPrefix(c.Key, ".forge-check/"))
+		wrote = wrote || (c.Method == "PUT" && strings.HasPrefix(c.Key, ".apptown-check/"))
 	}
 	if !wrote {
 		t.Fatal("the check never wrote")

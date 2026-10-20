@@ -7,7 +7,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
-// forge check reflects the land gate's SOURCE scanners: an attached non-manual
+// apptown check reflects the land gate's SOURCE scanners: an attached non-manual
 // source scanner runs against the staged tree and its findings come back so the
 // agent sees them in-loop. A manual (way-of-working) scanner is NOT fanned out
 // here — it only runs when a tool check names it.
@@ -50,7 +50,7 @@ func TestRunAttachedSourceScans(t *testing.T) {
 
 // Scanner discovery the caller stopped found nothing, which is not "no
 // scanners": the scans were not assessed, and say so as an errored result
-// that keeps forge check from answering ok.
+// that keeps apptown check from answering ok.
 //
 // Kills: an unreadable binding list read as no scanners attached.
 func TestStoppedScannerDiscoveryIsNotAPass(t *testing.T) {

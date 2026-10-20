@@ -1,9 +1,9 @@
 """deploy/apptown-start.sh, the apptown image's entrypoint, run as a plain
-process with stand-ins for dind, docker, curl and forged on its PATH: forged's
-exit status is the container's, even when forged ends before it answers; a
-stop during Docker's start, or after the ready line, ends forged and then
+process with stand-ins for dind, docker, curl and apptownd on its PATH: apptownd's
+exit status is the container's, even when apptownd ends before it answers; a
+stop during Docker's start, or after the ready line, ends apptownd and then
 Docker and exits cleanly; the ready line carries the setup token in the
-trial only; the server branch execs forged with none of the trial's
+trial only; the server branch execs apptownd with none of the trial's
 defaults; a container that cannot run Docker is told so."""
 import os
 import shutil
@@ -27,15 +27,15 @@ while [ -d "$STUB_DIR" ]; do sleep 0.1; done
 """,
     "docker": r"""[ -e "$STUB_DIR/docker-ready" ]""",
     # The health check: records how it was asked (last call wins).
-    "curl": r"""echo "$*" > "$STUB_DIR/curl-args"; [ -e "$STUB_DIR/forged-ready" ]""",
-    "forged": r"""echo "forged data=$FORGE_DATA auth=${FORGE_AUTH:-} tier=${FORGE_TIER_DOMAIN:-} tls=${FORGE_LOCAL_TLS:-} public=${FORGE_PUBLIC_HOST:-}" >> "$CALLS"
+    "curl": r"""echo "$*" > "$STUB_DIR/curl-args"; [ -e "$STUB_DIR/apptownd-ready" ]""",
+    "apptownd": r"""echo "apptownd data=$APPTOWN_DATA auth=${APPTOWN_AUTH:-} tier=${APPTOWN_TIER_DOMAIN:-} tls=${APPTOWN_LOCAL_TLS:-} public=${APPTOWN_PUBLIC_HOST:-}" >> "$CALLS"
 case "$FORGED_MODE" in
 exit37) exit 37 ;;
 serve)
-	mkdir -p "$FORGE_DATA/local-tls" && echo 0123abcd > "$FORGE_DATA/setup-token"
-	[ "${FORGE_LOCAL_TLS:-}" = true ] && echo cert > "$FORGE_DATA/local-tls/ca.pem"
-	trap 'echo forged-term >> "$CALLS"; exit 0' TERM
-	touch "$STUB_DIR/forged-ready"
+	mkdir -p "$APPTOWN_DATA/local-tls" && echo 0123abcd > "$APPTOWN_DATA/setup-token"
+	[ "${APPTOWN_LOCAL_TLS:-}" = true ] && echo cert > "$APPTOWN_DATA/local-tls/ca.pem"
+	trap 'echo apptownd-term >> "$CALLS"; exit 0' TERM
+	touch "$STUB_DIR/apptownd-ready"
 	while [ -d "$STUB_DIR" ]; do sleep 0.1; done ;;
 esac
 """,
@@ -93,7 +93,7 @@ class TrialEntrypoint(unittest.TestCase):
         out, _ = p.communicate(timeout=HANG_GUARD)
         self.assertEqual(p.returncode, 0, out)
         self.assertIn("dind-term", self.called())
-        self.assertFalse(any(line.startswith("forged") for line in self.called()), self.called())
+        self.assertFalse(any(line.startswith("apptownd") for line in self.called()), self.called())
 
     def test_a_stop_after_the_ready_line_ends_forged_then_docker(self):
         self.docker_ready()
@@ -107,21 +107,21 @@ class TrialEntrypoint(unittest.TestCase):
         out, _ = p.communicate(timeout=HANG_GUARD)
         self.assertEqual(p.returncode, 0, out)
         calls = self.called()
-        self.assertLess(calls.index("forged-term"), calls.index("dind-term"), calls)
-        forged = [c for c in calls if c.startswith("forged data=")][0]
-        self.assertIn("auth=internal", forged)
+        self.assertLess(calls.index("apptownd-term"), calls.index("dind-term"), calls)
+        apptownd = [c for c in calls if c.startswith("apptownd data=")][0]
+        self.assertIn("auth=internal", apptownd)
         # HTTPS from AppTown's own authority: the trial's addresses, the
         # flag that serves them and a health check that trusts that authority.
-        self.assertIn("tier=preview=https://preview.localhost:7777,main=https://main.localhost:7777", forged)
-        self.assertIn("tls=true public=https://localhost:7777", forged)
+        self.assertIn("tier=preview=https://preview.localhost:7777,main=https://main.localhost:7777", apptownd)
+        self.assertIn("tls=true public=https://localhost:7777", apptownd)
         with open(os.path.join(self.tmp, "curl-args")) as f:
             self.assertRegex(f.read(), r"--cacert \S+/local-tls/ca\.pem https://localhost:7777/healthz")
 
     def test_the_server_runs_forged_alone_with_its_own_data_directory(self):
-        p = self.start(FORGE_NO_LOCAL_DOCKER="true", FORGED_MODE="exit37")
+        p = self.start(APPTOWN_NO_LOCAL_DOCKER="true", FORGED_MODE="exit37")
         out, _ = p.communicate(timeout=HANG_GUARD)
         self.assertEqual(p.returncode, 37, out)
-        self.assertEqual([c for c in self.called() if c], ["forged data=/var/lib/forge auth= tier= tls= public="])
+        self.assertEqual([c for c in self.called() if c], ["apptownd data=/var/lib/apptown auth= tier= tls= public="])
         self.assertNotIn("setup=", out)
 
     def test_a_container_that_cannot_run_docker_is_told_so(self):

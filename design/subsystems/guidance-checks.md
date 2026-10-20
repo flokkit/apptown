@@ -16,7 +16,7 @@ recorded evidence.
 
 ## Feedback and evidence
 
-`forge check` (and MCP `run_change_checks`) runs a change's declared
+`apptown check` (and MCP `run_change_checks`) runs a change's declared
 deterministic checks, source scans and image scans against one named
 commit, as the landing gate would, so an agent can fix a failure before
 handing back. The image scan point looks at the image of that commit,
@@ -72,7 +72,7 @@ How main is judged depends on the evaluator:
 A probe or a rubric judges one property of the whole app, so failing on main
 is enough to call it preexisting; a shell check without occurrences could
 have listed what it found and did not, so it stays undecided. A remediation's
-own target is always judged absolutely. The web and `forge check` mark
+own target is always judged absolutely. The web and `apptown check` mark
 undecided and preexisting checks apart from failures.
 
 ## Evaluator policy
@@ -88,7 +88,7 @@ Not every stock check follows this yet; do not assume one does. See
 ## Implementation references
 
 - [internal/forge/verification/guidance.go](../../internal/forge/verification/guidance.go)
-- [internal/forge/verification/changes.go](../../internal/forge/verification/changes.go) (`forge check`)
+- [internal/forge/verification/changes.go](../../internal/forge/verification/changes.go) (`apptown check`)
 - [internal/forge/scm/scratch.go](../../internal/forge/scm/scratch.go) (scratch refs)
 - [internal/forge/verification/evaluator.go](../../internal/forge/verification/evaluator.go)
 - [internal/forge/verification/provenance_test.go](../../internal/forge/verification/provenance_test.go)

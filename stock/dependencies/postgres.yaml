@@ -21,7 +21,7 @@ defaults:
 # AppTown sets the password; an app that names one is refused, since a
 # managed target makes its own (dependency.RefusesNeeds). Each deployment
 # and each preview gets a password of its own (generate); the value here is
-# only for the servers AppTown starts beside its own steps and forge dev.
+# only for the servers AppTown starts beside its own steps and apptown dev.
 # The start script sets the password at every start (configAtStart), so a
 # standing server takes a new one at its next deploy.
 credentials:
@@ -38,7 +38,7 @@ generate: [password]
 # password per deployment, which AppTown does not make yet: today every
 # deployment's server is its own.)
 # Only the servers AppTown starts beside its own steps (tests, agent
-# steps, forge dev) make it a superuser (stepEnv below), so test runners
+# steps, apptown dev) make it a superuser (stepEnv below), so test runners
 # can make their own test databases and load fixtures.
 provides:
   DATABASE_URL: the connection URL, with the sslmode the server needs

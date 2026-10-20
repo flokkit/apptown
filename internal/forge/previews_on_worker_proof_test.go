@@ -102,7 +102,7 @@ func proofWorld(t *testing.T) (*App, *fakeDocker, *fakePreviewWorker, *workflow.
 }
 
 // consolePreview asks for a preview through the console's door
-// (POST /api/v1/console/{sid}/preview), as a change chat's `forge preview`
+// (POST /api/v1/console/{sid}/preview), as a change chat's `apptown preview`
 // does, with the chat's session token.
 func consolePreview(t *testing.T, a *App, session *console.Session) *httptest.ResponseRecorder {
 	t.Helper()

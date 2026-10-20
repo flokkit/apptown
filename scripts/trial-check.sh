@@ -39,7 +39,7 @@ if [ "$published" = --published ]; then
 else
 	step "build $image and $agent here"
 	docker build -q -f "$here/deploy/Dockerfile" --target server --build-arg "VERSION=v$version" -t "$image" "$here" >/dev/null
-	docker build -q -t "$agent" "$here/deploy/forge-agent" >/dev/null
+	docker build -q -t "$agent" "$here/deploy/apptown-agent" >/dev/null
 fi
 
 trap 'docker rm -f "$name" >/dev/null 2>&1; docker volume rm "$name" >/dev/null 2>&1 || :' EXIT
@@ -57,7 +57,7 @@ ready() {
 
 step "the README command (first start)"
 docker run -d --name "$name" --privileged -p "127.0.0.1:$port:7777" -v "$name:/var/lib/apptown" \
-	-e "FORGE_PUBLIC_HOST=$origin" -e "FORGE_TIER_DOMAIN=preview=http://preview.localhost:$port,main=http://main.localhost:$port" \
+	-e "APPTOWN_PUBLIC_HOST=$origin" -e "APPTOWN_TIER_DOMAIN=preview=http://preview.localhost:$port,main=http://main.localhost:$port" \
 	"$image" >/dev/null
 ready 1
 
@@ -82,7 +82,7 @@ rm -f "$jar"
 [ -n "$cli" ] || fail "no CLI token"
 
 step "the agent image is present"
-# Ready means forged answers, not that a first pull has finished: wait for
+# Ready means apptownd answers, not that a first pull has finished: wait for
 # the agent image to settle.
 t0=$(date +%s)
 while :; do
@@ -112,7 +112,7 @@ docker exec -e FORGE_URL=http://127.0.0.1:7777 -e "FORGE_TOKEN=$cli" "$name" sh 
 	git -C "$app" add -A
 	git -C "$app" -c user.name=trial -c user.email=trial@example.com commit -q -m "a page"
 	git -C "$app" bundle create "$app.bundle" --all 2>/dev/null
-	forge new hello --from "$app.bundle" >/dev/null'
+	apptown new hello --from "$app.bundle" >/dev/null'
 
 step "a change, and its preview"
 change=$(curl -fsS -H "Authorization: Bearer $cli" -H 'Content-Type: application/json' \
@@ -123,7 +123,7 @@ value = json.load(sys.stdin)["change"]["id"]
 if not isinstance(value, str) or str(uuid.UUID(value)) != value.lower():
     raise ValueError("not a canonical change UUID")
 print(value)') || fail "the change response carried no change UUID"
-url=$(docker exec -e FORGE_URL=http://127.0.0.1:7777 -e "FORGE_TOKEN=$cli" "$name" forge preview "$change" |
+url=$(docker exec -e FORGE_URL=http://127.0.0.1:7777 -e "FORGE_TOKEN=$cli" "$name" apptown preview "$change" |
 	sed -n 's/.*is up[^:]*: \(http[^ ]*\).*/\1/p' | tail -1)
 case $url in
 http://change-*.preview.localhost:$port*) ;;

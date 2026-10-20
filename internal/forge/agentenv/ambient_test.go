@@ -35,7 +35,7 @@ func TestAmbientPreparationPreservesProjectConfigurationAndIsolatesInstalls(t *t
 			if strings.HasPrefix(value, "MISE_DATA_DIR=") {
 				install = strings.TrimPrefix(value, "MISE_DATA_DIR=")
 			}
-			if strings.HasPrefix(value, "PATH=") && !strings.HasPrefix(value, "PATH=/opt/forge/bin:") {
+			if strings.HasPrefix(value, "PATH=") && !strings.HasPrefix(value, "PATH=/opt/apptown/bin:") {
 				t.Fatal("toolchain can shadow the agents' CLI")
 			}
 		}
@@ -68,7 +68,7 @@ func TestAmbientPreparationPreservesProjectConfigurationAndIsolatesInstalls(t *t
 
 // The generated files are presented at the same container paths as when
 // they were written into the tree and mounted from there: the system layer
-// of mise, the forge's CARGO_HOME, and /etc/forge for maven.
+// of mise, the forge's CARGO_HOME, and /etc/apptown for maven.
 func TestGeneratedFilesKeepTheirContainerPaths(t *testing.T) {
 	t.Parallel()
 	bound := map[string]integration.BoundRegistry{
@@ -84,7 +84,7 @@ func TestGeneratedFilesKeepTheirContainerPaths(t *testing.T) {
 			t.Errorf("%s: mode %v, %d bytes", f.Path, f.Mode, len(f.Content))
 		}
 	}
-	if got, want := strings.Join(paths, " "), "/etc/mise/config.toml /etc/forge/maven-settings.xml /forge-cache/cargo/config.toml"; got != want {
+	if got, want := strings.Join(paths, " "), "/etc/mise/config.toml /etc/apptown/maven-settings.xml /forge-cache/cargo/config.toml"; got != want {
 		t.Fatalf("paths %q, want %q", got, want)
 	}
 	if err := execution.ValidFiles(amb.Files); err != nil {

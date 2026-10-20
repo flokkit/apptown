@@ -11,6 +11,9 @@ import type { PastedPicture } from '../../wire.gen'
 // left, tool use as quiet chips. The terminal (one toggle away) is the same
 // conversation at forensic zoom — nothing exists only here.
 
+
+// The mark on AppTown's own check messages in a chat, either spelling.
+const CHECK_MARK = /^\[(?:apptown|forge) check\]/
 export type Bubble = { i: number; role: 'you' | 'helper'; text?: string; tools?: { name: string; detail?: string }[]; error?: boolean; stopped?: boolean }
 
 const TOOL_WORDS: Record<string, string> = {
@@ -164,10 +167,12 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
           // helper turn, a text message followed by more helper activity is
           // working-it-out (dim); the message where the helper stops and
           // hands back is the answer (green). Position in the record decides.
-          // A [forge check] message is the forge itself reporting a failed
+          // A [apptown check] message is AppTown itself reporting a failed
           // cold boot into the chat — it renders as the forge, not the
           // operator, and it CANCELS the green on the claim before it.
-          const isCheck = (x?: Bubble) => !!x && x.role === 'you' && !!x.text && x.text.startsWith('[forge check]')
+          // Chats from before the AppTown rename keep their "[forge check]"
+          // messages as written; both read as AppTown's own.
+          const isCheck = (x?: Bubble) => !!x && x.role === 'you' && !!x.text && CHECK_MARK.test(x.text)
           const next = shown[idx + 1]
           const isFinal = m.role === 'helper' && !!m.text && (!next || (next.role === 'you' && !isCheck(next)))
           const isWorking = m.role === 'helper' && !isFinal && !isCheck(m)
@@ -196,7 +201,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
               <div key={m.i} className="bubble-row">
                 <div className="bubble check">
                   <div className="small" style={{ opacity: 0.8, marginBottom: 2 }}>⚙ Boot check: the app did not start</div>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{(m.text ?? '').replace('[forge check]', '').trim()}</div>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{(m.text ?? '').replace(CHECK_MARK, '').trim()}</div>
                 </div>
               </div>
             )

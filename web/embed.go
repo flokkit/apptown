@@ -1,4 +1,4 @@
-// Package web embeds the built frontend (web/dist) into the forged binary.
+// Package web embeds the built frontend (web/dist) into the apptownd binary.
 // Build the frontend first: cd web && npm run build (see Makefile).
 package web
 

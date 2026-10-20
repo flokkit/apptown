@@ -47,7 +47,7 @@ the enabling behavior is clear in source, not that a live exploit was run.
 | TM-10 | Authentication and revocation differ across doors | P1 | S, E | High mixed paths; matrix incomplete | Partly mitigated |
 | TM-11 | Broad reads violate assumed project privacy | P1 decision | I | High; confidentiality intent unresolved | Partly mitigated |
 | TM-12 | Bootstrap, login or proxy configuration grants authority | P1 | S, E, D | High source evidence; deployment dependent | Partly mitigated |
-| TM-13 | Stolen instrument credentials or forged reports exceed purpose | P1 | S, T, E | High credentials; per-action bounds need review | Partly mitigated |
+| TM-13 | Stolen instrument credentials or apptownd reports exceed purpose | P1 | S, T, E | High credentials; per-action bounds need review | Partly mitigated |
 | TM-14 | Untrusted development/release code receives valuable secrets | P1; P0 if bindings reuse production | I, E | High delivery; live bindings unverified | Partly mitigated |
 | TM-15 | Secrets persist in files, images, logs or Git | P1 | I | High | Partly mitigated |
 | TM-16 | Database/backup compromise reveals secrets and authority | P1 | I, T | High | Accepted for the built-in store; backups open |
@@ -136,9 +136,9 @@ Docker and no project process; a script step runs as a host process only with
 not"). Remaining: private Docker is still a privileged container; without
 `-no-local-docker`, project chats, continued chats and chats placed on the
 forge still run on its host; a worker moves code off the forge's host but
-does not contain it there. Running `forged` as root on Linux is a documented
+does not contain it there. Running `apptownd` as root on Linux is a documented
 choice ([running a forge](../../stock/docs/guides/running-apptown.md),
-"Prepare the host"; `deploy/systemd/forged.service`), so code that escapes to
+"Prepare the host"; `deploy/systemd/apptownd.service`), so code that escapes to
 the forge's host has root there.
 
 **Attack and impact.** Malicious workload code uses local execution directly
@@ -159,7 +159,7 @@ separate review of the chosen kernel/VM boundary.
 
 ### TM-04 — attacker-controlled Git metadata drives host execution
 
-**Status: partly mitigated.** Before the forge runs Git in
+**Status: partly mitigated.** Before the apptown runs Git in
 a change's or run's folder that an agent or person may have changed, it checks
 the metadata by reading files only (a real `.git` directory, no symbolic
 links, no shared or borrowed metadata, only the config its own clone writes,
@@ -251,7 +251,7 @@ performance optimizations do not reintroduce a shared writable parent.
 
 **Status: open.** The inference listener admits only
 configured worker networks, and a worker can check that the cloud metadata
-address is blocked (`forge-worker -check-metadata`), but the block itself is
+address is blocked (`apptown-worker -check-metadata`), but the block itself is
 the operator's firewall rule ([running a forge](../../stock/docs/guides/running-apptown.md)).
 No guide or test shows an enforced egress policy for workloads (the
 [agent isolation limits](../subsystems/agent-sandbox.md) list it as not
@@ -322,7 +322,7 @@ operator's choice (TM-28).
 
 **Attack and impact.** A hostile site, especially a sibling preview on the
 same registrable domain, sends browser-authenticated requests or opens a
-terminal WebSocket. A forged OAuth consent POST can authorize an attacker-owned
+terminal WebSocket. A apptownd OAuth consent POST can authorize an attacker-owned
 client whose PKCE challenge the attacker chose.
 
 **Proposed control.** Exact trusted-origin checks for WebSocket handshakes;
@@ -332,7 +332,7 @@ names with a deliberate local-HTTP development mode. Frame protection for
 consent/admin pages. Separate app and Forge registrable domains where possible.
 
 **Verify.** Browser tests from unrelated and same-site sibling origins must
-deny credentialed terminal connections, forged consent and state-changing
+deny credentialed terminal connections, apptownd consent and state-changing
 requests. Valid UI/API/OAuth clients still work. Test absent/null origins
 according to the actual client contract; do not indiscriminately exempt them.
 
@@ -431,7 +431,7 @@ can make them; a runtime's report is still a claim unless a check witnessed
 the result.
 
 **Attack and impact.** Code steals its console/run token and uses the main
-listener or another transport, submits a forged completion report, or keeps
+listener or another transport, submits a apptownd completion report, or keeps
 acting after the intended turn. Its legitimate token must not make arbitrary
 claims into trusted outcomes.
 
@@ -623,7 +623,7 @@ starts, on its host or a worker, has CPU, memory and PID limits
 ([running a forge](../../stock/docs/guides/running-apptown.md)); services
 beside tests and checks have their own limits ([workers](../operations/workers.md),
 "Limits on services"). The HTTP servers set header timeouts
-(`cmd/forged/main.go`) and the terminal WebSocket limits a frame to 1 MiB
+(`cmd/apptownd/main.go`) and the terminal WebSocket limits a frame to 1 MiB
 (`internal/forge/console_pty.go`). Remaining: no per-person, per-project or
 instance admission quotas; no disk, image or log quotas.
 
@@ -691,7 +691,7 @@ abandoned chats and failed cleanup.
 ### TM-23 — deployment adapters exercise excessive target authority
 
 **Status: open.** Targets are explicit and each credential
-is a named forge secret resolved on the forge
+is a named apptown secret resolved on the forge
 ([running a forge](../../stock/docs/guides/running-apptown.md), "Deployment
 targets"; [deploy targets](../subsystems/deploy-targets.md)), but what each
 credential may do is decided at the provider, a Docker host's SSH key is

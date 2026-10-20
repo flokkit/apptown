@@ -58,7 +58,7 @@ func TestStartChangeRunHTTPValidatesBeforeAdmission(t *testing.T) {
 	caller.Receipt = "bls"
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"workflow":"chosen-lane"}`)).WithContext(access.WithCaller(f.Context, caller))
 	r.SetPathValue("id", fmt.Sprint(change.ID))
-	r.Header.Set("X-Forge-Actor", "forged-attribution")
+	r.Header.Set("X-Forge-Actor", "apptownd-attribution")
 	w := httptest.NewRecorder()
 	h.StartChangeRun(w, r)
 	var out struct {

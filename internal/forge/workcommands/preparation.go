@@ -53,7 +53,7 @@ type SecretStores interface {
 func (a *Preparation) now() time.Time { return clock.Or(a.clock)() }
 
 // WorkerChats saves a chat on a worker, so what a landing, recheck or
-// `forge check` chooses is the chat's work as saved on the branch
+// `apptown check` chooses is the chat's work as saved on the branch
 // (design/operations/workers.md, "Chats on the worker").
 type WorkerChats interface {
 	// SaveFirst saves the chat that holder names when it runs on

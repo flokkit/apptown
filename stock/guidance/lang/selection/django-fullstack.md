@@ -192,7 +192,7 @@ Checks: this way of working runs Django's own **`manage.py check --deploy`**
 (the authoritative, framework-current deployment linter) and **semgrep**'s
 django/python security rules — maintained tools, not hand-written greps.
 Run them yourself before handing back with
-`forge check`; the deploy check gates a landing, the SAST findings are
+`apptown check`; the deploy check gates a landing, the SAST findings are
 advisory. The one thing no external tool knows is AppTown's front-door
 contract above — that `FORGE_ORIGINS` is read, its wildcards translated,
 and the hosts not left wide open — so that stays a small AppTown check.

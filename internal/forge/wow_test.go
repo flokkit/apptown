@@ -63,7 +63,7 @@ func TestPrepareThenAdopt(t *testing.T) {
 	recordFixtureAdoptions(t, a)
 	adoptTestPlatform(t, a, pid)
 	testPack(t, a, "house-style", []string{"prose/terse-style"})
-	// A stock workflow moves: the forge pack that carries it gets a new
+	// A stock workflow moves: the apptown pack that carries it gets a new
 	// version; nobody moves until they adopt it.
 	entries, err := a.Ways.Workflows(t.Context())
 	if err != nil {

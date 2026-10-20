@@ -112,7 +112,7 @@ func buildMCPServer(a *App) (_ http.Handler, err error) {
 		SessionTimeout:      mcpSessionIdle,
 		// The SDK refuses a loopback listener reached under another host name,
 		// a guard against DNS rebinding onto an unauthenticated local server.
-		// forged is often exactly that behind its reverse proxy, and this door
+		// apptownd is often exactly that behind its reverse proxy, and this door
 		// admits only a bearer token, never an ambient browser credential.
 		DisableLocalhostProtection: true,
 	})
@@ -155,7 +155,7 @@ func (a *App) mcpIdentity(w http.ResponseWriter, r *http.Request) *authIdentity 
 			if id.Purpose == access.TokenAgent {
 				return id
 			}
-			refusal = "this is a command-line token, which acts as you; sign in through your coding agent, or make an agent token: forge token create <name> --purpose agent"
+			refusal = "this is a command-line token, which acts as you; sign in through your coding agent, or make an agent token: apptown token create <name> --purpose agent"
 		}
 	}
 	// The resource_metadata pointer is how an MCP client discovers the

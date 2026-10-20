@@ -10,7 +10,7 @@ defaults:
   user: app
 # AppTown sets the password. Each deployment and each preview gets one of
 # its own (generate); the value here is only for the servers AppTown
-# starts beside its own steps and forge dev.
+# starts beside its own steps and apptown dev.
 credentials:
   password: app
 generate: [password]

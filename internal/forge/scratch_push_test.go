@@ -190,7 +190,7 @@ func TestAStepPushesOnlyItsOwnScratchRef(t *testing.T) {
 	}
 }
 
-// `forge check` of a step's scratch commit checks it, through the API the
+// `apptown check` of a step's scratch commit checks it, through the API the
 // CLI uses with the step's token, and answers that the result is feedback
 // only. It writes no evidence: the run's record reads as it did, and no
 // branch moves. A commit the step has not sent is still refused.

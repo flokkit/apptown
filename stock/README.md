@@ -20,14 +20,14 @@ named engine feature.
 | **ship** | callable pipeline: scan source and image, deploy to `main`, require the release record (`workflow/call: ship`) | release artifact | **Shipped** (`ship.yaml`, a system workflow); `land` carries its own ship stage, and no stock workflow calls it today |
 | **dependency-uplift** | agent applies patch/minor updates → build+tests → dep scan → report → approve; majors surfaced, never applied | the auditor's "do you patch monthly?" answered by completed runs | **Shipped** (`dependency-uplift.yaml`) — scheduled monthly |
 | **security-triage** | CVE/advisory list → agent assesses applicability → patch (sub-workflow) or waive with ADR | waivers are ADRs; patches are runs | Sketch — `workflow/call` exists; the triage prompt does not |
-| **release** | promotion to the intranet: stage the committed tree, build, push, deploy the stack, numbered record with its log | release rows + release events | Not a workflow: built into AppTown (`internal/forge/deployment/intranet_release.go`, `forge release`); an internet rung is not |
+| **release** | promotion to the intranet: stage the committed tree, build, push, deploy the stack, numbered record with its log | release rows + release events | Not a workflow: built into AppTown (`internal/forge/deployment/intranet_release.go`, `apptown release`); an internet rung is not |
 
 ## Integrations
 
 | Workflow | Shape | Receipts / gates | Status |
 |---|---|---|---|
-| **adopt-integration** | an integration is attached to the project → agent wires the app to it, following the integration's guidance → checks it builds and runs with and without it | the wiring change and its checks | **Shipped** (`adopt-integration.yaml`, a system workflow; started by wiring an attached integration, or `forge adopt`) |
-| **retire-integration** | an integration is retired → agent removes it → checks nothing still refers to it and the app runs without it | the removal change and its checks | **Shipped** (`retire-integration.yaml`, a system workflow; started by `forge retire`) |
+| **adopt-integration** | an integration is attached to the project → agent wires the app to it, following the integration's guidance → checks it builds and runs with and without it | the wiring change and its checks | **Shipped** (`adopt-integration.yaml`, a system workflow; started by wiring an attached integration, or `apptown adopt`) |
+| **retire-integration** | an integration is retired → agent removes it → checks nothing still refers to it and the app runs without it | the removal change and its checks | **Shipped** (`retire-integration.yaml`, a system workflow; started by `apptown retire`) |
 
 ## Knowledge & meta
 
@@ -36,7 +36,7 @@ named engine feature.
 | **excavate** | existing code → agent writes REQUIREMENTS.md, each requirement pointing at its code → second agent reviews → person rules on open questions and accepts | REQUIREMENTS.md committed | **Experimental** (`excavate.yaml`) |
 | **research** | question → agent investigates (web via curl, files), NOTES.md w/ sources → scope check → synthesis w/ citations → accept | notes + cited report into the project record | **Experimental** (`research.yaml`) |
 | **adr-draft** | decision context → agent drafts options/tradeoffs ADR → human edits/ratifies via ADR lifecycle | the ADR itself | Runnable in spirit today (agent step + adr/require) |
-| **distill-workflow** | run trace (`forge trace --json`) → agent drafts workflow YAML, parameterized → review → ratify as provisional | the new workflow, its provenance = the trace | Sketch — wants process-change governance |
+| **distill-workflow** | run trace (`apptown trace --json`) → agent drafts workflow YAML, parameterized → review → ratify as provisional | the new workflow, its provenance = the trace | Sketch — wants process-change governance |
 | **process-change** | proposed edit to workflows/guidance → ADR required → approval → applied | governance receipts (state-model §7) | Sketch — needs governance bindings |
 | **reconcile-history** | find unattested commits → agent classifies into semantic groups → propose retroactive runs → human ratifies | synthetic `did` records; the escape hatch closing itself (§3.1) | Sketch — needs git-backed state (schedule trigger available) |
 | **guidance-review** | periodically: compare pinned stances against actual ledger behavior → propose supersessions/bumps | taste kept honest by data | Sketch — needs evidence views (schedule trigger available) |

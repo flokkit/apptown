@@ -144,7 +144,7 @@ func TestStepApprovalFencesAuthoritySnapshot(t *testing.T) {
 
 // An approval judges its stage's work, so it is refused while that work is
 // still to run and given once it has finished; the refusal records nothing.
-// In the gap between one step finishing and the next starting, forge quick
+// In the gap between one step finishing and the next starting, apptown quick
 // -y once approved before boot and review had run (live smoke, run 507).
 func TestAnApprovalWaitsForItsStagesWork(t *testing.T) {
 	t.Parallel()

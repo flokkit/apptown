@@ -53,7 +53,7 @@ evidence as ruled receipts per run, with merge and releases; and tabs
 addressed by `?tab=` (changes, work, conversation, releases, history, about;
 `&run=` and `&step=` open a run and a step in Work). A failed machine verdict
 in the current stage is shown beside the implementer's claim as "the
-disagreement", on the first screen, as `forge show` prints it.
+disagreement", on the first screen, as `apptown show` prints it.
 
 ## Remaining design
 

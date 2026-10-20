@@ -27,7 +27,7 @@ const imageFailOn = "high"
 // there is nothing earlier to compare with, and that is not a fault.
 const firstReleaseNote = "first release: there is no earlier image to compare with, so every finding counts as new"
 
-// RunImageScans is forge check's view of the landing's image scan point:
+// RunImageScans is apptown check's view of the landing's image scan point:
 // every attached, non-manual scanner whose target is the built image runs
 // against the image of the checked commit, compared with the same base the
 // landing's scan-image step uses, and judged as that step judges
@@ -193,7 +193,7 @@ func (s *Scanners) baseImageFingerprints(ctx context.Context, projectID ids.ID, 
 		// unavailable, never clean. With no local Docker it is unknown.
 		if absent {
 			// Said plainly: "no local Docker" reads as a fault to fix,
-			// but it is how this forge runs.
+			// but it is how this apptown runs.
 			b.Note = "no earlier image to compare with, so every finding is treated as introduced by this change: the image of the commit it started from was not available (" + preparation + "), and this AppTown runs no Docker of its own, so it cannot read the image the app runs now"
 			return b
 		}

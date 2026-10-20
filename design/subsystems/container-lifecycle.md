@@ -67,7 +67,7 @@ worker.
 
 - **A look** is a request to the preview's address through the forge's
   preview (or eval) domain, or a boot of it: the open or restart button,
-  `forge preview`, a chat's rehearsal, a run's preview step, a release's
+  `apptown preview`, a chat's rehearsal, a run's preview step, a release's
   look. Preview records the last one per preview (`preview_views`), on the
   forge's clock, at most once a minute.
 - **Stopping** removes the whole stack: the app with its volumes and data

@@ -38,7 +38,7 @@ import (
 )
 
 // The composed proof of agent and review steps on a worker. What is real and what is controlled:
-//   - real: forge-worker's server in this process, over mutual TLS, running
+//   - real: apptown-worker's server in this process, over mutual TLS, running
 //     its tasks on this machine's Docker in the packaged Pi runtime
 //     (forge-agent:latest); the forge CLI built for Linux, as packaging
 //     does; the forge's inference gateway and API, reached from inside the
@@ -53,7 +53,7 @@ import (
 //
 // It shows, in one workflow of an agent step followed by a review step:
 // the agent calls the model through the gateway with its derived token and
-// commits in its own repository and runs `forge check` through the packaged
+// commits in its own repository and runs `apptown check` through the packaged
 // CLI in the step, which names the agent's commit and is refused as not on
 // the forge yet, and checks the published tip when asked with --published;
 // the worker collects the agent's work as one commit; the forge
@@ -99,7 +99,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	}
 	// The agent's turn: it writes its change and commits it in its own
 	// repository at /work/.git (worker/agent_git.go), reads its history and
-	// its diff against the base branch, and runs `forge check` twice
+	// its diff against the base branch, and runs `apptown check` twice
 	// through the packaged CLI. The worker's collection squashes the agent's
 	// commit, and what it left after, into one commit of its own.
 	agentWork := strings.Join([]string{
@@ -108,8 +108,8 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		`git rev-parse HEAD > git-head.txt 2>&1`,
 		`git rev-parse --abbrev-ref HEAD > git-branch.txt 2>&1`,
 		`git diff --name-only main > git-diff.txt 2>&1; echo "exit $?" >> git-diff.txt`,
-		`forge check > check.txt 2>&1; echo "exit $?" >> check.txt`,
-		`forge check --published > published.txt 2>&1; echo "exit $?" >> published.txt`,
+		`apptown check > check.txt 2>&1; echo "exit $?" >> check.txt`,
+		`apptown check --published > published.txt 2>&1; echo "exit $?" >> published.txt`,
 		`echo worked`,
 	}, "; ")
 	reviewWork := `mkdir -p .forge && printf '{"verdict":"pass","summary":"the change is what was asked","findings":[]}' > .forge/review.json && echo reviewed`
@@ -174,7 +174,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		<-restarted
 		mu.Lock()
 		// The API takes the step's token as its session header; the Git
-		// endpoint, where `forge check` sends the agent's commit to the
+		// endpoint, where `apptown check` sends the agent's commit to the
 		// scratch ref, as a bearer credential git sends to it alone.
 		token := r.Header.Get("X-Forge-Session-Token")
 		if strings.HasPrefix(r.URL.Path, "/git/") {
@@ -320,15 +320,15 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		t.Fatalf("work was refused: %s", refused)
 	}
 
-	// `forge check` ran through the packaged CLI inside the step, with the
+	// `apptown check` ran through the packaged CLI inside the step, with the
 	// attempt's token, against the restarted forge. It named the agent's
 	// commit, this folder's HEAD, sent it to the attempt's scratch ref and
-	// had it checked, as feedback only (workers.md, "forge check inside a
+	// had it checked, as feedback only (workers.md, "apptown check inside a
 	// step"); the scratch ref went when the attempt settled. --published
 	// names the step's source as the published tip.
 	check := gittest.Run(t, hub, "show", tip+":check.txt")
 	if !strings.Contains(check, "checking commit "+agentHead+" (this folder's HEAD)") || !strings.Contains(check, "commit "+agentHead+" (your work in progress, sent for checking: this result is feedback only") || !strings.HasSuffix(check, "exit 0") {
-		t.Fatalf("forge check inside the step answered (the agent's HEAD %s):\n%s", agentHead, check)
+		t.Fatalf("apptown check inside the step answered (the agent's HEAD %s):\n%s", agentHead, check)
 	}
 	// The ref goes once the outcome is recorded (the runner's deferred
 	// drop), so a moment after the step reads as passed.
@@ -342,7 +342,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	}
 	published := gittest.Run(t, hub, "show", tip+":published.txt")
 	if !strings.Contains(published, "commit "+stepSource+" (the published tip") || !strings.HasSuffix(published, "exit 0") {
-		t.Fatalf("forge check --published inside the step answered (source %s):\n%s", stepSource, published)
+		t.Fatalf("apptown check --published inside the step answered (source %s):\n%s", stepSource, published)
 	}
 
 	// The review ran after the agent settled, on the worker, and passed.
@@ -425,7 +425,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		}
 	}
 	if checks != 2 || pushes != 1 {
-		t.Fatalf("forge check reached the API %d times and pushed to the scratch ref %d times: %+v", checks, pushes, api)
+		t.Fatalf("apptown check reached the API %d times and pushed to the scratch ref %d times: %+v", checks, pushes, api)
 	}
 	replay.Body = io.NopCloser(bytes.NewReader(replayBody))
 	replay.RemoteAddr = "127.0.0.1:40000"
@@ -435,7 +435,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	if rec.Code < 400 || rec.Code >= 500 {
 		t.Fatalf("the settled agent attempt's token was answered %d: %s", rec.Code, rec.Body)
 	}
-	t.Logf("forge check in the step:\n%s\nforge check --published:\n%s\nmodel calls %s through the gateway (%d with the agent's token, %d the review's); the settled attempt's token now: %d %s; this machine's Docker was asked %v",
+	t.Logf("apptown check in the step:\n%s\nforge check --published:\n%s\nmodel calls %s through the gateway (%d with the agent's token, %d the review's); the settled attempt's token now: %d %s; this machine's Docker was asked %v",
 		check, published, modelCalls, toAgent, toReview, rec.Code, strings.TrimSpace(rec.Body.String()), local.Commands())
 
 	// Nothing ran on this machine: its Docker was asked only for listings,

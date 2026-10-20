@@ -39,10 +39,10 @@ const maxAgentOutput = 24 * 1024
 
 type agentConfig struct {
 	Prompt    string               `json:"prompt"`
-	Model     string               `json:"model"`    // "provider/model-pattern"; empty = workflow default, then forged default, then pi default
+	Model     string               `json:"model"`    // "provider/model-pattern"; empty = workflow default, then apptownd default, then pi default
 	Thinking  string               `json:"thinking"` // off|minimal|low|medium|high
-	Executor  string               `json:"executor"` // local | docker; empty = workflow default, then forged default (docker)
-	Image     string               `json:"image"`    // docker image; empty = forged default
+	Executor  string               `json:"executor"` // local | docker; empty = workflow default, then apptownd default (docker)
+	Image     string               `json:"image"`    // docker image; empty = apptownd default
 	Scm       integration.SCMGrant `json:"scm"`      // false | true(=read) | "read" | "write" — project-scoped GitLab token
 	Skills    []string             `json:"skills"`   // guidance block names, conventionally skill/*
 	Resources []string             `json:"resources"`
@@ -83,7 +83,7 @@ type agentConfig struct {
 	RetryMode string `json:"retryMode,omitempty"`
 	// A new continuation step resumes the source step's recorded session.
 	ContinueSession string `json:"continueSession,omitempty"`
-	// Sendback: a human's note dispatched with forge retry -m — the resumed
+	// Sendback: a human's note dispatched with apptown retry -m — the resumed
 	// session's message when no gate rejection carries the words.
 	Sendback string `json:"sendback,omitempty"`
 }
@@ -305,7 +305,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 
 // agentKnobs is the resolved model/thinking/executor/image for a step, in
 // precedence order: step config, workflow defaults, catalog pin (which WINS
-// for model), forged defaults. useDind: the private docker daemon a
+// for model), apptownd defaults. useDind: the private docker daemon a
 // docker-executed step declares with docker: true.
 
 // restoreReport writes an earlier report into the folder at its path, unless

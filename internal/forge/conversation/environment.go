@@ -135,7 +135,7 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 	env := []string{"FORGE_URL=" + e.cfg.APIURL, "FORGE_USER=" + s.Actor + " via console/" + s.ID,
 		"FORGE_SESSION_ID=" + s.ID, "FORGE_SESSION_TOKEN=" + s.Token}
 	if changeID := Of(s).ChangeID; !changeID.IsZero() {
-		// `forge check` and friends infer the change from the session.
+		// `apptown check` and friends infer the change from the session.
 		env = append(env, fmt.Sprintf("FORGE_CHANGE=%d", changeID))
 	}
 	// The scoped git remote: fetch main, read-only, this project only.
@@ -163,7 +163,7 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 	env = append(env, amb.Env...)
 	mounts = append(mounts, ambMounts...)
 	if cli, err := e.cli.Path(); err == nil {
-		mounts = append(mounts, cli+":"+agentenv.CLIDir+"/forge:ro")
+		mounts = append(mounts, cli+":"+agentenv.CLIDir+"/apptown:ro")
 		env = agentenv.WithCLIPath(env)
 	}
 	if err := e.credentials.CheckEnvironment(ctx, env); err != nil {
@@ -220,8 +220,8 @@ This chat runs on a separate machine, the worker. Your work reaches the change
 when it is saved: after each turn AppTown collects your commits, checks them
 as it checks any publication, and puts them on the change's branch. Only
 committed work is saved, so commit as you go. If a save is refused you are told
-why, with how to fix it. ` + "`forge check`" + ` saves your commits first and checks what
-was saved, so commit before asking. Previews work the same way: ` + "`forge preview`" + `
+why, with how to fix it. ` + "`apptown check`" + ` saves your commits first and checks what
+was saved, so commit before asking. Previews work the same way: ` + "`apptown preview`" + `
 saves first and boots what was saved, and after each saved turn AppTown
 boots your saved commit like the try-it button and tells you if it fails.
 `

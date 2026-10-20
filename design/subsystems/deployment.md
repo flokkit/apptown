@@ -184,7 +184,7 @@ It has one of two forms.
   in different repositories. The driver also refuses such a spec
   before asking for the app;
 - Portainer, by promotion: the stack names every part and init image by
-  digest. Released by name (`forge release <project> lan`, or Deploy on the
+  digest. Released by name (`apptown release <project> lan`, or Deploy on the
   deployment's card) or by the intranet release, it is the same stack: one
   builder (`Environment.portainerStack`) renders the app's needs as on a
   Docker host (each need's `provides:`, Postgres's ordinary owner with the
@@ -300,7 +300,7 @@ one that holds no data is not affected; a release of the bundle the
 deployment already runs (an operator's override redeploying it) brings no new
 code and is not asked. Such a release is refused, naming
 why and how to go on. A person may release anyway with `acceptUncopiedData`
-(`forge release --accept-uncopied-data`): the release's first log line then
+(`apptown release --accept-uncopied-data`): the release's first log line then
 says who chose it and why the data could not be copied. There is no
 freshness rule: data the forge can copy is copied nightly and after each
 release, and the protection view shows a stale copy.
@@ -637,7 +637,7 @@ the release declares disposable empty; any other item fails it, by name.
   same reason) — at the take-down door and at project deletion — unless
   the person chooses to take it down without a final copy
   (`withoutFinalCopy`, naming the deployment: the card's "Take it down
-  without a final copy", `forge data take-down --without-final-copy`).
+  without a final copy", `apptown data take-down --without-final-copy`).
   Then the app goes, the cluster stays as a retained resource, and
   `deployment.torn-down` records the choice, who made it and why there was
   no copy. A choice that arrives once a final copy can be taken is refused
@@ -735,7 +735,7 @@ the release declares disposable empty; any other item fails it, by name.
   set (`backup_drills` by set and item); otherwise it is refused before
   anything is made, naming each item and its last check or "never
   checked". A person may release anyway with `acceptUncheckedCopy`
-  (`forge release --accept-unchecked-copy`): the release's first log line
+  (`apptown release --accept-unchecked-copy`): the release's first log line
   then says who chose it and which items were not shown to come back. The
   offer says "checked" only when every such item was.
 - **Authority.** Putting a copy's data into a deployment needs
@@ -747,7 +747,7 @@ the release declares disposable empty; any other item fails it, by name.
   only into a production deployment. A copy on request needs
   `deployment:deploy`.
 - **Protection state** (`GET .../deployments/{name}/protection`, the
-  deployment card, `forge data`): per item, the forge's copies — fresh
+  deployment card, `apptown data`): per item, the forge's copies — fresh
   (within a day plus six hours), stale (older, or the last copy failed),
   unknown (the last copy was interrupted) or none — with the newest; the
   provider's backups as it answers now, or unknown with why; and the
@@ -768,7 +768,7 @@ the release declares disposable empty; any other item fails it, by name.
   a fresh copy, a passed check, rehearsal or restore test speaks for the
   assessed items only. The backup store holds the forge's copies and is
   never an app's own bucket. A deployment holding no data the forge knows
-  of still says what is not assessed; the card and `forge data` show the
+  of still says what is not assessed; the card and `apptown data` show the
   same lists beside the evidence.
   The daily sweep starts a copy of every production App Platform deployment
   ready for one, and drills it when any item it would fill has no drill
@@ -832,7 +832,7 @@ recorded rehearsal is kept beside it as `previous`, never shown as the
 latest); or "never rehearsed" / "never rehearsed: no rehearsal place".
 
 **Restored copies** (`dataprotection/restored_copy.go`, `deploy.Gate`, `internal/gate`,
-`cmd/forge-gate`). A restored copy is a temporary deployment (kind
+`cmd/apptown-gate`). A restored copy is a temporary deployment (kind
 `restored-copy`) of a standing production deployment's current release, by
 digest, on the source's own target, started from a chosen store copy, behind
 the forge's access gate. A **restore test** is one with no lifetime: nobody
@@ -913,7 +913,7 @@ hours, extendable) and people may enter it.
 - **Safe facts only**: step names, the platform's own sentences, exit
   statuses and status codes. A gated deployment's failing component logs
   are not fetched, and a fill's command output is not kept.
-- The card and `forge data` show the last restore test apart from the last
+- The card and `apptown data` show the last restore test apart from the last
   rehearsal, with the forge's own check of its gate ("gate: N of M checks
   passed", and each that failed with its path and status), each
   standing copy ("open until … · opened by …"), what it can still do outside
@@ -1130,7 +1130,7 @@ start scripts set them at every start, so a standing need takes its owner's
 at its next deploy. A copy of a running need reads its credentials from its
 container (`dataprotection.containerConnection`), so a container not yet
 converted, and a restore into another deployment, use what that container
-was started with. The forge's own step servers and `forge dev` use the
+was started with. The forge's own step servers and `apptown dev` use the
 catalogue's values. A boot replaces the values it generated with `[secret]`
 in a container's output before it cuts it short for a failure, and in the
 failure it returns (`docker.Scope.Redact`, `Host.Boot`). Rotation is not

@@ -56,7 +56,7 @@ func TestBrowserMutationOrigins(t *testing.T) {
 				r.Header.Set("Sec-Fetch-Site", tc.site)
 				// Neither bearer-looking input nor proxy headers bypass the
 				// browser boundary or select an attacker-supplied origin.
-				r.Header.Set("Authorization", "Bearer forged")
+				r.Header.Set("Authorization", "Bearer apptownd")
 				r.Header.Set("X-Forwarded-Host", "evil.other.test")
 				r.Header.Set("X-Forwarded-Proto", "http")
 				w := httptest.NewRecorder()
@@ -82,17 +82,17 @@ func TestBrowserForgeryDoesNotMutate(t *testing.T) {
 	t.Parallel()
 	a, h, who := oauthFixture(t)
 	for _, path := range []string{"/api/v1/auth/logout", "/api/v1/projects"} {
-		r := httptest.NewRequest("POST", path, strings.NewReader(`{"slug":"forged","name":"forged"}`))
+		r := httptest.NewRequest("POST", path, strings.NewReader(`{"slug":"apptownd","name":"apptownd"}`))
 		r.AddCookie(who)
 		r.Header.Set("Origin", "https://evil.example.test")
 		r.Header.Set("Sec-Fetch-Site", "same-site")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		if w.Code != 403 {
-			t.Fatalf("forged %s: %d", path, w.Code)
+			t.Fatalf("apptownd %s: %d", path, w.Code)
 		}
 	}
-	if p, err := a.Projects.BySlug(context.Background(), "forged"); !errors.Is(err, sql.ErrNoRows) {
+	if p, err := a.Projects.BySlug(context.Background(), "apptownd"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("forgery created project: %+v %v", p, err)
 	}
 	r := httptest.NewRequest("GET", "/api/v1/me", nil)

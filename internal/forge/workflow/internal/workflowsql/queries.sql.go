@@ -1743,7 +1743,7 @@ func (q *Queries) DispatchNeedsPreparation(ctx context.Context, runID ids.ID) (b
 const dispatchRestartCandidates = `-- name: DispatchRestartCandidates :many
 SELECT r.id FROM runs r JOIN steps s ON s.run_id=r.id AND s.stage=r.current_stage
 WHERE r.status='running' AND s.type=ANY($1::text[])
-GROUP BY r.id HAVING bool_or(s.status='pending' OR (s.status='error' AND s.evidence_json->>'reason'='orphaned by forged restart'))
+GROUP BY r.id HAVING bool_or(s.status='pending' OR (s.status='error' AND s.evidence_json->>'reason'='orphaned by apptownd restart'))
 OR bool_and(s.status IN ('pass','skipped'))
 UNION SELECT r.id FROM run_starts st JOIN runs r ON r.id=st.run_id
 WHERE r.status='running' AND (NOT st.ready OR (r.parent_run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type=ANY($1::text[]))))
@@ -1776,7 +1776,7 @@ func (q *Queries) DispatchRestartCandidates(ctx context.Context, dollar_1 []stri
 const dispatchResume = `-- name: DispatchResume :execrows
 UPDATE steps SET status='pending', started_at=NULL, finished_at=NULL, evidence_json='{}',
 config_json=CASE WHEN type='agent/pi' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true) ELSE config_json END
-WHERE steps.id=$1 AND steps.run_id=$2 AND status='error' AND evidence_json->>'reason'='orphaned by forged restart'
+WHERE steps.id=$1 AND steps.run_id=$2 AND status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'
 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage)
 `
 
@@ -1795,7 +1795,7 @@ func (q *Queries) DispatchResume(ctx context.Context, arg DispatchResumeParams) 
 
 const dispatchSkip = `-- name: DispatchSkip :execrows
 UPDATE steps SET status='skipped', evidence_json=$1, finished_at=$2::timestamptz
-WHERE steps.id=$3 AND steps.run_id=$4 AND (status='pending' OR (status='error' AND evidence_json->>'reason'='orphaned by forged restart'))
+WHERE steps.id=$3 AND steps.run_id=$4 AND (status='pending' OR (status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'))
 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage)
 `
 
@@ -1820,7 +1820,7 @@ func (q *Queries) DispatchSkip(ctx context.Context, arg DispatchSkipParams) (int
 }
 
 const dispatchStepState = `-- name: DispatchStepState :one
-SELECT s.status, (s.status='error' AND COALESCE(s.evidence_json->>'reason','')='orphaned by forged restart') AS orphaned,
+SELECT s.status, (s.status='error' AND COALESCE(s.evidence_json->>'reason','')='orphaned by apptownd restart') AS orphaned,
  (r.status='running' AND r.current_stage=s.stage) AS active
 FROM steps s JOIN runs r ON r.id=s.run_id WHERE s.run_id=$1 AND s.id=$2
 `
@@ -2967,7 +2967,7 @@ WITH candidates AS MATERIALIZED (
  ORDER BY s.id FOR UPDATE OF s
 ), changed AS (
  UPDATE steps SET status=$4,finished_at=$5::timestamptz,
-  evidence_json=CASE WHEN steps.type = ANY($6::text[]) THEN $7::jsonb ELSE '{"reason":"orphaned by forged restart"}'::jsonb END
+  evidence_json=CASE WHEN steps.type = ANY($6::text[]) THEN $7::jsonb ELSE '{"reason":"orphaned by apptownd restart"}'::jsonb END
  FROM candidates WHERE steps.id=candidates.id AND steps.status=$1 RETURNING steps.id
 ) SELECT (SELECT count(*) FROM candidates) AS expected,(SELECT count(*) FROM changed) AS interrupted
 `
@@ -4981,7 +4981,7 @@ type ReworkHistoryRow struct {
 }
 
 // rounds counts the automatic reworks since a person last retried a step
-// (forge retry, retry -m, a send-back): their act starts a fresh allowance.
+// (apptown retry, retry -m, a send-back): their act starts a fresh allowance.
 func (q *Queries) ReworkHistory(ctx context.Context, arg ReworkHistoryParams) (ReworkHistoryRow, error) {
 	row := q.db.QueryRowContext(ctx, reworkHistory,
 		arg.RunID,

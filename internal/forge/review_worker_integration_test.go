@@ -20,7 +20,7 @@ import (
 	"flokkit.io/forge/internal/gitexec/gittest"
 )
 
-// Review steps on a real worker (plan step 6): forge-worker's server in this
+// Review steps on a real worker (plan step 6): apptown-worker's server in this
 // process, running its tasks on this machine's Docker in the fake Pi image
 // (fakePiScript), whose behaviour each change's fake-pi.sh sets. The forge's
 // own agent process is a tripwire.

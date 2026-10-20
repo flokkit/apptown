@@ -127,7 +127,7 @@ conversation. This console is **strictly read-only**.
 - This container may be recycled between conversations: background processes
   and shell state do not survive idle periods (files and installed tools do).
   If a resume notice appears below, believe it over your memory.
-- The `+"`forge`"+` CLI is installed and FORGE_URL points at this instance's
+- The `+"`apptown`"+` CLI is installed and FORGE_URL points at this instance's
   read-only API. %s
   Everything else (approve, reject, advance, run-step, attach) is rejected
   by the server. AppTown state is live — always re-query rather than trusting
@@ -135,13 +135,13 @@ conversation. This console is **strictly read-only**.
 `, console.ScratchMount, console.UploadsMount, s.mutationsLine(workshop))
 	secs = append(secs, steerSection{name: "Your environment", body: env.String()})
 
-	secs = append(secs, steerSection{name: "forge CLI (read commands)", body: `- forge projects                      — list projects
-- forge workflows -p ` + p.Slug + `   — this project's workflows
-- forge runs -p ` + p.Slug + ` [--status all|done|running]
-- forge status <run-id>               — stages, current checks, step ids
-- forge trace <run-id> [--json]       — full reflection trace: steps, evidence, events
-- forge diff <run-id>                 — run branch diff vs the default branch
-- forge log -p ` + p.Slug + `         — audit log of state changes outside runs
+	secs = append(secs, steerSection{name: "forge CLI (read commands)", body: `- apptown projects                      — list projects
+- apptown workflows -p ` + p.Slug + `   — this project's workflows
+- apptown runs -p ` + p.Slug + ` [--status all|done|running]
+- apptown status <run-id>               — stages, current checks, step ids
+- apptown trace <run-id> [--json]       — full reflection trace: steps, evidence, events
+- apptown diff <run-id>                 — run branch diff vs the default branch
+- apptown log -p ` + p.Slug + `         — audit log of state changes outside runs
 `})
 
 	editRule := "- You cannot edit code or state directly. Work happens through workflows.\n"
@@ -182,16 +182,16 @@ Save as a change").
   everything the operator just told you.
 - **Work they DON'T want to sit with** (dependency uplift, excavate, a
   scan/sweep, a canned catalog change, "just do it and tell me when it's
-  done"): kick it off. Check ` + "`forge catalog`" + ` first — a canned,
+  done"): kick it off. Check ` + "`apptown catalog`" + ` first — a canned,
   versioned catalog change beats a hand-rolled invocation:
 
-      forge apply <catalog-change> [--param k=v]
+      apptown apply <catalog-change> [--param k=v]
 
   Otherwise propose a concrete invocation — title, workflow, and a 2–4
   sentence intent summary of what was decided and why — and WAIT for
   explicit confirmation in this conversation ("go", "yes", "do it"):
 
-      forge invoke -p ` + p.Slug + ` -w <workflow> -t "<title>" --body "<details for the implementing agent>" --intent "<the summary you proposed>"
+      apptown invoke -p ` + p.Slug + ` -w <workflow> -t "<title>" --body "<details for the implementing agent>" --intent "<the summary you proposed>"
 
   Both are the same sanctioned mutation, recorded with the operator as
   actor. Never start work without explicit confirmation, never invent
@@ -203,11 +203,11 @@ Save as a change").
 After invoking, DON'T go quiet — follow the run so the operator sees progress
 right here in the chat:
 
-    forge wait -c <change-id> -i 15
+    apptown wait -c <change-id> -i 15
 
 It prints each stage as the run moves and exits when something needs a person:
 tell the operator in plain words what happened (done, needs their OK on the
-change page, or failed and why — read forge status/trace for the reason). If
+change page, or failed and why — read apptown status/trace for the reason). If
 the wait command times out mid-build, just run it again and keep following.
 Never leave a started run unwatched: a run that dies right after invoke with
 no word from you looks like AppTown is broken.
@@ -231,7 +231,7 @@ no word from you looks like AppTown is broken.
 		wf = append(wf, fmt.Sprintf("- %s (%s, v%d)", w.Name, w.Doc.Spec.Kind, w.Version))
 	}
 	if len(wf) > 0 {
-		secs = append(secs, steerSection{name: "This project's ways of working (forge invoke -w …)", frontDeskOnly: true,
+		secs = append(secs, steerSection{name: "This project's ways of working (apptown invoke -w …)", frontDeskOnly: true,
 			body: strings.Join(wf, "\n") + "\n"})
 	}
 
@@ -251,7 +251,7 @@ func (s *Briefing) mutationsLine(workshop bool) string {
 	}
 	lead := "The only mutations your credentials permit are:"
 	if workshop {
-		lead = "forge invoke/apply are DISABLED for this session (a change console\n" +
+		lead = "apptown invoke/apply are DISABLED for this session (a change console\n" +
 			"  is scoped to its own change — the server rejects them). The only\n" +
 			"  mutations your credentials permit are:"
 	}
@@ -268,7 +268,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
 # This console is attached to Change #%d: %q
 - %s is the Change's worktree on branch %s — WRITABLE. Your edits are real.
 - Work requested in THIS conversation belongs in %s: edit the files
-  yourself, directly. Do NOT use forge invoke for it — invoke opens a
+  yourself, directly. Do NOT use apptown invoke for it — invoke opens a
   SEPARATE change and is only for genuinely unrelated new tasks the
   operator asks you to queue.
 - git WORKS in %s: status, diff, log — use them to verify your own
@@ -284,17 +284,17 @@ func (s *Briefing) Change(change *workflow.Change) string {
   person. When they say it is ready ("ship it", "land it") — or press
   Check and land, which reaches you here as that same request — confirm once
   in plain words, then FIRST run:
-      forge check -c %d
+      apptown check -c %d
   It reflects the FULL landing gate: the ways-of-working checks AND the
   security scans (dependency CVEs, leaked secrets, SAST), against your
   committed tree. FIX everything it surfaces that has a clear fix — bump a
   stale dependency to its patched version, add a missing integrity hash,
   remove a committed secret — commit, and re-run until it is clean. Doing
   this BEFORE you land is the point: the landing should not stick on
-  anything you could have fixed. NEVER run forge land without explicit
+  anything you could have fixed. NEVER run apptown land without explicit
   confirmation in THIS conversation.
-- Then run: forge land — and DON'T go quiet; follow it right here:
-      forge wait -c %d -i 15
+- Then run: apptown land — and DON'T go quiet; follow it right here:
+      apptown wait -c %d -i 15
   It prints each stage and exits when something needs a person.
 - If the landing blocks on a check, decide which kind of thing it is:
   - Something you can fix (a stale dep, a lint/format/test failure, a
@@ -316,7 +316,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
 - A landing can end without landing after you stopped following it (main
   moved under it, or a person stopped it). AppTown then tells you here,
   starting [forge landing], with why and what to do; until it ships, never
-  tell the person it is still waiting without checking forge wait -c %d.
+  tell the person it is still waiting without checking apptown wait -c %d.
 - The Change's intent: %s
 - When you point the operator somewhere, give them the LINK, not
   directions. This change's page (approvals, checks, the record) for the
@@ -331,7 +331,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
 	fmt.Fprintf(&b, `Console-specific notes on the contract:
 - Apps that ship as a built image (an "image" contract): the preview
   REBUILDS the image from this worktree's Dockerfile on the server —
-  your source edits do show up; just run forge preview again after
+  your source edits do show up; just run apptown preview again after
   editing.
 - If you create or change anything runnable, write/update its contract
   (%s — `+"`static:`"+` for a client-only site) in %s
@@ -342,7 +342,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
   page (and play links after landing). End with that, not a terminal
   recipe.
 - After you finish a turn, AppTown COLD-BOOTS the contract itself
-  (same as the try-it button). If it fails you get a "[forge check]"
+  (same as the try-it button). If it fails you get a "[apptown check]"
   message with the error — fix it and finish again; never claim the
   app works before that check has passed. Do not tell the operator
   the button "should" work: the check decides.
@@ -358,7 +358,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
 
 You can look at the RUNNING app, not just its code:
 
-- `+"`forge preview`"+` boots (or reuses) this change's preview and prints
+- `+"`apptown preview`"+` boots (or reuses) this change's preview and prints
   a URL reachable FROM THIS CONTAINER, plus the link people use.
 - `+"`curl -s <container-url>`"+` fetches what the server returns.
 - A headless browser is installed (Chromium's headless shell). For

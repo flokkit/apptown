@@ -39,7 +39,7 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 	ctx := context.Background()
 	ca := workertest.NewCA(t)
 	w := workertest.StartInContainer(t, ca)
-	image, err := worker.AgentImage("../../deploy/forge-agent")
+	image, err := worker.AgentImage("../../deploy/apptown-agent")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,7 +13,7 @@ With `--json` a command:
 - never follows a run and never asks a question: `fix`, `quick`, `plan`,
   `build`, `land` and `release` return once AppTown has accepted the
   request, and `approve` needs `-y` (read what approving means first:
-  `forge approve <step>` prints it, and without a terminal approves nothing);
+  `apptown approve <step>` prints it, and without a terminal approves nothing);
 - ends with the exit code it has without `--json`. `wait` prints its document
   for every outcome it waited to, including the ones that exit non-zero. A
   command that fails before it has an answer (a record that does not exist, an
@@ -26,19 +26,19 @@ A change or run is named by its UUID (`id`) and its number within its project
 the CLI takes a change. For example:
 
 ```sh
-change=$(forge quick -p shop --json "add a footer" | jq -r .change.id)
-forge wait -c "$change" --json > outcome.json
+change=$(apptown quick -p shop --json "add a footer" | jq -r .change.id)
+apptown wait -c "$change" --json > outcome.json
 case $? in
   0) echo shipped ;;
   2) step=$(jq -r '.step // empty' outcome.json)
-     [ -n "$step" ] && forge approve "$step" -y --json ;;
+     [ -n "$step" ] && apptown approve "$step" -y --json ;;
   *) jq -r .detail outcome.json ;;
 esac
 ```
 
-`forge wait --json` does not cover a release (`-r`); follow one with
-`forge wait -p <slug> -r <number>` and its exit code. Inside a change's chat,
-a bare `forge land` (no change named) answers in words only; with `--json`
+`apptown wait --json` does not cover a release (`-r`); follow one with
+`apptown wait -p <slug> -r <number>` and its exit code. Inside a change's chat,
+a bare `apptown land` (no change named) answers in words only; with `--json`
 it refuses before starting anything.
 
 ## Fields
@@ -111,8 +111,8 @@ it refuses before starting anything.
 | Field | Type | Meaning |
 |---|---|---|
 | `project` | string | the project's slug |
-| `deployment` | string | the deployment named (forge release <project> <deployment>); empty for the intranet |
-| `number` | number | the release's number within its project: forge wait -p <project> -r <number> |
+| `deployment` | string | the deployment named (apptown release <project> <deployment>); empty for the intranet |
+| `number` | number | the release's number within its project: apptown wait -p <project> -r <number> |
 | `url` | string | where the intranet will serve it; empty for a named deployment, which keeps its own address |
 | `state` | string | the release's state when AppTown accepted it |
 
@@ -166,7 +166,7 @@ it refuses before starting anything.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `step` | UUID string | the approval step's UUID: forge approve <step> |
+| `step` | UUID string | the approval step's UUID: apptown approve <step> |
 
 ### `ChangeRow`
 

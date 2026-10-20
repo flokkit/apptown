@@ -206,7 +206,7 @@ func TestTheDrainIntoTheNoLocalDockerModeWitnessesTheForgesOwnDocker(t *testing.
 	if held, err := a.tasks.Records.Held(context.Background()); err != nil || len(held) != 0 {
 		t.Fatalf("a local agent has no task attempt: %+v %v", held, err)
 	}
-	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "forged -drain-local-docker") {
+	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "apptownd -drain-local-docker") {
 		t.Fatalf("a start in the mode with no drain: %v", err)
 	}
 	if step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID); err != nil || step.Status != workflow.StatusRunning {
@@ -278,7 +278,7 @@ func TestADrainIsNeededAgainAfterAStartWithLocalDocker(t *testing.T) {
 	if err := a.RecoverInterruptedWork(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if err := mode(); err == nil || !strings.Contains(err.Error(), "forged -drain-local-docker") {
+	if err := mode(); err == nil || !strings.Contains(err.Error(), "apptownd -drain-local-docker") {
 		t.Fatalf("the mode after a start with local Docker since the drain: %v", err)
 	}
 }
@@ -301,7 +301,7 @@ func TestAFailedLocalStartupLeavesTheSwitchIntoTheModeRefused(t *testing.T) {
 	if step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID); err != nil || step.Status != workflow.StatusError {
 		t.Fatalf("repair state: %+v %v", step, err)
 	}
-	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "forged -drain-local-docker") {
+	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "apptownd -drain-local-docker") {
 		t.Fatalf("the switch into the mode after a failed local startup: %v", err)
 	}
 }

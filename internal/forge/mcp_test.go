@@ -615,7 +615,7 @@ func TestMCPOfficialClientConnectsAndCallsATool(t *testing.T) {
 		t.Fatalf("a missing project is a readable refusal: %v %+v", err, res)
 	}
 
-	// Behind a reverse proxy forged listens on loopback and sees the public
+	// Behind a reverse proxy apptownd listens on loopback and sees the public
 	// host name; the door must still answer.
 	req, _ := http.NewRequest("POST", server.URL+"/mcp/user", strings.NewReader(mcp_rpc(1, "initialize", map[string]any{"protocolVersion": "2025-06-18", "capabilities": map[string]any{}})))
 	req.Host = "forge.example.org"

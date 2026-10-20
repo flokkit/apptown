@@ -219,7 +219,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	// The reviewer verifies claims like "forge check passed" itself: the
+	// The reviewer verifies claims like "apptown check passed" itself: the
 	// real CLI and read-only credentials, exactly as implementation steps
 	// get them. A reviewer with neither may fetch a PyPI package named
 	// forge and fail true claims against it.
@@ -356,7 +356,7 @@ const (
 	sharedQuestion = `Does the diff fully satisfy the request — every part of it? A partial
    implementation that quietly skips part of the request is a FAIL. When the
    base already does what the request asks, an empty diff satisfies it: judge
-   that from the base itself (read it, run "forge check"), and do not fail a
+   that from the base itself (read it, run "apptown check"), and do not fail a
    change for not adding what nothing needed.`
 	sharedUnmet      = "the request not fully satisfied"
 	sharedMet        = "the code fully satisfies the request"
@@ -788,8 +788,8 @@ not conclusive.
 THE FORGE'S OWN CLI is the "forge" command — the platform mounts it first on
 PATH, so "forge" is always the platform's CLI, never a package called "forge"
 on PyPI or npm (never install one; a different tool with that name has nothing
-to say about this change). When the claim says "forge check" or "forge config
-validate" passed, run "forge check" yourself (it re-runs this change's declared
+to say about this change). When the claim says "apptown check" or "apptown config
+validate" passed, run "apptown check" yourself (it re-runs this change's declared
 gates — guidance, tool checks, AND the source security scans — read-only) and
 judge the claim by that.
 

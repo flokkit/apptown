@@ -1,11 +1,11 @@
 // Package pi runs a console's agent for real: pi's interactive TUI inside a
-// Docker container, under tmux, with forged holding a disposable tmux client
+// Docker container, under tmux, with apptownd holding a disposable tmux client
 // over a host PTY. It implements console.Agent.
 //
 // Each session is a container created WITHOUT --rm whose PID1 is `sleep
 // infinity`; pi runs under `tmux new -A` via /console/run-pi.sh with a pinned
 // --session-id, so the same command creates the conversation on first launch
-// and resumes it on every relaunch. forged's terminal connections are views,
+// and resumes it on every relaunch. apptownd's terminal connections are views,
 // not the terminal itself: a client dying (restart, crash) leaves the tmux
 // server and pi untouched inside the container.
 //
@@ -67,14 +67,14 @@ type Config struct {
 	// shared tool cache, worker/tool_cache.go). Its daemon and its script
 	// get none of them.
 	Mounts []string
-	// LocalTLS, when set, is the forge's own local HTTPS (forged
+	// LocalTLS, when set, is the forge's own local HTTPS (apptownd
 	// -local-tls): each chat gets the authority's certificate and the
 	// prelude that trusts it and reaches the forge's addresses.
 	LocalTLS *console.LocalTLS
 }
 
 // CLI is a Config.Run for a program with no daemon scope of its own
-// (forge-console, forge-worker): the docker binary, run directly against
+// (apptown-console, apptown-worker): the docker binary, run directly against
 // the daemon its environment names, with stdout and stderr together.
 func CLI(binary string) func(ctx context.Context, args ...string) ([]byte, error) {
 	return func(ctx context.Context, args ...string) ([]byte, error) {

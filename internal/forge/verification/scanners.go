@@ -322,7 +322,7 @@ func (s *Scanners) baseScanFingerprints(ctx context.Context, repo, baseSHA strin
 
 // RunSourceScans runs every attached, non-manual SOURCE scanner (osv,
 // gitleaks, semgrep — the same set the land `scan-source` point fans out to)
-// against an already-staged committed tree. It lets `forge check` REFLECT the
+// against an already-staged committed tree. It lets `apptown check` REFLECT the
 // land gate's security scans, not just the guidance checks, so an agent sees a
 // dependency CVE or a SAST finding in its own loop instead of discovering it
 // after handoff when the land sticks (design/subsystems/conformance.md §13.6, the
@@ -335,7 +335,7 @@ func (s *Scanners) baseScanFingerprints(ctx context.Context, repo, baseSHA strin
 //
 // repo + baseSHA name the change's base commit: findings already there are
 // CARRIED debt (reported in the result, not returned as gating findings), so
-// forge check previews exactly what the land gate will hold against the
+// apptown check previews exactly what the land gate will hold against the
 // change (scan_provenance.go). Pass "" to compare against nothing.
 func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefix string, repo, baseSHA string) (results Results, findings []conformance.Finding, scanErrors int) {
 	_ = os.MkdirAll(filepath.Join(scanSrc, ".forge"), 0o755)

@@ -42,7 +42,7 @@ type staticFile struct {
 // immutable, anything else is revalidated, the smallest variant the client
 // accepts is chosen by Accept-Encoding, and an unknown path outside assets/
 // gets index.html so client-side routes load. Serving the compressed bytes
-// from forged itself means compression and caching hold behind any proxy.
+// from apptownd itself means compression and caching hold behind any proxy.
 func Handler(fsys fs.FS) http.Handler {
 	files := map[string]*staticFile{}
 	_ = fs.WalkDir(fsys, ".", func(name string, d fs.DirEntry, err error) error {

@@ -63,7 +63,7 @@ func TestCandidateValidationUsesFrozenPublicationsAndRejectsTampering(t *testing
 		t.Fatalf("valid held versions rejected for newer catalog: %v", err)
 	}
 	cases := map[string]func(*Candidate){
-		"forged name":          func(c *Candidate) { c.Receipt.Guidance[0].Name = "another-name" },
+		"apptownd name":        func(c *Candidate) { c.Receipt.Guidance[0].Name = "another-name" },
 		"missing version":      func(c *Candidate) { c.Receipt.Guidance[0].Version = 2 },
 		"unpublished pack pin": func(c *Candidate) { c.Receipt.Guidance[0].Version = 3 },
 		"duplicate identity": func(c *Candidate) {
@@ -91,7 +91,7 @@ func TestCandidateValidationUsesFrozenPublicationsAndRejectsTampering(t *testing
 			mutate(&c)
 			c.Digest = Digest(c.Receipt)
 			if err := service.validateCandidateIn(context.Background(), db, c.ProjectID, c); err == nil {
-				t.Fatal("forged candidate accepted despite a self-consistent digest")
+				t.Fatal("apptownd candidate accepted despite a self-consistent digest")
 			}
 		})
 	}

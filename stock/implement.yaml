@@ -61,9 +61,9 @@ spec:
               front door). `needs:` is a map of dependencies AppTown provisions
               and injects env for — `needs: { postgres: { version: "16" } }` —
               read the injected DATABASE_URL / PG* / REDIS_URL / AWS_*, never
-              hard-code a host. Get the schema with `forge config schema` and
-              check your file with `forge config validate`; rehearse locally with
-              `forge dev up`. The app must listen on $PORT when set.
+              hard-code a host. Get the schema with `apptown config schema` and
+              check your file with `apptown config validate`; rehearse locally with
+              `apptown dev up`. The app must listen on $PORT when set.
 
               If a reviewer has previously rejected this work, their feedback
               is: ${{feedback.latest}}

@@ -140,7 +140,7 @@ func (s *Server) previewLock(name string) func() {
 }
 
 // fenceToken orders the requests that change previews: a forge session
-// number, greater for each forge start, and a request number within it.
+// number, greater for each apptown start, and a request number within it.
 type fenceToken struct {
 	Session int64 `json:"session"`
 	Seq     int64 `json:"seq"`

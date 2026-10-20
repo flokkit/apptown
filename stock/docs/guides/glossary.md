@@ -5,7 +5,7 @@ Terms used throughout AppTown. One meaning each.
 ## The work
 
 **Instance** — one installation of AppTown. It hosts the projects. Pages call
-it just AppTown; the command-line tool is still called `forge`.
+it just AppTown; the command-line tool is still called `apptown`.
 Governance, security controls, deployment targets, system integrations and
 ways of working are defined at the instance level and consumed by projects.
 

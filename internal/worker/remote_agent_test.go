@@ -85,7 +85,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 		t.Fatal(err)
 	}
 	env := console.Static{Provision: console.Provision{Model: "m", Env: []string{"FORGE_URL=https://forge.example"},
-		Mounts: []string{cli + ":/opt/forge/bin/forge:ro"},
+		Mounts: []string{cli + ":/opt/apptown/bin/forge:ro"},
 		Files:  map[string]console.Staged{"pi-home/.pi/agent/models.json": {Data: []byte(`{"providers":{}}`)}}}}
 	c := startRemoteChats(t, env)
 	s := c.open(t)
@@ -97,7 +97,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	if !strings.HasPrefix(launch.Dir, c.state) || !strings.HasPrefix(launch.Workspace.Path, c.state) {
 		t.Fatalf("the worker's launch names paths outside its state: %+v", launch)
 	}
-	if len(launch.Mounts) != 1 || !strings.HasPrefix(launch.Mounts[0], c.state) || !strings.HasSuffix(launch.Mounts[0], ":/opt/forge/bin/forge:ro") {
+	if len(launch.Mounts) != 1 || !strings.HasPrefix(launch.Mounts[0], c.state) || !strings.HasSuffix(launch.Mounts[0], ":/opt/apptown/bin/forge:ro") {
 		t.Fatalf("mounts on the worker: %v", launch.Mounts)
 	}
 	mounted := strings.SplitN(launch.Mounts[0], ":", 2)[0]

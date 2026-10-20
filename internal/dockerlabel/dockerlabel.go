@@ -1,6 +1,6 @@
 // Package dockerlabel is the one list of the label keys Forge puts on the
 // containers, networks, volumes and images it makes, and reads back to find
-// and own them. Labels outlive a forge build: a container started by one
+// and own them. Labels outlive a apptown build: a container started by one
 // build is found, inspected and removed by the next, so the keys are a
 // format. They are lowercase and dotted, are changed only by adding, and a
 // key already out in the world is never renamed without a reader for it.
@@ -42,7 +42,7 @@ const (
 )
 
 // The agent image's labels: the versions of the tools inside it, written by
-// deploy/forge-agent/Dockerfile and read to record what a step ran with.
+// deploy/apptown-agent/Dockerfile and read to record what a step ran with.
 const (
 	PiVersion          = "forge.pi.version"
 	PiSubagentsVersion = "forge.pi-subagents.version"

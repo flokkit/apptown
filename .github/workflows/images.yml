@@ -1,7 +1,7 @@
 # The forge's container images, on a release tag (design/operations/github.md):
 #   ghcr.io/flokkit/apptown         the forge server (deploy/Dockerfile, target server)
 #   ghcr.io/flokkit/apptown-worker  the worker (deploy/Dockerfile, target worker)
-#   ghcr.io/flokkit/apptown-agent   the agent image (deploy/forge-agent)
+#   ghcr.io/flokkit/apptown-agent   the agent image (deploy/apptown-agent)
 #
 # Every tag pushes: each image is pushed by digest with BuildKit's provenance
 # (mode=max) and SBOM, and joined into one tag per version. PUBLIC (below)
@@ -44,7 +44,7 @@ jobs:
         image:
           - { name: apptown, context: ., file: deploy/Dockerfile, target: server }
           - { name: apptown-worker, context: ., file: deploy/Dockerfile, target: worker }
-          - { name: apptown-agent, context: deploy/forge-agent, file: deploy/forge-agent/Dockerfile, target: "" }
+          - { name: apptown-agent, context: deploy/apptown-agent, file: deploy/apptown-agent/Dockerfile, target: "" }
         platform:
           - { platform: linux/amd64, slug: amd64, runner: ubuntu-24.04 }
           - { platform: linux/arm64, slug: arm64, runner: ubuntu-24.04-arm }

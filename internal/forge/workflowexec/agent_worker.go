@@ -87,7 +87,7 @@ const (
 	workerSteeringFile = execution.InputsRoot + "/steering.md"
 	workerClaimFile    = execution.InputsRoot + "/review-claim.md"
 	workerHomeIn       = execution.InputsRoot + "/pi-home"
-	workerCLIFile      = execution.InputsRoot + "/bin/forge"
+	workerCLIFile      = execution.InputsRoot + "/bin/apptown"
 	workerCLIDir       = execution.InputsRoot + "/bin"
 	workerSessionsIn   = execution.InputsRoot + "/sessions"
 	workerHome         = execution.StateRoot + "/home"
@@ -511,7 +511,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 	env := append([]string{}, stepEnv...)
 	env = append(env, a.forgeEnv(ctx, run, step)...)
 	if !c.source.ChangeID.IsZero() {
-		// The one ref this attempt's token may push: `forge check` sends the
+		// The one ref this attempt's token may push: `apptown check` sends the
 		// agent's HEAD there to have it checked, as feedback only, before
 		// the step's work is collected (scm.ScratchRef).
 		env = append(env, "FORGE_SCRATCH_REF="+scm.ScratchRef(c.source.ChangeID, step.ID, step.Attempt))
@@ -603,15 +603,15 @@ func (a *Executor) attachmentsFor(changeID ids.ID) ([]steeringResource, error) {
 }
 
 // agentCLI is the packaged forge CLI agents run, as bytes. An agent on a
-// worker is always sent it: its steering tells it to run forge check.
+// worker is always sent it: its steering tells it to run apptown check.
 func (a *Executor) agentCLI() ([]byte, error) {
 	at, err := a.cli.Path()
 	if err != nil {
-		return nil, fmt.Errorf("the agents' CLI (forge-linux) is not available: %w", err)
+		return nil, fmt.Errorf("the agents' CLI (apptown-linux) is not available: %w", err)
 	}
 	cli, err := os.ReadFile(at)
 	if err != nil {
-		return nil, fmt.Errorf("reading the agents' CLI (forge-linux): %w", err)
+		return nil, fmt.Errorf("reading the agents' CLI (apptown-linux): %w", err)
 	}
 	return cli, nil
 }

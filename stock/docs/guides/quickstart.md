@@ -32,7 +32,7 @@ Every piece of work is a **change**: a branch off `main` with its own record
 of who asked, what ran and who approved.
 
 1. **Change.** Open one from the project's **Change** button, a chat, or
-   `forge start`. Work on it in its chat, with a workflow (fix a bug, a
+   `apptown start`. Work on it in its chat, with a workflow (fix a bug, a
    planned change), or from your own computer.
    [How changes reach main](/docs/guides/changes-and-main) covers branches,
    catching up with `main`, and one worker at a time.
@@ -59,6 +59,6 @@ The [glossary](/docs/guides/glossary) defines the terms.
 
 A coding agent on your own computer (Claude Code, Codex) can read your
 projects and changes and do governed work in your name. The command-line
-tool, called `forge`, does the same from a terminal. Both are set up in
+tool, called `apptown`, does the same from a terminal. Both are set up in
 [Connect a coding agent or the CLI](/docs/guides/connect-a-coding-agent).
 On this AppTown, coding agents connect at {forge:mcp}.

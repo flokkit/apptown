@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The versions of the tools the forge runs for projects agree with deploy/tool-pins.txt.
+"""The versions of the tools the apptown runs for projects agree with deploy/tool-pins.txt.
 
 Fails, naming file and line, where a listed tool is pinned at another version,
 where the agent Dockerfile or stock/scanners.yaml pins a tool the list does
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 PINS = "deploy/tool-pins.txt"
-DOCKERFILE = "deploy/forge-agent/Dockerfile"
+DOCKERFILE = "deploy/apptown-agent/Dockerfile"
 SCANNERS = "stock/scanners.yaml"
 
 
@@ -108,7 +108,7 @@ def check(root):
             if (tool, kind, value) not in found:
                 errors.append(f"{PINS}:{n}: {tool} is not pinned as {kind} {value} anywhere the check reads")
 
-    # The two places that define what the forge runs pin nothing the list
+    # The two places that define what the apptown runs pin nothing the list
     # leaves out.
     for line, raw in enumerate(texts.get(dockerfile, "").splitlines(), 1):
         raw = raw.strip()

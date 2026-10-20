@@ -17,7 +17,7 @@ import (
 )
 
 // forgeEnv is the identity a run agent carries to reach the forge: the
-// complaints box and the CLI (forge check, status)
+// complaints box and the CLI (apptown check, status)
 // need the read-only listener's URL, the run, the step and a run token.
 // FORGE_URL is the read-only listener — complaints POST is its sanctioned
 // exception. The token is derived from the step attempt, so nothing revokes
@@ -28,7 +28,7 @@ func (a *Executor) forgeEnv(ctx context.Context, run *workflow.Run, step *workfl
 		fmt.Sprintf("FORGE_RUN_ID=%d", run.ID), "FORGE_STEP="+step.Name,
 		"FORGE_SESSION_TOKEN="+runTok)
 	if !run.ChangeID.IsZero() {
-		// Lets `forge check` resolve which change's gate checks to run without a
+		// Lets `apptown check` resolve which change's gate checks to run without a
 		// round-trip — the agent verifies against its own change before handoff.
 		env = append(env, fmt.Sprintf("FORGE_CHANGE=%d", run.ChangeID))
 	}

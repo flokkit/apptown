@@ -26,9 +26,9 @@ func TestConformanceRemediationMandateCannotChangeProjectOrObservation(t *testin
 		return len(page)
 	}
 	reviewsBefore := reviews()
-	forged := item
-	forged.ProjectID = idstest.N(999999)
-	if _, err := checks.BeginReview(conformance.WithVerification(context.Background(), service.VerificationScope(forged)), conformance.ReviewRequest{Projects: []ids.ID{forged.ProjectID}}); err == nil {
+	apptownd := item
+	apptownd.ProjectID = idstest.N(999999)
+	if _, err := checks.BeginReview(conformance.WithVerification(context.Background(), service.VerificationScope(apptownd)), conformance.ReviewRequest{Projects: []ids.ID{apptownd.ProjectID}}); err == nil {
 		t.Fatal("mandate moved to another project")
 	}
 	ctx := conformance.WithVerification(context.Background(), service.VerificationScope(item))

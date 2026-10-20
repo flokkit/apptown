@@ -16,10 +16,10 @@ func ConsoleDockerInstructions(disabled bool) string {
   This grants no additional registry credentials.`
 	if disabled {
 		availability = `- Private Docker is disabled on this AppTown (-no-private-docker). This console
-  has no daemon; use forge preview for server-side container builds.`
+  has no daemon; use apptown preview for server-side container builds.`
 	}
 	return availability + `
-- Keep the app's Dockerfile as its packaging recipe. forge preview still
+- Keep the app's Dockerfile as its packaging recipe. apptown preview still
   cold-boots that recipe independently on the server for the operator.
   For direct local tool checks, declare pinned versions in mise.toml and
   run mise install; the declaration survives container recreation.`

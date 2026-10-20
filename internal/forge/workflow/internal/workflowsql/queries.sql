@@ -319,12 +319,12 @@ DELETE FROM steps WHERE run_id IN (SELECT id FROM runs WHERE project_id=$1);
 -- name: DispatchResume :execrows
 UPDATE steps SET status='pending', started_at=NULL, finished_at=NULL, evidence_json='{}',
 config_json=CASE WHEN type='agent/pi' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true) ELSE config_json END
-WHERE steps.id=sqlc.arg(id) AND steps.run_id=sqlc.arg(run_id) AND status='error' AND evidence_json->>'reason'='orphaned by forged restart'
+WHERE steps.id=sqlc.arg(id) AND steps.run_id=sqlc.arg(run_id) AND status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'
 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage);
 
 -- name: DispatchSkip :execrows
 UPDATE steps SET status='skipped', evidence_json=sqlc.arg(evidence_json), finished_at=sqlc.arg(at)::timestamptz
-WHERE steps.id=sqlc.arg(id) AND steps.run_id=sqlc.arg(run_id) AND (status='pending' OR (status='error' AND evidence_json->>'reason'='orphaned by forged restart'))
+WHERE steps.id=sqlc.arg(id) AND steps.run_id=sqlc.arg(run_id) AND (status='pending' OR (status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'))
 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage);
 
 -- name: FinishAttempt :execrows
@@ -352,7 +352,7 @@ WITH candidates AS MATERIALIZED (
  ORDER BY s.id FOR UPDATE OF s
 ), changed AS (
  UPDATE steps SET status=sqlc.arg(next_status),finished_at=sqlc.arg(at)::timestamptz,
-  evidence_json=CASE WHEN steps.type = ANY(sqlc.arg(ended_types)::text[]) THEN sqlc.arg(ended_evidence)::jsonb ELSE '{"reason":"orphaned by forged restart"}'::jsonb END
+  evidence_json=CASE WHEN steps.type = ANY(sqlc.arg(ended_types)::text[]) THEN sqlc.arg(ended_evidence)::jsonb ELSE '{"reason":"orphaned by apptownd restart"}'::jsonb END
  FROM candidates WHERE steps.id=candidates.id AND steps.status=sqlc.arg(running_status) RETURNING steps.id
 ) SELECT (SELECT count(*) FROM candidates) AS expected,(SELECT count(*) FROM changed) AS interrupted;
 
@@ -666,7 +666,7 @@ LIMIT 1;
 
 -- name: ReworkHistory :one
 -- rounds counts the automatic reworks since a person last retried a step
--- (forge retry, retry -m, a send-back): their act starts a fresh allowance.
+-- (apptown retry, retry -m, a send-back): their act starts a fresh allowance.
 WITH person AS (
   SELECT (SELECT e.id FROM run_events e WHERE e.run_id=sqlc.arg(run_id)::uuid AND e.kind='step.retried' ORDER BY e.id DESC LIMIT 1)::uuid AS since
 ), history AS (
@@ -717,7 +717,7 @@ ORDER BY r.updated_at DESC,r.id DESC LIMIT 20;
 -- name: DispatchRestartCandidates :many
 SELECT r.id FROM runs r JOIN steps s ON s.run_id=r.id AND s.stage=r.current_stage
 WHERE r.status='running' AND s.type=ANY($1::text[])
-GROUP BY r.id HAVING bool_or(s.status='pending' OR (s.status='error' AND s.evidence_json->>'reason'='orphaned by forged restart'))
+GROUP BY r.id HAVING bool_or(s.status='pending' OR (s.status='error' AND s.evidence_json->>'reason'='orphaned by apptownd restart'))
 OR bool_and(s.status IN ('pass','skipped'))
 UNION SELECT r.id FROM run_starts st JOIN runs r ON r.id=st.run_id
 WHERE r.status='running' AND (NOT st.ready OR (r.parent_run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type=ANY($1::text[]))))
@@ -911,7 +911,7 @@ WHERE r.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND s.type='approval' AND 
 AND r.status=sqlc.arg(running) AND s.stage=r.current_stage ORDER BY s.id;
 
 -- name: DispatchStepState :one
-SELECT s.status, (s.status='error' AND COALESCE(s.evidence_json->>'reason','')='orphaned by forged restart') AS orphaned,
+SELECT s.status, (s.status='error' AND COALESCE(s.evidence_json->>'reason','')='orphaned by apptownd restart') AS orphaned,
  (r.status='running' AND r.current_stage=s.stage) AS active
 FROM steps s JOIN runs r ON r.id=s.run_id WHERE s.run_id=$1 AND s.id=$2;
 

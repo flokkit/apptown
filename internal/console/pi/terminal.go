@@ -12,7 +12,7 @@ import (
 )
 
 // attachLocked holds a disposable tmux client on the session under a host
-// PTY: killing it (detach, forged restart) leaves the tmux server and pi
+// PTY: killing it (detach, apptownd restart) leaves the tmux server and pi
 // untouched inside the container. Caller holds attachMu.
 func (r *Runtime) attachLocked(st *state, id string) error {
 	st.mu.Lock()

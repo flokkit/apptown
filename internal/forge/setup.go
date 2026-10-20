@@ -35,7 +35,7 @@ type setupState struct {
 func (a *App) LogStartupConfiguration() {
 	addr := a.cfg.listenAddr
 	if a.cfg.authMode == "open" && !loopbackAddr(addr) {
-		fmt.Fprintf(os.Stderr, "WARNING: forged is listening on %q with open auth — anyone who can reach this port has full control.\n"+
+		fmt.Fprintf(os.Stderr, "WARNING: apptownd is listening on %q with open auth — anyone who can reach this port has full control.\n"+
 			"         Bind to 127.0.0.1, or configure -auth trusted-header behind an authenticating proxy.\n", addr)
 	}
 }
@@ -78,7 +78,7 @@ func OpenExposure(authMode, addr, consoleAddr string, allowed bool) error {
 }
 
 // EnsureAgentImage checks for the forge-agent image and builds it from
-// deploy/forge-agent in the background when missing — a fresh machine gets
+// deploy/apptown-agent in the background when missing — a fresh machine gets
 // a working executor without reading a single doc. Skipped when docker is
 // unavailable or the build context isn't shipped alongside the binary.
 func (a *App) EnsureAgentImage() {

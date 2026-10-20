@@ -102,7 +102,7 @@ as a test **of** the vocabulary.
 
 ### 3. Harness shape
 
-In-process `forged` (the App and the real handler on a loopback port), a
+In-process `apptownd` (the App and the real handler on a loopback port), a
 cloned test database, real Docker, a temp data directory, fake pi on
 `PATH`, `-tags=journey`. Same conventions as the integration tier:
 pid-salted names, `t.Cleanup`, a missing daemon fails loudly. Each journey

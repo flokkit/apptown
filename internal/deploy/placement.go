@@ -49,7 +49,7 @@ type Gate struct {
 	Marker string
 }
 
-// Gate environment, as the gate (cmd/forge-gate) reads it.
+// Gate environment, as the gate (cmd/apptown-gate) reads it.
 const (
 	GateEnvUpstream = "GATE_UPSTREAM"
 	GateEnvSecret   = "GATE_SECRET"

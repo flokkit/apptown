@@ -17,7 +17,7 @@ import (
 // ({type:"resize",cols,rows}). GET /console/{sid}/pty. A watcher's
 // keystrokes and resizes are dropped by its terminal.
 func (a *App) handleConsolePTY(w http.ResponseWriter, r *http.Request) {
-	// A forged GET must not start a container or attach a terminal: this
+	// A apptownd GET must not start a container or attach a terminal: this
 	// browser-only door requires Origin, even for a GET.
 	if !a.sameBrowserOrigin(r) {
 		writeErr(w, http.StatusForbidden, "open the terminal from AppTown")

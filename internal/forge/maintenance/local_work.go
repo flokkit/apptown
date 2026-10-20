@@ -95,7 +95,7 @@ func LocalWorkLeft(ctx context.Context, db *database.DB, records *tasks.Records,
 		return nil
 	}
 	return fmt.Errorf("-drain-local-docker: this AppTown's records hold local work that may still be running on its own Docker:\n  %s\n"+
-		"Start AppTown without -no-local-docker so it settles and removes that work (end those chats, let the runs finish or stop them, and retry any cleanup waiting for a person), stop it, then run forged -drain-local-docker again", strings.Join(left, "\n  "))
+		"Start AppTown without -no-local-docker so it settles and removes that work (end those chats, let the runs finish or stop them, and retry any cleanup waiting for a person), stop it, then run apptownd -drain-local-docker again", strings.Join(left, "\n  "))
 }
 
 // ExecutionContainers lists the containers on the forge's own Docker that

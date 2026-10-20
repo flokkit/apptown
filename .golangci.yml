@@ -83,42 +83,42 @@ linters:
       # scripts/lint-check.go fails an entry without a reason, or one whose
       # site is gone. Everything else that makes one is held to a count.
       # The gate process's root, cancelled by its signal.
-      - path: '^cmd/forge-gate/main\.go$'
+      - path: '^cmd/apptown-gate/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'signal\.NotifyContext\(context\.Background\(\)'
       # The daemon's root, cancelled by its signal.
-      - path: '^cmd/forged/runtime\.go$'
+      - path: '^cmd/apptownd/runtime\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'signal\.NotifyContext\(context\.Background\(\)'
-      # forged's startup and its one-shots, before any signal is handled.
-      - path: '^cmd/forged/main\.go$'
+      # apptownd's startup and its one-shots, before any signal is handled.
+      - path: '^cmd/apptownd/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'ctx := context\.Background\(\)'
       # The forge CLI's process root: one command, then the process ends.
-      - path: '^cmd/forge/main\.go$'
+      - path: '^cmd/apptown/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'var root = context\.Background\(\)'
-      # forge-check's main: one evaluation, then the process ends.
-      - path: '^cmd/forge-check/main\.go$'
+      # apptown-check's main: one evaluation, then the process ends.
+      - path: '^cmd/apptown-check/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'ctx := context\.Background\(\)'
       # The worker process's root: it runs until the process is killed.
-      - path: '^cmd/forge-worker/main\.go$'
+      - path: '^cmd/apptown-worker/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'ctx := context\.Background\(\)'
-      # forge-deploy's main: one deploy, then the process ends.
-      - path: '^cmd/forge-deploy/main\.go$'
+      # apptown-deploy's main: one deploy, then the process ends.
+      - path: '^cmd/apptown-deploy/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'ctx := context\.Background\(\)'
-      # forge-console's run is its main's body: one chat, then it ends.
-      - path: '^cmd/forge-console/main\.go$'
+      # apptown-console's run is its main's body: one chat, then it ends.
+      - path: '^cmd/apptown-console/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'ctx := context\.Background\(\)'

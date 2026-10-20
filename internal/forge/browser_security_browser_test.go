@@ -213,7 +213,7 @@ func TestTour(t *testing.T) {
 	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: "apptown.localhost:" + port, TierDomains: []string{"preview=preview.localhost"},
 		DockerClient: newFakeDocker(), ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t),
 		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
-	// What forged seeds at start: stock content, integrations, targets.
+	// What apptownd seeds at start: stock content, integrations, targets.
 	ctx := context.Background()
 	a.SyncStock(ctx)
 	a.SyncSeedIntegrations(ctx)

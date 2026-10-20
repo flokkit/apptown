@@ -184,7 +184,7 @@ its origin (`stock/quick-change@10`); a project selects, never copies.
 *Appears:* B17, A13, B14.
 
 ### System workflow
-A workflow marked `system: true` that the forge runs for every project
+A workflow marked `system: true` that the apptown runs for every project
 and nobody picks: land, ship, adopt-integration, retire-integration. The
 instance may **bind** a custom one in place of a stock one for every
 project at once (a system binding). The platform pack pins them.

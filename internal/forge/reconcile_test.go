@@ -112,7 +112,7 @@ func TestReconcilePreflight(t *testing.T) {
 	if err != nil || ended.Run.Status != workflow.RunAbandoned {
 		t.Fatalf("a landing behind main must end at the preflight: %+v %v", ended.Run, err)
 	}
-	// Why it ended, and the catch-up, are read with it: forge wait -c and
+	// Why it ended, and the catch-up, are read with it: apptown wait -c and
 	// the change's chat say this rather than "a person's move".
 	if !strings.Contains(ended.Ending, change.Branch+" is behind main; behind-main (fail): behind main") || !strings.Contains(ended.Ending, `git fetch "$FORGE_MAIN_REMOTE" main`) {
 		t.Fatalf("the ended landing must say why and how to catch up: %q", ended.Ending)

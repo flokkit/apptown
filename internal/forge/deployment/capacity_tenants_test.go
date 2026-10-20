@@ -141,7 +141,7 @@ func TestATenantsUseIsUnknownWhenAnyOfItIsUnread(t *testing.T) {
 }
 
 // The host's own use is known only on the built-in host, and only when the
-// daemon reads back the marker forged wrote and both see the same memory
+// daemon reads back the marker apptownd wrote and both see the same memory
 // total. Equal totals without the marker (a same-sized daemon elsewhere),
 // the marker with unequal totals (a virtualised view), an attached host and
 // an unreadable /proc each leave it unknown with the reason.
@@ -217,23 +217,23 @@ func TestTheHostsOwnUseIsKnownOnlyWhereTheDaemonReadsTheForgesMarker(t *testing.
 	}
 }
 
-// forged's own memory is counted once wherever it runs (CV-C01): no tenant
+// apptownd's own memory is counted once wherever it runs (CV-C01): no tenant
 // adds it, so on the host it is part of the host's own use and in a
 // container (one that shares its temp folder with the host, so the marker
 // is read) it is that container's. The forge's tenant is its own containers.
 //
-// Kills: forged's memory added to the forge on top of the container that
+// Kills: apptownd's memory added to the forge on top of the container that
 // holds it.
 func TestForgedsMemoryIsCountedOnceWhereverItRuns(t *testing.T) {
 	t.Parallel()
 	none := containerOwners{exact: map[string]partOf{}, services: map[string]ids.ID{}}
-	limits := []docker.ContainerLimit{{Name: "forged-in-a-container"}, {Name: "forge-db", Forge: true, Class: "infra"}}
-	ts := tenantsOf(limits, map[string]int64{"forged-in-a-container": 400 << 20, "forge-db": 100 << 20}, nil, none, nil)
+	limits := []docker.ContainerLimit{{Name: "apptownd-in-a-container"}, {Name: "forge-db", Forge: true, Class: "infra"}}
+	ts := tenantsOf(limits, map[string]int64{"apptownd-in-a-container": 400 << 20, "forge-db": 100 << 20}, nil, none, nil)
 	var sum float64
 	for _, tn := range ts {
 		sum += tn.Used.Value
 	}
 	if f := tenantNamed(ts, "AppTown"); f == nil || f.Used.Value != 100<<20 || sum != 500<<20 {
-		t.Errorf("forged counted twice or lost: %+v (sum %v)", ts, sum)
+		t.Errorf("apptownd counted twice or lost: %+v (sum %v)", ts, sum)
 	}
 }

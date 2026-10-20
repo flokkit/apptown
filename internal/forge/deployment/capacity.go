@@ -137,7 +137,7 @@ type capacityCache struct {
 	disk map[ids.ID]diskReading
 	// host reads this machine's memory (nil: /proc/meminfo).
 	host func() (hostmem.Memory, error)
-	// witness is each built-in daemon's last answer to forged's marker,
+	// witness is each built-in daemon's last answer to apptownd's marker,
 	// written once to markPath (capacity_tenants.go).
 	witness        map[ids.ID]witnessReading
 	markPath, mark string

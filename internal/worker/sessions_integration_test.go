@@ -22,7 +22,7 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// The chat tests run forge-worker as a process on this machine, driving its
+// The chat tests run apptown-worker as a process on this machine, driving its
 // Docker directly (workertest.StartOnHost): the chat's container and its
 // daemon one level down, what the daemon runs two, the supported topology.
 // A chat's container and its daemon each get these limits.
@@ -46,7 +46,7 @@ func removeSessionLeftovers(t *testing.T, id func() string) {
 	})
 }
 
-// A chat's session on forge-worker, with real Docker: starting it runs the
+// A chat's session on apptown-worker, with real Docker: starting it runs the
 // chat's container and its private Docker daemon, each with its limits, both
 // on the session's own cache volume, the daemon with the worker's resolvers
 // and the forge's mirror; stopping keeps both, running neither; a restarted
@@ -178,7 +178,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	ctx := context.Background()
 	ca := workertest.NewCA(t)
 	w := workertest.StartOnHost(t, ca, chatLimits...)
-	image, err := worker.AgentImage("../../deploy/forge-agent")
+	image, err := worker.AgentImage("../../deploy/apptown-agent")
 	if err != nil {
 		t.Fatal(err)
 	}

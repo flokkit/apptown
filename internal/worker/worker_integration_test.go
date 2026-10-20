@@ -25,7 +25,7 @@ func busyboxSpec(key, output string, exit int, block bool) execution.TaskSpec {
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Limits: execution.Limits{CPUs: 1, MemoryBytes: 64 << 20, PIDs: 64}, Expires: time.Now().Add(time.Hour)}}
 }
 
-// forge-worker in a container of its own, with real Docker, keeps the task
+// apptown-worker in a container of its own, with real Docker, keeps the task
 // contract; survives a restart of its process with its tasks found again by
 // key; refuses another installation; and returns a task's work as a bundle
 // the forge quarantines.

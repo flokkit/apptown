@@ -98,7 +98,7 @@ func TestStepRuntimeTokenOpensBothDoorsOnlyWhileItsAttemptIsLive(t *testing.T) {
 		scenario string
 		on       attempt
 	}{
-		{"live", shared}, {"forged mac", shared}, {"another step", shared}, {"another key", shared},
+		{"live", shared}, {"apptownd mac", shared}, {"another step", shared}, {"another key", shared},
 		{"work read failed", shared}, {"account read failed", shared},
 		{"settled attempt", attempts[1]}, {"finished run", attempts[2]}, {"cancelled run", attempts[3]}, {"superseded attempt", attempts[4]},
 		// The refusals above left the shared attempt live.
@@ -150,7 +150,7 @@ func TestStepRuntimeTokenOpensBothDoorsOnlyWhileItsAttemptIsLive(t *testing.T) {
 				if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "alice", Disabled: &disabled}, access.Principal{Kind: "user", Name: "admin", Via: "session"}); err != nil {
 					t.Fatal(err)
 				}
-			case "forged mac":
+			case "apptownd mac":
 				flipped := "0"
 				if strings.HasSuffix(token, "0") {
 					flipped = "1"

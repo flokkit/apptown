@@ -1,4 +1,4 @@
-# The versions of the tools the forge runs for projects: the agent image's
+# The versions of the tools the apptown runs for projects: the agent image's
 # downloads and packages, the scanners, the sh checks' image and the private
 # Docker sidecar. One version per tool. The versions are still written where
 # they are used (the agent Dockerfile's ARG beside its SHA-256 sums, the
@@ -12,10 +12,10 @@
 # Each line: tool, version, then where it is pinned, comma-separated:
 #   image R   every R:<tag> whose tag starts with a version; the version is
 #             the tag up to its first "-" (1.27.0-alpine is 1.27.0)
-#   arg A     ARG A=<version> in deploy/forge-agent/Dockerfile
+#   arg A     ARG A=<version> in deploy/apptown-agent/Dockerfile
 #
 # Not here: the forge's own build and CI toolchain (go.mod, .gitlab-ci.yml,
-# deploy/ci-heavy, cmd/forge-gate), and what a project owns once adopted
+# deploy/ci-heavy, cmd/apptown-gate), and what a project owns once adopted
 # (stock/toolchains, stock/seeds).
 
 # tool          version       pinned as

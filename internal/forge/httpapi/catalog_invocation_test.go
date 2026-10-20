@@ -40,7 +40,7 @@ func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
 			call := func(name, body string) *httptest.ResponseRecorder {
 				r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
 				r.SetPathValue("name", name)
-				r.Header.Set("X-Forge-Actor", "forged-operator")
+				r.Header.Set("X-Forge-Actor", "apptownd-operator")
 				w := httptest.NewRecorder()
 				web.CatalogApply(w, r)
 				return w
@@ -187,7 +187,7 @@ func TestCatalogApplyHTTPKeepsProjectMembershipAndCaller(t *testing.T) {
 		receipts++
 		var receipt struct{ By string }
 		if err := json.Unmarshal(event.Payload, &receipt); err != nil || receipt.By != "owner" {
-			t.Fatalf("forged attribution: %s (%v)", event.Payload, err)
+			t.Fatalf("apptownd attribution: %s (%v)", event.Payload, err)
 		}
 	}
 	if receipts != 1 {

@@ -36,7 +36,7 @@ func (d *DB) HoldExclusive(ctx context.Context, key int64) (release func(), err 
 		// Unlock, then give the connection back to the pool. Giving it back
 		// does not end its session, so a failed unlock leaves the lock held
 		// until the pool closes that connection or the process ends: the
-		// release is then unconfirmed, and the log says so. (forged holds the
+		// release is then unconfirmed, and the log says so. (apptownd holds the
 		// lock for its whole life and never calls release.)
 		if _, err := conn.ExecContext(detached, `SELECT pg_advisory_unlock($1)`, key); err != nil {
 			log.Printf("database: the exclusive lock may still be held: unlocking failed: %v", err)

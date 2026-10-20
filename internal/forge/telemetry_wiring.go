@@ -44,7 +44,7 @@ type instrumentation struct {
 }
 
 func startInstrumentation(ctx context.Context, cfg configuration) (*instrumentation, error) {
-	in := &instrumentation{tracer: nooptrace.NewTracerProvider().Tracer("forged"), meter: noopmetric.NewMeterProvider().Meter("forged"), links: &attemptLinks{m: map[attemptKey]trace.SpanContext{}}, now: cfg.clock.Now}
+	in := &instrumentation{tracer: nooptrace.NewTracerProvider().Tracer("apptownd"), meter: noopmetric.NewMeterProvider().Meter("apptownd"), links: &attemptLinks{m: map[attemptKey]trace.SpanContext{}}, now: cfg.clock.Now}
 	if cfg.otlpEndpoint == "" {
 		in.httpDuration, _ = in.meter.Float64Histogram("forge_http_request_duration")
 		return in, nil
@@ -56,14 +56,14 @@ func startInstrumentation(ctx context.Context, cfg configuration) (*instrumentat
 	}
 	p, err := telemetry.Start(ctx, telemetry.Config{
 		Endpoint: endpoint, Protocol: cfg.otlpProtocol, Insecure: insecure,
-		ServiceName: "forged", ServiceNamespace: "forge", Attributes: attrs,
+		ServiceName: "apptownd", ServiceNamespace: "forge", Attributes: attrs,
 	})
 	if err != nil {
 		return nil, err
 	}
 	in.providers = p
-	in.tracer = p.Tracer.Tracer("forged")
-	in.meter = p.Meter.Meter("forged")
+	in.tracer = p.Tracer.Tracer("apptownd")
+	in.meter = p.Meter.Meter("apptownd")
 	in.httpDuration, _ = in.meter.Float64Histogram("forge_http_request_duration", metric.WithUnit("ms"),
 		metric.WithExplicitBucketBoundaries(5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000),
 		metric.WithDescription("HTTP request duration by route pattern, method and status class"))
@@ -279,7 +279,7 @@ func BridgeLogs(a *App) func() {
 		return func() {}
 	}
 	prev := log.Writer()
-	log.SetOutput(io.MultiWriter(prev, &logLineBridge{ctx: context.WithoutCancel(a.life), logger: otelslog.NewLogger("forged", otelslog.WithLoggerProvider(a.telemetry.providers.Logger))}))
+	log.SetOutput(io.MultiWriter(prev, &logLineBridge{ctx: context.WithoutCancel(a.life), logger: otelslog.NewLogger("apptownd", otelslog.WithLoggerProvider(a.telemetry.providers.Logger))}))
 	return func() { log.SetOutput(prev) }
 }
 

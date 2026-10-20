@@ -25,7 +25,7 @@ const (
 	TenantDeployment = "deployment" // a standing deployment's (or a restored copy's) parts and needs
 	TenantPreviews   = "previews"   // every change's preview on the host
 	TenantWork       = "work"       // steps, chats and their caches
-	TenantForge      = "forge"      // the forge's own containers (its database); forged itself is in "the host itself" or its own container
+	TenantForge      = "forge"      // the forge's own containers (its database); apptownd itself is in "the host itself" or its own container
 	TenantUnrecorded = "unrecorded" // forge-labelled containers no record or known class names
 	TenantOther      = "other"      // containers the forge did not start
 )
@@ -86,7 +86,7 @@ func tenantOf(l docker.ContainerLimit, owners containerOwners, deps map[ids.ID]P
 // known for a tenant only when every one of its containers was reported;
 // use read for a container the inspection did not see (it started between
 // the readings) leaves every tenant's use unknown, as the forge/other split
-// does. forged's own memory is in no tenant: on the host it is part of the
+// does. apptownd's own memory is in no tenant: on the host it is part of the
 // host's own use, in a container it is that container's (CV-C01).
 func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr error, owners containerOwners, deps map[ids.ID]ProjectDeployment) []Tenant {
 	byKey := map[string]*Tenant{}
@@ -161,13 +161,13 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr er
 }
 
 // hostUse reads this host's own memory, for the built-in target only and
-// only when the daemon reads back a marker forged wrote (sameMachine) and
+// only when the daemon reads back a marker apptownd wrote (sameMachine) and
 // both see the same memory total. That witnesses that the daemon sees
-// forged's files at the same path and the same total, and forged's
+// apptownd's files at the same path and the same total, and apptownd's
 // /proc/meminfo is then taken as the daemon machine's: a forge in a
 // container reads the kernel's figures (unless they are virtualised, when
 // the totals differ). The case it cannot tell is two machines of equal
-// memory sharing forged's temp folder over a network filesystem, accepted
+// memory sharing apptownd's temp folder over a network filesystem, accepted
 // in the plan. Otherwise unknown with the reason.
 func (s *Service) hostUse(ctx context.Context, t *Target, dk docker.Scope, daemonTotal int64) Figure {
 	if t.Origin != OriginBuiltIn {
@@ -190,10 +190,10 @@ func (s *Service) hostUse(ctx context.Context, t *Target, dk docker.Scope, daemo
 	return known(float64(m.UsedBytes()))
 }
 
-// sameMachine says whether the daemon sees forged's filesystem: forged
+// sameMachine says whether the daemon sees apptownd's filesystem: apptownd
 // writes a random marker into a file of its own temp folder, and the
 // daemon mounts that path into a throwaway container and prints it. A
-// remote daemon has no such path (its mount is refused); a forged in a
+// remote daemon has no such path (its mount is refused); a apptownd in a
 // container wrote the marker where the daemon does not look. Read at most
 // every diskFresh, as the disk is.
 func (s *Service) sameMachine(ctx context.Context, targetID ids.ID, dk docker.Scope) (bool, string) {
@@ -231,7 +231,7 @@ type witnessReading struct {
 	why  string
 }
 
-// marker is the file forged's marker is in, written once; the caller holds mu.
+// marker is the file apptownd's marker is in, written once; the caller holds mu.
 func (c *capacityCache) marker() (string, string, error) {
 	if c.markPath != "" {
 		return c.markPath, c.mark, nil

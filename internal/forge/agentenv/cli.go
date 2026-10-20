@@ -39,14 +39,14 @@ func WithCLIPath(env []string) []string {
 }
 
 // NewCLI anchors an explicit path at construction. An empty path selects the
-// forge-linux artifact beside the running daemon, independent of its workdir.
+// apptown-linux artifact beside the running daemon, independent of its workdir.
 func NewCLI(path string) *CLI {
 	var err error
 	if path == "" {
 		var executable string
 		executable, err = os.Executable()
 		if err == nil {
-			path = filepath.Join(filepath.Dir(executable), "forge-linux")
+			path = filepath.Join(filepath.Dir(executable), "apptown-linux")
 		}
 	} else {
 		path, err = filepath.Abs(path)
@@ -67,7 +67,7 @@ func (cli *CLI) Path() (string, error) {
 		}
 		if cli.err != nil {
 			cli.err = fmt.Errorf("console CLI unavailable (build with make console-cli or set -console-cli): %w", cli.err)
-			log.Printf("console: %v — sessions will run WITHOUT the agents' CLI (forge-linux)", cli.err)
+			log.Printf("console: %v — sessions will run WITHOUT the agents' CLI (apptown-linux)", cli.err)
 		}
 	})
 	if cli.err != nil {

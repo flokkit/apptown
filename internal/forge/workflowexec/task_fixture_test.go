@@ -212,7 +212,7 @@ func (f *taskForge) agentExecutor(t *testing.T) *Executor {
 	if err := tokens.Open(filepath.Join(f.dir, identity.RuntimeTokenKeyFile)); err != nil {
 		t.Fatal(err)
 	}
-	cli := filepath.Join(f.dir, "forge-linux")
+	cli := filepath.Join(f.dir, "apptown-linux")
 	if err := execfile.Write(cli, []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}

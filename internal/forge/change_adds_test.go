@@ -233,7 +233,7 @@ func TestAnAcceptanceCarriesWithTheListItWasShown(t *testing.T) {
 }
 
 // The change's reads carry what its waiting approval's commit adds: the API
-// change read the web page and forge show use, and the MCP change read an
+// change read the web page and apptown show use, and the MCP change read an
 // agent uses to say what a person will be asked to accept.
 func TestChangeReadsCarryWhatTheWaitingApprovalAdds(t *testing.T) {
 	t.Parallel()

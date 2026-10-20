@@ -20,7 +20,7 @@ import (
 
 const buildContract = "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"
 
-// imageCheck runs forge check on a change whose head has a buildable
+// imageCheck runs apptown check on a change whose head has a buildable
 // contract, with the image scanners named in scanners attached (name →
 // format, "" for the exit-code contract). Images come from the fake
 // daemon; every scanner process is a script that writes one high SARIF
@@ -80,7 +80,7 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 		t.Fatal(err)
 	}
 	if out["feedbackOnly"] != true || out["checkErrors"].(int) != 0 {
-		t.Fatalf("forge check with image scanners: %+v", out)
+		t.Fatalf("apptown check with image scanners: %+v", out)
 	}
 	return out
 }
@@ -115,7 +115,7 @@ func imageReceipts(t *testing.T, out map[string]any, names ...string) []workflow
 	return got
 }
 
-// forge check runs the landing's image scan point as feedback (soak
+// apptown check runs the landing's image scan point as feedback (soak
 // finding 8): every attached image scanner looks at the image of the
 // checked commit, and a high finding this change introduced fails the
 // answer, which still says it is feedback only. On a first release (a
@@ -130,7 +130,7 @@ func TestForgeCheckRunsTheImageScanPoint(t *testing.T) {
 	t.Parallel()
 	out := imageCheck(t, map[string]string{"trivy": "sarif", "trivy-license": "sarif"}, 1, false)
 	if out["ok"] != false || out["failing"].(int) != 2 {
-		t.Fatalf("forge check with image scanners: %+v", out)
+		t.Fatalf("apptown check with image scanners: %+v", out)
 	}
 	for _, r := range imageReceipts(t, out, "trivy", "trivy-license") {
 		if r.Verdict != workflow.VerdictFail || !strings.Contains(r.Output, "high: semgrep: django.security.audit.sql-injection") || r.BaseNote != firstReleaseNote {
@@ -149,7 +149,7 @@ func TestForgeCheckCarriesImageFindingsAlreadyOnTheBase(t *testing.T) {
 	t.Parallel()
 	out := imageCheck(t, map[string]string{"trivy": "sarif", "trivy-license": "sarif"}, 1, true)
 	if out["ok"] != true || out["failing"].(int) != 0 {
-		t.Fatalf("forge check with a carried image finding: %+v", out)
+		t.Fatalf("apptown check with a carried image finding: %+v", out)
 	}
 	for _, r := range imageReceipts(t, out, "trivy", "trivy-license") {
 		if r.Verdict != workflow.VerdictPass || r.Carried != 1 || !strings.HasPrefix(r.BaseNote, "compared with starting revision's image") {

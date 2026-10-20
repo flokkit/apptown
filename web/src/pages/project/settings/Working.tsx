@@ -390,7 +390,7 @@ export function PoliciesCard({ slug }: { slug: string }) {
 
 // Way of working › Workflows (design/decisions/workflows-as-lanes.md): the project
 // SELECTS lanes from the library — a checklist, nothing copied. Core is the
-// short list, Extras the longer tail; System is what the forge runs for
+// short list, Extras the longer tail; System is what the apptown runs for
 // every project, shown so nobody wonders where landing lives.
 export type Lane = LaneView
 

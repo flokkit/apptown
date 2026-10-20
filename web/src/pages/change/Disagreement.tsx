@@ -8,7 +8,7 @@ import { useGet } from '../../data'
 // adjudicate it: every failed machine verdict in the
 // current stage, in full, beside the implementer's claim. The symmetry is
 // deliberate: a person is judging a dispute between two parties, not
-// reading an error log. The same reading as `forge show` (cmd/forge
+// reading an error log. The same reading as `apptown show` (cmd/apptown
 // disputeText): each output once, a long one as its first line and tail.
 
 const WHO: Record<string, string> = { 'agent/review': 'reviewer', preview: 'boot check', scan: 'scanner' }

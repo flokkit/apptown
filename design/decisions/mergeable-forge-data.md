@@ -1,4 +1,4 @@
-# Mergeable forge data
+# Mergeable apptown data
 
 A value that only one database can interpret (an integer identity, a username,
 a slug, a number counted per project) leaks into Git refs and trailers, receipts,

@@ -133,7 +133,7 @@ func (s landingRechecks) recheckIn(ctx context.Context, tx *database.Tx, req Lan
 	}
 	run, err := runRecord(workflowsql.New(tx.SQL()).ActiveLandingForUpdate(ctx, workflowsql.ActiveLandingForUpdateParams{ChangeID: req.ChangeID, ProjectID: projectID, Status: RunRunning.String()}))
 	if errors.Is(err, sql.ErrNoRows) {
-		return result, fmt.Errorf("change %d has no landing in progress — start one with forge land", req.ChangeID)
+		return result, fmt.Errorf("change %d has no landing in progress — start one with apptown land", req.ChangeID)
 	}
 	if err != nil {
 		return result, err

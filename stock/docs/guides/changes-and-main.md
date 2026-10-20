@@ -12,24 +12,24 @@ A change can be worked in its chat, from your own computer, or by a
 **lane**: a workflow named for what it is for. Every lane works on the
 change's branch and ends at a person; only the landing merges.
 
-- **Fix a bug** (`forge fix`): the agent reproduces the bug first, as a
+- **Fix a bug** (`apptown fix`): the agent reproduces the bug first, as a
   failing test it commits, and a judge confirms the reproduction is real
   before a fix is tried. "Cannot reproduce" stops the lane. Its record
   reads: failing test, fix, the same test passing.
-- **Quick change** (`forge quick`): a small described task with one
+- **Quick change** (`apptown quick`): a small described task with one
   approval.
-- **Plan and execute** (`forge plan`): the agent drafts a plan with
+- **Plan and execute** (`apptown plan`): the agent drafts a plan with
   acceptance criteria, you approve the plan, and the work is then judged
   against those criteria one by one.
-- **Implement** (`forge build`): an application or a substantial new
+- **Implement** (`apptown build`): an application or a substantial new
   capability, from a description or an accepted spec; the project's
   attached integrations are wired in.
-- **Dependency uplift** (`forge uplift`): patch and minor updates checked by
+- **Dependency uplift** (`apptown uplift`): patch and minor updates checked by
   build and tests, majors listed with their changelogs, the result checked
   by a dependency scan.
-- **Adopt or retire an integration** (`forge adopt`, `forge retire`): wire
+- **Adopt or retire an integration** (`apptown adopt`, `apptown retire`): wire
   an attached service into the app, or prove it fully unwired.
-- **Adopt a branch** (`forge import <branch>`, or Settings › General): bring
+- **Adopt a branch** (`apptown import <branch>`, or Settings › General): bring
   in work done outside AppTown as a change. Its history is marked as
   reconstructed, not witnessed, and it lands like any other.
 
@@ -133,7 +133,7 @@ when the branch is behind it and the merge has no conflicts: an ordinary
 merge commit, "Merge main into <branch>", made by AppTown and shown in
 the change's history. When the merge would conflict, AppTown leaves the
 branch alone and the step works on it as it is. The change's page and
-`forge wait -c` then say which files conflict, until you catch up in the
+`apptown wait -c` then say which files conflict, until you catch up in the
 change's chat with the command above.
 
 Landing requires it (below): a branch behind `main` is refused until it has
@@ -176,7 +176,7 @@ Why?
    history.
 
 While a change is landing, a boot of its preview boots the candidate, not
-the folder: `forge preview <change>`, or **Try it** (**restart** when one
+the folder: `apptown preview <change>`, or **Try it** (**restart** when one
 is already running) on the change page. Opening a preview that is already
 running boots nothing. (A chat on a worker that holds the change saves
 first, and the preview boots what it saved.) A landing boots no preview of
@@ -217,8 +217,8 @@ source code. A file it could not read is shown as its own line, not as
 recorded with the decision. If it changed before the approval was saved,
 the approval is refused and the form shows the new list.
 
-On the command line, `forge show <change>` lists what the change adds, and
-`forge approve <step-id>` shows what approving means before it asks.
+On the command line, `apptown show <change>` lists what the change adds, and
+`apptown approve <step-id>` shows what approving means before it asks.
 
 ## Scheduled changes
 
@@ -238,40 +238,40 @@ month.
   missed while AppTown was stopped are not made up: one fires at the next
   look, then the schedule continues from there.
 - **By hand.** Run one now like any other change:
-  `forge invoke -p <slug> -w dependency-uplift -t "Dependency uplift"`.
+  `apptown invoke -p <slug> -w dependency-uplift -t "Dependency uplift"`.
 - **Changing the cadence.** The cron is part of the workflow version a
   project adopted, so a different cadence is a new workflow version that the
   project adopts.
 
 The project overview lists each schedule with its next firing and what its
-last firing did; `forge schedules -p <slug>` shows the same in UTC.
+last firing did; `apptown schedules -p <slug>` shows the same in UTC.
 
 ## From a terminal
 
-The `forge` command line stays with the work, from the request to the
+The `apptown` command line stays with the work, from the request to the
 running app:
 
-    forge fix "the /pulse endpoint reports the wrong service name"
+    apptown fix "the /pulse endpoint reports the wrong service name"
     # shows the reproduction and the fix, asks you to approve, offers the
     # landing, and ends at:
     #   ⚑ change #57 shipped · release #8 · the main URL
 
-    forge status          # what's waiting on you, what's in flight
-    forge changes         # what's in flight and what each waits on (--all: shipped too)
-    forge show 57         # one change: now, what it's for, so far, runs, commits
-    forge follow 57       # re-attach to anything in flight
-    forge preview 57      # boot (or reuse) the change's preview and print its address
-    forge wait 57         # wait until it ships, stops, or needs a person
+    apptown status          # what's waiting on you, what's in flight
+    apptown changes         # what's in flight and what each waits on (--all: shipped too)
+    apptown show 57         # one change: now, what it's for, so far, runs, commits
+    apptown follow 57       # re-attach to anything in flight
+    apptown preview 57      # boot (or reuse) the change's preview and print its address
+    apptown wait 57         # wait until it ships, stops, or needs a person
 
 At an approval it shows the briefing and asks: approve, reject, show the
 plan, spec or report the stage asks for, or see the diff. Rejecting takes a
 comment and sends the work back with it. With `-y` each approval is one
 line saying what it agreed to; without a terminal and without `-y`, it
-stops and names the `forge approve` or `forge follow -y` command, and the
+stops and names the `apptown approve` or `apptown follow -y` command, and the
 page.
 
-`forge review [-p project]` checks every project (or one) against the ways
-of working it adopted. `forge delete <slug>` deletes a project after you
+`apptown review [-p project]` checks every project (or one) against the ways
+of working it adopted. `apptown delete <slug>` deletes a project after you
 type its slug back, and follows its clean-up until it is done.
 
 ## Why `main` is write-protected

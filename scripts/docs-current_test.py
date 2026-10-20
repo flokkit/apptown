@@ -96,15 +96,15 @@ class DocsCurrent(unittest.TestCase):
                 self.assertIn("says forge for the product", out)
 
     def test_code_names_in_a_shipped_guide_pass(self):
-        text = ("Run `forge wait` and `the forge` in code. The `forge` command, `forged`, "
-                "forge-worker and {forge:mcp} are names.\n\n```sh\nthe forge\n```\n\n"
+        text = ("Run `apptown wait` and `the forge` in code. The `apptown` command, `apptownd`, "
+                "apptown-worker and {forge:mcp} are names.\n\n```sh\nthe forge\n```\n\n"
                 "    Forge in indented code\n\n[guide](/docs/guides/running-a-forge)\n")
         code, out = run({"stock/docs/guides/a.md": text})
         self.assertEqual(code, 0, out)
 
     def test_prose_after_indented_code_is_still_checked(self):
         code, out = run({"stock/docs/guides/a.md":
-                         "    forge help\n\nForge restarts the app.\n"})
+                         "    apptown help\n\nForge restarts the app.\n"})
         self.assertEqual(code, 1, out)
         self.assertIn("a.md:3: says forge for the product", out)
 
@@ -116,13 +116,13 @@ class DocsCurrent(unittest.TestCase):
                  '"title": "%s", "expects": "x"}]\n---\n%s')
         for name, (title, body) in {
             "body": ("Front door", "The forge serves the files.\n"),
-            "check title": ("Trust the forge's front door", "Run `forge dev`.\n"),
+            "check title": ("Trust the forge's front door", "Run `apptown dev`.\n"),
         }.items():
             with self.subTest(name=name):
                 code, out = run({"stock/guidance/deploy/a.md": block % (title, body)})
                 self.assertEqual(code, 1, out)
                 self.assertIn("stock/guidance/deploy/a.md", out)
-        code, out = run({"stock/guidance/deploy/a.md": block % ("Front door", "Run `forge dev` in `.forge/`.\n")})
+        code, out = run({"stock/guidance/deploy/a.md": block % ("Front door", "Run `apptown dev` in `.forge/`.\n")})
         self.assertEqual(code, 0, out)
 
     def test_design_guides_are_not_held_to_the_product_name(self):

@@ -12,7 +12,7 @@ counts only if all of these hold:
 - **The accepter was shown its sentence.** A change's waiting acceptance
   shows what the landing's approvals would ask, read from the landing the
   project's way of working pins (`workflow.LandingMeans`), and every client
-  (the web's decision form, `forge approve`, `forge loop`) sends back what it
+  (the web's decision form, `apptown approve`, `forge loop`) sends back what it
   displayed. The acceptance vote records those sentences as `alsoApproves`
   only if the landing still asks exactly them; if the landing's words changed
   between display and decision the approval is refused (`409`, code

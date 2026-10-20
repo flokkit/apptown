@@ -61,7 +61,7 @@ type LimitEvent struct {
 	Generation *int64 `json:"generation,omitempty"`
 }
 
-// RecordLimitEvents reads, from each Docker host the forge runs standing
+// RecordLimitEvents reads, from each Docker host the apptown runs standing
 // deployments on, what its daemon reported since the last event recorded
 // there (at most limitEventReach back), and records each out-of-memory
 // kill and each exit of a standing deployment's part or need. A container

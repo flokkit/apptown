@@ -151,11 +151,11 @@ func TestAMissingBareAgentImageIsBuilt(t *testing.T) {
 	t.Parallel()
 	var s setupState
 	rec := &recordingDocker{}
-	s.fetch(t.Context(), docker.Scope{Client: rec}, "forge-agent", "../../deploy/forge-agent", filepath.Join(t.TempDir(), "log"), func(string) {})
+	s.fetch(t.Context(), docker.Scope{Client: rec}, "forge-agent", "../../deploy/apptown-agent", filepath.Join(t.TempDir(), "log"), func(string) {})
 	if state, reason := agentImageSettled(t, &s); state != "present" {
 		t.Fatalf("after a build: %q %q", state, reason)
 	}
-	if got := rec.seen(); len(got) != 1 || got[0] != "build -t forge-agent ../../deploy/forge-agent" {
+	if got := rec.seen(); len(got) != 1 || got[0] != "build -t forge-agent ../../deploy/apptown-agent" {
 		t.Fatalf("commands: %v", got)
 	}
 }

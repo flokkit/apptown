@@ -45,7 +45,7 @@ func TestConsoleLandingHTTPRechecksItsFailedGateAndKeepsHumanApproval(t *testing
 	sessions, _, session, _ := consoleHTTPFixture(t, map[string]string{conversation.ProjectLabel: fmt.Sprint(f.ProjectID), conversation.SlugLabel: "shop", conversation.ChangeLabel: fmt.Sprint(change.ID)})
 	h := NewConsoleChanges(sessions, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB)
 	call := func(handler http.HandlerFunc, token string) *httptest.ResponseRecorder {
-		r := httptest.NewRequest("POST", "/", strings.NewReader(fmt.Sprintf(`{"changeId":%q,"who":"forged-operator"}`, f.ChangeID))).WithContext(f.Context)
+		r := httptest.NewRequest("POST", "/", strings.NewReader(fmt.Sprintf(`{"changeId":%q,"who":"apptownd-operator"}`, f.ChangeID))).WithContext(f.Context)
 		r.SetPathValue("sid", session.ID)
 		r.Header.Set("X-Forge-Session-Token", token)
 		w := httptest.NewRecorder()

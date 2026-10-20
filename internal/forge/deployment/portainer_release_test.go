@@ -90,7 +90,7 @@ func (b *backupsAsked) of() []string {
 }
 
 // releaseByName releases bundle b to the deployment name, as a person does
-// with forge release <project> <deployment>, and answers the release.
+// with apptown release <project> <deployment>, and answers the release.
 func (p *promotionTargets) releaseByName(t *testing.T, name string, b *ReleaseBundle) (*Release, error) {
 	t.Helper()
 	accepted, err := p.s.RequestRelease(context.Background(), DeploySelection{ProjectID: p.project, DeploymentName: name, BundleID: b.ID})
@@ -334,7 +334,7 @@ func TestTheIntranetDoorNamesTheDoorForARegisteredNeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, code, err := p.s.ReleaseLAN(t.Context(), &proj, "boss", LANReleaseRequest{}); code != 422 || err == nil || !strings.Contains(err.Error(), "this app needs llm") || !strings.Contains(err.Error(), "release it with forge release p lan") {
+	if _, code, err := p.s.ReleaseLAN(t.Context(), &proj, "boss", LANReleaseRequest{}); code != 422 || err == nil || !strings.Contains(err.Error(), "this app needs llm") || !strings.Contains(err.Error(), "release it with apptown release p lan") {
 		t.Fatalf("the intranet door: %d %v", code, err)
 	}
 }

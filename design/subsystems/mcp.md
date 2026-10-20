@@ -31,7 +31,7 @@ client. DELETE ends a session. Session state is in memory and idle sessions
 close after a day; after a restart a client's session is unknown and it
 initializes again, as the transport specifies. Sessions are distinct from a
 persisted Forge console conversation. The SDK's loopback Host-header guard is
-off because forged runs behind a reverse proxy and this door admits only bearer
+off because apptownd runs behind a reverse proxy and this door admits only bearer
 credentials.
 
 An external coding agent uses its own runtime. Connecting over MCP does not

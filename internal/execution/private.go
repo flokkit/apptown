@@ -56,7 +56,7 @@ type WorkerProfile struct {
 	DindVersion string `json:"dindVersion"`
 	// Privileged says whether a privileged container ran when probed.
 	Privileged string `json:"privileged"`
-	// Exclusive is declared by the operator (forge-worker -exclusive): the
+	// Exclusive is declared by the operator (apptown-worker -exclusive): the
 	// machine is the installation's alone. It is not measured.
 	Exclusive bool `json:"exclusive"`
 	// Egress is never contained in this profile.

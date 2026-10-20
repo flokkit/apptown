@@ -43,7 +43,7 @@ const (
 )
 
 // ErrFolderRefused: the folder's Git metadata is not what the forge's own
-// clone makes, so the forge runs no Git in it. A FolderRefusal says why.
+// clone makes, so the apptown runs no Git in it. A FolderRefusal says why.
 var ErrFolderRefused = errors.New("the folder's Git metadata is not AppTown's own clone")
 
 // FolderRefusal is a refused folder and the reason.
@@ -54,7 +54,7 @@ func (e *FolderRefusal) Error() string {
 }
 func (e *FolderRefusal) Is(target error) bool { return target == ErrFolderRefused }
 
-// folderLocks holds one lock per folder path. The forge runs one process per
+// folderLocks holds one lock per folder path. The apptown runs one process per
 // data directory, so a process-wide lock is the whole of it.
 var folderLocks = struct {
 	sync.Mutex

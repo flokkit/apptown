@@ -1,6 +1,6 @@
 # Worker
 
-`forge-worker` (`cmd/forge-worker`) runs a forge's tasks on a machine that
+`apptown-worker` (`cmd/apptown-worker`) runs a forge's tasks on a machine that
 shares no files with it. This package is its server: an HTTPS API over mutual
 TLS that accepts only the client certificate naming its one installation,
 workspaces cloned from Git bundles, tasks run through an
@@ -39,7 +39,7 @@ sends in the session's spec.
 On the forge, `RemoteAgent` is that runtime for the chat service: the same
 interface, answered by the worker (`SessionClient`), so the service is
 unchanged. What the forge mounts into a chat travels as a blob named by its
-content (the `forge` binary, generated registry files); the chat's other
+content (the `apptown` binary, generated registry files); the chat's other
 files are sent when they change; the work tree is made once from a bundle
 of the change's branch; messages, interrupts and the terminal go through;
 the chat's record is copied back with the time of the last good copy, and a
@@ -54,7 +54,7 @@ never calls the forge. On the forge, `console.Placed` gives each chat the
 runtime its record places it on. An answer
 the forge cannot get is `execution.ErrWorkerUnavailable`, never absence, and
 the chat shows as unavailable. The agent image is built by the worker from
-its own `deploy/forge-agent` and named by that context's content
+its own `deploy/apptown-agent` and named by that context's content
 (`AgentImage`), so a forge and a worker of different versions refuse rather
 than mix; `GET /v1/agent-image` reports its name and labels. `Reach` reports
 which registries the worker can reach.

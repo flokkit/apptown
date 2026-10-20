@@ -288,18 +288,18 @@ def callbacks():
                          cwd=ROOT, capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
-# Commands promised to stand alone: what they may not link. forge-worker
+# Commands promised to stand alone: what they may not link. apptown-worker
 # links internal/console since it runs chats' runtimes: that
 # package depends on no forge domain or database, and the go list check
 # below still refuses anything that would bring one in. It links
 # internal/deploy since it boots previews with the forge's own boot code
 # (design/plans/isolated-execution-previews-on-workers-2026-09-30.md): the
 # library, not the deployment subsystem, which stays refused.
-STANDALONE = {"forge-deploy": {"forge", "deployment", "preview", "dataprotection", "database", "workflow", "project", "conformance", "console", "wow", "adoption", "access"},
-              "forge-console": {"forge", "workflow", "project", "conformance", "deployment", "preview", "dataprotection", "deploy", "wow", "adoption", "access", "integration", "model"},
-              "forge-worker": {"forge", "database", "workflow", "project", "deployment", "preview", "dataprotection", "conformance", "wow", "adoption", "access",
+STANDALONE = {"apptown-deploy": {"forge", "deployment", "preview", "dataprotection", "database", "workflow", "project", "conformance", "console", "wow", "adoption", "access"},
+              "apptown-console": {"forge", "workflow", "project", "conformance", "deployment", "preview", "dataprotection", "deploy", "wow", "adoption", "access", "integration", "model"},
+              "apptown-worker": {"forge", "database", "workflow", "project", "deployment", "preview", "dataprotection", "conformance", "wow", "adoption", "access",
                                "integration", "model", "secret", "scm", "tasks", "identity", "usage", "dependency", "adrs", "complaint"},
-              "forge-check": {"forge", "conformance", "workflow", "project", "deployment", "preview", "dataprotection", "database", "console", "wow", "adoption", "access", "integration", "model", "secret", "scm", "usage", "dependency", "adrs", "complaint"}}
+              "apptown-check": {"forge", "conformance", "workflow", "project", "deployment", "preview", "dataprotection", "database", "console", "wow", "adoption", "access", "integration", "model", "secret", "scm", "usage", "dependency", "adrs", "complaint"}}
 
 def standalone():
     v = []

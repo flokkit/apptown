@@ -606,7 +606,7 @@ class RatchetsTest(unittest.TestCase):
                 "\tif err := json.Unmarshal(raw, &v); err != nil {}\n"
                 "\t// _ = json.Unmarshal(raw, &v)\n"
                 "}\n")
-        root = self.tree({"internal/forge/a/a.go": body, "cmd/forge/b.go": body,
+        root = self.tree({"internal/forge/a/a.go": body, "cmd/apptown/b.go": body,
                           "internal/forge/a/a_test.go": body, "internal/forge/a/internal/asql/queries.sql.go": body})
         self.assertEqual(len(self.shape.dropped_decodes(root)), 6)
 
@@ -636,7 +636,7 @@ class RatchetsTest(unittest.TestCase):
                 "// See design/plans/thing.md.\n"
                 "// A landing reads only; it publishes nothing.\n"
                 'var u = "https://example.com/round 3"\n')
-        root = self.tree({"internal/forge/workflow/a.go": body, "cmd/forge/b.go": body,
+        root = self.tree({"internal/forge/workflow/a.go": body, "cmd/apptown/b.go": body,
                           "internal/forge/workflow/a_test.go": body})
         self.assertEqual(len(self.shape.history_comments(root)), 12)
 
@@ -656,7 +656,7 @@ class RatchetsTest(unittest.TestCase):
                 "\tos.WriteFile(p, []byte(\"#!/bin/sh\\necho https://example.test/r\\nsed 's/a//g'\\n\"), 0o755) // a URL\n"
                 "}\n")
         root = self.tree({"internal/worker/a_test.go": body, "internal/gitexec/gittest/fixture.go": body,
-                          "internal/worker/a.go": body, "cmd/forge/b_test.go": body})
+                          "internal/worker/a.go": body, "cmd/apptown/b_test.go": body})
         writes = self.shape.test_exec_writes(root)
         self.assertEqual(len(writes), 18, writes)
         self.assertTrue(any(":4: os.WriteFile with mode 0700" in w for w in writes), writes)

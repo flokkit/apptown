@@ -44,7 +44,7 @@ func (e *AdmissionConflict) Unwrap() error         { return e.Err }
 const CodeChatOnForge = "chat-on-forge"
 
 // workerRefusal refuses a chat on the worker. It names the forge as the way
-// round, in the sentence and the code, only when this forge runs chats
+// round, in the sentence and the code, only when this apptown runs chats
 // itself: a forge that runs none must not send the reader there.
 func (c *Admission) workerRefusal(err error, onForge string) *AdmissionConflict {
 	if c.noLocal {

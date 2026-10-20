@@ -30,7 +30,7 @@ type LocalService struct {
 }
 
 // ForSteps is the service as the forge starts it beside its own steps and
-// for forge dev, where the app's own tests run: its Env with the kind's
+// for apptown dev, where the app's own tests run: its Env with the kind's
 // StepEnv over it.
 func (s LocalService) ForSteps() LocalService {
 	if len(s.StepEnv) == 0 {
@@ -61,7 +61,7 @@ type LocalPlan struct {
 // (Kind.Generate) by the kind's capability and the credential's name: a
 // deployment's, a preview's, or one operation's. Nil gives the catalogue's
 // own values, which only the forge's throwaway servers use (its steps,
-// forge dev, a check's environment).
+// apptown dev, a check's environment).
 type Credentials func(ctx context.Context, capability, name string) (string, error)
 
 // Generated is the kind's generated credentials as creds gives them, by
@@ -135,7 +135,7 @@ func (k *Kind) ResolveLocal(params map[string]string, host string, generated map
 // starting services reject Unknown; environment-only callers may use partial Env.
 // Register-only kinds are known but have no emulator or local environment.
 // It gives the catalogue's own credentials: for the forge's throwaway
-// servers and forge dev, never a deployment or a preview (LocalRuntime).
+// servers and apptown dev, never a deployment or a preview (LocalRuntime).
 func (c *Catalog) ResolveLocal(ctx context.Context, needs []string, params map[string]map[string]string, host string) LocalPlan {
 	out, _ := c.resolveLocal(ctx, needs, params, host, nil)
 	return out

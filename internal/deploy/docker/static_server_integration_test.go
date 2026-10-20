@@ -18,7 +18,7 @@ import (
 // The real static server, as every path runs it: the site from /srv, and
 // /_forge/env.js carrying the values it was started with, which the page can
 // load. Unset, the file answers an empty object, {}. Judged by the same
-// check the forge runs against a preview.
+// check the apptown runs against a preview.
 func TestIntegrationStaticServerGivesThePageItsValues(t *testing.T) {
 	site := t.TempDir()
 	page := `<html><script src="/_forge/env.js"></script><script src="game.js"></script></html>`

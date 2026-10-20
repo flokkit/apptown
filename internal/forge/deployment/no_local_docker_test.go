@@ -34,7 +34,7 @@ import (
 )
 
 // A forge with no local Docker releases to attached Docker hosts only
-// (design/operations/workers.md, "Running a forge without a local Docker
+// (design/operations/workers.md, "Running AppTown without a local Docker
 // daemon").
 // The attached host here is a recording daemon reached at its own address:
 // every command names the daemon it went to, and it holds the images it

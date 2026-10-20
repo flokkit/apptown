@@ -48,7 +48,7 @@ func (s Space) Refuses() bool { return s.FreeBytes < s.Floor() }
 var ErrRefused = errors.New("refused for disk space")
 
 // Admit says whether new work may start on the filesystem described by
-// what ("the worker's state folder /var/lib/forge-worker"), read as s, or
+// what ("the worker's state folder /var/lib/apptown-worker"), read as s, or
 // not read (err). A refusal wraps ErrRefused and says what is free and
 // what to do.
 func Admit(what string, s Space, err error) error {

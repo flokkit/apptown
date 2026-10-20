@@ -103,10 +103,10 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	}
 	// Loopback on the forge's own daemon: nothing legitimate reaches an app
 	// there on its raw host port. A browser on another device arrives via
-	// Traefik → forged's in-process proxy (vhost.go), which reaches the
-	// container over 127.0.0.1 because forged is co-located with it. A
+	// Traefik → apptownd's in-process proxy (vhost.go), which reaches the
+	// container over 127.0.0.1 because apptownd is co-located with it. A
 	// 0.0.0.0 bind there only opens a LAN bypass AROUND the proxy's header
-	// sanitization — a client could hit the backend directly with a forged
+	// sanitization — a client could hit the backend directly with a apptownd
 	// X-Forwarded-Proto/Host, spoofing the very front-door signal the health
 	// render trusts (design/subsystems/ingress.md, trust boundary). An
 	// attached host is not co-located with the forge: its port is published

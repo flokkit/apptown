@@ -131,13 +131,13 @@ func f(attrs map[string]string) []string {
 //
 // Kills: an image key the Dockerfile never sets (a step would record no version).
 func TestTheAgentImageWritesEveryImageKey(t *testing.T) {
-	src, err := os.ReadFile(filepath.Join("..", "..", "deploy", "forge-agent", "Dockerfile"))
+	src, err := os.ReadFile(filepath.Join("..", "..", "deploy", "apptown-agent", "Dockerfile"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, k := range ImageKeys {
 		if !regexp.MustCompile(`(?m)^LABEL ` + regexp.QuoteMeta(k) + `=`).Match(src) {
-			t.Errorf("deploy/forge-agent/Dockerfile does not set %s", k)
+			t.Errorf("deploy/apptown-agent/Dockerfile does not set %s", k)
 		}
 	}
 }

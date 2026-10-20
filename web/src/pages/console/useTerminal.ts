@@ -3,8 +3,8 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
-// The terminal is the chat at forensic zoom: xterm.js speaks to forged over a
-// websocket; forged holds the PTY on the session's container. Its bytes are a
+// The terminal is the chat at forensic zoom: xterm.js speaks to apptownd over a
+// websocket; apptownd holds the PTY on the session's container. Its bytes are a
 // stream, not a read, so they stay out of the query cache. Sessions survive
 // disconnects (the server replays its ring buffer on reconnect).
 

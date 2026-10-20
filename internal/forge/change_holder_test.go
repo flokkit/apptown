@@ -278,7 +278,7 @@ func TestTakingAChangeKeepsThePreviousWorkersLeftovers(t *testing.T) {
 }
 
 // A landing takes no holder: started while the change's chat holds it (the
-// chat's own `forge land`), it publishes the chat's committed work under the
+// chat's own `apptown land`), it publishes the chat's committed work under the
 // chat's grant and leaves the chat holding the change. Nothing waits on the
 // chat's turn.
 func TestALandingLeavesTheChatHoldingTheChange(t *testing.T) {

@@ -20,7 +20,7 @@ import (
 // moving during the run). A merge with conflicts is not made: the step works
 // on the branch as it is, and the run records which files conflict
 // (main.conflict). That record is what a person reads: the change page and
-// forge wait -c show it, with the catch-up command, while the branch still
+// apptown wait -c show it, with the catch-up command, while the branch still
 // does not contain that main (repositoryedit.MainConflictIn). Nobody is
 // sent it: while the run holds the change no chat can be open on it. The
 // landing still checks that the branch contains main (reconcile), on the

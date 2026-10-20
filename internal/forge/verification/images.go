@@ -20,7 +20,7 @@ import (
 // It may reuse the recorded artifact of a standing deployment; it never substitutes
 // a moving tag for that digest and never boots or changes the deployment.
 // imageForCommit resolves the app image to run an exec-image tool inside,
-// content-addressed by the committed tree SHA so forge check, the land gate,
+// content-addressed by the committed tree SHA so apptown check, the land gate,
 // and repeat invocations share ONE build instead of rebuilding each time
 // (design/subsystems/conformance.md §13.6). `buildDir` is the staged committed tree (the
 // build context root). `allowBuild` gates whether a cache miss may build: true
@@ -80,7 +80,7 @@ func (s *Scanners) imageForCommit(ctx context.Context, projectID ids.ID, buildDi
 		a := s.exec.Image(ctx, execution.ImageRequest{Tag: tag, Tree: buildDir, Context: filepath.Clean(c.PublicPart().Build), AllowBuild: allowBuild})
 		switch {
 		case a.NotBuilt:
-			return "", "no image built for this commit yet — land it, run forge check, or start a review that builds", "deferred", nil
+			return "", "no image built for this commit yet — land it, run apptown check, or start a review that builds", "deferred", nil
 		case a.Err != "" || a.ID == "":
 			return "", "", "error", errors.New(strs.FirstNonBlank(a.Err, "building the app image gave no image"))
 		}

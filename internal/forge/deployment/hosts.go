@@ -68,7 +68,7 @@ func NewHosts(targets *Targets, secrets *secret.Service, settings HostSettings) 
 // Local is this forge's own Docker daemon (Absent when it has none).
 func (h *Hosts) Local() docker.Scope { return h.settings.Scope }
 
-// NoLocalDocker says the forge runs with no Docker of its own.
+// NoLocalDocker says the apptown runs with no Docker of its own.
 func (h *Hosts) NoLocalDocker() bool { return h.settings.NoLocalDocker }
 
 // BuiltInTarget is the name of the target that is this forge's own Docker.
@@ -306,7 +306,7 @@ func (h *Hosts) DockerScopeFor(ctx context.Context, targetID ids.ID) (docker.Sco
 	return h.DockerScope(ctx, t)
 }
 
-// Watched are the deployments the forge runs on Docker hosts it talks to
+// Watched are the deployments the apptown runs on Docker hosts it talks to
 // directly: settled Docker-host deployments, never previews or operations
 // still running or uncertain.
 func (h *Hosts) Watched(ctx context.Context, deployments *Deployments) []docker.Watched {

@@ -25,7 +25,7 @@ change started from, else the image the main deployment serves. On a
 project's first release there is none, so the scan says "first release" and
 every finding counts as new.
 
-`forge check` runs the same source and image scans on your commit before you
+`apptown check` runs the same source and image scans on your commit before you
 hand back, as feedback: the landing still scans what it lands.
 
 ## When a scan blocks you

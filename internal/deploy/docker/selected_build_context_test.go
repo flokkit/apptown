@@ -110,7 +110,7 @@ func TestDockerSelectedImagesUseLocalAndRemoteBuildContexts(t *testing.T) {
 // holds them: nothing is built or pulled, a static part still becomes the
 // file server, init steps and image-only parts keep their recorded IDs, and
 // an image the daemon no longer has is missing, while a daemon that cannot
-// be asked is not (design/operations/workers.md, "Running a forge without a
+// be asked is not (design/operations/workers.md, "Running AppTown without a
 // local Docker daemon").
 func TestRecordedImagesBootAsRecordedAndBuildNothing(t *testing.T) {
 	t.Parallel()

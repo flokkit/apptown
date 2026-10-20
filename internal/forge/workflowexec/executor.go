@@ -40,8 +40,8 @@ type Process interface {
 }
 type Config struct {
 	DataDir, Image, Backend, APIURL string
-	NoPrivateDocker                 bool // forged -no-private-docker: a step declaring it is refused
-	// PrivateDockerOnWorker is forged -private-docker: a step declaring
+	NoPrivateDocker                 bool // apptownd -no-private-docker: a step declaring it is refused
+	// PrivateDockerOnWorker is apptownd -private-docker: a step declaring
 	// private Docker is admitted on a worker, qualified or not by the
 	// worker's measured profile. Without it, it is refused there.
 	PrivateDockerOnWorker bool

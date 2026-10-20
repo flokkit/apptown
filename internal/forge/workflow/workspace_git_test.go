@@ -321,7 +321,7 @@ func TestAWritersCloneCannotChangeTheForgesRepository(t *testing.T) {
 	}
 }
 
-// The forge runs its own Git in a folder only when the folder's metadata is
+// The apptown runs its own Git in a folder only when the folder's metadata is
 // what EnsureClone makes (gitexec.CheckFolder): every clone EnsureClone
 // makes passes that check and is brought forward by the confined
 // fast-forward, whichever branch it checks out.

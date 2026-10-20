@@ -89,7 +89,7 @@ type Kind struct {
 	// Generate names the credentials each deployment and each preview gets
 	// a value of its own for (Credentials, LocalRuntime.Credentials); the
 	// value under credentials: is then only for the forge's own throwaway
-	// servers (steps, forge dev, checks). A kind with a local service that
+	// servers (steps, apptown dev, checks). A kind with a local service that
 	// generates one declares local.configAtStart: its service must take a
 	// new value at its next start, never keep the first one in its data.
 	Generate []string `yaml:"generate,omitempty" json:"generate,omitempty"`
@@ -117,7 +117,7 @@ type Kind struct {
 		// (deploy.ServiceSpec.KeepsImage).
 		KeepsImage bool `yaml:"keepsImage,omitempty" json:"keepsImage,omitempty"`
 		// StepEnv is added to Env for the servers the forge starts beside
-		// its own steps and for forge dev, where the app's own tests run
+		// its own steps and for apptown dev, where the app's own tests run
 		// (LocalRuntime.Steps); never for a deployment or a preview.
 		StepEnv map[string]string `yaml:"stepEnv,omitempty" json:"stepEnv,omitempty"`
 		Port    int               `yaml:"port,omitempty" json:"port,omitempty"`

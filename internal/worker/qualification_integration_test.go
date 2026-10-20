@@ -20,7 +20,7 @@ import (
 )
 
 // Qualification of the worker-vm profile (design/operations/workers.md,
-// "Private Docker on the worker"): the private-Docker suite with the worker as a real forge-worker
+// "Private Docker on the worker"): the private-Docker suite with the worker as a real apptown-worker
 // process on a separate Linux machine that shares no files with this one.
 // This test is the forge's side: it sends requests over mutual TLS
 // (workertest.External names the worker), observes the worker's Docker

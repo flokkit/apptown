@@ -9,7 +9,7 @@ import "flokkit.io/forge/internal/dockerlabel"
 // the project. Enabling only adds the package to that session's settings.json
 // packages; the code is already baked and pinned by the image.
 //
-// Adding a new blessed extension = bake it in deploy/forge-agent/Dockerfile
+// Adding a new blessed extension = bake it in deploy/apptown-agent/Dockerfile
 // (with a forge.<name>.version label) and add a row here.
 
 type Extension struct {

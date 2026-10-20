@@ -10,7 +10,7 @@ Compose's conventions for what an app's own containers are (`build`, `image`
 or `static`, `command`, `ports`, `environment`) plus forge-native fields
 (`dataDir`, `seed`, `public`). What the app depends on lives under `needs:` as
 first-class entries with typed parameters, with a `properties:` map for rare
-provisioning options. `forge config schema` and `forge config validate` let a
+provisioning options. `apptown config schema` and `apptown config validate` let a
 model read the schema and check a file.
 
 ## Why not a constrained Compose file
@@ -25,14 +25,14 @@ syntax serves neither.
 
 ## Local development
 
-`forge dev` has two gears:
+`apptown dev` has two gears:
 
-- `forge dev` brings up the app's needs as local containers and writes `.env`;
+- `apptown dev` brings up the app's needs as local containers and writes `.env`;
   the person or agent runs the app's own processes against them. This is the
   inner loop.
-- `forge dev up` renders the whole app, its parts and each need's local
+- `apptown dev up` renders the whole app, its parts and each need's local
   fulfillment with the connection environment wired in, to
-  `.forge/docker-compose.yml`, and runs it. `forge dev down` tears either down.
+  `.forge/docker-compose.yml`, and runs it. `apptown dev down` tears either down.
 
 The Compose file is regenerated on every run, so it cannot drift from the
 contract; there is no second copy of the truth to keep in sync, and nothing to

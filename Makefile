@@ -30,7 +30,7 @@ check-generated: check-sqlc
 	python3 scripts/schema-assemble.py --check
 	$(SQLC) diff
 
-build: web go            ## build frontend then the single forged binary
+build: web go            ## build frontend then the single apptownd binary
 .DEFAULT_GOAL := build
 
 # `make check` mirrors what CI's unit+web stages gate on, so a red pipeline is
@@ -104,15 +104,17 @@ check-go-gate:          ## make check's Go and checker stages (CI's unit job)
 	@echo "== check-gate (alone, after the other stages) =="
 	@$(MAKE) --no-print-directory check-gate
 
-check-pins:             ## the tools the forge runs for projects have one version each: deploy/tool-pins.txt
+check-pins:             ## the tools the apptown runs for projects have one version each: deploy/tool-pins.txt
 	python3 scripts/pins-check_test.py
 	python3 scripts/pins-check.py
 
-check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; the tour is complete
+check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; the tour is complete; the names people see only lose their old spelling (names-check)
 	python3 scripts/docs-current_test.py
 	python3 scripts/docs-current.py
 	python3 scripts/tour_test.py
 	python3 scripts/tour-check.py
+	python3 scripts/names-check_test.py
+	python3 scripts/names-check.py
 
 # The UI tour (site/tour): a small example team's AppTown, photographed in
 # both themes by Playwright (FORGE_PLAYWRIGHT_MODULE, default the nightly
@@ -127,7 +129,7 @@ tour: web                ## the UI tour's screenshots and page, from site/tour/t
 check-migrations:       ## a released migration keeps its number and statements: the lock only grows from origin/main's
 	sh scripts/migrations-append-only.sh
 
-check-reachability:     ## what forged's main can never reach, against scripts/reachability-baseline
+check-reachability:     ## what apptownd's main can never reach, against scripts/reachability-baseline
 	sh scripts/reachability-check.sh
 
 check-exec:             ## process starts outside their owners, against scripts/exec-baseline.json
@@ -247,9 +249,9 @@ web:                     ## the web bundle (installs web/node_modules first when
 REVISION_LDFLAGS = -ldflags "-X flokkit.io/forge/internal/version.Revision=$(shell git rev-parse --short=12 HEAD)$(shell git diff --quiet HEAD -- . 2>/dev/null || echo -modified)"
 
 go: console-cli
-	go build $(REVISION_LDFLAGS) -o bin/forged ./cmd/forged
-	go build $(REVISION_LDFLAGS) -o bin/forge ./cmd/forge
-	go build $(REVISION_LDFLAGS) -o bin/forge-worker ./cmd/forge-worker
+	go build $(REVISION_LDFLAGS) -o bin/apptownd ./cmd/apptownd
+	go build $(REVISION_LDFLAGS) -o bin/apptown ./cmd/apptown
+	go build $(REVISION_LDFLAGS) -o bin/apptown-worker ./cmd/apptown-worker
 
 .PHONY: console-cli
 release:                 ## build a release's artifacts from a clean checkout at its tag: make release VERSION=1.0.0
@@ -260,7 +262,7 @@ upgrade-test: web       ## every earlier release's frozen forge upgrades to this
 	go test ./internal/forge/dbschema -run '^TestAMigrationOverAReleasesRecordsAppliesOrLeavesThemAlone$$' -count=1
 
 console-cli:             ## build the CLI artifact mounted into Linux containers
-	CGO_ENABLED=0 GOOS=linux go build $(REVISION_LDFLAGS) -o bin/forge-linux ./cmd/forge
+	CGO_ENABLED=0 GOOS=linux go build $(REVISION_LDFLAGS) -o bin/apptown-linux ./cmd/apptown
 
 # Where `make run` and `make dev-api` listen. Open mode (the default) serves
 # loopback only. Docker Desktop's host.docker.internal reaches the host's
@@ -272,10 +274,10 @@ CONSOLE_ADDR ?= 127.0.0.1:7778
 FORGED_FLAGS ?=
 
 run: build               ## build everything and serve on $(ADDR)
-	./bin/forged -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) $(FORGED_FLAGS)
+	./bin/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) $(FORGED_FLAGS)
 
 dev-api: console-cli     ## backend only (uses last-built dist for static files)
-	go run ./cmd/forged -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -console-cli ./bin/forge-linux $(FORGED_FLAGS)
+	go run ./cmd/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -console-cli ./bin/apptown-linux $(FORGED_FLAGS)
 
 dev-web:                 ## vite dev server on :5173, proxies /api to :7777
 	cd web && npm run dev
@@ -293,7 +295,7 @@ check-schema-ownership:
 # registry the deployment target uses and passes its digest to the forge
 # with -restore-gate-image <ref@sha256:...>, so every restored copy runs the
 # exact gate that was reviewed.
-GATE_IMAGE ?= forge-gate:local
+GATE_IMAGE ?= apptown-gate:local
 .PHONY: gate-image
-gate-image:              ## build the restore gate image (GATE_IMAGE=forge-gate:local)
-	docker build --platform linux/amd64 -f cmd/forge-gate/Dockerfile -t $(GATE_IMAGE) .
+gate-image:              ## build the restore gate image (GATE_IMAGE=apptown-gate:local)
+	docker build --platform linux/amd64 -f cmd/apptown-gate/Dockerfile -t $(GATE_IMAGE) .

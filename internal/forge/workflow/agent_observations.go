@@ -23,7 +23,7 @@ func LatestFeedbackIn(ctx context.Context, q database.Queryer, ref RunRef) (*Ste
 }
 
 // PersonFeedback is what a person last asked of a run's work: a send-back
-// note (forge retry -m, a change sent back) or an approver's rejection
+// note (apptown retry -m, a change sent back) or an approver's rejection
 // comment, and who said it.
 type PersonFeedback struct{ Note, By string }
 

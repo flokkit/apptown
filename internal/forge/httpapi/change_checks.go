@@ -21,7 +21,7 @@ type ChangeVerifier interface {
 
 // ChangeCheckRequest is the body of `POST /changes/{id}/check`: the commit the
 // caller asks about (the CLI's folder HEAD), or published for the tip of the
-// change's branch on the forge (`forge check --published`). A body naming
+// change's branch on the forge (`apptown check --published`). A body naming
 // neither (`{}`, or none) asks for the change's latest commit on the forge,
 // as it always has. The answer's commit field names what was checked.
 type ChangeCheckRequest struct {
@@ -37,7 +37,7 @@ func NewChangeChecks(db database.Queryer, checker ChangeVerifier) ChangeChecks {
 	return ChangeChecks{db: db, checker: checker}
 }
 
-// `forge check` (design/subsystems/guidance-checks.md): let an agent — or a human — run a
+// `apptown check` (design/subsystems/guidance-checks.md): let an agent — or a human — run a
 // change's DECLARED sh gate checks against its committed tree BEFORE handoff,
 // so a failing gate is fixed in the loop instead of discovered after the run
 // hands back. Same checks, same committed-tree posture, same gating rule as the

@@ -62,7 +62,7 @@ class ReleaseChecksums(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.repo)
-        for d in ["scripts", "web", "deploy/forge-agent", "deploy/systemd", "bin"]:
+        for d in ["scripts", "web", "deploy/apptown-agent", "deploy/systemd", "bin"]:
             os.makedirs(os.path.join(self.repo, d))
         shutil.copy(os.path.join(HERE, "release.sh"), os.path.join(self.repo, "scripts"))
         shutil.copy(os.path.join(HERE, "third-party-notices.py"), os.path.join(self.repo, "scripts"))
@@ -70,7 +70,7 @@ class ReleaseChecksums(unittest.TestCase):
         os.makedirs(os.path.join(self.repo, "site", "tour"))
         os.makedirs(os.path.join(self.repo, "releases"))
         os.makedirs(os.path.join(self.repo, "stock", "docs", "api"))
-        for name, body in [("deploy/forge-agent/Dockerfile", "FROM scratch\n"), ("deploy/systemd/forged.service", "[Unit]\n"), (".gitignore", "/dist/\n/bin/\n/calls.log\n"), ("LICENSE", "Apache License\n"), ("NOTICE", "Flokkit Forge\n"),
+        for name, body in [("deploy/apptown-agent/Dockerfile", "FROM scratch\n"), ("deploy/systemd/apptownd.service", "[Unit]\n"), (".gitignore", "/dist/\n/bin/\n/calls.log\n"), ("LICENSE", "Apache License\n"), ("NOTICE", "Flokkit Forge\n"),
                            ("releases/v1.0.0.md", NOTES), ("stock/docs/api/openapi.json", "{}\n")]:
             with open(os.path.join(self.repo, name), "w") as f:
                 f.write(body)

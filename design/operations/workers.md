@@ -15,7 +15,7 @@ chats (see the sections on each below):
 - A script step with `executor: docker` runs on the worker's own Docker
   daemon, in the image the step names.
 - A script step with `executor: local` (the default for scripts) is refused
-  with "this forge runs scripts only on its worker". Give such steps
+  with "this apptown runs scripts only on its worker". Give such steps
   `executor: docker` and an image.
 - A script step on a project with registry bindings runs on the worker with
   its registry configuration. The forge generates the configuration files
@@ -34,10 +34,10 @@ chats (see the sections on each below):
   under `<data>/generated` for a run and `<data>/task-files` for a task,
   never into a project's tree.
 
-- Every check runs on the worker: `forge check`, guidance checks (shell and
+- Every check runs on the worker: `apptown check`, guidance checks (shell and
   tool checks, exec-image checks), source and image scans with their
   baselines, a landing's history scan, and the landing's compile check. The
-  images they need are built or pulled there. `cmd/forge-check`, a local
+  images they need are built or pulled there. `cmd/apptown-check`, a local
   operator tool, stays on the forge's host.
 - Every preview of a change or a run boots on the worker, and runtime checks
   probe it there. A preview of a release whose images were published to a
@@ -208,7 +208,7 @@ see "Agent and review steps on the worker".
 
 ## Running a worker
 
-`forge-worker` is built from `cmd/forge-worker`. It needs:
+`apptown-worker` is built from `cmd/apptown-worker`. It needs:
 
 - a Docker daemon of its own (`DOCKER_HOST`, or the default socket) and the
   `docker` and `git` binaries. For previews, that daemon runs on the
@@ -226,7 +226,7 @@ see "Agent and review steps on the worker".
 - the CA certificate that signs the installation's client certificate.
 
 ```sh
-forge-worker -installation <name> -state /var/lib/forge-worker \
+apptown-worker -installation <name> -state /var/lib/apptown-worker \
   -cert worker.pem -key worker-key.pem -client-ca forge-client-ca.pem \
   -listen :8443
 ```
@@ -239,20 +239,20 @@ cannot connect. The worker speaks TLS 1.3 only.
 Configure the forge with:
 
 ```sh
-forged ... -worker-url https://worker.example:8443 \
+apptownd ... -worker-url https://worker.example:8443 \
   -worker-cert forge-client.pem -worker-key forge-client-key.pem \
   -worker-ca worker-ca.pem
 ```
 
-or `FORGE_WORKER_URL`, `FORGE_WORKER_CERT`, `FORGE_WORKER_KEY` and
-`FORGE_WORKER_CA`. All four are required together; a missing or unreadable
+or `APPTOWN_WORKER_URL`, `APPTOWN_WORKER_CERT`, `APPTOWN_WORKER_KEY` and
+`APPTOWN_WORKER_CA`. All four are required together; a missing or unreadable
 file stops startup. The client certificate's Common Name must be the
 worker's `-installation`. Task attempts then record the backend `worker`.
 
 Issuing and rotating these certificates is the operator's job; the forge
 does not manage a CA.
 
-**Versions.** `forge-worker -version` names its build and the forge protocols
+**Versions.** `apptown-worker -version` names its build and the forge protocols
 it serves; `GET /v1/version` answers the same. The forge states the protocol
 it speaks on every request (`X-Forge-Worker-Protocol`), and the worker refuses
 one outside its range with `426` and a sentence naming both and what to install,
@@ -300,7 +300,7 @@ What it is not:
   checksums or attestations a tool publishes, where it publishes them.
 
 When it starts, the worker logs the folder and its size:
-`forge-worker: tool cache /var/lib/forge-worker/tool-cache/mise holds <n> MiB`.
+`apptown-worker: tool cache /var/lib/apptown-worker/tool-cache/mise holds <n> MiB`.
 The size is of the files it could read.
 mise removes cache entries older than 30 days itself (`cache_prune_age`).
 To clear it, stop the worker (or wait until nothing runs) and remove what is
@@ -336,7 +336,7 @@ these.
 ### Limits on tasks and checks, and the metadata service
 
 A task or check the forge sends a worker carries the forge's task limits
-(`forged -task-cpus`, `-task-memory-mib`, `-task-pids`; 4, 8192, 4096 by
+(`apptownd -task-cpus`, `-task-memory-mib`, `-task-pids`; 4, 8192, 4096 by
 default), and the worker applies them to its container. A check request
 with none, from an older forge, runs under the same defaults. A run killed at
 its memory limit comes back as `out_of_memory`, never as an exit code: the
@@ -353,7 +353,7 @@ iptables -C DOCKER-USER -d 169.254.169.254 -j DROP 2>/dev/null \
 
 and make it persist the way the host persists its firewall. The rule is the
 host's configuration; the worker does not attest it.
-`forge-worker -check-metadata` runs a container against the address and
+`apptown-worker -check-metadata` runs a container against the address and
 says "reachable", "not reachable", or "could not tell" when the probe itself
 did not run; check after installing and after a reboot.
 
@@ -443,7 +443,7 @@ What a check leaves on the worker:
 
 The worker's agent image (for the compile check, which builds a Go tree with
 the Go its `mise.toml` declares) is named from the agent build context (`Config.AgentContext`, by default
-`deploy/forge-agent`, relative to the forge's working directory), as for
+`deploy/apptown-agent`, relative to the forge's working directory), as for
 chats.
 
 ### A check worker
@@ -465,7 +465,7 @@ or starts any privileged container (a chat's private Docker); if the write
 fails, nothing is created. The mark is a guard, not an attestation.
 
 Configure the forge with `-check-worker https://check.example:8443` (or
-`FORGE_CHECK_WORKER`), reached with the same `-worker-cert`, `-worker-key`
+`APPTOWN_CHECK_WORKER`), reached with the same `-worker-cert`, `-worker-key`
 and `-worker-ca`. At start the forge records, under `<data>/workers-used`,
 when it first used each worker address, reads the check worker's role, and
 refuses to start unless it is `check`, fixed before that first use. Checks,
@@ -585,7 +585,7 @@ the forge's loopback to the preview on the worker.
   record of. Every minute it removes any other that is not booting, so a
   removal lost while the worker was away is made once it answers.
 - Every request that changes a preview carries a token: the forge's
-  session number (greater at each forge start, kept in the forge's data
+  session number (greater at each apptown start, kept in the forge's data
   folder as `worker-session`) and its number within the session. The
   worker keeps, on its disk (`previews/fence.json`), the last token per
   preview and the latest start-up claim's, and refuses any request older
@@ -627,7 +627,7 @@ With a worker configured, every agent step (`agent/pi`) and review step
   is, and the run records `main.conflict` with the files before each step
   that meets them. Nobody is sent it, since no chat can be open while the
   run holds the change. The record is what a person reads: the change
-  page's state and `forge wait -c` say which files conflict and give the
+  page's state and `apptown wait -c` say which files conflict and give the
   catch-up command for the change's chat, until the branch contains that
   `main`. The steering tells the agent it need not catch up itself. The
   same rule holds before every such step, so a rework after a landing that
@@ -641,7 +641,7 @@ With a worker configured, every agent step (`agent/pi`) and review step
   `review-fixup` (an invalid report). The next invocation is started only
   after the worker has said the earlier one exited.
 - What Pi reads is sent as bytes under `/forge/in`: steering, resources,
-  attachments, a long review brief, Pi's settings, the `forge` CLI,
+  attachments, a long review brief, Pi's settings, the `apptown` CLI,
   registry files, a continued session's transcript, and the declared
   output files of the run's earlier steps (`.forge/PLAN.md`,
   `.forge/REPRO.md`), which the entry copies into the tree at their
@@ -652,7 +652,7 @@ With a worker configured, every agent step (`agent/pi`) and review step
   workspace: the source commit's history on the change's branch, the base
   branch (usually `main`) at the newest main commit the source contains
   (where the change started, or the main it has since caught up with) when
-  the change's start is in the source's history, no remote, and `forge` as the
+  the change's start is in the source's history, no remote, and `apptown` as the
   committer. The agent can read history, `git diff main` and commit. The
   worker's own Git directory stays apart and its git never reads the
   agent's, so no configuration, hook, filter or monitor the agent writes
@@ -678,7 +678,7 @@ With a worker configured, every agent step (`agent/pi`) and review step
   calls are not in it, and the record says so ("delegated calls not
   included").
 
-**`forge check` inside a step** checks the agent's committed HEAD. The
+**`apptown check` inside a step** checks the agent's committed HEAD. The
 forge does not have that commit until the step's work is collected, so the
 CLI first pushes it to the attempt's scratch ref (`FORGE_SCRATCH_REF`,
 `refs/forge/scratch/change-<change>/step-<step>-a<attempt>` in the
@@ -688,7 +688,7 @@ it as it checks any commit and says the result is feedback only: nothing
 is published or recorded, and the landing checks the published commit
 again. Uncommitted work is not checked. If the push fails the CLI says so
 and asks anyway; a commit the forge does not have is refused, naming it
-("not on the forge yet"). `forge check --published` checks the last
+("not on the forge yet"). `apptown check --published` checks the last
 published commit, and names it. The scratch ref is removed when the
 attempt settles; the scheduler's sweep (every five minutes, and at start)
 removes any left by a crash.
@@ -733,7 +733,7 @@ refuses the step too.
   created. Keep the file with the data folder's other secrets: replacing it
   invalidates every running step's token, and anyone holding it can make
   tokens. Besides the API and the gateway, the token opens one Git push:
-  to its attempt's own scratch ref, for `forge check`.
+  to its attempt's own scratch ref, for `apptown check`.
 - **`STEP_*` secrets reach every project.** Every runtime secret named
   `STEP_<NAME>` on the instance is given, as `<NAME>`, to every agent and
   review step of every project, on the forge's Docker or a worker. It is an
@@ -799,10 +799,10 @@ the worker, for one invocation of the agent: from its start to its exit.
 Services the step declares, and those the app's needs resolve to, run
 beside it on a network of its own, reached by name; the daemon is `dind`
 on that network (`DOCKER_HOST=tcp://dind:2375`), with a buildx builder,
-`forge`, and the worker's resolvers and the forge's Docker Hub mirror.
+`apptown`, and the worker's resolvers and the forge's Docker Hub mirror.
 
 **It is an opt-in.** Start the forge with `-private-docker` (or
-`FORGE_PRIVATE_DOCKER=true`). Without it, a step declaring `docker: true`
+`APPTOWN_PRIVATE_DOCKER=true`). Without it, a step declaring `docker: true`
 is refused on the worker with "private Docker on a worker is the
 operator's opt-in: start the forge with -private-docker".
 
@@ -943,7 +943,7 @@ last such chat has ended, the old `forge-cache` volume on the worker is
 unused and can be removed.
 
 The chat's image is built by the worker when it starts, from its own copy
-of the agent image's build context (`-agent-context`, `deploy/forge-agent`
+of the agent image's build context (`-agent-context`, `deploy/apptown-agent`
 by default), and named by that context's content (`forge-agent:<hash>`).
 The forge asks for the name its own copy gives: a worker and a forge of
 different versions do not share a name, and the worker refuses the chat,
@@ -971,10 +971,10 @@ forge for its download and the chat still ends; a last save the worker
 cannot confirm keeps the chat, and ending it is asked again. A chat whose
 project was deleted is ended by the project's cleanup with its unsaved work
 discarded, and the ledger records `chat.save-discarded`. Nothing connects from
-the worker to the forge except the chat's own `forge` command and its model.
+the worker to the forge except the chat's own `apptown` command and its model.
 
 The worker keeps a record per session under `<state>/sessions`, the chat's
-files under `<state>/chats`, and content chats mount (the forge's `forge`
+files under `<state>/chats`, and content chats mount (the forge's `apptown`
 binary, registry configuration) under `<state>/blobs`, named by content and
 removed when no live chat uses it. Ending a chat removes the session: its
 record is kept, marked removed, so the session is never started again, and
@@ -983,10 +983,10 @@ Stopping or rebuilding a session's runtime keeps the session. When it
 starts, the worker finishes any removal that did not complete and removes
 private daemons of sessions it has no live record of.
 
-## Running a forge without a local Docker daemon
+## Running AppTown without a local Docker daemon
 
 
-A forge started with `-no-local-docker` (`FORGE_NO_LOCAL_DOCKER=true`) has no
+A forge started with `-no-local-docker` (`APPTOWN_NO_LOCAL_DOCKER=true`) has no
 Docker daemon of its own and runs no project command on its host. It can
 be a plain process on a droplet or a container with no Docker socket.
 
@@ -1000,8 +1000,8 @@ be a plain process on a droplet or a container with no Docker socket.
   repositories, folders, secrets file, runtime token key and the keys of
   attached hosts. The forge writes its ssh configuration to
   `~/.ssh/config` of the user it runs as, so that file must be writable.
-- An init process when `forged` is PID 1, as in a container
-  (`docker run --init`, or `tini`). `forged` does not reap orphaned
+- An init process when `apptownd` is PID 1, as in a container
+  (`docker run --init`, or `tini`). `apptownd` does not reap orphaned
   processes; the Docker CLI's ssh helpers and git's children are
   reparented to it. Without an init they stay as zombies (89 after one
   journey on the test host).
@@ -1047,7 +1047,7 @@ through the forge's preview domain, which this forge does not have".
 project's first landing:
 1. Put the SSH private key for the host in the forge's secrets store,
    as an administrator. It is one line, with its newlines written as
-   `\n`: `awk '{printf "%s%s", $0, "\\n"}' <key file> | forge secret set
+   `\n`: `awk '{printf "%s%s", $0, "\\n"}' <key file> | apptown secret set
    DOCKER_HOST_KEY`. Integrations → Secrets, or "set this secret now"
    beside the key's name in the target wizard, does the same from the
    browser. The value is never shown again; the forge refuses a name
@@ -1076,7 +1076,7 @@ create `main` on the one it should run on:
 release only by promotion:
 - a Docker host or App Platform deployment: `POST /api/v1/projects/<slug>/deployments/<name>/deploy`,
   with `{"bundleId":…}` or nothing for the latest bundle. The answer
-  names the release's number; `forge wait -p <slug> -r <number>` follows
+  names the release's number; `apptown wait -p <slug> -r <number>` follows
   its log until it is released (exit 0) or failed (exit 1);
 - Portainer: the intranet release, `POST /api/v1/projects/<slug>/release`,
   which ships the project's latest published bundle (it takes no
@@ -1161,7 +1161,7 @@ secrets store does not hold, no `-private-docker`, `main` not on a Docker host
 unknown or mismatched platform.
 
 **Consumers.** Promotion to another Docker host, recovery after a host
-lost its images or container (the rebuild a forge start asks for), App
+lost its images or container (the rebuild a apptown start asks for), App
 Platform (each digest copied into DOCR by the forge, then named in the
 app spec), Portainer (the stack names every digest) and release previews
 (booted by digest where change previews boot) all pull. None builds. A
@@ -1169,7 +1169,7 @@ registry that refuses or cannot be reached is an error; a digest the
 registry confirms missing is refused: land the change again.
 
 **Accepted failures.** A forge restart during a deploy step leaves the
-step in error: restart only while `forge executing` lists nothing, or
+step in error: restart only while `apptown executing` lists nothing, or
 retry the step, which builds again. An interrupted publication can leave an unused tagged image;
 the forge never deletes from a registry, and the registry's retention
 decides how long a release can be redeployed. Every image byte passes
@@ -1269,7 +1269,7 @@ so it cannot tell whether work it once ran there is still writing. Switching
 into the mode is therefore a separate step, taken by the forge while it still
 has its Docker.
 Stop the forge, then run it once with its normal settings plus
-`-drain-local-docker` (or `FORGE_DRAIN_LOCAL_DOCKER=true`), without
+`-drain-local-docker` (or `APPTOWN_DRAIN_LOCAL_DOCKER=true`), without
 `-no-local-docker`. It serves nothing: it repairs interrupted work as a
 normal start does, refuses while its records hold local work (a local task
 not settled and released, a chat on the forge not ended, a cleanup not

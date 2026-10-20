@@ -7,7 +7,7 @@ Two kinds of workflow share one word:
   dependency patch. They are marked `metadata.system: true`. The forge invokes
   them by name; a person never picks one, and they are never offered in a "run
   a workflow…" list. Ways of working lists them under a System heading with one
-  line on when the forge runs each.
+  line on when the apptown runs each.
 - **Lanes** are ways a person chooses to work on a change: a quick change, an
   implementation, a bug fix, plan-then-execute, a spec, research, an excavation.
 

@@ -31,9 +31,9 @@ definitions it pinned; a run keeps the workflow version it was admitted under.
 
 | Command | Exit codes |
 | --- | --- |
-| `forge wait` (a run or change) | 0 finished, 1 failed, 2 needs a person |
-| `forge wait operation` | 0 succeeded, 1 failed or cancelled, 4 unknown: look before asking again |
-| `forge executing` | 0 nothing would be interrupted, 3 something would (a step or a running operation), 1 AppTown cannot say |
+| `apptown wait` (a run or change) | 0 finished, 1 failed, 2 needs a person |
+| `apptown wait operation` | 0 succeeded, 1 failed or cancelled, 4 unknown: look before asking again |
+| `apptown executing` | 0 nothing would be interrupted, 3 something would (a step or a running operation), 1 AppTown cannot say |
 | any command that sends a change | 4 the change was sent but the answer was lost: look before trying again |
 
 Each of these commands takes `--json`: it prints one JSON document whose field
@@ -84,7 +84,7 @@ release; work done after the new release's first write is not in them.
   copy of your project's records, not a format promised across releases.
 - **Anything a guide marks experimental**, and the stock content listed under
   "Stock content in 1.0" below as Experimental.
-- **Commands outside the core loop.** `forge help` lists them under "Not
+- **Commands outside the core loop.** `apptown help` lists them under "Not
   promised in 1.x".
 
 ## Stock content in 1.0
@@ -123,7 +123,7 @@ use in production by the maintainers.
 | Targets Portainer, App Platform, bucket website | a qualification that released a real app to them |
 | Workflows `research`, `excavate`, `product-spec` | more use |
 | Customer feedback integration | more than one project, and a service that signs in |
-| `-agent-executor local`, `-host-scripts`, and the standalone `forge-check`, `forge-deploy` and `forge-console` | they exist for development and to show the libraries stand alone |
+| `-agent-executor local`, `-host-scripts`, and the standalone `apptown-check`, `apptown-deploy` and `apptown-console` | they exist for development and to show the libraries stand alone |
 
 **No longer shipped.** A release can stop shipping a stock workflow, guidance
 block, policy or pack. On upgrade it is no longer offered: it leaves the

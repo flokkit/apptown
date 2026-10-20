@@ -12,7 +12,7 @@ across projects, and nothing about *how* work happened is demonstrable. The
 forge is the machine that fixes both:
 
 > **A project is checkpointed state plus the attested history of the
-> repeatable tasks that produced it. The forge runs those tasks — by agents
+> repeatable tasks that produced it. The apptown runs those tasks — by agents
 > or humans — under pinned steering, through evidenced gates, so that effort
 > compounds across projects and *how* is as demonstrable as *what*.**
 

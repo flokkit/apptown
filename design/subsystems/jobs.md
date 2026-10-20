@@ -75,7 +75,7 @@ through manual retry does not change that saved policy. River's age-based rescue
 remains unchanged for ordinary operation.
 
 Startup must establish that the old daemon has exited. A different client ID
-alone is insufficient; overlapping daemons are unsupported. `forged` takes a
+alone is insufficient; overlapping daemons are unsupported. `apptownd` takes a
 Postgres advisory lock on its database before migrating and holds it for its
 life, so a second daemon on the same database refuses to start; only
 `-reset-password`, which may run beside a serving forge, skips it. A lost

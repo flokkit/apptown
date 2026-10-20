@@ -31,7 +31,7 @@ func (s *Server) MeasureProfile(ctx context.Context, exclusive bool) execution.W
 	if s.DindImage != "" {
 		if _, err := s.command(ctx, "image", "inspect", "--format", "{{.Id}}", s.DindImage); err != nil {
 			if _, err := s.command(ctx, "pull", "-q", s.DindImage); err != nil {
-				log.Printf("forge-worker: pulling %s for its profile: %v", s.DindImage, err)
+				log.Printf("apptown-worker: pulling %s for its profile: %v", s.DindImage, err)
 			}
 		}
 	}

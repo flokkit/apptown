@@ -16,7 +16,7 @@ passes" means "the game builds for the web".
 **Check what this session provides.** Writable change chats and steps that
 declare `docker: true` have private Docker at `DOCKER_HOST=tcp://dind:2375`,
 unless the operator disables it with `-no-private-docker`. Read-only project chats
-have no daemon. Run `forge preview` in a change chat to build and boot the
+have no daemon. Run `apptown preview` in a change chat to build and boot the
 Dockerfile independently on AppTown's server, including when private Docker
 is disabled. The Godot executable lives in the pinned build image, not
 necessarily on the chat's PATH. For direct headless checks, declare the matching engine in
@@ -68,4 +68,4 @@ Checks: the export must succeed in the pinned image and stay under the
 size budget; the Web preset, the renderer, and the ignore rules are
 mechanical; two rubrics look at playability in a browser and at whether
 the GDScript reads plainly. Run them yourself before handing back with
-`forge check`.
+`apptown check`.

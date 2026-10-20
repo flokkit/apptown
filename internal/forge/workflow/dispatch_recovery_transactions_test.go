@@ -182,7 +182,7 @@ func TestWorkflowRecoveryRecordsAgentContinuationBeforeRunning(t *testing.T) {
 		t.Run(map[bool]string{false: "resume", true: "receipt failure"}[failReceipt], func(t *testing.T) {
 			db, id, ready := persistedRecoveryFixture(t, schema.Stage{Name: "work", OnEnter: []schema.Step{{Name: "agent", Uses: "agent/pi", With: map[string]any{"model": "pinned"}}}}, nil)
 			step := ready[0]
-			changed, err := workflowsql.New(db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), Status: StatusError.String(), EvidenceJson: []byte(`{"reason":"orphaned by forged restart"}`), ID: step.ID, Attempt: 0, ExpectedStatus: StatusPending.String()})
+			changed, err := workflowsql.New(db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), Status: StatusError.String(), EvidenceJson: []byte(`{"reason":"orphaned by apptownd restart"}`), ID: step.ID, Attempt: 0, ExpectedStatus: StatusPending.String()})
 			if err != nil || changed != 1 {
 				t.Fatalf("store orphaned step: changed=%d %v", changed, err)
 			}

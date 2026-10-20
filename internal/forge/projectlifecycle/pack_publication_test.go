@@ -78,7 +78,7 @@ func TestPackApplyRecordsPinsAndRollsBackSetup(t *testing.T) {
 }
 
 // A creation that names a pack the instance does not offer (withdrawn, or
-// no such pack) is refused before anything is made, so `forge new --pack`
+// no such pack) is refused before anything is made, so `apptown new --pack`
 // fails without leaving a packless project behind; an offered pack's
 // creation goes ahead.
 func TestCreatingWithAPackNotOfferedCreatesNothing(t *testing.T) {

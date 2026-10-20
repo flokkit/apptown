@@ -22,7 +22,7 @@ The page has three tabs, in the order people need them:
   saved record. Open one and the whole page — projects, their details, the
   checks — shows exactly what that review recorded, at the commits it
   looked at, with the exceptions that were in force then. Nothing is
-  recomputed. A person starts one with **Review now** or `forge review`;
+  recomputed. A person starts one with **Review now** or `apptown review`;
   AppTown starts one for a project by itself whenever that project's
   adopted ways of working change (adopting a pack or a version, a guidance
   edit), shown as "adoption" beside the review.
@@ -78,7 +78,7 @@ A project is judged against the version of each pack it adopted. Saving a
 pack makes a new version; recommending one changes what new projects get
 and what others are offered, and no project moves until its owner adopts
 it. Before recommending, **What-if** on the pack's page runs that version's
-checks on every project on an earlier version (or `forge whatif <pack>
+checks on every project on an earlier version (or `apptown whatif <pack>
 <version>`) and shows, project by project, what would newly fail and what
 it could not assess, without changing anyone's standing. A project that
 then adopts the version is reviewed against it automatically. See Packs in

@@ -292,7 +292,7 @@ func (w *Workshop) agentImageTar(ctx context.Context) (string, error) {
 }
 
 // reapDindOrphans removes sidecars (and their networks) left behind by a
-// crashed forged — same safety-net shape as run-container reaping.
+// crashed apptownd — same safety-net shape as run-container reaping.
 func ReapWorkshops(ctx context.Context, dk docker.Scope) {
 	out, _ := dk.Run(ctx, "ps", "-aq", "--filter", "name=forge-dind-step-")
 	for _, id := range strings.Fields(string(out)) {

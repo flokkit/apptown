@@ -116,7 +116,7 @@ func TestForgeCheckChecksOneCommitWhileTheBranchMoves(t *testing.T) {
 	}
 }
 
-// `forge check` over the forge's own HTTP route checks the commit it names
+// `apptown check` over the forge's own HTTP route checks the commit it names
 // when the change's folder has it, answering for exactly that commit; a
 // commit the forge does not have is refused naming it, with no result; a
 // request naming nothing checks the change's latest commit, as before.
@@ -175,8 +175,8 @@ func TestForgeCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 	}
 }
 
-// `forge check --published` (the body {"published":true}, as the CLI sends
-// it: cmd/forge/check_test.go) checks the tip of the change's branch in the
+// `apptown check --published` (the body {"published":true}, as the CLI sends
+// it: cmd/apptown/check_test.go) checks the tip of the change's branch in the
 // project's repository, not the change's folder, whose HEAD is newer work
 // not yet published; it moves no branch. An empty body keeps its meaning,
 // the change's latest commit on the forge (here the folder's HEAD). A

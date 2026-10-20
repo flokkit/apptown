@@ -22,7 +22,7 @@ reporting instead: see SECURITY.md.
 
 **Version**
 
-The output of `forge version`, or the release or commit you built.
+The output of `apptown version`, or the release or commit you built.
 
 **Where it runs**
 

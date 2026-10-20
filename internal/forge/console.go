@@ -12,13 +12,13 @@ import (
 // whose PID1 is `sleep infinity`; pi's interactive TUI runs under tmux
 // *inside* the container (`tmux new -A` via /console/run-pi.sh), with a
 // pinned --session-id so the same command creates the conversation on first
-// launch and resumes it on every relaunch. forged attaches disposable tmux
+// launch and resumes it on every relaunch. apptownd attaches disposable tmux
 // clients (`docker exec -it … tmux` under a pty), keeps a ring buffer for
 // reattach, and relays bytes over a websocket to xterm.js.
 //
-// Why tmux and not `docker attach`: an attach client dying (forged restart,
+// Why tmux and not `docker attach`: an attach client dying (apptownd restart,
 // crash) sends EOF into the container's stdin, permanently closing pi's
-// input. The multiplexer must live with the process; forged's connections
+// input. The multiplexer must live with the process; apptownd's connections
 // must be views, not the terminal itself.
 //
 // Lifecycle ladder (§5b): attached → detached (PTY held, no viewers) →
@@ -54,21 +54,21 @@ type consoleCarveOut struct {
 }
 
 var consoleCarveOuts = []consoleCarveOut{
-	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/invoke$`), "forge invoke, forge apply",
+	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/invoke$`), "apptown invoke, apptown apply",
 		"start work on this project (see \"Starting work\")", "project"},
-	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/preview$`), "forge preview",
+	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/preview$`), "apptown preview",
 		"boot this change's preview and print a URL you can reach", "change"},
-	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/land$`), "forge land",
+	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/land$`), "apptown land",
 		"start landing this change — only after explicit confirmation", "change"},
-	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/recheck$`), "forge recheck",
+	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/recheck$`), "apptown recheck",
 		"after fixing what a landing gate rejected, check the landing again: it catches up with main and reruns the failed gates, or every gate if the change moved (never approves)", "change"},
-	{regexp.MustCompile(`^/api/v1/changes/[0-9a-f-]{36}/check$`), "forge check -c <change>",
+	{regexp.MustCompile(`^/api/v1/changes/[0-9a-f-]{36}/check$`), "apptown check -c <change>",
 		"run a change's declared checks against its committed tree", ""},
-	{regexp.MustCompile(`^/api/v1/complaints$`), "forge complain",
+	{regexp.MustCompile(`^/api/v1/complaints$`), "apptown complain",
 		"file a complaint about AppTown itself", ""},
-	{regexp.MustCompile(`^/api/v1/config/validate$`), "forge config validate",
+	{regexp.MustCompile(`^/api/v1/config/validate$`), "apptown config validate",
 		"check a contract file (writes nothing)", ""},
-	{regexp.MustCompile(`^/api/v1/dev-compose$`), "forge dev / forge dev up",
+	{regexp.MustCompile(`^/api/v1/dev-compose$`), "apptown dev / apptown dev up",
 		"render this contract to a local docker-compose for rehearsal (writes nothing)", ""},
 }
 

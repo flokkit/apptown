@@ -4,7 +4,7 @@
 // from the code itself so the notes cannot drift from it: the worker and CLI
 // protocol numbers and the agent image's name for the build context given.
 //
-//	go run scripts/release-facts.go deploy/forge-agent
+//	go run scripts/release-facts.go deploy/apptown-agent
 package main
 
 import (

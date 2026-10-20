@@ -33,7 +33,7 @@ func (h Complaints) ListComplaints(w http.ResponseWriter, r *http.Request) {
 // AnswerComplaint: POST /api/v1/complaints/{id}/answer {answer} — put
 // the resolution ON the complaint. Answering marks it seen: an answered
 // complaint is by definition dealt with. The answer is the operator's act
-// and shows to every future reader (including agents' forge complaints).
+// and shows to every future reader (including agents' apptown complaints).
 func (h Complaints) AnswerComplaint(w http.ResponseWriter, r *http.Request) {
 	if !RequireAdmin(h.access, w, r) {
 		return
@@ -121,7 +121,7 @@ func (h Complaints) ComplaintsSeen(w http.ResponseWriter, r *http.Request) {
 
 // ComplaintSteering: GET /api/v1/complaints/steering — the exact
 // words agents are given about complaining. This text is PLATFORM, not
-// guidance: it compiles into forged so no project can quietly mute its own
+// guidance: it compiles into apptownd so no project can quietly mute its own
 // agents' complaint channel. Shown to any signed-in person — the discipline
 // agents work under should be inspectable by the people reading the box.
 func (h Complaints) ComplaintSteering(w http.ResponseWriter, r *http.Request) {

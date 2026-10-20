@@ -328,7 +328,7 @@ func doHealth(p *appcontract.Part) *doHealthCheck {
 }
 
 // GateComponent is the forge gate's component in a gated app.
-const GateComponent = "forge-gate"
+const GateComponent = "apptown-gate"
 
 // gatedRenderable refuses a gated placement the renderer cannot put behind
 // the gate whole: no secret (the gate would let nobody in, and the forge

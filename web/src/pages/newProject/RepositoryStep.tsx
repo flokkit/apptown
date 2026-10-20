@@ -29,7 +29,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
   // Or the repository starts from existing code: a Git bundle (another
   // forge's Download code) or an https repository. Only its default branch
   // and tags come; the project's changes and history here start fresh.
-  // Naming a forge secret as the git credential is for administrators: the
+  // Naming a apptown secret as the git credential is for administrators: the
   // forge refuses anyone else, so only they are offered it.
   const { origin } = d
   const admin = useHolds('identity:manage-auth')

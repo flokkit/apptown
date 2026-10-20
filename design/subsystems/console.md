@@ -92,8 +92,8 @@ the rule already admits several people acting on one chat.
 
 ## Runtime preparation
 
-The Forge CLI is a packaged Linux executable: `forge-linux` beside `forged`, or
-the path configured by `-console-cli` / `FORGE_CONSOLE_CLI`. Build it with
+The Forge CLI is a packaged Linux executable: `apptown-linux` beside `apptownd`, or
+the path configured by `-console-cli` / `APPTOWN_CONSOLE_CLI`. Build it with
 `make console-cli`. Forge checks availability once per daemon process. A missing
 or non-executable artifact leaves sessions without the CLI; restart after fixing
 it. No session-time Go build occurs.
@@ -114,14 +114,14 @@ Privileged DinD does not isolate hostile tenants from the host.
 
 The forge sends a change's chat a message, waking it, when something happens
 that the chat would otherwise act wrongly without: its save was refused
-(`[forge save]`), its saved commit failed to boot (`[forge check]`), or the
+(`[forge save]`), its saved commit failed to boot (`[apptown check]`), or the
 change's landing ended without landing (`[forge landing]`), for example
 because main moved under it. The landing notice is sent once per ended landing
 by the run's abandonment follow-up job (`workcommands.FollowUps.Abandon`), only
 while the change is in progress. It carries the run's `Ending`: the reason the
 landing was abandoned and the failing step's own reason, which for a branch
 behind main is the catch-up to do. A chat that cannot be told fails that job,
-where the failure is kept. `forge wait -c` reads the same `Ending` when no run
+where the failure is kept. `apptown wait -c` reads the same `Ending` when no run
 is going. The briefing does not state the change's state: it is written once
 at opening and would go stale, so the chat queries the forge instead.
 
@@ -229,7 +229,7 @@ lists the change's worker chats, live and ended, each with its last save. A save
 the worker cannot confirm keeps the chat. The change is free only once the
 worker shows nothing of the chat.
 
-**Checks.** `forge check` (over HTTP and MCP alike) on a change a worker chat
+**Checks.** `apptown check` (over HTTP and MCP alike) on a change a worker chat
 holds saves the chat first and checks what was saved (`verification.Changes.Check`
 asks `changeconsole.Saves`); a refused or
 unconfirmed save refuses the check with its reason. The CLI names the
@@ -237,14 +237,14 @@ commit it asks about, its folder's `HEAD`; the forge checks it only when it
 is in the history of the change's folder or of its published branch, and
 otherwise refuses naming it, never answering with another commit. Outside a
 Git repository and over MCP, no commit is named and the check reads the
-commit the change's views read, the chat saving first. `forge check
+commit the change's views read, the chat saving first. `apptown check
 --published` asks for the published tip explicitly (`{"published": true}`):
 the forge checks the tip of the change's branch in the project's repository,
 not the folder, saves nothing from a chat to do it, and refuses when the
 branch does not exist. Every answer names the commit it is for.
 
 **Previews.** A change a worker chat holds is previewed as saved: the try-it
-button, `forge preview` and MCP previews save the chat first and boot the
+button, `apptown preview` and MCP previews save the chat first and boot the
 saved commit, and a refused or unconfirmed save refuses the preview. After
 each save that succeeds, the forge rehearses the saved commit once, as the
 try-it button would, and tells the chat when the app fails to come up

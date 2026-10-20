@@ -70,7 +70,7 @@ try {
       const form = document.createElement('form');
       form.method = 'POST'; form.enctype = 'text/plain'; form.target = '_blank'; form.action = forge + '/api/v1/projects';
       const input = document.createElement('input');
-      input.name = '{"slug":"csrf-created","name":"forged","padding":"'; input.value = '"}';
+      input.name = '{"slug":"csrf-created","name":"apptownd","padding":"'; input.value = '"}';
       form.append(input); document.body.append(form); form.submit();
     }, forge);
     const posted = await mutationRequest;
@@ -91,7 +91,7 @@ try {
     }));
     const wsResult = await attacker.evaluate(({ forge, consoleID }) => new Promise(resolve => {
       const ws = new WebSocket(forge.replace('https:', 'wss:') + `/api/v1/console/${consoleID}/pty`);
-      ws.onopen = () => { ws.send(new TextEncoder().encode('forged-terminal-input')); ws.close(); resolve('opened'); };
+      ws.onopen = () => { ws.send(new TextEncoder().encode('apptownd-terminal-input')); ws.close(); resolve('opened'); };
       ws.onerror = () => resolve('refused');
     }), { forge, consoleID });
     assert.equal(wsResult, 'refused');
@@ -130,7 +130,7 @@ try {
   const form = await page.locator('form[action="/oauth/authorize"]').evaluate(form => Object.fromEntries(new FormData(form)));
   assert.ok(form.consent_token);
   const changed = await page.evaluate(async form => {
-    const r = await fetch('/oauth/authorize', { method: 'POST', body: new URLSearchParams({ ...form, state: 'forged', decision: 'allow' }) });
+    const r = await fetch('/oauth/authorize', { method: 'POST', body: new URLSearchParams({ ...form, state: 'apptownd', decision: 'allow' }) });
     return r.status;
   }, form);
   assert.equal(changed, 403);

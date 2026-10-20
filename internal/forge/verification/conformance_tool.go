@@ -8,7 +8,7 @@ package verification
 // inside, the environment it runs with, and the dispositions that say a
 // person has already excused what the tool reported.
 //
-// Result shape matches runShChecks so `forge check`, the land gate, and the
+// Result shape matches runShChecks so `apptown check`, the land gate, and the
 // fleet review render tool checks beside sh checks with no special-casing.
 
 import (
@@ -54,7 +54,7 @@ func runInImage(ctx context.Context, run CheckRun, imageID string, command, env 
 // committed tree (source scans + the image build context), the commit it came
 // from (the shared image is content-addressed by it), the project (registry
 // login), and whether a cache miss may build the app image — true in the loop
-// (forge check) and at the gate, false in the read-only fleet sweep.
+// (apptown check) and at the gate, false in the read-only fleet sweep.
 type ToolContext struct {
 	Context    context.Context
 	Exceptions []conformance.Disposition // non-nil is the admitted review snapshot, including an empty one

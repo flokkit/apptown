@@ -10,7 +10,7 @@ schema 147, the 1.0 baseline ([schema ownership](../architecture/schema-ownershi
 normal startup refuses an older database rather than upgrading it. Forge refuses
 SQLite data rather than silently starting a new database beside it.
 
-`-db-url` or `FORGE_DB_URL` selects an external database. With neither configured,
+`-db-url` or `APPTOWN_DB_URL` selects an external database. With neither configured,
 startup manages the built-in PostgreSQL container. Database opening performs
 initialization/migration even before the read-serving `-verify-only` mode begins.
 That flag disables application recovery and workers, not schema changes.
@@ -27,7 +27,7 @@ reads the resulting queued-release ownership, and repairs orphaned releases and
 reviews. Required job receipts commit with these changes; any failure rolls back
 the whole transaction and prevents startup. Only committed counts are logged.
 `-verify-only` forbids this repair. This requires the old daemon to have exited;
-a systemd install's `systemctl restart forged` provides that ordering. Overlapping
+a systemd install's `systemctl restart apptownd` provides that ordering. Overlapping
 daemons require a different ownership design. See [background jobs](jobs.md).
 
 The original SQLite-to-PostgreSQL migration design and its deployment observations
@@ -38,4 +38,4 @@ are history, not current routine operating instructions.
 - [internal/forge/dbschema/schema.go](../../internal/forge/dbschema/schema.go)
 - [internal/forge/db.go](../../internal/forge/db.go)
 - [internal/forge/dbboot.go](../../internal/forge/dbboot.go)
-- [cmd/forged/main.go](../../cmd/forged/main.go)
+- [cmd/apptownd/main.go](../../cmd/apptownd/main.go)

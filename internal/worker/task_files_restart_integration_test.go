@@ -22,7 +22,7 @@ import (
 
 // With real Docker and the real task driver: a worker that stops and starts
 // again, over the same state and the same Docker, runs its start-up sweeps
-// as forge-worker does, and keeps every task's generated files, with no chat
+// as apptown-worker does, and keeps every task's generated files, with no chat
 // holding anything: a created task starts and reads its original files, a
 // running one keeps their bytes, and an exited one is observed and
 // collected. The collected commits hold none of the generated files, and a
@@ -48,7 +48,7 @@ func TestIntegrationAWorkerRestartKeepsItsTasksFiles(t *testing.T) {
 	start := func() (*worker.Server, execution.WorkerTasks, func()) {
 		srv := &worker.Server{Installation: workertest.Installation, State: state, Tasks: execution.DockerTasks{Namespace: namespace},
 			Checks: execution.Runner{}, Previews: docker.CLI{Binary: "docker"}, Sessions: consoletest.NewAgent()}
-		// What forge-worker runs as it starts.
+		// What apptown-worker runs as it starts.
 		srv.SweepChecks(context.Background(), docker.CLI{Binary: "docker"}, true)
 		srv.SweepPreviews(context.Background(), true)
 		if err := srv.ReapSessions(context.Background()); err != nil {

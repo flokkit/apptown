@@ -639,7 +639,7 @@ func (s *Service) UnderProject(ctx context.Context, projectID ids.ID, limit int)
 }
 
 // Running is every running operation, oldest first: what a forge restart
-// would interrupt, for `forge executing`. Unchecked: the route asks for
+// would interrupt, for `apptown executing`. Unchecked: the route asks for
 // the instance-wide read first.
 func (s *Service) Running(ctx context.Context) ([]Operation, error) {
 	rows, err := operationssql.New(s.db.SQL()).RunningOperations(ctx)

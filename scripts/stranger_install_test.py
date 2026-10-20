@@ -37,7 +37,7 @@ class StrangerTouchesOnlyItsOwnDaemon(unittest.TestCase):
         with open(docker, "w") as f:
             f.write(STUB)
         os.chmod(docker, os.stat(docker).st_mode | stat.S_IEXEC)
-        archive = os.path.join(tmp, "forge-v1-linux-amd64.tar.gz")
+        archive = os.path.join(tmp, "apptown-v1-linux-amd64.tar.gz")
         open(archive, "w").close()
         calls = os.path.join(tmp, "calls")
         env = {**os.environ, "PATH": bindir + os.pathsep + os.environ["PATH"], "CALLS": calls, "INSIDE_EXIT": str(inside_exit)}
@@ -88,13 +88,13 @@ if cmd == 'docker':
 elif cmd == 'git':
     if 'bundle' in args and 'create' in args:
         Path(args[args.index('create') + 1]).touch()
-elif cmd == 'forged':
+elif cmd == 'apptownd':
     if args == ['-version']:
-        print('forged fixture-release')
+        print('apptownd fixture-release')
     else:
-        (work / 'forged-pid').write_text(str(os.getpid()))
+        (work / 'apptownd-pid').write_text(str(os.getpid()))
         os.execl('/bin/sleep', 'sleep', '300')
-elif cmd == 'forge':
+elif cmd == 'apptown':
     if args and args[0] == 'preview':
         print('the preview is up: http://fixture.invalid/page')
 elif cmd == 'curl':
@@ -129,15 +129,15 @@ class StrangerReadsTheAdmittedChange(unittest.TestCase):
             command = bindir / name
             command.write_text(INSIDE_STUB)
             command.chmod(0o755)
-        package = work / 'package' / 'forge-fixture'
+        package = work / 'package' / 'apptown-fixture'
         (package / 'bin').mkdir(parents=True)
-        for name in ('forge', 'forged'):
+        for name in ('apptown', 'apptownd'):
             command = package / 'bin' / name
             command.write_text(INSIDE_STUB)
             command.chmod(0o755)
-        archive = work / 'forge-fixture.tar.gz'
+        archive = work / 'apptown-fixture.tar.gz'
         with tarfile.open(archive, 'w:gz') as tar:
-            tar.add(package, arcname='forge-fixture')
+            tar.add(package, arcname='apptown-fixture')
         (work / 'data').mkdir()
         (work / 'data' / 'setup-token').write_text('fixture-setup-token')
         (work / 'change-response').write_text(response)
@@ -148,7 +148,7 @@ class StrangerReadsTheAdmittedChange(unittest.TestCase):
             result = subprocess.run(['sh', os.path.join(HERE, 'stranger-install.sh'), '--inside', str(archive)],
                                     env=env, capture_output=True, text=True, timeout=HANG_GUARD)
         finally:
-            pid_file = work / 'forged-pid'
+            pid_file = work / 'apptownd-pid'
             if pid_file.exists():
                 pid = int(pid_file.read_text())
                 try:
@@ -158,14 +158,14 @@ class StrangerReadsTheAdmittedChange(unittest.TestCase):
                 else:
                     # Stop only this fixture's recorded process on a failure.
                     os.kill(pid, signal.SIGTERM)
-        self.assertTrue(stopped, 'installer left its own forged process running')
+        self.assertTrue(stopped, 'installer left its own apptownd process running')
         calls = [json.loads(line) for line in (work / 'inside-calls').read_text().splitlines()]
         return result, calls
 
     def assert_preview(self, calls):
         installs = [c['args'] for c in calls if c['command'] == 'apt-get' and c['args'][0] == 'install']
         self.assertTrue(any('python3' in args for args in installs), 'fresh disposable host did not install its JSON parser')
-        self.assertIn({'command': 'forge', 'args': ['preview', CHANGE_ID]}, calls)
+        self.assertIn({'command': 'apptown', 'args': ['preview', CHANGE_ID]}, calls)
         self.assertIn({'command': 'curl', 'args': ['http://fixture.invalid/page']}, calls)
 
     def test_the_current_uuid_response_reaches_and_checks_the_first_preview(self):
@@ -189,13 +189,13 @@ class StrangerReadsTheAdmittedChange(unittest.TestCase):
             with self.subTest(response=response):
                 result, calls = self.run_inside(response)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertFalse(any(c['command'] == 'forge' and c['args'][0] == 'preview' for c in calls))
+                self.assertFalse(any(c['command'] == 'apptown' and c['args'][0] == 'preview' for c in calls))
                 self.assertNotIn('done in ', result.stdout)
 
     def test_http_failure_is_not_hidden_by_a_parseable_change_response(self):
         result, calls = self.run_inside(json.dumps({'change': {'id': CHANGE_ID}}), http_exit=22)
         self.assertNotEqual(result.returncode, 0)
-        self.assertFalse(any(c['command'] == 'forge' and c['args'][0] == 'preview' for c in calls))
+        self.assertFalse(any(c['command'] == 'apptown' and c['args'][0] == 'preview' for c in calls))
 
     def test_a_preview_with_the_wrong_page_is_not_a_passing_install(self):
         result, calls = self.run_inside(json.dumps({'change': {'id': CHANGE_ID}}), page='another page')

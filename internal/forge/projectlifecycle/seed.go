@@ -20,7 +20,7 @@ import (
 // bundle or an https repository. Nothing else comes with it: the project's
 // Changes, runs and chats start fresh. After the seed the repository is
 // initialized as any project's is (the push fence, the ignore file, the
-// default branch), so packs and toolchains apply as for `forge new`.
+// default branch), so packs and toolchains apply as for `apptown new`.
 
 // Seeding is the operator's settings for starting from existing code.
 type Seeding struct {

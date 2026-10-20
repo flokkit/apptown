@@ -22,12 +22,12 @@ import (
 )
 
 // The built-in database (design/subsystems/postgres-migration.md §2.2, §3.9): when no
-// -db-url is configured, forged runs its own Postgres container on this
+// -db-url is configured, apptownd runs its own Postgres container on this
 // box and keeps the bootstrap in files the way secrets.env is kept —
 // because the forge must reach its database before it can read anything
 // from it. Zero setup stays zero setup; a real Postgres is one flag away.
 //
-//   <dataDir>/db.env        FORGE_DB_URL for the container (mode 0600)
+//   <dataDir>/db.env        APPTOWN_DB_URL for the container (mode 0600)
 //   <dataDir>/instance-id   this installation's id; the container and the
 //                           volume carry it as a label and are refused
 //                           when it differs
@@ -88,7 +88,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 	// An existing volume is this installation's only if it carries this
 	// installation's id. A leftover from another one binds to that one's
 	// pgdata, so using it would run on another forge's database (and fail on
-	// its password). forged has always labelled the volume, so an unlabelled
+	// its password). apptownd has always labelled the volume, so an unlabelled
 	// one is not this installation's either.
 	if out, err := dk.Run(ctx, "volume", "inspect", "-f", `{{index .Labels "`+dockerlabel.Instance+`"}}`+"\t"+`{{index .Options "device"}}`, builtinDBVolume); err == nil {
 		// Split before trimming: an unlabelled volume's line starts with the tab.
@@ -132,7 +132,7 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 	path := filepath.Join(dataDir, "db.env")
 	if raw, err := os.ReadFile(path); err == nil {
 		for _, line := range strings.Split(string(raw), "\n") {
-			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "FORGE_DB_URL="); ok {
+			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "APPTOWN_DB_URL="); ok {
 				url = v
 			}
 			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "FORGE_DB_PASSWORD="); ok {
@@ -142,7 +142,7 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 		if url != "" && password != "" {
 			return url, password, nil
 		}
-		return "", "", fmt.Errorf("%s is present but incomplete; it needs FORGE_DB_URL and FORGE_DB_PASSWORD", path)
+		return "", "", fmt.Errorf("%s is present but incomplete; it needs APPTOWN_DB_URL and FORGE_DB_PASSWORD", path)
 	}
 	raw := make([]byte, 24)
 	if _, err := rand.Read(raw); err != nil {
@@ -151,11 +151,11 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 	password = hex.EncodeToString(raw)
 	url = fmt.Sprintf("postgres://postgres:%s@127.0.0.1:%s/%s", password, builtinDBPort, builtinDBName)
 	body := "# AppTown's built-in database.\n" +
-		"# Minted once by forged. If this file is lost while the data volume\n" +
+		"# Minted once by apptownd. If this file is lost while the data volume\n" +
 		"# survives, reset the password inside the container (docker exec\n" +
 		"# forge-db psql -U postgres -c \"ALTER USER postgres PASSWORD '...'\")\n" +
 		"# and write it here.\n" +
-		"FORGE_DB_URL=" + url + "\nFORGE_DB_PASSWORD=" + password + "\n"
+		"APPTOWN_DB_URL=" + url + "\nFORGE_DB_PASSWORD=" + password + "\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		return "", "", err
 	}

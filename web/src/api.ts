@@ -1,4 +1,4 @@
-// Typed client for the forged REST API.
+// Typed client for the apptownd REST API.
 
 // Response shapes come from the server's own types (wire.gen.ts, generated
 // from the Go structs). A type here is either one of those, or derived from

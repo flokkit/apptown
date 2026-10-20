@@ -142,7 +142,7 @@ func (s *Service) PackPullPlan(ctx context.Context, projectID ids.ID, pack wow.P
 	sort.Strings(names)
 	for _, name := range names {
 		if inPack[name] || system[name] {
-			continue // pack still carries it, or the forge runs it regardless
+			continue // pack still carries it, or the apptown runs it regardless
 		}
 		if referenced(name) {
 			plan.KeptReferenced = append(plan.KeptReferenced, name)

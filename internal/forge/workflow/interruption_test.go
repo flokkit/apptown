@@ -157,7 +157,7 @@ func TestARestartEndsAStepItDoesNotContinue(t *testing.T) {
 // whole service), so its runner sees a scanner exit 143 that says nothing
 // about the work. Once the forge is shutting down, that error is not
 // recorded: the step stays running, startup repair makes it the restart's
-// orphan, and the restarted forge runs it again. The same exit while the
+// orphan, and the restarted apptown runs it again. The same exit while the
 // forge keeps running (the scanner's own OOM kill) is recorded as an error,
 // and a pass during shutdown is recorded: only a pass is evidence then.
 //

@@ -15,7 +15,7 @@ import (
 )
 
 // memory-declared reads the contract as the forge parses it: each part the
-// forge runs from a build or an image declares its own memory. A static
+// apptown runs from a build or an image declares its own memory. A static
 // part declares nothing, an init step takes no resources, and a profile
 // alone is not the part's own declaration: wherever no profile applies,
 // previews included, that part runs with no limit.

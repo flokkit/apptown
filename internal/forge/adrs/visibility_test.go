@@ -59,7 +59,7 @@ func TestAggregateVisibilityPrecedesLimitsAndCallerFilters(t *testing.T) {
 	}
 	counts, err := s.Counts(reader, []ids.ID{foreign, public})
 	if err != nil || len(counts) != 1 || counts[public] != 1 {
-		t.Fatalf("forged count IDs: %+v %v", counts, err)
+		t.Fatalf("apptownd count IDs: %+v %v", counts, err)
 	}
 	for _, idList := range [][]ids.ID{nil, {}, {foreign}} {
 		counts, err := s.Counts(reader, idList)

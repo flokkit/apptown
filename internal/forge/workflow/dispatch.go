@@ -222,5 +222,5 @@ func restartOrphan(step *Step) bool {
 	var evidence struct {
 		Reason string `json:"reason"`
 	}
-	return step.Status == StatusError && json.Unmarshal(step.Evidence, &evidence) == nil && evidence.Reason == "orphaned by forged restart"
+	return step.Status == StatusError && json.Unmarshal(step.Evidence, &evidence) == nil && evidence.Reason == "orphaned by apptownd restart"
 }

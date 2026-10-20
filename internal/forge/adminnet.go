@@ -19,7 +19,7 @@ import (
 // comes from a trusted proxy (loopback, this host's own addresses, or
 // -trusted-proxies), in which case the proxy's X-Real-IP (else the
 // rightmost X-Forwarded-For entry) is the caller. A Traefik running with
-// host networking on the same host is seen by forged as the host itself.
+// host networking on the same host is seen by apptownd as the host itself.
 
 func parseCIDRs(list []string) []*net.IPNet {
 	var out []*net.IPNet

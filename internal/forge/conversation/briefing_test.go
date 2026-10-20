@@ -22,17 +22,17 @@ func TestConsoleSteeringFrames(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
 	ways := wow.New(db, wow.Dependencies{})
-	steering := NewBriefing(ways, adoption.New(db, adoption.Dependencies{Ways: ways}), BriefingConfig{FrontDeskVerbs: []string{"`forge invoke`", "`forge apply`"}, WorkshopVerbs: []string{"`forge preview`", "`forge land`"}})
+	steering := NewBriefing(ways, adoption.New(db, adoption.Dependencies{Ways: ways}), BriefingConfig{FrontDeskVerbs: []string{"`apptown invoke`", "`apptown apply`"}, WorkshopVerbs: []string{"`apptown preview`", "`apptown land`"}})
 	p := &project.Project{ID: idstest.N(1), Slug: "p", Name: "P"}
 
 	desk := steering.Console(t.Context(), p, "")
-	for _, want := range []string{"front desk", "forge apply", "forge invoke", "## Starting work", "strictly read-only",
+	for _, want := range []string{"front desk", "apptown apply", "apptown invoke", "## Starting work", "strictly read-only",
 		"The only mutations your credentials permit"} {
 		if !strings.Contains(desk, want) {
 			t.Errorf("front-desk steering must contain %q", want)
 		}
 	}
-	for _, banned := range []string{"WORKSHOP", "WRITABLE", "forge preview", "forge land"} {
+	for _, banned := range []string{"WORKSHOP", "WRITABLE", "apptown preview", "apptown land"} {
 		if strings.Contains(desk, banned) {
 			t.Errorf("front-desk steering must not contain %q — a workshop-only fact leaked", banned)
 		}
@@ -40,12 +40,12 @@ func TestConsoleSteeringFrames(t *testing.T) {
 
 	shop := steering.Workshop(t.Context(), p, "")
 	for _, banned := range []string{"front desk", "FRONT DESK", "## Starting work", "strictly read-only",
-		"You cannot edit code", "forge invoke -w"} {
+		"You cannot edit code", "apptown invoke -w"} {
 		if strings.Contains(shop, banned) {
 			t.Errorf("workshop steering must not contain %q — a front-desk-only section leaked", banned)
 		}
 	}
-	for _, want := range []string{"WORKSHOP", "WRITABLE", "forge invoke/apply are DISABLED", "forge preview", "forge land"} {
+	for _, want := range []string{"WORKSHOP", "WRITABLE", "apptown invoke/apply are DISABLED", "apptown preview", "apptown land"} {
 		if !strings.Contains(shop, want) {
 			t.Errorf("workshop steering must contain %q", want)
 		}

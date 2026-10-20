@@ -15,7 +15,7 @@ import (
 )
 
 // Releases in a forge with no local Docker (design/operations/workers.md,
-// "Running a forge without a local Docker daemon"). Such a forge releases only to attached Docker
+// "Running AppTown without a local Docker daemon"). Such a forge releases only to attached Docker
 // hosts, whose own daemons build and hold the images. A bundle names the
 // target it was read from, and its images are reused there and nowhere
 // else. A bundle recorded before bundles named their target is refused,

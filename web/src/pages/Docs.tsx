@@ -10,7 +10,7 @@ import { useDarkTheme } from '../theme'
 import { fillLiveLinks } from '../liveLinks'
 
 // Shipped documentation: guides plus the per-integration admin/developer
-// documents. Everything renders from markdown embedded in the forged binary,
+// documents. Everything renders from markdown embedded in the apptownd binary,
 // so docs version with the release.
 
 // MdDoc renders markdown, fills a guide's live links with this forge's own

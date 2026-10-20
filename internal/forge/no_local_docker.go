@@ -46,7 +46,7 @@ func workerAgentLabels(life context.Context, w *execution.WorkerTasks) func() pi
 	}
 }
 
-// drainLocalDocker is the end of startup repair under forged
+// drainLocalDocker is the end of startup repair under apptownd
 // -drain-local-docker: the witnessed switch into the -no-local-docker mode.
 // A forge in the mode cannot observe its own Docker, so it cannot
 // tell from its records alone that nothing local still writes: a start
@@ -68,7 +68,7 @@ func drainLocalDocker(ctx context.Context, db *database.DB, records *tasks.Recor
 	}
 	if len(left) > 0 {
 		return fmt.Errorf("-drain-local-docker: this AppTown's Docker still has execution containers:\n  %s\n"+
-			"Start AppTown without -no-local-docker so it finishes or removes them, or remove them yourself once you know they have stopped, then run forged -drain-local-docker again", strings.Join(left, "\n  "))
+			"Start AppTown without -no-local-docker so it finishes or removes them, or remove them yourself once you know they have stopped, then run apptownd -drain-local-docker again", strings.Join(left, "\n  "))
 	}
 	return identity.RecordLocalDockerDrainedIn(ctx, db)
 }
@@ -86,5 +86,5 @@ func switchAdmitted(ctx context.Context, db *database.DB) error {
 		return nil
 	}
 	return fmt.Errorf("-no-local-docker: this AppTown last started with its own Docker (local_docker = %s), and an AppTown in the mode cannot see what is left there. "+
-		"Run forged -drain-local-docker with your current settings, without -no-local-docker, first: it serves nothing, and records the drain once it has seen that no local work is left", last)
+		"Run apptownd -drain-local-docker with your current settings, without -no-local-docker, first: it serves nothing, and records the drain once it has seen that no local work is left", last)
 }

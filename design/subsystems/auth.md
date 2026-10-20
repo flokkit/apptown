@@ -2,7 +2,7 @@
 
 ## Authentication establishes a caller
 
-There are three configured authentication modes, selected by `forged --auth`:
+There are three configured authentication modes, selected by `apptownd --auth`:
 
 | Mode | Identity source |
 | --- | --- |
@@ -105,7 +105,7 @@ command when the credential is revoked later.
 ### Invites
 
 In internal mode an administrator adds a person by invite instead of choosing
-their password: People → Invite a person, `forge invite <username> [--role …]`,
+their password: People → Invite a person, `apptown invite <username> [--role …]`,
 or `POST /api/v1/invites`. An invite names one account that has no password
 yet, a role (member or admin), an optional label (a name or email address kept
 for the administrator; Forge sends no email) and a lifetime of 1 to 30 days,
@@ -131,7 +131,7 @@ nothing. Administrators list pending invites and withdraw them
 (`user.invite-revoked`); used and withdrawn invites stay as records.
 
 A password reset link is the same kind of link for an account that already
-has a password: People → reset password, `forge password-link <username>
+has a password: People → reset password, `apptown password-link <username>
 [--days N]`, or `POST /api/v1/password-links {username, days?}`. It needs the
 same authority as an invite (an agent token or OAuth connection is refused),
 is refused for a name without a password and for a disabled account, and has

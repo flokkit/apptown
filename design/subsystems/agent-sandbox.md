@@ -8,7 +8,7 @@ private inference gateway. Local model execution is refused because filtering it
 environment cannot isolate a local process from daemon credentials.
 
 **A separate worker machine.** With `-worker-url`, project code runs on
-`forge-worker`, not on the forge's host: Docker script steps, tests, agent and
+`apptown-worker`, not on the forge's host: Docker script steps, tests, agent and
 review steps, checks and scans, change and run previews, release builds, and new
 change chats by default. A script step without `executor: docker` is refused
 (without a worker it runs as a local process on the forge host). The forge and

@@ -556,7 +556,7 @@ func testAccountRole(t *testing.T, a *App, user, want string) {
 // a copy, a take-down), not only executing steps, so a deploy's guard
 // waits for it; with none, the list is there and empty.
 //
-// Kills: forge executing's route reading only the steps (soak finding 56).
+// Kills: apptown executing's route reading only the steps (soak finding 56).
 func TestExecutingNamesARunningOperation(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)

@@ -33,7 +33,7 @@ credentials:
 # password per deployment, which the forge does not make yet: today every
 # deployment's server is its own.)
 # Only the servers the forge starts beside its own steps (tests, agent
-# steps, forge dev) make it a superuser (stepEnv below), so test runners
+# steps, apptown dev) make it a superuser (stepEnv below), so test runners
 # can make their own test databases and load fixtures.
 provides:
   DATABASE_URL: the connection URL, with the sslmode the server needs

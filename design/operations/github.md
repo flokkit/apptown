@@ -72,17 +72,17 @@ by hand with the same script.
 
 | Image | Built from | Runs |
 | --- | --- | --- |
-| `ghcr.io/flokkit/apptown` | `deploy/Dockerfile`, target `server` | `forged`, with `forge`, `forge-linux` and the agent recipe beside it in `/opt/forge`, as the release archive lays them out |
-| `ghcr.io/flokkit/apptown-worker` | `deploy/Dockerfile`, target `worker` | `forge-worker -agent-context /opt/forge-worker/deploy/forge-agent` |
-| `ghcr.io/flokkit/apptown-agent` | `deploy/forge-agent/Dockerfile` | the agent image; workers and forges still build their own from the recipe |
+| `ghcr.io/flokkit/apptown` | `deploy/Dockerfile`, target `server` | `apptownd`, with `apptown`, `apptown-linux` and the agent recipe beside it in `/opt/apptown`, as the release archive lays them out |
+| `ghcr.io/flokkit/apptown-worker` | `deploy/Dockerfile`, target `worker` | `apptown-worker -agent-context /opt/apptown-worker/deploy/apptown-agent` |
+| `ghcr.io/flokkit/apptown-agent` | `deploy/apptown-agent/Dockerfile` | the agent image; workers and forges still build their own from the recipe |
 
 The server image is a forge with no local Docker
-(`FORGE_NO_LOCAL_DOCKER=true`). A forge bind-mounts its own folders and
-`bin/forge-linux` into the containers it starts; from inside a container
+(`APPTOWN_NO_LOCAL_DOCKER=true`). A forge bind-mounts its own folders and
+`bin/apptown-linux` into the containers it starts; from inside a container
 those are the container's paths, which the host's Docker does not have. So
 the image runs all project work on a worker, needs an external database
-(`FORGE_DB_URL`), and refuses to start without them. Its data directory is
-`/var/lib/forge`.
+(`APPTOWN_DB_URL`), and refuses to start without them. Its data directory is
+`/var/lib/apptown`.
 
 The worker image runs work on the host's Docker through the mounted socket.
 It mounts its state folder into the containers it starts, so mount that

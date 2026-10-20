@@ -45,7 +45,7 @@ type Draft struct {
 	Slug, Name, Namespace, Blurb, Icon, Group, Actor string
 	// Pack is the pack the caller will apply next, when it names one. It
 	// is not applied here; Create refuses one the instance does not offer
-	// before making anything, so a failed `forge new --pack` leaves nothing.
+	// before making anything, so a failed `apptown new --pack` leaves nothing.
 	Pack string
 }
 
@@ -98,7 +98,7 @@ func New(db *database.DB, deps Dependencies, cfg Config) *Service {
 	return &Service{db: db, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.Resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
 }
 
-// Create is the application command behind the wizard, `forge new` and the
+// Create is the application command behind the wizard, `apptown new` and the
 // MCP's create_project: the record, its owning group (the first
 // administrator's personal group when the draft names none), the creator's
 // owner role. The repo and the pack are separate

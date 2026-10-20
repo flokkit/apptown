@@ -143,7 +143,7 @@ reduce setup work without allowing warm chat state to satisfy a cold-boot gate.
 
 ## Implementation references
 
-- [Agent image](../../deploy/forge-agent/Dockerfile),
+- [Agent image](../../deploy/apptown-agent/Dockerfile),
   [toolchain and mirror setup](../../internal/forge/agentenv/registries.go).
 - [Chat provisioning](../../internal/console/pi/provision.go),
   [console DinD](../../internal/console/pi/dind.go),
@@ -216,6 +216,6 @@ defects to engineer away:
 **Not promised.** A worker does not make the forge safe for untrusted projects
 while other kinds of work still run on the forge's host; which work runs where
 is in the [workers guide](../operations/workers.md). Worker chats do not yet
-have previews, automatic rehearsal or `forge check`; these are planned to run
+have previews, automatic rehearsal or `apptown check`; these are planned to run
 from the saved commit. A chat that needs a registry the worker cannot reach
 is refused when it opens, with the registry named.

@@ -27,7 +27,7 @@ func NewConformanceMaintenance(fixes *remediation.Service, enabled bool) Conform
 // review history, and are kept.
 func (h ConformanceMaintenance) ClearConformanceHistory(w http.ResponseWriter, r *http.Request) {
 	if !h.enabled {
-		WriteError(w, 404, "deleting conformance history is a development convenience: start forged with -features dev-tools (or FORGE_FEATURES=dev-tools) to enable it on this AppTown")
+		WriteError(w, 404, "deleting conformance history is a development convenience: start apptownd with -features dev-tools (or APPTOWN_FEATURES=dev-tools) to enable it on this AppTown")
 		return
 	}
 	counts, err := h.fixes.ClearHistory(r.Context())

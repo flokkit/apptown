@@ -169,7 +169,7 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 // runEnding is why an abandoned run ended, in the record's own words: the
 // abandonment's reason and, when a failed step in the stage it ended in gave
 // one, that step's reason, which says what to do next (a landing that found
-// its branch behind main names the catch-up). forge wait and the change's
+// its branch behind main names the catch-up). apptown wait and the change's
 // chat read it here rather than guess why the work stopped: a chat that
 // guesses can go on saying its landing awaits approval after main moved and
 // the landing ended.

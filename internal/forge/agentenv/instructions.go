@@ -79,7 +79,7 @@ func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) s
 		"the app containers get. Run the app in your private docker and hit\n" +
 		"/_forge/boom (a server app), or for a browser app send one tagged\n" +
 		"\"forge test boom\" event from node with @sentry/node and that DSN.\n" +
-		"Then run `forge integrations` — it shows when the provider last saw an\n" +
+		"Then run `apptown integrations` — it shows when the provider last saw an\n" +
 		"event from this project. Report what it said. That is what \"wired\n" +
 		"in\" means. The developer guide: /docs/errors/glitchtip\n"
 }

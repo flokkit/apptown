@@ -53,9 +53,9 @@ func TestOAuthConsentBoundToSessionAndRequest(t *testing.T) {
 		}
 	}
 	var codes int
-	// sql-guarantee: codes are readable only by hash; a forged consent must mint no code at all, which only a store-wide count shows
+	// sql-guarantee: codes are readable only by hash; a apptownd consent must mint no code at all, which only a store-wide count shows
 	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM oauth_codes`).Scan(&codes); err != nil || codes != 0 {
-		t.Fatalf("forged consent minted a code: %d %v", codes, err)
+		t.Fatalf("apptownd consent minted a code: %d %v", codes, err)
 	}
 	if w := postConsent(h, q, who); w.Code != 302 || !strings.Contains(w.Header().Get("Location"), "code=") {
 		t.Fatalf("original request no longer works: %d %s", w.Code, w.Body.String())

@@ -54,7 +54,7 @@ const offer = (s: Step) => [{ act: 'approve', stepId: s.id, step: s.name }]
 const retry = (s: Step) => [{ act: 'retry', stepId: s.id, step: s.name }]
 const act = (a: string) => [{ act: a, stepId: null, step: '' }]
 const trivy = step({ type: 'scan', name: 'scan-image:trivy', status: 'error', evidence: { reason: 'the report is over the limit' } })
-const orphaned = step({ type: 'tests', name: 'tests', status: 'error', evidence: { reason: 'orphaned by forged restart' } })
+const orphaned = step({ type: 'tests', name: 'tests', status: 'error', evidence: { reason: 'orphaned by apptownd restart' } })
 const law = step({ type: 'policy/current', name: 'law', status: 'needs_human', evidence: { reason: 'the review policy changed' } })
 const accept = step({ type: 'approval', name: 'accept', status: 'pending', config: { approvers: ['bls'], means: 'I glanced.' } })
 
@@ -302,7 +302,7 @@ describe('the change head', () => {
   it('offers nothing the forge refuses once the landing has merged', () => {
     const merged = cases.find((c) => c.name === 'landing stopped after its merge')!.v
     // A step a restart interrupted after the merge is the same: run it again.
-    const cut = step({ type: 'scan', name: 'scan-image:trivy', status: 'error', evidence: { reason: 'orphaned by forged restart' } })
+    const cut = step({ type: 'scan', name: 'scan-image:trivy', status: 'error', evidence: { reason: 'orphaned by apptownd restart' } })
     const interrupted = view({ change: 'landing', state: 'blocked', merged: true, steps: [cut], next: retry(cut) })
     expect(nextStep(interrupted).primary).toBe('try-again')
     for (const v of [merged, interrupted]) {

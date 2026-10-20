@@ -52,7 +52,7 @@ func reapCacheDecision(entry string, runStatus func(ids.ID) workflow.RunState, c
 
 // reapCache sweeps each project's cache volume (and the shared forge-cache
 // one older steps wrote) once, through a throwaway container: the volume is
-// the daemon's; forged never assumes its host path. A chat's own cache
+// the daemon's; apptownd never assumes its host path. A chat's own cache
 // (forge-cache-console-*) goes with its chat and is not swept here.
 func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 	if r.docker.Absent() {

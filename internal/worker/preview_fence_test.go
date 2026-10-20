@@ -82,7 +82,7 @@ func TestALateClaimNeverUndoesAConfirmedClaimAndBoot(t *testing.T) {
 			}
 			session := "2"
 			if previous {
-				session = "1" // the preceding forge start
+				session = "1" // the preceding apptown start
 			}
 			code := fencedDelete(t, p, "", session, "1")
 			st, err := p.State(context.Background(), name)

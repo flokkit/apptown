@@ -24,7 +24,7 @@ under Settings › Services opens it for you with **Wire it in →**.
   says where each value arrives.
 - The same DSN in the environment of implementation-step agents, so the
   agent wiring it in can fire the test hook and check the provider
-  (`forge integrations`) before it reports.
+  (`apptown integrations`) before it reports.
 
 ## What your code must do
 
@@ -87,7 +87,7 @@ would cost you the hand test and buy nothing. Leave it open.
 
 Within a minute the event shows at the provider. The project's
 Settings › Services card says when it last saw one, and so does
-`forge integrations` from a shell (inside an agent step, or with
+`apptown integrations` from a shell (inside an agent step, or with
 `-p <project>`).
 
 ## How you know it's wired in

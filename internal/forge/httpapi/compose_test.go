@@ -106,7 +106,7 @@ func TestCanonicalPublicPortUsedByDevCompose(t *testing.T) {
 	}
 }
 
-// A static site with a build is the forge's to build: `forge dev up`
+// A static site with a build is the forge's to build: `apptown dev up`
 // refuses it with words instead of rendering a service that cannot serve.
 func TestDevComposeRefusesABuiltStaticSiteWithWords(t *testing.T) {
 	t.Parallel()
@@ -119,7 +119,7 @@ func TestDevComposeRefusesABuiltStaticSiteWithWords(t *testing.T) {
 	}
 }
 
-// A value containing $ in the contract reaches the `forge dev` services as
+// A value containing $ in the contract reaches the `apptown dev` services as
 // it is written, as docker run -e gives it on a Docker host: a part's and
 // an init step's environment and command, a part's healthcheck and data
 // folder, and a need's environment, command, healthcheck and data folder.

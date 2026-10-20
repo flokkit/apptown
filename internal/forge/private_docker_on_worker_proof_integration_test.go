@@ -30,7 +30,7 @@ import (
 )
 
 // The composed proof of private Docker on a worker. What is real and what is controlled:
-//   - real: forge-worker's server in this process, over mutual TLS, driving
+//   - real: apptown-worker's server in this process, over mutual TLS, driving
 //     this machine's Docker: the agent's container, its privileged private
 //     daemon (docker:27-dind), the service the app's need resolves to from
 //     the catalog, the nested build and run inside the daemon, and the
@@ -56,7 +56,7 @@ import (
 // "unqualified".
 //
 // With FORGE_QUAL_WORKER_URL (workertest.External), the worker is instead a
-// real forge-worker process on another machine, sharing no files with this
+// real apptown-worker process on another machine, sharing no files with this
 // one: the qualification's topology (plan step 6). The check-worker
 // variant then runs only with FORGE_QUAL_CHECK_WORKER_URL, and the
 // evidence must say the profile is qualified.

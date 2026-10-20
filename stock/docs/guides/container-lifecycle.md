@@ -12,7 +12,7 @@ rules, in [What chats and steps can use](/docs/guides/runtime-environments).
 A preview boots the app **cold** from the `.forge/app.yaml` of the commit
 being previewed: nothing carries over from a chat's warm session. If it
 comes up, it comes up from the declared contract alone. Use **Try it** on a
-change, `forge preview <change>`, or a workflow's preview step.
+change, `apptown preview <change>`, or a workflow's preview step.
 
 **Where it runs.** On an AppTown with a worker (a separate machine for
 project code), every preview of a change or a run boots on the worker, with
@@ -39,8 +39,8 @@ Its backing services (its database, its cache) belong to it.
 **Settings › Deployments**, choosing a name, one of the targets offered to
 the project, who it is for, and whether its data is production data. Those
 are fed by promotion: **Deploy latest** on the deployment's card ships the
-latest release there; `forge release <project> <deployment>` does the same
-from the command line and follows its log. `forge release <project>` with no
+latest release there; `apptown release <project> <deployment>` does the same
+from the command line and follows its log. `apptown release <project>` with no
 deployment named promotes what landed on `main` to the intranet.
 
 A landing's deploy step names each phase in its log as it starts: building
@@ -145,7 +145,7 @@ backup store and a copy runner is in
   is written. Each item goes back into the volume or need of the same
   name; a set holding something with nowhere to go (data but no
   `dataDir`, a need the contract no longer declares) is refused and
-  nothing changes. A restore runs as an operation: `forge wait operation
+  nothing changes. A restore runs as an operation: `apptown wait operation
   <n>` and its page show each step. If AppTown restarts in the middle, the
   restore ends `unknown` and names the containers it may have left
   stopped; AppTown does not start them, because the restore may still be
@@ -157,7 +157,7 @@ backup store and a copy runner is in
   restore as a whole is "restored" only when no item is merely copied;
   otherwise "restored, not verified", or "partly restored" when an item
   failed.
-- **What a set covers.** A deployment's card (and `forge data`) says, item
+- **What a set covers.** A deployment's card (and `apptown data`) says, item
   by item, what its backups cover, and marks the rest *not assessed*: an
   item nothing could copy, and always data the app keeps outside its
   declared needs (a bucket or database it reaches with its own settings).

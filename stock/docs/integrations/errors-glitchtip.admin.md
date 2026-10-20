@@ -50,7 +50,7 @@ env, adds the test hooks, proves an event reached GlitchTip, and the
 change goes through review and your OK like any other. The card carries
 the state from the app's side — *not wired in yet*, *wiring · #N*,
 *wired in* — beside when the provider last saw an event from that
-project. `forge integrations` prints the same from a shell.
+project. `apptown integrations` prints the same from a shell.
 
 DSNs are attachment resources, shown redacted in the UI; the app's public
 part and implementation-step agents receive the value.
@@ -58,9 +58,9 @@ part and implementation-step agents receive the value.
 ## 4. AppTown itself
 
 AppTown reports its own failures the same way it asks every app to.
-Attach the `forge` project (Settings › Services on the `forge` project, or
+Attach the `apptown` project (Settings › Services on the `apptown` project, or
 `POST /projects/forge/integrations {"capability":"errors"}`): AppTown
-provisions a GlitchTip project named `forge` and from then on forged
+provisions a GlitchTip project named `apptown` and from then on apptownd
 sends there, tagged by run and step:
 
 - a panic in any runner, with its stack;

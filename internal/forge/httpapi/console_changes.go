@@ -131,7 +131,7 @@ func (h ConsoleChanges) ConsoleRecheck(w http.ResponseWriter, r *http.Request) {
 	}
 	msg := "nothing to recheck — no failed gate on this change's landing"
 	if len(rerun) > 0 {
-		msg = fmt.Sprintf("re-running %d failed gate(s): %s — watch with forge status", len(rerun), strings.Join(rerun, ", "))
+		msg = fmt.Sprintf("re-running %d failed gate(s): %s — watch with apptown status", len(rerun), strings.Join(rerun, ", "))
 	}
 	WriteJSON(w, 200, RecheckStarted{Rerun: rerun, Message: msg})
 }

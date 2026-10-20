@@ -10,7 +10,7 @@ promise doesn't hold, you had to guess, retry blindly, or invent a
 workaround — that is a platform defect, and reporting it is part of
 finishing the job:
 
-    forge complain "what happened" -why "why it slowed you down" \
+    apptown complain "what happened" -why "why it slowed you down" \
       -wish "what you wish had been true"
 
 File it EVEN IF you found a workaround — especially then. Your
@@ -43,7 +43,7 @@ const ConsoleRules = `- A reasonable approach that nothing prohibits should WORK
     1. Tell the operator in your reply, in one plain sentence, that
        something on the platform was broken and you worked around it.
        Never report clean success over a workaround.
-    2. File a complaint: forge complain "what happened" -why "..."
+    2. File a complaint: apptown complain "what happened" -why "..."
        -wish "...". It triggers nothing; a person reads these. Add
        -about way-of-working when the project's adopted ways of working
        asked for something wrong, -about project when it is the

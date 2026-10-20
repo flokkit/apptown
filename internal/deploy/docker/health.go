@@ -20,7 +20,7 @@ import (
 )
 
 // The forge-owned health controller (design/subsystems/healthchecks.md §6). For the
-// deployments the forge runs itself — standing envs on this docker host — it
+// deployments the apptown runs itself — standing envs on this docker host — it
 // owns the two failures Docker's restart policy gets wrong:
 //
 //   - Running-but-hung. `--restart unless-stopped` fires on the process
@@ -48,7 +48,7 @@ import (
 //     a part that keeps failing is HELD by the cap and surfaced, not tight-looped.
 //     successThreshold consecutive passes clears the counters.
 //   - Exactly one controller: one goroutine owned by the daemon,
-//     acting only on parts THIS forge runs (the deployments table). A target
+//     acting only on parts THIS apptown runs (the deployments table). A target
 //     with its own controller (k8s, a cloud LB) never reaches this loop — the
 //     forge renders the probe there and steps back.
 //   - Drain / readiness: draining is a routing concern and, with a single
@@ -92,7 +92,7 @@ type Watched struct {
 
 // HealthDependencies is what the controller asks of the world.
 type HealthDependencies struct {
-	Watch      func(context.Context) []Watched                                           // the standing deployments the forge runs on hosts it talks to
+	Watch      func(context.Context) []Watched                                           // the standing deployments the apptown runs on hosts it talks to
 	PublicPart func(context.Context, Watched) *appcontract.Part                          // the running release's public part, nil when unreadable
 	FrontDoor  func() map[string]string                                                  // the front-door signal a probe sends
 	Record     func(ctx context.Context, w Watched, kind string, payload map[string]any) // the receipt of a restart or a hold
@@ -102,7 +102,7 @@ type HealthDependencies struct {
 	AfterSweep func(context.Context)
 }
 
-// HealthController owns liveness for the deployments the forge runs on
+// HealthController owns liveness for the deployments the apptown runs on
 // Docker hosts: Docker restarts an exited process but never a
 // running-but-hung one, and restarts a crashing one without limit.
 type HealthController struct {

@@ -308,7 +308,7 @@ func (s *Service) waitingStockVersions(ctx context.Context) []string {
 	var out []string
 	for _, p := range packs {
 		if p.Origin == "stock" && p.LatestVersion != p.RecommendedVersion {
-			out = append(out, fmt.Sprintf("stock pack %s: v%d published, v%d recommended (forge pack recommend %s %d)", p.Name, p.LatestVersion, p.RecommendedVersion, p.Name, p.LatestVersion))
+			out = append(out, fmt.Sprintf("stock pack %s: v%d published, v%d recommended (apptown pack recommend %s %d)", p.Name, p.LatestVersion, p.RecommendedVersion, p.Name, p.LatestVersion))
 		}
 	}
 	return out

@@ -6,10 +6,10 @@
 # <version> is the tag without its v (1.0.0, 1.0.0-rc.1). The checkout must be
 # clean and HEAD exactly the tag v<version>, so every artifact names a commit
 # anyone can check out. Writes dist/release/v<version>/:
-#   forge-v<version>-<os>-<arch>.tar.gz   for linux/amd64, linux/arm64,
-#                                         darwin/arm64: forged, forge,
-#                                         forge-worker, forge-linux (the CLI
-#                                         forged mounts into containers, for
+#   apptown-v<version>-<os>-<arch>.tar.gz for linux/amd64, linux/arm64,
+#                                         darwin/arm64: apptownd, apptown,
+#                                         apptown-worker, apptown-linux (the CLI
+#                                         apptownd mounts into containers, for
 #                                         the containers' Linux), the agent
 #                                         image's build context and the
 #                                         example systemd units
@@ -79,7 +79,7 @@ if ! python3 scripts/tour-stamp.py check; then
 	exit 1
 fi
 
-# The web bundle is embedded in forged; built once for every platform, by
+# The web bundle is embedded in apptownd; built once for every platform, by
 # the upgrade test's make target (Go embeds it there too), which must pass
 # before anything is built.
 (cd web && npm ci --silent)
@@ -102,15 +102,15 @@ python3 scripts/third-party-notices.py > "$work/THIRD_PARTY_NOTICES"
 ldflags="-X flokkit.io/forge/internal/version.Release=$tag"
 for platform in linux/amd64 linux/arm64 darwin/arm64; do
 	os=${platform%/*} arch=${platform#*/}
-	name=forge-$tag-$os-$arch
+	name=apptown-$tag-$os-$arch
 	dir=$work/$name
 	mkdir -p "$dir/bin" "$dir/deploy"
-	for cmd in forged forge forge-worker; do
+	for cmd in apptownd apptown apptown-worker; do
 		CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "$ldflags" -o "$dir/bin/$cmd" "./cmd/$cmd"
 	done
 	# Containers are Linux on the host's architecture.
-	CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags "$ldflags" -o "$dir/bin/forge-linux" ./cmd/forge
-	cp -R deploy/forge-agent deploy/systemd "$dir/deploy/"
+	CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags "$ldflags" -o "$dir/bin/apptown-linux" ./cmd/apptown
+	cp -R deploy/apptown-agent deploy/systemd "$dir/deploy/"
 	# Apache-2.0 travels with every copy: the licence and the notice, and the
 	# third-party notices beside them.
 	cp LICENSE NOTICE "$work/THIRD_PARTY_NOTICES" "$dir/"
@@ -134,7 +134,7 @@ if [ "$(grep -c '\.tar\.gz$' "$out/SHA256SUMS")" -ne "$archives" ]; then
 	exit 1
 fi
 
-facts=$(go run scripts/release-facts.go deploy/forge-agent)
+facts=$(go run scripts/release-facts.go deploy/apptown-agent)
 worker_protocol=$(echo "$facts" | sed -n 's/^WORKER_PROTOCOL=//p')
 cli_protocol=$(echo "$facts" | sed -n 's/^CLI_PROTOCOL=//p')
 agent_image=$(echo "$facts" | sed -n 's/^AGENT_IMAGE=//p')
@@ -146,12 +146,12 @@ agent_image=$(echo "$facts" | sed -n 's/^AGENT_IMAGE=//p')
 	echo "## This build"
 	echo
 	echo "- Commit: \`$commit\`"
-	echo "- Worker protocol: $worker_protocol; CLI protocol: $cli_protocol (Running a forge, Versions)"
-	echo "- Agent image recipe: \`$agent_image\` (\`deploy/forge-agent\` in the archive). Workers build it when they start. A forge that runs work itself builds \`forge-agent\` only when it is missing: on install, and on an upgrade whose recipe name changed, run \`docker build -t forge-agent deploy/forge-agent\` in the installation directory"
+	echo "- Worker protocol: $worker_protocol; CLI protocol: $cli_protocol (Running AppTown, Versions)"
+	echo "- Agent image recipe: \`$agent_image\` (\`deploy/apptown-agent\` in the archive). Workers build it when they start. A forge that runs work itself builds \`forge-agent\` only when it is missing: on install, and on an upgrade whose recipe name changed, run \`docker build -t forge-agent deploy/apptown-agent\` in the installation directory"
 	echo "- Platforms: linux/amd64, linux/arm64, darwin/arm64; checksums in SHA256SUMS"
 	echo "- Licence: Apache-2.0 (LICENSE, NOTICE)"
 	echo
-	echo "Install: Running a forge, Install. Upgrade: Running a forge, Upgrading."
+	echo "Install: Running AppTown, Install. Upgrade: Running AppTown, Upgrading."
 } > "$out/RELEASE-NOTES.md"
 
 echo "release $tag: $out"

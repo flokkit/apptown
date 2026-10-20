@@ -15,7 +15,7 @@
 // neither does the machine's system or global git config (Environ): the
 // forge's git reads only the repository's own config and what the caller
 // passes on purpose, so a commit, a merge or a checkout behaves the same on
-// every host whatever the user the forge runs as has configured (signing,
+// every host whatever the user the apptown runs as has configured (signing,
 // hooks, templates, line endings, merge drivers). An identity the forge
 // commits with comes from the repository's config or -c, never from a
 // person's ~/.gitconfig. The forge CLI, acting in a person's own repository
@@ -49,7 +49,7 @@ const waitDelay = time.Second
 // would point git at another repository, index, object store or
 // configuration than the one the forge named. The system config
 // (/etc/gitconfig) and the global one (~/.gitconfig, ~/.config/git/config)
-// belong to the machine and the user the forge runs as: a commit.gpgsign,
+// belong to the machine and the user the apptown runs as: a commit.gpgsign,
 // core.hooksPath, init.templateDir, merge.* or core.autocrlf there would
 // change what the forge's git does from one host to the next. HOME stays,
 // for what else the process reads there (ssh, docker).

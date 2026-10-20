@@ -101,7 +101,7 @@ trusted:
   An agent step's runtime token (live attempt, enabled owner, as for the
   API) may push to exactly one ref, its attempt's
   `refs/forge/scratch/change-<change>/step-<step>-a<attempt>`, so that
-  `forge check` can check work the forge has not collected yet. Every other
+  `apptown check` can check work the forge has not collected yet. Every other
   ref is hidden from that push, which git itself refuses, and the hook
   refuses any other ref and a deletion again. The token fetches nothing:
   it is admitted only for the receive-pack discovery (`GET info/refs?service=git-receive-pack`)
@@ -136,7 +136,7 @@ trusted:
   on the project; the token comes from the instance's GitLab integration and
   reaches git through an askpass helper written into the data directory, so
   it never lands in `.git/config`.
-- **New project bootstrap**: `forge new` initialises a hub with a first
+- **New project bootstrap**: `apptown new` initialises a hub with a first
   commit; importing an existing repository clones it into the hub. Both
   work with no remote at all.
 - **The forge's own repository** is on GitLab and uses GitLab CI

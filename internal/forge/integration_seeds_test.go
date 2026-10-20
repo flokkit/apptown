@@ -33,7 +33,7 @@ func TestSeedIntegrationsSyncIsIdempotentAndKeepsYours(t *testing.T) {
 }
 
 // The Portainer environment the intranet releases to is a setting
-// (forged -portainer-environment), default local, recorded in the managed
+// (apptownd -portainer-environment), default local, recorded in the managed
 // portainer-deploy binding at every start. A start with the name already
 // recorded changes nothing (an upgrade keeps the operator's name and its
 // version); a start with another name re-applies it.

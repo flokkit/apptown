@@ -88,7 +88,7 @@ describe('new project from existing code', () => {
     act(() => root.unmount())
   })
 
-  // Only an administrator is offered a forge secret as the git credential;
+  // Only an administrator is offered a apptown secret as the git credential;
   // the URL door gets its name, never a value.
   it('offers the git credential to administrators only', async () => {
     stubForge(false)

@@ -436,7 +436,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 		}
 	}
 	raw, _ := json.Marshal(spec)
-	if spec == nil || !strings.Contains(string(raw), `"ingress":{"rules":[{"component":{"name":"forge-gate"}`) || !strings.Contains(string(raw), `"internal_ports":[8080]`) {
+	if spec == nil || !strings.Contains(string(raw), `"ingress":{"rules":[{"component":{"name":"apptown-gate"}`) || !strings.Contains(string(raw), `"internal_ports":[8080]`) {
 		t.Fatalf("the copy's app spec: %s", raw)
 	}
 	// Taken down: its app and its own cluster are gone, prod's stand, and

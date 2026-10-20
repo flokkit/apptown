@@ -82,7 +82,7 @@ func onWorkerWithATripwire(t *testing.T, a *App) (calls string) {
 	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(),
 		Checks: execution.Runner{DockerBinary: workerCheckDocker(t, calls)}})
 	a.cfg.worker = &execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	a.cfg.agentContext = "../../deploy/forge-agent"
+	a.cfg.agentContext = "../../deploy/apptown-agent"
 	localDockerTripwire(t, a, calls)
 	recomposeChecks(t, a)
 	return calls
@@ -145,13 +145,13 @@ func onlyTheWorker(t *testing.T, calls string, want ...string) {
 
 // With a worker configured, no check runs on this machine.
 // This machine's Docker fails any command; every check path goes to the
-// worker: forge check, a working run's guidance step, a landing's gates
+// worker: apptown check, a working run's guidance step, a landing's gates
 // (guidance, a source scan, an image scan and the history scan), and the
 // merge-only compile check through the shipping the forge composes.
 func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 	t.Parallel()
 	app := "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"
-	t.Run("forge check and a working run", func(t *testing.T) {
+	t.Run("apptown check and a working run", func(t *testing.T) {
 		t.Parallel()
 		a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"self-check","severity":"high"}]`)
 		attachScanner(t, a, "self-check", map[string]any{"command": []string{"python", "manage.py", "check"}, "target": "exec-image", "manual": true})
@@ -170,7 +170,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		gittest.Run(t, ws, "add", "-f", ".")
 		gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "an app")
 		if out, err := a.verification.Check(a.asEngine(context.Background()), ch, verification.Selection{}); err != nil || out["ok"] != true {
-			t.Fatalf("forge check on the worker: %v %v", out, err)
+			t.Fatalf("apptown check on the worker: %v %v", out, err)
 		}
 		run := step1ReviewRun(t, a, ch)
 		if step := reviewExecute(t, a, run, "guidance"); step.Status != workflow.StatusPass {

@@ -86,12 +86,12 @@ not establish the proposed controls in the register.
 
 ### The service configuration a deployment should have
 
-This is what the shipped unit files (`deploy/systemd/forged.service`,
-`deploy/systemd/forge-worker.service` and their `.env.example` files) and
+This is what the shipped unit files (`deploy/systemd/apptownd.service`,
+`deploy/systemd/apptown-worker.service` and their `.env.example` files) and
 [running a forge](../../stock/docs/guides/running-apptown.md) set up. It
 describes no particular installation.
 
-- **The daemon runs as root.** On Linux, `forged` runs as root when it runs
+- **The daemon runs as root.** On Linux, `apptownd` runs as root when it runs
   containers on its own Docker: steps and chats run as root in containers
   that write into the forge's folders, and the forge must read and remove
   what they leave. This is a documented choice, not an oversight. It means
@@ -100,7 +100,7 @@ describes no particular installation.
   either, since control of Docker is equivalent to root.
 - **No systemd sandboxing is relied on.** The shipped unit sets none of
   `NoNewPrivileges`, `ProtectSystem`, `ProtectHome` or `PrivateTmp`. An
-  operator may add them, but they do not separate `forged` from the Docker
+  operator may add them, but they do not separate `apptownd` from the Docker
   daemon it controls. The separation the product offers is a worker machine
   and `-no-local-docker` ([agent isolation limits](../subsystems/agent-sandbox.md)).
 - **The web listener is on loopback, behind a TLS proxy.** The example
@@ -110,17 +110,17 @@ describes no particular installation.
 - **The console and inference listeners are private.** They bind to an
   address containers can reach (in the example, the Docker bridge address)
   and are never routed through public ingress. The inference listener admits
-  only the configured worker networks (`FORGE_INFERENCE_NETWORKS`); a `/0`
+  only the configured worker networks (`APPTOWN_INFERENCE_NETWORKS`); a `/0`
   network is refused.
 - **Sign-in is internal or a trusted proxy.** `-auth open` trusts any name a
-  caller gives, so `forged` refuses to start with it on an address other
+  caller gives, so `apptownd` refuses to start with it on an address other
   machines can reach unless `-open-on-network` is given. A shared forge uses
   `-auth internal` (the first administrator needs the setup token from the
   data directory) or `-auth trusted-header` behind an authenticating proxy.
 - **A worker listens on a private network address** and accepts only the
   forge, by mutual TLS with certificates the operator issues. On a cloud
   host the operator blocks the provider's metadata address and checks it with
-  `forge-worker -check-metadata`.
+  `apptown-worker -check-metadata`.
 
 Forge does not verify these on a running installation, and it does not check
 edge rate limits and header stripping, firewall reachability from each worker
@@ -327,7 +327,7 @@ not reports that an attacker has performed them.
    the owner's cookie. It need not read the HttpOnly cookie. Relevant: TM-08,
    TM-10, TM-17.
 3. **Preview → delegated authority:** an owner visits a malicious same-site
-   preview; it attempts a credentialed terminal WebSocket or forged OAuth
+   preview; it attempts a credentialed terminal WebSocket or apptownd OAuth
    consent submission. Success depends on browser cookie/origin behavior and
    the target account's authority. Relevant: TM-09, TM-27, TM-28.
 4. **Workspace → host:** a workload changes a symlink or Git metadata later
@@ -356,7 +356,7 @@ stated preconditions to be verified.
 
 | Batch | Concrete outcome | Threats | Completion evidence |
 |---|---|---|---|
-| A. Protect browser authority | Serve active uploads as safe downloads or on an isolated origin; exact origin checks for terminals and browser mutations; bind OAuth consent to the session; secure production cookies | TM-08, TM-09, TM-12, TM-27, TM-28 | Browser tests against sibling preview and unrelated origin; forged consent denied; safe file-serving tests |
+| A. Protect browser authority | Serve active uploads as safe downloads or on an isolated origin; exact origin checks for terminals and browser mutations; bind OAuth consent to the session; secure production cookies | TM-08, TM-09, TM-12, TM-27, TM-28 | Browser tests against sibling preview and unrelated origin; apptownd consent denied; safe file-serving tests |
 | B. Separate model credentials, then bound spend | First: private inference gateway using lifecycle tokens and explicit worker networks, no runtime provider keys, attribution and concurrency limits. Later: transactional budgets and provider-side backstop | TM-01, TM-02, TM-15 | Canary-secret runtime inspection, native Pi protocol tests, cancellation/restart/provider-failure tests; budget tests when that control is implemented |
 | C. Stop workspace-to-control-plane authority | Disable local execution for untrusted work; isolate worker hosts/VMs from control plane; remove trusted host operations over attacker-writable metadata and paths; separate cache mounts | TM-03–TM-07 | Harmless escape-attempt fixtures, cross-workload cache tests and measured worker-network reachability |
 | D. Make delegation consistent | Uniform principal/revocation checks on every transport; purpose/resource/lifetime bounds on instruments; explicit read policy; scoped webhook credentials | TM-10–TM-13, TM-21, TM-27 | Transport × principal × resource negative tests; live revocation of open sessions and instruments |

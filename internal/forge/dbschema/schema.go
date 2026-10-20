@@ -25,7 +25,7 @@ type migration struct {
 // schemaBaseline is the 1.0 baseline: every forge in service was converted
 // to UUID identities (schema 147, the identity cutover) and the migrations
 // up to it were collapsed into schema.sql. An older database is refused; it
-// must first be converted by forged -identity-cutover, which only
+// must first be converted by apptownd -identity-cutover, which only
 // development builds from before the baseline carry: 1.0.0-rc.1, the first
 // release candidate, already starts at the baseline.
 //
@@ -149,7 +149,7 @@ func applyMigrations(ctx context.Context, db *database.DB, list []migration) (ap
 		latest = m.n
 	}
 	if version < schemaBaseline || version > latest {
-		return 0, fmt.Errorf("schema: version %d is unsupported by this daemon (supported %d–%d); an AppTown older than the 1.0 baseline must first be converted by forged -identity-cutover in a development build from before 1.0.0-rc.1", version, schemaBaseline, latest)
+		return 0, fmt.Errorf("schema: version %d is unsupported by this daemon (supported %d–%d); an AppTown older than the 1.0 baseline must first be converted by apptownd -identity-cutover in a development build from before 1.0.0-rc.1", version, schemaBaseline, latest)
 	}
 	for _, m := range list {
 		if m.n <= version {

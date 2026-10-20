@@ -24,10 +24,10 @@ import (
 // Tier domains: hostname routing for previews and standing deployments,
 // in-process. Dropping files into Traefik was declined as non-portable:
 // it assumed a specific proxy, a specific provider, a shared filesystem.
-// The portable mechanism is the oldest one: forged routes by Host header.
-// change-97.preview.<domain> and <slug>.main.<domain> arrive at forged
+// The portable mechanism is the oldest one: apptownd routes by Host header.
+// change-97.preview.<domain> and <slug>.main.<domain> arrive at apptownd
 // however the operator likes — wildcard DNS straight at the box, any
-// reverse proxy in front — and forged reverse-proxies to the app's local port.
+// reverse proxy in front — and apptownd reverse-proxies to the app's local port.
 //
 // Stateless by construction: container names are deterministic
 // (forge-preview-change-97, forge-env-<slug>-main), so the hostname IS
@@ -220,7 +220,7 @@ func (a *App) vhostPort(ctx context.Context, container string) int {
 	port, _ := docker.ContainerHostPort(ctx, a.docker, container, 0)
 	if port == 0 {
 		// A miss is not a fact worth remembering: the container may be
-		// seconds from having a port (complaint #40: `forge preview` printed
+		// seconds from having a port (complaint #40: `apptown preview` printed
 		// port 0 twice, then the real one, because a miss was cached 20s).
 		return 0
 	}

@@ -335,7 +335,7 @@ func TestProvisioning(t *testing.T) {
 				f.fail = "buildx create"
 			}
 			in.Env = []string{"FORGE_URL=http://host.docker.internal:7778"}
-			in.Mounts = []string{"/tools/forge:/opt/forge/bin/forge:ro"}
+			in.Mounts = []string{"/tools/forge:/opt/apptown/bin/forge:ro"}
 			err := r.provision(in)
 			failed := mode == "unavailable" || mode == "builder failure"
 			if (err != nil) != failed {
@@ -360,7 +360,7 @@ func TestProvisioning(t *testing.T) {
 			if create == "" {
 				t.Fatal("console was not created")
 			}
-			for _, want := range []string{in.Dir + ":/console:ro", "FORGE_URL=http://host.docker.internal:7778", "/tools/forge:/opt/forge/bin/forge:ro", "forge.console.model=m"} {
+			for _, want := range []string{in.Dir + ":/console:ro", "FORGE_URL=http://host.docker.internal:7778", "/tools/forge:/opt/apptown/bin/forge:ro", "forge.console.model=m"} {
 				if !strings.Contains(create, want) {
 					t.Errorf("create missing %s: %s", want, create)
 				}
@@ -450,7 +450,7 @@ func TestANewCLIMountMakesTheChatStale(t *testing.T) {
 		t.Run("model="+model, func(t *testing.T) {
 			r, in, f := fixture(t)
 			in.Model = model
-			in.Mounts = []string{"/blobs/cli-a:/opt/forge/bin/forge:ro"}
+			in.Mounts = []string{"/blobs/cli-a:/opt/apptown/bin/forge:ro"}
 			if err := r.provision(in); err != nil {
 				t.Fatal(err)
 			}
@@ -487,11 +487,11 @@ func TestANewCLIMountMakesTheChatStale(t *testing.T) {
 			if stale() {
 				t.Fatal("the container created for this launch is stale")
 			}
-			in.Mounts = []string{"/blobs/cli-b:/opt/forge/bin/forge:ro"}
+			in.Mounts = []string{"/blobs/cli-b:/opt/apptown/bin/forge:ro"}
 			if !stale() {
 				t.Fatal("a container pinning the old CLI is current")
 			}
-			in.Mounts = []string{"/blobs/cli-a:/opt/forge/bin/forge:ro"}
+			in.Mounts = []string{"/blobs/cli-a:/opt/apptown/bin/forge:ro"}
 			delete(labels, "forge.console.mounts")
 			if !stale() {
 				t.Fatal("a container from before the mounts label is current")
@@ -584,7 +584,7 @@ func TestAWorkersChatHasItsOwnCacheLimitsAndMirror(t *testing.T) {
 	r, in, f := fixture(t)
 	r.cfg.CachePerSession = true
 	r.cfg.Limits = &Limits{CPUs: 1.5, MemoryBytes: 512 << 20, PIDs: 300}
-	toolCache := "/var/lib/forge-worker/tool-cache/mise:/forge-cache/mise-cache"
+	toolCache := "/var/lib/apptown-worker/tool-cache/mise:/forge-cache/mise-cache"
 	r.cfg.Mounts = []string{toolCache}
 	in.Mirror = "https://mirror.example:5000"
 	if err := r.provision(in); err != nil {

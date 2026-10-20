@@ -61,13 +61,13 @@ func authOpenPath(method, path string) bool {
 	case method == "POST" && path == "/api/v1/complaints":
 		return true
 	// The contract tooling is a stateless computation every coding agent is
-	// TOLD to use (forge config schema/validate); demanding a login it cannot
+	// TOLD to use (apptown config schema/validate); demanding a login it cannot
 	// have produced complaints 33, 34 and 36. Schema is embedded and public;
 	// validate echoes the caller's own yaml against the catalog's names.
 	case path == "/api/v1/config/schema",
 		method == "POST" && path == "/api/v1/config/validate":
 		return true
-	// forge dev / forge dev up render the caller's own app.yaml to a local
+	// apptown dev / apptown dev up render the caller's own app.yaml to a local
 	// docker-compose for rehearsal — a stateless computation the container-mode
 	// guidance tells every coding agent to run, writing nothing (complaint 44).
 	case method == "POST" && path == "/api/v1/dev-compose":

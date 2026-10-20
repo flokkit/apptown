@@ -54,7 +54,7 @@ not ended, and its previews' state as not known.
 A worker keeps project code off AppTown's host for the work listed
 above. It is not a strong sandbox: code on it can reach the network, and a
 private Docker daemon is not a boundary against hostile code. The
-addresses a container is given for model access and the `forge` CLI are
+addresses a container is given for model access and the `apptown` CLI are
 configuration, not a network restriction; what else it can reach is up to
 the operator's network.
 
@@ -93,9 +93,9 @@ Exact versions are listed in `deploy/tool-pins.txt` (the agent image's tools and
 the scanners), recorded in the image's build labels, and declared for a project's
 own toolchain in its `mise.toml`. The image has no Go: a Go project declares its
 Go in `mise.toml`, and gopls uses that Go. A custom step image can provide a different
-inventory. Every agent container has the `forge` command line for Linux,
+inventory. Every agent container has the `apptown` command line for Linux,
 which AppTown mounts from its own install ([Running AppTown](/docs/guides/running-apptown)
-says where it comes from); without it the helper has no `forge`, and
+says where it comes from); without it the helper has no `apptown`, and
 AppTown's log says so.
 
 Pin the tools the project needs in `mise.toml` (or `.mise.toml`). AppTown
@@ -136,10 +136,10 @@ curl http://dind:8080/
 
 Substitute the project's image, test command and container port. Published
 ports are reached at `dind`, not the helper's `localhost`, and are not published
-on AppTown's host for the person's browser. Use `forge preview` for a served
+on AppTown's host for the person's browser. Use `apptown preview` for a served
 preview URL.
 
-AppTown sets up a `forge` Buildx builder with DNS and the bound Docker Hub
+AppTown sets up a `apptown` Buildx builder with DNS and the bound Docker Hub
 mirror. A change chat loads local builds into its daemon by itself; an
 explicit `--load` says so in both chats and steps. A step's daemon may have
 the agent image preloaded; a chat's does not. Look before assuming any image,
@@ -159,10 +159,10 @@ against hostile code on the host.
 ## Services, identity and credentials
 
 Chats do not automatically receive a running database, cache or the production
-app's environment. A change chat can ask `forge preview` to boot the declared
+app's environment. A change chat can ask `apptown preview` to boot the declared
 application and its needs as a preview (on the worker when AppTown has
 one, otherwise on AppTown's host), or start development services using
-its private Docker. `forge dev` uses that private Docker to bring up the
+its private Docker. `apptown dev` uses that private Docker to bring up the
 declared needs and write their connection settings; see
 [How apps run](/docs/guides/how-apps-run). Docker agent steps receive explicitly configured sidecar
 services; steps with `needs: true` also request the app contract's needs as

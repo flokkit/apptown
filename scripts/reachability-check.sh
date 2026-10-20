@@ -1,5 +1,5 @@
 #!/bin/sh
-# What forged's main can never reach (architecture.md): the whole-program
+# What apptownd's main can never reach (architecture.md): the whole-program
 # sweep the package-level unused check cannot do. A change may lower the
 # count and may not raise it; a change that deletes what it superseded
 # records the new number with --tighten in the same commit.
@@ -9,7 +9,7 @@ DEADCODE="${DEADCODE:-$(go env GOPATH)/bin/deadcode}"
 [ -x "$DEADCODE" ] || { echo "deadcode not installed: run make tools"; exit 1; }
 BASE=scripts/reachability-baseline
 OUT=$(mktemp)
-"$DEADCODE" ./cmd/forged ./cmd/forge-deploy ./cmd/forge-console ./cmd/forge-check ./cmd/forge-worker ./cmd/forge-gate > "$OUT" 2>/dev/null || true
+"$DEADCODE" ./cmd/apptownd ./cmd/apptown-deploy ./cmd/apptown-console ./cmd/apptown-check ./cmd/apptown-worker ./cmd/apptown-gate > "$OUT" 2>/dev/null || true
 COUNT=$(grep -c "unreachable func" "$OUT" || true)
 if [ "$1" = "--tighten" ] || [ ! -f "$BASE" ]; then
   echo "$COUNT" > "$BASE"; echo "reachability baseline written: $COUNT"

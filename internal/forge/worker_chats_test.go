@@ -385,7 +385,7 @@ func TestOpeningOnTheWorkerPublishesTheFolderFirst(t *testing.T) {
 
 // A registry the chat's builds use that the worker cannot reach keeps the
 // chat off the worker, naming the registry. The refusal offers the forge
-// instead, in its code and its sentence, only when the forge runs chats
+// instead, in its code and its sentence, only when the apptown runs chats
 // itself.
 func TestAChatIsNotOpenedOnAWorkerThatCannotReachItsRegistry(t *testing.T) {
 	t.Parallel()
@@ -554,7 +554,7 @@ func workerChatList(t *testing.T, w workerChatWorld, changeID ids.ID) httpapi.Wo
 	return list
 }
 
-// `forge check` on a change a chat on the worker holds saves the chat first
+// `apptown check` on a change a chat on the worker holds saves the chat first
 // and checks what was saved, naming the commit; while the folder is behind
 // its saved work, the saved commit is the one checked.
 func TestForgeCheckChecksAWorkerChatsSavedWork(t *testing.T) {
@@ -600,7 +600,7 @@ func TestForgeCheckChecksAWorkerChatsSavedWork(t *testing.T) {
 	}
 }
 
-// A damaged change folder is an error for `forge check`, never a fall-back
+// A damaged change folder is an error for `apptown check`, never a fall-back
 // to the saved branch: only an absent folder reads the branch.
 func TestForgeCheckOfADamagedFolderIsAnError(t *testing.T) {
 	t.Parallel()
@@ -646,7 +646,7 @@ func TestForgeCheckIsRefusedWhenTheSaveIs(t *testing.T) {
 	}
 }
 
-// `forge check --published` on a change a chat on the worker holds checks
+// `apptown check --published` on a change a chat on the worker holds checks
 // the branch's published tip as it is: the chat's unsaved commit is not
 // saved, the branch does not move, and the chat's work is not what is
 // checked. An empty request keeps its meaning: the chat saves first and its
@@ -1018,7 +1018,7 @@ func TestALiveChatsRefusedTurnIsNotAnEndedChatsRefusedSave(t *testing.T) {
 	}
 }
 
-// `forge check` over MCP saves a worker chat first,
+// `apptown check` over MCP saves a worker chat first,
 // as over HTTP.
 func TestChecksOverMCPSaveAWorkerChatFirstToo(t *testing.T) {
 	t.Parallel()

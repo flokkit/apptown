@@ -29,7 +29,7 @@ import (
 //     whenever they change and written into the session's console directory.
 //     The chat's own record (its transcript) and scratch are the worker's and
 //     never overwritten.
-//   - Blobs: content a chat mounts read-only (the forge's own `forge` binary,
+//   - Blobs: content a chat mounts read-only (the forge's own `apptown` binary,
 //     generated registry configuration), sent once and named by the SHA-256
 //     of the tar that carries it, so a mount names content, not a path.
 //   - The work tree, made once from a bundle of the change's branch before

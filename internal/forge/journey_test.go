@@ -93,7 +93,7 @@ func newJourney(t *testing.T, configs ...Config) *jHarness {
 	if err := a.Models.SeedFallbacks(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	a.SyncStock(t.Context()) // the same boot list as forged: every stock kind synced
+	a.SyncStock(t.Context()) // the same boot list as apptownd: every stock kind synced
 	a.SeedTargets(t.Context())
 	// Completion and release are durable jobs; an HTTP server alone cannot
 	// carry an accepted change through landing and deployment.
@@ -164,7 +164,7 @@ func b64(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) 
 
 // staticSiteTask is a change's sentence whose fake agent writes a static site
 // and its runtime contract. The contract declares a readiness path, as the
-// forge pack's health rule requires, and the site serves it; stock land's
+// apptown pack's health rule requires, and the site serves it; stock land's
 // conformance gate refuses a served part without one.
 func staticSiteTask(text, page string) string {
 	contract := "app:\n  web:\n    static: site\n    public: true\n    health: { readiness: { http: /healthz } }\n"
@@ -325,7 +325,7 @@ func publishLane(t *testing.T, a *App, yamlText string) string {
 	name := doc.Metadata.Name
 	if doc.Metadata.System {
 		// A custom landing is published and bound in place of stock land; the
-		// forge pack keeps pinning land itself.
+		// apptown pack keeps pinning land itself.
 		if _, _, err := a.Ways.PublishWorkflow(t.Context(), yamlText, "fixture"); err != nil {
 			t.Fatal(err)
 		}

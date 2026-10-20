@@ -97,7 +97,7 @@ func TestStartingFromExistingCodeIsProjectImportForTheCaller(t *testing.T) {
 		}
 	}
 	owner := &authIdentity{User: "owner", Via: "session"}
-	// Naming a forge secret as the git credential is for administrators:
+	// Naming a apptown secret as the git credential is for administrators:
 	// refused before the URL is even looked at.
 	if w := callAs(t, mux, owner, "POST", "/api/v1/projects/moved/repo/from-url", []byte(`{"url":"https://example.invalid/x.git","credentialSecret":"DIGITALOCEAN_TOKEN"}`)); w.Code != 403 {
 		t.Fatalf("a non-administrator named a secret: %d %s", w.Code, w.Body.String())

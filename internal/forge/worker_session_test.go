@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Each forge start with a worker takes a session greater than the last,
+// Each apptown start with a worker takes a session greater than the last,
 // even when the last was taken while the clock ran ahead; a start whose
 // session count cannot be kept does not run worker previews.
 func TestTwoStartsNeverShareASession(t *testing.T) {

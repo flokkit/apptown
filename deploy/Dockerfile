@@ -4,9 +4,9 @@
 # Dockerfile.dockerignore keeps the context to what the builds read:
 #
 #   docker build -f deploy/Dockerfile --target server --build-arg VERSION=v1.0.0 -t forge .
-#   docker build -f deploy/Dockerfile --target worker --build-arg VERSION=v1.0.0 -t forge-worker .
+#   docker build -f deploy/Dockerfile --target worker --build-arg VERSION=v1.0.0 -t apptown-worker .
 #
-# The agent image is deploy/forge-agent/Dockerfile, built from that folder.
+# The agent image is deploy/apptown-agent/Dockerfile, built from that folder.
 # GitHub's images.yml builds all three on a release tag
 # (design/operations/github.md).
 #
@@ -14,7 +14,7 @@
 #
 # - server, as the desktop trial (the default; README, Desktop trial): its
 #   entrypoint, deploy/apptown-start.sh, starts a Docker daemon inside the
-#   container, so it needs --privileged, and runs forged on it with the
+#   container, so it needs --privileged, and runs apptownd on it with the
 #   built-in database, internal sign-in, http://localhost:7777, previews at
 #   *.preview.localhost:7777 and the agent image
 #   ghcr.io/flokkit/apptown-agent of the same version. Its data, the inner
@@ -25,21 +25,21 @@
 #     docker run --name apptown --privileged -p 127.0.0.1:7777:7777 \
 #       -v apptown:/var/lib/apptown ghcr.io/flokkit/apptown:<version>
 #
-# - server, as a server: FORGE_NO_LOCAL_DOCKER=true in its environment. A
+# - server, as a server: APPTOWN_NO_LOCAL_DOCKER=true in its environment. A
 #   forge with no local Docker: it runs everything on a worker and needs an
-#   external database: FORGE_DB_URL, FORGE_WORKER_URL and the worker's
-#   certificates (FORGE_WORKER_CERT, _KEY, _CA), FORGE_AUTH and
-#   FORGE_PUBLIC_HOST; forged refuses to start without them (Running a
+#   external database: APPTOWN_DB_URL, APPTOWN_WORKER_URL and the worker's
+#   certificates (APPTOWN_WORKER_CERT, _KEY, _CA), APPTOWN_AUTH and
+#   APPTOWN_PUBLIC_HOST; apptownd refuses to start without them (Running a
 #   forge, Workers and running without local Docker). Data is under
-#   /var/lib/forge. It cannot run work on a Docker it shares through the
-#   socket: it bind-mounts its own folders and bin/forge-linux into the
+#   /var/lib/apptown. It cannot run work on a Docker it shares through the
+#   socket: it bind-mounts its own folders and bin/apptown-linux into the
 #   containers it starts, and from inside a container those are the
 #   container's paths, not the host's.
 #
-#     docker run -d -p 7777:7777 -v forge-data:/var/lib/forge \
-#       -v /etc/forge/worker:/etc/forge/worker:ro --env-file forged.env ghcr.io/flokkit/apptown:<version>
+#     docker run -d -p 7777:7777 -v forge-data:/var/lib/apptown \
+#       -v /etc/apptown/worker:/etc/apptown/worker:ro --env-file apptownd.env ghcr.io/flokkit/apptown:<version>
 #
-#   with FORGE_NO_LOCAL_DOCKER=true in forged.env.
+#   with APPTOWN_NO_LOCAL_DOCKER=true in apptownd.env.
 #
 # - worker: runs work on the host's Docker through its socket. It mounts its
 #   state folder into the task containers it starts, so the state folder has
@@ -48,18 +48,18 @@
 #   network (Linux):
 #
 #     docker run -d --network host -v /var/run/docker.sock:/var/run/docker.sock \
-#       -v /var/lib/forge-worker:/var/lib/forge-worker -v /etc/forge-worker:/etc/forge-worker:ro \
+#       -v /var/lib/apptown-worker:/var/lib/apptown-worker -v /etc/apptown-worker:/etc/apptown-worker:ro \
 #       ghcr.io/flokkit/apptown-worker:<version> -installation forge.example.com \
-#       -state /var/lib/forge-worker -listen 10.0.0.5:7790 \
-#       -cert /etc/forge-worker/worker.pem -key /etc/forge-worker/worker-key.pem \
-#       -client-ca /etc/forge-worker/ca.pem
+#       -state /var/lib/apptown-worker -listen 10.0.0.5:7790 \
+#       -cert /etc/apptown-worker/worker.pem -key /etc/apptown-worker/worker-key.pem \
+#       -client-ca /etc/apptown-worker/ca.pem
 #
-# Both run as root, as the systemd units do (Running a forge, Prepare the host).
+# Both run as root, as the systemd units do (Running AppTown, Prepare the host).
 # Base images are pinned by digest; the Go and Node stages run on the build
 # machine's platform and cross-compile, so a multi-platform build emulates
 # nothing.
 
-# The web bundle forged embeds.
+# The web bundle apptownd embeds.
 FROM --platform=$BUILDPLATFORM node:24-trixie-slim@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
@@ -84,8 +84,8 @@ ARG REVISION=
 ENV CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GOFLAGS=-buildvcs=false
 RUN --mount=type=cache,target=/root/.cache/go-build \
     ld="-X flokkit.io/forge/internal/version.Release=$VERSION -X flokkit.io/forge/internal/version.Revision=$REVISION" \
-    && for c in forged forge forge-worker; do go build -trimpath -ldflags "$ld" -o /out/bin/$c ./cmd/$c; done \
-    && cp /out/bin/forge /out/bin/forge-linux
+    && for c in apptownd apptown apptown-worker; do go build -trimpath -ldflags "$ld" -o /out/bin/$c ./cmd/$c; done \
+    && cp /out/bin/apptown /out/bin/apptown-linux
 
 # Every third-party licence and notice the binaries and the web bundle carry
 # (scripts/third-party-notices.py, as a release archive has).
@@ -114,9 +114,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends iptables \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=dockerd /usr/local/bin/dockerd /usr/local/bin/containerd /usr/local/bin/containerd-shim-runc-v2 \
      /usr/local/bin/runc /usr/local/bin/docker-init /usr/local/bin/docker-proxy /usr/local/bin/dind /usr/local/bin/
-WORKDIR /opt/forge
-COPY --from=go /out/bin/forged /out/bin/forge /out/bin/forge-linux bin/
-COPY deploy/forge-agent/ deploy/forge-agent/
+WORKDIR /opt/apptown
+COPY --from=go /out/bin/apptownd /out/bin/apptown /out/bin/apptown-linux bin/
+COPY deploy/apptown-agent/ deploy/apptown-agent/
 COPY deploy/apptown-start.sh bin/
 COPY LICENSE NOTICE ./
 COPY --from=notices /out/THIRD_PARTY_NOTICES ./
@@ -124,18 +124,18 @@ COPY --from=notices /out/THIRD_PARTY_NOTICES ./
 # tagged as images.yml tags it (v1.0.0 -> 1.0.0); a build with no VERSION
 # leaves the file empty and the trial builds forge-agent instead.
 ARG VERSION=
-RUN v="$VERSION"; echo "${v#v}" > /opt/forge/agent-tag
-# No FORGE_DATA or FORGE_NO_LOCAL_DOCKER here: apptown-start.sh sets each
+RUN v="$VERSION"; echo "${v#v}" > /opt/apptown/agent-tag
+# No APPTOWN_DATA or APPTOWN_NO_LOCAL_DOCKER here: apptown-start.sh sets each
 # mode's defaults, so a server inherits none of the trial's.
-ENV PATH=/opt/forge/bin:$PATH FORGE_ADDR=:7777
+ENV PATH=/opt/apptown/bin:$PATH APPTOWN_ADDR=:7777
 VOLUME /var/lib/apptown
 EXPOSE 7777
-ENTRYPOINT ["/opt/forge/bin/apptown-start.sh"]
+ENTRYPOINT ["/opt/apptown/bin/apptown-start.sh"]
 
 FROM base AS worker
-WORKDIR /opt/forge-worker
-COPY --from=go /out/bin/forge-worker bin/
-COPY deploy/forge-agent/ deploy/forge-agent/
+WORKDIR /opt/apptown-worker
+COPY --from=go /out/bin/apptown-worker bin/
+COPY deploy/apptown-agent/ deploy/apptown-agent/
 COPY LICENSE NOTICE ./
 COPY --from=notices /out/THIRD_PARTY_NOTICES ./
-ENTRYPOINT ["/opt/forge-worker/bin/forge-worker", "-agent-context", "/opt/forge-worker/deploy/forge-agent"]
+ENTRYPOINT ["/opt/apptown-worker/bin/apptown-worker", "-agent-context", "/opt/apptown-worker/deploy/apptown-agent"]

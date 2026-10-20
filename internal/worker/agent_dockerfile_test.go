@@ -17,7 +17,7 @@ import (
 // floating base image, and a new download added without its hash.
 func TestTheAgentImageChecksEveryDownload(t *testing.T) {
 	t.Parallel()
-	raw, err := os.ReadFile("../../deploy/forge-agent/Dockerfile")
+	raw, err := os.ReadFile("../../deploy/apptown-agent/Dockerfile")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestTheAgentImageChecksEveryDownload(t *testing.T) {
 // and /usr/local/go on its PATH.
 func TestTheAgentImageShipsNoGoToolchain(t *testing.T) {
 	t.Parallel()
-	raw, err := os.ReadFile("../../deploy/forge-agent/Dockerfile")
+	raw, err := os.ReadFile("../../deploy/apptown-agent/Dockerfile")
 	if err != nil {
 		t.Fatal(err)
 	}

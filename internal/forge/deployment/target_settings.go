@@ -33,7 +33,7 @@ type TargetSettingsEdit struct {
 	// then takes rehearsals and nothing else, and production data sits on it
 	// while one runs (RehearsalHostMeaning, recorded with the edit).
 	Rehearsals *bool
-	// CopyRunner names the Docker host where the forge runs the throwaway
+	// CopyRunner names the Docker host where the apptown runs the throwaway
 	// containers that copy an App Platform target's managed data ("" for
 	// none): the copy runner (design/subsystems/deployment.md, "Protecting
 	// data off-host").

@@ -28,7 +28,7 @@ func TestConsoleInvokeHTTPBindsWorkAndProvenanceToItsAuthenticatedSession(t *tes
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
 		r.SetPathValue("sid", sid)
 		r.Header.Set("X-Forge-Session-Token", token)
-		r.Header.Set("X-Forge-Actor", "forged-operator")
+		r.Header.Set("X-Forge-Actor", "apptownd-operator")
 		w := httptest.NewRecorder()
 		h.ConsoleInvoke(w, r)
 		return w

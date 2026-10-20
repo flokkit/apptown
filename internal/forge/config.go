@@ -81,7 +81,7 @@ type Config struct {
 	// project process on its own host (-no-local-docker): its own Docker
 	// and its project-process runner refuse, attached targets keep their
 	// transport, and a worker and an external database are required
-	// (design/operations/workers.md, "Running a forge without a local Docker
+	// (design/operations/workers.md, "Running AppTown without a local Docker
 	// daemon").
 	NoLocalDocker bool
 	// DrainLocalDocker makes startup repair the witnessed switch into the
@@ -106,7 +106,7 @@ type Config struct {
 	AgentImage       string
 	// AgentContext is the agent image's build context, relative to the
 	// forge's working directory: the forge builds it, and a worker's image
-	// is named by it (worker.AgentImage). "" is deploy/forge-agent.
+	// is named by it (worker.AgentImage). "" is deploy/apptown-agent.
 	AgentContext     string
 	AgentModel       string
 	AgentConcurrency int
@@ -120,7 +120,7 @@ type Config struct {
 	Defaults             InstanceDefaults
 	InferenceURL         string
 	InferenceNetworks    []string
-	// OTLPEndpoint turns forged's own telemetry on: host:port, or a URL whose
+	// OTLPEndpoint turns apptownd's own telemetry on: host:port, or a URL whose
 	// scheme says whether the receiver speaks TLS. Empty means nothing is sent.
 	OTLPEndpoint string
 	OTLPProtocol string // http (default) or grpc
@@ -134,7 +134,7 @@ type Config struct {
 	// on this host (-host-scripts). Off, a project's script runs only in a
 	// container.
 	HostScripts bool
-	// Worker, when set, is the forge-worker that runs this installation's
+	// Worker, when set, is the apptown-worker that runs this installation's
 	// script tasks (design/operations/workers.md). The installation is then
 	// isolated: script steps run only on the worker, never on the forge's own
 	// host.
@@ -145,7 +145,7 @@ type Config struct {
 	CheckWorker *WorkerConfig
 }
 
-// WorkerConfig reaches a forge-worker: its address, the installation's
+// WorkerConfig reaches a apptown-worker: its address, the installation's
 // client certificate and key, and the CA that signed the worker's
 // certificate. All four are required.
 type WorkerConfig struct{ URL, Cert, Key, CA string }
@@ -246,7 +246,7 @@ func (c Config) prepare() (configuration, error) {
 		return configuration{}, fmt.Errorf("-private-docker and -no-private-docker contradict each other; give at most one")
 	}
 	if c.AgentContext == "" {
-		c.AgentContext = "deploy/forge-agent"
+		c.AgentContext = "deploy/apptown-agent"
 	}
 	if c.AgentImage == "" {
 		c.AgentImage = "forge-agent"
@@ -363,7 +363,7 @@ func (c configuration) routing() deployment.Routing {
 // InstanceDefaults: the facts that vary per installation and used to be
 // compiled into the catalog — one installation's mirror and error-tracker
 // hostnames showed on the first screen of every other instance. Set from
-// forged's flags; empty means "no suggestion".
+// apptownd's flags; empty means "no suggestion".
 type InstanceDefaults struct {
 	MirrorBase string // e.g. https://nexus.example.com — presets carry only the repository path
 	ErrorsURL  string // the org's error tracker, e.g. https://errors.example.com

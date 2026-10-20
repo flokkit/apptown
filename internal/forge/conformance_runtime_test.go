@@ -46,7 +46,7 @@ func TestAReviewJudgesTheContractAtItsRecordedCommit(t *testing.T) {
 	}
 }
 
-// The platform tier reaches a project through the forge pack; at boot the
+// The platform tier reaches a project through the apptown pack; at boot the
 // stock sync never appends a platform block to an existing project — that
 // is an adoption (design/subsystems/ways-of-working-versions.md §9 step 1).
 func TestPlatformGuidanceIsNotAppendedAtBoot(t *testing.T) {

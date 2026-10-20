@@ -176,7 +176,7 @@ func newWorldWith(t *testing.T, previews preview.Worker) world {
 
 	branches := scm.NewBranches(db, locks)
 	saves := NewSaves(SavesDependencies{DB: db, Sessions: sessions, Remote: remote, Branches: branches, Publisher: noMirror{}, DataDir: dataDir})
-	// Without a worker for previews, Previews is nil: the forge runs no
+	// Without a worker for previews, Previews is nil: the apptown runs no
 	// previews on a worker, so a saved commit is never rehearsed
 	// (preview.Service.PreviewsOnWorker).
 	var previewer *preview.Service

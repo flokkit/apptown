@@ -1,0 +1,25 @@
+# AppTown daemon. Install: copy to /etc/systemd/system/, put the release in
+# /opt/apptown (bin/apptownd, bin/apptown-linux, deploy/apptown-agent), copy
+# apptownd.env.example to /etc/apptown/apptownd.env and edit it, then
+# `systemctl enable --now apptownd`. Guide: Running AppTown, Install.
+# It runs as root: on Linux an AppTown that runs containers on its own Docker
+# must read and remove what root-run steps leave in its folders (Running
+# AppTown, Prepare the host).
+[Unit]
+Description=AppTown daemon
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+# The working directory holds deploy/apptown-agent, the agent image's context.
+WorkingDirectory=/opt/apptown
+# Every apptownd flag is also its APPTOWN_ variable (apptownd -h).
+EnvironmentFile=/etc/apptown/apptownd.env
+ExecStart=/opt/apptown/bin/apptownd
+Restart=on-failure
+RestartSec=5
+# apptownd stops its own work within its shutdown budget; give it time.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

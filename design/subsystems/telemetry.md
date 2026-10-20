@@ -2,14 +2,14 @@
 
 ## Enablement and lifetime
 
-`forged --otlp-endpoint host:port` (or `FORGE_OTLP_ENDPOINT`) enables exports.
-`--otlp-protocol` / `FORGE_OTLP_PROTOCOL` selects HTTP (default) or gRPC for all
+`apptownd --otlp-endpoint host:port` (or `APPTOWN_OTLP_ENDPOINT`) enables exports.
+`--otlp-protocol` / `APPTOWN_OTLP_PROTOCOL` selects HTTP (default) or gRPC for all
 three signals. A bare endpoint or `http://` uses cleartext; `https://` enables
 TLS. Use a receiver address, not a Grafana UI URL. An empty endpoint installs
 no-op instruments and creates no exporters. The daemon configuration does not
 expose the library's optional exporter headers.
 
-Resources carry `service.name=forged`, `service.namespace=forge`, the build
+Resources carry `service.name=apptownd`, `service.namespace=forge`, the build
 revision, and `forge.instance` when PublicHost is configured. Resource attributes
 are not automatically metric labels: the receiver's configuration determines
 that mapping.
@@ -62,7 +62,7 @@ Grafana or the collection stack. Counter start-time handling is a receiver conce
 check the guide before interpreting first-event rate panels.
 
 The dashboard currently uses the metric `job` label as its variable named
-`instance`. Forge's default `forge/forged` job is shared across installations with
+`instance`. Forge's default `forge/apptownd` job is shared across installations with
 the same service/namespace, so this is not deployment isolation. Job-span panels
 filter service name and do not use that variable. Unique resource identity and
 receiver/query mapping need a follow-up before using this dashboard to distinguish
@@ -84,5 +84,5 @@ information. Keep prompts, credentials and transcripts out of telemetry.
 - [internal/telemetry/telemetry.go](../../internal/telemetry/telemetry.go)
 - [internal/forge/inference/gateway.go](../../internal/forge/inference/gateway.go)
 - [internal/forge/jobs/telemetry.go](../../internal/forge/jobs/telemetry.go)
-- [cmd/forged/runtime.go](../../cmd/forged/runtime.go)
+- [cmd/apptownd/runtime.go](../../cmd/apptownd/runtime.go)
 - [stock/observability/README.md](../../stock/observability/README.md)

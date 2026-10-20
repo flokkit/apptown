@@ -37,7 +37,7 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// Agent steps on a real worker: forge-worker's server, in this process,
+// Agent steps on a real worker: apptown-worker's server, in this process,
 // running its tasks on this machine's Docker, in a small image whose `pi`
 // is a script (fakePiScript) that behaves as the change's fake-pi.sh says. The
 // forge talks to it over mutual TLS, as to any worker; the forge's own
@@ -330,7 +330,7 @@ func (w *agentWorkerWorld) artifacts(t *testing.T, kind string) map[string]strin
 func TestIntegrationAnAgentStepRunsOnTheWorkerAsOneInvocation(t *testing.T) {
 	t.Parallel()
 	w := newAgentWorkerWorld(t, map[string]any{"output": map[string]any{"kind": "report", "name": "summary"}},
-		map[string]string{"fake-pi.sh": `echo "made on the worker" > made.txt; test -x /forge/in/bin/forge && test -f /forge/in/steering.md && echo inputs > inputs.txt; say "I made it"`})
+		map[string]string{"fake-pi.sh": `echo "made on the worker" > made.txt; test -x /forge/in/bin/apptown && test -f /forge/in/steering.md && echo inputs > inputs.txt; say "I made it"`})
 	w.execute(t, w.a)
 	status, ev := stepStatus(t, w.a, w.step.ID)
 	if status != workflow.StatusPass {

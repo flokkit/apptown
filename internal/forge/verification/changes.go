@@ -49,7 +49,7 @@ type WorkerChats interface {
 
 // Check runs a change's committed tree through the same gates the
 // landing will apply (guidance sh + tool checks and the source scanners)
-// and reports raw. The domain command behind `forge check` on HTTP and
+// and reports raw. The domain command behind `apptown check` on HTTP and
 // run_change_checks on MCP.
 //
 // sel is the commit the caller asks about (CheckedCommit): a named commit
@@ -354,7 +354,7 @@ func withinScratch(ctx context.Context, hub string, changeID ids.ID, commit stri
 type CommitNotOnForgeError struct{ Commit string }
 
 func (e *CommitNotOnForgeError) Error() string {
-	return fmt.Sprintf("commit %s is not on AppTown yet; it becomes available once the step's work is collected. `forge check --published` checks the last published commit", e.Commit)
+	return fmt.Sprintf("commit %s is not on AppTown yet; it becomes available once the step's work is collected. `apptown check --published` checks the last published commit", e.Commit)
 }
 func (e *CommitNotOnForgeError) FaultKind() fault.Kind { return fault.NotFound }
 

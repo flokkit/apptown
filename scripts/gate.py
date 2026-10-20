@@ -124,7 +124,7 @@ def main(stages):
     make = os.environ.get("MAKE", "make")
     base = os.environ.get("GATE_LOG_DIR") or tempfile.gettempdir()
     os.makedirs(base, exist_ok=True)
-    logs = tempfile.mkdtemp(prefix="forge-gate.", dir=base)
+    logs = tempfile.mkdtemp(prefix="apptown-gate.", dir=base)
     for sig in STOPPING:
         signal.signal(sig, on_signal)
 

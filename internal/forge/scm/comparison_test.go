@@ -222,7 +222,7 @@ func TestTheSavedRecordIsKeptOutsideTheFolder(t *testing.T) {
 }
 
 // Behind asks the project's repository first. A record it holds, for a
-// folder the forge runs no Git in, is behind, and no Git ran in the folder;
+// folder the apptown runs no Git in, is behind, and no Git ran in the folder;
 // a record it does not hold is not behind, again with no Git in the folder.
 // Git is watched through PATH, so the test changes the process's
 // environment and does not run in parallel.

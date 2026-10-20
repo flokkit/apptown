@@ -153,7 +153,7 @@ func TestHandlerMissingAssetIsAnUncacheable404(t *testing.T) {
 	}
 }
 
-// The real build embedded in forged has precompressed variants of the app's
+// The real build embedded in apptownd has precompressed variants of the app's
 // script; without them every visit downloads it uncompressed.
 func TestEmbeddedBuildIsPrecompressed(t *testing.T) {
 	sub, err := fs.Sub(Dist, "dist")

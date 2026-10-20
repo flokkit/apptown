@@ -18,7 +18,7 @@ import (
 func stepDecisionRequest(handler http.HandlerFunc, ctx context.Context, id, body string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(ctx)
 	r.SetPathValue("id", id)
-	r.Header.Set("X-Forge-Actor", "forged-reviewer")
+	r.Header.Set("X-Forge-Actor", "apptownd-reviewer")
 	w := httptest.NewRecorder()
 	handler(w, r)
 	return w
@@ -90,7 +90,7 @@ func TestApprovalHTTPRejectionPreservesFeedbackAndCannotBeReplaced(t *testing.T)
 	}
 	stepID := snapshot.Steps[0].ID
 	h := NewRuns(f.Work, nil)
-	w := stepDecisionRequest(h.Approve, f.Context, fmt.Sprint(stepID), `{"user":"forged-reviewer","decision":"reject","comment":"Keep the old controls.\nFix the keyboard input."}`)
+	w := stepDecisionRequest(h.Approve, f.Context, fmt.Sprint(stepID), `{"user":"apptownd-reviewer","decision":"reject","comment":"Keep the old controls.\nFix the keyboard input."}`)
 	var out struct {
 		ID       ids.ID `json:"id"`
 		RunID    ids.ID `json:"runId"`

@@ -101,7 +101,7 @@ func (c CLI) Run(ctx context.Context, host string, req Command) ([]byte, error) 
 // even a plain `docker build`, which otherwise uses the daemon's own. The
 // forge chooses the daemon (--host, or its own); a builder named in its
 // environment would send a project's source and build to another machine,
-// so no command the forge runs inherits it.
+// so no command the apptown runs inherits it.
 const builderEnv = "BUILDX_BUILDER"
 
 // withoutBuilder also drops BUILDX_CONFIG, which would point buildx at an

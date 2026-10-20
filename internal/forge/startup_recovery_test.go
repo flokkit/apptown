@@ -397,7 +397,7 @@ func readStartupState(t *testing.T, a *App, projectID, runID ids.ID) startupStat
 		t.Fatal(err)
 	}
 	for _, step := range steps {
-		if step.Status == workflow.StatusError && step.FinishedAt.Valid && stepReason(t, step) == "orphaned by forged restart" {
+		if step.Status == workflow.StatusError && step.FinishedAt.Valid && stepReason(t, step) == "orphaned by apptownd restart" {
 			out.orphaned++
 		}
 		// The old predicate was evidence_json @> '{"kept":true}': the exact key

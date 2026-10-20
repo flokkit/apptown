@@ -93,7 +93,7 @@ func (w *Saves) save(ctx context.Context, s *console.Session, fetch func(ctx con
 }
 
 // SaveFirst is the preparation's WorkerChats: it saves a chat on the
-// worker before a landing, recheck or `forge check` chooses what it reads.
+// worker before a landing, recheck or `apptown check` chooses what it reads.
 func (w *Saves) SaveFirst(ctx context.Context, holder string) (bool, error) {
 	saved, err := w.SaveAndReport(ctx, holder)
 	return saved != "" || err != nil, err
@@ -295,7 +295,7 @@ func (c *Service) RehearseSaved(ctx context.Context, s *console.Session, commit 
 	}
 	delivered := true
 	if bootErr != nil {
-		msg := "[forge check] I cold-booted the app from your saved commit " + strs.ShortSHA(commit) +
+		msg := "[apptown check] I cold-booted the app from your saved commit " + strs.ShortSHA(commit) +
 			" exactly like the try-it button and it FAILED: " + bootErr.Error() +
 			" — fix it, commit, and finish your turn; I re-check automatically. The operator already sees this, so just get to work."
 		if derr := c.sessions.Send(ctx, s.ID, msg); derr != nil {

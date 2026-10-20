@@ -102,7 +102,7 @@ back. A good result for those is the refusal or the question, not the change.
 
 ## Running it against a forge
 
-`run.py` sends the set through a forge using only the product: the `forge`
+`run.py` sends the set through a forge using only the product: the `apptown`
 CLI with `--json`, plus the pack picker, a target's capacity and a project's
 deployments, read from the API the web uses.
 
@@ -123,7 +123,7 @@ python3 eval/companies/run.py --forge … report
   (`create --wave N`). An app with no entry is not created. The forge's own
   pack picker is still asked, and its suggestion is recorded beside the chosen
   pack in the state and the report: it is measured, not used.
-- `drive` follows every open change with `forge wait`: it approves the
+- `drive` follows every open change with `apptown wait`: it approves the
   questions the forge asks, as the credential it is given, with a comment
   naming whom the runner acts for (`--on-behalf-of`, by default the user the
   token acts as); it lands a change whose

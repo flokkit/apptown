@@ -132,7 +132,7 @@ func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Du
 // preview with no revision, keep the /_forge/env.js check.
 func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n    environment:\n      FORGE_RELEASE: web@forged\n"))
+	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n    environment:\n      FORGE_RELEASE: web@apptownd\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 				t.Fatalf("told %q, witnessed %v, env.js %v: %+v", told, witnessed, envJS, asked)
 			case tc.wantRelease == "" && (witnessed || !envJS):
 				t.Fatalf("an image that is not witnessed kept no env.js check: %+v", asked)
-			case tc.revision == "" && told != "web@forged":
+			case tc.revision == "" && told != "web@apptownd":
 				t.Fatalf("a preview was told a release: %q", told)
 			}
 		})

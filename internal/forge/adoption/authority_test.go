@@ -38,9 +38,9 @@ func TestAdoptionAuthoritySeparatesIdentityAttributionAndCapabilities(t *testing
 	if err := authority.require(ctx, selection); err != nil {
 		t.Fatalf("configured owner refused: %v", err)
 	}
-	forged := selection
-	forged.Actor = "boss"
-	if err := authority.require(ctx, forged); err == nil {
+	apptownd := selection
+	apptownd.Actor = "boss"
+	if err := authority.require(ctx, apptownd); err == nil {
 		t.Fatal("receipt name replaced verified identity")
 	}
 	if err := authority.require(context.Background(), selection); !errors.Is(err, access.ErrPrincipalRequired) {
@@ -93,7 +93,7 @@ func TestAdoptionAuthorityBoundsSystemAndMCPContexts(t *testing.T) {
 	if err := authority.require(ctx, permission); err != nil {
 		t.Fatalf("verified MCP attribution refused: %v", err)
 	}
-	permission.Actor = "owner via mcp/forged"
+	permission.Actor = "owner via mcp/apptownd"
 	if err := authority.require(ctx, permission); err == nil {
 		t.Fatal("MCP changed its server-derived receipt label")
 	}

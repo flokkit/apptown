@@ -280,18 +280,18 @@ refused. A lockfile that reorders itself when a package is added reads as
 moved.
 *Should be:* the guard compares dependency sets by ecosystem, not lines.
 
-**N30. `forge config validate` judges less than boot does.** It runs boot's
+**N30. `apptown config validate` judges less than boot does.** It runs boot's
 parser, including `secretspec.toml`, but not the rest of what boot checks:
 declared readiness paths, ports, init containers against the image. An
-agent's "forge config validate passed" is weaker than "it booted".
+agent's "apptown config validate passed" is weaker than "it booted".
 *Should be:* one validation the CLI, the gate and boot all call.
 
-**N31. `forge check` judges less than the gate does.** It runs the shell
+**N31. `apptown check` judges less than the gate does.** It runs the shell
 and tool checks; the model-judged rubrics and the runtime probes run only
 at the gate and in the fleet review. So an agent cannot verify a rubric
 check before it hands the change back; the brief carries the rubric, which
 helps it aim but not verify.
-*Should be:* `forge check` runs the rubric checks too (they cost a model
+*Should be:* `apptown check` runs the rubric checks too (they cost a model
 call each, so opt-in or on demand).
 
 **N32. Tools for languages other than Go run a fixed version.** The Go

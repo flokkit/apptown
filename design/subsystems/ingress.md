@@ -15,7 +15,7 @@ Which name reaches which deployment, by target:
 
 | Target | `main` | Any other deployment |
 | --- | --- | --- |
-| The forge's own Docker host | `<slug>.<main tier domain>`, through forged's front door (VHost); without a main tier domain, the forge's host and the published port | the forge's host and its published port |
+| The forge's own Docker host | `<slug>.<main tier domain>`, through apptownd's front door (VHost); without a main tier domain, the forge's host and the published port | the forge's host and its published port |
 | An attached Docker host with an ingress domain | `<slug>.<domain>`, through the host's own Traefik | the host's address and its published port; it carries no Traefik route |
 | An attached Docker host without a domain | the host's address and its published port | the same |
 | Portainer | one deployment per project, named for the target's tier, at the project's name | refused |

@@ -101,8 +101,8 @@ func TestReviewExecutionOwnsItsIdentityAndAdmittedInputs(t *testing.T) {
 		t.Fatalf("plan: %+v %v", projects, err)
 	}
 	declared := projects[0].Checks[0]
-	projects[0].Checks[0].Check.Name = "forged"
-	projects[0].Slug = "forged"
+	projects[0].Checks[0].Check.Name = "apptownd"
+	projects[0].Slug = "apptownd"
 	assessment := Assessment{ProjectID: id, Check: CheckIdentity{Block: declared.Block, Version: declared.Version, Check: declared.Check.Name}, State: Conforms}
 	pending, err := execution.PrepareVerdict(context.Background(), assessment)
 	if err != nil {
@@ -113,7 +113,7 @@ func TestReviewExecutionOwnsItsIdentityAndAdmittedInputs(t *testing.T) {
 	if err != nil || head.SHA != "committed-before-evaluation" || source.calls != 1 {
 		t.Fatalf("source changed: %+v %v calls=%d", head, err, source.calls)
 	}
-	for _, bad := range []Assessment{{ProjectID: idstest.N(999999), Check: assessment.Check, State: Conforms}, {ProjectID: id, Check: CheckIdentity{Block: declared.Block, Version: declared.Version, Check: "forged"}, State: Conforms}, {ProjectID: id, Check: assessment.Check, State: 0}} {
+	for _, bad := range []Assessment{{ProjectID: idstest.N(999999), Check: assessment.Check, State: Conforms}, {ProjectID: id, Check: CheckIdentity{Block: declared.Block, Version: declared.Version, Check: "apptownd"}, State: Conforms}, {ProjectID: id, Check: assessment.Check, State: 0}} {
 		if p, e := execution.PrepareVerdict(context.Background(), bad); e == nil || p != nil {
 			t.Fatalf("invalid assessment accepted: %+v %v", p, e)
 		}

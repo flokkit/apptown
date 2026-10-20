@@ -11,19 +11,19 @@
     "why": "gitexec.Command, the one constructor every git the repository starts by name builds on; inside the allowed packages too"
   },
   "packages": {
-    "cmd/forge": {
+    "cmd/apptown": {
       "count": 3,
-      "why": "forge dev up runs the person's docker compose on their terminal with their whole environment, their Buildx builder included (docker.CLI drops it, as the forge's own builds must); dev_test runs compose config in a project folder, as dev up does"
+      "why": "apptown dev up runs the person's docker compose on their terminal with their whole environment, their Buildx builder included (docker.CLI drops it, as the forge's own builds must); dev_test runs compose config in a project folder, as dev up does"
     },
-    "cmd/forge-check": {
+    "cmd/apptown-check": {
       "count": 1,
       "why": "the checklist completer gives the prompt to the person's command on stdin and passes its stderr to their terminal; execution.Runner takes no stdin and merges the streams"
     },
-    "cmd/forge-worker": {
+    "cmd/apptown-worker": {
       "count": 1,
-      "why": "the -docker test starts the built forge-worker as a server with a PATH holding only the fake docker, and stops it by its pid"
+      "why": "the -docker test starts the built apptown-worker as a server with a PATH holding only the fake docker, and stops it by its pid"
     },
-    "cmd/forged": {
+    "cmd/apptownd": {
       "count": 1,
       "why": "the SIGTERM test runs this test binary as a child and signals it"
     },
@@ -49,7 +49,7 @@
     },
     "internal/worker/workertest": {
       "count": 1,
-      "why": "StartOnHost runs forge-worker as a long-lived process on this machine and stops and restarts it by its pid"
+      "why": "StartOnHost runs apptown-worker as a long-lived process on this machine and stops and restarts it by its pid"
     },
     "scripts": {
       "count": 1,

@@ -53,7 +53,7 @@ export const offered = (acts: NextAct[] | undefined, act: string, stepId?: strin
 // rerunLabel: how a step run again reads — a check that reads a record is
 // checked again, anything else is tried again.
 export const rerunLabel = (s: Step) => ['artifact/require', 'adr/require', 'scm/merged'].includes(s.type) ? 'Re-check' : 'Try again'
-export const interrupted = (s: Step) => (s.evidence?.reason ?? '').includes('orphaned by forged restart')
+export const interrupted = (s: Step) => (s.evidence?.reason ?? '').includes('orphaned by apptownd restart')
 const failed = (s: Step) => s.status === 'fail' || s.status === 'error' || s.status === 'needs_human'
 const KNOWN = ['waiting on you', 'blocked', 'agent working', 'working', 'queued', 'ready to advance']
 

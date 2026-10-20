@@ -34,7 +34,7 @@ type SeedConfig struct {
 	AgentModel       string // provider/model; its provider names the model binding
 	AgentConcurrency int
 	// PortainerEnvironment is the Portainer environment the intranet
-	// releases to (forged -portainer-environment).
+	// releases to (apptownd -portainer-environment).
 	PortainerEnvironment string
 }
 
@@ -76,7 +76,7 @@ func Seeds(cfg SeedConfig) []Seed {
 		// a generated key. Works with nothing set up; honest about being
 		// protection against accidental disclosure, not a vault.
 		mk("built-in-secrets", CapSecrets, "internal", map[string]any{
-			"store": "secret_values", "where": "in-process: forged itself, no separate service",
+			"store": "secret_values", "where": "in-process: apptownd itself, no separate service",
 			"protection": "obfuscated with a generated key kept in the same database",
 			"limit":      "not a vault: anyone with the database can read the values; use Infisical for anything that matters",
 		}),

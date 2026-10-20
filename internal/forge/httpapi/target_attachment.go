@@ -172,7 +172,7 @@ func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {
 				WriteJSON(w, 200, CloudAccountCheck{OK: true, Detail: detail, DryRun: true, Registry: registry})
 				return
 			}
-			// Unmanaged: nothing in forge config declares this account, so it is
+			// Unmanaged: nothing in apptown config declares this account, so it is
 			// the target's to keep and to take away with it when retired.
 			h.bindCloudAccount(r.Context(), in.Name, cfg)
 			audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "integration.bound", in.Name, map[string]any{"capability": digitalocean.CapCloudAccount, "provider": "digitalocean", "via": "targets"})

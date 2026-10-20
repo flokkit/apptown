@@ -41,7 +41,7 @@ func (h RepositorySetup) Initialize(w http.ResponseWriter, r *http.Request) {
 // credentialSecret?} — start a new, empty project's repository from an
 // https repository: its default branch and tags. Authorized as
 // project:import on the project for the caller's own credential. Naming a
-// forge secret as the git credential is for administrators only: its
+// apptown secret as the git credential is for administrators only: its
 // value goes to the server the caller chose.
 func (h RepositorySetup) SeedFromURL(w http.ResponseWriter, r *http.Request) {
 	p, ok := ProjectFromPath(h.projects, w, r)
@@ -122,6 +122,6 @@ type RepositoryStart struct {
 type RepositoryFromURL struct {
 	URL    string `json:"url"`
 	Branch string `json:"branch"`
-	// CredentialSecret names the forge secret offered as the git password.
+	// CredentialSecret names the apptown secret offered as the git password.
 	CredentialSecret string `json:"credentialSecret"`
 }

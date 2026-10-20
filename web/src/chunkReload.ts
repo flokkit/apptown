@@ -1,5 +1,5 @@
 // After a deploy, a tab opened on the previous build still names the previous
-// build's chunks. forged answers those with 404, so the tab's next lazy import
+// build's chunks. apptownd answers those with 404, so the tab's next lazy import
 // fails ("Failed to fetch dynamically imported module"). Reloading fetches the
 // new index.html, which names chunks that exist. A marker in sessionStorage
 // allows one reload per window of time, so a chunk that is really broken shows

@@ -24,7 +24,7 @@ const (
 	// CookieName is the gate's session cookie. The __Host- prefix makes the
 	// browser refuse it unless it is Secure, has Path=/ and no Domain, so
 	// no other site or subdomain can plant or widen it.
-	CookieName = "__Host-forge-gate"
+	CookieName = "__Host-apptown-gate"
 	// RefusedHeader marks the gate's own refusals (RefusedValue), so the
 	// forge's check of the gate can tell a refusal from an app that answers
 	// 404 or 403 behind a gate that let the request through. The gate

@@ -233,7 +233,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 	hub := source.Repository(dir)
 	commit := hubCommit(t, hub, map[string]string{"README.md": "hello\n"})
 
-	cli := filepath.Join(dir, "forge-linux")
+	cli := filepath.Join(dir, "apptown-linux")
 	if err := execfile.Write(cli, []byte("#!/bin/sh\necho packaged forge CLI\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		"/forge/in/pi-home/.pi/agent/settings.json":    0o644,
 		"/forge/in/pi-home/.pi/agent/agents/worker.md": 0o644,
 		"/forge/in/pi-home/.pi/agent/agents/scout.md":  0o644,
-		"/forge/in/bin/forge":                          0o755,
+		"/forge/in/bin/apptown":                        0o755,
 		"/forge/in/sessions/" + session:                0o644,
 	}
 	for at, mode := range want {
@@ -430,7 +430,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 			t.Errorf("an input nobody asked for: %s", at)
 		}
 	}
-	if got := string(inputContent(t, inputs["/forge/in/bin/forge"])); !strings.Contains(got, "packaged forge CLI") {
+	if got := string(inputContent(t, inputs["/forge/in/bin/apptown"])); !strings.Contains(got, "packaged forge CLI") {
 		t.Errorf("the CLI: %q", got)
 	}
 	if got := string(inputContent(t, inputs["/forge/in/attachments/spec.txt"])); got != "attached spec" {
@@ -451,7 +451,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 	}
 
 	// Environment: step secrets, the attempt's runtime token, the forge's
-	// address and the one ref the token may push (for `forge check`), the
+	// address and the one ref the token may push (for `apptown check`), the
 	// mirror settings. Nothing else.
 	var names []string
 	for _, kv := range spec.Env {

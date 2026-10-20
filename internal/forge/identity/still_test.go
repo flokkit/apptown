@@ -63,9 +63,9 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		if err := s.RequireStill(ctx, other, read); err != nil {
 			t.Fatalf("an equivalent token that was not revoked: %v", err)
 		}
-		forged := other
-		forged.Purpose = access.TokenAgent
-		if err := s.RequireStill(ctx, forged, read); !errors.Is(err, ErrCredentialGone) {
+		apptownd := other
+		apptownd.Purpose = access.TokenAgent
+		if err := s.RequireStill(ctx, apptownd, read); !errors.Is(err, ErrCredentialGone) {
 			t.Fatalf("a token whose purpose differs from what asked: %v", err)
 		}
 		if err := s.RequireStill(ctx, other, access.Permission{Capability: access.CapDeploymentTeardown, Resource: read.Resource, Context: read.Context}); err == nil {

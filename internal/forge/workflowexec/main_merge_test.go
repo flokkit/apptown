@@ -208,7 +208,7 @@ func (w *mainMergeWorld) generationAfterHandover(t *testing.T) int64 {
 // A merge of main with conflicts is not made: the step works on the branch
 // as it is, and the run records which files conflict, before each step that
 // meets them. Nobody is sent it (no chat can be open while the run holds the
-// change): the record is what the change page and forge wait -c read, with
+// change): the record is what the change page and apptown wait -c read, with
 // the catch-up command, until the branch contains that main.
 func TestMainThatConflictsIsRecordedForTheChangeUntilItCatchesUp(t *testing.T) {
 	w := newMainMergeWorld(t)

@@ -22,7 +22,7 @@ stance forks it in its own pack.)
   put them in a `Procfile` (`web: …`, `worker: …`) and run `hivemind` (baked
   into your environment) — it starts them together, aggregates logs, and stops
   them cleanly. Do NOT hand-background each process with `&` — that orphans
-  processes and interleaves output. On your own computer, `forge dev` starts
+  processes and interleaves output. On your own computer, `apptown dev` starts
   the needs, writes their connection env to `.forge/dev.env` and, for an app
   with several parts, a Procfile at `.forge/Procfile`; run it with
   `hivemind -f .forge/Procfile` after `set -a && . ./.forge/dev.env && set +a`.

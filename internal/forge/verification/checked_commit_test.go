@@ -108,7 +108,7 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 		if !errors.As(err, &refused) || refused.Commit != commit || sha != "" || fault.KindOf(err) != fault.NotFound {
 			t.Fatalf("%s: read %q (%v), want a refusal naming %s", name, sha, err, commit)
 		}
-		for _, words := range []string{"commit " + commit + " is not on AppTown yet", "it becomes available once the step's work is collected", "forge check --published"} {
+		for _, words := range []string{"commit " + commit + " is not on AppTown yet", "it becomes available once the step's work is collected", "apptown check --published"} {
 			if !strings.Contains(err.Error(), words) {
 				t.Fatalf("%s: the refusal does not say %q: %v", name, words, err)
 			}

@@ -20,7 +20,7 @@ Commands:
 
 It acts only through the product: the forge CLI with --json, and the reads the
 CLI has no command for (the pack picker, a target's capacity, a project's
-deployments). Waiting is `forge wait`. State lives outside the repository:
+deployments). Waiting is `apptown wait`. State lives outside the repository:
 --state names its file, or the FORGE_EVAL_STATE environment variable names a
 directory that holds one file per forge (<forge host>.json); with neither the
 runner refuses. It is written before every mutation and after its answer, so a

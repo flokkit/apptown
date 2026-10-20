@@ -1,6 +1,6 @@
 # Daemon startup and shutdown
 
-`cmd/forged` owns startup ordering, listeners and background-task lifetime.
+`cmd/apptownd` owns startup ordering, listeners and background-task lifetime.
 Application constructors build their dependencies; they do not repair persisted
 work or start workers.
 
@@ -94,11 +94,11 @@ uses the existing ownership convention and what a DSKit replacement must remove.
 
 ## Implementation references
 
-- [cmd/forged/main.go](../../cmd/forged/main.go)
-- [cmd/forged/runtime.go](../../cmd/forged/runtime.go)
-- [cmd/forged/startup.go](../../cmd/forged/startup.go)
+- [cmd/apptownd/main.go](../../cmd/apptownd/main.go)
+- [cmd/apptownd/runtime.go](../../cmd/apptownd/runtime.go)
+- [cmd/apptownd/startup.go](../../cmd/apptownd/startup.go)
 - [internal/forge/startup_recovery.go](../../internal/forge/startup_recovery.go)
 - [internal/forge/no_local_docker.go](../../internal/forge/no_local_docker.go)
 - [internal/forge/config.go](../../internal/forge/config.go)
-- [cmd/forged/runtime_test.go](../../cmd/forged/runtime_test.go)
-- [cmd/forged/startup_test.go](../../cmd/forged/startup_test.go)
+- [cmd/apptownd/runtime_test.go](../../cmd/apptownd/runtime_test.go)
+- [cmd/apptownd/startup_test.go](../../cmd/apptownd/startup_test.go)

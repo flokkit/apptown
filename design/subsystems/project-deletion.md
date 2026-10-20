@@ -61,7 +61,7 @@ the check shows up.
 ## Asking for the deletion
 
 `DELETE /api/v1/projects/{slug}` with `{"confirm": "<slug>"}` (or
-`forge delete <slug>`) needs `project:delete`. It takes the project's chat
+`apptown delete <slug>`) needs `project:delete`. It takes the project's chat
 block first (refused while a chat is opening, in use or making its last
 save), then, holding the project row, refuses running work
 (`workflow.ProjectRemovalIn`) and a live eval whose arms still work from the
@@ -131,7 +131,7 @@ No cursor is stored: remaining deployments and operation outcomes decide.
 
 The project's page reads "Deleted — kept until <date>", with its backups
 listed on the Backups page. **Restore project** (`POST …/restore`, or
-`forge restore <slug>`) returns it to `active` with no deployments, its
+`apptown restore <slug>`) returns it to `active` with no deployments, its
 chat block released and its binding revoked. It needs `project:delete` and
 `deployment:restore`, and is allowed only until the first purge admission
 commits: both decide under the project row lock, so exactly one of a
@@ -140,7 +140,7 @@ deletion even if the purge fails, and the page says "purge has started;
 restoring is no longer available". A final set restores into a new
 deployment through the start-from-copy path.
 
-**Purge now** (`POST …/purge`, `forge purge <slug>`) is for instance
+**Purge now** (`POST …/purge`, `apptown purge <slug>`) is for instance
 administrators, under their own authority; it admits the purge at once.
 
 ## The purge

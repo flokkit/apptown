@@ -320,7 +320,7 @@ func bringForward(ctx context.Context, db *database.DB, run *workflow.Run, step 
 // fastForward brings a folder to its published branch, confined
 // (gitexec.Folder.FastForward), when it has nothing of its own; otherwise
 // the branch holds the work and the folder is left alone. A folder the
-// forge runs no Git in is left alone too. who names the publisher in the
+// apptown runs no Git in is left alone too. who names the publisher in the
 // log; the error says why the folder stayed.
 func fastForward(ctx context.Context, who string, folder *gitexec.Folder, repo, branch string) error {
 	err := folder.FastForward(ctx, repo, branch)

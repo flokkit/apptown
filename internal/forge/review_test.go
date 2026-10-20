@@ -167,14 +167,14 @@ func writeVerdict(t *testing.T, ws, body string) {
 
 // Every reviewer invocation — the initial run, the wrap-up resume and the
 // fixup — must carry the forge CLI mount and a LIVE run token: the
-// reviewer verifies claims like "forge check passed" with them. The
+// reviewer verifies claims like "apptown check passed" with them. The
 // resume and fixup copies must pass the same mounts, or they lose the CLI.
 func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 	t.Parallel()
 	check := func(t *testing.T, a *App, runID ids.ID, reqs []ExecRequest) {
 		t.Helper()
 		for i, req := range reqs {
-			if !hasMount(req, ":"+agentenv.CLIDir+"/forge:ro") {
+			if !hasMount(req, ":"+agentenv.CLIDir+"/apptown:ro") {
 				t.Errorf("call %d: no forge CLI mount in %v", i+1, req.Mounts)
 			}
 			tok := envValue(req, "FORGE_SESSION_TOKEN")

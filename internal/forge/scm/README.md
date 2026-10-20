@@ -67,8 +67,8 @@ where main stands" or "could not read main". It says what differs, never who
 moved main. With an `origin`, it also compares the record with the last fetched
 `refs/remotes/origin/<branch>` (ahead and behind counts, without a network
 call; a missing tracking ref is unknown, not equal). A project created before
-the forge recorded main has no record; `forged -backfill-recorded-main`, run
-once while no forged serves the database, records each such project's current
+the forge recorded main has no record; `apptownd -backfill-recorded-main`, run
+once while no apptownd serves the database, records each such project's current
 main as where recording began (a backfill, not a witnessed landing).
 
 ## Branch publication
@@ -256,7 +256,7 @@ published as written; only account names are withheld.
 
 `ScratchRef` names the one ref a step attempt's runtime token may push
 (`refs/forge/scratch/change-<change>/step-<step>-a<attempt>`), so that
-`forge check` can check an agent's commit on a worker before the step's work
+`apptown check` can check an agent's commit on a worker before the step's work
 is collected. The git endpoint and the hub's pre-receive hook admit that push
 and no other for the token; a scratch commit moves no branch and is checked as
 feedback only. `SweepScratch` removes the refs of attempts no longer live,

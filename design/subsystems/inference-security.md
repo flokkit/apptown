@@ -121,9 +121,9 @@ boundary against a hostile tenant that can compromise the host it runs on.
 Configure all three settings (equivalent environment variables are supported):
 
 ```text
--inference-addr <private-bind-address>:7779       FORGE_INFERENCE_ADDR
--inference-url http://<worker-reachable-host>:7779 FORGE_INFERENCE_URL
--inference-networks <actual-worker-source-CIDRs>  FORGE_INFERENCE_NETWORKS
+-inference-addr <private-bind-address>:7779       APPTOWN_INFERENCE_ADDR
+-inference-url http://<worker-reachable-host>:7779 APPTOWN_INFERENCE_URL
+-inference-networks <actual-worker-source-CIDRs>  APPTOWN_INFERENCE_NETWORKS
 ```
 
 Do not route this listener through public ingress or a generic shared reverse

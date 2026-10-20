@@ -141,7 +141,7 @@ func (s *Service) AttachStore(ctx context.Context, in AttachStore) (*BackupStore
 func checkStore(ctx context.Context, c *s3bucket.Client, bucket string) error {
 	nonce := make([]byte, 8)
 	_, _ = rand.Read(nonce)
-	key := ".forge-check/" + hex.EncodeToString(nonce)
+	key := ".apptown-check/" + hex.EncodeToString(nonce)
 	body := []byte("AppTown checks it can keep copies here: " + key)
 	if err := c.PutPrivate(ctx, bucket, key, "text/plain", body); err != nil {
 		return fmt.Errorf("writing a check object: %w", err)

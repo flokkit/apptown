@@ -23,7 +23,7 @@ import { changeStateLabel } from '../../states'
 // it at its negotiation protocol (steering).
 export const LAND_REQUEST =
   'Please check and land this change now. I pressed Check and land, so treat this as my ' +
-  'confirmation — no need to ask again. Run the full checks first (forge check), fix ' +
+  'confirmation — no need to ask again. Run the full checks first (apptown check), fix ' +
   'anything with a clear fix, then land it and follow it through. If something needs a ' +
   'decision only I can make, stop and ask me.'
 

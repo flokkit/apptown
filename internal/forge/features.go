@@ -9,7 +9,7 @@ import (
 // Feature flags: switches an operator turns on for one
 // forge, for things that must exist but must not be reachable by default.
 // The first is the development convenience of deleting conformance
-// history. A flag is named at boot (-features a,b or FORGE_FEATURES); an
+// history. A flag is named at boot (-features a,b or APPTOWN_FEATURES); an
 // unknown name is refused loudly so a typo cannot silently leave a feature
 // off. Flags are not policy and not ways of working: they are the
 // operator's own switches for this installation.

@@ -74,8 +74,8 @@ needs:
 The schema and validator are on every AppTown:
 
 ```sh
-forge config schema
-forge config validate .forge/app.yaml
+apptown config schema
+apptown config validate .forge/app.yaml
 ```
 
 Both ask your AppTown's API; they do not work offline.
@@ -278,7 +278,7 @@ AppTown builds that stage, takes its `output` folder and serves it. End the
 `Dockerfile` with a stage of files only (`FROM scratch AS site`,
 `COPY --from=build /app/dist /dist`). The folder may hold only folders and
 files; a symbolic link in it, or on the way to it, is refused. Such a site
-must be the public part, and `forge dev up` does not run it: use the app's
+must be the public part, and `apptown dev up` does not run it: use the app's
 own dev server.
 
 The file server serves files that exist and nothing else; there is no
@@ -404,7 +404,7 @@ in [Secrets](/docs/guides/secrets).
 
 ## On your own computer
 
-`forge dev` runs the same contract on your machine: the needs, with their
+`apptown dev` runs the same contract on your machine: the needs, with their
 variables written to `.forge/dev.env`, or the whole app in containers. See
 [Running your app while you work](/docs/guides/how-apps-run). It is useful
 evidence; the preview and the deploy still boot the app from its contract

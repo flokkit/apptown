@@ -8,11 +8,11 @@
 #
 # Read-only on the source: a database dump with forge-db-backup.sh (what every
 # deploy does), read-only queries, a tar of the data directory, a copy of the
-# running forged binary.
+# running apptownd binary.
 #
 # The target is cut off from everything a restored forge would act on (upstream
 # Git, cloud APIs, attached hosts, model providers) except the one registry the
-# redeploy pulls from, before forged starts there. What the rehearsal makes on
+# redeploy pulls from, before apptownd starts there. What the rehearsal makes on
 # the target is known by what Docker holds before it starts: on every exit the
 # restored forge is stopped, everything created since is removed, and only then
 # is the cut lifted; if any of it remains, the cut stays. A target that already
@@ -69,10 +69,10 @@ held=$(cat /root/.lab-lock 2>/dev/null) || { echo "cleanup on the target: lock o
 fail() { echo "cleanup on the target: $*; cleanup is incomplete: inspect the target before reuse, recover by hand" >&2; exit 1; }
 listing() { case $1 in container) docker ps -aq --no-trunc;; network) docker network ls -q --no-trunc;; volume) docker volume ls -q;; esac; }
 p=$(cat $d/pid 2>/dev/null || true)
-if [ -n "$p" ] && [ "$(readlink /proc/$p/exe 2>/dev/null)" = "$d/forged" ]; then
+if [ -n "$p" ] && [ "$(readlink /proc/$p/exe 2>/dev/null)" = "$d/apptownd" ]; then
 	kill "$p"; for _ in $(seq 1 60); do kill -0 "$p" 2>/dev/null || break; sleep 1; done
 fi
-for p in $(pgrep -x forged || true); do [ "$(readlink /proc/$p/exe)" = "$d/forged" ] && fail "the restored forge ($p) still runs"; done
+for p in $(pgrep -x apptownd || true); do [ "$(readlink /proc/$p/exe)" = "$d/apptownd" ] && fail "the restored forge ($p) still runs"; done
 for kind in container network volume; do
 	[ -f $d/before.$kind ] || fail "no record of the target's $kind""s before the rehearsal"
 	now=$(listing $kind) || fail "cannot list Docker $kind""s"
@@ -120,12 +120,12 @@ read -r rev art < <(ssh "$src" "docker exec forge-db psql -U postgres -d forge -
 [ -n "${art:-}" ] || { echo "$redeploy has no recorded rebuild inputs on the source: pick another deployment" >&2; exit 1; }
 echo "$redeploy runs revision $rev, artifact $art"
 
-step "copy the source's forged and dump its database"
-version=$(ssh "$src" /opt/forge/bin/forged -version)
-ssh "$src" cat /opt/forge/bin/forged > "$work/forged"
+step "copy the source's apptownd and dump its database"
+version=$(ssh "$src" /opt/apptown/bin/apptownd -version)
+ssh "$src" cat /opt/apptown/bin/apptownd > "$work/apptownd"
 dump=$(ssh "$src" bash -s -- forge-db postgres forge /root/backups recovery-rehearsal < "$here/forge-db-backup.sh" | sed -n 's/^backup: \([^ ]*\) .*/\1/p')
 [ -n "$dump" ] || { echo "the dump did not complete" >&2; exit 1; }
-[ "$(ssh "$src" /opt/forge/bin/forged -version)" = "$version" ] || { echo "the source was redeployed during the dump; run again" >&2; exit 1; }
+[ "$(ssh "$src" /opt/apptown/bin/apptownd -version)" = "$version" ] || { echo "the source was redeployed during the dump; run again" >&2; exit 1; }
 echo "source runs $version; dump $dump"
 
 if [ "${RESET_TARGET:-}" = 1 ]; then
@@ -139,7 +139,7 @@ set -u
 if ls /opt/forge-restore/before.* > /dev/null 2>&1; then
 	echo "an earlier rehearsal did not finish its cleanup (/opt/forge-restore/before.* remain): recover by hand" >&2; exit 1
 fi
-for p in $(pgrep -x forged || true); do [ "$(readlink /proc/$p/exe)" = /opt/forge-restore/forged ] && { echo "a rehearsal forge ($p) still runs" >&2; exit 1; }; done
+for p in $(pgrep -x apptownd || true); do [ "$(readlink /proc/$p/exe)" = /opt/forge-restore/apptownd ] && { echo "a rehearsal forge ($p) still runs" >&2; exit 1; }; done
 rm -rf "$1" /opt/forge-restore
 EOF
 fi
@@ -204,17 +204,17 @@ step "copy the data directory (without pgdata and cache) and the dump"
 # is expected, and is the recovery point's gap the guide names.
 ssh "$src" "tar -C '$srcdata' --exclude=./pgdata --exclude=./cache -cf - . ; s=\$?; [ \$s -le 1 ]" | ssh "$tgt" "tar -C '$tdata' -xf -"
 ssh "$src" cat "$dump" | ssh "$tgt" "cat > /opt/forge-restore/forge.sql.gz"
-ssh "$tgt" "cat > /opt/forge-restore/forged && chmod 755 /opt/forge-restore/forged" < "$work/forged"
+ssh "$tgt" "cat > /opt/forge-restore/apptownd && chmod 755 /opt/forge-restore/apptownd" < "$work/apptownd"
 ssh "$tgt" du -sh "$tdata"
 
-start() { # start <flags…>: forged on the target, its pid in /opt/forge-restore/pid
+start() { # start <flags…>: apptownd on the target, its pid in /opt/forge-restore/pid
 	# stdin from /dev/null, or the forge holds the ssh session open.
-	ssh "$tgt" "cd /opt/forge-restore; nohup /opt/forge-restore/forged -data '$tdata' -addr 0.0.0.0:$port -console-addr 127.0.0.1:$((port + 1)) -auth internal -public-host $turl $* < /dev/null > forged.log 2>&1 & echo \$! > /opt/forge-restore/pid"
+	ssh "$tgt" "cd /opt/forge-restore; nohup /opt/forge-restore/apptownd -data '$tdata' -addr 0.0.0.0:$port -console-addr 127.0.0.1:$((port + 1)) -auth internal -public-host $turl $* < /dev/null > apptownd.log 2>&1 & echo \$! > /opt/forge-restore/pid"
 	for _ in $(seq 1 120); do curl -s -o /dev/null "$turl/" && return 0; sleep 2; done
-	echo "forged did not start; its log:" >&2; ssh "$tgt" tail -20 /opt/forge-restore/forged.log >&2; exit 1
+	echo "apptownd did not start; its log:" >&2; ssh "$tgt" tail -20 /opt/forge-restore/apptownd.log >&2; exit 1
 }
 stop() { # the forge process only; what it made stays until end_rehearsal
-	ssh "$tgt" 'p=$(cat /opt/forge-restore/pid); [ "$(readlink /proc/$p/exe)" = /opt/forge-restore/forged ] && kill "$p"; while kill -0 "$p" 2>/dev/null; do sleep 1; done'
+	ssh "$tgt" 'p=$(cat /opt/forge-restore/pid); [ "$(readlink /proc/$p/exe)" = /opt/forge-restore/apptownd ] && kill "$p"; while kill -0 "$p" 2>/dev/null; do sleep 1; done'
 }
 
 step "make the built-in database, then load the dump into it"

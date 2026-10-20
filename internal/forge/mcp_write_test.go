@@ -158,7 +158,7 @@ func TestMCPWritesAreBoundedByRoleAndConsent(t *testing.T) {
 func TestMCPCreateProject(t *testing.T) {
 	t.Parallel()
 	a, boss := mcpWriteFixture(t)
-	a.SyncStock(t.Context()) // the packs and their guidance, as forged has them at boot
+	a.SyncStock(t.Context()) // the packs and their guidance, as apptownd has them at boot
 	res := mcp_call(t, a, boss, "create_project", map[string]any{"slug": "snake", "name": "Snake", "blurb": "a snake game", "pack": "html-game"})
 	sc, _ := res["structuredContent"].(map[string]any)
 	if sc == nil || res["isError"] == true {

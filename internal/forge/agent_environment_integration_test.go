@@ -31,9 +31,9 @@ func TestIntegrationAgentEnvironmentConsoleLaunch(t *testing.T) {
 	requireDocker(t)
 	// Packaging supplies a Linux artifact. Launch outside the source tree to
 	// exercise the real mount without relying on runtime source compilation.
-	cli := filepath.Join(t.TempDir(), "forge-linux")
+	cli := filepath.Join(t.TempDir(), "apptown-linux")
 	if out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
-		Argv: []string{"go", "build", "-o", cli, "../../cmd/forge"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: time.Minute,
+		Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: time.Minute,
 	}); out.RunErr != nil {
 		t.Fatalf("build console CLI: %v: %s", out.RunErr, out.Output)
 	}

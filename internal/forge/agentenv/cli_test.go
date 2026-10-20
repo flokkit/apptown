@@ -13,16 +13,16 @@ import (
 func TestCLIExplicitArtifactIsIndependentOfLaterWorkingDirectory(t *testing.T) {
 	root := t.TempDir()
 	t.Chdir(root)
-	if err := execfile.Write("forge-linux", []byte("fixture"), 0755); err != nil {
+	if err := execfile.Write("apptown-linux", []byte("fixture"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	cli := NewCLI("forge-linux")
+	cli := NewCLI("apptown-linux")
 	t.Chdir(t.TempDir())
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Go(func() {
 			path, err := cli.Path()
-			if err != nil || path != filepath.Join(root, "forge-linux") {
+			if err != nil || path != filepath.Join(root, "apptown-linux") {
 				t.Errorf("artifact: %q %v", path, err)
 			}
 		})
@@ -37,7 +37,7 @@ func TestCLIDefaultIsBesideExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	cli := NewCLI("")
-	if cli.err != nil || cli.path != filepath.Join(filepath.Dir(executable), "forge-linux") {
+	if cli.err != nil || cli.path != filepath.Join(filepath.Dir(executable), "apptown-linux") {
 		t.Fatalf("default: %+v", cli)
 	}
 }
@@ -46,7 +46,7 @@ func TestCLIUnavailableDoesNotBuildOrReturnAMount(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"missing", "directory", "not executable"} {
 		t.Run(kind, func(t *testing.T) {
-			p := filepath.Join(t.TempDir(), "forge-linux")
+			p := filepath.Join(t.TempDir(), "apptown-linux")
 			switch kind {
 			case "directory":
 				if err := os.Mkdir(p, 0755); err != nil {

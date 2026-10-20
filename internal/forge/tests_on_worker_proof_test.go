@@ -73,7 +73,7 @@ func newNoHostWorld(t *testing.T, command string, scriptMinutes int) noHostWorld
 	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: w.state, Tasks: fake,
 		Checks: execution.Runner{DockerBinary: workerCheckDocker(t, w.calls)}})
 	a.cfg.worker = &execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	a.cfg.agentContext = "../../deploy/forge-agent"
+	a.cfg.agentContext = "../../deploy/apptown-agent"
 	a.tasks.Driver, a.tasks.Remote = *a.cfg.worker, *a.cfg.worker
 	a.tasks.Profile.Name, a.tasks.Backend = "worker", "worker at "+srv.URL
 	a.processRunner = execution.Runner{DockerBinary: local}

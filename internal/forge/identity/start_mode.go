@@ -11,7 +11,7 @@ import (
 // "used", the last admitted start could run project work on it; "none", the
 // last admitted start was in the -no-local-docker mode; "drained", a forge
 // with its Docker witnessed that no local work or execution container was
-// left (forged -drain-local-docker). Unset: a database no run was ever
+// left (apptownd -drain-local-docker). Unset: a database no run was ever
 // recorded in (migration 102 marks every earlier one "used").
 const (
 	SettingLocalDocker = "local_docker"

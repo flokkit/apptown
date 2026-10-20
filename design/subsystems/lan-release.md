@@ -10,7 +10,7 @@ secrets. Runtime consumers receive their declared values; provider credentials
 are for the operation that needs them. Target-specific domains, volumes and
 networking are rendered by the Portainer/Docker implementation.
 
-The Portainer environment is `forged -portainer-environment` (default `local`),
+The Portainer environment is `apptownd -portainer-environment` (default `local`),
 recorded in the managed `portainer-deploy` binding at every start
 (`integration.Seeds`); the seeded `intranet` target reads it from the binding
 at use time, so a start with another setting moves later releases there.
@@ -18,7 +18,7 @@ at use time, so a start with another setting moves later releases there.
 Every value the stack carries means what it says, as with `docker run` on a
 Docker host: Compose interpolates `$` in a stack file, so the renderer writes
 each `$` in an environment value, command, healthcheck or mount path as `$$`
-(`deploy.ComposeLiteral`; the `forge dev` compose files follow the same rule).
+(`deploy.ComposeLiteral`; the `apptown dev` compose files follow the same rule).
 
 A deployment on Portainer can also be released by name through the general
 release door (`RequestRelease`). Both doors render the same stack, needs
