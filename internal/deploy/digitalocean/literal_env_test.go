@@ -97,4 +97,45 @@ func TestAppPlatformRefusesAValueItWouldRewriteBeforeAnyEffect(t *testing.T) {
 			t.Fatalf("values changed: %v", env)
 		}
 	})
+	// A version-2 need reference is AppTown's, not the app's literal text:
+	// it goes through preflight and render as the platform's own reference,
+	// and a value that reads a need credential is sent as a secret. Its
+	// escape, $${needs., delivers literal ${…}, which the platform would
+	// rewrite, so that is refused like any other.
+	t.Run("need references", func(t *testing.T) {
+		t.Parallel()
+		d, _, _ := driver(t)
+		wired := release("${needs.postgres.DATABASE_URL}", "${needs.postgres.DATABASE_URL}")
+		wired.Contract.Version = 2
+		// database.go's actual binding puts native credential references in Env.
+		creds := deploy.NeedBindings{"postgres": {Env: map[string]string{"DATABASE_URL": "${postgres.DATABASE_URL}", "PGPASSWORD": "${postgres.PASSWORD}"}}}
+		wired.Contract.Parts[0].Env["PASS"] = "${needs.postgres.PGPASSWORD}"
+		none := scopedRenderSecrets{}
+		if err := d.Preflight(context.Background(), deploy.Placement{Name: "cloud"}, wired, none, func(string, ...any) {}); err != nil {
+			t.Fatal(err)
+		}
+		art, err := d.Render(context.Background(), deploy.Placement{Name: "cloud"}, wired, creds, none, func(string, ...any) {})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var spec AppSpec
+		if err := json.Unmarshal(art.Body, &spec); err != nil {
+			t.Fatal(err)
+		}
+		env, kind := map[string]string{}, map[string]string{}
+		for _, e := range spec.Services[0].Envs {
+			env[e.Key], kind[e.Key] = e.Value, e.Type
+		}
+		if env["GREETING"] != "${postgres.DATABASE_URL}" || kind["GREETING"] != "SECRET" || kind["PASS"] != "SECRET" {
+			t.Fatalf("wired values: %v %v", env, kind)
+		}
+		if job := spec.Jobs[0].Envs; len(job) == 0 {
+			t.Fatal("the init step lost its environment")
+		}
+		escaped := release("$${needs.postgres.DATABASE_URL}", "plain")
+		escaped.Contract.Version = 2
+		if err := d.Preflight(context.Background(), deploy.Placement{Name: "cloud"}, escaped, none, func(string, ...any) {}); err == nil || !deploy.IsTerminal(err) {
+			t.Fatalf("an escaped reference is literal ${…} and must be refused: %v", err)
+		}
+	})
 }

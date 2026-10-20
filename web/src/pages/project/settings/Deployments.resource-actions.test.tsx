@@ -14,9 +14,9 @@ afterEach(() => vi.unstubAllGlobals())
 it('keeps a supplied service visible but offers overrides only for app parts and contract needs', async () => {
   const observed = (part: string) => ({ part, usedBytes: 16 * 2 ** 20, limitBytes: 512 * 2 ** 20, known: true })
   const resources = { recorded: true, profile: 'default', how: 'default', parts: [
-    { part: 'sidecar', suppliedService: true, public: false, memory: '512M', cpu: 'no limit', overrideApplied: false, observed: observed('sidecar') },
-    { part: 'web', public: true, memory: '512M', cpu: 'no limit', overrideApplied: false, observed: observed('web') },
-    { part: 'postgres', need: true, public: false, memory: '256M', cpu: 'no limit', overrideApplied: false, observed: observed('postgres') },
+    { part: 'sidecar', suppliedService: true, public: false, memory: '512Mi', cpu: 'no limit', overrideApplied: false, observed: observed('sidecar') },
+    { part: 'web', public: true, memory: '512Mi', cpu: 'no limit', overrideApplied: false, observed: observed('web') },
+    { part: 'postgres', need: true, public: false, memory: '256Mi', cpu: 'no limit', overrideApplied: false, observed: observed('postgres') },
   ], limits: [], limitsKnown: true, limitsSource: 'Docker events' }
   const secrets = { declared: false, spec: 'secretspec.toml', stores: [], deployments: [], choosable: ['default'] }
   const writes: { part: string }[] = []
@@ -34,14 +34,14 @@ it('keeps a supplied service visible but offers overrides only for app parts and
     expect(el.textContent).toContain('sidecar (workflow service)')
     expect(el.textContent).toContain('Workflow service limits are set in the workflow service declaration.')
     const sidecar = Array.from(el.querySelectorAll('tbody tr')).find((r) => r.textContent?.includes('sidecar'))!
-    expect(sidecar.textContent).toContain('512M')
+    expect(sidecar.textContent).toContain('512Mi')
     expect(sidecar.textContent).toContain('16')
     const button = (label: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent === label)!
     await act(async () => { button('Override memory…').click() })
     expect(Array.from(el.querySelectorAll('select option')).map((o) => o.getAttribute('value'))).toEqual(['web', 'postgres'])
     const inputs = Array.from(el.querySelectorAll('input'))
     await act(async () => {
-      for (const [input, value] of [[inputs[0], '128M'], [inputs[1], 'measured app cap']] as const) {
+      for (const [input, value] of [[inputs[0], '128Mi'], [inputs[1], 'measured app cap']] as const) {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
         input.dispatchEvent(new Event('input', { bubbles: true }))
       }

@@ -23,7 +23,7 @@ func TestContractVersionAndStrictDecode(t *testing.T) {
 	}
 	// A future version fails with a clear message.
 	_, err := appcontract.Parse([]byte("version: 99\n" + base))
-	if err == nil || !strings.Contains(err.Error(), "requires a newer forge") {
+	if err == nil || !strings.Contains(err.Error(), "requires a newer AppTown") {
 		t.Fatalf("unsupported version must name the need: %v", err)
 	}
 	// An unknown/misspelled field is rejected, not silently dropped.

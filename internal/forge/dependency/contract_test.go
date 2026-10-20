@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"flokkit.io/forge/internal/deploy/appcontract"
 	"flokkit.io/forge/stock"
 )
 
@@ -182,3 +183,27 @@ func TestTheGuidesContractTableIsTheCatalogues(t *testing.T) {
 }
 
 var regexpBackticked = regexp.MustCompile("`([A-Z][A-Z0-9_]+)`")
+
+// A need reference must name a variable its need documents, with the
+// sentence saying what the need gives; a register-only need's values
+// (llm) cannot be referenced yet; a documented variable passes.
+//
+// Kills: the provides check removed; the register-only refusal removed.
+func TestNeedReferencesAreHeldToWhatTheNeedGives(t *testing.T) {
+	c := NewCatalog(testDB(t), nil)
+	if _, _, err := c.SyncStock(context.Background(), stock.FS, "dependencies"); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if why, err := c.RefusesNeedRefs(ctx, []appcontract.NeedRef{{Part: "web", Key: "HOST", Need: "postgres", Var: "PGHOST"}}); err != nil || why != "" {
+		t.Fatalf("a documented variable: %q %v", why, err)
+	}
+	why, err := c.RefusesNeedRefs(ctx, []appcontract.NeedRef{{Part: "web", Key: "HOST", Need: "postgres", Var: "PGHOSTNAME"}})
+	if err != nil || !strings.Contains(why, "PGHOSTNAME") || !strings.Contains(why, "PGHOST,") || !strings.Contains(why, "environment: HOST") {
+		t.Fatalf("an undocumented variable: %q %v", why, err)
+	}
+	why, err = c.RefusesNeedRefs(ctx, []appcontract.NeedRef{{Part: "web", Key: "KEY", Need: "llm", Var: "OPENROUTER_API_KEY"}})
+	if err != nil || !strings.Contains(why, "cannot be referenced yet") {
+		t.Fatalf("a register-only need: %q %v", why, err)
+	}
+}

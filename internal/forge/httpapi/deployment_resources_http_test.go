@@ -49,7 +49,7 @@ func TestDeploymentResourcesHTTP(t *testing.T) {
 	if w := deploymentRequest(h.DeploymentResources, "owner", http.MethodGet, path, values); w.Code != 200 || !strings.Contains(w.Body.String(), `"recorded":false`) {
 		t.Errorf("the owner's read: %d %s", w.Code, w.Body.String())
 	}
-	body := `{"part":"web","memory":"2G","reason":"out of memory"}`
+	body := `{"part":"web","memory":"2Gi","reason":"out of memory"}`
 	for _, req := range []struct {
 		method  string
 		handler http.HandlerFunc
@@ -64,7 +64,7 @@ func TestDeploymentResourcesHTTP(t *testing.T) {
 	if w := deploymentBodyRequest(h.SetResourceOverride, "owner", http.MethodPut, path, `{"part":"web","memory":"lots","reason":"x"}`, values); w.Code != 400 {
 		t.Errorf("an override with a memory that is not one: %d %s", w.Code, w.Body.String())
 	}
-	if w := deploymentBodyRequest(h.SetResourceOverride, "owner", http.MethodPut, path, `{"part":"web","memory":"2G","reason":" "}`, values); w.Code != 400 {
+	if w := deploymentBodyRequest(h.SetResourceOverride, "owner", http.MethodPut, path, `{"part":"web","memory":"2Gi","reason":" "}`, values); w.Code != 400 {
 		t.Errorf("an override without a reason: %d %s", w.Code, w.Body.String())
 	}
 	if w := deploymentBodyRequest(h.SetResourceOverride, "owner", http.MethodPut, path, `{"part":"web","memory":"none","reason":"measured external supervisor"}`, values); w.Code != 422 {

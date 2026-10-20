@@ -22,14 +22,14 @@ func unrewritable(c *appcontract.Contract, secrets deploy.ConsumerSecrets) error
 	if c == nil {
 		return nil
 	}
-	check := func(what, consumer string, env map[string]string) error {
+	check := func(what, consumer string, env map[string]string, version int) error {
 		keys := make([]string, 0, len(env))
 		for k := range env {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			if rewritable(env[k]) {
+			if rewritable(appcontract.WithoutNeedRefs(version, env[k])) {
 				return deploy.Terminal(fmt.Errorf("the %s %s for %s contains ${…}, which App Platform reads as one of its own variables and may replace; it cannot be sent there as written. Change the value, or deploy to a target that delivers it literally (a Docker host or Portainer)", what, k, consumer))
 			}
 		}
@@ -47,11 +47,11 @@ func unrewritable(c *appcontract.Contract, secrets deploy.ConsumerSecrets) error
 		all = append(all, consumer{"init-" + s.Name, s.Env})
 	}
 	for _, cs := range all {
-		if err := check("environment value", cs.name, cs.env); err != nil {
+		if err := check("environment value", cs.name, cs.env, c.Version); err != nil {
 			return err
 		}
 		if secrets != nil {
-			if err := check("secret", cs.name, secrets.EnvFor(cs.name)); err != nil {
+			if err := check("secret", cs.name, secrets.EnvFor(cs.name), 1); err != nil {
 				return err
 			}
 		}

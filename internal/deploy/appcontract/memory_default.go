@@ -17,7 +17,7 @@ func (d MemoryDefault) Bytes() (int64, error) {
 	if d.Memory == "" {
 		return 0, nil
 	}
-	return ParseMemory(d.Memory)
+	return ParseMemoryV1(d.Memory)
 }
 func (d *MemoryDefault) UnmarshalJSON(raw []byte) error {
 	type wire MemoryDefault

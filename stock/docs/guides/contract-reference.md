@@ -27,7 +27,7 @@ older commit that has none.
 ## `.apptown/app.yaml`
 
 ```yaml
-version: 1
+version: 2
 app:
   web:
     build: .
@@ -48,8 +48,12 @@ needs:
   postgres: { version: "16" }
 ```
 
-- **`version`** is `1`, or left out. Another version, an explicit `0`, and
-  any field the format does not have are errors that name it.
+- **`version`** is `2`. A file with `version: 1`, or none, is still read as
+  version 1, which differs in two ways: memory written as `M` or `G` means
+  MiB or GiB, and environment values never read need references. `apptown
+  upgrade` writes a project's contract as version 2 without changing what it
+  means. Another version, an explicit `0`, and any field the format does not
+  have are errors that name it.
 - **`app`** names the parts. Each part declares exactly one of `build` (a
   Docker build context), `image` (an image to pull) or `static` (files to
   serve). Exactly one part is `public: true`: the one people reach.
@@ -166,10 +170,42 @@ So that an app runs the same everywhere:
 - read every connection value from the need's variables;
 - keep durable files in the public part's `dataDir` or in a need.
 
-Values reach the app as written. App Platform cannot promise that for
-`${…}`: it replaces `${NAME}` with its own variable of that name, in
-secrets too, so a deploy there refuses an environment value or secret
-containing `${…}` before anything is made.
+Values reach the app as written, with one exception: a version-2
+environment value may read a value a need gives, as
+`${needs.<need>.<VARIABLE>}`. This is for an image that expects its own
+names for a connection:
+
+```yaml
+app:
+  web:
+    image: wordpress:6
+    public: true
+    environment:
+      WORDPRESS_DB_HOST: "${needs.mariadb.DB_HOST}:${needs.mariadb.DB_PORT}"
+needs:
+  mariadb: {}
+```
+
+- `<need>` is a need the app declares, and `<VARIABLE>` one of the
+  variables that need gives ([Services and data](/docs/guides/services-and-data)).
+  Anything else is refused: any other `${needs.`, or a need the app does
+  not declare, when the contract is read; a variable the need does not give,
+  before a deploy.
+- The need's own variables are still given; a reference adds a name.
+- The value is the one the target gives that need, so it is the same on
+  every target. On App Platform a wired value is sent as a secret, since a
+  need's values often carry its credential.
+- `$${needs.` writes the literal text `${needs.`. Nothing else in a value is
+  special.
+- An `llm` need's values arrive by registration and cannot be referenced
+  yet: read `OPENROUTER_API_KEY` and its companions by their own names.
+- In process mode (`apptown dev`) every process shares one environment, so
+  two parts that set one name from needs to different values are refused.
+
+App Platform cannot deliver other `${…}` text as written: it replaces
+`${NAME}` with its own variable of that name, in secrets too, so a deploy
+there refuses an environment value or secret containing `${…}` (a
+`$${needs.` included) before anything is made.
 
 ## Startup order
 
@@ -308,18 +344,21 @@ app:
   web:
     build: .
     public: true
-    resources: { memory: 512M, cpu: 1 }
+    resources: { memory: 512Mi, cpu: 1 }
 profiles:
   preview:
-    web: { resources: { memory: 256M } }
+    web: { resources: { memory: 256Mi } }
   production:
     web:
-      resources: { memory: 2G, cpu: 2 }
+      resources: { memory: 2Gi, cpu: 2 }
       environment: { LOG_LEVEL: warn }
 ```
 
-- `memory` is a whole number of `M` or `G` (MiB, GiB), at least `32M`, swap
-  included. `cpu` is a number of CPUs.
+- `memory` is in Kubernetes binary units: a whole number of `Mi` or `Gi`, at
+  least `32Mi`, swap included. A bare `512M` is refused with the spelling to
+  use, because Kubernetes and Score read `M` as decimal megabytes; a
+  version-1 file still reads `M` and `G` as MiB and GiB. `cpu` is a number of
+  CPUs (`0.5`, `2`) or millicores (`500m`).
 - A **profile** changes parts' `resources` (field by field) and
   `environment` (key by key), or a need's resources or catalogue size, for
   the deployments that use it. `default` is the parts as declared.
@@ -330,12 +369,12 @@ profiles:
   default.
 - **Targets apply it differently.** A Docker host and Portainer hold each
   part to exactly what it declares. App Platform runs each part on the
-  cheapest instance size that covers it (a `768M` part runs on a 1G size)
+  cheapest instance size that covers it (a `768Mi` part runs on a 1Gi size)
   and refuses a part no size covers before anything is made. A bucket
   website has no runtime.
 - **A part that declares no memory still gets a cap** on a Docker host,
   Portainer and in a preview: the memory default of the project's adopted
-  pack, else 512M. A static part's file server gets a cap too. A cap is not
+  pack, else 512Mi. A static part's file server gets a cap too. A cap is not
   a declaration: the `deploy/memory-declared` check still asks each part
   built or pulled to declare its memory, and that each part of the `main`
   deployment uses under 90% of its limit.
@@ -355,16 +394,16 @@ A **need** is sized the same way, on the need or in a profile:
 needs:
   postgres:
     version: "16"
-    resources: { memory: 512M }
+    resources: { memory: 512Mi }
 profiles:
   production:
-    postgres: { resources: { memory: 2G, cpu: 2 } }
+    postgres: { resources: { memory: 2Gi, cpu: 2 } }
 ```
 
 - A need without its own declaration takes its catalogue kind's memory
   default.
 - A need may instead select a catalogue **size**, which matches the limit
-  to the service's own settings: `needs.mariadb.size: small` (128M) is the
+  to the service's own settings: `needs.mariadb.size: small` (128Mi) is the
   one shipped. `GET /api/v1/dependencies` lists each kind's sizes. A size
   and explicit `resources` on one need are refused together.
 - A size for a need that runs no service (`llm`) is refused.

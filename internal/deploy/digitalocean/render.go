@@ -175,10 +175,26 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	}
 	// The forge's wiring wins over what the app declares, as on every
 	// target.
-	envsFor := func(part string, own, wiring map[string]string) []doEnv {
+	// Need references in the app's own values (contract version 2) take the
+	// need's value as App Platform delivers it (a bindable variable); a value
+	// that reads a need credential is sent as a secret, as the credential is.
+	needValues := appcontract.MergeEnv(base, needSecrets)
+	envsFor := func(part string, own, wiring map[string]string) ([]doEnv, error) {
+		wired, err := appcontract.WireEnv(c.Version, part, own, needValues)
+		if err != nil {
+			return nil, deploy.Terminal(err)
+		}
+		reads := appcontract.WiresFrom(c.Version, own)
 		m := map[string]doEnv{}
-		for k, v := range appcontract.MergeEnv(own, base) {
-			m[k] = doEnv{Key: k, Value: v, Scope: "RUN_TIME", Type: "GENERAL"}
+		for k, v := range appcontract.MergeEnv(wired, base) {
+			// A wired value is sent as a secret: what a need gives is a
+			// connection, often with its credential in it (DATABASE_URL,
+			// PGPASSWORD), whichever binding map carries it.
+			kind := "GENERAL"
+			if len(reads[k]) > 0 {
+				kind = "SECRET"
+			}
+			m[k] = doEnv{Key: k, Value: v, Scope: "RUN_TIME", Type: kind}
 		}
 		for k, v := range secrets.EnvFor(part) {
 			m[k] = doEnv{Key: k, Value: v, Scope: "RUN_TIME", Type: "SECRET"}
@@ -200,7 +216,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		for _, k := range keys {
 			out = append(out, m[k])
 		}
-		return out
+		return out, nil
 	}
 	var public string
 	publicPort := 0
@@ -232,8 +248,12 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		if p.IsStatic() && src.Revision != "" {
 			wiring[appcontract.ReleaseEnvVar] = appcontract.ReleaseIdentity(p.Name, src.Revision)
 		}
+		envs, err := envsFor(p.Name, p.Env, wiring)
+		if err != nil {
+			return deploy.Artifact{}, err
+		}
 		comp := Component{Name: p.Name, Image: img, InstanceSizeSlug: sizes[p.Name], InstanceCount: 1,
-			RunCommand: strings.Join(p.Command, " "), Envs: envsFor(p.Name, p.Env, wiring)}
+			RunCommand: strings.Join(p.Command, " "), Envs: envs}
 		if p.Port > 0 {
 			comp.HTTPPort = p.Port
 			comp.HealthCheck = doHealth(&p)
@@ -263,8 +283,12 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		if err != nil {
 			return deploy.Artifact{}, err
 		}
+		envs, err := envsFor("init-"+s.Name, s.Env, nil)
+		if err != nil {
+			return deploy.Artifact{}, err
+		}
 		spec.Jobs = append(spec.Jobs, Component{Name: s.Name, Kind: "PRE_DEPLOY", Image: img, InstanceSizeSlug: cfg.InstanceSize,
-			RunCommand: strings.Join(s.Command, " "), Envs: envsFor("init-"+s.Name, s.Env, nil)})
+			RunCommand: strings.Join(s.Command, " "), Envs: envs})
 	}
 	needs := make([]string, 0, len(bindings))
 	for n := range bindings {

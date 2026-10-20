@@ -26,6 +26,7 @@ Error reporting and other integrations are not needs: they are attached to the p
 Each need has one contract, the same on every target that fulfils it and in a preview. The rules for every need:
 
 - **Read what you are given.** Every connection value comes from these variables. Never hard-code a host, name or credential, and never set a need's credential: a `password` under `needs:` is refused. Values differ between targets and may change between releases.
+- **Another name for a value:** an image that expects its own names (`WORDPRESS_DB_HOST`) can be given one in `environment`, as `${needs.<need>.<VARIABLE>}` with a variable from the table below (version-2 contracts; see [the app contract](/docs/guides/contract-reference)). The variable keeps its own name as well.
 - **The credential reaches only this deployment's own database, bucket or store.**
 - **It exists before the app's first init step starts**, ready for that credential. The app never creates its database or bucket.
 - **A preview gets its own, empty**, never the deployment's data or credentials.

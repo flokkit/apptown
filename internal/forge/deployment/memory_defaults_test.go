@@ -132,7 +132,7 @@ func TestALandingCapsAndRecordsSuppliedWorkflowServices(t *testing.T) {
 	seenSidecar, seenApp := false, false
 	for _, row := range view.Parts {
 		if row.Part == "sidecar" {
-			seenSidecar = row.SuppliedService && row.Memory == "512M" && row.Observed.Part == "sidecar"
+			seenSidecar = row.SuppliedService && row.Memory == "512Mi" && row.Observed.Part == "sidecar"
 		}
 		if row.Public {
 			seenApp = !row.SuppliedService

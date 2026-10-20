@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -122,11 +124,7 @@ func cmdDev(args []string) error {
 
 		if mode == "needs" {
 			// Write the connection env for the host process to source.
-			var b strings.Builder
-			for k, v := range out.Env {
-				b.WriteString(k + "=" + v + "\n")
-			}
-			_ = os.WriteFile(devEnvPath, []byte(b.String()), 0o600)
+			_ = os.WriteFile(devEnvPath, []byte(devEnvFile(out.Env)), 0o600)
 			// A Procfile for a multi-process app (run with hivemind).
 			if out.Procfile != "" {
 				_ = os.WriteFile(devProcfilePath, []byte(out.Procfile), 0o644)
@@ -204,4 +202,15 @@ func runDocker(dcArgs ...string) error {
 		return fmt.Errorf("docker compose %v: %w (is docker running locally?)", dcArgs, err)
 	}
 	return nil
+}
+
+// devEnvFile is env as lines a POSIX shell sources, in name order. Each
+// value is single-quoted (a ' written as '\”), so a wired value with
+// spaces, $ or quotes (host=… dbname=app) arrives as written.
+func devEnvFile(env map[string]string) string {
+	var b strings.Builder
+	for _, k := range slices.Sorted(maps.Keys(env)) {
+		b.WriteString(k + "='" + strings.ReplaceAll(env[k], "'", `'\''`) + "'\n")
+	}
+	return b.String()
 }

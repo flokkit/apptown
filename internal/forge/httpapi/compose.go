@@ -82,7 +82,11 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 		if len(in.Command) > 0 {
 			svc["command"] = composeLiteral(in.Command)
 		}
-		env := appcontract.MergeEnv(in.Env, plan.Env)
+		own, err := appcontract.WireEnv(c.Version, "init step "+in.Name, in.Env, plan.Env)
+		if err != nil {
+			return "", err
+		}
+		env := appcontract.MergeEnv(own, plan.Env)
 		if len(env) > 0 {
 			svc["environment"] = composeEnv(env)
 		}
@@ -113,7 +117,11 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 		}
 		// Env: the part's own, plus the dependency connection env so the app can
 		// reach postgres/minio by service name — identical to what preview injects.
-		env := appcontract.MergeEnv(p.Env, plan.Env)
+		own, err := appcontract.WireEnv(c.Version, "app part "+p.Name, p.Env, plan.Env)
+		if err != nil {
+			return "", err
+		}
+		env := appcontract.MergeEnv(own, plan.Env)
 		if p.Port != 0 {
 			env["PORT"] = fmt.Sprint(p.Port)
 		}

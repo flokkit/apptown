@@ -64,7 +64,10 @@
             ]
           },
           "replicas": {
-            "type": ["integer", "null"],
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 1,
             "default": 1,
             "description": "Instances of this app part. Omitted or null means 1. Only 1 is currently supported; larger counts are not supported and are refused by the contract validator before execution. Not a profile or init-container field."
@@ -237,14 +240,14 @@
               "memory": {
                 "type": "string",
                 "pattern": "^[0-9]+(M|G|Mi|Gi)$",
-                "description": "Memory, swap included: a whole number of M or G (MiB or GiB), at least 32M. E.g. 512M, 2G."
+                "description": "Memory, swap included, in Kubernetes binary units: a whole number of Mi or Gi, at least 32Mi. E.g. 512Mi, 2Gi. A version-1 contract also reads M and G as MiB and GiB; version 2 refuses them."
               },
               "cpu": {
                 "type": [
                   "number",
                   "string"
                 ],
-                "description": "A positive number of CPUs, e.g. 0.5 or 2."
+                "description": "A positive number of CPUs, e.g. 0.5 or 2, or Kubernetes millicores, e.g. 500m."
               }
             }
           }
@@ -320,14 +323,14 @@
               "memory": {
                 "type": "string",
                 "pattern": "^[0-9]+(M|G|Mi|Gi)$",
-                "description": "Memory, swap included: a whole number of M or G (MiB or GiB), at least 32M. E.g. 512M, 2G."
+                "description": "Memory, swap included, in Kubernetes binary units: a whole number of Mi or Gi, at least 32Mi. E.g. 512Mi, 2Gi. A version-1 contract also reads M and G as MiB and GiB; version 2 refuses them."
               },
               "cpu": {
                 "type": [
                   "number",
                   "string"
                 ],
-                "description": "A positive number of CPUs, e.g. 0.5 or 2."
+                "description": "A positive number of CPUs, e.g. 0.5 or 2, or Kubernetes millicores, e.g. 500m."
               }
             }
           },
@@ -349,7 +352,8 @@
     "version": {
       "type": "integer",
       "minimum": 1,
-      "description": "The contract's shape version. Absent means 1; a version this forge does not know is an error, never a partial read."
+      "maximum": 2,
+      "description": "The contract's shape version. 2 is current: memory in Mi or Gi only, and environment values may read a need's values as ${needs.<need>.<VARIABLE>} ($${needs. for the literal text). Absent means 1: M and G read as MiB and GiB, and environment values are delivered as written. A version AppTown does not know is an error, never a partial read."
     },
     "secrets": {
       "type": "object",
@@ -422,14 +426,14 @@
                 "memory": {
                   "type": "string",
                   "pattern": "^[0-9]+(M|G|Mi|Gi)$",
-                  "description": "Memory, swap included: a whole number of M or G (MiB or GiB), at least 32M. E.g. 512M, 2G."
+                  "description": "Memory, swap included, in Kubernetes binary units: a whole number of Mi or Gi, at least 32Mi. E.g. 512Mi, 2Gi. A version-1 contract also reads M and G as MiB and GiB; version 2 refuses them."
                 },
                 "cpu": {
                   "type": [
                     "number",
                     "string"
                   ],
-                  "description": "A positive number of CPUs, e.g. 0.5 or 2."
+                  "description": "A positive number of CPUs, e.g. 0.5 or 2, or Kubernetes millicores, e.g. 500m."
                 }
               }
             },
@@ -453,5 +457,65 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "description": "Version 2 writes memory in Mi or Gi only.",
+      "if": {
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "app": {
+            "additionalProperties": {
+              "properties": {
+                "resources": {
+                  "properties": {
+                    "memory": {
+                      "pattern": "^[0-9]+(Mi|Gi)$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "needs": {
+            "additionalProperties": {
+              "properties": {
+                "resources": {
+                  "properties": {
+                    "memory": {
+                      "pattern": "^[0-9]+(Mi|Gi)$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "profiles": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "properties": {
+                  "resources": {
+                    "properties": {
+                      "memory": {
+                        "pattern": "^[0-9]+(Mi|Gi)$"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

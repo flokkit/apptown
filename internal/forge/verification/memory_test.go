@@ -122,14 +122,14 @@ func TestMemoryWithinJudgesEachContainersLimitAgainstItsUse(t *testing.T) {
 		want   check.Outcome
 		detail string
 	}{
-		"under the share":                {built("web"), []deployment.PartMemory{seen("web", 210*mb, 512*mb)}, nil, 90, check.Conforms, "web 210M of 512M"},
-		"at the share":                   {built("web"), []deployment.PartMemory{seen("web", 90*mb, 100*mb)}, nil, 90, check.DoesNotConform, "web uses 90M of its 100M limit (90%)"},
+		"under the share":                {built("web"), []deployment.PartMemory{seen("web", 210*mb, 512*mb)}, nil, 90, check.Conforms, "web 210Mi of 512Mi"},
+		"at the share":                   {built("web"), []deployment.PartMemory{seen("web", 90*mb, 100*mb)}, nil, 90, check.DoesNotConform, "web uses 90Mi of its 100Mi limit (90%)"},
 		"a share the check names":        {built("web"), []deployment.PartMemory{seen("web", 85*mb, 100*mb)}, nil, 80, check.DoesNotConform, "at or over 80%"},
 		"no limit":                       {built("web"), []deployment.PartMemory{seen("web", 700*mb, 0)}, nil, 90, check.DoesNotConform, "part web runs with no memory limit"},
 		"use not observed":               {built("web"), []deployment.PartMemory{{Part: "web", Reason: "its container was replaced while it was being observed"}}, nil, 90, check.CannotAssess, "replaced while it was being observed"},
 		"one part unknown, another over": {built("web", "worker"), []deployment.PartMemory{seen("web", 99*mb, 100*mb), {Part: "worker", Reason: "the daemon did not report its container"}}, nil, 90, check.DoesNotConform, "web uses 99M"},
 		"only static parts":              {map[string]bool{"site": true}, []deployment.PartMemory{seen("site", 12*mb, 0)}, nil, 90, check.Conforms, "only static parts"},
-		"a static part beside a built one is not judged": {map[string]bool{"site": true, "api": false}, []deployment.PartMemory{seen("site", 12*mb, 0), seen("api", 300*mb, 256*mb)}, nil, 90, check.DoesNotConform, "api uses 300M of its 256M limit"},
+		"a static part beside a built one is not judged": {map[string]bool{"site": true, "api": false}, []deployment.PartMemory{seen("site", 12*mb, 0), seen("api", 300*mb, 256*mb)}, nil, 90, check.DoesNotConform, "api uses 300Mi of its 256Mi limit"},
 		"a built file server is judged":                  {built("game"), []deployment.PartMemory{seen("game", 11*mb, 0)}, nil, 90, check.DoesNotConform, "part game runs with no memory limit"},
 		"a part the release does not name":               {map[string]bool{}, []deployment.PartMemory{seen("web", 10*mb, 256*mb)}, nil, 90, check.CannotAssess, "the release's contract does not name it"},
 	} {
@@ -250,9 +250,9 @@ func TestMemoryWithinJudgesNeedsAndEveryKill(t *testing.T) {
 		want   check.Outcome
 		detail string
 	}{
-		"an undeclared need is not judged":                 {needs: nil, used: []deployment.PartMemory{web, pg(30*mb, 0, true)}, want: check.Conforms, detail: "web 100M of 512M"},
-		"an undeclared need is not judged though unread":   {needs: nil, used: []deployment.PartMemory{web, pg(0, 0, false)}, want: check.Conforms, detail: "web 100M of 512M"},
-		"a declared need is judged":                        {needs: declared, used: []deployment.PartMemory{web, pg(250*mb, 256*mb, true)}, want: check.DoesNotConform, detail: "postgres uses 250M of its 256M limit"},
+		"an undeclared need is not judged":                 {needs: nil, used: []deployment.PartMemory{web, pg(30*mb, 0, true)}, want: check.Conforms, detail: "web 100Mi of 512Mi"},
+		"an undeclared need is not judged though unread":   {needs: nil, used: []deployment.PartMemory{web, pg(0, 0, false)}, want: check.Conforms, detail: "web 100Mi of 512Mi"},
+		"a declared need is judged":                        {needs: declared, used: []deployment.PartMemory{web, pg(250*mb, 256*mb, true)}, want: check.DoesNotConform, detail: "postgres uses 250Mi of its 256Mi limit"},
 		"a declared need whose use cannot be read":         {needs: declared, used: []deployment.PartMemory{web, pg(0, 0, false)}, want: check.CannotAssess, detail: "postgres: the daemon did not report its container"},
 		"a declared need its container does not hold":      {needs: declared, used: []deployment.PartMemory{web, pg(30*mb, 0, true)}, want: check.DoesNotConform, detail: "postgres runs with no memory limit"},
 		"a part killed at its limit, though under it now":  {used: []deployment.PartMemory{web}, killed: map[string]int{"web": 3}, want: check.DoesNotConform, detail: "web was killed out of memory 3 time(s) in the last day"},

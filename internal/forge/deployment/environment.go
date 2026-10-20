@@ -498,7 +498,10 @@ func (e *Environment) refusesNeeds(ctx context.Context, c *appcontract.Contract)
 	if e.needs == nil || c == nil || len(c.Needs) == 0 {
 		return "", nil
 	}
-	return e.needs.RefusesNeeds(ctx, c.Needs, c.NeedParams)
+	if why, err := e.needs.RefusesNeeds(ctx, c.Needs, c.NeedParams); err != nil || why != "" {
+		return why, err
+	}
+	return e.needs.RefusesNeedRefs(ctx, c.NeedRefs())
 }
 
 // RefusesBrowserValues is the sentence for a static site whose page the

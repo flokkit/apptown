@@ -450,7 +450,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
               {parts.map((p) => <option key={p.part} value={p.part}>{p.part}</option>)}
             </select>
           )}
-          <input placeholder="memory, e.g. 2G or none" value={memory} onChange={(ev) => setMemory(ev.target.value)} style={{ width: 120 }} />
+          <input placeholder="memory, e.g. 2Gi or none" value={memory} onChange={(ev) => setMemory(ev.target.value)} style={{ width: 120 }} />
           <input placeholder="why" value={reason} onChange={(ev) => setReason(ev.target.value)} style={{ minWidth: 220 }} />
           <button className="primary" disabled={busy || !memory || !reason.trim()} onClick={set} title="records who and why, then redeploys what runs so it applies now">Override and redeploy</button>
           <button className="link small" onClick={() => setOpen(false)}>cancel</button>

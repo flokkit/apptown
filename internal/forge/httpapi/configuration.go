@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -167,6 +168,15 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 		// Process-mode env: the app runs on the host, so the needs are reached at
 		// localhost:<published-port>. Plus a Procfile when the app is multi-process.
 		env := h.catalog.ResolveLocal(r.Context(), c.Needs, c.NeedParams, "localhost").Env
+		// The parts' need references, wired with the same localhost values,
+		// join the one env file every process reads (dev.env).
+		if in.Mode != "full" {
+			env, err = devWiredEnv(c, env)
+			if err != nil {
+				WriteError(w, 422, "%v", err)
+				return
+			}
+		}
 		WriteJSON(w, 200, DevComposition{Compose: compose, Env: env, Procfile: generateProcfile(c)})
 	})
 }
@@ -180,4 +190,37 @@ func (h Configuration) dependencyKind(ctx context.Context, capability string) *d
 		return nil
 	}
 	return kind
+}
+
+// devWiredEnv is process mode's one environment: the needs' localhost values
+// and each part's and init step's wired values (contract version 2). Two
+// consumers wiring one name to different values cannot share one file, so
+// that is refused, naming the name.
+func devWiredEnv(c *appcontract.Contract, env map[string]string) (map[string]string, error) {
+	out := appcontract.MergeEnv(env, nil)
+	from := map[string]string{}
+	add := func(owner string, own map[string]string) error {
+		wired, err := appcontract.WireEnv(c.Version, owner, own, env)
+		if err != nil {
+			return err
+		}
+		for k := range appcontract.WiresFrom(c.Version, own) {
+			if prev, ok := from[k]; ok && out[k] != wired[k] {
+				return fmt.Errorf("%s and %s both set %s from needs, to different values; process mode has one environment for every process, so give them different names or use container mode", prev, owner, k)
+			}
+			out[k], from[k] = wired[k], owner
+		}
+		return nil
+	}
+	for _, p := range c.Parts {
+		if err := add("app part "+p.Name, p.Env); err != nil {
+			return nil, err
+		}
+	}
+	for _, in := range c.Init {
+		if err := add("init step "+in.Name, in.Env); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }

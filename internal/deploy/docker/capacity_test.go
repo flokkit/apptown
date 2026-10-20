@@ -305,7 +305,7 @@ func TestAPartOrNeedLargerThanTheHostIsRefused(t *testing.T) {
 		return c
 	}
 	for _, c := range []struct{ name, yaml, want string }{
-		{"a part over the host's memory", "app:\n  web: { image: x, public: true, resources: { memory: 16G } }\n", "part web declares 16G of memory; this Docker host has 8G"},
+		{"a part over the host's memory", "app:\n  web: { image: x, public: true, resources: { memory: 16G } }\n", "part web declares 16Gi of memory; this Docker host has 8Gi"},
 		{"a part over the host's CPUs", "app:\n  web: { image: x, public: true, resources: { cpu: 12 } }\n", "part web declares 12 CPUs; this Docker host has 8"},
 		{"a need over the host's memory", "app:\n  web: { image: x, public: true }\nneeds:\n  postgres: { resources: { memory: 9G } }\n", "need postgres declares 9G"},
 	} {

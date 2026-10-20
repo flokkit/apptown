@@ -1,9 +1,10 @@
+version: 2
 app:
   web:
     build: .
     ports: ["8080"]
     public: true
-    resources: { memory: 256M }
+    resources: { memory: 256Mi }
     health:
       readiness: { http: /up }
 init:

@@ -52,50 +52,83 @@ func (r Resources) CPUWords() string {
 // container cannot start reliably.
 const MinMemoryBytes = 32 << 20
 
-// ParseMemory reads a memory as app.yaml writes it: a whole number of
-// mebibytes or gibibytes, "512M", "1G" (Mi and Gi are the same).
-func ParseMemory(s string) (int64, error) {
+// ParseMemory reads a memory as the current contract writes it, in
+// Kubernetes binary units: a whole number of mebibytes or gibibytes,
+// "512Mi", "1Gi". A bare "512M" is refused, not guessed: version 1 read it
+// as MiB, Kubernetes and Score read it as decimal megabytes.
+func ParseMemory(s string) (int64, error) { return parseMemory(s, false) }
+
+// ParseMemoryV1 reads a memory as a version-1 contract or a pack default
+// writes it: "Mi"/"Gi", or "M"/"G" meaning the same (MiB, GiB).
+func ParseMemoryV1(s string) (int64, error) { return parseMemory(s, true) }
+
+func parseMemory(s string, bareMeansBinary bool) (int64, error) {
 	v := strings.TrimSpace(s)
 	unit := int64(0)
-	for _, u := range []struct {
+	type memoryUnit struct {
 		suffix string
 		bytes  int64
-	}{{"Mi", 1 << 20}, {"Gi", 1 << 30}, {"M", 1 << 20}, {"G", 1 << 30}} {
+	}
+	units := []memoryUnit{{"Mi", 1 << 20}, {"Gi", 1 << 30}}
+	if bareMeansBinary {
+		units = append(units, memoryUnit{"M", 1 << 20}, memoryUnit{"G", 1 << 30})
+	}
+	for _, u := range units {
 		if strings.HasSuffix(v, u.suffix) {
 			v, unit = strings.TrimSuffix(v, u.suffix), u.bytes
 			break
 		}
 	}
 	n, err := strconv.ParseInt(v, 10, 64)
+	if unit == 0 && !bareMeansBinary {
+		if m := bareMemoryRe.FindStringSubmatch(strings.TrimSpace(s)); m != nil {
+			return 0, fmt.Errorf("memory %q: write %s%si (version 1 read M and G as MiB and GiB; Kubernetes and Score read them as decimal)", s, m[1], m[2])
+		}
+	}
 	if unit == 0 || err != nil || n <= 0 {
-		return 0, fmt.Errorf("memory %q is a whole number of M or G, such as 512M or 1G", s)
+		if bareMeansBinary {
+			return 0, fmt.Errorf("memory %q is a whole number of M or G (MiB, GiB) or of Mi or Gi, such as 512M or 1Gi", s)
+		}
+		return 0, fmt.Errorf("memory %q is a whole number of Mi or Gi, such as 512Mi or 1Gi", s)
 	}
 	if n > (1<<40)/unit {
 		return 0, fmt.Errorf("memory %q is more than any host has", s)
 	}
 	if n*unit < MinMemoryBytes {
-		return 0, fmt.Errorf("memory %q is below the smallest a part may have (32M)", s)
+		return 0, fmt.Errorf("memory %q is below the smallest a part may have (32Mi)", s)
 	}
 	return n * unit, nil
 }
 
-// FormatMemory writes bytes as app.yaml does: G when whole, else M.
+var bareMemoryRe = regexp.MustCompile(`^(\d+)\s*([MG])$`)
+
+// FormatMemory writes bytes as app.yaml does: Gi when whole, else Mi.
 func FormatMemory(b int64) string {
 	if b%(1<<30) == 0 {
-		return fmt.Sprintf("%dG", b>>30)
+		return fmt.Sprintf("%dGi", b>>30)
 	}
-	return fmt.Sprintf("%dM", b>>20)
+	return fmt.Sprintf("%dMi", b>>20)
 }
 
-// ParseCPU reads a cpu as app.yaml writes it: a positive number of CPUs.
+// ParseCPU reads a cpu as app.yaml writes it: a positive number of CPUs
+// ("0.5", "2"), or Kubernetes millicores ("500m").
 func ParseCPU(v any) (float64, error) {
 	s, ok := scalarString(v)
 	if !ok {
-		return 0, fmt.Errorf("cpu is a number of CPUs, such as 0.5 or 2, not %s", shapeOf(v))
+		return 0, fmt.Errorf("cpu is a number of CPUs, such as 0.5 or 2, or millicores such as 500m, not %s", shapeOf(v))
 	}
-	n, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	t := strings.TrimSpace(s)
+	scale := 1.0
+	if strings.HasSuffix(t, "m") {
+		t, scale = strings.TrimSuffix(t, "m"), 1000
+		if _, err := strconv.ParseInt(t, 10, 64); err != nil {
+			return 0, fmt.Errorf("cpu %q: millicores are a whole number, such as 500m", s)
+		}
+	}
+	n, err := strconv.ParseFloat(t, 64)
+	n /= scale
 	if err != nil || n <= 0 || n > 256 {
-		return 0, fmt.Errorf("cpu %q is a positive number of CPUs, such as 0.5 or 2", s)
+		return 0, fmt.Errorf("cpu %q is a positive number of CPUs, such as 0.5 or 2, or millicores such as 500m", s)
 	}
 	return n, nil
 }
@@ -105,7 +138,7 @@ type appYamlResources struct {
 	CPU    any    `yaml:"cpu"`
 }
 
-func (r *appYamlResources) parse() (Resources, error) {
+func (r *appYamlResources) parse(v1 bool) (Resources, error) {
 	var out Resources
 	if r == nil {
 		return out, nil
@@ -114,7 +147,7 @@ func (r *appYamlResources) parse() (Resources, error) {
 		return out, fmt.Errorf("resources: declares neither memory nor cpu")
 	}
 	if r.Memory != "" {
-		m, err := ParseMemory(r.Memory)
+		m, err := parseMemory(r.Memory, v1)
 		if err != nil {
 			return out, fmt.Errorf("resources: %w", err)
 		}
@@ -153,7 +186,7 @@ const PreviewProfile = "preview"
 
 var profileNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
-func parseProfiles(doc map[string]map[string]appYamlProfilePart, c *Contract) error {
+func parseProfiles(doc map[string]map[string]appYamlProfilePart, c *Contract, v1 bool) error {
 	if len(doc) == 0 {
 		return nil
 	}
@@ -199,7 +232,7 @@ func parseProfiles(doc map[string]map[string]appYamlProfilePart, c *Contract) er
 			if _, reserved := in.Environment[BrowserEnvVar]; reserved {
 				return fmt.Errorf("profiles: %s: %s: sets %s, which only AppTown sets", name, part, BrowserEnvVar)
 			}
-			r, err := in.Resources.parse()
+			r, err := in.Resources.parse(v1)
 			if err != nil {
 				return fmt.Errorf("profiles: %s: %s: %w", name, part, err)
 			}
@@ -309,7 +342,7 @@ func (c *Contract) PartResources() map[string]Resources {
 
 // needResources reads a need's resources: the same two keys, and the
 // same rules, as a part's; any other key is refused, never dropped.
-func needResources(raw any) (Resources, error) {
+func needResources(raw any, v1 bool) (Resources, error) {
 	m, ok := raw.(map[string]any)
 	if !ok {
 		return Resources{}, fmt.Errorf("resources: a map of memory and cpu, not %s", shapeOf(raw))
@@ -329,7 +362,7 @@ func needResources(raw any) (Resources, error) {
 			return Resources{}, fmt.Errorf("resources: %q is not memory or cpu", k)
 		}
 	}
-	return in.parse()
+	return in.parse(v1)
 }
 
 // ProfileChoice is how a deployment's profile was chosen.

@@ -64,7 +64,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 			row = &r.Parts[i]
 		}
 	}
-	if row == nil || !row.Need || row.Memory != "256M" {
+	if row == nil || !row.Need || row.Memory != "256Mi" {
 		t.Fatalf("the page does not show the database's size: %+v", r.Parts)
 	}
 	// Its memory use is a need's row, so the memory check judges it as one.

@@ -42,7 +42,7 @@ func TestAWorkerRefusesAnOversizedPreviewBeforeRemovingTheRunningOne(t *testing.
 	c.Parts[0].Resources.MemoryBytes = 64 << 20
 	services := []deploy.ServiceSpec{{Name: "sidecar", Image: "redis:7", Resources: appcontract.Resources{MemoryBytes: 16 << 30}}}
 	_, err = previews.Boot(context.Background(), worker.PreviewSpec{Name: name, StackID: "pv44", Slug: "app", Incarnation: "new", ProbeSeconds: 1}, docker.Prepared{Version: docker.PreparedVersion, Contract: c, Services: services}, t.TempDir())
-	if err == nil || !strings.Contains(err.Error(), "declares 16G of memory; this Docker host has 8G") {
+	if err == nil || !strings.Contains(err.Error(), "declares 16Gi of memory; this Docker host has 8Gi") {
 		t.Fatalf("an oversized preview: %v", err)
 	}
 	for _, call := range binary.calls {
@@ -82,7 +82,7 @@ func TestAWorkerAnswersWhetherItsDaemonCanHoldAPreview(t *testing.T) {
 	}
 	err := previews.Admit(t.Context(), parse("version: 1\napp:\n  web:\n    static: .\n    public: true\n    resources: { memory: 16G }\n"))
 	var refused *worker.AdmissionRefused
-	if !errors.As(err, &refused) || !strings.Contains(refused.Reason, "declares 16G of memory; this Docker host has 8G") {
+	if !errors.As(err, &refused) || !strings.Contains(refused.Reason, "declares 16Gi of memory; this Docker host has 8Gi") {
 		t.Fatalf("an oversized preview: %v", err)
 	}
 	for _, call := range binary.calls {

@@ -1,6 +1,7 @@
 package appcontract
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -116,14 +117,33 @@ func TestTheContractRefusesResourcesAndProfilesItCannotHonour(t *testing.T) {
 	}
 }
 
+// Version 2 writes memory in Kubernetes binary units only: a bare M or G
+// is refused with the spelling to use, never guessed, because version 1 read
+// it as MiB and Kubernetes and Score read it as decimal. Version 1 (and pack
+// defaults) keep reading M and G as MiB and GiB. Memory is written back as
+// Mi or Gi.
+//
+// Kills: a bare M accepted by ParseMemory; ParseMemoryV1 no longer reading M
+// as MiB; FormatMemory writing M or G.
 func TestMemoryIsReadAndWrittenAsAppYamlWritesIt(t *testing.T) {
-	for in, want := range map[string]int64{"32M": 32 << 20, "512M": 512 << 20, "512Mi": 512 << 20, "1G": 1 << 30, "2Gi": 2 << 30} {
+	for in, want := range map[string]int64{"32Mi": 32 << 20, "512Mi": 512 << 20, "1Gi": 1 << 30, "2Gi": 2 << 30} {
 		got, err := ParseMemory(in)
 		if err != nil || got != want {
 			t.Errorf("ParseMemory(%q) = %d, %v; want %d", in, got, err, want)
 		}
 	}
-	if FormatMemory(1<<30) != "1G" || FormatMemory(1536<<20) != "1536M" {
+	for in, fix := range map[string]string{"512M": "write 512Mi", "1G": "write 1Gi"} {
+		if _, err := ParseMemory(in); err == nil || !strings.Contains(err.Error(), fix) {
+			t.Errorf("ParseMemory(%q) = %v; want a refusal saying %q", in, err, fix)
+		}
+	}
+	for in, want := range map[string]int64{"32M": 32 << 20, "512M": 512 << 20, "512Mi": 512 << 20, "1G": 1 << 30, "2Gi": 2 << 30} {
+		got, err := ParseMemoryV1(in)
+		if err != nil || got != want {
+			t.Errorf("ParseMemoryV1(%q) = %d, %v; want %d", in, got, err, want)
+		}
+	}
+	if FormatMemory(1<<30) != "1Gi" || FormatMemory(1536<<20) != "1536Mi" {
 		t.Errorf("FormatMemory: %s %s", FormatMemory(1<<30), FormatMemory(1536<<20))
 	}
 	if (Resources{}).MemoryWords() != "no limit" || (Resources{}).CPUWords() != "no limit" {
@@ -221,5 +241,32 @@ func TestTheContractRefusesNeedSizesItCannotHonour(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: got %v, want an error naming %q", c.name, err, c.want)
 		}
+	}
+}
+
+// A version-2 contract refuses a bare M with the fix and reads Mi; a
+// version-1 contract at a recorded revision keeps reading M as MiB. Cpu
+// takes millicores in both.
+//
+// Kills: the version not reaching part, profile or need resources; the
+// contract version not recorded; millicores refused or misread.
+func TestTheContractVersionDecidesWhatMemoryMeans(t *testing.T) {
+	part := "app:\n  web:\n    image: x\n    public: true\n    resources: { memory: %s, cpu: %s }\n"
+	v2, err := Parse([]byte("version: 2\n" + fmt.Sprintf(part, "512Mi", "500m")))
+	if err != nil || v2.Version != 2 || v2.Parts[0].Resources.MemoryBytes != 512<<20 || v2.Parts[0].Resources.CPUs != 0.5 {
+		t.Fatalf("version 2 with 512Mi and 500m: %+v %v", v2, err)
+	}
+	for _, doc := range []string{
+		"version: 2\n" + fmt.Sprintf(part, "512M", "1"),
+		"version: 2\n" + fmt.Sprintf(part, "512Mi", "1") + "profiles:\n  prod:\n    web: { resources: { memory: 1G } }\n",
+		"version: 2\n" + fmt.Sprintf(part, "512Mi", "1") + "needs:\n  postgres: { resources: { memory: 256M } }\n",
+	} {
+		if _, err := Parse([]byte(doc)); err == nil || !strings.Contains(err.Error(), "write ") {
+			t.Errorf("a bare M or G in version 2 must be refused with the fix:\n%s\ngot %v", doc, err)
+		}
+	}
+	v1, err := Parse([]byte(fmt.Sprintf(part, "512M", "250m")))
+	if err != nil || v1.Version != 1 || v1.Parts[0].Resources.MemoryBytes != 512<<20 || v1.Parts[0].Resources.CPUs != 0.25 {
+		t.Fatalf("version 1 keeps M as MiB: %+v %v", v1, err)
 	}
 }

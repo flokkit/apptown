@@ -8,10 +8,12 @@ Anything this page does not list is not promised.
 ## Stable through 1.x
 
 **Your app's contract.** Everything [the app contract](/docs/guides/contract-reference)
-promises: `.apptown/app.yaml` with `version: 1` (or no version, which means 1),
-what a build sees, the environment, the startup order, the front door and
-health, target by target as it states them. A higher version is refused by
-name, never guessed at.
+promises: `.apptown/app.yaml` with `version: 2`, and version 1 (or no
+version) read as version 1 always has been, what a build sees, the
+environment, the startup order, the front door and health, target by target
+as it states them. A higher version is refused by name, never guessed at.
+AppTown's contract is its own: a future importer or exporter for another
+format, such as [Score](https://score.dev), would not change it.
 
 **What each need gives your app.** The variables each catalogue need gives an
 app, what they mean, and what the app may rely on, as

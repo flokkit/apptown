@@ -235,7 +235,11 @@ func (h *Host) ResolveStack(ctx context.Context, c *appcontract.Contract, overri
 		return ResolvedStack{}, err
 	}
 
-	rs := ResolvedStack{Plan: appcontract.Prepare(c, depEnv)}
+	plan, err := appcontract.PrepareWired(c, depEnv)
+	if err != nil {
+		return ResolvedStack{}, err
+	}
+	rs := ResolvedStack{Plan: plan}
 	rs.Services = append(append([]deploy.ServiceSpec{}, override...), depSvcs...)
 	for _, s := range depSvcs {
 		n := ResolvedNeed{ServiceSpec: s}

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"flokkit.io/forge/internal/deploy/appcontract"
 	"flokkit.io/forge/internal/fault"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/scm"
@@ -167,7 +168,7 @@ func renameBranch(ctx context.Context, dir, branch, by string) (renamed bool, re
 		return false, "", fmt.Errorf("reading the tree: %w", err)
 	}
 	var old []string
-	hasNew := false
+	hasNew, newContract := false, ""
 	for _, line := range strings.Split(listing, "\n") {
 		tab := strings.IndexByte(line, '\t')
 		if tab < 0 {
@@ -177,6 +178,9 @@ func renameBranch(ctx context.Context, dir, branch, by string) (renamed bool, re
 			old = append(old, line)
 		} else {
 			hasNew = true
+			if path == ".apptown/app.yaml" {
+				newContract = line
+			}
 		}
 	}
 	gitignore, err := gitexec.OutputBytes(ctx, dir, nil, "cat-file", "blob", tip+":.gitignore")
@@ -184,8 +188,26 @@ func renameBranch(ctx context.Context, dir, branch, by string) (renamed bool, re
 		gitignore = nil // no .gitignore at the tip
 	}
 	rewritten, ignoreChanged := renameIgnoreLines(gitignore)
+	// A branch already moved (an earlier run of this upgrade) still gets its
+	// contract written as version 2, once.
+	var contractInfo string
+	if len(old) == 0 && newContract != "" {
+		tab := strings.IndexByte(newContract, '\t')
+		fields := strings.Fields(newContract[:tab])
+		sha, err := rewriteBlob(ctx, dir, fields[2], upgradeContract)
+		var refused upgradeRefusal
+		if errors.As(err, &refused) {
+			return false, string(refused), nil
+		}
+		if err != nil {
+			return false, "", err
+		}
+		if sha != fields[2] {
+			contractInfo = fmt.Sprintf("%s %s\t.apptown/app.yaml\n", fields[0], sha)
+		}
+	}
 	switch {
-	case len(old) == 0 && !ignoreChanged:
+	case len(old) == 0 && !ignoreChanged && contractInfo == "":
 		return false, "", nil
 	case len(old) > 0 && hasNew:
 		return false, "has both .forge/ and .apptown/; move the files by hand in a change", nil
@@ -210,13 +232,19 @@ func renameBranch(ctx context.Context, dir, branch, by string) (renamed bool, re
 		path := line[tab+1:]
 		mode, sha := fields[0], fields[2]
 		if path == ".forge/app.yaml" {
-			if sha, err = rewriteBlob(ctx, dir, sha, upgradeContract); err != nil {
+			sha, err = rewriteBlob(ctx, dir, sha, upgradeContract)
+			var refused upgradeRefusal
+			if errors.As(err, &refused) {
+				return false, string(refused), nil
+			}
+			if err != nil {
 				return false, "", err
 			}
 		}
 		fmt.Fprintf(&info, "0 %s\t%s\n", strings.Repeat("0", len(fields[2])), path)
 		fmt.Fprintf(&info, "%s %s\t.apptown/%s\n", mode, sha, strings.TrimPrefix(path, ".forge/"))
 	}
+	info.WriteString(contractInfo)
 	if ignoreChanged {
 		sha, err := writeBlob(ctx, dir, rewritten)
 		if err != nil {
@@ -286,9 +314,22 @@ func renameIgnoreLines(data []byte) ([]byte, bool) {
 	return []byte(out + ".forge/\n"), true
 }
 
-// upgradeContract rewrites a contract's text for its new path. Push 4b
-// writes memory in Kubernetes units there.
-var upgradeContract = func(data []byte) ([]byte, error) { return data, nil }
+// upgradeContract writes a contract as version 2 (appcontract.ConvertToV2):
+// memory in Mi and Gi, and any ${needs. escaped so it is still delivered as
+// written. A contract that does not convert by itself is left for a person:
+// the branch is refused, named in the report, and nothing on it moves.
+func upgradeContract(data []byte) ([]byte, error) {
+	out, _, err := appcontract.ConvertToV2(string(data))
+	if err != nil {
+		return nil, upgradeRefusal(".apptown/app.yaml is not upgraded: " + err.Error() + "; fix it in a change, then run the upgrade again")
+	}
+	return []byte(out), nil
+}
+
+// upgradeRefusal is a branch the upgrade leaves for a person, in a sentence.
+type upgradeRefusal string
+
+func (r upgradeRefusal) Error() string { return string(r) }
 
 func rewriteBlob(ctx context.Context, dir, sha string, rewrite func([]byte) ([]byte, error)) (string, error) {
 	data, err := gitexec.OutputBytes(ctx, dir, nil, "cat-file", "blob", sha)

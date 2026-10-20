@@ -9,6 +9,9 @@ type Contract struct {
 	NeedParams map[string]map[string]string
 	// NeedSizes are catalogue size selections; Command is filled only by execution resolution.
 	NeedSizes map[string]NeedSize
+	// Version is the contract's shape version: 1 (or none written) or 2
+	// (parse.go, currentContractVersion).
+	Version int
 	// NeedResources is the most each need's service may use, by need;
 	// a need that declares nothing is absent (no limit). It is not a
 	// parameter: the catalogue never sees it.
@@ -182,6 +185,28 @@ func Prepare(c *Contract, connections map[string]string) *Plan {
 		init.Env = MergeEnv(init.Env, connections)
 	}
 	return p
+}
+
+// PrepareWired is Prepare after each part's and init step's need references
+// are replaced with the values connections gives (WireEnv), the path every
+// container target takes so wiring is the same everywhere.
+func PrepareWired(c *Contract, connections map[string]string) (*Plan, error) {
+	p := Prepare(c, nil)
+	for i := range p.Parts {
+		env, err := WireEnv(c.Version, "app part "+p.Parts[i].Name, p.Parts[i].Env, connections)
+		if err != nil {
+			return nil, err
+		}
+		p.Parts[i].Env = MergeEnv(env, connections)
+	}
+	for i := range p.Init {
+		env, err := WireEnv(c.Version, "init step "+p.Init[i].Name, p.Init[i].Env, connections)
+		if err != nil {
+			return nil, err
+		}
+		p.Init[i].Env = MergeEnv(env, connections)
+	}
+	return p, nil
 }
 
 func copyHealthProbe(p *Probe) *Probe {

@@ -7,6 +7,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"flokkit.io/forge/internal/deploy/appcontract"
 )
 
 // RefusesNeeds says why a contract's declared needs cannot be fulfilled as
@@ -96,3 +98,32 @@ func (e *UnknownNeeds) Error() string {
 type Refused struct{ Why string }
 
 func (e *Refused) Error() string { return e.Why }
+
+// RefusesNeedRefs is the catalogue's refusal of a contract's need-value
+// references (appcontract.NeedRef, contract version 2): each must name a
+// variable its need documents (provides), and a register-only need's values,
+// which arrive by registration rather than as a connection, cannot be
+// referenced yet; the app reads those variables by their own names.
+func (c *Catalog) RefusesNeedRefs(ctx context.Context, refs []appcontract.NeedRef) (string, error) {
+	for _, ref := range refs {
+		k, err := c.ByCapability(ctx, ref.Need)
+		if errors.Is(err, ErrUnknown) || errors.Is(err, ErrSpec) {
+			continue // RefusesNeeds says so in its own sentence
+		}
+		if err != nil {
+			return "", fmt.Errorf("reading the dependency kind %s: %w", ref.Need, err)
+		}
+		if k.Local.Image == "" {
+			return fmt.Sprintf("%s: environment: %s refers to %s's %s; a %s need's values cannot be referenced yet: read %s by its own name", ref.Part, ref.Key, ref.Need, ref.Var, ref.Need, ref.Var), nil
+		}
+		if _, ok := k.Provides[ref.Var]; !ok {
+			names := make([]string, 0, len(k.Provides))
+			for n := range k.Provides {
+				names = append(names, n)
+			}
+			sort.Strings(names)
+			return fmt.Sprintf("%s: environment: %s refers to %s's %s, which %s does not give; it gives %s", ref.Part, ref.Key, ref.Need, ref.Var, ref.Need, strings.Join(names, ", ")), nil
+		}
+	}
+	return "", nil
+}

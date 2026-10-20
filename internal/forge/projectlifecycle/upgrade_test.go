@@ -171,3 +171,63 @@ func TestRenameContractTextRenamesTheContractNamesOnly(t *testing.T) {
 		}
 	}
 }
+
+// A project the upgrade already moved to .apptown/ (an earlier run of it)
+// gets its contract written as version 2 on the next run, in one attributed
+// commit, with memory in Mi and nothing else changed; a third run changes
+// nothing. An old-path contract is moved and converted in the same commit.
+//
+// Kills: already-moved branches skipped; upgradeContract not converting;
+// a rerun converting again.
+func TestTheUpgradeWritesAMovedContractAsVersionTwoOnce(t *testing.T) {
+	t.Parallel()
+	f := newOwnerFixture(t, true)
+	ctx := context.Background()
+	p, err := f.lifecycle.Create(ctx, Draft{Slug: "moved", Name: "Moved", Actor: "bls"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := t.TempDir()
+	gittest.RunAsTester(t, src, "init", "-q", "-b", "main")
+	contract := "app:\n  web:\n    image: x\n    public: true\n    resources: { memory: 512M }\n"
+	if err := os.MkdirAll(filepath.Join(src, ".apptown"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, ".apptown", "app.yaml"), []byte(contract), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.RunAsTester(t, src, "add", "-f", "-A")
+	gittest.RunAsTester(t, src, "commit", "-qm", "already moved")
+	bundle := filepath.Join(t.TempDir(), "moved.bundle")
+	gittest.RunAsTester(t, src, "bundle", "create", "-q", bundle, "refs/heads/main")
+	body, err := os.Open(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer body.Close()
+	if err := f.lifecycle.SeedFromBundle(ctx, p, body, "main", "bls"); err != nil {
+		t.Fatal(err)
+	}
+	hub := hubDir(f.lifecycle.dataDir, "moved")
+	report, err := f.lifecycle.UpgradeToAppTown(ctx, "admin", upgradeWork{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := report.Projects[slices.IndexFunc(report.Projects, func(r UpgradedProject) bool { return r.Slug == "moved" })]
+	if !slices.Equal(row.Renamed, []string{"main"}) {
+		t.Fatalf("report %+v, want main upgraded", row)
+	}
+	got := gittest.Run(t, hub, "show", "main:.apptown/app.yaml")
+	if !strings.HasPrefix(got, "version: 2\n") || !strings.Contains(got, "memory: 512Mi") {
+		t.Fatalf("contract after the upgrade:\n%s", got)
+	}
+	tip := gittest.Run(t, hub, "rev-parse", "main")
+	again, err := f.lifecycle.UpgradeToAppTown(ctx, "admin", upgradeWork{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	row = again.Projects[slices.IndexFunc(again.Projects, func(r UpgradedProject) bool { return r.Slug == "moved" })]
+	if len(row.Renamed) != 0 || gittest.Run(t, hub, "rev-parse", "main") != tip {
+		t.Fatalf("a second run must change nothing: %+v", row)
+	}
+}

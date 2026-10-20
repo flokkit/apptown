@@ -59,7 +59,7 @@ you recommend when you are ready.
 `requires` names instance capabilities a project on the pack needs (a scanner);
 adopting the pack is refused until each is attached.
 
-A pack may declare `resources: {memory: 160M}` as the starting memory default
+A pack may declare `resources: {memory: 160Mi}` as the starting memory default (`M` and `G` are read as MiB and GiB there too)
 for an undeclared app part. Its immutable published version records that default;
 a project's primary adopted pack supplies it, never the latest recommendation.
 Included packs inherit it, an including declaration replaces it, and

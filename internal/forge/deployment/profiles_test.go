@@ -157,23 +157,23 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 		}
 		return w.s.SetOverride(ctx, OverrideChange{ProjectID: w.project, Deployment: "prod", Part: part, Resources: appcontract.Resources{MemoryBytes: m}, Reason: reason})
 	}
-	if _, err := set("worker", "2G", "  "); !errors.Is(err, ErrOverrideReason) {
+	if _, err := set("worker", "2Gi", "  "); !errors.Is(err, ErrOverrideReason) {
 		t.Errorf("an override without a reason: %v", err)
 	}
-	if _, err := set("api", "2G", "spike"); err == nil || !strings.Contains(err.Error(), `no part or need "api"`) {
+	if _, err := set("api", "2Gi", "spike"); err == nil || !strings.Contains(err.Error(), `no part or need "api"`) {
 		t.Errorf("an override of a part the app has not: %v", err)
 	}
 	auth := w.deps.Releases.Authority.(*requestAuthority)
 	denied := errors.New("no deploy grant")
 	auth.deny = denied
-	if _, err := set("worker", "2G", "spike"); !errors.Is(err, denied) {
+	if _, err := set("worker", "2Gi", "spike"); !errors.Is(err, denied) {
 		t.Errorf("an override without the deploy grant: %v", err)
 	}
 	auth.deny = nil
 	seen := len(auth.seen)
 
 	// Nothing runs yet: recorded, applied at the deploy.
-	out, err := set("worker", "2G", "the import job ran out of memory")
+	out, err := set("worker", "2Gi", "the import job ran out of memory")
 	if err != nil || out.Override == nil || out.Release != nil || out.NotYet == "" {
 		t.Fatalf("an override before anything runs: %+v %v", out, err)
 	}
@@ -185,7 +185,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "production"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := set("web", "512M", "same as production"); err != nil {
+	if _, err := set("web", "512Mi", "same as production"); err != nil {
 		t.Fatal(err)
 	}
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
@@ -212,7 +212,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range res.Parts {
-		if p.Part == "worker" && (p.Override == nil || !p.OverrideApplied || p.Memory != "2G") {
+		if p.Part == "worker" && (p.Override == nil || !p.OverrideApplied || p.Memory != "2Gi") {
 			t.Errorf("the worker's resources read %+v", p)
 		}
 	}
@@ -229,7 +229,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 	}
 
 	// Once it runs, setting an override redeploys the running bundle.
-	out, err = set("worker", "3G", "still not enough")
+	out, err = set("worker", "3Gi", "still not enough")
 	if err != nil || out.Release == nil || out.Release.Deployment != "prod" {
 		t.Fatalf("an override while it runs: %+v %v", out, err)
 	}
@@ -363,7 +363,7 @@ func TestAppPlatformFitsEachPartBeforeAnyEffect(t *testing.T) {
 					t.Fatalf("the release: %+v %v\n%s", rel, err, strings.Join(log, "\n"))
 				}
 				applied, err := p.s.SettledApplied(t.Context(), mustDeployment(t, p.digestWorld, "cloud"))
-				if err != nil || applied.Parts["web"].RunsOn != "apps-s-1vcpu-1gb-fixed (1G, 1 CPU)" {
+				if err != nil || applied.Parts["web"].RunsOn != "apps-s-1vcpu-1gb-fixed (1Gi, 1 CPU)" {
 					t.Errorf("the generation's record of what web runs on: %+v %v", applied, err)
 				}
 				if spec := p.do.Snapshot().Specs; len(spec) != 1 || !strings.Contains(asJSON(spec[0]), `"instance_size_slug":"apps-s-1vcpu-1gb-fixed"`) {
@@ -376,7 +376,7 @@ func TestAppPlatformFitsEachPartBeforeAnyEffect(t *testing.T) {
 				if err != nil || len(res.Parts) != 1 {
 					t.Fatalf("the resources read: %+v %v", res, err)
 				}
-				if web := res.Parts[0]; web.Memory != "768M declared" || web.CPU != "not declared" || web.RunsOn != "apps-s-1vcpu-1gb-fixed (1G, 1 CPU)" {
+				if web := res.Parts[0]; web.Memory != "768Mi declared" || web.CPU != "not declared" || web.RunsOn != "apps-s-1vcpu-1gb-fixed (1Gi, 1 CPU)" {
 					t.Errorf("the web part reads %+v", web)
 				}
 				return

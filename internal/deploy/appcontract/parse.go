@@ -153,8 +153,10 @@ type appYamlSecrets struct {
 }
 
 // currentContractVersion is the highest .apptown/app.yaml shape this binary
-// understands.
-const currentContractVersion = 1
+// understands. Version 2 writes memory in Kubernetes binary units only and
+// may wire need values into environment values; version 1 (or no version)
+// keeps its own meaning wherever it is read, a recorded revision included.
+const currentContractVersion = 2
 
 var secretNameRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
@@ -178,13 +180,18 @@ func Parse(raw []byte) (*Contract, error) {
 	case *doc.Version == 0:
 		return nil, fmt.Errorf(".apptown/app.yaml: version: 0 is invalid — omit version (means 1) or set the version your contract is written for")
 	case *doc.Version > currentContractVersion:
-		return nil, fmt.Errorf(".apptown/app.yaml: contract version %d requires a newer forge (this build understands up to %d)", *doc.Version, currentContractVersion)
+		return nil, fmt.Errorf(".apptown/app.yaml: contract version %d requires a newer AppTown (this build understands up to %d)", *doc.Version, currentContractVersion)
 	}
 	if len(doc.App) == 0 {
 		return nil, fmt.Errorf(".apptown/app.yaml: no app parts declared under `app:`")
 	}
 
 	var c Contract
+	c.Version = 1
+	if doc.Version != nil {
+		c.Version = *doc.Version
+	}
+	v1 := c.Version == 1
 	names := make([]string, 0, len(doc.App))
 	for n := range doc.App {
 		names = append(names, n)
@@ -230,7 +237,7 @@ func Parse(raw []byte) (*Contract, error) {
 			// a second, built one beside it has no use case yet.
 			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: a static site with a build must be the public part", name)
 		}
-		resources, err := p.Resources.parse()
+		resources, err := p.Resources.parse(v1)
 		if err != nil {
 			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %w", name, err)
 		}
@@ -323,7 +330,10 @@ func Parse(raw []byte) (*Contract, error) {
 			return nil, fmt.Errorf(".apptown/app.yaml: secrets: deliver: %s: %q is not a delivery channel (env)", name, channel)
 		}
 	}
-	if err := parseProfiles(doc.Profiles, &c); err != nil {
+	if err := parseProfiles(doc.Profiles, &c, v1); err != nil {
+		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
+	}
+	if err := checkNeedRefs(&c); err != nil {
 		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 	}
 	for _, name := range append([]string{DefaultProfile}, c.ProfileNames()...) {
@@ -385,7 +395,7 @@ func parseAppYamlNeeds(needs map[string]map[string]any, c *Contract) error {
 		// resources is the need's size, typed as a part's: not a
 		// parameter, so the catalogue never interpolates it.
 		if raw, present := spec["resources"]; present {
-			r, err := needResources(raw)
+			r, err := needResources(raw, c.Version == 1)
 			if err != nil {
 				return fmt.Errorf("%s: %w", name, err)
 			}

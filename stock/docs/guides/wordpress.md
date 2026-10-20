@@ -97,18 +97,18 @@ needs:
 profiles:
   preview:
     mariadb: {size: small}
-    web: {resources: {memory: 192M}}
+    web: {resources: {memory: 192Mi}}
 ```
 
-This keeps the starter's unsized main database at 256M. Main may select
+This keeps the starter's unsized main database at 256Mi. Main may select
 small explicitly too. A need selects either `size` or explicit `resources`,
 including values inherited by a profile. A named size is available for local
 containers (Docker/Portainer), not managed database instances or shared databases.
 There are no PostgreSQL sizes and no database tuning overrides.
 
 The stock WordPress image passed bounded page, login, media upload and media
-regeneration checks at 192M; 128M OOMed during regeneration. MariaDB small passed
-the same fixture at 128M. These are workload measurements, not universal minima.
+regeneration checks at 192Mi; 128Mi OOMed during regeneration. MariaDB small passed
+the same fixture at 128Mi. These are workload measurements, not universal minima.
 Measure your plugins, concurrency and maintenance jobs before reducing limits.
 Existing operator memory-cap overrides remain separate decisions and do not
 retune database buffers.
