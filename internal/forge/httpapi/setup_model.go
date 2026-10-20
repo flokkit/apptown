@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"flokkit.io/forge/internal/forge/model"
 	"flokkit.io/forge/internal/forge/secret"
 	"flokkit.io/forge/internal/ids"
+	"flokkit.io/forge/internal/openrouter"
 )
 
 type SetupModel struct {
@@ -21,10 +23,37 @@ type SetupModel struct {
 	models       *model.Slots
 	db           *database.DB
 	now          func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	// openRouterBase is OpenRouter's API root, whose public model list
+	// resolves its latest-Sonnet alias; tests point it at a fake.
+	openRouterBase string
 }
 
 func NewSetupModel(secrets *secret.Service, integrations *integration.Service, models *model.Slots, db *database.DB, now func() time.Time) SetupModel {
-	return SetupModel{secrets: secrets, integrations: integrations, models: models, db: db, now: now}
+	return SetupModel{secrets: secrets, integrations: integrations, models: models, db: db, now: now,
+		openRouterBase: openrouter.DefaultBase}
+}
+
+// A first OpenRouter key's default model is the one OpenRouter's
+// latest-Sonnet alias names when the key is set up: its public model list
+// gives the alias's target. The alias itself cannot be the default, because
+// the inference gateway admits no "~" selector. openRouterFallback is used
+// only when the list cannot be read, and is replaced at the next setup; a
+// fixed version as the only default (claude-sonnet-4.5) went stale.
+const (
+	openRouterSonnetAlias = "~anthropic/claude-sonnet-latest"
+	openRouterFallback    = "openrouter/anthropic/claude-sonnet-5.5"
+)
+
+// openRouterSonnet is "openrouter/" and the latest-Sonnet alias's target,
+// or openRouterFallback when OpenRouter's list cannot say.
+func (h SetupModel) openRouterSonnet(ctx context.Context) string {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	target, err := openrouter.AliasTarget(ctx, h.openRouterBase, openRouterSonnetAlias)
+	if err != nil {
+		return openRouterFallback
+	}
+	return "openrouter/" + target
 }
 
 // SetupModel: POST /api/v1/setup/model {provider, key, model?} — the
@@ -48,12 +77,15 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 		case "anthropic":
 			secretName, defModel = "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-latest"
 		case "openrouter":
-			secretName, defModel = "OPENROUTER_API_KEY", "openrouter/anthropic/claude-sonnet-4.5"
+			secretName = "OPENROUTER_API_KEY"
 		default:
 			WriteError(w, 400, "provider must be anthropic or openrouter")
 			return
 		}
 		model := strings.TrimSpace(in.Model)
+		if model == "" && in.Provider == "openrouter" {
+			model = h.openRouterSonnet(r.Context())
+		}
 		if model == "" {
 			model = defModel
 		}

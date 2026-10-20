@@ -340,13 +340,10 @@ func (r *Runtime) run(in console.Launch) error {
 func (r *Runtime) Deliver(ctx context.Context, in console.Launch, text string) error {
 	rec := &console.Transcript{Dir: in.Dir}
 	preFile, preSize := rec.LatestSessionFile()
-	// A freshly woken container needs a beat before its tmux server answers.
-	var out []byte
-	var err error
-	poll.Until(ctx, 7500*time.Millisecond, 1500*time.Millisecond, func() bool {
-		out, err = r.command(r.ctx, "exec", ContainerName(in.ID), "tmux", "send-keys", "-t", console.TmuxSession, "-l", text)
-		return err == nil
-	})
+	if err := r.awaitPi(ctx, in.ID); err != nil {
+		return err
+	}
+	out, err := r.command(r.ctx, "exec", ContainerName(in.ID), "tmux", "send-keys", "-t", console.TmuxSession, "-l", text)
 	if err != nil {
 		return fmt.Errorf("delivering your words: %s", strs.Truncate(string(out), 120))
 	}
@@ -367,6 +364,36 @@ func (r *Runtime) Deliver(ctx context.Context, in console.Launch, text string) e
 		_, _ = r.command(r.ctx, "exec", ContainerName(in.ID), "tmux", "send-keys", "-t", console.TmuxSession, "Enter")
 	}
 	return fmt.Errorf("the helper's screen never accepted the message — wait a few seconds and try again")
+}
+
+// piStartWait bounds the wait for pi to start in a woken chat: run-pi.sh
+// first installs the project's declared toolchain, which can take minutes
+// on a chat's first start.
+const piStartWait = 10 * time.Minute
+
+// awaitPi waits until pi itself runs in the chat's terminal (tmux names the
+// pane's command "pi" once pi has started; before that it is the shell
+// installing the toolchain). Words typed earlier sit in the terminal and
+// reach pi's editor as a paste when it starts, every Enter pressed in the
+// meantime a blank line in it, and nothing is sent (the desktop trial's
+// first chat, 20 Oct 2026: 39 seconds of toolchain install).
+func (r *Runtime) awaitPi(ctx context.Context, id string) error {
+	// Each question runs under the request and the wait's own bound, so a
+	// Docker call that never answers ends with either.
+	ctx, cancel := context.WithTimeout(ctx, piStartWait)
+	defer cancel()
+	var last string
+	if poll.Until(ctx, piStartWait, 1500*time.Millisecond, func() bool {
+		out, err := r.command(ctx, "exec", ContainerName(id), "tmux", "display-message", "-p", "-t", console.TmuxSession, "#{pane_current_command}")
+		last = strings.TrimSpace(string(out))
+		return err == nil && last == "pi"
+	}) {
+		return nil
+	}
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return fmt.Errorf("waiting for the helper to start: %w", ctx.Err())
+	}
+	return fmt.Errorf("the helper did not start within %s (its terminal runs %q); open the chat's terminal to see why", piStartWait, strs.Truncate(last, 60))
 }
 
 // Interrupt presses Escape in the helper's terminal: pi aborts the current

@@ -121,7 +121,9 @@ From the person's description` + map[bool]string{true: " and their answers", fal
 yes/no questions (1-3) that truly distinguish between these setups —
 things like: do other people play/use it at the same time? should saves
 work across different devices? do people upload files or photos? does it
-need to remember things when the browser closes? Questions must be
+need to remember things when the browser closes? The person can only
+answer "yes", "no" or "not sure", so every question must be one a plain
+yes or no answers: never offer two choices ("A, or B?"). Questions must be
 answerable by someone who is not a developer and must NEVER mention
 technology names.
 ` + map[bool]string{true: "Answers are now provided: you MUST decide (treat 'not sure' as no).", false: "If the description already settles it, decide without questions."}[mustDecide] + `

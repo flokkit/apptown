@@ -158,11 +158,14 @@ function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuildV0: () 
         <strong>Bindings</strong>
         <div className="row" style={{ marginTop: 'var(--space-2)', gap: 'var(--space-1)' }}>
           {m.bindings.map((b) => (
-            <span key={b.capability} className="chip pass" title={`config sha256:${b.configHash}`}>
+            <span key={b.capability} className="chip" title={`config sha256:${b.configHash}`}>
               {b.capability} → {b.binding} v{b.version}
             </span>
           ))}
         </div>
+        {/* Which integration each kind would use, not whether it is set up:
+            a trial lists GitLab though no GitLab is configured. */}
+        <div className="muted small mt-1">Whether each is set up: <Link to="/integrations">Integrations</Link></div>
       </div>
 
       <div className="card tone-accent" style={{ marginTop: 'var(--space-5)' }}>

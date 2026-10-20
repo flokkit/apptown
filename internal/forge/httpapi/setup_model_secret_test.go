@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -42,5 +43,47 @@ func TestSetupModelWritesSecrets(t *testing.T) {
 	}
 	if slot, _, _ := model.NewSelection(models, "").Resolve(req.Context(), ids.Nil, ""); slot == "" {
 		t.Fatal("a default model slot should exist after setup")
+	}
+}
+
+// A first OpenRouter key sets the default model to what OpenRouter's
+// latest-Sonnet alias names in its model list at setup, as a concrete id the
+// inference gateway admits (it refuses "~" selectors), never a fixed version
+// that goes stale (the desktop trial, 20 Oct 2026, got claude-sonnet-4.5).
+// When the list cannot be read it falls back to a fixed current id.
+//
+// Kills: a fixed default, the alias itself stored, or no fallback.
+func TestSetupModelDefaultsOpenRouterToWhereItsLatestSonnetPoints(t *testing.T) {
+	t.Parallel()
+	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":"anthropic/claude-sonnet-9"},{"id":"~anthropic/claude-sonnet-latest","alias_target":{"slug":"anthropic/claude-sonnet-9"}}]}`))
+	}))
+	t.Cleanup(catalog.Close)
+	for name, c := range map[string]struct{ url, want string }{
+		"the list answers":        {catalog.URL, "openrouter/anthropic/claude-sonnet-9"},
+		"the list cannot be read": {catalog.URL + "/missing", openRouterFallback},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			db := databaseSuite.New(t)
+			secrets := secret.NewService(db, secret.Config{DataDir: t.TempDir()})
+			models := model.New(db)
+			h := NewSetupModel(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), models, db, nil)
+			h.openRouterBase = c.url
+			req := httptest.NewRequest("POST", "/api/v1/setup/model", strings.NewReader(`{"provider":"openrouter","key":"sk-or-test-123"}`))
+			req = req.WithContext(access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true}))
+			w := httptest.NewRecorder()
+			h.SetupModel(w, req)
+			if w.Code != 200 {
+				t.Fatalf("setup: %d %s", w.Code, w.Body.String())
+			}
+			if slot, _, _ := model.NewSelection(models, "").Resolve(req.Context(), ids.Nil, ""); slot != c.want {
+				t.Fatalf("the default model is %q, want %q", slot, c.want)
+			}
+		})
 	}
 }

@@ -3,6 +3,7 @@ package wow
 import (
 	"fmt"
 	"log"
+	"strings"
 )
 
 // Stock sync: five kinds of thing
@@ -63,8 +64,16 @@ type SyncCounts struct {
 }
 
 func (c SyncCounts) String() string {
-	return fmt.Sprintf("stock %ss: %d added, %d updated, %d unchanged, %d kept yours, %d skipped, %d errors",
-		c.Kind, c.Added, c.Updated, c.Unchanged, c.Kept, c.Skipped, c.Errors)
+	return fmt.Sprintf("stock %s: %d added, %d updated, %d unchanged, %d kept yours, %d skipped, %d errors",
+		plural(c.Kind), c.Added, c.Updated, c.Unchanged, c.Kept, c.Skipped, c.Errors)
+}
+
+// plural is a kind's label for many of them: "policy" is "policies".
+func plural(label string) string {
+	if stem, ok := strings.CutSuffix(label, "y"); ok {
+		return stem + "ies"
+	}
+	return label + "s"
 }
 
 // SyncReceipt records one ledger line about a stock item; the caller supplies

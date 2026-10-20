@@ -9,7 +9,7 @@ policies:
     rule: requireStepBefore
     with: { uses: deploy, requires: scan }
   - name: scanner-bound
-    description: Forge must have a working security scanner
+    description: AppTown must have a working security scanner
     rule: requireCapabilityBound
     with: { capability: scanner }
   - name: scan-failon-ceiling

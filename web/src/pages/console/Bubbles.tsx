@@ -106,7 +106,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
     }
   }
 
-  const record = useGet<{ messages: Bubble[] }>(`/console/${sessionId}/messages?from=0`, { poll: 2000 })
+  const record = useGet<{ messages: Bubble[]; turn?: string }>(`/console/${sessionId}/messages?from=0`, { poll: 2000 })
   const msgs = record.data?.messages ?? []
   const pending = retired(sent, msgs) ? null : sent?.text ?? null
   const [stopErr, setStopErr] = useState('')
@@ -130,9 +130,11 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
   }
 
   const shown = foldTools(msgs)
-  const last = msgs[msgs.length - 1]
-  const helperBusy = pending !== null ||
-    (last && (last.role === 'you' || (last.role === 'helper' && !last.text && (last.tools?.length ?? 0) > 0)))
+  // Whose turn it is is the server's reading of the record: the helper has
+  // handed back only when its last message is words with no tool call (or
+  // failed) and the record has been quiet. Read from the bubbles alone,
+  // "Let me create it now:" with its command still running looked finished.
+  const helperBusy = pending !== null || (msgs.length > 0 && record.data?.turn !== 'handed-back')
   useEffect(() => { onBusy?.(!!helperBusy) }, [helperBusy, onBusy])
 
   return (

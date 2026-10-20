@@ -141,3 +141,35 @@ describe('the conversation as read', () => {
     expect(retired(null, msgs)).toBe(false)
   })
 })
+
+// Whose turn it is comes from the server, which reads the record: words
+// followed by a command still running are the helper's turn, not the
+// person's. The page once judged it from the last bubble alone, and showed
+// "your turn" while "Let me create it now:" ran its command.
+describe('whose turn it is', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+  const busyFor = async (turn: string) => {
+    Element.prototype.scrollIntoView = () => {}
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ turn, messages: [
+      { i: 0, role: 'you', text: 'build it' },
+      { i: 1, role: 'helper', text: 'Let me create it now:', tools: [{ name: 'bash', detail: 'django-admin startproject app' }] },
+    ] }))))
+    let busy: boolean | undefined
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    await act(async () => {
+      root.render(<QueryClientProvider client={newQueryClient()}>
+        <Bubbles sessionId="s1" onBusy={(b) => { busy = b }} />
+      </QueryClientProvider>)
+    })
+    await vi.waitFor(() => expect(el.textContent).toContain('Let me create it now'))
+    act(() => root.unmount())
+    return busy
+  }
+  it('is the helper\'s while the server says it is working', async () => {
+    expect(await busyFor('working')).toBe(true)
+  })
+  it('is the person\'s once the server says the helper handed back', async () => {
+    expect(await busyFor('handed-back')).toBe(false)
+  })
+})

@@ -2,6 +2,7 @@ package wow
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -90,5 +91,18 @@ func TestSyncContract(t *testing.T) {
 	// No receipt writer is fine.
 	if c := Sync(g.kind("pack", true), []SyncItem{{Name: "q", Content: "n"}}, nil); c.Added != 1 {
 		t.Fatalf("nil receipt: %+v", c)
+	}
+}
+
+// The boot log names each kind of stock content in the plural, as a person
+// writes it: "stock policies", never "stock policys".
+//
+// Kills: the plural back to label + "s".
+func TestTheStockSyncLineNamesTheKindInThePlural(t *testing.T) {
+	t.Parallel()
+	for label, want := range map[string]string{"policy": "stock policies:", "workflow": "stock workflows:", "guidance block": "stock guidance blocks:"} {
+		if got := (SyncCounts{Kind: label}).String(); !strings.HasPrefix(got, want) {
+			t.Errorf("%s: %q, want it to start %q", label, got, want)
+		}
 	}
 }

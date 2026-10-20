@@ -1,5 +1,5 @@
 import { get, post, upload } from '../../api'
-import type { Project as WireProject, ProjectManifestView, ProjectSecrets, RemoteAttached } from '../../wire.gen'
+import type { Project as WireProject, ProjectManifestView, ProjectSecrets, ProjectServiceList, RemoteAttached } from '../../wire.gen'
 import { slugOf, type Draft } from './draft'
 
 // What applying a pack answers (not yet generated from its Go type).
@@ -52,10 +52,31 @@ export async function createProject(d: Draft, opts: { remote: boolean; namespace
     if (r.missing?.length) warn(`⚠ missing from store: ${r.missing.join(', ')}`)
   }
   if (d.services.length) {
+    const names = d.services.map((n) => n.capability).join(', ')
     try {
-      await post(`/projects/${slug}/services`, { needs: d.services, direct: true })
-      log(`✓ services: ${d.services.map((n) => n.capability).join(', ')}`)
-    } catch (e) { warn(`⚠ services skipped (add them later): ${(e as Error).message}`) }
+      // The way of working's starter may already declare exactly these; the
+      // server then refuses an edit with nothing to change, which is not a
+      // skip: the services are there.
+      if (await alreadyDeclared(slug, d.services)) {
+        log(`✓ services: ${names} (declared by the starter)`)
+      } else {
+        await post(`/projects/${slug}/services`, { needs: d.services, direct: true })
+        log(`✓ services: ${names}`)
+      }
+    } catch (e) { warn(`⚠ services not added (add them later in the project's settings): ${(e as Error).message}`) }
   }
   return get<ProjectManifestView>(`/projects/${slug}/manifest`)
+}
+
+// alreadyDeclared: the project's app.yaml declares exactly the picked
+// services, with no parameter the pick sets differently. A declaration that
+// cannot be read is not known to hold them: the services are then added.
+export async function alreadyDeclared(slug: string, picks: Draft['services']): Promise<boolean> {
+  let declared: ProjectServiceList['needs']
+  try { declared = (await get<ProjectServiceList>(`/projects/${slug}/services`)).needs } catch { return false }
+  if (declared.length !== picks.length) return false
+  return picks.every((p) => {
+    const d = declared.find((n) => n.capability === p.capability)
+    return !!d && Object.entries(p.params ?? {}).every(([k, v]) => String(d.params?.[k]) === String(v))
+  })
 }
