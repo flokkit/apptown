@@ -1,6 +1,7 @@
 #!/bin/sh
-# Publishes apptown.dev: this folder's page and the try script, with the
-# AppTown version the script starts, then refreshes CloudFront's cache.
+# Publishes apptown.dev: this folder's page, the try script and the
+# one-server compose file, with the AppTown version they start, then
+# refreshes CloudFront's cache.
 #
 #   sh site/publish.sh <version>
 #
@@ -20,8 +21,11 @@ out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 cp "$here/index.html" "$out/index.html"
 sed "s/@VERSION@/$version/" "$here/try.sh" >"$out/try.sh"
-if grep -q '@VERSION@' "$out/try.sh"; then
-	echo "publish: the version was not set in try.sh" >&2
+# The one-server compose file (Running AppTown, One server), with the same
+# version as its image's default.
+sed "s/@VERSION@/$version/" "$here/../deploy/one-server/compose.yaml" >"$out/compose.yaml"
+if grep -q '@VERSION@' "$out/try.sh" "$out/compose.yaml"; then
+	echo "publish: the version was not set in try.sh or compose.yaml" >&2
 	exit 1
 fi
 
@@ -30,6 +34,8 @@ aws s3 cp "$out/index.html" "s3://$SITE_BUCKET/index.html" \
 	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
 aws s3 cp "$out/try.sh" "s3://$SITE_BUCKET/try.sh" \
 	--content-type 'text/plain; charset=utf-8' --cache-control 'max-age=300'
+aws s3 cp "$out/compose.yaml" "s3://$SITE_BUCKET/compose.yaml" \
+	--content-type 'text/yaml; charset=utf-8' --cache-control 'max-age=300'
 # The tour (make tour; committed), as it is.
 aws s3 cp "$here/tour/index.html" "s3://$SITE_BUCKET/tour/index.html" \
 	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
@@ -38,5 +44,5 @@ aws s3 cp "$here/tour/index.html" "s3://$SITE_BUCKET/tour/index.html" \
 aws s3 cp "$here/tour/" "s3://$SITE_BUCKET/tour/" --recursive --exclude '*' --include '*.png' \
 	--content-type image/png --cache-control 'max-age=300'
 aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION" \
-	--paths '/' '/index.html' '/try' '/try.sh' '/tour/*' >/dev/null
-echo "published apptown.dev with try.sh starting $version"
+	--paths '/' '/index.html' '/try' '/try.sh' '/compose.yaml' '/tour/*' >/dev/null
+echo "published apptown.dev with try.sh and compose.yaml starting $version"

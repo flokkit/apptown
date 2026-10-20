@@ -12,6 +12,7 @@ web/dist/
 !deploy/apptown-agent/
 !deploy/apptown-start.sh
 !scripts/third-party-notices.py
+!scripts/forge-db-backup.sh
 !LICENSE
 !NOTICE
 internal/**/*_test.go

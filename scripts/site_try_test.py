@@ -245,7 +245,12 @@ fi
                 calls = (self.base / 'calls').read_text()
                 self.assertIn('--content-type text/html; charset=utf-8', calls)
                 self.assertIn('--content-type text/plain; charset=utf-8', calls)
-                self.assertIn('--paths / /index.html /try /try.sh /tour/*', calls)
+                self.assertIn('--paths / /index.html /try /try.sh /compose.yaml /tour/*', calls)
+                # The one-server compose file starts the same release.
+                compose = (self.base / 'compose.yaml').read_text()
+                self.assertNotIn('@VERSION@', compose)
+                self.assertIn('ghcr.io/flokkit/apptown:${APPTOWN_VERSION:-1.2.3-rc.1}', compose)
+                self.assertIn('--content-type text/yaml; charset=utf-8', calls)
                 # The tour goes with the site: its page, and its shots as images.
                 self.assertEqual((self.base / 'tour' / 'index.html').read_bytes(), (ROOT / 'site/tour/index.html').read_bytes())
                 # Only writes: the publish role may not list the bucket, so no

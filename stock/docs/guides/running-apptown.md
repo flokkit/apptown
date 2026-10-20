@@ -33,19 +33,29 @@ AppTown, its agents and its apps on one Linux machine with Docker. It suits
 one person or a small team whose projects are written by people trusted as
 much as the machine.
 
-1. Unpack the release archive for your platform to `/opt/apptown`.
-2. Copy `deploy/systemd/apptownd.service` to `/etc/systemd/system/` and
-   `deploy/systemd/apptownd.env.example` to `/etc/apptown/apptownd.env`.
-3. In `apptownd.env`, set `APPTOWN_PUBLIC_HOST` to the address people will
-   use and `APPTOWN_AGENT_IMAGE` to this release's agent image; check the
-   model-access addresses against your Docker bridge.
-4. `systemctl enable --now apptownd`, put a TLS proxy in front of
-   `127.0.0.1:7777`, and open the public address.
-5. Create the administrator with the setup token from
-   `/var/lib/apptown/setup-token`, then add an Anthropic or OpenRouter key.
+You need Docker with Compose 2.23 or later, a domain name, and ports 80 and
+443 open to the internet.
 
-What each setting means, what one server does and does not protect, and
-sign-in modes: [Setting up a server](/docs/guides/server-setup).
+1. Point your domain, `*.preview.` your domain and `*.main.` your domain at
+   the server (three DNS records).
+2. As root, or a member of the `docker` group:
+
+   ```sh
+   mkdir -p /opt/apptown && cd /opt/apptown
+   curl -fsSLO https://apptown.dev/compose.yaml
+   echo APPTOWN_DOMAIN=apptown.example.com > .env
+   docker compose up -d
+   ```
+
+3. Open `https://apptown.example.com`, create the administrator with the
+   setup token from `sudo cat /var/lib/apptown/setup-token`, then add an
+   Anthropic or OpenRouter key.
+
+The compose file runs AppTown with Caddy in front, which gets each HTTPS
+certificate itself. To run `apptownd` under systemd from the release
+archive instead, or behind a proxy you already have, see [Setting up a
+server](/docs/guides/server-setup), which also says what one server does and
+does not protect.
 
 ### 3. Split install
 

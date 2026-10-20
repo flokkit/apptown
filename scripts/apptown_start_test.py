@@ -4,7 +4,9 @@ exit status is the container's, even when apptownd ends before it answers; a
 stop during Docker's start, or after the ready line, ends apptownd and then
 Docker and exits cleanly; the ready line carries the setup token in the
 trial only; the server branch execs apptownd with none of the trial's
-defaults; a container that cannot run Docker is told so."""
+defaults; a container that cannot run Docker is told so; the one-server
+branch checks it was started on the host's network with its data folder at
+the same path, and execs apptownd on loopback with its own defaults."""
 import os
 import shutil
 import signal
@@ -25,10 +27,17 @@ STUBS = {
 trap 'echo dind-term >> "$CALLS"; exit 0' TERM
 while [ -d "$STUB_DIR" ]; do sleep 0.1; done
 """,
-    "docker": r"""[ -e "$STUB_DIR/docker-ready" ]""",
+    # The host's Docker, as the one-server branch asks it: this container's
+    # network mode and data mount, and the default bridge's gateway.
+    "docker": r"""case "$1" in
+inspect) case "$3" in *NetworkMode*) echo "${STUB_NETWORK:-host}" ;; *Mounts*) echo "${STUB_MOUNT:-}" ;; esac ;;
+network) echo "172.17.0.1 fd00::1 " ;;
+*) [ -e "$STUB_DIR/docker-ready" ] ;;
+esac""",
     # The health check: records how it was asked (last call wins).
     "curl": r"""echo "$*" > "$STUB_DIR/curl-args"; [ -e "$STUB_DIR/apptownd-ready" ]""",
     "apptownd": r"""echo "apptownd data=$APPTOWN_DATA auth=${APPTOWN_AUTH:-} tier=${APPTOWN_TIER_DOMAIN:-} tls=${APPTOWN_LOCAL_TLS:-} public=${APPTOWN_PUBLIC_HOST:-}" >> "$CALLS"
+echo "settings addr=${APPTOWN_ADDR:-} console=${APPTOWN_CONSOLE_ADDR:-} cli=${APPTOWN_CONSOLE_CLI:-} tmp=${TMPDIR:-} agent=${APPTOWN_AGENT_IMAGE:-}" >> "$CALLS"
 case "$FORGED_MODE" in
 exit37) exit 37 ;;
 serve)
@@ -121,7 +130,7 @@ class TrialEntrypoint(unittest.TestCase):
         p = self.start(APPTOWN_NO_LOCAL_DOCKER="true", FORGED_MODE="exit37")
         out, _ = p.communicate(timeout=HANG_GUARD)
         self.assertEqual(p.returncode, 37, out)
-        self.assertEqual([c for c in self.called() if c], ["apptownd data=/var/lib/apptown auth= tier= tls= public="])
+        self.assertEqual([c for c in self.called() if c and not c.startswith("settings")], ["apptownd data=/var/lib/apptown auth= tier= tls= public="])
         self.assertNotIn("setup=", out)
 
     def test_a_container_that_cannot_run_docker_is_told_so(self):
@@ -131,6 +140,50 @@ class TrialEntrypoint(unittest.TestCase):
         self.assertEqual(p.returncode, 1, out)
         self.assertIn("--privileged", out)
         self.assertEqual([c for c in self.called() if c], [])
+
+
+    def one_server(self, **env):
+        data = os.path.join(self.tmp, "data")
+        cli = os.path.join(self.tmp, "apptown-linux")
+        with open(cli, "w") as f:
+            f.write("the CLI")
+        mountinfo = os.path.join(self.tmp, "mountinfo")
+        with open(mountinfo, "w") as f:
+            f.write("1 2 0:1 / / rw - overlay overlay rw\n")
+            f.write("3 2 8:1 /var/lib/docker/containers/" + "ab" * 32 + "/hostname /etc/hostname rw - ext4 /dev/sda1 rw\n")
+        self.docker_ready()
+        base = dict(APPTOWN_ONE_SERVER="true", TMPDIR="", APPTOWN_DATA=data, APPTOWN_CLI_SOURCE=cli, APPTOWN_MOUNTINFO=mountinfo,
+                    STUB_MOUNT="bind " + data, FORGED_MODE="exit37")
+        base.update(env)
+        p = self.start(**base)
+        out, _ = p.communicate(timeout=HANG_GUARD)
+        return p.returncode, out, data
+
+    def test_one_server_runs_apptownd_on_loopback_with_its_own_defaults(self):
+        code, out, data = self.one_server()
+        self.assertEqual(code, 37, out)
+        calls = [c for c in self.called() if c]
+        self.assertEqual(calls[0], "apptownd data=" + data + " auth=internal tier= tls= public=", calls)
+        self.assertEqual(calls[1], "settings addr=127.0.0.1:7777 console=172.17.0.1:7778 cli=" + data + "/bin/apptown-linux tmp=" + data + "/tmp agent=apptown-agent", calls)
+        with open(os.path.join(data, "bin", "apptown-linux")) as f:
+            self.assertEqual(f.read(), "the CLI")
+        self.assertTrue(os.path.isdir(os.path.join(data, "tmp")))
+        self.assertFalse(any(c.startswith("dind") for c in calls), calls)
+        self.assertNotIn("setup=", out)
+
+    def test_one_server_refuses_a_container_off_the_hosts_network(self):
+        code, out, _ = self.one_server(STUB_NETWORK="bridge")
+        self.assertEqual(code, 1, out)
+        self.assertIn("network_mode: host", out)
+        self.assertEqual([c for c in self.called() if c], [])
+
+    def test_one_server_refuses_data_at_another_path_on_the_host(self):
+        code, out, data = self.one_server(STUB_MOUNT="bind /srv/elsewhere")
+        self.assertEqual(code, 1, out)
+        self.assertIn("same path inside and out", out)
+        self.assertEqual([c for c in self.called() if c], [])
+        code, out, _ = self.one_server(STUB_MOUNT="volume /var/lib/docker/volumes/apptown/_data")
+        self.assertEqual(code, 1, out)
 
 
 if __name__ == "__main__":

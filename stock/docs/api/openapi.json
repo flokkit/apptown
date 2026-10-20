@@ -13475,6 +13475,27 @@
         },
         "x-apptown-stability": "experimental"
       }
+    },
+    "/tls/ask": {
+      "get": {
+        "operationId": "getTlsAsk",
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "outside /api/v1"
+        ],
+        "x-apptown-access": {
+          "contract": "certificateNames.ask: a TLS proxy on this machine asks whether a name may have a certificate; answers loopback callers only, names bounded by AppTown's records; outside /api/ so no sign-in mode stands in front of it, as /healthz",
+          "kind": "public"
+        },
+        "x-apptown-stability": "experimental"
+      }
     }
   },
   "servers": [

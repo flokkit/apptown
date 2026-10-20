@@ -5,8 +5,10 @@ AppTown shows that AppTown's own address there. -->
 
 This page has the detail behind the one-server install in [Running
 AppTown](/docs/guides/running-apptown): what the machine needs, model access,
-sign-in and the public address. A [split install](/docs/guides/split-install)
-starts with the same steps, with the differences given in each.
+sign-in, the public address, running under systemd instead of the compose
+file, and putting your own proxy in front. A [split
+install](/docs/guides/split-install) starts with the same steps, with the
+differences given in each.
 
 ## What one server protects
 
@@ -28,16 +30,39 @@ root and can reach the network, and a container is not a strong sandbox.
 Code that gets out of one is on the machine that holds AppTown's database,
 its secrets file and its keys.
 
-Either way, start AppTown, configure model access, then add a model
-provider. Starting the web server alone does not enable model agents. A
-production install then adds deployment targets, sign-in, backups and
+A production install then adds deployment targets, sign-in, backups and
 upgrades (each has its guide, listed in [Running
 AppTown](/docs/guides/running-apptown)).
 
-## Prepare the host
+## The compose file
 
+`https://apptown.dev/compose.yaml` runs two containers on the host's
+network: AppTown, from the `ghcr.io/flokkit/apptown` image of one release,
+and Caddy. AppTown uses the host's Docker through its socket and keeps its
+data in `/var/lib/apptown` (`APPTOWN_DATA` in `.env` names another folder);
+it refuses to start unless it is on the host's network with that folder at
+the same path inside and out, because the containers it starts mount its
+folders by path. It listens on `127.0.0.1:7777`, signs people in with its
+own accounts, and gives its containers model access and the chat API on
+Docker's bridge address only. Any `apptownd` setting can go in `.env` as its
+`APPTOWN_` variable.
+
+Caddy serves every name on ports 80 and 443 and gets a certificate for each
+name the first time it is asked for: your domain, and each preview's and
+app's name under `preview.` and `main.`. Before each one it asks AppTown
+whether the name is one of its own, so made-up names get none. Each new
+preview is a new certificate; Caddy's issuers (Let's Encrypt, then ZeroSSL)
+allow far more than a small team's previews.
+
+## Under systemd instead
+
+The release archive runs `apptownd` as a systemd service on the host.
 You need Docker running, Git, a model-provider account, and AppTown
-binaries.
+binaries. Copy `deploy/systemd/apptownd.service` to `/etc/systemd/system/`
+and `deploy/systemd/apptownd.env.example` to `/etc/apptown/apptownd.env`, set
+`APPTOWN_PUBLIC_HOST` and `APPTOWN_AGENT_IMAGE` there, `systemctl enable --now
+apptownd`, and put a proxy in front of `127.0.0.1:7777` (Your own
+proxy, below).
 
 The release archive for your platform unpacks to `/opt/apptown`. Each
 release on [GitHub](https://github.com/flokkit/apptown/releases) has
@@ -98,7 +123,16 @@ and runs as root itself.
 ## Configure model access
 
 Agents reach models through a private listener on AppTown, separate from
-the web address. Set all three:
+the web address. On one Linux server it needs no settings: AppTown listens
+on Docker's bridge address (docker0) port 7779, which only this machine and
+its containers reach, and allows the networks Docker gives containers here
+(its bridges and its default address pools, less any that hold this
+machine's own LAN). Its start-up log says which address it chose.
+
+Set all three yourself when the defaults do not fit: on a split install,
+when Docker's `daemon.json` sets its own `default-address-pools` or
+`host-gateway-ip`, or when AppTown runs on a Mac. Setting any one of them
+turns the defaults off.
 
 | Environment variable | Meaning |
 | --- | --- |
@@ -106,30 +140,20 @@ the web address. Set all three:
 | `APPTOWN_INFERENCE_URL` | The address containers use to reach it, including the port |
 | `APPTOWN_INFERENCE_NETWORKS` | Comma-separated CIDRs of the addresses those containers arrive from, as AppTown sees them |
 
-The values depend on Docker and host networking. On Linux, inspect the
-bridge with `docker network inspect bridge`; chat and step networks may use
-other subnets. On Docker Desktop, `host.docker.internal` reaches the host,
-but connections may arrive from a shared address. Allow only the networks
-your containers use; a `/0` network is refused. Keep this listener off
-public ingress. Each call also needs a live credential AppTown gave that
-step or chat. Provider keys stay on AppTown. AppTown sets no spending
-limit, so set one with your model provider.
-
-Then start:
-
-```sh
-: "${APPTOWN_INFERENCE_ADDR:?set the private listener address}"
-: "${APPTOWN_INFERENCE_URL:?set the container-reachable origin}"
-: "${APPTOWN_INFERENCE_NETWORKS:?set the allowed container CIDRs}"
-./bin/apptownd -addr 127.0.0.1:7777
-```
+On Linux, `docker network inspect bridge` shows the bridge; chat and step
+networks may use other subnets. On Docker Desktop, `host.docker.internal`
+reaches the host, but connections may arrive from a shared address. Allow
+only the networks your containers use; a `/0` network is refused. Keep this
+listener off public ingress. Each call also needs a live credential AppTown
+gave that step or chat. Provider keys stay on AppTown. AppTown sets no
+spending limit, so set one with your model provider.
 
 AppTown also opens a read-only API for chats on port 7778
 (`-console-addr`). Containers must reach it; it is not the public web
 address. If the start-up log says `inference disabled`, model agents cannot
 run: stop AppTown and fix the three settings. For a look at the web
-interface only, leave them unset and add `-console-addr ''`; that AppTown
-cannot run agents.
+interface only, add `-console-addr ''`; that AppTown cannot run agents
+unless model access is configured.
 
 On a split install the containers that use these listeners are on the
 worker. Bind both listeners to an address the worker can reach and the
@@ -140,7 +164,7 @@ the worker's containers arrive from. The section on addresses in
 
 ## Add a provider and choose sign-in
 
-Open http://localhost:7777. A fresh AppTown asks for an Anthropic or
+Open AppTown's address. A fresh AppTown asks for an Anthropic or
 OpenRouter key. Saving it writes `<data directory>/secrets.env` (mode 0600)
 and selects a default model. Saving a key does not test it: try a short chat
 first. Model choice per job is on the [model providers and
@@ -177,3 +201,25 @@ coding agents' sign-in all use this one address. A bare name
 serves TLS itself or a `-tier-domain` is https, and the guides say "your
 AppTown's address" instead of guessing. Behind a proxy that ends TLS, state
 the origin, or browsers cannot sign in.
+
+## Your own proxy
+
+Behind a proxy you already run instead of the compose file's Caddy, the
+proxy must:
+
+- serve your domain and every name under `preview.` and `main.` of it, over
+  HTTPS, and send them all to AppTown (`127.0.0.1:7777`): AppTown tells
+  apps apart by name;
+- pass the `Host` header unchanged;
+- set `X-Forwarded-For` and `X-Forwarded-Proto: https`;
+- allow WebSocket upgrades and responses that stream for many minutes
+  (agents' chats and logs);
+- if it runs on another machine, be named in `-trusted-proxies`, so AppTown
+  believes its `X-Forwarded-For`.
+
+A wildcard certificate for the two `*.` names needs DNS validation. Without
+one, a proxy that can get certificates on demand can ask AppTown first:
+`GET http://127.0.0.1:7777/tls/ask?domain=<name>` answers 200 for
+AppTown's own names and 404 for any other, and only to a caller on the same
+machine. Keep `/tls/ask` off the public address, as the compose file's
+Caddy does.

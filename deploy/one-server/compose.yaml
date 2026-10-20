@@ -1,0 +1,76 @@
+# AppTown on one Linux server, with HTTPS (Running AppTown, One server).
+#
+#   curl -fsSLO https://apptown.dev/compose.yaml
+#   echo APPTOWN_DOMAIN=apptown.example.com > .env
+#   docker compose up -d
+#
+# Point APPTOWN_DOMAIN, *.preview.APPTOWN_DOMAIN and *.main.APPTOWN_DOMAIN at
+# this server, with ports 80 and 443 open. Caddy gets a certificate for each
+# name the first time it is asked for, once AppTown says the name is one of
+# its own (GET /tls/ask). AppTown runs its agents, previews and apps
+# on this server's Docker and keeps its data in /var/lib/apptown. Any other
+# apptownd setting (apptownd -h) can go in .env as its APPTOWN_ variable.
+#
+# Needs Docker with Compose 2.23 or later, which reads the
+# Caddyfile below from this file (configs.content).
+name: apptown
+
+services:
+  apptown:
+    # Replaced with the released version when apptown.dev publishes this
+    # file; a copy from the repository needs APPTOWN_VERSION in .env.
+    image: ghcr.io/flokkit/apptown:${APPTOWN_VERSION:-@VERSION@}
+    # The host's network and the data folder at the same path inside and
+    # out: AppTown dials the containers it starts at 127.0.0.1 and mounts
+    # its folders into them by path (deploy/apptown-start.sh checks both).
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APPTOWN_ONE_SERVER: "true"
+      APPTOWN_DATA: ${APPTOWN_DATA:-/var/lib/apptown}
+      # Loopback only: Caddy serves the public address.
+      APPTOWN_ADDR: 127.0.0.1:7777
+      APPTOWN_PUBLIC_HOST: https://${APPTOWN_DOMAIN:?set APPTOWN_DOMAIN in .env}
+      APPTOWN_TIER_DOMAIN: preview=https://preview.${APPTOWN_DOMAIN},main=https://main.${APPTOWN_DOMAIN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${APPTOWN_DATA:-/var/lib/apptown}:${APPTOWN_DATA:-/var/lib/apptown}
+    # apptownd stops its own work within its shutdown budget.
+    stop_grace_period: 60s
+
+  caddy:
+    image: caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    network_mode: host
+    restart: unless-stopped
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+configs:
+  caddyfile:
+    # One site for every name: AppTown routes by Host. Certificates come on
+    # demand, per name, because a wildcard certificate would need DNS
+    # validation and a DNS provider's key.
+    content: |
+      {
+      	on_demand_tls {
+      		ask http://127.0.0.1:7777/tls/ask
+      	}
+      }
+
+      https:// {
+      	tls {
+      		on_demand
+      	}
+      	# The certificate question is Caddy's own, asked on loopback.
+      	respond /tls/ask 404
+      	reverse_proxy 127.0.0.1:7777
+      }
+
+volumes:
+  caddy-data:
+  caddy-config:

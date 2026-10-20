@@ -41,6 +41,12 @@ func bindEnv(fs *flag.FlagSet, getenv func(string) string) error {
 	fs.Visit(func(f *flag.Flag) { onCommandLine[f.Name] = true })
 	var err error
 	fs.VisitAll(func(f *flag.Flag) {
+		// -version asks a question; it is not a setting. APPTOWN_VERSION is
+		// the release a person chose (try.sh, the one-server compose file)
+		// and reaches apptownd with the rest of the environment.
+		if f.Name == "version" {
+			return
+		}
 		if err == nil && getenv(oldEnvName(f.Name)) != "" {
 			err = fmt.Errorf("%s is set: settings are named %s now (APPTOWN_ plus the flag's name); rename it", oldEnvName(f.Name), envName(f.Name))
 		}

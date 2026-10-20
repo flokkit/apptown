@@ -3,10 +3,13 @@ package forge
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/netip"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +19,7 @@ import (
 	"flokkit.io/forge/internal/clock"
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/deploy/docker"
+	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/workflow"
 	"flokkit.io/forge/internal/worker"
@@ -80,11 +84,16 @@ type vhostRoute struct {
 // same containers as the preview and main domains together; which project
 // may be served where is vhostRules's to decide.
 func (a *App) vhostContainer(host string) (vhostRoute, bool) {
+	return tierRoute(a.cfg.tierDomains, host)
+}
+
+// tierRoute is vhostContainer's rule over a set of tier domains.
+func tierRoute(tiers map[string]tierDomain, host string) (vhostRoute, bool) {
 	host = hostnameOf(host)
 	preview := func(label string) bool {
 		return docker.IsWorkPreviewLabel(label) || releasePreviewRe.MatchString(label)
 	}
-	if d, ok := a.cfg.tierDomains["eval"]; ok {
+	if d, ok := tiers["eval"]; ok {
 		if label, found := strings.CutSuffix(host, "."+hostnameOf(d.Domain)); found {
 			switch {
 			case preview(label):
@@ -94,12 +103,12 @@ func (a *App) vhostContainer(host string) (vhostRoute, bool) {
 			}
 		}
 	}
-	if d, ok := a.cfg.tierDomains["preview"]; ok {
+	if d, ok := tiers["preview"]; ok {
 		if label, found := strings.CutSuffix(host, "."+hostnameOf(d.Domain)); found && preview(label) {
 			return vhostRoute{container: docker.PreviewLabelName(label), label: label}, true
 		}
 	}
-	if d, ok := a.cfg.tierDomains["main"]; ok {
+	if d, ok := tiers["main"]; ok {
 		if label, found := strings.CutSuffix(host, "."+hostnameOf(d.Domain)); found && slugRe.MatchString(label) {
 			return vhostRoute{container: docker.ContainerName(label, "main"), label: label}, true
 		}
@@ -328,3 +337,79 @@ func (a *App) VHost(next http.Handler) http.Handler {
 // publicScheme: how apps are reached from a browser — the tier domains'
 // scheme (https behind AppTown's TLS edge), else plain http.
 func (a *App) publicScheme() string { return a.cfg.routing().Scheme }
+
+// certificateNames answers a TLS proxy's on-demand certificate question (Caddy's
+// on_demand_tls ask, in the one-server compose file): may it get a
+// certificate for ?domain=? Yes (200) for AppTown's own public host and for
+// a tier-domain name this router would serve; no (404) for anything else.
+// The names it allows are bounded by AppTown's records, so a stranger who
+// sends made-up names through wildcard DNS cannot make the proxy request
+// certificates for them. Only a caller on this machine is answered (403
+// otherwise); that is not the abuse boundary, since the proxy forwards
+// public requests from loopback too: the name rule is. It is served at
+// /tls/ask, outside /api/, so that no sign-in mode answers for it: the
+// proxy has no credential.
+type certificateNames struct {
+	publicHost string
+	tiers      map[string]tierDomain
+	rules      *vhostRules
+	projects   *project.Projects
+	deployment *deployment.Service // its Releases, read when asked
+}
+
+func (c certificateNames) ask(w http.ResponseWriter, r *http.Request) {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err != nil || !isLoopback(host) {
+		writeErr(w, http.StatusForbidden, "only a proxy on this machine may ask")
+		return
+	}
+	ok, err := c.certifiable(r.Context(), r.URL.Query().Get("domain"))
+	switch {
+	case err != nil:
+		writeErr(w, http.StatusServiceUnavailable, "AppTown could not read whether it serves that name")
+	case ok:
+		w.WriteHeader(http.StatusOK)
+	default:
+		writeErr(w, http.StatusNotFound, "AppTown serves nothing at that name")
+	}
+}
+
+func isLoopback(host string) bool {
+	ip, err := netip.ParseAddr(host)
+	return err == nil && ip.Unmap().IsLoopback()
+}
+
+// certifiable: name is AppTown's public host, or a tier-domain name this
+// router serves. A release name (<slug>-release-<n>) must also name a
+// recorded release of that project with its number written canonically:
+// the router serves any number for an existing project, and a certificate
+// for every number would be unbounded.
+func (c certificateNames) certifiable(ctx context.Context, name string) (bool, error) {
+	name = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(name), "."))
+	if name == "" {
+		return false, nil
+	}
+	if name == hostnameOf(c.publicHost) {
+		return true, nil
+	}
+	route, ok := tierRoute(c.tiers, name)
+	if !ok {
+		return false, nil
+	}
+	if releasePreviewRe.MatchString(route.label) {
+		i := strings.LastIndex(route.label, "-release-")
+		slug, digits := route.label[:i], route.label[i+len("-release-"):]
+		n, err := strconv.ParseInt(digits, 10, 64)
+		if err != nil || strconv.FormatInt(n, 10) != digits {
+			return false, nil
+		}
+		p, err := c.projects.BySlug(ctx, slug)
+		if found, err := database.Lookup(err); err != nil || !found {
+			return false, err
+		}
+		_, err = c.deployment.Releases.ByNumber(ctx, p.ID, n)
+		if found, err := database.Lookup(err); err != nil || !found {
+			return false, err
+		}
+	}
+	return c.rules.serves(ctx, route)
+}

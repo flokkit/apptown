@@ -25,6 +25,11 @@
 #     docker run --name apptown --privileged -p 127.0.0.1:7777:7777 \
 #       -v apptown:/var/lib/apptown ghcr.io/flokkit/apptown:<version>
 #
+# - server, as one server: APPTOWN_ONE_SERVER=true, on the host's network
+#   with the host's Docker socket and its data folder at the same path inside
+#   and out; deploy/one-server/compose.yaml starts it that way, with Caddy in
+#   front (Running AppTown, One server).
+#
 # - server, as a server: APPTOWN_NO_LOCAL_DOCKER=true in its environment. A
 #   AppTown with no local Docker: it runs everything on a worker and needs an
 #   external database: APPTOWN_DB_URL, APPTOWN_WORKER_URL and the worker's
@@ -118,6 +123,9 @@ WORKDIR /opt/apptown
 COPY --from=go /out/bin/apptownd /out/bin/apptown /out/bin/apptown-linux bin/
 COPY deploy/apptown-agent/ deploy/apptown-agent/
 COPY deploy/apptown-start.sh bin/
+# The checked database dump a one-server compose install runs before an
+# upgrade (Upgrading), where the release archive has it too.
+COPY scripts/forge-db-backup.sh scripts/
 COPY LICENSE NOTICE ./
 COPY --from=notices /out/THIRD_PARTY_NOTICES ./
 # The trial's agent image is ghcr.io/flokkit/apptown-agent of this version,
@@ -125,9 +133,10 @@ COPY --from=notices /out/THIRD_PARTY_NOTICES ./
 # leaves the file empty and the trial builds apptown-agent instead.
 ARG VERSION=
 RUN v="$VERSION"; echo "${v#v}" > /opt/apptown/agent-tag
-# No APPTOWN_DATA or APPTOWN_NO_LOCAL_DOCKER here: apptown-start.sh sets each
-# mode's defaults, so a server inherits none of the trial's.
-ENV PATH=/opt/apptown/bin:$PATH APPTOWN_ADDR=:7777
+# No APPTOWN_ADDR, APPTOWN_DATA or other setting here: apptown-start.sh sets
+# each mode's defaults, so one mode inherits none of another's (one server
+# listens on loopback only; the trial on every address of its container).
+ENV PATH=/opt/apptown/bin:$PATH
 VOLUME /var/lib/apptown
 EXPOSE 7777
 ENTRYPOINT ["/opt/apptown/bin/apptown-start.sh"]

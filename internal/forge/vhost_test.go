@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/ids"
 	"flokkit.io/forge/internal/worker"
@@ -337,5 +339,57 @@ func TestARequestToAPreviewIsALook(t *testing.T) {
 	a.Preview.Tend(context.Background(), false)
 	if got := f.matching("rm -f -v "); !slices.Equal(got, []string{"rm -f -v " + unseen}) {
 		t.Fatalf("stopped %v, want only the preview nobody looked at", got)
+	}
+}
+
+// A TLS proxy on this machine asks before getting a certificate (Caddy's
+// on-demand TLS in the one-server compose file). AppTown says yes only to
+// names its records bound: its own host, a change's preview, a project's
+// main deployment and a recorded release's preview. Made-up names, such as
+// any release number for an existing project, get no. The proxy has no
+// credential, so the question is answered under every sign-in mode
+// (internal here, the one the compose file uses).
+func TestTLSAskAllowsOnlyNamesAppTownsRecordsBound(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{AuthMode: "internal", PublicHost: "https://apptown.example.com", TierDomains: []string{"preview=preview.example.com", "main=main.example.com"}})
+	shop := engineProject(t, a, "shop")
+	engineProject(t, a, "empty")
+	ch := engineChange(t, a, shop)
+	if _, err := a.Deployment.Releases.Start(t.Context(), deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: shop.ID, Deployment: "main", Revision: "first", Actor: "bls"}, "a release to look at"); err != nil {
+		t.Fatal(err)
+	}
+	h := a.Handler()
+	ask := func(name, from string) int {
+		req := httptest.NewRequest("GET", "/tls/ask?domain="+url.QueryEscape(name), nil)
+		req.RemoteAddr = from
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		return w.Code
+	}
+	for name, want := range map[string]int{
+		"apptown.example.com":                                             200,
+		"APPTOWN.example.com.":                                            200,
+		fmt.Sprintf("change-%s.preview.example.com", ch.ID):               200,
+		"shop.main.example.com":                                           200,
+		"shop-release-1.preview.example.com":                              200,
+		"shop-release-2.preview.example.com":                              404, // no such release
+		"shop-release-01.preview.example.com":                             404, // not how release 1 is written
+		"shop-release-99999999999999999999.preview.example.com":           404,
+		"empty-release-1.preview.example.com":                             404, // a project with no releases
+		"shop-release-7.main.example.com":                                 404,
+		"nobody.main.example.com":                                         404,
+		"change-00000006-7932-7000-8000-000000000000.preview.example.com": 404,
+		"anything.example.com":                                            404,
+		"":                                                                404,
+	} {
+		if got := ask(name, "127.0.0.1:41234"); got != want {
+			t.Errorf("ask %q: %d, want %d", name, got, want)
+		}
+	}
+	if got := ask("apptown.example.com", "[::1]:41234"); got != 200 {
+		t.Errorf("IPv6 loopback: %d", got)
+	}
+	if got := ask("apptown.example.com", "203.0.113.9:41234"); got != 403 {
+		t.Errorf("a caller off this machine: %d, want 403", got)
 	}
 }

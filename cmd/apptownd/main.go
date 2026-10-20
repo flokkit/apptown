@@ -185,6 +185,9 @@ func main() {
 	} else if o.consoleURL != "" {
 		log.Fatal("-console-url needs a console listener (-console-addr)")
 	}
+	if line := defaultModelAccess(o, machineInterfaces()); line != "" {
+		log.Print(line)
+	}
 	if o.inferenceAddr != "" {
 		cfg.InferenceURL = o.inferenceURL
 		cfg.InferenceNetworks = strings.Split(o.inferenceNetworks, ",")

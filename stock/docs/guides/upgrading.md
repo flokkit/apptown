@@ -8,13 +8,23 @@
    report its operations, `apptown executing` says so and fails: look at
    AppTown's operations yourself, then upgrade without asking.
 2. **Stop AppTown, then copy it, and stop if a copy fails.** Stop
-   `apptownd` (leave `forge-db` running), so nobody writes between the two
+   `apptownd` (`docker compose stop apptown` on a one-server compose
+   install; leave `forge-db` running), so nobody writes between the two
    copies and they describe one moment. Take the database dump with the
    checked backup script, in `/opt/apptown/scripts` (the nightly dump may
    be a day old):
 
    ```sh
    bash /opt/apptown/scripts/forge-db-backup.sh forge-db postgres forge <directory> pre-upgrade
+   ```
+
+   On a one-server compose install the script is in the image; run it from
+   the folder holding `compose.yaml`, with a directory under the data
+   folder:
+
+   ```sh
+   docker compose run --rm --no-deps --entrypoint bash apptown \
+     /opt/apptown/scripts/forge-db-backup.sh forge-db postgres forge /var/lib/apptown/backups pre-upgrade
    ```
 
    It refuses, and leaves no file, unless `pg_dump` and `gzip` both
@@ -27,7 +37,10 @@
    ```sh
    tar -C <data directory> --exclude=./pgdata --exclude=./cache -czf <directory>/forge-data-pre-upgrade.tar.gz .
    ```
-3. **Replace the binaries and start.** Unpack the new release over
+3. **Replace the binaries and start.** On a one-server compose install,
+   set `APPTOWN_VERSION` in `.env` to the new version (or download the new
+   `compose.yaml`), then `docker compose pull && docker compose up -d`: the
+   image brings its own agent image's name. Otherwise, unpack the new release over
    `/opt/apptown` ([downloading a release](/docs/guides/server-setup)) and set `APPTOWN_AGENT_IMAGE` to the new release's agent
    image (`ghcr.io/flokkit/apptown-agent:<version>`); AppTown pulls it when
    it starts. Workers build their own agent image from the recipe in the

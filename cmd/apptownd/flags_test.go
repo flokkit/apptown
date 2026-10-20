@@ -94,6 +94,22 @@ func TestAnOldSettingNameStopsTheDaemon(t *testing.T) {
 	}
 }
 
+// APPTOWN_VERSION names a release for try.sh and the one-server compose
+// file, and so reaches apptownd's environment: it neither stops apptownd
+// nor makes it print its version and exit.
+func TestTheVersionVariableIsNotASetting(t *testing.T) {
+	t.Parallel()
+	fs := flag.NewFlagSet("apptownd", flag.ContinueOnError)
+	_, showVersion := parseDaemonFlags(fs, nil)
+	env := map[string]string{"APPTOWN_VERSION": "1.0.0"}
+	if err := bindEnv(fs, func(k string) string { return env[k] }); err != nil {
+		t.Fatal(err)
+	}
+	if showVersion || fs.Lookup("version").Value.String() != "false" {
+		t.Fatalf("APPTOWN_VERSION set -version")
+	}
+}
+
 // The API servers cut off a client that sends its headers slowly or keeps
 // an idle connection, without a read or write timeout that would cut off a
 // long upload or a chat's terminal.

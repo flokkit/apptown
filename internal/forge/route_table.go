@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	"net/http"
 
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/gate"
@@ -307,6 +308,9 @@ func appRoutes(a *App) []routeSpec {
 		ownerRoute("GET /api/v1/conformance/reviews/{id}", byNumber(func(ctx context.Context, n int64) (ids.ID, error) { return a.conformance.ReviewIDByNumber(ctx, n) }, conformance.ReviewDetail), "conformance.ReviewDetail"),
 		ownerRoute("GET /api/v1/conformance/reviews", conformance.ListReviews, "conformance.ListReviews"),
 		adminRoute("POST /api/v1/conformance/history/clear", conformanceMaintenance.ClearConformanceHistory),
+		publicRoute("GET /tls/ask", func(w http.ResponseWriter, r *http.Request) {
+			certificateNames{publicHost: a.cfg.publicHost, tiers: a.cfg.tierDomains, rules: a.vhostRules, projects: a.Projects, deployment: a.Deployment}.ask(w, r)
+		}, "certificateNames.ask: a TLS proxy on this machine asks whether a name may have a certificate; answers loopback callers only, names bounded by AppTown's records; outside /api/ so no sign-in mode stands in front of it, as /healthz"),
 		publicRoute("GET /healthz", health.Healthz, "httpapi.Health: up or down for a load balancer, nothing else"),
 		publicRoute("GET /api/v1/features", features.List, "features.List: shared instance feature flags"),
 		publicRoute("GET /api/v1/errors/browser", browserErrors.BrowserErrors, "browserErrors.BrowserErrors: shared browser diagnostic configuration"),
