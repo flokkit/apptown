@@ -45,7 +45,7 @@ func TestIntegrationReaperRetainsActiveExecution(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 	daemon := docker.Scope{Client: docker.CLI{}}
-	args := []string{"run", "-d", "--entrypoint", "/bin/sh", "--label", label, "--label", "forge.class=step", "--label", fmt.Sprintf("forge.owner=forge-step-%d-smoke", step.ID), "--label", "forge.created=" + time.Now().Add(-3*time.Hour).UTC().Format(time.RFC3339), "forge-agent", "-c", "sleep 300"}
+	args := []string{"run", "-d", "--entrypoint", "/bin/sh", "--label", label, "--label", "forge.class=step", "--label", fmt.Sprintf("forge.owner=forge-step-%d-smoke", step.ID), "--label", "forge.created=" + time.Now().Add(-3*time.Hour).UTC().Format(time.RFC3339), "apptown-agent", "-c", "sleep 300"}
 	output, err := daemon.Command(ctx, docker.Command{Args: args})
 	if err != nil {
 		t.Fatalf("start smoke container: %s: %v", output, err)
@@ -117,7 +117,7 @@ func TestIntegrationCompletedRunResourceCleanup(t *testing.T) {
 			_, _ = daemon.Command(cleanup, docker.Command{Args: []string{"rm", "-f", name}})
 			_, _ = daemon.Command(cleanup, docker.Command{Args: []string{"volume", "rm", volume}})
 		})
-		if out, err := daemon.Command(ctx, docker.Command{Args: []string{"run", "-d", "--name", name, "--entrypoint", "/bin/sh", "-v", volume + ":/data", "forge-agent", "-c", "sleep 300"}}); err != nil {
+		if out, err := daemon.Command(ctx, docker.Command{Args: []string{"run", "-d", "--name", name, "--entrypoint", "/bin/sh", "-v", volume + ":/data", "apptown-agent", "-c", "sleep 300"}}); err != nil {
 			t.Fatalf("start resource: %s %v", out, err)
 		}
 	}

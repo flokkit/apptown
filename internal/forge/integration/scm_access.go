@@ -119,7 +119,7 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 	// Once asked, the mint is answered though ctx has ended: GitLab makes the
 	// token either way, and AppTown must hear which.
 	if err := gl.Do(context.WithoutCancel(ctx), "POST", fmt.Sprintf("/projects/%d/access_tokens", proj.ID), map[string]any{
-		"name":         "forge-agent-" + profile,
+		"name":         "apptown-agent-" + profile,
 		"scopes":       prof.Scopes,
 		"access_level": prof.AccessLevel,
 		"expires_at":   expires.Format(time.DateOnly),

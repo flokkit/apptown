@@ -93,7 +93,7 @@ func Seeds(cfg SeedConfig) []Seed {
 		// see them.
 		mk("portainer-deploy", CapDeploy, "portainer", map[string]any{
 			"urlFrom": "PORTAINER_URL", "apiKeyFrom": "PORTAINER_API_KEY",
-			"appsDomainFrom": "FORGE_APPS_DOMAIN", "environment": cfg.PortainerEnvironment,
+			"appsDomainFrom": "APPTOWN_APPS_DOMAIN", "environment": cfg.PortainerEnvironment,
 			// releaseDeployment: the tier name release rows carry and the
 			// DEFAULT target of the big Release button (the button's face is
 			// the default; other targets live behind the chevron).

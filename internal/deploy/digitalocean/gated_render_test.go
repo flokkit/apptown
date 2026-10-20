@@ -168,7 +168,7 @@ func TestGatedRenderRefusesWhatItCannotGate(t *testing.T) {
 // given.
 func TestGateImageIsReadWithItsOwnCredential(t *testing.T) {
 	t.Parallel()
-	given := oci.Credential{Username: "forge", Password: "gate-reader"}
+	given := oci.Credential{Username: "apptown", Password: "gate-reader"}
 	d, copied := gatedDriver(t, func(ref string) oci.Credential {
 		if ref == gateRef {
 			return given

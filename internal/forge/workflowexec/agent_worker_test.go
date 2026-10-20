@@ -56,7 +56,7 @@ const (
 	evilFolderSteering   = "folder-steering-canary" // what a .apptown link in the folder would offer
 	workerSubagents      = "worker-subagents-1.2"
 	hostSubagents        = "host-subagents-9.9"
-	workerAgentImageName = "forge-agent-worker:sha256-abc"
+	workerAgentImageName = "apptown-agent-worker:sha256-abc"
 )
 
 // agentWorkerDriver is a worker whose only permitted call is its agent
@@ -274,11 +274,11 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 		Tokens:       tokens,
 		Progress:     &progress.Feeds{},
 		Docker:       scope,
-		Home:         piharness.NewPreparer(gatewayModels{}, model.NewSelection(model.New(db), "fake/model"), agentExtensions(extensions), scope, "forge-agent"),
+		Home:         piharness.NewPreparer(gatewayModels{}, model.NewSelection(model.New(db), "fake/model"), agentExtensions(extensions), scope, "apptown-agent"),
 		CLI:          fileCLI(cli),
 		Ledger:       usage.New(db),
 		Worker:       &AgentWorker{Tasks: &TaskRunner{Driver: worker, Profile: TaskProfile{Name: "worker", Network: execution.NetworkDefault}}},
-	}, Config{DataDir: dir, Image: "forge-agent", Backend: execution.Docker, APIURL: "http://forge.test:7700", PrivateDockerOnWorker: true})
+	}, Config{DataDir: dir, Image: "apptown-agent", Backend: execution.Docker, APIURL: "http://forge.test:7700", PrivateDockerOnWorker: true})
 
 	cfg := map[string]any{"prompt": "Implement the change.", "resources": []string{"res/notes"}, "output": map[string]any{"file": ".apptown/REPORT.md"}, "timeoutMinutes": 20}
 	for k, v := range config {
@@ -679,7 +679,7 @@ func TestAWorkerImageWithoutWhatIsPromisedRefusesTheStep(t *testing.T) {
 	}
 	// Extensions that cannot be read are not "none enabled".
 	f = agentOnWorkerFixture(t, nil)
-	f.exec.home = piharness.NewPreparer(gatewayModels{}, f.exec.modelSelection, unreadableExtensions{}, f.exec.docker, "forge-agent")
+	f.exec.home = piharness.NewPreparer(gatewayModels{}, f.exec.modelSelection, unreadableExtensions{}, f.exec.docker, "apptown-agent")
 	if _, err := f.exec.prepareAgentOnWorker(context.Background(), f.call); err == nil || !strings.Contains(err.Error(), "reading the project's extensions") {
 		t.Fatalf("unreadable extensions: %v", err)
 	}

@@ -126,7 +126,7 @@ func startTaskForge(t *testing.T, db *database.DB, dir, image string, definition
 				return execution.Outcome{Termination: execution.LaunchFailed, ExitCode: -1, RunErr: errors.New("no check executor in this test")}
 			}
 			return f.checks(req)
-		}, Image: "forge-agent:test"},
+		}, Image: "apptown-agent:test"},
 	}, CommandConfig{DataDir: dir, Image: image})
 	f.agents = f.agentExecutor(t)
 	f.work = workflow.New(context.Background(), db, workflow.Dependencies{
@@ -279,7 +279,7 @@ func newTaskForge(t *testing.T, name string, spec schema.Spec) (*taskForge, *exe
 	if err := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)}).SeedAdministrator(context.Background(), taskForgeAdministrator); err != nil {
 		t.Fatal(err)
 	}
-	f := startTaskForge(t, db, dir, "forge-agent", map[string]schema.Spec{name: spec})
+	f := startTaskForge(t, db, dir, "apptown-agent", map[string]schema.Spec{name: spec})
 	const slug = "fake-tasks"
 	projectID, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
 		id, err := project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: slug, Name: "Fake Tasks"})

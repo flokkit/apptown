@@ -32,7 +32,7 @@ func testsExecutor(t *testing.T, a *App, run func(execution.Request) execution.O
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		commands := workflowexec.NewCommands(a.DB, workflowexec.CommandDependencies{
 			Runner: a.processRunner, Progress: &a.progress, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
-			Checks: workflowexec.CompileCheck{Run: func(_ context.Context, req execution.Request) execution.Outcome { return run(req) }, Image: "forge-agent:test"}, Catalog: a.Dependencies,
+			Checks: workflowexec.CompileCheck{Run: func(_ context.Context, req execution.Request) execution.Outcome { return run(req) }, Image: "apptown-agent:test"}, Catalog: a.Dependencies,
 		}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage})
 		deps.Runners[workflowexec.TestsKind] = commands.RunTests
 	})

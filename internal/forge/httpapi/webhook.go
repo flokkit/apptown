@@ -36,11 +36,17 @@ func NewWebhook(projects *project.Projects, secrets *secret.Service, lifecycle *
 }
 
 // Webhook: POST /api/v1/hooks/{slug}/{workflow}. Requires the workflow
-// to declare `on: webhook` and the caller to present FORGE_WEBHOOK_TOKEN.
+// to declare `on: webhook` and the caller to present APPTOWN_WEBHOOK_TOKEN.
 func (h Webhook) Webhook(w http.ResponseWriter, r *http.Request) {
-	expected := h.secrets.Value(r.Context(), "FORGE_WEBHOOK_TOKEN")
+	expected := h.secrets.Value(r.Context(), "APPTOWN_WEBHOOK_TOKEN")
 	if expected == "" {
-		WriteError(w, 403, "webhooks disabled: set FORGE_WEBHOOK_TOKEN in %s/secrets.env", h.dataDir)
+		// The name before the AppTown rename is refused by name, not
+		// ignored: an operator who kept it sees what to rename.
+		if h.secrets.Value(r.Context(), "FORGE_WEBHOOK_TOKEN") != "" {
+			WriteError(w, 403, "webhooks disabled: FORGE_WEBHOOK_TOKEN is the name from before the AppTown rename; rename it to APPTOWN_WEBHOOK_TOKEN in %s/secrets.env or the secrets store", h.dataDir)
+			return
+		}
+		WriteError(w, 403, "webhooks disabled: set APPTOWN_WEBHOOK_TOKEN in %s/secrets.env", h.dataDir)
 		return
 	}
 	// The token travels in a header only: a query string lands in proxy

@@ -1,9 +1,9 @@
 # The pinned subagent runtime for the delegated-usage integration test
-# (TestIntegrationDelegatedUsageOnTheWorker): forge-agent's own Pi layer, with
+# (TestIntegrationDelegatedUsageOnTheWorker): apptown-agent's own Pi layer, with
 # exactly the pi-subagents lines of deploy/apptown-agent/Dockerfile added, for a
-# machine whose forge-agent was built before that extension was baked.
-# Build: docker build -t forge-agent:s5-subagents-test -f internal/forge/testdata/subagents.Dockerfile internal/forge/testdata
-FROM forge-agent:latest
+# machine whose apptown-agent was built before that extension was baked.
+# Build: docker build -t apptown-agent:s5-subagents-test -f internal/forge/testdata/subagents.Dockerfile internal/forge/testdata
+FROM apptown-agent:latest
 ARG PI_SUBAGENTS_VERSION=0.61.0
 RUN HOME=/opt/pi-baked pi install npm:pi-subagents@${PI_SUBAGENTS_VERSION}
 RUN f=/opt/pi-baked/.pi/agent/npm/node_modules/pi-subagents/src/runs/shared/model-fallback.ts && \

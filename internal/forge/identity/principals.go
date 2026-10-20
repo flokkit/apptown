@@ -108,8 +108,24 @@ func ShowActorsIn(ctx context.Context, q database.Queryer, actors []access.Actor
 	out := make([]string, len(actors))
 	for i, a := range actors {
 		out[i] = a.Shown(people[a.Principal], SystemActor)
+		if a.Principal.IsZero() && ownName(a.Name) {
+			out[i] = "AppTown"
+		}
 	}
 	return out, nil
+}
+
+// ownName reports whether a system actor name is AppTown itself (its engine,
+// triggers, bindings and commit author, under its names before and after the
+// AppTown rename), which history shows as "AppTown". The recorded name is
+// kept: it is an identifier in authority and audit records. A run's identity
+// is a system actor too, but not AppTown's own name, and reads as written.
+func ownName(name string) bool {
+	switch name {
+	case "system", "apptown-system", "apptown", "forge-system", "forge":
+		return true
+	}
+	return false
 }
 
 // PersonNameIn is the account name of the person, today; "" for a principal

@@ -424,7 +424,7 @@ func (w *releaseWorker) ImageFile(ctx context.Context, ref execution.TaskRef, im
 }
 
 func (w *releaseWorker) AgentImage(context.Context) (execution.AgentImage, error) {
-	return execution.AgentImage{Name: "forge-agent:fixture"}, nil
+	return execution.AgentImage{Name: "apptown-agent:fixture"}, nil
 }
 
 func (w *releaseWorker) Profile(context.Context) (execution.WorkerProfile, error) {
@@ -1400,7 +1400,7 @@ type promotionTargets struct {
 
 func newPromotionTargets(t *testing.T, configure func(*Config)) *promotionTargets {
 	t.Helper()
-	p := &promotionTargets{do: &dofake.API{}, docr: newRegistry(t, "forge", doToken)}
+	p := &promotionTargets{do: &dofake.API{}, docr: newRegistry(t, "apptown", doToken)}
 	p.do.ServeFrontDoor(false)
 	amd64 := `{"Os":"linux","Arch":"amd64"}`
 	p.platform.Store(&amd64)
@@ -1437,7 +1437,7 @@ func newPromotionTargets(t *testing.T, configure func(*Config)) *promotionTarget
 		}
 	})
 	a := p.a
-	secrets := fmt.Sprintf("DIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nFORGE_APPS_DOMAIN=apps.example\n", doToken, portainer.URL)
+	secrets := fmt.Sprintf("DIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nAPPTOWN_APPS_DOMAIN=apps.example\n", doToken, portainer.URL)
 	f, err := os.OpenFile(filepath.Join(a.cfg.dataDir, "secrets.env"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		t.Fatal(err)

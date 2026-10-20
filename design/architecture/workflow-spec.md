@@ -47,7 +47,7 @@ spec:
     model: ...             # agent/pi: "provider/model", resolved through slots × profiles
     thinking: low          # agent/pi thinking level
     executor: docker       # local | docker
-    image: forge-agent     # docker executor image
+    image: apptown-agent     # docker executor image
   stages: [...]            # ordered (§2.4)
 ```
 

@@ -82,7 +82,7 @@ func agentTestApp(t *testing.T, configs ...Config) *App {
 		cfg = configs[0]
 	}
 	cfg.AgentExecutor = ExecutorLocal
-	cfg.AgentImage = "forge-agent"
+	cfg.AgentImage = "apptown-agent"
 	if cfg.ConsoleCLI == "" {
 		cfg.ConsoleCLI = fixtureCLI(t)
 	}

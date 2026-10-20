@@ -38,7 +38,7 @@ func main() {
 		workspace = flag.String("workspace", ".", "the directory the agent works in (mounted at /work, read-only unless -write)")
 		write     = flag.Bool("write", false, "mount the workspace writable")
 		model     = flag.String("model", "", "the model, as pi names it (e.g. anthropic/claude-sonnet-5)")
-		image     = flag.String("image", "forge-agent", "the agent image")
+		image     = flag.String("image", "apptown-agent", "the agent image")
 		data      = flag.String("data", filepath.Join(os.Getenv("HOME"), ".apptown-console"), "where sessions live")
 		steering  = flag.String("steering", "", "a file whose text steers the agent; default: a plain sentence")
 		docker    = flag.Bool("docker", false, "give the agent a private Docker daemon")

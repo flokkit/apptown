@@ -79,7 +79,7 @@ trusting a pass; the other two fail without their prerequisites.
   provider. Needs `APPTOWN_PI_MODULE`, that Pi package's directory. Under 1 s.
 - `inference_docker` (`go test -tags=inference_docker ./internal/console/pi/
   -run TestInferenceConsoleMountBoundary -v`): a chat's
-  mounts in the `forge-agent` image are read-only where they must be.
+  mounts in the `apptown-agent` image are read-only where they must be.
   Needs Docker and that image. About 1 s.
 
 **Web** — `make check-web`: `tsc --noEmit` and the Vite build; `vitest` for

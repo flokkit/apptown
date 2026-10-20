@@ -62,3 +62,56 @@ func mustJSON(v any) string {
 	}
 	return text
 }
+
+// db.env holds the only copy of the built-in database's password. One
+// written before the AppTown rename (FORGE_DB_PASSWORD) is read with the same
+// URL and password and rewritten once as APPTOWN_DB_PASSWORD at 0600; an
+// incomplete or unreadable file stops with its path and is never replaced by
+// new credentials; an absent one is minted under the new name.
+func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "db.env")
+	old := "# kept comment\nAPPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nFORGE_DB_PASSWORD=pw\n"
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		url, pw, err := builtinDBCredentials(dir)
+		if err != nil || pw != "pw" || url != "postgres://postgres:pw@127.0.0.1:5433/forge" {
+			t.Fatalf("reading the old file: %q %q %v", url, pw, err)
+		}
+		raw, _ := os.ReadFile(path)
+		info, _ := os.Stat(path)
+		if string(raw) != "# kept comment\nAPPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nAPPTOWN_DB_PASSWORD=pw\n" || info.Mode().Perm() != 0o600 {
+			t.Fatalf("rewritten as %q, mode %v", raw, info.Mode().Perm())
+		}
+	}
+
+	incomplete := t.TempDir()
+	if err := os.WriteFile(filepath.Join(incomplete, "db.env"), []byte("APPTOWN_DB_URL=postgres://x\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := builtinDBCredentials(incomplete); err == nil || !strings.Contains(err.Error(), "db.env is present but incomplete") {
+		t.Fatalf("an incomplete file: %v", err)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(incomplete, "db.env")); string(raw) != "APPTOWN_DB_URL=postgres://x\n" {
+		t.Fatalf("an incomplete file was replaced: %q", raw)
+	}
+
+	unreadable := t.TempDir()
+	if err := os.Mkdir(filepath.Join(unreadable, "db.env"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := builtinDBCredentials(unreadable); err == nil || !strings.Contains(err.Error(), "reading ") {
+		t.Fatalf("an unreadable db.env was taken for an absent one: %v", err)
+	}
+
+	fresh := t.TempDir()
+	if _, pw, err := builtinDBCredentials(fresh); err != nil || pw == "" {
+		t.Fatalf("minting: %v", err)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(fresh, "db.env")); !strings.Contains(string(raw), "\nAPPTOWN_DB_PASSWORD=") || strings.Contains(string(raw), "FORGE_") {
+		t.Fatalf("minted as %q", raw)
+	}
+}

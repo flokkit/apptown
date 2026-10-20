@@ -244,7 +244,7 @@ func newWorkerStepWorld(t *testing.T, step schema.Step, files map[string]string,
 	// Before the worker can make any: a test that fails leaves none running.
 	removePrivateDockerOf(t, server)
 	srv := workertest.StartServerWith(t, ca, server, w.wrap)
-	w.cfg = Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "forge-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL), PrivateDocker: true}
+	w.cfg = Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL), PrivateDocker: true}
 	w.a = testApp(t, w.cfg)
 	w.a.tasks.Poll, w.a.tasks.Patience = 100*time.Millisecond, 2*time.Second
 	run, steps := agentWorkerChange(t, w.a, []schema.Step{step}, files)

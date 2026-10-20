@@ -93,7 +93,7 @@ func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testi
 	// behind a handler that is set once it exists.
 	var api http.Handler
 	apiURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(w, r) }))
-	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "forge-agent",
+	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent",
 		ConsoleCLI: linuxForgeCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
 	api = a.Handler()
 	a.tasks.Poll = 100 * time.Millisecond
@@ -141,7 +141,7 @@ func TestIntegrationForgeCheckOnTheWorkerChecksTheAgentsCommitAsFeedback(t *test
 		AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var api http.Handler
 	apiURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(w, r) }))
-	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "forge-agent",
+	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent",
 		ConsoleCLI: linuxForgeCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
 	api = GETOnly(a.Handler()) // the agent's $APPTOWN_URL is the read-only listener
 	a.tasks.Poll = 100 * time.Millisecond
@@ -192,7 +192,7 @@ say "checked my work"`})
 func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T) {
 	t.Parallel()
 	requireDocker(t)
-	const runtimeImage = "forge-agent:latest"
+	const runtimeImage = "apptown-agent:latest"
 	if dockertest.Run("image", "inspect", runtimeImage) != nil {
 		t.Skipf("pending: the packaged Pi runtime (%s) is not on this machine's Docker; it is not pulled here", runtimeImage)
 	}
@@ -212,7 +212,7 @@ func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T)
 		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
-	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "forge-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
+	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
 		InferenceURL: gatewayURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}}
 	a := testApp(t, cfg)
 	gateway = a.InferenceHandler()
@@ -269,7 +269,7 @@ func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T)
 func TestIntegrationThePackagedPiRuntimeResumesOnlyTheNamedTranscript(t *testing.T) {
 	t.Parallel()
 	requireDocker(t)
-	const runtimeImage = "forge-agent:latest"
+	const runtimeImage = "apptown-agent:latest"
 	if dockertest.Run("image", "inspect", runtimeImage) != nil {
 		t.Skipf("pending: the packaged Pi runtime (%s) is not on this machine's Docker; it is not pulled here", runtimeImage)
 	}
@@ -320,7 +320,7 @@ func TestIntegrationThePackagedPiRuntimeResumesOnlyTheNamedTranscript(t *testing
 		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
-	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "forge-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
+	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
 		InferenceURL: gatewayURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}}
 	a := testApp(t, cfg)
 	gateway = a.InferenceHandler()

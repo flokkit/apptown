@@ -19,6 +19,7 @@ const resourceWord = (r: Resource) => {
 }
 import { relTime } from '../../format'
 import type { InfrastructureTargets, RegistryReading, TargetChecked, TargetPage } from '../../wire.gen'
+import { shownActor } from '../../systemActors'
 
 // One deploy target (design/subsystems/deployment.md §2.2): what it is, what
 // is bound to it, whether it answers right now, and the doors an
@@ -189,7 +190,7 @@ export function TargetPage() {
             <div className="small" style={{ background: 'var(--code-bg)', borderRadius: 8, padding: '8px 12px' }}>
               {data.history.map((e, i) => (
                 <div key={i}>
-                  <span className="muted">{new Date(e.at).toLocaleString()}</span> · {EVENT_WORDS[e.kind] ?? e.kind} by {e.actor}
+                  <span className="muted">{new Date(e.at).toLocaleString()}</span> · {EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}
                   {e.kind === 'target.checked' && <> — {(e.payload as Record<string, unknown>).ok ? '✓' : '✗'} {String((e.payload as Record<string, unknown>).detail ?? '')}</>}
                   {e.kind === 'target.offered' && <> — to {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
                   {e.kind === 'target.offer-withdrawn' && <> — from {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}

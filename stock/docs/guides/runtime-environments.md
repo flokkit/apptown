@@ -76,7 +76,7 @@ typed each message; the record does.
 
 ## Tools and project toolchains
 
-The standard `forge-agent` image contains these tool families:
+The standard `apptown-agent` image contains these tool families:
 
 | Purpose | Included tools |
 |---|---|

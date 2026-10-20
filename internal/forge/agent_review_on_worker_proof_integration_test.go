@@ -40,7 +40,7 @@ import (
 // The composed proof of agent and review steps on a worker. What is real and what is controlled:
 //   - real: apptown-worker's server in this process, over mutual TLS, running
 //     its tasks on this machine's Docker in the packaged Pi runtime
-//     (forge-agent:latest); AppTown CLI built for Linux, as packaging
+//     (apptown-agent:latest); AppTown CLI built for Linux, as packaging
 //     does; AppTown's inference gateway and API, reached from inside the
 //     task over the network, each checking the attempt's derived token; a
 //     AppTown restart (a new App on the same database and data directory);
@@ -65,7 +65,7 @@ import (
 func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) {
 	t.Parallel()
 	requireDocker(t)
-	const runtimeImage = "forge-agent:latest"
+	const runtimeImage = "apptown-agent:latest"
 	if dockertest.Run("image", "inspect", runtimeImage) != nil {
 		t.Skipf("pending: the packaged Pi runtime (%s) is not on this machine's Docker; it is not pulled here", runtimeImage)
 	}
@@ -205,7 +205,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	ca := workertest.NewCA(t)
 	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{Namespace: namespace},
 		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
-	cfg := Config{DataDir: t.TempDir(), AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "forge-agent",
+	cfg := Config{DataDir: t.TempDir(), AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent",
 		ConsoleCLI: linuxForgeCLI(t), Worker: workerClientConfig(t, ca, srv.URL), DockerClient: local,
 		ProcessRunner: execution.Runner{DockerBinary: localBinary},
 		InferenceURL:  gatewayURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}}

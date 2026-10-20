@@ -54,7 +54,7 @@ func TestIntegrationAgentEnvironmentConsoleLaunch(t *testing.T) {
 	}
 	defer listener.Close()
 	runtimeURL := fmt.Sprintf("http://host.docker.internal:%d", listener.Addr().(*net.TCPAddr).Port)
-	a := testApp(t, Config{ConsoleCLI: cli, AgentImage: "forge-agent", InferenceURL: runtimeURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}})
+	a := testApp(t, Config{ConsoleCLI: cli, AgentImage: "apptown-agent", InferenceURL: runtimeURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}})
 	proxy := &http.Server{Handler: a.InferenceHandler(), ReadHeaderTimeout: 5 * time.Second}
 	go proxy.Serve(listener)
 	defer proxy.Close()
@@ -170,7 +170,7 @@ func TestIntegrationWorkflowAgentExecution(t *testing.T) {
 	}
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
-	a := testApp(t, Config{AgentImage: "forge-agent", AgentExecutor: ExecutorDocker, InferenceURL: fmt.Sprintf("http://host.docker.internal:%d", port), InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}})
+	a := testApp(t, Config{AgentImage: "apptown-agent", AgentExecutor: ExecutorDocker, InferenceURL: fmt.Sprintf("http://host.docker.internal:%d", port), InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}})
 	proxy := &http.Server{Handler: a.InferenceHandler(), ReadHeaderTimeout: 5 * time.Second}
 	go proxy.Serve(listener)
 	defer proxy.Close()

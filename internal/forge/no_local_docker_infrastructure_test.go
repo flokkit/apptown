@@ -77,7 +77,7 @@ func infrastructureModeAppWith(t *testing.T, client docker.Client) *App {
 		return nil, nil, true
 	})
 	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(),
-		AgentImage: "forge-agent:fixture", ImageLabels: agentLabels{piharness.SubagentsLabel: "1.0.0"},
+		AgentImage: "apptown-agent:fixture", ImageLabels: agentLabels{piharness.SubagentsLabel: "1.0.0"},
 		Checks: execution.Runner{DockerBinary: workerCheckDocker(t, filepath.Join(t.TempDir(), "calls"))}, Previews: previews})
 	a := authzFixture(t, Config{NoLocalDocker: true, ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
 		PublicHost: "forge.example.test", TierDomains: []string{"main=main.example.test"}, DockerClient: client})
@@ -103,7 +103,7 @@ func TestInTheNoLocalDockerModeMaintenanceAndHealthAskNoLocalDocker(t *testing.T
 		t.Fatal(err)
 	}
 	health := connectorHealthFor(a)
-	if h := health.Health(t.Context(), integration.CapExecutor, "docker", nil); !h.OK || !strings.Contains(h.Detail, "worker · image forge-agent:fixture") {
+	if h := health.Health(t.Context(), integration.CapExecutor, "docker", nil); !h.OK || !strings.Contains(h.Detail, "worker · image apptown-agent:fixture") {
 		t.Fatalf("executor health: %+v", h)
 	}
 	if h := health.Health(t.Context(), integration.CapDeploy, "docker", nil); h.OK || !strings.HasPrefix(h.Detail, "this AppTown has no Docker of its own") {

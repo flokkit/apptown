@@ -75,7 +75,7 @@ func TestReapImageDecision(t *testing.T) {
 		{"forge-conform:abc123", now.Add(-2 * conformImageTTL), true},
 		{"forge-conform:abc123", now, false},
 		{"forge-preview-build-forge-env-quick-poll-main:latest", now.Add(-72 * time.Hour), false},
-		{"forge-agent:latest", now.Add(-72 * time.Hour), false},
+		{"apptown-agent:latest", now.Add(-72 * time.Hour), false},
 		{"postgres:16-alpine", now.Add(-720 * time.Hour), false},
 	}
 	for _, c := range cases {

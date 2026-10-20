@@ -63,7 +63,7 @@ func newJourney(t *testing.T, configs ...Config) *jHarness {
 	if err := execfile.Write(filepath.Join(bin, "pi"), src, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(bin, "Dockerfile"), []byte("FROM forge-agent\nCOPY pi /usr/local/bin/pi\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bin, "Dockerfile"), []byte("FROM apptown-agent\nCOPY pi /usr/local/bin/pi\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	image := fmt.Sprintf("forge-journey:%d-%d", os.Getpid(), time.Now().UnixNano())

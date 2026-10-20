@@ -136,7 +136,7 @@ func TestAMissingAgentImageInARegistryIsPulledNotBuilt(t *testing.T) {
 			t.Fatalf("after a failed pull: %q %q", state, reason)
 		}
 	}
-	for _, ref := range []string{"forge-agent", "forge-agent:abc123", "library/ubuntu"} {
+	for _, ref := range []string{"apptown-agent", "apptown-agent:abc123", "library/ubuntu"} {
 		if namesRegistry(ref) {
 			t.Fatalf("%s names no registry", ref)
 		}
@@ -151,11 +151,11 @@ func TestAMissingBareAgentImageIsBuilt(t *testing.T) {
 	t.Parallel()
 	var s setupState
 	rec := &recordingDocker{}
-	s.fetch(t.Context(), docker.Scope{Client: rec}, "forge-agent", "../../deploy/apptown-agent", filepath.Join(t.TempDir(), "log"), func(string) {})
+	s.fetch(t.Context(), docker.Scope{Client: rec}, "apptown-agent", "../../deploy/apptown-agent", filepath.Join(t.TempDir(), "log"), func(string) {})
 	if state, reason := agentImageSettled(t, &s); state != "present" {
 		t.Fatalf("after a build: %q %q", state, reason)
 	}
-	if got := rec.seen(); len(got) != 1 || got[0] != "build -t forge-agent ../../deploy/apptown-agent" {
+	if got := rec.seen(); len(got) != 1 || got[0] != "build -t apptown-agent ../../deploy/apptown-agent" {
 		t.Fatalf("commands: %v", got)
 	}
 }

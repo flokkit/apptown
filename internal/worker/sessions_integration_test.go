@@ -53,7 +53,7 @@ func removeSessionLeftovers(t *testing.T, id func() string) {
 // worker still knows the session; and removing it leaves nothing on the
 // worker's Docker, its cache included, and fences it for good.
 func TestIntegrationASessionOnARealWorker(t *testing.T) {
-	if exec.Command("docker", "image", "inspect", "forge-agent").Run() != nil {
+	if exec.Command("docker", "image", "inspect", "apptown-agent").Run() != nil {
 		t.Skip("needs AppTown-agent image on this machine's Docker")
 	}
 	ctx := context.Background()
@@ -63,7 +63,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	id := fmt.Sprintf("c%d", time.Now().UnixNano()%1_000_000_000)
 	removeSessionLeftovers(t, func() string { return id })
 	const mirror = "http://mirror.invalid:5000"
-	if _, err := client.Put(ctx, id, worker.SessionSpec{Image: "forge-agent", AgentSession: "console", Docker: true, Mirror: mirror}); err != nil {
+	if _, err := client.Put(ctx, id, worker.SessionSpec{Image: "apptown-agent", AgentSession: "console", Docker: true, Mirror: mirror}); err != nil {
 		t.Fatal(err)
 	}
 	st, err := client.Start(ctx, id)
@@ -172,7 +172,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 // record, that record copied back to AppTown, the terminal showing pi's
 // screen, and the end removing it on the worker.
 func TestIntegrationARealChatOnAWorker(t *testing.T) {
-	if exec.Command("docker", "image", "inspect", "forge-agent").Run() != nil {
+	if exec.Command("docker", "image", "inspect", "apptown-agent").Run() != nil {
 		t.Skip("needs AppTown-agent image on this machine's Docker")
 	}
 	ctx := context.Background()
@@ -182,7 +182,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.Docker("tag", "forge-agent", image)
+	w.Docker("tag", "apptown-agent", image)
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", image).Run() })
 	client := worker.SessionClient{URL: w.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	data := t.TempDir()

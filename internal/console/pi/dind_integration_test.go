@@ -23,7 +23,7 @@ func TestIntegrationConsoleDind(t *testing.T) {
 	run := func(ctx context.Context, args ...string) ([]byte, error) {
 		return exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	}
-	r := New(Config{Run: run, Image: func() string { return "forge-agent" }, Dind: DindConfig{Image: "docker:27-dind"}})
+	r := New(Config{Run: run, Image: func() string { return "apptown-agent" }, Dind: DindConfig{Image: "docker:27-dind"}})
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	command := func(args ...string) string {
@@ -58,7 +58,7 @@ func TestIntegrationConsoleDind(t *testing.T) {
 	t.Log("private daemon ready")
 	agentImage := os.Getenv("APPTOWN_TEST_AGENT_IMAGE")
 	if agentImage == "" {
-		agentImage = "forge-agent"
+		agentImage = "apptown-agent"
 	}
 	args := []string{"run", "-d", "--name", ContainerName(in.ID), "--entrypoint", "sh", "-v", in.Workspace.Path + ":/work", "-v", in.Dir + ":/console",
 		"--network", dindName(in.ID), "-e", "DOCKER_HOST=tcp://dind:2375", "-e", "DOCKER_CONFIG=/console/docker-client", "-e", "BUILDX_BUILDER=apptown",
@@ -86,7 +86,7 @@ func TestIntegrationConsoleDind(t *testing.T) {
 	if err := r.disposeDindWithin(ctx, in.ID, false); err != nil {
 		t.Fatal(err)
 	}
-	b := New(Config{Run: run, Image: func() string { return "forge-agent" }, Dind: DindConfig{Image: "docker:27-dind"}})
+	b := New(Config{Run: run, Image: func() string { return "apptown-agent" }, Dind: DindConfig{Image: "docker:27-dind"}})
 	defer b.Close()
 	if err := b.ensureDind(in); err != nil {
 		t.Fatalf("%v; workspace=%q; sidecar=%s", err, in.Workspace.Path,

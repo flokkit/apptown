@@ -5,7 +5,7 @@
 #   run.sh <app> <workspace-dir> [stage]
 #
 # app ∈ ledger|clip|roomie|qkue|mdlite. Everything executes inside one
-# forge-agent container: toolchains via the workspace's mise.toml, HTTP
+# apptown-agent container: toolchains via the workspace's mise.toml, HTTP
 # apps launched via their .apptown/app.json contract (build && start), CLI
 # apps built via the contract's build command (contract may omit port).
 # The controllable clock runs before the app so CLOCK_URL is live at boot.
@@ -29,7 +29,7 @@ docker run --rm \
   -v "$here":/gym:ro \
   -v forge-cache:/apptown-cache \
   -e npm_config_cache=/apptown-cache/npm -e GOMODCACHE=/apptown-cache/gomod -e GOCACHE=/apptown-cache/gobuild \
-  forge-agent sh -c '
+  apptown-agent sh -c '
 set -e
 export PATH="$MISE_DATA_DIR/shims:$PATH"
 [ -f mise.toml ] && mise install -y -q 2>/dev/null || true

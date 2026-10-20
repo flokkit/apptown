@@ -205,10 +205,10 @@ func (l labels) Labels(_ context.Context, image string) (map[string]string, erro
 // them from Docker.)
 func TestAWorkerReportsItsAgentImage(t *testing.T) {
 	ca := workertest.NewCA(t)
-	with := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: &executionfake.Tasks{}, AgentImage: "forge-agent:abc",
-		ImageLabels: labels{"forge-agent:abc": {"forge.subagents": "reviewer"}}})
+	with := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: &executionfake.Tasks{}, AgentImage: "apptown-agent:abc",
+		ImageLabels: labels{"apptown-agent:abc": {"forge.subagents": "reviewer"}}})
 	got, err := workertest.Driver(t, ca, with).AgentImage(context.Background())
-	if err != nil || got.Name != "forge-agent:abc" || got.Labels["forge.subagents"] != "reviewer" {
+	if err != nil || got.Name != "apptown-agent:abc" || got.Labels["forge.subagents"] != "reviewer" {
 		t.Fatalf("the agent image: %+v %v", got, err)
 	}
 	without := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: &executionfake.Tasks{}})

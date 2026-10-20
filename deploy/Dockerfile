@@ -122,7 +122,7 @@ COPY LICENSE NOTICE ./
 COPY --from=notices /out/THIRD_PARTY_NOTICES ./
 # The trial's agent image is ghcr.io/flokkit/apptown-agent of this version,
 # tagged as images.yml tags it (v1.0.0 -> 1.0.0); a build with no VERSION
-# leaves the file empty and the trial builds forge-agent instead.
+# leaves the file empty and the trial builds apptown-agent instead.
 ARG VERSION=
 RUN v="$VERSION"; echo "${v#v}" > /opt/apptown/agent-tag
 # No APPTOWN_DATA or APPTOWN_NO_LOCAL_DOCKER here: apptown-start.sh sets each

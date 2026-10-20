@@ -28,8 +28,8 @@ import (
 // subagentsTestImage is the pinned Pi runtime with the pinned subagent
 // extension, as deploy/apptown-agent/Dockerfile bakes it. Build it from
 // deploy/apptown-agent, or with testdata/subagents.Dockerfile from a
-// forge-agent built before the extension was baked, tagged so.
-const subagentsTestImage = "forge-agent:s5-subagents-test"
+// apptown-agent built before the extension was baked, tagged so.
+const subagentsTestImage = "apptown-agent:s5-subagents-test"
 
 // A delegated invocation on the worker (R10/R17): the packaged Pi runtime
 // with its pinned subagent extension (pi 0.84.3, pi-subagents 0.61.0) runs
@@ -231,7 +231,7 @@ func runDelegation(t *testing.T, background bool) delegationRun {
 		AgentImage: subagentsTestImage, ImageLabels: worker.DockerImages{Binary: "docker"}}, capture)
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
-	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "forge-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
+	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
 		InferenceURL: gatewayURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}}
 	a := testApp(t, cfg)
 	gateway = a.InferenceHandler()

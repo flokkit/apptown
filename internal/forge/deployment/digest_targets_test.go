@@ -60,7 +60,7 @@ func newPromotionTargets(t *testing.T, noLocalDocker bool) *promotionTargets {
 // newPromotionTargetsWith is newPromotionTargets whose app is appYAML.
 func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *promotionTargets {
 	t.Helper()
-	p := &promotionTargets{do: &dofake.API{}, docr: newDigestRegistry(t, "forge", digestDOToken), volumes: map[string]bool{}}
+	p := &promotionTargets{do: &dofake.API{}, docr: newDigestRegistry(t, "apptown", digestDOToken), volumes: map[string]bool{}}
 	p.do.ServeFrontDoor(false)
 	amd64 := `{"Os":"linux","Arch":"amd64"}`
 	p.platform.Store(&amd64)
@@ -108,7 +108,7 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		}
 	}))
 	t.Cleanup(portainer.Close)
-	secrets := fmt.Sprintf("DIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nFORGE_APPS_DOMAIN=apps.example\n", digestDOToken, portainer.URL)
+	secrets := fmt.Sprintf("DIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nAPPTOWN_APPS_DOMAIN=apps.example\n", digestDOToken, portainer.URL)
 	p.digestWorld = newDigestWorldWith(t, secrets, appYAML, func(w *digestWorld, deps *testRuntime) {
 		deps.DigitalOcean = digitalocean.Options{APIBase: api.URL, RegistryHost: p.docr.host, PollInterval: 10 * time.Millisecond, DBPoll: 10 * time.Millisecond,
 			ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil }}

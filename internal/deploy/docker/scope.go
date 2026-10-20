@@ -414,7 +414,7 @@ func (dk Scope) removeStack(ctx context.Context, stackID string, remove func(con
 
 // AgentRuntimeVersion reads the pi version label baked into the agent image
 // (cached per image ID — receipts should say which pi ran, and the mutable
-// tag "forge-agent" doesn't).
+// tag "apptown-agent" doesn't).
 func (dk Scope) AgentRuntimeVersion(ctx context.Context, image string) string {
 	return dk.AgentImageLabel(ctx, image, dockerlabel.PiVersion)
 }

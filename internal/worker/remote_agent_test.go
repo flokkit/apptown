@@ -50,7 +50,7 @@ func startRemoteChats(t *testing.T, env console.Environment) *remoteChats {
 	state, data := t.TempDir(), t.TempDir()
 	srv := workertest.StartServer(t, ca, &worker.Server{State: state, Sessions: rt})
 	client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	agent := &worker.RemoteAgent{Sessions: client, Image: "forge-agent", Root: filepath.Join(data, "console"), CopyEvery: 50 * time.Millisecond}
+	agent := &worker.RemoteAgent{Sessions: client, Image: "apptown-agent", Root: filepath.Join(data, "console"), CopyEvery: 50 * time.Millisecond}
 	t.Cleanup(agent.Close)
 	svc := console.New(console.Dependencies{Agent: agent, Environment: env,
 		Config: console.Config{DataDir: data, Mirror: func(context.Context) string { return "https://mirror.example" }}})
@@ -511,18 +511,18 @@ func TestAChatIsRefusedAnImageTheWorkerDoesNotHave(t *testing.T) {
 	ctx := context.Background()
 	ca := workertest.NewCA(t)
 	rt := consoletest.NewAgent()
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Sessions: rt, Images: images{"forge-agent:aaaaaaaaaaaa": true}})
+	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Sessions: rt, Images: images{"apptown-agent:aaaaaaaaaaaa": true}})
 	client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	if _, err := client.Put(ctx, "c1", worker.SessionSpec{Image: "forge-agent:bbbbbbbbbbbb", AgentSession: "console"}); err != nil {
+	if _, err := client.Put(ctx, "c1", worker.SessionSpec{Image: "apptown-agent:bbbbbbbbbbbb", AgentSession: "console"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "c1"); err == nil || !strings.Contains(err.Error(), "does not have the image forge-agent:bbbbbbbbbbbb") {
+	if _, err := client.Start(ctx, "c1"); err == nil || !strings.Contains(err.Error(), "does not have the image apptown-agent:bbbbbbbbbbbb") {
 		t.Fatalf("a missing image: %v", err)
 	}
 	if rt.Exists("c1") {
 		t.Fatal("a chat without its image was started")
 	}
-	if _, err := client.Put(ctx, "c1", worker.SessionSpec{Image: "forge-agent:aaaaaaaaaaaa", AgentSession: "console"}); err != nil {
+	if _, err := client.Put(ctx, "c1", worker.SessionSpec{Image: "apptown-agent:aaaaaaaaaaaa", AgentSession: "console"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := client.Start(ctx, "c1"); err != nil {
@@ -538,7 +538,7 @@ func TestTheAgentImageIsNamedByItsBuildContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, err := worker.AgentImage(dir)
-	if err != nil || !strings.HasPrefix(first, "forge-agent:") || len(first) != len("forge-agent:")+12 {
+	if err != nil || !strings.HasPrefix(first, "apptown-agent:") || len(first) != len("apptown-agent:")+12 {
 		t.Fatalf("name: %q %v", first, err)
 	}
 	again, _ := worker.AgentImage(dir)

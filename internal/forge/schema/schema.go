@@ -85,7 +85,7 @@ type On struct {
 	Manual   map[string]any   `yaml:"manual,omitempty" json:"manual,omitempty"`
 	Schedule *ScheduleTrigger `yaml:"schedule,omitempty" json:"schedule,omitempty"`
 	// Webhook presence enables POST /api/v1/hooks/{project}/{workflow}
-	// (authenticated by FORGE_WEBHOOK_TOKEN from secrets.env).
+	// (authenticated by APPTOWN_WEBHOOK_TOKEN from secrets.env).
 	Webhook map[string]any `yaml:"webhook,omitempty" json:"webhook,omitempty"`
 	// WorkItem is informational in v0 (work items already start runs).
 	WorkItem map[string]any `yaml:"workItem,omitempty" json:"workItem,omitempty"`

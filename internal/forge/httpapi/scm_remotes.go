@@ -135,7 +135,7 @@ func (h SCMRemotes) AttachRemote(w http.ResponseWriter, r *http.Request) {
 		}
 		// Embed a username (not the token) so askpass is only asked for the password.
 		if u, err := url.Parse(remoteURL); err == nil && u.User == nil {
-			u.User = url.User("forge")
+			u.User = url.User("apptown")
 			remoteURL = u.String()
 		}
 		_, _ = gitexec.Run(r.Context(), repoDir, "remote", "remove", "origin")

@@ -66,7 +66,7 @@ func testExecutor(db *database.DB, dir string, process Process) *Executor {
 		Ledger:   usage.New(db),
 		CLI:      noReviewCLI{},
 		Process:  process,
-	}, Config{DataDir: dir, Backend: execution.Local, Image: "forge-agent"})
+	}, Config{DataDir: dir, Backend: execution.Local, Image: "apptown-agent"})
 }
 
 // Work admits and dispatches real executions into a bounded channel. Once its

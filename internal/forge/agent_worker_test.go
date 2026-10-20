@@ -153,7 +153,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 					h.ServeHTTP(w, r)
 				})
 			})
-			a := testApp(t, Config{AgentExecutor: ExecutorDocker, AgentImage: "forge-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
+			a := testApp(t, Config{AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
 			with := map[string]any{"prompt": "do it", "executor": "docker"}
 			for k, v := range c.with {
 				with[k] = v

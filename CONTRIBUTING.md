@@ -68,18 +68,18 @@ artifact is reported and sessions continue without the CLI. `make dev-api` build
 and supplies the artifact explicitly for `go run`.
 
 **The agent image, from source.** Agents need an agent image. A source build
-has no published image to name, so build `forge-agent` from the recipe in the
+has no published image to name, so build `apptown-agent` from the recipe in the
 repository directory:
 
 ```sh
-docker build -t forge-agent deploy/apptown-agent
+docker build -t apptown-agent deploy/apptown-agent
 ```
 
 The recipe pins every archive it fetches by version and SHA-256; apt packages
 and package managers' dependencies resolve when it is built, so two builds can
 differ. AppTown builds this image only when it is missing, so rebuild it when a
 release's notes name a new agent image recipe; workers build their own,
-`forge-agent:<recipe hash>`, when they start. AppTown starts that build in the
+`apptown-agent:<recipe hash>`, when they start. AppTown starts that build in the
 background if the image is missing and `deploy/apptown-agent/Dockerfile`
 exists relative to its working directory; a lone binary does not include it.
 A failed build is recorded in `<data directory>/agent-image-build.log`.

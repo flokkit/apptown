@@ -434,7 +434,7 @@ class DoorsTest(unittest.TestCase):
 class AgentBoundaryTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.work = tempfile.TemporaryDirectory(prefix="forge-agent-boundaries-")
+        cls.work = tempfile.TemporaryDirectory(prefix="apptown-agent-boundaries-")
         cls.addClassCleanup(cls.work.cleanup)
         cls.binary = Path(cls.work.name) / "shape-agents"
         subprocess.run(["go", "build", "-o", str(cls.binary),

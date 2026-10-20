@@ -77,7 +77,7 @@ func newWorkerChatWorldConfigured(t *testing.T, configure func(*Config) Config) 
 	client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	failSaves := &atomic.Bool{}
 	client.Client.Transport = failing{base: client.Client.Transport, fail: failSaves}
-	remote := &worker.RemoteAgent{Sessions: client, Image: "forge-agent:test", CopyEvery: 50 * time.Millisecond}
+	remote := &worker.RemoteAgent{Sessions: client, Image: "apptown-agent:test", CopyEvery: 50 * time.Millisecond}
 	t.Cleanup(remote.Close)
 	local := consoletest.NewAgent()
 	cfg := Config{DockerClient: newFakeDocker(), ConsoleCLI: fixtureCLI(t), ConsoleAgent: local, ConsoleWorker: remote,
@@ -779,7 +779,7 @@ func TestSavesResumeWhenTheWorkerFirstFailsToAnswer(t *testing.T) {
 	client.Transport = failFirstWorkerListing{base: client.Transport, failed: failed}
 	sessions := w.workers
 	sessions.Client = &client
-	remote := &worker.RemoteAgent{Sessions: sessions, Image: "forge-agent:test", Root: filepath.Join(w.a.cfg.dataDir, "console"), CopyEvery: 50 * time.Millisecond}
+	remote := &worker.RemoteAgent{Sessions: sessions, Image: "apptown-agent:test", Root: filepath.Join(w.a.cfg.dataDir, "console"), CopyEvery: 50 * time.Millisecond}
 	cfg := Config{DataDir: w.a.cfg.dataDir, DockerClient: newFakeDocker(), ConsoleCLI: fixtureCLI(t), ConsoleAgent: consoletest.NewAgent(), ConsoleWorker: remote, InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}}
 	b := newApp(t, w.a.DB, cfg)
 	t.Cleanup(remote.Close)
@@ -924,7 +924,7 @@ func TestSavesResumeAfterTheForgeRestarts(t *testing.T) {
 	if err := w.a.ShutdownBackground(ctx); err != nil {
 		t.Fatal(err)
 	}
-	remote := &worker.RemoteAgent{Sessions: w.workers, Image: "forge-agent:test", Root: filepath.Join(w.a.cfg.dataDir, "console"), CopyEvery: 50 * time.Millisecond}
+	remote := &worker.RemoteAgent{Sessions: w.workers, Image: "apptown-agent:test", Root: filepath.Join(w.a.cfg.dataDir, "console"), CopyEvery: 50 * time.Millisecond}
 	cfg := Config{DataDir: w.a.cfg.dataDir, DockerClient: newFakeDocker(), ConsoleCLI: fixtureCLI(t), ConsoleAgent: consoletest.NewAgent(), ConsoleWorker: remote, InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}}
 	b := newApp(t, w.a.DB, cfg)
 	t.Cleanup(remote.Close)

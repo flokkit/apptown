@@ -944,7 +944,7 @@ unused and can be removed.
 
 The chat's image is built by the worker when it starts, from its own copy
 of the agent image's build context (`-agent-context`, `deploy/apptown-agent`
-by default), and named by that context's content (`forge-agent:<hash>`).
+by default), and named by that context's content (`apptown-agent:<hash>`).
 AppTown asks for the name its own copy gives: a worker and an AppTown of
 different versions do not share a name, and the worker refuses the chat,
 saying it does not have the image. Upgrade the two together. The first

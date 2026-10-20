@@ -51,7 +51,7 @@ the `apptown` CLI (`-console-cli` names another path).
 `APPTOWN_AGENT_IMAGE=ghcr.io/flokkit/apptown-agent:<version>`; with an image
 named in a registry, AppTown pulls it when it is missing. A failed pull is
 recorded in `<data directory>/agent-image-build.log`. Workers build their own,
-`forge-agent:<recipe hash>`, when they start. Building from the repository
+`apptown-agent:<recipe hash>`, when they start. Building from the repository
 is in the repository's `CONTRIBUTING.md`.
 
 On Linux, run `apptownd` as root when it runs containers on its own Docker:

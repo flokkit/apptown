@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -18,6 +19,7 @@ import (
 
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/deploy/docker"
+	"flokkit.io/forge/internal/durable"
 	"flokkit.io/forge/internal/poll"
 )
 
@@ -130,36 +132,72 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 
 func builtinDBCredentials(dataDir string) (url, password string, err error) {
 	path := filepath.Join(dataDir, "db.env")
-	if raw, err := os.ReadFile(path); err == nil {
+	raw, err := os.ReadFile(path)
+	if err == nil {
+		var oldPassword string
 		for _, line := range strings.Split(string(raw), "\n") {
 			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "APPTOWN_DB_URL="); ok {
 				url = v
 			}
-			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "FORGE_DB_PASSWORD="); ok {
+			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "APPTOWN_DB_PASSWORD="); ok {
 				password = v
 			}
+			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "FORGE_DB_PASSWORD="); ok {
+				oldPassword = v
+			}
+		}
+		if url != "" && password == "" && oldPassword != "" {
+			// AppTown's own file from before the rename: its password key
+			// is renamed in place, whole, or not at all (the file holds the
+			// only copy of the database's password).
+			if err := migrateDBEnv(dataDir, string(raw)); err != nil {
+				return "", "", fmt.Errorf("renaming FORGE_DB_PASSWORD to APPTOWN_DB_PASSWORD in %s: %w", path, err)
+			}
+			log.Printf("built-in database: %s now names the password APPTOWN_DB_PASSWORD", path)
+			password = oldPassword
 		}
 		if url != "" && password != "" {
 			return url, password, nil
 		}
-		return "", "", fmt.Errorf("%s is present but incomplete; it needs APPTOWN_DB_URL and FORGE_DB_PASSWORD", path)
+		return "", "", fmt.Errorf("%s is present but incomplete; it needs APPTOWN_DB_URL and APPTOWN_DB_PASSWORD", path)
 	}
-	raw := make([]byte, 24)
-	if _, err := rand.Read(raw); err != nil {
+	if !errors.Is(err, fs.ErrNotExist) {
+		// Unreadable is not absent: minting would replace the only copy of
+		// an existing database's password.
+		return "", "", fmt.Errorf("reading %s: %w", path, err)
+	}
+	pw := make([]byte, 24)
+	if _, err := rand.Read(pw); err != nil {
 		return "", "", err
 	}
-	password = hex.EncodeToString(raw)
+	password = hex.EncodeToString(pw)
 	url = fmt.Sprintf("postgres://postgres:%s@127.0.0.1:%s/%s", password, builtinDBPort, builtinDBName)
 	body := "# AppTown's built-in database.\n" +
 		"# Minted once by apptownd. If this file is lost while the data volume\n" +
 		"# survives, reset the password inside the container (docker exec\n" +
 		"# forge-db psql -U postgres -c \"ALTER USER postgres PASSWORD '...'\")\n" +
 		"# and write it here.\n" +
-		"APPTOWN_DB_URL=" + url + "\nFORGE_DB_PASSWORD=" + password + "\n"
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		"APPTOWN_DB_URL=" + url + "\nAPPTOWN_DB_PASSWORD=" + password + "\n"
+	if existed, err := durable.Write(dataDir, "db.env", []byte(body), 0o600, true); err != nil || existed {
+		if existed {
+			err = fmt.Errorf("%s appeared while minting; start again to read it", path)
+		}
 		return "", "", err
 	}
 	return url, password, nil
+}
+
+// migrateDBEnv rewrites db.env with its FORGE_DB_PASSWORD line keyed
+// APPTOWN_DB_PASSWORD and everything else as it was, atomically at 0600.
+func migrateDBEnv(dataDir, raw string) error {
+	lines := strings.Split(raw, "\n")
+	for i, line := range lines {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "FORGE_DB_PASSWORD="); ok {
+			lines[i] = "APPTOWN_DB_PASSWORD=" + v
+		}
+	}
+	_, err := durable.Write(dataDir, "db.env", []byte(strings.Join(lines, "\n")), 0o600, false)
+	return err
 }
 
 func instanceID(dataDir string) (string, error) {

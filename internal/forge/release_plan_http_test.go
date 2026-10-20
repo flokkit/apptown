@@ -38,7 +38,7 @@ func TestReleasePlanHTTPProjectsActualHeadContractAndConfiguration(t *testing.T)
 	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || plan.Configured || plan.ConfigError == "" || plan.Contract != "none" || plan.Head.SHA != head || plan.ChangesSinceLast == nil || len(plan.ChangesSinceLast) != 0 {
 		t.Fatalf("unconfigured plan: %d %s %v", w.Code, w.Body.String(), err)
 	}
-	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=never-expose-this-key\nFORGE_APPS_DOMAIN=apps.example\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=never-expose-this-key\nAPPTOWN_APPS_DOMAIN=apps.example\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	a.SeedTargets(t.Context()) // a restart records the intranet target from the configuration
@@ -85,7 +85,7 @@ func TestReleasePlanHTTPProjectsActualHeadContractAndConfiguration(t *testing.T)
 		}
 	}
 	editDomain("lan.example.org")
-	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=never-expose-this-key\nFORGE_APPS_DOMAIN=other.example\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=never-expose-this-key\nAPPTOWN_APPS_DOMAIN=other.example\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	a.SeedTargets(t.Context())

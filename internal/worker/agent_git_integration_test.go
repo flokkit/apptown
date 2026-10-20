@@ -26,7 +26,7 @@ import (
 // out of the task's sight, stays empty) and returns the tree the task left
 // as one commit, AppTown's, with no .git content.
 func TestIntegrationAnAgentUsesGitInItsTaskAndTheWorkerCollectsOnlyTheTree(t *testing.T) {
-	const image = "forge-agent:latest"
+	const image = "apptown-agent:latest"
 	if exec.Command("docker", "image", "inspect", image).Run() != nil {
 		t.Skipf("pending: the packaged agent image (%s) is not on this machine's Docker; it is not pulled here", image)
 	}

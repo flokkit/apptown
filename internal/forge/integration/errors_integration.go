@@ -28,7 +28,7 @@ type errorsBinding struct {
 	Name      string   `json:"-"`
 	URL       string   // e.g. https://errors.example.com
 	Org       string   // provider-side organization slug
-	Team      string   // optional team slug; empty = discover (create "forge" if none)
+	Team      string   // optional team slug; empty = discover (create "apptown" if none)
 	TokenFrom []string // secret ref holding the admin API token
 }
 
@@ -225,7 +225,7 @@ func (s *Service) ErrorsIssueSummary(ctx context.Context, p *project.Project, re
 }
 
 // errorsTeam resolves the team projects are provisioned under: explicit
-// binding config, else the org's first team, else a created "forge" team.
+// binding config, else the org's first team, else a created "apptown" team.
 // Projects live under TEAMS in GlitchTip — a same-named team is not
 // guaranteed to exist (needs team:read, and team:write for the create path).
 func (s *Service) errorsTeam(b *errorsBinding, token string) (string, error) {
@@ -245,14 +245,14 @@ func (s *Service) errorsTeam(b *errorsBinding, token string) (string, error) {
 		}
 	}
 	code, raw, err = glitchtipReq("POST", b.URL+"/api/0/organizations/"+b.Org+"/teams/",
-		token, map[string]any{"slug": "forge"})
+		token, map[string]any{"slug": "apptown"})
 	if err != nil {
 		return "", err
 	}
 	if code != 201 && code != 200 && code != 409 {
 		return "", fmt.Errorf("creating team: HTTP %d: %s", code, strs.Truncate(string(raw), 160))
 	}
-	return "forge", nil
+	return "apptown", nil
 }
 
 // errorsIssueWhere reads an issue's latest event and names its innermost

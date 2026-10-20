@@ -15,7 +15,7 @@ import (
 
 // The agent image a worker's chats run in is built by the worker from the
 // same build context AppTown uses (deploy/apptown-agent), and named by that
-// context's content: forge-agent:<hash>. An AppTown asks for the name its own
+// context's content: apptown-agent:<hash>. An AppTown asks for the name its own
 // context gives, so a worker whose context differs does not have the image
 // and refuses the chat, saying so, rather than running another version.
 // Later, installations may use standard published images instead.
@@ -40,7 +40,7 @@ func AgentImage(dir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("reading the agent image's build context: %w", err)
 	}
-	return "forge-agent:" + hex.EncodeToString(h.Sum(nil))[:12], nil
+	return "apptown-agent:" + hex.EncodeToString(h.Sum(nil))[:12], nil
 }
 
 // BuildAgentImage builds the agent image from dir with docker, unless the

@@ -101,7 +101,7 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 					})
 				}
 			}
-			cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "forge-agent", AgentContext: agentContext, ConsoleCLI: fixtureCLI(t), PrivateDocker: true}
+			cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", AgentContext: agentContext, ConsoleCLI: fixtureCLI(t), PrivateDocker: true}
 			checkURL := ""
 			if external != nil {
 				// Each variant is a new AppTown, whose task keys are its own:

@@ -42,7 +42,7 @@ func TestAStepsContainersAgeOnTheForgesClock(t *testing.T) {
 		return nil, nil, true
 	})
 	db := databaseSuite.New(t)
-	workshop := agentenv.NewWorkshop(&docker.Scope{Client: starting}, integration.NewService(db, integration.Dependencies{}), nil, t.TempDir(), "forge-agent", forge)
+	workshop := agentenv.NewWorkshop(&docker.Scope{Client: starting}, integration.NewService(db, integration.Dependencies{}), nil, t.TempDir(), "apptown-agent", forge)
 	if _, _, cleanup, err := workshop.StartStep(t.Context(), idstest.N(999), t.TempDir(), "net", ".docker", nil); err != nil {
 		t.Fatal(err)
 	} else {
@@ -118,7 +118,7 @@ func TestAStepsNetworksCarryTheOwnerTheReaperReads(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
-	workshop := agentenv.NewWorkshop(&scope, integration.NewService(db, integration.Dependencies{}), nil, t.TempDir(), "forge-agent", time.Now)
+	workshop := agentenv.NewWorkshop(&scope, integration.NewService(db, integration.Dependencies{}), nil, t.TempDir(), "apptown-agent", time.Now)
 	_, dindNet, dindCleanup, err := workshop.StartStep(t.Context(), stepID, t.TempDir(), "", ".docker", nil)
 	if err != nil {
 		t.Fatal(err)

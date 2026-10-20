@@ -48,7 +48,7 @@ class ReleaseRefuses(unittest.TestCase):
 
 GO_STUB = r"""#!/bin/sh
 # go build ... -o PATH ...: make the file; go run scripts/release-facts.go: the facts.
-if [ "$1" = run ]; then printf 'WORKER_PROTOCOL=1-1\nCLI_PROTOCOL=1\nAGENT_IMAGE=forge-agent:000000000000\n'; exit 0; fi
+if [ "$1" = run ]; then printf 'WORKER_PROTOCOL=1-1\nCLI_PROTOCOL=1\nAGENT_IMAGE=apptown-agent:000000000000\n'; exit 0; fi
 while [ $# -gt 0 ]; do [ "$1" = -o ] && { mkdir -p "$(dirname "$2")"; echo binary > "$2"; }; shift; done
 """
 

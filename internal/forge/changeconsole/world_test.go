@@ -162,7 +162,7 @@ func newWorldWith(t *testing.T, previews preview.Worker) world {
 	client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	failSaves := &atomic.Bool{}
 	client.Client.Transport = failing{base: client.Client.Transport, fail: failSaves}
-	remote := &worker.RemoteAgent{Sessions: client, Image: "forge-agent:test", CopyEvery: 50 * time.Millisecond, Root: filepath.Join(dataDir, "console")}
+	remote := &worker.RemoteAgent{Sessions: client, Image: "apptown-agent:test", CopyEvery: 50 * time.Millisecond, Root: filepath.Join(dataDir, "console")}
 	var sessions *console.Service
 	placed := console.Placed{Local: consoletest.NewAgent(), Remote: remote, OnRemote: func(id string) (bool, error) {
 		meta, err := sessions.Recorded(id)

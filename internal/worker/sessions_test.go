@@ -138,7 +138,7 @@ func sessionWorker(t *testing.T) (worker.SessionClient, *fakeSessions, string) {
 }
 
 func chatSpec() worker.SessionSpec {
-	return worker.SessionSpec{Image: "forge-agent:test", Model: "m", AgentSession: "console", Docker: true, Env: []string{"APPTOWN_URL=https://forge.example"}}
+	return worker.SessionSpec{Image: "apptown-agent:test", Model: "m", AgentSession: "console", Docker: true, Env: []string{"APPTOWN_URL=https://forge.example"}}
 }
 
 // A session runs its container and private daemon from AppTown's spec,
@@ -158,7 +158,7 @@ func TestASessionRunsItsChatAndPrivateDockerOnTheWorker(t *testing.T) {
 		t.Fatalf("a started session: %+v", st)
 	}
 	in := fake.launch(0)
-	if in.Image != "forge-agent:test" || in.AgentSession != "console" || !in.Docker || !slices.Equal(in.Env, chatSpec().Env) || len(in.Mounts) != 0 {
+	if in.Image != "apptown-agent:test" || in.AgentSession != "console" || !in.Docker || !slices.Equal(in.Env, chatSpec().Env) || len(in.Mounts) != 0 {
 		t.Fatalf("launch: %+v", in)
 	}
 	for _, dir := range []string{in.Dir, in.Workspace.Path} {
@@ -310,14 +310,14 @@ func TestStoppingOrRebuildingKeepsTheSession(t *testing.T) {
 		t.Fatalf("a rebuild took the session's files: %v", err)
 	}
 	spec := chatSpec()
-	spec.Image = "forge-agent:newer"
+	spec.Image = "apptown-agent:newer"
 	if _, err := client.Put(ctx, "abc123", spec); err != nil {
 		t.Fatal(err)
 	}
 	if st, err := client.Start(ctx, "abc123"); err != nil || !st.Agent.Running {
 		t.Fatalf("started again: %+v %v", st, err)
 	}
-	if got := fake.launch(1); got.Image != "forge-agent:newer" || got.Dir != files {
+	if got := fake.launch(1); got.Image != "apptown-agent:newer" || got.Dir != files {
 		t.Fatalf("the rebuilt launch: %+v", got)
 	}
 }
@@ -392,11 +392,11 @@ func TestSessionRequestsAreChecked(t *testing.T) {
 		}
 	}
 	for _, image := range []string{
-		"forge-agent",
+		"apptown-agent",
 		"registry.example/team/agent:stable",
 		"registry.example:5000/team/agent:stable",
-		"localhost:5000/forge-agent",
-		"forge-agent@sha256:" + strings.Repeat("a", 64),
+		"localhost:5000/apptown-agent",
+		"apptown-agent@sha256:" + strings.Repeat("a", 64),
 	} {
 		if _, err := client.Put(ctx, "ok"+strconv.Itoa(len(image)), worker.SessionSpec{Image: image, AgentSession: "console", Mirror: "http://10.0.0.5:5000/v2-mirror"}); err != nil {
 			t.Fatalf("a valid image reference %s: %v", image, err)

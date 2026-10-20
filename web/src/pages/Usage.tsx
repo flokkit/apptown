@@ -12,7 +12,9 @@ type Row = Record<string, string | number>
 
 
 
-const LANE_LABEL: Record<string, string> = { step: 'workflow', console: 'interactive', assist: 'assist' }
+// AppTown's own model calls are recorded with the kind "forge" (an internal
+// identifier); they read as the product.
+export const LANE_LABEL: Record<string, string> = { step: 'workflow', console: 'interactive', assist: 'assist', forge: PRODUCT }
 const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)', assist: 'var(--warn)' }
 
 function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {

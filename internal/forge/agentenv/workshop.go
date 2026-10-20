@@ -256,7 +256,7 @@ func (w *Workshop) Mirror(ctx context.Context) string {
 	return u
 }
 
-// agentImageTar caches `docker save forge-agent` under _data/cache, keyed
+// agentImageTar caches `docker save apptown-agent` under _data/cache, keyed
 // by image ID so a rebuilt image invalidates the tar. Stale tars are
 // removed. Returns the tar's absolute path.
 func (w *Workshop) agentImageTar(ctx context.Context) (string, error) {

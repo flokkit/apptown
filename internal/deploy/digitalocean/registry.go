@@ -55,7 +55,7 @@ func (d *Driver) ensureRegistry(ctx context.Context, c *Client, cfg Config, logf
 // handed to docker login on stdin, never on a command line.
 func (d *Driver) pushImage(ctx context.Context, c *Client, registry, repo, localImage, tag string, logf func(string, ...any)) (string, error) {
 	host := d.options.RegistryHost
-	if out, err := d.Docker.Command(ctx, []string{"login", host, "-u", "forge", "--password-stdin"}, strings.NewReader(c.Token)); err != nil {
+	if out, err := d.Docker.Command(ctx, []string{"login", host, "-u", "apptown", "--password-stdin"}, strings.NewReader(c.Token)); err != nil {
 		return "", fmt.Errorf("logging in to %s: %s", host, strs.Truncate(redactToken(string(out), c.Token), 200))
 	}
 	ref := fmt.Sprintf("%s/%s/%s:%s", host, registry, repo, tag)
@@ -153,7 +153,7 @@ func oneVersionPerRepository(spec AppSpec) error {
 func (d *Driver) copyFrom(ctx context.Context, c *Client, registry, repo string, from oci.Source, tag string, logf func(string, ...any)) (string, error) {
 	ref := from.Reference
 	// DOCR takes the API token as the password, as `docker login` gives it.
-	to := oci.Repository{Name: d.options.RegistryHost + "/" + registry + "/" + repo, Credential: oci.Credential{Username: "forge", Password: c.Token}}
+	to := oci.Repository{Name: d.options.RegistryHost + "/" + registry + "/" + repo, Credential: oci.Credential{Username: "apptown", Password: c.Token}}
 	logf("copying %s into %s:%s", ref, to.Name, tag)
 	got, err := oci.Copy(ctx, from, to, tag, Platform)
 	if err != nil {

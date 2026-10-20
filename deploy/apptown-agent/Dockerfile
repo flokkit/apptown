@@ -1,8 +1,8 @@
-# forge-agent: the containerized step executor image.
+# apptown-agent: the containerized step executor image.
 # pi, Node (the base), Python/uv, and mise, which installs at step time the
 # toolchains a project declares in its mise.toml (Go, Ruby, Java, ...); no Go
 # toolchain is baked in. The versions are listed in deploy/tool-pins.txt.
-# Build:  docker build -t forge-agent deploy/apptown-agent
+# Build:  docker build -t apptown-agent deploy/apptown-agent
 #
 # The base is pinned by digest, and every archive or binary fetched below is
 # pinned by version and checked against its SHA-256 for each architecture (the

@@ -168,7 +168,7 @@ func fetchAgentImage(ctx context.Context, dk docker.Scope, image, buildContext s
 // namesRegistry says whether an image reference names a registry, by
 // Docker's rule: the first path component is a registry host when it has a
 // dot or a port, or is localhost ("ghcr.io/flokkit/apptown-agent:1.0.0",
-// "localhost:5000/agent"); "forge-agent" and "library/ubuntu" do not.
+// "localhost:5000/agent"); "apptown-agent" and "library/ubuntu" do not.
 func namesRegistry(ref string) bool {
 	first, _, ok := strings.Cut(ref, "/")
 	return ok && (strings.ContainsAny(first, ".:") || first == "localhost")

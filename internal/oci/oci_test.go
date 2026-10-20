@@ -297,9 +297,9 @@ func requiring(user, password string) func(http.Handler) http.Handler {
 func TestUnauthorisedUnavailableAndNotFoundAreDistinct(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	guarded := newRegistry(t, requiring("forge", "right")) + "/team/app"
+	guarded := newRegistry(t, requiring("apptown", "right")) + "/team/app"
 	img := newImage(t, "amd64", "a layer")
-	_, err := Publish(ctx, img.files, Repository{Name: guarded, Credential: Credential{Username: "forge", Password: "wrong"}}, "t", "linux/amd64")
+	_, err := Publish(ctx, img.files, Repository{Name: guarded, Credential: Credential{Username: "apptown", Password: "wrong"}}, "t", "linux/amd64")
 	if !errors.Is(err, ErrUnauthorised) || errors.Is(err, ErrUnavailable) || errors.Is(err, ErrNotFound) {
 		t.Fatalf("a refused credential: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestUnauthorisedUnavailableAndNotFoundAreDistinct(t *testing.T) {
 	if host, ok := RefusedBy(err); !ok || host != strings.TrimSuffix(guarded, "/team/app") {
 		t.Fatalf("refused by %q %v", host, ok)
 	}
-	right := Repository{Name: guarded, Credential: Credential{Username: "forge", Password: "right"}}
+	right := Repository{Name: guarded, Credential: Credential{Username: "apptown", Password: "right"}}
 	if _, err := Publish(ctx, img.files, right, "t", "linux/amd64"); err != nil {
 		t.Fatalf("the right credential: %v", err)
 	}

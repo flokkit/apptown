@@ -43,7 +43,7 @@ func main() {
 		clientCA      = flag.String("client-ca", "", "the CA that signs the installation's client certificate (PEM)")
 		docker        = flag.String("docker", "docker", "the docker binary")
 		dindImage     = flag.String("dind-image", "docker:27-dind", "the image of a chat's or a task's private Docker daemon")
-		agentContext  = flag.String("agent-context", "deploy/apptown-agent", "the agent image's build context; the worker builds forge-agent:<hash of it> when it starts (empty: build none)")
+		agentContext  = flag.String("agent-context", "deploy/apptown-agent", "the agent image's build context; the worker builds apptown-agent:<hash of it> when it starts (empty: build none)")
 		chatCPUs      = flag.Float64("chat-cpus", 2, "CPUs for each of a chat's container and its private Docker daemon")
 		chatMemory    = flag.Int64("chat-memory-mib", 4096, "memory, swap included, in MiB, for each of a chat's container and its private Docker daemon")
 		chatPIDs      = flag.Int64("chat-pids", 4096, "processes for each of a chat's container and its private Docker daemon")

@@ -150,7 +150,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
       </div>
       {kind === 'do-app' && checked && answer.registry === '' && (
         <div className="wiz-fields" style={{ marginTop: 8 }}>
-          {field('container registry to create', registry, setRegistry, 'forge', 200)}
+          {field('container registry to create', registry, setRegistry, 'apptown', 200)}
           <span className="muted small">The account has no container registry. App Platform pulls images from one, so {PRODUCT} creates it on the first release. Names are unique across DigitalOcean.</span>
         </div>
       )}

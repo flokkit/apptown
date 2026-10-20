@@ -42,7 +42,7 @@ func TestSCMEnvironmentReusesOnlyProjectScopedCredentials(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 				t.Error(err)
 			}
-			if request.Name != "forge-agent-read" || request.Level != 20 || !reflect.DeepEqual(request.Scopes, []string{"read_api"}) {
+			if request.Name != "apptown-agent-read" || request.Level != 20 || !reflect.DeepEqual(request.Scopes, []string{"read_api"}) {
 				t.Errorf("unexpected grant: %+v", request)
 			}
 			issued.Add(1)

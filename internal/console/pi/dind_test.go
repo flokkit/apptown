@@ -141,7 +141,7 @@ func fixture(t *testing.T) (*Runtime, console.Launch, *fakeDocker) {
 	}
 	in := console.Launch{ID: "c0123", Dir: dir, Workspace: console.Workspace{Path: t.TempDir(), Writable: true}, AgentSession: "console", Model: "m", Docker: true}
 	f := &fakeDocker{id: in.ID, checkout: in.Workspace.Path, dir: dir, owner: in.ID}
-	r := New(Config{Run: f.run, Image: func() string { return "forge-agent" }, Dind: DindConfig{Image: "docker:dind"}})
+	r := New(Config{Run: f.run, Image: func() string { return "apptown-agent" }, Dind: DindConfig{Image: "docker:dind"}})
 	t.Cleanup(r.Close)
 	return r, in, f
 }
@@ -184,7 +184,7 @@ func TestDindRecoveryAndDisposal(t *testing.T) {
 		t.Fatal("idle daemon was not resumed")
 	}
 	// A fresh runtime adopts the same sidecar after a process restart.
-	b := New(Config{Run: f.run, Image: func() string { return "forge-agent" }, Dind: DindConfig{Image: "docker:dind"}})
+	b := New(Config{Run: f.run, Image: func() string { return "apptown-agent" }, Dind: DindConfig{Image: "docker:dind"}})
 	t.Cleanup(b.Close)
 	if err := b.ensureDind(in); err != nil {
 		t.Fatal(err)
@@ -523,7 +523,7 @@ func TestAReadOnlyChatsSidecarCannotWriteTheWorkspace(t *testing.T) {
 // end of Docker's options, so no image name can become an option.
 func TestProvisionUsesTheLaunchImageAfterTheOptions(t *testing.T) {
 	r, in, f := fixture(t)
-	in.Image = "forge-agent:from-the-forge"
+	in.Image = "apptown-agent:from-the-forge"
 	if err := r.provision(in); err != nil {
 		t.Fatal(err)
 	}
@@ -533,7 +533,7 @@ func TestProvisionUsesTheLaunchImageAfterTheOptions(t *testing.T) {
 			create = strings.Join(args, " ")
 		}
 	}
-	if !strings.HasSuffix(create, " -- forge-agent:from-the-forge sleep infinity") {
+	if !strings.HasSuffix(create, " -- apptown-agent:from-the-forge sleep infinity") {
 		t.Fatalf("create: %s", create)
 	}
 }

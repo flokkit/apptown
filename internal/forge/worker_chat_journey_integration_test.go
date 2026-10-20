@@ -33,7 +33,7 @@ import (
 // the change. The model is not called; the chat's commits are made in its
 // container as its agent would.
 func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
-	if dockertest.Run("image", "inspect", "forge-agent") != nil {
+	if dockertest.Run("image", "inspect", "apptown-agent") != nil {
 		t.Skip("needs AppTown-agent image on this machine's Docker")
 	}
 	ctx := context.Background()
@@ -43,9 +43,9 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.Load("forge-agent")
+	w.Load("apptown-agent")
 	w.Load("docker:27-dind")
-	w.Docker("tag", "forge-agent", image)
+	w.Docker("tag", "apptown-agent", image)
 	remote := func() *worker.RemoteAgent {
 		return &worker.RemoteAgent{Sessions: worker.SessionClient{URL: w.URL, Client: workertest.Client(t, ca, workertest.Installation)},
 			Image: image, CopyEvery: 200 * time.Millisecond}

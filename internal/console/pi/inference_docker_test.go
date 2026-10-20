@@ -34,7 +34,7 @@ func TestInferenceConsoleMountBoundary(t *testing.T) {
 		}
 		args = append(args, "-v", source+":/console/"+dir)
 	}
-	args = append(args, "forge-agent", "-c", `set -eu
+	args = append(args, "apptown-agent", "-c", `set -eu
 if (echo attacker > /console/session.json) 2>/dev/null; then exit 1; fi
 if (echo attacker > /console/session.json.tmp) 2>/dev/null; then exit 2; fi
 if rm /console/session.json 2>/dev/null; then exit 3; fi

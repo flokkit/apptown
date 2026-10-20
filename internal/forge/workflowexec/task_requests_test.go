@@ -146,7 +146,7 @@ func TestARecoveredTaskIsSentTheRequestItWasAdmittedWith(t *testing.T) {
 				t.Fatalf("sent %d requests; the recovered one is the admitted one: %v", len(sent), len(sent) == 2 && bytes.Equal(sent[1], admitted))
 			}
 			var spec execution.TaskSpec
-			if err := json.Unmarshal(sent[1], &spec); err != nil || spec.Image != "forge-agent" {
+			if err := json.Unmarshal(sent[1], &spec); err != nil || spec.Image != "apptown-agent" {
 				t.Fatalf("the recovered request's image: %q %v", spec.Image, err)
 			}
 			if ids[0] != ids[1] || fake.Starts(key) != 1 {

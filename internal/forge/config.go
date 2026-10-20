@@ -249,7 +249,7 @@ func (c Config) prepare() (configuration, error) {
 		c.AgentContext = "deploy/apptown-agent"
 	}
 	if c.AgentImage == "" {
-		c.AgentImage = "forge-agent"
+		c.AgentImage = "apptown-agent"
 	}
 	if c.PortainerEnvironment == "" {
 		c.PortainerEnvironment = integration.DefaultPortainerEnvironment

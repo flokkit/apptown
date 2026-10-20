@@ -24,7 +24,7 @@ func (s *Service) PortainerTarget(ctx context.Context) (*portainer.Target, error
 	cfg := &portainer.Target{
 		PortainerURL:      strings.TrimRight(values[ref("urlFrom", "PORTAINER_URL")], "/"),
 		PortainerKey:      values[ref("apiKeyFrom", "PORTAINER_API_KEY")],
-		AppsDomain:        values[ref("appsDomainFrom", "FORGE_APPS_DOMAIN")],
+		AppsDomain:        values[ref("appsDomainFrom", "APPTOWN_APPS_DOMAIN")],
 		EnvName:           ref("environment", ""),
 		ReleaseDeployment: ref("releaseDeployment", "lan"),
 	}
@@ -33,11 +33,16 @@ func (s *Service) PortainerTarget(ctx context.Context) (*portainer.Target, error
 	}
 	var missing []string
 	for k, v := range map[string]string{
-		ref("urlFrom", "PORTAINER_URL"):            cfg.PortainerURL,
-		ref("apiKeyFrom", "PORTAINER_API_KEY"):     cfg.PortainerKey,
-		ref("appsDomainFrom", "FORGE_APPS_DOMAIN"): cfg.AppsDomain,
+		ref("urlFrom", "PORTAINER_URL"):              cfg.PortainerURL,
+		ref("apiKeyFrom", "PORTAINER_API_KEY"):       cfg.PortainerKey,
+		ref("appsDomainFrom", "APPTOWN_APPS_DOMAIN"): cfg.AppsDomain,
 	} {
 		if v == "" {
+			// The apps domain's name before the AppTown rename is named,
+			// so an operator who kept it knows what to rename.
+			if k == "APPTOWN_APPS_DOMAIN" && values["FORGE_APPS_DOMAIN"] != "" {
+				k = "APPTOWN_APPS_DOMAIN (FORGE_APPS_DOMAIN is the name from before the AppTown rename: rename it)"
+			}
 			missing = append(missing, k)
 		}
 	}
