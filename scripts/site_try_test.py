@@ -226,8 +226,10 @@ class TryScript(unittest.TestCase):
 printf '%s\\n' "$*" >> "$CALLS"
 if [ "$1 $2" = 's3 cp' ]; then
   key=${4#s3://*/}
-  mkdir -p "$PUBLISHED/$(dirname "$key")"
-  cp "$3" "$PUBLISHED/$key"
+  case " $* " in
+  *" --recursive "*) mkdir -p "$PUBLISHED/$key" && cp "$3"*.png "$PUBLISHED/$key" 2>/dev/null || : ;;
+  *) mkdir -p "$PUBLISHED/$(dirname "$key")" && cp "$3" "$PUBLISHED/$key" ;;
+  esac
 fi
 ''')
         self.env.update(SITE_BUCKET='review-bucket', SITE_DISTRIBUTION='review-distribution', PUBLISHED=str(self.base))
@@ -246,7 +248,12 @@ fi
                 self.assertIn('--paths / /index.html /try /try.sh /tour/*', calls)
                 # The tour goes with the site: its page, and its shots as images.
                 self.assertEqual((self.base / 'tour' / 'index.html').read_bytes(), (ROOT / 'site/tour/index.html').read_bytes())
-                self.assertIn("s3 sync", calls)
+                # Only writes: the publish role may not list the bucket, so no
+                # sync (it lists first) and no ls.
+                self.assertIn('s3 cp ' + str(ROOT / 'site/tour') + '/ s3://', calls)
+                self.assertIn('--recursive', calls)
+                self.assertNotIn('s3 sync', calls)
+                self.assertNotIn('s3 ls', calls)
                 self.assertIn('--content-type image/png', calls)
 
 
