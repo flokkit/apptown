@@ -180,7 +180,9 @@ checked, never taken on trust.
 
 ## The `apptown` command line
 
-The `apptown` CLI talks to the same AppTown over its API. It needs AppTown's
+The `apptown` CLI talks to the same AppTown over its API. It is
+`bin/apptown` in the release archive for your computer
+([downloading a release](/docs/guides/server-setup)). It needs AppTown's
 address and a **command-line token**, which acts as you, with everything
 you yourself may do. An admin makes one, on **People → API tokens** or with:
 

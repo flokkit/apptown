@@ -39,11 +39,34 @@ AppTown](/docs/guides/running-apptown)).
 You need Docker running, Git, a model-provider account, and AppTown
 binaries.
 
-The release archive for your platform (its checksum is in `SHA256SUMS`)
-unpacks to `/opt/apptown`. It holds `bin/apptownd`, `bin/apptown`,
+The release archive for your platform unpacks to `/opt/apptown`. Each
+release on [GitHub](https://github.com/flokkit/apptown/releases) has
+`apptown-<version>-<os>-<arch>.tar.gz` for `linux-amd64`, `linux-arm64`,
+`darwin-arm64` and `darwin-amd64`, and `SHA256SUMS`. For 1.0.0 on an x86
+Linux server:
+
+```sh
+v=1.0.0 a=apptown-1.0.0-linux-amd64.tar.gz
+curl -fLO https://github.com/flokkit/apptown/releases/download/v$v/$a
+curl -fLO https://github.com/flokkit/apptown/releases/download/v$v/SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
+mkdir -p /opt/apptown && tar -xzf $a --strip-components=1 -C /opt/apptown
+```
+
+`SHA256SUMS.sigstore.json` beside it is a keyless signature of the sums by
+the release workflow, for that tag:
+
+```sh
+cosign verify-blob --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity "https://github.com/flokkit/apptown/.github/workflows/images.yml@refs/tags/v$v" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com SHA256SUMS
+```
+
+The archive holds `bin/apptownd`, `bin/apptown`,
 `bin/apptown-worker`, `bin/apptown-linux` (the CLI AppTown gives its
-containers), `deploy/apptown-agent` (the agent image's recipe) and example
-systemd units in `deploy/systemd`. The unit runs `apptownd` in `/opt/apptown`,
+containers), `deploy/apptown-agent` (the agent image's recipe), example
+systemd units in `deploy/systemd` and `scripts/forge-db-backup.sh` (the
+checked backup [upgrading](/docs/guides/upgrading) runs). The unit runs `apptownd` in `/opt/apptown`,
 where it finds `bin/apptown-linux`; without it, chats and steps run without
 the `apptown` CLI (`-console-cli` names another path).
 

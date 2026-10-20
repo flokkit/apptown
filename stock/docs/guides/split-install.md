@@ -71,7 +71,9 @@ the split install.
 1. **The database.** A PostgreSQL database AppTown alone uses, named with
    `-db-url`.
 2. **The worker.** A machine with Docker, running `apptown-worker` as root.
-   The release has an example unit, `deploy/systemd/apptown-worker.service`.
+   Unpack the same release archive to `/opt/apptown-worker` ([downloading a
+   release](/docs/guides/server-setup)); its example unit is
+   `deploy/systemd/apptown-worker.service`.
    You issue its server certificate and AppTown's client certificate; the
    client certificate's Common Name is the worker's `-installation`. On a
    cloud machine, block the metadata service (below).

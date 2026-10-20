@@ -48,6 +48,10 @@ make build            # web/dist, then bin/apptownd, bin/apptown, bin/apptown-wo
 ./bin/apptownd -addr 127.0.0.1:7777 -console-addr '' -admins trial
 ```
 
+`sh scripts/release-archives.sh <version> <commit> <out-dir>` makes the
+release archives and `SHA256SUMS` as the release workflow does, after `make
+web`.
+
 Then open <http://127.0.0.1:7777>. The data directory is `./_data` unless
 `-data` names another.
 

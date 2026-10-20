@@ -10,11 +10,11 @@
 2. **Stop AppTown, then copy it, and stop if a copy fails.** Stop
    `apptownd` (leave `forge-db` running), so nobody writes between the two
    copies and they describe one moment. Take the database dump with the
-   checked backup script from the repository (the nightly dump may be a day
-   old):
+   checked backup script, in `/opt/apptown/scripts` (the nightly dump may
+   be a day old):
 
    ```sh
-   bash scripts/forge-db-backup.sh forge-db postgres forge <directory> pre-upgrade
+   bash /opt/apptown/scripts/forge-db-backup.sh forge-db postgres forge <directory> pre-upgrade
    ```
 
    It refuses, and leaves no file, unless `pg_dump` and `gzip` both
@@ -28,7 +28,7 @@
    tar -C <data directory> --exclude=./pgdata --exclude=./cache -czf <directory>/forge-data-pre-upgrade.tar.gz .
    ```
 3. **Replace the binaries and start.** Unpack the new release over
-   `/opt/apptown` and set `APPTOWN_AGENT_IMAGE` to the new release's agent
+   `/opt/apptown` ([downloading a release](/docs/guides/server-setup)) and set `APPTOWN_AGENT_IMAGE` to the new release's agent
    image (`ghcr.io/flokkit/apptown-agent:<version>`); AppTown pulls it when
    it starts. Workers build their own agent image from the recipe in the
    release. Install the worker first, then start `apptownd`. The new
