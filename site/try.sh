@@ -97,7 +97,7 @@ untrust_macos() {
 
 # On Linux every distribution and browser keeps its own store, so the script
 # points to the one place that lists the steps instead of keeping a copy.
-GUIDE=https://github.com/flokkit/apptown/blob/main/stock/docs/guides/running-apptown.md#trust-the-trials-certificate
+GUIDE=https://github.com/flokkit/apptown/blob/main/stock/docs/guides/trial.md#trust-the-trials-certificate
 
 linux_trust_steps() {
 	say "To trust it on Linux, follow \"Trust the trial's certificate\" (system store, Chrome and Firefox):"

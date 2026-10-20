@@ -81,8 +81,8 @@ it. Before recommending, **What-if** on the pack's page runs that version's
 checks on every project on an earlier version (or `apptown whatif <pack>
 <version>`) and shows, project by project, what would newly fail and what
 it could not assess, without changing anyone's standing. A project that
-then adopts the version is reviewed against it automatically. See Packs in
-[Running AppTown](/docs/guides/running-apptown).
+then adopts the version is reviewed against it automatically. See [Packs, versions and
+what-if](/docs/guides/packs-and-what-if).
 
 ## Two kinds of check
 

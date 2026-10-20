@@ -26,8 +26,8 @@ contract](/docs/guides/contract-reference), "One architecture").
 The trial serves its apps at `https://….localhost` addresses. Chrome,
 Edge and Firefox reach those names on every supported system. Safari
 reaches them only from macOS 26; on an older macOS use Chrome or Firefox for
-the trial. The trial's certificate is trusted once per computer ([Running
-AppTown](/docs/guides/running-apptown), "Trust the trial's certificate").
+the trial. The trial's certificate is trusted once per computer ([The desktop
+trial](/docs/guides/trial), "Trust the trial's certificate").
 
 ## Browsers
 

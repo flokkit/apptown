@@ -30,7 +30,7 @@ Release notes are in [releases/](releases/).
 - **Containers are not a strong sandbox.** Agent, step and preview containers
   run as root on Linux, by choice, and can reach the network. A worker keeps
   project code off AppTown's own host; it does not make that code harmless
-  ([running an AppTown](stock/docs/guides/running-apptown.md)).
+  ([split install](stock/docs/guides/split-install.md)).
 - **Known threats and their status** are in the
   [threat register](design/architecture/threat-register.md): each entry says
   whether it is mitigated, partly mitigated, accepted or open.

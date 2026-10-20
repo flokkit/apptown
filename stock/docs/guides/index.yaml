@@ -28,6 +28,16 @@ groups:
     guides:
       - running-apptown
       - platforms
+      - trial
+      - server-setup
+      - split-install
+      - deployment-targets
+      - people-and-roles
+      - apptown-backups
+      - deployment-backups
+      - upgrading
+      - packs-and-what-if
+      - monitoring
       - compatibility
       - cli-json
   - title: How AppTown works

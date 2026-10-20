@@ -146,12 +146,12 @@ agent_image=$(echo "$facts" | sed -n 's/^AGENT_IMAGE=//p')
 	echo "## This build"
 	echo
 	echo "- Commit: \`$commit\`"
-	echo "- Worker protocol: $worker_protocol; CLI protocol: $cli_protocol (Running AppTown, Versions)"
-	echo "- Agent image recipe: \`$agent_image\` (\`deploy/apptown-agent\` in the archive). Workers build it when they start. An AppTown that runs work itself builds \`forge-agent\` only when it is missing: on install, and on an upgrade whose recipe name changed, run \`docker build -t forge-agent deploy/apptown-agent\` in the installation directory"
+	echo "- Worker protocol: $worker_protocol; CLI protocol: $cli_protocol (Upgrading, Versions)"
+	echo "- Agent image: \`ghcr.io/flokkit/apptown-agent:$version\`. On install and on each upgrade set \`APPTOWN_AGENT_IMAGE\` to it; AppTown pulls it when it is missing. Workers build their own from the recipe \`$agent_image\` (\`deploy/apptown-agent\` in the archive) when they start"
 	echo "- Platforms: linux/amd64, linux/arm64, darwin/arm64; checksums in SHA256SUMS"
 	echo "- Licence: Apache-2.0 (LICENSE, NOTICE)"
 	echo
-	echo "Install: Running AppTown, Install. Upgrade: Running AppTown, Upgrading."
+	echo "Install: Running AppTown, Install, and Setting up a server. Upgrade: Upgrading."
 } > "$out/RELEASE-NOTES.md"
 
 echo "release $tag: $out"

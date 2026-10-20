@@ -1,7 +1,6 @@
 #!/bin/bash
 # Restore a whole AppTown onto a replacement host and check it, timing each step
-# (the procedure is the guide's, stock/docs/guides/running-apptown.md
-# "AppTown's own backups").
+# (the procedure is the guide's, stock/docs/guides/apptown-backups.md).
 #
 #   APPTOWN_URL=<source url> APPTOWN_TOKEN=<source CLI token> \
 #   forge-recovery-rehearsal.sh <source ssh> <source data dir> <target ssh> <redeploy slug/deployment>

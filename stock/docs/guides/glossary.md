@@ -297,6 +297,6 @@ contributor.
 Members**). Nothing is implied: a power nobody was granted, nobody holds.
 A new AppTown grants every signed-in person the Auditor role, which reads
 everything; revoking that grant makes each project readable by its members
-only ([Running AppTown](/docs/guides/running-apptown)).
+only ([People, invites, roles and grants](/docs/guides/people-and-roles)).
 
 **Member (project)** — a person or group granted a role on a project.

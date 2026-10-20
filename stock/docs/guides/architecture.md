@@ -526,7 +526,7 @@ flowchart LR
   recorded images. A release built on a Docker host without digests is
   rebuilt from its recorded commit's inputs, not today's source, so it
   needs its build inputs (base images, package registries) to be
-  reachable; [Running AppTown](/docs/guides/running-apptown) says what
+  reachable; [AppTown's own backups](/docs/guides/apptown-backups) says what
   comes back by itself.
 
 Previews favour freshness (the folder, rebuilt as it changes); releases

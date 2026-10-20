@@ -38,6 +38,14 @@ How a Flokkit release is made, in order. The release script is
 6. **Freeze the release's forge** for the releases after it, at the tag, and
    commit the result on main:
    `go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>`.
+   Before publishing, `sh scripts/stranger-install.sh <archive>` installs the
+   archive in a fresh container, inside a
+   Docker daemon of its own on any Linux machine that may run a privileged
+   container, and reaches a first preview with no model key; it removes that
+   daemon and touches nothing else. The harness reads the admitted change's
+   exact UUID from its JSON response; failed admission or an invalid identity
+   fails the check before previewing. Its disposable host installs its own
+   JSON parser.
 7. **Publish** the archives. This is a separate step: where they go is
    decided per release. The site, apptown.dev with its tour, is published by
    the release workflow's `site` job (design/operations/github.md).

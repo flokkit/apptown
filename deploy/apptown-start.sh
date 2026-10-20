@@ -2,7 +2,7 @@
 # The entrypoint of the apptown image (deploy/Dockerfile, target server).
 #
 # With APPTOWN_NO_LOCAL_DOCKER=true it is a server: apptownd runs everything on
-# a worker (Running AppTown, Workers and running without local Docker) and
+# a worker (Split install, Workers and running without local Docker) and
 # this script only execs it.
 #
 # Otherwise it is the desktop trial (README, Desktop trial): the container
@@ -35,7 +35,7 @@ root=${APPTOWN_ROOT:-/var/lib/apptown}
 # run a Docker daemon.
 if [ ! -w "${APPTOWN_CGROUP:-/sys/fs/cgroup}" ]; then
 	say "this container cannot run its own Docker. Start it with --privileged (README, Desktop trial),"
-	say "or set APPTOWN_NO_LOCAL_DOCKER=true to run it as a server with a worker (Running AppTown)."
+	say "or set APPTOWN_NO_LOCAL_DOCKER=true to run it as a server with a worker (Split install)."
 	exit 1
 fi
 
@@ -130,7 +130,7 @@ if [ -z "$stopping" ] && kill -0 "$apptownd_pid" 2>/dev/null; then
 		say "about each address. It can vouch only for localhost names, never for a real website."
 		say "Trust it once: copy it out with"
 		say "  docker cp $(hostname):$ca apptown-local-ca.pem"
-		say "and follow \"Trust the trial's certificate\" in Running AppTown (docs/guides/running-apptown)."
+		say "and follow \"Trust the trial's certificate\" in The desktop trial (docs/guides/trial)."
 	fi
 	if [ -s "$APPTOWN_DATA/setup-token" ]; then
 		say "AppTown is ready. Open $APPTOWN_PUBLIC_HOST/?setup=$(tr -d '[:space:]' <"$APPTOWN_DATA/setup-token") to create the administrator."

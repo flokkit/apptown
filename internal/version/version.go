@@ -56,7 +56,7 @@ func of(release, stamped string, info *debug.BuildInfo, ok bool) string {
 }
 
 // The CLI protocol says which CLIs an AppTown accepts (design/operations,
-// running-apptown, "Versions"). The CLI states the number it speaks on
+// stock/docs/guides/upgrading.md, "Versions"). The CLI states the number it speaks on
 // every request; an AppTown accepts a range and refuses another by name. A CLI
 // an AppTown hands its agents is built from AppTown's own tree, so it always
 // matches; a person's own CLI can lag or lead.

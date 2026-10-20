@@ -59,7 +59,7 @@ given things outside itself (branches, backup paths, containers) keep the
 names they were given.
 
 **Which versions work together.** Two protocol numbers decide it, as
-the "Versions" section of [Running AppTown](/docs/guides/running-apptown)
+the "Versions" section of [Upgrading](/docs/guides/upgrading)
 explains: AppTown refuses a CLI, and a worker refuses an AppTown, outside the
 supported range, with a sentence naming both sides and what to install. A
 worker keeps serving the previous protocol for one release, so a worker can be
@@ -67,7 +67,7 @@ upgraded first.
 
 **Your data across upgrades.** Every 1.x release upgrades the database and data
 directory of the previous 1.x release in place, through the upgrade that
-[Running AppTown](/docs/guides/running-apptown) describes under "Upgrading". The way back is the database dump and
+[Upgrading](/docs/guides/upgrading) describes. The way back is the database dump and
 the data-directory copy taken before the upgrade, restored with the previous
 release; work done after the new release's first write is not in them.
 

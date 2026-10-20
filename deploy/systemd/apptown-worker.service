@@ -3,7 +3,7 @@
 # (bin/apptown-worker, deploy/apptown-agent), copy apptown-worker.env.example to
 # /etc/apptown-worker/apptown-worker.env and edit it, put the worker's
 # certificate, key and AppTown's CA in /etc/apptown-worker/, then
-# `systemctl enable --now apptown-worker`. Guide: Running AppTown, Workers.
+# `systemctl enable --now apptown-worker`. Guide: Split install.
 [Unit]
 Description=AppTown worker
 After=network-online.target docker.service

@@ -8,9 +8,9 @@ procedures.
 
 | Task | Primary reference |
 | --- | --- |
-| Install an AppTown, package the Linux console CLI | [Running AppTown: Install](../../stock/docs/guides/running-apptown.md#install), [Repository README](../../README.md) and Makefile |
+| Install an AppTown, package the Linux console CLI | [Running AppTown: Install](../../stock/docs/guides/running-apptown.md#install), [Setting up a server](../../stock/docs/guides/server-setup.md), [Repository README](../../README.md) and Makefile |
 | Configure authentication and access | [Identity and authority](../subsystems/auth.md) |
-| Invite people, grant roles, make tokens | [Running AppTown: People](../../stock/docs/guides/running-apptown.md#people-invites-roles-and-grants), [Invites](../subsystems/auth.md#invites), [Authorization decisions](../subsystems/authorization-capabilities.md) |
+| Invite people, grant roles, make tokens | [People, invites, roles and grants](../../stock/docs/guides/people-and-roles.md), [Invites](../subsystems/auth.md#invites), [Authorization decisions](../subsystems/authorization-capabilities.md) |
 | Configure the private model gateway and worker networks | [Inference security](../subsystems/inference-security.md) |
 | Understand startup, interrupted work and bounded shutdown | [Daemon lifecycle](../subsystems/daemon-lifecycle.md) |
 | Make a release: notes, tag, build, frozen upgrade fixture | [Releasing](releasing.md) |
@@ -21,13 +21,13 @@ procedures.
 | A personal token is refused with "the token has no purpose" | [Tokens made before purposes](#tokens-made-before-purposes) |
 | Start a project from existing code, or move one to another AppTown | [Starting from existing code](start-from-existing-code.md) |
 | Keep projects in a public gitlab.com group, with attributed merge requests | [An AppTown on a public gitlab.com group](gitlab-com.md) |
-| Add deployment targets (Docker host, Portainer, App Platform, bucket website) | [Running AppTown: Deployment targets](../../stock/docs/guides/running-apptown.md#deployment-targets), [Deploy targets](../subsystems/deploy-targets.md) |
+| Add deployment targets (Docker host, Portainer, App Platform, bucket website) | [Deployment targets](../../stock/docs/guides/deployment-targets.md), [Deploy targets](../subsystems/deploy-targets.md) |
 | Diagnose deployments, uncertainty and stale dashboard observations | [Deployment runtime](../subsystems/deployment.md) |
-| Back up and restore AppTown's own database; move an AppTown to another host | [Running AppTown: AppTown's own backups](../../stock/docs/guides/running-apptown.md#apptowns-own-backups) |
-| Deployment backups, take-down and final backups | [Running AppTown: Deployment backups](../../stock/docs/guides/running-apptown.md#deployment-backups), [Deployment runtime](../subsystems/deployment.md) |
-| Upgrade an AppTown | [Running AppTown: Upgrading](../../stock/docs/guides/running-apptown.md#upgrading) |
+| Back up and restore AppTown's own database; move an AppTown to another host | [AppTown's own backups](../../stock/docs/guides/apptown-backups.md) |
+| Deployment backups, take-down and final backups | [Deployment backups](../../stock/docs/guides/deployment-backups.md), [Deployment runtime](../subsystems/deployment.md) |
+| Upgrade an AppTown | [Upgrading](../../stock/docs/guides/upgrading.md) |
 | Approve ownership for deployments made before ownership was recorded | [Deployment runtime](../subsystems/deployment.md) (the one-time inspection) |
-| Manage packs: offer, recommend a version, what-if | [Running AppTown: Packs](../../stock/docs/guides/running-apptown.md#packs-versions-and-what-if), [Ways-of-working versions](../subsystems/ways-of-working-versions.md) |
+| Manage packs: offer, recommend a version, what-if | [Packs, versions and what-if](../../stock/docs/guides/packs-and-what-if.md), [Ways-of-working versions](../subsystems/ways-of-working-versions.md) |
 | A deployment reads "uncertain" or the ledger says `deployment.needs-attention` | [A deployment needs attention](#a-deployment-needs-attention) |
 | Diagnose chat tools, private Docker and retained session state | [Runtime guide](../../stock/docs/guides/runtime-environments.md) |
 | Export telemetry and import dashboards | [Telemetry](../subsystems/telemetry.md), [AppTown dashboard](../../stock/observability/README.md) |

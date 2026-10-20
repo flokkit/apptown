@@ -100,9 +100,9 @@ ALLOWED = [
     ("static-path", r"^internal/forge/projectlifecycle/upgrade_test\.go$", r".", "the upgrade's text rename names what it renames"),
     ("api-version", r"^internal/forge/projectlifecycle/upgrade_test\.go$", r".", "the upgrade's text rename names what it renames"),
     # The operator's one-time upgrade step names what it moves from (push 4).
-    ("repo-folder", r"^stock/docs/guides/running-apptown\.md$", r"moves the repository folder `\.forge/` to `\.apptown/`",
+    ("repo-folder", r"^stock/docs/guides/upgrading\.md$", r"moves the repository folder `\.forge/` to `\.apptown/`",
      "the upgrade step tells an operator which folder it renames"),
-    ("refs", r"^stock/docs/guides/running-apptown\.md$", r"moves `refs/forge/` to `refs/apptown/`",
+    ("refs", r"^stock/docs/guides/upgrading\.md$", r"moves `refs/forge/` to `refs/apptown/`",
      "the upgrade step tells an operator which refs it moves"),
     # History readers (push 3): records written before the rename keep their
     # names, so these readers know the old spelling. Nothing writes it.

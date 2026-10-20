@@ -97,7 +97,7 @@ dashboard. AppTown and your apps are served over HTTPS at
 `https://localhost:7777` and `https://*.preview.localhost:7777`, from a
 certificate authority the trial makes for itself that can vouch only for
 `localhost` names. Your browser warns about these addresses until you trust
-it once: [Running AppTown](stock/docs/guides/running-apptown.md) says how
+it once: [The desktop trial](stock/docs/guides/trial.md) says how
 ("Trust the trial's certificate"). What it runs on is in
 [Supported platforms and system requirements](stock/docs/guides/platforms.md).
 
@@ -147,36 +147,9 @@ which one to choose.
 
 ## From source
 
-You need Go (the version in [go.mod](go.mod)), Node.js 24 with npm, Git, and a
-running Docker (AppTown starts its own PostgreSQL in a container).
-
-```sh
-git clone https://github.com/flokkit/apptown.git
-cd apptown
-npm ci --prefix web   # the web interface's dependencies (make build also does this when they are missing)
-make build            # web/dist, then bin/apptownd, bin/apptown, bin/apptown-worker and bin/apptown-linux
-./bin/apptownd -addr 127.0.0.1:7777 -console-addr '' -admins trial
-```
-
-Then open <http://127.0.0.1:7777>. The data directory is `./_data` unless
-`-data` names another.
-
-This is a web-only trial in the default `open` authentication mode: the browser
-says who it is (`trial`, until you change the name), and `-admins trial` makes
-that name an administrator. Open mode trusts that name, so keep it on
-`127.0.0.1` and never expose it; use `-auth internal` for anything shared.
-Chats and agent workflows also need a model provider, a private inference
-listener, container network settings and an agent image: follow Install in
-[Running AppTown](stock/docs/guides/running-apptown.md). It also covers running
-work on a separate worker machine and running AppTown with no local Docker
-(`-no-local-docker`).
-
-The daemon mounts `bin/apptown-linux` into agent and console containers. `make build`
-and `make go` build this artifact; runtime source compilation is not required.
-It defaults to `apptown-linux` beside the daemon executable. For another location,
-set `-console-cli /absolute/path/apptown-linux` (or `APPTOWN_CONSOLE_CLI`). A missing
-artifact is reported and sessions continue without the CLI. `make dev-api` builds
-and supplies the artifact explicitly for `go run`.
+Building AppTown from the repository, for working on it, is in
+[CONTRIBUTING.md](CONTRIBUTING.md#building-from-source). To run it, use a
+release: [Running AppTown](stock/docs/guides/running-apptown.md).
 
 ## Security and contributing
 

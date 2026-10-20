@@ -220,7 +220,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
     <div className="small" style={{ marginTop: 2 }}>
       <StaleNote q={q} />
       {onHost
-        ? <div className="muted">{p.keptOn === 'store' ? 'Backups kept in the backup store' : p.keptOn === 'host' ? <>Backups kept on <span title="lost with this host's disk">this host ⚠</span></> : 'No backup yet'} · <Link to="/docs/guides/running-apptown">How backups work</Link></div>
+        ? <div className="muted">{p.keptOn === 'store' ? 'Backups kept in the backup store' : p.keptOn === 'host' ? <>Backups kept on <span title="lost with this host's disk">this host ⚠</span></> : 'No backup yet'} · <Link to="/docs/guides/deployment-backups">How backups work</Link></div>
         : p.note && <div className={p.dataClass === 'production' && !p.offHost ? 'error' : 'muted'}>{p.note}</div>}
       {p.startFrom && !p.startFrom.filled && <div className="muted">starts from a backup set: its first release fills its data before the app starts</div>}
       {p.items.map((it) => (

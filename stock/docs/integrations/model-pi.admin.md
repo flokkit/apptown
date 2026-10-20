@@ -33,7 +33,7 @@ chats run there, while project chats and chats that continue a step's agent
 stay on AppTown; with `-no-local-docker` AppTown runs none and refuses
 what the worker cannot take. They
 also need AppTown's private inference listener; setting it up is under
-Install in [Running an AppTown](/docs/guides/running-apptown).
+"Configure model access" in [Setting up a server](/docs/guides/server-setup).
 
 ## Slots
 

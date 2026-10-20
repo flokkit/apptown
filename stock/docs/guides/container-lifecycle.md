@@ -122,7 +122,7 @@ AppTown backs up a deployment's data: its public part's `dataDir` and each
 need that keeps data. How each need is copied, and what its copy leaves out,
 is in [Services and data](/docs/guides/services-and-data). Setting up a
 backup store and a copy runner is in
-[Running AppTown](/docs/guides/running-apptown).
+[Deployment backups](/docs/guides/deployment-backups).
 
 | Target | What is copied |
 | --- | --- |

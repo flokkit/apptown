@@ -29,7 +29,8 @@ or after its current turn.
 Without a worker, all of this runs on AppTown's own host, in containers on
 its Docker: chats, agent steps, checks, previews and script steps. A script
 step runs on the host itself only when the operator started AppTown with
-`-host-scripts` ([Running AppTown](/docs/guides/running-apptown));
+`-host-scripts` ([Split install](/docs/guides/split-install), where
+workers and `-host-scripts` are described);
 otherwise `executor: local` is refused.
 
 AppTown can have a **worker**: a separate machine with its own Docker that
@@ -94,8 +95,8 @@ the scanners), recorded in the image's build labels, and declared for a project'
 own toolchain in its `mise.toml`. The image has no Go: a Go project declares its
 Go in `mise.toml`, and gopls uses that Go. A custom step image can provide a different
 inventory. Every agent container has the `apptown` command line for Linux,
-which AppTown mounts from its own install ([Running AppTown](/docs/guides/running-apptown)
-says where it comes from); without it the helper has no `apptown`, and
+which AppTown mounts from its own install ([Setting up a
+server](/docs/guides/server-setup) says where it comes from); without it the helper has no `apptown`, and
 AppTown's log says so.
 
 Pin the tools the project needs in `mise.toml` (or `.mise.toml`). AppTown
