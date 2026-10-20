@@ -1,0 +1,34 @@
+#!/bin/sh
+# Publishes apptown.dev: this folder's page and the try script, with the
+# AppTown version the script starts, then refreshes CloudFront's cache.
+#
+#   SITE_BUCKET=… SITE_DISTRIBUTION=… sh site/publish.sh <version>
+#
+# The bucket and distribution are the outputs of tf/products/apptown/site in
+# the maintainers' infrastructure repository; publishing needs AWS
+# credentials that can write the bucket and invalidate the distribution.
+# <version> is an image tag on ghcr.io/flokkit/apptown, such as 1.0.0.
+set -eu
+
+version=${1:?usage: sh site/publish.sh <version>}
+: "${SITE_BUCKET:?set SITE_BUCKET}"
+: "${SITE_DISTRIBUTION:?set SITE_DISTRIBUTION}"
+here=$(cd "$(dirname "$0")" && pwd)
+
+out=$(mktemp -d)
+trap 'rm -rf "$out"' EXIT
+cp "$here/index.html" "$out/index.html"
+sed "s/@VERSION@/$version/" "$here/try.sh" >"$out/try.sh"
+if grep -q '@VERSION@' "$out/try.sh"; then
+	echo "publish: the version was not set in try.sh" >&2
+	exit 1
+fi
+
+# Short cache times: the try script changes with each release.
+aws s3 cp "$out/index.html" "s3://$SITE_BUCKET/index.html" \
+	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
+aws s3 cp "$out/try.sh" "s3://$SITE_BUCKET/try.sh" \
+	--content-type 'text/plain; charset=utf-8' --cache-control 'max-age=300'
+aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION" \
+	--paths '/' '/index.html' '/try' '/try.sh' >/dev/null
+echo "published apptown.dev with try.sh starting $version"
