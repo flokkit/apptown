@@ -72,3 +72,34 @@ func TestIntegrationStaticServerGivesThePageItsValues(t *testing.T) {
 		t.Fatalf("with nothing given: %d %q", code, body)
 	}
 }
+
+// The static server starts without a warning: its Caddyfile is formatted as
+// caddy fmt writes it, and it says it serves plain HTTP/1.1, so a person
+// reading a deployment's log sees nothing that looks like a fault.
+//
+// Kills: the global options block removed, or the closing newline.
+func TestIntegrationStaticServerStartsWithoutWarnings(t *testing.T) {
+	site := t.TempDir()
+	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html></html>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	args := append([]string{"run", "-d", "-v", site + ":/srv:ro", StaticServerImage}, StaticServerCommand(8080)...)
+	out, err := exec.Command("docker", args...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("docker run: %s", out)
+	}
+	id := strings.TrimSpace(string(out))
+	t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", id).Run() })
+	var logs []byte
+	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
+		logs, _ = exec.Command("docker", "logs", id).CombinedOutput()
+		return strings.Contains(string(logs), "serving initial configuration")
+	}) {
+		t.Fatalf("the static server did not start: %s", logs)
+	}
+	for _, line := range strings.Split(string(logs), "\n") {
+		if strings.Contains(line, `"level":"warn"`) || strings.Contains(line, `"level":"error"`) {
+			t.Errorf("the static server logged: %s", line)
+		}
+	}
+}

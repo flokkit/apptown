@@ -225,7 +225,18 @@ func BrowserEnvScript(values string) string {
 // ReleasePath answers the part's release identity (ReleaseEnvVar, empty when unset): what a front
 // door the forge reaches only from outside is witnessed serving.
 func StaticServerCommand(port int) []string {
-	caddyfile := fmt.Sprintf(`:%d {
+	// HTTP only and HTTP/1.1 only, said outright: TLS ends at the front door,
+	// so Caddy's automatic HTTPS and HTTP/2 and /3 would each log a warning at
+	// every start. The file ends in a newline, as caddy fmt writes it, or Caddy
+	// warns that it is not formatted.
+	caddyfile := fmt.Sprintf(`{
+	auto_https off
+	servers {
+		protocols h1
+	}
+}
+
+:%d {
 	@novalues vars {env.%s} ""
 	handle /_forge/env.js {
 		header Content-Type "application/javascript; charset=utf-8"
@@ -242,7 +253,8 @@ func StaticServerCommand(port int) []string {
 		root * /srv
 		file_server
 	}
-}`, port, BrowserEnvVar, BrowserEnvScript(`\{\}`), BrowserEnvScript("{env."+BrowserEnvVar+"}"), appcontract.ReleasePath, appcontract.ReleaseEnvVar)
+}
+`, port, BrowserEnvVar, BrowserEnvScript(`\{\}`), BrowserEnvScript("{env."+BrowserEnvVar+"}"), appcontract.ReleasePath, appcontract.ReleaseEnvVar)
 	return []string{"sh", "-c", "printf '%s' '" + caddyfile + "' > /etc/caddy/Caddyfile && exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"}
 }
 
