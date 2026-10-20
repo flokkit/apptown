@@ -57,8 +57,13 @@ After every image is merged, the `site` job publishes apptown.dev
 starts the version just published. A test tag (`-test.N`) skips it, so the
 public install command never names a test build. The job signs in to AWS with
 GitHub's OIDC token as `apptown-site-publisher`, a role that may only write the
-site bucket and invalidate its distribution, and only for this repository's
-`v*` tags; no AWS key is stored in GitHub. The role, the bucket and the
+site bucket and invalidate its distribution. The role trusts one thing: a job
+in this repository's `apptown.dev` environment, which only `v*` tags may
+deploy to. GitHub names the repository by its ids in the token
+(`repo:flokkit@101402407/apptown@1423238106:environment:apptown.dev`), so the
+trust follows this repository through a rename and never passes to another
+one given its name. No AWS key is stored in GitHub. Once the repository is public, a
+tag ruleset limits creating and moving `v*` tags to admins. The role, the bucket and the
 distribution are made by `tf/products/apptown/site` in the maintainers'
 infrastructure repository. A maintainer with AWS credentials can still publish
 by hand with the same script.

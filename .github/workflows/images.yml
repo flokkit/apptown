@@ -141,15 +141,18 @@ jobs:
 
   # apptown.dev's try script starts the version just published, so the site
   # is published only once every image is merged. A test tag (-test.N) builds
-  # and publishes images but leaves the public site alone. GitHub's OIDC token
-  # signs in to AWS as apptown-site-publisher (tf/products/apptown/site in the
-  # maintainers' infrastructure repository), which may write the site bucket
-  # and invalidate its distribution, for this repository's v* tags only.
+  # and publishes images but leaves the public site alone. The job runs in the
+  # apptown.dev environment, which only v* tags may deploy to; GitHub's OIDC
+  # token for that environment signs in to AWS as apptown-site-publisher
+  # (tf/products/apptown/site in the maintainers' infrastructure repository),
+  # which trusts that environment alone and may only write the site bucket and
+  # invalidate its distribution.
   site:
     name: publish apptown.dev
     needs: merge
     if: ${{ !contains(github.ref_name, '-test.') }}
     runs-on: ubuntu-24.04
+    environment: apptown.dev
     permissions:
       contents: read
       id-token: write
