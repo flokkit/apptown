@@ -39,7 +39,14 @@ type Stored struct {
 
 // streaming bounds no request by time: a copy can take as long as its size
 // needs; the caller's context bounds it.
-var streaming = &http.Client{}
+var streaming = &http.Client{Transport: transport}
+
+// transport is this package's pool of connections: one that nothing else in
+// the process closes. A connection pooled on http.DefaultTransport is closed
+// under a request whenever anything calls CloseIdleConnections on it (every
+// httptest.Server.Close does), and the request fails with "connection
+// broken" though the store never answered.
+var transport = http.DefaultTransport.(*http.Transport).Clone()
 
 // PutPrivate writes a small object, private.
 func (c *Client) PutPrivate(ctx context.Context, bucket, key, contentType string, body []byte) error {

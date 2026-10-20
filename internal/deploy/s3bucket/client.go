@@ -190,7 +190,7 @@ func (c *Client) send(ctx context.Context, method, bucket, key string, query url
 	req.ContentLength = length
 	c.sign(req, payload, clock.Or(c.Now)().UTC())
 	if httpc == nil {
-		httpc = &http.Client{Timeout: 60 * time.Second}
+		httpc = &http.Client{Timeout: 60 * time.Second, Transport: transport}
 	}
 	res, err := httpc.Do(req)
 	if err != nil {

@@ -30,13 +30,18 @@ type Client struct {
 	HTTP  *http.Client
 }
 
+// apiTransport is the API client's pool of connections, one nothing else in
+// the process closes: http.DefaultTransport's are closed by anything that
+// calls CloseIdleConnections on it, every httptest.Server.Close among them.
+var apiTransport = http.DefaultTransport.(*http.Transport).Clone()
+
 // NewClient talks to the API with a token resolved at use time: the token
 // lives in the secrets store, never in a row. An empty base selects the public API.
 func NewClient(token, base string) *Client {
 	if base == "" {
 		base = "https://api.digitalocean.com"
 	}
-	return &Client{Token: token, Base: base, HTTP: &http.Client{Timeout: 60 * time.Second}}
+	return &Client{Token: token, Base: base, HTTP: &http.Client{Timeout: 60 * time.Second, Transport: apiTransport}}
 }
 
 // RegistryName is the account's container registry, "" when it has none.
