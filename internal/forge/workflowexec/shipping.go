@@ -14,6 +14,7 @@ import (
 	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/preview"
 	"flokkit.io/forge/internal/forge/project"
+	"flokkit.io/forge/internal/forge/verification"
 	"flokkit.io/forge/internal/forge/workflow"
 	"flokkit.io/forge/internal/progress"
 )
@@ -40,6 +41,7 @@ type Shipping struct {
 	progress   *progress.Feeds
 	backups    interface{ AfterRelease(ids.ID, string) }
 	builds     *ReleaseBuilds
+	shots      Screenshotter
 	cfg        ShippingConfig
 	clock      func() time.Time // AppTown's clock; nil is the real one
 }
@@ -63,6 +65,15 @@ type ShippingDependencies struct {
 	// Now is AppTown's clock, which stamps what shipping records on a
 	// run; nil is the real one.
 	Now func() time.Time
+	// Screenshots pictures a run's preview once its boot passes
+	// (verification.Screenshots); nil takes none, and the boot's evidence
+	// says so.
+	Screenshots Screenshotter
+}
+
+// Screenshotter takes AppTown's pictures of a preview's pages.
+type Screenshotter interface {
+	Take(ctx context.Context, base string, pages []string) verification.Capture
 }
 
 // CompileCheck runs one check container and answers with its outcome
@@ -73,7 +84,7 @@ type CompileCheck struct {
 }
 
 func NewShipping(db *database.DB, d ShippingDependencies, cfg ShippingConfig) *Shipping {
-	return &Shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, backups: d.Backups, builds: d.Builds, cfg: cfg, clock: d.Now}
+	return &Shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, backups: d.Backups, builds: d.Builds, shots: d.Screenshots, cfg: cfg, clock: d.Now}
 }
 func (a *Shipping) projectSlugOf(ctx context.Context, id ids.ID) string {
 	p, _ := project.ByIDIn(ctx, a.db, id)

@@ -129,7 +129,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	// serves.
 	defer func() {
 		if err == nil {
-			if !s.recordServedSince(name, discards, servedRecord{Incarnation: b.incarnation, Source: b.commit, Public: b.public}) {
+			if !s.recordServedSince(name, discards, servedRecord{Incarnation: b.incarnation, Source: b.commit, Public: b.public, At: s.now()}) {
 				log.Printf("change %d: its preview was discarded while it booted; AppTown keeps no record of it", ch.ID)
 			}
 			if rerr := b.source.Retain(b.tree); rerr != nil {

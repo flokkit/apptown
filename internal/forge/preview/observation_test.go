@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"flokkit.io/forge/internal/deploy/docker"
 	"flokkit.io/forge/internal/deploy/docker/dockerfake"
@@ -98,5 +99,34 @@ func TestInTheNoLocalDockerModeAPreviewWithNowhereToRunIsUnavailable(t *testing.
 	got := s.ChangeStatus(context.Background(), ids.Nil, idstest.N(7), true)
 	if got.State != Unavailable || got.Reason != "this AppTown has no local Docker" {
 		t.Fatalf("preview: %+v", got)
+	}
+}
+
+// A running change preview says when it was built and, only when it was
+// booted from a commit, which: a change's working files are not a commit.
+// Reusing the same incarnation is not a build.
+func TestALivePreviewSaysWhenAndFromWhatItWasBuilt(t *testing.T) {
+	t.Parallel()
+	fake := dockerfake.New()
+	s := observationService(t, fake)
+	change := idstest.N(8)
+	name := docker.PreviewChangeName(change)
+	fake.SetRunning(name, true)
+	observe := func() Status { return s.ChangeStatus(context.Background(), ids.Nil, change, false) }
+	if got := observe(); got.State != Live || !got.Built.IsZero() || got.Commit != "" {
+		t.Fatalf("a preview AppTown keeps no record of claimed a build: %+v", got)
+	}
+	first := time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
+	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{Incarnation: "folder+1", At: first})
+	if got := observe(); !got.Built.Equal(first) || got.Commit != "" {
+		t.Fatalf("working files: %+v", got)
+	}
+	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{Incarnation: "folder+1", At: first.Add(time.Hour)})
+	if got := observe(); !got.Built.Equal(first) {
+		t.Fatalf("a reuse moved the build time: %+v", got)
+	}
+	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{Incarnation: "abc+1", Source: "abc", At: first.Add(2 * time.Hour)})
+	if got := observe(); !got.Built.Equal(first.Add(2*time.Hour)) || got.Commit != "abc" {
+		t.Fatalf("booted from a commit: %+v", got)
 	}
 }

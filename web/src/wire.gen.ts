@@ -188,6 +188,7 @@ export type ChangeCockpit = {
   evidence: CockpitEvidence
   runs: ChangeRunSummary[]
   commits: ChangeCommit[]
+  head?: string
   diffstat: string
   committedDiff: CommittedComparison
   report: string

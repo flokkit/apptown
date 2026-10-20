@@ -2,7 +2,8 @@ import { PRODUCT } from '../../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TryIt } from '../../TryIt'
-import { AdvanceResult, ChangeView, Step, Workflow, post } from '../../api'
+import { AdvanceResult, ChangeView, Step, StepOf, Workflow, isStep, post } from '../../api'
+import { Screenshots } from '../../Screenshots'
 import { QuietConfirm } from '../../QuietConfirm'
 import { DecisionForm, landingMeansFor } from '../../DecisionForm'
 import { useAction, useGet } from '../../data'
@@ -120,7 +121,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
       body = (
         <>
           <ApproveEvidence changeId={changeId} soFar={ch.summary || view.report} diffstat={view.diffstat}
-            shortfall={ch.summary ? requestShortfall(ch) : undefined} />
+            shortfall={ch.summary ? requestShortfall(ch) : undefined} boot={latestBoot(d.steps)} head={view.head} />
           {/* Two roles, two zones: the DECISION is the approver's —
               approve, or reject with the words that travel back to the agent.
               Going back to work is the AUTHOR's move: a quiet line below. */}
@@ -312,7 +313,16 @@ export function requestShortfall(ch: { requestMet?: string; requestGap?: string 
   return /[.!?]$/.test(gap) ? gap : gap + '.'
 }
 
-export function ApproveEvidence({ changeId, soFar, diffstat, shortfall }: { changeId: string; soFar?: string; diffstat?: string; shortfall?: string }) {
+// latestBoot is the run's newest preview step: its screenshots are what the
+// person approving sees of the app. Only this run's: never an earlier one's.
+export function latestBoot(steps: Step[]): StepOf<'preview'> | undefined {
+  const boots = steps.filter(isStep('preview')).filter((s) => s.status !== 'running' && s.evidence?.screenshots)
+  return boots.length ? boots[boots.length - 1] : undefined
+}
+
+export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, boot, head }: {
+  changeId: string; soFar?: string; diffstat?: string; shortfall?: string; boot?: StepOf<'preview'>; head?: string
+}) {
   const asked = useRef(false)
   const [askErr, setAskErr] = useState('')
   useEffect(() => {
@@ -331,6 +341,7 @@ export function ApproveEvidence({ changeId, soFar, diffstat, shortfall }: { chan
         <TryIt changeId={changeId} label="▶ Try it first" className="" />
         {diffstat && <span className="muted small">{diffstat}</span>}
       </div>
+      {boot && <Screenshots shots={boot.evidence.screenshots} head={head} at={boot.finishedAt ?? undefined} />}
       {shortfall && (
         <div className="ch-shortfall" role="alert">
           <strong>The summary says this change falls short of the request:</strong> {shortfall}{' '}

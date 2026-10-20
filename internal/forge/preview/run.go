@@ -128,7 +128,7 @@ func (s *Service) RunPreview(ctx context.Context, claim deployment.ClaimedExecut
 	if err != nil {
 		return out, err
 	}
-	if !s.recordServedSince(name, discards, servedRecord{Incarnation: incarnation, Source: tree.Revision, Public: public}) {
+	if !s.recordServedSince(name, discards, servedRecord{Incarnation: incarnation, Source: tree.Revision, Public: public, At: s.now()}) {
 		log.Printf("run %d: its preview was discarded while it booted; AppTown keeps no record of it", runID)
 	}
 	if rerr := source.Retain(tree); rerr != nil {

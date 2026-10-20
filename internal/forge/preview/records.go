@@ -2,6 +2,7 @@ package preview
 
 import (
 	"sync"
+	"time"
 
 	"flokkit.io/forge/internal/deploy/docker"
 )
@@ -19,6 +20,9 @@ type servedRecord struct {
 	Incarnation string
 	Source      string
 	Public      docker.PublicPrepared
+	// At is when this incarnation was booted, on AppTown's clock: a reuse
+	// of the same incarnation keeps the first boot's time.
+	At time.Time
 }
 
 // servedPreviews holds the records by preview name, in memory: an AppTown
@@ -65,6 +69,9 @@ func (s *Service) recordServedSince(name string, discards int, r servedRecord) b
 	}
 	s.served.made++
 	r.made = s.served.made
+	if prior, ok := s.served.m.Load(name); ok && prior.(servedRecord).Incarnation == r.Incarnation && !prior.(servedRecord).At.IsZero() {
+		r.At = prior.(servedRecord).At // the same software, reused: built when it first was
+	}
 	s.served.m.Store(name, r)
 	return true
 }

@@ -119,7 +119,7 @@ func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slu
 		Images: &worker.PreviewImages{Parts: b.Parts, Init: b.Init, SelfServing: b.BuiltFrom.SelfServing}}, prepared, tree); err != nil {
 		return ReleaseResult{}, fmt.Errorf("could not start this version: %w", err)
 	}
-	if !s.recordServedSince(name, discards, servedRecord{Incarnation: incarnation, Source: revision, Public: public}) {
+	if !s.recordServedSince(name, discards, servedRecord{Incarnation: incarnation, Source: revision, Public: public, At: s.now()}) {
 		log.Printf("%s: its preview was discarded while it booted; AppTown keeps no record of it", name)
 	}
 	return ReleaseResult{Result: Result{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0), Revision: revision, Incarnation: incarnation, Public: &public}}, nil

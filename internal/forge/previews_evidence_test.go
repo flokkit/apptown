@@ -15,9 +15,12 @@ import (
 	"testing"
 	"time"
 
+	"encoding/base64"
+
 	"flokkit.io/forge/internal/access"
 	"flokkit.io/forge/internal/console"
 	"flokkit.io/forge/internal/deploy/docker"
+	"flokkit.io/forge/internal/execution"
 	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/forge/scm"
 	"flokkit.io/forge/internal/forge/verification"
@@ -369,4 +372,130 @@ func saveWithoutRehearsal(t *testing.T, w workerChatWorld, s *console.Session) s
 		t.Fatal(err)
 	}
 	return saved
+}
+
+// onePixelPNG is a real 1×1 PNG.
+const onePixelPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+
+// shotsAnswer is the driver's report a capture answers with
+// (workerCheckDocker): two pictures of the home page, and a named page that
+// left the preview.
+const shotsAnswer = `{"pages":[{"name":"1-desktop","png":"` + onePixelPNG + `"},{"name":"1-phone","png":"` + onePixelPNG + `"},{"name":"2-desktop","reason":"left the preview for https://elsewhere.example/"}]}`
+
+// bootWithShots boots a run's preview on an AppTown with a preview domain
+// and reads the boot step back.
+func bootWithShots(t *testing.T, report string) (*App, *workflow.Step) {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("<h1>app</h1>")) }))
+	t.Cleanup(server.Close)
+	daemon := newFakeDocker()
+	daemon.port = server.Listener.Addr().(*net.TCPAddr).Port
+	app := testApp(t, Config{DockerClient: daemon, DockerProbe: &docker.Probe{Settle: time.Millisecond},
+		TierDomains: []string{"preview=preview.example.com"}, ProcessRunner: execution.Runner{DockerBinary: workerCheckDocker(t, filepath.Join(t.TempDir(), "calls"))}})
+	stages := []schema.Stage{{Name: "wire", Steps: []schema.Step{{Name: "boot", Uses: "preview"}, {Name: "review", Uses: "agent/review", With: map[string]any{"of": "change-report"}}, {Name: "hold", Uses: "approval"}}}}
+	a, ctx, ch := changeScenarioIn(t, app, schema.Spec{Kind: "pipeline", Role: "working", Stages: stages})
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		deps.Automatic = []string{"preview"}
+		deps.Runners = a.workDependencies().Runners
+		deps.Report = a.workDependencies().Report
+	})
+	a.Work.Stop()
+	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "test"})
+	if !errors.Is(err, workflow.ErrDispatchStopped) {
+		t.Fatal(err)
+	}
+	if report != "" {
+		// The implementer's report names a page (an agent step's output a
+		// review audits; here written as the run's change report).
+		if _, err := workflow.AddArtifactIn(ctx, a.DB, run.ID, "change-report", "change-report", "", report, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	source, err := workflow.ReadSourceIn(context.Background(), a.DB, workflow.RunRef{ID: run.ID, ProjectID: ch.ProjectID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := source.Workspace(a.cfg.dataDir)
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commitFolder(t, ws)
+	snap, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var boot ids.ID
+	for _, st := range snap.Steps {
+		if st.Name == "boot" {
+			boot = st.ID
+		}
+	}
+	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), boot); err != nil {
+		t.Fatal(err)
+	}
+	step, err := workflow.ReadStepIn(context.Background(), a.DB, boot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a, step
+}
+
+type shotsEvidence struct {
+	Commit      string
+	Screenshots struct {
+		Commit string
+		Shots  []struct {
+			Artifact ids.ID
+			Path     string
+			View     string
+		}
+		Missing     []string
+		Unavailable string
+	}
+}
+
+// A boot that passes records AppTown's pictures of the preview it booted,
+// from the commit it booted, each a picture the run keeps.
+func TestABootRecordsScreenshotsOfThePreviewItBooted(t *testing.T) {
+	t.Parallel()
+	a, step := bootWithShots(t, "Changed the page.\n\nPages: /orders\n")
+	if step.Status != workflow.StatusPass {
+		t.Fatalf("boot: %s %s", step.Status, step.Evidence)
+	}
+	var ev shotsEvidence
+	if err := json.Unmarshal(step.Evidence, &ev); err != nil {
+		t.Fatal(err)
+	}
+	if ev.Commit == "" || ev.Screenshots.Commit != ev.Commit || len(ev.Screenshots.Shots) != 2 || ev.Screenshots.Unavailable != "" {
+		t.Fatalf("evidence: %s", step.Evidence)
+	}
+	if !strings.Contains(strings.Join(ev.Screenshots.Missing, ";"), "/orders · desktop: left the preview") {
+		t.Fatalf("the named page's reason was lost: %v", ev.Screenshots.Missing)
+	}
+	png, _ := base64.StdEncoding.DecodeString(onePixelPNG)
+	for _, s := range ev.Screenshots.Shots {
+		got, err := a.Work.Artifact(a.asEngine(context.Background()), s.Artifact)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Kind != "screenshot" || !got.Binary || string(got.Raw) != string(png) || got.RunID != step.RunID {
+			t.Fatalf("picture %s: kind %q binary %v %d bytes", s.Artifact, got.Kind, got.Binary, len(got.Raw))
+		}
+	}
+}
+
+// A capture that fails is said, and the boot still passed: the app came up.
+func TestABootWhoseScreenshotsFailSaysSoAndStillPasses(t *testing.T) {
+	t.Parallel()
+	_, step := bootWithShots(t, "Pages: /shots-fail\n")
+	var ev shotsEvidence
+	if err := json.Unmarshal(step.Evidence, &ev); err != nil {
+		t.Fatal(err)
+	}
+	if step.Status != workflow.StatusPass || ev.Screenshots.Unavailable == "" || len(ev.Screenshots.Shots) != 0 {
+		t.Fatalf("boot: %s %s", step.Status, step.Evidence)
+	}
 }

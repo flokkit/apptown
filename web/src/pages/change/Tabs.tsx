@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { renderMd } from '../../md'
 import { TryIt } from '../../TryIt'
-import { Adr, Artifact, ChangeView, RunDetail, Step, patch, post } from '../../api'
+import { Adr, Artifact, ChangeView, RunDetail, Step, isStep, patch, post } from '../../api'
+import { sameCommitWords } from '../../Screenshots'
 import { landingMeansFor } from '../../DecisionForm'
 import { useAction, useGet } from '../../data'
 import { fmtStamp } from '../../format'
@@ -92,15 +93,15 @@ function RunWork({ view, detail, reload, focusStep, deciding }: { view: ChangeVi
       {running ? (
         <>
           <h3>Stage “{run.currentStage}”</h3>
-          {currentSteps.map((s) => <StepCard key={s.id} step={s} onChange={reload} expanded={focusStep === s.id} hideApproveForm={s.id === deciding} landingMeans={landingMeansFor(detail, s)} />)}
+          {currentSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} hideApproveForm={s.id === deciding} landingMeans={landingMeansFor(detail, s)} />)}
           {earlierSteps.length > 0 && (
             <details open={earlierSteps.some((s) => s.id === focusStep)}>
               <summary>Earlier stages ({earlierSteps.length} steps)</summary>
-              {earlierSteps.map((s) => <StepCard key={s.id} step={s} onChange={reload} expanded={focusStep === s.id} />)}
+              {earlierSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} />)}
             </details>
           )}
         </>
-      ) : detail.steps.map((s) => <StepCard key={s.id} step={s} onChange={reload} expanded={focusStep === s.id} />)}
+      ) : detail.steps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} />)}
 
       {isLatest && (hasAdrCheck || view.adrs.length > 0) && (
         <details open={hasAdrCheck}>
@@ -218,6 +219,7 @@ export function ReleasesTab({ view }: { view: ChangeView }) {
   const arts = d?.artifacts ?? []
   const of = (kind: string) => arts.filter((a) => a.kind === kind && a.ref)
   const previews = d?.run.status === 'running' ? of('preview') : []
+  const boot = d ? d.steps.filter(isStep('preview')).filter((s) => s.evidence?.url).at(-1) : undefined
   const mrs = of('mr')
   const releaseLinks = of('release')
   const releases = view.evidence?.releases ?? []
@@ -229,7 +231,14 @@ export function ReleasesTab({ view }: { view: ChangeView }) {
           <TryIt changeId={ch.id!} label={ch.state === 'shipped' ? '▶ View as of this change' : undefined} className="" />
           <span className="muted small">A preview boots this change's files on demand, apart from any deployment.</span>
         </div>
-        {previews.map((p) => <div key={p.id} className="small" style={{ marginTop: 6 }}>This run's preview: <a href={p.ref} target="_blank" rel="noreferrer">{p.ref}</a></div>)}
+        {previews.map((p) => {
+          const commit = boot?.evidence.url === p.ref ? boot?.evidence.commit : undefined
+          return (
+            <div key={p.id} className="small" style={{ marginTop: 6 }}>This run's preview: <a href={p.ref} target="_blank" rel="noreferrer">{p.ref}</a>
+              {commit && <span className="muted"> · built from commit <code>{commit.slice(0, 7)}</code> ({sameCommitWords(commit, view.head).text})</span>}
+            </div>
+          )
+        })}
       </section>
       {mrs.length > 0 && (
         <section>

@@ -772,6 +772,9 @@
           "evidence": {
             "$ref": "#/components/schemas/changeEvidence"
           },
+          "head": {
+            "type": "string"
+          },
           "mainConflict": {
             "anyOf": [
               {

@@ -92,7 +92,16 @@ export type ScanEvidence = EvidenceBase & {
   configHash?: string; note?: string
   findings?: { total: number; actionable: number; dispositioned: number }
 }
-export type ServeEvidence = EvidenceBase & { url?: string }
+// A boot step's screenshots (workflowexec.screenshots): AppTown's own
+// pictures of the preview it booted, from commit, each an artifact.
+export type PreviewScreenshots = {
+  commit?: string
+  shots?: { artifact: string; path: string; view: string }[]
+  missing?: string[]
+  ignored?: string[]
+  unavailable?: string
+}
+export type ServeEvidence = EvidenceBase & { url?: string; commit?: string; screenshots?: PreviewScreenshots }
 // Its checks are the step's checkReading, decoded by the server.
 export type ConformanceEvidence = EvidenceBase & {
   findings?: string[]

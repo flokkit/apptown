@@ -47,6 +47,13 @@ type Status struct {
 	HostOnly bool      `json:"hostOnly,omitempty"`
 	Reason   string    `json:"reason,omitempty"`
 	At       time.Time `json:"at,omitzero"`
+	// Built is when the running preview was booted from what it serves
+	// (a reuse of it is not a build), and Commit the commit it was booted
+	// from: "" for a change's working files, which are not a commit
+	// (their HEAD is not what they hold). Both zero when AppTown keeps no
+	// record of the running preview.
+	Built  time.Time `json:"built,omitzero"`
+	Commit string    `json:"commit,omitempty"`
 }
 
 // Observation supplies facts; the runtime owns their precedence. Workflow
@@ -57,6 +64,10 @@ type Observation struct {
 	NoContract bool
 	// Unavailable is why the place previews run could not be asked.
 	Unavailable string
+	// Built and Commit are AppTown's record of the running preview
+	// (Status.Built, Status.Commit).
+	Built  time.Time
+	Commit string
 }
 type Observer interface {
 	ObservePreview(ctx context.Context) Observation
@@ -156,6 +167,7 @@ func (p *Runtime) status(key Key, observed Observation) Status {
 		out.State, out.Reason = Unavailable, observed.Unavailable
 	case observed.URL != "":
 		out.State, out.URL, out.HostOnly = Live, observed.URL, observed.HostOnly
+		out.Built, out.Commit = observed.Built, observed.Commit
 	case observed.NoContract:
 		out.State = None
 	case failure != "":

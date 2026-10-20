@@ -24,7 +24,9 @@ import (
 // one would, enough for every check path: images (inspect, pull, build,
 // save), and runs that write a clean SARIF report when a scanner asks. A
 // run whose command says "exit 7" exits 7, as a failing test would, and a
-// run given a mise configuration records it.
+// run given a mise configuration records it. A screenshot capture answers
+// with two pictures of the home page and a named page that left the
+// preview, or fails when a page is /shots-fail.
 func workerCheckDocker(t *testing.T, calls string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -55,7 +57,11 @@ run)
     prev="$arg"
   done
   for arg in "$@"; do
+    case "$arg" in */shots-fail) echo "the browser crashed" >&2; exit 2;; esac
+  done
+  for arg in "$@"; do
     case "$arg" in /work/.apptown/*.sarif) mkdir -p "$work/.apptown"; echo '{"version":"2.1.0","runs":[]}' > "$work/${arg#/work/}";; esac
+    case "$arg" in /work/.apptown/screenshots.json) mkdir -p "$work/.apptown"; printf '%s' '` + shotsAnswer + `' > "$work/.apptown/screenshots.json";; esac
   done
   for arg in "$@"; do
     case "$arg" in *"exit 7"*) exit 7;; esac

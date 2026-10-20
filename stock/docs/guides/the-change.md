@@ -75,6 +75,8 @@ about concentrates —
 
 - the scans (dependencies, secrets, provenance),
 - the cold boot (it must run from nothing, like a deploy will demand),
+  and AppTown's own screenshots of the app it booted, shown to whoever
+  approves (see below),
 - the independent review (claim checked against diff),
 - the approval, **against a written standard of what an OK asserts**,
 - the law re-check (rules that changed while the change waited apply
@@ -126,6 +128,20 @@ its own record:
 3. **What did it cost?** — models, tokens, dollars, attempts.
 4. **Who said yes, and to what standard?** — the approvals, each
    against its written meaning.
+
+### What the person approving sees
+
+When a run boots a preview, AppTown takes screenshots of it: the home
+page at desktop and phone sizes, and up to three pages the agent's report
+names on a line `Pages: /path /other`. AppTown's browser opens the
+preview's own address, as a visitor would; the agent supplies no picture.
+A page that redirects or navigates to another site is not pictured, and
+the record says where it went. The screenshots sit beside the approval,
+with the commit they were taken from and whether that is still the
+change's current commit; when they could not be taken, the approval says
+why. They stay with the run's record. Previews need their own address (a
+preview domain) for this; an AppTown whose previews answer only on a port
+of its own host takes none.
 
 A platform that can answer these has captured the value of the work.
 A platform that can only show you where the agents ran has captured

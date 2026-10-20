@@ -161,16 +161,23 @@ spec:
 	}
 
 	detailPath := fmt.Sprintf("/api/v1/changes/%d", ch.ID)
+	head := strings.TrimSpace(gittest.Run(t, ws, "rev-parse", "HEAD"))
 	checkDetail := func() {
 		t.Helper()
 		w := authzCall(h, "owner", "GET", detailPath, "")
 		var detail struct {
 			CommittedDiff struct{ Status string }
-			Commits       []struct{ Subject string }
+			Commits       []struct{ SHA, Subject string }
 			Diffstat      string
+			Head          string
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &detail); err != nil || w.Code != 200 || detail.CommittedDiff.Status != "changed" || len(detail.Commits) != 2 || detail.Commits[0].Subject != "run work" || !strings.Contains(detail.Diffstat, "2 files changed") {
 			t.Fatalf("committed detail: %d %s %v", w.Code, w.Body.String(), err)
+		}
+		// The change's current commit, which a preview or a screenshot is
+		// compared with, is the newest commit the page lists, in full.
+		if detail.Head != head || !strings.HasPrefix(head, detail.Commits[0].SHA) {
+			t.Fatalf("head %q, the change is at %q (newest listed %q)", detail.Head, head, detail.Commits[0].SHA)
 		}
 	}
 	checkDetail()

@@ -48,7 +48,10 @@ spec:
 
               WRITE a short change report to .apptown/CHANGE.md:
               what changed and how you verified it. Chat output is not
-              captured. Do not commit the report: AppTown
+              captured. If the change affects pages a person would look at, end the
+              report with one line `Pages: /path /other/path` naming up to
+              three of them (paths on the app). AppTown pictures them, and
+              the home page, for whoever approves. Do not commit the report: AppTown
               collects it from the workspace, and .apptown/ is ignored.
               The report describes the WHOLE change: the full branch diff
               against the base, not just this session's edits. After rework

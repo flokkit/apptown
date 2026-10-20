@@ -30,6 +30,11 @@ const LocalCAFile = "local-ca.pem"
 // a chat starts even if one tool is missing.
 func LocalTLSPrelude(t LocalTLS) string { return localTLSPrelude(Mount+"/"+LocalCAFile, "/tmp", t) }
 
+// LocalTLSPreludeAt is the same prelude for another container that holds
+// the authority's certificate at ca: AppTown's screenshots of a preview
+// reach it, and trust it, as a chat's container does.
+func LocalTLSPreludeAt(ca string, t LocalTLS) string { return localTLSPrelude(ca, "/tmp", t) }
+
 // localTLSPrelude finds the certificate at ca and writes its bundle under
 // scratch.
 func localTLSPrelude(ca, scratch string, t LocalTLS) string {

@@ -1,7 +1,9 @@
 package workflowexec
 
 import (
+	"context"
 	"errors"
+	"log"
 	"strings"
 
 	"flokkit.io/forge/internal/forge/preview"
@@ -109,7 +111,11 @@ func (a *Shipping) RunPreview(task *workflow.Execution) {
 	recordArtifact(task.Context(), a.db, run.ID, "preview", "preview", url, "", a.now())
 	recordEvent(task.Context(), a.db, run.ID, "preview.started", map[string]any{"url": url, "container": name}, a.now())
 
-	ev := map[string]any{"url": url, "container": name, "port": public.Port, "command": public.Command}
+	ev := map[string]any{"url": url, "container": name, "port": public.Port, "command": public.Command, "commit": sel.Commit}
+	// What a person approving sees of the app: AppTown's own pictures of
+	// this preview, from this commit. Failing to take them is said, and
+	// the boot still passed.
+	ev["screenshots"] = a.screenshots(task.Context(), run, url, sel.Commit)
 	if booted.Incarnation != "" {
 		ev["incarnation"] = booted.Incarnation
 	}
@@ -128,3 +134,58 @@ func (a *Shipping) RunPreview(task *workflow.Execution) {
 	}
 	finish(status, ev)
 }
+
+// screenshots takes and records AppTown's pictures of a run's preview at
+// url, booted from commit: the home page, and the pages the run's report
+// names on its `Pages:` line. Each picture is an artifact of the run; the
+// answer is the boot's evidence of them.
+func (a *Shipping) screenshots(ctx context.Context, run *workflow.Run, url, commit string) map[string]any {
+	ev := map[string]any{"commit": commit}
+	if a.shots == nil {
+		ev["unavailable"] = "this AppTown takes no screenshots"
+		return ev
+	}
+	// A browser in a container opens the preview at its own address, as a
+	// visitor does: a preview reached only at a port of AppTown's host
+	// has no such address.
+	if !a.previews.PreviewsHaveDomain() {
+		ev["unavailable"] = "previews here have no address of their own (no preview domain), so AppTown cannot open them as a visitor would"
+		return ev
+	}
+	var pages, ignored []string
+	claim, err := workflow.ReadClaimIn(ctx, a.db, workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID}, run.ChangeID)
+	if err != nil {
+		log.Printf("run %s: reading the report's pages to picture: %v", run.ID, err)
+	} else if claim != nil {
+		pages, ignored = verification.NamedPages(claim.Body)
+	}
+	if len(ignored) > 0 {
+		ev["ignored"] = ignored
+	}
+	c := a.shots.Take(ctx, url, pages)
+	if len(c.Missing) > 0 {
+		ev["missing"] = c.Missing
+	}
+	if c.Unavailable != "" {
+		ev["unavailable"] = c.Unavailable
+		return ev
+	}
+	shots := []map[string]any{}
+	for _, s := range c.Shots {
+		id, err := workflow.AddArtifactIn(context.WithoutCancel(ctx), a.db, run.ID, ScreenshotKind, s.Path+" · "+s.View, url, string(s.PNG), a.now())
+		if err != nil {
+			ev["missing"] = append(c.Missing, s.Path+" · "+s.View+": not recorded: "+err.Error())
+			continue
+		}
+		shots = append(shots, map[string]any{"artifact": id, "path": s.Path, "view": s.View})
+	}
+	if len(shots) == 0 {
+		ev["unavailable"] = "no picture could be recorded"
+		return ev
+	}
+	ev["shots"] = shots
+	return ev
+}
+
+// ScreenshotKind is the artifact kind of AppTown's pictures of a preview.
+const ScreenshotKind = "screenshot"

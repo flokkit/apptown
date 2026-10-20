@@ -8,10 +8,11 @@ import { RunFindings } from './Findings'
 import type { StepProgress } from '../../wire.gen'
 import { testsNote } from './Evidence'
 import { closingVia, voterWords } from './through'
+import { Screenshots, sameCommitWords } from '../../Screenshots'
 
 // ---- step cards ------------------------------------------------------------
 
-export function StepCard({ step, onChange, hideApproveForm, expanded, landingMeans }: { step: Step; onChange: () => void; hideApproveForm?: boolean; expanded?: boolean; landingMeans?: string[] }) {
+export function StepCard({ step, onChange, hideApproveForm, expanded, landingMeans, head }: { step: Step; onChange: () => void; hideApproveForm?: boolean; expanded?: boolean; landingMeans?: string[]; head?: string }) {
   const ev = step.evidence
   // A step's own id and its run's are always sent; null in the wire type is
   // for an absent reference.
@@ -152,7 +153,11 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
       {(step.type === 'preview' || step.type === 'deploy') && step.evidence.url != null && (
         <div className="muted small" style={{ marginTop: 6 }}>
           <a href={step.evidence.url} target="_blank" rel="noreferrer">{step.evidence.url}</a>
+          {step.evidence.commit && <> · built from commit <code>{step.evidence.commit.slice(0, 7)}</code>{head ? <> ({sameCommitWords(step.evidence.commit, head).text})</> : null}</>}
         </div>
+      )}
+      {step.type === 'preview' && step.evidence.screenshots && (
+        <Screenshots shots={step.evidence.screenshots} head={head} at={step.finishedAt ?? undefined} />
       )}
       {(step.type === 'agent/pi' || step.type === 'preview' || step.type === 'deploy') && ev.reason != null && (
         <div className="error">{ev.reason}{ev.logTail ? <pre className="log">{ev.logTail}</pre> : null}</div>

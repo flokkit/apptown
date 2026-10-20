@@ -177,6 +177,15 @@ func (o changeObservation) ObservePreview(ctx context.Context) Observation {
 	return o.s.observeChange(ctx, o.projectID, o.changeID, o.inProgress)
 }
 
+// servedObservation adds AppTown's record of the running preview by name
+// to o: when it was built and, for one booted from a commit, the commit.
+func (s *Service) servedObservation(name string, o Observation) Observation {
+	if r, ok := s.servedRecordOf(name); ok {
+		o.Built, o.Commit = r.At, r.Source
+	}
+	return o
+}
+
 // observeChange answers where a change's preview is served and whether it
 // runs: on the worker when AppTown has one (unavailable when the worker
 // cannot be asked); otherwise on this AppTown's own Docker (unavailable when
@@ -192,14 +201,14 @@ func (s *Service) observeChange(ctx context.Context, projectID, changeID ids.ID,
 			return Observation{Unavailable: err.Error()}
 		}
 		if st.Running {
-			return Observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0)}
+			return s.servedObservation(name, Observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0)})
 		}
 	} else if dk.Absent() {
 		// No worker and no local Docker: nowhere to ask, never "not running".
 		return Observation{Unavailable: docker.ErrNoLocalBackend.Error()}
 	} else if dk.Running(ctx, name) {
 		if port, err := docker.ContainerHostPort(ctx, dk, name, 0); err == nil && port > 0 {
-			return Observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, port), HostOnly: s.PreviewsHostOnly()}
+			return s.servedObservation(name, Observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, port), HostOnly: s.PreviewsHostOnly()})
 		}
 	}
 	missing := false

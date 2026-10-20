@@ -13,7 +13,7 @@ const uiOnly = new Set([
   // A step's config and evidence are open JSON on the server; the page reads
   // them by the step's type.
   'ApprovalWithdrawal', 'ApprovalEvidence', 'AgentEvidence', 'ReviewEvidence', 'ScriptEvidence', 'TestsEvidence', 'ScanEvidence',
-  'ServeEvidence', 'ConformanceEvidence', 'CallEvidence', 'RequireEvidence', 'PolicyEvidence',
+  'ServeEvidence', 'PreviewScreenshots', 'ConformanceEvidence', 'CallEvidence', 'RequireEvidence', 'PolicyEvidence',
   'StepConfig', 'ApprovalConfig', 'StepType', 'StepEvidence', 'StepOf',
   // A guidance check's declaration is JSON inside a block's front matter.
   'GuidanceCheck',

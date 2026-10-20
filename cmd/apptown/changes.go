@@ -229,6 +229,11 @@ func cmdShow(args []string) error {
 			CurrentStage string
 		}
 		Commits []struct{ SHA, Subject, When string }
+		// Head is the change's current commit; Detail its latest run.
+		Head   string
+		Detail *struct {
+			Steps []cockpitStep `json:"steps"`
+		}
 		// Approval is the approval the change waits on, with what its
 		// commit adds.
 		Approval *struct {
@@ -291,6 +296,11 @@ func cmdShow(args []string) error {
 		case a.Adds != nil:
 			fmt.Println()
 			printAdds(os.Stdout, a.Adds, "")
+		}
+		if view.Detail != nil {
+			if line := screenshotsLine(latestScreenshots(view.Detail.Steps), view.Head, fmt.Sprintf("%s/changes/%s", api.base, ch.ID)); line != "" {
+				fmt.Printf("\n%s\n", line)
+			}
 		}
 	}
 	if s := strs.FirstNonBlank(ch.Summary, view.Report); strings.TrimSpace(s) != "" {

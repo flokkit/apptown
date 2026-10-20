@@ -106,6 +106,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	commits := []ChangeCommit{}
+	head := ""
 	diffstat := ""
 	comparison := CommittedComparison{Status: "unavailable", Message: "No committed comparison is available yet."}
 	if item.Branch != "" && slug != "" {
@@ -124,6 +125,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 				comparison.Status, comparison.Message = "empty", workflow.EmptyCommittedChange
 			}
 			diffstat = diff.Stat
+			head = diff.Head
 			if out, err := gitexec.Run(r.Context(), repo, "log", "--format=%h%x09%s%x09%cr", diff.Base+".."+diff.Head, "--", "."); err == nil {
 				for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 					parts := strings.SplitN(line, "\t", 3)
@@ -177,7 +179,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, 200, ChangeCockpit{Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
-		Runs: runs, Commits: commits, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
+		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
 		State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
 		Usage: ChangeUsage{Total: usageTotal, CostMicros: usageCost}, Next: workflow.ChangeActs(item, detail, evidence.Merged)})
 }
@@ -217,13 +219,17 @@ func (h ChangeDetail) approvalStanding(r *http.Request, detail *workflow.RunSnap
 // the branch's commits, a diff stat, and the latest change report.
 type (
 	ChangeCockpit struct {
-		Change        workflow.Change        `json:"change"`
-		ProjectSlug   string                 `json:"projectSlug"`
-		Detail        *workflow.RunSnapshot  `json:"detail"`
-		ADRs          []adrs.ChangeSummary   `json:"adrs"`
-		Evidence      changeEvidence         `json:"evidence"`
-		Runs          []ChangeRunSummary     `json:"runs"`
-		Commits       []ChangeCommit         `json:"commits"`
+		Change      workflow.Change       `json:"change"`
+		ProjectSlug string                `json:"projectSlug"`
+		Detail      *workflow.RunSnapshot `json:"detail"`
+		ADRs        []adrs.ChangeSummary  `json:"adrs"`
+		Evidence    changeEvidence        `json:"evidence"`
+		Runs        []ChangeRunSummary    `json:"runs"`
+		Commits     []ChangeCommit        `json:"commits"`
+		// Head is the change's current commit, the one its diff and
+		// commits read (full); empty when it could not be read. A
+		// preview's or a screenshot's commit is compared with it.
+		Head          string                 `json:"head,omitempty"`
 		Diffstat      string                 `json:"diffstat"`
 		CommittedDiff CommittedComparison    `json:"committedDiff"`
 		Report        string                 `json:"report"`

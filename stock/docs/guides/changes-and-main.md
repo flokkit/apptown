@@ -177,8 +177,12 @@ Why?
 
 While a change is landing, a boot of its preview boots the candidate, not
 the folder: `apptown preview <change>`, or **Try it** (**restart** when one
-is already running) on the change page. Opening a preview that is already
-running boots nothing. (A chat on a worker that holds the change saves
+is already running) on the change page. **Open** on a preview that is
+already running asks AppTown first: it reuses the running one while it
+serves the files as they are, and builds again when they changed, so what
+opens is never an older build. The page says what a running preview was
+built from: the change's working files and when, or the commit when it
+was booted from one. (A chat on a worker that holds the change saves
 first, and the preview boots what it saved.) A landing boots no preview of
 its own, so its runtime checks (a page that loads, a readiness answer) are
 judged only against the candidate's preview: boot it, then run the gate
