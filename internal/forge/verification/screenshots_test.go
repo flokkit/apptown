@@ -29,6 +29,9 @@ func TestNamedPagesAreOnlyPathsOnThePreview(t *testing.T) {
 	if p, i := NamedPages("Pages: /ok \"/quoted\" /x<y>"); !slices.Equal(p, []string{"/ok"}) || len(i) != 2 {
 		t.Fatalf("characters outside a URL path were taken: %v %v", p, i)
 	}
+	if p, _ := NamedPages("Pages: index.html orders/1"); !slices.Equal(p, []string{"/index.html", "/orders/1"}) {
+		t.Fatalf("paths written without their slash: %v", p)
+	}
 	if p, i := NamedPages("no pages line"); p != nil || i != nil {
 		t.Fatalf("a report with no Pages line named %v %v", p, i)
 	}

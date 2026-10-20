@@ -113,6 +113,12 @@ func NamedPages(report string) (pages, ignored []string) {
 		}
 		for _, p := range strings.Fields(line[6:]) {
 			p = strings.Trim(p, "`,")
+			// A path written without its leading slash (index.html,
+			// orders/1) is that path on the preview; anything with a
+			// scheme or a host is not.
+			if p != "" && !strings.HasPrefix(p, "/") && !strings.Contains(p, "://") {
+				p = "/" + p
+			}
 			switch {
 			case p == "" || p == "/":
 			case len(p) > maxPagePath || !pagePath.MatchString(p) || strings.HasPrefix(p, "//"):
