@@ -120,7 +120,7 @@ type boardItem struct {
 }
 
 // changeStateWords is a change's state as the change page says it: an
-// abandoned change the forge closed because its run found nothing to
+// abandoned change AppTown closed because its run found nothing to
 // change (its recorded closedAs, never the reason's words) is closed.
 func changeStateWords(state, closedAs string) string {
 	if state == "abandoned" && closedAs == "nothing-to-change" {
@@ -129,7 +129,7 @@ func changeStateWords(state, closedAs string) string {
 	return state
 }
 
-// runActivity is the forge's reading of a running run: the words the
+// runActivity is AppTown's reading of a running run: the words the
 // change page shows ("waiting on you", "blocked", …) and their detail.
 type runActivity struct {
 	ID                 ids.ID
@@ -160,7 +160,7 @@ func runningActivity(project string) map[ids.ID]runActivity {
 }
 
 // stateWords is a running run's activity as the change page says it
-// ("waiting on you: accept"), or "unknown" when the forge gave none: a
+// ("waiting on you: accept"), or "unknown" when AppTown gave none: a
 // stage name is the workflow's own label, not what the run is doing.
 func stateWords(state, detail string) string {
 	if state == "" {
@@ -169,7 +169,7 @@ func stateWords(state, detail string) string {
 	return strings.TrimSuffix(state+": "+detail, ": ")
 }
 
-// changeWhere says where a change is: the forge's own state when a run is
+// changeWhere says where a change is: AppTown's own state when a run is
 // going ("waiting on you: accept", "blocked: tests (fail)"), else its
 // workflow and stage. The stage name alone ("apply", "fix") once hid that
 // a change was waiting on its reader (sweep 7).
@@ -355,7 +355,7 @@ func cmdShow(args []string) error {
 	return nil
 }
 
-// nowLine is what the change is doing, in the forge's words, with the move
+// nowLine is what the change is doing, in AppTown's words, with the move
 // that answers it: a change waiting on an approval once showed only its
 // stage name (sweep 7).
 func nowLine(changeID ids.ID, state, detail string) string {
@@ -499,7 +499,7 @@ var landingRetryEvery = 5 * time.Second
 // abandon it? Retry it? Delete it forever? How?"). Three moves, three verbs. Deletion is not one of them: changes are
 // abandoned with the record kept — the ledger is the point.
 
-// nextAct is one act the forge offers on a run, with the step it acts on
+// nextAct is one act AppTown offers on a run, with the step it acts on
 // (workflow.NextAct).
 type nextAct struct {
 	Act    string
@@ -517,8 +517,8 @@ func actOf(acts []nextAct, act string) (nextAct, bool) {
 	return nextAct{}, false
 }
 
-// changeNext reads the change's current run, as the forge chose it, and the
-// acts the forge offers on it. The client picks no run and no step: the
+// changeNext reads the change's current run, as AppTown chose it, and the
+// acts AppTown offers on it. The client picks no run and no step: the
 // override once landed on the working run while the landing was the one
 // wedged (complaint #68).
 func changeNext(changeID ids.ID) (runID ids.ID, acts []nextAct, err error) {
@@ -742,8 +742,8 @@ func disputeText(d loopRunDetail) string {
 		case "scan":
 			who = "scanner"
 		}
-		// A review the reviewer passed and the forge's own file check
-		// failed is the forge's failure, not the reviewer's rejection.
+		// A review the reviewer passed and AppTown's own file check
+		// failed is AppTown's failure, not the reviewer's rejection.
 		reviewerPassed, _ := s.Evidence["reviewerSummary"].(string)
 		if reviewerPassed != "" {
 			who = "AppTown's file check"
@@ -801,7 +801,7 @@ func previewLine(p previewStatus) string {
 	return ""
 }
 
-// retryHint says why retry cannot help — the forge offers no agent round on
+// retryHint says why retry cannot help — AppTown offers no agent round on
 // the run now — and names the door that can.
 func retryHint(changeID, runID, blockerID ids.ID, blockerName string) string {
 	if !blockerID.IsZero() {

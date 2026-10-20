@@ -1,6 +1,6 @@
 // Package gitlabtest is a fake GitLab for tests of code that reaches GitLab
 // through internal/gitlab. It serves the merge request, project and branch
-// endpoints the forge uses, keeps each merge request's state and the
+// endpoints AppTown uses, keeps each merge request's state and the
 // descriptions written to it, and records the merges asked of it. What a
 // merge does to Git is the test's business: it supplies OnMerge.
 package gitlabtest

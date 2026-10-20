@@ -24,7 +24,7 @@ const takeDown = { id: OPERATION, projectId: PROJECT, subject: 'project:1/deploy
   steps: [{ name: 'deleting the app, so nothing writes', started: now, ended: now }, { name: 'copying postgres', started: now }] }
 
 const answer = (body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }))
-const down = vi.fn(async () => new Response(JSON.stringify({ error: 'the forge is restarting' }), { status: 502 }))
+const down = vi.fn(async () => new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 502 }))
 
 // DPB-05: an answer that could not be refreshed is shown as what was last
 // read, with its age; it never goes on claiming fresh copies or stopped

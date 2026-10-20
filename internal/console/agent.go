@@ -52,12 +52,12 @@ type Launch struct {
 	Model        string
 	Docker       bool // a private Docker daemon for the agent's own builds
 	// Mirror is the Docker Hub mirror that daemon and its builder pull
-	// through ("" none): data from the forge, on its machine or a worker's.
+	// through ("" none): data from AppTown, on its machine or a worker's.
 	Mirror string
 	Env    []string
 	Mounts []string
 	// Image is the agent image to create from; empty means the runtime's
-	// own. A worker runs the image its forge names.
+	// own. A worker runs the image its AppTown names.
 	Image string
 }
 

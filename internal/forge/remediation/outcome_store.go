@@ -22,7 +22,7 @@ import (
 // the spend and the receipt, in one transaction.
 type Outcomes struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s Outcomes) now() time.Time { return clock.Or(s.clock)() }

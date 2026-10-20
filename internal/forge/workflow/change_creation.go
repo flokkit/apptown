@@ -91,7 +91,7 @@ func (s changeStore) create(ctx context.Context, in ChangeDraft, who string, joi
 // The project lock precedes creation. Atomic remediation already holds it before
 // its item locks; this participant joins that transaction without committing or
 // preparing a workspace. Other admission opens its own transaction above.
-// at is the forge's time the Change is made.
+// at is AppTown's time the Change is made.
 func CreateChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who string, at time.Time) (CreatedChange, error) {
 	if in.ProjectID.IsZero() || strings.TrimSpace(in.Title) == "" || strings.TrimSpace(who) == "" || in.Propose && in.TitleFromChat {
 		return CreatedChange{}, fmt.Errorf("invalid Change creation request")

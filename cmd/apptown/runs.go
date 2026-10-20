@@ -13,11 +13,11 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// waitVerdict reads the forge's own activity for a running run (the state
+// waitVerdict reads AppTown's own activity for a running run (the state
 // the change page shows) and reports the moment waiting stops being useful:
 // "decision" (a person must approve), "wedged" (the stage is blocked and
 // cannot pass on its own), "reworking" (a verdict failed and the machine is
-// already reworking it), or "working". The forge, not this client, decides
+// already reworking it), or "working". AppTown, not this client, decides
 // what is settled: a verdict about to be checked again after a rework and a
 // landing still taking its acceptance read as working there, so wait no
 // longer calls them wedged or a person's move in the seconds before they
@@ -39,7 +39,7 @@ func waitVerdict(d runDetail) (kind string, stepID ids.ID, name string) {
 	switch d.State {
 	case "waiting on you":
 		if approval.IsZero() {
-			// The approval is in a called workflow; the forge names it.
+			// The approval is in a called workflow; AppTown names it.
 			return "decision", ids.Nil, d.StateDetail
 		}
 		return "decision", approval, aName
@@ -66,7 +66,7 @@ func approveHint(name string, id ids.ID) string {
 	return fmt.Sprintf("%s — apptown approve %d (or reject)", name, id)
 }
 
-// stepRef names a step for a sentence, with its id when the forge gave one.
+// stepRef names a step for a sentence, with its id when AppTown gave one.
 func stepRef(name string, id ids.ID) string {
 	if id.IsZero() {
 		return name
@@ -171,7 +171,7 @@ func cmdWait(args []string) error {
 		}
 		return nil
 	}
-	// A poll that fails is not an answer: the forge restarts for a deploy
+	// A poll that fails is not an answer: AppTown restarts for a deploy
 	// and answers 502 for a few seconds. Ride out a run of failures before
 	// giving up, so a wait armed before a deploy is still there after it.
 	// An answer that will not change (no such run) is given at once.
@@ -272,7 +272,7 @@ func cmdWait(args []string) error {
 }
 
 // endedDetail is wait --json's sentence for a run or change that stopped
-// with no run going: the forge's ending when it gave one, else the state.
+// with no run going: AppTown's ending when it gave one, else the state.
 func endedDetail(state string, last *runDetail) string {
 	if last != nil && last.Ending != "" {
 		return last.Ending
@@ -302,14 +302,14 @@ func waitRelease(project, arg string, interval time.Duration) error {
 	return fmt.Errorf("release r%d of %s failed — the log above shows where it stopped", number, project)
 }
 
-// mainConflict is main the forge could not merge into a change before a
+// mainConflict is main AppTown could not merge into a change before a
 // step, while the change's branch does not contain it yet.
 type mainConflict struct {
 	MainBranch, Main, Step, CatchUp string
 	Files                           []string
 }
 
-// line says the conflict and the catch-up, in the forge's words.
+// line says the conflict and the catch-up, in AppTown's words.
 func (c mainConflict) line(id string) string {
 	return fmt.Sprintf("! change %s: %s has moved and AppTown could not merge it in before step %s: %s conflict. Catch up in the change's chat: %s",
 		id, c.MainBranch, c.Step, strings.Join(c.Files, ", "), c.CatchUp)
@@ -317,7 +317,7 @@ func (c mainConflict) line(id string) string {
 
 // noRunGoing is wait's answer for a change with no run going. When its last
 // run ended without finishing (a landing that found main had moved, a
-// person's stop), it says why in the forge's words, which carry what to do
+// person's stop), it says why in AppTown's words, which carry what to do
 // next: a chat told only "a person's move" went on saying its landing
 // awaited approval (change 61).
 func noRunGoing(id, state string, last *runDetail) string {
@@ -328,7 +328,7 @@ func noRunGoing(id, state string, last *runDetail) string {
 }
 
 // runEnded is wait's answer for a run that ended without finishing, with
-// why when the forge says.
+// why when AppTown says.
 func runEnded(id string, d runDetail) string {
 	if d.Ending != "" {
 		return fmt.Sprintf("✗ run %s %s: %s", id, d.Run.Status, d.Ending)
@@ -643,7 +643,7 @@ type approvalQuestion struct {
 	Adds *changeAdds
 }
 
-// changeAdds is the forge's list of what a change adds, worded by the
+// changeAdds is AppTown's list of what a change adds, worded by the
 // forge; the client only lays it out.
 type changeAdds struct {
 	Digest, ReadFrom, NothingNew string
@@ -651,7 +651,7 @@ type changeAdds struct {
 }
 
 // printAdds prints the "This change adds" section. Its note names what
-// was read, so "nothing new" never claims more than the forge looked at.
+// was read, so "nothing new" never claims more than AppTown looked at.
 func printAdds(w io.Writer, a *changeAdds, indent string) {
 	if a == nil {
 		return
@@ -677,7 +677,7 @@ func printAdds(w io.Writer, a *changeAdds, indent string) {
 }
 
 // addsDigest is what an approval sends back of the list it showed: the
-// forge refuses an approval of a commit that does not send it.
+// AppTown refuses an approval of a commit that does not send it.
 func (q approvalQuestion) addsDigest() string {
 	if q.Adds == nil {
 		return ""
@@ -943,7 +943,7 @@ func cmdWatch(args []string) error {
 			fmt.Printf("run %s: %s\n", runID, d.Run.Status)
 			return nil
 		}
-		// The forge's own reading decides when following stops being
+		// AppTown's own reading decides when following stops being
 		// useful: a person's move or a block will not pass on its own.
 		if d.State == "waiting on you" || d.State == "blocked" {
 			fmt.Printf("run %s: %s — apptown status %s\n", runID, stateWords(d.State, d.StateDetail), runID)
@@ -1056,10 +1056,10 @@ func cmdAbandonRun(args []string) error {
 	return nil
 }
 
-// cmdExecuting answers the question to ask before restarting a forge: is any
+// cmdExecuting answers the question to ask before restarting an AppTown: is any
 // step executing right now? A run waiting on a person survives a restart and
 // is not listed. Exit 0: nothing is executing. Exit 3: something is, and
-// each step is printed. Any other failure (the forge could not answer) is
+// each step is printed. Any other failure (AppTown could not answer) is
 // the ordinary error exit, never read as idle.
 func cmdExecuting(args []string) error {
 	fs := newFlags("executing")
@@ -1089,7 +1089,7 @@ func cmdExecuting(args []string) error {
 	if err := api.get("/runs/executing", &out); err != nil {
 		return err
 	}
-	// An older forge answers steps only: what its operations are doing is
+	// An older AppTown answers steps only: what its operations are doing is
 	// not known, which is not idle.
 	ops := -1
 	if out.Operations != nil {

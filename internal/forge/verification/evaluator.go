@@ -20,7 +20,7 @@ import (
 // claim or settle workflow work, boot deployments, or read provider credentials.
 type Effects interface {
 	Run(context.Context, execution.Request) execution.Outcome
-	// Ask is the forge's own model call (inference.Gateway.Ask), which
+	// Ask is AppTown's own model call (inference.Gateway.Ask), which
 	// admits it, sends it and writes its one spend line.
 	Ask(ctx context.Context, call modelcall.Call) (string, *modelcall.Usage, error)
 	Observe(ctx context.Context, projectID ids.ID, source, probe string) (conformance.Outcome, string)
@@ -29,10 +29,10 @@ type Effects interface {
 // Evaluator translates library judgments into the receipts shared by all checks.
 type Evaluator struct {
 	effects Effects
-	clock   func() time.Time // the forge's clock, which times a shell check; nil is the real one
+	clock   func() time.Time // AppTown's clock, which times a shell check; nil is the real one
 }
 
-// NewEvaluator runs checks through e; now is the forge's clock, by which a
+// NewEvaluator runs checks through e; now is AppTown's clock, by which a
 // shell check's duration is measured.
 func NewEvaluator(e Effects, now func() time.Time) *Evaluator {
 	return &Evaluator{effects: e, clock: now}

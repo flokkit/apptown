@@ -83,7 +83,7 @@ type world struct {
 	ran    atomic.Int32
 	body   func(context.Context, operations.Operation, *operations.StepLog) operations.Outcome
 	settle func(context.Context, *database.Tx, operations.Operation, operations.Outcome) error
-	// interrupted is the kind's words for what a stop of the forge left.
+	// interrupted is the kind's words for what a stop of AppTown left.
 	interrupted func(operations.Operation) string
 	// at is the ledger's clock, in Unix seconds; zero reads the real clock.
 	at atomic.Int64
@@ -408,7 +408,7 @@ func TestARestartSettlesRunningUnknownAndRequeuesQueued(t *testing.T) {
 	}
 }
 
-// A panic, an end the kind did not classify and a stop of the forge are
+// A panic, an end the kind did not classify and a stop of AppTown are
 // unknown, never success or a plain failure.
 //
 // Kills: a panic leaving the operation running; a zero outcome read as
@@ -670,7 +670,7 @@ func TestAnOperationIsReadOnlyByThoseWhoMayReadIt(t *testing.T) {
 
 // An operation runs on its own queue with a two-hour budget, so one longer
 // than the ordinary twenty-minute ceiling is not cut off at twenty
-// minutes; a stop of the forge still ends in seconds, and the operation
+// minutes; a stop of AppTown still ends in seconds, and the operation
 // cut off reads unknown. The ceilings are checked when the queue is built.
 //
 // Kills: operations on the default queue's twenty-minute budget; a stop

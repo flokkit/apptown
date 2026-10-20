@@ -390,7 +390,7 @@ func TestAProjectExportsWithItsHistoryAndChats(t *testing.T) {
 		t.Fatalf("work: changes %v, runs %d, steps %d", states, len(work.Runs), len(work.Steps))
 	}
 	// The library versions the current selection uses travel with their
-	// content: numbering is each forge's own.
+	// content: numbering is each AppTown's own.
 	var library []struct {
 		Kind    string
 		Content struct {
@@ -550,7 +550,7 @@ func TestAProjectExportsWithItsHistoryAndChats(t *testing.T) {
 // a chat's record, words or pictures, or a change's attachments, that
 // cannot be read, a commit
 // the moving records name that the moving refs do not carry, carried
-// history holding the forge's runtime files (a lane's committed report file
+// history holding AppTown's runtime files (a lane's committed report file
 // is prose and moves), or an eval copy. No refusal is recorded and none
 // leaves a file.
 func TestAnExportRefusesWhatWouldMakeItWrongAndNamesIt(t *testing.T) {

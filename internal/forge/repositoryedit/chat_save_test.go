@@ -139,7 +139,7 @@ func (c *chatClone) fetch(ctx context.Context, base, dest string) (string, error
 	return head, nil
 }
 
-// A chat's commits are saved when the forge has put them on the change's
+// A chat's commits are saved when AppTown has put them on the change's
 // branch: two saves in a row under the same chat each move the branch, the
 // change's folder follows it, and a save with nothing new changes nothing.
 func TestAChatsCommitsAreSavedOntoTheChangesBranch(t *testing.T) {

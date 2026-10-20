@@ -31,7 +31,7 @@ needs:
   llm: {limit: 3, limitReset: monthly}
 `
 
-// llmWorld is a world whose forge holds an OpenRouter provisioning key, with
+// llmWorld is a world whose AppTown holds an OpenRouter provisioning key, with
 // an AI models connector on a fake OpenRouter; attached says whether the
 // project attached AI models.
 func llmWorld(t *testing.T, attached bool) (*world, *openrouterfake.Server) {
@@ -169,7 +169,7 @@ func TestAPreviewWithoutTheAttachmentGetsNoKey(t *testing.T) {
 	}
 }
 
-// A change's preview boots with its own preview key, kept while the forge
+// A change's preview boots with its own preview key, kept while AppTown
 // keeps the preview, revoked once the change's preview is discarded.
 func TestAChangePreviewBootsWithItsOwnKey(t *testing.T) {
 	t.Parallel()
@@ -200,7 +200,7 @@ func TestAChangePreviewBootsWithItsOwnKey(t *testing.T) {
 	}
 }
 
-// A preview the age reaper removed has ended, though the forge's record of
+// A preview the age reaper removed has ended, though AppTown's record of
 // what it served was not touched: its key is revoked.
 func TestAReapedPreviewsKeyIsRevoked(t *testing.T) {
 	t.Parallel()

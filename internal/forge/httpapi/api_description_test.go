@@ -49,7 +49,7 @@ func TestAFailedBackupAnswersAsDescribed(t *testing.T) {
 	}
 }
 
-// The forge serves the description it ships, to any caller, as JSON.
+// AppTown serves the description it ships, to any caller, as JSON.
 func TestTheShippedDescriptionIsServed(t *testing.T) {
 	w := httptest.NewRecorder()
 	NewAPIDescription(stock.FS).Serve(w, httptest.NewRequest("GET", "/api/v1/openapi.json", nil))

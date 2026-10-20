@@ -67,15 +67,15 @@ func parseTierDomains(raw []string) (map[string]tierDomain, error) {
 // release's exact image, booted for a look (handleReleasePreview).
 var releasePreviewRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*-release-[0-9]+$`)
 
-// vhostRoute is what a request Host names: a forge-owned container, the
+// vhostRoute is what a request Host names: an AppTown-owned container, the
 // label it was named by, and whether the name was on the eval domain.
 type vhostRoute struct {
 	container, label string
 	eval             bool
 }
 
-// vhostContainer maps a request Host to a forge-owned container name.
-// Only deterministic forge names are reachable — a hostile Host header
+// vhostContainer maps a request Host to an AppTown-owned container name.
+// Only deterministic AppTown names are reachable — a hostile Host header
 // cannot aim the proxy at an arbitrary port. The eval domain names the
 // same containers as the preview and main domains together; which project
 // may be served where is vhostRules's to decide.
@@ -110,7 +110,7 @@ func (a *App) vhostContainer(host string) (vhostRoute, bool) {
 // hostnameOf is a host without its port. Routing is by hostname only, on
 // both sides: a request's Host may carry a port (change-….preview.localhost:7777,
 // or :443), and so may a configured tier domain, whose port is for the
-// URLs the forge mints (preview=http://preview.localhost:7777).
+// URLs AppTown mints (preview=http://preview.localhost:7777).
 func hostnameOf(host string) string {
 	if h, _, ok := strings.Cut(host, ":"); ok {
 		return h
@@ -128,7 +128,7 @@ func hostnameOf(host string) string {
 type vhostRules struct {
 	db       *database.DB
 	projects *project.Projects
-	now      func() time.Time // the forge's clock, which ages verdicts; nil is the real one
+	now      func() time.Time // AppTown's clock, which ages verdicts; nil is the real one
 
 	mu       sync.Mutex
 	verdicts map[vhostRoute]vhostVerdict
@@ -236,8 +236,8 @@ func (a *App) vhostPort(ctx context.Context, container string) int {
 // VHost is the outermost handler: requests for a tier hostname are
 // reverse-proxied to the app's local port (WebSockets included —
 // httputil.ReverseProxy handles the upgrade); everything else falls
-// through to the forge itself. Proxied apps see their own traffic —
-// forge auth does not apply inside an app's world.
+// through to AppTown itself. Proxied apps see their own traffic —
+// AppTown auth does not apply inside an app's world.
 func (a *App) VHost(next http.Handler) http.Handler {
 	if len(a.cfg.tierDomains) == 0 {
 		return next
@@ -268,11 +268,11 @@ func (a *App) VHost(next http.Handler) http.Handler {
 		var proxy *httputil.ReverseProxy
 		if a.workerPreviews != nil && a.Preview.PreviewServedOnWorker(container) {
 			// A change's or run's preview on the worker, or a release's the
-			// forge booted there: forwarded over the worker's connection,
+			// AppTown booted there: forwarded over the worker's connection,
 			// which reaches that preview's app only.
 			proxy = a.workerPreviews.Forward(container, a.publicScheme())
 		} else if a.docker.Absent() {
-			// Never "nothing is running": this forge cannot see.
+			// Never "nothing is running": this AppTown cannot see.
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprintf(w, "%s is unavailable: this AppTown has no local Docker, so it serves no app from its own host. An app on an attached Docker host is reached at that host.\n", r.Host)
@@ -299,7 +299,7 @@ func (a *App) VHost(next http.Handler) http.Handler {
 			}}
 		}
 		proxy.ModifyResponse = func(resp *http.Response) error {
-			// Caching policy on forge tiers is topology, not app preference.
+			// Caching policy on AppTown tiers is topology, not app preference.
 			// A preview exists to show the latest edit: always no-cache
 			// (ETag revalidation still hands out 304s, so it stays fast).
 			// A standing deployment respects an app that set its own
@@ -326,5 +326,5 @@ func (a *App) VHost(next http.Handler) http.Handler {
 }
 
 // publicScheme: how apps are reached from a browser — the tier domains'
-// scheme (https behind the forge's TLS edge), else plain http.
+// scheme (https behind AppTown's TLS edge), else plain http.
 func (a *App) publicScheme() string { return a.cfg.routing().Scheme }

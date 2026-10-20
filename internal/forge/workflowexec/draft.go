@@ -25,7 +25,7 @@ type Drafter struct {
 }
 
 // NewDrafter creates the workflow drafting path. complete is nil on a
-// forge with no inference gateway; drafting is then refused.
+// AppTown with no inference gateway; drafting is then refused.
 func NewDrafter(tokens *identity.RuntimeTokens, selection model.Selection, complete Complete) Drafter {
 	return Drafter{tokens: tokens, selection: selection, complete: complete}
 }
@@ -118,7 +118,7 @@ func (draft Drafter) Draft(ctx context.Context, about, prompt string, by access.
 }
 
 // assistWorkload is the person a draft acts as, and the console it came
-// through. A caller that is no person (anonymous, a run, the forge itself)
+// through. A caller that is no person (anonymous, a run, AppTown itself)
 // has no one to act as, so it cannot draft.
 func assistWorkload(by access.Principal, receipt string) (identity.Workload, error) {
 	who := identity.Workload{Kind: "assist", Actor: receipt}

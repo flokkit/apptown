@@ -267,7 +267,7 @@ func TestAReopenedRoundRecordsTheCommitItApproved(t *testing.T) {
 }
 
 // A quorum counts people, not names: one person voting under two names
-// (renamed between votes) is refused, and a vote the forge could not
+// (renamed between votes) is refused, and a vote AppTown could not
 // resolve to a person (an account removed before principals) is not
 // counted as another one.
 func TestAQuorumCountsPeopleNotNames(t *testing.T) {

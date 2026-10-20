@@ -20,11 +20,11 @@ import (
 
 // With real Docker behind the worker and the packaged agent image's git: a
 // task given its own repository reads the source's history and its diff
-// against the base branch and commits, as the forge's committer; then it
+// against the base branch and commits, as AppTown's committer; then it
 // turns the repository against the worker (hostileGit). The worker's
 // collection runs none of that (the sentinel folder, on this machine and
 // out of the task's sight, stays empty) and returns the tree the task left
-// as one commit, the forge's, with no .git content.
+// as one commit, AppTown's, with no .git content.
 func TestIntegrationAnAgentUsesGitInItsTaskAndTheWorkerCollectsOnlyTheTree(t *testing.T) {
 	const image = "forge-agent:latest"
 	if exec.Command("docker", "image", "inspect", image).Run() != nil {
@@ -51,7 +51,7 @@ git log -1 --format='%an <%ae> %s' > committed.txt
 git status --porcelain -- agent.txt change.txt > status.txt
 ` + hostileGit(sentinel) + `echo done`
 	spec := execution.TaskSpec{Key: namespace + "-agent", Image: image, Argv: []string{"sh", "-c", script},
-		// As the forge sends it (workflowexec.buildAgentOnWorker): the
+		// As AppTown sends it (workflowexec.buildAgentOnWorker): the
 		// repository's owner on the worker need not be the image's user.
 		Env:       []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=safe.directory", "GIT_CONFIG_VALUE_0=/work"},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},

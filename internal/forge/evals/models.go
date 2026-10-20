@@ -18,7 +18,7 @@ import (
 var ErrModelOutsideArm = fault.New(fault.Unprocessable, "could not assess: the model is not one this eval arm runs")
 
 // AdmitModel is the one model choice, and the spend gate, at every model
-// dispatch for a project: the forge's own calls (checks, narratives,
+// dispatch for a project: AppTown's own calls (checks, narratives,
 // briefs) and an agent's through the inference route alike. For an eval
 // copy the call is sent only with a model its arm runs, as its slots named
 // when the eval started, and only while its eval may proceed: a stopping,

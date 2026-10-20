@@ -331,7 +331,7 @@ func TestAnAccountThatActedIsDisabledNotRemoved(t *testing.T) {
 
 // Authority is decided only for an account that exists and is enabled: a
 // name with no account (removed, or never seen) is refused, never treated
-// as enabled. The forge's own names are not people and hold no account.
+// as enabled. AppTown's own names are not people and hold no account.
 func TestAnUnknownNameIsRefused(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

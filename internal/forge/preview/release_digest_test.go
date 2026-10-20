@@ -25,7 +25,7 @@ import (
 // Release previews from a published bundle (design/operations/workers.md,
 // "Previews on the worker"): a release whose bundle names its images by digest is previewed
 // from those digests where changes' previews boot, here the worker; a
-// release recorded on a daemon before then is refused in a forge with no
+// release recorded on a daemon before then is refused in an AppTown with no
 // local Docker, naming why.
 
 // releasedFrom records a release of bundle b on the project's main, settled
@@ -107,7 +107,7 @@ func releasePreviewWorldWithSize(t *testing.T, size bool) (s *Service, w *fakePr
 
 // A published release's preview boots on the worker from the bundle's
 // images by digest, with the preview's prepared values and credential, and
-// nothing runs on this machine's Docker. The forge keeps its record: the
+// nothing runs on this machine's Docker. AppTown keeps its record: the
 // worker's reconciliation leaves it, and visitors are forwarded there.
 //
 // Kills: booting a published release from its recorded image on this
@@ -147,7 +147,7 @@ func TestAPublishedReleasesPreviewBootsOnTheWorkerFromItsDigests(t *testing.T) {
 	}
 }
 
-// In a forge with no local Docker, a published release is still previewed
+// In an AppTown with no local Docker, a published release is still previewed
 // from its digests, and a release recorded on a daemon before releases were
 // published is refused with the reason, before anything boots.
 //
@@ -156,7 +156,7 @@ func TestAPublishedReleasesPreviewBootsOnTheWorkerFromItsDigests(t *testing.T) {
 func TestInTheNoLocalDockerModeOnlyPublishedReleasesArePreviewed(t *testing.T) {
 	t.Parallel()
 	s, w, local, b, published, recorded := releasePreviewWorld(t)
-	// As a forge started with -no-local-docker.
+	// As an AppTown started with -no-local-docker.
 	s.hosts = deployment.NewHosts(s.targets, nil, deployment.HostSettings{Scope: s.hosts.Local(), DataDir: s.dataDir, BuiltInTarget: s.hosts.BuiltInTarget(), NoLocalDocker: true})
 	if _, err := s.RequestReleasePreview(context.Background(), ReleaseSelection{ProjectID: b.ProjectID, Number: recorded}); !errors.Is(err, ErrReleaseNoLocalDocker) {
 		t.Fatalf("a release recorded on a daemon: %v", err)
@@ -172,7 +172,7 @@ func TestInTheNoLocalDockerModeOnlyPublishedReleasesArePreviewed(t *testing.T) {
 	}
 }
 
-// A release recorded before digest bundles boots on this forge's own
+// A release recorded before digest bundles boots on this AppTown's own
 // Docker even with a worker configured, and is reached here, not forwarded
 // to the worker.
 func TestALocalReleasePreviewIsNotRoutedToTheWorker(t *testing.T) {

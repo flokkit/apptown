@@ -15,9 +15,9 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-// After a run ends, the forge refreshes the change's "So far" summary as
-// itself and it publishes, attributed to the forge. That authority reaches
-// the summary only: the forge still cannot edit the person-written brief.
+// After a run ends, AppTown refreshes the change's "So far" summary as
+// itself and it publishes, attributed to AppTown. That authority reaches
+// the summary only: AppTown still cannot edit the person-written brief.
 func TestTheForgesNarrativeRefreshPublishesAfterARunEndsButNeverTheBrief(t *testing.T) {
 	t.Parallel()
 	a := agentTestApp(t, Config{DockerClient: newFakeDocker()})
@@ -65,8 +65,8 @@ func TestTheForgesNarrativeRefreshPublishesAfterARunEndsButNeverTheBrief(t *test
 }
 
 // A refresh asked for after a chat or an import is one queue job per
-// Change, run as the forge: two requests while it waits queue one job, and
-// running it publishes the narrative attributed to the forge. A refresh that
+// Change, run as AppTown: two requests while it waits queue one job, and
+// running it publishes the narrative attributed to AppTown. A refresh that
 // fails ends its job failed, not done.
 // Kills: requests that pile up; a job that refreshes as nobody (refused) or
 // reports a failed refresh as done.

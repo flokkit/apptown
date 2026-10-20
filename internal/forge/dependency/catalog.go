@@ -1,5 +1,5 @@
 // Package dependency owns the dependency catalog (design/architecture/
-// contracts.md): the kinds an app may declare it needs (`x-forge-needs:
+// contracts.md): the kinds an app may declare it needs (`needs:` in `.apptown/app.yaml`;
 // [s3, postgres]`), each with the local emulator, the cloud template and
 // the register connector that can fulfil it. Stock kinds ship in
 // stock/dependencies/*.yaml and sync in at boot; custom kinds are saved
@@ -81,14 +81,14 @@ type Kind struct {
 	// these; both are interpolated as {name} tokens into the fulfillments
 	// (Tier-1 passthrough).
 	Defaults map[string]string `yaml:"defaults,omitempty" json:"defaults,omitempty"`
-	// Credentials are values the forge sets and an app may not: interpolated
+	// Credentials are values AppTown sets and an app may not: interpolated
 	// as {name} like a parameter, after the app's parameters, and refused as a
 	// parameter (RefusesParams). A managed target makes its own, so an app
 	// that chose one would rely on it only where it runs locally.
 	Credentials map[string]string `yaml:"credentials,omitempty" json:"credentials,omitempty"`
 	// Generate names the credentials each deployment and each preview gets
 	// a value of its own for (Credentials, LocalRuntime.Credentials); the
-	// value under credentials: is then only for the forge's own throwaway
+	// value under credentials: is then only for AppTown's own throwaway
 	// servers (steps, apptown dev, checks). A kind with a local service that
 	// generates one declares local.configAtStart: its service must take a
 	// new value at its next start, never keep the first one in its data.
@@ -116,7 +116,7 @@ type Kind struct {
 		// ConfigAtStart, and takes the rule for any other data service
 		// (deploy.ServiceSpec.KeepsImage).
 		KeepsImage bool `yaml:"keepsImage,omitempty" json:"keepsImage,omitempty"`
-		// StepEnv is added to Env for the servers the forge starts beside
+		// StepEnv is added to Env for the servers AppTown starts beside
 		// its own steps and for apptown dev, where the app's own tests run
 		// (LocalRuntime.Steps); never for a deployment or a preview.
 		StepEnv map[string]string `yaml:"stepEnv,omitempty" json:"stepEnv,omitempty"`
@@ -139,12 +139,12 @@ type Kind struct {
 	// place from it and verify it. The commands read the kind's standard
 	// connection variables, so the same text runs inside the need's own
 	// container on a Docker host and from the copy runner for a managed
-	// instance. nil, or a copy with no export: the forge copies the
+	// instance. nil, or a copy with no export: AppTown copies the
 	// kind's data directory as files.
 	Copy *Copy `yaml:"copy,omitempty" json:"copy,omitempty"`
 	// Cloud fulfillment per provider (digitalocean, aws, …): how the
 	// provider makes the need (kind: managed-database, or a terraform
-	// template ref, not executed yet), how the forge reaches an instance for
+	// template ref, not executed yet), how AppTown reaches an instance for
 	// a copy, and the provider's own protection, if it has any.
 	Cloud map[string]Cloud `yaml:"cloud,omitempty" json:"cloud,omitempty"`
 	// Register fulfillment: the need is satisfied by REGISTERING with a shared
@@ -228,16 +228,16 @@ type Cloud struct {
 	// Kind is the provider's need module that makes it (managed-database,
 	// bucket).
 	Kind string `yaml:"kind,omitempty" json:"kind,omitempty"`
-	// Reach is how the forge reaches an instance on this provider for a
+	// Reach is how AppTown reaches an instance on this provider for a
 	// copy; nil: it does not, and the instance's data is not protected by
-	// the forge there.
+	// AppTown there.
 	Reach *Reach `yaml:"reach,omitempty" json:"reach,omitempty"`
 	// Native is the provider's own protection of the instance, which the
-	// forge reads (never restores from) and shows beside its own copies.
+	// AppTown reads (never restores from) and shows beside its own copies.
 	Native *Native `yaml:"native,omitempty" json:"native,omitempty"`
 }
 
-// Reach says how the forge reaches an instance to copy it.
+// Reach says how AppTown reaches an instance to copy it.
 type Reach struct {
 	// How: connect runs a throwaway container of the copy's client image,
 	// given the instance's connection.
@@ -250,7 +250,7 @@ type Reach struct {
 	Credential string `yaml:"credential" json:"credential"`
 }
 
-// Native names the provider's own protection the forge reads.
+// Native names the provider's own protection AppTown reads.
 type Native struct {
 	Mechanism string `yaml:"mechanism" json:"mechanism"`
 }
@@ -411,7 +411,7 @@ func (k *Kind) checkCopy() error {
 		blank := func(v string) bool { return strings.TrimSpace(v) == "" }
 		switch {
 		case blank(c.Export):
-			// No export: the forge copies the data directory as files, and
+			// No export: AppTown copies the data directory as files, and
 			// the kind may say only what that copy leaves out.
 			if !blank(c.Format+c.Ext+c.Client+c.Import+c.Restore+c.Verify+c.Empty) || c.RestoreStopped || len(c.Env) > 0 {
 				return bad("with no export: a copy without one is AppTown's file copy of the data directory and may declare only its caveat")
@@ -487,7 +487,7 @@ type Catalog struct {
 	clock func() time.Time
 }
 
-// NewCatalog is the catalog over db; now is the forge's clock, which stamps
+// NewCatalog is the catalog over db; now is AppTown's clock, which stamps
 // each kind's update and receipt (the real clock when nil).
 func NewCatalog(db *database.DB, now func() time.Time) *Catalog { return &Catalog{db: db, clock: now} }
 

@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/console"
 )
 
-// ChatArchive is one ended chat's history as it moves to another forge:
+// ChatArchive is one ended chat's history as it moves to another AppTown:
 // the files named below and nothing else, by their names inside the chat's
 // folder.
 type ChatArchive struct {
@@ -41,7 +41,7 @@ func (e ChatExport) Staying() []string {
 	return out
 }
 
-// SkippedChat is a chat that stays on the source forge, and why.
+// SkippedChat is a chat that stays on the source AppTown, and why.
 type SkippedChat struct {
 	ID       string `json:"id"`
 	ChangeID ids.ID `json:"changeId,omitzero"`
@@ -154,7 +154,7 @@ func archiveChat(r console.Recording) (ChatArchive, error) {
 }
 
 // withoutKeptWork says, in a chat's save record, that a refused save's work
-// stayed on the source forge: refused work is never carried (it can hold
+// stayed on the source AppTown: refused work is never carried (it can hold
 // the agent's runtime files, credentials among them), so the record names
 // the ref it was kept under as keptOnSource, never as kept.
 func withoutKeptWork(raw []byte) ([]byte, error) {

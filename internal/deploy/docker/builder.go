@@ -8,9 +8,9 @@ import (
 )
 
 // Build runs `docker build args...` on dk's daemon, with that daemon's own
-// builder named explicitly. Every build of a project's source the forge
+// builder named explicitly. Every build of a project's source AppTown
 // makes on a daemon goes through it, so the source and its build go to the
-// daemon the forge selected and nowhere else.
+// daemon AppTown selected and nowhere else.
 //
 // Naming the builder is the one rule: plain `docker build` otherwise
 // honours an ambient selection, a builder alias (`docker buildx install`)

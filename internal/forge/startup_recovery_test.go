@@ -443,7 +443,7 @@ func readStartupState(t *testing.T, a *App, projectID, runID ids.ID) startupStat
 	return out
 }
 
-// A what-if found queued or running when the forge starts was interrupted
+// A what-if found queued or running when AppTown starts was interrupted
 // by the restart: the repair settles it as interrupted, keeping the rows it
 // recorded, and leaves a finished one as it was. It is not resumed, and
 // the job that later delivers a queued one runs nothing.
@@ -500,7 +500,7 @@ func TestStartupRepairSettlesAnUnfinishedWhatIfAsInterrupted(t *testing.T) {
 	}
 }
 
-// A review queued when the forge starts ends with the running ones, and
+// A review queued when AppTown starts ends with the running ones, and
 // the job that later delivers it runs nothing: nothing starts after a
 // restart. Kills: a repair that ends only running reviews.
 func TestStartupRepairEndsAQueuedReview(t *testing.T) {
@@ -525,7 +525,7 @@ func TestStartupRepairEndsAQueuedReview(t *testing.T) {
 	}
 }
 
-// The forge's own model calls go through the gateway on every instance, so
+// AppTown's own model calls go through the gateway on every instance, so
 // startup repair closes the calls an old process sent on every instance,
 // including one without the runtime inference listener: the spend line is
 // locked in as unknown at once, before its own time would run out. (That

@@ -116,9 +116,9 @@ func TestForgeCheckChecksOneCommitWhileTheBranchMoves(t *testing.T) {
 	}
 }
 
-// `apptown check` over the forge's own HTTP route checks the commit it names
+// `apptown check` over AppTown's own HTTP route checks the commit it names
 // when the change's folder has it, answering for exactly that commit; a
-// commit the forge does not have is refused naming it, with no result; a
+// commit AppTown does not have is refused naming it, with no result; a
 // request naming nothing checks the change's latest commit, as before.
 func TestForgeCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 	t.Parallel()
@@ -179,7 +179,7 @@ func TestForgeCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 // it: cmd/apptown/check_test.go) checks the tip of the change's branch in the
 // project's repository, not the change's folder, whose HEAD is newer work
 // not yet published; it moves no branch. An empty body keeps its meaning,
-// the change's latest commit on the forge (here the folder's HEAD). A
+// the change's latest commit on AppTown (here the folder's HEAD). A
 // change whose branch the repository does not have is refused, with no
 // check run.
 func TestForgeCheckPublishedChecksTheBranchTipNotTheFolder(t *testing.T) {

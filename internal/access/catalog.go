@@ -58,7 +58,7 @@ const (
 	CapChangeCreate      Capability = "change:create"
 	CapChangeUpdateBrief Capability = "change:update-brief"
 	// CapChangeNarrative writes a change's "So far" summary (and a title
-	// nobody chose), never the person-written brief. The forge's own engine
+	// nobody chose), never the person-written brief. AppTown's own engine
 	// holds it, so its automatic refreshes publish.
 	CapChangeNarrative     Capability = "change:write-narrative"
 	CapChangeWriteRevision Capability = "change:write-revision"
@@ -108,7 +108,7 @@ const (
 	// carries it, so an agent never does.
 	CapDeploymentRestore Capability = "deployment:restore"
 	// CapDeploymentOpenRestored enters a restored copy of production through
-	// its forge gate (design/subsystems/deployment.md, "Restored copies"): it reads
+	// its AppTown gate (design/subsystems/deployment.md, "Restored copies"): it reads
 	// production rows through the app. It is held with restore but kept
 	// apart from it (a person may look without starting places), and it is
 	// not a read: no read role, scope or instrument carries it.

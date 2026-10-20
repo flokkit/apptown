@@ -72,7 +72,7 @@ func TestIntegrationThePostgresCopyVerifiesOnlyAGoodCopy(t *testing.T) {
 		}
 		return out.Bytes(), nil
 	}
-	// sql-guarantee: the app's own records on a stand-in server, not the forge's database.
+	// sql-guarantee: the app's own records on a stand-in server, not AppTown's database.
 	if out, err := run("app", "5432", "psql -v ON_ERROR_STOP=1 -c 'create table ledger (n int); insert into ledger values (41), (42)'", nil); err != nil {
 		t.Fatalf("seeding: %v %s", err, out)
 	}

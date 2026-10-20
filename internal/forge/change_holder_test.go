@@ -474,7 +474,7 @@ func TestACheckoutDoesNotRemoveAWorkerThatTookTheChangeSince(t *testing.T) {
 }
 
 // A chat that cannot be ended at startup, on a change nobody holds, does not
-// stop the forge starting: it never runs again, and its runtime, labelled
+// stop AppTown starting: it never runs again, and its runtime, labelled
 // with the folder, keeps anyone from taking the change until it is gone.
 func TestAStuckChatOnAFreeChangeKeepsItAndStartupGoesOn(t *testing.T) {
 	t.Parallel()

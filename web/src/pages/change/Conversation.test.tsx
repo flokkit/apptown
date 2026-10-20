@@ -17,7 +17,7 @@ describe('a past chat says who opened it, when, and where it came from', () => {
   it('names the opener and the time', () => {
     expect(chatByline(chat({}))).toBe('opened 2026-10-01 09:30 by bls')
   })
-  it('says a chat moved from another forge is history only', () => {
+  it('says a chat moved from another AppTown is history only', () => {
     expect(chatByline(chat({ imported: true, actor: 'alice on forge.example.com' }))).toContain('alice on forge.example.com · moved from another AppTown, history only')
   })
   it('lists a chat by its first words', () => {

@@ -36,7 +36,7 @@ var (
 	ErrStartFrom = fault.New(fault.Conflict, "this deployment cannot start from that copy")
 	// ErrProductionCopy: a production copy keeps its class wherever it goes.
 	ErrProductionCopy = fault.New(fault.Forbidden, "a copy of production data goes only into a deployment that holds production data")
-	// errNoCopyStarter refuses a start from a copy on a forge built
+	// errNoCopyStarter refuses a start from a copy on an AppTown built
 	// without data protection: never an empty deployment or a fill taken
 	// as done.
 	errNoCopyStarter = errors.New("starting a deployment from a copy is not configured")

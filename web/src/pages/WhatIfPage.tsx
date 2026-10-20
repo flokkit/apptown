@@ -101,8 +101,8 @@ function Summary({ projects }: { projects: WhatIfProject[] }) {
 }
 
 // Adopted is what asking one project to take the version came to: the
-// Change it opened, the forge's refusal in its words, or not known (the
-// answer never arrived, or the forge failed while answering).
+// Change it opened, AppTown's refusal in its words, or not known (the
+// answer never arrived, or AppTown failed while answering).
 type Adopted = { changeId: string | null; changeNumber: number; slug: string } | { refused: string } | { unknown: string }
 
 // Table is one row per project. A project with a candidate the what-if

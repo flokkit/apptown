@@ -23,7 +23,7 @@ type Service struct {
 	db   *database.DB
 }
 
-// now is the forge's clock as Work holds it.
+// now is AppTown's clock as Work holds it.
 func (s *Service) now() time.Time { return s.work.Now() }
 
 func New(work *workflow.Service, ways *wow.Service, db *database.DB) *Service {
@@ -117,7 +117,7 @@ func (s *Service) RecordConsoleIntent(ctx context.Context, runID ids.ID, intent,
 }
 
 // CreateAndStart creates a Change and starts a run of the given workflow for
-// it, as whoever the context names: a trigger acting for the forge, or a
+// it, as whoever the context names: a trigger acting for AppTown, or a
 // person. Workflow admits the change and its first run atomically.
 func (s *Service) CreateAndStart(ctx context.Context, p *project.Project, typ, title, body, workflowName string) (*workflow.Change, *workflow.Run, error) {
 	return s.work.CreateAndRun(ctx, workflow.InvokeChange{

@@ -8,7 +8,7 @@ import (
 	"flokkit.io/forge/stock"
 )
 
-// The servers the forge starts beside its own steps are where the app's own
+// The servers AppTown starts beside its own steps are where the app's own
 // tests run, so they take the kind's step environment: the stock Postgres
 // makes the app's user a superuser there, for test runners that make their
 // own databases (Django) and load fixtures (Rails). An agent on a worker and

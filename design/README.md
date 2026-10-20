@@ -3,7 +3,7 @@
 Start with the [project README](../README.md) to build and run Forge. Then read,
 in order:
 
-1. [How the forge works](../stock/docs/guides/architecture.md), the overview
+1. [How AppTown works](../stock/docs/guides/architecture.md), the overview
    shipped on the product's Docs page;
 2. [the product model](subsystems/product-model.md);
 3. [package ownership](architecture/domains.md);
@@ -15,7 +15,7 @@ You should not need a plan to understand the current system.
 
 | Question | Primary reference |
 | --- | --- |
-| How does the whole forge fit together? | [How the forge works](../stock/docs/guides/architecture.md) |
+| How does the whole AppTown fit together? | [How AppTown works](../stock/docs/guides/architecture.md) |
 | What are the objects, and how do they relate? | [Product model](subsystems/product-model.md) |
 | Where does work execute? | [Workers: what a worker isolates](operations/workers.md#what-a-worker-isolates-and-what-it-does-not), [execution](../internal/execution/README.md), [worker](../internal/worker/README.md) and [agent isolation limits](subsystems/agent-sandbox.md) |
 | Where does code go, and what may it depend on? | [Ownership map](architecture/domains.md) and [layout convention](architecture/layout.md) |

@@ -14,7 +14,7 @@ const maskMin = 8
 // Masked is what a masked value reads as.
 const Masked = "[secret]"
 
-// Masker reads every value the forge's stores hold once and returns a
+// Masker reads every value AppTown's stores hold once and returns a
 // function that replaces each, eight characters or longer, with
 // "[secret]", longest first so a value inside another is not half-masked.
 // One snapshot serves a whole operation (a step's evidence, a page of a
@@ -49,7 +49,7 @@ func (a *Service) Mask(ctx context.Context, text string) string {
 	return a.Masker(ctx)(text)
 }
 
-// maskValues is every value the forge's stores hold: the secrets file,
+// maskValues is every value AppTown's stores hold: the secrets file,
 // Infisical's (each, though a file entry of the same name shadows it at
 // runtime: an application binding can still resolve the Infisical key), and
 // the built-in store's current values. A store that cannot be read gives

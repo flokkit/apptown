@@ -406,7 +406,7 @@ func TestAnAnonymousNeedVolumeIsPlannedOnce(t *testing.T) {
 }
 
 // A declared need whose named volume is absent and whose container mounts
-// nothing where its kind keeps data has no identity the forge can name: it
+// nothing where its kind keeps data has no identity AppTown can name: it
 // is an item not copied, each need its own, so no ok set omits one.
 //
 // Kills: copying the container as if it were the volume; merging such

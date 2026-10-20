@@ -149,7 +149,7 @@ func TestACheckWithServicesRunsBesideThemOnTheWorker(t *testing.T) {
 	if !strings.Contains(svc, "--cpus 1 --memory 1073741824 --memory-swap 1073741824 --pids-limit 256") {
 		t.Fatalf("the service runs without limits: %s", svc)
 	}
-	// The check itself is bounded too: this forge named no limits, so the
+	// The check itself is bounded too: this AppTown named no limits, so the
 	// task defaults.
 	check := find("run --cpus 4 --memory 8589934592 --memory-swap 8589934592 --pids-limit 4096")
 	if !strings.Contains(check, "--network "+name) || !strings.Contains(check, "DATABASE_URL=postgres://app@postgres/app") {

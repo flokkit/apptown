@@ -33,7 +33,7 @@ func projectResource(projectID ids.ID) access.Resource {
 	return access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}
 }
 
-// protectedPlace is a standing deployment whose data the forge copies on
+// protectedPlace is a standing deployment whose data AppTown copies on
 // its target: its target, and the items it holds. When what it holds
 // cannot be read (ErrDataNotKnown) the deployment and its target are
 // still returned with the error, so protection can say unknown.
@@ -179,11 +179,11 @@ type TakeDownResult struct {
 }
 
 // TakeDown is the take-down door. A deployment on App Platform that holds
-// data the forge copies, with a backup store attached and a copy runner
+// data AppTown copies, with a backup store attached and a copy runner
 // named, is taken down by an operation: the app is deleted so nothing
 // writes, a final copy goes to the store and is filled into a new place
 // and checked, and only then is the cluster deleted. One whose final copy
-// cannot be taken now (no store, no copy runner, nothing the forge
+// cannot be taken now (no store, no copy runner, nothing AppTown
 // reaches) is refused (ErrNoFinalCopy), unless the person chose to take
 // it down without one (WithoutFinalCopy): then its cluster is kept as a
 // retained resource for a person to settle. Anything else is removed now.
@@ -270,7 +270,7 @@ func (s *Service) beginManagedTakeDown(ctx context.Context, in RemoveDeployment)
 	return op, "", err
 }
 
-// NoFinalCopy refuses the take-down of a deployment holding data the forge
+// NoFinalCopy refuses the take-down of a deployment holding data AppTown
 // cannot take a final copy of now: the data is kept or deleted only by a
 // person's explicit choice (RemoveDeployment.WithoutFinalCopy). It says
 // why, in the words its data operations are refused with.
@@ -316,7 +316,7 @@ func (s *Service) runCopy(ctx context.Context, t *tracker) (runEnd, string, map[
 	if b.Status != BackupOK {
 		return OperationFailed, fmt.Sprintf("set %d is %s: %s", b.ID, b.Status, setShortfall(b)), result
 	}
-	// The forge's own daily copy of production data is also drilled once a
+	// AppTown's own daily copy of production data is also drilled once a
 	// week: the newest copy is filled into a new place and checked.
 	if t.op.AskedBy == SystemActor && s.drillDue(ctx, dep, b) {
 		passed, detail, err := s.drill(ctx, t, b, target)
@@ -331,7 +331,7 @@ func (s *Service) runCopy(ctx context.Context, t *tracker) (runEnd, string, map[
 	return OperationNotVerified, fmt.Sprintf("set %d is in the store (%d bytes); nothing has filled it into a new place yet", b.ID, b.Bytes), result
 }
 
-// DrillEvery is how often the forge drills production data on its own.
+// DrillEvery is how often AppTown drills production data on its own.
 const DrillEvery = 7 * 24 * time.Hour
 
 // drillDue says whether a production deployment's set b is to be drilled:
@@ -355,7 +355,7 @@ func (s *Service) drillDue(ctx context.Context, dep *deployment.Deployment, b *B
 	return false
 }
 
-// ScheduledCopies starts the forge's own daily copy of every production
+// ScheduledCopies starts AppTown's own daily copy of every production
 // deployment whose data it copies on its target, where a store is
 // attached and a copy runner named. One already running is left to run;
 // what could not start is named.
@@ -425,7 +425,7 @@ func setShortfall(b *Backup) string {
 	return strings.Join(missing, "; ")
 }
 
-// SystemActor is the forge acting for itself (the scheduled copies).
+// SystemActor is AppTown acting for itself (the scheduled copies).
 const SystemActor = operations.SystemActor
 
 // runTakeDown takes an App Platform deployment that holds data down:

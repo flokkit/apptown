@@ -16,7 +16,7 @@ function stubForge(stores: Record<string, string>, unreadable?: { on: boolean })
     const body = init?.body ? JSON.parse(String(init.body)) : undefined
     calls.push({ method, path, body })
     if (method === 'GET' && path === '/secrets/names' && unreadable?.on) {
-      return new Response(JSON.stringify({ error: "the forge's secrets could not be read: Infisical could not be read" }), { status: 503 })
+      return new Response(JSON.stringify({ error: "AppTown's secrets could not be read: Infisical could not be read" }), { status: 503 })
     }
     if (method === 'GET' && path === '/secrets/names') {
       return new Response(JSON.stringify({ names: Object.keys(stores).sort(), stores }))
@@ -55,10 +55,10 @@ describe('instance secrets', () => {
   beforeEach(() => { vi.useFakeTimers() })
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); document.body.innerHTML = '' })
 
-  // A field naming a secret says whether the forge holds it; one it does not
+  // A field naming a secret says whether AppTown holds it; one it does not
   // hold is set from a password field, the value sent once in the body and
   // never shown on the page; afterwards the name reads as held.
-  it('sets a named secret the forge does not hold, write-only', async () => {
+  it('sets a named secret AppTown does not hold, write-only', async () => {
     const calls = stubForge({})
     const { el, root } = await mount(<SecretNameStatus name="DIGITALOCEAN_ACCESS_TOKEN" />)
     expect(el.textContent).toContain('AppTown does not hold this yet')
@@ -74,7 +74,7 @@ describe('instance secrets', () => {
     act(() => root.unmount())
   })
 
-  // A name Infisical holds is not offered for setting here: the forge
+  // A name Infisical holds is not offered for setting here: AppTown
   // would refuse to shadow it, so the page says where to change it.
   it('sends a name Infisical holds to Infisical', async () => {
     stubForge({ DIGITALOCEAN_ACCESS_TOKEN: 'infisical' })
@@ -85,7 +85,7 @@ describe('instance secrets', () => {
     act(() => root.unmount())
   })
 
-  // The list shows each name and where it is held; one in the forge's file
+  // The list shows each name and where it is held; one in AppTown's file
   // can be removed after a quiet confirmation.
   it('lists the secrets and removes one from the file', async () => {
     const calls = stubForge({ DEMO_KEY: 'secrets.env', OPENROUTER_API_KEY: 'infisical' })
@@ -99,7 +99,7 @@ describe('instance secrets', () => {
     act(() => root.unmount())
   })
 
-  // Secrets the forge cannot read are unknown, never "none" or "not held":
+  // Secrets AppTown cannot read are unknown, never "none" or "not held":
   // neither the page nor a wizard field offers to set a value then.
   it('shows an unreadable store as unknown, not empty', async () => {
     stubForge({}, { on: true })

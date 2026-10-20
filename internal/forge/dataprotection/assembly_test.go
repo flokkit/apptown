@@ -124,7 +124,7 @@ func assembled(db *database.DB, rt testRuntime, deps deployment.Dependencies) *b
 	return &both{Service: s, deploymentOwner: d}
 }
 
-// setClock puts data protection on the forge's clock now.
+// setClock puts data protection on AppTown's clock now.
 func (b *both) setClock(now func() time.Time) {
 	b.Service.clock, b.Service.backups.clock = now, now
 }

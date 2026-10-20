@@ -411,10 +411,10 @@ func TestAnImplementingAgentStepThatChangesNothingFails(t *testing.T) {
 }
 
 // What a local agent wrote is found by its files' modification times, which
-// the operating system stamps: with the forge's clock an hour ahead, a
+// the operating system stamps: with AppTown's clock an hour ahead, a
 // report the agent writes is still its output and its file.
 //
-// Kills: the harvest cutoff taken from the forge's clock (every file written
+// Kills: the harvest cutoff taken from AppTown's clock (every file written
 // reads as older than the invocation and is left out).
 func TestALocalAgentsReportIsHarvestedWhateverTheForgesClock(t *testing.T) {
 	t.Parallel()
@@ -437,7 +437,7 @@ func TestALocalAgentsReportIsHarvestedWhateverTheForgesClock(t *testing.T) {
 	}
 }
 
-// A rework of a step on the forge's own machine finds its earlier report
+// A rework of a step on AppTown's own machine finds its earlier report
 // where it declared it, even when the folder lost it, and is told to update
 // it: the report describes the whole change, not the rework's note.
 func TestAReworkUpdatesTheStepsEarlierReport(t *testing.T) {

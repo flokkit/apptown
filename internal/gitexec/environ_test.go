@@ -40,7 +40,7 @@ func calls(t *testing.T, dump string) [][]string {
 	return out
 }
 
-// inheritedGit is what a forge started from a Git hook, or by a person who
+// inheritedGit is what an AppTown started from a Git hook, or by a person who
 // set them, carries: each would point git at another repository, index,
 // object store or configuration.
 var inheritedGit = map[string]string{
@@ -52,7 +52,7 @@ var inheritedGit = map[string]string{
 	"GIT_OPTIONAL_LOCKS": "1", "GIT_NO_REPLACE_OBJECTS": "1",
 }
 
-// No GIT_* variable the forge inherited reaches a git it starts, whichever
+// No GIT_* variable AppTown inherited reaches a git it starts, whichever
 // way it starts it: the plain commands, the hardened ones in its own
 // repositories and folders, and a remote fetch. What a caller sets on
 // purpose does (GIT_OPTIONAL_LOCKS=0, RunEnv's variables, the hardened
@@ -103,7 +103,7 @@ func TestNoInheritedGitVariableReachesTheForgesGit(t *testing.T) {
 	}
 }
 
-// Command gives git exactly the environment it is passed: the forge CLI,
+// Command gives git exactly the environment it is passed: AppTown CLI,
 // acting in a person's repository as them, passes their whole environment,
 // GIT_* included, and nothing keeps their own git config from them. Not
 // parallel: it sets the process's environment.
@@ -125,7 +125,7 @@ func TestCommandGivesGitExactlyTheEnvironmentPassed(t *testing.T) {
 	}
 }
 
-// The forge's git reads only the repository's own config: a setting in the
+// AppTown's git reads only the repository's own config: a setting in the
 // global config of the user the apptown runs as (here commit signing with a
 // signer that always fails, in HOME/.gitconfig and the XDG location) does
 // not reach a plain Run, so a commit behaves the same on every host. Not

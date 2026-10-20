@@ -48,7 +48,7 @@ func (s *Service) TakeDownForDeletion(ctx context.Context, projectID ids.ID, nam
 }
 
 // PurgeProjectBackups removes every backup set of a project being purged:
-// each set's files on the forge's disk or its copies in the store, then
+// each set's files on AppTown's disk or its copies in the store, then
 // its record. allowed is asked before each set. A set that could not be
 // removed is named and keeps its record, so the next purge tries it again.
 func (s *Service) PurgeProjectBackups(ctx context.Context, projectID ids.ID, allowed func(context.Context) error) (removed int, left []string, err error) {
@@ -89,7 +89,7 @@ func (s *Service) PurgeOrphanBackups(ctx context.Context, now time.Time) (remove
 // what fails is named and the next set tried.
 func (s *Service) removeSets(ctx context.Context, rows []protectionsql.Backup, allowed func(context.Context) error) (removed int, left []string, err error) {
 	dir := filepath.Join(s.dataDir, "backups")
-	// A forge that never wrote a set to its disk has no backup root; its
+	// An AppTown that never wrote a set to its disk has no backup root; its
 	// sets' files are already absent, and pruning records them so.
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return 0, nil, err

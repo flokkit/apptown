@@ -22,9 +22,9 @@ an actual trusted proxy boundary. Open-mode attribution does not protect an
 exposed instance from impersonation. Browser-origin/cookie rules are described in
 [browser security](browser-security.md).
 
-A person's name may not take a form the forge reads as something else:
+A person's name may not take a form AppTown reads as something else:
 `identity.ValidName` refuses one containing `/` (a chat, run or connection)
-or ` via ` (someone acting through something), one of the forge's own names
+or ` via ` (someone acting through something), one of AppTown's own names
 (`system`, `apptown-system`), control characters, and leading or trailing
 spaces. The trusted header and the open-mode actor are refused with 401;
 members, group members, grants (at the shared grant writer), token holders,
@@ -87,7 +87,7 @@ See `routes.go`, `route_table.go` and their policy tests.
 
 Initial setup is governed by a durable `setup_completed` marker. Bootstrap and
 explicit startup root seeding record authority and setup together. Under
-internal authentication bootstrap also needs the setup token the forge writes
+internal authentication bootstrap also needs the setup token AppTown writes
 to `<data>/setup-token` (mode 0600) while no account exists
 (`identity/setup_token.go`); it is compared in constant time and removed once
 the first account commits. Open authentication refuses a listener other

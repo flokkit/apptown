@@ -105,8 +105,8 @@ func TestACheckedLandingDoesNotMergeOnACalledWorkflowsChecks(t *testing.T) {
 	}
 }
 
-// Settings changed on GitLab between the forge reading them and the merge
-// can land a tree nobody checked; the forge cannot prevent that race on the
+// Settings changed on GitLab between AppTown reading them and the merge
+// can land a tree nobody checked; AppTown cannot prevent that race on the
 // provider. It detects it: the landing is not recorded as merged and the
 // forge's main does not follow.
 func TestAProviderSettingChangeCannotLandAnUncheckedTree(t *testing.T) {

@@ -16,7 +16,7 @@ import (
 	"flokkit.io/forge/internal/ids/idstest"
 )
 
-// forgeClock is a forge clock a test moves.
+// forgeClock is an AppTown clock a test moves.
 type forgeClock struct {
 	mu  sync.Mutex
 	now time.Time
@@ -64,7 +64,7 @@ func TestALookIsWrittenAtMostOnceAMinuteAndNeverBackwards(t *testing.T) {
 	}
 }
 
-// A preview on this forge's Docker stops, whole, about eight hours after
+// A preview on this AppTown's Docker stops, whole, about eight hours after
 // the last look at it: a boot is a look, a request in between postpones
 // the stop, and the stop forgets its placement row and keeps its build.
 func TestALocalPreviewStopsEightHoursAfterItsLastLook(t *testing.T) {
@@ -173,7 +173,7 @@ func TestALookAfterTheCandidateWasChosenKeepsThePreview(t *testing.T) {
 	}
 }
 
-// On a worker the same rule holds: the forge stops the preview there, and
+// On a worker the same rule holds: AppTown stops the preview there, and
 // keeps no record of it; its build stays.
 func TestAWorkerPreviewStopsEightHoursAfterItsLastLook(t *testing.T) {
 	t.Parallel()
@@ -204,7 +204,7 @@ func TestAWorkerPreviewStopsEightHoursAfterItsLastLook(t *testing.T) {
 	}
 }
 
-// A release looked at on this forge's Docker beside a worker (a release
+// A release looked at on this AppTown's Docker beside a worker (a release
 // recorded before bundles) is tended where it is.
 func TestALocalReleaseLookBesideAWorkerIsStoppedWhereItIs(t *testing.T) {
 	t.Parallel()
@@ -299,7 +299,7 @@ func TestAnExpiryCandidateLookedAtOrPresentSinceKeepsItsBuild(t *testing.T) {
 	}
 }
 
-// What a change's preview kept before the forge recorded looks goes; one
+// What a change's preview kept before AppTown recorded looks goes; one
 // present stays for its stop.
 func TestABuildWithNoLookGoesUnlessItsPreviewIsThere(t *testing.T) {
 	t.Parallel()
@@ -325,7 +325,7 @@ func TestABuildWithNoLookGoesUnlessItsPreviewIsThere(t *testing.T) {
 }
 
 // On a worker the kept build images go there, through the worker, and the
-// snapshot on the forge.
+// snapshot on AppTown.
 func TestAWorkerPreviewsBuildGoesThroughTheWorker(t *testing.T) {
 	t.Parallel()
 	clock := newForgeClock()

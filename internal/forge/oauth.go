@@ -18,7 +18,7 @@ import (
 
 // The embedded OAuth authorization server for the MCP door (design/subsystems/mcp.md,
 // authorization-capabilities.md). A local coding
-// agent discovers this forge as an OAuth resource, sends the person to
+// agent discovers this AppTown as an OAuth resource, sends the person to
 // their browser, and comes back with a token that is audience-bound to
 // /mcp/user, short-lived, and an upper bound on what the person may do —
 // never a copy of their role.
@@ -26,7 +26,7 @@ import (
 // Shape: authorization-code + PKCE (S256) for public clients, dynamic client
 // registration (RFC 7591) because MCP clients register themselves, opaque
 // tokens with a database lookup (immediate revocation, no key management),
-// rotating refresh tokens. The resource-owner ceremony is the forge's own
+// rotating refresh tokens. The resource-owner ceremony is AppTown's own
 // login: a session cookie in internal mode, the fronting proxy's header in
 // trusted-header mode. Open mode has no identity to delegate and refuses.
 
@@ -103,7 +103,7 @@ func (a *App) handleOAuthRegister(w http.ResponseWriter, r *http.Request) {
 
 // --- authorize ---------------------------------------------------------------------
 
-// browserIdentity is the person at the browser, by the forge's own door:
+// browserIdentity is the person at the browser, by AppTown's own door:
 // the session cookie in internal mode, the proxy's header in trusted-header
 // mode. Never a bearer token (a token must not mint tokens) and never the
 // open-mode actor header.

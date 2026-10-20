@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { relTime } from './format'
 
 export type RuntimeObservation = {
-  // running, stopped or unknown, as the forge words it.
+  // running, stopped or unknown, as AppTown words it.
   observation: string
   observationIssue?: string
   observedAt?: string
@@ -40,9 +40,9 @@ export function RuntimeStatus({ observation }: { observation: ProjectRuntime }) 
   </span>
 }
 
-// AppAddress: where an app answers, as a link, unless the forge says the
-// address answers on the forge host only (no domain for it, so it is a port
-// the forge's own Docker publishes on that host's loopback). Then it is not
+// AppAddress: where an app answers, as a link, unless AppTown says the
+// address answers on the AppTown host only (no domain for it, so it is a port
+// AppTown's own Docker publishes on that host's loopback). Then it is not
 // a link, which would fail for anyone elsewhere: it says where it works, at
 // the port on that host.
 export function AppAddress({ url, hostOnly, className, style, title, children }: {

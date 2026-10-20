@@ -21,23 +21,23 @@ type ProviderHealth struct {
 const BuiltInTargetName = "built-in-docker"
 
 // SeedTargets names what exists (design/subsystems/deployment.md §8, §12A):
-// the built-in Docker host, unless this forge has no local Docker;
+// the built-in Docker host, unless this AppTown has no local Docker;
 // each DigitalOcean account's App Platform target; and the intranet's
 // Portainer environment when the portainer-deploy binding resolves. Existing
 // deployments keep their explicit targets. ingressDomains are the built-in
 // host's tier domains, as tier=domain.
 //
-// A target is a reusable place the forge can deploy to, reached through one
+// A target is a reusable place AppTown can deploy to, reached through one
 // provider. The test for whether something is a target: does it exist as an
 // offered place BEFORE any environment is bound to it? A Docker daemon, a
 // Portainer environment, an App Platform team and region are targets; one
 // app on App Platform is an environment's handle, never a target. A fresh
-// forge has exactly one target, the built-in Docker host; everything else is
+// AppTown has exactly one target, the built-in Docker host; everything else is
 // attached by an administrator.
 //
 // Each is recorded through Targets.Sync, so a start refreshes only the facts
 // configuration owns and keeps what an administrator set; a change it makes
-// is receipted to the forge itself.
+// is receipted to AppTown itself.
 func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 	const who = "forge"
 	if !s.hosts.settings.NoLocalDocker { // with no local daemon there is no built-in host
@@ -67,9 +67,9 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 	}
 }
 
-// StockCapabilities is what a kind of target offers as the forge records it
+// StockCapabilities is what a kind of target offers as AppTown records it
 // (deploy-targets.md, "What each target supports"); emulators are the need
-// kinds this forge can run locally. An administrator may later change
+// kinds this AppTown can run locally. An administrator may later change
 // PersistentVolumes and Previews on a target (target_settings.go).
 func StockCapabilities(kind string, emulators []string) TargetCapabilities {
 	switch kind {
@@ -98,7 +98,7 @@ func stockNeedsMode(kind string) string {
 // SeedCloudTargets: every DigitalOcean cloud-account connector offers one
 // App Platform target in its region (§2.2: a team and region is a place
 // that exists before any environment binds to it). who is whom a change is
-// receipted to: the forge at a start, the person saving a connector.
+// receipted to: AppTown at a start, the person saving a connector.
 func (s *Service) SeedCloudTargets(ctx context.Context, who string) {
 	names, err := s.env.integrations.Bindings.NamesByProvider(ctx, digitalocean.CapCloudAccount, "digitalocean")
 	if err != nil {
@@ -134,7 +134,7 @@ func (s *Service) SeedCloudTarget(ctx context.Context, account, who string) (*Ta
 // RegistryReading is the container registry of an App Platform target's
 // account as DigitalOcean answered: its plan (subscription tier), the
 // repositories it includes (0: no limit) and how many it holds. Each
-// project released to App Platform takes one, and the forge's gate image
+// project released to App Platform takes one, and AppTown's gate image
 // one more (Gate: it is among those used). None says the account has no
 // registry yet; Unknown says why it could not be read. ReadAt is when, for
 // a reading recorded by a check.

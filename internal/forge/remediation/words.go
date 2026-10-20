@@ -53,7 +53,7 @@ const (
 // Remediation is one job.
 type Remediation struct {
 	ID       ids.ID `json:"id"`
-	Number   int64  `json:"number"`   // within the forge, as people name it ("remediation 9")
+	Number   int64  `json:"number"`   // within AppTown, as people name it ("remediation 9")
 	Scope    string `json:"scope"`    // all | check | project | review
 	ScopeRef string `json:"scopeRef"` // the check key, project slug, or review id
 	Mode     string `json:"mode"`     // attended: every approval is a person's

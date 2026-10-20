@@ -1,4 +1,4 @@
-"""Tests for run.py's own decisions; no forge is involved.
+"""Tests for run.py's own decisions; no AppTown is involved.
 
     python3 eval/companies/run_test.py
 """
@@ -21,7 +21,7 @@ def req(app_dir, name, kind="feature", size="short", after=()):
 
 
 class Fake:
-    """A forge that answers from a script and records what it was asked."""
+    """An AppTown that answers from a script and records what it was asked."""
 
     def __init__(self, answers=None, projects=(), capacity=None, deployments=None, user=""):
         self.calls, self.answers, self.user = [], list(answers or []), user

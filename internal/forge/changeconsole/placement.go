@@ -14,7 +14,7 @@ import (
 // Placement opens chats on the worker (conversation.WorkerPlacement): the
 // registries its builds use must be reachable from the worker, and the
 // change's folder is published before the worker is sent it. It is nil
-// without a worker, and then every chat opens on the forge.
+// without a worker, and then every chat opens on AppTown.
 func (c *Service) Placement() conversation.WorkerPlacement {
 	if c.saves.remote == nil {
 		return nil

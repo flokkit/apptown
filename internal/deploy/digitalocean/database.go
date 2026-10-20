@@ -116,7 +116,7 @@ func (d *Driver) FulfilNeed(ctx context.Context, p deploy.Placement, need string
 	requested := map[string]any{"name": name, "engine": "pg", "version": version, "region": doDBRegion(cfg.Region), "size": cfg.DBSize, "database": dbName, "user": dbUser}
 	if db != nil {
 		// Found by name: adopt it only when it is what was asked for and
-		// carries the forge's marker; anything else is somebody's cluster
+		// carries AppTown's marker; anything else is somebody's cluster
 		// with our name on it, and the mint is refused (§2.6).
 		if why := d.validateDiscovered(db, version, slug, p.Name); why != "" {
 			return deploy.NeedBinding{}, nil, deploy.Terminal(fmt.Errorf("a cluster named %s exists but is not this deployment's: %s", name, why))
@@ -206,7 +206,7 @@ func (d *Driver) FulfilNeed(ctx context.Context, p deploy.Placement, need string
 
 // validateDiscovered: a cluster found by name is this deployment's only
 // if it is Postgres of the requested major version and carries the tags
-// the forge put on it. Returns the reason it is not, or "".
+// AppTown put on it. Returns the reason it is not, or "".
 func (d *Driver) validateDiscovered(db *doDatabase, version, slug, deploymentName string) string {
 	if db.Engine != "pg" {
 		return "its engine is " + db.Engine + ", not postgres"

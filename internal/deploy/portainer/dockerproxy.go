@@ -16,7 +16,7 @@ import (
 )
 
 // The Docker proxy (design/subsystems/deployment.md, "Backups and restore",
-// Portainer): the forge copies a Portainer deployment's data with the same
+// Portainer): AppTown copies a Portainer deployment's data with the same
 // Docker commands it runs on a Docker host, through Portainer's own Docker
 // API proxy for the environment (/api/endpoints/<id>/docker). The Docker
 // CLI talks to a Unix socket in a private folder; DockerProxy forwards each
@@ -26,11 +26,11 @@ import (
 // responses, not attached streams (docker exec, docker run -i): the
 // commands that stream run as jobs instead (dataprotection).
 
-// ErrCannotBackUp refuses data work in an environment the forge cannot
+// ErrCannotBackUp refuses data work in an environment AppTown cannot
 // reach for it.
 var ErrCannotBackUp = errors.New("AppTown cannot back up deployments in this Portainer environment")
 
-// Environment is one of Portainer's environments as the forge reads it for
+// Environment is one of Portainer's environments as AppTown reads it for
 // data work.
 type Environment struct {
 	ID   int64
@@ -69,7 +69,7 @@ func ReadEnvironment(ctx context.Context, cfg *Target) (Environment, error) {
 	return Environment{}, fmt.Errorf("Portainer has no environment named %q", cfg.EnvName)
 }
 
-// DataReach says whether the forge can run Docker commands in the
+// DataReach says whether AppTown can run Docker commands in the
 // environment for data work: a Docker environment (socket, agent or
 // standard edge agent) whose Docker answers through Portainer. nil when it
 // can; ErrCannotBackUp with why otherwise.

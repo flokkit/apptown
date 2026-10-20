@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/forge/project"
 )
 
-// ArmSlots is what a project would run on each slot: the forge's stock
+// ArmSlots is what a project would run on each slot: AppTown's stock
 // slots and every slot the fallback chain names, resolved as Resolve
 // resolves them. An eval records it for each arm when it starts: the
 // baseline's from the source

@@ -162,7 +162,7 @@ SELECT u.username, u.principal_id, u.password_hash, u.created_at, u.last_seen, u
 ) ORDER BY u.created_at, u.username
 `
 
-// Grants expire by the forge's clock (at), as ActiveGrants judges them.
+// Grants expire by AppTown's clock (at), as ActiveGrants judges them.
 func (q *Queries) AdminUsers(ctx context.Context, at time.Time) ([]User, error) {
 	rows, err := q.db.QueryContext(ctx, adminUsers, at)
 	if err != nil {
@@ -1232,7 +1232,7 @@ type InsertConsentParams struct {
 	ExpiresAt   time.Time
 }
 
-// A consent request expires by the forge's clock, which writes its expiry
+// A consent request expires by AppTown's clock, which writes its expiry
 // and judges it (ConsumeConsent, DeleteExpiredConsents).
 func (q *Queries) InsertConsent(ctx context.Context, arg InsertConsentParams) error {
 	_, err := q.db.ExecContext(ctx, insertConsent,
@@ -2090,7 +2090,7 @@ const pendingInvites = `-- name: PendingInvites :many
 SELECT id, username, principal_id, label, role, invited_by, invited_by_principal, invited_by_via, token_hash, created_at, expires_at, accepted_at, revoked_at, revoked_by, revoked_by_principal, revoked_by_via, purpose FROM invites WHERE accepted_at IS NULL AND revoked_at IS NULL AND expires_at > $1::timestamptz ORDER BY id
 `
 
-// An invite expires by the forge's clock (at), which wrote its expiry and
+// An invite expires by AppTown's clock (at), which wrote its expiry and
 // judges it at acceptance.
 func (q *Queries) PendingInvites(ctx context.Context, at time.Time) ([]Invite, error) {
 	rows, err := q.db.QueryContext(ctx, pendingInvites, at)
@@ -2421,7 +2421,7 @@ type RevokeDelegationTokensRow struct {
 	Removed  int64
 }
 
-// A token's revocation time is the forge's clock, as for every other
+// A token's revocation time is AppTown's clock, as for every other
 // revocation of it: DeleteDeadTokens keeps it a day by that clock.
 func (q *Queries) RevokeDelegationTokens(ctx context.Context, arg RevokeDelegationTokensParams) (RevokeDelegationTokensRow, error) {
 	row := q.db.QueryRowContext(ctx, revokeDelegationTokens, arg.DelegationID, arg.At)
@@ -2434,7 +2434,7 @@ const revokeExpiredDelegations = `-- name: RevokeExpiredDelegations :execrows
 UPDATE delegations SET revoked_at = $1::timestamptz WHERE revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at < $1::timestamptz
 `
 
-// A delegation expires by the forge's clock (at), which wrote its expiry
+// A delegation expires by AppTown's clock (at), which wrote its expiry
 // and judges it live (Delegation.Live).
 func (q *Queries) RevokeExpiredDelegations(ctx context.Context, at time.Time) (int64, error) {
 	result, err := q.db.ExecContext(ctx, revokeExpiredDelegations, at)

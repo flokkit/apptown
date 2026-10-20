@@ -147,9 +147,9 @@ func (w *mainMergeWorld) conflictNotices(t *testing.T) []map[string]any {
 	return out
 }
 
-// Before a change's step, the forge merges main in when the branch is
+// Before a change's step, AppTown merges main in when the branch is
 // behind it, the merge is clean and the run holds the branch under the
-// step's attempt: an ordinary merge, the branch then main, by the forge,
+// step's attempt: an ordinary merge, the branch then main, by AppTown,
 // nothing published yet. A branch that contains main needs none, and a
 // branch the run does not hold under that attempt is left alone.
 func TestTheForgeMergesMainIntoAChangeBeforeAStepWhenItCan(t *testing.T) {

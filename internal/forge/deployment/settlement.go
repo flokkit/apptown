@@ -23,7 +23,7 @@ import (
 type Outcomes struct {
 	db        *database.DB
 	followups jobs.Enqueuer
-	clock     func() time.Time // the forge's clock, which stamps attempts and settlements; nil is the real one
+	clock     func() time.Time // AppTown's clock, which stamps attempts and settlements; nil is the real one
 }
 
 func (s *Outcomes) now() time.Time { return clock.Or(s.clock)().UTC() }

@@ -8,7 +8,7 @@ section 3.2(a)): the Go module proxy's archive of that version.
 
   python3 scripts/third-party-notices.py [main packages...] > THIRD_PARTY_NOTICES
 
-The main packages default to apptownd, forge and apptown-worker. Modules are read
+The main packages default to apptownd, apptown and apptown-worker. Modules are read
 for linux and darwin, so a release for either names everything it may hold.
 The web side walks web/package.json's runtime dependencies through
 web/node_modules; it is skipped, and says so, when node_modules is absent.

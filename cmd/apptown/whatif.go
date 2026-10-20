@@ -289,7 +289,7 @@ func money(micros int64) string { return fmt.Sprintf("$%.2f", float64(micros)/1e
 
 // cmdWhatIfAdopt opens one adoption Change per named project, taking what
 // what-if id assessed for it, through each project's own adopt door in
-// turn: each is its own authorized act and record, and the forge reads
+// turn: each is its own authorized act and record, and AppTown reads
 // what was assessed from the what-if. It goes on after a refusal; it exits
 // zero only when every project opened a Change. There is no "all": the
 // projects are named.

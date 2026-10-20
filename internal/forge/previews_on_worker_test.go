@@ -236,7 +236,7 @@ func (f *fakePreviewWorker) setDown(down bool) {
 }
 
 // withPreviewWorker configures cfg with a worker served by fake over the
-// worker's mutual TLS, as a forge is configured with one (-worker-*): its
+// worker's mutual TLS, as an AppTown is configured with one (-worker-*): its
 // address, this installation's client certificate, and the CA.
 func withPreviewWorker(t *testing.T, fake *fakePreviewWorker, cfg Config) Config {
 	t.Helper()
@@ -248,7 +248,7 @@ func withPreviewWorker(t *testing.T, fake *fakePreviewWorker, cfg Config) Config
 
 const staticSiteContract = "version: 1\napp:\n  web:\n    static: .\n    public: true\n"
 
-// previewWorkerWorld is a forge with a worker for previews (and a preview
+// previewWorkerWorld is an AppTown with a worker for previews (and a preview
 // domain unless noDomain), a local Docker that records everything and runs
 // nothing real, and a change of the game project whose folder declares a
 // static site.
@@ -308,7 +308,7 @@ func TestTheTryItButtonBootsOnTheWorkerAndNowhereElse(t *testing.T) {
 	}
 }
 
-// Previews on a worker are reached only through the preview domain: a forge
+// Previews on a worker are reached only through the preview domain: an AppTown
 // without one refuses them with that reason, and boots nothing anywhere.
 func TestWithoutAPreviewDomainAWorkerPreviewIsRefused(t *testing.T) {
 	t.Parallel()
@@ -397,7 +397,7 @@ func TestTheTierViewsListTheWorkersPreviewsOrSayTheyAreUnknown(t *testing.T) {
 }
 
 // Everything that ends a preview ends it on the worker: closing its change,
-// finishing its run, removing its project, and the forge starting again
+// finishing its run, removing its project, and AppTown starting again
 // (which discards every preview there).
 func TestEndingAPreviewRemovesItOnTheWorker(t *testing.T) {
 	t.Parallel()

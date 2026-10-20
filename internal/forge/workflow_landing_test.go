@@ -237,7 +237,7 @@ func TestOutOfBandEditsBlockMerge(t *testing.T) {
 	if len(drift) != 1 || drift[0] != "tampered.txt" {
 		t.Fatalf("drift must name the files: %v", drift)
 	}
-	// The forge's own runtime leftovers under .apptown/ are not drift; a
+	// AppTown's own runtime leftovers under .apptown/ are not drift; a
 	// touched contract file is.
 	repoDir := a.projectRepoPath("p")
 	_ = os.MkdirAll(filepath.Join(repoDir, ".apptown", "sessions"), 0o755)

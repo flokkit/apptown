@@ -34,7 +34,7 @@ func verdict(r conformancesql.ConformanceVerdict) (Verdict, error) {
 }
 
 // verdicts maps a page of rows, refusing the whole page if any row carries a
-// state this forge does not know: a half-read page is not a posture.
+// state this AppTown does not know: a half-read page is not a posture.
 func verdicts(rows []conformancesql.ConformanceVerdict) ([]Verdict, error) {
 	out := make([]Verdict, 0, len(rows))
 	for _, r := range rows {

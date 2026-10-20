@@ -39,10 +39,10 @@ CREATE TABLE IF NOT EXISTS branch_publications (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS branch_publications_one ON branch_publications(project_id, branch);
 
--- Where a project's main stood when the forge last moved it: the commit read
+-- Where a project's main stood when AppTown last moved it: the commit read
 -- back from the hub under the repository lock, recorded in the transaction
 -- that settled the move. It exists and is an ancestor of (or equal to) the
--- hub's main unless main was rewritten outside the forge. via names the door
+-- hub's main unless main was rewritten outside AppTown. via names the door
 -- (landing, init, seed, copy, genesis, integrity-adopt, backfill, upgrade); run_id is
 -- the landing run, 0 for other doors. Absence is unknown.
 CREATE TABLE IF NOT EXISTS project_main (

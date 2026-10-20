@@ -6,7 +6,7 @@ import (
 )
 
 // RecoverInferenceRequests closes admissions interrupted by a daemon restart,
-// and locks in the spend lines of the forge's own calls still pending. It
+// and locks in the spend lines of AppTown's own calls still pending. It
 // is part of RecoverInterruptedWork.
 // Conversation identities and generated runtime homes are durable and untouched.
 func (a *App) RecoverInferenceRequests(ctx context.Context) error {

@@ -12,7 +12,7 @@ import (
 	"flokkit.io/forge/internal/forge/scm"
 )
 
-// From-source + Dockerfile is intranet-ready: the forge packages at
+// From-source + Dockerfile is intranet-ready: AppTown packages at
 // release, so the signal must say so everywhere it shows.
 func TestSourcePackagedSignals(t *testing.T) {
 	t.Parallel()

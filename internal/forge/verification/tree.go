@@ -16,7 +16,7 @@ import (
 )
 
 // StageCommittedTree extracts rev (a commit in repo) into a fresh directory
-// under the forge's data directory, outside any writable workspace, so a
+// under AppTown's data directory, outside any writable workspace, so a
 // writer cannot change the tree while it is being checked. One directory per
 // invocation: two checks on the same change at once must not share it.
 // Staging a commit that cannot be read is an error, never a

@@ -29,7 +29,7 @@ func guidanceFor(a *App) *verification.Guidance {
 	return verification.NewGuidance(verification.GuidanceDependencies{DB: a.DB, DataDir: a.cfg.dataDir, Adoption: a.Adoption, Conformance: a.conformance, Scanners: a.scanners, Evaluator: verification.NewEvaluator(a.evaluator, a.cfg.clock.Now), Changes: a.verification, Runtime: runtimeFor(a), Docker: &a.docker, Previews: a.Preview, Routing: a.cfg.routing(), Selection: a.modelSelection, Ledger: a.Usage.Ledger, Now: a.cfg.clock.Now})
 }
 
-// checksFor is the forge's check executor: the check worker's when one is
+// checksFor is AppTown's check executor: the check worker's when one is
 // configured, else the worker's, and then nothing runs a check or prepares
 // its image on this machine; otherwise this machine's Docker
 // (design/operations/workers.md, "Checks on the worker").
@@ -71,9 +71,9 @@ func taskPlacement(cfg configuration) workflow.Placement {
 	return workflow.Placement{Local: true}
 }
 
-// requireCheckWorker records this forge's first use of each worker address,
+// requireCheckWorker records this AppTown's first use of each worker address,
 // and refuses to start with a check worker that does not report the check
-// role, fixed before the forge first used its address.
+// role, fixed before AppTown first used its address.
 func requireCheckWorker(ctx context.Context, cfg configuration) error {
 	if cfg.verifyOnly {
 		return nil

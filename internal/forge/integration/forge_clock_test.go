@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// What the integrations owner stores is stamped by the forge's clock, not
+// What the integrations owner stores is stamped by AppTown's clock, not
 // the wall clock or the database's: on a clock ninety days behind, a
 // binding's version, a service kind and an attachment carry that clock's
 // time.
@@ -58,7 +58,7 @@ func TestTheForgesClockStampsBindingsKindsAndAttachments(t *testing.T) {
 	}
 }
 
-// A binding's save and an attachment take one reading of the forge's clock
+// A binding's save and an attachment take one reading of AppTown's clock
 // for the record and its receipt. On a clock that moves on a second at
 // every reading, a receipt stamped by a second reading would say a later
 // second than the record.

@@ -80,7 +80,7 @@ func TestInferenceLifecycleAndTrustedReceipts(t *testing.T) {
 				if err := a.DB.QueryRow(`SELECT actor,outcome,usage_json FROM inference_requests WHERE provider=?`, "paid").Scan(&actor, &outcome, &raw); err != nil || actor != "alice" || outcome != "complete" || !strings.Contains(raw, `"input": 8`) {
 					t.Fatalf("bad receipt %s %s %s %v", actor, outcome, raw, err)
 				}
-				// A forge with another key (another data directory) does
+				// An AppTown with another key (another data directory) does
 				// not recognise this attempt's token.
 				elsewhere := newApp(t, a.DB)
 				if _, err := inferenceIdentityFor(elsewhere).Authenticate(ctx, token); err == nil {

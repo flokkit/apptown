@@ -145,9 +145,9 @@ are not streamed by these phase messages.
 A release bundle is what a landing produced and every later release ships.
 It has one of two forms.
 
-- **By digest** (a forge with a worker). The landing's
+- **By digest** (an AppTown with a worker). The landing's
   deploy step has the worker build every image once, from the landed commit,
-  in private Docker. The forge, not the worker, publishes each image to the
+  in private Docker. AppTown, not the worker, publishes each image to the
   project's container-registry attachment (the one container-registry
   connector, attached at that landing, when the project has none) and reads
   it back; the bundle
@@ -158,7 +158,7 @@ It has one of two forms.
   the step, and never changes afterwards. Landing deployment inputs carry
   the bundle's ID, so a generation runs exactly the bundle it was admitted
   with.
-- **By image ID** (a forge without a worker, and every bundle recorded
+- **By image ID** (an AppTown without a worker, and every bundle recorded
   before). The images are built on the target and the bundle records the
   daemon-local image IDs and the target they were read on.
 
@@ -168,7 +168,7 @@ It has one of two forms.
   image's `RepoDigests`;
 - promotion to any other Docker host, and recovery of a standing deployment
   whose container or images are gone;
-- App Platform, by promotion: the forge copies each digest into DOCR and
+- App Platform, by promotion: AppTown copies each digest into DOCR and
   names DOCR's confirmed digest in the app spec. App Platform runs one
   version of a DOCR repository per app: a spec naming two digests of one
   repository is accepted by its propose endpoint and refused at create
@@ -195,7 +195,7 @@ It has one of two forms.
   target's tier (`lan` for a target attached without one), because the stack,
   its volumes and its route are named for the project; another name is
   refused before a release is numbered. Naming them per deployment is not
-  built. The intranet release refuses a need the forge fills by registering (an
+  built. The intranet release refuses a need AppTown fills by registering (an
   AI models key), which it could not revoke, and names the door that can: a
   release by name;
 - release previews, booted where change previews boot.
@@ -246,13 +246,13 @@ name gave (an IPv6-only answer on a host without IPv6), is asked again a poll
 interval later and does not spend one of the check's six tries. A request the
 front door answered counts as before, so a transient 503 or the wrong release
 keeps its normal allowance, and a good answer ends the check at once. Go's
-dialer already tries both address families, so an IPv6 address the forge
+dialer already tries both address families, so an IPv6 address AppTown
 cannot reach does not fail a request while an IPv4 one connects.
 
 A gated copy's front door is not asked by the driver: inside the grace it waits
 for the name to be in DNS (asking every 30 seconds) and then hands the address
 to the checks through the gate. Those checks ask through the system resolver
-and are not covered by the grace; the forge's own gate checks (`checkGate`)
+and are not covered by the grace; AppTown's own gate checks (`checkGate`)
 ask once each, so a flip there fails the restore test. After the grace a
 name that does not answer spends the checks' tries as before: a failed probe
 leaves the attempt uncertain, and a failed witness fails the release. Other DNS failures, other host names (a custom domain) and an app
@@ -283,7 +283,7 @@ observed the same way. Settlement is the usual one, with its release receipts;
 the ledger records `deployment.checked-again` with who pressed it and what was
 observed. Missing evidence is still not retry authority.
 
-## Releasing over data the forge cannot copy
+## Releasing over data AppTown cannot copy
 
 A release can change the data a deployment holds (a migration, code that
 rewrites stored objects), and nothing in the contract says whether it will.
@@ -294,7 +294,7 @@ protection whether it can copy what that deployment holds now
 the held-data plan cannot be read, when an item in it cannot be copied (a
 need whose kind the catalogue cannot read), or when the target cannot take a
 copy (an App Platform target with no backup store or copy runner; a Portainer
-environment the forge cannot reach for data, such as an async edge agent). A
+environment AppTown cannot reach for data, such as an async edge agent). A
 deployment that has served no release holds nothing yet and is not asked;
 one that holds no data is not affected; a release of the bundle the
 deployment already runs (an operator's override redeploying it) brings no new
@@ -302,12 +302,12 @@ code and is not asked. Such a release is refused, naming
 why and how to go on. A person may release anyway with `acceptUncopiedData`
 (`apptown release --accept-uncopied-data`): the release's first log line then
 says who chose it and why the data could not be copied. There is no
-freshness rule: data the forge can copy is copied nightly and after each
+freshness rule: data AppTown can copy is copied nightly and after each
 release, and the protection view shows a stale copy.
 
 ## Removing a deployment
 
-A deployment owns what the forge recorded creating for it. Each creation is recorded on the deployment's list
+A deployment owns what AppTown recorded creating for it. Each creation is recorded on the deployment's list
 (`deployment_owned`) as the provider confirms it, through `deploy.Owner`:
 
 - **Docker host**: the containers its boot ran (by ID), the stack's network
@@ -316,27 +316,27 @@ A deployment owns what the forge recorded creating for it. Each creation is reco
   release images it pulled or built.
 - **App Platform**: the app (its recorded handle) and, per project and
   connector, the DOCR repository the first copy created (`owned_repositories`).
-  A repository of the project's name the forge did not create refuses the
+  A repository of the project's name AppTown did not create refuses the
   release; it is never adopted. The gate image of a restored copy goes to
   one shared repository per registry, `apptown_gate` (no project slug has an
   underscore), made by the first gated copy on the account and counted
   against the registry plan by the room check. It is not a deployment's: no
   take-down empties it, and the gate images in it, pinned by digest, stay
   for the next copy; one an older gate release left stays until an operator
-  deletes it. One of that name the forge did not make is used: the copy is
+  deletes it. One of that name AppTown did not make is used: the copy is
   by digest and DOCR must answer that digest.
-- **Portainer**: the stack, when the forge's own create made it.
+- **Portainer**: the stack, when AppTown's own create made it.
 - **S3-compatible bucket** (`s3-bucket`): the bucket, recorded on the
-  deployment's handle by the forge's own create; take-down empties and
+  deployment's handle by AppTown's own create; take-down empties and
   deletes it. A static site holds no data.
 - **AI models key** (any target; kind `openrouter-key`): the OpenRouter key
   the register step made for an app that needs `llm`, recorded
   as `<connector>/<hash>` as soon as OpenRouter confirms it. The target
-  driver never sees it: after the driver's teardown the forge revokes it
+  driver never sees it: after the driver's teardown AppTown revokes it
   and deletes its stored value; a revoke that fails is left, with why.
   A preview's key is on Preview's `preview_owned` by the preview's name and
   is revoked once no container of the preview stands where previews run (the
-  worker's list, or this forge's own Docker) and it is not booting
+  worker's list, or this AppTown's own Docker) and it is not booting
   (`preview.Service.ReleaseEndedPreviewKeys`, every minute). A revoke that
   fails becomes a retained row (`Retained.RecordPreviewKeyIn`) in the same
   transaction that forgets the key on `preview_owned`. The place is asked, not the
@@ -352,7 +352,7 @@ administrators), which records exactly what a person approved.
 
 `DELETE /api/v1/projects/{slug}/deployments/{name}` (`deployment:teardown`)
 takes the deployment down. An App Platform deployment holding a managed
-database the forge copies, with a backup store attached and a copy runner
+database AppTown copies, with a backup store attached and a copy runner
 named on its target, is taken down by a data operation instead (answered
 202 with `Location` and `{operationId, state, url}`; see **Protecting data
 off-host** below). Project deletion admits such a deployment's take-down
@@ -380,7 +380,7 @@ deployment, App Platform without a store included, goes as follows:
    certifies that volume only. Only a set holding a good copy of every
    listed data volume lets the data go; otherwise the parts are started
    again and nothing is removed. A held volume off the list (made before
-   the forge recorded what it creates) is copied into the same set, never
+   AppTown recorded what it creates) is copied into the same set, never
    deleted, and retained with why and whether the set holds a copy; its
    failed copy refuses nothing. It is retained as what the host answered
    for: its volume, or the need container whose own files hold the data;
@@ -398,10 +398,10 @@ deployment, App Platform without a store included, goes as follows:
    collection when this was the last deployment of the project on that
    connector (DOCR keeps the empty repository's name until then).
    On Portainer the driver deletes the stack, then each volume on the list
-   (one the forge's deploy made: absent before it, present after) when the
+   (one AppTown's deploy made: absent before it, present after) when the
    final set covers it or the data is synthetic; a volume the stack
    declares that is not on the list is copied into the final set and kept
-   (retained with whether the set holds a copy). An environment the forge
+   (retained with whether the set holds a copy). An environment AppTown
    cannot reach for data refuses the take-down unless a person chooses to
    go without a final copy (`WithoutFinalCopy`); its volumes then stay.
 3. **Record.** In one transaction the deployment's record and list go, its
@@ -461,7 +461,7 @@ with no `copy:`, or a `copy:` with only a `caveat`, falls back to a tar of
 its data directory. **Where a set is kept:** in the backup store whenever one is
 attached (staged under `backups/.staging/take-*` while it uploads; each
 file is held to its size and digest there, and the manifest is written
-beside it once the set has its id); on the forge's disk otherwise, where
+beside it once the set has its id); on AppTown's disk otherwise, where
 losing that disk loses it (the protection note and the rehearsal's
 `on-apptown-disk` reason say so). Retention counts a deployment's ordinary
 sets once across both places (`keepFor`: 14 production, 7 otherwise) and
@@ -473,7 +473,7 @@ files checked against the record, uploaded, manifest written, row changed
 by `MoveBackupToStore`, then the folder removed, all under the exclusive
 file lock), and clears `.staging/take-*` and `restore-*` folders older than
 a day. A crash after the row changes leaves the old folder for a person
-(running a forge, "Deployment backups"). Each item records its copy method: `declared`, `files` (nothing
+(running an AppTown, "Deployment backups"). Each item records its copy method: `declared`, `files` (nothing
 was writing: a take-down's stopped app volume) or `live-files` (a running
 service's files, which may be inconsistent: the app volume of an ordinary
 set, the tar fallback). A restore records per item what witnessed it:
@@ -491,12 +491,12 @@ release is not held off); the worker runs it once, asking the admitting
 credential again before the safety set and before each item. It records
 each step, the safety set, each container before it is stopped and again
 once started, and each item's outcome as it ends; its `restored` receipt is
-written by its settlement. When the forge stops in the middle, the restart
+written by its settlement. When AppTown stops in the middle, the restart
 settles it unknown with what it confirmed, and the kind's interruption
 words name the containers that *may* be stopped (a stop recorded, no start
 recorded: their state is not known), the items restored and the safety
 set; the receipt says `status: unknown` with `mayBeStopped`. Nothing starts
-them again: a restore's writer on the host can outlive the forge, so a
+them again: a restore's writer on the host can outlive AppTown, so a
 person checks the host and releases the deployment again. A kind may declare `restoreStopped`: the need's container is
 stopped, the restore runs in a throwaway container of its image with
 `--volumes-from` it, and the need is started again whatever the restore
@@ -550,7 +550,7 @@ labels); any other is copied as files. A restore or a final set stops the
 stack's non-need containers that run (and starts exactly those again: a
 completed `init-` container, or a worker someone stopped, stays as it was;
 `stopParts` does the same on a Docker host). The app's readiness after a
-restore is not probed: the forge has no address to ask on Portainer. Sets
+restore is not probed: AppTown has no address to ask on Portainer. Sets
 are taken after each LAN release and by the nightly sweep.
 
 **Protecting data off-host** (cloud targets; `dataprotection/backup_store.go`,
@@ -558,16 +558,16 @@ are taken after each LAN release and by the nightly sweep.
 `dataprotection/start_from_copy.go`, `dataprotection/protection.go`). Three owners: the dependency kind declares what a copy is
 (`copy:` — format, extension, client image, export, import, verify, and
 the connection `env` its commands read, from the app user's host, port,
-database, user, password and sslmode); the provider says how the forge
+database, user, password and sslmode); the provider says how AppTown
 reaches an instance (`cloud.<provider>.reach`: only `connect`, from the
 target's named copy runner, as the app's user) and what protection of its
-own it has (`native`, read for recency); the forge keeps copies in the one
+own it has (`native`, read for recency); AppTown keeps copies in the one
 backup store. Postgres declares all three for DigitalOcean; on a Docker
 host its copy is the same export (see "Backups and restore"), restored in
 place by `copy.restore` and checked by the same `copy.verify`. `Parse`
 refuses a kind that declares a `local.backup` block, naming `copy:`: ignored,
 it would turn a database's copy into a tar of its live files. **One data list:** what a deployment holds is answered by
-`heldData` on every target the forge copies (a Docker host's list plus
+`heldData` on every target AppTown copies (a Docker host's list plus
 release, looked up on the host; a managed target's recorded managed
 instances and the object storage buckets on its owned list, `heldManaged`), as one item
 type. A bucket is copied by the s3 kind's copy, as the deployment's own key
@@ -580,7 +580,7 @@ calls the driver's `TearDownStorage` with the bucket and key, `BackedUp`
 only for a set holding a good copy of each bucket; a failed copy or check
 ends the take-down with the app gone and the data, key and records kept. A
 restored copy's take-down removes its own bucket and key as synthetic. An
-instance the forge cannot
+instance AppTown cannot
 copy (its kind unread, no copy reached there, its record naming no
 instance, database and user) is a row with why, never left out, and a
 list that cannot be read makes protection read unknown, with its copy,
@@ -651,7 +651,7 @@ the release declares disposable empty; any other item fails it, by name.
   sentence: a check also needs a copy in the store, and a rehearsal runs
   on its own host and needs no copy runner. The target view reports
   `copies` the same way, so the card greys each button and the target page
-  says why from the forge's answer rather than guessing.
+  says why from AppTown's answer rather than guessing.
 - **A copy is only ever filled into a new, empty database** the provider
   makes (`deploy.ManagedData.NewDatabase` refuses a name the cluster holds;
   it never adopts one) and hands to the app's user; the kind's import runs
@@ -684,11 +684,11 @@ the release declares disposable empty; any other item fails it, by name.
   whether the credential that admitted it still stands
   (`Identity.RequireStill`); refused, it ends failed, "authority
   withdrawn", without that effect. Removing what the operation itself made
-  is not asked again. A provider effect with no answer the forge can trust
+  is not asked again. A provider effect with no answer AppTown can trust
   (a timeout, a lost response, a 5xx) leaves the step and the operation
   unknown; only a provider's refusal is a failure. A drill whose copy came
   back but whose database could not be removed fails (or is unknown),
-  keeping its verification. The forge's own scheduled copies and the
+  keeping its verification. AppTown's own scheduled copies and the
   restored-copy sweep act under system bindings. A restart settles a
   running operation unknown, naming the steps it confirmed and the one it
   was in; it is never resumed. Cancel stops any queued one at once; a
@@ -747,7 +747,7 @@ the release declares disposable empty; any other item fails it, by name.
   only into a production deployment. A copy on request needs
   `deployment:deploy`.
 - **Protection state** (`GET .../deployments/{name}/protection`, the
-  deployment card, `apptown data`): per item, the forge's copies — fresh
+  deployment card, `apptown data`): per item, AppTown's copies — fresh
   (within a day plus six hours), stale (older, or the last copy failed),
   unknown (the last copy was interrupted) or none — with the newest; the
   provider's backups as it answers now, or unknown with why; and the
@@ -758,16 +758,16 @@ the release declares disposable empty; any other item fails it, by name.
   where it started from (`startFrom`) is shown. Production data without a
   store reads "not protected off-host".
   **Coverage.** Every answer carries `coverage`: `assessed` names each item
-  the forge assessed (its need with its volume or place) and `notAssessed`
+  AppTown assessed (its need with its volume or place) and `notAssessed`
   names, with why, each item it could not (its kind or place unread), the
   deployment's own data when what it holds is unknown or not read on its
   target kind, and always data the app keeps outside the needs it
   declares (`OutsideNotAssessed`: a bucket or a database it reaches with
-  its own settings; a bucket its s3 need gives it is an assessed item). The forge cannot tell from an app's settings which outside
+  its own settings; a bucket its s3 need gives it is an assessed item). AppTown cannot tell from an app's settings which outside
   stores hold its data, so no answer is a whole application's protection:
   a fresh copy, a passed check, rehearsal or restore test speaks for the
-  assessed items only. The backup store holds the forge's copies and is
-  never an app's own bucket. A deployment holding no data the forge knows
+  assessed items only. The backup store holds AppTown's copies and is
+  never an app's own bucket. A deployment holding no data AppTown knows
   of still says what is not assessed; the card and `apptown data` show the
   same lists beside the evidence.
   The daily sweep starts a copy of every production App Platform deployment
@@ -792,7 +792,7 @@ one, and a host kept for evals or rehearsals takes nothing else
 2. record the place it will make, all of it on the rehearsal host (the
    volume `forge-rehearsal-<op>-copy`, the stack `rehearsal-<op>` and the
    app `forge-rehearsal-<op>`), in `rehearsal_places` before making it;
-3. stream each copy from the store through the forge's memory into that
+3. stream each copy from the store through AppTown's memory into that
    volume, held to the set's size and digest: the copy is never on the
    forge's own disk, where a project's script steps run (review RB-01); then
    boot sealed (`docker.Sealed`): its own network,
@@ -825,7 +825,7 @@ status, and status codes; never a command's output, a container's log or a
 response body. A restart settles a running rehearsal unknown and keeps its
 recorded place; the daily sweep removes what every ended, uncleared
 rehearsal owns. The boundary is the host: anything on it, or on its network,
-can reach the rehearsal. The forge's part is to stream the copy through its
+can reach the rehearsal. AppTown's part is to stream the copy through its
 memory. The protection answer gives the last rehearsal operation's answer:
 recorded, or failed or unknown when it ended without a record (an older
 recorded rehearsal is kept beside it as `previous`, never shown as the
@@ -835,14 +835,14 @@ latest); or "never rehearsed" / "never rehearsed: no rehearsal place".
 `cmd/apptown-gate`). A restored copy is a temporary deployment (kind
 `restored-copy`) of a standing production deployment's current release, by
 digest, on the source's own target, started from a chosen store copy, behind
-the forge's access gate. A **restore test** is one with no lifetime: nobody
+AppTown's access gate. A **restore test** is one with no lifetime: nobody
 is admitted and it is taken down as soon as its checks are recorded. An
 **opened copy** stays for its lifetime (4 hours by default, 15 minutes to 24
 hours, extendable) and people may enter it.
 - **Where.** App Platform targets that make their databases only: the
   renderer places the gate (an internal service has no route, and its health
   check runs on its private port). Anything else
-  is refused. The forge needs `-restore-gate-image <ref@sha256:...>` (built
+  is refused. AppTown needs `-restore-gate-image <ref@sha256:...>` (built
   by `make gate-image`) and a `-public-host` origin. The gate image is
   copied by digest into the registry's `apptown_gate` repository, never the
   project's: App Platform refuses an app naming two versions of one
@@ -860,12 +860,12 @@ hours, extendable) and people may enter it.
   secrets follow the rehearsal profile rule. The gate secret is made per copy,
   delivered as the provider's `SECRET` to the gate alone, held in memory
   during the start, and kept only as its SHA-256.
-- **Checks** run from the forge to the gate's address with the secret in
+- **Checks** run from AppTown to the gate's address with the secret in
   `AppTown-Restore-Token`: readiness, the front page, `rehearsal.checks`; no
   redirects followed, only status codes kept.
 - **The gate check** (`checkGate`) follows, on every copy,
   so a restore test proves the door without a person signing in. From
-  outside, the forge asks the readiness path (which just answered its
+  outside, AppTown asks the readiness path (which just answered its
   probe) with no token and with a wrong one, and enters with a made-up
   ticket. Each must be the gate's own refusal: the gate marks every refusal
   `AppTown-Gate: refused` and strips that header from whatever the app sends,
@@ -889,11 +889,11 @@ hours, extendable) and people may enter it.
   at once; an opened copy whose data check failed stays open, shown failed.
   An opened copy is open only once its gate check passed.
 - **Opening** (`deployment:open-restored`, held with restore, carried by no
-  read role, scope or instrument): Open is a browser POST under the forge's
+  read role, scope or instrument): Open is a browser POST under AppTown's
   mutation protection; it issues a one-use ticket (SHA-256 kept, one minute,
   bound to the person and copy) and redirects to the gate's
   `/_apptown/enter`. The gate redeems it at `POST /gate/redeem` with its
-  secret; the forge asks the person's grant again, then uses the ticket and
+  secret; AppTown asks the person's grant again, then uses the ticket and
   writes `deployment.gate-entered` in one transaction. The gate's session
   lasts until the copy's expiry or an hour, and its streams are closed then.
 - **Take-down** (operation `deployment.restored-copy-end` on the copy, by a person with
@@ -914,10 +914,10 @@ hours, extendable) and people may enter it.
   statuses and status codes. A gated deployment's failing component logs
   are not fetched, and a fill's command output is not kept.
 - The card and `apptown data` show the last restore test apart from the last
-  rehearsal, with the forge's own check of its gate ("gate: N of M checks
+  rehearsal, with AppTown's own check of its gate ("gate: N of M checks
   passed", and each that failed with its path and status), each
   standing copy ("open until … · opened by …"), what it can still do outside
-  (`RestoredCopyWarning`) and who outside the forge can read it
+  (`RestoredCopyWarning`) and who outside AppTown can read it
   (`ProviderBoundary`).
 
 A retained row is settled `released` once a person has deleted it by hand.
@@ -984,7 +984,7 @@ container by its identity labels; any other part's (which a rollout replaces
 before the public part, and a failed rollout can leave) only when the
 deployment, read after the containers, is still settled on its recorded
 generation with no deploy open. Otherwise the view says why it is unsettled
-and the part's generation is not known. Failure reasons are the forge's words;
+and the part's generation is not known. Failure reasons are AppTown's words;
 what a host's client wrote is not shown.
 
 It also carries the background observer's state with its age, the last day's
@@ -1003,14 +1003,14 @@ lists the parts as unknown.
 A part's recent log (`GET .../logs?part=`) is read only when someone asks, by
 someone holding `deployment:operate` on the project, since a log can hold the
 app's secrets: reading the deployment is not enough. The part must be one of
-the settled generation's; the forge names the container, inspects it and reads
+the settled generation's; AppTown names the container, inspects it and reads
 that container by its ID, and says which generation it is proven to run by the
 rule above. One read is `docker logs --tail 200 --timestamps` within ten
 seconds, no follow, cut to its newest 64 KiB starting at a whole line, and
 says when older output may exist. The log is returned to the caller and kept
 nowhere: no receipt or artifact holds it, the response says `Cache-Control:
 private, no-store`, and the web client holds it in the open view's state only,
-outside its read and mutation caches. The forge
+outside its read and mutation caches. AppTown
 does not redact secrets from it. Diagnostics observe; they never restart,
 stop or settle anything.
 
@@ -1029,7 +1029,7 @@ guard, not a reservation: two boots at once, or images larger than the free
 space, can still fill the disk, and a pull or start that then fails fails as
 before. Stop, take-down and removal never read the disk. A host below a
 tenth free is shown low; below the floor its capacity and each deployment's
-card on it say new releases are refused. The forge's own data folder and
+card on it say new releases are refused. AppTown's own data folder and
 its worker's disks are shown on Infrastructure (`GET
 /infrastructure/disks`, `maintenance.Disks`), each its own reading.
 
@@ -1060,7 +1060,7 @@ execution, after the selected profile and operator overrides. Adoption supplies
 the primary pack's exact published version in one snapshot; Dependency supplies
 actual service-need catalogue defaults. Missing valid optional defaults fall
 back to 512M; unreadable owners/publications refuse execution. Supplied workflow
-ServiceSpecs use their positive memory or the Forge fallback, with ambiguous
+ServiceSpecs use their positive memory or AppTown fallback, with ambiguous
 assembled identities refused before effects. Their capped specs reach both local
 and worker admission before creation or preview replacement.
 
@@ -1077,7 +1077,7 @@ protected by the existing deployment/release authority and reason requirement.
 `memory_unlimited` distinguishes it from zero/omitted override fields and clear. It survives committed-memory omission until an
 explicit clear, and applied records preserve it for replay. Defaults and
 unlimited are visible on the resource card. A static application's declaration
-does not exempt the forge's own file server from the caps.
+does not exempt AppTown's own file server from the caps.
 
 Supplied workflow services remain visible in deployment resource rows with their
 `suppliedService` origin. Their limits are set in the workflow ServiceSpec
@@ -1130,12 +1130,12 @@ start scripts set them at every start, so a standing need takes its owner's
 at its next deploy. A copy of a running need reads its credentials from its
 container (`dataprotection.containerConnection`), so a container not yet
 converted, and a restore into another deployment, use what that container
-was started with. The forge's own step servers and `apptown dev` use the
+was started with. AppTown's own step servers and `apptown dev` use the
 catalogue's values. A boot replaces the values it generated with `[secret]`
 in a container's output before it cuts it short for a failure, and in the
 failure it returns (`docker.Scope.Redact`, `Host.Boot`). Rotation is not
 built.
 The stock Postgres script makes the app's user an ordinary owner at every
 start (converting a server whose app user is the superuser) and sets the
-forge's password; the servers started beside the forge's own steps make the user a
+forge's password; the servers started beside AppTown's own steps make the user a
 superuser (`stepEnv`, `dependency.LocalRuntime.Steps`).

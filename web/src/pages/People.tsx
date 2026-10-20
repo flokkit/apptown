@@ -28,7 +28,7 @@ export default function People() {
   const users = usersQ.data?.users ?? [], groups = groupsQ.data?.groups ?? []
   const roles = rolesQ.data?.roles ?? [], grants = grantsQ.data?.grants ?? []
   // Each card's controls follow the capability its writes need; until the
-  // forge has answered, nobody sees them.
+  // AppTown has answered, nobody sees them.
   const canUsers = useHolds('identity:manage-users')
   const canGroups = useHolds('identity:manage-groups')
   const canGrants = useHolds('authorization:manage-grants')
@@ -218,7 +218,7 @@ function TokensCard() {
   )
 }
 
-// Who may do what on the whole forge: the instance roles, as grants on the
+// Who may do what on the whole AppTown: the instance roles, as grants on the
 // record (design/subsystems/authorization-capabilities.md). Project roles live on each
 // project's Members tab. Every grant here was made by someone, or by the
 // upgrade that turned the old implicit powers into visible ones.
@@ -285,7 +285,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
   )
 }
 
-// sso says the forge is known not to use its own sign-in, so it holds no
+// sso says AppTown is known not to use its own sign-in, so it holds no
 // passwords to reset; invites says it is known to.
 export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }: { users: Account[]; act: (fn: () => Promise<unknown>) => void; canEdit: boolean; invites: boolean; sso?: boolean; me?: string }) {
   const [name, setName] = useState('')
@@ -293,7 +293,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
   // Accounts have a password, or have signed in or acted (single sign-on
   // accounts never have a password); they are disabled, never removed.
   // Everything else is a name the record has seen — open-mode actors, a
-  // typo in a member list — not a person who has used the forge.
+  // typo in a member list — not a person who has used AppTown.
   // Conflating the two made the table read as a breach.
   const accounts = users.filter(u => u.hasPassword || u.acted)
   const seen = users.filter(u => !u.hasPassword && !u.acted)
@@ -356,7 +356,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                 {/* Disabling keeps the account, its record and its authority;
                     it signs the person out and stops them signing in. No role
                     is sent, so authority is left as it is. Not offered on your
-                    own account: the forge would sign you out of this page. */}
+                    own account: AppTown would sign you out of this page. */}
                 {canEdit && u.username !== me && (u.disabled ? (
                   <QuietConfirm label="enable" className="subtle" ask={`Enable ${u.username}? They can sign in again with their password.`}
                     onYes={() => act(() => post('/users', { username: u.username, disabled: false }))} />
@@ -486,8 +486,8 @@ export function InvitePerson() {
   )
 }
 
-// OneTimeLink shows a link the forge returns once — an invite or a password
-// reset link — with a copy button. The forge keeps only its hash.
+// OneTimeLink shows a link AppTown returns once — an invite or a password
+// reset link — with a copy button. AppTown keeps only its hash.
 // "Copied" belongs to the exact link copied: a newer link shown in the same
 // place says Copy link until it has been copied itself.
 function OneTimeLink({ made, onDone, children }: { made: InviteLink; onDone: () => void; children: React.ReactNode }) {

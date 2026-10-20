@@ -12,7 +12,7 @@ import (
 	"flokkit.io/forge/internal/deploy"
 )
 
-// Recovery (deployment.md §14.7): an attempt the forge was interrupted in
+// Recovery (deployment.md §14.7): an attempt AppTown was interrupted in
 // is observed, never re-run. Startup queues the observation of every
 // interrupted attempt before anything is dispatched; the job resumes
 // through the target's driver with what the attempt had noted.

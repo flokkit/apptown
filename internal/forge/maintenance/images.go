@@ -17,14 +17,14 @@ import (
 // ---- images ---------------------------------------------------------------
 //
 // The container sweep leaves the IMAGES a landing builds: one preview-build
-// image per run and one forge-conform image per commit. Neither is ever
+// image per run and one AppTown-conform image per commit. Neither is ever
 // used again once its owner is finished — a run's preview is never booted
 // again, a conformance image is rebuilt from the commit — and left alone
 // they fill a disk within a day. Same rule as containers: an image whose
 // owner is finished is reaped. A change's preview's build images are
 // Preview's: kept thirty days after the last look at it, for a reopen
 // (preview.Service.Tend). An environment's image, the agent image and
-// anything not the forge's are never touched.
+// anything not AppTown's are never touched.
 
 const conformImageTTL = 24 * time.Hour
 
@@ -99,7 +99,7 @@ func parseTrailingID(name string) ids.ID {
 	return id
 }
 
-// reapImages sweeps the forge's build images once. Returns what it reaped
+// reapImages sweeps AppTown's build images once. Returns what it reaped
 // (or would have, in log-only mode).
 func (r *Reaper) Images(ctx context.Context, logOnly bool) []string {
 	if r.docker.Absent() {

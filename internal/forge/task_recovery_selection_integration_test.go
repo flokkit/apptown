@@ -14,9 +14,9 @@ import (
 	"flokkit.io/forge/internal/execution/executiontest"
 )
 
-// A Docker context that cannot be read when the forge starts refuses tasks
-// for the forge's lifetime: restoring the context does not let the running
-// forge create one under its unresolved backend. The production App driver
+// A Docker context that cannot be read when AppTown starts refuses tasks
+// for AppTown's lifetime: restoring the context does not let the running
+// AppTown create one under its unresolved backend. The production App driver
 // and real Docker.
 func TestIntegrationAnUnresolvedDockerContextAtStartupCreatesNothing(t *testing.T) {
 	_ = testDB(t)
@@ -48,7 +48,7 @@ func TestIntegrationAnUnresolvedDockerContextAtStartupCreatesNothing(t *testing.
 	if err == nil || obs.ID != "" {
 		t.Fatalf("unresolved startup allowed real task %s: original backend=%q restarted backend=%q; recovery cannot match them", obs.ID, a.tasks.Backend, b.tasks.Backend)
 	}
-	// Refused, not unobservable: the forge knows nothing was created, so the
+	// Refused, not unobservable: AppTown knows nothing was created, so the
 	// step fails with the reason at once instead of asking until its limit.
 	if !errors.Is(err, execution.ErrUnsupported) {
 		t.Fatalf("an unresolved backend must refuse to create: %v", err)

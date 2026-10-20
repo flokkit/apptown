@@ -18,7 +18,7 @@ import (
 
 const StandardProfile = "standard"
 
-// StockSlots are the purposes the forge itself names, in page order.
+// StockSlots are the purposes AppTown itself names, in page order.
 var StockSlots = []string{"default", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout", "draft"}
 
 // Gloss: what each stock slot means, in ordinary words.
@@ -68,7 +68,7 @@ func ProfileOf(declared string) string {
 // Callers authorize changes before invoking its mutation methods.
 type Slots struct {
 	db *database.DB
-	// Now is the forge's clock, which stamps a slot's change; nil is the
+	// Now is AppTown's clock, which stamps a slot's change; nil is the
 	// real one.
 	Now func() time.Time
 }

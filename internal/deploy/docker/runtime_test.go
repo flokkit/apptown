@@ -29,7 +29,7 @@ func TestDockerInspectionDistinguishesAbsenceAndFailure(t *testing.T) {
 	}
 }
 
-// The inspect format the forge sends is a template the daemon fills from
+// The inspect format AppTown sends is a template the daemon fills from
 // its own record: rendered over a container shaped as docker inspect
 // shapes one, it reads back the process state the daemon kept (an
 // out-of-memory kill's exit, the restart counter, the times), and a

@@ -22,7 +22,7 @@ type Integrity struct {
 	publisher Publisher
 	db        *database.DB
 	dataDir   string
-	clock     func() time.Time // the forge's clock; nil is the real one
+	clock     func() time.Time // AppTown's clock; nil is the real one
 	// git runs a discard's commands (gitexec.Run); a test stops its caller
 	// between them.
 	git func(ctx context.Context, dir string, args ...string) (string, error)

@@ -31,14 +31,14 @@ import (
 )
 
 // Agent steps on a worker (design/operations/workers.md, "Agent and review
-// steps on the worker"). An invocation's request is prepared on the forge as bytes, from
+// steps on the worker"). An invocation's request is prepared on AppTown as bytes, from
 // what was admitted: the step's recorded configuration, the run's
 // definition and adoption, the attempt's source commit in the project's
 // hub, the attachment store and the worker's own agent image. Nothing is
 // written into or read from the run's folder, so nothing in it (a .apptown
 // that is a link) can choose what is sent or where anything is written.
 // A step that needs what the worker cannot provide yet is refused before
-// any effect (WorkerRefusal), and never falls back to the forge's host.
+// any effect (WorkerRefusal), and never falls back to AppTown's host.
 
 // AgentTaskDriver is a worker's task driver, which also reports the agent
 // image it runs agent steps in and the result files a task left
@@ -50,7 +50,7 @@ type AgentTaskDriver interface {
 	Profile(context.Context) (execution.WorkerProfile, error)
 }
 
-// AgentWorker is where agent steps run when the forge has a worker: the
+// AgentWorker is where agent steps run when AppTown has a worker: the
 // task runner its script tasks use, whose driver is the worker's
 // (AgentTaskDriver) and whose profile admits the steps' invocations.
 type AgentWorker struct {
@@ -80,7 +80,7 @@ func needsWhatTheWorkerLacks(what string) error {
 	return &WorkerRefusal{Reason: "this step needs " + what + ", which AppTown's worker cannot provide yet; it is not run on AppTown's own machine instead"}
 }
 
-// Where an agent on a worker finds what the forge sends it (read-only, under
+// Where an agent on a worker finds what AppTown sends it (read-only, under
 // execution.InputsRoot) and keeps what Pi writes for itself (in the
 // attempt's workspace state, beside the tree, never in it).
 const (
@@ -141,7 +141,7 @@ type reviewCall struct {
 }
 
 // workerAgentRequest is an invocation's admitted request, and what the
-// forge records about it.
+// AppTown records about it.
 type workerAgentRequest struct {
 	spec                           execution.TaskSpec
 	steering                       steeringFile
@@ -297,8 +297,8 @@ func (a *Executor) admitOnWorker(ctx context.Context, c workerAgentCall) (agentC
 	}
 	k := a.resolveAgentKnobs(c.run, &cfg)
 	if c.review != nil {
-		// A review's knobs are its own, as on the forge's machine: its
-		// model and thinking, the forge's agent image, in Docker.
+		// A review's knobs are its own, as on AppTown's machine: its
+		// model and thinking, AppTown's agent image, in Docker.
 		k = agentKnobs{model: c.review.cfg.Model, thinking: strs.FirstNonBlank(c.review.cfg.Thinking, "medium"), executor: execution.Docker, image: a.cfg.Image}
 	}
 	return cfg, k, a.refuseOnWorker(c, &cfg, k)
@@ -464,7 +464,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		return workerAgentRequest{}, err
 	}
 
-	// The transcript file is named by the forge, so its path is known
+	// The transcript file is named by AppTown, so its path is known
 	// before Pi starts and is a declared result. Pi is pointed at
 	// exactly that file (--session), never left to find the session by id:
 	// another file in the folder naming the same session is not one it
@@ -518,7 +518,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 	}
 	env = append(env, amb.Env...)
 	if k.useDind {
-		// As on the forge's host: what the app's containers get from the
+		// As on AppTown's host: what the app's containers get from the
 		// project's integrations. No registry credential travels.
 		env = append(env, a.integrations.Environment(ctx, run.ProjectID)...)
 	}
@@ -570,7 +570,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 	return out, nil
 }
 
-// attachmentsFor reads the change's attachments from the forge's store
+// attachmentsFor reads the change's attachments from AppTown's store
 // (the upload path's), never from a run's folder. Each is a regular file
 // in the store; no store is no attachments.
 func (a *Executor) attachmentsFor(changeID ids.ID) ([]steeringResource, error) {
@@ -618,12 +618,12 @@ func (a *Executor) agentCLI() ([]byte, error) {
 
 // workerEntry is the shell an invocation starts in, before Pi: Pi's home
 // is copied from the inputs into the workspace's state the first time, with
-// the link to the image's baked packages; the transcript file the forge
+// the link to the image's baked packages; the transcript file AppTown
 // named is placed in the sessions folder when it is not there yet (a later
 // invocation of the attempt appends to the same file); HOME is the state's
-// home and the forge CLI is first on PATH. Each copy is made beside its
+// home and AppTown CLI is first on PATH. Each copy is made beside its
 // place and moved there, so an interrupted copy is never taken for a whole
-// one. The names are the forge's own (a session file name and a fixed link),
+// one. The names are AppTown's own (a session file name and a fixed link),
 // quoted besides.
 func workerEntry(sessionFile string, link piharness.SentLink, carried []wroteFile) string {
 	var b strings.Builder
@@ -686,7 +686,7 @@ func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''
 
 // earlierOutputs are the declared output files of the run's other steps, as
 // their passing outcomes recorded them, at the paths they declared. In the
-// run's folder on the forge they stay where the earlier step wrote them
+// run's folder on AppTown they stay where the earlier step wrote them
 // (.apptown/PLAN.md for the step that carries out the plan); a worker starts
 // each attempt from committed files, so it is sent them. Another step's
 // output at this step's own path is never sent: it must not pass for this

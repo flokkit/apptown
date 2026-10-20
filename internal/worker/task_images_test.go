@@ -46,7 +46,7 @@ func imageHub(t *testing.T) (hub, base string) {
 	return hub, strings.TrimSpace(base)
 }
 
-// A worker refuses an image declared through "..", whatever the forge
+// A worker refuses an image declared through "..", whatever AppTown
 // sent, with nothing recorded; and of a captured image it serves its index
 // and its blobs, by those names alone: no other file of the layout, nothing
 // reached through "..", an escaped separator or another image's name, and

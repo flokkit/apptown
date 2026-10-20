@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check a restored forge against what its source held at the backup.
+"""Check a restored AppTown against what its source held at the backup.
 
     forge-restore-check.py capture <source url> <file>     # before the backup
     forge-restore-check.py verify  <target url> <file>     # after the restore
@@ -61,7 +61,7 @@ def capture(base, out):
     for slug in snap["projects"]:
         main = must(base, f"/api/v1/projects/{slug}").get("main") or {}
         snap["mains"][slug] = (main.get("recorded") or {}).get("sha")
-    # Every shipped change in the history the forge keeps on its activity
+    # Every shipped change in the history AppTown keeps on its activity
     # page, plus the newest changes of each project: enough to cover runs,
     # steps, evidence and approvals of real work without reading everything.
     ids = set()

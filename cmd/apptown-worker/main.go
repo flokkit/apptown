@@ -1,8 +1,8 @@
-// apptown-worker runs a forge's tasks on a machine that shares no files with
+// apptown-worker runs an AppTown's tasks on a machine that shares no files with
 // it (design/operations/workers.md).
 // It serves one registered installation over mutual TLS, runs each task on
 // its own Docker daemon, and exchanges source and results only as Git
-// bundles. No database and no forge package: a state directory, a Docker
+// bundles. No database and no AppTown package: a state directory, a Docker
 // daemon and certificates.
 //
 //	apptown-worker -installation forge-prod -state /var/lib/apptown-worker \
@@ -115,7 +115,7 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("apptown-worker: tool cache %s holds %d MiB", toolCache, worker.ToolCacheSize(toolCache)>>20)
-	// A chat's image and mirror come with each session from the forge; its
+	// A chat's image and mirror come with each session from AppTown; its
 	// resolvers are this machine's. Its caches are its own, removed with it,
 	// but for the worker's tool cache.
 	sessions := pi.New(pi.Config{
@@ -128,7 +128,7 @@ func main() {
 		Limits:          &pi.Limits{CPUs: *chatCPUs, MemoryBytes: *chatMemory << 20, PIDs: *chatPIDs},
 	})
 	// The agent image is built before the worker serves: a chat asks for
-	// the image its forge's own build context names, and one this worker
+	// the image its AppTown's own build context names, and one this worker
 	// cannot provide is refused with the reason.
 	agentImage := ""
 	if *agentContext != "" {
@@ -150,7 +150,7 @@ func main() {
 		Images: worker.DockerImages{Binary: *docker}, AgentImage: agentImage, ImageLabels: worker.DockerImages{Binary: *docker}, Checks: execution.Runner{DockerBinary: *docker, ServiceLimits: serviceLimits}, Previews: previews,
 		DindImage: *dindImage, Docker: dockercli.CLI{Binary: *docker}, ServiceLimits: serviceLimits, ToolCache: toolCache, Now: now}
 	// What private Docker rests on is measured now, and reported with what
-	// the operator declares; the forge records it with every attempt
+	// the operator declares; AppTown records it with every attempt
 	// admitted with private Docker (worker/profile.go). A check worker runs
 	// none.
 	if role.Role == worker.RoleAgent {
@@ -188,8 +188,8 @@ func main() {
 	}
 }
 
-// versionLine is what -version prints: the build and the forge protocols
+// versionLine is what -version prints: the build and AppTown protocols
 // this worker serves.
 func versionLine() string {
-	return fmt.Sprintf("apptown-worker %s (serves forge protocols %d to %d)", version.String(), worker.ProtocolMin, worker.ProtocolMax)
+	return fmt.Sprintf("apptown-worker %s (serves AppTown protocols %d to %d)", version.String(), worker.ProtocolMin, worker.ProtocolMax)
 }

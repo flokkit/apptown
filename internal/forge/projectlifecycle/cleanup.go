@@ -49,7 +49,7 @@ type CleanupSessions interface {
 }
 
 // WorkerPreviews removes everything of one preview for good: on the
-// worker, when the forge has one, its stack and its build images; its look.
+// worker, when AppTown has one, its stack and its build images; its look.
 type WorkerPreviews interface {
 	RemovePreviewForGood(ctx context.Context, name string) error
 }
@@ -69,12 +69,12 @@ type Cleanup struct {
 	Sessions CleanupSessions
 	Usage    *usage.Ledger
 	Docker   *docker.Scope
-	// Previews reaches previews on the worker, when the forge has them.
+	// Previews reaches previews on the worker, when AppTown has them.
 	Previews WorkerPreviews
 	GitLab   GitLabClient
 	DB       *database.DB
 	DataDir  string
-	// Now is the forge's clock, which stamps the cleanup's receipts and
+	// Now is AppTown's clock, which stamps the cleanup's receipts and
 	// settled attempts' receipts (the real clock when nil).
 	Now func() time.Time
 }

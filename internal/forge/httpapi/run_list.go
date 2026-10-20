@@ -31,7 +31,7 @@ func (h Runs) ListRuns(w http.ResponseWriter, r *http.Request) {
 
 // ExecutingSteps: GET /runs/executing — the steps and the operations (a
 // copy, a restore, a take-down) executing now, in every project: what
-// restarting the forge would interrupt. A run waiting on a person is not
+// restarting AppTown would interrupt. A run waiting on a person is not
 // executing, nor is a queued operation (a restart queues it again). Empty
 // means nothing is executing; a caller who cannot read every project is
 // refused, never answered with a partial list.

@@ -19,8 +19,8 @@ import (
 )
 
 // projectProcesses runs project processes on this host (agents, scripts,
-// checks, drafts): the forge's runner, refused on a forge with no local
-// Docker. The forge's own Git keeps processRunner.
+// checks, drafts): AppTown's runner, refused on an AppTown with no local
+// Docker. AppTown's own Git keeps processRunner.
 func projectProcesses(a *App) execution.Runner {
 	r := a.processRunner
 	if a.cfg.noLocalDocker {
@@ -30,7 +30,7 @@ func projectProcesses(a *App) execution.Runner {
 }
 
 // workerAgentLabels reads the agent image's labels from the worker, for a
-// forge with no local Docker to read them from. A worker that does not
+// AppTown with no local Docker to read them from. A worker that does not
 // answer gives no labels, so nothing is promised that cannot be checked.
 // life is the App's: the labels are read when a home is prepared, by
 // callers with no context to give.
@@ -48,13 +48,13 @@ func workerAgentLabels(life context.Context, w *execution.WorkerTasks) func() pi
 
 // drainLocalDocker is the end of startup repair under apptownd
 // -drain-local-docker: the witnessed switch into the -no-local-docker mode.
-// A forge in the mode cannot observe its own Docker, so it cannot
+// An AppTown in the mode cannot observe its own Docker, so it cannot
 // tell from its records alone that nothing local still writes: a start
 // without the mode repairs a running step's record without stopping its
-// writer. The drain is run by a forge that still has its Docker, with its
-// normal settings, while no other forge process serves this database. After
+// writer. The drain is run by an AppTown that still has its Docker, with its
+// normal settings, while no other AppTown process serves this database. After
 // the normal repair it requires that the records hold no local work
-// (maintenance.LocalWorkLeft), then asks that Docker for the forge's execution
+// (maintenance.LocalWorkLeft), then asks that Docker for AppTown's execution
 // containers. Only when both are clear does it record local_docker = drained,
 // which admits the next start in the mode; it never records it on the records
 // alone. Nothing is stopped or removed here.

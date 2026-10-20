@@ -18,7 +18,7 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// With real Docker: the forge starting removes every preview, including a
+// With real Docker: AppTown starting removes every preview, including a
 // boot an earlier request admitted that has no folder or app yet: the claim
 // waits for it under its lock, then removes it. The first Docker inspection
 // is paused after admission, before
@@ -34,7 +34,7 @@ func TestIntegrationAStartClaimRemovesABootAdmittedBeforeIt(t *testing.T) {
 	hs := workertest.StartServer(t, ca, srv)
 	p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	t.Cleanup(func() { resume(); _ = p.Remove(context.Background(), name) })
-	// Another preview on the same Docker: the forge package's preview tests
+	// Another preview on the same Docker: AppTown package's preview tests
 	// run beside this one in CI. The claim this test makes must leave it.
 	other := "forge-preview-other-" + suffix
 	if out, err := dockertest.CombinedOutput("create", "--name", other, "--label", dockerlabel.Class+"=preview", docker.StaticServerImage); err != nil {

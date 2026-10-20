@@ -48,7 +48,7 @@ func TestRepositoryIntegrityHTTPChoices(t *testing.T) {
 	if _, err := gitexec.Run(t.Context(), repo, "commit", "-m", "initial sample"); err != nil {
 		t.Fatal(err)
 	}
-	// The commit above was made outside the forge: the project says main is
+	// The commit above was made outside AppTown: the project says main is
 	// ahead of the record, as a note, without naming who moved it.
 	standing := func() (state, note string) {
 		t.Helper()

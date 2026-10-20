@@ -11,7 +11,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// Session history on the forge's own path follows the same rule as on a
+// Session history on AppTown's own path follows the same rule as on a
 // worker (design/operations/workers.md, "Agent and review steps on the
 // worker"): after each invocation the transcript naming the admitted session
 // is kept by digest and recorded with the attempt, and a continuing attempt
@@ -53,7 +53,7 @@ func (a *Executor) resumeHistory(ctx context.Context, run *workflow.Run, step *w
 }
 
 // keepTranscript captures the session's transcript after one invocation of
-// an attempt on the forge's own path (keepCapture).
+// an attempt on AppTown's own path (keepCapture).
 func (a *Executor) keepTranscript(ctx context.Context, c piCall, invocation int) error {
 	raw, reason := piharness.StepTranscript(sessionDir(c.Workspace), c.Session)
 	return a.keepCapture(ctx, workflow.TranscriptCapture{
@@ -89,7 +89,7 @@ const maxBackfill = 10000
 
 // BackfillTranscripts imports, once, the history of agent attempts that
 // recorded none (runs from before transcripts were kept, and attempts the
-// forge lost mid-invocation), so every attempt continues through its
+// AppTown lost mid-invocation), so every attempt continues through its
 // receipt. The history is the one file in the run's folder whose header
 // names the session (piharness.StepTranscript: regular files only, never
 // the newest file); it is stored and recorded as the attempt's first

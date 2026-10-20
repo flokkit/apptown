@@ -17,7 +17,7 @@ import (
 
 // The inventory cache (infrastructure_cache.go): the provider is asked
 // once, later visits are served from the answer, a demanded refresh asks
-// again, and the forge's own acts drop the cache.
+// again, and AppTown's own acts drop the cache.
 func TestInfrastructureInventoryIsCachedAndDroppedByForgeActs(t *testing.T) {
 	t.Parallel()
 
@@ -80,7 +80,7 @@ type infrastructureResponse struct {
 	Resources []deploy.Resource
 }
 
-// A forge act while an ask is on its way keeps the last answer and its
+// An AppTown act while an ask is on its way keeps the last answer and its
 // time — the page goes on showing what was read and how old it is — and
 // marks it so the next visit asks again. Zeroing the time made a live
 // attached host read as unreachable with every record missing (sweep 7).
@@ -100,7 +100,7 @@ func TestAnActDuringARefreshKeepsTheAnswerAndAsksAgain(t *testing.T) {
 	}
 }
 
-// A target's list ages by the forge's clock: on a clock ninety days behind
+// A target's list ages by AppTown's clock: on a clock ninety days behind
 // the wall clock, a list read a moment ago is served as it is, and once
 // that clock passes the list's lifetime the next visit asks again.
 func TestAnInventoryListAgesByTheForgesClock(t *testing.T) {

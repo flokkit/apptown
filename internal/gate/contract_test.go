@@ -8,10 +8,10 @@ import (
 )
 
 // The gate is built on its own (its image holds only this package), so it
-// spells the names the forge renders and sends rather than importing them.
+// spells the names AppTown renders and sends rather than importing them.
 // They are one contract: a renderer that sets GATE_SECRET, or a check that
 // sends the probe header, under another name would leave the gate closed
-// to everyone, the forge included.
+// to everyone, AppTown included.
 func TestGateReadsWhatTheForgeSends(t *testing.T) {
 	if gate.TokenHeader != deploy.GateProbeHeader {
 		t.Fatalf("probe header: gate %q, forge %q", gate.TokenHeader, deploy.GateProbeHeader)

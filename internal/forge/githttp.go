@@ -40,7 +40,7 @@ import (
 //     in-flight work.
 //
 // The token IS the capability: a read-only, main-only, one-repo credential the
-// forge mints and injects into containers. Reachability is free — containers
+// AppTown mints and injects into containers. Reachability is free — containers
 // already resolve host.docker.internal (the console API base).
 
 // gitTokenProject validates a presented git token (basic-auth password, or a

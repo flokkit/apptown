@@ -168,7 +168,7 @@ JOIN guidance_block_versions v ON v.block_id=b.id
 WHERE (b.name,v.version) IN (SELECT unnest(sqlc.arg(blocks)::text[]),unnest(sqlc.arg(versions)::bigint[]));
 
 -- One library version's content, for moving a project that uses it to
--- another forge, where library numbering is local: the item and the version.
+-- another AppTown, where library numbering is local: the item and the version.
 -- name: ExportGuidanceVersion :one
 SELECT jsonb_build_object('item', to_jsonb(b), 'version', to_jsonb(v))::text
 FROM guidance_blocks b JOIN guidance_block_versions v ON v.block_id = b.id

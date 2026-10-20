@@ -65,7 +65,7 @@ type Summary struct {
 	Name             string
 	Kind             Kind
 	URL              string
-	HostOnly         bool // URL answers on the forge host only (Reach)
+	HostOnly         bool // URL answers on the AppTown host only (Reach)
 	HostPort         int
 	ReleaseRun       ids.ID
 	UpdatedAt        string

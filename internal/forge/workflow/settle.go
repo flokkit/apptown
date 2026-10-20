@@ -48,7 +48,7 @@ func (s Settlement) Retry(ctx context.Context, settle func() error) error {
 }
 
 // ErrShuttingDown is Settle's answer to a verdict other than a pass while
-// the forge stops: nothing was recorded, and the step stays running.
+// AppTown stops: nothing was recorded, and the step stays running.
 var ErrShuttingDown = errors.New("AppTown is stopping: the step's outcome is not recorded, and startup repair takes the step up")
 
 // Settle records outcome as Finish does, trying a failed write again within
@@ -58,13 +58,13 @@ var ErrShuttingDown = errors.New("AppTown is stopping: the step's outcome is not
 // step stays running for startup repair. An outcome that could not be
 // encoded is not tried again: the same encoding fails the same way.
 //
-// While the forge stops (BeginShutdown), only a pass is recorded. A stopping
+// While AppTown stops (BeginShutdown), only a pass is recorded. A stopping
 // forge's processes are killed with it (systemd signals the whole service,
 // a check's container among it), so an error or failure seen now may be the
 // stop's doing, not the work's: the step stays running (ErrShuttingDown),
-// as if the forge had stopped a moment earlier, and startup repair resumes
+// as if AppTown had stopped a moment earlier, and startup repair resumes
 // it, or ends it as a restart does for a kind not continued. A failure
-// while the forge keeps running is recorded as ever.
+// while AppTown keeps running is recorded as ever.
 func (e *Execution) Settle(outcome StepOutcome, encodingError error) error {
 	if encodingError != nil {
 		return e.Finish(outcome, encodingError)

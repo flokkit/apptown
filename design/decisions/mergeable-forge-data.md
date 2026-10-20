@@ -2,9 +2,9 @@
 
 A value that only one database can interpret (an integer identity, a username,
 a slug, a number counted per project) leaks into Git refs and trailers, receipts,
-JSON payloads, file paths and generated text. Two forges' data would collide
+JSON payloads, file paths and generated text. Two AppTown installations' data would collide
 everywhere: both have a change 293, a user `alice`, a `go-service` version 3.
-So identity inside the forge never uses such values.
+So identity inside AppTown never uses such values.
 
 This is about the shape of the data, not a merge feature.
 
@@ -14,10 +14,10 @@ This is about the shape of the data, not a merge feature.
 A caller may mint it for a retry-safe creation. It is the only identity that
 foreign keys, receipts, refs, trailers, APIs and stored files use. People see
 display numbers and names, resolved at the edge ("egg-catch change 12",
-"alice"); those are never used as identity inside the forge. Content is
+"alice"); those are never used as identity inside AppTown. Content is
 identified by its digest. Authority never travels with identity.
 
-A name the forge has already given to something outside itself (a branch, a
+A name AppTown has already given to something outside itself (a branch, a
 merge request, a backup object, a running container) is not renamed: the record
 keeps the name it was given, and only what is created afterwards is named by UUID.
 
@@ -27,11 +27,11 @@ keeps the name it was given, and only what is created afterwards is named by UUI
    an event clock; where order means something, a record says so in a column.
 2. **Display numbers are per scope and only display.** Project records are
    numbered within their project, as GitHub numbers issues; forge-wide records
-   within the forge. A number may be reassigned when records are combined. Names
+   within AppTown. A number may be reassigned when records are combined. Names
    (slugs, usernames, deployment names) are display too. Links to a record use
    its UUID; links to a project's own pages use its slug; a friendly number is
    computed from the current slug and is never stored as a reference.
-3. **Actors are principals.** A person or the forge itself is a principal with
+3. **Actors are principals.** A person or AppTown itself is a principal with
    a UUID. History stores the principal, the name as shown at the time, and how
    they acted (session, token, chat, run step, ticket, schedule). Decisions
    compare principals and read how the act was made; they never compare names.
@@ -41,9 +41,9 @@ keeps the name it was given, and only what is created afterwards is named by UUI
    publication, transcript or blob is named by a hash of its resolved content,
    including the digests of what it includes, separate from the record that
    published it.
-5. **Each forge has a UUID.** A record or principal from another forge keeps
+5. **Each AppTown has a UUID.** A record or principal from another AppTown keeps
    its origin forge's UUID and its original display number. A host name is
-   where a forge is, not who it is.
+   where an AppTown is, not who it is.
 
 A UUID identifies a record; it does not make it trusted or make an act human
 assent. A digest identifies content; it is not its author's authority.
@@ -51,14 +51,14 @@ assent. A digest identifies content; it is not its author's authority.
 ### Not promised
 
 - A merge or import feature, its UI, its conflict resolution, or linking the
-  same person across forges.
+  same person across AppTown installations.
 - Authority: grants, memberships, tokens, sessions, OAuth delegations, tickets
-  and system bindings belong to the forge that issued them. A principal from
-  another forge can never sign in or hold any of them. Receipts about authority
+  and system bindings belong to AppTown that issued them. A principal from
+  another AppTown can never sign in or hold any of them. Receipts about authority
   are history, never live authority.
 - Secret values; deployments, targets, previews and other running resources.
 - Stable display numbers across a merge.
-- Renaming anything outside the forge's own database and files, or rewriting
+- Renaming anything outside AppTown's own database and files, or rewriting
   Git history. Old commits, branches and objects keep their old numbers, read
   through the former-number record of their origin forge.
 - Slug history: a renamed project's old page links break.

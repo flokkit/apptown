@@ -14,8 +14,8 @@ import (
 	"flokkit.io/forge/internal/forge/deployment/internal/deploymentsql"
 )
 
-// Releases in a forge with no local Docker (design/operations/workers.md,
-// "Running AppTown without a local Docker daemon"). Such a forge releases only to attached Docker
+// Releases in an AppTown with no local Docker (design/operations/workers.md,
+// "Running AppTown without a local Docker daemon"). Such an AppTown releases only to attached Docker
 // hosts, whose own daemons build and hold the images. A bundle names the
 // target it was read from, and its images are reused there and nowhere
 // else. A bundle recorded before bundles named their target is refused,
@@ -25,15 +25,15 @@ import (
 // App Platform too (design/operations/workers.md, "Releases built on the
 // worker"). Outside the mode none of this applies.
 
-// ErrNoLocalDocker is the built-in Docker host in a forge with no local
+// ErrNoLocalDocker is the built-in Docker host in an AppTown with no local
 // Docker: unavailable, never "not running".
 var ErrNoLocalDocker = fault.New(fault.Unprocessable, "this AppTown has no local Docker")
 
 // ErrReleaseRefused is a release, or a deployment's recovery, that this
-// forge refuses before preparing anything; its message names the next action.
+// AppTown refuses before preparing anything; its message names the next action.
 var ErrReleaseRefused = fault.New(fault.Unprocessable, "release refused")
 
-// errBuiltInHostRefused is a release to the built-in Docker host in a forge
+// errBuiltInHostRefused is a release to the built-in Docker host in an AppTown
 // with no local Docker.
 var errBuiltInHostRefused = fmt.Errorf("%w: %w; attach a Docker host and deploy there", ErrReleaseRefused, ErrNoLocalDocker)
 
@@ -43,7 +43,7 @@ func refused(format string, args ...any) error {
 
 // RefusesLanding says why a landing of projectID cannot deploy to t: an
 // eval copy anywhere but an eval target, or any other project on one
-// (refusesPlacement); and, in a forge with no local Docker, anything but an
+// (refusesPlacement); and, in an AppTown with no local Docker, anything but an
 // attached Docker host, since a landing deploys to a Docker host and the
 // built-in host is unavailable.
 func (s *Service) RefusesLanding(ctx context.Context, projectID ids.ID, t *Target) error {
@@ -85,9 +85,9 @@ func refusesBuiltPlatform(built, target, platform string, asked error) error {
 }
 
 // LandingTarget is the target a landing creates its missing deployment
-// name on, with attrs. Outside the mode it is the built-in host. In a forge
+// name on, with attrs. Outside the mode it is the built-in host. In an AppTown
 // with no local Docker it is the one attached Docker host offered to the
-// project for attrs: with none or several there is no choice the forge can
+// project for attrs: with none or several there is no choice AppTown can
 // make, and the refusal names the one a person makes.
 func (s *Service) LandingTarget(ctx context.Context, projectID ids.ID, name string, attrs Attributes) (*Target, error) {
 	purpose, err := s.env.Purpose(ctx, projectID)
@@ -149,7 +149,7 @@ func (s *Service) LandingTarget(ctx context.Context, projectID ids.ID, name stri
 
 // bundleImages are the images a Docker host runs for b, building nothing:
 // a digest bundle's, which the boot pulls by digest once the host's daemon
-// says it runs the bundle's platform, or, in a forge with no local
+// says it runs the bundle's platform, or, in an AppTown with no local
 // Docker, b's IDs verified present on t (recordedImages). nil, outside the
 // mode, for a bundle of image IDs: the host builds its source, as before.
 // Promotion and recovery both resolve a bundle here, before any effect.

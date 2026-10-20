@@ -31,7 +31,7 @@ export type Draft = {
   // answered would otherwise keep no services).
   servicesEdited: boolean
   // step 3 — a GitLab copy (null until someone picks: the default follows
-  // whether this forge has a connection), its group ('' = the first listed),
+  // whether this AppTown has a connection), its group ('' = the first listed),
   // and where the code starts from.
   remoteChoice: boolean | null
   namespaceId: string

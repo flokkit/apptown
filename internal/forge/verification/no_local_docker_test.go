@@ -24,7 +24,7 @@ func (s *refusalSpy) Run(_ context.Context, _ string, c docker.Command) ([]byte,
 	return nil, docker.ErrNoLocalBackend
 }
 
-// On a forge with no local Docker, a scan's baseline says the serving
+// On an AppTown with no local Docker, a scan's baseline says the serving
 // release image is unknown, never that nothing serves, and asks no Docker,
 // wherever its checks run.
 func TestAScanBaselineWithNoLocalDockerIsUnknown(t *testing.T) {
@@ -46,8 +46,8 @@ func TestAScanBaselineWithNoLocalDockerIsUnknown(t *testing.T) {
 	}
 }
 
-// On a forge with no local Docker, a check's image is never a release
-// image reused from the forge's own Docker, which it does not have.
+// On an AppTown with no local Docker, a check's image is never a release
+// image reused from AppTown's own Docker, which it does not have.
 func TestAScanWithNoLocalDockerReusesNoReleaseImage(t *testing.T) {
 	t.Parallel()
 	f := newScannerOwnerFixture(t)

@@ -17,7 +17,7 @@ import (
 // own Git directory stays apart (gitDir) and its git is always given that
 // directory, so it never reads the task's: no configuration, hook, filter or
 // monitor the task writes there is run by the worker, and git never adds a
-// .git to what it collects. What the task commits there reaches the forge
+// .git to what it collects. What the task commits there reaches AppTown
 // only as the tree it leaves, in the one commit the worker makes.
 
 // agentGitFrom reads the agent's repository a workspace upload asks for;

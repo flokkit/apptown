@@ -18,7 +18,7 @@ import (
 
 // Backups (design/subsystems/deployment.md §8.3a as built): a set is one
 // directory per take with a manifest, recorded as a row with its items and
-// its state. The forge keeps the newest BackupKeep per deployment. Taking a
+// its state. AppTown keeps the newest BackupKeep per deployment. Taking a
 // set runs at the target; this is the ledger of what was taken.
 
 const BackupKeep = 7
@@ -33,7 +33,7 @@ type Backup struct {
 	TakenAt    string `json:"takenAt"`
 	Trigger    string `json:"trigger"`
 	Actor      string `json:"actor"`
-	// ActorPrincipal is the taker's principal; zero for the forge, or one
+	// ActorPrincipal is the taker's principal; zero for AppTown, or one
 	// not resolved to a person.
 	ActorPrincipal ids.ID       `json:"actorPrincipal,omitzero"`
 	Path           string       `json:"path"`
@@ -42,7 +42,7 @@ type Backup struct {
 	Status         BackupState  `json:"status"`
 	Error          string       `json:"error,omitempty"`
 	// Store is where the set's files are: StoreForgeDisk (Path is a
-	// directory on the forge's disk) or StoreBackupStore (Path is the
+	// directory on AppTown's disk) or StoreBackupStore (Path is the
 	// object prefix in the attached backup store).
 	Store string `json:"store"`
 	// DataClass is the data class of the deployment the set was taken of;
@@ -108,7 +108,7 @@ type ProjectBackup struct {
 
 type Backups struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock, which stamps a set's receipt; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps a set's receipt; nil is the real one
 }
 
 func (s *Backups) now() time.Time { return clock.Or(s.clock)().UTC() }
@@ -215,7 +215,7 @@ func (s *Backups) ForDeployment(ctx context.Context, projectID ids.ID, deploymen
 	return out, nil
 }
 
-// All is every set the forge holds, newest first, with the project's name.
+// All is every set AppTown holds, newest first, with the project's name.
 func (s *Backups) All(ctx context.Context, limit int) ([]ProjectBackup, error) {
 	rows, err := protectionsql.New(s.db.SQL()).ProjectBackups(ctx, int64(limit))
 	out := []ProjectBackup{}
@@ -252,7 +252,7 @@ func (s *Backups) InProject(ctx context.Context, projectID ids.ID, id ids.ID) (*
 }
 
 // storeName is where the set's files are; a set that does not say is on
-// the forge's disk, as every set was before the backup store.
+// AppTown's disk, as every set was before the backup store.
 func (b *Backup) storeName() string {
 	if b.Store == "" {
 		return StoreForgeDisk
@@ -284,7 +284,7 @@ func (s *Service) DeploymentSets(ctx context.Context, projectID ids.ID, deployme
 	return s.backups.ForDeployment(ctx, projectID, deployment, limit)
 }
 
-// AllSets are every set the forge holds, newest first, with each one's
+// AllSets are every set AppTown holds, newest first, with each one's
 // project.
 func (s *Service) AllSets(ctx context.Context, limit int) ([]ProjectBackup, error) {
 	return s.backups.All(ctx, limit)

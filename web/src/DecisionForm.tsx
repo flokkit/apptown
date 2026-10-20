@@ -4,8 +4,8 @@ import { useAction, useGet } from './data'
 import type { ApprovalQuestion, ChangeAdds } from './wire.gen'
 
 // AddsSection is what the approval's commit brings into the app, as the
-// forge read it from the app's declarations. The note names what was read,
-// so "nothing new" never claims more than the forge looked at; a
+// AppTown read it from the app's declarations. The note names what was read,
+// so "nothing new" never claims more than AppTown looked at; a
 // declaration it could not read is its own line, never folded into nothing.
 export function AddsSection({ adds }: { adds: ChangeAdds }) {
   return (

@@ -39,8 +39,8 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   // review walking. A review someone else started is followed too.
   const [following, setFollowing] = useState('')
   const viewQ = useGet<ConformanceView>(rid ? `/conformance?review=${rid}` : '/conformance', { poll: following ? 2800 : 0 })
-  // A forge with nothing adopted answers projects: null; the lists below
-  // treat that as none (it once crashed the page on a fresh forge).
+  // An AppTown with nothing adopted answers projects: null; the lists below
+  // treat that as none (it once crashed the page on a fresh AppTown).
   const view = useMemo(() => viewQ.data ? { ...viewQ.data, projects: viewQ.data.projects ?? [] } : undefined, [viewQ.data])
   const liveQ = useGet<ConformanceReviewDetail>(following ? `/conformance/reviews/${following}` : null, { poll: 700 })
   // A review detail names its review; one without it (gone) has nothing to follow.

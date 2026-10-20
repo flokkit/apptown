@@ -273,7 +273,7 @@ export function ChangeDiffBlock({ changeId }: { changeId: string }) {
 
 // DiffBlock is one diff read and shown: the status until it is read, a
 // stale note if its refresh failed, the diff, or what empty means here. Text
-// that is not a git diff (a note from the forge) is shown as it came.
+// that is not a git diff (a note from AppTown) is shown as it came.
 function DiffBlock({ path, what, empty }: { path: string; what: string; empty: string }) {
   const q = useGetText(path)
   const diff = q.data

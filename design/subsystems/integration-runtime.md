@@ -93,7 +93,7 @@ another way:
 - **Read strictly.** `integration.BrowserEnvironment` is the whole set. An
   unreadable attachment, or a stored definition that no longer passes the rules,
   is an error naming it, never an empty set; the static part's boot fails.
-- **Served by the forge, set by the forge alone.** Every static server (preview,
+- **Served by AppTown, set by AppTown alone.** Every static server (preview,
   local deployment, release image, generated compose) runs
   `docker.StaticServerCommand`: the site from `/srv`, `/_apptown/release`
   answering `APPTOWN_RELEASE` (`<part>@<revision>`, what App Platform's readiness witnesses), and
@@ -110,7 +110,7 @@ another way:
   running stack as it was. It fails in its own boot phase, `config`, which the
   landing and the Docker driver settle as a known failure (as they do an
   unknown need or a missing secret), so a fixed setting can be deployed again. An earlier release's preview image is the file
-  server and keeps `ServesStatic`, so it is given its values too. The forge's own Docker host delivers them; intranet and DigitalOcean
+  server and keeps `ServesStatic`, so it is given its values too. AppTown's own Docker host delivers them; intranet and DigitalOcean
   deploys do not, so a deploy there of a static site whose page is given values
   is refused before any effect, naming the values.
 - **Checked where it runs, against trusted facts.** The platform guidance block
@@ -126,7 +126,7 @@ another way:
      after the probe; a container replaced in between is unknown.
   3. What `/_apptown/env.js` serves.
 
-  Any difference, or any of them unreadable, is `cannot-assess` with the forge
+  Any difference, or any of them unreadable, is `cannot-assess` with AppTown
   at fault: settings changed since the start ("start it again") or delivery
   broken. Then the page's HTML must follow the loader convention: the first
   script a browser would run (data blocks and `<template>` contents do not; a
@@ -150,12 +150,12 @@ another way:
 A step declaring `scm: write` gets a GitLab project access token at Developer
 level. On GitLab a Developer may push to a branch no rule protects, every rule
 matching a branch applies (the most permissive wins), and merging a merge
-request is a permission apart from pushing. So the forge mints a write token
+request is a permission apart from pushing. So AppTown mints a write token
 only when at least one protection rule matches the default branch (by name or
 wildcard) and, in every matching rule, every push and merge entry is a role of
 Maintainer or higher, or No one; an entry naming a user, group or deploy key is
 refused rather than judged, and so is a project with 100 or more protection
-rules (the forge reads one page). Otherwise the step is told what to change, and
+rules (AppTown reads one page). Otherwise the step is told what to change, and
 nothing is minted.
 The check runs at mint: a token minted under protection lives at most 72 hours
 if the protection is removed afterwards (accepted).
@@ -181,7 +181,7 @@ failure fallback. Profile, binding and integration-template convenience reads
 also have fallback or omission paths; their method comments document the details.
 Do not interpret an empty rendered environment as successful validation.
 
-An administrator sets or removes one of the forge's own credentials (the secret
+An administrator sets or removes one of AppTown's own credentials (the secret
 a target's `tokenFrom` or `keyFrom` names) with `PUT`/`DELETE /api/v1/secrets/{name}`,
 `apptown secret set <NAME>` (the value on standard input) or Integrations → Secrets,
 and from the target wizard beside the field that names it. The value goes to

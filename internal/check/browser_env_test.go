@@ -13,11 +13,11 @@ func servedEnv(json string) string {
 
 const dsn = "https://k@errors.example/3"
 
-// Judged from what the forge knows, not what the response says: a static site
+// Judged from what AppTown knows, not what the response says: a static site
 // given values must have been started with exactly those, serve exactly what
 // it was started with, and load /_apptown/env.js by the supported convention. A
 // server app, or a static site given nothing, is not judged. Anything the
-// forge supplies and cannot establish is its own fault, never the app's.
+// AppTown supplies and cannot establish is its own fault, never the app's.
 func TestAStaticPageMustLoadTheValuesTheForgeGivesIt(t *testing.T) {
 	t.Parallel()
 	values := map[string]string{"SENTRY_DSN": dsn}
@@ -66,7 +66,7 @@ func TestAStaticPageMustLoadTheValuesTheForgeGivesIt(t *testing.T) {
 		{"in an inert template", given, 200, served, `<template><script src="/_apptown/env.js"></script></template><script src="game.js"></script>`, DoesNotConform, false, "first script is not"},
 		{"nomodule", given, 200, served, `<script nomodule src="/_apptown/env.js"></script><script src="game.js"></script>`, DoesNotConform, false, "with nomodule"},
 		{"a repeated src, read as a browser reads it", given, 200, served, `<script src="game.js" src="/_apptown/env.js"></script>`, DoesNotConform, false, "first script is not"},
-		// What the forge supplies, it must establish; failing that is its own
+		// What AppTown supplies, it must establish; failing that is its own
 		// fault, never a pass and never the app's to fix.
 		{"started with values AppTown cannot read", BrowserExpectation{Static: true, Attached: values}, 200, served, loads, CannotAssess, true, "could not read what this deployment was started with"},
 		{"started before the settings changed", BrowserExpectation{Static: true, Attached: values, Installed: map[string]string{}}, 200, servedEnv(""), loads, CannotAssess, true, "start it again"},

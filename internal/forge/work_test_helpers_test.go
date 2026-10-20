@@ -20,7 +20,7 @@ import (
 	"flokkit.io/forge/internal/forge/wow"
 )
 
-// mergeSeam: the merge commands as forge wires them, with a driver a test
+// mergeSeam: the merge commands as AppTown wires them, with a driver a test
 // may wrap before the merge runs.
 type mergeSeam struct {
 	a      *App
@@ -117,7 +117,7 @@ func (s abandonmentStore) abandon(in workflow.Abandonment) (*workflow.Abandoned,
 }
 
 // advanceAs attempts a run's gate through Work's door as who: "system" is
-// the forge acting for itself; a name is a person in open mode.
+// AppTown acting for itself; a name is a person in open mode.
 func advanceAs(a *App, runID ids.ID, who string) (*workflow.AdvanceResult, error) {
 	run, err := workflow.ReadRunIn(context.Background(), a.DB, runID)
 	if err != nil {

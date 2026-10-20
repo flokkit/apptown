@@ -239,7 +239,7 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 						d.published[args[i+1]] = p
 					}
 				}
-				// The forge names the image right after --entrypoint: what
+				// AppTown names the image right after --entrypoint: what
 				// follows it is the container's Cmd.
 				for j := range args {
 					if args[j] == "--entrypoint" && j+2 < len(args) {

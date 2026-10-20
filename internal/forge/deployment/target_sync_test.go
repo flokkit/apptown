@@ -21,7 +21,7 @@ import (
 	"flokkit.io/forge/stock"
 )
 
-// syncWorld is a forge's targets as a start records them: the built-in
+// syncWorld is an AppTown's targets as a start records them: the built-in
 // host, a DigitalOcean account's App Platform target from its connector, and
 // an attached Docker host to name as the copy runner.
 type syncWorld struct {
@@ -141,7 +141,7 @@ func TestStartsAndConnectorSavesKeepACloudTargetsSettings(t *testing.T) {
 
 // The built-in host takes no edits, so every fact of its record is the
 // forge's: a start that changes one (its tier domains) refreshes it with a
-// revision and a receipt to the forge; a start that changes nothing writes
+// revision and a receipt to AppTown; a start that changes nothing writes
 // nothing.
 //
 // Kills: keeping stale built-in facts as though they were an
@@ -154,7 +154,7 @@ func TestAStartRefreshesTheBuiltInHostOnlyWhenItsFactsChange(t *testing.T) {
 	if again := w.target(t, "local"); again.SettingsRevision != first.SettingsRevision || refreshes(t, w, "local") != 0 {
 		t.Fatalf("an unchanged start wrote: revision %d -> %d", first.SettingsRevision, again.SettingsRevision)
 	}
-	// A record from an older forge whose own defaults differed.
+	// A record from an older AppTown whose own defaults differed.
 	stale := *first
 	stale.NeedsMode, stale.Capabilities.Previews = "register", false
 	if _, err := w.s.Targets.Put(context.Background(), &stale); err != nil {

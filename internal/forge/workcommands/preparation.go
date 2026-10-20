@@ -40,7 +40,7 @@ type Preparation struct {
 	dataDir  string
 	chats    workflow.Presence
 	workers  WorkerChats
-	clock    func() time.Time // the forge's clock; nil is the real one
+	clock    func() time.Time // AppTown's clock; nil is the real one
 	stores   SecretStores
 }
 

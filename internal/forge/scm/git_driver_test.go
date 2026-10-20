@@ -105,7 +105,7 @@ func TestMergeOperationProofRequiresExactTrailer(t *testing.T) {
 }
 
 // A landing whose branch is already on main (an empty change, or one merged
-// outside the forge) records main's head as its result only when that head
+// outside AppTown) records main's head as its result only when that head
 // holds the tree its checks judged: an empty adoption checked at A, with main
 // moved to B before the merge, is refused as "main moved", not landed on B.
 // Main at the candidate, or past it by commits that leave its tree as it was, still

@@ -72,7 +72,7 @@ the wiring in any deployment or preview by hand,
 without reading code:
 
 - **Server apps:** open `/_apptown/boom` on the app. It captures one
-  tagged error (message "forge test boom", tag `forge.probe=boom`) and
+  tagged error (message "apptown test boom", tag `apptown.probe=boom`) and
   returns 500. Not authenticated; it does nothing else.
 - **Browser apps and games:** type `boom!!!` anywhere on the page — the
   letters, then three exclamation marks. The browser SDK sends the same

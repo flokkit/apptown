@@ -1,6 +1,6 @@
 // Package oci publishes, copies, tags and confirms container images in OCI
 // registries, by digest. It wraps go-containerregistry and knows nothing of
-// the forge.
+// AppTown.
 //
 // An image is published only after the registry, asked by digest, answers
 // with the digest, media type and size that were written: the registry's

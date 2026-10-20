@@ -27,7 +27,7 @@ import (
 // a resume notice is appended to the steering file, which pi rereads when
 // its process relaunches.
 //
-// Enforcement is by construction: /work is a read-only mount, the forge CLI
+// Enforcement is by construction: /work is a read-only mount, AppTown CLI
 // points at the GET-only listener, and no engine secrets enter the container.
 //
 // The code is split by concern:

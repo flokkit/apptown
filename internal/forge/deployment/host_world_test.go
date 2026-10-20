@@ -23,7 +23,7 @@ import (
 	"flokkit.io/forge/stock"
 )
 
-// hostWorld is Deployment on this forge's own Docker, a fake daemon whose
+// hostWorld is Deployment on this AppTown's own Docker, a fake daemon whose
 // app answers a page, with project "p", the stock dependency catalog and
 // the built-in target "local".
 func hostWorld(t *testing.T, publicHost string) (*Service, *database.DB, *dockerfake.Daemon, string, ids.ID) {
@@ -70,9 +70,9 @@ func writeBootFixture(t *testing.T, dir string) {
 	}
 }
 
-// A standing deployment on this forge's own host with a published port and
-// no tier domain is reached on the forge host only when people reach the
-// forge from elsewhere (a public host); a deployment not standing here is
+// A standing deployment on this AppTown's own host with a published port and
+// no tier domain is reached on the AppTown host only when people reach the
+// AppTown from elsewhere (a public host); a deployment not standing here is
 // where it was said to be, with no mark the owner cannot vouch for.
 func TestAPortAddressWithAPublicHostIsMarkedForTheForgeHostOnly(t *testing.T) {
 	t.Parallel()

@@ -55,7 +55,7 @@ func TestSecretSpecParse(t *testing.T) {
 	if _, err := ParseSpec([]byte(testSpec + "\n[scopes.ghost]\nsecrets = [\"NOPE\"]\n")); err == nil || !strings.Contains(err.Error(), "NOPE") {
 		t.Fatalf("undeclared scope secret must be refused: %v", err)
 	}
-	// a table the forge never reads is refused, naming it, not silently dropped
+	// a table AppTown never reads is refused, naming it, not silently dropped
 	if _, err := ParseSpec([]byte(testSpec + "\n[secrets.DJANGO_SUPERUSER_PASSWORD]\ngenerate = true\n")); err == nil || !strings.Contains(err.Error(), "secrets.DJANGO_SUPERUSER_PASSWORD") {
 		t.Fatalf("a stray [secrets.X] table must be refused by name: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestSecretSpecParse(t *testing.T) {
 	}
 }
 
-// Only the forge sets a static part's browser values; no secret may be named
+// Only AppTown sets a static part's browser values; no secret may be named
 // for them.
 func TestASecretCannotBeNamedForTheForgesBrowserValues(t *testing.T) {
 	t.Parallel()

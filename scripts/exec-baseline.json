@@ -4,7 +4,7 @@
     "internal/deploy/docker": "the docker CLI: which daemon a command talks to, and the build environment it must not inherit",
     "internal/execution": "the generic process runner: process groups, timeouts, the environment, streamed and bounded output, and the docker runs it places work in",
     "internal/gitexec": "git: gitexec.Command is the one constructor for every git the repository starts by name (and tar, to unpack a commit's tree)",
-    "internal/worker": "the execution host: runs the tasks, checks and sessions a forge sends it"
+    "internal/worker": "the execution host: runs the tasks, checks and sessions an AppTown sends it"
   },
   "git": {
     "file": "internal/gitexec/gitexec.go",
@@ -13,7 +13,7 @@
   "packages": {
     "cmd/apptown": {
       "count": 3,
-      "why": "apptown dev up runs the person's docker compose on their terminal with their whole environment, their Buildx builder included (docker.CLI drops it, as the forge's own builds must); dev_test runs compose config in a project folder, as dev up does"
+      "why": "apptown dev up runs the person's docker compose on their terminal with their whole environment, their Buildx builder included (docker.CLI drops it, as AppTown's own builds must); dev_test runs compose config in a project folder, as dev up does"
     },
     "cmd/apptown-check": {
       "count": 1,

@@ -28,7 +28,7 @@ var DefaultServiceLimits = Limits{CPUs: 1, MemoryBytes: 1 << 30, PIDs: 256}
 // room for an ordinary build, never the whole host.
 var DefaultTaskLimits = Limits{CPUs: 4, MemoryBytes: 8 << 30, PIDs: 4096}
 
-// DefaultChatLimits bound a chat's container on the forge's own host, as a
+// DefaultChatLimits bound a chat's container on AppTown's own host, as a
 // worker's -chat-* flags do on a worker.
 var DefaultChatLimits = Limits{CPUs: 2, MemoryBytes: 4 << 30, PIDs: 4096}
 

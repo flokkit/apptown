@@ -46,7 +46,7 @@ func selectionTaskFixture(t *testing.T) (*App, *executionfake.Tasks, *workflow.S
 	return scriptTaskFixtureIn(t, testApp(t, Config{DockerClient: noFolderWriters{}}), map[string]any{"run": "true", "executor": "docker", "image": "fake", "env": env})
 }
 
-// restartAfterSelection is a forge restarted on a's data under the Docker
+// restartAfterSelection is an AppTown restarted on a's data under the Docker
 // selection the process has now, answering the folder-writer question as
 // selectionTaskFixture does.
 func restartAfterSelection(t *testing.T, a *App) *App {
@@ -114,7 +114,7 @@ func scriptTaskFixtureIn(t *testing.T, a *App, with map[string]any, more ...sche
 
 func taskKeyOf(step *workflow.Step) string { return fmt.Sprintf("step-%d-attempt-1", step.ID) }
 
-// restarted is the forge after a restart: a new App on a's database and data
+// restarted is AppTown after a restart: a new App on a's database and data
 // directory, its tasks on the same backend, having run startup repair and
 // resumed recorded work, as the daemon does. a must be stopped.
 func restarted(t *testing.T, a *App) *App {
@@ -366,10 +366,10 @@ func TestAChangedDockerEndpointDoesNotMoveAnAttempt(t *testing.T) {
 }
 
 // A refusal before anything was created settles whichever of its writes
-// fails, and however the forge restarts: the attempt's refusal, the step's
+// fails, and however AppTown restarts: the attempt's refusal, the step's
 // error, or the attempt's settlement. A restart finishes it without asking
 // the refused backend, and still does once the Docker selection is repaired
-// and the forge names another backend. The step ends in error and the
+// and AppTown names another backend. The step ends in error and the
 // attempt settled, with nothing held to release; nothing is created.
 func TestARefusalSettlesAcrossEveryWriteBoundary(t *testing.T) {
 	// Not parallel: its cases t.Setenv the Docker daemon selection (DOCKER_*) in the process environment.

@@ -7,9 +7,9 @@ import (
 	"flokkit.io/forge/internal/forge/identity/internal/accesssql"
 )
 
-// The instance setting naming the forge's last word on its own Docker:
+// The instance setting naming AppTown's last word on its own Docker:
 // "used", the last admitted start could run project work on it; "none", the
-// last admitted start was in the -no-local-docker mode; "drained", a forge
+// last admitted start was in the -no-local-docker mode; "drained", an AppTown
 // with its Docker witnessed that no local work or execution container was
 // left (apptownd -drain-local-docker). Unset: a database no run was ever
 // recorded in (migration 102 marks every earlier one "used").
@@ -20,7 +20,7 @@ const (
 	LocalDockerDrained = "drained"
 )
 
-// RecordLocalDockerIn records the Docker mode of a start the forge has
+// RecordLocalDockerIn records the Docker mode of a start AppTown has
 // admitted, before it runs any work.
 func RecordLocalDockerIn(ctx context.Context, q database.Queryer, used bool) error {
 	value := LocalDockerNone
@@ -30,7 +30,7 @@ func RecordLocalDockerIn(ctx context.Context, q database.Queryer, used bool) err
 	return putLocalDocker(ctx, q, value)
 }
 
-// RecordLocalDockerDrainedIn records a witnessed drain of the forge's own
+// RecordLocalDockerDrainedIn records a witnessed drain of AppTown's own
 // Docker. Only the drain, having observed that Docker, may call it.
 func RecordLocalDockerDrainedIn(ctx context.Context, q database.Queryer) error {
 	return putLocalDocker(ctx, q, LocalDockerDrained)

@@ -80,7 +80,7 @@ func NewEnvironment(targets *Targets, deps EnvironmentDependencies) *Environment
 		probe: deps.Probe, chownImage: deps.ChownImage, routes: deps.Routes, projects: deps.Projects}
 }
 
-// Routes is how this forge names addresses, as configured; RoutesFor is
+// Routes is how this AppTown names addresses, as configured; RoutesFor is
 // one project's.
 func (e *Environment) Routes() Routing { return e.routes }
 
@@ -158,7 +158,7 @@ func (e *Environment) Host(projectID ids.ID, creds dependency.Credentials, keys 
 }
 
 // NeedCredentials are the generated need credentials of the owner a scope
-// names (NeedSecretsScope, PreviewNeedScope), from this forge's store.
+// names (NeedSecretsScope, PreviewNeedScope), from this AppTown's store.
 func (e *Environment) NeedCredentials(scope string) dependency.Credentials {
 	var vault *secret.Vault
 	if e.secrets != nil {
@@ -256,7 +256,7 @@ func (e *Environment) ReleaseRepository(ctx context.Context, projectID ids.ID) (
 	read := func(id ids.ID) (*integration.Registry, error) { return e.integrations.Registry(ctx, id) }
 	if !purpose.Integrations() {
 		// A project given no integrations (an eval copy) publishes to its
-		// own repository with the forge's credential, used for that
+		// own repository with AppTown's credential, used for that
 		// repository alone; EvalPublication admits eval copies only.
 		read = func(id ids.ID) (*integration.Registry, error) { return e.integrations.EvalPublication(ctx, id) }
 	}
@@ -336,7 +336,7 @@ func (e *Environment) registerKind(ctx context.Context, need string) (*dependenc
 }
 
 // registeredNeeds is c's needs the register step fulfils at boot. A need
-// whose adapter the forge does not run refuses.
+// whose adapter AppTown does not run refuses.
 func (e *Environment) registeredNeeds(ctx context.Context, c *appcontract.Contract) ([]registeredNeed, error) {
 	var out []registeredNeed
 	if c == nil {
@@ -443,7 +443,7 @@ func (e *Environment) registerNeeds(ctx context.Context, c *appcontract.Contract
 	return env, nil
 }
 
-// registrableNeeds are c's needs fulfilled by registering, when this forge
+// registrableNeeds are c's needs fulfilled by registering, when this AppTown
 // can register them; registerNeeds' refusal otherwise, before any key is
 // made.
 func (e *Environment) registrableNeeds(ctx context.Context, c *appcontract.Contract) ([]registeredNeed, error) {

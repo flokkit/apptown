@@ -62,7 +62,7 @@ it('a draft in the settings form survives a failed refresh of the project', asyn
   const alpha = project(1, 'a', 'Alpha')
   let down = false
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    if (down) return new Response(JSON.stringify({ error: 'the forge is restarting' }), { status: 502 })
+    if (down) return new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 502 })
     if (/\/projects\/a$/.test(url)) return new Response(JSON.stringify(alpha))
     return new Response(url.endsWith('/projects') || url.endsWith('/deployments') ? '[]' : '{}')
   }))

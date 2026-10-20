@@ -22,7 +22,7 @@ import (
 // Qualification of the worker-vm profile (design/operations/workers.md,
 // "Private Docker on the worker"): the private-Docker suite with the worker as a real apptown-worker
 // process on a separate Linux machine that shares no files with this one.
-// This test is the forge's side: it sends requests over mutual TLS
+// This test is AppTown's side: it sends requests over mutual TLS
 // (workertest.External names the worker), observes the worker's Docker
 // through DOCKER_HOST, and restarts the worker through its machine's
 // control command. Skipped unless APPTOWN_QUAL_WORKER_URL is set. The record
@@ -47,7 +47,7 @@ func newQualFixture(t *testing.T) *privateFixture {
 // A task on the separate worker builds an image with its own daemon and
 // runs it with its tree at the same path, reaches a service by name, and
 // is given nothing else of the worker. The service's parameters (a need's,
-// as the forge froze them) come from the request the worker recorded:
+// as AppTown froze them) come from the request the worker recorded:
 // the worker process is killed between the ensure and the start and
 // started again over the same state. Limits are configured; after the task
 // exits its daemon and service are stopped; its release leaves nothing.

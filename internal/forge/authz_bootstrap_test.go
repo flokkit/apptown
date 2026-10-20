@@ -144,7 +144,7 @@ func TestAuthorizationDefaultsFailExplicitlyAndKeepRevocations(t *testing.T) {
 	}
 }
 
-// A load balancer asks a forge in internal mode whether it is up without
+// A load balancer asks an AppTown in internal mode whether it is up without
 // signing in, through the whole handler.
 func TestHealthNeedsNoSignIn(t *testing.T) {
 	t.Parallel()

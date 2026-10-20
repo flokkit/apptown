@@ -106,7 +106,7 @@ func TestCanonicalPublicPortUsedByDevCompose(t *testing.T) {
 	}
 }
 
-// A static site with a build is the forge's to build: `apptown dev up`
+// A static site with a build is AppTown's to build: `apptown dev up`
 // refuses it with words instead of rendering a service that cannot serve.
 func TestDevComposeRefusesABuiltStaticSiteWithWords(t *testing.T) {
 	t.Parallel()

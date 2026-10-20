@@ -25,7 +25,7 @@ func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, 
 	if len(items) == 0 {
 		return nil, nil, nil
 	}
-	// An item the forge could not put to a model at all: the evaluation says
+	// An item AppTown could not put to a model at all: the evaluation says
 	// cannot-assess, and the receipt word for it is "skipped".
 	skipped := func(it check.Item, why string) workflow.CheckReceipt {
 		res := resultOf(check.Evaluation{Declared: it.Declared, Mode: check.Gate,

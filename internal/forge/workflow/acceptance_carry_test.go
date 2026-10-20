@@ -302,7 +302,7 @@ func TestCheckNewsIsWhatTheRunSaid(t *testing.T) {
 	}{
 		{"clean pass", Step{Name: "tests", Type: "tests", Status: StatusPass, Evidence: json.RawMessage(`{"reason":"all passed"}`)}, false},
 		{"no scanner attached", Step{Name: "scan", Type: "scan", Status: StatusPass, Evidence: json.RawMessage(`{"note":"no scanner attached for source"}`)}, false},
-		{"forge could not run a runtime check", Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"readiness-redirect-safe","verdict":"cannot-assess","apptownFault":true},{"check":"contract","verdict":"skipped"}]}`)}, false},
+		{"AppTown could not run a runtime check", Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"readiness-redirect-safe","verdict":"cannot-assess","apptownFault":true},{"check":"contract","verdict":"skipped"}]}`)}, false},
 		{"an approval is never news", Step{Name: "approve", Type: "approval", Status: StatusFail}, false},
 		{"overridden", Step{Name: "tests", Type: "tests", Status: StatusPass, OverrideBy: "bls"}, true},
 		{"did not pass", Step{Name: "scan", Type: "scan", Status: StatusNeedsHuman}, true},

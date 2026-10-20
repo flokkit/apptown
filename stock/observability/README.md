@@ -4,7 +4,7 @@ Current signal semantics and limitations: [Telemetry](../../design/subsystems/te
 
 `forge-dashboard.json` is a Grafana dashboard for AppTown's own telemetry: what
 apptownd exports when `--otlp-endpoint` is set. It is a file, not a feature:
-forge does not provision Grafana or manage this dashboard. Load it, change it
+AppTown does not provision Grafana or manage this dashboard. Load it, change it
 in Grafana if you like, export it and commit it back; the commit is the record.
 
 ## Loading it

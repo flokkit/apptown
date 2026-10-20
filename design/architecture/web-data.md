@@ -1,6 +1,6 @@
 # Web data: reads, acts and editors
 
-How the web app reads from and writes to the forge. `web/src/data.ts` holds
+How the web app reads from and writes to AppTown. `web/src/data.ts` holds
 the rules; this page states them.
 
 ## Reads
@@ -29,12 +29,12 @@ What a reader gets back is the whole state, not one flag:
 | `data` | the last good answer, kept while a refresh runs or fails |
 | `loading` | no answer yet, one on its way |
 | `err` | why the read failed; for a failed refresh it ends "(showing the last answer read)" |
-| `reason` | why the latest read failed, in the forge's words, without that ending: what a stale note quotes |
+| `reason` | why the latest read failed, in AppTown's words, without that ending: what a stale note quotes |
 | `refreshing` | an answer is shown and a newer one is being read |
 | `refreshFailed` | an answer is shown but its latest refresh failed, so it may be old |
 | `paused` | the browser is offline and the read waits |
 | `current` | this reader received the answer itself, for its current path, and no refresh has failed since |
-| `denied` | the forge refused the read to this caller (403): not available to them, which is neither empty nor broken |
+| `denied` | AppTown refused the read to this caller (403): not available to them, which is neither empty nor broken |
 | `answeredAt` | when the answer shown arrived; for a reading the server takes as it answers, when it was taken |
 
 Display rules: initial loading, an empty answer and a failed first read look
@@ -49,7 +49,7 @@ until then, and `StaleNote` marks an answer whose refresh failed. The app
 wraps each page in a `StaleScope`, which says once at the top of the page
 that some sections could not be refreshed while any mark is shown, so the
 sentence is not repeated per section. Pages use
-them rather than writing their own loading and error lines. A page about the whole forge that the caller
+them rather than writing their own loading and error lines. A page about the whole AppTown that the caller
 cannot read is left out of the menu and says "not available to you" when
 reached by its address (`web/src/instancePages.tsx`). When the browser is offline the app says so
 once, at the top of the page.

@@ -56,7 +56,7 @@ func TestPiAgentSurfaceWithoutBakedExtension(t *testing.T) {
 }
 
 // Pi finds its transcripts and steering where the caller says: in the run's
-// folder on the forge's host, elsewhere on a worker.
+// folder on AppTown's host, elsewhere on a worker.
 func TestStepArgsPointAtTheGivenPaths(t *testing.T) {
 	t.Parallel()
 	joined := strings.Join(StepArgs(FolderStepPaths, "step-1-a1", "docker", true, "", "", "go"), " ")

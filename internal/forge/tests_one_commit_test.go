@@ -25,7 +25,7 @@ import (
 // are the landing's tests, against its pinned candidate and base, and tests
 // on a worker, whose executor the root chooses.
 
-// testsExecutor runs a's tests steps through run, as the forge's check
+// testsExecutor runs a's tests steps through run, as AppTown's check
 // executor would: the worker's, or this machine's.
 func testsExecutor(t *testing.T, a *App, run func(execution.Request) execution.Outcome) {
 	t.Helper()

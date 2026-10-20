@@ -78,7 +78,7 @@ func writeBootFixture(t *testing.T, dir string) {
 	}
 }
 
-// bootWorld: a forge with the stock dependency catalog, a fake daemon whose
+// bootWorld: an AppTown with the stock dependency catalog, a fake daemon whose
 // mapped port is a real HTTP server (the probe must get an answer), and no
 // probe settle.
 func bootWorld(t *testing.T, configs ...Config) (*App, *fakeDocker) {
@@ -452,7 +452,7 @@ func TestTheDataDirectorySaysWhichLayoutWroteIt(t *testing.T) {
 	}
 }
 
-// updateUpgradeFixture freezes the forge this build makes as the named
+// updateUpgradeFixture freezes AppTown this build makes as the named
 // release's upgrade fixture (testdata/upgrade/<release>): run at a release's
 // tag, once, and commit the result.
 var updateUpgradeFixture = flag.String("update-upgrade-fixture", "", "write the upgrade fixture for this release name from the current build")
@@ -470,7 +470,7 @@ type upgradeFixture struct {
 	Reads    map[string]any  `json:"reads"`
 }
 
-// upgradeConfig is the configuration the fixture forge and the upgraded one
+// upgradeConfig is the configuration the fixture AppTown and the upgraded one
 // run with: a chat can be opened, and one is.
 func upgradeConfig(t *testing.T, dataDir string, agent *consoletest.Agent) Config {
 	return Config{DataDir: dataDir, DockerClient: newFakeDocker(), ConsoleCLI: fixtureCLI(t), ConsoleAgent: agent,
@@ -480,7 +480,7 @@ func upgradeConfig(t *testing.T, dataDir string, agent *consoletest.Agent) Confi
 // upgradeApprovalMeans is what the fixture's approval says assent means.
 const upgradeApprovalMeans = "the change does what its title says"
 
-// upgradeWorld makes, through the product, the forge a release leaves
+// upgradeWorld makes, through the product, AppTown a release leaves
 // behind: a project with a repository; a change on it with its own branch
 // and folder, its run and a person's acceptance of the branch's commit, an
 // approval whose stated meaning is recorded with the vote; adopted ways of
@@ -630,7 +630,7 @@ func upgradeReads(t *testing.T, a *App, s upgradeSubjects) map[string]any {
 		}
 		workspace = map[string]any{"candidate": resolved, ".gitignore": file}
 		if s.Pack != "" {
-			// The branch is a name the forge gave outside itself: an upgrade
+			// The branch is a name AppTown gave outside itself: an upgrade
 			// keeps it.
 			workspace["branch"] = source.Branch
 		}
@@ -767,7 +767,7 @@ func writeUpgradeFixture(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	// River's tables are the job library's: job rows are not history, and a
-	// restarted forge recreates its queue.
+	// restarted AppTown recreates its queue.
 	rows, err := dbtest.Snapshot(t.Context(), a.DB, func(table string) bool { return strings.HasPrefix(table, "river_") })
 	if err != nil {
 		t.Fatal(err)
@@ -789,7 +789,7 @@ func writeUpgradeFixture(t *testing.T, dir string) {
 	}
 }
 
-// restoreRelease gives db and a fresh data directory the forge the fixture's
+// restoreRelease gives db and a fresh data directory AppTown the fixture's
 // release left, as it left it: not yet upgraded.
 func restoreRelease(t *testing.T, dir string, db *database.DB) string {
 	t.Helper()
@@ -810,7 +810,7 @@ func restoreRelease(t *testing.T, dir string, db *database.DB) string {
 	return dataDir
 }
 
-// upgradeForge is what apptownd does to a forge when it starts: the data
+// upgradeForge is what apptownd does to an AppTown when it starts: the data
 // directory's layout, then the normal open path's migrations.
 func upgradeForge(t *testing.T, db *database.DB, dataDir string) {
 	t.Helper()
@@ -825,7 +825,7 @@ func upgradeForge(t *testing.T, db *database.DB, dataDir string) {
 	}
 }
 
-// forgeRecords is a forge's stored records (the job library's queue left
+// forgeRecords is an AppTown's stored records (the job library's queue left
 // out) and the digest of its data directory: what the copies taken before
 // an upgrade hold.
 func forgeRecords(t *testing.T, db *database.DB, dataDir string) (string, string) {
@@ -863,7 +863,7 @@ func forgeRecords(t *testing.T, db *database.DB, dataDir string) (string, string
 	return string(raw), hex.EncodeToString(digest.Sum(nil))
 }
 
-// A forge an earlier release left behind, its database and its files,
+// An AppTown an earlier release left behind, its database and its files,
 // upgrades with this build's startup and keeps what it recorded: the same
 // records read back through the router with the same identities, links and
 // meaning, the release's commit still resolves in its repository, and the
@@ -925,7 +925,7 @@ func TestAnUpgradeKeepsWhatThePreviousReleaseRecorded(t *testing.T) {
 				t.Fatalf("the write after the upgrade changed nothing to roll back (rows changed %v, files changed %v)", rows != copiedRows, files != copiedFiles)
 			}
 
-			// Rollback: the upgraded forge stopped, the copies put back in its place.
+			// Rollback: the upgraded AppTown stopped, the copies put back in its place.
 			if err := a.ShutdownBackground(t.Context()); err != nil {
 				t.Fatal(err)
 			}
@@ -977,7 +977,7 @@ func lineDiff(a, b string) string {
 
 // A preview step and a landing's deploy whose migration fails printing its
 // DATABASE_URL keep, as evidence, a failure that does not hold the password
-// the forge made for that preview or deployment.
+// AppTown made for that preview or deployment.
 func TestAFailedBootsEvidenceHoldsNoNeedCredential(t *testing.T) {
 	t.Parallel()
 	for _, effect := range []string{"preview", "deploy"} {
@@ -1034,8 +1034,8 @@ func TestAFailedBootsEvidenceHoldsNoNeedCredential(t *testing.T) {
 	}
 }
 
-// builtinDBDaemon is a daemon with no forge-db container and, when label is
-// not nil, a forge-data-forge-db volume carrying that installation label and
+// builtinDBDaemon is a daemon with no AppTown-db container and, when label is
+// not nil, an AppTown-data-forge-db volume carrying that installation label and
 // binding to /old/data/pgdata.
 func builtinDBDaemon(label *string) *dockerfake.Daemon {
 	d := dockerfake.New()

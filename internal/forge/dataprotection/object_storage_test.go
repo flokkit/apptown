@@ -64,7 +64,7 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 			bucketRow = &prot.Items[i]
 		}
 	}
-	// Not yet copied, and assessed like the database: no "the forge takes
+	// Not yet copied, and assessed like the database: no "AppTown takes
 	// no copy" caveat any more.
 	if len(prot.Items) != 2 || bucketRow == nil || bucketRow.Copy != CopyNone || !strings.Contains(bucketRow.Where, bucketOfProd) || strings.Contains(bucketRow.CopyNote, "takes no copy") {
 		t.Fatalf("the data view: %+v", prot)
@@ -184,7 +184,7 @@ func TestAStartFromASetWithoutTheBucketIsRefused(t *testing.T) {
 	}
 	instance, _ := w.clusterOf(dep)["id"].(string)
 	// A whole set of the database alone, as a copy taken before buckets were
-	// copied holds. Recorded through the set's owner: no copy the forge
+	// copied holds. Recorded through the set's owner: no copy AppTown
 	// takes now leaves a held bucket out of a whole set.
 	id, err := w.s.backups.Record(ctx, &Backup{ProjectID: w.project, Deployment: "prod", TakenAt: "2026-10-16T10:00:00Z", Trigger: TriggerTakeDown, Path: "ledger/prod/old", Store: StoreBackupStore,
 		StoreEndpoint: w.store.API.URL, StoreBucket: "forge-copies", Status: BackupOK, DataClass: "production",

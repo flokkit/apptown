@@ -9,7 +9,7 @@ import (
 )
 
 // RefusedStepWork serves a step attempt's result whose publication was
-// refused and which the forge kept, as a Git bundle, as a refused chat save
+// refused and which AppTown kept, as a Git bundle, as a refused chat save
 // is served (ChangeWorkerChats.RefusedBundle).
 type RefusedStepWork struct {
 	db      database.Queryer

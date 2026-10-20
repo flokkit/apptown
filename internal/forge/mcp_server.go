@@ -28,7 +28,7 @@ import (
 //
 // The protocol itself (JSON-RPC, the streamable HTTP transport, sessions,
 // protocol-version negotiation) is the official Go SDK's. What stays here is
-// the forge's part: which credential opens the door, who a call acts as, the
+// AppTown's part: which credential opens the door, who a call acts as, the
 // audit of each session, and how a tool's outcome is reported.
 //
 // Why this lives outside /api/: AuthMiddleware only runs on /api/ paths, and
@@ -167,7 +167,7 @@ func (a *App) mcpIdentity(w http.ResponseWriter, r *http.Request) *authIdentity 
 }
 
 // mcpBaseURL is the absolute origin webUrl links and the OAuth discovery
-// documents are built on: the forge's browser origin, so an agent is sent
+// documents are built on: AppTown's browser origin, so an agent is sent
 // to the same address a person signs in at (httpapi.BrowserSession.Origin).
 func (a *App) mcpBaseURL(r *http.Request) string { return a.browserOrigin(r) }
 

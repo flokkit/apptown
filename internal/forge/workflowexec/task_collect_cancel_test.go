@@ -12,8 +12,8 @@ import (
 )
 
 // A step whose context ends while its exited task's result is collected
-// (the forge stopping with a bundle in flight) has not lost the result:
-// the attempt is never held as "result not kept", and a restarted forge
+// (AppTown stopping with a bundle in flight) has not lost the result:
+// the attempt is never held as "result not kept", and a restarted AppTown
 // collects and publishes it without running the task again.
 //
 // Kills: a stopped collection read as a result that could not be kept.
@@ -24,7 +24,7 @@ func TestAStoppedCollectionLeavesTheResultCollectible(t *testing.T) {
 	defer stop()
 	state := resultWorker(t, a, fake, func(n int, w http.ResponseWriter, reply *httptest.ResponseRecorder) {
 		if n == 1 {
-			stop() // the forge stops while the result is in flight
+			stop() // AppTown stops while the result is in flight
 		}
 		pass(w, reply)
 	})

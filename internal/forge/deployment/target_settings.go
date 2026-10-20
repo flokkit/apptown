@@ -64,15 +64,15 @@ func (t *Target) CopyRunner() string {
 }
 
 // A target's record holds two kinds of fact. Its configuration comes from
-// where the target is declared — the forge itself for the built-in host, the
-// connector for an App Platform account, forge configuration for the
+// where the target is declared — AppTown itself for the built-in host, the
+// connector for an App Platform account, AppTown configuration for the
 // intranet's Portainer — and Targets.Sync refreshes it. Its settings are what
 // an administrator states through EditSettings, and only these: the domain,
 // evals and rehearsals marks in ingress, persistentVolumes and previews in
 // capabilities, the needs mode, and the copy runner in address. A sync
 // supplies a setting's first value when it creates the target; after that
 // the setting is the administrator's and no sync changes it. The built-in
-// host takes no edits, so every fact of its record is the forge's own.
+// host takes no edits, so every fact of its record is AppTown's own.
 var (
 	settingIngressKeys = []string{"domain", IngressEvals, IngressRehearsals}
 	settingAddressKeys = []string{AddressCopyRunner}

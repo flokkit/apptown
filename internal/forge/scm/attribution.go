@@ -11,7 +11,7 @@ import (
 	"flokkit.io/forge/internal/trailer"
 )
 
-// Attribution is what the forge's record says about a change where GitLab
+// Attribution is what AppTown's record says about a change where GitLab
 // readers see it: who opened it and what it is for and, for a landing, what
 // admitted the merge. Workflow reads it from its own records; at a landing it
 // reads it in the transaction that admits the merge and again at each
@@ -77,13 +77,13 @@ type AttributedCheck struct {
 	Result  string
 }
 
-// MergeRequestDescription is the description the forge writes on a merge
+// MergeRequestDescription is the description AppTown writes on a merge
 // request it opened: at open, who opened the change and what it is for; at a
 // landing (Candidate set), also the approvals, overrides and checks that
-// admitted it. The forge owns the whole description and writes it whole.
-// Text the forge did not write reaches GitLab only as code (a code span or an
+// admitted it. AppTown owns the whole description and writes it whole.
+// Text AppTown did not write reaches GitLab only as code (a code span or an
 // indented code block), where GitLab expands no references or mentions, and
-// no line the forge writes starts with "/", so no quick action runs.
+// no line AppTown writes starts with "/", so no quick action runs.
 func MergeRequestDescription(a Attribution, changeURL string) string {
 	var b strings.Builder
 	b.WriteString("**AppTown change")
@@ -159,7 +159,7 @@ func MergeRequestDescription(a Attribution, changeURL string) string {
 // Each names only what the record holds: Opened-by is the change's creation
 // receipt, Approved-by a recorded approving vote with the sentence its step
 // declared (no role), Landing-authority the run fact as recorded at
-// admission. They are the forge's statements, written by its account, not
+// admission. They are AppTown's statements, written by its account, not
 // signatures of the people named.
 func attributionTrailers(a *Attribution, changeURL string) []string {
 	if a == nil {
@@ -215,7 +215,7 @@ func mergeMessage(source Source, operation, changeURL string) string {
 // page; the change page keeps it for those who may read it.
 const withheld = "an AppTown account (name withheld)"
 
-// publicName is how a receipt name appears on GitLab: the forge itself as
+// publicName is how a receipt name appears on GitLab: AppTown itself as
 // "Forge", a run or eval by number, a person by account name (in a code span
 // when code is set, so GitLab never links it to a GitLab user of that name),
 // and how they acted when it was through something.
@@ -365,14 +365,14 @@ func codeBlock(s string) string {
 	return strings.Join(lines, "\n")
 }
 
-// inert is text the forge did not write, made so GitLab acts on none of it
+// inert is text AppTown did not write, made so GitLab acts on none of it
 // wherever it appears, code included: GitLab scans raw merge request
 // descriptions and commit messages for closing statements ("fixes #12",
 // "closes https://gitlab.com/g/p/-/issues/12") and closes those issues when
 // the merge reaches the default branch, and reads #12, !3 and @name as
 // references and mentions. Each #, ! and @ is separated from what follows,
 // and every link's scheme from its address, so none of them is a reference.
-// Line breaks are kept. The forge's own change-page link never passes here.
+// Line breaks are kept. AppTown's own change-page link never passes here.
 func inert(s string) string {
 	s = strings.ReplaceAll(clean(s), "://", ":// ")
 	var b strings.Builder

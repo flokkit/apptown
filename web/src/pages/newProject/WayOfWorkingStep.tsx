@@ -151,7 +151,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           <div className="pack-grid">
             {packs.map((p) => {
               // Only what differs between packs is shown: a capability
-              // this forge has not set up, as a warning. Everything
+              // this AppTown has not set up, as a warning. Everything
               // that is set up is the normal case and says nothing.
               const missing = p.requires.filter((r) => !r.bound)
               return (

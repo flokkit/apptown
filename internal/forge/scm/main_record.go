@@ -35,7 +35,7 @@ const (
 // its settlement. The caller's whole settlement rolls back.
 var ErrMainChanged = errors.New("the recorded main changed while this move was settled; retry")
 
-// RecordedMain is where a project's main stood when the forge last moved it.
+// RecordedMain is where a project's main stood when AppTown last moved it.
 type RecordedMain struct {
 	Branch     string    `json:"branch"`
 	SHA        string    `json:"sha"`
@@ -101,7 +101,7 @@ func (m MainMove) Read() string { return m.sha }
 
 // RecordIn records the prepared main in the caller's transaction, compared and
 // set against the record read at preparation.
-// at is the forge's time of the move.
+// at is AppTown's time of the move.
 func (m MainMove) RecordIn(ctx context.Context, tx *database.Tx, via MainVia, runID ids.ID, at time.Time) error {
 	if !m.record {
 		return nil
@@ -149,8 +149,8 @@ func countBetween(ctx context.Context, hub, from, to string) (int, bool) {
 }
 
 // MainStanding compares the recorded main with the hub, as a note for people.
-// It says what differs, never who moved main: a forge move whose record has
-// not settled reads the same as a commit made outside the forge.
+// It says what differs, never who moved main: an AppTown move whose record has
+// not settled reads the same as a commit made outside AppTown.
 type MainStanding struct {
 	// State: "recorded" (the hub is at the record), "ahead", "rewritten",
 	// "unknown" (no record), or "unreadable" (the hub's main cannot be read).

@@ -22,7 +22,7 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// workerClientConfig is the forge's side of the test worker at url: a client
+// workerClientConfig is AppTown's side of the test worker at url: a client
 // certificate for the installation, its key and the CA, written as files.
 func workerClientConfig(t *testing.T, ca *workertest.CA, url string) *WorkerConfig {
 	t.Helper()
@@ -42,7 +42,7 @@ func workerClientConfig(t *testing.T, ca *workertest.CA, url string) *WorkerConf
 	return &WorkerConfig{URL: url, Cert: certFile, Key: keyFile, CA: caFile}
 }
 
-// localTripwire is the forge's own agent process on a forge with a worker:
+// localTripwire is AppTown's own agent process on an AppTown with a worker:
 // any call to it fails the test, since nothing may run on this machine.
 type localTripwire struct{ t *testing.T }
 
@@ -129,7 +129,7 @@ func agentWorkerChange(t *testing.T, a *App, steps []schema.Step, files map[stri
 // one check before the step's source is published, and workflowexec's
 // TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect covers each
 // reason there. Two are kept here: the one read from the folder's own
-// unpublished commit, the last to be known, and the one this forge's own
+// unpublished commit, the last to be known, and the one this AppTown's own
 // configuration decides.
 func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 	t.Parallel()
@@ -140,7 +140,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 	}{
 		"an unknown need": {with: map[string]any{"needs": true}, want: "the app needs no-such-kind, which is not in the dependency catalog",
 			files: map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  no-such-kind: {}\n"}},
-		// The forge was started without -private-docker.
+		// AppTown was started without -private-docker.
 		"private Docker without the operator's opt-in": {with: map[string]any{"docker": true}, want: "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker"},
 	} {
 		t.Run(name, func(t *testing.T) {

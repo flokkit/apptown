@@ -73,7 +73,7 @@ func (w previewWorker) boot(t *testing.T, incarnation, tree string) worker.Previ
 	return st
 }
 
-// served is the page the forge's forwarding returns for the preview now.
+// served is the page AppTown's forwarding returns for the preview now.
 func (w previewWorker) served(t *testing.T) string {
 	t.Helper()
 	forge := httptest.NewServer(w.previews.Forward(w.name, "https"))
@@ -166,7 +166,7 @@ func TestIntegrationAFailedWorkerBootLeavesNothing(t *testing.T) {
 // With real Docker: an ordinary change preview of a static site with a
 // declared build (no deployment identity, no recorded images) is built,
 // packed into the file server's image and run as that image, not a mount
-// of the tree: it serves the built page and the forge's /_apptown/env.js.
+// of the tree: it serves the built page and AppTown's /_apptown/env.js.
 func TestIntegrationAWorkerPreviewBuildsAndServesADeclaredStaticSite(t *testing.T) {
 	w := startPreviewWorker(t)
 	contract := "version: 1\napp:\n  web:\n    static: { build: ., output: dist }\n    public: true\n"

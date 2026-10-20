@@ -68,7 +68,7 @@ func volumeThere(ctx context.Context, cfg *Target, endpointID int64, name string
 
 // recordMadeVolumes records on the deployment's list each volume the
 // compose declares that was not there before the deploy and is there now:
-// the forge's deploy made it. One that was there before is not recorded
+// AppTown's deploy made it. One that was there before is not recorded
 // (nothing found is adopted).
 func recordMadeVolumes(ctx context.Context, cfg *Target, endpointID int64, before map[string]bool, vols []StackVolume, owner deploy.Owner, logf func(string, ...any)) error {
 	for _, v := range vols {

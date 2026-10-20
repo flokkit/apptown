@@ -31,7 +31,7 @@ func (inactiveRemediationWork) DispatchStarted(ids.ID) error  { panic("unexpecte
 func (inactiveRemediationWork) DispatchCommittedRetry(ids.ID) { panic("unexpected Work call") }
 
 // A person's change to the pool asks for a pass at once, through the
-// service's request port (the job queue in the forge), not a loop of the
+// service's request port (the job queue in AppTown), not a loop of the
 // handler's own. Kills: the handler not asking for a pass.
 func TestRemediationAPIAsksForAPass(t *testing.T) {
 	t.Parallel()

@@ -7,7 +7,7 @@ import "flokkit.io/forge/internal/deploy/appcontract"
 // obtained (note is imageForCommit's note on the path it took: a reused
 // release image or a cache hit; "" is a build for the checks), and every
 // other part and init step, which the scan does not look at: each ships
-// an image (a static part in the forge's file-server image). The release
+// an image (a static part in AppTown's file-server image). The release
 // resolves its own images, so the receipt never names the release's
 // digest.
 func imageScanScope(c *appcontract.Contract, note string) (scanned map[string]string, notScanned []string) {

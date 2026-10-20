@@ -323,7 +323,7 @@ func TestAReleasedChangeShowsSavedWorkWhenTheFolderLags(t *testing.T) {
 }
 
 // A folder marked behind is read again once it is brought to its branch:
-// by a later save that can reach it, or by a chat on the forge opening on
+// by a later save that can reach it, or by a chat on AppTown opening on
 // it. After that the folder is the work again, a local reset included.
 func TestACaughtUpFolderIsReadAgain(t *testing.T) {
 	t.Parallel()
@@ -768,7 +768,7 @@ func TestAnUnreadableHistoryIsNotACurrentFolder(t *testing.T) {
 }
 
 // A change whose folder and published branch have both moved keeps a new
-// chat off the worker, and the refusal offers the chat on the forge (which
+// chat off the worker, and the refusal offers the chat on AppTown (which
 // merges them) by its code.
 func TestADivergedFolderOffersTheChatOnTheForge(t *testing.T) {
 	t.Parallel()

@@ -27,7 +27,7 @@ type seen struct {
 
 // forwardedPreview is an app on this machine's loopback that a fake Docker
 // reports as the preview forge-preview-change-7's port, a worker over the
-// forge's authenticated connection, and the forge's side forwarding to it.
+// forge's authenticated connection, and AppTown's side forwarding to it.
 func forwardedPreview(t *testing.T) (forge *httptest.Server, workerURL string, client *http.Client, got func() seen, dk *fileDocker) {
 	t.Helper()
 	var mu sync.Mutex
@@ -81,7 +81,7 @@ func forwardedPreview(t *testing.T) (forge *httptest.Server, workerURL string, c
 }
 
 // The two hops change nothing the app sees: its Host, its path and query as
-// sent, and the forge's own forwarding headers, never a visitor's. The
+// sent, and AppTown's own forwarding headers, never a visitor's. The
 // worker's routing headers do not reach the app.
 func TestAWorkerPreviewSeesTheVisitorsRequestThroughBothHops(t *testing.T) {
 	t.Parallel()

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS project_packs (
   version    BIGINT NOT NULL,
   reason     TEXT NOT NULL DEFAULT '',
   adopted_by TEXT NOT NULL DEFAULT '',
-  -- The adopter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The adopter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   adopted_by_principal UUID,
   adopted_by_via TEXT NOT NULL DEFAULT '',
   adopted_at TIMESTAMPTZ NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS project_adoptions (
   reason       TEXT NOT NULL DEFAULT '',
   digest       TEXT NOT NULL,
   created_by   TEXT NOT NULL DEFAULT '',
-  -- The author's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The author's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   created_by_principal UUID,
   created_by_via TEXT NOT NULL DEFAULT '',
   created_at   TIMESTAMPTZ NOT NULL,

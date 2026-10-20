@@ -3,7 +3,7 @@
 // A step attempt that runs a task records it here before any provider effect:
 // its operation key, owner and request digest, then the provider's identity
 // before the task starts, then what was observed, and finally that the owner
-// settled it. A restarted forge reads the unsettled attempts and adopts,
+// settled it. A restarted AppTown reads the unsettled attempts and adopts,
 // collects or stops each one instead of running it again.
 //
 // The package has no workflow or provider knowledge. Callers choose which
@@ -38,11 +38,11 @@ const (
 	Unknown    Observed = "unknown"    // its outcome cannot be established
 	// Refused: the backend refused it before creating anything, so nothing
 	// exists to observe or stop. What remains is recording the step's
-	// failure and settling; a restarted forge finishes that without asking
+	// failure and settling; a restarted AppTown finishes that without asking
 	// the backend, whichever backend it then has.
 	Refused Observed = "refused"
 	// Held: its result was not kept, so its task and workspace on the
-	// backend hold the only copy of its work. The forge never settles or
+	// backend hold the only copy of its work. AppTown never settles or
 	// releases it; a person inspecting the backend ends it.
 	Held Observed = "held"
 )
@@ -53,7 +53,7 @@ var (
 	ErrConflict = errors.New("this operation was already admitted with a different request")
 	// ErrSettled: the attempt is already settled; nothing more is recorded.
 	ErrSettled = errors.New("this task attempt is already settled")
-	// ErrHeld: the attempt holds the only copy of its work; the forge
+	// ErrHeld: the attempt holds the only copy of its work; AppTown
 	// records nothing more that would settle or release it.
 	ErrHeld = errors.New("this task attempt holds work that was not kept")
 	// ErrNotAccepted: the transition does not follow the attempt's
@@ -69,7 +69,7 @@ const ScriptInvocation = "script"
 
 // ReleaseBuildInvocation is the one invocation a deploy step's attempt
 // runs to build its release on the worker. It is never continued across a
-// forge restart: its step ends in error, and its task is stopped and
+// AppTown restart: its step ends in error, and its task is stopped and
 // released (UnsettledStepsIn).
 const ReleaseBuildInvocation = "release-build"
 
@@ -94,7 +94,7 @@ type Admission struct {
 	Container string // the provider name derived from Operation
 	Digest    string // the canonical request; the same key must carry the same digest
 	// Source is the commit a remote task was given, which its result must
-	// build on. Empty for a task that mounts the forge's workspace.
+	// build on. Empty for a task that mounts AppTown's workspace.
 	Source string
 	// Admitted is the admission the task was given: profile, limits,
 	// network and expiry. Deadline is when its wall-clock budget ends. A
@@ -132,7 +132,7 @@ type Attempt struct {
 
 type Records struct {
 	db *database.DB
-	// Now is the forge's clock, which stamps an attempt's reservation,
+	// Now is AppTown's clock, which stamps an attempt's reservation,
 	// stop request and releases; nil is the real one.
 	Now func() time.Time
 }
@@ -200,7 +200,7 @@ func (r *Records) RecordProvider(ctx context.Context, operation, providerID stri
 }
 
 // The transitions below are the attempt's lifecycle. Each accepts only its
-// legal prior states: settled is final; held is final for the forge (a
+// legal prior states: settled is final; held is final for AppTown (a
 // person inspecting the backend ends it); refused only settles with nothing
 // held (SettleNothingHeld). A recorded exit code and timeout are never
 // erased: a transition given no code keeps the recorded one, and nothing
@@ -249,7 +249,7 @@ func (r *Records) RecordUnknown(ctx context.Context, operation, reason string) e
 
 // Hold records that the attempt's result was not kept: its task and
 // workspace on the backend hold the only copy of its work. A held attempt
-// is never settled or released by the forge.
+// is never settled or released by AppTown.
 func (r *Records) Hold(ctx context.Context, operation, reason string) error {
 	return r.transition(ctx, operation, "a hold", func(q *taskssql.Queries, at time.Time) (int64, error) {
 		return q.HoldAttempt(ctx, taskssql.HoldAttemptParams{Operation: operation, Detail: reason, At: at})
@@ -293,7 +293,7 @@ func (r *Records) refusal(ctx context.Context, operation, what string) error {
 }
 
 // RequestStop records that the attempt must stop. It is durable: a restarted
-// forge carries it out.
+// AppTown carries it out.
 func (r *Records) RequestStop(ctx context.Context, operation string) error {
 	n, err := taskssql.New(r.db.SQL()).RequestStop(ctx, taskssql.RequestStopParams{Operation: operation, At: r.now()})
 	if err != nil {
@@ -396,7 +396,7 @@ func (r *Records) Held(ctx context.Context) ([]Attempt, error) {
 	return attemptsOf(rows)
 }
 
-// Unsettled lists attempts a restarted forge must observe.
+// Unsettled lists attempts a restarted AppTown must observe.
 func (r *Records) Unsettled(ctx context.Context) ([]Attempt, error) { return UnsettledIn(ctx, r.db) }
 
 // UnsettledIn lists every attempt not yet settled.

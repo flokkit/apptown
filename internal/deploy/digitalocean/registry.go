@@ -80,7 +80,7 @@ func (d *Driver) pushImage(ctx context.Context, c *Client, registry, repo, local
 // copyImage copies a release's image by digest (<repository>@sha256:<hex>)
 // from its registry into DOCR, tagged tag, and answers the digest DOCR
 // confirms: the image's own, so the app spec names exactly what the
-// release recorded. The forge's Docker is not used. The copy is written
+// release recorded. AppTown's Docker is not used. The copy is written
 // before the app changes; a failed one fails the release, and releasing the
 // same bundle again copies what is missing.
 func (d *Driver) copyImage(ctx context.Context, c *Client, registry, repo, ref, tag string, logf func(string, ...any)) (string, error) {
@@ -91,21 +91,21 @@ func (d *Driver) copyImage(ctx context.Context, c *Client, registry, repo, ref, 
 	return d.options.CopyImage(d, ctx, c, registry, repo, from, tag, logf)
 }
 
-// GateRepository is the DOCR repository the forge's gate image is copied
+// GateRepository is the DOCR repository AppTown's gate image is copied
 // into: one per registry, shared by every project's gated deployments. App
 // Platform takes one version of a DOCR repository per app (a second digest
 // of the same repository is refused at create, "not configured for this
 // app"), so the gate cannot share the project's repository. The name has
 // an underscore, which no project slug has, so it is never a project's
 // repository. It takes one of the registry's included repositories once.
-// The forge never empties it: it holds only the gate images, pinned by
+// AppTown never empties it: it holds only the gate images, pinned by
 // digest, and a take-down leaves them for the next gated deployment; an
 // image a new gate release leaves unused stays until an operator deletes
-// it. A repository of this name the forge did not make is used as it is:
+// it. A repository of this name AppTown did not make is used as it is:
 // the copy is by digest and DOCR must answer that digest.
 const GateRepository = "apptown_gate"
 
-// copyGateImage copies the forge's gate image into GateRepository by its
+// copyGateImage copies AppTown's gate image into GateRepository by its
 // digest, read with GateLogin's credential for it (none: anonymously).
 func (d *Driver) copyGateImage(ctx context.Context, c *Client, registry, ref string, logf func(string, ...any)) (doImage, error) {
 	from := oci.Source{Reference: ref}
@@ -122,7 +122,7 @@ func (d *Driver) copyGateImage(ctx context.Context, c *Client, registry, ref str
 
 // oneVersionPerRepository refuses a spec naming more than one version
 // (digest or tag) of one DOCR repository: App Platform accepts such a spec
-// at propose and refuses it at create, after the forge has made the app's
+// at propose and refuses it at create, after AppTown has made the app's
 // databases. The release is refused for this at admission
 // (MultiImageRefusal); this is the backstop before the app is asked for.
 func oneVersionPerRepository(spec AppSpec) error {
@@ -178,7 +178,7 @@ func (d *Driver) copyFrom(ctx context.Context, c *Client, registry, repo string,
 
 // MultiImageRefusal says why a release whose images (parts and init steps
 // by name) are not all one image cannot go to App Platform, "" when they
-// are. The forge copies every part and init image into the project's one
+// are. AppTown copies every part and init image into the project's one
 // DOCR repository, and App Platform runs one image per repository, so the
 // remedies are one image for every part and init step, or another target.
 // A release is refused on it at admission, before any provider effect.

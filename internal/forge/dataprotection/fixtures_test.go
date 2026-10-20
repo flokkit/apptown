@@ -284,7 +284,7 @@ func (d fakeDriver) Teardown(context.Context, deploy.Placement, int64, deploy.Ta
 func (d fakeDriver) Controls() deploy.Controls { return deploy.Controls{} }
 
 // withLLM gives s's data protection an OpenRouter connector on a fake
-// OpenRouter, with the forge's provisioning key, and attaches AI models to
+// OpenRouter, with AppTown's provisioning key, and attaches AI models to
 // the project when attached: what revoking a deployment's key talks to.
 func withLLM(t *testing.T, s *Service, projectID ids.ID, attached bool) *openrouterfake.Server {
 	t.Helper()

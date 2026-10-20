@@ -76,7 +76,7 @@ func (s *Service) requireAdministration(ctx context.Context, q database.Queryer,
 
 // Administrative decisions and mutations share the existing account lock.
 // An account cannot be demoted or disabled between this check and the write.
-// The operation reads the forge's clock once and gives apply that time.
+// The operation reads AppTown's clock once and gives apply that time.
 func (s *Service) administer(ctx context.Context, pr access.Principal, cap access.Capability, apply func(tx *database.Tx, now time.Time) error) error {
 	if pr.Name == "" {
 		return access.ErrPrincipalRequired

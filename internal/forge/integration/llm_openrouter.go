@@ -21,7 +21,7 @@ import (
 // attaching that connector; then each deployment and each preview of an app
 // that declares the need gets its own ordinary OpenRouter key with a
 // spending limit, which it owns: take-down and the end of a preview revoke
-// it. The provisioning key is resolved here, inside the forge process, for
+// it. The provisioning key is resolved here, inside the AppTown process, for
 // the call that needs it, and goes nowhere else.
 
 const (

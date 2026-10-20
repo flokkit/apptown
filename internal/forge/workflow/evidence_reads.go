@@ -80,11 +80,11 @@ type RunSnapshot struct {
 	// waiting acceptance: accepting counts for them where the rules let the
 	// accepter approve them. Empty for any other run.
 	LandingMeans []string `json:"landingMeans"`
-	// LandingQueued: the run is done work whose landing the forge has queued
+	// LandingQueued: the run is done work whose landing AppTown has queued
 	// and not yet started; the landing starts on its own.
 	LandingQueued bool `json:"landingQueued,omitempty"`
 	// Next is what a person can do on the run now, each with its step
-	// (nextActs); empty while the forge has the next move or the run ended.
+	// (nextActs); empty while AppTown has the next move or the run ended.
 	Next []NextAct `json:"next"`
 }
 

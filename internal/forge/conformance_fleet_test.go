@@ -678,7 +678,7 @@ func TestAWhatIfSaysWhichExceptionsTheVersionLeavesUncovered(t *testing.T) {
 	}
 }
 
-// Adopting from a what-if names the what-if, and the forge reads from it
+// Adopting from a what-if names the what-if, and AppTown reads from it
 // what was assessed for the project: pack, version, adoption revision and
 // candidate. The Change opens with that candidate as its recorded target
 // (the other pack and the project's own guidance kept, nothing moved until
@@ -825,7 +825,7 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 }
 
 // Recommending on a what-if names it on the recommendation's receipt; the
-// forge checks it is a finished what-if of that pack and version. One of
+// AppTown checks it is a finished what-if of that pack and version. One of
 // another version, of another pack at that version number, or not finished
 // is refused and nothing moves. Kills: the what-if's number recorded
 // unchecked; a refused recommendation moving the pointer; the receipt
@@ -881,7 +881,7 @@ func TestARecommendationNamesTheWhatIfItWasDecidedOn(t *testing.T) {
 		t.Fatalf("the receipt names the what-if: %+v", got)
 	}
 	// Again, on another finished what-if of v2: v2 is already recommended,
-	// so nothing moves, nothing is recorded, and the forge says so rather
+	// so nothing moves, nothing is recorded, and AppTown says so rather
 	// than answer as if the second what-if were the basis.
 	if code, body := recommend(run("team", 2)); code != 409 || !strings.Contains(body, "already recommended") {
 		t.Fatalf("a second basis for a recommendation already made: %d %s", code, body)
@@ -1105,7 +1105,7 @@ func TestFleetReviewSkipsAProjectBeingDeleted(t *testing.T) {
 	}
 }
 
-// A what-if whose job is stopped while it evaluates (the forge shutting
+// A what-if whose job is stopped while it evaluates (AppTown shutting
 // down, or the queue's two-hour limit) ends interrupted, keeping the
 // projects it recorded; it is not left running and not resumed. The stop
 // arrives during the second project's model call.

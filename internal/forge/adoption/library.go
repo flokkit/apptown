@@ -158,7 +158,7 @@ func (s *libraryStore) AppendPlatformImport(ctx context.Context, projectID ids.I
 type libraryStore struct {
 	db    *database.DB
 	ways  Catalog
-	clock func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func newLibrary(db *database.DB, ways Catalog) *libraryStore {

@@ -16,7 +16,7 @@ import (
 	"flokkit.io/forge/internal/durable"
 )
 
-// MaxTranscriptBytes bounds one step session's transcript the forge keeps.
+// MaxTranscriptBytes bounds one step session's transcript AppTown keeps.
 // It matches the largest input a worker task accepts, so a kept transcript
 // can always be sent back to continue its session.
 const MaxTranscriptBytes = 64 << 20
@@ -94,7 +94,7 @@ func StepTranscript(dir, session string) (raw []byte, reason string) {
 // ResumeTranscript makes raw, a session's kept transcript, the one file in
 // dir that Pi resumes for session: it replaces the file there that names the
 // session, or creates one named as Pi names its files. Pi then appends to
-// exactly the bytes the forge kept. A directory holding two files that name
+// exactly the bytes AppTown kept. A directory holding two files that name
 // the session is refused: which one Pi would resume is not known.
 func ResumeTranscript(dir, session string, raw []byte, now time.Time) error {
 	if reason := CheckTranscript(raw, session); reason != "" {

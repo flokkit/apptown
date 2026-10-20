@@ -14,8 +14,8 @@ import (
 )
 
 // The agent image a worker's chats run in is built by the worker from the
-// same build context the forge uses (deploy/apptown-agent), and named by that
-// context's content: forge-agent:<hash>. A forge asks for the name its own
+// same build context AppTown uses (deploy/apptown-agent), and named by that
+// context's content: forge-agent:<hash>. An AppTown asks for the name its own
 // context gives, so a worker whose context differs does not have the image
 // and refuses the chat, saying so, rather than running another version.
 // Later, installations may use standard published images instead.

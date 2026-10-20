@@ -24,7 +24,7 @@ type ReleaseSelection struct {
 // Release is a released version's recorded launch inputs, never input
 // supplied by the user requesting a preview: its bundle, when the release
 // was published to a registry (Image names the bundle), or the image it
-// recorded on this forge's Docker.
+// recorded on this AppTown's Docker.
 type Release struct {
 	ProjectID             ids.ID
 	Number                int64
@@ -49,12 +49,12 @@ var (
 	ErrReleasedVersionMissing = fault.New(fault.NotFound, "released version not found")
 	ErrReleaseInputs          = fault.New(fault.Unprocessable, "a recorded image and selected source are required before this release can be previewed")
 	// A release not published to a registry is previewed from the image it
-	// recorded on this forge's own Docker.
+	// recorded on this AppTown's own Docker.
 	ErrReleaseNoLocalDocker = fault.New(fault.Unprocessable, "this release was not published to a registry, and this AppTown has no local Docker to run the image it recorded; a release landed since releases are built on the worker can be previewed")
 )
 
 // recordedImage is a release's eligibility and a copy of the inputs it
-// recorded on this forge's Docker. CommitSHA is a release receipt;
+// recorded on this AppTown's Docker. CommitSHA is a release receipt;
 // SourceSHA identifies its runnable source tree.
 func recordedImage(r *deployment.Release) (Release, error) {
 	if r.State != deployment.Released {
@@ -68,8 +68,8 @@ func recordedImage(r *deployment.Release) (Release, error) {
 
 // previewOf is what a preview of rel boots: its bundle's images by digest,
 // when the release was published to a registry (built on the worker), where
-// changes' previews boot; otherwise the image it recorded on this forge's
-// Docker, which a forge with no local Docker does not have.
+// changes' previews boot; otherwise the image it recorded on this AppTown's
+// Docker, which an AppTown with no local Docker does not have.
 func (s *Service) previewOf(ctx context.Context, rel *deployment.Release) (Release, error) {
 	if rel.State != deployment.Released {
 		return Release{}, ErrReleasedVersionMissing

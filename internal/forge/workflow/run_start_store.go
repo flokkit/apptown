@@ -191,7 +191,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		}
 	}
 	first := def.Spec.Stages[0].Name
-	at := s.now() // the forge's time the run was made
+	at := s.now() // AppTown's time the run was made
 	number, err := queries.NextRunNumber(ctx, req.ProjectID)
 	if err != nil {
 		return nil, err

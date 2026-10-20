@@ -143,7 +143,7 @@ func TestALandingAdmittedBeforePinningMergesNothing(t *testing.T) {
 
 // A merge whose inspection lacks a required fact or receipt is never
 // settled: it stays pending, holding its landing, with nothing recorded,
-// and startup goes on (one record never stops the forge from starting).
+// and startup goes on (one record never stops AppTown from starting).
 func TestStartupMergeInspectionLeavesAMergeWithoutItsReadsOrReceiptPending(t *testing.T) {
 	t.Parallel()
 	for _, failure := range []string{"missing repo", "receipt"} {

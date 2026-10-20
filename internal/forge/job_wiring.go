@@ -166,7 +166,7 @@ func (jobQueue) EnqueueIn(ctx context.Context, tx *database.Tx, r jobs.Request) 
 	return insertJobIn(ctx, tx, r, time.Time{})
 }
 
-// insertJobIn is the forge's one transactional job insert: on the kind's
+// insertJobIn is AppTown's one transactional job insert: on the kind's
 // queue, with the attempt budget for its key, due after (zero: now). Only
 // the deletion pass asks for a later start.
 func insertJobIn(ctx context.Context, tx *database.Tx, r jobs.Request, after time.Time) error {

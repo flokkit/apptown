@@ -16,7 +16,7 @@ import (
 )
 
 // DindConfig is the private Docker daemon a change console gets: the agent
-// builds and runs its own containers there, never on the forge's daemon.
+// builds and runs its own containers there, never on AppTown's daemon.
 // The daemon and its builder use this machine's resolvers and search
 // domains, and the launch's mirror (dind.DaemonOptions).
 type DindConfig struct {

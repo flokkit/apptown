@@ -21,7 +21,7 @@ type ProjectTransfer struct {
 	work       *workflow.Service
 	deployment *deployment.Service
 	db         *database.DB
-	now        func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now        func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewProjectTransfer(projects *project.Projects, access *identity.Service, work *workflow.Service, deployment *deployment.Service, db *database.DB, now func() time.Time) ProjectTransfer {

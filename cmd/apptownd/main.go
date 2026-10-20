@@ -244,7 +244,7 @@ func main() {
 	}
 	defer forge.BridgeLogs(app)()
 	if o.backfillMain {
-		// The one-shot runs with no forge serving: its clock is the real one.
+		// The one-shot runs with no AppTown serving: its clock is the real one.
 		report, err := projectlifecycle.BackfillRecordedMain(ctx, db, dataDir, clock.Or(nil))
 		if err != nil {
 			log.Fatalf("backfill recorded main: %v", err)
@@ -306,7 +306,7 @@ func main() {
 		app.RecoverAdoptions() // settle outstanding intents before verifying adoptions
 		app.VerifyAdoptions(ctx)
 		// A hub left without its hook accepts every push: each is named, so
-		// the operator can repair it; the rest of the forge still boots.
+		// the operator can repair it; the rest of AppTown still boots.
 		if err := app.InstallNoPushHooks(); err != nil {
 			log.Printf("no-push hooks: some project hubs accept pushes:\n%v", err)
 		}
@@ -316,7 +316,7 @@ func main() {
 		if err := app.EnsureAuthorization(ctx); err != nil {
 			return fmt.Errorf("authorization setup: %w", err)
 		}
-		// The forge's UUID exists from its first start: exports, backups and
+		// AppTown's UUID exists from its first start: exports, backups and
 		// the former ids a cutover keeps are named by it.
 		forgeID, err := app.Access.ForgeID(ctx)
 		if err != nil {
@@ -385,7 +385,7 @@ func main() {
 	// the shared deadline or close resources still used by timed-out work.
 }
 
-// forgeConfig is the forge's configuration as the flags state it, before
+// forgeConfig is AppTown's configuration as the flags state it, before
 // the worker, console and inference settings main adds.
 func (o *daemonFlags) forgeConfig(dataDir string) forge.Config {
 	return forge.Config{

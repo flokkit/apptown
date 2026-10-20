@@ -1,4 +1,4 @@
--- A set of copies of a deployment's data: where its files are (the forge's
+-- A set of copies of a deployment's data: where its files are (AppTown's
 -- disk or the backup store), what each item is and its digest, and the
 -- data class it was taken from. It outlives the deployment it was taken of
 -- and is kept with its project until the project is purged.
@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS backups (
   taken_at     TIMESTAMPTZ NOT NULL,
   trigger      TEXT NOT NULL DEFAULT 'manual',        -- manual | scheduled | release
   actor        TEXT NOT NULL DEFAULT '',
-  -- The taker's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The taker's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   path         TEXT NOT NULL DEFAULT '',              -- the set's directory under <data>/backups
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS restore_rehearsals (
   outcome        TEXT NOT NULL,
   failed_step    TEXT NOT NULL DEFAULT '',
   asked_by       TEXT NOT NULL,
-  -- The asker's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The asker's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   asked_by_principal UUID,
   asked_by_via TEXT NOT NULL DEFAULT '',
   facts_json     JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS restore_rehearsals (
 );
 -- What a rehearsal makes on the rehearsal host, recorded before it is
 -- made, and when it was seen removed: the sweep removes what an ended
--- rehearsal still owns (one the forge stopped in the middle of, or whose
+-- rehearsal still owns (one AppTown stopped in the middle of, or whose
 -- take-down left something).
 CREATE TABLE IF NOT EXISTS rehearsal_places (
   operation_id UUID PRIMARY KEY,
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS restored_copies (
   gate_secret_sha256 TEXT NOT NULL DEFAULT '',
   app_marker         TEXT NOT NULL DEFAULT '',
   asked_by           TEXT NOT NULL,
-  -- The asker's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The asker's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   asked_by_principal UUID,
   asked_by_via TEXT NOT NULL DEFAULT '',
   outcome            TEXT NOT NULL DEFAULT '',
@@ -141,13 +141,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS restored_copies_number ON restored_copies (pro
 -- by its SHA-256 only. Redeeming it (within a minute, once) is the person's
 -- entry: the redeemed rows with check_operation 0 are who opened the copy
 -- and when. check_operation names the copy's own start when the ticket is
--- the forge's check of its gate: issued to the forge, redeemed by that
+-- AppTown's check of its gate: issued to AppTown, redeemed by that
 -- operation while it runs, and never a person's entry.
 CREATE TABLE IF NOT EXISTS restored_copy_tickets (
   ticket_sha256   TEXT PRIMARY KEY,
   copy_id UUID NOT NULL REFERENCES restored_copies(id) ON DELETE CASCADE,
   person          TEXT NOT NULL,
-  -- The holder's principal and way of acting (access.Actor); NULL for the forge's own gate check, or one not resolved to a person.
+  -- The holder's principal and way of acting (access.Actor); NULL for AppTown's own gate check, or one not resolved to a person.
   person_principal UUID,
   person_via TEXT NOT NULL DEFAULT '',
   issued_at       TIMESTAMPTZ NOT NULL,

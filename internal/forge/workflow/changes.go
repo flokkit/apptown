@@ -20,7 +20,7 @@ type Changes struct {
 	clocked
 }
 
-// NewChanges is change commands outside Work's runs; now is the forge's
+// NewChanges is change commands outside Work's runs; now is AppTown's
 // clock (nil the real one).
 func NewChanges(db *database.DB, authority access.Authorizer, now func() time.Time) Changes {
 	return Changes{db: db, authority: commandAuthority{db: db, checked: authority, clocked: clocked{now}}, clocked: clocked{now}}

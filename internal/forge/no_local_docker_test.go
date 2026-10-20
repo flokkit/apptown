@@ -33,7 +33,7 @@ import (
 
 // The no-local-Docker mode.
 
-// ownDockerTripwire is the Docker client given to a forge in the mode. The
+// ownDockerTripwire is the Docker client given to an AppTown in the mode. The
 // mode wraps it (docker.Refusing), so only an attached target's call, which
 // names its host, may reach it; a call without a host fails the test.
 type ownDockerTripwire struct{ t *testing.T }
@@ -45,7 +45,7 @@ func (d ownDockerTripwire) Run(_ context.Context, host string, req docker.Comman
 	return nil, errors.New("no daemon in this test")
 }
 
-// modeApp is a forge started with -no-local-docker on db and dataDir ("" a
+// modeApp is an AppTown started with -no-local-docker on db and dataDir ("" a
 // new one). The mode needs a worker configured; tests that run tasks send
 // them to an in-process worker (onWorker).
 func modeApp(t *testing.T, db *database.DB, dataDir string) *App {
@@ -54,9 +54,9 @@ func modeApp(t *testing.T, db *database.DB, dataDir string) *App {
 		Worker: workerClientConfig(t, workertest.NewCA(t), "https://worker.invalid")})
 }
 
-// drainApp is the forge with its own Docker on db and dataDir, run with
+// drainApp is AppTown with its own Docker on db and dataDir, run with
 // -drain-local-docker. Its Docker lists containers (each a line as the drain
-// asks docker ps for it: name, then its forge.class, forge.task, forge.step
+// asks docker ps for it: name, then its AppTown.class, forge.task, forge.step
 // and forge.writes labels, tab-separated); it is asked nothing else.
 func drainApp(t *testing.T, db *database.DB, dataDir string, containers ...string) *App {
 	t.Helper()
@@ -70,7 +70,7 @@ func drainApp(t *testing.T, db *database.DB, dataDir string, containers ...strin
 }
 
 // The mode starts only with a worker and an external database: the built-in
-// database is a container on the forge's own Docker.
+// database is a container on AppTown's own Docker.
 func TestTheNoLocalDockerModeNeedsAWorkerAndAnExternalDatabase(t *testing.T) {
 	t.Parallel()
 	worker := workerClientConfig(t, workertest.NewCA(t), "https://worker.invalid")
@@ -88,7 +88,7 @@ func TestTheNoLocalDockerModeNeedsAWorkerAndAnExternalDatabase(t *testing.T) {
 	}
 }
 
-// In the mode the forge's own Docker and its project-process runner refuse,
+// In the mode AppTown's own Docker and its project-process runner refuse,
 // before any process starts, while its own Git still runs and an attached
 // target's scope reaches the Docker client with that target's host.
 func TestTheNoLocalDockerModeRefusesTheForgesOwnDockerAndProjectProcesses(t *testing.T) {
@@ -188,9 +188,9 @@ func TestTheDrainIntoTheNoLocalDockerModeIsRefusedWhileLocalWorkIsLeft(t *testin
 	})
 }
 
-// A forge in the mode cannot see its own Docker, so a forge that last ran
+// An AppTown in the mode cannot see its own Docker, so an AppTown that last ran
 // with it is not admitted to the mode until a drain has witnessed that
-// Docker. An agent on a forge without a worker runs with no task attempt, so
+// Docker. An agent on an AppTown without a worker runs with no task attempt, so
 // a crash leaves only its step recorded running and its container: startup
 // repair ends the step, and the drain still refuses while Docker lists the
 // container, naming it. Once Docker lists no execution container (a release
@@ -316,8 +316,8 @@ func TestAFreshDatabaseStartsInTheNoLocalDockerMode(t *testing.T) {
 }
 
 // A restart in the mode after a start in it is not a cutover: nothing local
-// can have run since, so a step the forge left running (here one that runs
-// in the forge itself, with no task) does not stop the start, and startup
+// can have run since, so a step AppTown left running (here one that runs
+// in AppTown itself, with no task) does not stop the start, and startup
 // repair settles it as on any restart.
 func TestARestartInTheNoLocalDockerModeIsNotACutover(t *testing.T) {
 	t.Parallel()
@@ -368,8 +368,8 @@ func TestTheNoLocalDockerCutoverRefusesCleanupNeedingAttention(t *testing.T) {
 	}
 }
 
-// A chat the forge ran keeps the drain into the mode refused until it has
-// ended. Then the drain is recorded and the forge starts in the mode; the chat cannot be woken, its record stays,
+// A chat AppTown ran keeps the drain into the mode refused until it has
+// ended. Then the drain is recorded and AppTown starts in the mode; the chat cannot be woken, its record stays,
 // and its change is handed to a workflow without asking Docker who writes
 // its folder.
 func TestALocalChatIsEndedBeforeTheNoLocalDockerModeAndHandsItsChangeOn(t *testing.T) {
@@ -405,7 +405,7 @@ func TestALocalChatIsEndedBeforeTheNoLocalDockerModeAndHandsItsChangeOn(t *testi
 		t.Fatalf("the old chat's record: %+v %v", meta, err)
 	}
 	// The next holder (a chat on the worker) takes the change through the
-	// holder rule, with this forge's presence.
+	// holder rule, with this AppTown's presence.
 	next := scm.ChatHolder(b.Console.NewSessionID())
 	if err := b.DB.InTx(context.Background(), func(tx *database.Tx) error {
 		_, err := workflow.TakeChangeIn(context.Background(), tx, w.change.ProjectID, w.change.Branch, next, holderPresenceFor(b), time.Now())
@@ -433,7 +433,7 @@ func TestAScriptRunsOnTheWorkerInTheNoLocalDockerMode(t *testing.T) {
 }
 
 // Interrupting an agent step whose attempt runs as a task records the stop
-// and has the task's backend (here a worker) confirm it, on any forge; a
+// and has the task's backend (here a worker) confirm it, on any AppTown; a
 // stop the backend does not confirm is reported, and stays recorded.
 func TestInterruptingAStepStopsItsTaskConfirmed(t *testing.T) {
 	t.Parallel()

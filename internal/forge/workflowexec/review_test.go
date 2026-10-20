@@ -189,7 +189,7 @@ func TestTheReviewerIsToldWhereMandatedReportsLive(t *testing.T) {
 
 // A change whose report was written but not committed (the diff touches
 // none of it) passes review when the reviewer passes it: the reviewer is
-// shown the collected report as the claim, and no forge rule fails it.
+// shown the collected report as the claim, and no AppTown rule fails it.
 func TestAnUncommittedReportIsShownToTheReviewerAndPasses(t *testing.T) {
 	t.Parallel()
 	const report = "CHANGED greeting.go: says hello in te reo"
@@ -219,8 +219,8 @@ func TestAnUncommittedReportIsShownToTheReviewerAndPasses(t *testing.T) {
 	}
 }
 
-// The forge's file check is not the reviewer: when it fails a review the
-// model passed, the recorded failure is the forge's and the reviewer's own
+// AppTown's file check is not the reviewer: when it fails a review the
+// model passed, the recorded failure is AppTown's and the reviewer's own
 // summary is kept apart as a pass; when both fail, both are said.
 func TestTheForgesFileCheckFailureIsNotPresentedAsTheReviewers(t *testing.T) {
 	t.Parallel()

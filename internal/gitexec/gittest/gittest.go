@@ -1,5 +1,5 @@
 // Package gittest runs git for tests through gitexec, so a test's git
-// behaves like the forge's own (no optional locks, the folder in PWD) and a
+// behaves like AppTown's own (no optional locks, the folder in PWD) and a
 // failure stops the test with git's own words.
 package gittest
 

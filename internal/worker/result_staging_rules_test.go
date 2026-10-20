@@ -16,7 +16,7 @@ import (
 // under .apptown is left out even where the project's rules do not ignore it
 // (a project started from existing code need not, and a step's report is
 // written there), but one the rules re-include, or one already tracked, is
-// in it (whether it may enter the change's branch is the forge's check on
+// in it (whether it may enter the change's branch is AppTown's check on
 // import); the native contract is, even when ignored; and collecting again
 // returns the same result.
 func TestACollectionReturnsWhatGitTakes(t *testing.T) {

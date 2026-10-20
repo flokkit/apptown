@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
-// An empty remediation list serialises as [], never null — the forge's
+// An empty remediation list serialises as [], never null — AppTown's
 // own first browser error was the page reading the length of null.
 func TestRemediationListIsNeverNull(t *testing.T) {
 	t.Parallel()

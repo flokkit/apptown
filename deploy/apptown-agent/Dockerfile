@@ -54,8 +54,8 @@ RUN case "$(dpkg --print-architecture)" in amd64) t=x86_64;; arm64) t=aarch64;; 
 
 # mise: the toolchain layer of the ambient build environment
 # (design/subsystems/registries.md §5). Tools install at step time from the repo's
-# mise.toml, cached under MISE_DATA_DIR in the forge-cache volume; registry
-# routing comes from the forge-generated /etc/mise/config.toml at run time.
+# mise.toml, cached under MISE_DATA_DIR in AppTown-cache volume; registry
+# routing comes from AppTown-generated /etc/mise/config.toml at run time.
 # MISE_MIRROR is overridable to pull mise itself through a local proxy.
 ARG MISE_VERSION=v2026.8.12
 ARG MISE_MIRROR=https://github.com
@@ -143,7 +143,7 @@ RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache cl
 # Runtime version surfaces in step evidence via this label (receipts).
 LABEL forge.pi.version=${PI_VERSION}
 
-# pi-subagents: the one extension the forge blesses (delegation to cheaper
+# pi-subagents: the one extension AppTown blesses (delegation to cheaper
 # model slots). Installed into a baked HOME at build time; each session's
 # generated pi-home symlinks this npm dir and lists the package in its
 # settings, so session start never touches the network. The label is how
@@ -172,7 +172,7 @@ RUN cd /tmp && HOME=/opt/pi-baked PI_SKIP_VERSION_CHECK=1 \
     rm -rf /tmp/warm /tmp/pi-subagents-uid-0; test -d /tmp/jiti
 LABEL forge.pi-subagents.version=${PI_SUBAGENTS_VERSION}
 
-# pi-lsp: an OPT-IN extension (design: the forge blesses baked extensions and
+# pi-lsp: an OPT-IN extension (design: AppTown blesses baked extensions and
 # enables them per project). Baked into the same /opt/pi-baked HOME as
 # pi-subagents at a pinned version; a project turns it on and its packages list
 # gains npm:@narumitw/pi-lsp. Off by default — trust:never means a repo can't

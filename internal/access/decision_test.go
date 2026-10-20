@@ -223,7 +223,7 @@ func TestInstrumentTable(t *testing.T) {
 // production, are a person's acts: no scope an agent can be given carries
 // deployment:restore or deployment:open-restored, so neither an agent token
 // nor an OAuth delegation ever does, and no instrument (a chat, a step, an
-// eval, the forge's trigger) holds them; a project owner does. Opening is
+// eval, AppTown's trigger) holds them; a project owner does. Opening is
 // not a read: no read role (an Auditor, a viewer) carries it.
 func TestNoScopeCarriesRestore(t *testing.T) {
 	for _, c := range []access.Capability{access.CapDeploymentRestore, access.CapDeploymentOpenRestored} {

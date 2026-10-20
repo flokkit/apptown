@@ -62,7 +62,7 @@ func TestReplacingAChatsFilesCannotFollowTheChatsLinks(t *testing.T) {
 	}
 }
 
-// A chat's record read by the forge cannot be a worker file the chat links to.
+// A chat's record read by AppTown cannot be a worker file the chat links to.
 func TestAChatsRecordCannotShowTheWorkersFiles(t *testing.T) {
 	c := startRemoteChats(t, console.Static{})
 	s := c.open(t)
@@ -139,7 +139,7 @@ func TestARebuildIsRefusedWhileTheChatRuns(t *testing.T) {
 
 // From the round-2 review (R2-F4), with the production pi runtime and its
 // real PTY and viewers (only Docker's answers and the attached process are
-// stand-ins): stopping the chat ends the terminal the forge has open on it,
+// stand-ins): stopping the chat ends the terminal AppTown has open on it,
 // and the stopped chat can then be rebuilt.
 func TestStoppingAChatEndsItsTerminalOnTheForge(t *testing.T) {
 	bin := t.TempDir()
@@ -277,7 +277,7 @@ func TestAnIncompleteRecordCopyDoesNotEndTheChat(t *testing.T) {
 	}
 }
 
-// From the review (F4): a terminal that ends on the worker ends for the forge.
+// From the review (F4): a terminal that ends on the worker ends for AppTown.
 func TestATerminalThatEndsOnTheWorkerEndsForTheForge(t *testing.T) {
 	c := startRemoteChats(t, console.Static{})
 	s := c.open(t)

@@ -113,7 +113,7 @@ func (e *Deployment) Admit(base *int64) (generation int64, readiness Readiness, 
 }
 
 // Retire decides whether a target may be retired and what its status
-// becomes: never the forge's own host; already retired is
+// becomes: never AppTown's own host; already retired is
 // ErrTargetRetired, which callers treat as nothing to do; a target with
 // deployments still bound to it (named by the caller) is refused.
 func (t *Target) Retire(bound string) (TargetState, error) {

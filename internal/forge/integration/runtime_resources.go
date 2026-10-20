@@ -152,7 +152,7 @@ func (s *Service) RegistryFor(ctx context.Context, projectID ids.ID) *Registry {
 // attachment.
 //
 // An eval copy is attached nothing, so it has no registry here: nothing it
-// declares is pulled with a credential. The forge publishes a copy's
+// declares is pulled with a credential. AppTown publishes a copy's
 // releases itself (EvalPublication), to that copy's own repository only.
 func (s *Service) Registry(ctx context.Context, projectID ids.ID) (*Registry, error) {
 	binding, resJSON, err := s.Attachments.Attached(ctx, projectID, CapContainerRegistry)

@@ -6,7 +6,7 @@ import (
 	"flokkit.io/forge/internal/deploy/docker"
 )
 
-// servedRecord is what a preview this forge booted serves: its incarnation,
+// servedRecord is what a preview this AppTown booted serves: its incarnation,
 // the commit it was booted from ("" for a change's folder, which is not a
 // commit), and the public prepared values it was booted with, its contract
 // among them. A runtime check judges a preview against this record, never
@@ -21,9 +21,9 @@ type servedRecord struct {
 	Public      docker.PublicPrepared
 }
 
-// servedPreviews holds the records by preview name, in memory: a forge
+// servedPreviews holds the records by preview name, in memory: an AppTown
 // that starts again discards every preview, and their records with them.
-// Each name also counts the forge's decisions to discard it: a boot keeps
+// Each name also counts AppTown's decisions to discard it: a boot keeps
 // its record only if no discard was decided since it began, so a discard
 // wins over a boot already in flight, and the reconciliation removes what
 // that boot left.

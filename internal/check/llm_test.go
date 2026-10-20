@@ -80,7 +80,7 @@ func TestCheckFileGlobsSpanDirectoriesOnlyWhereTheySayTo(t *testing.T) {
 
 // A file a check names by its exact path is evidence even inside a directory
 // the walk skips: the runtime-contract check names .apptown/app.yaml, and a
-// committed contract must not read as missing. The forge's own runtime state
+// committed contract must not read as missing. AppTown's own runtime state
 // beside it stays out, and a symlinked directory never leads outside the tree.
 func TestNamedFilesAreEvidenceEvenUnderSkippedDirectories(t *testing.T) {
 	t.Parallel()

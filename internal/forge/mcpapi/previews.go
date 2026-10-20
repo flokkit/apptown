@@ -22,7 +22,7 @@ type PreviewsDependencies struct {
 		State(context.Context, *workflow.Change) preview.Status
 	}
 	DB *database.DB
-	// Now is the forge's clock, which stamps the tool's receipt (the real
+	// Now is AppTown's clock, which stamps the tool's receipt (the real
 	// clock when nil).
 	Now func() time.Time
 }

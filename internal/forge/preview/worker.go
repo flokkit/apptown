@@ -22,8 +22,8 @@ import (
 // Previews on a worker (design/operations/workers.md, "Previews on the
 // worker").
 // With a worker, a change's and a run's previews boot there and nowhere
-// else: the forge prepares the tree and every value the boot reads, the
-// worker boots them, and the forge's proxy forwards visitors to them.
+// else: AppTown prepares the tree and every value the boot reads, the
+// worker boots them, and AppTown's proxy forwards visitors to them.
 // A release's preview boots there too when the release was published to a
 // registry, from its images by digest (release_boot.go); a release
 // recorded before then boots on this machine, with the image it recorded.
@@ -45,7 +45,7 @@ type Worker interface {
 	Forward(name, publicScheme string) *httputil.ReverseProxy
 }
 
-// The forge keeps only the previews on the worker it has a record of
+// AppTown keeps only the previews on the worker it has a record of
 // (servedPreviews): deciding to discard one forgets its record first, and
 // tryHoldPreview holds a preview's name unless a boot holds it now.
 func (s *Service) tryHoldPreview(name string) (unlock func(), busy bool) {
@@ -57,14 +57,14 @@ func (s *Service) tryHoldPreview(name string) (unlock func(), busy bool) {
 	return m.Unlock, false
 }
 
-// ReconcileWorkerPreviews removes every preview on the worker the forge has
+// ReconcileWorkerPreviews removes every preview on the worker AppTown has
 // no record of and is not booting. A removal that never reached the worker
 // is therefore made on a later pass, however long the worker was away,
 // and a boot that finished after its change closed is removed the same way.
 
 // holdPreview holds one preview's name from the start of its boot on the
 // worker until its record is kept, so a reconciliation never takes a
-// preview for one the forge has no record of while it boots.
+// preview for one AppTown has no record of while it boots.
 func (s *Service) holdPreview(name string) func() {
 	v, _ := s.booting.LoadOrStore(name, &sync.Mutex{})
 	m := v.(*sync.Mutex)
@@ -72,7 +72,7 @@ func (s *Service) holdPreview(name string) func() {
 	return m.Unlock
 }
 
-// ReconcileWorkerPreviews removes each preview on the worker this forge has
+// ReconcileWorkerPreviews removes each preview on the worker this AppTown has
 // no record of, and is not booting. Until the start-up removal is
 // confirmed it does nothing: that removal covers every preview.
 func (s *Service) ReconcileWorkerPreviews(ctx context.Context) error {
@@ -108,7 +108,7 @@ func (s *Service) ReconcileWorkerPreviews(ctx context.Context) error {
 // RunWorkerPreviewReconciliation, every interval (a minute) until ctx ends,
 // asks the worker again to remove the previews from before this start
 // while that removal is unconfirmed, then reconciles the worker's previews
-// with the forge's records. An unconfirmed removal is therefore tried
+// with AppTown's records. An unconfirmed removal is therefore tried
 // again within a minute; until it is confirmed, reconciliation does nothing.
 func (s *Service) RunWorkerPreviewReconciliation(ctx context.Context) {
 	t := time.NewTicker(s.startClear.every)
@@ -137,11 +137,11 @@ func (e *UnavailableError) Unwrap() error         { return e.Cause }
 func (e *UnavailableError) FaultKind() fault.Kind { return fault.Unavailable }
 
 // ErrNoDomain refuses previews on a worker without a preview domain:
-// they are reached only through the forge's preview proxy, by name.
+// they are reached only through AppTown's preview proxy, by name.
 var ErrNoDomain = fault.Wrap(fault.Unprocessable, errors.New("previews run on the worker, and are reached through AppTown's preview domain, which this AppTown does not have (-tier-domain preview=<domain>)"))
 
 // IsAppBootFailure says whether a preview's failure is the app's to answer
-// for: anything but a place previews run that could not be asked, or a forge
+// for: anything but a place previews run that could not be asked, or an AppTown
 // that cannot run previews there.
 func IsAppBootFailure(err error) bool {
 	var unavailable *UnavailableError
@@ -153,7 +153,7 @@ func (s *Service) PreviewsOnWorker() bool { return s != nil && s.worker != nil }
 
 // PreviewServedOnWorker says whether the preview by this container name is
 // served on the worker: a change's and a run's previews boot there when the
-// forge has one; a release's look only when the forge recorded booting it
+// AppTown has one; a release's look only when AppTown recorded booting it
 // there (ServedOnWorker); a standing deployment never.
 func (s *Service) PreviewServedOnWorker(name string) bool {
 	return s.PreviewsOnWorker() && (docker.IsWorkPreviewName(name) || s.ServedOnWorker(name))
@@ -178,8 +178,8 @@ func (o changeObservation) ObservePreview(ctx context.Context) Observation {
 }
 
 // observeChange answers where a change's preview is served and whether it
-// runs: on the worker when the forge has one (unavailable when the worker
-// cannot be asked); otherwise on this forge's own Docker (unavailable when
+// runs: on the worker when AppTown has one (unavailable when the worker
+// cannot be asked); otherwise on this AppTown's own Docker (unavailable when
 // it has none, never "not running"). With nothing running, a change still
 // in progress whose workspace declares no app has nothing to preview.
 func (s *Service) observeChange(ctx context.Context, projectID, changeID ids.ID, inProgress bool) Observation {
@@ -213,15 +213,15 @@ func (s *Service) observeChange(ctx context.Context, projectID, changeID ids.ID,
 
 // PreviewsHaveDomain reports whether previews are reached at their own
 // preview-domain address. That address is the one a chat's container can
-// reach too: a preview on this forge's own Docker publishes its port on the
+// reach too: a preview on this AppTown's own Docker publishes its port on the
 // host's loopback only, which no container and no other machine reaches.
 func (s *Service) PreviewsHaveDomain() bool {
 	return s != nil && s.env.Routes().PreviewDomain != ""
 }
 
-// PreviewsHostOnly says whether a preview's address answers on the forge
+// PreviewsHostOnly says whether a preview's address answers on AppTown
 // host only: with no preview domain a preview is at its published port on
-// this forge's own Docker (Routing.PortAddressesHostOnly).
+// this AppTown's own Docker (Routing.PortAddressesHostOnly).
 func (s *Service) PreviewsHostOnly() bool {
 	return s != nil && !s.PreviewsHaveDomain() && s.env.Routes().PortAddressesHostOnly()
 }
@@ -256,7 +256,7 @@ func (s *Service) removeOnWorker(ctx context.Context, name string) error {
 	return nil
 }
 
-// claimAgainIfLost claims the worker again, as the forge does when it
+// claimAgainIfLost claims the worker again, as AppTown does when it
 // starts, when the worker lost the order of its previews' requests: every
 // preview there goes, and each boots again when asked.
 func (s *Service) claimAgainIfLost(ctx context.Context, err error) {
@@ -283,9 +283,9 @@ type LiveChange struct {
 }
 
 // LiveChangePreviews lists the changes' previews running now, where they run:
-// on the worker when one is configured, else on this forge's own Docker.
+// on the worker when one is configured, else on this AppTown's own Docker.
 // When that place cannot be asked it is an error, never an empty list: a
-// worker that does not answer is UnavailableError, a forge with no
+// worker that does not answer is UnavailableError, an AppTown with no
 // local Docker docker.ErrNoLocalBackend. The worker's list is its cleanup
 // inventory (stopped containers and kept folders too), so each listed
 // preview is asked for its state, and only a running one is live; a state the worker cannot give makes the whole answer
@@ -325,7 +325,7 @@ func (s *Service) LiveChangePreviews(ctx context.Context) ([]LiveChange, error) 
 	return out, nil
 }
 
-// startClear is the forge's start-up removal of every preview on the
+// startClear is AppTown's start-up removal of every preview on the
 // worker. Until the worker confirms it, no preview boots there: a boot
 // could otherwise be removed by the retry, or keep one from before the
 // start. The worker previews' loop (RunWorkerPreviewReconciliation) tries
@@ -336,7 +336,7 @@ type startClear struct {
 	every   time.Duration // the worker previews' loop's interval
 }
 
-// RemoveWorkerPreviews removes every preview on the worker: a forge that
+// RemoveWorkerPreviews removes every preview on the worker: an AppTown that
 // starts again boots each again when asked. If the worker cannot confirm
 // it now, it stays pending for the worker previews' loop to try again, and
 // worker previews wait for it.

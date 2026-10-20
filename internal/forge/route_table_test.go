@@ -342,7 +342,7 @@ func TestARunIsFoundByItsFriendlyFormAndARenameKeepsTheNumbers(t *testing.T) {
 // A link made before 1.0 named a change, run, step, ADR or guidance block
 // by the integer it had then; the identity cutover kept each in former_ids.
 // The API answers such a number with the record, and its page moves to the
-// record's id. Only this forge's former identities answer.
+// record's id. Only this AppTown's former identities answer.
 func TestALinkMadeBefore1Point0FindsItsRecord(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
@@ -368,7 +368,7 @@ func TestALinkMadeBefore1Point0FindsItsRecord(t *testing.T) {
 	}{
 		{forge, "changes", "41", fx.Change}, {forge, "runs", "42", fx.Run}, {forge, "steps", "43", fx.Accept},
 		{forge, "adrs", "44", adr.ID}, {forge, "guidance_blocks", "45", block.ID},
-		{idstest.N(77), "changes", "46", fx.Change}, // another forge's
+		{idstest.N(77), "changes", "46", fx.Change}, // another AppTown's
 	} {
 		// The identity cutover wrote former_ids, and it is gone.
 		// sql-guarantee: no owner operation writes former_ids now.
@@ -435,7 +435,7 @@ func TestRouteResolutionHonorsRequestCancellation(t *testing.T) {
 
 // Opening a restored copy of production is a person's act in their
 // browser: the only door that issues a ticket is a POST, held to
-// deployment:open-restored, so the forge's mutation protection covers it
+// deployment:open-restored, so AppTown's mutation protection covers it
 // and no link another site shows can open a copy in a person's name. A GET
 // of the same path reaches no handler of it. The gate's redemption is a
 // protocol door outside the API, authenticated by the copy's gate secret.

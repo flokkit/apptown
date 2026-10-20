@@ -11,8 +11,8 @@ import (
 
 // Execute applies Forge cache mounts, labels and host routing to an explicit
 // process request. The runner retains bounded cancellation and container cleanup.
-// at is the forge's time the step's container is made (its forge.created
-// label, which maintenance judges by the forge's clock). The cache is the
+// at is AppTown's time the step's container is made (its AppTown.created
+// label, which maintenance judges by AppTown's clock). The cache is the
 // project's that ctx is scoped to (WithCacheScope), or none.
 func Execute(runner execution.Runner, ctx context.Context, backend string, req execution.Request, at time.Time) execution.Outcome {
 	if backend == execution.Docker {

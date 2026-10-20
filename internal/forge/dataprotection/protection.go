@@ -20,11 +20,11 @@ import (
 
 // Protection is how a deployment's data is protected, item by item, as the
 // records and the provider say now (design/subsystems/deployment.md,
-// "Protecting data off-host"): the forge's own copies and how recent they are, the
+// "Protecting data off-host"): AppTown's own copies and how recent they are, the
 // provider's own backups, and when a copy was last seen to come back.
 // Unknown is said, never shown as none.
 
-// CopyState is how recent an item's forge copies are.
+// CopyState is how recent an item's AppTown copies are.
 type CopyState string
 
 const (
@@ -32,16 +32,16 @@ const (
 	CopyFresh CopyState = "fresh"
 	// CopyStale: older than that, or the last copy failed.
 	CopyStale CopyState = "stale"
-	// CopyUnknown: the last copy was interrupted, or the forge could not
+	// CopyUnknown: the last copy was interrupted, or AppTown could not
 	// ask; shown with the newest good copy's time.
 	CopyUnknown CopyState = "unknown"
-	// CopyNone: the forge holds no copy of it.
+	// CopyNone: AppTown holds no copy of it.
 	CopyNone CopyState = "none"
 	// CopyDisposable: the app declared it disposable; it starts empty.
 	CopyDisposable CopyState = "disposable"
 )
 
-// CopyCadence is how often the forge copies production data; a copy is
+// CopyCadence is how often AppTown copies production data; a copy is
 // fresh within the cadence plus six hours.
 const CopyCadence = 24 * time.Hour
 
@@ -49,7 +49,7 @@ const CopyCadence = 24 * time.Hour
 type Protection struct {
 	Deployment string `json:"deployment"`
 	DataClass  string `json:"dataClass"`
-	// OffHost says the forge keeps this deployment's copies off its host,
+	// OffHost says AppTown keeps this deployment's copies off its host,
 	// in the attached backup store. Production data without it reads
 	// "not protected off-host".
 	OffHost bool `json:"offHost"`
@@ -66,7 +66,7 @@ type Protection struct {
 	Target string `json:"target"`
 	// Operations says, for each operation on its data, whether it can start
 	// now and when not why, each from its own door's admission check. Nil
-	// on a target where the forge takes no copies of its own.
+	// on a target where AppTown takes no copies of its own.
 	Operations *DataOperations `json:"operations,omitempty"`
 	// TakeDown is what taking it down would do to its data now, in plain
 	// words: a final copy, then the cluster deleted; or, with no final copy
@@ -97,8 +97,8 @@ type Protection struct {
 }
 
 // Coverage is the scope of a deployment's protection answer: each item the
-// forge assessed, by name, and each thing it did not, with why. Data the
-// app keeps outside its deployment is never assessed: the forge cannot
+// AppTown assessed, by name, and each thing it did not, with why. Data the
+// app keeps outside its deployment is never assessed: AppTown cannot
 // tell from an app's settings which outside stores hold its data, and a
 // database's fresh copy says nothing of an upload in a bucket. So no
 // answer here is a whole application's protection, even when no item of
@@ -109,7 +109,7 @@ type Coverage struct {
 }
 
 // OutsideNotAssessed is the limit every protection answer carries. The
-// backup store holds the forge's copies; it is not an app's own bucket.
+// backup store holds AppTown's copies; it is not an app's own bucket.
 const OutsideNotAssessed = "data the app keeps outside the needs it declares, such as a bucket or a database it reaches with its own settings"
 
 // assess adds an item's row and says whether it was assessed: an item
@@ -176,7 +176,7 @@ func availabilityOf(err error) Availability {
 func (s *Service) operationsOf(ctx context.Context, dep *deployment.Deployment, t *deployment.Target, items []backupPlanItem, unread error) *DataOperations {
 	_, restore := s.planRestoredCopy(ctx, dep.ProjectID, dep.Name, ids.Nil)
 	_, rehearsal := s.planRehearsal(ctx, dep.ProjectID, dep.Name, ids.Nil)
-	// A take-down of a deployment whose backups the forge takes itself
+	// A take-down of a deployment whose backups AppTown takes itself
 	// always takes its final set first.
 	final := Availability{Available: true}
 	if t.HoldsBackups() != nil {
@@ -330,7 +330,7 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 		return nil, err
 	}
 	switch {
-	case t.HoldsBackups() == nil: // the forge takes its own backups here
+	case t.HoldsBackups() == nil: // AppTown takes its own backups here
 		return out, s.dockerProtection(ctx, out, dep, t, store != nil)
 	case t.DataAccess() != deployment.DataOnManagedPlatform:
 		out.Note = "copies of this deployment's data are on the Backups page"
@@ -425,7 +425,7 @@ func newestCopyOf(sets []Backup, it backupPlanItem) *CopyRef {
 // when older or when the last copy failed; unknown when the last copy was
 // interrupted; none when there is no copy. A failed last copy reads stale
 // whatever the times say: an operation's time is the database's clock and
-// a copy's the forge's, so ordering one against the other could show a
+// a copy's AppTown's, so ordering one against the other could show a
 // later failure as earlier than the good copy before it.
 func copyState(last *CopyRef, lastOp *operations.Operation, now time.Time) (CopyState, string) {
 	if lastOp != nil && lastOp.State == operations.Unknown {
@@ -494,7 +494,7 @@ const NativeReadFor = 5 * time.Minute
 // forge's disk, and for the operations only App Platform has so far.
 var (
 	// ErrOnForgeDisk: with no store attached a Docker host's backups stay
-	// on the forge's own disk, which a rehearsal does not read from.
+	// on AppTown's own disk, which a rehearsal does not read from.
 	ErrOnForgeDisk error = &deployment.Unavailable{Reason: "on-apptown-disk", Why: "A rehearsal needs a backup store."}
 	// ErrDockerBackupsPage: a Docker host's deployment is copied by its
 	// backups, from the Backups page, not by a copy operation.

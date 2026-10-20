@@ -357,8 +357,8 @@ func formerNumber(s string) bool {
 	return err == nil && n > 0 && strconv.FormatInt(n, 10) == s
 }
 
-// formerID is the record this forge's former identity names (audit.FormerID),
-// this forge being the one its forge.id setting names. A forge without one
+// formerID is the record this AppTown's former identity names (audit.FormerID),
+// this AppTown being the one its AppTown.id setting names. An AppTown without one
 // kept no former identities.
 func formerID(ctx context.Context, db database.Queryer, kind, old string) (ids.ID, error) {
 	value, err := identity.InstanceSettingIn(ctx, db, identity.SettingForgeID)
@@ -373,7 +373,7 @@ func formerID(ctx context.Context, db database.Queryer, kind, old string) (ids.I
 }
 
 // formerPage serves a page that names a record by {id}: a former number
-// this forge kept moves, permanently, to the same page at the record's id,
+// this AppTown kept moves, permanently, to the same page at the record's id,
 // the change page's run= and step= with it; anything else is the SPA's. The
 // redirect names an id and grants nothing: reading the record needs the
 // authority it always needed.

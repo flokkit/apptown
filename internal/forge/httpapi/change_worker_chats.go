@@ -30,7 +30,7 @@ type WorkerChatView struct {
 	Live bool `json:"live"`
 	// Saved is its last save; absent before its first.
 	Saved *ConsoleSave `json:"saved,omitempty"`
-	// RecordAsOf is when the forge last copied its conversation.
+	// RecordAsOf is when AppTown last copied its conversation.
 	RecordAsOf *time.Time `json:"recordAsOf,omitempty"`
 	// Refused is an ended chat's refused last save, kept for its download.
 	Refused *RefusedLastSave `json:"refused,omitempty"`

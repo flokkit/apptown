@@ -202,6 +202,6 @@ func TestTheStoreStampsByItsClock(t *testing.T) {
 }
 
 // NewVault and NewBindings are the store's parts on the real clock, for
-// these tests; Service's carry the forge's.
+// these tests; Service's carry AppTown's.
 func NewVault(db *database.DB) *Vault       { return &Vault{db: db} }
 func NewBindings(db *database.DB) *Bindings { return &Bindings{db: db} }

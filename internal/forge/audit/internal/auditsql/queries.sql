@@ -10,7 +10,7 @@ AND (sqlc.arg(kind_prefix)::text='' OR a.kind LIKE sqlc.arg(kind_prefix)||'%')
 AND (sqlc.arg(subject)::text='' OR a.subject=sqlc.arg(subject))
 ORDER BY a.id DESC LIMIT sqlc.arg(row_limit);
 
--- A project's ledger lines, for moving it to another forge.
+-- A project's ledger lines, for moving it to another AppTown.
 -- name: ExportProjectLedger :many
 SELECT to_jsonb(l)::text FROM audit_log l WHERE l.project_id = $1 ORDER BY l.id;
 
@@ -21,7 +21,7 @@ SELECT to_jsonb(l)::text FROM audit_log l WHERE l.project_id = $1 ORDER BY l.id;
 SELECT DISTINCT split_part(actor, ' via ', 1)::text AS name FROM audit_log
 WHERE split_part(actor, ' via ', 1) = ANY(sqlc.arg(names)::text[]);
 
--- The record a former identity names: this forge's row for the converted
+-- The record a former identity names: this AppTown's row for the converted
 -- table (kind) and the identity it had before the cutover (old).
 -- name: FormerID :one
 SELECT id FROM former_ids WHERE forge = sqlc.arg(forge) AND kind = sqlc.arg(kind) AND old = sqlc.arg(old);

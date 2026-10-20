@@ -174,8 +174,8 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 // at ReleasePath. A public part that declares no identity leaves which
 // release answers unwitnessed, and the log says so; it is never assumed.
 //
-// A gated deployment's front door is the forge's gate, which answers 404 to
-// anyone without a credential: it is not asked here. The forge's own checks
+// A gated deployment's front door is AppTown's gate, which answers 404 to
+// anyone without a credential: it is not asked here. AppTown's own checks
 // ask the app through the gate with the gate secret, and record only status
 // codes; nothing here reads a response body of a gated deployment.
 func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep *doDeployment, generation int64, readinessPath, release string, gated bool, logf func(string, ...any)) (deploy.Observation, error) {
@@ -355,7 +355,7 @@ func providerNameGrace(rawURL string, created time.Time) time.Time {
 
 // notYet reports whether a front door request failed, before until, only
 // because the platform's new name did not answer: DNS said it does not
-// exist, or it gave no address the forge has a route to (an IPv6-only
+// exist, or it gave no address AppTown has a route to (an IPv6-only
 // answer on a host without IPv6). Go's dialer already tries every address
 // it is given, IPv4 and IPv6, so an unreachable error means none connected.
 // It says so once per check (waiting).
@@ -374,7 +374,7 @@ func notYet(err error, now, until time.Time, waiting *bool, logf func(string, ..
 	return true
 }
 
-// awaitProviderName waits, for a gated copy whose front door the forge
+// awaitProviderName waits, for a gated copy whose front door AppTown
 // does not ask here, while url's host is the platform's new name, DNS says
 // it does not exist and until has not passed. It asks every three poll
 // intervals (30 seconds by default), so a resolver's cached negative answer

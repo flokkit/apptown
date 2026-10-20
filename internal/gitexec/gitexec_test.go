@@ -149,7 +149,7 @@ func TestIsObjectIDAcceptsOnlyFullLowercaseHex(t *testing.T) {
 	}
 }
 
-// The forge reads the status of a change's workspace while the person or
+// AppTown reads the status of a change's workspace while the person or
 // agent working in it may be committing: the change page asks every few
 // seconds. A status read that refreshes the index takes .git/index.lock and
 // a commit landing at that moment fails with "index.lock exists". The

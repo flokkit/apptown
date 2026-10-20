@@ -18,8 +18,8 @@ import (
 	"flokkit.io/forge/internal/gitexec/gittest"
 )
 
-// A change's branch behind main is caught up by the forge before its agent
-// step on a worker: main is merged in (an ordinary merge, the forge's, the
+// A change's branch behind main is caught up by AppTown before its agent
+// step on a worker: main is merged in (an ordinary merge, AppTown's, the
 // change's work then main), the step works on that merge and sees main's
 // files, its work builds on it, the run records the merge, and the branch
 // then contains main, as the landing's check requires.

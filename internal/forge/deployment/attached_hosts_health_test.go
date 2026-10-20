@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// On a forge with no Docker of its own, Docker deploys are as healthy as
+// On an AppTown with no Docker of its own, Docker deploys are as healthy as
 // the attached Docker hosts they go to: one that answers makes them
 // working, naming it; none attached says to attach one.
 func TestDockerDeploysWithNoLocalDockerAreTheAttachedHostsHealth(t *testing.T) {

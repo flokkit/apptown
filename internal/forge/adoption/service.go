@@ -83,7 +83,7 @@ type Dependencies struct {
 	// transaction changed, in that transaction. The composition root wires
 	// it; nil requests none (owner tests that are not about it).
 	Reviews ReviewRequests
-	// Now is the forge's clock, which stamps each revision; nil is the
+	// Now is AppTown's clock, which stamps each revision; nil is the
 	// real one.
 	Now func() time.Time
 }

@@ -39,7 +39,7 @@ import (
 const CapContainerRegistry = "container-registry"
 
 // ErrNoOfferedRegistry is a project with no container registry for which
-// the forge cannot choose one: no container-registry connector, or
+// AppTown cannot choose one: no container-registry connector, or
 // several. Its message names the choice a person makes.
 var ErrNoOfferedRegistry = fault.New(fault.Unprocessable, "no container registry is attached")
 
@@ -50,7 +50,7 @@ var ErrNoOfferedRegistry = fault.New(fault.Unprocessable, "no container registry
 // GitLab connector provisions, as an attach by its linked path does; any
 // other is attached with the repository <url>/<group>/<slug>, the naming
 // provisioning uses, and no credential of its own: the connector's
-// (username, tokenFrom) is read when used. With none or several the forge
+// (username, tokenFrom) is read when used. With none or several AppTown
 // cannot choose, and ErrNoOfferedRegistry names the choice. A project that
 // has an attachment keeps it. The attachment and its receipt are recorded
 // as any other, by who.
@@ -129,7 +129,7 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 
 	// Revoke the token this project was provisioned before, or mint
 	// nothing: the attachment holds one token, and minting over one GitLab
-	// still honours would leave a live registry credential the forge no
+	// still honours would leave a live registry credential AppTown no
 	// longer knows. Only a project with no attachment provisions its first;
 	// a token GitLab no longer has (404) is gone already.
 	oldRes, err := Resource(ctx, s.Bindings.db, p.ID, CapContainerRegistry)

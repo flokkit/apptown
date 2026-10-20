@@ -48,7 +48,7 @@ export function BigChangeBox({ slug }: { slug: string }) {
   // The door opens an address, so only deployments that have one qualify:
   // an intranet deployment that was bound but never released has none
   // (it once sent Duck Storm's Open to about:blank). An address that
-  // answers on the forge host only is no door for anyone elsewhere.
+  // answers on the AppTown host only is no door for anyone elsewhere.
   const addressed = envs.filter((e) => !!e.url && !e.hostOnly)
   const best = addressed.find((e) => e.name === 'lan') ?? addressed.find((e) => e.running) ?? addressed[0]
 

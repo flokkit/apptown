@@ -54,7 +54,7 @@ func TestIntegrationAnUpgradeKeepsAnExistingDatabase(t *testing.T) {
 		_ = exec.Command("docker", "network", "rm", NetworkName(stack)).Run()
 		_ = exec.Command("docker", "volume", "rm", NeedVolumeName(stack, "postgres")).Run()
 	})
-	// sql-guarantee: the application's own database, inside its container, not the forge's.
+	// sql-guarantee: the application's own database, inside its container, not AppTown's.
 	psql("CREATE TABLE IF NOT EXISTS kept (v text); INSERT INTO kept VALUES ('before the upgrade')")
 	before := dk.Text(context.Background(), "inspect", "-f", "{{.Id}}", cname)
 

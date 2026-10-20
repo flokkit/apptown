@@ -21,7 +21,7 @@ type IntegrationListing struct {
 	health       ConnectorHealth
 	docker       *docker.Scope
 	formats      []string
-	now          func() time.Time // the forge's clock, which dates a health reading
+	now          func() time.Time // AppTown's clock, which dates a health reading
 }
 
 func NewIntegrationListing(integrations *integration.Service, deployment *deployment.Service, health ConnectorHealth, docker *docker.Scope, formats []string, now func() time.Time) IntegrationListing {
@@ -123,7 +123,7 @@ type IntegrationEntry struct {
 	UsedBy     IntegrationUse     `json:"usedBy"`
 	Health     integration.Health `json:"health"`
 	// Testable: Test connection asks the service with this configuration,
-	// whether or not the forge checks the kind on every reading.
+	// whether or not AppTown checks the kind on every reading.
 	Testable bool `json:"testable"`
 }
 

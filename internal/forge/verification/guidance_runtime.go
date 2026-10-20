@@ -25,7 +25,7 @@ import (
 // the preview that could not be found. The step holds on those rather than
 // pass.
 //
-// A pinned landing (candidate set) probes only a preview the forge recorded
+// A pinned landing (candidate set) probes only a preview AppTown recorded
 // booting from the candidate itself (a change being landed is previewed as
 // its candidate): any other may serve an earlier source or later edits. With
 // none, its runtime checks are not judged; the rules above decide whether
@@ -120,7 +120,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 		if !contractOnly {
 			resolve()
 		}
-		// No preview to probe is the forge's fault, never the implementer's:
+		// No preview to probe is AppTown's fault, never the implementer's:
 		// the change must not be sent to rework over it.
 		ev := check.Evaluation{Declared: sc.Declared(), Mode: check.Gate,
 			Outcome: check.CannotAssess, Detail: why, Fault: true}
@@ -163,7 +163,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 		res.Detail = strs.Truncate(ev.Detail, 600)
 		if res.Verdict != workflow.VerdictPass && res.Verdict != workflow.VerdictFail {
 			// Whatever the probe could not answer reads one way on the
-			// record: the forge could not assess it.
+			// record: AppTown could not assess it.
 			res.Verdict = workflow.VerdictCannotAssess
 		}
 		results = append(results, res)
@@ -174,7 +174,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 // previewBooted says whether this run has already started its preview: a
 // preview step of the run passed. Such a run requires that preview for its
 // runtime checks, so not finding it now (stopped, no port, a failed read) is
-// the forge's to answer. A run that has not booted one, because its workflow
+// AppTown's to answer. A run that has not booted one, because its workflow
 // has none (the landing) or boots it in a later stage, records its runtime
 // checks unjudged. Witnessed from the run's steps, not inferred from its
 // workflow's shape: inferred, a preview in a later stage would make an

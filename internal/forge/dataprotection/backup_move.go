@@ -18,19 +18,19 @@ import (
 // Moving sets to the store (design/subsystems/deployment.md, "Backups and
 // restore"):
 // while a backup store is attached, every set is kept there. A set taken
-// on the forge's disk before the store was attached is moved by the daily
+// on AppTown's disk before the store was attached is moved by the daily
 // sweep, oldest first: each file is written to the store and held to the
 // digest its record names, the manifest is written beside them, the row
 // is changed in one guarded update, and only then is the folder removed.
 // A set that does not match its record stays on the disk, saying why, and
 // is pruned there in its turn.
 //
-// A forge that stops after the row changes and before the folder is
+// An AppTown that stops after the row changes and before the folder is
 // removed leaves the folder: the row is the place of record and points at
 // the checked objects, so nothing reads it again, and a person removes it
 // (stock/docs/guides/running-apptown.md). The move logs its name first.
 
-// MoveSetsToStore moves every set still on the forge's disk to the
+// MoveSetsToStore moves every set still on AppTown's disk to the
 // attached store; without a store there is nothing to move. It answers
 // how many moved and, for each that stayed, why.
 func (s *Service) MoveSetsToStore(ctx context.Context) (moved int, left []string, err error) {
@@ -147,11 +147,11 @@ func (s *Service) moveSet(ctx context.Context, c *s3bucket.Client, store *Backup
 	return "", nil
 }
 
-// ClearStaging removes what takes and restores left staged on the forge's
-// disk more than a day ago: a forge that stopped mid-take leaves its
+// ClearStaging removes what takes and restores left staged on AppTown's
+// disk more than a day ago: an AppTown that stopped mid-take leaves its
 // staging folder. An operation's own staging is removed when it ends.
 // A folder's age is its modification time, which the operating system
-// stamped, so it is judged by the system clock, not the forge's.
+// stamped, so it is judged by the system clock, not AppTown's.
 func (s *Service) ClearStaging() (int, error) {
 	now := clock.System()
 	dir := filepath.Join(s.dataDir, "backups", ".staging")

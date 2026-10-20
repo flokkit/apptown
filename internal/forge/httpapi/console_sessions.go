@@ -42,7 +42,7 @@ func (h ConsoleSessions) View(r *http.Request, s *console.Session) ConsoleSessio
 		ContinuedFrom: s.ResumedFrom, Turn: s.Activity(),
 		OpenedBy: s.Actor, MayAct: h.chats.MayAct(r.Context(), s),
 	}
-	// A session whose container has no forge CLI is degraded (it cannot
+	// A session whose container has no AppTown CLI is degraded (it cannot
 	// preview, invoke, or complain): say so instead of degrading quietly.
 	if _, err := h.cli.Path(); err != nil {
 		v.CLIMissing = true
@@ -77,11 +77,11 @@ type ConsoleSessionView struct {
 	// Turn is "working" while the agent has the turn, "handed-back" once it
 	// answered, and empty before anyone has spoken in the chat.
 	Turn console.Turn `json:"turn,omitempty"`
-	// Placement is "worker" for a chat on the worker; empty on the forge.
+	// Placement is "worker" for a chat on the worker; empty on AppTown.
 	Placement string `json:"placement,omitempty"`
 	// Saved is a worker chat's last save; absent before its first.
 	Saved *ConsoleSave `json:"saved,omitempty"`
-	// RecordAsOf is when the forge last copied a worker chat's conversation.
+	// RecordAsOf is when AppTown last copied a worker chat's conversation.
 	RecordAsOf *time.Time `json:"recordAsOf,omitempty"`
 }
 

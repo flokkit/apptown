@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS secret_values (
   value      TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL,
   created_by TEXT NOT NULL DEFAULT '',
-  -- The setter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The setter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   created_by_principal UUID,
   created_by_via TEXT NOT NULL DEFAULT '',
   UNIQUE(scope, name, version)
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS secret_bindings (
   generated   BIGINT NOT NULL DEFAULT 0,
   updated_at  TIMESTAMPTZ NOT NULL,
   updated_by  TEXT NOT NULL DEFAULT '',
-  -- The binder's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The binder's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   updated_by_principal UUID,
   updated_by_via TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (project_id, deployment, name)

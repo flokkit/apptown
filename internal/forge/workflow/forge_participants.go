@@ -64,7 +64,7 @@ func ArmScheduleIn(ctx context.Context, q database.Queryer, project ids.ID, work
 // artifact body is text when it is text and bytes when it is not (a file
 // an agent produced, a log with a stray byte): Postgres TEXT holds only
 // valid UTF-8 without NUL, and it must never be handed a mutated copy of a
-// value and told the write succeeded. at is the forge's time of its making,
+// value and told the write succeeded. at is AppTown's time of its making,
 // which an approval brief compares with its run's step finishes.
 func AddArtifactIn(ctx context.Context, q database.Queryer, run ids.ID, kind, name, ref, body string, at time.Time) (ids.ID, error) {
 	sqlq := workflowsql.New(q.SQL())
@@ -77,7 +77,7 @@ func AddArtifactIn(ctx context.Context, q database.Queryer, run ids.ID, kind, na
 }
 
 // SlotSpendIn is the tokens burned per model slot by steps finished after
-// since (a time on the forge's clock, which stamps a step's finish), from
+// since (a time on AppTown's clock, which stamps a step's finish), from
 // step evidence: input and output per slot. Workflow steps only; chat
 // turns are the usage ledger's.
 func SlotSpendIn(ctx context.Context, q database.Queryer, since time.Time) (map[string]map[string]int64, error) {

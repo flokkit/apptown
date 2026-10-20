@@ -59,7 +59,7 @@ func taskRecoveryFixture(t *testing.T, script string) (*App, *workflow.Step, str
 	return a, snapshot.Steps[0], workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
 }
 
-// crashAt runs the step with the forge "dying" at stage: the runner returns
+// crashAt runs the step with AppTown "dying" at stage: the runner returns
 // without collecting, as a process that exited there would.
 func crashAt(t *testing.T, a *App, step *workflow.Step, stage string) {
 	t.Helper()

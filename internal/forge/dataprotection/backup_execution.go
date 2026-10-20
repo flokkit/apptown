@@ -37,7 +37,7 @@ import (
 // instance's database, copied from the target's copy runner.
 type backupPlanItem struct {
 	Kind, Name, File, How, Restore string
-	Volume                         string      // the volume this item copies ("" when its data is in none the forge can name)
+	Volume                         string      // the volume this item copies ("" when its data is in none AppTown can name)
 	Listed                         bool        // the volume is on the deployment's list: a take-down deletes it
 	Step                           docker.Step // the command whose stdout is the copy (a file copy)
 	Container                      string      // for a need: where the restore runs
@@ -114,7 +114,7 @@ func needItem(d *dependency.Kind, need, container string) backupPlanItem {
 }
 
 // TakeBackup takes one set for a standing deployment and records
-// it. The deployment must be on a Docker host the forge talks to.
+// it. The deployment must be on a Docker host AppTown talks to.
 func (s *Service) TakeBackup(ctx context.Context, projectID ids.ID, deploymentName, trigger, actor string) (*Backup, error) {
 	// A project being deleted, or deleted, takes no new data work; a
 	// restore's safety copy was admitted with its restore.
@@ -132,7 +132,7 @@ func (s *Service) TakeBackup(ctx context.Context, projectID ids.ID, deploymentNa
 	if err != nil || !dep.Standing() {
 		return nil, fmt.Errorf("no standing deployment named %q", deploymentName)
 	}
-	// A target that cannot be read is not one known to take the forge's
+	// A target that cannot be read is not one known to take AppTown's
 	// backups: the refusal for one that keeps its own is never skipped.
 	t, err := s.targets.ByID(ctx, dep.TargetID)
 	if err != nil {
@@ -151,7 +151,7 @@ func (s *Service) TakeBackup(ctx context.Context, projectID ids.ID, deploymentNa
 // takeSet copies each planned item into one new set, records it with its
 // receipt, and prunes the deployment's older sets (not for a safety copy).
 // The set goes to the backup store when one is attached, staged on the
-// forge's disk only while it uploads; without one it stays on the forge's
+// forge's disk only while it uploads; without one it stays on AppTown's
 // disk (design/subsystems/deployment.md, "Backups and restore").
 func (s *Service) takeSet(ctx context.Context, dk docker.Scope, projectID ids.ID, slug, deploymentName string, plan []backupPlanItem, trigger, actor string) (*Backup, error) {
 	store, err := s.Store(ctx)
@@ -231,7 +231,7 @@ func (s *Service) takeSet(ctx context.Context, dk docker.Scope, projectID ids.ID
 	if b.Status == BackupFailed {
 		b.Error = b.Items[0].Error
 	}
-	// The record is what the forge reads; a manifest missing beside the
+	// The record is what AppTown reads; a manifest missing beside the
 	// copies is said on it, not hidden. On the disk it is written before
 	// the record; in the store, once the set has its id, as a managed
 	// copy's is.
@@ -393,7 +393,7 @@ func containerConnection(ctx context.Context, dk docker.Scope, kind *dependency.
 //
 // It is the body of a restore operation (RequestRestore, restore_operation.go):
 // rec writes each step and each fact as it happens, a container's id
-// before it is stopped and again once it is started, so a forge that stops
+// before it is stopped and again once it is started, so an AppTown that stops
 // part way leaves what was done on the record, and what it stopped and did
 // not start again is named. It asks the admitting authority again before
 // the safety set and before each item.
@@ -487,7 +487,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	}
 	// Nothing writes the data while it is put back: every application part
 	// is stopped first, as for a final backup. The deployment's list says
-	// what the forge recorded creating; the running release names every
+	// what AppTown recorded creating; the running release names every
 	// part, so the public container and the release's other parts are
 	// stopped even where the list predates recording them. A part that will
 	// not stop refuses the restore before anything is written.

@@ -20,25 +20,25 @@ attaching another target under that name is refused with a 409 that says the
 target was retired and a new name is needed.
 
 A target's record holds two kinds of fact. Its configuration comes from where
-the target is declared: the forge itself for the built-in host, the
+the target is declared: AppTown itself for the built-in host, the
 cloud-account connector for an App Platform target (region, registry, sizes),
-forge configuration for the intranet's Portainer. Its settings are what an
+AppTown configuration for the intranet's Portainer. Its settings are what an
 administrator states with `PATCH /api/v1/targets/<name>`: the domain, the
 evals and rehearsals marks, persistent volumes, previews, the needs mode and
-the copy runner. The forge records the targets it derives from configuration
+the copy runner. AppTown records the targets it derives from configuration
 at every start, and an App Platform target again whenever its connector is
 saved (`Targets.Sync`). That sync supplies a setting's first value when it
 creates the target; after that the setting is the administrator's and no sync
 changes it: a domain the connector or configuration names is used only when
 the target is created. Everything that uses the domain reads the target's
 setting: an intranet release's hosts and address, the release plan's
-"it will live at" address, and the origins the forge allows
+"it will live at" address, and the origins AppTown allows
 (`Service.IntranetConfig`), so a release on an intranet target with its domain cleared is refused
 until one is set. A sync that changes a configuration fact moves the
 settings revision and records a `target.refreshed` receipt, with before and
-after, to the forge at a start or to the person who saved the connector; a
+after, to AppTown at a start or to the person who saved the connector; a
 sync that changes nothing writes nothing. The built-in host takes no edits,
-so all of its record is the forge's own. A sync, a settings edit and a retirement each
+so all of its record is AppTown's own. A sync, a settings edit and a retirement each
 take the targets table lock before the target's row, so overlapping ones
 queue rather than deadlock; an edit started before a sync that changed the
 record is refused as moved. A sync changes only the facts its source owns, so
@@ -175,11 +175,11 @@ buildx the daemon's legacy builder builds. The worker's task keeps its
 private `forge` builder. Recorded release images are
 never rebuilt.
 
-The file server answers two forge paths. `/_apptown/env.js` gives the page its
+The file server answers two AppTown paths. `/_apptown/env.js` gives the page its
 browser values (`APPTOWN_BROWSER_ENV`), and answers `{}` when the variable is
 unset or empty, whatever the target set (App Platform sets none). `/_apptown/release` answers
 `APPTOWN_RELEASE`, the public static part's release identity,
-`<part>@<revision>` (`appcontract.Contract.PublicRelease`). The forge sets it
+`<part>@<revision>` (`appcontract.Contract.PublicRelease`). AppTown sets it
 from the selected source, never from a component's environment, on every
 target: App Platform's renderer, a Docker host's boot (after the contract's
 and the secrets' values, so neither can stand in for it) and Portainer's
@@ -189,8 +189,8 @@ What each target's readiness witnesses:
 
 | Kind | Witnessed |
 | --- | --- |
-| `docker-host` | the container the forge started, by its labels and port. For a static site served from a revision (a landing, a promotion, a recovery) whose image serves itself, that `/_apptown/release` answers this release's identity, as on App Platform. For an earlier-form bundle, or a preview of a worktree (no revision), that `/_apptown/env.js` answers (only the forge's file server configuration serves it) |
-| `do-app` | the platform's deployment for this generation is active (the platform's own probe); the forge asks the front door only when the contract declares an HTTP readiness path, and, when the public part is a static site, that `/_apptown/release` answers this release's identity. Otherwise the release log says which release answers is not witnessed |
+| `docker-host` | the container AppTown started, by its labels and port. For a static site served from a revision (a landing, a promotion, a recovery) whose image serves itself, that `/_apptown/release` answers this release's identity, as on App Platform. For an earlier-form bundle, or a preview of a worktree (no revision), that `/_apptown/env.js` answers (only AppTown's file server configuration serves it) |
+| `do-app` | the platform's deployment for this generation is active (the platform's own probe); AppTown asks the front door only when the contract declares an HTTP readiness path, and, when the public part is a static site, that `/_apptown/release` answers this release's identity. Otherwise the release log says which release answers is not witnessed |
 | `portainer` | the stack was accepted; health is unknown. `/_apptown/release` answers, but nothing asks it |
 
 Every bundle cut since then records that its static images serve themselves
@@ -205,13 +205,13 @@ boot of an earlier-form static site requires.
 
 ## Where a release comes from
 
-On a forge with a worker, every target runs a release bundle by digest from
+On an AppTown with a worker, every target runs a release bundle by digest from
 the project's registry ([release bundles](deployment.md#release-bundles)):
 
 | Kind | Receives a landing | Receives a promotion | Builds |
 | --- | --- | --- | --- |
 | `docker-host` (built-in or attached over ssh) | yes, `main` | yes | never; pulls the digests and confirms `RepoDigests` |
-| `do-app` | no | yes | never; the forge copies each digest into DOCR |
+| `do-app` | no | yes | never; AppTown copies each digest into DOCR |
 | `portainer` | no | yes | never; the stack names each digest |
 
 Release previews boot a bundle by digest where change previews boot,
@@ -224,19 +224,19 @@ others.
 
 App Platform keeps the copies in the account's one DOCR registry, one
 repository per project, named after its slug. The repository is the
-forge's: the first copy creates it and the forge records it per project and
-connector. A repository of that name the forge did
+forge's: the first copy creates it and AppTown records it per project and
+connector. A repository of that name AppTown did
 not create refuses the release, at preflight and before any copy; the
 one-time ownership inspection can propose one an earlier release made, for
 an administrator to approve. When the project's last deployment on that
 connector, on any App Platform target, is taken down, every image in the
-repository is deleted. The forge starts no garbage collection: while one runs
+repository is deleted. AppTown starts no garbage collection: while one runs
 DOCR takes no pushes, so one started by a take-down would fail the next
 release. The space, and the empty
 repository's name (DOCR has no call to delete a repository and lists it
 until a collection runs), are freed by a collection an operator runs or
-DigitalOcean schedules. An image someone else pushed into the forge's
-repository is deleted with the rest: don't push to the forge's
+DigitalOcean schedules. An image someone else pushed into AppTown's
+repository is deleted with the rest: don't push to AppTown's
 repositories. Attaching the target and checking it read the registry's plan
 (subscription tier) and how many of its repositories are used from
 DigitalOcean, and record the reading in the `target.checked` receipt; the
@@ -260,7 +260,7 @@ the refusing answer's host (DOCR's registry or its token service), not from
 the step the copy was in: the copy reads the source's layers while it
 pushes. A refusal by the release's own registry is said as it is.
 
-On a forge without a worker, Docker hosts build from the committed tree and
+On an AppTown without a worker, Docker hosts build from the committed tree and
 record image IDs; such a bundle is reused only on the target its images live
 on.
 
@@ -279,7 +279,7 @@ the driver's need module (`internal/deploy/digitalocean/storage.go`):
   `spaces-key`), not `need_instances`; the key's secret is in the built-in
   secret store under `need:deployment:<id>`. A later release reuses them.
 - The app spec gives the contract's variables, the secret as a `SECRET` env.
-- The forge copies the bucket's objects like a database: from the
+- AppTown copies the bucket's objects like a database: from the
   copy runner, as the deployment's own key (`BucketConnection`), into the
   backup store, and checks a copy by filling a new store of the kind on the
   copy runner. A start from a copy, a restored copy and a restore test fill
@@ -304,12 +304,12 @@ sentence.
 - **Attaching** names the store's endpoint, region, website address
   template (`https://{bucket}.{region}-static.digitaloceanspaces.com`) and
   the secrets holding its key pair (`accessKeyFrom`, `secretKeyFrom`). The
-  store must accept the key before the target is saved. The forge creates
+  store must accept the key before the target is saved. AppTown creates
   buckets, so the key is a full-access key: it can read, write and
   configure every bucket in its team. Attaching and checking say so, and
   recommend a key (and, where other data must be out of reach, a team) for
-  the forge alone.
-- **Each standing deployment owns one bucket**, created by the forge on its
+  AppTown alone.
+- **Each standing deployment owns one bucket**, created by AppTown on its
   first release and recorded on the deployment (`Deployments.RecordOwned`)
   before anything else touches it. A taken name is refused, never adopted.
   Don't store anything else in a deployment's bucket: taking the deployment

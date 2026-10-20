@@ -21,8 +21,8 @@ type releaseBoots struct{ service *Service }
 // BootReleasePreview executes only under the command's Runtime ownership.
 // A release published to a registry boots from its bundle's images by
 // digest, building nothing: on the worker when changes' previews boot
-// there, else on this forge's Docker. A release recorded before then boots
-// the image it recorded on this forge's Docker.
+// there, else on this AppTown's Docker. A release recorded before then boots
+// the image it recorded on this AppTown's Docker.
 func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) (ReleaseResult, error) {
 	s := h.service
 	if err := s.refusesCopyPreview(ctx, selected.ProjectID); err != nil {
@@ -97,7 +97,7 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 // bootReleaseOnWorker boots a published release's preview on the worker,
 // from its images by digest, with the values a change's preview is given
 // (the preview credential among them). The worker keeps a running
-// incarnation that matches. The forge keeps its record, so the worker's
+// incarnation that matches. AppTown keeps its record, so the worker's
 // reconciliation leaves it and visitors are forwarded to it.
 func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slug, label, stackID, tree string, c *appcontract.Contract, b *deployment.ReleaseBundle, revision string) (ReleaseResult, error) {
 	name := docker.PreviewLabelName(label)
@@ -125,7 +125,7 @@ func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slu
 	return ReleaseResult{Result: Result{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0), Revision: revision, Incarnation: incarnation, Public: &public}}, nil
 }
 
-// ServedOnWorker says whether the forge keeps a record of a preview it
+// ServedOnWorker says whether AppTown keeps a record of a preview it
 // booted on the worker by this name: where a release's preview is reached.
 func (s *Service) ServedOnWorker(name string) bool {
 	if !s.PreviewsOnWorker() {

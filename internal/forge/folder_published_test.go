@@ -31,7 +31,7 @@ import (
 // The run's folder after a worker task's result. A result is recorded for
 // the folder before it is published; the folder is then brought forward,
 // confined. A folder the
-// forge will not run Git in stays where it is and is behind, and every
+// AppTown will not run Git in stays where it is and is behind, and every
 // reader of the run's work reads the published commit instead.
 
 // folderRun is a run whose first step, a script on a worker, has made
@@ -50,7 +50,7 @@ type folderRun struct {
 }
 
 // publishedFolderRun makes a folderRun for a run on a change or without one.
-// With refuse set, the folder is given one inert config key the forge's
+// With refuse set, the folder is given one inert config key AppTown's
 // clone does not write, before the script runs.
 func publishedFolderRun(t *testing.T, onChange, refuse bool) folderRun {
 	t.Helper()
@@ -131,7 +131,7 @@ exit 0
 	w := folderRun{a: a, fake: fake, run: run, source: workflowSourceForTest(t, a, run), scanned: scanned, state: state}
 	w.hub, w.ws = w.source.Repository(a.cfg.dataDir), w.source.Workspace(a.cfg.dataDir)
 	if !onChange {
-		// The run's folder, made by the forge's own clone as a run's
+		// The run's folder, made by AppTown's own clone as a run's
 		// preparation makes it.
 		if _, err := (workflow.GitWorkspace{DataDir: a.cfg.dataDir}).EnsureClone(context.Background(), workflow.CloneRequest{Repository: w.hub, Workspace: w.ws, Branch: w.source.Branch, DefaultBranch: "main"}); err != nil {
 			t.Fatal(err)
@@ -218,7 +218,7 @@ func (w folderRun) readsThePublishedCommit(t *testing.T) {
 	}
 }
 
-// A folder the forge's own clone made is brought forward to the result and
+// A folder AppTown's own clone made is brought forward to the result and
 // is not behind: its readers read it, at the published commit.
 func TestAFolderTheForgeClonedIsBroughtForward(t *testing.T) {
 	t.Parallel()
@@ -242,7 +242,7 @@ func TestAFolderTheForgeClonedIsBroughtForward(t *testing.T) {
 	}
 }
 
-// A folder with one inert config key the forge's clone does not write is
+// A folder with one inert config key AppTown's clone does not write is
 // refused: it stays at A, it is behind (the record written by the result
 // itself, none by the test), its files are not shown, the refusal is noted
 // on the run, and every reader reads the published B.
@@ -345,7 +345,7 @@ func TestAResultNeverPublishedLeavesTheFolderShown(t *testing.T) {
 
 // The state a crash between a result's publication and the folder's
 // fast-forward leaves (here a lock another Git left in the folder stops the
-// fast-forward): the folder, which the forge would run Git in, is behind,
+// fast-forward): the folder, which AppTown would run Git in, is behind,
 // and its readers read the branch.
 func TestAResultPublishedButNotTakenIsReadFromTheBranch(t *testing.T) {
 	t.Parallel()

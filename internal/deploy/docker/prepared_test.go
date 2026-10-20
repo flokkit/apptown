@@ -54,7 +54,7 @@ func (upProbe) Check(context.Context, Scope, string, string, time.Duration, Rend
 	return true, ""
 }
 
-// liveDeps are resolvers as a forge has them: secrets per consumer, a needs
+// liveDeps are resolvers as an AppTown has them: secrets per consumer, a needs
 // catalog, the integrations' environment and browser values, and routes.
 type liveSecrets struct{}
 
@@ -107,7 +107,7 @@ func bootOnce(t *testing.T, deps Dependencies, c *appcontract.Contract, ws strin
 	return client.calls
 }
 
-// A boot from prepared values is the same boot as one from the forge's own
+// A boot from prepared values is the same boot as one from AppTown's own
 // resolvers: the same containers, with the same secrets per consumer, needs,
 // environment and routes. The prepared value's public part holds none of
 // the secrets, the integrations' environment or the login.

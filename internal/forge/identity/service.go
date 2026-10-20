@@ -20,7 +20,7 @@ import (
 // Config holds construction-time defaults. Stored authorization policy remains
 // live: a long-lived caller never retains a snapshot of its grants.
 type Config struct {
-	// Now is the forge's clock, by which expiries and grants are judged;
+	// Now is AppTown's clock, by which expiries and grants are judged;
 	// nil is the real one.
 	Now          func() time.Time
 	SessionTTL   time.Duration
@@ -113,7 +113,7 @@ func (s *Service) Connection(ctx context.Context, id ids.ID) (*Delegation, error
 	return s.oauth.Connection(ctx, id)
 }
 
-// LiveConnection is the delegation while it is live by the forge's clock;
+// LiveConnection is the delegation while it is live by AppTown's clock;
 // nil when there is none or it has ended.
 func (s *Service) LiveConnection(ctx context.Context, id ids.ID) (*Delegation, error) {
 	d, err := s.oauth.Connection(ctx, id)

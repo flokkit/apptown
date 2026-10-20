@@ -12,7 +12,7 @@ counts only if all of these hold:
 - **The accepter was shown its sentence.** A change's waiting acceptance
   shows what the landing's approvals would ask, read from the landing the
   project's way of working pins (`workflow.LandingMeans`), and every client
-  (the web's decision form, `apptown approve`, `forge loop`) sends back what it
+  (the web's decision form, `apptown approve`) sends back what it
   displayed. The acceptance vote records those sentences as `alsoApproves`
   only if the landing still asks exactly them; if the landing's words changed
   between display and decision the approval is refused (`409`, code
@@ -35,7 +35,7 @@ counts only if all of these hold:
   could not have known (`checkNews`): no step overridden, no step failed,
   errored or waiting on a person, no check errors, no check that could not
   judge the change. What is true of every landing is not news: a scan point
-  with no scanner attached, a runtime check the forge itself could not run
+  with no scanner attached, a runtime check AppTown itself could not run
   (stock land starts no preview), a model check with no model bound. Nor is
   what already fails on main, preexisting or undecided: it is the estate's,
   not the change's doing, and the change's reviewer judged the undecided

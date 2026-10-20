@@ -96,7 +96,7 @@ func RequireProjectMember(authority *identity.Service, authMode string, w http.R
 }
 
 // requireAdmin gates the instance surface. Returns false after writing 403.
-// IsAdmin reports whether the verified caller administers this forge,
+// IsAdmin reports whether the verified caller administers this AppTown,
 // for a read that shows administrators more; any failure to say is no.
 func IsAdmin(authority *identity.Service, r *http.Request) bool {
 	caller, ok := access.CallerFrom(r.Context())

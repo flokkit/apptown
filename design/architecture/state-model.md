@@ -9,7 +9,7 @@ other documents cite them.
 The step beyond coding agents. Coding agents are general — they can do
 almost any task, correctly scaffolded — but by default nothing compounds
 across projects, and nothing about *how* work happened is demonstrable. The
-forge is the machine that fixes both:
+AppTown is the machine that fixes both:
 
 > **A project is checkpointed state plus the attested history of the
 > repeatable tasks that produced it. The apptown runs those tasks — by agents
@@ -56,7 +56,7 @@ A project has three components:
 
 ### 2.1 Pure vs effectful
 
-Computation over state the forge owns can be branched, rerun, discarded and
+Computation over state AppTown owns can be branched, rerun, discarded and
 compared. An **effect** — deploy to a tier, push to a mirror, provision a
 cloud resource — is a merge into a store that cannot be branched: reality.
 **Gates belong at effect boundaries.** Built exactly so: previews are
@@ -86,7 +86,7 @@ from the record.
 State does not live in the repository. Workflows, policies and ADRs are not
 files under `.apptown/`, and the database is not an index of the tree:
 
-- **Code lives in git**, in a hub the forge hosts (`git-state.md`). The only
+- **Code lives in git**, in a hub AppTown hosts (`git-state.md`). The only
   process file in the tree is `.apptown/app.yaml`, the runtime contract, and
   optionally skills under `.agents/skills`. The rest of `.apptown/` is runtime
   scratch the engine refuses to stage.
@@ -220,7 +220,7 @@ person can resolve.
 A pack bundles guidance blocks at pinned versions, workflows at
 pinned library versions, policies, a toolchain, extensions and starter
 files. Packs have versions; a version is cut when the pins change. The
-platform pack `forge` carries what running behind the forge asks of any
+platform pack `forge` carries what running behind AppTown asks of any
 app and the system workflows; it is never offered in the wizard. Rival packs
 coexist (`go-small`, `conventions-only`, the game packs). Packs are not
 published across instances.
@@ -245,7 +245,7 @@ There are no bindings from state paths to required workflows. What governs:
 - **System bindings** let an admin stand a custom workflow in for a stock
   system one for every project at once, with a receipt.
 
-### 7.1 System workflows: the forge's own pack
+### 7.1 System workflows: AppTown's own pack
 
 Workflows carry an **origin** (`stock/…` or
 `lib/…`), stock entries ship inside the binary and are synced into the
@@ -255,7 +255,7 @@ what ran. `metadata.system: true` marks the workflows nobody picks —
 `land`, `ship`, `adopt-integration`, `retire-integration` — and the
 platform pack pins them.
 
-The forge's own maintenance is the conformance reviews and the remediation
+AppTown's own maintenance is the conformance reviews and the remediation
 queue, the container reaper and the recovery passes at boot. The safety
 property is a rule: anything that proposes a change to the
 law opens a Change; nothing mutates directly.

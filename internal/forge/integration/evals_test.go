@@ -19,7 +19,7 @@ import (
 // attached, nothing is attached or remembered for it, and nothing is
 // provisioned. Its releases go to the one offered registry connector under
 // the copy's own repository, with the connector's credential, read by the
-// forge and never attached to the copy.
+// AppTown and never attached to the copy.
 func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
@@ -53,7 +53,7 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 	if attached, err := s.Attachments.IsAttached(t.Context(), copy, CapContainerRegistry); err != nil || attached {
 		t.Fatalf("the copy holds an attachment: %v %v", attached, err)
 	}
-	// Nothing the copy declares is pulled with the forge's credential.
+	// Nothing the copy declares is pulled with AppTown's credential.
 	if got, err := s.Registry(context.Background(), copy); err != nil || got != nil || s.RegistryFor(context.Background(), copy) != nil {
 		t.Fatalf("a copy's general registry: %+v %v", got, err)
 	}
@@ -65,7 +65,7 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 	if err := s.Attachments.Attach(t.Context(), idstest.N(999999), CapErrors, "errors", `{}`, Entered, "someone", nil); err == nil {
 		t.Fatal("an attachment for a project Project cannot read")
 	}
-	// Publication through the forge's registry is a copy's act alone.
+	// Publication through AppTown's registry is a copy's act alone.
 	ordinary, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
 		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "shop", Name: "Shop"})
 	})

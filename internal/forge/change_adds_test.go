@@ -149,7 +149,7 @@ func TestARejectionNeedsNoList(t *testing.T) {
 }
 
 // Every client approves through the API's one approve path: one that does
-// not send the list is refused there, in the forge's words.
+// not send the list is refused there, in AppTown's words.
 func TestTheApproveAPIRefusesAVoteWithoutTheList(t *testing.T) {
 	t.Parallel()
 	f := newAddsFixture(t, "adds-api")
@@ -196,7 +196,7 @@ func landAccepted(t *testing.T, f addsFixture) ids.ID {
 }
 
 // An acceptance counts for the landing's approval of the same commit when
-// the landing reads, through the forge's own reader, the same list the
+// the landing reads, through AppTown's own reader, the same list the
 // accepter was shown; the carried vote records the accepter's list.
 // Workflow's TestAnAcceptanceCarriesOnlyWithTheListItWasShown covers a
 // landing that reads another list.

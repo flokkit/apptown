@@ -6,8 +6,8 @@ import (
 	"flokkit.io/forge/internal/version"
 )
 
-// cmdVersion prints this CLI's version, then the forge's as its answer
-// names it. A forge that cannot be reached is said, not an error: the CLI's
+// cmdVersion prints this CLI's version, then AppTown's as its answer
+// names it. An AppTown that cannot be reached is said, not an error: the CLI's
 // own version is still the answer to "what is this".
 func cmdVersion(args []string) error {
 	fs := newFlags("version")

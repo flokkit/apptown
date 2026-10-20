@@ -59,7 +59,7 @@ func (a *Executor) resolveAgentKnobs(run *workflow.Run, cfg *agentConfig) agentK
 
 // dockerRefusal is why the step is not started, before any effect: a step of
 // a run admitted under the old private-Docker rule, or private Docker
-// declared on a forge started with -no-private-docker.
+// declared on an AppTown started with -no-private-docker.
 func (a *Executor) dockerRefusal(step *workflow.Step, k agentKnobs) string {
 	switch {
 	case workflow.StartedUnderOldDockerRule(step.Config):

@@ -9,7 +9,7 @@ import (
 	"flokkit.io/forge/internal/dbtest"
 )
 
-// releaseDB is a forge as the 1.0 baseline release left it (the root
+// releaseDB is an AppTown as the 1.0 baseline release left it (the root
 // package's upgrade fixture), at schema 147 and not yet upgraded.
 func releaseDB(t *testing.T) *database.DB {
 	t.Helper()
@@ -85,7 +85,7 @@ func TestMigration148MarksOnlyTheChangeClosedByHandForNothingToChange(t *testing
 	}
 }
 
-// A forge upgraded from a release has the shape a fresh forge is created
+// An AppTown upgraded from a release has the shape a fresh AppTown is created
 // with: the same columns in the same order, with the same types, defaults
 // and checks. Queries read whole rows (SELECT *) by position, so a column a
 // migration adds where schema.sql does not put it reads as another.
@@ -130,12 +130,12 @@ WHERE ns.nspname = 'public' AND con.contype = 'c'`)
 	got, want := shape(upgraded), shape(fresh)
 	for line := range want {
 		if !got[line] {
-			t.Errorf("the upgraded forge lacks %s", line)
+			t.Errorf("the upgraded AppTown lacks %s", line)
 		}
 	}
 	for line := range got {
 		if !want[line] {
-			t.Errorf("the upgraded forge has %s, which a fresh one does not", line)
+			t.Errorf("the upgraded AppTown has %s, which a fresh one does not", line)
 		}
 	}
 }

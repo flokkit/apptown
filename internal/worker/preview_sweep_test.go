@@ -258,9 +258,9 @@ func TestAWorkerListsItsPreviews(t *testing.T) {
 	}
 }
 
-// Requests that change a preview are fenced by their token, a forge session
+// Requests that change a preview are fenced by their token, an AppTown session
 // number then a request number: one older than the last the worker acted
-// on for that preview is refused; a forge that starts again, with a greater
+// on for that preview is refused; an AppTown that starts again, with a greater
 // session, claims the worker, removing every preview, whatever numbers the
 // old session reached, and every request of the old session is refused
 // from then on.
@@ -300,7 +300,7 @@ func TestAnOlderRequestNeverUndoesALaterOne(t *testing.T) {
 		t.Fatalf("fixture: a failed removal: %d", code)
 	}
 	_ = os.Remove(filepath.Join(dk, "rmfail"))
-	// A new forge session, with small numbers, claims the worker.
+	// A new AppTown session, with small numbers, claims the worker.
 	if code := send("/v1/previews", "2", 1); code != http.StatusNoContent || exists(left) {
 		t.Fatalf("the new session's claim: %d, left behind: %v", code, exists(left))
 	}
@@ -313,7 +313,7 @@ func TestAnOlderRequestNeverUndoesALaterOne(t *testing.T) {
 }
 
 // A change's preview keeps the images its boot built when it is removed:
-// a reopen builds from them, and the forge removes them when their keep is
+// a reopen builds from them, and AppTown removes them when their keep is
 // over (DELETE .../images). A run's preview's images go with it: it is
 // never booted again. Another preview's images stay.
 func TestAChangesPreviewKeepsItsBuildImagesUntilTheForgeRemovesThem(t *testing.T) {
@@ -359,7 +359,7 @@ func TestAChangesPreviewKeepsItsBuildImagesUntilTheForgeRemovesThem(t *testing.T
 	}
 }
 
-// The worker keeps its build cache within the forge's budget, as the forge
+// The worker keeps its build cache within AppTown's budget, as AppTown
 // keeps its own: previews and release builds fill it, nothing else trims it.
 func TestTheWorkerTrimsItsBuildCacheToTheBudget(t *testing.T) {
 	t.Parallel()

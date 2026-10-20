@@ -128,7 +128,7 @@ func (s *Deployments) ReserveHostPort(ctx context.Context, projectID ids.ID, nam
 // StablePort is the deployment's host port on a Docker host, picked and
 // recorded before its first start when it has none. Every standing
 // deployment is published at this one port, so Docker keeps it at every
-// start of the container and the port the forge probes and shows is the
+// start of the container and the port AppTown probes and shows is the
 // one the app answers at (soak finding 58: a port Docker picks is picked
 // again at each start). Two boots racing for an unallocated port both pick
 // a free one; the first reservation wins and the other reads it. Nothing

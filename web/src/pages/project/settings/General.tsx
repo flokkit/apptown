@@ -275,7 +275,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
 }
 
 // The repository card (Settings › General): where the code lives, its
-// head, and the clone command for anyone working outside the forge.
+// head, and the clone command for anyone working outside AppTown.
 export function RepoCard({ slug }: { slug: string }) {
   const q = useGet<OverviewData>(`/projects/${slug}/overview`)
   const data = q.data

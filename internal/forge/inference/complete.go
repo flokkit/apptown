@@ -10,12 +10,12 @@ import (
 )
 
 // Complete makes one tool-free, non-streaming model call for a trusted
-// caller inside the forge (drafting a workflow). It goes through the same
+// caller inside AppTown (drafting a workflow). It goes through the same
 // admission as a runtime's request (ServeHTTP): the token's current
 // workload and account, the provider binding, the model's eligibility, the
 // receipt written before the upstream call, cancellation through ctx, and
 // usage recorded once (unknown when the provider reports none). Only the
-// network check is skipped: the caller is the forge itself, not a peer.
+// network check is skipped: the caller is AppTown itself, not a peer.
 //
 // model is "<binding>/<model id>", as a model slot names it.
 func (g *Gateway) Complete(ctx context.Context, token, model, system, prompt string) (string, error) {

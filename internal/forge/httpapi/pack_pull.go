@@ -22,7 +22,7 @@ type PackPull struct {
 	access   *identity.Service
 	ways     *wow.Service
 	db       *database.DB
-	now      func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now      func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewPackPull(adoption *adoption.Service, projects *project.Projects, access *identity.Service, ways *wow.Service, db *database.DB, now func() time.Time) PackPull {

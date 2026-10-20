@@ -49,7 +49,7 @@ const render = (v: ChangeView, stale = false) => renderToStaticMarkup(
 // The panel's primary buttons and links, by their words.
 const primaries = (html: string) => [...html.matchAll(/class="(?:btn )?primary"[^>]*>([^<]*)</g)].map((m) => m[1])
 
-// The forge's offer of an approval step, as the run snapshot carries it.
+// AppTown's offer of an approval step, as the run snapshot carries it.
 const offer = (s: Step) => [{ act: 'approve', stepId: s.id, step: s.name }]
 const retry = (s: Step) => [{ act: 'retry', stepId: s.id, step: s.name }]
 const act = (a: string) => [{ act: a, stepId: null, step: '' }]
@@ -143,7 +143,7 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
     primary: 'none', headline: /^Abandoned$/,
   },
   {
-    name: 'closed by the forge: nothing to change',
+    name: 'closed by AppTown: nothing to change',
     v: view({ change: 'abandoned', closedAs: 'nothing-to-change', runStatus: 'abandoned', state: 'abandoned', stateDetail: 'Nothing to update: the project declares no dependencies' }),
     primary: 'none', headline: /^Closed: nothing to change$/,
   },
@@ -164,24 +164,24 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
     v: view({ state: 'ready to advance', next: act('advance'), steps: [step({ type: 'guidance/conformance', name: 'guidance', checkReading: { unreadable: 'unreadable check evidence' } })] }),
     primary: 'continue', headline: /^Ready to continue from “build”$/, button: 'Continue',
   },
-  // What the forge does not offer, the page does not offer.
+  // What AppTown does not offer, the page does not offer.
   {
-    name: 'accepted work whose landing the forge queued',
+    name: 'accepted work whose landing AppTown queued',
     v: view({ runStatus: 'done', landingQueued: true, state: 'queued', stateDetail: 'landing' }),
     primary: 'none', headline: /^Queued to land$/, waitingOn: /AppTown/,
   },
   {
-    name: 'finished work the forge offers no landing for',
+    name: 'finished work AppTown offers no landing for',
     v: view({ runStatus: 'done' }),
     primary: 'none', headline: /run finished$/,
   },
   {
-    name: 'a merged landing whose step the forge will not run again',
+    name: 'a merged landing whose step AppTown will not run again',
     v: view({ change: 'landing', state: 'blocked', merged: true, steps: [trivy] }),
     primary: 'none', headline: /^Landing stopped after the merge/,
   },
   {
-    name: 'a rejection the forge will not send back',
+    name: 'a rejection AppTown will not send back',
     v: view({ state: 'blocked', steps: [step({ type: 'approval', name: 'accept', status: 'fail', evidence: { approver: 'bls', decision: 'reject' } })] }),
     primary: 'take-to-chat', headline: /^Rejected/, button: 'Take it to chat',
   },
@@ -191,22 +191,22 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
     primary: 'restart-landing', headline: /^The rules changed/, button: 'Restart landing',
   },
   {
-    name: 'a stopped rules check the forge offers no restart for',
+    name: 'a stopped rules check AppTown offers no restart for',
     v: view({ change: 'landing', state: 'blocked', steps: [law], changeNext: act('send-back') }),
     primary: 'send-back', headline: /^Landing stopped/, button: 'Send it back with a note',
   },
   {
-    name: 'missing evidence the forge offers no recheck for',
-    v: view({ state: 'blocked', stateDetail: 'the forge cannot judge this stage: no gate' }),
+    name: 'missing evidence AppTown offers no recheck for',
+    v: view({ state: 'blocked', stateDetail: 'AppTown cannot judge this stage: no gate' }),
     primary: 'none', headline: /can't finish/,
   },
   {
-    name: 'ready to advance, but the forge offers no advance',
+    name: 'ready to advance, but AppTown offers no advance',
     v: view({ state: 'ready to advance' }),
     primary: 'none', headline: /^Working$/,
   },
   {
-    name: 'an interrupted step the forge will not run again',
+    name: 'an interrupted step AppTown will not run again',
     v: view({ state: 'blocked', steps: [orphaned] }),
     primary: 'take-to-chat', headline: /interrupted$/, button: 'Take it to chat',
   },
@@ -287,9 +287,9 @@ describe('the change head', () => {
     expect(changeChip(view({ change: 'landing', state: 'working' })).text).toBe('landing')
   })
 
-  // A pending approval the forge does not offer is not the page's to put
+  // A pending approval AppTown does not offer is not the page's to put
   // in front of anyone: the page says a person is awaited, without a button.
-  it('offers only the approval the forge offers', () => {
+  it('offers only the approval AppTown offers', () => {
     const second = step({ type: 'approval', name: 'sign-off', status: 'pending' })
     const offered = nextStep(view({ state: 'waiting on you', steps: [accept, second], next: offer(second) }))
     expect(offered.primary).toBe('approve')
@@ -297,9 +297,9 @@ describe('the change head', () => {
     expect(nextStep(view({ state: 'waiting on you', steps: [accept] })).primary).toBe('open-decision')
   })
 
-  // After the merge the forge refuses a send-back, a chat and abandoning
+  // After the merge AppTown refuses a send-back, a chat and abandoning
   // the change: the panel offers none of them, only the step again.
-  it('offers nothing the forge refuses once the landing has merged', () => {
+  it('offers nothing AppTown refuses once the landing has merged', () => {
     const merged = cases.find((c) => c.name === 'landing stopped after its merge')!.v
     // A step a restart interrupted after the merge is the same: run it again.
     const cut = step({ type: 'scan', name: 'scan-image:trivy', status: 'error', evidence: { reason: 'orphaned by apptownd restart' } })
@@ -315,10 +315,10 @@ describe('the change head', () => {
     expect(before).toContain('Take it to chat')
   })
 
-  // A merge check that read no merge needs a person; the forge offers to
+  // A merge check that read no merge needs a person; AppTown offers to
   // read it again, and the panel words it as a check, quietly. Without the
   // offer there is no such button.
-  it('offers a re-check of a merge check only as the forge offers it', () => {
+  it('offers a re-check of a merge check only as AppTown offers it', () => {
     const merged = step({ type: 'scm/merged', name: 'merged', status: 'needs_human', evidence: { reason: 'not merged yet' } })
     expect(render(view({ state: 'blocked', steps: [merged], next: retry(merged) }))).toContain('>Re-check<')
     expect(render(view({ state: 'blocked', steps: [merged] }))).not.toContain('Re-check')
@@ -330,7 +330,7 @@ describe('the change head', () => {
   })
 
   it('names a nothing-to-change close in the chip, and an abandonment as one', () => {
-    const closed = cases.find((c) => c.name === 'closed by the forge: nothing to change')!.v
+    const closed = cases.find((c) => c.name === 'closed by AppTown: nothing to change')!.v
     expect(changeChip(closed).text).toBe('closed: nothing to change')
     expect(render(closed)).toContain('the project declares no dependencies')
     expect(changeChip(cases.find((c) => c.name === 'abandoned')!.v).text).toBe('abandoned')

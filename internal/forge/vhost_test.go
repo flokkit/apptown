@@ -18,7 +18,7 @@ import (
 	"flokkit.io/forge/internal/worker"
 )
 
-// The vhost router: pass-through for the forge's own host, a plain-words
+// The vhost router: pass-through for AppTown's own host, a plain-words
 // answer for dead names, and a real proxy to a live backend.
 func TestVHostRouting(t *testing.T) {
 	t.Parallel()
@@ -74,7 +74,7 @@ func TestVHostRouting(t *testing.T) {
 }
 
 // Tier domains (vhost.go): the hostname is the lookup key; only
-// deterministic forge container names are reachable; unset domains change
+// deterministic AppTown container names are reachable; unset domains change
 // nothing.
 func TestTierDomains(t *testing.T) {
 	t.Parallel()
@@ -119,8 +119,8 @@ func TestTierDomains(t *testing.T) {
 	}
 }
 
-// A tier domain may carry a port, for a forge reached on one (the desktop
-// trial's preview=http://preview.localhost:7777): the forge mints URLs with
+// A tier domain may carry a port, for an AppTown reached on one (the desktop
+// trial's preview=http://preview.localhost:7777): AppTown mints URLs with
 // it and routes requests by hostname, as it does a request on :443.
 func TestTierDomainWithAPortRoutesByHostname(t *testing.T) {
 	t.Parallel()
@@ -149,11 +149,11 @@ func TestTierDomainWithAPortRoutesByHostname(t *testing.T) {
 
 // With previews on a worker, a change's and a run's preview are forwarded
 // there, with the visitor's Host and request target, and still never
-// cached; a release preview the forge did not boot there and a standing
+// cached; a release preview AppTown did not boot there and a standing
 // deployment stay on this machine.
 func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
 	t.Parallel()
-	// The forge has a worker for previews (Deployment decides what is served
+	// AppTown has a worker for previews (Deployment decides what is served
 	// there); its forwarding client is pointed at this test's plain server.
 	a := testApp(t, withPreviewWorker(t, &fakePreviewWorker{}, Config{TierDomains: []string{"preview=preview.example.com", "main=main.example.com"}}))
 	shop := createReadTestProject(t, a, "shop")
@@ -205,7 +205,7 @@ func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
 	}
 }
 
-// The forge's own proxy passes an app only the forwarding headers it sets
+// AppTown's own proxy passes an app only the forwarding headers it sets
 // itself: whatever a visitor sent of the X-Forwarded-* family, Forwarded or
 // X-Real-Ip never reaches the app.
 func TestTheLocalProxyPassesOnlyItsOwnForwardingHeaders(t *testing.T) {
@@ -308,7 +308,7 @@ func TestTheEvalDomainServesCopiesAndNothingElse(t *testing.T) {
 	}
 }
 
-// A request to a preview through the forge is a look at it: Preview's
+// A request to a preview through AppTown is a look at it: Preview's
 // tending keeps a preview someone looked at, and stops one nobody has.
 func TestARequestToAPreviewIsALook(t *testing.T) {
 	t.Parallel()

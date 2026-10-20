@@ -27,7 +27,7 @@ type Result struct {
 	Revision  string
 	// Incarnation is what the preview serves: its source and the digest of
 	// its prepared public values; Public is those values. Kept with the
-	// preview for as long as it lives (a forge restart discards previews).
+	// preview for as long as it lives (an AppTown restart discards previews).
 	Incarnation string
 	Public      *docker.PublicPrepared
 }

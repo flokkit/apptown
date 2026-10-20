@@ -50,7 +50,7 @@ func contributionRefusal(format string, args ...any) error {
 
 type Checkout struct {
 	// Ref is the Change's branch, to fetch. PushRef is where the ticket's
-	// push lands before the forge publishes it to Ref.
+	// push lands before AppTown publishes it to Ref.
 	Token, Tip, Ref, PushRef string
 	Ticket                   *identity.Ticket
 }

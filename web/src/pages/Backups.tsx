@@ -8,7 +8,7 @@ import { QuietConfirm } from '../QuietConfirm'
 import type { AllBackups, BackupItem, BackupTaken, OperationAdmitted, ProjectBackup } from '../wire.gen'
 import { StoreSection } from './DataProtection'
 
-// Backups: what the forge holds of each deployment's state, newest first.
+// Backups: what AppTown holds of each deployment's state, newest first.
 // Taken daily, after every release, and on demand; the newest seven stay.
 // A take-down's final set stays with its project until the project is
 // purged, and restores into any deployment of the project. A restore takes a safety set first and
@@ -163,7 +163,7 @@ const setPlace = (b: ProjectBackup, where: string) => b.store === 'store' ? b.pa
 
 // managed is a copy of a managed database: never restored over what is
 // there, only started from. A Docker host's set is restored in place
-// wherever it is kept, on the forge's disk or in the backup store.
+// wherever it is kept, on AppTown's disk or in the backup store.
 const managed = (b: ProjectBackup) => b.items.some((i) => !!i.instance)
 
 // RestoreInto restores a taken-down deployment's final set into a

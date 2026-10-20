@@ -49,7 +49,7 @@ rehearsal:
 `
 
 // rehearsalSpec declares a production mail password and a signing key the
-// forge generates; the rehearsal profile names neither.
+// AppTown generates; the rehearsal profile names neither.
 const rehearsalSpec = `[project]
 name = "ledger"
 revision = "1.0"
@@ -79,7 +79,7 @@ type rehearsalHost struct {
 	// with the environment it was started with.
 	started map[string]map[string]string
 	// beforeImport, when set, runs before the first import reaches the
-	// daemon, outside its lock: the forge stopping there.
+	// daemon, outside its lock: AppTown stopping there.
 	beforeImport func()
 	// afterStage, when set, runs once a copy has been staged on the host,
 	// outside the daemon's lock.
@@ -384,7 +384,7 @@ func (w *rehearsalWorld) appRun(op ids.ID) []string {
 //
 // Kills: publishing the app's port, joining the host's ingress, starting
 // the worker, delivering the production mail password or the source's
-// signing key, trusting the forge's own origins instead of the deployment's
+// signing key, trusting AppTown's own origins instead of the deployment's
 // address, not filling the copy before the migration, leaving the staged
 // copy or the stack behind, not recording the rehearsal on the deployment.
 func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T) {
@@ -665,15 +665,15 @@ func TestARehearsalIsRefusedWithoutAuthorityOrAPlace(t *testing.T) {
 	}
 }
 
-// A forge that stops in the middle of a rehearsal, after the copy was
+// An AppTown that stops in the middle of a rehearsal, after the copy was
 // staged on the rehearsal host and the stack made, settles it unknown at
 // start. The deployment's last rehearsal then reads unknown, never absent
 // and never an older pass; the next daily sweep removes the staged
 // copy and the rehearsal's containers, volumes and network, and marks it
-// cleared. At no point is the copy on the forge's own disk, where a
+// cleared. At no point is the copy on AppTown's own disk, where a
 // project's script steps run.
 //
-// Kills: staging the copy on the forge's disk; the settlement dropping the
+// Kills: staging the copy on AppTown's disk; the settlement dropping the
 // recorded place; the last rehearsal skipping an unknown one; a sweep that
 // skips unknown rehearsals or forgets the staged copy or the volumes.
 func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) {
@@ -721,7 +721,7 @@ func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) 
 				}
 				return nil
 			})
-			// The forge starts again.
+			// AppTown starts again.
 			if r, err := w.restart(); err != nil || r.Settled != 1 {
 				t.Fatalf("settled %+v: %v", r, err)
 			}

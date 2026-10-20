@@ -12,7 +12,7 @@ import (
 )
 
 // A baseline with unknowns is asked again once unknownRetry has passed on
-// the forge's clock: kept a minute on, asked again three minutes on, with
+// AppTown's clock: kept a minute on, asked again three minutes on, with
 // that clock an hour ahead of the real one.
 //
 // Kills: the retry judged by the real clock (an hour behind the baseline's

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS complaints (
   id UUID PRIMARY KEY,
-  -- How people name it ("complaint 9"): its number within the forge, from
+  -- How people name it ("complaint 9"): its number within AppTown, from
   -- complaint_numbers, never reused.
   number BIGINT NOT NULL,
   at         TIMESTAMPTZ NOT NULL,

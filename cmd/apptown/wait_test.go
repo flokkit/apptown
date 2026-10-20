@@ -10,9 +10,9 @@ import (
 	"flokkit.io/forge/internal/ids/idstest"
 )
 
-// wait judges from the forge's activity, not from step statuses: a failed
-// verdict the forge is about to check again after a rework is working, not
-// wedged, and only the forge's "blocked" and "waiting on you" stop the wait.
+// wait judges from AppTown's activity, not from step statuses: a failed
+// verdict AppTown is about to check again after a rework is working, not
+// wedged, and only AppTown's "blocked" and "waiting on you" stop the wait.
 func TestWaitJudgesFromTheForgesActivity(t *testing.T) {
 	steps := `[{"id":"00000000-0001-7000-8000-000000000000","stage":"build","name":"work","type":"agent/pi","status":"pass"},
 		{"id":"00000000-0002-7000-8000-000000000000","stage":"build","name":"review","type":"agent/review","status":"fail"},
@@ -40,7 +40,7 @@ func TestWaitJudgesFromTheForgesActivity(t *testing.T) {
 			t.Errorf("%s: got %s %d %q, want %s %d %q", c.state, kind, id, name, c.kind, c.id, c.name)
 		}
 	}
-	// An approval in a called workflow: the forge's words name it.
+	// An approval in a called workflow: AppTown's words name it.
 	var d runDetail
 	_ = json.Unmarshal([]byte(`{"run":{"status":"running","currentStage":"build"},"state":"waiting on you","stateDetail":"accept (in land)","steps":[]}`), &d)
 	if kind, id, name := waitVerdict(d); kind != "decision" || !id.IsZero() || name != "accept (in land)" {
@@ -64,7 +64,7 @@ func TestWaitPrintsAStateOnce(t *testing.T) {
 	}
 }
 
-// A run id that names no run is the forge's answer, not a failure to ride
+// A run id that names no run is AppTown's answer, not a failure to ride
 // out: wait asks once, and when the id is a change's, waits on the change
 // (it once only said to rerun with -c).
 func TestWaitForAMissingRunWaitsOnTheChangeItNames(t *testing.T) {
@@ -87,21 +87,21 @@ func TestWaitForAMissingRunWaitsOnTheChangeItNames(t *testing.T) {
 	if runs != 1 {
 		t.Fatalf("asked for the missing run %d times", runs)
 	}
-	// An id that names neither is the forge's refusal.
+	// An id that names neither is AppTown's refusal.
 	fakeForge(t, func(_, path string) (int, string) { return 404, `{"error":"no such thing"}` })
 	if _, err := run(t, "wait", "00000000-0515-7000-8000-000000000000", "-i", "0"); err == nil || !strings.Contains(err.Error(), "no such thing") {
 		t.Fatalf("neither a run nor a change: %v", err)
 	}
 }
 
-// retry --no-follow dispatches the rework the forge offers, with the mode
+// retry --no-follow dispatches the rework AppTown offers, with the mode
 // and note asked for, and returns, as the other loop commands do, saying how
 // to come back.
 func TestRetryNoFollowDispatchesAndReturns(t *testing.T) {
 	seen := fakeForge(t, func(method, path string) (int, string) {
 		switch {
 		case path == "/changes/00000000-0007-7000-8000-000000000000":
-			// The forge's act names the step; the steps alone would point at
+			// AppTown's act names the step; the steps alone would point at
 			// another agent step.
 			return 200, `{"runs":[{"id":"00000000-0046-7000-8000-000000000000","status":"running"}],"detail":{"run":{"id":"00000000-0046-7000-8000-000000000000","status":"running","currentStage":"build"},
 				"next":[{"act":"rework","stepId":"00000000-02bd-7000-8000-000000000000","step":"work"}],
@@ -127,7 +127,7 @@ func TestRetryNoFollowDispatchesAndReturns(t *testing.T) {
 // Under -y an approval decided while the CLI looked (an acceptance that
 // carries over to the landing) is not an error, on the step's own recorded
 // pass. A step still pending, or rejected, is not decided however the run
-// moved: that the forge no longer offers it is no evidence of a decision.
+// moved: that AppTown no longer offers it is no evidence of a decision.
 func TestAnApprovalDecidedMeanwhileReadsAsDecided(t *testing.T) {
 	for _, c := range []struct {
 		run, stage, status string
@@ -155,7 +155,7 @@ func TestAnApprovalDecidedMeanwhileReadsAsDecided(t *testing.T) {
 }
 
 // A change whose last run ended without finishing (its landing found main
-// had moved) is waited on to the forge's reason, which carries the
+// had moved) is waited on to AppTown's reason, which carries the
 // catch-up, not only "a person's move" (change 61's chat went on saying
 // its landing awaited approval). A run waited on directly says the same.
 func TestWaitNamesWhyTheLastRunEnded(t *testing.T) {
@@ -226,7 +226,7 @@ func TestWatchAndHomeSayWhatARunIsDoing(t *testing.T) {
 				"steps":[{"id":"00000000-02bd-7000-8000-000000000000","stage":"stage-2b","name":"accept","type":"approval","status":"pending"}]}`
 		case "/dashboard":
 			return 200, `{"pendingApprovals":[],"activeRuns":[{"runId":"00000000-0047-7000-8000-000000000000","changeId":"00000000-0007-7000-8000-000000000000","itemTitle":"add stats","workflow":"quick-change","stage":"stage-2b","state":"agent working","stateDetail":"implement","projectSlug":"shop"},
-				{"runId":"00000000-0048-7000-8000-000000000000","changeId":"00000000-0008-7000-8000-000000000000","itemTitle":"old forge","workflow":"quick-change","stage":"stage-2b","projectSlug":"shop"}]}`
+				{"runId":"00000000-0048-7000-8000-000000000000","changeId":"00000000-0008-7000-8000-000000000000","itemTitle":"old AppTown","workflow":"quick-change","stage":"stage-2b","projectSlug":"shop"}]}`
 		}
 		return 404, `{"error":"no"}`
 	})
@@ -240,7 +240,7 @@ func TestWatchAndHomeSayWhatARunIsDoing(t *testing.T) {
 	}
 }
 
-// wait -c says main the forge could not merge into the change, read from
+// wait -c says main AppTown could not merge into the change, read from
 // the change's payload as the server sends it, with the files and the
 // catch-up for the change's chat.
 func TestWaitSaysMainThatConflictsWithTheChange(t *testing.T) {

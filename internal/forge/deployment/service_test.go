@@ -13,7 +13,7 @@ import (
 
 // The subsystem is built from its declared dependencies alone: every
 // field of Dependencies is satisfied here by a value this test defines,
-// and nothing from forge is imported (the shape checker asserts the
+// and nothing from AppTown is imported (the shape checker asserts the
 // import graph; this asserts the constructor).
 type (
 	noFollowups   struct{}

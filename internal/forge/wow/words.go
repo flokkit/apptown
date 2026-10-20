@@ -44,7 +44,7 @@ const (
 	TierPlatform
 )
 
-// The stored words: ” for ordinary, 'platform' for the forge's own contract.
+// The stored words: ” for ordinary, 'platform' for AppTown's own contract.
 func (t BlockTier) String() string {
 	switch t {
 	case TierOrdinary:

@@ -18,7 +18,7 @@ import (
 
 type store struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock, which stamps a record and its receipt; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps a record and its receipt; nil is the real one
 }
 
 func (s store) now() time.Time { return clock.Or(s.clock)().UTC() }

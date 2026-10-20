@@ -1,18 +1,18 @@
 package verification
 
 // The memory probes of the runtime evaluator (the deploy/memory-declared
-// block). Both are judged from the forge's own records, never a pattern over
+// block). Both are judged from AppTown's own records, never a pattern over
 // a file:
 //
-//	memory-declared  the contract, as the forge's parser reads it: each part
+//	memory-declared  the contract, as AppTown's parser reads it: each part
 //	                 the apptown runs from a build or an image declares its
-//	                 memory. A static part is served by the forge's own file
+//	                 memory. A static part is served by AppTown's own file
 //	                 server and declares nothing.
 //	memory-within    the standing deployment as it runs: each part the
 //	                 release runs from a build or an image uses less than a
 //	                 share of the limit its own container is held to, observed
 //	                 while the deployment stays the generation it recorded.
-//	                 Static parts are the forge's file server's, as the
+//	                 Static parts are AppTown's file server's, as the
 //	                 release's contract says.
 
 import (

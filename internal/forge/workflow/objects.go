@@ -129,7 +129,7 @@ type ApprovalOutcome struct {
 // so far: only an approval step, only one not yet decided or overridden,
 // one vote per person, quorum from distinct votes, a rejection closes the
 // round. It does not know whether an agent is still revising the work.
-// Approve casts vote; at is the forge's time of the vote, used when the
+// Approve casts vote; at is AppTown's time of the vote, used when the
 // vote carries none.
 func (s *Step) Approve(vote ApprovalVote, at time.Time) (ApprovalOutcome, error) {
 	if s.Type != "approval" {

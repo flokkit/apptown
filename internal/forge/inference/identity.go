@@ -72,7 +72,7 @@ func (a Identity) admitAccount(ctx context.Context, who identity.Workload) (iden
 	}
 	// A workload acting for a person is checked as that person, whatever
 	// its attribution says: a disabled account and a name with no account
-	// are refused alike. Only the forge's own names (identity.SystemActor)
+	// are refused alike. Only AppTown's own names (identity.SystemActor)
 	// act without an account. SQL failures fail closed.
 	account := who.Actor
 	if who.Person != "" {

@@ -277,7 +277,7 @@ func TestFinalBackupsAreKeptUntilTheProjectIsPurged(t *testing.T) {
 	if got, _ := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, b.ID); got.Status != BackupOK {
 		t.Fatalf("count pruning took the final set: %s", got.Status)
 	}
-	// A set the forge cannot remove (its files are not under the backup
+	// A set AppTown cannot remove (its files are not under the backup
 	// root) is named and keeps its record, for the next purge.
 	stray, err := s.backups.Record(context.Background(), &Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: time.Now().UTC().Format(time.RFC3339), Trigger: "scheduled", Path: t.TempDir(), Status: BackupOK}, "apptown-system")
 	if err != nil {
@@ -508,7 +508,7 @@ func TestARemovalAsksAgainBeforeEachEffect(t *testing.T) {
 	}
 }
 
-// takeDownOps gives a take-down world the operations ledger, as the forge
+// takeDownOps gives a take-down world the operations ledger, as AppTown
 // runs a deletion's take-downs.
 func takeDownOps(t *testing.T, s *both) (*operations.Service, *grants) {
 	t.Helper()
@@ -618,7 +618,7 @@ func TestARestoreAndATakeDownOfOneDeploymentExcludeEachOther(t *testing.T) {
 }
 
 // offListWorld is the take-down world whose running release also declares
-// Redis, kept in its named volume by a running service the forge did not
+// Redis, kept in its named volume by a running service AppTown did not
 // record (made before it recorded what it creates): held, not listed.
 func offListWorld(t *testing.T, slug string) (*both, *dockerfake.Daemon, *deployment.Deployment, string) {
 	t.Helper()

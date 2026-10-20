@@ -50,11 +50,11 @@ type WorkflowVersion struct {
 	CreatedAt string `json:"createdAt"`
 }
 
-// StockSystemWorkflows are the forge's own jobs an instance may stand in for.
+// StockSystemWorkflows are AppTown's own jobs an instance may stand in for.
 var StockSystemWorkflows = []string{"land", "ship", "adopt-integration", "retire-integration"}
 
 var (
-	ErrStockWorkflow     = fault.New(fault.Conflict, "a forge-shipped (stock) workflow is read-only and re-syncs on release; author your own under a different name")
+	ErrStockWorkflow     = fault.New(fault.Conflict, "an AppTown-shipped (stock) workflow is read-only and re-syncs on release; author your own under a different name")
 	ErrNotSystemWorkflow = fault.New(fault.Invalid, "not a system workflow")
 	// ErrNoWorkflow is the absence of the library workflow a caller named.
 	ErrNoWorkflow = fault.New(fault.NotFound, "no library workflow is named")
@@ -74,7 +74,7 @@ func workflowByNameIn(ctx context.Context, q *wowsql.Queries, name string) (wows
 // system bindings.
 type Workflows struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s *Workflows) now() time.Time { return clock.Or(s.clock)() }

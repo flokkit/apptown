@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// Bundles move commits between the forge and a machine it shares no files
+// Bundles move commits between AppTown and a machine it shares no files
 // with. Neither direction writes to the repository it reads from: a bundle is
 // made in, and a returned one is imported into, a scratch repository that
 // borrows the real one's objects through alternates. Git runs hardened

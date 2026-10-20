@@ -68,7 +68,7 @@ func TestAmbientPreparationPreservesProjectConfigurationAndIsolatesInstalls(t *t
 
 // The generated files are presented at the same container paths as when
 // they were written into the tree and mounted from there: the system layer
-// of mise, the forge's CARGO_HOME, and /etc/apptown for maven.
+// of mise, AppTown's CARGO_HOME, and /etc/apptown for maven.
 func TestGeneratedFilesKeepTheirContainerPaths(t *testing.T) {
 	t.Parallel()
 	bound := map[string]integration.BoundRegistry{
@@ -116,7 +116,7 @@ func TestAProjectsForgeLinkReachesNothing(t *testing.T) {
 	}
 }
 
-// A forge with no registry bound still installs what a project's mise.toml
+// An AppTown with no registry bound still installs what a project's mise.toml
 // declares: the toolchain layer is the declaration's, not the mirrors'.
 // Without mirrors a declared Ruby would otherwise never be installed.
 func TestTheToolchainLayerNeedsNoRegistry(t *testing.T) {

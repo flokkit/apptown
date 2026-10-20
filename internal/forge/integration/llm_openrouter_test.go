@@ -38,7 +38,7 @@ func (h *heldKeys) held() *HeldKey {
 	return &k
 }
 
-// llmFixture: a project, the forge's secrets holding the provisioning key
+// llmFixture: a project, AppTown's secrets holding the provisioning key
 // (and a STEP_ secret, as steps get), a fake OpenRouter, and an llm
 // connector pointing at it with the given extra config.
 func llmFixture(t *testing.T, config string) (*Service, ids.ID, *openrouterfake.Server) {

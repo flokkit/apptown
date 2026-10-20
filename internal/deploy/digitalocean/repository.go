@@ -10,20 +10,20 @@ import (
 )
 
 // The project's DOCR repository (design/subsystems/deployment.md, "Removing
-// a deployment") is the forge's on its account: the forge creates it, named after the
+// a deployment") is AppTown's on its account: AppTown creates it, named after the
 // project, with the first copy into it, and records that. It never adopts
-// one: a repository of that name the forge did not record creating refuses
+// one: a repository of that name AppTown did not record creating refuses
 // the release. Every deployment of the project on an App Platform target
 // with the same connector uses it; when the last of them is taken down,
-// every image in it is deleted. The forge starts no garbage collection:
+// every image in it is deleted. AppTown starts no garbage collection:
 // while one runs DOCR takes no pushes, so one started at take-down would
 // fail the next release. The space and the
 // empty repository's name, which DOCR lists until a collection runs, are
 // freed by a collection an operator runs or DigitalOcean schedules. An image someone else pushed into the
-// forge's repository goes with the rest: don't push to the forge's
+// forge's repository goes with the rest: don't push to AppTown's
 // repositories.
 
-// RepositoryOwner records the project's repositories the forge created on
+// RepositoryOwner records the project's repositories AppTown created on
 // this account (its connector).
 type RepositoryOwner interface {
 	Owns(ctx context.Context, registry, repository string) (bool, error)
@@ -31,7 +31,7 @@ type RepositoryOwner interface {
 }
 
 // ErrRepositoryNotOurs refuses a release whose project's repository exists
-// in the account's registry but was not made by the forge.
+// in the account's registry but was not made by AppTown.
 func errRepositoryNotOurs(registry, repo string) error {
 	return deploy.Terminal(fmt.Errorf("the container registry %s already has a repository named %s that AppTown did not create; nothing was created on DigitalOcean. Rename or remove that repository, or attach another account, then release again", registry, repo))
 }
@@ -54,7 +54,7 @@ func RepositoryExists(ctx context.Context, c *Client, registry, repo string) (bo
 
 // claimRepository says whether the copies that follow make the project's
 // repository (so the first that succeeds records it), or go into one the
-// forge recorded creating. One the forge did not create is refused; one it
+// AppTown recorded creating. One AppTown did not create is refused; one it
 // cannot ask about is an error, never a guess.
 func (d *Driver) claimRepository(ctx context.Context, c *Client, registry string) (creating bool, err error) {
 	if d.Repository == nil {
@@ -78,7 +78,7 @@ func (d *Driver) claimRepository(ctx context.Context, c *Client, registry string
 }
 
 // emptyRepository deletes every image in the project's repository, when this was the last deployment using it and
-// the forge recorded creating it. It reports what it deleted, or what it
+// AppTown recorded creating it. It reports what it deleted, or what it
 // left and why.
 func (d *Driver) emptyRepository(ctx context.Context, td deploy.TakeDown) (deleted []string, left []deploy.Left) {
 	if !td.LastUser || d.Repository == nil {
@@ -100,7 +100,7 @@ func (d *Driver) emptyRepository(ctx context.Context, td deploy.TakeDown) (delet
 		if err != nil {
 			return nil, []deploy.Left{repositoryLeft(registry, d.Slug, err)}
 		}
-		return nil, nil // not the forge's: never touched
+		return nil, nil // not AppTown's: never touched
 	}
 	base := "/v2/registry/" + url.PathEscape(registry) + "/repositories/" + url.PathEscape(d.Slug) + "/digests"
 	manifests, err := listAll[struct {

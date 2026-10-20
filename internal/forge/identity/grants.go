@@ -304,7 +304,7 @@ func AdminGrantIn(ctx context.Context, tx *database.Tx, user, by string, at time
 // Both grants are visible and removable on the Members tab.
 func ProjectOwnershipIn(ctx context.Context, tx *database.Tx, projectID ids.ID, creator string, at time.Time) error {
 	pid := projectID.String()
-	// The forge's own names are not people: a project the forge creates
+	// AppTown's own names are not people: a project AppTown creates
 	// gets no personal owner.
 	if creator == "" || creator == "anonymous" || SystemActor(creator) {
 		return nil

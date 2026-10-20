@@ -310,7 +310,7 @@ func TestAReplacementThatBecomesInheritedIsNotFollowed(t *testing.T) {
 }
 
 // Recommending a version and the follow versions it cuts are one act at
-// one reading of the forge's clock: the follow version, its receipt and the
+// one reading of AppTown's clock: the follow version, its receipt and the
 // recommendation's receipt carry the same time. On a clock that moves on a
 // second at every reading, a separate reading for any of them would say a
 // later second.

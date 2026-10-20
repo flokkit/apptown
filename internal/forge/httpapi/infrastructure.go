@@ -34,14 +34,14 @@ type Infrastructure struct {
 	dbContainer string
 	dbVolume    string
 	intranet    string
-	now         func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now         func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, cache InventoryCache, queue *jobs.Queue, builtinDB bool, dbContainer string, dbVolume string, intranet string, now func() time.Time) Infrastructure {
 	return Infrastructure{deployment: deployment, hosts: hosts, providers: providers, projects: projects, db: db, cache: cache, queue: queue, builtinDB: builtinDB, dbContainer: dbContainer, dbVolume: dbVolume, intranet: intranet, now: now}
 }
 
-// Disks serves the filesystems this forge and its worker write to
+// Disks serves the filesystems this AppTown and its worker write to
 // (maintenance.Disks).
 type Disks struct {
 	disks interface {
@@ -60,7 +60,7 @@ type DiskReadings struct {
 	Disks []diskspace.Reading `json:"disks"`
 }
 
-// Disks: GET /infrastructure/disks — each filesystem this forge and its
+// Disks: GET /infrastructure/disks — each filesystem this AppTown and its
 // worker write to, read now, each its own reading.
 func (h Disks) Disks(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, DiskReadings{Disks: h.disks.Read(r.Context())})
@@ -132,7 +132,7 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 }
 
 // RemoveInfrastructure: POST /infrastructure/{target}/remove {kind,
-// name, id, confirm} — take away something at a target that the forge's
+// name, id, confirm} — take away something at a target that AppTown's
 // records do not claim: a container or a data volume on a Docker host, a
 // stack on a Portainer environment. Refused for anything recorded (an
 // environment's things go through the environment's doors) and without the

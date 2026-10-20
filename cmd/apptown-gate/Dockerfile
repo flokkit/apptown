@@ -12,7 +12,7 @@ COPY cmd/apptown-gate/ cmd/apptown-gate/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags='-s -w' -o /out/apptown-gate ./cmd/apptown-gate
 
-# Nothing but the binary and CA certificates: the gate calls the forge over
+# Nothing but the binary and CA certificates: the gate calls AppTown over
 # https to redeem tickets, and scratch has no certificate store of its own.
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

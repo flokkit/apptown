@@ -20,7 +20,7 @@ describe('the capacity bars', () => {
   // free; the segments add up to what the host has.
   // Kills: free drawn when the host's use is unknown; the host's own use left out.
   it('draws used memory as holders, the host itself, then free', () => {
-    const b = usedMemory(cap([tenant('shop/main', 'deployment', fig(700 * MiB), 0), tenant('the forge', 'apptown', fig(GiB), 0)], fig(3 * GiB)))!
+    const b = usedMemory(cap([tenant('shop/main', 'deployment', fig(700 * MiB), 0), tenant('AppTown', 'apptown', fig(GiB), 0)], fig(3 * GiB)))!
     expect(b.segments.map((s) => s.kind)).toEqual(['apptown', 'deployment', 'host', 'free'])
     expect(b.segments.find((s) => s.kind === 'free')!.value).toBe(5 * GiB)
     expect(b.segments.find((s) => s.kind === 'host')!.value).toBe(3 * GiB - GiB - 700 * MiB)

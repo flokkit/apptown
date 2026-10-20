@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/gitexec"
 )
 
-// MainMergedNotice is the run's record that the forge merged main into the
+// MainMergedNotice is the run's record that AppTown merged main into the
 // change's branch before a step (PublishMainMerge).
 const MainMergedNotice = "main.merged"
 
@@ -33,7 +33,7 @@ func CatchUpCommand(mainBranch, branch string) string {
 	return fmt.Sprintf(`git fetch "$APPTOWN_MAIN_REMOTE" %s && git merge --no-edit -m %q FETCH_HEAD`, mainBranch, MergeTitle(mainBranch, branch))
 }
 
-// MainConflict is main that the forge could not merge into a change, while
+// MainConflict is main that AppTown could not merge into a change, while
 // the change's branch still does not contain it.
 type MainConflict struct {
 	MainBranch string   `json:"mainBranch"`
@@ -74,13 +74,13 @@ func MainConflictIn(ctx context.Context, hub, branch string, latest *workflow.Ev
 		CatchUp: CatchUpCommand(payload.MainBranch, branch)}
 }
 
-// PublishMainMerge publishes the forge's merge of main into the run's branch
+// PublishMainMerge publishes AppTown's merge of main into the run's branch
 // (scm.MergeMain), made on from, the branch's tip, before step: the branch
 // moves from from to the merge by compare-and-swap in the hub, under the
 // authority the step's attempt was admitted with, as the step's own source
 // is published. A branch that moved since, or a newer holder, refuses it,
 // and the error says so. Once it is published, the run records it
-// (main.merged: the forge, main's tip, the merge, the step) and the run's
+// (main.merged: AppTown, main's tip, the merge, the step) and the run's
 // folder is brought forward to it; a folder that cannot be is noted as for
 // a task's result. folder is the run's folder, whose lock the caller holds.
 func PublishMainMerge(ctx context.Context, db *database.DB, dataDir string, branches *scm.Branches, publisher Publisher, run *workflow.Run, step *workflow.Step, folder *gitexec.Folder, from string, merge scm.MainMerge, at time.Time) error {

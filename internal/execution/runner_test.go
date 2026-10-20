@@ -287,7 +287,7 @@ func TestAReportComesBackOnlyFromInsideTheWorkspace(t *testing.T) {
 }
 
 // A local run, git or a command that runs git, starts without the GIT_*
-// variables the forge inherited (a forge started from a Git hook carries
+// variables AppTown inherited (an AppTown started from a Git hook carries
 // GIT_DIR and others), and with the ones the request sets. Not parallel: it
 // sets the process's environment.
 func TestALocalRunInheritsNoGitVariable(t *testing.T) {

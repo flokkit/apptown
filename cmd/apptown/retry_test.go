@@ -44,7 +44,7 @@ func TestTheDisputesClaimIsTheReportTheReviewerAudits(t *testing.T) {
 	}
 }
 
-// override overrules the failed check the forge names, with the reason; the
+// override overrules the failed check AppTown names, with the reason; the
 // first failed step in the list is not the client's to pick.
 func TestOverrideOverrulesTheStepTheForgeNames(t *testing.T) {
 	seen := fakeForge(t, func(method, path string) (int, string) {
@@ -89,7 +89,7 @@ func TestOverrideWithoutAnActSendsNothing(t *testing.T) {
 }
 
 // A landing refused because another change is landing waits its turn, on the
-// refusal's code; the same sentence without the code is the forge's answer.
+// refusal's code; the same sentence without the code is AppTown's answer.
 func TestLandingWaitsItsTurnOnTheCodeNotTheSentence(t *testing.T) {
 	landingRetryEvery = 0
 	busy := `{"error":"one landing at a time: another change is landing"}`

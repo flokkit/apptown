@@ -20,8 +20,8 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// ForgeActor is the actor of the forge's own model calls when the caller
-// names none: the call is the forge's, made for a project or for no one.
+// ForgeActor is the actor of AppTown's own model calls when the caller
+// names none: the call is AppTown's, made for a project or for no one.
 const ForgeActor = "apptown-system"
 
 // settleWithin bounds a settlement after the call has ended. The spend line
@@ -29,7 +29,7 @@ const ForgeActor = "apptown-system"
 // starts in time also ends in time.
 const settleWithin = 5 * time.Minute
 
-// Ask answers one of the forge's own calls (modelcall.Call) through the same
+// Ask answers one of AppTown's own calls (modelcall.Call) through the same
 // provider resolution and admission as a runtime's request: the binding the
 // model names, the model's eligibility in it, the eval model choice (or,
 // for Judge, the judge's door), the concurrency limit, a receipt and a
@@ -103,7 +103,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 	if settled, err := g.settle(settleCtx, receipt, a.status, a.outcome, a.usage, a.incomplete); err != nil || !settled {
 		// The line stays pending and counts as unknown spend once its time
 		// runs out (or is already locked in as unknown).
-		log.Printf("inference: forge call %d's spend was not settled (settled=%v): %v", receipt, settled, err)
+		log.Printf("inference: AppTown call %d's spend was not settled (settled=%v): %v", receipt, settled, err)
 	}
 	g.observe(spanCtx, span, p.name, id, a.status, a.outcome, a.usage, g.now().Sub(started))
 	if a.rejected {

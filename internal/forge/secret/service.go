@@ -25,7 +25,7 @@ type Service struct {
 type Config struct {
 	DataDir string
 	Client  HTTPClient
-	// Now is the forge's clock, which stamps values, bindings and receipts
+	// Now is AppTown's clock, which stamps values, bindings and receipts
 	// and ages the Infisical cache (the real clock when nil).
 	Now func() time.Time
 }

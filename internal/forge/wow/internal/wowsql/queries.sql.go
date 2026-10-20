@@ -644,7 +644,7 @@ type ExportGuidanceVersionParams struct {
 }
 
 // One library version's content, for moving a project that uses it to
-// another forge, where library numbering is local: the item and the version.
+// another AppTown, where library numbering is local: the item and the version.
 func (q *Queries) ExportGuidanceVersion(ctx context.Context, arg ExportGuidanceVersionParams) (string, error) {
 	row := q.db.QueryRowContext(ctx, exportGuidanceVersion, arg.Name, arg.Version)
 	var column_1 string

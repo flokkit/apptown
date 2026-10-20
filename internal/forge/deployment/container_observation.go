@@ -51,7 +51,7 @@ func (s *Service) ObserveContainer(ctx context.Context, d *Deployment) Container
 }
 
 // ServedRevision is the commit a deployment's container serves now, as this
-// forge witnesses it, or why it cannot be named.
+// AppTown witnesses it, or why it cannot be named.
 type ServedRevision struct {
 	Commit      string // "" when it cannot be named; Reason says why
 	ContainerID string // the container that was asked
@@ -127,7 +127,7 @@ func (s *Service) observedOnPlatform(ctx context.Context, d *Deployment) Contain
 	return unknown
 }
 
-// AttachedDockerHostsHealth is Docker deploys' health on a forge with no
+// AttachedDockerHostsHealth is Docker deploys' health on an AppTown with no
 // Docker of its own: each attached Docker host asked to answer now. They are
 // working when one answers, naming it; none attached says to attach one.
 func (s *Service) AttachedDockerHostsHealth(ctx context.Context) ProviderHealth {

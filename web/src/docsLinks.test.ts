@@ -53,9 +53,9 @@ const appRoutes = [...appSource.matchAll(/<Route\s+path="([^"]+)"/g)]
 
 const origin = 'http://forge.test'
 
-// A guide's live links ({forge:<name>}, liveLinks.ts) as a forge with a
-// public address fills them. Typed as the forge's DocLinks, so a name the
-// forge adds or drops fails the type check until this follows.
+// A guide's live links ({apptown:<name>}, liveLinks.ts) as an AppTown with a
+// public address fills them. Typed as AppTown's DocLinks, so a name the
+// AppTown adds or drops fails the type check until this follows.
 const liveLinks: DocLinks = {
   origin: { url: 'https://forge.example', path: '' },
   mcp: { url: 'https://forge.example/mcp/user', path: '/mcp/user' },
@@ -63,15 +63,15 @@ const liveLinks: DocLinks = {
 }
 
 // linkProblems renders one doc the way the page does and returns what is
-// wrong with each link, and any live link the forge would not fill: an
+// wrong with each link, and any live link AppTown would not fill: an
 // unknown name in a guide, or any live link in an integration doc (those
-// are served without the forge's addresses).
+// are served without AppTown's addresses).
 function linkProblems(doc: Doc, served: Set<string>): string[] {
   const html = new DOMParser().parseFromString(renderMd(doc.body), 'text/html')
   if (doc.route.startsWith('/docs/guides/')) fillLiveLinks(html.body, liveLinks)
   const problems: string[] = []
-  for (const m of (html.body.textContent ?? '').matchAll(/\{forge:[^}]*\}/g)) {
-    problems.push(`${m[0]}: not a live link the forge fills here (names: ${Object.keys(liveLinks).join(', ')})`)
+  for (const m of (html.body.textContent ?? '').matchAll(/\{apptown:[^}]*\}/g)) {
+    problems.push(`${m[0]}: not a live link AppTown fills here (names: ${Object.keys(liveLinks).join(', ')})`)
   }
   for (const a of html.querySelectorAll('a[href]')) {
     const href = a.getAttribute('href') ?? ''
@@ -123,14 +123,14 @@ describe('shipped docs', () => {
     expect(page('[m](/no-such-product-page)')).toHaveLength(1)
   })
 
-  // Live links are filled before links are checked; a name the forge does
+  // Live links are filled before links are checked; a name AppTown does
   // not fill is a problem wherever it appears, and integration docs get none.
-  it('reject live links the forge does not fill', () => {
+  it('reject live links AppTown does not fill', () => {
     const page = (body: string, route = '/docs/guides/probe') => linkProblems({ file: 'probe.md', route, body }, served)
-    expect(page('Connect at {forge:mcp}; `APPTOWN_URL={forge:origin}`\n\n```\ngit clone {forge:git}/demo\n```')).toEqual([])
-    expect(page('Connect at {forge:mpc}')).toHaveLength(1)
-    expect(page('`{forge:url}`')).toHaveLength(1)
-    expect(page('```\n{forge:Origin}\n```')).toHaveLength(1)
-    expect(page('Connect at {forge:mcp}', '/docs/llm/openrouter')).toHaveLength(1)
+    expect(page('Connect at {apptown:mcp}; `APPTOWN_URL={apptown:origin}`\n\n```\ngit clone {apptown:git}/demo\n```')).toEqual([])
+    expect(page('Connect at {apptown:mpc}')).toHaveLength(1)
+    expect(page('`{apptown:url}`')).toHaveLength(1)
+    expect(page('```\n{apptown:Origin}\n```')).toHaveLength(1)
+    expect(page('Connect at {apptown:mcp}', '/docs/llm/openrouter')).toHaveLength(1)
   })
 })

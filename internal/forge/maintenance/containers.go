@@ -18,7 +18,7 @@ import (
 
 // The container reaper (design/subsystems/container-lifecycle.md): a periodic backstop to
 // event-driven reaping. Event reaping leaks on crashes/missed events; this
-// sweep catches the leaks. It reaps EPHEMERAL forge containers whose owner is
+// sweep catches the leaks. It reaps EPHEMERAL AppTown containers whose owner is
 // idle or gone, and is structurally incapable of touching persistent env
 // containers or unlabelled infra (it only considers forge.class-labelled ones,
 // and env is explicitly skipped).
@@ -145,7 +145,7 @@ func (r *Reaper) Containers(ctx context.Context, logOnly bool) []string {
 // executionNetworks removes the networks of executions that have finished:
 // a step's services network and its private daemon's, labelled at creation
 // with the class and owner their containers carry. Their own teardown
-// removes them; this catches what a stopped forge or a failed removal left,
+// removes them; this catches what a stopped AppTown or a failed removal left,
 // after the pass above has taken their containers. Each one Docker holds
 // counts against its address pools. A network without those labels (a
 // standing deployment's, Docker's own, one made before the labels) is never

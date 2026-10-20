@@ -14,10 +14,10 @@ import (
 // once rather than waited for: a deletion's final backup never copies, nor
 // its take-down deletes, a volume a restore is still writing, and a
 // restore never writes a deployment that is being taken down. Both run in
-// this forge's one daemon, so the claim lives in memory and excludes them
+// this AppTown's one daemon, so the claim lives in memory and excludes them
 // for that daemon's lifetime. A restart releases it, but not necessarily
 // the host's side of the work it guarded: a restore streams into a
-// container on the Docker host, which may outlive a stopped forge
+// container on the Docker host, which may outlive a stopped AppTown
 // (design/subsystems/daemon-lifecycle.md, "Shutdown"). After an
 // interrupted restore, establish that the host-side work has ended before
 // taking the deployment down.

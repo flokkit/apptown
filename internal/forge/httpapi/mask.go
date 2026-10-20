@@ -6,7 +6,7 @@ import (
 	"flokkit.io/forge/internal/console"
 )
 
-// Mask gives a function replacing known secret values in text the forge
+// Mask gives a function replacing known secret values in text AppTown
 // shows, from one read of the stores (secret.Service.Masker); nil shows
 // text as it is.
 type Mask func(context.Context) func(string) string

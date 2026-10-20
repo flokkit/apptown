@@ -2,7 +2,7 @@
 # to /etc/systemd/system/, put the release in /opt/apptown-worker
 # (bin/apptown-worker, deploy/apptown-agent), copy apptown-worker.env.example to
 # /etc/apptown-worker/apptown-worker.env and edit it, put the worker's
-# certificate, key and the forge's CA in /etc/apptown-worker/, then
+# certificate, key and AppTown's CA in /etc/apptown-worker/, then
 # `systemctl enable --now apptown-worker`. Guide: Running AppTown, Workers.
 [Unit]
 Description=AppTown worker

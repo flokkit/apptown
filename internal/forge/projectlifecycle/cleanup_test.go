@@ -29,7 +29,7 @@ func (noSessions) List(context.Context, console.Match) []*console.Session { retu
 func (noSessions) Remove(context.Context, string) error                   { return nil }
 func (noSessions) RemoveEnded(console.Match) error                        { return nil }
 
-// noWorker is a forge without a preview worker.
+// noWorker is an AppTown without a preview worker.
 type noWorker struct{}
 
 func (noWorker) RemovePreviewForGood(context.Context, string) error { return nil }

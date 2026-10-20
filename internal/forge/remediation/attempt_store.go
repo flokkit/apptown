@@ -35,12 +35,12 @@ type Attempts struct {
 	db     *database.DB
 	caller context.Context
 	work   Work             // run admission and abandonment go through Work's doors
-	clock  func() time.Time // the forge's clock; nil is the real one
+	clock  func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s Attempts) now() time.Time { return clock.Or(s.clock)() }
 
-// now is the forge's clock (nil the real one); every remediation store is
+// now is AppTown's clock (nil the real one); every remediation store is
 // built with it, so none falls back to the real clock unseen.
 func NewAttempts(db *database.DB, work Work, caller context.Context, now func() time.Time) Attempts {
 	return Attempts{db: db, work: work, caller: caller, clock: now}

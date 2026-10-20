@@ -34,7 +34,7 @@ function AnswerBox({ id }: { id: string }) {
 // about it is on the record, waiting to be read), Archived (out of the
 // way). New → Answered → Archived, or straight New → Archived. Delete is
 // the only thing that removes the text; the ledger keeps a line, and the
-// forge deletes anything older than ninety days by itself.
+// AppTown deletes anything older than ninety days by itself.
 type Tab = 'new' | 'answered' | 'archived'
 export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
   const rowsQ = useGet<ComplaintList>('/complaints')

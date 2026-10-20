@@ -36,13 +36,13 @@ import (
 )
 
 // Journeys (design/architecture/testing-map.md): whole operational flows driven
-// through the public API the way a person or agent uses the forge. The
+// through the public API the way a person or agent uses AppTown. The
 // fake agent (testdata/fake-pi) makes them deterministic and free;
 // docker keeps containers real. Run with:
 //
 //	go test -tags=journey ./internal/forge/ -run TestJourney -v
 
-// jHarness boots an in-process forge with the fake agent in its Docker sandbox.
+// jHarness boots an in-process AppTown with the fake agent in its Docker sandbox.
 type jHarness struct {
 	t   *testing.T
 	app *App
@@ -692,7 +692,7 @@ var journeyLedger = map[string]string{
 	"door/import":    "unit:TestImportBranch",
 	"exit/land":      "journey:TestJourneyKidStory",
 	"exit/release":   "backing:portainer — the lan-release half needs a throwaway portainer (design/architecture/testing.md)",
-	"exit/packaging": "unit:TestSourcePackagedSignals — one rail: releasable = image OR repo Dockerfile (forge builds, never writes); the build+push leg shares exit/release's portainer gap; verified live 2026-08-31 (post-synthesis-deletion game)",
+	"exit/packaging": "unit:TestSourcePackagedSignals — one rail: releasable = image OR repo Dockerfile (AppTown builds, never writes); the build+push leg shares exit/release's portainer gap; verified live 2026-08-31 (post-synthesis-deletion game)",
 
 	"guidance/create":    "unit:guidance_conformance_test",
 	"guidance/adopt":     "collapsed:pack/adopt",

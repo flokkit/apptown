@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure core projections on a disposable database in local forge-test-db.
+"""Measure core projections on a disposable database in local AppTown-test-db.
 
 Requires the test PostgreSQL container already running. Seeds synthetic projection
 rows directly, not an application lifecycle fixture. Creates/drops only its own

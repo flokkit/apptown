@@ -17,7 +17,7 @@ import (
 
 // Errors capability: Sentry-compatible error
 // reporting via GlitchTip, platform pattern — the instance binds an admin
-// token; forge provisions a provider-side project per ATTACHED forge project
+// token; AppTown provisions a provider-side project per ATTACHED AppTown project
 // and stores the DSN as the attachment's resource. Contributions: DSN env
 // into attached projects' app containers, a generated steering line, the
 // observability/error-reporting guidance block, docs, receipts.
@@ -118,7 +118,7 @@ func (s *Service) TestErrorsBinding(ctx context.Context, config map[string]any) 
 // --- attachments ---
 
 // ProvisionErrors: the linked construction path for the errors capability —
-// creates (or adopts) a provider-side project named after the forge project
+// creates (or adopts) a provider-side project named after AppTown project
 // and stores its DSN as the integration's resource, provenance
 // 'provisioned'. Idempotent. Returns an HTTP-ish status for the caller.
 func (s *Service) ProvisionErrors(ctx context.Context, p *project.Project, connector, who string) (map[string]any, int, error) {
@@ -211,8 +211,8 @@ func (s *Service) ErrorsIssueSummary(ctx context.Context, p *project.Project, re
 				row["link"] = i.Permalink
 			}
 			// Where it broke, from the latest event's innermost frame, so a
-			// person can go from the forge's card to the line without
-			// leaving (the forge's own UI faults arrive here too).
+			// person can go from AppTown's card to the line without
+			// leaving (AppTown's own UI faults arrive here too).
 			if i.ID != "" {
 				if where := s.errorsIssueWhere(b, token, i.ID); where != "" {
 					row["where"] = where

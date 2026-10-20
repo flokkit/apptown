@@ -60,7 +60,7 @@ func TestRepositorySetupHTTPReceipt(t *testing.T) {
 	}
 }
 
-// A forge with no GitLab connection says so plainly: no groups, configured
+// An AppTown with no GitLab connection says so plainly: no groups, configured
 // false, and a success, so the new-project wizard offers no GitLab copy
 // instead of showing a failure (and asking again) on every visit.
 func TestSCMNamespacesWithoutGitLabSayNotConfigured(t *testing.T) {

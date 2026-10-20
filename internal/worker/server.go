@@ -1,10 +1,10 @@
 // Package worker is the execution side of a separated forge
 // (design/operations/workers.md): a small
-// program on a machine that shares no files with the forge, which runs tasks
+// program on a machine that shares no files with AppTown, which runs tasks
 // on its own Docker daemon for one registered installation.
 //
-// It knows nothing about projects, workflows or the forge's database. The
-// forge reaches it over mutual TLS (a client certificate naming the
+// It knows nothing about projects, workflows or AppTown's database. The
+// AppTown reaches it over mutual TLS (a client certificate naming the
 // installation it is registered to) and moves source only as Git bundles:
 // a task's source arrives as a bundle the worker clones, and its result
 // leaves as a bundle of the commits it made.
@@ -65,7 +65,7 @@ type Server struct {
 	State string
 	// Tasks runs the tasks: the worker's own Docker daemon in production.
 	Tasks execution.TaskDriver
-	// Sessions runs chats (sessions.go): the forge's own chat runtime on the
+	// Sessions runs chats (sessions.go): AppTown's own chat runtime on the
 	// worker's Docker. Nil for a worker that runs none.
 	Sessions console.Agent
 	// Images answers whether a session's image is on the worker's Docker;
@@ -423,11 +423,11 @@ func (s *Server) putWorkspace(w http.ResponseWriter, r *http.Request) {
 	}
 	// A workspace has no remote: results leave only as bundles.
 	_, _ = s.runGit(r.Context(), "", "--git-dir", gitDir, "remote", "remove", "origin")
-	// The forge's runtime files under .apptown (a step's report, its agent's
+	// AppTown's runtime files under .apptown (a step's report, its agent's
 	// home) are not the task's work, whatever the project's own ignore rules
 	// say: a repository started from existing code need not ignore them.
 	// Git's own exclude file, apart from the tree, keeps them out of what is
-	// collected; the forge still refuses any that arrive.
+	// collected; AppTown still refuses any that arrive.
 	if err := os.MkdirAll(filepath.Join(gitDir, "info"), 0o700); err != nil {
 		httpError(w, err)
 		return
@@ -506,7 +506,7 @@ func (s *Server) workspaceResult(w http.ResponseWriter, r *http.Request) {
 	// The worker returns what the task changed, as git takes it: the
 	// project's ignore rules and the workspace's exclude file (putWorkspace)
 	// apply, and the native app contract is taken even where they ignore
-	// it. Which of that may enter the change's branch is the forge's
+	// it. Which of that may enter the change's branch is AppTown's
 	// decision where it accepts the result (scm's publication check), not
 	// the worker's.
 	if out, err := s.git(r.Context(), key, "add", "-A", "--", "."); err != nil {
@@ -895,7 +895,7 @@ func (s *Server) output(w http.ResponseWriter, r *http.Request) {
 
 // stop stops the whole invocation: the task's container, then its private
 // daemon and services, each confirmed stopped. A private stop not confirmed
-// is a failed stop: the forge holds the task (E03), and its workspace is
+// is a failed stop: AppTown holds the task (E03), and its workspace is
 // not collected (workspaceResult).
 func (s *Server) stop(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")

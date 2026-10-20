@@ -3,7 +3,7 @@
 Conversation prepares Forge-specific session scope and briefing. Console owns
 session persistence and process lifetime. Changeconsole owns what becomes of
 a change's chat's work: its saves, its end, the boot rehearsal of its work and
-the notices the forge sends it. Agentenv prepares tools, registries and
+the notices AppTown sends it. Agentenv prepares tools, registries and
 private Docker for both chats and workflow steps. The [runtime guide](../../stock/docs/guides/runtime-environments.md)
 lists tools, mounts, services and credential grants.
 
@@ -67,11 +67,11 @@ change's chats, live and ended, are on the change page
 (`GET /changes/{id}/transcript`); the ended chats opened on the project itself
 are under "Past chats" on the project page
 (`GET /projects/{slug}/transcript`). Both need evidence read on the project,
-name who opened each chat, and mark a chat moved from another forge
+name who opened each chat, and mark a chat moved from another AppTown
 (`conversation.ImportedLabel`) as history only. A chat with no messages is
 listed in neither. A chat folder whose record or words cannot be read is not
 left out silently and does not stop the others: both reads return the chats
-they could read and say how many records on the forge could not be read
+they could read and say how many records on AppTown could not be read
 (`unreadable`; administrators also see the folders), because any of them may
 belong here. A project's export refuses instead, naming them. Pictures pasted into a chat stay visible with its words:
 `GET /changes/{id}/transcript/{chat}/pictures/{name}` and
@@ -92,7 +92,7 @@ the rule already admits several people acting on one chat.
 
 ## Runtime preparation
 
-The Forge CLI is a packaged Linux executable: `apptown-linux` beside `apptownd`, or
+AppTown CLI is a packaged Linux executable: `apptown-linux` beside `apptownd`, or
 the path configured by `-console-cli` / `APPTOWN_CONSOLE_CLI`. Build it with
 `make console-cli`. Forge checks availability once per daemon process. A missing
 or non-executable artifact leaves sessions without the CLI; restart after fixing
@@ -110,12 +110,12 @@ a live session token and an allowed worker network through the inference gateway
 provider keys remain in Forge. See [inference access](inference-security.md).
 Privileged DinD does not isolate hostile tenants from the host.
 
-## What the forge tells a chat
+## What AppTown tells a chat
 
-The forge sends a change's chat a message, waking it, when something happens
+AppTown sends a change's chat a message, waking it, when something happens
 that the chat would otherwise act wrongly without: its save was refused
-(`[forge save]`), its saved commit failed to boot (`[apptown check]`), or the
-change's landing ended without landing (`[forge landing]`), for example
+(`[apptown save]`), its saved commit failed to boot (`[apptown check]`), or the
+change's landing ended without landing (`[apptown landing]`), for example
 because main moved under it. The landing notice is sent once per ended landing
 by the run's abandonment follow-up job (`workcommands.FollowUps.Abandon`), only
 while the change is in progress. It carries the run's `Ending`: the reason the
@@ -123,7 +123,7 @@ landing was abandoned and the failing step's own reason, which for a branch
 behind main is the catch-up to do. A chat that cannot be told fails that job,
 where the failure is kept. `apptown wait -c` reads the same `Ending` when no run
 is going. The briefing does not state the change's state: it is written once
-at opening and would go stale, so the chat queries the forge instead.
+at opening and would go stale, so the chat queries AppTown instead.
 
 ## Retention and recovery
 
@@ -148,10 +148,10 @@ reconnect checks remain separate from source and unit-test verification.
 
 With a worker configured
 ([operating guide](../operations/workers.md)), a change's chat runs on the
-worker by default. The person can choose to open it on the forge. Two kinds of
-chat always open on the forge: a project's chat, and a chat that continues a
-step's agent. A forge started with `-no-local-docker` runs no chats itself:
-it refuses those two kinds, and a chat chosen for the forge, with the reason. The model, its guarantees and its accepted failures are
+worker by default. The person can choose to open it on AppTown. Two kinds of
+chat always open on AppTown: a project's chat, and a chat that continues a
+step's agent. An AppTown started with `-no-local-docker` runs no chats itself:
+it refuses those two kinds, and a chat chosen for AppTown, with the reason. The model, its guarantees and its accepted failures are
 requirement
 [RE11](../requirements/runtime-environments.md#re11-work-on-a-separate-machine).
 
@@ -173,14 +173,14 @@ a new chat on the worker refuses, with the reason, in three cases:
 Otherwise the folder's committed work is published first. The worker is then
 sent the change's branch as a Git bundle.
 
-**Saving.** Work reaches the change when it is saved, meaning the forge has put
+**Saving.** Work reaches the change when it is saved, meaning AppTown has put
 it on the branch. After a turn the chat hands back, before a landing or a
-recheck, and when the chat ends, the forge asks the worker for a bundle of the
+recheck, and when the chat ends, AppTown asks the worker for a bundle of the
 chat's commits. It imports the bundle through the checked import and publishes
 it under the chat's hold (`changeconsole.Service` calls
 `repositoryedit.SaveChat`; one chat's saves run one at a time). A save's result is one of:
 - saved;
-- refused, told to the chat with the fix, and kept on the forge;
+- refused, told to the chat with the fix, and kept on AppTown;
 - not confirmed;
 - skipped;
 - discarded: the chat's project was deleted, and its change with it, so
@@ -208,10 +208,10 @@ before publishing it (`scm.MarkSaved`); the record is kept beside the
 folders (`workspaces/.saved/<folder>`), never in the folder's `.git`. A save
 that cannot record it is not published and not confirmed. The folder is
 brought along only by a confined Git operation (`gitexec.Folder`), which
-first checks the folder's metadata is what the forge's own clone makes and
+first checks the folder's metadata is what AppTown's own clone makes and
 refuses any other. The folder is **behind** while the branch has that commit
 and the folder does not, for example when a left-behind Git lock stopped the
-save bringing it along, or the forge refused to run Git in the folder (then
+save bringing it along, or AppTown refused to run Git in the folder (then
 it is behind without Git being asked). A folder still behind an earlier save
 keeps that record,
 so a later save refused does not hide it. If Git cannot answer whether the
@@ -222,7 +222,7 @@ While it is behind, the pages read the branch instead:
 
 Anything that brings the folder to the branch ends this without clearing
 anything: a later save, a desktop sync, or a merge. Preparing the folder for
-a new writer (a chat on the forge or a run) clears the record, so that
+a new writer (a chat on AppTown or a run) clears the record, so that
 writer's own history, a reset included, is read as its work. Who holds the
 change does not decide which history is read. The change page
 lists the change's worker chats, live and ended, each with its last save. A save
@@ -233,23 +233,23 @@ worker shows nothing of the chat.
 holds saves the chat first and checks what was saved (`verification.Changes.Check`
 asks `changeconsole.Saves`); a refused or
 unconfirmed save refuses the check with its reason. The CLI names the
-commit it asks about, its folder's `HEAD`; the forge checks it only when it
+commit it asks about, its folder's `HEAD`; AppTown checks it only when it
 is in the history of the change's folder or of its published branch, and
 otherwise refuses naming it, never answering with another commit. Outside a
 Git repository and over MCP, no commit is named and the check reads the
 commit the change's views read, the chat saving first. `apptown check
 --published` asks for the published tip explicitly (`{"published": true}`):
-the forge checks the tip of the change's branch in the project's repository,
+AppTown checks the tip of the change's branch in the project's repository,
 not the folder, saves nothing from a chat to do it, and refuses when the
 branch does not exist. Every answer names the commit it is for.
 
 **Previews.** A change a worker chat holds is previewed as saved: the try-it
 button, `apptown preview` and MCP previews save the chat first and boot the
 saved commit, and a refused or unconfirmed save refuses the preview. After
-each save that succeeds, the forge rehearses the saved commit once, as the
+each save that succeeds, AppTown rehearses the saved commit once, as the
 try-it button would, and tells the chat when the app fails to come up
 ([operating guide](../operations/workers.md#previews-on-the-worker)). When
-the worker refuses a new chat, the chat page offers to open it on the forge
+the worker refuses a new chat, the chat page offers to open it on AppTown
 instead.
 
 ## Implementation references

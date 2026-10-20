@@ -15,7 +15,7 @@ import (
 
 // cmdExportProject: apptown export-project -p <slug> > file — an
 // administrator's copy of a project, with its history and chats, for moving
-// it to another forge.
+// it to another AppTown.
 // The file goes to standard output; the hash, counts and the sensitivity
 // warning go to standard error.
 func cmdExportProject(args []string) error {

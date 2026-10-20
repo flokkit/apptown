@@ -131,7 +131,7 @@ func TestIntegrationAStandingPostgresTakesItsDeploymentsOwnPassword(t *testing.T
 	u := &upgradeStack{t: t, stack: stack, name: "postgres", dk: dk, own: own}
 	u.ensure(old)
 	u.healthy()
-	// sql-guarantee: the app's own rows on a stand-in server, not the forge's database.
+	// sql-guarantee: the app's own rows on a stand-in server, not AppTown's database.
 	if out, err := psql("app", "app", "app", "create table loaves (id serial primary key, name text); insert into loaves (name) select 'loaf ' || g from generate_series(1, 20) g"); err != nil {
 		t.Fatalf("the rc.5 Postgres: %v %s", err, out)
 	}
@@ -164,7 +164,7 @@ func TestIntegrationAStandingMariaDBTakesItsDeploymentsOwnPassword(t *testing.T)
 	}
 	u.ensure(old)
 	u.healthy()
-	// sql-guarantee: the application's own database, inside its container, not the forge's.
+	// sql-guarantee: the application's own database, inside its container, not AppTown's.
 	if out, err := sql("app", "create table loaves (id int primary key); insert into loaves values (1), (2), (3)"); err != nil {
 		t.Fatalf("the rc.5 MariaDB: %v %s", err, out)
 	}
@@ -257,7 +257,7 @@ func TestIntegrationAStandingObjectStoreTakesItsDeploymentsOwnKeys(t *testing.T)
 			t.Fatalf("the rc.5 key %s still reads the bucket: %q", old[0], out)
 		}
 	}
-	// The gateway's root key is the forge's: never given to the app.
+	// The gateway's root key is AppTown's: never given to the app.
 	for name, value := range kind.ResolveLocal(nil, "", generated).Inject {
 		if strings.Contains(value, generated["root_key"]) || strings.Contains(value, generated["root_secret"]) {
 			t.Fatalf("the app is given the gateway's root key in %s", name)

@@ -49,7 +49,7 @@ func newPortainerNeeds(t *testing.T) (*promotionTargets, *ReleaseBundle, *backup
 	p.revision = strings.TrimSpace(head)
 	asked := &backupsAsked{}
 	p.s.providers.afterRelease = asked.ask
-	// The release door resolves secrets as the forge's wiring does
+	// The release door resolves secrets as AppTown's wiring does
 	// (release_wiring.go), from the secrets store the intranet door reads.
 	p.s.release.Secrets = storeSecrets{p.s.env.secrets}
 	return p, p.land(t), asked
@@ -118,7 +118,7 @@ func (p *promotionTargets) lastStack(t *testing.T) (string, int) {
 // A deployment on Portainer, released by name, runs the app with its needs
 // as the intranet release runs it: the same stack file, byte for byte —
 // postgres with the stock start script that makes the app's user an
-// ordinary owner, the forge's password, its data on a volume the deploy
+// ordinary owner, AppTown's password, its data on a volume the deploy
 // made and the deployment now owns, the app's secret, its parts and init
 // steps — at the project's release domain, and a backup is asked for once
 // it is live. The deployment had no handle and no address before.
@@ -323,7 +323,7 @@ func sourceOf(t *testing.T, p *promotionTargets, b *ReleaseBundle) deploy.Source
 	return deploy.Source{Slug: "p", Revision: b.ContractRevision, Contract: c, Images: b.Parts, Init: b.Init, Published: b.ByDigest(), Platform: b.BuiltFrom.Platform}
 }
 
-// The intranet door cannot revoke a key the forge registers for an app (an
+// The intranet door cannot revoke a key AppTown registers for an app (an
 // AI models key), so it refuses such an app and says the door that can:
 // releasing the deployment by name.
 func TestTheIntranetDoorNamesTheDoorForARegisteredNeed(t *testing.T) {

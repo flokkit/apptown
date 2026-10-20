@@ -15,7 +15,7 @@ import (
 //
 // --json prints one document on stdout and nothing else there: progress and
 // warnings go to stderr. It never follows a run and never asks: a loop
-// command returns once the forge accepted the request, and approve needs -y.
+// command returns once AppTown accepted the request, and approve needs -y.
 // Exit codes are those of the command without --json.
 
 // ChangeRef names a change: its id, its number within its project, and the
@@ -41,7 +41,7 @@ type Opened struct {
 	Workflow string    `json:"workflow" doc:"the workflow the run follows"`
 }
 
-// LandingRequested is what land prints: the landing run the forge started.
+// LandingRequested is what land prints: the landing run AppTown started.
 type LandingRequested struct {
 	Change ChangeRef `json:"change" doc:"the change being landed"`
 	Run    RunRef    `json:"run" doc:"its landing run"`

@@ -31,7 +31,7 @@ type ScheduleList struct {
 
 // ScheduleView is one schedule. Source is what declares it: today the
 // adopted workflow version that carries it. Cron is read in TimeZone, always
-// UTC, the forge's time. Next is when the scheduler next fires it; Due says
+// UTC, AppTown's time. Next is when the scheduler next fires it; Due says
 // that time has passed and its next tick fires it. Last is absent when it
 // never fired. Problem says why the schedule could not be read; Next and
 // Last are then unknown, not absent.

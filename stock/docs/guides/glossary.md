@@ -250,7 +250,7 @@ event.
 **Test hook** — the house-standard way to prove error reporting works in
 any deployment by hand: a server app serves `GET /_apptown/boom`; a browser
 app or game fires on the typed sequence `boom!!!`. Both send one tagged
-"forge test boom" event. Not authenticated, on purpose.
+"apptown test boom" event. Not authenticated, on purpose.
 
 **Registry** — the container image store: releases push to it, the platform
 pulls from it.

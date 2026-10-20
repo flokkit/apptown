@@ -29,7 +29,7 @@ import (
 	"flokkit.io/forge/internal/worker"
 )
 
-// The composed proof of previews on a worker: a forge composed with a worker, as startup composes it (Config.Worker),
+// The composed proof of previews on a worker: an AppTown composed with a worker, as startup composes it (Config.Worker),
 // whose own Docker is a tripwire, runs every preview caller on the worker.
 
 // errTripwire is this machine's Docker refusing what a preview would ask
@@ -120,7 +120,7 @@ func ownerConsole(a *App, id string, ch *workflow.Change) *console.Session {
 	return a.Console.Restore(meta)
 }
 
-// proofGate runs a change's lane on a forge composed with the fake worker
+// proofGate runs a change's lane on an AppTown composed with the fake worker
 // and the tripwire: the run's preview step boots on the worker, afterBoot
 // does what it does, and the guidance step judges a readiness probe and
 // the page's browser values against that preview. It answers the gate and
@@ -194,7 +194,7 @@ func proofGate(t *testing.T, fake *fakePreviewWorker, local *fakeDocker, afterBo
 	if booted, err := workflow.ReadStepIn(context.Background(), a.DB, boot); err != nil || booted.Status != workflow.StatusPass {
 		t.Fatalf("the preview step: %v %+v", err, booted)
 	}
-	// The front door: the forge's own preview proxy, asked by the preview
+	// The front door: AppTown's own preview proxy, asked by the preview
 	// domain's name, reaches the run's preview through the worker.
 	front := httptest.NewRequest("GET", "/", nil)
 	front.Host = fmt.Sprintf("run-%d.preview.example.com", run.ID)

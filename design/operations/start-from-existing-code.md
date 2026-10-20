@@ -1,4 +1,4 @@
-# Starting a project from existing code, and moving one to another forge
+# Starting a project from existing code, and moving one to another AppTown
 
 A new project's repository can begin with the history of existing code.
 **Only the code comes**: its default branch and its tags. Changes, runs,
@@ -29,7 +29,7 @@ git bundle create code.bundle main --tags
 An incremental bundle is refused, because it needs history it does not
 carry. So is a damaged one. A refused bundle leaves no repository behind.
 
-The largest bundle the forge accepts is set by the operator with
+The largest bundle AppTown accepts is set by the operator with
 `-import-bundle-max-bytes`. The default is 2 GiB.
 
 ## From an https repository
@@ -38,7 +38,7 @@ The largest bundle the forge accepts is set by the operator with
 apptown new <slug> --from https://gitlab.example.com/team/app.git [--secret-for-git GITLAB_TOKEN]
 ```
 
-The forge's server does the fetch. To limit where it can be sent, it
+AppTown's server does the fetch. To limit where it can be sent, it
 fetches only under these conditions:
 
 - The URL is https on port 443, with no user name or password in it.
@@ -50,14 +50,14 @@ fetches only under these conditions:
     private address, not just one.
 - Git is pinned to the address that was checked, and redirects are off.
 
-A failed fetch is reported in the forge's own words: whether access was
+A failed fetch is reported in AppTown's own words: whether access was
 refused, nothing was found at the address, or the server could not be
 reached. Git's messages are not passed on, because a server's error text
 can repeat the credential it was given. One fetch may take at most ten
 minutes.
 
-`--secret-for-git` names one of the forge's own secrets, set with
-`apptown secret set` or under Integrations › Secrets. The forge offers its
+`--secret-for-git` names one of AppTown's own secrets, set with
+`apptown secret set` or under Integrations › Secrets. AppTown offers its
 value as the git password, with the user name `forge`. Only an
 administrator may name one, because the value goes to whatever server the
 URL names.
@@ -66,18 +66,18 @@ URL names.
 
 The repository is set up as any new project's is:
 
-- If the code has no `.gitignore`, the forge adds one as a commit. The new
+- If the code has no `.gitignore`, AppTown adds one as a commit. The new
   project's `main` is then one commit ahead of the source.
 - `--pack` skips files the code already has.
 - `--toolchain` refuses if `mise.toml` exists.
 
-Symbolic links in the code stay links. The forge never writes through one
+Symbolic links in the code stay links. AppTown never writes through one
 when it sets the project up. If a pack's starter file would have to pass
-through a link, the forge skips that file and the pack's answer names it.
+through a link, AppTown skips that file and the pack's answer names it.
 A `.gitignore` that is a link counts as the project's own and is left
 alone.
 
-The forge reads `mise.toml`, `.apptown/app.yaml` and `secretspec.toml` from
+AppTown reads `mise.toml`, `.apptown/app.yaml` and `secretspec.toml` from
 the tree, as it does for any project. The command lists the secret names
 `secretspec.toml` declares. Set them in Settings › Secrets: secret values
 never travel with code.
@@ -86,9 +86,9 @@ Starting from code is `project:import` on the new project. The person who
 created the project holds it. A connected agent with read-only consent
 does not, and neither does a chat session.
 
-## Moving a project to another forge
+## Moving a project to another AppTown
 
-On the source forge, anyone who can read the project can run:
+On the source AppTown, anyone who can read the project can run:
 
 ```sh
 apptown bundle -p <slug> > <slug>.bundle
@@ -106,7 +106,7 @@ apptown new <slug> --from <slug>.bundle [--pack P]
 
 Then set the secrets the command lists. Attach the integrations and
 deployment targets the project needs. The project's history on the source
-forge stays there. When you no longer need the old project, delete it on
+AppTown stays there. When you no longer need the old project, delete it on
 the source.
 
 ### Moving a project with its history and chats
@@ -130,14 +130,14 @@ Secret values, release history, deployments, backups and conformance
 judgments stay too. The export refuses, naming why, for an eval copy, a
 chat's record or a change's attachments that cannot be read, a commit the
 moving records name that the moving refs lack, and carried history holding
-the forge's runtime files (`.apptown`, which can hold an agent's credentials;
+AppTown's runtime files (`.apptown`, which can hold an agent's credentials;
 a lane's committed report file such as `.apptown/REPORT.md` is prose and
 moves).
-The file is as sensitive as the forge's database: logs, chats and artifacts
+The file is as sensitive as AppTown's database: logs, chats and artifacts
 are in it as they are. The source records `project.exported` with the
 file's hash.
 
-Importing the file on another forge is not built yet.
+Importing the file on another AppTown is not built yet.
 
 ## When something fails
 

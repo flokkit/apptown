@@ -28,7 +28,7 @@ import (
 //     change:land on its Change, recorded on the run when it was created
 //     (runs.landing_authority).
 //
-// Agents, chats, step runs and the forge's own triggers hold no landing
+// Agents, chats, step runs and AppTown's own triggers hold no landing
 // authority and cannot approve, so their runs merge or deploy only after a
 // person approves. A run with neither fact stops at the effect with a plain
 // reason; nothing merges or deploys.
@@ -113,7 +113,7 @@ func votedInPerson(vote ApprovalVote) bool {
 	return isPerson(vote.Approver)
 }
 
-// isPerson: attribution naming a person, not the forge itself, a step run
+// isPerson: attribution naming a person, not AppTown itself, a step run
 // or a chat.
 func isPerson(who string) bool {
 	return who != "" && who != "apptown-system" && !strings.HasPrefix(who, "run/") && !strings.Contains(who, " via console/")

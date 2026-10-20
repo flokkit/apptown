@@ -16,7 +16,7 @@ describe('renderMd', () => {
     expect(renderMd('')).toBe('')
   })
 
-  it('strips <style> blocks so an embedded page cannot restyle the forge', () => {
+  it('strips <style> blocks so an embedded page cannot restyle AppTown', () => {
     const out = renderMd('<style>body { display: none }</style>\n\nhello')
     expect(out).not.toContain('<style')
     expect(out).not.toContain('display: none')

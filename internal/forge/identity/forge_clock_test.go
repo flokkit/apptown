@@ -17,11 +17,11 @@ import (
 )
 
 // An invite, a delegation and an administrator's grant are written to
-// expire by the forge's clock and judged by it where they are used
+// expire by AppTown's clock and judged by it where they are used
 // (accepting an invite, a delegation's Live, ActiveGrants), so the listing
 // of pending invites, the sweep of expired delegations and the count of
 // administrators judge by that clock too. With the database's clock forty
-// days ahead, an invite and a delegation still live by the forge's clock
+// days ahead, an invite and a delegation still live by AppTown's clock
 // are listed and kept, and an administrator whose grant ends in an hour
 // still counts.
 func TestTheForgesClockDecidesWhatExpires(t *testing.T) {
@@ -80,7 +80,7 @@ func TestTheForgesClockDecidesWhatExpires(t *testing.T) {
 	}
 }
 
-// A revoked token is kept a day after its revocation by the forge's clock,
+// A revoked token is kept a day after its revocation by AppTown's clock,
 // which records the revocation and sweeps it: with the database's clock two
 // days behind, a token revoked just now survives the sweep.
 func TestARevokedTokenIsKeptADayByTheForgesClock(t *testing.T) {
@@ -137,7 +137,7 @@ func TestARevokedTokenIsKeptADayByTheForgesClock(t *testing.T) {
 	}
 }
 
-// movableClock is a forge clock a test sets and moves.
+// movableClock is an AppTown clock a test sets and moves.
 type movableClock struct {
 	mu sync.Mutex
 	at time.Time
@@ -156,7 +156,7 @@ func (c *movableClock) move(by time.Duration) {
 }
 
 // Every lifetime identity gives a credential is written and judged by the
-// forge's clock, never the wall clock or the database's: on a forge clock
+// forge's clock, never the wall clock or the database's: on an AppTown clock
 // ninety days behind both, a session, an invite, a consent request, a
 // code, an access and a refresh token, a git ticket and an expiring grant
 // all live their lifetimes, and each ends when that clock passes it.
@@ -302,7 +302,7 @@ func TestEveryLifetimeIsJudgedByTheForgesClock(t *testing.T) {
 	}
 }
 
-// Who administers is judged by the forge's clock when a grant is revoked:
+// Who administers is judged by AppTown's clock when a grant is revoked:
 // on a clock ninety days behind the wall clock, an administrator whose grant
 // ends in an hour is still one, so the other may lose theirs, and is then
 // the last. A grant is stamped with that clock too.
@@ -344,7 +344,7 @@ func TestTheLastAdministratorIsJudgedByTheForgesClock(t *testing.T) {
 	}
 }
 
-// An operation takes one reading of the forge's clock, and its record and
+// An operation takes one reading of AppTown's clock, and its record and
 // its receipt both carry that reading. On a clock that moves on a second
 // at every reading, a receipt stamped by a second reading would say a
 // later second than the record it describes.

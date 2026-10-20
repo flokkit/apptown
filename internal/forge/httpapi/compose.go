@@ -14,11 +14,11 @@ import (
 	"flokkit.io/forge/internal/forge/dependency"
 )
 
-// generateDevCompose renders the forge-native contract to a docker-compose.yml
+// generateDevCompose renders AppTown-native contract to a docker-compose.yml
 // for LOCAL DEVELOPMENT (design/decisions/forge-native-contract.md): every app part plus
 // each need's local (emulator) fulfillment, with the connection env wired into
 // the app parts. This is the local machine as a fulfillment target — the same
-// needs the forge fulfills with emulator containers in previews and terraform
+// needs AppTown fulfills with emulator containers in previews and terraform
 // in cloud, emitted here as a file the dev's own `docker compose up` can run.
 //
 // It is GENERATED, never authored: `apptown dev` writes it gitignored and rebuilds
@@ -31,7 +31,7 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 	for _, p := range parts {
 		if p.StaticBuild != nil {
 			// Compose cannot export a build's files and serve them; the
-			// forge builds this form for previews and releases.
+			// AppTown builds this form for previews and releases.
 			return "", fmt.Errorf("app part %q is a static site with a build, which `apptown dev up` does not run: run its own dev server (for example npm run dev), or apptown preview", p.Name)
 		}
 	}
@@ -318,7 +318,7 @@ func composeNeed(s dependency.LocalService) map[string]any {
 		svc["healthcheck"] = composeHealth(s.Health)
 	}
 	// A folder where the emulator keeps its data: an anonymous volume, as
-	// the forge's own throwaway starts give it. S3's emulator exits at once
+	// AppTown's own throwaway starts give it. S3's emulator exits at once
 	// without /data.
 	if s.Data != "" {
 		svc["volumes"] = composeLiteral([]string{s.Data})

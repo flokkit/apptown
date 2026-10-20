@@ -25,9 +25,9 @@ import (
 	"flokkit.io/forge/internal/gitexec"
 )
 
-// A chat on a worker is saved when the forge has put its commits on the
+// A chat on a worker is saved when AppTown has put its commits on the
 // change's branch (design/operations/workers.md, "Chats on the worker").
-// The forge asks the worker for a bundle of the chat's commits
+// AppTown asks the worker for a bundle of the chat's commits
 // since the branch's tip, imports it through the checked import, and
 // publishes it under the chat's hold, with the checks every publication
 // gets. Nothing the worker sends is trusted before those checks.
@@ -58,7 +58,7 @@ type ChatSave struct {
 	Kept string `json:"kept,omitempty"`
 }
 
-// Settled: the save leaves nothing on the worker the forge needs: its
+// Settled: the save leaves nothing on the worker AppTown needs: its
 // commits are on the branch, it had none, a refused commit is kept here for
 // its download, or there was nothing to save for (a closed change). An
 // ending chat is removed only after a settled save; a refusal that could not
@@ -96,7 +96,7 @@ func RefusedChatRef(session string) string { return "refs/apptown/refused/chat-"
 // when the commit was imported, the ref it is kept under). A chat that no
 // longer holds its change, or whose change is closed, saves nothing. A chat
 // whose project was deleted (its change went with it) can never be saved:
-// its unsaved work is discarded, and the ledger says so. at is the forge's
+// its unsaved work is discarded, and the ledger says so. at is AppTown's
 // time of the save.
 func SaveChat(ctx context.Context, db *database.DB, dataDir string, branches *scm.Branches, publisher Publisher, chat ChatRef, fetch SaveFetch, saveRef string, at time.Time) ChatSave {
 	now := at.UTC()
@@ -246,7 +246,7 @@ func clearRefused(ctx context.Context, hub, session string) {
 	}
 }
 
-// recipe is how a chat takes a refused file out of commits the forge never
+// recipe is how a chat takes a refused file out of commits AppTown never
 // accepted: the checks read every new commit, so a later commit deleting
 // the file does not help.
 func recipe(saved string) string {
@@ -287,7 +287,7 @@ func LastChatSave(dir string) (ChatSave, bool, error) {
 
 // BundleRefusedChatSave writes a bundle of a chat's kept refused commit,
 // since the change's branch, to w: the download of a refused last save.
-// Anyone who clones or fetches it gets the commits the forge refused and
+// Anyone who clones or fetches it gets the commits AppTown refused and
 // can repair them; nothing about it is published.
 func BundleRefusedChatSave(ctx context.Context, dataDir, projectSlug, branch, chat string, w io.Writer) error {
 	return bundleKept(ctx, hubOf(dataDir, projectSlug), branch, RefusedChatRef(chat), errNoRefusedSave, w)

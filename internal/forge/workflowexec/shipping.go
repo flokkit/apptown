@@ -21,7 +21,7 @@ import (
 const DeployKind = "deploy"
 const PreviewKind = "preview"
 
-// NotContinued are the step kinds a forge restart ends instead of
+// NotContinued are the step kinds an AppTown restart ends instead of
 // continuing: a deploy step builds, publishes and deploys, and a restart
 // leaves it in error until someone runs it again (design/operations/workers.md,
 // "Releases built on the worker"). Its release-build task, if any, is stopped and released
@@ -41,7 +41,7 @@ type Shipping struct {
 	backups    interface{ AfterRelease(ids.ID, string) }
 	builds     *ReleaseBuilds
 	cfg        ShippingConfig
-	clock      func() time.Time // the forge's clock; nil is the real one
+	clock      func() time.Time // AppTown's clock; nil is the real one
 }
 type ShippingConfig struct {
 	DataDir, Image string
@@ -57,10 +57,10 @@ type ShippingDependencies struct {
 	Checks   CompileCheck
 	Progress *progress.Feeds
 	Backups  interface{ AfterRelease(ids.ID, string) }
-	// Builds, on a forge with a worker, is where its releases are built;
+	// Builds, on an AppTown with a worker, is where its releases are built;
 	// nil builds each on its target (docker.PrepareImages), as before.
 	Builds *ReleaseBuilds
-	// Now is the forge's clock, which stamps what shipping records on a
+	// Now is AppTown's clock, which stamps what shipping records on a
 	// run; nil is the real one.
 	Now func() time.Time
 }
@@ -86,5 +86,5 @@ func recordArtifact(ctx context.Context, db *database.DB, runID ids.ID, kind, na
 	}
 }
 
-// now reads the forge's clock.
+// now reads AppTown's clock.
 func (a *Shipping) now() time.Time { return clock.Or(a.clock)() }

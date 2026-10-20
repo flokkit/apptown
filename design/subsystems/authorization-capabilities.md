@@ -18,7 +18,7 @@ made at the effect itself, the merge admission and the deploy step's claim, so
 it holds whichever door started the run and when it resumes
 (`workflow/assent.go`). Starting a run whose definition would reach either
 effect before a required approval is also refused early to a caller without
-`change:land`. Agents, consoles, step runs and the forge's own triggers hold no
+`change:land`. Agents, consoles, step runs and AppTown's own triggers hold no
 landing authority and cannot approve. Root may approve its own Change. Non-root approval follows
 project eligibility, the independent-approval rule and quorum requirements.
 
@@ -34,8 +34,8 @@ start the change (`MayCreateAndRun`), and a narrative refresh's source read
 asks for the narrative's publication authority, `change:write-narrative`.
 That capability reaches a change's "So far" summary (and a title nobody
 chose), never the person-written brief (`change:update-brief`). Contributors
-hold both; the forge's own engine holds only the narrative one, so its
-automatic refreshes after a run publish, recorded as the forge's.
+hold both; AppTown's own engine holds only the narrative one, so its
+automatic refreshes after a run publish, recorded as AppTown's.
 
 Routes declare a capability policy, an owner-checked command, a filtered read,
 or an explicit public/protocol contract. MCP tools also declare their policy

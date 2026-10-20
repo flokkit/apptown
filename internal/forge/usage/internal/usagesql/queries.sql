@@ -71,7 +71,7 @@ COALESCE(SUM(total),0)::bigint AS total, COALESCE(SUM(cost_micros),0)::bigint AS
 COUNT(*) FILTER (WHERE incomplete <> '' OR pending_until <= sqlc.arg(now)::timestamptz)::bigint AS incomplete
 FROM token_usage WHERE project_id = ANY(sqlc.arg(project_ids)::uuid[]);
 
--- A forge model call's spend line, opened before the call is sent: keyed by
+-- An AppTown model call's spend line, opened before the call is sent: keyed by
 -- its receipt, zero until settled, pending until pending_until.
 -- name: OpenCallLine :exec
 INSERT INTO token_usage(id, at,kind,project_id,run_id,actor,actor_principal,actor_via,provider,model,observation,pending_until)
@@ -99,6 +99,6 @@ SELECT COUNT(*)::bigint FROM token_usage WHERE project_id = ANY(sqlc.arg(project
 -- name: LockInAllPendingLines :execrows
 UPDATE token_usage SET incomplete=sqlc.arg(incomplete), pending_until=NULL WHERE pending_until IS NOT NULL;
 
--- A project's spend, row by row, for moving it to another forge.
+-- A project's spend, row by row, for moving it to another AppTown.
 -- name: ExportTokenUsage :many
 SELECT to_jsonb(u)::text FROM token_usage u WHERE u.project_id = $1 ORDER BY u.id;

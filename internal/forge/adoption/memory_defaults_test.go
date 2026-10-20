@@ -37,7 +37,7 @@ func TestMemoryDefaultReadsThePrimaryAdoptedPublication(t *testing.T) {
 	}
 	dbtest.FailNextStatement(t, db, "FROM adoptions a LEFT JOIN packs")
 	if _, _, _, err := s.MemoryDefault(t.Context(), pid); err == nil {
-		t.Fatal("default read failure became forge fallback")
+		t.Fatal("default read failure became the AppTown fallback")
 	}
 }
 

@@ -153,7 +153,7 @@ func runOnResultWorker(t *testing.T, files map[string]string, alter func(n int, 
 	return runOnResultWorkerWith(t, files, alter, nil)
 }
 
-// runOnResultWorkerWith is runOnResultWorker with arm called on the forge
+// runOnResultWorkerWith is runOnResultWorker with arm called on AppTown
 // before the step runs (a fault, a stage to stop at), when it is given.
 func runOnResultWorkerWith(t *testing.T, files map[string]string, alter func(n int, w http.ResponseWriter, reply *httptest.ResponseRecorder), arm func(*taskForge)) (*taskForge, *executionfake.Tasks, *workflow.Step, *workflow.Run) {
 	t.Helper()
@@ -180,9 +180,9 @@ func runOnResultWorkerWith(t *testing.T, files map[string]string, alter func(n i
 
 // A result that fails the import's checks (a malformed bundle, or a bundle
 // holding another commit than the worker named) is kept nowhere: no
-// candidate and no refused ref, the branch unchanged. The forge has no copy
+// candidate and no refused ref, the branch unchanged. AppTown has no copy
 // of the work, so the attempt is an error and its workspace on the worker
-// is held, also by a restarted forge.
+// is held, also by a restarted AppTown.
 func TestAMalformedResultIsKeptNowhere(t *testing.T) {
 	t.Parallel()
 	for _, how := range []string{"malformed bundle", "another tip"} {
@@ -327,8 +327,8 @@ func TestALostCollectionReplyIsAskedAgainAndPublishedOnce(t *testing.T) {
 	}
 }
 
-// A forge that stops after publishing a result and before settling its step
-// (its publication's answer lost) publishes it once: the restarted forge
+// An AppTown that stops after publishing a result and before settling its step
+// (its publication's answer lost) publishes it once: the restarted AppTown
 // finds the candidate, finds the branch already at it, and settles.
 func TestARestartAfterPublicationPublishesOnce(t *testing.T) {
 	t.Parallel()
@@ -384,7 +384,7 @@ func TestALandingRunPublishesNothing(t *testing.T) {
 	a, fake := newTaskForge(t, "land", spec)
 	state := a.onWorker(t, fake)
 	ch := a.beginChange(t)
-	// A landing starts from the change's published branch. The forge
+	// A landing starts from the change's published branch. AppTown
 	// publishes the change's committed work when it admits a landing; this
 	// change has none beyond main, so its branch is main's tip.
 	gittest.Run(t, a.hub, "branch", ch.Branch, "main")
@@ -423,7 +423,7 @@ func TestALandingRunPublishesNothing(t *testing.T) {
 	}
 }
 
-// A folder ahead of its branch whose Git metadata the forge refuses is never
+// A folder ahead of its branch whose Git metadata AppTown refuses is never
 // fetched from: the task is given the published tip, the folder's commit
 // never reaches the project's repository, and nothing the folder's config
 // names runs.

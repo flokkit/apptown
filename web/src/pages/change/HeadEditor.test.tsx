@@ -81,12 +81,12 @@ describe('change description editor', () => {
   })
 
   it('says why a save failed and keeps the draft', async () => {
-    const f = mount(() => new Response(JSON.stringify({ error: 'the forge is restarting' }), { status: 503 }))
+    const f = mount(() => new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 503 }))
     await f.render(view('the brief', 0))
     await act(async () => { f.button('edit')!.click() })
     await act(async () => { type(f.textarea(), 'my brief') })
     await act(async () => { f.button('Save')!.click() })
-    await vi.waitFor(() => expect(f.el.textContent).toContain('the forge is restarting'))
+    await vi.waitFor(() => expect(f.el.textContent).toContain('AppTown is restarting'))
     expect(f.textarea().value).toBe('my brief')
     act(() => f.root.unmount())
   })

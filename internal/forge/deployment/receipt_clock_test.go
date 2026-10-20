@@ -23,7 +23,7 @@ func newestReceiptAt(t *testing.T, db *database.DB, kind string) time.Time {
 	return at
 }
 
-// A deployment's binding takes one reading of the forge's clock for the
+// A deployment's binding takes one reading of AppTown's clock for the
 // deployment it records and for its receipt. On a clock that moves on a
 // second at every reading, a separate reading for the receipt would say a
 // later second.

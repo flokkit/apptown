@@ -41,7 +41,7 @@ SELECT sqlc.arg(id)::uuid, sqlc.arg(scope)::text, sqlc.arg(name)::text, COALESCE
 FROM secret_values WHERE scope = sqlc.arg(scope)::text AND name = sqlc.arg(name)::text
 RETURNING *;
 
--- A value the forge minted for something it owns (an AI models key) goes
+-- A value AppTown minted for something it owns (an AI models key) goes
 -- with its owner: every version of it.
 
 -- name: DeleteSecretValue :execrows
@@ -104,6 +104,6 @@ DELETE FROM secret_bindings WHERE project_id=$1;
 DELETE FROM secret_profiles WHERE project_id=$1;
 
 -- Which secret names each deployment had bound, and where, for moving a
--- project to another forge: names only, never a value or a store's ref.
+-- project to another AppTown: names only, never a value or a store's ref.
 -- name: ExportBindingNames :many
 SELECT deployment, name, store, generated FROM secret_bindings WHERE project_id = $1 ORDER BY deployment, name;

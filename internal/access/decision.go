@@ -132,7 +132,7 @@ type Grant struct {
 	ScopeID     string
 	Origin      string
 	GrantedBy   string
-	// GrantedByPrincipal is the granter's principal; zero for the forge, or
+	// GrantedByPrincipal is the granter's principal; zero for AppTown, or
 	// a granter not resolved to a person.
 	GrantedByPrincipal ids.ID
 	Reason             string
@@ -159,7 +159,7 @@ type Facts interface {
 // instrumentCaps is §11's table: what a console, a step agent or one of the
 // forge's own triggers may do at all, before the person's own authority is
 // consulted. Reads are implied. "forge" is the scheduler and the webhook
-// trigger acting for the forge itself, and the engine advancing a run whose
+// trigger acting for AppTown itself, and the engine advancing a run whose
 // stage finished: the interim §11 names until worker identities exist.
 // Open a change, start its run, advance it, in one project.
 var instrumentCaps = map[string][]Capability{

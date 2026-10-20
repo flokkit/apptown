@@ -9,7 +9,7 @@ import (
 	"flokkit.io/forge/internal/execfile"
 )
 
-// Git in the forge's own repositories runs hardened: an override in the
+// Git in AppTown's own repositories runs hardened: an override in the
 // forge's own environment (GIT_DIR, GIT_OBJECT_DIRECTORY) does not redirect
 // it, a hook does not run, and a ref transaction moves the named ref in the
 // named repository only. Not parallel: it sets the process's environment.

@@ -17,7 +17,7 @@ export function MembersTab({ slug }: { slug: string }) {
   const projectQ = useGet<ProjectDetail>(`/projects/${slug}`)
   const membersQ = useGet<ProjectMemberList>(`/projects/${slug}/members`)
   const rolesQ = useGet<RoleCatalog>('/authz/roles')
-  // The forge's list of people and groups is instance information: a project
+  // AppTown's list of people and groups is instance information: a project
   // owner who cannot read it names the person instead of picking from it.
   const directory = useInstancePages()('people')
   const usersQ = useGet<UserList>(directory ? '/users' : null)

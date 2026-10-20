@@ -16,12 +16,12 @@ type workerDisks struct {
 
 func (w workerDisks) Disks(context.Context) ([]diskspace.Reading, error) { return w.readings, w.err }
 
-// The forge's data folder is read where it is, as a warning only: no new
+// AppTown's data folder is read where it is, as a warning only: no new
 // work is admitted against it, so it never says refused. The worker's
 // readings are its own, as it sent them; a worker that does not answer is
 // one reading, not read, and not called refusing.
 //
-// Kills: the forge's own reading left refusing; a worker's failure dropped
+// Kills: AppTown's own reading left refusing; a worker's failure dropped
 // or called a refusal.
 func TestTheForgesDisksAreEachTheirOwnReading(t *testing.T) {
 	t.Parallel()

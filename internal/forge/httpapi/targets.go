@@ -21,7 +21,7 @@ type Targets struct {
 	integrations *integration.Service
 	needs        *dependency.Catalog
 	db           *database.DB
-	now          func() time.Time // the forge's clock, which times a target check
+	now          func() time.Time // AppTown's clock, which times a target check
 }
 
 func NewTargets(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, access *identity.Service, integrations *integration.Service, needs *dependency.Catalog, db *database.DB, now func() time.Time) Targets {

@@ -21,7 +21,7 @@ func (a *Shipping) deploymentDataClass(ctx context.Context, projectID ids.ID, de
 // created with its attributes on first use on the target the deployment
 // owner names: the built-in host, or without local Docker the one attached
 // Docker host offered to the project.
-// A target this forge cannot release to is refused here, before the
+// A target this AppTown cannot release to is refused here, before the
 // landing reserves a port or changes the deployment in any way, whether
 // the deployment exists already or would be created.
 func (a *Shipping) landingDeployment(ctx context.Context, projectID ids.ID, name string) (*deployment.Deployment, error) {

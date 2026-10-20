@@ -854,7 +854,7 @@ type QueuedItemsForJobParams struct {
 	At            time.Time
 }
 
-// An item waits until not_before by the forge's clock (at), which wrote
+// An item waits until not_before by AppTown's clock (at), which wrote
 // it and judges it again at admission.
 func (q *Queries) QueuedItemsForJob(ctx context.Context, arg QueuedItemsForJobParams) ([]RemediationItem, error) {
 	rows, err := q.db.QueryContext(ctx, queuedItemsForJob, arg.RemediationID, arg.At)

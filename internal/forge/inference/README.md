@@ -23,7 +23,7 @@ a harness, client response or receipt.
 forge (workflow drafting): one tool-free, non-streaming call in the binding's
 own dialect, as the workload its token names. It skips only the network check.
 
-`Gateway.Ask` is the one path for the forge's own model calls (narratives,
+`Gateway.Ask` is the one path for AppTown's own model calls (narratives,
 approval briefs, simple changes, pack assistance, checks, what-ifs and the eval
 judge; `modelcall.Call`). It resolves the binding the model names, requires the
 model to be enabled in it, asks the eval model choice for a project's call (or,
@@ -34,7 +34,7 @@ that line once, on its own context, with the provider's counts and price;
 unknown spend (no usage, tokens with no price, an unreadable or cut-off answer)
 settles as incomplete, and a line never settled counts as unknown once its time
 (the call limit plus five minutes) runs out. Callers get the usage back for
-their own budgets and never record spend. The caller is forge code already
+their own budgets and never record spend. The caller is AppTown code already
 authorized by its route or job, so there is no token and no network check; the
 workload is `forge`, acting as `apptown-system` unless the call names an actor.
 The gateway is always constructed; `-inference-url` only opens the listener.

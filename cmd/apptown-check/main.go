@@ -1,5 +1,5 @@
 // apptown-check judges a tree against a file of declared checks and prints what
-// it found, as JSON. It links nothing of the forge: it is the proof that the
+// it found, as JSON. It links nothing of AppTown: it is the proof that the
 // judge is a library (internal/check), and it is the self-service run — what
 // an agent can ask of its own work before anyone else looks at it.
 //
@@ -149,7 +149,7 @@ func readChecks(path string, id check.Identity) ([]check.Declared, error) {
 }
 
 // readScanners reads a bare list of scanner manifests, or an object with a
-// `scanners` list (the shape a forge seeds its own bindings from), in JSON or
+// `scanners` list (the shape an AppTown seeds its own bindings from), in JSON or
 // YAML. A tool check names one of them.
 func readScanners(path string) (check.ScannersFunc, error) {
 	raw, err := os.ReadFile(path)

@@ -19,7 +19,7 @@ type ConsolePreview struct {
 	previews   *preview.Service
 	db         *database.DB
 	publicHost string
-	now        func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now        func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewConsolePreview(sessions *console.Service, previews *preview.Service, db *database.DB, publicHost string, now func() time.Time) ConsolePreview {
@@ -50,7 +50,7 @@ func (h ConsolePreview) ConsolePreview(w http.ResponseWriter, r *http.Request) {
 	case h.previews.PreviewsHaveDomain():
 		// With a preview domain every chat reaches the preview as any
 		// visitor does, at its preview-domain address: a preview on the
-		// worker has no port here, and one on this forge's Docker publishes
+		// worker has no port here, and one on this AppTown's Docker publishes
 		// its port on the host's loopback, which the chat cannot reach.
 		containerURL = out.URL
 	case h.publicHost != "":

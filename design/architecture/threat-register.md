@@ -68,7 +68,7 @@ the enabling behavior is clear in source, not that a live exploit was run.
 
 ### TM-01 — reusable model-provider keys escape runtimes
 
-**Status: mitigated.** Provider keys stay on the forge.
+**Status: mitigated.** Provider keys stay on AppTown.
 Chats, steps and their delegates get only a Forge credential for the private
 inference listener, local model execution is refused, and a known provider
 key passed back in through a step secret or an integration setting stops the
@@ -100,9 +100,9 @@ paths cannot recover the old behavior.
 and allows eight concurrent requests per runtime credential and 64 per daemon;
 that is not a monetary budget, and new sessions get new capacity
 ([inference security](../subsystems/inference-security.md), "Provider
-operations and limits"). The forge sets no spending limit; the operating guide
+operations and limits"). AppTown sets no spending limit; the operating guide
 says to set one with the model provider
-([running a forge](../../stock/docs/guides/running-apptown.md), "Configure
+([running an AppTown](../../stock/docs/guides/running-apptown.md), "Configure
 model access").
 
 **Attack and impact.** A user, stolen grant or looping agent runs parallel
@@ -129,20 +129,20 @@ the maximum already-in-flight exposure.
 
 **Status: partly mitigated; the root daemon is accepted.**
 With a worker, steps, checks, previews, release builds and new change chats
-run on a separate machine; with `-no-local-docker` the forge's host runs no
+run on a separate machine; with `-no-local-docker` AppTown's host runs no
 Docker and no project process; a script step runs as a host process only with
 `-host-scripts` ([agent isolation limits](../subsystems/agent-sandbox.md);
 [workers](../operations/workers.md), "What a worker isolates, and what it does
 not"). Remaining: private Docker is still a privileged container; without
 `-no-local-docker`, project chats, continued chats and chats placed on the
-forge still run on its host; a worker moves code off the forge's host but
+AppTown still run on its host; a worker moves code off AppTown's host but
 does not contain it there. Running `apptownd` as root on Linux is a documented
-choice ([running a forge](../../stock/docs/guides/running-apptown.md),
+choice ([running an AppTown](../../stock/docs/guides/running-apptown.md),
 "Prepare the host"; `deploy/systemd/apptownd.service`), so code that escapes to
-the forge's host has root there.
+AppTown's host has root there.
 
 **Attack and impact.** Malicious workload code uses local execution directly
-or attacks a privileged container/kernel boundary to reach the Forge host.
+or attacks a privileged container/kernel boundary to reach AppTown host.
 Host compromise exposes its database, model keys and deployment authority.
 
 **Proposed control.** Separate control plane/secrets from worker hosts or
@@ -227,7 +227,7 @@ mounts. Expected denial must not alter the outside canary.
 
 **Status: partly mitigated.** Each project's steps and
 checks mount a cache volume of their own, `forge-cache-<project>`, and each
-chat has its own ([running a forge](../../stock/docs/guides/running-apptown.md),
+chat has its own ([running an AppTown](../../stock/docs/guides/running-apptown.md),
 "Workers and running without local Docker"; `TestAStepsCacheIsItsProjectsAlone`
 in `internal/forge/agentenv`). Remaining: a worker's mise download cache is
 one folder writable by every container on that worker, so one project's
@@ -252,7 +252,7 @@ performance optimizations do not reintroduce a shared writable parent.
 **Status: open.** The inference listener admits only
 configured worker networks, and a worker can check that the cloud metadata
 address is blocked (`apptown-worker -check-metadata`), but the block itself is
-the operator's firewall rule ([running a forge](../../stock/docs/guides/running-apptown.md)).
+the operator's firewall rule ([running an AppTown](../../stock/docs/guides/running-apptown.md)).
 No guide or test shows an enforced egress policy for workloads (the
 [agent isolation limits](../subsystems/agent-sandbox.md) list it as not
 implemented) or server-side validation of integration destinations and
@@ -278,7 +278,7 @@ reach the disallowed destination.
 
 ## Browser and authorization
 
-### TM-08 — active attachments execute at the Forge origin
+### TM-08 — active attachments execute at AppTown origin
 
 **Status: mitigated.** Change attachments, chat uploads
 and chat history files are served as downloads (`application/octet-stream`,
@@ -288,11 +288,11 @@ content that is really a picture is shown inline
 `TestUntrustedFileResponses` in `internal/forge/browser_security_test.go`).
 The optional browser tier (`TestBrowserSecurityChromium`, build tag `browser`)
 uploads a script disguised as a picture and checks in Chromium that it does
-not act at the Forge origin. Other raw-content routes were not reviewed in
+not act at AppTown origin. Other raw-content routes were not reviewed in
 this pass.
 
 **Attack and impact.** A contributor uploads HTML or active SVG and induces a
-more privileged person to open it. If rendered at the Forge origin, script
+more privileged person to open it. If rendered at AppTown origin, script
 can make authenticated requests as that viewer. HttpOnly prevents reading
 the cookie, not using ambient session authority.
 
@@ -391,7 +391,7 @@ reads, test that secrets and security-sensitive runtime data remain excluded.
 ### TM-12 — bootstrap, login and proxy trust are attack surfaces
 
 **Status: partly mitigated.** Under internal sign-in the
-first account needs the setup token the forge writes to its data directory,
+first account needs the setup token AppTown writes to its data directory,
 and concurrent bootstrap has one winner (`TestTheFirstAccountNeedsTheSetupToken`,
 `TestBootstrapAdministratorRollsBackAndHasOneWinner`); the doors that take a
 secret share a per-client rate limit; open sign-in refuses a listener other
@@ -426,7 +426,7 @@ own chat and no other ([console](../subsystems/console.md);
 `TestAChatsCredentialActsOnlyOnItsOwnChat`); agents, consoles and step runs
 cannot approve or land ([authorization decisions](../subsystems/authorization-capabilities.md)).
 Remaining: every process in a runtime holds the same bearer; run credentials
-have no independent expiry, and whoever holds the forge's `runtime-token-key`
+have no independent expiry, and whoever holds AppTown's `runtime-token-key`
 can make them; a runtime's report is still a claim unless a check witnessed
 the result.
 
@@ -514,15 +514,15 @@ and the guide says to use Infisical for anything that matters
 ([secrets](../../stock/docs/guides/secrets.md); [integration
 runtime](../subsystems/integration-runtime.md)). Need credentials are derived
 from the same key ([services and data](../../stock/docs/guides/services-and-data.md)).
-Open: the forge's nightly dumps and its data directory (which holds
+Open: AppTown's nightly dumps and its data directory (which holds
 `secrets.env`, `runtime-token-key` and attached hosts' SSH keys) are not
 encrypted by Forge, and protecting them is left to the operator
-([running a forge](../../stock/docs/guides/running-apptown.md), "The forge's
+([running an AppTown](../../stock/docs/guides/running-apptown.md), "AppTown's
 own backups"); no guide describes invalidating sessions or tokens restored
 from a backup.
 
 **Attack and impact.** A leaked DB dump, backup or machine identity exposes
-application secrets and the ability to forge grants/history. A restored backup
+application secrets and the ability to AppTown grants/history. A restored backup
 can also revive credentials or vulnerable configuration.
 
 **Proposed control.** Separate encryption/unlock authority from backup data,
@@ -540,7 +540,7 @@ credentials. Record recovery objectives and measured results.
 **Status: partly mitigated.** Merging into the default
 branch and deploying need a person's approval or a run admitted by someone
 holding `change:land`, checked at the effect itself; agents, consoles, step
-runs and the forge's triggers cannot approve or land
+runs and AppTown's triggers cannot approve or land
 ([authorization decisions](../subsystems/authorization-capabilities.md);
 `internal/forge/workflow/assent.go`). An optional check worker keeps checks
 off the machine agents use, and a tests step answers only from a witnessed
@@ -567,7 +567,7 @@ the same denial as a direct API caller.
 
 ### TM-18 — released bits differ from reviewed or tested bits
 
-**Status: partly mitigated.** On a forge with a worker,
+**Status: partly mitigated.** On an AppTown with a worker,
 a landing's images are built once from the landed commit and recorded by
 digest in a bundle that never changes; every later release, preview and
 promotion uses those digests and builds nothing
@@ -593,7 +593,7 @@ require new evidence. Check rollback identity as carefully as forward release.
 
 **Status: partly mitigated.** The agent image recipe pins
 every archive it fetches by version and SHA-256
-([running a forge](../../stock/docs/guides/running-apptown.md)); source and
+([running an AppTown](../../stock/docs/guides/running-apptown.md)); source and
 image scans run as checks ([workers](../operations/workers.md)); a Forge
 release is built from a tagged checkout into archives with `SHA256SUMS`
 ([releasing](../operations/releasing.md)). Remaining: apt packages and package
@@ -618,9 +618,9 @@ chain. Test mirror failure and updates without bypassing verification.
 
 ### TM-20 — shared resources are exhausted
 
-**Status: partly mitigated.** Every container the forge
+**Status: partly mitigated.** Every container AppTown
 starts, on its host or a worker, has CPU, memory and PID limits
-([running a forge](../../stock/docs/guides/running-apptown.md)); services
+([running an AppTown](../../stock/docs/guides/running-apptown.md)); services
 beside tests and checks have their own limits ([workers](../operations/workers.md),
 "Limits on services"). The HTTP servers set header timeouts
 (`cmd/apptownd/main.go`) and the terminal WebSocket limits a frame to 1 MiB
@@ -668,7 +668,7 @@ a legitimate event return the established result.
 preview gets its own credentials for its databases and stores, and a preview
 gets its own empty data ([services and data](../../stock/docs/guides/services-and-data.md));
 services beside tests and checks are bounded ([workers](../operations/workers.md)).
-Remaining: the servers started beside the forge's own steps use the
+Remaining: the servers started beside AppTown's own steps use the
 catalogue's fixed credentials; services a step or chat starts in its private
 Docker follow no policy; containers on a worker use Docker's default bridge
 network ([agent isolation limits](../subsystems/agent-sandbox.md)).
@@ -691,8 +691,8 @@ abandoned chats and failed cleanup.
 ### TM-23 — deployment adapters exercise excessive target authority
 
 **Status: open.** Targets are explicit and each credential
-is a named apptown secret resolved on the forge
-([running a forge](../../stock/docs/guides/running-apptown.md), "Deployment
+is a named apptown secret resolved on AppTown
+([running an AppTown](../../stock/docs/guides/running-apptown.md), "Deployment
 targets"; [deploy targets](../subsystems/deploy-targets.md)), but what each
 credential may do is decided at the provider, a Docker host's SSH key is
 host-wide, and SSH host keys are accepted on first use
@@ -747,7 +747,7 @@ labels and observed IDs, and an unknown owner or a failed read keeps the
 resource ([container lifecycle](../subsystems/container-lifecycle.md)). A
 deployment restore stops the app's parts first, checks what it copied back and
 says "restored" only when every item is verified; a rehearsal restores into a
-new place ([running a forge](../../stock/docs/guides/running-apptown.md),
+new place ([running an AppTown](../../stock/docs/guides/running-apptown.md),
 "Deployment backups"). Remaining: a restore writes over the deployment's own
 volumes in place; safe extraction of a hostile archive and binding a manifest
 to its destination were not shown in this pass.
@@ -775,7 +775,7 @@ written by the gateway, before dispatch and from the response transport
 ([inference security](../subsystems/inference-security.md), "Receipts"); a
 tests step's answer comes only from a witnessed exit
 ([workers](../operations/workers.md)). Remaining: audit records and receipts
-are rows in the forge's own database and share its administrator's trust;
+are rows in AppTown's own database and share its administrator's trust;
 there is no export to separately controlled storage; Pi-derived usage stays
 advisory.
 

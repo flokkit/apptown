@@ -1,6 +1,6 @@
 # Start here
 
-<!-- A word like forge:mcp in braces is a live link: the Docs page of an
+<!-- A word like apptown:mcp in braces is a live link: the Docs page of an
 AppTown shows that AppTown's own address there. -->
 
 This page is for someone making an app on AppTown. It shows the path a piece
@@ -61,4 +61,4 @@ A coding agent on your own computer (Claude Code, Codex) can read your
 projects and changes and do governed work in your name. The command-line
 tool, called `apptown`, does the same from a terminal. Both are set up in
 [Connect a coding agent or the CLI](/docs/guides/connect-a-coding-agent).
-On this AppTown, coding agents connect at {forge:mcp}.
+On this AppTown, coding agents connect at {apptown:mcp}.

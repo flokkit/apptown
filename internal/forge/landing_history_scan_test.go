@@ -155,7 +155,7 @@ exit 0
 }
 
 // With a worker configured, a scan runs on the worker and never on this
-// machine: the forge's own Docker, which fails any run, is not called.
+// machine: AppTown's own Docker, which fails any run, is not called.
 func TestAScanRunsOnTheWorkerWhenOneIsConfigured(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)

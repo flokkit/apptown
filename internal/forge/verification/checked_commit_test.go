@@ -21,15 +21,15 @@ import (
 )
 
 // A check names the commit it answers for. A commit the caller names is
-// checked only when the forge has it as the change's work: in the change's
+// checked only when AppTown has it as the change's work: in the change's
 // folder, on the change's published branch, or on one of the change's
-// scratch refs (said so). A commit the forge does not have, or has only as a
+// scratch refs (said so). A commit AppTown does not have, or has only as a
 // sibling's work or another change's scratch work, is refused naming it, and never
 // answered with another commit; a string that is not a full object id is
 // refused before git reads it. Asking for the published tip reads the
 // change's branch in the hub, never the folder, and a branch the hub does
 // not have is refused as nothing published. Naming no commit and not asking
-// for the published tip reads the change's latest commit on the forge, as
+// for the published tip reads the change's latest commit on AppTown, as
 // before.
 func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 	t.Parallel()
@@ -71,7 +71,7 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 	git(hub, "commit", "-q", "--allow-empty", "-m", "published work")
 	published := git(hub, "rev-parse", "HEAD")
 	// A step's work in progress, pushed to its scratch ref (the push door is
-	// the forge's Git endpoint: TestAStepPushesOnlyItsOwnScratchRef); and
+	// AppTown's Git endpoint: TestAStepPushesOnlyItsOwnScratchRef); and
 	// another change's scratch work.
 	git(hub, "checkout", "-q", "--detach", published)
 	git(hub, "commit", "-q", "--allow-empty", "-m", "the step's work in progress")

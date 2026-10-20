@@ -28,7 +28,7 @@ type RemoveDeployment struct {
 	// same way as any other deployment (TakeDownWithProject).
 	withProject bool
 	// WithoutFinalCopy is a person's explicit choice to take down a
-	// deployment whose data the forge cannot take a final copy of now (no
+	// deployment whose data AppTown cannot take a final copy of now (no
 	// store, no copy runner, nothing it can reach): it names the deployment,
 	// as a confirmation. The data is kept at the provider as a retained
 	// resource; the receipt records the choice and why there was no copy.
@@ -75,7 +75,7 @@ type RemovalResult struct {
 	Deleted  []string
 	Retained []string
 	// FinalBackup is the set taken before the data was deleted; nil when
-	// the deployment held no data the forge backs up.
+	// the deployment held no data AppTown backs up.
 	FinalBackup *FinalSet
 }
 
@@ -144,7 +144,7 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 	if err != nil {
 		return RemovalResult{}, fmt.Errorf("reading what the deployment owns: %w", err)
 	}
-	// The target deletes what it made; the AI models keys the forge made
+	// The target deletes what it made; the AI models keys AppTown made
 	// through a connector it revokes itself, after the target is done.
 	owned, keys := splitOwned(owned)
 	if err := ctx.Err(); err != nil {
@@ -272,12 +272,12 @@ func settleRemovalIn(ctx context.Context, tx *database.Tx, in RemoveDeployment, 
 // TakeDownWithProject takes a deployment down because its project is being
 // deleted: main too, under the same authority, through the same routing as
 // TakeDown. A deployment the take-down operation protects (App Platform data
-// the forge copies, with a store attached and a copy runner named) gets its
+// AppTown copies, with a store attached and a copy runner named) gets its
 // final copy to the store, filled into a new place and checked, before its
 // cluster is deleted; the deletion runs that operation here and waits for
 // it, and one that does not end verified refuses the deletion with what the
 // operation says it left. Anything else is removed now, by Remove: a final
-// backup where the forge backs the data up, then only what the forge
+// backup where AppTown backs the data up, then only what AppTown
 // recorded creating.
 //
 // An eval copy is the exception, on purpose: its data is synthetic and
@@ -362,10 +362,10 @@ func restartParts(ctx context.Context, parts stoppedParts) string {
 	return "its parts were started again"
 }
 
-// --- what the forge itself made for the deployment --------------------------
+// --- what AppTown itself made for the deployment --------------------------
 
 // splitOwned separates what a target driver deletes from the keys the
-// register step made, which the forge revokes itself.
+// register step made, which AppTown revokes itself.
 // withoutLeft is left without the entries kept names again.
 func withoutLeft(left, kept []deploy.Left) []deploy.Left {
 	names := map[string]bool{}
@@ -433,7 +433,7 @@ func (s *Service) releaseDeploymentKeys(ctx context.Context, dep *deployment.Dep
 }
 
 // deleteCopyImages deletes, with an eval copy's last deployment, the
-// release images the forge published under the copy's own repository: its
+// release images AppTown published under the copy's own repository: its
 // digest bundles' images there, and nothing elsewhere. What cannot be
 // deleted is reported left, never hidden.
 func (s *Service) deleteCopyImages(ctx context.Context, projectID ids.ID, taken *deploy.TakenDown) {

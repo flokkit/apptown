@@ -25,7 +25,7 @@ import (
 // "Release bundles"). A published digest bundle is received by App Platform (the
 // DigitalOcean fake API, with an in-memory registry standing for DOCR) and
 // Portainer (a fake API) by promotion, every image by its digest, and
-// nothing runs on the forge's own Docker.
+// nothing runs on AppTown's own Docker.
 
 const digestDOToken = "dop_v1_test"
 
@@ -114,7 +114,7 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 			ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil }}
 		deps.OfferedByConstruction = []string{IntranetTargetName}
 		if noLocalDocker {
-			// As a forge started with -no-local-docker: its own daemon refuses.
+			// As an AppTown started with -no-local-docker: its own daemon refuses.
 			deps.NoLocalDocker = true
 			deps.Scope = docker.Scope{Client: docker.Refusing{Attached: w.hosts}}
 		}
@@ -123,7 +123,7 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		t.Fatal(err)
 	}
 	p.s.SeedCloudTargets(t.Context(), "fixture")
-	// The intranet target, as the forge records it at startup from its
+	// The intranet target, as AppTown records it at startup from its
 	// Portainer configuration.
 	cfg, err := p.s.env.integrations.PortainerTarget(t.Context())
 	if err != nil {
@@ -181,7 +181,7 @@ func (p *promotionTargets) releaseLAN(t *testing.T) *Release {
 	return rel
 }
 
-// expectForgeDockerIdle says the forge's own Docker built, pushed and
+// expectForgeDockerIdle says AppTown's own Docker built, pushed and
 // tagged nothing.
 func (p *promotionTargets) expectForgeDockerIdle(t *testing.T) {
 	t.Helper()
@@ -215,9 +215,9 @@ func componentImages(t *testing.T, spec map[string]any) map[string]string {
 
 // A promotion to App Platform copies the bundle's image into DOCR by
 // digest; the app spec names the digest DOCR answers, which is the
-// bundle's own; the forge's Docker is not used.
+// bundle's own; AppTown's Docker is not used.
 //
-// Kills: pushing from the forge's Docker (the 8a path); a spec naming a
+// Kills: pushing from AppTown's Docker (the 8a path); a spec naming a
 // digest DOCR does not hold, or another than the bundle's; a copy that
 // rewrites the manifest (a new digest).
 func TestAPromotionToAppPlatformNamesTheBundlesDigestsInDOCR(t *testing.T) {
@@ -520,7 +520,7 @@ func TestAnIntranetReleaseRefusesAnUnknownOrOtherPlatform(t *testing.T) {
 	}
 }
 
-// In a forge with no local Docker a digest bundle goes by promotion to App
+// In an AppTown with no local Docker a digest bundle goes by promotion to App
 // Platform and to Portainer, and the built-in host (a drained forge's) is
 // still refused.
 //

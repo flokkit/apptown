@@ -174,7 +174,7 @@ func cmdLog(args []string) error {
 	w := tw()
 	fmt.Fprintln(w, "AT\tACTOR\tPROJECT\tKIND\tSUBJECT")
 	for _, e := range entries {
-		// The actor as the person is now (renamed, removed), when the forge says.
+		// The actor as the person is now (renamed, removed), when AppTown says.
 		actor := e.ActorShown
 		if actor == "" {
 			actor = e.Actor
@@ -241,7 +241,7 @@ func cmdNew(args []string) error {
 		ID         ids.ID
 		Slug, Name string
 	}
-	// The pack goes with the creation so a pack the forge does not offer
+	// The pack goes with the creation so a pack AppTown does not offer
 	// refuses it before any project is made.
 	if err := api.post("/projects", map[string]any{"slug": slug, "name": *name, "namespace": *ns, "pack": *pack}, &proj); err != nil {
 		return fmt.Errorf("create project: %w", err)
@@ -347,7 +347,7 @@ func printDeclaredSecrets(slug string) {
 }
 
 // cmdBundle writes a project's code (its default branch and tags) as a Git
-// bundle to standard output: the way to move a project to another forge
+// bundle to standard output: the way to move a project to another AppTown
 // (apptown new <slug> --from p.bundle there).
 func cmdBundle(args []string) error {
 	fs := newFlags("bundle")
@@ -422,7 +422,7 @@ func cmdDelete(args []string) error {
 	return followDeletion(slug)
 }
 
-// deletionStatus is where a project's deletion stands, as the forge says.
+// deletionStatus is where a project's deletion stands, as AppTown says.
 type deletionStatus struct {
 	State          string   `json:"state"`
 	Stalled        string   `json:"stalled"`
@@ -550,8 +550,8 @@ func applyPack(slug, pack string) error {
 	return nil
 }
 
-// cmdInvite asks the forge for a one-time invite link (admin) and prints it.
-// The forge sends no email: the administrator passes the link on.
+// cmdInvite asks AppTown for a one-time invite link (admin) and prints it.
+// AppTown sends no email: the administrator passes the link on.
 func cmdInvite(args []string) error {
 	fs := newFlags("invite")
 	role := fs.String("role", "member", "member | admin")
@@ -573,7 +573,7 @@ func cmdInvite(args []string) error {
 	return nil
 }
 
-// cmdPasswordLink asks the forge for a one-time password reset link (admin)
+// cmdPasswordLink asks AppTown for a one-time password reset link (admin)
 // and prints it. Like an invite, the administrator hands the link over; the
 // account's password and sessions end only when the link is used.
 func cmdPasswordLink(args []string) error {
@@ -701,7 +701,7 @@ func printPackHistory(h packHistory) {
 }
 
 // cmdPackRecommend moves a pack's recommendation; --what-if names the
-// what-if the person decided on, which the forge checks is a finished one
+// what-if the person decided on, which AppTown checks is a finished one
 // of that version and records on the recommendation.
 func cmdPackRecommend(args []string) error {
 	fs := newFlags("pack recommend")
@@ -733,7 +733,7 @@ func cmdPackRecommend(args []string) error {
 }
 
 // cmdSchedules lists what a project's schedules will do and last did, in
-// the forge's time (UTC), the time their crons are read in.
+// AppTown's time (UTC), the time their crons are read in.
 func cmdSchedules(args []string) error {
 	fs := newFlags("schedules")
 	project := fs.String("p", "", "project slug")

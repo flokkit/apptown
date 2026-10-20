@@ -14,7 +14,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// memory-declared reads the contract as the forge parses it: each part the
+// memory-declared reads the contract as AppTown parses it: each part the
 // apptown runs from a build or an image declares its own memory. A static
 // part declares nothing, an init step takes no resources, and a profile
 // alone is not the part's own declaration: wherever no profile applies,

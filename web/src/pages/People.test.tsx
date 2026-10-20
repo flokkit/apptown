@@ -273,7 +273,7 @@ describe('a password reset link', () => {
     act(() => root.unmount())
   })
 
-  // Under single sign-on the forge holds no passwords: no reset button, and
+  // Under single sign-on AppTown holds no passwords: no reset button, and
   // the page says where passwords are reset instead.
   it('says where to reset a password under single sign-on', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ invites: [] }))))

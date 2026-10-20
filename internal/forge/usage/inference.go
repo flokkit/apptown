@@ -33,7 +33,7 @@ type Request struct {
 // Requests is the supported API over inference_requests.
 type Requests struct {
 	db *database.DB
-	// Now is the forge's clock, which stamps a receipt and judges a spend
+	// Now is AppTown's clock, which stamps a receipt and judges a spend
 	// line's pending time; nil is the real one.
 	Now func() time.Time
 }
@@ -60,7 +60,7 @@ func (r *Requests) Finish(ctx context.Context, id ids.ID, httpStatus int, outcom
 }
 
 // MarkInterrupted closes every receipt a restart left open and reports how
-// many; no final token count is invented for them. Every forge call's spend
+// many; no final token count is invented for them. Every AppTown call's spend
 // line still pending is locked in as unknown in the same transaction: the
 // restart cut those calls off, so none of them can settle any more. Call it
 // before admitting new requests at startup, not while another gateway is
@@ -79,15 +79,15 @@ func (r *Requests) MarkInterrupted(ctx context.Context) (int64, error) {
 	return n, err
 }
 
-// NeverSettled is the reason on a forge call's spend line that was sent but
+// NeverSettled is the reason on an AppTown call's spend line that was sent but
 // never settled: its time ran out, or a restart cut the call off.
 const NeverSettled = "the call was sent but its spend was never settled"
 
-// CallKey is the observation key of a forge call's spend line: one line per
+// CallKey is the observation key of an AppTown call's spend line: one line per
 // receipt, so one per provider call.
 func CallKey(receipt ids.ID) string { return "inference:" + receipt.String() }
 
-// OpenCall writes a forge model call's receipt and its spend line in one
+// OpenCall writes an AppTown model call's receipt and its spend line in one
 // transaction, before the call is sent. The line is e's attribution with
 // nothing counted yet, keyed CallKey(receipt), and pending for the given
 // time: unsettled after that, it counts as unknown spend. Callers must not
@@ -117,7 +117,7 @@ func (r *Requests) OpenCall(ctx context.Context, q Request, e Entry, pending tim
 	return receipt, err
 }
 
-// SettleCall closes a forge call's receipt and settles its spend line in
+// SettleCall closes an AppTown call's receipt and settles its spend line in
 // one transaction. The line is settled only while it is still pending and
 // its time has not run out; settled reports whether it was. A line already
 // locked in as unknown stays unknown, and a replay changes nothing.

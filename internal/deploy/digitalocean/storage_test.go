@@ -250,7 +250,7 @@ func mustClient(t *testing.T, a *spacesAccount) *Client {
 	return c
 }
 
-// A recorded key whose secret the forge no longer holds cannot be given to
+// A recorded key whose secret AppTown no longer holds cannot be given to
 // the app: it is deleted, and another is made for the same bucket.
 func TestAKeyWhoseSecretIsGoneIsReplaced(t *testing.T) {
 	t.Parallel()
@@ -352,7 +352,7 @@ func TestTheBucketKeysSecretIsRenderedAsASecret(t *testing.T) {
 }
 
 // The account's inventory lists its Spaces keys and what each reaches. A
-// key is reported only to confirm a record, except a maker key a forge
+// key is reported only to confirm a record, except a maker key an AppTown
 // left, which reads as unrecorded: a live full-access credential.
 func TestTheInventoryListsSpacesKeysAndALeftMakerKey(t *testing.T) {
 	t.Parallel()

@@ -7,7 +7,7 @@ package console
 // was "command not found".
 
 // ToolchainPrelude installs the workspace's declared toolchain (mise.toml) before a
-// session starts, wherever it runs (the forge's own Docker or a worker's), so `python`, `gofmt`, `node` are on PATH through the
+// session starts, wherever it runs (AppTown's own Docker or a worker's), so `python`, `gofmt`, `node` are on PATH through the
 // per-workspace shims without the agent having to know about mise
 // (complaints #50, #59: the documented commands were "not found" until
 // someone ran `mise install`). A failed install no longer passes silently:

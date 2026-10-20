@@ -23,11 +23,11 @@ func (r Routing) PublicURL(port int) string {
 	return fmt.Sprintf("http://%s:%d", host, port)
 }
 
-// PortAddressesHostOnly says whether an address at a port this forge's own
+// PortAddressesHostOnly says whether an address at a port this AppTown's own
 // Docker publishes (PublicURL) is out of reach of the people it is shown to.
 // Those ports are published on the host's loopback only
-// (docker.Scope.PublishAddress), so such an address answers on the forge
-// host and nowhere else; a public host says people reach the forge from
+// (docker.Scope.PublishAddress), so such an address answers on AppTown
+// host and nowhere else; a public host says people reach AppTown from
 // elsewhere.
 func (r Routing) PortAddressesHostOnly() bool { return r.PublicHost != "" }
 
@@ -45,7 +45,7 @@ func (r Routing) DeploymentURL(slug string, port int) string {
 }
 
 // Reach is where people reach a deployment, and whether that address
-// answers on the forge host only (Routing.PortAddressesHostOnly): shown, it
+// answers on the AppTown host only (Routing.PortAddressesHostOnly): shown, it
 // is a place to go on that host, not a link for anyone elsewhere.
 type Reach struct {
 	URL      string
@@ -58,7 +58,7 @@ func (s *Service) URL(ctx context.Context, slug string, d *Deployment) string {
 }
 
 // Reach is where people reach a deployment now, and whether only on the
-// forge host (reachedAt).
+// AppTown host (reachedAt).
 func (s *Service) Reach(ctx context.Context, slug string, d *Deployment) Reach {
 	t, err := s.Targets.ByID(ctx, d.TargetID)
 	if err != nil {
@@ -69,14 +69,14 @@ func (s *Service) Reach(ctx context.Context, slug string, d *Deployment) Reach {
 
 // reachedAt is where people reach a deployment. A standing Docker
 // deployment with a published port is reached through its host as it is configured now: this
-// forge's own host by this forge's routes (a tier domain, or its public host
+// forge's own host by this AppTown's routes (a tier domain, or its public host
 // and the port); an attached host by that host (its ingress domain, or its
-// hostname and the port), never this forge's address, which serves no app
+// hostname and the port), never this AppTown's address, which serves no app
 // on another host (vhost.go). Any other deployment (a preview, one on a
 // provider's platform) is reached where it was said to be: observed, else
 // recorded.
 //
-// On this forge's own host, an address at the published port (no tier
+// On this AppTown's own host, an address at the published port (no tier
 // domain for it) answers there only, which the Reach says.
 func (s *Service) reachedAt(ctx context.Context, slug string, d *Deployment, t *Target, observed string) Reach {
 	if t != nil && t.Kind == KindDockerHost && d.Standing() && d.HostPort != 0 {

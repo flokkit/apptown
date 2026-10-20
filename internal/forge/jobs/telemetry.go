@@ -18,7 +18,7 @@ type Options struct {
 }
 
 // jobSpans is River worker middleware: one span per job execution, named by
-// the forge operation inside the job rather than River's single worker kind.
+// AppTown operation inside the job rather than River's single worker kind.
 type jobSpans struct {
 	river.MiddlewareDefaults
 	tracer trace.Tracer

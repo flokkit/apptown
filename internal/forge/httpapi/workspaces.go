@@ -28,8 +28,8 @@ func NewWorkspaces(db *database.DB, dataDir string) Workspaces {
 // handleWorkspace serves a run's workspace directory over HTTP — the "browse"
 // materialization rung (state-model §4.1). Agents and project code write
 // the folder, so every read goes through an os.Root on it (no path or link
-// resolves outside), a directory is a listing the forge writes, and a file
-// is served as untrusted: never as a page that runs on the forge's origin.
+// resolves outside), a directory is a listing AppTown writes, and a file
+// is served as untrusted: never as a page that runs on AppTown's origin.
 func (h Workspaces) Workspace(w http.ResponseWriter, r *http.Request) {
 	id, err := PathID(r, "id")
 	if err != nil {

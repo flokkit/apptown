@@ -93,7 +93,7 @@ const testerIdentity = "[user]\n\tname = test\n\temail = test@example.com\n"
 
 // ConfigureTester gives the repository at dir (a work tree or a bare
 // repository) the Tester identity in its own config, written as a file
-// rather than by two more git runs. The forge's git reads no machine-wide
+// rather than by two more git runs. AppTown's git reads no machine-wide
 // config, so a repository a test makes with git init or git clone needs
 // this before a commit or merge in it works on every machine (a CI runner
 // has no identity of its own); Repository and BareRepository do it.

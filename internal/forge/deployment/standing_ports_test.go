@@ -13,10 +13,10 @@ import (
 	"flokkit.io/forge/internal/ids/idstest"
 )
 
-// A standing deployment other than main answers at the port the forge
+// A standing deployment other than main answers at the port AppTown
 // recorded for it however often Docker starts its container again: a
 // restart (the health controller's), and a stop and start (a restore's).
-// The forge probes and shows that recorded port, so a port Docker picks
+// AppTown probes and shows that recorded port, so a port Docker picks
 // afresh at each start leaves the probe asking a dead port and the health
 // controller restarting the app again and again (soak finding 58,
 // 19 October 2026).

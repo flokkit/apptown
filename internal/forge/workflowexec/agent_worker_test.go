@@ -44,14 +44,14 @@ import (
 	"flokkit.io/forge/internal/progress"
 )
 
-// Values the forge holds that no worker may be given. Each is placed where
-// the forge keeps it (the instance's secrets file, its own environment); a
+// Values AppTown holds that no worker may be given. Each is placed where
+// AppTown keeps it (the instance's secrets file, its own environment); a
 // request that carried one anywhere would show it.
 const (
 	engineSecretCanary   = "engine-secret-canary"   // GITLAB_TOKEN: an engine secret
 	providerKeyCanary    = "provider-key-canary"    // a model provider's key
-	databaseURLCanary    = "database-url-canary"    // the forge's database
-	instanceCredCanary   = "instance-cred-canary"   // the forge's own admin token
+	databaseURLCanary    = "database-url-canary"    // AppTown's database
+	instanceCredCanary   = "instance-cred-canary"   // AppTown's own admin token
 	stepSecretCanary     = "step-secret-canary"     // STEP_CANARY: delivered, by design
 	evilFolderSteering   = "folder-steering-canary" // what a .apptown link in the folder would offer
 	workerSubagents      = "worker-subagents-1.2"
@@ -175,7 +175,7 @@ type agentOnWorker struct {
 }
 
 // agentOnWorkerFixture is an admitted agent step of a repository-backed
-// change on a forge with a worker, built through the owners that hold what
+// change on an AppTown with a worker, built through the owners that hold what
 // the request reads: the project and its adoption, the instance's secrets,
 // the attachment store and the project's hub. The run's folder is never
 // made. extensions are the project's enabled extensions.
@@ -241,7 +241,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 	if err := tokens.Open(filepath.Join(dir, identity.RuntimeTokenKeyFile)); err != nil {
 		t.Fatal(err)
 	}
-	// The forge's own Docker has an agent image with other labels than the
+	// AppTown's own Docker has an agent image with other labels than the
 	// worker's: a request built from them would promise what the worker's
 	// image does not carry.
 	host := dockerfake.New()
@@ -366,7 +366,7 @@ func (f *agentOnWorker) build(t *testing.T) workerAgentRequest {
 
 // The request an agent step's invocation sends a worker is built as bytes
 // from what was admitted: the files the agent reads at their /apptown/in
-// paths, the transcript the forge named, the result files it declares, and
+// paths, the transcript AppTown named, the result files it declares, and
 // only the runtime token, step secrets and mirror settings in its
 // environment. The run's folder is never made, read or written.
 func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
@@ -397,7 +397,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		}
 	}
 	if spec.Workspace != "" || len(spec.Mounts) > 0 || len(spec.ExtraHosts) > 0 {
-		t.Fatalf("a worker's request names no forge host path: %+v", spec)
+		t.Fatalf("a worker's request names no AppTown host path: %+v", spec)
 	}
 	adm := spec.Admission
 	if adm.Profile != "worker" || adm.Network != execution.NetworkDefault || adm.Limits.WallClock != 20*time.Minute || !adm.Expires.Equal(f.call.at.Add(20*time.Minute+taskGrace)) {
@@ -450,7 +450,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		t.Errorf("declared results: %+v", spec.Results)
 	}
 
-	// Environment: step secrets, the attempt's runtime token, the forge's
+	// Environment: step secrets, the attempt's runtime token, AppTown's
 	// address and the one ref the token may push (for `apptown check`), the
 	// mirror settings. Nothing else.
 	var names []string
@@ -513,7 +513,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		t.Errorf("a bound mirror installs the declared toolchain first: %q", spec.Argv[4:])
 	}
 
-	// Nothing the forge holds for itself is in anything sent.
+	// Nothing AppTown holds for itself is in anything sent.
 	var sent []string
 	sent = append(sent, spec.Env...)
 	sent = append(sent, spec.Argv...)
@@ -539,14 +539,14 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 }
 
 // Steering and Pi's settings are prepared from the worker's image's labels,
-// never the forge's own Docker's, and name where the worker presents the
-// files: /apptown/in for what the forge sends, /apptown/state for Pi's own.
+// never AppTown's own Docker's, and name where the worker presents the
+// files: /apptown/in for what AppTown sends, /apptown/state for Pi's own.
 func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil, "lsp")
 	f.worker.image.Labels["forge.pi-lsp.version"] = "worker-lsp-3"
 	req := f.build(t)
 	steering := req.steering.Text
-	// A change's step on a worker is told the forge merges main in for it
+	// A change's step on a worker is told AppTown merges main in for it
 	// (main_merge.go).
 	for _, want := range []string{"- /apptown/in/attachments/spec.txt", "- /apptown/in/resources/res--notes.md", "under /apptown/state/sessions", "Delegating (subagent tool)",
 		"If main moves, AppTown merges it into this change before your step when it can; you don't need to catch up yourself."} {
@@ -575,7 +575,7 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	}
 
 	// A worker image without the subagent extension is promised none, even
-	// though the forge's own image has it.
+	// though AppTown's own image has it.
 	f = agentOnWorkerFixture(t, nil)
 	delete(f.worker.image.Labels, piharness.SubagentsLabel)
 	req = f.build(t)
@@ -589,7 +589,7 @@ func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 
 // A step needing what the worker cannot provide yet, or whose needs cannot
 // be read, is refused from what was admitted before the worker is asked
-// anything (its image included), and nothing is made on the forge.
+// anything (its image included), and nothing is made on AppTown.
 func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -811,7 +811,7 @@ func TestAContinuedSessionIsSentItsTranscript(t *testing.T) {
 }
 
 // A run's folder whose .apptown is a link to somewhere else offers the
-// forge nothing it reads and gets nothing it writes: the request is built
+// AppTown nothing it reads and gets nothing it writes: the request is built
 // without the folder.
 func TestAFolderLinkChangesNothingInTheRequest(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil)
@@ -870,8 +870,8 @@ func listTree(t *testing.T, dir string) []string {
 	return out
 }
 
-// An agent on the forge's host is steered as before: to the run's folder's
-// .apptown paths, with what the forge's own agent image carries, and its
+// An agent on AppTown's host is steered as before: to the run's folder's
+// .apptown paths, with what AppTown's own agent image carries, and its
 // resources and steering written into the folder it is given.
 func TestAnAgentOnTheForgeIsSteeredToTheFolder(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil)
@@ -920,7 +920,7 @@ func postgresKind(version string) string {
 // needs as the admitted commit declares them (parameters included),
 // resolved against the catalog now, with the environment reaching them;
 // a daemon; limits that are never zero; the integration environment as on
-// the forge's host; and "unqualified" for its evidence. They are part of
+// AppTown's host; and "unqualified" for its evidence. They are part of
 // the request's identity: the same step admitted after the catalog changed
 // is another request, so only the kept one is ever sent again.
 func TestPrivateDockerOnTheWorkerIsFrozenInTheRequest(t *testing.T) {

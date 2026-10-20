@@ -11,7 +11,7 @@ import (
 	"testing/iotest"
 )
 
-// refusedWith is what the forge makes of a worker answer.
+// refusedWith is what AppTown makes of a worker answer.
 func refusedWith(write func(http.ResponseWriter)) error {
 	rec := httptest.NewRecorder()
 	write(rec)
@@ -38,8 +38,8 @@ func classOf(err error) []RefusalCode {
 	return codes
 }
 
-// Every class the worker writes is the class the forge reads, and only it,
-// however long its words: the worker cuts them to what the forge reads whole.
+// Every class the worker writes is the class AppTown reads, and only it,
+// however long its words: the worker cuts them to what AppTown reads whole.
 func TestEveryRefusalClassCrossesTheWire(t *testing.T) {
 	// Each byte of these escapes to six in JSON.
 	long := strings.Repeat("<\x01", maxRefusalBody)
@@ -84,7 +84,7 @@ func TestARefusalsWordsDoNotDecideItsClass(t *testing.T) {
 	}
 }
 
-// What the forge does not recognise is never a class, whatever its status:
+// What AppTown does not recognise is never a class, whatever its status:
 // an unknown code, no code, a broken body or plain text, on a 422 or a 409.
 // A 5xx, or a body that cannot be read whole, is the worker unavailable,
 // even when what was read is a known code.

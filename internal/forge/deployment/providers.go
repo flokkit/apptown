@@ -30,7 +30,7 @@ import (
 
 // Providers builds the driver that runs a deployment on its target, and
 // what can say what a target holds, for each kind of target: a Docker
-// host (this forge's own or one attached over ssh), Portainer, App
+// host (this AppTown's own or one attached over ssh), Portainer, App
 // Platform and an S3-compatible bucket. Provider credentials are resolved
 // from the secrets store and the connectors at use time, for one
 // operation. It also answers whether a target or a cloud account answers
@@ -40,7 +40,7 @@ import (
 // construction and it keeps no state of its own.
 type Providers struct {
 	db           *database.DB
-	clock        func() time.Time // the forge's clock; nil is the real one
+	clock        func() time.Time // AppTown's clock; nil is the real one
 	targets      *Targets
 	deployments  *Deployments
 	needs        NeedStore
@@ -58,7 +58,7 @@ type Providers struct {
 	digitalOcean digitalocean.Options
 	s3Bucket     s3bucket.Options
 	// afterRelease is told a Docker host or Portainer released a deployment;
-	// databaseContainer is the forge's own database, which the built-in
+	// databaseContainer is AppTown's own database, which the built-in
 	// host's inventory knows is there.
 	afterRelease      func(projectID ids.ID, deployment string)
 	databaseContainer string
@@ -84,7 +84,7 @@ type ProviderDependencies struct {
 	// Applied is told an effect may have changed what a target holds (the
 	// inventory cache); nil is fine.
 	Applied func()
-	// Now is the forge's clock; nil is the real one.
+	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 }
 
@@ -104,7 +104,7 @@ func NewProviders(ctx context.Context, db *database.DB, records ProviderRecords,
 		drivers: maps.Clone(deps.Drivers), inventories: maps.Clone(deps.Inventories),
 		digitalOcean: deps.DigitalOcean, s3Bucket: deps.S3Bucket,
 		afterRelease: deps.AfterRelease, databaseContainer: deps.DatabaseContainer}
-	// The DigitalOcean driver judges its deadlines and grace on the forge's
+	// The DigitalOcean driver judges its deadlines and grace on AppTown's
 	// clock too, unless its options name a clock of their own.
 	if p.digitalOcean.Now == nil {
 		p.digitalOcean.Now = deps.Now
@@ -271,12 +271,12 @@ func (p *Providers) PortainerConfig(ctx context.Context, t *Target) (*portainer.
 
 // PortainerDataScope is a Docker scope for data work in a Portainer
 // target's environment: the Docker CLI talks to a private socket this
-// forge serves, which forwards each request to the environment's Docker
+// AppTown serves, which forwards each request to the environment's Docker
 // through Portainer with the target's key (portainer.StartDockerProxy).
 // The scope carries no attached streams, so a copy's streamed steps run as
-// jobs (docker.Scope.NoStreams). An environment the forge cannot reach for
+// jobs (docker.Scope.NoStreams). An environment AppTown cannot reach for
 // data is refused with portainer.ErrCannotBackUp and why. The proxy lives
-// as long as the forge does, one per target and environment.
+// as long as AppTown does, one per target and environment.
 func (p *Providers) PortainerDataScope(ctx context.Context, t *Target) (docker.Scope, error) {
 	if t.DataAccess() != DataThroughPortainer {
 		return docker.Scope{}, fmt.Errorf("%s is not a Portainer target", t.Name)
@@ -565,7 +565,7 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 // prepared. A digest bundle's images are in its registry: it goes to any
 // target that runs its platform (App Platform runs linux/amd64; a Docker
 // host's and Portainer's platform are asked where they are released), but
-// never, in a forge with no local Docker, to the built-in host. In that
+// never, in an AppTown with no local Docker, to the built-in host. In that
 // mode a bundle of image IDs goes only to the attached Docker host it was
 // recorded on: Portainer and App Platform need its images in a registry.
 func (p *Providers) RefusesBundle(ctx context.Context, b *ReleaseBundle, t *Target) error {
@@ -617,7 +617,7 @@ func (p *Providers) Running(ctx context.Context, d deploy.Driver, dep *Deploymen
 	return o.Rollout == "active", err
 }
 
-// needSecrets is where dep's need credentials are kept; nil when the forge
+// needSecrets is where dep's need credentials are kept; nil when AppTown
 // has no secret store (a test's providers).
 func (p *Providers) needSecrets(dep *Deployment) digitalocean.KeySecrets {
 	if p.secrets == nil || p.secrets.Vault == nil {

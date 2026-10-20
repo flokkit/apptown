@@ -25,7 +25,7 @@ const (
 )
 
 // How one dial of the front door goes: the name is missing from DNS, it
-// answered only addresses the forge has no route to (an IPv6-only answer on
+// answered only addresses AppTown has no route to (an IPv6-only answer on
 // the droplet, restore test R3-1), or it connects.
 const (
 	noSuchHost = "no such host"
@@ -33,7 +33,7 @@ const (
 	connects   = "connects"
 )
 
-// frontDoor is the app's front door as the forge sees it: each dial goes
+// frontDoor is the app's front door as AppTown sees it: each dial goes
 // as its script says (the last entry repeats), and each request that
 // connects is answered with the next status (the last repeats); 200 at the
 // release path answers this release. Every answer closes its connection,
@@ -146,7 +146,7 @@ func resume(t *testing.T, f *frontDoor, created time.Time, noted map[string]any)
 }
 
 // A new app's provider-issued name can be missing from DNS, or answer only
-// addresses the forge has no route to, for the zone's 30-minute
+// addresses AppTown has no route to, for the zone's 30-minute
 // negative-cache time and more (restore tests RT-L2 and R3-1: the probes
 // and recoveries were spent inside that window, and a person had to press
 // Check again). Inside ProviderNameGrace such a request is "not yet": it

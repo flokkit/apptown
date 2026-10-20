@@ -192,7 +192,7 @@ func (e *Environment) Profiled(ctx context.Context, projectID ids.ID, deployment
 	if err != nil {
 		return nil, AppliedProfile{}, err
 	}
-	// A size declared for a need that runs no service (a key the forge
+	// A size declared for a need that runs no service (a key AppTown
 	// registers) has nothing to hold it: refused here, before a preview
 	// replaces the one it had or a release registers anything.
 	for _, n := range out.Needs {
@@ -206,7 +206,7 @@ func (e *Environment) Profiled(ctx context.Context, projectID ids.ID, deployment
 // serviceNeeds are which of needs run as a service beside the app (an
 // emulator on a Docker host, a managed database in a cloud): the needs a
 // generation's record sizes and the deployment's page shows. A key the
-// forge registers runs nothing and has nothing to size. A kind the
+// AppTown registers runs nothing and has nothing to size. A kind the
 // catalogue cannot read is an error, never "runs nothing".
 func (e *Environment) serviceNeeds(ctx context.Context, needs []string) (map[string]bool, error) {
 	out := map[string]bool{}

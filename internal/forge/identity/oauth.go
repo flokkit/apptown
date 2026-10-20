@@ -21,7 +21,7 @@ import (
 
 // Delegations to connected agents (mcp.md §4; authorization-capabilities.md
 // §9, §10) and object capabilities (§11). An OAuth client registers
-// itself, a person consents on the forge's own login, and what the client
+// itself, a person consents on AppTown's own login, and what the client
 // holds is a delegation: a bound on the person's current authority, never
 // a copy of their role. Codes are consumed once; refresh tokens rotate,
 // and a rotated token presented again means it leaked, which ends the

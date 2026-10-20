@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// A chat's Git remote works whether the forge's address is http (a local
-// container) or https (a worker reaching the forge), and its token travels
+// A chat's Git remote works whether AppTown's address is http (a local
+// container) or https (a worker reaching AppTown), and its token travels
 // as a header for that remote only, never in the URL.
 func TestAChatsGitRemoteSendsItsTokenOutsideTheURL(t *testing.T) {
 	for base, want := range map[string]string{

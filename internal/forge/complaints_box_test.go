@@ -127,7 +127,7 @@ func TestComplaintIntakeIsInertAndOpen(t *testing.T) {
 	}
 }
 
-// A complaint is named by its number within the forge as well as its id:
+// A complaint is named by its number within AppTown as well as its id:
 // answering "complaint 1" answers the first filed; a number none has is
 // not found in those words.
 func TestAComplaintIsAnsweredByItsNumber(t *testing.T) {

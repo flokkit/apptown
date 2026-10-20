@@ -73,7 +73,7 @@ func TestWithOneWorkerAPassingGateLandsAsBefore(t *testing.T) {
 	}
 }
 
-// Once the forge has a check worker, a stored passing result it did not
+// Once AppTown has a check worker, a stored passing result it did not
 // produce satisfies no gate: advancing and landing say it must run again,
 // the stored result is unchanged, and a fresh run on the check worker
 // lands. Here the result is the agent worker's; workflow's
@@ -125,8 +125,8 @@ func readStep(t *testing.T, a *App, id ids.ID) *workflow.Step {
 	return s
 }
 
-// The forge refuses to start with a check worker that is not one (the
-// worker package tests the role's time against the forge's first use).
+// AppTown refuses to start with a check worker that is not one (the
+// worker package tests the role's time against AppTown's first use).
 func TestTheForgeStartsOnlyWithAFreshCheckWorker(t *testing.T) {
 	t.Parallel()
 	ca := workertest.NewCA(t)
@@ -146,7 +146,7 @@ func TestTheForgeStartsOnlyWithAFreshCheckWorker(t *testing.T) {
 	}
 }
 
-// Once the forge has a check worker, no script result satisfies a gate:
+// Once AppTown has a check worker, no script result satisfies a gate:
 // scripts run on the agent worker or this machine, so they are not
 // independent checks. A script run beside the check worker records where it
 // ran, this machine, never the check worker; advancing, landing and the

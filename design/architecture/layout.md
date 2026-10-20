@@ -46,7 +46,7 @@ Time is owned as well. An owner reads the time only through a
 `clock.Or` (`internal/clock`, the one package that names `time.Now`), so a
 test can set it; production code never calls `time.Now`, `time.Since` or
 `time.Until` itself. A stored time a rule compares is written from that
-clock and passed to SQL, so both sides of the comparison are the forge's.
+clock and passed to SQL, so both sides of the comparison are AppTown's.
 SQL reads no clock of its own: no `now()` or `CURRENT_TIMESTAMP` in a query,
 a column default, a trigger or a view, so every stamp is written by the
 forge (a column is `NOT NULL` without a default, or null where absence means
@@ -67,7 +67,7 @@ does not act, its fence, or an effect made idempotent and asked for
 twice. A bounded wait for nothing (`polltest.Holds`) is a sleep in
 disguise, allowed only for asynchrony nothing owns, at sites allow-listed
 with their reasons in `.golangci.yml`. Production work runs on its
-caller's context, so a cancelled request or a stopping forge stops it;
+caller's context, so a cancelled request or a stopping AppTown stops it;
 only an entry point (a process's main, an owner's lifetime) makes a fresh
 one with `context.Background`, allow-listed by site in `.golangci.yml`.
 Work that must finish though its caller stops takes
@@ -78,7 +78,7 @@ them; what predates the others is held to per-package counts there.
 
 ## The three places code lives
 
-**`internal/<x>` — a library.** Knows nothing of the forge. No forge imports,
+**`internal/<x>` — a library.** Knows nothing of AppTown. No AppTown imports,
 no tables, no vocabulary from the product. `access`, `check`, `clock`, `console`,
 `database`, `dbtest`, `deploy`, `diskspace`, `dockerlabel`, `durable`, `enum`, `execfile`, `execution`, `fault`, `gitexec`, `hostmem`, `oci`, `poll`, `progress`, `stamp`, `strs`, `trailer`, `wiregen`, `worker`. A library can
 be read, tested and understood without knowing what a Change is.
@@ -123,9 +123,9 @@ Promote `internal/forge/<x>` to `internal/<x>` when **all** hold:
 
 1. It names nothing from the product. No Change, Run, Project, Adoption — in
    its types, its errors, or its words.
-2. It owns no forge tables.
-3. Its tests need no forge schema or fixtures.
-4. Something outside the forge could plausibly use it, even if nothing does.
+2. It owns no AppTown tables.
+3. Its tests need no AppTown schema or fixtures.
+4. Something outside AppTown could plausibly use it, even if nothing does.
 
 `check` is the worked example: the judge was App code, then a subsystem, then a
 library with its own binary, because a rule evaluated against evidence never
@@ -206,7 +206,7 @@ to hit a suffix count.
 
 ## Fakes of external systems
 
-A fake of something outside the forge — Docker, a cloud API, a coding harness, a
+A fake of something outside AppTown — Docker, a cloud API, a coding harness, a
 secret store — lives in **its own package beside the code whose contract it
 imitates**, named `<system>fake`, and is imported by everyone who needs it.
 
@@ -220,7 +220,7 @@ driver. Other Go packages can import it without a shared application fixture. Be
 the fake exists to satisfy the same contract the driver speaks; when the API
 changes, both change together.
 
-A fake of something the forge owns stays private to its package. There is no
+A fake of something AppTown owns stays private to its package. There is no
 shared fixture package for forge's own types, and specifically none that
 constructs the App — that reproduces the coupling the ownership work removed.
 

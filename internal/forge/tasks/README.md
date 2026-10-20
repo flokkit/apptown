@@ -1,9 +1,9 @@
 # Task attempts
 
 `tasks` records the task a step attempt runs, before any provider effect, so a
-restarted forge adopts it instead of running it twice. It has no workflow or provider knowledge; `workflowexec.TaskRunner`
+restarted AppTown adopts it instead of running it twice. It has no workflow or provider knowledge; `workflowexec.TaskRunner`
 coordinates both, through an `execution.TaskDriver` and the administrator's
-task profile (locally `local-docker`: the forge's own Docker, default network,
+task profile (locally `local-docker`: AppTown's own Docker, default network,
 no limits imposed; with a configured worker, `worker`: the worker's Docker,
 [design/operations/workers.md](../../../design/operations/workers.md)).
 
@@ -40,12 +40,12 @@ decides whether the record allows it:
 | `Settle(code)` | settled | reserved, started, collecting, unknown |
 | `SettleNothingHeld` | settled and released | any state but settled or held |
 
-Settled is final. Held is final for the forge: nothing settles or releases
+Settled is final. Held is final for AppTown: nothing settles or releases
 it, its shared workspace stays, and its run stays open, until a person
 inspects the backend ([workers.md](../../../design/operations/workers.md),
 "Held workspaces"). Refused only settles with nothing held. A recorded exit
 code and timeout are never erased: an operation given no code keeps the
-recorded one, so a timeout whose stop only a restarted forge confirms
+recorded one, so a timeout whose stop only a restarted AppTown confirms
 settles as a timeout. `detail` explains the last transition to people;
 nothing decides by it. Any other transition returns `ErrSettled`, `ErrHeld`
 or `ErrNotAccepted`. Such a refusal is a decision, not a failed write: a
@@ -58,8 +58,8 @@ the backend it was admitted to by identity (this installation's containers
 on a Docker daemon named by its address, or a worker at its address). A recovered task keeps
 all three: a restart never renews its budget, nothing is started after the
 deadline (the admission's grace is for observing and stopping), a task seen
-to have exited keeps its result however long the forge was down, and an
-attempt recorded for another backend than the forge's current one is left
+to have exited keeps its result however long AppTown was down, and an
+attempt recorded for another backend than AppTown's current one is left
 alone. Every call to a backend is bounded: before the deadline an
 unanswering backend is asked again until it; after it, the task gets one
 brief look and is otherwise stopped with its outcome unknown. The request digest is deterministic (sorted
@@ -75,7 +75,7 @@ its own, as a script's does); the worker keeps a shared workspace when a task
 in it is released, and removes it only on request, once no task in it
 remains (`DELETE /v1/workspaces/{key}`).
 
-The request a task is admitted with is kept by the forge from its
+The request a task is admitted with is kept by AppTown from its
 reservation, before the backend is asked for anything, in
 `<data>/tasks/<operation>/request.json` (0600, written whole, never
 replaced). Every later send of it (after a lost reply, or by a restarted
@@ -85,7 +85,7 @@ before requests were kept has its request rebuilt and refused if it changed.
 
 A settled task is released (its container, and its own workspace, removed)
 and the release recorded only once the backend confirms it. One it does not
-confirm is tried again every five minutes by the forge's scheduler, among
+confirm is tried again every five minutes by AppTown's scheduler, among
 its reaping duties (`workflowexec.TaskRunner.ReleaseSettled`), on the attempt's own
 backend, until confirmed; then the kept request is removed. An attempt of
 which nothing is held (refused before anything was created, or another
@@ -93,11 +93,11 @@ request's task holds its key) is settled released in one write, so nothing
 is ever released under its key.
 
 A stop is recorded (`desired = stop`) before the task is stopped, so a
-restarted forge carries it out; the task is stopped before the step's
+restarted AppTown carries it out; the task is stopped before the step's
 failure is written, so a failed write never leaves it running. A step's
 outcome is always recorded before its attempt is settled and its task
 removed; if that write fails, the task and its record stay as they are, the
-workflow does not run the steps after it, and a restarted forge collects it
+workflow does not run the steps after it, and a restarted AppTown collects it
 again. A task found only by its key is stopped or removed only if it was made
 for the attempt's request: a key held by another request's task is refused
 and that task is never touched.
@@ -109,7 +109,7 @@ no longer its step's, is stopped, settled and released. `ResumePendingAutoSteps`
 unsettled attempts: a refused one has its step failed, if still its, and
 is settled, whatever the backend, since nothing exists to observe; one whose
 step no longer belongs to it is stopped and settled; one recorded for
-another backend than this forge's is left alone
+another backend than this AppTown's is left alone
 and reported; the rest are handed to the workflow's dispatcher, which
 continues each in its place in its stage (`workflowexec.RecoverScript`) and
 continues the run once it settles, within the dispatcher's own waiting and
@@ -123,13 +123,13 @@ Local Docker starts a task only if it never ran, and serializes starts of
 one task within a process, so overlapping starts run it once. Script tasks
 also run their command behind a run-once guard (a marker file in the
 container's `/tmp`), for a start issued by another process. Local Docker task containers are named with a namespace
-derived from the forge's data directory, so two forges sharing a daemon do
+derived from AppTown's data directory, so two AppTown installations sharing a daemon do
 not see each other's tasks.
 
-Docker script steps use tasks, and so do agent steps on a forge with a
+Docker script steps use tasks, and so do agent steps on an AppTown with a
 worker: each run of Pi in an attempt is an invocation (`agent`, then at most
 one `agent-retry`), sharing the attempt's workspace, driven one at a time by
-the same runner; a restarted forge continues the attempt's newest
+the same runner; a restarted AppTown continues the attempt's newest
 invocation (`workflowexec.RecoverAgent`). A shared workspace is released
 once every invocation in it is settled and released, and its release is
 recorded when the backend confirms it (`workspace_released_at`, on every

@@ -79,7 +79,7 @@ func cmdWorkVerb(verb string, args []string) error {
 }
 
 // confirmCommandWord asks before opening a change whose whole request is
-// one word that names a forge command: `apptown quick -p shop follow` opened
+// one word that names an AppTown command: `apptown quick -p shop follow` opened
 // a change titled "follow" (sweep 7). Without a terminal it refuses and
 // says what to write instead.
 func confirmCommandWord(verb, body string, mayAsk bool) error {
@@ -95,7 +95,7 @@ func confirmCommandWord(verb, body string, mayAsk bool) error {
 	return nil
 }
 
-// openChange asks the forge to open a change and start its workflow, and
+// openChange asks AppTown to open a change and start its workflow, and
 // says what it opened.
 func openChange(slug, workflow, title, body string) (Opened, error) {
 	raw, err := api.request("POST", "/projects/"+slug+"/changes",
@@ -136,7 +136,7 @@ func openAndFollow(slug, workflow, title, body string, yes, noFollow bool) error
 }
 
 // changeRuns is the part of a change's page the loop reads: its state, its
-// project, its root runs with their roles, and what the forge offers on the
+// project, its root runs with their roles, and what AppTown offers on the
 // change itself (land, send back).
 type changeRuns struct {
 	Change struct {
@@ -174,8 +174,8 @@ func isLanding(v changeRuns, runID ids.ID) bool {
 	return false
 }
 
-// landingQueued says whether the forge has queued a landing for run runID's
-// accepted work that has not started yet: the forge's stated fact.
+// landingQueued says whether AppTown has queued a landing for run runID's
+// accepted work that has not started yet: AppTown's stated fact.
 func landingQueued(runID ids.ID) bool {
 	var d struct{ LandingQueued bool }
 	return api.get(fmt.Sprintf("/runs/%d", runID), &d) == nil && d.LandingQueued
@@ -217,7 +217,7 @@ func followChange(changeID, runID ids.ID, slug string, yes bool) error {
 			name, name, name, name, name, name)))
 		return nil
 	}
-	// Accepting the work starts the landing on the forge (the acceptance
+	// Accepting the work starts the landing on AppTown (the acceptance
 	// handoff). Follow that landing, or say how it ended, before ever
 	// starting one: a landing the acceptance started and catch-up ended
 	// once had the CLI start a second one 3 s later (sweep 7, C3).
@@ -247,7 +247,7 @@ func followChange(changeID, runID ids.ID, slug string, yes bool) error {
 			return err
 		}
 	}
-	// Working run done → offer the landing, when the forge offers one.
+	// Working run done → offer the landing, when AppTown offers one.
 	if _, ok := actOf(cv.Next, "land"); !ok {
 		fmt.Printf("%s AppTown offers no landing for change %s now — apptown show %s\n", yellow("⏸"), name, name)
 		return nil
@@ -282,14 +282,14 @@ func followChange(changeID, runID ids.ID, slug string, yes bool) error {
 type shippedDeployment struct {
 	Name, URL, Observation string
 	ObservationStale       bool
-	ObservedAt             string // "" until the forge's first look
+	ObservedAt             string // "" until AppTown's first look
 	ReleaseRun             ids.ID
 }
 
 // printShipped ends the loop: the release, and the deployment the landing
 // fed with its observed state. The address is printed whatever was observed
 // (it once appeared only when the app was observed running, sweep 7, A2),
-// and the observation says what the forge last saw there.
+// and the observation says what AppTown last saw there.
 func printShipped(name, slug string, landingRun ids.ID) {
 	type release struct {
 		Number int
@@ -310,7 +310,7 @@ func printShipped(name, slug string, landingRun ids.ID) {
 
 // deploymentsLine names the deployments the landing released to (all the
 // project's deployments when none names that run), each with its address
-// and what the forge last observed there.
+// and what AppTown last observed there.
 func deploymentsLine(deps []shippedDeployment, landingRun ids.ID) string {
 	var fed []shippedDeployment
 	for _, d := range deps {
@@ -326,7 +326,7 @@ func deploymentsLine(deps []shippedDeployment, landingRun ids.ID) string {
 		if d.Name == "" {
 			continue
 		}
-		// Right after a landing the forge has not looked yet: that is not
+		// Right after a landing AppTown has not looked yet: that is not
 		// an unknown state, and it reads as the web's "awaiting
 		// observation" does.
 		seen := "its state is not known"
@@ -356,7 +356,7 @@ type loopRunDetail struct {
 	}
 	State       string
 	StateDetail string
-	// Next is what the forge offers a person on the run now, each act
+	// Next is what AppTown offers a person on the run now, each act
 	// with its step.
 	Next   []nextAct
 	Stages []string
@@ -381,12 +381,12 @@ type loopRunDetail struct {
 // pollEvery is how long the loop waits between reads of a run.
 var pollEvery = 1500 * time.Millisecond
 
-// loopMove is the loop's next move on a running run, read from the forge's
+// loopMove is the loop's next move on a running run, read from AppTown's
 // own state and acts rather than worked out from step statuses: "approve"
-// (the forge offers the approval the run waits on; step and name say which),
+// (AppTown offers the approval the run waits on; step and name say which),
 // "waiting" (a person's decision the loop cannot take here, such as one in a
-// called workflow; name is the forge's words), "blocked" (the stage cannot
-// pass on its own; name is the forge's words), or "wait". The forge knows
+// called workflow; name is AppTown's words), "blocked" (the stage cannot
+// pass on its own; name is AppTown's words), or "wait". AppTown knows
 // when a failed verdict is about to be checked again after a rework; the
 // loop once called that blocked after a few polls (sweep 7, B1).
 func loopMove(d loopRunDetail) (move string, step ids.ID, name string) {
@@ -402,8 +402,8 @@ func loopMove(d loopRunDetail) (move string, step ids.ID, name string) {
 	return "wait", ids.Nil, ""
 }
 
-// stepTook is how long a step ran by the forge's own clock, zero when the
-// forge has not recorded both ends. A loop re-attached to a long step once
+// stepTook is how long a step ran by AppTown's own clock, zero when the
+// AppTown has not recorded both ends. A loop re-attached to a long step once
 // timed it from the moment it attached ("✓ apply-change 26s" for a
 // many-minute step, sweep 7).
 func stepTook(startedAt, finishedAt string) time.Duration {
@@ -420,8 +420,8 @@ func stepTook(startedAt, finishedAt string) time.Duration {
 var heartbeatEvery = 30 * time.Second
 
 // heartbeatLine says what a run that has printed nothing for a while is
-// doing: each running step and how long it has run by the forge's clock,
-// and the forge's own words when they say more (a queue, a slot). An image
+// doing: each running step and how long it has run by AppTown's clock,
+// and AppTown's own words when they say more (a queue, a slot). An image
 // scan or deploy of several minutes once showed only "⧗ deploy" (sweep 7).
 func heartbeatLine(d loopRunDetail, now time.Time) string {
 	var parts []string
@@ -564,7 +564,7 @@ func handleApproval(d *loopRunDetail, changeID, stepID ids.ID, stepName string, 
 			// The step may have been decided while we looked: an acceptance
 			// that also approves the landing carries over to it. A step that
 			// passed meanwhile is not an error; following continues. Any
-			// other refusal is the forge's answer.
+			// other refusal is AppTown's answer.
 			if decided, ok := stepDecided(d.Run.ID, stepID); ok && decided {
 				fmt.Printf("  %s %s %s\n", green("✓"), stepName, dim("already decided"))
 				return nil
@@ -638,7 +638,7 @@ func handleApproval(d *loopRunDetail, changeID, stepID ids.ID, stepName string, 
 			if err != nil {
 				return err
 			}
-			// The forge gives the stage's agent your words on a rejection;
+			// AppTown gives the stage's agent your words on a rejection;
 			// following shows the rework.
 			fmt.Println(dim("  rejected; your words are recorded"))
 			return nil
@@ -751,7 +751,7 @@ func stepDecided(runID, stepID ids.ID) (decided, ok bool) {
 
 // stepNoLongerAsking says whether approval step stepID of d has been decided,
 // on positive evidence: its own recorded status is pass (an acceptance that
-// carried over, another vote, an override). That the forge no longer offers
+// carried over, another vote, an override). That AppTown no longer offers
 // it is no evidence: a rework or unfinished work also takes the offer away.
 // found is false for a step the run does not have.
 func stepNoLongerAsking(d loopRunDetail, stepID ids.ID) (decided, found bool) {

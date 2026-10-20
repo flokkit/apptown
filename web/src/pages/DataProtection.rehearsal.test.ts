@@ -21,7 +21,7 @@ describe('the rehearsal line', () => {
     expect(rehearsalLine({ ...base, outcome: 'passed: booted and ready; no data check declared' })).toContain('no data check declared')
     expect(rehearsalLine({ ...base, passed: false, outcome: 'failed', failedStep: 'asking the app' })).toContain('failed')
     expect(rehearsalLine({ ...base, passed: false, outcome: 'failed', failedStep: 'asking the app' })).toContain('while asking the app')
-    expect(rehearsalLine({ ...base, passed: false, outcome: 'unknown: the forge stopped while it ran', release: 0 })).toContain('unknown: the forge stopped while it ran')
+    expect(rehearsalLine({ ...base, passed: false, outcome: 'unknown: AppTown stopped while it ran', release: 0 })).toContain('unknown: AppTown stopped while it ran')
     expect(rehearsalLine(null, 'never rehearsed: no rehearsal place')).toBe('last restore rehearsal: never rehearsed: no rehearsal place')
   })
   it('says what it held back', () => {

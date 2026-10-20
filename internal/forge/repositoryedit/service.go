@@ -44,7 +44,7 @@ type Service struct {
 	dataDir   string
 }
 
-// now is the forge's clock, as Work holds it: the times this package
+// now is AppTown's clock, as Work holds it: the times this package
 // writes are Work's records'.
 func (editor *Service) now() time.Time { return workClock(editor.work)() }
 

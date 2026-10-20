@@ -125,7 +125,7 @@ describe('the registry line', () => {
   })
 })
 
-// An App Platform target says, from the forge's own answer, whether
+// An App Platform target says, from AppTown's own answer, whether
 // backups and restore tests of its deployments can run: with no copy
 // runner, that they cannot and why; with one, which host it is.
 describe('the copy runner line', () => {

@@ -152,18 +152,18 @@ func TestAWorkshopIsTornDownAfterItsContextEnds(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("preload worker did not finish")
 	}
-	cancel() // the forge stops while the step runs
+	cancel() // AppTown stops while the step runs
 	cleanup()
 	if !client.called("rm -f -v forge-dind-step-00000000-005c-7000-8000-000000000000") || !client.called("network rm forge-dind-step-00000000-005c-7000-8000-000000000000") {
 		t.Fatal("the sandbox was not torn down after its context ended")
 	}
 }
 
-// A step's private Docker, where its builds run, is bounded by the forge's
+// A step's private Docker, where its builds run, is bounded by AppTown's
 // task limits and shares only its own project's cache, at the same path as
 // the step's container, so a nested build sees what the step sees.
 //
-// Kills: a sidecar started with no limits and the one forge-cache volume.
+// Kills: a sidecar started with no limits and the one AppTown-cache volume.
 func TestAStepsPrivateDockerIsBoundedAndSharesOnlyItsProjectsCache(t *testing.T) {
 	t.Parallel()
 	client := &workshopClient{preload: make(chan struct{})}

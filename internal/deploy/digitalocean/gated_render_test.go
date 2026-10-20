@@ -151,7 +151,7 @@ func TestGatedRenderRefusesWhatItCannotGate(t *testing.T) {
 	for name, g := range map[string]*deploy.Gate{
 		"no secret":     {Image: gateRef, Forge: "https://forge.example", Marker: testMarker},
 		"not by digest": {Image: "registry.example/forge/gate:latest", Secret: secret, Forge: "https://forge.example", Marker: testMarker},
-		"no forge":      {Image: gateRef, Secret: secret, Marker: testMarker},
+		"no AppTown":    {Image: gateRef, Secret: secret, Marker: testMarker},
 		"no mark":       {Image: gateRef, Secret: secret, Forge: "https://forge.example"},
 	} {
 		if _, err := renderGated(t, d, g, scopedRenderSecrets{}); err == nil || !deploy.IsTerminal(err) {
@@ -163,7 +163,7 @@ func TestGatedRenderRefusesWhatItCannotGate(t *testing.T) {
 	}
 }
 
-// The gate image is read with the credential the forge gives for it, and
+// The gate image is read with the credential AppTown gives for it, and
 // a release's images keep their own: neither is sent where it was not
 // given.
 func TestGateImageIsReadWithItsOwnCredential(t *testing.T) {

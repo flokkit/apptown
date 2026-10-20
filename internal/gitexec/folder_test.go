@@ -26,7 +26,7 @@ func gitAt(t *testing.T, dir string, args ...string) string {
 	return out
 }
 
-// folderWorld is a hub with a branch at B, a folder cloned as the forge
+// folderWorld is a hub with a branch at B, a folder cloned as AppTown
 // clones (workflow's EnsureClone) still at A, and a repository outside the
 // folder that hostile metadata can point at.
 type folderWorld struct {
@@ -134,7 +134,7 @@ func headOf(t *testing.T, folder string) string {
 	return gitAt(t, folder, "rev-parse", "HEAD")
 }
 
-// A folder cloned as the forge clones it is brought forward, answers what
+// A folder cloned as AppTown clones it is brought forward, answers what
 // it holds, and resets with its clean, keeping what the caller keeps.
 func TestAForgeCloneIsBroughtForwardAndReset(t *testing.T) {
 	t.Parallel()
@@ -177,7 +177,7 @@ func TestAForgeCloneIsBroughtForwardAndReset(t *testing.T) {
 	}
 }
 
-// Any config entry the forge's clone does not write refuses the folder, even
+// Any config entry AppTown's clone does not write refuses the folder, even
 // an inert one, and nothing is run or written.
 func TestAnInertExtraKeyRefusesTheFolder(t *testing.T) {
 	t.Parallel()
@@ -308,7 +308,7 @@ func TestAHostileFolderIsRefusedAndNothingRuns(t *testing.T) {
 	}
 }
 
-// GIT_DIR and GIT_OBJECT_DIRECTORY in the forge's own environment do not
+// GIT_DIR and GIT_OBJECT_DIRECTORY in AppTown's own environment do not
 // reach the folder's Git: a clean folder is brought forward and reset in
 // itself, and the repository they name does not change. The test sets the
 // process's environment, so it does not run in parallel.

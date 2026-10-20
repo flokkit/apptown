@@ -1,24 +1,24 @@
-// Package gitexec runs the git binary for one local repository. Every forge
+// Package gitexec runs the git binary for one local repository. Every AppTown
 // package that shells out to git goes through here, so the rules for how git
 // is started, what output comes back, how a commit's tree is extracted and
 // what counts as a branch name (CheckBranchName, answered without git) live
 // in one place.
 //
-// Command is the one place the repository starts git by name, the forge's
+// Command is the one place the repository starts git by name, AppTown's
 // own commands and tests' alike (gittest builds on it). Callers that need a
 // timeout, streamed output or a container for a long operation (merge,
 // fetch, a lane's workspace) keep using execution.Runner with argv
 // "git ...": that adds something real, and it starts processes with Environ
 // too. Everything else uses this.
 //
-// No GIT_* variable the forge inherited reaches the git it starts, and
+// No GIT_* variable AppTown inherited reaches the git it starts, and
 // neither does the machine's system or global git config (Environ): the
 // forge's git reads only the repository's own config and what the caller
 // passes on purpose, so a commit, a merge or a checkout behaves the same on
 // every host whatever the user the apptown runs as has configured (signing,
-// hooks, templates, line endings, merge drivers). An identity the forge
+// hooks, templates, line endings, merge drivers). An identity AppTown
 // commits with comes from the repository's config or -c, never from a
-// person's ~/.gitconfig. The forge CLI, acting in a person's own repository
+// person's ~/.gitconfig. AppTown CLI, acting in a person's own repository
 // as them, is the one exception: it starts git with Command and the
 // person's whole environment, so their GIT_* variables and their own git
 // config apply.
@@ -40,18 +40,18 @@ import (
 // that inherited them cannot hold the caller past cancellation.
 const waitDelay = time.Second
 
-// Environ is the environment the forge starts git (or any local process
+// Environ is the environment AppTown starts git (or any local process
 // that may run git) with: the process's own without one GIT_* variable it
 // inherited, with no system or global git config, then extra, the
 // variables the caller sets on purpose. An inherited GIT_DIR,
 // GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_CONFIG_* or any
-// other GIT_* (a forge or a test started from a Git hook carries several)
+// other GIT_* (an AppTown or a test started from a Git hook carries several)
 // would point git at another repository, index, object store or
-// configuration than the one the forge named. The system config
+// configuration than the one AppTown named. The system config
 // (/etc/gitconfig) and the global one (~/.gitconfig, ~/.config/git/config)
 // belong to the machine and the user the apptown runs as: a commit.gpgsign,
 // core.hooksPath, init.templateDir, merge.* or core.autocrlf there would
-// change what the forge's git does from one host to the next. HOME stays,
+// change what AppTown's git does from one host to the next. HOME stays,
 // for what else the process reads there (ssh, docker).
 func Environ(extra ...string) []string {
 	inherited := os.Environ()
@@ -68,7 +68,7 @@ func Environ(extra ...string) []string {
 // RepositoryConfigOnly are the variables that keep git to the repository's
 // own config: no system config, and the global one (which also stands for
 // the XDG location) empty. Environ includes them; a git started with an
-// environment of its own (the forge's Git HTTP backend) adds them.
+// environment of its own (AppTown's Git HTTP backend) adds them.
 var RepositoryConfigOnly = []string{"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull}
 
 // Command is git with args, in dir, with env as its whole environment: the
@@ -96,7 +96,7 @@ func Command(ctx context.Context, dir string, env []string, args ...string) *exe
 // command is git in dir with base, the environment it starts from, plus
 // env.
 func command(ctx context.Context, dir string, base, env []string, args []string) *exec.Cmd {
-	// The forge's git takes no optional locks: a status read would otherwise
+	// AppTown's git takes no optional locks: a status read would otherwise
 	// refresh the index under .git/index.lock, and the person or agent
 	// committing in the same workspace at that moment would be refused.
 	full := append(append(base, "GIT_OPTIONAL_LOCKS=0"), env...)
@@ -144,7 +144,7 @@ func OutputBytes(ctx context.Context, dir string, stdin io.Reader, args ...strin
 
 // output is cmd.Output with stderr gathered in a buffer git's pipe can be
 // read straight into: exec's own capture for Output makes a 32 KB copy
-// buffer for every command, which across the forge's many short git runs
+// buffer for every command, which across AppTown's many short git runs
 // is most of what starting them allocates. A failure still carries stderr
 // on its *exec.ExitError, as Output's does.
 func output(cmd *exec.Cmd) ([]byte, error) {
@@ -166,7 +166,7 @@ func IsRepo(dir string) bool {
 // Staged reports whether dir's index differs from HEAD (from the empty tree
 // on a branch with no commit yet): whether a commit would record anything.
 // The working tree's status is not the question: files nothing staged, such
-// as the forge's runtime state under .apptown, would make a commit with
+// as AppTown's runtime state under .apptown, would make a commit with
 // nothing to record. A directory git cannot read is an error, never "nothing
 // staged".
 func Staged(ctx context.Context, dir string) (bool, error) {

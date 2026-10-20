@@ -317,9 +317,9 @@ func TestAPreviewsRowFollowsItsEffectThoughTheCallerHasGone(t *testing.T) {
 	}
 }
 
-// A preview's address at a port this forge's Docker publishes answers on
-// the forge host only (the bind is loopback, above). With a public host,
-// people reach the forge from elsewhere, so the owner says so for a preview
+// A preview's address at a port this AppTown's Docker publishes answers on
+// AppTown host only (the bind is loopback, above). With a public host,
+// people reach AppTown from elsewhere, so the owner says so for a preview
 // with no preview domain; a preview that is live carries the mark to the
 // page. (Deployment's own test covers standing deployments.)
 func TestAPreviewPortAddressWithAPublicHostIsMarkedForTheForgeHostOnly(t *testing.T) {

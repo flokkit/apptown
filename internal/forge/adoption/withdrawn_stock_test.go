@@ -86,7 +86,7 @@ func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.
 		t.Fatal(err)
 	}
 
-	// The forge restarts on the new release.
+	// AppTown restarts on the new release.
 	after := wow.New(db, wow.Dependencies{Stock: stock.FS})
 	after.SyncStock(t.Context())
 	s = New(db, Dependencies{Ways: after})

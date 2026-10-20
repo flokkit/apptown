@@ -35,7 +35,7 @@ func TestDockerCLISelectionStreamsAndCancellation(t *testing.T) {
 	}
 }
 
-// A forge with no local Docker refuses every call to its own daemon before
+// An AppTown with no local Docker refuses every call to its own daemon before
 // any process starts; an admitted target's scope keeps the Docker CLI, with
 // that target's --host on every call. A scope given no host stays refused.
 func TestTheForgesOwnDockerRefusesWhileAnAttachedTargetKeepsItsHost(t *testing.T) {
@@ -54,7 +54,7 @@ func TestTheForgesOwnDockerRefusesWhileAnAttachedTargetKeepsItsHost(t *testing.T
 	}
 }
 
-// The daemon the forge selected builds its images: a builder named in the
+// The daemon AppTown selected builds its images: a builder named in the
 // forge's own environment (BUILDX_BUILDER) would take a plain docker build
 // elsewhere, with the project's source, so no command inherits it.
 func TestNoDockerCommandInheritsABuilderFromTheForgesEnvironment(t *testing.T) {

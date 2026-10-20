@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Send the companies set (eval/companies) through a forge.
+"""Send the companies set (eval/companies) through an AppTown.
 
     python3 eval/companies/run.py --forge URL --token-file F --state FILE [--company NAME|all] <command>
 
 Commands:
   create [--wave N] [--limit N] [--app APP] [--target T] [--accept-capacity-risk WHY]
                       make each app's project with the pack stacks.yaml names
-                      (the forge's picker is asked too and its suggestion only
+                      (AppTown's picker is asked too and its suggestion only
                       recorded) and open its 00-create request as a build
   drive [--target T] [--accept-capacity-risk WHY] [--on-behalf-of NAME]
                       follow every open change: approve its questions under the
@@ -18,18 +18,18 @@ Commands:
                       record what a person found for an opening whose answer
                       was lost (APP is company/app, REQUEST like 03-foo)
 
-It acts only through the product: the forge CLI with --json, and the reads the
+It acts only through the product: AppTown CLI with --json, and the reads the
 CLI has no command for (the pack picker, a target's capacity, a project's
 deployments). Waiting is `apptown wait`. State lives outside the repository:
 --state names its file, or the APPTOWN_EVAL_STATE environment variable names a
-directory that holds one file per forge (<forge host>.json); with neither the
+directory that holds one file per AppTown (<AppTown host>.json); with neither the
 runner refuses. It is written before every mutation and after its answer, so a
 rerun never opens the same request twice. A mutation whose answer was lost
 stays unknown until `reconcile`.
 
 The delegation: `drive` approves a change's questions on behalf of the person
 who runs it, and says so in each approval's note. --on-behalf-of names that
-person; by default it is the user the forge says the token acts as.
+person; by default it is the user AppTown says the token acts as.
 """
 import argparse
 import json
@@ -140,7 +140,7 @@ def slug_for(company, app):
 
 
 def message(req):
-    """The request text, then who asked. Last, because the forge titles a
+    """The request text, then who asked. Last, because AppTown titles a
     change from its first line."""
     who = f"\n\nAsked by {req['from']}." if req["from"] else ""
     return req["body"] + who
@@ -274,7 +274,7 @@ def capacity_ok(api, st, target, risk, admitting=1):
     return False, why
 
 
-# ---------------------------------------------------------------- the forge
+# ---------------------------------------------------------------- AppTown
 
 class Forge:
     def __init__(self, url, token, cli):
@@ -306,7 +306,7 @@ class Forge:
 
 
 def project_exists(forge, slug):
-    """The forge's project list (the CLI's `projects` has no --json)."""
+    """AppTown's project list (the CLI's `projects` has no --json)."""
     rows = forge.get("/api/v1/projects") or []
     rows = rows.get("projects", rows) if isinstance(rows, dict) else rows
     return any(r.get("slug") == slug for r in rows)
@@ -325,13 +325,13 @@ def observe_main(forge, slug):
                 return "running", d.get("url")
             if d.get("running") is False:
                 return "not running", None
-            return "unknown", d.get("observationIssue") or "the forge has no observation of it"
+            return "unknown", d.get("observationIssue") or "AppTown has no observation of it"
     return "not running", None
 
 
 def settle_create(forge, st, key, slug):
     """Record a shipped create's deployment; it stops counting against the
-    host only once the forge observes it running."""
+    host only once AppTown observes it running."""
     a = st.app(key)
     seen, x = observe_main(forge, slug)
     a["observed"] = seen
@@ -359,7 +359,7 @@ def cmd_create(forge, st, companies, args, stacks=None):
             a["slug"] = slug
             if a.get("project") in (None, "creating") and project_exists(forge, slug):
                 # A lost `new`, or a lost state file: slugs are unique, so the
-                # project on the forge is this app's.
+                # project on AppTown is this app's.
                 a["project"] = "adopted"
                 st.save()
             if a.get("project") in (None, "creating"):
@@ -387,7 +387,7 @@ def cmd_create(forge, st, companies, args, stacks=None):
                 if code == 0 and doc:
                     a["project"] = "created"
                 elif code == 4:
-                    print(f"{key}: the forge's answer to new was lost; the next run looks the slug up")
+                    print(f"{key}: AppTown's answer to new was lost; the next run looks the slug up")
                     st.save()
                     continue
                 else:
@@ -469,7 +469,7 @@ def drive_one(forge, st, key, slug, rid, args, limit=40):
                 st.save()
                 return
             continue
-        r.pop("held", None)   # the run moved on: a lost approval answer was settled by the forge
+        r.pop("held", None)   # the run moved on: a lost approval answer was settled by AppTown
         if outcome in ("done", "shipped", "ended"):
             c3, show, e3 = forge.run("show", r["change"], "--json")
             state = (show or {}).get("state")
@@ -510,7 +510,7 @@ def drive_one(forge, st, key, slug, rid, args, limit=40):
 
 
 def cli_user(forge):
-    """Who the forge says the token acts as, or "" when it does not say."""
+    """Who AppTown says the token acts as, or "" when it does not say."""
     try:
         return (forge.get("/api/v1/auth/me") or {}).get("user", "")
     except Exception:
@@ -553,7 +553,7 @@ def cmd_reconcile(st, args):
         # saving the answer: as unknown as a lost answer.
         sys.exit(f"{args.app} {args.request}: no unresolved opening to reconcile")
     if args.change == "none":
-        del a["requests"][args.request]   # not on the forge: it may be opened again
+        del a["requests"][args.request]   # not on AppTown: it may be opened again
         if args.request.startswith("00-"):
             a["pending"] = False
     else:

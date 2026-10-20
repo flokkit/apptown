@@ -88,9 +88,9 @@ type world struct {
 	env       deployment.EnvironmentDependencies
 }
 
-// newWorld is a project "p" on this forge's own Docker (a fake daemon whose
+// newWorld is a project "p" on this AppTown's own Docker (a fake daemon whose
 // app answers a page) with the stock dependency catalog and the built-in
-// target "local"; secretsEnv, when set, is the forge's secrets file.
+// target "local"; secretsEnv, when set, is AppTown's secrets file.
 func newWorld(t *testing.T, publicHost, secretsEnv string) *world {
 	t.Helper()
 	db := testDB(t)
@@ -139,7 +139,7 @@ func (w *world) service(deps Dependencies) *Service {
 }
 
 // reconfigure gives s the world's collaborators built again with changed
-// settings: what a forge started with other settings would have.
+// settings: what an AppTown started with other settings would have.
 func (w *world) reconfigure(s *Service, host func(*deployment.HostSettings), env func(*deployment.EnvironmentDependencies)) {
 	if host != nil {
 		host(&w.host)

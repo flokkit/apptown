@@ -32,14 +32,14 @@ type (
 	// ChatHistoryView is a change's or a project's chats, oldest first.
 	ChatHistoryView struct {
 		Sessions []ChatHistoryEntry `json:"sessions"`
-		// Unreadable is how many chat records on this forge could not be
+		// Unreadable is how many chat records on this AppTown could not be
 		// read: any of them may belong here, so some chats may be missing.
 		Unreadable int `json:"unreadable"`
 		// UnreadableFolders names them, for an administrator to look at.
 		UnreadableFolders []string `json:"unreadableFolders,omitempty"`
 	}
 	// ChatHistoryEntry is one chat: who opened it, when, whether it has
-	// ended, whether it was moved here from another forge, and its words.
+	// ended, whether it was moved here from another AppTown, and its words.
 	ChatHistoryEntry struct {
 		ID        string            `json:"id"`
 		CreatedAt time.Time         `json:"createdAt"`

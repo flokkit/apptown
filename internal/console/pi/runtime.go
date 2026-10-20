@@ -37,12 +37,12 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// Config is what the runtime needs from the forge it runs in.
+// Config is what the runtime needs from AppTown it runs in.
 type Config struct {
-	// Run executes one docker command against the forge's own daemon.
+	// Run executes one docker command against AppTown's own daemon.
 	Run func(ctx context.Context, args ...string) ([]byte, error)
 	// Image is the agent image every console is created from; a moved
-	// image makes existing containers stale. A func: the forge learns it
+	// image makes existing containers stale. A func: AppTown learns it
 	// after construction.
 	Image func() string
 	// Dind configures the private Docker daemon a change console gets.
@@ -67,9 +67,9 @@ type Config struct {
 	// shared tool cache, worker/tool_cache.go). Its daemon and its script
 	// get none of them.
 	Mounts []string
-	// LocalTLS, when set, is the forge's own local HTTPS (apptownd
+	// LocalTLS, when set, is AppTown's own local HTTPS (apptownd
 	// -local-tls): each chat gets the authority's certificate and the
-	// prelude that trusts it and reaches the forge's addresses.
+	// prelude that trusts it and reaches AppTown's addresses.
 	LocalTLS *console.LocalTLS
 }
 
@@ -170,9 +170,9 @@ type inspection struct {
 	exists, running bool
 	everStarted     bool
 	image           string
-	dind            string // the forge.console.dind label: "0" | "1"
-	model           string // the forge.console.model label
-	mounts          string // the forge.console.mounts label
+	dind            string // AppTown.console.dind label: "0" | "1"
+	model           string // AppTown.console.model label
+	mounts          string // AppTown.console.mounts label
 }
 
 func (r *Runtime) inspect(id string) (inspection, error) {

@@ -91,10 +91,10 @@ func (f *fakeForge) grant(until time.Time) {
 }
 
 type harness struct {
-	app   *fakeApp
-	forge *fakeForge
-	gate  *httptest.Server
-	clock *settable
+	app     *fakeApp
+	apptown *fakeForge
+	gate    *httptest.Server
+	clock   *settable
 }
 
 // settable is a settable clock; zero means the real time.
@@ -120,10 +120,10 @@ func (c *settable) set(t time.Time) {
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	h := &harness{app: &fakeApp{}, forge: &fakeForge{}, clock: &settable{}}
+	h := &harness{app: &fakeApp{}, apptown: &fakeForge{}, clock: &settable{}}
 	appSrv := httptest.NewServer(h.app)
 	t.Cleanup(appSrv.Close)
-	forgeSrv := httptest.NewServer(h.forge)
+	forgeSrv := httptest.NewServer(h.apptown)
 	t.Cleanup(forgeSrv.Close)
 
 	cfg, err := ConfigFromEnv(func(k string) string {
@@ -173,7 +173,7 @@ func (h *harness) get(t *testing.T, path string, headers map[string]string) (*ht
 // enter goes through the person's door and returns the session cookie.
 func (h *harness) enter(t *testing.T, until time.Time) *http.Cookie {
 	t.Helper()
-	h.forge.grant(until)
+	h.apptown.grant(until)
 	res, _ := h.get(t, EnterPath+"?ticket=tk-1", nil)
 	if res.StatusCode != http.StatusSeeOther {
 		t.Fatalf("enter: status %d, want 303", res.StatusCode)
@@ -274,7 +274,7 @@ func TestGateForwardsAProbeWithoutItsTokenKeepingHostAndForwardedHeaders(t *test
 func TestEnteringWithATicketRedeemsItAndStartsASession(t *testing.T) {
 	h := newHarness(t)
 	until := time.Now().Add(time.Hour).Truncate(time.Second)
-	h.forge.grant(until)
+	h.apptown.grant(until)
 	res, _ := h.get(t, EnterPath+"?ticket=tk-secret-ticket", nil)
 
 	if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/" {
@@ -302,11 +302,11 @@ func TestEnteringWithATicketRedeemsItAndStartsASession(t *testing.T) {
 		t.Fatalf("cookie value length %d expires %v, want 64 hex chars expiring %v", len(c.Value), c.Expires, until)
 	}
 
-	h.forge.mu.Lock()
-	auth, ctype, tickets := h.forge.auth, h.forge.ctype, h.forge.tickets
-	h.forge.mu.Unlock()
+	h.apptown.mu.Lock()
+	auth, ctype, tickets := h.apptown.auth, h.apptown.ctype, h.apptown.tickets
+	h.apptown.mu.Unlock()
 	if len(tickets) != 1 || tickets[0] != "tk-secret-ticket" {
-		t.Fatalf("forge received tickets %v", tickets)
+		t.Fatalf("AppTown received tickets %v", tickets)
 	}
 	if auth[0] != "Bearer "+testSecret || ctype[0] != "application/json" {
 		t.Fatal("redemption did not carry the gate secret as a bearer token with a JSON body")
@@ -325,9 +325,9 @@ func TestEnteringWithATicketRedeemsItAndStartsASession(t *testing.T) {
 func TestEntryIsNeverForwardedEvenWithAValidCredential(t *testing.T) {
 	h := newHarness(t)
 	cookie := h.enter(t, time.Now().Add(time.Hour))
-	h.forge.mu.Lock()
-	h.forge.status, h.forge.response = http.StatusGone, ""
-	h.forge.mu.Unlock()
+	h.apptown.mu.Lock()
+	h.apptown.status, h.apptown.response = http.StatusGone, ""
+	h.apptown.mu.Unlock()
 
 	res, _ := h.get(t, EnterPath+"?ticket=tk-2", map[string]string{
 		TokenHeader: testSecret,
@@ -354,12 +354,12 @@ func TestEntryIsNeverForwardedEvenWithAValidCredential(t *testing.T) {
 func TestFailedRedemptionIsRefusedWithoutASession(t *testing.T) {
 	cases := map[string]func(f *fakeForge){
 		// A refusal is a refusal even if its body looks like a grant.
-		"forge refuses": func(f *fakeForge) {
+		"AppTown refuses": func(f *fakeForge) {
 			f.grant(time.Now().Add(time.Hour))
 			f.status = http.StatusForbidden
 		},
-		"forge errors": func(f *fakeForge) { f.status, f.response = http.StatusInternalServerError, "" },
-		"bad json":     func(f *fakeForge) { f.status, f.response = http.StatusOK, `{"person":` },
+		"AppTown errors": func(f *fakeForge) { f.status, f.response = http.StatusInternalServerError, "" },
+		"bad json":       func(f *fakeForge) { f.status, f.response = http.StatusOK, `{"person":` },
 		"until passed": func(f *fakeForge) {
 			f.status = http.StatusOK
 			f.response = `{"person":"ana","until":"` + time.Now().Add(-time.Minute).Format(time.RFC3339) + `"}`
@@ -372,12 +372,12 @@ func TestFailedRedemptionIsRefusedWithoutASession(t *testing.T) {
 	for name, setup := range cases {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)
-			setup(h.forge)
+			setup(h.apptown)
 			res, body := h.get(t, EnterPath+"?ticket=tk-1", nil)
 			expectRefusedEntry(t, res, body)
 		})
 	}
-	t.Run("forge unreachable", func(t *testing.T) {
+	t.Run("AppTown unreachable", func(t *testing.T) {
 		h := newHarness(t)
 		dead := httptest.NewServer(http.NotFoundHandler())
 		deadURL, _ := url.Parse(dead.URL)
@@ -391,10 +391,10 @@ func TestFailedRedemptionIsRefusedWithoutASession(t *testing.T) {
 	})
 	t.Run("no ticket", func(t *testing.T) {
 		h := newHarness(t)
-		h.forge.grant(time.Now().Add(time.Hour))
+		h.apptown.grant(time.Now().Add(time.Hour))
 		res, body := h.get(t, EnterPath, nil)
 		expectRefusedEntry(t, res, body)
-		if len(h.forge.tickets) != 0 {
+		if len(h.apptown.tickets) != 0 {
 			t.Fatal("an empty ticket was sent to AppTown")
 		}
 	})

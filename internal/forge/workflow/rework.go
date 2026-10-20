@@ -156,7 +156,7 @@ func (s reworkStore) approveIn(ctx context.Context, tx *database.Tx, run *Run, s
 		}
 		vote.Candidate = c.Candidate
 	}
-	// One forge time for the vote and the step's decision.
+	// One AppTown time for the vote and the step's decision.
 	at := s.now()
 	outcome, err := step.Approve(vote, at)
 	if err != nil {

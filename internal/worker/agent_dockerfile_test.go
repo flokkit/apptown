@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// The agent image is built from its context by every forge and worker, so
+// The agent image is built from its context by every AppTown and worker, so
 // its build must not change under them: the base is pinned by digest, each
 // download is pinned by version and checked against its SHA-256 (the sha
 // helper the Dockerfile installs, or sha256sum -c), and each tool installed

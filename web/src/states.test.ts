@@ -8,9 +8,9 @@ describe('change state words', () => {
     expect(changeStateLabel('shipped', true)).toBe('shipped')
     expect(changeStateLabel('shipped', false)).toBe('finished')
   })
-  // The forge's own nothing-to-change close is a recorded fact (closedAs);
+  // AppTown's own nothing-to-change close is a recorded fact (closedAs);
   // the same reason typed by a person is still an abandonment.
-  it('says closed: nothing to change only when the forge recorded that close', () => {
+  it('says closed: nothing to change only when AppTown recorded that close', () => {
     expect(changeStateLabel('abandoned', undefined, 'nothing-to-change')).toBe('closed: nothing to change')
     expect(changeStateLabel('abandoned')).toBe('abandoned')
     expect(changeStateLabel('abandoned', undefined, '')).toBe('abandoned')

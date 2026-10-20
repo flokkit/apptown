@@ -428,7 +428,7 @@ func TestIntegrationPrivateDockerIsRefusedOrCleanedUp(t *testing.T) {
 		"duplicate": {Services: []deploy.ServiceSpec{{Name: "db", Image: "busybox:1.37"}, {Name: "db", Image: "busybox:1.37"}}},
 	} {
 		spec := f.spec("refused-"+name, "true", private)
-		// Sent as the forge would not send it: straight to the worker.
+		// Sent as AppTown would not send it: straight to the worker.
 		body := fmt.Sprintf(`{"key":%q,"admission":{"Profile":"worker","Network":"default","Limits":{"CPUs":1,"MemoryBytes":1,"PIDs":1}},"image":"busybox","argv":["true"],"private":%s}`,
 			spec.Key, map[string]string{"dind": `{"services":[{"name":"dind","image":"busybox"}]}`, "duplicate": `{"services":[{"name":"db","image":"busybox"},{"name":"db","image":"busybox"}]}`}[name])
 		resp, err := f.driver.Client.Post(f.driver.URL+"/v1/tasks/"+spec.Key, "application/json", strings.NewReader(body))
@@ -754,7 +754,7 @@ func checkForks(t *testing.T, what, out string, limit int) {
 // ensure finds the same task, a repeated start while it runs makes nothing
 // again, a restarted worker waits for it, stops its private Docker and
 // captures, and a task whose daemon is gone while it runs is lost, never
-// given another. With the forge away, the worker's own sweep stops a task
+// given another. With AppTown away, the worker's own sweep stops a task
 // whose admission has expired and removes its private Docker.
 func TestIntegrationPrivateDockerSurvivesLostRepliesAndRestarts(t *testing.T) {
 	f := newPrivateFixture(t)
@@ -826,8 +826,8 @@ func TestIntegrationPrivateDockerSurvivesLostRepliesAndRestarts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Expired, with no forge asking: the sweep stops it and removes its
-	// private Docker; the record stays for the forge to collect.
+	// Expired, with no AppTown asking: the sweep stops it and removes its
+	// private Docker; the record stays for AppTown to collect.
 	expiring := f.spec("expiring", "sleep 120", &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: "busybox:1.37", Command: []string{"sleep", "3600"}}}})
 	// Far enough ahead that a slow start cannot pass it before the first
 	// sweep; the skew below moves the worker's clock past it.
@@ -862,7 +862,7 @@ func TestIntegrationPrivateDockerSurvivesLostRepliesAndRestarts(t *testing.T) {
 
 // A stop stops the whole invocation: the task, and its private daemon and
 // services, each confirmed. While the private stop is refused, the stop
-// fails (the forge holds the task), its results are not read, and its
+// fails (AppTown holds the task), its results are not read, and its
 // workspace is not collected while the nested writer it started may still
 // write. Once the stop is confirmed, the writer has stopped and the
 // workspace is collected.

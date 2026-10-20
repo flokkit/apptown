@@ -23,7 +23,7 @@ type BlockPatch struct {
 	Checks *[]check.Declaration `json:"checks"`
 }
 
-var ErrStockBlock = fault.New(fault.Conflict, "a forge-shipped (stock) guidance block is read-only and auto-upgrades on release")
+var ErrStockBlock = fault.New(fault.Conflict, "an AppTown-shipped (stock) guidance block is read-only and auto-upgrades on release")
 
 // EditBlock keeps tags and the entire prose/check version in one transaction.
 // Comparisons happen after the row lock, so parallel partial edits preserve

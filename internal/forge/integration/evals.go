@@ -18,9 +18,9 @@ import (
 // provisioned for it or minted for it: an attachment, a provider-side
 // project or token, an error-tracker or feedback registration, an SCM
 // token. The one thing a copy's releases need, a registry to publish to,
-// the forge supplies itself (evalRegistry): the one offered registry
+// AppTown supplies itself (evalRegistry): the one offered registry
 // connector, under the copy's own repository, with the connector's
-// credential, which the forge uses and never hands to the copy.
+// credential, which AppTown uses and never hands to the copy.
 
 // ErrNoIntegrations refuses an integration effect for a project whose
 // purpose allows none: an eval copy.
@@ -41,11 +41,11 @@ func refusesIntegrations(ctx context.Context, q database.Queryer, projectID ids.
 }
 
 // EvalPublication is the repository an eval copy's releases are published
-// to, and the credential that writes and reads it there: for the forge's
+// to, and the credential that writes and reads it there: for AppTown's
 // own publication and the pull of what it published, never for an image
 // the copy's code names. Not a copy: an error.
 func (s *Service) EvalPublication(ctx context.Context, projectID ids.ID) (*Registry, error) {
-	// Publication through the forge's own registry is an eval copy's act,
+	// Publication through AppTown's own registry is an eval copy's act,
 	// not the absence of integrations: another purpose would be judged here.
 	if purpose, err := s.projects.Purpose(ctx, projectID); err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (s *Service) EvalPublication(ctx context.Context, projectID ids.ID) (*Regis
 }
 
 // evalRegistry is where an eval copy's releases are published: the one
-// container-registry connector the forge offers, at <url>/<group>/<slug>
+// container-registry connector AppTown offers, at <url>/<group>/<slug>
 // for the copy's own slug, with the connector's credential. A GitLab
 // connector would provision a project and a token for the copy, which a
 // copy is never given; with none, several or a GitLab one, the error says

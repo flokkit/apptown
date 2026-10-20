@@ -68,7 +68,7 @@ func answering(body string) http.HandlerFunc {
 
 var narrative = modelcall.Call{Purpose: "narrative", ProjectID: idstest.N(7), RunID: idstest.N(3), Model: "native/judge", System: "s", User: "u"}
 
-// One of the forge's own calls is admitted and sent like a runtime's, and
+// One of AppTown's own calls is admitted and sent like a runtime's, and
 // the gateway writes its one spend line: the call's purpose, project and
 // run, the binding and model, and the price the provider reported. The
 // caller gets the same usage back for its own budgets.
@@ -98,7 +98,7 @@ func TestAForgeCallWritesItsOneSpendLine(t *testing.T) {
 // the arm's, so a judge outside the arm's models is still admitted there.
 //
 // Kills: the slot pattern trusted without the binding's eligibility; the
-// eval choice skipped for forge calls; the judge's door open to any call,
+// eval choice skipped for AppTown calls; the judge's door open to any call,
 // or asking the arm's choice as well.
 func TestARefusedForgeCallIsNotSentAndOwesNothing(t *testing.T) {
 	t.Parallel()
@@ -186,7 +186,7 @@ func TestUnknownSpendSettlesIncomplete(t *testing.T) {
 	}
 }
 
-// The forge's own calls are provider-neutral: a binding speaking
+// AppTown's own calls are provider-neutral: a binding speaking
 // Anthropic's dialect gets the request at its own route with its own
 // credential header, and its answer and usage are read in that dialect.
 // It reports no price, so its spend settles as unknown.

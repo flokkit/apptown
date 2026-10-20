@@ -20,7 +20,7 @@ type LandingEffects struct {
 	DataDir   string
 	Drivers   scm.GitDrivers
 	Publisher repositoryedit.Publisher
-	// Now is the forge's clock, which stamps what a landing observed (the
+	// Now is AppTown's clock, which stamps what a landing observed (the
 	// real clock when nil).
 	Now func() time.Time
 }

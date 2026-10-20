@@ -103,7 +103,7 @@ func ActorFrom(ctx context.Context, name string) Actor {
 
 // Person is a principal as it stands now, for showing an actor: its name
 // today, and whether its account is disabled or it was removed. Known is
-// false for a principal the forge has no record of.
+// false for a principal AppTown has no record of.
 type Person struct {
 	Known    bool
 	Name     string
@@ -116,7 +116,7 @@ type Person struct {
 // name; "disabled" for a disabled account; "former user (was: x)" for a
 // removed one. An act with no principal reads as it was written — the
 // forge's own names, an instrument — and as "unrecorded actor (written as:
-// x)" when it names a person the forge never resolved.
+// x)" when it names a person AppTown never resolved.
 func (a Actor) Shown(now Person, systemName func(string) bool) string {
 	if a.Principal.IsZero() {
 		if a.Name == "" || a.Name == "anonymous" || systemName(a.Name) || strings.Contains(a.Name, "/") {

@@ -11,7 +11,7 @@ import type { Operation, ProjectRow, SetupState } from '../wire.gen'
 import { endedWords, operationTone } from './DataProtection'
 import { LocalTrialNote } from '../LocalTrialNote'
 
-// Home (the glossary's front page of the instance): what is my whole forge
+// Home (the glossary's front page of the instance): what is my whole AppTown
 // doing right now — what needs me, what's running, what shipped lately. Folding this into the projects
 // page buried it (people did not notice "happening now" was there), so
 // it is its own page again, first in the menu.
@@ -27,7 +27,7 @@ type Setup = SetupState
 
 const rel = (ts: string): string => relTime(ts) || 'nothing shipped yet'
 
-// First-run onboarding: a fresh forge says what
+// First-run onboarding: a fresh AppTown says what
 // it needs instead of sitting silently inert.
 function SetupCard() {
   const { data: setup, reload } = useGet<Setup>('/setup', { poll: 6000 })

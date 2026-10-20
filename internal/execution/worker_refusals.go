@@ -12,16 +12,16 @@ import (
 	"flokkit.io/forge/internal/diskspace"
 )
 
-// A worker refusal the forge acts on names its class with a code from a
-// fixed set; its detail is for people. The forge reads the code, never the
-// words, so rewording a refusal never changes how the forge recovers from it.
+// A worker refusal AppTown acts on names its class with a code from a
+// fixed set; its detail is for people. AppTown reads the code, never the
+// words, so rewording a refusal never changes how AppTown recovers from it.
 // Only a known code in a body read whole is one of these classes: a refusal
 // without one, whatever its status, is only a refusal, and a body that
 // cannot be read is the worker unavailable. Neither is ever "refused with
 // nothing created".
 //
-// The forge and its worker are deployed from one build (the demo's deploy
-// installs the worker, then the forge, while nothing executes), so there is
+// AppTown and its worker are deployed from one build (the demo's deploy
+// installs the worker, then AppTown, while nothing executes), so there is
 // no reader for any older refusal format.
 
 // RefusalCode is a refusal's class on the worker protocol.
@@ -58,7 +58,7 @@ type Refusal struct {
 }
 
 // ErrMissingBlob: the worker lacks a blob a request names (a worker restart
-// removes blobs no chat uses). The forge sends it again, once.
+// removes blobs no chat uses). AppTown sends it again, once.
 var ErrMissingBlob = errors.New("the worker lacks the blob")
 
 // refusalClasses pairs each code with its error. A worker error that wraps

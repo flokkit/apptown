@@ -11,18 +11,18 @@ import (
 	"strings"
 )
 
-// The forge's own repositories (a project's hub, and the scratch
+// AppTown's own repositories (a project's hub, and the scratch
 // repositories beside it that bundles are made in and imported through)
-// have config the forge writes; nothing project-controlled runs in them.
+// have config AppTown writes; nothing project-controlled runs in them.
 // The commands a worker's result passes through there still run hardened
-// (design/operations/workers.md, "How work travels"): no system or global config, nothing from the forge's
+// (design/operations/workers.md, "How work travels"): no system or global config, nothing from AppTown's
 // own environment but PATH and an empty HOME (so no GIT_DIR,
 // GIT_OBJECT_DIRECTORY or other override), hooks and fsmonitor off, no
 // global attributes, no submodule recursion, and only local-path
 // transports. The commands are plumbing (rev-parse, merge-base, update-ref,
 // fetch, index-pack, rev-list, cat-file, bundle), which run no external
 // diff, textconv or filter; the hub's config, which alone could name one,
-// is the forge's. Blobs are read with cat-file.
+// is AppTown's. Blobs are read with cat-file.
 
 // hubFlags are the command-line settings every hardened command carries.
 // Command-line config outranks the repository's own.
@@ -41,7 +41,7 @@ func hubCommand(ctx context.Context, dir string, args []string) (cmd *exec.Cmd, 
 	return cmd, done, err
 }
 
-// homeCommand is git with nothing from the forge's environment but PATH, no
+// homeCommand is git with nothing from AppTown's environment but PATH, no
 // system or global config, and an empty HOME of its own, which it runs in
 // unless given another directory. done removes the HOME.
 func homeCommand(ctx context.Context, args []string) (cmd *exec.Cmd, done func(), err error) {
@@ -67,7 +67,7 @@ func answer(err error) (bool, error) {
 	return false, err
 }
 
-// HubRun runs git in one of the forge's own repositories, hardened, and
+// HubRun runs git in one of AppTown's own repositories, hardened, and
 // returns stdout and stderr together, trimmed.
 func HubRun(ctx context.Context, dir string, args ...string) (string, error) {
 	cmd, done, err := hubCommand(ctx, dir, args)
@@ -81,7 +81,7 @@ func HubRun(ctx context.Context, dir string, args ...string) (string, error) {
 	return strings.TrimSpace(buf.String()), err
 }
 
-// HubOutput runs git in one of the forge's own repositories, hardened, with
+// HubOutput runs git in one of AppTown's own repositories, hardened, with
 // optional stdin, and returns stdout untouched; a failure carries stderr.
 func HubOutput(ctx context.Context, dir string, stdin io.Reader, args ...string) ([]byte, error) {
 	cmd, done, err := hubCommand(ctx, dir, args)
@@ -93,7 +93,7 @@ func HubOutput(ctx context.Context, dir string, stdin io.Reader, args ...string)
 	return output(cmd)
 }
 
-// HubRef is the object a ref names in one of the forge's own repositories,
+// HubRef is the object a ref names in one of AppTown's own repositories,
 // "" when it names none.
 func HubRef(ctx context.Context, dir, ref string) string {
 	out, err := HubOutput(ctx, dir, nil, "rev-parse", "--verify", "--quiet", "--end-of-options", ref)
@@ -103,7 +103,7 @@ func HubRef(ctx context.Context, dir, ref string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// HubReadRef is the object a ref names in one of the forge's own
+// HubReadRef is the object a ref names in one of AppTown's own
 // repositories, hardened. A ref that names nothing is "" with no error;
 // Git failing to answer (no repository, an unreadable one, a killed
 // command) is an error, never taken as a missing ref.
@@ -122,7 +122,7 @@ func HubReadRef(ctx context.Context, dir, ref string) (string, error) {
 	return "", fmt.Errorf("reading %s in %s: %w", ref, dir, err)
 }
 
-// HubHolds reports whether branch in one of the forge's own repositories
+// HubHolds reports whether branch in one of AppTown's own repositories
 // contains commit. A commit or branch it lacks is an answer (no); Git
 // failing to answer is an error, never either.
 func HubHolds(ctx context.Context, dir, branch, commit string) (bool, error) {
@@ -148,13 +148,13 @@ func branchHolds(ctx context.Context, run func(context.Context, string, ...strin
 }
 
 // HubAncestor reports whether older is an ancestor of (or is) newer in one
-// of the forge's own repositories. Git failing to answer is false.
+// of AppTown's own repositories. Git failing to answer is false.
 func HubAncestor(ctx context.Context, dir, older, newer string) bool {
 	_, err := HubRun(ctx, dir, "merge-base", "--is-ancestor", "--end-of-options", older, newer)
 	return err == nil
 }
 
-// HubStream runs git in one of the forge's own repositories, hardened,
+// HubStream runs git in one of AppTown's own repositories, hardened,
 // writing its stdout to w; a failure carries stderr.
 func HubStream(ctx context.Context, dir string, w io.Writer, args ...string) error {
 	cmd, done, err := hubCommand(ctx, dir, args)

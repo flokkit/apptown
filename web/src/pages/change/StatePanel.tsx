@@ -167,7 +167,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
     }
     case 'try-again':
       if (!step) break
-      // The forge offered this step's retry: that is what made it primary.
+      // AppTown offered this step's retry: that is what made it primary.
       body = (
         <div className="row ch-primary">
           <button className="primary" disabled={busy} onClick={() => rerun(step)}>{rerunLabel(step)}</button>
@@ -396,7 +396,7 @@ export function SendBack({ changeId, onDone, primary }: { changeId: string; onDo
   )
 }
 
-// MainConflictLine: main the forge could not merge into the change before a
+// MainConflictLine: main AppTown could not merge into the change before a
 // step, while the branch still does not contain it, and how to catch up.
 // It goes once the change has caught up.
 export function MainConflictLine({ conflict }: { conflict: MainConflict }) {

@@ -103,7 +103,7 @@ func stockCallee(t *testing.T) calleeSpec {
 	}
 }
 
-// Only a person's decision is assent: the forge itself, a step run or a chat
+// Only a person's decision is assent: AppTown itself, a step run or a chat
 // recorded as approver is not, and neither is a pending or failed approval.
 func TestOnlyAPersonsApprovalIsAssent(t *testing.T) {
 	step := func(status StepState, approver, override string) *Step {

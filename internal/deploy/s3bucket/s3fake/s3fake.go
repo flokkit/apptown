@@ -193,7 +193,7 @@ func (s *Store) Get(name, key string) (Object, bool) {
 	return Object{}, false
 }
 
-// Put stores an object directly, as something other than the forge would.
+// Put stores an object directly, as something other than AppTown would.
 func (s *Store) Put(name, key string, o Object) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

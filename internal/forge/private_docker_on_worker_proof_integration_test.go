@@ -43,7 +43,7 @@ import (
 //
 // This is dispatch confinement, not host separation: the worker drives the
 // same Docker Desktop VM as everything else on this machine. It shows that
-// nothing the workflow runs is dispatched to the forge's own Docker, not
+// nothing the workflow runs is dispatched to AppTown's own Docker, not
 // that the worker is another machine.
 //
 // One workflow of an implementation step declaring docker: true and the
@@ -104,7 +104,7 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 			cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "forge-agent", AgentContext: agentContext, ConsoleCLI: fixtureCLI(t), PrivateDocker: true}
 			checkURL := ""
 			if external != nil {
-				// Each variant is a new forge, whose task keys are its own:
+				// Each variant is a new AppTown, whose task keys are its own:
 				// its workers are provisioned again for it.
 				t.Logf("the workers: %s", external.Ctl(t, "fresh"))
 				cfg.Worker = &WorkerConfig{URL: external.URL, Cert: external.Cert, Key: external.Key, CA: external.CA}

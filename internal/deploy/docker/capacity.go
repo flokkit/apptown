@@ -40,17 +40,17 @@ func ReadHostInfo(ctx context.Context, dk Scope) (HostInfo, error) {
 }
 
 // ContainerLimit is the limit Docker enforces on one running container,
-// and whether the forge started it (its class label).
+// and whether AppTown started it (its class label).
 type ContainerLimit struct {
 	Name        string
 	MemoryBytes int64   // 0: no limit
 	CPUs        float64 // 0: no limit
-	// CPUUnread says a CPU constraint was set that the forge could not
+	// CPUUnread says a CPU constraint was set that AppTown could not
 	// read as a number of CPUs: never counted as no limit.
 	CPUUnread bool
-	// Forge says the forge started it (it carries a class label); Class
+	// Forge says AppTown started it (it carries a class label); Class
 	// and Owner are those labels, "" where absent, so a reader can say
-	// whose it is: a deployment's, a preview's, agent work, the forge's own.
+	// whose it is: a deployment's, a preview's, agent work, AppTown's own.
 	Forge bool
 	Class string
 	Owner string
@@ -58,7 +58,7 @@ type ContainerLimit struct {
 
 // RunningLimits is the limits Docker enforces on every running container:
 // the daemon's own record (docker inspect), so a preview, a need, an
-// override and software the forge did not start are all in it. A CPU
+// override and software AppTown did not start are all in it. A CPU
 // ceiling may be set three ways (--cpus, a quota over a period, a set of
 // CPUs); the tightest one holds.
 func RunningLimits(ctx context.Context, dk Scope) ([]ContainerLimit, error) {

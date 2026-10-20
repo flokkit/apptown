@@ -93,7 +93,7 @@ func TestALateClaimNeverUndoesAConfirmedClaimAndBoot(t *testing.T) {
 				t.Fatalf("late startup claim returned %d and removed the successfully reused preview", code)
 			}
 			if err := reusePreview(t, p, name); err != nil {
-				t.Fatalf("late claim fenced the current forge out: %v", err)
+				t.Fatalf("late claim fenced the current AppTown out: %v", err)
 			}
 			// The late claim did not lower the fence: a request older than
 			// the confirmed claim is still refused, even for another preview.
@@ -138,7 +138,7 @@ func TestAClaimRequiresItsSessionAndNumber(t *testing.T) {
 // A delayed request not yet received by the worker can cross a worker
 // restart. Reconstructing Server preserves its disk, just as a process
 // restart does, but drops its in-memory session. An old reconciliation
-// DELETE for an absent name must not strand the current forge session.
+// DELETE for an absent name must not strand the current AppTown session.
 func TestAWorkerRestartKeepsTheLatestClaim(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
@@ -168,13 +168,13 @@ func TestAWorkerRestartKeepsTheLatestClaim(t *testing.T) {
 		t.Fatalf("a request of the earlier session after the worker restarted: %d", code)
 	}
 	if err := reusePreview(t, p, name); err != nil {
-		t.Fatalf("old request returned %d and chose the restarted worker's owner; current forge cannot reuse its preserved preview: %v", code, err)
+		t.Fatalf("old request returned %d and chose the restarted worker's owner; current AppTown cannot reuse its preserved preview: %v", code, err)
 	}
 }
 
-// A live forge can have an older removal waiting to dispatch while a later
+// A live AppTown can have an older removal waiting to dispatch while a later
 // boot succeeds. Keeping the container across a worker restart must keep
-// the ordering fence too; the forge's pending request outlives that worker.
+// the ordering fence too; AppTown's pending request outlives that worker.
 func TestAWorkerRestartKeepsRequestOrder(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
@@ -281,7 +281,7 @@ func TestAClaimInFlightNeverUndoesItsRetryAndBoot(t *testing.T) {
 	}
 }
 
-// A forge's session numbers keep growing across its starts, whatever the
+// An AppTown's session numbers keep growing across its starts, whatever the
 // clock says: each is greater than the last one kept in its file.
 func TestAForgesSessionsKeepGrowing(t *testing.T) {
 	t.Parallel()

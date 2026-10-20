@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// The reaper judges a spawned container's age by its forge.created label,
+// The reaper judges a spawned container's age by its AppTown.created label,
 // so the label is stamped from the scope's clock, not the machine's.
 func TestAContainersCreatedLabelIsTheScopesClock(t *testing.T) {
 	t.Parallel()

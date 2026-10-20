@@ -45,7 +45,7 @@ func ValidateCaps(caps OfferCaps) error {
 }
 
 // OfferedByConstruction: the built-in host and the targets named at
-// construction are a fresh forge's behaviour and carry no offer row.
+// construction are a fresh AppTown's behaviour and carry no offer row.
 func (s *Targets) OfferedByConstruction(t *Target) bool {
 	return t.Origin == OriginBuiltIn || contains(s.implicit, t.Name)
 }

@@ -67,7 +67,7 @@ func stopRecordedBeforeARestart(t *testing.T, backend string) {
 }
 
 // A restart does not renew a task's budget: a recovered task whose deadline
-// passed while the forge was down is stopped and its step times out.
+// passed while AppTown was down is stopped and its step times out.
 func TestARecoveredTaskKeepsItsDeadline(t *testing.T) {
 	t.Parallel()
 	a, fake, step := fakeTaskFixture(t, true)
@@ -123,7 +123,7 @@ func TestAnExpiredTaskIsNotStartedAfterARestart(t *testing.T) {
 	}
 }
 
-// A task recorded for another backend than the restarted forge's is not
+// A task recorded for another backend than the restarted AppTown's is not
 // acted on through the wrong driver: it stays recorded and running.
 func TestARecordedTaskForAnotherBackendIsLeftAlone(t *testing.T) {
 	t.Parallel()

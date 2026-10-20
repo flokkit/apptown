@@ -24,7 +24,7 @@ a call to another daemon. The TLS variables reach a call only where the CLI
 would apply them (`DOCKER_HOST` and the default context), never a named
 context's daemon.
 A selection that cannot be pinned (an unreadable context, or one that needs
-TLS files) refuses every task until the forge restarts with one that can;
+TLS files) refuses every task until AppTown restarts with one that can;
 such a daemon is selected with `DOCKER_HOST` and `DOCKER_TLS_VERIFY` /
 `DOCKER_CERT_PATH` instead.
 
@@ -45,7 +45,7 @@ bundle, which the caller imports with `gitexec.Quarantine` before publishing
 anything. A wait is repeated in bounded slices, so no request outlives a
 proxy's idle timeout. An unreachable worker is `ErrWorkerUnavailable`
 (observation: `ErrTaskUnobservable`), never absence.
-A refusal the forge acts on carries a code from a fixed set
+A refusal AppTown acts on carries a code from a fixed set
 (`worker_refusals.go`: expired, start refused, unsupported, no agent image,
 missing blob, conflict) in a JSON body of its own content type, with the
 words for people beside it; the client maps the code to its error once and
@@ -55,7 +55,7 @@ unavailable: neither is ever "refused with nothing created".
 
 A worker also claims `Inputs` and `Results` (`inputs.go`), which the local
 drivers refuse. `TaskSpec.Inputs` are files a task reads read-only under
-`/apptown/in/`, prepared on the forge as bytes and sent ahead of the request
+`/apptown/in/`, prepared on AppTown as bytes and sent ahead of the request
 as content-addressed blobs; the request names each by digest, path and mode
 (0644 or 0755), within 256 inputs, 64 MiB each and 512 MiB in all.
 `TaskSpec.Results` are files a task declares it will leave, in its tree
@@ -80,7 +80,7 @@ index or one of its blobs with its stated length, so a reply cut short is a
 transport error, never a shorter file. Once the task is released both
 answer `ErrImageGone`, and a task whose images are not captured yet is said
 to be so. `ImageLayout` reads one captured image as an OCI layout, file by
-file, for the forge's publisher. The forge checks every byte against its
+file, for AppTown's publisher. AppTown checks every byte against its
 digest.
 
 A worker also claims `PrivateDocker` (`private.go`): `TaskSpec.Private` is a
@@ -90,7 +90,7 @@ daemon, with the Docker Hub mirror its daemon and builder use. It needs the
 default network and explicit CPU, memory and PID limits: zero is never
 unlimited there. Two services of one name, or one named `dind`, are
 refused. `TaskSpec.Network` is the network a backend joins the task to,
-named by the backend itself; the forge never sends it. A start the backend
+named by the backend itself; AppTown never sends it. A start the backend
 refuses with its reason is `ErrStartRefused`.
 
 `WorkerProfile` is what a worker measured of the Docker its private Docker

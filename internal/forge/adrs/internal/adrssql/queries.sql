@@ -59,6 +59,6 @@ SELECT EXISTS(SELECT 1 FROM adrs WHERE project_id=$1);
 -- name: ChangeBelongsToProject :one
 SELECT EXISTS(SELECT 1 FROM changes WHERE id=$1 AND project_id=$2);
 
--- A project's ADRs, row by row, for moving it to another forge.
+-- A project's ADRs, row by row, for moving it to another AppTown.
 -- name: ExportADRs :many
 SELECT to_jsonb(a)::text FROM adrs a WHERE a.project_id = $1 ORDER BY a.number;

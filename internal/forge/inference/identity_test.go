@@ -10,7 +10,7 @@ import (
 )
 
 // A workload is admitted only for a person with an enabled account, or for
-// one of the forge's own names. A name with no account (a removed person,
+// one of AppTown's own names. A name with no account (a removed person,
 // a run owner never seen) is refused like a disabled one, never treated as
 // enabled; a workload acting for a person is checked as that person.
 func TestWorkloadAccountsFailClosed(t *testing.T) {

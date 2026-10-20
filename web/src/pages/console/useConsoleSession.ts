@@ -4,7 +4,7 @@ import { useAction, useGet } from '../../data'
 import type { ConsoleOpened, ConsoleSessionList, ConsoleSessionView } from '../../wire.gen'
 
 // Which chat the page shows: the remembered one (or the one the address
-// names) if the forge still has it, else the newest for this change, else a
+// names) if AppTown still has it, else the newest for this change, else a
 // new one. A new chat is opened only on an answer this reader received
 // itself saying there is none: a failed read, or an answer held from before
 // (a chat may have opened since), opens nothing. The page mounts one of these
@@ -12,11 +12,11 @@ import type { ConsoleOpened, ConsoleSessionList, ConsoleSessionView } from '../.
 // chat never counts as this one's.
 //
 // The choice is made once per address. After that, chats change only by an
-// explicit act: start fresh, end chat, open it on the forge. A refused open
+// explicit act: start fresh, end chat, open it on AppTown. A refused open
 // is shown and not tried again.
 
 // CHAT_ON_FORGE is conversation.CodeChatOnForge: the worker refused a
-// change's chat for a reason the same chat on the forge would not meet.
+// change's chat for a reason the same chat on AppTown would not meet.
 export const CHAT_ON_FORGE = 'chat-on-forge'
 
 // changeId is '' for the project chat.
@@ -34,8 +34,8 @@ export function useConsoleSession({ slug, changeId, forcedSession }: ConsoleAddr
     setSession(s)
   }, [storageKey])
 
-  // placement 'forge' opens a change's chat on the forge when worker chats
-  // are on (after the worker refused it, say); by default the forge chooses.
+  // placement 'forge' opens a change's chat on AppTown when worker chats
+  // are on (after the worker refused it, say); by default AppTown chooses.
   const open = useCallback(async (placement?: 'forge') => {
     chosen.current = true
     const r = await run(() => post<ConsoleOpened>(`/projects/${slug}/console`, changeId ? { changeId, ...(placement ? { placement } : {}) } : {}))
@@ -66,8 +66,8 @@ export function useConsoleSession({ slug, changeId, forcedSession }: ConsoleAddr
     startFresh()
   }, [session, startFresh])
 
-  // The forge's own classification says when a change's chat the worker
-  // refused can open on the forge instead; its sentence is never read.
+  // AppTown's own classification says when a change's chat the worker
+  // refused can open on AppTown instead; its sentence is never read.
   const forgeInstead = changeId !== '' && failure instanceof HttpError && failure.code === CHAT_ON_FORGE
   return { session, list, openErr: err, forgeInstead, open, startFresh, end }
 }

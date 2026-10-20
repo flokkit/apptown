@@ -1,11 +1,11 @@
 # Testing: the tiers and their requirements
 
-The forge demands receipts from every project it governs; this is where its
+AppTown demands receipts from every project it governs; this is where its
 own receipts come from.
 
 ## The tiers
 
-**Unit** — `go test ./...`, the Forge suite plus the domain and infrastructure
+**Unit** — `go test ./...`, AppTown suite plus the domain and infrastructure
 packages. Requires Go, a `git` binary and a **Docker daemon**: the harness starts (or reuses) a `forge-test-db`
 container on port 54329 and clones a template database per test, so every
 DB-shaped test runs against real Postgres with the real migrations
@@ -59,7 +59,7 @@ Docker-selection tests beside real containers) show only in that form.
 
 **Journeys** — `go test -tags=journey ./internal/forge/ -run TestJourney
 -v`. Whole operational flows driven through the public API and CLI, the
-way a person or agent uses the forge, with the fake pi as every agent
+way a person or agent uses AppTown, with the fake pi as every agent
 (`testing-map.md`). About a minute.
 
 **Opt-in tiers** — one test each, seconds to run, each needing something
@@ -151,7 +151,7 @@ service, never a mock.
 
 - **Names collide with nobody.** Integration containers embed the test pid
   (`itest-<pid>`, change ids offset to 910xxx); test databases are clones
-  named per test; a developer's live forge and a test run share a daemon
+  named per test; a developer's live AppTown and a test run share a daemon
   without shooting each other.
 - **Cleanup is `t.Cleanup`, always.** Every container and database created
   is removed even on failure.

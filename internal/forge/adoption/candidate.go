@@ -592,7 +592,7 @@ func (a candidateBuilder) weakenings(ctx context.Context, prior *RecordedRevisio
 }
 
 // Words says what the candidate brings, for a Change's title and body:
-// "go-small v2, forge v3, 1 block(s) of its own".
+// "go-small v2, AppTown v3, 1 block(s) of its own".
 func (c *Candidate) Words() []string {
 	var out []string
 	for _, pk := range c.Packs {

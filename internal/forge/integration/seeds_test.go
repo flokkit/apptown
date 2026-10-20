@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// The model binding is seeded from the forge's flags once, unmanaged: the
+// The model binding is seeded from AppTown's flags once, unmanaged: the
 // row is the provider definition, so an edit survives the next boot's seeding
 // (a managed seed once wiped it on every restart).
 func TestSeedModelBindingIsRecordedOnceAndStaysEditable(t *testing.T) {

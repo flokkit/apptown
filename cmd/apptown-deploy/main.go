@@ -1,6 +1,6 @@
 // apptown-deploy runs a described application on a Docker host with nothing
 // but the deploy library: the proof that internal/deploy stands alone. No
-// database and no forge package (the shape checker asserts it): a tree with
+// database and no AppTown package (the shape checker asserts it): a tree with
 // a .apptown/app.yaml, a Docker daemon, and what the host said.
 //
 //	apptown-deploy -app game -tree /path/to/checkout                 # run it as generation 1
@@ -141,7 +141,7 @@ func first(v, def string) string {
 }
 
 // envSecrets hands every consumer the same named environment variables;
-// the forge's broker does better, this tool does not pretend to.
+// AppTown's broker does better, this tool does not pretend to.
 type envSecrets []string
 
 func (e envSecrets) EnvFor(string) map[string]string {

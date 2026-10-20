@@ -21,7 +21,7 @@ type Service struct {
 
 // NewService builds the subsystem. authority answers Report's reads; a nil
 // authority leaves Report unavailable, never open.
-// now is the forge's clock (nil the real one).
+// now is AppTown's clock (nil the real one).
 func NewService(db *database.DB, authority access.ReadAuthorizer, now func() time.Time) *Service {
 	ledger, requests := New(db), NewRequests(db)
 	ledger.Now, requests.Now = now, now

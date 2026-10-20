@@ -19,7 +19,7 @@ import (
 	"flokkit.io/forge/internal/forge/tasks"
 )
 
-// The records name a chat placed on the forge that has not ended and a
+// The records name a chat placed on AppTown that has not ended and a
 // workflow cleanup job not completed, each as local work; a chat on a
 // worker and a job of another kind or key are not. Records holding
 // nothing local leave nothing. Tasks and running steps are proved with the
@@ -82,10 +82,10 @@ func TestLocalWorkLeftNamesUnendedLocalChatsAndOutstandingCleanups(t *testing.T)
 	}
 }
 
-// The drain's Docker question: every container carrying one of the forge's
+// The drain's Docker question: every container carrying one of AppTown's
 // execution labels counts, stopped or not, whoever's installation it is;
 // a deployment's release container (env), the built-in database (infra) and
-// a container with no forge label do not. A Docker that cannot be asked is
+// a container with no AppTown label do not. A Docker that cannot be asked is
 // an error, never an empty answer.
 func TestExecutionContainersAreThoseWithAnExecutionLabel(t *testing.T) {
 	t.Parallel()

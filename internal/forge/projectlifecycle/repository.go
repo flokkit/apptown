@@ -81,7 +81,7 @@ type BackfillReport struct {
 // is kept; one whose main cannot be read stays unknown. It takes no
 // repository lock, which is per process: run it only while no apptownd serves
 // this database (internal/forge/scm/README.md, the recorded main).
-// now is the forge's clock; nil is the real one.
+// now is AppTown's clock; nil is the real one.
 func BackfillRecordedMain(ctx context.Context, db *database.DB, dataDir string, now func() time.Time) (BackfillReport, error) {
 	at := clock.Or(now)()
 	var report BackfillReport

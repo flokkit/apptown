@@ -1,5 +1,5 @@
 // Targets and deployments as the UI reads them (design/subsystems/deployment.md §2.2,
-// §2.3, §15.7). The kind catalog comes from the forge (`/targets` → kinds);
+// §2.3, §15.7). The kind catalog comes from AppTown (`/targets` → kinds);
 // nothing here names a provider, so AWS and Google Cloud are new rows in
 // that catalog and nothing else.
 

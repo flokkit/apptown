@@ -26,7 +26,7 @@ type Ownership struct {
 	Record func(deploy.Owned) error
 	Needs  map[string]string
 	// Recorded is the deployment's list as it stood before this boot: what
-	// the forge may delete (a synthetic need's volume, when its parameters
+	// AppTown may delete (a synthetic need's volume, when its parameters
 	// moved). Nothing else is ever deleted.
 	Recorded []deploy.Owned
 }

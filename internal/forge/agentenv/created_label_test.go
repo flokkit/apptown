@@ -10,8 +10,8 @@ import (
 	"flokkit.io/forge/internal/execution"
 )
 
-// A step container's forge.created label is the forge's time it was given:
-// maintenance judges a container's age by the forge's clock, so the label
+// A step container's forge.created label is AppTown's time it was given:
+// maintenance judges a container's age by AppTown's clock, so the label
 // must be on that clock too.
 //
 // Kills: the label stamped by the real clock.
@@ -27,7 +27,7 @@ func TestAStepContainersCreatedLabelIsTheForgesTime(t *testing.T) {
 // One project's steps share a cache volume; another project's never see it,
 // and work with no project mounts none at all (cold, shared with nobody).
 //
-// Kills: the one forge-cache volume every project's steps wrote to.
+// Kills: the one AppTown-cache volume every project's steps wrote to.
 func TestAStepsCacheIsItsProjectsAlone(t *testing.T) {
 	t.Parallel()
 	mount := func(ctx context.Context) []string {

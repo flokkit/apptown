@@ -112,7 +112,7 @@ export function InfrastructureHome() {
   )
 }
 
-// ForgeDisks: the filesystems this forge and its worker write to, each its
+// ForgeDisks: the filesystems this AppTown and its worker write to, each its
 // own reading with the time it was read, and what it means for new work.
 // A deployment target's own disk is on its page (its capacity).
 export function ForgeDisks() {
@@ -149,7 +149,7 @@ function DiskChip({ d }: { d: Reading }) {
   return <span className="chip pass">room</span>
 }
 
-// JobQueue: the forge's own work (design/subsystems/jobs.md) — open jobs
+// JobQueue: AppTown's own work (design/subsystems/jobs.md) — open jobs
 // first, then the recent ones, each with its receipt or its failure.
 function JobQueue() {
   const jobs = useGet<JobList>('/jobs?limit=100', { poll: 10000 })

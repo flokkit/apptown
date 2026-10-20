@@ -17,8 +17,8 @@ import (
 )
 
 // Releases built on the worker (design/operations/workers.md, "Releases
-// built on the worker"). On a forge with a worker a landing has the worker build each
-// distinct image of its release once, from the landed commit; the forge
+// built on the worker"). On an AppTown with a worker a landing has the worker build each
+// distinct image of its release once, from the landed commit; AppTown
 // publishes them to the project's container registry with its own
 // credential, reads their digests back, and commits a bundle naming them
 // (PublishRelease) before anything is deployed. Docker hosts pull those
@@ -103,13 +103,13 @@ var ErrNoReleaseRegistry = fmt.Errorf("%w: this project has no container registr
 
 // LandingRegistry is the repository a landing publishes its release to.
 // A project with no container registry is first given the one
-// container-registry connector the forge offers, through the integrations
+// container-registry connector AppTown offers, through the integrations
 // owner (integration.AttachOfferedRegistry), as LandingTarget gives a
 // landing the one offered Docker host; with none or several the refusal
 // names the choice a person makes.
 //
 // An eval copy is attached nothing: its releases go to the repository the
-// forge keeps for it (integration.Service.Registry), with the forge's own
+// AppTown keeps for it (integration.Service.Registry), with AppTown's own
 // credential.
 func (s *Service) LandingRegistry(ctx context.Context, projectID ids.ID, who string, receipt map[string]any) (oci.Repository, error) {
 	if s.env.integrations == nil {
@@ -201,7 +201,7 @@ type ReleasePublication struct {
 	Contract []byte // its .apptown/app.yaml
 	Plan     ReleasePlan
 	// Built is each built image's export, by image name, as the worker
-	// captured it. The forge trusts none of it: what it records is what the
+	// captured it. AppTown trusts none of it: what it records is what the
 	// registry reads back.
 	Built    map[string]oci.Layout
 	Platform string
@@ -284,7 +284,7 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 // read with as it is published: the project's registry credential for an
 // image of that registry, as a Docker host pulls it. An eval copy's code
 // names its images, so for a project given no credentials (withheld)
-// nothing is read with one: the forge's credential reaches the copy's own
+// nothing is read with one: AppTown's credential reaches the copy's own
 // repository and no other.
 func sourceCredential(withheld bool, login *docker.RegistryCredential, repo oci.Repository, source string) oci.Credential {
 	if withheld || login == nil || login.Host == "" || !strings.HasPrefix(source, login.Host+"/") {

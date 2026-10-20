@@ -29,7 +29,7 @@ type LocalService struct {
 	Credentials []string
 }
 
-// ForSteps is the service as the forge starts it beside its own steps and
+// ForSteps is the service as AppTown starts it beside its own steps and
 // for apptown dev, where the app's own tests run: its Env with the kind's
 // StepEnv over it.
 func (s LocalService) ForSteps() LocalService {
@@ -60,7 +60,7 @@ type LocalPlan struct {
 // Credentials gives one owner's value of a kind's generated credential
 // (Kind.Generate) by the kind's capability and the credential's name: a
 // deployment's, a preview's, or one operation's. Nil gives the catalogue's
-// own values, which only the forge's throwaway servers use (its steps,
+// own values, which only AppTown's throwaway servers use (its steps,
 // apptown dev, a check's environment).
 type Credentials func(ctx context.Context, capability, name string) (string, error)
 
@@ -134,7 +134,7 @@ func (k *Kind) ResolveLocal(params map[string]string, host string, generated map
 // kinds are reported as unknown, with unexpected read failures logged. Callers
 // starting services reject Unknown; environment-only callers may use partial Env.
 // Register-only kinds are known but have no emulator or local environment.
-// It gives the catalogue's own credentials: for the forge's throwaway
+// It gives the catalogue's own credentials: for AppTown's throwaway
 // servers and apptown dev, never a deployment or a preview (LocalRuntime).
 func (c *Catalog) ResolveLocal(ctx context.Context, needs []string, params map[string]map[string]string, host string) LocalPlan {
 	out, _ := c.resolveLocal(ctx, needs, params, host, nil)
@@ -185,7 +185,7 @@ func (k *Kind) LocalConnection(params, generated map[string]string) (conn deploy
 }
 
 // values are the kind's interpolation values: its defaults, the app's
-// parameters over them, the forge's credentials over both, and the
+// parameters over them, AppTown's credentials over both, and the
 // owner's generated values of its generated credentials over those.
 func (k *Kind) values(params, generated map[string]string) map[string]string {
 	vals := map[string]string{}

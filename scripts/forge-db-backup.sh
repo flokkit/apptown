@@ -1,14 +1,14 @@
 #!/bin/bash
-# Dump the forge's database to a gzipped SQL file and refuse to call it a
-# backup unless it is one. A deploy script can run this on the forge's host
-# before it restarts the forge (piped over ssh, so the host runs this
+# Dump AppTown's database to a gzipped SQL file and refuse to call it a
+# backup unless it is one. A deploy script can run this on AppTown's host
+# before it restarts AppTown (piped over ssh, so the host runs this
 # checkout's copy); forge-recovery-rehearsal.sh does the same on its source.
 #
 #   forge-db-backup.sh <container> <user> <database> <directory> <label>
 #
 # Writes <directory>/forge-pre-<label>-<UTC stamp>.sql.gz and prints its path
 # and size. Exits non-zero, leaving no file behind, when pg_dump or gzip fails
-# or the dump is not a whole forge database. A pipeline without pipefail once
+# or the dump is not a whole AppTown database. A pipeline without pipefail once
 # produced a 20-byte "backup" (gzip of nothing) and nobody noticed.
 set -euo pipefail
 
@@ -18,13 +18,13 @@ if [ $# -ne 5 ] || [ -z "$5" ]; then
 fi
 container=$1 user=$2 db=$3 dir=$4 label=$5
 
-# What a whole forge dump contains. pg_dump writes the "dump complete" footer
-# only after the last table, so a truncated dump has none. A forge database
+# What a whole AppTown dump contains. pg_dump writes the "dump complete" footer
+# only after the last table, so a truncated dump has none. An AppTown database
 # has about a hundred tables; an empty or wrong database dumps cleanly with a
 # footer but few or no COPY sections, so a minimum table count catches it. A
-# size floor would not: an empty forge schema is small, but so is a young
-# forge's whole database. schema_version is the forge's own table, so its COPY
-# says this is the forge's database rather than some other.
+# size floor would not: an empty AppTown schema is small, but so is a young
+# forge's whole database. schema_version is AppTown's own table, so its COPY
+# says this is AppTown's database rather than some other.
 min_tables=50
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
@@ -54,8 +54,8 @@ read -r tables versioned complete <<<"$counts"
 
 [ "$complete" = 1 ] || fail "the dump has no 'dump complete' footer: it is truncated"
 [ "$tables" -ge "$min_tables" ] ||
-	fail "the dump has $tables tables, fewer than the $min_tables a forge database has"
-[ "$versioned" = 1 ] || fail "the dump has no schema_version table: it is not a forge database"
+	fail "the dump has $tables tables, fewer than the $min_tables an AppTown database has"
+[ "$versioned" = 1 ] || fail "the dump has no schema_version table: it is not an AppTown database"
 
 mv "$partial" "$out"
 echo "backup: $out ($(du -h "$out" | cut -f1), $tables tables)"

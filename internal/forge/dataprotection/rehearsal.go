@@ -45,13 +45,13 @@ import (
 // takes no final copy (its data is a copy of a copy).
 //
 // The boundary is the host, not the container: the rehearsal publishes no
-// port and joins no ingress, and only the forge's probe, inside its own
+// port and joins no ingress, and only AppTown's probe, inside its own
 // network, asks it anything (docker.Sealed). Root, the Docker socket, any
 // process on the host and any container on the host's network can still
 // reach it, so a platform administrator keeps a dedicated host for
 // rehearsals, told exactly that when marking it.
 //
-// What the forge records of a rehearsal is safe to show anyone who may read
+// What AppTown records of a rehearsal is safe to show anyone who may read
 // the project: step names, the commands that ran and how they exited, status
 // codes, and the names of what was withheld. Never a command's output, a
 // container's log or a response body: those can hold rows of production
@@ -93,7 +93,7 @@ type RehearsalFacts struct {
 	// Egress is said every time: the rehearsal blocks no outbound network.
 	Egress string `json:"egress"`
 	// Gate is a restored copy's check of its own gate (checkGate): what it
-	// refused, and the forge's own ticket let in once. A rehearsal has no
+	// refused, and AppTown's own ticket let in once. A rehearsal has no
 	// gate and records none.
 	Gate []RehearsalCheck `json:"gate,omitempty"`
 }
@@ -108,7 +108,7 @@ type RehearsalRef struct {
 	Host       string     `json:"host"`
 	FailedStep string     `json:"failedStep,omitempty"`
 	AskedBy    string     `json:"askedBy"`
-	// AskedByPrincipal is the asker's principal; zero for the forge, or one
+	// AskedByPrincipal is the asker's principal; zero for AppTown, or one
 	// not resolved to a person.
 	AskedByPrincipal ids.ID         `json:"askedByPrincipal,omitzero"`
 	Operation        ids.ID         `json:"operation"`
@@ -119,7 +119,7 @@ type RehearsalRef struct {
 	Previous *RehearsalRef `json:"previous,omitempty"`
 }
 
-// RehearsalUnknown is the outcome of a rehearsal the forge stopped in the
+// RehearsalUnknown is the outcome of a rehearsal AppTown stopped in the
 // middle of: whether the app answered is not known.
 const RehearsalUnknown = "unknown: AppTown stopped while it ran"
 
@@ -127,7 +127,7 @@ const egressNotBlocked = "outbound network not blocked"
 
 // LastRehearsal is a deployment's last restore rehearsal, nil when it was
 // never rehearsed. It is the latest rehearsal operation's answer: one that
-// ended without recording a rehearsal (the forge stopped while it ran, or it
+// ended without recording a rehearsal (AppTown stopped while it ran, or it
 // failed before it could) reads unknown or failed, with the last recorded
 // rehearsal kept beside it as history.
 func (s *Service) LastRehearsal(ctx context.Context, projectID ids.ID, name string) (*RehearsalRef, error) {
@@ -212,7 +212,7 @@ func (s *Service) rehearsalHost(ctx context.Context) (*deployment.Target, error)
 	return nil, fault.New(fault.Conflict, fmt.Sprintf("several Docker hosts are kept for restore rehearsals (%s); keep one", strings.Join(names, ", ")))
 }
 
-// rehearsalScope is how the forge reaches a rehearsal host's daemon.
+// rehearsalScope is how AppTown reaches a rehearsal host's daemon.
 func (s *Service) rehearsalScope(ctx context.Context, t *deployment.Target) (docker.Scope, error) {
 	if s.hostScope != nil {
 		return s.hostScope(ctx, t)
@@ -239,7 +239,7 @@ func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name stri
 		return nil, fault.New(fault.NotFound, fmt.Sprintf("no standing deployment named %q", name))
 	}
 	p := &rehearsalPlan{dep: dep}
-	// The backups the forge takes itself (a Docker host's) are on its disk
+	// The backups AppTown takes itself (a Docker host's) are on its disk
 	// until a store is attached; a rehearsal reads only the store.
 	if t, err := s.targets.ByID(ctx, dep.TargetID); err == nil && t.HoldsBackups() == nil {
 		store, err := s.Store(ctx)
@@ -307,7 +307,7 @@ func rehearsalOrigin(dep *deployment.Deployment) (string, error) {
 // RequestRehearsal starts a restore rehearsal of a standing deployment from
 // set (0: its newest good copy in the store). Production data moves to
 // another host, so it needs deployment:restore in the deployment's project;
-// no agent carries it. The scheduled rehearsals start as the forge.
+// no agent carries it. The scheduled rehearsals start as AppTown.
 func (s *Service) RequestRehearsal(ctx context.Context, projectID ids.ID, name string, set ids.ID) (*operations.Operation, error) {
 	actor, err := s.requireAuthority(ctx, access.CapDeploymentRestore, projectID, "deployment.rehearse")
 	if err != nil {
@@ -326,7 +326,7 @@ func (s *Service) RequestRehearsal(ctx context.Context, projectID ids.ID, name s
 // rehearsalPlace names what a rehearsal makes, all of it on the rehearsal
 // host, from its operation: the volume its copy is staged in, its stack
 // (needs, init steps, network) and its app container with its data volume.
-// Nothing of the copy is ever written to the forge's own disk, where a
+// Nothing of the copy is ever written to AppTown's own disk, where a
 // project's script steps run: it streams from the store through the
 // forge's memory into the host's volume.
 type rehearsalPlace struct {
@@ -375,7 +375,7 @@ func (s *Service) clearPlace(ctx context.Context, place rehearsalPlace) []string
 }
 
 // SweepRehearsals removes what every ended rehearsal still owns: one the
-// forge stopped in the middle of (settled unknown at start), or whose
+// AppTown stopped in the middle of (settled unknown at start), or whose
 // take-down left something. Each place is marked cleared only when nothing
 // is left; one whose operation is still live is left to it.
 func (s *Service) SweepRehearsals(ctx context.Context) (cleared int, left []string, err error) {
@@ -458,7 +458,7 @@ func bootFailure(err error, readiness string) string {
 	if errors.Is(err, secret.ErrRehearsalInherits) {
 		return secret.ErrRehearsalInherits.Error()
 	}
-	// The catalogue's refusal of the release's needs is the forge's own
+	// The catalogue's refusal of the release's needs is AppTown's own
 	// sentence, naming the declaration, never a value.
 	var refused *dependency.Refused
 	var unknown *dependency.UnknownNeeds
@@ -804,7 +804,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 }
 
 // stageOnHost streams an item of a store set into a new volume on the
-// rehearsal host, through the forge's memory, never its disk, and holds it
+// rehearsal host, through AppTown's memory, never its disk, and holds it
 // to the set's record: its size and digest. A copy that does not match is
 // not used.
 func (s *Service) stageOnHost(ctx context.Context, dk docker.Scope, c *s3bucket.Client, bucket string, b *Backup, it *BackupItem, volume string) error {

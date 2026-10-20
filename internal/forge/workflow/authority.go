@@ -126,7 +126,7 @@ func (w commandAuthority) Require(ctx context.Context, p operationPermission) (c
 	if !ok {
 		return deny(access.DenyOutsideScope, "unknown Work operation")
 	}
-	// An instrument acts in its one project; the forge's own engine, with no
+	// An instrument acts in its one project; AppTown's own engine, with no
 	// project of its own, acts in any.
 	if pr.Kind == "instrument" {
 		if !pr.ProjectID.IsZero() && p.ProjectID != pr.ProjectID {

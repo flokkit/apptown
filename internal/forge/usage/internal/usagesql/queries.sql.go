@@ -90,7 +90,7 @@ const exportTokenUsage = `-- name: ExportTokenUsage :many
 SELECT to_jsonb(u)::text FROM token_usage u WHERE u.project_id = $1 ORDER BY u.id
 `
 
-// A project's spend, row by row, for moving it to another forge.
+// A project's spend, row by row, for moving it to another AppTown.
 func (q *Queries) ExportTokenUsage(ctx context.Context, projectID ids.ID) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, exportTokenUsage, projectID)
 	if err != nil {
@@ -242,7 +242,7 @@ type OpenCallLineParams struct {
 	PendingUntil   time.Time
 }
 
-// A forge model call's spend line, opened before the call is sent: keyed by
+// An AppTown model call's spend line, opened before the call is sent: keyed by
 // its receipt, zero until settled, pending until pending_until.
 func (q *Queries) OpenCallLine(ctx context.Context, arg OpenCallLineParams) error {
 	_, err := q.db.ExecContext(ctx, openCallLine,

@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/deploy/appcontract"
 )
 
-// Only the forge sets a static part's browser values: a contract or secret
+// Only AppTown sets a static part's browser values: a contract or secret
 // value of the same name never stands in for them.
 func TestNothingButTheForgeSetsAStaticPartsBrowserValues(t *testing.T) {
 	t.Parallel()

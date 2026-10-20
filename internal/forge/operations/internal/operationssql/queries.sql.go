@@ -629,7 +629,7 @@ const runningOperations = `-- name: RunningOperations :many
 SELECT id, number, kind, project_id, subject, holds, asked_by, asked_by_principal, authority, input, state, steps, result, detail, cancel_requested, job_id, created_at, started_at, touched_at, finished_at, dismissed_at FROM operations WHERE state = 'running' ORDER BY id
 `
 
-// What a forge restart would interrupt: every running operation, oldest
+// What an AppTown restart would interrupt: every running operation, oldest
 // first (apptown executing).
 func (q *Queries) RunningOperations(ctx context.Context) ([]Operation, error) {
 	rows, err := q.db.QueryContext(ctx, runningOperations)

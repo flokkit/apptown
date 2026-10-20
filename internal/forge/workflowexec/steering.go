@@ -38,7 +38,7 @@ type steeringFile struct {
 // agent's container sees them.
 type steeringPaths struct{ Resources, Attachments, Sessions string }
 
-// folderSteering: an agent on the forge's host finds them in the run's
+// folderSteering: an agent on AppTown's host finds them in the run's
 // folder, under .apptown.
 var folderSteering = steeringPaths{Resources: ".apptown/resources", Attachments: ".apptown/attachments", Sessions: ".apptown/sessions"}
 
@@ -143,7 +143,7 @@ func (a *Executor) composeSteering(ctx context.Context, run *workflow.Run, cfg *
 	if delegation != "" {
 		steer.WriteString(delegation + "\n")
 	}
-	// A change's step on a worker is given main by the forge (main_merge.go),
+	// A change's step on a worker is given main by AppTown (main_merge.go),
 	// so its agent is told not to catch up itself.
 	if at == workerSteering && !run.ChangeID.IsZero() {
 		if spec, err := run.Definition(); err == nil && spec.Role != "landing" {

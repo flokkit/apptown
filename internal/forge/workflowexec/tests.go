@@ -249,7 +249,7 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 	}
 	switch {
 	case toolchainUnavailable(outcome):
-		// The tests never had their tools: the forge's error, not a
+		// The tests never had their tools: AppTown's error, not a
 		// failure of the change ("mvn: not found" must not read as "tests
 		// failed").
 		evidence["outcome"] = "toolchain_unavailable"
@@ -259,7 +259,7 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 		// Only a witnessed ordinary exit answers. A run that could not start
 		// (its generated files among the reasons), timed out, was cancelled,
 		// left its container behind, or whose answer was lost says nothing
-		// about the tests: the forge's error, never a failure of the tests,
+		// about the tests: AppTown's error, never a failure of the tests,
 		// never a pass, and no base run can make it carried debt.
 		evidence["outcome"] = outcomeKind(outcome)
 		evidence["reason"] = unansweredReason(outcome, timeout)

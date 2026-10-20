@@ -19,7 +19,7 @@ import (
 //
 //   - a kind whose values come from the project's attached integration
 //     (error reporting, sign-in, telemetry) is not a need;
-//   - a value the forge owns (a database password) is not the app's to set;
+//   - a value AppTown owns (a database password) is not the app's to set;
 //   - two needs that give the app the same variable would give one name two
 //     meanings.
 //

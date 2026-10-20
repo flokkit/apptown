@@ -7,7 +7,7 @@ import (
 )
 
 // The one-time ownership inspection is the platform administrator's: it
-// reads what targets hold, and an approval records what the forge may
+// reads what targets hold, and an approval records what AppTown may
 // later delete. Another person is refused both; an approval of something
 // the inspection does not propose now records nothing.
 func TestTheOwnershipInspectionIsTheAdministrators(t *testing.T) {

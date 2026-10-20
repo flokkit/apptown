@@ -41,7 +41,7 @@ func TestARepositoryIsItsCommitsCheckedOutAndRepeatable(t *testing.T) {
 
 // A fixture carries its own identity, so a commit a test makes in it later
 // with plain git works on a machine with no git identity of its own (a CI
-// runner): the forge's git reads no machine-wide config.
+// runner): AppTown's git reads no machine-wide config.
 func TestAFixtureCommitsAsTheTesterOnAnyMachine(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "repo")
 	Repository(t, dir, "main", twoCommits[0])

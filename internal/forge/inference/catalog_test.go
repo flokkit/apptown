@@ -50,7 +50,7 @@ func TestMain(m *testing.M) { os.Exit(databaseSuite.Run(m)) }
 //
 // Kills: a second resolver for the picker (its own key rules or cache); a
 // discovery cache asked per reader; a stale snapshot hiding a saved change;
-// a discovery cache aged by the real clock rather than the forge's.
+// a discovery cache aged by the real clock rather than AppTown's.
 func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
@@ -101,7 +101,7 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	if err != nil || len(entries) != 2 || entries[0] != (ModelEntry{Pattern: "provider/second", Binding: "provider", Source: "default"}) || entries[1].Pattern != "provider/live" || entries[1].Source != "live" {
 		t.Fatalf("a saved change shows at once: %+v %v", entries, err)
 	}
-	// The provider's list is kept a minute by the forge's clock, then asked
+	// The provider's list is kept a minute by AppTown's clock, then asked
 	// again; no real time passes.
 	clockMu.Lock()
 	at = at.Add(2 * time.Minute)

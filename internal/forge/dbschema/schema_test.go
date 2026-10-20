@@ -120,7 +120,7 @@ func TestSchemaFreshCreationAndFutureMigrationAreAtomic(t *testing.T) {
 	}
 }
 
-// A migration runs against a populated forge as an earlier release left it
+// A migration runs against a populated AppTown as an earlier release left it
 // (the root package's upgrade fixtures): a synthetic next migration that
 // reads the release's records applies, and one that fails after it leaves
 // the version and every record as they were, so the copies taken before the

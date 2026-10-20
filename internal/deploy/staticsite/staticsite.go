@@ -1,6 +1,6 @@
 // Package staticsite is a static release as files a host serves as they
 // are (design/subsystems/deploy-targets.md, "Bucket websites"): the site's files from
-// its release image, plus the two files the forge's file server would
+// its release image, plus the two files AppTown's file server would
 // otherwise compute, and the witness that a public address serves exactly
 // this publication. It knows no provider; a file-host driver uploads the
 // set in its order and asks the witness.
@@ -32,11 +32,11 @@ import (
 const Root = "/srv"
 
 // MaxBytes bounds a published site: every release uploads all of it, and
-// the forge holds it in memory while it does. Larger sites keep their own
+// AppTown holds it in memory while it does. Larger sites keep their own
 // server on a container target.
 const MaxBytes = 200 << 20
 
-// EnvKey and ReleaseKey are the two files the forge writes into every set.
+// EnvKey and ReleaseKey are the two files AppTown writes into every set.
 var (
 	EnvKey     = strings.TrimPrefix("/_apptown/env.js", "/")
 	ReleaseKey = strings.TrimPrefix(appcontract.ReleasePath, "/")
@@ -60,7 +60,7 @@ type File struct {
 	Pass        Pass
 }
 
-// NoStore: entry files and the forge's files are never cached, so a
+// NoStore: entry files and AppTown's files are never cached, so a
 // reload asks for the current page and values.
 func (f File) NoStore() bool { return f.Pass != Assets }
 

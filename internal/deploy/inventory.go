@@ -19,7 +19,7 @@ type Resource struct {
 	Tags    []string `json:"tags,omitempty"`
 	// What the caller knows about it.
 	Record   string         `json:"record"`             // RecordRecorded | RecordUnrecorded | RecordMissing
-	Owner    string         `json:"owner,omitempty"`    // the forge.owner label: which stack made it
+	Owner    string         `json:"owner,omitempty"`    // AppTown.owner label: which stack made it
 	Stack    string         `json:"stack,omitempty"`    // the compose project label: which stack it belongs to
 	Hosts    []ResourceHost `json:"hosts,omitempty"`    // the deployments running on / using it
 	Retained *RetainedNote  `json:"retained,omitempty"` // left behind by a torn-down deployment
@@ -33,8 +33,8 @@ const (
 )
 
 // TagConfirmsOnly marks a provider item reported only so a record can be
-// confirmed: something the forge did not name (an approved older volume)
-// that is no orphan of the forge's when nothing records it.
+// confirmed: something AppTown did not name (an approved older volume)
+// that is no orphan of AppTown's when nothing records it.
 const TagConfirmsOnly = "confirms-only"
 
 // ResourceHost is a deployment that runs on or uses a resource.

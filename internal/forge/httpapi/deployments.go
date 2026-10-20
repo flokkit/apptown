@@ -91,7 +91,7 @@ func (h Deployments) CreateDeployment(w http.ResponseWriter, r *http.Request) {
 
 // handleDeleteDeployment: DELETE /projects/{slug}/deployments/{name}
 // {withoutFinalCopy?: <name>} — take-down: the deployment's data is backed
-// up, then everything the forge created for it is deleted; what stays is
+// up, then everything AppTown created for it is deleted; what stays is
 // reported. withoutFinalCopy, naming the deployment, is the person's choice
 // to take down one whose final copy cannot be taken now, keeping its data.
 func (h Deployments) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +140,7 @@ func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
 }
 
 // CheckAgain: POST /projects/{slug}/deployments/{name}/check — a person's
-// repair of a deployment that needs attention: the forge observes it on its
+// repair of a deployment that needs attention: AppTown observes it on its
 // target and settles what it observes (deployment.Service.CheckAgain). It
 // never deploys anything.
 func (h Deployments) CheckAgain(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +176,7 @@ func (h Deployments) AIModels(w http.ResponseWriter, r *http.Request) {
 type DeployRequest struct {
 	BundleID ids.ID `json:"bundleId"`
 	// AcceptUncopiedData is a person's choice to release onto a deployment
-	// holding data the forge cannot copy now; the release records it.
+	// holding data AppTown cannot copy now; the release records it.
 	AcceptUncopiedData bool `json:"acceptUncopiedData,omitempty"`
 	// AcceptUncheckedCopy is a person's choice to fill a deployment that
 	// starts from a copy, on its first release, from a copy an item of

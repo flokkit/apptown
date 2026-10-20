@@ -28,7 +28,7 @@ import type { InfrastructureTargets, RegistryReading, TargetChecked, TargetPage 
 
 // RegistryLine: an App Platform target's container registry as its newest
 // check read it — the plan and how many of its repositories are used (and
-// whether the forge's gate image takes one), or why it is unknown — with
+// whether AppTown's gate image takes one), or why it is unknown — with
 // when it was read.
 export function RegistryLine({ r }: { r: RegistryReading }) {
   const when = r.readAt ? ` · read ${relTime(r.readAt)}` : ''
@@ -227,7 +227,7 @@ export function CopyRunnerLine({ t }: { t: TargetView }) {
   )
 }
 
-// EditTarget: the facts the forge cannot read off a target and the owner
+// EditTarget: the facts AppTown cannot read off a target and the owner
 // must state — the apps domain, whether it keeps disks, whether previews
 // may bind, how needs are met. Each save is an audit row with before and after.
 // said quotes a value for a sentence, and names an empty one.
@@ -241,7 +241,7 @@ const settingsOf = (t: TargetView): TargetSettings => ({
 })
 
 // What keeping a host for restore rehearsals means, shown to the platform
-// administrator before they save it; the forge keeps the same words with
+// administrator before they save it; AppTown keeps the same words with
 // the mark (deployment.RehearsalHostMeaning).
 export const rehearsalHostMeaning = 'Production data will sit on this host while a restore rehearsal runs. Anyone who controls this host can read it: root, anyone with its Docker socket, any process on it and any container on its network. Keep it for rehearsals and nothing else.'
 

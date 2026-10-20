@@ -60,7 +60,7 @@ type Entry struct {
 // Ledger is the supported API over the ledger and its cursors.
 type Ledger struct {
 	db *database.DB
-	// Now is the forge's clock, which stamps an observation and judges a
+	// Now is AppTown's clock, which stamps an observation and judges a
 	// report's window and a pending line's time; nil is the real one.
 	Now func() time.Time
 }
@@ -274,7 +274,7 @@ func (l *Ledger) summary(ctx context.Context, windowDays int, scope Scope, workf
 // what those projects cost, read through q (a caller's transaction, so the
 // read needs no second connection while it holds one). Incomplete counts
 // the observations whose spend was not wholly known; the total is then "at
-// least". A forge call's pending line whose time has run out counts as
+// least". An AppTown call's pending line whose time has run out counts as
 // incomplete; one still in time counts nothing yet. No projects is nothing.
 func (l *Ledger) ProjectsTotal(ctx context.Context, q database.Queryer, projectIDs ...ids.ID) (Totals, error) {
 	if len(projectIDs) == 0 {

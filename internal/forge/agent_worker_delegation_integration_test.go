@@ -52,7 +52,7 @@ const subagentsTestImage = "forge-agent:s5-subagents-test"
 //
 // So the invocation's recorded usage is the parent's assistant calls alone,
 // and it is marked "delegated calls not included" in both cases: a
-// background delegate's spend is not in what the forge reads.
+// background delegate's spend is not in what AppTown reads.
 func TestIntegrationDelegatedUsageOnTheWorker(t *testing.T) {
 	t.Parallel()
 	requireDocker(t)
@@ -199,7 +199,7 @@ func runDelegation(t *testing.T, background bool) delegationRun {
 
 	namespace := fmt.Sprintf("agentsub%d", time.Now().UnixNano()%1_000_000_000)
 	removeTaskContainers(t, namespace)
-	// The invocation's whole output, as the forge reads it from the start
+	// The invocation's whole output, as AppTown reads it from the start
 	// (one page holds it).
 	var outMu sync.Mutex
 	var output []byte

@@ -21,7 +21,7 @@ import (
 type Attachments struct {
 	db      *database.DB
 	dataDir string
-	now     func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now     func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewAttachments(db *database.DB, dataDir string, now func() time.Time) Attachments {

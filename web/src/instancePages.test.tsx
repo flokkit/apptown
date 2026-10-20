@@ -47,10 +47,10 @@ function cleanup() {
 const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
 const authzReads = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes('/authz/me')).length
 
-describe('pages about the whole forge', () => {
+describe('pages about the whole AppTown', () => {
   afterEach(cleanup)
 
-  // Someone the forge says cannot read the instance's people sees a plain
+  // Someone AppTown says cannot read the instance's people sees a plain
   // statement in place of the page, not the page's errors.
   it('says the page is not available to someone without the read', async () => {
     answer(member)
@@ -112,8 +112,8 @@ describe('pages about the whole forge', () => {
 })
 
 // useHolds is what a page asks before showing a control. It is false until
-// the forge has answered, false when the forge cannot be read, and true
-// only for what the forge says the person holds, on the forge or in the
+// AppTown has answered, false when AppTown cannot be read, and true
+// only for what AppTown says the person holds, on AppTown or in the
 // named project. (People once showed administrator controls to everyone
 // while its role read was on its way.)
 describe('useHolds', () => {
@@ -122,7 +122,7 @@ describe('useHolds', () => {
     return <span>{useHolds(cap, project) ? 'yes' : 'no'}</span>
   }
 
-  it('is false while the forge has not answered', async () => {
+  it('is false while AppTown has not answered', async () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
     const { el } = await render(<Probe cap="identity:manage-auth" />)
     expect(el.textContent).toBe('no')
@@ -137,7 +137,7 @@ describe('useHolds', () => {
     expect(el.textContent).toBe('no')
   })
 
-  it('follows the forge: an instance capability, and one in a project', async () => {
+  it('follows AppTown: an instance capability, and one in a project', async () => {
     answer({ ...member, project: { 'project:manage-members': true, 'project:configure': false } })
     const { el } = await render(<><Probe cap="project:create" /><Probe cap="deployment:read" /><Probe cap="project:manage-members" project="shop" /><Probe cap="project:configure" project="shop" /></>)
     await vi.waitFor(() => expect(el.textContent).toBe('yesnoyesno'))

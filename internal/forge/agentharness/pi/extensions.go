@@ -2,7 +2,7 @@ package pi
 
 import "flokkit.io/forge/internal/dockerlabel"
 
-// Opt-in pi extensions. The forge curates extension CODE to a small blessed set
+// Opt-in pi extensions. AppTown curates extension CODE to a small blessed set
 // BAKED into the agent image (pihome.go: trust is "never", so a repo can never
 // load its own extension). pi-subagents is always on. The rest ship baked but
 // OFF, and a project turns them on — by a pack that lists them or directly on
@@ -10,7 +10,7 @@ import "flokkit.io/forge/internal/dockerlabel"
 // packages; the code is already baked and pinned by the image.
 //
 // Adding a new blessed extension = bake it in deploy/apptown-agent/Dockerfile
-// (with a forge.<name>.version label) and add a row here.
+// (with an AppTown.<name>.version label) and add a row here.
 
 type Extension struct {
 	Name    string `json:"name"`    // short id used in packs and the API ("lsp")

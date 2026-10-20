@@ -94,7 +94,7 @@ describe('a deployment’s diagnostics', () => {
   it('keep the last answer marked out of date when a refresh fails, never as current', async () => {
     serve(() => ({ status: 200, body: diagnostics }))
     const { el, client, done } = await mount()
-    serve(() => ({ status: 502, body: { error: 'the forge is restarting' } }))
+    serve(() => ({ status: 502, body: { error: 'AppTown is restarting' } }))
     await act(async () => { await client.refetchQueries({ queryKey: getKey(PATH) }).catch(() => {}) })
     await vi.waitFor(() => expect(el.textContent).toContain('out of date'))
     expect(el.textContent).toContain('worker: stopped')

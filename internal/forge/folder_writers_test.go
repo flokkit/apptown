@@ -276,7 +276,7 @@ func TestAnAgentAndAScriptNeverShareTheFolder(t *testing.T) {
 }
 
 // An agent or reviewer whose container outlived its step (a failed timeout
-// cleanup, or the forge stopping mid-step) keeps the next writer out of the
+// cleanup, or AppTown stopping mid-step) keeps the next writer out of the
 // folder, a script as much as an agent. All step claims and outcomes use
 // Work; the crash case uses real startup repair; no workflow state or task
 // record is written by the test. The script is refused before its task is
@@ -876,7 +876,7 @@ func (d *unstoppableTasks) Ensure(ctx context.Context, spec execution.TaskSpec) 
 	return d.TaskDriver.Ensure(ctx, spec)
 }
 
-// A script task that timed out while the forge was down, and whose stop the
+// A script task that timed out while AppTown was down, and whose stop the
 // backend did not confirm, stays unsettled and may still write the change's
 // folder. Neither a retry of its step nor the next step starts beside it.
 func TestNoAttemptStartsBesideAScriptTaskThatHasNotStopped(t *testing.T) {
@@ -925,7 +925,7 @@ func TestNoAttemptStartsBesideAScriptTaskThatHasNotStopped(t *testing.T) {
 		if s.Name != "check" {
 			continue
 		}
-		// The restarted forge may already have dispatched it.
+		// The restarted AppTown may already have dispatched it.
 		_ = a.Work.ExecuteStep(a.asEngine(ctx), s.ID)
 		later, err := workflow.ReadStepIn(ctx, a.DB, s.ID)
 		if err != nil {

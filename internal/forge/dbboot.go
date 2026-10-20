@@ -24,7 +24,7 @@ import (
 // The built-in database (design/subsystems/postgres-migration.md §2.2, §3.9): when no
 // -db-url is configured, apptownd runs its own Postgres container on this
 // box and keeps the bootstrap in files the way secrets.env is kept —
-// because the forge must reach its database before it can read anything
+// because AppTown must reach its database before it can read anything
 // from it. Zero setup stays zero setup; a real Postgres is one flag away.
 //
 //   <dataDir>/db.env        APPTOWN_DB_URL for the container (mode 0600)
@@ -66,7 +66,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 	if out, err := dk.Run(ctx, "inspect", "-f", `{{.State.Running}} {{index .Config.Labels "`+dockerlabel.Instance+`"}}`, builtinDBContainer); err == nil {
 		fields := strings.Fields(string(out))
 		if len(fields) == 2 && fields[1] != instance {
-			return "", fmt.Errorf("container %s belongs to another forge installation (instance %s, this one is %s); remove it or point -db-url elsewhere", builtinDBContainer, fields[1], instance)
+			return "", fmt.Errorf("container %s belongs to another AppTown installation (instance %s, this one is %s); remove it or point -db-url elsewhere", builtinDBContainer, fields[1], instance)
 		}
 		if len(fields) >= 1 && fields[0] == "true" {
 			return url, waitForDB(ctx, url)
@@ -87,7 +87,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 	}
 	// An existing volume is this installation's only if it carries this
 	// installation's id. A leftover from another one binds to that one's
-	// pgdata, so using it would run on another forge's database (and fail on
+	// pgdata, so using it would run on another AppTown's database (and fail on
 	// its password). apptownd has always labelled the volume, so an unlabelled
 	// one is not this installation's either.
 	if out, err := dk.Run(ctx, "volume", "inspect", "-f", `{{index .Labels "`+dockerlabel.Instance+`"}}`+"\t"+`{{index .Options "device"}}`, builtinDBVolume); err == nil {
@@ -97,7 +97,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 		if owner != instance {
 			whose := "has no installation label"
 			if owner != "" {
-				whose = fmt.Sprintf("belongs to another forge installation (instance %s)", owner)
+				whose = fmt.Sprintf("belongs to another AppTown installation (instance %s)", owner)
 			}
 			return "", fmt.Errorf("volume %s %s, and this one is %s; it keeps its data in %s. If that installation is gone, remove the volume with `docker volume rm %s` (the folder is left as it is) and start again; otherwise give this AppTown its own database with -db-url",
 				builtinDBVolume, whose, instance, strings.TrimSpace(folder), builtinDBVolume)

@@ -88,14 +88,14 @@ not establish the proposed controls in the register.
 
 This is what the shipped unit files (`deploy/systemd/apptownd.service`,
 `deploy/systemd/apptown-worker.service` and their `.env.example` files) and
-[running a forge](../../stock/docs/guides/running-apptown.md) set up. It
+[running an AppTown](../../stock/docs/guides/running-apptown.md) set up. It
 describes no particular installation.
 
 - **The daemon runs as root.** On Linux, `apptownd` runs as root when it runs
   containers on its own Docker: steps and chats run as root in containers
-  that write into the forge's folders, and the forge must read and remove
+  that write into AppTown's folders, and AppTown must read and remove
   what they leave. This is a documented choice, not an oversight. It means
-  that code which escapes a container on the forge's host has root there
+  that code which escapes a container on AppTown's host has root there
   (TM-03). A non-root user in the `docker` group would not be a boundary
   either, since control of Docker is equivalent to root.
 - **No systemd sandboxing is relied on.** The shipped unit sets none of
@@ -114,7 +114,7 @@ describes no particular installation.
   network is refused.
 - **Sign-in is internal or a trusted proxy.** `-auth open` trusts any name a
   caller gives, so `apptownd` refuses to start with it on an address other
-  machines can reach unless `-open-on-network` is given. A shared forge uses
+  machines can reach unless `-open-on-network` is given. A shared AppTown uses
   `-auth internal` (the first administrator needs the setup token from the
   data directory) or `-auth trusted-header` behind an authenticating proxy.
 - **A worker listens on a private network address** and accepts only the
@@ -283,15 +283,15 @@ Important current distinctions:
 | Model-provider key | Forge only; runtimes' generated model configuration names the session token, never the key | Reusable provider authority; any copy ever delivered into a runtime must be rotated |
 | Inference credential | Existing chat/step session token; provider keys remain on Forge | Lifecycle-bound, explicitly allowed worker peer AND token, restricted binding/models, concurrency limits and receipts; monetary budgets deferred |
 | Console token | Console process and persisted session metadata | Project/instrument restrictions; lifetime follows session management rather than a hard independent token TTL |
-| Run token | Step env; derived from the step attempt under a key in the Forge data folder (`runtime-token-key`), nothing stored per token | Run/project attribution; accepted at the inference gateway and the API only while the run is running, the attempt is the step's live attempt and the run owner's account is enabled; survives a daemon restart; no independent expiry, and anyone holding the key can mint tokens |
-| Browser session | HttpOnly cookie (`__Host-apptown_session`, Secure, over HTTPS); token hash in DB | 30-day session; SameSite=Lax, host-only; Secure follows the public origin, so a plain-HTTP development forge uses a separate, non-Secure cookie |
+| Run token | Step env; derived from the step attempt under a key in the AppTown data folder (`runtime-token-key`), nothing stored per token | Run/project attribution; accepted at the inference gateway and the API only while the run is running, the attempt is the step's live attempt and the run owner's account is enabled; survives a daemon restart; no independent expiry, and anyone holding the key can mint tokens |
+| Browser session | HttpOnly cookie (`__Host-apptown_session`, Secure, over HTTPS); token hash in DB | 30-day session; SameSite=Lax, host-only; Secure follows the public origin, so a plain-HTTP development AppTown uses a separate, non-Secure cookie |
 | Personal token | Human/external client; hash in DB | Reusable until revoked; current user authority narrows it; generally broader than a purpose-specific OAuth grant |
 | OAuth tokens | External client; token hashes and delegation in DB | Access 1 hour, refresh/delegation horizon 30 days; scoped/audience-bound, rotation and reuse handling |
 | Git push ticket | Authorized external client; hash and constraints in DB | Short-lived, one-use, change/ref/expected-tip constrained; recheck authority at use |
 | Project Git pull token | Git clients/runtimes that receive the configured read remote | Main-only read path, but persistent credential and source confidentiality still matter |
 | SCM, registry and explicit step secrets | Selected step env and/or Docker auth/config files | Attachment/step-specific delivery exists; underlying provider credential scope may still exceed the task |
 | Development-service credentials | Service client processes and generated config | Low value only with disposable data, unique credentials, isolated reachability and no production reuse |
-| Need credentials of a deployment or preview (Docker host, Portainer) | The need's container and the app's environment; Portainer's stack file | Derived per deployment, preview or rehearsal from the built-in store's key, never stored; redacted from a boot's failure before it is kept; the forge's own step servers keep the catalogue's fixed values |
+| Need credentials of a deployment or preview (Docker host, Portainer) | The need's container and the app's environment; Portainer's stack file | Derived per deployment, preview or rehearsal from the built-in store's key, never stored; redacted from a boot's failure before it is kept; AppTown's own step servers keep the catalogue's fixed values |
 | Application secrets | Broker → named app/init consumers through env | Environment bindings and consumer scopes; approved app code can necessarily read its own secret |
 | Deployment and secret-store credentials | Forge host/process and provider clients | High-value infrastructure authority; never appropriate ambient credentials for an ordinary chat or test |
 | Transcripts, files, logs and backups | Workspace, session directory, DB, retained artifacts and operational storage | May contain any of the above if tools print or copy them; retention outlives the originating process |
@@ -323,7 +323,7 @@ not reports that an attacker has performed them.
    outside Forge; subsequent spending never reaches Forge's accounting ledger.
    Relevant: TM-01, TM-02, TM-19.
 2. **Attachment → owner authority:** a member uploads HTML; an owner opens the
-   attachment URL; active content runs at the Forge origin and calls APIs with
+   attachment URL; active content runs at AppTown origin and calls APIs with
    the owner's cookie. It need not read the HttpOnly cookie. Relevant: TM-08,
    TM-10, TM-17.
 3. **Preview → delegated authority:** an owner visits a malicious same-site

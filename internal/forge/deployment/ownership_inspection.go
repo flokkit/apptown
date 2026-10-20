@@ -22,13 +22,13 @@ import (
 )
 
 // The one-time ownership inspection (design/subsystems/deployment.md,
-// "Removing a deployment"). Deployments made before the forge recorded what it
+// "Removing a deployment"). Deployments made before AppTown recorded what it
 // created have no list, so their take-down deletes nothing of theirs but
 // the serving container or app. The inspection proposes, from what each
-// target holds under the forge's names and labels, the entries those lists
+// target holds under AppTown's names and labels, the entries those lists
 // would have: a person approves them, and only approved entries are
 // recorded, with that approval as their note. Nothing found is recorded on
-// its own: a name is not evidence the forge made something.
+// its own: a name is not evidence AppTown made something.
 
 // OwnershipProposal is one thing the inspection proposes to record: an
 // entry on a deployment's list, or a project's repository on an account.
@@ -280,7 +280,7 @@ func (s *Service) inspectPortainer(ctx context.Context, t *Target, standing []Pr
 
 // inspectAppPlatform proposes each project's DOCR repository on the
 // target's account, when the registry holds one of the project's name
-// that the forge has not recorded.
+// that AppTown has not recorded.
 func (s *Service) inspectAppPlatform(ctx context.Context, t *Target, standing []ProjectDeployment) ([]OwnershipProposal, error) {
 	c, _, err := s.providers.cloudClientFor(t.Provider)(ctx)
 	if err != nil {

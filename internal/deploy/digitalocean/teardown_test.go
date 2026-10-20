@@ -62,7 +62,7 @@ func TestTeardownChecksProviderSelectionAndDeletionOutcome(t *testing.T) {
 	}
 }
 
-// repoBook is a project's record of the repositories the forge created.
+// repoBook is a project's record of the repositories AppTown created.
 type repoBook struct {
 	owned   map[string]bool
 	created []string
@@ -96,8 +96,8 @@ func repoDriver(t *testing.T, api *dofake.API, book *repoBook) *Driver {
 	}}, Options{PushImage: push})
 }
 
-// The project's repository is the forge's: the first copy into a registry
-// without one makes it and records it; one the forge made is used; one it
+// The project's repository is AppTown's: the first copy into a registry
+// without one makes it and records it; one AppTown made is used; one it
 // did not make is refused before anything is copied, at preflight too.
 func TestTheProjectsRepositoryIsMadeAndRecordedNeverAdopted(t *testing.T) {
 	for _, scenario := range []string{"absent", "ours", "someone else's"} {
@@ -140,7 +140,7 @@ func TestTheProjectsRepositoryIsMadeAndRecordedNeverAdopted(t *testing.T) {
 }
 
 // Take-down empties the project's repository only when this was the last
-// deployment using it and the forge made it: every image goes, and no
+// deployment using it and AppTown made it: every image goes, and no
 // garbage collection is started (DOCR takes no pushes while one runs).
 // Someone else's is never touched; a delete that fails is left, with why.
 func TestTheLastTakeDownEmptiesTheForgesRepository(t *testing.T) {

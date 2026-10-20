@@ -96,7 +96,7 @@ func TestActivityTreatsAVerdictOlderThanTheReworkAsBeingRechecked(t *testing.T) 
 }
 
 // A landing started from accepted work, before it takes that acceptance, is
-// the forge's move: its approval is about to be judged, not waiting on a
+// AppTown's move: its approval is about to be judged, not waiting on a
 // person. Once the acceptance is applied the approval waits as usual.
 func TestActivityShowsALandingTakingItsAcceptanceAsWorking(t *testing.T) {
 	t.Parallel()

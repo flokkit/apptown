@@ -189,7 +189,7 @@ func (r *digestRegistry) remove(t *testing.T, ref string) {
 }
 
 // digestHostOf is the Docker host an attached target is reached at ("" is
-// the forge's own).
+// AppTown's own).
 func digestHostOf(target string) string {
 	if target == "" {
 		return ""
@@ -207,7 +207,7 @@ type digestHosts struct {
 	held     map[string]map[string]bool // host -> references by digest it holds
 	platform string                     // what `docker info` answers
 	// told keeps the last release identity a `run` gave a static part
-	// (APPTOWN_RELEASE): what the forge's file server answers.
+	// (APPTOWN_RELEASE): what AppTown's file server answers.
 	told atomic.Pointer[string]
 }
 
@@ -398,7 +398,7 @@ func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*d
 	w.hosts = &digestHosts{t: t, platform: "linux x86_64", held: map[string]map[string]bool{},
 		daemons: map[string]*dockerfake.Daemon{"": dockerfake.New(), digestHostOf("lab"): dockerfake.New(), digestHostOf("lab2"): dockerfake.New()}}
 	w.project = createTestProject(t, db, "p", "P")
-	// One front door for every daemon: the forge's file server, which
+	// One front door for every daemon: AppTown's file server, which
 	// answers /_apptown/release with the release its last container was told.
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == appcontract.ReleasePath {
@@ -415,7 +415,7 @@ func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*d
 	for _, d := range w.hosts.daemons {
 		d.SetPort(port)
 	}
-	// The attached hosts' SSH key lives in the forge's secrets store.
+	// The attached hosts' SSH key lives in AppTown's secrets store.
 	if err := os.WriteFile(filepath.Join(w.dir, "secrets.env"), []byte("LAB_KEY=-----BEGIN OPENSSH PRIVATE KEY-----\\nabc\\n-----END OPENSSH PRIVATE KEY-----\n"+secrets), 0o600); err != nil { // gitleaks:allow (test fixture, not a credential)
 		t.Fatal(err)
 	}

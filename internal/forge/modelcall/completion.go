@@ -1,4 +1,4 @@
-// Package modelcall is the vocabulary of the forge's own model calls:
+// Package modelcall is the vocabulary of AppTown's own model calls:
 // narratives, approval briefs, simple changes, pack assistance, checks and
 // the eval judge. The inference gateway answers them (inference.Gateway.Ask)
 // through the same provider resolution and admission as a runtime's request,
@@ -10,7 +10,7 @@ import "flokkit.io/forge/internal/ids"
 
 import "context"
 
-// Call is one single-turn question the forge asks for itself.
+// Call is one single-turn question AppTown asks for itself.
 type Call struct {
 	// Purpose names what the call is for (narrative, approval-brief,
 	// simple-change, pack-assistance, guidance-checklist,
@@ -19,7 +19,7 @@ type Call struct {
 	// ProjectID is the project the call is made for, 0 for none. A call for
 	// a project is admitted by the eval model choice and charged to it.
 	ProjectID, RunID ids.ID
-	// Actor is the spend line's actor; "" is the forge itself.
+	// Actor is the spend line's actor; "" is AppTown itself.
 	Actor string
 	// Judge sends the call through the judge's door: an eval comparison's
 	// rubric, admitted only for the copy's recorded judge. Set only by the
@@ -29,7 +29,7 @@ type Call struct {
 	Model, System, User string
 }
 
-// Completer answers the forge's own calls. Once a call may have reached the
+// Completer answers AppTown's own calls. Once a call may have reached the
 // provider its answer carries a Usage, even when the call failed; a refusal
 // before sending carries none.
 type Completer interface {

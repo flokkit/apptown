@@ -191,8 +191,8 @@ func TestActingForTheHolderRequiresTheCurrentHolder(t *testing.T) {
 	}
 }
 
-// A git process can outlive a crashed forge: here it holds a prepared
-// transaction whose commit has not been processed yet. The next forge must
+// A git process can outlive a crashed AppTown: here it holds a prepared
+// transaction whose commit has not been processed yet. The next AppTown must
 // not treat the unchanged branch as abandoned while that git may still act.
 func TestAHandoverWaitsForAGitProcessThatOutlivedTheForge(t *testing.T) {
 	f := newPublicationFixture(t)

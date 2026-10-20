@@ -3,9 +3,9 @@ import type { ReactNode } from 'react'
 import { useGet } from './data'
 import type { AuthzHoldings } from './wire.gen'
 
-// The pages about the whole forge rather than one project, and the instance
+// The pages about the whole AppTown rather than one project, and the instance
 // read each one's API asks for (design/subsystems/authorization-capabilities.md).
-// The forge refuses them to anyone without it whatever the menu shows; this
+// AppTown refuses them to anyone without it whatever the menu shows; this
 // only keeps the menu to pages that will open.
 export const INSTANCE_PAGES = {
   people: { cap: 'institution:read-structure', title: 'People' },
@@ -18,7 +18,7 @@ export const INSTANCE_PAGES = {
 export type InstancePage = keyof typeof INSTANCE_PAGES
 
 // useInstancePages answers "can this person open that page?": true, false,
-// or undefined while the answer is on its way. Only the forge's own "no" is
+// or undefined while the answer is on its way. Only AppTown's own "no" is
 // false: when the answer could not be read every page is offered, because not
 // knowing is not a refusal.
 export function useInstancePages(): (page: InstancePage) => boolean | undefined {
@@ -26,10 +26,10 @@ export function useInstancePages(): (page: InstancePage) => boolean | undefined 
   return (page) => data ? data.instance?.[INSTANCE_PAGES[page].cap] !== false : err ? true : undefined
 }
 
-// useHolds answers "may this person do that?" from the forge's own answer
-// (/authz/me): a capability on the whole forge, or in one project when one
-// is named. It is false until the forge has said yes, so controls never show
-// to someone the forge may refuse; the forge still decides at the act. Pages
+// useHolds answers "may this person do that?" from AppTown's own answer
+// (/authz/me): a capability on the whole AppTown, or in one project when one
+// is named. It is false until AppTown has said yes, so controls never show
+// to someone AppTown may refuse; AppTown still decides at the act. Pages
 // ask this rather than reading a role's name.
 export function useHolds(cap: string, project?: string): boolean {
   const { data } = useGet<AuthzHoldings>(project ? `/authz/me?project=${encodeURIComponent(project)}` : '/authz/me', { kind: 'config' })
@@ -37,7 +37,7 @@ export function useHolds(cap: string, project?: string): boolean {
   return (project ? data.project?.[cap] : data.instance?.[cap]) === true
 }
 
-// What someone sees on a page about the whole forge that they cannot read,
+// What someone sees on a page about the whole AppTown that they cannot read,
 // reached by its address: a plain statement, not an error.
 // heading=false is for a tab inside a page that already has its title.
 export function NotAvailable({ page, heading = true }: { page: InstancePage; heading?: boolean }) {
@@ -56,7 +56,7 @@ export function NotAvailable({ page, heading = true }: { page: InstancePage; hea
   )
 }
 
-// InstanceGate shows the page, or NotAvailable when the forge has said this
+// InstanceGate shows the page, or NotAvailable when AppTown has said this
 // person cannot read it. Until it has answered the page waits, so its reads
 // are not sent only to be refused.
 export function InstanceGate({ page, children }: { page: InstancePage; children: ReactNode }) {

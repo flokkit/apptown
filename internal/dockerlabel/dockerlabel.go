@@ -5,7 +5,7 @@
 // format. They are lowercase and dotted, are changed only by adding, and a
 // key already out in the world is never renamed without a reader for it.
 //
-// Telemetry attribute names share the forge. prefix; they are not labels
+// Telemetry attribute names share AppTown. prefix; they are not labels
 // and are not listed here.
 package dockerlabel
 
@@ -16,7 +16,7 @@ const (
 	Created     = "forge.created"     // when it was made (RFC 3339), for the reaper's age rules
 	Expires     = "forge.expires"     // when a task's container may be removed (RFC 3339)
 	Deadline    = "forge.deadline"    // when a check's container may be removed (Unix seconds)
-	Instance    = "forge.instance"    // which forge started the built-in database
+	Instance    = "forge.instance"    // which AppTown started the built-in database
 	Stack       = "forge.stack"       // a preview's stack
 	Source      = "forge.source"      // the worktree fingerprint an app container was built from
 	Incarnation = "forge.incarnation" // which boot of a preview a container is

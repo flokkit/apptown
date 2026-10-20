@@ -30,7 +30,7 @@ export default function AdrPage() {
   const [title, setTitle] = useState('')
   const [tags, setTags] = useState('')
   // start is the text the draft began from: the save names it for each field
-  // it changes, and the forge refuses the save if that text was replaced since.
+  // it changes, and AppTown refuses the save if that text was replaced since.
   const [start, setStart] = useState<Text | null>(null)
   const { run, busy, err: actErr, failure, setErr } = useAction()
   const moved = failure instanceof HttpError && failure.code === 'adr-text-moved'

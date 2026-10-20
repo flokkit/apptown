@@ -56,7 +56,7 @@ func resumeOn(t *testing.T, srv *httptest.Server, p deploy.Placement, probed *[]
 
 // A gated app runs on production data, so when it fails to deploy its
 // component's log, which can hold a row (a duplicate key names its
-// value), is not copied into the forge's log; the platform's own sentence
+// value), is not copied into AppTown's log; the platform's own sentence
 // for the failing step is kept. An ungated app's log tail still is, which
 // shows the test can see one.
 func TestGatedDeploymentFailureCopiesNoComponentLog(t *testing.T) {

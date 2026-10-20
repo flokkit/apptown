@@ -17,7 +17,7 @@ import (
 // Eligibility is a checked policy observation. Named/group/role expressions use
 // current facts, and unavailable facts never become an empty author or membership.
 // The command separately requires the capability and locks its Work snapshot.
-// Grants and memberships are judged live as of now, the forge's clock.
+// Grants and memberships are judged live as of now, AppTown's clock.
 func requireApprover(ctx context.Context, db database.Queryer, scope operationPermission, approvers []string, user string, voter ids.ID, now time.Time) error {
 	if base, _, ok := strings.Cut(user, " via "); ok {
 		user = base
@@ -42,7 +42,7 @@ func requireApprover(ctx context.Context, db database.Queryer, scope operationPe
 	}
 	// Independence compares people, not names: the opener's principal with
 	// the voter's. An opener not resolved to a person cannot be judged
-	// independent of anyone, unless it was the forge itself.
+	// independent of anyone, unless it was AppTown itself.
 	if independent && !scope.ChangeID.IsZero() {
 		switch {
 		case !policy.AuthorPrincipal.IsZero() && policy.AuthorPrincipal == voter:

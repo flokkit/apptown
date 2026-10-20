@@ -72,7 +72,7 @@ multiple Forge installations. This limitation does not alter access policy.
 
 Admission-to-run and enqueue-to-job correlation, change IDs, health/deployment
 spans and monetary cost are not implemented, and the dashboard does not filter
-by instance when several forges report to one backend.
+by instance when several AppTown installations report to one backend.
 
 Provider, gateway, observer and wiring tests cover export behaviour and settlement
 failure. Daemon tests cover flush ordering and shutdown bounds. Existing canary

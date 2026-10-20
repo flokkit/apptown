@@ -30,7 +30,7 @@ type repositoryPublisher struct {
 	secrets *secret.Service
 	db      *database.DB
 	dataDir string
-	now     func() time.Time // the forge's clock, which stamps a failed push's receipt
+	now     func() time.Time // AppTown's clock, which stamps a failed push's receipt
 }
 
 func (p repositoryPublisher) PushBranch(ctx context.Context, projectID ids.ID, repoDir, branch string) {

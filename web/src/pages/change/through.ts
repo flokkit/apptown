@@ -1,4 +1,4 @@
-// How an act came to the forge, in words, from the way of acting a vote
+// How an act came to AppTown, in words, from the way of acting a vote
 // records (access.Actor.Via: "token-cli:laptop", "session", …). Acting
 // directly says nothing more; a token is named, since a person's token may
 // be held by a coding agent and the name is the record's only trace of it.

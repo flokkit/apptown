@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/forge/integration"
 )
 
-// An integration's listed health says whether the forge checked it and
+// An integration's listed health says whether AppTown checked it and
 // when, by the server's clock; a kind with no check reads as not checked,
 // never as working.
 func TestIntegrationHealthSaysWhetherAndWhenItWasChecked(t *testing.T) {

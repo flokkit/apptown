@@ -32,7 +32,7 @@ type connectorHealth struct {
 	// pulls a scanner's image.
 	worker *execution.WorkerTasks
 	images verification.CheckImage
-	now    func() time.Time // the forge's clock, which dates a reading
+	now    func() time.Time // AppTown's clock, which dates a reading
 }
 
 func connectorHealthFor(a *App) connectorHealth {
@@ -41,7 +41,7 @@ func connectorHealthFor(a *App) connectorHealth {
 }
 
 // Health is an integration's reading: the kind's check, run now, or an
-// unchecked reading for a kind the forge has no check for.
+// unchecked reading for a kind AppTown has no check for.
 func (h connectorHealth) Health(ctx context.Context, capability, provider string, cfgSecretEnv []string) integration.Health {
 	return h.reading(h.check(ctx, capability, provider, cfgSecretEnv))
 }
@@ -95,7 +95,7 @@ func (h connectorHealth) check(ctx context.Context, capability, provider string,
 	case integration.CapExecutor, integration.CapDeploy:
 		if capability == integration.CapDeploy && provider != "docker" {
 			// Another provider's deploys (Portainer) are not Docker's:
-			// the forge's daemon says nothing about them.
+			// AppTown's daemon says nothing about them.
 			return integration.Health{}, false
 		}
 		if h.docker.Absent() {
@@ -124,7 +124,7 @@ func (h connectorHealth) check(ctx context.Context, capability, provider string,
 	return integration.Health{}, false
 }
 
-// onWorker is the executor's and Docker deploys' health on a forge with no
+// onWorker is the executor's and Docker deploys' health on an AppTown with no
 // Docker of its own: the worker reports the agent image, and Docker
 // deploys are as healthy as the attached Docker hosts they go to.
 func (h connectorHealth) onWorker(ctx context.Context, capability string) integration.Health {
@@ -171,7 +171,7 @@ func (h connectorHealth) test(ctx context.Context, capability, provider string, 
 
 // draftTested are the kinds whose Test connection asks the service with
 // the configuration given; any other kind's test is its live check. A kind
-// here may have no live check of its own (the forge does not call it on
+// here may have no live check of its own (AppTown does not call it on
 // every reading), and its page says Test connection asks it.
 var draftTested = map[string]bool{
 	digitalocean.CapCloudAccount: true, integration.CapErrors: true, integration.CapLLM: true,

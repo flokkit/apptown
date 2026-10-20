@@ -1,4 +1,4 @@
-# The forge's own images: the forge daemon (target "server", published as
+# AppTown's own images: AppTown daemon (target "server", published as
 # apptown) and the worker (target "worker"), laid out as the release archive
 # is (scripts/release.sh). Build from the repository root;
 # Dockerfile.dockerignore keeps the context to what the builds read:
@@ -26,7 +26,7 @@
 #       -v apptown:/var/lib/apptown ghcr.io/flokkit/apptown:<version>
 #
 # - server, as a server: APPTOWN_NO_LOCAL_DOCKER=true in its environment. A
-#   forge with no local Docker: it runs everything on a worker and needs an
+#   AppTown with no local Docker: it runs everything on a worker and needs an
 #   external database: APPTOWN_DB_URL, APPTOWN_WORKER_URL and the worker's
 #   certificates (APPTOWN_WORKER_CERT, _KEY, _CA), APPTOWN_AUTH and
 #   APPTOWN_PUBLIC_HOST; apptownd refuses to start without them (Running a

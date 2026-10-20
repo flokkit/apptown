@@ -11,7 +11,7 @@ import (
 // Host is the built-in Docker host (architecture.md §5.6, §11): the one
 // boot sequence every path runs (previews, landings, releases, rebuilds),
 // with what it needs of the world declared and supplied at construction.
-// A standalone tool builds one from its own values; forge builds one over
+// A standalone tool builds one from its own values; AppTown builds one over
 // its secrets broker, dependency catalog, registry connectors, attached
 // integrations and routes.
 type Host struct{ deps Dependencies }

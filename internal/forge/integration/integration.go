@@ -45,7 +45,7 @@ var (
 // Bindings is the supported API over the instance's bindings.
 type Bindings struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock, which stamps versions; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps versions; nil is the real one
 	// committed runs once a save's binding has committed, before its
 	// receipt: a test stops the caller there.
 	committed func()
@@ -284,7 +284,7 @@ func (s *Bindings) StockUpdate(ctx context.Context, name, configJSON string) (in
 }
 
 // Attachment is one row of project_integrations with what its binding
-// and its kind say, as stored text; forge decodes the kind.
+// and its kind say, as stored text; AppTown decodes the kind.
 type Attachment struct {
 	Capability, Binding, ResourceJSON, ConfigJSON, Provenance string
 	CreatedAt                                                 time.Time
@@ -324,7 +324,7 @@ type ServiceKind struct {
 // ServiceKinds is the supported API over service kinds.
 type ServiceKinds struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func NewServiceKinds(db *database.DB) *ServiceKinds { return &ServiceKinds{db: db} }
@@ -401,7 +401,7 @@ func canonJSON(s string) string {
 func sameJSON(a, b string) bool { return canonJSON(a) == canonJSON(b) }
 
 // Provenance says how a project's attachment came to be: entered by a
-// person, provisioned by the forge at the provider, or "" for an
+// person, provisioned by AppTown at the provider, or "" for an
 // engine-internal row (the SCM token cache) that is not an attachment.
 type Provenance string
 
@@ -415,7 +415,7 @@ var ErrNotAttached = errors.New("the project has no such integration")
 // Attachments is the supported API over a project's attachments.
 type Attachments struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func NewAttachments(db *database.DB) *Attachments { return &Attachments{db: db} }
@@ -444,7 +444,7 @@ func (s *Attachments) Attach(ctx context.Context, projectID ids.ID, capability, 
 }
 
 // Remember keeps an engine-internal row (no provenance): a resource the
-// forge holds for a project, replaced whole when it changes.
+// AppTown holds for a project, replaced whole when it changes.
 func (s *Attachments) Remember(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string) error {
 	if err := refusesIntegrations(ctx, s.db, projectID); err != nil {
 		return err

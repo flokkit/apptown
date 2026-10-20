@@ -4,7 +4,7 @@
 // flattened, and a type that encodes itself (a MarshalJSON) mapped to a
 // TypeScript type the caller names. It exists so a web client's types are
 // derived from the server's instead of kept in step by hand. Schemas writes
-// JSON Schema for the same values by the same rules, for the forge's API
+// JSON Schema for the same values by the same rules, for AppTown's API
 // description (stock/docs/api/openapi.json).
 package wiregen
 

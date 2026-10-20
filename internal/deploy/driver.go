@@ -89,7 +89,7 @@ type NeedFulfiller interface {
 }
 
 // Controls says what the target owns: when it controls liveness the
-// health controller steps back; when it controls rollout the forge waits
+// health controller steps back; when it controls rollout AppTown waits
 // on it rather than probing containers itself.
 type Controls struct {
 	Liveness bool
@@ -114,20 +114,20 @@ type Logf = func(string, ...any)
 
 // Driver is the desired-state contract every target kind implements
 // (deployment.md §2.4). The drivers live in the packages under this one
-// and implement it directly; forge registers them by kind.
+// and implement it directly; AppTown registers them by kind.
 type Driver interface {
 	// Reconcile brings the deployment to the artifact as the given
 	// generation. The same idempotency key is the same attempt; checkpoint
 	// records the provider's identifiers on the attempt as soon as they
 	// exist, so recovery can use them.
 	Reconcile(ctx context.Context, p Placement, generation int64, art Artifact, key string, log Logf, checkpoint Checkpoint) (Observation, error)
-	// Resume picks up an attempt the forge was interrupted in: given what
+	// Resume picks up an attempt AppTown was interrupted in: given what
 	// was noted, find out what the target did and finish the attempt,
 	// active, failed, or honestly unknown.
 	Resume(ctx context.Context, p Placement, generation int64, noted map[string]any, log Logf) (Observation, error)
 	Observe(ctx context.Context, p Placement) (Observation, error)
 	// Teardown removes exactly the recorded generation's deployment and
-	// deletes what the forge recorded creating for it (td.Owned): data
+	// deletes what AppTown recorded creating for it (td.Owned): data
 	// only when td.BackedUp says a final backup covers it. It never
 	// deletes what is not on the list. An error means the serving thing
 	// (container, app, stack, bucket) may still stand; anything else it
@@ -148,10 +148,10 @@ type Left struct {
 	Why    string
 }
 
-// Owned is one thing the forge created for a deployment at its target,
+// Owned is one thing AppTown created for a deployment at its target,
 // recorded when the provider confirmed the creation. Only these are ever
 // deleted at take-down: a matching name, label or mount is not evidence
-// the forge made something. Kind is the provider's word for it
+// AppTown made something. Kind is the provider's word for it
 // (container, network, volume, image, app, stack, bucket); ID is the
 // provider's identity of it, Name a readable one when that differs.
 // Data marks what holds data; Need names the need it serves, if any.
@@ -171,7 +171,7 @@ func (o Owned) Label() string {
 	return o.Kind + " " + o.ID
 }
 
-// Owner records, for one deployment, each thing the forge creates at its
+// Owner records, for one deployment, each thing AppTown creates at its
 // target, as soon as the provider confirms it. A driver that cannot
 // record a creation stops: what is not recorded is never deleted.
 type Owner interface {

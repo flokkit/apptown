@@ -91,7 +91,7 @@ func (a FollowUps) Abandon(ctx context.Context, key string, args map[string]any)
 
 // tellLandingEnded tells the chats of a change whose landing ended without
 // landing (main moved under it, a person stopped it or sent it back) why,
-// in the forge's words, which say what to do next. The change is back in
+// in AppTown's words, which say what to do next. The change is back in
 // progress and its chat may be the one that handed it over: told nothing,
 // change 61's chat went on saying its landing awaited approval. This job
 // runs once per ended run (one attempt), so each ending is told once; a
@@ -112,7 +112,7 @@ func (a FollowUps) tellLandingEnded(ctx context.Context, run *workflow.Run) erro
 	if err != nil {
 		return err
 	}
-	msg := fmt.Sprintf("[forge landing] This change's landing (run %d) ended without landing anything.", run.ID)
+	msg := fmt.Sprintf("[apptown landing] This change's landing (run %d) ended without landing anything.", run.ID)
 	if ended.Ending != "" {
 		msg = strings.TrimSuffix(msg, ".") + ": " + ended.Ending
 	}

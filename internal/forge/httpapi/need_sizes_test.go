@@ -48,7 +48,7 @@ func TestConfigValidationChecksSizesInEveryProfile(t *testing.T) {
 }
 
 // The contract check refuses a contract's needs as a release would: an
-// integration under needs: and a password the forge sets.
+// integration under needs: and a password AppTown sets.
 func TestConfigValidationRefusesNeedsAsDeclared(t *testing.T) {
 	h := configurationFixture(t)
 	for yaml, want := range map[string]string{
@@ -70,7 +70,7 @@ func TestConfigValidationRefusesNeedsAsDeclared(t *testing.T) {
 }
 
 // Both development modes give a need that keeps data a folder there (an
-// anonymous volume at the kind's data path), as the forge's own starts do:
+// anonymous volume at the kind's data path), as AppTown's own starts do:
 // S3's emulator exits at once without /data. A need with none gets none.
 func TestBothDevComposeModesGiveANeedItsDataFolder(t *testing.T) {
 	h := configurationFixture(t)

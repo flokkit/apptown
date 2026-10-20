@@ -20,10 +20,10 @@ import (
 	"flokkit.io/forge/internal/gitexec"
 )
 
-// SessionClient is the forge's side of a worker's sessions. Its client must
+// SessionClient is AppTown's side of a worker's sessions. Its client must
 // present the installation's certificate.
 //
-// An answer the forge cannot get or read is execution.ErrWorkerUnavailable:
+// An answer AppTown cannot get or read is execution.ErrWorkerUnavailable:
 // what the worker holds is then unknown, never absent. Only the worker's own
 // answer says a session is gone (SessionStatus.Gone) or unknown to it.
 type SessionClient struct {

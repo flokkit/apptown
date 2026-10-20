@@ -15,7 +15,7 @@
 # Then: the agent image is present in /setup, a container on the trial's
 # Docker gets the memory and process limits it asks for, and a project from a
 # one-page app gets a change whose preview the host fetches at the address
-# the forge reports. No model key: a chat and an agent-made app are checked
+# AppTown reports. No model key: a chat and an agent-made app are checked
 # by hand. Each step's time is printed, the first and second start's
 # included. The trial's container and volume are removed at the end;
 # nothing else is touched. PORT (default 7777) is the host port.

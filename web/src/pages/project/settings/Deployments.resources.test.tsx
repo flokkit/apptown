@@ -20,7 +20,7 @@ const render = (res: Partial<DeploymentResources>, choice?: Partial<ProjectSecre
 
 describe("a deployment's resources", () => {
   it('shows App Platform declarations with the size they run on, never as no limit', () => {
-    const html = render({ parts: [{ part: 'web', public: true, memory: '768M declared', cpu: 'not declared', runsOn: 'apps-s-1vcpu-1gb-fixed (1G, 1 CPU)', overrideApplied: false, observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'its target does not report memory use to the forge' } }] })
+    const html = render({ parts: [{ part: 'web', public: true, memory: '768M declared', cpu: 'not declared', runsOn: 'apps-s-1vcpu-1gb-fixed (1G, 1 CPU)', overrideApplied: false, observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'its target does not report memory use to AppTown' } }] })
     expect(html).toContain('768M declared')
     expect(html).toContain('apps-s-1vcpu-1gb-fixed (1G, 1 CPU)')
     expect(html).not.toContain('no limit')
@@ -70,8 +70,8 @@ describe("a deployment's resources", () => {
     expect(html).toContain('exited, once in the last day')
     expect(html).not.toContain('restarted')
     expect(render({})).toContain('no out-of-memory kills or exits recorded in the last day')
-    const unreported = render({ limitsKnown: false, limitsSource: 'App Platform does not report them to the forge' })
-    expect(unreported).toContain('App Platform does not report them to the forge')
+    const unreported = render({ limitsKnown: false, limitsSource: 'App Platform does not report them to AppTown' })
+    expect(unreported).toContain('App Platform does not report them to AppTown')
     expect(unreported).not.toContain('no out-of-memory kills')
   })
   it('shows the recorded default source and explicit unlimited act separately', () => {

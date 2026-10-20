@@ -25,7 +25,7 @@ import (
 // reads the same key; a settled, cancelled or superseded attempt, a disabled
 // owner, a read failure or a token whose MAC does not hold opens neither.
 //
-// One forge holds every scenario. Those that change nothing (a bad MAC, a
+// One AppTown holds every scenario. Those that change nothing (a bad MAC, a
 // read failure) share one live run; each that ends an attempt or a run has
 // its own; the disabled owner, which closes every door, comes last.
 func TestStepRuntimeTokenOpensBothDoorsOnlyWhileItsAttemptIsLive(t *testing.T) {
@@ -193,7 +193,7 @@ func TestStepRuntimeTokenOpensBothDoorsOnlyWhileItsAttemptIsLive(t *testing.T) {
 			if scenario == "still live" {
 				return
 			}
-			// A restarted forge reads the same key: the attempt keeps its token
+			// A restarted AppTown reads the same key: the attempt keeps its token
 			// and both doors still open for it.
 			restarted := newApp(t, a.DB, Config{DataDir: a.cfg.dataDir, AuthMode: "internal"})
 			restarted.Work.Stop()

@@ -111,7 +111,7 @@ type TaskSource struct {
 // already contained in the published branch; its commits are then fetched
 // into the hub under a private ref (hardened). Otherwise the task works
 // from the published tip. A task is never given, or refused for, a folder
-// older than the branch. No Git runs in a folder the forge refuses
+// older than the branch. No Git runs in a folder AppTown refuses
 // (gitexec.CheckFolder), and nothing is fetched from it. The caller
 // publishes (Publish) or discards (Discard) what is proposed.
 func ProposeTaskSource(ctx context.Context, dataDir string, source workflow.Source) (TaskSource, error) {

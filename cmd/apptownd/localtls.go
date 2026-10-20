@@ -18,7 +18,7 @@ import (
 const localTLSDir = "local-tls"
 
 // localTLS loads the authority under -local-tls: the main listener's
-// wrapper and what chats need to trust it and reach this forge's HTTPS
+// wrapper and what chats need to trust it and reach this AppTown's HTTPS
 // addresses. Both nil when off. The public origin must be https: the
 // session cookie, the origins apps are given and the forwarded scheme all
 // follow it, and they must agree with the listener.

@@ -1,19 +1,19 @@
 import { PRODUCT } from './brand'
 import type { DocLinks } from './wire.gen'
 
-// Live links: a shipped guide writes {forge:mcp} where this forge's own
-// address belongs, and the Docs page shows the address. The forge sends the
+// Live links: a shipped guide writes {apptown:mcp} where this AppTown's own
+// address belongs, and the Docs page shows the address. AppTown sends the
 // values with the guide (DocLinks: its field names are the whole
 // vocabulary); this file only places them, after the markdown is rendered,
 // because only then is it known whether a placeholder sits in prose (where
 // it becomes a link) or in code (where it stays text to copy).
 //
-// A forge that was not told its public address sends no URLs. The page then
-// says "your forge's address" in words, never a link to a guessed address.
+// An AppTown that was not told its public address sends no URLs. The page then
+// says "your AppTown's address" in words, never a link to a guessed address.
 // An unknown name is left as written; docsLinks.test.ts fails on it, so a
 // typo cannot ship.
 
-export const livePlaceholder = /\{forge:([a-z-]+)\}/g
+export const livePlaceholder = /\{apptown:([a-z-]+)\}/g
 
 const unknownAddress = `${PRODUCT}'s address`
 
@@ -22,13 +22,13 @@ function isName(links: DocLinks, name: string): name is keyof DocLinks {
 }
 
 // fillLiveLinks replaces each known placeholder under root with this
-// forge's address.
+// AppTown's address.
 export function fillLiveLinks(root: HTMLElement, links: DocLinks): void {
   const doc = root.ownerDocument
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   const texts: Text[] = []
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    if ((n.nodeValue ?? '').includes('{forge:')) texts.push(n as Text)
+    if ((n.nodeValue ?? '').includes('{apptown:')) texts.push(n as Text)
   }
   for (const text of texts) {
     const parent = text.parentElement

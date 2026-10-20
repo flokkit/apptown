@@ -223,7 +223,7 @@ type Catalog struct {
 	db        *database.DB
 	secrets   *secret.Service
 	discovery *inferenceDiscovery
-	// Now is the forge's clock, which ages the discovery cache; nil is the
+	// Now is AppTown's clock, which ages the discovery cache; nil is the
 	// real one.
 	Now func() time.Time
 }

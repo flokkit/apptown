@@ -101,7 +101,7 @@ func TestTheMemoryProbesSayWhatAnswersThem(t *testing.T) {
 	if got := check.JudgedWhere(declared); got != "at landing and in every review" {
 		t.Errorf("memory-declared is judged: %q", got)
 	}
-	// Only the forge holds the contract and the deployment record: the
+	// Only AppTown holds the contract and the deployment record: the
 	// library's own judge says so, and never probes an app for either.
 	j := &check.Judge{Probe: check.ProberFunc(func(context.Context, string) (int, error) {
 		t.Error("a memory probe reached the app")

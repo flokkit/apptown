@@ -10,14 +10,14 @@ import (
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
-// Composition: what Deployment asks of the world, supplied by forge once
+// Composition: what Deployment asks of the world, supplied by AppTown once
 // at construction (architecture.md §5.6, §7). Drivers receive their own
 // operations; neither App nor a raw database is an escape hatch.
 func (a *App) deploymentDependencies(changes workflow.Changes) deployment.Dependencies {
 	authority := access.Checked{Authority: a.Access, Projects: a.Projects}
 	sources := projectSources{projects: a.Projects, dataDir: a.cfg.dataDir}
 	return deployment.Dependencies{
-		// The forge's one clock, the one project deletion reads too: an
+		// AppTown's one clock, the one project deletion reads too: an
 		// orphaned copy's age is its taking against the deletion's.
 		Now:           a.cfg.clock.Now,
 		Authority:     authority,
@@ -68,7 +68,7 @@ func (dockerHostNames) Service(project, deployment, need string) string {
 	return docker.ServiceName(docker.StackID(project, deployment), need)
 }
 
-// hostSettings are this forge's Docker settings, which Deployment and
+// hostSettings are this AppTown's Docker settings, which Deployment and
 // Preview reach daemons with.
 func hostSettingsFor(a *App) deployment.HostSettings {
 	return deployment.HostSettings{Scope: a.docker, DataDir: a.cfg.dataDir, SSHConfigPath: a.cfg.sshConfigPath,

@@ -36,7 +36,7 @@ needs:
   llm: {limit: 3, limitReset: monthly}
 `
 
-// withLLM gives s a forge that holds an OpenRouter provisioning key, an AI
+// withLLM gives s an AppTown that holds an OpenRouter provisioning key, an AI
 // models connector on a fake OpenRouter, and the stock dependency kinds;
 // attached says whether the project attached AI models.
 func withLLM(t *testing.T, s *Service, projectID ids.ID, attached bool) *openrouterfake.Server {
@@ -188,7 +188,7 @@ func TestADeploymentWithoutTheAttachmentGetsNoKeyAndDoesNotBoot(t *testing.T) {
 // Error reporting is an integration: its DSN arrives from the attachment,
 // with no need declared, alone or beside an AI models key, and an app with
 // no AI models need makes no OpenRouter call. Declaring it under needs: is
-// refused (dependency.RefusesNeeds). A register adapter the forge does not
+// refused (dependency.RefusesNeeds). A register adapter AppTown does not
 // run refuses.
 func TestAttachedErrorReportingStillArrivesBesideAKey(t *testing.T) {
 	t.Parallel()

@@ -75,7 +75,7 @@ export type AgentEvidence = EvidenceBase & {
 }
 export type ReviewEvidence = AgentEvidence & {
   verdict?: string; summary?: string; findings?: string[]; reviewedReport?: string
-  // Set when the forge's own file check failed a review the model passed:
+  // Set when AppTown's own file check failed a review the model passed:
   // the model's own verdict and summary, kept apart from the step's.
   reviewerVerdict?: string; reviewerSummary?: string
 }
@@ -300,7 +300,7 @@ export async function openAfter(fetchUrl: () => Promise<string>): Promise<void> 
     tab.document.write('<title>starting…</title><body style="font:16px system-ui;background:#F6F4EE;color:#1C1B18;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">Starting the app…</body>')
   }
   try {
-    // An empty answer is a place no tab can open (an address on the forge
+    // An empty answer is a place no tab can open (an address on AppTown
     // host only): the waiting tab closes and the page says where it is.
     const url = await fetchUrl()
     if (!url) tab?.close()

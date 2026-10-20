@@ -54,7 +54,7 @@
 //
 // # Instance secrets
 //
-// The forge's own credentials (a target's API token, an SSH key, a registry
+// AppTown's own credentials (a target's API token, an SSH key, a registry
 // password) are named by targets and connectors and read by runtime lookup.
 // [Service.SetInstance] and [Service.RemoveInstance] are the write-only door
 // to the bootstrap file for them: the caller authorizes an administrator, the

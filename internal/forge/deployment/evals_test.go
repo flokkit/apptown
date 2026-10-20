@@ -18,7 +18,7 @@ import (
 	"flokkit.io/forge/internal/forge/secret"
 )
 
-// A copy goes only on an eval target: this forge's own host when it has an
+// A copy goes only on an eval target: this AppTown's own host when it has an
 // eval domain, or a Docker host attached for evals; never an ordinary
 // attached host or a provider's platform. Nothing else goes on a host
 // attached for evals. A copy's landing creates its deployment on the eval
@@ -134,7 +134,7 @@ func TestAnAttachedDockerHostIsKeptForEvalsByAnEdit(t *testing.T) {
 }
 
 // A copy's landing with the usual offered registry attaches nothing: it
-// publishes under the copy's own repository with the forge's credential.
+// publishes under the copy's own repository with AppTown's credential.
 func TestACopysLandingPublishesUnderItsOwnRepositoryAndAttachesNothing(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
@@ -155,7 +155,7 @@ func TestACopysLandingPublishesUnderItsOwnRepositoryAndAttachesNothing(t *testin
 	}
 }
 
-// The forge's credential for a copy's own repository reaches that
+// AppTown's credential for a copy's own repository reaches that
 // repository only: an image the copy's code names is read with no
 // credential as it is published, however it is named, while an ordinary
 // project's own-registry image is read with its credential.

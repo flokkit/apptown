@@ -40,7 +40,7 @@ type Scanners struct {
 	clock        func() time.Time
 }
 
-// now reads the forge's clock.
+// now reads AppTown's clock.
 func (s *Scanners) now() time.Time { return clock.Or(s.clock)() }
 
 type ScannerDependencies struct {
@@ -52,7 +52,7 @@ type ScannerDependencies struct {
 	Integrations *integration.Service
 	Deployments  *deployment.Deployments
 	Dependencies *dependency.Catalog
-	Now          func() time.Time // the forge's clock; nil is the real one
+	Now          func() time.Time // AppTown's clock; nil is the real one
 }
 
 // NewScanners binds scanner execution and image preparation to their owners.
@@ -170,12 +170,12 @@ func (s *Scanners) toolJudge(ctx context.Context, tool, bindingName string, m ch
 	return j
 }
 
-// evalToolCheck evaluates one tool check and says what the forge calls its
+// evalToolCheck evaluates one tool check and says what AppTown calls its
 // outcome: pass, fail, error, skipped (nothing to judge with) or excepted (a
 // person has already excused everything the tool found). The evaluation it
-// returns is the receipt's shape; the word is the forge's.
+// returns is the receipt's shape; the word is AppTown's.
 //
-// What the forge adds around the library's judgement is here: the binding a
+// What AppTown adds around the library's judgement is here: the binding a
 // name resolves to, the app image an exec-image check runs inside, the
 // environment it runs with, and the dispositions.
 //
@@ -183,7 +183,7 @@ func (s *Scanners) toolJudge(ctx context.Context, tool, bindingName string, m ch
 // the detail keeps the findings underneath, and exceptedBy names the exception
 // (design/subsystems/conformance-surface.md §9) — never folded into pass.
 func (s *Scanners) evalToolCheck(ctx context.Context, sc conformance.DeclaredCheck, tc ToolContext, namePrefix string) (ev check.Evaluation, verdict workflow.CheckVerdict, exceptedBy string) {
-	// An evaluation the forge itself made, for what it could settle before
+	// An evaluation AppTown itself made, for what it could settle before
 	// the judge was asked.
 	forgeSays := func(outcome check.Outcome, detail string) check.Evaluation {
 		return check.Evaluation{Declared: sc.Declared(), Mode: check.Gate, Outcome: outcome, Detail: detail}

@@ -12,7 +12,7 @@ import (
 // cmdPreview boots or reuses a change's preview and prints its address:
 // the change named, or inside a change chat THIS chat's change, with the
 // address the chat's container can reach. Outside a chat it once refused,
-// though the forge previews any change on request (sweep 7).
+// though AppTown previews any change on request (sweep 7).
 func cmdPreview(args []string) error {
 	if len(args) > 0 {
 		if err := changeArg(args, ""); err != nil {

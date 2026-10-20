@@ -98,7 +98,7 @@ func TestResolveWalksMostSpecificFirst(t *testing.T) {
 	}
 }
 
-// Setting a slot takes one reading of the forge's clock for the cell and
+// Setting a slot takes one reading of AppTown's clock for the cell and
 // its receipt: on a clock that moves on a second at every reading, the
 // receipt carries the reading the operation took, not a later one.
 func TestASlotsReceiptCarriesItsCellsTime(t *testing.T) {

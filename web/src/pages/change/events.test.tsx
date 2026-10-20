@@ -11,7 +11,7 @@ const RUN = '00000000-0007-7000-8000-000000000000'
 const EVENT = '00000000-0001-7000-8000-000000000000'
 
 describe('eventSentence', () => {
-  it('says the forge merged main into the change', () => {
+  it('says AppTown merged main into the change', () => {
     expect(eventSentence({ kind: 'main.merged', payload: { by: 'forge', step: 'rework', mainBranch: 'main', main: 'abcdef0123456789', sha: '0123456789abcdef' } }))
       .toBe('AppTown merged main (abcdef01) into this change before step rework, as commit 01234567.')
   })
@@ -24,9 +24,9 @@ describe('eventSentence', () => {
   })
 })
 
-// The change's history says the forge's merge of main in plain words.
+// The change's history says AppTown's merge of main in plain words.
 describe('the change history', () => {
-  it('shows the forge merging main as a sentence', () => {
+  it('shows AppTown merging main as a sentence', () => {
     const view = { runs: [], detail: { run: { id: RUN, number: 7 }, events: [
       { id: EVENT, runId: RUN, at: '2026-10-03T09:00:00Z', kind: 'main.merged', payload: { by: 'forge', step: 'rework', mainBranch: 'main', main: 'abcdef0123456789', sha: '0123456789abcdef' } },
     ] } } as unknown as ChangeView

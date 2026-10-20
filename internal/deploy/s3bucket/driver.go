@@ -2,7 +2,7 @@
 // to a bucket of an S3-compatible store (DigitalOcean Spaces first) and
 // served from the bucket's website address
 // (design/subsystems/deploy-targets.md, "Bucket websites"). Each standing deployment
-// owns one bucket the forge created; take-down empties and deletes it.
+// owns one bucket AppTown created; take-down empties and deletes it.
 package s3bucket
 
 import (
@@ -41,7 +41,7 @@ type Dependencies struct {
 	// Client resolves the key pair for one operation.
 	Client func(context.Context) (*Client, Config, error)
 	Slug   string // the project, for naming the bucket
-	// Own records a bucket the forge just created on the deployment, before
+	// Own records a bucket AppTown just created on the deployment, before
 	// any other call touches it. Until it is recorded the bucket is not
 	// the deployment's, and nothing is written to it.
 	Own func(bucket string) error
@@ -253,7 +253,7 @@ func (d *Driver) create(ctx context.Context, c *Client, deployment string, logf 
 
 // clean removes, one release late, every object in neither this set nor
 // the previous one. Listing is safe: the bucket is the deployment's, and
-// only the forge writes there. A failure leaves files until the next
+// only AppTown writes there. A failure leaves files until the next
 // release's clean-up; the release stands.
 func (d *Driver) clean(ctx context.Context, c *Client, bucket string, current, previous []string, logf func(string, ...any)) {
 	keep := map[string]bool{}
@@ -347,7 +347,7 @@ func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 // bucket, then witnesses that the address answers 404. Whatever is left,
 // or a withdrawal it could not see, is named, with the site maybe public.
 // The bucket is the deployment's because its handle records it, which only
-// the forge's own create does (Dependencies.Own): that record is the
+// AppTown's own create does (Dependencies.Own): that record is the
 // deployment's list for this target, so td.Owned is not read. A static
 // site holds no data, so there is nothing to back up.
 func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation int64, _ deploy.TakeDown) (deploy.TakenDown, error) {

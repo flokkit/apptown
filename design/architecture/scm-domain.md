@@ -64,7 +64,7 @@ Work command/query API still needs its own complete authority boundary before
 Work can be extracted. Existing transport authorization remains in force.
 
 The three-operation `Driver` port prepares external facts, executes admitted
-work, and inspects an old operation. The Forge Git/GitLab adapter receives a
+work, and inspects an old operation. AppTown Git/GitLab adapter receives a
 process runner and one provider-client factory. It receives no App or database.
 Provider credentials are frozen for one operation, and the askpass helper is
 published atomically for concurrent project operations.

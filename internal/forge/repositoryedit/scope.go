@@ -47,7 +47,7 @@ var dependencyFiles = map[string]bool{
 // entry to a JSON object counts). A remediation may add a package the fix
 // needs (an admin page that needs whitenoise, say); it may not bump, replace or remove what was already there. Ignored is
 // true when the repository's own ignore rules cover the path: build output
-// or forge runtime files the project itself declared not to be source.
+// or AppTown runtime files the project itself declared not to be source.
 type ChangedFile struct {
 	Path     string
 	Additive bool
@@ -57,7 +57,7 @@ type ChangedFile struct {
 
 // IgnoredChanges lists the files a change committed that the repository
 // ignores. What counts as build output depends on the language and the
-// tools, so the forge holds no list of folder names: the project's
+// tools, so AppTown holds no list of folder names: the project's
 // .gitignore is the declaration and git's matcher is the reference (a
 // tracked target/ can be in the project's own .gitignore).
 // This holds for every change, not only remediations.
@@ -400,7 +400,7 @@ var reportArtifacts = map[string]bool{".apptown/CHANGE.md": true, ".apptown/REPO
 	".forge/CHANGE.md": true, ".forge/REPORT.md": true, ".forge/VERIFY.md": true, ".forge/review.json": true}
 
 // ReportArtifact reports whether path is one of the files a lane asks the
-// agent to write as its report: prose the forge collects, never the agent's
+// agent to write as its report: prose AppTown collects, never the agent's
 // runtime state.
 func ReportArtifact(path string) bool { return reportArtifacts[path] }
 

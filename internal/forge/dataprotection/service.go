@@ -43,7 +43,7 @@ type core struct {
 	// deployment runs declares, and a restored copy's release.
 	sources deployment.ReleaseSources
 	dataDir string
-	// clock is the forge's clock: every time a rule stores and later
+	// clock is AppTown's clock: every time a rule stores and later
 	// judges (copy freshness, drills due, restored copies' expiry) is
 	// written and read by it, so a test can set it. nil is the real clock.
 	clock func() time.Time
@@ -52,13 +52,13 @@ type core struct {
 	hostScope func(context.Context, *deployment.Target) (docker.Scope, error)
 }
 
-// now reads the forge's clock.
+// now reads AppTown's clock.
 func (s *core) now() time.Time { return clock.Or(s.clock)() }
 
-// manifest is a set's manifest: its record, naming the forge that took it.
+// manifest is a set's manifest: its record, naming AppTown that took it.
 // BackupManifestFormat and BackupManifestVersion name the manifest a set
-// carries beside its copies. The forge reads its records, not the manifest;
-// the manifest is for a person or a tool holding the set without the forge,
+// carries beside its copies. AppTown reads its records, not the manifest;
+// the manifest is for a person or a tool holding the set without AppTown,
 // so it says what it is and where the set lives relative to its root.
 const (
 	BackupManifestFormat  = "flokkit.backup-set"
@@ -67,7 +67,7 @@ const (
 
 // backupManifest is a set's record as written beside its copies: the record's
 // fields, its format and version, and its path relative to the set's root
-// (the data directory's backups/ for a set on the forge's disk, the bucket for
+// (the data directory's backups/ for a set on AppTown's disk, the bucket for
 // a set in the backup store), never a path on this machine.
 type backupManifest struct {
 	Format  string `json:"format"`
@@ -103,13 +103,13 @@ type StarterDependencies struct {
 	// Catalog is the dependency catalog: each kind's copy, import and verify.
 	Catalog *dependency.Catalog
 	// Deployments is Deployment's records (the instance Deployment uses,
-	// with the forge's clock): a deployment's bucket is on its owned list.
+	// with AppTown's clock): a deployment's bucket is on its owned list.
 	Deployments *deployment.Deployments
 	// Sources reads a release's source and contract (what a deployment's
 	// running release declares; a restored copy's release).
 	Sources deployment.ReleaseSources
 	Secrets *secret.Service
-	// DataDir is the forge's data directory: sets on its disk and copies
+	// DataDir is AppTown's data directory: sets on its disk and copies
 	// staged on their way to and from the store are under it.
 	DataDir string
 	Now     func() time.Time

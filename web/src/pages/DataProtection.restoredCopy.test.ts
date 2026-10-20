@@ -27,7 +27,7 @@ describe('the restore test line', () => {
     expect(restoreTestLine({ ...base, outcome: '', endDetail: 'nothing was made' })).toContain('nothing was made')
     expect(restoreTestLine(null, 'never tested on its platform')).toBe('last restore test: never tested on its platform')
   })
-  it("says the forge's check of the gate, and each check that failed", () => {
+  it("says AppTown's check of the gate, and each check that failed", () => {
     const gate = [
       { name: 'refuses a request with no token', path: '/', status: 404, passed: true },
       { name: 'refuses that ticket a second time', path: '/_apptown/enter', status: 303, passed: false },

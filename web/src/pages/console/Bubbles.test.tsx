@@ -66,7 +66,7 @@ describe('a chat the reader may only look at', () => {
   })
 })
 
-// The conversation is the forge's record, read like any other: still on its
+// The conversation is AppTown's record, read like any other: still on its
 // way, unreadable, empty and old each look different, and a failed read is
 // never shown as an empty chat with its starters.
 describe('the conversation as read', () => {

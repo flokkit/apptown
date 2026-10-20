@@ -41,7 +41,7 @@ type ReleaseListed struct {
 	// "not serving" (deployment.ObserveContainer).
 	Observed string `json:"observed,omitempty"`
 	Reason   string `json:"reason,omitempty"`
-	// SbomArtifact: the software bill of materials the forge produced
+	// SbomArtifact: the software bill of materials AppTown produced
 	// last before this release was cut (syft at the landing's source
 	// scan) — evidence of what shipped, one click from the release.
 	SbomArtifact ids.ID `json:"sbomArtifact,omitzero"`

@@ -125,7 +125,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 		return Result{}, err
 	}
 	// Once the preview serves this tree, no container mounts another
-	// snapshot of the change's history, and the forge records what it
+	// snapshot of the change's history, and AppTown records what it
 	// serves.
 	defer func() {
 		if err == nil {
@@ -231,7 +231,7 @@ func (s *Service) recordPreview(ctx context.Context, projectID, changeID ids.ID,
 // DiscardChangePreview is the trusted completion/cleanup participant. It drops
 // only this change's disposable stack and transient inventory row. A removal
 // that is not confirmed is an error: the caller's job tries again, and the
-// row and the forge's record stay until it succeeds.
+// row and AppTown's record stay until it succeeds.
 func (s *Service) DiscardChangePreview(ctx context.Context, changeID ids.ID) error {
 	if err := s.discardChangePreview(ctx, changeID); err != nil {
 		return fmt.Errorf("removing change %d's preview: %w", changeID, err)
@@ -239,7 +239,7 @@ func (s *Service) DiscardChangePreview(ctx context.Context, changeID ids.ID) err
 	return nil
 }
 
-// discardChangePreview is the forge deciding it no longer wants the
+// discardChangePreview is AppTown deciding it no longer wants the
 // change's preview: the decision is counted, so a boot already under way
 // keeps no record, and the preview is removed.
 func (s *Service) discardChangePreview(ctx context.Context, changeID ids.ID) error {
@@ -252,14 +252,14 @@ func (s *Service) discardChangePreview(ctx context.Context, changeID ids.ID) err
 // earlier preview uses it: that is not a discard.
 func (s *Service) removeChangePreview(ctx context.Context, changeID ids.ID) error {
 	name := docker.PreviewChangeName(changeID)
-	// The forge no longer keeps it, whether or not the worker confirms its
+	// AppTown no longer keeps it, whether or not the worker confirms its
 	// removal now: a reconciliation removes it later if not.
 	s.forgetServed(name)
 	var err error
 	if s.PreviewsOnWorker() {
 		err = s.removeOnWorker(ctx, name)
 	} else {
-		// The forge has decided: the local removal is a clean-up, finished
+		// AppTown has decided: the local removal is a clean-up, finished
 		// though the caller stops.
 		err = docker.RemovePreview(context.WithoutCancel(ctx), s.hosts.Local(), name, docker.ChangeStackID(changeID))
 	}
@@ -273,7 +273,7 @@ func (s *Service) removeChangePreview(ctx context.Context, changeID ids.ID) erro
 }
 
 // servedIncarnation is the incarnation a preview container says it serves
-// (its forge.incarnation label); "" for none, or a container without one.
+// (its AppTown.incarnation label); "" for none, or a container without one.
 func (s *Service) servedIncarnation(ctx context.Context, name string) string {
 	return strings.TrimSpace(s.hosts.Local().Text(ctx, "inspect", "-f", `{{index .Config.Labels "`+dockerlabel.Incarnation+`"}}`, name))
 }

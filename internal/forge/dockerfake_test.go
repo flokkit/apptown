@@ -41,7 +41,7 @@ type fakeDocker struct {
 	reply func(args []string) (out string, err error, ok bool)
 	port  int // what `docker port` reports for any started container
 	// told, when set, keeps the last release identity a `run` gave a
-	// static part (APPTOWN_RELEASE): what the forge's file server answers at
+	// static part (APPTOWN_RELEASE): what AppTown's file server answers at
 	// /_apptown/release. Daemons that share one front door share it.
 	told *atomic.Pointer[string]
 }
@@ -80,7 +80,7 @@ func (f *fakeDocker) markStarted(name string) {
 	f.mu.Unlock()
 }
 
-// markStartedAs pretends a service is up, started from svc as the forge
+// markStartedAs pretends a service is up, started from svc as AppTown
 // starts it: Docker reports its entrypoint and command.
 func (f *fakeDocker) markStartedAs(name string, svc deploy.ServiceSpec) {
 	f.mu.Lock()
@@ -95,7 +95,7 @@ func (f *fakeDocker) markStartedAs(name string, svc deploy.ServiceSpec) {
 }
 
 // markStartedWithBrowser pretends a static part is up, started with these
-// browser values (a JSON object, as the forge passes them).
+// browser values (a JSON object, as AppTown passes them).
 func (f *fakeDocker) markStartedWithBrowser(name, values string) {
 	f.mu.Lock()
 	f.started[name] = true
@@ -142,7 +142,7 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 					f.entry = map[string][2][]string{}
 				}
 				delete(f.entry, n)
-				// The forge names the image right after --entrypoint: what
+				// AppTown names the image right after --entrypoint: what
 				// follows it is the container's Cmd.
 				for i := range args {
 					if args[i] == "--entrypoint" && i+2 < len(args) {

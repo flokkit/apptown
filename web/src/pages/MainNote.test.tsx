@@ -20,8 +20,8 @@ function render(main: Parameters<typeof MainNote>[0]['main']) {
 it('shows the main note only when main differs from its record', () => {
   expect(render({ state: 'recorded' })).toBe('')
   expect(render(null)).toBe('')
-  expect(render({ state: 'ahead', ahead: 2, note: "main is 2 commits ahead of the forge's record at abc1234" }))
-    .toBe("Main is 2 commits ahead of the forge's record at abc1234.")
-  expect(render({ state: 'recorded', upstream: { known: true, ahead: 1, note: "last fetched upstream has 1 commit the forge's record does not" } }))
-    .toBe("Last fetched upstream has 1 commit the forge's record does not.")
+  expect(render({ state: 'ahead', ahead: 2, note: "main is 2 commits ahead of AppTown's record at abc1234" }))
+    .toBe("Main is 2 commits ahead of AppTown's record at abc1234.")
+  expect(render({ state: 'recorded', upstream: { known: true, ahead: 1, note: "last fetched upstream has 1 commit AppTown's record does not" } }))
+    .toBe("Last fetched upstream has 1 commit AppTown's record does not.")
 })

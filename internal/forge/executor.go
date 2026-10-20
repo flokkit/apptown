@@ -23,7 +23,7 @@ type ExecRequest = execution.Request
 type ExecOutcome = execution.Outcome
 
 // DockerAvailable pings the daemon once; used for a friendly startup warning.
-// A forge with no local Docker has none to ping.
+// An AppTown with no local Docker has none to ping.
 func (a *App) DockerAvailable(ctx context.Context) bool {
 	if a.docker.Absent() {
 		return false

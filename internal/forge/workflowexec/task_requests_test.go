@@ -88,7 +88,7 @@ func (d *recordingDriver) record() (sent [][]byte, ids []string, releases int) {
 	return append([][]byte{}, d.sent...), append([]string{}, d.ids...), d.releases
 }
 
-// keptRequest is the task request the forge kept for an operation, as the
+// keptRequest is the task request AppTown kept for an operation, as the
 // bytes it keeps, or nil when none is kept.
 func keptRequest(t *testing.T, a *taskForge, operation string) []byte {
 	t.Helper()
@@ -114,7 +114,7 @@ func keptRequest(t *testing.T, a *taskForge, operation string) []byte {
 	return kept.Task
 }
 
-// A restarted forge sends the request the task was admitted with, byte for
+// A restarted AppTown sends the request the task was admitted with, byte for
 // byte, not one rebuilt from its settings now: here the default image
 // changed while it was down. The task runs once, on the admitted image, and
 // its kept request is removed once it is released.
@@ -188,7 +188,7 @@ func TestLostEnsureAndStartRepliesMakeOneTask(t *testing.T) {
 }
 
 // A release the backend does not confirm leaves the settled attempt
-// unreleased, with its request kept; the forge's release pass tries it again
+// unreleased, with its request kept; AppTown's release pass tries it again
 // until the backend confirms, records that, and then never again.
 func TestAFailedReleaseIsTriedAgainUntilConfirmed(t *testing.T) {
 	t.Parallel()
@@ -243,7 +243,7 @@ func TestAFailedReleaseIsTriedAgainUntilConfirmed(t *testing.T) {
 }
 
 // A task recorded before requests were kept has none: recovery rebuilds its
-// request and, when the forge's settings changed since, refuses it instead
+// request and, when AppTown's settings changed since, refuses it instead
 // of running something other than what was admitted.
 func TestATaskWithoutAKeptRequestIsRefusedWhenItsRequestChanged(t *testing.T) {
 	t.Parallel()
@@ -253,7 +253,7 @@ func TestATaskWithoutAKeptRequestIsRefusedWhenItsRequestChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := taskKeyOf(step)
-	// Made as an earlier forge left it: the record without a kept request.
+	// Made as an earlier AppTown left it: the record without a kept request.
 	if err := os.RemoveAll(filepath.Join(a.dir, "tasks", key)); err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ func TestAReleasePassLeavesAnotherRequestsTaskUnderTheKey(t *testing.T) {
 // A worker's refusal of a request is acted on by its code, never its
 // status: a request it cannot run, or another request's under the key, was
 // refused with nothing made, and the attempt is settled as refused; a
-// refusal whose code the forge does not know leaves the attempt's outcome
+// refusal whose code AppTown does not know leaves the attempt's outcome
 // unknown, never refused, on a 409 as on a 422.
 func TestAWorkerRefusalIsSettledByItsCode(t *testing.T) {
 	t.Parallel()

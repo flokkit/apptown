@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS inference_requests (
   finished_at TIMESTAMPTZ,
   kind TEXT NOT NULL,
   actor TEXT NOT NULL,
-  -- The caller's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The caller's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   project_id UUID,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS token_usage (
   workflow_version BIGINT NOT NULL DEFAULT 0,
   session_id       TEXT NOT NULL DEFAULT '',
   actor            TEXT NOT NULL DEFAULT '',
-  -- The spender's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The spender's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   provider         TEXT NOT NULL DEFAULT '',
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS token_usage (
   cost_micros      BIGINT NOT NULL DEFAULT 0,
   observation      TEXT NOT NULL DEFAULT '',
   incomplete       TEXT NOT NULL DEFAULT '',
-  -- A forge model call's line is written before the call is sent and is
+  -- An AppTown model call's line is written before the call is sent and is
   -- pending until settled; past this time an unsettled line counts as
   -- unknown spend. NULL for every settled or ordinary line.
   pending_until    TIMESTAMPTZ

@@ -1,5 +1,5 @@
 // Package workertest starts a apptown-worker in the test process, over real
-// mutual TLS, for tests of the forge's worker path. Its certificates are made
+// mutual TLS, for tests of AppTown's worker path. Its certificates are made
 // per test.
 package workertest
 
@@ -140,7 +140,7 @@ func Client(t *testing.T, ca *CA, name string) *http.Client {
 	return &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}, Timeout: time.Minute}
 }
 
-// Driver is the forge's driver for a worker Start served.
+// Driver is AppTown's driver for a worker Start served.
 func Driver(t *testing.T, ca *CA, srv *httptest.Server) execution.WorkerTasks {
 	t.Helper()
 	return execution.WorkerTasks{URL: srv.URL, Client: Client(t, ca, Installation)}
@@ -427,7 +427,7 @@ func (w *Container) Restart() {
 
 // External is a apptown-worker this test did not start: a real process on
 // another machine, for the qualification of a worker profile
-// (design/operations/workers.md, "Private Docker on the worker"). The test is the forge's side, on its own machine; the two share
+// (design/operations/workers.md, "Private Docker on the worker"). The test is AppTown's side, on its own machine; the two share
 // no files. It is named by the environment:
 //   - APPTOWN_QUAL_WORKER_URL: the worker's address;
 //   - APPTOWN_QUAL_WORKER_CA: the CA that signs the worker's certificate;
@@ -474,7 +474,7 @@ func LookupExternal(t *testing.T) *External {
 	return e
 }
 
-// Driver is the forge's driver for the external worker.
+// Driver is AppTown's driver for the external worker.
 func (e *External) Driver(t *testing.T) execution.WorkerTasks {
 	t.Helper()
 	cert, err := tls.LoadX509KeyPair(e.Cert, e.Key)

@@ -15,8 +15,8 @@ import (
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
-// What forge keeps on a console session's record. The console holds these
-// as labels it never reads; forge groups by scope and reads them back.
+// What AppTown keeps on a console session's record. The console holds these
+// as labels it never reads; AppTown groups by scope and reads them back.
 const (
 	ProjectLabel = "project" // the project's id
 	SlugLabel    = "slug"    // the project's slug
@@ -34,7 +34,7 @@ const (
 	PlacementLabel = "placement"
 )
 
-// ImportedLabel marks a chat moved here from another forge: history only,
+// ImportedLabel marks a chat moved here from another AppTown: history only,
 // never opened, woken or written here. Its value is the import's id.
 const ImportedLabel = "imported"
 

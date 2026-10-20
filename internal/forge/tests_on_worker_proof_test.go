@@ -24,7 +24,7 @@ import (
 
 // noHostWorld is a change whose working lane runs a script step (a
 // recorded task, its project bound to a Node.js mirror) and then a tests
-// step with command, on a forge composed with one worker that runs both
+// step with command, on an AppTown composed with one worker that runs both
 // tasks and checks, over its mutual TLS. This machine's Docker records
 // every call and refuses any that is not a container listing.
 type noHostWorld struct {
@@ -103,7 +103,7 @@ func newNoHostWorld(t *testing.T, command string, scriptMinutes int) noHostWorld
 	return w
 }
 
-// unreachable points the forge at a worker that does not answer, for both
+// unreachable points AppTown at a worker that does not answer, for both
 // tasks and checks.
 func (w noHostWorld) unreachable(t *testing.T) {
 	t.Helper()
@@ -151,7 +151,7 @@ func (w noHostWorld) nothingRanHere(t *testing.T) string {
 }
 
 // With a worker configured, no script or tests step runs on this machine.
-// A forge composed as startup composes it, whose own Docker refuses
+// An AppTown composed as startup composes it, whose own Docker refuses
 // anything but a listing, runs a workflow with a script step bound to a
 // registry and a tests step:
 //   - the script runs as a task on the worker, which keeps its generated

@@ -9,12 +9,12 @@ import (
 	"flokkit.io/forge/internal/version"
 )
 
-// The forge names its version on every answer, serves a CLI whose protocol
+// AppTown names its version on every answer, serves a CLI whose protocol
 // it accepts and one that states none (a browser, an MCP client, a CLI from
 // before protocols), and refuses any other CLI by name before it reaches a
 // route.
 //
-// Kills: a forge that serves any CLI whatever protocol it speaks.
+// Kills: an AppTown that serves any CLI whatever protocol it speaks.
 func TestTheForgeAcceptsOnlyTheCLIProtocolsInItsRange(t *testing.T) {
 	t.Parallel()
 	reached := 0

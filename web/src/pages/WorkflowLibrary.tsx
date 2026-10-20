@@ -14,7 +14,7 @@ export default function WorkflowLibrary() {
   const [editor, setEditor] = useState<{ yaml: string } | null>(null)
   const { run: runSave, busy: saving, err: saveErr, setErr: setSaveErr } = useAction()
   // Three tiers: Core — the short list everyone needs; Extras — the
-  // longer tail we are less sure of; System — the forge's own jobs, kept
+  // longer tail we are less sure of; System — AppTown's own jobs, kept
   // apart but never hidden. A workflow declares its tier in its YAML;
   // custom ones land where they say, Extras by default.
   const [tier, setTier] = useState<'core' | 'extra' | 'system'>('core')

@@ -97,7 +97,7 @@ class DocsCurrent(unittest.TestCase):
 
     def test_code_names_in_a_shipped_guide_pass(self):
         text = ("Run `apptown wait` and `the forge` in code. The `apptown` command, `apptownd`, "
-                "apptown-worker and {forge:mcp} are names.\n\n```sh\nthe forge\n```\n\n"
+                "apptown-worker and {apptown:mcp} are names.\n\n```sh\nthe forge\n```\n\n"
                 "    Forge in indented code\n\n[guide](/docs/guides/running-a-forge)\n")
         code, out = run({"stock/docs/guides/a.md": text})
         self.assertEqual(code, 0, out)

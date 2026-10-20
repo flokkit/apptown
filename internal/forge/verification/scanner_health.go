@@ -12,7 +12,7 @@ import (
 )
 
 // TestScannerImage is a scanner binding's Test connection: its image is
-// present on this forge's Docker or pulls there; with no local Docker, the
+// present on this AppTown's Docker or pulls there; with no local Docker, the
 // check executor pulls it on the worker.
 func TestScannerImage(ctx context.Context, image string, dk *docker.Scope, images CheckImage) integration.Health {
 	if image == "" {

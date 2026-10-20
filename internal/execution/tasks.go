@@ -92,7 +92,7 @@ type TaskSpec struct {
 	Env       []string
 	// Workspace is a host directory mounted at /work. Mounts and ExtraHosts
 	// are for the local Docker profile's caches and host routing. A remote
-	// driver shares no files with the forge and refuses all three.
+	// driver shares no files with AppTown and refuses all three.
 	Workspace   string
 	WorkspaceRO bool
 	Mounts      []string
@@ -140,7 +140,7 @@ type TaskSpec struct {
 	Request string
 }
 
-// TaskSource is one commit in a repository on the forge's side.
+// TaskSource is one commit in a repository on AppTown's side.
 type TaskSource struct {
 	Repository string
 	Commit     string
@@ -148,10 +148,10 @@ type TaskSource struct {
 
 // AgentGit is the repository a task is given at /work/.git: an ordinary
 // clone of its source commit's history, on Branch, with Base, when set, at
-// BaseCommit (an ancestor of the source), no remote, and the forge as its
+// BaseCommit (an ancestor of the source), no remote, and AppTown as its
 // committer. It is the task's own: the backend's collection reads the work
 // tree with a Git directory of its own and never this one, so the task's
-// commits reach the forge only as the tree they leave, in one commit.
+// commits reach AppTown only as the tree they leave, in one commit.
 type AgentGit struct {
 	Branch     string
 	Base       string `json:",omitempty"`

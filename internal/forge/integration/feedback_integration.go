@@ -15,7 +15,7 @@ import (
 
 // Customer-feedback integration: the Type-5 embed contract graduated to a
 // capability (design/architecture/contracts.md). Attach "feedback" to a project and the
-// forge provisions an app key on the Customer Feedback service; the key and
+// AppTown provisions an app key on the Customer Feedback service; the key and
 // URL are injected into app containers, and agents are steered with the
 // exact one-line embed. Same shape as the errors capability: connector
 // (where the service lives) → provision (mint/adopt the key) → contribute

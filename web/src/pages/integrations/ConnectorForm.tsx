@@ -134,7 +134,7 @@ function ModelListPicker({ value, onChange, providerName, config, help }: {
   )
 }
 
-// A number field holds a number, or nothing when it is empty: the forge
+// A number field holds a number, or nothing when it is empty: AppTown
 // refuses a quoted number ("2") or an empty string where a number belongs.
 // A value saved as text before the field was a number is read back as one.
 export const asNumber = (v: unknown): number | undefined => {

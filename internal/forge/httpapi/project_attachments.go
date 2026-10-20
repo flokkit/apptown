@@ -30,7 +30,7 @@ type ProjectAttachments struct {
 	actions      *changeactions.Service
 	db           *database.DB
 	publicHost   string
-	now          func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now          func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewProjectAttachments(projects *project.Projects, integrations *integration.Service, access *identity.Service, actions *changeactions.Service, db *database.DB, publicHost string, now func() time.Time) ProjectAttachments {
@@ -49,7 +49,7 @@ type (
 		Resource   map[string]any `json:"resource"`
 		CreatedAt  string         `json:"createdAt"`
 		// Whether the APP has to do anything with this attachment. A
-		// container registry is used by the forge's own deploy, not by the
+		// container registry is used by AppTown's own deploy, not by the
 		// app's code — there is nothing to wire, so it must not nag.
 		Wirable bool `json:"wirable"`
 		// The developer guide for this capability, and (errors) when the
@@ -316,7 +316,7 @@ func (h ProjectAttachments) ListProjectIntegrations(w http.ResponseWriter, r *ht
 }
 
 // ListAttachables: GET /api/v1/attachables — what the pickers offer:
-// each attachable capability with its connectors, whether forge can
+// each attachable capability with its connectors, whether AppTown can
 // provision (linked path), and the fields the direct path needs.
 func (h ProjectAttachments) ListAttachables(w http.ResponseWriter, r *http.Request) {
 	out := []Attachable{}

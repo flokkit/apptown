@@ -24,7 +24,7 @@ import (
 // the launch environment; an injected runtime remains owned by its caller.
 func (a *App) consoleDependencies(agent console.Agent, remote *worker.RemoteAgent) console.Dependencies {
 	if a.cfg.noLocalDocker {
-		// A forge with no local Docker runs no chat here; the chats it
+		// An AppTown with no local Docker runs no chat here; the chats it
 		// once ran ended before its drain (DrainLocalDocker).
 		agent = console.NoLocal{}
 	} else if agent == nil {

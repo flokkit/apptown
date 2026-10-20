@@ -12,13 +12,13 @@ import (
 )
 
 // ContainerEvent is one thing the daemon reported happening to a
-// container: Docker's own record, which the forge reads and never infers.
+// container: Docker's own record, which AppTown reads and never infers.
 type ContainerEvent struct {
 	Container string    // the container's name
 	Action    string    // "oom", "die" or "kill"
 	At        time.Time // the daemon's time for it
 	ExitCode  *int      // a die's exit code; nil otherwise
-	// Deployment and Generation are the container's forge identity labels,
+	// Deployment and Generation are the container's AppTown identity labels,
 	// as the event carried them: "" for a container that has none (a
 	// deployment's needs and other parts outlive its generations).
 	Deployment, Generation string
@@ -44,7 +44,7 @@ func ContainerEvents(ctx context.Context, dk Scope, since, until time.Time) ([]C
 }
 
 // ParseContainerEvents reads docker events' JSON lines. A line that is
-// not an event the forge reads is an error, never skipped: a skipped
+// not an event AppTown reads is an error, never skipped: a skipped
 // event would read as one that did not happen.
 func ParseContainerEvents(out []byte) ([]ContainerEvent, error) {
 	var events []ContainerEvent

@@ -164,7 +164,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           </details>
         )}
         {/* Outside the fold: when the worker cannot be reached, this line
-            says the conversation shown is the forge's last copy. */}
+            says the conversation shown is AppTown's last copy. */}
         {session?.changeId ? <WorkerSaveLine slug={slug} session={session} /> : null}
         {session && <StartedChanges sessionId={session.id} />}
       </div>

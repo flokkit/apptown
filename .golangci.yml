@@ -29,7 +29,7 @@ linters:
           pkg: '/internal/poll/polltest$'
           msg: "absence rule: a bounded wait for nothing to happen proves nothing; witness the owner's decision (its done signal, a recorded refusal, its fence, an idempotent effect) and then assert; only unowned asynchrony is allow-listed, by site, in .golangci.yml"
         # An operation runs on its caller's context, so a cancelled request
-        # or a stopping forge stops it. Only an entry point makes a fresh
+        # or a stopping AppTown stops it. Only an entry point makes a fresh
         # one: a process's main, an owner's lifetime, a loop the daemon
         # starts. Those are allow-listed by site below, and nothing else
         # may: the rule is hard (scripts/lint-check.go), with no baseline.
@@ -97,7 +97,7 @@ linters:
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'ctx := context\.Background\(\)'
-      # The forge CLI's process root: one command, then the process ends.
+      # AppTown CLI's process root: one command, then the process ends.
       - path: '^cmd/apptown/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'

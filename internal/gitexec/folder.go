@@ -12,20 +12,20 @@ import (
 	"sync"
 )
 
-// A folder is a working copy the forge cloned for its own use (a change's or
+// A folder is a working copy AppTown cloned for its own use (a change's or
 // a run's), which a local writer (an agent, a person's chat) may since have
-// changed, its Git metadata included. The forge still runs a few Git
+// changed, its Git metadata included. AppTown still runs a few Git
 // commands in it on its own account: bringing it forward to a published
 // branch, resetting it for a restart. Those commands run here, confined:
 //
 //   - before any Git runs, the folder's metadata is checked by reading files
 //     only: a real .git directory inside the folder, nothing under it a
 //     symbolic link, no shared or borrowed metadata (commondir, gitdir,
-//     alternates), a local config holding exactly what the forge's own
+//     alternates), a local config holding exactly what AppTown's own
 //     clone writes, and no hook but Git's inert samples. Anything else is
 //     refused (ErrFolderRefused) and the folder is left as it is;
 //   - Git then runs with an environment of only PATH, an empty HOME and no
-//     system or global config, so no override from the forge's own
+//     system or global config, so no override from AppTown's own
 //     environment (GIT_DIR, GIT_OBJECT_DIRECTORY, ...) reaches it, with the
 //     metadata and work tree named explicitly, hooks and fsmonitor off and
 //     no submodule recursion.
@@ -34,15 +34,15 @@ import (
 // change a folder are methods of the held lock, so the check stays true
 // while they run.
 
-// FolderUserName and FolderUserEmail are the identity the forge's clone of a
+// FolderUserName and FolderUserEmail are the identity AppTown's clone of a
 // folder is given (workflow's EnsureClone), and the only identity a folder's
 // config may hold.
 const (
-	FolderUserName  = "forge helper"
+	FolderUserName  = "apptown helper"
 	FolderUserEmail = "helper@forge.local"
 )
 
-// ErrFolderRefused: the folder's Git metadata is not what the forge's own
+// ErrFolderRefused: the folder's Git metadata is not what AppTown's own
 // clone makes, so the apptown runs no Git in it. A FolderRefusal says why.
 var ErrFolderRefused = errors.New("the folder's Git metadata is not AppTown's own clone")
 
@@ -181,7 +181,7 @@ func confined(ctx context.Context, folder string, args ...string) (string, error
 	return HubRun(ctx, folder, append([]string{"--git-dir=" + filepath.Join(folder, ".git"), "--work-tree=" + folder}, args...)...)
 }
 
-// CheckFolder refuses a folder whose Git metadata is not what the forge's
+// CheckFolder refuses a folder whose Git metadata is not what AppTown's
 // own clone makes, reading files only; no Git runs in the folder. A folder
 // that cannot be read is an error, not a refusal.
 func CheckFolder(ctx context.Context, folder string) error {
@@ -241,8 +241,8 @@ func CheckFolder(ctx context.Context, folder string) error {
 	return checkConfig(ctx, folder, gitdir, refuse)
 }
 
-// checkConfig refuses any local config entry the forge's clone does not
-// write: the core values Git's init sets on this filesystem, the forge's
+// checkConfig refuses any local config entry AppTown's clone does not
+// write: the core values Git's init sets on this filesystem, AppTown's
 // identity and the checked-out branch's tracking. Includes are entries too,
 // so they refuse.
 func checkConfig(ctx context.Context, folder, gitdir string, refuse func(string, ...any) error) error {

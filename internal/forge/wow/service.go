@@ -18,7 +18,7 @@ type Dependencies struct {
 	// Checks is conformance's reading of a shipped block's checks: valid
 	// and in canonical form, or refused. nil keeps them as written.
 	Checks ChecksReader
-	// Now is the forge's clock, which stamps block versions; nil is the
+	// Now is AppTown's clock, which stamps block versions; nil is the
 	// real one.
 	Now func() time.Time
 }

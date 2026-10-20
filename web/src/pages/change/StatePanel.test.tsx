@@ -32,7 +32,7 @@ describe('the approval says when the summary reads the work as short of the requ
   })
 })
 
-// Main the forge could not merge in is said where the change's state is,
+// Main AppTown could not merge in is said where the change's state is,
 // with the files and the command that catches up in the chat.
 describe('main that conflicts with the change', () => {
   it('names the files and the catch-up', () => {

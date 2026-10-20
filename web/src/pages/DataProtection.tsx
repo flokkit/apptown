@@ -11,7 +11,7 @@ import { useHolds } from '../instancePages'
 
 // Protecting deployment data off-host (design/subsystems/deployment.md):
 // for each data-holding item of a cloud deployment, how
-// recent the forge's own copies are, the provider's own backups, and when
+// recent AppTown's own copies are, the provider's own backups, and when
 // a copy was last seen to come back; the long operations that copy, check
 // and take down, as they run; and the backup store they keep copies in.
 // Unknown is said, never shown as none.
@@ -140,7 +140,7 @@ export function restoreTestLine(c: RestoredCopy | null | undefined, note?: strin
   return `last restore test ${c.outcome} ${at} ${from}${gate ? ` · ${gate}` : ''}`
 }
 
-// gateLine is the forge's own check of a copy's gate: how many checks
+// gateLine is AppTown's own check of a copy's gate: how many checks
 // passed, and each that failed with what it answered.
 export function gateLine(c: RestoredCopy): string {
   const checks = c.facts.gate ?? []
@@ -184,7 +184,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const { run, busy, err } = useAction()
   useNow(1000, !!q.data?.running)
   // The way to the target's settings is offered only to those who can edit
-  // them; the forge refuses the edit to anyone else.
+  // them; AppTown refuses the edit to anyone else.
   const canEditTargets = useHolds('platform:manage-deploy-targets')
   if (q.denied) return null
   if (!q.data) return <ReadStatus q={q} what="how its data is protected" className="small" />
@@ -195,7 +195,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const asRead = old ? ` as read ${elapsed(new Date(q.answeredAt).toISOString())} ago` : ''
   const start = (what: 'copies' | 'drills' | 'rehearsals') => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/${what}`, {}))
   const last = p.recent.find((o) => !live(o))
-  // Whether each door can start is the forge's answer, from that door's
+  // Whether each door can start is AppTown's answer, from that door's
   // own check: shown greyed with its sentence when it cannot.
   // A door that does not apply on the deployment's platform (a check or a
   // restore test of a Docker host's deployment, a copy it takes as its
@@ -209,11 +209,11 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why).map((o) => o.why!)))
   const runnerMissing = shown.some((o) => o.reason === 'no-copy-runner')
   if (p.unknown) return <div className="small"><span className="chip pending" title={p.unknown}>unknown</span> couldn't read what this deployment holds<CoverageLines c={p.coverage} unknown /></div>
-  // A deployment that holds no data the forge knows of says only what is
+  // A deployment that holds no data AppTown knows of says only what is
   // not assessed; one whose take-down would still act on data, or with an
   // operation or copy standing, shows the whole card.
   if (p.items.length === 0 && !p.takeDown && !p.running && !p.restoredCopies.some((c) => !c.endedAt)) return <div className="small"><StaleNote q={q} /><CoverageLines c={p.coverage} /></div>
-  // A Docker host's backups on the forge's own disk are a choice, said
+  // A Docker host's backups on AppTown's own disk are a choice, said
   // plainly; App Platform data with no copy at all is a warning.
   const onHost = ops?.copy.reason === 'backups-page'
   return (
@@ -283,7 +283,7 @@ const openCopyTitle = `start its release from its newest copy on its own platfor
 // RestoredCopyLines is one standing restored copy on its source's card:
 // what it is and until when, what it can still do outside and who else
 // can read it, and the doors to open, extend and take it down. Open is a
-// form the browser submits, so the forge's mutation protection covers it
+// form the browser submits, so AppTown's mutation protection covers it
 // and the answer takes the browser to the copy's gate with a one-use ticket.
 function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; source: string; copy: RestoredCopy; asRead: string }) {
   const { run, busy, err } = useAction()
@@ -356,7 +356,7 @@ export function OperationPage() {
   )
 }
 
-// StoreSection is the backup store on the Backups page: where the forge
+// StoreSection is the backup store on the Backups page: where AppTown
 // keeps copies off a deployment's host, or that it has none, and the form
 // an administrator attaches one with.
 export function StoreSection({ canAttach }: { canAttach: boolean }) {

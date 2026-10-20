@@ -16,16 +16,16 @@ import (
 
 // Served is a running preview of a change or a run, opened for
 // probing, wherever it runs: which container it is and what it serves, its
-// front door (through the forge's preview proxy), and its naked door (this
+// front door (through AppTown's preview proxy), and its naked door (this
 // machine's loopback, with no front-door signal: the app's own port here,
 // or a relay to it on the worker). Close ends the relay.
 type Served struct {
 	Name, ContainerID, Incarnation string
 	FrontDoor, Naked               string
-	// Source and Recorded are the forge's record of what this incarnation
+	// Source and Recorded are AppTown's record of what this incarnation
 	// was booted from and with: the commit ("" for a change's folder) and
 	// its public prepared values, its contract among them. Recorded is nil
-	// when the forge holds no record of the incarnation the container
+	// when AppTown holds no record of the incarnation the container
 	// says it serves.
 	Source   string
 	Recorded *docker.PublicPrepared

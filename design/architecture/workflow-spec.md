@@ -21,7 +21,7 @@ metadata:
   description: Small change, one glance.
   tier: core            # core | extras — how the library shows it; system workflows have none
   category: change
-  system: true          # only on the forge's own workflows (land, ship, …); never picked
+  system: true          # only on AppTown's own workflows (land, ship, …); never picked
   deprecated: false
 spec: ...
 ```
@@ -349,7 +349,7 @@ its own report). `agent/review` is adversarial verification as a step:
 - a step that declares `mayChangeNothing: true` says an empty result is a
   complete answer (a maintenance lane with nothing to update). When it
   leaves the change empty it passes with "nothing to change" and its
-  report. The stage's other steps run as declared. The forge closes the
+  report. The stage's other steps run as declared. AppTown closes the
   change instead of asking anyone to accept it, with the step's account as
   the reason, when the run would next wait only for an approval in the same
   stage, every other step of the stage passed or was skipped, an

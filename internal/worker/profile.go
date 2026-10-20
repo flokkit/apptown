@@ -16,7 +16,7 @@ import (
 // The worker's profile (design/operations/workers.md, "Private Docker on the
 // worker"): what the worker measures of the Docker it
 // runs private Docker on when it starts, reported at GET /v1/profile, and
-// recorded by the forge with every attempt admitted with private Docker. A
+// recorded by AppTown with every attempt admitted with private Docker. A
 // request whose recorded profile differs from what the worker measures when
 // it would make the private Docker is refused: the worker's Docker was
 // upgraded, or changed, under it.

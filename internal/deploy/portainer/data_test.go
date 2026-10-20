@@ -120,7 +120,7 @@ func TestTakeDownDeletesOnlyTheListedVolumesItMayDelete(t *testing.T) {
 	}
 }
 
-// The forge copies only in an environment whose Docker it can reach
+// AppTown copies only in an environment whose Docker it can reach
 // through Portainer: an edge agent in async mode, a Kubernetes environment
 // or a Docker that does not answer are refused by name.
 func TestOnlyAReachableDockerEnvironmentIsBackedUp(t *testing.T) {

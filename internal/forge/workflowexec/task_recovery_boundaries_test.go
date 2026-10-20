@@ -98,7 +98,7 @@ func TestAFailedSettlementKeepsTheTaskCollectible(t *testing.T) {
 }
 
 // When the step's outcome cannot be written at all, the task and its record
-// stay as they are, and a restarted forge collects it and settles the step.
+// stay as they are, and a restarted AppTown collects it and settles the step.
 func TestAStepWhoseOutcomeCouldNotBeWrittenIsSettledAfterARestart(t *testing.T) {
 	t.Parallel()
 	a, fake, step := fakeTaskFixture(t, false)

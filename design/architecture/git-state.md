@@ -3,19 +3,19 @@
 The shipped version for operators and agents is Docs → "How changes reach
 main".
 
-## 1. Roles: the forge hosts the repository; a mirror is optional
+## 1. Roles: AppTown hosts the repository; a mirror is optional
 
 - **The hub is the project repository**, at
   `<dataDir>/workspaces/project-<slug>`. It is where `main` lives and it is
   written by exactly one thing: the landing flow, which merges locally (or
   through a recorded GitLab merge request, §4).
-  Everything the forge does — branch, commit, merge, deploy — works against
+  Everything AppTown does — branch, commit, merge, deploy — works against
   the hub and its clones. No remote is required for any of it.
 - **GitLab is a mirror**, when a project attaches one: landed branches are
   pushed to it for backup and for people who want to read code there. It
   is never the thing the engine blocks on.
 
-The forge owns process state (the ledger, in Postgres); git owns content
+AppTown owns process state (the ledger, in Postgres); git owns content
 state; a mirror hosts a copy.
 
 ## 2. Change ↔ branch ↔ clone
@@ -83,7 +83,7 @@ trusted:
 
 - A **pre-receive hook on the hub** (`installNoPushHook`) refuses every push
   but two narrow ones: a Change ticket's push to its holding ref, and a
-  step's push to its own scratch ref (below). Safe for the forge, which never
+  step's push to its own scratch ref (below). Safe for AppTown, which never
   pushes to its own hub; it closes the one channel that would bypass the
   gates.
 - A **scoped git-over-HTTP endpoint** (`githttp.go`, `git http-backend`
@@ -101,7 +101,7 @@ trusted:
   An agent step's runtime token (live attempt, enabled owner, as for the
   API) may push to exactly one ref, its attempt's
   `refs/apptown/scratch/change-<change>/step-<step>-a<attempt>`, so that
-  `apptown check` can check work the forge has not collected yet. Every other
+  `apptown check` can check work AppTown has not collected yet. Every other
   ref is hidden from that push, which git itself refuses, and the hook
   refuses any other ref and a deletion again. The token fetches nothing:
   it is admitted only for the receive-pack discovery (`GET info/refs?service=git-receive-pack`)
@@ -113,7 +113,7 @@ trusted:
   The ref is removed when its attempt settles, and the scheduler's sweep
   removes any an attempt no longer live left behind. No size limit beyond
   git's own applies to the push.
-- **Any dirt on the hub is an integrity event.** Only forge writers touch
+- **Any dirt on the hub is an integrity event.** Only AppTown writers touch
   the hub's working tree and all of them leave it clean, so a dirty hub is
   recorded with a diff snapshot, shown on the project page, and resolved
   only by an admin's recorded keep-or-discard.
@@ -139,7 +139,7 @@ trusted:
 - **New project bootstrap**: `apptown new` initialises a hub with a first
   commit; importing an existing repository clones it into the hub. Both
   work with no remote at all.
-- **The forge's own repository** is on GitLab and uses GitLab CI
+- **AppTown's own repository** is on GitLab and uses GitLab CI
   (`testing.md`); that is the only place GitLab is load-bearing.
 
 ## 6. What lives in the repository (`.apptown/`)

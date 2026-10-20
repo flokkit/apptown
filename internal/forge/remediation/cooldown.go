@@ -15,7 +15,7 @@ type cooldown struct {
 	mu    sync.Mutex
 	until time.Time
 	why   string
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (c *cooldown) now() time.Time { return clock.Or(c.clock)() }

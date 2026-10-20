@@ -49,12 +49,12 @@ func removeSessionLeftovers(t *testing.T, id func() string) {
 // A chat's session on apptown-worker, with real Docker: starting it runs the
 // chat's container and its private Docker daemon, each with its limits, both
 // on the session's own cache volume, the daemon with the worker's resolvers
-// and the forge's mirror; stopping keeps both, running neither; a restarted
+// and AppTown's mirror; stopping keeps both, running neither; a restarted
 // worker still knows the session; and removing it leaves nothing on the
 // worker's Docker, its cache included, and fences it for good.
 func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	if exec.Command("docker", "image", "inspect", "forge-agent").Run() != nil {
-		t.Skip("needs the forge-agent image on this machine's Docker")
+		t.Skip("needs AppTown-agent image on this machine's Docker")
 	}
 	ctx := context.Background()
 	ca := workertest.NewCA(t)
@@ -98,7 +98,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 			t.Fatalf("%s's cgroup limits: %s", name, got)
 		}
 	}
-	// The daemon's own flags: this machine's resolvers, the forge's mirror;
+	// The daemon's own flags: this machine's resolvers, AppTown's mirror;
 	// its builder the same; and a nested container's resolvers are this
 	// machine's too.
 	args := w.Docker("inspect", "--format", "{{json .Args}}", daemon)
@@ -166,14 +166,14 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	}
 }
 
-// A real chat on a real worker, through the forge's chat service: the
-// agent image under the name the forge's build context gives it, pi under
+// A real chat on a real worker, through AppTown's chat service: the
+// agent image under the name AppTown's build context gives it, pi under
 // tmux in its container, a message typed in and confirmed against pi's own
-// record, that record copied back to the forge, the terminal showing pi's
+// record, that record copied back to AppTown, the terminal showing pi's
 // screen, and the end removing it on the worker.
 func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	if exec.Command("docker", "image", "inspect", "forge-agent").Run() != nil {
-		t.Skip("needs the forge-agent image on this machine's Docker")
+		t.Skip("needs AppTown-agent image on this machine's Docker")
 	}
 	ctx := context.Background()
 	ca := workertest.NewCA(t)
@@ -233,7 +233,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	}
 
 	// A commit in the chat's container is saved: the worker bundles it
-	// with the chat's own git, and it passes the forge's checked import.
+	// with the chat's own git, and it passes AppTown's checked import.
 	w.Docker("exec", "forge-console-"+s.ID, "sh", "-c",
 		"cd /work && echo saved > saved.txt && git add saved.txt && git -c user.name=chat -c user.email=chat@x commit -qm 'chat work'")
 	dest := filepath.Join(t.TempDir(), "save.bundle")
@@ -268,7 +268,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 		}
 		dest := filepath.Join(t.TempDir(), "last.bundle")
 		// The test's repository has only the source: the last save builds
-		// on it (the forge's builds on its branch, with the earlier save).
+		// on it (AppTown's builds on its branch, with the earlier save).
 		tip, err := agent.SaveLast(ctx, id, source, dest)
 		if err != nil {
 			return err

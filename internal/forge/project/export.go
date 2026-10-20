@@ -10,8 +10,8 @@ import (
 	"flokkit.io/forge/internal/forge/project/internal/projectsql"
 )
 
-// ExportIn reads a project's own row whole, for moving it to another forge.
-// The receiving forge keeps its settings, not its id, group or approvers.
+// ExportIn reads a project's own row whole, for moving it to another AppTown.
+// The receiving AppTown keeps its settings, not its id, group or approvers.
 func ExportIn(ctx context.Context, q database.Queryer, projectID ids.ID) (json.RawMessage, error) {
 	row, err := projectsql.New(q.SQL()).ExportProjectRow(ctx, projectID)
 	if err != nil {

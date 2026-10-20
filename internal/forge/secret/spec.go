@@ -17,7 +17,7 @@ import (
 const SpecFile = "secretspec.toml"
 const specRevision = "1.0"
 
-// secretSpecDoc mirrors the TOML shape. Fields the forge ignores are still
+// secretSpecDoc mirrors the TOML shape. Fields AppTown ignores are still
 // decoded so the declaration parses as SecretSpec would parse it.
 type secretSpecDoc struct {
 	Project struct {
@@ -32,7 +32,7 @@ type secretSpecDoc struct {
 }
 
 // secretSpecEntry is one secret in one profile. `required` may be a bool or
-// a presence-group table in SecretSpec; the forge reads the bool and treats
+// a presence-group table in SecretSpec; AppTown reads the bool and treats
 // a table as "required" (the safe reading) while reporting it as unsupported.
 type secretSpecEntry struct {
 	Description string   `toml:"description"`
@@ -54,7 +54,7 @@ type secretSpecScope struct {
 	Secrets []string `toml:"secrets"`
 }
 
-// Spec is the forge's reading of a declaration.
+// Spec is AppTown's reading of a declaration.
 type Spec struct {
 	Name     string
 	Revision string
@@ -70,7 +70,7 @@ type Spec struct {
 	// name, or an init step as "init-<name>". Empty means every consumer
 	// receives every secret.
 	Scopes map[string][]string
-	// Ignored names the declaration's features the forge does not honour,
+	// Ignored names the declaration's features AppTown does not honour,
 	// so the Settings page can say so instead of the app finding out.
 	Ignored []string
 }
@@ -118,14 +118,14 @@ func ParseSpec(raw []byte) (*Spec, error) {
 	if doc.Project.Name == "" {
 		return nil, fmt.Errorf("[project] name is required")
 	}
-	// A table the forge does not read is a declaration that never takes
+	// A table AppTown does not read is a declaration that never takes
 	// effect: a generate = true under [secrets.X] leaves its
 	// [profiles.default.X] entry required-and-missing, so boot stops for a
 	// value the author believed would be generated. Name the stray key and where the entry belongs.
 	for _, k := range md.Undecoded() {
 		key := k.String()
 		if strings.HasPrefix(key, "project.") || strings.HasPrefix(key, "profiles.") || strings.HasPrefix(key, "scopes.") || strings.HasPrefix(key, "providers.") {
-			continue // an unknown field inside a table the forge reads is tolerated, as SecretSpec tolerates it
+			continue // an unknown field inside a table AppTown reads is tolerated, as SecretSpec tolerates it
 		}
 		return nil, fmt.Errorf("%s is not SecretSpec 1.0: a secret is declared under [profiles.<name>] as NAME = { description = \"…\", required = true | generate = true }", key)
 	}
@@ -188,7 +188,7 @@ func ParseSpec(raw []byte) (*Spec, error) {
 			s.Generate = v
 		case nil:
 		default:
-			s.Generate = true // a `generate = { type = ... }` table: the forge generates a random value
+			s.Generate = true // a `generate = { type = ... }` table: AppTown generates a random value
 		}
 		if len(e.Providers) > 0 || e.Ref != nil {
 			out.Ignored = append(out.Ignored, fmt.Sprintf("[profiles.%s] %s providers/ref (bound in AppTown instead)", pname, sname))

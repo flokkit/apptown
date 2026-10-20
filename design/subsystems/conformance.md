@@ -59,7 +59,7 @@ scanner rule) still covers it. The read answers per project
 today, failing under the version), could not assess (something the version
 changes was not judged; one evaluation both sides share is not part of the
 change), no new failures, not evaluated. Adopting from a what-if is each project's own adopt door via a Change,
-naming the what-if (`fromWhatIf`): the forge reads from it the pack, version,
+naming the what-if (`fromWhatIf`): AppTown reads from it the pack, version,
 adoption revision and candidate it assessed for the project, refuses a
 what-if not `done` or with no candidate for the project, and refuses a
 candidate that is no longer the one assessed. The Change's brief names the
@@ -72,7 +72,7 @@ evaluated" only once it has ended. Rows go to the what-if's own two tables,
 which nothing that decides standing, gates, exceptions or remediation reads. A
 what-if begins no review and writes no verdict. A what-if is queued and claimed
 like a review. One stopped by shutdown or its two-hour budget, or found queued
-or running when the forge restarts, is settled as interrupted; it is not
+or running when AppTown restarts, is settled as interrupted; it is not
 resumed.
 
 An **eval** of a pack version

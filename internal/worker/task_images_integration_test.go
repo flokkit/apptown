@@ -173,7 +173,7 @@ type ociManifest struct {
 // worker restart, and serves its index and every blob the manifest names,
 // each with its descriptor's length and digest.
 //
-// Composed with step 1: the forge publishes that export, read file by file
+// Composed with step 1: AppTown publishes that export, read file by file
 // from the worker, into a registry, and what the registry reads back is the
 // manifest's digest; a read-back naming another is no publication. A blob
 // cut short on the wire, or read after the task was released (gone), fails

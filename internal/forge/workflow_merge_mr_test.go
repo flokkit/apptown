@@ -257,7 +257,7 @@ func commitTrailers(t *testing.T, repo, commit string) string {
 	return gittest.Run(t, repo, "log", "-1", "--format=%(trailers:only,unfold)", commit) + "\n"
 }
 
-// A landing through a merge request tells GitLab, from the forge's own
+// A landing through a merge request tells GitLab, from AppTown's own
 // records, who opened the change, who approved it and what that approval
 // meant, the approvers the step declared (a root's vote on a step that
 // declares none reads "project defaults", never a role), the landing
@@ -351,9 +351,9 @@ func TestALandingIsAdmittedAgainWhenWhatItSaysChanged(t *testing.T) {
 	}
 }
 
-// The scm/mr step opens its merge request with the forge's description:
+// The scm/mr step opens its merge request with AppTown's description:
 // who opened the change (an email-shaped account name withheld), its title
-// and body as inert code, and that it waits for approval in the forge, with
+// and body as inert code, and that it waits for approval in AppTown, with
 // the change page. It names no approvals at open.
 func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 	t.Parallel()
@@ -392,7 +392,7 @@ func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 	gittest.Run(t, t.TempDir(), "clone", "-q", "--bare", hub, remote)
 	// What linking a remote does to the project's repository (POST
 	// /projects/{slug}/repo/remote); the run's workspace is left as the
-	// forge prepares it, with no remote.
+	// AppTown prepares it, with no remote.
 	gittest.Run(t, hub, "remote", "add", "origin", remote)
 	fake := gitlabtest.New(t)
 	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("GITLAB_URL="+fake.URL+"\nGITLAB_TOKEN="+gitlabtest.Token+"\n"), 0o600); err != nil {

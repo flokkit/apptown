@@ -198,7 +198,7 @@ func (r *releaseRegistry) digestOf(t *testing.T, ref string) string {
 	return d.Digest.String()
 }
 
-// releaseHosts are the Docker daemons by DOCKER_HOST ("" is the forge's
+// releaseHosts are the Docker daemons by DOCKER_HOST ("" is AppTown's
 // own): recording fakes that pull images by digest from the registry, with
 // the credential written in the pull's own configuration.
 type releaseHosts struct {
@@ -327,7 +327,7 @@ func (h *releaseHosts) built(target string) []string {
 	return out
 }
 
-// releaseWorker is the forge's worker: tasks run on the in-memory fake, and
+// releaseWorker is AppTown's worker: tasks run on the in-memory fake, and
 // a task declaring images leaves an OCI layout for each, for the
 // worker's platform, until it is released.
 type releaseWorker struct {
@@ -437,7 +437,7 @@ func (w *releaseWorker) requests() []execution.TaskSpec {
 	return append([]execution.TaskSpec(nil), w.sent...)
 }
 
-// releaseWorld is a forge with a worker and -private-docker whose project
+// releaseWorld is an AppTown with a worker and -private-docker whose project
 // "p" has a container registry and its main on the attached Docker host
 // "lab"; a second attached host, "lab2", runs its staging.
 type releaseWorld struct {
@@ -469,7 +469,7 @@ func newReleaseWorld(t *testing.T, configure func(*Config)) *releaseWorld {
 	if id := createReadTestProject(t, w.a, "p"); id != idstest.N(1) {
 		t.Fatalf("project fixture ID = %d, want 1", id)
 	}
-	// One front door for every daemon: the forge's file server, which
+	// One front door for every daemon: AppTown's file server, which
 	// answers /_apptown/release with the release its container was told.
 	told := &atomic.Pointer[string]{}
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
@@ -514,8 +514,8 @@ func (w *releaseWorld) mainOn(t *testing.T, target *deployment.Target) {
 	}
 }
 
-// restart is the forge after a restart (restarted), configured as it was:
-// the same worker, -private-docker and Docker hosts. The old forge admits
+// restart is AppTown after a restart (restarted), configured as it was:
+// the same worker, -private-docker and Docker hosts. The old AppTown admits
 // nothing more; a step it was running is not waited for, as a dead
 // process's is not.
 func (w *releaseWorld) restart(t *testing.T) {
@@ -633,7 +633,7 @@ func expectPulledOnly(t *testing.T, w *releaseWorld, target string, b *deploymen
 // A multipart app (a static site, a built part, an image-only part, a
 // built init step and an image-only one) lands on an attached Docker host:
 // the worker builds each distinct image once, in one release-build task
-// that carries no environment and no credential; the forge publishes them
+// that carries no environment and no credential; AppTown publishes them
 // and copies the image-only ones into the project's registry; the bundle
 // committed before the deploy names every image by the digest the registry
 // answers; the host pulls exactly those digests, holds them under them
@@ -813,7 +813,7 @@ func (w *releaseWorld) offerRegistry(t *testing.T, name, tokenFrom string) {
 	}
 }
 
-// A project with no container registry, on a forge that offers one
+// A project with no container registry, on an AppTown that offers one
 // container-registry connector, is given it at its first landing: the
 // attachment is recorded by the integrations owner like any other, names
 // <url>/<group>/<slug>, and holds no credential. The connector's
@@ -855,7 +855,7 @@ func TestAFirstLandingAttachesTheOneOfferedRegistry(t *testing.T) {
 	}
 }
 
-// A project that has a container registry keeps it, whatever the forge
+// A project that has a container registry keeps it, whatever AppTown
 // offers: the landing publishes to the attachment it has.
 func TestALandingKeepsAnAttachedRegistry(t *testing.T) {
 	t.Parallel()
@@ -881,7 +881,7 @@ func TestALandingKeepsAnAttachedRegistry(t *testing.T) {
 }
 
 // The built-in host, outside the no-local-Docker mode, pulls a landing's
-// bundle by digest too: a forge with a worker builds nothing on any host.
+// bundle by digest too: an AppTown with a worker builds nothing on any host.
 func TestTheBuiltInHostPullsALandingsBundleToo(t *testing.T) {
 	t.Parallel()
 	w := newReleaseWorld(t, nil)
@@ -1050,7 +1050,7 @@ func TestABundleCommittedBeforeAnInterruptionStaysPromotable(t *testing.T) {
 	expectPulledOnly(t, w, "lab2", b)
 }
 
-// A forge restart while the release builds, or once it has exited and its
+// An AppTown restart while the release builds, or once it has exited and its
 // images are being published, ends the deploy step in error, and nothing
 // continues it: its task is stopped, settled and released, and no new
 // attempt starts. Run again, the step builds once more and commits one new
@@ -1111,7 +1111,7 @@ func TestARestartAfterTheDeploySettledAppliesNothingAgain(t *testing.T) {
 	w.mainOn(t, w.lab)
 	run, stepID := w.landingRun(t)
 	// The landing's evidence is read from the host once its deployment has
-	// settled: the forge dies there, before its step settles.
+	// settled: AppTown dies there, before its step settles.
 	died, resume := make(chan struct{}), make(chan struct{})
 	var once sync.Once
 	hook := func(host string, args []string) {
@@ -1581,7 +1581,7 @@ func TestAReleaseDetailShowsItsBundlesFormAndDigests(t *testing.T) {
 			t.Errorf("init %s: %q, want %q", name, got.Init[name], ref)
 		}
 	}
-	// A bundle of image IDs, cut as a forge without a worker cuts one.
+	// A bundle of image IDs, cut as an AppTown without a worker cuts one.
 	contract, err := os.ReadFile(filepath.Join(p.a.projectRepoPath("p"), ".apptown", "app.yaml"))
 	if err != nil {
 		t.Fatal(err)
@@ -1675,7 +1675,7 @@ func TestDeploymentProgressIsLiveBeforeTransferAndReadableAfterSettlement(t *tes
 }
 
 // The landing's preflight (deployment.Preflight) through the deploy step as
-// Work runs it, on a forge that builds its releases on the worker.
+// Work runs it, on an AppTown that builds its releases on the worker.
 
 // preflightSpec requires WP_HOME of the worker part, and generates
 // AUTH_KEY.

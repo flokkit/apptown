@@ -91,7 +91,7 @@ func (s *Service) SyncStockWorkflows(ctx context.Context) SyncCounts {
 
 // ---- guidance blocks ---------------------------------------------------------
 //
-// The forge SHIPS guidance blocks in stock/guidance/**/*.md;
+// AppTown SHIPS guidance blocks in stock/guidance/**/*.md;
 // they sync as origin='stock'. A release that changes a block's body or
 // checks cuts the next version and stops there: projects importing the
 // block stay on the version they adopted (ways-of-working-versions.md §9
@@ -99,7 +99,7 @@ func (s *Service) SyncStockWorkflows(ctx context.Context) SyncCounts {
 
 // ParseStockGuidance reads a shipped block: front matter (name, tags, an
 // optional checks JSON array on one line, tier, conflicts; any other key, or
-// a line that is not key: value, is refused) then the markdown body. The tier is "platform" (the forge's own contract, on
+// a line that is not key: value, is refused) then the markdown body. The tier is "platform" (AppTown's own contract, on
 // every repo-backed project) or absent.
 func ParseStockGuidance(raw string) (StockBlock, error) {
 	var b StockBlock

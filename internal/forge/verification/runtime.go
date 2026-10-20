@@ -3,7 +3,7 @@ package verification
 // The runtime evaluator (design/subsystems/conformance.md §2 "runtime"; healthchecks.md
 // §5.2): a check judged against the app as it actually RUNS — the project's
 // standing main deployment — not its tree. A fleet review probes the
-// deployment the forge itself serves, through the same two doors production
+// deployment AppTown itself serves, through the same two doors production
 // traffic and probes use: the FRONT DOOR (the public URL, TLS terminated by the
 // forge's proxy, X-Forwarded-* set) and NAKED (loopback to the mapped port, no
 // front-door signal at all). A readiness endpoint that answers 200 both ways
@@ -66,7 +66,7 @@ func NewRuntime(d RuntimeDependencies) *Runtime {
 	return &Runtime{deployment: d.Deployment, hosts: d.Hosts, db: d.DB, docker: d.Docker, dataDir: d.DataDir, browserValues: d.BrowserValues}
 }
 
-// repo is a project's repository in this forge's data directory.
+// repo is a project's repository in this AppTown's data directory.
 func (o Runtime) repo(slug string) string {
 	return filepath.Join(o.dataDir, "workspaces", "project-"+slug)
 }
@@ -100,7 +100,7 @@ func (o Runtime) browserExpectation(ctx context.Context, t Target) (check.Browse
 		return want, ""
 	}
 	if t.Recorded != nil {
-		// The values the preview was booted with, as the forge prepared them.
+		// The values the preview was booted with, as AppTown prepared them.
 		values := map[string]string{}
 		if err := json.Unmarshal([]byte(t.Recorded.BrowserEnv), &values); err != nil {
 			return want, "the values the preview was booted with cannot be read: " + err.Error()
@@ -119,7 +119,7 @@ func (o Runtime) browserExpectation(ctx context.Context, t Target) (check.Browse
 	return want, ""
 }
 
-// judgeBrowser judges a target's page against what the forge gives it. What
+// judgeBrowser judges a target's page against what AppTown gives it. What
 // the container was started with is read from that exact container, before
 // and after the probe: a container replaced in between makes the answer
 // unknown, never a verdict about the wrong one.
@@ -159,22 +159,22 @@ type Target struct {
 	Slug      string
 	Container string
 	HostPort  int
-	FrontDoor string // the public URL: through the forge's proxy, or an attached host's own
+	FrontDoor string // the public URL: through AppTown's proxy, or an attached host's own
 	Naked     string // the mapped port directly: loopback here, the attached host by address
 	// Host is the daemon a standing deployment's container runs on, its
-	// own target's; nil is the forge's own.
+	// own target's; nil is AppTown's own.
 	Host        *docker.Scope
 	ContractDir string // when set, the tree whose .apptown/app.yaml declares readiness (a change's committed tree at the gate)
 	ReleaseSHA  string
 	// Served is a preview opened for probing, wherever it runs: what its
 	// container was started with is read through it.
 	Served *preview.Served
-	// Recorded is what the preview was booted with, as this forge recorded
+	// Recorded is what the preview was booted with, as this AppTown recorded
 	// it: its contract and public values. When set, readiness and browser
 	// expectations come from it, never from today's settings or another tree.
 	Recorded *docker.PublicPrepared
 	// Deployment is the standing deployment the target is, when it is one:
-	// what the forge applied to it and observes of it answer the
+	// what AppTown applied to it and observes of it answer the
 	// standing-only probes. Nil for a preview.
 	Deployment *deployment.Deployment
 	// Revision is the commit, or the default branch, a contract judged as
@@ -256,7 +256,7 @@ func (o Runtime) declaredReadinessPath(ctx context.Context, t Target) (string, b
 }
 
 // readinessPathOf is the path that says the public part is ready: the one
-// it declares, or, for a static part the forge serves from its own file
+// it declares, or, for a static part AppTown serves from its own file
 // server, "/" — that server has no start-up, no auth and no HTTPS redirect,
 // so its root answering through both doors is the readiness of the site,
 // observed rather than assumed. A built or pushed part that declares none
@@ -298,8 +298,8 @@ func (o Runtime) Observe(ctx context.Context, projectID ids.ID, source, probe st
 	}
 	t, _, why, ok := o.standingTarget(ctx, projectID)
 	if !ok {
-		// A deployment the forge cannot run because the app declares no
-		// contract is the app's gap, not the forge's inability.
+		// A deployment AppTown cannot run because the app declares no
+		// contract is the app's gap, not AppTown's inability.
 		if ps.Readiness && t.Slug != "" && t.Container != "" {
 			if _, err := docker.ReadWorkspaceContract(o.repo(t.Slug)); err == docker.ErrNoContract {
 				return conformance.DoesNotConform, undeclaredReadiness
@@ -332,8 +332,8 @@ func (o Runtime) Observe(ctx context.Context, projectID ids.ID, source, probe st
 	return bothDoors(ctx, t, ps)
 }
 
-// undeclaredReadiness is the finding when the forge serves an app that
-// says nothing about when it is ready. "Cannot assess" is for the forge's
+// undeclaredReadiness is the finding when AppTown serves an app that
+// says nothing about when it is ready. "Cannot assess" is for AppTown's
 // own inability (the app not running when the review looked); a served
 // app with no readiness declared has not met the way of working. Read as
 // "cannot assess", such projects would sit there indefinitely while the
@@ -348,7 +348,7 @@ const readinessReadStopped = "the check was stopped before the app's contract co
 // Probe judges one probe spec against an already-resolved
 // target (a change's preview at the gate; the standing deployment in a
 // review goes through Observe). It answers in the judge's own
-// words, with whether an unknown answer is the forge's own fault: the gate
+// words, with whether an unknown answer is AppTown's own fault: the gate
 // records an evaluation, not a stored verdict.
 func (o Runtime) Probe(ctx context.Context, t Target, probe string) check.ProbeVerdict {
 	ps, err := check.ParseProbe(probe)

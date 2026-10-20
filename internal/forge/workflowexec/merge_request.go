@@ -48,7 +48,7 @@ func (a *Repositories) RunSCMMR(task *workflow.Execution) {
 	// repository, which holds the linked remote; a run's workspace is a
 	// self-contained clone with no remote (workflow.GitWorkspace), and its
 	// unpublished commits are not part of the change. Never forced: a
-	// GitLab branch with commits the forge did not publish refuses the push.
+	// GitLab branch with commits AppTown did not publish refuses the push.
 	ref := "refs/heads/" + branch
 	if out, err := gitexec.RunEnv(task.Context(), repo, env, "push", "origin", ref+":"+ref); err != nil {
 		fail("publishing the branch to the project's remote: " + strs.Truncate(out, 300))
@@ -61,7 +61,7 @@ func (a *Repositories) RunSCMMR(task *workflow.Execution) {
 	}
 	p, _ := project.ByIDIn(task.Context(), a.db, run.ProjectID)
 	db := p.DefaultBranch
-	// The description is the forge's (scm.MergeRequestDescription): who
+	// The description is AppTown's (scm.MergeRequestDescription): who
 	// opened the change and what it is for, from the change's own record. A
 	// change that cannot be read fails the step; an MR is never opened
 	// without its opener.

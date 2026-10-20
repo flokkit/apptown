@@ -1,5 +1,5 @@
-// Package docker is the container runtime the forge drives: which daemon a
-// command talks to (the forge's own, or an attached host's over SSH), the
+// Package docker is the container runtime AppTown drives: which daemon a
+// command talks to (AppTown's own, or an attached host's over SSH), the
 // command itself, and the small questions asked of a daemon (is a
 // container running, what is an image's digest, where is a port
 // reachable). Every other driver and the console runtime build on it.
@@ -41,12 +41,12 @@ type Command struct {
 
 type CLI struct{ Binary string }
 
-// ErrNoLocalBackend refuses a call to the forge's own Docker on a forge
+// ErrNoLocalBackend refuses a call to AppTown's own Docker on an AppTown
 // started with -no-local-docker. It is a backstop: owners answer from the
 // mode first (Scope.Absent), and never read it as "not running".
 var ErrNoLocalBackend = errors.New("this AppTown has no local Docker")
 
-// Refusing is the client of a forge with no local Docker daemon: every call
+// Refusing is the client of an AppTown with no local Docker daemon: every call
 // is refused with ErrNoLocalBackend. An admitted target's scope (WithHost)
 // gets Attached instead, which passes that target's --host on every call,
 // so neither the ambient context nor DOCKER_HOST ever chooses a daemon.
@@ -58,7 +58,7 @@ func (Refusing) Run(context.Context, string, Command) ([]byte, error) { return n
 // test's recording stand-in for it.
 func (Refusing) NoLocalBackend() {}
 
-// Absent reports the forge's own daemon on a forge that has none.
+// Absent reports AppTown's own daemon on an AppTown that has none.
 func (dk Scope) Absent() bool {
 	_, ok := dk.Client.(interface{ NoLocalBackend() })
 	return ok
@@ -99,7 +99,7 @@ func (c CLI) Run(ctx context.Context, host string, req Command) ([]byte, error) 
 
 // builderEnv names a Buildx builder for every build the Docker CLI starts,
 // even a plain `docker build`, which otherwise uses the daemon's own. The
-// forge chooses the daemon (--host, or its own); a builder named in its
+// AppTown chooses the daemon (--host, or its own); a builder named in its
 // environment would send a project's source and build to another machine,
 // so no command the apptown runs inherits it.
 const builderEnv = "BUILDX_BUILDER"

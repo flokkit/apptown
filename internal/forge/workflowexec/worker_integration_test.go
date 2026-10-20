@@ -14,10 +14,10 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// A forge configured with a worker runs a real script step there: the
+// An AppTown configured with a worker runs a real script step there: the
 // worker is apptown-worker in its own Docker-in-Docker container, sharing no
-// files with the forge. The script's work is published to the change's
-// branch, and the forge's workspace is brought to it.
+// files with AppTown. The script's work is published to the change's
+// branch, and AppTown's workspace is brought to it.
 func TestIntegrationAScriptStepRunsOnAWorkerInItsOwnContainer(t *testing.T) {
 	ca := workertest.NewCA(t)
 	w := workertest.StartInContainer(t, ca)

@@ -22,7 +22,7 @@ type migration struct {
 	stmts []string
 }
 
-// schemaBaseline is the 1.0 baseline: every forge in service was converted
+// schemaBaseline is the 1.0 baseline: every AppTown in service was converted
 // to UUID identities (schema 147, the identity cutover) and the migrations
 // up to it were collapsed into schema.sql. An older database is refused; it
 // must first be converted by apptownd -identity-cutover, which only
@@ -39,7 +39,7 @@ var migrations = []migration{
 		// One change on an early installation was closed by hand, before the
 		// engine's close existed, for exactly this reason ("Nothing to update:
 		// the project declares no dependencies"). Its id matches nothing on
-		// any other forge.
+		// any other AppTown.
 		`UPDATE changes SET closed_as = 'nothing-to-change' WHERE id = '01a0f60c-aaae-7000-9de8-0b5d465313ba' AND state = 'abandoned'`,
 	}},
 	{n: 149, note: "deployment profiles: each generation's applied record, and operators' resource overrides", stmts: []string{
@@ -212,5 +212,5 @@ func Open(ctx context.Context, url string) (*database.DB, error) {
 }
 
 // LatestVersion is the schema version this build migrates to: what a move
-// file records of the forge it came from.
+// file records of AppTown it came from.
 func LatestVersion() int { return latestSchemaVersion() }

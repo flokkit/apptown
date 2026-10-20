@@ -59,7 +59,7 @@ func record(t *testing.T, db *database.DB, hub string, projectID ids.ID, via Mai
 }
 
 // rewriteMain replaces main with an unrelated commit, as only an edit outside
-// the forge can.
+// AppTown can.
 func rewriteMain(t *testing.T, hub string) string {
 	t.Helper()
 	gittest.RunAsTester(t, hub, "checkout", "-q", "--orphan", "rewritten")
@@ -98,7 +98,7 @@ func TestRecordedMainOnlyGoesForward(t *testing.T) {
 	}
 }
 
-// A recorded main's time is the one its recorder gave, the forge's, for the
+// A recorded main's time is the one its recorder gave, AppTown's, for the
 // first record and a move forward alike; the database's clock stamps none.
 //
 // Kills: the record or the move stamped by the database's now().
@@ -162,9 +162,9 @@ func TestRecordedMainLosesARacedCompareAndSet(t *testing.T) {
 	}
 }
 
-// Whatever mix of forge moves and forward commits outside the forge, the
+// Whatever mix of AppTown moves and forward commits outside AppTown, the
 // record is always main or an ancestor of it. A step is a commit outside the
-// forge (main moves past the record) or a forge move that records main. The
+// forge (main moves past the record) or an AppTown move that records main. The
 // seeded walk is twelve steps, "fooofffffoff": every pair of step kinds
 // follows the other, and three outside commits run together, so the record
 // is seen behind by more than one commit and caught up again. The test fails
@@ -305,7 +305,7 @@ func TestLandingRecordsMainAsReadBack(t *testing.T) {
 	ctx := context.Background()
 	p, store := pendingMergeFixture(t)
 	merged := commitOnHubMain(t, p.source, "the landing's merge")
-	later := commitOnHubMain(t, p.source, "a later forge move")
+	later := commitOnHubMain(t, p.source, "a later AppTown move")
 	record(t, store.db, p.source.Repository, p.source.ProjectID, ViaGenesis)
 	if err := p.settle(ctx, merged); err != nil {
 		t.Fatal(err)

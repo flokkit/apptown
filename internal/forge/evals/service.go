@@ -166,7 +166,7 @@ type Dependencies struct {
 	// InCopy is the eval's driver acting in one of its copies: an eval
 	// instrument bound to that copy (access's "eval" instrument).
 	InCopy func(ctx context.Context, evalID, projectID ids.ID) context.Context
-	// Now is the forge's clock, which stamps evals, arms and their
+	// Now is AppTown's clock, which stamps evals, arms and their
 	// receipts (the real clock when nil).
 	Now func() time.Time
 	// RequestPass asks the job queue for a pass now (PassJob); nil leaves
@@ -206,7 +206,7 @@ type Start struct {
 // Eval is an eval and its arms as the starter reads them.
 type Eval struct {
 	ID          ids.ID    `json:"id"`
-	Number      int64     `json:"number"` // within the forge, as people name it ("eval 9")
+	Number      int64     `json:"number"` // within AppTown, as people name it ("eval 9")
 	StartedBy   string    `json:"startedBy"`
 	StartedAt   time.Time `json:"startedAt"`
 	Meaning     string    `json:"meaning"`
@@ -425,7 +425,7 @@ type armAdoption struct {
 	Blocks []conformance.CheckVersion `json:"blocks"`
 }
 
-// subject is what an eval varies, said once: a model profile this forge
+// subject is what an eval varies, said once: a model profile this AppTown
 // offers, or a published pack version with the digest of its resolved
 // spec and pins.
 func (s *Service) subject(ctx context.Context, in Start) (kind, subject, digest string, err error) {

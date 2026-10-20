@@ -11,7 +11,7 @@ import (
 )
 
 // The inventory (design/subsystems/deployment.md §14) is what is at a
-// target, in the same words whatever the provider: what the forge's
+// target, in the same words whatever the provider: what AppTown's
 // records say should be there, laid under what the provider reports.
 // This file is the records' side; the provider's side is each driver's.
 
@@ -28,7 +28,7 @@ type Declarations interface {
 	Declared(project string) (Declared, bool)
 }
 
-// HostNames is the built-in host's naming: what the forge calls the
+// HostNames is the built-in host's naming: what AppTown calls the
 // container, data volume and need services of a deployment.
 type HostNames interface {
 	Container(project, deployment string) string
@@ -49,7 +49,7 @@ func NewInventory(db *database.DB, declared Declarations, names HostNames) *Inve
 	return &Inventory{deployments: NewDeployments(db), needs: NewNeedStore(db, nil), retained: NewRetained(db), declared: declared, names: names}
 }
 
-// Recorded is what the forge's own records say is at a target: the app
+// Recorded is what AppTown's own records say is at a target: the app
 // behind every deployment bound to it (a preview's too), the services and
 // data volume its contract declares on a Docker host, the database behind
 // every managed need instance on a cloud target, and what was retained.
@@ -97,7 +97,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 			continue
 		case KindS3Bucket:
 			// The deployment's own bucket, recorded when it was created; the
-			// forge does not list the store, so nothing reads unrecorded.
+			// AppTown does not list the store, so nothing reads unrecorded.
 			if bucket, _ := e.Handle["bucket"].(string); bucket != "" {
 				out = append(out, deploy.Resource{Kind: "bucket", Name: bucket, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 			}

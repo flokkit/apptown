@@ -93,14 +93,14 @@ type Projects struct {
 	clock     func() time.Time
 }
 
-// New is the project record on the real clock; the forge's own is
+// New is the project record on the real clock; AppTown's own is
 // NewWithClock's.
 func New(db *database.DB, authority access.Authority) *Projects {
 	return NewWithClock(db, authority, nil)
 }
 
 // NewWithClock is the project record whose writes (contract snapshots,
-// deletion attempts) are stamped by now, the forge's clock (the real clock
+// deletion attempts) are stamped by now, AppTown's clock (the real clock
 // when nil).
 func NewWithClock(db *database.DB, authority access.Authority, now func() time.Time) *Projects {
 	s := &Projects{db: db, clock: now}

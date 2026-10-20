@@ -45,7 +45,7 @@ func TestRemediationDependencyChangesAreOutOfScope(t *testing.T) {
 		t.Fatalf("an ordinary change is not scoped this way, got %v", got)
 	}
 	// What the repository ignores is refused on every change, ordinary or
-	// not; the forge keeps no list of build folder names.
+	// not; AppTown keeps no list of build folder names.
 	built := []ChangedFile{{Path: "README.md"}, {Path: "target/surefire-reports/TEST-x.xml", Ignored: true}, {Path: "web/dist/app.js", Ignored: true}}
 	if got := IgnoredChanges(built); len(got) != 2 || got[0] != "target/surefire-reports/TEST-x.xml" {
 		t.Fatalf("ignored files are never a change's to commit, got %v", got)

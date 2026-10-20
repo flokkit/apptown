@@ -265,7 +265,7 @@ type evalWorld struct {
 	beforeCopy func()
 	adoption   *fakeAdoption
 	copiesMade int
-	// at is the forge's clock, in Unix seconds; zero reads the real clock.
+	// at is AppTown's clock, in Unix seconds; zero reads the real clock.
 	at atomic.Int64
 	// passes counts the passes asked of the job queue.
 	passes atomic.Int64
@@ -1070,7 +1070,7 @@ func TestAnEvalsArmsAreLiveWorkInTheirSourceProject(t *testing.T) {
 	}
 }
 
-// An eval and its receipts carry the forge's clock, however far it is from
+// An eval and its receipts carry AppTown's clock, however far it is from
 // the machine's.
 func TestAnEvalIsStampedByTheForgesClock(t *testing.T) {
 	t.Parallel()

@@ -112,11 +112,11 @@ describe('project settings form', () => {
   })
 
   it('keeps the draft and says why when a save fails', async () => {
-    const f = mount(() => new Response(JSON.stringify({ error: 'the forge is restarting' }), { status: 503 }))
+    const f = mount(() => new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 503 }))
     await f.render(project('ours'))
     await act(async () => { type(f.inputs()[0], 'Mine') })
     await act(async () => { f.button('Save')!.click() })
-    await vi.waitFor(() => expect(f.el.textContent).toContain('the forge is restarting'))
+    await vi.waitFor(() => expect(f.el.textContent).toContain('AppTown is restarting'))
     expect(f.inputs()[0].value).toBe('Mine')
     expect(f.button('Save')!.disabled).toBe(false)
     act(() => f.root.unmount())

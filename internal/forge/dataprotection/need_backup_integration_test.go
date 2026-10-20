@@ -81,9 +81,9 @@ func TestIntegrationPostgresBackupRestoresInPlaceAndIsVerified(t *testing.T) {
 	for _, c := range pgOf {
 		waitForPostgres(t, c)
 	}
-	// sql-guarantee: the app's own database in its test container, not the forge's; the data a backup copies.
+	// sql-guarantee: the app's own database in its test container, not AppTown's; the data a backup copies.
 	psql(t, pgOf["main"], "CREATE TABLE ledger (n int); INSERT INTO ledger VALUES (41), (42)")
-	// sql-guarantee: the app's own database in its test container, not the forge's; what the restore replaces.
+	// sql-guarantee: the app's own database in its test container, not AppTown's; what the restore replaces.
 	psql(t, pgOf["fresh"], "CREATE TABLE ledger (n int); INSERT INTO ledger VALUES (7)")
 	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 1 || b.Items[0].Format != "pg-custom" {

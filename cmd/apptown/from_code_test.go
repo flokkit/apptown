@@ -18,7 +18,7 @@ type exchange struct {
 	body                []byte
 }
 
-// codeForge answers like a forge that starts projects from code, recording
+// codeForge answers like an AppTown that starts projects from code, recording
 // every request with its raw body.
 func codeForge(t *testing.T, bundle []byte) *[]exchange {
 	t.Helper()
@@ -92,7 +92,7 @@ func TestNewFromABundleUploadsItAndNamesTheSecrets(t *testing.T) {
 }
 
 // `apptown new --from <https-url>` sends the URL and the secret's name, never
-// a value; the forge fetches.
+// a value; AppTown fetches.
 func TestNewFromAURLNamesTheSecretOnly(t *testing.T) {
 	seen := codeForge(t, nil)
 	if _, err := run(t, "new", "moved", "--from", "https://gitlab.example/team/app.git", "--secret-for-git", "GITLAB_TOKEN", "--branch", "trunk"); err != nil {
@@ -117,7 +117,7 @@ func TestBundleWritesTheDownload(t *testing.T) {
 // An import whose answer was lost (a 502 after it was sent, or the
 // connection broken before an answer) may have started the repository: the
 // error never says the repository is absent and never advises deleting the
-// project. The forge's own refusal still does.
+// project. AppTown's own refusal still does.
 func TestAnImportWithAnUnknownOutcomeAdvisesNoDeletion(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "p.bundle")
 	if err := os.WriteFile(file, []byte("bytes"), 0o644); err != nil {

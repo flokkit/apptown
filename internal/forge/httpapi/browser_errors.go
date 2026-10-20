@@ -11,10 +11,10 @@ func NewBrowserErrors(reporting BrowserErrorConfig) BrowserErrors {
 	return BrowserErrors{reporting: reporting}
 }
 
-// BrowserErrors: GET /api/v1/errors/browser — what the forge's own web
+// BrowserErrors: GET /api/v1/errors/browser — what AppTown's own web
 // UI needs to report its exceptions to the same GlitchTip project: the
 // DSN (a DSN is public by design; it identifies, it does not authorise
-// reads) and the release. Empty when the forge project is unattached, and
+// reads) and the release. Empty when AppTown project is unattached, and
 // the UI then reports nothing.
 func (h BrowserErrors) BrowserErrors(w http.ResponseWriter, r *http.Request) {
 	dsn, release, ok := h.reporting.BrowserConfig(r.Context())
@@ -30,7 +30,7 @@ type BrowserErrorConfig interface {
 }
 
 // BrowserErrorReporting is where the web UI reports its own exceptions; both
-// fields are absent when the forge reports nowhere.
+// fields are absent when AppTown reports nowhere.
 type BrowserErrorReporting struct {
 	DSN     string `json:"dsn,omitempty"`
 	Release string `json:"release,omitempty"`

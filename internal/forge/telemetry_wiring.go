@@ -30,7 +30,7 @@ import (
 	"flokkit.io/forge/internal/telemetry"
 )
 
-// The forge's own telemetry, beside the self-error reporter: one setting, the
+// AppTown's own telemetry, beside the self-error reporter: one setting, the
 // OTLP endpoint, turns it on. Unset, every tracer and meter here is a no-op
 // and nothing is created, connected or sent. What is exported, and its
 // limits, is in design/subsystems/telemetry.md.
@@ -40,7 +40,7 @@ type instrumentation struct {
 	meter        metric.Meter
 	httpDuration metric.Float64Histogram
 	links        *attemptLinks
-	now          func() time.Time // the forge's clock, which times a request
+	now          func() time.Time // AppTown's clock, which times a request
 }
 
 func startInstrumentation(ctx context.Context, cfg configuration) (*instrumentation, error) {
@@ -118,7 +118,7 @@ func buildRevision() string {
 // writes slog with a context and gets one.
 type logLineBridge struct {
 	// ctx is the logs' context: the App's, detached, so a line written as
-	// the forge stops is still sent.
+	// AppTown stops is still sent.
 	ctx    context.Context
 	logger *slog.Logger
 	rest   []byte

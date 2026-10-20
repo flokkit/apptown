@@ -30,7 +30,7 @@ import (
 //	readiness                      probe the path the contract declares as the
 //	                               public part's readiness (the caller resolves it)
 //	browser-env                    a static app's page loads /_apptown/env.js
-//	                               whenever the forge gives it values
+//	                               whenever AppTown gives it values
 //	page                           the root a visitor opens, through the front
 //	                               door only, is not refused (page.go)
 //	memory-declared                each part the apptown runs from a build or
@@ -39,7 +39,7 @@ import (
 //	                               no running app
 //	memory-within [N%]             each part of the standing deployment uses
 //	                               under N% (default 90) of the memory limit
-//	                               the forge applied to it, as the caller
+//	                               AppTown applied to it, as the caller
 //	                               observes it; judged on a standing
 //	                               deployment only
 
@@ -48,7 +48,7 @@ type ProbeSpec struct {
 	Path       string
 	Expect     int
 	Readiness  bool // resolve the path from the contract's declared readiness
-	BrowserEnv bool // judge the page against the forge's /_apptown/env.js
+	BrowserEnv bool // judge the page against AppTown's /_apptown/env.js
 	Page       bool // judge the front page through the front door (JudgePage)
 	// MemoryDeclared judges the contract, not the running app.
 	MemoryDeclared bool
@@ -65,7 +65,7 @@ const DefaultMemoryWithin = 90
 func (ps ProbeSpec) NeedsApp() bool { return !ps.MemoryDeclared }
 
 // Standing says the probe is answered only by a standing deployment: what
-// the forge applied to it and observed of it. A freshly booted preview has
+// AppTown applied to it and observed of it. A freshly booted preview has
 // no steady use to judge, so the gate skips it.
 func (ps ProbeSpec) Standing() bool { return ps.MemoryWithin > 0 }
 

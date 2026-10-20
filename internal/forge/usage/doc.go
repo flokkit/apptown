@@ -30,9 +30,9 @@
 // request in a database transaction. A failed final write leaves the prior record
 // available for diagnosis.
 //
-// # The forge's own model calls
+// # AppTown's own model calls
 //
-// For a call the forge makes for itself (inference.Gateway.Ask),
+// For a call AppTown makes for itself (inference.Gateway.Ask),
 // [Requests.OpenCall] writes the receipt and a pending spend line in one
 // transaction before anything is sent, and [Requests.SettleCall] closes the
 // receipt and settles the line, only while it is pending and its time has not

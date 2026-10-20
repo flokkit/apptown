@@ -11,7 +11,7 @@ import type { Attachable, AttachableList, AttachmentList, AttachmentView, Depend
 
 // The service selector: the databases and backing services this app runs
 // against, declared in its contract as `needs:` (catalog capabilities the
-// forge fulfills per deployment). Editing here opens a Change (they live in
+// AppTown fulfills per deployment). Editing here opens a Change (they live in
 // the versioned contract) that previews with the new service and lands via
 // gates. The app's own parts, including any off-catalog container, are
 // source and change through a change like the rest of the app.
@@ -54,7 +54,7 @@ function onto(now: NeedPick[], from: NeedPick[], mine: NeedPick[]): NeedPick[] {
 export function ServicesTab({ slug }: { slug: string }) {
   const svcQ = useGet<ProjectServiceList>(`/projects/${slug}/services`)
   const catQ = useGet<DependencyList>(`/dependencies`)
-  // Only kinds the forge can stand up as a running service belong here;
+  // Only kinds AppTown can stand up as a running service belong here;
   // register-kind capabilities (SSO, error reporting) live on Integrations.
   const catalog = (catQ.data?.dependencies ?? []).filter((k) => k.local?.image)
   // The form starts only from an answer this page read itself: a revisit is

@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// The pool's cooldown after a provider refuses runs on the forge's clock:
+// The pool's cooldown after a provider refuses runs on AppTown's clock:
 // held now, it is still cooling two minutes on and has ended four minutes
 // on, with that clock an hour ahead of the real one.
 //

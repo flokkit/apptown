@@ -11,7 +11,7 @@ import (
 	"flokkit.io/forge/internal/forge/project"
 )
 
-// Jobs: the forge's own work (design/subsystems/jobs.md). River owns queue
+// Jobs: AppTown's own work (design/subsystems/jobs.md). River owns queue
 // execution and retries; these handlers own domain outcomes and external-effect
 // identity. A queue receipt is diagnostic, never authority to repeat a release.
 

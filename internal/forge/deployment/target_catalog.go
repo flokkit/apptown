@@ -32,8 +32,8 @@ func DescribeKind(kind string) KindInfo {
 }
 
 // DescribeTarget is a target's kind as people read it. The Docker host kind
-// describes this forge's own host; a Docker host attached over SSH is
-// described by its origin, placed at its hostname, never as "this forge".
+// describes this AppTown's own host; a Docker host attached over SSH is
+// described by its origin, placed at its hostname, never as "this AppTown".
 func DescribeTarget(t *Target) KindInfo {
 	k := DescribeKind(t.Kind)
 	if t.Kind == KindDockerHost && t.Origin != OriginBuiltIn {

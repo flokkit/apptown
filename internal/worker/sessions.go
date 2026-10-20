@@ -21,14 +21,14 @@ import (
 
 // A session is a chat that runs on this worker (design/operations/workers.md,
 // "Chats on the worker"): the chat's container and its private Docker daemon, run by the
-// same chat runtime the forge uses (a console.Agent; *pi.Runtime in
+// same chat runtime AppTown uses (a console.Agent; *pi.Runtime in
 // production) on the worker's own Docker, with the chat's files under the
-// state directory. The forge's side is RemoteAgent.
+// state directory. AppTown's side is RemoteAgent.
 //
 // The worker keeps one small record per session. Removing a session marks
 // its record removed before anything is taken away, and a removed session is
 // never started again, so a start that arrives late cannot bring back a chat
-// the forge has ended. Stopping or rebuilding a session's runtime is not
+// AppTown has ended. Stopping or rebuilding a session's runtime is not
 // removing it: its files and record stay.
 
 var sessionPattern = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
@@ -44,7 +44,7 @@ var envPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 // begins with "-", so it cannot be read as a Docker option.
 var imagePattern = regexp.MustCompile(`^([a-z0-9][a-z0-9.-]*(:[0-9]{1,5})?/)?[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(@sha256:[a-f0-9]{64})?$`)
 
-// SessionSpec is what the forge asks a session to run: the chat's launch
+// SessionSpec is what AppTown asks a session to run: the chat's launch
 // without host paths. The worker supplies the paths: a mount names content
 // already sent to the worker (a blob), never a path on either machine.
 type SessionSpec struct {
@@ -105,7 +105,7 @@ type sessionRecord struct {
 	ID      string      `json:"id"`
 	Spec    SessionSpec `json:"spec"`
 	Created time.Time   `json:"created"`
-	// Removed: the forge ended the session. The record stays so that the
+	// Removed: AppTown ended the session. The record stays so that the
 	// session is never started again.
 	Removed bool `json:"removed,omitempty"`
 	// FilesDigest identifies the chat's files as last sent.
@@ -146,7 +146,7 @@ type SessionStatus struct {
 	// FilesDigest identifies the chat's files as last sent.
 	FilesDigest string `json:"filesDigest,omitempty"`
 	// Source is the commit the chat's work tree was made from; empty until
-	// the forge sends it.
+	// AppTown sends it.
 	Source string `json:"source,omitempty"`
 }
 
@@ -309,7 +309,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request) {
 	}
 	in := s.launch(rec)
 	// The record's directory exists before the runtime provisions, so the
-	// chat's first record file is made for pi to find, as on the forge.
+	// chat's first record file is made for pi to find, as on AppTown.
 	for _, dir := range []string{in.Dir, filepath.Join(in.Dir, "sessions"), in.Workspace.Path} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -330,7 +330,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request) {
 		}
 		if !has {
 			http.Error(w, "this worker does not have the image "+rec.Spec.Image+
-				"; a forge-agent image is built by the worker from its own deploy/apptown-agent, so the worker and AppTown may be different versions",
+				"; an AppTown-agent image is built by the worker from its own deploy/apptown-agent, so the worker and AppTown may be different versions",
 				http.StatusUnprocessableEntity)
 			return
 		}
@@ -379,7 +379,7 @@ func (s *Server) rebuildSession(w http.ResponseWriter, r *http.Request) {
 var errSessionBusy = errors.New("the chat is running; it is rebuilt only while stopped")
 
 // retire acts on a live session's runtime and reads Docker back: done must
-// hold of what it shows, or the answer is an error and the forge asks again.
+// hold of what it shows, or the answer is an error and AppTown asks again.
 func (s *Server) retire(w http.ResponseWriter, r *http.Request, what string, done func(SessionStatus) bool, act func(context.Context, string) error) {
 	if !s.sessionRuntime(w) {
 		return
@@ -413,7 +413,7 @@ func (s *Server) retire(w http.ResponseWriter, r *http.Request, what string, don
 // removeSession ends a session for good. The record is marked removed
 // first, so nothing starts it again; then its runtime and files are taken
 // away. The answer is success only once the worker's Docker shows neither
-// the container nor the private daemon: until then the forge keeps holding
+// the container nor the private daemon: until then AppTown keeps holding
 // the chat's change, and asks again. A session the worker never knew is
 // recorded as removed too, and anything of it found is taken away.
 func (s *Server) removeSession(w http.ResponseWriter, r *http.Request) {

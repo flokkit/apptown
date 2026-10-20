@@ -23,7 +23,7 @@ import (
 
 // Runtime diagnostics: why a deployment's app is failing, read on request
 // (design/subsystems/deployment.md, "Runtime diagnostics"). They bring
-// together what the forge already observes: the background observer's
+// together what AppTown already observes: the background observer's
 // state, each part's and need's container as its Docker daemon reports it
 // now, the limit events recorded for the deployment, and a crash-loop hold
 // on its generation. They are about the generation the deployment settled
@@ -59,7 +59,7 @@ type Diagnostics struct {
 	Events       []LimitEvent `json:"events"`
 	EventsKnown  bool         `json:"eventsKnown"`
 	EventsSource string       `json:"eventsSource"`
-	// Hold is the forge's crash-loop hold on this generation, nil when
+	// Hold is AppTown's crash-loop hold on this generation, nil when
 	// none was recorded.
 	Hold *CrashLoopHold `json:"hold,omitempty"`
 	// Logs bounds an explicit log read of one part (RecentLog).
@@ -451,7 +451,7 @@ type PartLog struct {
 // RecentLog reads a part's or need's recent log on the deployment's own
 // host. A log can hold the app's secrets, so it takes the grant to operate
 // the deployment, not to read it. The part is one the settled generation
-// recorded, and its container is the one the forge names for it there: no
+// recorded, and its container is the one AppTown names for it there: no
 // caller names a container.
 func (s *Service) RecentLog(ctx context.Context, projectID ids.ID, name, part string) (PartLog, error) {
 	if s.authority == nil {
@@ -520,7 +520,7 @@ func (s *Service) RecentLog(ctx context.Context, projectID ids.ID, name, part st
 }
 
 // safeReason is a failure in words a person may be shown: a timeout or
-// cancellation as such, the forge's own refusals as they are, and anything
+// cancellation as such, AppTown's own refusals as they are, and anything
 // else a host or provider said as a fixed phrase, since its text may name
 // an address or a credential.
 func safeReason(err error) string {

@@ -26,10 +26,10 @@ import (
 )
 
 // The two backing stores (§2). The built-in store is in-process: values
-// live in the forge's own database, obfuscated with a key the forge
+// live in AppTown's own database, obfuscated with a key AppTown
 // generated and keeps in the same database. That protects against
 // accidental disclosure, not against someone holding the database.
-// Infisical values never touch the forge's database.
+// Infisical values never touch AppTown's database.
 const (
 	StoreInternal  = "internal"
 	StoreInfisical = "infisical"
@@ -244,7 +244,7 @@ const derivedPurpose = "forge need credentials v1"
 // nothing is written. It is how a deployment's or a preview's need
 // credentials are made (deployment.NeedCredentials): their services set
 // them again at every start, so nothing depends on keeping one. Anyone who
-// holds the forge's database can derive them, as they can read every
+// holds AppTown's database can derive them, as they can read every
 // built-in value: obfuscation, not encryption. A value changes only when
 // the store's key does.
 func (v *Vault) Derived(ctx context.Context, scope, name string) (string, error) {
@@ -262,7 +262,7 @@ func (v *Vault) Derived(ctx context.Context, scope, name string) (string, error)
 }
 
 // Delete removes every version of a value; one never stored is not an
-// error. It is for a value the forge minted for something it owns, once
+// error. It is for a value AppTown minted for something it owns, once
 // that owner has gone (an AI models key revoked at take-down).
 func (v *Vault) Delete(ctx context.Context, scope, name string) error {
 	return v.db.InTx(ctx, func(tx *database.Tx) error {

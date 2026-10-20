@@ -43,7 +43,7 @@ func (s *Service) Stop() { s.dispatcher.Stop() }
 
 func (s *Service) BeginStop() <-chan struct{} { return s.dispatcher.BeginStop() }
 
-// BeginShutdown is BeginStop when the forge itself is stopping. From then on
+// BeginShutdown is BeginStop when AppTown itself is stopping. From then on
 // a step whose runner settles anything but a pass is left running for
 // startup repair (Execution.Settle): the processes a stopping forge's steps
 // run are killed with it, so a failure seen now is not evidence about the

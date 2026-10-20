@@ -1,6 +1,6 @@
 # Worker
 
-`apptown-worker` (`cmd/apptown-worker`) runs a forge's tasks on a machine that
+`apptown-worker` (`cmd/apptown-worker`) runs an AppTown's tasks on a machine that
 shares no files with it. This package is its server: an HTTPS API over mutual
 TLS that accepts only the client certificate naming its one installation,
 workspaces cloned from Git bundles, tasks run through an
@@ -10,18 +10,18 @@ returned as Git bundles of the commits a task made.
 Before acting on a task the worker writes one fsynced record of the request
 (`state/records/<key>.json`): a restarted worker refuses the same key for a
 different request, and finds its tasks again through its driver. It knows
-nothing about projects, workflows or the forge's database; the forge's side
+nothing about projects, workflows or AppTown's database; AppTown's side
 is `execution.WorkerTasks`. `workertest` starts a worker in a test: in process,
 as a process on this machine driving its Docker (`StartOnHost`), or in its own
 Docker-in-Docker container.
 
 Every task's, check's and chat's container mounts the worker's tool cache
 (`tool_cache.go`, `Server.ToolCache`, `<state>/tool-cache/mise`) writable at
-`execution.ToolCacheMount`, where the forge points mise's download cache: one
+`execution.ToolCacheMount`, where AppTown points mise's download cache: one
 cache of release listings and archives per worker, never a tool's
 installation, which stays in the container.
 
-It also runs chats (`sessions.go`, `session_io.go`): the forge's own chat
+It also runs chats (`sessions.go`, `session_io.go`): AppTown's own chat
 runtime (a `console.Agent`, pi under tmux in production) on the worker's
 Docker, with the chat's files under the state directory. A session's record
 is marked removed before its runtime is taken away and is kept, so a late
@@ -33,12 +33,12 @@ reaches a running chat when it next stops. On a worker the chat runtime gives
 each session its own cache volume, removed with its runtime, the worker's
 tool cache (`tool_cache.go`) in its container, and the
 worker's chat limits on the chat's container, its daemon and a save's
-container; the daemon uses the worker's resolvers and the mirror the forge
+container; the daemon uses the worker's resolvers and the mirror AppTown
 sends in the session's spec.
 
-On the forge, `RemoteAgent` is that runtime for the chat service: the same
+On AppTown, `RemoteAgent` is that runtime for the chat service: the same
 interface, answered by the worker (`SessionClient`), so the service is
-unchanged. What the forge mounts into a chat travels as a blob named by its
+unchanged. What AppTown mounts into a chat travels as a blob named by its
 content (the `apptown` binary, generated registry files); the chat's other
 files are sent when they change; the work tree is made once from a bundle
 of the change's branch; messages, interrupts and the terminal go through;
@@ -46,21 +46,21 @@ the chat's record is copied back with the time of the last good copy, and a
 turn handed back in that copy is the moment to save. A save is a bundle of
 the chat's commits since the branch's tip, made by the chat's own git in a
 short-lived container of the chat's image with only its work tree mounted
-(`Save`); the forge imports it through its checked import and publishes it
+(`Save`); AppTown imports it through its checked import and publishes it
 (`repositoryedit.SaveChat`). Ending a chat stops it first, then makes its last
 save with what it left uncommitted (`SaveLast`, through the `Ending` hook),
-copies its record, and removes it. The forge calls the worker; the worker
-never calls the forge. On the forge, `console.Placed` gives each chat the
+copies its record, and removes it. AppTown calls the worker; the worker
+never calls AppTown. On AppTown, `console.Placed` gives each chat the
 runtime its record places it on. An answer
-the forge cannot get is `execution.ErrWorkerUnavailable`, never absence, and
+AppTown cannot get is `execution.ErrWorkerUnavailable`, never absence, and
 the chat shows as unavailable. The agent image is built by the worker from
 its own `deploy/apptown-agent` and named by that context's content
-(`AgentImage`), so a forge and a worker of different versions refuse rather
+(`AgentImage`), so an AppTown and a worker of different versions refuse rather
 than mix; `GET /v1/agent-image` reports its name and labels. `Reach` reports
 which registries the worker can reach.
 
-A task's inputs (`task_io.go`) are blobs the forge sent, checked against
-their bounds by the blobs' own sizes before anything is created (the forge
+A task's inputs (`task_io.go`) are blobs AppTown sent, checked against
+their bounds by the blobs' own sizes before anything is created (AppTown
 asks, `POST /v1/inputs/check`, before it uploads a source, so a refusal
 leaves no workspace), copied into
 the task's folder (`state/task-inputs/<key>`) and mounted read-only at their
@@ -99,7 +99,7 @@ first writes its decision (`state/released/<key>`), so from then on, after
 a restart too, a request for the key is refused as stale; it then removes
 everything, and confirms only when nothing of the key is left; one
 interrupted is asked again. The worker's sweep stops a task whose admission
-has expired and removes its private Docker, with or without the forge.
+has expired and removes its private Docker, with or without AppTown.
 
 New work is refused while a disk it writes to is short of space
 (`diskspace.Admit`, `admitNew`): a new task is admitted once, before the
@@ -117,7 +117,7 @@ version, storage driver), the private daemon's image (pulled first if
 absent): its tag, Docker's local id of it, its repository digest and the
 version its own `dockerd --version` reports, whether a privileged container
 runs (probed, after the privileged mark), and the operator's `-exclusive`
-declaration. `GET /v1/profile` reports it; the forge records it with each
+declaration. `GET /v1/profile` reports it; AppTown records it with each
 attempt admitted with private Docker and sends it in the request. A new
 task's ensure, and its first start, measure Docker again and refuse private
 Docker admitted on another profile, or on none: the OS, architecture,

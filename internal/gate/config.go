@@ -1,18 +1,18 @@
-// Package gate is the forge access gate: a small reverse proxy that is the
+// Package gate is AppTown access gate: a small reverse proxy that is the
 // only public component of a restored copy of production data. The app runs
 // behind it as an internal service. The gate lets in two kinds of caller and
 // nobody else:
 //
-//   - the forge's own probes, which carry the copy's gate secret in the
+//   - AppTown's own probes, which carry the copy's gate secret in the
 //     AppTown-Restore-Token header;
-//   - people the forge has sent through /_apptown/enter with a single-use
-//     ticket, which the gate redeems with the forge for a session cookie.
-//     The forge's own check of the gate enters the same way, with a ticket
+//   - people AppTown has sent through /_apptown/enter with a single-use
+//     ticket, which the gate redeems with AppTown for a session cookie.
+//     AppTown's own check of the gate enters the same way, with a ticket
 //     it issued itself; the gate does not tell the two apart.
 //
 // Everything else gets an empty 404, so an anonymous caller learns nothing
 // about the app behind it. Every refusal carries the AppTown-Gate: refused
-// header, which the gate strips from the app's own answers, so the forge's
+// header, which the gate strips from the app's own answers, so AppTown's
 // check of the gate can tell a refusal from an app answering 404. The gate logs no request content: the copy holds
 // production data, and paths, headers and bodies can carry it.
 package gate
@@ -34,9 +34,9 @@ type Config struct {
 	// internal network.
 	Upstream *url.URL
 	// Secret is the copy's gate secret: probes present it, and the gate
-	// presents it to the forge when redeeming a ticket. Never logged.
+	// presents it to AppTown when redeeming a ticket. Never logged.
 	Secret string
-	// Forge is the forge's public origin, where tickets are redeemed.
+	// Forge is AppTown's public origin, where tickets are redeemed.
 	Forge *url.URL
 }
 
@@ -97,7 +97,7 @@ func parseUpstream(raw string) (*url.URL, error) {
 	return u, nil
 }
 
-// checkSecret insists on the form the forge issues: 32 random bytes as 64
+// checkSecret insists on the form AppTown issues: 32 random bytes as 64
 // lowercase hex characters. Anything else is a delivery mistake, and a
 // short or empty secret would make the probe check meaningless.
 func checkSecret(s string) error {

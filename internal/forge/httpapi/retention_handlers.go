@@ -49,7 +49,7 @@ func (h Retention) Retained(w http.ResponseWriter, r *http.Request) {
 
 // SettleRetained: POST /projects/{slug}/retained/{id} {disposition,
 // note} — a person says what became of it: released (deleted at the
-// provider) or kept (stays on purpose). The forge records the word.
+// provider) or kept (stays on purpose). AppTown records the word.
 func (h Retention) SettleRetained(w http.ResponseWriter, r *http.Request) {
 	p, ok := ProjectFromPath(h.projects, w, r)
 	if !ok {

@@ -42,7 +42,7 @@ func readinessOf(t *testing.T, a *App, env *deployment.Deployment) deployment.Re
 // A deployment whose attempt is still open while the deployment reads
 // reconciled does not stop startup: it is marked as needing attention
 // (readiness uncertain, its attempt uncertain and queued for observation,
-// one ledger line however often the forge starts), and startup goes on.
+// one ledger line however often AppTown starts), and startup goes on.
 func TestStartupFlagsADeploymentWhoseRecordsContradictEachOther(t *testing.T) {
 	t.Parallel()
 	a, env, _, at := deploymentReleaseFixture(t)

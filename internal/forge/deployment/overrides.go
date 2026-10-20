@@ -76,7 +76,7 @@ func (s *Service) SetOverride(ctx context.Context, in OverrideChange) (OverrideR
 	directLimits := false
 	if found {
 		// The intranet deployment is the one on the intranet target, which
-		// the forge records at startup from its Portainer configuration.
+		// AppTown records at startup from its Portainer configuration.
 		t, err := s.Targets.ByID(ctx, dep.TargetID)
 		if err != nil {
 			return OverrideResult{}, err

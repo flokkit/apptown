@@ -53,7 +53,7 @@ const narrativeJob = "narrative"
 type narratives struct {
 	builder narrativeBuilder
 	db      *database.DB
-	// engine is the forge acting for itself, which a queued refresh runs as.
+	// engine is AppTown acting for itself, which a queued refresh runs as.
 	engine func(context.Context) context.Context
 }
 

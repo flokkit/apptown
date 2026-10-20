@@ -17,7 +17,7 @@ const (
 
 // BrowserSession is this instance's public origin and how it writes a signed-in
 // browser's session cookie, from configuration fixed at startup. Origin is
-// the one answer to "what is this forge's address": the browser origin
+// the one answer to "what is this AppTown's address": the browser origin
 // check, the session cookie, invite and password reset links, and OAuth
 // discovery all use it, so they cannot disagree.
 type BrowserSession struct {
@@ -29,7 +29,7 @@ type BrowserSession struct {
 // Secure reports whether the browser reaches Forge over HTTPS: as the stated
 // origin says, else when the request came over TLS or a bare public host has
 // https tier domains. Forwarded headers never decide it: a development proxy
-// sends X-Forwarded-Proto: https to a browser on plain http. A forge behind
+// sends X-Forwarded-Proto: https to a browser on plain http. An AppTown behind
 // a TLS proxy states its origin (-public-host https://...).
 func (b BrowserSession) Secure(r *http.Request) bool {
 	if b.PublicOrigin != "" {

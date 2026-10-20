@@ -96,7 +96,7 @@ These are different contracts even when they are methods on the same service:
   Dispatch happens after commit, never while that caller's transaction is open.
 - **Runtime hooks** such as `DispatchStarted`, `ResumePending` and `BeginStop`
   serve the daemon. They are not user-command authorization boundaries.
-  `BeginShutdown` is `BeginStop` when the forge itself stops: from then on
+  `BeginShutdown` is `BeginStop` when AppTown itself stops: from then on
   `Execution.Settle` records only a pass. The processes a stopping forge's
   steps run are killed with it, so any other verdict is left unrecorded, the
   step stays running, and startup repair takes it up as it would after a
@@ -207,12 +207,12 @@ work now, running in their run's current stage (`forge.step=<id>` says
 whose; a step that cannot be read refuses the attempt): an earlier attempt of this step,
 its private Docker daemon, or a sibling step's container that outlived it
 is removed first, or the attempt fails. Steps that write one folder do not overlap: an agent, review or script
-step takes its folder's lock, in the forge's process, before it claims its
+step takes its folder's lock, in AppTown's process, before it claims its
 attempt, and holds it until it has finished, so a second step asked for
 meanwhile waits its turn and then claims only if its run is still at that
 step. Script recovery takes the same lock and then confirms its attempt is
 still current. A script, like an agent, first removes what is left writing
-the folder (a container that outlived its step or the forge, however its
+the folder (a container that outlived its step or AppTown, however its
 step is recorded) or refuses; recovery does the same before starting a task
 or collecting and publishing its result, keeping only the task's own
 container, and leaves a task it cannot yet check recorded for later.
@@ -239,7 +239,7 @@ its folder are not kept.
 hold its change is ended, its transcript kept. One whose runtime cannot be
 removed never runs again, and its runtime's label keeps anyone from taking
 the change until it is gone; if another worker already holds that change,
-the forge refuses to start. A chat whose record could not be restored is not
+AppTown refuses to start. A chat whose record could not be restored is not
 seen at startup; its runtime's label protects its change the same way.
 
 ### One working copy

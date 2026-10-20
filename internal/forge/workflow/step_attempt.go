@@ -69,7 +69,7 @@ func (s stepAttempts) start(ctx context.Context, snapshot *Step, kind string, pr
 		if err != nil {
 			return nil, err
 		}
-		// The receipt keeps the generation, so a restarted forge collecting
+		// The receipt keeps the generation, so a restarted AppTown collecting
 		// this attempt's task publishes under the same authority.
 		payload.SourceGeneration = generation
 		if err := recordStartReceiptIn(ctx, tx, run.ID, payload, s.now()); err != nil {

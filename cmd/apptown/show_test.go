@@ -38,7 +38,7 @@ func TestTheDisagreementShowsEachOutputOnce(t *testing.T) {
 	}
 }
 
-// A review the model passed and the forge's file check failed reads as the
+// A review the model passed and AppTown's file check failed reads as the
 // forge's failure, with the reviewer's pass shown apart — never as
 // "reviewer rejected" over a positive summary.
 func TestTheDisagreementKeepsTheFileCheckApartFromTheReviewer(t *testing.T) {
@@ -78,7 +78,7 @@ func TestShowNamesOnlyALivePreview(t *testing.T) {
 	}
 }
 
-// apptown changes says where each change is in the forge's own words: one
+// apptown changes says where each change is in AppTown's own words: one
 // waiting on its reader says so, not the stage's name; --all adds the
 // recently shipped and abandoned, which are otherwise left out.
 func TestChangesSaysWhatEachChangeWaitsOn(t *testing.T) {
@@ -108,7 +108,7 @@ func TestChangesSaysWhatEachChangeWaitsOn(t *testing.T) {
 	}
 }
 
-// show says what a change is doing in the forge's words, with the move that
+// show says what a change is doing in AppTown's words, with the move that
 // answers it, and names a closed change's story for what it became.
 func TestShowSaysWhatTheChangeIsDoing(t *testing.T) {
 	fakeForge(t, func(_, path string) (int, string) {
@@ -130,8 +130,8 @@ func TestShowSaysWhatTheChangeIsDoing(t *testing.T) {
 	}
 }
 
-// A change the forge closed because there was nothing to change says so in
-// changes, show and their --json, from the closedAs the forge recorded; an
+// A change AppTown closed because there was nothing to change says so in
+// changes, show and their --json, from the closedAs AppTown recorded; an
 // abandonment, whatever its reason's words, still says abandoned.
 func TestAChangeClosedAsNothingToChangeSaysSo(t *testing.T) {
 	const closed, abandoned = "00000000-0008-7000-8000-000000000000", "00000000-0009-7000-8000-000000000000"

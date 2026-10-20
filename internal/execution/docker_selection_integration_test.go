@@ -18,7 +18,7 @@ import (
 	"flokkit.io/forge/internal/execution/executiontest"
 )
 
-// A context rewritten between the forge's selection and the CLI's call does
+// A context rewritten between AppTown's selection and the CLI's call does
 // not move the call: the CLI wrapper changes a real context just before the
 // real CLI runs, without faking replies. The selected daemon is unavailable,
 // and the replacement is the test daemon, on which nothing may be created.

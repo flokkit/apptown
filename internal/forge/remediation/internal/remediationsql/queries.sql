@@ -175,7 +175,7 @@ WHERE i.state IN ('working', 'accepting', 'landing', 'verifying')
         WHERE a.item_id = i.id AND a.n = i.attempt AND a.outcome = 'stuck'))
 ORDER BY i.id;
 
--- An item waits until not_before by the forge's clock (at), which wrote
+-- An item waits until not_before by AppTown's clock (at), which wrote
 -- it and judges it again at admission.
 -- name: QueuedItemsForJob :many
 SELECT * FROM remediation_items

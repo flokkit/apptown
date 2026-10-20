@@ -26,7 +26,7 @@ import (
 	"flokkit.io/forge/stock"
 )
 
-// offhostWorld is a production deployment "main" on the forge's built-in
+// offhostWorld is a production deployment "main" on AppTown's built-in
 // Docker host, holding an app volume and Postgres, with a backup store it
 // can attach (design/subsystems/deployment.md, "Backups and restore").
 type offhostWorld struct {
@@ -125,7 +125,7 @@ func (w *offhostWorld) sets() []Backup {
 
 func sum(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
 
-// stagingEntries are what is left staged on the forge's disk.
+// stagingEntries are what is left staged on AppTown's disk.
 func (w *offhostWorld) stagingEntries() []string {
 	entries, _ := os.ReadDir(filepath.Join(w.dir, "backups", ".staging"))
 	var out []string
@@ -135,7 +135,7 @@ func (w *offhostWorld) stagingEntries() []string {
 	return out
 }
 
-// Without a store a Docker host's backups stay on the forge's disk, and
+// Without a store a Docker host's backups stay on AppTown's disk, and
 // its protection says losing that disk loses them; a rehearsal is refused
 // at its door with the sentence the card shows. With a store attached,
 // every backup goes to the store: each copy held to its digest there, the
@@ -220,7 +220,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 	if !ok {
 		t.Fatal("the set's manifest is not beside its copies")
 	}
-	// The manifest names the forge that took the set.
+	// The manifest names AppTown that took the set.
 	var named Backup
 	if err := json.Unmarshal(manifest.Body, &named); err != nil || named.ID != b.ID || named.Forge.IsZero() {
 		t.Fatalf("the set's manifest: %s %v", manifest.Body, err)
@@ -281,7 +281,7 @@ func TestADockerSetInTheStoreRestoresInPlace(t *testing.T) {
 }
 
 // A production deployment keeps its newest 14 sets wherever they are:
-// sets on the forge's disk and in the store are counted once, together,
+// sets on AppTown's disk and in the store are counted once, together,
 // and each pruned set is removed where it is.
 //
 // Kills: counting each place apart (disk sets kept forever once new sets
@@ -336,7 +336,7 @@ func TestRetentionCountsSetsAcrossBothPlaces(t *testing.T) {
 	}
 }
 
-// The daily sweep moves sets still on the forge's disk into the attached
+// The daily sweep moves sets still on AppTown's disk into the attached
 // store: each file held to its recorded digest, the row changed only after
 // every file and the manifest are in, the folder removed after, a final
 // set keeping its expiry. A set whose file does not match stays, saying
@@ -415,9 +415,9 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 
 // The sweep removes what a stopped take left staged more than a day ago,
 // and nothing newer. A folder's age is its modification time, the system
-// clock's: with the forge's clock two days ahead, the new one stays.
+// clock's: with AppTown's clock two days ahead, the new one stays.
 //
-// Kills: staging judged by the forge's clock (the new folder reads two days
+// Kills: staging judged by AppTown's clock (the new folder reads two days
 // old and is removed).
 func TestStagingAStoppedTakeLeftIsCleared(t *testing.T) {
 	t.Parallel()
@@ -493,7 +493,7 @@ func TestADockerDeploymentSaysWhereItsBackupsAreFromTheRecord(t *testing.T) {
 		t.Fatalf("an unreadable contract: %+v %v", p, err)
 	}
 	releaseMain(t, h.s, "ohd", "app:\n  web:\n    image: registry.example/ohd:1\n    ports: [\"8080\"]\n    public: true\n")
-	// Holding no data the forge knows of still says what is not assessed.
+	// Holding no data AppTown knows of still says what is not assessed.
 	if p, err := h.s.DeploymentProtection(ctx, h.pid, "main"); err != nil || p.Unknown != "" || len(p.Items) != 0 ||
 		len(p.Coverage.Assessed) != 0 || !slices.Equal(p.Coverage.NotAssessed, []string{OutsideNotAssessed}) {
 		t.Fatalf("a stateless contract: %+v %v", p, err)

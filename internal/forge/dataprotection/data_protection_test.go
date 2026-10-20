@@ -88,7 +88,7 @@ func (g *grants) Require(ctx context.Context, p access.Permission) (access.Calle
 	}
 	who := g.who
 	if c, ok := access.CallerFrom(ctx); ok && c.Principal.Via == "gate-ticket" {
-		who = c.Principal.Name // the forge asking again, as the person a ticket names
+		who = c.Principal.Name // AppTown asking again, as the person a ticket names
 	}
 	return access.Caller{Principal: access.Principal{Kind: "user", Name: who, Via: g.via, Credential: "token:" + who}, Verified: true}, nil
 }
@@ -229,7 +229,7 @@ func (f *fakeClusters) reply(c docker.Command) ([]byte, error, bool) {
 
 // dataWorld is a project, "ledger", whose contract needs postgres, with a
 // bundle cut from it; a DigitalOcean account behind the App Platform target
-// it offers; the forge's own Docker host, named as that target's copy
+// it offers; AppTown's own Docker host, named as that target's copy
 // runner; and an S3-compatible store with a private bucket, attached as the
 // backup store. Its managed Postgres is fakeClusters.
 type dataWorld struct {

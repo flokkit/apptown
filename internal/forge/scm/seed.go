@@ -24,7 +24,7 @@ import (
 // starting from existing code never replaces a project's repository.
 var ErrRepositoryEstablished = fault.New(fault.Conflict, "the project already has a repository; only a new, empty project can start from existing code")
 
-// SourceRefused is a source the forge will not fetch from, with why.
+// SourceRefused is a source AppTown will not fetch from, with why.
 type SourceRefused struct{ Why string }
 
 func (e *SourceRefused) Error() string         { return e.Why }
@@ -34,8 +34,8 @@ func refused(format string, args ...any) error {
 	return &SourceRefused{Why: fmt.Sprintf(format, args...)}
 }
 
-// URLPolicy decides which https repositories the forge's server may fetch.
-// The forge sits inside networks its users may not: an address on the
+// URLPolicy decides which https repositories AppTown's server may fetch.
+// AppTown sits inside networks its users may not: an address on the
 // forge's own machine or private network is refused unless the operator
 // allows them (an internal GitLab, say).
 type URLPolicy struct {
@@ -274,7 +274,7 @@ func seed(ctx context.Context, dir, branch string, fetch func() error) (string, 
 
 // WriteBundle writes the hub's default branch and tags as a Git bundle,
 // with HEAD naming that branch so the bundle says which is the default:
-// the Download code door. No Change branch or forge ref is included.
+// the Download code door. No Change branch or AppTown ref is included.
 func WriteBundle(ctx context.Context, dir, branch string, w io.Writer) error {
 	if !gitexec.IsRepo(dir) || branch == "" {
 		return ErrNoWorkspace

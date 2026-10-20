@@ -72,7 +72,7 @@ type providerQuestion struct {
 
 // fakeModelProvider binds a model provider named "fixture" whose address is
 // a test server answering chat completions with answer, and returns the
-// pattern of its one enabled model, "fixture/judge". The forge's own model
+// pattern of its one enabled model, "fixture/judge". AppTown's own model
 // calls to it go through the real gateway: its admission, receipts and
 // spend lines. A GET of /models is answered with nothing to discover.
 func fakeModelProvider(t *testing.T, bindings *integration.Bindings, answer func(providerQuestion) (status int, body string)) string {
@@ -128,7 +128,7 @@ func chatAnswer(text string, prompt, completion int64, cost float64) string {
 }
 
 // gatewayOver is the inference gateway over db alone, for a test of an
-// owner built without an App: the forge's own calls need no runtime
+// owner built without an App: AppTown's own calls need no runtime
 // identity, network or listener.
 func gatewayOver(t *testing.T, db *database.DB) *inference.Gateway {
 	t.Helper()

@@ -14,7 +14,7 @@ import (
 // from the prepared tree, even when a historical snapshot has no .git directory.
 type changePreviewResponse struct {
 	URL string `json:"url"`
-	// HostOnly: the URL answers on the forge host only, so the page shows
+	// HostOnly: the URL answers on the AppTown host only, so the page shows
 	// it rather than opening it (deployment.Service.PreviewsHostOnly).
 	HostOnly bool   `json:"hostOnly,omitempty"`
 	Commit   string `json:"commit"`

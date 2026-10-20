@@ -2,9 +2,9 @@
 
 Two kinds of workflow share one word:
 
-- **System workflows** are how the forge does its own jobs: landing (with
+- **System workflows** are how AppTown does its own jobs: landing (with
   shipping as its stage), wiring an integration in or out, the scheduled
-  dependency patch. They are marked `metadata.system: true`. The forge invokes
+  dependency patch. They are marked `metadata.system: true`. AppTown invokes
   them by name; a person never picks one, and they are never offered in a "run
   a workflow…" list. Ways of working lists them under a System heading with one
   line on when the apptown runs each.
@@ -33,7 +33,7 @@ Two kinds of workflow share one word:
    to, with no edit to `land`.
 
 The rule this gives the design: **if you need to edit a system workflow, the
-forge is missing an attachment point.** Add the point; do not fork the workflow.
+AppTown is missing an attachment point.** Add the point; do not fork the workflow.
 
 ## Why
 

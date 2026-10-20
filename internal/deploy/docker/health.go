@@ -19,7 +19,7 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// The forge-owned health controller (design/subsystems/healthchecks.md §6). For the
+// AppTown-owned health controller (design/subsystems/healthchecks.md §6). For the
 // deployments the apptown runs itself — standing envs on this docker host — it
 // owns the two failures Docker's restart policy gets wrong:
 //
@@ -31,16 +31,16 @@ import (
 //   - Crash-looping. A process that exits on boot is restarted by Docker
 //     forever, with no cap, and is never up long enough for a probe to see
 //     it (thousands of restarts can run a host out of memory and take the
-//     forge down with it). The controller reads Docker's own restart
+//     AppTown down with it). The controller reads Docker's own restart
 //     counter and, when it climbs faster than any healthy app restarts,
 //     HOLDS the container by stopping it — the one thing unless-stopped
 //     honours permanently — and records why. The next deploy replaces it.
 //
 // Operational contract (§6):
-//   - Ownership & persistence: state is DERIVED. On a forge restart the loop
+//   - Ownership & persistence: state is DERIVED. On an AppTown restart the loop
 //     re-reads the actual containers (their docker StartedAt, their running
 //     state) and starts its counters from zero — no persisted counters, so a
-//     forge bounce triggers no phantom restart and masks no real failure. Only
+//     AppTown bounce triggers no phantom restart and masks no real failure. Only
 //     the intent (app.yaml) and the last recorded transition (the ledger)
 //     persist.
 //   - Backoff: failureThreshold consecutive misses (past startupGrace) →
@@ -50,7 +50,7 @@ import (
 //   - Exactly one controller: one goroutine owned by the daemon,
 //     acting only on parts THIS apptown runs (the deployments table). A target
 //     with its own controller (k8s, a cloud LB) never reaches this loop — the
-//     forge renders the probe there and steps back.
+//     AppTown renders the probe there and steps back.
 //   - Drain / readiness: draining is a routing concern and, with a single
 //     instance per env today, a no-op (the vhost already surfaces a dead port as
 //     502 and re-resolves). It is deferred to replicas; liveness restart is what
@@ -188,7 +188,7 @@ func (c *HealthController) Sweep(ctx context.Context) {
 		// Within the app's startup grace since the container last started? Don't
 		// count failures yet — a first probe before gunicorn/DB are ready is a
 		// timing bug the render prevents by construction (§5.3). Re-read from
-		// docker so a forge restart re-derives this, never a stale memory.
+		// docker so an AppTown restart re-derives this, never a stale memory.
 		pub := c.deps.PublicPart(ctx, e)
 		probe := RenderLivenessProbe(pub)
 		grace := probe.Grace
@@ -242,7 +242,7 @@ func (c *HealthController) Sweep(ctx context.Context) {
 
 // crashLooping samples Docker's restart-policy counter for the container and
 // reports whether it rose by CrashLoopRestarts within CrashLoopWindow, with the
-// rise seen. The counter is Docker's, not ours: it survives a forge restart, is
+// rise seen. The counter is Docker's, not ours: it survives an AppTown restart, is
 // kept by docker stop and reset by a manual docker start (measured), so a window that reopens on any drop never mistakes a fresh
 // start for a loop and a hold never masks a later one.
 func (c *HealthController) crashLooping(ctx context.Context, e Watched, dk Scope, ph *partHealth) (int, bool) {
@@ -360,7 +360,7 @@ func RenderLivenessProbe(pub *appcontract.Part) RenderedProbe {
 }
 
 // withinStartupGrace reports whether the container last started less than grace
-// ago, read from docker (State.StartedAt) so it survives a forge restart.
+// ago, read from docker (State.StartedAt) so it survives an AppTown restart.
 // The start is the Docker host's operating system's stamp, so it is
 // compared on the system clock.
 func withinStartupGrace(ctx context.Context, dk Scope, container string, grace time.Duration) bool {
@@ -374,7 +374,7 @@ func withinStartupGrace(ctx context.Context, dk Scope, container string, grace t
 
 // ProbeLiveness executes one rendered liveness probe against a running env
 // container: an in-container exec, a TCP connect to the mapped port, or a
-// platform HTTP GET (shaped by the forge front door so a hardened app doesn't
+// platform HTTP GET (shaped by AppTown front door so a hardened app doesn't
 // 301 the check — the same signal the cold-boot render sends). Any transport
 // error, or a declared-status mismatch, is a miss.
 func ProbeLiveness(ctx context.Context, dk Scope, container string, hostPort int, rp RenderedProbe, headers map[string]string) bool {

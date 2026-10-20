@@ -52,7 +52,7 @@ func confirmAs(ctx context.Context, repository Repository, written v1.Descriptor
 func Copy(ctx context.Context, from Source, to Repository, tag, platform string) (Image, error) {
 	// A source is an image as a project names it (redis:7, example/cache:7),
 	// so Docker's defaults apply: docker.io and its library namespace. A
-	// destination is the forge's own repository, named in full.
+	// destination is AppTown's own repository, named in full.
 	src, err := name.ParseReference(from.Reference, name.WeakValidation)
 	if err != nil {
 		return Image{}, fmt.Errorf("%w: reference %q: %w", ErrMalformed, from.Reference, err)

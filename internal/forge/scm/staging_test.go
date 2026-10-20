@@ -66,6 +66,6 @@ func TestStageAllExcludesForgeRuntime(t *testing.T) {
 		t.Fatalf("the contract, at either path, must be staged:\n%s", staged)
 	}
 	if strings.Contains(staged, "pi-home") || strings.Contains(staged, "sessions") {
-		t.Fatalf("forge runtime leaked into the index:\n%s", staged)
+		t.Fatalf("AppTown runtime leaked into the index:\n%s", staged)
 	}
 }

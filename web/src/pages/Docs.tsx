@@ -13,7 +13,7 @@ import { fillLiveLinks } from '../liveLinks'
 // documents. Everything renders from markdown embedded in the apptownd binary,
 // so docs version with the release.
 
-// MdDoc renders markdown, fills a guide's live links with this forge's own
+// MdDoc renders markdown, fills a guide's live links with this AppTown's own
 // addresses (liveLinks.ts), and then draws any ```mermaid fences as
 // diagrams, in the page's own theme (redrawn when a person switches it).
 export function MdDoc({ content, links }: { content: string; links?: DocLinks }) {

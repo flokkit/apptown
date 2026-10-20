@@ -1,4 +1,4 @@
-// forge is the CLI for a apptownd instance — the invocation surface for humans
+// AppTown is the CLI for a apptownd instance — the invocation surface for humans
 // and agents alike. Every mutation is attributed via X-AppTown-Actor.
 //
 // Configuration: APPTOWN_URL (default http://localhost:7777), APPTOWN_USER

@@ -15,7 +15,7 @@
 # The trial prints a link carrying the one-time setup token once apptownd
 # answers. That puts the first administrator's credential in this
 # container's log until the administrator is created: a trial-only
-# exception, accepted for a forge on one's own computer
+# exception, accepted for an AppTown on one's own computer
 # (design/plans/one-command-trial-2026-10-19.md, section 3). The server
 # branch prints none.
 set -eu
@@ -86,7 +86,7 @@ agent_tag=$(cat /opt/apptown/agent-tag 2>/dev/null || :)
 if [ -n "$agent_tag" ]; then
 	: "${APPTOWN_AGENT_IMAGE:=ghcr.io/flokkit/apptown-agent:$agent_tag}"
 else
-	# A build with no release version: the forge builds forge-agent from
+	# A build with no release version: AppTown builds forge-agent from
 	# /opt/apptown/deploy/apptown-agent.
 	: "${APPTOWN_AGENT_IMAGE:=forge-agent}"
 fi

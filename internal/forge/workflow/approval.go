@@ -235,7 +235,7 @@ func (e ApprovalEvidence) hasVoted(vote ApprovalVote) bool {
 }
 
 // people is how many distinct people have approved in this round. Where
-// votes name principals, it counts principals: a vote whose name the forge
+// votes name principals, it counts principals: a vote whose name AppTown
 // could not resolve to one (an account removed before principals, a chat's
 // label) may be any of them, so it is not counted as another person. A
 // round recorded before principals, where no vote names one, counts names.

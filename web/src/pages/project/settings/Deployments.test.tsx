@@ -22,7 +22,7 @@ const card = (readiness: string) => renderToStaticMarkup(
   </QueryClientProvider>)
 
 describe('a deployment that needs attention offers Check again', () => {
-  it('offers Check again, and says what it does, when the forge does not know whether it stands', () => {
+  it('offers Check again, and says what it does, when AppTown does not know whether it stands', () => {
     const html = card('uncertain')
     expect(html).toContain('Check again')
     expect(html).toContain('deploys nothing')
@@ -68,11 +68,11 @@ describe('what a take-down left says why, and closes only as deleted', () => {
   const html = renderToStaticMarkup(
     <QueryClientProvider client={newQueryClient()}>
       <MemoryRouter>
-        <table><tbody><RetainedRow slug="shop" r={{ id: RETAINED2, projectId: PROJECT, deployment: 'staging', targetId: TARGET1, need: 'volume shop-lan_data', handle: { kind: 'volume', name: 'shop-lan_data', why: 'kept: the forge takes no backups on Portainer; delete it there, then mark it deleted' }, retainedBy: 'bls', retainedAt: '2026-10-04T05:58:08Z', disposition: 'retained', holdsData: true } as unknown as Retained} onChanged={() => {}} /></tbody></table>
+        <table><tbody><RetainedRow slug="shop" r={{ id: RETAINED2, projectId: PROJECT, deployment: 'staging', targetId: TARGET1, need: 'volume shop-lan_data', handle: { kind: 'volume', name: 'shop-lan_data', why: 'kept: AppTown takes no backups on Portainer; delete it there, then mark it deleted' }, retainedBy: 'bls', retainedAt: '2026-10-04T05:58:08Z', disposition: 'retained', holdsData: true } as unknown as Retained} onChanged={() => {}} /></tbody></table>
       </MemoryRouter>
     </QueryClientProvider>)
   it('shows why it was left', () => {
-    expect(html).toContain('the forge takes no backups on Portainer')
+    expect(html).toContain('AppTown takes no backups on Portainer')
   })
   it('offers I deleted it, and no longer Keep it', () => {
     expect(html).toContain('I deleted it')

@@ -134,7 +134,7 @@ func TestEveryCommandDispatchesAndIsInHelp(t *testing.T) {
 }
 
 // A record id that is not a number is refused with the argument named, and
-// nothing reaches the forge.
+// nothing reaches AppTown.
 func TestBadIDsFailBeforeAnythingIsSent(t *testing.T) {
 	seen := fakeForge(t, func(string, string) (int, string) { return 200, "{}" })
 	for _, args := range [][]string{
@@ -238,7 +238,7 @@ func TestCommandsSendTheirRequests(t *testing.T) {
 	}
 }
 
-// Behind the front door a restarting forge answers 503; a read waits and
+// Behind the front door a restarting AppTown answers 503; a read waits and
 // asks again. A refusal reads as the server's own sentence.
 func TestClientRetriesARestartAndReportsTheServersWords(t *testing.T) {
 	calls := 0
@@ -319,7 +319,7 @@ func TestClientResendsAMutationOnlyWhenItNeverLeft(t *testing.T) {
 	}
 }
 
-// A forge that reads a change and then drops the connection, or whose
+// An AppTown that reads a change and then drops the connection, or whose
 // answer breaks off part way, may have acted: the change's outcome is
 // unknown (exit 4), never an ordinary failure (exit 1). A read under the
 // same failure is asked again.
@@ -481,8 +481,8 @@ func TestApproveShowsWhatItAgreesToBeforeSending(t *testing.T) {
 	}
 }
 
-// Accepting the work starts the landing on the forge. The loop follows that
-// landing instead of asking to start one, which the forge refuses.
+// Accepting the work starts the landing on AppTown. The loop follows that
+// landing instead of asking to start one, which AppTown refuses.
 func TestLoopFollowsTheLandingThatAcceptanceStarted(t *testing.T) {
 	var landingSeen bool
 	seen := fakeForge(t, func(method, path string) (int, string) {
@@ -542,7 +542,7 @@ func TestLoopDoesNotStartASecondLandingAfterTheAcceptancesEnded(t *testing.T) {
 	}
 }
 
-// Accepted work whose landing the forge has queued is waited for, by the
+// Accepted work whose landing AppTown has queued is waited for, by the
 // forge's stated fact, and the landing it starts is followed, not landed a
 // second time.
 func TestLoopWaitsForTheLandingTheForgeQueued(t *testing.T) {
@@ -583,7 +583,7 @@ func TestLoopWaitsForTheLandingTheForgeQueued(t *testing.T) {
 	}
 }
 
-// Finished work is offered a landing only when the forge offers one (its
+// Finished work is offered a landing only when AppTown offers one (its
 // land act); otherwise the loop says so and sends nothing.
 func TestLoopOffersALandingOnlyWhenTheForgeDoes(t *testing.T) {
 	pollEvery = 0
@@ -653,7 +653,7 @@ func TestNewAndInvokeEndWithTheLoopsNextCommand(t *testing.T) {
 	if err != nil || !strings.Contains(out, `apptown quick -p shop "<what to change>"`) || strings.Contains(out, "apptown invoke") || strings.Contains(out, "guidance imports") {
 		t.Fatalf("new: %v\n%s", err, out)
 	}
-	// The creation names the pack, so the forge refuses one it does not
+	// The creation names the pack, so AppTown refuses one it does not
 	// offer before making the project.
 	if create := (*seen)[0]; create.Path != "/projects" || create.Body["pack"] != "go-small" {
 		t.Fatalf("the creation did not carry the pack: %+v", create)
@@ -679,7 +679,7 @@ func typing(t *testing.T, lines string) {
 }
 
 // apptown delete sends nothing until the slug is typed back, then sends the
-// confirmation the forge requires and follows the deletion until the
+// confirmation AppTown requires and follows the deletion until the
 // project is deleted and kept.
 func TestDeleteAsksForTheSlugAndFollowsTheDeletion(t *testing.T) {
 	pollEvery = 0
@@ -721,7 +721,7 @@ func TestDeleteAsksForTheSlugAndFollowsTheDeletion(t *testing.T) {
 	}
 }
 
-// A deletion that stops for a person is told as the forge says it, with
+// A deletion that stops for a person is told as AppTown says it, with
 // how to go on, and exits non-zero.
 func TestDeleteThatStopsSaysWhyAndHowToGoOn(t *testing.T) {
 	pollEvery = 0
@@ -906,7 +906,7 @@ func TestWhatIfIncludesRubricsOnlyUnderASpendLimit(t *testing.T) {
 		t.Fatalf("rubrics asked without the flag: %+v", b)
 	}
 	// The limit's rule is said before the what-if is asked for, not after:
-	// a start the forge refuses still printed it.
+	// a start AppTown refuses still printed it.
 	refuse = true
 	if out, err := run(t, "whatif", "build-pack", "3", "--rubrics", "2.5"); err == nil || !strings.Contains(out, "sent while spend is under $2.50") {
 		t.Fatalf("the limit was not stated before starting: %v\n%s", err, out)
@@ -961,7 +961,7 @@ func TestWhatIfShowSaysQueuedAndRunningAsTheyAre(t *testing.T) {
 // which each was, and exits zero only when every project opened a Change.
 // -p is required: there is no "all". Kills: stopping at the first refusal;
 // an unknown answer printed as opened or refused; success reported when
-// one did not open; the forge asked with values of the CLI's own.
+// one did not open; AppTown asked with values of the CLI's own.
 func TestWhatIfAdoptOpensAChangePerNamedProject(t *testing.T) {
 	refuseLedger := true
 	seen := fakeForge(t, func(method, path string) (int, string) {
@@ -1122,7 +1122,7 @@ func TestPackRecommendAndVersions(t *testing.T) {
 	if last := (*seen)[len(*seen)-1]; err != nil || last.Body["whatIf"] != "00000000-000c-7000-8000-000000000000" || !strings.Contains(out, "as assessed in what-if 00000000-000c-7000-8000-000000000000") {
 		t.Fatalf("recommend --what-if: %v %+v\n%s", err, last.Body, out)
 	}
-	// The forge refuses a what-if on the version already recommended
+	// AppTown refuses a what-if on the version already recommended
 	// (nothing moved, nothing recorded): the command fails with its words
 	// and never says the what-if was recorded.
 	alreadyRecommended = true
@@ -1205,7 +1205,7 @@ func TestSchedulesListsNextAndLastFiring(t *testing.T) {
 	}
 }
 
-// apptown executing is what an operator asks before restarting a forge: exit
+// apptown executing is what an operator asks before restarting an AppTown: exit
 // 0 when nothing would be interrupted, 3 when something would, with each
 // step named by its run's and its own id.
 func TestExecutingExitsThreeWhenSomethingWouldBeInterrupted(t *testing.T) {
@@ -1261,7 +1261,7 @@ func TestExecutingCountsARunningOperation(t *testing.T) {
 	}
 }
 
-// A forge from before operations were reported answers steps only: with
+// An AppTown from before operations were reported answers steps only: with
 // no step running, whether an operation runs is not known, which is an
 // error, never "nothing is executing" (plan review R3).
 //
@@ -1276,6 +1276,6 @@ func TestExecutingOnAForgeThatDoesNotReportOperationsIsNotIdle(t *testing.T) {
 	t.Cleanup(func() { exitProcess = prev })
 	out, err := run(t, "executing")
 	if err == nil || code != -1 || strings.Contains(out, "nothing is executing") || !strings.Contains(err.Error(), "does not report its operations") {
-		t.Fatalf("an old forge's answer: %v exit %d %q", err, code, out)
+		t.Fatalf("an old AppTown's answer: %v exit %d %q", err, code, out)
 	}
 }

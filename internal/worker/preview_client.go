@@ -25,7 +25,7 @@ import (
 
 // processSession is the session a Previews without its own uses: this
 // process's start, in nanoseconds, on the real clock: nothing gives a
-// process's start a clock of its own. A forge sets its own (NextSession),
+// process's start a clock of its own. An AppTown sets its own (NextSession),
 // so its sessions keep growing across its restarts whatever the clock does.
 // lastSeq numbers the requests that change previews.
 var (
@@ -33,8 +33,8 @@ var (
 	lastSeq        atomic.Int64
 )
 
-// NextSession is the next forge session number, kept in file: greater
-// than every earlier one, and than the forge's clock (now; nil is the real
+// NextSession is the next AppTown session number, kept in file: greater
+// than every earlier one, and than AppTown's clock (now; nil is the real
 // one), and written durably before it is answered. A counter that cannot be
 // read or written is an error, and no session: two starts must never share
 // one.
@@ -67,16 +67,16 @@ func (p Previews) stamp(req *http.Request) {
 	req.Header.Set(PreviewSeqHeader, strconv.FormatInt(lastSeq.Add(1), 10))
 }
 
-// Previews is the forge's side of previews on a worker: boot an incarnation
+// Previews is AppTown's side of previews on a worker: boot an incarnation
 // there, read it, remove it, and forward visitors to it. Every request that
-// changes a preview carries its forge session and a number within it, an
+// changes a preview carries its AppTown session and a number within it, an
 // ordered token; the worker refuses one older than the last it acted on for
 // that preview, or than the latest claim (removing every preview), so a
 // request delayed past a later one never undoes it.
 type Previews struct {
 	URL    string
 	Client *http.Client
-	// Session is the forge session its requests belong to, a positive
+	// Session is AppTown session its requests belong to, a positive
 	// number (NextSession); "" is this process's start.
 	Session string
 }
@@ -170,7 +170,7 @@ func (p Previews) State(ctx context.Context, name string) (PreviewState, error) 
 }
 
 // ErrClaimRequired is the worker refusing a request because it lost the
-// order of its previews' requests: the forge must claim it again.
+// order of its previews' requests: AppTown must claim it again.
 var ErrClaimRequired = errors.New("the worker lost the order of its previews' requests, and must be claimed again")
 
 func claimRequired(resp *http.Response) bool {
@@ -272,7 +272,7 @@ func (p Previews) RemoveImages(ctx context.Context, name string) error {
 // Forward is a proxy of visitors' requests to the named preview on the
 // worker: the visitor's Host and request target (path and query, escaped as
 // sent) go through unchanged, in headers the worker's router never reads as
-// its own path; the forwarding headers are the forge's own (publicScheme,
+// its own path; the forwarding headers are AppTown's own (publicScheme,
 // the visitor's address); and upgrades such as WebSockets pass through.
 // publicScheme "" is the naked door a probe uses: no forwarding headers at
 // all, as a request to the app's own port has none.
@@ -286,7 +286,7 @@ func (p Previews) Forward(name, publicScheme string) *httputil.ReverseProxy {
 			req.Out.Header.Set(PreviewHostHeader, req.In.Host)
 			req.Out.Header.Set(PreviewTargetHeader, req.In.URL.RequestURI())
 			// Whatever forwarding headers a visitor sent are dropped; these
-			// are the forge's own.
+			// are AppTown's own.
 			StripForwarding(req.Out.Header)
 			if publicScheme != "" {
 				req.SetXForwarded()

@@ -34,7 +34,7 @@ func internalApp(t *testing.T, configs ...Config) (*App, http.Handler) {
 }
 
 // firstAccount is the body that makes the first account: the name, the
-// password and the setup token the forge keeps on its host.
+// password and the setup token AppTown keeps on its host.
 func firstAccount(t *testing.T, a *App, username, password string) map[string]string {
 	t.Helper()
 	token, err := a.Access.EnsureSetupToken(t.Context())
@@ -173,7 +173,7 @@ func sessionFrom(t *testing.T, w *httptest.ResponseRecorder) *http.Cookie {
 	return nil
 }
 
-// The franchise, minimally (permissions.go): forge is not a democracy —
+// The franchise, minimally (permissions.go): AppTown is not a democracy —
 // amend/release are privileges, granted by name. An unclaimed privilege
 // belongs to every member; the first grant closes it; admins hold all.
 func TestPrivilegesRequireExplicitCapabilityGrants(t *testing.T) {
@@ -388,7 +388,7 @@ func TestTrustedHeaderMode(t *testing.T) {
 	if w := try("hush", ""); w.Code != 401 {
 		t.Fatalf("secret without a username is still nobody: %d", w.Code)
 	}
-	// A name the forge would read as something else is refused at the door.
+	// A name AppTown would read as something else is refused at the door.
 	for _, name := range []string{"alice via console/x", "run/3", "system"} {
 		if w := try("hush", name); w.Code != 401 || strings.Contains(w.Body.String(), `"user"`) {
 			t.Fatalf("proxy name %q: %d %s", name, w.Code, w.Body.String())
@@ -396,7 +396,7 @@ func TestTrustedHeaderMode(t *testing.T) {
 	}
 }
 
-// Open mode takes the actor header as the name; one the forge would read as
+// Open mode takes the actor header as the name; one AppTown would read as
 // something else is refused, not recorded.
 func TestOpenModeRefusesAnUnusableActor(t *testing.T) {
 	t.Parallel()
@@ -562,7 +562,7 @@ func TestPasswordLinkSignsTheHolderInAndEndsOldSessions(t *testing.T) {
 	}
 }
 
-// Under single sign-on the forge holds no passwords to reset or set, so an
+// Under single sign-on AppTown holds no passwords to reset or set, so an
 // administrator asking for a password reset link or an invite is told where
 // that is done instead.
 func TestLinksOutsideInternalSignInSayWhereToGo(t *testing.T) {
@@ -587,20 +587,20 @@ func TestLinksOutsideInternalSignInSayWhereToGo(t *testing.T) {
 	}
 }
 
-// Every consumer of the forge's own address agrees on it, under each way
+// Every consumer of AppTown's own address agrees on it, under each way
 // -public-host can be given: a browser at that origin is let in (the browser
 // origin check), signs in with a cookie that is Secure exactly when the
 // origin is https, gets invite and password reset links on that origin, and
 // an agent is sent there by OAuth discovery. The guides' live links name it
 // only when it was stated whole. A proxy's X-Forwarded-Proto never decides
-// it; a forge behind a TLS proxy states its origin.
+// it; an AppTown behind a TLS proxy states its origin.
 func TestForgeAddressConsumersAgree(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		name      string
 		cfg       Config
 		forwarded string // what a proxy in front says; it must not matter
-		tls       bool   // the request reached the forge over TLS itself
+		tls       bool   // the request reached AppTown over TLS itself
 		origin    string // the address everyone must name
 		docs      string // the guides' live link, "" for words
 	}{
@@ -687,8 +687,8 @@ func TestForgeAddressConsumersAgree(t *testing.T) {
 	}
 }
 
-// The first account of an internal-auth forge needs the setup token the
-// forge writes on its own host: without it the first visitor to the login
+// The first account of an internal-auth AppTown needs the setup token the
+// AppTown writes on its own host: without it the first visitor to the login
 // page would become the administrator. A missing or wrong token is refused
 // and names where the token is; the right one makes the administrator and
 // the token is spent; with an account there is no token to make.
@@ -734,11 +734,11 @@ func TestTheFirstAccountNeedsTheSetupToken(t *testing.T) {
 }
 
 // Setup is complete when the setup marker says so, not when an account
-// exists: a name recorded while the forge ran in open mode leaves setup
+// exists: a name recorded while AppTown ran in open mode leaves setup
 // open, so a token is made and the first account can still be created. A
 // seeded administrator completes setup; a token left from before is removed.
 //
-// Kills: a token made only "while no account exists", which left a forge
+// Kills: a token made only "while no account exists", which left an AppTown
 // switched from open to internal mode with no way to make its first account.
 func TestTheSetupTokenFollowsTheSetupMarker(t *testing.T) {
 	t.Parallel()

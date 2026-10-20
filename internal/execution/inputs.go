@@ -16,7 +16,7 @@ import (
 
 // Input is a file a task reads, read-only, at Path under /apptown/in/
 // (design/operations/workers.md, "Agent and review steps on the worker").
-// It is prepared on the forge as bytes and sent to
+// It is prepared on AppTown as bytes and sent to
 // the backend once as a content-addressed blob: a tar holding one regular
 // entry named "content", named by the SHA-256 of the tar (the worker's
 // PUT /v1/blobs/{sum}, which chats use too). A request names the blob, never
@@ -25,7 +25,7 @@ type Input struct {
 	Blob string      `json:"blob"` // SHA-256 of the blob's tar, hex
 	Path string      `json:"path"` // absolute and clean, under /apptown/in/
 	Mode fs.FileMode `json:"mode"` // 0644 or 0755
-	// tar is the blob on the forge's side (NewInput); nil for an input that
+	// tar is the blob on AppTown's side (NewInput); nil for an input that
 	// names a blob the backend is expected to hold already. It is never part
 	// of a request's identity: Blob is.
 	tar  []byte
@@ -40,14 +40,14 @@ const InputsRoot = "/apptown/in"
 const StateRoot = "/apptown/state"
 
 // ToolCacheMount is where a container finds the shared download cache of
-// the toolchains projects declare (mise's MISE_CACHE_DIR): the forge's
+// the toolchains projects declare (mise's MISE_CACHE_DIR): AppTown's
 // forge-cache volume on its own host, a worker's tool cache on a worker.
 // It holds what mise fetches (release listings, tool archives), never a
 // tool's installation, which stays the container's own.
 const ToolCacheMount = "/apptown-cache/mise-cache"
 
 // Bounds on a request's inputs: enough for an agent's steering, resources,
-// attachments and the forge CLI, never a way to send a tree.
+// attachments and AppTown CLI, never a way to send a tree.
 const (
 	MaxInputs          = 256
 	MaxInputBytes      = 64 << 20  // one input
@@ -84,7 +84,7 @@ func NewInput(path string, content []byte, mode fs.FileMode) (Input, error) {
 func (in Input) BlobTar() []byte { return in.tar }
 
 // WithBlob returns the input carrying blob, its blob as BlobTar gave it
-// (an admitted request's input read back from where the forge kept it). A
+// (an admitted request's input read back from where AppTown kept it). A
 // blob that is not the one the input names, or not one entry, is refused.
 func (in Input) WithBlob(blob []byte) (Input, error) {
 	if sum := sha256.Sum256(blob); hex.EncodeToString(sum[:]) != in.Blob {
@@ -159,7 +159,7 @@ func cleanUnder(p, root string) bool {
 
 // Result is a file a task declares it will leave (a review's verdict, a
 // transcript): the backend reads it when the task's container exits and
-// keeps it with the task, so what the forge reads is bound to the task that
+// keeps it with the task, so what AppTown reads is bound to the task that
 // produced it. Path is in the tree (/work/...) or the workspace's state
 // (/apptown/state/...).
 type Result struct {

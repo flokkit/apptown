@@ -58,9 +58,9 @@ type AdmissionDependencies struct {
 	Presence workflow.Presence
 	// Workers places chats on the worker; nil when there is no worker.
 	Workers WorkerPlacement
-	// NoLocal is a forge that runs no chats itself (the no-local-Docker mode).
+	// NoLocal is an AppTown that runs no chats itself (the no-local-Docker mode).
 	NoLocal bool
-	// Now is the forge's clock, which stamps a chat's start (the real clock
+	// Now is AppTown's clock, which stamps a chat's start (the real clock
 	// when nil).
 	Now func() time.Time
 }
@@ -208,7 +208,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		}
 		if diverged && onWorker {
 			// Its saves build on the published branch, which this folder
-			// has left: a chat on the forge merges it first.
+			// has left: a chat on AppTown merges it first.
 			return nil, c.workerRefusal(fmt.Errorf("change #%d's folder and its published branch have both moved", change.ID), "open a chat on AppTown to merge them first")
 		}
 		if onWorker {
@@ -298,8 +298,8 @@ func (l *changeLocks) lock(id ids.ID) func() {
 
 // onWorker decides where a chat runs. A chat on the worker works a change,
 // starts from the change's folder as it stands, and runs nothing the worker
-// cannot give it; left to the forge, a chat goes to the worker only when it
-// can. A forge that runs no chats itself (noLocal) refuses, with the reason,
+// cannot give it; left to AppTown, a chat goes to the worker only when it
+// can. An AppTown that runs no chats itself (noLocal) refuses, with the reason,
 // every chat the worker cannot take.
 // notInProgress refuses a chat on a change that is not in progress. A
 // landing one names the way in: taking its stopped landing step to chat.

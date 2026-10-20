@@ -64,7 +64,7 @@ type reviewConfig struct {
 	TimeoutMinutes int    `json:"timeoutMinutes"`
 }
 
-// Review executes an agent/review step: on the forge's worker when it has
+// Review executes an agent/review step: on AppTown's worker when it has
 // one (runOnWorker), never on its own machine instead.
 func (a *Executor) Review(task *workflow.Execution) {
 	defer reportPanic(a.panics, "RunAgentReview")
@@ -222,7 +222,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 	// The reviewer verifies claims like "apptown check passed" itself: the
 	// real CLI and read-only credentials, exactly as implementation steps
 	// get them. A reviewer with neither may fetch a PyPI package named
-	// forge and fail true claims against it.
+	// AppTown and fail true claims against it.
 	env = append(env, a.forgeEnv(task.Context(), run, step)...)
 	executor := a.cfg.Backend
 	if executor == execution.Docker {
@@ -316,8 +316,8 @@ func (a *Executor) settleReview(task *workflow.Execution, v reviewVerdict, failu
 			status = workflow.StatusPass
 		default:
 			evidence["reason"] = "reviewer rejected: " + v.Summary
-			// The forge's file check is not the reviewer: when it failed a
-			// review the model passed, the failure is the forge's, and the
+			// AppTown's file check is not the reviewer: when it failed a
+			// review the model passed, the failure is AppTown's, and the
 			// reviewer's own summary is kept apart as the pass it was.
 			if check, _ := evidence["fileCheck"].(string); check != "" {
 				if evidence["reviewerVerdict"] == "pass" {
@@ -342,7 +342,7 @@ func (a *Executor) settleReview(task *workflow.Execution, v reviewVerdict, failu
 }
 
 // reviewBrief is everything the reviewer is shown: the request, the
-// implementer's claim, the authoritative diff, the notes the forge adds, and
+// implementer's claim, the authoritative diff, the notes AppTown adds, and
 // any extra focus the workflow asks for.
 type reviewBrief struct {
 	request, claim, diff, notes, extra string
@@ -374,7 +374,7 @@ func (b reviewBrief) prompt() string {
 }
 
 // scopeReader lists the files a change touched against its base
-// (reviewBase), and that base: from the run's folder on the forge's own
+// (reviewBase), and that base: from the run's folder on AppTown's own
 // machine, from the hub for a result on a worker. An error is "could not
 // assess", never an empty scope.
 type scopeReader func(ctx context.Context) (base string, files []repositoryedit.ChangedFile, err error)
@@ -502,7 +502,7 @@ func boundedDiff(d string) string {
 
 // mandatedOutputsNote names the report files the producing steps are
 // REQUIRED to write (e.g. .apptown/CHANGE.md), under the publication rule
-// (scm.RuntimeOnly): a report under .apptown is forge state the forge collects
+// (scm.RuntimeOnly): a report under .apptown is AppTown state AppTown collects
 // from the workspace, never committed (publication refuses it), so it is
 // rightly absent from the diff; a report elsewhere is committed source.
 // Without the note the reviewer either flags a committed report as scope
@@ -559,7 +559,7 @@ func (a *Executor) scopeNote(ctx context.Context, run *workflow.Run, scope scope
 		return "", err
 	}
 	if files := repositoryedit.IgnoredChanges(changed); len(files) > 0 {
-		note += "\nIGNORED FILES COMMITTED: this change committed " + strings.Join(files, ", ") + ", which the\nrepository's own .gitignore says is not source (build output, or forge runtime\nfiles under .apptown/). The verdict must be \"fail\" and the findings must name those\nfiles so the implementer removes them from git (git rm --cached).\n"
+		note += "\nIGNORED FILES COMMITTED: this change committed " + strings.Join(files, ", ") + ", which the\nrepository's own .gitignore says is not source (build output, or AppTown runtime\nfiles under .apptown/). The verdict must be \"fail\" and the findings must name those\nfiles so the implementer removes them from git (git rm --cached).\n"
 	}
 	if files := repositoryedit.DependencyChangesOutOfScope(changed, workflow.AcceptanceScopeOf(ch)); len(files) > 0 {
 		note += "\nOUT-OF-SCOPE DEPENDENCY CHANGES: this change exists to close one conformance\ncheck, and it changed " + strings.Join(files, ", ") + " beyond adding a package. Moving\ndependencies is not its job, however small or well-meant the bump; the verdict\nmust be \"fail\" and the findings must name those files so the implementer\nreverts them.\n"
@@ -669,8 +669,8 @@ func (a *Executor) guardReviewScope(ctx context.Context, run *workflow.Run, scop
 		names = append(names, c.Path)
 	}
 	evidence["scopeSaw"] = map[string]any{"base": strs.Truncate(base, 12), "files": names}
-	// failed names each rule the forge's own file check failed, kept apart
-	// from the reviewer's verdict: a model's pass failed by the forge is not
+	// failed names each rule AppTown's own file check failed, kept apart
+	// from the reviewer's verdict: a model's pass failed by AppTown is not
 	// the reviewer rejecting the work (settleReview).
 	var guard, failed []string
 	reviewerVerdict := v.Verdict
@@ -682,7 +682,7 @@ func (a *Executor) guardReviewScope(ctx context.Context, run *workflow.Run, scop
 	if files := repositoryedit.IgnoredChanges(changed); len(files) > 0 {
 		failed = append(failed, countFiles(len(files), "ignored file")+" committed")
 		v.Verdict = "fail"
-		v.Findings = append([]string{"ignored files committed: " + strings.Join(files, ", ") + " — the repository's own .gitignore says these are not source (build output, or forge runtime files under .apptown/); remove them from git (git rm --cached <path>) and commit only the fix"}, v.Findings...)
+		v.Findings = append([]string{"ignored files committed: " + strings.Join(files, ", ") + " — the repository's own .gitignore says these are not source (build output, or AppTown runtime files under .apptown/); remove them from git (git rm --cached <path>) and commit only the fix"}, v.Findings...)
 		guard = append(guard, files...)
 	}
 	if files := repositoryedit.DependencyChangesOutOfScope(changed, workflow.AcceptanceScopeOf(ch)); len(files) > 0 {

@@ -28,7 +28,7 @@ func busyboxSpec(key, output string, exit int, block bool) execution.TaskSpec {
 // apptown-worker in a container of its own, with real Docker, keeps the task
 // contract; survives a restart of its process with its tasks found again by
 // key; refuses another installation; and returns a task's work as a bundle
-// the forge quarantines.
+// AppTown quarantines.
 func TestIntegrationAWorkerInItsOwnContainer(t *testing.T) {
 	ca := workertest.NewCA(t)
 	w := workertest.StartInContainer(t, ca)

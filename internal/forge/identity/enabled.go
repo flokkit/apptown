@@ -34,7 +34,7 @@ func RequireEnabledIn(ctx context.Context, q database.Queryer, pr access.Princip
 	return nil
 }
 
-// SystemActor reports whether a name is one the forge acts under itself —
+// SystemActor reports whether a name is one AppTown acts under itself —
 // its engine, triggers and bindings ("system", "apptown-system", "forge"), the
 // author of the commits it writes ("apptown"; "forge-system" and a "forge"
 // author are the same actors in records from before the AppTown rename) or a run's

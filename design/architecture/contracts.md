@@ -91,7 +91,7 @@ What a promotion IS, mechanically, per target:
 - Portainer/intranet: stack `forge-<slug>`, Traefik label conventions,
   `forge-data-<slug>` volumes, vanity domains as extra Host rules.
 - The boundary treaty: terraform owns the Docker host, Traefik, DNS, and pull
-  credentials; forge owns released stacks and never touches
+  credentials; AppTown owns released stacks and never touches
   /api/registries or UniFi. A new provider (AWS) would carry its own
   treaty — e.g. terraform owns the account, roles, and network; forge
   owns task definitions or whatever the unit of release is there. The
@@ -106,7 +106,7 @@ numbered records).
 
 Product-level interfaces between OUR apps: Customer Feedback's one-line
 script tag + app key; an error-reporting DSN. Today these live in the
-providing app's README. The intended future: each becomes a forge
+providing app's README. The intended future: each becomes an AppTown
 integration capability (attach "feedback" to a project → the key is
 minted and the snippet/env injected), which promotes it to Type-1-style
 formality — declared, provisioned, revocable.

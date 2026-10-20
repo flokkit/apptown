@@ -3,7 +3,7 @@ package verification
 // The `tool` evaluator at the gate (design/subsystems/conformance.md §13): a
 // guidance check whose evaluation is "run this named scanner binding and turn
 // its result into a verdict/finding". The judgement itself is the library's
-// (internal/check, tool.go); what is here is what only the forge can supply —
+// (internal/check, tool.go); what is here is what only AppTown can supply —
 // the binding a name resolves to, the app image an exec-image check runs
 // inside, the environment it runs with, and the dispositions that say a
 // person has already excused what the tool reported.

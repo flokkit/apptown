@@ -47,10 +47,10 @@ type ScanDependencies struct {
 	Executor     Executor
 	DataDir      string
 	Panics       interface{ Panic(string, any, []byte) }
-	Now          func() time.Time // the forge's clock; nil is the real one
+	Now          func() time.Time // AppTown's clock; nil is the real one
 }
 
-// now is the forge's clock.
+// now is AppTown's clock.
 func (a *ScanSteps) now() time.Time { return clock.Or(a.clock)() }
 
 func NewScanSteps(d ScanDependencies) *ScanSteps {
@@ -141,7 +141,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	ws := source.Workspace(a.dataDir)
 	// Scan one COMMITTED tree, resolved once and staged outside every
 	// writer's folder, never the working directory: the working tree
-	// carries forge runtime state (.apptown/sessions with agent transcripts,
+	// carries AppTown runtime state (.apptown/sessions with agent transcripts,
 	// pi-home, ambient config) that is gitignored and never ships, and that
 	// legitimately contains material a secrets scanner must flag if ever
 	// committed. Posture is about what ships. A landing scans its pinned

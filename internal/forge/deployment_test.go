@@ -38,7 +38,7 @@ func TestSeedTargetsNamesTheBuiltInHost(t *testing.T) {
 	a.SeedTargets(t.Context()) // idempotent
 	ts, _ := a.Deployment.Targets.All(context.Background())
 	if len(ts) != 1 {
-		t.Fatalf("a fresh forge has one target, got %d", len(ts))
+		t.Fatalf("a fresh AppTown has one target, got %d", len(ts))
 	}
 }
 
@@ -118,7 +118,7 @@ func TestLandingDeployRecordsDeploymentGenerationAndBundle(t *testing.T) {
 	}
 }
 
-// A forge with no local Docker seeds no built-in host, and a landing with
+// An AppTown with no local Docker seeds no built-in host, and a landing with
 // no deployment and no attached Docker host offered (a built-in host kept
 // from before the mode is not one), or with a deployment on a target that
 // needs local Docker, is refused
@@ -130,7 +130,7 @@ func TestNoLocalDockerLandingNeedsAnAttachedDockerHost(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			// The mode starts only with a worker configured; the deploy step
-			// itself runs on the forge.
+			// itself runs on AppTown.
 			a, f := bootWorld(t, Config{NoLocalDocker: true, Worker: workerClientConfig(t, workertest.NewCA(t), "https://worker.invalid")})
 			a.SeedTargets(t.Context())
 			if _, err := a.Deployment.Targets.ByName(context.Background(), deployment.BuiltInTargetName); err == nil {
@@ -151,7 +151,7 @@ func TestNoLocalDockerLandingNeedsAnAttachedDockerHost(t *testing.T) {
 				}
 				want = "attach a Docker host and deploy there"
 			}
-			if scenario == "several-offered" { // no choice the forge can make
+			if scenario == "several-offered" { // no choice AppTown can make
 				for _, name := range []string{"lab", "spare"} {
 					offerAttachedHost(t, a, name)
 				}
@@ -189,7 +189,7 @@ func TestNoLocalDockerLandingNeedsAnAttachedDockerHost(t *testing.T) {
 
 // A new project's first landing in the mode creates main on the one
 // attached Docker host offered to the project, as the built-in path
-// creates it on the forge's own host; nobody creates it by hand first.
+// creates it on AppTown's own host; nobody creates it by hand first.
 func TestNoLocalDockerLandingCreatesMainOnTheOneOfferedHost(t *testing.T) {
 	t.Parallel()
 	a, _ := bootWorld(t, Config{NoLocalDocker: true, Worker: workerClientConfig(t, workertest.NewCA(t), "https://worker.invalid")})

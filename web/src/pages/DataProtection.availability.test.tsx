@@ -23,7 +23,7 @@ const protection = (operations: unknown) => ({
   items: [{ need: 'postgres', where: 'database app on forge-ledger-prod', copy: 'none' }],
 })
 
-// mount shows a deployment's card for `deployment` with the forge answering
+// mount shows a deployment's card for `deployment` with AppTown answering
 // `body` for its protection and `instance` for the viewer's holdings. Each
 // test gets its own client; afterEach ends it and restores fetch.
 let done = () => {}
@@ -51,7 +51,7 @@ async function settled(client: ReturnType<typeof newQueryClient>) {
 const button = (el: HTMLElement, label: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent === label)
 const doors = ['Copy now', 'Check it comes back', 'Test a restore here', 'Restore a copy to look at']
 
-// The card's copy, check and restore buttons follow the forge's own answer
+// The card's copy, check and restore buttons follow AppTown's own answer
 // of whether they can start: greyed with its sentence when they cannot (no
 // copy runner on the target), with the way to the target's settings only
 // for those who can edit targets; usable when they can.
@@ -62,7 +62,7 @@ describe('the data operations on a deployment card', () => {
     return m
   }
 
-  it('greys them with the forge’s reason when the target has no copy runner', async () => {
+  it('greys them with AppTown’s reason when the target has no copy runner', async () => {
     const { el } = await card(protection(all(no)), true)
     for (const label of doors) expect(button(el, label)?.disabled, label).toBe(true)
     expect(el.textContent).toContain(why)
@@ -110,9 +110,9 @@ describe('a deployment on a Docker host', () => {
     const onDisk = { available: false, reason: 'on-apptown-disk', why: 'Rehearsals read copies from a backup store, and none is attached.' }
     const body = {
       deployment: 'main', dataClass: 'production', offHost: false, target: 'home', recent: [], running: null, restoredCopies: [], coverage,
-      keptOn: 'host', note: "Backups are kept on the forge's own disk.", rehearsalNote: "not available while its backups are only on the forge's own disk",
+      keptOn: 'host', note: "Backups are kept on AppTown's own disk.", rehearsalNote: "not available while its backups are only on AppTown's own disk",
       operations: { copy: { available: false, reason: 'backups-page', why: 'backed up daily' }, check: elsewhere('check: App Platform only'), restore: elsewhere('restore: App Platform only'), rehearsal: onDisk, startFromCopy: elsewhere('x'), finalCopy: yes },
-      items: [{ need: 'postgres', where: 'on home', copy: 'fresh', copyNote: "kept on the forge's own disk", lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }],
+      items: [{ need: 'postgres', where: 'on home', copy: 'fresh', copyNote: "kept on AppTown's own disk", lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }],
     }
     const { el } = await mount(body, {}, docker)
     await vi.waitFor(() => expect(el.textContent).toContain('Rehearse a restore'))
@@ -160,7 +160,7 @@ describe('what a Docker deployment card says it holds', () => {
 
 // A card's evidence speaks for the items assessed only. A fresh copy and a
 // passed rehearsal still show data outside the deployment as not assessed,
-// right beside them, and a deployment holding no data the forge knows of
+// right beside them, and a deployment holding no data AppTown knows of
 // still says so rather than showing nothing.
 describe('what a deployment card covers', () => {
   const read = async (body: unknown) => {
@@ -181,7 +181,7 @@ describe('what a deployment card covers', () => {
     expect(limit?.querySelector('.chip')?.textContent).toBe('not assessed')
     expect(text).not.toMatch(/fully protected|complete/i)
   })
-  it('says what is not assessed when it holds no data the forge knows of', async () => {
+  it('says what is not assessed when it holds no data AppTown knows of', async () => {
     const el = await read({ deployment: 'main', dataClass: 'production', offHost: false, target: 'home', recent: [], running: null, restoredCopies: [], items: [],
       coverage: { assessed: [], notAssessed: [outside] } })
     expect(el.textContent).toContain('covers: no data AppTown knows of')

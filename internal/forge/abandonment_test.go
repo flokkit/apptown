@@ -428,6 +428,6 @@ func TestAbandonmentFailureKeepsWorkspace(t *testing.T) {
 		t.Fatalf("workspace changed: %q %v", content, err)
 	}
 	requireChangeState(t, a, root.ChangeID, workflow.ChangeInProgress)
-	// sql-guarantee: rollback proves no job of any kind was queued; the jobs page lists only forge operations.
+	// sql-guarantee: rollback proves no job of any kind was queued; the jobs page lists only AppTown operations.
 	completionCount(t, w, 0, `SELECT COUNT(*) FROM river_job`)
 }

@@ -44,9 +44,9 @@ import (
 //
 // A restored copy is a temporary deployment (kind restored-copy) of a
 // production deployment's current release, by digest, on the source's own
-// target, started from a chosen copy, behind the forge's access gate. The
-// gate is its only public component (deploy.Gate): it admits the forge's
-// own checks, which carry the copy's gate secret, and people the forge let
+// target, started from a chosen copy, behind AppTown's access gate. The
+// gate is its only public component (deploy.Gate): it admits AppTown's
+// own checks, which carry the copy's gate secret, and people AppTown let
 // in with a one-use ticket from Open. The app's own sign-in still applies
 // behind it.
 //
@@ -55,7 +55,7 @@ import (
 // has a lifetime and is taken down when it runs out (the sweep), or when a
 // person takes it down.
 //
-// What the forge records of a restored copy is safe to show anyone who may
+// What AppTown records of a restored copy is safe to show anyone who may
 // read the project: step names, the platform's own sentences, status codes
 // and the names of what was withheld. Never a command's output, a
 // component's log or a response body: those can hold rows of production
@@ -63,7 +63,7 @@ import (
 // gate's redemption can be told to be this copy's.
 
 // The lifetimes a restored copy may be given, and how long one Open lets a
-// person in before they open it again (and the forge checks again).
+// person in before they open it again (and AppTown checks again).
 const (
 	RestoredCopyDefault = 4 * time.Hour
 	RestoredCopyMost    = 24 * time.Hour
@@ -75,13 +75,13 @@ const (
 // not prevent them.
 const RestoredCopyWarning = "AppTown integration secrets are withheld and background workers are stopped. Outbound calls are not blocked: this copy can still send mail, payments or webhooks using configuration or credentials in its data."
 
-// ProviderBoundary names who outside the forge can read a restored copy.
+// ProviderBoundary names who outside AppTown can read a restored copy.
 const ProviderBoundary = "DigitalOcean team Owners and Members with console access can read this copy, its gate secret and its logs, as they can production's."
 
 var (
 	// ErrRestoredCopy: a restored copy cannot be made, opened or changed.
 	ErrRestoredCopy = fault.New(fault.Conflict, "this restored copy cannot do that")
-	// ErrNoGate: this forge has no gate image, so it makes no restored copy.
+	// ErrNoGate: this AppTown has no gate image, so it makes no restored copy.
 	ErrNoGate = fault.New(fault.Conflict, "this AppTown has no access gate image: start it with -restore-gate-image <ref@sha256:...> and its public address, so restored copies have a door only AppTown opens")
 	// ErrGateCredential refuses a redemption that does not come from a
 	// standing copy's gate.
@@ -108,7 +108,7 @@ type RestoredCopyDependencies struct {
 	// GateImage is the access gate's image, pinned by digest; "" refuses
 	// restored copies.
 	GateImage string
-	// Forge is the forge's public origin, where gates redeem tickets.
+	// Forge is AppTown's public origin, where gates redeem tickets.
 	Forge string
 	// Secrets gives a restored copy only what its rehearsal profile names.
 	Secrets RestoredCopySecrets
@@ -142,7 +142,7 @@ type RestoredCopy struct {
 	Target     string `json:"target,omitempty"`
 	Test       bool   `json:"test"`
 	AskedBy    string `json:"askedBy"`
-	// AskedByPrincipal is the asker's principal; zero for the forge, or one
+	// AskedByPrincipal is the asker's principal; zero for AppTown, or one
 	// not resolved to a person.
 	AskedByPrincipal ids.ID     `json:"askedByPrincipal,omitzero"`
 	StartedAt        stamp.Time `json:"startedAt"`
@@ -202,7 +202,7 @@ func (s *Service) restoredCopyRecord(ctx context.Context, r protectionsql.Restor
 	return c, nil
 }
 
-// gateHeld says the forge checked the copy's gate and every check passed.
+// gateHeld says AppTown checked the copy's gate and every check passed.
 func gateHeld(f RehearsalFacts) bool {
 	return len(f.Gate) > 0 && !slices.ContainsFunc(f.Gate, func(c RehearsalCheck) bool { return !c.Passed })
 }
@@ -277,7 +277,7 @@ func (s *Service) planRestoredCopy(ctx context.Context, projectID ids.ID, name s
 	if p.target, err = s.targets.ByID(ctx, dep.TargetID); err != nil {
 		return nil, fmt.Errorf("%w: %w", deployment.ErrNoTarget, err)
 	}
-	// The platform is decided before this forge's own setup: configuring a
+	// The platform is decided before this AppTown's own setup: configuring a
 	// gate does not make a restored copy possible where none runs.
 	if p.target.HoldsBackups() == nil {
 		return nil, ErrRestoreTestAppPlatform
@@ -579,7 +579,7 @@ func (s *Service) restoreFailed(ctx context.Context, t *tracker, copyID ids.ID, 
 
 // safeWords is a restored copy's failure as it may be shown: a safe
 // failure's own words, else the error, which on this path comes from the
-// provider's API, the store or the forge (fill's command output is made
+// provider's API, the store or AppTown (fill's command output is made
 // safe where it is made, fillStartFrom).
 func safeWords(err error) string {
 	var safe *safeFailure
@@ -649,7 +649,7 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	}
 	src := deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: p.bundle.Parts, Init: p.bundle.Init, SelfServing: p.bundle.BuiltFrom.SelfServing, Workspace: tree.Directory}
 	// Each line the target and the fill log is a step of the operation:
-	// they are the platform's and the forge's own words.
+	// they are the platform's and AppTown's own words.
 	logf := func(format string, args ...any) { t.begin(ctx, fmt.Sprintf(format, args...)) }
 	if pf, ok := d.(deploy.Preflighter); ok {
 		if err := pf.Preflight(ctx, dep.Placement(), src, secrets, logf); err != nil {
@@ -781,19 +781,19 @@ func readinessOf(c *appcontract.Contract) (string, func(int) bool) {
 // gateCheckStep is where a restore fails when its gate does not hold.
 const gateCheckStep = "checking the gate"
 
-// gateCheckFor is how long the session the forge's own ticket opens lasts:
+// gateCheckFor is how long the session AppTown's own ticket opens lasts:
 // long enough for the one read the check makes with it.
 const gateCheckFor = 2 * time.Minute
 
-// checkGate is the forge checking the copy's gate itself, so a restore test
+// checkGate is AppTown checking the copy's gate itself, so a restore test
 // proves the door as well as the app without a person signing in. At the
 // gate's public address it asks the readiness path with no token and with
 // a wrong one (each the gate's own empty 404, marked by the gate and not
 // to be stored), and enters with a made-up ticket (the gate's 403). Then it issues a ticket to itself, as Open issues a person's, and
-// enters with it once: the gate redeems it with the forge (RedeemGateTicket)
+// enters with it once: the gate redeems it with AppTown (RedeemGateTicket)
 // and answers with a session. The same ticket is refused a second time, and
 // the session is served the app's readiness path. The ticket lives only
-// here and is used up by the check; the forge's redemption is its own
+// here and is used up by the check; AppTown's redemption is its own
 // receipt, never a person's entry. Each answer is a step and a fact (status
 // codes only); it reports whether every one passed.
 func (s *Service) checkGate(ctx context.Context, t *tracker, url string, copyID ids.ID, c *appcontract.Contract, facts *RehearsalFacts) bool {
@@ -840,7 +840,7 @@ func (s *Service) checkGate(ctx context.Context, t *tracker, url string, copyID 
 	// the app sends: an app's 404 or 403 behind a gate that let the request
 	// through never reads as a refusal.
 	byGate := func(h http.Header) bool { return h.Get(gate.RefusedHeader) == gate.RefusedValue }
-	// Refusals are asked on the readiness path, which answered the forge's
+	// Refusals are asked on the readiness path, which answered AppTown's
 	// probe: a request let through would be answered there, not refused.
 	readiness, ready := readinessOf(c)
 	refused := func(token string) func() (int, bool, string) {
@@ -937,9 +937,9 @@ func gateAnswers(f RehearsalFacts) string {
 // taken: its data is a copy of a copy. It returns what was left, "" when
 // nothing was; the copy is marked ended only when nothing was left.
 //
-// What to delete is what the forge recorded making, and also what the
-// platform holds under the names and markers the forge gives what it makes:
-// a create the platform answered but the forge never wrote down
+// What to delete is what AppTown recorded making, and also what the
+// platform holds under the names and markers AppTown gives what it makes:
+// a create the platform answered but AppTown never wrote down
 // (it failed or stopped in between) is still found and deleted. When that
 // cannot be established (the lookup fails, or a need's intent was recorded
 // and neither an identity nor a cluster of its name is found while the
@@ -949,7 +949,7 @@ func gateAnswers(f RehearsalFacts) string {
 // allowed, when set, is asked before each removal: a person's take-down
 // stops when their authority is withdrawn, and the copy stays standing for
 // the sweep. A start cleaning up after itself passes nil: removing what the
-// operation itself made is the forge acting for itself, as its sweep would.
+// operation itself made is AppTown acting for itself, as its sweep would.
 func (s *Service) takeDownRestored(ctx context.Context, t *tracker, copyID ids.ID, dep *deployment.Deployment, allowed func(context.Context) error) string {
 	if allowed == nil {
 		allowed = func(context.Context) error { return nil }
@@ -1295,7 +1295,7 @@ func (s *Service) ExtendRestoredCopy(ctx context.Context, projectID ids.ID, id i
 
 // OpenRestoredCopy issues a one-use ticket for a person to enter an open
 // restored copy, and the address that redeems it at the copy's gate. Only
-// a person signed in to the forge in a browser, who holds
+// a person signed in to AppTown in a browser, who holds
 // deployment:open-restored in the project, gets one; the ticket is kept
 // as its SHA-256, is bound to that person and that copy, and lasts a
 // minute. Issuing it is not an entry: the entry is witnessed when the gate
@@ -1333,7 +1333,7 @@ func (s *Service) OpenRestoredCopy(ctx context.Context, projectID ids.ID, id ids
 // issueTicket records a one-use ticket to a copy's gate for holder, kept
 // by its SHA-256 and lasting a minute (TicketFor), and answers it. checkOp
 // is 0 for a person's Open, or the copy's start operation when the ticket
-// is the forge's own gate check (checkGate).
+// is AppTown's own gate check (checkGate).
 func (s *Service) issueTicket(ctx context.Context, copyID ids.ID, holder string, checkOp ids.ID) (string, error) {
 	ticket, err := newGateSecret()
 	if err != nil {
@@ -1371,7 +1371,7 @@ type GateEntryGrant struct {
 // an hour, whichever is sooner. The receipt says the gate let this person
 // in; it does not say they signed in to the app, or what they read.
 //
-// A ticket the forge issued itself for checkGate is redeemed by the same
+// A ticket AppTown issued itself for checkGate is redeemed by the same
 // rule, and lets in only that check: see redeemCheckTicket.
 func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (GateEntryGrant, error) {
 	if secret == "" || ticket == "" {
@@ -1432,11 +1432,11 @@ func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (
 	return grant, err
 }
 
-// redeemCheckTicket lets in the forge's own gate check, and nothing else:
+// redeemCheckTicket lets in AppTown's own gate check, and nothing else:
 // the ticket must have been issued by the copy's own start, and that start
 // must still be running. Nobody's grant is asked, because no person enters;
-// the session is the forge's, for a couple of minutes, and the receipt
-// (deployment.gate-checked) names the forge, never a person, and is not an
+// the session is AppTown's, for a couple of minutes, and the receipt
+// (deployment.gate-checked) names AppTown, never a person, and is not an
 // entry on the card.
 func (s *Service) redeemCheckTicket(ctx context.Context, tx *database.Tx, r protectionsql.RestoredCopy, checkOp ids.ID, at time.Time) (GateEntryGrant, error) {
 	if checkOp != r.OperationID || s.ops == nil {
@@ -1459,7 +1459,7 @@ func (s *Service) redeemCheckTicket(ctx context.Context, tx *database.Tx, r prot
 }
 
 // SweepRestoredCopies takes down every restored copy whose time is up, and
-// every one a start left standing (a test, or a start the forge stopped in
+// every one a start left standing (a test, or a start AppTown stopped in
 // the middle of or that failed): each by a take-down operation of its own.
 // A copy whose start made no deployment record made nothing, and is ended.
 func (s *Service) SweepRestoredCopies(ctx context.Context) (started int, skipped []string, err error) {

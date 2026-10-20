@@ -176,7 +176,7 @@ const exitUnknown = 4
 // authorize sets the same actor and credentials on every verb (complaint
 // #69: diff once answered "sign in required" with a valid APPTOWN_TOKEN).
 func (c *client) authorize(req *http.Request) {
-	// The protocol this CLI speaks: a forge outside it refuses by name.
+	// The protocol this CLI speaks: an AppTown outside it refuses by name.
 	req.Header.Set(version.CLIProtocolHeader, strconv.Itoa(version.CLIProtocol))
 	req.Header.Set("X-AppTown-Actor", c.actor)
 	if tok := c.getenv("APPTOWN_TOKEN"); tok != "" {
@@ -211,7 +211,7 @@ func (c *client) answer(res *http.Response, method, path string) (json.RawMessag
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
 		if !safeToRepeat(method, path) {
-			// The forge answered and the answer broke off: what it did is
+			// AppTown answered and the answer broke off: what it did is
 			// not known from here.
 			return nil, &unknownOutcome{Method: method, Path: path, Status: res.StatusCode, Lost: err}
 		}
@@ -228,10 +228,10 @@ func (c *client) answer(res *http.Response, method, path string) (json.RawMessag
 	return raw, nil
 }
 
-// httpError is the forge's answer to a request it refused: the server's own
+// httpError is AppTown's answer to a request it refused: the server's own
 // sentence, and the status, so a caller can tell an answer that will not
 // change (no such run) from a failure worth trying again. Code is the
-// refusal's stable code, when the forge gave one: what a caller branches on,
+// refusal's stable code, when AppTown gave one: what a caller branches on,
 // never the sentence.
 type httpError struct {
 	Status int
@@ -239,7 +239,7 @@ type httpError struct {
 	msg    string
 }
 
-// refusalCode is err's code when the forge refused with one, else "".
+// refusalCode is err's code when AppTown refused with one, else "".
 func refusalCode(err error) string {
 	var h *httpError
 	if errors.As(err, &h) {
@@ -250,7 +250,7 @@ func refusalCode(err error) string {
 
 func (e *httpError) Error() string { return e.msg }
 
-// final: the forge answered, and asking again will get the same answer.
+// final: AppTown answered, and asking again will get the same answer.
 // A read's 502/503/504 during a restart was retried in send already; a
 // timeout or a rate limit may yet change.
 func (e *httpError) final() bool {

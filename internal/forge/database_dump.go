@@ -61,7 +61,7 @@ type databaseBackup struct {
 	docker  docker.Scope
 	dataDir string
 	enabled bool
-	now     func() time.Time // the forge's clock, which dates the day's dump
+	now     func() time.Time // AppTown's clock, which dates the day's dump
 }
 
 func (b databaseBackup) Run(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {

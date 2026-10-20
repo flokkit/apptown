@@ -15,7 +15,7 @@ import (
 type Conformance struct {
 	conformance *conformance.Service
 	projects    *project.Projects
-	now         func() time.Time // the forge's clock, which dates an OpenVEX document
+	now         func() time.Time // AppTown's clock, which dates an OpenVEX document
 }
 
 func NewConformance(conformance *conformance.Service, projects *project.Projects, now func() time.Time) Conformance {

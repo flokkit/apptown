@@ -41,7 +41,7 @@ import (
 // refused), and the outcome is recorded with its artifacts in one
 // transaction. Then the invocations are released, then the workspace.
 //
-// A restarted forge continues an attempt from its newest invocation's
+// A restarted AppTown continues an attempt from its newest invocation's
 // recorded state (RecoverAgent). An invocation whose outcome is unknown (a
 // stop the worker did not confirm) holds the workspace, and the attempt is
 // an error.
@@ -103,7 +103,7 @@ func agentWorkspace(stepID ids.ID, attempt int64) string {
 	return fmt.Sprintf("step-%d-a%d", stepID, attempt)
 }
 
-// agentAdmission is what the forge keeps beside an invocation's admitted
+// agentAdmission is what AppTown keeps beside an invocation's admitted
 // request: what the request was built from, which its settlement reports.
 // A recovered invocation settles with these, never with settings read again.
 type agentAdmission struct {
@@ -160,9 +160,9 @@ type workerAttempt struct {
 }
 
 // runOnWorker runs an agent step's attempt, or a review step's (review is
-// set), on the forge's worker. A step the worker cannot run is refused
+// set), on AppTown's worker. A step the worker cannot run is refused
 // before any effect: nothing is published, rewound or sent. It never falls
-// back to the forge's own machine. The attempt's source is found without
+// back to AppTown's own machine. The attempt's source is found without
 // publishing it (a restart's is the base); a review's brief is read from the
 // hub at that commit (the change's diff and scope to it);
 // and what the step needs and the worker's image promises are checked
@@ -232,7 +232,7 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 		defer proposed.Discard(ctx)
 		call.commit = proposed.Commit
 	}
-	// The forge merges main in first when the branch is behind it
+	// AppTown merges main in first when the branch is behind it
 	// (main_merge.go): the step is built on the merge, which is published
 	// after the step's own source, once nothing can refuse the step.
 	from := call.commit
@@ -328,14 +328,14 @@ func (a *Executor) reserveInvocation(ctx context.Context, step *workflow.Step, r
 }
 
 // RecoverAgent continues, in the workflow's dispatch, the agent step attempt
-// a previous forge process ran on the worker: from its newest invocation's
+// a previous AppTown process ran on the worker: from its newest invocation's
 // recorded state (waiting for it, collecting it, or settling the attempt).
 // An attempt whose step moved on is stopped and released, never settled.
 func (a *Executor) RecoverAgent(task *workflow.Execution) {
 	defer reportPanic(a.panics, "RecoverAgent")
 	step, run := task.Step(), task.Run()
 	// The task lives by its durable record, not a context: what a stopped
-	// forge leaves running is collected on restart.
+	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
 	if a.worker == nil || a.worker.Tasks == nil {
 		log.Printf("run %d step %d: its attempt ran on a worker, and this AppTown has none; it stays running", run.ID, step.ID)
@@ -426,14 +426,14 @@ func (a *Executor) continueInvocation(ctx context.Context, w *workerAttempt, inv
 	if err != nil {
 		// Its history is recorded neither kept nor unavailable: nothing
 		// more runs in the session, and the attempt is neither settled nor
-		// released. The invocation stays collecting, and a restarted forge
+		// released. The invocation stays collecting, and a restarted AppTown
 		// reads it again and records its history (RecoverAgent).
 		log.Printf("task %s: %v; it stays recorded for recovery", operation, err)
 		return
 	}
 	next := nextInvocation(kept.Agent.Invocation, res)
 	if next == agentRetryInvocation && kept.Task.Private != nil {
-		// As on the forge's host: an agent with private Docker is not run
+		// As on AppTown's host: an agent with private Docker is not run
 		// again in its attempt; its daemon lived and ended with it.
 		next = ""
 	}
@@ -446,7 +446,7 @@ func (a *Executor) continueInvocation(ctx context.Context, w *workerAttempt, inv
 		if err != nil {
 			if nextInv.Operation == "" {
 				// Not recorded: the earlier invocation stays collecting, and
-				// a restarted forge reads it and decides again.
+				// a restarted AppTown reads it and decides again.
 				log.Printf("task %s: reserving %s: %v; it stays recorded for recovery", operation, next, err)
 				return
 			}
@@ -583,7 +583,7 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 	var res invocationResult
 	res.Outcome = execution.Outcome{Termination: execution.Exited, ExitCode: code}
 	if code != 0 {
-		// A failed process, as the forge's own runner reports it: an error,
+		// A failed process, as AppTown's own runner reports it: an error,
 		// never an empty turn to retry (emptyTurn) or a pass.
 		res.RunErr = fmt.Errorf("exit status %d", code)
 	}
@@ -676,7 +676,7 @@ func (a *Executor) readOutput(ctx context.Context, operation string, ref executi
 }
 
 // keepWorkerTranscript keeps an invocation's transcript, captured by the
-// worker at the path the forge named and Pi was pointed at: its header must
+// worker at the path AppTown named and Pi was pointed at: its header must
 // name the admitted session and it must hold more than the header
 // (keepCapture). One that cannot be kept is recorded as unavailable, with
 // why. An error means neither could be recorded.
@@ -706,7 +706,7 @@ func (a *Executor) keepWorkerTranscript(ctx context.Context, w *workerAttempt, m
 // read, the candidate published (or kept refused), and its outcome recorded
 // with its artifacts; then its invocations are released, then its
 // workspace. A result not kept holds the workspace; a publication not
-// decided leaves everything recorded for a restarted forge.
+// decided leaves everything recorded for a restarted AppTown.
 func (a *Executor) finishAttempt(ctx context.Context, w *workerAttempt, inv tasks.Attempt, ref execution.TaskRef, res invocationResult, code int, meta agentAdmission) {
 	r := a.worker.Tasks
 	hub := w.source.Repository(a.cfg.DataDir)
@@ -743,7 +743,7 @@ func (a *Executor) finishAttempt(ctx context.Context, w *workerAttempt, inv task
 	w.obs.settle(settled)
 	if err != nil && !errors.Is(err, workflow.ErrStepAttemptLost) {
 		// The outcome is not recorded: the invocation stays collecting,
-		// and a restarted forge reads and settles it again.
+		// and a restarted AppTown reads and settles it again.
 		log.Printf("task %s: settling its step: %v; it stays recorded for recovery", inv.Operation, err)
 		return
 	}
@@ -846,7 +846,7 @@ func declaredOutput(results map[string]execution.ResultFile, readErr error) (str
 	return "", fmt.Sprintf("its result is %q", f.State)
 }
 
-// Written files kept from a step's result, as the forge's own harvest keeps
+// Written files kept from a step's result, as AppTown's own harvest keeps
 // them.
 const (
 	maxWrittenFile  = 256 << 10

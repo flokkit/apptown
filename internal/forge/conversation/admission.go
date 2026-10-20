@@ -19,7 +19,7 @@ type ProjectOpen struct {
 	ContinueStep ids.ID `json:"continueStep"`
 	// Placement is where the chat runs: PlaceOnWorker or PlaceOnForge.
 	// Empty chooses the worker for a change's chat when worker chats are
-	// on and the worker can serve it, else the forge.
+	// on and the worker can serve it, else AppTown.
 	Placement string `json:"placement,omitempty"`
 }
 
@@ -39,13 +39,13 @@ func (e *AdmissionConflict) FaultCode() string     { return e.Code }
 func (e *AdmissionConflict) Unwrap() error         { return e.Err }
 
 // CodeChatOnForge marks a refusal to open a change's chat on the worker that
-// the same chat opened on the forge would not meet: the page offers that
+// the same chat opened on AppTown would not meet: the page offers that
 // instead of reading the sentence.
 const CodeChatOnForge = "chat-on-forge"
 
-// workerRefusal refuses a chat on the worker. It names the forge as the way
+// workerRefusal refuses a chat on the worker. It names AppTown as the way
 // round, in the sentence and the code, only when this apptown runs chats
-// itself: a forge that runs none must not send the reader there.
+// itself: an AppTown that runs none must not send the reader there.
 func (c *Admission) workerRefusal(err error, onForge string) *AdmissionConflict {
 	if c.noLocal {
 		return &AdmissionConflict{Err: err}

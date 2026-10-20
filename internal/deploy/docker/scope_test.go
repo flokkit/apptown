@@ -54,7 +54,7 @@ func diskRead(args []string) bool {
 	return ok
 }
 
-// A scope names the daemon a command talks to: the forge's own, or an
+// A scope names the daemon a command talks to: AppTown's own, or an
 // attached host's over SSH; the host travels with every command, and a
 // scope with no client refuses rather than guessing.
 func TestScopeCarriesItsHost(t *testing.T) {

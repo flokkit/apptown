@@ -18,10 +18,10 @@ import (
 	"flokkit.io/forge/internal/forge/identity"
 )
 
-// A target is a reusable place the forge can deploy to, reached through one
+// A target is a reusable place AppTown can deploy to, reached through one
 // provider (design/subsystems/deployment.md §2.2, §8). It exists as an offered
 // place before any deployment is bound to it. This package owns its record,
-// its lifecycle (TargetState) and its offers; forge holds the doors and the
+// its lifecycle (TargetState) and its offers; AppTown holds the doors and the
 // provider-specific checks.
 
 const (
@@ -111,7 +111,7 @@ type Targets struct {
 	db         *database.DB
 	connectors ConnectorRetirement
 	implicit   []string         // targets offered to everyone by construction, by name
-	clock      func() time.Time // the forge's clock, which stamps targets and offers; nil is the real one
+	clock      func() time.Time // AppTown's clock, which stamps targets and offers; nil is the real one
 }
 
 func (s *Targets) now() time.Time { return clock.Or(s.clock)().UTC() }
@@ -178,7 +178,7 @@ func (s *Targets) All(ctx context.Context) ([]*Target, error) {
 
 // Put records a target exactly as given, replacing what a record of that
 // name held apart from its id, origin and a retirement: attaching a new
-// target and test setup. A target the forge derives from configuration
+// target and test setup. A target AppTown derives from configuration
 // refreshes through Sync instead, which keeps the administrator's settings.
 func (s *Targets) Put(ctx context.Context, t *Target) (*Target, error) {
 	if _, err := t.Status.Value(); err != nil {
@@ -205,9 +205,9 @@ func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
 	}
 }
 
-// Sync records a target the forge derives from configuration — the built-in
+// Sync records a target AppTown derives from configuration — the built-in
 // host at every start, an App Platform account's target from its connector,
-// the intranet's Portainer from forge configuration. A new target is created
+// the intranet's Portainer from AppTown configuration. A new target is created
 // as given. An existing one keeps the administrator's settings
 // (Target.keepSettings) and takes only the configuration's facts; when one of
 // those differs, the record, a settings revision and a target.refreshed
@@ -443,11 +443,11 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 	})
 }
 
-// ErrTargetKeepsBackups is a target whose deployments the forge does not
+// ErrTargetKeepsBackups is a target whose deployments AppTown does not
 // back up: a scheduled backup there is skipped, not failed.
 var ErrTargetKeepsBackups = errors.New("it keeps its own backups; AppTown backs up what it holds on a Docker host or a Portainer environment it talks to")
 
-// DataAccess is how the forge reaches the data of a target's deployments
+// DataAccess is how AppTown reaches the data of a target's deployments
 // for its own copies: on a Docker host it talks to; in a Portainer
 // environment, through Portainer's Docker proxy (Providers.PortainerDataScope);
 // on a managed platform, through the provider and the target's copy runner;
@@ -462,7 +462,7 @@ const (
 	DataOnManagedPlatform
 )
 
-// DataAccess is how the forge reaches this target's deployments' data.
+// DataAccess is how AppTown reaches this target's deployments' data.
 func (t *Target) DataAccess() DataAccess {
 	switch t.Kind {
 	case KindDockerHost:
@@ -475,7 +475,7 @@ func (t *Target) DataAccess() DataAccess {
 	return DataAccessNone
 }
 
-// HoldsBackups says whether the forge backs up what stands on this target
+// HoldsBackups says whether AppTown backs up what stands on this target
 // as sets of its own: what it holds on a Docker host it talks to, or in a
 // Portainer environment; a cloud target is copied by operations of its own
 // (ErrTargetKeepsBackups).

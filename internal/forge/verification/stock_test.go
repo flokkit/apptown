@@ -275,7 +275,7 @@ func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 // deploy/health-declared: the check's own message tells authors to write
 // health: { readiness: { http: /healthz } }, so that flow style must pass
 // as well as the block style (a journey following the advice failed it).
-// It is judged per part: a static part is served by the forge's own file
+// It is judged per part: a static part is served by AppTown's own file
 // server and declares nothing (html-game failed it for that), while a
 // built part beside it still must.
 func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
@@ -308,7 +308,7 @@ func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 	}
 }
 
-// The Django and Rails front-door checks: an app behind the forge's front
+// The Django and Rails front-door checks: an app behind AppTown's front
 // door is told where it is served in APPTOWN_ORIGINS, wildcards included
 // (https://*.preview.<domain>). A host list must be built from it with the
 // wildcard written in the framework's leading-dot form; reading the

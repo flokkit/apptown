@@ -142,7 +142,7 @@ func TestDiagnosticsShowAPartsFailureWhileThePublicPartRuns(t *testing.T) {
 // A read that fails is unknown now, never stopped, absent or a clean
 // exit: the part keeps the facts last read for this generation's
 // container, with when they were read and when the failed read was tried,
-// and the failure in the forge's words, not the host's. With nothing read
+// and the failure in AppTown's words, not the host's. With nothing read
 // before, there are no facts at all. A container under the public part's
 // name that another generation's labels name is shown as that generation's.
 //
@@ -179,7 +179,7 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 		t.Fatalf("the host's words reached the reason: %+v", p)
 	}
 
-	// Another forge process (a restart) has read nothing: no facts.
+	// Another AppTown process (a restart) has read nothing: no facts.
 	fresh := w.service(true)
 	fresh.authority = &requestAuthority{}
 	d, err := fresh.Diagnostics(t.Context(), w.project, "main")
@@ -272,7 +272,7 @@ func TestACrashLoopHoldIsShownAsItsReceiptSaysIt(t *testing.T) {
 	}
 }
 
-// A target that runs no containers for the forge says so, and lists the
+// A target that runs no containers for AppTown says so, and lists the
 // generation's parts as unknown: it never shows Docker facts it did not
 // read.
 func TestDiagnosticsOnATargetWithoutContainersSayWhy(t *testing.T) {
@@ -296,7 +296,7 @@ func TestDiagnosticsOnATargetWithoutContainersSayWhy(t *testing.T) {
 
 // A part's log is read only by someone who may operate the deployment,
 // only for a part or need of its settled generation, from the container
-// the forge names for it there; the bounds come back with it. A refused or
+// AppTown names for it there; the bounds come back with it. A refused or
 // unknown request never reaches the daemon.
 //
 // Kills: the read grant taken for logs; a part name used as a container

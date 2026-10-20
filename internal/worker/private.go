@@ -35,7 +35,7 @@ import (
 //     lost, never made again.
 //   - Release removes them all, and confirms; the sweep stops the task and
 //     removes them all once its admission has expired, whether or not the
-//     forge is there.
+//     AppTown is there.
 
 // serviceBudget is every private service's budget, beside the task's own:
 // the worker's -service-* limits, by default execution.DefaultServiceLimits,
@@ -359,7 +359,7 @@ func (s *Server) privateWriters(workspace string) ([]string, error) {
 	return writers, nil
 }
 
-// observeTask is a task as the forge is told of it. A task with private
+// observeTask is a task as AppTown is told of it. A task with private
 // Docker has exited only once everything beside it is confirmed stopped;
 // until then it is running. One running whose private containers are gone
 // has lost them: it is reported absent, and they are not made again.
@@ -393,8 +393,8 @@ func (s *Server) observeTask(ctx context.Context, ref execution.TaskRef) (execut
 }
 
 // SweepPrivate stops the tasks whose private Docker's admission has
-// expired, and removes their private resources, whether or not the forge
-// is there. Their records stay, for the forge to collect and release. A
+// expired, and removes their private resources, whether or not AppTown
+// is there. Their records stay, for AppTown to collect and release. A
 // removal that fails is logged and tried again by the next sweep.
 func (s *Server) SweepPrivate(ctx context.Context) {
 	expired := map[string]bool{}

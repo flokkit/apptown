@@ -18,7 +18,7 @@ const page = (unread: RunFindingsView['unread']) => {
   return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><RunFindings runId={RUN} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
 }
 
-// A report the forge could not read leaves its findings unknown: the change
+// A report AppTown could not read leaves its findings unknown: the change
 // page lists it with the reason and never says there are no findings.
 describe("a run's findings on the change page", () => {
   it('shows an unread report with its reason, not "no findings"', () => {

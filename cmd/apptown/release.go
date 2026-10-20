@@ -91,7 +91,7 @@ func cmdRelease(args []string) error {
 
 // followRelease prints a release's log as it is written until the release
 // settles, and answers how it settled: released or failed. A poll that
-// fails is ridden out (the forge restarts for a deploy and answers 502 for a
+// fails is ridden out (AppTown restarts for a deploy and answers 502 for a
 // few seconds); an answer that will not change (no such release) is given at
 // once.
 func followRelease(slug string, number int64, interval time.Duration) (string, error) {

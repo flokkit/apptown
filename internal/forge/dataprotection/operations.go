@@ -101,7 +101,7 @@ func (s *Service) registerKinds() {
 		{Name: OperationRestoredCopyEnd, Capability: access.CapDeploymentRestore, CancelRefusal: ErrRestoredCopyEndNotStopped, Execute: body(s.runRestoredTakeDown)},
 		// A restore of a set over a deployment runs to its end once started;
 		// it needs the deploy grant, as its door always has. Its receipt is
-		// written with its end, and a forge's stop leaves what it may have
+		// written with its end, and an AppTown's stop leaves what it may have
 		// stopped named, never started on a guess (restore_operation.go).
 		{Name: OperationRestoreSet, Capability: access.CapDeploymentDeploy, CancelRefusal: ErrRestoreSetNotStopped, Execute: body(s.runRestoreSet),
 			SettleIn: s.settleRestore, Interrupted: restoreInterrupted},
@@ -163,7 +163,7 @@ type tracker struct {
 	// stopped says the kind stopped at a safe boundary because a person
 	// asked it to (stop).
 	stopped bool
-	// indeterminate says a provider effect got no answer the forge can
+	// indeterminate says a provider effect got no answer AppTown can
 	// trust (providerFailed): whether it happened is not known.
 	indeterminate bool
 	// left names what the operation made and could not remove.

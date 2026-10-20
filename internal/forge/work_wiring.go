@@ -35,7 +35,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		Publisher: repositoryPublisher{secrets: a.Secrets, db: a.DB, dataDir: a.cfg.dataDir, now: a.cfg.clock.Now}, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
 		Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Catalog: a.Dependencies, Now: a.cfg.clock.Now,
 	}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, HostScripts: a.cfg.hostScripts})
-	// A forge with a worker builds every release there
+	// An AppTown with a worker builds every release there
 	// (design/operations/workers.md, "Releases built on the worker").
 	var builds *workflowexec.ReleaseBuilds
 	if a.cfg.worker != nil {
@@ -84,13 +84,13 @@ func (a *App) workDependencies() workflow.Dependencies {
 
 		CheckPlacement: checkPlacement(a.cfg),
 		TaskPlacement:  taskPlacement(a.cfg),
-		// The forge's clock writes every time Work's rules compare: step
+		// AppTown's clock writes every time Work's rules compare: step
 		// finishes, Change closes, artifacts, votes and send-backs.
 		Now: a.cfg.clock.Now,
 	}
 }
 
-// changePages links a change to its page on this forge's public host.
+// changePages links a change to its page on this AppTown's public host.
 type changePages struct{ host string }
 
 func (p changePages) URL(id ids.ID) string { return changeactions.URL(p.host, id) }
@@ -111,7 +111,7 @@ func mergeEffectsFor(a *App) workcommands.LandingEffects {
 // operation's context to the authority. Receipt actor text never substitutes
 // for policy.
 
-// asForge: the forge acting for itself in one project through one of its
+// asForge: AppTown acting for itself in one project through one of its
 // own doors (remediation, the engine; the scheduler and webhooks build the
 // same principal in their owners). The receipt names the door;
 // the inference owner stays "system".
@@ -119,7 +119,7 @@ func (a *App) asForge(ctx context.Context, projectID ids.ID, via string) context
 	return verifiedContext(ctx, access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: via, ProjectID: projectID})
 }
 
-// asEngine: the forge's engine acting for itself in any project: recording a
+// asEngine: AppTown's engine acting for itself in any project: recording a
 // step's attempt, re-checking, redispatching, writing release notes.
 func (a *App) asEngine(ctx context.Context) context.Context { return a.asForge(ctx, ids.Nil, "engine") }
 

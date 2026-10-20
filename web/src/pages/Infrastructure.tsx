@@ -9,11 +9,11 @@ import { fmtWhen, relTime } from '../format'
 
 // Infrastructure (design/subsystems/deployment.md §2.6, §15): the cloud, as it is.
 // For each cloud target: what is at the provider right now — apps,
-// databases, the registry — laid over what the forge recorded, so each
-// thing reads one of three ways: the forge made it and here is what it
-// hosts; the forge recorded it and the provider has no trace (missing);
-// the provider has it and the forge never recorded it (unrecorded — made
-// outside the forge, or by a forge that lost its record). Nothing on this
+// databases, the registry — laid over what AppTown recorded, so each
+// thing reads one of three ways: AppTown made it and here is what it
+// hosts; AppTown recorded it and the provider has no trace (missing);
+// the provider has it and AppTown never recorded it (unrecorded — made
+// outside AppTown, or by an AppTown that lost its record). Nothing on this
 // page changes anything; teardown and settling live on the project.
 
 // The server's shapes, generated from its Go types (wire.gen.ts).
@@ -138,7 +138,7 @@ function TargetSection({ t: tIn, onRefresh, refreshing, onChanged }: { t: Target
 }
 
 // ResourceTables: what is at a target, by kind, with the remove control on
-// anything the forge does not claim. The fleet view and a target's own page
+// anything AppTown does not claim. The fleet view and a target's own page
 // both show it.
 export function ResourceTables({ t: tIn, onChanged, only, empty }: { t: TargetInfra; onChanged: () => void; only?: (r: Resource) => boolean; empty?: string }) {
   const t = { ...tIn, resources: (tIn.resources ?? []).filter(only ?? (() => true)) }

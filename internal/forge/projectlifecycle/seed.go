@@ -35,7 +35,7 @@ type Seeding struct {
 // DefaultBundleMaxBytes is the upload limit when the operator sets none.
 const DefaultBundleMaxBytes int64 = 2 << 30
 
-// Secrets reads the forge's own secrets, for a git credential named by an
+// Secrets reads AppTown's own secrets, for a git credential named by an
 // administrator.
 type Secrets interface {
 	WithContext(ctx context.Context) (map[string]string, error)
@@ -49,11 +49,11 @@ func (e *BundleTooLarge) Error() string {
 }
 func (e *BundleTooLarge) FaultKind() fault.Kind { return fault.Invalid }
 
-// ErrNoSuchSecret refuses a credential name the forge does not hold.
+// ErrNoSuchSecret refuses a credential name AppTown does not hold.
 var ErrNoSuchSecret = fault.New(fault.Invalid, "AppTown holds no secret by that name")
 
 // FromURL is a seed from an https repository. CredentialSecret names one of
-// the forge's own secrets to offer as the password; the caller has already
+// AppTown's own secrets to offer as the password; the caller has already
 // established that the actor is an administrator, since the value goes to
 // a server the actor chose.
 type FromURL struct {

@@ -8,10 +8,10 @@ import "flokkit.io/forge/internal/stamp"
 // The next review is a new record and never overwrites this one.
 type Review struct {
 	ID      ids.ID `json:"id"`
-	Number  int64  `json:"number"` // within the forge, as people name it ("review 9")
+	Number  int64  `json:"number"` // within AppTown, as people name it ("review 9")
 	Trigger string `json:"trigger"`
 	Actor   string `json:"actor"`
-	// ActorPrincipal is the starter's principal; zero for the forge, or one
+	// ActorPrincipal is the starter's principal; zero for AppTown, or one
 	// not resolved to a person.
 	ActorPrincipal ids.ID     `json:"actorPrincipal,omitzero"`
 	StartedAt      string     `json:"startedAt"`

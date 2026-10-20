@@ -184,7 +184,7 @@ func (h DataProtection) TakeDownRestoredCopy(w http.ResponseWriter, r *http.Requ
 }
 
 // OpenRestoredCopy: POST /projects/{slug}/restored-copies/{id}/open — a
-// form a person submits from the forge in their browser. The answer is a
+// form a person submits from AppTown in their browser. The answer is a
 // redirect to the copy's gate carrying a one-use ticket; it is never a
 // page a GET can produce, so another site cannot open a copy in a
 // person's name.

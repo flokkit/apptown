@@ -287,7 +287,7 @@ func CheckPolicy(p *Policy) (wow.Requirement, error) { return wow.CheckPolicy(p.
 
 type policyStore struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func newPolicies(db *database.DB) *policyStore { return &policyStore{db: db} }

@@ -3,7 +3,7 @@ package workflow
 import "encoding/json"
 
 // Placement is where a step ran: a worker, by its address (and, for the
-// check worker, the check role it reported at the forge's start), or this
+// check worker, the check role it reported at AppTown's start), or this
 // machine (design/operations/workers.md, "A check worker"). Work records it on every
 // check and script result, as a protected field of the evidence the runner
 // cannot set. Results recorded before placement was recorded have none:
@@ -18,7 +18,7 @@ type Placement struct {
 var checkKinds = []string{"tests", "scan", "guidance/conformance"}
 
 // The gate's words for a passing result that cannot satisfy it while the
-// forge has a check worker.
+// AppTown has a check worker.
 const (
 	notIndependent = " (not independently checked; rerun required)"
 	unreadable     = " (its evidence could not be read; rerun required)"
@@ -48,7 +48,7 @@ func (p Placement) placed(kind string, evidence json.RawMessage) (json.RawMessag
 }
 
 // refuses says why a step's result cannot satisfy a gate, or "" if it can.
-// Once the forge has a check worker (p is its placement), a passing check
+// Once AppTown has a check worker (p is its placement), a passing check
 // result counts only if that worker produced it: one from an agent worker,
 // from this machine, of unknown placement, or recorded before the check
 // worker was configured needs a fresh run there. A script never counts: it

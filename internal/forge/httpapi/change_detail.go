@@ -135,7 +135,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Main the forge could not merge in before a step, while the branch
+	// Main AppTown could not merge in before a step, while the branch
 	// still does not contain it: the person catches up in the change's chat.
 	// It is read across the change's runs: a landing refused since is the
 	// change's current run and records none.
@@ -237,7 +237,7 @@ type (
 		// Approval is the viewer's standing on the approval the run waits
 		// on; absent when none waits.
 		Approval *ApprovalStanding `json:"approval,omitempty"`
-		// MainConflict is main the forge could not merge into the change
+		// MainConflict is main AppTown could not merge into the change
 		// before a step, while the branch does not contain it yet; absent
 		// otherwise.
 		MainConflict *repositoryedit.MainConflict `json:"mainConflict,omitempty"`

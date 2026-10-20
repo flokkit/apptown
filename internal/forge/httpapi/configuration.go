@@ -21,7 +21,7 @@ func NewConfiguration(catalog *dependency.Catalog) Configuration {
 	return Configuration{catalog: catalog}
 }
 
-// The forge-native contract's tooling surface (design/decisions/forge-native-contract.md):
+// AppTown-native contract's tooling surface (design/decisions/forge-native-contract.md):
 // a schema models can author against, a validator they can run, and the
 // local-dev compose generator. All take the .apptown/app.yaml text so they work
 // on the dev's local working copy, not only what's committed.
@@ -112,7 +112,7 @@ func (h Configuration) ConfigValidate(w http.ResponseWriter, r *http.Request) {
 				errs = append(errs, "profile "+name+": "+err.Error())
 			}
 		}
-		// A field the forge accepts but never runs must say so, not promise
+		// A field AppTown accepts but never runs must say so, not promise
 		// data.
 		for _, p := range c.Parts {
 			if p.Seed != "" {

@@ -15,7 +15,7 @@ Which name reaches which deployment, by target:
 
 | Target | `main` | Any other deployment |
 | --- | --- | --- |
-| The forge's own Docker host | `<slug>.<main tier domain>`, through apptownd's front door (VHost); without a main tier domain, the forge's host and the published port | the forge's host and its published port |
+| AppTown's own Docker host | `<slug>.<main tier domain>`, through apptownd's front door (VHost); without a main tier domain, AppTown's host and the published port | AppTown's host and its published port |
 | An attached Docker host with an ingress domain | `<slug>.<domain>`, through the host's own Traefik | the host's address and its published port; it carries no Traefik route |
 | An attached Docker host without a domain | the host's address and its published port | the same |
 | Portainer | one deployment per project, named for the target's tier, at the project's name | refused |
@@ -32,7 +32,7 @@ Every standing deployment on a Docker host is published at one host port,
 picked and recorded before its first start, whether a landing or a release
 starts it (`deployment.Deployments.StablePort`). Docker keeps a port it was
 given at every start of the container, and picks a port it chose itself
-again at every start, so the forge records the port and probes and shows that
+again at every start, so AppTown records the port and probes and shows that
 one. Previews take a
 port Docker picks: they are never restarted in place, and their port is
 asked of Docker each time it is used.

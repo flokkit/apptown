@@ -55,7 +55,7 @@ export function SidebarNav() {
   const slug = m ? (m[1] !== '_new' ? m[1] : null)
     : /^\/(changes|items|adrs)\//.test(pathname) ? scope : null
   const cls = ({ isActive }: { isActive: boolean }) => 'nav' + (isActive ? ' active' : '')
-  // Pages about the whole forge are left out for someone who cannot read
+  // Pages about the whole AppTown are left out for someone who cannot read
   // them; the menu is otherwise the same for everyone.
   const mayOpen = useInstancePages()
   const wow = /^\/(packs|workflow-library|guidance|policies)(\/|$)/.test(pathname)

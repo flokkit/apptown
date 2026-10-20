@@ -25,7 +25,7 @@ type WorkerChat struct {
 	LastSave repositoryedit.ChatSave
 	HasSave  bool
 	SaveErr  error
-	// RecordAsOf is when the forge last copied its conversation; zero
+	// RecordAsOf is when AppTown last copied its conversation; zero
 	// before the first copy.
 	RecordAsOf time.Time
 	// Refused is the commit of an ended chat's refused last save, kept for

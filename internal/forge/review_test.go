@@ -166,7 +166,7 @@ func writeVerdict(t *testing.T, ws, body string) {
 // ---- the review -------------------------------------------------------------
 
 // Every reviewer invocation — the initial run, the wrap-up resume and the
-// fixup — must carry the forge CLI mount and a LIVE run token: the
+// fixup — must carry AppTown CLI mount and a LIVE run token: the
 // reviewer verifies claims like "apptown check passed" with them. The
 // resume and fixup copies must pass the same mounts, or they lose the CLI.
 func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
@@ -175,7 +175,7 @@ func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 		t.Helper()
 		for i, req := range reqs {
 			if !hasMount(req, ":"+agentenv.CLIDir+"/apptown:ro") {
-				t.Errorf("call %d: no forge CLI mount in %v", i+1, req.Mounts)
+				t.Errorf("call %d: no AppTown CLI mount in %v", i+1, req.Mounts)
 			}
 			tok := envValue(req, "APPTOWN_SESSION_TOKEN")
 			if tok == "" {

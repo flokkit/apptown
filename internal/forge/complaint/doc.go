@@ -9,15 +9,15 @@
 // records the report. The box trusts caller-supplied attribution; adapters own
 // credential verification and authorization of intake and administration.
 //
-// A complaint says what it is about ([Entry].About): the forge (the default),
+// A complaint says what it is about ([Entry].About): AppTown (the default),
 // the project's adopted way of working, whose packs the box names itself, or
 // the project. A complaint filed in an eval's throwaway copy belongs to that
-// eval, as the evals owner's copy record says; only those about the forge
-// reach the forge's queue. Intake adapters derive the project from the
+// eval, as the evals owner's copy record says; only those about AppTown
+// reach AppTown's queue. Intake adapters derive the project from the
 // filer's own credential where they can; a run cannot file into another
 // project.
 //
-// [Box.All] returns the forge's queue, bounded, newest first, including archived reports.
+// [Box.All] returns AppTown's queue, bounded, newest first, including archived reports.
 // [Box.MarkSeen] marks all reports seen. [Box.Answer] records or replaces an answer;
 // [Box.Archive] removes a report from the active inbox while retaining its record.
 // Answer, archive and delete commit their mutations and audit receipts together.

@@ -7,7 +7,7 @@ package agentenv
 const RuntimeContractInstructions = `# Runtime contract
 
 Your app is deployed COLD: nothing carries over from this dev session.
-Declare how it runs in .apptown/app.yaml — the forge-native contract. Two
+Declare how it runs in .apptown/app.yaml — AppTown-native contract. Two
 sections: app (the containers your app IS) and needs (what it depends on).
 Get the schema with ` + "`apptown config schema`" + ` and check your file with
 ` + "`apptown config validate`" + `.
@@ -15,7 +15,7 @@ Get the schema with ` + "`apptown config schema`" + ` and check your file with
 SERVER APP (with a database, a cache, etc.):
   app:
     web:
-      build: .              # forge builds your repo-root Dockerfile
+      build: .              # AppTown builds your repo-root Dockerfile
       # image: <pushed ref> #   ...OR run a pushed image instead
       ports: ["8080"]       # CONTAINER port; AppTown assigns the host
       public: true          # the front door (exactly one part is public)

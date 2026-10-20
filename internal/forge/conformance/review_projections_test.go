@@ -37,7 +37,7 @@ func (s *headSource) Head(_ context.Context, p ProjectSource) (SourceHead, error
 
 func (s *headSource) move(id ids.ID, sha string) { s.heads[id] = sha }
 
-// projectionClock is the forge's clock for these scenarios: it moves on a
+// projectionClock is AppTown's clock for these scenarios: it moves on a
 // second at every reading, and jumps when a scenario lets time pass.
 type projectionClock struct{ at time.Time }
 
@@ -336,7 +336,7 @@ func TestReviewLensIsAnImmutableRecord(t *testing.T) {
 }
 
 // Under the current lens an excepted verdict whose exception has since
-// expired by the forge's clock reveals the failure underneath without
+// expired by AppTown's clock reveals the failure underneath without
 // re-evaluation, while the saved review keeps its original decision.
 func TestExpiredExceptionRevealsTheFinding(t *testing.T) {
 	t.Parallel()

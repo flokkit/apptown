@@ -12,7 +12,7 @@ import (
 
 // The catch-up a landing that is behind main tells a person to run gives
 // the merge a plain message. Without -m, git names the merge by the
-// remote's address, the forge's internal one ("Merge branch 'main' of
+// remote's address, AppTown's internal one ("Merge branch 'main' of
 // http://192.0.2.10:7778/..."), and the project's history keeps it.
 func TestTheCatchUpCommandGivesTheMergeAPlainMessage(t *testing.T) {
 	t.Parallel()

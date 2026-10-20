@@ -36,7 +36,7 @@ import (
 //	go test -tags=integration ./internal/forge/ -run TestIntegration -v
 //
 // Conventions: container names embed the test pid so parallel runs and a
-// developer's live forge on the same daemon never collide; every
+// developer's live AppTown on the same daemon never collide; every
 // container is removed in t.Cleanup; a missing daemon is a FAILURE, not
 // a skip — a skip that always skips is how an integration tier rots.
 
@@ -75,7 +75,7 @@ func TestIntegrationStaticPreviewBoot(t *testing.T) {
 	a := testApp(t)
 	pid := plainTestProject(t, a.DB, "p", "P")
 
-	chID := ids.New(time.Now()) // a random id: its container names collide with no other forge's
+	chID := ids.New(time.Now()) // a random id: its container names collide with no other AppTown's
 	// sql-guarantee: a bare change row for the preview; admission would start a run this test does not want.
 	if _, err := a.DB.Exec(`INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES (?,1,?,'feature','t','in_progress','forge/x',?)`, chID, pid, now()); err != nil {
 		t.Fatal(err)
@@ -122,7 +122,7 @@ func TestIntegrationServiceBackedPreviewBoots(t *testing.T) {
 	a := testApp(t)
 	a.SyncStockDependencies(context.Background()) // the app.yaml contract declares redis as a need
 	pid := plainTestProject(t, a.DB, "p", "P")
-	chID := ids.New(time.Now()) // a random id: its container names collide with no other forge's
+	chID := ids.New(time.Now()) // a random id: its container names collide with no other AppTown's
 	// sql-guarantee: a bare change row for the preview; admission would start a run this test does not want.
 	if _, err := a.DB.Exec(`INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES (?,1,?,'feature','t','in_progress','forge/x',?)`, chID, pid, now()); err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ needs:
 }
 
 // The contract, end to end: a `.apptown/app.yaml` with a build: public part and
-// a need boots a preview — the forge builds the repo Dockerfile, runs it, and
+// a need boots a preview — AppTown builds the repo Dockerfile, runs it, and
 // stands the sidecar network up beside it. Proves the one contract form maps
 // onto the runtime for a from-source app with a dependency.
 func TestIntegrationBuildContractBoots(t *testing.T) {
@@ -176,7 +176,7 @@ func TestIntegrationBuildContractBoots(t *testing.T) {
 	a := testApp(t)
 	a.SyncStockDependencies(context.Background()) // the app.yaml contract declares redis as a need
 	pid := plainTestProject(t, a.DB, "p", "P")
-	chID := ids.New(time.Now()) // a random id: its container names collide with no other forge's
+	chID := ids.New(time.Now()) // a random id: its container names collide with no other AppTown's
 	// sql-guarantee: a bare change row for the preview; admission would start a run this test does not want.
 	if _, err := a.DB.Exec(`INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES (?,1,?,'feature','t','in_progress','forge/x',?)`, chID, pid, now()); err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The lane deploys with no approval before it, so its start needs a
-	// person who may land (workflow/assent.go), not the forge itself.
+	// person who may land (workflow/assent.go), not AppTown itself.
 	run, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: change.ID, Workflow: "itest-deploy"})
 	if !errors.Is(err, workflow.ErrDispatchStopped) {
 		t.Fatal(err)

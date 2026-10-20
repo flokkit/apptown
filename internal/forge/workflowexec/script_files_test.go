@@ -57,7 +57,7 @@ func TestAScriptWithRegistryBindingsRunsOnTheWorker(t *testing.T) {
 	}
 }
 
-// A forge that restarts recovers a recorded script task with the request it
+// An AppTown that restarts recovers a recorded script task with the request it
 // was admitted with, generated configuration included, whether or not the
 // registry bindings changed while it was down: the request sent again carries the admitted mirror, never the
 // current one, and the task runs once.

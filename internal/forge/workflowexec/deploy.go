@@ -148,7 +148,7 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 		return
 	}
 	logf("Preflight passed for %s on commit %s at %s; boot checks again", check.Deployment, check.Commit, check.CheckedAt.UTC().Format(time.RFC3339))
-	// On a forge with a worker the release is built there, published and
+	// On an AppTown with a worker the release is built there, published and
 	// committed as a digest bundle before anything is deployed; the host
 	// pulls it.
 	var bundle *deployment.ReleaseBundle

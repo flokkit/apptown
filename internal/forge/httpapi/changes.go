@@ -22,7 +22,7 @@ type Changes struct {
 	projects *project.Projects
 	access   *identity.Service
 	db       *database.DB
-	now      func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now      func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewChanges(work *workflow.Service, projects *project.Projects, authority *identity.Service, db *database.DB, now func() time.Time) Changes {

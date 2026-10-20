@@ -34,10 +34,10 @@ import (
 	"flokkit.io/forge/internal/gitexec"
 )
 
-// Moving a project to another forge, the export half. The file is an
+// Moving a project to another AppTown, the export half. The file is an
 // uncompressed tar: a Git bundle of the project's refs, one document per
 // owner, the files kept outside the database, and the manifest last, naming
-// every other entry's size and SHA-256. It is as sensitive as this forge's
+// every other entry's size and SHA-256. It is as sensitive as this AppTown's
 // database: logs, artifacts and chats travel as they are.
 
 // ExportFormat and ExportVersion name the file's shape. There is one
@@ -82,7 +82,7 @@ type ExportSources struct {
 	}
 }
 
-// ExportOrigin is the forge the file comes from: its UUID, the web address
+// ExportOrigin is AppTown the file comes from: its UUID, the web address
 // the export was asked on, the build and the schema it ran.
 type ExportOrigin struct {
 	AppTown ids.ID `json:"apptown"`
@@ -111,7 +111,7 @@ type Manifest struct {
 	Counts     map[string]int `json:"counts"`
 	EmptyChats int            `json:"emptyChats"`
 	Missing    []string       `json:"missingTranscripts,omitempty"`
-	// Skipped is what stays on this forge: changes not landed (open or
+	// Skipped is what stays on this AppTown: changes not landed (open or
 	// abandoned) with their runs, chats, refs and attachments, and runs
 	// still running.
 	Skipped      []workflow.ExportSkip      `json:"skipped"`
@@ -127,7 +127,7 @@ type ExportRef struct {
 }
 
 // Listed is what the file reports but does not move: an operator sets it up
-// again on the receiving forge, or it stays with this one.
+// again on the receiving AppTown, or it stays with this one.
 type Listed struct {
 	OwnerGroup       string             `json:"ownerGroup"`
 	DefaultApprovers string             `json:"defaultApprovers"`
@@ -183,7 +183,7 @@ type ExportFile struct {
 // shipped changes with their runs, evidence, chats, attachments
 // and branches, the project's ended chats, and the default branch. A change
 // not landed, a run still running and a chat still live stay, and the file
-// lists them. Nothing is changed on this forge; Send records the export
+// lists them. Nothing is changed on this AppTown; Send records the export
 // once the file has gone.
 func (s *Service) Export(ctx context.Context, p *project.Project, actor string, origin ExportOrigin, src ExportSources) (*ExportFile, error) {
 	if !p.Purpose.Moves() {
@@ -218,7 +218,7 @@ func (s *Service) Export(ctx context.Context, p *project.Project, actor string, 
 		return nil, &ExportRefusal{Reasons: snap.unreachable}
 	}
 	docs, refs := snap.docs, snap.refs
-	// History that holds the forge's runtime files (an agent's home, its
+	// History that holds AppTown's runtime files (an agent's home, its
 	// credentials among them) never leaves: the same source rule a
 	// publication applies, read over every carried commit. A lane's report
 	// file, which older lanes committed, is prose and may move.
@@ -328,7 +328,7 @@ func (s *Service) Export(ctx context.Context, p *project.Project, actor string, 
 	for _, digest := range digests {
 		raw, err := workflow.ExportTranscript(s.dataDir, digest)
 		if err != nil {
-			// A receipt naming a file this forge no longer holds is said in
+			// A receipt naming a file this AppTown no longer holds is said in
 			// the manifest; the receipt still moves.
 			missingTranscripts = append(missingTranscripts, digest+": "+err.Error())
 			continue
@@ -537,7 +537,7 @@ func (s *Service) readOwners(ctx context.Context, projectID ids.ID) (ownerDocs, 
 }
 
 // libraryRefs are the library versions the project's current selection
-// uses, so the receiving forge can find or publish the same content.
+// uses, so the receiving AppTown can find or publish the same content.
 func libraryRefs(a adoption.ProjectExport) ([]wow.VersionRef, error) {
 	var refs []wow.VersionRef
 	receipt, ok, err := a.CurrentReceipt()
@@ -601,7 +601,7 @@ func (s *Service) listed(ctx context.Context, p *project.Project, hub string, sr
 // exportRefs splits the repository's refs into those that move and those
 // that stay. The default branch, tags, and the branches of the changes and
 // runs that move are carried. Refused and candidate work never are: it was
-// never source-checked and can hold the forge's runtime files. Transient
+// never source-checked and can hold AppTown's runtime files. Transient
 // refs a publication or a check makes and drops are neither.
 func exportRefs(ctx context.Context, hub, defaultBranch string, branches []string, runs []ids.ID) (move, stay []ExportRef, err error) {
 	if _, err := os.Stat(hub); errors.Is(err, os.ErrNotExist) {
@@ -666,7 +666,7 @@ func refKind(name, defaultBranch string) string {
 }
 
 // unreachable are the named commits no exported ref reaches: evidence that
-// would point at nothing on the receiving forge.
+// would point at nothing on the receiving AppTown.
 func unreachable(ctx context.Context, hub string, refs []ExportRef, named []string) ([]string, error) {
 	if len(named) == 0 {
 		return nil, nil

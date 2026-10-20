@@ -15,7 +15,7 @@ vi.mock('mermaid', () => ({ default: { initialize: vi.fn(), run: vi.fn(async () 
 const index: DocsIndex = {
   groups: [
     { title: 'Start here', guides: [{ slug: 'quickstart', title: 'Quickstart' }] },
-    { title: 'How Forge works', guides: [{ slug: 'architecture', title: 'How the forge works' }] },
+    { title: 'How Forge works', guides: [{ slug: 'architecture', title: 'How AppTown works' }] },
   ],
   integrations: [{ capability: 'llm', provider: 'openrouter', title: 'AI models (OpenRouter)' }],
 }
@@ -51,20 +51,20 @@ describe('the docs page', () => {
   // page opens on the first guide of the first group, not the first file.
   it('shows group headings in order and opens on Start here', async () => {
     const { el, root } = await render((url) => url.endsWith('/docs') ? json(index)
-      : url.endsWith('/docs/guides/quickstart') ? json({ slug: 'quickstart', content: '# Quickstart\n\nInstall the forge.' })
+      : url.endsWith('/docs/guides/quickstart') ? json({ slug: 'quickstart', content: '# Quickstart\n\nInstall AppTown.' })
       : json({ error: 'no' }, 404))
     await vi.waitFor(() => expect(where).toBe('/docs/guides/quickstart'))
     const headings = [...el.querySelectorAll('nav .docs-group-title')].map((h) => h.textContent)
     expect(headings).toEqual(['Start here', 'How Forge works', 'Integrations'])
     const labels = [...el.querySelectorAll('select optgroup')].map((g) => g.getAttribute('label'))
     expect(labels).toEqual(['Start here', 'How Forge works', 'Integrations'])
-    await vi.waitFor(() => expect(el.querySelector('.md-doc')?.textContent).toContain('Install the forge.'))
+    await vi.waitFor(() => expect(el.querySelector('.md-doc')?.textContent).toContain('Install AppTown.'))
     act(() => root.unmount())
   })
 
   // A failed first read says so; it is not shown as an empty list.
   it('says when the list cannot be read', async () => {
-    const { el, root } = await render(() => json({ error: 'forge unavailable' }, 404))
+    const { el, root } = await render(() => json({ error: 'AppTown unavailable' }, 404))
     await vi.waitFor(() => expect(el.textContent).toContain('The documentation list could not be read'))
     expect(el.querySelector('nav')).toBeNull()
     act(() => root.unmount())

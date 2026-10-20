@@ -77,7 +77,7 @@ var (
 // Catalog is the supported API over catalog changes and their versions.
 type Catalog struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s *Catalog) now() time.Time { return clock.Or(s.clock)() }

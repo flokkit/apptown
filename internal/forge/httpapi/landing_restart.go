@@ -18,7 +18,7 @@ type LandingRestart struct {
 	work      *workflow.Service
 	lifecycle *projectlifecycle.Service
 	db        *database.DB
-	now       func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now       func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewLandingRestart(projects *project.Projects, work *workflow.Service, lifecycle *projectlifecycle.Service, db *database.DB, now func() time.Time) LandingRestart {

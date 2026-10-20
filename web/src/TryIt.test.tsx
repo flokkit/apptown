@@ -24,7 +24,7 @@ async function render(state: object) {
 }
 
 describe('the try-it button', () => {
-  // Previews on a worker the forge could not ask: not known, never "cold"
+  // Previews on a worker AppTown could not ask: not known, never "cold"
   // or "didn't start", with the reason, and the person may try again.
   it('says when the preview state is not known, and why', async () => {
     const text = await render({ state: 'unavailable', reason: 'the worker could not be asked: connection refused' })
@@ -33,7 +33,7 @@ describe('the try-it button', () => {
     expect(text).toContain('Try again')
     expect(text).not.toContain("didn't start")
   })
-  // A live preview the forge says answers on the forge host only is not a
+  // A live preview AppTown says answers on the AppTown host only is not a
   // link that fails elsewhere: the page says where it works.
   it('says where a host-only preview answers instead of opening it', async () => {
     const text = await render({ state: 'live', url: 'http://forge.example:40001', hostOnly: true })

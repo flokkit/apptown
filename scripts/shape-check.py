@@ -24,7 +24,7 @@ Rules over the Go tree, each producing a count of violations:
                 should answer
   historycomments  production comments that narrate review history (reviewer, round, finding
                 id, date) or cite design/plans and design/reviews
-A facade may import only the forge packages its ALLOWED entry lists.
+A facade may import only AppTown packages its ALLOWED entry lists.
 
 Exit 0 when every count is at or below scripts/shape-baseline.json; exit 1 otherwise,
 or when the baseline is above the counts by more than zero and --tighten was not passed
@@ -36,7 +36,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD = "flokkit.io/forge/internal/"
 APP = MOD + "forge"     # the App, the composition root; forge's subsystems live under it
 DOMAIN = APP + "/"
-# Libraries sit at internal/<x>: they know nothing of forge and could be lifted into another
+# Libraries sit at internal/<x>: they know nothing of AppTown and could be lifted into another
 # program. A library may not import the App or anything under it.
 LIBRARIES = {"access", "check", "clock", "console", "database", "dbtest", "deploy", "diskspace", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "localtls", "stamp", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
 
@@ -61,7 +61,7 @@ LEAVES = {"database", "audit", "enum", "fault", "gitexec", "localtls", "stamp", 
           "dependency"}
 # The arrows between subsystems. A subsystem may import only the subsystems
 # named here. A facade composes owners, so its set is wider, but it is still a
-# set: each facade lists every forge package it imports beyond leaves, kernels
+# set: each facade lists every AppTown package it imports beyond leaves, kernels
 # and libraries (each set began as the facade's actual imports), so a
 # new dependency is a visible diff here rather than something no gate sees.
 ALLOWED = {
@@ -290,9 +290,9 @@ def callbacks():
 
 # Commands promised to stand alone: what they may not link. apptown-worker
 # links internal/console since it runs chats' runtimes: that
-# package depends on no forge domain or database, and the go list check
+# package depends on no AppTown domain or database, and the go list check
 # below still refuses anything that would bring one in. It links
-# internal/deploy since it boots previews with the forge's own boot code
+# internal/deploy since it boots previews with AppTown's own boot code
 # (design/plans/isolated-execution-previews-on-workers-2026-09-30.md): the
 # library, not the deployment subsystem, which stays refused.
 STANDALONE = {"apptown-deploy": {"forge", "deployment", "preview", "dataprotection", "database", "workflow", "project", "conformance", "console", "wow", "adoption", "access"},

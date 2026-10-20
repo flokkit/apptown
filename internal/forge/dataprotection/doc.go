@@ -8,7 +8,7 @@
 // databases to the attached backup store, the store itself with its pruning
 // and purge, in-place restore, drills (a copy filled into a new database
 // and checked), sealed-host rehearsals, restored copies of production
-// behind the forge's access gate, and take-down orchestration: whether a
+// behind AppTown's access gate, and take-down orchestration: whether a
 // deployment's data may be deleted, its final copy first. Its tables are
 // backups, backup_store, backup_drills, restore_rehearsals,
 // rehearsal_places, restored_copies and restored_copy_tickets; their

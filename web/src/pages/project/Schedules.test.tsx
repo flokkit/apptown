@@ -15,7 +15,7 @@ const CHANGE = '00000000-0041-7000-8000-000000000000'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 // The reader is in Melbourne (UTC+11 in November): a schedule's words and
-// times are theirs, not the forge's UTC.
+// times are theirs, not AppTown's UTC.
 const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env
 const zone = env.TZ
 beforeAll(() => { env.TZ = 'Australia/Melbourne' })

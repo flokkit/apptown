@@ -149,7 +149,7 @@ func TestAReleaseLargerThanItsHostIsRefusedBeforeAnyEffect(t *testing.T) {
 	}
 }
 
-// A size declared for a need that runs no service (a key the forge
+// A size declared for a need that runs no service (a key AppTown
 // registers) is refused before the release does anything on the host.
 func TestASizeForANeedThatRunsNoServiceIsRefusedBeforeAnyEffect(t *testing.T) {
 	t.Parallel()
@@ -350,7 +350,7 @@ func TestAContainerBelongsToTheLongestStackItsNameBegins(t *testing.T) {
 }
 
 // A host's capacity is what its daemon reports: what it can give, the
-// limits it enforces (the forge's and the rest, unlimited counted, a
+// limits it enforces (AppTown's and the rest, unlimited counted, a
 // limit it cannot read making the sum partial), what the containers use,
 // and its disk (which folder, when, and whether new work is refused); a
 // reading it cannot make is unknown, never zero.
@@ -410,9 +410,9 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		t.Errorf("the disk's folder, time and floor: %+v", c.Disk)
 	}
 	// Who holds it, from the same readings: the two env containers no
-	// record here names, and the two the forge did not start; an attached
+	// record here names, and the two AppTown did not start; an attached
 	// host's own use is not read.
-	if o, u := tenantNamed(c.Tenants, "other containers"), tenantNamed(c.Tenants, "forge containers not on record"); o == nil || u == nil ||
+	if o, u := tenantNamed(c.Tenants, "other containers"), tenantNamed(c.Tenants, "AppTown containers not on record"); o == nil || u == nil ||
 		o.Containers != 2 || o.Promised.Value != 256<<20 || o.Unlimited != 1 || o.Used.Value != 21<<20 ||
 		u.Containers != 2 || u.Promised.Value != 512<<20 || u.Used.Value != 130<<20 {
 		t.Errorf("tenants: %+v", c.Tenants)
@@ -548,7 +548,7 @@ func TestADeploymentShowsItsShareOfItsHost(t *testing.T) {
 	}
 }
 
-// Through Portainer the forge reads what the endpoint has, and the limits
+// Through Portainer AppTown reads what the endpoint has, and the limits
 // its own deployments there declare; the other stacks are unknown, not
 // none. A deployment released before limits were recorded makes the
 // forge's sum unknown rather than leaving it out.
@@ -569,7 +569,7 @@ func TestAPortainerTargetsCapacityIsWhatItHasAndWhatTheForgeDeclares(t *testing.
 		t.Errorf("use and disk through Portainer are read: %+v %+v", c.Memory.InUse, c.Disk)
 	}
 
-	// What the forge's running deployments declare is summed.
+	// What AppTown's running deployments declare is summed.
 	b := p.land(t)
 	if rel, err := p.promote(t, b.ID, "prod", p.lab); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
@@ -667,8 +667,8 @@ func TestAStoppedContainersExitIsNeverRecordedAsItsOwn(t *testing.T) {
 	}
 }
 
-// An open first release on a target the forge does not inspect may have
-// applied its limits: the forge's declared sum there is unknown, not zero.
+// An open first release on a target AppTown does not inspect may have
+// applied its limits: AppTown's declared sum there is unknown, not zero.
 func TestAnOpenFirstReleaseMakesTheDeclaredSumUnknown(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: 256M }\n")

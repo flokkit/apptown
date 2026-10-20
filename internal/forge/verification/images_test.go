@@ -47,7 +47,7 @@ func TestCheckEnvironmentIsDerivedFromTheDeclaration(t *testing.T) {
 	if _, invented := env["DEBUG"]; invented {
 		t.Fatal("nothing AppTown does not set in a deployment is set here")
 	}
-	// No declaration: only what the forge sets everywhere.
+	// No declaration: only what AppTown sets everywhere.
 	bare := t.TempDir()
 	if got := s.checkEnvironment(t.Context(), bare); len(got) != 1 || !strings.HasPrefix(got[0], "APPTOWN_ORIGINS=") {
 		t.Fatalf("an app declaring nothing gets nothing invented: %v", got)

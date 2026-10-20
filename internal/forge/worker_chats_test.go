@@ -34,7 +34,7 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// workerChatWorld is a forge with a worker for chats: the forge's own chat
+// workerChatWorld is an AppTown with a worker for chats: AppTown's own chat
 // service, opening and saving, a real worker server over mutual TLS, and
 // on the worker the fake chat runtime, whose work tree is a real folder a
 // test can commit in.
@@ -67,7 +67,7 @@ func newWorkerChatWorld(t *testing.T) workerChatWorld {
 	return newWorkerChatWorldConfigured(t, nil)
 }
 
-// newWorkerChatWorldConfigured is newWorkerChatWorld with the forge's
+// newWorkerChatWorldConfigured is newWorkerChatWorld with AppTown's
 // configuration adjusted by configure before it is built.
 func newWorkerChatWorldConfigured(t *testing.T, configure func(*Config) Config) workerChatWorld {
 	t.Helper()
@@ -89,7 +89,7 @@ func newWorkerChatWorldConfigured(t *testing.T, configure func(*Config) Config) 
 	authzWorkflow(t, a, workflow.ApprovalConfig{})
 	revokeReadingForAll(t, a)
 	remote.Root = filepath.Join(a.cfg.dataDir, "console")
-	t.Cleanup(remote.Close) // before the forge's own cleanup: no copy or save outlives it
+	t.Cleanup(remote.Close) // before AppTown's own cleanup: no copy or save outlives it
 	configureConsoleModel(t, a)
 	rebuildWork(t, a, func(deps *workflow.Dependencies) { deps.Git = workflow.GitWorkspace{DataDir: a.cfg.dataDir} })
 	if w := authzCall(a.Handler(), "owner", "POST", "/api/v1/projects/game/repo", `{}`); w.Code != 200 {
@@ -158,7 +158,7 @@ func (w workerChatWorld) writeOnWorker(t *testing.T, id, name, body string) {
 }
 
 // A chat opened on the worker runs there, not here: its work tree is made
-// from the change's folder, and its record places it, so the forge asks
+// from the change's folder, and its record places it, so AppTown asks
 // the worker about it.
 func TestAChatOpenedOnTheWorkerRunsThere(t *testing.T) {
 	t.Parallel()
@@ -188,7 +188,7 @@ func TestAChatOpenedOnTheWorkerRunsThere(t *testing.T) {
 
 // Opening on the worker is refused, with the reason, for what a worker
 // chat cannot do: a project's chat, and continuing a step's agent; and on a
-// forge with no worker.
+// AppTown with no worker.
 func TestOpeningAChatOnTheWorkerIsRefusedWhatItCannotDo(t *testing.T) {
 	t.Parallel()
 	w := newWorkerChatWorld(t)
@@ -260,7 +260,7 @@ func TestALandingSavesTheWorkerChatFirst(t *testing.T) {
 }
 
 // With worker chats on, a change's chat opens on the worker unless the
-// person chooses the forge; a project's chat opens on the forge.
+// person chooses AppTown; a project's chat opens on AppTown.
 func TestAChangesChatOpensOnTheWorkerByDefault(t *testing.T) {
 	t.Parallel()
 	w := newWorkerChatWorld(t)
@@ -284,7 +284,7 @@ func TestAChangesChatOpensOnTheWorkerByDefault(t *testing.T) {
 	}
 }
 
-// The person can open a change's chat on the forge while worker chats are on.
+// The person can open a change's chat on AppTown while worker chats are on.
 func TestAChangesChatCanBeOpenedOnTheForge(t *testing.T) {
 	t.Parallel()
 	w := newWorkerChatWorld(t)
@@ -306,7 +306,7 @@ func TestAChangesChatCanBeOpenedOnTheForge(t *testing.T) {
 
 // In the no-local-Docker mode a change's chat still opens on the worker,
 // and every chat the worker cannot take is refused with its reason: a
-// project's chat, continuing a step's agent, and a chat chosen for the forge.
+// project's chat, continuing a step's agent, and a chat chosen for AppTown.
 func TestInTheNoLocalDockerModeChatsTheWorkerCannotTakeAreRefused(t *testing.T) {
 	t.Parallel()
 	w := newWorkerChatWorldConfigured(t, func(cfg *Config) Config {
@@ -335,7 +335,7 @@ func TestInTheNoLocalDockerModeChatsTheWorkerCannotTakeAreRefused(t *testing.T) 
 		if err == nil || !strings.Contains(err.Error(), c.why) || !strings.Contains(err.Error(), "runs no chats itself") {
 			t.Fatalf("%+v in the mode: %v", c.in, err)
 		}
-		// Nothing offers the forge to a forge that runs no chats.
+		// Nothing offers AppTown to an AppTown that runs no chats.
 		if fault.CodeOf(err) != "" {
 			t.Fatalf("%+v in the mode is coded %q", c.in, fault.CodeOf(err))
 		}
@@ -384,7 +384,7 @@ func TestOpeningOnTheWorkerPublishesTheFolderFirst(t *testing.T) {
 }
 
 // A registry the chat's builds use that the worker cannot reach keeps the
-// chat off the worker, naming the registry. The refusal offers the forge
+// chat off the worker, naming the registry. The refusal offers AppTown
 // instead, in its code and its sentence, only when the apptown runs chats
 // itself.
 func TestAChatIsNotOpenedOnAWorkerThatCannotReachItsRegistry(t *testing.T) {
@@ -415,7 +415,7 @@ func TestAChatIsNotOpenedOnAWorkerThatCannotReachItsRegistry(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), "npm-mirror") {
 				t.Fatalf("opening on a worker that cannot reach the registry: %v", err)
 			}
-			// The page offers the forge on the code, never on the sentence.
+			// The page offers AppTown on the code, never on the sentence.
 			if fault.CodeOf(err) != c.code {
 				t.Fatalf("the refusal is coded %q, want %q", fault.CodeOf(err), c.code)
 			}
@@ -729,10 +729,10 @@ func deletedUnderAWorkerChat(t *testing.T) (workerChatWorld, *console.Session) {
 	return w, s
 }
 
-// A forge restarted after a project was deleted, before its cleanup ended
+// An AppTown restarted after a project was deleted, before its cleanup ended
 // a chat on one of its changes, starts: startup's recovery ends the chat
 // whose change no longer exists rather than refusing to start, so one such
-// chat cannot make the forge crash-loop.
+// chat cannot make AppTown crash-loop.
 func TestStartupEndsAChatWhoseProjectWasDeleted(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -907,7 +907,7 @@ func TestARecheckSavesTheChatWhileLanding(t *testing.T) {
 	}
 }
 
-// A forge restart must resume transcript collection and automatic saves
+// An AppTown restart must resume transcript collection and automatic saves
 // without a browser warming the chat or an explicit save call.
 func TestSavesResumeAfterTheForgeRestarts(t *testing.T) {
 	t.Parallel()
@@ -1033,7 +1033,7 @@ func TestChecksOverMCPSaveAWorkerChatFirstToo(t *testing.T) {
 	if result["isError"] == true || !strings.Contains(mustJSON(result), tip) || w.branchTip(t) != tip {
 		t.Fatalf("MCP check did not save and check the chat's work: %s", mustJSON(result))
 	}
-	// A change whose chat runs on the forge is checked as before.
+	// A change whose chat runs on AppTown is checked as before.
 	local := newWorkerChatWorld(t)
 	p, _ := local.a.Projects.BySlug(context.Background(), "game")
 	if _, err := local.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: local.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner"); err != nil {

@@ -18,7 +18,7 @@ import (
 
 // The final backup (design/subsystems/deployment.md, "Removing a
 // deployment"):
-// before a take-down deletes a deployment's data, the forge copies exactly
+// before a take-down deletes a deployment's data, AppTown copies exactly
 // that data, from the deployment's own list, not from the contract at the
 // project's head. Every application part is stopped first so nothing writes
 // after the copy; only the need containers run, for their copy commands.
@@ -71,7 +71,7 @@ type finalCopy struct {
 }
 
 // finalBackup takes the final set for a take-down, or answers no set when
-// there is nothing to take: no data held, or a target that keeps no forge
+// there is nothing to take: no data held, or a target that keeps no AppTown
 // backups (its data is then kept, and the teardown says so). It plans with
 // the held-data planner before stopping anything, so a take-down that
 // cannot cover the data on its list refuses having changed nothing.
@@ -148,11 +148,11 @@ func (s *Service) finalBackup(ctx context.Context, dep *deployment.Deployment, t
 
 // finalBackupOnPortainer is the final set of a deployment in a Portainer
 // environment, by the Docker host's rule: planned before anything stops
-// (a listed volume the forge has no way to copy refuses, having changed
+// (a listed volume AppTown has no way to copy refuses, having changed
 // nothing); the stack's running writers stopped; the set taken; and only a
 // set holding a good copy of every listed volume lets the data go. A volume
 // the stack declares that is not on the list is copied into the set and
-// kept. An environment the forge cannot reach for data refuses with why.
+// kept. An environment AppTown cannot reach for data refuses with why.
 func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.Deployment, t *deployment.Target, actor string) (finalCopy, error) {
 	held, err := s.heldData(ctx, dep, t)
 	switch {
@@ -206,7 +206,7 @@ func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.De
 	return finalCopy{set: b, parts: stopped, kept: keptOffList(b, plan)}, nil
 }
 
-// portainerUnreachable is a final copy refused because the forge cannot
+// portainerUnreachable is a final copy refused because AppTown cannot
 // reach the deployment's Portainer environment for data: the take-down then
 // asks for a person's choice to go without one (NoFinalCopy).
 type portainerUnreachable struct{ why string }

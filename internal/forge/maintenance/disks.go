@@ -8,7 +8,7 @@ import (
 	"flokkit.io/forge/internal/diskspace"
 )
 
-// Disks reads the filesystems this forge writes to (its data folder: the
+// Disks reads the filesystems this AppTown writes to (its data folder: the
 // database's when it is built in, repositories, workspaces, caches,
 // backups kept here) and those of its worker (its state folder, and the
 // Docker its tasks run on), each its own reading: different filesystems
@@ -18,7 +18,7 @@ import (
 type Disks struct {
 	DataDir string
 	// Worker reads the worker's own disks (execution.WorkerTasks.Disks);
-	// nil for a forge with no worker.
+	// nil for an AppTown with no worker.
 	Worker interface {
 		Disks(context.Context) ([]diskspace.Reading, error)
 	}
@@ -30,7 +30,7 @@ func (d Disks) Read(ctx context.Context) []diskspace.Reading {
 	now := clock.Or(d.Now)
 	space, err := diskspace.Statfs(d.DataDir)
 	own := diskspace.NewReading("this AppTown's data folder", d.DataDir, space, err, now())
-	// No new work is admitted against the forge's own folder: its reading
+	// No new work is admitted against AppTown's own folder: its reading
 	// warns (Low), and refuses nothing.
 	own.Refuses, own.FloorBytes = false, 0
 	out := []diskspace.Reading{own}

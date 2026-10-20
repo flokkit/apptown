@@ -15,9 +15,9 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// A blob the worker removed after the forge sent it (a worker restart
+// A blob the worker removed after AppTown sent it (a worker restart
 // removes blobs no chat uses) is sent again, once, and the task is ensured.
-// The driver is the forge's; the worker behind it is the real server, so the
+// The driver is AppTown's; the worker behind it is the real server, so the
 // refusal it retries on is the worker's own.
 func TestABlobTheWorkerLostIsSentAgain(t *testing.T) {
 	ca := workertest.NewCA(t)

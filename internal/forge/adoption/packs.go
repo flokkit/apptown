@@ -29,7 +29,7 @@ type ProjectPackRecord struct {
 	Recommended int64
 	Reason      string
 	AdoptedBy   string
-	// AdoptedByPrincipal is the adopter's principal; zero for the forge, or
+	// AdoptedByPrincipal is the adopter's principal; zero for AppTown, or
 	// one not resolved to a person.
 	AdoptedByPrincipal ids.ID
 	AdoptedAt          stamp.Time

@@ -204,7 +204,7 @@ type DeleteSecretValueParams struct {
 	Name  string
 }
 
-// A value the forge minted for something it owns (an AI models key) goes
+// A value AppTown minted for something it owns (an AI models key) goes
 // with its owner: every version of it.
 func (q *Queries) DeleteSecretValue(ctx context.Context, arg DeleteSecretValueParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteSecretValue, arg.Scope, arg.Name)
@@ -256,7 +256,7 @@ type ExportBindingNamesRow struct {
 }
 
 // Which secret names each deployment had bound, and where, for moving a
-// project to another forge: names only, never a value or a store's ref.
+// project to another AppTown: names only, never a value or a store's ref.
 func (q *Queries) ExportBindingNames(ctx context.Context, projectID ids.ID) ([]ExportBindingNamesRow, error) {
 	rows, err := q.db.QueryContext(ctx, exportBindingNames, projectID)
 	if err != nil {

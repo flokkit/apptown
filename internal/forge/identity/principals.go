@@ -69,7 +69,7 @@ func renameIn(ctx context.Context, tx *database.Tx, from, to, by string, at time
 // ActorIn is the actor an act by name is recorded against (access.ActorFrom),
 // with the principal of the live account of that name when the caller did
 // not carry one: the account the name is signed in as now, at the act. A
-// name that is no person's (an instrument's, the forge's) stays unresolved.
+// name that is no person's (an instrument's, AppTown's) stays unresolved.
 func ActorIn(ctx context.Context, q database.Queryer, name string) (access.Actor, error) {
 	a := access.ActorFrom(ctx, name)
 	if !a.Principal.IsZero() || ValidName(name) != nil {

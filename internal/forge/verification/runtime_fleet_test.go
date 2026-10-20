@@ -46,7 +46,7 @@ func TestUndeclaredReadinessIsANonConformance(t *testing.T) {
 	}
 }
 
-// A static part is served by the forge's own file server: it has nothing to
+// A static part is served by AppTown's own file server: it has nothing to
 // declare, so its readiness is its root answering through both doors — a
 // probe, not a pass by default. A missing index is still a finding.
 func TestStaticPartReadinessIsItsRootAnswering(t *testing.T) {

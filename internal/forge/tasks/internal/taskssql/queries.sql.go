@@ -450,7 +450,7 @@ type StartAttemptParams struct {
 }
 
 // Each transition below names the prior states it accepts. Settled is
-// final, held is final for the forge, refused only settles with nothing
+// final, held is final for AppTown, refused only settles with nothing
 // held. A recorded exit code and timeout are never erased: a write given no
 // code keeps the recorded one, and nothing clears timed_out.
 func (q *Queries) StartAttempt(ctx context.Context, arg StartAttemptParams) (int64, error) {

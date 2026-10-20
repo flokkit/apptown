@@ -8,7 +8,7 @@ import (
 )
 
 // The one-time ownership inspection (design/subsystems/deployment.md): an
-// administrator looks at what deployments made before the forge recorded
+// administrator looks at what deployments made before AppTown recorded
 // its creations hold, and approves what to record as theirs. Only approved
 // entries are ever deleted at take-down.
 
@@ -24,7 +24,7 @@ type (
 )
 
 // InspectOwnership: GET /ownership/inspection — what each target holds
-// under the forge's names and labels that its deployments' records lack.
+// under AppTown's names and labels that its deployments' records lack.
 // It changes nothing.
 func (h Infrastructure) InspectOwnership(w http.ResponseWriter, r *http.Request) {
 	out, err := h.deployment.InspectOwnership(r.Context())

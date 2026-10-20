@@ -49,9 +49,9 @@ type Config struct {
 	// DockerProbe supplies readiness timing before deployment owners are wired.
 	// Nil uses production timing; replacing this input later has no effect.
 	DockerProbe *docker.Probe
-	// SSHConfigPath is the ssh client configuration the forge writes each
+	// SSHConfigPath is the ssh client configuration AppTown writes each
 	// attached Docker host's stanza into. Empty is ~/.ssh/config, the file
-	// ssh itself reads; tests give each forge its own.
+	// ssh itself reads; tests give each AppTown its own.
 	SSHConfigPath string
 	// ProcessRunner selects the process executable before consumers are wired.
 	// Its zero value uses production defaults; later changes do not reach App.
@@ -77,7 +77,7 @@ type Config struct {
 	// worker's measured profile is a qualified one (design/operations/workers.md,
 	// "Private Docker on the worker").
 	PrivateDocker bool
-	// NoLocalDocker runs the forge with no local Docker daemon and no
+	// NoLocalDocker runs AppTown with no local Docker daemon and no
 	// project process on its own host (-no-local-docker): its own Docker
 	// and its project-process runner refuse, attached targets keep their
 	// transport, and a worker and an external database are required
@@ -87,14 +87,14 @@ type Config struct {
 	// DrainLocalDocker makes startup repair the witnessed switch into the
 	// no-local-docker mode (-drain-local-docker): see drainLocalDocker.
 	DrainLocalDocker bool
-	// LocalTLS is this forge serving itself over HTTPS from its own local
+	// LocalTLS is this AppTown serving itself over HTTPS from its own local
 	// certificate authority (-local-tls, the desktop trial); nil otherwise.
 	LocalTLS   *console.LocalTLS
 	DataDir    string
 	PublicHost string
 	// RestoreGateImage is the access gate's image by digest
 	// (-restore-gate-image): without it, and a -public-host origin for the
-	// gate to redeem tickets at, the forge makes no restored copy.
+	// gate to redeem tickets at, AppTown makes no restored copy.
 	RestoreGateImage string
 	ListenAddr       string
 	ConsoleAPIURL    string
@@ -105,7 +105,7 @@ type Config struct {
 	AgentExecutor    string
 	AgentImage       string
 	// AgentContext is the agent image's build context, relative to the
-	// forge's working directory: the forge builds it, and a worker's image
+	// forge's working directory: AppTown builds it, and a worker's image
 	// is named by it (worker.AgentImage). "" is deploy/apptown-agent.
 	AgentContext     string
 	AgentModel       string
@@ -136,7 +136,7 @@ type Config struct {
 	HostScripts bool
 	// Worker, when set, is the apptown-worker that runs this installation's
 	// script tasks (design/operations/workers.md). The installation is then
-	// isolated: script steps run only on the worker, never on the forge's own
+	// isolated: script steps run only on the worker, never on AppTown's own
 	// host.
 	Worker *WorkerConfig
 	// CheckWorker, when set, is a worker provisioned with the check role:
@@ -207,7 +207,7 @@ type configuration struct {
 	clock                                                           *forgeClock
 }
 
-// forgeClock is the forge's clock, which the owners whose rules store a
+// forgeClock is AppTown's clock, which the owners whose rules store a
 // time and judge it later (a project's deletion grace and kept period, a
 // deployment's copies, drills and restored copies) are given: the wall
 // clock, which tests move forward (ahead) rather than wait days.
@@ -330,9 +330,9 @@ func parsePublicHost(raw string) (scheme, host string, err error) {
 	return u.Scheme, u.Host, nil
 }
 
-// publicOrigin is the forge's own web origin when -public-host stated it
+// publicOrigin is AppTown's own web origin when -public-host stated it
 // whole ("https://forge.example"), or empty. The scheme is never inferred:
-// the tier domains say how deployed apps are reached, not the forge, and an
+// the tier domains say how deployed apps are reached, not AppTown, and an
 // origin guessed as http would send people's tokens in the clear.
 func (c configuration) publicOrigin() string {
 	if c.publicHost == "" || c.publicHostScheme == "" {

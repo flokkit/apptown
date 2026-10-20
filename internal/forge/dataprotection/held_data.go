@@ -52,7 +52,7 @@ type heldItems struct {
 }
 
 // heldData is what a standing deployment holds, on every target whose data
-// the forge copies, as one list of items: on a Docker host each data volume
+// AppTown copies, as one list of items: on a Docker host each data volume
 // its list and its release name, reached in its container (heldOnHost); on
 // a managed target each recorded managed instance, reached from the copy
 // runner (heldManaged). An item that cannot be copied is in the list with
@@ -79,7 +79,7 @@ func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *depl
 	case t.DataAccess() == deployment.DataOnDockerHost:
 		dk, err := s.hosts.DockerScope(ctx, t)
 		if err != nil {
-			// Not known, and why: a forge with no local Docker refuses by name.
+			// Not known, and why: an AppTown with no local Docker refuses by name.
 			return heldItems{}, fmt.Errorf("%w: %w", ErrDataNotKnown, err)
 		}
 		p, err := project.ByIDIn(ctx, s.db, dep.ProjectID)
@@ -201,7 +201,7 @@ func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *
 
 	var items []backupPlanItem
 	// Items are one per volume; an item with no volume (a need whose data
-	// is in no volume the forge can name) is one per need, never merged on
+	// is in no volume AppTown can name) is one per need, never merged on
 	// the empty identity.
 	seen := map[string]bool{}
 	key := func(it backupPlanItem) string {
@@ -351,7 +351,7 @@ func (s *core) anonymousNeed(ctx context.Context, dk docker.Scope, stackID, need
 		return backupPlanItem{}, false, fmt.Errorf("reading what %s mounts: %v", svc, err)
 	}
 	if vol == "" {
-		// Its data is in no volume the forge can name (the container's own
+		// Its data is in no volume AppTown can name (the container's own
 		// filesystem, or a mount at a path the kind no longer declares): an
 		// item not copied, never a copy of an empty directory, and never
 		// merged with another on an empty identity.

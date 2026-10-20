@@ -24,7 +24,7 @@ import (
 
 // A restore of a set is an operation (soak finding 56): admitted by its
 // door, run once by the ledger's worker, written as it goes, and settled
-// unknown with what it had confirmed when the forge stops in the middle,
+// unknown with what it had confirmed when AppTown stops in the middle,
 // naming what it may have left stopped and starting nothing on a guess.
 
 // restoreThroughOperation asks for a restore at its door, runs the
@@ -71,7 +71,7 @@ func endedRestore(t *testing.T, s *both, id ids.ID) (*operations.Operation, *Res
 }
 
 // restartForge runs the ledger's restart repair, as an exclusive start
-// does after a forge stopped.
+// does after an AppTown stopped.
 func restartForge(t *testing.T, s *both, db *database.DB) operations.RestartRepair {
 	t.Helper()
 	r, err := database.Transact(context.Background(), db, func(tx *database.Tx) (operations.RestartRepair, error) {
@@ -100,12 +100,12 @@ func restoredReceipts(t *testing.T, db *database.DB, pid ids.ID) []string {
 // restoreDaemon answers a world's copies and restores: each copy writes
 // its file, each restore reads it; every other command is recorded in
 // order. hold, when it returns a channel for a command, blocks that
-// command until the channel closes (the forge stops while it runs).
+// command until the channel closes (AppTown stops while it runs).
 type restoreDaemon struct {
 	mu   sync.Mutex
 	ran  []string
 	hold func(line string, restore bool) chan struct{}
-	// fail fails every command once set: the forge's own context ended.
+	// fail fails every command once set: AppTown's own context ended.
 	fail bool
 }
 
@@ -233,7 +233,7 @@ func TestARestoreOperationRecordsEachStepAndItsReceipt(t *testing.T) {
 	}
 }
 
-// The forge dies in the middle of a restore: its writer on the host is
+// AppTown dies in the middle of a restore: its writer on the host is
 // still at work and the old executor never settles. The restart settles
 // it unknown with the item it had restored, names what it may have left
 // stopped, writes the unknown receipt once, and starts nothing.
@@ -245,7 +245,7 @@ func TestAForgeThatStopsInARestoreLeavesItUnknownAndStartsNothing(t *testing.T) 
 	t.Parallel()
 	for _, c := range []struct {
 		name string
-		// cut says where the forge dies: the command that never returns.
+		// cut says where AppTown dies: the command that never returns.
 		cut func(line string, restore bool) bool
 		// left is what the detail names as possibly stopped; done the item
 		// it confirmed.
@@ -320,7 +320,7 @@ func TestAForgeThatStopsInARestoreLeavesItUnknownAndStartsNothing(t *testing.T) 
 	}
 }
 
-// A forge that shuts down cancels the restore's context: whatever it
+// An AppTown that shuts down cancels the restore's context: whatever it
 // could not finish, it ends unknown, and what it stopped and could not
 // start again is named as possibly stopped, and its receipt says unknown
 // (code review R2).

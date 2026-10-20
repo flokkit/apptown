@@ -11,7 +11,7 @@ import (
 
 // Agents on a worker, local agents and workflow tests fulfil an app's needs
 // through the same catalogue refusal a release and a preview use: a
-// declaration the contract withdrew (a password the forge sets, an
+// declaration the contract withdrew (a password AppTown sets, an
 // integration under needs:) is refused, not started without it. (The
 // fixture's postgres is a custom kind with no credentials; MariaDB is the
 // stock one.)

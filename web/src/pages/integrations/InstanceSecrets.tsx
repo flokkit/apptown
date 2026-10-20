@@ -6,11 +6,11 @@ import { useAction, useGet } from '../../data'
 import { ReadStatus } from '../../ReadGate'
 import type { InstanceSecret, SecretNameList } from '../../wire.gen'
 
-// Instance secrets: the credentials the forge itself uses (a target's API
+// Instance secrets: the credentials AppTown itself uses (a target's API
 // token, an SSH key, a registry password), named by targets and
 // connectors. Setting one is write-only (PUT /secrets/{name}): the value
-// goes to the forge's secrets file and is never shown again. A name held in
-// Infisical is changed there; the forge refuses to shadow it.
+// goes to AppTown's secrets file and is never shown again. A name held in
+// Infisical is changed there; AppTown refuses to shadow it.
 
 const NAME = /^[A-Z][A-Z0-9_]*$/
 
@@ -19,7 +19,7 @@ export function storeWords(store: string | undefined) {
 }
 
 // SetSecretNow: a password field that sets one named secret. Closed, it is
-// a link-sized button; after a set it says the forge holds the name.
+// a link-sized button; after a set it says AppTown holds the name.
 export function SetSecretNow({ name, held, label }: { name: string; held?: boolean; label?: string }) {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
@@ -53,7 +53,7 @@ export function SetSecretNow({ name, held, label }: { name: string; held?: boole
   )
 }
 
-// SecretNameStatus: whether the forge holds a named secret, where, and the
+// SecretNameStatus: whether AppTown holds a named secret, where, and the
 // door to set it — for a form field that names one.
 export function SecretNameStatus({ name }: { name: string }) {
   const namesQ = useGet<SecretNameList>('/secrets/names')
@@ -76,8 +76,8 @@ export function SecretNameStatus({ name }: { name: string }) {
   )
 }
 
-// InstanceSecretsPanel: every secret the forge holds, by name and where;
-// set a new one, replace or remove one in the forge's secrets file.
+// InstanceSecretsPanel: every secret AppTown holds, by name and where;
+// set a new one, replace or remove one in AppTown's secrets file.
 export function InstanceSecretsPanel() {
   const namesQ = useGet<SecretNameList>('/secrets/names')
   const [name, setName] = useState('')

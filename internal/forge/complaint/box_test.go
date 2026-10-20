@@ -207,9 +207,9 @@ func (p packsFor) PackVersionsOf(_ context.Context, projectID ids.ID) (string, e
 	return p[projectID], nil
 }
 
-// The filer says what a complaint is about; the forge names the adopted
+// The filer says what a complaint is about; AppTown names the adopted
 // packs of a way-of-working complaint. A complaint filed in an eval's copy
-// belongs to the eval: only one about the forge reaches the forge's queue,
+// belongs to the eval: only one about AppTown reaches AppTown's queue,
 // marked with its eval, while every complaint filed elsewhere does. The copy
 // record decides, so this holds after the copy project is gone.
 func TestTheForgeQueueTakesOnlyAnEvalsComplaintsAboutTheForge(t *testing.T) {
@@ -268,11 +268,11 @@ func TestTheForgeQueueTakesOnlyAnEvalsComplaintsAboutTheForge(t *testing.T) {
 		t.Fatalf("about defaults to AppTown: %+v", c)
 	}
 	if c := got[filed["copy-forge"]]; c.EvalID != idstest.N(9) || c.About != AboutForge {
-		t.Fatalf("an eval's forge complaint reaches the queue marked with its eval: %+v", c)
+		t.Fatalf("an eval's AppTown complaint reaches the queue marked with its eval: %+v", c)
 	}
 }
 
-// The box keeps time by the forge's clock: filing, archiving and the
+// The box keeps time by AppTown's clock: filing, archiving and the
 // retention sweep all read it, however far it is from the machine's.
 func TestTheBoxKeepsTimeByTheForgesClock(t *testing.T) {
 	t.Parallel()
@@ -305,7 +305,7 @@ func TestTheBoxKeepsTimeByTheForgesClock(t *testing.T) {
 	}
 }
 
-// Complaints are numbered within the forge as people name them
+// Complaints are numbered within AppTown as people name them
 // ("complaint 9"): filed at once, each still takes the next number, none
 // repeated.
 func TestComplaintsAreNumberedInTheOrderTheyAreFiled(t *testing.T) {

@@ -54,11 +54,11 @@ type WorkerChats interface {
 //
 // sel is the commit the caller asks about (CheckedCommit): a named commit
 // (the CLI sends its folder's HEAD), the change's published branch tip, or,
-// asking for neither, the change's latest commit on the forge. A commit the
-// forge cannot answer for is refused, so an older commit's result is never
+// asking for neither, the change's latest commit on AppTown. A commit the
+// AppTown cannot answer for is refused, so an older commit's result is never
 // answered for it. A check publishes and saves nothing: its answer is
 // feedback (feedbackOnly), never a gate's evidence; the landing checks again.
-// A commit the forge has only as a step's work in progress, pushed to its
+// A commit AppTown has only as a step's work in progress, pushed to its
 // scratch ref (scm.ScratchRef), is checked as any other and marked scratch.
 //
 // A change a chat on the worker holds is checked as saved: the chat saves
@@ -70,7 +70,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 		return nil, err
 	}
 	id := ch.ID
-	// What is checked is settled first: a commit the forge cannot answer
+	// What is checked is settled first: a commit AppTown cannot answer
 	// for is refused before anything runs.
 	read, headSHA, scratch, err := v.checkedCommit(ctx, ch, sel)
 	if err != nil {
@@ -203,7 +203,7 @@ func (v *Changes) saveWorkerChat(ctx context.Context, ch *workflow.Change, sel S
 
 // Selection is which commit of a change a check reads, as its caller asked.
 // Its zero value asks for neither a commit nor the published tip: the
-// change's latest commit on the forge, the one its views read. MCP's
+// change's latest commit on AppTown, the one its views read. MCP's
 // run_change_checks, the CLI outside a Git repository, and older callers
 // send that, and it keeps its meaning.
 type Selection struct {
@@ -217,7 +217,7 @@ type Selection struct {
 // CheckedCommit selects the repository and commit a check of ch reads.
 //
 // A named commit must be a full object id (refused before git sees it) and
-// the change's own work on the forge: in the history of the change's
+// the change's own work on AppTown: in the history of the change's
 // folder's HEAD (the local path, where the agent commits in place), of
 // the change's branch in the project's hub (published), or of one of the
 // change's scratch refs there (a step on a worker pushed it for checking:
@@ -226,7 +226,7 @@ type Selection struct {
 // change's branch in the hub, read once: that commit is checked, never the
 // folder's, and a branch the hub does not have is a NothingPublishedError.
 // A selection naming a commit and asking for the published tip is refused
-// as invalid. Neither is the change's latest commit on the forge: the
+// as invalid. Neither is the change's latest commit on AppTown: the
 // folder's HEAD, or the published branch when the folder is absent or
 // behind work saved there.
 func (v *Changes) CheckedCommit(ctx context.Context, ch *workflow.Change, sel Selection) (repo, sha string, err error) {
@@ -310,7 +310,7 @@ func publishedTip(ctx context.Context, hub string, ch *workflow.Change) (repo, s
 }
 
 // NothingPublishedError refuses a check of a change's published tip when
-// the forge has no branch for it: nothing has been published to check.
+// AppTown has no branch for it: nothing has been published to check.
 type NothingPublishedError struct {
 	Change ids.ID
 	Branch string
@@ -346,10 +346,10 @@ func withinScratch(ctx context.Context, hub string, changeID ids.ID, commit stri
 	return false
 }
 
-// CommitNotOnForgeError refuses a check of a commit the forge does not have
+// CommitNotOnForgeError refuses a check of a commit AppTown does not have
 // as the change's work: typically an agent's commit on a worker that was
 // not sent (the CLI pushes it to the step's scratch ref first), which
-// otherwise reaches the forge only when the step's work is collected. It
+// otherwise reaches AppTown only when the step's work is collected. It
 // promises no check then: it says only when the commit can be asked about.
 type CommitNotOnForgeError struct{ Commit string }
 

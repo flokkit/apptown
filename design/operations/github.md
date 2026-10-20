@@ -74,10 +74,10 @@ by hand with the same script.
 | --- | --- | --- |
 | `ghcr.io/flokkit/apptown` | `deploy/Dockerfile`, target `server` | `apptownd`, with `apptown`, `apptown-linux` and the agent recipe beside it in `/opt/apptown`, as the release archive lays them out |
 | `ghcr.io/flokkit/apptown-worker` | `deploy/Dockerfile`, target `worker` | `apptown-worker -agent-context /opt/apptown-worker/deploy/apptown-agent` |
-| `ghcr.io/flokkit/apptown-agent` | `deploy/apptown-agent/Dockerfile` | the agent image; workers and forges still build their own from the recipe |
+| `ghcr.io/flokkit/apptown-agent` | `deploy/apptown-agent/Dockerfile` | the agent image; workers and AppTown installations still build their own from the recipe |
 
-The server image is a forge with no local Docker
-(`APPTOWN_NO_LOCAL_DOCKER=true`). A forge bind-mounts its own folders and
+The server image is an AppTown with no local Docker
+(`APPTOWN_NO_LOCAL_DOCKER=true`). An AppTown bind-mounts its own folders and
 `bin/apptown-linux` into the containers it starts; from inside a container
 those are the container's paths, which the host's Docker does not have. So
 the image runs all project work on a worker, needs an external database

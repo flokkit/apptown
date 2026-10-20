@@ -54,11 +54,12 @@ SURFACES = {
 }
 
 # Files that are history or this check itself: never counted. The upgrade
-# fixtures are earlier releases' frozen state (internal/forge/boot_test.go):
-# they keep the names those releases wrote.
+# fixtures and the rc5 catalogue copies are earlier releases' frozen state
+# (internal/forge/boot_test.go, the dependency upgrade tests): they keep the
+# names those releases wrote.
 SKIP = re.compile(
     r"^(design/plans/|design/reviews/|web/dist/|.*node_modules/|releases/v1\.0\.0-rc\.[1-5]\.md$"
-    r"|internal/forge/testdata/upgrade/"
+    r"|internal/forge/testdata/upgrade/|internal/forge/dependency/testdata/rc5/"
     r"|scripts/names-check\.py$|scripts/names-check_test\.py$|scripts/names-baseline\.json$)"
 )
 
@@ -127,6 +128,34 @@ ALLOWED = [
      "the system actor in records from before the rename stays a system actor"),
     ("public-field", r"^internal/forge/(dbschema/apptown_rename_migration_test|workflow/apptown_rename_test)\.go$", r"forge-disk|forgeFault",
      "migration and reader tests plant the stored values from before the rename"),
+    # Push 5 (prose): what stays because a stored value or a kept resource
+    # depends on the exact text.
+    ("cli-invocation", r"^internal/forge/deployment/(hosts\.go|docker_connection_test\.go)$", r"(BEGIN|END) forge target",
+     "the block markers earlier releases wrote into the operator's SSH config; renaming them would leave old blocks unfound"),
+    ("cli-invocation", r"^internal/forge/secret/store\.go$", r"derivedPurpose = \"forge need credentials v1\"",
+     "the key-derivation purpose of every generated need credential; changing it changes every deployment's passwords"),
+    ("cli-invocation", r"^scripts/do-demo/provision\.sh$", r"for f in forge worker dockerhost rehearsal",
+     "the demo droplets' kept names"),
+    ("cli-invocation", r"^scripts/lab-no-local-docker-proof-journey\.sh$", r"ctl forge (crash|restart)",
+     "the lab proof's kept container role name"),
+    ("scope", r"^scripts/do-demo/lib\.sh$", r"chown forge:forge", "the demo host's kept system user"),
+    ("cli-invocation", r"^scripts/docs-current(_test)?\.py$", r"says forge for the product",
+     "the docs check names the word it refuses"),
+    ("cli-invocation", r"^scripts/shape-check\.py$", r".", "the shape tools name the Go package internal/forge, which is kept"),
+    ("cli-invocation", r"^web/src/brand\.test\.ts$", r"the forge command and its", "the web name test lists the old names it catches"),
+    ("commit-subject", r"^web/src/brand\.test\.ts$", r"forge: PRODUCT|From another forge:", "the web name test plants old names to show it catches them"),
+    ("export-and-ticket", r"^internal/forge/project/contract_snapshots_test\.go$", r"x-forge-app", "plants a compose file from before the app contract to show it is not read as one"),
+    ("api-version", r"^internal/dockerlabel/dockerlabel_test\.go$|^internal/forge/schema/schema_test\.go$|^scripts/docs-current\.py$", r"forge\.flokkit\.io",
+     "tests and the docs check name the old apiVersion host to show it is refused or not a product word"),
+    ("env", r"^cmd/apptownd/flags(_test)?\.go$", r"FORGE_DB_URL", "the daemon refuses a setting still spelled the old way, and its test plants one"),
+    ("env", r"^internal/forge/dbboot\.go$", r"FORGE_DB_PASSWORD", "the built-in database's env file that earlier releases wrote keeps its key"),
+    ("env", r".", r"FORGE_WEBHOOK_TOKEN|FORGE_APPS_DOMAIN",
+     "operator secret names stored in each installation's secrets store and in integration settings; renamed with a data migration later (release tracker)"),
+    ("cli-invocation", r"^internal/forge/scm/main_record_test\.go$", r"forge then forge",
+     "the walk's pairs name the stored main-record kind \"forge\" (a quoted-name surface, renamed with the stored data)"),
+    ("cli-invocation", r"^internal/forge/(doc|store)\.go$", r"^// Package forge ", "the Go package internal/forge, which is kept, names itself"),
+    ("cli-invocation", r"^scripts/docs-current_test\.py$", r".", "the docs check's test plants the old product name to show it is refused"),
+    ("cli-invocation", r"^web/src/pages/console/Bubbles\.tsx$", r"\[forge check\]", "chats from before the rename keep their [forge check] messages as written"),
 ]
 
 

@@ -41,7 +41,7 @@ type refreshCredential struct {
 
 // Bounds narrows a human identity to this connection's consent. Applying a
 // second bound intersects scope words and never shares a mutable scope slice.
-// A delegation that has ended by now, the forge's clock, bounds to nothing.
+// A delegation that has ended by now, AppTown's clock, bounds to nothing.
 func (d Delegation) Bounds(pr access.Principal, now time.Time) access.Principal {
 	if !d.LiveAt(now) || pr.Kind != "user" || pr.Name != d.User {
 		return access.Principal{}
@@ -70,7 +70,7 @@ func (d *Delegation) end(now time.Time) {
 
 // Rotate consumes the selected refresh credential. Reuse takes precedence over
 // expiry: a spent token still proves a leak after its nominal lifetime. now
-// is the forge's clock, which judges the token's expiry and stamps its use.
+// is AppTown's clock, which judges the token's expiry and stamps its use.
 func (d *Delegation) Rotate(presented string, now time.Time) (Pair, error) {
 	if d.refresh.hash == "" || HashToken(presented) != d.refresh.hash {
 		return Pair{}, ErrUnknownRefresh

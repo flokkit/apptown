@@ -43,7 +43,7 @@ func TestDetectTestCommand(t *testing.T) {
 }
 
 // A tests run whose declared toolchain did not install, and whose command
-// then failed, is the forge's error (the tests never had their tools), not
+// then failed, is AppTown's error (the tests never had their tools), not
 // the change's failure; one that passes anyway on the image's toolchains
 // passes, and a failure with the toolchain installed is the tests'.
 func TestAFailedToolchainInstallIsNotAFailedTest(t *testing.T) {

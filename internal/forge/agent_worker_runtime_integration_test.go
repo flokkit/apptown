@@ -31,7 +31,7 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// linuxForgeCLI builds the forge CLI an agent is given, for Linux, as
+// linuxForgeCLI builds AppTown CLI an agent is given, for Linux, as
 // packaging does.
 func linuxForgeCLI(t *testing.T) string {
 	t.Helper()
@@ -77,8 +77,8 @@ func containerHost(t *testing.T) string {
 }
 
 // The packaged forge CLI runs inside an agent step on the worker, from its
-// /apptown/in path, and the forge's API admits it with the attempt's derived
-// token alone (on a forge that admits no one without credentials); the
+// /apptown/in path, and AppTown's API admits it with the attempt's derived
+// token alone (on an AppTown that admits no one without credentials); the
 // same request with another token is refused.
 func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testing.T) {
 	t.Parallel()
@@ -126,7 +126,7 @@ say "asked AppTown"`})
 }
 
 // `apptown check` inside an agent step on the worker checks the agent's own
-// commit, which the forge has not collected yet: the packaged CLI pushes it
+// commit, which AppTown has not collected yet: the packaged CLI pushes it
 // to the attempt's scratch ref through the read-only listener, with the
 // attempt's token, and prints that the result is feedback only. Once the
 // attempt has settled, its scratch ref is gone.
@@ -182,12 +182,12 @@ say "checked my work"`})
 	}
 }
 
-// The packaged Pi runtime (the forge-agent image on this machine's Docker,
+// The packaged Pi runtime (AppTown-agent image on this machine's Docker,
 // as the worker's agent image) runs an agent step on the worker against a
-// controlled model endpoint behind the forge's gateway, which checks the
+// controlled model endpoint behind AppTown's gateway, which checks the
 // attempt's derived token: the transcript Pi appends to is the file the
-// forge named, captured when Pi exits and kept by digest; a continue retry
-// after the workspace's release and a forge restart resumes exactly those
+// AppTown named, captured when Pi exits and kept by digest; a continue retry
+// after the workspace's release and an AppTown restart resumes exactly those
 // bytes, and each receipt still reads its own.
 func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T) {
 	t.Parallel()
@@ -259,7 +259,7 @@ func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T)
 	}
 }
 
-// The packaged Pi runtime resumes exactly the transcript file the forge
+// The packaged Pi runtime resumes exactly the transcript file AppTown
 // points it at (--session), never another file in the session folder whose
 // header names the same session (R15). The agent itself plants two such
 // files, one older and one newer by name, then leaves an empty turn; the empty-turn retry starts Pi

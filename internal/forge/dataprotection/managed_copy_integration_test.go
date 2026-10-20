@@ -171,7 +171,7 @@ func TestIntegrationTheRoundTripKeepsTheRecords(t *testing.T) {
 		t.Fatalf("release %s:\n%s", rel.State, log)
 	}
 	// The app's migrations and records, as its user.
-	// sql-guarantee: the app's own records on the stand-in cluster, not the forge's database.
+	// sql-guarantee: the app's own records on the stand-in cluster, not AppTown's database.
 	pg.asApp("app", "create table ledger (n int primary key, note text); insert into ledger values (41, 'first'), (42, 'second')")
 
 	appDatabases := func() string { return pg.admin("select count(*) from pg_database where datname='app'") }
@@ -180,7 +180,7 @@ func TestIntegrationTheRoundTripKeepsTheRecords(t *testing.T) {
 	// not deleted while it holds any of it. A data-free
 	// extension does not hold it up.
 	kept := []struct{ what, make, clear string }{
-		// sql-guarantee: another tenant's data on the stand-in cluster, not the forge's database.
+		// sql-guarantee: another tenant's data on the stand-in cluster, not AppTown's database.
 		{"a table in another schema", "create schema private; create table private.ledger (n int); insert into private.ledger values (7); revoke all on schema private from public", "drop schema private cascade"},
 		{"a materialized view", "create materialized view saved_report as select 7 as n", "drop materialized view saved_report"},
 		{"a large object", "select lo_from_bytea(12345, convert_to('uncopied payload', 'UTF8'))", "select lo_unlink(12345)"},
@@ -189,7 +189,7 @@ func TestIntegrationTheRoundTripKeepsTheRecords(t *testing.T) {
 	}
 	pg.admin("create extension if not exists hstore", "defaultdb")
 	for _, k := range kept {
-		// sql-guarantee: another tenant's data on the stand-in cluster, not the forge's database.
+		// sql-guarantee: another tenant's data on the stand-in cluster, not AppTown's database.
 		pg.admin(k.make, "defaultdb")
 		res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
 		if err != nil || res.Operation == nil {

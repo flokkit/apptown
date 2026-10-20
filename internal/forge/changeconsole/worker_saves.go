@@ -30,9 +30,9 @@ import (
 
 // Saving a chat on the worker (design/operations/workers.md, "Chats on the
 // worker"): after each turn it hands back, and once more when
-// it ends, the forge collects the chat's commits and publishes them under
+// it ends, AppTown collects the chat's commits and publishes them under
 // the chat's hold (repositoryedit.SaveChat). The worker answers; it never
-// calls the forge.
+// calls AppTown.
 
 // SavesDependencies are what saving a chat on the worker needs.
 type SavesDependencies struct {
@@ -44,7 +44,7 @@ type SavesDependencies struct {
 	Branches  *scm.Branches
 	Publisher repositoryedit.Publisher
 	DataDir   string
-	// Now is the forge's clock; nil is the real one.
+	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 }
 
@@ -64,7 +64,7 @@ type Saves struct {
 	locks     sync.Map
 	// rehearsals holds each chat's rehearsal while it runs: one at a time.
 	rehearsals sync.Map
-	clock      func() time.Time // the forge's clock; nil is the real one
+	clock      func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (w *Saves) now() time.Time { return clock.Or(w.clock)() }
@@ -189,7 +189,7 @@ func (c *Service) saveTurn(ctx context.Context, s *console.Session) repositoryed
 		c.queueRehearsal(s, save.Saved)
 	}
 	if save.Outcome == repositoryedit.ChatSaveRefused && (prev.Outcome != repositoryedit.ChatSaveRefused || prev.Commit != save.Commit) {
-		msg := "[forge save] Your latest commits were not saved to the change: " + save.Reason
+		msg := "[apptown save] Your latest commits were not saved to the change: " + save.Reason
 		if err := c.sessions.Send(ctx, s.ID, msg); err != nil {
 			log.Printf("console %s: telling the chat its save was refused: %v", s.ID, err)
 		}
@@ -239,12 +239,12 @@ func (c *Service) queueRehearsal(s *console.Session, commit string) {
 	}()
 }
 
-// RehearseSaved is a chat on the worker's boot gate: the forge boots its
+// RehearseSaved is a chat on the worker's boot gate: AppTown boots its
 // saved commit on the worker exactly like the try-it button, once per
 // incarnation (the commit and the values it is prepared with). The app's
 // own failure (a boot phase, a contract or values that cannot be prepared)
 // goes to the chat, as for a chat here; a worker that could not be asked,
-// or a forge that cannot run previews there, is not the app's failure, is
+// or an AppTown that cannot run previews there, is not the app's failure, is
 // only logged, and leaves it to rehearse again. A successful preview is
 // left warm, unless the change closed meanwhile.
 func (c *Service) RehearseSaved(ctx context.Context, s *console.Session, commit string) {
@@ -338,7 +338,7 @@ func (c *Service) lastSave(ctx context.Context, id string) error {
 }
 
 // workerChatSource bundles the change's folder for a worker chat's work
-// tree: its branch as it stands, which the forge prepared (and published)
+// tree: its branch as it stands, which AppTown prepared (and published)
 // when the chat opened.
 func (c *Service) workerChatSource(ctx context.Context, in console.Launch, dest string) (string, string, error) {
 	// The first start comes while the chat is opening, before it is

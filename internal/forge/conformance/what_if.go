@@ -40,7 +40,7 @@ type WhatIfRequest struct {
 }
 
 // What-if states. Queued: admitted, waiting for the conformance queue's
-// worker. Interrupted: the forge stopped or restarted before it finished;
+// worker. Interrupted: AppTown stopped or restarted before it finished;
 // it is not resumed, and projects it did not reach were not evaluated.
 const (
 	WhatIfQueued      = "queued"
@@ -96,7 +96,7 @@ const (
 	// NotAssessedJudgesAChange: a diff rubric judges what a change did, and
 	// there is no change here, only a commit.
 	NotAssessedJudgesAChange NotAssessed = "judges-a-change"
-	// NotAssessedNoEvaluator: the forge has no evaluator for this check.
+	// NotAssessedNoEvaluator: AppTown has no evaluator for this check.
 	NotAssessedNoEvaluator NotAssessed = "no-evaluator"
 	// NotAssessedNoMain: the project has no committed main to read.
 	NotAssessedNoMain NotAssessed = "no-main"
@@ -319,7 +319,7 @@ func (r *WhatIfRun) ChecksAt(ctx context.Context, blocks []CheckVersion) ([]Decl
 }
 
 // ChecksAt is the checks the given block versions declare: published
-// library content, read for the forge's own comparisons (a what-if, an
+// library content, read for AppTown's own comparisons (a what-if, an
 // eval's arms), so it asks no grant and decides nothing.
 func (s *Service) ChecksAt(ctx context.Context, blocks []CheckVersion) ([]DeclaredCheck, error) {
 	if s.source == nil {
@@ -353,7 +353,7 @@ func (r *WhatIfRun) Record(ctx context.Context, rows []WhatIfRow, spend WhatIfSp
 	})
 }
 
-// ErrInterrupted is work stopped before it finished, by the forge shutting
+// ErrInterrupted is work stopped before it finished, by AppTown shutting
 // down or its time running out; it is not resumed.
 var ErrInterrupted = errors.New("stopped before it finished")
 
@@ -454,11 +454,11 @@ func whatIfWithRows(ctx context.Context, db database.Queryer, r conformancesql.W
 }
 
 // RepairInterruptedWhatIfs participates in the startup repair transaction:
-// a what-if found queued or running when the forge starts was interrupted
+// a what-if found queued or running when AppTown starts was interrupted
 // by the restart. It is settled as interrupted, never left unfinished; the
 // rows it recorded stand, it is not resumed, and the job that later
 // delivers a queued one finds it ended. The caller owns the commit. at is
-// the forge's clock, which stamps their ends.
+// AppTown's clock, which stamps their ends.
 func RepairInterruptedWhatIfs(ctx context.Context, tx *database.Tx, at time.Time) (int64, error) {
 	return queries(tx).InterruptUnfinishedWhatIfs(ctx, conformancesql.InterruptUnfinishedWhatIfsParams{Detail: "AppTown restarted before this what-if finished; projects it did not reach were not evaluated", At: at.UTC()})
 }

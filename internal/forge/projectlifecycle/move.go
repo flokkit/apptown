@@ -2,14 +2,14 @@ package projectlifecycle
 
 import "sort"
 
-// What moves with a project to another forge, table by table. Every project-scoped
+// What moves with a project to another AppTown, table by table. Every project-scoped
 // table is classified here, so a new one is decided, never silently left
 // behind (TestEveryProjectTableIsClassifiedForAMove):
 //
 //   - exported: its rows are in the file, and the receiving AppTown imports
 //     them as history;
 //   - listed: reported in the file (owners/listed.json) for an operator to
-//     set up again, or kept by this forge; not imported;
+//     set up again, or kept by this AppTown; not imported;
 //   - excluded: neither, with why.
 const (
 	MoveExported = "exported"

@@ -51,7 +51,7 @@ func (a *App) RecoverLandings(ctx context.Context) error {
 	}
 	summary, err := a.Work.InspectPendingMerges(workflow.SCMInspectionContext(ctx, a.DB), mergeEffectsFor(a).Driver())
 	// A merge that could not be inspected stays pending and holds its
-	// landing; it does not stop the forge from starting.
+	// landing; it does not stop AppTown from starting.
 	if errors.Is(err, scm.ErrLeftPending) {
 		log.Printf("startup repair: %v; each holds its landing until inspected again", err)
 	} else if err != nil {

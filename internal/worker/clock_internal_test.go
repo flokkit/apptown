@@ -140,7 +140,7 @@ func TestAServicesMinuteIsTheWorkersClocks(t *testing.T) {
 	}
 }
 
-// A forge's session number is above its clock, and above the last one.
+// An AppTown's session number is above its clock, and above the last one.
 func TestASessionNumberIsAboveTheForgesClock(t *testing.T) {
 	t.Parallel()
 	file := filepath.Join(t.TempDir(), "worker-session")
@@ -155,7 +155,7 @@ func TestASessionNumberIsAboveTheForgesClock(t *testing.T) {
 	}
 }
 
-// A worker's role, and a forge's first use of a worker, are stamped on the
+// A worker's role, and an AppTown's first use of a worker, are stamped on the
 // clock each is given: those two times are compared (RequireCheckWorker).
 func TestARoleAndAFirstUseAreStampedOnTheirClocks(t *testing.T) {
 	t.Parallel()

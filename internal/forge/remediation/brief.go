@@ -12,7 +12,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
-// Brief is the forge-generated acceptance criterion an agent works
+// Brief is AppTown-generated acceptance criterion an agent works
 // from: what conformance looks like (the check's own words), what specifically
 // failed here, and the three conditions landing must satisfy (§5.2). No invented
 // definition of done — the check IS the definition.

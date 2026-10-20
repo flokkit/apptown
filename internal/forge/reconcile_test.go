@@ -152,7 +152,7 @@ func TestAChangesChatIsToldOnceWhenItsLandingEnds(t *testing.T) {
 	}
 	notices := func() (n int, text string) {
 		for _, m := range s.Messages() {
-			if strings.Contains(m.Text, "[forge landing]") {
+			if strings.Contains(m.Text, "[apptown landing]") {
 				n, text = n+1, m.Text
 			}
 		}

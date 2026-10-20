@@ -41,7 +41,7 @@ type ReleaseDraft struct {
 	Source                                             ReleaseSource
 	ProjectID, DeploymentID, BundleID, RunID, ChangeID ids.ID
 	Deployment, Revision, Actor, Notes                 string
-	// At is the forge's time of the release, which release membership
+	// At is AppTown's time of the release, which release membership
 	// compares with when Changes closed. Start stamps it; CreateReleaseIn
 	// requires it.
 	At time.Time

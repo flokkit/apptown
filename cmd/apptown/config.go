@@ -111,7 +111,7 @@ func cmdDev(args []string) error {
 		if err := json.Unmarshal(raw, &out); err != nil {
 			return err
 		}
-		// Generated files live under .apptown/, which the forge never stages
+		// Generated files live under .apptown/, which AppTown never stages
 		// and every step ignores — so running `apptown dev` in a change's
 		// workspace leaves no trace in the tree and touches no .gitignore
 		// (an agent's README fix once carried a .gitignore line for this).
@@ -158,7 +158,7 @@ func cmdDev(args []string) error {
 	return fmt.Errorf("usage: apptown dev [ | up | generate | down]")
 }
 
-// Generated local-dev files live under .apptown/: the forge never stages that
+// Generated local-dev files live under .apptown/: AppTown never stages that
 // directory and steps ignore it, so `apptown dev` leaves no trace in the tree.
 const (
 	devComposePath  = ".apptown/docker-compose.yml"

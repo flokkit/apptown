@@ -138,7 +138,7 @@ func TestADeploymentRunsItsProfileAndARebuildRunsWhatItsGenerationApplied(t *tes
 // An operator's override is a recorded act by someone who may deploy the
 // deployment, with a reason, of a part its app has. It applies over the
 // profile at the deploy, and a deploy whose committed profile declares
-// the same clears it, recorded as the forge's act.
+// the same clears it, recorded as AppTown's act.
 func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 	t.Parallel()
 	w, secrets := profiledWorld(t)
@@ -310,7 +310,7 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 	if m := use["cache"]; m.Known || m.UsedBytes != 0 || m.Reason == "" {
 		t.Errorf("a part the host did not report: %+v", m)
 	}
-	// A deployment with no container of the forge's (App Platform) is
+	// A deployment with no container of AppTown's (App Platform) is
 	// unknown, with the reason.
 	platform := *mustDeployment(t, w, "prod")
 	platform.Container = ""
@@ -322,7 +322,7 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 
 // On App Platform a part runs on the cheapest size that covers its
 // declaration, recorded with the generation. A declaration no size covers,
-// or a size list that cannot be read, fails the release before the forge
+// or a size list that cannot be read, fails the release before AppTown
 // writes anything at DigitalOcean: no database (the refused apps need a
 // managed Postgres), no registry, no app.
 func TestAppPlatformFitsEachPartBeforeAnyEffect(t *testing.T) {
@@ -645,7 +645,7 @@ var errReleaseDenied = errors.New("no release grant")
 
 // An override of the intranet deployment needs the release grant, as an
 // intranet release does. Someone with only the deploy grant is refused,
-// and so is anyone when the forge cannot read which target the deployment
+// and so is anyone when AppTown cannot read which target the deployment
 // is on: an authority input it cannot read never lowers the authority
 // asked. A refusal changes nothing: the override stands as it was, and no
 // act or release is recorded.

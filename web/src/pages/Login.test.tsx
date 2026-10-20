@@ -12,7 +12,7 @@ const typeInto = (input: HTMLInputElement, value: string) => {
   input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
-// The first account needs the setup token from the forge's host: the form
+// The first account needs the setup token from AppTown's host: the form
 // asks for it, names where it is, and sends it; signing in does not.
 describe('the first account', () => {
   afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = '' })

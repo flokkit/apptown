@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// MainMerge is main merged into a change's branch by the forge itself: the
+// MainMerge is main merged into a change's branch by AppTown itself: the
 // branch was behind main and the merge had no conflicts. Commit is the merge
 // commit, made but not published; Conflicts, when it was not made, names the
 // files that conflict. Main is main's tip either way. A zero MainMerge means
@@ -26,7 +26,7 @@ type MainMerge struct {
 
 // MergeMain makes, in repo (a project's hub), the commit that merges
 // mainBranch's tip into tip: an ordinary merge commit with tip as its first
-// parent and main as its second, the forge as its author and committer, and
+// parent and main as its second, AppTown as its author and committer, and
 // message. Nothing moves: the caller publishes it (Branches.Publish), so who
 // may move the branch is decided there. A tip that already contains main,
 // or a repository without main, needs nothing. A merge with conflicts is not

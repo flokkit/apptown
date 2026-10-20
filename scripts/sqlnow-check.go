@@ -1,9 +1,9 @@
 //go:build ignore
 
 // sqlnow-check refuses SQL that reads the database's clock. The time rule
-// (design/architecture/layout.md): the forge writes every stored time from
+// (design/architecture/layout.md): AppTown writes every stored time from
 // its owner's clock and passes it to SQL, so both sides of any comparison
-// are the forge's and a test can move them. The database's clock is read
+// are AppTown's and a test can move them. The database's clock is read
 // nowhere: not in a query, not as a column's DEFAULT, not in a trigger,
 // function or view. Any read fails the check; there is no count to hold.
 //

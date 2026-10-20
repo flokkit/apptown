@@ -10,7 +10,7 @@ import (
 )
 
 // A candidate with problems is refused as unprocessable, not as a failure of
-// the forge: two packs pinning one workflow at different versions answered
+// AppTown: two packs pinning one workflow at different versions answered
 // 500 from the pack route until the refusal was classified.
 func TestCandidateValidationPreservesPreparationProblems(t *testing.T) {
 	t.Parallel()

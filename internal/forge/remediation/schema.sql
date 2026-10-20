@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS worker_pools (
 );
 CREATE TABLE IF NOT EXISTS remediations (
   id UUID PRIMARY KEY,
-  -- How people name it ("remediation 9"): its number within the forge, from
+  -- How people name it ("remediation 9"): its number within AppTown, from
   -- remediation_numbers, never reused.
   number BIGINT NOT NULL,
   scope        TEXT NOT NULL,

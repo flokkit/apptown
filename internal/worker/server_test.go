@@ -101,8 +101,8 @@ func TestARestartedWorkerFindsItsTasks(t *testing.T) {
 }
 
 // A task's source reaches the worker only as a bundle, and its work comes
-// back only as a bundle, which the forge imports into quarantine. A result
-// larger than the forge accepts is refused.
+// back only as a bundle, which AppTown imports into quarantine. A result
+// larger than AppTown accepts is refused.
 func TestSourceAndResultsTravelAsBundles(t *testing.T) {
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
@@ -153,7 +153,7 @@ func TestSourceAndResultsTravelAsBundles(t *testing.T) {
 	}
 }
 
-// A worker shares no files with the forge: a request naming a host path,
+// A worker shares no files with AppTown: a request naming a host path,
 // a mount or a host route is refused before anything is sent.
 func TestAWorkerRefusesHostPaths(t *testing.T) {
 	driver := execution.WorkerTasks{URL: "https://127.0.0.1:1"}

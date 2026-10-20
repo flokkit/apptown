@@ -11,7 +11,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-// The forge re-asks a stage's gate after every restart, since the answer can
+// AppTown re-asks a stage's gate after every restart, since the answer can
 // change. When nothing about the run has changed, its answer is the one
 // already recorded: the system's repeat of an identical refusal, and the
 // recovery notice before it, are not written again. Run 422 gathered one

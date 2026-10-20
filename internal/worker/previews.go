@@ -28,27 +28,27 @@ import (
 )
 
 // Previews on the worker (design/operations/workers.md, "Previews on the worker"):
-// the forge prepares every input of a boot, the worker boots it with the
-// same code on its own Docker and keeps the tree it serves, and the forge
+// AppTown prepares every input of a boot, the worker boots it with the
+// same code on its own Docker and keeps the tree it serves, and AppTown
 // forwards visitors to it through the worker's authenticated connection.
 
 const (
 	maxPreviewPrepared = 16 << 20
 	previewLifetime    = docker.BootLifetime // a boot's upload, build and probe
 	// PreviewHostHeader carries the visitor's Host across the worker hop;
-	// only the forge sets it, over the worker's authenticated connection.
+	// only AppTown sets it, over the worker's authenticated connection.
 	PreviewHostHeader = "X-AppTown-Preview-Host"
 	// PreviewTargetHeader carries the visitor's request target (path and
 	// query, escaped as sent), so this server's router never cleans or
 	// redirects a visitor's path.
 	PreviewTargetHeader = "X-AppTown-Preview-Target"
-	// PreviewSessionHeader and PreviewSeqHeader are the forge session and
+	// PreviewSessionHeader and PreviewSeqHeader are AppTown session and
 	// the number within it that a request changing a preview carries (see
 	// previewSessions).
 	PreviewSessionHeader = "X-AppTown-Preview-Session"
 	PreviewSeqHeader     = "X-AppTown-Preview-Seq"
 	// PreviewClaimHeader, "required", answers a request refused because the
-	// worker's fence is lost: the forge claims the worker again.
+	// worker's fence is lost: AppTown claims the worker again.
 	PreviewClaimHeader = "X-AppTown-Preview-Claim"
 )
 
@@ -139,7 +139,7 @@ func (s *Server) previewLock(name string) func() {
 	return m.Unlock
 }
 
-// fenceToken orders the requests that change previews: a forge session
+// fenceToken orders the requests that change previews: an AppTown session
 // number, greater for each apptown start, and a request number within it.
 type fenceToken struct {
 	Session int64 `json:"session"`
@@ -156,14 +156,14 @@ func requestToken(r *http.Request) (fenceToken, error) {
 	session, err1 := strconv.ParseInt(r.Header.Get(PreviewSessionHeader), 10, 64)
 	seq, err2 := strconv.ParseInt(r.Header.Get(PreviewSeqHeader), 10, 64)
 	if err1 != nil || err2 != nil || session <= 0 || seq <= 0 {
-		return fenceToken{}, errors.New("a request that changes a preview carries its forge session and number")
+		return fenceToken{}, errors.New("a request that changes a preview carries its AppTown session and number")
 	}
 	return fenceToken{session, seq}, nil
 }
 
 // previewFence fences requests that change previews, so that one delayed
 // past a later one never undoes it. Each preview keeps the token of the
-// last request that changed it, and the latest claim (the forge's start-up
+// last request that changed it, and the latest claim (AppTown's start-up
 // removal of every preview) sets a floor under all of them. A request, or a
 // claim, older than either is refused. It is kept on the worker's disk
 // (fence.json), so a worker that starts again keeps it with the previews
@@ -182,7 +182,7 @@ type previewFence struct {
 }
 
 // errClaimRequired is a request refused because the worker's fence is
-// lost: the forge claims the worker again.
+// lost: AppTown claims the worker again.
 var errClaimRequired = errors.New("this worker lost the order of its previews' requests; a claim must come first")
 
 func (s *Server) fencePath() string { return filepath.Join(s.previewsRoot(), "fence.json") }
@@ -438,7 +438,7 @@ func (s *Server) booted(name string) string {
 // removePreview removes a preview's whole stack (app, parts, init
 // leftovers, services, network, and their disposable volumes) and its
 // folder. A change's preview keeps the images its boot built: a reopen
-// builds from them, and the forge removes them thirty days after the last
+// builds from them, and AppTown removes them thirty days after the last
 // look (removePreviewImages). Any other preview's images go with it: a
 // run's or a release's is never booted again by name. A removal that
 // fails keeps the folder, marked, for the sweep to try again.
@@ -645,7 +645,7 @@ func (s *Server) bootPreview(w http.ResponseWriter, r *http.Request) {
 		fail(http.StatusUnprocessableEntity, "the preview's tree: "+err.Error())
 		return
 	}
-	// The boot has a lifetime of its own: a forge that stops waiting does
+	// The boot has a lifetime of its own: an AppTown that stops waiting does
 	// not stop it half way, and every command it runs ends when that
 	// lifetime does. The contract booted is the one the values were
 	// prepared for, never read again from the tree.
@@ -721,7 +721,7 @@ func (s *Server) getPreview(w http.ResponseWriter, r *http.Request) {
 }
 
 // deletePreview is DELETE /v1/previews/{name}: the whole preview goes. A
-// removal that fails says so, and the forge asks again.
+// removal that fails says so, and AppTown asks again.
 func (s *Server) deletePreview(w http.ResponseWriter, r *http.Request) {
 	name, ok := s.previewName(w, r)
 	if !ok {
@@ -743,7 +743,7 @@ func (s *Server) deletePreview(w http.ResponseWriter, r *http.Request) {
 }
 
 // deletePreviewImages is DELETE /v1/previews/{name}/images: the build
-// images a stopped preview kept go, when the forge says its keep is over.
+// images a stopped preview kept go, when AppTown says its keep is over.
 // One a container still uses stays, and that is not a failure.
 func (s *Server) deletePreviewImages(w http.ResponseWriter, r *http.Request) {
 	name, ok := s.previewName(w, r)
@@ -761,8 +761,8 @@ func (s *Server) deletePreviewImages(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// TrimBuildCache keeps this worker's build cache within the forge's budget,
-// as the forge keeps its own (docker.TrimBuildCache): the previews and
+// TrimBuildCache keeps this worker's build cache within AppTown's budget,
+// as AppTown keeps its own (docker.TrimBuildCache): the previews and
 // release builds it runs fill it, and nothing else trims it.
 func (s *Server) TrimBuildCache(ctx context.Context) {
 	if s.Docker == nil {
@@ -816,7 +816,7 @@ func (s *Server) previewNames(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
-// deletePreviews is DELETE /v1/previews: the forge starting claims the
+// deletePreviews is DELETE /v1/previews: AppTown starting claims the
 // worker for its session, and every preview goes (it boots them again when
 // asked); requests of earlier sessions are refused from then on. Each
 // is found by its folder or its app container, and removed wholly under its
@@ -885,9 +885,9 @@ func (s *Server) deletePreviews(w http.ResponseWriter, r *http.Request) {
 }
 
 // forwardPreview is /v1/previews/{name}/http: a visitor's request,
-// forwarded by the forge, to that preview's app on this machine's loopback,
+// forwarded by AppTown, to that preview's app on this machine's loopback,
 // and nothing else. The app sees the visitor's Host and request target, and
-// the forge's forwarding headers; upgrades pass through.
+// AppTown's forwarding headers; upgrades pass through.
 func (s *Server) forwardPreview(w http.ResponseWriter, r *http.Request) {
 	name, ok := s.previewName(w, r)
 	if !ok {
@@ -915,9 +915,9 @@ func (s *Server) forwardPreview(w http.ResponseWriter, r *http.Request) {
 		req.Out.Host = req.In.Header.Get(PreviewHostHeader)
 		req.Out.Header.Del(PreviewHostHeader)
 		req.Out.Header.Del(PreviewTargetHeader)
-		// The forge's forwarding headers, which it set for this visitor,
+		// AppTown's forwarding headers, which it set for this visitor,
 		// cross this hop as they are, and no others: this handler is reached
-		// only over the forge's authenticated connection.
+		// only over AppTown's authenticated connection.
 		StripForwarding(req.Out.Header)
 		for _, h := range []string{"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto"} {
 			if v := req.In.Header.Values(h); len(v) > 0 {
@@ -930,7 +930,7 @@ func (s *Server) forwardPreview(w http.ResponseWriter, r *http.Request) {
 
 // admitPreview answers whether this worker's daemon can give each part and
 // need of a contract the resources it declares (docker.AdmitResources),
-// without doing anything: the forge asks before it registers a preview's
+// without doing anything: AppTown asks before it registers a preview's
 // keys or removes the one running, so a refusal changes nothing.
 func (s *Server) admitPreview(w http.ResponseWriter, r *http.Request) {
 	var c appcontract.Contract

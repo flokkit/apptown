@@ -121,7 +121,7 @@ var sections = []section{
 			{[]string{"token"}, `  token create <name> --purpose cli|agent [-u user] [-r role] · token list · token revoke <name>
                                         personal access tokens (admin); cli = your own command line (APPTOWN_TOKEN),
                                         agent = a coding agent's MCP connection (may not approve, land or administer)`, cmdToken},
-			{[]string{"export-project"}, `  export-project -p <proj> > <file>     a project with its history and chats, to move it to another forge (admin)`, cmdExportProject},
+			{[]string{"export-project"}, `  export-project -p <proj> > <file>     a project with its history and chats, to move it to another AppTown (admin)`, cmdExportProject},
 			{[]string{"secret"}, `  secret set <NAME> < file · secret remove <NAME>
                                         put a credential AppTown uses (a target's token) in its secrets file (admin);
                                         the value comes from standard input, never the command line`, cmdSecret},

@@ -158,7 +158,7 @@ func (s *Schemas) inline(t reflect.Type) (map[string]any, error) {
 		if err != nil {
 			return nil, err
 		}
-		// A nil slice encodes as null; the forge's responses write empty
+		// A nil slice encodes as null; AppTown's responses write empty
 		// lists instead (TestEveryNilListAndMapIsWrittenEmpty).
 		return map[string]any{"type": "array", "items": inner}, nil
 	case reflect.Map:

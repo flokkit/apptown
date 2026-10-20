@@ -68,7 +68,7 @@ type Part struct {
 	Command     []string          // compose `command:`
 	Port        int               // container port (from compose `ports:`)
 	Env         map[string]string // compose `environment:`
-	DataDir     string            // forge: a named volume that survives redeploys
+	DataDir     string            // AppTown: a named volume that survives redeploys
 	Seed        string            // reserved: parsed, run nowhere (the validator says so)
 	Health      string            // LEGACY healthcheck shell command; exit 0 = healthy
 	Intent      *Health           // structured per-part health intent (design/subsystems/healthchecks.md); nil = none declared
@@ -77,35 +77,35 @@ type Part struct {
 	Resources Resources
 	// ServesStatic marks a static part after its files are packed into the
 	// file-server image (Static is cleared then): it is still a static site,
-	// and the forge still gives its page browser values.
+	// and AppTown still gives its page browser values.
 	ServesStatic bool
 }
 
-// StaticBuild declares a static site the forge builds before serving it:
+// StaticBuild declares a static site AppTown builds before serving it:
 // the Dockerfile in Context is built to its Target stage (the last when
 // empty), and the folder Output inside that stage's files is the site.
 type StaticBuild struct {
 	Context, Target, Output string
 }
 
-// IsStatic says whether the part is a static site, served by the forge's
-// file server: a committed folder, a declared build, or an image the forge
+// IsStatic says whether the part is a static site, served by AppTown's
+// file server: a committed folder, a declared build, or an image AppTown
 // already packed from either. It classifies; it does not select a source
 // (an image already packed is never a folder to mount or rebuild).
 func (p *Part) IsStatic() bool {
 	return p != nil && (p.Static != "" || p.StaticBuild != nil || p.ServesStatic)
 }
 
-// BrowserEnvVar carries a static part's browser-safe values. The forge alone
+// BrowserEnvVar carries a static part's browser-safe values. AppTown alone
 // sets it; a contract or secret that names it is refused, so nothing can
 // replace what the page is given.
 const BrowserEnvVar = "APPTOWN_BROWSER_ENV"
 
 // ReleaseEnvVar carries a static part's release identity
 // (ReleaseIdentity); its file server answers it at ReleasePath, so a target
-// whose front door the forge can only reach from outside (App Platform) can
+// whose front door AppTown can only reach from outside (App Platform) can
 // witness that the part it deployed, in this release, is what answers. The
-// forge sets it.
+// AppTown sets it.
 const ReleaseEnvVar = "APPTOWN_RELEASE"
 
 // ReleasePath is where a static site's file server answers ReleaseEnvVar.

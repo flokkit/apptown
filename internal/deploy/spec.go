@@ -41,7 +41,7 @@ type ServiceSpec struct {
 	// start mounts a disposable volume there: an emulator whose image does
 	// not make that folder itself (S3's) exits at once without it.
 	Data string `json:"data,omitempty"`
-	// Credentials are the values the forge generated for this service (a
+	// Credentials are the values AppTown generated for this service (a
 	// deployment's or a preview's need credentials), in its Env and in what
 	// the app is given: a boot redacts them from every failure it returns
 	// (docker.Host.Boot). Carried with a prepared boot to where it runs.

@@ -22,10 +22,10 @@ import (
 // answer from the outcome alone.
 type CheckRun func(ctx context.Context, req execution.Request) execution.Outcome
 
-// LocalChecks runs checks on this machine's Docker: a forge without a
-// worker. A check on a tree gets the forge's cache mounts and labels; a run
+// LocalChecks runs checks on this machine's Docker: an AppTown without a
+// worker. A check on a tree gets AppTown's cache mounts and labels; a run
 // inside an image gets nothing of this machine's, as the app sees itself.
-// now is the forge's clock, which stamps a check container; nil is the real one.
+// now is AppTown's clock, which stamps a check container; nil is the real one.
 func LocalChecks(runner execution.Runner, now func() time.Time) CheckRun {
 	return func(ctx context.Context, req execution.Request) execution.Outcome {
 		if req.Workspace == "" {
@@ -54,7 +54,7 @@ type Executor struct {
 }
 
 // LocalExecutor is this machine's Docker as the check executor: checks run
-// through runner, and their images are prepared through the forge's own
+// through runner, and their images are prepared through AppTown's own
 // Docker access (dk).
 func LocalExecutor(runner execution.Runner, dk *docker.Scope, agentImage string, now func() time.Time) Executor {
 	cli := func(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {

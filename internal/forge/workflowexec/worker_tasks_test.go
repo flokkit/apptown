@@ -23,7 +23,7 @@ import (
 
 // A script on a worker works from the change as published, and what it made
 // comes back as commits published to the change's branch and brought into
-// the forge's workspace. The attempt records the commit it was given.
+// AppTown's workspace. The attempt records the commit it was given.
 func TestAScriptOnAWorkerPublishesWhatItMade(t *testing.T) {
 	t.Parallel()
 	// Step completion precedes task settlement. Pause the latter through the
@@ -167,7 +167,7 @@ func TestAnIsolatedForgeRunsNoScriptOnItsHost(t *testing.T) {
 }
 
 // A worker that stops answering while its task runs has not said the task is
-// gone: the forge keeps asking, and collects the task once the worker answers
+// gone: AppTown keeps asking, and collects the task once the worker answers
 // again, without starting it twice.
 func TestAWorkerThatStopsAnsweringIsAskedAgain(t *testing.T) {
 	t.Parallel()
@@ -196,7 +196,7 @@ func TestAWorkerThatStopsAnsweringIsAskedAgain(t *testing.T) {
 	}
 	down.Store(true)
 	fake.Exit(key, 0)
-	// The forge's decision on an unanswered request is to ask again. Witness
+	// AppTown's decision on an unanswered request is to ask again. Witness
 	// it deciding so twice (the second request answers what it made of the
 	// first), or the step settling, which would be the wrong decision.
 	if !poll.Until(context.Background(), 30*time.Second, 10*time.Millisecond, func() bool {
@@ -222,7 +222,7 @@ func TestAWorkerThatStopsAnsweringIsAskedAgain(t *testing.T) {
 	}
 }
 
-// Only source enters the change's branch from a worker: the forge checks
+// Only source enters the change's branch from a worker: AppTown checks
 // what the result changes where it accepts it, not the worker. A result that
 // changes .apptown beyond the native contract (a runtime file the project's
 // rules re-include) is refused, the step does not pass and the branch does not
@@ -271,7 +271,7 @@ func TestAWorkerResultChangingNonSourceIsRefused(t *testing.T) {
 	}
 }
 
-// A forge without a worker still runs no project script as a process on its
+// An AppTown without a worker still runs no project script as a process on its
 // own host unless its operator allows it (-host-scripts): a script that asks
 // for executor: local is refused before anything runs, naming the way out.
 //

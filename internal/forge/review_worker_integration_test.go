@@ -22,7 +22,7 @@ import (
 
 // Review steps on a real worker (plan step 6): apptown-worker's server in this
 // process, running its tasks on this machine's Docker in the fake Pi image
-// (fakePiScript), whose behaviour each change's fake-pi.sh sets. The forge's
+// (fakePiScript), whose behaviour each change's fake-pi.sh sets. AppTown's
 // own agent process is a tripwire.
 
 // Shell the fake reviewer runs: pass writes a valid passing report, as a
@@ -47,12 +47,12 @@ func names(invocations []tasks.Attempt) string {
 	return strings.Join(out, ",")
 }
 
-// A review on a forge with a worker runs there, in the attempt's workspace,
+// A review on an AppTown with a worker runs there, in the attempt's workspace,
 // as one invocation "review" of its own session, Pi pointed at its exact
 // transcript file in the state folder. Its verdict is its report, read as a declared result. The
 // reviewer committed nothing: its candidate is its source, and the branch
 // does not move. Its usage and transcript are kept; its invocation and
-// workspace are released. Nothing runs on the forge's own machine.
+// workspace are released. Nothing runs on AppTown's own machine.
 func TestIntegrationAReviewRunsOnTheWorker(t *testing.T) {
 	t.Parallel()
 	w := newReviewWorkerWorld(t, nil, map[string]string{"fake-pi.sh": reviewPass + `say "reviewed with: $PI_ARGS"`})
@@ -248,8 +248,8 @@ func TestIntegrationATimedOutReviewWhoseStopIsUnknownStartsNothingMore(t *testin
 	w.refuseStop.Store(false)
 }
 
-// The forge that recorded the review's exit is gone before it read the
-// report: a restarted forge reads it again (the worker captured it at
+// AppTown that recorded the review's exit is gone before it read the
+// report: a restarted AppTown reads it again (the worker captured it at
 // exit) and settles the review once, with one invocation.
 func TestIntegrationAReviewsReportIsReadAgainAfterARestart(t *testing.T) {
 	t.Parallel()

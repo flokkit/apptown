@@ -35,7 +35,7 @@ func TestParseRules(t *testing.T) {
 // export needs a verify (a copy nothing confirms came back) and, for a
 // kind with local data, a restore (an export that could never be put back
 // in place, stopped or not); a copy that fills a new place says its format, import and client together; a copy
-// with no export is the forge's file copy and says only its caveat. The
+// with no export is AppTown's file copy and says only its caveat. The
 // old local.backup block is refused by name, never ignored: ignored, it
 // would turn a database's copy into a tar of its live files.
 func TestParseBackupRules(t *testing.T) {

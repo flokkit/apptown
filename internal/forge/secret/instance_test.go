@@ -127,7 +127,7 @@ func TestAnInstanceSecretTheFileCannotHoldIsRefused(t *testing.T) {
 
 // A name Infisical holds is refused, not shadowed: a line in the file would
 // silently win over Infisical's value. When Infisical cannot be read the
-// forge cannot tell, and says so rather than writing.
+// AppTown cannot tell, and says so rather than writing.
 //
 // Kills: a set that shadows Infisical; an unreadable Infisical taken as
 // "not held"; a remove of an Infisical name answered as plain absence.
@@ -167,7 +167,7 @@ func TestAnInstanceSecretInfisicalHoldsIsRefused(t *testing.T) {
 	}
 }
 
-// A running forge whose Infisical refresh fails cannot tell what Infisical
+// A running AppTown whose Infisical refresh fails cannot tell what Infisical
 // holds now: its last good map serves running credentials but does not
 // authorize a local line that might shadow a name added since.
 //

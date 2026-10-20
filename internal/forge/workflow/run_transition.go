@@ -15,7 +15,7 @@ var ErrRunMoved = errors.New("workflow stage or status changed")
 // conditional write checks the snapshot's state, stage and decision revision
 // against the current row. Its caller owns the required receipts and commit.
 // This never updates the caller's detached snapshot or returns partial success.
-// at is the forge's time of the move.
+// at is AppTown's time of the move.
 func TransitionRunIn(ctx context.Context, tx *database.Tx, expected *Run, next RunState, stage string, at time.Time) error {
 	state, err := expected.Status.Transition(next)
 	if err != nil {

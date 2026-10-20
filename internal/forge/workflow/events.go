@@ -15,7 +15,7 @@ import (
 
 // Exact extension payloads have already been encoded by their owning domain.
 // Every required Work receipt checks that the database accepted one row.
-// at is the forge's time of the event, from the recording owner's clock.
+// at is AppTown's time of the event, from the recording owner's clock.
 func recordEvent(ctx context.Context, db database.Queryer, runID ids.ID, kind string, payload json.RawMessage, at time.Time) error {
 	if !json.Valid(payload) {
 		return fmt.Errorf("invalid %s receipt", kind)
@@ -46,7 +46,7 @@ func recordEventIn(ctx context.Context, tx *database.Tx, runID ids.ID, kind stri
 }
 
 // Notice is narration supplied by an execution adapter; it grants no
-// transition. At is the forge's time of it, from the adapter's clock.
+// transition. At is AppTown's time of it, from the adapter's clock.
 // Required lifecycle receipts are written privately by their owning command.
 type Notice struct {
 	RunID   ids.ID
@@ -64,7 +64,7 @@ func RecordNotice(ctx context.Context, db *database.DB, in Notice) error {
 
 // RecordNoticeOrLog records narration whose failure must not fail its
 // caller: an unencodable payload or a refused write is logged, not returned.
-// at is the forge's time of it.
+// at is AppTown's time of it.
 func RecordNoticeOrLog(ctx context.Context, db *database.DB, runID ids.ID, kind string, payload any, at time.Time) {
 	body, err := json.Marshal(payload)
 	if err == nil {

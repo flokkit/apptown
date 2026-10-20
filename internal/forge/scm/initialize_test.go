@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/gitexec/gittest"
 )
 
-// A new project repository gets the forge's identity from git init itself
+// A new project repository gets AppTown's identity from git init itself
 // (a template holding only that config) rather than from two config
 // commands after it. Its config is the one init and the two commands
 // made, its HEAD is the default branch, and its first commit is the
@@ -63,7 +63,7 @@ func TestANewProjectRepositoryStartsWithTheForgeIdentity(t *testing.T) {
 	}
 }
 
-// A repository made from the forge's own template still has the hook that
+// A repository made from AppTown's own template still has the hook that
 // refuses every push (InstallNoPushHook): a plain push to main, or to a
 // new branch, from a clone is refused and the repository is unchanged. The
 // push runs without the machine's config, so a personal core.hooksPath

@@ -65,7 +65,7 @@ type Service struct {
 	// dataDir holds the project repositories: closing a change with nothing
 	// to change reads it (nothing_to_change.go).
 	dataDir string
-	// clocked is the forge's clock, which writes the times workflow's rules
+	// clocked is AppTown's clock, which writes the times workflow's rules
 	// compare (Dependencies.Now; the zero value is the real clock).
 	clocked
 }
@@ -120,7 +120,7 @@ type Dependencies struct {
 	// runner runs (lost_attempt.go); zero is DefaultAttemptWatch.
 	AttemptWatch time.Duration
 
-	// Now is the forge's clock; nil is the real one.
+	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 }
 
@@ -132,12 +132,12 @@ func (s *Service) stepContext(ctx context.Context, projectID ids.ID) context.Con
 	return s.stepCtx(ctx, projectID)
 }
 
-// Now is the forge's clock as Work holds it, for a participant that writes
+// Now is AppTown's clock as Work holds it, for a participant that writes
 // Work's records outside Work (AddArtifactIn), so their times compare with
 // Work's own.
 func (s *Service) Now() time.Time { return s.now() }
 
-// New builds Work once. Its private parts communicate directly; forge supplies
+// New builds Work once. Its private parts communicate directly; AppTown supplies
 // authority and external effects rather than relaying calls between these parts.
 // life is Work's lifetime: dispatched steps, their recovery and the
 // engine's own advancement run under it, and stop with it.

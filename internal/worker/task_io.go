@@ -23,7 +23,7 @@ import (
 // A task's inputs, its workspace's state and its declared result files
 // (design/operations/workers.md, "Agent and review steps on the worker"):
 //
-//   - Inputs are blobs the forge sent (PUT /v1/blobs/{sum}), copied when the
+//   - Inputs are blobs AppTown sent (PUT /v1/blobs/{sum}), copied when the
 //     task is ensured into a folder the task owns, outside every workspace,
 //     and mounted read-only at their paths under /apptown/in. A blob removed
 //     later changes nothing the task sees.
@@ -78,7 +78,7 @@ func refuseInputs(w http.ResponseWriter, err error) {
 }
 
 // checkInputSet answers whether ensuring a task with these inputs would
-// refuse them, by the same check. The forge asks before it uploads a
+// refuse them, by the same check. AppTown asks before it uploads a
 // task's source, so a refused request leaves no workspace behind: a
 // workspace made for a task that is never recorded has nothing to release
 // it. It creates nothing.

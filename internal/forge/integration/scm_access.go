@@ -103,7 +103,7 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 	}
 	// Revoke the predecessor before minting its replacement. The record
 	// holds one token per profile, so minting over a token GitLab still
-	// honours would leave a live credential the forge no longer knows:
+	// honours would leave a live credential AppTown no longer knows:
 	// rotation stops unless the old one is revoked or already gone.
 	if old := tokens[profile]; old != nil && old.TokenID != 0 {
 		var gone *gitlab.HTTPError
@@ -117,7 +117,7 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 		Token string `json:"token"`
 	}
 	// Once asked, the mint is answered though ctx has ended: GitLab makes the
-	// token either way, and the forge must hear which.
+	// token either way, and AppTown must hear which.
 	if err := gl.Do(context.WithoutCancel(ctx), "POST", fmt.Sprintf("/projects/%d/access_tokens", proj.ID), map[string]any{
 		"name":         "forge-agent-" + profile,
 		"scopes":       prof.Scopes,
@@ -133,7 +133,7 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 		return nil, "", err
 	}
 	// GitLab has made the token: it is recorded though the caller stops, or
-	// a live token would exist that the forge cannot rotate or revoke. One
+	// a live token would exist that AppTown cannot rotate or revoke. One
 	// that cannot be recorded is revoked at once.
 	if err := s.Attachments.Remember(context.WithoutCancel(ctx), projectID, CapSCM, "gitlab", string(resource)); err != nil {
 		log.Printf("remembering the SCM access token: %v", err)

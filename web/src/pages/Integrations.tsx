@@ -19,13 +19,13 @@ import {
   CAP_ORDER, HEALTH_CHIP, HEALTH_WORDS, HealthState, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedByCounts, usedFor,
 } from './integrations/kinds'
 
-// Integrations: the outside services this forge works with. The list says,
+// Integrations: the outside services this AppTown works with. The list says,
 // for each, what it is, what it is for and whether it is working right now;
 // opening one (/integrations/<name>) gives its own page with the same shape
 // every time — what it is for, its state and the next thing to do, then its
 // credentials, configuration and record.
 //
-// Health is read live: the forge checks each service as it answers the
+// Health is read live: AppTown checks each service as it answers the
 // list and stamps each reading with its own clock (checkedAt). A kind with
 // no check says so (checked false); it is never shown as working.
 
@@ -135,7 +135,7 @@ const ago = (at: number, now: number) => relTime(new Date(at).toISOString(), now
 const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 // uncheckedWords is what an unchecked reading means for a kind: one the
-// forge cannot check at all, or one only Test connection asks.
+// AppTown cannot check at all, or one only Test connection asks.
 export const uncheckedWords = (testable: boolean) => testable
   ? `${PRODUCT} does not check this kind of service on its own; Test connection asks it now.`
   : `${PRODUCT} has no live check for this kind of service, so whether it works is unknown.`
@@ -148,7 +148,7 @@ function StatusChip({ state, stale, testable }: { state: HealthState; stale: boo
     title={state === 'unchecked' ? uncheckedWords(testable) : undefined}>{HEALTH_WORDS[state]}</span>
 }
 
-// When the forge took a reading, by the server's clock; 0 for none.
+// When AppTown took a reading, by the server's clock; 0 for none.
 const checkedAt = (h: IntegrationHealth): number => (h.checked && h.checkedAt ? Date.parse(h.checkedAt) || 0 : 0)
 
 function lastChecked(h: IntegrationHealth, now: number): string {
@@ -315,7 +315,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
   const docs = catalog.find((c) => c.capability === b.capability && c.provider === b.provider && c.hasDocs)
   const meta = capabilityMeta(b.capability, spec?.title)
   const state = healthState(b.health)
-  // A test's answer, or why the forge could not be asked.
+  // A test's answer, or why AppTown could not be asked.
   const [test, setTest] = useState<{ h?: IntegrationHealth; err?: string; at: number } | null>(null)
   const [testing, setTesting] = useState(false)
   const remove = useAction(() => navigate('/integrations'), { affects: ['/services', '/secrets'] })
@@ -450,7 +450,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
 }
 
 // What names this integration: the projects that attach it and the standing
-// deployments on targets it reaches. A forge-wide service is used without
+// deployments on targets it reaches. An AppTown-wide service is used without
 // being named, so none here does not mean it is unused.
 function UsedBy({ use }: { use: IntegrationUse }) {
   const none = use.projects.length === 0 && use.deployments.length === 0

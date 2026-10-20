@@ -11,9 +11,9 @@ import (
 	"flokkit.io/forge/internal/trailer"
 )
 
-// The forge catches a change up with main itself. Before an agent step of a
+// AppTown catches a change up with main itself. Before an agent step of a
 // change's run starts on a worker, when the change's branch is behind main,
-// the forge merges main into it, if the merge has no conflicts and the run
+// AppTown merges main into it, if the merge has no conflicts and the run
 // still holds the branch under the step's attempt; the step then works on
 // the merge. The rule is the same before every such step, so no step has to
 // know why the branch fell behind (a landing that ended behind main, or main

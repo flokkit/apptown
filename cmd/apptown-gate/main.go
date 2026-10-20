@@ -1,4 +1,4 @@
-// Command apptown-gate runs the forge access gate in front of a restored copy.
+// Command apptown-gate runs AppTown access gate in front of a restored copy.
 // It is configured only through the environment (see internal/gate) and
 // logs one line at startup, never anything about a request.
 package main

@@ -47,9 +47,9 @@ func findingEvaluator(results Results, f conformance.Finding) string {
 }
 
 // onlyForgeFaults reports whether every result the acceptance names as unmet
-// was one the forge could not judge for its own reasons (no preview to
+// was one AppTown could not judge for its own reasons (no preview to
 // probe). Such a gate errors and waits for a person instead of reworking
-// the change: rework for the forge's own fault invites unrelated changes.
+// the change: rework for AppTown's own fault invites unrelated changes.
 func onlyForgeFaults(results Results, unmet []string) bool {
 	if len(unmet) == 0 {
 		return false

@@ -6,12 +6,12 @@
 -- Change and touches no landing gate.
 CREATE TABLE IF NOT EXISTS conformance_reviews (
   id UUID PRIMARY KEY,
-  -- How people name it ("conformance review 9"): its number within the forge, from
+  -- How people name it ("conformance review 9"): its number within AppTown, from
   -- conformance_review_numbers, never reused.
   number BIGINT NOT NULL,
   trigger     TEXT NOT NULL,            -- manual | scheduled | import | …
   actor       TEXT NOT NULL,
-  -- The starter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The starter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   started_at  TIMESTAMPTZ NOT NULL,
@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS what_if_reviews (
   -- read by the job that runs it.
   projects           JSONB NOT NULL DEFAULT 'null'::jsonb,
   -- queued: admitted, waiting for the conformance queue's worker.
-  -- interrupted: the forge stopped before it finished; it is not resumed.
+  -- interrupted: AppTown stopped before it finished; it is not resumed.
   CONSTRAINT what_if_state CHECK (state IN ('queued','running','done','error','interrupted'))
 );
 CREATE INDEX IF NOT EXISTS what_if_reviews_version ON what_if_reviews(pack, pack_version, id);

@@ -117,7 +117,7 @@ app:
 	}
 }
 
-// Only the forge sets a static part's browser values; a contract cannot.
+// Only AppTown sets a static part's browser values; a contract cannot.
 func TestAContractCannotSetTheForgesBrowserValues(t *testing.T) {
 	t.Parallel()
 	_, err := appcontract.Parse([]byte("app:\n  web:\n    static: .\n    public: true\n    environment: {APPTOWN_BROWSER_ENV: '{}'}\n"))

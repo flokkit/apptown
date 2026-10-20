@@ -12,7 +12,7 @@ import (
 	"flokkit.io/forge/internal/poll"
 )
 
-// callWorld is project 7's forge model calls, opened and settled through
+// callWorld is project 7's AppTown model calls, opened and settled through
 // the usage owner.
 type callWorld struct {
 	db       *database.DB
@@ -59,7 +59,7 @@ func (w *callWorld) spent(t *testing.T) Totals {
 	return got
 }
 
-// expired waits until the forge's clock has passed the project's
+// expired waits until AppTown's clock has passed the project's
 // pending lines' time: admission then reads them as unknown spend.
 func (w *callWorld) expired(t *testing.T, unknown int64) {
 	t.Helper()
@@ -109,7 +109,7 @@ func (w *callWorld) lockIn(t *testing.T) int64 {
 
 var paid = Totals{Input: 10, Output: 5, Total: 15, CostMicros: 2000}
 
-// A forge call's spend line is written before it is sent and counts
+// An AppTown call's spend line is written before it is sent and counts
 // nothing while pending. It settles once: a replay changes nothing, and a
 // second provider call is a line of its own. A line whose time has run out
 // counts as unknown to admission at once, and a lock-in makes that
@@ -138,7 +138,7 @@ func TestAForgeCallsSpendLineSettlesOnceOrStaysUnknown(t *testing.T) {
 		t.Fatalf("two calls, each once: %+v", got)
 	}
 
-	// A time of zero has run out by the next read of the forge's clock.
+	// A time of zero has run out by the next read of AppTown's clock.
 	late := w.open(t, 0)
 	if got := w.spent(t); got.Incomplete != 1 {
 		t.Fatalf("a pending line past its time is unknown spend: %+v", got)
@@ -266,7 +266,7 @@ func TestSettlementAndLockInAreDecidedOnTheRow(t *testing.T) {
 	})
 }
 
-// A spend line's pending time runs on the forge's clock: with that clock
+// A spend line's pending time runs on AppTown's clock: with that clock
 // moved two minutes past a one-minute call, admission reads the line as
 // unknown, the settlement is refused and the lock-in counts it, though no
 // real time has passed.
@@ -277,7 +277,7 @@ func TestASpendLinesTimeRunsOutByTheForgesClock(t *testing.T) {
 	t.Parallel()
 	w := newCallWorld(t)
 	var mu sync.Mutex
-	at := time.Now().Add(time.Hour) // the forge's clock ahead of the database's
+	at := time.Now().Add(time.Hour) // AppTown's clock ahead of the database's
 	now := func() time.Time { mu.Lock(); defer mu.Unlock(); return at }
 	w.requests.Now, w.ledger.Now = now, now
 	late := w.open(t, time.Minute)

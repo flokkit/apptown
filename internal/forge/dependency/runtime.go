@@ -11,14 +11,14 @@ import (
 
 type LocalRuntime struct {
 	Catalog *Catalog
-	// Steps says the services are for the forge's own steps (a tests step,
+	// Steps says the services are for AppTown's own steps (a tests step,
 	// an agent step), where the app's own tests run: each takes its kind's
 	// StepEnv. Never for a deployment or a preview, which run the app as
 	// it will run in production.
 	Steps bool
 	// Credentials are the owner's generated credentials: a deployment's or
 	// a preview's (or one rehearsal's). Nil gives the catalogue's own
-	// values, as the forge's own steps use.
+	// values, as AppTown's own steps use.
 	Credentials Credentials
 }
 

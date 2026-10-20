@@ -147,9 +147,9 @@ func (w *docrWorld) release(t *testing.T, dep *Deployment) *Release {
 // unknown while the release goes on. The target's check reports the room.
 //
 // Kills: no preflight (the database is made, then the copy fails);
-// a preflight after the needs are fulfilled; a refusal when the forge's own
+// a preflight after the needs are fulfilled; a refusal when AppTown's own
 // repository for the project exists; adopting a repository of the project's
-// name the forge did not create; an unreadable room taken as full.
+// name AppTown did not create; an unreadable room taken as full.
 func TestAFullDOCRRegistryRefusesANewProjectBeforeAnythingIsMade(t *testing.T) {
 	t.Parallel()
 	release := func(t *testing.T, seed func(*dofake.API)) (*Release, string, dofake.State) {
@@ -223,7 +223,7 @@ func TestAFullDOCRRegistryRefusesANewProjectBeforeAnythingIsMade(t *testing.T) {
 	})
 }
 
-// A project that released to App Platform before the forge recorded its
+// A project that released to App Platform before AppTown recorded its
 // repository finds its own repository refused, until the one-time
 // inspection proposes it and a person approves it; then it releases.
 func TestAnApprovedRepositoryReleasesAgain(t *testing.T) {

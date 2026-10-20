@@ -20,7 +20,7 @@ import (
 // the whole change satisfies both: every file the scope rule holds the
 // report to is in the diff the reviewer checks the report against, and a
 // report naming every one of them has nothing unclaimed. Both diff readers
-// (the forge's own folder and the hub) are held to it, after the change has
+// (AppTown's own folder and the hub) are held to it, after the change has
 // caught up with main too.
 func TestAWholeChangeReportSatisfiesTheReviewAfterASendBack(t *testing.T) {
 	t.Parallel()

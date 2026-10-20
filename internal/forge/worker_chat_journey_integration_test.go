@@ -27,14 +27,14 @@ import (
 // The plan's step 4 journey, with a real worker in its own container and
 // the real agent image: a change's chat opens on the worker (the default
 // with worker chats on), a turn's commit is saved to the change's branch,
-// the forge restarts and finds the chat on the worker, the worker restarts
+// AppTown restarts and finds the chat on the worker, the worker restarts
 // and the chat carries on, a landing saves the chat's latest commit first
 // and lands it, and ending the chat leaves nothing on the worker and frees
 // the change. The model is not called; the chat's commits are made in its
 // container as its agent would.
 func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 	if dockertest.Run("image", "inspect", "forge-agent") != nil {
-		t.Skip("needs the forge-agent image on this machine's Docker")
+		t.Skip("needs AppTown-agent image on this machine's Docker")
 	}
 	ctx := context.Background()
 	ca := workertest.NewCA(t)
@@ -95,7 +95,7 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 		t.Fatalf("the first save: branch at %s, want %s", tip(), one)
 	}
 
-	// The forge restarts: the chat is found on the worker and saves again.
+	// AppTown restarts: the chat is found on the worker and saves again.
 	a.StopConsoles(ctx)
 	if err := a.ShutdownBackground(ctx); err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 	}
 	s, err := b.Console.Get(ctx, id)
 	if err != nil {
-		t.Fatalf("the restarted forge lost the chat: %v", err)
+		t.Fatalf("the restarted AppTown lost the chat: %v", err)
 	}
 	if st := b.Console.State(ctx, s); st == console.Unavailable || st == console.Dead {
 		t.Fatalf("the chat after an AppTown restart: %s", st)

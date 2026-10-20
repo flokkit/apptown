@@ -31,7 +31,7 @@ export function disputeOf(d: RunDetail): Verdict[] {
       const ev = s.evidence as { summary?: string; reason?: string; findings?: unknown; logTail?: string; reviewerSummary?: string }
       const [text, repeatText] = once(s.name, ev.summary || ev.reason)
       const [log, repeatLog] = once(s.name, ev.logTail)
-      // A review the model passed and the forge's file check failed is the
+      // A review the model passed and AppTown's file check failed is the
       // forge's failure; the reviewer's pass is shown apart.
       const reviewerPassed = ev.reviewerSummary || undefined
       return {

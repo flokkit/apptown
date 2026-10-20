@@ -179,7 +179,7 @@ func (s changeStore) nameFromChat(ctx context.Context, projectID ids.ID, id ids.
 
 // NameFromChat gives a change whose title waits for its chat the words of
 // the chat's first message; who is the chat's actor. Its receipt carries
-// the forge's clock.
+// AppTown's clock.
 func (s *Service) NameFromChat(ctx context.Context, projectID ids.ID, id ids.ID, text, who string) (bool, error) {
 	return (changeStore{s.db, s.clocked}).nameFromChat(ctx, projectID, id, text, who)
 }

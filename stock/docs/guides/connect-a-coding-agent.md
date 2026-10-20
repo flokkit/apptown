@@ -1,9 +1,9 @@
 # Connect a coding agent or the CLI
 
-<!-- A word like forge:mcp in braces is a live link: the Docs page of an
-AppTown shows that AppTown's own address there. Read forge:origin as
-https://<your AppTown host>, forge:mcp as https://<your AppTown host>/mcp/user
-and forge:git as https://<your AppTown host>/git. -->
+<!-- A word like apptown:mcp in braces is a live link: the Docs page of an
+AppTown shows that AppTown's own address there. Read apptown:origin as
+https://<your AppTown host>, apptown:mcp as https://<your AppTown host>/mcp/user
+and apptown:git as https://<your AppTown host>/git. -->
 
 How to point a coding agent on your own computer — Claude Code, Codex, or
 anything else that speaks MCP — at this AppTown, so it can see your projects
@@ -14,7 +14,7 @@ and Changes while you work, and how to set up the `apptown` command line.
 AppTown has one address for coding agents:
 
 ```
-{forge:mcp}
+{apptown:mcp}
 ```
 
 It speaks MCP (the Model Context Protocol — the standard way a coding agent
@@ -43,7 +43,7 @@ credential, bound to this one door, that stands for *you via that agent*.
 ### Claude Code
 
 ```
-claude mcp add --transport http apptown {forge:mcp}
+claude mcp add --transport http apptown {apptown:mcp}
 ```
 
 Then in a Claude Code session, `/mcp` shows AppTown; choose it to sign
@@ -55,7 +55,7 @@ Add this to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.apptown]
-url = "{forge:mcp}"
+url = "{apptown:mcp}"
 ```
 
 Run `codex mcp login forge` (or the equivalent your version offers; see
@@ -92,7 +92,7 @@ The token is shown once. Copy it somewhere safe; it cannot be shown again.
 If it leaks, an admin revokes it with `apptown token revoke laptop-claude`.
 
 ```
-claude mcp add --transport http apptown {forge:mcp} \
+claude mcp add --transport http apptown {apptown:mcp} \
   --header "Authorization: Bearer <token>"
 ```
 
@@ -149,7 +149,7 @@ agents' work:
 
 | Tool | What it does |
 |---|---|
-| `checkout_change` | returns the repository URL (`{forge:git}/<project>`), the Change's branch and current tip, and a credential that lasts twenty minutes, opens only this Change's branch, and is used up by the first successful push |
+| `checkout_change` | returns the repository URL (`{apptown:git}/<project>`), the Change's branch and current tip, and a credential that lasts twenty minutes, opens only this Change's branch, and is used up by the first successful push |
 | `renew_change_grant` | a fresh credential when the last one expired or was spent |
 | `sync_change` | tells AppTown a revision was pushed; the Change's workspace adopts it, and the next steps (checks, preview, hand-off) are listed |
 
@@ -192,7 +192,7 @@ The token is shown once. Put it, with the address, in
 `~/.config/apptown/credentials` (mode 0600), one `KEY=VALUE` per line:
 
 ```
-APPTOWN_URL={forge:origin}
+APPTOWN_URL={apptown:origin}
 APPTOWN_TOKEN=<token>
 ```
 

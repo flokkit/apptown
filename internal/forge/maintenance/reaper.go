@@ -25,8 +25,8 @@ type Dependencies struct {
 	Docker   docker.Scope
 	Sessions *console.Service
 	Runtime  ConsoleRuntime
-	// Now is the forge's clock, against which the reaper judges the ages
-	// the forge stamped (the real clock when nil).
+	// Now is AppTown's clock, against which the reaper judges the ages
+	// AppTown stamped (the real clock when nil).
 	Now func() time.Time
 }
 type Reaper struct {

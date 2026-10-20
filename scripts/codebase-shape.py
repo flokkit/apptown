@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """codebase-shape: how big the codebase is, over time and by module.
 
-Standalone prototype of a forge feature. Reads git only, writes one HTML file
+Standalone prototype of an AppTown feature. Reads git only, writes one HTML file
 with two figures: code lines over time stacked by module, and a treemap of
 the tree at HEAD. No dependencies beyond git and Python 3.
 

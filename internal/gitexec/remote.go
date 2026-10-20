@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Remote is an https Git repository outside the forge, for a project that
+// Remote is an https Git repository outside AppTown, for a project that
 // starts from existing code (design/operations/start-from-existing-code.md).
 // The caller has already decided the URL may be fetched and resolved its
 // host to the address Pin names; git is held to that address so a second
@@ -116,7 +116,7 @@ func runRemote(ctx context.Context, dir string, r Remote, args ...string) (strin
 	return strings.TrimSpace(stdout.String()), nil
 }
 
-// RemoteFailed is a remote command that failed, in the forge's own words.
+// RemoteFailed is a remote command that failed, in AppTown's own words.
 // Git's own diagnostics are never passed on: they carry text the remote
 // server chose, which can echo the credential it was offered.
 type RemoteFailed struct{ Op, Why string }

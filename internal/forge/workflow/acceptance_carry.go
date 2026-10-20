@@ -33,7 +33,7 @@ func (w commandAuthority) mayApprove(ctx context.Context, run *Run, step *Step, 
 	if person == "" || person == "apptown-system" {
 		return &DecisionDenied{Code: access.DenyNotEligible, Reason: "no person accepted this change"}
 	}
-	// An acceptance the forge cannot tie to a principal (recorded before
+	// An acceptance AppTown cannot tie to a principal (recorded before
 	// principals, by an account it could not place) is not carried: its
 	// name could now be someone else's.
 	if who.Principal.IsZero() {
@@ -167,7 +167,7 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps []*Step, accep
 // known when they accepted: an override, a step that did not pass, checks
 // that errored, or a check that could not judge the change. What is true of
 // every landing is not news: a scan point with no scanner attached, a runtime
-// check the forge itself could not run (stock land starts no preview), a
+// check AppTown itself could not run (stock land starts no preview), a
 // model check with no model bound. Nor is what already fails on main: a
 // finding on main too is the estate's, not this change's doing, whether the
 // gate could split its occurrences (preexisting) or not (undecided, which

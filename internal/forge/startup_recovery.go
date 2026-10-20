@@ -31,7 +31,7 @@ func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 	}
 	// The switch into -no-local-docker is
 	// admitted only after a witnessed drain, or on a restart in the mode: a
-	// forge in the mode cannot observe the Docker that local work ran on.
+	// AppTown in the mode cannot observe the Docker that local work ran on.
 	if a.cfg.noLocalDocker {
 		if err := switchAdmitted(ctx, a.DB); err != nil {
 			return err
@@ -81,7 +81,7 @@ func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 type startupRecoveryStore struct {
 	db  *database.DB
 	ops *operations.Service
-	now func() time.Time // the forge's clock, which stamps interrupted steps', reviews' and what-ifs' ends
+	now func() time.Time // AppTown's clock, which stamps interrupted steps', reviews' and what-ifs' ends
 }
 
 // Counts describe committed repairs and work left for the recovery owners.

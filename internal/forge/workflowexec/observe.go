@@ -29,7 +29,7 @@ type observer struct {
 	queued   metric.Float64Histogram
 	attempts metric.Int64Counter
 	links    AttemptLinks
-	clock    func() time.Time // the forge's clock, which times an attempt; nil is the real one
+	clock    func() time.Time // AppTown's clock, which times an attempt; nil is the real one
 }
 
 func (o observer) now() time.Time { return clock.Or(o.clock)() }

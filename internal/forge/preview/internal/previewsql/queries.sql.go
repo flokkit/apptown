@@ -189,7 +189,7 @@ type RecordPreviewOwnedParams struct {
 	RecordedAt time.Time
 }
 
-// What the forge created for a preview (preview_owned): today the AI models
+// What AppTown created for a preview (preview_owned): today the AI models
 // key a preview of an app needing llm gets.
 func (q *Queries) RecordPreviewOwned(ctx context.Context, arg RecordPreviewOwnedParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, recordPreviewOwned,

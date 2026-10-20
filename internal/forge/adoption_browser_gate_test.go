@@ -23,7 +23,7 @@ import (
 
 // The browser check judges the change's preview, and the guidance step acts
 // on what it establishes: a page that never loads its values is the change's
-// to fix; anything the forge supplies and cannot establish holds the step for
+// to fix; anything AppTown supplies and cannot establish holds the step for
 // a person, with or without explicit acceptance, and is never rework. A run
 // that has booted its preview needs it, so a preview gone missing holds too;
 // a run that has not booted one yet, or never will (the landing), records the

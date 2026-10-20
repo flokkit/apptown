@@ -114,11 +114,11 @@ func (s *Server) role(w http.ResponseWriter, _ *http.Request) {
 	_ = json.NewEncoder(w).Encode(s.Role)
 }
 
-// FirstUse is when this forge first used the worker at url, recorded under
+// FirstUse is when this AppTown first used the worker at url, recorded under
 // dir the first time it is asked. The record is kept whatever role the
-// worker had then, so a machine the forge once used as an agent worker, and
+// worker had then, so a machine AppTown once used as an agent worker, and
 // then gave a new state directory, is not taken for a fresh check worker.
-// The first use is stamped on the forge's clock (nil is the real one).
+// The first use is stamped on AppTown's clock (nil is the real one).
 func FirstUse(dir, url string, now func() time.Time) (time.Time, error) {
 	type use struct {
 		URL   string    `json:"url"`
@@ -145,7 +145,7 @@ func FirstUse(dir, url string, now func() time.Time) (time.Time, error) {
 }
 
 // RequireCheckWorker refuses a check worker that does not report the check
-// role, fixed before this forge first used its address (first).
+// role, fixed before this AppTown first used its address (first).
 func RequireCheckWorker(ctx context.Context, client *http.Client, url string, first time.Time) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url+"/v1/role", nil)
 	if err != nil {

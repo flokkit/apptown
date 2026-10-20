@@ -12,10 +12,10 @@ import (
 )
 
 // The CLI states its protocol on every request, `apptown version` names this
-// CLI and the forge it talks to, and a forge that refuses the CLI's
-// protocol is an error carrying the forge's own sentence.
+// CLI and AppTown it talks to, and an AppTown that refuses the CLI's
+// protocol is an error carrying AppTown's own sentence.
 //
-// Kills: a CLI that states no protocol, so a forge cannot refuse it by name.
+// Kills: a CLI that states no protocol, so an AppTown cannot refuse it by name.
 func TestTheCLIStatesItsProtocolAndNamesBothVersions(t *testing.T) {
 	refuse := false
 	var protocols []string

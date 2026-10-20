@@ -11,7 +11,7 @@ import (
 )
 
 // ExportProjectIn reads a project's ledger lines verbatim, for moving the
-// project to another forge, where they are history witnessed here, not
+// project to another AppTown, where they are history witnessed here, not
 // there.
 func ExportProjectIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]json.RawMessage, error) {
 	return database.JSONRows(auditsql.New(q.SQL()).ExportProjectLedger(ctx, projectID))

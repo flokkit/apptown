@@ -12,15 +12,15 @@ const render = (d: DiskReadings) => {
   return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ForgeDisks /></QueryClientProvider></MemoryRouter>)
 }
 
-// The forge's own disks are each their own row, with where they are, when
+// AppTown's own disks are each their own row, with where they are, when
 // they were read and what they mean for new work: refused below the floor,
 // refused when the worker could not read its own, not read from here (a
 // worker that did not answer), or room. Unknown is never shown as free.
-describe("this forge's disks", () => {
+describe("this AppTown's disks", () => {
   it('shows each reading apart, with its time and what it means for new work', () => {
     const at = '2026-10-10T01:00:00Z'
     const html = render({ disks: [
-      { what: "this forge's data folder", path: '/var/lib/apptown', totalBytes: 100 * 2 ** 30, freeBytes: 60 * 2 ** 30, refuses: false, low: false, readAt: at },
+      { what: "this AppTown's data folder", path: '/var/lib/apptown', totalBytes: 100 * 2 ** 30, freeBytes: 60 * 2 ** 30, refuses: false, low: false, readAt: at },
       { what: "the worker's state folder", path: '/srv/worker', totalBytes: 100 * 2 ** 30, freeBytes: 2 ** 30, floorBytes: 5 * 2 ** 30, refuses: true, low: true, readAt: at },
       { what: "the worker's Docker data (tasks, images, private Docker)", path: '', refuses: true, low: false, unknown: 'where Docker keeps its data: exit status 1', readAt: at },
     ] })

@@ -37,9 +37,9 @@ DELETE FROM complaints WHERE at < $1;
 
 -- The box as a page reads it: newest first, with the project it names and,
 -- for a complaint filed in an eval's copy, the eval (from the evals
--- owner's copy record, which outlives the copy). The forge's queue holds
+-- owner's copy record, which outlives the copy). AppTown's queue holds
 -- every complaint filed outside evals and, from evals, only those about
--- the forge; the rest are the eval's, on its page. The run and change it
+-- AppTown; the rest are the eval's, on its page. The run and change it
 -- names are joined for their numbers, the names people read. The joins are reads of
 -- other domains' tables, never writes (scripts/schema-ownership.py).
 

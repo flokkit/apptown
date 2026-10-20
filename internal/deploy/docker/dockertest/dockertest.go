@@ -1,7 +1,7 @@
 // Package dockertest runs the docker CLI against this machine's own daemon
 // for tests that set up, inspect or clean up containers, images and networks
 // the code under test does not. It goes through docker.CLI, so a test's
-// docker starts as the forge's does (no ambient Buildx builder or
+// docker starts as AppTown's does (no ambient Buildx builder or
 // configuration), and a test needs no process of its own. A test that
 // gives docker an environment or stdin uses docker.CLI with a
 // docker.Command directly.

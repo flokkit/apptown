@@ -17,9 +17,9 @@ import (
 // The inventory cache: a provider's list is slow to ask for (several
 // round-trips across the world) and changes rarely, so the last answer is
 // served at once and refreshed behind the page when it is older than
-// inventoryTTL. Two things keep it from lying: the forge's own records are
+// inventoryTTL. Two things keep it from lying: AppTown's own records are
 // never cached (they are read fresh on every request and laid over the
-// cached list), and every act the forge takes at a provider — a release
+// cached list), and every act AppTown takes at a provider — a release
 // recorded, a need fulfilled, a deployment torn down — drops the cache,
 // so the next visit asks again. The page says how old the answer is and
 // offers a refresh.
@@ -38,7 +38,7 @@ type inventoryEntry struct {
 	// a TTL, not on every visit.
 	asked      time.Time
 	refreshing bool
-	// dropped: the forge acted at the provider while an ask was on its
+	// dropped: AppTown acted at the provider while an ask was on its
 	// way, so that answer may be older than the act; the next visit asks
 	// again. The answer keeps its own time: zeroing it made a host whose
 	// list was still being read show as unreachable, its records missing.
@@ -48,7 +48,7 @@ type inventoryEntry struct {
 type inventoryCache struct {
 	mu      sync.Mutex
 	entries map[string]*inventoryEntry
-	now     func() time.Time // the forge's clock, which ages the lists; nil is the real one
+	now     func() time.Time // AppTown's clock, which ages the lists; nil is the real one
 }
 
 // Live returns the provider's list for a target: from the cache
@@ -111,7 +111,7 @@ func (c *inventoryCache) refresh(ctx context.Context, queue *jobs.Queue, name st
 	}
 }
 
-// Invalidate drops every cached list: the forge changed something at
+// Invalidate drops every cached list: AppTown changed something at
 // a provider, so the next visit asks again.
 func (c *inventoryCache) Invalidate() {
 	c.mu.Lock()

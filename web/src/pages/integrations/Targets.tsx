@@ -8,11 +8,11 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import { AUDIENCES, DATA_CLASSES, FAMILY_TITLE, OfferCaps, TargetView, capsWords, familyRank, placeOf } from '../../targets'
 import type { TargetList } from '../../wire.gen'
 
-// Deploy targets (design/subsystems/deployment.md §2.2, §15.7): the places this forge
+// Deploy targets (design/subsystems/deployment.md §2.2, §15.7): the places this AppTown
 // can put software, and who they are offered to. The instance attaches a
 // cloud account and its targets appear here; an administrator offers each
 // to a group, or to everyone, with caps; a project then opts in under its
-// own Settings → Deployments. The catalog of kinds comes from the forge,
+// own Settings → Deployments. The catalog of kinds comes from AppTown,
 // so a new provider is a new card, not a new page.
 
 

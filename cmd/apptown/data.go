@@ -13,12 +13,12 @@ import (
 
 // cmdData is how a project's cloud deployments' data is protected
 // (design/subsystems/deployment.md): for each data-holding item, how recent
-// the forge's copies are, the provider's own backups, and when a copy last
+// AppTown's copies are, the provider's own backups, and when a copy last
 // came back; the last restore rehearsal; and the running operation. "copy",
 // "check", "rehearse" and "test" start a copy to the backup store, a check
 // that the newest copy comes back, a restore rehearsal of the app on it, or
-// a restore test on the deployment's own platform behind the forge gate,
-// and follow it to its end. A restored copy is opened from the forge in a
+// a restore test on the deployment's own platform behind AppTown gate,
+// and follow it to its end. A restored copy is opened from AppTown in a
 // browser, never from here.
 func cmdData(args []string) error {
 	fs := newFlags("data")
@@ -67,9 +67,9 @@ type operationAdmitted struct {
 	URL         string `json:"url"`
 }
 
-// takeDown takes a deployment down. A deployment holding data the forge
+// takeDown takes a deployment down. A deployment holding data AppTown
 // cannot take a final copy of now is refused with why, unless the person
-// passed --without-final-copy, which names the deployment to the forge as
+// passed --without-final-copy, which names the deployment to AppTown as
 // their choice; an App Platform take-down with a final copy is followed to
 // its end.
 func takeDown(w io.Writer, proj, name string, without bool) error {
@@ -234,7 +234,7 @@ type restoredCopy struct {
 	} `json:"facts"`
 }
 
-// gateLine is the forge's own check of a copy's gate, as the web card says
+// gateLine is AppTown's own check of a copy's gate, as the web card says
 // it: how many checks passed, and each that failed with what it answered;
 // "" when the gate was not checked.
 func (c restoredCopy) gateLine() string {
@@ -259,7 +259,7 @@ func printProtection(w io.Writer, p protection) {
 	if p.Note != "" {
 		fmt.Fprintf(w, "  %s\n", p.Note)
 	}
-	// The forge's own sentence for why a copy cannot start, as "apptown data
+	// AppTown's own sentence for why a copy cannot start, as "apptown data
 	// copy" would be refused with.
 	if o := p.Operations; o != nil && !o.Copy.Available {
 		fmt.Fprintf(w, "  %s\n", o.Copy.Why)

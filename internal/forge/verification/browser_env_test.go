@@ -43,7 +43,7 @@ func TestAServerAppIsNotJudgedByTheBrowserCheck(t *testing.T) {
 
 // A standing deployment is judged by the contract of the revision it runs.
 // When that revision cannot be read, or none is recorded, the answer is
-// unknown and the forge's: the working tree says nothing about what runs.
+// unknown and AppTown's: the working tree says nothing about what runs.
 func TestAStandingBrowserCheckDoesNotSubstituteAnUnreadableRelease(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -63,7 +63,7 @@ func TestAStandingBrowserCheckDoesNotSubstituteAnUnreadableRelease(t *testing.T)
 }
 
 // A container replaced between the two reads of what it was started with is
-// unknown and the forge's, never a verdict about the wrong container.
+// unknown and AppTown's, never a verdict about the wrong container.
 func TestAContainerReplacedDuringTheBrowserCheckIsUnknown(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

@@ -31,7 +31,7 @@ type Secrets struct {
 	deployments  DeploymentLister
 	db           *database.DB
 	dataDir      string
-	now          func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now          func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewSecrets(secrets *secret.Service, integrations *integration.Service, projects *project.Projects, deployments DeploymentLister, db *database.DB, dataDir string, now func() time.Time) Secrets {

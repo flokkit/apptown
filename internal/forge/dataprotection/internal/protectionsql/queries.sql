@@ -11,7 +11,7 @@ SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND id=sqlc.arg(id);
 SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND deployment=sqlc.arg(deployment) ORDER BY id DESC LIMIT sqlc.arg(row_limit)::bigint;
 
 -- name: PrunableBackups :many
--- Counted across both places (the forge's disk and the backup store): a
+-- Counted across both places (AppTown's disk and the backup store): a
 -- deployment keeps its newest sets wherever they are.
 SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND deployment=sqlc.arg(deployment) AND status IN (sqlc.arg(ok_state),sqlc.arg(partial_state)) AND trigger<>sqlc.arg(final_trigger) ORDER BY id DESC OFFSET sqlc.arg(keep_rows)::bigint;
 
@@ -38,7 +38,7 @@ INSERT INTO backup_store (id, endpoint, region, bucket, access_key_from, secret_
     secret_key_from=excluded.secret_key_from, attached_by=excluded.attached_by, attached_by_principal=excluded.attached_by_principal, attached_by_via=excluded.attached_by_via, attached_at=excluded.attached_at, checked_at=excluded.checked_at
   RETURNING *;
 
--- drilled_at is the forge's clock, which judges when the next drill is due.
+-- drilled_at is AppTown's clock, which judges when the next drill is due.
 -- name: InsertBackupDrill :one
 INSERT INTO backup_drills (id, backup_id, project_id, deployment, need, passed, target, place, as_user, detail, operation_id, deployment_id, drilled_at)
   VALUES (sqlc.arg(id), sqlc.arg(backup_id), sqlc.arg(project_id), sqlc.arg(deployment), sqlc.arg(need), sqlc.arg(passed), sqlc.arg(target), sqlc.arg(place), sqlc.arg(as_user), sqlc.arg(detail), sqlc.arg(operation_id), sqlc.arg(deployment_id), sqlc.arg(drilled_at))
@@ -149,8 +149,8 @@ UPDATE restored_copies SET end_detail=sqlc.arg(end_detail) WHERE id=sqlc.arg(id)
 -- name: OpenRestoredCopies :many
 SELECT * FROM restored_copies WHERE ended_at IS NULL ORDER BY id;
 
--- A ticket's expiry is the forge's clock plus its lifetime, and redemption
--- judges it by the forge's clock too, so both sides are one clock.
+-- A ticket's expiry is AppTown's clock plus its lifetime, and redemption
+-- judges it by AppTown's clock too, so both sides are one clock.
 -- name: InsertGateTicket :exec
 INSERT INTO restored_copy_tickets (ticket_sha256, copy_id, person, person_principal, person_via, expires_at, check_operation, issued_at)
   VALUES (sqlc.arg(ticket_sha256), sqlc.arg(copy_id), sqlc.arg(person), sqlc.arg(person_principal), sqlc.arg(person_via), sqlc.arg(expires_at), sqlc.arg(check_operation), sqlc.arg(issued_at));
@@ -162,7 +162,7 @@ UPDATE restored_copy_tickets SET redeemed_at=sqlc.arg(at)::timestamptz
   WHERE ticket_sha256=sqlc.arg(ticket_sha256) AND copy_id=sqlc.arg(copy_id) AND redeemed_at IS NULL AND expires_at>sqlc.arg(at)::timestamptz
   RETURNING person, person_principal, check_operation;
 
--- People let in: the forge's own gate checks are not entries.
+-- People let in: AppTown's own gate checks are not entries.
 -- name: RestoredCopyEntries :many
 SELECT person, person_principal, redeemed_at FROM restored_copy_tickets WHERE copy_id=$1 AND redeemed_at IS NOT NULL AND check_operation IS NULL ORDER BY redeemed_at;
 

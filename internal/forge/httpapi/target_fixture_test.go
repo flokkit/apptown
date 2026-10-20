@@ -113,7 +113,7 @@ func (w *targetHTTPWorld) createProject(t *testing.T, slug string) ids.ID {
 }
 
 // setDockerClient builds the world's deployment owner and its handlers
-// over client as this forge's Docker.
+// over client as this AppTown's Docker.
 func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	targets, deployments := deployment.NewTargets(w.db, targetTestConnectors{}), deployment.NewDeployments(w.db)
 	w.hosts = deployment.NewHosts(targets, w.secrets, deployment.HostSettings{Scope: docker.Scope{Client: client}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), BuiltInTarget: targetTestBuiltin})

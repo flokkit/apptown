@@ -193,12 +193,12 @@ func TestRuntimeTokenKeyIsAStartupStepThatRefusesAnUnreadableKey(t *testing.T) {
 	}
 }
 
-// The live links in the guides name the addresses this forge actually
+// The live links in the guides name the addresses this AppTown actually
 // serves, at paths its route table answers with the MCP and Git doors, and
 // only when -public-host stated the whole origin. A bare name says nothing
 // about the scheme, and the tier domains describe deployed apps, not the
-// forge: a TLS forge with no tier domains, or with http ones, must not be
-// linked as http. Those cases leave the guides to say "your forge's address".
+// a TLS AppTown with no tier domains, or with http ones, must not be
+// linked as http. Those cases leave the guides to say "your AppTown's address".
 func TestGuideLinksNameTheAddressesTheForgeServes(t *testing.T) {
 	t.Parallel()
 	links := func(c Config) httpapi.DocLinks {
@@ -290,7 +290,7 @@ func servedPattern(path string) string {
 	return w.Body.String()
 }
 
-// A configuration the forge cannot honour is refused at start, never
+// A configuration AppTown cannot honour is refused at start, never
 // resolved by one flag silently winning: an unknown agent executor, or
 // private Docker both admitted and refused.
 func TestConfigRefusesContradictoryOrUnknownSettings(t *testing.T) {
@@ -315,10 +315,10 @@ func TestConfigRefusesContradictoryOrUnknownSettings(t *testing.T) {
 	}
 }
 
-// Every owner the App assembles reads the forge's clock: no clock it holds
+// Every owner the App assembles reads AppTown's clock: no clock it holds
 // (a func() time.Time field, by any name) is left nil, which would read the
 // machine's instead. The walk follows the App's owners through pointers,
-// structs and interfaces within the forge's own packages, breadth first.
+// structs and interfaces within AppTown's own packages, breadth first.
 // It proves a binding is present, not that it is the App's clock, and sees
 // only clocks held in fields, not ones a function value captured. An App
 // with a worker is walked too: what it builds only for a worker (the
@@ -362,7 +362,7 @@ var lazyOwners = map[string]func(*App) any{
 	"workResourcesFor":      func(a *App) any { return workResourcesFor(a) },
 }
 
-// What the root builds on demand reads the forge's clock too. The table is
+// What the root builds on demand reads AppTown's clock too. The table is
 // held to the source: every func xFor(a *App) T the root's code calls
 // outside app.go is in it.
 func TestEveryOwnerTheRootBuildsOnDemandHasTheForgesClock(t *testing.T) {
@@ -431,7 +431,7 @@ func TestEveryOwnerTheRootBuildsOnDemandHasTheForgesClock(t *testing.T) {
 }
 
 // unwiredClocks walks v breadth first through pointers, structs and
-// interfaces in the forge's own packages and names every func() time.Time
+// interfaces in AppTown's own packages and names every func() time.Time
 // field left nil.
 func unwiredClocks(root reflect.Value, name string) []string {
 	clockType := reflect.TypeOf((func() time.Time)(nil))
@@ -481,7 +481,7 @@ func unwiredClocks(root reflect.Value, name string) []string {
 	return unwired
 }
 
-// No container runs unbounded: a forge given no limits bounds every step,
+// No container runs unbounded: an AppTown given no limits bounds every step,
 // check and task container (here and in what it sends a worker) by the
 // execution defaults, and a chat's container on its own host by the chat
 // defaults; given limits, it uses them.

@@ -142,7 +142,7 @@ func TestAnExistingFolderIsTakenOnlyOnItsBranch(t *testing.T) {
 	}
 }
 
-// A new folder is the clone the forge always made: clone, then the branch
+// A new folder is the clone AppTown always made: clone, then the branch
 // checked out, origin removed and the folder identity configured, in four
 // commands after the clone. Clone now writes the identity itself. Whether
 // the branch exists yet or starts from main, the folder's config, refs,
@@ -180,7 +180,7 @@ func TestANewFolderIsTheCloneTheForgeAlwaysMade(t *testing.T) {
 			}
 			rel, _ := filepath.Rel(dir, path)
 			// The old clone also copied Git's template (sample hooks,
-			// info/exclude, description); the forge's takes none.
+			// info/exclude, description); AppTown's takes none.
 			if d.IsDir() || strings.HasPrefix(rel, ".git/objects/") || rel == ".git/index" ||
 				strings.HasPrefix(rel, ".git/hooks/") || strings.HasPrefix(rel, ".git/info/") || rel == ".git/description" {
 				return nil
@@ -227,7 +227,7 @@ func TestANewFolderIsTheCloneTheForgeAlwaysMade(t *testing.T) {
 // A personal Git template (GIT_TEMPLATE_DIR, or init.templateDir in the
 // global config) that sets an identity and a hook gives a new folder
 // neither: its config has exactly the folder identity, one name and one
-// email, and the forge accepts it as its own clone (CheckFolder). Not
+// email, and AppTown accepts it as its own clone (CheckFolder). Not
 // parallel: it sets the process's environment.
 func TestANewFolderTakesNothingFromAPersonalGitTemplate(t *testing.T) {
 	base := t.TempDir()
@@ -270,7 +270,7 @@ func TestANewFolderTakesNothingFromAPersonalGitTemplate(t *testing.T) {
 	}
 }
 
-// A writer's clone shares no object file with the forge's repository and
+// A writer's clone shares no object file with AppTown's repository and
 // borrows none from it: overwriting every object file in the clone (as a
 // process writing it could) leaves the repository whole. A clone made with
 // hard links or alternates would corrupt it.

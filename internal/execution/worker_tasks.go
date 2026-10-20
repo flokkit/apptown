@@ -21,7 +21,7 @@ import (
 
 // WorkerTasks is the TaskDriver for a apptown-worker on another machine
 // (design/operations/workers.md, "How work travels"). The
-// worker shares no files with the forge: a task's source goes to it as a Git
+// worker shares no files with AppTown: a task's source goes to it as a Git
 // bundle of one commit, and its work comes back as a bundle of the commits it
 // made (Collect). Host paths, mounts and host routing are refused.
 //

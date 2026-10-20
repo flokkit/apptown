@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 )
 
-// DockerSelection is the Docker daemon a forge's tasks run on, resolved once
+// DockerSelection is the Docker daemon an AppTown's tasks run on, resolved once
 // at startup to the daemon's address. Every call a DockerTasks makes passes
 // that address itself (docker --host), so no later change to a context, the
 // saved current context or the environment can send a call to another
@@ -25,7 +25,7 @@ type DockerSelection struct {
 	// Refused is why no address could be pinned: the context could not be
 	// read, or it needs TLS files a bare address does not carry. A driver
 	// with a refused selection creates nothing and observes nothing until
-	// the forge restarts with a selection that resolves.
+	// AppTown restarts with a selection that resolves.
 	Refused error
 	// TLSFromEnvironment is whether the CLI would take TLS settings from
 	// DOCKER_TLS_VERIFY, DOCKER_TLS and DOCKER_CERT_PATH for this daemon: it
@@ -92,7 +92,7 @@ func (s DockerSelection) Backend() string {
 // meta.json). A context that needs TLS files is refused: --host carries only
 // the address, and the files would be looked up again on each call, like the
 // name. Such a daemon is selected with DOCKER_HOST and DOCKER_TLS_VERIFY /
-// DOCKER_CERT_PATH instead, which the forge's environment fixes for its
+// DOCKER_CERT_PATH instead, which AppTown's environment fixes for its
 // lifetime.
 func dockerContextHost(configDir, name string) (string, error) {
 	digest := sha256.Sum256([]byte(name))

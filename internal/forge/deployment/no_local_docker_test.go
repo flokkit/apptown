@@ -33,7 +33,7 @@ import (
 	"flokkit.io/forge/internal/forge/secret"
 )
 
-// A forge with no local Docker releases to attached Docker hosts only
+// An AppTown with no local Docker releases to attached Docker hosts only
 // (design/operations/workers.md, "Running AppTown without a local Docker
 // daemon").
 // The attached host here is a recording daemon reached at its own address:
@@ -212,7 +212,7 @@ func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 	w.project = createTestProject(t, db, "game", "Game")
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == appcontract.ReleasePath {
-			// The forge's file server answers the release its last
+			// AppTown's file server answers the release its last
 			// container was told.
 			var told string
 			for _, run := range w.daemon.verbs("run") {
@@ -229,7 +229,7 @@ func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 	_, port, _ := net.SplitHostPort(server.Listener.Addr().String())
 	n, _ := strconv.Atoi(port)
 	w.daemon.SetPort(n)
-	// The attached host's SSH key lives in the forge's secrets store.
+	// The attached host's SSH key lives in AppTown's secrets store.
 	if err := os.WriteFile(filepath.Join(w.dir, "secrets.env"), []byte("REMOTE_KEY=-----BEGIN OPENSSH PRIVATE KEY-----\\nabc\\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600); err != nil { // gitleaks:allow (test fixture, not a credential)
 		t.Fatal(err)
 	}
@@ -543,7 +543,7 @@ func TestNoLocalDockerRefusesOtherTargetsBeforeAnyBuild(t *testing.T) {
 	}
 }
 
-// A drained forge that ran with local Docker holds a bundle with no
+// A drained AppTown that ran with local Docker holds a bundle with no
 // target and an attached deployment released from it. Started in the mode,
 // its manual promotion and its missing-container recovery are refused with
 // the next action, nothing is built or run, and the records stay. Outside
@@ -607,7 +607,7 @@ func TestNoLocalDockerRefusesReleasesRecordedBeforeTargets(t *testing.T) {
 
 // Observing a deployment's container on its own target tells running,
 // stopped and missing (the daemon's answers) apart from what could not be
-// observed: the built-in host of a forge with no local Docker is
+// observed: the built-in host of an AppTown with no local Docker is
 // unavailable, and a target whose connection cannot be resolved, a daemon
 // that does not answer or a deployment with no container is unknown, never
 // stopped or missing.
@@ -658,7 +658,7 @@ func TestObservingAContainerKeepsUnknownApartFromStoppedAndMissing(t *testing.T)
 }
 
 // A landing on an attached host records, and the owner answers, the host's
-// own address for main as for any standing deployment: this forge's routes
+// own address for main as for any standing deployment: this AppTown's routes
 // (here http://localhost:<port>) serve only its own host, so they would
 // send people nowhere.
 func TestALandingOnAnAttachedHostIsReachedAtThatHost(t *testing.T) {

@@ -101,7 +101,7 @@ const exportProjectRow = `-- name: ExportProjectRow :one
 SELECT to_jsonb(p)::text FROM projects p WHERE p.id = $1
 `
 
-// A project's own row, for moving it to another forge.
+// A project's own row, for moving it to another AppTown.
 func (q *Queries) ExportProjectRow(ctx context.Context, id ids.ID) (string, error) {
 	row := q.db.QueryRowContext(ctx, exportProjectRow, id)
 	var column_1 string

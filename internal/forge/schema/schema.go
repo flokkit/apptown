@@ -39,7 +39,7 @@ type Metadata struct {
 	// as a way of working; never needs selecting by a project
 	// (design/decisions/workflows-as-lanes.md).
 	System bool `yaml:"system,omitempty" json:"system,omitempty"`
-	// Tier: how sure the forge is that a person needs this way of working.
+	// Tier: how sure AppTown is that a person needs this way of working.
 	// "core" is the short list everyone sees first; "extra" is the longer
 	// tail; system workflows are their own tier regardless. Unset = extra.
 	Tier string `yaml:"tier,omitempty" json:"tier,omitempty"`
@@ -151,7 +151,7 @@ func ParseWorkflow(src []byte) (*Doc, error) { return parseWorkflow(src, true) }
 // for the next save, not a hostage-taking of the record.
 func ParseWorkflowStored(src []byte) (*Doc, error) { return parseWorkflow(src, false) }
 
-// APIVersion is the one workflow format version this forge reads; a
+// APIVersion is the one workflow format version this AppTown reads; a
 // document without one is this version.
 const APIVersion = "apptown.dev/v1"
 

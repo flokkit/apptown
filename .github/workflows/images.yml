@@ -1,5 +1,5 @@
-# The forge's container images, on a release tag (design/operations/github.md):
-#   ghcr.io/flokkit/apptown         the forge server (deploy/Dockerfile, target server)
+# AppTown's container images, on a release tag (design/operations/github.md):
+#   ghcr.io/flokkit/apptown         AppTown server (deploy/Dockerfile, target server)
 #   ghcr.io/flokkit/apptown-worker  the worker (deploy/Dockerfile, target worker)
 #   ghcr.io/flokkit/apptown-agent   the agent image (deploy/apptown-agent)
 #

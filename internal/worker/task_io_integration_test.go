@@ -32,7 +32,7 @@ func removeNamespace(t *testing.T, namespace string) {
 }
 
 // putInput puts content to the worker as a blob and names it as an input
-// at path with mode. The forge's constructor, whose input carries its blob
+// at path with mode. AppTown's constructor, whose input carries its blob
 // for the driver to send, is unexported until agent steps build inputs;
 // the driver's resending of a carried blob is tested beside
 // it, in internal/execution.

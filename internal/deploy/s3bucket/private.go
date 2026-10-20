@@ -18,7 +18,7 @@ import (
 // PutObject, which makes every object readable by anyone, these are written
 // private, and a stored file is checked after it is written: the store's
 // own answer for its size and its MD5 must match the file sent, and the
-// SHA-256 the forge computed travels as the object's metadata.
+// SHA-256 AppTown computed travels as the object's metadata.
 
 // MetaSHA256 is the metadata header carrying an object's SHA-256.
 const MetaSHA256 = "x-amz-meta-sha256"
@@ -27,7 +27,7 @@ const MetaSHA256 = "x-amz-meta-sha256"
 type ObjectHead struct {
 	Size   int64
 	ETag   string // as the store gives it, without quotes
-	SHA256 string // the forge's digest, from the object's metadata
+	SHA256 string // AppTown's digest, from the object's metadata
 }
 
 // Stored is a file written to the store and checked there.

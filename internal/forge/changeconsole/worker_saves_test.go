@@ -60,7 +60,7 @@ func TestARefusedSaveIsToldToTheChat(t *testing.T) {
 	}
 	eventually(t, "the chat told of the refusal", func() bool {
 		for _, m := range s.Messages() {
-			if strings.Contains(m.Text, "[forge save]") && strings.Contains(m.Text, "git reset --soft") {
+			if strings.Contains(m.Text, "[apptown save]") && strings.Contains(m.Text, "git reset --soft") {
 				return true
 			}
 		}
@@ -176,7 +176,7 @@ func TestALastSaveNotConfirmedKeepsTheChat(t *testing.T) {
 	}
 }
 
-// A refused last save whose commit could not be kept on the forge is not
+// A refused last save whose commit could not be kept on AppTown is not
 // settled: the chat is not ended and its work stays on the worker.
 func TestARefusedLastSaveThatCouldNotBeKeptKeepsTheChat(t *testing.T) {
 	t.Parallel()
@@ -210,7 +210,7 @@ func TestARefusedLastSaveThatCouldNotBeKeptKeepsTheChat(t *testing.T) {
 }
 
 // Deleting the tracked app contract is part of what a chat leaves, and its
-// last save carries it, as the forge's own staging does.
+// last save carries it, as AppTown's own staging does.
 func TestALastSaveCarriesTheContractsDeletion(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

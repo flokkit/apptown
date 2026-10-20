@@ -298,7 +298,7 @@ func TestADataOperationIsSingleAndKeepsReleasesAwayFromATakeDown(t *testing.T) {
 	}
 }
 
-// What the deployment page says of each data-holding item: the forge's
+// What the deployment page says of each data-holding item: AppTown's
 // newest copy and how recent it is, the provider's own backups as the
 // provider says now, and whether a copy was seen to come back. Production
 // data with no store reads "not protected off-host"; a copy that failed
@@ -795,7 +795,7 @@ func TestATakeDownWhoseAuthorityWasWithdrawnDeletesNothing(t *testing.T) {
 
 // A copy that fails after a good one makes the deployment's protection
 // stale with why, whatever the clocks: with the operations ledger's clock
-// (which times operations) eleven minutes behind or ahead of the forge's
+// (which times operations) eleven minutes behind or ahead of AppTown's
 // (which times copies), the failed copy is still the last word.
 //
 // Kills: ordering the failed operation against the good copy by their
@@ -911,7 +911,7 @@ func TestAFailedCopyStaysTheLastWordAfterOtherWork(t *testing.T) {
 	}
 }
 
-// A drill's time is written and judged by one clock, the forge's: with that
+// A drill's time is written and judged by one clock, AppTown's: with that
 // clock a month off the wall clock, a production deployment never drilled
 // is due, a drill just passed leaves the next one not due, and eight days
 // later by the same clock it is due.
@@ -965,7 +965,7 @@ func TestADrillIsDueByTheForgesOwnClock(t *testing.T) {
 	}
 }
 
-// A managed instance the forge cannot copy (here a first fulfilment that
+// A managed instance AppTown cannot copy (here a first fulfilment that
 // stopped once the provider had made the cluster, before its database and
 // user: the record names an instance and no database) stays in the
 // deployment's list: a protection row that says why, never left out, and a

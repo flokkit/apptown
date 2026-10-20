@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
 CREATE TABLE IF NOT EXISTS run_inference_owners (
   run_id UUID PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
   actor TEXT NOT NULL,
-  -- The owner's principal and way of acting (access.Actor); NULL for the forge, a run, or one not resolved to a person.
+  -- The owner's principal and way of acting (access.Actor); NULL for AppTown, a run, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT ''
 );

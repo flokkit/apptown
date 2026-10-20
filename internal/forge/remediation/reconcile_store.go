@@ -23,7 +23,7 @@ type Reconciliation struct {
 	db     *database.DB
 	caller context.Context
 	work   Work             // landing rechecks go through Work's door
-	clock  func() time.Time // the forge's clock; nil is the real one
+	clock  func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s Reconciliation) now() time.Time { return clock.Or(s.clock)() }

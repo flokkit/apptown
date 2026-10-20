@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "forge app.yaml — the runtime contract",
+  "title": "AppTown app.yaml — the runtime contract",
   "type": "object",
   "required": [
     "app"
@@ -17,7 +17,7 @@
         "properties": {
           "build": {
             "type": "string",
-            "description": "Build context — the forge builds this repo's Dockerfile. Exactly one of build/image/static."
+            "description": "Build context — AppTown builds this repo's Dockerfile. Exactly one of build/image/static."
           },
           "image": {
             "type": "string",
@@ -28,7 +28,7 @@
               "string",
               "object"
             ],
-            "description": "A static site, served by the forge's own file server. A string is a committed folder, served as it is. A map builds the site first: the Dockerfile in build (its target stage, default the last) is built, and the folder output inside that stage's files is served.",
+            "description": "A static site, served by AppTown's own file server. A string is a committed folder, served as it is. A map builds the site first: the Dockerfile in build (its target stage, default the last) is built, and the folder output inside that stage's files is served.",
             "properties": {
               "build": {
                 "type": "string",
@@ -77,7 +77,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Compose-style ports; the forge assigns the host port, so the container port is what matters (e.g. [\"8080\"])."
+            "description": "Compose-style ports; AppTown assigns the host port, so the container port is what matters (e.g. [\"8080\"])."
           },
           "environment": {
             "type": "object",
@@ -95,7 +95,7 @@
           },
           "seed": {
             "type": "string",
-            "description": "Reserved. The forge accepts this field but runs it nowhere: not in development, preview or deployment. Use an init step for a command that must run before the app starts."
+            "description": "Reserved. AppTown accepts this field but runs it nowhere: not in development, preview or deployment. Use an init step for a command that must run before the app starts."
           },
           "healthcheck": {
             "type": "string",
@@ -358,7 +358,7 @@
     "secrets": {
       "type": "object",
       "additionalProperties": false,
-      "description": "What the forge must know about the app's secrets beyond secretspec.toml.",
+      "description": "What AppTown must know about the app's secrets beyond secretspec.toml.",
       "properties": {
         "spec": {
           "type": "string",
@@ -366,7 +366,7 @@
         },
         "generate": {
           "type": "object",
-          "description": "Secrets the forge generates, by name, with their stability domain.",
+          "description": "Secrets AppTown generates, by name, with their stability domain.",
           "additionalProperties": {
             "type": "string",
             "enum": [
@@ -394,7 +394,7 @@
       "properties": {
         "checks": {
           "type": "array",
-          "description": "Data checks: paths the app answers without its own sign-in that read its database, each \"GET /path\" or \"GET /path expect <status>\". The forge records only the status each answers.",
+          "description": "Data checks: paths the app answers without its own sign-in that read its database, each \"GET /path\" or \"GET /path expect <status>\". AppTown records only the status each answers.",
           "items": {
             "type": "string",
             "pattern": "^GET /\\S*( expect [1-5][0-9][0-9])?$"

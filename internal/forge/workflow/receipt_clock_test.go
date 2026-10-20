@@ -33,7 +33,7 @@ func sameSecond(t *testing.T, what string, record, receipt time.Time) {
 	}
 }
 
-// A Change operation takes one reading of the forge's clock for what it
+// A Change operation takes one reading of AppTown's clock for what it
 // stores and for its receipt. On a clock that moves on a second at every
 // reading, a receipt stamped by a separate reading says a later second
 // than the record it describes: an uplift's opening, a Change's start, a
@@ -90,7 +90,7 @@ func TestAChangesReceiptCarriesItsRecordsTime(t *testing.T) {
 
 // A send-back to a run still in its agent's stage retries the agent in
 // place, inside the send-back: the run's move, the retry's events and the
-// Change's receipt carry the send-back's one reading of the forge's clock.
+// Change's receipt carry the send-back's one reading of AppTown's clock.
 // On a clock that moves on a second at every reading, any separate reading
 // (or the machine's clock) would say another second.
 func TestAnInPlaceSendBackCarriesItsReading(t *testing.T) {

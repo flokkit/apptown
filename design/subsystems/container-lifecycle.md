@@ -22,12 +22,12 @@ and removes one, by listed ID, once its execution owner has finished, under the
 same rule as the containers: an unknown owner or a failed read keeps it. Docker
 refuses one that a container is still on, so it goes on a later pass after its
 containers. Each network held takes one of Docker's address pools, and a step
-that cannot get one fails at `network create`. A network without the forge's
+that cannot get one fails at `network create`. A network without AppTown's
 labels is never selected. Do not clear networks with `docker network prune`:
 it would also take a stopped deployment's network.
 
-One forge owns one Docker daemon. The labels name a class and an owner but not
-the forge, and step IDs are numbered per forge, so two forges sharing a daemon
+One AppTown owns one Docker daemon. The labels name a class and an owner but not
+AppTown, and step IDs are numbered per forge, so two AppTown installations sharing a daemon
 would each read the other's resources as their own and judge them against the
 wrong steps. That arrangement is not supported.
 
@@ -36,19 +36,19 @@ conversation and checkout ownership. An ended session has different cleanup rule
 A saved conversation can retain a closed Change's workspace. Workspace cleanup
 preserves transcripts before removal and retains the source if preservation fails.
 
-The reaper acts on the forge host's own Docker only; it never reaches a worker.
+The reaper acts on the AppTown host's own Docker only; it never reaches a worker.
 On a worker, cleanup has other owners. The
-forge releases each task by key, and the worker removes everything of a released
+AppTown releases each task by key, and the worker removes everything of a released
 key; the worker's own sweep stops a task whose admission expired and removes its
-private Docker. The forge keeps only previews it has a record of and, every
+private Docker. AppTown keeps only previews it has a record of and, every
 minute, removes any other preview on the worker that is not booting; the worker
 sweeps previews whose removal or boot failed. The worker does not collect
-workspaces of tasks the forge never released. See
+workspaces of tasks AppTown never released. See
 [workers](../operations/workers.md#previews-on-the-worker) and
 [`internal/worker`](../../internal/worker/README.md).
 
 Deployments are not reaped. Their resources are retained by class here and
-leave only by the deployment's own take-down, which deletes what the forge
+leave only by the deployment's own take-down, which deletes what AppTown
 recorded creating for it (on a Docker host, data only after a complete final
 backup; other targets keep their data), or by project deletion, which uses that
 take-down ([deployment](deployment.md#removing-a-deployment)).
@@ -62,10 +62,10 @@ proposals. See [console](console.md) and
 
 A preview stops about eight hours after anyone last looked at it. A change's
 preview keeps its build images and its snapshot for thirty days after the
-last look; then they go. The same rule holds on the forge's Docker and on a
+last look; then they go. The same rule holds on AppTown's Docker and on a
 worker.
 
-- **A look** is a request to the preview's address through the forge's
+- **A look** is a request to the preview's address through AppTown's
   preview (or eval) domain, or a boot of it: the open or restart button,
   `apptown preview`, a chat's rehearsal, a run's preview step, a release's
   look. Preview records the last one per preview (`preview_views`), on the
@@ -73,19 +73,19 @@ worker.
 - **Stopping** removes the whole stack: the app with its volumes and data
   volume, its services, parts and init leftovers, and its network
   (`docker.RemovePreview`). A change's discard, replacement and restart, a
-  failed boot, a release's look, the idle stop and the forge's start-up
+  failed boot, a release's look, the idle stop and AppTown's start-up
   sweep all remove that way. A run's completion removes every one of its
   preview-step stacks.
 - **Preview tends its previews** every five minutes with the other
   maintenance duties (`preview.Service.Tend`, log-only unless
-  `APPTOWN_REAP=on`). It lists the previews present on the forge's Docker
+  `APPTOWN_REAP=on`). It lists the previews present on AppTown's Docker
   (running or exited) and on the worker, and stops each whose last look is
   over eight hours old, or that has none. Each decision is read again under
   the preview's boot lock, so a boot or a look since keeps it. Looks that
   cannot be read, or a place that cannot be asked, stop nothing that pass.
 - **Kept builds.** Stopping keeps a change's preview's build images
   (`forge-preview-build-forge-preview-change-N`, and its parts') and its
-  snapshot folder (`workspaces/asof-change-N`, always on the forge). Each
+  snapshot folder (`workspaces/asof-change-N`, always on AppTown). Each
   preview build carries its cache inline and builds from the kept image when
   its tag is there, so a reopen builds quickly though BuildKit's own cache
   was trimmed; BuildKit decides what matches. A build that moves its tag
@@ -95,7 +95,7 @@ worker.
   images of a change's preview with no look and nothing present go too.
 - **Project deletion** removes everything at once, kept or not.
 
-Accepted limits: a forge without a preview domain sees no request to a
+Accepted limits: an AppTown without a preview domain sees no request to a
 local preview at its published port, so such a preview stops eight hours
 after its last boot even in use. A WebSocket or a long streaming response is
 one look when it opens. Any request counts, a polling tab's or a bot's.

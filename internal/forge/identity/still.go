@@ -33,8 +33,8 @@ var ErrCredentialGone = errors.New("the credential that asked for this no longer
 // unresolvable reference refuses.
 //
 // A request a trusted proxy or open mode attributed (header:<user>) had no
-// credential the forge can revoke; it stands while the account is enabled
-// and its grants allow. The forge acting for itself (system:<binding>)
+// credential AppTown can revoke; it stands while the account is enabled
+// and its grants allow. AppTown acting for itself (system:<binding>)
 // is not a person's authority to withdraw.
 func (s *Service) RequireStill(ctx context.Context, captured access.Principal, p access.Permission) error {
 	current, err := s.stillPrincipal(ctx, captured)

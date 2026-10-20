@@ -370,7 +370,7 @@ type InsertBackupDrillParams struct {
 	DrilledAt    time.Time
 }
 
-// drilled_at is the forge's clock, which judges when the next drill is due.
+// drilled_at is AppTown's clock, which judges when the next drill is due.
 func (q *Queries) InsertBackupDrill(ctx context.Context, arg InsertBackupDrillParams) (BackupDrill, error) {
 	row := q.db.QueryRowContext(ctx, insertBackupDrill,
 		arg.ID,
@@ -422,8 +422,8 @@ type InsertGateTicketParams struct {
 	IssuedAt        time.Time
 }
 
-// A ticket's expiry is the forge's clock plus its lifetime, and redemption
-// judges it by the forge's clock too, so both sides are one clock.
+// A ticket's expiry is AppTown's clock plus its lifetime, and redemption
+// judges it by AppTown's clock too, so both sides are one clock.
 func (q *Queries) InsertGateTicket(ctx context.Context, arg InsertGateTicketParams) error {
 	_, err := q.db.ExecContext(ctx, insertGateTicket,
 		arg.TicketSha256,
@@ -1054,7 +1054,7 @@ type PrunableBackupsParams struct {
 	KeepRows     int64
 }
 
-// Counted across both places (the forge's disk and the backup store): a
+// Counted across both places (AppTown's disk and the backup store): a
 // deployment keeps its newest sets wherever they are.
 func (q *Queries) PrunableBackups(ctx context.Context, arg PrunableBackupsParams) ([]Backup, error) {
 	rows, err := q.db.QueryContext(ctx, prunableBackups,
@@ -1567,7 +1567,7 @@ type RestoredCopyEntriesRow struct {
 	RedeemedAt      sql.NullTime
 }
 
-// People let in: the forge's own gate checks are not entries.
+// People let in: AppTown's own gate checks are not entries.
 func (q *Queries) RestoredCopyEntries(ctx context.Context, copyID ids.ID) ([]RestoredCopyEntriesRow, error) {
 	rows, err := q.db.QueryContext(ctx, restoredCopyEntries, copyID)
 	if err != nil {

@@ -21,10 +21,10 @@ type Service struct {
 	Bindings     *Bindings
 	ServiceKinds *ServiceKinds
 	Attachments  *Attachments
-	clock        func() time.Time // the forge's clock; nil is the real one
+	clock        func() time.Time // AppTown's clock; nil is the real one
 }
 
-// now reads the forge's clock: an SCM token's expiry is written and
+// now reads AppTown's clock: an SCM token's expiry is written and
 // judged by it.
 func (s *Service) now() time.Time { return clock.Or(s.clock)() }
 
@@ -39,7 +39,7 @@ type Dependencies struct {
 	Kinds    KindCatalog
 	Projects *project.Projects
 	Secrets  *secret.Service
-	// Now is the forge's clock; nil is the real one.
+	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 }
 

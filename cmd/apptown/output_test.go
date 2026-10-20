@@ -64,7 +64,7 @@ func TestLoopJSONOpensAndReturnsWithoutFollowing(t *testing.T) {
 	}
 }
 
-// land --json returns the landing run once the forge accepts it. Waiting
+// land --json returns the landing run once AppTown accepts it. Waiting
 // its turn behind another landing is said on stderr, so stdout is still
 // the one document.
 func TestLandJSONNamesTheLandingRun(t *testing.T) {

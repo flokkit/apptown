@@ -89,7 +89,7 @@ type directoryStore struct {
 func (d *directoryStore) now() time.Time { return clock.Or(d.clock)() }
 
 // Ensure records a name seen on the wire and returns its grant-derived role;
-// an unknown name becomes a member with no password. A name the forge would
+// an unknown name becomes a member with no password. A name AppTown would
 // read as something else (ValidName) is refused and not recorded.
 func (d *directoryStore) Ensure(ctx context.Context, username string) (string, error) {
 	a, err := d.ensure(ctx, username)
@@ -247,7 +247,7 @@ func bootstrapIn(ctx context.Context, tx *database.Tx, user, passwordHash string
 // allowedFor checks the edit's name against the account it names. A new
 // account takes a slug that is a usable person's name (ValidName). An
 // existing account is changed whatever its name's syntax — a single sign-on
-// name such as an email address — except that a name the forge would read
+// name such as an email address — except that a name AppTown would read
 // as something else (a row recorded before names were checked) may only be
 // disabled: disabling is how an account is offboarded and must never be
 // refused.

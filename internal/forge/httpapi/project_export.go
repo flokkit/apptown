@@ -16,7 +16,7 @@ import (
 )
 
 // ProjectExport sends a project's move file: the export half of moving a
-// project to another forge.
+// project to another AppTown.
 type ProjectExport struct {
 	projects  *project.Projects
 	access    *identity.Service
@@ -24,7 +24,7 @@ type ProjectExport struct {
 	sources   projectlifecycle.ExportSources
 	build     string
 	schema    int
-	now       func() time.Time // the forge's clock, which dates the export's file name
+	now       func() time.Time // AppTown's clock, which dates the export's file name
 }
 
 func NewProjectExport(projects *project.Projects, access *identity.Service, lifecycle *projectlifecycle.Service, sources projectlifecycle.ExportSources, build string, schema int, now func() time.Time) ProjectExport {

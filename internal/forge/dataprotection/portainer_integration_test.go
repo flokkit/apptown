@@ -211,7 +211,7 @@ needs:
 		}
 		return strings.TrimSpace(string(out))
 	}
-	// sql-guarantee: the app's own Postgres in the stack, not the forge's records
+	// sql-guarantee: the app's own Postgres in the stack, not AppTown's records
 	psql("create table notes (body text); insert into notes values ('kept row')")
 	// The store answers the deployment's own key, as its app is given it.
 	creds := s.Service.env.NeedCredentials(deployment.NeedSecretsScope(dep.ID))
@@ -242,7 +242,7 @@ needs:
 		t.Fatalf("the set: %+v %v", b, err)
 	}
 	// The data changes, and the set is put back.
-	// sql-guarantee: the app's own Postgres in the stack, not the forge's records
+	// sql-guarantee: the app's own Postgres in the stack, not AppTown's records
 	psql("delete from notes")
 	s3("-X", "PUT", "-H", "Content-Type: text/plain", "--data-binary", "changed", "http://s3:9000/app/logo.png")
 	_ = dockertest.Run("exec", app, "rm", "/data/notes.txt")

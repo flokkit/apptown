@@ -236,7 +236,7 @@ func TestAnOldRunsFolderHistoryIsImportedAtStartupThenContinued(t *testing.T) {
 	}
 }
 
-// Recording an invocation's history on the forge's own path is part of
+// Recording an invocation's history on AppTown's own path is part of
 // settling the step: a receipt that cannot be written (after its tries) is
 // the step's error, never an attempt later read as one that kept nothing.
 func TestAHistoryReceiptThatCannotBeWrittenIsTheStepsError(t *testing.T) {

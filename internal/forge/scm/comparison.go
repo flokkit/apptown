@@ -37,7 +37,7 @@ func ComparisonRepository(ctx context.Context, project, workspace string) (strin
 // and a worker task's result, records the commit it saves before publishing
 // it (MarkSaved), and the folder is behind while the branch has that commit
 // and the folder does not: the save could not bring the folder along (a
-// left-behind lock, or a folder the forge will not run Git in). Then the
+// left-behind lock, or a folder AppTown will not run Git in). Then the
 // branch, not the folder, is the change's work. Whatever brings the folder
 // to the branch (a later save, a desktop sync, a merge) ends it, with
 // nothing to clear; preparing the folder for a new writer clears the
@@ -94,7 +94,7 @@ func ClearSaved(folder string) error {
 // Behind reports whether project's branch has the saved commit recorded for
 // folder and folder does not. The project's repository is asked first, and
 // a commit it does not hold is not behind, with no Git run in the folder.
-// When it does hold it, a folder the forge will not run Git in
+// When it does hold it, a folder AppTown will not run Git in
 // (gitexec.CheckFolder) is behind: its content cannot be trusted to hold
 // the commit. Otherwise the folder is asked, confined.
 func Behind(ctx context.Context, folder, project string) (bool, error) {

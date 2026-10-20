@@ -11,10 +11,10 @@ import (
 	"time"
 )
 
-// `apptown export-project` writes the file the forge sent and reports its
+// `apptown export-project` writes the file AppTown sent and reports its
 // hash and counts apart from it; a file whose bytes are not the ones the
-// forge hashed is refused, never presented as the export, and a refusal is
-// the forge's own sentence.
+// AppTown hashed is refused, never presented as the export, and a refusal is
+// AppTown's own sentence.
 func TestExportProjectWritesTheFileAndChecksItsHash(t *testing.T) {
 	body := []byte("the move file")
 	sum := sha256.Sum256(body)

@@ -47,7 +47,7 @@ type Kind struct {
 	// the settlement's transaction (also when a restart settles it unknown).
 	SettleIn func(ctx context.Context, tx *database.Tx, op Operation, out Outcome) error
 	// Interrupted, when set, says from the operation's recorded facts what
-	// a stop of the forge left (a restore's stopped app): words the restart
+	// a stop of AppTown left (a restore's stopped app): words the restart
 	// repair adds to its unknown detail. It reads only op; it acts on nothing.
 	Interrupted func(op Operation) string
 }
@@ -92,7 +92,7 @@ type Service struct {
 
 // New builds the ledger. authz checks reads and cancels as the caller;
 // still checks a running operation's captured authority before effects;
-// now is the forge's clock, which stamps every row and step (the real
+// now is AppTown's clock, which stamps every row and step (the real
 // clock when nil).
 func New(db *database.DB, authz access.Authorizer, still Authorities, now func() time.Time) *Service {
 	return &Service{db: db, authz: authz, still: still, kinds: map[string]Kind{}, interval: time.Second, clock: now}
@@ -418,7 +418,7 @@ func (s *Service) RepairInterruptedIn(ctx context.Context, tx *database.Tx) (Res
 }
 
 // interruptedDetail says what a running operation had confirmed when the
-// forge stopped.
+// AppTown stopped.
 func interruptedDetail(op *Operation) string {
 	var done []string
 	in := ""
@@ -638,7 +638,7 @@ func (s *Service) UnderProject(ctx context.Context, projectID ids.ID, limit int)
 	return records(rows)
 }
 
-// Running is every running operation, oldest first: what a forge restart
+// Running is every running operation, oldest first: what an AppTown restart
 // would interrupt, for `apptown executing`. Unchecked: the route asks for
 // the instance-wide read first.
 func (s *Service) Running(ctx context.Context) ([]Operation, error) {

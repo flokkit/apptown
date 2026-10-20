@@ -26,7 +26,7 @@ type ChangeLifecycle struct {
 // The caller holds the project lock and owns commit/rollback plus required
 // business receipts. A fresh Change is locked here even when admission already
 // read it: earlier work in the same transaction may have cancelled its landing.
-// at is the forge's time of the move, which closes the Change when it ends.
+// at is AppTown's time of the move, which closes the Change when it ends.
 func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, id ids.ID, move ChangeMove, at time.Time) (ChangeLifecycle, error) {
 	var current ChangeLifecycle
 	if id.IsZero() || projectID.IsZero() {

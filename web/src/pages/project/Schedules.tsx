@@ -6,7 +6,7 @@ import { fmtStamp, utcDate } from '../../format'
 import type { ScheduleList, ScheduleView } from '../../wire.gen'
 
 // A project's schedules on its overview: what fires, when next, and what
-// the last firing did. The cron is the forge's (UTC); the words and times
+// the last firing did. The cron is AppTown's (UTC); the words and times
 // are the reader's own zone, read off the next firing the server computed
 // with the scheduler's own parser, so the page and the scheduler agree.
 

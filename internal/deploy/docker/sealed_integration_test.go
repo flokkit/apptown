@@ -53,7 +53,7 @@ func (r sealedOrigin) PublicOrigins(ctx context.Context) string { return "https:
 // on the host's network can (design/subsystems/deployment.md, "Restore
 // rehearsals").
 //
-// Kills: publishing the app's port; trusting the forge's tiers instead of
+// Kills: publishing the app's port; trusting AppTown's tiers instead of
 // the deployment's address (the page and the data check then answer 403);
 // filling after the app starts; a probe that returns the body.
 func TestIntegrationASealedBootHasNoAddressAndAnswersOnlyStatuses(t *testing.T) {
@@ -78,7 +78,7 @@ func TestIntegrationASealedBootHasNoAddressAndAnswersOnlyStatuses(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	const origin = "orders.example.com" // outside every domain this forge or the host has
+	const origin = "orders.example.com" // outside every domain this AppTown or the host has
 	var appRunningAtFill bool
 	sealed := &Sealed{ProbeImage: "alpine/git:v2.47.2", Host: origin}
 	sealed.Fill = func(network string) error {

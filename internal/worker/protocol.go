@@ -9,22 +9,22 @@ import (
 	"flokkit.io/forge/internal/version"
 )
 
-// The worker protocol says which forges a worker serves
-// (design/operations/workers.md, "Versions"). A forge sends the number it
+// The worker protocol says which AppTown installations a worker serves
+// (design/operations/workers.md, "Versions"). An AppTown sends the number it
 // speaks on every request; a worker serves a range of them. A change that
-// breaks the older side raises the forge's number and the worker's
+// breaks the older side raises AppTown's number and the worker's
 // ProtocolMax, and the worker keeps the previous number for one release, so
-// a worker installed before its forge (the demo's order) still serves the
-// forge it replaces.
+// a worker installed before its AppTown (the demo's order) still serves the
+// AppTown it replaces.
 const (
 	ProtocolHeader = "X-AppTown-Worker-Protocol"
-	// Protocol is what this build's forge speaks. 2: a task's observation
+	// Protocol is what this build's AppTown speaks. 2: a task's observation
 	// says whether Docker killed it at its memory limit (OOMKilled), and a
-	// forge that settles scripts by it must not hear a worker that cannot
+	// AppTown that settles scripts by it must not hear a worker that cannot
 	// say, which would read every such kill as an ordinary exit.
 	Protocol = 2
 	// ProtocolMin and ProtocolMax are what this build's worker serves: 1
-	// for one release, so a worker installed first serves its old forge.
+	// for one release, so a worker installed first serves its old AppTown.
 	ProtocolMin = 1
 	ProtocolMax = 2
 )
@@ -36,8 +36,8 @@ type VersionReport struct {
 	ProtocolMax int    `json:"protocolMax"`
 }
 
-// served refuses a request whose forge speaks a protocol outside this
-// worker's range, by name. A request without the header comes from a forge
+// served refuses a request whose AppTown speaks a protocol outside this
+// worker's range, by name. A request without the header comes from an AppTown
 // built before protocols were stated, and is served.
 func served(next http.Handler) http.Handler { return servedRange(ProtocolMin, ProtocolMax, next) }
 
@@ -47,7 +47,7 @@ func servedRange(min, max int, next http.Handler) http.Handler {
 		if h := r.Header.Get(ProtocolHeader); h != "" {
 			n, err := strconv.Atoi(h)
 			if err != nil || n < min || n > max {
-				http.Error(w, fmt.Sprintf("this worker (%s) serves forge protocols %d to %d; AppTown speaks %q: install AppTown and its worker from the same release",
+				http.Error(w, fmt.Sprintf("this worker (%s) serves AppTown protocols %d to %d; AppTown speaks %q: install AppTown and its worker from the same release",
 					version.String(), min, max, h), http.StatusUpgradeRequired)
 				return
 			}
@@ -61,8 +61,8 @@ func (s *Server) version(w http.ResponseWriter, _ *http.Request) {
 	_ = json.NewEncoder(w).Encode(VersionReport{Version: version.String(), ProtocolMin: ProtocolMin, ProtocolMax: ProtocolMax})
 }
 
-// SpeakProtocol wraps a forge's transport to a worker so every request
-// states the protocol this forge speaks.
+// SpeakProtocol wraps an AppTown's transport to a worker so every request
+// states the protocol this AppTown speaks.
 func SpeakProtocol(rt http.RoundTripper) http.RoundTripper {
 	if rt == nil {
 		rt = http.DefaultTransport

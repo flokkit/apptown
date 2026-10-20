@@ -29,8 +29,8 @@ type Workload struct {
 	Actor  string
 	Person string
 	// Principal is the person the workload acts for (a run's owner, a
-	// chat's opener), judged by ID; zero when it acts for the forge or for
-	// no principal the forge could tie it to.
+	// chat's opener), judged by ID; zero when it acts for AppTown or for
+	// no principal AppTown could tie it to.
 	Principal ids.ID
 	Kind      string
 	ProjectID ids.ID
@@ -58,7 +58,7 @@ func (w Workload) Who() access.Actor {
 	return a
 }
 
-// RuntimeTokenKeyFile is the name, under the forge's data directory, of the
+// RuntimeTokenKeyFile is the name, under AppTown's data directory, of the
 // key step tokens are derived under.
 const RuntimeTokenKeyFile = "runtime-token-key"
 
@@ -76,8 +76,8 @@ const (
 // A step attempt's token is derived, not stored:
 // rt_<step>_<attempt>_<mac>, the MAC an HMAC of the step and attempt under a
 // key kept in the data directory. The same attempt always gets the same
-// token, before and after a forge restart, so an agent still running on a
-// worker keeps a credential the forge recognises, and a recovered request
+// token, before and after an AppTown restart, so an agent still running on a
+// worker keeps a credential AppTown recognises, and a recovered request
 // keeps its digest. The token proves only which attempt it was issued for;
 // whether that attempt may still act is read from current state by the one
 // validation both doors use (inference.Identity.AuthenticateStep). There is
@@ -94,7 +94,7 @@ type RuntimeTokens struct {
 
 // Open loads the step-token key from file, creating it (32 random bytes,
 // 0600) when absent. Any other failure to read or create it is returned:
-// without the key no step credential can be issued or checked, so the forge
+// without the key no step credential can be issued or checked, so AppTown
 // refuses to start rather than run agents it cannot recognise. Until a key
 // is loaded no step token is recognised.
 func (tokens *RuntimeTokens) Open(file string) error {

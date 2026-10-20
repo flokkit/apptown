@@ -417,7 +417,7 @@ const exportAdoptionCurrent = `-- name: ExportAdoptionCurrent :many
 SELECT to_jsonb(a)::text FROM adoptions a WHERE a.project_id = $1
 `
 
-// A project's adoption, row by row, for moving it to another forge.
+// A project's adoption, row by row, for moving it to another AppTown.
 func (q *Queries) ExportAdoptionCurrent(ctx context.Context, projectID ids.ID) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, exportAdoptionCurrent, projectID)
 	if err != nil {

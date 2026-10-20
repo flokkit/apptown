@@ -40,10 +40,10 @@ import (
 // Agent steps on a real worker: apptown-worker's server, in this process,
 // running its tasks on this machine's Docker, in a small image whose `pi`
 // is a script (fakePiScript) that behaves as the change's fake-pi.sh says. The
-// forge talks to it over mutual TLS, as to any worker; the forge's own
+// AppTown talks to it over mutual TLS, as to any worker; AppTown's own
 // agent process is a tripwire. Nothing here uses the packaged Pi runtime.
 
-// fakePiScript stands in for Pi: it uses the transcript file the forge
+// fakePiScript stands in for Pi: it uses the transcript file AppTown
 // points it at (--session), reads the session from its header, counts its invocations in the workspace's state,
 // and runs the change's /work/fake-pi.sh, which may say something (an
 // assistant turn, also appended to the transcript), stay silent (an empty
@@ -135,7 +135,7 @@ func fakePiImageFrom(t *testing.T, fakePiBuild *fakePiBuilt, base string) string
 	return fakePiBuild.image
 }
 
-// agentWorkerWorld is a forge with a real worker, and one admitted agent
+// agentWorkerWorld is an AppTown with a real worker, and one admitted agent
 // step of a change. The worker can be made to stop answering (down), to
 // say it no longer holds the start of an output (truncate), to refuse
 // waits and not answer stops (waitRefused), not to confirm a stop
@@ -225,7 +225,7 @@ func newAgentWorkerWorld(t *testing.T, with map[string]any, files map[string]str
 	return newWorkerStepWorld(t, schema.Step{Name: "build", Uses: "agent/pi", With: step}, files)
 }
 
-// newWorkerStepWorld is a forge with a real worker and one admitted step of
+// newWorkerStepWorld is an AppTown with a real worker and one admitted step of
 // a change, whatever the step's kind; configure adjusts the worker before
 // it starts.
 func newWorkerStepWorld(t *testing.T, step schema.Step, files map[string]string, configure ...func(*worker.Server)) *agentWorkerWorld {
@@ -261,7 +261,7 @@ func (w *agentWorkerWorld) execute(t *testing.T, a *App) {
 	}
 }
 
-// restart is the forge after a restart: a new App on the same database,
+// restart is AppTown after a restart: a new App on the same database,
 // data directory and worker, which runs startup repair and resumes recorded
 // work, as the daemon does.
 func (w *agentWorkerWorld) restart(t *testing.T) *App {
@@ -319,13 +319,13 @@ func (w *agentWorkerWorld) artifacts(t *testing.T, kind string) map[string]strin
 	return out
 }
 
-// An agent step on a forge with a worker runs there as one invocation, in
-// the attempt's workspace, with the request the forge admitted: the
+// An agent step on an AppTown with a worker runs there as one invocation, in
+// the attempt's workspace, with the request AppTown admitted: the
 // worker's image, the /apptown/in inputs, the declared transcript. Its work
 // is published to the change's branch, its written files and typed output
 // are recorded with the pass, its usage once under the invocation, its
 // transcript kept and named by the attempt's receipt, and then the
-// invocation and the workspace are released. Nothing runs on the forge's
+// invocation and the workspace are released. Nothing runs on AppTown's
 // own machine.
 func TestIntegrationAnAgentStepRunsOnTheWorkerAsOneInvocation(t *testing.T) {
 	t.Parallel()
@@ -401,7 +401,7 @@ func TestIntegrationAnEmptyTurnOnTheWorkerIsRetriedOnceAfterItExits(t *testing.T
 
 // An agent step declaring private Docker and a service runs on the worker:
 // it reaches its own daemon as dind and the service by name, its
-// empty turn is not run again (as on the forge's host), its evidence says
+// empty turn is not run again (as on AppTown's host), its evidence says
 // the private Docker is unqualified, and its release leaves nothing of it.
 func TestIntegrationAnAgentStepWithPrivateDockerRunsOnTheWorker(t *testing.T) {
 	t.Parallel()
@@ -438,7 +438,7 @@ func kvKind(image, scheme string) string {
 }
 
 // A need with parameters is frozen in the invocation's kept request. A
-// forge stopped after the worker made the invocation, before it recorded
+// AppTown stopped after the worker made the invocation, before it recorded
 // that, recovers by sending the kept request again, after the folder's
 // declaration and the catalog have both changed: the recovered invocation
 // runs with the frozen parameter and the frozen service (the worker would
@@ -485,7 +485,7 @@ func TestIntegrationARecoveredInvocationKeepsItsFrozenNeed(t *testing.T) {
 	}
 }
 
-// A forge restarted while an invocation runs on the worker finds it again
+// An AppTown restarted while an invocation runs on the worker finds it again
 // (RecoverAgent): it waits for it, reads it and settles the attempt once.
 // Pi ran once, and one invocation is recorded.
 func TestIntegrationARestartedForgeReattachesToARunningAgentInvocation(t *testing.T) {
@@ -677,7 +677,7 @@ func TestIntegrationARefusedWaitWithAnUnconfirmedStopHoldsTheWorkspace(t *testin
 // Recording an invocation's history is part of settling it, for an agent
 // step and a review alike: when the receipt cannot be written (after its
 // tries), the attempt is neither settled nor released and its invocation
-// stays collecting; a restarted forge reads it again, records the history,
+// stays collecting; a restarted AppTown reads it again, records the history,
 // then settles the step.
 func TestIntegrationAHistoryReceiptThatCannotBeWrittenIsRecordedAfterARestart(t *testing.T) {
 	t.Parallel()
@@ -731,9 +731,9 @@ func TestIntegrationUsageFromATruncatedOutputIsIncomplete(t *testing.T) {
 	}
 }
 
-// Session history on a worker is kept by the forge: two consecutive
+// Session history on a worker is kept by AppTown: two consecutive
 // continue retries, each after the earlier attempt's workspace was released
-// and one after a forge restart, resume exactly the bytes the earlier
+// and one after an AppTown restart, resume exactly the bytes the earlier
 // receipt names, and each receipt still reads its own bytes afterwards. A
 // second file in the session folder naming the same session is not what is
 // kept.
@@ -892,7 +892,7 @@ func TestReviewS5ReceiptWriteFailureDoesNotSettleWithoutHistoryState(t *testing.
 
 // Simulate an upgraded run: its start receipt and valid folder transcript
 // predate agent_transcripts. Raw deletion is only to construct that era.
-// The restarted forge imports the folder's file at startup, then the
+// The restarted AppTown imports the folder's file at startup, then the
 // continue runs on the worker.
 func TestReviewS5OldRunContinuesItsFolderTranscriptOnWorker(t *testing.T) {
 	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `say "done"`})

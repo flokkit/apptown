@@ -1,5 +1,5 @@
 Fonts in this web interface, and their licences.
-Each font is served from this forge under the SIL Open Font License 1.1. The
+Each font is served from this AppTown under the SIL Open Font License 1.1. The
 copyright line of each is read from the font itself; the licence text below it is
 the one its package ships.
 

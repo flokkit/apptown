@@ -23,7 +23,7 @@ import (
 	"flokkit.io/forge/internal/stamp"
 )
 
-// Retained resources (design/subsystems/deployment.md §2.6, §14.5): the forge
+// Retained resources (design/subsystems/deployment.md §2.6, §14.5): AppTown
 // never deletes what holds data. When a deployment is torn down, its managed
 // need instances become retained resources: a record with an owner, an
 // intent, the provider's identity and who tore the deployment down. So
@@ -42,7 +42,7 @@ type RetainedResource struct {
 	Handle     map[string]any `json:"handle"`
 	RetainedBy string         `json:"retainedBy"`
 	// RetainedByPrincipal and SettledByPrincipal are those people's
-	// principals; zero for the forge, or one not resolved to a person.
+	// principals; zero for AppTown, or one not resolved to a person.
 	RetainedByPrincipal ids.ID         `json:"retainedByPrincipal,omitzero"`
 	RetainedAt          stamp.Time     `json:"retainedAt"`
 	Disposition         RetentionState `json:"disposition"`

@@ -7,7 +7,7 @@ import (
 	"flokkit.io/forge/internal/database"
 )
 
-// New builds conformance; now is the forge's clock, which stamps reviews,
+// New builds conformance; now is AppTown's clock, which stamps reviews,
 // verdicts, exceptions and fixes and judges an exception's expiry (nil is
 // the real clock).
 func New(db *database.DB, authority access.Authorizer, source Source, now func() time.Time) *Service {

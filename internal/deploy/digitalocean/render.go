@@ -124,8 +124,8 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		return deploy.Artifact{}, err
 	}
 	slug := d.Slug
-	// The project's repository is the forge's: one it made, or one the
-	// first copy below makes and the forge then records. Another's is
+	// The project's repository is AppTown's: one it made, or one the
+	// first copy below makes and AppTown then records. Another's is
 	// refused before anything is copied.
 	creating, err := d.claimRepository(ctx, client, registry)
 	if err != nil {
@@ -133,7 +133,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	}
 	// Each distinct image goes to DOCR once; a part and an init step that
 	// run the same image share it. A release's image by digest is copied
-	// from its registry, keeping its digest; an image on the forge's own
+	// from its registry, keeping its digest; an image on AppTown's own
 	// Docker (a release from before releases were published) is pushed.
 	pushed := map[string]doImage{}
 	imageFor := func(name, local string) (doImage, error) {
@@ -173,7 +173,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 			needSecrets[k] = v
 		}
 	}
-	// The forge's wiring wins over what the app declares, as on every
+	// AppTown's wiring wins over what the app declares, as on every
 	// target.
 	// Need references in the app's own values (contract version 2) take the
 	// need's value as App Platform delivers it (a bindable variable); a value
@@ -199,7 +199,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		for k, v := range secrets.EnvFor(part) {
 			m[k] = doEnv{Key: k, Value: v, Scope: "RUN_TIME", Type: "SECRET"}
 		}
-		// A need's credentials are the platform's secrets, and the forge's
+		// A need's credentials are the platform's secrets, and AppTown's
 		// wiring, as its connection is.
 		for k, v := range needSecrets {
 			m[k] = doEnv{Key: k, Value: v, Scope: "RUN_TIME", Type: "SECRET"}
@@ -351,12 +351,12 @@ func doHealth(p *appcontract.Part) *doHealthCheck {
 	return hc
 }
 
-// GateComponent is the forge gate's component in a gated app.
+// GateComponent is AppTown gate's component in a gated app.
 const GateComponent = "apptown-gate"
 
 // gatedRenderable refuses a gated placement the renderer cannot put behind
-// the gate whole: no secret (the gate would let nobody in, and the forge
-// could not check it), an image not pinned by digest, no forge to redeem
+// the gate whole: no secret (the gate would let nobody in, and AppTown
+// could not check it), an image not pinned by digest, no AppTown to redeem
 // tickets at, or a part already named as the gate.
 func gatedRenderable(g *deploy.Gate, c *appcontract.Contract) error {
 	switch {

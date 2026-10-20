@@ -440,7 +440,7 @@ func (d DockerTasks) Release(ctx context.Context, ref TaskRef) error {
 }
 
 // filesPath is the folder a task's generated files are kept in.
-// ReleaseWorkspace: local tasks mount the forge's own folder; they share no
+// ReleaseWorkspace: local tasks mount AppTown's own folder; they share no
 // workspace on the backend.
 func (d DockerTasks) ReleaseWorkspace(context.Context, string) error {
 	return fmt.Errorf("%w: local tasks share no workspace", ErrUnsupported)

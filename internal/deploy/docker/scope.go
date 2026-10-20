@@ -14,15 +14,15 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// Scope is which Docker daemon a command talks to: the forge's own
+// Scope is which Docker daemon a command talks to: AppTown's own
 // (Host == "") or an attached host's, reached over SSH by the alias the
-// forge keeps for it (target_attach.go). The environment path carries one
+// AppTown keeps for it (target_attach.go). The environment path carries one
 // from the driver down through boot, parts, services and probes, so a
 // standing deployment on a droplet is booted exactly like one here; every
 // other caller receives the local scope assembled in App.New.
 type Scope struct {
 	Client   Client
-	Host     string // DOCKER_HOST, "" for the forge's own daemon
+	Host     string // DOCKER_HOST, "" for AppTown's own daemon
 	Hostname string // the attached host's address, for probes and plain URLs
 	Domain   string // the attached host's ingress domain, "" when it has none
 	// Config is a Docker configuration folder of this scope's own, for one
@@ -42,7 +42,7 @@ type Scope struct {
 	// Redact replaces the values a boot generated (its needs' credentials)
 	// in what a failure keeps of a container's own output, before that is
 	// cut short (Boot sets it once its needs are resolved); nil keeps the
-	// text. It is never applied to what the forge compares or acts on.
+	// text. It is never applied to what AppTown compares or acts on.
 	Redact func(string) string
 }
 
@@ -199,7 +199,7 @@ func (dk Scope) ImageDigest(ctx context.Context, imageRef string) string {
 	return dk.Text(ctx, "image", "inspect", "--format", "{{index .RepoDigests 0}}", imageRef)
 }
 
-// ProbeURL is where the forge reaches a container's published port: its
+// ProbeURL is where AppTown reaches a container's published port: its
 // own loopback, or the attached host by address.
 func (dk Scope) ProbeURL(hostPort int) string {
 	if dk.Host == "" {
@@ -209,10 +209,10 @@ func (dk Scope) ProbeURL(hostPort int) string {
 }
 
 // PublishAddress is the address a container's port is published on. On
-// the forge's own daemon it is loopback: the forge is on the same host and
+// AppTown's own daemon it is loopback: AppTown is on the same host and
 // its proxy (vhost.go) is the only front door, so a wider bind would open a
 // LAN path around the proxy's header sanitisation. On an attached host it
-// is every interface: the forge probes the app there, and people reach it
+// is every interface: AppTown probes the app there, and people reach it
 // there when the host has no domain, at the host's address and the
 // published port (ProbeURL, FrontDoor). A loopback bind on that host is
 // reachable from neither. Who else may reach the port is the host's
@@ -237,7 +237,7 @@ func (dk Scope) DialAddress(hostPort int) string {
 // at <slug>.<domain>: the host has an ingress domain (only an attached host
 // does; a scope naming it for its address only, as attachedFrontDoor
 // builds, has no Host), and the deployment is main. The project's name is
-// main's, as the main tier domain is on the forge's own host (vhost.go):
+// main's, as the main tier domain is on AppTown's own host (vhost.go):
 // Traefik joins every container that declares one router into one service
 // and splits requests between them, so a second deployment carrying main's
 // route would take main's visitors (soak finding 55). Any other deployment

@@ -156,7 +156,7 @@ LEFT JOIN guidance_block_versions v ON v.block_id=gi.block_id AND v.version=gi.v
 WHERE gi.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND NOT gi.disabled
 ORDER BY gi.project_id,gi.position;
 
--- A project's adoption, row by row, for moving it to another forge.
+-- A project's adoption, row by row, for moving it to another AppTown.
 -- name: ExportAdoptionCurrent :many
 SELECT to_jsonb(a)::text FROM adoptions a WHERE a.project_id = $1;
 

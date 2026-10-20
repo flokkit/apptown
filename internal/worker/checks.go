@@ -29,7 +29,7 @@ import (
 
 // A check runs on the worker as one synchronous request, not a recorded
 // task (design/operations/workers.md, "Checks on the worker"):
-// the forge sends a staged tree, a spec and, for a history scan, a bundle of
+// AppTown sends a staged tree, a spec and, for a history scan, a bundle of
 // the commits it reads; the worker runs one container on a scratch copy and
 // answers with the exit, the output and the one declared report. It keeps
 // nothing: the scratch folder goes with the answer, and anything left over
@@ -48,7 +48,7 @@ const (
 )
 
 // CheckSpec is the wire form of one check container: the runner's request
-// with no path of the forge's in it.
+// with no path of AppTown's in it.
 type CheckSpec struct {
 	Image        string   `json:"image"`
 	Argv         []string `json:"argv"`
@@ -122,7 +122,7 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// An image that reads as one of Docker's options would widen what the
-	// check may do; it is refused here, whatever the forge sent.
+	// check may do; it is refused here, whatever AppTown sent.
 	if !execution.ValidImage(spec.Image) || spec.ExportImage != "" && !execution.ValidImage(spec.ExportImage) {
 		http.Error(w, "the check's image is not an image reference", http.StatusBadRequest)
 		return
@@ -181,7 +181,7 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 		history = &execution.History{Repository: repo}
 	}
 	// The whole body is read before the check runs: only then does the
-	// server notice the forge going away, and cancel the check with it.
+	// server notice AppTown going away, and cancel the check with it.
 	if err := drained(mr, r.Body); err != nil {
 		http.Error(w, "the check's request: "+err.Error(), http.StatusBadRequest)
 		return
@@ -439,7 +439,7 @@ const maxTrailer = 64 << 10
 
 // drained reads the request to its end: no part beyond those read, and at
 // most maxTrailer bytes after them. Only a request read to its end lets the
-// server notice the forge going away.
+// server notice AppTown going away.
 func drained(mr *multipart.Reader, body io.Reader) error {
 	if _, err := mr.NextPart(); err != io.EOF {
 		if err == nil {
@@ -466,7 +466,7 @@ type lifetime struct {
 }
 
 // bounded gives a request a lifetime, first of initial, and a body whose
-// reads end with it (a stalled upload, or a forge gone away).
+// reads end with it (a stalled upload, or an AppTown gone away).
 func bounded(w http.ResponseWriter, r *http.Request, initial time.Duration) (context.Context, *lifetime) {
 	ctx, cancel := context.WithCancel(r.Context())
 	l := &lifetime{timer: time.AfterFunc(initial, cancel), cancel: cancel, rc: http.NewResponseController(w)}

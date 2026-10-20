@@ -117,11 +117,11 @@ func (p Placed) Reap(ctx context.Context, alive map[string]bool) error {
 	return errors.Join(p.Local.Reap(ctx, alive), p.Remote.Reap(ctx, remote))
 }
 
-// ErrNoLocalChats refuses running a chat on a forge that runs none.
+// ErrNoLocalChats refuses running a chat on an AppTown that runs none.
 var ErrNoLocalChats = errors.New("this chat ran on AppTown, which no longer runs chats")
 
-// NoLocal is the local runtime of a forge that runs no chats
-// (-no-local-docker). That forge's start was refused while a chat placed on
+// NoLocal is the local runtime of an AppTown that runs no chats
+// (-no-local-docker). That AppTown's start was refused while a chat placed on
 // it had not ended, so nothing of one is here: its status is absent, and
 // stopping, removing, ending and reaping have nothing to do. Waking one is
 // refused (ErrNoLocalChats); its record and transcript stay.

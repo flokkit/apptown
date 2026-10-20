@@ -24,7 +24,7 @@ type Extensions struct {
 	agentImage string
 	authMode   string
 	db         *database.DB
-	now        func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now        func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewExtensions(projects *project.Projects, adoption *adoption.Service, access *identity.Service, docker *docker.Scope, catalog []CuratedExtension, agentImage string, authMode string, db *database.DB, now func() time.Time) Extensions {

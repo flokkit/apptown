@@ -26,7 +26,7 @@ type ModelSlots struct {
 	ways     *wow.Service
 	access   *identity.Service
 	db       *database.DB
-	now      func() time.Time // the forge's clock; nil is the real one
+	now      func() time.Time // AppTown's clock; nil is the real one
 }
 
 func NewModelSlots(models *model.Slots, projects *project.Projects, ways *wow.Service, access *identity.Service, db *database.DB, now func() time.Time) ModelSlots {

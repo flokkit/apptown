@@ -13,7 +13,7 @@ import (
 )
 
 // PruneSets removes a deployment's ordinary sets past keep, counted across
-// both places a set can be (the forge's disk and the backup store), each
+// both places a set can be (AppTown's disk and the backup store), each
 // deleted where it is: files on the disk (Backups.Prune), objects in the
 // store (pruneStore).
 func (s *Service) PruneSets(ctx context.Context, projectID ids.ID, deployment string, keep int) error {
@@ -22,7 +22,7 @@ func (s *Service) PruneSets(ctx context.Context, projectID ids.ID, deployment st
 }
 
 // Prune selects a deployment's ordinary sets past keep, counted across
-// both places, and removes those on the forge's disk: files first, then
+// both places, and removes those on AppTown's disk: files first, then
 // the record, under the exclusive lock restores share. Filesystem removal
 // cannot share a transaction with its database receipt, so removal comes
 // first and success is recorded after; a missing directory is safe to

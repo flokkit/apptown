@@ -90,7 +90,7 @@ type (
 		Project string `json:"project"`
 		Name    string `json:"name"`
 		URL     string `json:"url"`
-		// HostOnly: URL answers on the forge host only (deployment.Reach).
+		// HostOnly: URL answers on the AppTown host only (deployment.Reach).
 		HostOnly bool  `json:"hostOnly,omitempty"`
 		Running  *bool `json:"running"`
 		RuntimeObservationView

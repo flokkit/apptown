@@ -74,7 +74,7 @@ func TestReleaseCreationMembership(t *testing.T) {
 	}
 }
 
-// steppingClock is a forge clock an hour ahead of the real one that moves
+// steppingClock is an AppTown clock an hour ahead of the real one that moves
 // a second at every read, so each stamp is strictly after the last.
 func steppingClock() func() time.Time {
 	var n atomic.Int64
@@ -85,7 +85,7 @@ func steppingClock() func() time.Time {
 // A release carries the Changes that closed before it, judged by the
 // forge's clock on both sides: when the Change closed (Work's clock) and
 // when the bundle was cut or the last release made (deployment's clock).
-// The forge's clock here runs an hour ahead of the real one and the
+// AppTown's clock here runs an hour ahead of the real one and the
 // database's.
 //
 // Kills: a bundle cut, or a workflow release made, at the real clock (the

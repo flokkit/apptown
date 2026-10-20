@@ -27,7 +27,7 @@ import (
 // full-access maker key with the account's API token, makes the bucket with
 // it, mints the deployment's readwrite key for that bucket, and deletes the
 // maker key. The bucket and the key are on the deployment's owned list; the
-// key's secret is kept in the forge's secret store under the deployment's
+// key's secret is kept in AppTown's secret store under the deployment's
 // scope, since DigitalOcean gives it once.
 
 const (
@@ -42,14 +42,14 @@ const (
 )
 
 // Holdings is a deployment's owned list as the driver reads and writes it:
-// what the forge made for it at the provider beyond the app.
+// what AppTown made for it at the provider beyond the app.
 type Holdings interface {
 	Owned(ctx context.Context) ([]deploy.Owned, error)
 	Created(ctx context.Context, o deploy.Owned) error
 	Forget(ctx context.Context, kind, id string) error
 }
 
-// KeySecrets keeps the deployment's Spaces key secret in the forge's own
+// KeySecrets keeps the deployment's Spaces key secret in AppTown's own
 // secret store. Get answers "" when none is stored.
 type KeySecrets interface {
 	Get(ctx context.Context, name string) (string, error)
@@ -312,7 +312,7 @@ func (d *Driver) mintBucketKey(ctx context.Context, c *Client, deployment, bucke
 
 // BucketConnection is the connection the deployment's own Spaces key gives
 // to its bucket, for a copy of its objects: the Spaces endpoint, the
-// bucket, the key on the owned list and its secret from the forge's secret
+// bucket, the key on the owned list and its secret from AppTown's secret
 // store, read now and never recorded.
 func (d *Driver) BucketConnection(ctx context.Context, bucket string) (deploy.Connection, error) {
 	if d.Holdings == nil || d.Secrets == nil {

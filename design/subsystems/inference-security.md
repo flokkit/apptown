@@ -12,9 +12,9 @@ Inference requires **both** a live runtime credential and a connection from
 an explicitly allowed worker network. The inference handler has its own
 listener and is absent from the public web handler and the console API handler.
 It accepts console and step credentials, plus an ephemeral inference-only
-credential for the workflow drafting helper, which the forge uses in-process
+credential for the workflow drafting helper, which AppTown uses in-process
 (`Gateway.Complete`: the same admission, binding, model, receipt and
-cancellation checks, without the network check, as the caller is the forge
+cancellation checks, without the network check, as the caller is AppTown
 itself). Browser sessions, personal access
 tokens and the mere ability to reach the listener do not grant inference.
 
@@ -108,13 +108,13 @@ request. Neither ledger provides authoritative monetary settlement.
 ## Runtime and deployment contract
 
 Model agents run in containers: on the worker's Docker for agent steps and
-worker-placed change chats when a worker is configured, and on the forge host's
+worker-placed change chats when a worker is configured, and on the AppTown host's
 Docker otherwise, including project chats, step continuations and chats placed
-on the forge (none of which exist under `-no-local-docker`). A local process
+on AppTown (none of which exist under `-no-local-docker`). A local process
 can read the daemon's credential files/environment even if its own environment
 is filtered. Forge therefore refuses local model execution instead of presenting
 it as isolated. On a worker, agents reach this listener across the network at
-`-inference-url`; provider credentials never leave the forge host. The
+`-inference-url`; provider credentials never leave AppTown host. The
 shared-host/privileged-DinD escape risk remains TM-03; this proxy is not a
 boundary against a hostile tenant that can compromise the host it runs on.
 
@@ -129,8 +129,8 @@ Configure all three settings (equivalent environment variables are supported):
 Do not route this listener through public ingress or a generic shared reverse
 proxy. Choose the narrow addresses actually observed from both ordinary worker
 containers and console DinD networks; with a separate worker machine, those are
-the addresses its containers arrive from as the forge host sees them
-([workers](../operations/workers.md#running-a-forge-without-a-local-docker-daemon)). Confirm the host firewall and Docker
+the addresses its containers arrive from as AppTown host sees them
+([workers](../operations/workers.md#running-apptown-without-a-local-docker-daemon)). Confirm the host firewall and Docker
 routing in the deployment; do not infer protection from an RFC1918 address or
 an application proxy's access rules. Use a protected transport/network between
 hosts; the listener does not add TLS itself.

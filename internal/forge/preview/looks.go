@@ -22,7 +22,7 @@ import (
 // A preview stops eight hours after anyone last looked at it, and a
 // change's preview keeps its build images and its snapshot for thirty days
 // after the last look (design/subsystems/container-lifecycle.md). A look is
-// a request to the preview's address through the forge (vhost.go) or a boot
+// a request to the preview's address through AppTown (vhost.go) or a boot
 // of it.
 const (
 	idleStop  = 8 * time.Hour
@@ -33,14 +33,14 @@ const (
 	lookEvery = time.Minute
 )
 
-// looks is when this forge last wrote each preview's look.
+// looks is when this AppTown last wrote each preview's look.
 type looks struct {
 	mu      sync.Mutex
 	written map[string]time.Time
 }
 
 // Viewed records a look at the preview by this name (its app container's)
-// now, on the forge's clock, at most once a minute per preview. A look is
+// now, on AppTown's clock, at most once a minute per preview. A look is
 // never moved backwards. A write that fails is logged, and the next look
 // tries again.
 func (s *Service) Viewed(ctx context.Context, name string) {
@@ -86,7 +86,7 @@ func (s *Service) lastLooks(ctx context.Context) (map[string]time.Time, error) {
 // it is, and removes what a change's preview kept (its build images and
 // its snapshot) once thirty days have passed since its last look, with the
 // look. Build images and snapshots of a change's preview with no look,
-// that is not present, go too: nothing from before the forge recorded
+// that is not present, go too: nothing from before AppTown recorded
 // looks counts as looked at. Looks that cannot be read, or a place
 // previews run that cannot be asked, stop nothing and remove nothing this
 // pass. logOnly names what it would do and does nothing.
@@ -115,7 +115,7 @@ func (s *Service) Tend(ctx context.Context, logOnly bool) {
 	s.removeUnlooked(ctx, looks, present, logOnly)
 }
 
-// place is where a present preview is: on the worker, or on the forge's
+// place is where a present preview is: on the worker, or on AppTown's
 // own Docker with the stack its app names.
 type place struct {
 	worker bool
@@ -123,7 +123,7 @@ type place struct {
 }
 
 // presentPreviews are the previews present, running or not (an app that
-// exited is still there, with its stack): every preview app on the forge's
+// exited is still there, with its stack): every preview app on AppTown's
 // own Docker when it has one, and every preview on the worker when there is
 // one. Both can hold previews at once: a release recorded before bundles
 // boots its look here beside a worker.
@@ -255,8 +255,8 @@ func (s *Service) stillUnlooked(ctx context.Context, name string, before time.Ti
 var errKeptInUse = errors.New("a container still uses its build image")
 
 // removeKept removes a change's preview's build images wherever previews
-// run (the worker, and the forge's own Docker), and its snapshot folder,
-// which is always on the forge.
+// run (the worker, and AppTown's own Docker), and its snapshot folder,
+// which is always on AppTown.
 func (s *Service) removeKept(ctx context.Context, changeID ids.ID) error {
 	name := docker.PreviewChangeName(changeID)
 	if s.PreviewsOnWorker() {
@@ -279,7 +279,7 @@ func (s *Service) removeKept(ctx context.Context, changeID ids.ID) error {
 
 // removeUnlooked removes the snapshot folders, and the build images on the
 // forge's own Docker, of each change's preview with no look that is not
-// present: what was on this forge before it recorded looks. Each is
+// present: what was on this AppTown before it recorded looks. Each is
 // checked again under the preview's lock.
 func (s *Service) removeUnlooked(ctx context.Context, looks map[string]time.Time, present map[string]place, logOnly bool) {
 	owners := map[ids.ID]bool{}
@@ -345,7 +345,7 @@ func (s *Service) removeUnlookedOne(ctx context.Context, changeID ids.ID) {
 // that must know it worked (a deleted project's): on the worker its whole
 // stack and the build images it kept, and its look. Nothing is kept for a
 // reopen. Without a worker its stack and images on this machine are the
-// caller's, as the forge's own Docker is.
+// caller's, as AppTown's own Docker is.
 func (s *Service) RemovePreviewForGood(ctx context.Context, name string) error {
 	if s.PreviewsOnWorker() {
 		if err := s.removeOnWorker(ctx, name); err != nil {

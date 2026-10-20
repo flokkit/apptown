@@ -138,7 +138,7 @@ func fixRequired(ctx context.Context, db database.Queryer, prev, next Verdict) (
 	return len(adj) > 0, err
 }
 
-// recordFixIn records a fix at the forge's clock (at).
+// recordFixIn records a fix at AppTown's clock (at).
 func recordFixIn(ctx context.Context, tx *database.Tx, req verdictAdmission, saved Verdict, at time.Time) error {
 	f := req.Fix
 	if f == nil {

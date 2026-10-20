@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/forge/adoption/internal/adoptionsql"
 )
 
-// ProjectExport is a project's adoption as it moves to another forge: its
+// ProjectExport is a project's adoption as it moves to another AppTown: its
 // current selection, its revision history verbatim (receipts name the
 // source's library ids; they are never resolved elsewhere), and what it has
 // installed. Library content travels separately (wow.ExportVersions).

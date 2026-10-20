@@ -31,7 +31,7 @@ func (projectEstablished) Error() string {
 func (projectEstablished) FaultKind() fault.Kind { return fault.Conflict }
 func (projectEstablished) FaultCode() string     { return "project-established" }
 
-// CommitGenesis is the one way the forge writes a project's main outside a
+// CommitGenesis is the one way AppTown writes a project's main outside a
 // landing: only while the project has no Change. The wizard's services, the
 // pack's starter files and the toolchain door all commit through it, so
 // "nothing reaches main except through a Change" has no quiet exception for

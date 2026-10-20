@@ -20,7 +20,7 @@ import (
 // Schedules fires scheduled workflows: library workflows with on.schedule,
 // for every project that selected them (design/decisions/workflows-as-lanes.md:
 // the schedule is a trigger on an explicitly selected, pinned lane). A firing
-// opens a Change and starts its run, attributed to the forge acting through
+// opens a Change and starts its run, attributed to AppTown acting through
 // the schedule.
 type Schedules struct {
 	Actions  *Service
@@ -201,7 +201,7 @@ type ProjectSchedules struct {
 
 // ProjectSchedule is one schedule a project carries, named by its source:
 // today always the adopted workflow version that declares it. Cron is read
-// in UTC, the forge's time. Next is when the scheduler will next fire it,
+// in UTC, AppTown's time. Next is when the scheduler will next fire it,
 // from its own record and its own cron parser; Due says that time has
 // passed and the next tick fires it. Last is the last firing, nil when it
 // never fired. Problem says why the schedule could not be read; Next and
@@ -217,7 +217,7 @@ type ProjectSchedule struct {
 	Problem      string
 }
 
-// Of is the project's schedules at now (the forge's clock): each schedule
+// Of is the project's schedules at now (AppTown's clock): each schedule
 // its adopted, selected workflows carry, with its next and last firing. A
 // schedule not yet armed is armed at the scheduler's next tick and fires
 // first at its next time after that. Missed firings are never replayed, so
@@ -267,7 +267,7 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (Pr
 	return out, nil
 }
 
-// asSchedule is the forge acting for itself in a project, through a schedule.
+// asSchedule is AppTown acting for itself in a project, through a schedule.
 func asSchedule(ctx context.Context, projectID ids.ID) context.Context {
 	return access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "schedule", ProjectID: projectID}, Verified: true, Receipt: "system"})
 }

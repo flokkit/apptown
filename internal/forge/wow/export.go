@@ -12,11 +12,11 @@ import (
 )
 
 // VersionRef names one library version a moving project uses. Library
-// numbering is this forge's own, so the version's content travels with it.
+// numbering is this AppTown's own, so the version's content travels with it.
 type VersionRef struct {
 	Kind    string // guidance | workflow | pack
 	Name    string // guidance and workflow: by name
-	PackID  ids.ID // pack: by this forge's id
+	PackID  ids.ID // pack: by this AppTown's id
 	Version int64
 }
 
@@ -27,7 +27,7 @@ type ExportedVersion struct {
 }
 
 // ExportVersionsIn reads the library versions a moving project uses. A
-// version this forge does not hold is said by name, never skipped.
+// version this AppTown does not hold is said by name, never skipped.
 func ExportVersionsIn(ctx context.Context, q database.Queryer, refs []VersionRef) ([]ExportedVersion, error) {
 	s := wowsql.New(q.SQL())
 	out := make([]ExportedVersion, 0, len(refs))

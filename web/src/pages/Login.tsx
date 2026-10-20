@@ -5,7 +5,7 @@ import { LocalTrialNote, takeSetupToken } from '../LocalTrialNote'
 
 // The front door for internal-auth instances. First run has no accounts,
 // so the same screen creates the first one (as admin), with the setup token
-// the forge wrote on its host — bootstrap is refused by the server without
+// AppTown wrote on its host — bootstrap is refused by the server without
 // it, and the moment any account exists.
 export default function Login({ needsBootstrap, onSignedIn }: {
   needsBootstrap: boolean

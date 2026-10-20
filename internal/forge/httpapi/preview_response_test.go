@@ -20,7 +20,7 @@ func TestPreviewCommitDisplay(t *testing.T) {
 }
 
 // The page shows, rather than opens, an address the owner says answers on
-// the forge host only.
+// AppTown host only.
 func TestPreviewResponseCarriesTheHostOnlyMark(t *testing.T) {
 	if out := previewResponse(preview.Result{URL: "http://forge.example:40001"}, true); !out.HostOnly {
 		t.Fatalf("host-only preview: %+v", out)

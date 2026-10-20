@@ -22,7 +22,7 @@ type PackLibrary struct {
 	whatIfs *conformance.Service
 	access  *identity.Service
 	db      *database.DB
-	now     func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now     func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewPackLibrary(ways *wow.Service, whatIfs *conformance.Service, access *identity.Service, db *database.DB, now func() time.Time) PackLibrary {

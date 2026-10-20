@@ -36,7 +36,7 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, pack *w
 	if p.DefaultBranch != "" && pack.Name != adoption.PlatformPack {
 		platform, err := s.ways.Pack(ctx, adoption.PlatformPack)
 		if err != nil {
-			return nil, fmt.Errorf("selecting published pack forge: %w", err)
+			return nil, fmt.Errorf("selecting published pack %s: %w", adoption.PlatformPack, err)
 		}
 		picks = append(picks, adoption.PackPick{Pack: adoption.PlatformPack, Version: platform.Version})
 	}
@@ -123,7 +123,7 @@ type PackApplied struct {
 // seedPackFiles copies stock/seeds/<pack>/ into a new project's repo,
 // skipping any file that already exists (an existing repo is never
 // overwritten), and commits the batch. Returns the paths written, and each
-// file refused because the forge would have written through a link the
+// file refused because AppTown would have written through a link the
 // repository holds, with why: that file is skipped, the rest are written.
 func (s *Service) seedPackFiles(ctx execcontext.Context, p *project.Project, packName, who string) (written, refused []string, err error) {
 	if p.DefaultBranch == "" {

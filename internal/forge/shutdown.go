@@ -17,7 +17,7 @@ const backgroundShutdownGrace = 5 * time.Second
 func (a *App) ShutdownBackground(ctx context.Context) error {
 	defer a.endLife()
 	// Work first: from here a step's failure is not recorded (the processes
-	// it ran are being killed with the forge), and the sooner Work knows,
+	// it ran are being killed with AppTown), and the sooner Work knows,
 	// the fewer such failures reach it before it does.
 	workflows := a.Work.BeginShutdown()
 	a.StopConsoles(ctx) // cancel local Docker control; session containers survive

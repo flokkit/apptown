@@ -24,7 +24,7 @@ import (
 //   - running: claimed by a worker;
 //   - succeeded: the stated command completed (see Verification);
 //   - failed: a known failure, possibly after recorded partial effects;
-//   - unknown: the outcome cannot be established (the forge stopped, a
+//   - unknown: the outcome cannot be established (AppTown stopped, a
 //     panic, an unclassified error, the budget ran out);
 //   - cancelled: an acknowledged safe stop.
 type OperationState uint8
@@ -65,7 +65,7 @@ const (
 )
 
 // OperationStep is one step as it happened. Ended is nil while it runs. Failed says
-// it did not succeed; Unknown says the forge stopped in it, so whether it
+// it did not succeed; Unknown says AppTown stopped in it, so whether it
 // did is not known.
 type OperationStep struct {
 	Name    string     `json:"name"`
@@ -83,7 +83,7 @@ type OperationStep struct {
 // ceiling an effect is checked against, never authority of its own.
 type Authority struct {
 	// PrincipalID is the person who answers for the operation; Nil for the
-	// forge and for an operation recorded before principals.
+	// AppTown and for an operation recorded before principals.
 	PrincipalID  ids.ID   `json:"principal,omitzero"`
 	Kind         string   `json:"kind"`
 	Name         string   `json:"name"`
@@ -123,19 +123,19 @@ func (a Authority) Actor() access.Actor {
 	return a.Principal().Actor()
 }
 
-// System is the forge acting for itself under a named binding (the
+// System is AppTown acting for itself under a named binding (the
 // scheduled copies, the restored-copy sweep).
 func System(binding string) access.Principal {
 	return access.Principal{Kind: "instrument", Name: SystemActor, Instrument: "forge", Via: "system", Credential: "system:" + binding}
 }
 
-// SystemActor is the name the forge acts under for itself.
+// SystemActor is the name AppTown acts under for itself.
 const SystemActor = "apptown-system"
 
 // Operation is one row of the ledger.
 type Operation struct {
 	ID        ids.ID `json:"id"`
-	Number    int64  `json:"number"` // within the forge, as people name it ("operation 9")
+	Number    int64  `json:"number"` // within AppTown, as people name it ("operation 9")
 	Kind      string `json:"kind"`
 	ProjectID ids.ID `json:"projectId"`
 	// Subject is the hold path the operation is about; "" for history

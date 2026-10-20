@@ -25,7 +25,7 @@ type Block struct {
 	Tags          string `json:"tags"`
 	LatestVersion int    `json:"latestVersion"`
 	BodyMD        string `json:"bodyMd,omitempty"`
-	// Origin is "stock" for a forge-shipped block (read-only in the UI; fork
+	// Origin is "stock" for an AppTown-shipped block (read-only in the UI; fork
 	// it by making your own pack) or "" for an institution-authored one.
 	Origin    string `json:"origin"`
 	CreatedAt string `json:"createdAt"`
@@ -33,7 +33,7 @@ type Block struct {
 	// Bytes is the size of the shown version's body: every block an agent
 	// is handed costs context, so the size sits beside the name.
 	Bytes int `json:"bytes"`
-	// Tier is '' or platform (the forge's own contract, on every
+	// Tier is '' or platform (AppTown's own contract, on every
 	// repo-backed project); Conflicts is a comma list of blocks this one
 	// contradicts.
 	Tier      string `json:"tier,omitempty"`
@@ -79,7 +79,7 @@ func ValidName(name string) bool { return blockNameRe.MatchString(name) }
 // Library is the supported API over guidance blocks, versions and imports.
 type Library struct {
 	db *database.DB
-	// clock is the forge's clock, which stamps a block version: an
+	// clock is AppTown's clock, which stamps a block version: an
 	// adoption resolves a block as of its own time, by the same clock.
 	// nil is the real one.
 	clock func() time.Time

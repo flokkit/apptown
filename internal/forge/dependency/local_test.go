@@ -39,7 +39,7 @@ func TestLocalResolution(t *testing.T) {
 		{name: "defaults", image: "postgres:16-alpine", url: "postgres://app:app@postgres:5432/app?sslmode=disable"},
 		{name: "overrides", params: map[string]string{"version": "15", "database": "sourdough", "user": "sourdough"},
 			image: "postgres:15-alpine", url: "postgres://sourdough:app@postgres:5432/sourdough?sslmode=disable"},
-		// The password is the forge's: a parameter naming one (refused
+		// The password is AppTown's: a parameter naming one (refused
 		// before this, RefusesNeeds) never reaches the service.
 		{name: "password parameter", params: map[string]string{"password": "chosen"},
 			image: "postgres:16-alpine", url: "postgres://app:app@postgres:5432/app?sslmode=disable"},

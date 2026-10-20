@@ -36,9 +36,9 @@ func mainMergeHub(t *testing.T) (hub string, write func(branch string, files map
 	return hub, write
 }
 
-// The forge's catch-up merge: a branch behind main gets an ordinary merge
+// AppTown's catch-up merge: a branch behind main gets an ordinary merge
 // commit with the branch first and main second, holding both sides' work,
-// made by the forge and moving no ref; a branch that contains main, or a
+// made by AppTown and moving no ref; a branch that contains main, or a
 // repository without main, needs none; a merge with conflicts is not made,
 // and the files are named.
 func TestTheForgeMergesMainOnlyWhenTheBranchIsBehindAndTheMergeIsClean(t *testing.T) {

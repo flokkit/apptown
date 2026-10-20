@@ -190,7 +190,7 @@ func wantCount(t *testing.T, what string, got, want int) {
 	}
 }
 
-// queuedJobs is the jobs owner's listing of forge operations, filtered to one
+// queuedJobs is the jobs owner's listing of AppTown operations, filtered to one
 // operation and one state ("" for any). A full page fails the test, so the
 // listing is every operation on the queue.
 func queuedJobs(t *testing.T, db *database.DB, operation, state string) []jobs.Job {

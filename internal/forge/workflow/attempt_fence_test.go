@@ -12,7 +12,7 @@ import (
 
 // A participant's write fenced by a claimed attempt runs only while that
 // attempt still owns its step, and is handed that attempt: one interrupted
-// (a forge restart) or superseded by a later attempt writes nothing, and
+// (an AppTown restart) or superseded by a later attempt writes nothing, and
 // the later attempt writes as itself.
 func TestAFencedWriteRunsOnlyWhileItsAttemptOwnsTheStep(t *testing.T) {
 	t.Parallel()

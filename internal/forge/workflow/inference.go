@@ -17,7 +17,7 @@ type InferenceObservation struct {
 	LiveAttempt bool
 	Owner       string
 	// OwnerPrincipal is the owner's principal when the owner is a person;
-	// zero for the forge, a run, or one not resolved to a person.
+	// zero for AppTown, a run, or one not resolved to a person.
 	OwnerPrincipal ids.ID
 }
 

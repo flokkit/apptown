@@ -51,11 +51,11 @@ describe('receipts', () => {
    checkReading: { unreadable: 'unreadable check evidence: check "tone": invalid check verdict: ""' } } as unknown as Step
   expect(receiptOf(s).sentence).toBe('Its check evidence could not be read.')
  })
- it("reads a review the forge's file check failed as the forge's failure, not a quote from the reviewer", () => {
+ it("reads a review AppTown's file check failed as AppTown's failure, not a quote from the reviewer", () => {
   const s = { id: '00000000-0003-7000-8000-000000000000', type: 'agent/review', name: 'review', status: 'fail', config: {}, overrideBy: '', evidence: {
-   reason: "the forge's file check failed: 1 changed file the report doesn't mention", summary: "the forge's file check failed: 1 changed file the report doesn't mention",
+   reason: "AppTown's file check failed: 1 changed file the report doesn't mention", summary: "AppTown's file check failed: 1 changed file the report doesn't mention",
    reviewerVerdict: 'pass', reviewerSummary: 'looks good' } } as unknown as Step
-  expect(receiptOf(s).sentence).toBe("the forge's file check failed: 1 changed file the report doesn't mention; the reviewer itself passed it.")
+  expect(receiptOf(s).sentence).toBe("AppTown's file check failed: 1 changed file the report doesn't mention; the reviewer itself passed it.")
  })
 })
 
@@ -108,12 +108,12 @@ describe('the disagreement', () => {
   expect(v[2].findings).toEqual(['one', 'two'])
   expect(claimOf(d)?.kind).toBe('change-report')
  })
- it("keeps the forge's file check apart from a reviewer who passed the work", () => {
+ it("keeps AppTown's file check apart from a reviewer who passed the work", () => {
   const [v] = disputeOf(detail([{ name: 'review', type: 'agent/review', status: 'fail', evidence: {
    verdict: 'fail', reviewerVerdict: 'pass', reviewerSummary: 'all claims verified',
-   summary: "the forge's file check failed: 2 changed files the report doesn't mention", findings: ['unclaimed change: Gemfile, bin/rails'] } }]))
+   summary: "AppTown's file check failed: 2 changed files the report doesn't mention", findings: ['unclaimed change: Gemfile, bin/rails'] } }]))
   expect(v.who).toBe("AppTown's file check")
-  expect(v.text).toBe("the forge's file check failed: 2 changed files the report doesn't mention")
+  expect(v.text).toBe("AppTown's file check failed: 2 changed files the report doesn't mention")
   expect(v.reviewerPassed).toBe('all claims verified')
   expect(disputeOf(detail([{ name: 'review', type: 'agent/review', status: 'fail', evidence: { summary: 'scope creep' } }]))[0].who).toBe('reviewer')
  })

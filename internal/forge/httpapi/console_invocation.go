@@ -26,7 +26,7 @@ type ConsoleInvocation struct {
 	actions    *changeactions.Service
 	db         *database.DB
 	publicHost string
-	now        func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now        func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewConsoleInvocation(sessions *console.Service, projects *project.Projects, ways *wow.Service, work *workflow.Service, actions *changeactions.Service, db *database.DB, publicHost string, now func() time.Time) ConsoleInvocation {

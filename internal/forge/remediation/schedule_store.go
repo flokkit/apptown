@@ -15,7 +15,7 @@ import (
 // Schedule reads what may be offered and closes what is finished.
 type Schedule struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func NewSchedule(db *database.DB, now func() time.Time) Schedule { return Schedule{db: db, clock: now} }
@@ -81,7 +81,7 @@ func readRemediationQueueJobs(ctx context.Context, tx *database.Tx, free int) ([
 }
 
 // readRemediationQueueItems is a job's queued items whose wait has passed
-// by at, the forge's clock.
+// by at, AppTown's clock.
 func readRemediationQueueItems(ctx context.Context, tx *database.Tx, job ids.ID, at time.Time) ([]Item, error) {
 	rows, err := queries(tx).QueuedItemsForJob(ctx, remediationsql.QueuedItemsForJobParams{RemediationID: job, At: at})
 	if err != nil {

@@ -10,7 +10,7 @@ import (
 )
 
 // The intranet release (design/subsystems/lan-release.md): the stack file
-// the forge hands Portainer for one release of one app, and the plan a
+// AppTown hands Portainer for one release of one app, and the plan a
 // release runs from, with every built part pointed at the recorded image.
 // Forge keeps the resolution of needs and secrets; this is the rendering.
 
@@ -78,7 +78,7 @@ func IntranetCompose(st IntranetStack) string {
 	b.WriteString("services:\n")
 	var volumes []string
 
-	// writeEnv writes one environment mapping. The forge's own values
+	// writeEnv writes one environment mapping. AppTown's own values
 	// (extra: DATA_DIR, APPTOWN_ORIGINS, APPTOWN_RELEASE) are set last into
 	// the same map, so each key appears once and theirs wins over a
 	// contract's or a secret's of the same name, as the last -e does on a
@@ -259,13 +259,13 @@ func IntranetCompose(st IntranetStack) string {
 // ComposeLiteral is s written so that Compose reads it back unchanged.
 // Compose interpolates every value in a compose file: $NAME and ${NAME}
 // are replaced from the environment of whoever runs Compose (on Portainer,
-// variables the forge never sets, so they read as empty), and $$ is a
-// literal $. The forge never relies on that: a value it writes (a secret,
+// variables AppTown never sets, so they read as empty), and $$ is a
+// literal $. AppTown never relies on that: a value it writes (a secret,
 // a contract's environment, a start script's shell variables) means what
 // it says, as with docker run -e on a Docker host. So each $ is $$.
 func ComposeLiteral(s string) string { return strings.ReplaceAll(s, "$", "$$") }
 
-// ComposeRead is what Compose reads from a value the forge wrote with
+// ComposeRead is what Compose reads from a value AppTown wrote with
 // ComposeLiteral: each $$ is one $.
 func ComposeRead(s string) string { return strings.ReplaceAll(s, "$$", "$") }
 

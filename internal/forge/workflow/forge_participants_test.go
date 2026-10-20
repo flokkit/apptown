@@ -9,7 +9,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// The scoped participants forge composes with: run counts per workflow on
+// The scoped participants AppTown composes with: run counts per workflow on
 // one project, a run's preview steps, a schedule's arming and last firing,
 // and an artifact stored as text or bytes as its body demands.
 func TestForgeParticipants(t *testing.T) {

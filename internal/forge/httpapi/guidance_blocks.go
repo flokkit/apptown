@@ -108,7 +108,7 @@ func (h GuidanceBlocks) PatchBlock(w http.ResponseWriter, r *http.Request) {
 	// editing it in place would be clobbered on the next release. To diverge,
 	// make your own pack that excludes the stock block and includes your own.
 	if b.Origin == "stock" {
-		WriteError(w, 409, "%q is a forge-shipped (stock) guidance block — it is read-only and auto-upgrades on release. To customize, author your own block and swap it in via a pack.", b.Name)
+		WriteError(w, 409, "%q is an AppTown-shipped (stock) guidance block — it is read-only and auto-upgrades on release. To customize, author your own block and swap it in via a pack.", b.Name)
 		return
 	}
 	// Strict: a misspelt key in a check (severty for severity) is refused

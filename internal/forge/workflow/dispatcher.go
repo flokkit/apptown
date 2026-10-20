@@ -45,7 +45,7 @@ type dispatcher struct {
 	again   map[ids.ID]DispatchPlan
 	adopt   map[ids.ID]bool // running steps to recover in place (RestartPending)
 	stopped bool
-	// shuttingDown: the forge itself is stopping (BeginShutdown), not only
+	// shuttingDown: AppTown itself is stopping (BeginShutdown), not only
 	// this dispatcher's admission (a test's Stop).
 	shuttingDown bool
 	stopDone     chan struct{}
@@ -197,7 +197,7 @@ func (d *dispatcher) BeginStop() <-chan struct{} {
 	return d.stopDone
 }
 
-// beginShutdown is BeginStop because the forge is stopping: from now on a
+// beginShutdown is BeginStop because AppTown is stopping: from now on a
 // step's verdict other than a pass is not recorded (Execution.Settle).
 func (d *dispatcher) beginShutdown() <-chan struct{} {
 	d.mu.Lock()
@@ -380,7 +380,7 @@ type dispatcherConfig struct {
 	Recoverers map[string]func(ids.ID)
 	Stages     dispatchStageHooks
 	Report     func(error)
-	Now        func() time.Time // the forge's clock; nil is the real one
+	Now        func() time.Time // AppTown's clock; nil is the real one
 }
 
 // newDispatcher owns its records and freezes the runner registry. Plans describe

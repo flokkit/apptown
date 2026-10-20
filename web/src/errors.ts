@@ -1,11 +1,11 @@
 import * as Sentry from '@sentry/browser'
 import type { BrowserErrorReporting } from './wire.gen'
 
-// The forge's own web UI reports its exceptions to the same GlitchTip
+// AppTown's own web UI reports its exceptions to the same GlitchTip
 // project apptownd reports to (self_errors.go): uncaught errors, unhandled
 // promise rejections, and render faults the ErrorBoundary catches. The
-// DSN comes from the forge — a DSN is public by design — and is empty
-// while the forge project is unattached, in which case nothing is
+// DSN comes from AppTown — a DSN is public by design — and is empty
+// while AppTown project is unattached, in which case nothing is
 // initialised and nothing is sent. No tracing, no replays: errors only.
 let ready = false
 

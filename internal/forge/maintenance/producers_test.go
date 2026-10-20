@@ -19,7 +19,7 @@ import (
 )
 
 // The containers a step leaves, its own and its private daemon's, are aged
-// on the clock that labelled them: the forge's. With that clock three days
+// on the clock that labelled them: AppTown's. With that clock three days
 // ahead of the machine's, both are new when they are made and reapable
 // three hours later by the same clock, as their owner step is gone.
 func TestAStepsContainersAgeOnTheForgesClock(t *testing.T) {

@@ -2,7 +2,7 @@
 
 This extends `testing.md` with the tier between integration tests and live fire:
 **journeys** — whole operational flows driven through the public API and
-CLI, the way a person or agent actually uses the forge.
+CLI, the way a person or agent actually uses AppTown.
 
 ## Why this is tractable at all
 
@@ -35,7 +35,7 @@ person who connected it.
 Cross-cutting on every door: previews and the boot gate, approvals (means,
 quorum, groups), overrides, rework loops, abandon, complaints, the
 current-rules pause, and packaging (one rail: releasable = an image
-contract or a Dockerfile in the repo; the forge builds Dockerfiles, it
+contract or a Dockerfile in the repo; AppTown builds Dockerfiles, it
 never writes them).
 
 ### Axis 2 — the governance nouns and their lifecycle
@@ -127,8 +127,8 @@ standing probes, asserted continuously and at the end:
 
 ### 5. Old data (the upgrade answer)
 
-"Don't break people's stuff while changing the forge" means: current binary,
-yesterday's data. Each release freezes a forge's data in
+"Don't break people's stuff while changing AppTown" means: current binary,
+yesterday's data. Each release freezes an AppTown's data in
 `internal/forge/testdata/upgrade/<version>`, and `make upgrade-test` boots the
 candidate against every one of them and checks that it upgrades and keeps its
 records ([releasing](../operations/releasing.md)).
@@ -139,7 +139,7 @@ records ([releasing](../operations/releasing.md)).
 unit + race         every push       minutes      (docker: the test database)
 integration         every push       ~8 min       (docker-host runner; nightly on a Mac, every package: ~13 min)
 journeys            every push       ~1 min       (docker-host runner, fake pi; nightly on a Mac)
-browser, pi,        nightly on a Mac seconds      (Playwright, the pinned Pi, the forge-agent image)
+browser, pi,        nightly on a Mac seconds      (Playwright, the pinned Pi, AppTown-agent image)
  inference_docker
 upgrade             each release candidate (`make upgrade-test`, §5)
 ```

@@ -19,7 +19,7 @@ const MAIL = '00000000-0004-7000-8000-000000000000'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const whatIf = {
-  id: WHAT_IF, pack: 'team', version: 2, requestedBy: 'bls', state: 'interrupted', detail: 'the forge restarted', projectsTotal: 4, projectsDone: 3,
+  id: WHAT_IF, pack: 'team', version: 2, requestedBy: 'bls', state: 'interrupted', detail: 'AppTown restarted', projectsTotal: 4, projectsDone: 3,
   createdAt: '2026-10-05T00:00:00Z', finishedAt: '', rubrics: true, spendLimitMicros: 500000, costMicros: 800000, incomplete: 1,
   rows: [
     { projectId: LEDGER, projectSlug: 'ledger', sha: '0123456789abcdef', adoptionRevision: 2, block: 'docs', check: 'readme', result: 'would-fail', proposed: 'does-not-conform', detail: 'no README' },
@@ -148,7 +148,7 @@ describe('the what-if page', () => {
 
   // Adopting asks each ticked project's own adopt door in turn, bound to
   // the candidate assessed; a project with none cannot be ticked. A refusal
-  // is the forge's words on that row and the next project is still asked;
+  // is AppTown's words on that row and the next project is still asked;
   // an answer that never arrived (or a server failure) is "not known",
   // never "opened".
   it('adopts on the ticked projects, one request each, and says what came of each', async () => {
@@ -188,7 +188,7 @@ describe('the what-if page', () => {
   // A run belongs to the page and the person who confirmed it: when the
   // page goes (as it does when the person acting changes) no further
   // project is asked, so nobody's request goes out under another's name
-  // (review WA-C01). Opening a Change refreshes what the forge holds about
+  // (review WA-C01). Opening a Change refreshes what AppTown holds about
   // projects and Changes (WA-C02).
   it('asks no further project once the page has gone', async () => {
     const posted: string[] = []

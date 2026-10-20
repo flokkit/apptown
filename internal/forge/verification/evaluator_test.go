@@ -66,7 +66,7 @@ func TestChecklistKeepsTheSpendOfAFailedCall(t *testing.T) {
 	}
 }
 
-// timedRun runs every command in seven seconds of the forge's clock.
+// timedRun runs every command in seven seconds of AppTown's clock.
 type timedRun struct {
 	Effects
 	at *atomic.Int64
@@ -77,7 +77,7 @@ func (r timedRun) Run(context.Context, execution.Request) execution.Outcome {
 	return execution.Outcome{}
 }
 
-// A shell check's reported duration is measured on the forge's clock, which
+// A shell check's reported duration is measured on AppTown's clock, which
 // the evaluator gives its judge.
 func TestAShellChecksDurationIsTheForgesClock(t *testing.T) {
 	t.Parallel()

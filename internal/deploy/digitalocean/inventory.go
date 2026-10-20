@@ -13,7 +13,7 @@ import (
 // Spaces keys as the provider reports them. Spaces buckets are S3 objects
 // the account's API does not list, so they are not here: a deployment's
 // bucket is shown by its key, whose grant names it. A key is reported only
-// to confirm a record, except a maker key a forge left (its name says so),
+// to confirm a record, except a maker key an AppTown left (its name says so),
 // which shows as unrecorded: a live full-access credential.
 func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	c, cfg, err := i.Client(ctx)

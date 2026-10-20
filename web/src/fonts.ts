@@ -1,5 +1,5 @@
-// The Ledger fonts, bundled by the build so the forge never fetches type
-// from a CDN at runtime (an offline or locked-down forge looks the same).
+// The Ledger fonts, bundled by the build so AppTown never fetches type
+// from a CDN at runtime (an offline or locked-down AppTown looks the same).
 // Each file declares its subsets with unicode-range, so a browser downloads
 // only the subsets a page uses. Only the weights the tokens name are loaded:
 // see --fw-* and the font stacks in styles.css.

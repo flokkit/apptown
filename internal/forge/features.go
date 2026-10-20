@@ -38,7 +38,7 @@ func parseFeatures(list string) (map[string]bool, error) {
 	return on, nil
 }
 
-// Feature reports whether a flag is on for this forge.
+// Feature reports whether a flag is on for this AppTown.
 func (a *App) Feature(name string) bool { return a.cfg.features[name] }
 
 // enabledFeatures lists the flags that are on, sorted, for the API.

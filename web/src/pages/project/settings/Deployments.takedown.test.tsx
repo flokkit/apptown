@@ -19,7 +19,7 @@ const protection = (takeDown: string, finalCopy: boolean) => ({
   operations: Object.fromEntries(['copy', 'check', 'restore', 'rehearsal', 'startFromCopy', 'finalCopy'].map((k) => [k, finalCopy ? { available: true } : { available: false, reason: 'no-copy-runner', why: 'Backups and restore tests need a copy runner.' }])), takeDown,
 })
 
-// A cloud deployment's take-down says, from the forge's answer, what it
+// A cloud deployment's take-down says, from AppTown's answer, what it
 // does to the data before anyone confirms; when no final copy can be taken,
 // the confirmation is the explicit choice to go without one, and only then
 // does the request carry that choice, naming the deployment.
@@ -30,7 +30,7 @@ describe('taking down a deployment that holds data', () => {
     const reads = { protection: prot as unknown, failing: false }
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === 'DELETE') { deletes.push(init.body as string | undefined); return new Response(JSON.stringify({ ok: true, deleted: [], orphans: [] })) }
-      if (String(url).includes('/protection') && reads.failing) return new Response(JSON.stringify({ error: 'the forge is restarting' }), { status: 503 })
+      if (String(url).includes('/protection') && reads.failing) return new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 503 })
       return new Response(JSON.stringify(String(url).includes('/protection') ? reads.protection : { user: 'bls', instance: {} }))
     }))
     const client = newQueryClient()

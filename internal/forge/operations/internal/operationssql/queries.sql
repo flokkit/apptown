@@ -82,7 +82,7 @@ ORDER BY id DESC LIMIT sqlc.arg(row_limit)::bigint;
 -- name: OperationIDByNumber :one
 SELECT id FROM operations WHERE number = $1;
 
--- What a forge restart would interrupt: every running operation, oldest
+-- What an AppTown restart would interrupt: every running operation, oldest
 -- first (apptown executing).
 -- name: RunningOperations :many
 SELECT * FROM operations WHERE state = 'running' ORDER BY id;

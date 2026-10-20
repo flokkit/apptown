@@ -16,7 +16,7 @@ import (
 )
 
 // Every task on the worker mounts the worker's one tool cache, writable, at
-// the path the forge points mise's download cache to, so a toolchain's
+// the path AppTown points mise's download cache to, so a toolchain's
 // release listings and archives are fetched once per worker, not once per
 // task. The worker's records, trees and generated files are not in it.
 func TestAWorkerTaskSharesTheWorkersToolCache(t *testing.T) {

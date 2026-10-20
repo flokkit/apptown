@@ -11,7 +11,7 @@ import (
 )
 
 // ExportProjectIn reads a project's spend rows whole, for moving the project
-// to another forge, where they count once as imported spend. Read cursors
+// to another AppTown, where they count once as imported spend. Read cursors
 // are keyed by this host's paths and do not move.
 func ExportProjectIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]json.RawMessage, error) {
 	return database.JSONRows(usagesql.New(q.SQL()).ExportTokenUsage(ctx, projectID))

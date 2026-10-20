@@ -142,7 +142,7 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 			if a.cfg.authProxySecret != "" &&
 				subtle.ConstantTimeCompare([]byte(r.Header.Get("X-AppTown-Proxy-Secret")), []byte(a.cfg.authProxySecret)) == 1 {
 				if user := r.Header.Get(a.cfg.authHeader); user != "" {
-					// A name the forge would read as something else
+					// A name AppTown would read as something else
 					// ("x via console/y", "run/3") is refused, not recorded.
 					if err := identity.ValidName(user); err != nil {
 						writeErr(w, 401, "the identity provider's user name is not usable here: %s", fault.Message(err))

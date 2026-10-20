@@ -136,7 +136,7 @@ func TestAVoteIsRefusedWhenItsListWasReadForAnotherCandidate(t *testing.T) {
 // it was read for: without the list's digest, with another digest, or with
 // one read before the branch moved, the vote is refused. The vote records
 // the list and the commit. The commit is the change's branch in its folder;
-// what it adds is the reader's (the forge's comparer is changeadds').
+// what it adds is the reader's (AppTown's comparer is changeadds').
 func TestAnApprovalOfACommitRecordsWhatItAddsAsShown(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

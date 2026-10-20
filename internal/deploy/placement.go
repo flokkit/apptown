@@ -15,33 +15,33 @@ type Placement struct {
 	Handle     map[string]any // the provider's own identifiers
 	Container  string         // the built-in host's container, when it has one
 	HostPort   int            // the built-in host's port, when it has one
-	// Gate, when set, puts the deployment behind the forge's access gate
+	// Gate, when set, puts the deployment behind AppTown's access gate
 	// (design/subsystems/deployment.md, "Restored copies"): it holds production data
-	// that only people the forge admits may reach.
+	// that only people AppTown admits may reach.
 	Gate *Gate
 }
 
-// Gate is the forge's access gate in front of a deployment. The gate is
+// Gate is AppTown's access gate in front of a deployment. The gate is
 // its only public component; the app's public part runs privately behind
 // it, and nothing else of the app starts. A driver that cannot place a
 // gate refuses a gated placement rather than expose the app.
 //
 // A gated deployment's observation never asks the front door anonymously
 // (the gate answers that with 404), and never copies the platform's
-// component logs into the forge's records: they can hold production rows.
-// The forge's own checks reach the app through the gate with the secret.
+// component logs into AppTown's records: they can hold production rows.
+// AppTown's own checks reach the app through the gate with the secret.
 type Gate struct {
-	// Image is the gate's image by digest, published for the forge.
+	// Image is the gate's image by digest, published for AppTown.
 	Image string
 	// Secret is this deployment's gate secret: the probe token and the
 	// gate's credential when it redeems a ticket. It is held only in
-	// memory while the forge starts the deployment, and is delivered as the
-	// provider's encrypted secret to the gate alone. Empty when the forge
+	// memory while AppTown starts the deployment, and is delivered as the
+	// provider's encrypted secret to the gate alone. Empty when AppTown
 	// only observes or takes the deployment down, which needs no secret.
 	Secret string
-	// Forge is the forge's public origin, where the gate redeems tickets.
+	// Forge is AppTown's public origin, where the gate redeems tickets.
 	Forge string
-	// Marker is this deployment's own random mark, recorded by the forge
+	// Marker is this deployment's own random mark, recorded by AppTown
 	// before anything is made and rendered into the gate's environment. It
 	// is what proves an app found on the account by its name is this
 	// deployment's and not another's of the same name: a take-down deletes
@@ -60,6 +60,6 @@ const (
 	GateEnvMarker = "APPTOWN_GATED_DEPLOYMENT"
 	// GatePort is the port the gate listens on.
 	GatePort = 8080
-	// GateProbeHeader carries the gate secret on the forge's own checks.
+	// GateProbeHeader carries the gate secret on AppTown's own checks.
 	GateProbeHeader = "AppTown-Restore-Token"
 )

@@ -213,7 +213,7 @@ func TestAStandingNeedTakesItsNewSizeWithoutLosingItsData(t *testing.T) {
 
 // What the daemon reports of a container being killed out of memory,
 // exiting or being signalled is read as it reports it, with the exit's
-// code; a line the forge cannot read is an error, never skipped.
+// code; a line AppTown cannot read is an error, never skipped.
 func TestAContainerEventIsReadAsDockerReportsIt(t *testing.T) {
 	t.Parallel()
 	out := []byte(`{"status":"oom","id":"a1","Type":"container","Action":"oom","Actor":{"ID":"a1","Attributes":{"name":"forge-env-shop-main","image":"x"}},"time":1760000000,"timeNano":1760000000123456789}
@@ -230,7 +230,7 @@ func TestAContainerEventIsReadAsDockerReportsIt(t *testing.T) {
 	if events[1].ExitCode == nil || *events[1].ExitCode != 137 || events[0].ExitCode != nil {
 		t.Errorf("only a die carries its exit code: %+v", events[:2])
 	}
-	// The container's forge identity comes with the event, so an exit is
+	// The container's AppTown identity comes with the event, so an exit is
 	// attributed to the generation whose container it was.
 	if events[1].Deployment != "01a1" || events[1].Generation != "4" || events[2].Deployment != "" || events[2].Generation != "" {
 		t.Errorf("identity labels: %+v", events)
@@ -247,7 +247,7 @@ func TestAContainerEventIsReadAsDockerReportsIt(t *testing.T) {
 }
 
 // A CPU ceiling may be set three ways, and the tightest holds; a cpuset
-// the forge cannot read is unread, never "no limit".
+// AppTown cannot read is unread, never "no limit".
 func TestEveryWayDockerCapsCPUsIsRead(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {

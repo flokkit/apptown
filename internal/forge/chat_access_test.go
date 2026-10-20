@@ -485,7 +485,7 @@ func TestAChatsCredentialReadsNoEval(t *testing.T) {
 }
 
 // The first words said in a change's chat name a change whose title waits
-// for them, and that naming's receipt carries the forge's clock: with the
+// for them, and that naming's receipt carries AppTown's clock: with the
 // forge's clock a year behind, change.titled is stamped in that year, as
 // the say beside it is.
 func TestAChatsFirstWordsNameItsChangeByTheForgesClock(t *testing.T) {

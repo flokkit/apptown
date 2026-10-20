@@ -19,8 +19,8 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// ErrNotConfigured: no GitLab connection is set up on this forge. That is
-// an ordinary state (a forge may keep code only on itself), so callers can
+// ErrNotConfigured: no GitLab connection is set up on this AppTown. That is
+// an ordinary state (an AppTown may keep code only on itself), so callers can
 // tell it apart from a GitLab that is set up but failing.
 var ErrNotConfigured = errors.New("GitLab not configured")
 
@@ -32,9 +32,9 @@ func New(base, token string) (*Client, error) {
 	return &Client{base: base, token: token, http: &http.Client{Timeout: 30 * time.Second}}, nil
 }
 
-// Do is DoContext for the forge's own calls. A write, once sent, is
+// Do is DoContext for AppTown's own calls. A write, once sent, is
 // answered though ctx has ended: GitLab makes the change either way, and
-// the forge must hear which (a project's id, a token).
+// AppTown must hear which (a project's id, a token).
 // HTTPError is GitLab's answer with a failing status, so a caller can tell
 // "not there" (404) from a refusal or an outage.
 type HTTPError struct {
@@ -138,7 +138,7 @@ func (g *Client) ArchiveRename(ctx context.Context, pathNS, newPath string) erro
 	} else {
 		ns = ""
 	}
-	// Archiving needs Owner on the project; the forge's token is typically
+	// Archiving needs Owner on the project; AppTown's token is typically
 	// Maintainer (rename works, archive 403s). The rename is what frees the
 	// name and protects against collisions — archive is belt-and-braces, so
 	// its failure is reported in the log, not to the caller.

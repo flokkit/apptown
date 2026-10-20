@@ -114,7 +114,7 @@ func contains(xs []string, x string) bool {
 }
 
 // A server that echoes the credential it was offered in its error does not
-// get it into the forge's error: git's own diagnostics are replaced by a
+// get it into AppTown's error: git's own diagnostics are replaced by a
 // fixed sentence.
 func TestARemoteErrorNeverCarriesTheServersText(t *testing.T) {
 	t.Parallel()

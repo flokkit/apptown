@@ -19,17 +19,17 @@ import (
 )
 
 // Release builds on the worker (design/operations/workers.md, "Releases
-// built on the worker"). On a forge with a worker, a landing's deploy step has the worker
+// built on the worker"). On an AppTown with a worker, a landing's deploy step has the worker
 // build every image of the release once, from the landed commit, in one
 // release-build task: private Docker, the commit as its source, the
 // generated build files, and no environment, inputs, services or registry
-// credential. The forge publishes what the task left through the
+// credential. AppTown publishes what the task left through the
 // deployment owner (PublishRelease), which commits the bundle in the step
 // attempt's fence. Only then does the step deploy, to a Docker host, which
 // pulls the bundle's digests. What would stop it is refused before
 // anything is built.
 
-// ReleaseBuilds is where a forge with a worker builds its releases.
+// ReleaseBuilds is where an AppTown with a worker builds its releases.
 type ReleaseBuilds struct {
 	// Tasks is the task runner whose driver is the worker's
 	// (ReleaseTaskDriver).
@@ -88,7 +88,7 @@ type releaseTarget struct {
 // deployed.
 func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*deployment.ReleaseBundle, bool) {
 	// The task lives by its durable record, not a context: what a stopped
-	// forge leaves running is collected on restart.
+	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
 	runner := a.builds.Tasks
 	driver, ok := runner.Driver.(ReleaseTaskDriver)
@@ -151,7 +151,7 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 	publication.Log = logf
 	if len(images) == 0 {
 		// Every image is declared by reference: nothing to build, only
-		// copies for the forge to make.
+		// copies for AppTown to make.
 		return a.publishRelease(task, publication)
 	}
 	agentImage, err := driver.AgentImage(ctx)
@@ -261,7 +261,7 @@ func (a *Shipping) publishRelease(task *workflow.Execution, in deployment.Releas
 // images it leaves: one `docker buildx build` per built image, for one
 // platform, without provenance or SBOM, exported as an OCI layout under
 // the workspace's state. Each folder built is the tree's own (no link out
-// of it); image-only declarations are not built, but copied by the forge.
+// of it); image-only declarations are not built, but copied by AppTown.
 func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform string) (string, []execution.File, []execution.ImageResult, error) {
 	lines := []string{"set -e"}
 	var files []execution.File

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS task_attempts (
   container TEXT NOT NULL,
   digest TEXT NOT NULL,
   -- source is the commit a remote task was given; empty for a task that
-  -- mounts the forge's workspace.
+  -- mounts AppTown's workspace.
   source TEXT NOT NULL DEFAULT '',
   -- admission is the task's admission as admitted (profile, limits, network,
   -- expiry, as JSON); deadline is when its wall-clock budget ends. A

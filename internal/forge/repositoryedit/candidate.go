@@ -27,7 +27,7 @@ import (
 // The attempt's source commit, which the candidate must build on, is kept
 // beside it on the attempt's task record (tasks.Admission.Source): the
 // candidate's ref name carries the step and attempt that key that record.
-// Refs under refs/apptown/ are the forge's; the refs are kept, as a
+// Refs under refs/apptown/ are AppTown's; the refs are kept, as a
 // publication's history is.
 
 // CandidateRef is where a step attempt's collected result is kept.
@@ -172,7 +172,7 @@ func FindRefusedStepWork(ctx context.Context, db database.Queryer, dataDir strin
 }
 
 // Bundle writes a bundle of the refused result, less what the run's branch
-// holds, to w. Anyone who fetches it gets the commits the forge refused and
+// holds, to w. Anyone who fetches it gets the commits AppTown refused and
 // can repair them; nothing about it is published.
 func (k RefusedStepWork) Bundle(ctx context.Context, w io.Writer) error {
 	return bundleKept(ctx, k.hub, k.branch, k.ref, errNoRefusedStep, w)

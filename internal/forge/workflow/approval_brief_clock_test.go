@@ -31,7 +31,7 @@ func moveDatabaseClock(t *testing.T, db *database.DB, by string) {
 }
 
 // An approval brief kept for a step is stale once any step finishes after
-// it. Both times are the forge's: the brief's making and the step's finish
+// it. Both times are AppTown's: the brief's making and the step's finish
 // are written from the owner's clock, so the database's clock, an hour
 // either way, changes nothing.
 //
@@ -77,7 +77,7 @@ func TestAKeptBriefIsStaleOnceAStepFinishesAfterItWhateverTheDatabasesClock(t *t
 // A gate Work creates (here the current-rules gate a policy refusal opens)
 // is a step finishing like any other: a brief kept before it is stale, and
 // one kept after it is current, whatever the database's clock says. Its
-// time is the forge's.
+// time is AppTown's.
 //
 // Kills: a created gate stamped by the database (an hour behind, it reads
 // as finishing before the brief kept before it; an hour ahead, as

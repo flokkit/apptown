@@ -23,7 +23,7 @@ type Service struct {
 	branches *Branches
 }
 
-// New builds SCM's merges; now is the forge's clock (nil the real one).
+// New builds SCM's merges; now is AppTown's clock (nil the real one).
 func New(db *database.DB, work Work, locks *RepositoryLocks, now func() time.Time) *Service {
 	branches := NewBranches(db, locks)
 	branches.Now = now

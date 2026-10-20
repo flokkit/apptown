@@ -12,7 +12,7 @@ UPDATE task_attempts SET provider_id=sqlc.arg(provider_id), updated_at=sqlc.arg(
 WHERE operation=sqlc.arg(operation) AND (provider_id='' OR provider_id=sqlc.arg(provider_id)) AND observed<>'settled';
 
 -- Each transition below names the prior states it accepts. Settled is
--- final, held is final for the forge, refused only settles with nothing
+-- final, held is final for AppTown, refused only settles with nothing
 -- held. A recorded exit code and timeout are never erased: a write given no
 -- code keeps the recorded one, and nothing clears timed_out.
 

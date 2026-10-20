@@ -10,7 +10,7 @@ import { SecretNameStatus } from './integrations/InstanceSecrets'
 
 // Add a deployment target (design/subsystems/deployment.md §2.2, §8.3a): a
 // short wizard on its own page. Kind, then connection — the target must
-// answer before it is recorded — then the offer and the facts the forge
+// answer before it is recorded — then the offer and the facts AppTown
 // cannot read off it. The doors underneath are the ones the target page
 // uses: POST /targets (dryRun for the check), POST /targets/{name}/offers,
 // PATCH /targets/{name}. Finish lands on the target's own page.
@@ -70,7 +70,7 @@ function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => vo
   )
 }
 
-// ConnectionStep: the kind's fields, named as secrets the forge already
+// ConnectionStep: the kind's fields, named as secrets AppTown already
 // holds. Check asks the target to answer without recording anything; the
 // words it answers with are shown; only then may the target be added.
 function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => void; onSaved: (t: Target) => void }) {

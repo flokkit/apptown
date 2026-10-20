@@ -37,7 +37,7 @@ type PackRecord struct {
 	RecommendedVersion int64
 }
 
-// Platform reports whether the spec declares the forge's own tier.
+// Platform reports whether the spec declares AppTown's own tier.
 func (p PackRecord) Platform() bool { return specIsPlatform(p.SpecJSON) }
 
 func specIsPlatform(spec string) bool {
@@ -74,7 +74,7 @@ func packByNameIn(ctx context.Context, q *wowsql.Queries, name string) (wowsql.P
 // Packs is the supported API over pack rows and their publications.
 type Packs struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s *Packs) now() time.Time { return clock.Or(s.clock)() }

@@ -79,7 +79,7 @@ func TestPreviewObservationAndWireShape(t *testing.T) {
 	}
 }
 
-// absentDaemon is a forge with no Docker of its own; asking it fails the test.
+// absentDaemon is an AppTown with no Docker of its own; asking it fails the test.
 type absentDaemon struct {
 	docker.Refusing
 	t *testing.T
@@ -90,7 +90,7 @@ func (d absentDaemon) Run(_ context.Context, _ string, c docker.Command) ([]byte
 	return nil, docker.ErrNoLocalBackend
 }
 
-// A change's preview on a forge with neither a worker for previews nor a
+// A change's preview on an AppTown with neither a worker for previews nor a
 // local Docker is unavailable, never "not running", and asks no Docker.
 func TestInTheNoLocalDockerModeAPreviewWithNowhereToRunIsUnavailable(t *testing.T) {
 	t.Parallel()

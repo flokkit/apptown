@@ -8,7 +8,7 @@ import { hostOnlyWords } from './runtime'
 // server instead of guessing: nothing to try yet (no contract — the first
 // change makes the app), Try it (cold), starting…, Open (live, with a quiet
 // restart), didn't start (with the reason, and Try again), or not known
-// (previews run on a worker the forge could not ask, with the reason). Every
+// (previews run on a worker AppTown could not ask, with the reason). Every
 // boot path records that state, so what the rehearsal loop or another tab
 // did shows here too.
 type PreviewState = { state: 'none' | 'cold' | 'starting' | 'live' | 'broken' | 'unavailable'; url?: string; hostOnly?: boolean; reason?: string; at?: string }
@@ -20,7 +20,7 @@ export function TryIt({ changeId, label, style, className }: {
   const { run, busy, err } = useAction()
 
   const boot = async (path: string) => {
-    // An address that answers on the forge host only is shown, not opened.
+    // An address that answers on the AppTown host only is shown, not opened.
     await run(() => openAfter(async () => { const r = await post<{ url: string; hostOnly?: boolean }>(path, {}); return r.hostOnly ? '' : r.url }))
     // A boot that failed records why on the preview, so read it either way.
     void load()

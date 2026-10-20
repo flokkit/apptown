@@ -106,7 +106,7 @@ func TestARestartResetsTheFolderThenRewindsTheBranch(t *testing.T) {
 	}
 }
 
-// A folder the forge will not run Git in is not reset, and the branch never
+// A folder AppTown will not run Git in is not reset, and the branch never
 // moves: nothing can later republish the rewound work from the folder.
 func TestARestartWhoseFolderIsRefusedNeverMovesTheBranch(t *testing.T) {
 	t.Parallel()

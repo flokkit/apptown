@@ -20,11 +20,11 @@ below use the first word in each row.
 
 | We say | We also say | It is |
 |---|---|---|
-| **lane** | workflow | a [workflow](#workflow) a project offers for working a change; see [lane](#lane). Not a [way of working](#way-of-working), which is the whole adopted set; the forge's own workflows are [system workflows](#system-workflow), never lanes |
+| **lane** | workflow | a [workflow](#workflow) a project offers for working a change; see [lane](#lane). Not a [way of working](#way-of-working), which is the whole adopted set; AppTown's own workflows are [system workflows](#system-workflow), never lanes |
 | **pack** | way of working, stock pack, institution pack, platform pack | a published bundle; see [pack](#pack). "Way of working" glosses the pack in B Projects and B The project's way of working, and names the settings tab where the whole adopted set (packs plus a project's own blocks) is edited in B11 and B17 |
-| **project** | app (C Changes, B Services), repository; sometimes heard as "product" | one codebase the forge governs; "app" is the running software; see [project](#project) |
+| **project** | app (C Changes, B Services), repository; sometimes heard as "product" | one codebase AppTown governs; "app" is the running software; see [project](#project) |
 | **change** | ordinary change, catalogued change, uplift change, fix, work | the unit of work; see [change](#change) |
-| **helper** | the forge's own coding agent, agent, agent session, chat, console, terminal, instrument | the forge's agent acting for a person; the chat is where you talk to it; a console is its container; see [helper](#helper) |
+| **helper** | AppTown's own coding agent, agent, agent session, chat, console, terminal, instrument | AppTown's agent acting for a person; the chat is where you talk to it; a console is its container; see [helper](#helper) |
 | **deployment** | environment, instance, standing environment | a project's app standing on one target under a name; see [deployment](#deployment). Not a [tier](#tier): its audience, data class and feed say who it serves. The act of putting a bundle on it is a [deploy](#deploy) |
 | **target** | place, host, endpoint, "the cloud" | where a deployment stands, reached through one [provider](#provider); see [target and offer](#target-and-offer). "Cloud" is also the name of a [tier](#tier), which is a different thing: the tier says who a release reaches, the target says where it runs |
 | **accept** | approve | two different acts: a maintainer *accepts* a change (C7); an approver *approves* a step (C13, B22). Acceptance starts the landing and counts for the landing's approval where the accepter may give it; see [acceptance](#acceptance) and [approval](#approval) |
@@ -40,7 +40,7 @@ below use the first word in each row.
 | **exception** | suppression | two records: an exception accepts a conformance finding with an expiry and a second approver (B22); a suppression accepts a scanner finding with a reason (C17); see [finding](#finding) |
 | **release** | release record (C13), release number | a numbered promotion; the record cut at landing is a [bundle](#bundle), not yet a release; see [release](#release) |
 | **receipt** | record, ledger, evidence, audit log, trace | related but distinct; see [evidence](#evidence) and [receipt](#receipt) |
-| **stock** | shipped with the forge, vendor | what the binary carries; opposite of institution-authored; see [library](#library) |
+| **stock** | shipped with AppTown, vendor | what the binary carries; opposite of institution-authored; see [library](#library) |
 
 ## People and agents
 
@@ -52,12 +52,12 @@ administrator** (publishes ways of working, approves weakening),
 **instance administrator** (clouds, connectors, people; B Services and A People and authority also say
 *integration administrator* and *identity administrator* for the same
 seat, scoped by role), the [helper](#helper), a [coding agent](#coding-agent),
-and **the forge** itself. *Mental model:* a role is a job title; a
+and **AppTown** itself. *Mental model:* a role is a job title; a
 [capability](#capability) is the key on the ring. *Appears:* the preamble,
 every use case.
 
 ### Helper
-The forge's own coding agent, running `pi` in a container on the person's
+AppTown's own coding agent, running `pi` in a container on the person's
 behalf. *Mental model:* a workshop assistant who edits the change's own
 workspace directly and reads the record through a scoped CLI, but
 cannot touch `main` or approve anything. The **chat** is where you talk to
@@ -67,7 +67,7 @@ it (a project chat is the front desk; a change chat is the workshop); the
 across restarts; disposable runtime resources may be reaped independently of
 the saved conversation and its checkout ownership. *Rules:* an instrument is
 bounded by its one project and its table of allowed acts (the rules under A People and authority); it
-files a complaint when the forge gets in its way. *Appears:* C2, C5,
+files a complaint when AppTown gets in its way. *Appears:* C2, C5,
 C7, C8, C24.
 
 ### Coding agent
@@ -99,22 +99,22 @@ script; its actions are recorded as theirs; revoked from the same list.
 ## Projects and code
 
 ### Instance
-One deployment of the forge, hosting the projects. Ways of working,
+One deployment of AppTown, hosting the projects. Ways of working,
 targets, integrations, people and policies are defined here and consumed
 by projects. *Mental model:* the institution; projects are its members.
 *Appears:* A13, A3, A11, D.
 
 ### Project
-One codebase the forge governs: its own repository (the **hub**), selected
+One codebase AppTown governs: its own repository (the **hub**), selected
 lanes, adopted ways of working, deployments, secrets, members and
 decisions. Called the **app** when it is running. *Lifecycle:* started from a pack or
 imported (B1, B2), configured, worked through changes, deleted only
 with no run in flight and no standing deployment (B5). *Rules:* only the
-forge writes to the hub; dirt there is an integrity event (A14).
+AppTown writes to the hub; dirt there is an integrity event (A14).
 *Appears:* B Projects, and as the scope of everything else.
 
 ### Repository, hub, mirror, main
-The hub is the project's repository in the forge's data directory; `main`
+The hub is the project's repository in AppTown's data directory; `main`
 lives there and is written only by a [landing](#landing). Every workspace
 is a self-contained clone with no push remote. A **mirror** is an optional
 GitLab copy that landed branches are pushed to; never the gate. *Appears:*
@@ -123,7 +123,7 @@ B4, A14, C9, C11.
 ### Runtime contract
 `.apptown/app.yaml`: the app's own containers (build, image or static, one
 public) and its [needs](#need). *Mental model:* the one file that says
-how to run me; the forge never invents packaging and never writes a
+how to run me; AppTown never invents packaging and never writes a
 Dockerfile. *Lifecycle:* written by the excavate lane on import or by the
 first change, versioned with the code, read at preview, landing, deploy
 and release. *Appears:* B2, C6, C12, B6, B24.
@@ -156,7 +156,7 @@ plan-execute, product-spec, research, excavate, dependency-uplift. So a
 lane *is* a workflow — one in the "working" role, offered on this project.
 *Mental model:* lanes on a road; the change is the vehicle; the lane sets
 how much scrutiny the work gets before the person is asked to accept;
-every lane ends at the same acceptance and the same landing. The forge's
+every lane ends at the same acceptance and the same landing. AppTown's
 own workflows (landing, shipping, wiring a service in or out) are
 [system workflows](#system-workflow): nobody picks them, so they are not
 lanes. *Lifecycle:* authored or shipped as stock, versioned on every
@@ -296,7 +296,7 @@ the receipt; an old release can be looked at, never restored (C14).
 ### Deploy
 The act of putting a bundle on a deployment through its target, as a
 numbered generation with a log written as it happens; rolling back is
-deploying an earlier bundle. *Rules:* after a restart the forge resumes
+deploying an earlier bundle. *Rules:* after a restart AppTown resumes
 from what the provider had already named or fails honestly; it never
 adopts a deployment on a guess. *Appears:* B9, B10, the rules under B Deployments and releases, B7.
 
@@ -319,7 +319,7 @@ release and reaches more people. The **departures board** lists recent
 moves. *Appears:* B8, C14, C18.
 
 ### Target and offer
-A **target** is a place the forge can deploy to through one provider: the
+A **target** is a place AppTown can deploy to through one provider: the
 built-in Docker host, a Portainer endpoint, an App Platform team. An
 **offer** gives a target to a group or everyone with caps (deployments
 per project, audiences, data classes); built-in targets are offered by
@@ -385,8 +385,8 @@ store** is the built-in file store or Infisical. *Appears:* A6, B25.
 A published way of working: guidance blocks at pinned versions, lanes,
 policies, a toolchain, starter files. Packs have versions with exact
 contents; a version is cut when the pins change. **Stock** packs ship
-with the forge; **institution** packs are authored here; the **platform**
-pack is what running behind the forge asks of any app and is on every
+with AppTown; **institution** packs are authored here; the **platform**
+pack is what running behind AppTown asks of any app and is on every
 repo-backed project, never offered in the wizard. *Lifecycle:* published,
 versioned, offered in the wizard, adopted by projects, turned off (never
 deleted). *Appears:* B1, B2, the intro to B The project's way of working, B11, B13, B16, A12.
@@ -418,7 +418,7 @@ resolve. *Appears:* B11–B13, the rules under B Publishing the rules, B20, D.
 
 ### Drift
 A project whose current revision no longer matches what its receipt says
-it should hold, found by the forge's snapshot before a release touches
+it should hold, found by AppTown's snapshot before a release touches
 the library; quarantined, never promoted. *Appears:* B11, D.
 
 ### Policy
@@ -504,5 +504,5 @@ is one run's complete record. *Appears:* A10, C22.
 Tokens and cost, accounted to each project by day. *Appears:* C23, D.
 
 ### Complaint
-A report, from a person or an agent, that the forge itself got in the
+A report, from a person or an agent, that AppTown itself got in the
 way; filed to a box that people read and answer. *Appears:* C24.

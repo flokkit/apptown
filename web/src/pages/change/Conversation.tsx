@@ -30,7 +30,7 @@ export function ConversationLog({ changeId }: { changeId: string }) {
   )
 }
 
-// Who opened a chat and when; a chat moved from another forge says so.
+// Who opened a chat and when; a chat moved from another AppTown says so.
 export function chatByline(se: ChatHistoryEntry): string {
   return `opened ${se.createdAt.slice(0, 16).replace('T', ' ')} by ${se.actor}` +
     (se.imported ? ` · moved from another ${PRODUCT}, history only` : '')
@@ -106,7 +106,7 @@ function YourWords({ text, pictures }: { text: string; pictures: string }) {
   )
 }
 
-// A chat record on this forge that could not be read may belong here: say
+// A chat record on this AppTown that could not be read may belong here: say
 // so plainly, never show the list as complete. Administrators see which.
 export function UnreadableNote({ view }: { view: ChatHistoryView }) {
   if (!view.unreadable) return null

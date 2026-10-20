@@ -21,24 +21,24 @@ import (
 	"flokkit.io/forge/internal/console"
 )
 
-// RemoteAgent is a chat runtime on a worker, for the forge's chat service:
+// RemoteAgent is a chat runtime on a worker, for AppTown's chat service:
 // the console.Agent the service calls, answered by a worker's sessions
 // (design/operations/workers.md, "Chats on the worker").
 // The chat service is unchanged; only where the agent runs moves.
 //
-// What the forge would mount into a chat's container travels as blobs,
-// each sent once and named by its content, so the forge's `apptown` binary
+// What AppTown would mount into a chat's container travels as blobs,
+// each sent once and named by its content, so AppTown's `apptown` binary
 // and the project's generated registry configuration reach the chat without
 // any path on either machine. The chat's other files (settings, prompt,
 // pictures) are sent when they change. The chat's record is copied back to
-// the session's directory on the forge, with the time of the last good copy
+// the session's directory on AppTown, with the time of the last good copy
 // (RecordAsOf), so the conversation reads as it does for a chat on the
 // forge. Whether a rebuild is safe is the worker's answer, never the copy's.
 type RemoteAgent struct {
 	Sessions SessionClient
 	// Image is the agent image when a launch names none.
 	Image string
-	// Root is the directory holding the forge's session directories
+	// Root is the directory holding AppTown's session directories
 	// (<root>/<id>), where each chat's record is copied back to.
 	Root string
 	// Source writes a bundle of the change's branch for a session's work
@@ -52,12 +52,12 @@ type RemoteAgent struct {
 	// runtime has stopped and before it is removed (SaveLast answers that
 	// save's bundle). An error keeps the chat: its end is asked again.
 	Ending func(ctx context.Context, id string) error
-	// HandedBack, when set, is called after a copy in which the forge's
+	// HandedBack, when set, is called after a copy in which AppTown's
 	// copy of the record shows the agent has handed back a turn it had not
 	// shown before: the moment to save. It is a trigger, never proof that
 	// the chat has stopped working.
 	HandedBack func(id string)
-	// Now is the forge's clock, which stamps a good copy's time
+	// Now is AppTown's clock, which stamps a good copy's time
 	// (RecordAsOf). Nil is the real clock (clock.Or).
 	Now func() time.Time
 
@@ -73,7 +73,7 @@ type RemoteAgent struct {
 
 var _ console.Agent = (*RemoteAgent)(nil)
 
-// RecordAsOfFile, in a session's directory on the forge, holds the time of
+// RecordAsOfFile, in a session's directory on AppTown, holds the time of
 // the last good copy of the chat's record from its worker.
 const RecordAsOfFile = "record-as-of"
 
@@ -93,7 +93,7 @@ func (a *RemoteAgent) Close() {
 }
 
 // spec is the worker's form of a launch: mounts become blobs the worker
-// has, and nothing names a path on the forge.
+// has, and nothing names a path on AppTown.
 func (a *RemoteAgent) spec(ctx context.Context, in console.Launch) (SessionSpec, error) {
 	image := in.Image
 	if image == "" {
@@ -239,7 +239,7 @@ func (a *RemoteAgent) Status(ctx context.Context, id string) (console.Status, er
 		Attached: st.Agent.Attached, SidecarExists: st.Docker.Exists, SidecarRunning: st.Docker.Running, ScriptExists: st.Script.Exists}, nil
 }
 
-// ErrNotConfirmed: the forge could not confirm a message reached the chat.
+// ErrNotConfirmed: AppTown could not confirm a message reached the chat.
 // It may or may not have; the person decides whether to send it again.
 var ErrNotConfirmed = errors.New("not confirmed: the message may or may not have reached the chat")
 
@@ -316,9 +316,9 @@ func (a *RemoteAgent) End(ctx context.Context, id string) error {
 	return err
 }
 
-// Reap resumes copying (and so saving after each turn) for the forge's live
-// chats, and ends sessions the worker holds that the forge has no live chat
-// for. A chat outlives a forge restart, and its turns go on being saved
+// Reap resumes copying (and so saving after each turn) for AppTown's live
+// chats, and ends sessions the worker holds that AppTown has no live chat
+// for. A chat outlives an AppTown restart, and its turns go on being saved
 // without anyone opening it. Copying does not wait on the worker's
 // inventory: each copy retries until the worker answers, and stops once the
 // worker says it has no such session.
@@ -423,7 +423,7 @@ func (a *RemoteAgent) stopCopying(id string) {
 }
 
 // copyOnce brings the session's record files up to the worker's sizes:
-// bytes past the forge's copy are appended; a file that shrank on the
+// bytes past AppTown's copy are appended; a file that shrank on the
 // worker is copied again whole. Then RecordAsOfFile is written.
 func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 	dir := filepath.Join(a.Root, id)
@@ -490,7 +490,7 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 	}
 	// Written aside and renamed into place: a reader between a rewrite's
 	// truncation and its write would read the chat as never copied. The
-	// .tmp name stays on the forge (filesTar leaves it out); the copy's
+	// .tmp name stays on AppTown (filesTar leaves it out); the copy's
 	// lock keeps one writer.
 	tmp := filepath.Join(dir, RecordAsOfFile+".tmp")
 	if err := os.WriteFile(tmp, []byte(asOf.Format(time.RFC3339)+"\n"), 0o644); err != nil {
@@ -500,7 +500,7 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 }
 
 // RecordAsOf reads when a chat's record was last copied from its worker,
-// from its session directory on the forge; zero when never.
+// from its session directory on AppTown; zero when never.
 func RecordAsOf(dir string) time.Time {
 	raw, err := os.ReadFile(filepath.Join(dir, RecordAsOfFile))
 	if err != nil {
@@ -512,12 +512,12 @@ func RecordAsOf(dir string) time.Time {
 
 // --- tars ------------------------------------------------------------------------
 
-// forgeOnly are the session directory's names that stay on the forge: the
-// record with its credential, and the forge's copy of the chat's record.
+// forgeOnly are the session directory's names that stay on AppTown: the
+// record with its credential, and AppTown's copy of the chat's record.
 var forgeOnly = []string{console.MetaFile, console.EndedFile, RecordAsOfFile}
 
 // filesTar is the chat's files as the worker receives them: the session
-// directory without the worker's own names or the forge's. Names are
+// directory without the worker's own names or AppTown's. Names are
 // sorted and times left out, so the same files make the same tar.
 func filesTar(dir string) ([]byte, error) {
 	var buf bytes.Buffer

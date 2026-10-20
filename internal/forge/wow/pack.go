@@ -47,7 +47,7 @@ type Pack struct {
 
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
-	// Platform: the forge's own tier (design/subsystems/ways-of-working-versions.md
+	// Platform: AppTown's own tier (design/subsystems/ways-of-working-versions.md
 	// §1.1) — every repo-backed project is on it; never offered as a choice.
 	Platform  bool         `yaml:"platform" json:"platform,omitempty"`
 	Guidance  []string     `yaml:"guidance" json:"guidance"`

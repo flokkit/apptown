@@ -123,8 +123,8 @@ func TestARevokedTicketsPushIsNotPublished(t *testing.T) {
 	}
 }
 
-// A desktop push Git accepted after its ticket expired, by the forge's
-// clock, is not published: the forge's clock two days on is past any
+// A desktop push Git accepted after its ticket expired, by AppTown's
+// clock, is not published: AppTown's clock two days on is past any
 // ticket's life, whatever the real clock says.
 //
 // Kills: the ticket judged at publication by the real clock (it still
@@ -272,7 +272,7 @@ func TestAWorkflowALandingCallsChecksItsCandidate(t *testing.T) {
 }
 
 // A desktop sync refuses to reset a folder holding source nobody committed,
-// including source git could not stage, but the forge's own untracked
+// including source git could not stage, but AppTown's own untracked
 // runtime files under .apptown are not such work, even where the project's
 // .gitignore does not hide them: the reset keeps them.
 func TestASyncRefusesUncommittedSourceButNotRuntimeFiles(t *testing.T) {

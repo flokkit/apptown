@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
 );
 
 -- Source: internal/forge/identity/schema.sql
--- A principal is a person or the forge itself (design/decisions/mergeable-forge-data.md):
+-- A principal is a person or AppTown itself (design/decisions/mergeable-forge-data.md):
 -- what answers for an act, by UUID. Its name is what it is called today; a
 -- removed principal keeps its row (removed_at) so history still names it,
 -- and its name is free for a new principal that inherits nothing.
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS principals (
   id           UUID PRIMARY KEY,
   kind         TEXT NOT NULL CONSTRAINT principal_kind CHECK (kind IN ('person', 'system')),
   name         TEXT NOT NULL,
-  -- the forge a principal came from with a moved project; NULL is this one
+  -- AppTown a principal came from with a moved project; NULL is this one
   origin_forge UUID,
   created_at   TIMESTAMPTZ NOT NULL,
   removed_at   TIMESTAMPTZ
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS groups (
   description TEXT NOT NULL DEFAULT '',
   kind        TEXT NOT NULL DEFAULT 'ordinary',   -- ordinary | personal | built-in
   created_by  TEXT NOT NULL DEFAULT '',
-  -- The creator's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The creator's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   created_by_principal UUID,
   created_by_via TEXT NOT NULL DEFAULT '',
   retired_at  TIMESTAMPTZ,
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS grants (
   scope_id        TEXT NOT NULL DEFAULT '',
   origin          TEXT NOT NULL DEFAULT '',      -- '' | migrated | migrated-open | profile:<name> | bootstrap
   granted_by      TEXT NOT NULL DEFAULT '',
-  -- The granter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The granter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   granted_by_principal UUID,
   granted_by_via TEXT NOT NULL DEFAULT '',
   reason          TEXT NOT NULL DEFAULT '',
@@ -244,7 +244,7 @@ CREATE TABLE IF NOT EXISTS invites (
   CONSTRAINT invite_role CHECK ((purpose = 'invite' AND role IN ('member','admin')) OR (purpose = 'password' AND role = ''))
 );
 CREATE INDEX IF NOT EXISTS invites_pending ON invites(username) WHERE accepted_at IS NULL AND revoked_at IS NULL;
--- A scoped system binding: authority the forge holds for one purpose on
+-- A scoped system binding: authority AppTown holds for one purpose on
 -- one project, granted by a person's decision (a project's deletion and
 -- its purge after the kept period). It permits only what its purpose
 -- names, is checked before each effect like any credential, and stops
@@ -331,7 +331,7 @@ CREATE INDEX IF NOT EXISTS former_ids_id ON former_ids(id);
 -- deployment_operations kept every legacy id.
 CREATE TABLE IF NOT EXISTS operations (
   id UUID PRIMARY KEY,
-  -- How people name it ("operation 9"): its number within the forge, from
+  -- How people name it ("operation 9"): its number within AppTown, from
   -- operation_numbers, never reused.
   number BIGINT NOT NULL,
   kind             TEXT NOT NULL,
@@ -339,7 +339,7 @@ CREATE TABLE IF NOT EXISTS operations (
   subject          TEXT,                                -- a hold path; null for unattributed history
   holds            JSONB NOT NULL DEFAULT '[]'::jsonb,  -- every path held while queued or running
   asked_by         TEXT NOT NULL,
-  -- The asker's principal (access.Actor); NULL for the forge, or one not
+  -- The asker's principal (access.Actor); NULL for AppTown, or one not
   -- resolved to a person.
   asked_by_principal UUID,
   authority        JSONB NOT NULL DEFAULT '{}'::jsonb,  -- principal, credential reference, captured bounds
@@ -370,7 +370,7 @@ CREATE TABLE IF NOT EXISTS operation_numbers (
 -- Source: internal/forge/complaint/schema.sql
 CREATE TABLE IF NOT EXISTS complaints (
   id UUID PRIMARY KEY,
-  -- How people name it ("complaint 9"): its number within the forge, from
+  -- How people name it ("complaint 9"): its number within AppTown, from
   -- complaint_numbers, never reused.
   number BIGINT NOT NULL,
   at         TIMESTAMPTZ NOT NULL,
@@ -566,7 +566,7 @@ CREATE TABLE IF NOT EXISTS secret_values (
   value      TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL,
   created_by TEXT NOT NULL DEFAULT '',
-  -- The setter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The setter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   created_by_principal UUID,
   created_by_via TEXT NOT NULL DEFAULT '',
   UNIQUE(scope, name, version)
@@ -581,7 +581,7 @@ CREATE TABLE IF NOT EXISTS secret_bindings (
   generated   BIGINT NOT NULL DEFAULT 0,
   updated_at  TIMESTAMPTZ NOT NULL,
   updated_by  TEXT NOT NULL DEFAULT '',
-  -- The binder's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The binder's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   updated_by_principal UUID,
   updated_by_via TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (project_id, deployment, name)
@@ -600,7 +600,7 @@ CREATE TABLE IF NOT EXISTS inference_requests (
   finished_at TIMESTAMPTZ,
   kind TEXT NOT NULL,
   actor TEXT NOT NULL,
-  -- The caller's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The caller's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   project_id UUID,
@@ -628,7 +628,7 @@ CREATE TABLE IF NOT EXISTS token_usage (
   workflow_version BIGINT NOT NULL DEFAULT 0,
   session_id       TEXT NOT NULL DEFAULT '',
   actor            TEXT NOT NULL DEFAULT '',
-  -- The spender's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The spender's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   provider         TEXT NOT NULL DEFAULT '',
@@ -641,7 +641,7 @@ CREATE TABLE IF NOT EXISTS token_usage (
   cost_micros      BIGINT NOT NULL DEFAULT 0,
   observation      TEXT NOT NULL DEFAULT '',
   incomplete       TEXT NOT NULL DEFAULT '',
-  -- A forge model call's line is written before the call is sent and is
+  -- An AppTown model call's line is written before the call is sent and is
   -- pending until settled; past this time an unsettled line counts as
   -- unknown spend. NULL for every settled or ordinary line.
   pending_until    TIMESTAMPTZ
@@ -772,7 +772,7 @@ CREATE TABLE IF NOT EXISTS project_packs (
   version    BIGINT NOT NULL,
   reason     TEXT NOT NULL DEFAULT '',
   adopted_by TEXT NOT NULL DEFAULT '',
-  -- The adopter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The adopter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   adopted_by_principal UUID,
   adopted_by_via TEXT NOT NULL DEFAULT '',
   adopted_at TIMESTAMPTZ NOT NULL,
@@ -798,7 +798,7 @@ CREATE TABLE IF NOT EXISTS project_adoptions (
   reason       TEXT NOT NULL DEFAULT '',
   digest       TEXT NOT NULL,
   created_by   TEXT NOT NULL DEFAULT '',
-  -- The author's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The author's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   created_by_principal UUID,
   created_by_via TEXT NOT NULL DEFAULT '',
   created_at   TIMESTAMPTZ NOT NULL,
@@ -870,12 +870,12 @@ CREATE TABLE IF NOT EXISTS adrs (
 -- Change and touches no landing gate.
 CREATE TABLE IF NOT EXISTS conformance_reviews (
   id UUID PRIMARY KEY,
-  -- How people name it ("conformance review 9"): its number within the forge, from
+  -- How people name it ("conformance review 9"): its number within AppTown, from
   -- conformance_review_numbers, never reused.
   number BIGINT NOT NULL,
   trigger     TEXT NOT NULL,            -- manual | scheduled | import | …
   actor       TEXT NOT NULL,
-  -- The starter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The starter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   started_at  TIMESTAMPTZ NOT NULL,
@@ -1009,7 +1009,7 @@ CREATE TABLE IF NOT EXISTS what_if_reviews (
   -- read by the job that runs it.
   projects           JSONB NOT NULL DEFAULT 'null'::jsonb,
   -- queued: admitted, waiting for the conformance queue's worker.
-  -- interrupted: the forge stopped before it finished; it is not resumed.
+  -- interrupted: AppTown stopped before it finished; it is not resumed.
   CONSTRAINT what_if_state CHECK (state IN ('queued','running','done','error','interrupted'))
 );
 CREATE INDEX IF NOT EXISTS what_if_reviews_version ON what_if_reviews(pack, pack_version, id);
@@ -1055,7 +1055,7 @@ CREATE TABLE IF NOT EXISTS worker_pools (
 );
 CREATE TABLE IF NOT EXISTS remediations (
   id UUID PRIMARY KEY,
-  -- How people name it ("remediation 9"): its number within the forge, from
+  -- How people name it ("remediation 9"): its number within AppTown, from
   -- remediation_numbers, never reused.
   number BIGINT NOT NULL,
   scope        TEXT NOT NULL,
@@ -1283,7 +1283,7 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
 CREATE TABLE IF NOT EXISTS run_inference_owners (
   run_id UUID PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
   actor TEXT NOT NULL,
-  -- The owner's principal and way of acting (access.Actor); NULL for the forge, a run, or one not resolved to a person.
+  -- The owner's principal and way of acting (access.Actor); NULL for AppTown, a run, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT ''
 );
@@ -1387,7 +1387,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   started_from_at   TIMESTAMPTZ,
   UNIQUE(project_id, name)
 );
--- A target (design/subsystems/deployment.md §2.2): a reusable place the forge can
+-- A target (design/subsystems/deployment.md §2.2): a reusable place AppTown can
 -- deploy to, reached through one provider (an integration name, '' for
 -- the built-in host). Absent by default except the built-in Docker host.
 CREATE TABLE IF NOT EXISTS targets (
@@ -1492,16 +1492,16 @@ CREATE TABLE IF NOT EXISTS reconciliations (
   status         TEXT NOT NULL DEFAULT 'running',   -- running | done | failed
   receipt_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
   actor          TEXT NOT NULL DEFAULT '',
-  -- The starter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The starter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   started_at     TIMESTAMPTZ NOT NULL,
   finished_at    TIMESTAMPTZ
 );
--- What the forge created for a deployment at its target, recorded when the
+-- What AppTown created for a deployment at its target, recorded when the
 -- provider confirmed the creation (design/subsystems/deployment.md).
 -- Take-down deletes exactly these; nothing found, reused or adopted is
--- listed. note is '' for a creation the forge saw, and says who approved
+-- listed. note is '' for a creation AppTown saw, and says who approved
 -- an entry recorded later by the one-time inspection.
 CREATE TABLE IF NOT EXISTS deployment_owned (
   id UUID PRIMARY KEY,
@@ -1515,9 +1515,9 @@ CREATE TABLE IF NOT EXISTS deployment_owned (
   note          TEXT NOT NULL DEFAULT '',
   UNIQUE(deployment_id, kind, ident)
 );
--- An image repository the forge created for a project on a provider's
+-- An image repository AppTown created for a project on a provider's
 -- account (its connector): App Platform's DOCR repository, named after the
--- project. The forge uses only one it recorded creating, and empties it
+-- project. AppTown uses only one it recorded creating, and empties it
 -- when the project's last deployment on that account is taken down. note
 -- says who approved an entry the one-time inspection recorded.
 CREATE TABLE IF NOT EXISTS owned_repositories (
@@ -1545,8 +1545,8 @@ CREATE TABLE IF NOT EXISTS target_offers (
   created_at TIMESTAMPTZ NOT NULL,
   UNIQUE(target_id, group_name)
 );
--- A data-bearing resource the forge made for a deployment and kept when
--- the deployment went (§2.6: the forge never deletes what holds data).
+-- A data-bearing resource AppTown made for a deployment and kept when
+-- the deployment went (§2.6: AppTown never deletes what holds data).
 -- Ownership outlives the deployment row: who made it, for what, where.
 CREATE TABLE IF NOT EXISTS retained_resources (
   id UUID PRIMARY KEY,
@@ -1556,7 +1556,7 @@ CREATE TABLE IF NOT EXISTS retained_resources (
   need         TEXT NOT NULL,
   handle_json  JSONB NOT NULL DEFAULT '{}'::jsonb,   -- the provider's identity and what was requested
   retained_by  TEXT NOT NULL DEFAULT '',
-  -- The retainer's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The retainer's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   retained_by_principal UUID,
   retained_by_via TEXT NOT NULL DEFAULT '',
   retained_at  TIMESTAMPTZ NOT NULL,
@@ -1621,9 +1621,9 @@ CREATE TABLE IF NOT EXISTS deployment_limit_events (
 CREATE INDEX IF NOT EXISTS deployment_limit_events_at ON deployment_limit_events(deployment_id, at);
 
 -- Source: internal/forge/preview/schema.sql
--- What the forge created for a preview, by the preview's name: today the
+-- What AppTown created for a preview, by the preview's name: today the
 -- AI models key a preview of an app needing llm gets
--- (design/subsystems/integration-runtime.md). It goes when the forge
+-- (design/subsystems/integration-runtime.md). It goes when AppTown
 -- keeps no record of the preview any more. No reference to the project: a
 -- deleted project's preview keys are still revoked.
 CREATE TABLE IF NOT EXISTS preview_owned (
@@ -1638,10 +1638,10 @@ CREATE TABLE IF NOT EXISTS preview_owned (
 );
 
 -- When anyone last looked at a preview, by the preview's name: a request
--- to its address through the forge, or a boot of it. A preview stops eight
+-- to its address through AppTown, or a boot of it. A preview stops eight
 -- hours after its last look; a change's preview keeps its build images and
 -- snapshot for thirty days after it, and the look goes with them
--- (design/subsystems/container-lifecycle.md). Written on the forge's
+-- (design/subsystems/container-lifecycle.md). Written on AppTown's
 -- clock, never the database's.
 CREATE TABLE IF NOT EXISTS preview_views (
   preview   TEXT PRIMARY KEY,
@@ -1649,7 +1649,7 @@ CREATE TABLE IF NOT EXISTS preview_views (
 );
 
 -- Source: internal/forge/dataprotection/schema.sql
--- A set of copies of a deployment's data: where its files are (the forge's
+-- A set of copies of a deployment's data: where its files are (AppTown's
 -- disk or the backup store), what each item is and its digest, and the
 -- data class it was taken from. It outlives the deployment it was taken of
 -- and is kept with its project until the project is purged.
@@ -1660,7 +1660,7 @@ CREATE TABLE IF NOT EXISTS backups (
   taken_at     TIMESTAMPTZ NOT NULL,
   trigger      TEXT NOT NULL DEFAULT 'manual',        -- manual | scheduled | release
   actor        TEXT NOT NULL DEFAULT '',
-  -- The taker's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The taker's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   path         TEXT NOT NULL DEFAULT '',              -- the set's directory under <data>/backups
@@ -1726,7 +1726,7 @@ CREATE TABLE IF NOT EXISTS restore_rehearsals (
   outcome        TEXT NOT NULL,
   failed_step    TEXT NOT NULL DEFAULT '',
   asked_by       TEXT NOT NULL,
-  -- The asker's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The asker's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   asked_by_principal UUID,
   asked_by_via TEXT NOT NULL DEFAULT '',
   facts_json     JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -1735,7 +1735,7 @@ CREATE TABLE IF NOT EXISTS restore_rehearsals (
 );
 -- What a rehearsal makes on the rehearsal host, recorded before it is
 -- made, and when it was seen removed: the sweep removes what an ended
--- rehearsal still owns (one the forge stopped in the middle of, or whose
+-- rehearsal still owns (one AppTown stopped in the middle of, or whose
 -- take-down left something).
 CREATE TABLE IF NOT EXISTS rehearsal_places (
   operation_id UUID PRIMARY KEY,
@@ -1775,7 +1775,7 @@ CREATE TABLE IF NOT EXISTS restored_copies (
   gate_secret_sha256 TEXT NOT NULL DEFAULT '',
   app_marker         TEXT NOT NULL DEFAULT '',
   asked_by           TEXT NOT NULL,
-  -- The asker's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The asker's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   asked_by_principal UUID,
   asked_by_via TEXT NOT NULL DEFAULT '',
   outcome            TEXT NOT NULL DEFAULT '',
@@ -1792,13 +1792,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS restored_copies_number ON restored_copies (pro
 -- by its SHA-256 only. Redeeming it (within a minute, once) is the person's
 -- entry: the redeemed rows with check_operation 0 are who opened the copy
 -- and when. check_operation names the copy's own start when the ticket is
--- the forge's check of its gate: issued to the forge, redeemed by that
+-- AppTown's check of its gate: issued to AppTown, redeemed by that
 -- operation while it runs, and never a person's entry.
 CREATE TABLE IF NOT EXISTS restored_copy_tickets (
   ticket_sha256   TEXT PRIMARY KEY,
   copy_id UUID NOT NULL REFERENCES restored_copies(id) ON DELETE CASCADE,
   person          TEXT NOT NULL,
-  -- The holder's principal and way of acting (access.Actor); NULL for the forge's own gate check, or one not resolved to a person.
+  -- The holder's principal and way of acting (access.Actor); NULL for AppTown's own gate check, or one not resolved to a person.
   person_principal UUID,
   person_via TEXT NOT NULL DEFAULT '',
   issued_at       TIMESTAMPTZ NOT NULL,
@@ -1849,10 +1849,10 @@ CREATE TABLE IF NOT EXISTS branch_publications (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS branch_publications_one ON branch_publications(project_id, branch);
 
--- Where a project's main stood when the forge last moved it: the commit read
+-- Where a project's main stood when AppTown last moved it: the commit read
 -- back from the hub under the repository lock, recorded in the transaction
 -- that settled the move. It exists and is an ancestor of (or equal to) the
--- hub's main unless main was rewritten outside the forge. via names the door
+-- hub's main unless main was rewritten outside AppTown. via names the door
 -- (landing, init, seed, copy, genesis, integrity-adopt, backfill, upgrade); run_id is
 -- the landing run, 0 for other doors. Absence is unknown.
 CREATE TABLE IF NOT EXISTS project_main (
@@ -1879,7 +1879,7 @@ CREATE TABLE IF NOT EXISTS task_attempts (
   container TEXT NOT NULL,
   digest TEXT NOT NULL,
   -- source is the commit a remote task was given; empty for a task that
-  -- mounts the forge's workspace.
+  -- mounts AppTown's workspace.
   source TEXT NOT NULL DEFAULT '',
   -- admission is the task's admission as admitted (profile, limits, network,
   -- expiry, as JSON); deadline is when its wall-clock budget ends. A
@@ -1929,7 +1929,7 @@ CREATE INDEX IF NOT EXISTS task_attempts_workspace ON task_attempts(workspace) W
 -- was shown and agreed to; the subject is the one thing that varies.
 CREATE TABLE IF NOT EXISTS evals (
   id UUID PRIMARY KEY,
-  -- How people name it ("eval 9"): its number within the forge, from
+  -- How people name it ("eval 9"): its number within AppTown, from
   -- eval_numbers, never reused.
   number BIGINT NOT NULL,
   started_by    TEXT NOT NULL,
@@ -1956,7 +1956,7 @@ CREATE TABLE IF NOT EXISTS evals (
 
 -- One arm: one Change re-run under one setup in its own copy. models_json
 -- is the slot → model the arm runs, read when the eval started: what the
--- forge may call for its copy.
+-- AppTown may call for its copy.
 CREATE TABLE IF NOT EXISTS eval_arms (
   id UUID PRIMARY KEY,
   eval_id UUID NOT NULL REFERENCES evals(id),

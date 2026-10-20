@@ -24,7 +24,7 @@ func inventoryFixture(t *testing.T, fail string) ([]deploy.Resource, error) {
 			}
 		case strings.HasPrefix(line, "volume ls"):
 			if strings.Contains(line, "--filter") {
-				t.Errorf("volumes are listed whole: an approved older volume has no forge prefix: %s", line)
+				t.Errorf("volumes are listed whole: an approved older volume has no AppTown prefix: %s", line)
 			}
 			return []byte("forge-data-shop\tenv-shop-main\t\nforge-need-shop\tenv-shop-main\t\n0a1b2c\t\t\n"), nil
 		case strings.HasPrefix(line, "network ls"):
@@ -64,7 +64,7 @@ func TestInventoryConfirmsNeedVolumesNetworksAndExactImageReferences(t *testing.
 		}
 	}
 	for _, r := range out {
-		// A volume the forge did not name only confirms a record.
+		// A volume AppTown did not name only confirms a record.
 		if confirms := slices.Contains(r.Tags, deploy.TagConfirmsOnly); confirms != (r.Name == "0a1b2c") {
 			t.Errorf("confirm-only marking wrong: %+v", r)
 		}

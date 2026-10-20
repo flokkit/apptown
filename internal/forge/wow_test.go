@@ -327,7 +327,7 @@ func TestAdoptViaChangeLandsAndFlips(t *testing.T) {
 }
 
 // Pins in the first, blocks-only shape are carried forward, and a version
-// the forge cut for nothing (same contents as the one before, nobody on
+// AppTown cut for nothing (same contents as the one before, nobody on
 // it) is removed.
 // A project's own block (an addition) keeps the version it adopted until
 // asked to move; the ask names the version: "block@6". A version that

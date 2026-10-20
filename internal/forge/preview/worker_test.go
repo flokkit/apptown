@@ -27,7 +27,7 @@ import (
 	"flokkit.io/forge/internal/worker"
 )
 
-// fakePreviewWorker is the worker's side of previews as the forge sees it:
+// fakePreviewWorker is the worker's side of previews as AppTown sees it:
 // it records what it was asked, and answers as scripted.
 type fakePreviewWorker struct {
 	mu        sync.Mutex
@@ -372,7 +372,7 @@ func gitCommitAll(t *testing.T, repo, message string) string {
 	return strings.TrimSpace(out)
 }
 
-// The forge's start-up removal of the worker's previews is tried until the
+// AppTown's start-up removal of the worker's previews is tried until the
 // worker confirms it, and until then no preview boots there: a boot could
 // otherwise keep one from before the start, or be removed by the retry.
 func TestNoPreviewBootsOnTheWorkerUntilItsStartUpClearIsConfirmed(t *testing.T) {
@@ -426,7 +426,7 @@ func TestNoPreviewBootsOnTheWorkerUntilItsStartUpClearIsConfirmed(t *testing.T) 
 	}
 }
 
-// The forge keeps only the previews on the worker it has a record of: a
+// AppTown keeps only the previews on the worker it has a record of: a
 // reconciliation removes any other, and leaves the recorded ones and one
 // that is booting now.
 func TestTheForgeKeepsOnlyTheWorkerPreviewsItRecorded(t *testing.T) {
@@ -437,7 +437,7 @@ func TestTheForgeKeepsOnlyTheWorkerPreviewsItRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.mu.Lock()
-	w.has["forge-preview-change-00000000-0005-7000-8000-000000000000"] = true // one the forge never booted, or forgot
+	w.has["forge-preview-change-00000000-0005-7000-8000-000000000000"] = true // one AppTown never booted, or forgot
 	w.has["forge-preview-run-00000000-0003-7000-8000-000000000000"] = true    // one booting now
 	w.mu.Unlock()
 	release := s.holdPreview("forge-preview-run-00000000-0003-7000-8000-000000000000")
@@ -550,7 +550,7 @@ func (w *claimRequiredWorker) Remove(ctx context.Context, name string) error {
 }
 
 // A worker that lost the order of its previews' requests is claimed again,
-// as the forge does when it starts; the preview asked for is unavailable
+// as AppTown does when it starts; the preview asked for is unavailable
 // meanwhile, never booted by another path, and boots once asked again.
 func TestAWorkerThatLostItsOrderIsClaimedAgain(t *testing.T) {
 	t.Parallel()
@@ -573,7 +573,7 @@ func TestAWorkerThatLostItsOrderIsClaimedAgain(t *testing.T) {
 
 // A preview the worker's daemon cannot hold is refused by the worker before
 // anything happens: a restart removes nothing there, and no change or run
-// preview is booted. The forge asks the worker first, since only it knows
+// preview is booted. AppTown asks the worker first, since only it knows
 // what its daemon has.
 func TestAWorkerPreviewTheWorkerCannotHoldIsRefusedBeforeAnything(t *testing.T) {
 	t.Parallel()

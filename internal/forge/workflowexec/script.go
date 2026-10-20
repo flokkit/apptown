@@ -37,7 +37,7 @@ type scriptConfig struct {
 }
 
 // scriptPlan is everything a script step's run and its settlement need. It is
-// derived from the step alone, so a restarted forge collecting the step's
+// derived from the step alone, so a restarted AppTown collecting the step's
 // task rebuilds the same plan.
 type scriptPlan struct {
 	// cache is the project's cache volume, which the script's container
@@ -75,7 +75,7 @@ type remoteTask struct {
 
 // RunScript executes a script step as a subprocess in the run's workspace.
 // A Docker script runs as a recorded task (step 2 of the first-slice plan): a
-// forge restart adopts it instead of running it again.
+// AppTown restart adopts it instead of running it again.
 func (a *Commands) RunScript(task *workflow.Execution) {
 	run := task.Run()
 	// The folder is waited for before the claim, so a script that waited
@@ -295,7 +295,7 @@ func (a *Commands) settleScript(task *workflow.Execution, step *workflow.Step, r
 // an error. A publication not decided yet (applied and not settled, or its
 // outcome unknown) is asked again, which reads the branch first. One still
 // undecided leaves the step and the attempt as they are, the candidate kept,
-// for a restarted forge to finish: it never runs the task or publishes
+// for a restarted AppTown to finish: it never runs the task or publishes
 // again. It returns the result as kept and what publishing answered; ok is
 // false when the attempt was ended, held or left recorded here.
 func (r *TaskRunner) keepAndPublish(task *workflow.Execution, attempt tasks.Attempt, hub string, judge func(repositoryedit.Candidate) bool, publish func(repositoryedit.Candidate) (repositoryedit.Candidate, error)) (candidate repositoryedit.Candidate, published error, ok bool) {
@@ -333,7 +333,7 @@ func (r *TaskRunner) keepAndPublish(task *workflow.Execution, attempt tasks.Atte
 		case abandoned:
 			return candidate, published, false
 		case pending != nil:
-			log.Printf("task %s: %v; it stays recorded, and a restarted forge settles its publication from the branch", attempt.Operation, pending)
+			log.Printf("task %s: %v; it stays recorded, and a restarted AppTown settles its publication from the branch", attempt.Operation, pending)
 			return candidate, published, false
 		case errors.Is(published, repositoryedit.ErrResultNotKept):
 			r.holdResult(task, attempt, published)

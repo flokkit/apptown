@@ -13,7 +13,7 @@ import (
 // type=oci,dest=<Path>,tar=false` writes it, in the folder at Path under
 // the workspace's state. The backend captures it after the task and
 // everything beside it have stopped, the way it captures result files, and
-// keeps it until the task is released. The forge reads it file by file
+// keeps it until the task is released. AppTown reads it file by file
 // (ImageFilePattern) and trusts none of it: what it publishes is what the
 // registry reads back.
 type ImageResult struct {
@@ -26,7 +26,7 @@ type ImageResult struct {
 	Max int64 `json:"max"`
 }
 
-// ImageFilePattern is the files of a captured image the forge reads: its
+// ImageFilePattern is the files of a captured image AppTown reads: its
 // index and its blobs. Nothing else in the layout is served.
 var ImageFilePattern = regexp.MustCompile(`^(index\.json|blobs/sha256/[a-f0-9]{64})$`)
 
@@ -77,7 +77,7 @@ func ValidImages(images []ImageResult) error {
 // secret could travel in: environment, inputs, or services (whose
 // environment the request carries). A release build is given its source,
 // its generated build files and its private daemon, and no credential: the
-// forge alone publishes, with its own (E07). It works in a workspace of its
+// AppTown alone publishes, with its own (E07). It works in a workspace of its
 // own, whose state starts empty, so what is captured was left by it.
 func (s TaskSpec) validBuild() error {
 	if len(s.Images) == 0 {

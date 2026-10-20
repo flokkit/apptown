@@ -39,7 +39,7 @@ type Gateway struct {
 	providers    func(context.Context) (map[string]*inferenceProvider, error)
 	begin        func(context.Context, identity.Workload, string, string) (ids.ID, error)
 	finish       func(context.Context, ids.ID, int, string, inferenceUsage)
-	// open and settle are a forge call's receipt and spend line (Ask).
+	// open and settle are an AppTown call's receipt and spend line (Ask).
 	open        func(context.Context, identity.Workload, string, string, string, time.Duration) (ids.ID, error)
 	settle      func(context.Context, ids.ID, int, string, inferenceUsage, string) (bool, error)
 	instruments sync.Once
@@ -54,7 +54,7 @@ type Gateway struct {
 	active      map[string]int
 	slots       chan struct{}
 	timeout     time.Duration
-	clock       func() time.Time // the forge's clock, which times a call; nil is the real one
+	clock       func() time.Time // AppTown's clock, which times a call; nil is the real one
 	// models is the one model choice for a workload's project (an eval
 	// copy runs only its arm's models); nil admits every enabled model.
 	models func(ctx context.Context, projectID ids.ID, pattern string) error
@@ -178,7 +178,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.admitted(w, r)
 }
 
-// admitted is a request from an allowed peer, or from the forge itself
+// admitted is a request from an allowed peer, or from AppTown itself
 // (Complete): everything after the network check.
 func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 	g.instruments.Do(func() {
@@ -449,7 +449,7 @@ func (p *inferenceProvider) inferencePath(path string, q url.Values, model strin
 
 // Instrument gives the gateway a tracer and a meter. New installs no-op ones,
 // so an uninstrumented gateway costs nothing and branches nowhere.
-// Clocked times the gateway's calls by now, the forge's clock.
+// Clocked times the gateway's calls by now, AppTown's clock.
 func (g *Gateway) Clocked(now func() time.Time) *Gateway {
 	g.clock = now
 	return g

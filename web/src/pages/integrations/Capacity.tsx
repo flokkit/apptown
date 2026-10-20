@@ -9,7 +9,7 @@ import { CapacityBar, CapacityTable } from './CapacityBars'
 type Resource = NonNullable<TargetCapacity['memory']>
 
 // figureWords is a reading in words: its value as format writes it, or
-// "unknown" with the reason on hover. Never 0 for a reading the forge
+// "unknown" with the reason on hover. Never 0 for a reading AppTown
 // could not make.
 function FigureWords({ f, format }: { f: Figure; format: (v: number) => string }) {
   if (!f.known) return <span className="muted" title={f.reason}>unknown</span>
@@ -20,7 +20,7 @@ const cpuWords = (v: number) => `${Math.round(v * 100) / 100} CPU${v === 1 ? '' 
 const usd = (v: number) => `$${v.toFixed(2)}`
 
 // countWords: how many containers a figure covers, and how many carry no
-// limit or one the forge could not read, so a sum is never mistaken for
+// limit or one AppTown could not read, so a sum is never mistaken for
 // the whole.
 function countWords(r: Resource): string {
   const p = r.promised

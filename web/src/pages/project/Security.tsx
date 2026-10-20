@@ -12,7 +12,7 @@ export type PostureFinding = Finding
 
 
 // What the findings list can say. No accepted scan report means nothing is
-// known about main yet, and a report the forge could not read (its scanner
+// known about main yet, and a report AppTown could not read (its scanner
 // is no longer configured) leaves its findings unknown: neither reads as
 // clean. Only scans that ran, were all read, and found nothing are
 // "nothing found".

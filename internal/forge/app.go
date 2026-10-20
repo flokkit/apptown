@@ -130,9 +130,9 @@ type App struct {
 	// The committed-tree command and shared conformance baseline cache.
 	verification *verification.Changes
 	capacity     *model.Scheduler
-	// The forge's own error reporting (self_errors.go).
+	// AppTown's own error reporting (self_errors.go).
 	selfErr selfErrors
-	// The forge's own traces, metrics and logs (telemetry_wiring.go).
+	// AppTown's own traces, metrics and logs (telemetry_wiring.go).
 	telemetry *instrumentation
 	// Live progress feeds for running agent steps (live.go).
 	progress progress.Feeds
@@ -199,7 +199,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 		inventory:     &inventoryCache{entries: map[string]*inventoryEntry{}, now: cfg.clock.Now},
 		credentials:   newCredentialLimiter(cfg.clock.Now)}
 	a.life, a.endLife = context.WithCancel(ctx)
-	// Generated files (registry configuration) are written in the forge's
+	// Generated files (registry configuration) are written in AppTown's
 	// own folder, beside each run's tree, never in it.
 	a.processRunner.Limits = cfg.taskLimits
 	if a.processRunner.Scratch == "" {
@@ -207,14 +207,14 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	}
 	a.branches = scm.NewBranches(db, &a.repositories)
 	a.branches.Now = cfg.clock.Now
-	// The local profile runs tasks on the forge's own Docker with its default
+	// The local profile runs tasks on AppTown's own Docker with its default
 	// network and no resource limits imposed (zero is none, and is recorded).
 	// A configured worker replaces it: tasks run on the worker's own Docker,
 	// with its default network, and no script runs on this host.
 	// Each attempt records the backend it was admitted to, by identity: this
 	// installation's containers on the Docker daemon selected at startup (by
 	// its address, which every call is pinned to), or the worker at its
-	// address. A restarted forge configured for another
+	// address. A restarted AppTown configured for another
 	// backend leaves such attempts alone.
 	namespace := taskNamespace(cfg.dataDir)
 	daemon := execution.SelectDocker()
@@ -279,7 +279,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.providers.Now = cfg.clock.Now
 	consoleDeps := a.consoleDependencies(input.ConsoleAgent, input.ConsoleWorker)
 	a.Console = console.New(consoleDeps)
-	// The gateway is always built: the forge's own model calls go through
+	// The gateway is always built: AppTown's own model calls go through
 	// it (Ask). -inference-url opens its listener to runtimes.
 	a.inference = inference.New(cfg.inferenceNetworks, inferenceIdentityFor(a), a.providers, a.Usage.Requests).Clocked(cfg.clock.Now).Instrument(a.telemetry.tracer, a.telemetry.meter).LinkAttempts(a.telemetry.links.Lookup).
 		ChooseModels(a.evalGate.AdmitModel).ChooseJudge(a.evalGate.AdmitJudge)
@@ -340,7 +340,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 }
 
 // taskNamespace names this installation's task containers on a Docker daemon
-// it may share with another forge: derived from the data directory, so it
+// it may share with another AppTown: derived from the data directory, so it
 // needs no file written at construction and is the same after a restart. A
 // data directory moved while tasks run leaves those tasks unrecognised; they
 // are then reported as unknown, never adopted by the wrong forge.

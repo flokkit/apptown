@@ -26,14 +26,14 @@ func landingAttribution(candidate string) *Attribution {
 	}
 }
 
-// Text the forge did not write (a Change's title and body, a step's
+// Text AppTown did not write (a Change's title and body, a step's
 // sentence, an override's reason) reaches GitLab inert: no description line
-// starts with "/" (GitLab runs quick actions there, as the forge's account);
+// starts with "/" (GitLab runs quick actions there, as AppTown's account);
 // mentions, HTML and backtick fences stay inside code, where GitLab expands
 // none of them; and because GitLab scans raw descriptions and commit
 // messages for closing statements, code included, every #, ! and @ is
 // separated from what follows and every link's scheme from its address, so
-// no "fixes #12" or "closes <issue URL>" closes an issue. The forge's own
+// no "fixes #12" or "closes <issue URL>" closes an issue. AppTown's own
 // change-page link stays whole.
 func TestTextFromTheRecordReachesGitLabInert(t *testing.T) {
 	t.Parallel()
@@ -81,9 +81,9 @@ func TestTextFromTheRecordReachesGitLabInert(t *testing.T) {
 	}
 }
 
-// An account name goes on GitLab as the forge records it, in code so GitLab
+// An account name goes on GitLab as AppTown records it, in code so GitLab
 // never links it to a GitLab user of that name; one that looks like an email
-// address is withheld, in descriptions and trailers alike. The forge's own
+// address is withheld, in descriptions and trailers alike. AppTown's own
 // actors and how a person acted read in words.
 func TestNamesOnGitLabAreAccountNamesOrWithheld(t *testing.T) {
 	t.Parallel()
@@ -140,7 +140,7 @@ func TestDeclaredApproversAreShownAsADeclaration(t *testing.T) {
 }
 
 // At open a merge request names who opened the change and what it is for,
-// and says it waits for approval in the forge; it shows no approvals.
+// and says it waits for approval in AppTown; it shows no approvals.
 func TestAnOpeningDescriptionNamesTheOpenerAndWaits(t *testing.T) {
 	t.Parallel()
 	a := landingAttribution("")
@@ -229,7 +229,7 @@ func mergeRequestDriver(t *testing.T) (*gitDriver, *gitlabtest.Server, Source) {
 	return driver, fake, source
 }
 
-// The forge writes what admitted the merge into the merge request's
+// AppTown writes what admitted the merge into the merge request's
 // description before it asks GitLab to merge, and the merge carries the
 // same trailers.
 func TestAMergeRequestIsDescribedBeforeTheForgeMergesIt(t *testing.T) {
@@ -249,7 +249,7 @@ func TestAMergeRequestIsDescribedBeforeTheForgeMergesIt(t *testing.T) {
 	}
 }
 
-// If GitLab will not take the description, the forge does not merge: the
+// If GitLab will not take the description, AppTown does not merge: the
 // attempt fails before any merge call, saying so, and can be retried.
 func TestAMergeRequestIsNotMergedWhenItsDescriptionIsRefused(t *testing.T) {
 	t.Parallel()
@@ -269,7 +269,7 @@ func TestAMergeRequestIsNotMergedWhenItsDescriptionIsRefused(t *testing.T) {
 }
 
 // A merge request someone merged on GitLab (exactly the candidate) is
-// settled, but its description is left alone: saying the forge merged it
+// settled, but its description is left alone: saying AppTown merged it
 // would be false.
 func TestAMergeRequestMergedOnGitLabIsNotDescribedAsTheForges(t *testing.T) {
 	t.Parallel()

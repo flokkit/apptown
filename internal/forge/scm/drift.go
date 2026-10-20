@@ -10,9 +10,9 @@ import (
 )
 
 // Drift lists uncommitted paths in a working tree (modified, deleted,
-// untracked). On a forge-managed project repo every sanctioned writer
+// untracked). On an AppTown-managed project repo every sanctioned writer
 // commits and leaves the tree clean — so ANY drift is an edit that
-// bypassed the forge: an integrity event, never routine state.
+// bypassed AppTown: an integrity event, never routine state.
 func Drift(ctx context.Context, runner execution.Runner, repo string) ([]string, error) {
 	// NUL separation preserves whitespace, quotes, newlines and rename paths.
 	out := runner.Run(ctx, execution.Local, execution.Request{Workspace: repo, Argv: []string{"git", "status", "--porcelain=v1", "-z", "--", ".", ":(exclude).apptown", ":(exclude).forge", ".apptown/app.yaml", ".apptown/compose.yaml", ".apptown/app.json"}, Timeout: 10 * time.Minute})

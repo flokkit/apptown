@@ -13,16 +13,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The loop's next move is the forge's reading of the run, not the client's:
-// a failed verdict the forge is about to check again after a rework is
-// still working, and only the forge's "blocked" and "waiting on you" stop
+// The loop's next move is AppTown's reading of the run, not the client's:
+// a failed verdict AppTown is about to check again after a rework is
+// still working, and only AppTown's "blocked" and "waiting on you" stop
 // it (sweep 7, B1).
 func TestTheLoopMovesOnTheForgesState(t *testing.T) {
 	steps := `[{"id":"00000000-0001-7000-8000-000000000000","stage":"build","name":"work","type":"agent/pi","status":"pass"},
 		{"id":"00000000-0002-7000-8000-000000000000","stage":"build","name":"review","type":"agent/review","status":"fail"},
 		{"id":"00000000-0003-7000-8000-000000000000","stage":"build","name":"accept","type":"approval","status":"pending"},
 		{"id":"00000000-0009-7000-8000-000000000000","stage":"old","name":"gone","type":"approval","status":"pending"}]`
-	// The approval to decide is the one the forge offers, not one the
+	// The approval to decide is the one AppTown offers, not one the
 	// client finds: without the act, a pending approval is not offered.
 	offer := `[{"act":"approve","stepId":"00000000-0003-7000-8000-000000000000","step":"accept"}]`
 	for _, c := range []struct {
@@ -52,7 +52,7 @@ func TestTheLoopMovesOnTheForgesState(t *testing.T) {
 	}
 }
 
-// A run whose failed verdict the forge is re-checking after a rework is
+// A run whose failed verdict AppTown is re-checking after a rework is
 // followed to its end, however many polls that takes; it is not called
 // blocked by the client (sweep 7, B1: blocked after ~6 s while reworking).
 func TestTheLoopWaitsOutAReworkTheForgeIsDoing(t *testing.T) {
@@ -77,7 +77,7 @@ func TestTheLoopWaitsOutAReworkTheForgeIsDoing(t *testing.T) {
 	}
 }
 
-// The forge's "blocked" stops the loop at once, with the forge's words.
+// AppTown's "blocked" stops the loop at once, with AppTown's words.
 func TestTheLoopStopsWhenTheForgeSaysBlocked(t *testing.T) {
 	pollEvery = 0
 	fakeForge(t, func(_, path string) (int, string) {
@@ -219,7 +219,7 @@ func TestAnApprovalOffersTheDocumentsItsStageRequires(t *testing.T) {
 	}
 }
 
-// A step's time is the forge's record of it, whenever the loop attached.
+// A step's time is AppTown's record of it, whenever the loop attached.
 func TestAStepsTimeIsTheForgesRecord(t *testing.T) {
 	pollEvery = 0
 	fakeForge(t, func(_, path string) (int, string) {
@@ -236,8 +236,8 @@ func TestAStepsTimeIsTheForgesRecord(t *testing.T) {
 	}
 }
 
-// A run silent for a while says what it is still doing, by the forge's
-// clock and in the forge's words where they say more.
+// A run silent for a while says what it is still doing, by AppTown's
+// clock and in AppTown's words where they say more.
 func TestALongSilentStepGetsAHeartbeat(t *testing.T) {
 	now, _ := time.Parse(time.RFC3339, "2026-10-02T10:04:10Z")
 	d := detailFrom(t, `{"run":{"status":"running","currentStage":"ship"},"state":"working","stateDetail":"deploy",
@@ -283,7 +283,7 @@ func TestABlockedRunsMovesIncludeSendBack(t *testing.T) {
 	}
 }
 
-// A request that is one word naming a forge command is asked about, not
+// A request that is one word naming an AppTown command is asked about, not
 // opened as a change (`apptown quick -p shop follow` opened "follow").
 func TestAOneWordRequestThatIsACommandIsNotOpenedUnasked(t *testing.T) {
 	seen := fakeForge(t, func(string, string) (int, string) {
@@ -353,8 +353,8 @@ func TestAnApprovalUnderYesStillShowsWhatTheChangeAdds(t *testing.T) {
 	}
 }
 
-// Under -y a vote the forge refuses while the approval still asks (a rework
-// started meanwhile) is the forge's answer: the approval no longer being
+// Under -y a vote AppTown refuses while the approval still asks (a rework
+// started meanwhile) is AppTown's answer: the approval no longer being
 // offered is no evidence it was decided.
 func TestARefusedVoteOnAStillPendingApprovalIsNotADecision(t *testing.T) {
 	fakeForge(t, func(method, path string) (int, string) {

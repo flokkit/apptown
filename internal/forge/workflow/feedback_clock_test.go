@@ -11,7 +11,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// steppingClock is a forge clock an hour ahead of the real one (and the
+// steppingClock is an AppTown clock an hour ahead of the real one (and the
 // database's) that moves a second at every read, so each stamp is
 // strictly after the last.
 func steppingClock() func() time.Time {
@@ -68,8 +68,8 @@ func rejectForTest(t *testing.T, svc *Service, id ids.ID, comment string) {
 }
 
 // The feedback an agent is given is the newest: a rejection's, or a
-// machine verdict's. Both times are the forge's — the vote's and the
-// step's finish — so with the forge's clock an hour ahead of the
+// machine verdict's. Both times are AppTown's — the vote's and the
+// step's finish — so with AppTown's clock an hour ahead of the
 // database's the newer one still wins, either way round.
 //
 // Kills: a step's finish stamped by the database (the verdict after a
@@ -100,8 +100,8 @@ func TestTheLatestFeedbackIsTheNewestByTheForgesClock(t *testing.T) {
 }
 
 // What a person last asked of a run is the newest of its send-back notes
-// and its rejections, by the forge's clock on both: a send-back's receipt
-// and a vote. With the forge's clock an hour ahead of the database's, the
+// and its rejections, by AppTown's clock on both: a send-back's receipt
+// and a vote. With AppTown's clock an hour ahead of the database's, the
 // newer one wins either way round.
 //
 // Kills: a send-back receipt stamped by the real clock (the note after a
@@ -181,8 +181,8 @@ func TestANoteInALaterStageIsNewerThanAnEarlierRejection(t *testing.T) {
 	}
 }
 
-// A step's start and finish are both the forge's: with its clock an hour
-// ahead of the database's, the step took the seconds the forge counted, not
+// A step's start and finish are both AppTown's: with its clock an hour
+// ahead of the database's, the step took the seconds AppTown counted, not
 // an hour less.
 //
 // Kills: the start stamped by the database (the step reads as taking an
@@ -204,7 +204,7 @@ func TestAStepsStartAndFinishAreTheForgesClock(t *testing.T) {
 
 // A Change's making, and a run's making and every move after, are the
 // forge's times: a listing compares them with when Changes close, and a
-// run's span is its last move less its making. With the forge's clock an
+// run's span is its last move less its making. With AppTown's clock an
 // hour ahead of the database's, each reads an hour ahead.
 //
 // Kills: a Change made, a run made, its decisions fenced or the run moved
@@ -253,8 +253,8 @@ func TestARunsAndChangesOwnTimesAreTheForgesClock(t *testing.T) {
 	}
 }
 
-// A run that continues sent-back work is made at the forge's time, as its
-// source was: with the forge's clock an hour ahead of the database's, its
+// A run that continues sent-back work is made at AppTown's time, as its
+// source was: with AppTown's clock an hour ahead of the database's, its
 // making and its last move read an hour ahead.
 //
 // Kills: a continued run made at the database's clock.

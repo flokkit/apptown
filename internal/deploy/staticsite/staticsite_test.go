@@ -21,7 +21,7 @@ var site = []oci.File{
 }
 
 // A set uploads assets, then entry files and the browser values, then the
-// marker last; the site's own file of a forge name is replaced.
+// marker last; the site's own file of an AppTown name is replaced.
 func TestASetPutsAssetsThenEntriesThenTheMarkerLast(t *testing.T) {
 	set, err := Publish(site, "web@abc", "sha256:1", map[string]string{"DSN": "x"})
 	if err != nil {

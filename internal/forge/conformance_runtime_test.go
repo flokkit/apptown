@@ -112,12 +112,12 @@ func TestPlatformGuidanceIsNotAppendedAtBoot(t *testing.T) {
 // with no preview it is cannot-assess with the reason — never a pass, and
 // never the standing deployment (which runs the code the change replaces).
 
-// A gate that could not probe for the forge's own reasons must not send the
+// A gate that could not probe for AppTown's own reasons must not send the
 // implementer to rework: it is an error waiting for a person, not a fail.
 
 // A served app that declares no readiness path has not met the way of
 // working: the verdict is does-not-conform with the words to fix it, never
-// "cannot assess", which is reserved for the forge's own inability.
+// "cannot assess", which is reserved for AppTown's own inability.
 
 // A main deployment whose container is not running because the app
 // declares no contract is the app's gap: does-not-conform, with the words

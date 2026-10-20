@@ -213,11 +213,11 @@ type TierApp struct {
 	Icon             string                      `json:"icon,omitempty"`
 	Detail           string                      `json:"detail,omitempty"`
 	URL              string                      `json:"url,omitempty"`
-	// HostOnly: URL answers on the forge host only (deployment.Reach).
+	// HostOnly: URL answers on the AppTown host only (deployment.Reach).
 	HostOnly bool `json:"hostOnly,omitempty"`
 	Running  bool `json:"running"`
 	// Observed is why Running was not observed: "unavailable" (the
-	// built-in host of a forge with no local Docker) or "unknown".
+	// built-in host of an AppTown with no local Docker) or "unknown".
 	Observed string `json:"observed,omitempty"`
 	Static   bool   `json:"static,omitempty"`
 	// ChangeID is the change a preview is of, and ChangeNumber its number
@@ -263,7 +263,7 @@ type TierView struct {
 	Future bool      `json:"future,omitempty"`
 	Apps   []TierApp `json:"apps"`
 	// Observed is why Apps was not observed, when it could not be:
-	// "unavailable" (no place previews run that this forge has: no local
+	// "unavailable" (no place previews run that this AppTown has: no local
 	// Docker and no worker) or "unknown" (that place did not answer), with
 	// Reason. Apps is then empty, which says nothing about what runs.
 	Observed string `json:"observed,omitempty"`

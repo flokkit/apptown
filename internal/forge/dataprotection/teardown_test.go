@@ -224,7 +224,7 @@ func TestRemoveSettlementFailureCanBeExplicitlyRetried(t *testing.T) {
 	wantN(t, "torn-down receipts", receipts(t, s.db, "deployment.torn-down"), 1)
 }
 
-// A take-down's records carry the forge's clock, however far it is from
+// A take-down's records carry AppTown's clock, however far it is from
 // the machine's: what it retained, and its receipt.
 func TestATakeDownIsStampedByTheForgesClock(t *testing.T) {
 	t.Parallel()

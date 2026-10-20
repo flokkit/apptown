@@ -12,7 +12,7 @@ const C1 = '00000000-0001-7000-8000-000000000000'
 const C2 = '00000000-0002-7000-8000-000000000000'
 
 // Which chat the page opens is decided on an answer this page read itself:
-// a chat is opened only when the forge said, just now and for this chat
+// a chat is opened only when AppTown said, just now and for this chat
 // address, that there is none. A failed read, an old answer, or an answer
 // read for another change's chat opens nothing.
 
@@ -24,7 +24,7 @@ vi.mock('./useTerminal', () => ({ useTerminal: () => 'attached' }))
 type Reply = { status?: number; body: unknown } | Promise<{ status?: number; body: unknown }>
 const chat = (id: string, changeId: string | null = null) => ({ id, projectSlug: 'p', model: 'm', createdAt: '', state: 'detached', changeId, openedBy: 'bls', mayAct: true })
 
-// forge answers the page's requests: `list` answers the project's chats (a
+// AppTown answers the page's requests: `list` answers the project's chats (a
 // function, so a test can change its answer or hold it), every open is
 // recorded and answered with a new chat, and the other reads answer empty.
 function forge(list: () => Reply, openReply: (body: { changeId?: string; placement?: string }) => { status?: number; body: unknown; code?: string } = (b) => ({ status: 201, body: { session: chat('new-' + (b.changeId ?? 'desk'), b.changeId ?? null) } })) {
@@ -84,7 +84,7 @@ describe('choosing a chat', () => {
     done()
   })
 
-  it('opens one chat when the forge says this change has none', async () => {
+  it('opens one chat when AppTown says this change has none', async () => {
     const opens = forge(() => ({ body: { sessions: [chat('other', C2)] } }))
     const { done } = await page(`?change=${C1}`)
     await vi.waitFor(() => expect(opens).toEqual([{ changeId: C1 }]))
@@ -93,7 +93,7 @@ describe('choosing a chat', () => {
     done()
   })
 
-  it("takes this change's chat when the forge has one, opening none", async () => {
+  it("takes this change's chat when AppTown has one, opening none", async () => {
     const opens = forge(() => ({ body: { sessions: [chat('mine', C1)] } }))
     const { el, done } = await page(`?change=${C1}`)
     await vi.waitFor(() => expect(el.querySelector('[title="mine"]')).not.toBeNull())
@@ -157,19 +157,19 @@ describe('choosing a chat', () => {
   })
 })
 
-// The forge's code, never its sentence, says when the chat can open on the
-// forge instead of the worker that refused it.
+// AppTown's code, never its sentence, says when the chat can open on the
+// AppTown instead of the worker that refused it.
 describe('a chat the worker refused', () => {
   const refused = async (code: string) => {
     const opens = forge(() => ({ body: { sessions: [] } }),
       (b) => b.placement === 'forge'
         ? { status: 201, body: { session: chat('local', C1) } }
-        : { status: 409, code, body: { error: 'the worker cannot take this chat: it cannot reach the registry npm; open it on the forge' } })
+        : { status: 409, code, body: { error: 'the worker cannot take this chat: it cannot reach the registry npm; open it on AppTown' } })
     const r = await page(`?change=${C1}`)
     await vi.waitFor(() => expect(r.el.textContent).toContain('the worker cannot take this chat'))
     return { ...r, opens }
   }
-  it('offers the forge when the refusal is coded so, and opens it there', async () => {
+  it('offers AppTown when the refusal is coded so, and opens it there', async () => {
     const { el, opens, done } = await refused('chat-on-forge')
     const button = [...el.querySelectorAll('button')].find((b) => b.textContent === 'Open it on AppTown instead')!
     expect(button).toBeDefined()
@@ -177,7 +177,7 @@ describe('a chat the worker refused', () => {
     await vi.waitFor(() => expect(opens).toEqual([{ changeId: C1 }, { changeId: C1, placement: 'forge' }]))
     done()
   })
-  it('does not offer the forge on the same sentence without the code', async () => {
+  it('does not offer AppTown on the same sentence without the code', async () => {
     const { el, done } = await refused('')
     expect(el.textContent).not.toContain('Open it on AppTown instead')
     done()

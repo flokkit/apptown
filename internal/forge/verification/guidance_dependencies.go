@@ -56,10 +56,10 @@ type GuidanceDependencies struct {
 	Routing     deployment.Routing
 	Selection   model.Selection
 	Ledger      *usage.Ledger
-	Now         func() time.Time // the forge's clock; nil is the real one
+	Now         func() time.Time // AppTown's clock; nil is the real one
 }
 
-// now is the forge's clock.
+// now is AppTown's clock.
 func (a *Guidance) now() time.Time { return clock.Or(a.clock)() }
 
 func NewGuidance(d GuidanceDependencies) *Guidance {
@@ -76,12 +76,12 @@ type ChangeDependencies struct {
 	// WorkerChats saves a chat on the worker that holds a change before the
 	// change is checked; nil checks every change as it stands.
 	WorkerChats WorkerChats
-	Now         func() time.Time // the forge's clock; nil is the real one
+	Now         func() time.Time // AppTown's clock; nil is the real one
 }
 
 func NewChanges(d ChangeDependencies) *Changes {
 	return &Changes{db: d.DB, adoption: d.Adoption, conformance: d.Conformance, scanners: d.Scanners, evaluator: d.Evaluator, dataDir: d.DataDir, workerChats: d.WorkerChats, baseline: &baselineCache{entries: make(map[string]*baselineSet)}, clock: d.Now}
 }
 
-// now reads the forge's clock.
+// now reads AppTown's clock.
 func (v *Changes) now() time.Time { return clock.Or(v.clock)() }

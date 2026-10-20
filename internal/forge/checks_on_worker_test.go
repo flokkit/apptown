@@ -147,7 +147,7 @@ func onlyTheWorker(t *testing.T, calls string, want ...string) {
 // This machine's Docker fails any command; every check path goes to the
 // worker: apptown check, a working run's guidance step, a landing's gates
 // (guidance, a source scan, an image scan and the history scan), and the
-// merge-only compile check through the shipping the forge composes.
+// merge-only compile check through the shipping AppTown composes.
 func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 	t.Parallel()
 	app := "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"

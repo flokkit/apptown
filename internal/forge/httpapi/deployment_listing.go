@@ -63,7 +63,7 @@ type DeploymentView struct {
 	Name             string                      `json:"name"`
 	Kind             string                      `json:"kind"`
 	URL              string                      `json:"url"`
-	HostOnly         bool                        `json:"hostOnly,omitempty"` // URL answers on the forge host only
+	HostOnly         bool                        `json:"hostOnly,omitempty"` // URL answers on the AppTown host only
 	Running          *bool                       `json:"running"`
 	ReleaseRun       ids.ID                      `json:"releaseRun"`
 	UpdatedAt        string                      `json:"updatedAt"`

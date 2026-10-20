@@ -44,7 +44,7 @@ describe('a chat on the worker says where its work stands', () => {
     expect(html).toContain('as of')
     expect(html).toContain('Not saved yet')
   })
-  it('shows nothing for a chat on the forge', () => {
+  it('shows nothing for a chat on AppTown', () => {
     expect(line(session({ placement: undefined }))).toBe('')
   })
   it('says an unreadable last save is unknown, not absent', () => {
@@ -66,7 +66,7 @@ const changePage = async (seed: WorkerChatList | null, fail: boolean) => {
   client.setDefaultOptions({ queries: { retryOnMount: false } })
   const key = getKey(`/changes/${CHANGE}/worker-chats`)
   if (seed) client.setQueryData(key, seed)
-  if (fail) await client.fetchQuery({ queryKey: key, queryFn: () => Promise.reject(new Error('the forge did not answer')), retry: false }).catch(() => {})
+  if (fail) await client.fetchQuery({ queryKey: key, queryFn: () => Promise.reject(new Error('AppTown did not answer')), retry: false }).catch(() => {})
   return renderToStaticMarkup(<QueryClientProvider client={client}><ChangeWorkerChats changeId={CHANGE} /></QueryClientProvider>)
 }
 

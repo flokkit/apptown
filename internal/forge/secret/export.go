@@ -18,7 +18,7 @@ type BoundName struct {
 }
 
 // ExportNamesIn reads which secret names a project's deployments had bound,
-// for moving the project to another forge. Values do not move.
+// for moving the project to another AppTown. Values do not move.
 func ExportNamesIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]BoundName, error) {
 	rows, err := secretsql.New(q.SQL()).ExportBindingNames(ctx, projectID)
 	if err != nil {

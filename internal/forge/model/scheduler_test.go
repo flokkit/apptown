@@ -17,7 +17,7 @@ func (f capacityFunc) Capacity(ctx context.Context, binding string) int { return
 
 // Capacity belongs to the backend: a binding's declared concurrency, else
 // one for a self-hosted endpoint and eight for a hosted API, and the
-// daemon's flag only for a binding the forge does not know.
+// daemon's flag only for a binding AppTown does not know.
 func TestModelCapacityComesFromTheBinding(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)

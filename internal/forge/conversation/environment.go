@@ -55,7 +55,7 @@ type EnvironmentDependencies struct {
 	CLI          executable
 	Credentials  credentialCheck
 	Identity     *identity.Service
-	// Now is the forge's clock, which stamps the environment's receipts
+	// Now is AppTown's clock, which stamps the environment's receipts
 	// (the real clock when nil).
 	Now func() time.Time
 }
@@ -130,7 +130,7 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 		notes += workerNotes
 	}
 
-	// The forge the agent talks back to, and who it is there: the read-only
+	// AppTown the agent talks back to, and who it is there: the read-only
 	// listener, the session's token as its credential, and its change.
 	env := []string{"APPTOWN_URL=" + e.cfg.APIURL, "APPTOWN_USER=" + s.Actor + " via console/" + s.ID,
 		"APPTOWN_SESSION_ID=" + s.ID, "APPTOWN_SESSION_TOKEN=" + s.Token}
@@ -201,7 +201,7 @@ func (e *Environment) gitRemote(ctx context.Context, p project.Project) ([]strin
 	return mainRemote(e.cfg.APIURL, token, p.Slug), nil
 }
 
-// mainRemote is the project's Git URL under the forge's address, for http
+// mainRemote is the project's Git URL under AppTown's address, for http
 // and https alike, with the token as a header git sends only to it.
 func mainRemote(base, token, slug string) []string {
 	u, err := url.Parse(base)

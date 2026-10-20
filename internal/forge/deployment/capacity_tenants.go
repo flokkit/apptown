@@ -16,8 +16,8 @@ import (
 
 // Who holds a fixed host: each running container is counted once, under the
 // deployment whose record names it (its public container, its stack's
-// services), else by the class label the forge put on it, else as software
-// the forge did not start. The target page draws these as its bars.
+// services), else by the class label AppTown put on it, else as software
+// AppTown did not start. The target page draws these as its bars.
 
 // The kinds of tenant, in the order a page lists the ones that are not a
 // deployment.
@@ -27,11 +27,11 @@ const (
 	TenantWork       = "work"       // steps, chats and their caches
 	TenantForge      = "apptown"    // AppTown's own containers (its database); apptownd itself is in "the host itself" or its own container
 	TenantUnrecorded = "unrecorded" // forge-labelled containers no record or known class names
-	TenantOther      = "other"      // containers the forge did not start
+	TenantOther      = "other"      // containers AppTown did not start
 )
 
 // Tenant is one holder of a fixed host's memory and CPUs: what its running
-// containers use and are promised. A figure the forge cannot read is
+// containers use and are promised. A figure AppTown cannot read is
 // unknown with the reason; a container with no limit is counted, never
 // summed as zero.
 type Tenant struct {
@@ -79,13 +79,13 @@ func tenantOf(l docker.ContainerLimit, owners containerOwners, deps map[ids.ID]P
 	case l.Class == "infra":
 		return TenantForge, "AppTown", nil
 	}
-	return TenantUnrecorded, "forge containers not on record", nil
+	return TenantUnrecorded, "AppTown containers not on record", nil
 }
 
 // tenantsOf counts each running container once under its tenant. Use is
 // known for a tenant only when every one of its containers was reported;
 // use read for a container the inspection did not see (it started between
-// the readings) leaves every tenant's use unknown, as the forge/other split
+// the readings) leaves every tenant's use unknown, as AppTown/other split
 // does. apptownd's own memory is in no tenant: on the host it is part of the
 // host's own use, in a container it is that container's (CV-C01).
 func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr error, owners containerOwners, deps map[ids.ID]ProjectDeployment) []Tenant {
@@ -164,7 +164,7 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr er
 // only when the daemon reads back a marker apptownd wrote (sameMachine) and
 // both see the same memory total. That witnesses that the daemon sees
 // apptownd's files at the same path and the same total, and apptownd's
-// /proc/meminfo is then taken as the daemon machine's: a forge in a
+// /proc/meminfo is then taken as the daemon machine's: an AppTown in a
 // container reads the kernel's figures (unless they are virtualised, when
 // the totals differ). The case it cannot tell is two machines of equal
 // memory sharing apptownd's temp folder over a network filesystem, accepted

@@ -1,5 +1,5 @@
 // Package changeconsole is a chat that works a change: how its work reaches
-// the change, how it ends, and what the forge tells it. It owns the rules
+// the change, how it ends, and what AppTown tells it. It owns the rules
 // over a change's chats that are not the chat's own runtime (console) or its
 // opening and authority (conversation): the boot rehearsal of a chat's work,
 // saving a chat on the worker after each turn and at its end, ending a chat
@@ -60,9 +60,9 @@ type Dependencies struct {
 	Narratives Narratives
 	Folders    FolderPublisher
 	DataDir    string
-	// Stop is closed when the forge stops: rehearsal loops end.
+	// Stop is closed when AppTown stops: rehearsal loops end.
 	Stop <-chan struct{}
-	// Engine is the forge acting for itself, for the narrative refresh a
+	// Engine is AppTown acting for itself, for the narrative refresh a
 	// rehearsal starts.
 	Engine context.Context
 }
@@ -98,7 +98,7 @@ func New(saves *Saves, d Dependencies) *Service {
 
 // Rehearse is the chat's boot gate: whenever the helper hands back the
 // turn and the worktree holds an unrehearsed state with a contract, the
-// forge boots it exactly like the try-it button. Failure is fed back to the
+// AppTown boots it exactly like the try-it button. Failure is fed back to the
 // HELPER as a [apptown check] message and it reworks; success leaves the
 // preview container warm.
 //
@@ -241,8 +241,8 @@ func (c *Service) EndBy(ctx context.Context, id string) error {
 }
 
 // End settles the runtime before optional worktree/narrative effects, preserving
-// the existing receipt and asynchronous publication policy. It is the forge's
-// own end, for the person EndBy admitted or for the forge itself (a closed
+// the existing receipt and asynchronous publication policy. It is AppTown's
+// own end, for the person EndBy admitted or for AppTown itself (a closed
 // change, a deleted project): actor is who is answerable for it.
 //
 // The chat holds its change until its commits are published: nobody takes
@@ -279,7 +279,7 @@ func (c *Service) End(ctx context.Context, id, actor string) error {
 	return nil
 }
 
-// TellChangeChats sends the change's chats a message from the forge, waking
+// TellChangeChats sends the change's chats a message from AppTown, waking
 // any that sleep; every chat is tried, and those that could not be told are
 // named in the error.
 func (c *Service) TellChangeChats(ctx context.Context, projectID, changeID ids.ID, msg string) error {
@@ -331,7 +331,7 @@ func (c *Service) EndChatsWithoutTheirChange(ctx context.Context) error {
 			// Its change is gone (its project was deleted): the chat holds
 			// nothing and has nothing to save. It is ended; a chat that
 			// cannot be ended cannot run and blocks nobody, so it never
-			// stops the forge from starting.
+			// stops AppTown from starting.
 			if endErr := c.End(ctx, s.ID, "apptown: the chat's change no longer exists"); endErr != nil {
 				log.Printf("console %s: its change %d no longer exists, and it could not be ended (%v)", s.ID, scope.ChangeID, endErr)
 			}

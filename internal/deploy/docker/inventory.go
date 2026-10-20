@@ -25,9 +25,9 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
-	// The forge's containers are known by their names (names.go), which
+	// AppTown's containers are known by their names (names.go), which
 	// predate the labels: a service made before labelling would read as
-	// missing under a label filter. The forge's own database is asked for
+	// missing under a label filter. AppTown's own database is asked for
 	// by its name too.
 	filters := [][]string{{"--filter", "name=^forge-env-"}, {"--filter", "name=^forge-svc-"}, {"--filter", "name=^forge-preview-"}, {"--filter", "name=^forge-init-"}}
 	for _, name := range i.Also {
@@ -66,11 +66,11 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 			res = append(res, r)
 		}
 	}
-	// Volumes are listed whole: the forge names data folders and need
+	// Volumes are listed whole: AppTown names data folders and need
 	// volumes, but an approved older service keeps Docker's anonymous name
 	// for its data (ownership_inspection.go), and a listing filtered by the
 	// forge's prefixes would call that present volume missing. A volume the
-	// forge did not name is reported only to confirm a record
+	// AppTown did not name is reported only to confirm a record
 	// (deploy.TagConfirmsOnly), never offered as an orphan. A failed kind is
 	// not an empty kind: the cache retains the last complete answer with the
 	// error instead of calling present resources missing.

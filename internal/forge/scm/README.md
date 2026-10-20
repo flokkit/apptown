@@ -36,11 +36,11 @@ scope, the MCP diff) starts there; `ReadChangeDiff` is `ReadCommittedDiff` from 
 
 ## Where main stands
 
-`project_main` records, per project, the commit main stood at when the forge
+`project_main` records, per project, the commit main stood at when AppTown
 last moved it, the door that moved it (`landing`, `init`, `seed`, `copy`,
 `genesis`, `integrity-adopt`, `backfill`), the landing run, and when. Absence
 is unknown. A database snapshot therefore names a commit that exists and is
-main or an ancestor of it, unless main was rewritten outside the forge.
+main or an ancestor of it, unless main was rewritten outside AppTown.
 
 Git moves main first, under the repository lock; the door reads main back
 (`PrepareMainMove`, before its transaction) and records it in the transaction
@@ -61,13 +61,13 @@ asks for a retry, and the landing's retry settles it; until then the older
 record stays.
 
 `ReadMainStanding` compares the record with the hub for the project page: equal
-says nothing; otherwise "main is N commits ahead of the forge's record",
-"the recorded … is no longer in main's history", "the forge has no record of
+says nothing; otherwise "main is N commits ahead of AppTown's record",
+"the recorded … is no longer in main's history", "AppTown has no record of
 where main stands" or "could not read main". It says what differs, never who
 moved main. With an `origin`, it also compares the record with the last fetched
 `refs/remotes/origin/<branch>` (ahead and behind counts, without a network
 call; a missing tracking ref is unknown, not equal). A project created before
-the forge recorded main has no record; `apptownd -backfill-recorded-main`, run
+AppTown recorded main has no record; `apptownd -backfill-recorded-main`, run
 once while no apptownd serves the database, records each such project's current
 main as where recording began (a backfill, not a witnessed landing).
 
@@ -114,7 +114,7 @@ A publication is recorded in `branch_publications` before git runs and deleted
 once settled. `AdvanceAuthorityIn` refuses while one is recorded, so a new holder
 never overtakes a publication already admitted. Git runs as a prepared
 `update-ref --stdin` transaction: it holds the branch's lock file from prepare
-to commit, and aborts on its own if the forge dies before sending commit.
+to commit, and aborts on its own if AppTown dies before sending commit.
 
 A workflow `restart` retry resets the workspace to the run's base and rewinds
 the branch with a guarded rewind under the new attempt's generation, so the
@@ -131,10 +131,10 @@ or retry: the next publication or startup settles it by reading the branch.
 
 A desktop push with a ticket lands in `refs/apptown/incoming/ticket-<id>`. The
 hub's pre-receive hook refuses early a push from a moved tip or one that does
-not build on it; the forge then publishes the holding ref if the ticket still
+not build on it; AppTown then publishes the holding ref if the ticket still
 holds the branch, and removes it either way.
 
-`MergeMain` makes, in the hub, the forge's own merge of `main` into a
+`MergeMain` makes, in the hub, AppTown's own merge of `main` into a
 change's branch: an ordinary merge commit (the branch, then `main`, by the
 forge), only when the branch is behind `main` and the merge has no
 conflicts; otherwise it names the conflicting files and makes nothing. It
@@ -205,9 +205,9 @@ request must report it as its head, and the merge names it (`sha`,
 the merge (or when the request was already merged), what GitLab merged must
 be exactly the checked landing: the candidate itself, or one merge commit
 whose parents are the target and the candidate, with the candidate's tree,
-and not squashed. Only then does the forge's default branch move, to that
+and not squashed. Only then does AppTown's default branch move, to that
 commit, never to later GitLab history. A setting changed on GitLab between
-the read and the merge can still land something else there; the forge
+the read and the merge can still land something else there; AppTown
 cannot prevent that race on the provider, but it does not record that merge
 as landed, and its main does not follow.
 
@@ -233,7 +233,7 @@ replaces the merge request's whole description with
 `MergeRequestDescription` (`workflowexec` writes the opening one with the
 same function). If GitLab refuses that write, nothing merges and the attempt
 is retried as a whole. A request already merged on GitLab is settled without
-a write: it was not the forge's merge. The declared approvers are a
+a write: it was not AppTown's merge. The declared approvers are a
 declaration, not the authority a vote was checked against (a root passes
 without matching them; an empty list means the project's defaults then), and
 are labelled so.
@@ -241,14 +241,14 @@ are labelled so.
 On GitLab, an account name appears in a code span, so it never links to a
 GitLab user of that name; a name containing `@` reads "a Forge account (name
 withheld)", in the declared approvers too (a group so named reads "a Forge
-group (name withheld)"). Text the forge did not write appears only as code
-(an indented block or a code span), and no line the forge writes starts with
+group (name withheld)"). Text AppTown did not write appears only as code
+(an indented block or a code span), and no line AppTown writes starts with
 `/`, so GitLab runs no quick action and renders no mention or HTML. GitLab
 also scans raw descriptions and commit messages, code included, for closing
 statements ("fixes #12", "closes <issue URL>") and closes those issues when
 the merge reaches the default branch. So in all such text, descriptions and
 trailers alike, `#`, `!` and `@` are separated from what follows and a link's
-scheme from its address (`https:// …`); the forge's own change-page link is
+scheme from its address (`https:// …`); AppTown's own change-page link is
 left whole. An email address written into a change's body or a reason is
 published as written; only account names are withheld.
 

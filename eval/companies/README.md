@@ -4,7 +4,7 @@ Five made-up organisations, each with a handful of ordinary internal and public
 applications, and the requests their people would send to build and then shape
 those applications over time. The set has two uses:
 
-- **Populating a demo forge** with a portfolio that looks like a real
+- **Populating a demo AppTown** with a portfolio that looks like a real
   institution's: several teams, several kinds of app, a history of changes.
 - **A test set.** Each request is something a person would actually type. Run
   in order, a company's requests exercise project creation, small and large
@@ -100,9 +100,9 @@ a request from someone without the authority to approve it; a public photo
 that the school's consent rule forbids; a vague ask that needs a question
 back. A good result for those is the refusal or the question, not the change.
 
-## Running it against a forge
+## Running it against an AppTown
 
-`run.py` sends the set through a forge using only the product: the `apptown`
+`run.py` sends the set through an AppTown using only the product: the `apptown`
 CLI with `--json`, plus the pack picker, a target's capacity and a project's
 deployments, read from the API the web uses.
 
@@ -120,22 +120,22 @@ python3 eval/companies/run.py --forge … report
   hand: spread across every supported server pack so a long-running test
   operates all of them, matched to what each app does, and grouped into
   `waves:`, one company per wave, so a fixed host's memory fills in steps
-  (`create --wave N`). An app with no entry is not created. The forge's own
+  (`create --wave N`). An app with no entry is not created. AppTown's own
   pack picker is still asked, and its suggestion is recorded beside the chosen
   pack in the state and the report: it is measured, not used.
 - `drive` follows every open change with `apptown wait`: it approves the
-  questions the forge asks, as the credential it is given, with a comment
+  questions AppTown asks, as the credential it is given, with a comment
   naming whom the runner acts for (`--on-behalf-of`, by default the user the
   token acts as); it lands a change whose
   work is done; it records how each ends. A failed gate stays failed.
 - `next` opens one more request per app, following the order rules above, so
-  a long-running forge gets a steady trickle of work.
+  a long-running AppTown gets a steady trickle of work.
 - Capacity: before each new app and each first landing it reads the target's
   capacity and stops when less than 15% of the host's memory would stay free,
   counting 256 MiB (an estimate of use) for every app it has opened that is
   not running yet. Unknown use is not free memory.
 - State is kept outside the repository, in the file `--state` names or in a
-  file per forge under the directory `APPTOWN_EVAL_STATE` names; with neither the
+  file per AppTown under the directory `APPTOWN_EVAL_STATE` names; with neither the
   runner refuses. It is written before each mutation. If
-  the forge's answer to a mutation is lost, that request is not sent again
+  AppTown's answer to a mutation is lost, that request is not sent again
   until `reconcile` records what a person found.

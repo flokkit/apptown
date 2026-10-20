@@ -143,7 +143,7 @@ func TestACheckWorkerRefusesAReleaseBuild(t *testing.T) {
 	}
 }
 
-// The forge's first use of an address is recorded once and kept.
+// AppTown's first use of an address is recorded once and kept.
 func TestTheFirstUseOfAWorkerIsKept(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "workers-used")
 	first, err := worker.FirstUse(dir, "https://w1:8443", nil)

@@ -33,7 +33,7 @@ type Execution struct {
 
 // fenceContext is the context the attempt's fenced transactions (claim,
 // outcome, InAttempt) run under. Once Work has cancelled the step's context
-// for a reason that is not the forge stopping, they run detached, so the
+// for a reason that is not AppTown stopping, they run detached, so the
 // locked fence still gives its answer:
 //   - the attempt was lost (lost_attempt.go): the fence answers
 //     ErrStepAttemptLost, and a durable collector settles and releases what
@@ -43,7 +43,7 @@ type Execution struct {
 //     execution may still record its outcome, as before Work released the
 //     context on return.
 //
-// Any other cancellation (the forge stopping) is kept: it is not proof the
+// Any other cancellation (AppTown stopping) is kept: it is not proof the
 // attempt was lost.
 func (e *Execution) fenceContext() context.Context {
 	if e.detached() {
@@ -76,7 +76,7 @@ func (e *Execution) fenced(op func(context.Context) error) error {
 	return err
 }
 
-// now is the forge's clock, Work's.
+// now is AppTown's clock, Work's.
 func (e *Execution) now() time.Time { return e.service.now() }
 
 // Context is the context the step runs under: work the step does on the
@@ -334,7 +334,7 @@ func (s *Service) finishAttempt(ctx context.Context, claim *Step, outcome StepOu
 	return err
 }
 
-// RecoverExecution returns the execution of a step attempt a previous forge
+// RecoverExecution returns the execution of a step attempt a previous AppTown
 // process admitted, so the task it started can be collected and the step
 // settled (the first-slice plan, step 2). It grants no new attempt: the step
 // must still be running at exactly that attempt, and the claim carries the

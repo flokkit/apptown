@@ -1,5 +1,5 @@
 // Package telemetry builds OpenTelemetry providers that export over OTLP. It
-// knows nothing of the forge: a caller names an endpoint and a resource and
+// knows nothing of AppTown: a caller names an endpoint and a resource and
 // gets a tracer, a meter and a logger provider, plus one bounded Close.
 package telemetry
 

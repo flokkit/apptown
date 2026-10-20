@@ -20,8 +20,8 @@ import { AdrsTab } from './project/settings/Decisions'
 import { SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL, resolveProjectTabs } from './project/tabs'
 import type { ProjectDetail as ProjectT, MainStanding } from '../wire.gen'
 
-// Where main stands against the forge's record. A plain note, not an alarm:
-// it says what differs, never who moved main (a forge move whose record has
+// Where main stands against AppTown's record. A plain note, not an alarm:
+// it says what differs, never who moved main (an AppTown move whose record has
 // not settled reads the same as a commit made elsewhere).
 export function MainNote({ main }: { main?: MainStanding | null }) {
   const notes = [main?.note, main?.upstream?.note].filter((n): n is string => !!n)
@@ -34,7 +34,7 @@ export function MainNote({ main }: { main?: MainStanding | null }) {
 }
 
 // Out-of-band edits: someone changed the project's stored files without
-// going through the forge. There is no authorized way to do that, so this
+// going through AppTown. There is no authorized way to do that, so this
 // shows for everyone — tampering hides best when only the tamperer knows to
 // look. The two buttons are the only sanctioned exits (admin, audited).
 function IntegrityBanner({ slug, files, onResolved }: {

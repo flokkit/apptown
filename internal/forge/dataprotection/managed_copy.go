@@ -30,9 +30,9 @@ import (
 // Copies of managed data (design/subsystems/deployment.md, "Protecting data
 // off-host"). The
 // kind says what a copy is (its format and its export, import and verify
-// commands); the provider says how the forge reaches an instance (connect:
+// commands); the provider says how AppTown reaches an instance (connect:
 // a throwaway container of the kind's client image on the target's named
-// copy runner, given the app user's connection); the forge keeps the copy
+// copy runner, given the app user's connection); AppTown keeps the copy
 // in the attached backup store. A copy is only ever filled into a new,
 // empty database the provider makes, and checked there by the kind's
 // verify before anything uses it.
@@ -43,9 +43,9 @@ var (
 	ErrNotReachable error = &deployment.Unavailable{Reason: "not-reachable", Why: "Nothing the deployment holds is copied by AppTown on its target."}
 )
 
-// CopiesOn says whether the forge can run copies of the managed data of
+// CopiesOn says whether AppTown can run copies of the managed data of
 // deployments on a target: nil where it takes none of its own (only App
-// Platform's managed databases are copied by the forge), unavailable with
+// Platform's managed databases are copied by AppTown), unavailable with
 // ErrNoCopyRunner's reason while no copy runner is named.
 func CopiesOn(t *deployment.Target) *Availability {
 	if managedProvider(t) == "" {
@@ -70,7 +70,7 @@ func managedProvider(t *deployment.Target) string {
 // heldManaged is what a deployment on a managed target holds: its
 // recorded managed need instances and the object storage buckets on its
 // owned list, never the contract at the project's head, each with the
-// kind's declared copy for the target's provider. An item the forge cannot
+// kind's declared copy for the target's provider. An item AppTown cannot
 // copy is listed with why. The release is not read: a release records each
 // instance and bucket it makes before the app runs, and one whose record
 // could not be written failed, so the list is complete.
@@ -240,7 +240,7 @@ func clientImage(cp *dependency.Copy, version string) string {
 	return strings.ReplaceAll(cp.Client, "{version}", version)
 }
 
-// staging is a folder on the forge's disk where an operation's copies wait
+// staging is a folder on AppTown's disk where an operation's copies wait
 // while they go to or come from the store; it is removed when the
 // operation ends.
 func (s *core) staging(op ids.ID) (string, func(), error) {
@@ -253,7 +253,7 @@ func (s *core) staging(op ids.ID) (string, func(), error) {
 
 // takeStoreCopy copies each of a deployment's managed instances that holds
 // data into one new set in the backup store and records it: by the kind's
-// export, run on the copy runner as the app's user, staged on the forge's
+// export, run on the copy runner as the app's user, staged on AppTown's
 // disk, written to the store private and checked there. The set records,
 // for each item, the instance and database it certifies.
 func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment.Deployment, target *deployment.Target, trigger string) (*Backup, error) {
@@ -345,7 +345,7 @@ func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment
 		err = c.PutPrivate(ctx, store.Bucket, prefix+"/manifest.json", "application/json", manifest)
 	}
 	if err != nil && b.Status != BackupFailed {
-		// The copies are in the store; the record is what the forge reads.
+		// The copies are in the store; the record is what AppTown reads.
 		// A missing manifest is said on it, not hidden.
 		note := "the manifest could not be written beside the copies: " + err.Error()
 		// The set is recorded: its caveat is too, though the upload's
@@ -579,7 +579,7 @@ func (s *Service) drillOne(ctx context.Context, t *tracker, c *s3bucket.Client, 
 		res.Passed, res.Detail = true, fmt.Sprintf("came back into a new database as %s and passed the %s check", user, it.Format)
 		t.end(ctx, res.Detail, 0)
 	}
-	// Removing what the drill made is not asked again: it is the forge
+	// Removing what the drill made is not asked again: it is AppTown
 	// cleaning up its own copy of production data.
 	t.begin(ctx, "removing the database "+place)
 	if err := md.DropDatabase(ctx, it.Instance, place); err != nil {

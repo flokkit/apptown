@@ -91,7 +91,7 @@ func (g GitWorkspace) EnsureClone(ctx context.Context, in CloneRequest) (out Wor
 	// is fetched or checked out, rather than by two later config commands.
 	// -c adds to what a Git template copied in, so the clone takes no
 	// template (--template= is none): a personal template's identity or
-	// hooks would otherwise stay beside the forge's, and CheckFolder refuses
+	// hooks would otherwise stay beside AppTown's, and CheckFolder refuses
 	// both. So a folder has no sample hooks, info/exclude or description.
 	if _, err := g.git(ctx, "", "clone", "--quiet", "--no-hardlinks", "--no-checkout", "--template=", "-c", "user.name="+gitexec.FolderUserName, "-c", "user.email="+gitexec.FolderUserEmail, in.Repository, checkout); err != nil {
 		return out, err

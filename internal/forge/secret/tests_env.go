@@ -5,7 +5,7 @@ import "sort"
 // TestsEnv is what an app's tests step is given of the secrets the app
 // declares in ws (path is the contract's SecretSpecPath; empty is the
 // default file). The tests are not a deployment and have no bindings: a
-// secret the forge would generate (generate = true) gets a throwaway value
+// secret AppTown would generate (generate = true) gets a throwaway value
 // minted for this call alone, never the deployed value and never stored;
 // a secret with a declared default gets that default, which is in the tree
 // already; anything else is a credential the tests are not given, named in

@@ -214,7 +214,7 @@ func TestLandingRecheckConcurrentRequestsHaveOneBatch(t *testing.T) {
 // The remediation worker's recheck of a landing spends a retry, dispatches
 // its gates and starts its cooldown only once Work's recheck commits. A
 // recheck whose receipt or commit fails changes none of them, and the item
-// can be rechecked again. The failures come first on one forge: a failed
+// can be rechecked again. The failures come first on one AppTown: a failed
 // recheck changes nothing, and the cooldown a committed one starts has no
 // reset.
 func TestLandingRecheckRemediationCallerCountsOnlyCommittedWork(t *testing.T) {

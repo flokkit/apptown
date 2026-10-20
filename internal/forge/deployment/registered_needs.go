@@ -69,7 +69,7 @@ type deploymentKeyRecorder struct {
 	db         *database.DB
 	deployment ids.ID
 	name       string
-	now        func() time.Time // the forge's clock
+	now        func() time.Time // AppTown's clock
 }
 
 // Held is the keys on the deployment's owned list.

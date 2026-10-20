@@ -36,7 +36,7 @@ type (
 		OK     bool                   `json:"ok"`
 		Backup *dataprotection.Backup `json:"backup"`
 	}
-	// AllBackups is every backup set the forge holds and where they live.
+	// AllBackups is every backup set AppTown holds and where they live.
 	AllBackups struct {
 		Backups []dataprotection.ProjectBackup `json:"backups"`
 		Keep    int                            `json:"keep"`
@@ -116,7 +116,7 @@ func (h Backups) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// AllBackups: GET /backups — every set the forge holds, newest first,
+// AllBackups: GET /backups — every set AppTown holds, newest first,
 // with the project's name; the Backups tab reads it.
 func (h Backups) AllBackups(w http.ResponseWriter, r *http.Request) {
 	out, err := h.data.AllSets(r.Context(), 200)

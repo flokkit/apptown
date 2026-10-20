@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   started_from_at   TIMESTAMPTZ,
   UNIQUE(project_id, name)
 );
--- A target (design/subsystems/deployment.md §2.2): a reusable place the forge can
+-- A target (design/subsystems/deployment.md §2.2): a reusable place AppTown can
 -- deploy to, reached through one provider (an integration name, '' for
 -- the built-in host). Absent by default except the built-in Docker host.
 CREATE TABLE IF NOT EXISTS targets (
@@ -175,16 +175,16 @@ CREATE TABLE IF NOT EXISTS reconciliations (
   status         TEXT NOT NULL DEFAULT 'running',   -- running | done | failed
   receipt_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
   actor          TEXT NOT NULL DEFAULT '',
-  -- The starter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The starter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   actor_principal UUID,
   actor_via TEXT NOT NULL DEFAULT '',
   started_at     TIMESTAMPTZ NOT NULL,
   finished_at    TIMESTAMPTZ
 );
--- What the forge created for a deployment at its target, recorded when the
+-- What AppTown created for a deployment at its target, recorded when the
 -- provider confirmed the creation (design/subsystems/deployment.md).
 -- Take-down deletes exactly these; nothing found, reused or adopted is
--- listed. note is '' for a creation the forge saw, and says who approved
+-- listed. note is '' for a creation AppTown saw, and says who approved
 -- an entry recorded later by the one-time inspection.
 CREATE TABLE IF NOT EXISTS deployment_owned (
   id UUID PRIMARY KEY,
@@ -198,9 +198,9 @@ CREATE TABLE IF NOT EXISTS deployment_owned (
   note          TEXT NOT NULL DEFAULT '',
   UNIQUE(deployment_id, kind, ident)
 );
--- An image repository the forge created for a project on a provider's
+-- An image repository AppTown created for a project on a provider's
 -- account (its connector): App Platform's DOCR repository, named after the
--- project. The forge uses only one it recorded creating, and empties it
+-- project. AppTown uses only one it recorded creating, and empties it
 -- when the project's last deployment on that account is taken down. note
 -- says who approved an entry the one-time inspection recorded.
 CREATE TABLE IF NOT EXISTS owned_repositories (
@@ -228,8 +228,8 @@ CREATE TABLE IF NOT EXISTS target_offers (
   created_at TIMESTAMPTZ NOT NULL,
   UNIQUE(target_id, group_name)
 );
--- A data-bearing resource the forge made for a deployment and kept when
--- the deployment went (§2.6: the forge never deletes what holds data).
+-- A data-bearing resource AppTown made for a deployment and kept when
+-- the deployment went (§2.6: AppTown never deletes what holds data).
 -- Ownership outlives the deployment row: who made it, for what, where.
 CREATE TABLE IF NOT EXISTS retained_resources (
   id UUID PRIMARY KEY,
@@ -239,7 +239,7 @@ CREATE TABLE IF NOT EXISTS retained_resources (
   need         TEXT NOT NULL,
   handle_json  JSONB NOT NULL DEFAULT '{}'::jsonb,   -- the provider's identity and what was requested
   retained_by  TEXT NOT NULL DEFAULT '',
-  -- The retainer's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The retainer's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   retained_by_principal UUID,
   retained_by_via TEXT NOT NULL DEFAULT '',
   retained_at  TIMESTAMPTZ NOT NULL,

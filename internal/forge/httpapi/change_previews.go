@@ -15,7 +15,7 @@ import (
 type ChangePreviews struct {
 	previews *preview.Service
 	db       *database.DB
-	now      func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now      func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewChangePreviews(previews *preview.Service, db *database.DB, now func() time.Time) ChangePreviews {

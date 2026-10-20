@@ -95,7 +95,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		return
 	}
 
-	// Same posture as scans: verify the COMMITTED tree, not forge runtime
+	// Same posture as scans: verify the COMMITTED tree, not AppTown runtime
 	// state in the working directory.
 	source, err := workflow.ReadSourceIn(task.Context(), a.db, workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID})
 	if err != nil {
@@ -189,7 +189,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	for _, f := range actionable {
 		// Calibration posture: llm findings NEVER gate. Deterministic evaluators
 		// (sh, tool, and a runtime probe of the running preview) gate at
-		// failOn. A runtime check the forge could not run records no finding,
+		// failOn. A runtime check AppTown could not run records no finding,
 		// so an unreachable preview never gates. Runtime gates too: otherwise
 		// a static app's browser wiring check can run, fail and still let
 		// adoption pass. (Finding source is uniform;
@@ -253,7 +253,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	if files := repositoryedit.IgnoredChanges(changed); len(files) > 0 {
 		evidence["summary"] = fmt.Sprintf("scope: %d file(s) the repository ignores were committed", len(files))
 		evidence["findings"] = []string{"ignored files committed: " + strings.Join(files, ", ")}
-		evidence["reason"] = "the repository's own .gitignore says these are not source (build output, or forge runtime files under .apptown/): " + strings.Join(files, ", ") + " — remove them from git (git rm --cached <path>) and commit only the fix"
+		evidence["reason"] = "the repository's own .gitignore says these are not source (build output, or AppTown runtime files under .apptown/): " + strings.Join(files, ", ") + " — remove them from git (git rm --cached <path>) and commit only the fix"
 		rework(evidence)
 		return
 	}
@@ -267,7 +267,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		rework(evidence)
 		return
 	}
-	// A required runtime check the forge probed and could not judge holds the
+	// A required runtime check AppTown probed and could not judge holds the
 	// step for a person: counting findings alone would let a static page
 	// served no values pass. An exception
 	// accepts a known finding, never an unknown. A lane with no preview to
@@ -293,7 +293,7 @@ type evaluatorsSaid struct {
 	results  Results
 	findings []conformance.Finding
 	errors   int      // sh and tool checks that errored
-	unjudged []string // required runtime checks the forge could not judge
+	unjudged []string // required runtime checks AppTown could not judge
 	llm      map[string]any
 }
 

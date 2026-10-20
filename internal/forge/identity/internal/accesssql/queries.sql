@@ -34,7 +34,7 @@ UPDATE principals SET name = sqlc.arg(name) WHERE id = sqlc.arg(id) AND removed_
 -- name: UsersAll :many
 SELECT * FROM users ORDER BY username;
 
--- Grants expire by the forge's clock (at), as ActiveGrants judges them.
+-- Grants expire by AppTown's clock (at), as ActiveGrants judges them.
 -- name: AdminUsers :many
 SELECT u.* FROM users u WHERE EXISTS (
  SELECT 1 FROM grants g WHERE g.role_name='instance-administrator' AND g.capability='' AND g.scope_type='instance'
@@ -370,7 +370,7 @@ SELECT * FROM oauth_codes_named WHERE code_hash = $1;
 -- name: ConsumeCode :execrows
 UPDATE oauth_codes SET used_at = sqlc.arg(at)::timestamptz WHERE code_hash = sqlc.arg(code_hash) AND used_at IS NULL;
 
--- A consent request expires by the forge's clock, which writes its expiry
+-- A consent request expires by AppTown's clock, which writes its expiry
 -- and judges it (ConsumeConsent, DeleteExpiredConsents).
 -- name: InsertConsent :exec
 INSERT INTO oauth_consents (token_hash, principal_id, browser_hash, request_json, expires_at)
@@ -405,7 +405,7 @@ SELECT * FROM delegations_named WHERE revoked_at IS NULL ORDER BY id DESC;
 -- name: TouchDelegation :exec
 UPDATE delegations SET last_used = sqlc.arg(at)::timestamptz WHERE id=sqlc.arg(id);
 
--- A delegation expires by the forge's clock (at), which wrote its expiry
+-- A delegation expires by AppTown's clock (at), which wrote its expiry
 -- and judges it live (Delegation.Live).
 -- name: RevokeExpiredDelegations :execrows
 UPDATE delegations SET revoked_at = sqlc.arg(at)::timestamptz WHERE revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at < sqlc.arg(at)::timestamptz;
@@ -429,7 +429,7 @@ UPDATE oauth_tokens SET kind = sqlc.arg(kind), delegation_id = sqlc.arg(delegati
 created_at = sqlc.arg(created_at), expires_at = sqlc.arg(expires_at), revoked_at = sqlc.narg(revoked_at)
 WHERE token_hash = sqlc.arg(token_hash) AND kind = 'refresh' AND revoked_at IS NULL;
 
--- A token's revocation time is the forge's clock, as for every other
+-- A token's revocation time is AppTown's clock, as for every other
 -- revocation of it: DeleteDeadTokens keeps it a day by that clock.
 -- name: RevokeDelegationTokens :one
 WITH selected AS MATERIALIZED (
@@ -531,7 +531,7 @@ SELECT * FROM invites WHERE token_hash = $1 FOR UPDATE;
 -- name: InviteByIDForUpdate :one
 SELECT * FROM invites WHERE id = $1 FOR UPDATE;
 
--- An invite expires by the forge's clock (at), which wrote its expiry and
+-- An invite expires by AppTown's clock (at), which wrote its expiry and
 -- judges it at acceptance.
 -- name: PendingInvites :many
 SELECT * FROM invites WHERE accepted_at IS NULL AND revoked_at IS NULL AND expires_at > sqlc.arg(at)::timestamptz ORDER BY id;

@@ -28,7 +28,7 @@ func checkContainers(t *testing.T) string {
 	return strings.TrimSpace(string(out))
 }
 
-// With real Docker: a forge that stops waiting for a check (it disconnected,
+// With real Docker: an AppTown that stops waiting for a check (it disconnected,
 // or restarted) leaves no container and no folder on the worker.
 func TestIntegrationADisconnectedCheckLeavesNothing(t *testing.T) {
 	ca := workertest.NewCA(t)

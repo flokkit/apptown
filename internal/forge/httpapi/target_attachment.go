@@ -275,7 +275,7 @@ type (
 )
 
 // EditTarget: PATCH /targets/{name} {domain?, persistentVolumes?,
-// previews?, needsMode?, evals?, rehearsals?, copyRunner?} — the facts the forge cannot read off a target
+// previews?, needsMode?, evals?, rehearsals?, copyRunner?} — the facts AppTown cannot read off a target
 // and the owner must state. Attached targets only; every change is an
 // audit row carrying before and after.
 func (h Targets) EditTarget(w http.ResponseWriter, r *http.Request) {

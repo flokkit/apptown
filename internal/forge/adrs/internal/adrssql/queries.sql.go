@@ -381,7 +381,7 @@ const exportADRs = `-- name: ExportADRs :many
 SELECT to_jsonb(a)::text FROM adrs a WHERE a.project_id = $1 ORDER BY a.number
 `
 
-// A project's ADRs, row by row, for moving it to another forge.
+// A project's ADRs, row by row, for moving it to another AppTown.
 func (q *Queries) ExportADRs(ctx context.Context, projectID ids.ID) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, exportADRs, projectID)
 	if err != nil {

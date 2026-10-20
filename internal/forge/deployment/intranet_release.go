@@ -56,7 +56,7 @@ func (s *Service) IntranetConfig(ctx context.Context) (*portainer.Target, error)
 
 // LANReleaseRequest is what a person asks an intranet release for: an
 // extra hostname for the project (kept for later releases, saved only once
-// the release is admitted), and the choice to release over data the forge
+// the release is admitted), and the choice to release over data AppTown
 // cannot copy (DataCopyCheck).
 type LANReleaseRequest struct {
 	Domain             string
@@ -71,8 +71,8 @@ type LANReleaseRequest struct {
 //
 // What ships is the project's latest bundle when it was published to the
 // project's registry (built on the worker): every part and init step runs
-// its image by digest. A forge whose landings publish nothing builds the
-// branch head's public image here and pushes it, as before; a forge with no
+// its image by digest. An AppTown whose landings publish nothing builds the
+// branch head's public image here and pushes it, as before; an AppTown with no
 // local Docker cannot, and refuses.
 func (s *Service) ReleaseLAN(ctx context.Context, p *project.Project, who string, in LANReleaseRequest) (*LANReleaseStarted, int, error) {
 	bundle, err := s.Bundles.Latest(ctx, p.ID)
@@ -126,7 +126,7 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	}
 
 	// An intranet release is a stack Portainer keeps, with no record of
-	// what the forge made for it: nothing would revoke a key given to it.
+	// what AppTown made for it: nothing would revoke a key given to it.
 	if needs, err := s.env.registeredNeeds(ctx, c); err != nil {
 		return nil, 422, err
 	} else if len(needs) > 0 {
@@ -205,7 +205,7 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	return &LANReleaseStarted{OK: true, Number: number, URL: url, State: Releasing}, 202, nil
 }
 
-// LANReleaseStarted is an intranet release the forge accepted: it runs on
+// LANReleaseStarted is an intranet release AppTown accepted: it runs on
 // after the request answers, under its number.
 type LANReleaseStarted struct {
 	OK     bool         `json:"ok"`
@@ -348,7 +348,7 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 
 	// The pull credential is PLATFORM-OWNED: a group deploy token behind a
 	// Portainer registry entry, both managed by the platform's operators.
-	// Forge never touches /api/registries (admin-only, and forge does not
+	// Forge never touches /api/registries (admin-only, and AppTown does not
 	// hold Portainer admin). The credential just exists.
 	stackName := portainer.StackName(p.Slug)
 	hosts, _ := portainerAddress(p.Slug, cfg.AppsDomain, vanity)

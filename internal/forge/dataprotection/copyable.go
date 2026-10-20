@@ -8,9 +8,9 @@ import (
 	"flokkit.io/forge/internal/forge/deployment"
 )
 
-// CannotCopy says why the forge cannot copy the data a deployment holds
+// CannotCopy says why AppTown cannot copy the data a deployment holds
 // now, "" when it can or when it holds none (design/subsystems/deployment.md,
-// "Releasing over data the forge cannot copy"). A release onto a deployment whose data the forge cannot
+// "Releasing over data AppTown cannot copy"). A release onto a deployment whose data AppTown cannot
 // copy could change that data with no copy to go back to, so Deployment asks
 // before it admits one (deployment.DataCopyCheck). One that has served no
 // release holds nothing yet. Whether its data can be copied is what each
@@ -49,7 +49,7 @@ func (s *core) CannotCopy(ctx context.Context, dep *deployment.Deployment, t *de
 	return unresolvedOf(held.items)
 }
 
-// unresolvedOf names each item the forge cannot copy, "" when there is none.
+// unresolvedOf names each item AppTown cannot copy, "" when there is none.
 func unresolvedOf(items []backupPlanItem) string {
 	var why []string
 	for _, it := range items {

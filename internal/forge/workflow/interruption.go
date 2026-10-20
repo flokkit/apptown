@@ -55,7 +55,7 @@ func InterruptStepsIn(ctx context.Context, tx *database.Tx, preserve []ids.ID, e
 	return out, nil
 }
 
-// StepLeftRunning names a step recorded running when the forge starts.
+// StepLeftRunning names a step recorded running when AppTown starts.
 type StepLeftRunning struct {
 	ID, RunID ids.ID
 	Type      string

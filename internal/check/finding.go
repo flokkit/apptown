@@ -390,7 +390,7 @@ func normalizeSARIF(report []byte, source, kind string) ([]Finding, error) {
 				continue
 			}
 			// result.suppressions (in-source `nosemgrep`, baselines) are
-			// deliberately NOT honored: suppression in forge is an auditable
+			// deliberately NOT honored: suppression in AppTown is an auditable
 			// disposition carrying a justification, not a code comment the
 			// scan can't see. Revisit if in-source suppression is wanted.
 			var loc *Location

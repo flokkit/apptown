@@ -101,7 +101,7 @@ func TestACopyIsTheSourceAtOneCommitWithItsWayOfWorking(t *testing.T) {
 	}
 }
 
-// wantMainRecorded: the forge's record of a project's main is its hub's main,
+// wantMainRecorded: AppTown's record of a project's main is its hub's main,
 // recorded by the door named, read from the SCM owner.
 func wantMainRecorded(t *testing.T, db *database.DB, dataDir string, projectID ids.ID, via scm.MainVia) {
 	t.Helper()

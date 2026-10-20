@@ -98,7 +98,7 @@ func (s *Server) SetUsage(hash string, lifetime, period float64) {
 	}
 }
 
-// Forget removes a key behind the forge's back (someone revoked it by hand).
+// Forget removes a key behind AppTown's back (someone revoked it by hand).
 func (s *Server) Forget(hash string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

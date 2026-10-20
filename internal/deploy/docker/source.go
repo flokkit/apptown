@@ -228,7 +228,7 @@ func BrowserEnvScript(values string) string {
 // empty, the file answers {} whatever the target set (App Platform sets
 // nothing, and a bare expansion would end the script mid-expression).
 // ReleasePath answers the part's release identity (ReleaseEnvVar, empty when unset): what a front
-// door the forge reaches only from outside is witnessed serving.
+// door AppTown reaches only from outside is witnessed serving.
 func StaticServerCommand(port int) []string {
 	// HTTP only and HTTP/1.1 only, said outright: TLS ends at the front door,
 	// so Caddy's automatic HTTPS and HTTP/2 and /3 would each log a warning at

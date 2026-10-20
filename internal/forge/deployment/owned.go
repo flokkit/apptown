@@ -17,9 +17,9 @@ import (
 
 // What a deployment owns (design/subsystems/deployment.md, "Removing a
 // deployment"):
-// each thing the forge created for it at its target, recorded by the driver
+// each thing AppTown created for it at its target, recorded by the driver
 // as soon as the provider confirmed the creation. Take-down deletes exactly
-// this list. Something the forge found, reused or adopted is never on it, so
+// this list. Something AppTown found, reused or adopted is never on it, so
 // it is never deleted.
 
 // ownedRecorder is the deploy.Owner a driver built for one deployment
@@ -27,7 +27,7 @@ import (
 type ownedRecorder struct {
 	db         *database.DB
 	deployment ids.ID
-	now        func() time.Time // the forge's clock
+	now        func() time.Time // AppTown's clock
 }
 
 func (r ownedRecorder) Created(ctx context.Context, o deploy.Owned) error {
@@ -71,12 +71,12 @@ func ownedIn(ctx context.Context, q *deploymentsql.Queries, deployment ids.ID) (
 }
 
 // repositoryRecorder is the digitalocean.RepositoryOwner for one project on
-// one connector (one account): the repositories the forge created there.
+// one connector (one account): the repositories AppTown created there.
 type repositoryRecorder struct {
 	db        *database.DB
 	project   ids.ID
 	connector string
-	now       func() time.Time // the forge's clock
+	now       func() time.Time // AppTown's clock
 }
 
 func (r repositoryRecorder) Owns(ctx context.Context, registry, repository string) (bool, error) {

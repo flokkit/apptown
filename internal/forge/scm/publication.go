@@ -33,7 +33,7 @@ import (
 // A publication is recorded before git runs and deleted once settled. After a
 // crash, the branch's lock file says whether a git process may still finish:
 // git holds it from prepare until commit or abort, and aborts on its own if
-// the forge died before sending commit.
+// AppTown died before sending commit.
 
 var (
 	// ErrAuthoritySuperseded: the publisher's generation or holder is no
@@ -99,7 +99,7 @@ func ChatHolder(session string) string { return "chat:" + session }
 func TicketHolder(ticketID ids.ID) string { return fmt.Sprintf("ticket:%d", ticketID) }
 
 // IncomingRef is where a ticket's push lands. The branch moves only when the
-// forge publishes it, after checking the ticket still holds the branch.
+// AppTown publishes it, after checking the ticket still holds the branch.
 func IncomingRef(ticketID ids.ID) string {
 	return fmt.Sprintf("refs/apptown/incoming/ticket-%d", ticketID)
 }
@@ -267,7 +267,7 @@ type Published struct {
 type Branches struct {
 	db    *database.DB
 	locks *RepositoryLocks
-	// Now is the forge's clock, which stamps a publication; nil is the
+	// Now is AppTown's clock, which stamps a publication; nil is the
 	// real one.
 	Now func() time.Time
 }

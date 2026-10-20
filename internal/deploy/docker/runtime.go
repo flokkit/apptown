@@ -175,7 +175,7 @@ type InstalledBrowser struct {
 }
 
 // ErrNoBrowserValues is a container that carries no readable browser value:
-// a server part, or one started before the forge set it. Either way what its
+// a server part, or one started before AppTown set it. Either way what its
 // page is given is not known.
 var ErrNoBrowserValues = errors.New("the container carries no readable browser values")
 

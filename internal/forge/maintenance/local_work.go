@@ -19,8 +19,8 @@ import (
 
 // ---- local work -------------------------------------------------------------
 //
-// What project work this forge's own host may still hold: the records and
-// the containers the reaper reads too. The forge's drain into the
+// What project work this AppTown's own host may still hold: the records and
+// the containers the reaper reads too. AppTown's drain into the
 // -no-local-docker mode (design/operations/workers.md) asks both and keeps the mode record itself.
 
 // WorkerBackend begins the backend recorded for a task run on a worker.
@@ -30,7 +30,7 @@ const WorkerBackend = "worker at "
 // -no-local-docker (R04), checked by the drain after startup repair: a task
 // attempt not on a worker that is not settled and released; a step recorded
 // running with no task attempt held for it (agents and reviews run on this
-// host without one); a chat placed on the forge that has not ended; a
+// host without one); a chat placed on AppTown that has not ended; a
 // deleted project whose cleanup is not done; or a workflow cleanup, a job of
 // one of cleanupJobs keyed ".../cleanup", that has not completed. Nothing is
 // marked stopped or cleaned here.
@@ -98,15 +98,15 @@ func LocalWorkLeft(ctx context.Context, db *database.DB, records *tasks.Records,
 		"Start AppTown without -no-local-docker so it settles and removes that work (end those chats, let the runs finish or stop them, and retry any cleanup waiting for a person), stop it, then run apptownd -drain-local-docker again", strings.Join(left, "\n  "))
 }
 
-// ExecutionContainers lists the containers on the forge's own Docker that
-// ran or run project work: those carrying a label the forge's execution
+// ExecutionContainers lists the containers on AppTown's own Docker that
+// ran or run project work: those carrying a label AppTown's execution
 // owners and reapers use (forge.class, a task's forge.task, a step's
 // forge.step, a folder writer's forge.writes), stopped or not. Two classes
 // are not writers and are left out: env, the release containers of
 // deployments on the built-in target (out of the mode's scope, which refuses
 // releasing there), and infra, the built-in database. Containers of another
 // installation on the same daemon are listed too: the drain cannot tell them
-// from this forge's, so it does not guess.
+// from this AppTown's, so it does not guess.
 func ExecutionContainers(ctx context.Context, dk docker.Scope) ([]string, error) {
 	out, err := dk.Command(ctx, docker.Command{Args: []string{"ps", "-a", "--format",
 		`{{.Names}}\t{{.Label "` + dockerlabel.Class + `"}}\t{{.Label "` + dockerlabel.Task + `"}}\t{{.Label "` + dockerlabel.Step + `"}}\t{{.Label "` + docker.WritesLabel + `"}}`}})

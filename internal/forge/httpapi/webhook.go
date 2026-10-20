@@ -28,7 +28,7 @@ type Webhook struct {
 	actions   *changeactions.Service
 	db        *database.DB
 	dataDir   string
-	now       func() time.Time // the forge's clock, which dates a webhook's change title
+	now       func() time.Time // AppTown's clock, which dates a webhook's change title
 }
 
 func NewWebhook(projects *project.Projects, secrets *secret.Service, lifecycle *projectlifecycle.Service, actions *changeactions.Service, db *database.DB, dataDir string, now func() time.Time) Webhook {

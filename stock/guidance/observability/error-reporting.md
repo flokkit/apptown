@@ -24,7 +24,7 @@ these, so anyone can prove the wiring works in any environment, by hand,
 without reading code:
 
 - Server apps: `GET /_apptown/boom` captures one tagged error (message
-  "forge test boom", tag `forge.probe=boom`) and returns 500. It is not
+  "apptown test boom", tag `apptown.probe=boom`) and returns 500. It is not
   authenticated and does nothing else — it only proves the reporting path.
 - Browser apps and games: typing the sequence `boom!!!` anywhere on the
   page (the letters then three exclamation marks) throws the same tagged

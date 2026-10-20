@@ -30,7 +30,7 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// remoteChats is the forge's chat service running its chats on a worker:
+// remoteChats is AppTown's chat service running its chats on a worker:
 // console.Service with a RemoteAgent, and behind the worker's real server
 // the fake chat runtime, which writes the chat's record as pi does.
 type remoteChats struct {
@@ -39,7 +39,7 @@ type remoteChats struct {
 	runtime *consoletest.Agent
 	client  worker.SessionClient
 	state   string // the worker's state directory
-	data    string // the forge's data directory
+	data    string // AppTown's data directory
 	srv     interface{ Close() }
 }
 
@@ -74,9 +74,9 @@ func eventually(t *testing.T, what string, cond func() bool) {
 	}
 }
 
-// A chat on a worker is used as a chat on the forge is: its files and
+// A chat on a worker is used as a chat on AppTown is: its files and
 // mounts reach the worker without host paths, a message reaches it and its
-// reply comes back into the forge's copy of the record, an interrupt and
+// reply comes back into AppTown's copy of the record, an interrupt and
 // the terminal reach it, and ending it removes it on the worker for good.
 func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	ctx := context.Background()
@@ -172,7 +172,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	}
 }
 
-// The forge's Docker Hub mirror goes to the worker as data with a chat that
+// AppTown's Docker Hub mirror goes to the worker as data with a chat that
 // has private Docker, and reaches the worker's runtime; a chat without
 // private Docker is sent none.
 func TestAWorkerChatGetsTheForgesMirror(t *testing.T) {
@@ -195,7 +195,7 @@ func TestAWorkerChatGetsTheForgesMirror(t *testing.T) {
 }
 
 // An unreachable worker makes a chat unavailable, not dead; a message the
-// forge cannot confirm is said to be not confirmed; and a chat whose worker
+// AppTown cannot confirm is said to be not confirmed; and a chat whose worker
 // cannot be reached does not end.
 func TestAChatWhoseWorkerCannotBeReachedIsUnavailable(t *testing.T) {
 	ctx := context.Background()
@@ -220,7 +220,7 @@ func TestAChatWhoseWorkerCannotBeReachedIsUnavailable(t *testing.T) {
 }
 
 // A worker chat is rebuilt only while it is stopped, whatever its record
-// says: a running chat is never stale to the forge, and becomes so once
+// says: a running chat is never stale to AppTown, and becomes so once
 // stopped.
 func TestAWorkerChatIsRebuiltOnlyWhileStopped(t *testing.T) {
 	ctx := context.Background()
@@ -338,7 +338,7 @@ func chatSourceRepo(t *testing.T) (repo, commit string) {
 }
 
 // The chat's work tree is made once from a bundle of its change's branch,
-// sent by the forge before the chat first starts: it holds that commit on
+// sent by AppTown before the chat first starts: it holds that commit on
 // that branch, with no remote, and a start later does not send it again.
 func TestAChatsWorkTreeIsMadeFromItsSource(t *testing.T) {
 	ctx := context.Background()
@@ -385,7 +385,7 @@ func TestAChatsWorkTreeIsMadeFromItsSource(t *testing.T) {
 
 // A save is the chat's commits since a base, bundled by the chat's own git
 // and naming its tip; with nothing new it is nothing. The bundle passes the
-// forge's checked import, which is what the forge does with it.
+// forge's checked import, which is what AppTown does with it.
 func TestASaveIsTheChatsCommitsSinceItsBase(t *testing.T) {
 	ctx := context.Background()
 	repo, commit := chatSourceRepo(t)
@@ -425,7 +425,7 @@ func TestASaveIsTheChatsCommitsSinceItsBase(t *testing.T) {
 	}
 }
 
-// The forge's copy of the record triggers a save when it shows a turn
+// AppTown's copy of the record triggers a save when it shows a turn
 // handed back that it had not shown before, once per turn.
 func TestAHandedBackTurnTriggersASaveOnce(t *testing.T) {
 	ctx := context.Background()
@@ -592,7 +592,7 @@ func readWithin(term console.Terminal, n int) ([]byte, error) {
 	}
 }
 
-// recordAsOf reads the time of the forge's last good copy of a chat's
+// recordAsOf reads the time of AppTown's last good copy of a chat's
 // record from its session directory; zero when there is none.
 func recordAsOf(dir string) time.Time {
 	raw, err := os.ReadFile(filepath.Join(dir, worker.RecordAsOfFile))
@@ -603,7 +603,7 @@ func recordAsOf(dir string) time.Time {
 	return t
 }
 
-// Once the forge has copied a chat's record, the copy's time never reads as
+// Once AppTown has copied a chat's record, the copy's time never reads as
 // "never copied" while later copies are written: a page listing the chat
 // between a copy's truncation and its write would otherwise show the chat
 // as never copied.

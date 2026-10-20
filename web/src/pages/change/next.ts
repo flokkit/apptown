@@ -45,9 +45,9 @@ export type NextStep = {
 
 export type SentBack = { by: string; note: string }
 
-// offered: the act the forge offers, on stepId when given (Work's next acts:
+// offered: the act AppTown offers, on stepId when given (Work's next acts:
 // the run's on detail.next, the change's on view.next). What can be done is
-// the forge's answer; the page only words and places it.
+// AppTown's answer; the page only words and places it.
 export const offered = (acts: NextAct[] | undefined, act: string, stepId?: string | null) =>
   (acts ?? []).find((a) => a.act === act && (stepId == null || a.stepId === stepId))
 // rerunLabel: how a step run again reads — a check that reads a record is
@@ -215,7 +215,7 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
     }
   }
   if (state === 'waiting on you') {
-    // The approval to decide is the one the forge offers (its next act),
+    // The approval to decide is the one AppTown offers (its next act),
     // never one the page picks from the steps.
     const offered = d.next.find((a) => a.act === 'approve')
     const approval = offered && stage.find((s) => s.id === offered.stepId)
@@ -252,7 +252,7 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
       }
     }
     // Once the landing has merged, the work is on main: it cannot be sent
-    // back, taken to chat or abandoned (the forge refuses each), however
+    // back, taken to chat or abandoned (AppTown refuses each), however
     // the step stopped; the step runs again, or a person overrides it.
     if (landing && view.evidence?.merged) {
       return {

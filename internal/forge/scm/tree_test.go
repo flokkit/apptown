@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// The forge's own writes and reads inside a tree never pass through a link
+// AppTown's own writes and reads inside a tree never pass through a link
 // the tree holds, at the end or on the way, and never leave the tree.
 func TestTreeWritesAndReadsNeverFollowALink(t *testing.T) {
 	t.Parallel()

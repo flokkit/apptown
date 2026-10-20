@@ -166,7 +166,7 @@ func awaitingStageWork(ctx context.Context, tx *database.Tx, assertion *Step) (b
 
 // unfinishedStageWork names the steps of step's stage that do work and have
 // yet to finish: pending or running. Assertions wait for them, an approval
-// may not be given before them, and activity reads them as the forge
+// may not be given before them, and activity reads them as AppTown
 // working.
 func unfinishedStageWork(ctx context.Context, tx *database.Tx, step *Step) ([]string, error) {
 	steps, err := readStageSteps(ctx, tx, step.RunID, step.Stage)

@@ -53,7 +53,7 @@ func TestARecentLogIsOneBoundedRead(t *testing.T) {
 	}
 }
 
-// A log the host did not give is refused in the forge's own words: what
+// A log the host did not give is refused in AppTown's own words: what
 // the Docker client wrote (which can name a host's address or credentials)
 // never reaches the caller. A missing container is absent; a read past its
 // deadline or cancelled says so.

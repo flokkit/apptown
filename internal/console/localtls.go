@@ -2,9 +2,9 @@ package console
 
 import "strconv"
 
-// LocalTLS is a forge serving itself over HTTPS from its own local
+// LocalTLS is an AppTown serving itself over HTTPS from its own local
 // certificate authority (apptownd -local-tls, the desktop trial). A chat on
-// that forge trusts the authority and reaches the forge's HTTPS addresses
+// that AppTown trusts the authority and reaches AppTown's HTTPS addresses
 // (its change's preview) at their public URLs.
 type LocalTLS struct {
 	CACert []byte // the authority's certificate (PEM), never its key
@@ -21,9 +21,9 @@ type LocalTLS struct {
 const LocalCAFile = "local-ca.pem"
 
 // LocalTLSPrelude runs in a chat's container before the agent starts, when
-// the forge has a local authority. Every client resolves *.localhost to the
+// AppTown has a local authority. Every client resolves *.localhost to the
 // container's own loopback itself, before any hosts file, so the prelude
-// leads that loopback's public port to the forge: the TLS stream passes
+// leads that loopback's public port to AppTown: the TLS stream passes
 // through untouched and the preview's name arrives as SNI and Host, as from
 // a browser. It trusts the authority for curl, Python, Go, Node and
 // headless Chromium (both NSS database paths). Everything here fails soft:

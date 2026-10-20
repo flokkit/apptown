@@ -15,7 +15,7 @@
 //     with one attempt; asking again is a fresh admission.
 //   - It ends succeeded, failed, unknown or cancelled. Verification is a
 //     separate fact (Operation.Verification): a copy can succeed not
-//     verified. An unclassified error, a panic or a stop of the forge is
+//     verified. An unclassified error, a panic or a stop of AppTown is
 //     unknown. Settlement (state, the kind's SettleIn, the operation.ended
 //     receipt) is one transaction; a receipt that cannot be written leaves
 //     the operation running, with its holds, until a restart settles it.
@@ -43,7 +43,7 @@
 //
 // Each consequential effect and where it asks. A new effect goes in this
 // table with its guard; one without a guard here is unguarded. "Own
-// cleanup" removes what the operation itself made and is the forge acting
+// cleanup" removes what the operation itself made and is AppTown acting
 // for itself, as its sweeps would; it is not asked again, so production
 // data the operation made is never left behind because a person signed out.
 //
@@ -75,7 +75,7 @@
 //	                       put each item back                         restoreBackup, before each item
 //	                       start the app again                        own cleanup
 //	take-down (a removal)  final backup on the host                   remove(allowed), before finalBackup
-//	                       delete what the forge made                 remove(allowed), before Teardown
+//	                       delete what AppTown made                 remove(allowed), before Teardown
 //	                       revoke its keys, remove its records        remove(allowed), after Teardown
 //
 //	kind (project.purge)   effect                                     asked in (internal/forge/projectlifecycle)
@@ -98,7 +98,7 @@
 // started (their CancelRefusal says why); any queued operation can be
 // cancelled.
 //
-// An effect's answer the forge cannot trust (a timeout, a lost response,
+// An effect's answer AppTown cannot trust (a timeout, a lost response,
 // a server error, as deploy.Refused classifies it) leaves the step and the
 // operation unknown, never failed; what it may have made (a drill's check
 // database) is named as left, never forgotten and never removed on a guess.

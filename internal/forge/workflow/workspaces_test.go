@@ -81,7 +81,7 @@ func TestWorkspacePreservesDefaultBaseStandaloneCloneAndHumanWork(t *testing.T) 
 	if got := workspaceGit(t, w.git, path, "remote"); got != "" {
 		t.Fatalf("workspace retained a host remote: %s", got)
 	}
-	if got := workspaceGit(t, w.git, path, "config", "user.name"); got != "forge helper" {
+	if got := workspaceGit(t, w.git, path, "config", "user.name"); got != "apptown helper" {
 		t.Fatal(got)
 	}
 	if got := workspaceGit(t, w.git, path, "config", "user.email"); got != "helper@forge.local" {

@@ -6,7 +6,7 @@
 -- was shown and agreed to; the subject is the one thing that varies.
 CREATE TABLE IF NOT EXISTS evals (
   id UUID PRIMARY KEY,
-  -- How people name it ("eval 9"): its number within the forge, from
+  -- How people name it ("eval 9"): its number within AppTown, from
   -- eval_numbers, never reused.
   number BIGINT NOT NULL,
   started_by    TEXT NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS evals (
 
 -- One arm: one Change re-run under one setup in its own copy. models_json
 -- is the slot → model the arm runs, read when the eval started: what the
--- forge may call for its copy.
+-- AppTown may call for its copy.
 CREATE TABLE IF NOT EXISTS eval_arms (
   id UUID PRIMARY KEY,
   eval_id UUID NOT NULL REFERENCES evals(id),

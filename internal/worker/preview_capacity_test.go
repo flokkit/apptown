@@ -55,7 +55,7 @@ func TestAWorkerRefusesAnOversizedPreviewBeforeRemovingTheRunningOne(t *testing.
 	}
 }
 
-// The forge asks the worker before any effect whether its daemon can hold
+// AppTown asks the worker before any effect whether its daemon can hold
 // a contract: a refusal is the worker's sentence, typed as a refusal, and
 // the asking changes nothing there.
 func TestAWorkerAnswersWhetherItsDaemonCanHoldAPreview(t *testing.T) {

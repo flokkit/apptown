@@ -23,8 +23,8 @@ const (
 	EvalAuthorised   = "AppTown-Eval-Authorised"   // a step an eval authorised instead of a person
 	LandingAuthority = "AppTown-Landing-Authority" // the authority recorded when the landing was admitted
 	Override         = "AppTown-Override"          // a step overridden, by whom and why
-	Actor            = "AppTown-Actor"             // who made a commit the forge writes for itself
-	Provenance       = "AppTown-Provenance"        // what kind of forge writer made it
+	Actor            = "AppTown-Actor"             // who made a commit AppTown writes for itself
+	Provenance       = "AppTown-Provenance"        // what kind of AppTown writer made it
 )
 
 // OldOperation is Operation as commits from before the AppTown rename spell

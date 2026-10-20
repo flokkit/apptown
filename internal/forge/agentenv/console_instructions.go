@@ -8,7 +8,7 @@ func ConsoleDockerInstructions(disabled bool) string {
   the normal docker CLI. The host Docker socket is never mounted here.
   /work is the same workspace on both sides; use docker run -v /work:/work
   to test its files. Published ports are at http://dind:<port>, not localhost.
-  Buildx uses the preconfigured forge builder with working DNS and the
+  Buildx uses the preconfigured apptown builder with working DNS and the
   configured Docker Hub mirror. Build commands need explicit proxy build
   arguments when applicable; they do not inherit this shell's environment.
   Docker state survives an AppTown restart and an idle stop. After session

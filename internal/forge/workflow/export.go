@@ -14,10 +14,10 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-// ProjectExport is a project's Work as it moves to another forge: every
+// ProjectExport is a project's Work as it moves to another AppTown: every
 // row whole, as
-// the source holds it. The receiving forge gives each row a new id; nothing
-// here is evidence on that forge.
+// the source holds it. The receiving AppTown gives each row a new id; nothing
+// here is evidence on that AppTown.
 type ProjectExport struct {
 	Changes         []json.RawMessage `json:"changes"`
 	Runs            []json.RawMessage `json:"runs"`

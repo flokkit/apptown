@@ -203,7 +203,7 @@ func Fix(rule string, with map[string]any) string {
 // instance's policy library.
 type Policies struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s *Policies) now() time.Time { return clock.Or(s.clock)() }

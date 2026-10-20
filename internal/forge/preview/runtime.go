@@ -41,7 +41,7 @@ const (
 type Status struct {
 	State State  `json:"state"`
 	URL   string `json:"url,omitempty"`
-	// HostOnly: the URL answers on the forge host only
+	// HostOnly: the URL answers on the AppTown host only
 	// (Service.PreviewsHostOnly), so it is not a link for anyone
 	// elsewhere.
 	HostOnly bool      `json:"hostOnly,omitempty"`
@@ -72,7 +72,7 @@ type entry struct {
 // instance. The zero value is ready to use and must not be copied after use.
 // It starts no work of its own; restart still leaves previews cold.
 type Runtime struct {
-	// Now is the forge's clock, which stamps a boot's start and end (the
+	// Now is AppTown's clock, which stamps a boot's start and end (the
 	// real clock when nil).
 	Now     func() time.Time
 	mu      sync.Mutex

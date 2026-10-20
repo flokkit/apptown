@@ -33,7 +33,7 @@ does not make every runner one owner.
 and translates the result into evidence and settlement. Deployment owns provider
 execution and generation guards; a narrow backup requester admits the existing
 durable follow-up. No model service or App is available to these runners.
-On a forge with a worker (`ReleaseBuilds`, `release_build.go`) a landing's
+On an AppTown with a worker (`ReleaseBuilds`, `release_build.go`) a landing's
 deploy step first refuses what would stop the release (no container
 registry, no `-private-docker`, `main` not on a Docker host, an unknown or
 mismatched platform), then runs one `release-build` task through

@@ -81,8 +81,8 @@ func (j *Judge) evaluateRuntime(ctx context.Context, d Declared, src Source, mod
 		return ev
 	}
 	if ps.MemoryDeclared || ps.Standing() {
-		// The contract a part runs under and what the forge applied to a
-		// deployment are the forge's records, not this judge's.
+		// The contract a part runs under and what AppTown applied to a
+		// deployment are AppTown's records, not this judge's.
 		ev.Outcome, ev.Detail, ev.Fault = CannotAssess, "judged by AppTown, against the contract and the deployment it runs", true
 		return ev
 	}
@@ -91,7 +91,7 @@ func (j *Judge) evaluateRuntime(ctx context.Context, d Declared, src Source, mod
 		return ev
 	}
 	if ps.BrowserEnv {
-		// Judged only where the forge knows what the page is given.
+		// Judged only where AppTown knows what the page is given.
 		ev.Outcome, ev.Detail, ev.Fault = CannotAssess, "judging what a page is given needs AppTown's integration settings", true
 		return ev
 	}

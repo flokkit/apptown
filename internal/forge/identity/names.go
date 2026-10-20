@@ -11,9 +11,9 @@ import (
 // ValidName is the one check of a person's name at every door that records
 // or names one: a trusted header, an open-mode actor, a member, a grant's
 // person, a token's holder, the startup administrator seed. Actor strings
-// are parsed across the forge ("alice via console/<s>", "chat/<s>",
+// are parsed across AppTown ("alice via console/<s>", "chat/<s>",
 // "run/<id>"), so a person's name may not take one of those forms, nor be
-// one of the forge's own names (SystemActor), nor carry text that does not
+// one of AppTown's own names (SystemActor), nor carry text that does not
 // survive display. Forms that the stricter account and group rules already
 // refuse pass through here too.
 func ValidName(name string) error {

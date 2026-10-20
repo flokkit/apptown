@@ -59,9 +59,9 @@ func TestEndpointByName(t *testing.T) {
 	}
 }
 
-// What the forge knows about an intranet deployment is what it recorded:
+// What AppTown knows about an intranet deployment is what it recorded:
 // never released is absent; a past release cannot prove current
-// liveness; a stack the forge did not record creating is its Portainer
+// liveness; a stack AppTown did not record creating is its Portainer
 // owner's to take down.
 func TestObserveDoesNotInferLivenessFromTheRecord(t *testing.T) {
 	d := &Driver{TargetID: idstest.N(2)}
@@ -91,7 +91,7 @@ func (b *stackBook) Created(_ context.Context, o deploy.Owned) error {
 	return nil
 }
 
-// A stack is recorded as the forge's only when the forge's own create made
+// A stack is recorded as AppTown's only when AppTown's own create made
 // it; updating one that was there records nothing.
 func TestOnlyAStackTheForgeCreatedIsRecorded(t *testing.T) {
 	for _, existing := range []bool{false, true} {
@@ -132,7 +132,7 @@ func TestOnlyAStackTheForgeCreatedIsRecorded(t *testing.T) {
 	}
 }
 
-// Take-down deletes the stack the forge made and keeps its volumes, each
+// Take-down deletes the stack AppTown made and keeps its volumes, each
 // named for a person to delete; a stack Portainer would not delete fails
 // the take-down.
 func TestTakeDownDeletesTheForgesStackAndKeepsItsVolumes(t *testing.T) {

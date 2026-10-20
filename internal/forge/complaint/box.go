@@ -58,7 +58,7 @@ func StateOf(answer string, archived bool) State {
 // Complaint is one row of complaints, with the project it names.
 type Complaint struct {
 	ID        ids.ID `json:"id"`
-	Number    int64  `json:"number"` // within the forge, as people name it ("complaint 9")
+	Number    int64  `json:"number"` // within AppTown, as people name it ("complaint 9")
 	At        string `json:"at"`
 	Source    string `json:"source"` // human | run | console
 	RunID     ids.ID `json:"runId,omitzero"`
@@ -98,7 +98,7 @@ type Complaint struct {
 
 // What a complaint is about. The filer chooses; a complaint filed in an
 // eval's copy is the eval's whatever it is about, and only one about the
-// forge also reaches the forge's queue.
+// AppTown also reaches AppTown's queue.
 const (
 	AboutForge        = "apptown"
 	AboutWayOfWorking = "way-of-working"
@@ -157,7 +157,7 @@ func (b *Box) now() time.Time { return clock.Or(b.clock)().UTC() }
 // truncated to 2000 bytes; empty text returns ErrText. Why and Wish are trimmed.
 // Credentials written into URLs are redacted from all three first.
 // Filing does not start a workflow or create an audit receipt. About
-// defaults to the forge; any value but the three is ErrAbout. A complaint
+// defaults to AppTown; any value but the three is ErrAbout. A complaint
 // about the way of working names the project's adopted packs, read here,
 // never supplied by the filer.
 func (b *Box) File(ctx context.Context, e Entry) (ids.ID, error) {
@@ -200,9 +200,9 @@ func (b *Box) File(ctx context.Context, e Entry) (ids.ID, error) {
 	})
 }
 
-// All lists the forge's queue newest first, limited to limit rows, including
+// All lists AppTown's queue newest first, limited to limit rows, including
 // archived records: every complaint filed outside an eval's copies, and from
-// them only those about the forge, marked with their eval. The copy record
+// them only those about AppTown, marked with their eval. The copy record
 // decides, so this holds after the copy and the eval are deleted. Project
 // display names are joined when available. Errors return no rows.
 func (b *Box) All(ctx context.Context, limit int) ([]Complaint, error) {

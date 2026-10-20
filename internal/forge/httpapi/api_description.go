@@ -6,9 +6,9 @@ import (
 )
 
 // APIDescription serves the OpenAPI document shipped with this build
-// (stock/docs/api/openapi.json), so a client can read what the forge it
+// (stock/docs/api/openapi.json), so a client can read what AppTown it
 // talks to offers. The document is generated from the route table by the
-// forge package's TestAPIDescriptionIsCurrent.
+// AppTown package's TestAPIDescriptionIsCurrent.
 type APIDescription struct{ files fs.FS }
 
 func NewAPIDescription(files fs.FS) APIDescription { return APIDescription{files: files} }

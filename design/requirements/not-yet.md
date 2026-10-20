@@ -1,7 +1,7 @@
-# Scenarios the forge does not support
+# Scenarios AppTown does not support
 
 Companion to `requirements.md`, which describes only what is built. This
-document holds the journeys people will try and the forge cannot yet carry:
+document holds the journeys people will try and AppTown cannot yet carry:
 what happens if you try, what the journey should be, and what it would take.
 It uses the same use-case form, so an entry can move into `requirements.md`
 when it is built.
@@ -21,7 +21,7 @@ reconcile finds a cluster that does not match what was asked and fails
 the deploy as terminal; nothing is upgraded. Tearing the deployment down
 keeps the old cluster as retained; a new deployment creates an empty 16.
 *Should be:* a gated effect. Freeze the app's writes (a contract field the
-forge can ask for, not assume), fork the cluster at the provider, run the
+AppTown can ask for, not assume), fork the cluster at the provider, run the
 provider's in-place major upgrade on the fork, verify with the boot gate
 against the new binding, swap the binding as the next generation,
 unfreeze; the old cluster stays in the retained list until a person
@@ -74,7 +74,7 @@ release never moves a project, so a project pinned at an older version keeps
 the older prompt or rubric until someone re-adopts it.
 *Should be:* a batch that prepares every project, shows the consequences
 per project, and opens uplift changes where code must move; and a way for
-the forge to mark a stock change as a correction every project should take.
+AppTown to mark a stock change as a correction every project should take.
 
 **N8. Approve a weakening as an expiring exception.** Dropping a gating
 block takes the standards authority, but the act is a receipt, not an
@@ -84,7 +84,7 @@ exception with an expiry and an approver distinct from the requester.
 by that team only; anyone with the manage-packs capability may edit any
 pack.
 
-**N10. A forge upgrade that changes the platform contract.** A new forge
+**N10. An AppTown upgrade that changes the platform contract.** A new AppTown
 binary needs something of every app (a health endpoint, a new contract
 field).
 *Now:* the platform pack cuts a new version and every project shows an
@@ -93,7 +93,7 @@ compatible with, and a project that never adopts keeps running until it
 does not.
 *Should be:* a compatibility declaration between the `forge` pack's
 versions and the binary, and forced contract changes opened as batch
-adoption changes (N7) by the forge itself.
+adoption changes (N7) by AppTown itself.
 
 **N11. More policy rule types and enforcement modes.** Three rule types
 exist (`requireStepBefore`, `requireCapabilityBound`, `scanFailOnCeiling`).
@@ -111,7 +111,7 @@ beside per project.
 repositories.
 *Now:* two changes, landed separately, nothing ties them.
 *Should be:* at least a link between changes and a landing that refuses
-to ship one without the other, or a stated rule that the forge does not
+to ship one without the other, or a stated rule that AppTown does not
 do this.
 
 **N13. Keep the baseline honest across a rebase.** A change reconciled
@@ -136,7 +136,7 @@ sample data stays disposable.
 ## People and authority (extends A People and authority)
 
 **N16. Sign in with an outside identity provider.** Internal accounts and
-a trusted-header proxy exist; there is no OIDC of the forge's own.
+a trusted-header proxy exist; there is no OIDC of AppTown's own.
 
 **N17. Transfer a project to another owner.** The route exists; no page
 or CLI verb reaches it.
@@ -147,7 +147,7 @@ or CLI verb reaches it.
 who approved it" as a saved query with a receipt of its own, for an
 auditor. Conformance reviews are the only saved reports.
 
-**N19. Reconcile history someone made outside the forge.** A repository
+**N19. Reconcile history someone made outside AppTown.** A repository
 imported with years of commits, or a mirror someone pushed to directly:
 nothing turns unattested commits into records.
 
@@ -155,7 +155,7 @@ nothing turns unattested commits into records.
 
 An independent review of `requirements.md` proposed seven defaults. They
 are recorded here with what is true now; none is built, and three need an
-owner decision before they are requirements. The stance the forge shares:
+owner decision before they are requirements. The stance AppTown shares:
 put the defaults in the requirements and keep stricter rules configurable
 through ways of working.
 
@@ -315,21 +315,21 @@ Inferring requirements from source with per-language patterns would break the
 first new app, and is the guesswork checks must not be.
 *Should be:* the language's own tooling names the reads (a Go analysis pass,
 a Django settings introspection, Spring's property metadata), the contract
-says what the forge provides, and the check is a set difference between two
+says what AppTown provides, and the check is a set difference between two
 declarations, or nothing. A check ships only when it is derived from a
 declaration or a maintained tool, with no hand-kept list to tend.
 
 ## Errors
 
 **N35. An error becomes a change, and the change closes the error.** The
-forge attaches apps (and itself) to GlitchTip, and the Services card shows
+AppTown attaches apps (and itself) to GlitchTip, and the Services card shows
 each unresolved issue with where it broke. What is missing is the loop
 around it:
 1. the issue as a sentence on the project page under Happening now ("2
    new errors since release #10, first seen 00:33, in Conformance.tsx:703";
    polling first, a GlitchTip alert-rule webhook later);
 2. a "Fix this" door that opens a change on the `fix-bug` workflow with a
-   brief the forge writes (title, where, the latest event's stack and
+   brief AppTown writes (title, where, the latest event's stack and
    breadcrumbs, first-seen release, count) whose first job is a failing
    test that reproduces it;
 3. resolve-on-landing: the landing marks the issue resolved in that
@@ -337,6 +337,6 @@ around it:
 4. comebacks: the same issue after that release reads "came back in
    release #12, fixed by change 251" and opens the door again;
 5. ignore and resolve doors on the card, recorded with who and why, so
-   the forge's record matches the tracker's.
+   AppTown's record matches the tracker's.
 *Order:* the sentence and the resolve door; then Fix-this with the brief;
 then resolve-on-landing and comebacks together; the webhook last.

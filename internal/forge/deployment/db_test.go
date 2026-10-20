@@ -176,7 +176,7 @@ func shippedChangeFixture(t *testing.T, db *database.DB, projectID ids.ID) ids.I
 	return shippedChangeAt(t, db, projectID, time.Now())
 }
 
-// shippedChangeAt ships a Change through Work, closed at the forge's time at.
+// shippedChangeAt ships a Change through Work, closed at AppTown's time at.
 func shippedChangeAt(t *testing.T, db *database.DB, projectID ids.ID, at time.Time) ids.ID {
 	t.Helper()
 	c, err := workflow.NewCreator(db, func(context.Context, workflow.CreatedChange) error { return nil }).Create(context.Background(), workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "Included"}, "alice")

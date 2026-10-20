@@ -30,14 +30,14 @@ func (a receipts) finish(ctx context.Context, id ids.ID, status int, outcome str
 	}
 }
 
-// open writes a forge call's receipt and its pending spend line, before
+// open writes an AppTown call's receipt and its pending spend line, before
 // anything is sent. The line stays pending for the given time.
 func (a receipts) open(ctx context.Context, w identity.Workload, purpose, provider, model string, pending time.Duration) (ids.ID, error) {
 	return a.requests.OpenCall(ctx, usage.Request{Kind: w.Kind, Actor: w.Actor, ProjectID: w.ProjectID, RunID: w.RunID, Provider: provider, Model: model},
 		usage.Entry{Kind: purpose, ProjectID: w.ProjectID, RunID: w.RunID, Actor: w.Actor, Provider: provider, Model: model}, pending)
 }
 
-// settle closes a forge call's receipt and settles its spend line.
+// settle closes an AppTown call's receipt and settles its spend line.
 func (a receipts) settle(ctx context.Context, id ids.ID, status int, outcome string, u inferenceUsage, incomplete string) (bool, error) {
 	counted, err := strs.JSON(u)
 	if err != nil {

@@ -1,5 +1,5 @@
 // apptown-console opens a console on a directory and puts your terminal on
-// it: the Console subsystem standing alone, with nothing of the forge
+// it: the Console subsystem standing alone, with nothing of AppTown
 // linked. A model, a key and a workspace are all it needs.
 //
 //	apptown-console -workspace ~/code/thing -model anthropic/claude-sonnet-5 -env ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
@@ -99,7 +99,7 @@ func run(workspace string, write bool, model, image, data, steeringFile string, 
 			Model: model,
 			Env:   env,
 			Files: staged,
-			Notes: "This console was opened by apptown-console; there is no forge to talk to.",
+			Notes: "This console was opened by apptown-console; there is no AppTown to talk to.",
 		}},
 		Config: console.Config{DataDir: data, NoDind: !docker},
 	})

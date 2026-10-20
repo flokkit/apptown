@@ -71,7 +71,7 @@ type Config struct {
 	// Resolve looks a source host up when a project starts from an https
 	// repository; nil uses the system resolver. Tests supply one.
 	Resolve func(ctx context.Context, host string) ([]netip.Addr, error)
-	// Now is the forge's clock, by which who administers is judged when a
+	// Now is AppTown's clock, by which who administers is judged when a
 	// project is given its owning group; nil is the real one.
 	Now func() time.Time
 }

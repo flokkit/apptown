@@ -29,13 +29,13 @@ type Workshop struct {
 	integrations   *integration.Service
 	progress       *progress.Feeds
 	dataDir, image string
-	clock          func() time.Time // the forge's clock; nil is the real one
+	clock          func() time.Time // AppTown's clock; nil is the real one
 	// Limits bound a step's private Docker daemon, where its builds run (the
 	// forge's task limits).
 	Limits execution.Limits
 }
 
-// now is the forge's clock, which stamps a workshop container's
+// now is AppTown's clock, which stamps a workshop container's
 // forge.created label.
 func NewWorkshop(scope *docker.Scope, integrations *integration.Service, feeds *progress.Feeds, dataDir, image string, now func() time.Time) *Workshop {
 	return &Workshop{docker: scope, integrations: integrations, progress: feeds, dataDir: dataDir, image: image, clock: now}
@@ -67,7 +67,7 @@ func (w *Workshop) BuildkitConfig(ctx context.Context) string {
 //   - The sidecar runs --privileged. On Docker Desktop the blast radius is
 //     the Desktop VM; on Linux runners use Sysbox/microVMs for a sealed
 //     version of the same shape. -no-private-docker turns the feature off.
-//   - Each daemon starts with a cold image cache. The forge-agent image is
+//   - Each daemon starts with a cold image cache. AppTown-agent image is
 //     preloaded from a tar; everything else pulls from the network (or the
 //     registry integration, once bound).
 //

@@ -152,7 +152,7 @@ func refuseInputs(t *testing.T, tasks execution.TaskDriver, spec func(key, outpu
 		}
 	}
 
-	// What the forge's own validation refuses, the worker refuses too, from
+	// What AppTown's own validation refuses, the worker refuses too, from
 	// any client.
 	small := put([]byte("small"))
 	raw := func(key string, body map[string]any) (int, string) {

@@ -126,7 +126,7 @@ func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Du
 }
 
 // A standing static deployment is told its release, as App Platform's is
-// (APPTOWN_RELEASE, set by the forge after anything the contract says), and
+// (APPTOWN_RELEASE, set by AppTown after anything the contract says), and
 // a self-serving image is witnessed answering it at /_apptown/release; one
 // answering another release fails. An image of the earlier form, and a
 // preview with no revision, keep the /_apptown/env.js check.

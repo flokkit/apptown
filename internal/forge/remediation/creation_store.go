@@ -28,7 +28,7 @@ type CreationRequest struct {
 // Creations freezes a whole job: the job row, its items and the receipt.
 type Creations struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s Creations) now() time.Time { return clock.Or(s.clock)() }

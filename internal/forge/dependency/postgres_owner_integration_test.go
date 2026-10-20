@@ -73,7 +73,7 @@ func healthy(t *testing.T, stack string) {
 // the app chose) holding rows, an extension, a serial and a partitioned
 // table, on a deployment with real data, takes the start script on its own
 // volume: the release remakes it rather than refusing, the rows are there,
-// the app reaches them with the forge's password and not its old one, and
+// the app reaches them with AppTown's password and not its old one, and
 // it is an ordinary user that owns what it made.
 func TestIntegrationAnOldPostgresBecomesAnOrdinaryOwnerOnItsVolume(t *testing.T) {
 	params := map[string]string{"database": "sourdough", "user": "sourdough"}
@@ -91,11 +91,11 @@ func TestIntegrationAnOldPostgresBecomesAnOrdinaryOwnerOnItsVolume(t *testing.T)
 	}) {
 		t.Fatalf("the old Postgres did not answer: %v", answer)
 	}
-	// sql-guarantee: the app's own records on a stand-in server, not the forge's database.
+	// sql-guarantee: the app's own records on a stand-in server, not AppTown's database.
 	for _, sql := range []string{
 		"create extension pgcrypto",
 		"create table loaves (id serial primary key, name text default gen_random_uuid()::text)",
-		// sql-guarantee: the app's own rows on its stand-in server, not the forge's database.
+		// sql-guarantee: the app's own rows on its stand-in server, not AppTown's database.
 		"insert into loaves (name) select 'loaf ' || g from generate_series(1, 50) g",
 		"create table bakes (day int) partition by range (day)",
 		"create table bakes_first partition of bakes for values from (0) to (10)",
@@ -200,7 +200,7 @@ func TestIntegrationANewPostgresGivesTheAppAnOrdinaryOwner(t *testing.T) {
 	}
 }
 
-// The servers the forge starts beside its own steps make the app's user a
+// The servers AppTown starts beside its own steps make the app's user a
 // superuser (the kind's stepEnv), so test runners that make their own
 // databases or load fixtures work; a server without the step environment
 // does not. Both are started as the tests step's runner starts them.

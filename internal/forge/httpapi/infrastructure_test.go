@@ -17,7 +17,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// A Docker host's leftovers are read by their labels: what the forge made
+// A Docker host's leftovers are read by their labels: what AppTown made
 // for a deployment is "left behind" by it with the reason; what belongs to
 // an intranet stack is the intranet's, on this same daemon, not the host's.
 func TestLeftoversAreAttributedByLabel(t *testing.T) {
@@ -249,10 +249,10 @@ func (d daemonReplies) Run(_ context.Context, _ string, req docker.Command) ([]b
 	return nil, nil
 }
 
-// What the forge records owning and the Docker host still holds reads as
+// What AppTown records owning and the Docker host still holds reads as
 // recorded, through the real listing: a local build recorded bare (BuildTag,
 // which the daemon lists as name:latest) and an approved older database
-// volume with Docker's anonymous name. A volume nobody records and the forge
+// volume with Docker's anonymous name. A volume nobody records and AppTown
 // did not name is not offered as an orphan.
 func TestOwnedResourcesTheHostHoldsArePresent(t *testing.T) {
 	t.Parallel()

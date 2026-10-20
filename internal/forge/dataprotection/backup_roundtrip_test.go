@@ -261,7 +261,7 @@ func TestRestoreBackup(t *testing.T) {
 	t.Parallel()
 	s, db, client, dir, pid := backupWorld(t, "rs", answeringPort(t))
 	var lifecycle, restores []string
-	// The forge's clock, which the restore moves an hour on while it loads
+	// AppTown's clock, which the restore moves an hour on while it loads
 	// an item: the outcome's receipt is stamped when it is established.
 	began := time.Now().Add(-72 * time.Hour).Truncate(time.Second).UTC()
 	var at atomic.Int64

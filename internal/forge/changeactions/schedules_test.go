@@ -364,7 +364,7 @@ func TestAProjectsScheduleReadSaysCopyNoneOrFailed(t *testing.T) {
 }
 
 // The read counts a schedule's cron in UTC, as the scheduler does, whatever
-// zone the forge's clock reports its time in.
+// zone AppTown's clock reports its time in.
 func TestAScheduleIsReadInUTCWhateverTheClocksZone(t *testing.T) {
 	t.Parallel()
 	w := newScheduleWorld(t)

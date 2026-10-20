@@ -1,11 +1,11 @@
-# What the forge does for people: the supported workflows
+# What AppTown does for people: the supported workflows
 
 This is the business-requirements view of the product — every journey a
 person can complete, who does it, how, and what counts as done — written
 in plain English and kept true to the current code and guides. The
 design documents under `design/` say why; the guides under
 `stock/docs/guides` say how in more detail; this says what.
-Scenarios people will try that the forge cannot carry yet are listed in
+Scenarios people will try that AppTown cannot carry yet are listed in
 `not-yet.md`, in the same form, so the two documents together say what is
 supported and what is not. The nouns the use cases lean on are defined in
 `concepts.md`, including where two words mean one thing.
@@ -19,30 +19,30 @@ here.
 Each journey is a **use case** in the casual form: who wants it, what
 they get, the steps as the product presents them, and what has to be true
 at the end. Where a rule matters more than a flow, it is stated as a
-requirement in the form *when X, the forge does Y*. Each has a home in
+requirement in the form *when X, AppTown does Y*. Each has a home in
 the product so it can be checked against the screen.
 
 The journeys are grouped by **who is responsible**, because that is the
 divide that matters in the product:
 
-- **Part A — Running the forge.** The instance's administrators: the
+- **Part A — Running AppTown.** The instance's administrators: the
   people who connect the outside world (clouds, scanners, model
   providers, source control), decide who exists and what they may do, and
-  keep the forge's own machinery honest.
+  keep AppTown's own machinery honest.
 - **Part B — Owning and governing software.** Owners of a project and the
   standards people: what a project is, where it runs, what rules it is
   held to, what it plugs into, and who may promote it.
 - **Part C — Contributing to software.** The people (and their agents)
   who make changes: ask, work, preview, accept, land, and read what
   happened.
-- **Part D — The forge's own duties.** What happens by itself.
+- **Part D — AppTown's own duties.** What happens by itself.
 
 Identifiers (A2, B13, C7) are permanent: a journey keeps its identifier
 when the document is reorganised, so other documents may cite it.
 
 The actors:
 
-- **instance administrator** — runs the forge: attaches clouds,
+- **instance administrator** — runs AppTown: attaches clouds,
   connectors, scanners and people. Where a role is narrower the text says
   *integration administrator* or *identity administrator*;
 - **owner** — a project's owner (`project:configure` and above);
@@ -50,10 +50,10 @@ The actors:
   weakening them;
 - **release manager** — may promote to protected deployments;
 - **maintainer** — someone who works on a project and accepts changes;
-- **the helper** — the forge's own coding agent, acting for a person;
+- **the helper** — AppTown's own coding agent, acting for a person;
 - **a coding agent** — a person's own agent (Claude Code and the like)
   connected over MCP, acting within what that person allowed;
-- **the forge** — what happens by itself.
+- **AppTown** — what happens by itself.
 
 Four words the journeys lean on, defined once because they are easy to
 confuse. A **workflow** is a written procedure: stages of steps with
@@ -67,14 +67,14 @@ its policies. A **pack** is a published way of working that a project can
 be put on. So a pack contains workflows, a lane is a workflow in a
 particular role, and a way of working is the whole set a project holds.
 
-# Part A — Running the forge
+# Part A — Running AppTown
 
 For instance administrators. Everything here is defined once for the
 whole instance and consumed by every project.
 
 ## Setting up and connecting the outside world
 
-**A1 Set the forge up.** A fresh forge must not be silently inert. On
+**A1 Set AppTown up.** A fresh AppTown must not be silently inert. On
 first run an administrator supplies the one unavoidable thing, a model
 provider key; the agent image is built from nothing; an open-auth
 listener on a non-loopback address is flagged loudly until auth is
@@ -88,13 +88,13 @@ Infisical), an executor or deploy host (Docker), error reporting
 (GlitchTip), customer feedback, a cloud account (A6), or a scanner (A4).
 Each binding is tested before it is saved, has a health check and a
 version, and holds the names of secrets, never their values. Bindings the
-forge configured itself, from flags or stock manifests, are marked
+AppTown configured itself, from flags or stock manifests, are marked
 managed: they can be viewed, tested and cloned, not edited, and re-sync at
 boot. *Integrations → Connect.*
 
 **A3 Test, clone and disconnect a system integration.** An administrator
 tests a binding at any time; clones a managed one under a new name to
-customise it; disconnects a binding they made. The forge refuses to
+customise it; disconnects a binding they made. AppTown refuses to
 disconnect a connector while any project still references it (detach and
 retire those first, B29 and B30), and refuses for managed bindings, which
 would come back at boot. *Integrations → binding → Test, Clone, Remove.*
@@ -112,13 +112,13 @@ ceiling on what a scan may be told to ignore is set by policy (B18).
 implement) to real models, per profile. *Integrations → Model slots.*
 
 **A6 Add a deployment target.** An instance administrator adds a place
-the forge can put software, through one door for every kind: a Docker
+AppTown can put software, through one door for every kind: a Docker
 host reached over SSH (a droplet, a box under the stairs), a Portainer
 environment, or a DigitalOcean account whose App Platform is the target
 (AWS and Google Cloud to follow; Kubernetes designed, not built). The
 door is a short wizard: the kind, then the connection with credentials
-named as secrets the forge already holds, then the offer and the facts
-the forge cannot read off the target (the apps domain, whether it keeps
+named as secrets AppTown already holds, then the offer and the facts
+AppTown cannot read off the target (the apps domain, whether it keeps
 disks, whether previews may bind, how needs are met). The target must
 answer before anything is recorded, and the words it answered with are
 kept. A cloud account's connector is made with its target and goes when
@@ -133,13 +133,13 @@ target → Offers; Integrations → Deploy targets.*
 **A15 See the infrastructure.** An administrator sees every deployment
 target as a card: its kind, status, how many deployments stand on it,
 what it holds (containers and data volumes, stacks, apps and databases),
-when the forge last asked it, its backups and who it is offered to. One
+when AppTown last asked it, its backups and who it is offered to. One
 click in is the target's inventory, where each resource is **recorded**
-(made by the forge for a deployment), **retained** (left behind by a
+(made by AppTown for a deployment), **retained** (left behind by a
 torn-down deployment), **unrecorded** (present at the target, absent from
-the forge's records) or **missing** (recorded, gone from the target). An
-administrator may remove an unrecorded resource from the page; the forge
-never removes what it recorded. The forge's own database and the need
+AppTown's records) or **missing** (recorded, gone from the target). An
+administrator may remove an unrecorded resource from the page; AppTown
+never removes what it recorded. AppTown's own database and the need
 services it runs count as recorded. *Infrastructure; target → Inventory.*
 
 **A16 Check, edit and retire a target.** From a target's page an
@@ -173,19 +173,19 @@ lists the networks from which administrative sign-in is accepted.
 **Rules.** Approvals belong to people. An instrument (a console, a step
 agent) is bounded by its one project and its table of allowed acts.
 
-## The forge's own jobs, customised
+## AppTown's own jobs, customised
 
 **A12 Turn a pack off.** An administrator stops offering a pack in the
 wizard; it stays in the store and projects on it are untouched. Stock
 packs can be turned off, never deleted. *Ways of working → Packs.*
 
-**A13 Stand your own landing in for the forge's.** The instance binds a
+**A13 Stand your own landing in for AppTown's.** The instance binds a
 custom system workflow (one marked `system: true`) in place of a stock
 one — landing runs `our-land` — for every project at once, with a
 receipt. *Ways of working → Workflows → System.*
 
 **A14 Resolve an integrity event.** When the project's repository is
-found dirty (only the forge writes there, so dirt means something went
+found dirty (only AppTown writes there, so dirt means something went
 around it), the project page shows the diff and an administrator keeps or
 throws it away; the decision is recorded. *Project → banner.*
 
@@ -225,7 +225,7 @@ first (B7). *Settings → General → Delete.*
 
 **B6 Create a deployment.** An owner creates a standing deployment
 bound to a target the project was offered, with its audience and data
-class; the forge refuses what the offer does not allow and what the
+class; AppTown refuses what the offer does not allow and what the
 contract cannot run there. *Project → Settings → Deployments.*
 
 **B7 Tear a deployment down.** An owner removes it; what
@@ -233,7 +233,7 @@ holds data stays at the provider and is listed as retained, with owner
 and intent, until a person marks it released or kept. *Settings →
 Deployments → Tear down; Left behind.*
 
-**B8 Release to the intranet.** A maintainer presses Release; the forge
+**B8 Release to the intranet.** A maintainer presses Release; AppTown
 takes what already landed and puts it on the intranet at the project's
 address, recording release number, who, and what shipped. *Project →
 Release; release page.*
@@ -250,20 +250,20 @@ receipt, with the deploy's log as it is written. *Project → Settings
 **B31 Back up a deployment's state.** An owner takes a backup of a
 standing deployment now: the app's data volume and each need that keeps
 data, copied the way its own tool copies it (Postgres by `pg_dump`,
-otherwise the volume as a tar), as one set with a manifest. The forge
+otherwise the volume as a tar), as one set with a manifest. AppTown
 also takes one every day and after every release, and keeps the newest
-seven per deployment. Only deployments on a Docker host the forge talks
+seven per deployment. Only deployments on a Docker host AppTown talks
 to are backed up; a Portainer environment or a cloud target keeps its
 own. *Deployments → Backups → take now.*
 
 **B32 Restore a deployment from a backup.** An owner restores a set:
-the forge copies what is there now to a safety set first, stops the app,
+AppTown copies what is there now to a safety set first, stops the app,
 restores each item, starts it and waits until it answers. The deployment's
 name is typed to confirm. *Deployments → Backups → restore.*
 
 **Rules.** A protected deployment (partners, public, or production data)
 takes the release grant. A release is refused while another to the same
-deployment is on its way. If the forge restarts mid-deploy it resumes
+deployment is on its way. If AppTown restarts mid-deploy it resumes
 from what the provider had already named, or fails honestly; it never
 adopts a deployment on a guess.
 
@@ -449,19 +449,19 @@ with the change. *Chat; Change page → attachments.*
 
 **C9 Work a change from a desktop.** A person or their coding agent
 checks the change's branch out with a short-lived credential, pushes, and
-syncs; the forge's gates judge the pushed tree. *MCP `checkout_change`,
+syncs; AppTown's gates judge the pushed tree. *MCP `checkout_change`,
 `sync_change`; guide: connect-a-coding-agent.*
 
 **C10 Abandon a change.** A maintainer abandons; the preview is torn
 down, the branch kept for the record. *Change page.*
 
 **C11 Adopt an existing branch as a change.** A maintainer names a branch
-already in the repository and the forge opens a change on it, so work
+already in the repository and AppTown opens a change on it, so work
 done elsewhere lands through the same gates. *Settings → General → Adopt
 a branch; `apptown import`.*
 
 **C12 Run the app on your own machine.** A developer runs `apptown dev up`
-in a checkout; the forge generates a compose file from the runtime
+in a checkout; AppTown generates a compose file from the runtime
 contract, with the app's needs as local containers. Compose is generated
 output, never the contract. *CLI `apptown dev`.*
 
@@ -526,7 +526,7 @@ change's diff, report and receipts; the audit log of who did what.
 
 **C23 Watch usage.** Tokens and cost by project and by day. *Usage.*
 
-**C24 Complain.** A person or an agent files a complaint when the forge
+**C24 Complain.** A person or an agent files a complaint when AppTown
 gets in the way; the box is read and answered. *Complaints.*
 
 **C25 Read the docs.** Guides, the contract reference, the glossary.
@@ -542,9 +542,9 @@ service without assuming that every agent has the same environment.
 *Docs → What chats and steps can use.* The supported guarantees and proposed
 service extension are in [runtime environments](runtime-environments.md).
 
-# Part D — The forge's own duties
+# Part D — AppTown's own duties
 
-Things the forge does without being asked, each with a receipt:
+Things AppTown does without being asked, each with a receipt:
 
 - boots previews and standing deployments with their declared needs and
   keeps them healthy;
@@ -565,8 +565,8 @@ Things the forge does without being asked, each with a receipt:
 - rebuilds a standing deployment on a Docker host whose container is gone
   at boot, never a preview and never a cloud or Portainer deployment;
 - runs each of these as a **job** (`design/subsystems/jobs.md`): one
-  open job per thing, taken over if the forge restarts mid-way, its
-  receipt or its failure listed under Infrastructure as *The forge's own
+  open job per thing, taken over if AppTown restarts mid-way, its
+  receipt or its failure listed under Infrastructure as *AppTown's own
   work*;
 - accounts every model call to its project.
 
@@ -582,7 +582,7 @@ definition.
 
 | Journeys | Web UI | `apptown` CLI | Agent over MCP |
 |---|---|---|---|
-| A Running the forge: setup, integrations, scanners, targets and infrastructure, people, the forge's own jobs | all | `integrations`, `token` | none |
+| A Running AppTown: setup, integrations, scanners, targets and infrastructure, people, AppTown's own jobs | all | `integrations`, `token` | none |
 | B Projects: start, import, configure, mirror, delete | all | `new`, `import`, `pack` | start a project (with a pack) only |
 | B Deployments, backups and releases | all | `release` | none |
 | B The project's way of working; publishing the rules; decisions | all | `adopt`, `pack`, `decision`, `invoke` | read the adopted guidance only |
@@ -591,7 +591,7 @@ definition.
 | C Changes: the core loop | all | all | all except the chat door |
 | C Landing and being judged fairly | all | `land`, `approve`, `reject`, `override`, `check` | request landing; run a change's checks |
 | C Yourself, your agents, and the record | all | `token`, `trace`, `runs`, `status`, `log`, `diff`, `watch`, `transcript` | read only, which is most of it |
-| D The forge's own duties | receipts visible | receipts visible | receipts visible |
+| D AppTown's own duties | receipts visible | receipts visible | receipts visible |
 
 **Rules.** An agent over MCP acts in the person's name and never holds
 more than the person does; the tools it is given are the tools an agent
@@ -605,7 +605,7 @@ verb or tool creates a deployment, attaches a service or grants a role.
 
 - **Use cases** (Cockburn): actor, goal, preconditions, main flow,
   extensions, postconditions. Best for journeys with steps and gates,
-  which is most of the forge. This document uses the *casual* form.
+  which is most of AppTown. This document uses the *casual* form.
 - **User stories** (*as a … I want … so that …*): light, good for a
   backlog, weak on rules and flows.
 - **Given / When / Then** (Gherkin, BDD): executable acceptance
@@ -620,6 +620,6 @@ verb or tool creates a deployment, attaches a service or grants a role.
 - **Capability maps**: a tree of what the product can do, no flows; the
   section headings here are one.
 
-For the forge, use cases with rule sentences fit best: the product is a
+For AppTown, use cases with rule sentences fit best: the product is a
 set of governed journeys, each ending in a receipt, and the rules are
 what the gates enforce.

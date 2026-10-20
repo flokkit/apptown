@@ -16,7 +16,7 @@ func (remoteStub) Collect(context.Context, string, string, string, string) (stri
 	panic("not called")
 }
 
-// A remote task's spec does not name the forge's folder as one it writes
+// A remote task's spec does not name AppTown's folder as one it writes
 // (the worker makes its own checkout), keeps its step label, and leaves the
 // local request's labels as they were.
 func TestARemoteTaskDoesNotClaimTheForgesFolder(t *testing.T) {

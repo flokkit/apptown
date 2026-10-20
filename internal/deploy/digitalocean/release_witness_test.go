@@ -82,13 +82,13 @@ func TestTheReleaseWitnessIsTheSelectedPublicStaticPart(t *testing.T) {
 	}
 }
 
-// App Platform's front door is asked only when the contract gives the forge
+// App Platform's front door is asked only when the contract gives AppTown
 // something to ask: an HTTP readiness path, or a static site's release
 // identity. A dynamic app without either settles on the platform's own
-// active deployment and probe, with no request from the forge, and the
+// active deployment and probe, with no request from AppTown, and the
 // release log says the release it serves is not witnessed.
 //
-// Kills: a guide or result that claims the forge asked the app.
+// Kills: a guide or result that claims AppTown asked the app.
 func TestAppPlatformAsksTheFrontDoorOnlyWhenTheContractSaysWhat(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {

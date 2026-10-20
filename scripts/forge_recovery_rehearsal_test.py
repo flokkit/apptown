@@ -37,7 +37,7 @@ if name == 'cat' and args == [lock]:
 if name == 'rm' and lock in args and os.environ.get('FAIL_LOCK_REMOVE') == '1': sys.exit(1)
 if name in ('cat','rm'):
     os.execv('/bin/'+name,[name]+args)
-if name == 'pgrep': sys.exit(1) # No restored forge process in this fixture.
+if name == 'pgrep': sys.exit(1) # No restored AppTown process in this fixture.
 if name == 'sed':
     if args[0] == '-i':
         p=Path(args[-1]);p.write_text(''.join(x for x in p.read_text().splitlines(True) if '# forge-recovery-rehearsal' not in x))

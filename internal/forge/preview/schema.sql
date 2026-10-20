@@ -1,6 +1,6 @@
--- What the forge created for a preview, by the preview's name: today the
+-- What AppTown created for a preview, by the preview's name: today the
 -- AI models key a preview of an app needing llm gets
--- (design/subsystems/integration-runtime.md). It goes when the forge
+-- (design/subsystems/integration-runtime.md). It goes when AppTown
 -- keeps no record of the preview any more. No reference to the project: a
 -- deleted project's preview keys are still revoked.
 CREATE TABLE IF NOT EXISTS preview_owned (
@@ -15,10 +15,10 @@ CREATE TABLE IF NOT EXISTS preview_owned (
 );
 
 -- When anyone last looked at a preview, by the preview's name: a request
--- to its address through the forge, or a boot of it. A preview stops eight
+-- to its address through AppTown, or a boot of it. A preview stops eight
 -- hours after its last look; a change's preview keeps its build images and
 -- snapshot for thirty days after it, and the look goes with them
--- (design/subsystems/container-lifecycle.md). Written on the forge's
+-- (design/subsystems/container-lifecycle.md). Written on AppTown's
 -- clock, never the database's.
 CREATE TABLE IF NOT EXISTS preview_views (
   preview   TEXT PRIMARY KEY,

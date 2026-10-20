@@ -23,7 +23,7 @@ func (a *App) EnsureDeployments(ctx context.Context) { go a.ensureDeploymentsOnc
 // ensureDeploymentsOnce reconciles recorded deployments against the hosts
 // at boot: previews whose container is gone are forgotten, standing
 // deployments whose container is gone are rebuilt from their recorded
-// inputs. Deployment decides; forge says what is running and asks for the
+// inputs. Deployment decides; AppTown says what is running and asks for the
 // rebuild through the queue.
 func (a *App) ensureDeploymentsOnce(ctx context.Context) {
 	a.Deployment.BootReconcile(ctx,

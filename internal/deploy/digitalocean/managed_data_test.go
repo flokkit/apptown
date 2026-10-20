@@ -12,8 +12,8 @@ import (
 	"flokkit.io/forge/internal/deploy/digitalocean/dofake"
 )
 
-// What the forge asks of a managed cluster to protect its data: a new
-// database is one the platform makes for the forge and hands to the app's
+// What AppTown asks of a managed cluster to protect its data: a new
+// database is one the platform makes for AppTown and hands to the app's
 // user through the admin connection; a name the cluster already holds is
 // refused, never adopted. The app user's connection is the platform's
 // answer at use time. The platform's own backups come newest first. A

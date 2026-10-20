@@ -32,7 +32,7 @@ func TestShutdownClosesAllOwnersBeforeWaiting(t *testing.T) {
 			}
 			close(workflowEntered)
 			<-workflowRelease
-			// Its process was killed with the forge: a failure seen now is
+			// Its process was killed with AppTown: a failure seen now is
 			// not recorded, and the step is left for startup repair.
 			if err := task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": "exit 143"}, nil)); !errors.Is(err, workflow.ErrShuttingDown) {
 				t.Errorf("a failure settled while AppTown stops: %v", err)

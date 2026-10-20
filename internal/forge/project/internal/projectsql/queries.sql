@@ -154,6 +154,6 @@ SELECT * FROM project_lifecycle WHERE state = 'deleted' AND kept_until <= sqlc.a
 -- name: LifecyclesOf :many
 SELECT sqlc.embed(l), p.slug, p.name FROM project_lifecycle l JOIN projects p ON p.id = l.project_id ORDER BY l.project_id;
 
--- A project's own row, for moving it to another forge.
+-- A project's own row, for moving it to another AppTown.
 -- name: ExportProjectRow :one
 SELECT to_jsonb(p)::text FROM projects p WHERE p.id = $1;

@@ -44,10 +44,10 @@ func leakedRun(text, password string) string {
 // printed there crosses a cut made at at+few.
 func padTo(at int) string { return strings.Repeat("x", at) }
 
-// What a boot says of a failure never holds a credential the forge made for
+// What a boot says of a failure never holds a credential AppTown made for
 // its needs, wherever the app or a migration printed it: a failed init
 // step's output and the app's last words on a probe failure (each with the
-// value whole, and crossing the cut the forge makes there) are redacted
+// value whole, and crossing the cut AppTown makes there) are redacted
 // before they are cut, and the error and log tail carry [secret]. These
 // are what preview and landing evidence and a worker's answer keep.
 func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {

@@ -27,7 +27,7 @@ import (
 // transaction that forgets the key here.
 
 // previewKeys is the key owner for one preview, by its name. The key lives
-// while the forge keeps a record of the preview, or boots it.
+// while AppTown keeps a record of the preview, or boots it.
 func (s *Service) previewKeys(projectID ids.ID, preview string) deployment.KeyOwner {
 	return deployment.KeyOwner{
 		ProjectID: projectID,
@@ -42,7 +42,7 @@ type previewKeyRecorder struct {
 	db      *database.DB
 	preview string
 	project ids.ID
-	now     func() time.Time // the forge's clock
+	now     func() time.Time // AppTown's clock
 }
 
 // Held is the keys the preview's owned list names.
@@ -75,9 +75,9 @@ func (r previewKeyRecorder) Forget(ctx context.Context, k integration.HeldKey) e
 
 // ReleaseEndedPreviewKeys revokes the key of every preview that no longer
 // stands where previews run and is not booting. The place previews run is
-// asked, not the forge's memory of them: however a preview ended (stopped,
+// asked, not AppTown's memory of them: however a preview ended (stopped,
 // discarded, reaped for age, removed with its project, reconciled away,
-// cleared when the forge started again), it is gone from there, so its key
+// cleared when AppTown started again), it is gone from there, so its key
 // goes within a pass. Each preview is asked about while its name is held,
 // so a boot that finishes meanwhile is never taken for an ended preview.
 // A place that cannot be asked keeps every key it might
@@ -108,7 +108,7 @@ func (s *Service) ReleaseEndedPreviewKeys(ctx context.Context) error {
 }
 
 // previewStands says whether a preview is there: in the worker's list of
-// its previews, or as a container on this forge's own Docker (a release
+// its previews, or as a container on this AppTown's own Docker (a release
 // recorded before digest bundles still boots here when a worker is
 // configured). Its caller holds the preview's name, so the answer is
 // current. An error is a place that could not be asked.

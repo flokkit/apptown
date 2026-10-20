@@ -32,7 +32,7 @@ func TestStartedServicesAreTornDownAfterTheirContextEnds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cancel() // the forge stops while the step runs
+	cancel() // AppTown stops while the step runs
 	mu.Lock()
 	before := len(asked)
 	mu.Unlock()
@@ -50,7 +50,7 @@ func TestStartedServicesAreTornDownAfterTheirContextEnds(t *testing.T) {
 
 // A step whose services fail to start leaves nothing on the host: its
 // teardown removes every container labelled as the stack's, including
-// one an earlier attempt left (a forge stopped mid-step), before the
+// one an earlier attempt left (an AppTown stopped mid-step), before the
 // network, which Docker refuses to remove while anything is on it. A
 // step's empty /16 network once stayed for weeks this way.
 //

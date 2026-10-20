@@ -43,7 +43,7 @@ const TeardownBound = 2 * time.Minute
 // dependency. Returns the network name and a teardown func (always non-nil).
 //
 // The teardown removes the stack by its owner label, not by what this call
-// started: a container an earlier attempt left (a forge that stopped mid
+// started: a container an earlier attempt left (an AppTown that stopped mid
 // step) still holds the network, and the network goes only once nothing
 // is on it. Whatever it still cannot remove, the periodic reaper takes
 // once the owner has finished (maintenance.Reaper.Containers).

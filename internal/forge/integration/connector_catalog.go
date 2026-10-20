@@ -32,7 +32,7 @@ type ConnectorSpec struct {
 	Title       string            `json:"title"`
 	Description string            `json:"description"`
 	Multi       bool              `json:"multi"`   // may the user create additional bindings?
-	Managed     bool              `json:"managed"` // configured by forge itself (flags/seeds)
+	Managed     bool              `json:"managed"` // configured by AppTown itself (flags/seeds)
 	Icon        string            `json:"icon,omitempty"`
 	Fields      []ConnectorField  `json:"fields"`
 	Presets     []ConnectorPreset `json:"presets,omitempty"`
@@ -47,7 +47,7 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Name: "semgrep", Title: "Semgrep", Icon: "semgrep", Suggest: "semgrep",
 					Description: "SAST — static analysis with community rules (--config auto).",
 					// use-tls is excluded by construction: an app serves plain HTTP
-					// inside its container and TLS ends at the forge's front door, so
+					// inside its container and TLS ends at AppTown's front door, so
 					// the rule can never be acted on here (excluding it per project
 					// would be the wrong tool).
 					Config: map[string]any{
@@ -132,7 +132,7 @@ func ConnectorCatalog() []ConnectorSpec {
 					Options: "go-proxy,npm,pypi,cargo,maven,nuget,rubygems,rust-dist,github-releases,gitlab-releases,node-dist,golang-dist,apache-dist",
 					Help:    "The contract consumers program against — drives env vars and generated mise/cargo config."},
 				{Key: "url", Label: "URL", Type: "string", Placeholder: "https://nexus.example.com/repository/npm-proxy/",
-					Help: "The local endpoint. Repos never contain this URL — forge injects it at step start."},
+					Help: "The local endpoint. Repos never contain this URL — AppTown injects it at step start."},
 			},
 			Presets: []ConnectorPreset{
 				{Name: "go-proxy", Title: "Go modules", Icon: "go", Suggest: "go-modules",

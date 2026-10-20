@@ -29,7 +29,7 @@ const (
 	LimitExited      = "exited"        // it exited, not stopped by anyone: an observation, not proof a limit was hit
 )
 
-// A crash-loop hold is the forge's own act, with its receipt
+// A crash-loop hold is AppTown's own act, with its receipt
 // (deployment.crash-loop-held, saying whether the stop worked); it is not
 // a limit event, which is only what a daemon reported.
 
@@ -41,7 +41,7 @@ const (
 	limitEventKeep = 30 * 24 * time.Hour
 	// stopPairing is how close a kill or an out-of-memory kill comes to a
 	// container's exit for the exit to be theirs, not its own: an exit
-	// after the forge or Docker stopped it is not the app exiting.
+	// after AppTown or Docker stopped it is not the app exiting.
 	stopPairing = 10 * time.Second
 )
 
@@ -57,7 +57,7 @@ type LimitEvent struct {
 	// had settled on by then, when it was still settled with no deploy
 	// under way as the event was recorded. Nil is not known (an unlabelled
 	// container's event during or after an unsettled deploy, or one from
-	// before the forge kept this).
+	// before AppTown kept this).
 	Generation *int64 `json:"generation,omitempty"`
 }
 
@@ -65,7 +65,7 @@ type LimitEvent struct {
 // deployments on, what its daemon reported since the last event recorded
 // there (at most limitEventReach back), and records each out-of-memory
 // kill and each exit of a standing deployment's part or need. A container
-// the forge does not run as a standing deployment's (a preview, a step,
+// AppTown does not run as a standing deployment's (a preview, a step,
 // other software) is not recorded. A host that cannot be read is logged
 // and read again next sweep. It prunes events older than limitEventKeep
 // at most hourly.
@@ -130,7 +130,7 @@ func (d settledAs) generationOf(e docker.ContainerEvent) *int64 {
 }
 
 // containerOwners answers which standing deployment's part or need a
-// container on one target is, by the names the forge gives them: the
+// container on one target is, by the names AppTown gives them: the
 // public part's container (whichever generation runs it), and each
 // other part's and need's service on the deployment's stack.
 type containerOwners struct {
@@ -197,7 +197,7 @@ func (s *Service) recordTargetLimitEvents(ctx context.Context, targetID ids.ID, 
 	}
 	// Only a Docker host's daemon is read, whether or not anything has
 	// settled there yet (a first release's boot is when a kill matters):
-	// App Platform reports none to the forge, and Portainer's are not read
+	// App Platform reports none to AppTown, and Portainer's are not read
 	// in 1.0.
 	dk, err := s.hosts.DockerScope(ctx, t)
 	if errors.Is(err, ErrNotDockerHost) {
@@ -248,7 +248,7 @@ type ownedEvent struct {
 }
 
 // limitEventsOf is the events a sweep records: each out-of-memory kill of
-// an owned container, and each exit of one that neither a kill (the forge
+// an owned container, and each exit of one that neither a kill (AppTown
 // or Docker stopping it) nor an out-of-memory kill caused. Events of
 // containers no standing deployment owns are not recorded.
 func limitEventsOf(events []docker.ContainerEvent, owners containerOwners) []ownedEvent {

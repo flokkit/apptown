@@ -81,7 +81,7 @@ type staticSecrets map[string]string
 
 func (s staticSecrets) EnvFor(string) map[string]string { return s }
 
-// The forge's own values in a stack (the release identity, DATA_DIR,
+// AppTown's own values in a stack (the release identity, DATA_DIR,
 // APPTOWN_ORIGINS) win over a contract's or a secret's of the same name, and
 // each key appears once: Compose refuses a mapping that repeats one.
 func TestAnIntranetStackSetsTheForgesValuesOnceAndLast(t *testing.T) {
@@ -209,7 +209,7 @@ var dollarValues = []string{"pa$word", "x${HOME}y", "$2a$10$abc", "lit$$eral"}
 // written, wherever it came from (a contract's environment, a secret, a
 // need's environment, a part's, an init step's, a healthcheck, a data
 // folder), as docker run -e and -v give it on a Docker host: Compose interpolates $ in the file, so
-// the forge writes each $ as $$.
+// AppTown writes each $ as $$.
 func TestAnIntranetStackKeepsEveryDollarLiteral(t *testing.T) {
 	t.Parallel()
 	for _, v := range dollarValues {

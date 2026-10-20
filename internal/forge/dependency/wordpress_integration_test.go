@@ -24,7 +24,7 @@ import (
 )
 
 // The shipped image, with real MariaDB and the s3 need's own store, each
-// started from its catalogue entry as the forge starts it: install twice
+// started from its catalogue entry as AppTown starts it: install twice
 // without resetting users/content, create media and a thumbnail, read them
 // through the site's front door (the store has no public address), replace
 // only the web container, and prove the same objects and content remain.
@@ -143,7 +143,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 		}
 	}
 
-	// The store as the forge starts it: its start script makes the bucket and
+	// The store as AppTown starts it: its start script makes the bucket and
 	// the app's key before it says it is healthy. Nothing here makes a bucket
 	// or a policy; the app's key owns the bucket and nothing is public.
 	store := catalogued("s3")

@@ -17,7 +17,7 @@ import (
 
 type NeedStore struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock, which stamps a need's updates; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps a need's updates; nil is the real one
 }
 
 func (s NeedStore) now() time.Time { return clock.Or(s.clock)().UTC() }
@@ -29,7 +29,7 @@ func NewNeedStore(db *database.DB, now func() time.Time) NeedStore {
 }
 
 // ErrIdentityHeld refuses a fulfilment that would replace a managed need's
-// established identity with another: the forge's copies take what the
+// established identity with another: AppTown's copies take what the
 // record names, and the app still runs on, or was filled into, the old one.
 var ErrIdentityHeld = fault.New(fault.Conflict, "a managed need's cluster, database and user do not change in place")
 

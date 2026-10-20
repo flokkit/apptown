@@ -32,7 +32,7 @@ type Step struct {
 	Stdin   io.Reader
 	Stdout  io.Writer
 	// Name names the container a job makes (a person finds a job a stopped
-	// forge left by it, and by its labels); "" lets the daemon name it.
+	// AppTown left by it, and by its labels); "" lets the daemon name it.
 	Name string
 }
 

@@ -1,4 +1,4 @@
--- What the forge created for a preview (preview_owned): today the AI models
+-- What AppTown created for a preview (preview_owned): today the AI models
 -- key a preview of an app needing llm gets.
 
 -- name: RecordPreviewOwned :execrows

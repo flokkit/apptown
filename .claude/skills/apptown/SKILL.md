@@ -48,9 +48,9 @@ Repeat until `advanced — run is done ✓`.
 - `apptown log [-p slug] [-k adr|workflow|guidance]` — project-state changes that
   happened *outside* runs (workflow saves, ADR transitions, guidance edits), with actors
 - `apptown runs [-p slug] [--status all]` — find runs to inspect
-- `apptown executing` — before restarting or deploying a forge: the steps
+- `apptown executing` — before restarting or deploying an AppTown: the steps
   and the operations (copies, restores, take-downs) executing now in every
-  project (exit 0 none, 3 some, 1 the forge cannot say). A run waiting on a
+  project (exit 0 none, 3 some, 1 AppTown cannot say). A run waiting on a
   person survives a restart; `apptown runs` lists it as running, so do not
   read that list as "busy"
 

@@ -11,7 +11,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// IDByNumber is the id of the complaint people name by its number within the forge
+// IDByNumber is the id of the complaint people name by its number within AppTown
 // ("complaint 9"). It says only that the number is taken; reading the record still
 // asks for authority.
 func (b *Box) IDByNumber(ctx context.Context, number int64) (ids.ID, error) {

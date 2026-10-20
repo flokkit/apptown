@@ -26,12 +26,12 @@ import (
 // The backup store (design/subsystems/deployment.md, "Protecting data
 // off-host"): one
 // private bucket in an S3-compatible store that a platform administrator
-// attaches, where the forge keeps the copies it takes off a deployment's
-// host. The forge does not make the bucket: it is attached existing and
+// attaches, where AppTown keeps the copies it takes off a deployment's
+// host. AppTown does not make the bucket: it is attached existing and
 // private. Its key pair is named by two secrets, resolved for each
-// operation by the forge and never given to a copy job. Whoever holds a key
+// operation by AppTown and never given to a copy job. Whoever holds a key
 // to the bucket can read the copies in it; encryption at rest is the
-// store's claim, not something the forge witnesses.
+// store's claim, not something AppTown witnesses.
 
 // BackupStore is the attached store, as recorded.
 type BackupStore struct {

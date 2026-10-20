@@ -17,7 +17,7 @@ import (
 	"flokkit.io/forge/stock"
 )
 
-// A deployment made before the forge recorded its creations has no list.
+// A deployment made before AppTown recorded its creations has no list.
 // The inspection proposes what the host holds under its names and labels,
 // records nothing on its own, and records only what a person approves,
 // with the approval as its note; a key it does not propose now is refused.
@@ -117,7 +117,7 @@ func TestTheOwnershipInspectionProposesAndRecordsOnlyWhatIsApproved(t *testing.T
 	}
 }
 
-// inspectionWorld is a project on this forge's own Docker (a fake daemon)
+// inspectionWorld is a project on this AppTown's own Docker (a fake daemon)
 // with its main deployment bound there at port.
 func inspectionWorld(t *testing.T, slug string, port int) (*Service, *dockerfake.Daemon, ids.ID) {
 	t.Helper()

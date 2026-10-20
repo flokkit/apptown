@@ -62,11 +62,11 @@ describe('restoring a backup set', () => {
   }, 3000)
 
   // A Docker host's set in the backup store is restored in place like one
-  // on the forge's disk; only a managed database's copy is started from.
+  // on AppTown's disk; only a managed database's copy is started from.
   it('a Docker set in the store keeps its restore; a managed copy does not', async () => {
     const client = newQueryClient()
     const docker = { ...set, id: DOCKER_SET, store: 'store', path: 'shop/main/x' }
-    // A set on the forge's disk is said to be on this host.
+    // A set on AppTown's disk is said to be on this host.
     const cloud = { ...set, id: CLOUD_SET, deployment: 'prod', store: 'store', path: 'shop/prod/x', items: [{ kind: 'need', name: 'postgres', file: 'postgres.dump', bytes: 5, sha256: 'c', how: 'pg_dump', copy: 'declared', format: 'pg-custom', instance: 'db-1', database: 'app' }] }
     const body = { keep: 7, where: '/b', backups: [docker, cloud] }
     client.setQueryData(getKey('/backups'), body)

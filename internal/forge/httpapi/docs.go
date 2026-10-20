@@ -20,7 +20,7 @@ type Docs struct {
 	links        DocLinks
 }
 
-// NewDocs serves the shipped docs. origin is this forge's public web origin
+// NewDocs serves the shipped docs. origin is this AppTown's public web origin
 // ("https://forge.example"), or empty when it was not given one: the guides'
 // live links then read as words, because a guessed address (the one a
 // request happened to arrive on) is not one to hand a coding agent.
@@ -28,11 +28,11 @@ func NewDocs(integrations []DocIntegration, origin string) Docs {
 	return Docs{integrations: slices.Clone(integrations), links: docLinks(origin)}
 }
 
-// gitPath is where the forge serves its projects' repositories over HTTP:
+// gitPath is where AppTown serves its projects' repositories over HTTP:
 // <origin>/git/<project>.
 const gitPath = "/git"
 
-// docLinks is this forge's own addresses, as the guides name them.
+// docLinks is this AppTown's own addresses, as the guides name them.
 func docLinks(origin string) DocLinks {
 	link := func(path string) DocLink {
 		if origin == "" {
@@ -199,8 +199,8 @@ type DocGuide struct {
 }
 
 // DocLinks is the whole vocabulary of live links: a guide writes
-// {forge:<name>}, where <name> is a field's JSON name, and the Docs page
-// shows this forge's own address there (web/src/liveLinks.ts). Only
+// {apptown:<name>}, where <name> is a field's JSON name, and the Docs page
+// shows this AppTown's own address there (web/src/liveLinks.ts). Only
 // addresses that are the same for everyone belong here, never a person's
 // token or anything secret: the docs are readable without signing in.
 type DocLinks struct {
@@ -209,8 +209,8 @@ type DocLinks struct {
 	Git    DocLink `json:"git"`    // the base of a project's repository address
 }
 
-// DocLink is one live link. URL is empty when the forge does not know its
-// public address; the page then says "your forge's address" followed by
+// DocLink is one live link. URL is empty when AppTown does not know its
+// public address; the page then says "your AppTown's address" followed by
 // Path instead of linking anywhere.
 type DocLink struct {
 	URL  string `json:"url"`

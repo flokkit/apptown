@@ -69,7 +69,7 @@ func TestRecoverLandingsFromGit(t *testing.T) {
 }
 
 // One landing whose merge cannot be inspected (its repository is gone) does
-// not stop the forge from starting: it stays pending, holding its landing,
+// not stop AppTown from starting: it stays pending, holding its landing,
 // and the merges after it are still inspected.
 func TestALandingThatCannotBeInspectedDoesNotStopStartup(t *testing.T) {
 	t.Parallel()

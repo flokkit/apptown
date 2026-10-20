@@ -1,11 +1,11 @@
 /* The Ledger look: warm paper, ink text, ruled lines, serif headings — a
-   record book, because the forge is a record of who asked, what was checked
+   record book, because AppTown is a record of who asked, what was checked
    and who accepted it. Every colour, font, size and radius in the app comes
    from the tokens below; components name a role (--ok, --rule, --font-serif),
    never a value. Fonts are bundled by the build (fonts.ts), not fetched from
-   a CDN, so a forge with no internet still looks like itself. */
+   a CDN, so an AppTown with no internet still looks like itself. */
 :root {
-  /* Type. Serif for headings and the forge's name; a plain sans for
+  /* Type. Serif for headings and AppTown's name; a plain sans for
      reading; mono for code, commits and identifiers. */
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
@@ -358,7 +358,7 @@ button.btn-door .btn-sub { font-size: var(--fs-xs); font-weight: 400; margin-top
 
 /* Chat bubbles: yours on the right in accent, the helper's on the left;
    its final answer in a turn is green, its working-it-out is dimmed, and
-   the forge's own check reads as the forge (amber). */
+   AppTown's own check reads as AppTown (amber). */
 .bubble-row { display: flex; justify-content: flex-start; margin: 6px 0; }
 .bubble-row.you { justify-content: flex-end; }
 .bubble {

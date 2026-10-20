@@ -15,9 +15,9 @@ import (
 	"flokkit.io/forge/internal/forge/identity/internal/accesssql"
 )
 
-// Scoped system bindings: authority the forge holds for one purpose on one
+// Scoped system bindings: authority AppTown holds for one purpose on one
 // project, granted by a person's decision, such as deleting a project and
-// purging it after its kept period. A binding acts as the forge, never as
+// purging it after its kept period. A binding acts as AppTown, never as
 // the person; its receipts name the binding, who granted it and what they
 // decided. It permits only what its purpose names, is resolved before each
 // effect like any other credential (RequireStill), and stops what it runs
@@ -34,8 +34,8 @@ var bindingCapabilities = map[string][]access.Capability{
 // BindingCredential is a binding's credential reference.
 func BindingCredential(id ids.ID) string { return "system:binding/" + id.String() }
 
-// BindingPrincipal is the forge acting under a binding: its receipts name
-// the forge, the binding and (as Person) who granted it.
+// BindingPrincipal is AppTown acting under a binding: its receipts name
+// AppTown, the binding and (as Person) who granted it.
 func BindingPrincipal(id ids.ID, grantedBy string) access.Principal {
 	return access.Principal{Kind: "instrument", Name: "apptown-system", Instrument: "forge", Person: grantedBy, Via: "binding", Credential: BindingCredential(id)}
 }

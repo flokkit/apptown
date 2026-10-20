@@ -25,7 +25,7 @@ import (
 
 // scratchWorld is a change whose run has two live agent step attempts, a
 // project repository, and a clone standing in for an agent's repository on
-// a worker, with one commit the forge does not have.
+// a worker, with one commit AppTown does not have.
 type scratchWorld struct {
 	a              *App
 	ch             *workflow.Change
@@ -87,7 +87,7 @@ func newScratchWorld(t *testing.T) *scratchWorld {
 	gittest.Run(t, w.work, "add", "work.txt")
 	gittest.Run(t, w.work, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "work in progress")
 	w.commit = gittest.Run(t, w.work, "rev-parse", "HEAD")
-	// The agent reaches the forge through the read-only listener, as a
+	// The agent reaches AppTown through the read-only listener, as a
 	// step on a worker does ($APPTOWN_URL).
 	w.plane = httptest.NewServer(GETOnly(a.Handler()))
 	t.Cleanup(w.plane.Close)
@@ -134,7 +134,7 @@ func TestAStepPushesOnlyItsOwnScratchRef(t *testing.T) {
 		"main":                     "refs/heads/main",
 		"the change's branch":      "refs/heads/" + w.ch.Branch,
 		"a new branch":             "refs/heads/elsewhere",
-		"another forge ref":        "refs/apptown/incoming/ticket-1",
+		"another AppTown ref":      "refs/apptown/incoming/ticket-1",
 		"another step's scratch":   w.scratchRef(w.second),
 		"another change's scratch": scm.ScratchRef(idstest.N(999999), w.first, w.steps[w.first].Attempt),
 	} {
@@ -244,7 +244,7 @@ func TestAScratchCommitIsCheckedAsFeedbackOnly(t *testing.T) {
 // A step's token reads nothing from the project's repository, whatever the
 // request's query says: Git's backend picks the operation from the method
 // and path, so a receive-pack query on an upload-pack or file path is
-// refused on the read-only listener and on the forge's own, as are the
+// refused on the read-only listener and on AppTown's own, as are the
 // upload-pack discovery and RPC, dumb discovery and file reads.
 // Its one admitted request, the receive-pack discovery, advertises no
 // sibling's branch.
@@ -259,7 +259,7 @@ func TestAStepTokenReadsNothingWhateverTheQuery(t *testing.T) {
 	loose := "/objects/" + w.commit[:2] + "/" + w.commit[2:]
 	direct := httptest.NewServer(w.a.Handler())
 	t.Cleanup(direct.Close)
-	// refused, when set, is the admission's own refusal, which the forge's
+	// refused, when set, is the admission's own refusal, which AppTown's
 	// listener gives: the step's token is turned away before git runs.
 	type call struct{ name, method, path, protocol, body, leaked, refused string }
 	calls := []call{

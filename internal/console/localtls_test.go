@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-// With the forge's local authority staged, the chat's launcher trusts it
+// With AppTown's local authority staged, the chat's launcher trusts it
 // for every client (a bundle of the system roots plus it, the variables
 // curl, Python, Go and Node read) and goes on when a tool it uses is
 // missing; without it, the launcher changes nothing. It also adds the
 // authority to both NSS databases headless Chromium reads and leads its
-// loopback's public port to the forge.
+// loopback's public port to AppTown.
 func TestTheLocalTLSPreludeTrustsTheAuthorityAndForwardsThePort(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

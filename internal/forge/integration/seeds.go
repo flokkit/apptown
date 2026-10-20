@@ -28,7 +28,7 @@ const (
 	// Coming with later phases: notifier, intake, artifacts (publish).
 )
 
-// SeedConfig is the forge runtime configuration the seed bindings record.
+// SeedConfig is AppTown runtime configuration the seed bindings record.
 type SeedConfig struct {
 	AgentImage       string
 	AgentModel       string // provider/model; its provider names the model binding
@@ -50,13 +50,13 @@ func seedJSON(v any) string {
 	return string(b)
 }
 
-// Seed is one binding the forge's own configuration defines.
+// Seed is one binding AppTown's own configuration defines.
 type Seed struct {
 	Name, Capability, Provider string
 	Config                     string // JSON: references only, never secret material
 }
 
-// Seeds are the integrations the forge already has, as managed bindings:
+// Seeds are the integrations AppTown already has, as managed bindings:
 // the boot syncs them as a versioned stock kind, so a changed seed appends a
 // version and an audit entry, and a binding authored under a seed's name
 // (unmanaged) is kept. The model binding is not among them (SeedModelBinding).
@@ -72,7 +72,7 @@ func Seeds(cfg SeedConfig) []Seed {
 			"bootstrap": "secrets.env", "auth": "universal-auth", "stepPrefix": "STEP_",
 		}),
 		// The built-in secret store:
-		// application secrets in the forge's own database, obfuscated with
+		// application secrets in AppTown's own database, obfuscated with
 		// a generated key. Works with nothing set up; honest about being
 		// protection against accidental disclosure, not a vault.
 		mk("built-in-secrets", CapSecrets, "internal", map[string]any{
@@ -130,7 +130,7 @@ func (s *Service) SeedModelBinding(ctx context.Context, cfg SeedConfig) {
 	}
 	// NOTE: paid model providers (e.g. openrouter) are NOT seeded — they are
 	// user bindings created from the connector catalog, editable and
-	// deletable. "Managed" means strictly config-derived from forge runtime
+	// deletable. "Managed" means strictly config-derived from AppTown runtime
 	// config; a convenience seed here would resurrect after deletion and
 	// wrongly wear the managed lock.
 }

@@ -137,7 +137,7 @@ export type Read<T> = {
   // an earlier answer is still shown, in which case it says the answer shown
   // is the last one read.
   err: string
-  // reason is why the latest read failed, in the forge's own words, without
+  // reason is why the latest read failed, in AppTown's own words, without
   // err's note about the answer shown: what a stale note quotes.
   reason: string
   // loading: no answer yet and one is on its way.
@@ -154,7 +154,7 @@ export type Read<T> = {
   // that saves: an answer another reader held may be old, and saving a form
   // seeded from it would send old values back.
   current: boolean
-  // denied: the forge refused this read to the caller (403). It is neither
+  // denied: AppTown refused this read to the caller (403). It is neither
   // empty nor broken: the page says the read is not available to them.
   denied: boolean
   // answeredAt is when the answer shown arrived (ms since the epoch), 0 when

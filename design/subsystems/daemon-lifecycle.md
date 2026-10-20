@@ -40,13 +40,13 @@ the mode, a drain was recorded, or the database has no recorded start (a fresh
 installation). Every admitted start records its mode, so a
 start with local Docker makes the next start in the mode check again.
 
-`-drain-local-docker` is a one-shot start with the forge's normal settings and its
-own Docker, while no other forge serves the database. It runs required repair,
+`-drain-local-docker` is a one-shot start with AppTown's normal settings and its
+own Docker, while no other AppTown serves the database. It runs required repair,
 then requires that the records hold no local work and that the local Docker has
-no forge execution container; only then does it record the drain, and it exits
+no AppTown execution container; only then does it record the drain, and it exits
 without serving. It stops or removes nothing. It cannot be combined with
 `-no-local-docker` or `-verify-only`. See
-[workers](../operations/workers.md#switching-a-forge-to-no-local-docker) for the
+[workers](../operations/workers.md#switching-an-apptown-to-no-local-docker) for the
 procedure.
 
 A bind failure closes listeners already opened. A running listener or required

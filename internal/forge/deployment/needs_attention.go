@@ -21,7 +21,7 @@ import (
 // A deployment needs attention when its own records contradict each other:
 // an attempt still open while the deployment reads settled, or a release
 // still releasing after its attempt ended. Completion and release
-// settlement commit together, so neither arises from the forge's own
+// settlement commit together, so neither arises from AppTown's own
 // writes; neither is reconstructed at startup either. Startup marks the
 // deployment (readiness uncertain, with a ledger line) and goes on; a
 // person presses Check again, which observes the deployment and settles it

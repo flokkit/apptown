@@ -6,7 +6,7 @@
 -- deployment_operations kept every legacy id.
 CREATE TABLE IF NOT EXISTS operations (
   id UUID PRIMARY KEY,
-  -- How people name it ("operation 9"): its number within the forge, from
+  -- How people name it ("operation 9"): its number within AppTown, from
   -- operation_numbers, never reused.
   number BIGINT NOT NULL,
   kind             TEXT NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS operations (
   subject          TEXT,                                -- a hold path; null for unattributed history
   holds            JSONB NOT NULL DEFAULT '[]'::jsonb,  -- every path held while queued or running
   asked_by         TEXT NOT NULL,
-  -- The asker's principal (access.Actor); NULL for the forge, or one not
+  -- The asker's principal (access.Actor); NULL for AppTown, or one not
   -- resolved to a person.
   asked_by_principal UUID,
   authority        JSONB NOT NULL DEFAULT '{}'::jsonb,  -- principal, credential reference, captured bounds

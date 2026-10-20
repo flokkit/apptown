@@ -31,7 +31,7 @@ type RebuildPlan struct {
 	Attempt    ids.ID // an attempt already admitted under the key, when Skipped says so
 	Outcome    string
 	// bundle is the generation's bundle when the rebuild runs its images
-	// instead of building: a digest bundle, pulled by digest, or, in a forge
+	// instead of building: a digest bundle, pulled by digest, or, in an AppTown
 	// with no local Docker, any bundle, whose images are on the target.
 	bundle *ReleaseBundle
 }
@@ -203,8 +203,8 @@ const (
 	ContainerGone    ContainerPresence = iota // no such container on the host
 	ContainerStopped                          // exists and is not running: stopped on purpose, by the health controller or a person
 	ContainerRunning
-	// ContainerUnavailable: on the built-in host of a forge with no local
-	// Docker, which this forge does not have (ObserveContainer).
+	// ContainerUnavailable: on the built-in host of an AppTown with no local
+	// Docker, which this AppTown does not have (ObserveContainer).
 	ContainerUnavailable
 	// ContainerUnknown: it could not be observed (ObserveContainer). It says
 	// nothing about whether the container runs.
@@ -228,7 +228,7 @@ func (p ContainerPresence) String() string {
 
 // BootReconcile is what a restart does for what the apptown runs itself:
 // forget preview rows whose container is not running, and ask for a rebuild
-// of every standing deployment whose container is GONE on a host the forge
+// of every standing deployment whose container is GONE on a host AppTown
 // talks to. A standing container that exists but is stopped stays as found —
 // the health controller holds a crash loop by stopping it, a person may stop
 // one too, and unless-stopped makes Docker the same promise. present says

@@ -76,11 +76,11 @@ type History struct {
 
 // MaxReport bounds a report carried back: a larger one is not read, and is
 // an error, never a truncated answer. The bound keeps a runaway tool from
-// filling the forge's memory; it is set above what a supported scanner
+// filling AppTown's memory; it is set above what a supported scanner
 // writes for an ordinary image. Trivy's SARIF over a full Debian image
 // (rust:1.84.1, every severity) is 27 MB, mostly rule descriptions, and it
 // cannot be cut down by severity without hiding findings the gate judges:
-// trivy filters on the vendor's label, the forge on the CVSS score.
+// trivy filters on the vendor's label, AppTown on the CVSS score.
 const MaxReport = 64 << 20
 
 type Termination string
@@ -129,13 +129,13 @@ type Runner struct {
 	// "" is the system's temporary folder.
 	Scratch string
 	// Refused, when set, refuses every run with it: the project-process
-	// runner of a forge that runs no project process on its own host.
+	// runner of an AppTown that runs no project process on its own host.
 	Refused error
 	// ServiceLimits are each of a request's services' limits (services.go);
 	// zero is DefaultServiceLimits.
 	ServiceLimits Limits
 	// Limits bound every Docker run this runner makes (LimitFlags); a zero
-	// field is not bounded. The forge sets them to its task limits.
+	// field is not bounded. AppTown sets them to its task limits.
 	Limits Limits
 }
 
@@ -220,8 +220,8 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 	configureCancellation(cmd)
 	if backend == Local {
 		cmd.Dir = req.Workspace
-		// Without the GIT_* variables the forge inherited (gitexec.Environ):
-		// git run here, by the forge or by a command it runs, names its own
+		// Without the GIT_* variables AppTown inherited (gitexec.Environ):
+		// git run here, by AppTown or by a command it runs, names its own
 		// repository.
 		cmd.Env = gitexec.Environ(req.Env...)
 	}

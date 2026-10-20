@@ -102,7 +102,7 @@ func TestTheAPIServersCutOffSlowAndIdleClients(t *testing.T) {
 	}
 }
 
-// -portainer-environment reaches the forge's configuration, local unless
+// -portainer-environment reaches AppTown's configuration, local unless
 // stated; APPTOWN_PORTAINER_ENVIRONMENT states it as well.
 //
 // Kills: the flag not carried into forge.Config, so live's environment name

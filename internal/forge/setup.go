@@ -19,7 +19,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// First-run setup: a fresh forge must not be
+// First-run setup: a fresh AppTown must not be
 // silently inert. The one unavoidable requirement is a model key; the agent
 // image can be built from thin air; open auth on a non-loopback listener
 // deserves a loud flag. GET /setup reports the state, POST /setup/model
@@ -77,7 +77,7 @@ func OpenExposure(authMode, addr, consoleAddr string, allowed bool) error {
 	return fmt.Errorf("open authentication lets any caller act as anyone, and %s can be reached from other machines: bind it to 127.0.0.1, use -auth internal, or pass -open-on-network to accept that anyone who reaches the port has full control", strings.Join(exposed, " and "))
 }
 
-// EnsureAgentImage checks for the forge-agent image and builds it from
+// EnsureAgentImage checks for AppTown-agent image and builds it from
 // deploy/apptown-agent in the background when missing — a fresh machine gets
 // a working executor without reading a single doc. Skipped when docker is
 // unavailable or the build context isn't shipped alongside the binary.

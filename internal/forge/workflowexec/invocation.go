@@ -249,7 +249,7 @@ func (a *Executor) folderReady(ctx context.Context, stepID ids.ID, ws string) er
 
 func folderReady(ctx context.Context, dk *docker.Scope, stepID ids.ID, ws, own string) error {
 	if dk.Absent() {
-		// A forge with no local Docker runs nothing that writes the folder
+		// An AppTown with no local Docker runs nothing that writes the folder
 		// here, and started only once nothing local was left
 		// (-no-local-docker's precondition). Remote work is fenced by its
 		// task and holder records, not here.

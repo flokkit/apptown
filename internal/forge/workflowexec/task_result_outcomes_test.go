@@ -23,8 +23,8 @@ import (
 	"flokkit.io/forge/internal/ids/idstest"
 )
 
-// What a worker task's result becomes when a write fails or the forge stops
-// part-way: the worker's workspace, the only copy of work the forge has not
+// What a worker task's result becomes when a write fails or AppTown stops
+// part-way: the worker's workspace, the only copy of work AppTown has not
 // kept, is held; a publication the branch owner applied is published, never
 // refused; and the step's evidence names the ref that keeps the result.
 
@@ -67,7 +67,7 @@ func requireRunning(t *testing.T, a *taskForge, fake *executionfake.Tasks, step 
 }
 
 // A hold that cannot be recorded does not end the step: the step stays
-// running at its attempt and the attempt collecting, so the restarted forge
+// running at its attempt and the attempt collecting, so the restarted AppTown
 // collects again and holds the workspace then. It is never released.
 func TestAHoldThatCannotBeRecordedIsCollectedAgain(t *testing.T) {
 	t.Parallel()
@@ -88,8 +88,8 @@ func TestAHoldThatCannotBeRecordedIsCollectedAgain(t *testing.T) {
 	requireHeld(t, b, fake, taskKeyOf(step), "after the restart")
 }
 
-// A forge that stops after recording the hold and before the step's error
-// leaves the step running: the restarted forge finishes it as an error
+// An AppTown that stops after recording the hold and before the step's error
+// leaves the step running: the restarted AppTown finishes it as an error
 // from the record, without collecting the result again (only the first
 // collection is corrupt here), and the workspace stays held.
 func TestACrashBetweenTheHoldAndTheStepKeepsTheHold(t *testing.T) {
@@ -226,7 +226,7 @@ func requirePublishedOnce(t *testing.T, a *taskForge, step, settled *workflow.St
 	}
 }
 
-// A forge that stops after the branch moved and before the publication was
+// An AppTown that stops after the branch moved and before the publication was
 // settled (its record left for the branch owner) finishes it after a
 // restart: the owner settles the record, and the step passes with its
 // notice, publishing nothing again and never running the task again.
@@ -268,7 +268,7 @@ func TestACrashAfterAnUnsettledPublicationFinishesIt(t *testing.T) {
 
 // A refused result's evidence names its refused ref, the commit Git keeps
 // there and the refusal: when the step settles first, and when a restarted
-// forge settles it after a stop between the refusal and the step.
+// AppTown settles it after a stop between the refusal and the step.
 func TestARefusalsEvidenceNamesTheRefusedRef(t *testing.T) {
 	t.Parallel()
 	for _, when := range []string{"first settlement", "after a restart"} {

@@ -16,10 +16,10 @@ type ModelProcess struct {
 		CheckEnvironment(context.Context, []string) error
 	}
 	enabled bool
-	clock   func() time.Time // the forge's clock; nil is the real one
+	clock   func() time.Time // AppTown's clock; nil is the real one
 }
 
-// now is the forge's clock, which stamps the process's container.
+// now is AppTown's clock, which stamps the process's container.
 func NewModelProcess(runner execution.Runner, credentials interface {
 	CheckEnvironment(context.Context, []string) error
 }, enabled bool, now func() time.Time) ModelProcess {

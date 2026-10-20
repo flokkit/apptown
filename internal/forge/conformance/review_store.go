@@ -24,7 +24,7 @@ import (
 type reviewStore struct {
 	db     *database.DB
 	checks CheckSource
-	clock  func() time.Time // the forge's clock; nil is the real one
+	clock  func() time.Time // AppTown's clock; nil is the real one
 }
 
 func (s reviewStore) now() time.Time { return clock.Or(s.clock)() }
@@ -173,7 +173,7 @@ func lockRunningReview(ctx context.Context, tx *database.Tx, id ids.ID) error {
 // resumed evaluation. The explicit state predicate is the bulk admission guard.
 // RepairInterruptedReviews participates in the startup repair transaction.
 // Invoke before admitting requests or workers; the caller owns commit. at
-// is the forge's clock, which stamps the reviews' ends. A queued review
+// is AppTown's clock, which stamps the reviews' ends. A queued review
 // ends with the running ones: nothing starts after a restart, and the job
 // that later delivers it finds it ended.
 func RepairInterruptedReviews(ctx context.Context, tx *database.Tx, at time.Time) (int64, error) {

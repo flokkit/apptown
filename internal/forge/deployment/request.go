@@ -26,7 +26,7 @@ type DeploySelection struct {
 	DeploymentName string
 	BundleID       ids.ID
 	// AcceptUncopiedData is a person's choice to release onto a deployment
-	// holding data the forge cannot copy now (DataCopyCheck); the release
+	// holding data AppTown cannot copy now (DataCopyCheck); the release
 	// records it with who and why.
 	AcceptUncopiedData bool
 	// AcceptUncheckedCopy is a person's choice to fill a deployment that

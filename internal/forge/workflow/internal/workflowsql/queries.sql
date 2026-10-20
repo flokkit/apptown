@@ -1118,7 +1118,7 @@ DELETE FROM agent_transcripts WHERE run_id IN (SELECT id FROM runs WHERE project
 SELECT EXISTS(SELECT 1 FROM agent_transcripts WHERE digest=$1);
 
 -- Agent attempts whose start receipt names a session but that recorded no
--- history: runs from before transcripts were kept, and attempts the forge
+-- history: runs from before transcripts were kept, and attempts AppTown
 -- lost mid-invocation. An attempt still running is not one: it records its
 -- own. superseded: a later attempt in the project continued the session.
 -- name: UnrecordedSessionStarts :many
@@ -1144,7 +1144,7 @@ SELECT parent_run_id, landing_authority FROM runs WHERE id = $1;
 -- name: EvalCopyOf :one
 SELECT eval_id FROM eval_copies WHERE project_id = $1;
 
--- A project's Work, row by row, for moving it to another forge: each row
+-- A project's Work, row by row, for moving it to another AppTown: each row
 -- whole, as JSON, so the archive holds what the source held. Only landed
 -- history moves: shipped changes, and the runs that are not
 -- running and are on a shipped change or on none. Read in the export's

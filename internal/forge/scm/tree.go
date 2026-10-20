@@ -14,10 +14,10 @@ import (
 
 // A project's working tree can hold whatever its history holds, including
 // symbolic links: a project started from existing code brings someone
-// else's tree. When the forge itself writes a file into a tree (the ignore
+// else's tree. When AppTown itself writes a file into a tree (the ignore
 // file at setup, a pack's starter files, a toolchain declaration), it must
 // never follow such a link out of the tree: a committed ".gitignore" that
-// links to a path on the forge's host would otherwise have the forge
+// links to a path on AppTown's host would otherwise have AppTown
 // create that file. These helpers refuse a link anywhere on the way and
 // never open the last name through one.
 

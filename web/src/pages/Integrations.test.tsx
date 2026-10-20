@@ -15,7 +15,7 @@ describe('connector form', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
   // A number field sends a JSON number, and nothing when it is empty: the
-  // forge refuses "2" or "" where a model binding's concurrency belongs.
+  // AppTown refuses "2" or "" where a model binding's concurrency belongs.
   it('sends a number field as a number, and leaves an empty one out', async () => {
     const sent: { config: Record<string, unknown> }[] = []
     vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
@@ -45,7 +45,7 @@ describe('connector form', () => {
 
 // --- The list and one integration's page ---
 
-// Readings the forge took five minutes ago, by its own clock.
+// Readings AppTown took five minutes ago, by its own clock.
 const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString()
 const checked = (ok: boolean, detail: string): IntegrationHealth => ({ ok, detail, checked: true, checkedAt: fiveMinutesAgo })
 const binding = (name: string, capability: string, provider: string, health: IntegrationHealth, extra: Partial<IntegrationEntry> = {}): IntegrationEntry => ({
@@ -109,7 +109,7 @@ describe('the integrations list', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
   // Each row says what the service is and whether it works; a service the
-  // forge has no check for reads as unknown, never as working.
+  // AppTown has no check for reads as unknown, never as working.
   it('groups services by kind and keeps working, failing and unchecked apart', async () => {
     stubForge({ 'GET /integrations': json({ integrations: [gitlab, scanner, sso, quiet] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations')
@@ -137,7 +137,7 @@ describe('the integrations list', () => {
     page.done()
   })
 
-  it('says nothing is connected only when the forge said so', async () => {
+  it('says nothing is connected only when AppTown said so', async () => {
     stubForge({ 'GET /integrations': json({ integrations: null }), 'GET /integrations/catalog': json({ catalog: [] }) })
     const page = await mount('/integrations')
     await vi.waitFor(() => expect(page.text()).toContain('No services are connected yet.'))
@@ -165,7 +165,7 @@ describe('the integrations list', () => {
   it('marks every state as old when checking again fails', async () => {
     let fail = false
     stubForge({
-      'GET /integrations': () => fail ? new Response(JSON.stringify({ error: 'forge unreachable' }), { status: 400 }) : new Response(JSON.stringify({ integrations: [gitlab] })),
+      'GET /integrations': () => fail ? new Response(JSON.stringify({ error: 'AppTown unreachable' }), { status: 400 }) : new Response(JSON.stringify({ integrations: [gitlab] })),
       'GET /integrations/catalog': json({ catalog }),
     })
     const client = newQueryClient()
@@ -176,7 +176,7 @@ describe('the integrations list', () => {
     await vi.waitFor(() => expect(page.text()).toContain('Working at last check'))
     expect(page.el.querySelector('tr.int-row .chip')!.className).toContain('stale')
     expect(page.text()).toContain('out of date')
-    expect(page.el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(forge unreachable)')
+    expect(page.el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(AppTown unreachable)')
     page.done()
   })
 

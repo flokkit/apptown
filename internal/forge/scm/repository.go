@@ -61,7 +61,7 @@ func StageAll(ctx context.Context, wt string) error {
 // nonSourceIn lists what the commits revs selects change that is not
 // source: the .apptown entry itself (replaced by a file, a link or a
 // submodule) and anything under it except the native app contract, the
-// same rule StageAll applies when the forge commits locally. Each commit is
+// same rule StageAll applies when AppTown commits locally. Each commit is
 // read against each of its parents, not only the last tree: a commit that
 // adds a runtime file puts it in the branch's history even when a later one
 // removes it. .apptown is matched whatever its case, as a case-insensitive
@@ -80,7 +80,7 @@ func nonSourceIn(ctx context.Context, repo string, revs ...string) ([]string, er
 	return paths, nil
 }
 
-// NonSourceIn lists the forge's runtime paths (RuntimeOnly) any commit
+// NonSourceIn lists AppTown's runtime paths (RuntimeOnly) any commit
 // the revisions select adds or changes, read commit by commit: what a move
 // must never carry, by the same rule a publication applies.
 func NonSourceIn(ctx context.Context, repo string, revs ...string) ([]string, error) {
@@ -192,7 +192,7 @@ func InitializeRepository(ctx context.Context, dir, defaultBranch string) error 
 			return err
 		}
 	} else {
-		// The identity the hub's own commits carry: the forge's git reads no
+		// The identity the hub's own commits carry: AppTown's git reads no
 		// machine-wide config, so without it a commit here has none.
 		for _, kv := range [][2]string{{"user.name", "apptown"}, {"user.email", "apptown@localhost"}} {
 			if out, err := gitexec.Run(ctx, dir, "config", kv[0], kv[1]); err != nil {
@@ -238,7 +238,7 @@ const repositoryIdentity = "[user]\n\tname = apptown\n\temail = apptown@localhos
 // repositoryIdentity, in one git start: git init copies a template's files,
 // config included, into the new .git. The template holds only that config,
 // so git's sample hooks, info/exclude and description are not copied; the
-// forge reads none of them.
+// AppTown reads none of them.
 func initWithIdentity(ctx context.Context, dir, branch string) error {
 	template, err := os.MkdirTemp("", "forge-git-template-")
 	if err != nil {

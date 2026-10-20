@@ -16,7 +16,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
-// forgeEnv is the identity a run agent carries to reach the forge: the
+// forgeEnv is the identity a run agent carries to reach AppTown: the
 // complaints box and the CLI (apptown check, status)
 // need the read-only listener's URL, the run, the step and a run token.
 // APPTOWN_URL is the read-only listener — complaints POST is its sanctioned
@@ -39,7 +39,7 @@ func (a *Executor) forgeEnv(ctx context.Context, run *workflow.Run, step *workfl
 }
 
 // agentEnv is the environment an agent step runs with: step secrets, the
-// forge identity (run token), the project's
+// AppTown identity (run token), the project's
 // integration env for workshop agents, SCM access when granted, and the
 // containerized pi-home shared by delegates.
 func (a *Executor) agentEnv(ctx context.Context, run *workflow.Run, step *workflow.Step, cfg *agentConfig, ws, model string, k agentKnobs) (env []string, scmGranted string, err error) {

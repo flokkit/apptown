@@ -28,7 +28,7 @@ func staticBuildTree(t *testing.T, dockerfile string) string {
 }
 
 // With real Docker: a declared static build is exported, checked and
-// packed on the selected daemon's own builder, even while the forge's
+// packed on the selected daemon's own builder, even while AppTown's
 // environment names another Buildx builder; an export whose site holds a
 // link is refused before it is packed.
 func TestIntegrationAStaticBuildIsPackedOnTheSelectedDaemon(t *testing.T) {
@@ -60,7 +60,7 @@ func TestIntegrationAStaticBuildIsPackedOnTheSelectedDaemon(t *testing.T) {
 // With real Docker: a Docker configuration that makes `docker build` an
 // alias for buildx and has a remote builder selected (what `docker buildx
 // install` and `docker buildx use --global` leave) does not take the build
-// away from the selected daemon: the forge names the daemon's own builder.
+// away from the selected daemon: AppTown names the daemon's own builder.
 func TestIntegrationABuilderAliasDoesNotTakeTheBuildElsewhere(t *testing.T) {
 	config := t.TempDir()
 	settings := map[string]any{"aliases": map[string]string{"builder": "buildx"}, "auths": map[string]any{"forge-no-login.invalid": map[string]any{}}}

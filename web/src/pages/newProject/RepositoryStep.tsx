@@ -5,7 +5,7 @@ import { useHolds } from '../../instancePages'
 import type { RemoteNamespaces, SecretNameList } from '../../wire.gen'
 import { originReady, slugOf, type Draft, type DraftAct } from './draft'
 
-// Step 3 — Repository: every project gets a repository on the forge (not a
+// Step 3 — Repository: every project gets a repository on AppTown (not a
 // question); the choices are a GitLab copy too, and whether the code starts
 // empty or from existing code. Create runs the assembly from here.
 export function RepositoryStep({ d, act, busy, onCreate, children }: {
@@ -15,7 +15,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
   onCreate: (where: { remote: boolean; namespaceId: string }) => void
   children?: ReactNode // the assembly log, under the Create button
 }) {
-  // A GitLab copy is offered only when this forge has a GitLab connection
+  // A GitLab copy is offered only when this AppTown has a GitLab connection
   // (the namespaces answer says so), and then it is the default. Until
   // someone picks, the choice follows that answer; the group defaults to
   // the first one listed.
@@ -30,7 +30,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
   // forge's Download code) or an https repository. Only its default branch
   // and tags come; the project's changes and history here start fresh.
   // Naming a apptown secret as the git credential is for administrators: the
-  // forge refuses anyone else, so only they are offered it.
+  // AppTown refuses anyone else, so only they are offered it.
   const { origin } = d
   const admin = useHolds('identity:manage-auth')
   const secretNamesQ = useGet<SecretNameList>(admin && origin === 'url' ? '/secrets/names' : null)

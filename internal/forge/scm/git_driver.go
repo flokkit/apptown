@@ -23,7 +23,7 @@ type GitDrivers struct {
 	Runner   execution.Runner
 	DataDir  string
 	Provider func(context.Context) (*gitlab.Client, error)
-	// ChangeURL is a change's page on this forge, "" when the forge has no
+	// ChangeURL is a change's page on this AppTown, "" when AppTown has no
 	// public address; merge commits and merge requests link to it.
 	ChangeURL func(changeID ids.ID) string
 }
@@ -334,7 +334,7 @@ func (d *gitDriver) prepareMR(ctx context.Context, source Source) (Prepared, err
 		return Prepared{}, &LandingMoved{What: "main", Pinned: source.Target, Found: head}
 	}
 	// The request's branch is set to exactly the candidate; a branch with
-	// commits the forge did not check refuses the push instead of losing
+	// commits AppTown did not check refuses the push instead of losing
 	// them.
 	out, err := d.git(ctx, source.Repository, env, "push", "origin", tip+":refs/heads/"+source.Branch)
 	if err != nil {
@@ -386,7 +386,7 @@ func (d *gitDriver) executeMR(ctx context.Context, source Source, plan Prepared)
 	// merged. If GitLab will not take it, nothing merges: this landing
 	// already needs the same API for every call below, and the attempt is
 	// retried whole. A request someone else merged is never described as
-	// the forge's merge: prepareMR settles it without coming here.
+	// AppTown's merge: prepareMR settles it without coming here.
 	if source.Attribution != nil {
 		description := MergeRequestDescription(*source.Attribution, d.pageOf(source))
 		if err := gl.UpdateMRDescription(ctx, source.MR.Project, source.MR.IID, description); err != nil {
@@ -406,12 +406,12 @@ func (d *gitDriver) executeMR(ctx context.Context, source Source, plan Prepared)
 }
 
 // confirmMR confirms that what the provider merged is exactly the checked
-// landing, and only then moves the forge's default branch to it. Allowed are
+// landing, and only then moves AppTown's default branch to it. Allowed are
 // the candidate itself (a fast-forward), or one merge commit whose parents
 // are the pinned target and the candidate (semi-linear), with the
 // candidate's tree. Anything else (a squash, a rebase, a merge with other
 // history) is refused: the provider may have landed it, but it is not this
-// checked landing, and the forge's main does not follow. The forge's main
+// checked landing, and AppTown's main does not follow. AppTown's main
 // moves to the confirmed commit, never to later provider history.
 func (d *gitDriver) confirmMR(ctx context.Context, source Source, tip string, current *gitlab.MergeRequest) (string, error) {
 	if current.State != "merged" || current.SHA != tip || current.SourceBranch != source.Branch || current.TargetBranch != source.DefaultBranch {

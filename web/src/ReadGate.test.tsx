@@ -35,14 +35,14 @@ type Row = {
 
 const rows: Row[] = [
   { name: 'keeps the answer shown when a refresh fails, and marks it as possibly old',
-    first: () => reply(200, ['ada', 'grace']), refresh: () => reply(502, { error: 'the forge is restarting' }),
+    first: () => reply(200, ['ada', 'grace']), refresh: () => reply(502, { error: 'AppTown is restarting' }),
     shows: ['grace'],
     // A compact mark with the time of the last good read, not a sentence.
     mark: '⚠ out of date · last read 09:41',
-    // The reason rides in the mark's accessible name, quoted as the forge
+    // The reason rides in the mark's accessible name, quoted as AppTown
     // gave it, not with the read's note about the answer shown.
-    label: ['(the forge is restarting)', '11 Oct, 09:41'],
-    hides: ['showing the last answer read', 'the forge is restarting'],
+    label: ['(AppTown is restarting)', '11 Oct, 09:41'],
+    hides: ['showing the last answer read', 'AppTown is restarting'],
     error: null },
   { name: 'shows a failed first read as an error, never as an empty answer',
     first: () => reply(404, { error: 'no such list' }), error: 'The names could not be read: no such list', hides: ['No names yet'] },
@@ -123,7 +123,7 @@ describe('StaleScope', () => {
     let down = false
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (String(url).includes('/broken')) return new Response(JSON.stringify({ error: 'no such list' }), { status: 404 })
-      if (down) return new Response(JSON.stringify({ error: 'the forge is restarting' }), { status: 502 })
+      if (down) return new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 502 })
       return new Response(JSON.stringify(String(url).includes('/names') ? ['ada', 'grace'] : ['Wellington']), { status: 200 })
     }))
     const client = newQueryClient()
@@ -155,7 +155,7 @@ describe('StaleScope', () => {
     // The notice stands above the sections, and the reason is not repeated
     // as text in each one.
     expect(el.firstElementChild).toBe(notices[0])
-    expect(el.textContent).not.toContain('the forge is restarting')
+    expect(el.textContent).not.toContain('AppTown is restarting')
     // The section that never had an answer is still an error, not old.
     expect(el.querySelector('.error')?.textContent).toBe('The broken list could not be read: no such list')
     expect(el.textContent).toContain('grace')

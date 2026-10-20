@@ -197,7 +197,7 @@ func TestRemediationCompletionCandidateReadFailureClosesNothing(t *testing.T) {
 	}
 }
 
-// An item waits until its not-before by the forge's clock, which wrote it
+// An item waits until its not-before by AppTown's clock, which wrote it
 // and judges it again at admission, so the queue judges it by that clock
 // too: moved an hour either way, the database's clock neither holds back an
 // item whose wait is over nor offers one still waiting.

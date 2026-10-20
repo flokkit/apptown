@@ -11,7 +11,7 @@ import (
 // standing under a name on the ladder; a preview is a change's worktree
 // serving under the change's URL, outside the ladder, one per change; a
 // restored copy is a production deployment's release started from one of
-// its copies, behind the forge's access gate, for a set time
+// its copies, behind AppTown's access gate, for a set time
 // (the dataprotection package). A restored copy is shown only on its source's card.
 type Kind uint8
 

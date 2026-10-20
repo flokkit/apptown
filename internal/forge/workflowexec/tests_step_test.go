@@ -30,9 +30,9 @@ import (
 	"flokkit.io/forge/stock"
 )
 
-// A tests step's command runs on the forge's check executor against one
+// A tests step's command runs on AppTown's check executor against one
 // commit it selects. Here the executor is the test's (taskForge.checks);
-// which executor the forge chooses (the worker's, or this machine's) is the
+// which executor AppTown chooses (the worker's, or this machine's) is the
 // composition root's (TestATestsStepRunsOnTheWorker). A landing's tests,
 // which need the landing's pinned candidate, are root journeys too
 // (TestALandingTestsItsCandidateWithoutItsFolder); a failure's base rerun
@@ -74,7 +74,7 @@ func writeMarker(t *testing.T, folder, value string) string {
 }
 
 // mirrorBranchForTest puts a folder's branch into the hub as fixture setup.
-// It is plain git, not the product path: the forge publishes only through
+// It is plain git, not the product path: AppTown publishes only through
 // scm.Branches, which checks who holds the branch.
 func mirrorBranchForTest(repo, ws, branch string) error {
 	out, err := gitexec.Run(context.Background(), repo, "fetch", "--quiet", ws, "+refs/heads/"+branch+":refs/heads/"+branch)
@@ -331,7 +331,7 @@ func TestALostTestsAnswerIsAskedAgainAndRepeatsItsEffects(t *testing.T) {
 	f.checks = func(req execution.Request) execution.Outcome {
 		out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{Argv: req.Argv, Workspace: req.Workspace, Timeout: time.Minute})
 		if calls.Add(1) == 1 {
-			// The command ran and wrote; its answer never reached the forge.
+			// The command ran and wrote; its answer never reached AppTown.
 			return execution.Outcome{Termination: execution.LaunchFailed, ExitCode: -1, RunErr: errors.New("the worker did not answer the check: connection reset")}
 		}
 		return out

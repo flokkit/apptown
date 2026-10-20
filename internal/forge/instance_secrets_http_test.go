@@ -88,7 +88,7 @@ func TestInstanceSecretsAreAdministratorOnlyAndWriteOnly(t *testing.T) {
 			t.Fatalf("receipt: %+v", r)
 		}
 	}
-	// Secrets the forge cannot read are unknown, not none: the names list
+	// Secrets AppTown cannot read are unknown, not none: the names list
 	// answers unavailable rather than an empty list.
 	file := filepath.Join(a.cfg.dataDir, "secrets.env")
 	if err := os.RemoveAll(file); err != nil {

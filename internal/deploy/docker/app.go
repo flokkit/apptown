@@ -101,7 +101,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		removeReplacedImage(ctx, dk, tag, before)
 		c.Image, c.StaticBuild, c.ServesStatic = tag, nil, true
 	}
-	// Loopback on the forge's own daemon: nothing legitimate reaches an app
+	// Loopback on AppTown's own daemon: nothing legitimate reaches an app
 	// there on its raw host port. A browser on another device arrives via
 	// Traefik → apptownd's in-process proxy (vhost.go), which reaches the
 	// container over 127.0.0.1 because apptownd is co-located with it. A
@@ -109,8 +109,8 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// sanitization — a client could hit the backend directly with a apptownd
 	// X-Forwarded-Proto/Host, spoofing the very front-door signal the health
 	// render trusts (design/subsystems/ingress.md, trust boundary). An
-	// attached host is not co-located with the forge: its port is published
-	// where the forge's probe and the plain front door reach it
+	// attached host is not co-located with AppTown: its port is published
+	// where AppTown's probe and the plain front door reach it
 	// (Scope.PublishAddress).
 	bind := dk.PublishAddress()
 	portSpec := fmt.Sprintf("%s::%d", bind, c.Port)
@@ -191,7 +191,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// The volume belongs to the image's own user before the app starts,
 		// so a container that drops to an unprivileged USER can write its
 		// data without a root entrypoint to chown it first. An image with no USER, or one
-		// the forge cannot resolve, is left as it was.
+		// AppTown cannot resolve, is left as it was.
 		if c.Image != "" {
 			HandVolumeToImageUser(ctx, dk, DataVolumeName(name), c.Image, h.chownImage())
 		}
@@ -254,7 +254,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	if c.IsStatic() {
 		args = append(args, "-e", BrowserEnvVar+"="+browser)
 		// Its release identity, answered at ReleasePath, set last for the
-		// same reason: what the boot witnesses is the forge's alone.
+		// same reason: what the boot witnesses is AppTown's alone.
 		if t.release != "" {
 			args = append(args, "-e", appcontract.ReleaseEnvVar+"="+t.release)
 		}
@@ -504,23 +504,23 @@ func StaleEndpoint(out string) bool {
 	return strings.Contains(out, "endpoint with name") && strings.Contains(out, "already exists in network")
 }
 
-// appOrigins is the APPTOWN_ORIGINS an app is given: this forge's tiers and,
+// appOrigins is the APPTOWN_ORIGINS an app is given: this AppTown's tiers and,
 // for an app routed by an attached host's own Traefik, that host's ingress
 // domain, where its visitors actually arrive. Without it an app on such a
 // host trusts only the preview tier, and a framework that checks the host
 // (Rails) refuses every page at <slug>.<domain>.
-func appOrigins(forge string, dk Scope, routed bool) string {
+func appOrigins(tiers string, dk Scope, routed bool) string {
 	if !routed {
-		return forge
+		return tiers
 	}
 	own := "https://*." + dk.Domain
-	for _, o := range strings.Split(forge, ",") {
+	for _, o := range strings.Split(tiers, ",") {
 		if o == own {
-			return forge
+			return tiers
 		}
 	}
-	if forge == "" {
+	if tiers == "" {
 		return own
 	}
-	return forge + "," + own
+	return tiers + "," + own
 }

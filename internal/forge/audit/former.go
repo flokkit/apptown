@@ -23,11 +23,11 @@ const (
 	FormerGuidanceBlock = "guidance_blocks"
 )
 
-// FormerID is the record that a former identity of this forge (forge) names:
+// FormerID is the record that a former identity of this AppTown (forge) names:
 // the id the identity cutover gave the row of kind whose identity was old.
-// A former identity the forge did not keep is not found, in words.
-func FormerID(ctx context.Context, q database.Queryer, forge ids.ID, kind, old string) (ids.ID, error) {
-	id, err := auditsql.New(q.SQL()).FormerID(ctx, auditsql.FormerIDParams{Forge: forge, Kind: kind, Old: old})
+// A former identity AppTown did not keep is not found, in words.
+func FormerID(ctx context.Context, q database.Queryer, instance ids.ID, kind, old string) (ids.ID, error) {
+	id, err := auditsql.New(q.SQL()).FormerID(ctx, auditsql.FormerIDParams{Forge: instance, Kind: kind, Old: old})
 	if errors.Is(err, sql.ErrNoRows) {
 		return ids.Nil, fault.New(fault.NotFound, fmt.Sprintf("no record had the identity %s before 1.0", old))
 	}

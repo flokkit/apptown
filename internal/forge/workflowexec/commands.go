@@ -30,17 +30,17 @@ type Commands struct {
 	docker    *docker.Scope
 	checks    CompileCheck
 	catalog   *dependency.Catalog
-	clock     func() time.Time // the forge's clock; nil is the real one
+	clock     func() time.Time // AppTown's clock; nil is the real one
 }
 
-// now reads the forge's clock.
+// now reads AppTown's clock.
 func (a *Commands) now() time.Time { return clock.Or(a.clock)() }
 
 type CommandConfig struct {
 	DataDir, Image string
 	// HostScripts lets a script step that asks for `executor: local` run as
 	// a process on this host: the operator's explicit choice (-host-scripts),
-	// for a forge whose projects are trusted as much as its host.
+	// for an AppTown whose projects are trusted as much as its host.
 	HostScripts bool
 }
 type CommandDependencies struct {
@@ -49,19 +49,19 @@ type CommandDependencies struct {
 	Publisher repositoryedit.Publisher
 	Branches  *scm.Branches
 	// Tasks runs Docker script steps as recorded tasks. Nil keeps the
-	// unrecorded path (a runner that dies with the forge).
+	// unrecorded path (a runner that dies with AppTown).
 	Tasks  *TaskRunner
 	Panics interface{ Panic(string, any, []byte) }
 	// Docker is asked which containers still write a script's folder.
 	Docker *docker.Scope
-	// Checks runs a tests step's command, on the forge's check executor:
+	// Checks runs a tests step's command, on AppTown's check executor:
 	// the worker when one is configured, else this machine. Its zero value
 	// runs them through Runner, here.
 	Checks CompileCheck
 	// Catalog fulfils the app's declared needs (.apptown/app.yaml) as the
 	// services a tests step's command runs beside.
 	Catalog *dependency.Catalog
-	// Now is the forge's clock; nil is the real one.
+	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 }
 

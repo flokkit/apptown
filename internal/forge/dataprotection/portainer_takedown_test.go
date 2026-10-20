@@ -43,7 +43,7 @@ func (e *asyncEdge) handler(t *testing.T) http.Handler {
 	})
 }
 
-// A deployment in a Portainer environment the forge cannot reach for its
+// A deployment in a Portainer environment AppTown cannot reach for its
 // data (an async edge agent) reads as not known, and its take-down is
 // refused, having changed nothing, unless the person chooses to take it
 // down without a final copy: then the stack goes and its volumes stay, each

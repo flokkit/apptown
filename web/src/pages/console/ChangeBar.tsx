@@ -33,7 +33,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId }: { chan
   const [handed, setHanded] = useState(false)
   const { run, busy: landBusy, err } = useAction()
   // The bar knows where the change is at, so it can point at the NEXT action:
-  // when the forge needs the person,
+  // when AppTown needs the person,
   // the loudest thing on screen is the door to the decision.
   // The page reads the change once for this bar and ChangeContext, and says
   // there whether that read is old; the bar shows only on an answer.

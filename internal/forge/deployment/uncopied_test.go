@@ -16,7 +16,7 @@ type copyCheckSays string
 
 func (c copyCheckSays) CannotCopy(context.Context, *Deployment, *Target) string { return string(c) }
 
-// An intranet release onto a deployment holding data the forge cannot copy
+// An intranet release onto a deployment holding data AppTown cannot copy
 // is refused before a number is minted, saying why and how to go on; a
 // person may release anyway, and the release's record says who chose to
 // and why the data could not be copied.
@@ -62,7 +62,7 @@ func TestAnIntranetReleaseOverUncopiedDataIsAPersonsChoice(t *testing.T) {
 	}
 }
 
-// A release names a new hostname and the forge cannot save it: the release
+// A release names a new hostname and AppTown cannot save it: the release
 // still serves on it (its stack is labelled with the hostname it was asked
 // for), its log says the hostname was not kept for later releases, and no
 // receipt says the project's hostname changed.

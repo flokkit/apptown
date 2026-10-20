@@ -17,9 +17,9 @@ import (
 	"flokkit.io/forge/internal/stamp"
 )
 
-// recordedResources is what the forge's records claim at a target, with the
+// recordedResources is what AppTown's records claim at a target, with the
 // forge's own database first when it lives on the built-in host: that one is
-// the forge's, not an orphan. A record that cannot be read is an error, never
+// AppTown's, not an orphan. A record that cannot be read is an error, never
 // "not claimed": the remove door deletes only what no record claims.
 func (h Infrastructure) recordedResources(ctx context.Context, t *deployment.Target) ([]deploy.Resource, error) {
 	var out []deploy.Resource
@@ -36,7 +36,7 @@ func (h Infrastructure) recordedResources(ctx context.Context, t *deployment.Tar
 }
 
 // attributeLeftovers reads the labels on a Docker host's unrecorded
-// resources. One made by the forge for a deployment (forge.owner) is
+// resources. One made by AppTown for a deployment (forge.owner) is
 // "left behind" by that deployment, with the reason, and stays removable.
 // One that belongs to an intranet stack (the compose project label names
 // a project's stack) is the intranet target's, not this host's: the

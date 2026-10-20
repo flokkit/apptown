@@ -48,7 +48,7 @@
 // when an eval is started or continued, so passes never overlap.
 // One rule, [Gate], says whether an eval's work may proceed, and it is
 // asked at the effects, not at each door that leads to one: every model
-// dispatch for a copy ([Gate.AdmitModel]: the forge's checks, narratives
+// dispatch for a copy ([Gate.AdmitModel]: AppTown's checks, narratives
 // and briefs, and agents through the inference route), every step claim
 // and every merge into a copy's main (Work's EvalGate). Whatever starts new
 // work, its spending and its irreversible effects stop there. Entry points

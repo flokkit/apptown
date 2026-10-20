@@ -66,14 +66,14 @@ type Dependencies struct {
 	Branches     *scm.Branches
 	Panics       interface{ Panic(string, any, []byte) }
 	// Worker runs agent and review steps when set, and nowhere else
-	// (agent_attempt.go, review_worker.go). Nil runs both on the forge's own
+	// (agent_attempt.go, review_worker.go). Nil runs both on AppTown's own
 	// Docker.
 	Worker *AgentWorker
 	// Telemetry; nil means no-op.
 	Tracer trace.Tracer
 	Meter  metric.Meter
 	Links  AttemptLinks
-	// Now is the forge's clock, which stamps the run records this executor
+	// Now is AppTown's clock, which stamps the run records this executor
 	// writes (artifacts); nil is the real one.
 	Now func() time.Time
 }
@@ -110,10 +110,10 @@ type Executor struct {
 	// is the default bound.
 	Settle workflow.Settlement
 
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
-// now reads the forge's clock.
+// now reads AppTown's clock.
 func (a *Executor) now() time.Time { return clock.Or(a.clock)() }
 
 func New(db *database.DB, deps Dependencies, cfg Config) *Executor {

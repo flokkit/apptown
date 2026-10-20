@@ -177,9 +177,9 @@ func TestDocsListOpensOnStartHere(t *testing.T) {
 	}
 }
 
-// A guide comes with this forge's own addresses for its live links when the
-// forge knows its public origin, and with only their paths when it does not,
-// so the page says "your forge's address" rather than inventing one.
+// A guide comes with this AppTown's own addresses for its live links when the
+// AppTown knows its public origin, and with only their paths when it does not,
+// so the page says "your AppTown's address" rather than inventing one.
 func TestGuideDocCarriesTheForgesOwnAddresses(t *testing.T) {
 	read := func(origin string) DocLinks {
 		t.Helper()

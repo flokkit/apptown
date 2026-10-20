@@ -52,10 +52,10 @@ import (
 // release the backend does not confirm is tried again (ReleaseSettled).
 //
 // One procedure (execute, then collect) does all of this for a new attempt
-// and for one a previous forge process recorded; each step is safe to
+// and for one a previous AppTown process recorded; each step is safe to
 // repeat. An agent step's invocations are driven by the same execute. A lost
 // or failed answer from the backend is observed, never taken as absence, and
-// a task is never started twice for one attempt. A restarted forge recovers
+// a task is never started twice for one attempt. A restarted AppTown recovers
 // a recorded task through the workflow's own dispatch (Resume, then
 // RecoverScript), so its run continues when it settles.
 type TaskRunner struct {
@@ -67,28 +67,28 @@ type TaskRunner struct {
 	// Profile is the admission every new task carries.
 	Profile TaskProfile
 	// Backend identifies where tasks run: which Docker daemon, or which
-	// worker. Each attempt records it, and a restarted forge acts only on
+	// worker. Each attempt records it, and a restarted AppTown acts only on
 	// attempts recorded for the backend it has now. Empty is the profile's
 	// name.
 	Backend string
 	// Remote is set when tasks run on another machine (a apptown-worker): each
 	// is given a published commit instead of a mount, its work comes back as a
-	// bundle, and no script step runs on the forge's own host.
+	// bundle, and no script step runs on AppTown's own host.
 	Remote RemoteResults
-	// Now is the forge's clock, by which a task's deadline and its
+	// Now is AppTown's clock, by which a task's deadline and its
 	// admission's expiry are written and judged; nil is the real one.
 	Now func() time.Time
 	// Poll is how often a waiting task checks that its step is still running,
 	// and how long to wait before asking an unanswering backend again.
 	Poll time.Duration
 	// SettleTries is how many times a step's outcome is written before the
-	// task is left recorded for a restarted forge; zero means three.
+	// task is left recorded for a restarted AppTown; zero means three.
 	SettleTries int
 	// Patience is how long reading a finished task's result keeps asking an
 	// unanswering backend; zero is taskGrace.
 	Patience time.Duration
 	// AbandonAt is a test seam for crash recovery: returning true for a stage
-	// ("created", "started") abandons the attempt there, as a forge that died
+	// ("created", "started") abandons the attempt there, as an AppTown that died
 	// at that point would.
 	AbandonAt func(stage string) bool
 	// ScriptWallClock is a test seam: when set, it is every script task's
@@ -112,13 +112,13 @@ type Recoverer interface {
 	RecoverExecution(context.Context, ids.ID, int64) (*workflow.Execution, error)
 }
 
-// Resume sorts the unsettled tasks a previous forge process recorded, at
+// Resume sorts the unsettled tasks a previous AppTown process recorded, at
 // startup. A task whose step still belongs to its attempt is returned, for
 // the workflow's dispatch to recover in its stage's order (RecoverScript).
 // A task whose step moved on is stopped and settled now. A task recorded
 // as refused (nothing was created) has its step failed, if still its, and
 // is settled, whatever the backend. A task recorded for another backend
-// than this forge's is left as it is, and reported.
+// than this AppTown's is left as it is, and reported.
 func (r *TaskRunner) Resume(ctx context.Context, work Recoverer) ([]ids.ID, error) {
 	if r == nil || r.commands == nil {
 		return nil, nil
@@ -147,7 +147,7 @@ func (r *TaskRunner) Resume(ctx context.Context, work Recoverer) ([]ids.ID, erro
 			continue
 		}
 		if attempt.Observed == tasks.Held {
-			// Its workspace holds work the forge did not keep: it is not
+			// Its workspace holds work AppTown did not keep: it is not
 			// released. A step still the attempt's (a crash between the
 			// hold and the step's error) is finished as an error.
 			log.Printf("task %s: %s; its workspace on the worker is held", attempt.Operation, notKept(attempt.Detail))
@@ -208,7 +208,7 @@ type TaskProfile struct {
 const maxTaskOutput = 16 << 20
 
 // taskGrace is how long past its wall-clock deadline a task's admission
-// stays valid, for the forge to observe and stop it; and how long a result
+// stays valid, for AppTown to observe and stop it; and how long a result
 // is asked for when the backend does not answer.
 const taskGrace = 5 * time.Minute
 
@@ -263,7 +263,7 @@ func (r *TaskRunner) untilAnswered(ctx context.Context, operation string, until 
 
 // waitUntil bounds a call by a time on the runner's clock. A context's
 // deadline is read on the real clock, so the call is given the time left
-// until then, not the time itself: a forge clock ahead or behind the real
+// until then, not the time itself: an AppTown clock ahead or behind the real
 // one neither lengthens nor cuts a real wait.
 func (r *TaskRunner) waitUntil(ctx context.Context, until time.Time) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, until.Sub(r.now()))
@@ -454,7 +454,7 @@ func (r *TaskRunner) release(ctx context.Context, operation string, ref executio
 const releaseBatch = 100
 
 // ReleaseSettled tries again, once each, to release the settled tasks on
-// this forge's backend whose release the backend has not confirmed, and
+// this AppTown's backend whose release the backend has not confirmed, and
 // records each it confirms. Release is idempotent: a task already gone is
 // released. It returns how many releases were confirmed.
 //
@@ -576,13 +576,13 @@ func owns(attempt tasks.Attempt, obs execution.TaskObservation) bool {
 
 // taskSpec is the request for a script's task under the admission recorded
 // for it. A remote task is given source, a published commit, and nothing
-// from the forge's host.
+// from AppTown's host.
 func (a *Commands) taskSpec(attempt tasks.Attempt, plan scriptPlan) execution.TaskSpec {
 	req := agentenv.Decorate(plan.request, a.now(), plan.cache)
 	spec := execution.TaskSpec{Key: attempt.Operation, Image: req.Image, Argv: runOnce(req.Argv), Env: req.Env, Workspace: req.Workspace, WorkspaceRO: req.WorkspaceRO,
 		Mounts: req.Mounts, ExtraHosts: req.ExtraHosts, Labels: req.Labels, Files: req.Files, Admission: attempt.Admitted, Request: attempt.Digest}
 	if a.tasks.Remote != nil {
-		// The worker makes its own checkout: nothing here names the forge's
+		// The worker makes its own checkout: nothing here names AppTown's
 		// folder, including the label marking a writer of it.
 		spec.Workspace, spec.Mounts, spec.ExtraHosts = "", nil, nil
 		spec.Labels = slices.DeleteFunc(slices.Clone(spec.Labels), func(l string) bool { return strings.HasPrefix(l, docker.WritesLabel+"=") })
@@ -624,7 +624,7 @@ func (a *Commands) requestDigest(plan scriptPlan, commit string, admitted execut
 // runScriptTask reserves a new attempt's task and drives it.
 func (a *Commands) runScriptTask(task *workflow.Execution, step *workflow.Step, run *workflow.Run, plan scriptPlan) {
 	// The task lives by its durable record, not a context: what a stopped
-	// forge leaves running is collected on restart.
+	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
 	source := ""
 	if a.tasks.Remote != nil {
@@ -672,7 +672,7 @@ func (a *Commands) runScriptTask(task *workflow.Execution, step *workflow.Step, 
 }
 
 // RecoverScript continues, in the workflow's dispatch, the task a previous
-// forge process recorded for this step's attempt.
+// AppTown process recorded for this step's attempt.
 func (a *Commands) RecoverScript(task *workflow.Execution) {
 	step, run := task.Step(), task.Run()
 	attempt, err := a.tasks.Records.Get(task.Context(), taskOperation(step))
@@ -758,7 +758,7 @@ func (a *Commands) RecoverScript(task *workflow.Execution) {
 		}
 	case a.requestDigest(plan, attempt.Source, attempt.Admitted) != attempt.Digest:
 		// Recorded before requests were kept: the request is rebuilt, and
-		// refused if the step's definition or this forge's configuration
+		// refused if the step's definition or this AppTown's configuration
 		// changed since, so what would run now is not what was admitted.
 		a.tasks.stopAndFail(task, attempt, "the step's request changed since its task was recorded")
 		return
@@ -794,7 +794,7 @@ type taskKind struct {
 // the attempt was ended (or abandoned) here.
 func (r *TaskRunner) execute(task *workflow.Execution, db database.Queryer, attempt tasks.Attempt, spec execution.TaskSpec, kind taskKind) (_ tasks.Attempt, code int, timedOut bool, summarized int64, ok bool) {
 	// The task lives by its durable record, not a context: what a stopped
-	// forge leaves running is collected on restart.
+	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
 	operation := attempt.Operation
 	noun := "task"
@@ -930,7 +930,7 @@ func (r *TaskRunner) execute(task *workflow.Execution, db database.Queryer, atte
 		return attempt, 0, false, 0, false
 	case err != nil:
 		// Not recorded, but observed: it is collected, and a restarted
-		// forge observes it again.
+		// AppTown observes it again.
 		log.Printf("task %s: recording its outcome: %v", operation, err)
 	}
 	if r.abandon("exited") {
@@ -954,10 +954,10 @@ func (r *TaskRunner) gone(ctx context.Context, ref execution.TaskRef) bool {
 // collect takes a decided outcome to settled: a timed-out task is stopped,
 // the output read, the step settled, then the attempt settled and the task
 // removed. If the step cannot be settled, everything stays recorded for a
-// restarted forge, which collects the same decided outcome.
+// restarted AppTown, which collects the same decided outcome.
 func (a *Commands) collect(task *workflow.Execution, plan scriptPlan, attempt tasks.Attempt, code int, timedOut bool) {
 	// The task lives by its durable record, not a context: what a stopped
-	// forge leaves running is collected on restart.
+	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
 	operation := attempt.Operation
 	ref := execution.TaskRef{Key: operation, ProviderID: attempt.ProviderID}
@@ -1023,13 +1023,13 @@ func (a *Commands) collect(task *workflow.Execution, plan scriptPlan, attempt ta
 	})
 	if err != nil && !errors.Is(err, workflow.ErrStepAttemptLost) {
 		// The step's outcome is not recorded. The task and its record stay as
-		// they are, so a restarted forge collects it again.
+		// they are, so a restarted AppTown collects it again.
 		log.Printf("task %s: settling its step: %v; it stays recorded for recovery", operation, err)
 		return
 	}
 	if !stopped {
 		// The timeout is recorded, but its stop is not confirmed: the attempt
-		// stays unsettled, with its stop, so a restarted forge carries it out.
+		// stays unsettled, with its stop, so a restarted AppTown carries it out.
 		log.Printf("task %s: its stop at the deadline is not confirmed; it stays recorded until it is", operation)
 		return
 	}
@@ -1089,7 +1089,7 @@ func (r *TaskRunner) provide(ctx context.Context, attempt tasks.Attempt, spec ex
 func (r *TaskRunner) begin(ctx context.Context, attempt tasks.Attempt) (execution.TaskObservation, error) {
 	ref := execution.TaskRef{Key: attempt.Operation, ProviderID: attempt.ProviderID}
 	// Before the deadline an unanswering backend is asked again until it.
-	// After it (a forge that was down), the task gets one brief look: one
+	// After it (an AppTown that was down), the task gets one brief look: one
 	// that exited in time keeps its result; one that does not answer is
 	// given up and stopped, its outcome unknown. The budget is not renewed.
 	observeUntil := attempt.Deadline
@@ -1207,7 +1207,7 @@ func stepOwnership(ctx context.Context, task *workflow.Execution, records *tasks
 // stopAndFail stops the attempt's task (if it is this attempt's), records
 // the step's failure, and then settles the attempt and removes the task. If
 // the failure cannot be recorded, the stopped task and its record stay for a
-// restarted forge to finish.
+// restarted AppTown to finish.
 func (r *TaskRunner) stopAndFail(task *workflow.Execution, attempt tasks.Attempt, reason string) {
 	ref, ours, stopped := r.stopOwn(task.Context(), attempt)
 	if !r.failStep(task, attempt.Operation, reason) {
@@ -1224,7 +1224,7 @@ func (r *TaskRunner) stopAndFail(task *workflow.Execution, attempt tasks.Attempt
 // stopTask stops and removes the attempt's task and settles the attempt,
 // for an attempt whose step no longer belongs to it: whatever the task did
 // before stopping is not a result. A task that cannot be stopped stays
-// recorded, with its stop, for a restarted forge.
+// recorded, with its stop, for a restarted AppTown.
 func (r *TaskRunner) stopTask(ctx context.Context, attempt tasks.Attempt, why string) {
 	ref, ours, stopped := r.stopOwn(ctx, attempt)
 	switch {
@@ -1275,7 +1275,7 @@ func (r *TaskRunner) stopOwn(ctx context.Context, attempt tasks.Attempt) (ref ex
 	// A stop already recorded is not written again: the task is stopped
 	// whether or not a write would succeed now. A stop not yet recorded is
 	// recorded first; if that fails, the task is still stopped, and the
-	// attempt is left for a restarted forge to settle.
+	// attempt is left for a restarted AppTown to settle.
 	durable := attempt.StopWanted
 	if !durable {
 		err := r.Records.RequestStop(ctx, attempt.Operation)
@@ -1390,16 +1390,16 @@ func (r *TaskRunner) failTask(task *workflow.Execution, attempt tasks.Attempt, c
 }
 
 // notKept is how a held attempt's reason reads to people: in its step's
-// reason, and in the log a restarted forge writes for it
+// reason, and in the log a restarted AppTown writes for it
 // (design/operations/workers.md, "Held workspaces").
 func notKept(reason string) string { return "result not kept: " + reason }
 
 // holdResult records the attempt held (tasks.Hold: its workspace on the
 // worker is the only copy of its work, so its task is never released, even
-// by a restarted forge after its step has moved on), and only then the step
+// by a restarted AppTown after its step has moved on), and only then the step
 // as an error. The hold is durable
 // before the step ends: if it cannot be recorded, the step stays running at
-// this attempt and the attempt as it was (collecting), so a restarted forge
+// this attempt and the attempt as it was (collecting), so a restarted AppTown
 // collects the result again, or holds it (Resume). A crash between the two
 // leaves a held attempt whose step Resume finishes.
 func (r *TaskRunner) holdResult(task *workflow.Execution, attempt tasks.Attempt, cause error) {
@@ -1413,7 +1413,7 @@ func (r *TaskRunner) holdResult(task *workflow.Execution, attempt tasks.Attempt,
 		return refused
 	})
 	if err != nil {
-		log.Printf("task %s: %s; recording its hold failed: %v; its step stays running for a restarted forge", attempt.Operation, detail, err)
+		log.Printf("task %s: %s; recording its hold failed: %v; its step stays running for a restarted AppTown", attempt.Operation, detail, err)
 		return
 	}
 	if refused != nil {
@@ -1429,7 +1429,7 @@ func (r *TaskRunner) holdResult(task *workflow.Execution, attempt tasks.Attempt,
 // failStep records the step's outcome as an error with reason, tried again
 // with the shared bound. It reports whether the step is finished: recorded,
 // or no longer this attempt's. When it is not, the caller leaves the attempt
-// recorded for a restarted forge.
+// recorded for a restarted AppTown.
 func (r *TaskRunner) failStep(task *workflow.Execution, operation, reason string) bool {
 	err := r.settleRepeatedly(task, func() error {
 		return task.Finish(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": reason}, nil))

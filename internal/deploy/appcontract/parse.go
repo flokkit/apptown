@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The forge-native runtime contract (.apptown/app.yaml, design/decisions/forge-native-contract.md).
+// AppTown-native runtime contract (.apptown/app.yaml, design/decisions/forge-native-contract.md).
 // The source of truth: what the app IS (app: a map of parts) and what it DEPENDS
 // on (needs: a map of catalog capabilities). Compose is no longer the contract —
 // it is generated from this for local dev (compose_gen.go). No x- prefixes: the
@@ -118,7 +118,7 @@ type appYamlDoc struct {
 	App     map[string]appYamlPart    `yaml:"app"`
 	Init    []appYamlInit             `yaml:"init"`
 	Needs   map[string]map[string]any `yaml:"needs"`
-	// Secrets is the forge's own metadata about the app's declared secrets
+	// Secrets is AppTown's own metadata about the app's declared secrets
 	//: the declaration itself is secretspec.toml.
 	Secrets *appYamlSecrets `yaml:"secrets"`
 	// Rehearsal is what a restore rehearsal asks the app besides its
@@ -138,7 +138,7 @@ type appYamlRehearsal struct {
 	Checks []string `yaml:"checks"`
 }
 
-// appYamlSecrets: what SecretSpec does not model and the forge must know.
+// appYamlSecrets: what SecretSpec does not model and AppTown must know.
 //
 //	secrets:
 //	  spec: secretspec.toml          # default
@@ -233,7 +233,7 @@ func Parse(raw []byte) (*Contract, error) {
 			return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 		}
 		if built != nil && !p.Public {
-			// The forge builds and serves a static site as the front door;
+			// AppTown builds and serves a static site as the front door;
 			// a second, built one beside it has no use case yet.
 			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: a static site with a build must be the public part", name)
 		}

@@ -9,7 +9,7 @@ import (
 	"flokkit.io/forge/internal/ids/idstest"
 )
 
-// A step the forge gave no times is timed on the CLI's clock, from when the
+// A step AppTown gave no times is timed on the CLI's clock, from when the
 // loop saw it running to when it saw it pass.
 func TestAStepWithoutTheForgesTimesIsTimedOnTheCLIsClock(t *testing.T) {
 	pollEvery = 0

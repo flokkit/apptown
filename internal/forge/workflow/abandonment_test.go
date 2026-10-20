@@ -367,9 +367,9 @@ func TestAbandonmentSettlesTheChangeByItsTargetAndRole(t *testing.T) {
 	}
 }
 
-// A change closed as nothing to change says so only when the forge's own
+// A change closed as nothing to change says so only when AppTown's own
 // close recorded it: the same words as a person's reason leave an
-// abandonment, and the forge's close records the fact with the change's
+// abandonment, and AppTown's close records the fact with the change's
 // state and its receipt.
 //
 // Kills: a label read from the reason's words; a closedAs a caller can

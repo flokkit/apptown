@@ -155,10 +155,10 @@ func TestARestartEndsAStepItDoesNotContinue(t *testing.T) {
 
 // A check's process is killed with a stopping forge (systemd signals the
 // whole service), so its runner sees a scanner exit 143 that says nothing
-// about the work. Once the forge is shutting down, that error is not
+// about the work. Once AppTown is shutting down, that error is not
 // recorded: the step stays running, startup repair makes it the restart's
 // orphan, and the restarted apptown runs it again. The same exit while the
-// forge keeps running (the scanner's own OOM kill) is recorded as an error,
+// AppTown keeps running (the scanner's own OOM kill) is recorded as an error,
 // and a pass during shutdown is recorded: only a pass is evidence then.
 //
 // Kills: Settle recording every outcome during shutdown; Settle refusing
@@ -245,7 +245,7 @@ func TestAStepThatFailsWhileTheForgeStopsIsRunAgainAfterTheRestart(t *testing.T)
 			restarted.ResumePending()
 			restarted.Wait()
 			if runs != 1 {
-				t.Fatalf("the restarted forge ran the step %d times, want once", runs)
+				t.Fatalf("the restarted AppTown ran the step %d times, want once", runs)
 			}
 			wantStepState(t, db, scan, StatusPass)
 		})

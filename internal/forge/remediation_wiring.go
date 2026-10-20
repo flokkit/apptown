@@ -11,7 +11,7 @@ import (
 )
 
 // What the App supplies remediation (architecture.md §6): Work's doors under
-// the forge principal, the conformance lens, the resolver that turns an item
+// AppTown principal, the conformance lens, the resolver that turns an item
 // into a frozen start definition, the post-landing review, and whether a
 // person is in the workshop on the project.
 

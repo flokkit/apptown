@@ -13,7 +13,7 @@ type NeedRecorder interface {
 	RecordIdentity(ctx context.Context, placementID ids.ID, need string, requested map[string]any, id, name string) error
 }
 
-// ManagedData is what the forge asks of a provider's managed data instance
+// ManagedData is what AppTown asks of a provider's managed data instance
 // (a database cluster) to protect the data in it: the app user's
 // connection, read at use time and never recorded; a new, empty database,
 // made by the provider and never adopted by name; its removal; the
@@ -29,7 +29,7 @@ type ManagedData interface {
 	DeleteInstance(ctx context.Context, instance string) error
 }
 
-// BucketData is what the forge asks of a provider about a deployment's
+// BucketData is what AppTown asks of a provider about a deployment's
 // object storage bucket to protect its objects (design/subsystems/
 // deployment.md, "Protecting data off-host"): the connection the
 // deployment's own key for that bucket gives, read at use time and never

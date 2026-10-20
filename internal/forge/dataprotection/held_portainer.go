@@ -14,7 +14,7 @@ import (
 
 // heldOnPortainer plans a copy of each data volume a deployment on a
 // Portainer environment holds (design/subsystems/deployment.md, "Backups and
-// restore", Portainer): every volume on its list (the forge's deploy made
+// restore", Portainer): every volume on its list (AppTown's deploy made
 // it) and every volume its current stack declares, each asked of the
 // environment's Docker. The stack file classifies: a volume a need's
 // service mounts at its kind's data path is that need's, copied by its
@@ -131,7 +131,7 @@ func (s *core) stackWriters(ctx context.Context, dk docker.Scope, layout portain
 }
 
 // portainerLayout reads the stack a Portainer deployment runs in: the one
-// on its list (the forge's own create), else the project's stack of its
+// on its list (AppTown's own create), else the project's stack of its
 // name on the target's environment. Reading it copies nothing and deletes
 // nothing.
 func (s *core) portainerLayout(ctx context.Context, t *deployment.Target, dep *deployment.Deployment, slug string) (portainer.StackLayout, error) {

@@ -27,7 +27,7 @@ type Fleet struct {
 	// candidates prepares what a project would adopt, for a what-if.
 	candidates CandidatePreparer
 	// runtime observes deployments: a what-if probes the app serving the
-	// commit it reads. Nil where the forge observes none.
+	// commit it reads. Nil where AppTown observes none.
 	runtime *Runtime
 	// jobs queues the jobs that run admitted reviews and what-ifs.
 	jobs jobs.Enqueuer

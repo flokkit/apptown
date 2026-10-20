@@ -9,12 +9,12 @@ import (
 	"flokkit.io/forge/internal/forge/identity/internal/accesssql"
 )
 
-// A consent request is the forge's own page asking a person to allow a
+// A consent request is AppTown's own page asking a person to allow a
 // client; it is bound to the person, the browser and the exact request
 // shown, lives briefly, and is claimed once.
 
 // RecordConsent stores a consent request under its token's hash, living
-// for lasts by the forge's clock.
+// for lasts by AppTown's clock.
 func (o *oauthStore) RecordConsent(ctx context.Context, tokenHash, user, browserHash, requestJSON string, lasts time.Duration) error {
 	return queries(o.db).InsertConsent(ctx, accesssql.InsertConsentParams{TokenHash: tokenHash, Username: user, BrowserHash: browserHash,
 		RequestJson: json.RawMessage(requestJSON), ExpiresAt: o.now().Add(lasts).UTC()})

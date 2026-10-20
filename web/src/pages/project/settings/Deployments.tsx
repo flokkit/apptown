@@ -17,7 +17,7 @@ import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentR
 // project was offered. A project opts in here; what it may opt into is
 // whatever its group, or everyone, was offered. Deploying ships the latest
 // bundle and opens the release; tearing down backs up the deployment's data,
-// then deletes everything the forge made for it. Data on a target without
+// then deletes everything AppTown made for it. Data on a target without
 // backups, and anything a delete failed on, is listed below until a person
 // deletes it and says so.
 
@@ -85,7 +85,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
     const r = await run(() => post<ReleaseRequested>(`/projects/${slug}/deployments/${e.name}/deploy`, {}))
     if (r) nav(`/projects/${slug}/releases/${r.number}`)
   }
-  // What a take-down would do to a cloud deployment's data is the forge's
+  // What a take-down would do to a cloud deployment's data is AppTown's
   // answer (the same read its protection lines poll): a final copy first,
   // or none possible, when only an explicit choice takes it down.
   const holdsData = e.target?.kind === 'do-app' && !!e.needs && e.needs.length > 0
@@ -369,7 +369,7 @@ const howWords: Record<string, string> = { chosen: 'chosen', preview: 'the previ
 // ResourceLines is what the deployment's running generation applied of its
 // profile, part by part, what each part uses now, and its operators'
 // overrides. A limit nobody declared reads "no limit"; a generation from
-// before the forge kept the record reads "not recorded"; memory use the
+// before AppTown kept the record reads "not recorded"; memory use the
 // target does not report is unknown with its reason, never zero.
 export function ResourceLines({ slug, name }: { slug: string; name: string }) {
   const q = useGet<DeploymentResources>(`/projects/${slug}/deployments/${name}/resources`)

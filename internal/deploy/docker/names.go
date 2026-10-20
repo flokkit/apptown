@@ -50,7 +50,7 @@ func InitName(stackID, name string) string { return initPrefix + stackID + "-" +
 func DataVolumeName(container string) string { return dataVolumePrefix + container }
 
 // NeedVolumeName is the named volume a standing deployment's need keeps
-// its data in (forge-need-<stack>-<need>), made by the forge before the
+// its data in (forge-need-<stack>-<need>), made by AppTown before the
 // need's container mounts it.
 func NeedVolumeName(stackID, need string) string { return needVolumePrefix + stackID + "-" + need }
 
@@ -71,7 +71,7 @@ func BuildTag(container string) string { return buildPrefix + container }
 // isLocalBuildTag: an image that exists only on this daemon.
 func IsLocalBuildTag(image string) bool { return strings.HasPrefix(image, buildPrefix) }
 
-// OwnerDeployment reads a forge.owner label of the form env-<slug>-<name>.
+// OwnerDeployment reads an AppTown.owner label of the form env-<slug>-<name>.
 func OwnerDeployment(owner string, slugs []string) (slug, env string, ok bool) {
 	rest, isEnv := strings.CutPrefix(owner, deploymentStackPrefix)
 	if !isEnv {

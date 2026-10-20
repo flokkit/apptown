@@ -1,7 +1,7 @@
 #!/bin/bash
-# Restore a whole forge onto a replacement host and check it, timing each step
+# Restore a whole AppTown onto a replacement host and check it, timing each step
 # (the procedure is the guide's, stock/docs/guides/running-apptown.md
-# "The forge's own backups").
+# "AppTown's own backups").
 #
 #   APPTOWN_URL=<source url> APPTOWN_TOKEN=<source CLI token> \
 #   forge-recovery-rehearsal.sh <source ssh> <source data dir> <target ssh> <redeploy slug/deployment>
@@ -10,19 +10,19 @@
 # deploy does), read-only queries, a tar of the data directory, a copy of the
 # running apptownd binary.
 #
-# The target is cut off from everything a restored forge would act on (upstream
+# The target is cut off from everything a restored AppTown would act on (upstream
 # Git, cloud APIs, attached hosts, model providers) except the one registry the
 # redeploy pulls from, before apptownd starts there. What the rehearsal makes on
 # the target is known by what Docker holds before it starts: on every exit the
-# restored forge is stopped, everything created since is removed, and only then
+# restored AppTown is stopped, everything created since is removed, and only then
 # is the cut lifted; if any of it remains, the cut stays. A target that already
-# holds a forge's containers is refused. A lock file (/root/.lab-lock) keeps two
+# holds an AppTown's containers is refused. A lock file (/root/.lab-lock) keeps two
 # runs, or other work on a shared target, apart.
 #
 # Environment: REGISTRY (required: the one registry host the target may still
 # reach, e.g. registry.example.com), TARGET_DATA (/srv/forge-restore/data),
 # TARGET_PORT (47777), BLOCK_NAMES (space-separated host names sent to
-# 127.0.0.1 on the target, e.g. the source forge's own name and its Git,
+# 127.0.0.1 on the target, e.g. the source AppTown's own name and its Git,
 # error and telemetry hosts; none by default), RESET_TARGET=1 (first clean up
 # what an earlier run left, by that run's own record).
 set -euo pipefail
@@ -144,11 +144,11 @@ rm -rf "$1" /opt/forge-restore
 EOF
 fi
 
-step "prepare the target: refuse a forge's existing state; pull images a fresh host lacks"
+step "prepare the target: refuse an AppTown's existing state; pull images a fresh host lacks"
 ssh "$tgt" bash -s -- "$tdata" <<'EOF'
 set -euo pipefail
 others=$(docker ps -a --format '{{.Names}}' | grep -E '^(forge-db|forge-env-|forge-svc-|forge-init-|forge-preview-)' || true)
-[ -z "$others" ] || { echo "the target already holds a forge's containers: $others" >&2; exit 1; }
+[ -z "$others" ] || { echo "the target already holds an AppTown's containers: $others" >&2; exit 1; }
 [ ! -e /opt/forge-restore ] && { [ ! -e "$1" ] || [ -z "$(ls -A "$1")" ]; } || { echo "an earlier rehearsal's files are on the target; run with RESET_TARGET=1" >&2; exit 1; }
 mkdir -p /opt/forge-restore "$1"
 docker image inspect postgres:16-alpine > /dev/null 2>&1 || docker pull -q postgres:16-alpine
@@ -158,7 +158,7 @@ docker volume ls -q | sort > /opt/forge-restore/before.volume
 EOF
 owned=yes
 
-step "isolate the target before anything of the forge starts there"
+step "isolate the target before anything of AppTown starts there"
 ip=$(ssh "$tgt" getent ahostsv4 "$registry" | awk 'NR==1{print $1}')
 dns=$(ssh "$tgt" "awk '/^nameserver/{print \$2; exit}' /etc/resolv.conf")
 ssh "$tgt" bash -s -- "$ip" "$dns" "$block" <<'EOF'
@@ -200,7 +200,7 @@ ssh "$tgt" curl -s -m 5 -o /dev/null -w '%{http_code}' "https://$registry/v2/" |
 echo "cut off; $registry reachable"
 
 step "copy the data directory (without pgdata and cache) and the dump"
-# GNU tar exits 1 when a file changed while it was read: on a live forge that
+# GNU tar exits 1 when a file changed while it was read: on a live AppTown that
 # is expected, and is the recovery point's gap the guide names.
 ssh "$src" "tar -C '$srcdata' --exclude=./pgdata --exclude=./cache -cf - . ; s=\$?; [ \$s -le 1 ]" | ssh "$tgt" "tar -C '$tdata' -xf -"
 ssh "$src" cat "$dump" | ssh "$tgt" "cat > /opt/forge-restore/forge.sql.gz"
@@ -208,12 +208,12 @@ ssh "$tgt" "cat > /opt/forge-restore/apptownd && chmod 755 /opt/forge-restore/ap
 ssh "$tgt" du -sh "$tdata"
 
 start() { # start <flags…>: apptownd on the target, its pid in /opt/forge-restore/pid
-	# stdin from /dev/null, or the forge holds the ssh session open.
+	# stdin from /dev/null, or AppTown holds the ssh session open.
 	ssh "$tgt" "cd /opt/forge-restore; nohup /opt/forge-restore/apptownd -data '$tdata' -addr 0.0.0.0:$port -console-addr 127.0.0.1:$((port + 1)) -auth internal -public-host $turl $* < /dev/null > apptownd.log 2>&1 & echo \$! > /opt/forge-restore/pid"
 	for _ in $(seq 1 120); do curl -s -o /dev/null "$turl/" && return 0; sleep 2; done
 	echo "apptownd did not start; its log:" >&2; ssh "$tgt" tail -20 /opt/forge-restore/apptownd.log >&2; exit 1
 }
-stop() { # the forge process only; what it made stays until end_rehearsal
+stop() { # AppTown process only; what it made stays until end_rehearsal
 	ssh "$tgt" 'p=$(cat /opt/forge-restore/pid); [ "$(readlink /proc/$p/exe)" = /opt/forge-restore/apptownd ] && kill "$p"; while kill -0 "$p" 2>/dev/null; do sleep 1; done'
 }
 
@@ -284,4 +284,4 @@ done
 step "clean up: stop the restored forge, remove what it made, lift the cut"
 end_rehearsal
 owned=""
-step "done: the restored forge and what it made are removed, its data kept under $tdata; the network cut is lifted"
+step "done: the restored AppTown and what it made are removed, its data kept under $tdata; the network cut is lifted"

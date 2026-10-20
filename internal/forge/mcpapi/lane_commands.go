@@ -18,7 +18,7 @@ type LaneCommandsDependencies struct {
 	Work     *workflow.Service
 	Adoption *adoption.Service
 	DB       *database.DB
-	// Now is the forge's clock, which stamps the tool's receipt (the real
+	// Now is AppTown's clock, which stamps the tool's receipt (the real
 	// clock when nil).
 	Now func() time.Time
 }

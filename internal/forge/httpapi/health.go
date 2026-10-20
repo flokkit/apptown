@@ -8,7 +8,7 @@ import (
 )
 
 // Health answers GET /healthz for a load balancer or a service manager: up
-// when the forge serves and its database answers, down otherwise. It says
+// when AppTown serves and its database answers, down otherwise. It says
 // nothing else (no version, no counts) and asks no identity.
 // ping is the database's answer, the one fact health reports.
 type Health struct{ ping func(context.Context) error }

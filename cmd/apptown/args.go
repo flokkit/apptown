@@ -85,7 +85,7 @@ func parseNumber(s, what string) (int64, error) {
 // changeRef resolves what a person typed for a change: its id, its friendly
 // form "<slug>#<n>" (the project's current slug and the change's number in
 // it), or a bare number inside a project (-p, $APPTOWN_PROJECT, or the
-// directory named after it), which is that project's change n. The forge
+// directory named after it), which is that project's change n. AppTown
 // resolves a friendly form; the id it answers is what commands send.
 func changeRef(s, project string) (ids.ID, error) {
 	s = strings.TrimSpace(s)
@@ -157,9 +157,9 @@ func changeArg(args []string, project string) error {
 	return nil
 }
 
-// numberedArg checks that args[0] names a record the forge numbers (a
-// complaint, an eval): its id, or its number within the forge, which the
-// forge resolves.
+// numberedArg checks that args[0] names a record AppTown numbers (a
+// complaint, an eval): its id, or its number within AppTown, which the
+// AppTown resolves.
 func numberedArg(args []string, what string) error {
 	if n, err := strconv.ParseInt(strings.TrimPrefix(strings.TrimSpace(args[0]), "#"), 10, 64); err == nil && n > 0 {
 		args[0] = strconv.FormatInt(n, 10)

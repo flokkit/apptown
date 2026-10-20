@@ -88,7 +88,7 @@ const exportProjectLedger = `-- name: ExportProjectLedger :many
 SELECT to_jsonb(l)::text FROM audit_log l WHERE l.project_id = $1 ORDER BY l.id
 `
 
-// A project's ledger lines, for moving it to another forge.
+// A project's ledger lines, for moving it to another AppTown.
 func (q *Queries) ExportProjectLedger(ctx context.Context, projectID ids.ID) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, exportProjectLedger, projectID)
 	if err != nil {
@@ -122,7 +122,7 @@ type FormerIDParams struct {
 	Old   string
 }
 
-// The record a former identity names: this forge's row for the converted
+// The record a former identity names: this AppTown's row for the converted
 // table (kind) and the identity it had before the cutover (old).
 func (q *Queries) FormerID(ctx context.Context, arg FormerIDParams) (ids.ID, error) {
 	row := q.db.QueryRowContext(ctx, formerID, arg.Forge, arg.Kind, arg.Old)

@@ -78,7 +78,7 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		wroteNames = append(wroteNames, f.rel)
 	}
 	// The image's labels say which runtimes ran: the worker's own image's
-	// on a worker, never the forge's Docker's.
+	// on a worker, never AppTown's Docker's.
 	label := func(key string) string { return a.docker.AgentImageLabel(ctx, r.image, key) }
 	if r.worker != nil {
 		label = func(key string) string { return r.worker.image.Labels[key] }

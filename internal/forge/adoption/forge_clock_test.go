@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/forge/wow"
 )
 
-// What adoption stores is stamped by the forge's clock, not the wall clock
+// What adoption stores is stamped by AppTown's clock, not the wall clock
 // or the database's: on a clock ninety days behind, a lane selection's
 // revision and an installed policy carry that clock's time.
 func TestTheForgesClockStampsRevisionsAndPolicies(t *testing.T) {

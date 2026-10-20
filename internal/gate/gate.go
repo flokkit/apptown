@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// TokenHeader carries the gate secret on the forge's probes.
+	// TokenHeader carries the gate secret on AppTown's probes.
 	TokenHeader = "AppTown-Restore-Token"
 	// CookieName is the gate's session cookie. The __Host- prefix makes the
 	// browser refuse it unless it is Secure, has Path=/ and no Domain, so
@@ -32,12 +32,12 @@ const (
 	// produce it.
 	RefusedHeader = "AppTown-Gate"
 	RefusedValue  = "refused"
-	// EnterPath is where a person arrives with a ticket from the forge.
+	// EnterPath is where a person arrives with a ticket from AppTown.
 	EnterPath = "/_apptown/enter"
-	// RedeemPath is the forge endpoint that exchanges a ticket for a person
+	// RedeemPath is AppTown endpoint that exchanges a ticket for a person
 	// and a deadline.
 	// It is outside /api/ on purpose: the gate presents its secret as a
-	// bearer credential, which the forge's API would read as a person's
+	// bearer credential, which AppTown's API would read as a person's
 	// token; this path authenticates the gate itself.
 	RedeemPath = "/gate/redeem"
 
@@ -47,13 +47,13 @@ const (
 	enterRefused = "This link was already used or has expired. Press Open again in AppTown.\n"
 
 	redeemTimeout = 10 * time.Second
-	// maxRedeemBody bounds how much of the forge's answer the gate reads.
+	// maxRedeemBody bounds how much of AppTown's answer the gate reads.
 	maxRedeemBody = 64 << 10
 )
 
 // Options are the gate's replaceable collaborators, for tests.
 type Options struct {
-	// Client redeems tickets with the forge. The default has a 10-second
+	// Client redeems tickets with AppTown. The default has a 10-second
 	// timeout and follows no redirects, so the secret is never re-sent to a
 	// second address.
 	Client *http.Client
@@ -224,8 +224,8 @@ func (g *gate) enter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusSeeOther)
 }
 
-// redeemTicket asks the forge to exchange the ticket. Any failure, whatever
-// its cause, is a refusal: the forge decides who gets in, and the gate does
+// redeemTicket asks AppTown to exchange the ticket. Any failure, whatever
+// its cause, is a refusal: AppTown decides who gets in, and the gate does
 // not guess when it cannot hear the answer.
 func (g *gate) redeemTicket(ctx context.Context, ticket string) (session, bool) {
 	if ticket == "" {

@@ -25,7 +25,7 @@ import (
 //     (StaticSiteDockerfile), as a committed static folder does.
 //
 // Both builds are plain `docker build` on dk, so they run on the daemon the
-// forge selected and its own builder (CLI.Run drops any inherited
+// AppTown selected and its own builder (CLI.Run drops any inherited
 // BUILDX_BUILDER), never on a Buildx builder chosen elsewhere.
 func PackStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcontract.StaticBuild, server string, port int, tag string) error {
 	site, done, err := ExportStaticBuild(ctx, dk, contextDir, sb)

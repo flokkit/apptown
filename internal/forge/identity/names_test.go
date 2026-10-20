@@ -14,9 +14,9 @@ import (
 	"flokkit.io/forge/internal/ids/idstest"
 )
 
-// A person's name may not take a form the forge reads as something else:
+// A person's name may not take a form AppTown reads as something else:
 // a chat, a run or a connection ("chat/…", "run/…", "console/…"), someone
-// acting through something ("… via …"), the forge's own names, or text
+// acting through something ("… via …"), AppTown's own names, or text
 // that does not survive display (control characters, outer spaces).
 func TestValidNameRefusesFormsTheForgeParses(t *testing.T) {
 	t.Parallel()
@@ -36,7 +36,7 @@ func TestValidNameRefusesFormsTheForgeParses(t *testing.T) {
 	}
 }
 
-// Every door that records a name refuses one the forge would read as
+// Every door that records a name refuses one AppTown would read as
 // something else, and records nothing.
 func TestEveryNameDoorRefusesAnUnusableName(t *testing.T) {
 	t.Parallel()
@@ -72,7 +72,7 @@ func TestEveryNameDoorRefusesAnUnusableName(t *testing.T) {
 	}
 }
 
-// The forge's own names (and the other forms ValidName refuses) cannot
+// AppTown's own names (and the other forms ValidName refuses) cannot
 // become a person through the account, first-account, invite or group
 // doors either: a workload acting as "system" is admitted without an
 // account check, so a person by that name would keep authority after being
@@ -118,7 +118,7 @@ func TestReservedNamesCannotBecomePeopleThroughAccountDoors(t *testing.T) {
 // An account that already exists is disabled whatever its name: a single
 // sign-on name such as an email address, or a row recorded before names were
 // checked. Disabling is how an account that acted is offboarded, so it must
-// never be refused for the name's syntax; a name the forge would read as
+// never be refused for the name's syntax; a name AppTown would read as
 // something else may only be disabled.
 func TestAnExistingAccountIsDisabledWhateverItsName(t *testing.T) {
 	t.Parallel()

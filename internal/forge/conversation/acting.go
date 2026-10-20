@@ -31,7 +31,7 @@ type Chats struct {
 	Sessions  *console.Service
 	Authority access.Authorizer
 	DB        *database.DB
-	// Now is the forge's clock, which stamps a chat's acts (the real clock
+	// Now is AppTown's clock, which stamps a chat's acts (the real clock
 	// when nil).
 	Now func() time.Time
 }

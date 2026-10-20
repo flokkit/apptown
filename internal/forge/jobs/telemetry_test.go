@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/telemetry/otlpfake"
 )
 
-// With a tracer, each job execution is a span named by the forge operation
+// With a tracer, each job execution is a span named by AppTown operation
 // it carries, not River's one worker kind.
 func TestQueueDescribesEachJobAsASpanNamedByOperation(t *testing.T) {
 	t.Parallel()

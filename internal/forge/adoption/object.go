@@ -16,7 +16,7 @@ var ErrPreparedRevision = errors.New("adoption was prepared from another revisio
 
 // ErrNotAdoptable refuses a candidate whose own contents disagree, such as two
 // packs pinning one workflow at different versions. The words after it name
-// the problems; the pack's authors, not the forge, can resolve them.
+// the problems; the pack's authors, not AppTown, can resolve them.
 var ErrNotAdoptable = fault.New(fault.Unprocessable, "cannot be adopted as asked")
 
 // ErrPackNotOffered is a new membership of a pack the instance turned off.

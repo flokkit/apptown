@@ -21,7 +21,7 @@ import (
 
 // A new project starts as its pack's seed, and the first thing a review of
 // it sees is that tree. Every shell check the pack (and the platform tier
-// every project is on) declares must pass on the seed as the forge writes
+// every project is on) declares must pass on the seed as AppTown writes
 // it — the repository's own ignore lines first, then the seed's — or each
 // first change inherits findings it did not cause and is sent off to fix
 // the starter (root Dockerfiles, missing ignore rules).
@@ -102,7 +102,7 @@ func TestSeedsPassTheirPacksOwnShellChecks(t *testing.T) {
 
 // A seed's runtime contract is what a new project's first round reads: the
 // needs it declares are the ones the implementing agent gets as emulators
-// before any app exists. Each must parse as the forge reads it at boot.
+// before any app exists. Each must parse as AppTown reads it at boot.
 func TestSeedContractsParse(t *testing.T) {
 	t.Parallel()
 	paths, err := fs.Glob(stock.FS, "seeds/*/.apptown/app.yaml")
@@ -120,10 +120,10 @@ func TestSeedContractsParse(t *testing.T) {
 	}
 }
 
-// A seed's secret declaration is what makes the forge generate the keys
+// A seed's secret declaration is what makes AppTown generate the keys
 // its settings refuse to boot without (django-htmx's DJANGO_SECRET_KEY).
-// Each must parse as the forge reads it at deploy, and declare nothing the
-// forge ignores.
+// Each must parse as AppTown reads it at deploy, and declare nothing the
+// AppTown ignores.
 func TestSeedSecretDeclarationsParse(t *testing.T) {
 	t.Parallel()
 	paths, err := fs.Glob(stock.FS, "seeds/*/secretspec.toml")
@@ -257,7 +257,7 @@ func indentedContracts(body string) []string {
 // must refuse exactly that image as the final stage, so the check's image
 // name is the seed's declaration, not a separate list. Seeds whose final
 // stage is the build image's own family (node, python, ruby) or a scratch
-// carrier of files (the forge serves them; the image never runs) state no
+// carrier of files (AppTown serves them; the image never runs) state no
 // such split.
 func TestSeedBuildImagesAreRefusedAsTheirRuntime(t *testing.T) {
 	t.Parallel()
@@ -339,7 +339,7 @@ func imageRepository(ref string) string {
 	return strings.TrimPrefix(ref, "library/")
 }
 
-// Every pack's seed meets the platform's memory-declared check as the forge
+// Every pack's seed meets the platform's memory-declared check as AppTown
 // judges it, so a new project starts with each built part held to a size: a
 // server seed declares its memory, a static seed has nothing to declare.
 func TestSeedsDeclareTheirMemory(t *testing.T) {

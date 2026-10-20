@@ -24,13 +24,13 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// The forge reports its own errors the way it asks every app to: through
+// AppTown reports its own errors the way it asks every app to: through
 // the error-reporting connector, to the GlitchTip project of the "forge"
-// project on this instance. Attach the forge project under Settings ›
+// project on this instance. Attach AppTown project under Settings ›
 // Services (or POST /projects/forge/integrations {"capability":"errors"})
 // and apptownd starts sending its panics, errored steps, cut-short reviews
 // and failed deployment rebuilds there, tagged by run and step. Nothing
-// is sent while the forge project is unattached; nothing is sent
+// is sent while AppTown project is unattached; nothing is sent
 // synchronously; a burst is capped so a crash loop cannot flood the
 // tracker.
 
@@ -60,7 +60,7 @@ func (d sentryDSN) storeURL() string {
 	return d.Scheme + "://" + d.Host + "/api/" + d.Project + "/store/"
 }
 
-// selfErrorEvent is the Sentry event shape the forge sends: enough for
+// selfErrorEvent is the Sentry event shape AppTown sends: enough for
 // grouping (exception type + value), the where, and the ids to chase.
 type selfErrorEvent struct {
 	EventID    string            `json:"event_id"`
@@ -90,7 +90,7 @@ type selfErrors struct {
 	storeURL func(sentryDSN) string
 }
 
-// selfDSN finds the forge project's own error-reporting attachment, cached
+// selfDSN finds AppTown project's own error-reporting attachment, cached
 // for a minute so a hot path never queries per event.
 func (e selfErrorReporter) dsn(ctx context.Context) (sentryDSN, bool) {
 	s := e.state
@@ -122,7 +122,7 @@ func (e selfErrorReporter) dsn(ctx context.Context) (sentryDSN, bool) {
 	return s.dsn, s.haveDSN
 }
 
-// reportError sends one event about the forge's own failure: where it
+// reportError sends one event about AppTown's own failure: where it
 // happened (the grouping key, with the kind), what it said, and the ids
 // worth chasing. Never blocks the caller; never sends without the
 // attachment; never more than a burst a minute.
@@ -170,7 +170,7 @@ func (e selfErrorReporter) Report(kind, where, message string, tags map[string]s
 }
 
 func (e selfErrorReporter) send(dsn sentryDSN, ev selfErrorEvent) {
-	defer func() { _ = recover() }() // the reporter must never take the forge down
+	defer func() { _ = recover() }() // the reporter must never take AppTown down
 	body, _ := json.Marshal(ev)
 	target := dsn.storeURL()
 	if e.state.storeURL != nil {
@@ -193,7 +193,7 @@ func (e selfErrorReporter) send(dsn sentryDSN, ev selfErrorEvent) {
 	resp.Body.Close()
 }
 
-// forgeRelease is what the forge reports as its release: the build's
+// forgeRelease is what AppTown reports as its release: the build's
 // commit when the binary carries one, else "dev".
 func forgeRelease() string {
 	if info, ok := debug.ReadBuildInfo(); ok {
@@ -223,7 +223,7 @@ type selfErrorReporter struct {
 	state       *selfErrors
 	projects    *project.Projects
 	attachments *integration.Attachments
-	now         func() time.Time // the forge's clock: the DSN's re-read, the burst's minute, an event's time
+	now         func() time.Time // AppTown's clock: the DSN's re-read, the burst's minute, an event's time
 	// life is the App's lifetime: a report comes from any goroutine with no
 	// caller to stop it, so its attachment read runs until shutdown.
 	life context.Context

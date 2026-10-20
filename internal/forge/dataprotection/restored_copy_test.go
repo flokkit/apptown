@@ -33,12 +33,12 @@ import (
 
 const testGateImage = "registry.example/forge/gate@sha256:2222222222222222222222222222222222222222222222222222222222222222"
 
-// gatedPlatform is the restored copy's app on App Platform as the forge
+// gatedPlatform is the restored copy's app on App Platform as AppTown
 // meets it from outside: the real gate (internal/gate), run with the
-// secret the forge rendered into the gate's spec, in front of the app; the
-// gate redeems tickets with the forge's own RedeemGateTicket. An app with
+// secret AppTown rendered into the gate's spec, in front of the app; the
+// gate redeems tickets with AppTown's own RedeemGateTicket. An app with
 // no gate secret in its spec answers 404. The broken-gate switches stand
-// in for a gate that fails the forge's check of it.
+// in for a gate that fails AppTown's check of it.
 type gatedPlatform struct {
 	w *dataWorld
 	// answer is the app's status for a path ("*" any other); 200 when unset.
@@ -53,13 +53,13 @@ type gatedPlatform struct {
 	during func(*http.Request) bool
 	app    *httptest.Server
 	gates  map[string]http.Handler
-	// broken is how the gate fails the forge's check of it ("" it works):
+	// broken is how the gate fails AppTown's check of it ("" it works):
 	// one of the gate... constants below.
 	broken  string
 	entered map[string]*httptest.ResponseRecorder
 }
 
-// The ways a gate can fail the forge's check of it.
+// The ways a gate can fail AppTown's check of it.
 const (
 	gateDown         = "does not answer"
 	gateLetsAnyoneIn = "lets in a request with no token"
@@ -92,7 +92,7 @@ func newGatedPlatform(t *testing.T, w *dataWorld) *gatedPlatform {
 		rw.Header().Set("Cache-Control", "no-store")
 		rw.WriteHeader(status)
 		if status != http.StatusNotFound {
-			// The body holds a row: the forge must never keep it.
+			// The body holds a row: AppTown must never keep it.
 			io.WriteString(rw, "order 7 for carol@example.com")
 		}
 	}))
@@ -194,9 +194,9 @@ func (g *gatedPlatform) gateFor(app, secret string) http.Handler {
 	return h
 }
 
-// forgeRedeemer is the forge's POST /gate/redeem as the gate reaches it:
+// forgeRedeemer is AppTown's POST /gate/redeem as the gate reaches it:
 // the gate's secret as a bearer credential, the ticket in the body, and
-// the forge's RedeemGateTicket deciding.
+// AppTown's RedeemGateTicket deciding.
 type forgeRedeemer struct{ g *gatedPlatform }
 
 func (f forgeRedeemer) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -224,7 +224,7 @@ func (f forgeRedeemer) RoundTrip(r *http.Request) (*http.Response, error) {
 	return answer(http.StatusOK, string(raw)), nil
 }
 
-// secretFor is the gate secret the forge put in app's spec, "" when its
+// secretFor is the gate secret AppTown put in app's spec, "" when its
 // gate has none.
 func (g *gatedPlatform) secretFor(app string) string {
 	for _, spec := range g.w.api.Snapshot().Specs {
@@ -265,7 +265,7 @@ func (c copySecrets) ResolveRestoredCopy(_ context.Context, _ deployment.Applica
 }
 
 // restoredWorld is a production deployment "prod" on App Platform, released,
-// holding records, with a good copy in the store, and a forge that has a
+// holding records, with a good copy in the store, and an AppTown that has a
 // gate image.
 type restoredWorld struct {
 	*dataWorld
@@ -339,7 +339,7 @@ func (w *restoredWorld) start(in RestoredCopyRequest) (*operations.Operation, *R
 	return op, &copies[0]
 }
 
-// noSecretIn fails when a gate secret the forge rendered, or a row the
+// noSecretIn fails when a gate secret AppTown rendered, or a row the
 // app answered, appears in what a project reader sees.
 func (w *restoredWorld) noSecretIn(what string, v any) {
 	w.t.Helper()
@@ -395,7 +395,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 	if c.Facts.Withheld[0] != "SMTP_PASSWORD" || c.Facts.Egress != egressNotBlocked {
 		t.Fatalf("what was withheld: %+v", c.Facts)
 	}
-	// The forge asked through the gate with the secret, and without it only
+	// AppTown asked through the gate with the secret, and without it only
 	// to check the gate itself.
 	if len(w.platform.refused) != len(c.Facts.Gate) || len(w.platform.asked) < 2 {
 		t.Fatalf("checks: asked %v, refused %v", w.platform.asked, w.platform.refused)
@@ -420,7 +420,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 			t.Fatalf("no step for the gate check %q: %+v", ch.Name, op.Steps)
 		}
 	}
-	// The forge's redemption is its own receipt, never a person's entry.
+	// AppTown's redemption is its own receipt, never a person's entry.
 	checked := operationReceipts(t, w.db, "deployment.gate-checked", w.project)
 	if len(checked) != 1 || checked[0].Actor != operations.SystemActor || !strings.Contains(string(checked[0].Payload), "nobody entered") {
 		t.Fatalf("gate-checked receipts: %+v", checked)
@@ -489,14 +489,14 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 	}
 }
 
-// A gate ticket lasts its lifetime by the forge's clock, which also judges
+// A gate ticket lasts its lifetime by AppTown's clock, which also judges
 // it at redemption: a ticket past its lifetime by that clock is refused and
 // one within it is let in, wherever the machine's clock is.
 func TestAGateTicketLastsByTheForgesClock(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	// The forge's clock, two days ahead of the machine's and moved by the test.
+	// AppTown's clock, two days ahead of the machine's and moved by the test.
 	var ahead atomic.Int64
 	ahead.Store(int64(48 * time.Hour))
 	w.s.clock = func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }
@@ -515,7 +515,7 @@ func TestAGateTicketLastsByTheForgesClock(t *testing.T) {
 			t.Fatal(err)
 		}
 		ticket := to[strings.LastIndex(to, "=")+1:]
-		ahead.Add(int64(time.Minute)) // the gate redeems it a minute later, by the forge's clock
+		ahead.Add(int64(time.Minute)) // the gate redeems it a minute later, by AppTown's clock
 		_, err = w.s.RedeemGateTicket(ctx, secretOf, ticket)
 		return err
 	}
@@ -529,7 +529,7 @@ func TestAGateTicketLastsByTheForgesClock(t *testing.T) {
 }
 
 // An opened copy stays up for its lifetime, people who may see production
-// data enter it through the forge, and each entry is witnessed when the
+// data enter it through AppTown, and each entry is witnessed when the
 // gate redeems its ticket: a ticket is single-use, of one copy, for a
 // minute, and its holder's grant is asked again at redemption. An Auditor
 // cannot open it, nor can a token, and opening is a browser's act.
@@ -623,7 +623,7 @@ func TestAnOpenedCopyAdmitsOnlyPeopleTheForgeLetsInAndWitnessesEachEntry(t *test
 	w.s.clock = func() time.Time { return time.Now().Add(time.Duration(later.Load())) }
 	to, _ = w.s.OpenRestoredCopy(ctx, w.project, c.ID)
 	ticket = to[strings.LastIndex(to, "=")+1:]
-	later.Store(int64(2 * time.Minute)) // past the ticket's minute, by the forge's clock
+	later.Store(int64(2 * time.Minute)) // past the ticket's minute, by AppTown's clock
 	if _, err := w.s.RedeemGateTicket(ctx, secretOf, ticket); !errors.Is(err, ErrTicket) {
 		t.Fatalf("an expired ticket: %v", err)
 	}
@@ -636,7 +636,7 @@ func TestAnOpenedCopyAdmitsOnlyPeopleTheForgeLetsInAndWitnessesEachEntry(t *test
 	w.noSecretIn("the entries", entered)
 }
 
-// The forge's check of a gate that does not hold fails the restore: the
+// AppTown's check of a gate that does not hold fails the restore: the
 // check that caught it is recorded failed with its status, the copy is
 // taken down, and an opened copy is never left open behind such a gate.
 //
@@ -645,8 +645,8 @@ func TestAnOpenedCopyAdmitsOnlyPeopleTheForgeLetsInAndWitnessesEachEntry(t *test
 // mark on a 404 (an app that answers 404) or on an entry refusal (passes
 // every entry on); not demanding an empty body (talks) or no-store
 // (cacheable); asking / and not the readiness path (guards only its front
-// page); the forge's own ticket not required to redirect (forwards) or to
-// give a session (no session, no forge); a second redemption not refused
+// page); AppTown's own ticket not required to redirect (forwards) or to
+// give a session (no session, no AppTown); a second redemption not refused
 // (replays); the session's read not judged (forgets); a gate failure that
 // does not fail the copy, or leaves an opened copy open (every case).
 func TestARestoreFailsWhenItsGateDoesNotHold(t *testing.T) {
@@ -740,7 +740,7 @@ func TestACopyWhoseGateFailedIsNeverOpen(t *testing.T) {
 	}
 }
 
-// The ticket the forge issues itself lets in only the check of the start
+// The ticket AppTown issues itself lets in only the check of the start
 // that issued it, while that start runs; and nobody's ticket opens a
 // restore test.
 //
@@ -1004,13 +1004,13 @@ func TestARestoredCopyOfAMultiImageReleaseIsRefusedWhenAskedFor(t *testing.T) {
 	}
 }
 
-// The forge stopping while a copy starts leaves it standing and billing,
+// AppTown stopping while a copy starts leaves it standing and billing,
 // not forgotten: its start reads unknown, and the sweep takes it down.
 func TestACopyTheForgeStoppedStartingIsSweptAway(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	// The forge stops at the start's last request (the gate check's read
+	// AppTown stops at the start's last request (the gate check's read
 	// with its session): the old start, which in life stopped with it, runs
 	// on here and leaves the copy open, as if it had ended unrecorded.
 	w.platform.during = func(r *http.Request) bool {
@@ -1044,9 +1044,9 @@ func TestACopyTheForgeStoppedStartingIsSweptAway(t *testing.T) {
 	}
 }
 
-// A create the platform answered but the forge never wrote down (the
-// write failed, or the forge stopped in between) is still taken down: the
-// app and the cluster are found by the names and markers the forge gives
+// A create the platform answered but AppTown never wrote down (the
+// write failed, or AppTown stopped in between) is still taken down: the
+// app and the cluster are found by the names and markers AppTown gives
 // them and deleted, and only then is the copy ended. Nothing is left
 // billing behind a copy shown as taken down (RTB-01).
 func TestACreationTheForgeDidNotRecordIsStillTakenDown(t *testing.T) {
@@ -1173,7 +1173,7 @@ func TestAStandingCopyStaysOnTheCardPastTheHistory(t *testing.T) {
 	}
 }
 
-// A restored copy's time is the forge's clock, written and judged: with
+// A restored copy's time is AppTown's clock, written and judged: with
 // that clock two days off the wall clock, a copy just opened for 30 minutes
 // is open and not swept, and an hour later by the same clock it is closed
 // and swept.
@@ -1205,7 +1205,7 @@ func TestARestoredCopysTimeIsTheForgesClock(t *testing.T) {
 }
 
 // A ticket lets in the principal it was issued to and no one by name: one
-// issued to a name the forge cannot tie to an account lets nobody in, so
+// issued to a name AppTown cannot tie to an account lets nobody in, so
 // a later account given that name could not borrow it.
 func TestAGateTicketNamingNoPrincipalLetsNobodyIn(t *testing.T) {
 	t.Parallel()

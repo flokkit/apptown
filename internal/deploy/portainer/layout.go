@@ -10,7 +10,7 @@ import (
 
 // StackLayout is what a stack's compose file says about its data: the
 // volumes it declares and which service mounts each at what path, and
-// which services are needs (the forge renders a need as a service named
+// which services are needs (AppTown renders a need as a service named
 // for it, with its volume key forge-need-<slug>-<need>).
 type StackLayout struct {
 	Stack   string
@@ -60,7 +60,7 @@ func ReadLayout(stack, slug, compose string) (StackLayout, error) {
 				continue
 			}
 			path, _, _ = strings.Cut(path, ":") // a mode (:ro) after the path
-			// The forge writes each $ in a path as $$ (deploy.ComposeLiteral);
+			// AppTown writes each $ in a path as $$ (deploy.ComposeLiteral);
 			// the path the app was given is the one Compose reads.
 			path = deploy.ComposeRead(path)
 			if v, ok := byKey[key]; ok {

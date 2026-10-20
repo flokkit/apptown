@@ -26,7 +26,7 @@ type SCMRemotes struct {
 	secrets  *secret.Service
 	db       *database.DB
 	dataDir  string
-	now      func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now      func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewSCMRemotes(projects *project.Projects, provider RepositoryProvider, secrets *secret.Service, db *database.DB, dataDir string, now func() time.Time) SCMRemotes {
@@ -35,8 +35,8 @@ func NewSCMRemotes(projects *project.Projects, provider RepositoryProvider, secr
 
 // SCMNamespaces: GET /api/v1/scm/namespaces — the groups forge-bot can
 // create projects in, so the wizard can show names instead of raw ids. A
-// forge with no GitLab connection answers configured: false with no groups:
-// keeping code only on the forge is a normal setup, not a failure, and the
+// AppTown with no GitLab connection answers configured: false with no groups:
+// keeping code only on AppTown is a normal setup, not a failure, and the
 // wizard then offers no GitLab copy. A connection that is set up but cannot
 // be reached is still an error.
 func (h SCMRemotes) SCMNamespaces(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +68,7 @@ func (h SCMRemotes) SCMNamespaces(w http.ResponseWriter, r *http.Request) {
 // RemoteNamespaces are the provider groups a project's remote may go under.
 type RemoteNamespaces struct {
 	Namespaces []RemoteNamespace `json:"namespaces"`
-	// Configured: this forge has a GitLab connection to create copies with.
+	// Configured: this AppTown has a GitLab connection to create copies with.
 	Configured bool `json:"configured"`
 }
 

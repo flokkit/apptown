@@ -52,7 +52,7 @@ func (s *refusalSpy) Run(_ context.Context, _ string, c docker.Command) ([]byte,
 	return nil, docker.ErrNoLocalBackend
 }
 
-// On a forge with no local Docker, the reapers of its containers, images
+// On an AppTown with no local Docker, the reapers of its containers, images
 // and cache answer from the mode: they remove nothing and ask nothing.
 func TestTheDockerReapersDoNothingWithNoLocalDocker(t *testing.T) {
 	t.Parallel()
@@ -70,7 +70,7 @@ func TestTheDockerReapersDoNothingWithNoLocalDocker(t *testing.T) {
 
 // A deleted project's runs are gone with it; their build images are
 // reaped, not kept forever as if their owners might still need them. A
-// forge that cannot read its records keeps every image. A change's are
+// AppTown that cannot read its records keeps every image. A change's are
 // Preview's, whatever its record says.
 func TestImageSweepReapsImagesWhoseOwnerNoLongerExists(t *testing.T) {
 	t.Parallel()
@@ -94,9 +94,9 @@ func TestImageSweepReapsImagesWhoseOwnerNoLongerExists(t *testing.T) {
 	}
 }
 
-// A container's age is judged on the forge's clock, which stamped its
-// forge.created label: a step's container the forge labelled ahead of this
-// machine's clock is reaped once the forge's clock is past the idle limit,
+// A container's age is judged on AppTown's clock, which stamped its
+// forge.created label: a step's container AppTown labelled ahead of this
+// machine's clock is reaped once AppTown's clock is past the idle limit,
 // whatever the machine's says. (Its step, 424242, does not exist: finished.)
 // A preview of the same age is not the age reaper's: the last look at it
 // decides (preview.Service.Tend).

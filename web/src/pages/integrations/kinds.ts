@@ -2,7 +2,7 @@ import { PRODUCT } from '../../brand'
 import type { ConnectorEntry, IntegrationEntry, IntegrationHealth, IntegrationUse } from '../../wire.gen'
 
 // What each kind of integration is for, in the words the list groups by.
-// A kind the forge learns at run time (a service kind) takes its title from
+// A kind AppTown learns at run time (a service kind) takes its title from
 // the connector catalogue instead.
 const CAP_META: Record<string, { title: string; blurb: string }> = {
   scm: { title: 'Source control', blurb: 'Repositories, branches and merge requests' },
@@ -25,9 +25,9 @@ export function capabilityMeta(capability: string, catalogTitle?: string): { tit
 }
 
 // The state of one integration's health reading.
-//   working    the forge checked it and it answered
-//   failing    the forge checked it and it did not
-//   unchecked  the forge has no check for this kind (checked is false), so
+//   working    AppTown checked it and it answered
+//   failing    AppTown checked it and it did not
+//   unchecked  AppTown has no check for this kind (checked is false), so
 //              the reading says nothing either way
 export type HealthState = 'working' | 'failing' | 'unchecked'
 

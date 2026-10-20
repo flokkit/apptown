@@ -218,7 +218,7 @@ func TestMCPInitialize(t *testing.T) {
 	if err != nil || !attributed {
 		t.Fatalf("a call in the session must be attributed to its client: %v %+v", err, entries)
 	}
-	// An unknown protocol version gets the newest one this forge speaks.
+	// An unknown protocol version gets the newest one this AppTown speaks.
 	w = mcp_raw(a, tok, "", mcp_rpc(3, "initialize", map[string]any{"protocolVersion": "1999-01-01", "capabilities": map[string]any{}}))
 	if w.Code != 200 || strings.Contains(w.Body.String(), `"protocolVersion":"1999-01-01"`) || !strings.Contains(w.Body.String(), `"protocolVersion":"20`) {
 		t.Fatalf("unsupported version must fall back to a supported one: %s", w.Body.String())
@@ -488,7 +488,7 @@ func TestMCPProtocolErrors(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `"code":-32602`) || !strings.Contains(w.Body.String(), "required") {
 		t.Fatalf("missing argument: %s", w.Body.String())
 	}
-	// Resources: the forge serves none, and says so with an empty list.
+	// Resources: AppTown serves none, and says so with an empty list.
 	w = mcp_post(a, tok, "", mcp_rpc(5, "resources/list", nil))
 	if !strings.Contains(w.Body.String(), `"resources":[]`) {
 		t.Fatalf("resources/list: %s", w.Body.String())

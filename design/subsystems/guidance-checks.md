@@ -26,9 +26,9 @@ answer is feedback, never evidence: nothing of it is recorded, no gate reads
 it, and the landing runs the checks again on the commit it lands. Every
 answer says so (`feedbackOnly: true`) and names the commit it is for.
 
-A named commit is checked only when the forge has it as the change's work:
+A named commit is checked only when AppTown has it as the change's work:
 in the change's folder, on its published branch, or on one of the change's
-scratch refs. An agent step on a worker commits where the forge cannot see
+scratch refs. An agent step on a worker commits where AppTown cannot see
 until the step's work is collected, so the packaged CLI first pushes the
 agent's `HEAD` to its attempt's scratch ref
 (`refs/apptown/scratch/change-<change>/step-<step>-a<attempt>`, given to the

@@ -13,7 +13,7 @@ import (
 
 // noNullLists writes every nil list and nil map a response can reach as an
 // empty one, at any depth: Go writes nil as null, the UI reads a list's
-// length, and the forge's first browser error was exactly that
+// length, and AppTown's first browser error was exactly that
 // ("remediations": null when none had run). It is why the generated web types
 // (wire.gen.ts) can say T[] rather than T[] | null. A field tagged omitempty
 // or omitzero stays absent when unset; byte slices, raw JSON and types that

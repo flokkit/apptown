@@ -23,7 +23,7 @@ func fakeDocker(t *testing.T) {
 
 // Output is stdout alone, so ids and formatted answers are not polluted by
 // warnings; CombinedOutput has both; a failure says what docker said. The
-// docker started is the forge's: an ambient Buildx builder does not reach
+// docker started is AppTown's: an ambient Buildx builder does not reach
 // it. Not parallel: it sets the process's environment.
 func TestDockerStartsAsTheForgesWithTheOutputAsked(t *testing.T) {
 	fakeDocker(t)

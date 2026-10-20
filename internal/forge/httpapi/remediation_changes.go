@@ -28,7 +28,7 @@ type RemediationChanges struct {
 	lifecycle *projectlifecycle.Service
 	db        *database.DB
 	authMode  string
-	now       func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now       func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewRemediationChanges(projects *project.Projects, access *identity.Service, checks *conformance.Service, work *workflow.Service, lifecycle *projectlifecycle.Service, db *database.DB, authMode string, now func() time.Time) RemediationChanges {

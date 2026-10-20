@@ -73,12 +73,12 @@ func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) s
 		"reads window.__APPTOWN_ENV__.SENTRY_DSN (guidance deploy/browser-values);\n" +
 		"AppTown checks the page loads it.\n" +
 		"Test hooks are part of the wiring, not optional: a server app serves\n" +
-		"GET /_apptown/boom (captures a tagged \"forge test boom\" error, returns\n" +
+		"GET /_apptown/boom (captures a tagged \"apptown test boom\" error, returns\n" +
 		"500, no auth); a browser app throws the same on the typed sequence\n" +
 		"boom!!! . After wiring, PROVE it: your step has the same SENTRY_DSN\n" +
 		"the app containers get. Run the app in your private docker and hit\n" +
 		"/_apptown/boom (a server app), or for a browser app send one tagged\n" +
-		"\"forge test boom\" event from node with @sentry/node and that DSN.\n" +
+		"\"apptown test boom\" event from node with @sentry/node and that DSN.\n" +
 		"Then run `apptown integrations` — it shows when the provider last saw an\n" +
 		"event from this project. Report what it said. That is what \"wired\n" +
 		"in\" means. The developer guide: /docs/errors/glitchtip\n"

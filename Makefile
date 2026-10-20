@@ -257,7 +257,7 @@ go: console-cli
 release:                 ## build a release's artifacts from a clean checkout at its tag: make release VERSION=1.0.0
 	sh scripts/release.sh $(VERSION)
 
-upgrade-test: web       ## every earlier release's frozen forge upgrades to this commit and keeps its records: run on a release candidate before tagging it (builds web/dist, which Go embeds)
+upgrade-test: web       ## every earlier release's frozen AppTown upgrades to this commit and keeps its records: run on a release candidate before tagging it (builds web/dist, which Go embeds)
 	go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$$' -count=1
 	go test ./internal/forge/dbschema -run '^TestAMigrationOverAReleasesRecordsAppliesOrLeavesThemAlone$$' -count=1
 
@@ -290,9 +290,9 @@ check-schema-ownership:
 	python3 scripts/schema-ownership.py
 	python3 -m unittest discover -s scripts -p 'schema*_test.py'
 
-# The forge access gate's image, for linux/amd64 (what App Platform runs).
+# AppTown access gate's image, for linux/amd64 (what App Platform runs).
 # Building does not publish it: an operator pushes the image to the
-# registry the deployment target uses and passes its digest to the forge
+# registry the deployment target uses and passes its digest to AppTown
 # with -restore-gate-image <ref@sha256:...>, so every restored copy runs the
 # exact gate that was reviewed.
 GATE_IMAGE ?= apptown-gate:local

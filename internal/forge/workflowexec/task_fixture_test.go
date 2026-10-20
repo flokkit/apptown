@@ -39,7 +39,7 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// taskForge is one forge process's part in running a script step as a
+// taskForge is one AppTown process's part in running a script step as a
 // recorded task: Work, the script runner over the task runner, and the
 // branch owner, over one database and data directory, assembled as the
 // daemon assembles them. Its tasks run on the execution fake (or a worker
@@ -54,10 +54,10 @@ type taskForge struct {
 	tasks    *TaskRunner
 	branches *scm.Branches
 	// ctx is the administrator the fixture acts as: it runs steps and reads
-	// runs, as the forge's engine does for itself.
+	// runs, as AppTown's engine does for itself.
 	ctx         context.Context
 	definitions map[string]schema.Spec
-	// checks runs a tests step's command, as the forge's check executor
+	// checks runs a tests step's command, as AppTown's check executor
 	// would; a test that runs a tests step sets it.
 	checks func(execution.Request) execution.Outcome
 	// agents runs agent and review steps on this machine, their Pi run by
@@ -78,7 +78,7 @@ type noPublisher struct{}
 
 func (noPublisher) PushBranch(context.Context, ids.ID, string, string) {}
 
-// noEffects is a forge whose abandonments and completions start no
+// noEffects is an AppTown whose abandonments and completions start no
 // further work: no job queue takes part in this package's tests.
 type noEffects struct{}
 
@@ -102,7 +102,7 @@ func (noLaws) ViolationsIn(context.Context, database.Queryer, ids.ID, *schema.Sp
 // taskForgeAdministrator is the person every taskForge acts as.
 const taskForgeAdministrator = "fixture"
 
-// startTaskForge builds a forge process on db and dir whose script steps
+// startTaskForge builds an AppTown process on db and dir whose script steps
 // run their tasks on the local profile, on the fake driver until a test
 // names another, with image as the default image. definitions are the
 // workflows its runs are admitted under.
@@ -186,7 +186,7 @@ func (p *fakePi) requests() []execution.Request {
 	return append([]execution.Request(nil), p.calls...)
 }
 
-// forgePi is the Pi a forge process runs: the test's, once it installs one.
+// forgePi is the Pi an AppTown process runs: the test's, once it installs one.
 type forgePi struct{ f *taskForge }
 
 func (p forgePi) Run(_ context.Context, name string, req execution.Request) execution.Outcome {
@@ -261,7 +261,7 @@ func scriptTaskFixture(t *testing.T, with map[string]any) (*taskForge, *executio
 }
 
 // taskHubTemplate is the new project repository every task fixture's hub
-// starts as, made once by the forge's own initializer (its identity, ignore
+// starts as, made once by AppTown's own initializer (its identity, ignore
 // file, first commit and no-push hook) and copied for each fixture.
 var taskHubTemplate = gittest.NewTemplate(func(t testing.TB, dir string) {
 	if err := scm.InitializeRepository(context.Background(), dir, "main"); err != nil {
@@ -269,7 +269,7 @@ var taskHubTemplate = gittest.NewTemplate(func(t testing.TB, dir string) {
 	}
 })
 
-// newTaskForge is a forge on a fresh database and directory with one
+// newTaskForge is an AppTown on a fresh database and directory with one
 // project, adopted and with a repository on main, whose runs are admitted
 // under the named workflow. Its tasks run on the returned fake.
 func newTaskForge(t *testing.T, name string, spec schema.Spec) (*taskForge, *executionfake.Tasks) {
@@ -347,7 +347,7 @@ func taskKeyOf(step *workflow.Step) string { return fmt.Sprintf("step-%d-attempt
 // driver, and a worker reached over the wire.
 var taskBackends = []string{"local", "worker"}
 
-// onWorker moves the forge's tasks to a worker served in this process over
+// onWorker moves AppTown's tasks to a worker served in this process over
 // mutual TLS, with the fake behind it, as an installation configured with a
 // worker does. It returns the worker's state directory.
 func (f *taskForge) onWorker(t *testing.T, fake *executionfake.Tasks) string {
@@ -380,7 +380,7 @@ func (f *taskForge) recover(t *testing.T) {
 	f.work.ResumePending(adopt...)
 }
 
-// restarted is the forge after a restart: a new process on f's database
+// restarted is AppTown after a restart: a new process on f's database
 // and data directory, its tasks on the same backend, having resumed
 // recorded work. f's dispatch must be stopped.
 func restarted(t *testing.T, f *taskForge) *taskForge {
@@ -433,7 +433,7 @@ func awaitStarted(t *testing.T, fake *executionfake.Tasks, key, failure string) 
 	}
 }
 
-// drained waits for everything the forge's Work has dispatched to finish:
+// drained waits for everything AppTown's Work has dispatched to finish:
 // after it, no dispatched step is still going to act. It fails the test
 // rather than hang.
 func drained(t *testing.T, f *taskForge) {

@@ -28,7 +28,7 @@
 # earlier release's frozen forge (internal/forge/testdata/upgrade) upgrades
 # to it and keeps its records. This script runs it again at the tag and
 # builds nothing when it fails.
-# After tagging, freeze the release's forge for the releases after it, at the
+# After tagging, freeze the release's AppTown for the releases after it, at the
 # tag, and commit the result on main:
 #   go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>
 set -eu
@@ -147,7 +147,7 @@ agent_image=$(echo "$facts" | sed -n 's/^AGENT_IMAGE=//p')
 	echo
 	echo "- Commit: \`$commit\`"
 	echo "- Worker protocol: $worker_protocol; CLI protocol: $cli_protocol (Running AppTown, Versions)"
-	echo "- Agent image recipe: \`$agent_image\` (\`deploy/apptown-agent\` in the archive). Workers build it when they start. A forge that runs work itself builds \`forge-agent\` only when it is missing: on install, and on an upgrade whose recipe name changed, run \`docker build -t forge-agent deploy/apptown-agent\` in the installation directory"
+	echo "- Agent image recipe: \`$agent_image\` (\`deploy/apptown-agent\` in the archive). Workers build it when they start. An AppTown that runs work itself builds \`forge-agent\` only when it is missing: on install, and on an upgrade whose recipe name changed, run \`docker build -t forge-agent deploy/apptown-agent\` in the installation directory"
 	echo "- Platforms: linux/amd64, linux/arm64, darwin/arm64; checksums in SHA256SUMS"
 	echo "- Licence: Apache-2.0 (LICENSE, NOTICE)"
 	echo

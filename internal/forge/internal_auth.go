@@ -179,7 +179,7 @@ func (a *App) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 // OAuth code or refresh token) are rate-limited per client address, so a
 // guess costs time: a burst of credentialBurst, then one more every
 // credentialEvery. It slows guessing; it is not a lockout, and a restart
-// forgets it. The address is the one the forge already resolves through its
+// forgets it. The address is the one AppTown already resolves through its
 // trusted proxies.
 const (
 	credentialBurst = 10
@@ -231,8 +231,8 @@ func (l *credentialLimiter) take(key string) (bool, time.Duration) {
 }
 
 // credentialDoor is the route table's wrapper for a door that takes a
-// secret: the forge's limiter and proxies are read when a request comes, so
-// the table can be built (and inspected) before the forge exists.
+// secret: AppTown's limiter and proxies are read when a request comes, so
+// the table can be built (and inspected) before AppTown exists.
 func credentialDoor(a *App, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) { a.credentials.door(a.cfg.proxies, h)(w, r) }
 }

@@ -2,7 +2,7 @@
 # every supported server pack so a long-running test operates all of them,
 # matched to what the app does, and rolled out a company per wave to fit the
 # host's memory. The runner creates each app with this pack and still records
-# the forge's own pack suggestion beside it (the picker is measured, not used).
+# AppTown's own pack suggestion beside it (the picker is measured, not used).
 #
 # Starting memory per pack (stock guidance, measured 13 Oct): java-spring and
 # rails 256M, django-htmx 160M, dotnet and node-fullstack 128M, go-small and

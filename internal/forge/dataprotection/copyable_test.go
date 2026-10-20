@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// A release of new code onto a deployment that holds data the forge cannot
+// A release of new code onto a deployment that holds data AppTown cannot
 // copy now (an App Platform database with no copy runner or backup store)
 // is refused whatever the code changes; a person may release anyway, and the
 // release records the choice. The first release, onto a deployment that

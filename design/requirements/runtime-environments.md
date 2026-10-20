@@ -94,7 +94,7 @@ and shutdown tests. This is a verification map, not a claim that all toolchains
 or all runtime combinations are covered.
 
 There is no unified capability/readiness receipt today. Toolchain preparation
-is best-effort, the Forge CLI can be unavailable when its packaged artifact is missing or invalid, and
+is best-effort, AppTown CLI can be unavailable when its packaged artifact is missing or invalid, and
 step Docker setup can degrade after steering was generated. A future change
 should expose those facts to the helper consistently and decide which missing
 capabilities must block execution. Those are improvements to design and
@@ -179,19 +179,19 @@ agent, review and tests steps, checks, previews and release builds; the
 [workers guide](../operations/workers.md) says which work runs where.
 
 **The model.** A worker is another machine that runs a project's code so that
-it does not run on the forge's host. It shares no files with the forge. Work
-reaches the forge only as commits, which the forge checks as it checks any
+it does not run on AppTown's host. It shares no files with AppTown. Work
+reaches AppTown only as commits, which AppTown checks as it checks any
 other publication; a chat's work reaches its change when it is **saved**,
-meaning the forge has put the commit on the change's branch. If a worker is
+meaning AppTown has put the commit on the change's branch. If a worker is
 lost, what it had not saved is lost with it.
 
 A person should be able to rely on that model without knowing the mechanism.
-The guarantees below hold for work on a worker as for work on the forge:
+The guarantees below hold for work on a worker as for work on AppTown:
 
 - **One holder per change.** Only one chat or step writes a change at a time,
   wherever it runs.
 - **Only checked commits reach the branch.** A worker never writes a change's
-  branch; the forge collects its commits and they pass the same publication
+  branch; AppTown collects its commits and they pass the same publication
   checks as a desktop push, and a refused save is shown with its reason and, for a chat that ends,
   kept as a download rather than published.
 - **Release only on proof.** A change held by work on a worker is released
@@ -209,12 +209,12 @@ defects to engineer away:
   arrived, and the person decides whether to send it again;
 - a worker that is gone for good holds its changes until retiring workers is
   designed; a person can still abandon a change;
-- if the forge loses a chat's own record, the chat's leftovers on the worker
-  are removed when the forge next starts: the forge asks the worker to remove
+- if AppTown loses a chat's own record, the chat's leftovers on the worker
+  are removed when AppTown next starts: AppTown asks the worker to remove
   any chat it has no record of, and the worker removes what that chat left.
 
-**Not promised.** A worker does not make the forge safe for untrusted projects
-while other kinds of work still run on the forge's host; which work runs where
+**Not promised.** A worker does not make AppTown safe for untrusted projects
+while other kinds of work still run on AppTown's host; which work runs where
 is in the [workers guide](../operations/workers.md). Worker chats do not yet
 have previews, automatic rehearsal or `apptown check`; these are planned to run
 from the saved commit. A chat that needs a registry the worker cannot reach

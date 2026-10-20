@@ -57,7 +57,7 @@ func agreesWithGit(name string, git bool) bool {
 	return git == own || (git && !own && name == "@")
 }
 
-// The forge decides whether a name is a branch name without starting git.
+// AppTown decides whether a name is a branch name without starting git.
 // The decision must be git's: every edge case and thousands of generated
 // names are judged by both, and any disagreement fails. Git's answers are
 // the recorded table in branchname_verdicts_test.go, so the unit tier starts
@@ -88,7 +88,7 @@ func TestCheckBranchNameAgreesWithGitsRecordedAnswers(t *testing.T) {
 }
 
 // In a repository, --branch expands "@" to HEAD and @{-N} to an earlier
-// checkout. A name the forge stores must mean itself: none is accepted.
+// checkout. A name AppTown stores must mean itself: none is accepted.
 func TestCheckBranchNameRefusesWhatGitWouldExpand(t *testing.T) {
 	for _, name := range []string{"@", "@{-1}", "x@{u}", "@{push}"} {
 		if CheckBranchName(name) == nil {

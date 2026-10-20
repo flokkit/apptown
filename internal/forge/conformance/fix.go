@@ -20,7 +20,7 @@ type Fix struct {
 	BeforeState     Outcome  `json:"beforeState"`
 	BeforeDetail    string   `json:"beforeDetail,omitempty"`
 	ReviewID        ids.ID   `json:"reviewId"`
-	ReviewNumber    int64    `json:"reviewNumber"` // within the forge
+	ReviewNumber    int64    `json:"reviewNumber"` // within AppTown
 	ChangeIDs       []ids.ID `json:"changeIds"`
 	// ChangeNumbers are ChangeIDs' numbers within the project, index for
 	// index; 0 for a change that no longer exists.

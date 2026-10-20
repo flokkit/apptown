@@ -8,7 +8,7 @@ import (
 	"flokkit.io/forge/internal/forge/project"
 )
 
-// Projects is the project record's supported API; forge keeps the doors
+// Projects is the project record's supported API; AppTown keeps the doors
 // and the acts that span domains.
 
 func (a *App) projectByID(ctx context.Context, id ids.ID) *project.Project {

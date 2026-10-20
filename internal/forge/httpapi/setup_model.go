@@ -23,7 +23,7 @@ type SetupModel struct {
 	integrations *integration.Service
 	models       *model.Slots
 	db           *database.DB
-	now          func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now          func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 	// openRouterBase is OpenRouter's API root, whose public model list
 	// resolves its latest-Sonnet alias; tests point it at a fake.
 	openRouterBase string

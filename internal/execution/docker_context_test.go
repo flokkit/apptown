@@ -91,7 +91,7 @@ func TestADockerCallIsPinnedToTheDaemonSelectedAtStartup(t *testing.T) {
 }
 
 // A selection that cannot be pinned (a context that cannot be read, or one
-// that needs TLS files) is refused for the forge's lifetime: nothing is
+// that needs TLS files) is refused for AppTown's lifetime: nothing is
 // created and nothing is called, even once the context becomes readable,
 // and its backend never matches a resolved one.
 func TestAnUnpinnableDockerSelectionCreatesNothing(t *testing.T) {

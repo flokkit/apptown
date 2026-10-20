@@ -83,9 +83,9 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 }
 
-// The forge's own daemon publishes an app's port on loopback only (the
+// AppTown's own daemon publishes an app's port on loopback only (the
 // forge's proxy is the front door); an attached host publishes it where
-// the forge's probe and the plain front door, both at the host's address,
+// AppTown's probe and the plain front door, both at the host's address,
 // reach it. A loopback bind there would leave the readiness probe
 // unanswered.
 func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
@@ -120,7 +120,7 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 	}
 }
 
-// An app is told every origin a browser reaches it at: this forge's tiers
+// An app is told every origin a browser reaches it at: this AppTown's tiers
 // and, when an attached host's Traefik routes it, that host's ingress
 // domain. Given only the preview tier, a framework that checks the host
 // (Rails) refuses every page at <slug>.apps.<domain>.
@@ -212,7 +212,7 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 	if strings.Contains(started["fresh"], "traefik.") {
 		t.Fatalf("another deployment carries a Traefik route, so it can take main's visitors:\n%s", started["fresh"])
 	}
-	// The addresses the forge shows and records agree with the route.
+	// The addresses AppTown shows and records agree with the route.
 	dk := (Scope{}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
 	if got := dk.FrontDoor("bkproof", "main", 40001); got != "https://bkproof.apps.example.com" {
 		t.Fatalf("main is shown at %s", got)

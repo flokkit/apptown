@@ -12,7 +12,7 @@ import (
 	"flokkit.io/forge/internal/forge/audit"
 )
 
-// Instance secrets are the credentials the forge itself uses, named by a
+// Instance secrets are the credentials AppTown itself uses, named by a
 // target or a connector (a cloud API token, an SSH key, a registry password)
 // and read by runtime lookup: Infisical's values with the bootstrap file's
 // lines over them. SetInstance and RemoveInstance are the write-only door to
@@ -98,7 +98,7 @@ func (a *Service) instanceReceipt(ctx context.Context, who, kind, name string, c
 }
 
 // refuseInfisicalName refuses a name Infisical holds, and answers unknown
-// when Infisical is configured but cannot be read: the forge cannot tell
+// when Infisical is configured but cannot be read: AppTown cannot tell
 // whether the file would shadow it.
 func (a *Service) refuseInfisicalName(ctx context.Context, name, why string) error {
 	file, err := a.readFileSecrets()

@@ -44,10 +44,10 @@ func TestConfigRefusesMissingOrMalformedValuesWithoutEchoingTheSecret(t *testing
 		"short secret":          {"GATE_SECRET": testSecret[:62]},
 		"uppercase secret":      {"GATE_SECRET": strings.ToUpper(testSecret)},
 		"non-hex secret":        {"GATE_SECRET": strings.Repeat("g", 64)},
-		"no forge":              {"GATE_APPTOWN": ""},
+		"no AppTown":            {"GATE_APPTOWN": ""},
 		"http forge":            {"GATE_APPTOWN": "http://forge.example"},
-		"forge with path":       {"GATE_APPTOWN": "https://forge.example/api"},
-		"forge not a url":       {"GATE_APPTOWN": "forge.example"},
+		"apptown with path":     {"GATE_APPTOWN": "https://forge.example/api"},
+		"apptown not a url":     {"GATE_APPTOWN": "forge.example"},
 	}
 	for name, override := range cases {
 		t.Run(name, func(t *testing.T) {

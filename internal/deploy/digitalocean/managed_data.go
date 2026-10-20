@@ -12,13 +12,13 @@ import (
 	"time"
 )
 
-// ManagedData is what the forge asks of a managed database cluster to
+// ManagedData is what AppTown asks of a managed database cluster to
 // protect its data (design/subsystems/deployment.md, "Protecting data
 // off-host"): the app
 // user's connection, read at use time and never recorded; a new, empty
 // database, made by the platform and never adopted by name; its removal;
 // the platform's own backups, read for recency; and the cluster's deletion.
-// The cluster's admin connection is used only here, by the forge itself,
+// The cluster's admin connection is used only here, by AppTown itself,
 // to hand a new database to the app's user.
 type ManagedData struct {
 	Client func(context.Context) (*Client, Config, error)
@@ -110,7 +110,7 @@ func (m ManagedData) Databases(ctx context.Context, clusterID string) ([]string,
 
 // NewDatabase makes a new, empty database on the cluster and hands it to
 // owner, who must already exist. A name the cluster already holds is
-// refused (ErrDatabaseExists): the place the forge fills is always one the
+// refused (ErrDatabaseExists): the place AppTown fills is always one the
 // platform made for it.
 func (m ManagedData) NewDatabase(ctx context.Context, clusterID, name, owner string) error {
 	c, err := m.client(ctx)

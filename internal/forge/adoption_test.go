@@ -139,7 +139,7 @@ func TestAdoptionFreezesWhatAProjectIsOn(t *testing.T) {
 		t.Fatalf("the edit is revision 2: %+v", ad)
 	}
 	// A lane selected after the revision resolves as of the revision's time,
-	// never to a version published later: a moment passes on the forge's
+	// never to a version published later: a moment passes on AppTown's
 	// clock, which stamps both.
 	moveClock(a, time.Second)
 	if err := a.lifecycle.SelectLane(t.Context(), p.ID, "fix-bug", true, "fixture"); err != nil {
@@ -341,7 +341,7 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 		names[pp.Pack] = pp.Version
 	}
 	if names["apptown"] == 0 || names["go-small"] == 0 {
-		t.Fatalf("on forge and go-small: %+v", packs)
+		t.Fatalf("on apptown and go-small: %+v", packs)
 	}
 	view := testPlacement(t, a, p.Slug)
 	if len(view.Additions) != 0 || len(view.Exclusions) != 0 || len(view.Conditions) != 0 {
@@ -403,7 +403,7 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 	adoptTestPlatform(t, a, h.ID)
 	view = testPlacement(t, a, h.Slug)
 	if len(view.Packs) != 1 || view.Packs[0].Pack != "apptown" || !view.Packs[0].Platform || len(view.Additions) != 1 {
-		t.Fatalf("hand-assembled: forge alone plus additions: %+v", view)
+		t.Fatalf("hand-assembled: apptown alone plus additions: %+v", view)
 	}
 }
 

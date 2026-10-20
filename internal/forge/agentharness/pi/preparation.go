@@ -16,7 +16,7 @@ import (
 
 // Labels answers the agent image's label of that name, "" when it has none.
 // What a session is promised (subagents, extensions) is read from the
-// labels of the image it runs in: the forge's own Docker's agent image for
+// labels of the image it runs in: AppTown's own Docker's agent image for
 // work here (Preparer.Labels), the worker's for work on a worker
 // (MapLabels over what the worker reports).
 type Labels func(name string) string
@@ -33,7 +33,7 @@ func subagentsVersion(labels Labels) string {
 	return labels(SubagentsLabel)
 }
 
-// Labels reads the forge's own Docker's agent image, or, given WithLabels,
+// Labels reads AppTown's own Docker's agent image, or, given WithLabels,
 // the image read there.
 func (home Preparer) Labels(ctx context.Context) Labels {
 	if home.labels != nil {
@@ -43,13 +43,13 @@ func (home Preparer) Labels(ctx context.Context) Labels {
 }
 
 // WithLabels reads the agent image's labels from labels instead of the
-// forge's own Docker: on a forge with none, from the worker.
+// forge's own Docker: on an AppTown with none, from the worker.
 func (home Preparer) WithLabels(labels func() Labels) Preparer {
 	home.labels = labels
 	return home
 }
 
-// Delegation is DelegationWith the forge's own agent image's labels.
+// Delegation is DelegationWith AppTown's own agent image's labels.
 func (home Preparer) Delegation(ctx context.Context) string { return DelegationWith(home.Labels(ctx)) }
 
 // DelegationWith: the steering section that promises the subagent tool
@@ -103,7 +103,7 @@ func NewPreparer(models Configuration, selection modelSlots, extensions extensio
 	return Preparer{models: models, selection: selection, extensions: extensions, docker: scope, image: image}
 }
 
-// Stage generates pi's provider config from the forge's model
+// Stage generates pi's provider config from AppTown's model
 // bindings — no host ~/.pi state is copied into containers. Custom providers
 // (e.g. a local LM Studio endpoint) live in binding config. The runtime file
 // contains only the proxy URL, public model metadata and a session-token
@@ -133,7 +133,7 @@ func (home Preparer) Stage(ctx context.Context, ws string, projectID ids.ID) (st
 }
 
 // StageAgentDir resolves the project's selected slots and extensions into
-// Pi files, for the forge's own agent image.
+// Pi files, for AppTown's own agent image.
 func (home Preparer) StageAgentDir(ctx context.Context, agentDir string, projectID ids.ID) error {
 	config, _, err := home.agentHome(ctx, projectID, home.Labels(ctx))
 	if _, err := database.Lookup(err); err != nil {
@@ -174,7 +174,7 @@ func (home Preparer) enabledExtensionPackages(ctx context.Context, projectID ids
 }
 
 // SentHome is Pi's generated home as files to send, for a session whose
-// home is not written by the forge (a step on a worker): paths relative to
+// home is not written by AppTown (a step on a worker): paths relative to
 // HOME, regular files only. Link is the one link the home needs, which
 // whoever places the files makes itself; Missing names the extensions the
 // project enabled that the image's labels do not carry.

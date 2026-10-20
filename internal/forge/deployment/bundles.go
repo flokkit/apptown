@@ -46,7 +46,7 @@ type BundleOrigin struct {
 	Tree     string `json:"tree"`
 	// TargetID is the target whose daemon the image IDs were read from:
 	// they exist there and nowhere else. 0 is a bundle recorded before
-	// releases named their target (its IDs were read from the forge's own
+	// releases named their target (its IDs were read from AppTown's own
 	// daemon), or a digest bundle. Kept in its own column.
 	TargetID ids.ID `json:"targetId,omitzero"`
 	// Registry is a digest bundle's repository, which holds every one of
@@ -94,7 +94,7 @@ type AttemptClaim interface {
 
 type Bundles struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock, which stamps a bundle; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps a bundle; nil is the real one
 }
 
 func NewBundles(db *database.DB) *Bundles { return &Bundles{db: db} }

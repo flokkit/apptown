@@ -23,7 +23,7 @@ func (a *App) consoleStopped() bool {
 	}
 }
 
-// consoleMetaFor is a session record as forge writes it: scoped by change
+// consoleMetaFor is a session record as AppTown writes it: scoped by change
 // or project, with forge's labels.
 func consoleMetaFor(id string, projectID, changeID ids.ID) console.Meta {
 	labels := map[string]string{conversation.ProjectLabel: projectID.String()}
@@ -50,7 +50,7 @@ func rebuildConsoleOwners(a *App) {
 }
 
 // fixtureCLI supplies an available executable through the normal path check.
-// These fixtures inspect mounts; they do not execute the Forge CLI.
+// These fixtures inspect mounts; they do not execute AppTown CLI.
 func fixtureCLI(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "apptown-linux")

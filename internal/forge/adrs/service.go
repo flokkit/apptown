@@ -37,7 +37,7 @@ type Service struct {
 	changed   func(Record)
 }
 
-// New is the decision records' owner; now is the forge's clock, which stamps
+// New is the decision records' owner; now is AppTown's clock, which stamps
 // each record and receipt (the real clock when nil).
 func New(db *database.DB, authority access.ReadAuthorizer, changed func(Record), now func() time.Time) *Service {
 	return &Service{records: store{db: db, clock: now}, authority: authority, changed: changed}

@@ -20,7 +20,7 @@ import (
 // Target capacity: how full a target is. A fixed host (a Docker host, a
 // Portainer endpoint) has a total, and the limits and use of what runs on
 // it; an elastic one (App Platform) grows, and shows instead what each
-// deployment runs on and an estimate of what it costs. A figure the forge
+// deployment runs on and an estimate of what it costs. A figure AppTown
 // cannot read is unknown with the reason, never zero.
 
 // Figure is one reading: its value, or why it is unknown.
@@ -35,7 +35,7 @@ func unknown(reason string) Figure    { return Figure{Reason: reason} }
 func unknownErr(err error) Figure     { return unknown(err.Error()) }
 func (f Figure) or(other Figure) bool { return f.Known && other.Known }
 
-// Split is a figure for the forge's own containers and for the rest of
+// Split is a figure for AppTown's own containers and for the rest of
 // what runs on the host.
 type Split struct {
 	Forge Figure `json:"apptown"`
@@ -44,7 +44,7 @@ type Split struct {
 
 // Promised is the limits Docker enforces on the running containers:
 // their sum, how many carry one, how many carry none (counted, never
-// summed as zero), and how many set a limit the forge could not read
+// summed as zero), and how many set a limit AppTown could not read
 // (which makes the sum partial).
 type Promised struct {
 	Sum       Split `json:"sum"`
@@ -53,14 +53,14 @@ type Promised struct {
 	Unread    Count `json:"unread"`
 }
 
-// Count is a number of containers, the forge's and the rest.
+// Count is a number of containers, AppTown's and the rest.
 type Count struct {
 	Forge int `json:"apptown"`
 	Other int `json:"other"`
 }
 
-func (c *Count) add(forge bool) {
-	if forge {
+func (c *Count) add(own bool) {
+	if own {
 		c.Forge++
 	} else {
 		c.Other++
@@ -76,7 +76,7 @@ type ResourceCapacity struct {
 	InUse    *Split   `json:"inUse,omitempty"` // memory only: the containers' use, not the host's
 	// HostUsed, memory only, is the whole host's use (the OS, caches and
 	// processes outside containers included): known on the built-in host
-	// when this forge sees the daemon's own total (hostUse).
+	// when this AppTown sees the daemon's own total (hostUse).
 	HostUsed      *Figure `json:"hostUsed,omitempty"`
 	Overcommitted bool    `json:"overcommitted"`
 }
@@ -246,7 +246,7 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 	return out, nil
 }
 
-// inUseOf is what the running containers use, the forge's and the rest:
+// inUseOf is what the running containers use, AppTown's and the rest:
 // known only when every container's owner was read. Use read without that
 // (the inspection failed, or a container started between the readings) is
 // not split by a guess.
@@ -290,7 +290,7 @@ func unknownPromised(err error) Promised {
 	return Promised{Sum: Split{Forge: unknownErr(err), Other: unknownErr(err)}}
 }
 
-// promisedOf sums the enforced limits, the forge's and others', memory
+// promisedOf sums the enforced limits, AppTown's and others', memory
 // and CPUs.
 func promisedOf(limits []docker.ContainerLimit) (memory, cpu Promised) {
 	var mem, cpus [2]float64
@@ -384,8 +384,8 @@ func (s *Service) portainerCapacity(ctx context.Context, t *Target) TargetCapaci
 	return out
 }
 
-// declaredOn sums what the forge's settled deployments on a target
-// applied, memory and CPUs: the forge's share of a host it does not
+// declaredOn sums what AppTown's settled deployments on a target
+// applied, memory and CPUs: AppTown's share of a host it does not
 // inspect.
 func (s *Service) declaredOn(ctx context.Context, targetID ids.ID) ([2]Promised, error) {
 	deps, err := s.Deployments.All(ctx)

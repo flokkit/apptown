@@ -37,9 +37,9 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// Infrastructure on a forge with no local Docker.
+// Infrastructure on an AppTown with no local Docker.
 
-// absentDocker is the forge's own Docker in the mode, standing in for
+// absentDocker is AppTown's own Docker in the mode, standing in for
 // docker.Refusing: owners answer from the mode first, so a call that
 // reaches it fails the test.
 type absentDocker struct {
@@ -56,7 +56,7 @@ type agentLabels map[string]string
 
 func (l agentLabels) Labels(context.Context, string) (map[string]string, error) { return l, nil }
 
-// infrastructureModeApp is a forge in the mode, with projects game and
+// infrastructureModeApp is an AppTown in the mode, with projects game and
 // open, whose worker reports an agent image carrying the subagent label
 // and pulls check images.
 func infrastructureModeApp(t *testing.T) *App {
@@ -158,13 +158,13 @@ func TestInTheNoLocalDockerModeProjectCleanupCompletes(t *testing.T) {
 }
 
 // attachedHost is an attached Docker host's daemon, reached only through
-// that host (DOCKER_HOST ssh://forge-target-<name>): a call for the forge's
+// that host (DOCKER_HOST ssh://forge-target-<name>): a call for AppTown's
 // own Docker fails the test.
 func attachedHost(t *testing.T, name string) (*fakeDocker, docker.Client) {
 	return attachedHostBeside(t, name, nil)
 }
 
-// attachedHostBeside is attachedHost on a forge whose own Docker is local
+// attachedHostBeside is attachedHost on an AppTown whose own Docker is local
 // (nil: it has none, and a call for it fails the test).
 func attachedHostBeside(t *testing.T, name string, local *fakeDocker) (*fakeDocker, docker.Client) {
 	remote := newFakeDocker()
@@ -181,8 +181,8 @@ func attachedHostBeside(t *testing.T, name string, local *fakeDocker) (*fakeDock
 }
 
 // attachTarget records an attached Docker host whose key is in the
-// forge's secrets store. Reaching it writes its ssh stanza to the forge's
-// SSH config, which each test forge keeps in a folder of its own.
+// forge's secrets store. Reaching it writes its ssh stanza to AppTown's
+// SSH config, which each test AppTown keeps in a folder of its own.
 func attachTarget(t *testing.T, a *App, name, address string) *deployment.Target {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("LAB_KEY=-----BEGIN OPENSSH PRIVATE KEY-----\\nabc\\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600); err != nil { // gitleaks:allow (test fixture, not a credential)
@@ -313,8 +313,8 @@ func TestInTheNoLocalDockerModeAReleaseOnAnAttachedHostIsServingWhereItsDeployme
 }
 
 // An attached Docker host reads as a Docker host over SSH at its hostname,
-// never as the built-in host ("this forge"), and its deployment's URL is the
-// host's address, not this forge's (a live trial read both wrong).
+// never as the built-in host ("this AppTown"), and its deployment's URL is the
+// host's address, not this AppTown's (a live trial read both wrong).
 func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 	t.Parallel()
 	remote, client := attachedHost(t, "lab")
@@ -355,7 +355,7 @@ func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 	if url := projectReadsMainURL(t, a); url != "http://192.0.2.10:40001" {
 		t.Fatalf("get_project's main URL: %q", url)
 	}
-	// The host is reached through the SSH config the forge was given.
+	// The host is reached through the SSH config AppTown was given.
 	if b, err := os.ReadFile(a.cfg.sshConfigPath); err != nil || !strings.Contains(string(b), "Host forge-target-lab\n  HostName 192.0.2.10\n") {
 		t.Fatalf("AppTown's SSH config %s: %q %v", a.cfg.sshConfigPath, b, err)
 	}
@@ -381,7 +381,7 @@ func projectReadsMainURL(t *testing.T, a *App) string {
 func TestAMainOnAnAttachedHostIsObservedAndProbedThere(t *testing.T) {
 	t.Parallel()
 	// The app answers on the attached host, named "localhost" so that a
-	// probe sent to this forge's loopback instead (127.0.0.1) is told apart.
+	// probe sent to this AppTown's loopback instead (127.0.0.1) is told apart.
 	var mu sync.Mutex
 	var asked []string
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -472,7 +472,7 @@ func mcpDeployment(t *testing.T, a *App) map[string]any {
 	return deployments[0].(map[string]any)
 }
 
-// Read views that would ask the forge's own Docker whether an app runs say
+// Read views that would ask AppTown's own Docker whether an app runs say
 // "unavailable" for the built-in host and "unknown" for what they cannot
 // see, never "not running".
 func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
@@ -552,7 +552,7 @@ func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
 	}
 }
 
-// A change's release on the built-in host of a forge with no local Docker
+// A change's release on the built-in host of an AppTown with no local Docker
 // is "unavailable", never "not serving".
 func TestInTheNoLocalDockerModeAChangesReleaseOnTheBuiltInHostIsUnavailable(t *testing.T) {
 	t.Parallel()
@@ -615,7 +615,7 @@ func TestInTheNoLocalDockerModeReleaseHistoryJudgesEachDeployment(t *testing.T) 
 	}
 }
 
-// Portainer deploys are not Docker's: neither the forge's daemon nor an
+// Portainer deploys are not Docker's: neither AppTown's daemon nor an
 // attached Docker host answers for them, so they read as not checked.
 func TestPortainerDeploysAreNotReadAsDockerOnes(t *testing.T) {
 	t.Parallel()

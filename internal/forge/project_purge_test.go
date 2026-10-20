@@ -147,7 +147,7 @@ func passDeletion(t *testing.T, a *App, id ids.ID) projectlifecycle.Status {
 	return projectlifecycle.Status{}
 }
 
-// moveClock moves the forge's clock forward.
+// moveClock moves AppTown's clock forward.
 func moveClock(a *App, by time.Duration) {
 	a.cfg.clock.mu.Lock()
 	a.cfg.clock.ahead += by
@@ -537,7 +537,7 @@ func TestProjectDeletionTakesEachDeploymentDownAndPurgesNothingByName(t *testing
 }
 
 // Project deletion takes main down the way any deployment is taken down:
-// the container the forge recorded goes without -v, and a container and
+// the container AppTown recorded goes without -v, and a container and
 // volume it did not record stay, whatever their names.
 func TestProjectDeletionRemovesOnlyWhatTheDeploymentRecorded(t *testing.T) {
 	t.Parallel()
@@ -771,7 +771,7 @@ func TestProjectCleanupRemovesPreviewStacks(t *testing.T) {
 }
 
 // A project is deleted only once each of its deployments has been taken
-// down the way any deployment is; one the forge may not take down (a
+// down the way any deployment is; one AppTown may not take down (a
 // Portainer stack it did not record creating) stalls the deletion, named,
 // after the ones before it went, and main, taken down last, still serves.
 func TestProjectDeletionWaitsForDeploymentsOnOtherTargets(t *testing.T) {
@@ -963,7 +963,7 @@ func TestEveryWorkDoorRefusesAProjectThatIsNotActive(t *testing.T) {
 		{"PATCH", "/api/v1/projects/game", func(a *App) string { return fmt.Sprintf(`{"name":"Renamed","expectedRevision":%d}`, revision(a)) }, 200},
 		{"PATCH", "/api/v1/projects/game", func(a *App) string { return fmt.Sprintf(`{"slug":"game-two","expectedRevision":%d}`, revision(a)) }, 200},
 	}
-	// Each state has one forge: a refused door changes nothing, so every
+	// Each state has one AppTown: a refused door changes nothing, so every
 	// door meets the same project.
 	for _, state := range []string{project.Active, project.Deleting, project.Deleted} {
 		t.Run(state, func(t *testing.T) {

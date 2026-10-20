@@ -110,7 +110,7 @@ func TestScheduledTriggerRequiresExplicitAuthority(t *testing.T) {
 	before := countChanges()
 
 	// The trigger label grants nothing: a person's grant authorizes the run.
-	// ("system" is one of the forge's own names and cannot be a person.)
+	// ("system" is one of AppTown's own names and cannot be a person.)
 	if _, _, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("scheduler"), "scheduled", conformance.ReviewOptions{}); err == nil {
 		t.Fatal("trigger label granted authority")
 	}

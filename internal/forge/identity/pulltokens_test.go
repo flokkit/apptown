@@ -63,7 +63,7 @@ func TestPullTokensAndConsents(t *testing.T) {
 	if ok, _ := o.ConsumeConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"c"}`); ok {
 		t.Fatal("claimed once")
 	}
-	// A request lives its lifetime by the forge's clock, which also judges
+	// A request lives its lifetime by AppTown's clock, which also judges
 	// it: with the database's clock moved a minute either way, an expired
 	// request is refused and a live one claimed.
 	for _, by := range []string{"-1 minute", "1 minute"} {

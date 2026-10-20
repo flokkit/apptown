@@ -81,7 +81,7 @@ language over a new configuration switch or special case for every application.
 - **Acceptance has a stated meaning.** An approval declares what assent means,
   presents that meaning when a person decides, and preserves it in the evidence.
   Reuse of acceptance must preserve its scope and current eligibility.
-- **The Forge environment is the environment of record.** External results may
+- **AppTown environment is the environment of record.** External results may
   be useful self-reported evidence; they must not masquerade as witnessed gate
   execution. Keep declared requirements, observed facts and unknown state distinct.
   Integrations need an explicit contract for absence and unavailability.

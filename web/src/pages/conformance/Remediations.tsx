@@ -55,7 +55,7 @@ export function RemediationsList() {
   const q = useGet<RemediationList>('/conformance/remediations', { poll: 5000 })
   const got = q.data
   if (!got) return <ReadStatus q={q} what="the remediations" className="small" />
-  // The list may be empty; it must never be null here (the forge's own
+  // The list may be empty; it must never be null here (AppTown's own
   // first browser error: "Cannot read properties of null (reading 'length')").
   const data = { remediations: got.remediations ?? [], occupancy: got.occupancy }
   return (

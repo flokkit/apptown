@@ -65,7 +65,7 @@ func (s ReconciliationState) MarshalJSON() ([]byte, error) {
 
 type Reconciliations struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock, which stamps a pass; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps a pass; nil is the real one
 }
 
 func (s *Reconciliations) now() time.Time { return clock.Or(s.clock)().UTC() }

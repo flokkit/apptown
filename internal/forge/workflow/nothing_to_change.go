@@ -111,7 +111,7 @@ func ChangeIsEmpty(ctx context.Context, dataDir string, source Source) (bool, er
 }
 
 // endNothingToChange closes a change whose run found nothing to change: the
-// forge closes it with the step's account as the reason; nothing is landed
+// AppTown closes it with the step's account as the reason; nothing is landed
 // and no approval is asked. Every condition is read again at the act: the
 // change's emptiness under the repository's lock (no Git runs in the
 // transaction), then the run, its stage and its steps in the transaction

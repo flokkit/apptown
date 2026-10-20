@@ -21,8 +21,8 @@ type ChangeVerifier interface {
 
 // ChangeCheckRequest is the body of `POST /changes/{id}/check`: the commit the
 // caller asks about (the CLI's folder HEAD), or published for the tip of the
-// change's branch on the forge (`apptown check --published`). A body naming
-// neither (`{}`, or none) asks for the change's latest commit on the forge,
+// change's branch on AppTown (`apptown check --published`). A body naming
+// neither (`{}`, or none) asks for the change's latest commit on AppTown,
 // as it always has. The answer's commit field names what was checked.
 type ChangeCheckRequest struct {
 	Commit    string `json:"commit,omitempty"`

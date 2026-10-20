@@ -10,7 +10,7 @@ import (
 	"flokkit.io/forge/internal/gitexec/gittest"
 )
 
-// The forge's source check holds for every shape of returned history: these
+// AppTown's source check holds for every shape of returned history: these
 // graphs model an untrusted worker by editing its private repository.
 func TestTheSourceCheckCoversEveryCommitGraph(t *testing.T) {
 	t.Parallel()

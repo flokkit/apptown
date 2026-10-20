@@ -167,7 +167,7 @@ func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 	w.project = createTestProject(t, db, "game", "Game")
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == appcontract.ReleasePath {
-			// The forge's file server answers the release its last
+			// AppTown's file server answers the release its last
 			// container was told.
 			var told string
 			for _, run := range w.daemon.verbs("run") {
@@ -184,7 +184,7 @@ func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 	_, port, _ := net.SplitHostPort(server.Listener.Addr().String())
 	n, _ := strconv.Atoi(port)
 	w.daemon.SetPort(n)
-	// The attached host's SSH key lives in the forge's secrets store.
+	// The attached host's SSH key lives in AppTown's secrets store.
 	if err := os.WriteFile(filepath.Join(w.dir, "secrets.env"), []byte("REMOTE_KEY=-----BEGIN OPENSSH PRIVATE KEY-----\\nabc\\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600); err != nil { // gitleaks:allow (test fixture, not a credential)
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func (requestQueue) EnqueueReleaseIn(ctx context.Context, tx *database.Tx, id id
 
 // The subsystem is built from its declared dependencies alone: every
 // field of Dependencies is satisfied here by a value this test defines,
-// and nothing from forge is imported (the shape checker asserts the
+// and nothing from AppTown is imported (the shape checker asserts the
 // import graph; this asserts the constructor).
 
 func (noFollowups) EnqueueIn(context.Context, *database.Tx, jobs.Request) error {

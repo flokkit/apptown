@@ -23,7 +23,7 @@ import (
 )
 
 // With TLS asked for in the environment, the real CLI's default endpoint is
-// TCP with TLS; the forge selects the same, never its local Unix socket, even
+// TCP with TLS; AppTown selects the same, never its local Unix socket, even
 // when that socket works.
 func TestIntegrationTheDefaultTLSDaemonIsNotTheLocalSocket(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

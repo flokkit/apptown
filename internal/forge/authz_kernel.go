@@ -43,7 +43,7 @@ func principalOf(id *authIdentity, fallbackActor string) access.Principal {
 	credential := id.Credential
 	if credential == "" && (id.Via == "proxy" || id.Via == "open") {
 		// A trusted proxy or open mode attributed the request; there is no
-		// credential the forge could revoke, only the account.
+		// credential AppTown could revoke, only the account.
 		credential = identity.HeaderCredential(id.User)
 	}
 	return access.Principal{ID: id.PrincipalID, Kind: "user", Name: id.User, Via: id.Via, Role: id.Role, Purpose: id.Purpose, DelegationID: id.DelegationID, Scopes: id.Scopes, Credential: credential}

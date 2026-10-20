@@ -106,7 +106,7 @@ func TestStartingFromExistingCodeIsProjectImportForTheCaller(t *testing.T) {
 	if w := callAs(t, mux, owner, "POST", "/api/v1/projects/moved/repo/from-url", []byte(`{"url":"https://127.0.0.1/x.git"}`)); w.Code != 400 || !strings.Contains(w.Body.String(), "public addresses") {
 		t.Fatalf("a loopback URL: %d %s", w.Code, w.Body.String())
 	}
-	// An administrator naming a secret the forge does not hold is told so.
+	// An administrator naming a secret AppTown does not hold is told so.
 	if w := callAs(t, mux, &authIdentity{User: "boss", Via: "session"}, "POST", "/api/v1/projects/moved/repo/from-url", []byte(`{"url":"https://93.184.215.14/x.git","credentialSecret":"NO_SUCH_SECRET"}`)); w.Code != 400 || !strings.Contains(w.Body.String(), "no secret") {
 		t.Fatalf("a missing secret: %d %s", w.Code, w.Body.String())
 	}
@@ -203,7 +203,7 @@ func gitOut(t *testing.T, dir string, args ...string) string {
 // linkingBundle is code whose tree links out of itself: a .gitignore and a
 // Dockerfile that point at files not yet made outside, a mise.toml that
 // points at one, and a .apptown that points at a directory outside. Git
-// keeps links as links; the forge must never write through them.
+// keeps links as links; AppTown must never write through them.
 func linkingBundle(t *testing.T, outside string) []byte {
 	t.Helper()
 	dir := t.TempDir()

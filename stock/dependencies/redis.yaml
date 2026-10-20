@@ -1,5 +1,5 @@
 # Dependency: a Redis cache / key-value store.
-# The app declares `x-forge-needs: [redis]` (or {redis: {version: "7"}}). The
+# The app declares `needs: [redis]` (or {redis: {version: "7"}}). The
 # docker provider runs a local redis container; no managed target offers it
 # yet, so they refuse it. The app reads REDIS_URL.
 capability: redis

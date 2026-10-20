@@ -22,7 +22,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-// An agent attempt's session history is kept by the forge, not only in a
+// An agent attempt's session history is kept by AppTown, not only in a
 // folder (design/operations/workers.md, "Agent and review steps on the
 // worker"). Each captured transcript is an immutable
 // file named by its digest under dataDir/transcripts, written and synced
@@ -30,7 +30,7 @@ import (
 // its own row, and the attempt's history is its latest invocation's. A
 // continued attempt reuses its session id but records its own digest, so an
 // earlier receipt still names its own bytes; a crash between the file and
-// the receipt leaves an unreferenced file, which the forge removes a day
+// the receipt leaves an unreferenced file, which AppTown removes a day
 // later (RemoveOrphanedTranscripts).
 //
 // Storing a capture and recording its receipt is one operation
@@ -38,7 +38,7 @@ import (
 // for the same store: both hold transcriptStore. Otherwise a sweep could read
 // a file's old time and find no receipt, a capture renew the file and record
 // its receipt, and the sweep then delete bytes a receipt names. An in-process
-// lock is enough because the forge is one process:
+// lock is enough because AppTown is one process:
 // every capture, the startup backfill, the orphan sweep and project cleanup
 // run inside it against its own data directory. A second process sharing
 // that directory would need a lock on the directory instead.
@@ -48,7 +48,7 @@ const maxKeptTranscript = 64 << 20
 
 // TranscriptReceipt is what an attempt's receipt says about its session's
 // history. A zero StepID means no attempt holds the session. Recorded is false
-// for an attempt that kept nothing (one the forge lost mid-invocation): it
+// for an attempt that kept nothing (one AppTown lost mid-invocation): it
 // has no history to continue. Runs from before transcripts were kept had
 // their folder's file imported at startup (UnrecordedSessionsIn). A recorded
 // attempt has either a Digest or the reason it has none.
@@ -164,7 +164,7 @@ type TranscriptCapture struct {
 	Invocation  int64
 	Digest      string
 	Unavailable string
-	At          time.Time // the forge's time it was recorded
+	At          time.Time // AppTown's time it was recorded
 }
 
 // RecordTranscript records a capture with the attempt's session receipt,
@@ -317,7 +317,7 @@ type UnrecordedSession struct {
 
 // UnrecordedSessionsIn lists, oldest first and at most max, the agent
 // attempts that recorded no history: runs from before transcripts were
-// kept, and attempts the forge lost mid-invocation. An attempt still
+// kept, and attempts AppTown lost mid-invocation. An attempt still
 // running is not listed; it records its own.
 func UnrecordedSessionsIn(ctx context.Context, q database.Queryer, max int) ([]UnrecordedSession, error) {
 	rows, err := workflowsql.New(q.SQL()).UnrecordedSessionStarts(ctx, int32(max))

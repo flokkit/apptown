@@ -81,7 +81,7 @@ func TestTheRemoteRuntimeIsToldOnlyOfItsOwnSessions(t *testing.T) {
 	}
 }
 
-// A forge that runs no chats (-no-local-docker) refuses waking a chat it
+// An AppTown that runs no chats (-no-local-docker) refuses waking a chat it
 // once ran, by name, while its record stays readable; ending it and judging
 // it gone ask nothing of a runtime there is not.
 func TestAForgeWithNoLocalChatsRefusesWakingOne(t *testing.T) {

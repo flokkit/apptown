@@ -9,7 +9,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// The forge's id is minted once: every later ask, and every ask racing the
+// AppTown's id is minted once: every later ask, and every ask racing the
 // first, reads the same UUID.
 func TestTheForgesIDIsMintedOnce(t *testing.T) {
 	t.Parallel()

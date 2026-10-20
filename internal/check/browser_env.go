@@ -34,7 +34,7 @@ var HTTPFetcher = FetcherFunc(func(ctx context.Context, url string) (int, string
 })
 
 // BrowserEnvPath is the file a static part's server answers with the values
-// the forge gives its page (window.__APPTOWN_ENV__).
+// AppTown gives its page (window.__APPTOWN_ENV__).
 const BrowserEnvPath = "/_apptown/env.js"
 
 // BrowserExpectation is what the caller knows from trusted sources, not from
@@ -52,7 +52,7 @@ type BrowserExpectation struct {
 }
 
 // ProbeVerdict is a probe's verdict and, when the verdict is unknown, whether
-// the forge is answerable for it: Fault means the forge could not supply or
+// AppTown is answerable for it: Fault means AppTown could not supply or
 // establish what the check depends on, so no change to the app could make it
 // pass. A change must never be sent back to its author over one.
 type ProbeVerdict struct {
@@ -72,7 +72,7 @@ type ProbeVerdict struct {
 // Why: a static app can adopt error reporting, pass review and ship, and
 // never report, because nothing put the DSN in its page. The judgment is
 // strict because looser ones were fooled: a mention of the path, a <base
-// href>, a template and nomodule must not pass for a loader, and a forge
+// href>, a template and nomodule must not pass for a loader, and an AppTown
 // delivery fault must be cannot-assess, never a pass or rework for the app.
 func JudgeBrowserEnv(ctx context.Context, f Fetcher, base string, want BrowserExpectation) ProbeVerdict {
 	unknown := func(detail string) ProbeVerdict {
@@ -223,7 +223,7 @@ func valueNames(values map[string]string) string {
 // one.
 func sameValues(a, b map[string]string) bool { return maps.Equal(a, b) }
 
-// browserEnvValues reads the values from the file the forge serves:
+// browserEnvValues reads the values from the file AppTown serves:
 // window.__APPTOWN_ENV__ = Object.freeze(Object.assign(new Object(), {json}));
 func browserEnvValues(body string) (map[string]string, bool) {
 	const open = "Object.assign(new Object(), "

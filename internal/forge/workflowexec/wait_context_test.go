@@ -12,7 +12,7 @@ import (
 )
 
 // startLost is a backend whose task stays created and whose start reply is
-// lost, and the forge's context ends as it is: the runner is then in its
+// lost, and AppTown's context ends as it is: the runner is then in its
 // pause before observing again. Nothing else of a driver is used.
 type startLost struct {
 	execution.TaskDriver

@@ -48,7 +48,7 @@ type NextAct struct {
 
 // nextActs is what a person can do on a running run, from the activity the
 // classifier gave it and its current stage's steps. A run working on its own
-// offers nothing: its next move is the forge's. runnable says which step
+// offers nothing: its next move is AppTown's. runnable says which step
 // kinds a step run accepts (automatic kinds and assertions); landing says the
 // run is a landing.
 func nextActs(run *Run, steps []*Step, a Activity, runnable func(string) bool, landing bool) []NextAct {

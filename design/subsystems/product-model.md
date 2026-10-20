@@ -49,17 +49,17 @@ it is not a grant of all provider credentials to a helper. See
 ## Where work runs
 
 Without a worker, agents, checks, previews and chats run in containers on the
-forge host's Docker, and a script step without `executor: docker` runs as a
+AppTown host's Docker, and a script step without `executor: docker` runs as a
 local process there. With `-worker-url`, agent, review, tests and Docker script
 steps, checks, change previews, release builds and new change chats (by
 default) run on `apptown-worker`, a separate machine that shares no files with
-the forge. A step the worker cannot run is refused, not moved to the host; a
+AppTown. A step the worker cannot run is refused, not moved to the host; a
 local script step is refused. Project chats, step continuations, change chats
-placed on the forge or already running there, and deployments on the built-in
-Docker host stay on the forge host. With `-no-local-docker` the forge host has
+placed on AppTown or already running there, and deployments on the built-in
+Docker host stay on the AppTown host. With `-no-local-docker` AppTown host has
 no Docker and runs no project process, and refuses what the worker cannot run.
-The forge stays the owner of every record either way: the worker holds tasks by
-key and returns commits and outcomes, and the forge settles them. See
+AppTown stays the owner of every record either way: the worker holds tasks by
+key and returns commits and outcomes, and AppTown settles them. See
 [workers](../operations/workers.md), [`internal/execution`](../../internal/execution/README.md)
 and [`internal/worker`](../../internal/worker/README.md).
 
@@ -68,7 +68,7 @@ and [`internal/worker`](../../internal/worker/README.md).
 A bundle records release material. A deployment is a named placement on a target;
 a release and its attempt record the selected material and outcome. Desired
 generation, settled generation, observed health and last-known display state
-answer different questions. A deployment owns exactly what the forge recorded
+answer different questions. A deployment owns exactly what AppTown recorded
 creating for it; taking it down deletes that. On a Docker host its data goes
 only after a complete final backup; other targets keep their own data, which is
 listed rather than deleted.

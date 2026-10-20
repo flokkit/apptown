@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-// Names in string literals that share the forge. prefix but are not labels:
+// Names in string literals that share AppTown. prefix but are not labels:
 // each is refused as a label key elsewhere by this list's reason.
 var notLabels = map[string]string{
 	"forge.example":    "an example hostname in help and errors",
@@ -25,7 +25,7 @@ var notLabels = map[string]string{
 
 var forgeName = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.-])(forge\.[a-z][a-z0-9.-]*[a-z0-9])`)
 
-// spelledLabels returns each forge.<name> written in a string literal of a Go
+// spelledLabels returns each AppTown.<name> written in a string literal of a Go
 // source, after unquoting, so an escaped "\"forge.class\"" in a --format
 // template is seen as a raw-string one is. Telemetry attribute names are not
 // labels: literals inside attribute.X(...) calls and attrs[...] are skipped.
@@ -68,7 +68,7 @@ func spelledLabels(t *testing.T, name string, src []byte) []string {
 	return found
 }
 
-// Forge's label keys are spelled here only: a forge.<name> in a string
+// Forge's label keys are spelled here only: an AppTown.<name> in a string
 // literal of production Go elsewhere, known key or not, would be a second
 // list that can drift from the containers already out in the world.
 //

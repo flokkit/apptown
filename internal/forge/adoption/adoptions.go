@@ -149,7 +149,7 @@ type RecordedRevision struct {
 	Reason    string       `json:"reason"`
 	Digest    string       `json:"digest"`
 	CreatedBy string       `json:"createdBy"`
-	// CreatedByPrincipal is the author's principal; zero for the forge, or
+	// CreatedByPrincipal is the author's principal; zero for AppTown, or
 	// one not resolved to a person.
 	CreatedByPrincipal ids.ID     `json:"createdByPrincipal,omitzero"`
 	CreatedAt          stamp.Time `json:"createdAt"`
@@ -159,7 +159,7 @@ type RecordedRevision struct {
 // adoptionStore is the supported API over a project's revisions.
 type adoptionStore struct {
 	db      *database.DB
-	clock   func() time.Time // the forge's clock; nil is the real one
+	clock   func() time.Time // AppTown's clock; nil is the real one
 	reviews ReviewRequests   // see Dependencies.Reviews
 }
 
@@ -217,7 +217,7 @@ func (s *adoptionStore) History(ctx context.Context, projectID ids.ID, limit int
 // RecordIn writes the next revision inside the caller's transaction, which
 // locks project identity before its aggregate: immutable revision, current pointer
 // and receipt commit together.
-// It is stamped at, the caller's clock (the forge's), by which the ways of
+// It is stamped at, the caller's clock (AppTown's), by which the ways of
 // working it adopted are later resolved as of that time.
 func RecordIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision int64, kind AdoptionKind, reason string, receipt Receipt, by string, at time.Time) error {
 	if !kind.Standing() {

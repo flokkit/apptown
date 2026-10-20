@@ -68,7 +68,7 @@ func (s stepAttempts) FinishIn(ctx context.Context, tx *database.Tx, claim *Step
 	if _, err := current.Status.Transition(MoveStepFinish, outcome.Status); err != nil {
 		return finishedAttempt{}, err
 	}
-	// One time for the finish and what it made, on the forge's clock.
+	// One time for the finish and what it made, on AppTown's clock.
 	at := s.now()
 	if err := requireAttemptWrite(workflowsql.New(tx.SQL()).FinishAttempt(ctx, workflowsql.FinishAttemptParams{At: at, Status: outcome.Status.String(), EvidenceJson: evidence, ID: current.ID, Attempt: current.Attempt})); err != nil {
 		return finishedAttempt{}, err

@@ -61,7 +61,7 @@ var (
 )
 
 // NewInvite is an administrator's invite: the account to create, an optional
-// label (a display name or email address — the forge sends no email), the
+// label (a display name or email address — AppTown sends no email), the
 // role, and how many days the link lasts (0 means seven).
 type NewInvite struct {
 	Username string `json:"username"`

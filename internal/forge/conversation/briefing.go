@@ -146,7 +146,7 @@ conversation. This console is **strictly read-only**.
 
 	editRule := "- You cannot edit code or state directly. Work happens through workflows.\n"
 	if workshop {
-		editRule = "- You edit code in " + console.WorkMount + " directly; forge state (approvals, runs, settings)\n  still changes only through AppTown.\n"
+		editRule = "- You edit code in " + console.WorkMount + " directly; AppTown state (approvals, runs, settings)\n  still changes only through AppTown.\n"
 	}
 	secs = append(secs, steerSection{name: "Ground rules", body: `- Answer with evidence: cite files (path:line) and runs (run ids) so the
   operator can verify in the web UI.
@@ -217,7 +217,7 @@ no word from you looks like AppTown is broken.
 		secs = append(secs, steerSection{body: delegation})
 	}
 
-	// The lanes a person may start here (system workflows are the forge's
+	// The lanes a person may start here (system workflows are AppTown's
 	// own and never an invoke target). Invoke advice: front desk only.
 	var wf []string
 	workflows, err := s.adoption.AvailableWorkflows(ctx, p.ID)
@@ -315,7 +315,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
   died.
 - A landing can end without landing after you stopped following it (main
   moved under it, or a person stopped it). AppTown then tells you here,
-  starting [forge landing], with why and what to do; until it ships, never
+  starting [apptown landing], with why and what to do; until it ships, never
   tell the person it is still waiting without checking apptown wait -c %d.
 - The Change's intent: %s
 - When you point the operator somewhere, give them the LINK, not
@@ -325,7 +325,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
 		change.ID, change.ID, change.ID, intentLine(change), changeactions.URL(s.publicHost, change.ID), attachmentSteer(s.dataDir, change.ID))
 	// A change console is an implementation surface — the same engine
 	// topology run agents get (agent.go) applies here, or the helper
-	// builds apps the forge cannot run (change 97: a whole Django app,
+	// builds apps AppTown cannot run (change 97: a whole Django app,
 	// no contract, "nothing runnable yet" at the try-it button).
 	b.WriteString("\n" + agentenv.RuntimeContractInstructions)
 	fmt.Fprintf(&b, `Console-specific notes on the contract:

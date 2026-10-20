@@ -165,7 +165,7 @@ func TestRestartMidDeployFinishesTheAttemptFromWhatWasNoted(t *testing.T) {
 	}
 	env, _ = a.Deployment.Deployments.ByName(t.Context(), p.ID, "cloud")
 
-	// Now the forge dies after the platform accepted generation 2 but
+	// Now AppTown dies after the platform accepted generation 2 but
 	// before it answered: a release on its way, a running attempt whose
 	// notes name the app and the deployment.
 	if !f.AdvanceDeployment("app-1", "dep-2") {

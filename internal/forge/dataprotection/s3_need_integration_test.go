@@ -123,7 +123,7 @@ func TestIntegrationStockS3IsCopiedThroughItsAPIAndRestoredVerified(t *testing.T
 		}
 	}
 	// Each deployment's keys are its own, and the gateway's root key is
-	// the forge's, not the app's.
+	// AppTown's, not the app's.
 	mainEnv, freshEnv := envOf("main"), envOf("fresh")
 	if key := mainEnv["APP_ACCESS_KEY_ID"]; len(key) != 64 || key == freshEnv["APP_ACCESS_KEY_ID"] || mainEnv["ROOT_ACCESS_KEY_ID"] == key || mainEnv["APP_SECRET_ACCESS_KEY"] == freshEnv["APP_SECRET_ACCESS_KEY"] {
 		t.Fatalf("the stores' keys: main %v, fresh %v", mainEnv, freshEnv)

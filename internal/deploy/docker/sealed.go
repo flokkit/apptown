@@ -25,7 +25,7 @@ import (
 //
 // The probe asks from inside that network and returns a status code and
 // nothing else: the response body never leaves the probe's container, so no
-// record the forge keeps can hold the data.
+// record AppTown keeps can hold the data.
 
 // Sealed is what a sealed boot needs beyond an ordinary one.
 type Sealed struct {

@@ -1,5 +1,5 @@
 # Dependency: a PostgreSQL database.
-# The app declares `x-forge-needs: {postgres: {version: "16", database: app}}`
+# The app declares `needs: {postgres: {version: "16", database: app}}`
 # (or bare `postgres` for the defaults below). The docker provider runs a local
 # postgres container; App Platform makes a DigitalOcean managed database
 # (cloud.digitalocean below). The app reads the same DATABASE_URL / PG* env

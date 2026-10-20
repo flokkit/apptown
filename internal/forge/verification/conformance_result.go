@@ -18,7 +18,7 @@ type Results []workflow.CheckReceipt
 // evaluator's receipt is made here, so the shape cannot drift between them.
 //
 // The words with no outcome behind them are the App's, set by the caller from
-// what only the forge knows: "skipped" (there was nothing to judge with),
+// what only AppTown knows: "skipped" (there was nothing to judge with),
 // "unclear" (the model answered but would not say), "excepted" (a person has
 // already excused what was found). The library has no such outcomes and must
 // not: they are decisions, not judgements.

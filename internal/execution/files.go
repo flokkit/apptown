@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-// File is a file the forge generated for a container (a registry client's
+// File is a file AppTown generated for a container (a registry client's
 // configuration; design/operations/workers.md):
 // its bytes, presented read-only at Path. It travels beside a request's
 // tree, never in it: whoever runs the container writes it into a folder of

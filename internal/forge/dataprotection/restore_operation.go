@@ -20,11 +20,11 @@ import (
 // A restore of a backup set over a Docker host's or a Portainer
 // deployment (restoreBackup) is an operation, like the other data
 // operations: the door checks and admits it, the operations worker runs
-// it once, and each step and fact is written as it happens. A forge that
+// it once, and each step and fact is written as it happens. An AppTown that
 // stops part way leaves it running; the restart settles it unknown with
-// what it had confirmed. The forge does not start again what it may have
+// what it had confirmed. AppTown does not start again what it may have
 // stopped, and names it (restoreInterrupted): a restore on the host may
-// outlive the forge and still be writing, so the forge never starts the
+// outlive AppTown and still be writing, so AppTown never starts the
 // app on a guess. A person checks the host and releases the deployment
 // again. A stop is recorded before it is issued and a start once it succeeded, so what the
 // record names may be stopped; its state now is not known.
@@ -194,7 +194,7 @@ func mayBeStoppedWords(facts map[string]any) string {
 		"A restore on the host may still be writing: check the host for one and look at the containers, then release the deployment again."
 }
 
-// restoreInterrupted is what a forge's stop left of a restore, from what
+// restoreInterrupted is what an AppTown's stop left of a restore, from what
 // it recorded: the restart repair adds it to the unknown detail.
 func restoreInterrupted(op operations.Operation) string {
 	facts := op.Result
@@ -217,7 +217,7 @@ func restoreInterrupted(op operations.Operation) string {
 }
 
 // settleRestore writes the restored receipt in the transaction that ends
-// the operation: the restore's outcome, or, when the forge stopped part
+// the operation: the restore's outcome, or, when AppTown stopped part
 // way, status unknown with the items recorded so far and what may be
 // stopped. A restore refused before it changed anything writes none.
 func (s *Service) settleRestore(ctx context.Context, tx *database.Tx, op operations.Operation, out operations.Outcome) error {

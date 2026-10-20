@@ -18,7 +18,7 @@ import (
 // fulfilled by registering, and the app's secrets as the deployment binds
 // them. It uses the rules delivery uses and has none of delivery's effects:
 // no secret is generated, no need registered or provisioned, nothing booted,
-// and no value leaves the forge. Values a need injects at boot (a database's
+// and no value leaves AppTown. Values a need injects at boot (a database's
 // DATABASE_URL) are not settings, so a need not yet provisioned is not a
 // missing setting.
 //

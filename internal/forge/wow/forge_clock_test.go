@@ -9,7 +9,7 @@ import (
 	"flokkit.io/forge/stock"
 )
 
-// What the ways of working store is stamped by the forge's clock, not the
+// What the ways of working store is stamped by AppTown's clock, not the
 // wall clock or the database's: on a clock ninety days behind, the stock a
 // release seeds, a person's block and its edit, a catalog change and its
 // promotion, and a pack's publication all carry that clock's time. An

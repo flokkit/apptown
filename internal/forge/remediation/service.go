@@ -45,7 +45,7 @@ type Dependencies struct {
 	// RequestPass queues a pass now (the job queue's remediation pass); nil
 	// leaves every pass to the schedule.
 	RequestPass func(context.Context) error
-	Now         func() time.Time // the forge's clock; nil is the real one
+	Now         func() time.Time // AppTown's clock; nil is the real one
 }
 
 // Service is remediation, built once.

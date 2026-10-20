@@ -33,12 +33,12 @@ WORKING_PAPERS = ("plans", "reviews")
 
 
 # The old product name as a word in prose, across a line break too.
-# A hyphen, or a dot or colon joined to a word (forge.flokkit.io, forge:mcp),
+# A hyphen, or a dot or colon joined to a word (forge.flokkit.io, apptown:mcp),
 # makes it a code name; sentence punctuation does not.
 OLD_NAME = re.compile(r"\b(?:[Tt]he|[Tt]his|[Aa])\s+forge\b(?!-|[.:]\w)|\b[Ff]orge's\b|\bForge\b(?!-|[.:]\w)")
 # What is not prose: fenced blocks, indented code, code spans, live-link
-# placeholders such as {forge:mcp}, link targets and bare addresses.
-CODE = re.compile(r"```.*?```|^    [^\n]*$|`[^`\n]*`|\{forge:[a-z]+\}|\]\([^)]*\)|https?://\S+", re.S | re.M)
+# placeholders such as {apptown:mcp}, link targets and bare addresses.
+CODE = re.compile(r"```.*?```|^    [^\n]*$|`[^`\n]*`|\{apptown:[a-z]+\}|\]\([^)]*\)|https?://\S+", re.S | re.M)
 
 
 def current_guides(root):

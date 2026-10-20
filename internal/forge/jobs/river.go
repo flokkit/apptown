@@ -91,7 +91,7 @@ const (
 )
 
 // budget is the longest a kind's job may run on its queue; false for a
-// queue the forge does not run.
+// queue AppTown does not run.
 func budget(queue string) (time.Duration, bool) {
 	switch queue {
 	case "", river.QueueDefault, RemediationQueue:

@@ -17,7 +17,7 @@ import (
 
 type mergeStore struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock; nil is the real one
+	clock func() time.Time // AppTown's clock; nil is the real one
 }
 type preparedMerge struct {
 	db     *database.DB

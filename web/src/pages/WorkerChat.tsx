@@ -18,7 +18,7 @@ export function when(t?: string | null): string {
 }
 
 // SaveStatus is one worker chat's save line: its last save, and how fresh
-// the forge's copy of its conversation is.
+// AppTown's copy of its conversation is.
 export function SaveStatus({ s }: { s: ConsoleSessionView }) {
   const saved = s.saved
   let line: React.ReactNode
@@ -28,7 +28,7 @@ export function SaveStatus({ s }: { s: ConsoleSessionView }) {
     line = <>Last saved at {when(saved.at)}{saved.commit && <> (<code>{saved.commit.slice(0, 8)}</code>)</>}.</>
   } else if (saved.outcome === 'refused') {
     // A live chat's refused commits wait on the worker; an ended chat's are
-    // kept on the forge, and its change page offers them.
+    // kept on AppTown, and its change page offers them.
     line = <span style={{ color: 'var(--bad)' }}>Last save refused at {when(saved.at)}: {saved.reason}{' '}
       {s.state === 'dead' ? `Its commits are kept on ${PRODUCT}.` : 'The chat was told; its commits stay on the worker until they are fixed.'}</span>
   } else if (saved.outcome === 'not-confirmed') {

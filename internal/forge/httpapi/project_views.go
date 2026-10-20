@@ -30,7 +30,7 @@ type ProjectViews struct {
 	dataDir    string
 }
 
-// MainStandings reads where a project's main stands against the forge's record (scm.Branches).
+// MainStandings reads where a project's main stands against AppTown's record (scm.Branches).
 type MainStandings interface {
 	MainStanding(ctx context.Context, hub string, projectID ids.ID, branch string) (scm.MainStanding, error)
 }
@@ -167,7 +167,7 @@ func (h ProjectViews) GetProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// Where main stands against the forge's record: a note, never an error.
+	// Where main stands against AppTown's record: a note, never an error.
 	var main *scm.MainStanding
 	// A repository-backed project is always assessed, even with its hub
 	// missing: that reads as "could not read main", never as nothing.
@@ -247,7 +247,7 @@ type ProjectPage struct {
 }
 
 // ProjectDetail is one project: what it is, what form its app takes, and any
-// files changed outside the forge.
+// files changed outside AppTown.
 type ProjectDetail struct {
 	ID             ids.ID   `json:"id"`
 	Slug           string   `json:"slug"`
@@ -260,7 +260,7 @@ type ProjectDetail struct {
 	RuntimeForm    string   `json:"runtimeForm"`
 	IntranetReady  bool     `json:"intranetReady"`
 	OutOfBandEdits []string `json:"outOfBandEdits"`
-	// Main compares the hub's main with where the forge last recorded it;
+	// Main compares the hub's main with where AppTown last recorded it;
 	// absent for a project without a repository.
 	Main                       *scm.MainStanding `json:"main,omitempty"`
 	RequireIndependentApproval bool              `json:"requireIndependentApproval"`

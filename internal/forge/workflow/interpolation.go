@@ -86,7 +86,7 @@ func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, it
 					Findings      []string            `json:"findings"`
 					Reason        string              `json:"reason"`
 					LogTail       string              `json:"logTail"`
-					// Set when the forge's file check failed a review the model passed.
+					// Set when AppTown's file check failed a review the model passed.
 					ReviewerSummary string `json:"reviewerSummary"`
 				}
 				if json.Unmarshal(feedback.Evidence, &ev) == nil {

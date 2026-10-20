@@ -36,7 +36,7 @@ type Usage struct {
 	} `json:"cost"`
 }
 
-// Entry is one line of the record, reduced to what the forge reads. One
+// Entry is one line of the record, reduced to what AppTown reads. One
 // JSON object per line under pi's session directory: a "session" header,
 // then "model_change" / "thinking_level_change" marks and "message"
 // entries whose role is user, assistant or toolResult.

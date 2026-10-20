@@ -2,7 +2,7 @@ package appcontract
 
 // Structured, per-part health intent (design/subsystems/healthchecks.md). The app declares
 // topology-neutral INTENT — what to check, what healthy means, its own startup
-// cost and execution policy — and the forge renders it into a concrete probe per
+// cost and execution policy — and AppTown renders it into a concrete probe per
 // deployment, or refuses (design §4). This is ADDITIVE: the legacy
 // `healthcheck: <shell command>` (Part.Health) still works; a part that
 // declares nothing gets a synthesized default (design §8). Nothing here reaches

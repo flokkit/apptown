@@ -12,7 +12,7 @@ import (
 	"flokkit.io/forge/internal/stamp"
 )
 
-// An exception is stamped and expires by the forge's clock, not the wall
+// An exception is stamped and expires by AppTown's clock, not the wall
 // clock or the database's: on a clock ninety days behind, an exception
 // that ends in an hour is active and stamped with that clock's time, and
 // it lapses when that clock passes its end. A review is stamped by it too.
@@ -49,7 +49,7 @@ func TestTheForgesClockStampsAndExpiresExceptions(t *testing.T) {
 }
 
 // An exception's creation and a verdict's confirmation take one reading of
-// the forge's clock for the record and its receipt. On a clock that moves
+// AppTown's clock for the record and its receipt. On a clock that moves
 // on a second at every reading, a receipt stamped by a second reading
 // would say a later second than the record.
 func TestAConformanceReceiptCarriesItsRecordsTime(t *testing.T) {

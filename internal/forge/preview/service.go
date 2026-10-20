@@ -16,7 +16,7 @@ import (
 // release's preview, the trusted boots of a run's preview and a chat's
 // rehearsal, where each boots (this machine or the worker), what each
 // serves, opening a running one for probing, discarding them, clearing the
-// worker's when the forge starts, and the AI models keys previews are
+// worker's when AppTown starts, and the AI models keys previews are
 // given. One instance holds the boot locks, the served records and the
 // discard counts; nothing of it survives a restart except the keys'
 // records, so every key is revoked once its preview is gone, and the last
@@ -39,10 +39,10 @@ type Service struct {
 	projects     *project.Projects
 	integrations *integration.Service
 	dataDir      string
-	clock        func() time.Time // the forge's clock; nil is the real one
+	clock        func() time.Time // AppTown's clock; nil is the real one
 
 	runtime    Runtime        // boot serialization and transient status, by preview
-	served     servedPreviews // what each preview this forge booted serves
+	served     servedPreviews // what each preview this AppTown booted serves
 	booting    sync.Map       // name → *sync.Mutex: a preview booting (holdPreview)
 	startClear startClear     // the worker's previews from before this start, until removed
 	looks      looks          // when each preview's last look was written
@@ -56,7 +56,7 @@ type Dependencies struct {
 	// Sources resolves a change and a console session, and pins a change a
 	// chat on the worker holds.
 	Sources Sources
-	// Worker boots changes' and runs' previews when the forge has a worker;
+	// Worker boots changes' and runs' previews when AppTown has a worker;
 	// nil boots them on this machine.
 	Worker      Worker
 	Hosts       *deployment.Hosts
@@ -71,10 +71,10 @@ type Dependencies struct {
 	Retained     *deployment.Retained
 	Projects     *project.Projects
 	Integrations *integration.Service
-	// DataDir is the forge's data directory: changes' folders and the
+	// DataDir is AppTown's data directory: changes' folders and the
 	// snapshots a preview serves are under it.
 	DataDir string
-	// Now is the forge's clock; nil is the real one.
+	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 	// Host and ReleaseHost replace the boots of a change's and a release's
 	// preview (a test's); nil boots them here.
@@ -98,5 +98,5 @@ func New(db *database.DB, deps Dependencies) *Service {
 	return s
 }
 
-// now reads the forge's clock.
+// now reads AppTown's clock.
 func (s *Service) now() time.Time { return clock.Or(s.clock)() }

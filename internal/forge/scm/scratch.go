@@ -12,7 +12,7 @@ import (
 )
 
 // Scratch refs (design/subsystems/guidance-checks.md, "Feedback and
-// evidence"): an agent step on a worker commits where the forge cannot see.
+// evidence"): an agent step on a worker commits where AppTown cannot see.
 // So that `apptown check` can check that work before the step's work is
 // collected, the step pushes its HEAD to the one ref its runtime token may
 // write, ScratchRef. A scratch commit is checked as feedback only: it is

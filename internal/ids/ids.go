@@ -31,7 +31,7 @@ var (
 	sequence uint16 // the 12-bit counter within a millisecond
 )
 
-// New mints a UUIDv7 at now (the forge's clock): 48 bits of Unix
+// New mints a UUIDv7 at now (AppTown's clock): 48 bits of Unix
 // milliseconds, a 12-bit counter, then random bits. IDs minted by one
 // process are strictly increasing; a clock stepped back is held at the last
 // millisecond seen, so order never reverses within the process.

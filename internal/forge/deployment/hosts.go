@@ -24,10 +24,10 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// Hosts reaches Docker daemons: this forge's own, and each attached Docker
-// host over ssh, with the key its target names written where only the forge
+// Hosts reaches Docker daemons: this AppTown's own, and each attached Docker
+// host over ssh, with the key its target names written where only AppTown
 // reads it. It holds the host settings every boot and copy shares: where
-// the forge keeps its data, its boots' Docker configurations and each
+// AppTown keeps its data, its boots' Docker configurations and each
 // project's repository. One instance serves Deployment, Preview and every
 // other caller; it keeps no state of its own beyond the ssh files it
 // writes.
@@ -37,16 +37,16 @@ type Hosts struct {
 	settings HostSettings
 }
 
-// HostSettings are this forge's Docker settings.
+// HostSettings are this AppTown's Docker settings.
 type HostSettings struct {
-	// Scope is this forge's own Docker daemon.
+	// Scope is this AppTown's own Docker daemon.
 	Scope docker.Scope
-	// DataDir is the forge's data directory; SSHConfigPath the ssh config
-	// the forge writes attached hosts' stanzas into ("" is ~/.ssh/config).
+	// DataDir is AppTown's data directory; SSHConfigPath the ssh config
+	// AppTown writes attached hosts' stanzas into ("" is ~/.ssh/config).
 	DataDir, SSHConfigPath string
-	// BuiltInTarget names the target that is this forge's own Docker.
+	// BuiltInTarget names the target that is this AppTown's own Docker.
 	BuiltInTarget string
-	// NoLocalDocker is a forge with no local Docker daemon (-no-local-docker):
+	// NoLocalDocker is an AppTown with no local Docker daemon (-no-local-docker):
 	// the built-in host is unavailable and releases go to attached Docker
 	// hosts only (no_local_docker.go).
 	NoLocalDocker bool
@@ -65,20 +65,20 @@ func NewHosts(targets *Targets, secrets *secret.Service, settings HostSettings) 
 	return &Hosts{targets: targets, secrets: secrets, settings: settings}
 }
 
-// Local is this forge's own Docker daemon (Absent when it has none).
+// Local is this AppTown's own Docker daemon (Absent when it has none).
 func (h *Hosts) Local() docker.Scope { return h.settings.Scope }
 
 // NoLocalDocker says the apptown runs with no Docker of its own.
 func (h *Hosts) NoLocalDocker() bool { return h.settings.NoLocalDocker }
 
-// BuiltInTarget is the name of the target that is this forge's own Docker.
+// BuiltInTarget is the name of the target that is this AppTown's own Docker.
 func (h *Hosts) BuiltInTarget() string { return h.settings.BuiltInTarget }
 
 // BootScratch is where this machine's prepared boots keep their own Docker
-// configurations; the forge sweeps it when it starts.
+// configurations; AppTown sweeps it when it starts.
 func (h *Hosts) BootScratch() string { return filepath.Join(h.settings.DataDir, "boots") }
 
-// ProjectRepository is the forge's clone of a project's repository, which
+// ProjectRepository is AppTown's clone of a project's repository, which
 // boots and copies read a selected revision from.
 func (h *Hosts) ProjectRepository(slug string) string {
 	return filepath.Join(h.settings.DataDir, "workspaces", "project-"+slug)
@@ -108,11 +108,11 @@ func ParseSSHAddress(s string) (SSHAddress, error) {
 	return a, nil
 }
 
-// sshAlias is the Host alias the forge's ssh config carries for a target.
+// sshAlias is the Host alias AppTown's ssh config carries for a target.
 func sshAlias(targetName string) string { return "forge-target-" + targetName }
 
 // sshStanza renders the config block for one target, between markers the
-// forge owns so it can replace exactly its own block later.
+// AppTown owns so it can replace exactly its own block later.
 func sshStanza(targetName string, addr SSHAddress, keyPath string) string {
 	return fmt.Sprintf("# BEGIN forge target %s\nHost %s\n  HostName %s\n  User %s\n  Port %d\n  IdentityFile %s\n  IdentitiesOnly yes\n  StrictHostKeyChecking accept-new\n  ConnectTimeout 15\n# END forge target %s\n",
 		targetName, sshAlias(targetName), addr.Host, addr.User, addr.Port, keyPath, targetName)
@@ -143,7 +143,7 @@ func upsertSSHStanza(configPath, targetName, stanza string) error {
 	return replaceFile(configPath, []byte(s), 0o600)
 }
 
-// sshFiles serializes the forge's edits of its ssh config and key files:
+// sshFiles serializes AppTown's edits of its ssh config and key files:
 // every docker call to an attached host prepares them, and the page's
 // inventory, its refresh job and a release ask at once.
 var sshFiles sync.Mutex
@@ -179,7 +179,7 @@ func replaceFile(path string, data []byte, perm os.FileMode) error {
 }
 
 // materialiseTargetKey writes the private key held under a secret name to
-// a file only the forge can read, and returns its path. The value never
+// a file only AppTown can read, and returns its path. The value never
 // reaches a log or a record; the file is under the data directory.
 func (h *Hosts) materialiseTargetKey(ctx context.Context, targetName, keyFrom string) (string, error) {
 	values, err := h.secrets.WithContext(ctx)

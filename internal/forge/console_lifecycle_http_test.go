@@ -194,7 +194,7 @@ func TestChangeConsoleHTTPUsesWritableCheckoutAndRetainsItAfterEnd(t *testing.T)
 
 // A project's past chats are exactly its ended chats opened on the project:
 // not a live one, not an empty one, not a change's. Each names its opener
-// and says whether it was moved here from another forge; a reader without
+// and says whether it was moved here from another AppTown; a reader without
 // evidence read gets none of it.
 func TestProjectPastChatsAreItsEndedProjectChats(t *testing.T) {
 	t.Parallel()

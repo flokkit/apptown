@@ -35,7 +35,7 @@ func (in GroupChange) prepare() (Group, error) {
 
 // replaceMembers keeps slug names in request order, including repeats for the
 // receipt; the store persists a set and the caller's slice is never shared.
-// A name that is not a usable person's name (ValidName: one of the forge's
+// A name that is not a usable person's name (ValidName: one of AppTown's
 // own names, a chat or run) refuses the whole change rather than being
 // dropped; blanks and other non-slugs are dropped as before.
 func (g *Group) replaceMembers(names []string) error {

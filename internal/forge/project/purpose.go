@@ -37,7 +37,7 @@ func purposeOf(s string) (Purpose, error) {
 
 // The allowances: one row per purpose. A further purpose starts as a row
 // here, and each effect's meaning is checked for it (publication through
-// the forge's own registry stays an eval-copy act: integration.EvalPublication).
+// AppTown's own registry stays an eval-copy act: integration.EvalPublication).
 var allowances = map[Purpose]struct{ integrations, evalDomainOnly, schedules, moves, keepsData bool }{
 	Ordinary: {integrations: true, schedules: true, moves: true, keepsData: true},
 	EvalCopy: {evalDomainOnly: true},
@@ -55,7 +55,7 @@ func (p Purpose) EvalDomainOnly() bool { return allowances[p].evalDomainOnly }
 // Schedules says whether the project's adopted schedules fire.
 func (p Purpose) Schedules() bool { return allowances[p].schedules }
 
-// Moves says whether the project may be exported to another forge.
+// Moves says whether the project may be exported to another AppTown.
 func (p Purpose) Moves() bool { return allowances[p].moves }
 
 // KeepsData says whether a take-down of the project's deployments keeps a

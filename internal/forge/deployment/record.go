@@ -24,7 +24,7 @@ import (
 // A deployment (design/subsystems/deployment.md §2.3) is a project's app
 // standing on one target under a name: identity, a kind, the binding, the
 // handle the driver owns, generations, and the four attributes that carry the
-// nuance (§2.3a). This package owns the record and its rules; forge holds
+// nuance (§2.3a). This package owns the record and its rules; AppTown holds
 // the doors and the drivers.
 
 // Deployment is one row of the deployments table.
@@ -148,7 +148,7 @@ func PreviewName(changeID ids.ID) string { return fmt.Sprintf("preview-%d", chan
 // attributes.
 type Deployments struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock, which stamps a deployment's updates; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps a deployment's updates; nil is the real one
 }
 
 func (s *Deployments) now() time.Time { return clock.Or(s.clock)().UTC() }

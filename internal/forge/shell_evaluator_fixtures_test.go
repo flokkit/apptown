@@ -26,7 +26,7 @@ func tgLocalSh(t *testing.T, a *App) {
 // script the fleet will.
 
 // repo/no-build-artifacts asks git which committed files the tree's own
-// ignore rules cover: the forge keeps no list of build folder names, the
+// ignore rules cover: AppTown keeps no list of build folder names, the
 // project's .gitignore is the declaration. The staged tree
 // the check sees is a git archive — exactly the tracked files, no .git —
 // so a file that is present AND ignored is one that was force-added.

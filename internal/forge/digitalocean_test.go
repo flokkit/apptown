@@ -125,7 +125,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatalf("second release: %s gen %d dbs %d apps %d specs %d", release.State, env.ObservedGeneration, len(state.Databases), len(state.Apps), len(state.Specs))
 	}
 	// Isolation contract (§15.5a, stock/dependencies/postgres.yaml): the
-	// cluster's admin credential is used by the forge to set the app's
+	// cluster's admin credential is used by AppTown to set the app's
 	// database up and reaches neither the app's spec nor any record.
 	for i, spec := range state.Specs {
 		if strings.Contains(mustJSON(spec), "doadmin") {
@@ -142,7 +142,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatalf("the admin credential reached %d records", leaks)
 	}
 	// Infrastructure: what is at the provider and what it hosts. A cluster
-	// nobody recorded shows as unrecorded; the forge's own shows its host.
+	// nobody recorded shows as unrecorded; AppTown's own shows its host.
 	f.SeedDatabase(map[string]any{"id": "db-stray", "name": "someones-cluster", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online"})
 	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBContainer, builtinDBVolume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	var infra struct {
@@ -265,7 +265,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if w.Code != 404 {
 		t.Fatalf("a settled record is settled once: %d", w.Code)
 	}
-	// The project's DOCR repository is the forge's: the release's first
+	// The project's DOCR repository is AppTown's: the release's first
 	// copy made it and recorded it. Taking down a deployment another still
 	// runs from leaves it; taking down the last empties it, starts no
 	// garbage collection (it would block the next push), and nothing about it is retained.

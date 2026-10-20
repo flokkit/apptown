@@ -20,9 +20,9 @@ import (
 	"flokkit.io/forge/internal/forge/verification"
 )
 
-// checkWorld is a folder with two commits and a forge that has only the
-// first: published is on the forge, unpublished is the agent's newer commit
-// the forge has not seen. The forge answers as its check transport does,
+// checkWorld is a folder with two commits and an AppTown that has only the
+// first: published is on AppTown, unpublished is the agent's newer commit
+// AppTown has not seen. AppTown answers as its check transport does,
 // with the owner's own refusal for a commit it does not have.
 type checkWorld struct {
 	published, unpublished string
@@ -82,7 +82,7 @@ func newCheckWorld(t *testing.T, answerFor func(asked string) string) checkWorld
 			httpapi.WriteFault(rw, &verification.CommitNotOnForgeError{Commit: asked})
 			return
 		}
-		checked := w.published // no commit named: the latest the forge has
+		checked := w.published // no commit named: the latest AppTown has
 		if answerFor != nil {
 			checked = answerFor(asked)
 		}
@@ -97,7 +97,7 @@ func newCheckWorld(t *testing.T, answerFor func(asked string) string) checkWorld
 }
 
 // `apptown check` asks about this folder's HEAD and prints the commit the
-// result is for. A HEAD the forge does not have is refused, naming it and
+// result is for. A HEAD AppTown does not have is refused, naming it and
 // how to check the published commit, and no other commit's result is shown.
 func TestForgeCheckAsksAboutThisFoldersHead(t *testing.T) {
 	w := newCheckWorld(t, nil)
@@ -132,9 +132,9 @@ func TestForgeCheckAsksAboutThisFoldersHead(t *testing.T) {
 }
 
 // --published asks for the published tip explicitly, exactly
-// {"published": true} and no commit (the forge's route is tested with this
+// {"published": true} and no commit (AppTown's route is tested with this
 // body in internal/forge), says what it checks, and prints the commit the
-// forge checked as the published tip.
+// AppTown checked as the published tip.
 func TestForgeCheckPublishedSaysWhatItChecks(t *testing.T) {
 	w := newCheckWorld(t, nil)
 	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000", "--published")
@@ -168,7 +168,7 @@ func TestForgeCheckRefusesAnAnswerForAnotherCommit(t *testing.T) {
 }
 
 // Outside a Git repository nothing is named (the body is {}, not a request
-// for the published tip) and the output says the forge checks the change's
+// for the published tip) and the output says AppTown checks the change's
 // latest commit.
 func TestForgeCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 	w := newCheckWorld(t, nil)
@@ -184,13 +184,13 @@ func TestForgeCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 }
 
 // In an agent step on a worker ($APPTOWN_SCRATCH_REF set), `apptown check`
-// first pushes this folder's HEAD to that ref on the forge's Git endpoint,
+// first pushes this folder's HEAD to that ref on AppTown's Git endpoint,
 // with the step's token as a header (never in the URL), keeping the git
 // configuration the environment already carries; then it asks about that
 // commit, and says the answer is feedback only.
 func TestForgeCheckSendsTheStepsWorkToItsScratchRefFirst(t *testing.T) {
 	w := newCheckWorld(t, nil)
-	head := w.unpublished // a commit the forge does not have until it is sent
+	head := w.unpublished // a commit AppTown does not have until it is sent
 	const ref = "refs/apptown/scratch/change-00000000-0007-7000-8000-000000000000/step-00000000-0003-7000-8000-000000000000-a1"
 	bare := filepath.Join(t.TempDir(), "app")
 	if out, err := gittest.Command("init", "-q", "--bare", bare).CombinedOutput(); err != nil {
@@ -279,7 +279,7 @@ func TestForgeCheckReadsTheRepositoryThePersonsEnvironmentNames(t *testing.T) {
 	}
 }
 
-// The CLI's git reads the person's own git config, which the forge's git
+// The CLI's git reads the person's own git config, which AppTown's git
 // never does: with status.showUntrackedFiles=no in their global config, an
 // untracked file does not make their folder uncommitted work. Not
 // parallel: it sets the process's environment and folder.

@@ -13,7 +13,7 @@ import (
 
 // CheckVerdict is a check receipt's word for what one check said of the
 // commit. Pass, fail, error and cannot-assess are the judge's outcomes; the
-// rest are the forge's: skipped (nothing to judge with), excepted (a person
+// rest are AppTown's: skipped (nothing to judge with), excepted (a person
 // already excused what was found), unclear (a model declined to say).
 type CheckVerdict uint8
 

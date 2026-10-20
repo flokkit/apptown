@@ -17,7 +17,7 @@ import (
 // this daemon, or images by digest it pulls), and
 // runs it as the placement's container, through the stack boot it is given.
 type Driver struct {
-	Scope        func(context.Context) (Scope, error)           // which daemon: the forge's own, or an attached host's
+	Scope        func(context.Context) (Scope, error)           // which daemon: AppTown's own, or an attached host's
 	Boot         Booter                                         // the stack boot
 	URL          func(slug, deployment string, port int) string // the address a deployment is reached at
 	AfterRelease func(p deploy.Placement)                       // what follows a release (a backup)
@@ -30,7 +30,7 @@ type Driver struct {
 	// records nothing, and then a take-down deletes only the container.
 	Owner deploy.Owner
 	// Owned reads the deployment's list, so a boot resets only what the
-	// forge recorded making; nil reads nothing.
+	// AppTown recorded making; nil reads nothing.
 	Owned func(context.Context) ([]deploy.Owned, error)
 	// DataClass is what the deployment declares it holds; only
 	// "synthetic" lets a standing service be replaced when its declared

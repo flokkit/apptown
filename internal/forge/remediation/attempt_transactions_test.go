@@ -254,7 +254,7 @@ func TestRemediationOldWorkerCannotChangeNewAttempt(t *testing.T) {
 // receipt, or the commit itself) leaves the previous attempt exactly as it
 // was and dispatches nothing; the same start then succeeds once the fault
 // is gone. Root's TestRemediationAttemptRollsBackWithForgesCleanupJob covers
-// the Forge cleanup job that joins this transaction.
+// AppTown cleanup job that joins this transaction.
 func TestRemediationStartRollsBackSupersessionAndAllNewRecords(t *testing.T) {
 	t.Parallel()
 	for _, failure := range []string{"INSERT INTO runs", "INSERT INTO remediation_attempts", "suppressed summary", "last audit", "commit"} {

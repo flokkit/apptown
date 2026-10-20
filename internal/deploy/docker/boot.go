@@ -57,7 +57,7 @@ type BootRequest struct {
 	// declaration); empty means the contract's own.
 	Services []deploy.ServiceSpec
 	Probe    time.Duration
-	// Docker is which daemon the stack boots on: the forge's own by default,
+	// Docker is which daemon the stack boots on: AppTown's own by default,
 	// an attached host's for a standing deployment bound there.
 	Docker Scope
 	// PageCheck is the gate's extra question about the page a visitor
@@ -261,7 +261,7 @@ const BootLifetime = 30 * time.Minute
 // Boot runs the sequence for one target. The order is the contract:
 // needs healthy → init to completion → parts → app → probe. What it says
 // of a failure (the error, the app's last words, the front-page verdict)
-// never holds a value the forge generated for the boot's needs: those
+// never holds a value AppTown generated for the boot's needs: those
 // become Redacted wherever the boot runs, so no record or answer made from
 // it carries one (deploy.ServiceSpec.Credentials).
 func (h *Host) Boot(ctx context.Context, t BootRequest, c *appcontract.Contract) (BootResult, error) {
@@ -467,7 +467,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	res.HostPort = hostPort
 	t.logf("Checking application readiness")
 	if t.Sealed != nil {
-		// Nothing outside the host can reach the app, the forge's probe
+		// Nothing outside the host can reach the app, AppTown's probe
 		// included: it asks from inside the stack's network.
 		rp := RenderColdBootProbe(plan.PublicPart(), h.frontDoor())
 		wait := t.Probe
@@ -482,14 +482,14 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 
 	probeU := t.Docker.ProbeURL(hostPort)
 	// Render the cold-boot readiness probe from the public part's intent, shaped
-	// by the forge's front-door signal (design/subsystems/healthchecks.md §4.3). cold-boot,
+	// by AppTown's front-door signal (design/subsystems/healthchecks.md §4.3). cold-boot,
 	// preview and main all reach the app through forge's own reverse proxy, so
 	// the ingress env is `forge`.
 	probe := RenderColdBootProbe(plan.PublicPart(), h.frontDoor())
 	if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, probe); !up {
 		return res, &BootError{Phase: PhaseProbe, Err: errors.New("app did not come up in a cold container"), LogTail: logTail}
 	}
-	// A static site answers through the forge's file server configuration,
+	// A static site answers through AppTown's file server configuration,
 	// which its image carries (StaticSiteDockerfile). An image built before
 	// the image carried it has none (the command was added at boot then): run
 	// as it is, the file server's stock configuration answers its default

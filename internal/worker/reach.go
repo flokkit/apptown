@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Before a chat opens on the worker, the forge asks whether the worker can
+// Before a chat opens on the worker, AppTown asks whether the worker can
 // reach the registries the chat's project is bound to: a chat that cannot
 // is refused when it opens, naming the registry, rather than failing in the
 // middle of an install.

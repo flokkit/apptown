@@ -55,7 +55,7 @@ type NarrativePublication struct {
 // the write's authority: a caller who may not publish is refused before
 // anything is spent. Publishing needs change:write-narrative, which the
 // forge's own engine holds and which reaches the summary only, never the
-// person-written brief; the ledger keeps the narrative as the forge's.
+// person-written brief; the ledger keeps the narrative as AppTown's.
 func (s *Service) NarrativeSource(ctx context.Context, changeID ids.ID) (NarrativeSource, error) {
 	if _, _, err := s.changeScope(ctx, changeID, actionPublishNarrative); err != nil {
 		return NarrativeSource{}, err
@@ -140,7 +140,7 @@ sentence each: deviations are the most important sentences in this note
 and must never be omitted. Technology substitutions (e.g. "uses SQLite
 instead of the Postgres this project prefers, because X") count as
 deviations, not machinery. NEVER mention runs, run numbers, commits,
-hashes, workspaces, seeding, sweeping, or forge internals. No hype, no
+hashes, workspaces, seeding, sweeping, or AppTown internals. No hype, no
 headings, no bullets, no "I".`
 
 // NarrativeEvidence lays out what the writer reads about a change: its

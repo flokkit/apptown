@@ -40,10 +40,10 @@ import (
 // The composed proof of agent and review steps on a worker. What is real and what is controlled:
 //   - real: apptown-worker's server in this process, over mutual TLS, running
 //     its tasks on this machine's Docker in the packaged Pi runtime
-//     (forge-agent:latest); the forge CLI built for Linux, as packaging
-//     does; the forge's inference gateway and API, reached from inside the
+//     (forge-agent:latest); AppTown CLI built for Linux, as packaging
+//     does; AppTown's inference gateway and API, reached from inside the
 //     task over the network, each checking the attempt's derived token; a
-//     forge restart (a new App on the same database and data directory);
+//     AppTown restart (a new App on the same database and data directory);
 //     the dispatcher running the review after the agent settles;
 //   - controlled: the model. An endpoint behind the gateway answers with a
 //     fixed script of turns (tool calls the runtime executes for real);
@@ -55,9 +55,9 @@ import (
 // the agent calls the model through the gateway with its derived token and
 // commits in its own repository and runs `apptown check` through the packaged
 // CLI in the step, which names the agent's commit and is refused as not on
-// the forge yet, and checks the published tip when asked with --published;
-// the worker collects the agent's work as one commit; the forge
-// restarts while the invocation runs and the restarted forge settles it,
+// AppTown yet, and checks the published tip when asked with --published;
+// the worker collects the agent's work as one commit; AppTown
+// restarts while the invocation runs and the restarted AppTown settles it,
 // once, with one invocation; the candidate is published, the run's folder
 // brought forward; the agent's typed artifact exists when the review is
 // running; the review runs on the worker and passes; usage is recorded once
@@ -71,9 +71,9 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	}
 	const reviewMarker = "PROOF-REVIEW-PROMPT"
 
-	// The forge after the restart, and a signal that it serves: the model
+	// AppTown after the restart, and a signal that it serves: the model
 	// answers nothing until then, so every model call and CLI request of the
-	// step reaches the restarted forge.
+	// step reaches the restarted AppTown.
 	var current atomic.Pointer[App]
 	var gatewayHandler, apiHandler http.Handler // set before restarted closes
 	restarted := make(chan struct{})
@@ -243,7 +243,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		return got
 	}
 
-	// The agent's invocation starts on the worker; this forge then stops
+	// The agent's invocation starts on the worker; this AppTown then stops
 	// (it abandons the step there, as a process that exits would).
 	a.tasks.AbandonAt = func(stage string) bool { return stage == "started" }
 	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), build.ID); err != nil {
@@ -256,7 +256,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		t.Fatalf("before the restart the agent step is %s", status)
 	}
 
-	// The restarted forge: a new App on the same database and data
+	// The restarted AppTown: a new App on the same database and data
 	// directory, which runs startup repair and resumes recorded work, and
 	// whose dispatcher runs the review once the agent settles.
 	b := newApp(t, a.DB, cfg)
@@ -321,7 +321,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	}
 
 	// `apptown check` ran through the packaged CLI inside the step, with the
-	// attempt's token, against the restarted forge. It named the agent's
+	// attempt's token, against the restarted AppTown. It named the agent's
 	// commit, this folder's HEAD, sent it to the attempt's scratch ref and
 	// had it checked, as feedback only (workers.md, "apptown check inside a
 	// step"); the scratch ref went when the attempt settled. --published
@@ -365,7 +365,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	}
 
 	// One invocation per step, each settled and released; the agent's was
-	// started by the first forge and settled by the second. Usage is
+	// started by the first AppTown and settled by the second. Usage is
 	// recorded once per invocation: the run's total is exactly their sum.
 	// An image with pi-subagents promises the agent delegation, whose calls
 	// its stream does not carry: the agent's usage then says it is

@@ -29,7 +29,7 @@ import (
 //     whenever they change and written into the session's console directory.
 //     The chat's own record (its transcript) and scratch are the worker's and
 //     never overwritten.
-//   - Blobs: content a chat mounts read-only (the forge's own `apptown` binary,
+//   - Blobs: content a chat mounts read-only (AppTown's own `apptown` binary,
 //     generated registry configuration), sent once and named by the SHA-256
 //     of the tar that carries it, so a mount names content, not a path.
 //   - The work tree, made once from a bundle of the change's branch before
@@ -37,18 +37,18 @@ import (
 //     comes back as a bundle made by the chat's own git in its container.
 //
 // Messages, interrupts and the terminal go to the chat runtime; the chat's
-// record is read back by the forge, file by file, from an offset.
+// record is read back by AppTown, file by file, from an offset.
 
 const (
 	maxFilesBytes = 64 << 20
 	maxBlobBytes  = 512 << 20
 	maxEntries    = 20000
-	// maxRecordRead bounds one answer when the forge reads the record.
+	// maxRecordRead bounds one answer when AppTown reads the record.
 	maxRecordRead = 4 << 20
 )
 
 // workerOwned are the console directory's names the worker and the chat
-// write; the forge's files never replace them.
+// write; AppTown's files never replace them.
 var workerOwned = []string{"sessions", "scratch", "docker-client", "docker-runtime", "run-pi.sh", "tmux.conf", filesManifest}
 
 const filesManifest = "forge-files.json"
@@ -139,7 +139,7 @@ func (s *Server) putBlob(w http.ResponseWriter, r *http.Request) {
 
 // putFiles replaces the chat's files with the tar sent: names the previous
 // tar placed and this one does not are removed; the worker's own names are
-// refused. The record keeps the tar's digest, so the forge sends files only
+// refused. The record keeps the tar's digest, so AppTown sends files only
 // when they change.
 func (s *Server) putFiles(w http.ResponseWriter, r *http.Request) {
 	if !s.sessionRuntime(w) {
@@ -394,7 +394,7 @@ func (s *Server) putSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The work tree has no remote: its commits leave only as bundles the
-	// forge asks for.
+	// AppTown asks for.
 	_, _ = s.runGit(r.Context(), tmp, "remote", "remove", "origin")
 	// The chat commits as a step's agent does (seedAgentGit): without an
 	// identity its first commit fails until it sets one.
@@ -434,7 +434,7 @@ type chatScript interface {
 // what is left uncommitted when LEFTOVERS names the commit (the chat's end),
 // names the chat's current commit, and bundles the commits since BASE. It
 // exits 3 when there is nothing new. The worker's git never reads the
-// chat's repository. What it stages follows the forge's own rule for a
+// chat's repository. What it stages follows AppTown's own rule for a
 // change's folder: never the .apptown runtime, always .apptown/app.yaml.
 const saveScript = `set -e
 if [ -n "$LEFTOVERS" ] && [ -n "$(git status --porcelain)" ]; then
@@ -459,7 +459,7 @@ const SaveRef = "refs/apptown/save"
 // chat's own tools, with the tip it holds in AppTown-Head; 204 when there is
 // nothing new. With leftovers set (the chat's end, once it has stopped),
 // uncommitted work is first committed under that message. What it sends is
-// the chat's and untrusted: the forge imports it through its checked
+// the chat's and untrusted: AppTown imports it through its checked
 // import.
 func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 	if !s.sessionRuntime(w) {
@@ -610,7 +610,7 @@ func (s *Server) interrupt(w http.ResponseWriter, r *http.Request) {
 }
 
 // RecordFile is one of the chat's record files, its size now and when it
-// last changed: the forge keeps the time on its copy, so the record's quiet
+// last changed: AppTown keeps the time on its copy, so the record's quiet
 // (a turn handed back) reads the same there.
 type RecordFile struct {
 	Name     string    `json:"name"`
@@ -620,7 +620,7 @@ type RecordFile struct {
 
 var recordPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,200}\.jsonl$`)
 
-// records lists the chat's record files: what the forge copies to show the
+// records lists the chat's record files: what AppTown copies to show the
 // conversation.
 func (s *Server) records(w http.ResponseWriter, r *http.Request) {
 	if !s.sessionRuntime(w) {
@@ -679,7 +679,7 @@ func (s *Server) record(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Read through a root on the record's directory: the chat writes it,
-	// and a link there must not show the forge a file of the worker's. A
+	// and a link there must not show AppTown a file of the worker's. A
 	// missing record file is not a missing session, so it is not a 404.
 	root, err := os.OpenRoot(filepath.Join(in.Dir, "sessions"))
 	if err != nil {
@@ -706,7 +706,7 @@ func (s *Server) record(w http.ResponseWriter, r *http.Request) {
 }
 
 // The terminal is passed through on an upgraded connection. The worker
-// sends the screen's bytes as they come; the forge sends frames: one type
+// sends the screen's bytes as they come; AppTown sends frames: one type
 // byte, a four-byte big-endian length, then the payload. Type 0 is
 // keystrokes; type 1 is a resize, two big-endian uint16s (columns, rows).
 const (
@@ -751,7 +751,7 @@ func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Whichever side ends first ends the other: the chat's screen closing
-	// closes the connection, which ends the forge's reading and its frames.
+	// closes the connection, which ends AppTown's reading and its frames.
 	copied := make(chan struct{})
 	go func() {
 		defer close(copied)
@@ -764,7 +764,7 @@ func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
 	<-copied
 }
 
-// readFrames applies the forge's frames to the terminal until the
+// readFrames applies AppTown's frames to the terminal until the
 // connection ends.
 func readFrames(r *bufio.Reader, term console.Terminal) error {
 	var head [5]byte

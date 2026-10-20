@@ -36,7 +36,7 @@ type ReleaseOperations struct {
 	db         *database.DB
 	dataDir    string
 	target     string
-	now        func() time.Time // the forge's clock, which stamps its receipts; nil is the real one
+	now        func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
 func NewReleaseOperations(projects *project.Projects, access *identity.Service, deployment *deployment.Service, previews *preview.Service, work *workflow.Service, db *database.DB, dataDir string, target string, now func() time.Time) ReleaseOperations {
@@ -114,7 +114,7 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 		default:
 			out.Contract = "from-source"
 			if _, derr := os.Stat(filepath.Join(repo, "Dockerfile")); derr == nil {
-				out.Contract = "source-packaged" // the forge builds its Dockerfile at release
+				out.Contract = "source-packaged" // AppTown builds its Dockerfile at release
 			}
 		}
 	} else if err == docker.ErrNoContract {
@@ -172,7 +172,7 @@ func (h ReleaseOperations) LANRelease(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{optional: true}, func(in ReleaseRequest) {
 		// A release, once begun, finishes though the request ends. A vanity
 		// domain sticks to the project once a release with it is admitted;
-		// DNS for it is platform-owned (IaC) — the forge only labels the
+		// DNS for it is platform-owned (IaC) — AppTown only labels the
 		// stack. A refused release changes nothing.
 		d := strings.TrimSpace(in.Domain)
 		res, code, err := h.deployment.ReleaseLAN(context.WithoutCancel(r.Context()), p, Actor(r), deployment.LANReleaseRequest{Domain: d, AcceptUncopiedData: in.AcceptUncopiedData})
@@ -241,7 +241,7 @@ func (h ReleaseOperations) resource(ctx context.Context, p *project.Project) acc
 type ReleaseRequest struct {
 	Domain string `json:"domain"`
 	// AcceptUncopiedData is a person's choice to release onto an intranet
-	// deployment holding data the forge cannot copy now; the release
+	// deployment holding data AppTown cannot copy now; the release
 	// records it.
 	AcceptUncopiedData bool `json:"acceptUncopiedData,omitempty"`
 }

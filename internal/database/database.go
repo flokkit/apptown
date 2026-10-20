@@ -75,7 +75,7 @@ func openRaw(url string, dial pgconn.DialFunc) (*sql.DB, error) {
 	if dial != nil {
 		cfg.DialFunc = dial
 	}
-	// Moments come back in UTC: the forge
+	// Moments come back in UTC: AppTown
 	// has only ever recorded and shown UTC, and a plain string scan of a
 	// timestamptz must read "…Z", not the box's zone.
 	sdb := stdlib.OpenDB(*cfg, stdlib.OptionAfterConnect(func(ctx context.Context, conn *pgx.Conn) error {

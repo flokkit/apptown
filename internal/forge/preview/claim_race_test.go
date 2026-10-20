@@ -12,7 +12,7 @@ import (
 	"flokkit.io/forge/internal/worker"
 )
 
-// The boot passed the Forge gate before recovery started, but reaches the
+// The boot passed AppTown gate before recovery started, but reaches the
 // worker after the claim. The worker's ordered fence preserves this later boot.
 type reviewClaimRaceWorker struct {
 	*fakePreviewWorker

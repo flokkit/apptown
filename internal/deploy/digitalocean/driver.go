@@ -30,11 +30,11 @@ type Dependencies struct {
 	// from their registry with, when they are copied into DOCR; nil reads
 	// anonymously.
 	ReleaseLogin func() oci.Credential
-	// GateLogin is the credential the forge's gate image (by its
+	// GateLogin is the credential AppTown's gate image (by its
 	// reference) is read with when a gated app is rendered; nil or an empty
 	// credential reads it anonymously.
 	GateLogin func(ref string) oci.Credential
-	// Repository records the project's DOCR repository the forge created on
+	// Repository records the project's DOCR repository AppTown created on
 	// this account; nil records nothing, and then a take-down never empties
 	// it.
 	Repository RepositoryOwner
@@ -176,7 +176,7 @@ type Inventory struct {
 
 var _ deploy.Inventorier = Inventory{}
 
-// RemoveApp deletes the app with this id, one the forge recorded creating
+// RemoveApp deletes the app with this id, one AppTown recorded creating
 // (an attempt's checkpoint names it). It is how a gated app whose first
 // deployment never went active is taken down: the ordinary teardown
 // refuses an app whose active deployment is not the recorded one, and a
@@ -197,11 +197,11 @@ func (d *Driver) RemoveApp(ctx context.Context, appID string) error {
 }
 
 // Made is what a gated deployment's start may have made on the account,
-// found by the names and markers the forge gives what it makes: its app
+// found by the names and markers AppTown gives what it makes: its app
 // (the deployment's app name) and its managed clusters (the need's cluster
-// name, carrying this project's and deployment's forge tags). It is how a
+// name, carrying this project's and deployment's AppTown tags). It is how a
 // take-down finds what it must delete when an identity was never recorded:
-// the platform answered a create, and the forge failed or stopped before
+// the platform answered a create, and AppTown failed or stopped before
 // it wrote the answer down. A lookup that fails is an error, never "none".
 type Made struct {
 	AppID    string

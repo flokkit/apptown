@@ -24,8 +24,8 @@ func tenantNamed(ts []Tenant, name string) *Tenant {
 
 // Each running container is counted once: under the deployment whose
 // record names it (its public container and its stack's services), else by
-// the class the forge gave it (a preview, agent work, the forge's own
-// database), else as software the forge did not start; a forge-labelled
+// the class AppTown gave it (a preview, agent work, AppTown's own
+// database), else as software AppTown did not start; an AppTown-labelled
 // container no record names is its own tenant, not "other". A container
 // with no limit is counted, never summed as zero.
 //
@@ -69,12 +69,12 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 		cpus               float64
 		cpuUnread, cpuNone int
 	}{
-		"shop/main":                      {TenantDeployment, 2, 256 << 20, 1, (1 + 2) << 20, 1, 0, 1},
-		"previews":                       {TenantPreviews, 2, 192 << 20, 0, (3 + 4) << 20, 0, 0, 2},
-		"agent work":                     {TenantWork, 2, 2 << 30, 1, (5 + 6) << 20, 2, 1, 0},
-		"AppTown":                        {TenantForge, 1, 0, 1, 7 << 20, 0, 0, 1},
-		"forge containers not on record": {TenantUnrecorded, 1, 64 << 20, 0, 8 << 20, 0, 0, 1},
-		"other containers":               {TenantOther, 1, 256 << 20, 0, 9 << 20, 0, 0, 1},
+		"shop/main":                        {TenantDeployment, 2, 256 << 20, 1, (1 + 2) << 20, 1, 0, 1},
+		"previews":                         {TenantPreviews, 2, 192 << 20, 0, (3 + 4) << 20, 0, 0, 2},
+		"agent work":                       {TenantWork, 2, 2 << 30, 1, (5 + 6) << 20, 2, 1, 0},
+		"AppTown":                          {TenantForge, 1, 0, 1, 7 << 20, 0, 0, 1},
+		"AppTown containers not on record": {TenantUnrecorded, 1, 64 << 20, 0, 8 << 20, 0, 0, 1},
+		"other containers":                 {TenantOther, 1, 256 << 20, 0, 9 << 20, 0, 0, 1},
 	}
 	if len(ts) != len(want) {
 		t.Fatalf("%d tenants, want %d: %+v", len(ts), len(want), ts)
@@ -220,9 +220,9 @@ func TestTheHostsOwnUseIsKnownOnlyWhereTheDaemonReadsTheForgesMarker(t *testing.
 // apptownd's own memory is counted once wherever it runs (CV-C01): no tenant
 // adds it, so on the host it is part of the host's own use and in a
 // container (one that shares its temp folder with the host, so the marker
-// is read) it is that container's. The forge's tenant is its own containers.
+// is read) it is that container's. AppTown's tenant is its own containers.
 //
-// Kills: apptownd's memory added to the forge on top of the container that
+// Kills: apptownd's memory added to AppTown on top of the container that
 // holds it.
 func TestForgedsMemoryIsCountedOnceWhereverItRuns(t *testing.T) {
 	t.Parallel()

@@ -85,7 +85,7 @@ func TestSCMEnvironmentReusesOnlyProjectScopedCredentials(t *testing.T) {
 	}
 }
 
-// An SCM token's expiry is written and judged by one clock, the forge's:
+// An SCM token's expiry is written and judged by one clock, AppTown's:
 // with that clock a week off the wall clock either way, a token just minted
 // is reused, and two days later by the same clock (less than a day left of
 // its three) it is replaced.
@@ -176,7 +176,7 @@ func scmService(t *testing.T, db *database.DB, url string) *Service {
 }
 
 // A token GitLab has made is recorded though the caller stops just as it
-// is made: the forge knows the live token, reuses it rather than minting
+// is made: AppTown knows the live token, reuses it rather than minting
 // another, and the rotation is on the ledger.
 func TestAMintedSCMTokenIsRecordedThoughTheCallerStops(t *testing.T) {
 	t.Parallel()
@@ -201,8 +201,8 @@ func TestAMintedSCMTokenIsRecordedThoughTheCallerStops(t *testing.T) {
 	}
 }
 
-// A token GitLab has made but the forge cannot record is revoked at once:
-// no live token is left that the forge does not know.
+// A token GitLab has made but AppTown cannot record is revoked at once:
+// no live token is left that AppTown does not know.
 func TestAnSCMTokenThatCannotBeRecordedIsRevoked(t *testing.T) {
 	t.Parallel()
 	srv, _, revoked := scmFake(t, nil)
@@ -224,7 +224,7 @@ func TestAnSCMTokenThatCannotBeRecordedIsRevoked(t *testing.T) {
 // gone already, and the rotation goes on.
 //
 // Kills: dropping the revocation's error, which minted over a token GitLab
-// still honoured and left a live write token the forge no longer knew.
+// still honoured and left a live write token AppTown no longer knew.
 func TestARotationMintsNothingWhileTheOldTokenStands(t *testing.T) {
 	t.Parallel()
 	var issued atomic.Int32
@@ -285,7 +285,7 @@ func TestARotationMintsNothingWhileTheOldTokenStands(t *testing.T) {
 // A registry provisioning revokes the deploy token it replaces or mints
 // nothing, and a recorded attachment that cannot be read mints nothing:
 // minting over a token GitLab still honours would leave a live registry
-// credential the forge no longer knows. A token already gone (404) is no
+// credential AppTown no longer knows. A token already gone (404) is no
 // obstacle.
 //
 // Kills: a revocation whose answer was dropped, and a predecessor read whose

@@ -10,13 +10,13 @@ import { MembersTab } from './Members'
 
 const roles = { roles: [{ name: 'project-contributor', title: 'Project contributor', description: '', scope: 'project', surfaced: true, capabilities: [] }], capabilities: {} }
 
-// The forge's people and groups are instance information. A project owner
+// AppTown's people and groups are instance information. A project owner
 // who may manage members but not read that list names the person instead,
 // and the refusal is not shown as a failure.
-describe('adding a member without the forge directory', () => {
+describe('adding a member without AppTown directory', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
-  // Either the forge has said the person cannot read the directory (it is
+  // Either AppTown has said the person cannot read the directory (it is
   // then not asked for), or the read is refused when asked.
   it.each([
     ['said beforehand', { 'institution:read-structure': false }],

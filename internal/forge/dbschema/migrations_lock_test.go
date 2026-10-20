@@ -26,8 +26,8 @@ func migrationDigest(m migration) string {
 // lock records each one, the chain matches it, and the lock only grows
 // (scripts/migrations-append-only.sh holds that against origin/main). A
 // database upgraded by a migration is never upgraded by it again, so a
-// renumbered or rewritten one would leave forges that ran the old one
-// different from forges that run the new one.
+// renumbered or rewritten one would leave AppTown installations that ran the old one
+// different from AppTown installations that run the new one.
 //
 // Kills: renumbering a migration, editing one already written, or adding
 // one without recording it.

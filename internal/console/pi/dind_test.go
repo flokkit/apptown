@@ -31,7 +31,7 @@ type fakeDocker struct {
 	owner                             string
 	calls                             [][]string
 	fail                              string
-	volumes                           map[string]string // name → its forge.console label
+	volumes                           map[string]string // name → its AppTown.console label
 }
 
 func (f *fakeDocker) run(ctx context.Context, args ...string) ([]byte, error) {
@@ -440,9 +440,9 @@ func TestStaleReadsTheLabels(t *testing.T) {
 	}
 }
 
-// A worker sends the forge CLI as a content-named blob: a stopped chat
+// A worker sends AppTown CLI as a content-named blob: a stopped chat
 // created with one CLI is rebuilt when the launch mounts a newer one, so the
-// chat runs the CLI the forge now ships, not the one its container pinned.
+// chat runs the CLI AppTown now ships, not the one its container pinned.
 // The labels Stale reads are the ones provision wrote, including an empty
 // model (pi's default), which must not make an unchanged chat stale.
 func TestANewCLIMountMakesTheChatStale(t *testing.T) {
@@ -678,7 +678,7 @@ func TestAZeroChatLimitCreatesNothing(t *testing.T) {
 	}
 }
 
-// On the forge's own machine chats share forge-cache, as before, and make
+// On AppTown's own machine chats share forge-cache, as before, and make
 // no volume of their own.
 func TestTheForgesChatsShareForgeCache(t *testing.T) {
 	r, in, f := fixture(t)
@@ -695,19 +695,19 @@ func TestTheForgesChatsShareForgeCache(t *testing.T) {
 	}
 }
 
-// On a forge with its own local HTTPS, a chat gets the authority's
+// On an AppTown with its own local HTTPS, a chat gets the authority's
 // certificate (never its key) in /console and a launcher that trusts it and
-// reaches the forge before pi starts; on any other forge it gets neither.
+// reaches AppTown before pi starts; on any other AppTown it gets neither.
 func TestAChatOnALocalTLSForgeTrustsTheAuthority(t *testing.T) {
 	r, in, _ := fixture(t)
 	if err := r.provision(in); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(in.Dir, console.LocalCAFile)); err == nil {
-		t.Fatal("a chat on a forge without local HTTPS got a certificate")
+		t.Fatal("a chat on an AppTown without local HTTPS got a certificate")
 	}
 	if run, _ := os.ReadFile(filepath.Join(in.Dir, "run-pi.sh")); strings.Contains(string(run), console.LocalCAFile) {
-		t.Fatalf("a chat on a forge without local HTTPS got the prelude: %s", run)
+		t.Fatalf("a chat on an AppTown without local HTTPS got the prelude: %s", run)
 	}
 
 	tls := &console.LocalTLS{CACert: []byte("THE-CA-CERT"), Port: 7777, Target: "host.docker.internal:7777"}

@@ -20,7 +20,7 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// Checks is the forge's check executor on a worker
+// Checks is AppTown's check executor on a worker
 // (design/operations/workers.md, "Checks on the worker"): Run
 // answers a check container's request as the local runner does, having run
 // it on the worker. A request the worker cannot honour (a mount of this
@@ -28,7 +28,7 @@ import (
 type Checks struct {
 	URL    string
 	Client *http.Client
-	// Limits bound each check's container on the worker (the forge's task
+	// Limits bound each check's container on the worker (AppTown's task
 	// limits).
 	Limits execution.Limits
 }

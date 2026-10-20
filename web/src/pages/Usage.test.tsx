@@ -51,7 +51,7 @@ describe('the daily usage chart', () => {
     }
   })
 
-  // Spend the forge could not count is not shown as a complete total.
+  // Spend AppTown could not count is not shown as a complete total.
   it('says "at least" when some model calls spent an unknown amount', async () => {
     const report = {
       windowDays: 30, totals: { total: 15, input: 10, output: 5, cacheRead: 0, cacheWrite: 0, costMicros: 40, incomplete: 2 },

@@ -70,7 +70,7 @@ func TestSecretsBoundToInfisical(t *testing.T) {
 	if !strings.Contains(app, "-e STRIPE_API_KEY=sk_from_infisical") {
 		t.Fatalf("Infisical value must reach the web part: %s", app)
 	}
-	// Nothing from Infisical lands in the forge's database.
+	// Nothing from Infisical lands in AppTown's database.
 	var n int
 	// sql-guarantee: absence from storage in every scope is the guarantee; the owner reads one scope and name at a time
 	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM secret_values WHERE name IN ('STRIPE_API_KEY','MIGRATION_DB_ROLE')`).Scan(&n)

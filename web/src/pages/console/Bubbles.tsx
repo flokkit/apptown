@@ -168,7 +168,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
           // working-it-out (dim); the message where the helper stops and
           // hands back is the answer (green). Position in the record decides.
           // A [apptown check] message is AppTown itself reporting a failed
-          // cold boot into the chat — it renders as the forge, not the
+          // cold boot into the chat — it renders as AppTown, not the
           // operator, and it CANCELS the green on the claim before it.
           // Chats from before the AppTown rename keep their "[forge check]"
           // messages as written; both read as AppTown's own.

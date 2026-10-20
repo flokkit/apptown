@@ -21,7 +21,7 @@ import (
 )
 
 // fileCopyKind is a custom kind that keeps local data and declares no
-// copy, only what a file copy of it leaves out: the forge's tar fallback.
+// copy, only what a file copy of it leaves out: AppTown's tar fallback.
 // No stock kind uses the fallback since object storage declared its copy.
 const fileCopyKind = "capability: notes\nlocal:\n  image: notes:1\n  data: /notes\ncopy:\n  caveat: the notes index is not in the copy\n"
 
@@ -129,7 +129,7 @@ func TestABackupSaysHowEachItemWasCopied(t *testing.T) {
 // volumes, start) and then its declared check runs; Postgres is restored
 // in its running container and checked by its kind's copy.verify, both
 // given the connection that container serves (its own database and user,
-// never the defaults, and the forge's password); MinIO on the tar fallback goes back as
+// never the defaults, and AppTown's password); MinIO on the tar fallback goes back as
 // files nobody checked. The whole restore is "not verified", never
 // "restored", and the audit receipt says the same. When a check fails the
 // item failed and the restore is partial.

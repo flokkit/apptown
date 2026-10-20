@@ -65,7 +65,7 @@ func TestAnAppPlatformPartRunsOnTheCheapestSizeThatCoversIt(t *testing.T) {
 }
 
 // A part whose declared resources no size covers, or a size list the
-// forge cannot read, stops the release before anything is made at the
+// AppTown cannot read, stops the release before anything is made at the
 // platform.
 func TestAnAppPlatformPartNoSizeCoversIsRefusedBeforeAnyEffect(t *testing.T) {
 	t.Parallel()

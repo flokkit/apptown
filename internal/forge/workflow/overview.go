@@ -145,7 +145,7 @@ func (s *Service) RunningSteps(ctx context.Context) ([]RunningStep, error) {
 }
 
 // ExecutingSteps is every step executing now, in every project: the work a
-// restart of the forge would interrupt. A run waiting on a person, or a step
+// restart of AppTown would interrupt. A run waiting on a person, or a step
 // queued for a slot, is not here; it survives a restart as it is. The read is
 // about the whole instance, so a caller who cannot read every project's runs
 // is refused rather than shown a partial list that could read as idle.

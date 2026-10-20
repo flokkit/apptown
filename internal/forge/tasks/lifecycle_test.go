@@ -70,7 +70,7 @@ func declaredStates(t *testing.T) []Observed {
 }
 
 // Tasks decides which transitions an attempt's recorded state allows:
-// settled is final, held is final for the forge, refused only settles with
+// settled is final, held is final for AppTown, refused only settles with
 // nothing held. Every state the table allows is covered.
 func TestEachTransitionAcceptsOnlyItsPriorStates(t *testing.T) {
 	t.Parallel()

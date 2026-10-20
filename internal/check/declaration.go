@@ -40,7 +40,7 @@ const (
 	ScopeDiff = "diff"
 )
 
-// Identity names whoever declared a check, opaquely: forge passes the block
+// Identity names whoever declared a check, opaquely: AppTown passes the block
 // and the version the project adopted. The library only prints it.
 type Identity struct {
 	Namespace string

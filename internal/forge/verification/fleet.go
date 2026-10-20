@@ -281,7 +281,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 		err = func() error {
 			defer cleanup()
 			// Read-only sweep: source scanners run; exec-image tools reuse an image
-			// the forge already holds for this exact commit (a cached conformance
+			// AppTown already holds for this exact commit (a cached conformance
 			// build, or the standing deployment's release — by digest), else
 			// build only when the review was asked to and the budget allows.
 			allowBuild := len(toolChecks) > 0 && opts.Build && buildsUsed < budget

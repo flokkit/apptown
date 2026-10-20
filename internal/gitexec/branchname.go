@@ -13,7 +13,7 @@ import (
 // not ending with '.'. --branch adds: not starting with '-', and not HEAD.
 //
 // It never expands a name. In a repository, --branch reads "@" alone as
-// HEAD and @{-N} as an earlier checkout; a name the forge stores must mean
+// HEAD and @{-N} as an earlier checkout; a name AppTown stores must mean
 // itself, so "@" is refused here (git outside a repository accepts it), and
 // any "@{" is refused by the rules.
 func CheckBranchName(name string) error {

@@ -7,8 +7,8 @@ import (
 	"flokkit.io/forge/internal/version"
 )
 
-// CLIProtocol names this forge's version on every response and refuses a
-// CLI that states a protocol outside the range this forge accepts, with a
+// CLIProtocol names this AppTown's version on every response and refuses a
+// CLI that states a protocol outside the range this AppTown accepts, with a
 // sentence the CLI prints. A request that states none (a browser, an MCP
 // client, curl, or a CLI built before protocols were stated) is served.
 func CLIProtocol(next http.Handler) http.Handler {

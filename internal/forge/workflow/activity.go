@@ -153,7 +153,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait SlotWait, path map[ids.I
 		return Activity{State: ActivityQueued, Detail: pendingAgent}, nil
 	}
 	// The stage's own work still to run (a gate dispatched a moment after
-	// the step before it finished) is the forge working: neither a person's
+	// the step before it finished) is AppTown working: neither a person's
 	// move nor a block. Read as "waiting on you", the gap invites an approval
 	// before boot and review have run, and then reads "blocked" by the steps
 	// about to start. A failure
@@ -197,7 +197,7 @@ func latestAgentWork(steps []workflowActivityStep) sql.NullTime {
 }
 
 // stale reports a failed verdict given before the stage's latest agent work:
-// the one the forge resets and checks again after a rework (recheck.go's
+// the one AppTown resets and checks again after a rework (recheck.go's
 // StaleChecksForUpdate), so it no longer judges the work.
 func (step workflowActivityStep) stale(reworked sql.NullTime) bool {
 	if step.state != StatusFail || step.override != "" || !reworked.Valid || !step.finished.Valid || !step.finished.Time.Before(reworked.Time) {

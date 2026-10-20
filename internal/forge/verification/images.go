@@ -68,7 +68,7 @@ func (s *Scanners) imageForCommit(ctx context.Context, projectID ids.ID, buildDi
 		}
 		// A release image is on this machine: reusing it applies only when
 		// the checks run here, and never on a
-		// forge with no local Docker, which holds no release image.
+		// AppTown with no local Docker, which holds no release image.
 		if s.exec.Local && !s.docker.Absent() {
 			if ref, note, ok := s.reuseReleaseImage(ctx, projectID, sha, tag); ok {
 				// Named by its ID, not the tag the reuse moved.
@@ -135,8 +135,8 @@ func (s *Scanners) reuseReleaseImage(ctx context.Context, projectID ids.ID, sha,
 // real key meets); every
 // declared need gets the connection env its emulator injects, pointed at a
 // host that does not answer (the check runs with no network); APPTOWN_ORIGINS
-// is set as the forge sets it in every environment. Nothing else — what the
-// forge does not set in a deployment it does not set here either.
+// is set as AppTown sets it in every environment. Nothing else — what the
+// AppTown does not set in a deployment it does not set here either.
 func (s *Scanners) checkEnvironment(ctx context.Context, buildDir string) []string {
 	const host = "check.forge.local"
 	env := map[string]string{"APPTOWN_ORIGINS": "https://" + host}

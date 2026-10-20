@@ -199,7 +199,7 @@ func TestGuidanceScopeAndReworkEvidenceUseTheCandidate(t *testing.T) {
 }
 
 // landingWithAPage is a landing whose guidance gate has a runtime check of
-// browser values, on a forge whose Docker serves a page that loads them;
+// browser values, on an AppTown whose Docker serves a page that loads them;
 // beforeLanding runs once the change is committed and before the landing
 // starts.
 func landingWithAPage(t *testing.T, beforeLanding func(*App, ids.ID)) (*App, *fakeDocker, *workflow.Run, workflow.MergeSource, string) {
@@ -257,7 +257,7 @@ func landingVerdict(t *testing.T, a *App, run *workflow.Run) (workflow.CheckVerd
 }
 
 // A change being landed is previewed as its landing's pinned candidate, and
-// the landing's runtime checks are judged against that preview: the forge
+// the landing's runtime checks are judged against that preview: AppTown
 // recorded booting it from the candidate itself. (A remediation of a
 // runtime check could otherwise never land: its target is judged at the
 // landing, which boots no preview of its own.)
@@ -279,7 +279,7 @@ func TestALandingsRuntimeCheckIsJudgedAgainstTheChangePreviewOfItsCandidate(t *t
 	}
 }
 
-// A preview the forge booted from the change's folder before the landing is
+// A preview AppTown booted from the change's folder before the landing is
 // recorded, but not as the candidate: the landing does not judge it.
 func TestALandingDoesNotJudgeTheChangesFolderPreview(t *testing.T) {
 	t.Parallel()

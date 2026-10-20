@@ -10,7 +10,7 @@ import (
 )
 
 // ExportProjectIn reads a project's ADRs whole, for moving the project to
-// another forge.
+// another AppTown.
 func ExportProjectIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]json.RawMessage, error) {
 	return database.JSONRows(adrssql.New(q.SQL()).ExportADRs(ctx, projectID))
 }

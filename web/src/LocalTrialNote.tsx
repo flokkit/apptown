@@ -1,7 +1,7 @@
 import { PRODUCT } from './brand'
-// The one-line warning for a forge opened on this computer's own address:
+// The one-line warning for an AppTown opened on this computer's own address:
 // the desktop trial (and a source-built one) runs everything on this
-// machine's Docker. It is read from the browser's own address, so a forge
+// machine's Docker. It is read from the browser's own address, so an AppTown
 // reached by a server's name never shows it.
 export function onThisComputer(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1'

@@ -13,12 +13,12 @@ import (
 	"flokkit.io/forge/internal/worker/workertest"
 )
 
-// A worker serves the forges whose protocol is in its range and refuses
+// A worker serves the AppTown installations whose protocol is in its range and refuses
 // any other by name, an agent worker and a check worker alike. A request
-// that states no protocol comes from a forge built before protocols were
+// that states no protocol comes from an AppTown built before protocols were
 // stated, and is served.
 //
-// Kills: a worker that serves any forge, whatever protocol it speaks.
+// Kills: a worker that serves any AppTown, whatever protocol it speaks.
 func TestAWorkerServesOnlyTheForgeProtocolsInItsRange(t *testing.T) {
 	t.Parallel()
 	ca := workertest.NewCA(t)
@@ -47,7 +47,7 @@ func TestAWorkerServesOnlyTheForgeProtocolsInItsRange(t *testing.T) {
 			resp := get(p)
 			raw, _ := io.ReadAll(resp.Body)
 			body := string(raw)
-			if resp.StatusCode != http.StatusUpgradeRequired || !strings.Contains(body, "serves forge protocols 1 to 2") || !strings.Contains(body, "same release") {
+			if resp.StatusCode != http.StatusUpgradeRequired || !strings.Contains(body, "serves AppTown protocols 1 to 2") || !strings.Contains(body, "same release") {
 				t.Errorf("%s worker served protocol %q: %s %q", role, p, resp.Status, body)
 			}
 		}
@@ -64,7 +64,7 @@ func TestAWorkerServesOnlyTheForgeProtocolsInItsRange(t *testing.T) {
 	}
 }
 
-// A forge's transport to its worker states the protocol it speaks on every
+// An AppTown's transport to its worker states the protocol it speaks on every
 // request.
 func TestAForgeStatesItsProtocolToItsWorker(t *testing.T) {
 	t.Parallel()
@@ -87,7 +87,7 @@ func TestAForgeStatesItsProtocolToItsWorker(t *testing.T) {
 	}
 }
 
-// A forge that a check worker does not serve stops at startup with the
+// An AppTown that a check worker does not serve stops at startup with the
 // worker's own sentence: both protocols and what to install, not only the
 // HTTP status.
 func TestAForgeACheckWorkerDoesNotServeHearsWhyAtStartup(t *testing.T) {
@@ -98,11 +98,11 @@ func TestAForgeACheckWorkerDoesNotServeHearsWhyAtStartup(t *testing.T) {
 	next := client.Transport
 	client.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
 		r = r.Clone(r.Context())
-		r.Header.Set(worker.ProtocolHeader, "3") // a forge from a later release
+		r.Header.Set(worker.ProtocolHeader, "3") // an AppTown from a later release
 		return next.RoundTrip(r)
 	})
 	err := worker.RequireCheckWorker(t.Context(), client, hs.URL, time.Now())
-	if err == nil || !strings.Contains(err.Error(), "426") || !strings.Contains(err.Error(), "serves forge protocols 1 to 2") || !strings.Contains(err.Error(), "same release") {
+	if err == nil || !strings.Contains(err.Error(), "426") || !strings.Contains(err.Error(), "serves AppTown protocols 1 to 2") || !strings.Contains(err.Error(), "same release") {
 		t.Fatalf("startup refusal: %v", err)
 	}
 }

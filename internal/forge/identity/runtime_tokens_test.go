@@ -11,7 +11,7 @@ import (
 	"flokkit.io/forge/internal/ids/idstest"
 )
 
-// The key is created once, readable only by the forge, and every later start
+// The key is created once, readable only by AppTown, and every later start
 // reads the same key: an attempt keeps its token across a restart.
 func TestRuntimeTokenKeyIsCreatedOnceOwnerOnlyAndReused(t *testing.T) {
 	t.Parallel()
@@ -42,14 +42,14 @@ func TestRuntimeTokenKeyIsCreatedOnceOwnerOnlyAndReused(t *testing.T) {
 		t.Fatal("the same attempt got another token after a restart")
 	}
 	if step, attempt, ok := restarted.StepAttempt(first.Step(idstest.N(7), 2)); !ok || step != idstest.N(7) || attempt != 2 {
-		t.Fatalf("restarted forge does not recognise the attempt: %d %d %t", step, attempt, ok)
+		t.Fatalf("restarted AppTown does not recognise the attempt: %d %d %t", step, attempt, ok)
 	}
 	if entries, err := os.ReadDir(filepath.Dir(file)); err != nil || len(entries) != 1 {
 		t.Fatalf("creation left files behind: %v %v", entries, err)
 	}
 }
 
-// Without its key the forge could not recognise a running agent, so a key
+// Without its key AppTown could not recognise a running agent, so a key
 // that cannot be read or is not a key refuses the start.
 func TestRuntimeTokenKeyThatCannotBeReadRefusesTheStart(t *testing.T) {
 	t.Parallel()
@@ -86,7 +86,7 @@ func writeKey(file string, mode os.FileMode, size int) error {
 	return os.Chmod(file, mode)
 }
 
-// A token names its attempt only when its MAC holds under this forge's key;
+// A token names its attempt only when its MAC holds under this AppTown's key;
 // any other spelling, another step's MAC or another key's token names nothing.
 func TestStepTokenNamesOnlyTheAttemptItsMACHoldsFor(t *testing.T) {
 	t.Parallel()

@@ -94,7 +94,7 @@ func TestDataSaysTheLastRehearsal(t *testing.T) {
 // apptown data says the last restore test apart from the rehearsal, with the
 // forge's own check of its gate as the web card says it, and each
 // standing restored copy: until when, who opened it, that it is opened from
-// the forge in a browser, and what it can still do outside.
+// AppTown in a browser, and what it can still do outside.
 func TestDataSaysTheLastRestoreTestAndStandingCopies(t *testing.T) {
 	var p protection
 	if err := json.Unmarshal([]byte(`{"deployment":"prod","dataClass":"production","rehearsalNote":"never rehearsed",
@@ -135,7 +135,7 @@ func TestDataSaysTheLastRestoreTestAndStandingCopies(t *testing.T) {
 	}
 }
 
-// apptown data take-down says the forge's refusal when no final copy can be
+// apptown data take-down says AppTown's refusal when no final copy can be
 // taken, and sends the choice to go without one only when the person
 // passes --without-final-copy, naming the deployment.
 func TestDataTakeDownSendsTheChoiceOnlyWhenAsked(t *testing.T) {

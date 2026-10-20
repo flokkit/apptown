@@ -1,6 +1,6 @@
 # Running AppTown
 
-<!-- A word like forge:origin in braces is a live link: the Docs page of an
+<!-- A word like apptown:origin in braces is a live link: the Docs page of an
 AppTown shows that AppTown's own address there. -->
 
 This page is for the person who installs and looks after AppTown: its host,
@@ -331,8 +331,8 @@ six seconds; past that they answer 429 with `Retry-After`.
 
 Start AppTown with `-public-host` set to the origin people reach it by,
 scheme included (for example `https://forge.example.com`). Addresses AppTown hands out are built on it, such as the one coding agents sign in to.
-On this AppTown, coding agents connect at {forge:mcp} and the `apptown` CLI uses
-`APPTOWN_URL={forge:origin}`. Sign-in, invite and password reset links, and
+On this AppTown, coding agents connect at {apptown:mcp} and the `apptown` CLI uses
+`APPTOWN_URL={apptown:origin}`. Sign-in, invite and password reset links, and
 coding agents' sign-in all use this one address. A bare name
 (`forge.example.com`) is still accepted, but it does not say whether AppTown is reached over https: AppTown then counts as https only when it
 serves TLS itself or a `-tier-domain` is https, and the guides say "your

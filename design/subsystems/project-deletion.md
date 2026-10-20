@@ -72,7 +72,7 @@ all in one transaction, and answers `202` with where the deletion stands
 
 **What accepting a deletion means.** The receipt records the decision:
 take the deployments down (main last, each with its final copy where the
-forge takes one), keep the project read-only with its backups for the kept
+AppTown takes one), keep the project read-only with its backups for the kept
 period, then purge it. Forge holds a scoped system binding
 (`identity.BindingDeletion`, `system_bindings`) for this project and this
 deletion only: it permits the deletion's take-downs and the purge, and
@@ -109,19 +109,19 @@ after a ten-minute grace (`DeletionGrace`) in which nothing is taken down:
 
 Each take-down is the one every deployment gets
 ([deployment.md](deployment.md#removing-a-deployment)): its data backed up,
-then exactly what the forge recorded creating for it deleted. The deletion
+then exactly what AppTown recorded creating for it deleted. The deletion
 admits every one, on any target, as a `deployment.take-down` operation
 under its binding, which asks it again before each effect (the final
 backup, the teardown, the keys and records); its receipt names the binding
 and the deleter. A take-down
 that is refused (a final copy that falls short, a host that cannot be
-reached, a Portainer stack the forge did not record creating) stalls the
+reached, a Portainer stack AppTown did not record creating) stalls the
 deletion with the take-down's own sentence; the project stays `deleting`
 until a person deals with the deployment and asks again (deleting it again
 re-confirms the deletion under a new binding, the old one revoked). A
 person's own take-down of a deployment is still allowed while the project
 is `deleting`. Nothing of a deployment is removed by name or label: what
-the forge did not record creating stays, visible on Infrastructure as
+AppTown did not record creating stays, visible on Infrastructure as
 unrecorded. An eval copy's deployments go with no final copy, its data
 being synthetic.
 
@@ -152,10 +152,10 @@ admitted as soon as it is deleted. The purge's steps, each asking its
 authority again first:
 
 1. recheck that the project is `deleted` and idle;
-2. remove each backup set, its files on the forge's disk or its objects in
+2. remove each backup set, its files on AppTown's disk or its objects in
    the backup store, then its record (`dataprotection.PurgeProjectBackups`);
 3. remove the hub repository, then rename the GitLab copy, named by its
-   permanent GitLab project id, to `<slug>-deleted-<forge project id>` and
+   permanent GitLab project id, to `<slug>-deleted-<AppTown project id>` and
    archive it read-only: never destroyed, and never another project by
    slug. A later purge, the hub being gone, takes the copy the earlier
    purge named;
@@ -198,6 +198,6 @@ reused, so their resources need no hold.
 
 ## What it does not do
 
-It does not find or remove resources the forge did not record: past
+It does not find or remove resources AppTown did not record: past
 deletions' leftovers on hosts are a separate reconciliation, never cleaned
 up by matching a slug or prefix.

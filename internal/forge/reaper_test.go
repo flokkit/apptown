@@ -327,7 +327,7 @@ func TestReaperKeepsLongRunningExecutionResources(t *testing.T) {
 	}
 }
 
-// A forge that stopped during a boot leaves the boot's own Docker
+// An AppTown that stopped during a boot leaves the boot's own Docker
 // configuration, with its registry login, in the boots' folder; starting
 // again removes every one, since nothing boots yet.
 func TestStartingRemovesBootConfigurationsAStopLeft(t *testing.T) {

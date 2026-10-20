@@ -60,7 +60,7 @@ type ReleaseEvent struct {
 
 type Releases struct {
 	db    *database.DB
-	clock func() time.Time // the forge's clock, which stamps a release; nil is the real one
+	clock func() time.Time // AppTown's clock, which stamps a release; nil is the real one
 }
 
 func NewReleases(db *database.DB) *Releases { return &Releases{db: db} }

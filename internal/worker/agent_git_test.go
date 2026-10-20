@@ -79,7 +79,7 @@ func collectedTree(t *testing.T, hub, bundle string) (tip string, paths []string
 
 // A workspace made with the agent's repository has an ordinary one at
 // /work/.git: the source's history on the change's branch, the base branch
-// at the change's base, no remote, the forge as committer and a clean
+// at the change's base, no remote, AppTown as committer and a clean
 // index. What the task then writes into it (hostileGit) is never run by the
 // worker's collection, which still collects the tree and no .git content.
 // A base not in the source's history is refused.

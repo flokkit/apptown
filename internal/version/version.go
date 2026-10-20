@@ -55,18 +55,18 @@ func of(release, stamped string, info *debug.BuildInfo, ok bool) string {
 	return "dev-" + rev
 }
 
-// The CLI protocol says which CLIs a forge accepts (design/operations,
+// The CLI protocol says which CLIs an AppTown accepts (design/operations,
 // running-apptown, "Versions"). The CLI states the number it speaks on
-// every request; a forge accepts a range and refuses another by name. A CLI
-// a forge hands its agents is built from the forge's own tree, so it always
+// every request; an AppTown accepts a range and refuses another by name. A CLI
+// an AppTown hands its agents is built from AppTown's own tree, so it always
 // matches; a person's own CLI can lag or lead.
 const (
 	CLIProtocolHeader = "X-AppTown-CLI-Protocol"
 	// CLIProtocol is what this build's CLI speaks.
 	CLIProtocol = 1
-	// CLIProtocolMin and CLIProtocolMax are what this build's forge accepts.
+	// CLIProtocolMin and CLIProtocolMax are what this build's AppTown accepts.
 	CLIProtocolMin = 1
 	CLIProtocolMax = 1
-	// Header names the forge's version on every API response.
+	// Header names AppTown's version on every API response.
 	Header = "X-AppTown-Version"
 )

@@ -24,7 +24,7 @@ export function chipFor(state: ChangeState | RunStatus | Doing | '' | undefined)
 // released) is shipped; one closed on an accepted record with nothing to
 // land (research, a spec) is finished. landed is passed where the reader
 // knows it; without it a closed change reads shipped, its state's name.
-// An abandoned change the forge closed because its run found nothing to
+// An abandoned change AppTown closed because its run found nothing to
 // change (closedAs, recorded by the engine) is closed, not abandoned.
 export function changeStateLabel(state: ChangeState, landed?: boolean, closedAs?: string): string {
   if (state === 'shipped') return landed === false ? 'finished' : 'shipped'
@@ -32,7 +32,7 @@ export function changeStateLabel(state: ChangeState, landed?: boolean, closedAs?
   return state.replace('_', ' ')
 }
 
-// closedNothingToChange: the change's recorded closedAs says the forge
+// closedNothingToChange: the change's recorded closedAs says AppTown
 // closed it because there was nothing to change. Read only from that fact,
 // never from the reason's words, which a person can also type.
 export function closedNothingToChange(closedAs: string | undefined): boolean {

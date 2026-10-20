@@ -216,7 +216,7 @@ type TargetView struct {
 	Deployments []TargetDeployment  `json:"deployments"`
 	Retained    int                 `json:"retained"`
 	// Copies says whether copies of its deployments' data can run here,
-	// and why not (no copy runner named); absent where the forge takes none.
+	// and why not (no copy runner named); absent where AppTown takes none.
 	Copies *dataprotection.Availability `json:"copies,omitempty"`
 }
 

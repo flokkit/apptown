@@ -75,7 +75,7 @@ func TestAComplaintNamesItsRunByID(t *testing.T) {
 }
 
 // A run is named the way a change is: its id, its friendly form, or its
-// number inside the project. The forge resolves the form; the command then
+// number inside the project. AppTown resolves the form; the command then
 // asks for the run by the id it answered.
 func TestARunCommandTakesARunsFriendlyForm(t *testing.T) {
 	const runID = "00000000-0028-7000-8000-000000000000"

@@ -54,7 +54,7 @@ func TestAKindIsHeldToWhatItProvides(t *testing.T) {
 }
 
 // What the catalogue refuses in a contract's needs, the same wherever it is
-// asked: an integration under needs:, a value the forge owns, and two needs
+// asked: an integration under needs:, a value AppTown owns, and two needs
 // that give the app one variable. Two alternative kinds giving the same
 // names may both be catalogued and each used alone.
 func TestAContractsNeedsAreRefusedAsDeclared(t *testing.T) {

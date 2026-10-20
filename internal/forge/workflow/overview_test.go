@@ -168,7 +168,7 @@ func TestWorkOverviewReadFailuresAndBounds(t *testing.T) {
 	}
 }
 
-// Before a forge restart the operator asks what is executing. A run waiting
+// Before an AppTown restart the operator asks what is executing. A run waiting
 // on a person (directly, or in a called workflow) and a step queued for a
 // slot survive a restart and are not executing; a claimed step is, in any
 // project. The answer is about the whole instance, so it is asked at the

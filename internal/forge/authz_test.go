@@ -394,7 +394,7 @@ func TestAuthzGrantsAPI(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"allow":false`) || !strings.Contains(w.Body.String(), "owner") {
 		t.Errorf("explain should say kid may not and who can: %s", w.Body.String())
 	}
-	// A person's name the forge would read as something else is refused.
+	// A person's name AppTown would read as something else is refused.
 	if w := authzCall(h, "boss", "POST", "/api/v1/authz/grants", `{"subject":"kid via console/x","role":"project-contributor","scope":"project","scopeId":"00000000-0001-7000-8000-000000000000"}`); w.Code != 400 {
 		t.Errorf("an unusable person's name is refused: %d %s", w.Code, w.Body.String())
 	}

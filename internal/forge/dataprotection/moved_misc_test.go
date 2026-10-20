@@ -112,7 +112,7 @@ func TestACopysTakeDownDeletesItsDataWithoutABackup(t *testing.T) {
 	}
 }
 
-// With a copy's last deployment go the release images the forge published
+// With a copy's last deployment go the release images AppTown published
 // under the copy's own repository, and nothing published elsewhere.
 func TestACopysImagesGoWithItsLastDeployment(t *testing.T) {
 	t.Parallel()

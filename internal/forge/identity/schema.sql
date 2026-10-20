@@ -1,4 +1,4 @@
--- A principal is a person or the forge itself (design/decisions/mergeable-forge-data.md):
+-- A principal is a person or AppTown itself (design/decisions/mergeable-forge-data.md):
 -- what answers for an act, by UUID. Its name is what it is called today; a
 -- removed principal keeps its row (removed_at) so history still names it,
 -- and its name is free for a new principal that inherits nothing.
@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS principals (
   id           UUID PRIMARY KEY,
   kind         TEXT NOT NULL CONSTRAINT principal_kind CHECK (kind IN ('person', 'system')),
   name         TEXT NOT NULL,
-  -- the forge a principal came from with a moved project; NULL is this one
+  -- AppTown a principal came from with a moved project; NULL is this one
   origin_forge UUID,
   created_at   TIMESTAMPTZ NOT NULL,
   removed_at   TIMESTAMPTZ
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS groups (
   description TEXT NOT NULL DEFAULT '',
   kind        TEXT NOT NULL DEFAULT 'ordinary',   -- ordinary | personal | built-in
   created_by  TEXT NOT NULL DEFAULT '',
-  -- The creator's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The creator's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   created_by_principal UUID,
   created_by_via TEXT NOT NULL DEFAULT '',
   retired_at  TIMESTAMPTZ,
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS grants (
   scope_id        TEXT NOT NULL DEFAULT '',
   origin          TEXT NOT NULL DEFAULT '',      -- '' | migrated | migrated-open | profile:<name> | bootstrap
   granted_by      TEXT NOT NULL DEFAULT '',
-  -- The granter's principal and way of acting (access.Actor); NULL for the forge, or one not resolved to a person.
+  -- The granter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   granted_by_principal UUID,
   granted_by_via TEXT NOT NULL DEFAULT '',
   reason          TEXT NOT NULL DEFAULT '',
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS invites (
   CONSTRAINT invite_role CHECK ((purpose = 'invite' AND role IN ('member','admin')) OR (purpose = 'password' AND role = ''))
 );
 CREATE INDEX IF NOT EXISTS invites_pending ON invites(username) WHERE accepted_at IS NULL AND revoked_at IS NULL;
--- A scoped system binding: authority the forge holds for one purpose on
+-- A scoped system binding: authority AppTown holds for one purpose on
 -- one project, granted by a person's decision (a project's deletion and
 -- its purge after the kept period). It permits only what its purpose
 -- names, is checked before each effect like any credential, and stops

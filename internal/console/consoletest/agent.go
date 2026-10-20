@@ -165,13 +165,13 @@ func (f *Agent) Script(ctx context.Context, in console.Launch, script string, en
 	}
 	f.mu.Unlock()
 	cmd := exec.CommandContext(ctx, "sh", "-c", script)
-	// The forge's environment without its GIT_* variables (gitexec.Environ),
+	// AppTown's environment without its GIT_* variables (gitexec.Environ),
 	// as a container would not have them: a script's git names the work tree.
 	cmd.Dir, cmd.Env, cmd.Stdout = in.Workspace.Path, gitexec.Environ(env...), stdout
 	return cmd.Run()
 }
 
-// End is Remove, as for any runtime on the forge's machine.
+// End is Remove, as for any runtime on AppTown's machine.
 func (f *Agent) End(ctx context.Context, id string) error { return f.Remove(ctx, id) }
 
 // FailRemove makes the next n removals of an agent's runtime fail, leaving

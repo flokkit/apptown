@@ -33,7 +33,7 @@ func newApp(t *testing.T, db *database.DB, configs ...Config) *App {
 			cfg.DataDir = t.TempDir()
 		}
 	}
-	// A test forge is a developer's: its fixtures' script steps run on this
+	// A test AppTown is a developer's: its fixtures' script steps run on this
 	// host (-host-scripts), as they always have.
 	cfg.HostScripts = true
 	a := constructApp(t, db, cfg)
@@ -68,7 +68,7 @@ func constructApp(t *testing.T, db *database.DB, cfg Config) *App {
 		cfg.DockerClient = defaultTestDocker()
 	}
 	if cfg.SSHConfigPath == "" {
-		// Each forge writes its attached hosts' stanzas into its own file,
+		// Each AppTown writes its attached hosts' stanzas into its own file,
 		// never the user's ~/.ssh/config, so tests that reach a host run in
 		// parallel.
 		cfg.SSHConfigPath = filepath.Join(t.TempDir(), "ssh", "config")

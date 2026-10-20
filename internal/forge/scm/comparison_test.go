@@ -127,8 +127,8 @@ func TestBehindAnswersOnlyWhatGitAnswers(t *testing.T) {
 	})
 }
 
-// forgeClone makes folder a clone of project's branch as the forge's own
-// clone is made (workflow's EnsureClone): no remote, the forge's identity.
+// forgeClone makes folder a clone of project's branch as AppTown's own
+// clone is made (workflow's EnsureClone): no remote, AppTown's identity.
 func forgeClone(t *testing.T, project, folder, branch string) {
 	t.Helper()
 	if project == "" || folder == "" {
@@ -252,7 +252,7 @@ func TestBehindRunsNoGitInAFolderItWillNotTrust(t *testing.T) {
 			if err := MarkSaved(context.Background(), folder, project, "change", saved); err != nil {
 				t.Fatal(err)
 			}
-			// An inert key the forge's clone does not write.
+			// An inert key AppTown's clone does not write.
 			if out, err := gitexec.Run(t.Context(), folder, "config", "review.note", "example"); err != nil {
 				t.Fatal(err, out)
 			}

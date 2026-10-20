@@ -272,7 +272,7 @@ func TestProjectServicesEditIsJudgedOnTheWorkspaceItCommitsTo(t *testing.T) {
 	}
 }
 
-// wantMainRecorded: the forge's record of a project's main is the hub's main,
+// wantMainRecorded: AppTown's record of a project's main is the hub's main,
 // recorded by the door named, read from the owner.
 func wantMainRecorded(t *testing.T, a *App, slug string, via scm.MainVia) {
 	t.Helper()

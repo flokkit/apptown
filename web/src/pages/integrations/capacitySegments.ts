@@ -1,7 +1,7 @@
 import type { Figure, TargetCapacity, Tenant } from '../../wire.gen'
 
 // The capacity bars' arithmetic, apart from their drawing: which segments a
-// bar holds, how wide, and what the rest of it is. A reading the forge
+// bar holds, how wide, and what the rest of it is. A reading AppTown
 // could not make is never drawn as free, and a container with no limit is
 // never drawn as a size.
 
@@ -110,7 +110,7 @@ export function usedMemory(c: TargetCapacity): Bar | null {
 // promised is what the running containers are promised of a resource: each
 // holder's limits, against the total; a promise beyond the total runs past
 // the mark. Containers with no limit are counted beside the bar. A CPU
-// limit the forge could not read as a number makes the sum partial: the
+// limit AppTown could not read as a number makes the sum partial: the
 // rest of the bar is then "not read", never "not promised" (CV-C02).
 export function promised(c: TargetCapacity, resource: 'memory' | 'cpu'): (Bar & { sum: number; partial: number }) | null {
   const r = resource === 'memory' ? c.memory : c.cpu

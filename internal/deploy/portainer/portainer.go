@@ -1,6 +1,6 @@
 // Package portainer is the Portainer target driver (design/subsystems/
 // deployment.md §8.2): the intranet rail given its name. The stack is the
-// handle; Portainer owns liveness; the forge asks it to run a generation
+// handle; Portainer owns liveness; AppTown asks it to run a generation
 // and records what it answered. No *App, no database handle: the target's
 // config is resolved by the caller at use time.
 package portainer
@@ -27,7 +27,7 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// Target is a Portainer environment as the forge reaches it: the API and
+// Target is a Portainer environment as AppTown reaches it: the API and
 // its key resolved at use time, the endpoint's name, the apps domain, and
 // the tier name release rows carry.
 type Target struct {
@@ -108,7 +108,7 @@ func PlatformText(ctx context.Context, cfg *Target, endpointID int64) string {
 
 // endpointsPath lists Portainer's environments without their Docker
 // snapshots: with them, the answer for a busy environment is megabytes
-// (each container and image), past what the forge reads.
+// (each container and image), past what AppTown reads.
 const endpointsPath = "/api/endpoints?excludeSnapshots=true"
 
 func EndpointID(ctx context.Context, cfg *Target) (int64, error) {
@@ -237,9 +237,9 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 // is the handle; Portainer owns liveness. The intranet release keeps its
 // own flow (runLANRelease) and records through the deployment.
 type Driver struct {
-	TargetID ids.ID // the forge's target record
+	TargetID ids.ID // AppTown's target record
 	Config   func(targetID ids.ID) (*Target, error)
-	// Owner records the stack when the forge creates it; nil records
+	// Owner records the stack when AppTown creates it; nil records
 	// nothing, and then take-down deletes no stack.
 	Owner deploy.Owner
 }
@@ -290,12 +290,12 @@ func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 	return deploy.Observation{Generation: p.Generation, Rollout: "unknown", Health: "unknown", URL: p.URL}, nil
 }
 
-// Teardown deletes the stack the forge recorded creating for the
+// Teardown deletes the stack AppTown recorded creating for the
 // deployment, and then each volume on the deployment's list (one the
 // forge's deploy made) when its data may go: a complete final backup
 // covers it, or the data is synthetic. Every other volume the stack's file
 // declares, and a listed one whose data may not go, stays, reported Left
-// for a person. A stack the forge did not record creating is its Portainer
+// for a person. A stack AppTown did not record creating is its Portainer
 // owner's to take down, and the teardown refuses.
 func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation int64, td deploy.TakeDown) (deploy.TakenDown, error) {
 	var out deploy.TakenDown
@@ -464,7 +464,7 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 	}
 	if applied.Created && p.Owner != nil {
 		if applied.ID <= 0 {
-			// Not recorded, so never deleted by the forge: a safe miss.
+			// Not recorded, so never deleted by AppTown: a safe miss.
 			p.Log("Portainer created the stack %s without saying its ID; it is not recorded as AppTown's, so taking it down is done in Portainer", p.Stack)
 		} else if err := p.Owner.Created(ctx, deploy.Owned{Kind: "stack", ID: strconv.FormatInt(applied.ID, 10), Name: p.Stack}); err != nil {
 			return deploy.Observation{}, fmt.Errorf("recording the stack %s AppTown created: %w", p.Stack, err)

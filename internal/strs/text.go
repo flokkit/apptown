@@ -60,7 +60,7 @@ func FirstNonBlank(values ...string) string {
 }
 
 // ShortSHA is how a commit is named to a person: its first 12 hex digits,
-// enough to stay unique in any repository a forge holds, or "(none)" when
+// enough to stay unique in any repository an AppTown holds, or "(none)" when
 // there is no commit. Every message and view uses this one form so the same
 // commit reads the same everywhere.
 func ShortSHA(sha string) string {

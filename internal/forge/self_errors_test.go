@@ -18,8 +18,8 @@ import (
 	"flokkit.io/forge/internal/poll"
 )
 
-// The forge reports its own failures through its own attachment: with
-// the forge project attached to error reporting, an errored step becomes
+// AppTown reports its own failures through its own attachment: with
+// AppTown project attached to error reporting, an errored step becomes
 // one Sentry event at the DSN's store endpoint, tagged by run and step;
 // unattached, nothing is sent.
 func TestForgeReportsItsOwnErrorsThroughItsAttachment(t *testing.T) {
@@ -145,7 +145,7 @@ func TestForgeReportsItsOwnErrorsThroughItsAttachment(t *testing.T) {
 	}
 }
 
-// The web UI asks the forge for its DSN and release; unattached, it gets
+// The web UI asks AppTown for its DSN and release; unattached, it gets
 // nothing and reports nothing.
 func TestBrowserErrorsFollowTheAttachment(t *testing.T) {
 	t.Parallel()

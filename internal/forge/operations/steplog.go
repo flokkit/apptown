@@ -57,7 +57,7 @@ func (l *StepLog) Fail(ctx context.Context, why string) {
 	}
 }
 
-// Unknown ends the open step as not known: the forge asked for an effect
+// Unknown ends the open step as not known: AppTown asked for an effect
 // and got no answer it can trust (a timeout, a lost response), so whether
 // it happened is not known.
 func (l *StepLog) Unknown(ctx context.Context, why string) {
