@@ -12,8 +12,8 @@
 set -eu
 
 version=${1:?usage: sh site/publish.sh <version>}
-: "${SITE_BUCKET:=apptown-dev-site-762435587066}"
-: "${SITE_DISTRIBUTION:=E1BE07O7LY01KL}"
+: "${SITE_BUCKET:=apptown-dev-site-078142186677}"
+: "${SITE_DISTRIBUTION:=E1XMP2SIAVI7FR}"
 here=$(cd "$(dirname "$0")" && pwd)
 
 out=$(mktemp -d)

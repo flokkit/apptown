@@ -160,6 +160,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: arn:aws:iam::762435587066:role/apptown-site-publisher
+          role-to-assume: arn:aws:iam::078142186677:role/apptown-site-publisher
           aws-region: us-east-1
       - run: sh site/publish.sh "${GITHUB_REF_NAME#v}"
