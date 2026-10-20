@@ -61,7 +61,7 @@ func TestAProfileIsQualifiedOnlyByTheFactsItWasQualifiedOn(t *testing.T) {
 // Every qualified fact set in the shipped list is complete and names the
 // record it was qualified by. The records are the maintainers' and are not
 // published with the code; their make target checks that each named one
-// exists (scripts/maintainer.mk, check-maintainer-scripts).
+// exists (private/scripts/maintainer.mk, check-maintainer-scripts).
 func TestEveryQualifiedProfileIsCompleteAndNamesItsRecord(t *testing.T) {
 	t.Parallel()
 	qualified, err := QualifiedProfiles()

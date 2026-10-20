@@ -813,7 +813,7 @@ qualification records.
 Every attempt admitted with private Docker or services
 records the worker's profile (`workerProfile`) and what it rests on
 (`privateDocker`):
-- `qualified: worker-vm (design/reviews/qualification/worker-vm-2026-10-01.md)`
+- `qualified: worker-vm (private/design/reviews/qualification/worker-vm-2026-10-01.md)`
   when the worker's measured facts match a qualified set: Debian 13,
   `x86_64`, cgroup `v2 (systemd)`, `overlay2`, Docker 26, the daemon image
   `docker@sha256:aa3df78e…` whose dockerd is `27.5.1, build 4c9b3b0`,

@@ -76,7 +76,7 @@ precheck:               ## the fast gates and the tests of affected packages, be
 # The maintainers' own stages and commands (their deploys, demo, lab, nightly
 # runner and the public export), which append to the stage lists above. The
 # file is not in the published repository, and nothing public needs it.
--include scripts/maintainer.mk
+-include private/scripts/maintainer.mk
 
 # The journey tier (build tag journey) runs the user stories end to end. CI
 # runs it on the docker-host runner; it takes about a minute, so precheck runs
@@ -118,7 +118,7 @@ check-docs:             ## current guides state the current rule: no dated names
 
 # The UI tour (site/tour): a small example team's AppTown, photographed in
 # both themes by Playwright (APPTOWN_PLAYWRIGHT_MODULE, default the nightly
-# tier's install: scripts/nightly-tiers.sh prepare). Local only, not CI; run
+# tier's install: private/scripts/nightly-tiers.sh prepare). Local only, not CI; run
 # it and commit site/tour before tagging a release (release.sh checks).
 tour: web                ## the UI tour's screenshots and page, from site/tour/tour.yaml; commit site/tour before a release
 	go test -tags browser ./internal/forge -run '^TestTour$$' -count=1
@@ -149,6 +149,7 @@ check-lint-test:        ## the lint rules and their count check, on fixtures
 
 check-shape:            ## the architecture's shape rules against scripts/shape-baseline.json
 	python3 scripts/shape-check_test.py
+	python3 scripts/codebase-shape_test.py
 	python3 scripts/release_test.py
 	python3 scripts/third_party_notices_test.py
 	python3 scripts/stranger_install_test.py

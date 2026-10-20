@@ -43,7 +43,7 @@ func TestTheAgentImageChecksEveryDownload(t *testing.T) {
 }
 
 // The agent image carries no Go toolchain: a project's steps get Go from
-// the project's own mise.toml (design/plans/agent-image-trim-2026-10-17.md),
+// the project's own mise.toml (private/design/plans/agent-image-trim-2026-10-17.md),
 // and gopls is built in a stage of its own, of which only the binary is
 // copied. So nothing in the final stage downloads, unpacks or runs Go.
 //

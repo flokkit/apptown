@@ -26,7 +26,7 @@ How a Flokkit release is made, in order. The release script is
 3. **The tour.** Run `make tour` and commit `site/tour`: the UI tour's
    screenshots, made from a small example team's AppTown (`site/tour/tour.yaml`
    lists the stops). It needs Playwright with Chromium
-   (`scripts/nightly-tiers.sh prepare`, or `APPTOWN_PLAYWRIGHT_MODULE`), and
+   (`private/scripts/nightly-tiers.sh prepare`, or `APPTOWN_PLAYWRIGHT_MODULE`), and
    compresses the shots when `oxipng` is installed. Look at the shots before
    committing them.
 4. **The tag.** `git tag -a v<version>` on that commit.

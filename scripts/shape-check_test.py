@@ -633,7 +633,7 @@ class RatchetsTest(unittest.TestCase):
                 "// Fixed after finding S2-01.\n"
                 "// Probed on 8 October 2026 (RTB-01).\n"
                 "x := 1 // 2026-10-01: changed\n"
-                "// See design/plans/thing.md.\n"
+                "// See private/design/plans/thing.md.\n"
                 "// A landing reads only; it publishes nothing.\n"
                 'var u = "https://example.com/round 3"\n')
         root = self.tree({"internal/forge/workflow/a.go": body, "cmd/apptown/b.go": body,

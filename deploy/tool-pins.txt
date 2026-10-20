@@ -15,7 +15,7 @@
 #   arg A     ARG A=<version> in deploy/apptown-agent/Dockerfile
 #
 # Not here: AppTown's own build and CI toolchain (go.mod, .gitlab-ci.yml,
-# deploy/ci-heavy, cmd/apptown-gate), and what a project owns once adopted
+# private/deploy/ci-heavy, cmd/apptown-gate), and what a project owns once adopted
 # (stock/toolchains, stock/seeds).
 
 # tool          version       pinned as

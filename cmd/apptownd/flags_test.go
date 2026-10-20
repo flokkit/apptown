@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"flag"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -131,12 +133,15 @@ func TestThePortainerEnvironmentFlagReachesTheForgeConfig(t *testing.T) {
 	}
 }
 
-// scripts/deploy-ct.sh refuses a CT whose settings still use an old
+// private/scripts/deploy-ct.sh refuses a CT whose settings still use an old
 // FORGE_<FLAG> name, and only those (the CLI's FORGE_ variables may stay).
 // Its list is this daemon's flags, so a new flag cannot slip past it.
 func TestTheCTDeployKnowsEveryDaemonSetting(t *testing.T) {
 	t.Parallel()
-	src, err := os.ReadFile(filepath.Join("..", "..", "scripts", "deploy-ct.sh"))
+	src, err := os.ReadFile(filepath.Join("..", "..", "private", "scripts", "deploy-ct.sh"))
+	if errors.Is(err, fs.ErrNotExist) {
+		t.Skip("the maintainers' deploy script is not in the public tree")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

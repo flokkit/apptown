@@ -1,4 +1,4 @@
-"""Regressions for scripts/docs-current.py: current guides carry no dated names, status lines or links into plans and reviews."""
+"""Regressions for scripts/docs-current.py: current guides carry no dated names, status lines or public links into private/."""
 import subprocess
 import sys
 import tempfile
@@ -30,8 +30,8 @@ class DocsCurrent(unittest.TestCase):
 
     def test_working_papers_may_be_dated_and_say_anything(self):
         code, out = run({
-            "design/plans/thing-2026-10-19.md": "Status: proposed\n[r](../reviews/thing-2026-10-19.md)\n",
-            "design/reviews/thing-2026-10-19.md": "> Superseded by later work\n",
+            "private/design/plans/thing-2026-10-19.md": "Status: proposed\n[r](../reviews/thing-2026-10-19.md)\n",
+            "private/design/reviews/thing-2026-10-19.md": "> Superseded by later work\n",
         })
         self.assertEqual(code, 0, out)
 
@@ -42,25 +42,32 @@ class DocsCurrent(unittest.TestCase):
             self.assertEqual(code, 1, name)
             self.assertIn("has a date in it", out)
 
-    def test_a_link_into_a_plan_or_review_fails(self):
+    def test_a_link_into_private_fails(self):
         code, out = run({
-            "design/subsystems/a.md": "See the [plan](../plans/a-2026-10-01.md).\n",
-            "design/architecture/b.md": "[earlier](../reviews/b.md#why)\n",
-            "CLAUDE.md": "[work](design/plans/future-stuff.md)\n",
+            "design/subsystems/a.md": "See the [plan](../../private/design/plans/a-2026-10-01.md).\n",
+            "design/architecture/b.md": "[earlier](../../private/design/reviews/b.md#why)\n",
+            "design/operations/c.md": "[demo](../../private/design/operations/do-demo.md)\n",
+            "CLAUDE.md": "[work](private/design/plans/future-stuff.md)\n",
         })
         self.assertEqual(code, 1)
-        self.assertEqual(out.count("links a plan or review"), 3, out)
+        self.assertEqual(out.count("links into private/"), 4, out)
+
+    def test_a_link_into_private_inside_a_private_block_passes(self):
+        # CLAUDE.md keeps the maintainers' navigation in private blocks, which
+        # the public export drops.
+        code, out = run({"CLAUDE.md": "# Guide\n<!-- private -->\n[position](private/design/position/position.md)\n<!-- /private -->\n"})
+        self.assertEqual(code, 0, out)
 
     def test_ordinary_markdown_link_forms_into_working_papers_fail(self):
         cases = {
-            "inline with title": '[plan](../plans/example.md "Plan")',
-            "reference": '[plan][policy]\n\n[policy]: ../plans/example.md',
+            "inline with title": '[plan](../../private/design/plans/example.md "Plan")',
+            "reference": '[plan][policy]\n\n[policy]: ../../private/design/plans/example.md',
         }
         for name, link in cases.items():
             with self.subTest(name=name):
                 code, out = run({"design/subsystems/a.md": link + "\n"})
                 self.assertEqual(code, 1, out)
-                self.assertIn("links a plan or review", out)
+                self.assertIn("links into private/", out)
 
     def test_a_status_line_fails(self):
         code, out = run({"design/subsystems/a.md": "# A\n\nStatus: current. Checked on 18 September.\n",
@@ -75,10 +82,10 @@ class DocsCurrent(unittest.TestCase):
         self.assertEqual(code, 0, out)
 
     def test_a_shipped_guide_is_held_to_the_same_rules(self):
-        code, out = run({"stock/docs/guides/a.md": "See the [plan](../../../design/plans/a.md).\n",
+        code, out = run({"stock/docs/guides/a.md": "See the [plan](../../../private/design/plans/a.md).\n",
                          "stock/docs/guides/b-2026-10-19.md": "# B\n"})
         self.assertEqual(code, 1)
-        self.assertIn("links a plan or review", out)
+        self.assertIn("links into private/", out)
         self.assertIn("has a date in it", out)
 
     def test_a_shipped_guide_calling_the_product_forge_fails(self):

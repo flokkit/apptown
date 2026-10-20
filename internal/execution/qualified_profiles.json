@@ -1,6 +1,6 @@
 [
   {
-    "record": "design/reviews/qualification/worker-vm-2026-10-01.md",
+    "record": "private/design/reviews/qualification/worker-vm-2026-10-01.md",
     "name": "worker-vm",
     "os": "linux Debian GNU/Linux 13 (trixie)",
     "architecture": "x86_64",

@@ -16,7 +16,7 @@
 # answers. That puts the first administrator's credential in this
 # container's log until the administrator is created: a trial-only
 # exception, accepted for an AppTown on one's own computer
-# (design/plans/one-command-trial-2026-10-19.md, section 3). The server
+# (private/design/plans/one-command-trial-2026-10-19.md, section 3). The server
 # branch prints none.
 set -eu
 
@@ -94,7 +94,7 @@ fi
 : "${APPTOWN_AUTH:=internal}"
 # HTTPS from AppTown's own certificate authority (apptownd -local-tls), so
 # every app sees on a laptop what it sees on a server: requests arrive as
-# HTTPS (design/plans/trial-https-2026-10-20.md).
+# HTTPS (private/design/plans/trial-https-2026-10-20.md).
 : "${APPTOWN_LOCAL_TLS:=true}"
 : "${APPTOWN_PUBLIC_HOST:=https://localhost:7777}"
 : "${APPTOWN_TIER_DOMAIN:=preview=https://preview.localhost:7777,main=https://main.localhost:7777}"

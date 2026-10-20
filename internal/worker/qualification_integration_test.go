@@ -26,7 +26,7 @@ import (
 // (workertest.External names the worker), observes the worker's Docker
 // through DOCKER_HOST, and restarts the worker through its machine's
 // control command. Skipped unless APPTOWN_QUAL_WORKER_URL is set. The record
-// of a run is design/reviews/qualification/.
+// of a run is private/design/reviews/qualification/.
 
 // newQualFixture is a fixture over the external worker, checked to observe
 // that worker's Docker and not this machine's.

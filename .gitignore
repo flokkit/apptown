@@ -22,5 +22,5 @@ presso*
 /apptown-worker
 
 # DigitalOcean demo: keys, certificates, tokens and built binaries (scripts/do-demo)
-scripts/do-demo/.state/
+private/scripts/do-demo/.state/
 /dist/

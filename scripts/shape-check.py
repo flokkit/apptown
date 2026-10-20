@@ -293,7 +293,7 @@ def callbacks():
 # package depends on no AppTown domain or database, and the go list check
 # below still refuses anything that would bring one in. It links
 # internal/deploy since it boots previews with AppTown's own boot code
-# (design/plans/isolated-execution-previews-on-workers-2026-09-30.md): the
+# (private/design/plans/isolated-execution-previews-on-workers-2026-09-30.md): the
 # library, not the deployment subsystem, which stays refused.
 STANDALONE = {"apptown-deploy": {"forge", "deployment", "preview", "dataprotection", "database", "workflow", "project", "conformance", "console", "wow", "adoption", "access"},
               "apptown-console": {"forge", "workflow", "project", "conformance", "deployment", "preview", "dataprotection", "deploy", "wow", "adoption", "access", "integration", "model"},

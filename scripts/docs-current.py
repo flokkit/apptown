@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Current guides state the current rule, not its history (CLAUDE.md).
 
-Under design/, outside plans/ and reviews/ (dated working papers), in
-stock/docs/ (the guides AppTown ships) and in CLAUDE.md, this fails, naming
-the file and line, on:
+Under design/, in stock/docs/ (the guides AppTown ships) and in CLAUDE.md,
+this fails, naming the file and line, on:
 
   - a file or folder name with a date in it (2026-10-19, 2026-10, 20261019);
-  - a Markdown link into design/plans/ or design/reviews/;
+  - a Markdown link into private/ (plans, reviews and everything else the
+    public export leaves out), outside a <!-- private --> block: the
+    maintainers' navigation inside such a block is fine, since the export
+    drops the block;
   - a line starting "Status:" or "> Superseded".
 
 In stock/docs/ and in the guidance AppTown gives agents (stock/guidance/, the
@@ -29,7 +31,7 @@ DATED = re.compile(r"(?<!\d)(20\d\d-\d\d(-\d\d)?|20\d{6})(?!\d)")
 LINK = re.compile(r"\]\(\s*<?([^)\s>]+)>?(?:\s+[\"'(][^)]*)?\)")
 REFERENCE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?")
 STATUS = re.compile(r"^(Status:|> Superseded)")
-WORKING_PAPERS = ("plans", "reviews")
+PRIVATE_OPEN, PRIVATE_CLOSE = "<!-- private -->", "<!-- /private -->"
 
 
 # The old product name as a word in prose, across a line break too.
@@ -42,12 +44,7 @@ CODE = re.compile(r"```.*?```|^    [^\n]*$|`[^`\n]*`|\{apptown:[a-z]+\}|\]\([^)]
 
 
 def current_guides(root):
-    design = root / "design"
-    for path in sorted(design.rglob("*")):
-        rel = path.relative_to(design)
-        if rel.parts and rel.parts[0] in WORKING_PAPERS:
-            continue
-        yield path
+    yield from sorted((root / "design").rglob("*"))
     shipped = root / "stock" / "docs"
     if shipped.exists():
         yield from sorted(shipped.rglob("*"))
@@ -83,13 +80,20 @@ def problems(root):
         if rel.startswith("stock/docs/"):
             for n in old_names(path.read_text()):
                 out.append(f"{rel}:{n}: says forge for the product; write AppTown, or put the command in backticks")
+        in_private = False
         for n, line in enumerate(path.read_text().splitlines(), 1):
+            if line.strip() == PRIVATE_OPEN:
+                in_private = True
+            elif line.strip() == PRIVATE_CLOSE:
+                in_private = False
             if STATUS.match(line):
                 out.append(f"{rel}:{n}: a status line; state the current rule instead")
+            if in_private:
+                continue
             for target in LINK.findall(line) + REFERENCE.findall(line):
                 to = link_target(path, target, root)
-                if to and to.startswith(("design/plans/", "design/reviews/")):
-                    out.append(f"{rel}:{n}: links a plan or review ({to}); write the reason into the guide")
+                if to and (to == "private" or to.startswith("private/")):
+                    out.append(f"{rel}:{n}: links into private/ ({to}), which is not published; write the reason into the guide, or put the link in a <!-- private --> block")
     guidance = root / "stock" / "guidance"
     if guidance.exists():
         for path in sorted(guidance.rglob("*.md")):

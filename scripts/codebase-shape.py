@@ -21,7 +21,7 @@ SKIP_SEGMENTS = {"node_modules", "dist", "vendor", ".git", "__pycache__"}
 SKIP_PREFIXES = ("design/experiments/",)
 # Harness, not product: the evaluation corpora and their runners, and the
 # repository's own scripts. Measured with --with-tooling.
-TOOLING_PREFIXES = ("eval/", "scripts/")
+TOOLING_PREFIXES = ("eval/", "scripts/", "private/eval/", "private/scripts/")
 SKIP_FILES = ("package-lock.json", "go.sum")
 # Fixed categorical order (dataviz reference palette); a module keeps its slot.
 LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
