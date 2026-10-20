@@ -23,16 +23,24 @@ How a Flokkit release is made, in order. The release script is
    cannot check the rest: whether every change is named, and whether a
    removal was announced a minor release before. That is the person
    releasing's job.
-3. **The tag.** `git tag -a v<version>` on that commit.
-4. **The build.** `sh scripts/release.sh <version>` from a clean checkout at
-   the tag. It checks the notes, runs the upgrade test again and writes the
+3. **The tour.** Run `make tour` and commit `site/tour`: the UI tour's
+   screenshots, made from a small example team's AppTown (`site/tour/tour.yaml`
+   lists the stops). It needs Playwright with Chromium
+   (`scripts/nightly-tiers.sh prepare`, or `FORGE_PLAYWRIGHT_MODULE`), and
+   compresses the shots when `oxipng` is installed. Look at the shots before
+   committing them.
+4. **The tag.** `git tag -a v<version>` on that commit.
+5. **The build.** `sh scripts/release.sh <version>` from a clean checkout at
+   the tag. It refuses to build when the tour is older than the sources it
+   shows (`site/tour/stamp.json`), checks the notes, runs the upgrade test again and writes the
    archives, `SHA256SUMS` and `RELEASE-NOTES.md` (the notes and the build's
    facts) under `dist/release/v<version>/`.
-5. **Freeze the release's forge** for the releases after it, at the tag, and
+6. **Freeze the release's forge** for the releases after it, at the tag, and
    commit the result on main:
    `go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>`.
-6. **Publish** the archives. This is a separate step: where they go is
-   decided per release.
+7. **Publish** the archives. This is a separate step: where they go is
+   decided per release. The site, apptown.dev with its tour, is published by
+   the release workflow's `site` job (design/operations/github.md).
 
 
 ## While a release candidate runs in production

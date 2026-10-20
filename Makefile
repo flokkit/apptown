@@ -1,4 +1,4 @@
-.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-docs
+.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-docs tour
 
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
@@ -108,9 +108,21 @@ check-pins:             ## the tools the forge runs for projects have one versio
 	python3 scripts/pins-check_test.py
 	python3 scripts/pins-check.py
 
-check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews
+check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; the tour is complete
 	python3 scripts/docs-current_test.py
 	python3 scripts/docs-current.py
+	python3 scripts/tour_test.py
+	python3 scripts/tour-check.py
+
+# The UI tour (site/tour): a small example team's AppTown, photographed in
+# both themes by Playwright (FORGE_PLAYWRIGHT_MODULE, default the nightly
+# tier's install: scripts/nightly-tiers.sh prepare). Local only, not CI; run
+# it and commit site/tour before tagging a release (release.sh checks).
+tour: web                ## the UI tour's screenshots and page, from site/tour/tour.yaml; commit site/tour before a release
+	go test -tags browser ./internal/forge -run '^TestTour$$' -count=1
+	@if command -v oxipng >/dev/null 2>&1; then oxipng -q -o 4 --strip safe site/tour/*.png; else echo "tour: oxipng not on PATH; the shots are not compressed (brew install oxipng)"; fi
+	python3 scripts/tour-stamp.py write
+	python3 scripts/tour-check.py
 
 check-migrations:       ## a released migration keeps its number and statements: the lock only grows from origin/main's
 	sh scripts/migrations-append-only.sh

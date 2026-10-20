@@ -1,6 +1,7 @@
 """release.sh builds only from a clean checkout at exactly its tag: an
 untagged commit and a dirty tree are refused before anything is built."""
 import os
+import sys
 import shutil
 import subprocess
 import tarfile
@@ -65,6 +66,8 @@ class ReleaseChecksums(unittest.TestCase):
             os.makedirs(os.path.join(self.repo, d))
         shutil.copy(os.path.join(HERE, "release.sh"), os.path.join(self.repo, "scripts"))
         shutil.copy(os.path.join(HERE, "third-party-notices.py"), os.path.join(self.repo, "scripts"))
+        shutil.copy(os.path.join(HERE, "tour-stamp.py"), os.path.join(self.repo, "scripts"))
+        os.makedirs(os.path.join(self.repo, "site", "tour"))
         os.makedirs(os.path.join(self.repo, "releases"))
         os.makedirs(os.path.join(self.repo, "stock", "docs", "api"))
         for name, body in [("deploy/forge-agent/Dockerfile", "FROM scratch\n"), ("deploy/systemd/forged.service", "[Unit]\n"), (".gitignore", "/dist/\n/bin/\n/calls.log\n"), ("LICENSE", "Apache License\n"), ("NOTICE", "Flokkit Forge\n"),
@@ -76,6 +79,7 @@ class ReleaseChecksums(unittest.TestCase):
         self.calls = os.path.join(self.repo, "calls.log")
         self.stub("npm", f"#!/bin/sh\necho npm \"$@\" >> {self.calls}\n")
         self.stub("make", f"#!/bin/sh\necho make \"$@\" >> {self.calls}\n")
+        subprocess.run([sys.executable, "scripts/tour-stamp.py", "write"], cwd=self.repo, check=True)
         git(self.repo, "init", "-q")
         git(self.repo, "add", "-A")
         git(self.repo, "commit", "-q", "-m", "seed")
@@ -159,6 +163,8 @@ class ReleaseChecksums(unittest.TestCase):
         git(self.repo, "tag", "-a", "v0.9.0", "-m", "before")
         with open(os.path.join(self.repo, "stock", "docs", "api", "openapi.json"), "w") as f:
             f.write('{"paths": {"/api/v1/new": {}}}\n')
+        # The maintainer ran make tour after the change (the tour's own rule).
+        subprocess.run([sys.executable, "scripts/tour-stamp.py", "write"], cwd=self.repo, check=True)
         self.retag(NOTES)
         r = self.release()
         self.assertEqual(r.returncode, 1, r.stderr)
@@ -167,6 +173,20 @@ class ReleaseChecksums(unittest.TestCase):
         self.retag(NOTES.replace("## HTTP API changes\n\nNone.", "## HTTP API changes\n\n- GET /api/v1/new"))
         r = self.release()
         self.assertEqual(r.returncode, 0, r.stderr)
+
+    # A tour older than the sources it shows refuses the release before the
+    # upgrade test or any build.
+    def test_a_stale_tour_refuses_the_release_before_anything_is_built(self):
+        with open(os.path.join(self.repo, "web", "App.tsx"), "w") as f:
+            f.write("changed after make tour")
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-q", "-m", "ui change")
+        git(self.repo, "tag", "-f", "-a", "v1.0.0", "-m", "one")
+        r = self.release()
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("run make tour", r.stderr)
+        self.assertFalse(os.path.exists(self.calls) and "upgrade-test" in open(self.calls).read())
+        self.assertFalse(os.path.isdir(os.path.join(self.repo, "dist")))
 
     def test_a_failing_upgrade_test_fails_the_release_before_anything_is_built(self):
         self.stub("make", "#!/bin/sh\n[ \"$1\" = upgrade-test ] && exit 1\nexit 0\n")

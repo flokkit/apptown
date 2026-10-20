@@ -1,0 +1,53 @@
+# The AppTown tour: the stops, in order. `make tour` photographs each one in
+# the light and the dark theme and writes index.html from this file.
+# path may use {review} (the change waiting for approval), {chat} (the
+# change with a chat) and {session} (that chat's session).
+stops:
+  - id: home
+    title: Home
+    caption: Where every person starts. Each app here keeps a record of every change, who asked, what was checked and who approved it.
+    path: /
+  - id: projects
+    title: Projects
+    caption: The team's apps, each with its way of working and what is running.
+    path: /projects
+  - id: new-project
+    title: Start an app
+    caption: "Three steps: a name, a way of working (the team's habits for that kind of app, or describe the app and AppTown suggests one), and where the code lives."
+    path: /projects/_new
+  - id: project
+    title: An app's page
+    caption: What the app is, its open changes, and where it runs.
+    path: /projects/lunch-orders
+  - id: chat
+    title: Chat with the helper
+    caption: Say what you want changed. A coding agent works on its own copy of the app, runs the tests, and says when there is something to try.
+    path: /projects/lunch-orders/console?change={chat}
+  - id: change
+    title: A change, checked
+    caption: Every change runs the project's checks. Here the tests passed and the style check failed, and the change waits for a person.
+    path: /changes/{review}
+  - id: infrastructure
+    title: Infrastructure
+    caption: The machines and services apps run on, and how much room each has.
+    path: /infrastructure
+  - id: conformance
+    title: Conformance
+    caption: Whether each app still follows the team's ways of working, and what to fix.
+    path: /conformance
+  - id: ways-of-working
+    title: Ways of working
+    caption: The team's habits as data, guidance, checks and workflows, adopted by projects and versioned.
+    path: /packs
+  - id: usage
+    title: Usage
+    caption: What the agents cost in tokens, and where each workflow's time goes, step by step, including how long approvals wait for a person.
+    path: /usage
+  - id: people
+    title: People
+    caption: Who can do what, granted by role, and the record of each grant.
+    path: /people
+  - id: docs
+    title: Docs
+    caption: The guides ship with AppTown and open inside it.
+    path: /docs

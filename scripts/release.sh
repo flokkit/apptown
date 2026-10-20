@@ -71,6 +71,14 @@ if [ -n "$previous" ] && ! git diff --quiet "$previous" HEAD -- stock/docs/api/o
 	fi
 fi
 
+# The tour's screenshots (site/tour) are committed with the release: a
+# source the shots depend on that changed since make tour last ran refuses
+# the release before anything is built (design/operations/releasing.md).
+if ! python3 scripts/tour-stamp.py check; then
+	echo "release: nothing is built; run make tour, commit site/tour, and tag again" >&2
+	exit 1
+fi
+
 # The web bundle is embedded in forged; built once for every platform, by
 # the upgrade test's make target (Go embeds it there too), which must pass
 # before anything is built.

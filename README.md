@@ -65,6 +65,8 @@ low-code, and it doesn't replace your Git host or ticket tracker.
 - [Running one](stock/docs/guides/running-apptown.md): installing and
   operating AppTown, including model-backed agents.
 - [Supported platforms and system requirements](stock/docs/guides/platforms.md).
+- [The tour](https://apptown.dev/tour/): AppTown's main pages, with
+  screenshots (the pictures are in [site/tour](site/tour)).
 
 ## What is here
 

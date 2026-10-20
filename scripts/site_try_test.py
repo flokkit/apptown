@@ -225,7 +225,9 @@ class TryScript(unittest.TestCase):
         self.stub('aws', '''#!/bin/sh
 printf '%s\\n' "$*" >> "$CALLS"
 if [ "$1 $2" = 's3 cp' ]; then
-  cp "$3" "$PUBLISHED/$(basename "$4")"
+  key=${4#s3://*/}
+  mkdir -p "$PUBLISHED/$(dirname "$key")"
+  cp "$3" "$PUBLISHED/$key"
 fi
 ''')
         self.env.update(SITE_BUCKET='review-bucket', SITE_DISTRIBUTION='review-distribution', PUBLISHED=str(self.base))
@@ -241,7 +243,11 @@ fi
                 calls = (self.base / 'calls').read_text()
                 self.assertIn('--content-type text/html; charset=utf-8', calls)
                 self.assertIn('--content-type text/plain; charset=utf-8', calls)
-                self.assertIn('--paths / /index.html /try /try.sh', calls)
+                self.assertIn('--paths / /index.html /try /try.sh /tour/*', calls)
+                # The tour goes with the site: its page, and its shots as images.
+                self.assertEqual((self.base / 'tour' / 'index.html').read_bytes(), (ROOT / 'site/tour/index.html').read_bytes())
+                self.assertIn("s3 sync", calls)
+                self.assertIn('--content-type image/png', calls)
 
 
     def trust_calls(self):

@@ -30,6 +30,11 @@ aws s3 cp "$out/index.html" "s3://$SITE_BUCKET/index.html" \
 	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
 aws s3 cp "$out/try.sh" "s3://$SITE_BUCKET/try.sh" \
 	--content-type 'text/plain; charset=utf-8' --cache-control 'max-age=300'
+# The tour (make tour; committed), as it is.
+aws s3 cp "$here/tour/index.html" "s3://$SITE_BUCKET/tour/index.html" \
+	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
+aws s3 sync "$here/tour/" "s3://$SITE_BUCKET/tour/" --exclude '*' --include '*.png' \
+	--content-type 'image/png' --cache-control 'max-age=300'
 aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION" \
-	--paths '/' '/index.html' '/try' '/try.sh' >/dev/null
+	--paths '/' '/index.html' '/try' '/try.sh' '/tour/*' >/dev/null
 echo "published apptown.dev with try.sh starting $version"
