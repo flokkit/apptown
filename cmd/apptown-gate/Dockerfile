@@ -1,12 +1,14 @@
 # apptown-gate: the access gate in front of a restored copy of production data.
 # Build from the repository root (the module root):
 #   make gate-image            (or: docker build --platform linux/amd64 -f cmd/apptown-gate/Dockerfile .)
-# The gate imports only the standard library, so the build needs go.mod and
-# the two gate packages, nothing else; Dockerfile.dockerignore keeps the rest
-# of the repository out of the build context.
+# The gate imports the standard library and internal/clock (itself standard
+# library only), so the build needs go.mod and those three packages, nothing
+# else; Dockerfile.dockerignore keeps the rest of the repository out of the
+# build context. A new import of the module's own packages goes in both.
 FROM golang:1.26.9 AS build
 WORKDIR /src
 COPY go.mod ./
+COPY internal/clock/clock.go internal/clock/
 COPY internal/gate/ internal/gate/
 COPY cmd/apptown-gate/ cmd/apptown-gate/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \

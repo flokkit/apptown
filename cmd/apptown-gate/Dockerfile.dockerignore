@@ -2,6 +2,7 @@
 # local data, stays out of the build context.
 *
 !go.mod
+!internal/clock/clock.go
 !internal/gate/
 !cmd/apptown-gate/
 internal/gate/*_test.go
