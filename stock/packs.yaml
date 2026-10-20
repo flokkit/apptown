@@ -182,7 +182,7 @@ packs:
     workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: java-spring
-    resources: {memory: 256M}
+    resources: {memory: 320Mi}
     description: >-
       Experimental: its landing fixes have not shipped a new app yet. Spring Boot on Temurin 21, Maven, Postgres + Flyway, deployed as
       an executable jar. Starts from Spring Initializr on the first change.

@@ -164,13 +164,15 @@ Build output stays out of git: `.gitignore` names `target/`, which
 is everything Maven writes, so a test run can never be committed by
 accident.
 
-**Fits a container limit.** The JVM sizes its heap from the memory it can
-see: with no limit that is the whole host's, so a small app grows to hundreds
-of megabytes; inside a limit it takes a quarter by default. A small Spring
-Boot service runs comfortably under about 192 MB: declare
-`resources: { memory: 256M }` in `.apptown/app.yaml`, start the JVM with
-`-XX:MaxRAMPercentage=75 -XX:+UseSerialGC` (the serial collector suits one or
-two CPUs and uses the least memory of its own), and set
-`spring.threads.virtual.enabled=true`; the seeded Dockerfile does all three.
-The JDK's AOT cache (`-XX:AOTCache`, JDK 25) and a GraalVM native image are
-opt-in, not defaults. deploy/memory-declared says how to choose and check it.
+**Fits a container limit.** The JVM sizes its heap from the memory it can see:
+with no limit that is the whole host's, so a small app grows to hundreds of
+megabytes. Much of a small Spring Boot service's memory is not heap: two
+measured at a 256Mi limit held 210–225 MB under load, about 150 MB of it
+outside the heap. Declare `resources: { memory: 320Mi }` in
+`.apptown/app.yaml`, start the JVM with `-XX:MaxRAMPercentage=30
+-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=32m
+-Xss512k`, set `MALLOC_ARENA_MAX=2`, and set
+`spring.threads.virtual.enabled=true`; the seeded Dockerfile does all of it.
+With a 75% heap share an app was stopped under load at 256Mi. The JDK's AOT
+cache (`-XX:AOTCache`, JDK 25) and a GraalVM native image are opt-in, not
+defaults. deploy/memory-declared says how to choose and check it.

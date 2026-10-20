@@ -20,12 +20,23 @@ RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* \
 COPY --from=build /src/target/*.jar /app.jar
 USER app
 EXPOSE 8080
-# The JVM sizes its heap from the memory it can see: the part's declared
-# limit (256M in .apptown/app.yaml), of which it takes a quarter by default.
-# 75% gives the heap room and leaves the rest for the JVM's own (metaspace,
-# threads, code cache). The serial collector suits a small service on one
-# or two CPUs: no collector threads and the least memory of its own. Virtual
-# threads keep request threads cheap (Spring Boot reads this variable as
-# spring.threads.virtual.enabled).
+# Memory. Measured on two small Spring Boot + Hibernate + Flyway apps at a
+# 256Mi limit through a burst of requests: with these settings they held
+# 210-225 MiB, about 150 MiB of it outside the heap (class metadata, code,
+# thread stacks, native allocations). With -XX:MaxRAMPercentage=75 the heap
+# could grow into that room and one app was killed under load. The
+# .apptown/app.yaml declares 320Mi for headroom over those measurements.
+#   -XX:MaxRAMPercentage=30     asks for a smaller heap; the JVM's own floor
+#                               still allows about 126 MiB at 256-320Mi
+#   MALLOC_ARENA_MAX=2          caps malloc arenas at two, reducing native
+#                               memory overhead
+#   -XX:+UseSerialGC            no collector threads, least memory of its own
+#   -XX:TieredStopAtLevel=1     the quick compiler only: less code cache and
+#                               compiler memory, slower peak speed a small
+#                               service does not need
+#   -XX:ReservedCodeCacheSize=32m, -Xss512k   smaller code cache and stacks
+# Virtual threads keep request threads cheap (Spring Boot reads this
+# variable as spring.threads.virtual.enabled).
+ENV MALLOC_ARENA_MAX=2
 ENV SPRING_THREADS_VIRTUAL_ENABLED=true
-CMD ["java", "-XX:MaxRAMPercentage=75", "-XX:+UseSerialGC", "-jar", "/app.jar"]
+CMD ["java", "-XX:MaxRAMPercentage=30", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1", "-XX:ReservedCodeCacheSize=32m", "-Xss512k", "-jar", "/app.jar"]
