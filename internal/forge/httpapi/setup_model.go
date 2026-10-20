@@ -10,6 +10,7 @@ import (
 	"flokkit.io/forge/internal/clock"
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/forge/audit"
+	"flokkit.io/forge/internal/forge/inference"
 	"flokkit.io/forge/internal/forge/integration"
 	"flokkit.io/forge/internal/forge/model"
 	"flokkit.io/forge/internal/forge/secret"
@@ -26,11 +27,14 @@ type SetupModel struct {
 	// openRouterBase is OpenRouter's API root, whose public model list
 	// resolves its latest-Sonnet alias; tests point it at a fake.
 	openRouterBase string
+	// anthropicBase is Anthropic's API root, whose model list (asked with
+	// the key being set up) names its newest Sonnet; tests point it at a fake.
+	anthropicBase string
 }
 
 func NewSetupModel(secrets *secret.Service, integrations *integration.Service, models *model.Slots, db *database.DB, now func() time.Time) SetupModel {
 	return SetupModel{secrets: secrets, integrations: integrations, models: models, db: db, now: now,
-		openRouterBase: openrouter.DefaultBase}
+		openRouterBase: openrouter.DefaultBase, anthropicBase: inference.AnthropicBase}
 }
 
 // A first OpenRouter key's default model is the one OpenRouter's
@@ -43,6 +47,23 @@ const (
 	openRouterSonnetAlias = "~anthropic/claude-sonnet-latest"
 	openRouterFallback    = "openrouter/anthropic/claude-sonnet-5.5"
 )
+
+// A first Anthropic key's default model is the newest Sonnet in Anthropic's
+// own model list, asked with that key. Anthropic has no "latest" alias: the
+// earlier default, anthropic/claude-sonnet-latest, named no model and every
+// chat failed. anthropicFallback is used only when the list cannot be read,
+// and is replaced at the next setup.
+const anthropicFallback = "anthropic/claude-sonnet-5-5"
+
+// anthropicSonnet is "anthropic/" and the newest Sonnet Anthropic lists for
+// key, or anthropicFallback when its list cannot say.
+func (h SetupModel) anthropicSonnet(ctx context.Context, key string) string {
+	id, err := inference.AnthropicNewest(ctx, h.anthropicBase, key, "claude-sonnet-")
+	if err != nil {
+		return anthropicFallback
+	}
+	return "anthropic/" + id
+}
 
 // openRouterSonnet is "openrouter/" and the latest-Sonnet alias's target,
 // or openRouterFallback when OpenRouter's list cannot say.
@@ -72,10 +93,10 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 400, "paste an API key")
 			return
 		}
-		var secretName, defModel string
+		var secretName string
 		switch in.Provider {
 		case "anthropic":
-			secretName, defModel = "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-latest"
+			secretName = "ANTHROPIC_API_KEY"
 		case "openrouter":
 			secretName = "OPENROUTER_API_KEY"
 		default:
@@ -83,11 +104,13 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		model := strings.TrimSpace(in.Model)
-		if model == "" && in.Provider == "openrouter" {
-			model = h.openRouterSonnet(r.Context())
-		}
 		if model == "" {
-			model = defModel
+			switch in.Provider {
+			case "anthropic":
+				model = h.anthropicSonnet(r.Context(), in.Key)
+			case "openrouter":
+				model = h.openRouterSonnet(r.Context())
+			}
 		}
 		// secrets.env: append or replace the key's line. 0600 — it holds values.
 		if err := h.secrets.SetBootstrap(secretName, in.Key); err != nil {
