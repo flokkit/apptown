@@ -77,8 +77,9 @@ db="$HOME/.pki/nssdb"; [ -d "$db" ] || db="$HOME/.local/share/pki/nssdb"
 mkdir -p "$db"; [ -f "$db/cert9.db" ] || certutil -d "sql:$db" -N --empty-password
 certutil -d "sql:$db" -A -t C,, -n "AppTown local CA" -i apptown-local-ca.pem
 
-# Firefox: each profile keeps its own
-for p in ~/.mozilla/firefox/*/cert9.db; do
+# Firefox: each profile keeps its own (the snap's are under ~/snap/firefox)
+for p in ~/.mozilla/firefox/*/cert9.db ~/snap/firefox/common/.mozilla/firefox/*/cert9.db; do
+  [ -f "$p" ] || continue
   certutil -d "sql:$(dirname "$p")" -A -t C,, -n "AppTown local CA" -i apptown-local-ca.pem
 done
 ```
@@ -87,8 +88,25 @@ Without commands, each browser imports it in its settings: in Chrome,
 Privacy and security › Security › Manage certificates › Installed by you ›
 Import, as a trusted certificate; in Firefox, Privacy & Security ›
 Certificates › View Certificates › Authorities › Import, trusted for
-websites. Restart the browser afterwards. To remove it, delete
-"AppTown local CA" in the same places (`certutil -d sql:<db> -D -n "AppTown local CA"`).
+websites. Restart the browser afterwards.
+
+To remove it on Linux, keep `apptown-local-ca.pem` until you are done, then:
+
+```sh
+# System store
+sudo rm -f /usr/local/share/ca-certificates/apptown-local-ca.crt
+sudo update-ca-certificates --fresh    # Fedora/Arch instead: sudo trust anchor --remove apptown-local-ca.pem
+
+# Chrome (its current database, or the older one where that exists) and each Firefox profile
+db="$HOME/.pki/nssdb"; [ -d "$db" ] || db="$HOME/.local/share/pki/nssdb"
+certutil -d "sql:$db" -D -n "AppTown local CA"
+for p in ~/.mozilla/firefox/*/cert9.db ~/snap/firefox/common/.mozilla/firefox/*/cert9.db; do
+  [ -f "$p" ] || continue
+  certutil -d "sql:$(dirname "$p")" -D -n "AppTown local CA"
+done
+```
+
+or delete "AppTown local CA" in each browser's certificate settings.
 
 **Windows** is not supported yet.
 
