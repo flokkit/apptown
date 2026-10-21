@@ -914,6 +914,7 @@ export type PackSuggestion = {
 }
 
 export type PackView = {
+  apiVersion?: string
   resources?: MemoryDefault
   name: string
   description: string

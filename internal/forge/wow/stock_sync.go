@@ -131,8 +131,12 @@ func ParseStockGuidance(raw string) (StockBlock, error) {
 			b.Tier = value
 		case "conflicts":
 			b.Conflicts = NormalizeTags(value)
+		case "apiVersion":
+			if err := schema.CheckAPIVersion(value); err != nil {
+				return b, fmt.Errorf("frontmatter line %d: %w", i+2, err)
+			}
 		default:
-			return b, fmt.Errorf("frontmatter line %d: unknown key %q (known: name, tags, checks, tier, conflicts)", i+2, key)
+			return b, fmt.Errorf("frontmatter line %d: unknown key %q (known: apiVersion, name, tags, checks, tier, conflicts)", i+2, key)
 		}
 	}
 	b.Body = strings.TrimLeft(rest[end+len("\n---\n"):], "\n")

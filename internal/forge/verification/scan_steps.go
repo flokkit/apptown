@@ -71,13 +71,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	step := task.Step()
 	stepID := step.ID
 	run := task.Run()
-	var cfg struct {
-		Scanner        string `json:"scanner"`
-		FailOn         string `json:"failOn"` // severity threshold over ACTIONABLE findings; "" = any
-		TimeoutMinutes int    `json:"timeoutMinutes"`
-		On             string `json:"on"`   // a scan point that expanded to nothing
-		None           bool   `json:"none"` // … says so and passes
-	}
+	var cfg scanConfig
 	cfgErr := workflow.DecodeStepConfig(step.Config, &cfg)
 	// An image scan of a stock base image lists dozens of OS CVEs, most
 	// with no fix, none actionable by the app. Unless the point says otherwise, an image
@@ -403,4 +397,14 @@ func (a *ScanSteps) imageForScan(ctx context.Context, run *workflow.Run, tree, c
 		return "", strings.Replace(note, "nothing to run in an image", "nothing to scan as an image", 1), nil
 	}
 	return ref, note, nil
+}
+
+// scanConfig is a scan step's options, and None, which AppTown records
+// when a scan point expanded to no scanner.
+type scanConfig struct {
+	Scanner        string `json:"scanner"`
+	FailOn         string `json:"failOn"` // severity threshold over ACTIONABLE findings; "" = any
+	TimeoutMinutes int    `json:"timeoutMinutes"`
+	On             string `json:"on"`   // a scan point that expanded to nothing
+	None           bool   `json:"none"` // … says so and passes
 }

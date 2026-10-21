@@ -155,6 +155,16 @@ func ParseWorkflowStored(src []byte) (*Doc, error) { return parseWorkflow(src, f
 // document without one is this version.
 const APIVersion = "apptown.dev/v1"
 
+// CheckAPIVersion refuses a stated format version other than the one this
+// AppTown reads. Workflows, packs and guidance blocks take the same
+// optional apiVersion; leaving it out means APIVersion.
+func CheckAPIVersion(v string) error {
+	if v != "" && v != APIVersion {
+		return fmt.Errorf("apiVersion %q is not one this AppTown reads (%s)", v, APIVersion)
+	}
+	return nil
+}
+
 // legacyChangeAlias is ${{workItem.*}}, the older name of ${{change.*}}.
 // Stored versions that use it stay runnable; a save may not use it.
 var legacyChangeAlias = regexp.MustCompile(`\$\{\{\s*workItem\.`)
@@ -183,8 +193,8 @@ func parseWorkflow(src []byte, strict bool) (*Doc, error) {
 				return nil, fmt.Errorf("unknown top-level key %q (only apiVersion, kind, metadata, spec, and x- keys for anchors)", key)
 			}
 		}
-		if d.APIVersion != "" && d.APIVersion != APIVersion {
-			return nil, fmt.Errorf("apiVersion %q is not one this AppTown reads (%s)", d.APIVersion, APIVersion)
+		if err := CheckAPIVersion(d.APIVersion); err != nil {
+			return nil, err
 		}
 		if legacyChangeAlias.Match(src) {
 			return nil, fmt.Errorf("${{workItem.*}} is the old name of ${{change.*}}; write change")
@@ -269,6 +279,11 @@ func (d *Doc) validate(strict bool) error {
 			if d, ok := s.With["docker"]; ok && s.Uses == "agent/pi" {
 				if _, isBool := d.(bool); !isBool {
 					return fmt.Errorf("stage %q step %q: docker must be true (a private Docker daemon for the agent) or false (got %v)", st.Name, s.Name, d)
+				}
+			}
+			if strict {
+				if err := checkOptions(st.Name, s); err != nil {
+					return err
 				}
 			}
 		}

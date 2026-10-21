@@ -200,3 +200,23 @@ func TestStrictReadersRefuseUnknownShapes(t *testing.T) {
 		t.Error("a check with an unknown key was read")
 	}
 }
+
+// A pack and a block may state the format they are written in; absent and
+// apptown.dev/v1 read the same, and another version is refused by name, so a
+// later format can be told apart from this one.
+func TestPacksAndBlocksTakeAnOptionalFormatVersion(t *testing.T) {
+	t.Parallel()
+	files := func(body string) fstest.MapFS { return fstest.MapFS{"packs.yaml": {Data: []byte(body)}} }
+	if packs, err := ReadStockPacks(files("packs:\n  - name: p\n    apiVersion: apptown.dev/v1\n")); err != nil || len(packs) != 1 {
+		t.Fatalf("a pack stating v1: %v %v", packs, err)
+	}
+	if _, err := ReadStockPacks(files("packs:\n  - name: p\n    apiVersion: apptown.dev/v2\n")); err == nil || !strings.Contains(err.Error(), "apptown.dev/v2") {
+		t.Fatalf("a pack stating v2 was read: %v", err)
+	}
+	if b, err := ParseStockGuidance("---\napiVersion: apptown.dev/v1\nname: x\n---\nbody\n"); err != nil || b.Name != "x" {
+		t.Fatalf("a block stating v1: %+v %v", b, err)
+	}
+	if _, err := ParseStockGuidance("---\napiVersion: apptown.dev/v2\nname: x\n---\nbody\n"); err == nil || !strings.Contains(err.Error(), "apptown.dev/v2") {
+		t.Fatalf("a block stating v2 was read: %v", err)
+	}
+}

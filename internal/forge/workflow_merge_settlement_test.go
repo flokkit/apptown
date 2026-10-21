@@ -28,7 +28,7 @@ func mergeSettlementFixture(t *testing.T) (*App, workflow.MergeSource) {
 	}
 	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
 		{Name: "ready", Steps: []schema.Step{
-			{Name: "prepared", Uses: "script", With: map[string]any{"script": "true"}},
+			{Name: "prepared", Uses: "script", With: map[string]any{"run": "true"}},
 			{Name: "hold", Uses: "approval", With: map[string]any{"means": "the source is ready"}},
 		}, Gate: &schema.Gate{Require: []string{"prepared"}}},
 		{Name: "landed", Steps: []schema.Step{{Name: "record", Uses: "approval", With: map[string]any{"means": "the merge was recorded"}}}},

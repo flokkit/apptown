@@ -58,7 +58,7 @@ spec:
       steps:
         - name: prepared
           uses: script
-          with: { script: "true" }
+          with: { run: "true" }
         - name: hold
           uses: approval
           with: { means: "the source is ready to merge" }

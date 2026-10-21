@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flokkit.io/forge/internal/forge/schema"
 	"fmt"
 	"io"
 	"io/fs"
@@ -41,6 +42,10 @@ func (pp *PackPolicy) UnmarshalYAML(node *yamlv3.Node) error {
 }
 
 type Pack struct {
+	// APIVersion optionally states the format (schema.APIVersion); absent
+	// is the same. It is checked when the pack is read or saved and never
+	// stored: stating it does not make a different publication.
+	APIVersion    string                    `yaml:"apiVersion,omitempty" json:"apiVersion,omitempty"`
 	Resources     appcontract.MemoryDefault `yaml:"resources,omitempty" json:"resources,omitzero"`
 	ID            ids.ID                    `yaml:"-" json:"-"`
 	LatestVersion int64                     `yaml:"-" json:"-"`
@@ -165,6 +170,11 @@ func ReadStockPacks(fsys fs.FS) ([]Pack, error) {
 	}
 	if err := decodeStrict(raw, &doc); err != nil {
 		return nil, fmt.Errorf("packs.yaml: %w", err)
+	}
+	for _, p := range doc.Packs {
+		if err := schema.CheckAPIVersion(p.APIVersion); err != nil {
+			return nil, fmt.Errorf("packs.yaml: pack %s: %w", p.Name, err)
+		}
 	}
 	return doc.Packs, nil
 }

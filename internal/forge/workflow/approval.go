@@ -148,6 +148,9 @@ type ApprovalConfig struct {
 	// condition AppTown witnesses (in_advance.go). A step without it takes
 	// no yes in advance.
 	InAdvance string `json:"inAdvance,omitempty"`
+	// Instructions is what the person deciding is told to look at, shown
+	// with the meaning (ApprovalQuestion).
+	Instructions string `json:"instructions,omitempty"`
 }
 
 func approvalObject(raw []byte, out any) error {

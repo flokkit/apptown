@@ -425,10 +425,7 @@ func (s *Service) ApprovalQuestion(ctx context.Context, id ids.ID) (ApprovalQues
 	if step.Type != "approval" {
 		return ApprovalQuestion{}, fmt.Errorf("%w: step is not an approval", ErrStepApprovalInput)
 	}
-	var cfg struct {
-		Means        string `json:"means"`
-		Instructions string `json:"instructions"`
-	}
+	var cfg ApprovalConfig
 	if err := approvalObject(step.Config, &cfg); err != nil {
 		return ApprovalQuestion{}, err
 	}

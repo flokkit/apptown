@@ -30,7 +30,7 @@ spec:
       steps:
         - name: scan
           uses: scan
-          with: {none: true, on: source}
+          with: {on: source}
         - name: guidance
           uses: guidance/conformance
 `)

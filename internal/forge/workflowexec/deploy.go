@@ -32,13 +32,7 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	step := task.Step()
 	stepID := step.ID
 	run := task.Run()
-	var cfg struct {
-		Deployment string               `json:"deployment"`
-		Services   []deploy.ServiceSpec `json:"services"`
-		// AcceptUncopiedData is read by its exact key (acceptanceIn): JSON
-		// would take any casing of it.
-		AcceptUncopiedData json.RawMessage `json:"acceptUncopiedData,omitempty"`
-	}
+	var cfg deployConfig
 	decoder := json.NewDecoder(bytes.NewReader(step.Config))
 	decoder.DisallowUnknownFields()
 	configErr := decoder.Decode(&cfg)
@@ -305,4 +299,14 @@ func acceptanceIn(config []byte) *workflow.UncopiedDataAcceptance {
 		return nil
 	}
 	return &a
+}
+
+// deployConfig is a deploy step's options, and the acceptance a person's
+// retry records.
+type deployConfig struct {
+	Deployment string               `json:"deployment"`
+	Services   []deploy.ServiceSpec `json:"services"`
+	// AcceptUncopiedData is read by its exact key (acceptanceIn): JSON
+	// would take any casing of it.
+	AcceptUncopiedData json.RawMessage `json:"acceptUncopiedData,omitempty"`
 }

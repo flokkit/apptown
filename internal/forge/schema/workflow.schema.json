@@ -188,9 +188,365 @@
                     },
                     "with": {
                       "type": "object",
-                      "description": "The step kind's options, checked when the workflow is saved (POST /api/v1/workflows/validate says what is wrong)."
+                      "description": "The step kind's options: only the keys its kind takes (see allOf), checked when the workflow is saved (POST /api/v1/workflows/validate says what is wrong)."
                     }
-                  }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "adr/require"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "status": {},
+                              "tags": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "agent/pi"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "prompt": {},
+                              "model": {},
+                              "thinking": {},
+                              "executor": {},
+                              "image": {},
+                              "scm": {},
+                              "skills": {},
+                              "resources": {},
+                              "requires": {},
+                              "services": {},
+                              "needs": {},
+                              "docker": {},
+                              "mayChangeNothing": {},
+                              "output": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "agent/review"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "of": {},
+                              "prompt": {},
+                              "question": {},
+                              "model": {},
+                              "thinking": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "approval"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "approvers": {},
+                              "quorum": {},
+                              "means": {},
+                              "instructions": {},
+                              "inAdvance": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "artifact/require"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {},
+                              "name": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "deploy"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "deployment": {},
+                              "services": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "guidance/conformance"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "failOn": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "preview"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "services": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "reconcile"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {}
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "scan"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "on": {},
+                              "scanner": {},
+                              "failOn": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "scm/mr"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {}
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "script"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "run": {},
+                              "env": {},
+                              "executor": {},
+                              "image": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "tests"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "command": {},
+                              "require": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "workflow/call"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "workflow": {},
+                              "with": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               },
               "steps": {
@@ -227,9 +583,365 @@
                     },
                     "with": {
                       "type": "object",
-                      "description": "The step kind's options, checked when the workflow is saved (POST /api/v1/workflows/validate says what is wrong)."
+                      "description": "The step kind's options: only the keys its kind takes (see allOf), checked when the workflow is saved (POST /api/v1/workflows/validate says what is wrong)."
                     }
-                  }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "adr/require"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "status": {},
+                              "tags": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "agent/pi"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "prompt": {},
+                              "model": {},
+                              "thinking": {},
+                              "executor": {},
+                              "image": {},
+                              "scm": {},
+                              "skills": {},
+                              "resources": {},
+                              "requires": {},
+                              "services": {},
+                              "needs": {},
+                              "docker": {},
+                              "mayChangeNothing": {},
+                              "output": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "agent/review"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "of": {},
+                              "prompt": {},
+                              "question": {},
+                              "model": {},
+                              "thinking": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "approval"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "approvers": {},
+                              "quorum": {},
+                              "means": {},
+                              "instructions": {},
+                              "inAdvance": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "artifact/require"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {},
+                              "name": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "deploy"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "deployment": {},
+                              "services": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "guidance/conformance"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "failOn": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "preview"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "services": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "reconcile"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {}
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "scan"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "on": {},
+                              "scanner": {},
+                              "failOn": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "scm/mr"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {}
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "script"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "run": {},
+                              "env": {},
+                              "executor": {},
+                              "image": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "tests"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "command": {},
+                              "require": {},
+                              "timeoutMinutes": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "workflow/call"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "workflow": {},
+                              "with": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               },
               "gate": {

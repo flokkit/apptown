@@ -42,10 +42,7 @@ func (a *Calls) Run(task *workflow.Execution) {
 	defer reportPanic(a.panics, "RunWorkflowCall")
 	step := task.Step()
 	parent := task.Run()
-	var cfg struct {
-		Workflow string            `json:"workflow"`
-		With     map[string]string `json:"with"`
-	}
+	var cfg callConfig
 	cfgErr := workflow.DecodeStepConfig(step.Config, &cfg)
 
 	fail := func(reason string) {
@@ -99,4 +96,11 @@ func (a *Calls) Run(task *workflow.Execution) {
 	// Once committed, the child link and running evidence already exist.
 	// A preparation/dispatch failure leaves that child recoverable; never
 	// overwrite its parent evidence after its runners may have completed.
+}
+
+// callConfig is a workflow/call step's options: the workflow to run and
+// the inputs passed to it.
+type callConfig struct {
+	Workflow string            `json:"workflow"`
+	With     map[string]string `json:"with"`
 }

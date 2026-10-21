@@ -85,11 +85,7 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 	step := task.Step()
 	stepID := step.ID
 	run := task.Run()
-	var cfg struct {
-		Command        string `json:"command"`
-		Require        bool   `json:"require"`
-		TimeoutMinutes int    `json:"timeoutMinutes"`
-	}
+	var cfg testsConfig
 	cfgErr := workflow.DecodeStepConfig(step.Config, &cfg)
 
 	finish := func(status workflow.StepState, evidence map[string]any) {
@@ -455,4 +451,11 @@ func errText(err error) string {
 		return "no reason given"
 	}
 	return err.Error()
+}
+
+// testsConfig is a tests step's options (schema.StepOptions("tests")).
+type testsConfig struct {
+	Command        string `json:"command"`
+	Require        bool   `json:"require"`
+	TimeoutMinutes int    `json:"timeoutMinutes"`
 }

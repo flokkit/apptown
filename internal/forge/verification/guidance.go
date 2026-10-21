@@ -44,9 +44,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	step := task.Step()
 	stepID := step.ID
 	run := task.Run()
-	var cfg struct {
-		FailOn string `json:"failOn"` // sh, tool and runtime findings at/above this severity fail the step; default high
-	}
+	var cfg guidanceConfig
 	cfgErr := workflow.DecodeStepConfig(step.Config, &cfg)
 	if cfg.FailOn == "" {
 		cfg.FailOn = "high"
@@ -342,4 +340,9 @@ func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope
 		return j, fmt.Errorf("no evaluator at this gate judges %s; the check cannot be passed over", strings.Join(unexamined, ", "))
 	}
 	return j, nil
+}
+
+// guidanceConfig is a guidance/conformance step's options.
+type guidanceConfig struct {
+	FailOn string `json:"failOn"` // sh, tool and runtime findings at/above this severity fail the step; default high
 }

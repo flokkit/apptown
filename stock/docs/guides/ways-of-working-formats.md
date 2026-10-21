@@ -40,6 +40,12 @@ step names, gates naming steps that exist).
             with: *review
   ```
 
+- Each step kind takes only its own `with` options: an approval takes
+  `approvers`, `quorum`, `means`, `instructions` and `inAdvance`, a tests step
+  `command`, `require` and `timeoutMinutes`, and so on (the served schema lists
+  every kind's). Any other key is refused by name, in any casing; `minApprovals`
+  is not `quorum`. Where an option's value is data (a script's `env`, a called
+  workflow's `with`) its keys are yours.
 - Steps read the change as `${{change.title}}`, `${{change.body}}`,
   `${{change.type}}` and `${{change.id}}`. `${{workItem.*}}` is refused in a
   save.
@@ -47,7 +53,9 @@ step names, gates naming steps that exist).
 ## Packs
 
 A pack names guidance blocks, workflows and policies from the library, and can
-include another pack with items replaced or dropped. A pack names policies; it
+include another pack with items replaced or dropped. It may state
+`apiVersion: apptown.dev/v1`; leaving it out means the same, and any other value
+is refused by name. Stating it does not make a new version. A pack names policies; it
 does not define them: add a policy to the library first, then pick it.
 
 Each saved version records exactly what it contains: each block and workflow at
@@ -82,7 +90,9 @@ An option the rule does not take is refused when you save the policy.
 
 ## Guidance blocks and checks
 
-A block is markdown. Its checks are a JSON array; each check has a `name`, an
+A block is markdown. It may state `apiVersion: apptown.dev/v1` (in its front
+matter, or beside `name` when created or edited through the API), which covers
+the block and its checks; leaving it out means the same. Its checks are a JSON array; each check has a `name`, an
 `expects` sentence, a `severity` (`note`, `low`, `medium`, `high`) and one
 evaluator: `sh` (a script), `llm` (a rubric), `runtime` (a probe of the running
 app) or `tool` (a scanner binding). The [conformance guide](/docs/guides/conformance) says

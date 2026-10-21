@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"flokkit.io/forge/internal/forge/schema"
 	"net/http"
 
 	"flokkit.io/forge/internal/ids"
@@ -38,10 +39,15 @@ func (h GuidanceBlocks) CreateBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{}, func(in struct {
-		Name   string `json:"name"`
-		BodyMD string `json:"bodyMd"`
-		Tags   string `json:"tags"`
+		APIVersion string `json:"apiVersion"`
+		Name       string `json:"name"`
+		BodyMD     string `json:"bodyMd"`
+		Tags       string `json:"tags"`
 	}) {
+		if err := schema.CheckAPIVersion(in.APIVersion); err != nil {
+			WriteError(w, 400, "%v", err)
+			return
+		}
 		b, err := h.ways.CreateBlock(r.Context(), in.Name, in.BodyMD, in.Tags, Actor(r))
 		if err != nil {
 			// Unclassified failures keep the 409 this route has always answered.
@@ -114,10 +120,15 @@ func (h GuidanceBlocks) PatchBlock(w http.ResponseWriter, r *http.Request) {
 	// Strict: a misspelt key in a check (severty for severity) is refused
 	// here, before decoding into the declaration type would drop it.
 	jsonCommand(w, r, jsonBody{strict: true}, func(in struct {
-		BodyMD *string                         `json:"bodyMd"`
-		Tags   *string                         `json:"tags"`
-		Checks *[]conformance.CheckDeclaration `json:"checks"`
+		APIVersion string                          `json:"apiVersion"`
+		BodyMD     *string                         `json:"bodyMd"`
+		Tags       *string                         `json:"tags"`
+		Checks     *[]conformance.CheckDeclaration `json:"checks"`
 	}) {
+		if err := schema.CheckAPIVersion(in.APIVersion); err != nil {
+			WriteError(w, 400, "%v", err)
+			return
+		}
 		if in.Checks != nil {
 			if err := check.Validate(*in.Checks); err != nil {
 				WriteError(w, 400, "%v", err)

@@ -24,9 +24,7 @@ import (
 func (a *Shipping) RunPreview(task *workflow.Execution) {
 	step := task.Step()
 	run := task.Run()
-	var cfg struct {
-		Services []deploy.ServiceSpec `json:"services"`
-	}
+	var cfg previewConfig
 	cfgErr := workflow.DecodeStepConfig(step.Config, &cfg)
 	finish := func(status workflow.StepState, evidence map[string]any) {
 		task.Settle(workflow.EncodeOutcome(status, evidence, nil))
@@ -189,3 +187,8 @@ func (a *Shipping) screenshots(ctx context.Context, run *workflow.Run, url, comm
 
 // ScreenshotKind is the artifact kind of AppTown's pictures of a preview.
 const ScreenshotKind = "screenshot"
+
+// previewConfig is a preview step's options.
+type previewConfig struct {
+	Services []deploy.ServiceSpec `json:"services"`
+}

@@ -492,3 +492,28 @@ func TestASavedPackKeepsTheCapabilitiesItRequires(t *testing.T) {
 		t.Fatalf("the saved publication lost requires: %+v %v", v, err)
 	}
 }
+
+// A pack or block saved with apiVersion apptown.dev/v1 is the same
+// publication as one without it; another version is refused by name.
+func TestASaveMayStateTheFormatVersion(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	h := a.Handler()
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"stated","guidance":[]}`); w.Code != 200 {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"apiVersion":"apptown.dev/v1","name":"stated","guidance":[]}`)
+	var saved struct{ Version int64 }
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &saved) != nil || saved.Version != 1 {
+		t.Fatalf("stating v1 made another publication: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"apiVersion":"apptown.dev/v2","name":"stated"}`); w.Code != 400 || !strings.Contains(w.Body.String(), "apptown.dev/v2") {
+		t.Fatalf("a v2 pack: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(h, "boss", "POST", "/api/v1/guidance/blocks", `{"apiVersion":"apptown.dev/v2","name":"team/x","bodyMd":"Be kind."}`); w.Code != 400 || !strings.Contains(w.Body.String(), "apptown.dev/v2") {
+		t.Fatalf("a v2 block: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(h, "boss", "POST", "/api/v1/guidance/blocks", `{"apiVersion":"apptown.dev/v1","name":"team/x","bodyMd":"Be kind."}`); w.Code != 201 {
+		t.Fatalf("a v1 block: %d %s", w.Code, w.Body.String())
+	}
+}

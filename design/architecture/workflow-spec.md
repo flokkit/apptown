@@ -186,25 +186,27 @@ or stale request cannot consume its budget without queuing checks.
 ### 2.5 Step types
 
 Common fields: `name`, `uses`, `with`. Two families: kinds the engine judges
-from state, and kinds it runs in the background.
+from state, and kinds it runs in the background. Each kind takes exactly the
+`with` options listed here (`schema.StepOptions`); a save refuses any other key
+by name, in any casing.
 
 | `uses` | What it does | Key `with` fields |
 |---|---|---|
-| `agent/pi` | an agent works in the workspace with a generated home and the project's compiled guidance | `prompt`, `skills` (`skill/*` blocks), `output` `{kind, name, file}` — the named file *is* the output, `model` (a slot name or provider/model), `thinking`, `executor`, `image`, `services` (sidecar containers on the step's network), `docker` (`true` gives the agent a private Docker daemon), `mayChangeNothing` (`true`: an empty result is a complete answer, see below), `timeoutMinutes` |
-| `agent/review` | an independent agent checks the implementer's claim against the real diff (see below) | `of` (the report artifact kind), `model`, `prompt` (a lens), `question` (replaces the shared first question, "does the diff fully satisfy the request?", for a step not asked to satisfy it, such as a reproduction) |
-| `approval` | people decide; one rejection stops it; every vote is kept | `approvers` (people or `group:` names), `minApprovals`, `means` (the required standard of approval), `instructions` |
-| `artifact/require` | a required artifact exists on the run | `kind` or `name` |
+| `agent/pi` | an agent works in the workspace with a generated home and the project's compiled guidance | `prompt`, `skills` (`skill/*` blocks), `output` `{kind, name, file}` — the named file *is* the output, `model` (a slot name or provider/model), `thinking`, `executor`, `image`, `services` (sidecar containers on the step's network), `docker` (`true` gives the agent a private Docker daemon), `mayChangeNothing` (`true`: an empty result is a complete answer, see below), `scm` (a project-scoped token: `read` or `write`), `resources`, `requires` (artifact kinds that must exist first), `needs` (`true` starts the app's declared needs for the step), `timeoutMinutes` |
+| `agent/review` | an independent agent checks the implementer's claim against the real diff (see below) | `of` (the report artifact kind), `model`, `prompt` (a lens), `question` (replaces the shared first question, "does the diff fully satisfy the request?", for a step not asked to satisfy it, such as a reproduction), `thinking`, `timeoutMinutes` |
+| `approval` | people decide; one rejection stops it; every vote is kept | `approvers` (people or `group:` names), `quorum` (how many approvals settle it, default 1), `means` (the required standard of approval), `instructions`, `inAdvance` (what a yes given before the work means) |
+| `artifact/require` | a required artifact exists on the run | `kind`, `name` |
 | `adr/require` | an accepted decision is linked to the change | `status` (default `accepted`), `tags` |
-| `preview` | cold-boot the app from the workspace contract; the boot gate | — |
-| `tests` | run the committed tree's own tests through the declared toolchain | — |
-| `scan` | a **scan point**: run every attached scanner for a target, each as its own check | `on: source \| image`, `failOn` (bounded by policy) |
-| `guidance/conformance` | run the project's guidance checks against the tree, classified against the change's base | — |
+| `preview` | cold-boot the app from the workspace contract; the boot gate | `services` |
+| `tests` | run the committed tree's own tests through the declared toolchain | `command`, `require`, `timeoutMinutes` |
+| `scan` | a **scan point**: run every attached scanner for a target, each as its own check | `on: source \| image`, or `scanner` for one scanner; `failOn` (bounded by policy), `timeoutMinutes` |
+| `guidance/conformance` | run the project's guidance checks against the tree, classified against the change's base | `failOn` (default `high`) |
 | `reconcile` | bring `main` into the change branch before the other gates | — |
-| `deploy` | deploy the landed contract to an environment | `environment` |
+| `deploy` | deploy the landed contract to a deployment | `deployment` (default `main`), `services` |
 | `scm/mr` | open a merge request on the attached mirror for people who review there | — |
 | `scm/merged` | the landing merge into `main` (engine-judged) | — |
-| `workflow/call` | run another library workflow as a child run in the same workspace | `name`, `inputs` |
-| `script` | run a command; exit 0 passes | `run`, `env`, `executor`, `image` |
+| `workflow/call` | run another library workflow as a child run in the same workspace | `workflow`, `with` (its inputs) |
+| `script` | run a command; exit 0 passes | `run`, `env`, `executor`, `image`, `timeoutMinutes` |
 
 Results: `pass`, `fail`, `needs_human`, `error`, `skipped`, always with
 evidence. There are no `policy`, `scm/branch`, `scm/mr-check` or

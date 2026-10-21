@@ -222,7 +222,7 @@ func evaluateAssertionIn(ctx context.Context, tx *database.Tx, run *Run, step *S
 	q := workflowsql.New(tx.SQL())
 	switch step.Type {
 	case "artifact/require":
-		var cfg struct{ Kind, Name string }
+		var cfg artifactRequirement
 		if err := json.Unmarshal(step.Config, &cfg); err != nil {
 			return assertionOutcome{}, fmt.Errorf("invalid artifact assertion: %w", err)
 		}
@@ -242,10 +242,7 @@ func evaluateAssertionIn(ctx context.Context, tx *database.Tx, run *Run, step *S
 			Ref        string `json:"ref"`
 		}{artifact.ID, artifact.Kind, artifact.Name, artifact.Ref})
 	case "adr/require":
-		var cfg struct {
-			Status string
-			Tags   []string
-		}
+		var cfg decisionRequirement
 		if err := json.Unmarshal(step.Config, &cfg); err != nil {
 			return assertionOutcome{}, fmt.Errorf("invalid ADR assertion: %w", err)
 		}
@@ -371,4 +368,16 @@ func (s *Service) refreshAssertions(ctx context.Context, ref RunRef) error {
 		s.DispatchCommittedRetry(runID)
 	}
 	return errors.Join(append(failures, err)...)
+}
+
+// artifactRequirement is an artifact/require step's options.
+type artifactRequirement struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+// decisionRequirement is an adr/require step's options.
+type decisionRequirement struct {
+	Status string   `json:"status"`
+	Tags   []string `json:"tags"`
 }

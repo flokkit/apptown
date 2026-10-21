@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"flokkit.io/forge/internal/forge/schema"
 	"net/http"
 	"strings"
 	"time"
@@ -60,6 +61,10 @@ func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 	// Strict: a field a pack does not have (autoAdopt, a misspelling) is
 	// refused, not silently dropped.
 	jsonCommand(w, r, jsonBody{strict: true}, func(in PackSave) {
+		if err := schema.CheckAPIVersion(in.APIVersion); err != nil {
+			WriteError(w, 400, "%v", err)
+			return
+		}
 		if strings.TrimSpace(in.Name) == "" {
 			WriteError(w, 400, "name required")
 			return
