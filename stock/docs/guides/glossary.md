@@ -235,10 +235,22 @@ checks they adopted, to see what would newly fail or pass; by default on
 every project on an earlier version of the pack. Hypothetical: it never
 changes a project's standing and is not evidence for a gate.
 
+**Need** — a service the app declares under `needs:` in its
+`.apptown/app.yaml` (a database, an object store, AI models). It is part of the
+code, so changing it is a change. A need is *fulfilled* either by the
+deployment's target (postgres runs beside the app on a Docker host; App
+Platform makes a managed database) or through an integration (`llm` through
+OpenRouter). The app reads the same variables either way.
+
+**Service** — what a need gets in a deployment or a preview: this
+deployment's own postgres, bucket or AI models key. Settings › Services lists
+the services the app uses, and what fulfils each.
+
 **Integration** — a named connection to an outside service (GitLab,
-Infisical, Portainer, GlitchTip). Its configuration holds the names of
-secrets, never their values. A project *attaches* one under Settings ›
-Services › "Connected to".
+Infisical, Portainer, GlitchTip, OpenRouter), set up on the Integrations page.
+Its configuration holds the names of secrets, never their values. An
+integration may fulfil a need, or a project *attaches* it directly under
+Settings › Services › "Connected to" (error reporting).
 
 **Wired in** — an attached integration that the app's code actually uses.
 Attaching only injects the connection details; "wire it in" opens the

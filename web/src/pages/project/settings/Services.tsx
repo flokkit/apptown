@@ -19,6 +19,30 @@ export type NeedPick = { capability: string; params?: Record<string, string> }
 
 export type DepKind = DependencyKind
 
+// Which catalogue kinds an app may declare under needs: everything but the
+// kinds an integration delivers when attached (error reporting), which live
+// under "Connected to". A kind is runnable if AppTown can fulfil it: a local
+// service, or a registration through an integration (llm through OpenRouter).
+export const declarable = (k: DepKind) => !k.integration && (!!k.local?.image || !!k.register?.connector)
+
+// Display names for the catalogue's vendor and connector keys; an unknown key
+// shows as written.
+const VENDOR: Record<string, string> = { digitalocean: 'DigitalOcean' }
+const CONNECTOR: Record<string, string> = { openrouter: 'OpenRouter', glitchtip: 'GlitchTip' }
+
+// fulfilledBy says what fulfils a need, read from its catalogue entry (the
+// owner's declaration), never inferred: a service AppTown runs beside the app,
+// each cloud's own kind, or a registration through an integration.
+export function fulfilledBy(k: DepKind): string[] {
+  const out: string[] = []
+  if (k.local?.image) out.push('Docker host or Portainer: runs beside the app')
+  for (const [vendor, c] of Object.entries(k.cloud ?? {})) {
+    out.push(`${VENDOR[vendor] ?? vendor}: ${c.kind ? c.kind.replace(/-/g, ' ') : 'provided by the platform'}`)
+  }
+  if (k.register?.connector) out.push(`through the ${CONNECTOR[k.register.connector] ?? k.register.connector} integration (attach it under Connected to)`)
+  return out
+}
+
 const sameNeeds = (a: NeedPick[], b: NeedPick[]) =>
   a.length === b.length && a.every((n) => { const m = b.find((x) => x.capability === n.capability); return !!m && m.params?.version === n.params?.version })
 
@@ -54,9 +78,7 @@ function onto(now: NeedPick[], from: NeedPick[], mine: NeedPick[]): NeedPick[] {
 export function ServicesTab({ slug }: { slug: string }) {
   const svcQ = useGet<ProjectServiceList>(`/projects/${slug}/services`)
   const catQ = useGet<DependencyList>(`/dependencies`)
-  // Only kinds AppTown can stand up as a running service belong here;
-  // register-kind capabilities (SSO, error reporting) live on Integrations.
-  const catalog = (catQ.data?.dependencies ?? []).filter((k) => k.local?.image)
+  const catalog = (catQ.data?.dependencies ?? []).filter(declarable)
   // The form starts only from an answer this page read itself: a revisit is
   // handed the cached answer first, and saving that would propose removing
   // whatever changed since (review finding, 28 September). It remembers the
@@ -127,9 +149,10 @@ export function ServicesTab({ slug }: { slug: string }) {
       <ReadStatus q={catQ} what="the service catalogue" className="small" />
       <StaleNote q={catQ} />
       <p className="muted small" style={{ maxWidth: 580 }}>
-        The databases and other services this app runs against. They live in the app's contract,
-        so saving opens a change you preview and land — the app boots with the new service
-        before it ships. A container that is not in this list is part of the app: ask for it in a change.
+        The services this app uses: each is a need declared in the app's contract, fulfilled by the
+        deployment's target or through an integration. Saving opens a change you preview and land —
+        the app boots with the new service before it ships. A container that is not in this list is
+        part of the app: ask for it in a change.
         {contract === 'none' && <> <strong>No runtime contract yet</strong> — build the app first.</>}
       </p>
 
@@ -147,6 +170,9 @@ export function ServicesTab({ slug }: { slug: string }) {
               <div className="pick-icon">{k.icon}</div>
               <div className="pick-title">{k.title}</div>
               <div className="muted small">{k.description}</div>
+              <ul className="muted small" aria-label="fulfilled by" style={{ margin: '6px 0 0', padding: 0, listStyle: 'none', fontSize: 'var(--fs-xs)' }}>
+                {fulfilledBy(k).map((line) => <li key={line}>{line}</li>)}
+              </ul>
               {on && version !== undefined ? (
                 <div style={{ marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
                   <span className="muted small">v </span>
@@ -256,8 +282,9 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
       <StaleNote q={[itemsQ, attachablesQ]} />
       <ReadStatus q={attachablesQ} what="the integrations that can be attached" className="small" />
       <div className="muted small" style={{ marginBottom: 12 }}>
-        Integrations attached to this project. Each passes its settings to the app's containers and
-        its guidance to agents; <em>linked</em> ones were provisioned through a connector,
+        Integrations attached to this project directly (an integration that fulfils a need is
+        shown with the need above). Each passes its settings to the app's containers and its
+        guidance to agents; <em>linked</em> ones were provisioned through a connector,
         <em> direct</em> ones were entered by hand.
       </div>
       {/* Integrations are big-ticket: something to crow about, not a

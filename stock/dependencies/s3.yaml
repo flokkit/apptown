@@ -7,12 +7,15 @@
 capability: s3
 title: Object storage (S3)
 icon: 🪣
-description: Read and write objects to an S3-compatible store.
+description: "A private object store the app reads and writes through an S3 API, with a bucket of its own. Not public file serving: serve objects through the app."
 
 # The contract with the app, the same on every target (the services-and-data guide, "What
 # each need gives the app"): the bucket exists before the app starts and is
 # the deployment's; the key reaches that bucket alone; address it
-# path-style. AppTown gives no public address for objects; creating a
+# path-style. It is a private store, not public file serving: AppTown gives
+# no public address for objects, and presigned URLs are outside the contract
+# (on a Docker host the endpoint is on the app's private network, so a
+# browser cannot reach one); serve objects through the app. Creating a
 # bucket is refused everywhere, and listing buckets, deleting the bucket and
 # object ACLs are outside the contract.
 provides:

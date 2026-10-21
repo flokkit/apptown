@@ -1,8 +1,9 @@
-# Dependency: error reporting.
-# A NEED fulfilled by REGISTERING with the shared org GlitchTip — the app gets
-# its own project (and DSN) inside the org instance. REGISTER strategy; the
-# adapter creates the project and injects the DSN. Execution wraps the existing
-# provisionErrors path in the register-executor slice.
+# Error reporting: an INTEGRATION, not a need (integration: true below). It
+# sits in the dependency catalogue because the catalogue is the one list of
+# what the app is given; a project attaches it under Settings › Services ›
+# "Connected to", and declaring it under needs: is refused. Attaching
+# registers the app with the shared GlitchTip organisation: the adapter makes
+# the app its own project there and the app is given its DSN.
 capability: errors
 title: Error reporting
 icon: 🐛

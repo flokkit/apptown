@@ -125,13 +125,12 @@ says so at the start of its description, wherever you choose it.
 
 - Packs: `go-small`, `django-htmx`, `frontend-only`, `rails`, `html-game`,
   `conventions-only`, and the `apptown` platform pack.
-- Needs: `postgres`, `mariadb` and `s3` on a Docker host, and the `errors`
-  integration (GlitchTip).
+- Needs: `postgres`, `mariadb` and `s3`, fulfilled on a Docker host.
 - Targets: the Docker host, built in or attached over SSH.
 - Workflows: `land`, `ship`, `quick-change`, `implement`, `fix-bug`,
   `plan-execute`, `dependency-uplift`, `adopt-integration` and
   `retire-integration`.
-- Integrations: GitLab, the pi agent harness and its model providers, the
+- Integrations: error reporting (GlitchTip), GitLab, the pi agent harness and its model providers, the
   built-in secret store (its key is kept in the same database as the values,
   so it is not a vault: see [Secrets](/docs/guides/secrets)) and the Infisical secret store, package-registry mirrors, container
   registries, and the automatic scanners (osv, gitleaks, sbom, trivy,

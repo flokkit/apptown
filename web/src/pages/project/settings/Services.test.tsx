@@ -153,3 +153,15 @@ it('keeping my edits puts only the parameters I changed on top of theirs', async
     expect(sent[1]).toMatchObject({ needs: [{ capability: 'postgres', params: { version: '17', database: 'new_db' } }], expectedDeclaration: 'c' })
   } finally { f.unmount(); client.clear(); vi.unstubAllGlobals() }
 })
+
+// A need is fulfilled by the target or through an integration, read from its
+// catalogue entry; an integration delivered when attached is not a need.
+it('says what fulfils each need and lists only declarable kinds', async () => {
+  const { declarable, fulfilledBy } = await import('./Services')
+  const pg = { capability: 'postgres', title: 'Postgres', local: { image: 'postgres:16' }, cloud: { digitalocean: { kind: 'managed-database' } } }
+  const llm = { capability: 'llm', title: 'AI models', local: { image: '' }, register: { connector: 'openrouter' } }
+  const errors = { capability: 'errors', title: 'Error reporting', local: { image: '' }, integration: true, register: { connector: 'glitchtip' } }
+  expect(fulfilledBy(pg)).toEqual(['Docker host or Portainer: runs beside the app', 'DigitalOcean: managed database'])
+  expect(fulfilledBy(llm)).toEqual(['through the OpenRouter integration (attach it under Connected to)'])
+  expect([pg, llm, errors].filter(declarable).map((k) => k.capability)).toEqual(['postgres', 'llm'])
+})
