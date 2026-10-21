@@ -132,6 +132,7 @@ type WhatIfReview struct {
 	Incomplete           int64
 	Projects             json.RawMessage
 	AdvanceWorkflows     bool
+	AlsoPacks            json.RawMessage
 }
 
 type WhatIfRow struct {

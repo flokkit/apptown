@@ -30,10 +30,21 @@ projects adopt. They are under **Ways of working → Packs**.
   version each project is on unless you tick **Also move each project's
   other workflows to the newest version** (`--advance-workflows`); that is
   how a project on only the AppTown pack moves its workflows forward.
+  Moving one pack alone keeps a project's other pack at the version it
+  recorded, so moving the AppTown pack can take the rules of a project's
+  own pack back (and the other way round). Tick **Also move each project's
+  own pack to its newest version** (`--own-packs newest`, or name them with
+  `--also <pack@version,…>`) to move both together: the versions are listed
+  before you run it and recorded with the what-if, and they apply only to
+  projects already on those packs. Eligible projects then include those
+  current on this pack but behind on their own.
   Every what-if is listed under **Conformance → What-ifs**. Recommend the
   version from there, or tick projects and
   **Adopt** to open one adoption Change per project with exactly what was
-  assessed (or `apptown whatif adopt <id> -p <project>[,<project>…]`); each
+  assessed (or `apptown whatif adopt <id> -p <project>[,<project>…]`). Each
+  Change starts its working run (quick-change, or implement) at once: the
+  run makes the new checks hold, or passes with nothing to do; the row says
+  if a run could not be started and why. Each
   Change says which what-if it came from and what it moves back, and a
   project whose adoption moved since is refused (run the what-if again).
   Adopting takes the right to choose a project's way of working, which

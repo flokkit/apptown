@@ -11,6 +11,7 @@ import WhatIfPage from './WhatIfPage'
 // Record ids are UUIDv7 strings.
 const WHAT_IF = '00000000-0007-7000-8000-000000000000'
 const CHANGE = '00000000-0041-7000-8000-000000000000'
+const RUN = '00000000-0042-7000-8000-000000000000'
 const LEDGER = '00000000-0001-7000-8000-000000000000'
 const TILL = '00000000-0002-7000-8000-000000000000'
 const SHOP = '00000000-0003-7000-8000-000000000000'
@@ -178,7 +179,7 @@ describe('the what-if page', () => {
         posted.push([url, JSON.parse(String(init.body))])
         if (url.includes('/projects/ledger/')) return { __status: 409, error: 'the project is on revision 3, not 2 — prepare again' }
         if (url.includes('/projects/till/')) return { __status: 503, error: 'database unavailable' }
-        return { changeId: CHANGE, candidate: {} }
+        return { changeId: CHANGE, candidate: {}, workflow: 'quick-change', runId: RUN }
       }
       return url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf
     })
@@ -200,8 +201,25 @@ describe('the what-if page', () => {
     expect(rows[1]).toContain('not known whether it opened')
     expect(rows[1]).not.toContain('its Change')
     expect(rows[2]).toContain('its Change')
+    expect(rows[2]).toContain('quick-change working')
     expect(projectRows(el)[2].querySelector(`a[href="/changes/${CHANGE}"]`)).not.toBeNull()
     expect(box('shop').disabled).toBe(true)
+    done()
+  })
+
+  // Opening an adoption Change starts its working run; when none could be
+  // started the row says so and where to start one, never a bare link.
+  it('says when an opened adoption Change has no run', async () => {
+    const { el, client, done } = await render((url, init) => {
+      if (init?.method === 'POST') return { changeId: CHANGE, candidate: {}, notStarted: 'this project has no quick-change or implement workflow to work the adoption on' }
+      return url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf
+    })
+    await act(async () => { (el.querySelector('input[aria-label="adopt on shop"]') as HTMLInputElement).click() })
+    await act(async () => { button(el, 'Adopt v2 on 1 project').click() })
+    await act(async () => { button(el, 'Open the Changes').click() })
+    await settled(client)
+    await vi.waitFor(() => expect(el.textContent).toContain('not started: this project has no quick-change or implement workflow'))
+    expect(el.textContent).toContain('start a workflow from the change')
     done()
   })
 

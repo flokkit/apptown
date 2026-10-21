@@ -69,10 +69,19 @@ type UpliftOpener interface {
 }
 
 // UpliftChange is the change an uplift opened: its id, and its number
-// within the project, which is how people name it.
+// within the project, which is how people name it; and what came of
+// starting its working run. Run is set when a run was admitted; RunError
+// says why an admitted run did not get going (its workspace or dispatch
+// failed), and NotStarted why none was admitted (no working lane, or the
+// start was refused). The Change stands in every case.
 type UpliftChange struct {
-	ID     ids.ID
-	Number int64
+	ID         ids.ID
+	Number     int64
+	Run        ids.ID
+	RunNumber  int64
+	Workflow   string
+	RunError   string
+	NotStarted string
 }
 type Dependencies struct {
 	Authority    access.ReadAuthorizer

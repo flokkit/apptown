@@ -33,7 +33,11 @@ workflow or replaces a policy keeps the project's existing ones and says so;
 removing them is a project edit. A selected workflow no pack of the
 candidate pins keeps the version the project's receipt pins, unless the
 request asks to advance workflows (`adoption.Request.AdvanceWorkflows`),
-which a what-if records and its adopt door repeats. A candidate lists every
+which a what-if records and its adopt door repeats. A what-if may also name
+other pack versions (`WhatIfRequest.Also`), moved with the named one for
+projects already on them and never added to a project; they are recorded,
+eligibility counts projects below any of them, and the adopt door repeats
+them (`adoption.PicksWith`). A candidate lists every
 rule whose version it changes (`Candidate.Moves`); an older version or a rule
 no longer carried moves back, which is allowed and is said in the
 confirmation, the Change's brief and the revision's reason. Adopting
@@ -51,7 +55,10 @@ Adoption resolves a candidate from specific catalog versions, checks conflicts
 and required project capabilities, and records the selected revision. Direct
 adoption and adoption through an uplift Change are separate operations. Uplift
 records its target through Workflow's transaction participant so the target and
-new Change cannot be admitted independently. An adoption whose new checks
+new Change cannot be admitted independently. Opening an uplift Change starts its working run
+(quick-change, else implement, the lane remediation uses); a run admitted
+and then failed is reported as that run, and a refusal before any run says
+why, while the Change stands. An adoption whose new checks
 already hold needs no code: the Change's working step passes empty with its
 account, a person accepts it, and the landing's conformance gate judges the
 target's acceptance checks on the tree before the landing moves the revision.

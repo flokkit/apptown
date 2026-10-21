@@ -793,10 +793,19 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 	assessed = fresh.Projects[0]
 	code, body := adoptFrom("boss", "alpha", from(fresh.ID))
 	var opened struct {
-		ChangeID ids.ID `json:"changeId"`
+		ChangeID   ids.ID `json:"changeId"`
+		RunID      ids.ID `json:"runId"`
+		Workflow   string `json:"workflow"`
+		RunError   string `json:"runError"`
+		NotStarted string `json:"notStarted"`
 	}
 	if code != 200 || json.Unmarshal([]byte(body), &opened) != nil || opened.ChangeID.IsZero() {
 		t.Fatalf("adopting what was assessed: %d %s", code, body)
+	}
+	// alpha has no working lane: the Change stands, and the answer says
+	// why no run was started rather than leaving it silently idle.
+	if !opened.RunID.IsZero() || !strings.Contains(opened.NotStarted, "no quick-change or implement workflow") {
+		t.Fatalf("an adoption Change on a project with no working lane: %s", body)
 	}
 	ch, err := a.changeByID(context.Background(), opened.ChangeID)
 	if err != nil || ch.ExpectedRevision != assessed.AdoptionRevision {
@@ -826,6 +835,98 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 	}
 	if code, body := adoptFrom("boss", "alpha", from(fresh.ID)); code != 409 || !strings.Contains(body, "prepare again") {
 		t.Fatalf("a project whose adoption moved since: %d %s", code, body)
+	}
+}
+
+// A project current on the platform pack but behind on its own can reach
+// the newest of both through one what-if and one adoption: the what-if
+// names its own pack's newest version as an other pack, eligibility comes
+// from the whole request (it is found though the named pack is current),
+// the pack page offers the explicit versions, and the adoption takes
+// exactly the pair that was assessed (live, 21 Oct: 23 projects moved a
+// rule back whichever pack went first).
+func TestAWhatIfMovesAProjectsOwnPackWithTheNamedOne(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t)
+	tgLocalSh(t, a)
+	ctx := testConformanceContext("boss")
+	h := a.Handler()
+
+	alpha, _, _ := fleetRepo(t, a, "alpha", map[string]string{"a.txt": "a"})
+	adopt(t, a, alpha, "hygiene", 1, checksJSON(shCheck("no-fixme", noFixmeSh, "high")))
+	for _, b := range []string{"own-notes", "own-more"} {
+		if err := wow.NewLibrary(a.DB).StockInsert(ctx, wow.StockBlock{Name: b, Body: "body", ChecksJSON: checksJSON(shCheck(b, "exit 0", "low"))}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, p := range []struct{ name, spec string }{
+		{"team", `{"guidance":["hygiene"]}`},
+		{"extra", `{"guidance":["own-notes"]}`},
+	} {
+		if _, err := a.Ways.PublishPack(ctx, p.name, p.name, p.spec, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	candidate, err := a.Adoption.Prepare(ctx, alpha, adoption.Request{Packs: []adoption.PackPick{{Pack: "team", Version: 1}, {Pack: "extra", Version: 1}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), alpha), a.projectByID(context.Background(), alpha), candidate, "fixture", "take team v1 and extra v1", adoption.OperationSelect); err != nil {
+		t.Fatal(err)
+	}
+	// extra moves on; team does not: alpha is current on team, behind on extra.
+	if _, err := a.Ways.PublishPack(ctx, "extra", "extra", `{"guidance":["own-notes","own-more"]}`, ""); err != nil {
+		t.Fatal(err)
+	}
+	latest := func(query string) httpapi.LatestWhatIf {
+		t.Helper()
+		w := authzCall(h, "boss", "GET", "/api/v1/conformance/what-if?pack=team&version=1"+query, "")
+		var out httpapi.LatestWhatIf
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil {
+			t.Fatalf("latest what-if%s: %d %s", query, w.Code, w.Body.String())
+		}
+		return out
+	}
+	alone := latest("")
+	if len(alone.Eligible) != 0 || !slices.Equal(alone.OwnPacksNewest, []conformance.PackVersion{{Pack: "extra", Version: 2}}) {
+		t.Fatalf("named pack alone: nobody eligible; own packs offered at their newest: %+v", alone)
+	}
+	if paired := latest("&also=extra@2"); !slices.Equal(paired.Eligible, []string{"alpha"}) {
+		t.Fatalf("with extra@2 alpha is eligible though current on team: %+v", paired)
+	}
+	if w := authzCall(h, "boss", "POST", "/api/v1/conformance/what-if", `{"pack":"team","version":1,"also":[{"pack":"team","version":1}]}`); w.Code != 400 || !strings.Contains(w.Body.String(), "named twice") {
+		t.Fatalf("a pack named twice: %d %s", w.Code, w.Body.String())
+	}
+	w := authzCall(h, "boss", "POST", "/api/v1/conformance/what-if", `{"pack":"team","version":1,"also":[{"pack":"extra","version":2}]}`)
+	var started httpapi.WhatIfStarted
+	if w.Code != 202 || json.Unmarshal(w.Body.Bytes(), &started) != nil {
+		t.Fatalf("starting the paired what-if: %d %s", w.Code, w.Body.String())
+	}
+	got := runWhatIf(t, a, ctx, started.ID)
+	if !slices.Equal(got.Also, []conformance.PackVersion{{Pack: "extra", Version: 2}}) || len(got.Projects) != 1 || got.Projects[0].CandidateDigest == "" {
+		t.Fatalf("the what-if records its other pack and assesses alpha: also=%+v projects=%+v", got.Also, got.Projects)
+	}
+	w = authzCall(h, "boss", "POST", "/api/v1/projects/alpha/adoption/adopt", fmt.Sprintf(`{"fromWhatIf":%q,"viaChange":true}`, got.ID))
+	var opened struct {
+		ChangeID ids.ID `json:"changeId"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &opened) != nil || opened.ChangeID.IsZero() {
+		t.Fatalf("adopting the paired candidate: %d %s", w.Code, w.Body.String())
+	}
+	ch, err := a.changeByID(context.Background(), opened.ChangeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := a.Adoption.ByID(ctx, ch.TargetAdoptionID)
+	if err != nil || target.Digest != got.Projects[0].CandidateDigest {
+		t.Fatalf("the target is the assessed pair: %+v %v", target, err)
+	}
+	held := map[string]bool{}
+	for _, b := range target.Receipt.Guidance {
+		held[b.Name] = true
+	}
+	if !held["own-more"] || !held["hygiene"] {
+		t.Fatalf("the target takes extra v2 beside team: %+v", target.Receipt.Guidance)
 	}
 }
 

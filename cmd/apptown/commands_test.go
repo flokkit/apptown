@@ -923,6 +923,45 @@ func TestWhatIfIncludesRubricsOnlyUnderASpendLimit(t *testing.T) {
 	}
 }
 
+// apptown whatif --own-packs newest sends each project's own pack at the
+// newest version AppTown offers, as explicit versions (so the record pins
+// them); --also sends the versions named; both at once is refused before
+// anything is asked.
+func TestWhatIfMovesOtherPacksWithTheNamedOne(t *testing.T) {
+	pollEvery = 0
+	seen := fakeForge(t, func(method, path string) (int, string) {
+		switch {
+		case method == "GET" && path == "/conformance/what-if":
+			return 200, `{"whatIf":null,"eligible":[],"ownPacksNewest":[{"pack":"django-htmx","version":43},{"pack":"java-spring","version":38}]}`
+		case method == "POST" && path == "/conformance/what-if":
+			return 202, `{"id":"00000000-0006-7000-8000-000000000000"}`
+		case path == "/conformance/what-if/00000000-0006-7000-8000-000000000000":
+			return 200, `{"id":"00000000-0006-7000-8000-000000000000","state":"done","rows":[],"projects":[]}`
+		}
+		return 404, `{"error":"no"}`
+	})
+	out, err := run(t, "whatif", "apptown", "35", "--own-packs", "newest", "--no-follow")
+	if err != nil || !strings.Contains(out, "with, for projects already on them: django-htmx v43, java-spring v38") {
+		t.Fatalf("--own-packs newest: %v\n%s", err, out)
+	}
+	last := func() map[string]any { return (*seen)[len(*seen)-1].Body }
+	if got := fmt.Sprint(last()["also"]); got != "[map[pack:django-htmx version:43] map[pack:java-spring version:38]]" {
+		t.Fatalf("the versions sent: %s", got)
+	}
+	if _, err := run(t, "whatif", "apptown", "35", "--also", "rails@38", "--no-follow"); err != nil || fmt.Sprint(last()["also"]) != "[map[pack:rails version:38]]" {
+		t.Fatalf("--also: %v %+v", err, last())
+	}
+	sent := len(*seen)
+	for _, args := range [][]string{{"--also", "rails@38", "--own-packs", "newest"}, {"--own-packs", "latest"}, {"--also", "rails"}} {
+		if _, err := run(t, append([]string{"whatif", "apptown", "35"}, args...)...); err == nil {
+			t.Fatalf("%v was accepted", args)
+		}
+	}
+	if len(*seen) != sent {
+		t.Fatalf("a refused request was sent: %+v", (*seen)[sent:])
+	}
+}
+
 // apptown whatif show of a what-if still queued or running says so, how far
 // it has got, and that unreached projects are not yet judged: never
 // "partial", "before it ended" or "not evaluated", which say it stopped
@@ -971,7 +1010,7 @@ func TestWhatIfAdoptOpensAChangePerNamedProject(t *testing.T) {
 		case method == "POST" && path == "/projects/till/adoption/adopt":
 			return 503, `{"error":"database unavailable"}`
 		case method == "POST" && strings.HasSuffix(path, "/adoption/adopt"):
-			return 200, `{"changeId":"00000000-0029-7000-8000-000000000000","candidate":{}}`
+			return 200, `{"changeId":"00000000-0029-7000-8000-000000000000","candidate":{},"workflow":"quick-change"}`
 		}
 		return 404, `{"error":"no"}`
 	})
@@ -979,7 +1018,7 @@ func TestWhatIfAdoptOpensAChangePerNamedProject(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "1 of 3 projects opened") {
 		t.Fatalf("mixed outcomes exit non-zero: %v\n%s", err, out)
 	}
-	for _, want := range []string{"ledger             refused: the project is on revision 3, not 2", "till               not known whether it opened", "shop               Change 00000000-0029-7000-8000-000000000000"} {
+	for _, want := range []string{"ledger             refused: the project is on revision 3, not 2", "till               not known whether it opened", "shop               Change 00000000-0029-7000-8000-000000000000", "quick-change working"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q:\n%s", want, out)
 		}

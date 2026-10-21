@@ -1012,6 +1012,10 @@ CREATE TABLE IF NOT EXISTS what_if_reviews (
   -- the version pins move to the library's newest version (an explicit
   -- choice; otherwise they keep the version the project is on).
   advance_workflows  BOOLEAN NOT NULL DEFAULT false,
+  -- also_packs: other pack versions ([{pack, version}]) the candidate moves
+  -- with the named one, for projects already on those packs; [] is the
+  -- named pack alone.
+  also_packs         JSONB NOT NULL DEFAULT '[]'::jsonb,
   -- queued: admitted, waiting for the conformance queue's worker.
   -- interrupted: AppTown stopped before it finished; it is not resumed.
   CONSTRAINT what_if_state CHECK (state IN ('queued','running','done','error','interrupted'))

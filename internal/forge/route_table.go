@@ -159,7 +159,7 @@ func appRoutes(a *App) []routeSpec {
 		remediationChanges = httpapi.NewRemediationChanges(a.Projects, a.Access, a.conformance, a.Work, a.lifecycle, a.DB, a.authModeName(), a.cfg.clock.Now)
 		conformanceMaintenance = httpapi.NewConformanceMaintenance(a.Fixes, a.Feature("dev-tools"))
 		conformanceReviews = httpapi.NewConformanceReviews(a.Projects, fleetReviewsFor(a))
-		whatIfs = httpapi.NewWhatIfs(a.Projects, a.conformance, fleetReviewsFor(a))
+		whatIfs = httpapi.NewWhatIfs(a.Projects, a.conformance, fleetReviewsFor(a), a.Ways)
 		evalRoutes = httpapi.NewEvals(a.Evals)
 		simpleChanges = httpapi.NewSimpleChanges(a.Projects, a.Access, a.Work, a.Adoption, a.modelSelection, a.inference, a.DB, a.authModeName())
 		packAssistance = httpapi.NewPackAssistance(a.Ways, a.modelSelection, a.inference)

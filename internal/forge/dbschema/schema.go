@@ -101,6 +101,9 @@ var migrations = []migration{
 	{n: 156, note: "a what-if records whether it moves each project's other workflows to the newest version", stmts: []string{
 		"ALTER TABLE what_if_reviews ADD COLUMN IF NOT EXISTS advance_workflows BOOLEAN NOT NULL DEFAULT false",
 	}},
+	{n: 157, note: "a what-if records the other pack versions it moves with its own", stmts: []string{
+		"ALTER TABLE what_if_reviews ADD COLUMN IF NOT EXISTS also_packs JSONB NOT NULL DEFAULT '[]'::jsonb",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

@@ -191,6 +191,39 @@ describe('starting an eval', () => {
     }
   })
 
+  // A change from before the AppTown rename is refused at the start, and
+  // the page shows AppTown's words naming it.
+  it('says which change predates the rename when the start is refused', async () => {
+    const refusal = 'shop#12 predates the AppTown rename (its code uses .forge/); evals start from changes made after 20 Oct'
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') return new Response(JSON.stringify({ error: refusal }), { status: 400 })
+      if (url.includes('/evals/start')) return new Response(JSON.stringify({ meaning: MEANING, profiles: ['standard', 'frontier'], packs: [], maxChanges: 5 }))
+      if (url.includes('/changes')) return new Response(JSON.stringify([{ id: CHANGE, number: 12, title: 'Add search', state: 'shipped', baseSha: 'abc' }]))
+      if (url.includes('/projects')) return new Response(JSON.stringify([{ slug: 'shop', name: 'Shop' }]))
+      return new Response('{}')
+    }))
+    const r = await render('/evals/new', <EvalStartPage />, '/evals/new')
+    try {
+      await r.settle(() => !!r.el.textContent?.includes('a model profile'))
+      const modelRadio = [...r.el.querySelectorAll('input[type=radio]')].find((i) => i.parentElement?.textContent?.includes('a model profile')) as HTMLInputElement
+      await act(async () => { modelRadio.click() })
+      await r.settle(() => r.el.querySelectorAll('select').length === 2)
+      const [profile, project] = [...r.el.querySelectorAll('select')]
+      await act(async () => {
+        profile.value = 'frontier'; profile.dispatchEvent(new Event('change', { bubbles: true }))
+        project.value = 'shop'; project.dispatchEvent(new Event('change', { bubbles: true }))
+      })
+      await r.settle(() => r.el.querySelectorAll('input[type=checkbox]').length > 0)
+      await act(async () => { (r.el.querySelector('input[type=checkbox]') as HTMLInputElement).click() })
+      await act(async () => { [...r.el.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Review'))!.click() })
+      await act(async () => { [...r.el.querySelectorAll('button')].find((b) => b.textContent === 'Start the eval')!.click() })
+      await r.settle(() => !!r.el.textContent?.includes('predates the AppTown rename'))
+      expect(r.el.textContent).toContain(refusal)
+    } finally {
+      r.done()
+    }
+  })
+
   // A what-if's "Try in an eval" lands here with its pack version chosen.
   it('starts from the pack version a link names', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {

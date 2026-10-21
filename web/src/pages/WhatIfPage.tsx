@@ -63,6 +63,7 @@ export default function WhatIfPage() {
             : 'model rubrics not included'}
         </span>
         {w.advanceWorkflows && <span className="muted">moves each project's other workflows to the newest version</span>}
+        {(w.also ?? []).length > 0 && <span className="muted">with, for projects already on them: {alsoWords(w)}</span>}
       </div>
       <Decide w={w} />
       <Summary w={w} />
@@ -178,7 +179,7 @@ function Moves({ moves }: { moves: WhatIfMove[] }) {
 // Adopted is what asking one project to take the version came to: the
 // Change it opened, AppTown's refusal in its words, or not known (the
 // answer never arrived, or AppTown failed while answering).
-type Adopted = { changeId: string | null; changeNumber: number; slug: string } | { refused: string } | { unknown: string }
+type Adopted = { changeId: string | null; changeNumber: number; slug: string; started?: string; runError?: string; notStarted?: string } | { refused: string } | { unknown: string }
 
 // Table is one row per project. A project with a candidate the what-if
 // assessed can be ticked; adopting asks each ticked project's own adopt
@@ -208,7 +209,7 @@ function Table({ w }: { w: WhatIf }) {
       let r: Adopted
       try {
         const o = await post<AdoptionUpliftOpened>(`/projects/${encodeURIComponent(p.projectSlug)}/adoption/adopt`, { fromWhatIf: w.id, viaChange: true })
-        r = { changeId: o.changeId, changeNumber: o.changeNumber, slug: p.projectSlug }
+        r = { changeId: o.changeId, changeNumber: o.changeNumber, slug: p.projectSlug, started: o.workflow ?? undefined, runError: o.runError ?? undefined, notStarted: o.notStarted ?? undefined }
       } catch (e) {
         r = e instanceof HttpError && e.status < 500 ? { refused: e.message } : { unknown: (e as Error).message }
       }
@@ -221,7 +222,7 @@ function Table({ w }: { w: WhatIf }) {
       <div className="row" style={{ gap: 8, margin: '8px 0' }}>
         <QuietConfirm label={`Adopt v${w.version} on ${chosen.length} project${chosen.length === 1 ? '' : 's'}`} className="subtle" yes="Open the Changes"
           disabled={asking || chosen.length === 0}
-          ask={`Opens one adoption Change per project, taking ${w.pack} v${w.version} as assessed in this what-if${w.advanceWorkflows ? ", with each project's other workflows at the newest version" : ''}. Each lands through its own review.${backWords}`}
+          ask={`Opens one adoption Change per project, taking ${w.pack} v${w.version}${(w.also ?? []).length > 0 ? ` with ${alsoWords(w)} where the project is on them` : ''} as assessed in this what-if${w.advanceWorkflows ? ", with each project's other workflows at the newest version" : ''}. Each lands through its own review.${backWords}`}
           onYes={adopt} />
         {asking && <span className="muted small">asking each project in turn…</span>}
       </div>
@@ -271,9 +272,21 @@ function Table({ w }: { w: WhatIf }) {
   )
 }
 
+// alsoWords names the other packs a what-if moved with its own.
+function alsoWords(w: WhatIf): string {
+  return (w.also ?? []).map((a) => `${a.pack} v${a.version}`).join(', ')
+}
+
 function AdoptedCell({ a }: { a?: Adopted }) {
   if (!a) return null
-  if ('changeId' in a) return <Link to={`/changes/${a.changeId}`}>{a.changeNumber ? `change ${a.slug}#${a.changeNumber}` : 'its Change'}</Link>
+  if ('changeId' in a) {
+    const link = <Link to={`/changes/${a.changeId}`}>{a.changeNumber ? `change ${a.slug}#${a.changeNumber}` : 'its Change'}</Link>
+    // What came of starting its working run: working, a run that did not
+    // get going (open it), or none started (start one from the change).
+    if (a.notStarted) return <>{link} <span className="warn">not started: {a.notStarted}; start a workflow from the change</span></>
+    if (a.runError) return <>{link} <span className="warn">its {a.started} run did not get going: {a.runError}</span></>
+    return <>{link} <span className="muted">{a.started} working</span></>
+  }
   if ('refused' in a) return <span className="error">refused: {a.refused}</span>
   return <span className="chip pending" title={a.unknown}>not known whether it opened; look at the project's Changes</span>
 }

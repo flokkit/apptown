@@ -44,6 +44,11 @@ export type AdoptionUpliftOpened = {
   changeId: string | null
   changeNumber: number
   candidate: Candidate
+  runId?: string | null
+  runNumber?: number
+  workflow?: string
+  runError?: string
+  notStarted?: string
 }
 
 export type AdvanceResult = {
@@ -750,6 +755,7 @@ export type LandingStarted = {
 export type LatestWhatIf = {
   whatIf: WhatIf | null
   eligible: string[]
+  ownPacksNewest: PackVersion[]
 }
 
 export type LibraryWorkflow = {
@@ -2777,12 +2783,18 @@ export type WhatIf = {
   rubrics: boolean
   spendLimitMicros: number
   advanceWorkflows: boolean
+  also: PackVersion[]
   costMicros: number
   incomplete: number
   rows: WhatIfRow[]
   projects: WhatIfProject[]
   fleet: WhatIfFleetGap[]
   movesBackProjects: number
+}
+
+export type PackVersion = {
+  pack: string
+  version: number
 }
 
 export type LibraryWorkflowUse = {

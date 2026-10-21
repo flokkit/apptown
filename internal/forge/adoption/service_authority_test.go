@@ -287,7 +287,8 @@ func (serviceAuthorityFunc) VisibleProjects(context.Context, access.Capability) 
 // PicksWith is the one change a what-if and a pack-version eval ask about:
 // the named pack moved to the version, or added when the project is not on
 // it, and every other pick the project made left as it is, the pack its
-// receipt names first (the first pick is the one a candidate names).
+// receipt names first (the first pick is the one a candidate names); and
+// any other pack named with it that the project already holds.
 func TestPicksWithMovesOnlyTheNamedPack(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
@@ -322,5 +323,14 @@ func TestPicksWithMovesOnlyTheNamedPack(t *testing.T) {
 	}
 	if want := []PackPick{{Pack: "house", Version: 1}, {Pack: "extra", Version: 1}, {Pack: "candidate", Version: 2}}; !slices.Equal(added, want) {
 		t.Fatalf("a pack the project is not on joins: %+v, want %+v", added, want)
+	}
+	// Other packs moved with it move only where the project holds them:
+	// "each project's own pack at its newest" never adds a pack.
+	paired, err := s.PicksWith(t.Context(), pid, "extra", 4, PackPick{Pack: "house", Version: 3}, PackPick{Pack: "candidate", Version: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []PackPick{{Pack: "house", Version: 3}, {Pack: "extra", Version: 4}}; !slices.Equal(paired, want) {
+		t.Fatalf("moving the project's own pack with the named one: %+v, want %+v", paired, want)
 	}
 }

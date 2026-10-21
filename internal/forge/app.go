@@ -265,7 +265,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Complaints = complaint.NewBox(db, complaintPackVersions{db}, cfg.clock.Now)
 	a.Ways = wow.New(db, wow.Dependencies{Stock: stock.FS, Importers: waysImporters{db}, Checks: waysChecks{}, Now: cfg.clock.Now})
 	changes := workflow.NewChanges(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, cfg.clock.Now)
-	a.Adoption = adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(a.Access, "adoption"), Projects: a.Projects}, Ways: a.Ways, Capabilities: adoptionCapabilities{}, Uplift: workcommands.Uplift{Changes: changes}, Reviews: adoptionReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Now: cfg.clock.Now})
+	a.Adoption = adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(a.Access, "adoption"), Projects: a.Projects}, Ways: a.Ways, Capabilities: adoptionCapabilities{}, Uplift: workcommands.Uplift{Changes: changes, DB: db, Lanes: func() remediation.WorkflowResolver { return a.lifecycle }, Runs: func() workcommands.RunStarter { return a.Work }}, Reviews: adoptionReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Now: cfg.clock.Now})
 	var extensionNames []string
 	for _, ext := range piharness.Extensions() {
 		extensionNames = append(extensionNames, ext.Name)

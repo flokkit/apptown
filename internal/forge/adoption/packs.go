@@ -51,12 +51,23 @@ func ProjectPacksIn(ctx context.Context, q database.Queryer, projectID ids.ID) (
 
 // PicksWith is the project's current pack picks with pack at version,
 // added when the project is not on it: the one change a what-if describes
-// and a pack-version eval's variant adopts (design/subsystems/conformance.md).
-// Everything else the project picked stays as it is.
-func (s *Service) PicksWith(ctx context.Context, projectID ids.ID, pack string, version int64) ([]PackPick, error) {
+// and a pack-version eval's variant adopts (design/subsystems/conformance.md),
+// with each also pack the project already holds at its version. Everything
+// else the project picked stays as it is, in its order.
+func (s *Service) PicksWith(ctx context.Context, projectID ids.ID, pack string, version int64, also ...PackPick) ([]PackPick, error) {
 	picks, err := s.currentPicks(ctx, projectID)
 	if err != nil {
 		return nil, err
+	}
+	// Each other pack moves only where the project already holds it: a
+	// what-if moving a fleet's own packs with the platform pack never adds
+	// one project's pack to another.
+	for _, a := range also {
+		for i := range picks {
+			if picks[i].Pack == a.Pack {
+				picks[i].Version = a.Version
+			}
+		}
 	}
 	for i := range picks {
 		if picks[i].Pack == pack {

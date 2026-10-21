@@ -71,6 +71,10 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
   const library = libraryQ.data?.packs ?? []
   const [picks, setPicks] = useState<PackPick[] | null>(null)
   const [cand, setCand] = useState<Candidate | null>(null)
+  // opened is an adoption Change whose working run did not get going: the
+  // Change stands, and the reason is said here rather than lost by moving
+  // to the Change's page.
+  const [opened, setOpened] = useState<{ changeId: string; runError?: string; notStarted?: string } | null>(null)
   // Adopting moves the project's guidance and the library's usage counts as
   // well as the project's own reads.
   const { run, busy, err, setErr } = useAction(undefined, { affects: ['/guidance', '/wow'] })
@@ -89,12 +93,23 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
     if (!cand) return
     const r = await run(() => post<AdoptionUpliftOpened | AdoptionApplied>(`/projects/${slug}/adoption/adopt`, { expectedRevision: cand.expectedRevision, packs: cand.packs, viaChange }))
     if (!r) return
-    if ('changeId' in r) nav(`/changes/${r.changeId}`)
+    if ('changeId' in r) {
+      if (r.notStarted || r.runError) setOpened({ changeId: r.changeId ?? '', runError: r.runError, notStarted: r.notStarted })
+      else nav(`/changes/${r.changeId}`)
+    }
     else { setCand(null); setPicks(null); onChanged() }
   }
   const needsWork = cand ? cand.newChecks.length > 0 : false
   return (
     <div style={{ marginBottom: 12, maxWidth: 760 }}>
+      {opened && (
+        <div className="warn small" role="status" style={{ marginBottom: 6 }}>
+          <Link to={`/changes/${opened.changeId}`}>The adoption Change</Link> is open, but{' '}
+          {opened.runError
+            ? <>its working run did not get going: {opened.runError}. Open the Change to see the run.</>
+            : <>no working run was started: {opened.notStarted}. Start a workflow from the Change.</>}
+        </div>
+      )}
       <ReadStatus q={libraryQ} what="the pack library" className="small" />
       <StaleNote q={libraryQ} />
       {updates.length > 0 && !cand && (

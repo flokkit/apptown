@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -366,5 +367,67 @@ func TestPrepareMovesAnAdditionToANamedVersion(t *testing.T) {
 	_ = json.Unmarshal(bad.Body.Bytes(), &c)
 	if len(c.Problems) == 0 || !strings.Contains(c.Problems[0], "no version 99") {
 		t.Fatalf("a version that does not exist is a problem: %s", bad.Body.String())
+	}
+}
+
+// Opening an adoption Change starts its working run: the Change's working
+// step makes the new checks hold (or passes empty), so a Change left with
+// no run waited for someone to pick a workflow (live, 21 Oct: ten sat idle).
+// A run admitted and then failed is reported as that run with its error,
+// never as "not started" (it exists, and blocks another start).
+func TestOpeningAnAdoptionChangeStartsItsWorkingRun(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name    string
+		git     bool
+		started bool
+	}{{"its workspace prepares", true, true}, {"its workspace fails", false, false}} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			a := testApp(t)
+			testAdministrator(t, a, "bls")
+			a.SyncStock(t.Context())
+			pid, _, _ := fleetRepo(t, a, "sq", map[string]string{"go.mod": "module sq\n\nrequire modernc.org/sqlite v1.0.0\n", "main.go": "package main\n"})
+			a.ensurePlatformGuidanceFor(pid)
+			recordFixtureAdoptions(t, a)
+			adoptTestPlatform(t, a, pid)
+			testPack(t, a, "networked", []string{"data/networked-database"})
+			if err := a.lifecycle.SelectLane(t.Context(), pid, "quick-change", true, "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			if c.git {
+				installFakeGit(t, a, nil)
+			} else {
+				// The run is admitted, then preparing its workspace fails.
+				installFakeGit(t, a, func(workflow.CloneRequest) (workflow.WorkspaceResult, error) {
+					return workflow.WorkspaceResult{}, errors.New("clone refused")
+				})
+			}
+			code, body := adoptReq(t, a, "sq", `{"viaChange":true,"packs":[{"pack":"apptown","version":1},{"pack":"networked","version":1}]}`)
+			var opened struct {
+				ChangeID   ids.ID `json:"changeId"`
+				RunID      ids.ID `json:"runId"`
+				Workflow   string `json:"workflow"`
+				RunError   string `json:"runError"`
+				NotStarted string `json:"notStarted"`
+			}
+			if code != 200 || json.Unmarshal([]byte(body), &opened) != nil || opened.ChangeID.IsZero() {
+				t.Fatalf("via change: %d %s", code, body)
+			}
+			if opened.RunID.IsZero() || opened.Workflow != "quick-change" || opened.NotStarted != "" {
+				t.Fatalf("the adoption Change's working run: %s", body)
+			}
+			if c.started != (opened.RunError == "") {
+				t.Fatalf("an admitted run that did not get going keeps the run and says why: %s", body)
+			}
+			snap, err := a.Work.Snapshot(asPerson("bls"), opened.RunID, workflow.DetailView)
+			if err != nil || snap.Run.ChangeID != opened.ChangeID || snap.Run.WorkflowName != "quick-change" {
+				t.Fatalf("the run is quick-change on the adoption Change: %+v %v", snap.Run, err)
+			}
+			// Stop the stock lane's agent work before the app stops.
+			if _, err := a.Work.Abandon(asPerson("bls"), workflow.StopWork{ChangeID: opened.ChangeID, Reason: "test"}); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

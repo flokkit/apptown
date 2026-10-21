@@ -15,6 +15,7 @@ import (
 	"flokkit.io/forge/internal/forge/identity"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/projectlifecycle"
+	"flokkit.io/forge/internal/forge/verification"
 	"flokkit.io/forge/internal/forge/workflow"
 	"flokkit.io/forge/internal/strs"
 )
@@ -52,7 +53,8 @@ func (h AdoptionCommands) Prepare(w http.ResponseWriter, r *http.Request) {
 // packs?, additions?, fromWhatIf?, viaChange?} — adopts now, or opens the
 // Change that will. Weakening a pack's obligation takes the standards
 // authority. fromWhatIf adopts what that what-if assessed for this project,
-// read from its record (pack, version, adoption revision, candidate), and
+// read from its record (pack, version, the other packs it moved with it,
+// adoption revision, candidate), and
 // is refused when that is no longer what the project would adopt; the
 // Change's brief names the what-if.
 func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +83,7 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 				WriteFault(w, err)
 				return
 			}
-			picks, err := h.adoption.PicksWith(r.Context(), p.ID, assessed.pack, assessed.version)
+			picks, err := h.adoption.PicksWith(r.Context(), p.ID, assessed.pack, assessed.version, assessed.also...)
 			if err != nil {
 				WriteFault(w, err)
 				return
@@ -132,7 +134,7 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 				WriteFaultOr(w, err, 422)
 				return
 			}
-			WriteJSON(w, 200, AdoptionUpliftOpened{ChangeID: ch.ID, ChangeNumber: ch.Number, Candidate: *c})
+			WriteJSON(w, 200, AdoptionUpliftOpened{ChangeID: ch.ID, ChangeNumber: ch.Number, Candidate: *c, RunID: ch.Run, RunNumber: ch.RunNumber, Workflow: ch.Workflow, RunError: ch.RunError, NotStarted: ch.NotStarted})
 			return
 		}
 		rev, err := h.lifecycle.Adopt(r.Context(), p, c, who, "adopted under Settings › Guidance: "+strings.Join(c.Words(), ", ")+"."+back, adoption.OperationSelect)
@@ -152,6 +154,7 @@ type assessed struct {
 	version, revision int64
 	digest, basis     string
 	advance           bool
+	also              []adoption.PackPick
 }
 
 // assessedIn reads what-if id's answer for the project. Reading it takes
@@ -170,7 +173,7 @@ func (h AdoptionCommands) assessedIn(r *http.Request, id, projectID ids.ID) (ass
 			continue
 		}
 		basis := fmt.Sprintf("Assessed in what-if #%d at %s: %s.", wi.ID, strs.ShortSHA(p.SHA), conformance.WhatIfOutcomeWords(p.Outcome))
-		return assessed{pack: wi.Pack, version: wi.Version, revision: p.AdoptionRevision, digest: p.CandidateDigest, basis: basis, advance: wi.AdvanceWorkflows}, nil
+		return assessed{pack: wi.Pack, version: wi.Version, revision: p.AdoptionRevision, digest: p.CandidateDigest, basis: basis, advance: wi.AdvanceWorkflows, also: verification.AlsoPicks(wi.Also)}, nil
 	}
 	return assessed{}, fault.New(fault.Conflict, fmt.Sprintf("what-if #%d assessed no candidate for this project", id))
 }
@@ -179,11 +182,19 @@ func (h AdoptionCommands) holds(ctx context.Context, pr access.Principal, c acce
 	return h.access.Evaluate(ctx, pr, access.DelegationOf(pr), c, res, access.Context{}).Allow
 }
 
-// AdoptionUpliftOpened names the change that will carry an adoption.
+// AdoptionUpliftOpened names the change that will carry an adoption, and
+// what came of starting its working run: runId when a run was admitted
+// (with runError when it then failed to get going), notStarted when none
+// was. The change stands in every case.
 type AdoptionUpliftOpened struct {
 	ChangeID     ids.ID             `json:"changeId"`
 	ChangeNumber int64              `json:"changeNumber"` // within the project
 	Candidate    adoption.Candidate `json:"candidate"`
+	RunID        ids.ID             `json:"runId,omitzero"`
+	RunNumber    int64              `json:"runNumber,omitempty"`
+	Workflow     string             `json:"workflow,omitempty"`
+	RunError     string             `json:"runError,omitempty"`
+	NotStarted   string             `json:"notStarted,omitempty"`
 }
 
 // AdoptionApplied is the revision an adoption wrote.

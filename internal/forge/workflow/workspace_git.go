@@ -215,16 +215,11 @@ func (g GitWorkspace) commitLeftovers(ctx context.Context, workspace string) err
 var ErrNotUpgraded = fault.New(fault.Conflict, "this project's repository still keeps AppTown's files in .forge/; an administrator runs apptown upgrade once, then start again")
 
 func (g GitWorkspace) requireUpgraded(ctx context.Context, repository, commit string) error {
-	listing, err := g.git(ctx, repository, "ls-tree", "--name-only", commit, "--", ".forge", ".apptown")
+	old, err := scm.PredatesRename(ctx, repository, commit)
 	if err != nil {
 		return err
 	}
-	old, renamed := false, false
-	for _, name := range strings.Split(listing, "\n") {
-		old = old || name == ".forge"
-		renamed = renamed || name == ".apptown"
-	}
-	if old && !renamed {
+	if old {
 		return ErrNotUpgraded
 	}
 	return nil

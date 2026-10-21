@@ -22,9 +22,17 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
   const [left, setLeft] = useState<string[]>([])
   const [rubrics, setRubrics] = useState(false)
   const [advance, setAdvance] = useState(false)
+  const [ownPacks, setOwnPacks] = useState(false)
   const [limit, setLimit] = useState('0.50')
-  const err = firstErr(actErr, q.err, fleetQ.err)
-  const eligible = q.data?.eligible ?? null
+  // Each project's own pack at its newest: the explicit versions AppTown
+  // offers (read before eligibility, so a project current on this pack but
+  // behind on its own is counted), sent and recorded as they are.
+  const offered = q.data?.ownPacksNewest ?? []
+  const also = ownPacks ? offered : []
+  const alsoParam = also.map((a) => `${a.pack}@${a.version}`).join(',')
+  const alsoQ = useGet<LatestWhatIf>(also.length > 0 ? `/conformance/what-if?pack=${encodeURIComponent(pack)}&version=${version}&also=${encodeURIComponent(alsoParam)}` : null)
+  const err = firstErr(actErr, q.err, fleetQ.err, alsoQ.err)
+  const eligible = (also.length > 0 ? alsoQ.data?.eligible : q.data?.eligible) ?? null
   // Membership is known only once read: while a read is pending or failed
   // the picker says so, never that there is nothing.
   const fleet = fleetQ.data
@@ -34,7 +42,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
   const limitMicros = Math.round(parseFloat(limit) * 1e6)
   const limitOK = !rubrics || (Number.isFinite(limitMicros) && limitMicros > 0)
   const w = q.data?.whatIf
-  const start = () => run(() => post<WhatIfStarted>('/conformance/what-if', { pack, version, ...(choosing ? { projects: chosen } : {}), rubrics, spendLimitMicros: rubrics ? limitMicros : 0, advanceWorkflows: advance }))
+  const start = () => run(() => post<WhatIfStarted>('/conformance/what-if', { pack, version, ...(choosing ? { projects: chosen } : {}), rubrics, spendLimitMicros: rubrics ? limitMicros : 0, advanceWorkflows: advance, ...(also.length > 0 ? { also } : {}) }))
 
   return (
     <div className="small" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
@@ -45,7 +53,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
       <div className="card" style={{ padding: '6px 10px', marginTop: 6 }}>
         {!choosing && (
           <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-            <span>Eligible (on an earlier version):</span>
+            <span>Eligible (on an earlier version{also.length > 0 ? ', of this pack or their own' : ''}):</span>
             {eligible === null
               ? <span className="muted">{q.err ? 'could not be read' : 'reading…'}</span>
               : eligible.length === 0 ? <span className="muted">none</span>
@@ -80,6 +88,12 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
           <label><input type="checkbox" checked={advance} onChange={(e) => setAdvance(e.target.checked)} /> Also move each project's other workflows to the newest version</label>
           <div className="muted">Workflows this pack does not pin otherwise keep the version each project is on.</div>
         </div>
+        {offered.length > 0 && (
+          <div style={{ marginTop: 6 }}>
+            <label><input type="checkbox" checked={ownPacks} onChange={(e) => setOwnPacks(e.target.checked)} /> Also move each project's own pack to its newest version</label>
+            <div className="muted">{offered.map((a) => `${a.pack} v${a.version}`).join(', ')}: for projects already on them. Moving one pack alone takes the other's rules back to the version the project recorded.</div>
+          </div>
+        )}
         <div style={{ marginTop: 6 }}>
           <label><input type="checkbox" checked={rubrics} onChange={(e) => setRubrics(e.target.checked)} /> Include model rubrics (they cost money)</label>
           {rubrics && (

@@ -60,6 +60,34 @@ describe('what-if panel', () => {
     done()
   })
 
+  // "Each project's own pack at its newest": the tick lists the explicit
+  // versions AppTown offers, the eligible list is asked again with them (a
+  // project current on this pack but behind on its own is counted), and the
+  // run sends them as they are.
+  it('moves each project\'s own pack to its newest with this one', async () => {
+    const posted: unknown[] = []
+    const asked: string[] = []
+    const { el, client, done } = await render((p, init) => {
+      if (init?.method === 'POST') { posted.push(JSON.parse(String(init.body))); return json({ id: NEW_WHAT_IF }, 202) }
+      asked.push(p)
+      return p.includes('also=')
+        ? json({ whatIf: null, eligible: ['ledger', 'till'], ownPacksNewest: [] })
+        : json({ whatIf: null, eligible: [], ownPacksNewest: [{ pack: 'rails', version: 38 }, { pack: 'django-htmx', version: 43 }] })
+    })
+    expect(button(el, 'Run on').disabled).toBe(true)
+    expect(el.textContent).toContain('rails v38, django-htmx v43: for projects already on them')
+    const tick = [...el.querySelectorAll('input[type=checkbox]')].find((i) => i.parentElement?.textContent?.includes("Also move each project's own pack")) as HTMLInputElement
+    await act(async () => { tick.click() })
+    await settled(client)
+    expect(asked.some((p) => p.includes('also=' + encodeURIComponent('rails@38,django-htmx@43')))).toBe(true)
+    const run = button(el, 'Run on')
+    expect(run.textContent).toBe('Run on 2 eligible projects')
+    await act(async () => { run.click() })
+    await settled(client)
+    expect(posted).toEqual([{ pack: 'team', version: 2, rubrics: false, spendLimitMicros: 0, advanceWorkflows: false, also: [{ pack: 'rails', version: 38 }, { pack: 'django-htmx', version: 43 }] }])
+    done()
+  })
+
   // Rubrics on the eligible default: the calls line counts the eligible
   // projects, and the run sends the limit in micro-dollars without naming
   // projects.

@@ -252,8 +252,8 @@ DELETE FROM conformance_reviews;
 
 -- The selection is sent as text, as InsertReview's is.
 -- name: InsertWhatIf :one
-INSERT INTO what_if_reviews(id, pack,pack_version,requested_by,requested_by_principal,requested_by_via,rubrics,spend_limit_micros,advance_workflows,created_at,projects,state)
-VALUES(sqlc.arg(id), sqlc.arg(pack),sqlc.arg(pack_version),sqlc.arg(requested_by),sqlc.arg(requested_by_principal),sqlc.arg(requested_by_via),sqlc.arg(rubrics),sqlc.arg(spend_limit_micros),sqlc.arg(advance_workflows),sqlc.arg(created_at),sqlc.arg(projects)::text::jsonb,'queued') RETURNING *;
+INSERT INTO what_if_reviews(id, pack,pack_version,requested_by,requested_by_principal,requested_by_via,rubrics,spend_limit_micros,advance_workflows,also_packs,created_at,projects,state)
+VALUES(sqlc.arg(id), sqlc.arg(pack),sqlc.arg(pack_version),sqlc.arg(requested_by),sqlc.arg(requested_by_principal),sqlc.arg(requested_by_via),sqlc.arg(rubrics),sqlc.arg(spend_limit_micros),sqlc.arg(advance_workflows),sqlc.arg(also_packs)::text::jsonb,sqlc.arg(created_at),sqlc.arg(projects)::text::jsonb,'queued') RETURNING *;
 
 -- One claimant wins: a what-if leaves queued once, for running.
 -- name: ClaimQueuedWhatIf :one

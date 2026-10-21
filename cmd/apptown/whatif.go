@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,8 +45,10 @@ func cmdWhatIf(args []string) error {
 	noFollow := fs.Bool("no-follow", false, "start the what-if and return")
 	rubrics := fs.String("rubrics", "", "include model rubrics, with this spend limit in dollars")
 	advance := fs.Bool("advance-workflows", false, "also move each project's workflows the pack does not pin to the newest version")
+	alsoFlag := fs.String("also", "", "other pack versions to move with it, for projects already on them: pack@version,…")
+	ownPacks := fs.String("own-packs", "", "newest: also move each project's own pack to its newest version (the versions are printed and recorded)")
 	pos := parseArgs(fs, args)
-	usage := fmt.Errorf("usage: apptown whatif <pack> <version> [-p <project>[,<project>…]] [--rubrics <dollars>] [--advance-workflows] [--no-follow]")
+	usage := fmt.Errorf("usage: apptown whatif <pack> <version> [-p <project>[,<project>…]] [--rubrics <dollars>] [--advance-workflows] [--also <pack@version,…> | --own-packs newest] [--no-follow]")
 	if len(pos) != 2 {
 		return usage
 	}
@@ -62,6 +65,18 @@ func cmdWhatIf(args []string) error {
 	body := map[string]any{"pack": pos[0], "version": version}
 	if *advance {
 		body["advanceWorkflows"] = true
+	}
+	also, err := whatIfAlso(pos[0], version, *alsoFlag, *ownPacks)
+	if err != nil {
+		return err
+	}
+	if len(also) > 0 {
+		body["also"] = also
+		words := make([]string, 0, len(also))
+		for _, a := range also {
+			words = append(words, fmt.Sprintf("%s v%d", a.Pack, a.Version))
+		}
+		fmt.Println(dim("with, for projects already on them: " + strings.Join(words, ", ")))
 	}
 	limit := ""
 	if *rubrics != "" {
@@ -115,6 +130,46 @@ func cmdWhatIf(args []string) error {
 		}
 		pause(2 * pollEvery)
 	}
+}
+
+// packVersion is one pack at one version, as a what-if's other packs.
+type packVersion struct {
+	Pack    string `json:"pack"`
+	Version int64  `json:"version"`
+}
+
+// whatIfAlso is the other pack versions a what-if moves with the named
+// one: explicit (--also pack@version,…), or each project's own pack at its
+// newest (--own-packs newest), which AppTown offers as explicit versions so
+// the record pins them.
+func whatIfAlso(pack string, version int64, explicit, own string) ([]packVersion, error) {
+	switch {
+	case explicit != "" && own != "":
+		return nil, fmt.Errorf("--also and --own-packs both say which other packs to move; give one")
+	case own != "" && own != "newest":
+		return nil, fmt.Errorf("--own-packs takes newest, not %q", own)
+	case own == "newest":
+		var latest struct {
+			OwnPacksNewest []packVersion `json:"ownPacksNewest"`
+		}
+		if err := api.get(fmt.Sprintf("/conformance/what-if?pack=%s&version=%d", url.QueryEscape(pack), version), &latest); err != nil {
+			return nil, err
+		}
+		return latest.OwnPacksNewest, nil
+	}
+	var out []packVersion
+	for _, part := range strings.Split(explicit, ",") {
+		if part = strings.TrimSpace(part); part == "" {
+			continue
+		}
+		name, v, ok := strings.Cut(part, "@")
+		n, err := strconv.ParseInt(v, 10, 64)
+		if !ok || err != nil || n < 1 || strings.TrimSpace(name) == "" {
+			return nil, fmt.Errorf("--also is pack@version, comma-separated, not %q", part)
+		}
+		out = append(out, packVersion{Pack: strings.TrimSpace(name), Version: n})
+	}
+	return out, nil
 }
 
 // whatIfEnd prints a what-if as read and is its exit: done is success
@@ -332,13 +387,25 @@ func cmdWhatIfAdopt(args []string) error {
 	}
 	opened := 0
 	for _, slug := range slugs {
-		var o struct{ ChangeID ids.ID }
+		var o struct {
+			ChangeID   ids.ID
+			Workflow   string
+			RunError   string
+			NotStarted string
+		}
 		err := api.post("/projects/"+slug+"/adoption/adopt", map[string]any{"fromWhatIf": id, "viaChange": true}, &o)
 		var refused *httpError
 		switch {
 		case err == nil:
 			opened++
-			fmt.Printf("  %-18s Change %s %s\n", slug, o.ChangeID, dim(fmt.Sprintf("%s/changes/%s", api.base, o.ChangeID)))
+			started := o.Workflow + " working"
+			switch {
+			case o.NotStarted != "":
+				started = "not started: " + o.NotStarted + "; start a workflow on it (apptown invoke -c " + o.ChangeID.String() + " -w quick-change)"
+			case o.RunError != "":
+				started = "its " + o.Workflow + " run did not get going: " + o.RunError
+			}
+			fmt.Printf("  %-18s Change %s %s — %s\n", slug, o.ChangeID, dim(fmt.Sprintf("%s/changes/%s", api.base, o.ChangeID)), started)
 		case errors.As(err, &refused) && refused.Status < 500:
 			fmt.Printf("  %-18s refused: %s\n", slug, refused.Error())
 		default:

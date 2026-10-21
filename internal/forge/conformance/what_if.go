@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"flokkit.io/forge/internal/ids"
@@ -41,6 +42,35 @@ type WhatIfRequest struct {
 	// workflows that no pack of the version pins to the library's newest
 	// version (adoption.Request). Adopting from the what-if asks the same.
 	AdvanceWorkflows bool `json:"advanceWorkflows,omitempty"`
+	// Also is other pack versions the candidate moves with the named one,
+	// for projects already on those packs; it never adds a pack to a
+	// project. It lets a project reach the newest of its own pack and the
+	// platform pack together, where moving either alone re-resolves the
+	// other at its older recorded version. Versions are explicit and
+	// recorded, so what is adopted is what was assessed.
+	Also []PackVersion `json:"also,omitempty"`
+}
+
+// PackVersion is one pack at one version.
+type PackVersion struct {
+	Pack    string `json:"pack"`
+	Version int64  `json:"version"`
+}
+
+// CheckAlso refuses a request that names a pack twice (as the pack and in
+// Also, or twice in Also) or a version below 1.
+func (in WhatIfRequest) CheckAlso() error {
+	seen := map[string]bool{in.Pack: true}
+	for _, a := range in.Also {
+		if a.Pack == "" || a.Version < 1 {
+			return fault.New(fault.Invalid, "each other pack names a pack and a version")
+		}
+		if seen[a.Pack] {
+			return fault.New(fault.Invalid, fmt.Sprintf("%s is named twice in the what-if", a.Pack))
+		}
+		seen[a.Pack] = true
+	}
+	return nil
 }
 
 // What-if states. Queued: admitted, waiting for the conformance queue's
@@ -280,10 +310,13 @@ type WhatIf struct {
 	SpendLimitMicros int64 `json:"spendLimitMicros"`
 	// AdvanceWorkflows: the candidates move each project's workflows no
 	// pack of the version pins to the newest version.
-	AdvanceWorkflows bool        `json:"advanceWorkflows"`
-	CostMicros       int64       `json:"costMicros"`
-	Incomplete       int64       `json:"incomplete"`
-	Rows             []WhatIfRow `json:"rows"`
+	AdvanceWorkflows bool `json:"advanceWorkflows"`
+	// Also: the other pack versions the candidates move with Pack, for
+	// projects already on them.
+	Also       []PackVersion `json:"also"`
+	CostMicros int64         `json:"costMicros"`
+	Incomplete int64         `json:"incomplete"`
+	Rows       []WhatIfRow   `json:"rows"`
 	// Projects is each selected project's answer, in selection order
 	// (WhatIfByProject).
 	Projects []WhatIfProject `json:"projects"`
@@ -292,6 +325,19 @@ type WhatIf struct {
 	// counts the projects the version moves a rule back on.
 	Fleet             []WhatIfFleetGap `json:"fleet"`
 	MovesBackProjects int              `json:"movesBackProjects"`
+}
+
+// alsoWords is " (or of …)" naming the other packs a what-if moves, for a
+// refusal that says which versions it looked below.
+func alsoWords(also []PackVersion) string {
+	if len(also) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(also))
+	for _, a := range also {
+		parts = append(parts, fmt.Sprintf("%s than v%d", a.Pack, a.Version))
+	}
+	return ", or of " + strings.Join(parts, ", or of ")
 }
 
 // ErrNoWhatIf is the absence of a what-if a caller addressed.
@@ -318,6 +364,9 @@ func (s *Service) AdmitWhatIfIn(ctx context.Context, tx *database.Tx, in WhatIfR
 	if in.Rubrics != (in.SpendLimitMicros > 0) {
 		return ids.Nil, fault.New(fault.Invalid, "model rubrics are included only with a spend limit above zero, and a spend limit only with them")
 	}
+	if err := in.CheckAlso(); err != nil {
+		return ids.Nil, err
+	}
 	who, err := s.require(ctx, Permission{Action: RunWhatIf, Projects: slices.Clone(in.Projects)})
 	if err != nil {
 		return ids.Nil, err
@@ -327,7 +376,7 @@ func (s *Service) AdmitWhatIfIn(ctx context.Context, tx *database.Tx, in WhatIfR
 			return ids.Nil, err
 		}
 		if len(in.Projects) == 0 {
-			return ids.Nil, fault.New(fault.Invalid, fmt.Sprintf("no project with a repository is on an earlier version of %s than v%d; name the projects to run it on", in.Pack, in.Version))
+			return ids.Nil, fault.New(fault.Invalid, fmt.Sprintf("no project with a repository is on an earlier version of %s than v%d%s; name the projects to run it on", in.Pack, in.Version, alsoWords(in.Also)))
 		}
 	}
 	// JSON keeps the difference between the whole estate (null) and no
@@ -336,11 +385,18 @@ func (s *Service) AdmitWhatIfIn(ctx context.Context, tx *database.Tx, in WhatIfR
 	if err != nil {
 		return ids.Nil, err
 	}
+	if in.Also == nil {
+		in.Also = []PackVersion{}
+	}
+	also, err := json.Marshal(in.Also)
+	if err != nil {
+		return ids.Nil, err
+	}
 	requester, err := identity.ActorIn(ctx, tx, who)
 	if err != nil {
 		return ids.Nil, err
 	}
-	r, err := queries(tx).InsertWhatIf(ctx, conformancesql.InsertWhatIfParams{ID: ids.New(s.records.now().UTC()), Pack: in.Pack, PackVersion: in.Version, RequestedBy: who, RequestedByPrincipal: requester.Principal, RequestedByVia: requester.Via, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, AdvanceWorkflows: in.AdvanceWorkflows, CreatedAt: s.records.now().UTC(), Projects: string(projects)})
+	r, err := queries(tx).InsertWhatIf(ctx, conformancesql.InsertWhatIfParams{ID: ids.New(s.records.now().UTC()), Pack: in.Pack, PackVersion: in.Version, RequestedBy: who, RequestedByPrincipal: requester.Principal, RequestedByVia: requester.Via, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, AdvanceWorkflows: in.AdvanceWorkflows, AlsoPacks: string(also), CreatedAt: s.records.now().UTC(), Projects: string(projects)})
 	if err != nil {
 		return ids.Nil, err
 	}
@@ -362,6 +418,9 @@ func (s *Service) ClaimWhatIf(ctx context.Context, id ids.ID) (*WhatIfRun, WhatI
 	in := WhatIfRequest{Pack: r.Pack, Version: r.PackVersion, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, AdvanceWorkflows: r.AdvanceWorkflows}
 	if err := json.Unmarshal(r.Projects, &in.Projects); err != nil {
 		return nil, WhatIfRequest{}, fmt.Errorf("what-if %d's selection: %w", id, err)
+	}
+	if err := json.Unmarshal(r.AlsoPacks, &in.Also); err != nil {
+		return nil, WhatIfRequest{}, fmt.Errorf("what-if %d's other packs: %w", id, err)
 	}
 	return &WhatIfRun{service: s, id: r.ID, selected: slices.Clone(in.Projects)}, in, nil
 }
@@ -511,7 +570,10 @@ func (s *Service) LatestWhatIf(ctx context.Context, pack string, version int64) 
 func whatIfWithRows(ctx context.Context, db database.Queryer, r conformancesql.WhatIfReview) (*WhatIf, error) {
 	out := &WhatIf{ID: r.ID, Pack: r.Pack, Version: r.PackVersion, RequestedBy: r.RequestedBy, RequestedByPrincipal: r.RequestedByPrincipal, State: r.State, Detail: r.Detail,
 		ProjectsTotal: r.ProjectsTotal, ProjectsDone: r.ProjectsDone, CreatedAt: stamp.Time{NullTime: sql.NullTime{Time: r.CreatedAt, Valid: true}},
-		FinishedAt: stamp.Time{NullTime: r.FinishedAt}, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, AdvanceWorkflows: r.AdvanceWorkflows, CostMicros: r.CostMicros, Incomplete: r.Incomplete, Rows: []WhatIfRow{}}
+		FinishedAt: stamp.Time{NullTime: r.FinishedAt}, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, AdvanceWorkflows: r.AdvanceWorkflows, CostMicros: r.CostMicros, Incomplete: r.Incomplete, Rows: []WhatIfRow{}, Also: []PackVersion{}}
+	if err := json.Unmarshal(r.AlsoPacks, &out.Also); err != nil {
+		return nil, fmt.Errorf("what-if %d's other packs: %w", r.ID, err)
+	}
 	rows, err := queries(db).WhatIfRows(ctx, r.ID)
 	if err != nil {
 		return nil, err

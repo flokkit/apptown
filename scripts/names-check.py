@@ -113,6 +113,10 @@ ALLOWED = [
     # The operator's one-time upgrade step names what it moves from (push 4).
     ("repo-folder", r"^stock/docs/guides/upgrading\.md$", r"moves the repository folder `\.forge/` to `\.apptown/`",
      "the upgrade step tells an operator which folder it renames"),
+    # Evals do not convert code from before the rename; the refusal names the
+    # old folder so a person sees why their change is not offered.
+    ("repo-folder", r"^internal/forge/scm/rename\.go$|^internal/forge/evals/service(_test)?\.go$|^web/src/pages/Evals\.test\.tsx$",
+     r"\.forge/", "says a change predates the rename by the folder its code keeps"),
     ("refs", r"^stock/docs/guides/upgrading\.md$", r"moves `refs/forge/` to `refs/apptown/`",
      "the upgrade step tells an operator which refs it moves"),
     # History readers (push 3): records written before the rename keep their

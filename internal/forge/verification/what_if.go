@@ -38,7 +38,7 @@ import (
 // a pack below a version, among the projects the caller may read.
 type CandidatePreparer interface {
 	Prepare(ctx context.Context, projectID ids.ID, req adoption.Request) (*adoption.Candidate, error)
-	PicksWith(ctx context.Context, projectID ids.ID, pack string, version int64) ([]adoption.PackPick, error)
+	PicksWith(ctx context.Context, projectID ids.ID, pack string, version int64, also ...adoption.PackPick) ([]adoption.PackPick, error)
 	ProjectsBelow(ctx context.Context, pack string, version int64) ([]adoption.ProjectRef, error)
 }
 
@@ -52,7 +52,9 @@ func (f Fleet) StartWhatIf(ctx context.Context, in conformance.WhatIfRequest) (i
 	}
 	return database.Transact(ctx, f.db, func(tx *database.Tx) (ids.ID, error) {
 		id, err := f.checks.AdmitWhatIfIn(ctx, tx, in, func() ([]ids.ID, error) {
-			below, err := adoption.ProjectsBelowIn(ctx, tx, in.Pack, in.Version)
+			below, err := belowAny(in.Pack, in.Version, in.Also, func(pack string, version int64) ([]adoption.ProjectRef, error) {
+				return adoption.ProjectsBelowIn(ctx, tx, pack, version)
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -73,11 +75,13 @@ func (f Fleet) StartWhatIf(ctx context.Context, in conformance.WhatIfRequest) (i
 // EligibleForWhatIf is who a what-if of the version runs on when it names
 // no projects, among those the caller may read: each active ordinary
 // project with a repository that directly holds the pack below the version.
-func (f Fleet) EligibleForWhatIf(ctx context.Context, pack string, version int64) ([]string, error) {
+func (f Fleet) EligibleForWhatIf(ctx context.Context, pack string, version int64, also ...conformance.PackVersion) ([]string, error) {
 	if f.candidates == nil {
 		return nil, errors.New("what-if needs Adoption's candidate preparation")
 	}
-	below, err := f.candidates.ProjectsBelow(ctx, pack, version)
+	below, err := belowAny(pack, version, also, func(pack string, version int64) ([]adoption.ProjectRef, error) {
+		return f.candidates.ProjectsBelow(ctx, pack, version)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +94,43 @@ func (f Fleet) EligibleForWhatIf(ctx context.Context, pack string, version int64
 		slugs = append(slugs, p.Slug)
 	}
 	return slugs, nil
+}
+
+// belowAny is who holds the named pack below its version, or an also pack
+// below its: eligibility comes from the whole request, so a project
+// current on the named pack but behind on its own is found. Order: first
+// seen, without repeats.
+func belowAny(pack string, version int64, also []conformance.PackVersion, below func(string, int64) ([]adoption.ProjectRef, error)) ([]adoption.ProjectRef, error) {
+	out, err := below(pack, version)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[ids.ID]bool{}
+	for _, r := range out {
+		seen[r.ID] = true
+	}
+	for _, a := range also {
+		more, err := below(a.Pack, a.Version)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range more {
+			if !seen[r.ID] {
+				seen[r.ID] = true
+				out = append(out, r)
+			}
+		}
+	}
+	return out, nil
+}
+
+// AlsoPicks is a what-if's other pack versions as Adoption's picks.
+func AlsoPicks(also []conformance.PackVersion) []adoption.PackPick {
+	out := make([]adoption.PackPick, 0, len(also))
+	for _, a := range also {
+		out = append(out, adoption.PackPick{Pack: a.Pack, Version: a.Version})
+	}
+	return out
 }
 
 // activeOnly keeps the projects that take new work: one being imported,
@@ -176,7 +217,7 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 	if head.SHA == "" {
 		return whole("", conformance.NotAssessedNoMain, head.Unavailable), spend, nil
 	}
-	picks, err := f.candidates.PicksWith(ctx, p.ID, in.Pack, in.Version)
+	picks, err := f.candidates.PicksWith(ctx, p.ID, in.Pack, in.Version, AlsoPicks(in.Also)...)
 	if err != nil {
 		return nil, spend, err
 	}
