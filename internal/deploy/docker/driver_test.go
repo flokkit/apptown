@@ -293,6 +293,28 @@ func TestADriverBootThatChangedNothingIsAKnownFailure(t *testing.T) {
 	}
 }
 
+// A need Docker called unhealthy started nothing of the app: the boot's
+// needs-phase error carries that verdict through Reconcile as known.
+func TestADriverBootWhoseNeedDockerCalledUnhealthyIsAKnownFailure(t *testing.T) {
+	t.Parallel()
+	d := &Driver{
+		Scope: func(context.Context) (Scope, error) { return Scope{Client: &fakeDaemon{}}, nil },
+		Boot:  failingBoot{&BootError{Phase: PhaseNeeds, Err: deploy.Terminal(errors.New("the postgres service is unhealthy"))}},
+		URL:   func(_, _ string, port int) string { return "" },
+	}
+	c, err := appcontract.Parse([]byte("app:\n  game:\n    static: .\n    public: true\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := []byte(`{"version":1,"revision":"abc"}`)
+	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
+		Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c}}
+	_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+	if err == nil || !deploy.IsTerminal(err) {
+		t.Fatalf("an unhealthy need's boot is not a known failure: %v", err)
+	}
+}
+
 type failingBoot struct{ err error }
 
 func (b failingBoot) Boot(context.Context, BootRequest, *appcontract.Contract) (BootResult, error) {

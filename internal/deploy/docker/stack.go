@@ -191,13 +191,16 @@ func waitStackHealthy(ctx context.Context, dk Scope, svcs []deploy.ServiceSpec, 
 		if err := ctx.Err(); err != nil {
 			return declared, fmt.Errorf("waiting for the %s service to be ready: %w", svc.Name, err)
 		}
-		if status == "" {
-			status = "not running"
-		}
+		// Docker's own verdict is a known outcome: nothing of the app was
+		// started, so a deployment attempt ends failed, not in doubt. A
+		// status the daemon did not give stays unknown.
 		if status == "unhealthy" {
-			return declared, fmt.Errorf("the %s service is unhealthy: it failed its health check after it started, so it is not ready for the app and nothing of the app was started", svc.Name)
+			return declared, deploy.Terminal(fmt.Errorf("the %s service is unhealthy: it failed its health check after it started, so it is not ready for the app and nothing of the app was started", svc.Name))
 		}
-		return declared, fmt.Errorf("the %s service is %s, not healthy, after %s: it is not ready for the app, so nothing of the app was started", svc.Name, status, healthBound)
+		if status == "" {
+			return declared, fmt.Errorf("the %s service is not running, not healthy, after %s: it is not ready for the app, so nothing of the app was started", svc.Name, healthBound)
+		}
+		return declared, deploy.Terminal(fmt.Errorf("the %s service is %s, not healthy, after %s: it is not ready for the app, so nothing of the app was started", svc.Name, status, healthBound))
 	}
 	return declared, nil
 }
