@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"flokkit.io/forge/internal/forge/dependency"
@@ -58,6 +59,8 @@ type (
 		Compose  string            `json:"compose"`
 		Env      map[string]string `json:"env"`
 		Procfile string            `json:"procfile"`
+		// StaticBuilds are what `apptown dev up` builds before compose.
+		StaticBuilds []DevStaticBuild `json:"staticBuilds,omitempty"`
 	}
 )
 
@@ -144,6 +147,10 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{errorText: "appYaml required"}, func(in struct {
 		AppYAML string `json:"appYaml"`
 		Mode    string `json:"mode"`
+		// Host is where the needs' published ports answer for a process
+		// on the caller's machine: localhost, or the host of the caller's
+		// own Docker daemon (a chat's tcp://dind:2375; complaint #94).
+		Host string `json:"host"`
 	}) {
 		if strings.TrimSpace(in.AppYAML) == "" {
 			WriteError(w, 400, "appYaml required")
@@ -167,7 +174,15 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 		}
 		// Process-mode env: the app runs on the host, so the needs are reached at
 		// localhost:<published-port>. Plus a Procfile when the app is multi-process.
-		env := h.catalog.ResolveLocal(r.Context(), c.Needs, c.NeedParams, "localhost").Env
+		host := in.Host
+		if host == "" {
+			host = "localhost"
+		}
+		if !devHostName.MatchString(host) {
+			WriteError(w, 400, "host %q is not a plain host name", host)
+			return
+		}
+		env := h.catalog.ResolveLocal(r.Context(), c.Needs, c.NeedParams, host).Env
 		// The parts' need references, wired with the same localhost values,
 		// join the one env file every process reads (dev.env).
 		if in.Mode != "full" {
@@ -177,7 +192,11 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		WriteJSON(w, 200, DevComposition{Compose: compose, Env: env, Procfile: generateProcfile(c)})
+		out := DevComposition{Compose: compose, Env: env, Procfile: generateProcfile(c)}
+		if in.Mode == "full" {
+			out.StaticBuilds = DevStaticBuilds(c)
+		}
+		WriteJSON(w, 200, out)
 	})
 }
 
@@ -196,6 +215,10 @@ func (h Configuration) dependencyKind(ctx context.Context, capability string) *d
 // and each part's and init step's wired values (contract version 2). Two
 // consumers wiring one name to different values cannot share one file, so
 // that is refused, naming the name.
+// devHostName is a plain DNS host name or IPv4 address: what the needs'
+// connection values may name, nothing that could carry a path or a port.
+var devHostName = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$`)
+
 func devWiredEnv(c *appcontract.Contract, env map[string]string) (map[string]string, error) {
 	out := appcontract.MergeEnv(env, nil)
 	from := map[string]string{}

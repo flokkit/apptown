@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"flokkit.io/forge/internal/deploy/docker"
 )
 
 const appYamlPath = ".apptown/app.yaml"
@@ -99,14 +101,19 @@ func cmdDev(args []string) error {
 		if sub == "up" || sub == "generate" {
 			mode = "full"
 		}
-		raw, err := api.request("POST", "/dev-compose", map[string]string{"appYaml": yaml, "mode": mode})
+		// The needs' ports answer on the Docker daemon's host: a chat with its
+		// own daemon (DOCKER_HOST=tcp://dind:2375) reaches them there, not on
+		// localhost (complaint #94).
+		host := publishedPortsHost(os.Getenv("DOCKER_HOST"))
+		raw, err := api.request("POST", "/dev-compose", map[string]string{"appYaml": yaml, "mode": mode, "host": host})
 		if err != nil {
 			return err
 		}
 		var out struct {
-			Compose  string            `json:"compose"`
-			Env      map[string]string `json:"env"`
-			Procfile string            `json:"procfile"`
+			Compose      string            `json:"compose"`
+			Env          map[string]string `json:"env"`
+			Procfile     string            `json:"procfile"`
+			StaticBuilds []devStaticBuild  `json:"staticBuilds"`
 		}
 		if err := json.Unmarshal(raw, &out); err != nil {
 			return err
@@ -142,10 +149,12 @@ func cmdDev(args []string) error {
 		}
 		if sub == "generate" {
 			fmt.Printf("wrote %s (generated; under .apptown/, never committed)\n", devComposePath)
+			for _, b := range out.StaticBuilds {
+				fmt.Printf("apptown dev up first builds the static site %s into %s\n", b.Part, b.Folder)
+			}
 			return nil
 		}
-		fmt.Println("$ docker compose up -d --build")
-		if err := runDocker("up", "-d", "--build"); err != nil {
+		if err := devUpStart(out.StaticBuilds, dockerCLI); err != nil {
 			return err
 		}
 		if host := publishedPortsHost(os.Getenv("DOCKER_HOST")); host != "" {
@@ -156,6 +165,89 @@ func cmdDev(args []string) error {
 		return runDocker("down", "-v")
 	}
 	return fmt.Errorf("usage: apptown dev [ | up | generate | down]")
+}
+
+// devStaticBuild is a static site's build that `apptown dev up` runs before
+// compose, as AppTown's dev-compose answer lists it.
+type devStaticBuild struct {
+	Part    string `json:"part"`
+	Context string `json:"context"`
+	Target  string `json:"target"`
+	Output  string `json:"output"`
+	Folder  string `json:"folder"`
+}
+
+// buildStaticSites runs each static site's build the way a deploy does
+// (docker build --output type=local), into its folder under .apptown/,
+// emptied first so a file the build stopped writing is not served. It
+// refuses when a build fails or writes no output folder: compose would
+// otherwise serve an empty site.
+func buildStaticSites(builds []devStaticBuild, build func(args ...string) error) error {
+	for _, b := range builds {
+		if err := os.RemoveAll(b.Folder); err != nil {
+			return err
+		}
+		args := []string{"build"}
+		if b.Target != "" {
+			args = append(args, "--target", b.Target)
+		}
+		args = append(args, "--output", "type=local,dest="+b.Folder, b.Context)
+		fmt.Printf("$ docker %s\n", strings.Join(args, " "))
+		if err := build(args...); err != nil {
+			return fmt.Errorf("building the static site %s: %w", b.Part, err)
+		}
+		// The deploy path's own rule: the output is a folder of plain
+		// folders and files, holding at least one file, with no link on
+		// the way to it or inside it, since the folder is then mounted
+		// into the file server's container.
+		if _, err := docker.ConfineStaticExport(b.Folder, b.Output); err != nil {
+			return fmt.Errorf("the static site %s: %w", b.Part, err)
+		}
+	}
+	return nil
+}
+
+// staticParts names the parts a fresh build replaced: compose keeps a running
+// container whose definition did not change, and its bind mount would still
+// hold the folder the build just emptied and rewrote.
+func staticParts(builds []devStaticBuild) []string {
+	var out []string
+	for _, b := range builds {
+		out = append(out, b.Part)
+	}
+	return out
+}
+
+// devUpStart is `apptown dev up` after the files are written: each static
+// site built and checked, then compose up, then the static sites' services
+// recreated so their mounts hold the folders just rebuilt. A build that
+// fails or is refused stops it before compose runs.
+func devUpStart(builds []devStaticBuild, docker func(quiet bool, args ...string) error) error {
+	build := func(args ...string) error { return docker(false, args...) }
+	if err := buildStaticSites(builds, build); err != nil {
+		return err
+	}
+	compose := func(dcArgs ...string) error { return composeWith(docker, dcArgs...) }
+	fmt.Println("$ docker compose up -d --build")
+	if err := compose("up", "-d", "--build"); err != nil {
+		return err
+	}
+	if parts := staticParts(builds); len(parts) > 0 {
+		fmt.Printf("$ docker compose up -d --no-deps --force-recreate %s\n", strings.Join(parts, " "))
+		return compose(append([]string{"up", "-d", "--no-deps", "--force-recreate"}, parts...)...)
+	}
+	return nil
+}
+
+// dockerCLI runs the person's own docker client on their terminal with
+// their whole environment (their Buildx builder included), quietly for a
+// probe. It is apptown dev's one place that starts a process.
+func dockerCLI(quiet bool, args ...string) error {
+	cmd := exec.Command("docker", args...)
+	if !quiet {
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	}
+	return cmd.Run()
 }
 
 // Generated local-dev files live under .apptown/: AppTown never stages that
@@ -189,16 +281,18 @@ func publishedPortsHost(dockerHost string) string {
 	return host
 }
 
-func runDocker(dcArgs ...string) error {
-	// Say what is missing before trying: a docker client without the compose
-	// plugin parses "compose up -d" as its own flags and fails confusingly
-	// (complaint #54). This is a runtime capability gap, not a contract error.
-	if err := exec.Command("docker", "compose", "version").Run(); err != nil {
+func runDocker(dcArgs ...string) error { return composeWith(dockerCLI, dcArgs...) }
+
+// composeWith runs docker compose on the generated file through docker.
+// It says what is missing before trying: a docker client without the
+// compose plugin parses "compose up -d" as its own flags and fails
+// confusingly (complaint #54). That is a runtime capability gap, not a
+// contract error.
+func composeWith(docker func(quiet bool, args ...string) error, dcArgs ...string) error {
+	if err := docker(true, "compose", "version"); err != nil {
 		return fmt.Errorf("this machine's docker client has no compose plugin, which apptown dev up needs; this is a platform problem, not a problem with your contract (report it with apptown complain)")
 	}
-	cmd := exec.Command("docker", devComposeArgs(dcArgs...)...)
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := docker(false, devComposeArgs(dcArgs...)...); err != nil {
 		return fmt.Errorf("docker compose %v: %w (is docker running locally?)", dcArgs, err)
 	}
 	return nil

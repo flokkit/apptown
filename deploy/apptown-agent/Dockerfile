@@ -29,7 +29,7 @@ FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7
 # them (sweep, 2026-10-02). Toolchains themselves come precompiled through
 # mise, so no interpreter is compiled here.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git curl ca-certificates ripgrep fd-find jq \
+      git curl ca-certificates ripgrep fd-find jq file \
       python3 python3-venv build-essential pkg-config \
       libpq-dev libyaml-dev libffi-dev libssl-dev zlib1g-dev \
       tmux \

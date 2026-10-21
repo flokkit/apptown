@@ -544,6 +544,7 @@ export type DevComposition = {
   compose: string
   env: Record<string, string>
   procfile: string
+  staticBuilds?: DevStaticBuild[]
 }
 
 export type DiscoveredModels = {
@@ -2479,6 +2480,14 @@ export type DeploymentNeedView = {
   size?: string
   version?: string
   status: string
+}
+
+export type DevStaticBuild = {
+  part: string
+  context: string
+  target?: string
+  output: string
+  folder: string
 }
 
 export type Reading = {

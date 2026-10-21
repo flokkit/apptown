@@ -12,8 +12,8 @@
   },
   "packages": {
     "cmd/apptown": {
-      "count": 3,
-      "why": "apptown dev up runs the person's docker compose on their terminal with their whole environment, their Buildx builder included (docker.CLI drops it, as AppTown's own builds must); dev_test runs compose config in a project folder, as dev up does"
+      "count": 2,
+      "why": "apptown dev runs the person's docker client (compose, and dev up's static-site builds) on their terminal with their whole environment, their Buildx builder included (docker.CLI drops it, as AppTown's own builds must), from one place, dockerCLI; dev_test runs compose config in a project folder, as dev up does"
     },
     "cmd/apptown-check": {
       "count": 1,

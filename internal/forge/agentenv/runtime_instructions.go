@@ -52,6 +52,10 @@ contract (your app parts + the needs' local emulators, wired) and runs it —
 that generated file is gitignored, never hand-edited. When your session has
 its own Docker daemon (DOCKER_HOST=tcp://dind:2375), the app's published
 ports answer on that host, not on localhost: curl http://dind:<port>/.
+TESTS AGAINST THE NEEDS: ` + "`apptown dev`" + ` starts only the needs and writes
+their connection values (for wherever this session's Docker publishes them)
+to .apptown/dev.env; run the tests with them:
+` + "`set -a; . ./.apptown/dev.env; set +a; <test command>`" + `.
 
 Toolchains resolve ONLY from mise.toml at the repo root — any tool your
 build/start invokes (go, node, python...) MUST be pinned there; unpinned

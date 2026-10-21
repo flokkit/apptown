@@ -13,7 +13,10 @@ func scanFindingsSummary(scanner string, fs []conformance.Finding) string {
 }
 
 // findingsList names the first few findings by severity, title and
-// identifier, then how many more.
+// identifier, and the file the scanner found each in, then how many more.
+// The file is what makes an image finding actionable: a CVE in a binary
+// the base image carries reads like a dependency the app never had until
+// its path is shown (complaint #95, /usr/bin/pebble in a Java image).
 func findingsList(fs []conformance.Finding) string {
 	var parts []string
 	for i, f := range fs {
@@ -24,6 +27,9 @@ func findingsList(fs []conformance.Finding) string {
 		t := f.Title
 		if len(f.Identifiers) > 0 {
 			t += " (" + f.Identifiers[0] + ")"
+		}
+		if f.Location != nil && f.Location.File != "" {
+			t += " in " + f.Location.File
 		}
 		parts = append(parts, f.Severity+": "+t)
 	}

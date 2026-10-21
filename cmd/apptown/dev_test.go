@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -79,5 +80,112 @@ func TestDevUpNamesWherePublishedPortsAnswer(t *testing.T) {
 		if got := publishedPortsHost(in); got != want {
 			t.Errorf("DOCKER_HOST=%q: got %q, want %q", in, got, want)
 		}
+	}
+}
+
+// `apptown dev up` builds each static site before compose, the way a deploy
+// does (complaint #91): the build's stage exported into the site's folder,
+// emptied first so nothing stale is served, and a build that wrote no output
+// folder is refused rather than served empty.
+func TestDevUpBuildsStaticSitesBeforeCompose(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	folder := ".apptown/static/web"
+	if err := os.MkdirAll(folder+"/dist", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(folder+"/dist/stale.html", []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var ran [][]string
+	writes := func(args ...string) error {
+		ran = append(ran, args)
+		if _, err := os.Stat(folder + "/dist/stale.html"); err == nil {
+			t.Error("the folder was not emptied before the build")
+		}
+		if err := os.MkdirAll(folder+"/dist", 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(folder+"/dist/index.html", []byte("new"), 0o644)
+	}
+	builds := []devStaticBuild{{Part: "web", Context: ".", Target: "site", Output: "dist", Folder: folder}}
+	if err := buildStaticSites(builds, writes); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"build", "--target", "site", "--output", "type=local,dest=" + folder, "."}
+	if len(ran) != 1 || !slices.Equal(ran[0], want) {
+		t.Fatalf("ran %v, want %v", ran, want)
+	}
+
+	// The deploy path's confinement holds here too: the folder is mounted
+	// into a container, so an output that is missing, or leads out of the
+	// build through a link, never reaches compose.
+	writesNothing := func(args ...string) error { return nil }
+	if err := buildStaticSites(builds, writesNothing); err == nil || !strings.Contains(err.Error(), "wrote no dist") {
+		t.Fatalf("a build without its output folder: %v", err)
+	}
+	outside := t.TempDir()
+	linksOut := func(args ...string) error {
+		if err := os.MkdirAll(folder, 0o755); err != nil {
+			return err
+		}
+		return os.Symlink(outside, folder+"/dist")
+	}
+	if err := buildStaticSites(builds, linksOut); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("an output that links out of the build: %v", err)
+	}
+	if got := staticParts(builds); !slices.Equal(got, []string{"web"}) {
+		t.Fatalf("parts to recreate after the build: %v", got)
+	}
+}
+
+// `apptown dev up` builds and checks every static site before compose runs,
+// recreates the static sites' services after it, and runs compose not at
+// all when a site's build is refused; an app with no static build runs
+// exactly the compose it always did (complaint #91).
+func TestDevUpRunsStaticBuildsBeforeComposeAndRecreatesTheirServices(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	builds := []devStaticBuild{{Part: "web", Context: ".", Output: "dist", Folder: ".apptown/static/web"}}
+	record := func(writes bool) (*[]string, func(bool, ...string) error) {
+		var ran []string
+		return &ran, func(quiet bool, args ...string) error {
+			ran = append(ran, strings.Join(args, " "))
+			if writes && args[0] == "build" {
+				if err := os.MkdirAll(".apptown/static/web/dist", 0o755); err != nil {
+					return err
+				}
+				return os.WriteFile(".apptown/static/web/dist/index.html", []byte("x"), 0o644)
+			}
+			return nil
+		}
+	}
+	compose := "compose --project-directory . -f " + devComposePath + " "
+
+	ran, docker := record(true)
+	if err := devUpStart(builds, docker); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"build --output type=local,dest=.apptown/static/web .", "compose version", compose + "up -d --build", "compose version", compose + "up -d --no-deps --force-recreate web"}
+	if !slices.Equal(*ran, want) {
+		t.Fatalf("ran %q, want %q", *ran, want)
+	}
+
+	ran, docker = record(false)
+	if err := devUpStart(builds, docker); err == nil {
+		t.Fatal("a build that wrote no output still started compose")
+	}
+	for _, r := range *ran {
+		if strings.HasPrefix(r, "compose") {
+			t.Fatalf("compose ran after a refused build: %q", *ran)
+		}
+	}
+
+	ran, docker = record(true)
+	if err := devUpStart(nil, docker); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"compose version", compose + "up -d --build"}; !slices.Equal(*ran, want) {
+		t.Fatalf("an app without static builds ran %q, want %q", *ran, want)
 	}
 }

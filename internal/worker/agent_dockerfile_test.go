@@ -74,6 +74,42 @@ func TestTheAgentImageShipsNoGoToolchain(t *testing.T) {
 	}
 }
 
+// Agents verify their work with the ordinary shell tools, so the final stage
+// installs them: a missing one sends an agent looking for a workaround and
+// filing a complaint (#93, `file` for a file-signature check).
+//
+// Kills: dropping any of these from the final stage's apt-get install.
+func TestTheAgentImageCarriesTheShellToolsAgentsUse(t *testing.T) {
+	t.Parallel()
+	raw, err := os.ReadFile("../../deploy/apptown-agent/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps := dockerfileInstructions(string(raw))
+	last := -1
+	for i, step := range steps {
+		if strings.HasPrefix(step, "FROM ") {
+			last = i
+		}
+	}
+	installed := map[string]bool{}
+	for _, step := range steps[last+1:] {
+		_, list, ok := strings.Cut(step, "apt-get install")
+		if !ok {
+			continue
+		}
+		list, _, _ = strings.Cut(list, "&&")
+		for _, pkg := range strings.Fields(list) {
+			installed[pkg] = true
+		}
+	}
+	for _, tool := range []string{"git", "curl", "ripgrep", "fd-find", "jq", "file"} {
+		if !installed[tool] {
+			t.Errorf("the agent image's final stage does not install %s", tool)
+		}
+	}
+}
+
 // dockerfileInstructions joins continued lines and drops comments.
 func dockerfileInstructions(text string) []string {
 	var out []string

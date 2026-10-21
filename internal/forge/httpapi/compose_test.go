@@ -106,16 +106,41 @@ func TestCanonicalPublicPortUsedByDevCompose(t *testing.T) {
 	}
 }
 
-// A static site with a build is AppTown's to build: `apptown dev up`
-// refuses it with words instead of rendering a service that cannot serve.
-func TestDevComposeRefusesABuiltStaticSiteWithWords(t *testing.T) {
+// A static site with a build runs under `apptown dev up` the way a deploy
+// runs it (complaint #91): the build is listed for the CLI to export into a
+// folder under .apptown/, and the part's service serves the build's output
+// from that folder with the generated file server, probed on its port.
+func TestDevComposeServesABuiltStaticSiteFromItsExportedBuild(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("app:\n  web: { static: { build: ., output: dist }, public: true }\n"))
+	c, err := appcontract.Parse([]byte("app:\n  web: { static: { build: ., target: site, output: dist }, public: true, health: { readiness: { http: / } } }\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := configurationFixture(t).generateDevCompose(t.Context(), c); err == nil || !strings.Contains(err.Error(), "does not run: run its own dev server") {
+	raw, err := configurationFixture(t).generateDevCompose(t.Context(), c)
+	if err != nil {
 		t.Fatalf("dev compose of a built static site: %v", err)
+	}
+	var compose struct {
+		Services map[string]struct {
+			Image       string         `yaml:"image"`
+			Build       any            `yaml:"build"`
+			Volumes     []string       `yaml:"volumes"`
+			Healthcheck map[string]any `yaml:"healthcheck"`
+		} `yaml:"services"`
+	}
+	if err := yaml.Unmarshal([]byte(raw), &compose); err != nil {
+		t.Fatal(err)
+	}
+	web := compose.Services["web"]
+	if web.Build != nil || !reflect.DeepEqual(web.Volumes, []string{"./.apptown/static/web/dist:/srv:ro"}) {
+		t.Fatalf("the built site is not served from its export: %s", raw)
+	}
+	if hc := fmt.Sprint(web.Healthcheck["test"]); !strings.Contains(hc, ":80/") {
+		t.Fatalf("the static site's probe does not use the file server's port 80: %s", hc)
+	}
+	want := []DevStaticBuild{{Part: "web", Context: ".", Target: "site", Output: "dist", Folder: ".apptown/static/web"}}
+	if got := DevStaticBuilds(c); !reflect.DeepEqual(got, want) {
+		t.Fatalf("builds = %+v, want %+v", got, want)
 	}
 }
 

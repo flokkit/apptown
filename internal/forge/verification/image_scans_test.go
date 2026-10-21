@@ -195,3 +195,21 @@ func TestAFailingScanReasonListsItsFindings(t *testing.T) {
 		t.Fatalf("reason quotes the starting revision's build: %q", reason)
 	}
 }
+
+// A scan's summary names the file each finding was found in, so a CVE in a
+// binary the base image carries is not mistaken for one of the app's own
+// dependencies (complaint #95: Go stdlib CVEs in /usr/bin/pebble, in a Java
+// image whose app has no Go).
+//
+// Kills: the summary dropping the finding's file.
+func TestAScanSummaryNamesTheFileEachFindingIsIn(t *testing.T) {
+	t.Parallel()
+	failing := []conformance.Finding{
+		{Finding: check.Finding{Severity: "high", Title: "stdlib: crypto/x509", Identifiers: []string{"CVE-2026-78667"}, Location: &check.Location{File: "usr/bin/pebble"}}},
+		{Finding: check.Finding{Severity: "low", Title: "a finding with no file"}},
+	}
+	got := scanFindingsSummary("trivy", failing)
+	if !strings.Contains(got, "high: stdlib: crypto/x509 (CVE-2026-78667) in usr/bin/pebble") || strings.Contains(got, "file in") {
+		t.Fatalf("summary %q", got)
+	}
+}

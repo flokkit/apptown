@@ -59,3 +59,34 @@ needs:
 		}
 	}
 }
+
+// A process on a machine whose Docker is another host (a chat's own daemon,
+// DOCKER_HOST=tcp://dind:2375) reaches the needs where their ports are
+// published: the needs' env names the host the caller gives, so the
+// documented `apptown dev` then `. .apptown/dev.env` runs the app's tests
+// there (complaint #94). A host that is not a plain name is refused.
+func TestDevComposeEnvNamesTheHostTheNeedsAnswerOn(t *testing.T) {
+	t.Parallel()
+	h := configurationFixture(t)
+	source := "app:\n  web: {build: ., ports: [\"8080\"], public: true}\nneeds:\n  postgres: {version: \"16\"}\n"
+	for host, want := range map[string]string{"": "localhost:5432", "dind": "dind:5432"} {
+		raw, _ := json.Marshal(map[string]string{"appYaml": source, "host": host})
+		w := httptest.NewRecorder()
+		h.DevCompose(w, httptest.NewRequest("POST", "/", strings.NewReader(string(raw))))
+		var out struct{ Env map[string]string }
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 200 {
+			t.Fatalf("compose for host %q: %d %s", host, w.Code, w.Body.String())
+		}
+		if !strings.Contains(out.Env["DATABASE_URL"], "@"+want+"/") || out.Env["PGHOST"] != strings.TrimSuffix(want, ":5432") {
+			t.Fatalf("host %q: DATABASE_URL %q PGHOST %q", host, out.Env["DATABASE_URL"], out.Env["PGHOST"])
+		}
+	}
+	for _, bad := range []string{"dind:2375", "a/b", "-x", "a b"} {
+		raw, _ := json.Marshal(map[string]string{"appYaml": source, "host": bad})
+		w := httptest.NewRecorder()
+		h.DevCompose(w, httptest.NewRequest("POST", "/", strings.NewReader(string(raw))))
+		if w.Code != 400 {
+			t.Fatalf("host %q accepted: %d", bad, w.Code)
+		}
+	}
+}
