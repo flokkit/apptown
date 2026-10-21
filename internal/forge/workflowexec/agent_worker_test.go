@@ -611,21 +611,6 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		{"an unreadable definition", nil, func(t *testing.T, f *agentOnWorker) { f.call.run.DefinitionJSON = "{" }, "definition could not be read"},
 		{"an unreadable step configuration", nil, func(t *testing.T, f *agentOnWorker) { f.call.step.Config = json.RawMessage(`{"services":1}`) }, "configuration could not be read"},
 		{"a project without a repository", nil, func(t *testing.T, f *agentOnWorker) { f.call.source.DefaultBranch = "" }, "not repository-backed"},
-		{"a need the catalog does not know", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  mongodb: {}\n"})
-		}, "the app needs mongodb, which is not in the dependency catalog"},
-		{"a malformed declaration", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "needs: [unterminated\n"})
-		}, "could not be read from commit"},
-		{"a need parameter that is a list", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    database: [sourdough]\n"})
-		}, "needs: postgres: database: a parameter is a single value, not a list"},
-		{"need properties that are not a map", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties: sourdough\n"})
-		}, "needs: postgres: properties: a map of single values, not string"},
-		{"a need property that is a list", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
-			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties:\n      database: [sourdough]\n"})
-		}, "needs: postgres: properties: database: a property is a single value, not a list"},
 		{"a declaration that is a link", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
 			f.call.commit = hubCommit(t, f.hub, map[string]string{"elsewhere.yaml": "needs:\n  postgres: {}\n", ".apptown/app.yaml": "link:../elsewhere.yaml"})
 		}, "not a regular file"},
@@ -652,6 +637,27 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 				t.Errorf("the run's folder was made: %v", err)
 			}
 		})
+	}
+
+	// A declaration that does not parse, or names a need the catalogue
+	// does not hold, is told to the agent, which may be asked to fix it;
+	// nothing is started for it (TestAnAgentIsToldOfTheNeedsAReleaseRefusesAndTestsRefuseThem).
+	for body, why := range map[string]string{
+		"needs: [unterminated\n": ".apptown/app.yaml does not parse",
+		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    database: [sourdough]\n":                    "needs: postgres: database: a parameter is a single value, not a list",
+		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties: sourdough\n":                    "needs: postgres: properties: a map of single values, not string",
+		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties:\n      database: [sourdough]\n": "needs: postgres: properties: database: a property is a single value, not a list",
+		"app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  mongodb: {}\n":                      "this app needs mongodb, which is not in the dependency catalog",
+	} {
+		f := agentOnWorkerFixture(t, map[string]any{"needs": true})
+		f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": body})
+		req := f.build(t)
+		if req.spec.Private != nil {
+			t.Errorf("%q: need services were started: %+v", why, req.spec.Private.Services)
+		}
+		if prompt := req.spec.Argv[len(req.spec.Argv)-1]; !strings.Contains(prompt, why) {
+			t.Errorf("the agent is not told %q: %q", why, prompt)
+		}
 	}
 
 	// A declaration without needs, or none at all, needs nothing.

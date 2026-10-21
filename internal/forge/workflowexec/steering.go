@@ -246,6 +246,12 @@ func (a *Executor) agentPrompt(ctx context.Context, run *workflow.Run, cfg *agen
 	if cfg.RetryMode != "continue" && cfg.Sendback != "" {
 		prompt += "\n\nAdditional instructions for this attempt:\n\n" + cfg.Sendback
 	}
+	if cfg.needsRefused != "" {
+		prompt += "\n\nAppTown refuses this app's declared needs in .apptown/app.yaml, so their" +
+			" services (databases and the like) were not started for you: " + cfg.needsRefused +
+			"\nUntil .apptown/app.yaml is fixed AppTown will not test, preview or release" +
+			" the app, so fixing it is part of this change; say so in your report."
+	}
 	if earlier != nil {
 		prompt += "\n\nYour report from the earlier attempt is in " + earlier.rel + ". UPDATE it, do not" +
 			" replace it: it must still describe the WHOLE change, every file the" +

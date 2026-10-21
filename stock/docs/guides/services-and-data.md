@@ -32,6 +32,8 @@ Each need has one contract, the same on every target that fulfils it and in a pr
 - **A preview gets its own, empty**, never the deployment's data or credentials.
 - **One name, one meaning.** A contract whose needs would give the app the same variable twice is refused, naming both.
 
+A refused contract is refused by tests, previews, releases and landing. An agent step asked to change the app still runs, without the services, and is told the refusal, so a Change can fix `.apptown/app.yaml`.
+
 | Need | Variables | The app may rely on | Outside the contract |
 | --- | --- | --- | --- |
 | `postgres` | `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `PGSSLMODE` | a database of its own (the `database` parameter, default `app`) owned by its user (`user`, default `app`), an ordinary user on every target: schemas, tables, views, functions, sequences, and the extensions Postgres marks trusted (`pgcrypto`, `citext`, `pg_trgm`, `uuid-ossp`, `hstore`, `btree_gin`, `btree_gist`, `ltree`, `unaccent` and others); no other user on the server may connect to its database | superuser powers, refused on every target: creating roles or databases, server settings, untrusted extensions (`dblink`, `postgres_fdw`, `pg_stat_statements`, `pg_buffercache`, `plpython3u` and every other the server lists as not trusted in `pg_available_extension_versions`), other databases; a password of its choosing. Migrations must need only the owner. The servers AppTown starts beside its own steps (tests and agent steps, `apptown dev`) make the user a superuser, so test runners can make their own databases and load fixtures |

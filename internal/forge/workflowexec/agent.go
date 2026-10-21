@@ -61,6 +61,12 @@ type agentConfig struct {
 	// so the agent runs the app AS PROCESSES against them — no hand-declared
 	// services, exactly the deps the contract declares.
 	Needs bool `json:"needs"`
+	// needsRefused is why the app's declared needs were not started for this
+	// step (a declaration that does not parse, or needs the catalogue refuses
+	// or does not hold), "" when they were or none are declared. The agent is
+	// told: it may be the change that fixes them, and refusing the step would
+	// leave no governed way to (greeting-api#21).
+	needsRefused string
 	// Docker, when true, gives the agent a private Docker daemon.
 	Docker bool `json:"docker"`
 	// MayChangeNothing declares that an empty result is a complete answer
@@ -219,6 +225,9 @@ func (a *Executor) Run(task *workflow.Execution) {
 			fail(workflow.StatusError, map[string]any{"reason": "putting back the step's earlier report: " + err.Error()})
 			return
 		}
+	}
+	if cfg.Needs {
+		cfg.needsRefused = a.workspaceNeedsRefusal(task.Context(), ws)
 	}
 	prompt := a.agentPrompt(task.Context(), run, &cfg, source, earlier)
 	mode, err := workflow.ParseRetryMode(cfg.RetryMode)

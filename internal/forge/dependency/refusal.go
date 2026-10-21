@@ -15,7 +15,8 @@ import (
 // declared, in a sentence naming what to change, or "" (the needs
 // contract, services-and-data guide, "What each need gives the app"). It is asked
 // before any effect wherever a contract is checked, released or booted, so
-// a contract is refused the same way everywhere:
+// a contract is refused the same way everywhere (an agent step asked to
+// change the app is told the sentence instead, so a change can fix it):
 //
 //   - a kind whose values come from the project's attached integration
 //     (error reporting, sign-in, telemetry) is not a need;

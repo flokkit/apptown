@@ -234,8 +234,10 @@ const privateDockerOptIn = "private Docker on a worker is the operator's opt-in:
 // the admitted commit declares them (with their parameters) and the
 // catalog resolves them, with the environment reaching them; and its
 // private daemon when it declares docker: true. Nil when it has none. A
-// need that is unknown, or a declaration that cannot be read, refuses the
-// step before anything is made.
+// commit whose declaration cannot be read refuses the step before anything
+// is made. A declaration that does not parse, or whose needs the catalogue
+// refuses or does not hold, starts no need services: the agent is told why
+// (cfg.needsRefused), since fixing the declaration may be its change.
 func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *agentConfig, k agentKnobs) (*execution.PrivateDocker, []string, error) {
 	if c.review != nil {
 		return nil, nil, nil
@@ -243,27 +245,29 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 	services := slices.Clone(cfg.Services)
 	var env []string
 	if cfg.Needs {
-		contract, err := appContractAt(ctx, c.source.Repository(a.cfg.DataDir), c.commit)
+		raw, err := appContractAt(ctx, c.source.Repository(a.cfg.DataDir), c.commit)
 		if err != nil {
 			return nil, nil, &WorkerRefusal{Reason: "the app's declared needs could not be read from commit " + c.commit + ": " + err.Error()}
 		}
+		var contract *appcontract.Contract
+		if raw != nil {
+			if contract, err = appcontract.Parse(raw); err != nil {
+				cfg.needsRefused = ".apptown/app.yaml does not parse: " + err.Error()
+			}
+		}
 		if contract != nil && len(contract.Needs) > 0 {
 			needs, needEnv, err := (dependency.LocalRuntime{Catalog: a.dependencies, Steps: true}).Fulfil(ctx, contract.Needs, contract.NeedParams)
-			var unknown *dependency.UnknownNeeds
-			var refused *dependency.Refused
-			switch {
-			case errors.As(err, &unknown):
-				return nil, nil, &WorkerRefusal{Reason: "the app needs " + strings.Join(unknown.Needs, ", ") + ", which is not in the dependency catalog"}
-			case errors.As(err, &refused):
-				return nil, nil, &WorkerRefusal{Reason: refused.Why}
-			case err != nil:
+			if why, ok := needsRefusal(err); ok {
+				cfg.needsRefused = why
+			} else if err != nil {
 				return nil, nil, err
+			} else {
+				services = append(services, needs...)
+				for key, v := range needEnv {
+					env = append(env, key+"="+v)
+				}
+				slices.Sort(env)
 			}
-			services = append(services, needs...)
-			for key, v := range needEnv {
-				env = append(env, key+"="+v)
-			}
-			slices.Sort(env)
 		}
 	}
 	if !k.useDind && len(services) == 0 {
@@ -326,9 +330,9 @@ var commitPattern = regexp.MustCompile(`^[0-9a-f]{40}([0-9a-f]{24})?$`)
 const maxContractBytes = 1 << 20
 
 // appContractAt is the app's declaration (.apptown/app.yaml) at commit, in
-// the project's hub; nil when there is none. One that is not a regular
-// file, or cannot be read or parsed, is an error, never "nothing".
-func appContractAt(ctx context.Context, repo, commit string) (*appcontract.Contract, error) {
+// the project's hub, unparsed; nil when there is none. One that is not a
+// regular file, or cannot be read, is an error, never "nothing".
+func appContractAt(ctx context.Context, repo, commit string) ([]byte, error) {
 	if !commitPattern.MatchString(commit) {
 		return nil, fmt.Errorf("%q is not a commit", commit)
 	}
@@ -351,7 +355,7 @@ func appContractAt(ctx context.Context, repo, commit string) (*appcontract.Contr
 	if len(raw) > maxContractBytes {
 		return nil, fmt.Errorf(".apptown/app.yaml is %d bytes, over %d", len(raw), maxContractBytes)
 	}
-	return appcontract.Parse(raw)
+	return raw, nil
 }
 
 var (

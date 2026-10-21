@@ -138,8 +138,11 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		files map[string]string
 		want  string
 	}{
-		"an unknown need": {with: map[string]any{"needs": true}, want: "the app needs no-such-kind, which is not in the dependency catalog",
-			files: map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  no-such-kind: {}\n"}},
+		// A declaration the agent could fix (an unknown need) is told to it
+		// instead (workflowexec's TestAnAgentIsToldOfTheNeedsAReleaseRefusesAndTestsRefuseThem);
+		// one that cannot even be read is refused.
+		"a declaration too large to read": {with: map[string]any{"needs": true}, want: ".apptown/app.yaml is 1048577 bytes, over 1048576",
+			files: map[string]string{".apptown/app.yaml": strings.Repeat("#", 1<<20+1)}},
 		// AppTown was started without -private-docker.
 		"private Docker without the operator's opt-in": {with: map[string]any{"docker": true}, want: "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker"},
 	} {

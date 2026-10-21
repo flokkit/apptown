@@ -2,6 +2,7 @@ package workflowexec
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -94,7 +95,9 @@ func (a *Executor) startAgentSandbox(ctx context.Context, run *workflow.Run, ste
 	// Process-mode needs (design/decisions/forge-native-contract.md): fulfill the app
 	// contract's declared needs as emulators on this step's network and inject
 	// their connection env, so the agent runs the app's processes against them.
-	if cfg.Needs {
+	// A refused declaration (cfg.needsRefused) starts none: the agent was
+	// told why.
+	if cfg.Needs && cfg.needsRefused == "" {
 		if c, cerr := docker.ReadWorkspaceContract(ws); cerr == nil && len(c.Needs) > 0 {
 			depSvcs, depEnv, err := (dependency.LocalRuntime{Catalog: a.dependencies, Steps: true}).Fulfil(ctx, c.Needs, c.NeedParams)
 			if err != nil {
@@ -140,4 +143,40 @@ func (a *Executor) startAgentSandbox(ctx context.Context, run *workflow.Run, ste
 		}
 	}
 	return env, network, cleanup, nil
+}
+
+// needsRefusal is the sentence an agent step is told when the catalogue
+// refuses the app's declared needs (dependency.Refused) or does not hold
+// them (dependency.UnknownNeeds); ok is false for any other outcome.
+func needsRefusal(err error) (why string, ok bool) {
+	var unknown *dependency.UnknownNeeds
+	var refused *dependency.Refused
+	switch {
+	case errors.As(err, &unknown):
+		return unknown.Error(), true
+	case errors.As(err, &refused):
+		return refused.Why, true
+	}
+	return "", false
+}
+
+// workspaceNeedsRefusal is why a local agent step starts no need services
+// from the workspace's declaration, "" when it starts them or declares none
+// (needsRefusal; a declaration that does not parse is said too). A catalogue
+// read that fails is not a refusal: startAgentSandbox fails the step on it.
+func (a *Executor) workspaceNeedsRefusal(ctx context.Context, ws string) string {
+	c, err := docker.ReadWorkspaceContract(ws)
+	switch {
+	case errors.Is(err, docker.ErrNoContract):
+		return ""
+	case err != nil:
+		return ".apptown/app.yaml cannot be read: " + err.Error()
+	case len(c.Needs) == 0:
+		return ""
+	}
+	why, err := a.dependencies.RefusesNeeds(ctx, c.Needs, c.NeedParams)
+	if err != nil {
+		return ""
+	}
+	return why
 }
