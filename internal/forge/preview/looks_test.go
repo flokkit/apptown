@@ -219,7 +219,7 @@ func TestALocalReleaseLookBesideAWorkerIsStoppedWhereItIs(t *testing.T) {
 	}
 	s.Tend(context.Background(), false)
 	calls := previewCommands(w.client)
-	for _, want := range []string{"rm -f -v " + name, "network rm " + docker.NetworkName(stack)} {
+	for _, want := range []string{"rm -f -v " + name, "network rm " + docker.Current.Network(stack)} {
 		if !slices.Contains(calls, want) {
 			t.Fatalf("%q not issued: %v", want, calls)
 		}
@@ -235,8 +235,8 @@ func keptBuildWorld(t *testing.T) (*Service, *world, *forgeClock, string) {
 	s := w.service(Dependencies{Now: clock.Now})
 	name := docker.PreviewChangeName(idstest.N(7))
 	w.client.SetReply(func(args []string) ([]byte, error, bool) {
-		if len(args) > 1 && args[0] == "image" && args[1] == "ls" && slices.Contains(args, "reference="+docker.BuildTag(name)) {
-			return []byte(docker.BuildTag(name) + ":latest\n"), nil, true
+		if len(args) > 1 && args[0] == "image" && args[1] == "ls" && slices.Contains(args, "reference="+docker.Current.BuildTag(name)) {
+			return []byte(docker.Current.BuildTag(name) + ":latest\n"), nil, true
 		}
 		return nil, nil, false
 	})
@@ -268,7 +268,7 @@ func TestAChangesBuildIsKeptThirtyDaysAfterItsLastLook(t *testing.T) {
 	if _, err := os.Stat(snapshot); !os.IsNotExist(err) {
 		t.Fatalf("a snapshot not looked at for 31 days stayed: %v", err)
 	}
-	if got := w.client.Matching("rmi "); len(got) != 1 || strings.Join(got[0], " ") != "rmi "+docker.BuildTag(name)+":latest" {
+	if got := w.client.Matching("rmi "); len(got) != 1 || strings.Join(got[0], " ") != "rmi "+docker.Current.BuildTag(name)+":latest" {
 		t.Fatalf("its build image: %v", got)
 	}
 	if !lookAt(t, s, name).IsZero() {

@@ -205,7 +205,11 @@ func (s *Service) inspectDockerHost(ctx context.Context, t *Target, standing []P
 	}
 	var props []OwnershipProposal
 	for _, d := range standing {
-		app := docker.ContainerName(d.Project, d.Name)
+		names, err := d.HostNames()
+		if err != nil {
+			return props, err
+		}
+		app := names.Container(d.Project, d.Name)
 		stack := docker.StackID(d.Project, d.Name)
 		add := func(o deploy.Owned, evidence string) { props = append(props, ownedProposal(t, d, o, evidence)) }
 		if line := dk.Text(ctx, "inspect", "-f", `{{.Id}} {{index .Config.Labels "`+dockerlabel.Deployment+`"}}`, app); line != "" {
@@ -220,12 +224,12 @@ func (s *Service) inspectDockerHost(ctx context.Context, t *Target, standing []P
 		}
 		for _, id := range idList {
 			name := strings.TrimPrefix(dk.Text(ctx, "inspect", "-f", "{{.Name}}", id), "/")
-			service := strings.TrimPrefix(name, docker.ServiceName(stack, ""))
+			service := strings.TrimPrefix(name, names.Service(stack, ""))
 			need := ""
 			if dep := s.needKind(ctx, service); dep != nil {
 				need = service
 				if dep.Local.Data != "" {
-					if vol, err := docker.VolumeAt(ctx, dk, id, dep.Local.Data); err == nil && vol != "" && vol != docker.NeedVolumeName(stack, service) {
+					if vol, err := docker.VolumeAt(ctx, dk, id, dep.Local.Data); err == nil && vol != "" && vol != names.NeedVolume(stack, service) {
 						add(deploy.Owned{Kind: "volume", ID: vol, Data: true, Need: service}, "the volume the "+service+" container keeps its data in, at "+dep.Local.Data)
 					}
 				}
@@ -237,14 +241,14 @@ func (s *Service) inspectDockerHost(ctx context.Context, t *Target, standing []P
 			return props, err
 		}
 		for _, v := range vols {
-			if need, ok := strings.CutPrefix(v, docker.NeedVolumeName(stack, "")); ok {
+			if need, ok := strings.CutPrefix(v, names.NeedVolume(stack, "")); ok {
 				add(deploy.Owned{Kind: "volume", ID: v, Data: true, Need: need}, "the "+need+" data volume, labelled "+dockerlabel.Owner+"="+stack)
 			}
 		}
-		if dk.OK(ctx, "network", "inspect", docker.NetworkName(stack)) {
-			add(deploy.Owned{Kind: "network", ID: docker.NetworkName(stack)}, "the stack's network")
+		if dk.OK(ctx, "network", "inspect", names.Network(stack)) {
+			add(deploy.Owned{Kind: "network", ID: names.Network(stack)}, "the stack's network")
 		}
-		if vol := docker.DataVolumeName(app); dk.OK(ctx, "volume", "inspect", vol) {
+		if vol := names.DataVolume(app); dk.OK(ctx, "volume", "inspect", vol) {
 			add(deploy.Owned{Kind: "volume", ID: vol, Data: true}, "the app's data volume")
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 			dir := t.TempDir()
 			name := filepath.Join(dir, "today's $HOME backup.sql.gz")
 			scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-				if !slices.Equal(req.Args, []string{"exec", builtinDBContainer, "pg_dump", "-U", "postgres", "--no-owner", builtinDBName}) {
+				if !slices.Equal(req.Args, []string{"exec", currentBuiltinDB.Container, "pg_dump", "-U", "postgres", "--no-owner", builtinDBName}) {
 					t.Fatalf("dump command: %v", req.Args)
 				}
 				_, err := io.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
@@ -39,7 +40,7 @@ func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 				}
 				return nil, nil
 			})}
-			err := dumpBuiltinDatabase(t.Context(), scope, name)
+			err := dumpBuiltinDatabase(t.Context(), scope, currentBuiltinDB.Container, name)
 			files, readErr := os.ReadDir(dir)
 			if readErr != nil {
 				t.Fatal(readErr)
@@ -86,7 +87,9 @@ func TestDatabaseDumpCancellationLeavesNoBackup(t *testing.T) {
 	})}
 	dir := t.TempDir()
 	done := make(chan error, 1)
-	go func() { done <- dumpBuiltinDatabase(ctx, scope, filepath.Join(dir, "dump.sql.gz")) }()
+	go func() {
+		done <- dumpBuiltinDatabase(ctx, scope, currentBuiltinDB.Container, filepath.Join(dir, "dump.sql.gz"))
+	}()
 	<-entered
 	cancel()
 	select {
@@ -117,7 +120,7 @@ func TestDatabaseBackupJobFailureDoesNotClaimTodaysDump(t *testing.T) {
 		}
 		return nil, nil
 	})}
-	backup := databaseBackup{db: testDB(t), docker: scope, dataDir: t.TempDir(), enabled: true}
+	backup := databaseBackup{db: testDB(t), docker: scope, dataDir: builtinDataDir(t), enabled: true}
 	if receipt, err := backup.Run(t.Context(), "daily", nil); !errors.Is(err, failed) || receipt != nil {
 		t.Fatalf("failed backup reported success: %v %v", receipt, err)
 	}
@@ -133,5 +136,63 @@ func TestDatabaseBackupJobFailureDoesNotClaimTodaysDump(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Fatalf("daily deduplication reran a completed backup: %d calls", calls)
+	}
+}
+
+// builtinDataDir is a data folder whose db.env names a built-in database,
+// as apptownd's first start leaves it.
+func builtinDataDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if _, _, _, err := builtinDBCredentials(dir); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// The daily dump is named apptown-<day>; the newest fourteen days are kept
+// whatever they are named, so the forge-<day> dumps a release before 1.0
+// wrote age out by the same rule and are never taken for newer ones.
+func TestDumpRetentionKeepsTheNewestDaysUnderEitherName(t *testing.T) {
+	t.Parallel()
+	dir := builtinDataDir(t)
+	backups := filepath.Join(dir, "backups")
+	if err := os.MkdirAll(backups, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	today := time.Date(2026, 11, 20, 3, 0, 0, 0, time.UTC)
+	for d := 1; d <= 20; d++ {
+		name := "forge-" + today.AddDate(0, 0, -d).Format("2006-01-02") + ".sql.gz"
+		if err := os.WriteFile(filepath.Join(backups, name), []byte("old"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+		if req.Args[1] != currentBuiltinDB.Container {
+			t.Errorf("dumped %v, not the container db.env names", req.Args)
+		}
+		_, err := io.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
+		return nil, err
+	})}
+	backup := databaseBackup{db: testDB(t), docker: scope, dataDir: dir, enabled: true, now: func() time.Time { return today }}
+	if _, err := backup.Run(t.Context(), "daily", nil); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(backups)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kept []string
+	for _, e := range entries {
+		kept = append(kept, e.Name())
+	}
+	sort.Strings(kept)
+	want := []string{"apptown-2026-11-20.sql.gz"}
+	for d := 1; d <= 13; d++ {
+		want = append(want, "forge-"+today.AddDate(0, 0, -d).Format("2006-01-02")+".sql.gz")
+	}
+	sort.Strings(want)
+	if !slices.Equal(kept, want) {
+		t.Fatalf("kept %v, want %v", kept, want)
 	}
 }

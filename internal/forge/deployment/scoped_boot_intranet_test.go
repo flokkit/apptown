@@ -31,13 +31,13 @@ func TestBootAndIntranetUseScopedPreparedEnvironments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := s.env.Host(projectID, nil, nil).Boot(context.Background(), docker.BootRequest{Docker: s.hosts.settings.Scope, Name: "forge-preview-isolation", StackID: "isolation", Workspace: ws, Slug: "p", Probe: time.Second}, c)
+	result, err := s.env.Host(projectID, nil, nil).Boot(context.Background(), docker.BootRequest{Docker: s.hosts.settings.Scope, Name: "apptown-preview-isolation", StackID: "isolation", Workspace: ws, Slug: "p", Probe: time.Second}, c)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range client.Matching("run ") {
 		call := strings.Join(args, " ")
-		if strings.Contains(call, "--name forge-preview-isolation") {
+		if strings.Contains(call, "--name apptown-preview-isolation") {
 			continue
 		}
 		if strings.Contains(call, "PUBLIC_ONLY=") || strings.Contains(call, "DATABASE_URL=wrong") {

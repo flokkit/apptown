@@ -37,7 +37,7 @@ func TestAHungPartsBackoffIsTheControllersClocks(t *testing.T) {
 	at := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
 	hc := NewHealthController(HealthDependencies{
 		Watch: func(context.Context) []Watched {
-			return []Watched{{Slug: "shop", Name: "main", HostPort: port, Container: "forge-env-shop-main", Docker: Scope{Client: client}}}
+			return []Watched{{Slug: "shop", Name: "main", HostPort: port, Container: "apptown-env-shop-main", Docker: Scope{Client: client}}}
 		},
 		PublicPart: func(context.Context, Watched) *appcontract.Part { return nil },
 		FrontDoor:  func() map[string]string { return nil },

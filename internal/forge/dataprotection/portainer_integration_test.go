@@ -110,7 +110,7 @@ func mustJSON(t *testing.T, v any) string {
 func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testing.T) {
 	ctx := context.Background()
 	slug := fmt.Sprintf("pt%d", os.Getpid())
-	stack := portainer.StackName(slug)
+	stack := portainer.StackName("apptown-", slug)
 	url, key := localPortainer(t, "forge-it-portainer-"+slug)
 	db := testDB(t)
 	pid := createTestProject(t, db, slug, "portainer backup")
@@ -137,14 +137,14 @@ func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testin
 	}
 	t.Cleanup(func() {
 		_ = dockertest.Run("rm", "-f", stack+"-app-1", stack+"-worker-1", stack+"-postgres-1", stack+"-s3-1", stack+"-init-migrate-1")
-		for _, v := range []string{"forge-data-" + slug, "forge-need-" + slug + "-postgres", "forge-need-" + slug + "-s3"} {
+		for _, v := range []string{"apptown-data-" + slug, "apptown-need-" + slug + "-postgres", "apptown-need-" + slug + "-s3"} {
 			_ = dockertest.Run("volume", "rm", "-f", stack+"_"+v)
 		}
 		_ = dockertest.Run("network", "rm", stack+"_default")
 	})
 	// The app's data folder was there before the first deploy (an earlier
 	// take-down kept it): compose reuses it, and it is not the deployment's.
-	if out, err := dockertest.CombinedOutput("volume", "create", "--label", "com.docker.compose.project="+stack, "--label", "com.docker.compose.volume=forge-data-"+slug, stack+"_forge-data-"+slug); err != nil {
+	if out, err := dockertest.CombinedOutput("volume", "create", "--label", "com.docker.compose.project="+stack, "--label", "com.docker.compose.volume=apptown-data-"+slug, stack+"_apptown-data-"+slug); err != nil {
 		t.Fatalf("%v %s", err, out)
 	}
 	// The release by name: the bundle's images (public ones here), built for
@@ -280,7 +280,7 @@ needs:
 	if err != nil || removed.Removed == nil || removed.Removed.FinalBackup == nil {
 		t.Fatalf("take-down: %+v %v", removed, err)
 	}
-	for v, want := range map[string]bool{stack + "_forge-need-" + slug + "-postgres": false, stack + "_forge-need-" + slug + "-s3": false, stack + "_forge-data-" + slug: true} {
+	for v, want := range map[string]bool{stack + "_apptown-need-" + slug + "-postgres": false, stack + "_apptown-need-" + slug + "-s3": false, stack + "_apptown-data-" + slug: true} {
 		if there, _ := (docker.Scope{Client: docker.CLI{Binary: "docker"}}).Exists(ctx, "volume", "inspect", v); there != want {
 			t.Fatalf("after the take-down the volume %s is there %v, want %v", v, there, want)
 		}
@@ -288,7 +288,7 @@ needs:
 	retained, err := s.Retained.ForProject(ctx, pid)
 	found := false
 	for _, r := range retained {
-		if name, _ := r.Handle["name"].(string); name == stack+"_forge-data-"+slug {
+		if name, _ := r.Handle["name"].(string); name == stack+"_apptown-data-"+slug {
 			why, _ := r.Handle["why"].(string)
 			found = strings.Contains(why, "holds a copy")
 		}

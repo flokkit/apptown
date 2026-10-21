@@ -304,6 +304,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	deploymentDeps.CopyStarter = starter
 	deploymentDeps.CopyCheck = starter
 	a.Deployment = deployment.New(ctx, db, deploymentDeps)
+	a.vhostRules.deployments = a.Deployment.Deployments // standing hostnames route by its records
 	a.DataProtection = dataprotection.New(starter, dataProtectionDependencies(a))
 	a.Preview = preview.New(db, previewDependencies(a, changes))
 	a.deletion = projectDeletionFor(a)

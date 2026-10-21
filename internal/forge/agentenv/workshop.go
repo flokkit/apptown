@@ -61,7 +61,7 @@ func (w *Workshop) BuildkitConfig(ctx context.Context) string {
 // The mount story is the same-path trick: the workspace is mounted at
 // /work in BOTH the step container and the sidecar daemon, so when the
 // agent runs `docker run -v /work:/work ...` the path means the same
-// thing on both sides. forge-cache rides along the same way.
+// thing on both sides. apptown-cache rides along the same way.
 //
 // Honest caveats, recorded where the code lives:
 //   - The sidecar runs --privileged. On Docker Desktop the blast radius is
@@ -119,7 +119,7 @@ const teardownBound = docker.TeardownBound
 
 func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet, clientConfigDir string, reg *integration.Registry) ([]string, string, func(), error) {
 	stageDockerAuth(filepath.Join(ws, clientConfigDir), reg)
-	name := fmt.Sprintf("forge-dind-step-%d", stepID)
+	name := fmt.Sprintf("apptown-dind-step-%d", stepID)
 	network := existingNet
 	ownNet := false
 	if network == "" {
@@ -294,13 +294,16 @@ func (w *Workshop) agentImageTar(ctx context.Context) (string, error) {
 // reapDindOrphans removes sidecars (and their networks) left behind by a
 // crashed apptownd — same safety-net shape as run-container reaping.
 func ReapWorkshops(ctx context.Context, dk docker.Scope) {
-	out, _ := dk.Run(ctx, "ps", "-aq", "--filter", "name=forge-dind-step-")
-	for _, id := range strings.Fields(string(out)) {
-		_, _ = dk.Run(ctx, "rm", "-f", "-v", id)
-	}
-	nets, _ := dk.Run(ctx, "network", "ls", "-q", "--filter", "name=forge-dind-step-")
-	for _, id := range strings.Fields(string(nets)) {
-		_, _ = dk.Run(ctx, "network", "rm", id)
+	// Under every prefix a host may carry: an older release's are swept too.
+	for _, p := range docker.Prefixes {
+		out, _ := dk.Run(ctx, "ps", "-aq", "--filter", "name="+string(p)+"dind-step-")
+		for _, id := range strings.Fields(string(out)) {
+			_, _ = dk.Run(ctx, "rm", "-f", "-v", id)
+		}
+		nets, _ := dk.Run(ctx, "network", "ls", "-q", "--filter", "name="+string(p)+"dind-step-")
+		for _, id := range strings.Fields(string(nets)) {
+			_, _ = dk.Run(ctx, "network", "rm", id)
+		}
 	}
 }
 

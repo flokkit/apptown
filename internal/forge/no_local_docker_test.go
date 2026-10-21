@@ -128,7 +128,7 @@ func TestTheDrainIntoTheNoLocalDockerModeIsRefusedWhileLocalWorkIsLeft(t *testin
 		}
 		op := taskKeyOf(step)
 		if _, err := a.tasks.Records.Reserve(context.Background(), tasks.Admission{Operation: op, Owner: tasks.Owner{ProjectID: run.ProjectID, RunID: run.ID, StepID: step.ID, Attempt: 1},
-			Invocation: tasks.ScriptInvocation, Backend: backend, Container: "forge-task-" + op, Digest: "d",
+			Invocation: tasks.ScriptInvocation, Backend: backend, Container: "apptown-task-" + op, Digest: "d",
 			Admitted: execution.Admission{Profile: "fixture", Network: execution.NetworkDefault}, Deadline: time.Now().Add(time.Hour)}); err != nil {
 			t.Fatal(err)
 		}
@@ -212,8 +212,8 @@ func TestTheDrainIntoTheNoLocalDockerModeWitnessesTheForgesOwnDocker(t *testing.
 	if step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID); err != nil || step.Status != workflow.StatusRunning {
 		t.Fatalf("the refused start changed the step: %+v %v", step, err)
 	}
-	agent := fmt.Sprintf("forge-step-%d-agent\tstep\t\t%d\t/data/runs/1", stepID, stepID)
-	for _, left := range []string{agent, "forge-task-ns-op\t\top\t\t", "forge-script\t\t\t7\t/data/runs/1"} {
+	agent := fmt.Sprintf("apptown-step-%d-agent\tstep\t\t%d\t/data/runs/1", stepID, stepID)
+	for _, left := range []string{agent, "apptown-task-ns-op\t\top\t\t", "forge-script\t\t\t7\t/data/runs/1"} {
 		name, _, _ := strings.Cut(left, "\t")
 		if err := drainApp(t, a.DB, a.cfg.dataDir, left).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), name) {
 			t.Fatalf("a drain with %s on AppTown's Docker: %v", name, err)
@@ -225,7 +225,7 @@ func TestTheDrainIntoTheNoLocalDockerModeWitnessesTheForgesOwnDocker(t *testing.
 	if step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID); err != nil || step.Status != workflow.StatusError {
 		t.Fatalf("startup repair of the step: %+v %v", step, err)
 	}
-	if err := drainApp(t, a.DB, a.cfg.dataDir, "forge-env-game-main\tenv\t\t\t", "forge-db\tinfra\t\t\t", "someone-elses\t\t\t\t").RecoverInterruptedWork(t.Context()); err != nil {
+	if err := drainApp(t, a.DB, a.cfg.dataDir, "apptown-env-game-main\tenv\t\t\t", "forge-db\tinfra\t\t\t", "someone-elses\t\t\t\t").RecoverInterruptedWork(t.Context()); err != nil {
 		t.Fatalf("a drain with no execution container left: %v", err)
 	}
 	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err != nil {
@@ -461,7 +461,7 @@ func TestInterruptingAStepStopsItsTaskConfirmed(t *testing.T) {
 			}
 			run, _ := workflow.ReadRunIn(context.Background(), a.DB, step.RunID)
 			if _, err := a.tasks.Records.Reserve(context.Background(), tasks.Admission{Operation: op, Owner: tasks.Owner{ProjectID: run.ProjectID, RunID: run.ID, StepID: stepID, Attempt: step.Attempt},
-				Invocation: "agent", Backend: a.tasks.Backend, Container: "forge-task-" + op, Digest: spec.Digest(), Admitted: spec.Admission, Deadline: time.Now().Add(time.Hour)}); err != nil {
+				Invocation: "agent", Backend: a.tasks.Backend, Container: "apptown-task-" + op, Digest: spec.Digest(), Admitted: spec.Admission, Deadline: time.Now().Add(time.Hour)}); err != nil {
 				t.Fatal(err)
 			}
 			if err := a.tasks.Records.RecordProvider(context.Background(), op, obs.ID); err != nil {
@@ -487,7 +487,7 @@ func TestInterruptingAStepStopsItsTaskConfirmed(t *testing.T) {
 				running = obs.State == execution.TaskRunning
 			}
 			switch {
-			case confirmed && (resp.Code != 200 || !strings.Contains(resp.Body.String(), "forge-task-"+op) || running):
+			case confirmed && (resp.Code != 200 || !strings.Contains(resp.Body.String(), "apptown-task-"+op) || running):
 				t.Fatalf("a confirmed stop: %d %s, still running %v", resp.Code, resp.Body.String(), running)
 			case !confirmed && (resp.Code != 502 || !strings.Contains(resp.Body.String(), op) || !running):
 				t.Fatalf("an unconfirmed stop: %d %s, still running %v", resp.Code, resp.Body.String(), running)

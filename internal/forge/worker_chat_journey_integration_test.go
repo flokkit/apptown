@@ -83,9 +83,9 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 	}
 	commit := func(name string) string {
 		t.Helper()
-		w.Docker("exec", "forge-console-"+id, "sh", "-c",
+		w.Docker("exec", "apptown-console-"+id, "sh", "-c",
 			"cd /work && echo "+name+" > "+name+" && git add "+name+" && git -c user.name=chat -c user.email=chat@x commit -qm "+name)
-		return strings.TrimSpace(w.Docker("exec", "forge-console-"+id, "git", "-C", "/work", "rev-parse", "HEAD"))
+		return strings.TrimSpace(w.Docker("exec", "apptown-console-"+id, "git", "-C", "/work", "rev-parse", "HEAD"))
 	}
 
 	// A turn's commit is saved.

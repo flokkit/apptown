@@ -34,7 +34,7 @@ func startPreviewWorker(t *testing.T) previewWorker {
 	hs := workertest.StartServer(t, ca, srv)
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano()%1_000_000_000)
 	w := previewWorker{previews: worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)},
-		srv: srv, name: "forge-preview-change-" + suffix, stack: "pvtest" + suffix}
+		srv: srv, name: "apptown-preview-change-" + suffix, stack: "pvtest" + suffix}
 	t.Cleanup(func() { _ = w.previews.Remove(context.Background(), w.name) })
 	return w
 }
@@ -155,7 +155,7 @@ func TestIntegrationAFailedWorkerBootLeavesNothing(t *testing.T) {
 			t.Fatalf("left by a failed boot (%s): %s", filter, left)
 		}
 	}
-	if out, err := exec.Command("docker", "network", "ls", "-q", "--filter", "name="+docker.NetworkName(w.stack)).Output(); err != nil || strings.TrimSpace(string(out)) != "" {
+	if out, err := exec.Command("docker", "network", "ls", "-q", "--filter", "name="+docker.Current.Network(w.stack)).Output(); err != nil || strings.TrimSpace(string(out)) != "" {
 		t.Fatalf("the stack's network is still there: %q %v", out, err)
 	}
 	if _, err := os.Stat(filepath.Join(w.srv.State, "previews", w.name)); !os.IsNotExist(err) {
@@ -179,7 +179,7 @@ func TestIntegrationAWorkerPreviewBuildsAndServesADeclaredStaticSite(t *testing.
 		t.Fatalf("the boot answered %+v", st)
 	}
 	t.Cleanup(func() {
-		if out, err := exec.Command("docker", "image", "ls", "-q", "--filter", "reference=forge-preview-build-"+w.name+"*").Output(); err == nil {
+		if out, err := exec.Command("docker", "image", "ls", "-q", "--filter", "reference=apptown-preview-build-"+w.name+"*").Output(); err == nil {
 			for _, id := range strings.Fields(string(out)) {
 				_ = exec.Command("docker", "rmi", "-f", id).Run()
 			}

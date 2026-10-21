@@ -27,7 +27,7 @@ func TestIntegrationAnUpgradeKeepsAnExistingDatabase(t *testing.T) {
 	svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:16-alpine", Health: "pg_isready -U app -d app",
 		Env: map[string]string{"POSTGRES_USER": "app", "POSTGRES_PASSWORD": "app", "POSTGRES_DB": "app"}}
 	stack := os.Getenv("UPGRADE_STACK")
-	cname := ServiceName(stack, "postgres")
+	cname := Current.Service(stack, "postgres")
 	psql := func(sql string) string {
 		t.Helper()
 		var out []byte
@@ -43,7 +43,7 @@ func TestIntegrationAnUpgradeKeepsAnExistingDatabase(t *testing.T) {
 	}
 	if stack == "" {
 		stack = fmt.Sprintf("env-itupg%d-main", time.Now().UnixNano()%1_000_000)
-		cname = ServiceName(stack, "postgres")
+		cname = Current.Service(stack, "postgres")
 		// The boot before named volumes: no Needs, so no data mount.
 		if _, err := EnsureStandingServices(context.Background(), dk, stack, []deploy.ServiceSpec{svc}, "production", Ownership{}); err != nil {
 			t.Fatal(err)
@@ -51,8 +51,8 @@ func TestIntegrationAnUpgradeKeepsAnExistingDatabase(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		_ = exec.Command("docker", "rm", "-f", "-v", cname).Run()
-		_ = exec.Command("docker", "network", "rm", NetworkName(stack)).Run()
-		_ = exec.Command("docker", "volume", "rm", NeedVolumeName(stack, "postgres")).Run()
+		_ = exec.Command("docker", "network", "rm", Current.Network(stack)).Run()
+		_ = exec.Command("docker", "volume", "rm", Current.NeedVolume(stack, "postgres")).Run()
 	})
 	// sql-guarantee: the application's own database, inside its container, not AppTown's.
 	psql("CREATE TABLE IF NOT EXISTS kept (v text); INSERT INTO kept VALUES ('before the upgrade')")
@@ -69,7 +69,7 @@ func TestIntegrationAnUpgradeKeepsAnExistingDatabase(t *testing.T) {
 	if got := psql("TABLE kept"); got != "before the upgrade" {
 		t.Fatalf("the row is gone after the upgrade: %q", got)
 	}
-	if dk.OK(context.Background(), "volume", "inspect", NeedVolumeName(stack, "postgres")) {
+	if dk.OK(context.Background(), "volume", "inspect", Current.NeedVolume(stack, "postgres")) {
 		t.Fatal("an empty named volume was made beside the existing database")
 	}
 	if slices.ContainsFunc(owned, func(o deploy.Owned) bool { return o.Kind == "volume" || o.Kind == "container" }) {
@@ -84,14 +84,14 @@ func TestIntegrationAnUpgradeKeepsAnExistingDatabase(t *testing.T) {
 func TestIntegrationANeedMadeAgainKeepsItsAnonymousVolume(t *testing.T) {
 	dk := Scope{Client: CLI{Binary: "docker"}}
 	stack := fmt.Sprintf("env-itcarry%d-main", time.Now().UnixNano()%1_000_000)
-	cname := ServiceName(stack, "postgres")
+	cname := Current.Service(stack, "postgres")
 	svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:16-alpine", Health: "pg_isready -U app -d app", ConfigAtStart: true,
 		Env: map[string]string{"POSTGRES_USER": "app", "POSTGRES_PASSWORD": "old", "POSTGRES_DB": "app"}}
 	var anonymous string
 	t.Cleanup(func() {
 		_ = exec.Command("docker", "rm", "-f", cname).Run()
-		_ = exec.Command("docker", "network", "rm", NetworkName(stack)).Run()
-		_ = exec.Command("docker", "volume", "rm", NeedVolumeName(stack, "postgres")).Run()
+		_ = exec.Command("docker", "network", "rm", Current.Network(stack)).Run()
+		_ = exec.Command("docker", "volume", "rm", Current.NeedVolume(stack, "postgres")).Run()
 		if anonymous != "" {
 			_ = exec.Command("docker", "volume", "rm", anonymous).Run()
 		}
@@ -133,7 +133,7 @@ func TestIntegrationANeedMadeAgainKeepsItsAnonymousVolume(t *testing.T) {
 	if got := psql("TABLE kept"); got != "before the remake" {
 		t.Fatalf("the row is gone after the remake: %q", got)
 	}
-	if dk.OK(context.Background(), "volume", "inspect", NeedVolumeName(stack, "postgres")) {
+	if dk.OK(context.Background(), "volume", "inspect", Current.NeedVolume(stack, "postgres")) {
 		t.Fatal("an empty named volume was made beside the data")
 	}
 }

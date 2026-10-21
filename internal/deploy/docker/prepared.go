@@ -230,7 +230,7 @@ func (dk Scope) WithBootConfig(ctx context.Context, scratch string, login *Regis
 		return dk, none, err
 	}
 	done := func() error { return os.RemoveAll(dir) }
-	auths := map[string]map[string]string{"forge-no-login.invalid": {}}
+	auths := map[string]map[string]string{"apptown-no-login.invalid": {}}
 	if login != nil && login.Host != "" {
 		auths = map[string]map[string]string{registryKey(login.Host): {
 			"auth": base64.StdEncoding.EncodeToString([]byte(login.Username + ":" + login.Token))}}

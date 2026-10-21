@@ -277,7 +277,7 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 			*builds++
 		}
 		assess := assessInput{Tool: ToolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: head.SHA, BuildDir: src, AllowBuild: allowBuild},
-			Label: fmt.Sprintf("forge-what-if-%d-%d", run.ID(), p.ID)}
+			Label: fmt.Sprintf("apptown-what-if-%d-%d", run.ID(), p.ID)}
 		if runtime > 0 {
 			assess.Running, assess.NoApp = f.servingCommit(ctx, p.ID, head.SHA)
 		}

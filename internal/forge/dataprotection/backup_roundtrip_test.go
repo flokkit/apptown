@@ -59,7 +59,7 @@ func backupWorldFor(t *testing.T, purpose project.Purpose, slug string, port int
 	if _, err := s.Deployments.EnsureStanding(t.Context(), pid, "main", target.ID, deployment.Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Deployments.ReserveHostPort(t.Context(), pid, "main", docker.ContainerName(slug, "main"), port); err != nil {
+	if _, err := s.Deployments.ReserveHostPort(t.Context(), pid, "main", docker.Current.Container(slug, "main"), port); err != nil {
 		t.Fatal(err)
 	}
 	repo := filepath.Join(dir, "workspaces", "project-"+slug, ".apptown")
@@ -140,7 +140,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 		t.Fatalf("manifest: %+v %v\n%s", m, err, raw)
 	}
 	joined := strings.Join(ran, "\n")
-	if !strings.Contains(joined, "-v forge-data-forge-env-bk-main:/src:ro") || !strings.Contains(joined, "exec -e PGDATABASE -e PGHOST -e PGPASSWORD -e PGPORT -e PGSSLMODE -e PGUSER forge-svc-env-bk-main-postgres sh -c pg_dump -Fc --no-owner") {
+	if !strings.Contains(joined, "-v apptown-data-apptown-env-bk-main:/src:ro") || !strings.Contains(joined, "exec -e PGDATABASE -e PGHOST -e PGPASSWORD -e PGPORT -e PGSSLMODE -e PGUSER apptown-svc-env-bk-main-postgres sh -c pg_dump -Fc --no-owner") {
 		t.Fatalf("the volume is tarred read-only and the database exported by its kind's portable copy in its container:\n%s", joined)
 	}
 	// A failing item leaves a partial set on the record, with the words.
@@ -304,7 +304,7 @@ func TestRestoreBackup(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	client.SetRunning(docker.ContainerName("rs", "main"), true) // a standing deployment's app runs
+	client.SetRunning(docker.Current.Container("rs", "main"), true) // a standing deployment's app runs
 	op, res := restoreThroughOperation(t, s, pid, "main", b.ID)
 	if op.State != operations.Succeeded {
 		t.Fatalf("restore: %s %s", op.State, op.Detail)
@@ -326,21 +326,21 @@ func TestRestoreBackup(t *testing.T) {
 	}
 	wantN(t, "kept backups", backupsWhere(t, db, func(b ProjectBackup) bool { return b.ProjectID == pid && b.Status == BackupOK }), BackupKeep+1)
 	lc := strings.Join(lifecycle, "\n")
-	if !strings.Contains(lc, "stop forge-env-rs-main") || !strings.Contains(lc, "start forge-env-rs-main") {
+	if !strings.Contains(lc, "stop apptown-env-rs-main") || !strings.Contains(lc, "start apptown-env-rs-main") {
 		t.Fatalf("the app is stopped and started: %s", lc)
 	}
 	rj := strings.Join(restores, "\n")
-	if !strings.Contains(rj, "forge-data-forge-env-rs-main.tar.gz <- run --rm -i --entrypoint  --network none -v forge-data-forge-env-rs-main:/dst") || !strings.Contains(rj, "find /dst -mindepth 1 -delete && tar xz -C /dst") {
+	if !strings.Contains(rj, "apptown-data-apptown-env-rs-main.tar.gz <- run --rm -i --entrypoint  --network none -v apptown-data-apptown-env-rs-main:/dst") || !strings.Contains(rj, "find /dst -mindepth 1 -delete && tar xz -C /dst") {
 		t.Fatalf("the volume is emptied and untarred through a helper:\n%s", rj)
 	}
 	// Both run in the database's container with the connection it serves,
 	// which the commands read as PG* variables.
-	if !strings.Contains(rj, "forge-need-env-rs-main-postgres.dump <- exec -i "+pgConnection+" forge-svc-env-rs-main-postgres sh -c pg_restore -d \"$PGDATABASE\" --clean") ||
-		!strings.Contains(rj, "forge-need-env-rs-main-postgres.dump <- exec -i "+pgConnection+" forge-svc-env-rs-main-postgres sh -c set -e\npg_restore -l") {
+	if !strings.Contains(rj, "apptown-need-env-rs-main-postgres.dump <- exec -i "+pgConnection+" apptown-svc-env-rs-main-postgres sh -c pg_restore -d \"$PGDATABASE\" --clean") ||
+		!strings.Contains(rj, "apptown-need-env-rs-main-postgres.dump <- exec -i "+pgConnection+" apptown-svc-env-rs-main-postgres sh -c set -e\npg_restore -l") {
 		t.Fatalf("the database is restored by its declared copy in its container, then checked there:\n%s", rj)
 	}
 	// Tampered file: refused by digest.
-	_ = os.WriteFile(filepath.Join(b.Path, "forge-need-env-rs-main-postgres.dump"), []byte("changed"), 0o600)
+	_ = os.WriteFile(filepath.Join(b.Path, "apptown-need-env-rs-main-postgres.dump"), []byte("changed"), 0o600)
 	res, err = s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
 	if err == nil || res.Status != RestorePartial {
 		t.Fatalf("a file that does not match its digest is not restored: %v %v", err, res)

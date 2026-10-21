@@ -145,7 +145,7 @@ func TestAStandingStaticBuildIsPackedAndRunAsAnImage(t *testing.T) {
 		}
 		return nil, nil
 	}
-	req := BootRequest{Name: "forge-env-p-main", Workspace: ws, Docker: Scope{Client: fake},
+	req := BootRequest{Name: "apptown-env-p-main", Workspace: ws, Docker: Scope{Client: fake},
 		Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "a"}}
 	plan, err := NewHost(Dependencies{}).PrepareImages(t.Context(), req, appcontract.Prepare(c, nil))
 	if err != nil {

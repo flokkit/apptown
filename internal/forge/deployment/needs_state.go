@@ -69,6 +69,20 @@ func (s NeedStore) ForDeployment(ctx context.Context, deploymentID ids.ID) ([]Ne
 	return out, nil
 }
 
+// Recorded is one need's recorded handle, nil when it has none.
+func (s NeedStore) Recorded(ctx context.Context, deploymentID ids.ID, need string) (map[string]any, error) {
+	all, err := s.ForDeployment(ctx, deploymentID)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range all {
+		if n.Need == need {
+			return n.Handle, nil
+		}
+	}
+	return nil, nil
+}
+
 // RecordFulfilled records a managed need the provider now answers for, with
 // its binding and handle: ready, whatever it was.
 func (s NeedStore) RecordFulfilled(ctx context.Context, deploymentID ids.ID, need string, binding, handle map[string]any) error {

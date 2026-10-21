@@ -3,9 +3,9 @@
 # (the procedure is the guide's, stock/docs/guides/apptown-backups.md).
 #
 #   APPTOWN_URL=<source url> APPTOWN_TOKEN=<source CLI token> \
-#   forge-recovery-rehearsal.sh <source ssh> <source data dir> <target ssh> <redeploy slug/deployment>
+#   apptown-recovery-rehearsal.sh <source ssh> <source data dir> <target ssh> <redeploy slug/deployment>
 #
-# Read-only on the source: a database dump with forge-db-backup.sh (what every
+# Read-only on the source: a database dump with apptown-db-backup.sh (what every
 # deploy does), read-only queries, a tar of the data directory, a copy of the
 # running apptownd binary.
 #
@@ -22,10 +22,13 @@
 # reach, e.g. registry.example.com), TARGET_DATA (/srv/forge-restore/data),
 # TARGET_PORT (47777), BLOCK_NAMES (space-separated host names sent to
 # 127.0.0.1 on the target, e.g. the source AppTown's own name and its Git,
-# error and telemetry hosts; none by default), RESET_TARGET=1 (first clean up
+# error and telemetry hosts; none by default), SOURCE_DB_CONTAINER (the
+# source's built-in database container as its db.env records it,
+# APPTOWN_DB_CONTAINER; default forge-db, live's, made before 1.0),
+# RESET_TARGET=1 (first clean up
 # what an earlier run left, by that run's own record).
 set -euo pipefail
-usage() { sed -n 2,27p "$0" >&2; exit 2; }
+usage() { sed -n 2,29p "$0" >&2; exit 2; }
 [ $# -eq 4 ] || usage
 [ -n "${REGISTRY:-}" ] || { echo "REGISTRY is not set: name the registry the redeploy pulls from" >&2; usage; }
 src=$1 srcdata=$2 tgt=$3 redeploy=$4
@@ -34,6 +37,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 tdata=${TARGET_DATA:-/srv/forge-restore/data}
 port=${TARGET_PORT:-47777}
 registry=$REGISTRY
+srcdb=${SOURCE_DB_CONTAINER:-forge-db}
 block=${BLOCK_NAMES:-}
 work=$(mktemp -d)
 tgthost=${tgt#*@}
@@ -47,7 +51,7 @@ step() { # names the next step and says how long the previous one took
 }
 
 # The lock names this invocation; only it removes its own lock.
-lock="forge-recovery-rehearsal $$ from $(hostname) at $(date -u +%FT%TZ)"
+lock="apptown-recovery-rehearsal $$ from $(hostname) at $(date -u +%FT%TZ)"
 ssh "$tgt" "set -o noclobber; echo '$lock' > /root/.lab-lock" 2>/dev/null ||
 	{ echo "the target is in use: $(ssh "$tgt" cat /root/.lab-lock)" >&2; exit 1; }
 
@@ -86,7 +90,7 @@ rm -f $d/before.container $d/before.network $d/before.volume
 nft delete table inet forge_rehearsal 2>/dev/null
 tables=$(nft list tables) || fail "cannot read the firewall"
 case "$tables" in *"inet forge_rehearsal"*) fail "the firewall table remains";; esac
-sed -i '/# forge-recovery-rehearsal/d' /etc/hosts
+sed -i '/# apptown-recovery-rehearsal/d' /etc/hosts
 # Other cleanup may have lifted the cut; do not claim it stays on a late failure.
 lock_failure() { echo "cleanup on the target: lock release was not confirmed ($*); inspect by hand" >&2; exit 1; }
 held=$(cat /root/.lab-lock 2>/dev/null) || lock_failure "cannot read the lock"
@@ -112,17 +116,17 @@ finish() {
 trap finish EXIT
 
 step "capture what the source holds (reads)"
-python3 "$here/forge-restore-check.py" capture "$APPTOWN_URL" "$work/expected.json"
+python3 "$here/apptown-restore-check.py" capture "$APPTOWN_URL" "$work/expected.json"
 # The redeployed app is proved against its recorded release: the revision
 # and artifact its deployment's current generation ran on the source.
-read -r rev art < <(ssh "$src" "docker exec forge-db psql -U postgres -d forge -At -F ' ' -c \"SELECT i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.desired_generation JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname'\"")
+read -r rev art < <(ssh "$src" "docker exec $srcdb psql -U postgres -d forge -At -F ' ' -c \"SELECT i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.desired_generation JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname'\"")
 [ -n "${art:-}" ] || { echo "$redeploy has no recorded rebuild inputs on the source: pick another deployment" >&2; exit 1; }
 echo "$redeploy runs revision $rev, artifact $art"
 
 step "copy the source's apptownd and dump its database"
 version=$(ssh "$src" /opt/apptown/bin/apptownd -version)
 ssh "$src" cat /opt/apptown/bin/apptownd > "$work/apptownd"
-dump=$(ssh "$src" bash -s -- forge-db postgres forge /root/backups recovery-rehearsal < "$here/forge-db-backup.sh" | sed -n 's/^backup: \([^ ]*\) .*/\1/p')
+dump=$(ssh "$src" bash -s -- "$srcdb" postgres forge /root/backups recovery-rehearsal < "$here/apptown-db-backup.sh" | sed -n 's/^backup: \([^ ]*\) .*/\1/p')
 [ -n "$dump" ] || { echo "the dump did not complete" >&2; exit 1; }
 [ "$(ssh "$src" /opt/apptown/bin/apptownd -version)" = "$version" ] || { echo "the source was redeployed during the dump; run again" >&2; exit 1; }
 echo "source runs $version; dump $dump"
@@ -146,7 +150,7 @@ fi
 step "prepare the target: refuse an AppTown's existing state; pull images a fresh host lacks"
 ssh "$tgt" bash -s -- "$tdata" <<'EOF'
 set -euo pipefail
-others=$(docker ps -a --format '{{.Names}}' | grep -E '^(forge-db|forge-env-|forge-svc-|forge-init-|forge-preview-)' || true)
+others=$(docker ps -a --format '{{.Names}}' | grep -E '^(forge|apptown)-(db|env-|svc-|init-|preview-)' || true)
 [ -z "$others" ] || { echo "the target already holds an AppTown's containers: $others" >&2; exit 1; }
 [ ! -e /opt/forge-restore ] && { [ ! -e "$1" ] || [ -z "$(ls -A "$1")" ]; } || { echo "an earlier rehearsal's files are on the target; run with RESET_TARGET=1" >&2; exit 1; }
 mkdir -p /opt/forge-restore "$1"
@@ -163,8 +167,8 @@ dns=$(ssh "$tgt" "awk '/^nameserver/{print \$2; exit}' /etc/resolv.conf")
 ssh "$tgt" bash -s -- "$ip" "$dns" "$block" <<'EOF'
 set -euo pipefail
 ip=$1 dns=$2 names=${3:-} # ssh drops an empty BLOCK_NAMES argument
-sed -i '/# forge-recovery-rehearsal/d' /etc/hosts
-for n in $names; do echo "127.0.0.1 $n # forge-recovery-rehearsal" >> /etc/hosts; done
+sed -i '/# apptown-recovery-rehearsal/d' /etc/hosts
+for n in $names; do echo "127.0.0.1 $n # apptown-recovery-rehearsal" >> /etc/hosts; done
 nft delete table inet forge_rehearsal 2>/dev/null || true
 nft -f - <<NFT
 table inet forge_rehearsal {
@@ -219,11 +223,12 @@ stop() { # AppTown process only; what it made stays until end_rehearsal
 step "make the built-in database, then load the dump into it"
 start -verify-only
 stop
-ssh "$tgt" bash -s <<'EOF'
+ssh "$tgt" bash -s -- "$srcdb" <<'EOF'
 set -euo pipefail
-docker exec forge-db dropdb -U postgres forge
-docker exec forge-db createdb -U postgres forge
-gunzip -c /opt/forge-restore/forge.sql.gz | docker exec -i forge-db psql -q -v ON_ERROR_STOP=1 -U postgres -d forge > /dev/null
+db=$1 # the restored data directory's database container, as the source's db.env names it
+docker exec "$db" dropdb -U postgres forge
+docker exec "$db" createdb -U postgres forge
+gunzip -c /opt/forge-restore/forge.sql.gz | docker exec -i "$db" psql -q -v ON_ERROR_STOP=1 -U postgres -d forge > /dev/null
 EOF
 
 step "the key and secret files came across unchanged (names only; no contents)"
@@ -256,7 +261,7 @@ echo "same on both sides: $(cut -d' ' -f1 "$work/keys.src" | tr '\n' ' ')"
 
 step "verify read-only (-verify-only): credentials, history, evidence, repositories"
 start -verify-only
-python3 "$here/forge-restore-check.py" verify "$turl" "$work/expected.json" || { stop; exit 1; }
+python3 "$here/apptown-restore-check.py" verify "$turl" "$work/expected.json" || { stop; exit 1; }
 stop
 
 step "start normally; $redeploy runs again from its recorded release and answers"
@@ -267,8 +272,11 @@ start
 # HTTP on its published port.
 ok=""
 for _ in $(seq 1 60); do
-	attempt=$(ssh "$tgt" "docker exec forge-db psql -U postgres -d forge -At -F ' ' -c \"SELECT a.status, i.rebuild, i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname' ORDER BY a.id DESC LIMIT 1\"" 2>/dev/null || true)
-	hostport=$(ssh "$tgt" "docker port forge-env-$slug-$depname 2>/dev/null | sed -n 's/.*127.0.0.1:\([0-9]*\)$/\1/p' | head -1" || true)
+	attempt=$(ssh "$tgt" "docker exec $srcdb psql -U postgres -d forge -At -F ' ' -c \"SELECT a.status, i.rebuild, i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname' ORDER BY a.id DESC LIMIT 1\"" 2>/dev/null || true)
+	# The container the restored record serves from: under the names the
+	# deployment was made with (forge- for one made before 1.0).
+	container=$(ssh "$tgt" "docker exec $srcdb psql -U postgres -d forge -At -c \"SELECT d.container FROM deployments d JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\"" 2>/dev/null || true)
+	hostport=$(ssh "$tgt" "docker port ${container:-none} 2>/dev/null | sed -n 's/.*127.0.0.1:\([0-9]*\)$/\1/p' | head -1" || true)
 	code=""
 	[ -n "$hostport" ] && code=$(ssh "$tgt" "curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:$hostport/" || true)
 	if [ "$attempt" = "done t $rev $art" ] && [[ "$code" =~ ^[23] ]]; then

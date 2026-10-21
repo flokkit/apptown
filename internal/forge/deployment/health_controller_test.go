@@ -41,7 +41,7 @@ func healthWorld(t *testing.T) (*Service, *database.DB, *dockerfake.Daemon, ids.
 func TestHealthControllerRestartsOnThreshold(t *testing.T) {
 	t.Parallel()
 	s, db, f, projectID, target := healthWorld(t)
-	const container = "forge-env-p-main"
+	const container = "apptown-env-p-main"
 	closedPort := healthClosedPort(t) // TCP liveness dials this → connection refused → miss
 	if _, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", target.ID, Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
@@ -92,7 +92,7 @@ func TestHealthControllerLeavesHealthyEnvAlone(t *testing.T) {
 	var port int
 	fmt.Sscanf(portStr, "%d", &port)
 
-	const container = "forge-env-p-main"
+	const container = "apptown-env-p-main"
 	if _, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", target.ID, Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestHealthControllerNeverUsesLocalDockerForInvalidTarget(t *testing.T) {
 	for i, targetID := range invalid {
 		t.Run(fmt.Sprint(targetID), func(t *testing.T) {
 			name := fmt.Sprintf("main-%d", i)
-			container := "forge-env-p-" + name
+			container := "apptown-env-p-" + name
 			if targetID.IsZero() || targetID == idstest.N(999999) {
 				// sql-guarantee: Direct INSERT injects an invalid target reference that EnsureStanding refuses, proving fail-closed Docker resolution.
 				if _, err := db.Exec(`INSERT INTO deployments (id,project_id,name,container,target_id,updated_at) VALUES (?,?,?,?,?,?)`, ids.New(time.Now()),
@@ -182,7 +182,7 @@ const crashLoopContainerID = "crash-loop-container-id"
 func crashLoopWorld(t *testing.T) (*Service, *database.DB, *dockerfake.Daemon, *docker.HealthController, string) {
 	t.Helper()
 	s, db, f, projectID, target := healthWorld(t)
-	const container = "forge-env-p-main"
+	const container = "apptown-env-p-main"
 	if _, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", target.ID, Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}

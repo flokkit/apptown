@@ -1092,7 +1092,7 @@ func TestARestartWaitsForASiblingStepLeftWritingTheFolder(t *testing.T) {
 	calls := 0
 	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
 		calls++
-		if strings.HasPrefix(req.Name, "forge-review-") {
+		if strings.HasPrefix(req.Name, "apptown-review-") {
 			d.survive(req)
 			return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("reviewer still writing")}
 		}

@@ -22,7 +22,7 @@ import (
 func TestAListedWorkerPreviewIsLiveOnlyWhenItsStateSaysRunning(t *testing.T) {
 	t.Parallel()
 	a, _, fake, ch := previewWorkerWorld(t, false)
-	name := fmt.Sprintf("forge-preview-change-%d", ch.ID)
+	name := fmt.Sprintf("apptown-preview-change-%d", ch.ID)
 	fake.mu.Lock()
 	fake.running = map[string]worker.PreviewState{name: {Running: false}}
 	fake.mu.Unlock()
@@ -69,7 +69,7 @@ func TestAListedWorkerPreviewIsLiveOnlyWhenItsStateSaysRunning(t *testing.T) {
 func TestAWorkerPreviewWhoseStateCannotBeReadLeavesThePreviewsUnobserved(t *testing.T) {
 	t.Parallel()
 	a, _, fake, ch := previewWorkerWorld(t, false)
-	name := fmt.Sprintf("forge-preview-change-%d", ch.ID)
+	name := fmt.Sprintf("apptown-preview-change-%d", ch.ID)
 	fake.mu.Lock()
 	fake.running = map[string]worker.PreviewState{name: {Running: true}}
 	fake.stateDown = true
@@ -100,7 +100,7 @@ func TestAnUnobservablePreviewTierIsNotAnEmptyOne(t *testing.T) {
 	t.Parallel()
 	fake := &fakePreviewWorker{down: true}
 	a := authzFixture(t, withPreviewWorker(t, fake, Config{NoLocalDocker: true, ConsoleCLI: fixtureCLI(t), DockerClient: ownDockerTripwire{t}, TierDomains: []string{"preview=preview.example.test"}}))
-	if _, err := a.Preview.PreviewOnWorker(context.Background(), "forge-preview-change-00000000-0007-7000-8000-000000000000"); err == nil {
+	if _, err := a.Preview.PreviewOnWorker(context.Background(), "apptown-preview-change-00000000-0007-7000-8000-000000000000"); err == nil {
 		t.Fatal("the unavailable worker unexpectedly answered")
 	}
 	w := authzCall(a.Handler(), "boss", "GET", "/api/v1/tiers", "")
@@ -156,7 +156,7 @@ func TestAnUnreadableAttachedHostLeavesTheReleaseUnknown(t *testing.T) {
 	if _, err := outcomes.Complete(context.Background(), deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "forge-env-game-main", 40001); err != nil {
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "apptown-env-game-main", 40001); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.hosts.DockerScopeFor(context.Background(), target.ID); err == nil {

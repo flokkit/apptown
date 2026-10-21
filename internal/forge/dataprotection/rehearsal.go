@@ -338,7 +338,8 @@ type rehearsalPlace struct {
 
 func placeOf(op ids.ID, host string) rehearsalPlace {
 	n := op.String()
-	return rehearsalPlace{Copy: "forge-rehearsal-" + n + "-copy", Host: host, Stack: "rehearsal-" + n, App: "forge-rehearsal-" + n}
+	pre := string(docker.Current)
+	return rehearsalPlace{Copy: pre + "rehearsal-" + n + "-copy", Host: host, Stack: "rehearsal-" + n, App: pre + "rehearsal-" + n}
 }
 
 // copyMount is where a rehearsal's staged copy is mounted in the jobs that
@@ -696,7 +697,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 					return &safeFailure{"authority withdrawn before " + step}
 				}
 				t.begin(ctx, step)
-				args := []string{"run", "--rm", "--network", "none", "--entrypoint", "", "-v", place.Copy + ":" + copyMount + ":ro", "-v", docker.DataVolumeName(place.App) + ":/dst"}
+				args := []string{"run", "--rm", "--network", "none", "--entrypoint", "", "-v", place.Copy + ":" + copyMount + ":ro", "-v", docker.PrefixOf(place.App).DataVolume(place.App) + ":/dst"}
 				args = append(args, dk.Labels("step", "rehearsal-files")...)
 				args = append(args, s.env.ChownImage(), "sh", "-c", "find /dst -mindepth 1 -delete && tar xz -C /dst < "+copyMount+"/"+m.from.File)
 				if _, err := dk.Command(ctx, docker.Command{Args: args}); err != nil {

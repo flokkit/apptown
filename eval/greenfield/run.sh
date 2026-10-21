@@ -27,7 +27,7 @@ esac
 docker run --rm \
   -v "$ws":/work -w /work \
   -v "$here":/gym:ro \
-  -v forge-cache:/apptown-cache \
+  -v apptown-cache:/apptown-cache \
   -e npm_config_cache=/apptown-cache/npm -e GOMODCACHE=/apptown-cache/gomod -e GOCACHE=/apptown-cache/gobuild \
   apptown-agent sh -c '
 set -e

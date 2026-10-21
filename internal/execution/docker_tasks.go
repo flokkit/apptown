@@ -86,9 +86,9 @@ var ErrTaskUnobservable = errors.New("the task could not be observed")
 // taskName is the container name for a task key.
 func (d DockerTasks) taskName(key string) string {
 	if d.Namespace == "" {
-		return "forge-task-" + key
+		return "apptown-task-" + key
 	}
-	return "forge-task-" + d.Namespace + "-" + key
+	return "apptown-task-" + d.Namespace + "-" + key
 }
 
 const requestLabel = dockerlabel.Request

@@ -40,7 +40,7 @@ func toolImageReady(ctx context.Context, images CheckImage, image string) {
 // timeout. The image is resolved separately (and shared) via imageForCommit.
 func runInImage(ctx context.Context, run CheckRun, imageID string, command, env []string) (exitCode int, output string) {
 	out := run(ctx, execution.Request{Image: imageID, Argv: command, Env: env, Network: "none",
-		Timeout: check.ScanTimeout, Name: execution.UniqueName("forge-exec-image")})
+		Timeout: check.ScanTimeout, Name: execution.UniqueName("apptown-exec-image")})
 	if !out.Answered() {
 		// No answer (it timed out, did not run, or its cleanup failed):
 		// an errored check, with the reason.

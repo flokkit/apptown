@@ -106,7 +106,7 @@ func TestIntegrationStaticPreviewBoot(t *testing.T) {
 
 	// Reap kills it dead.
 	docker.RemovePreview(context.Background(), a.docker, docker.PreviewChangeName(chID), docker.ChangeStackID(chID))
-	name := fmt.Sprintf("forge-preview-change-%d", chID)
+	name := fmt.Sprintf("apptown-preview-change-%d", chID)
 	if dockertest.Run("inspect", name) == nil {
 		t.Fatal("reap left the container")
 	}
@@ -145,7 +145,7 @@ needs:
 `), 0o644)
 	_ = os.WriteFile(filepath.Join(ws, "site", "index.html"),
 		[]byte(`<!doctype html><html><body><h1>service-backed preview</h1></body></html>`), 0o644)
-	network := fmt.Sprintf("forge-net-pvsnap-change-%d", chID)
+	network := fmt.Sprintf("apptown-net-pvsnap-change-%d", chID)
 	t.Cleanup(func() {
 		docker.RemovePreview(context.Background(), a.docker, docker.PreviewChangeName(chID), docker.ChangeStackID(chID))
 	})
@@ -194,7 +194,7 @@ app:
 needs:
   redis: {}
 `), 0o644)
-	network := fmt.Sprintf("forge-net-pvsnap-change-%d", chID)
+	network := fmt.Sprintf("apptown-net-pvsnap-change-%d", chID)
 	t.Cleanup(func() {
 		docker.RemovePreview(context.Background(), a.docker, docker.PreviewChangeName(chID), docker.ChangeStackID(chID))
 	})
@@ -233,7 +233,7 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	if _, err := gitexec.Run(t.Context(), repo, "commit", "-m", "app"); err != nil {
 		t.Fatal(err)
 	}
-	envContainer := fmt.Sprintf("forge-env-%s-main", slug)
+	envContainer := fmt.Sprintf("apptown-env-%s-main", slug)
 	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", envContainer) })
 
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "itest-deploy", Version: 1}, Spec: schema.Spec{

@@ -64,7 +64,7 @@ func TestVHostRouting(t *testing.T) {
 	var port int
 	fmt.Sscanf(backend.URL[strings.LastIndex(backend.URL, ":")+1:], "%d", &port)
 	a.vhostMu.Lock()
-	a.vhostCache = map[string]vhostEntry{fmt.Sprintf("forge-preview-change-%d", live.ID): {port: port, at: time.Now()}}
+	a.vhostCache = map[string]vhostEntry{fmt.Sprintf("apptown-preview-change-%d", live.ID): {port: port, at: time.Now()}}
 	a.vhostMu.Unlock()
 	req = httptest.NewRequest("GET", "/", nil)
 	req.Host = fmt.Sprintf("change-%d.preview.example.com", live.ID)
@@ -104,9 +104,9 @@ func TestTierDomains(t *testing.T) {
 		host, container string
 		ok              bool
 	}{
-		{"change-00000000-0061-7000-8000-000000000000.preview.example.com", "forge-preview-change-00000000-0061-7000-8000-000000000000", true},
-		{"run-00000000-0038-7000-8000-000000000000.preview.example.com:443", "forge-preview-run-00000000-0038-7000-8000-000000000000", true},
-		{"reading-list.main.example.com", "forge-env-reading-list-main", true},
+		{"change-00000000-0061-7000-8000-000000000000.preview.example.com", "apptown-preview-change-00000000-0061-7000-8000-000000000000", true},
+		{"run-00000000-0038-7000-8000-000000000000.preview.example.com:443", "apptown-preview-run-00000000-0038-7000-8000-000000000000", true},
+		{"reading-list.main.example.com", "", true}, // standing: its record names the container
 		{"forge.example.com", "", false},
 		{"evil..preview.example.com", "", false},
 		// A hostile label must not reach beyond forge-owned names.
@@ -115,8 +115,9 @@ func TestTierDomains(t *testing.T) {
 	}
 	for _, c := range cases {
 		got, ok := a.vhostContainer(c.host)
-		if ok != c.ok || got.container != c.container {
-			t.Errorf("%s: got (%q,%v) want (%q,%v)", c.host, got.container, ok, c.container, c.ok)
+		standing := ok && c.container == ""
+		if ok != c.ok || got.container != c.container || got.standing != standing || (standing && got.label != "reading-list") {
+			t.Errorf("%s: got (%q,%v, standing %v %q) want (%q,%v)", c.host, got.container, ok, got.standing, got.label, c.container, c.ok)
 		}
 	}
 }
@@ -135,16 +136,17 @@ func TestTierDomainWithAPortRoutesByHostname(t *testing.T) {
 		host, container string
 		ok              bool
 	}{
-		{label + ".preview.localhost:7777", "forge-preview-" + label, true},
-		{label + ".preview.localhost", "forge-preview-" + label, true},
-		{"reading-list.main.localhost:7777", "forge-env-reading-list-main", true},
+		{label + ".preview.localhost:7777", "apptown-preview-" + label, true},
+		{label + ".preview.localhost", "apptown-preview-" + label, true},
+		{"reading-list.main.localhost:7777", "", true}, // standing: its record names the container
 		{"localhost:7777", "", false},
 		{label + ".preview.example.com:7777", "", false},
 	}
 	for _, c := range cases {
 		got, ok := a.vhostContainer(c.host)
-		if ok != c.ok || got.container != c.container {
-			t.Errorf("%s: got (%q,%v) want (%q,%v)", c.host, got.container, ok, c.container, c.ok)
+		standing := ok && c.container == ""
+		if ok != c.ok || got.container != c.container || got.standing != standing || (standing && got.label != "reading-list") {
+			t.Errorf("%s: got (%q,%v, standing %v %q) want (%q,%v)", c.host, got.container, ok, got.standing, got.label, c.container, c.ok)
 		}
 	}
 }
@@ -175,8 +177,9 @@ func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
 	defer local.Close()
 	port := local.Listener.Addr().(*net.TCPAddr).Port
 	a.vhostMu.Lock()
-	a.vhostCache = map[string]vhostEntry{"forge-preview-shop-release-2": {port: port, at: time.Now()}, "forge-env-shop-main": {port: port, at: time.Now()}}
+	a.vhostCache = map[string]vhostEntry{"apptown-preview-shop-release-2": {port: port, at: time.Now()}, "apptown-env-shop-main": {port: port, at: time.Now()}}
 	a.vhostMu.Unlock()
+	recordServing(t, a, shop, "apptown-env-shop-main")
 
 	h := a.Handler()
 	for host, want := range map[string]string{
@@ -198,8 +201,8 @@ func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
 	defer mu.Unlock()
 	sort.Strings(atWorker)
 	want := []string{
-		fmt.Sprintf("/v1/previews/forge-preview-change-%d/http change-%d.preview.example.com /a%%2Fb?x=1", change.ID, change.ID),
-		fmt.Sprintf("/v1/previews/forge-preview-run-%d/http run-%d.preview.example.com /a%%2Fb?x=1", run.ID, run.ID),
+		fmt.Sprintf("/v1/previews/apptown-preview-change-%d/http change-%d.preview.example.com /a%%2Fb?x=1", change.ID, change.ID),
+		fmt.Sprintf("/v1/previews/apptown-preview-run-%d/http run-%d.preview.example.com /a%%2Fb?x=1", run.ID, run.ID),
 	}
 	sort.Strings(want)
 	if !slices.Equal(atWorker, want) {
@@ -218,7 +221,7 @@ func TestTheLocalProxyPassesOnlyItsOwnForwardingHeaders(t *testing.T) {
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { got = r.Header.Clone() }))
 	defer backend.Close()
 	a.vhostMu.Lock()
-	a.vhostCache = map[string]vhostEntry{fmt.Sprintf("forge-preview-change-%d", change.ID): {port: backend.Listener.Addr().(*net.TCPAddr).Port, at: time.Now()}}
+	a.vhostCache = map[string]vhostEntry{fmt.Sprintf("apptown-preview-change-%d", change.ID): {port: backend.Listener.Addr().(*net.TCPAddr).Port, at: time.Now()}}
 	a.vhostMu.Unlock()
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Host = fmt.Sprintf("change-%d.preview.example.com", change.ID)
@@ -275,13 +278,15 @@ func TestTheEvalDomainServesCopiesAndNothingElse(t *testing.T) {
 	defer backend.Close()
 	port := backend.Listener.Addr().(*net.TCPAddr).Port
 	cache := map[string]vhostEntry{}
-	for _, name := range []string{"forge-env-shop-main", "forge-env-shop-copy-main", "forge-preview-shop-copy-release-1",
-		fmt.Sprintf("forge-preview-change-%d", realChange.ID), fmt.Sprintf("forge-preview-change-%d", copyChange.ID), fmt.Sprintf("forge-preview-run-%d", copyRun.ID)} {
+	for _, name := range []string{"apptown-env-shop-main", "apptown-env-shop-copy-main", "apptown-preview-shop-copy-release-1",
+		fmt.Sprintf("apptown-preview-change-%d", realChange.ID), fmt.Sprintf("apptown-preview-change-%d", copyChange.ID), fmt.Sprintf("apptown-preview-run-%d", copyRun.ID)} {
 		cache[name] = vhostEntry{port: port, at: time.Now()}
 	}
 	a.vhostMu.Lock()
 	a.vhostCache = cache
 	a.vhostMu.Unlock()
+	recordServing(t, a, real, "apptown-env-shop-main")
+	recordServing(t, a, copy, "apptown-env-shop-copy-main")
 	h := a.Handler()
 	for host, served := range map[string]bool{
 		"shop-copy.eval.example.com": true, "shop-copy.main.example.com": false,
@@ -315,7 +320,7 @@ func TestTheEvalDomainServesCopiesAndNothingElse(t *testing.T) {
 func TestARequestToAPreviewIsALook(t *testing.T) {
 	t.Parallel()
 	f := newFakeDocker()
-	looked, unseen := "forge-preview-shop-release-3", "forge-preview-shop-release-2"
+	looked, unseen := "apptown-preview-shop-release-3", "apptown-preview-shop-release-2"
 	f.reply = func(args []string) (string, error, bool) {
 		if args[0] == "ps" && slices.Contains(args, "label=forge.class=preview") {
 			return looked + "\tpvrel-shop-3\n" + unseen + "\tpvrel-shop-2\n", nil, true
@@ -391,5 +396,67 @@ func TestTLSAskAllowsOnlyNamesAppTownsRecordsBound(t *testing.T) {
 	}
 	if got := ask("apptown.example.com", "203.0.113.9:41234"); got != 403 {
 		t.Errorf("a caller off this machine: %d, want 403", got)
+	}
+}
+
+// A main hostname reaches the container the project's main deployment
+// records serving from, under the names it was made with: one made before
+// 1.0 (forge-env-…) right after the upgrade, before any release, and one
+// made now (apptown-env-…). The name is never computed from the Host.
+func TestAMainHostnameReachesTheContainerItsDeploymentRecords(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{TierDomains: []string{"main=main.example.com"}})
+	a.SeedTargets(t.Context())
+	target, err := a.Deployment.Targets.ByName(t.Context(), deployment.BuiltInTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "served") }))
+	defer backend.Close()
+	var port int
+	fmt.Sscanf(backend.URL[strings.LastIndex(backend.URL, ":")+1:], "%d", &port)
+	h := a.Handler()
+	for slug, container := range map[string]string{"oldshop": "forge-env-oldshop-main", "newshop": "apptown-env-newshop-main"} {
+		p := engineProject(t, a, slug)
+		dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "main", target.ID, deployment.Attributes{}.WithDefaults())
+		if err != nil {
+			t.Fatal(err)
+		}
+		// sql-guarantee: a deployment made before 1.0 is a migrated row (host_prefix forge-) serving from its forge- container; no operation makes a row of that age now.
+		if _, err := a.DB.Exec(`UPDATE deployments SET host_prefix = $1, container = $2 WHERE id = $3`, strings.TrimSuffix(container, "env-"+slug+"-main"), container, dep.ID); err != nil {
+			t.Fatal(err)
+		}
+		a.vhostMu.Lock()
+		if a.vhostCache == nil {
+			a.vhostCache = map[string]vhostEntry{}
+		}
+		a.vhostCache[container] = vhostEntry{port: port, at: time.Now()}
+		a.vhostMu.Unlock()
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Host = slug + ".main.example.com"
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		if w.Code != 200 || w.Body.String() != "served" {
+			t.Fatalf("%s did not reach %s: %d %q", req.Host, container, w.Code, w.Body.String())
+		}
+	}
+}
+
+// recordServing records a project's main deployment serving from container,
+// as its boot would.
+func recordServing(t *testing.T, a *App, projectID ids.ID, container string) {
+	t.Helper()
+	a.SeedTargets(t.Context())
+	target, err := a.Deployment.Targets.ByName(t.Context(), deployment.BuiltInTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), projectID, "main", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: a serving container is recorded by a boot on Docker; this test serves from a plain HTTP backend, so no boot can.
+	if _, err := a.DB.Exec(`UPDATE deployments SET container = $1 WHERE id = $2`, container, dep.ID); err != nil {
+		t.Fatal(err)
 	}
 }

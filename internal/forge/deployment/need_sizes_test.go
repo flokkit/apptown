@@ -70,13 +70,13 @@ needs:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.s.Outcomes.Complete(t.Context(), deploymentCompletionFor(at, docker.ContainerName("p", "legacy"))); err != nil {
+	if _, err := w.s.Outcomes.Complete(t.Context(), deploymentCompletionFor(at, docker.Current.Container("p", "legacy"))); err != nil {
 		t.Fatal(err)
 	}
 	if out, err := w.rebuild(t, dep); err != nil || out["skipped"] != nil {
 		t.Fatalf("legacy rebuild: %v %v", out, err)
 	}
-	command := ranWith(t, w, "lab", docker.ServiceName(docker.StackID("p", "legacy"), "mariadb"), 0)
+	command := ranWith(t, w, "lab", docker.Current.Service(docker.StackID("p", "legacy"), "mariadb"), 0)
 	if !strings.Contains(command, "--innodb-buffer-pool-size=64M") || strings.Contains(command, "--innodb-buffer-pool-size=32M") {
 		t.Fatalf("legacy source was reinterpreted: %s", command)
 	}

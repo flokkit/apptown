@@ -174,7 +174,7 @@ func TestNoScriptOrTestsStepRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.
 			t.Fatalf("tests on the worker: %s %s", step.Status, step.Evidence)
 		}
 		recorded := w.nothingRanHere(t)
-		if n := strings.Count(recorded, "--init --name forge-check-"); n != 1 {
+		if n := strings.Count(recorded, "--init --name apptown-check-"); n != 1 {
 			t.Fatalf("the worker ran %d tests checks, want 1:\n%s", n, recorded)
 		}
 		if n := strings.Count(recorded, "https://mirror.invalid/node/"); n != 1 {
@@ -191,7 +191,7 @@ func TestNoScriptOrTestsStepRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.
 			t.Fatalf("failing tests on the worker: %s %s", step.Status, step.Evidence)
 		}
 		recorded := w.nothingRanHere(t)
-		if n := strings.Count(recorded, "--init --name forge-check-"); n != 2 {
+		if n := strings.Count(recorded, "--init --name apptown-check-"); n != 2 {
 			t.Fatalf("the worker ran %d tests checks, want the change's and the base's:\n%s", n, recorded)
 		}
 		if n := strings.Count(recorded, "https://mirror.invalid/node/"); n != 2 {

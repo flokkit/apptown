@@ -160,7 +160,7 @@ func (a *App) mcpIdentity(w http.ResponseWriter, r *http.Request) *authIdentity 
 	}
 	// The resource_metadata pointer is how an MCP client discovers the
 	// authorization server and starts the browser flow (RFC 9728).
-	w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="forge-mcp", resource_metadata="%s/.well-known/oauth-protected-resource%s"`,
+	w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="apptown-mcp", resource_metadata="%s/.well-known/oauth-protected-resource%s"`,
 		a.mcpBaseURL(r), mcpPath))
 	writeErr(w, 401, "%s", refusal)
 	return nil

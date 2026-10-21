@@ -147,20 +147,20 @@ func TestAnS3NeedOnAppPlatformIsABucketAndAKeyForItAlone(t *testing.T) {
 	if want := stockProvides(t); !slices.Equal(names, want) {
 		t.Fatalf("the binding gives %v, the contract provides %v", names, want)
 	}
-	bucket := "forge-shop-main-abcd1234"
+	bucket := "apptown-shop-main-abcd1234"
 	if b.Env["S3_BUCKET"] != bucket || b.Env["AWS_REGION"] != "syd1" || b.Env["AWS_ENDPOINT_URL_S3"] != a.store.API.URL || b.Secret["AWS_SECRET_ACCESS_KEY"] == "" {
 		t.Fatalf("the binding: %+v", b)
 	}
 	if got := a.store.Buckets(); !slices.Equal(got, []string{bucket}) {
 		t.Fatalf("buckets %v", got)
 	}
-	if got := a.keyNames(); !slices.Equal(got, []string{"forge-shop-main"}) {
+	if got := a.keyNames(); !slices.Equal(got, []string{"apptown-shop-main"}) {
 		t.Fatalf("the account's keys after the release: %v (the maker key must be gone)", got)
 	}
 	owned, _ := a.holdings.Owned(context.Background())
 	want := []deploy.Owned{
 		{Kind: KindBucket, ID: bucket, Name: bucket, Data: true, Need: "s3"},
-		{Kind: KindSpacesKey, ID: b.Env["AWS_ACCESS_KEY_ID"], Name: "forge-shop-main", Need: "s3"},
+		{Kind: KindSpacesKey, ID: b.Env["AWS_ACCESS_KEY_ID"], Name: "apptown-shop-main", Need: "s3"},
 	}
 	if !slices.Equal(owned, want) {
 		t.Fatalf("owned %+v, want %+v", owned, want)
@@ -191,7 +191,7 @@ func TestTheMakerKeyGoesWhateverHappens(t *testing.T) {
 	t.Run("a bucket that cannot be made", func(t *testing.T) {
 		t.Parallel()
 		a := newSpacesAccount(t)
-		a.store.Fail("PUT", "forge-shop-main-abcd1234", "", 500)
+		a.store.Fail("PUT", "apptown-shop-main-abcd1234", "", 500)
 		if _, _, err := a.fulfil(t); err == nil || !strings.Contains(err.Error(), "whether it was made is not known") {
 			t.Fatalf("an unknown create: %v", err)
 		}
@@ -202,7 +202,7 @@ func TestTheMakerKeyGoesWhateverHappens(t *testing.T) {
 	t.Run("a name that is taken", func(t *testing.T) {
 		t.Parallel()
 		a := newSpacesAccount(t)
-		a.store.AddBucket("forge-shop-main-abcd1234")
+		a.store.AddBucket("apptown-shop-main-abcd1234")
 		_, _, err := a.fulfil(t)
 		if err == nil || !deploy.IsTerminal(err) || !strings.Contains(err.Error(), "never adopts") {
 			t.Fatalf("a taken name: %v", err)
@@ -222,7 +222,7 @@ func TestTheMakerKeyGoesWhateverHappens(t *testing.T) {
 		if _, _, err := a.fulfil(t); err != nil {
 			t.Fatal(err)
 		}
-		if got := a.keyNames(); !slices.Equal(got, []string{"forge-shop-main"}) || !slices.ContainsFunc(a.log, func(l string) bool { return strings.Contains(l, left.AccessKey) }) {
+		if got := a.keyNames(); !slices.Equal(got, []string{"apptown-shop-main"}) || !slices.ContainsFunc(a.log, func(l string) bool { return strings.Contains(l, left.AccessKey) }) {
 			t.Fatalf("keys %v after a release; log %v", got, a.log)
 		}
 	})
@@ -234,7 +234,7 @@ func TestTheMakerKeyGoesWhateverHappens(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !slices.ContainsFunc(a.log, func(l string) bool {
-			return strings.Contains(l, "forge-maker-shop-main (DOFAKE1) was NOT deleted") && strings.Contains(l, "live credential")
+			return strings.Contains(l, "apptown-maker-shop-main (DOFAKE1) was NOT deleted") && strings.Contains(l, "live credential")
 		}) {
 			t.Fatalf("the left maker key is not said: %v", a.log)
 		}
@@ -269,7 +269,7 @@ func TestAKeyWhoseSecretIsGoneIsReplaced(t *testing.T) {
 	}
 	owned, _ := a.holdings.Owned(context.Background())
 	keys := slices.DeleteFunc(owned, func(o deploy.Owned) bool { return o.Kind != KindSpacesKey })
-	if len(keys) != 1 || keys[0].ID != second.Env["AWS_ACCESS_KEY_ID"] || !slices.Equal(a.keyNames(), []string{"forge-shop-main"}) {
+	if len(keys) != 1 || keys[0].ID != second.Env["AWS_ACCESS_KEY_ID"] || !slices.Equal(a.keyNames(), []string{"apptown-shop-main"}) {
 		t.Fatalf("keys recorded %+v, at the account %v", keys, a.keyNames())
 	}
 }
@@ -330,7 +330,7 @@ func TestTheBucketKeysSecretIsRenderedAsASecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := deploy.NeedBinding{Env: map[string]string{"S3_BUCKET": "forge-shop-main-abcd1234"}, Secret: map[string]string{"AWS_SECRET_ACCESS_KEY": "s3cr3t"}}
+	b := deploy.NeedBinding{Env: map[string]string{"S3_BUCKET": "apptown-shop-main-abcd1234"}, Secret: map[string]string{"AWS_SECRET_ACCESS_KEY": "s3cr3t"}}
 	art, err := driver.Render(context.Background(), deploy.Placement{Name: "main"}, deploy.Source{Images: map[string]string{"web": "app:1", "worker": "app:1"}, Init: map[string]string{"migrate": "app:1"}, Contract: c, Revision: "r"},
 		deploy.NeedBindings{"s3": b}, scopedRenderSecrets{}, func(string, ...any) {})
 	if err != nil {
@@ -370,13 +370,13 @@ func TestTheInventoryListsSpacesKeysAndALeftMakerKey(t *testing.T) {
 	var app, maker *deploy.Resource
 	for i := range got {
 		switch got[i].Name {
-		case "forge-shop-main":
+		case "apptown-shop-main":
 			app = &got[i]
 		case "forge-maker-shop-main":
 			maker = &got[i]
 		}
 	}
-	if app == nil || app.Kind != KindSpacesKey || !slices.Contains(app.Tags, deploy.TagConfirmsOnly) || app.Detail != "readwrite on the bucket forge-shop-main-abcd1234" {
+	if app == nil || app.Kind != KindSpacesKey || !slices.Contains(app.Tags, deploy.TagConfirmsOnly) || app.Detail != "readwrite on the bucket apptown-shop-main-abcd1234" {
 		t.Fatalf("the app's key: %+v", app)
 	}
 	if maker == nil || slices.Contains(maker.Tags, deploy.TagConfirmsOnly) || maker.Detail != "fullaccess on every bucket" {

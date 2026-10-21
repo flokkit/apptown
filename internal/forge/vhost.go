@@ -34,7 +34,7 @@ import (
 // reverse proxy in front — and apptownd reverse-proxies to the app's local port.
 //
 // Stateless by construction: container names are deterministic
-// (forge-preview-change-97, forge-env-<slug>-main), so the hostname IS
+// (apptown-preview-change-97, a deployment's recorded container), so the hostname IS
 // the lookup key and `docker port` is the source of truth, behind a
 // short cache. Nothing is registered, nothing is written, nothing
 // dangles when a preview dies.
@@ -72,10 +72,13 @@ func parseTierDomains(raw []string) (map[string]tierDomain, error) {
 var releasePreviewRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*-release-[0-9]+$`)
 
 // vhostRoute is what a request Host names: an AppTown-owned container, the
-// label it was named by, and whether the name was on the eval domain.
+// label it was named by, and whether the name was on the eval domain. A
+// standing deployment's container is not named by the Host: it is the one
+// its record says it serves from (standing), under the names it was made
+// with.
 type vhostRoute struct {
 	container, label string
-	eval             bool
+	eval, standing   bool
 }
 
 // vhostContainer maps a request Host to an AppTown-owned container name.
@@ -99,7 +102,7 @@ func tierRoute(tiers map[string]tierDomain, host string) (vhostRoute, bool) {
 			case preview(label):
 				return vhostRoute{container: docker.PreviewLabelName(label), label: label, eval: true}, true
 			case slugRe.MatchString(label):
-				return vhostRoute{container: docker.ContainerName(label, "main"), label: label, eval: true}, true
+				return vhostRoute{label: label, eval: true, standing: true}, true
 			}
 		}
 	}
@@ -110,7 +113,7 @@ func tierRoute(tiers map[string]tierDomain, host string) (vhostRoute, bool) {
 	}
 	if d, ok := tiers["main"]; ok {
 		if label, found := strings.CutSuffix(host, "."+hostnameOf(d.Domain)); found && slugRe.MatchString(label) {
-			return vhostRoute{container: docker.ContainerName(label, "main"), label: label}, true
+			return vhostRoute{label: label, standing: true}, true
 		}
 	}
 	return vhostRoute{}, false
@@ -135,9 +138,10 @@ func hostnameOf(host string) string {
 // that cannot be read is an error, never a yes. Verdicts are kept briefly:
 // a label's project and a project's purpose do not change.
 type vhostRules struct {
-	db       *database.DB
-	projects *project.Projects
-	now      func() time.Time // AppTown's clock, which ages verdicts; nil is the real one
+	db          *database.DB
+	projects    *project.Projects
+	deployments *deployment.Deployments
+	now         func() time.Time // AppTown's clock, which ages verdicts; nil is the real one
 
 	mu       sync.Mutex
 	verdicts map[vhostRoute]vhostVerdict
@@ -174,6 +178,21 @@ func (v *vhostRules) serves(ctx context.Context, route vhostRoute) (bool, error)
 	v.verdicts[route] = vhostVerdict{serves: serves, at: clock.Or(v.now)()}
 	v.mu.Unlock()
 	return serves, nil
+}
+
+// standing is the container a project's main deployment serves from, as
+// its record says ("" when it has none): the Host names the project, and
+// the deployment was named on its host with the prefix it was made with.
+func (v *vhostRules) standing(ctx context.Context, slug string) (string, error) {
+	p, err := v.projects.BySlug(ctx, slug)
+	if found, err := database.Lookup(err); err != nil || !found {
+		return "", err
+	}
+	dep, err := v.deployments.ByName(ctx, p.ID, "main")
+	if found, err := database.Lookup(err); err != nil || !found {
+		return "", err
+	}
+	return dep.Container, nil
 }
 
 // project is the project a host label names, 0 when none.
@@ -268,6 +287,15 @@ func (a *App) VHost(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "Nothing is served at %s.\n", r.Host)
 			return
+		}
+		if route.standing {
+			var err error
+			if container, err = a.vhostRules.standing(r.Context(), route.label); err != nil {
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				fmt.Fprintf(w, "%s is unavailable: AppTown could not read its deployment.\n", r.Host)
+				return
+			}
 		}
 		if docker.IsPreviewName(container) {
 			// A request to a preview is a look at it: it stops eight hours

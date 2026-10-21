@@ -206,7 +206,7 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 			Files:     amb.Files,
 			Timeout:   timeout,
 			Image:     image,
-			Name:      execution.UniqueName(fmt.Sprintf("forge-step-%d", step.ID)),
+			Name:      execution.UniqueName(fmt.Sprintf("apptown-step-%d", step.ID)),
 			// It mounts the folder writable: one of the folder's writers.
 			Labels: []string{docker.WritesLabel + "=" + ws, fmt.Sprintf(dockerlabel.Step+"=%d", step.ID)},
 		}}, nil
@@ -356,7 +356,7 @@ func (r *TaskRunner) collectCandidate(ctx context.Context, hub string, run *work
 	if found, ok, err := repositoryedit.FindCandidate(ctx, hub, step.ID, n, attempt.Source); err != nil || ok {
 		return found, err
 	}
-	scratch, err := os.MkdirTemp("", "forge-result-*")
+	scratch, err := os.MkdirTemp("", "apptown-result-*")
 	if err != nil {
 		return repositoryedit.Candidate{}, err
 	}

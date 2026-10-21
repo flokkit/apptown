@@ -19,7 +19,7 @@
 #   bin/apptown-linux   the CLI AppTown hands its containers: linux on the
 #                       same architecture (a Mac's containers are linux too)
 #   deploy/apptown-agent, deploy/systemd   the agent image's recipe, units
-#   scripts/forge-db-backup.sh             the checked backup upgrading runs
+#   scripts/apptown-db-backup.sh             the checked backup upgrading runs
 #   LICENSE, NOTICE, README.md, THIRD_PARTY_NOTICES
 set -eu
 [ $# -eq 3 ] || { echo "usage: $0 <version> <revision> <out-dir>" >&2; exit 2; }
@@ -62,7 +62,7 @@ for p in $platforms; do
 	fi
 	cp "$work/apptown-linux-$arch" "$d/bin/apptown-linux"
 	cp -R deploy/apptown-agent deploy/systemd "$d/deploy/"
-	cp scripts/forge-db-backup.sh "$d/scripts/"
+	cp scripts/apptown-db-backup.sh "$d/scripts/"
 	cp LICENSE NOTICE README.md "$work/THIRD_PARTY_NOTICES" "$d/"
 	COPYFILE_DISABLE=1 tar -C "$work" -czf "$out/$name.tar.gz" "$name"
 	echo "$out/$name.tar.gz"

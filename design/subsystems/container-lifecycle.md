@@ -84,7 +84,7 @@ worker.
   the preview's boot lock, so a boot or a look since keeps it. Looks that
   cannot be read, or a place that cannot be asked, stop nothing that pass.
 - **Kept builds.** Stopping keeps a change's preview's build images
-  (`forge-preview-build-forge-preview-change-N`, and its parts') and its
+  (`apptown-preview-build-forge-preview-change-N`, and its parts') and its
   snapshot folder (`workspaces/asof-change-N`, always on AppTown). Each
   preview build carries its cache inline and builds from the kept image when
   its tag is there, so a reopen builds quickly though BuildKit's own cache

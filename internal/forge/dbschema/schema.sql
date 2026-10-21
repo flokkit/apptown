@@ -1393,6 +1393,10 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- data from, and when that was done (null until then).
   start_from_backup UUID,
   started_from_at   TIMESTAMPTZ,
+  -- What its names on a Docker host or Portainer environment begin with,
+  -- fixed when it is made: 'forge-' for one made before 1.0, which keeps
+  -- them for good, so nothing it made is looked up under another name.
+  host_prefix TEXT NOT NULL DEFAULT 'apptown-',
   UNIQUE(project_id, name)
 );
 -- A target (design/subsystems/deployment.md §2.2): a reusable place AppTown can

@@ -182,7 +182,7 @@ func TestAChangePreviewBootsOnTheWorkerAndNowhereElse(t *testing.T) {
 	if out.URL != "https://change-00000000-0009-7000-8000-000000000000.preview.example" || out.Incarnation == "" || out.Public == nil {
 		t.Fatalf("the answer: %+v", out)
 	}
-	if len(w.boots) != 1 || w.boots[0].Name != "forge-preview-change-00000000-0009-7000-8000-000000000000" || w.boots[0].StackID != docker.ChangeStackID(idstest.N(9)) ||
+	if len(w.boots) != 1 || w.boots[0].Name != "apptown-preview-change-00000000-0009-7000-8000-000000000000" || w.boots[0].StackID != docker.ChangeStackID(idstest.N(9)) ||
 		w.boots[0].Incarnation != out.Incarnation || w.prepared[0].Contract == nil || w.prepared[0].Public().Digest() != out.Public.Digest() {
 		t.Fatalf("the worker was asked %+v", w.boots)
 	}
@@ -232,7 +232,7 @@ func TestAWorkerPreviewRestartsAndPinsAsAsked(t *testing.T) {
 	if _, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: projectID}, true); err != nil {
 		t.Fatal(err)
 	}
-	if len(w.removed) != 1 || w.removed[0] != "forge-preview-change-00000000-0009-7000-8000-000000000000" || len(w.boots) != 1 {
+	if len(w.removed) != 1 || w.removed[0] != "apptown-preview-change-00000000-0009-7000-8000-000000000000" || len(w.boots) != 1 {
 		t.Fatalf("a restart: removed %q, boots %d", w.removed, len(w.boots))
 	}
 	w.err = errors.New("worker gone")
@@ -279,7 +279,7 @@ func TestARunPreviewBootsOnTheWorkerWithItsServices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(w.boots) != 1 || w.boots[0].Name != "forge-preview-run-00000000-0004-7000-8000-000000000000" || w.boots[0].StackID != docker.RunStepStackID(idstest.N(11)) || !w.boots[0].PageCheck {
+	if len(w.boots) != 1 || w.boots[0].Name != "apptown-preview-run-00000000-0004-7000-8000-000000000000" || w.boots[0].StackID != docker.RunStepStackID(idstest.N(11)) || !w.boots[0].PageCheck {
 		t.Fatalf("the worker was asked %+v", w.boots)
 	}
 	if w.prepared[0].Services[0].Resources.MemoryBytes != 512<<20 {
@@ -300,7 +300,7 @@ func TestARunPreviewBootsOnTheWorkerWithItsServices(t *testing.T) {
 	}
 	s.DiscardRunPreview(context.Background(), idstest.N(4), []ids.ID{idstest.N(11)})
 	s.RemoveWorkerPreviews(context.Background())
-	if strings.Join(w.removed, ",") != "forge-preview-run-00000000-0004-7000-8000-000000000000," {
+	if strings.Join(w.removed, ",") != "apptown-preview-run-00000000-0004-7000-8000-000000000000," {
 		t.Fatalf("removed on the worker: %q", w.removed)
 	}
 }
@@ -437,21 +437,21 @@ func TestTheForgeKeepsOnlyTheWorkerPreviewsItRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.mu.Lock()
-	w.has["forge-preview-change-00000000-0005-7000-8000-000000000000"] = true // one AppTown never booted, or forgot
-	w.has["forge-preview-run-00000000-0003-7000-8000-000000000000"] = true    // one booting now
+	w.has["apptown-preview-change-00000000-0005-7000-8000-000000000000"] = true // one AppTown never booted, or forgot
+	w.has["apptown-preview-run-00000000-0003-7000-8000-000000000000"] = true    // one booting now
 	w.mu.Unlock()
-	release := s.holdPreview("forge-preview-run-00000000-0003-7000-8000-000000000000")
+	release := s.holdPreview("apptown-preview-run-00000000-0003-7000-8000-000000000000")
 	if err := s.ReconcileWorkerPreviews(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if w.holds("forge-preview-change-00000000-0005-7000-8000-000000000000") || !w.holds("forge-preview-change-00000000-0009-7000-8000-000000000000") || !w.holds("forge-preview-run-00000000-0003-7000-8000-000000000000") {
+	if w.holds("apptown-preview-change-00000000-0005-7000-8000-000000000000") || !w.holds("apptown-preview-change-00000000-0009-7000-8000-000000000000") || !w.holds("apptown-preview-run-00000000-0003-7000-8000-000000000000") {
 		t.Fatalf("after reconciling: %v", w.has)
 	}
 	release()
 	if err := s.ReconcileWorkerPreviews(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if w.holds("forge-preview-run-00000000-0003-7000-8000-000000000000") {
+	if w.holds("apptown-preview-run-00000000-0003-7000-8000-000000000000") {
 		t.Fatal("a preview no boot holds and AppTown has no record of was kept")
 	}
 }
@@ -477,13 +477,13 @@ func TestALostRemovalIsMadeWhenTheWorkerReturns(t *testing.T) {
 	w.mu.Lock()
 	w.err = nil
 	w.mu.Unlock()
-	if !w.holds("forge-preview-change-00000000-0009-7000-8000-000000000000") {
+	if !w.holds("apptown-preview-change-00000000-0009-7000-8000-000000000000") {
 		t.Fatal("fixture: the preview is gone already")
 	}
 	if err := s.ReconcileWorkerPreviews(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if w.holds("forge-preview-change-00000000-0009-7000-8000-000000000000") {
+	if w.holds("apptown-preview-change-00000000-0009-7000-8000-000000000000") {
 		t.Fatal("the lost removal was not made when the worker returned")
 	}
 }
@@ -519,7 +519,7 @@ func TestABootOnTheWorkerIsNeverTakenForAnUnknownPreview(t *testing.T) {
 	if _, err := s.RunPreview(context.Background(), claimedPreviewStep{projectID, idstest.N(4), idstest.N(11)}, RunInput{Source: deploy.Source{Workspace: ws, Revision: "HEAD", Slug: "p"}}); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"forge-preview-change-00000000-0009-7000-8000-000000000000", "forge-preview-run-00000000-0004-7000-8000-000000000000"} {
+	for _, name := range []string{"apptown-preview-change-00000000-0009-7000-8000-000000000000", "apptown-preview-run-00000000-0004-7000-8000-000000000000"} {
 		if !base.holds(name) {
 			t.Fatalf("a reconciliation during its boot removed %s", name)
 		}

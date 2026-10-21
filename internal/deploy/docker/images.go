@@ -49,7 +49,7 @@ func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			if err != nil {
 				return "", err
 			}
-			image = BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.Identity.Generation, name))
+			image = t.names().BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.Identity.Generation, name))
 			if err := PackStaticBuild(ctx, t.Docker, root, *sb, h.staticServer(), port, image); err != nil {
 				return "", err
 			}
@@ -65,7 +65,7 @@ func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			if err != nil {
 				return "", err
 			}
-			tag := BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.Identity.Generation, name))
+			tag := t.names().BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.Identity.Generation, name))
 			args := []string{"-t", tag}
 			if static != "" {
 				dockerfile, remove, err := staticDockerfile(h.staticServer(), port)

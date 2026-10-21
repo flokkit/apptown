@@ -43,7 +43,7 @@ type registeredNeed struct {
 // deploymentKeys is the key owner for one deployment: its key is named for
 // the project, the deployment and its record, and is on its owned list.
 func deploymentKeys(db *database.DB, now func() time.Time, dep *Deployment, slug string) KeyOwner {
-	name := fmt.Sprintf("forge-%s-%s-%d", slug, dep.Name, dep.ID)
+	name := fmt.Sprintf("apptown-%s-%s-%d", slug, dep.Name, dep.ID)
 	return KeyOwner{
 		ProjectID: dep.ProjectID,
 		Name:      name,

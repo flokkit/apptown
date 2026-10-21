@@ -240,7 +240,7 @@ const repositoryIdentity = "[user]\n\tname = apptown\n\temail = apptown@localhos
 // so git's sample hooks, info/exclude and description are not copied; the
 // AppTown reads none of them.
 func initWithIdentity(ctx context.Context, dir, branch string) error {
-	template, err := os.MkdirTemp("", "forge-git-template-")
+	template, err := os.MkdirTemp("", "apptown-git-template-")
 	if err != nil {
 		return err
 	}

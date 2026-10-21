@@ -101,7 +101,7 @@ func TestGuidanceChecksKeepImageAndSourceOnOneCommit(t *testing.T) {
 	checked := gittest.Run(t, ws, "rev-parse", "HEAD")
 	result := reviewExecute(t, a, run, "guidance")
 	calls := fmt.Sprint(daemon.Matching("image inspect "))
-	if !moved || !strings.Contains(calls, "forge-conform:"+checked[:12]) {
+	if !moved || !strings.Contains(calls, "apptown-conform:"+checked[:12]) {
 		t.Fatalf("source was %s but image lookup was %q; current HEAD=%s status=%s evidence=%s", checked, calls, gittest.Run(t, ws, "rev-parse", "HEAD"), result.Status, result.Evidence)
 	}
 }

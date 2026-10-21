@@ -157,7 +157,7 @@ func (f *privateFixture) spec(name, script string, private *execution.PrivateDoc
 
 // names are a task's private resources as the worker names them.
 func (f *privateFixture) names(key string) (network, daemon string) {
-	network = "forge-private-" + strings.TrimPrefix(f.srv.CheckOwnerLabel(), "forge.worker=") + "-" + key
+	network = "apptown-private-" + strings.TrimPrefix(f.srv.CheckOwnerLabel(), "forge.worker=") + "-" + key
 	return network, network + "-dind"
 }
 

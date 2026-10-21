@@ -40,18 +40,18 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 		pv:   {Deployment: Deployment{ID: pv, Name: "preview-7", Kind: Preview}, Project: "shop"},
 	}
 	owners := containerOwners{
-		exact:    map[string]partOf{"forge-env-shop-main": {deployment: shop, part: "web"}, "forge-preview-7": {deployment: pv, part: "web"}},
-		services: map[string]ids.ID{docker.ServiceName(docker.StackID("shop", "main"), ""): shop},
+		exact:    map[string]partOf{"apptown-env-shop-main": {deployment: shop, part: "web"}, "apptown-preview-7": {deployment: pv, part: "web"}},
+		services: map[string]ids.ID{docker.Current.Service(docker.StackID("shop", "main"), ""): shop},
 	}
 	limits := []docker.ContainerLimit{
-		{Name: "forge-env-shop-main", MemoryBytes: 256 << 20, CPUs: 1, Forge: true, Class: "env"},
-		{Name: docker.ServiceName(docker.StackID("shop", "main"), "postgres"), Forge: true, Class: "env"},
-		{Name: "forge-preview-7", MemoryBytes: 128 << 20, Forge: true, Class: "preview"},
-		{Name: "forge-svc-pv-redis", MemoryBytes: 64 << 20, Forge: true, Class: "service"},
-		{Name: "forge-step-1", MemoryBytes: 2 << 30, CPUs: 2, Forge: true, Class: "step"},
-		{Name: "forge-console-a", Forge: true, Class: "console", CPUUnread: true},
+		{Name: "apptown-env-shop-main", MemoryBytes: 256 << 20, CPUs: 1, Forge: true, Class: "env"},
+		{Name: docker.Current.Service(docker.StackID("shop", "main"), "postgres"), Forge: true, Class: "env"},
+		{Name: "apptown-preview-7", MemoryBytes: 128 << 20, Forge: true, Class: "preview"},
+		{Name: "apptown-svc-pv-redis", MemoryBytes: 64 << 20, Forge: true, Class: "service"},
+		{Name: "apptown-step-1", MemoryBytes: 2 << 30, CPUs: 2, Forge: true, Class: "step"},
+		{Name: "apptown-console-a", Forge: true, Class: "console", CPUUnread: true},
 		{Name: "forge-db", Forge: true, Class: "infra"},
-		{Name: "forge-env-gone-main", MemoryBytes: 64 << 20, Forge: true, Class: "env"},
+		{Name: "apptown-env-gone-main", MemoryBytes: 64 << 20, Forge: true, Class: "env"},
 		{Name: "traefik", MemoryBytes: 256 << 20},
 	}
 	used := map[string]int64{}

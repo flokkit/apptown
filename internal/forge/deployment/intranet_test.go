@@ -17,7 +17,7 @@ func (c consumerEnv) EnvFor(consumer string) map[string]string { return c[consum
 // both, expressed as compose conditions so the platform enforces the
 // order; secrets reach exactly the consumer they were delivered to.
 func TestIntranetComposeOrdersTheStack(t *testing.T) {
-	out := deploy.IntranetCompose(deploy.IntranetStack{Slug: "letterbox", Hosts: []string{"letterbox.apps.example.com"}, Domain: "apps.example.com",
+	out := deploy.IntranetCompose(deploy.IntranetStack{Prefix: "apptown-", Slug: "letterbox", Hosts: []string{"letterbox.apps.example.com"}, Domain: "apps.example.com",
 		Image: "reg/letterbox:r4", Port: 8080, PublicPart: "web",
 		Env:     map[string]string{"DATABASE_URL": "postgres://app:app@postgres:5432/app"},
 		Secrets: consumerEnv{"web": {"SECRET_KEY_BASE": "s3"}, "init-migrate": {"MIGRATE_TOKEN": "m1"}},
@@ -30,7 +30,7 @@ func TestIntranetComposeOrdersTheStack(t *testing.T) {
 		"  postgres:\n    image: postgres:16-alpine\n    restart: unless-stopped\n",
 		`POSTGRES_DB: "app"`,
 		`test: ["CMD-SHELL", "pg_isready -U app -d app"]`,
-		"- forge-need-letterbox-postgres:/var/lib/postgresql/data",
+		"- apptown-need-letterbox-postgres:/var/lib/postgresql/data",
 		"  init-migrate:\n    image: reg/letterbox:r4\n    restart: \"no\"\n    command: [\"/app/init.sh\"]\n",
 		"      postgres:\n        condition: service_healthy\n",
 		"      init-migrate:\n        condition: service_completed_successfully\n",

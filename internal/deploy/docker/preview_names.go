@@ -22,7 +22,7 @@ import (
 //	env-<slug>-<env>    a standing deployment (persistent, never reaped)
 //	<stepID>            an agent step's sidecars
 const (
-	previewPrefix      = "forge-preview-"
+	previewPrefix      = string(Current) + "preview-"
 	changeStackPrefix  = "pvsnap-change-"
 	runStepStackPrefix = "pv"
 	relStackPrefix     = "pvrel-"
@@ -50,13 +50,15 @@ func ReleaseStackID(slug string, number int64) string {
 	return fmt.Sprintf("%s%s-%d", relStackPrefix, slug, number)
 }
 
-// previewLabel is the inverse of PreviewLabelName.
+// previewLabel is the inverse of PreviewLabelName, under any prefix: the
+// start-up sweep removes what an older release named.
 func previewLabel(name string) (string, bool) {
-	rest, ok := strings.CutPrefix(name, previewPrefix)
-	if !ok || rest == "" {
-		return "", false
+	for _, p := range Prefixes {
+		if rest, ok := strings.CutPrefix(name, string(p)+"preview-"); ok && rest != "" {
+			return rest, true
+		}
 	}
-	return rest, true
+	return "", false
 }
 
 // workPreviewLabel is a change's or a run's preview label.

@@ -27,9 +27,9 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	// deployment's list does not record (a list made before recording);
 	// the list records a third container the release does not name.
 	releaseMain(t, s, "rq", "app:\n  web:\n    image: registry.example/rq:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n  worker:\n    image: registry.example/rq:1\n    command: [\"work\"]\nneeds:\n  postgres: {}\n")
-	app := docker.ContainerName("rq", "main")
-	worker := docker.ServiceName(docker.StackID("rq", "main"), "worker")
-	listed := "forge-svc-env-rq-main-cron"
+	app := docker.Current.Container("rq", "main")
+	worker := docker.Current.Service(docker.StackID("rq", "main"), "worker")
+	listed := "apptown-svc-env-rq-main-cron"
 	for _, c := range []string{app, worker, listed} {
 		client.SetRunning(c, true)
 	}
@@ -116,8 +116,8 @@ func TestARestoreNamesAPartThatIsNotThere(t *testing.T) {
 	t.Parallel()
 	s, _, client, _, pid := backupWorld(t, "rm", 40003)
 	releaseMain(t, s, "rm", "app:\n  web:\n    image: registry.example/rm:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n  worker:\n    image: registry.example/rm:1\n    command: [\"work\"]\nneeds:\n  postgres: {}\n")
-	app := docker.ContainerName("rm", "main")
-	worker := docker.ServiceName(docker.StackID("rm", "main"), "worker")
+	app := docker.Current.Container("rm", "main")
+	worker := docker.Current.Service(docker.StackID("rm", "main"), "worker")
 	client.SetRunning(app, true) // the worker's container is gone
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
@@ -156,9 +156,9 @@ func TestARestoreStartsAgainOnlyWhatItStopped(t *testing.T) {
 	t.Parallel()
 	s, _, client, _, pid := backupWorld(t, "rr", answeringPort(t))
 	releaseMain(t, s, "rr", "app:\n  web:\n    image: registry.example/rr:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n  worker:\n    image: registry.example/rr:1\n    command: [\"work\"]\nneeds:\n  postgres: {}\n")
-	app := docker.ContainerName("rr", "main")
-	worker := docker.ServiceName(docker.StackID("rr", "main"), "worker")
-	listed := "forge-svc-env-rr-main-cron"
+	app := docker.Current.Container("rr", "main")
+	worker := docker.Current.Service(docker.StackID("rr", "main"), "worker")
+	listed := "apptown-svc-env-rr-main-cron"
 	for _, c := range []string{app, worker, listed} {
 		client.SetRunning(c, true)
 	}
@@ -218,8 +218,8 @@ func TestARestoreOperationFailsAndNamesAPartThatIsNotThere(t *testing.T) {
 	t.Parallel()
 	s, _, client, _, pid := backupWorld(t, "rm", 40003)
 	releaseMain(t, s, "rm", "app:\n  web:\n    image: registry.example/rm:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n  worker:\n    image: registry.example/rm:1\n    command: [\"work\"]\nneeds:\n  postgres: {}\n")
-	app := docker.ContainerName("rm", "main")
-	worker := docker.ServiceName(docker.StackID("rm", "main"), "worker")
+	app := docker.Current.Container("rm", "main")
+	worker := docker.Current.Service(docker.StackID("rm", "main"), "worker")
 	client.SetRunning(app, true) // the worker's container is gone
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {

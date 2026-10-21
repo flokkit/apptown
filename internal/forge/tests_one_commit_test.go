@@ -219,7 +219,7 @@ func TestATestsStepRunsOnTheWorker(t *testing.T) {
 				t.Fatalf("tests on the worker answered %s: %s", step.Status, step.Evidence)
 			}
 			recorded, _ := os.ReadFile(calls)
-			if n := strings.Count(string(recorded), "--init --name forge-check-"); n != tc.runs {
+			if n := strings.Count(string(recorded), "--init --name apptown-check-"); n != tc.runs {
 				t.Fatalf("the worker ran %d checks, want %d:\n%s", n, tc.runs, recorded)
 			}
 			if configs := strings.Count(string(recorded), "https://mirror.invalid/node/"); configs != tc.runs {
@@ -272,7 +272,7 @@ func TestATestsStepOnTheWorkerRunsBesideTheAppsNeeds(t *testing.T) {
 	if !strings.Contains(service, "--network-alias postgres") || !strings.Contains(service, "postgres:16-alpine") {
 		t.Fatalf("no postgres beside the tests on the worker:\n%s", recorded)
 	}
-	if !strings.Contains(check, postgresURL) || !strings.Contains(check, "--network forge-check-") {
+	if !strings.Contains(check, postgresURL) || !strings.Contains(check, "--network apptown-check-") {
 		t.Fatalf("the tests did not reach postgres with the app's environment: %s", check)
 	}
 	onlyTheWorker(t, calls)

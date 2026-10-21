@@ -29,9 +29,9 @@ func TestEmptyTurnRetryCountsTheUsageOfBothTries(t *testing.T) {
 	res := a.piInvoke(t.Context(), piCall{
 		Source:   workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
 		Step:     &workflow.Step{ID: idstest.N(9), Attempt: 1, Name: "implement"},
-		Executor: execution.Local, Workspace: t.TempDir(), Name: "forge-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
+		Executor: execution.Local, Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
 	})
-	if res.Tries != 2 || res.Text != "done" || len(names) != 2 || names[1] != "forge-step-00000000-0009-7000-8000-000000000000-r2" {
+	if res.Tries != 2 || res.Text != "done" || len(names) != 2 || names[1] != "apptown-step-00000000-0009-7000-8000-000000000000-r2" {
 		t.Fatalf("an empty turn is re-run once: tries=%d text=%q names=%v", res.Tries, res.Text, names)
 	}
 	if total, _, err := a.ledger.RunTotal(context.Background(), idstest.N(5)); err != nil || total != 1000+2000 {
@@ -59,16 +59,16 @@ func TestInvocationWithABrokenTranscriptRecordsIncompleteUsage(t *testing.T) {
 	res := a.piInvoke(t.Context(), piCall{
 		Source:   workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
 		Step:     &workflow.Step{ID: idstest.N(9), Attempt: 2, Name: "implement"},
-		Executor: execution.Local, Workspace: t.TempDir(), Name: "forge-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
+		Executor: execution.Local, Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
 	})
-	if res.Tries != 2 || !strings.HasPrefix(res.UsageIncomplete, "forge-step-00000000-0009-7000-8000-000000000000: ") {
+	if res.Tries != 2 || !strings.HasPrefix(res.UsageIncomplete, "apptown-step-00000000-0009-7000-8000-000000000000: ") {
 		t.Fatalf("the step's usage names the incomplete invocation: tries=%d %q", res.Tries, res.UsageIncomplete)
 	}
-	first, found, err := a.ledger.Observed(context.Background(), "step:00000000-0009-7000-8000-000000000000:a2:forge-step-00000000-0009-7000-8000-000000000000")
+	first, found, err := a.ledger.Observed(context.Background(), "step:00000000-0009-7000-8000-000000000000:a2:apptown-step-00000000-0009-7000-8000-000000000000")
 	if err != nil || !found || first.Incomplete == "" || first.Totals.Total != 100 {
 		t.Fatalf("the broken invocation: %+v %t %v", first, found, err)
 	}
-	second, found, err := a.ledger.Observed(context.Background(), "step:00000000-0009-7000-8000-000000000000:a2:forge-step-00000000-0009-7000-8000-000000000000-r2")
+	second, found, err := a.ledger.Observed(context.Background(), "step:00000000-0009-7000-8000-000000000000:a2:apptown-step-00000000-0009-7000-8000-000000000000-r2")
 	if err != nil || !found || second.Incomplete != "" || second.Totals.Total != 7 {
 		t.Fatalf("the whole invocation: %+v %t %v", second, found, err)
 	}

@@ -36,7 +36,7 @@ func TestIntegrationAnExpiredImageWithTwoNamesIsRemoved(t *testing.T) {
 		return strings.TrimSpace(string(b))
 	}
 	nonce := fmt.Sprintf("%d-%d", os.Getpid(), time.Now().UnixNano())
-	first, second := "forge-review-step4:"+nonce+"-a", "forge-review-step4:"+nonce+"-b"
+	first, second := "apptown-review-step4:"+nonce+"-a", "apptown-review-step4:"+nonce+"-b"
 	t.Cleanup(func() { _ = exec.Command(docker, "rmi", first, second).Run() })
 	tree := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tree, "Dockerfile"), []byte("FROM scratch\nLABEL forge.class=check review.test="+nonce+"\n"), 0600); err != nil {
@@ -85,7 +85,7 @@ func TestIntegrationAnExpiredImageInUseIsKept(t *testing.T) {
 		return strings.TrimSpace(string(b))
 	}
 	nonce := fmt.Sprintf("%d-%d", os.Getpid(), time.Now().UnixNano())
-	tag := "forge-review-step4:" + nonce + "-used"
+	tag := "apptown-review-step4:" + nonce + "-used"
 	tree := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tree, "Dockerfile"), []byte("FROM alpine:3\nLABEL forge.class=check review.test="+nonce+"\n"), 0600); err != nil {
 		t.Fatal(err)

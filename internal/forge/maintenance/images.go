@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"flokkit.io/forge/internal/deploy/docker"
 	"log"
 	"strings"
 	"time"
@@ -48,8 +49,8 @@ func reapImageDecision(ref string, created, now time.Time, runStatus func(ids.ID
 		name = name[:i]
 	}
 	switch {
-	case strings.HasPrefix(name, runBuildPrefix):
-		id := previewOwnerID(name, runBuildPrefix)
+	case runBuildPrefix(name) != "":
+		id := previewOwnerID(name, runBuildPrefix(name))
 		if id.IsZero() {
 			return false, ""
 		}
@@ -63,7 +64,7 @@ func reapImageDecision(ref string, created, now time.Time, runStatus func(ids.ID
 			return false, ""
 		}
 		return true, "its run " + st.State.String()
-	case strings.HasPrefix(ref, "forge-conform:"):
+	case strings.HasPrefix(ref, "apptown-conform:") || strings.HasPrefix(ref, "forge-conform:"):
 		if !created.IsZero() && now.Sub(created) > conformImageTTL {
 			return true, "conformance image older than a day; rebuilt from the commit on demand"
 		}
@@ -71,10 +72,19 @@ func reapImageDecision(ref string, created, now time.Time, runStatus func(ids.ID
 	return false, ""
 }
 
-const runBuildPrefix = "forge-preview-build-" + "forge-preview-run-"
+// runBuildPrefix is the run-preview build-image prefix name carries,
+// under any prefix a host may carry ("" when none).
+func runBuildPrefix(name string) string {
+	for _, p := range docker.Prefixes {
+		if pre := string(p) + "preview-build-" + string(p) + "preview-run-"; strings.HasPrefix(name, pre) {
+			return pre
+		}
+	}
+	return ""
+}
 
 // previewOwnerID reads the owner id after prefix: the whole rest, or the
-// rest up to a part's suffix (forge-preview-run-<id>-web is the run's web
+// rest up to a part's suffix (apptown-preview-run-<id>-web is the run's web
 // part). Nil when it is not an id.
 func previewOwnerID(name, prefix string) ids.ID {
 	return leadingID(strings.TrimPrefix(name, prefix))

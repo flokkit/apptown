@@ -70,7 +70,7 @@ func TestADigestBundleIsPromotedAndRecoveredWithoutABuild(t *testing.T) {
 	}
 	ranApp := false
 	for _, line := range w.hosts.ran("lab2") {
-		if strings.Contains(line, "--name "+docker.ContainerName("p", "staging")+" ") {
+		if strings.Contains(line, "--name "+docker.Current.Container("p", "staging")+" ") {
 			ranApp = true
 			if strings.Contains(line, "caddy run") {
 				t.Errorf("a self-serving static image was given a command: %s", line)
@@ -82,7 +82,7 @@ func TestADigestBundleIsPromotedAndRecoveredWithoutABuild(t *testing.T) {
 	}
 
 	// main's container and its images are gone from lab.
-	w.removeContainer(t, "lab", docker.ContainerName("p", "main"))
+	w.removeContainer(t, "lab", docker.Current.Container("p", "main"))
 	w.hosts.forget("lab")
 	before := len(w.hosts.pulled("lab"))
 	dep, err := w.s.Deployments.ByName(t.Context(), w.project, "main")
@@ -100,7 +100,7 @@ func TestADigestBundleIsPromotedAndRecoveredWithoutABuild(t *testing.T) {
 	// The recovery runs the self-serving image as its bundle records it,
 	// with no command added.
 	for _, line := range w.hosts.ran("lab") {
-		if strings.Contains(line, "--name "+docker.ContainerName("p", "main")+" ") && strings.Contains(line, "caddy run") {
+		if strings.Contains(line, "--name "+docker.Current.Container("p", "main")+" ") && strings.Contains(line, "caddy run") {
 			t.Errorf("the recovery gave a self-serving static image a command: %s", line)
 		}
 	}
@@ -197,7 +197,7 @@ func TestPromotionAndRecoveryRefuseAHostOfAnotherOrUnknownPlatform(t *testing.T)
 
 			// main's container and its images are gone from lab, whose
 			// daemon now answers the same platform.
-			w.removeContainer(t, "lab", docker.ContainerName("p", "main"))
+			w.removeContainer(t, "lab", docker.Current.Container("p", "main"))
 			w.hosts.forget("lab")
 			before := len(w.hosts.pulled("lab"))
 			main, err := w.s.Deployments.ByName(t.Context(), w.project, "main")
@@ -348,7 +348,7 @@ func TestAReleaseToAHostShortOfDiskChangesNothingThere(t *testing.T) {
 	if after.ObservedGeneration != serving.ObservedGeneration {
 		t.Errorf("the serving generation moved from %d to %d", serving.ObservedGeneration, after.ObservedGeneration)
 	}
-	if !(docker.Scope{Client: daemon}).Running(t.Context(), docker.ContainerName("p", "prod")) {
+	if !(docker.Scope{Client: daemon}).Running(t.Context(), docker.Current.Container("p", "prod")) {
 		t.Error("the serving container is not running")
 	}
 	daemon.SetDisk(100<<30, 50<<30)

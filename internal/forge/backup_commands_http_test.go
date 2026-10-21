@@ -60,9 +60,9 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 		t.Fatal(err)
 	}
 	// main's app runs, so a restore stops it and starts it again.
-	f.markStarted(docker.ContainerName("game", "main"))
+	f.markStarted(docker.Current.Container("game", "main"))
 	// The host holds main's data volume, as its boot made it.
-	if _, err := f.run("volume", "create", docker.DataVolumeName(docker.ContainerName("game", "main"))); err != nil {
+	if _, err := f.run("volume", "create", docker.Current.DataVolume(docker.Current.Container("game", "main"))); err != nil {
 		t.Fatal(err)
 	}
 	calls := 0

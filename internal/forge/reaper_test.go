@@ -62,7 +62,7 @@ func TestReapRunContainersReapsOnlyThatRun(t *testing.T) {
 	if len(calls) == 0 || calls[0] != "rm -f -v "+docker.PreviewRunName(runA) {
 		t.Fatalf("first call must remove run A's preview container, got %v", calls)
 	}
-	if calls[1] != "volume rm "+docker.DataVolumeName(docker.PreviewRunName(runA)) {
+	if calls[1] != "volume rm "+docker.Current.DataVolume(docker.PreviewRunName(runA)) {
 		t.Fatalf("second call must remove run A's data volume, got %q", calls[1])
 	}
 	ownerA := "label=forge.owner=" + docker.RunStepStackID(stepA)
@@ -90,7 +90,7 @@ func TestReapRunContainersReapsOnlyThatRun(t *testing.T) {
 	if !sawA {
 		t.Fatalf("run A's preview-step stack was not reaped: %v", calls)
 	}
-	if got := f.matching("network rm "); len(got) != 1 || got[0] != "network rm "+docker.NetworkName(docker.RunStepStackID(stepA)) {
+	if got := f.matching("network rm "); len(got) != 1 || got[0] != "network rm "+docker.Current.Network(docker.RunStepStackID(stepA)) {
 		t.Fatalf("exactly run A's stack network must go, got %v", got)
 	}
 }
@@ -244,7 +244,7 @@ func TestReaperKeepsLongRunningExecutionResources(t *testing.T) {
 	a.Work.Stop()
 	old := time.Now().Add(-3 * time.Hour).UTC().Format(time.RFC3339)
 	rows := []string{}
-	for i, owner := range []string{fmt.Sprintf("forge-step-%d-123", step.ID), fmt.Sprint(step.ID), fmt.Sprintf("forge-dind-step-%d", step.ID)} {
+	for i, owner := range []string{fmt.Sprintf("apptown-step-%d-123", step.ID), fmt.Sprint(step.ID), fmt.Sprintf("apptown-dind-step-%d", step.ID)} {
 		class := []string{"step", "service", "dind"}[i]
 		rows = append(rows, fmt.Sprintf("name-%d\t%s\t%s\t%s\told-id-%d", i, class, old, owner, i))
 	}
@@ -254,11 +254,11 @@ func TestReaperKeepsLongRunningExecutionResources(t *testing.T) {
 	// deployment's, a preview snapshot's, Docker's own and a step's network
 	// made before the labels never.
 	networks := []string{
-		fmt.Sprintf("net-step\tforge-net-%d\tservice\t%d", step.ID, step.ID),
-		fmt.Sprintf("net-dind\tforge-dind-step-%d\tdind\tforge-dind-step-%d", step.ID, step.ID),
-		"net-unknown\tforge-net-unknown\tservice\tunrecognised-owner",
-		"net-env\tforge-net-env-project-prod\tenv\tenv-project-prod", "net-snap\tforge-net-pvsnap-change-00000000-0009-7000-8000-000000000000\tservice\tpvsnap-change-00000000-0009-7000-8000-000000000000",
-		"net-bridge\tbridge\t\t", fmt.Sprintf("net-old\tforge-net-%d\t\t", step.ID), fmt.Sprintf("net-old-dind\tforge-dind-step-%d\t\t", step.ID),
+		fmt.Sprintf("net-step\tapptown-net-%d\tservice\t%d", step.ID, step.ID),
+		fmt.Sprintf("net-dind\tapptown-dind-step-%d\tdind\tapptown-dind-step-%d", step.ID, step.ID),
+		"net-unknown\tapptown-net-unknown\tservice\tunrecognised-owner",
+		"net-env\tapptown-net-env-project-prod\tenv\tenv-project-prod", "net-snap\tapptown-net-pvsnap-change-00000000-0009-7000-8000-000000000000\tservice\tpvsnap-change-00000000-0009-7000-8000-000000000000",
+		"net-bridge\tbridge\t\t", fmt.Sprintf("net-old\tapptown-net-%d\t\t", step.ID), fmt.Sprintf("net-old-dind\tapptown-dind-step-%d\t\t", step.ID),
 	}
 	f.reply = func(args []string) (string, error, bool) {
 		if args[0] == "ps" {
@@ -365,7 +365,7 @@ func TestReaperEvictsAnIdleChatOnce(t *testing.T) {
 	if err := agent.Start(t.Context(), console.Launch{ID: "idle"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := a.reaper.Containers(t.Context(), false); len(got) != 1 || got[0] != "forge-console-idle" || agent.Running("idle") {
+	if got := a.reaper.Containers(t.Context(), false); len(got) != 1 || got[0] != "apptown-console-idle" || agent.Running("idle") {
 		t.Fatalf("idle chat not reaped: %v", got)
 	}
 	if _, err := a.Console.Get(t.Context(), "idle"); err != nil {

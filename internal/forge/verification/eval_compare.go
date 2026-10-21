@@ -114,11 +114,11 @@ func (f Fleet) CompareArm(ctx context.Context, in ArmComparison) (*ArmCompared, 
 	out := &ArmCompared{Head: cmp.Head, Base: in.Base}
 	if out.Base == nil {
 		if out.Base, err = f.answersAt(ctx, repo, cmp.Base, checks, assessInput{NoApp: "the Change's base has no deployment to probe", Judge: judge,
-			Label: fmt.Sprintf("forge-eval-%d-%d-base", in.EvalID, in.ProjectID)}, in.ProjectID); err != nil {
+			Label: fmt.Sprintf("apptown-eval-%d-%d-base", in.EvalID, in.ProjectID)}, in.ProjectID); err != nil {
 			return nil, err
 		}
 	}
-	arm := assessInput{Diff: diff, Judge: judge, Label: fmt.Sprintf("forge-eval-%d-%d", in.EvalID, in.ProjectID)}
+	arm := assessInput{Diff: diff, Judge: judge, Label: fmt.Sprintf("apptown-eval-%d-%d", in.EvalID, in.ProjectID)}
 	if hasRuntime(checks) {
 		arm.Running, arm.NoApp = f.servingCommit(ctx, in.ProjectID, cmp.Head)
 	}

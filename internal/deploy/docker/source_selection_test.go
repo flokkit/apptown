@@ -70,7 +70,7 @@ func TestDockerDeploymentUsesSelectedSource(t *testing.T) {
 		}),
 		URL: func(string, string, int) string { return "http://app" }, AfterRelease: func(deploy.Placement) {},
 	}
-	_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(1), Label: "1", Name: "main"}, 1, art, "selected-A", func(string, ...any) {}, func(map[string]any) error { return nil })
+	_, err = d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(1), Label: "1", Name: "main"}, 1, art, "selected-A", func(string, ...any) {}, func(map[string]any) error { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}

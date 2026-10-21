@@ -80,7 +80,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	if givesSecrets(secrets, src.Contract) {
 		logf("the app's secrets go as stack environment — Portainer keeps a copy with the stack definition")
 	}
-	compose, err := d.providers.env.portainerStack(ctx, portainerStackOf{Slug: src.Slug, Hosts: hosts, Domain: cfg.AppsDomain, Contract: src.Contract, Revision: src.Revision,
+	compose, err := d.providers.env.portainerStack(ctx, portainerStackOf{Slug: src.Slug, Prefix: d.dep.HostPrefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: src.Contract, Revision: src.Revision,
 		Images: stackImages{Parts: src.Images, Init: src.Init, SelfServing: src.SelfServing}, Secrets: secrets, Deployment: d.dep.ID}, logf)
 	if err != nil {
 		return deploy.Artifact{}, err

@@ -326,7 +326,7 @@ func TestARestartSettlesRunningUnknownAndRequeuesQueued(t *testing.T) {
 	w.body = func(_ context.Context, _ operations.Operation, log *operations.StepLog) operations.Outcome {
 		log.Begin(ctx, "deleting the app")
 		log.Begin(ctx, "copying postgres")
-		if err := log.Record(ctx, "left", "forge-env-a"); err != nil {
+		if err := log.Record(ctx, "left", "apptown-env-a"); err != nil {
 			t.Error(err)
 		}
 		close(inStep)
@@ -372,7 +372,7 @@ func TestARestartSettlesRunningUnknownAndRequeuesQueued(t *testing.T) {
 		t.Fatalf("repair: %+v", r)
 	}
 	got := w.read(running.ID)
-	if got.State != operations.Unknown || !strings.Contains(got.Detail, "Confirmed: deleting the app.") || !strings.Contains(got.Detail, "It was in: copying postgres.") || !strings.HasSuffix(got.Detail, "Look before asking again. It left forge-env-a stopped.") {
+	if got.State != operations.Unknown || !strings.Contains(got.Detail, "Confirmed: deleting the app.") || !strings.Contains(got.Detail, "It was in: copying postgres.") || !strings.HasSuffix(got.Detail, "Look before asking again. It left apptown-env-a stopped.") {
 		t.Fatalf("the interrupted operation: %s %q", got.State, got.Detail)
 	}
 	if last := got.Steps[len(got.Steps)-1]; !last.Unknown || last.Ended == nil {

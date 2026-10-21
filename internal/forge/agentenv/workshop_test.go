@@ -117,7 +117,7 @@ func TestWorkshopCleanupOwnsOnlyItsNetwork(t *testing.T) {
 						t.Fatal("Docker client config ignored the supplied harness location")
 					}
 				}
-				if !client.called("rm -f -v forge-dind-step-00000000-005b-7000-8000-000000000000") {
+				if !client.called("rm -f -v apptown-dind-step-00000000-005b-7000-8000-000000000000") {
 					t.Fatal("sidecar was not removed")
 				}
 				if client.called("network rm ") != (network == "") {
@@ -154,7 +154,7 @@ func TestAWorkshopIsTornDownAfterItsContextEnds(t *testing.T) {
 	}
 	cancel() // AppTown stops while the step runs
 	cleanup()
-	if !client.called("rm -f -v forge-dind-step-00000000-005c-7000-8000-000000000000") || !client.called("network rm forge-dind-step-00000000-005c-7000-8000-000000000000") {
+	if !client.called("rm -f -v apptown-dind-step-00000000-005c-7000-8000-000000000000") || !client.called("network rm apptown-dind-step-00000000-005c-7000-8000-000000000000") {
 		t.Fatal("the sandbox was not torn down after its context ended")
 	}
 }
@@ -181,7 +181,7 @@ func TestAStepsPrivateDockerIsBoundedAndSharesOnlyItsProjectsCache(t *testing.T)
 	}
 	cleanup()
 	<-client.preload
-	if !client.ran("-v forge-cache-game:/apptown-cache --cpus 3 --memory 2147483648 --memory-swap 2147483648 --pids-limit 512") {
+	if !client.ran("-v apptown-cache-game:/apptown-cache --cpus 3 --memory 2147483648 --memory-swap 2147483648 --pids-limit 512") {
 		t.Fatal("the private Docker runs without its project's cache or its limits")
 	}
 	if client.ran(" forge-cache:/apptown-cache") {

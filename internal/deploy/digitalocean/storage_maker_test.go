@@ -57,7 +57,7 @@ func TestATakeDownReportsAMakerKeyItCouldNotDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(a.keyNames()) != 1 || a.keyNames()[0] != "forge-maker-shop-main" {
+	if len(a.keyNames()) != 1 || a.keyNames()[0] != "apptown-maker-shop-main" {
 		t.Fatalf("expected the failed deletion to leave a maker key, got %v", a.keyNames())
 	}
 	if !slices.ContainsFunc(taken.Left, func(l deploy.Left) bool { return l.Handle["name"] == access }) {

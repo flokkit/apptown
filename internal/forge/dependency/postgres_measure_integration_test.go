@@ -39,7 +39,7 @@ TRUNCATE witness_calls;`
 	if out, err := psql("app", password, "app", setup); err != nil {
 		t.Fatalf("setup: %v %s", err, out)
 	}
-	out, err := dockertest.CombinedOutput("exec", docker.ServiceName(stack, "postgres"), "sh", "-c", kind.Local.Measure)
+	out, err := dockertest.CombinedOutput("exec", docker.Current.Service(stack, "postgres"), "sh", "-c", kind.Local.Measure)
 	if err != nil {
 		t.Fatalf("the measure: %v %s", err, out)
 	}

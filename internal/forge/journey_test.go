@@ -373,7 +373,7 @@ func TestJourneyKidStory(t *testing.T) {
 	h := newJourney(t)
 	slug := fmt.Sprintf("kid-%d", os.Getpid())
 	h.newProject(slug, journeyQuickChange)
-	container := "forge-env-" + slug + "-main"
+	container := "apptown-env-" + slug + "-main"
 	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", container) })
 
 	page := `<!doctype html><html><body><h1>the cat is blue</h1><script>console.log("hi")</script></body></html>`
@@ -862,7 +862,7 @@ func (u *jUser) mustCall(method, path string, body any, out any) {
 func TestJourneyMultiplayer(t *testing.T) {
 	h := newJourney(t, Config{AuthMode: "internal"})
 	slug := fmt.Sprintf("multi-%d", os.Getpid())
-	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "forge-env-"+slug+"-main") })
+	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "apptown-env-"+slug+"-main") })
 
 	boss := h.signup(nil, "boss", "boss-password")
 	ana := h.signup(boss, "ana", "ana-password")
@@ -948,7 +948,7 @@ func TestJourneyStackMigration(t *testing.T) {
 	h := newJourney(t)
 	h.app.Ways.SyncStockWorkflows(t.Context())
 	slug := fmt.Sprintf("mig-%d", os.Getpid())
-	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "forge-env-"+slug+"-main") })
+	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "apptown-env-"+slug+"-main") })
 
 	// The working lane is customized (the journey shape) as the library's
 	// newest version before either pack pins it.

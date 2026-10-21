@@ -89,7 +89,7 @@ What a promotion IS, mechanically, per target:
 - Always: ship the COMMITTED tree; the image digest is the receipt; the
   target platform's architecture is checked, not assumed.
 - Portainer/intranet: stack `forge-<slug>`, Traefik label conventions,
-  `forge-data-<slug>` volumes, vanity domains as extra Host rules.
+  `apptown-data-<slug>` volumes, vanity domains as extra Host rules.
 - The boundary treaty: terraform owns the Docker host, Traefik, DNS, and pull
   credentials; AppTown owns released stacks and never touches
   /api/registries or UniFi. A new provider (AWS) would carry its own

@@ -81,7 +81,7 @@ func Seeds(cfg SeedConfig) []Seed {
 			"limit":      "not a vault: anyone with the database can read the values; use Infisical for anything that matters",
 		}),
 		mk("docker", CapExecutor, "docker", map[string]any{
-			"image": cfg.AgentImage, "cacheVolume": "forge-cache",
+			"image": cfg.AgentImage, "cacheVolume": "apptown-cache",
 		}),
 		mk("docker-deploy", CapDeploy, "docker", map[string]any{
 			"target": "docker", "appcontract.Contract": ".apptown/app.yaml",
@@ -98,7 +98,7 @@ func Seeds(cfg SeedConfig) []Seed {
 			// DEFAULT target of the big Release button (the button's face is
 			// the default; other targets live behind the chevron).
 			"releaseDeployment": "lan",
-			"stackPrefix":       "forge-", "release": "image from committed main; digest is the receipt",
+			"stackPrefix":       "apptown-", "release": "image from committed main; digest is the receipt",
 		}),
 	}
 }

@@ -21,6 +21,10 @@ type failingNeedRecorder struct {
 	identityID  string
 }
 
+func (r *failingNeedRecorder) Recorded(context.Context, ids.ID, string) (map[string]any, error) {
+	return nil, nil
+}
+
 func (r *failingNeedRecorder) RecordIntent(context.Context, ids.ID, string, map[string]any) error {
 	return r.intentErr
 }

@@ -4,7 +4,6 @@ import (
 	"flokkit.io/forge/internal/access"
 	"flokkit.io/forge/internal/check"
 	"flokkit.io/forge/internal/deploy/digitalocean"
-	"flokkit.io/forge/internal/deploy/docker"
 	"flokkit.io/forge/internal/forge/dataprotection"
 	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/workflow"
@@ -31,7 +30,6 @@ func (a *App) deploymentDependencies(changes workflow.Changes) deployment.Depend
 		Releases:      deployment.ReleaseDependencies{Authority: authority, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}},
 		Followups:     jobQueue{},
 		Declared:      sources,
-		Names:         dockerHostNames{},
 		Applied:       a.inventory.Invalidate,
 	}
 }
@@ -56,18 +54,6 @@ func dataProtectionDependencies(a *App) dataprotection.Dependencies {
 			Secrets: releaseSecrets{secrets: a.Secrets}}}
 }
 
-// dockerHostNames is the built-in host's naming (names.go); a preview's
-// services are named the same way as a standing deployment's.
-type dockerHostNames struct{}
-
-func (dockerHostNames) Container(project, deployment string) string {
-	return docker.ContainerName(project, deployment)
-}
-func (dockerHostNames) DataVolume(container string) string { return docker.DataVolumeName(container) }
-func (dockerHostNames) Service(project, deployment, need string) string {
-	return docker.ServiceName(docker.StackID(project, deployment), need)
-}
-
 // hostSettings are this AppTown's Docker settings, which Deployment and
 // Preview reach daemons with.
 func hostSettingsFor(a *App) deployment.HostSettings {
@@ -85,5 +71,5 @@ func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
 // providerDependencies are the providers' owners and settings.
 func providerDependenciesFor(a *App, digitalOcean digitalocean.Options) deployment.ProviderDependencies {
 	return deployment.ProviderDependencies{Projects: a.Projects, Secrets: a.Secrets, Integrations: a.Integrations, DigitalOcean: digitalOcean,
-		AfterRelease: (backupRequests{db: a.DB, life: a.life}).AfterRelease, DatabaseContainer: builtinDBContainer, Applied: a.inventory.Invalidate, Now: a.cfg.clock.Now}
+		AfterRelease: (backupRequests{db: a.DB, life: a.life}).AfterRelease, DatabaseContainer: builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, Applied: a.inventory.Invalidate, Now: a.cfg.clock.Now}
 }

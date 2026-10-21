@@ -99,7 +99,7 @@ func TestAnAbandonmentKeepsARunPreviewsRemovalUntilItIsMade(t *testing.T) {
 	if verdict != "pass" {
 		t.Fatalf("fixture gate: %s %s", verdict, detail)
 	}
-	runID, err := ids.Parse(strings.TrimPrefix(name, "forge-preview-run-"))
+	runID, err := ids.Parse(strings.TrimPrefix(name, "apptown-preview-run-"))
 	if err != nil {
 		t.Fatal(err)
 	}

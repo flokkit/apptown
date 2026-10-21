@@ -41,7 +41,7 @@ const StateRoot = "/apptown/state"
 
 // ToolCacheMount is where a container finds the shared download cache of
 // the toolchains projects declare (mise's MISE_CACHE_DIR): AppTown's
-// forge-cache volume on its own host, a worker's tool cache on a worker.
+// apptown-cache volume on its own host, a worker's tool cache on a worker.
 // It holds what mise fetches (release listings, tool archives), never a
 // tool's installation, which stays the container's own.
 const ToolCacheMount = "/apptown-cache/mise-cache"

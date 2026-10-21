@@ -67,9 +67,9 @@ func newUpgradeStack(t *testing.T, need, data string) *upgradeStack {
 	u := &upgradeStack{t: t, stack: fmt.Sprintf("env-creds%s%d-main", need, os.Getpid()), name: need, dk: docker.Scope{Client: docker.CLI{Binary: "docker"}},
 		own: docker.Ownership{Record: func(deploy.Owned) error { return nil }, Needs: map[string]string{need: data}}}
 	t.Cleanup(func() {
-		_ = dockertest.Run("rm", "-f", docker.ServiceName(u.stack, need))
-		_ = dockertest.Run("volume", "rm", docker.NeedVolumeName(u.stack, need))
-		_ = dockertest.Run("network", "rm", docker.NetworkName(u.stack))
+		_ = dockertest.Run("rm", "-f", docker.Current.Service(u.stack, need))
+		_ = dockertest.Run("volume", "rm", docker.Current.NeedVolume(u.stack, need))
+		_ = dockertest.Run("network", "rm", docker.Current.Network(u.stack))
 	})
 	return u
 }
@@ -87,11 +87,11 @@ func (u *upgradeStack) healthy() {
 	u.t.Helper()
 	health := ""
 	if !poll.Until(u.t.Context(), 120*time.Second, 250*time.Millisecond, func() bool {
-		out, _ := dockertest.Output("inspect", "-f", "{{.State.Health.Status}}", docker.ServiceName(u.stack, u.name))
+		out, _ := dockertest.Output("inspect", "-f", "{{.State.Health.Status}}", docker.Current.Service(u.stack, u.name))
 		health = strings.TrimSpace(string(out))
 		return health == "healthy"
 	}) {
-		logs, _ := dockertest.CombinedOutput("logs", "--tail", "30", docker.ServiceName(u.stack, u.name))
+		logs, _ := dockertest.CombinedOutput("logs", "--tail", "30", docker.Current.Service(u.stack, u.name))
 		u.t.Fatalf("the %s did not become healthy: %s\n%s", u.name, health, logs)
 	}
 }
@@ -99,14 +99,14 @@ func (u *upgradeStack) healthy() {
 // client runs a command in image on the stack's network: never inside the
 // service, whose loopback some servers trust.
 func (u *upgradeStack) client(image string, args ...string) (string, error) {
-	out, err := dockertest.CombinedOutput(append([]string{"run", "--rm", "--network", docker.NetworkName(u.stack), image}, args...)...)
+	out, err := dockertest.CombinedOutput(append([]string{"run", "--rm", "--network", docker.Current.Network(u.stack), image}, args...)...)
 	return strings.TrimSpace(string(out)), err
 }
 
 // containerID is the standing container's id: a release that finds nothing
 // moved keeps it.
 func (u *upgradeStack) containerID() string {
-	out, _ := dockertest.Output("inspect", "-f", "{{.Id}}", docker.ServiceName(u.stack, u.name))
+	out, _ := dockertest.Output("inspect", "-f", "{{.Id}}", docker.Current.Service(u.stack, u.name))
 	return strings.TrimSpace(string(out))
 }
 

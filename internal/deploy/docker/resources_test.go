@@ -33,10 +33,10 @@ app:
 	}
 	dk := Scope{Client: f}
 	plan := appcontract.Prepare(c, nil)
-	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "forge-preview-limits", t.TempDir(), "", plan, Delivery{}, Ownership{}); err != nil {
+	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "apptown-preview-limits", t.TempDir(), "", plan, Delivery{}, Ownership{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-preview-limits", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
+	if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-preview-limits", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	runs := map[string][]string{}
@@ -108,10 +108,10 @@ init:
 	}
 	dk := Scope{Client: f}
 	plan := appcontract.Prepare(c, nil)
-	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "forge-preview-logs", t.TempDir(), "", plan, Delivery{}, Ownership{}); err != nil {
+	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "apptown-preview-logs", t.TempDir(), "", plan, Delivery{}, Ownership{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-preview-logs", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
+	if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-preview-logs", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := runServiceContainers(t.Context(), dk, "pvtest", "net", []deploy.ServiceSpec{{Name: "cache", Image: "need:throwaway"}}); err != nil {
@@ -120,7 +120,7 @@ init:
 	if _, err := EnsureStandingServices(t.Context(), dk, "envtest", []deploy.ServiceSpec{{Name: "db", Image: "need:standing"}}, "", Ownership{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := runInitContainers(t.Context(), dk, "pvtest", "net", plan, Delivery{}); err != nil {
+	if err := runInitContainers(t.Context(), dk, Current, "pvtest", "net", plan, Delivery{}); err != nil {
 		t.Fatal(err)
 	}
 	runs := map[string][]string{}

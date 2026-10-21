@@ -58,9 +58,9 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 		t.Fatalf("owner label parses to the deployment: %s %s %v", s, e, ok)
 	}
 	res := []deploy.Resource{
-		{Kind: "container", Name: "forge-svc-env-" + p.Slug + "-cloud-postgres", Record: "unrecorded", Owner: docker.StackID(p.Slug, "cloud")},
-		{Kind: "volume", Name: portainer.StackName(p.Slug) + "_forge-data-" + p.Slug, Record: "unrecorded", Stack: portainer.StackName(p.Slug)},
-		{Kind: "container", Name: "forge-env-" + p.Slug + "-main", Record: "recorded"},
+		{Kind: "container", Name: "apptown-svc-env-" + p.Slug + "-cloud-postgres", Record: "unrecorded", Owner: docker.StackID(p.Slug, "cloud")},
+		{Kind: "volume", Name: portainer.StackName("apptown-", p.Slug) + "_apptown-data-" + p.Slug, Record: "unrecorded", Stack: portainer.StackName("apptown-", p.Slug)},
+		{Kind: "container", Name: "apptown-env-" + p.Slug + "-main", Record: "recorded"},
 	}
 	out, note, err := h.attributeLeftovers(t.Context(), host, res)
 	if err != nil {
@@ -84,8 +84,8 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 // containers" while its list was being read).
 func TestARecordIsMissingOnlyWhenAnAnswerLacksIt(t *testing.T) {
 	t.Parallel()
-	recorded := []deploy.Resource{{Kind: "container", Name: "forge-env-app-main", Record: deploy.RecordRecorded}}
-	running := []deploy.Resource{{Kind: "container", Name: "forge-env-app-main"}}
+	recorded := []deploy.Resource{{Kind: "container", Name: "apptown-env-app-main", Record: deploy.RecordRecorded}}
+	running := []deploy.Resource{{Kind: "container", Name: "apptown-env-app-main"}}
 	now := time.Now()
 	for _, tc := range []struct {
 		name             string
@@ -114,7 +114,7 @@ func TestInventoryReconciliationHasOneRowPerConfirmedResource(t *testing.T) {
 	t.Parallel()
 	var recorded, live []deploy.Resource
 	for i := 0; i < 10; i++ {
-		name := fmt.Sprintf("forge-env-app-%d", i)
+		name := fmt.Sprintf("apptown-env-app-%d", i)
 		h := deploy.ResourceHost{Project: "app", Deployment: "main", Generation: 3}
 		live = append(live, deploy.Resource{Kind: "container", Name: name, Status: "active"})
 		for j := 0; j < 4; j++ {
@@ -256,7 +256,7 @@ func (d daemonReplies) Run(_ context.Context, _ string, req docker.Command) ([]b
 // did not name is not offered as an orphan.
 func TestOwnedResourcesTheHostHoldsArePresent(t *testing.T) {
 	t.Parallel()
-	tag := docker.BuildTag("forge-env-shop-main-g1-app")
+	tag := docker.Current.BuildTag("apptown-env-shop-main-g1-app")
 	anon := strings.Repeat("ab", 32)
 	daemon := daemonReplies{
 		"image ls":  tag + "\tlatest\t<none>\n",

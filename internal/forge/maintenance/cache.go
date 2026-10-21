@@ -50,18 +50,24 @@ func reapCacheDecision(entry string, runStatus func(ids.ID) workflow.RunState, c
 	return false, ""
 }
 
-// reapCache sweeps each project's cache volume (and the shared forge-cache
+// reapCache sweeps each project's cache volume (and the shared apptown-cache
 // one older steps wrote) once, through a throwaway container: the volume is
 // the daemon's; apptownd never assumes its host path. A chat's own cache
-// (forge-cache-console-*) goes with its chat and is not swept here.
+// (apptown-cache-console-*) goes with its chat and is not swept here.
 func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 	if r.docker.Absent() {
 		return nil // no local Docker, nothing of it to reap
 	}
-	volumes := []string{"forge-cache"}
-	for _, v := range r.docker.Lines(ctx, "volume", "ls", "--format", "{{.Name}}", "--filter", "name=forge-cache-") {
-		if strings.HasPrefix(v, "forge-cache-") && !strings.HasPrefix(v, "forge-cache-console-") {
-			volumes = append(volumes, v)
+	// Under every prefix a host may carry: an older release's cache
+	// volumes are swept by the same rule until they are gone.
+	var volumes []string
+	for _, p := range docker.Prefixes {
+		pre := string(p) + "cache"
+		volumes = append(volumes, pre)
+		for _, v := range r.docker.Lines(ctx, "volume", "ls", "--format", "{{.Name}}", "--filter", "name="+pre+"-") {
+			if strings.HasPrefix(v, pre+"-") && !strings.HasPrefix(v, pre+"-console-") {
+				volumes = append(volumes, v)
+			}
 		}
 	}
 	runStatus := func(id ids.ID) workflow.RunState {

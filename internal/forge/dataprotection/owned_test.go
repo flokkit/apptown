@@ -19,8 +19,8 @@ func TestTakeDownIsHandedWhatTheDeploymentRecordedCreating(t *testing.T) {
 	ctx := context.Background()
 	owner := s.Deployments.OwnerOf(dep)
 	made := []deploy.Owned{
-		{Kind: "container", ID: "c1", Name: "forge-env-shop-staging"},
-		{Kind: "volume", ID: "forge-data-forge-env-shop-staging", Data: true},
+		{Kind: "container", ID: "c1", Name: "apptown-env-shop-staging"},
+		{Kind: "volume", ID: "apptown-data-apptown-env-shop-staging", Data: true},
 		{Kind: "volume", ID: "v-pg", Data: true, Need: "postgres"},
 	}
 	for _, o := range append(made, made[0]) {
@@ -53,10 +53,10 @@ func TestTakeDownRecordsWhatWasDeletedAndWhatWasLeft(t *testing.T) {
 	t.Parallel()
 	s, _, driver, dep := removalFixture(t)
 	driver.taken = deploy.TakenDown{
-		Deleted: []string{"container forge-env-shop-staging", "image reg/shop@sha256:aa"},
+		Deleted: []string{"container apptown-env-shop-staging", "image reg/shop@sha256:aa"},
 		Left: []deploy.Left{
 			{What: "volume anon-pg", Data: true, Handle: map[string]any{"kind": "volume", "name": "anon-pg"}, Why: "kept: no final backup covers it"},
-			{What: "network forge-net-env-shop-staging", Handle: map[string]any{"kind": "network"}, Why: "docker network rm: refused"},
+			{What: "network apptown-net-env-shop-staging", Handle: map[string]any{"kind": "network"}, Why: "docker network rm: refused"},
 		},
 	}
 	result, err := s.Remove(context.Background(), removeSelection(dep))
@@ -74,7 +74,7 @@ func TestTakeDownRecordsWhatWasDeletedAndWhatWasLeft(t *testing.T) {
 	if r := got["volume anon-pg"]; !r.HoldsData || r.Handle["why"] != "kept: no final backup covers it" || r.Disposition != deployment.RetainedOpen || r.Deployment != dep.Name {
 		t.Fatalf("kept data: %+v", r)
 	}
-	if r := got["network forge-net-env-shop-staging"]; r.HoldsData || r.Handle["why"] != "docker network rm: refused" {
+	if r := got["network apptown-net-env-shop-staging"]; r.HoldsData || r.Handle["why"] != "docker network rm: refused" {
 		t.Fatalf("failed delete: %+v", r)
 	}
 	if r := got["postgres"]; !r.HoldsData {

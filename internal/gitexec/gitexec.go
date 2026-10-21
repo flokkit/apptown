@@ -235,7 +235,7 @@ func (e *ExtractError) Unwrap() error { return e.Err }
 // the last command's status and git can fail after emitting a valid archive.
 // A canceled ctx is returned as itself.
 func ExtractCommit(ctx context.Context, repo, revision, dst string) error {
-	scratch, err := os.MkdirTemp("", "forge-archive-")
+	scratch, err := os.MkdirTemp("", "apptown-archive-")
 	if err != nil {
 		return err
 	}

@@ -11,7 +11,7 @@ import (
 // StackLayout is what a stack's compose file says about its data: the
 // volumes it declares and which service mounts each at what path, and
 // which services are needs (AppTown renders a need as a service named
-// for it, with its volume key forge-need-<slug>-<need>).
+// for it, with its volume key <prefix>need-<slug>-<need>).
 type StackLayout struct {
 	Stack   string
 	Volumes []StackVolume

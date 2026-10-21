@@ -64,7 +64,7 @@ func TestAReleasePreviewOnTheWorkerPullsItsImagesByDigestAndBuildsNothing(t *tes
 	work := "reg.example/team/p@sha256:" + strings.Repeat("b", 64)
 	prepared := docker.Prepared{Version: docker.PreparedVersion, Contract: c, BrowserEnv: "{}",
 		Registry: &docker.RegistryCredential{Host: "reg.example", Username: "robot", Token: "preview-token"}}
-	spec := worker.PreviewSpec{Name: "forge-preview-p-release-3", StackID: "pvrel-p-3", Slug: "p", Incarnation: "bundle-1+digest", ProbeSeconds: 1,
+	spec := worker.PreviewSpec{Name: "apptown-preview-p-release-3", StackID: "pvrel-p-3", Slug: "p", Incarnation: "bundle-1+digest", ProbeSeconds: 1,
 		Images: &worker.PreviewImages{Parts: map[string]string{"web": "reg.example/team/p:latest", "worker": work}, Init: map[string]string{"migrate": web}}}
 	if _, err := previews.Boot(context.Background(), spec, prepared, tree); err == nil || !strings.Contains(err.Error(), "by digest") {
 		t.Fatalf("a release preview naming an image by tag: %v", err)

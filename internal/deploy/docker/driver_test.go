@@ -90,7 +90,7 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	body := []byte(`{"version":1,"revision":"abc"}`)
 	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 		Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c}}
-	place := deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}
+	place := deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "main"}
 	ctx := context.Background()
 	quiet := func(string, ...any) {}
 
@@ -107,7 +107,7 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	if o.Rollout != "active" || o.Health != "healthy" || o.Generation != 1 || o.URL != "http://127.0.0.1:41233" || o.ImageDigest != "sha256:game" {
 		t.Fatalf("observation after boot: %+v", o)
 	}
-	name := ContainerName("game", "main")
+	name := Current.Container("game", "main")
 	if boot.req.Name != name || boot.req.Deployment != "main" || !boot.req.Persistent || boot.req.Identity.Deployment != "7" || boot.req.Revision != "abc" || boot.req.DataClass != "production" {
 		t.Fatalf("the boot request names the placement and the revision it serves: %+v", boot.req)
 	}
@@ -156,7 +156,7 @@ func TestDriverRefusesAnythingButPreparedSource(t *testing.T) {
 		{Kind: "docker-source", Body: []byte(`{}`), Hash: "stale"},
 		{Kind: "docker-source", Body: []byte(`{}`), Hash: deploy.ConfigHash(`{}`)}, // no source
 	} {
-		_, err := d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(1), Label: "1", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+		_, err := d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(1), Label: "1", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 		if !deploy.IsTerminal(err) {
 			t.Fatalf("%s: %v", art.Kind, err)
 		}
@@ -210,8 +210,8 @@ func TestTeardownUsesVerifiedContainerIDAndPropagatesFailures(t *testing.T) {
 				cancel()
 			}
 			d := Driver{Scope: func(context.Context) (Scope, error) { return Scope{Client: f}, nil }}
-			owned := []deploy.Owned{{Kind: "network", ID: "forge-net-env-shop-main"}}
-			_, err := d.Teardown(ctx, deploy.Placement{ID: idstest.N(7), Label: "7", Generation: 3, Container: "reusable-name"}, 3, deploy.TakeDown{Owned: owned})
+			owned := []deploy.Owned{{Kind: "network", ID: "apptown-net-env-shop-main"}}
+			_, err := d.Teardown(ctx, deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Generation: 3, Container: "reusable-name"}, 3, deploy.TakeDown{Owned: owned})
 			if (err == nil) != (scenario == "success") {
 				t.Fatalf("teardown: %v", err)
 			}
@@ -248,7 +248,7 @@ func TestObserveDistinguishesUnavailableFromStopped(t *testing.T) {
 				cancel()
 			}
 			d := Driver{Scope: func(context.Context) (Scope, error) { return Scope{Client: client}, nil }}
-			got, err := d.Observe(ctx, deploy.Placement{Container: "app", Generation: 3})
+			got, err := d.Observe(ctx, deploy.Placement{HostPrefix: "apptown-", Container: "app", Generation: 3})
 			if scenario == "unavailable" || scenario == "cancelled" {
 				if err == nil {
 					t.Fatal("failed observation became stopped")
@@ -285,7 +285,7 @@ func TestADriverBootThatChangedNothingIsAKnownFailure(t *testing.T) {
 			body := []byte(`{"version":1,"revision":"abc"}`)
 			art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 				Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c}}
-			_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+			_, err = d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 			if err == nil || deploy.IsTerminal(err) != terminal {
 				t.Fatalf("terminal=%v, got %v (terminal=%v)", terminal, err, deploy.IsTerminal(err))
 			}
@@ -337,7 +337,7 @@ func TestDriverBootsTheImagesItsSourceNames(t *testing.T) {
 			URL: func(_, _ string, port int) string { return fmt.Sprint(port) }, AfterRelease: func(deploy.Placement) {}}
 		art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 			Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c, Images: images, Init: map[string]string{}}}
-		if _, err := d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil }); err != nil {
+		if _, err := d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil }); err != nil {
 			t.Fatal(err)
 		}
 		if (boot.req.Recorded != nil) != (images != nil) || (images != nil && boot.req.Recorded.Parts["game"] != "sha256:game") {
@@ -360,7 +360,7 @@ func TestARecordedBootWithAMissingImageChangesNothing(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	_, err = NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Name: "forge-env-game-main", StackID: StackID("game", "main"), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true,
+	_, err = NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Name: "apptown-env-game-main", StackID: StackID("game", "main"), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true, Names: Current,
 		Identity: &deploy.DockerIdentity{Deployment: "7", Generation: 2}, Recorded: &RecordedImages{Parts: map[string]string{"game": "sha256:gone"}}}, c)
 	if !errors.Is(err, ErrRecordedImageMissing) || !AsBootError(err).BeforeEffects() {
 		t.Fatalf("a missing recorded image: %v", err)

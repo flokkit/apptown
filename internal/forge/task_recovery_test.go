@@ -333,7 +333,7 @@ func TestAChangedDockerEndpointDoesNotMoveAnAttempt(t *testing.T) {
 	t.Setenv("DOCKER_CONFIG", t.TempDir())
 	t.Setenv("DOCKER_HOST", "")
 	t.Setenv("DOCKER_CONTEXT", "review-daemon")
-	dockerCLI(t, "context", "create", "review-daemon", "--docker", "host=unix:///tmp/forge-review-first.sock")
+	dockerCLI(t, "context", "create", "review-daemon", "--docker", "host=unix:///tmp/apptown-review-first.sock")
 	before := dockerCLI(t, "context", "inspect", "--format", "{{.Endpoints.docker.Host}}")
 	a, first, step := selectionTaskFixture(t)
 	a.tasks.AbandonAt = func(s string) bool { return s == "created" }
@@ -347,7 +347,7 @@ func TestAChangedDockerEndpointDoesNotMoveAnAttempt(t *testing.T) {
 	if err != nil || original.ProviderID != "" || !first.Present(key) {
 		t.Fatalf("fixture: %+v %v", original, err)
 	}
-	dockerCLI(t, "context", "update", "review-daemon", "--docker", "host=unix:///tmp/forge-review-second.sock")
+	dockerCLI(t, "context", "update", "review-daemon", "--docker", "host=unix:///tmp/apptown-review-second.sock")
 	after := dockerCLI(t, "context", "inspect", "--format", "{{.Endpoints.docker.Host}}")
 	if before == after {
 		t.Fatalf("fixture did not change the CLI endpoint: %s", before)

@@ -43,7 +43,7 @@ func TestAnotherBootNeverRemovesARunningBootsConfiguration(t *testing.T) {
 	workspace := t.TempDir()
 	go func() {
 		_, err := NewHost(prepared.Dependencies(upProbe{}, "", "")).Boot(context.Background(), BootRequest{
-			Docker: Scope{Client: client, Host: "unix:///review"}, Name: "forge-preview-change-42", StackID: "pv42", Workspace: workspace, Scratch: scratch, Probe: time.Second,
+			Docker: Scope{Client: client, Host: "unix:///review"}, Name: "apptown-preview-change-42", StackID: "pv42", Workspace: workspace, Scratch: scratch, Probe: time.Second,
 		}, c)
 		finished <- err
 	}()

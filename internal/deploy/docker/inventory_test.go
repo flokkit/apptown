@@ -19,21 +19,21 @@ func inventoryFixture(t *testing.T, fail string) ([]deploy.Resource, error) {
 		}
 		switch {
 		case strings.HasPrefix(line, "ps -a"):
-			if strings.Contains(line, "name=^forge-env-") {
-				return []byte("forge-env-shop-main\tUp 1 hour\tapp\tenv-shop-main\t\n"), nil
+			if strings.Contains(line, "name=^apptown-env-") {
+				return []byte("apptown-env-shop-main\tUp 1 hour\tapp\tenv-shop-main\t\n"), nil
 			}
 		case strings.HasPrefix(line, "volume ls"):
 			if strings.Contains(line, "--filter") {
 				t.Errorf("volumes are listed whole: an approved older volume has no AppTown prefix: %s", line)
 			}
-			return []byte("forge-data-shop\tenv-shop-main\t\nforge-need-shop\tenv-shop-main\t\n0a1b2c\t\t\n"), nil
+			return []byte("apptown-data-shop\tenv-shop-main\t\napptown-need-shop\tenv-shop-main\t\n0a1b2c\t\t\n"), nil
 		case strings.HasPrefix(line, "network ls"):
-			if !strings.Contains(line, "name=forge-net-") {
+			if !strings.Contains(line, "name=apptown-net-") {
 				t.Errorf("network listing must be scoped: %s", line)
 			}
-			return []byte("forge-net-env-shop-main\tenv-shop-main\t\n"), nil
+			return []byte("apptown-net-env-shop-main\tenv-shop-main\t\n"), nil
 		case strings.HasPrefix(line, "image ls"):
-			return []byte("reg/shop\tlatest\tsha256:aaa\nreg/shop\told\tsha256:bbb\nreg/shop\talias\tsha256:aaa\nforge-preview-build-shop\tlatest\t<none>\n<none>\t<none>\t<none>\n"), nil
+			return []byte("reg/shop\tlatest\tsha256:aaa\nreg/shop\told\tsha256:bbb\nreg/shop\talias\tsha256:aaa\napptown-preview-build-shop\tlatest\t<none>\n<none>\t<none>\t<none>\n"), nil
 		}
 		return nil, nil
 	}}
@@ -56,9 +56,9 @@ func TestInventoryConfirmsNeedVolumesNetworksAndExactImageReferences(t *testing.
 	for _, r := range out {
 		got = append(got, r.Kind+":"+r.Name)
 	}
-	for _, want := range []string{"container:forge-env-shop-main", "volume:forge-data-shop", "volume:forge-need-shop", "volume:0a1b2c", "network:forge-net-env-shop-main", "image:reg/shop@sha256:aaa", "image:reg/shop@sha256:bbb", "image:forge-preview-build-shop:latest",
+	for _, want := range []string{"container:apptown-env-shop-main", "volume:apptown-data-shop", "volume:apptown-need-shop", "volume:0a1b2c", "network:apptown-net-env-shop-main", "image:reg/shop@sha256:aaa", "image:reg/shop@sha256:bbb", "image:apptown-preview-build-shop:latest",
 		// The local build as it is recorded: bare, Docker's implicit latest.
-		"image:" + BuildTag("shop")} {
+		"image:" + Current.BuildTag("shop")} {
 		if !slices.Contains(got, want) {
 			t.Errorf("missing %s in %v", want, got)
 		}

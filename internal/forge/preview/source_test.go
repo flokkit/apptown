@@ -155,7 +155,7 @@ func TestALandedChangePreviewsItsLandedCommitAndAnOpenOneItsFolder(t *testing.T)
 	if !strings.Contains(transcript, "pull dirty:v3") {
 		t.Fatalf("an unlanded change did not boot its folder:\n%s", transcript)
 	}
-	if strings.Contains(transcript, "forge-env-") {
+	if strings.Contains(transcript, "apptown-env-") {
 		t.Fatal("preview touched standing data")
 	}
 }

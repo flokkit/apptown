@@ -379,7 +379,7 @@ func (w WorkerTasks) Disks(ctx context.Context) ([]diskspace.Reading, error) {
 // sendSource uploads the workspace's source. With agentGit the worker also
 // makes the task's own repository at /work/.git (AgentGit).
 func (w WorkerTasks) sendSource(ctx context.Context, key string, src TaskSource, agentGit *AgentGit) error {
-	file, err := os.CreateTemp("", "forge-source-*.bundle")
+	file, err := os.CreateTemp("", "apptown-source-*.bundle")
 	if err != nil {
 		return err
 	}

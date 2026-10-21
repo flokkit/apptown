@@ -89,7 +89,7 @@ func servingMain(t *testing.T, f scannerOwnerFixture, deployments *deployment.De
 	if _, err := outcomes.Complete(context.Background(), deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := deployments.ReserveHostPort(t.Context(), f.ProjectID, "main", "forge-env-p-main", 40001); err != nil {
+	if _, err := deployments.ReserveHostPort(t.Context(), f.ProjectID, "main", "apptown-env-p-main", 40001); err != nil {
 		t.Fatal(err)
 	}
 	if e, err := deployments.ByName(f.Context, f.ProjectID, "main"); err != nil || e.ReleaseSHA != sha || e.ImageDigest == "" || e.Container == "" {

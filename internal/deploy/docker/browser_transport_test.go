@@ -82,7 +82,7 @@ func (unreadableBrowser) BrowserEnv(context.Context) (string, error) {
 // file server, is still given them.
 func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 	t.Parallel()
-	for _, releaseImage := range []string{"", "forge-preview-build-historical"} {
+	for _, releaseImage := range []string{"", "apptown-preview-build-historical"} {
 		for _, readable := range []bool{false, true} {
 			t.Run(fmt.Sprintf("release=%s/readable=%v", releaseImage, readable), func(t *testing.T) {
 				client := &fakeClient{reply: func(c Command) ([]byte, error) {
@@ -98,7 +98,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 					{Name: "web", Public: true, Static: ".", Port: 8080},
 					{Name: "worker", Image: "worker:1"},
 				}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
-				req := BootRequest{Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true}
+				req := BootRequest{Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true, Names: Current}
 				if releaseImage == "" {
 					req.Identity = &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}
 				} else {

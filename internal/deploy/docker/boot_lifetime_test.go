@@ -84,7 +84,7 @@ func TestABootIsEndedByItsLifetime(t *testing.T) {
 	finished := make(chan error, 1)
 	go func() {
 		_, err := NewHost(prepared.Dependencies(upProbe{}, "", "")).Boot(context.Background(), BootRequest{
-			Docker: Scope{Client: client, Host: "unix:///lifetime"}.WithLifetime(life), Name: "forge-preview-change-43",
+			Docker: Scope{Client: client, Host: "unix:///lifetime"}.WithLifetime(life), Name: "apptown-preview-change-43",
 			StackID: "pv43", Workspace: t.TempDir(), Scratch: scratch, Probe: time.Second,
 		}, c)
 		finished <- err

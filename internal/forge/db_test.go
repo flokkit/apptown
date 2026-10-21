@@ -79,13 +79,13 @@ func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		url, pw, err := builtinDBCredentials(dir)
-		if err != nil || pw != "pw" || url != "postgres://postgres:pw@127.0.0.1:5433/forge" {
-			t.Fatalf("reading the old file: %q %q %v", url, pw, err)
+		url, pw, names, err := builtinDBCredentials(dir)
+		if err != nil || pw != "pw" || url != "postgres://postgres:pw@127.0.0.1:5433/forge" || names != before1BuiltinDB {
+			t.Fatalf("reading the old file: %q %q %+v %v", url, pw, names, err)
 		}
 		raw, _ := os.ReadFile(path)
 		info, _ := os.Stat(path)
-		if string(raw) != "# kept comment\nAPPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nAPPTOWN_DB_PASSWORD=pw\n" || info.Mode().Perm() != 0o600 {
+		if string(raw) != "# kept comment\nAPPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nAPPTOWN_DB_PASSWORD=pw\n"+"APPTOWN_DB_CONTAINER=forge-db\nAPPTOWN_DB_VOLUME=forge-data-forge-db\n" || info.Mode().Perm() != 0o600 {
 			t.Fatalf("rewritten as %q, mode %v", raw, info.Mode().Perm())
 		}
 	}
@@ -102,13 +102,13 @@ func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		url, pw, err := builtinDBCredentials(released)
+		url, pw, _, err := builtinDBCredentials(released)
 		if err != nil || pw != "ab12" || url != wantURL {
 			t.Fatalf("reading the released file: %q %q %v", url, pw, err)
 		}
 		raw, _ := os.ReadFile(filepath.Join(released, "db.env"))
 		info, _ := os.Stat(filepath.Join(released, "db.env"))
-		if string(raw) != comments+"APPTOWN_DB_URL="+wantURL+"\nAPPTOWN_DB_PASSWORD=ab12\n" || info.Mode().Perm() != 0o600 {
+		if string(raw) != comments+"APPTOWN_DB_URL="+wantURL+"\nAPPTOWN_DB_PASSWORD=ab12\n"+"APPTOWN_DB_CONTAINER=forge-db\nAPPTOWN_DB_VOLUME=forge-data-forge-db\n" || info.Mode().Perm() != 0o600 {
 			t.Fatalf("released file rewritten as %q, mode %v", raw, info.Mode().Perm())
 		}
 	}
@@ -117,7 +117,7 @@ func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(incomplete, "db.env"), []byte("APPTOWN_DB_URL=postgres://x\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := builtinDBCredentials(incomplete); err == nil || !strings.Contains(err.Error(), "db.env is present but incomplete") {
+	if _, _, _, err := builtinDBCredentials(incomplete); err == nil || !strings.Contains(err.Error(), "db.env is present but incomplete") {
 		t.Fatalf("an incomplete file: %v", err)
 	}
 	if raw, _ := os.ReadFile(filepath.Join(incomplete, "db.env")); string(raw) != "APPTOWN_DB_URL=postgres://x\n" {
@@ -128,13 +128,22 @@ func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(unreadable, "db.env"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := builtinDBCredentials(unreadable); err == nil || !strings.Contains(err.Error(), "reading ") {
+	if _, _, _, err := builtinDBCredentials(unreadable); err == nil || !strings.Contains(err.Error(), "reading ") {
 		t.Fatalf("an unreadable db.env was taken for an absent one: %v", err)
 	}
 
 	fresh := t.TempDir()
-	if _, pw, err := builtinDBCredentials(fresh); err != nil || pw == "" {
-		t.Fatalf("minting: %v", err)
+	if _, pw, names, err := builtinDBCredentials(fresh); err != nil || pw == "" || names != currentBuiltinDB {
+		t.Fatalf("minting: %+v %v", names, err)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(fresh, "db.env")); !strings.Contains(string(raw), "\nAPPTOWN_DB_CONTAINER=apptown-db\nAPPTOWN_DB_VOLUME=apptown-data-apptown-db\n") {
+		t.Fatalf("a new database's names are not recorded: %q", raw)
+	}
+	if got, ok := readBuiltinDBNames(fresh); !ok || got != currentBuiltinDB {
+		t.Fatalf("read back %+v %v", got, ok)
+	}
+	if got, ok := readBuiltinDBNames(dir); !ok || got != before1BuiltinDB {
+		t.Fatalf("an existing database's names read back %+v %v", got, ok)
 	}
 	if raw, _ := os.ReadFile(filepath.Join(fresh, "db.env")); !strings.Contains(string(raw), "\nAPPTOWN_DB_PASSWORD=") || strings.Contains(string(raw), "FORGE_") {
 		t.Fatalf("minted as %q", raw)

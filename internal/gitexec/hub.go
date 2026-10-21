@@ -45,7 +45,7 @@ func hubCommand(ctx context.Context, dir string, args []string) (cmd *exec.Cmd, 
 // system or global config, and an empty HOME of its own, which it runs in
 // unless given another directory. done removes the HOME.
 func homeCommand(ctx context.Context, args []string) (cmd *exec.Cmd, done func(), err error) {
-	home, err := os.MkdirTemp("", "forge-git-home-")
+	home, err := os.MkdirTemp("", "apptown-git-home-")
 	if err != nil {
 		return nil, func() {}, err
 	}

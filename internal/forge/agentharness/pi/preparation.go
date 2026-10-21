@@ -201,7 +201,7 @@ func (home Preparer) SentHome(ctx context.Context, projectID ids.ID, labels Labe
 	if _, err := database.Lookup(err); err != nil {
 		return SentHome{}, fmt.Errorf("reading the project's extensions: %w", err)
 	}
-	dir, err := os.MkdirTemp("", "forge-pi-home-")
+	dir, err := os.MkdirTemp("", "apptown-pi-home-")
 	if err != nil {
 		return SentHome{}, err
 	}

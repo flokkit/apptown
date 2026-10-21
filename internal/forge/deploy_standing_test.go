@@ -20,7 +20,7 @@ func TestEnsureDeploymentsLeavesUnrebuildableRecord(t *testing.T) {
 	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), pid, "main", target.ID, deployment.Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), pid, "main", "forge-env-ghost-main", 59999); err != nil {
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), pid, "main", "apptown-env-ghost-main", 59999); err != nil {
 		t.Fatal(err)
 	}
 	a.ensureDeploymentsOnce(context.Background()) // no repo, no container: must not panic

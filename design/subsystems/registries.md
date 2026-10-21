@@ -21,8 +21,8 @@ installs from it into its own folder. On a worker it is one folder mounted
 into every task, check and chat container
 ([tool_cache.go](../../internal/worker/tool_cache.go)). On an AppTown's own Docker
 the same path lies inside a cache volume: the project's
-(`forge-cache-<slug>`) for its steps and checks, and each chat's own
-(`forge-cache-console-<session>`) for chats.
+(`apptown-cache-<slug>`) for its steps and checks, and each chat's own
+(`apptown-cache-console-<session>`) for chats.
 
 Accepted limit for now: an AppTown's own Docker downloads again for each chat
 what an earlier chat fetched, and with no mirror bound mise asks GitHub's API

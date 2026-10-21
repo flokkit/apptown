@@ -62,7 +62,7 @@ func TestABackupSaysHowEachItemWasCopied(t *testing.T) {
 	for _, it := range b.Items {
 		got[it.Kind+":"+it.Name] = it.Copy
 	}
-	if got["need:redis"] != CopyDeclared || got["need:s3"] != CopyDeclared || got["need:notes"] != CopyLiveFiles || got["volume:forge-data-forge-env-bwc-main"] != CopyLiveFiles {
+	if got["need:redis"] != CopyDeclared || got["need:s3"] != CopyDeclared || got["need:notes"] != CopyLiveFiles || got["volume:apptown-data-apptown-env-bwc-main"] != CopyLiveFiles {
 		t.Fatalf("copy methods: %v", got)
 	}
 	// A kind's declared caveat travels with its copy; object storage's says
@@ -81,7 +81,7 @@ func TestABackupSaysHowEachItemWasCopied(t *testing.T) {
 			s3 = line
 		}
 	}
-	if !strings.HasPrefix(s3, "run --rm --entrypoint  --network container:forge-svc-env-bwc-main-s3 -e S3_ACCESS_KEY_ID ") || !strings.Contains(s3, " python:3.13.16-alpine3.24 sh -c ") {
+	if !strings.HasPrefix(s3, "run --rm --entrypoint  --network container:apptown-svc-env-bwc-main-s3 -e S3_ACCESS_KEY_ID ") || !strings.Contains(s3, " python:3.13.16-alpine3.24 sh -c ") {
 		t.Fatalf("the s3 copy runs in its client image beside the store:\n%s", strings.Join(ran, "\n"))
 	}
 	env := strings.Join(envOf[s3], " ")
@@ -109,7 +109,7 @@ func TestABackupSaysHowEachItemWasCopied(t *testing.T) {
 			t.Fatalf("the s3 copy is never given the gateway's root key or the catalogue's constants (%s): %q", never, env)
 		}
 	}
-	if !strings.Contains(strings.Join(ran, "\n"), "exec forge-svc-env-bwc-main-redis sh -c [ \"$(redis-cli SAVE)\" = OK ] && cat /data/dump.rdb") {
+	if !strings.Contains(strings.Join(ran, "\n"), "exec apptown-svc-env-bwc-main-redis sh -c [ \"$(redis-cli SAVE)\" = OK ] && cat /data/dump.rdb") {
 		t.Fatalf("Redis is made to save before its snapshot is copied:\n%s", strings.Join(ran, "\n"))
 	}
 	// The record, read back, keeps how and how to put it back.
@@ -156,7 +156,7 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 					if _, err := io.ReadAll(req.Stdin); err != nil {
 						return nil, err
 					}
-					if strings.HasPrefix(line, "exec -i "+pgConnection+" forge-svc-env-bww-main-postgres sh -c ") {
+					if strings.HasPrefix(line, "exec -i "+pgConnection+" apptown-svc-env-bww-main-postgres sh -c ") {
 						step := "restore"
 						if strings.Contains(line, "pg_restore -l") {
 							step = "verify"
@@ -176,7 +176,7 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 			if err != nil || b.Status != BackupOK {
 				t.Fatalf("the set: %+v %v", b, err)
 			}
-			client.SetRunning(docker.ContainerName("bww", "main"), true) // the app runs, so it is stopped and started again
+			client.SetRunning(docker.Current.Container("bww", "main"), true) // the app runs, so it is stopped and started again
 			op, res := restoreThroughOperation(t, s, pid, "main", b.ID)
 			outcomes := map[string]RestoreOutcome{}
 			for _, it := range res.Items {
@@ -194,7 +194,7 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 			}
 			// Object storage goes back by its kind's restore, in its client
 			// image beside the store, and is then held to the copy by verify.
-			if len(s3Steps) != 2 || !strings.HasPrefix(s3Steps[0], "run --rm -i --entrypoint  --network container:forge-svc-env-bww-main-s3 ") || !strings.HasSuffix(s3Steps[0], "\" restore") || !strings.HasSuffix(s3Steps[1], "\" verify") {
+			if len(s3Steps) != 2 || !strings.HasPrefix(s3Steps[0], "run --rm -i --entrypoint  --network container:apptown-svc-env-bww-main-s3 ") || !strings.HasSuffix(s3Steps[0], "\" restore") || !strings.HasSuffix(s3Steps[1], "\" verify") {
 				t.Fatalf("the s3 restore and its check:\n%s", strings.Join(s3Steps, "\n"))
 			}
 			if scenario == "check passes" {
@@ -226,13 +226,13 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 			// starts, and is checked only after it has.
 			var redis []string
 			for _, c := range calls {
-				if strings.Contains(c, "forge-svc-env-bww-main-redis") && !strings.HasPrefix(c, "inspect ") {
+				if strings.Contains(c, "apptown-svc-env-bww-main-redis") && !strings.HasPrefix(c, "inspect ") {
 					redis = append(redis, c)
 				}
 			}
-			if len(redis) != 4 || redis[0] != "stop forge-svc-env-bww-main-redis" ||
-				!strings.HasPrefix(redis[1], "run --rm -i --entrypoint  --network none --volumes-from forge-svc-env-bww-main-redis redis:7-alpine sh -c ") ||
-				redis[2] != "start forge-svc-env-bww-main-redis" || !strings.HasPrefix(redis[3], "exec -i forge-svc-env-bww-main-redis sh -c ") {
+			if len(redis) != 4 || redis[0] != "stop apptown-svc-env-bww-main-redis" ||
+				!strings.HasPrefix(redis[1], "run --rm -i --entrypoint  --network none --volumes-from apptown-svc-env-bww-main-redis redis:7-alpine sh -c ") ||
+				redis[2] != "start apptown-svc-env-bww-main-redis" || !strings.HasPrefix(redis[3], "exec -i apptown-svc-env-bww-main-redis sh -c ") {
 				t.Fatalf("redis is stopped, restored beside, started, then checked:\n%s", strings.Join(redis, "\n"))
 			}
 			receipts, err := audit.Recent(context.Background(), db, audit.Filter{ProjectID: pid, KindPrefix: "restored"})
@@ -283,7 +283,7 @@ func TestAnObjectStoreTarSetGoesBackAsFilesInTheStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	old := BackupItem{Kind: "need", Name: "s3", File: "s3.tar.gz", Restore: "tar xz -C /data", Copy: CopyLiveFiles, Caveat: "object metadata is not in the copy"}
-	into := needItem(kind, "s3", "forge-svc-env-bwt-main-s3")
+	into := needItem(kind, "s3", "apptown-svc-env-bwt-main-s3")
 	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: old, into: into}, path)
 	if row.Outcome != RestoreCopied || !strings.Contains(row.Detail, "not verified") || !strings.Contains(row.Caveat, "metadata") {
 		t.Fatalf("an old tar set of a store: %+v", row)
@@ -294,7 +294,7 @@ func TestAnObjectStoreTarSetGoesBackAsFilesInTheStore(t *testing.T) {
 			restored = append(restored, line)
 		}
 	}
-	if len(restored) != 1 || restored[0] != "exec -i forge-svc-env-bwt-main-s3 sh -c tar xz -C /data" {
+	if len(restored) != 1 || restored[0] != "exec -i apptown-svc-env-bwt-main-s3 sh -c tar xz -C /data" {
 		t.Fatalf("the files go back in the store's own container:\n%s", strings.Join(ran, "\n"))
 	}
 }

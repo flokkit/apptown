@@ -68,7 +68,7 @@ func TestCleanTreeBuildUsesSelectedWorkspaceAndBoundedExecutor(t *testing.T) {
 	// exit 1 carries no process error.
 	answer := execution.Outcome{Termination: execution.Exited, ExitCode: 1, Output: []byte(strings.Repeat("x", 900))}
 	checks := CompileCheck{Image: "agent:image", Run: func(_ context.Context, req execution.Request) execution.Outcome {
-		if req.Workspace != dir || req.Image != "agent:image" || req.Timeout != 5*time.Minute || !strings.HasPrefix(req.Name, "forge-cleanbuild-") || len(req.Mounts) != 0 {
+		if req.Workspace != dir || req.Image != "agent:image" || req.Timeout != 5*time.Minute || !strings.HasPrefix(req.Name, "apptown-cleanbuild-") || len(req.Mounts) != 0 {
 			t.Fatalf("wrong clean build request: %+v", req)
 		}
 		if !slices.Equal(req.Env, amb.Env) || len(req.Files) != len(amb.Files) || len(amb.Files) == 0 {

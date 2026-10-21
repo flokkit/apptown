@@ -35,9 +35,9 @@ func TestAReleaseThroughTheDriverResetsOnlySyntheticData(t *testing.T) {
 	for _, class := range []string{"production", "non-production", "", "synthetic"} {
 		t.Run(fmt.Sprintf("class %q", class), func(t *testing.T) {
 			t.Parallel()
-			cname := ServiceName("env-shop-staging", "postgres")
-			vol := NeedVolumeName("env-shop-staging", "postgres")
-			h := newOwnedHost("container "+cname, "volume "+vol, "network forge-net-env-shop-staging")
+			cname := Current.Service("env-shop-staging", "postgres")
+			vol := Current.NeedVolume("env-shop-staging", "postgres")
+			h := newOwnedHost("container "+cname, "volume "+vol, "network apptown-net-env-shop-staging")
 			client := &fakeClient{reply: func(req Command) ([]byte, error) {
 				line := strings.Join(req.Args, " ")
 				switch {
@@ -65,7 +65,7 @@ func TestAReleaseThroughTheDriverResetsOnlySyntheticData(t *testing.T) {
 			body := []byte(`{"version":1,"revision":"abc"}`)
 			art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 				Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "shop", Contract: c}}
-			_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "staging"}, 2, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+			_, err = d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "staging"}, 2, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 			if class != "synthetic" {
 				if err == nil || !strings.Contains(err.Error(), "will not replace") {
 					t.Fatalf("a %q deployment's database was replaced: %v", class, err)

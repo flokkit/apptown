@@ -28,10 +28,10 @@ func TestAPortainerDeploymentHoldsWhatItsDeploysMadeAndItsStackDeclares(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Deployments.OwnerOf(dep).Created(ctx, deploy.Owned{Kind: "volume", ID: "forge-pl_forge-data-pl-reports", Name: "forge-pl_forge-data-pl-reports", Data: true}); err != nil {
+	if err := s.Deployments.OwnerOf(dep).Created(ctx, deploy.Owned{Kind: "volume", ID: "apptown-pl_apptown-data-pl-reports", Name: "apptown-pl_apptown-data-pl-reports", Data: true}); err != nil {
 		t.Fatal(err)
 	}
-	layout, err := portainer.ReadLayout("forge-pl", "pl", "services:\n  app:\n    volumes: [\"forge-data-pl:/data\"]\nvolumes:\n  forge-data-pl: {}\n")
+	layout, err := portainer.ReadLayout("apptown-pl", "pl", "services:\n  app:\n    volumes: [\"apptown-data-pl:/data\"]\nvolumes:\n  apptown-data-pl: {}\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,10 +53,10 @@ func TestAPortainerDeploymentHoldsWhatItsDeploysMadeAndItsStackDeclares(t *testi
 		}
 		got[it.Volume] = it.Listed
 	}
-	if listed, ok := got["forge-pl_forge-data-pl-reports"]; !ok || !listed {
+	if listed, ok := got["apptown-pl_apptown-data-pl-reports"]; !ok || !listed {
 		t.Fatalf("the volume an earlier release made is not held as the deployment's: %v", got)
 	}
-	if listed, ok := got["forge-pl_forge-data-pl"]; !ok || listed {
+	if listed, ok := got["apptown-pl_apptown-data-pl"]; !ok || listed {
 		t.Fatalf("the volume the stack declares and the deploy did not make: %v", got)
 	}
 }

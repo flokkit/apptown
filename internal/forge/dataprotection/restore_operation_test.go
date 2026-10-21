@@ -147,7 +147,7 @@ func restoreWorld(t *testing.T, slug string) (*both, *database.DB, *dockerfake.D
 	withJobs(t, s)
 	d := &restoreDaemon{}
 	setBackupDockerCommand(client, d.answer)
-	client.SetRunning(docker.ContainerName(slug, "main"), true)
+	client.SetRunning(docker.Current.Container(slug, "main"), true)
 	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
 	if err != nil || b.Status != BackupOK {
 		t.Fatalf("the set: %+v %v", b, err)
@@ -216,7 +216,7 @@ func TestARestoreOperationRecordsEachStepAndItsReceipt(t *testing.T) {
 	for _, st := range op.Steps {
 		steps = append(steps, st.Name)
 	}
-	app := docker.ContainerName("rb", "main")
+	app := docker.Current.Container("rb", "main")
 	want := []string{"taking a safety set of what is there now", "stopping the app, so nothing writes while the data goes back", "restoring " + res.Items[0].Name, "restoring postgres", "starting the app again", "waiting for the app to answer"}
 	if !slices.Equal(steps, want) {
 		t.Fatalf("the steps:\n%s\nwant\n%s", strings.Join(steps, "\n"), strings.Join(want, "\n"))
@@ -252,9 +252,9 @@ func TestAForgeThatStopsInARestoreLeavesItUnknownAndStartsNothing(t *testing.T) 
 		left, done string
 	}{
 		{name: "in the second item", cut: func(line string, restore bool) bool { return restore && strings.Contains(line, "pg_restore -d") },
-			left: "forge-env-rc-main may be stopped", done: "Items restored before it stopped: forge-data-forge-env-rc-main copied."},
-		{name: "in the stop", cut: func(line string, _ bool) bool { return line == "stop forge-env-rc-main" },
-			left: "forge-env-rc-main may be stopped"},
+			left: "apptown-env-rc-main may be stopped", done: "Items restored before it stopped: apptown-data-apptown-env-rc-main copied."},
+		{name: "in the stop", cut: func(line string, _ bool) bool { return line == "stop apptown-env-rc-main" },
+			left: "apptown-env-rc-main may be stopped"},
 		{name: "in the safety set", cut: func(line string, restore bool) bool { return !restore && strings.Contains(line, "pg_dump") },
 			left: "No item was confirmed restored. It stopped no container."},
 	} {
@@ -307,7 +307,7 @@ func TestAForgeThatStopsInARestoreLeavesItUnknownAndStartsNothing(t *testing.T) 
 			}
 			receipts := restoredReceipts(t, db, pid)
 			stopped := c.done != "" || strings.Contains(c.left, "may be stopped")
-			if stopped && (len(receipts) != 1 || !strings.Contains(receipts[0], `"status":"unknown"`) || !strings.Contains(receipts[0], `"mayBeStopped":["forge-env-rc-main"]`)) {
+			if stopped && (len(receipts) != 1 || !strings.Contains(receipts[0], `"status":"unknown"`) || !strings.Contains(receipts[0], `"mayBeStopped":["apptown-env-rc-main"]`)) {
 				t.Fatalf("the unknown receipt: %v", receipts)
 			}
 			if !stopped && len(receipts) != 0 {
@@ -349,7 +349,7 @@ func TestARestoreCutByAShutdownSaysWhatMayBeStopped(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := endedRestore(t, s, op.ID)
-	if got.State != operations.Unknown || !strings.Contains(got.Detail, "forge-env-rd-main may be stopped") {
+	if got.State != operations.Unknown || !strings.Contains(got.Detail, "apptown-env-rd-main may be stopped") {
 		t.Fatalf("a restore cut by a shutdown: %s %q", got.State, got.Detail)
 	}
 	receipts := restoredReceipts(t, db, pid)
@@ -405,7 +405,7 @@ func TestARestoreAsksAgainBeforeItsEffects(t *testing.T) {
 		if slices.ContainsFunc(d.lines(), func(l string) bool { return strings.Contains(l, "pg_restore -d") }) {
 			t.Fatal("an item was written after its authority was withdrawn")
 		}
-		if !slices.Contains(d.lines(), "start forge-env-rf-main") || strings.Contains(op.Detail, "may be stopped") {
+		if !slices.Contains(d.lines(), "start apptown-env-rf-main") || strings.Contains(op.Detail, "may be stopped") {
 			t.Fatalf("the app is started again: %q %v", op.Detail, d.lines())
 		}
 	})

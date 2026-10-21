@@ -112,7 +112,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	if adoption != nil {
 		evidence["adoption"] = map[string]any{"revision": adoption.Revision, "digest": adoption.Digest}
 	}
-	said, err := a.judgeDeclared(task.Context(), task.RunScope(), run, source, checks, checkedAt, cfg.FailOn, fmt.Sprintf("forge-conform-%d", stepID))
+	said, err := a.judgeDeclared(task.Context(), task.RunScope(), run, source, checks, checkedAt, cfg.FailOn, fmt.Sprintf("apptown-conform-%d", stepID))
 	results, findings, shErrors, unjudged := said.results, said.findings, said.errors, said.unjudged
 	if said.llm != nil {
 		evidence["llm"] = said.llm
@@ -135,7 +135,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		}
 	}
 	baseSHA := workflowBaseline(task.Context(), a.dataDir, source)
-	base := a.verification.baselineFor(conformance.WithRun(task.Context(), task.RunScope()), run.ProjectID, checks, baseSHA, fmt.Sprintf("forge-conform-%d", stepID))
+	base := a.verification.baselineFor(conformance.WithRun(task.Context(), task.RunScope()), run.ProjectID, checks, baseSHA, fmt.Sprintf("apptown-conform-%d", stepID))
 	// Model rubrics and runtime probes are not in the cached deterministic
 	// baseline: a failing one is judged on main here — the rubric on the
 	// base tree, the probe on main's deployment when it serves the base.

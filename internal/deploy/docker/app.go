@@ -73,7 +73,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// Build only an explicit build declaration. An image remains the selected
 	// recipe even when unrelated Dockerfiles exist in the source tree.
 	if t.Identity == nil && c.Build != "" && c.Image == "" {
-		tag := BuildTag(name)
+		tag := t.names().BuildTag(name)
 		buildDir, cleanup, err := StagedBuildContext(ctx, ws, c.Build)
 		if err != nil {
 			return 0, err
@@ -88,7 +88,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// preview, as a build: part is just above; a standing deployment's was
 	// packed by PrepareImages. Either way it then runs as an image.
 	if t.Identity == nil && c.StaticBuild != nil && c.Image == "" {
-		tag := BuildTag(name)
+		tag := t.names().BuildTag(name)
 		buildDir, cleanup, err := StagedBuildContext(ctx, ws, c.StaticBuild.Context)
 		if err != nil {
 			return 0, err
@@ -169,7 +169,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// Image contract: the app is self-contained — no workspace mount, no
 		// toolchain layer, no build. Pull first (with the project's registry
 		// pull credential) so failures are attributable. Local preview
-		// builds (forge-preview-build-*) exist only on this daemon — never
+		// builds (<prefix>preview-build-*) exist only on this daemon — never
 		// pulled — and a release's recorded images were prepared already
 		// (PrepareImages).
 		if t.Identity == nil && t.Recorded == nil && !IsLocalBuildTag(c.Image) {
@@ -183,17 +183,17 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	}
 	if c.DataDir != "" {
 		if t.own.Record != nil {
-			if err := ensureVolume(ctx, dk, DataVolumeName(name), name, "", t.own); err != nil {
+			if err := ensureVolume(ctx, dk, t.names().DataVolume(name), name, "", t.own); err != nil {
 				return 0, err
 			}
 		}
-		args = append(args, "-v", DataVolumeName(name)+":"+c.DataDir)
+		args = append(args, "-v", t.names().DataVolume(name)+":"+c.DataDir)
 		// The volume belongs to the image's own user before the app starts,
 		// so a container that drops to an unprivileged USER can write its
 		// data without a root entrypoint to chown it first. An image with no USER, or one
 		// AppTown cannot resolve, is left as it was.
 		if c.Image != "" {
-			HandVolumeToImageUser(ctx, dk, DataVolumeName(name), c.Image, h.chownImage())
+			HandVolumeToImageUser(ctx, dk, t.names().DataVolume(name), c.Image, h.chownImage())
 		}
 	}
 	args = append(args, "--add-host", "host.internal:host-gateway")
@@ -207,8 +207,8 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// the contract, entrypoint websecure, resolver letsencrypt, and the
 		// container joins the network named traefik before it starts, which
 		// Traefik is told to use when the container is on several.
-		slugName := strings.TrimSuffix(strings.TrimPrefix(name, containerPrefix), "-"+t.Deployment)
-		router := "forge-" + slugName
+		slugName := strings.TrimSuffix(strings.TrimPrefix(name, string(t.names())+"env-"), "-"+t.Deployment)
+		router := string(t.names()) + slugName
 		args = append(args,
 			"-l", "traefik.enable=true",
 			"-l", "traefik.docker.network=traefik",

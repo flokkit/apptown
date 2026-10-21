@@ -70,7 +70,7 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 			client := &fakeClient{reply: func(req Command) ([]byte, error) {
 				line := strings.Join(req.Args, " ")
 				switch {
-				case tc.init != "" && strings.Contains(line, "--name "+InitName("pvcreds", "migrate")):
+				case tc.init != "" && strings.Contains(line, "--name "+Current.Init("pvcreds", "migrate")):
 					return []byte(tc.init), errors.New("exit status 1")
 				case strings.Contains(line, "State.Health"):
 					return []byte("healthy\n"), nil
@@ -88,7 +88,7 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err = NewHost(Dependencies{Secrets: reviewNoSecrets{}, Needs: credentialNeed{password}, Probe: &Probe{Settle: time.Millisecond}}).Boot(context.Background(),
-				BootRequest{Docker: Scope{Client: client}, Name: "forge-preview-creds", StackID: "pvcreds", Workspace: t.TempDir(), Slug: "app", Deployment: "preview", Probe: 200 * time.Millisecond, Scratch: t.TempDir()}, c)
+				BootRequest{Docker: Scope{Client: client}, Name: "apptown-preview-creds", StackID: "pvcreds", Workspace: t.TempDir(), Slug: "app", Deployment: "preview", Probe: 200 * time.Millisecond, Scratch: t.TempDir()}, c)
 			be := AsBootError(err)
 			if err == nil || be.Phase != tc.phase {
 				t.Fatalf("the boot's failure: %v (phase %q)", err, be.Phase)

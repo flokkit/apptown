@@ -68,15 +68,15 @@ func TestACheckImageIsPreparedOnTheWorker(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tree, "app", "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	build := execution.ImageRequest{Tag: "forge-conform:abc", Tree: tree, Context: "app"}
+	build := execution.ImageRequest{Tag: "apptown-conform:abc", Tree: tree, Context: "app"}
 	if a := checks.Image(ctx, build); !a.NotBuilt || a.ID != "" || a.Err != "" {
 		t.Fatalf("a build that was not allowed: %+v", a)
 	}
 	build.AllowBuild = true
-	if a := checks.Image(ctx, build); a.Err != "" || a.ID != "sha256:forge-conform_abc" {
+	if a := checks.Image(ctx, build); a.Err != "" || a.ID != "sha256:apptown-conform_abc" {
 		t.Fatalf("a build on the worker: %+v", a)
 	}
-	if a := checks.Image(ctx, execution.ImageRequest{Tag: "forge-conform:abc"}); a.ID != "sha256:forge-conform_abc" || a.Labels["forge.go.version"] != "1.24.4" {
+	if a := checks.Image(ctx, execution.ImageRequest{Tag: "apptown-conform:abc"}); a.ID != "sha256:apptown-conform_abc" || a.Labels["forge.go.version"] != "1.24.4" {
 		t.Fatalf("a cached image, with its labels: %+v", a)
 	}
 	pull := execution.ImageRequest{Pull: "registry.example/app:1", Registry: &execution.RegistryLogin{Host: "registry.example", Username: "u", Token: "t"}}
@@ -103,7 +103,7 @@ func TestACheckImageIsPreparedOnTheWorker(t *testing.T) {
 	if _, err := os.Stat(login); !os.IsNotExist(err) {
 		t.Fatal("the request's Docker configuration outlived it")
 	}
-	if !strings.Contains(string(recorded), "build --label forge.class=check -t forge-conform:abc") {
+	if !strings.Contains(string(recorded), "build --label forge.class=check -t apptown-conform:abc") {
 		t.Fatalf("a check image is not labelled for the sweep: %s", recorded)
 	}
 }

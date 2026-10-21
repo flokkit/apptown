@@ -24,12 +24,12 @@ func TestARecentLogIsOneBoundedRead(t *testing.T) {
 	dk := Scope{Client: f}
 
 	out = "2026-10-16T01:00:00Z started\n2026-10-16T01:00:01Z listening\n"
-	got, err := ReadRecentLog(t.Context(), dk, "forge-svc-env-game-main-worker")
+	got, err := ReadRecentLog(t.Context(), dk, "apptown-svc-env-game-main-worker")
 	if err != nil || got.Truncated || got.Text != "2026-10-16T01:00:00Z started\n2026-10-16T01:00:01Z listening" {
 		t.Fatalf("a short log: %+v %v", got, err)
 	}
 	req := asked[0]
-	if want := []string{"logs", "--tail", "200", "--timestamps", "forge-svc-env-game-main-worker"}; !slices.Equal(req.Args, want) {
+	if want := []string{"logs", "--tail", "200", "--timestamps", "apptown-svc-env-game-main-worker"}; !slices.Equal(req.Args, want) {
 		t.Fatalf("asked %v, want %v", req.Args, want)
 	}
 	if req.Timeout != LogReadWithin || req.Stdout != nil || req.Stderr != nil {

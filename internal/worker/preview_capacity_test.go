@@ -30,7 +30,7 @@ func TestAWorkerRefusesAnOversizedPreviewBeforeRemovingTheRunningOne(t *testing.
 	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	name := "forge-preview-change-44"
+	name := "apptown-preview-change-44"
 	if err := os.WriteFile(filepath.Join(dk, "running-"+name), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}

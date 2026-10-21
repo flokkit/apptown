@@ -156,7 +156,7 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 		return gitlabJSON("POST",
 			fmt.Sprintf("%s/api/v4/projects/%s%%2F%s/deploy_tokens", strings.TrimSuffix(base, "/"), group, p.Slug),
 			tok, map[string]any{
-				"name":   "forge-registry-" + p.Slug,
+				"name":   "apptown-registry-" + p.Slug,
 				"scopes": []string{"read_registry", "write_registry"},
 			})
 	}

@@ -102,7 +102,7 @@ func (d *standingDaemon) reply(req Command) ([]byte, error) {
 			}
 			// Its data is on its named volume.
 			if strings.Contains(x, ".Mounts") {
-				return []byte("volume\tforge-need-env-shop-main-postgres\t/x\t/var/lib/postgresql/data\n"), nil
+				return []byte("volume\tapptown-need-env-shop-main-postgres\t/x\t/var/lib/postgresql/data\n"), nil
 			}
 		}
 		return nil, nil
@@ -152,7 +152,7 @@ func TestAStandingNeedTakesItsNewSizeWithoutLosingItsData(t *testing.T) {
 	if _, err := EnsureStandingServices(t.Context(), Scope{Client: f}, "env-shop-main", svc(appcontract.Resources{MemoryBytes: 512 << 20, CPUs: 1}), "production", own); err != nil {
 		t.Fatal(err)
 	}
-	if got := standingCalls(f, "update"); len(got) != 1 || !strings.Contains(got[0], "--memory 536870912 --memory-swap 536870912 --cpus 1 forge-svc-env-shop-main-postgres") {
+	if got := standingCalls(f, "update"); len(got) != 1 || !strings.Contains(got[0], "--memory 536870912 --memory-swap 536870912 --cpus 1 apptown-svc-env-shop-main-postgres") {
 		t.Fatalf("the size was not applied in place: %v", got)
 	}
 	if len(standingCalls(f, "rm"))+len(standingCalls(f, "run"))+len(standingCalls(f, "volume")) > 0 {
@@ -178,7 +178,7 @@ func TestAStandingNeedTakesItsNewSizeWithoutLosingItsData(t *testing.T) {
 	if len(standingCalls(f, "stop")) != 1 || len(standingCalls(f, "rm")) != 1 || len(runs) != 1 {
 		t.Fatalf("a lifted limit did not remake the container: %v", f.args)
 	}
-	if !strings.Contains(runs[0], "-v forge-need-env-shop-main-postgres:/var/lib/postgresql/data") || strings.Contains(runs[0], "--memory") {
+	if !strings.Contains(runs[0], "-v apptown-need-env-shop-main-postgres:/var/lib/postgresql/data") || strings.Contains(runs[0], "--memory") {
 		t.Errorf("the remade container is not on its volume, or keeps a limit: %s", runs[0])
 	}
 	for _, a := range f.args {
@@ -220,15 +220,15 @@ func TestAStandingNeedTakesItsNewSizeWithoutLosingItsData(t *testing.T) {
 // code; a line AppTown cannot read is an error, never skipped.
 func TestAContainerEventIsReadAsDockerReportsIt(t *testing.T) {
 	t.Parallel()
-	out := []byte(`{"status":"oom","id":"a1","Type":"container","Action":"oom","Actor":{"ID":"a1","Attributes":{"name":"forge-env-shop-main","image":"x"}},"time":1760000000,"timeNano":1760000000123456789}
-{"status":"die","id":"a1","Type":"container","Action":"die","Actor":{"ID":"a1","Attributes":{"name":"forge-env-shop-main","exitCode":"137","forge.environment":"01a1","forge.generation":"4"}},"time":1760000000,"timeNano":1760000000200000000}
-{"status":"kill","id":"b2","Type":"container","Action":"kill","Actor":{"ID":"b2","Attributes":{"name":"forge-svc-env-shop-main-postgres","signal":"15"}},"time":1760000001,"timeNano":1760000001000000000}
+	out := []byte(`{"status":"oom","id":"a1","Type":"container","Action":"oom","Actor":{"ID":"a1","Attributes":{"name":"apptown-env-shop-main","image":"x"}},"time":1760000000,"timeNano":1760000000123456789}
+{"status":"die","id":"a1","Type":"container","Action":"die","Actor":{"ID":"a1","Attributes":{"name":"apptown-env-shop-main","exitCode":"137","forge.environment":"01a1","forge.generation":"4"}},"time":1760000000,"timeNano":1760000000200000000}
+{"status":"kill","id":"b2","Type":"container","Action":"kill","Actor":{"ID":"b2","Attributes":{"name":"apptown-svc-env-shop-main-postgres","signal":"15"}},"time":1760000001,"timeNano":1760000001000000000}
 `)
 	events, err := ParseContainerEvents(out)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 3 || events[0].Action != "oom" || events[0].Container != "forge-env-shop-main" || events[0].At.UnixNano() != 1760000000123456789 {
+	if len(events) != 3 || events[0].Action != "oom" || events[0].Container != "apptown-env-shop-main" || events[0].At.UnixNano() != 1760000000123456789 {
 		t.Fatalf("events %+v", events)
 	}
 	if events[1].ExitCode == nil || *events[1].ExitCode != 137 || events[0].ExitCode != nil {
@@ -262,7 +262,7 @@ func TestEveryWayDockerCapsCPUsIsRead(t *testing.T) {
 		forge        bool
 		class, owner string
 	}{
-		{"/web\t536870912\t1500000000\t0\t0\t\tenv\tforge-env-a-main", 1.5, false, 512 << 20, true, "env", "forge-env-a-main"},
+		{"/web\t536870912\t1500000000\t0\t0\t\tenv\tapptown-env-a-main", 1.5, false, 512 << 20, true, "env", "apptown-env-a-main"},
 		{"/other\t0\t0\t50000\t100000\t\t<no value>\t<no value>", 0.5, false, 0, false, "", ""},
 		{"/other\t0\t0\t50000\t0\t\t\t", 0.5, false, 0, false, "", ""},
 		{"/pinned\t0\t0\t0\t0\t0-3,6\t\t", 5, false, 0, false, "", ""},
@@ -346,7 +346,7 @@ func TestABootRefusesAPartLargerThanItsHost(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	_, err = NewHost(Dependencies{Needs: needCatalog{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "forge-preview-x", StackID: "pvx", Workspace: t.TempDir()}, c)
+	_, err = NewHost(Dependencies{Needs: needCatalog{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-preview-x", StackID: "pvx", Workspace: t.TempDir()}, c)
 	if be := AsBootError(err); err == nil || be.Phase != PhaseResolve || !strings.Contains(err.Error(), "declares 16G") {
 		t.Fatalf("an oversized boot: %v", err)
 	}
@@ -394,7 +394,7 @@ func TestABootIsRefusedOnADaemonShortOfDisk(t *testing.T) {
 			}
 			return nil, nil
 		}}
-		_, err := NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Probe: reviewUp{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "forge-preview-x", StackID: "pvx", Workspace: t.TempDir(), Probe: time.Second}, c)
+		_, err := NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Probe: reviewUp{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-preview-x", StackID: "pvx", Workspace: t.TempDir(), Probe: time.Second}, c)
 		if tc.refused == "" {
 			if err != nil {
 				t.Errorf("%s: %v", tc.name, err)
@@ -436,7 +436,7 @@ func TestANeedWhoseDataFolderCannotBeReadStopsTheBoot(t *testing.T) {
 		t.Fatalf("resolving with an unreadable data folder: %v", err)
 	}
 	f := &fakeClient{}
-	_, err = NewHost(Dependencies{Needs: unreadableData{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "forge-env-shop-main", StackID: "env-shop-main", Workspace: t.TempDir(), Persistent: true}, c)
+	_, err = NewHost(Dependencies{Needs: unreadableData{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-env-shop-main", StackID: "env-shop-main", Workspace: t.TempDir(), Persistent: true, Names: Current}, c)
 	if err == nil {
 		t.Fatal("a boot went on without knowing where its database keeps its data")
 	}

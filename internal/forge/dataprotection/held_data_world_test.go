@@ -71,9 +71,9 @@ func standRelease(t *testing.T, s *both, slug, deployment, yaml string) string {
 		if err != nil || d.Local.Data == "" {
 			continue
 		}
-		svc := docker.ServiceName(stack, need)
+		svc := docker.Current.Service(stack, need)
 		client.SetRunning(svc, true)
-		mounts[svc] = docker.NeedVolumeName(stack, need) + "\t" + d.Local.Data
+		mounts[svc] = docker.Current.NeedVolume(stack, need) + "\t" + d.Local.Data
 		// Started as a release starts it: the release's params and the
 		// deployment's own generated credentials.
 		generated, err := d.Generated(t.Context(), s.Service.env.NeedCredentials(deploymentNeedScope(dep.ID)))

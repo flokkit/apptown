@@ -62,7 +62,7 @@ For an app that declares `needs: { llm: … }`:
 - **Take-down** revokes the key and deletes the stored copy. A revoke that
   fails is kept as a retained row naming the key's hash: revoke it by hand
   at openrouter.ai, then mark the row released.
-- **A preview** gets its own key, named `forge-preview-<preview>`, with the
+- **A preview** gets its own key, named `apptown-preview-<preview>`, with the
   preview limit. Starting the same preview again keeps it. Once the
   preview no longer stands on the worker or this AppTown's Docker (stopped,
   discarded, reaped for age, removed with its project, or cleared when AppTown started again), AppTown revokes its key within a minute. A failed

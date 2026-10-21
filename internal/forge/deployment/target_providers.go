@@ -45,7 +45,7 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 			Name: s.hosts.settings.BuiltInTarget, Kind: KindDockerHost, Provider: "", Origin: OriginBuiltIn,
 			Address:      map[string]any{"daemon": "local"},
 			Capabilities: StockCapabilities(KindDockerHost, s.env.needs.EmulatorKinds(ctx)),
-			Ingress:      map[string]any{"binding": "forge-vhost", "domains": ingressDomains},
+			Ingress:      map[string]any{"binding": "apptown-vhost", "domains": ingressDomains},
 			NeedsMode:    stockNeedsMode(KindDockerHost), SecretsDelivery: "inject", Status: TargetReady,
 		}, who)
 		if err != nil {

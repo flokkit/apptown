@@ -64,11 +64,11 @@ func TestBootChangeWorktreeSequence(t *testing.T) {
 			continue
 		}
 		switch {
-		case strings.Contains(call, "forge-svc-") && strings.Contains(call, "-postgres"):
+		case strings.Contains(call, "apptown-svc-") && strings.Contains(call, "-postgres"):
 			service = i
-		case strings.Contains(call, "forge-init-") && strings.Contains(call, "-migrate"):
+		case strings.Contains(call, "apptown-init-") && strings.Contains(call, "-migrate"):
 			init = i
-		case strings.Contains(call, "forge-svc-") && strings.Contains(call, "-worker"):
+		case strings.Contains(call, "apptown-svc-") && strings.Contains(call, "-worker"):
 			worker = i
 		case strings.Contains(call, docker.PreviewChangeName(idstest.N(7))):
 			app = i
@@ -123,7 +123,7 @@ func TestBootFailureCarriesItsPhase(t *testing.T) {
 			reaped = true
 		}
 	}
-	if !reaped || previewCommandIndex(calls, "network rm "+docker.NetworkName(docker.ChangeStackID(idstest.N(9)))) < ran {
+	if !reaped || previewCommandIndex(calls, "network rm "+docker.Current.Network(docker.ChangeStackID(idstest.N(9)))) < ran {
 		t.Fatalf("dead preview not reaped after failed probe: %v", calls)
 	}
 	requireNothingOfPreview(t, client, idstest.N(9))
@@ -370,7 +370,7 @@ func requireNothingOfPreview(t *testing.T, client *dockerfake.Daemon, id ids.ID)
 	t.Helper()
 	calls := previewCommands(client)
 	name, stack := docker.PreviewChangeName(id), docker.ChangeStackID(id)
-	for _, want := range []string{"rm -f -v " + name, "volume rm " + docker.DataVolumeName(name), "network rm " + docker.NetworkName(stack)} {
+	for _, want := range []string{"rm -f -v " + name, "volume rm " + docker.Current.DataVolume(name), "network rm " + docker.Current.Network(stack)} {
 		if previewCommandIndex(calls, want) < 0 {
 			t.Fatalf("%q was not issued: %v", want, calls)
 		}
@@ -405,7 +405,7 @@ func TestAFailedRunPreviewBootLeavesNothingOfItsStep(t *testing.T) {
 	}
 	calls := previewCommands(client)
 	name, stack := docker.PreviewRunName(idstest.N(4)), docker.RunStepStackID(idstest.N(11))
-	for _, want := range []string{"rm -f -v " + name, "volume rm " + docker.DataVolumeName(name), "network rm " + docker.NetworkName(stack)} {
+	for _, want := range []string{"rm -f -v " + name, "volume rm " + docker.Current.DataVolume(name), "network rm " + docker.Current.Network(stack)} {
 		if previewCommandIndex(calls, want) < 0 {
 			t.Fatalf("%q was not issued: %v", want, calls)
 		}
@@ -465,7 +465,7 @@ func TestALocalRunPreviewCapsItsSuppliedService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	name := docker.ServiceName(docker.RunStepStackID(idstest.N(11)), "cache")
+	name := docker.Current.Service(docker.RunStepStackID(idstest.N(11)), "cache")
 	if memory, _ := client.Limits(name); memory != 512<<20 {
 		t.Fatalf("local workflow sidecar cap: %s %d", name, memory)
 	}

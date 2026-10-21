@@ -18,7 +18,6 @@ import (
 type (
 	noFollowups   struct{}
 	noDeclaration struct{}
-	plainNames    struct{}
 	noRetirement  struct{}
 	fakeDriver    struct{ kind string }
 )
@@ -27,9 +26,6 @@ func (noFollowups) EnqueueIn(context.Context, *database.Tx, jobs.Request) error 
 	return nil
 }
 func (noDeclaration) Declared(string) (Declared, bool) { return Declared{}, false }
-func (plainNames) Container(p, d string) string        { return p + "-" + d }
-func (plainNames) DataVolume(c string) string          { return c + "-data" }
-func (plainNames) Service(p, d, n string) string       { return p + "-" + d + "-" + n }
 func (noRetirement) RetireUnusedConnector(context.Context, *database.Tx, string, string, string, time.Time) error {
 	return nil
 }
@@ -55,7 +51,7 @@ func TestServiceIsBuiltFromDeclaredDependencies(t *testing.T) {
 	}
 	inventoryFailure := errors.New("custom inventory")
 	inventoryOverride := func(*Target) (deploy.Inventorier, error) { return nil, inventoryFailure }
-	s := New(context.Background(), db, assembled(db, testRuntime{Inventories: map[string]InventoryFactory{KindDockerHost: inventoryOverride, KindPortainer: inventoryOverride, KindDOApp: inventoryOverride}, Connectors: noRetirement{}, OfferedByConstruction: []string{"lan"}, Drivers: map[string]DriverFactory{KindDockerHost: driverOverride, KindPortainer: driverOverride, KindDOApp: driverOverride}}, Dependencies{Followups: noFollowups{}, Declared: noDeclaration{}, Names: plainNames{}}))
+	s := New(context.Background(), db, assembled(db, testRuntime{Inventories: map[string]InventoryFactory{KindDockerHost: inventoryOverride, KindPortainer: inventoryOverride, KindDOApp: inventoryOverride}, Connectors: noRetirement{}, OfferedByConstruction: []string{"lan"}, Drivers: map[string]DriverFactory{KindDockerHost: driverOverride, KindPortainer: driverOverride, KindDOApp: driverOverride}}, Dependencies{Followups: noFollowups{}, Declared: noDeclaration{}}))
 	if s.Targets == nil || s.Deployments == nil || s.Releases == nil || s.Outcomes == nil ||
 		s.Bundles == nil || s.Retained == nil || s.Reconciliations == nil || s.Inventory == nil {
 		t.Fatal("every store is built once by New")

@@ -29,6 +29,16 @@ type Ownership struct {
 	// AppTown may delete (a synthetic need's volume, when its parameters
 	// moved). Nothing else is ever deleted.
 	Recorded []deploy.Owned
+	// Names is what the stack's host names begin with: a standing
+	// deployment's recorded prefix. "" is Current (previews, runs).
+	Names Prefix
+}
+
+func (o Ownership) names() Prefix {
+	if o.Names == "" {
+		return Current
+	}
+	return o.Names
 }
 
 func (o Ownership) recorded(kind, id string) bool {

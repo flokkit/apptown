@@ -83,7 +83,7 @@ func TestConsoleLifecycleHTTPValidatesBeforeAdmissionAndEndsOnlyItsSession(t *te
 	}
 	// Maintenance must observe the same runtime selected for console launches.
 	session.SetLastUsed(time.Now().Add(-3 * time.Hour))
-	if got := a.reaper.Containers(context.Background(), true); !slices.Contains(got, "forge-console-"+session.ID) || !agent.Running(session.ID) {
+	if got := a.reaper.Containers(context.Background(), true); !slices.Contains(got, "apptown-console-"+session.ID) || !agent.Running(session.ID) {
 		t.Fatalf("maintenance dry run did not observe the selected runtime: %v", got)
 	}
 	session.Touch()

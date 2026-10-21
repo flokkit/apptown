@@ -49,7 +49,7 @@ func TestScreenshotsAskTheExecutorForTheDriverWithPagesAsArguments(t *testing.T)
 	}
 	s := NewScreenshots(Executor{Run: run, AgentImage: "agent:1"}, nil)
 	s.Take(context.Background(), "https://change-1.preview.example.com/ignored?q=1#f", []string{"/a b'\"$(x)"})
-	if got.Image != "agent:1" || got.Network != "" || got.Workspace == "" || got.Report != shotsReport || !strings.HasPrefix(got.Name, "forge-shots-") {
+	if got.Image != "agent:1" || got.Network != "" || got.Workspace == "" || got.Report != shotsReport || !strings.HasPrefix(got.Name, "apptown-shots-") {
 		t.Fatalf("request: image %q network %q workspace %q report %q name %q", got.Image, got.Network, got.Workspace, got.Report, got.Name)
 	}
 	if len(got.Argv) < 4 || got.Argv[0] != "sh" || got.Argv[1] != "-c" || strings.Contains(got.Argv[2], "preview.example.com") || strings.Contains(got.Argv[2], "$(x)") {

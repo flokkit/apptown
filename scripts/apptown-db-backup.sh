@@ -2,9 +2,9 @@
 # Dump AppTown's database to a gzipped SQL file and refuse to call it a
 # backup unless it is one. A deploy script can run this on AppTown's host
 # before it restarts AppTown (piped over ssh, so the host runs this
-# checkout's copy); forge-recovery-rehearsal.sh does the same on its source.
+# checkout's copy); apptown-recovery-rehearsal.sh does the same on its source.
 #
-#   forge-db-backup.sh <container> <user> <database> <directory> <label>
+#   apptown-db-backup.sh <container> <user> <database> <directory> <label>
 #
 # Writes <directory>/forge-pre-<label>-<UTC stamp>.sql.gz and prints its path
 # and size. Exits non-zero, leaving no file behind, when pg_dump or gzip fails
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 if [ $# -ne 5 ] || [ -z "$5" ]; then
-	echo "usage: forge-db-backup.sh <container> <user> <database> <directory> <label>" >&2
+	echo "usage: apptown-db-backup.sh <container> <user> <database> <directory> <label>" >&2
 	exit 2
 fi
 container=$1 user=$2 db=$3 dir=$4 label=$5

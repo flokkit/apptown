@@ -29,7 +29,14 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	// predate the labels: a service made before labelling would read as
 	// missing under a label filter. AppTown's own database is asked for
 	// by its name too.
-	filters := [][]string{{"--filter", "name=^forge-env-"}, {"--filter", "name=^forge-svc-"}, {"--filter", "name=^forge-preview-"}, {"--filter", "name=^forge-init-"}}
+	// Under every prefix a host may carry: a deployment made before 1.0
+	// keeps its forge- names.
+	var filters [][]string
+	for _, p := range Prefixes {
+		for _, kind := range []string{"env-", "svc-", "preview-", "init-"} {
+			filters = append(filters, []string{"--filter", "name=^" + string(p) + kind})
+		}
+	}
 	for _, name := range i.Also {
 		filters = append(filters, []string{"--filter", "name=^" + name + "$"})
 	}
@@ -74,10 +81,13 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	// (deploy.TagConfirmsOnly), never offered as an orphan. A failed kind is
 	// not an empty kind: the cache retains the last complete answer with the
 	// error instead of calling present resources missing.
-	for _, list := range []struct{ kind, filter string }{{"volume", ""}, {"network", netPrefix}} {
+	for _, list := range []struct{ kind, filter string }{{"volume", ""}, {"network", "net-"}} {
 		args := []string{list.kind, "ls"}
 		if list.filter != "" {
-			args = append(args, "--filter", "name="+list.filter)
+			// Docker ORs repeated name filters: every prefix a host may carry.
+			for _, p := range Prefixes {
+				args = append(args, "--filter", "name="+string(p)+list.filter)
+			}
 		}
 		args = append(args, "--format", "{{.Name}}\t{{.Label \""+dockerlabel.Owner+"\"}}\t{{.Label \"com.docker.compose.project\"}}")
 		out, err := dk.Run(ctx, args...)
@@ -94,7 +104,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 			if len(f) >= 3 {
 				r.Owner, r.Stack = strings.TrimSpace(f[1]), strings.TrimSpace(f[2])
 			}
-			if list.kind == "volume" && !strings.HasPrefix(name, dataVolumePrefix) && !strings.HasPrefix(name, needVolumePrefix) {
+			if list.kind == "volume" && !IsNamedVolume(name) {
 				r.Tags = []string{deploy.TagConfirmsOnly}
 			}
 			res = append(res, r)

@@ -8,8 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parent / 'forge-recovery-rehearsal.sh'
-LOCK = 'forge-recovery-rehearsal 123 from fixture at 2026-10-14T00:00:00Z'
+SCRIPT = Path(__file__).resolve().parent / 'apptown-recovery-rehearsal.sh'
+LOCK = 'apptown-recovery-rehearsal 123 from fixture at 2026-10-14T00:00:00Z'
 STUB = r'''#!/usr/bin/env python3
 import json, os, subprocess, sys
 from pathlib import Path
@@ -40,7 +40,7 @@ if name in ('cat','rm'):
 if name == 'pgrep': sys.exit(1) # No restored AppTown process in this fixture.
 if name == 'sed':
     if args[0] == '-i':
-        p=Path(args[-1]);p.write_text(''.join(x for x in p.read_text().splitlines(True) if '# forge-recovery-rehearsal' not in x))
+        p=Path(args[-1]);p.write_text(''.join(x for x in p.read_text().splitlines(True) if '# apptown-recovery-rehearsal' not in x))
         sys.exit(0)
     os.execv('/usr/bin/sed',['sed']+args)
 if name == 'nft':
@@ -74,7 +74,7 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
         (root/'remote/etc').mkdir()
         lock=root/'remote/root/.lab-lock'
         if actual is not None:lock.write_text(actual+'\n')
-        hosts=root/'remote/etc/hosts';hosts.write_text('127.0.0.1 localhost\n127.0.0.1 blocked # forge-recovery-rehearsal\n')
+        hosts=root/'remote/etc/hosts';hosts.write_text('127.0.0.1 localhost\n127.0.0.1 blocked # apptown-recovery-rehearsal\n')
         (root/'firewall').write_text('present')
         for kind in ('container','network','volume'):
             (d/('before.'+kind)).write_text('existing-'+kind+'\n')
@@ -105,7 +105,7 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
         for kind in ('container','network','volume'):
             self.assertEqual((root/(kind+'.current')).read_text(),'existing-'+kind+'\ncreated-'+kind+'\n')
             self.assertTrue((root/'remote/opt/forge-restore'/('before.'+kind)).exists())
-        self.assertIn('# forge-recovery-rehearsal',(root/'remote/etc/hosts').read_text())
+        self.assertIn('# apptown-recovery-rehearsal',(root/'remote/etc/hosts').read_text())
 
     def test_success_releases_the_entire_multiword_lock(self):
         result,root,_=self.run_cleanup()
@@ -124,7 +124,7 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
         self.assert_completed(root)
 
     def test_foreign_missing_or_unreadable_lock_refuses_before_cleanup_effects(self):
-        for actual,faults in [('forge-recovery-rehearsal another invocation',{}),(None,{}),(LOCK,{'FAIL_LOCK_READ_AT':'1'})]:
+        for actual,faults in [('apptown-recovery-rehearsal another invocation',{}),(None,{}),(LOCK,{'FAIL_LOCK_READ_AT':'1'})]:
             with self.subTest(actual=actual,faults=faults):
                 result,root,calls=self.run_cleanup(actual=actual,**faults)
                 self.assertNotEqual(result.returncode,0)
@@ -141,7 +141,7 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
                 self.assertNotIn('network cut and the lock stay',result.stderr)
 
     def test_a_changed_owner_at_final_release_keeps_the_foreign_lock(self):
-        foreign='forge-recovery-rehearsal another invocation'
+        foreign='apptown-recovery-rehearsal another invocation'
         result,root,_=self.run_cleanup(REPLACE_LOCK_AT='2',REPLACEMENT_LOCK=foreign)
         self.assertNotEqual(result.returncode,0)
         self.assertEqual((root/'remote/root/.lab-lock').read_text(),foreign+'\n')

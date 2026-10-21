@@ -41,14 +41,14 @@ func standingPostgres(t *testing.T, name string) (stack string, dk docker.Scope,
 	stack = fmt.Sprintf("env-%s%d-main", name, os.Getpid())
 	dk = docker.Scope{Client: docker.CLI{Binary: "docker"}}
 	t.Cleanup(func() {
-		_ = dockertest.Run("rm", "-f", docker.ServiceName(stack, "postgres"))
-		_ = dockertest.Run("volume", "rm", docker.NeedVolumeName(stack, "postgres"))
-		_ = dockertest.Run("network", "rm", docker.NetworkName(stack))
+		_ = dockertest.Run("rm", "-f", docker.Current.Service(stack, "postgres"))
+		_ = dockertest.Run("volume", "rm", docker.Current.NeedVolume(stack, "postgres"))
+		_ = dockertest.Run("network", "rm", docker.Current.Network(stack))
 	})
 	own = docker.Ownership{Record: func(deploy.Owned) error { return nil }, Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}}
 	image := strings.ReplaceAll(stockPostgres(t).Local.Image, "{version}", "16")
 	psql = func(user, password, db, sql string) (string, error) {
-		out, err := dockertest.CombinedOutput("run", "--rm", "--network", docker.NetworkName(stack), "-e", "PGPASSWORD="+password,
+		out, err := dockertest.CombinedOutput("run", "--rm", "--network", docker.Current.Network(stack), "-e", "PGPASSWORD="+password,
 			image, "psql", "-h", "postgres", "-U", user, "-d", db, "-X", "-tA", "-v", "ON_ERROR_STOP=1", "-c", sql)
 		return strings.TrimSpace(string(out)), err
 	}
@@ -59,11 +59,11 @@ func healthy(t *testing.T, stack string) {
 	t.Helper()
 	health := ""
 	if !poll.Until(t.Context(), 90*time.Second, 250*time.Millisecond, func() bool {
-		out, _ := dockertest.Output("inspect", "-f", "{{.State.Health.Status}}", docker.ServiceName(stack, "postgres"))
+		out, _ := dockertest.Output("inspect", "-f", "{{.State.Health.Status}}", docker.Current.Service(stack, "postgres"))
 		health = strings.TrimSpace(string(out))
 		return health == "healthy"
 	}) {
-		logs, _ := dockertest.CombinedOutput("logs", "--tail", "30", docker.ServiceName(stack, "postgres"))
+		logs, _ := dockertest.CombinedOutput("logs", "--tail", "30", docker.Current.Service(stack, "postgres"))
 		t.Fatalf("the Postgres did not mark itself ready: %s\n%s", health, logs)
 	}
 }
@@ -133,11 +133,11 @@ func TestIntegrationAnOldPostgresBecomesAnOrdinaryOwnerOnItsVolume(t *testing.T)
 		}
 	}
 	// The next release finds nothing moved and keeps the server as it is.
-	before, _ := dockertest.Output("inspect", "-f", "{{.Id}}", docker.ServiceName(stack, "postgres"))
+	before, _ := dockertest.Output("inspect", "-f", "{{.Id}}", docker.Current.Service(stack, "postgres"))
 	if _, err := docker.EnsureStandingServices(t.Context(), dk, stack, []deploy.ServiceSpec{current}, "production", own); err != nil {
 		t.Fatal(err)
 	}
-	if after, _ := dockertest.Output("inspect", "-f", "{{.Id}}", docker.ServiceName(stack, "postgres")); string(after) != string(before) {
+	if after, _ := dockertest.Output("inspect", "-f", "{{.Id}}", docker.Current.Service(stack, "postgres")); string(after) != string(before) {
 		t.Fatal("a release with nothing moved remade the converted Postgres")
 	}
 }
@@ -183,7 +183,7 @@ func TestIntegrationANewPostgresGivesTheAppAnOrdinaryOwner(t *testing.T) {
 		}
 	}
 	// sql-guarantee: the server's own superuser making another role's database, as a shared server would hold it.
-	if out, err := dockertest.CombinedOutput("exec", docker.ServiceName(stack, "postgres"), "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1",
+	if out, err := dockertest.CombinedOutput("exec", docker.Current.Service(stack, "postgres"), "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1",
 		"-c", "create role other login password 'other'", "-c", "create database other owner other", "-c", "revoke all on database other from public"); err != nil {
 		t.Fatalf("another role's database: %v %s", err, out)
 	}

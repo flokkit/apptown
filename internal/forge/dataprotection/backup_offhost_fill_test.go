@@ -55,7 +55,7 @@ func TestAMixedDockerSetIsRefusedByAManagedStart(t *testing.T) {
 			plan := []backupPlanItem{needItem(pg, "postgres", "c-pg")}
 			want := "the app's files"
 			if other == "files" {
-				plan = append(plan, backupPlanItem{Kind: "volume", Name: "forge-data-forge-env-ledger-old", File: "data.tar.gz", How: "tar of /data", Copy: CopyFiles,
+				plan = append(plan, backupPlanItem{Kind: "volume", Name: "apptown-data-apptown-env-ledger-old", File: "data.tar.gz", How: "tar of /data", Copy: CopyFiles,
 					Step: docker.Step{Image: "test-helper", Argv: []string{"tar", "cz", "-C", "/src", "."}}})
 			} else {
 				redis, err := w.s.catalog.ByCapability(ctx, "redis")
@@ -110,7 +110,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 	w := newRehearsalWorld(t)
 	ctx := context.Background()
 	set, err := w.s.takeSet(ctx, docker.Scope{Client: copyingDaemon()}, w.project, "ledger", "prod",
-		[]backupPlanItem{{Kind: "volume", Name: "forge-data-forge-env-ledger-prod", File: "data.tar.gz", How: "tar of /data", Copy: CopyLiveFiles, Step: docker.Step{Image: "test-helper", Argv: []string{"tar", "cz", "-C", "/src", "."}}}},
+		[]backupPlanItem{{Kind: "volume", Name: "apptown-data-apptown-env-ledger-prod", File: "data.tar.gz", How: "tar of /data", Copy: CopyLiveFiles, Step: docker.Step{Image: "test-helper", Argv: []string{"tar", "cz", "-C", "/src", "."}}}},
 		"scheduled", "alice")
 	if err != nil || set.Status != BackupOK || set.Store != StoreBackupStore {
 		t.Fatalf("the files-only set: %+v %v", set, err)
@@ -168,7 +168,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 			t.Fatalf("rehearsing set %d: %s %s", chosen, got.State, got.Detail)
 		}
 		place := placeOf(op.ID, "rehearse-1")
-		data := docker.DataVolumeName(place.App)
+		data := docker.Current.DataVolume(place.App)
 		cmds := w.host.Commands()
 		unpack := slices.IndexFunc(cmds, func(c []string) bool {
 			line := strings.Join(c, " ")
@@ -196,7 +196,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 	w.host.mu.Unlock()
 	withdrawn(t, w.run(op))
 	for _, c := range w.host.Commands() {
-		if line := strings.Join(c, " "); strings.Contains(line, docker.DataVolumeName(placeOf(op.ID, "rehearse-1").App)+":/dst") {
+		if line := strings.Join(c, " "); strings.Contains(line, docker.Current.DataVolume(placeOf(op.ID, "rehearse-1").App)+":/dst") {
 			t.Fatalf("the app's files were unpacked after authority was withdrawn: %s", line)
 		}
 	}

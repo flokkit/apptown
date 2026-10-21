@@ -133,7 +133,7 @@ func TestMCPRequiresPersonalToken(t *testing.T) {
 	req.Header.Set("X-AppTown-Actor", "bls")
 	w := httptest.NewRecorder()
 	a.Handler().ServeHTTP(w, req)
-	if w.Code != 401 || !strings.Contains(w.Header().Get("WWW-Authenticate"), `realm="forge-mcp"`) {
+	if w.Code != 401 || !strings.Contains(w.Header().Get("WWW-Authenticate"), `realm="apptown-mcp"`) {
 		t.Fatalf("no token must 401 with a realm: %d %q %s", w.Code, w.Header().Get("WWW-Authenticate"), w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), `"error"`) {

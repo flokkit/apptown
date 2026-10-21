@@ -89,13 +89,13 @@ func TestADeploymentRunsItsProfileAndARebuildRunsWhatItsGenerationApplied(t *tes
 		t.Fatalf("release: %+v %v\n%s", rel, err, strings.Join(w.hosts.commands("lab"), "\n"))
 	}
 	stack := docker.StackID("p", "prod")
-	worker := ranWith(t, w, "lab", docker.ServiceName(stack, "worker"), 0)
+	worker := ranWith(t, w, "lab", docker.Current.Service(stack, "worker"), 0)
 	for _, want := range []string{"--memory 1073741824 --memory-swap 1073741824", "--cpus 0.5", "GREETING=hi"} {
 		if !strings.Contains(worker, want) {
 			t.Errorf("the worker ran without %q under production: %s", want, worker)
 		}
 	}
-	if web := ranWith(t, w, "lab", docker.ContainerName("p", "prod"), 0); !strings.Contains(web, "--memory 536870912") {
+	if web := ranWith(t, w, "lab", docker.Current.Container("p", "prod"), 0); !strings.Contains(web, "--memory 536870912") {
 		t.Errorf("the front door ran without production's 512M: %s", web)
 	}
 	dep, err := w.s.Deployments.ByName(t.Context(), w.project, "prod")
@@ -113,15 +113,15 @@ func TestADeploymentRunsItsProfileAndARebuildRunsWhatItsGenerationApplied(t *tes
 	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "default"); err != nil {
 		t.Fatal(err)
 	}
-	w.removeContainer(t, "lab", docker.ContainerName("p", "prod"))
+	w.removeContainer(t, "lab", docker.Current.Container("p", "prod"))
 	from := len(w.hosts.ran("lab"))
 	if out, err := w.rebuild(t, dep); err != nil || out["skipped"] != nil {
 		t.Fatalf("rebuild: %v %v", out, err)
 	}
-	if web := ranWith(t, w, "lab", docker.ContainerName("p", "prod"), from); !strings.Contains(web, "--memory 536870912") {
+	if web := ranWith(t, w, "lab", docker.Current.Container("p", "prod"), from); !strings.Contains(web, "--memory 536870912") {
 		t.Errorf("the rebuild ran the front door without its generation's 512M: %s", web)
 	}
-	if worker := ranWith(t, w, "lab", docker.ServiceName(stack, "worker"), from); !strings.Contains(worker, "--memory 1073741824") || !strings.Contains(worker, "GREETING=hi") {
+	if worker := ranWith(t, w, "lab", docker.Current.Service(stack, "worker"), from); !strings.Contains(worker, "--memory 1073741824") || !strings.Contains(worker, "GREETING=hi") {
 		t.Errorf("the rebuild ran the worker without its generation's profile: %s", worker)
 	}
 
@@ -130,7 +130,7 @@ func TestADeploymentRunsItsProfileAndARebuildRunsWhatItsGenerationApplied(t *tes
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
 		t.Fatalf("second release: %+v %v", rel, err)
 	}
-	if worker := ranWith(t, w, "lab", docker.ServiceName(stack, "worker"), from); !strings.Contains(worker, "--memory 268435456") || !strings.Contains(worker, "GREETING=hello") {
+	if worker := ranWith(t, w, "lab", docker.Current.Service(stack, "worker"), from); !strings.Contains(worker, "--memory 268435456") || !strings.Contains(worker, "GREETING=hello") {
 		t.Errorf("the release after choosing default ran the worker as %s", worker)
 	}
 }
@@ -191,7 +191,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
-	worker := ranWith(t, w, "lab", docker.ServiceName(docker.StackID("p", "prod"), "worker"), 0)
+	worker := ranWith(t, w, "lab", docker.Current.Service(docker.StackID("p", "prod"), "worker"), 0)
 	if !strings.Contains(worker, "--memory 2147483648") || !strings.Contains(worker, "--cpus 0.5") {
 		t.Errorf("the worker ran without its override over the profile (2G, the profile's cpu): %s", worker)
 	}
@@ -257,7 +257,7 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
-	web, worker := docker.ContainerName("p", "prod"), docker.ServiceName(docker.StackID("p", "prod"), "worker")
+	web, worker := docker.Current.Container("p", "prod"), docker.Current.Service(docker.StackID("p", "prod"), "worker")
 	var mu sync.Mutex
 	inspected := map[string]int{}
 	replaced := "" // a container whose second inspection finds another container
@@ -478,7 +478,7 @@ func TestALandingRunsMainsProfileAndKeepsItsOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 	landAs(t, w, b, idstest.N(801))
-	worker := docker.ServiceName(docker.StackID("p", "main"), "worker")
+	worker := docker.Current.Service(docker.StackID("p", "main"), "worker")
 	if run := ranWith(t, w, "lab", worker, 0); !strings.Contains(run, "--memory 1073741824") || !strings.Contains(run, "GREETING=hi") {
 		t.Errorf("the landing ran the worker without main's production profile: %s", run)
 	}
@@ -495,7 +495,7 @@ func TestALandingRunsMainsProfileAndKeepsItsOverride(t *testing.T) {
 	if applied, err := w.s.SettledApplied(t.Context(), main); err != nil || applied.Profile != "production" || applied.Parts["worker"].Override.MemoryBytes != 3<<30 {
 		t.Errorf("the landing's record: %+v %v", applied, err)
 	}
-	w.removeContainer(t, "lab", docker.ContainerName("p", "main"))
+	w.removeContainer(t, "lab", docker.Current.Container("p", "main"))
 	from = len(w.hosts.ran("lab"))
 	if out, err := w.rebuild(t, main); err != nil || out["skipped"] != nil {
 		t.Fatalf("rebuild: %v %v", out, err)
@@ -731,7 +731,7 @@ func TestMemoryIsObservedOnlyWhileTheRecordedGenerationRuns(t *testing.T) {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
 	dep := mustDeployment(t, w, "prod")
-	web := docker.ContainerName("p", "prod")
+	web := docker.Current.Container("p", "prod")
 	var mu sync.Mutex
 	generation, swapAt, inspections, failRun := strconv.FormatInt(dep.ObservedGeneration, 10), 0, 0, false
 	w.hosts.daemon("lab").SetReply(func(args []string) ([]byte, error, bool) {

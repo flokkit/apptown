@@ -74,7 +74,7 @@ func TestProviderCredentialResolutionUsesObservationContext(t *testing.T) {
 			defer cancel()
 			var observeErr error
 			go func() {
-				_, observeErr = driver.Observe(ctx, deploy.Placement{Generation: 1, Container: "app", Handle: map[string]any{"appId": "app-1"}})
+				_, observeErr = driver.Observe(ctx, deploy.Placement{HostPrefix: "apptown-", Generation: 1, Container: "app", Handle: map[string]any{"appId": "app-1"}})
 				close(stopped)
 			}()
 			awaitCredential(t, entered)

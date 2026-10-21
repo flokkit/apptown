@@ -41,7 +41,7 @@
 #   containers it starts, and from inside a container those are the
 #   container's paths, not the host's.
 #
-#     docker run -d -p 7777:7777 -v forge-data:/var/lib/apptown \
+#     docker run -d -p 7777:7777 -v apptown-data:/var/lib/apptown \
 #       -v /etc/apptown/worker:/etc/apptown/worker:ro --env-file apptownd.env ghcr.io/flokkit/apptown:<version>
 #
 #   with APPTOWN_NO_LOCAL_DOCKER=true in apptownd.env.
@@ -125,7 +125,7 @@ COPY deploy/apptown-agent/ deploy/apptown-agent/
 COPY deploy/apptown-start.sh bin/
 # The checked database dump a one-server compose install runs before an
 # upgrade (Upgrading), where the release archive has it too.
-COPY scripts/forge-db-backup.sh scripts/
+COPY scripts/apptown-db-backup.sh scripts/
 COPY LICENSE NOTICE ./
 COPY --from=notices /out/THIRD_PARTY_NOTICES ./
 # The trial's agent image is ghcr.io/flokkit/apptown-agent of this version,

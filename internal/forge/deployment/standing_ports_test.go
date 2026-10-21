@@ -32,7 +32,7 @@ func TestAReleasedDeploymentKeepsItsPortWhenDockerStartsItAgain(t *testing.T) {
 	if _, err := w.release(t, s, bundle.ID, "staging"); err != nil {
 		t.Fatal(err)
 	}
-	container := docker.ContainerName("game", "staging")
+	container := docker.Current.Container("game", "staging")
 	recorded := func() int {
 		dep, err := s.Deployments.ByName(context.Background(), w.project, "staging")
 		if err != nil || dep.HostPort == 0 {
@@ -82,7 +82,7 @@ func TestAReleaseWhosePortIsTakenGetsAFreshOneNextTime(t *testing.T) {
 	}
 	defer held.Close()
 	taken := held.Addr().(*net.TCPAddr).Port
-	if _, err := s.Deployments.ReserveHostPort(t.Context(), w.project, "staging", docker.ContainerName("game", "staging"), taken); err != nil {
+	if _, err := s.Deployments.ReserveHostPort(t.Context(), w.project, "staging", docker.Current.Container("game", "staging"), taken); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.release(t, s, bundle.ID, "staging"); err == nil || !strings.Contains(err.Error(), "address already in use") {

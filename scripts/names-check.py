@@ -51,6 +51,12 @@ SURFACES = {
     "gate": r"\bGATE_FORGE\b",
     "skill": r"\.claude/skills/forge\b",
     "agent-recipe": r"\bdeploy/forge-agent\b",
+    # What AppTown names on a host or a provider (containers, volumes,
+    # networks, stacks, clusters, buckets, keys, caches): apptown- from 1.0.
+    # A deployment made before keeps its forge- names by its record
+    # (deployments.host_prefix), so the readers that know them are listed
+    # below; the Docker label keys forge.* stay, and are not this surface.
+    "host-name": r"(?<![\w./-])forge-(?:env|svc|net|init|data|need|preview|cache|step|tests|review|scan|conform|dind|task|console|check|maker|db|rehearsal|registry|private|shots|exec|eval|what-if|fleet|cleanbuild)\b",
 }
 
 # Files that are history or this check itself: never counted. The upgrade
@@ -172,6 +178,16 @@ ALLOWED = [
     ("cli-invocation", r"^internal/forge/(doc|store)\.go$", r"^// Package forge ", "the Go package internal/forge, which is kept, names itself"),
     ("cli-invocation", r"^scripts/docs-current_test\.py$", r".", "the docs check's test plants the old product name to show it is refused"),
     ("cli-invocation", r"^web/src/pages/console/Bubbles\.tsx$", r"\[forge check\]", "chats from before the rename keep their [forge check] messages as written"),
+    # Host names (external-names plan, 21 Oct 2026): what a deployment or an
+    # install made before 1.0 is called keeps its forge- names for good;
+    # these read or name them, and tests plant them.
+    ("host-name", r"_test\.(go|py)$|\.test\.tsx?$", r".", "tests plant names a deployment or an install made before 1.0 keeps"),
+    ("host-name", r"^internal/forge/dbboot\.go$", r"before1BuiltinDB = ", "an install made before 1.0 keeps its built-in database's names"),
+    ("host-name", r"^internal/deploy/digitalocean/(inventory|storage)\.go$", r"forge-maker", "a maker key an older release left is still found and deleted"),
+    ("host-name", r"^internal/forge/maintenance/images\.go$", r"forge-conform:", "an older release's conformance images are still swept"),
+    ("host-name", r"^internal/deploy/portainer/portainer\.go$", r"forge-env applied", "the platform's own Portainer environment name, not one AppTown makes"),
+    ("host-name", r"^private/scripts/deploy-ct\.sh$|^scripts/apptown-recovery-rehearsal\.sh$", r"forge-db", "live's built-in database, made before 1.0"),
+    ("host-name", r"^stock/docs/guides/(apptown-backups|upgrading|server-setup)\.md$|^design/operations/README\.md$", r"forge-db", "says an install made before 1.0 keeps its database's name"),
 ]
 
 

@@ -59,7 +59,7 @@ func TestDockerScopesStayIndependent(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer cleanup()
-			if network != docker.NetworkName("owned") {
+			if network != docker.Current.Network("owned") {
 				t.Fatal(network)
 			}
 			if _, err := dk.Run(context.Background(), "run", "--name", "app", "app:1"); err != nil {

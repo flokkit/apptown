@@ -139,12 +139,12 @@ func (dk Scope) runJob(ctx context.Context, s Step) ([]byte, error) {
 		_, _ = dk.Run(context.WithoutCancel(ctx), "rm", "-f", id)
 	}()
 	if s.Stdin != nil {
-		dir, err := os.MkdirTemp("", "forge-job-")
+		dir, err := os.MkdirTemp("", "apptown-job-")
 		if err != nil {
 			return nil, err
 		}
 		defer os.RemoveAll(dir)
-		in := filepath.Join(dir, "forge-copy-in")
+		in := filepath.Join(dir, "apptown-copy-in")
 		f, err := os.Create(in)
 		if err != nil {
 			return nil, err

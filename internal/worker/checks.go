@@ -208,7 +208,7 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 		Network: network, Timeout: timeout, Report: spec.Report, History: history,
 		Files: spec.Files, FilesDir: filepath.Join(dir, "files"), Services: spec.Services,
 		Mounts: s.toolCacheMounts(),
-		Name:   "forge-check-" + id,
+		Name:   "apptown-check-" + id,
 		Labels: []string{dockerlabel.Class + "=check", s.CheckOwnerLabel(), dockerlabel.Deadline + "=" + strconv.FormatInt(deadline.Unix(), 10)},
 	})
 	answer := CheckAnswer{Termination: out.Termination, ExitCode: out.ExitCode, Output: tail(out.Output, maxCheckOutput), Report: out.Report}

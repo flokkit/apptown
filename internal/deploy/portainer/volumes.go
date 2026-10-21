@@ -21,7 +21,7 @@ type StackVolume struct {
 
 // ComposeVolumes are the volumes a compose file declares for stack (not
 // external): <stack>_<key>, or the name the file sets. A need's volume key
-// is forge-need-<slug>-<need>.
+// is <prefix>need-<slug>-<need>.
 func ComposeVolumes(stack, slug, compose string) ([]StackVolume, error) {
 	var file struct {
 		Volumes map[string]*struct {
@@ -41,7 +41,8 @@ func ComposeVolumes(stack, slug, compose string) ([]StackVolume, error) {
 		if v != nil && v.Name != "" {
 			name = v.Name
 		}
-		need, _ := strings.CutPrefix(key, "forge-need-"+slug+"-")
+		// The stack is <prefix><slug>; its need volumes <prefix>need-<slug>-<need>.
+		need, _ := strings.CutPrefix(key, strings.TrimSuffix(stack, slug)+"need-"+slug+"-")
 		if need == key {
 			need = ""
 		}

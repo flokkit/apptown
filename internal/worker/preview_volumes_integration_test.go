@@ -13,7 +13,7 @@ import (
 
 func TestIntegrationRemovingAWorkerPreviewRemovesItsVolumes(t *testing.T) {
 	w := startPreviewWorker(t)
-	volume := docker.DataVolumeName(w.name)
+	volume := docker.Current.DataVolume(w.name)
 	t.Cleanup(func() {
 		_ = w.previews.Remove(context.Background(), w.name)
 		_ = exec.Command("docker", "volume", "rm", "-f", volume).Run()

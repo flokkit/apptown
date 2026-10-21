@@ -28,7 +28,7 @@ func TestAStepsContainersAgeOnTheForgesClock(t *testing.T) {
 	forge := func() time.Time { return made }
 
 	// The step's container, as a recorded task decorates it.
-	step := agentenv.Decorate(execution.Request{Name: "forge-step-00000000-03e7-7000-8000-000000000000-a1"}, made, agentenv.ProjectCache("p"))
+	step := agentenv.Decorate(execution.Request{Name: "apptown-step-00000000-03e7-7000-8000-000000000000-a1"}, made, agentenv.ProjectCache("p"))
 	// The step's private daemon, as the workshop starts it.
 	var mu sync.Mutex
 	var dindRun []string
@@ -53,7 +53,7 @@ func TestAStepsContainersAgeOnTheForgesClock(t *testing.T) {
 	mu.Unlock()
 	rows := []string{
 		strings.Join([]string{step.Name, "step", labelValue(step.Labels, "forge.created"), labelValue(step.Labels, "forge.owner"), "c-step"}, "\t"),
-		strings.Join([]string{"forge-dind-step-00000000-03e7-7000-8000-000000000000", "dind", labelValue(dind, "forge.created"), labelValue(dind, "forge.owner"), "c-dind"}, "\t"),
+		strings.Join([]string{"apptown-dind-step-00000000-03e7-7000-8000-000000000000", "dind", labelValue(dind, "forge.created"), labelValue(dind, "forge.owner"), "c-dind"}, "\t"),
 	}
 	daemon := dockerfake.New()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {

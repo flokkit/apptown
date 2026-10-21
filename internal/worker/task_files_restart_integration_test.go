@@ -36,7 +36,7 @@ func TestIntegrationAWorkerRestartKeepsItsTasksFiles(t *testing.T) {
 	// Whatever the test leaves, whichever worker was serving, goes with it:
 	// only this namespace's containers.
 	t.Cleanup(func() {
-		out, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=forge-task-"+namespace+"-").Output()
+		out, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=apptown-task-"+namespace+"-").Output()
 		for _, id := range strings.Fields(string(out)) {
 			_ = exec.Command("docker", "rm", "-f", id).Run()
 		}

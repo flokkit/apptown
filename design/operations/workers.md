@@ -279,7 +279,7 @@ address).
 The worker keeps one folder, `<state>/tool-cache/mise`, and mounts it
 writable at `/apptown-cache/mise-cache` in every task's, check's and chat's
 container. AppTown's environment points mise's download cache
-(`MISE_CACHE_DIR`) there, as it does at the `forge-cache` volume on its own
+(`MISE_CACHE_DIR`) there, as it does at the `apptown-cache` volume on its own
 host. What it holds is what mise fetches: release listings (kept an hour,
 mise's `fetch_remote_versions_cache`), some tools' archives, and the lock
 files mise takes, so concurrent installs of the same tool wait for one
@@ -921,13 +921,13 @@ A chat on the worker runs under the same rules as a task's private Docker:
   worker starts; it never means "unlimited". Disk is not limited per chat:
   the daemon's images and volumes share the worker's disk.
 - **Caches.** Each chat has its own cache volume
-  (`forge-cache-console-<session>`, labelled `forge.console=<session>`),
+  (`apptown-cache-console-<session>`, labelled `forge.console=<session>`),
   mounted at `/apptown-cache` in its container and its daemon. It is removed
   with the chat's runtime: when the chat ends, when it is rebuilt, and by the
   worker's clean-up at start for a session it has no live record of. The
   chat's container (not its daemon) also mounts the worker's tool cache at
   `/apptown-cache/mise-cache` (see "The tool cache"), the one cache chats on
-  the worker share. Chats on AppTown still share `forge-cache`, as before.
+  the worker share. Chats on AppTown still share `apptown-cache`, as before.
 - **Resolvers and mirror.** The daemon and its builder use the worker's own
   resolvers and search domains (its `/etc/resolv.conf`, loopback entries
   skipped). AppTown sends its Docker Hub mirror (the `docker-hub`
@@ -935,11 +935,11 @@ A chat on the worker runs under the same rules as a task's private Docker:
   and its builder pull through it. No registry credential is sent.
 
 **Upgrading a worker to these rules.** A chat started before the upgrade
-keeps its container: it still mounts the shared `forge-cache` and has no
+keeps its container: it still mounts the shared cache volume and has no
 limits. Drain the worker before upgrading it, as for any upgrade that
 changes what a chat's container is: end the chats on it (or let the people
 using them end them). There is no conversion of a running chat. After the
-last such chat has ended, the old `forge-cache` volume on the worker is
+last such chat has ended, the old shared cache volume on the worker is
 unused and can be removed.
 
 The chat's image is built by the worker when it starts, from its own copy

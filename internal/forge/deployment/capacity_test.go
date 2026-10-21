@@ -50,7 +50,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
-	db := docker.ServiceName(docker.StackID("p", "prod"), "postgres")
+	db := docker.Current.Service(docker.StackID("p", "prod"), "postgres")
 	if run := ranWith(t, w, "lab", db, 0); !strings.Contains(run, "--memory 268435456 --memory-swap 268435456") {
 		t.Fatalf("the database was started without its size: %s", run)
 	}
@@ -111,7 +111,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 	// A rebuild of that generation (its front door gone, as after a host
 	// was wiped of it) runs the database at the size it recorded: nothing
 	// to change, so the database is not touched.
-	if _, err := w.hosts.daemon("lab").Run(t.Context(), "", docker.Command{Args: []string{"rm", docker.ContainerName("p", "prod")}}); err != nil {
+	if _, err := w.hosts.daemon("lab").Run(t.Context(), "", docker.Command{Args: []string{"rm", docker.Current.Container("p", "prod")}}); err != nil {
 		t.Fatal(err)
 	}
 	seen, ranBefore := len(w.hosts.commands("lab")), len(w.hosts.ran("lab"))
@@ -212,14 +212,14 @@ func TestLimitEventsAreRecordedForEveryStandingDeployment(t *testing.T) {
 	// precision. Keep the fixture at that precision so the exact overlap
 	// assertion below tests the window rather than the clock's precision.
 	t0 := time.Now().Add(-10 * time.Minute).UTC().Truncate(time.Microsecond)
-	prodWeb, prodWorker := docker.ContainerName("p", "prod"), docker.ServiceName(docker.StackID("p", "prod"), "worker")
-	stageWeb := docker.ContainerName("p", "stage")
+	prodWeb, prodWorker := docker.Current.Container("p", "prod"), docker.Current.Service(docker.StackID("p", "prod"), "worker")
+	stageWeb := docker.Current.Container("p", "stage")
 	lab := eventLine("oom", stageWeb, t0, 0) + // stage: killed while its release runs
 		eventLine("die", stageWeb, t0.Add(time.Second), 137) + // that kill's exit
 		eventLine("die", prodWorker, t0.Add(2*time.Minute), 1) + // prod's worker exits on its own
 		eventLine("kill", prodWeb, t0.Add(3*time.Minute), 0) + // a release replaces prod's front door
 		eventLine("die", prodWeb, t0.Add(3*time.Minute+time.Second), 143) +
-		eventLine("die", "forge-preview-01a1", t0.Add(4*time.Minute), 1) // a preview: not a deployment's
+		eventLine("die", "apptown-preview-01a1", t0.Add(4*time.Minute), 1) // a preview: not a deployment's
 	// The daemon answers as Docker does: the events at or after --since.
 	var since []string
 	w.hosts.daemon("lab").SetReply(func(args []string) ([]byte, error, bool) {
@@ -330,19 +330,19 @@ func TestLimitEventsAreKeptThirtyDays(t *testing.T) {
 func TestAContainerBelongsToTheLongestStackItsNameBegins(t *testing.T) {
 	t.Parallel()
 	main, eu := idstest.N(1), idstest.N(2)
-	o := containerOwners{exact: map[string]partOf{"forge-env-shop-main": {deployment: main, part: "web"}},
-		services: map[string]ids.ID{docker.ServiceName(docker.StackID("shop", "main"), ""): main, docker.ServiceName(docker.StackID("shop", "main-eu"), ""): eu}}
+	o := containerOwners{exact: map[string]partOf{"apptown-env-shop-main": {deployment: main, part: "web"}},
+		services: map[string]ids.ID{docker.Current.Service(docker.StackID("shop", "main"), ""): main, docker.Current.Service(docker.StackID("shop", "main-eu"), ""): eu}}
 	for name, want := range map[string]partOf{
-		"forge-env-shop-main":                 {deployment: main, part: "web"},
-		"forge-svc-env-shop-main-postgres":    {deployment: main, part: "postgres"},
-		"forge-svc-env-shop-main-eu-postgres": {deployment: eu, part: "postgres"},
-		"forge-svc-env-shop-main-eu-worker-2": {deployment: eu, part: "worker-2"},
+		"apptown-env-shop-main":                 {deployment: main, part: "web"},
+		"apptown-svc-env-shop-main-postgres":    {deployment: main, part: "postgres"},
+		"apptown-svc-env-shop-main-eu-postgres": {deployment: eu, part: "postgres"},
+		"apptown-svc-env-shop-main-eu-worker-2": {deployment: eu, part: "worker-2"},
 	} {
 		if got, ok := o.of(name); !ok || got != want {
 			t.Errorf("%s: %+v %v, want %+v", name, got, ok, want)
 		}
 	}
-	for _, name := range []string{"forge-preview-01a1", "forge-svc-env-shop-main-", "traefik"} {
+	for _, name := range []string{"apptown-preview-01a1", "apptown-svc-env-shop-main-", "traefik"} {
 		if got, ok := o.of(name); ok {
 			t.Errorf("%s was attributed to %+v", name, got)
 		}
@@ -366,15 +366,15 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		case len(args) > 1 && args[0] == "ps" && args[1] == "-q":
 			return []byte("a\nb\nc\nd\n"), nil, true
 		case len(args) > 4 && args[0] == "inspect" && strings.Contains(args[4], "CpuQuota"):
-			return []byte("/forge-env-p-prod\t536870912\t1000000000\t0\t0\t\tenv\t\n" +
-				"/forge-svc-env-p-prod-postgres\t0\t0\t0\t0\t\tenv\t\n" +
+			return []byte("/apptown-env-p-prod\t536870912\t1000000000\t0\t0\t\tenv\t\n" +
+				"/apptown-svc-env-p-prod-postgres\t0\t0\t0\t0\t\tenv\t\n" +
 				"/traefik\t268435456\t0\t50000\t100000\t\t<no value>\t<no value>\n" +
 				"/odd\t0\t0\t0\t0\tlots\t\t\n"), nil, true
 		case len(args) > 0 && args[0] == "stats":
 			if statsFail {
 				return []byte("cannot connect"), fmt.Errorf("exit 1"), true
 			}
-			return []byte("forge-env-p-prod\t100MiB / 512MiB\nforge-svc-env-p-prod-postgres\t30MiB / 8GiB\ntraefik\t20MiB / 256MiB\nodd\t1MiB / 8GiB\n"), nil, true
+			return []byte("apptown-env-p-prod\t100MiB / 512MiB\napptown-svc-env-p-prod-postgres\t30MiB / 8GiB\ntraefik\t20MiB / 256MiB\nodd\t1MiB / 8GiB\n"), nil, true
 		case len(args) > 0 && args[0] == "run" && slices.Contains(args, docker.DiskImage):
 			dfRuns++
 			return []byte("Filesystem 1024-blocks Used Available Capacity Mounted on\nrpool/docker 1000000 950000 50000 95% /d\n"), nil, true
@@ -465,11 +465,11 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 			if inspectFails {
 				return []byte("Error: No such object: a"), fmt.Errorf("exit 1"), true
 			}
-			return []byte("/forge-env-p-prod\t0\t0\t0\t0\t\tenv\t\n"), nil, true
+			return []byte("/apptown-env-p-prod\t0\t0\t0\t0\t\tenv\t\n"), nil, true
 		case len(args) > 0 && args[0] == "stats":
-			out := "forge-env-p-prod\t100MiB / 8GiB\n"
+			out := "apptown-env-p-prod\t100MiB / 8GiB\n"
 			if newcomer {
-				out += "forge-preview-01a1\t50MiB / 8GiB\n"
+				out += "apptown-preview-01a1\t50MiB / 8GiB\n"
 			}
 			return []byte(out), nil, true
 		}
@@ -479,7 +479,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		name              string
 		inspect, newcomer bool
 		why               string
-	}{{"inspection failed", true, false, "whose containers they are cannot be read"}, {"a container appeared", false, true, "forge-preview-01a1 started after the containers were read"}} {
+	}{{"inspection failed", true, false, "whose containers they are cannot be read"}, {"a container appeared", false, true, "apptown-preview-01a1 started after the containers were read"}} {
 		inspectFails, newcomer = c.inspect, c.newcomer
 		w.s.capacity.mu.Lock()
 		w.s.capacity.read = nil
@@ -604,10 +604,10 @@ func TestAFirstReleasesKillIsRecordedBeforeAnythingSettles(t *testing.T) {
 		t.Fatalf("opening the first release: %v %v", created, err)
 	}
 	at := time.Now().Add(-time.Minute).UTC()
-	db := docker.ServiceName(docker.StackID("p", "first"), "postgres")
+	db := docker.Current.Service(docker.StackID("p", "first"), "postgres")
 	w.hosts.daemon("lab2").SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "events" {
-			return []byte(eventLine("oom", docker.ContainerName("p", "first"), at, 0) + eventLine("oom", db, at.Add(time.Second), 0)), nil, true
+			return []byte(eventLine("oom", docker.Current.Container("p", "first"), at, 0) + eventLine("oom", db, at.Add(time.Second), 0)), nil, true
 		}
 		return nil, nil, false
 	})
@@ -635,7 +635,7 @@ func TestAStoppedContainersExitIsNeverRecordedAsItsOwn(t *testing.T) {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
 	stack := docker.StackID("p", "prod")
-	a, bb, cc := docker.ServiceName(stack, "a"), docker.ServiceName(stack, "b"), docker.ServiceName(stack, "c")
+	a, bb, cc := docker.Current.Service(stack, "a"), docker.Current.Service(stack, "b"), docker.Current.Service(stack, "c")
 	t0 := time.Now().Add(-10 * time.Minute).UTC().Truncate(time.Second)
 	lab := eventLine("kill", a, t0, 0) + // A is stopped
 		eventLine("die", a, t0.Add(8*time.Second), 143) + // and exits, slowly
@@ -659,7 +659,7 @@ func TestAStoppedContainersExitIsNeverRecordedAsItsOwn(t *testing.T) {
 	w.s.RecordLimitEvents(t.Context())
 	// C is stopped just before B's exit and exits just after; D is new.
 	lab += eventLine("kill", cc, t0.Add(14*time.Second), 0) + eventLine("die", cc, t0.Add(16*time.Second), 143) +
-		eventLine("die", docker.ServiceName(stack, "d"), t0.Add(20*time.Second), 2)
+		eventLine("die", docker.Current.Service(stack, "d"), t0.Add(20*time.Second), 2)
 	w.s.RecordLimitEvents(t.Context())
 	got, err := w.s.LimitEvents(t.Context(), mustDeployment(t, w, "prod"), t0.Add(-time.Hour))
 	if err != nil || len(got) != 2 || got[0].Part != "b" || got[1].Part != "d" {

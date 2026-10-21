@@ -38,7 +38,11 @@ type BootRequest struct {
 	Log       deploy.Logf
 	Slug      string // the application's slug
 	DataClass string // what a standing deployment holds; "" or "synthetic" lets a moved service be recreated
-	Name      string // the public app container: forge-preview-change-7, forge-env-<slug>-main
+	Name      string // the public app container: apptown-preview-change-7, <prefix>env-<slug>-main
+	// Names is what a standing deployment's host names begin with: its
+	// recorded prefix (deployments.host_prefix), which never changes. A
+	// standing boot without one is refused; previews leave it "" (Current).
+	Names     Prefix
 	StackID   string // owner of its stack (services, init, network): pvsnap-change-7, pv<step>, env-<slug>-<env>
 	Workspace string // the tree to boot: a worktree, a run workspace, the project checkout
 	// HostPort pins a standing deployment's stable port; 0 lets docker pick
@@ -110,6 +114,16 @@ type BootRequest struct {
 	// browser is a static part's browser values, prepared by Boot before any
 	// effect; nil makes StartAppContainer read them itself.
 	browser *string
+}
+
+// names is what the boot's host names begin with: a standing
+// deployment's recorded prefix, else what its own container's name
+// carries (Current for anything made now).
+func (t BootRequest) names() Prefix {
+	if t.Names == "" {
+		return PrefixOf(t.Name)
+	}
+	return t.Names
 }
 
 func (t BootRequest) logf(format string, args ...any) {
@@ -323,6 +337,11 @@ func (e redactedError) Unwrap() error { return e.err }
 // boot is Boot before its failure is redacted.
 func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract) (BootResult, error) {
 	var res BootResult
+	// A standing deployment is found under the names it was made with; a
+	// boot that does not say which would look for its data under others.
+	if t.Persistent && t.Names == "" {
+		return res, &BootError{Phase: PhaseResolve, Err: errors.New("a standing deployment's boot names no host prefix")}
+	}
 	t.logf("Resolving runtime configuration and container limits")
 	// A prepared boot's Docker configuration is its own: its one registry
 	// login, written before any phase builds, pulls or runs, and gone with
@@ -366,7 +385,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseSecrets, Err: err}
 	}
 	res.Stack = rs
-	t.own = Ownership{Record: t.Record, Needs: map[string]string{}, Recorded: t.Owned}
+	t.own = Ownership{Record: t.Record, Needs: map[string]string{}, Recorded: t.Owned, Names: t.names()}
 	for _, n := range rs.Needs {
 		t.own.Needs[n.Name] = n.Data
 	}
@@ -417,7 +436,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 				return res, &BootError{Phase: PhaseNeeds, Err: serr}
 			}
 			t.logf("Waiting for dependency service health checks")
-			if _, err := waitStackHealthy(ctx, t.Docker, rs.Services, t.StackID); err != nil {
+			if _, err := waitStackHealthy(ctx, t.Docker, t.own.names(), rs.Services, t.StackID); err != nil {
 				return res, &BootError{Phase: PhaseNeeds, Err: err}
 			}
 		} else {
@@ -435,7 +454,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		// need made one, and its needs are filled before anything reads
 		// them; only the public part runs (sealed.go).
 		if network == "" {
-			network = NetworkName(t.StackID)
+			network = t.own.names().Network(t.StackID)
 			if err := ensureNetwork(ctx, t.Docker, network, t.own); err != nil {
 				return res, &BootError{Phase: PhaseNeeds, Err: err}
 			}

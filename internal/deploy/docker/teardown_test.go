@@ -63,8 +63,8 @@ func TestFailedServicesStartRemovesAnEarlierAttemptsContainerBeforeTheNetwork(t 
 		switch {
 		case strings.HasPrefix(cmd, "ps -aq --filter label=forge.class=service --filter label=forge.owner=817"):
 			return []byte("left-by-earlier-attempt\n"), nil, true
-		case strings.HasPrefix(cmd, "run ") && strings.Contains(cmd, "--name forge-svc-817-db"):
-			return []byte(`Conflict. The container name "/forge-svc-817-db" is already in use`), errors.New("exit status 125"), true
+		case strings.HasPrefix(cmd, "run ") && strings.Contains(cmd, "--name apptown-svc-817-db"):
+			return []byte(`Conflict. The container name "/apptown-svc-817-db" is already in use`), errors.New("exit status 125"), true
 		}
 		return nil, nil, false
 	})
@@ -77,7 +77,7 @@ func TestFailedServicesStartRemovesAnEarlierAttemptsContainerBeforeTheNetwork(t 
 		switch strings.Join(args, " ") {
 		case "rm -f left-by-earlier-attempt":
 			removedEarlier = i
-		case "network rm forge-net-817":
+		case "network rm apptown-net-817":
 			removedNetwork = i
 		}
 	}

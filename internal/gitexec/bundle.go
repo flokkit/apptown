@@ -39,7 +39,7 @@ func scratch(ctx context.Context, repo, dir string) error {
 // BundleCommit writes to dest a bundle holding commit as refs/heads/<branch>
 // with its full history, so it can be cloned on its own.
 func BundleCommit(ctx context.Context, repo, commit, branch, dest string) error {
-	dir, err := os.MkdirTemp("", "forge-bundle-*")
+	dir, err := os.MkdirTemp("", "apptown-bundle-*")
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func BundleCommits(ctx context.Context, repo string, commits []string, dest stri
 	if len(commits) == 0 {
 		return errors.New("a bundle needs a commit")
 	}
-	dir, err := os.MkdirTemp("", "forge-bundle-*")
+	dir, err := os.MkdirTemp("", "apptown-bundle-*")
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func BundleCommits(ctx context.Context, repo string, commits []string, dest stri
 // object, refuses the whole bundle. Only the bundle's own objects are
 // checked, not the history it builds on.
 func Quarantine(ctx context.Context, repo, bundle, branch, as, base string) (dir, tip string, cleanup func(), err error) {
-	dir, err = os.MkdirTemp("", "forge-quarantine-*")
+	dir, err = os.MkdirTemp("", "apptown-quarantine-*")
 	if err != nil {
 		return "", "", func() {}, err
 	}

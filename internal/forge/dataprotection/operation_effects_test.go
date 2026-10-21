@@ -252,7 +252,7 @@ func TestARehearsalAsksAgainBeforeItStartsTheApp(t *testing.T) {
 	w.host.beforeImport = func() { w.auth.revoke("token:alice") }
 	w.host.mu.Unlock()
 	withdrawn(t, w.run(op))
-	name := fmt.Sprintf("forge-rehearsal-%d", op.ID)
+	name := fmt.Sprintf("apptown-rehearsal-%d", op.ID)
 	for _, c := range w.host.Commands() {
 		if c[0] == "run" && slices.Contains(c, "--name") && c[slices.Index(c, "--name")+1] == name {
 			t.Fatalf("the app was started after authority was withdrawn: %v", c)

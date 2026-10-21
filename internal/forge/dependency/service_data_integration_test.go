@@ -91,16 +91,16 @@ func TestIntegrationAnOldS3StoreTakesTheStartScriptOnItsVolume(t *testing.T) {
 	stack := fmt.Sprintf("env-oldstore%d-main", os.Getpid())
 	dk := docker.Scope{Client: docker.CLI{Binary: "docker"}}
 	t.Cleanup(func() {
-		_ = dockertest.Run("rm", "-f", docker.ServiceName(stack, "s3"))
-		_ = dockertest.Run("volume", "rm", docker.NeedVolumeName(stack, "s3"))
-		_ = dockertest.Run("network", "rm", docker.NetworkName(stack))
+		_ = dockertest.Run("rm", "-f", docker.Current.Service(stack, "s3"))
+		_ = dockertest.Run("volume", "rm", docker.Current.NeedVolume(stack, "s3"))
+		_ = dockertest.Run("network", "rm", docker.Current.Network(stack))
 	})
 	own := docker.Ownership{Record: func(deploy.Owned) error { return nil }, Needs: map[string]string{"s3": "/data"}}
 	if _, err := docker.EnsureStandingServices(t.Context(), dk, stack, []deploy.ServiceSpec{old}, "production", own); err != nil {
 		t.Fatal(err)
 	}
 	s3 := func(args ...string) (string, error) {
-		cmd := append([]string{"run", "--rm", "--network", docker.NetworkName(stack), "curlimages/curl:8.22.0", "-sS", "-f",
+		cmd := append([]string{"run", "--rm", "--network", docker.Current.Network(stack), "curlimages/curl:8.22.0", "-sS", "-f",
 			"--aws-sigv4", "aws:amz:us-east-1:s3", "--user", "local:localsecret"}, args...)
 		out, err := dockertest.CombinedOutput(cmd...)
 		return string(out), err
@@ -119,7 +119,7 @@ func TestIntegrationAnOldS3StoreTakesTheStartScriptOnItsVolume(t *testing.T) {
 	}
 	health := ""
 	if !poll.Until(t.Context(), 60*time.Second, 250*time.Millisecond, func() bool {
-		out, _ := dockertest.Output("inspect", "-f", "{{.State.Health.Status}}", docker.ServiceName(stack, "s3"))
+		out, _ := dockertest.Output("inspect", "-f", "{{.State.Health.Status}}", docker.Current.Service(stack, "s3"))
 		health = strings.TrimSpace(string(out))
 		return health == "healthy"
 	}) {

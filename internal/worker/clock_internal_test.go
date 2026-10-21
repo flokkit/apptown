@@ -72,7 +72,7 @@ func TestThePrivateSweepJudgesExpiryByTheWorkersClock(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			tasks := &stopRecorder{}
 			s := &Server{State: t.TempDir(), Docker: docker, Tasks: tasks, Now: skewed(c.ahead)}
-			if err := s.writeRecord(record{Key: "agent-1", Private: &privateSet{Network: "forge-private-agent-1"}}); err != nil {
+			if err := s.writeRecord(record{Key: "agent-1", Private: &privateSet{Network: "apptown-private-agent-1"}}); err != nil {
 				t.Fatal(err)
 			}
 			s.SweepPrivate(context.Background())
@@ -88,7 +88,7 @@ func TestThePrivateSweepJudgesExpiryByTheWorkersClock(t *testing.T) {
 func TestAnExpiredAdmissionIsRefusedByTheWorkersClock(t *testing.T) {
 	t.Parallel()
 	s := &Server{State: t.TempDir(), Docker: fakeDocker(nil), Tasks: &stopRecorder{}, Now: skewed(2 * time.Hour)}
-	rec := record{Key: "agent-1", Private: &privateSet{Network: "forge-private-agent-1", Expires: time.Now().Add(time.Hour)}}
+	rec := record{Key: "agent-1", Private: &privateSet{Network: "apptown-private-agent-1", Expires: time.Now().Add(time.Hour)}}
 	if err := s.startPrivate(context.Background(), rec); !errors.Is(err, execution.ErrExpired) {
 		t.Fatalf("an admission an hour past on the worker's clock: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestAServicesMinuteIsTheWorkersClocks(t *testing.T) {
 	// A hang guard only: the minute is the worker's clock's.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	if err := s.healthy(ctx, "forge-private-agent-1-svc"); err == nil || !strings.Contains(err.Error(), "within a minute") {
+	if err := s.healthy(ctx, "apptown-private-agent-1-svc"); err == nil || !strings.Contains(err.Error(), "within a minute") {
 		t.Fatalf("a service starting past its minute on the worker's clock: %v", err)
 	}
 }

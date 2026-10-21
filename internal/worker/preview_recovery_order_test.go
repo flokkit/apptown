@@ -18,7 +18,7 @@ func TestOverlappingRecoveryClaimsKeepTheNewestFloor(t *testing.T) {
 			binary, dk := sweepDocker(t)
 			entered, resume := binary.holdFirst("ps")
 			state := t.TempDir()
-			name := "forge-preview-change-981"
+			name := "apptown-preview-change-981"
 			seedPreview(t, state, dk, name)
 			fence := filepath.Join(state, "previews", "fence.json")
 			if err := os.Remove(fence); err != nil {
@@ -83,14 +83,14 @@ func TestOverlappingRecoveryClaimsKeepTheNewestFloor(t *testing.T) {
 			t.Logf("after newer claim confirmed (older claim returned %d): %s", olderCode, after)
 			// This ordinary request is older than the successfully confirmed (3,10)
 			// claim. The same admission check also gates delayed boots of absent names.
-			if code := fencedDelete(t, p, "/forge-preview-run-982", olderSession, "2"); code != http.StatusConflict {
+			if code := fencedDelete(t, p, "/apptown-preview-run-982", olderSession, "2"); code != http.StatusConflict {
 				t.Errorf("older request admitted after newer recovery claim confirmed: %d", code)
 			}
 			hs.Close()
 			restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
 			hs2 := workertest.StartServer(t, ca, restarted)
 			p.URL = hs2.URL
-			if code := fencedDelete(t, p, "/forge-preview-run-983", olderSession, "3"); code != http.StatusConflict {
+			if code := fencedDelete(t, p, "/apptown-preview-run-983", olderSession, "3"); code != http.StatusConflict {
 				t.Errorf("older request admitted after restart too: %d", code)
 			}
 		})

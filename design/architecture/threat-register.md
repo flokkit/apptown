@@ -226,7 +226,7 @@ mounts. Expected denial must not alter the outside canary.
 ### TM-06 — writable cache crosses workload trust boundaries
 
 **Status: partly mitigated.** Each project's steps and
-checks mount a cache volume of their own, `forge-cache-<project>`, and each
+checks mount a cache volume of their own, `apptown-cache-<project>`, and each
 chat has its own ([split install](../../stock/docs/guides/split-install.md),
 "Limits and the metadata service"; `TestAStepsCacheIsItsProjectsAlone`
 in `internal/forge/agentenv`). Remaining: a worker's mise download cache is

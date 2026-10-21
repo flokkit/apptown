@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"flokkit.io/forge/internal/deploy/docker"
 	"fmt"
 
 	"flokkit.io/forge/internal/database"
@@ -28,25 +29,16 @@ type Declarations interface {
 	Declared(project string) (Declared, bool)
 }
 
-// HostNames is the built-in host's naming: what AppTown calls the
-// container, data volume and need services of a deployment.
-type HostNames interface {
-	Container(project, deployment string) string
-	DataVolume(container string) string
-	Service(project, deployment, need string) string
-}
-
 // Inventory is the records' side of what is at a target.
 type Inventory struct {
 	deployments *Deployments
 	needs       NeedStore
 	retained    *Retained
 	declared    Declarations
-	names       HostNames
 }
 
-func NewInventory(db *database.DB, declared Declarations, names HostNames) *Inventory {
-	return &Inventory{deployments: NewDeployments(db), needs: NewNeedStore(db, nil), retained: NewRetained(db), declared: declared, names: names}
+func NewInventory(db *database.DB, declared Declarations) *Inventory {
+	return &Inventory{deployments: NewDeployments(db), needs: NewNeedStore(db, nil), retained: NewRetained(db), declared: declared}
 }
 
 // Recorded is what AppTown's own records say is at a target: the app
@@ -64,19 +56,24 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 		host := deploy.ResourceHost{Project: e.Project, Deployment: e.Name, Generation: e.ObservedGeneration}
 		switch t.Kind {
 		case KindDockerHost:
+			// What it is called on the host is what it was made with.
+			names, err := e.HostNames()
+			if err != nil {
+				return nil, fmt.Errorf("naming %s/%s on its host: %w", e.Project, e.Name, err)
+			}
 			name := e.Container
 			if name == "" {
-				name = inv.names.Container(e.Project, e.Name)
+				name = names.Container(e.Project, e.Name)
 			}
 			out = append(out, deploy.Resource{Kind: "container", Name: name, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 			if d, ok := inv.declared.Declared(e.Project); ok {
 				if d.KeepsData {
-					out = append(out, deploy.Resource{Kind: "volume", Name: inv.names.DataVolume(name), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
+					out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(name), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 				}
 				for _, need := range d.Needs {
 					h := host
 					h.Need = need
-					out = append(out, deploy.Resource{Kind: "container", Name: inv.names.Service(e.Project, e.Name, need), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{h}})
+					out = append(out, deploy.Resource{Kind: "container", Name: names.Service(docker.StackID(e.Project, e.Name), need), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{h}})
 				}
 			}
 			// What the deployment recorded creating is its own: the

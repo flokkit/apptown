@@ -36,7 +36,7 @@ func newDiagnosticsWorld(t *testing.T) *diagnosticsWorld {
 	dep := w.deployment(t, w.s, "main", w.remote)
 	w.land(t, w.s, dep, idstest.N(7))
 	w.main = w.reread(t)
-	w.worker = docker.ServiceName(docker.StackID("game", "main"), "worker")
+	w.worker = docker.Current.Service(docker.StackID("game", "main"), "worker")
 	w.at = time.Now().UTC().Truncate(time.Microsecond)
 	w.s.clock = func() time.Time { w.mu.Lock(); defer w.mu.Unlock(); return w.at }
 	w.s.authority = &requestAuthority{}
@@ -354,15 +354,15 @@ func TestALogIsReadOnlyForTheRunningGenerationsParts(t *testing.T) {
 func TestALimitEventIsAttributedToItsGeneration(t *testing.T) {
 	t.Parallel()
 	dep, settled := idstest.N(1), time.Date(2026, 10, 16, 1, 0, 0, 0, time.UTC)
-	o := containerOwners{exact: map[string]partOf{"forge-env-shop-main": {deployment: dep, part: "web"}},
-		services: map[string]ids.ID{docker.ServiceName(docker.StackID("shop", "main"), ""): dep},
+	o := containerOwners{exact: map[string]partOf{"apptown-env-shop-main": {deployment: dep, part: "web"}},
+		services: map[string]ids.ID{docker.Current.Service(docker.StackID("shop", "main"), ""): dep},
 		settled:  map[ids.ID]settledAs{dep: {label: "01a1", generation: 5, since: settled, until: settled.Add(time.Hour)}}}
-	worker := docker.ServiceName(docker.StackID("shop", "main"), "worker")
+	worker := docker.Current.Service(docker.StackID("shop", "main"), "worker")
 	got := limitEventsOf([]docker.ContainerEvent{
-		{Container: "forge-env-shop-main", Action: "oom", At: settled.Add(-time.Minute), Deployment: "01a1", Generation: "4"},
+		{Container: "apptown-env-shop-main", Action: "oom", At: settled.Add(-time.Minute), Deployment: "01a1", Generation: "4"},
 		{Container: worker, Action: "oom", At: settled.Add(time.Minute)},
 		{Container: worker, Action: "oom", At: settled.Add(-time.Minute)},
-		{Container: "forge-env-shop-main", Action: "oom", At: settled.Add(-time.Minute), Deployment: "other", Generation: "9"},
+		{Container: "apptown-env-shop-main", Action: "oom", At: settled.Add(-time.Minute), Deployment: "other", Generation: "9"},
 		{Container: worker, Action: "oom", At: settled.Add(time.Hour + time.Second)},
 	}, o)
 	want := []any{int64(4), int64(5), nil, nil, nil}

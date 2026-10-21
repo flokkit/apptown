@@ -22,18 +22,18 @@ func TestRemovingEveryPreviewWaitsForABootsLock(t *testing.T) {
 	var removedNew atomic.Bool
 	binary := dockerFunc(func(args []string) ([]byte, error) {
 		switch {
-		case args[0] == "rm" && args[len(args)-1] == "forge-preview-change-1":
+		case args[0] == "rm" && args[len(args)-1] == "apptown-preview-change-1":
 			close(entered)
 			<-release
 		case args[0] == "rm":
 			removedNew.Store(true)
 		case args[0] == "ps" && strings.Contains(strings.Join(args, " "), "forge.class=preview"):
-			return []byte("forge-preview-change-2\n"), nil
+			return []byte("apptown-preview-change-2\n"), nil
 		}
 		return nil, nil
 	})
 	s := &Server{State: state, Previews: binary}
-	if err := os.MkdirAll(filepath.Join(s.previewsRoot(), "forge-preview-change-1"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(s.previewsRoot(), "apptown-preview-change-1"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan struct{})
@@ -50,8 +50,8 @@ func TestRemovingEveryPreviewWaitsForABootsLock(t *testing.T) {
 	case <-done:
 		t.Fatal("the deletion finished without removing the first preview")
 	}
-	unlock := s.previewLock("forge-preview-change-2")
-	if err := os.MkdirAll(filepath.Join(s.previewsRoot(), "forge-preview-change-2", "tree"), 0700); err != nil {
+	unlock := s.previewLock("apptown-preview-change-2")
+	if err := os.MkdirAll(filepath.Join(s.previewsRoot(), "apptown-preview-change-2", "tree"), 0700); err != nil {
 		unlock()
 		t.Fatal(err)
 	}

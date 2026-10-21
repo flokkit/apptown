@@ -321,7 +321,7 @@ func ignoredAtRev(ctx context.Context, hub, rev string, files []ChangedFile) (ma
 	if err != nil {
 		return nil, fmt.Errorf("listing the ignore rules at %s: %w", rev, err)
 	}
-	tree, err := os.MkdirTemp("", "forge-ignore-rules-")
+	tree, err := os.MkdirTemp("", "apptown-ignore-rules-")
 	if err != nil {
 		return nil, err
 	}

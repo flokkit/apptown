@@ -47,7 +47,7 @@ func TestTheWorkerStartsAWorkflowsServicesFromThePreparedValue(t *testing.T) {
 	}
 	prepared := docker.Prepared{Version: docker.PreparedVersion, Contract: c, BrowserEnv: "{}",
 		Services: []deploy.ServiceSpec{{Name: "cache", Image: "forge-test-cache:7", Health: "true"}}}
-	if _, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "forge-preview-run-5", StackID: "pv55", Slug: "app",
+	if _, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "apptown-preview-run-5", StackID: "pv55", Slug: "app",
 		Incarnation: "tree+digest", ProbeSeconds: 1}, prepared, tree); err != nil {
 		t.Fatal(err)
 	}

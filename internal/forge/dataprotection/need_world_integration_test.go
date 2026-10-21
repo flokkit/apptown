@@ -63,11 +63,11 @@ func needWorld(t *testing.T, need string) (*both, ids.ID, map[string]string) {
 	containerOf := map[string]string{}
 	for _, name := range []string{"main", "fresh"} {
 		stack := docker.StackID(slug, name)
-		containerOf[name] = docker.ServiceName(stack, need)
+		containerOf[name] = docker.Current.Service(stack, need)
 		t.Cleanup(func() {
-			_ = dockertest.Run("rm", "-f", docker.ServiceName(stack, need))
-			_ = dockertest.Run("volume", "rm", docker.NeedVolumeName(stack, need))
-			_ = dockertest.Run("network", "rm", docker.NetworkName(stack))
+			_ = dockertest.Run("rm", "-f", docker.Current.Service(stack, need))
+			_ = dockertest.Run("volume", "rm", docker.Current.NeedVolume(stack, need))
+			_ = dockertest.Run("network", "rm", docker.Current.Network(stack))
 		})
 		dep, err := s.Deployments.EnsureStanding(t.Context(), pid, name, target.ID, deployment.Attributes{}.WithDefaults())
 		if err != nil {

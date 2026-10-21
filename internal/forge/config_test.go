@@ -145,14 +145,18 @@ func TestBuiltinDatabaseOwnershipIsInstanceLocal(t *testing.T) {
 			}
 			return f.run(req.Args...)
 		}
-		a := testApp(t, Config{UsingBuiltinDB: enabled, DockerClient: f})
+		dir := t.TempDir()
+		if enabled {
+			dir = builtinDataDir(t) // db.env names the database, as its first start leaves it
+		}
+		a := testApp(t, Config{UsingBuiltinDB: enabled, DockerClient: f, DataDir: dir})
 		a.SeedTargets(t.Context())
 		apps = append(apps, a)
 	}
 	for i, a := range apps {
 		w := httptest.NewRecorder()
 		a.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/infrastructure", nil))
-		if w.Code != 200 || strings.Contains(w.Body.String(), `"name":"forge-db"`) != (i == 0) {
+		if w.Code != 200 || strings.Contains(w.Body.String(), `"name":"apptown-db"`) != (i == 0) {
 			t.Fatalf("App %d database inventory: %d %s", i, w.Code, w.Body.String())
 		}
 		receipt, err := forgeJobKinds(a)["db-backup"].Run(t.Context(), "daily", nil)

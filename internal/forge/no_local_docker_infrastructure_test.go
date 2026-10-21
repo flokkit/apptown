@@ -215,15 +215,15 @@ func TestInTheNoLocalDockerModeALandedProjectIsDeletedAndItsMainTornDown(t *test
 		t.Fatal(err)
 	}
 	// main runs in its container on the host, labelled with its identity.
-	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "forge-env-game-main", 41000); err != nil {
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "apptown-env-game-main", 41000); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "container", ID: "forge-env-game-main", Name: "forge-env-game-main"}); err != nil {
+	if err := a.Deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "container", ID: "apptown-env-game-main", Name: "apptown-env-game-main"}); err != nil {
 		t.Fatal(err)
 	}
-	remote.markStarted("forge-env-game-main")
+	remote.markStarted("apptown-env-game-main")
 	remote.mu.Lock()
-	remote.labels = map[string]map[string]string{"forge-env-game-main": {"forge.environment": fmt.Sprint(env.ID), "forge.generation": "0"}}
+	remote.labels = map[string]map[string]string{"apptown-env-game-main": {"forge.environment": fmt.Sprint(env.ID), "forge.generation": "0"}}
 	remote.mu.Unlock()
 	var unreachable atomic.Bool
 	unreachable.Store(true)
@@ -244,7 +244,7 @@ func TestInTheNoLocalDockerModeALandedProjectIsDeletedAndItsMainTornDown(t *test
 	if st := deleteProject(t, a, "game"); st.State != project.Deleted {
 		t.Fatalf("re-confirmed deletion: %+v", st)
 	}
-	if remote.isStarted("forge-env-game-main") {
+	if remote.isStarted("apptown-env-game-main") {
 		t.Fatal("main still runs on the attached host after its take-down")
 	}
 	if op := purgeProject(t, a, "game"); op.State != operations.Succeeded {
@@ -259,7 +259,7 @@ func TestInTheNoLocalDockerModeALandedProjectIsDeletedAndItsMainTornDown(t *test
 }
 
 // releaseOn records release #1 of game's main on target, settled as
-// running in container forge-env-game-main at port.
+// running in container apptown-env-game-main at port.
 func releaseOn(t *testing.T, a *App, target *deployment.Target, port int) {
 	t.Helper()
 	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", target.ID, (deployment.Attributes{}).WithDefaults())
@@ -278,7 +278,7 @@ func releaseOn(t *testing.T, a *App, target *deployment.Target, port int) {
 	if _, err := outcomes.Complete(context.Background(), deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "forge-env-game-main", port); err != nil {
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "apptown-env-game-main", port); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -292,7 +292,7 @@ func TestInTheNoLocalDockerModeAReleaseOnAnAttachedHostIsServingWhereItsDeployme
 	remote, client := attachedHost(t, "lab")
 	a := infrastructureModeAppWith(t, client)
 	releaseOn(t, a, attachTarget(t, a, "lab", "192.0.2.10"), 40001)
-	remote.markStarted("forge-env-game-main")
+	remote.markStarted("apptown-env-game-main")
 	if err := a.Deployment.ObserveRuntime(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +320,7 @@ func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 	remote, client := attachedHost(t, "lab")
 	a := infrastructureModeAppWith(t, client)
 	releaseOn(t, a, attachTarget(t, a, "lab", "192.0.2.10"), 40001)
-	remote.markStarted("forge-env-game-main")
+	remote.markStarted("apptown-env-game-main")
 	h := a.Handler()
 
 	w := authzCall(h, "boss", "GET", "/api/v1/projects/game/deployments", "")
@@ -406,7 +406,7 @@ func TestAMainOnAnAttachedHostIsObservedAndProbedThere(t *testing.T) {
 				a = authzFixture(t, Config{DockerClient: client})
 			}
 			releaseOn(t, a, attachTarget(t, a, "lab", "localhost"), port)
-			remote.markStarted("forge-env-game-main")
+			remote.markStarted("apptown-env-game-main")
 
 			w := authzCall(a.Handler(), "boss", "GET", "/api/v1/tiers", "")
 			var tiers struct {
@@ -479,7 +479,7 @@ func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
 	t.Parallel()
 	a := infrastructureModeApp(t)
 	releasedPreviewFixture(t, a, idstest.N(1), "game-first") // game's main, on the built-in host
-	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "forge-env-game-main", 40001); err != nil {
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "apptown-env-game-main", 40001); err != nil {
 		t.Fatal(err)
 	}
 	attached, err := a.Deployment.Targets.Put(context.Background(), &deployment.Target{Name: "lab", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetReady})
@@ -568,7 +568,7 @@ func TestInTheNoLocalDockerModeAChangesReleaseOnTheBuiltInHostIsUnavailable(t *t
 		t.Fatal(err)
 	}
 	releasedPreviewFixture(t, a, idstest.N(1), "game-first") // game's main, on the built-in host
-	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "forge-env-game-main", 40001); err != nil {
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "apptown-env-game-main", 40001); err != nil {
 		t.Fatal(err)
 	}
 	w := authzCall(a.Handler(), "boss", "GET", fmt.Sprintf("/api/v1/changes/%d", change.ID), "")

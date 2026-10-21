@@ -50,7 +50,7 @@ func TestAProbesSettleEndsWithTheBootsLifetime(t *testing.T) {
 	}
 	done := make(chan answer, 1)
 	go func() {
-		up, tail := (&Probe{Settle: time.Hour}).Check(life, dk, "forge-preview-1", app.URL, time.Hour, RenderedProbe{Path: "/up"})
+		up, tail := (&Probe{Settle: time.Hour}).Check(life, dk, "apptown-preview-1", app.URL, time.Hour, RenderedProbe{Path: "/up"})
 		done <- answer{up, tail}
 	}()
 	select {

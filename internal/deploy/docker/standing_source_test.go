@@ -41,7 +41,7 @@ func TestStandingDeployHonorsDeclaredSource(t *testing.T) {
 			if build {
 				c.Image, c.Build = "", "."
 			}
-			if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-app-main", Workspace: ws, Persistent: true}, c, "", nil); err != nil {
+			if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-app-main", Workspace: ws, Persistent: true, Names: Current}, c, "", nil); err != nil {
 				t.Fatal(err)
 			}
 			if got := len(sourceCalls(f, "build ")); (got == 1) != build {
@@ -49,9 +49,9 @@ func TestStandingDeployHonorsDeclaredSource(t *testing.T) {
 			}
 			want := "registry.example/app:chosen"
 			if build {
-				want = BuildTag("forge-env-app-main")
+				want = Current.BuildTag("apptown-env-app-main")
 			}
-			runs := sourceCalls(f, "run -d --name forge-env-app-main")
+			runs := sourceCalls(f, "run -d --name apptown-env-app-main")
 			if len(runs) != 1 || !strings.HasSuffix(runs[0], " "+want) {
 				t.Fatalf("wrong source: %v", runs)
 			}

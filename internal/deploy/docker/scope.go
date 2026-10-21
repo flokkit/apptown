@@ -316,15 +316,15 @@ func (dk Scope) RemoveWithVolumes(ctx context.Context, container string) error {
 // deleted project's deployment) with its anonymous volumes and its named
 // data volume: nothing of it carries over to the next one of its name.
 func (dk Scope) RemoveDisposable(ctx context.Context, container string) error {
-	return errors.Join(dk.RemoveWithVolumes(ctx, container), dk.RemoveVolume(ctx, DataVolumeName(container)))
+	return errors.Join(dk.RemoveWithVolumes(ctx, container), dk.RemoveVolume(ctx, PrefixOf(container).DataVolume(container)))
 }
 
 // BuildImages lists the local build images made for one container: its own
-// (BuildTag(container)) and its parts' and release generations'
-// (BuildTag(container)+"-…"). The caller decides which belong to it: the
+// (its BuildTag) and its parts' and release generations' (its BuildTag
+// +"-…"), under the prefix the container's own name carries. The caller decides which belong to it: the
 // "-…" form can also match another owner's longer name.
 func (dk Scope) BuildImages(ctx context.Context, container string) ([]string, error) {
-	tag := BuildTag(container)
+	tag := PrefixOf(container).BuildTag(container)
 	return dk.List(ctx, "image", "ls", "--format", "{{.Repository}}:{{.Tag}}", "--filter", "reference="+tag, "--filter", "reference="+tag+"-*")
 }
 
@@ -406,7 +406,9 @@ func (dk Scope) removeStack(ctx context.Context, stackID string, remove func(con
 			}
 		}
 	}
-	if err := dk.RemoveNetwork(ctx, NetworkName(stackID)); err != nil {
+	// A stack removed here is disposable: made under Current, or swept at
+	// start (ReapPreviewOrphans) when an older release made it.
+	if err := dk.RemoveNetwork(ctx, Current.Network(stackID)); err != nil {
 		failed = append(failed, err)
 	}
 	return errors.Join(failed...)

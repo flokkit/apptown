@@ -104,6 +104,12 @@ var migrations = []migration{
 	{n: 157, note: "a what-if records the other pack versions it moves with its own", stmts: []string{
 		"ALTER TABLE what_if_reviews ADD COLUMN IF NOT EXISTS also_packs JSONB NOT NULL DEFAULT '[]'::jsonb",
 	}},
+	// Every deployment made before 1.0 keeps the names it was made with
+	// (forge-…); one made from now on is named apptown-….
+	{n: 158, note: "each deployment records the prefix its host names begin with", stmts: []string{
+		"ALTER TABLE deployments ADD COLUMN IF NOT EXISTS host_prefix TEXT NOT NULL DEFAULT 'forge-'",
+		"ALTER TABLE deployments ALTER COLUMN host_prefix SET DEFAULT 'apptown-'",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

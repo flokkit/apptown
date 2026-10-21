@@ -49,7 +49,7 @@ func PackStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcon
 // the export. The build is plain `docker build`: the selected daemon's own
 // builder, for its own platform (the site is files).
 func ExportStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcontract.StaticBuild) (site string, done func(), err error) {
-	export, err := os.MkdirTemp("", "forge-static-export-")
+	export, err := os.MkdirTemp("", "apptown-static-export-")
 	if err != nil {
 		return "", func() {}, err
 	}
@@ -131,7 +131,7 @@ func ConfineStaticExport(root, output string) (string, error) {
 // in the shared temporary folder, the builder would list everything other
 // work is writing and removing there, and under load lost the file itself.
 func staticDockerfile(server string, port int) (string, func(), error) {
-	dir, err := os.MkdirTemp("", "forge-static-dockerfile-")
+	dir, err := os.MkdirTemp("", "apptown-static-dockerfile-")
 	if err != nil {
 		return "", func() {}, err
 	}

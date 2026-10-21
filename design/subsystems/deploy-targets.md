@@ -126,8 +126,9 @@ witnessed outcomes):
 ## Docker target inventory
 
 A target's inventory compares recorded resource claims with a complete scoped
-Docker observation: Forge-named containers, application (`forge-data-`) and need
-(`forge-need-`) volumes, Forge networks, and recorded image references. Immutable
+Docker observation: AppTown-named containers, application (`apptown-data-`) and need
+(`apptown-need-`) volumes, AppTown networks (under `forge-` for a deployment made
+before 1.0), and recorded image references. Immutable
 repository/digest references require an exact alias from Docker; local-build tags
 are observed separately and cannot confirm a digest. Unclaimed host images are
 not listed as orphan cleanup candidates. The page adds no image/network removal
@@ -271,7 +272,7 @@ deployment, made by
 the driver's need module (`internal/deploy/digitalocean/storage.go`):
 
 - A release mints a full-access *maker* key named
-  `forge-maker-<slug>-<deployment>` with the account's API token (deleting any
+  `apptown-maker-<slug>-<deployment>` with the account's API token (deleting any
   of that name first), makes the bucket through the S3 API with it, mints the
   deployment's `readwrite` key for that bucket, and deletes the maker key; one
   it could not delete is said in the release record. The bucket and key are

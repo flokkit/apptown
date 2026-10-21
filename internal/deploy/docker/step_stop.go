@@ -8,12 +8,12 @@ import (
 )
 
 // StopStep removes every container a step is running
-// (forge-step-<id>-… for an agent, forge-review-<id>-… for a reviewer).
+// (apptown-step-<id>-… for an agent, apptown-review-<id>-… for a reviewer).
 func (dk Scope) StopStep(ctx context.Context, stepID ids.ID) []string {
 	// A clean-up: it runs though the caller stops.
 	ctx = context.WithoutCancel(ctx)
 	var stopped []string
-	for _, prefix := range []string{fmt.Sprintf("forge-step-%d-", stepID), fmt.Sprintf("forge-review-%d-", stepID)} {
+	for _, prefix := range []string{fmt.Sprintf("apptown-step-%d-", stepID), fmt.Sprintf("apptown-review-%d-", stepID)} {
 		out := dk.Text(ctx, "ps", "--filter", "name="+prefix, "--format", "{{.Names}}")
 		for _, name := range strings.Fields(out) {
 			if strings.HasPrefix(name, prefix) {

@@ -90,7 +90,7 @@ cosign verify-blob --bundle SHA256SUMS.sigstore.json \
 The archive holds `bin/apptownd`, `bin/apptown`,
 `bin/apptown-worker`, `bin/apptown-linux` (the CLI AppTown gives its
 containers), `deploy/apptown-agent` (the agent image's recipe), example
-systemd units in `deploy/systemd` and `scripts/forge-db-backup.sh` (the
+systemd units in `deploy/systemd` and `scripts/apptown-db-backup.sh` (the
 checked backup [upgrading](/docs/guides/upgrading) runs). The unit runs `apptownd` in `/opt/apptown`,
 where it finds `bin/apptown-linux`; without it, chats and steps run without
 the `apptown` CLI (`-console-cli` names another path).
@@ -109,7 +109,8 @@ user in the `docker` group cannot, and its workspaces are never cleaned
 up. Docker Desktop on a Mac gives such files your ownership instead.
 
 The data directory is `./_data` unless `-data` names another. With no
-`-db-url`, AppTown starts its own PostgreSQL container, `forge-db`, with its
+`-db-url`, AppTown starts its own PostgreSQL container, `apptown-db` (`db.env`
+records its name; an install made before 1.0 keeps `forge-db`), with its
 files under `<data directory>/pgdata`. That container belongs to one
 installation: for a second AppTown on the same machine, give it a separate
 PostgreSQL database with `-db-url`; changing only `-data` is refused.

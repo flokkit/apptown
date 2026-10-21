@@ -38,6 +38,7 @@ type Deployment struct {
 	ExpiresAt          sql.NullTime
 	StartFromBackup    ids.ID
 	StartedFromAt      sql.NullTime
+	HostPrefix         string
 }
 
 type DeploymentAttempt struct {

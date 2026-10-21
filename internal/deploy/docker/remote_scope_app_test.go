@@ -40,7 +40,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 	dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
 	c := &appcontract.Part{Build: ".", Port: 8080, DataDir: "/data"}
-	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-waypoint-main", Deployment: "main", Workspace: ws, Persistent: true}, c, "", nil)
+	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Deployment: "main", Workspace: ws, Persistent: true, Names: Current}, c, "", nil)
 	if err != nil || port != 40001 {
 		t.Fatalf("start on the attached host: port=%d err=%v calls=%v", port, err, client.calls)
 	}
@@ -53,12 +53,12 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 	joined := strings.Join(remote, "\n")
 	for _, want := range []string{
-		"ssh://forge-target-droplet build -t forge-preview-build-forge-env-waypoint-main",
-		"traefik.http.routers.forge-waypoint.rule=Host(`waypoint.apps.example.com`)",
-		"traefik.http.services.forge-waypoint.loadbalancer.server.port=8080",
+		"ssh://forge-target-droplet build -t apptown-preview-build-apptown-env-waypoint-main",
+		"traefik.http.routers.apptown-waypoint.rule=Host(`waypoint.apps.example.com`)",
+		"traefik.http.services.apptown-waypoint.loadbalancer.server.port=8080",
 		"traefik.docker.network=traefik",
-		"ssh://forge-target-droplet network connect traefik forge-env-waypoint-main",
-		"ssh://forge-target-droplet port forge-env-waypoint-main 8080",
+		"ssh://forge-target-droplet network connect traefik apptown-env-waypoint-main",
+		"ssh://forge-target-droplet port apptown-env-waypoint-main 8080",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("missing %q in remote commands:\n%s", want, joined)
@@ -75,7 +75,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 		t.Fatalf("no %q in remote commands:\n%s", prefix, joined)
 		return -1
 	}
-	if c, n, s := order("create "), order("network connect traefik"), order("start forge-env-waypoint-main"); !(c < n && n < s) {
+	if c, n, s := order("create "), order("network connect traefik"), order("start apptown-env-waypoint-main"); !(c < n && n < s) {
 		t.Fatalf("create %d, connect %d, start %d: the container must join traefik before it starts:\n%s", c, n, s, joined)
 	}
 	if strings.Contains(joined, "ssh://forge-target-droplet run -d") {
@@ -99,7 +99,7 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost(tc.host, "192.0.2.10", "")
-			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-site-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
+			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-site-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -135,7 +135,7 @@ func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", tc.domain)
-			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-waypoint-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
+			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil); err != nil {
 				t.Fatal(err)
 			}
@@ -175,7 +175,7 @@ func TestAFailedStartKeepsTheEndOfTheDaemonsAnswer(t *testing.T) {
 				return nil, nil
 			}}
 			dk := (Scope{Client: client}).WithHost("ssh://h", "h.example", c.domain)
-			_, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "forge-env-shop-main", Deployment: "main", Workspace: t.TempDir()}, &appcontract.Part{Image: "shop:1", Port: 8080}, "", nil)
+			_, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-shop-main", Deployment: "main", Workspace: t.TempDir()}, &appcontract.Part{Image: "shop:1", Port: 8080}, "", nil)
 			if err == nil || !strings.Contains(err.Error(), "docker "+c.fails+": …(") || !strings.HasSuffix(err.Error(), "Error: port 8080 is already allocated") || len(err.Error()) > startFailureTail+100 {
 				t.Fatalf("start failure (%d bytes): %v", len(fmt.Sprint(err)), err)
 			}
@@ -195,8 +195,8 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 	for _, deployment := range []string{"main", "fresh"} {
 		client := &remoteAppClient{}
 		dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
-		name := ContainerName("bkproof", deployment)
-		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Deployment: deployment, Workspace: t.TempDir(), Persistent: true},
+		name := Current.Container("bkproof", deployment)
+		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Deployment: deployment, Workspace: t.TempDir(), Persistent: true, Names: Current},
 			&appcontract.Part{Image: "example/bkproof:1", Port: 8080}, "", nil); err != nil {
 			t.Fatal(err)
 		}
@@ -206,7 +206,7 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(started["main"], "traefik.http.routers.forge-bkproof.rule=Host(`bkproof.apps.example.com`)") {
+	if !strings.Contains(started["main"], "traefik.http.routers.apptown-bkproof.rule=Host(`bkproof.apps.example.com`)") {
 		t.Fatalf("main is not routed at the project's name:\n%s", started["main"])
 	}
 	if strings.Contains(started["fresh"], "traefik.") {

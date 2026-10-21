@@ -26,7 +26,7 @@ func TestALostFenceAdmitsNothingButAClaim(t *testing.T) {
 	if code := fencedDelete(t, p, "", "2", "1"); code != http.StatusNoContent {
 		t.Fatal(code)
 	}
-	name := "forge-preview-change-901"
+	name := "apptown-preview-change-901"
 	seedPreview(t, state, dk, name)
 	if err := reusePreview(t, p, name); err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestAClaimDoesNotRevisitRemovedHistory(t *testing.T) {
 	// Two removed names: a claim that forgets none, or only one, of them
 	// revisits the other at the next claim.
 	for i := 1; i <= 2; i++ {
-		name := fmt.Sprintf("/forge-preview-run-%d", i)
+		name := fmt.Sprintf("/apptown-preview-run-%d", i)
 		if code := fencedDelete(t, p, name, "1", fmt.Sprint(i)); code != http.StatusNoContent {
 			t.Fatal(code)
 		}
@@ -75,7 +75,7 @@ func TestAClaimDoesNotRevisitRemovedHistory(t *testing.T) {
 		t.Fatalf("empty worker's next claim repeated %d container removals for already removed history", n)
 	}
 	// Compaction must keep refusing requests older than the claim.
-	if code := fencedDelete(t, p, "/forge-preview-run-1", "1", "100"); code != http.StatusConflict {
+	if code := fencedDelete(t, p, "/apptown-preview-run-1", "1", "100"); code != http.StatusConflict {
 		t.Fatal(code)
 	}
 }
@@ -105,7 +105,7 @@ func TestAFenceThatCannotBeWrittenAdmitsNothing(t *testing.T) {
 			if code := fencedDelete(t, p, "", "2", "1"); code != http.StatusNoContent {
 				t.Fatal(code)
 			}
-			name := "forge-preview-change-902"
+			name := "apptown-preview-change-902"
 			seedPreview(t, srv.State, dk, name)
 			tmp := filepath.Join(srv.State, "previews", "fence.json")
 			if err := os.RemoveAll(tmp); err != nil {
@@ -144,7 +144,7 @@ func TestACorruptFenceAdmitsNothing(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
 	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
-	name := "forge-preview-change-903"
+	name := "apptown-preview-change-903"
 	seedPreview(t, srv.State, dk, name)
 	if err := os.WriteFile(filepath.Join(srv.State, "previews", "fence.json"), []byte("{"), 0600); err != nil {
 		t.Fatal(err)

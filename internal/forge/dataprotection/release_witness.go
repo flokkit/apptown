@@ -153,12 +153,16 @@ func (s *Service) readNeeds(ctx context.Context, w *ReleaseWitness, dep *deploym
 		return err
 	}
 	stack := docker.StackID(p.Slug, dep.Name)
+	names, err := dep.HostNames()
+	if err != nil {
+		return err
+	}
 	for _, need := range c.Needs {
 		kind, err := s.catalog.ByCapability(ctx, need)
 		if err != nil || kind == nil || kind.Local.Data == "" {
 			continue
 		}
-		f := needFacts{need: need, container: docker.ServiceName(stack, need), path: kind.Local.Data, measure: kind.Local.Measure}
+		f := needFacts{need: need, container: names.Service(stack, need), path: kind.Local.Data, measure: kind.Local.Measure}
 		there, err := dk.Exists(ctx, "inspect", f.container)
 		if err != nil {
 			return fmt.Errorf("the %s service: %v", need, err)

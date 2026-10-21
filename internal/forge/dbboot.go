@@ -29,19 +29,32 @@ import (
 // because AppTown must reach its database before it can read anything
 // from it. Zero setup stays zero setup; a real Postgres is one flag away.
 //
-//   <dataDir>/db.env        APPTOWN_DB_URL for the container (mode 0600)
+//   <dataDir>/db.env        APPTOWN_DB_URL for the container (mode 0600), and
+//                           the container's and volume's names
+//                           (APPTOWN_DB_CONTAINER, APPTOWN_DB_VOLUME)
 //   <dataDir>/instance-id   this installation's id; the container and the
 //                           volume carry it as a label and are refused
 //                           when it differs
 //   <dataDir>/pgdata        the volume's bind location, on the same
 //                           dataset the data directory lives on
 
+// builtinDBNames are the built-in database's container and volume, as
+// db.env records them: an installation keeps the names it was made with,
+// so its data is always found where it is.
+type builtinDBNames struct{ Container, Volume string }
+
+var (
+	// currentBuiltinDB names a built-in database made now.
+	currentBuiltinDB = builtinDBNames{Container: "apptown-db", Volume: "apptown-data-apptown-db"}
+	// before1BuiltinDB is what one made before 1.0 is called; its db.env
+	// is given these names once, at the first start that reads it.
+	before1BuiltinDB = builtinDBNames{Container: "forge-db", Volume: "forge-data-forge-db"}
+)
+
 const (
-	builtinDBContainer = "forge-db"
-	builtinDBVolume    = "forge-data-forge-db"
-	builtinDBImage     = "postgres:16-alpine"
-	builtinDBPort      = "54321"
-	builtinDBName      = "forge"
+	builtinDBImage = "postgres:16-alpine"
+	builtinDBPort  = "54321"
+	builtinDBName  = "forge"
 )
 
 // EnsureBuiltinDB starts (or finds) the built-in container and returns
@@ -51,7 +64,7 @@ func EnsureBuiltinDB(ctx context.Context, dataDir string) (string, error) {
 	if _, err := exec.LookPath("docker"); err != nil {
 		return "", errors.New("no -db-url and docker is not available: AppTown's database is Postgres; pass -db-url or install docker for the built-in one")
 	}
-	url, password, err := builtinDBCredentials(dataDir)
+	url, password, names, err := builtinDBCredentials(dataDir)
 	if err != nil {
 		return "", err
 	}
@@ -59,25 +72,25 @@ func EnsureBuiltinDB(ctx context.Context, dataDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return ensureBuiltinDB(ctx, docker.Scope{Client: docker.CLI{}}, dataDir, url, password, instance, waitForDB)
+	return ensureBuiltinDB(ctx, docker.Scope{Client: docker.CLI{}}, dataDir, url, password, instance, names, waitForDB)
 }
 
 // ensureBuiltinDB is EnsureBuiltinDB's Docker part, with the daemon and the
 // wait for the database given, so a test can run it against a fake.
-func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, password, instance string, waitForDB func(context.Context, string) error) (string, error) {
-	if out, err := dk.Run(ctx, "inspect", "-f", `{{.State.Running}} {{index .Config.Labels "`+dockerlabel.Instance+`"}}`, builtinDBContainer); err == nil {
+func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, password, instance string, names builtinDBNames, waitForDB func(context.Context, string) error) (string, error) {
+	if out, err := dk.Run(ctx, "inspect", "-f", `{{.State.Running}} {{index .Config.Labels "`+dockerlabel.Instance+`"}}`, names.Container); err == nil {
 		fields := strings.Fields(string(out))
 		if len(fields) == 2 && fields[1] != instance {
-			return "", fmt.Errorf("container %s belongs to another AppTown installation (instance %s, this one is %s); remove it or point -db-url elsewhere", builtinDBContainer, fields[1], instance)
+			return "", fmt.Errorf("container %s belongs to another AppTown installation (instance %s, this one is %s); remove it or point -db-url elsewhere", names.Container, fields[1], instance)
 		}
 		if len(fields) >= 1 && fields[0] == "true" {
 			return url, waitForDB(ctx, url)
 		}
-		if out, err := dk.Run(ctx, "start", builtinDBContainer); err == nil {
+		if out, err := dk.Run(ctx, "start", names.Container); err == nil {
 			return url, waitForDB(ctx, url)
 		} else {
 			log.Printf("built-in database: start failed (%s); recreating the container", strings.TrimSpace(string(out)))
-			dk.Remove(ctx, builtinDBContainer)
+			dk.Remove(ctx, names.Container)
 		}
 	}
 	// The volume binds onto the data directory so it sits on the dataset
@@ -92,7 +105,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 	// pgdata, so using it would run on another AppTown's database (and fail on
 	// its password). apptownd has always labelled the volume, so an unlabelled
 	// one is not this installation's either.
-	if out, err := dk.Run(ctx, "volume", "inspect", "-f", `{{index .Labels "`+dockerlabel.Instance+`"}}`+"\t"+`{{index .Options "device"}}`, builtinDBVolume); err == nil {
+	if out, err := dk.Run(ctx, "volume", "inspect", "-f", `{{index .Labels "`+dockerlabel.Instance+`"}}`+"\t"+`{{index .Options "device"}}`, names.Volume); err == nil {
 		// Split before trimming: an unlabelled volume's line starts with the tab.
 		owner, folder, _ := strings.Cut(string(out), "\t")
 		owner = strings.TrimSpace(owner)
@@ -102,35 +115,35 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 				whose = fmt.Sprintf("belongs to another AppTown installation (instance %s)", owner)
 			}
 			return "", fmt.Errorf("volume %s %s, and this one is %s; it keeps its data in %s. If that installation is gone, remove the volume with `docker volume rm %s` (the folder is left as it is) and start again; otherwise give this AppTown its own database with -db-url",
-				builtinDBVolume, whose, instance, strings.TrimSpace(folder), builtinDBVolume)
+				names.Volume, whose, instance, strings.TrimSpace(folder), names.Volume)
 		}
 	} else {
 		if out, err := dk.Run(ctx, "volume", "create", "--driver", "local",
 			"--opt", "type=none", "--opt", "o=bind", "--opt", "device="+pgdata,
-			"--label", dockerlabel.Class+"=infra", "--label", dockerlabel.Owner+"="+builtinDBContainer, "--label", dockerlabel.Instance+"="+instance,
-			builtinDBVolume); err != nil {
+			"--label", dockerlabel.Class+"=infra", "--label", dockerlabel.Owner+"="+names.Container, "--label", dockerlabel.Instance+"="+instance,
+			names.Volume); err != nil {
 			return "", fmt.Errorf("creating the database volume: %v: %s", err, out)
 		}
 	}
-	args := []string{"-d", "--name", builtinDBContainer, "--restart", "unless-stopped",
+	args := []string{"-d", "--name", names.Container, "--restart", "unless-stopped",
 		"-p", "127.0.0.1:" + builtinDBPort + ":5432",
-		"-v", builtinDBVolume + ":/var/lib/postgresql/data",
+		"-v", names.Volume + ":/var/lib/postgresql/data",
 		"-e", "POSTGRES_PASSWORD=" + password, "-e", "POSTGRES_DB=" + builtinDBName,
 		"-e", "POSTGRES_INITDB_ARGS=--locale=C.UTF-8",
-		"--label", dockerlabel.Class + "=infra", "--label", dockerlabel.Owner + "=" + builtinDBContainer, "--label", dockerlabel.Instance + "=" + instance,
+		"--label", dockerlabel.Class + "=infra", "--label", dockerlabel.Owner + "=" + names.Container, "--label", dockerlabel.Instance + "=" + instance,
 		builtinDBImage,
 		// Evidence for indexes, with the database's parameters —
 		// credentials, private records — kept out of the log: statements over 250ms are logged, their values never.
 		"-c", "log_parameter_max_length=0", "-c", "log_parameter_max_length_on_error=0",
 		"-c", "log_min_duration_statement=250"}
-	if err := dk.EnsureRunning(ctx, builtinDBContainer, args); err != nil {
+	if err := dk.EnsureRunning(ctx, names.Container, args); err != nil {
 		return "", fmt.Errorf("starting the built-in database: %w", err)
 	}
-	log.Printf("built-in database: started %s (%s) with its data under %s", builtinDBContainer, builtinDBImage, pgdata)
+	log.Printf("built-in database: started %s (%s) with its data under %s", names.Container, builtinDBImage, pgdata)
 	return url, waitForDB(ctx, url)
 }
 
-func builtinDBCredentials(dataDir string) (url, password string, err error) {
+func builtinDBCredentials(dataDir string) (url, password string, names builtinDBNames, err error) {
 	path := filepath.Join(dataDir, "db.env")
 	raw, err := os.ReadFile(path)
 	if err == nil {
@@ -145,6 +158,7 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 			}
 		}
 		url, password = values["APPTOWN_DB_URL"], values["APPTOWN_DB_PASSWORD"]
+		names = builtinDBNames{Container: values["APPTOWN_DB_CONTAINER"], Volume: values["APPTOWN_DB_VOLUME"]}
 		renames := map[string]string{}
 		if old, ok := values["FORGE_DB_URL"]; ok && url == "" && old != "" {
 			url, renames["FORGE_DB_URL"] = old, "APPTOWN_DB_URL"
@@ -152,52 +166,99 @@ func builtinDBCredentials(dataDir string) (url, password string, err error) {
 		if old, ok := values["FORGE_DB_PASSWORD"]; ok && password == "" && old != "" {
 			password, renames["FORGE_DB_PASSWORD"] = old, "APPTOWN_DB_PASSWORD"
 		}
-		if url != "" && password != "" && len(renames) > 0 {
-			if err := migrateDBEnv(dataDir, string(raw), renames); err != nil {
-				return "", "", fmt.Errorf("renaming the FORGE_DB_ settings to APPTOWN_DB_ in %s: %w", path, err)
+		// A database made before 1.0 has a db.env without its names: it is
+		// given the names it was made with, once, in the same rewrite.
+		var add []string
+		if names.Container == "" {
+			names.Container = before1BuiltinDB.Container
+			add = append(add, "APPTOWN_DB_CONTAINER="+names.Container)
+		}
+		if names.Volume == "" {
+			names.Volume = before1BuiltinDB.Volume
+			add = append(add, "APPTOWN_DB_VOLUME="+names.Volume)
+		}
+		if url != "" && password != "" && (len(renames) > 0 || len(add) > 0) {
+			if err := migrateDBEnv(dataDir, string(raw), renames, add); err != nil {
+				return "", "", names, fmt.Errorf("bringing %s up to date: %w", path, err)
 			}
-			log.Printf("built-in database: %s now uses the APPTOWN_DB_ names", path)
+			log.Printf("built-in database: %s now uses the APPTOWN_DB_ names and records the container %s and volume %s", path, names.Container, names.Volume)
 		}
 		if url != "" && password != "" {
-			return url, password, nil
+			return url, password, names, nil
 		}
-		return "", "", fmt.Errorf("%s is present but incomplete; it needs APPTOWN_DB_URL and APPTOWN_DB_PASSWORD", path)
+		return "", "", names, fmt.Errorf("%s is present but incomplete; it needs APPTOWN_DB_URL and APPTOWN_DB_PASSWORD", path)
 	}
 	if !errors.Is(err, fs.ErrNotExist) {
 		// Unreadable is not absent: minting would replace the only copy of
 		// an existing database's password.
-		return "", "", fmt.Errorf("reading %s: %w", path, err)
+		return "", "", names, fmt.Errorf("reading %s: %w", path, err)
 	}
+	names = currentBuiltinDB
 	pw := make([]byte, 24)
 	if _, err := rand.Read(pw); err != nil {
-		return "", "", err
+		return "", "", names, err
 	}
 	password = hex.EncodeToString(pw)
 	url = fmt.Sprintf("postgres://postgres:%s@127.0.0.1:%s/%s", password, builtinDBPort, builtinDBName)
 	body := "# AppTown's built-in database.\n" +
 		"# Minted once by apptownd. If this file is lost while the data volume\n" +
 		"# survives, reset the password inside the container (docker exec\n" +
-		"# forge-db psql -U postgres -c \"ALTER USER postgres PASSWORD '...'\")\n" +
+		"# " + names.Container + " psql -U postgres -c \"ALTER USER postgres PASSWORD '...'\")\n" +
 		"# and write it here.\n" +
-		"APPTOWN_DB_URL=" + url + "\nAPPTOWN_DB_PASSWORD=" + password + "\n"
+		"APPTOWN_DB_URL=" + url + "\nAPPTOWN_DB_PASSWORD=" + password + "\n" +
+		"APPTOWN_DB_CONTAINER=" + names.Container + "\nAPPTOWN_DB_VOLUME=" + names.Volume + "\n"
 	if existed, err := durable.Write(dataDir, "db.env", []byte(body), 0o600, true); err != nil || existed {
 		if existed {
 			err = fmt.Errorf("%s appeared while minting; start again to read it", path)
 		}
-		return "", "", err
+		return "", "", names, err
 	}
-	return url, password, nil
+	return url, password, names, nil
+}
+
+// builtinDBFor is an AppTown's built-in database's names; zero when it
+// runs on -db-url.
+func builtinDBFor(usingBuiltin bool, dataDir string) builtinDBNames {
+	if !usingBuiltin {
+		return builtinDBNames{}
+	}
+	n, _ := readBuiltinDBNames(dataDir)
+	return n
+}
+
+// readBuiltinDBNames is what db.env says the built-in database is called;
+// false when there is no built-in database's db.env to read (an AppTown on
+// -db-url), or it names none.
+func readBuiltinDBNames(dataDir string) (builtinDBNames, bool) {
+	raw, err := os.ReadFile(filepath.Join(dataDir, "db.env"))
+	if err != nil {
+		return builtinDBNames{}, false
+	}
+	var n builtinDBNames
+	for _, line := range strings.Split(string(raw), "\n") {
+		k, v, _ := strings.Cut(strings.TrimSpace(line), "=")
+		switch k {
+		case "APPTOWN_DB_CONTAINER":
+			n.Container = v
+		case "APPTOWN_DB_VOLUME":
+			n.Volume = v
+		}
+	}
+	return n, n.Container != "" && n.Volume != ""
 }
 
 // migrateDBEnv rewrites db.env with each old key in renames keyed by its
-// new name and everything else as it was, atomically at 0600.
-func migrateDBEnv(dataDir, raw string, renames map[string]string) error {
-	lines := strings.Split(raw, "\n")
+// new name, the lines in add appended and everything else as it was,
+// atomically at 0600.
+func migrateDBEnv(dataDir, raw string, renames map[string]string, add []string) error {
+	lines := strings.Split(strings.TrimRight(raw, "\n"), "\n")
 	for i, line := range lines {
 		if k, v, ok := strings.Cut(strings.TrimSpace(line), "="); ok && renames[k] != "" {
 			lines[i] = renames[k] + "=" + v
 		}
 	}
+	lines = append(lines, add...)
+	lines = append(lines, "")
 	_, err := durable.Write(dataDir, "db.env", []byte(strings.Join(lines, "\n")), 0o600, false)
 	return err
 }

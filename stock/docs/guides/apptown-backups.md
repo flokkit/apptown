@@ -27,12 +27,13 @@ the database, so an AppTown restored from a dump keeps it; a copy restored
 alongside the original has the same id, so run only one of them.
 
 **Restoring the database.** This replaces the current database. If it is
-still readable, back it up first ([Upgrading](/docs/guides/upgrading), step 2). Stop `apptownd`, then:
+still readable, back it up first ([Upgrading](/docs/guides/upgrading), step 2). Stop `apptownd`, then, with
+`<db>` being the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made before 1.0, which keeps that name:
 
 ```sh
-docker exec forge-db dropdb -U postgres forge
-docker exec forge-db createdb -U postgres forge
-gunzip -c <file> | docker exec -i forge-db psql -v ON_ERROR_STOP=1 -U postgres -d forge
+docker exec <db> dropdb -U postgres forge
+docker exec <db> createdb -U postgres forge
+gunzip -c <file> | docker exec -i <db> psql -v ON_ERROR_STOP=1 -U postgres -d forge
 ```
 
 Start once with `-verify-only` to look before anything runs: it goes
@@ -40,7 +41,7 @@ through the normal startup, which upgrades the database and the data
 directory to this build, then serves reads only, with no recovery, scheduler
 or workers. It is not a dry run of an upgrade. Then restart without it.
 
-**Moving an AppTown to another host.** Stop `apptownd` and `forge-db`, copy the
+**Moving an AppTown to another host.** Stop `apptownd` and its database container, copy the
 whole data directory (with the built-in database, its files in `pgdata`
 come with it), and start `apptownd` on the new host with the same settings,
 first with `-verify-only`.
@@ -56,8 +57,9 @@ So, before stopping `apptownd` on the old host, for each such deployment:
 
 1. **Stop every application part, and keep it stopped.** On the host, a
    deployment's containers are named from its project and deployment:
-   the public part is `forge-env-<project>-<deployment>`, and every other
-   part and every need is `forge-svc-env-<project>-<deployment>-<name>`,
+   the public part is `apptown-env-<project>-<deployment>`, and every other
+   part and every need is `apptown-svc-env-<project>-<deployment>-<name>`
+   (a deployment made before 1.0 keeps `forge-` in place of `apptown-`),
    where `<name>` is the part's name under `app:` or the need's name under
    `needs:` in `.apptown/app.yaml`. `docker stop` the public part and each
    other part (a background worker writes too). Leave the need containers
@@ -97,9 +99,9 @@ you must arrange yourself:
 
 The recovery point is the last snapshot and dump. The procedure, with a
 replacement host that is cut off from the outside world for a rehearsal, is
-`scripts/forge-recovery-rehearsal.sh`; `scripts/forge-restore-check.py` checks the
+`scripts/apptown-recovery-rehearsal.sh`; `scripts/apptown-restore-check.py` checks the
 result through the API with a CLI token made before the backup. Its steps:
-dump the database with `scripts/forge-db-backup.sh`, copy the data directory
+dump the database with `scripts/apptown-db-backup.sh`, copy the data directory
 without `pgdata` and `cache`, install the same `apptownd` build, start once with
 `-verify-only` to make the built-in database, load the dump (the commands under
 "Restoring the database" above), check the key files came across unchanged,

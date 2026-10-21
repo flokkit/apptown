@@ -86,7 +86,6 @@ type Dependencies struct {
 	Configuration ConfigurationDependencies
 	Followups     jobs.Enqueuer // settlement's after-commit work
 	Declared      Declarations  // the app's declaration, for what a target holds
-	Names         HostNames     // the built-in host's naming
 	Applied       func()        // called after a deployment is applied; nil is fine
 	// Operations is the ledger data protection's operations run through,
 	// which a release reads for a take-down holding its deployment; nil:
@@ -153,7 +152,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		copyCheck:          deps.CopyCheck,
 		Reconciliations:    NewReconciliations(db),
 		Needs:              NewNeedStore(db, nil),
-		Inventory:          NewInventory(db, deps.Declared, deps.Names),
+		Inventory:          NewInventory(db, deps.Declared),
 	}
 	s.setClock(deps.Now)
 	return s

@@ -209,7 +209,7 @@ func (w *agentWorkerWorld) wrap(h http.Handler) http.Handler {
 // test's worker made: only those named in its namespace.
 func removeTaskContainers(t *testing.T, namespace string) {
 	t.Cleanup(func() {
-		out, _ := dockertest.Output("ps", "-aq", "--filter", "name=forge-task-"+namespace+"-")
+		out, _ := dockertest.Output("ps", "-aq", "--filter", "name=apptown-task-"+namespace+"-")
 		for _, id := range strings.Fields(string(out)) {
 			_ = dockertest.Run("rm", "-f", id)
 		}
@@ -555,7 +555,7 @@ func TestIntegrationAnInvocationTheWorkerLostIsAnError(t *testing.T) {
 	go func() { defer close(done); w.execute(t, w.a) }()
 	inv := awaitInvocationStarted(t, w)
 	w.waitsUnanswered.Store(true)
-	if out, err := dockertest.CombinedOutput("rm", "-f", "forge-task-"+w.namespace+"-"+inv.Operation); err != nil {
+	if out, err := dockertest.CombinedOutput("rm", "-f", "apptown-task-"+w.namespace+"-"+inv.Operation); err != nil {
 		t.Fatalf("removing the invocation's container: %v %s", err, out)
 	}
 	select {

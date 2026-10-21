@@ -34,7 +34,7 @@ func staticBuildTree(t *testing.T, dockerfile string) string {
 func TestIntegrationAStaticBuildIsPackedOnTheSelectedDaemon(t *testing.T) {
 	t.Setenv("BUILDX_BUILDER", "forge-test-no-such-builder")
 	dk := Scope{Client: CLI{Binary: "docker"}}
-	tag := BuildTag("forge-static-build-test-" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", ""))
+	tag := Current.BuildTag("forge-static-build-test-" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", ""))
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", "-f", tag).Run() })
 	tree := staticBuildTree(t, "FROM scratch AS site\nCOPY page.html /dist/index.html\nFROM scratch\nCOPY page.html /other\n")
 	if err := PackStaticBuild(context.Background(), dk, tree, appcontract.StaticBuild{Context: ".", Target: "site", Output: "dist"}, StaticServerImage, 8080, tag); err != nil {
@@ -84,7 +84,7 @@ func TestIntegrationABuilderAliasDoesNotTakeTheBuildElsewhere(t *testing.T) {
 		}
 	}
 	dk := Scope{Client: CLI{Binary: "docker"}, Config: config}
-	tag := BuildTag("forge-static-alias-test-" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", ""))
+	tag := Current.BuildTag("forge-static-alias-test-" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", ""))
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", "-f", tag).Run() })
 	tree := staticBuildTree(t, "FROM scratch\nCOPY page.html /dist/index.html\n")
 	if err := PackStaticBuild(context.Background(), dk, tree, appcontract.StaticBuild{Context: ".", Output: "dist"}, StaticServerImage, 8080, tag); err != nil {

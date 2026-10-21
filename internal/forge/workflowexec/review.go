@@ -252,7 +252,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 		})
 	}
 	outcome := pi(piharness.ReviewArgs(model, thinking, false, brief.prompt()), timeout,
-		execution.UniqueName(fmt.Sprintf("forge-review-%d", stepID)))
+		execution.UniqueName(fmt.Sprintf("apptown-review-%d", stepID)))
 	attempt.harness(outcome)
 
 	evidence := map[string]any{
@@ -611,7 +611,7 @@ func undecidedFindingsNote(steps []*workflow.Step) string {
 func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, timedOut bool, pi func([]string, time.Duration, string) piResult, evidence map[string]any) (reviewVerdict, string) {
 	if _, statErr := os.Stat(verdictPath); statErr != nil {
 		a.progress.Append(stepID, "⏸ no verdict yet — resuming session to write it")
-		pi(piharness.ReviewArgs(model, "", true, reviewWrapUp), followUps[reviewWrapUpInvocation].allowance, fmt.Sprintf("forge-review-%d-resume", stepID))
+		pi(piharness.ReviewArgs(model, "", true, reviewWrapUp), followUps[reviewWrapUpInvocation].allowance, fmt.Sprintf("apptown-review-%d-resume", stepID))
 		evidence["resumed"] = true
 	}
 	raw, err := os.ReadFile(verdictPath)
@@ -626,7 +626,7 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, t
 		// Exists-but-invalid is the third face of the same failure (a
 		// review.json truncated mid-write). One resume, same wrap-up.
 		a.progress.Append(stepID, "⏸ verdict file invalid — resuming session to rewrite it")
-		pi(piharness.ReviewArgs(model, "", true, reviewFixUp), followUps[reviewFixUpInvocation].allowance, fmt.Sprintf("forge-review-%d-fixup", stepID))
+		pi(piharness.ReviewArgs(model, "", true, reviewFixUp), followUps[reviewFixUpInvocation].allowance, fmt.Sprintf("apptown-review-%d-fixup", stepID))
 		evidence["resumed"] = true
 		if raw2, err2 := os.ReadFile(verdictPath); err2 == nil {
 			if v2, ok2 := parseReviewVerdict(raw2); ok2 {

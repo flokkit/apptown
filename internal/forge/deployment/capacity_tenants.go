@@ -240,7 +240,7 @@ func (c *capacityCache) marker() (string, string, error) {
 	if _, err := rand.Read(b[:]); err != nil {
 		return "", "", err
 	}
-	f, err := os.CreateTemp(c.markDir, "forge-host-mark-*")
+	f, err := os.CreateTemp(c.markDir, "apptown-host-mark-*")
 	if err != nil {
 		return "", "", err
 	}

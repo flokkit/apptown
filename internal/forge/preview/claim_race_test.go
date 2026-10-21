@@ -25,7 +25,7 @@ func (w *reviewClaimRaceWorker) Boot(ctx context.Context, spec worker.PreviewSpe
 	return w.fakePreviewWorker.Boot(ctx, spec, p, tree)
 }
 func (w *reviewClaimRaceWorker) Remove(ctx context.Context, name string) error {
-	if name == "forge-preview-run-00000000-03e7-7000-8000-000000000000" {
+	if name == "apptown-preview-run-00000000-03e7-7000-8000-000000000000" {
 		return worker.ErrClaimRequired
 	}
 	if name != "" {
@@ -59,7 +59,7 @@ func TestARecoveryClaimKeepsALaterBootsRecord(t *testing.T) {
 	}
 	claimDone := make(chan error, 1)
 	go func() {
-		claimDone <- s.RemovePreviewForGood(context.Background(), "forge-preview-run-00000000-03e7-7000-8000-000000000000")
+		claimDone <- s.RemovePreviewForGood(context.Background(), "apptown-preview-run-00000000-03e7-7000-8000-000000000000")
 	}()
 	select {
 	case err := <-bootDone:
@@ -69,7 +69,7 @@ func TestARecoveryClaimKeepsALaterBootsRecord(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("boot did not finish")
 	}
-	name := "forge-preview-change-00000000-0009-7000-8000-000000000000"
+	name := "apptown-preview-change-00000000-0009-7000-8000-000000000000"
 	if _, ok := s.servedRecordOf(name); !ok {
 		t.Fatal("fixture: successful boot not recorded")
 	}

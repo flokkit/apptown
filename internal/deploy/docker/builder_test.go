@@ -67,7 +67,7 @@ func TestABuildNamesTheSelectedDaemonsOwnBuilder(t *testing.T) {
 // image), and one a container uses stays.
 func TestAPreviewBuildCachesFromItsKeptImageAndRemovesTheOneItReplaced(t *testing.T) {
 	t.Parallel()
-	const tag, other = "forge-preview-build-forge-preview-change-7", "forge-preview-build-forge-preview-change-7-worker"
+	const tag, other = "apptown-preview-build-apptown-preview-change-7", "apptown-preview-build-apptown-preview-change-7-worker"
 	// images: tag → ID, as the daemon names them; digests: IDs with a digest.
 	run := func(images map[string]string, digests map[string]bool, after string, used bool) ([]string, map[string]string) {
 		t.Helper()

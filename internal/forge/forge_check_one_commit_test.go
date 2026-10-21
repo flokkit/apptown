@@ -111,7 +111,7 @@ func TestForgeCheckChecksOneCommitWhileTheBranchMoves(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := fmt.Sprint(daemon.Matching("image inspect "))
-	if !moved || out["commit"] != checked || !strings.Contains(calls, "forge-conform:"+checked[:12]) {
+	if !moved || out["commit"] != checked || !strings.Contains(calls, "apptown-conform:"+checked[:12]) {
 		t.Fatalf("identity drift: %v %s", out, calls)
 	}
 }

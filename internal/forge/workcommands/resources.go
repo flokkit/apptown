@@ -24,7 +24,7 @@ type Resources struct {
 
 // Run tears down one run's preview (called on run
 // completion/failure): its app container, the data volume that dies with it
-// (deployed deployments' volumes — forge-data-forge-env-* — are the
+// (deployed deployments' volumes — <prefix>data-<prefix>env-* — are the
 // persistence and are never touched), and the throwaway stack of each of
 // its preview steps. It used to ignore its argument and sweep every preview
 // stack on the box, so finishing one run tore down another run's live

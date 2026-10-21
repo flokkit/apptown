@@ -67,6 +67,7 @@ class NamesCheck(unittest.TestCase):
             "commit-subject": "forge: update dependencies",
             "mount-and-builder": "/forge/in/token",
             "public-field": "forgeFault",
+            "host-name": "docker volume inspect forge-need-env-shop-main-postgres",
         }
         self.assertEqual(set(planted), set(names.SURFACES))
         self.baseline()
@@ -137,12 +138,19 @@ class NamesCheck(unittest.TestCase):
                 code, out = self.run_check()
                 self.assertEqual(code, 1, example + "\n" + out)
 
-    def test_kept_container_names_are_not_debt(self):
+    # From 1.0 what AppTown makes outside itself is named apptown-: a forge-
+    # name written again fails; one a deployment or install made before 1.0
+    # keeps, read where the guard lists its reader, does not.
+    def test_a_host_name_is_apptown_but_an_old_installs_name_is_read(self):
         self.baseline()
-        # Existing kept runtime names, copied from their production owners.
         self.write("internal/console/pi/runtime.go",
                    'func ContainerName(id string) string { return "forge-console-" + id }')
-        self.write("internal/worker/checks.go", 'Name: "forge-check-" + id,')
+        code, out = self.run_check()
+        self.assertEqual(code, 1, out)
+        self.write("internal/console/pi/runtime.go",
+                   'func ContainerName(id string) string { return "apptown-console-" + id }')
+        self.write("internal/forge/dbboot.go",
+                   'before1BuiltinDB = builtinDBNames{Container: "forge-db", Volume: "forge-data-forge-db"}')
         code, out = self.run_check()
         self.assertEqual(code, 0, out)
 

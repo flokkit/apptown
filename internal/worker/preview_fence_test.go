@@ -75,7 +75,7 @@ func TestALateClaimNeverUndoesAConfirmedClaimAndBoot(t *testing.T) {
 			if code := fencedDelete(t, p, "", "2", "2"); code != http.StatusNoContent {
 				t.Fatal(code)
 			}
-			name := "forge-preview-change-61"
+			name := "apptown-preview-change-61"
 			seedPreview(t, srv.State, dk, name)
 			if err := reusePreview(t, p, name); err != nil {
 				t.Fatal(err)
@@ -97,7 +97,7 @@ func TestALateClaimNeverUndoesAConfirmedClaimAndBoot(t *testing.T) {
 			}
 			// The late claim did not lower the fence: a request older than
 			// the confirmed claim is still refused, even for another preview.
-			if code := fencedDelete(t, p, "/forge-preview-run-7", "1", "5"); code != http.StatusConflict {
+			if code := fencedDelete(t, p, "/apptown-preview-run-7", "1", "5"); code != http.StatusConflict {
 				t.Fatalf("a request older than the confirmed claim, after the late claim: %d", code)
 			}
 		})
@@ -116,7 +116,7 @@ func TestAClaimRequiresItsSessionAndNumber(t *testing.T) {
 			hs := workertest.StartServer(t, ca, srv)
 			p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation), Session: "2"}
 			// On a worker never claimed, whose fence is still zero.
-			name := "forge-preview-change-62"
+			name := "apptown-preview-change-62"
 			seedPreview(t, srv.State, dk, name)
 			code := fencedDelete(t, p, "", headers[0], headers[1])
 			if code < 400 || !exists(filepath.Join(dk, "running-"+name)) {
@@ -153,7 +153,7 @@ func TestAWorkerRestartKeepsTheLatestClaim(t *testing.T) {
 	if code := fencedDelete(t, p, "", "2", "1"); code != http.StatusNoContent {
 		t.Fatal(code)
 	}
-	name := "forge-preview-change-63"
+	name := "apptown-preview-change-63"
 	seedPreview(t, state, dk, name)
 	if err := reusePreview(t, p, name); err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestAWorkerRestartKeepsTheLatestClaim(t *testing.T) {
 	restarted.SweepPreviews(context.Background(), true)
 	hs2 := workertest.StartServer(t, ca, restarted)
 	p.URL = hs2.URL
-	code := fencedDelete(t, p, "/forge-preview-run-999", "1", "2")
+	code := fencedDelete(t, p, "/apptown-preview-run-999", "1", "2")
 	if code != http.StatusConflict {
 		t.Fatalf("a request of the earlier session after the worker restarted: %d", code)
 	}
@@ -189,7 +189,7 @@ func TestAWorkerRestartKeepsRequestOrder(t *testing.T) {
 	if code := fencedDelete(t, p, "", "2", "1"); code != http.StatusNoContent {
 		t.Fatal(code)
 	}
-	name := "forge-preview-change-64"
+	name := "apptown-preview-change-64"
 	seedPreview(t, state, dk, name)
 	if err := reusePreview(t, p, name); err != nil {
 		t.Fatal(err)
@@ -252,7 +252,7 @@ func TestAClaimInFlightNeverUndoesItsRetryAndBoot(t *testing.T) {
 		})
 	})
 	p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation), Session: "2"}
-	name := "forge-preview-change-65"
+	name := "apptown-preview-change-65"
 	seedPreview(t, srv.State, dk, name)
 	if err := p.Remove(context.Background(), ""); err == nil {
 		t.Fatal("fixture: lost claim reply succeeded")

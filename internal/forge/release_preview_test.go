@@ -110,7 +110,7 @@ func TestReleasePreviewUsesSelectedTreeAndOriginalImage(t *testing.T) {
 	if failed.Code != 502 || f.isStarted(failedName) {
 		t.Fatalf("failed preview not cleaned: %d %s", failed.Code, failed.Body.String())
 	}
-	if len(f.matching("volume rm "+docker.DataVolumeName(failedName))) < 2 || len(f.matching("network rm "+docker.NetworkName(docker.ReleaseStackID("p", failedCut.Number)))) < 2 {
+	if len(f.matching("volume rm "+docker.Current.DataVolume(failedName))) < 2 || len(f.matching("network rm "+docker.Current.Network(docker.ReleaseStackID("p", failedCut.Number)))) < 2 {
 		t.Fatalf("missing before/after cleanup: %v", f.joined())
 	}
 	if !f.isStarted(docker.PreviewLabelName(docker.ReleasePreviewLabel("p", 1))) {

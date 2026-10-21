@@ -284,7 +284,11 @@ func (s *Service) removeKept(ctx context.Context, changeID ids.ID) error {
 func (s *Service) removeUnlooked(ctx context.Context, looks map[string]time.Time, present map[string]place, logOnly bool) {
 	owners := map[ids.ID]bool{}
 	if dk := s.hosts.Local(); !dk.Absent() {
-		repos, err := dk.List(ctx, "image", "ls", "--format", "{{.Repository}}", "--filter", "reference="+docker.ChangeBuildImages)
+		args := []string{"image", "ls", "--format", "{{.Repository}}"}
+		for _, ref := range docker.ChangeBuildImages() {
+			args = append(args, "--filter", "reference="+ref)
+		}
+		repos, err := dk.List(ctx, args...)
 		if err != nil {
 			log.Printf("previews: listing kept build images: %v", err)
 			return

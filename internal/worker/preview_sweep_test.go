@@ -166,11 +166,11 @@ func TestThePreviewSweepFinishesRemovalsAndInterruptedBoots(t *testing.T) {
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 
-	removed := previewFolder(t, srv.State, "forge-preview-change-00000000-0001-7000-8000-000000000000")
+	removed := previewFolder(t, srv.State, "apptown-preview-change-00000000-0001-7000-8000-000000000000")
 	bootedMark(t, removed)
-	_ = os.WriteFile(filepath.Join(dk, "running-forge-preview-change-00000000-0001-7000-8000-000000000000"), nil, 0o600)
+	_ = os.WriteFile(filepath.Join(dk, "running-apptown-preview-change-00000000-0001-7000-8000-000000000000"), nil, 0o600)
 	_ = os.WriteFile(filepath.Join(dk, "rmfail"), nil, 0o600)
-	if err := previews.Remove(context.Background(), "forge-preview-change-00000000-0001-7000-8000-000000000000"); err == nil {
+	if err := previews.Remove(context.Background(), "apptown-preview-change-00000000-0001-7000-8000-000000000000"); err == nil {
 		t.Fatal("a removal that failed answered success")
 	}
 	srv.SweepPreviews(context.Background(), false)
@@ -179,23 +179,23 @@ func TestThePreviewSweepFinishesRemovalsAndInterruptedBoots(t *testing.T) {
 	}
 	_ = os.Remove(filepath.Join(dk, "rmfail"))
 	srv.SweepPreviews(context.Background(), false)
-	if exists(removed) || exists(filepath.Join(dk, "running-forge-preview-change-00000000-0001-7000-8000-000000000000")) {
+	if exists(removed) || exists(filepath.Join(dk, "running-apptown-preview-change-00000000-0001-7000-8000-000000000000")) {
 		t.Fatal("the sweep did not finish a failed removal")
 	}
 
-	interrupted := previewFolder(t, srv.State, "forge-preview-change-00000000-0002-7000-8000-000000000000")
-	_ = os.WriteFile(filepath.Join(dk, "running-forge-preview-change-00000000-0002-7000-8000-000000000000"), nil, 0o600)
-	running := previewFolder(t, srv.State, "forge-preview-change-00000000-0003-7000-8000-000000000000")
+	interrupted := previewFolder(t, srv.State, "apptown-preview-change-00000000-0002-7000-8000-000000000000")
+	_ = os.WriteFile(filepath.Join(dk, "running-apptown-preview-change-00000000-0002-7000-8000-000000000000"), nil, 0o600)
+	running := previewFolder(t, srv.State, "apptown-preview-change-00000000-0003-7000-8000-000000000000")
 	bootedMark(t, running)
-	_ = os.WriteFile(filepath.Join(dk, "running-forge-preview-change-00000000-0003-7000-8000-000000000000"), nil, 0o600)
-	stopped := previewFolder(t, srv.State, "forge-preview-change-00000000-0005-7000-8000-000000000000")
+	_ = os.WriteFile(filepath.Join(dk, "running-apptown-preview-change-00000000-0003-7000-8000-000000000000"), nil, 0o600)
+	stopped := previewFolder(t, srv.State, "apptown-preview-change-00000000-0005-7000-8000-000000000000")
 	bootedMark(t, stopped)
 	leftConfig := filepath.Join(running, "docker-config-left")
 	if err := os.MkdirAll(leftConfig, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	srv.SweepPreviews(context.Background(), false)
-	if exists(interrupted) || exists(filepath.Join(dk, "running-forge-preview-change-00000000-0002-7000-8000-000000000000")) {
+	if exists(interrupted) || exists(filepath.Join(dk, "running-apptown-preview-change-00000000-0002-7000-8000-000000000000")) {
 		t.Fatal("the minute's sweep kept a preview whose boot never completed")
 	}
 	if !exists(running) || !exists(stopped) || !exists(leftConfig) {
@@ -208,7 +208,7 @@ func TestThePreviewSweepFinishesRemovalsAndInterruptedBoots(t *testing.T) {
 	if !exists(running) || exists(leftConfig) {
 		t.Fatal("starting, the worker removed a running preview, or kept a configuration its stop left")
 	}
-	st, err := previews.State(context.Background(), "forge-preview-change-00000000-0003-7000-8000-000000000000")
+	st, err := previews.State(context.Background(), "apptown-preview-change-00000000-0003-7000-8000-000000000000")
 	if err != nil || !st.Running {
 		t.Fatalf("%+v %v", st, err)
 	}
@@ -223,14 +223,14 @@ func TestAWorkerRefusesAPreparedBootWithoutItsContract(t *testing.T) {
 	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	kept := previewFolder(t, srv.State, "forge-preview-change-00000000-0004-7000-8000-000000000000")
-	_ = os.WriteFile(filepath.Join(dk, "running-forge-preview-change-00000000-0004-7000-8000-000000000000"), nil, 0o600)
-	_, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "forge-preview-change-00000000-0004-7000-8000-000000000000", StackID: "pv4", Slug: "app", Incarnation: "a+b", ProbeSeconds: 10},
+	kept := previewFolder(t, srv.State, "apptown-preview-change-00000000-0004-7000-8000-000000000000")
+	_ = os.WriteFile(filepath.Join(dk, "running-apptown-preview-change-00000000-0004-7000-8000-000000000000"), nil, 0o600)
+	_, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "apptown-preview-change-00000000-0004-7000-8000-000000000000", StackID: "pv4", Slug: "app", Incarnation: "a+b", ProbeSeconds: 10},
 		docker.Prepared{Version: docker.PreparedVersion, BrowserEnv: "{}"}, t.TempDir())
 	if err == nil || !strings.Contains(err.Error(), "contract") {
 		t.Fatalf("a boot without its contract: %v", err)
 	}
-	if !exists(kept) || !exists(filepath.Join(dk, "running-forge-preview-change-00000000-0004-7000-8000-000000000000")) {
+	if !exists(kept) || !exists(filepath.Join(dk, "running-apptown-preview-change-00000000-0004-7000-8000-000000000000")) {
 		t.Fatal("a refused boot touched the running preview")
 	}
 }
@@ -244,10 +244,10 @@ func TestAWorkerListsItsPreviews(t *testing.T) {
 	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	previewFolder(t, srv.State, "forge-preview-change-00000000-0002-7000-8000-000000000000")
-	previewFolder(t, srv.State, "forge-preview-run-00000000-0001-7000-8000-000000000000")
+	previewFolder(t, srv.State, "apptown-preview-change-00000000-0002-7000-8000-000000000000")
+	previewFolder(t, srv.State, "apptown-preview-run-00000000-0001-7000-8000-000000000000")
 	names, err := previews.List(context.Background())
-	if err != nil || strings.Join(names, ",") != "forge-preview-change-00000000-0002-7000-8000-000000000000,forge-preview-run-00000000-0001-7000-8000-000000000000" {
+	if err != nil || strings.Join(names, ",") != "apptown-preview-change-00000000-0002-7000-8000-000000000000,apptown-preview-run-00000000-0001-7000-8000-000000000000" {
 		t.Fatalf("listed %q %v", names, err)
 	}
 
@@ -283,15 +283,15 @@ func TestAnOlderRequestNeverUndoesALaterOne(t *testing.T) {
 		resp.Body.Close()
 		return resp.StatusCode
 	}
-	if code := send("/v1/previews/forge-preview-change-00000000-0001-7000-8000-000000000000", "1", 1_000_000); code != http.StatusNoContent {
+	if code := send("/v1/previews/apptown-preview-change-00000000-0001-7000-8000-000000000000", "1", 1_000_000); code != http.StatusNoContent {
 		t.Fatalf("a removal: %d", code)
 	}
-	if code := send("/v1/previews/forge-preview-change-00000000-0001-7000-8000-000000000000", "1", 7); code != http.StatusConflict {
+	if code := send("/v1/previews/apptown-preview-change-00000000-0001-7000-8000-000000000000", "1", 7); code != http.StatusConflict {
 		t.Fatalf("an older removal after a later one: %d", code)
 	}
 	// The old session's last removal of this preview failed; its preview is
 	// still there, far ahead in numbers.
-	name := "forge-preview-change-00000000-0002-7000-8000-000000000000"
+	name := "apptown-preview-change-00000000-0002-7000-8000-000000000000"
 	left := previewFolder(t, srv.State, name)
 	bootedMark(t, left)
 	_ = os.WriteFile(filepath.Join(dk, "running-"+name), nil, 0o600)
@@ -322,9 +322,9 @@ func TestAChangesPreviewKeepsItsBuildImagesUntilTheForgeRemovesThem(t *testing.T
 	binary.reply = func(args []string) ([]byte, error, bool) {
 		call := strings.Join(args, " ")
 		if len(args) > 1 && args[0] == "image" && args[1] == "ls" {
-			for _, name := range []string{"forge-preview-change-00000000-0001-7000-8000-000000000000", "forge-preview-run-00000000-0002-7000-8000-000000000000"} {
-				if strings.Contains(call, "reference=forge-preview-build-"+name+" ") {
-					return []byte("forge-preview-build-" + name + ":latest\nforge-preview-build-" + name + "-web:latest\n"), nil, true
+			for _, name := range []string{"apptown-preview-change-00000000-0001-7000-8000-000000000000", "apptown-preview-run-00000000-0002-7000-8000-000000000000"} {
+				if strings.Contains(call, "reference=apptown-preview-build-"+name+" ") {
+					return []byte("apptown-preview-build-" + name + ":latest\napptown-preview-build-" + name + "-web:latest\n"), nil, true
 				}
 			}
 		}
@@ -335,21 +335,21 @@ func TestAChangesPreviewKeepsItsBuildImagesUntilTheForgeRemovesThem(t *testing.T
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	removed := func() string { return strings.Join(binary.commands("rmi"), "\n") + "\n" }
-	for _, name := range []string{"forge-preview-change-00000000-0001-7000-8000-000000000000", "forge-preview-run-00000000-0002-7000-8000-000000000000"} {
+	for _, name := range []string{"apptown-preview-change-00000000-0001-7000-8000-000000000000", "apptown-preview-run-00000000-0002-7000-8000-000000000000"} {
 		bootedMark(t, previewFolder(t, srv.State, name))
 		if err := previews.Remove(context.Background(), name); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if calls := removed(); strings.Contains(calls, "change-00000000-0001-7000-8000-000000000000") || !strings.Contains(calls, "rmi forge-preview-build-forge-preview-run-00000000-0002-7000-8000-000000000000:latest\n") ||
-		!strings.Contains(calls, "rmi forge-preview-build-forge-preview-run-00000000-0002-7000-8000-000000000000-web:latest\n") {
+	if calls := removed(); strings.Contains(calls, "change-00000000-0001-7000-8000-000000000000") || !strings.Contains(calls, "rmi apptown-preview-build-apptown-preview-run-00000000-0002-7000-8000-000000000000:latest\n") ||
+		!strings.Contains(calls, "rmi apptown-preview-build-apptown-preview-run-00000000-0002-7000-8000-000000000000-web:latest\n") {
 		t.Fatalf("removing the previews: a change's images must stay and a run's go:\n%s", calls)
 	}
-	if err := previews.RemoveImages(context.Background(), "forge-preview-change-00000000-0001-7000-8000-000000000000"); err != nil {
+	if err := previews.RemoveImages(context.Background(), "apptown-preview-change-00000000-0001-7000-8000-000000000000"); err != nil {
 		t.Fatal(err)
 	}
 	calls := removed()
-	for _, want := range []string{"rmi forge-preview-build-forge-preview-change-00000000-0001-7000-8000-000000000000:latest", "rmi forge-preview-build-forge-preview-change-00000000-0001-7000-8000-000000000000-web:latest"} {
+	for _, want := range []string{"rmi apptown-preview-build-apptown-preview-change-00000000-0001-7000-8000-000000000000:latest", "rmi apptown-preview-build-apptown-preview-change-00000000-0001-7000-8000-000000000000-web:latest"} {
 		if !strings.Contains(calls, want+"\n") {
 			t.Errorf("not removed: %s\n%s", want, calls)
 		}

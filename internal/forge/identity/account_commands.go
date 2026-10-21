@@ -152,7 +152,7 @@ func (s *Service) SaveUser(ctx context.Context, in AccountChange, pr access.Prin
 // OperatorActor is who the ledger names for a host operator's break-glass
 // password reset: someone with AppTown's own settings on its host, not a
 // signed-in account.
-const OperatorActor = "forge-operator (host)"
+const OperatorActor = "apptown-operator (host)"
 
 // ResetPassword is the operator's break-glass for a locked-out account: it
 // gives an existing account a new random password through the same change an

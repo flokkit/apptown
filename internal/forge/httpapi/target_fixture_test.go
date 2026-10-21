@@ -39,16 +39,6 @@ func (targetTestDeclarations) Declared(string) (deployment.Declared, bool) {
 	return deployment.Declared{}, false
 }
 
-type targetTestNames struct{}
-
-func (targetTestNames) Container(project, name string) string {
-	return docker.ContainerName(project, name)
-}
-func (targetTestNames) DataVolume(container string) string { return docker.DataVolumeName(container) }
-func (targetTestNames) Service(project, name, need string) string {
-	return docker.ServiceName(docker.StackID(project, name), need)
-}
-
 func (targetTestConnectors) RetireUnusedConnector(ctx context.Context, tx *database.Tx, provider, target, who string, at time.Time) error {
 	return integration.RetireConnectorIn(ctx, tx, provider, digitalocean.CapCloudAccount, target, who, at)
 }
@@ -121,7 +111,7 @@ func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	w.providers = deployment.NewProviders(context.Background(), w.db, deployment.ProviderRecords{Targets: targets, Deployments: deployments}, w.hosts, environment,
 		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud})
 	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,
-		Projects: w.projects, Declared: targetTestDeclarations{}, Names: targetTestNames{}})
+		Projects: w.projects, Declared: targetTestDeclarations{}})
 	w.targets = NewTargets(w.deployment, w.hosts, w.providers, w.projects, w.identity, w.integrations, w.needs, w.db, nil)
 	w.infra = NewInfrastructure(w.deployment, w.hosts, w.providers, w.projects, w.db, &targetTestInventoryCache{}, nil, false, "", "", deployment.IntranetTargetName, nil)
 }

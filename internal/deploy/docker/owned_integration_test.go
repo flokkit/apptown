@@ -26,11 +26,11 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 	stack := fmt.Sprintf("env-itown%d-main", time.Now().UnixNano()%1_000_000)
 	foreign := "itown-foreign-" + stack
 	cleanup := func() {
-		for _, c := range []string{ServiceName(stack, "store"), ServiceName(stack, "worker")} {
+		for _, c := range []string{Current.Service(stack, "store"), Current.Service(stack, "worker")} {
 			_ = exec.Command("docker", "rm", "-f", "-v", c).Run()
 		}
-		_ = exec.Command("docker", "network", "rm", NetworkName(stack)).Run()
-		_ = exec.Command("docker", "volume", "rm", NeedVolumeName(stack, "store"), foreign).Run()
+		_ = exec.Command("docker", "network", "rm", Current.Network(stack)).Run()
+		_ = exec.Command("docker", "volume", "rm", Current.NeedVolume(stack, "store"), foreign).Run()
 	}
 	cleanup()
 	t.Cleanup(cleanup)
@@ -54,8 +54,8 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []struct{ kind, name string }{
-		{"container", ServiceName(stack, "store")}, {"container", ServiceName(stack, "worker")},
-		{"network", NetworkName(stack)}, {"volume", NeedVolumeName(stack, "store")}, {"image", "alpine:3"},
+		{"container", Current.Service(stack, "store")}, {"container", Current.Service(stack, "worker")},
+		{"network", Current.Network(stack)}, {"volume", Current.NeedVolume(stack, "store")}, {"image", "alpine:3"},
 	} {
 		found := false
 		for _, r := range resources {
@@ -80,26 +80,26 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 	// The need wrote into its named volume.
 	var data []byte
 	if !poll.Until(context.Background(), 20*time.Second, 100*time.Millisecond, func() bool {
-		data, _ = exec.Command("docker", "exec", ServiceName(stack, "store"), "cat", "/data/f").CombinedOutput()
+		data, _ = exec.Command("docker", "exec", Current.Service(stack, "store"), "cat", "/data/f").CombinedOutput()
 		return strings.TrimSpace(string(data)) == "kept"
 	}) {
 		t.Fatalf("the need never wrote its data: %s", data)
 	}
 
 	out := TearDownOwned(context.Background(), dk, owned, "", false)
-	if dk.OK(context.Background(), "inspect", ServiceName(stack, "store")) || dk.OK(context.Background(), "inspect", ServiceName(stack, "worker")) || dk.OK(context.Background(), "network", "inspect", NetworkName(stack)) {
+	if dk.OK(context.Background(), "inspect", Current.Service(stack, "store")) || dk.OK(context.Background(), "inspect", Current.Service(stack, "worker")) || dk.OK(context.Background(), "network", "inspect", Current.Network(stack)) {
 		t.Fatalf("containers or network left after take-down: %+v", out)
 	}
-	if !dk.OK(context.Background(), "volume", "inspect", NeedVolumeName(stack, "store")) || len(out.Left) != 1 || !out.Left[0].Data {
+	if !dk.OK(context.Background(), "volume", "inspect", Current.NeedVolume(stack, "store")) || len(out.Left) != 1 || !out.Left[0].Data {
 		t.Fatalf("the need's data was not kept without a backup: %+v", out)
 	}
-	check, err := exec.Command("docker", "run", "--rm", "-v", NeedVolumeName(stack, "store")+":/data", "alpine:3", "cat", "/data/f").CombinedOutput()
+	check, err := exec.Command("docker", "run", "--rm", "-v", Current.NeedVolume(stack, "store")+":/data", "alpine:3", "cat", "/data/f").CombinedOutput()
 	if err != nil || strings.TrimSpace(string(check)) != "kept" {
 		t.Fatalf("the kept volume lost its data: %v %s", err, check)
 	}
 
 	out = TearDownOwned(context.Background(), dk, owned, "", true)
-	if dk.OK(context.Background(), "volume", "inspect", NeedVolumeName(stack, "store")) || len(out.Left) != 0 {
+	if dk.OK(context.Background(), "volume", "inspect", Current.NeedVolume(stack, "store")) || len(out.Left) != 0 {
 		t.Fatalf("the backed-up volume stayed: %+v", out)
 	}
 	if !dk.OK(context.Background(), "volume", "inspect", foreign) {
@@ -107,7 +107,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 	}
 
 	// A network that existed before the boot is used, never recorded.
-	if out, err := exec.Command("docker", "network", "create", NetworkName(stack)).CombinedOutput(); err != nil {
+	if out, err := exec.Command("docker", "network", "create", Current.Network(stack)).CombinedOutput(); err != nil {
 		t.Fatalf("network: %v %s", err, out)
 	}
 	owned = nil
@@ -118,7 +118,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 		t.Fatalf("a network the boot did not make was recorded: %+v", owned)
 	}
 	TearDownOwned(context.Background(), dk, owned, "", true)
-	if !dk.OK(context.Background(), "network", "inspect", NetworkName(stack)) {
+	if !dk.OK(context.Background(), "network", "inspect", Current.Network(stack)) {
 		t.Fatal("a network AppTown did not make was deleted")
 	}
 }
@@ -158,10 +158,10 @@ func TestIntegrationTakeDownKeepsAContainersUnrecordedAnonymousVolume(t *testing
 func TestIntegrationAStandingContainersLogIsRotated(t *testing.T) {
 	dk := Scope{Client: CLI{Binary: "docker"}}
 	stack := fmt.Sprintf("env-ilogs%d-main", time.Now().UnixNano()%1_000_000)
-	name := ServiceName(stack, "chatty")
+	name := Current.Service(stack, "chatty")
 	cleanup := func() {
 		_ = exec.Command("docker", "rm", "-f", "-v", name).Run()
-		_ = exec.Command("docker", "network", "rm", NetworkName(stack)).Run()
+		_ = exec.Command("docker", "network", "rm", Current.Network(stack)).Run()
 	}
 	cleanup()
 	t.Cleanup(cleanup)

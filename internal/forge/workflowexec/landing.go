@@ -101,7 +101,7 @@ func cleanTreeBuilds(ctx context.Context, staged string, checks CompileCheck, am
 		Files:   amb.Files,
 		Image:   checks.Image,
 		Timeout: 5 * time.Minute,
-		Name:    execution.UniqueName("forge-cleanbuild"),
+		Name:    execution.UniqueName("apptown-cleanbuild"),
 	})
 	if !outcome.Exited0() && ctx.Err() != nil {
 		return "", false, true

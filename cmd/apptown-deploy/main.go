@@ -32,6 +32,7 @@ func main() {
 		name       = flag.String("deployment", "main", "which standing deployment of it")
 		tree       = flag.String("tree", "", "a staged, self-contained checkout to run")
 		id         = flag.String("id", "1", "the placement's name on the host (its labels)")
+		prefix     = flag.String("prefix", string(docker.Current), "what its host names begin with (forge- for a deployment made before 1.0)")
 		generation = flag.Int64("generation", 1, "the generation to run, observe or tear down")
 		port       = flag.Int("port", 0, "pin the published port; 0 lets the host pick")
 		host       = flag.String("host", "", "an attached host's DOCKER_HOST (ssh://...); empty is the local daemon")
@@ -63,8 +64,12 @@ func main() {
 		AfterRelease: func(deploy.Placement) {},
 	}
 	ctx := context.Background()
-	container := docker.ContainerName(*slug, *name)
-	place := deploy.Placement{Label: deploy.HostLabel(*id), Name: *name, HostPort: *port, Container: container, Generation: *generation}
+	names, err := docker.ParsePrefix(*prefix)
+	if err != nil {
+		fail("%v", err)
+	}
+	container := names.Container(*slug, *name)
+	place := deploy.Placement{Label: deploy.HostLabel(*id), Name: *name, HostPort: *port, Container: container, Generation: *generation, HostPrefix: string(names)}
 	logf := func(format string, args ...any) { fmt.Printf(format+"\n", args...) }
 
 	switch {

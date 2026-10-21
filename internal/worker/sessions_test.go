@@ -460,7 +460,7 @@ func TestPrivateDockerCleanupFailuresAreNotSuccess(t *testing.T) {
 						mu.Lock()
 						defer mu.Unlock()
 						call := strings.Join(args, " ")
-						if strings.Contains(call, "forge-console-script-") { // no script runs in this test
+						if strings.Contains(call, "apptown-console-script-") { // no script runs in this test
 							if args[0] == "inspect" {
 								return []byte("Error response from daemon: No such container: x"), errors.New("absent")
 							}
@@ -528,9 +528,9 @@ func TestPrivateDockerCleanupFailuresAreNotSuccess(t *testing.T) {
 				if failing {
 					mu.Lock()
 					fail = map[string]string{
-						"stop":    "stop --time 3 forge-dind-console-" + id,
-						"rebuild": "rm -f -v forge-dind-console-" + id,
-						"remove":  "network rm forge-dind-console-" + id,
+						"stop":    "stop --time 3 apptown-dind-console-" + id,
+						"rebuild": "rm -f -v apptown-dind-console-" + id,
+						"remove":  "network rm apptown-dind-console-" + id,
 					}[operation]
 					mu.Unlock()
 				}

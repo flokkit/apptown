@@ -48,7 +48,7 @@ func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {
 			if scenario == "cancelled" {
 				cancel()
 			}
-			o, err := Resume(ctx, dk, deploy.Placement{ID: idstest.N(4), Label: "4"}, 7, noted)
+			o, err := Resume(ctx, dk, deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(4), Label: "4"}, 7, noted)
 			switch {
 			case scenario == "match":
 				if err != nil || o.Health != "unknown" || o.ImageDigest != "sha256:selected" {

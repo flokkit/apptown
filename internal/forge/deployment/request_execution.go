@@ -213,7 +213,11 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	// keeps a port it was given at every start, and picks a port it chose
 	// again (StablePort).
 	if docked {
-		if dep.HostPort, err = s.Deployments.StablePort(ctx, rel.ProjectID, dep.Name, docker.ContainerName(project.Slug, dep.Name)); err != nil {
+		names, err := dep.HostNames()
+		if err != nil {
+			return fail(err)
+		}
+		if dep.HostPort, err = s.Deployments.StablePort(ctx, rel.ProjectID, dep.Name, names.Container(project.Slug, dep.Name)); err != nil {
 			return fail(fmt.Errorf("reserving the deployment's host port: %w", err))
 		}
 	}

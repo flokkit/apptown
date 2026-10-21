@@ -35,7 +35,7 @@ func WithCacheScope(ctx context.Context, slug string) context.Context {
 }
 
 // CacheVolume is the cache volume for work under ctx: the project's own
-// (forge-cache-<slug>), or "" when ctx names no project, which mounts none.
+// (apptown-cache-<slug>), or "" when ctx names no project, which mounts none.
 func CacheVolume(ctx context.Context) string {
 	if slug, _ := ctx.Value(cacheScopeKey{}).(string); slug != "" {
 		return ProjectCache(slug)
@@ -45,7 +45,7 @@ func CacheVolume(ctx context.Context) string {
 
 // ProjectCache is a project's cache volume. One project's agents and checks
 // write their package caches there; another project's never see it.
-func ProjectCache(slug string) string { return "forge-cache-" + slug }
+func ProjectCache(slug string) string { return "apptown-cache-" + slug }
 
 // Decorate applies the cache volume, labels and host routing to a Docker
 // step request, for a caller that runs it as a recorded task. An empty

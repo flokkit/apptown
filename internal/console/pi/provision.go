@@ -135,14 +135,14 @@ func writesLabel(w console.Workspace) []string {
 // cacheClass labels a session's own cache volume.
 const cacheClass = dockerlabel.Class + "=console-cache"
 
-func cacheName(id string) string { return "forge-cache-console-" + id }
+func cacheName(id string) string { return "apptown-cache-console-" + id }
 
 // cacheVolume is the volume a session's container and daemon mount at
-// /apptown-cache: forge-cache, shared, or with CachePerSession the session's
+// /apptown-cache: apptown-cache, shared, or with CachePerSession the session's
 // own, made labelled with the session if it is not there.
 func (r *Runtime) cacheVolume(id string) (string, error) {
 	if !r.cfg.CachePerSession {
-		return "forge-cache", nil
+		return "apptown-cache", nil
 	}
 	name := cacheName(id)
 	if _, err := r.docker("volume", "create", "--label", cacheClass, "--label", dockerlabel.Console+"="+id, name); err != nil {

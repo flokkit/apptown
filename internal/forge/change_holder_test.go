@@ -480,7 +480,7 @@ func TestACheckoutDoesNotRemoveAWorkerThatTookTheChangeSince(t *testing.T) {
 			if code == 201 {
 				// The fake console starts no container: model the runtime with
 				// the label console/pi gives it.
-				d.survive(ExecRequest{Name: "forge-console-" + id, Labels: []string{docker.WritesLabel + "=" + w.folder}})
+				d.survive(ExecRequest{Name: "apptown-console-" + id, Labels: []string{docker.WritesLabel + "=" + w.folder}})
 			}
 			chat <- opened{id, code}
 		}()
@@ -495,8 +495,8 @@ func TestACheckoutDoesNotRemoveAWorkerThatTookTheChangeSince(t *testing.T) {
 	holder := w.holder(t)
 	switch {
 	case c.code == 201:
-		if !d.has("forge-console-"+c.id) || holder != scm.ChatHolder(c.id) || checkoutErr == nil {
-			t.Fatalf("the chat opened, yet holder=%s runtime kept=%v checkout=%v", holder, d.has("forge-console-"+c.id), checkoutErr)
+		if !d.has("apptown-console-"+c.id) || holder != scm.ChatHolder(c.id) || checkoutErr == nil {
+			t.Fatalf("the chat opened, yet holder=%s runtime kept=%v checkout=%v", holder, d.has("apptown-console-"+c.id), checkoutErr)
 		}
 	default:
 		if checkoutErr != nil || !strings.HasPrefix(holder, "ticket:") {
@@ -513,7 +513,7 @@ func TestAStuckChatOnAFreeChangeKeepsItAndStartupGoesOn(t *testing.T) {
 	w := newHolderWorld(t)
 	id := w.legacyChat(t)
 	d := newSurvivingContainers()
-	runtime := "forge-console-" + id
+	runtime := "apptown-console-" + id
 	d.survive(ExecRequest{Name: runtime, Labels: []string{docker.WritesLabel + "=" + w.folder}})
 	w.a.docker = docker.Scope{Client: d}
 	rebuildRoutes(w.a)
@@ -552,7 +552,7 @@ func TestALandingsAgentGateDoesNotRemoveTheHoldingChat(t *testing.T) {
 	gittest.Run(t, w.folder, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "chat work")
 	d := newSurvivingContainers()
 	d.allowRemoval()
-	name := "forge-console-" + id
+	name := "apptown-console-" + id
 	d.survive(ExecRequest{Name: name, Labels: []string{docker.WritesLabel + "=" + w.folder}})
 	w.a.docker = docker.Scope{Client: d}
 	defineWorkflows(t, w.a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "review", Uses: "agent/review"}}}}}})
@@ -671,7 +671,7 @@ func TestAChatLostAtRestartStillKeepsItsChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon := newSurvivingContainers()
-	daemon.live["forge-console-"+id] = []string{docker.WritesLabel + "=" + w.folder}
+	daemon.live["apptown-console-"+id] = []string{docker.WritesLabel + "=" + w.folder}
 	w.a.docker = docker.Scope{Client: daemon}
 	rebuildRoutes(w.a)
 	// Unreadable metadata after a restart; the runtime is still there.

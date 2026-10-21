@@ -97,21 +97,21 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	}
 	// A data volume the deployment recorded making is its own, by whatever
 	// name: the infrastructure page never removes it by hand.
-	if err := w.deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "volume", ID: "forge-need-env-ri-main-postgres", Data: true, Need: "postgres"}); err != nil {
+	if err := w.deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "volume", ID: "apptown-need-env-ri-main-postgres", Data: true, Need: "postgres"}); err != nil {
 		t.Fatal(err)
 	}
 	call := func(body string) (int, map[string]any) {
 		return targetCall(t, w.infra.RemoveInfrastructure, "POST", "/api/v1/infrastructure/"+targetTestBuiltin+"/remove", body, map[string]string{"target": targetTestBuiltin})
 	}
-	if code, out := call(`{"kind":"container","name":"forge-env-ri-main","confirm":"forge-env-ri-main"}`); code != 409 || !strings.Contains(out["error"].(string), "ri/main") {
+	if code, out := call(`{"kind":"container","name":"apptown-env-ri-main","confirm":"apptown-env-ri-main"}`); code != 409 || !strings.Contains(out["error"].(string), "ri/main") {
 		t.Fatalf("recorded container: %d %v", code, out)
 	}
-	if code, out := call(`{"kind":"volume","name":"forge-need-env-ri-main-postgres","confirm":"forge-need-env-ri-main-postgres"}`); code != 409 || !strings.Contains(out["error"].(string), "ri/main") {
+	if code, out := call(`{"kind":"volume","name":"apptown-need-env-ri-main-postgres","confirm":"apptown-need-env-ri-main-postgres"}`); code != 409 || !strings.Contains(out["error"].(string), "ri/main") {
 		t.Fatalf("a recorded data volume: %d %v", code, out)
 	}
 	// Display normalization must not strip immutable IDs from the claims
 	// used by this consequential door.
-	if err := w.deployment.Deployments.OwnerOf(env).Created(t.Context(), deploy.Owned{Kind: "container", ID: "immutable-incarnation", Name: "forge-env-ri-main"}); err != nil {
+	if err := w.deployment.Deployments.OwnerOf(env).Created(t.Context(), deploy.Owned{Kind: "container", ID: "immutable-incarnation", Name: "apptown-env-ri-main"}); err != nil {
 		t.Fatal(err)
 	}
 	if code, out := call(`{"kind":"container","name":"alias","id":"immutable-incarnation","confirm":"alias"}`); code != 409 {
@@ -121,7 +121,7 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	// the removal is refused before Docker is asked to delete anything.
 	w.docker.ResetCommands()
 	restore := w.db.FailNextStatement("-- name: OwnedByDeployment")
-	if code, out := call(`{"kind":"volume","name":"forge-need-env-ri-main-postgres","confirm":"forge-need-env-ri-main-postgres"}`); code != 503 || !strings.Contains(out["error"].(string), "records could not be read") {
+	if code, out := call(`{"kind":"volume","name":"apptown-need-env-ri-main-postgres","confirm":"apptown-need-env-ri-main-postgres"}`); code != 503 || !strings.Contains(out["error"].(string), "records could not be read") {
 		t.Fatalf("a removal with its records unread: %d %v", code, out)
 	}
 	restore()
@@ -133,13 +133,13 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 		t.Fatal("the infrastructure page read its records as complete when they could not be read")
 	}
 	restore()
-	if code, _ := call(`{"kind":"container","name":"forge-env-old-main","confirm":"other"}`); code != 400 {
+	if code, _ := call(`{"kind":"container","name":"apptown-env-old-main","confirm":"other"}`); code != 400 {
 		t.Fatalf("confirmation: %d", code)
 	}
-	if code, out := call(`{"kind":"container","name":"forge-env-old-main","confirm":"forge-env-old-main"}`); code != 200 {
+	if code, out := call(`{"kind":"container","name":"apptown-env-old-main","confirm":"apptown-env-old-main"}`); code != 200 {
 		t.Fatalf("unrecorded container: %d %v", code, out)
 	}
-	if code, out := call(`{"kind":"volume","name":"forge-data-forge-env-old-main","confirm":"forge-data-forge-env-old-main"}`); code != 200 {
+	if code, out := call(`{"kind":"volume","name":"apptown-data-apptown-env-old-main","confirm":"apptown-data-apptown-env-old-main"}`); code != 200 {
 		t.Fatalf("unrecorded volume: %d %v", code, out)
 	}
 	var calls []string
@@ -147,7 +147,7 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 		calls = append(calls, strings.Join(args, " "))
 	}
 	joined := strings.Join(calls, "\n")
-	if !strings.Contains(joined, "rm -f forge-env-old-main") || !strings.Contains(joined, "volume rm forge-data-forge-env-old-main") {
+	if !strings.Contains(joined, "rm -f apptown-env-old-main") || !strings.Contains(joined, "volume rm apptown-data-apptown-env-old-main") {
 		t.Fatalf("docker removal:\n%s", joined)
 	}
 }

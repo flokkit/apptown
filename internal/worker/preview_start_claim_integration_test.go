@@ -25,7 +25,7 @@ import (
 // a new preview has any folder or container for remove-all to enumerate.
 func TestIntegrationAStartClaimRemovesABootAdmittedBeforeIt(t *testing.T) {
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano()%1_000_000_000)
-	name := "forge-preview-change-" + suffix
+	name := "apptown-preview-change-" + suffix
 	held := &heldInspect{Client: docker.CLI{Binary: "docker"}, only: name, entered: make(chan struct{}), release: make(chan struct{})}
 	resume := func() { held.done.Do(func() { close(held.release) }) }
 	defer resume()
@@ -36,7 +36,7 @@ func TestIntegrationAStartClaimRemovesABootAdmittedBeforeIt(t *testing.T) {
 	t.Cleanup(func() { resume(); _ = p.Remove(context.Background(), name) })
 	// Another preview on the same Docker: AppTown package's preview tests
 	// run beside this one in CI. The claim this test makes must leave it.
-	other := "forge-preview-other-" + suffix
+	other := "apptown-preview-other-" + suffix
 	if out, err := dockertest.CombinedOutput("create", "--name", other, "--label", dockerlabel.Class+"=preview", docker.StaticServerImage); err != nil {
 		t.Fatalf("creating another preview: %v: %s", err, out)
 	}

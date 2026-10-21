@@ -168,7 +168,7 @@ func appRoutes(a *App) []routeSpec {
 		extensions = httpapi.NewExtensions(a.Projects, a.Adoption, a.Access, &a.docker, extensionCatalogForHTTP(), a.cfg.agentImage, a.authModeName(), a.DB, a.cfg.clock.Now)
 		setupModel = httpapi.NewSetupModel(a.Secrets, a.Integrations, a.Models, a.DB, a.cfg.clock.Now)
 		setupStatus = httpapi.NewSetupStatus(&a.setup, a.modelSelection, a.authModeName() == "open" && a.cfg.listenAddr != "" && !loopbackAddr(a.cfg.listenAddr))
-		infrastructure = httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBContainer, builtinDBVolume, deployment.IntranetTargetName, a.cfg.clock.Now)
+		infrastructure = httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Volume, deployment.IntranetTargetName, a.cfg.clock.Now)
 		disks = httpapi.NewDisks(a.disks)
 		deploymentListing = httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir)
 		targets = httpapi.NewTargets(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.Access, a.Integrations, a.Dependencies, a.DB, a.cfg.clock.Now)

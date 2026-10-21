@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check a restored AppTown against what its source held at the backup.
 
-    forge-restore-check.py capture <source url> <file>     # before the backup
-    forge-restore-check.py verify  <target url> <file>     # after the restore
+    apptown-restore-check.py capture <source url> <file>     # before the backup
+    apptown-restore-check.py verify  <target url> <file>     # after the restore
 
 APPTOWN_TOKEN is a CLI token made on the source before the backup: on the target
 it must still authenticate, which is the check that credentials came across.
@@ -82,7 +82,7 @@ def capture(base, out):
 def verify(base, path):
     snap = json.load(open(path))
     problems = []
-    if get(base, "/api/v1/projects", token="forge-restore-check-not-a-token")[0] not in (401, 403):
+    if get(base, "/api/v1/projects", token="apptown-restore-check-not-a-token")[0] not in (401, 403):
         problems.append("a token that never existed was not refused")
     status, _ = get(base, "/api/v1/projects")
     if status != 200:

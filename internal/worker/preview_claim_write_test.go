@@ -25,7 +25,7 @@ func TestAFailedClaimKeepsTheLostFenceBarrier(t *testing.T) {
 	if code := fencedDelete(t, p, "", "2", "1"); code != http.StatusNoContent {
 		t.Fatal(code)
 	}
-	name := "forge-preview-change-971"
+	name := "apptown-preview-change-971"
 	seedPreview(t, state, dk, name)
 	if err := reusePreview(t, p, name); err != nil {
 		t.Fatal(err)

@@ -13,7 +13,7 @@ import (
 func TestBootReconcileRebuildsOnlyWhatIsGone(t *testing.T) {
 	t.Parallel()
 	s, _, _, projectID, target := healthWorld(t)
-	const container = "forge-env-p-main"
+	const container = "apptown-env-p-main"
 	if _, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", target.ID, Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}

@@ -289,7 +289,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 				buildsUsed++
 			}
 			assessed := f.assessTree(ctx, posture, toolChecks, ToolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: sha, BuildDir: src, AllowBuild: allowBuild},
-				fmt.Sprintf("forge-fleet-%d-%d", rev.ID, p.ID))
+				fmt.Sprintf("apptown-fleet-%d-%d", rev.ID, p.ID))
 			for _, a := range assessed {
 				if a.State == conformance.EvaluationError {
 					rev.Errors++

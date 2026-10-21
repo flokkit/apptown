@@ -19,6 +19,10 @@ func (cancellingRecorder) RecordIntent(context.Context, ids.ID, string, map[stri
 	return nil
 }
 
+func (r cancellingRecorder) Recorded(context.Context, ids.ID, string) (map[string]any, error) {
+	return nil, nil
+}
+
 func (r cancellingRecorder) RecordIdentity(context.Context, ids.ID, string, map[string]any, string, string) error {
 	r.cancel()
 	return nil

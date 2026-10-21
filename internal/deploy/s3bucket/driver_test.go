@@ -160,7 +160,7 @@ func TestTheFirstReleaseOwnsABucketAndPublishesInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bucket := "forge-game-site-main-aaaa0001"
+	bucket := "apptown-game-site-main-aaaa0001"
 	if !slices.Equal(w.owned, []string{bucket}) || o.Handle.(map[string]any)["bucket"] != bucket {
 		t.Fatalf("owned %v, handle %v", w.owned, o.Handle)
 	}
@@ -295,12 +295,12 @@ func TestAnUnwitnessedPublicationIsUncertainAndResumeOnlyLooks(t *testing.T) {
 // written to it.
 func TestATakenBucketNameIsNeverAdopted(t *testing.T) {
 	w := newWorld(t)
-	w.store.AddBucket("forge-game-site-main-aaaa0001")
+	w.store.AddBucket("apptown-game-site-main-aaaa0001")
 	_, err := w.release(v1Files, "abc")
 	if !deploy.IsTerminal(err) || !strings.Contains(err.Error(), "never adopts") {
 		t.Fatalf("err = %v", err)
 	}
-	if len(w.owned) != 0 || len(w.store.Keys("forge-game-site-main-aaaa0001")) != 0 {
+	if len(w.owned) != 0 || len(w.store.Keys("apptown-game-site-main-aaaa0001")) != 0 {
 		t.Fatal("the taken bucket was recorded or written to")
 	}
 }
@@ -358,7 +358,7 @@ func TestTheKeyPairIsNeverShown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.store.Fail("PUT", "forge-game-site-main-aaaa0001", "", 500)
+	w.store.Fail("PUT", "apptown-game-site-main-aaaa0001", "", 500)
 	_, err = d.Reconcile(context.Background(), w.placement(), 1, art, "k", w.logf, func(map[string]any) error { return nil })
 	text := strings.Join(w.logs, "\n") + string(art.Body) + err.Error()
 	if strings.Contains(text, secretKey) || strings.Contains(text, accessKey) {

@@ -27,7 +27,7 @@ type DindConfig struct {
 	Mark func() error
 }
 
-func dindName(id string) string { return "forge-dind-console-" + id }
+func dindName(id string) string { return "apptown-dind-console-" + id }
 
 // ensureDind is called under the session's attachMu (or before initial
 // publication). It never replaces a surviving daemon: its nested images and

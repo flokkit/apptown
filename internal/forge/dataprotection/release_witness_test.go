@@ -31,13 +31,13 @@ func (d afterDaemon) Run(_ context.Context, _ string, req docker.Command) ([]byt
 
 const (
 	pgData   = "/var/lib/postgresql/data"
-	pgVolume = "forge-need-env-shop-main-postgres"
+	pgVolume = "apptown-need-env-shop-main-postgres"
 	madeThen = "2026-09-08T03:53:13Z"
 )
 
 func witnessed(d afterDaemon, synthetic bool, before map[string]int64) *ReleaseWitness {
 	return &ReleaseWitness{synthetic: synthetic, dk: docker.Scope{Client: d}, needs: []needFacts{{
-		need: "postgres", container: "forge-svc-env-shop-main-postgres", path: pgData, measure: "measure",
+		need: "postgres", container: "apptown-svc-env-shop-main-postgres", path: pgData, measure: "measure",
 		mount: docker.DataMount{Volume: pgVolume, Found: true}, created: madeThen, measures: before,
 	}}}
 }

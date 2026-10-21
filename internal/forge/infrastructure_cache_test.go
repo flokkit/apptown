@@ -26,7 +26,7 @@ func TestInfrastructureInventoryIsCachedAndDroppedByForgeActs(t *testing.T) {
 	env, _ := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", tg.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "non-production"})
 	asks := func() int { return f.Snapshot().ListRequests }
 	read := func(q string) infrastructureResponse {
-		w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBContainer, builtinDBVolume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure"+q, "", nil)
+		w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure"+q, "", nil)
 		var out struct {
 			Targets []infrastructureResponse `json:"targets"`
 		}
@@ -88,7 +88,7 @@ func TestAnActDuringARefreshKeepsTheAnswerAndAsksAgain(t *testing.T) {
 	t.Parallel()
 	asked := time.Now().Add(-10 * time.Second)
 	c := &inventoryCache{entries: map[string]*inventoryEntry{
-		"demo-docker": {items: []deploy.Resource{{Kind: "container", Name: "forge-env-app-main"}}, at: asked, asked: asked, refreshing: true},
+		"demo-docker": {items: []deploy.Resource{{Kind: "container", Name: "apptown-env-app-main"}}, at: asked, asked: asked, refreshing: true},
 	}}
 	c.Invalidate()
 	items, errText, at, refreshing := c.Live(context.Background(), nil, "demo-docker", nil, false)
@@ -109,7 +109,7 @@ func TestAnInventoryListAgesByTheForgesClock(t *testing.T) {
 	var mu sync.Mutex
 	clock := at
 	c := &inventoryCache{now: func() time.Time { mu.Lock(); defer mu.Unlock(); return clock }, entries: map[string]*inventoryEntry{
-		"demo-docker": {items: []deploy.Resource{{Kind: "container", Name: "forge-env-app-main"}}, at: at.Add(-time.Second), asked: at.Add(-time.Second)},
+		"demo-docker": {items: []deploy.Resource{{Kind: "container", Name: "apptown-env-app-main"}}, at: at.Add(-time.Second), asked: at.Add(-time.Second)},
 	}}
 	if _, _, _, refreshing := c.Live(context.Background(), &jobs.Queue{}, "demo-docker", nil, false); refreshing {
 		t.Fatal("a list read a second ago by AppTown's clock was asked for again")
@@ -129,7 +129,7 @@ func (f *failingInventory) Inventory(context.Context) ([]deploy.Resource, error)
 	if f.fail {
 		return nil, errors.New("ssh: connection refused")
 	}
-	return []deploy.Resource{{Kind: "container", Name: "forge-env-app-main"}}, nil
+	return []deploy.Resource{{Kind: "container", Name: "apptown-env-app-main"}}, nil
 }
 
 // A failed ask keeps the last answer under the error with that answer's own

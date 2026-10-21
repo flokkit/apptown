@@ -42,7 +42,7 @@ func TestEachDeploymentAndPreviewHasItsOwnNeedCredentials(t *testing.T) {
 	}
 	prepared := func() docker.Prepared {
 		t.Helper()
-		p, err := s.env.PrepareBoot(t.Context(), projectID, "p", "preview", ws, c, s.env.NeedCredentials(PreviewNeedScope("forge-preview-change-7")))
+		p, err := s.env.PrepareBoot(t.Context(), projectID, "p", "preview", ws, c, s.env.NeedCredentials(PreviewNeedScope("apptown-preview-change-7")))
 		if err != nil {
 			t.Fatal(err)
 		}

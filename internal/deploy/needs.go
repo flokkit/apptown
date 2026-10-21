@@ -9,6 +9,10 @@ import (
 // NeedRecorder is where a driver that provisions a need on its target
 // records what it asked for and what it got, by the placement's id.
 type NeedRecorder interface {
+	// Recorded is the need's recorded handle (its identity once
+	// established, else what an earlier fulfilment asked for under
+	// "requested"); nil when nothing is recorded.
+	Recorded(ctx context.Context, placementID ids.ID, need string) (map[string]any, error)
 	RecordIntent(ctx context.Context, placementID ids.ID, need string, requested map[string]any) error
 	RecordIdentity(ctx context.Context, placementID ids.ID, need string, requested map[string]any, id, name string) error
 }

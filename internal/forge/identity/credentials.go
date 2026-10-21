@@ -167,7 +167,7 @@ func (d *directoryStore) SeedAdministrator(ctx context.Context, username string)
 		if _, err := queries(tx).SeedAdministrator(ctx, accesssql.SeedAdministratorParams{Username: username, PrincipalID: person, At: now.UTC()}); err != nil {
 			return err
 		}
-		if err := AdminGrantIn(ctx, tx, username, "forge-startup", now); err != nil {
+		if err := AdminGrantIn(ctx, tx, username, "apptown-startup", now); err != nil {
 			return err
 		}
 		return completeSetupIn(ctx, tx)

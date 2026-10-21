@@ -34,7 +34,7 @@ func TestProbeAppFrontDoorShaping(t *testing.T) {
 	t.Parallel()
 	probe := &Probe{}
 	f := &fakeDaemon{exists: true, running: true}
-	const container = "forge-preview-change-hardened"
+	const container = "apptown-preview-change-hardened"
 
 	// The hardened app: 200 iff X-Forwarded-Proto: https; otherwise redirect to
 	// https like SECURE_SSL_REDIRECT does.

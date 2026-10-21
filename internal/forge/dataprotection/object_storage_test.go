@@ -16,7 +16,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-const bucketOfProd = "forge-ledger-prod-b0b0b0b0"
+const bucketOfProd = "apptown-ledger-prod-b0b0b0b0"
 
 // heldOnAppPlatform releases prod, needing what contract declares, on the
 // App Platform target, its data production.
@@ -33,7 +33,7 @@ func heldOnAppPlatform(t *testing.T, contract string) *dataWorld {
 	return w
 }
 
-const bucketOfCopy = "forge-ledger-copy-b0b0b0b0"
+const bucketOfCopy = "apptown-ledger-copy-b0b0b0b0"
 
 // putObjects puts objects in a bucket at the account's Spaces, as the app
 // would.
@@ -329,7 +329,7 @@ func TestARestoredCopyFillsItsOwnBucketAndTakesItDown(t *testing.T) {
 				t.Fatal("prod's objects went with the copy")
 			}
 			keys := w.api.Snapshot().SpacesKeys
-			if len(keys) != 1 || keys[0]["name"] != "forge-ledger-prod" {
+			if len(keys) != 1 || keys[0]["name"] != "apptown-ledger-prod" {
 				t.Fatalf("the keys left: %v", keys)
 			}
 		})

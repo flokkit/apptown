@@ -144,8 +144,8 @@ func (o containerOwners) of(container string) (partOf, bool) {
 		return p, true
 	}
 	// The longest stack prefix wins: main's services must not take
-	// main-eu's (forge-svc-env-shop-main- is a prefix of
-	// forge-svc-env-shop-main-eu-postgres).
+	// main-eu's (apptown-svc-env-shop-main- is a prefix of
+	// apptown-svc-env-shop-main-eu-postgres).
 	best := ""
 	for prefix := range o.services {
 		if len(prefix) > len(best) && strings.HasPrefix(container, prefix) && len(container) > len(prefix) {
@@ -180,12 +180,16 @@ func (s *Service) ownersOn(ctx context.Context, deps []ProjectDeployment) (conta
 			}
 		}
 		place := d.Placement().Name
-		for _, c := range []string{d.Container, docker.ContainerName(d.Project, place)} {
+		names, err := d.HostNames()
+		if err != nil {
+			return o, err
+		}
+		for _, c := range []string{d.Container, names.Container(d.Project, place)} {
 			if c != "" {
 				o.exact[c] = partOf{deployment: d.ID, part: public}
 			}
 		}
-		o.services[docker.ServiceName(docker.StackID(d.Project, place), "")] = d.ID
+		o.services[names.Service(docker.StackID(d.Project, place), "")] = d.ID
 	}
 	return o, nil
 }

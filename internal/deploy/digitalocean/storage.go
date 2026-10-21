@@ -77,8 +77,15 @@ func SpacesEndpoint(region string) string {
 	return "https://" + region + ".digitaloceanspaces.com"
 }
 
-func makerKeyName(slug, deployment string) string { return "forge-maker-" + slug + "-" + deployment }
-func appKeyName(slug, deployment string) string   { return "forge-" + slug + "-" + deployment }
+func makerKeyName(slug, deployment string) string { return "apptown-maker-" + slug + "-" + deployment }
+
+// makerKeyNames are every name a deployment's maker key may carry: a
+// release before 1.0 named it forge-maker-…, and the sweep deletes one
+// such a release left as it deletes its own.
+func makerKeyNames(slug, deployment string) []string {
+	return []string{makerKeyName(slug, deployment), "forge-maker-" + slug + "-" + deployment}
+}
+func appKeyName(slug, deployment string) string { return "apptown-" + slug + "-" + deployment }
 
 func (d *Driver) mintKey(ctx context.Context, c *Client, name string, grant spacesGrant) (spacesKey, error) {
 	var made struct {
@@ -117,20 +124,20 @@ type maker struct {
 // promise a left key's warning makes holds. Keys it could not delete are
 // returned, named; a list that could not be read is the error.
 func (d *Driver) sweepMakers(ctx context.Context, c *Client, deployment string, logf func(string, ...any)) (left []deploy.Left, err error) {
-	name := makerKeyName(d.Slug, deployment)
+	names := makerKeyNames(d.Slug, deployment)
 	keys, err := spacesKeys(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("reading the account's Spaces keys: %w", err)
 	}
 	for _, k := range keys {
-		if k.Name != name {
+		if !slices.Contains(names, k.Name) {
 			continue
 		}
 		if err := d.deleteKey(ctx, c, k.AccessKey); err != nil {
 			left = append(left, makerLeft(k, err))
 			continue
 		}
-		logf("deleted the full-access maker key %s (%s) an earlier operation left", name, k.AccessKey)
+		logf("deleted the full-access maker key %s (%s) an earlier operation left", k.Name, k.AccessKey)
 	}
 	return left, nil
 }

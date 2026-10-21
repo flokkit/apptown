@@ -57,7 +57,7 @@ type Config struct {
 	// CachePerSession gives each session its own cache volume, labelled
 	// with it and removed with its runtime (a worker's chats, which share
 	// no writable cache but the worker's tool cache, Mounts). False: every
-	// session shares forge-cache.
+	// session shares apptown-cache.
 	CachePerSession bool
 	// Limits, when set, are each of a session's container's, its private
 	// daemon's and its script's (a worker's chats); what the daemon runs is
@@ -141,7 +141,7 @@ func (r *Runtime) state(id string) *state {
 }
 
 // ContainerName is the session's container.
-func ContainerName(id string) string { return "forge-console-" + id }
+func ContainerName(id string) string { return "apptown-console-" + id }
 
 // --- docker ----------------------------------------------------------------------
 
@@ -480,7 +480,7 @@ func (r *Runtime) Script(ctx context.Context, in console.Launch, script string, 
 	return nil
 }
 
-func scriptName(id string) string { return "forge-console-script-" + id }
+func scriptName(id string) string { return "apptown-console-script-" + id }
 
 // removeScript removes the session's script container, if there is one.
 func (r *Runtime) removeScript(id string) error {

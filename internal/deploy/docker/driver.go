@@ -63,7 +63,11 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	}
 	source := art.Source
 	slug, ws, c := source.Slug, source.Workspace, source.Contract
-	name := ContainerName(slug, p.Name)
+	names, err := ParsePrefix(p.HostPrefix)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the deployment's host names: %w", err))
+	}
+	name := names.Container(slug, p.Name)
 	id := deploy.DockerIdentity{Deployment: p.Label, Generation: generation, Artifact: art.Hash}
 	if err := checkpoint(id.Checkpoint(name)); err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
@@ -82,7 +86,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	}
 	req := BootRequest{
 		Log:  logf,
-		Name: name, StackID: StackID(slug, p.Name), Workspace: ws,
+		Name: name, Names: names, StackID: StackID(slug, p.Name), Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
 		Identity: &id, Services: SourceServices(art), Revision: source.Revision,
 	}

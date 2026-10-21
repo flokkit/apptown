@@ -575,7 +575,7 @@ func TestTheMarkComesBeforeAnyPrivilegedDaemon(t *testing.T) {
 
 // A worker's chat (CachePerSession, Limits, Mounts, a mirror from its
 // forge): its own cache volume, labelled with it and mounted by its
-// container and its daemon, never forge-cache; the worker's tool cache in
+// container and its daemon, never apptown-cache; the worker's tool cache in
 // its container only; the same limits on both, and on its script;
 // the mirror in the daemon's flags and the builder's configuration. The
 // volume goes with the runtime, and the reap finds one left by a session
@@ -597,7 +597,7 @@ func TestAWorkersChatHasItsOwnCacheLimitsAndMirror(t *testing.T) {
 	limits := "--cpus 1.5 --memory 536870912 --memory-swap 536870912 --pids-limit 300"
 	for _, args := range f.calls {
 		call := strings.Join(args, " ")
-		if strings.Contains(call, "forge-cache:") {
+		if strings.Contains(call, "apptown-cache:") {
 			t.Fatalf("a worker's chat mounts the shared cache: %s", call)
 		}
 		if args[0] != "create" && args[0] != "run" {
@@ -678,7 +678,7 @@ func TestAZeroChatLimitCreatesNothing(t *testing.T) {
 	}
 }
 
-// On AppTown's own machine chats share forge-cache, as before, and make
+// On AppTown's own machine chats share apptown-cache, as before, and make
 // no volume of their own.
 func TestTheForgesChatsShareForgeCache(t *testing.T) {
 	r, in, f := fixture(t)
@@ -689,8 +689,8 @@ func TestTheForgesChatsShareForgeCache(t *testing.T) {
 		if args[0] == "volume" {
 			t.Fatalf("made a volume: %v", args)
 		}
-		if (args[0] == "create" || args[0] == "run") && !strings.Contains(strings.Join(args, " "), "-v forge-cache:/apptown-cache") {
-			t.Fatalf("%s without forge-cache: %v", args[0], args)
+		if (args[0] == "create" || args[0] == "run") && !strings.Contains(strings.Join(args, " "), "-v apptown-cache:/apptown-cache") {
+			t.Fatalf("%s without apptown-cache: %v", args[0], args)
 		}
 	}
 }

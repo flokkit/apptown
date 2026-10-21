@@ -139,7 +139,7 @@ func SaveChat(ctx context.Context, db *database.DB, dataDir string, branches *sc
 	if base == "" {
 		return unknown(fmt.Errorf("change %s#%d has no branch and no recorded fork point", p.Slug, ch.Number))
 	}
-	scratch, err := os.MkdirTemp("", "forge-chat-save-*")
+	scratch, err := os.MkdirTemp("", "apptown-chat-save-*")
 	if err != nil {
 		return unknown(err)
 	}

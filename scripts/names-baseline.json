@@ -21,5 +21,6 @@
  "public-field": 0,
  "gate": 0,
  "skill": 0,
- "agent-recipe": 0
+ "agent-recipe": 0,
+ "host-name": 0
 }

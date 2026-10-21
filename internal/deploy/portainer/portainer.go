@@ -268,13 +268,13 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	// A deployment not yet released has no handle: its stack is named for
 	// the project, as the intranet release names it.
 	stack, _ := p.Handle["stack"].(string)
-	if stack == "" && art.Source != nil && art.Source.Slug != "" {
-		stack = StackName(art.Source.Slug)
+	if stack == "" && art.Source != nil && art.Source.Slug != "" && p.HostPrefix != "" {
+		stack = StackName(p.HostPrefix, art.Source.Slug)
 	}
 	if stack == "" {
 		return deploy.Observation{}, deploy.Terminal(errors.New("the deployment's handle names no stack"))
 	}
-	return (Execution{Config: *cfg, EndpointID: endpointID, Stack: stack, Compose: string(art.Body),
+	return (Execution{Config: *cfg, EndpointID: endpointID, Stack: stack, Prefix: p.HostPrefix, Compose: string(art.Body),
 		URL: p.URL, Handle: p.Handle, Log: logf, Owner: d.Owner}).Execute(ctx, generation, checkpoint)
 }
 
@@ -426,8 +426,11 @@ type Execution struct {
 	Config              Target
 	EndpointID          int64
 	Stack, Compose, URL string
-	Handle              map[string]any
-	Log                 func(string, ...any)
+	// Prefix is what the stack's names begin with (the deployment's
+	// recorded host prefix): the stack is <prefix><slug>.
+	Prefix string
+	Handle map[string]any
+	Log    func(string, ...any)
 	// Owner records the stack when this execution creates it; nil records
 	// nothing.
 	Owner deploy.Owner
@@ -448,7 +451,7 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 	}
 	// The volumes the compose declares, and which the environment holds
 	// before the deploy: one there before is not the deployment's to delete.
-	vols, verr := ComposeVolumes(p.Stack, strings.TrimPrefix(p.Stack, "forge-"), p.Compose)
+	vols, verr := ComposeVolumes(p.Stack, strings.TrimPrefix(p.Stack, p.Prefix), p.Compose)
 	before := map[string]bool{}
 	if p.Owner != nil && verr == nil {
 		for _, v := range vols {

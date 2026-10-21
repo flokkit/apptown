@@ -152,7 +152,7 @@ func TestStoppingAChatEndsItsTerminalOnTheForge(t *testing.T) {
 	rt := pi.New(pi.Config{Image: func() string { return "agent:test" }, Run: func(ctx context.Context, args ...string) ([]byte, error) {
 		mu.Lock()
 		defer mu.Unlock()
-		if strings.Contains(strings.Join(args, " "), "forge-dind-console-") {
+		if strings.Contains(strings.Join(args, " "), "apptown-dind-console-") {
 			return []byte("Error response from daemon: No such container: x"), errors.New("absent")
 		}
 		switch args[0] {

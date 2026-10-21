@@ -37,7 +37,11 @@ type ConsumerSecrets interface {
 
 // IntranetStack is everything the stack file says.
 type IntranetStack struct {
-	Slug   string
+	Slug string
+	// Prefix is what the stack's names begin with: the deployment's
+	// recorded host prefix, so a stack made before 1.0 keeps its name,
+	// router and volumes (forge-) for good.
+	Prefix string
 	Hosts  []string
 	Domain string
 	Image  string // the selected public release image
@@ -162,8 +166,8 @@ func IntranetCompose(st IntranetStack) string {
 	writeEnv(appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart)), [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release})
 	if st.DataDir != "" {
 		b.WriteString("    volumes:\n")
-		fmt.Fprintf(&b, "      - %s:%s\n", dataVolumeName(st.Slug), ComposeLiteral(st.DataDir))
-		volumes = append(volumes, dataVolumeName(st.Slug))
+		fmt.Fprintf(&b, "      - %s:%s\n", st.dataVolume(st.Slug), ComposeLiteral(st.DataDir))
+		volumes = append(volumes, st.dataVolume(st.Slug))
 	}
 	deps := needsReady()
 	for _, it := range st.Init {
@@ -181,7 +185,7 @@ func IntranetCompose(st IntranetStack) string {
 	for i, h := range st.Hosts {
 		rules[i] = "Host(`" + h + "`)"
 	}
-	router := lanStackName(st.Slug) // the Traefik router and service share the stack's name
+	router := st.stackName() // the Traefik router and service share the stack's name
 	b.WriteString("    labels:\n")
 	b.WriteString("      traefik.enable: \"true\"\n")
 	fmt.Fprintf(&b, "      traefik.http.routers.%s.rule: %s\n", router, quoted(strings.Join(rules, " || ")))
@@ -205,7 +209,7 @@ func IntranetCompose(st IntranetStack) string {
 		writeEnv(n.Env)
 		writeHealth(n.Health)
 		if n.Data != "" {
-			vol := lanNeedVolumeName(st.Slug, n.Name)
+			vol := st.needVolume(n.Name)
 			b.WriteString("    volumes:\n")
 			fmt.Fprintf(&b, "      - %s:%s\n", vol, ComposeLiteral(n.Data))
 			volumes = append(volumes, vol)
@@ -239,7 +243,7 @@ func IntranetCompose(st IntranetStack) string {
 		writeEnv(env)
 		writeHealth(p.Health)
 		if p.DataDir != "" {
-			vol := dataVolumeName(st.Slug + "-" + p.Name)
+			vol := st.dataVolume(st.Slug + "-" + p.Name)
 			b.WriteString("    volumes:\n")
 			fmt.Fprintf(&b, "      - %s:%s\n", vol, ComposeLiteral(p.DataDir))
 			volumes = append(volumes, vol)
@@ -299,10 +303,13 @@ func PreparedReleaseApp(c *appcontract.Plan, image string) (*appcontract.Plan, e
 	return &cc, nil
 }
 
-func dataVolumeName(container string) string { return dataVolumePrefix + container }
+// The stack's names, under its prefix: the volume keys the compose file
+// declares (Portainer names a volume <stack>_<key>), and the stack, its
+// Traefik router and service.
+func (st IntranetStack) dataVolume(container string) string { return st.Prefix + "data-" + container }
 
-func lanStackName(slug string) string { return "forge-" + slug }
+func (st IntranetStack) stackName() string { return st.Prefix + st.Slug }
 
-func lanNeedVolumeName(slug, need string) string { return "forge-need-" + slug + "-" + need }
-
-const dataVolumePrefix = "forge-data-"
+func (st IntranetStack) needVolume(need string) string {
+	return st.Prefix + "need-" + st.Slug + "-" + need
+}

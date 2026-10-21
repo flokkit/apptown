@@ -160,7 +160,7 @@ func TestAPreviewWithoutTheAttachmentGetsNoKey(t *testing.T) {
 	t.Parallel()
 	s, _, projectID, f := llmBootWorld(t, false)
 	c, ws := llmContract(t, llmAppFixture)
-	prepared, err := s.preparePreview(t.Context(), projectID, "p", "forge-preview-change-1", ws, c, nil)
+	prepared, err := s.preparePreview(t.Context(), projectID, "p", "apptown-preview-change-1", ws, c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

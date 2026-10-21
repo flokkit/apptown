@@ -146,7 +146,7 @@ func newRehearsalHost() *rehearsalHost {
 			ref := args[4]
 			return []byte(`sha256:` + strings.Repeat("b", 64) + ` ["` + ref + `"]`), nil, true
 		}
-		if args[0] == "run" && slices.Contains(args, "--init") && slices.Contains(args, docker.InitName("rehearsal-"+opOf(args), "migrate")) && h.failWith["init"] {
+		if args[0] == "run" && slices.Contains(args, "--init") && slices.Contains(args, docker.Current.Init("rehearsal-"+opOf(args), "migrate")) && h.failWith["init"] {
 			return []byte(`ERROR: duplicate key value violates unique constraint "users_email_key" DETAIL: Key (email)=(` + planted + `) already exists.`), errors.New("exit status 1"), true
 		}
 		if i := slices.Index(args, "--network-alias"); args[0] == "run" && i > 0 && i+1 < len(args) {
@@ -252,7 +252,7 @@ func newRehearsalHost() *rehearsalHost {
 // opOf is the operation a rehearsal command names, from its init container.
 func opOf(args []string) string {
 	for _, a := range args {
-		if rest, ok := strings.CutPrefix(a, "forge-init-rehearsal-"); ok && len(rest) >= 36 {
+		if rest, ok := strings.CutPrefix(a, "apptown-init-rehearsal-"); ok && len(rest) >= 36 {
 			return rest[:36] // the operation's id
 		}
 	}
@@ -366,7 +366,7 @@ func (w *rehearsalWorld) rehearse() *operations.Operation {
 // appRun is the docker run that started the rehearsal's app container.
 func (w *rehearsalWorld) appRun(op ids.ID) []string {
 	w.t.Helper()
-	name := fmt.Sprintf("forge-rehearsal-%d", op)
+	name := fmt.Sprintf("apptown-rehearsal-%d", op)
 	for _, c := range w.host.Commands() {
 		if c[0] == "run" && slices.Contains(c, "--name") && c[slices.Index(c, "--name")+1] == name {
 			return c
@@ -408,7 +408,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 		}
 	}
 	network := run[slices.Index(run, "--network")+1]
-	if network != docker.NetworkName(fmt.Sprintf("rehearsal-%d", op.ID)) {
+	if network != docker.Current.Network(fmt.Sprintf("rehearsal-%d", op.ID)) {
 		t.Errorf("the app is on %s, not the rehearsal's own network", network)
 	}
 	dep, _ := w.s.Deployments.ByName(t.Context(), w.project, "prod")
@@ -445,7 +445,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 	// Taken down: the app with its volumes, the stack and its network, and
 	// the staged copy.
 	cmds := fmt.Sprint(w.host.Commands())
-	for _, want := range []string{fmt.Sprintf("rm -f -v forge-rehearsal-%d", op.ID), fmt.Sprintf("volume rm %s", docker.DataVolumeName(fmt.Sprintf("forge-rehearsal-%d", op.ID))), "network rm " + network} {
+	for _, want := range []string{fmt.Sprintf("rm -f -v apptown-rehearsal-%d", op.ID), fmt.Sprintf("volume rm %s", docker.Current.DataVolume(fmt.Sprintf("apptown-rehearsal-%d", op.ID))), "network rm " + network} {
 		if !strings.Contains(cmds, want) {
 			t.Errorf("not taken down: no %q", want)
 		}
@@ -529,7 +529,7 @@ func TestARehearsalFillsTheNewStoreFromTheBucketsCopy(t *testing.T) {
 			if !maps.EqualFunc(got, want, func(a, b fakeObject) bool { return a.Type == b.Type && bytes.Equal(a.Body, b.Body) }) {
 				t.Fatalf("the new store holds %+v, not the copy %+v", got, want)
 			}
-			network := docker.NetworkName(fmt.Sprintf("rehearsal-%d", op.ID))
+			network := docker.Current.Network(fmt.Sprintf("rehearsal-%d", op.ID))
 			for _, c := range w.host.Commands() {
 				if c[0] == "run" && strings.Contains(c[len(c)-1], "$S3_COPY_PROGRAM") && c[slices.Index(c, "--network")+1] != network {
 					t.Fatalf("the store was filled off the rehearsal's network: %v", c)
@@ -744,7 +744,7 @@ func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) 
 				t.Fatalf("sweep: cleared %d, left %v, %v", cleared, left, err)
 			}
 			cmds := fmt.Sprint(w.host.Commands())
-			for _, want := range []string{"rm -f -v " + place.App, "volume rm " + docker.DataVolumeName(place.App), "network rm " + docker.NetworkName(place.Stack), "volume rm " + place.Copy} {
+			for _, want := range []string{"rm -f -v " + place.App, "volume rm " + docker.Current.DataVolume(place.App), "network rm " + docker.Current.Network(place.Stack), "volume rm " + place.Copy} {
 				if !strings.Contains(cmds, want) {
 					t.Errorf("the sweep did not remove %q", want)
 				}

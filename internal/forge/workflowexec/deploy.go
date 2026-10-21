@@ -122,14 +122,18 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	name := docker.ContainerName(slug, cfg.Deployment)
-
 	logf("Resolving the target for deployment %s", cfg.Deployment)
 	env, err := a.landingDeployment(task.Context(), run.ProjectID, cfg.Deployment)
 	if err != nil {
 		finish(workflow.StatusError, map[string]any{"reason": "naming the deployment: " + err.Error()})
 		return
 	}
+	names, err := env.HostNames()
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": "naming the deployment: " + err.Error()})
+		return
+	}
+	name := names.Container(slug, cfg.Deployment)
 	raw, _ := os.ReadFile(filepath.Join(selectedTree, ".apptown", "app.yaml"))
 	// What the deployment would refuse at boot for this commit (a missing
 	// setting, a contract its target cannot run) is refused here, before a

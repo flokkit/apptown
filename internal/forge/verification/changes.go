@@ -94,7 +94,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 		return nil, err
 	}
 	defer cleanup()
-	results, findings, shErrors := v.evaluator.runShChecks(ctx, checks, src, fmt.Sprintf("forge-check-%d", id))
+	results, findings, shErrors := v.evaluator.runShChecks(ctx, checks, src, fmt.Sprintf("apptown-check-%d", id))
 
 	// tool checks (design/subsystems/conformance.md §13.6): the agent sees the real tool
 	// findings — SAST issues, framework self-check warnings — in its own loop.
@@ -103,7 +103,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	// build, not a duplicate one, and it never costs a wasted land spin.
 	toolResults, toolFindings, toolErrors := v.scanners.RunToolChecks(ctx, checks,
 		ToolContext{Context: ctx, ProjectID: ch.ProjectID, SHA: headSHA, BuildDir: src, AllowBuild: true},
-		fmt.Sprintf("forge-check-%d", id))
+		fmt.Sprintf("apptown-check-%d", id))
 	results = append(results, toolResults...)
 	findings = append(findings, toolFindings...)
 	shErrors += toolErrors
@@ -115,7 +115,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	// failing regardless of severity — distinct from the guidance/tool findings
 	// which gate at failOn.
 	forkBase := strs.FirstNonBlank(v.forkPointSHA(ctx, ch.ProjectID, ch.Branch), ch.BaseSHA)
-	scanResults, scanFindings, scanErrs := v.scanners.RunSourceScans(ctx, src, fmt.Sprintf("forge-check-%d", id), read, forkBase)
+	scanResults, scanFindings, scanErrs := v.scanners.RunSourceScans(ctx, src, fmt.Sprintf("apptown-check-%d", id), read, forkBase)
 	results = append(results, scanResults...)
 	shErrors += scanErrs
 	// And the landing's image scan point (trivy by default), on the image
@@ -123,7 +123,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	// at or above high that this change introduced (soak finding 8: an
 	// image finding first seen at the landing needs a person to send the
 	// change back). Feedback like the rest; the landing scans again.
-	imageResults, imageFindings, imageErrs := v.scanners.RunImageScans(ctx, ch.ProjectID, src, headSHA, read, forkBase, fmt.Sprintf("forge-check-%d", id))
+	imageResults, imageFindings, imageErrs := v.scanners.RunImageScans(ctx, ch.ProjectID, src, headSHA, read, forkBase, fmt.Sprintf("apptown-check-%d", id))
 	results = append(results, imageResults...)
 	scanFindings = append(scanFindings, imageFindings...)
 	shErrors += imageErrs
@@ -131,7 +131,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	// The baseline, as the gate applies it: a finding that already fails
 	// on the tree this change forked from is marked and does not count.
 	baseSHA := strs.FirstNonBlank(ch.BaseSHA, v.forkPointSHA(ctx, ch.ProjectID, ch.Branch))
-	base := v.baselineFor(ctx, ch.ProjectID, checks, baseSHA, fmt.Sprintf("forge-check-%d", id))
+	base := v.baselineFor(ctx, ch.ProjectID, checks, baseSHA, fmt.Sprintf("apptown-check-%d", id))
 	// A check its caller stopped part-way has no answer: a cut-short phase
 	// reads as nothing found, never as a pass.
 	if err := ctx.Err(); err != nil {

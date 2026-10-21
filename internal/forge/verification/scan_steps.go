@@ -203,7 +203,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		// is the release image the project's main deployment is SERVING —
 		// its OS CVEs are carried debt, not this change's. Scanned first, with
 		// the same binding, in the same workspace (the report path is shared).
-		imageBase = a.scanners.baseImageFingerprints(task.Context(), run.ProjectID, ws, WorkflowProvenanceBase(task.Context(), a.dataDir, source), m, binding, scanSrc, argv, fmt.Sprintf("forge-scan-%d", stepID))
+		imageBase = a.scanners.baseImageFingerprints(task.Context(), run.ProjectID, ws, WorkflowProvenanceBase(task.Context(), a.dataDir, source), m, binding, scanSrc, argv, fmt.Sprintf("apptown-scan-%d", stepID))
 		exportImage = ref // saved into the tree where the scan runs
 		evidence["image"] = ref
 		// What this receipt covers, and what it does not: the public part's
@@ -255,7 +255,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		Image:       m.Image,
 		Network:     network,
 		Timeout:     timeout,
-		Name:        execution.UniqueName(fmt.Sprintf("forge-scan-%d", stepID)),
+		Name:        execution.UniqueName(fmt.Sprintf("apptown-scan-%d", stepID)),
 	})
 	evidence["durationMs"] = a.now().Sub(start).Milliseconds()
 
@@ -316,7 +316,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		compared := true
 		switch m.Looks() {
 		case "source":
-			base = a.scanners.baseScanFingerprints(task.Context(), ws, WorkflowProvenanceBase(task.Context(), a.dataDir, source), m, binding, fmt.Sprintf("forge-scan-%d", stepID))
+			base = a.scanners.baseScanFingerprints(task.Context(), ws, WorkflowProvenanceBase(task.Context(), a.dataDir, source), m, binding, fmt.Sprintf("apptown-scan-%d", stepID))
 		case "image":
 			base = imageBase
 		default:

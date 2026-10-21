@@ -42,7 +42,7 @@ flowchart TD
         PV[preview containers]
     end
     subgraph State
-        DB[(Postgres: forge-db)]
+        DB[(Postgres: apptown-db)]
         HUB[(project repos - the hub)]
         WS[(workspace clones)]
     end

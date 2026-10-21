@@ -135,7 +135,7 @@ func expectBootSequence(t *testing.T, f *fakeDocker, stackID, appName string, pe
 	for i, r := range runs {
 		names[i] = r.name
 	}
-	want := []string{docker.ServiceName(stackID, "postgres"), docker.InitName(stackID, "migrate"), docker.ServiceName(stackID, "worker"), appName}
+	want := []string{docker.Current.Service(stackID, "postgres"), docker.Current.Init(stackID, "migrate"), docker.Current.Service(stackID, "worker"), appName}
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Fatalf("boot order: got %v, want %v\ncalls:\n%s", names, want, strings.Join(f.joined(), "\n"))
 	}
@@ -144,7 +144,7 @@ func expectBootSequence(t *testing.T, f *fakeDocker, stackID, appName string, pe
 	// The network exists before anything runs on it.
 	ni := -1 // a throwaway stack's network carries labels before its name
 	for i, c := range f.joined() {
-		if strings.HasPrefix(c, "network create ") && strings.HasSuffix(c, " "+docker.NetworkName(stackID)) {
+		if strings.HasPrefix(c, "network create ") && strings.HasSuffix(c, " "+docker.Current.Network(stackID)) {
 			ni = i
 			break
 		}
@@ -190,7 +190,7 @@ func expectBootSequence(t *testing.T, f *fakeDocker, stackID, appName string, pe
 	}
 	// the public app: env merged, data volume, port published, class + policy per target.
 	if !strings.Contains(app.call, url) ||
-		!strings.Contains(app.call, "-v "+docker.DataVolumeName(appName)+":/data") ||
+		!strings.Contains(app.call, "-v "+docker.Current.DataVolume(appName)+":/data") ||
 		!strings.Contains(app.call, "-e DATA_DIR=/data") || !strings.Contains(app.call, "-e PORT=8080") ||
 		app.owner != appName || app.rm {
 		t.Fatalf("app container: %+v", app)
@@ -298,9 +298,9 @@ func TestRunDeploySequence(t *testing.T) {
 	if err != nil || step.Status != workflow.StatusPass {
 		t.Fatalf("deploy step: %+v %v\ncalls:\n%s", step, err, strings.Join(f.joined(), "\n"))
 	}
-	runs := expectBootSequence(t, f, docker.StackID("p", "main"), docker.ContainerName("p", "main"), true)
+	runs := expectBootSequence(t, f, docker.StackID("p", "main"), docker.Current.Container("p", "main"), true)
 	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
-	if err != nil || env.Container != docker.ContainerName("p", "main") || env.ReleaseRun != runID || env.HostPort == 0 {
+	if err != nil || env.Container != docker.Current.Container("p", "main") || env.ReleaseRun != runID || env.HostPort == 0 {
 		t.Fatalf("environment record: %+v %v", env, err)
 	}
 	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(env.HostPort)+":8080") {
@@ -312,7 +312,7 @@ func TestRunDeployReusesStandingNeeds(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
 	_, stepID := deployRun(t, a)
-	pg := docker.ServiceName(docker.StackID("p", "main"), "postgres")
+	pg := docker.Current.Service(docker.StackID("p", "main"), "postgres")
 	kind, err := a.Dependencies.ByCapability(t.Context(), "postgres")
 	if err != nil {
 		t.Fatal(err)
@@ -332,7 +332,7 @@ func TestRunDeployReusesStandingNeeds(t *testing.T) {
 	}
 	// ...but still waited healthy before the init step runs against it.
 	hi := f.indexOf("inspect -f {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} " + pg)
-	ii := f.indexOf("run --rm --init --name " + docker.InitName(docker.StackID("p", "main"), "migrate"))
+	ii := f.indexOf("run --rm --init --name " + docker.Current.Init(docker.StackID("p", "main"), "migrate"))
 	if hi < 0 || ii < 0 || hi > ii {
 		t.Fatalf("init must wait for the reused need's health (inspect at %d, init at %d)", hi, ii)
 	}
@@ -366,7 +366,7 @@ func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	a.ensureDeploymentsOnce(context.Background()) // the container is not running: a rebuild job is asked for
 	runQueuedJobForTest(t, a, "rebuild", "p/main")
 
-	runs := expectBootSequence(t, f, docker.StackID("p", "main"), docker.ContainerName("p", "main"), true)
+	runs := expectBootSequence(t, f, docker.StackID("p", "main"), docker.Current.Container("p", "main"), true)
 	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(reservedPort)+":8080") {
 		t.Fatalf("a rebuilt environment keeps its stable port: %s", runs[3].call)
 	}
@@ -1041,12 +1041,12 @@ func TestAFailedBootsEvidenceHoldsNoNeedCredential(t *testing.T) {
 func builtinDBDaemon(label *string) *dockerfake.Daemon {
 	d := dockerfake.New()
 	d.SetReply(func(args []string) ([]byte, error, bool) {
-		if len(args) == 4 && args[0] == "inspect" && args[1] == "-f" && args[3] == builtinDBContainer {
-			return []byte("Error: No such object: " + builtinDBContainer), errors.New("exit status 1"), true
+		if len(args) == 4 && args[0] == "inspect" && args[1] == "-f" && args[3] == currentBuiltinDB.Container {
+			return []byte("Error: No such object: " + currentBuiltinDB.Container), errors.New("exit status 1"), true
 		}
 		if len(args) >= 2 && args[0] == "volume" && args[1] == "inspect" {
 			if label == nil {
-				return []byte("Error response from daemon: get " + builtinDBVolume + ": no such volume"), errors.New("exit status 1"), true
+				return []byte("Error response from daemon: get " + currentBuiltinDB.Volume + ": no such volume"), errors.New("exit status 1"), true
 			}
 			return []byte(*label + "\t/old/data/pgdata\n"), nil, true
 		}
@@ -1064,12 +1064,12 @@ func TestBuiltinDBRefusesAVolumeOfAnotherInstallation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			d := builtinDBDaemon(&label)
 			waited := false
-			_, err := ensureBuiltinDB(context.Background(), docker.Scope{Client: d}, t.TempDir(), "postgres://db", "pw", "th1s1nstall",
+			_, err := ensureBuiltinDB(context.Background(), docker.Scope{Client: d}, t.TempDir(), "postgres://db", "pw", "th1s1nstall", currentBuiltinDB,
 				func(context.Context, string) error { waited = true; return nil })
 			if err == nil {
 				t.Fatal("a volume that is not this installation's was used")
 			}
-			for _, want := range []string{builtinDBVolume, "th1s1nstall", "it keeps its data in /old/data/pgdata", "docker volume rm " + builtinDBVolume, "-db-url"} {
+			for _, want := range []string{currentBuiltinDB.Volume, "th1s1nstall", "it keeps its data in /old/data/pgdata", "docker volume rm " + currentBuiltinDB.Volume, "-db-url"} {
 				if !strings.Contains(err.Error(), want) {
 					t.Errorf("the refusal does not name %q: %v", want, err)
 				}
@@ -1093,7 +1093,7 @@ func TestBuiltinDBStartsOnItsOwnOrANewVolume(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			d := builtinDBDaemon(label)
 			waited := false
-			url, err := ensureBuiltinDB(context.Background(), docker.Scope{Client: d}, t.TempDir(), "postgres://db", "pw", own,
+			url, err := ensureBuiltinDB(context.Background(), docker.Scope{Client: d}, t.TempDir(), "postgres://db", "pw", own, currentBuiltinDB,
 				func(context.Context, string) error { waited = true; return nil })
 			if err != nil || url != "postgres://db" {
 				t.Fatalf("got %q, %v", url, err)
@@ -1141,7 +1141,7 @@ func TestALandingDoesNotReleaseOverDataItCouldNotCopy(t *testing.T) {
 		}
 		return "", nil, false
 	}
-	app := docker.ContainerName("p", "main")
+	app := docker.Current.Container("p", "main")
 	retry := func(ctx context.Context, accept bool) error {
 		_, err := a.Work.RunStep(ctx, workflow.RetryCommand{StepID: stepID, AcceptUncopiedData: accept})
 		if errors.Is(err, workflow.ErrDispatchStopped) {

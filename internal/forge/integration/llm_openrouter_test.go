@@ -231,7 +231,7 @@ func TestAIModelsPreviewKeyGetsThePreviewLimit(t *testing.T) {
 	s, id, f := llmFixture(t, "")
 	attachLLM(t, s, id)
 	rec := &heldKeys{}
-	if _, err := s.RegisterLLMKey(context.Background(), KeyRequest{ProjectID: id, Name: "forge-preview-x", Scope: "llm:preview:x", Preview: true, Params: map[string]string{"limit": "9", "limitReset": "daily"}}, rec); err != nil {
+	if _, err := s.RegisterLLMKey(context.Background(), KeyRequest{ProjectID: id, Name: "apptown-preview-x", Scope: "llm:preview:x", Preview: true, Params: map[string]string{"limit": "9", "limitReset": "daily"}}, rec); err != nil {
 		t.Fatal(err)
 	}
 	k := f.Keys()[rec.keys[0].Hash]

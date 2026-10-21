@@ -200,7 +200,7 @@ func mergeInventory(recorded, live []deploy.Resource) []deploy.Resource {
 func inventorySlots(recorded []deploy.Resource) []deploy.Resource {
 	out := append([]deploy.Resource(nil), recorded...)
 	for i := range out {
-		if out[i].Kind == "container" && out[i].Name != "" && (out[i].Name != out[i].ID || strings.HasPrefix(out[i].Name, "forge-")) {
+		if out[i].Kind == "container" && out[i].Name != "" && (out[i].Name != out[i].ID || docker.Named(out[i].Name)) {
 			out[i].ID = ""
 		}
 	}
@@ -300,8 +300,10 @@ func stackProject(stack string, slugs []string) (string, bool) {
 		return "", false
 	}
 	for _, s := range slugs {
-		if stack == portainer.StackName(s) {
-			return s, true
+		for _, p := range docker.Prefixes {
+			if stack == portainer.StackName(string(p), s) {
+				return s, true
+			}
 		}
 	}
 	return "", false

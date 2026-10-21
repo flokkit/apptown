@@ -32,7 +32,7 @@ func (e *asyncEdge) handler(t *testing.T) http.Handler {
 		case r.URL.Path == "/api/endpoints":
 			fmt.Fprint(w, `[{"Id":5,"Name":"lan","Type":4,"Edge":{"AsyncMode":true}}]`)
 		case r.Method == "GET" && r.URL.Path == "/api/stacks/12/file":
-			fmt.Fprint(w, `{"StackFileContent":"services: {}\nvolumes:\n  forge-need-ledger-postgres: {}\n"}`)
+			fmt.Fprint(w, `{"StackFileContent":"services: {}\nvolumes:\n  apptown-need-ledger-postgres: {}\n"}`)
 		case r.Method == "DELETE" && r.URL.Path == "/api/stacks/12":
 			e.deleted = append(e.deleted, r.URL.Path)
 			w.WriteHeader(204)
@@ -74,7 +74,7 @@ func TestAPortainerTakeDownWithNoWayToCopyIsAPersonsChoice(t *testing.T) {
 		t.Fatal(err)
 	}
 	owner := s.Deployments.OwnerOf(dep)
-	for _, o := range []deploy.Owned{{Kind: "stack", ID: "12", Name: "forge-ledger"}, {Kind: "volume", ID: "forge-ledger_forge-need-ledger-postgres", Name: "forge-ledger_forge-need-ledger-postgres", Data: true, Need: "postgres"}} {
+	for _, o := range []deploy.Owned{{Kind: "stack", ID: "12", Name: "apptown-ledger"}, {Kind: "volume", ID: "apptown-ledger_apptown-need-ledger-postgres", Name: "apptown-ledger_apptown-need-ledger-postgres", Data: true, Need: "postgres"}} {
 		if err := owner.Created(ctx, o); err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +96,7 @@ func TestAPortainerTakeDownWithNoWayToCopyIsAPersonsChoice(t *testing.T) {
 	found := false
 	for _, r := range retained {
 		why, _ := r.Handle["why"].(string)
-		if name, _ := r.Handle["name"].(string); name == "forge-ledger_forge-need-ledger-postgres" && strings.Contains(why, "no complete final backup") {
+		if name, _ := r.Handle["name"].(string); name == "apptown-ledger_apptown-need-ledger-postgres" && strings.Contains(why, "no complete final backup") {
 			found = true
 		}
 	}

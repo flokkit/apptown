@@ -171,7 +171,7 @@ func (s *Screenshots) request(tree string, base *url.URL, wants []want) executio
 	return execution.Request{
 		Workspace: tree, Image: s.executor.AgentImage, Argv: argv, NoEntrypoint: true,
 		Timeout: shotsTimeout, Report: shotsReport, Files: files,
-		Name: execution.UniqueName("forge-shots"),
+		Name: execution.UniqueName("apptown-shots"),
 	}
 }
 

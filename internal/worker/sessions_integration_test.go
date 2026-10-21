@@ -73,7 +73,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	if !st.Agent.Running || !st.Docker.Exists {
 		t.Fatalf("started: %+v", st)
 	}
-	chat, daemon, cache := "forge-console-"+id, "forge-dind-console-"+id, "forge-cache-console-"+id
+	chat, daemon, cache := "apptown-console-"+id, "apptown-dind-console-"+id, "apptown-cache-console-"+id
 	running := w.Docker("ps", "--format", "{{.Names}}")
 	for _, name := range []string{chat, daemon} {
 		if !strings.Contains(running, name) {
@@ -234,7 +234,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 
 	// A commit in the chat's container is saved: the worker bundles it
 	// with the chat's own git, and it passes AppTown's checked import.
-	w.Docker("exec", "forge-console-"+s.ID, "sh", "-c",
+	w.Docker("exec", "apptown-console-"+s.ID, "sh", "-c",
 		"cd /work && echo saved > saved.txt && git add saved.txt && git -c user.name=chat -c user.email=chat@x commit -qm 'chat work'")
 	dest := filepath.Join(t.TempDir(), "save.bundle")
 	tip, err := agent.Save(ctx, s.ID, source, dest)
@@ -250,12 +250,12 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	// Ending while something in the chat's container writes its work tree:
 	// the chat stops first, so the last save (with the leftovers committed)
 	// is made after the writer has stopped, then the chat is removed.
-	w.Docker("exec", "-d", "forge-console-"+s.ID, "sh", "-c", "while true; do date >> /work/writer.log; sleep 0.05; done")
+	w.Docker("exec", "-d", "apptown-console-"+s.ID, "sh", "-c", "while true; do date >> /work/writer.log; sleep 0.05; done")
 	// And the chat's private Docker daemon writes it too.
-	w.Docker("exec", "-d", "forge-dind-console-"+s.ID, "sh", "-c", "while true; do date >> /work/dind.log; sleep 0.05; done")
+	w.Docker("exec", "-d", "apptown-dind-console-"+s.ID, "sh", "-c", "while true; do date >> /work/dind.log; sleep 0.05; done")
 	// Both writers are writing (each has written its log) when the chat is ended.
 	if !poll.Until(context.Background(), 30*time.Second, 50*time.Millisecond, func() bool {
-		return w.Docker("exec", "forge-console-"+s.ID, "sh", "-c", "test -s /work/writer.log && test -s /work/dind.log && echo writing || true") == "writing"
+		return w.Docker("exec", "apptown-console-"+s.ID, "sh", "-c", "test -s /work/writer.log && test -s /work/dind.log && echo writing || true") == "writing"
 	}) {
 		t.Fatal("the chat's writers never wrote")
 	}

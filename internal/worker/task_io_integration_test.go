@@ -24,7 +24,7 @@ import (
 // made: only those named in its namespace.
 func removeNamespace(t *testing.T, namespace string) {
 	t.Cleanup(func() {
-		out, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=forge-task-"+namespace+"-").Output()
+		out, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=apptown-task-"+namespace+"-").Output()
 		for _, id := range strings.Fields(string(out)) {
 			_ = exec.Command("docker", "rm", "-f", id).Run()
 		}

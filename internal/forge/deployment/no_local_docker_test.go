@@ -413,7 +413,7 @@ func TestNoLocalDockerReleasesReuseTheTargetsImages(t *testing.T) {
 	if _, err := w.release(t, s, bundle.ID, "staging"); err != nil {
 		t.Fatal(err)
 	}
-	expectRecordedBoot(t, w, bundle, docker.ContainerName("game", "staging"))
+	expectRecordedBoot(t, w, bundle, docker.Current.Container("game", "staging"))
 	if dep, _ := s.Deployments.ByID(context.Background(), staging.ID); dep.ObservedGeneration != 1 || dep.Readiness != Reconciled {
 		t.Fatalf("staging after the promotion: %+v", dep)
 	}
@@ -422,12 +422,12 @@ func TestNoLocalDockerReleasesReuseTheTargetsImages(t *testing.T) {
 	// each twice — a recovered generation still names its bundle.
 	for _, dep := range []*Deployment{staging, main} {
 		for n := 1; n <= 2; n++ {
-			w.daemon.remove(docker.ContainerName("game", dep.Name))
+			w.daemon.remove(docker.Current.Container("game", dep.Name))
 			w.daemon.ResetCommands()
 			if got, err := w.rebuild(t, s, dep); err != nil || got["outcome"] != Applied {
 				t.Fatalf("recovering %s, time %d: %v %v", dep.Name, n, got, err)
 			}
-			expectRecordedBoot(t, w, bundle, docker.ContainerName("game", dep.Name))
+			expectRecordedBoot(t, w, bundle, docker.Current.Container("game", dep.Name))
 		}
 	}
 
@@ -439,7 +439,7 @@ func TestNoLocalDockerReleasesReuseTheTargetsImages(t *testing.T) {
 	if _, err := w.release(t, s, bundle.ID, "staging"); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "this release's images live only on remote") {
 		t.Fatalf("a release whose image is gone: %v", err)
 	}
-	w.daemon.remove(docker.ContainerName("game", "staging"))
+	w.daemon.remove(docker.Current.Container("game", "staging"))
 	if _, err := w.rebuild(t, s, staging); !errors.Is(err, ErrReleaseRefused) {
 		t.Fatalf("a recovery whose image is gone: %v", err)
 	}
@@ -566,7 +566,7 @@ func TestNoLocalDockerRefusesReleasesRecordedBeforeTargets(t *testing.T) {
 
 	const message = "this release was recorded before releases named their target; land the change again to release it in this mode"
 	s := w.service(true)
-	w.daemon.remove(docker.ContainerName("game", "staging"))
+	w.daemon.remove(docker.Current.Container("game", "staging"))
 	w.daemon.ResetCommands()
 	if _, err := s.RequestRelease(context.Background(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", BundleID: legacy}); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), message) {
 		t.Fatalf("promoting a legacy bundle: %v", err)
@@ -602,7 +602,7 @@ func TestNoLocalDockerRefusesReleasesRecordedBeforeTargets(t *testing.T) {
 	if _, err := w.release(t, s, bundle.ID, "staging"); err != nil {
 		t.Fatal(err)
 	}
-	expectRecordedBoot(t, w, bundle, docker.ContainerName("game", "staging"))
+	expectRecordedBoot(t, w, bundle, docker.Current.Container("game", "staging"))
 }
 
 // Observing a deployment's container on its own target tells running,
@@ -673,7 +673,7 @@ func TestALandingOnAnAttachedHostIsReachedAtThatHost(t *testing.T) {
 	}
 	// The port the landing published, recorded as the workflow's deploy
 	// step reserves it (workflowexec/standing.go).
-	if port, err := s.Deployments.ReserveHostPort(t.Context(), w.project, "main", docker.ContainerName("game", "main"), out.Boot.Boot.HostPort); err != nil || port != out.Boot.Boot.HostPort {
+	if port, err := s.Deployments.ReserveHostPort(t.Context(), w.project, "main", docker.Current.Container("game", "main"), out.Boot.Boot.HostPort); err != nil || port != out.Boot.Boot.HostPort {
 		t.Fatalf("reserving the landing's port: %d %v", port, err)
 	}
 	landed, err := s.Deployments.ByID(context.Background(), main.ID)

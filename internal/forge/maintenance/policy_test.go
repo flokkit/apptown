@@ -63,18 +63,18 @@ func TestReapImageDecision(t *testing.T) {
 		created time.Time
 		want    bool
 	}{
-		{"forge-preview-build-forge-preview-run-00000000-0007-7000-8000-000000000000:latest", now, true},
-		{"forge-preview-build-forge-preview-run-00000000-0008-7000-8000-000000000000:latest", now, false},
-		{"forge-preview-build-forge-preview-run-00000000-03e7-7000-8000-000000000000:latest", now, true},
-		{"forge-preview-build-forge-preview-run-00000000-03e8-7000-8000-000000000000:latest", now, false},
-		{"forge-preview-build-forge-preview-run-00000000-0007-7000-8000-000000000000-web:latest", now, true},
-		{"forge-preview-build-forge-preview-run-00000000-0008-7000-8000-000000000000-web:latest", now, false},
+		{"apptown-preview-build-apptown-preview-run-00000000-0007-7000-8000-000000000000:latest", now, true},
+		{"apptown-preview-build-apptown-preview-run-00000000-0008-7000-8000-000000000000:latest", now, false},
+		{"apptown-preview-build-apptown-preview-run-00000000-03e7-7000-8000-000000000000:latest", now, true},
+		{"apptown-preview-build-apptown-preview-run-00000000-03e8-7000-8000-000000000000:latest", now, false},
+		{"apptown-preview-build-apptown-preview-run-00000000-0007-7000-8000-000000000000-web:latest", now, true},
+		{"apptown-preview-build-apptown-preview-run-00000000-0008-7000-8000-000000000000-web:latest", now, false},
 		// A change's preview's build images are Preview's (the last look).
-		{"forge-preview-build-forge-preview-change-00000000-0003-7000-8000-000000000000:latest", now.Add(-720 * time.Hour), false},
-		{"forge-preview-build-forge-preview-change-00000000-0003-7000-8000-000000000000-init-db:latest", now.Add(-720 * time.Hour), false},
-		{"forge-conform:abc123", now.Add(-2 * conformImageTTL), true},
-		{"forge-conform:abc123", now, false},
-		{"forge-preview-build-forge-env-quick-poll-main:latest", now.Add(-72 * time.Hour), false},
+		{"apptown-preview-build-apptown-preview-change-00000000-0003-7000-8000-000000000000:latest", now.Add(-720 * time.Hour), false},
+		{"apptown-preview-build-apptown-preview-change-00000000-0003-7000-8000-000000000000-init-db:latest", now.Add(-720 * time.Hour), false},
+		{"apptown-conform:abc123", now.Add(-2 * conformImageTTL), true},
+		{"apptown-conform:abc123", now, false},
+		{"apptown-preview-build-apptown-env-quick-poll-main:latest", now.Add(-72 * time.Hour), false},
 		{"apptown-agent:latest", now.Add(-72 * time.Hour), false},
 		{"postgres:16-alpine", now.Add(-720 * time.Hour), false},
 	}

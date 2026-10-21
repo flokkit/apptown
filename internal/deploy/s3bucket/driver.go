@@ -407,5 +407,5 @@ func BucketName(slug, deployment, suffix string) string {
 		}
 		return s
 	}
-	return "forge-" + clean(slug, 28) + "-" + clean(deployment, 16) + "-" + clean(suffix, 8)
+	return "apptown-" + clean(slug, 28) + "-" + clean(deployment, 16) + "-" + clean(suffix, 8)
 }

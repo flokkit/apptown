@@ -312,7 +312,9 @@ A deployment owns what AppTown recorded creating for it. Each creation is record
 
 - **Docker host**: the containers its boot ran (by ID), the stack's network
   when the boot made it, the app's data volume and each need's named data
-  volume (`forge-need-<stack>-<need>`) when the boot created them, and the
+  volume (`apptown-need-<stack>-<need>`; every name carries the prefix the
+deployment records, `deployments.host_prefix`, so one made before 1.0 keeps
+`forge-` for good) when the boot created them, and the
   release images it pulled or built.
 - **App Platform**: the app (its recorded handle) and, per project and
   connector, the DOCR repository the first copy created (`owned_repositories`).
@@ -790,8 +792,8 @@ one, and a host kept for evals or rehearsals takes nothing else
    deployment serves now (it must be a digest bundle: another host pulls its
    images) and the host;
 2. record the place it will make, all of it on the rehearsal host (the
-   volume `forge-rehearsal-<op>-copy`, the stack `rehearsal-<op>` and the
-   app `forge-rehearsal-<op>`), in `rehearsal_places` before making it;
+   volume `apptown-rehearsal-<op>-copy`, the stack `rehearsal-<op>` and the
+   app `apptown-rehearsal-<op>`), in `rehearsal_places` before making it;
 3. stream each copy from the store through AppTown's memory into that
    volume, held to the set's size and digest: the copy is never on the
    forge's own disk, where a project's script steps run (review RB-01); then

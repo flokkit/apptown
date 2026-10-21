@@ -72,8 +72,8 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 			why = "runtime checks need a change's preview; the change could not be read"
 			return
 		}
-		// The lane's boot step leaves the RUN's preview (forge-preview-run-N);
-		// the try-it button leaves the CHANGE's (forge-preview-change-N).
+		// The lane's boot step leaves the RUN's preview (apptown-preview-run-N);
+		// the try-it button leaves the CHANGE's (apptown-preview-change-N).
 		// Either is probed only when it is the checked commit, booted by this
 		// forge, which recorded what it was booted with: the check judges
 		// that record, never today's settings or another tree. Prefer the

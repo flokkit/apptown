@@ -13,7 +13,7 @@ import (
 
 // StageTreeAt materializes a committed revision into a temporary directory.
 func StageTreeAt(ctx context.Context, repo, sha string) (string, func(), error) {
-	scratch, err := os.MkdirTemp("", "forge-fleet-src-")
+	scratch, err := os.MkdirTemp("", "apptown-fleet-src-")
 	if err != nil {
 		return "", func() {}, err
 	}

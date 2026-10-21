@@ -69,7 +69,7 @@ func TestAPreparationNeverReturnsAnImageBeingSwept(t *testing.T) {
 	// A preparation that overlaps the sweep waits for it: it cannot return
 	// an image the sweep is removing.
 	prepared := make(chan execution.ImageAnswer, 1)
-	go func() { prepared <- checks.Image(ctx, execution.ImageRequest{Tag: "forge-conform:commit"}) }()
+	go func() { prepared <- checks.Image(ctx, execution.ImageRequest{Tag: "apptown-conform:commit"}) }()
 	select {
 	case a := <-prepared:
 		t.Fatalf("a preparation answered while the sweep was removing its image: %+v", a)

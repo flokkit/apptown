@@ -38,7 +38,7 @@ func stageResolved(ctx context.Context, repo, commit, parent string) (SourceTree
 	if err := ctx.Err(); err != nil {
 		return SourceTree{}, func() {}, err
 	}
-	dir, err := os.MkdirTemp(parent, "forge-source-")
+	dir, err := os.MkdirTemp(parent, "apptown-source-")
 	if err != nil {
 		return SourceTree{}, func() {}, err
 	}

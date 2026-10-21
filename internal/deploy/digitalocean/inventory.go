@@ -54,7 +54,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	}
 	for _, k := range keys {
 		r := deploy.Resource{Kind: KindSpacesKey, Name: k.Name, ID: k.AccessKey, Status: "active", Detail: grantWords(k.Grants)}
-		if !strings.HasPrefix(k.Name, "forge-maker-") {
+		if !strings.HasPrefix(k.Name, "apptown-maker-") && !strings.HasPrefix(k.Name, "forge-maker-") {
 			r.Tags = []string{deploy.TagConfirmsOnly}
 		}
 		out = append(out, r)

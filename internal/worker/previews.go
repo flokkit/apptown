@@ -53,7 +53,9 @@ const (
 )
 
 var (
-	previewNamePattern  = regexp.MustCompile(`^forge-preview-[a-z0-9][a-z0-9-]{0,100}$`)
+	// A preview's name under either prefix a host may carry: previews are
+	// named apptown-, and one an older release left is still removed by name.
+	previewNamePattern  = regexp.MustCompile(`^(apptown|forge)-preview-[a-z0-9][a-z0-9-]{0,100}$`)
 	previewStackPattern = regexp.MustCompile(`^pv[a-z0-9][a-z0-9-]{0,100}$`)
 )
 

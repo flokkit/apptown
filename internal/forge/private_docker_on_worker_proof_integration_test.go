@@ -332,7 +332,7 @@ func TestIntegrationPrivateDockerIsRemovedWhenATestFails(t *testing.T) {
 		workertest.StartServerWith(t, workertest.NewCA(t), server, nil)
 		owner := server.CheckOwnerLabel()
 		fmt.Printf("private-docker-owner=%s\n", owner)
-		if out, err := dockertest.CombinedOutput("network", "create", "--label", owner, "forge-private-cleanup-"+strings.TrimPrefix(owner, "forge.worker=")); err != nil {
+		if out, err := dockertest.CombinedOutput("network", "create", "--label", owner, "apptown-private-cleanup-"+strings.TrimPrefix(owner, "forge.worker=")); err != nil {
 			t.Fatalf("network: %v %s", err, out)
 		}
 		if out, err := dockertest.CombinedOutput("run", "-d", "--label", owner, "busybox:1.37", "sleep", "300"); err != nil {

@@ -154,7 +154,7 @@ func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 		"  postgres:\n    image: postgres:16-alpine\n",
 		`echo \"apptown: making $$POSTGRES_USER an ordinary owner of $$POSTGRES_DB\"`,
 		`POSTGRES_PASSWORD: "` + password + `"`,
-		"- forge-need-p-postgres:/var/lib/postgresql/data",
+		"- apptown-need-p-postgres:/var/lib/postgresql/data",
 		`DATABASE_URL: "postgres://app:` + password + `@postgres:5432/app?sslmode=disable"`,
 		"AUTH_KEY: ",
 		"  init-migrate:\n", "  worker:\n",
@@ -190,7 +190,7 @@ func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 	}
 	var volume bool
 	for _, o := range owned {
-		volume = volume || (o.Kind == "volume" && o.Name == "forge-p_forge-need-p-postgres" && o.Need == "postgres")
+		volume = volume || (o.Kind == "volume" && o.Name == "apptown-p_apptown-need-p-postgres" && o.Need == "postgres")
 	}
 	if !volume {
 		t.Fatalf("the postgres volume the deploy made is not the deployment's: %+v", owned)

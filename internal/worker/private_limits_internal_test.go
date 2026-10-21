@@ -26,9 +26,9 @@ func TestPrivateServicesRunUnderTheWorkersServiceLimits(t *testing.T) {
 		}
 		return nil, nil
 	})
-	rec := record{Key: "agent-1", Private: &privateSet{Network: "forge-private-agent-1",
+	rec := record{Key: "agent-1", Private: &privateSet{Network: "apptown-private-agent-1",
 		Spec:     execution.PrivateDocker{Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16-alpine"}}},
-		Services: []string{"forge-private-agent-1-postgres"}}}
+		Services: []string{"apptown-private-agent-1-postgres"}}}
 	for _, c := range []struct {
 		limits execution.Limits
 		want   string
@@ -71,10 +71,10 @@ func TestAPrivateNeedThatKeepsDataGetsADisposableFolderThere(t *testing.T) {
 		}
 		return nil, nil
 	})
-	rec := record{Key: "agent-2", Private: &privateSet{Network: "forge-private-agent-2",
+	rec := record{Key: "agent-2", Private: &privateSet{Network: "apptown-private-agent-2",
 		Spec: execution.PrivateDocker{Services: []deploy.ServiceSpec{
 			{Name: "s3", Image: "versity/versitygw:v1.8.0", Data: "/data", Entrypoint: []string{"/bin/sh", "-c"}, Command: []string{"start"}}, {Name: "cache", Image: "redis:7"}}},
-		Services: []string{"forge-private-agent-2-s3", "forge-private-agent-2-cache"}}}
+		Services: []string{"apptown-private-agent-2-s3", "apptown-private-agent-2-cache"}}}
 	s := &Server{State: t.TempDir(), Docker: fake}
 	if err := s.makePrivate(context.Background(), rec); err != nil {
 		t.Fatal(err)

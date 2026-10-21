@@ -174,7 +174,7 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 					return launchError(fmt.Errorf("a folder for the generated files: %w", err))
 				}
 			}
-			tmp, err := os.MkdirTemp(r.Scratch, "forge-files-*")
+			tmp, err := os.MkdirTemp(r.Scratch, "apptown-files-*")
 			if err != nil {
 				return launchError(fmt.Errorf("a folder for the generated files: %w", err))
 			}

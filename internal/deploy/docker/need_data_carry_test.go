@@ -74,7 +74,7 @@ func TestANeedMadeAgainKeepsTheStorageItsDataIsIn(t *testing.T) {
 		{"its parameters moved, data in an anonymous volume", "volume\t" + anonymous + "\t/var/lib/docker/volumes/x/_data\t" + carryPath + "\n", oldEnv, "268435456", anonymous, true},
 		{"its parameters moved, data in a bind mount", "bind\t\t/srv/pg\t" + carryPath + "\n", oldEnv, "268435456", "/srv/pg", true},
 		{"a limit taken away, data in an anonymous volume", "volume\t" + anonymous + "\t/var/lib/docker/volumes/x/_data\t" + carryPath + "\n", "POSTGRES_USER=app\nPOSTGRES_DB=app\nPOSTGRES_PASSWORD=new\n", "268435456", anonymous, true},
-		{"already on its named volume", "volume\t" + NeedVolumeName("env-shop-main", "postgres") + "\t/x\t" + carryPath + "\n", oldEnv, "268435456", NeedVolumeName("env-shop-main", "postgres"), true},
+		{"already on its named volume", "volume\t" + Current.NeedVolume("env-shop-main", "postgres") + "\t/x\t" + carryPath + "\n", oldEnv, "268435456", Current.NeedVolume("env-shop-main", "postgres"), true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -85,7 +85,7 @@ func TestANeedMadeAgainKeepsTheStorageItsDataIsIn(t *testing.T) {
 			if got := runMount(client.args); got != c.want {
 				t.Fatalf("made again on %q, want %q: %v", got, c.want, client.args)
 			}
-			if c.want != NeedVolumeName("env-shop-main", "postgres") && hasStandingCall(client.args, "volume create") {
+			if c.want != Current.NeedVolume("env-shop-main", "postgres") && hasStandingCall(client.args, "volume create") {
 				t.Fatalf("an empty named volume was made beside the data: %v", client.args)
 			}
 		})
@@ -133,7 +133,7 @@ func TestASyntheticResetStillStartsOnNewStorage(t *testing.T) {
 	if _, err := EnsureStandingServices(context.Background(), Scope{Client: client}, "env-shop-main", []deploy.ServiceSpec{carryService(false)}, "synthetic", own); err != nil {
 		t.Fatal(err)
 	}
-	if got := runMount(client.args); got != NeedVolumeName("env-shop-main", "postgres") {
+	if got := runMount(client.args); got != Current.NeedVolume("env-shop-main", "postgres") {
 		t.Fatalf("a reset kept the old storage: %q", got)
 	}
 }

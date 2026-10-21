@@ -133,7 +133,7 @@ func TestMainDeploymentWithoutAContractDoesNotConform(t *testing.T) {
 	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), pid, "main", target.ID, (deployment.Attributes{}).WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), pid, "main", "forge-env-nc-main", 40001); err != nil {
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), pid, "main", "apptown-env-nc-main", 40001); err != nil {
 		t.Fatal(err)
 	}
 	state, detail := a.evaluator.Observe(t.Context(), pid, "", "readiness")

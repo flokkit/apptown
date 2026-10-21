@@ -46,7 +46,7 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := len(w.api.Snapshot().Requests)
-	w.api.SeedDatabase(map[string]any{"id": "other-cluster", "name": "forge-ledger-pay-copy-1", "engine": "pg", "version": "16", "status": "online", "tags": []string{"forge-project-ledger", "forge-env-pay-copy-1"}})
+	w.api.SeedDatabase(map[string]any{"id": "other-cluster", "name": "apptown-ledger-pay-copy-1", "engine": "pg", "version": "16", "status": "online", "tags": []string{"apptown-project-ledger", "apptown-env-pay-copy-1"}})
 	op, c := w.start(RestoredCopyRequest{Test: true})
 	if op.State != operations.Failed || !strings.Contains(op.Detail, "does not carry this AppTown deployment") {
 		t.Fatalf("start = %s: %s", op.State, op.Detail)
@@ -76,12 +76,12 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 // (reviewer's boundary check, kept).
 func TestFindMadeTakesOnlyMarkedClustersAndApps(t *testing.T) {
 	t.Parallel()
-	for _, tags := range [][]string{nil, {"forge-project-ledger"}, {"forge-env-copy-1"}, {"forge-project-other", "forge-env-copy-1"}, {"forge-project-ledger", "forge-env-other"}, {"forge-project-ledger", "forge-env-copy-1"}} {
+	for _, tags := range [][]string{nil, {"apptown-project-ledger"}, {"apptown-env-copy-1"}, {"apptown-project-other", "apptown-env-copy-1"}, {"apptown-project-ledger", "apptown-env-other"}, {"apptown-project-ledger", "apptown-env-copy-1"}} {
 		t.Run(fmt.Sprint(tags), func(t *testing.T) {
 			t.Parallel()
 			w := newRestoredWorld(t, nil)
 			ctx := context.Background()
-			w.api.SeedDatabase(map[string]any{"id": "candidate", "name": "forge-ledger-copy-1", "tags": tags})
+			w.api.SeedDatabase(map[string]any{"id": "candidate", "name": "apptown-ledger-copy-1", "tags": tags})
 			client, err := w.cloudClient(ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -95,11 +95,11 @@ func TestFindMadeTakesOnlyMarkedClustersAndApps(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			made, err := driver.(*digitalocean.Driver).FindMade(ctx, deploy.Placement{Name: "copy-1", Gate: &deploy.Gate{Marker: strings.Repeat("c", 64)}})
+			made, err := driver.(*digitalocean.Driver).FindMade(ctx, deploy.Placement{HostPrefix: "apptown-", Name: "copy-1", Gate: &deploy.Gate{Marker: strings.Repeat("c", 64)}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			expected := len(tags) == 2 && tags[0] == "forge-project-ledger" && tags[1] == "forge-env-copy-1"
+			expected := len(tags) == 2 && tags[0] == "apptown-project-ledger" && tags[1] == "apptown-env-copy-1"
 			if (len(made.Clusters) == 1) != expected || made.AppID != "" || len(made.NotOurs) != 1 {
 				t.Fatalf("lookup = %+v", made)
 			}

@@ -39,12 +39,12 @@ func TestAVisitorsForwardingHeadersNeverReachTheApp(t *testing.T) {
 func TestAnInterruptedBootIsRemovedWhenTheWorkerStarts(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
-	dir := previewFolder(t, srv.State, "forge-preview-change-42")
-	if err := os.WriteFile(filepath.Join(dk, "running-forge-preview-change-42"), nil, 0600); err != nil {
+	dir := previewFolder(t, srv.State, "apptown-preview-change-42")
+	if err := os.WriteFile(filepath.Join(dk, "running-apptown-preview-change-42"), nil, 0600); err != nil {
 		t.Fatal(err)
 	}
 	srv.SweepPreviews(context.Background(), true)
-	if exists(dir) || exists(filepath.Join(dk, "running-forge-preview-change-42")) {
+	if exists(dir) || exists(filepath.Join(dk, "running-apptown-preview-change-42")) {
 		t.Fatal("startup kept the app/tree of a boot interrupted before readiness completed")
 	}
 }
@@ -55,7 +55,7 @@ func TestAPreviewMarkedForRemovalIsNeverReused(t *testing.T) {
 	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-	name := "forge-preview-change-43"
+	name := "apptown-preview-change-43"
 	dir := previewFolder(t, srv.State, name)
 	for _, f := range []string{filepath.Join(dir, "removing"), filepath.Join(dk, "running-"+name)} {
 		if err := os.WriteFile(f, nil, 0600); err != nil {

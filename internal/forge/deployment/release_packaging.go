@@ -43,7 +43,7 @@ func releaseBuildFiles(source string, c *appcontract.Contract) (dir, dockerfile 
 		}
 		return dir, file, cleanup, nil
 	}
-	f, err := os.CreateTemp("", "forge-release-static-Dockerfile-")
+	f, err := os.CreateTemp("", "apptown-release-static-Dockerfile-")
 	if err != nil {
 		return "", "", cleanup, err
 	}

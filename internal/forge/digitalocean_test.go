@@ -76,7 +76,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatalf("job: %v", job)
 	}
 	db := spec["databases"].([]any)[0].(map[string]any)
-	if db["cluster_name"] != "forge-expense-cloud" || db["engine"] != "PG" {
+	if db["cluster_name"] != "apptown-expense-cloud" || db["engine"] != "PG" {
 		t.Fatalf("database component: %v", db)
 	}
 	var dbURL string
@@ -144,7 +144,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	// Infrastructure: what is at the provider and what it hosts. A cluster
 	// nobody recorded shows as unrecorded; AppTown's own shows its host.
 	f.SeedDatabase(map[string]any{"id": "db-stray", "name": "someones-cluster", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online"})
-	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBContainer, builtinDBVolume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	var infra struct {
 		Targets []infrastructureResponse `json:"targets"`
 	}
@@ -166,7 +166,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if r := byName["app/expense-cloud"]; r.Record != "recorded" || len(r.Hosts) != 1 || r.Hosts[0].Deployment != "cloud" || r.Status != "active" {
 		t.Fatalf("the app hosts the environment: %+v", r)
 	}
-	if r := byName["database/forge-expense-cloud"]; r.Record != "recorded" || len(r.Hosts) != 1 || r.Hosts[0].Need != "postgres" || r.Version != "pg 16" {
+	if r := byName["database/apptown-expense-cloud"]; r.Record != "recorded" || len(r.Hosts) != 1 || r.Hosts[0].Need != "postgres" || r.Version != "pg 16" {
 		t.Fatalf("the cluster is the environment's postgres: %+v", r)
 	}
 	if r := byName["database/someones-cluster"]; r.Record != "unrecorded" {
@@ -176,7 +176,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatalf("the registry is the target's own: %+v", r)
 	}
 	w = tgReq(httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir).Deployments, "GET", "/api/v1/projects/expense/deployments", "", map[string]string{"slug": "expense"})
-	if !strings.Contains(w.Body.String(), `"needs":[{"need":"postgres","name":"forge-expense-cloud"`) {
+	if !strings.Contains(w.Body.String(), `"needs":[{"need":"postgres","name":"apptown-expense-cloud"`) {
 		t.Fatalf("the environment says what backs it: %s", w.Body.String())
 	}
 	// Teardown, chosen without a final copy, deletes the app and retains
@@ -201,7 +201,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	}
 	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", `{"withoutFinalCopy":"cloud"}`, map[string]string{"slug": "expense", "name": "cloud"})
 	state = f.Snapshot()
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "forge-expense-cloud") || len(state.Apps) != 0 || len(state.Databases) != 2 {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "apptown-expense-cloud") || len(state.Apps) != 0 || len(state.Databases) != 2 {
 		t.Fatalf("teardown: %d %s apps %d dbs %d", w.Code, w.Body.String(), len(state.Apps), len(state.Databases))
 	}
 	// The release it served is ended: its log says who took it down, and it
@@ -231,11 +231,11 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatalf("the record outlives the environment with owner, intent and identity: %+v", rr)
 	}
 	w = tgReq(httpapi.NewRetention(a.Deployment, a.Projects).ProjectRetained, "GET", "/api/v1/projects/expense/retained", "", map[string]string{"slug": "expense"})
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"forge-expense-cloud"`) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"apptown-expense-cloud"`) {
 		t.Fatalf("project retained list: %d %s", w.Code, w.Body.String())
 	}
 	// After the teardown the cluster is still at the provider, marked retained.
-	w = tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBContainer, builtinDBVolume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	w = tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	infra.Targets = nil
 	_ = json.Unmarshal(w.Body.Bytes(), &infra)
 	byName = map[string]deploy.Resource{}
@@ -247,7 +247,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 			byName[r.Kind+"/"+r.Name] = r
 		}
 	}
-	if r := byName["database/forge-expense-cloud"]; r.Record != "recorded" || r.Retained == nil || r.Retained.Deployment != "cloud" || len(r.Hosts) != 0 {
+	if r := byName["database/apptown-expense-cloud"]; r.Record != "recorded" || r.Retained == nil || r.Retained.Deployment != "cloud" || len(r.Hosts) != 0 {
 		t.Fatalf("the retained cluster is shown as left behind: %+v", r)
 	}
 	if _, ok := byName["app/expense-cloud"]; ok {

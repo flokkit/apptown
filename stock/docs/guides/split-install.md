@@ -109,7 +109,7 @@ or on a worker, and a step's private Docker get `-task-cpus` (4),
 `-chat-cpus` (2), `-chat-memory-mib` (4096) and `-chat-pids` (4096), as a
 worker's chats do. A run that hits its memory limit is not a result: the
 step errors and says to raise the limit. Each project's steps share a
-package cache of their own (`forge-cache-<project>`), and each chat has its
+package cache of their own (`apptown-cache-<project>`), and each chat has its
 own.
 
 On a cloud host, a container can reach the provider's metadata service

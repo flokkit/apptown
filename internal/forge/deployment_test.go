@@ -60,7 +60,7 @@ func TestLandingDeployRecordsDeploymentGenerationAndBundle(t *testing.T) {
 	if !env.Standing() || env.TargetID != bi.ID || env.Feed != "landing" || env.ObservedGeneration != 1 || env.DesiredGeneration != 1 || env.Readiness != deployment.Reconciled {
 		t.Fatalf("main after a landing: %+v", env)
 	}
-	if env.Handle["container"] != docker.ContainerName("p", "main") || env.HostPort == 0 || env.Protected() {
+	if env.Handle["container"] != docker.Current.Container("p", "main") || env.HostPort == 0 || env.Protected() {
 		t.Fatalf("handle %v port %d protected %v", env.Handle, env.HostPort, env.Protected())
 	}
 	var attempts int

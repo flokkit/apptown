@@ -128,7 +128,7 @@ func writeCheck(ctx context.Context, form *multipart.Writer, spec CheckSpec, req
 		return fmt.Errorf("sending the check's tree: %w", err)
 	}
 	if req.History != nil {
-		file, err := os.CreateTemp("", "forge-check-history-*.bundle")
+		file, err := os.CreateTemp("", "apptown-check-history-*.bundle")
 		if err != nil {
 			return err
 		}

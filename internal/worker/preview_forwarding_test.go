@@ -26,7 +26,7 @@ type seen struct {
 }
 
 // forwardedPreview is an app on this machine's loopback that a fake Docker
-// reports as the preview forge-preview-change-7's port, a worker over the
+// reports as the preview apptown-preview-change-7's port, a worker over the
 // forge's authenticated connection, and AppTown's side forwarding to it.
 func forwardedPreview(t *testing.T) (forge *httptest.Server, workerURL string, client *http.Client, got func() seen, dk *fileDocker) {
 	t.Helper()
@@ -59,7 +59,7 @@ func forwardedPreview(t *testing.T) (forge *httptest.Server, workerURL string, c
 	dk, _ = sweepDocker(t)
 	dk.reply = func(args []string) ([]byte, error, bool) {
 		switch {
-		case len(args) == 2 && args[0] == "port" && args[1] == "forge-preview-change-7":
+		case len(args) == 2 && args[0] == "port" && args[1] == "apptown-preview-change-7":
 			return []byte(fmt.Sprintf("3000/tcp -> 127.0.0.1:%d\n", port)), nil, true
 		case len(args) > 0 && args[0] == "port":
 			return []byte("Error: No such container: " + args[len(args)-1] + "\n"), errExit, true
@@ -68,14 +68,14 @@ func forwardedPreview(t *testing.T) (forge *httptest.Server, workerURL string, c
 	}
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
-	// forge-preview-change-9 is a preview this worker holds that is not
-	// running; forge-preview-change-8 is one it has never held.
-	if err := os.MkdirAll(filepath.Join(state, "previews", "forge-preview-change-9"), 0o755); err != nil {
+	// apptown-preview-change-9 is a preview this worker holds that is not
+	// running; apptown-preview-change-8 is one it has never held.
+	if err := os.MkdirAll(filepath.Join(state, "previews", "apptown-preview-change-9"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: state, Previews: dk})
 	client = workertest.Client(t, ca, workertest.Installation)
-	forge = httptest.NewServer(worker.Previews{URL: hs.URL, Client: client}.Forward("forge-preview-change-7", "https"))
+	forge = httptest.NewServer(worker.Previews{URL: hs.URL, Client: client}.Forward("apptown-preview-change-7", "https"))
 	t.Cleanup(forge.Close)
 	return forge, hs.URL, client, func() seen { mu.Lock(); defer mu.Unlock(); return last }, dk
 }
@@ -173,11 +173,11 @@ func TestAForwardedRequestReachesOnlyAPreviewsPort(t *testing.T) {
 		want         int
 	}{
 		{"/v1/previews/forge-db/http", "/", http.StatusBadRequest},
-		{"/v1/previews/forge-env-app-main/http", "/", http.StatusBadRequest},
-		{"/v1/previews/forge-preview-change-7/http", "", http.StatusBadRequest},
-		{"/v1/previews/forge-preview-change-7/http", "http://elsewhere/", http.StatusBadRequest},
-		{"/v1/previews/forge-preview-change-8/http", "/", http.StatusNotFound},
-		{"/v1/previews/forge-preview-change-9/http", "/", http.StatusBadGateway},
+		{"/v1/previews/apptown-env-app-main/http", "/", http.StatusBadRequest},
+		{"/v1/previews/apptown-preview-change-7/http", "", http.StatusBadRequest},
+		{"/v1/previews/apptown-preview-change-7/http", "http://elsewhere/", http.StatusBadRequest},
+		{"/v1/previews/apptown-preview-change-8/http", "/", http.StatusNotFound},
+		{"/v1/previews/apptown-preview-change-9/http", "/", http.StatusBadGateway},
 	} {
 		req, _ := http.NewRequest(http.MethodGet, workerURL+tc.path, nil)
 		if tc.target != "" {
@@ -193,7 +193,7 @@ func TestAForwardedRequestReachesOnlyAPreviewsPort(t *testing.T) {
 		}
 	}
 	for _, line := range dk.commands("") {
-		if line != "" && line != "port forge-preview-change-8" && line != "port forge-preview-change-9" {
+		if line != "" && line != "port apptown-preview-change-8" && line != "port apptown-preview-change-9" {
 			t.Errorf("Docker was asked %q", line)
 		}
 	}
@@ -204,7 +204,7 @@ func TestAForwardedRequestReachesOnlyAPreviewsPort(t *testing.T) {
 func TestTheNakedDoorCarriesNoForwardingHeaders(t *testing.T) {
 	t.Parallel()
 	_, workerURL, client, got, _ := forwardedPreview(t)
-	naked := httptest.NewServer(worker.Previews{URL: workerURL, Client: client}.Forward("forge-preview-change-7", ""))
+	naked := httptest.NewServer(worker.Previews{URL: workerURL, Client: client}.Forward("apptown-preview-change-7", ""))
 	defer naked.Close()
 	req, _ := http.NewRequest(http.MethodGet, naked.URL+"/ready", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")

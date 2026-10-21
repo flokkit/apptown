@@ -42,17 +42,17 @@ func TestRemovingAPreviewTakesItsWholeStackByOwnerLabel(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"rm -f -v forge-preview-change-00000000-0007-7000-8000-000000000000",
-		"volume rm forge-data-forge-preview-change-00000000-0007-7000-8000-000000000000",
+		"rm -f -v apptown-preview-change-00000000-0007-7000-8000-000000000000",
+		"volume rm apptown-data-apptown-preview-change-00000000-0007-7000-8000-000000000000",
 		"ps -aq --filter label=forge.class=service --filter label=forge.owner=pvsnap-change-00000000-0007-7000-8000-000000000000",
 		"rm -f -v svc-a",
-		"volume rm forge-data-svc-a",
+		"volume rm apptown-data-svc-a",
 		"rm -f -v svc-b",
-		"volume rm forge-data-svc-b",
+		"volume rm apptown-data-svc-b",
 		"ps -aq --filter label=forge.class=step --filter label=forge.owner=pvsnap-change-00000000-0007-7000-8000-000000000000",
 		"rm -f -v init-a",
-		"volume rm forge-data-init-a",
-		"network rm forge-net-pvsnap-change-00000000-0007-7000-8000-000000000000",
+		"volume rm apptown-data-init-a",
+		"network rm apptown-net-pvsnap-change-00000000-0007-7000-8000-000000000000",
 	}
 	if got := calls; strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("RemovePreview issued:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

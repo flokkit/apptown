@@ -218,7 +218,7 @@ func TestTierPreviewsNeedTheProjectRead(t *testing.T) {
 	a, _, fake, ch := previewWorkerWorld(t, false)
 	a.addGrant("user", "outsider", "", string(access.CapChangeRead), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
 	fake.mu.Lock()
-	fake.running = map[string]worker.PreviewState{"forge-preview-change-" + ch.ID.String(): {Running: true}}
+	fake.running = map[string]worker.PreviewState{"apptown-preview-change-" + ch.ID.String(): {Running: true}}
 	fake.mu.Unlock()
 	if w := authzCall(a.Handler(), "outsider", "GET", "/api/v1/projects/game", ""); w.Code != 403 {
 		t.Fatalf("fixture project readable: %d", w.Code)

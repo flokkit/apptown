@@ -161,7 +161,7 @@ func TestMCPRefusesACommandLineToken(t *testing.T) {
 	}
 	cli := tokenFor(t, a, "bls-cli", "bls", "member", access.TokenCLI)
 	w := mcp_post(a, cli, "", mcp_rpc(1, "ping", nil))
-	if w.Code != 401 || !strings.Contains(w.Body.String(), "--purpose agent") || !strings.Contains(w.Header().Get("WWW-Authenticate"), `realm="forge-mcp"`) {
+	if w.Code != 401 || !strings.Contains(w.Body.String(), "--purpose agent") || !strings.Contains(w.Header().Get("WWW-Authenticate"), `realm="apptown-mcp"`) {
 		t.Fatalf("a cli token at MCP: %d %s", w.Code, w.Body.String())
 	}
 	agent := tokenFor(t, a, "bls-agent", "bls", "member", access.TokenAgent)

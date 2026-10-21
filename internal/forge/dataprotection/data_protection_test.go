@@ -672,7 +672,7 @@ func TestATakenDownDeploymentComesBackFromItsFinalCopy(t *testing.T) {
 	if appsAtFill != 0 {
 		t.Fatalf("the app existed (%d) when its database was filled", appsAtFill)
 	}
-	if !strings.Contains(log, fmt.Sprintf("starting from set %d", set.ID)) || !strings.Contains(log, "filling the new database app on forge-ledger-prod from it") || !strings.Contains(log, "postgres came back") {
+	if !strings.Contains(log, fmt.Sprintf("starting from set %d", set.ID)) || !strings.Contains(log, "filling the new database app on apptown-ledger-prod from it") || !strings.Contains(log, "postgres came back") {
 		t.Fatalf("release log:\n%s", log)
 	}
 	now, err := w.s.Deployments.ByName(ctx, w.project, "prod")

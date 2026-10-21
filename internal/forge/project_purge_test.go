@@ -86,7 +86,7 @@ func purgeFixtureState(t *testing.T, live bool) (*App, *fakeDocker, []string) {
 		}
 	}
 	purgeDeployment(t, a, "main")
-	f.markStarted("forge-env-game-main")
+	f.markStarted("apptown-env-game-main")
 	f.markStarted(docker.PreviewChangeName(fx.Change))
 	return a, f, paths
 }
@@ -499,8 +499,8 @@ func TestProjectDeletionTakesEachDeploymentDownAndPurgesNothingByName(t *testing
 	purgeDeployment(t, a, "staging")
 	// Containers under the project's names that no deployment recorded
 	// creating, and another project's whose name extends this one's.
-	unrecorded := []string{"forge-env-game-main", "forge-env-game-staging", "forge-svc-env-game-main-db"}
-	foreign := []string{"forge-env-game-tools-main", "forge-svc-env-game-tools-main-db"}
+	unrecorded := []string{"apptown-env-game-main", "apptown-env-game-staging", "apptown-svc-env-game-main-db"}
+	foreign := []string{"apptown-env-game-tools-main", "apptown-svc-env-game-tools-main-db"}
 	for _, name := range append(unrecorded, foreign...) {
 		f.markStarted(name)
 	}
@@ -546,13 +546,13 @@ func TestProjectDeletionRemovesOnlyWhatTheDeploymentRecorded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "container", ID: "forge-env-game-main", Name: "forge-env-game-main"}); err != nil {
+	if err := a.Deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "container", ID: "apptown-env-game-main", Name: "apptown-env-game-main"}); err != nil {
 		t.Fatal(err)
 	}
-	need := "forge-svc-env-game-main-db"
+	need := "apptown-svc-env-game-main-db"
 	f.markStarted(need)
 	f.mu.Lock()
-	f.objects["volume forge-need-env-game-main-db"] = true
+	f.objects["volume apptown-need-env-game-main-db"] = true
 	f.mu.Unlock()
 	if st := deleteProject(t, a, "game"); st.State != project.Deleted {
 		t.Fatalf("deletion: %+v", st)
@@ -563,7 +563,7 @@ func TestProjectDeletionRemovesOnlyWhatTheDeploymentRecorded(t *testing.T) {
 	defer f.mu.Unlock()
 	removed := false
 	for _, call := range f.calls {
-		if call[0] == "rm" && call[len(call)-1] == "forge-env-game-main" {
+		if call[0] == "rm" && call[len(call)-1] == "apptown-env-game-main" {
 			removed = true
 			if slices.Contains(call, "-v") {
 				t.Errorf("the recorded container went with its unrecorded volumes: %v", call)
@@ -593,11 +593,11 @@ func TestProjectDeletionIsRefusedWhenAFinalBackupFallsShort(t *testing.T) {
 	}
 	// Postgres's data volume is recorded; no running container on the list
 	// mounts it, so nothing can copy it.
-	if err := a.Deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "volume", ID: "forge-need-env-game-main-postgres", Data: true, Need: "postgres"}); err != nil {
+	if err := a.Deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "volume", ID: "apptown-need-env-game-main-postgres", Data: true, Need: "postgres"}); err != nil {
 		t.Fatal(err)
 	}
 	f.mu.Lock()
-	f.objects["volume forge-need-env-game-main-postgres"] = true
+	f.objects["volume apptown-need-env-game-main-postgres"] = true
 	f.mu.Unlock()
 	st := deleteProject(t, a, "game")
 	if st.State != project.Deleting || !strings.Contains(st.Stalled, "the take-down of main") || !strings.Contains(st.Stalled, "nothing was removed") {
@@ -749,7 +749,7 @@ func TestProjectCleanupRemovesPreviewStacks(t *testing.T) {
 	t.Parallel()
 	a, f, _ := purgeFixture(t)
 	fx := fixtureWork(t, a)
-	sidecar := docker.ServiceName(docker.ChangeStackID(fx.Change), "postgres")
+	sidecar := docker.Current.Service(docker.ChangeStackID(fx.Change), "postgres")
 	f.markStarted(sidecar)
 	f.reply = func(args []string) (string, error, bool) {
 		call := strings.Join(args, " ")
@@ -813,22 +813,22 @@ func TestProjectCleanupRemovesItsBuildImages(t *testing.T) {
 	fx := fixtureWork(t, a)
 	purgeDeployment(t, a, "staging")
 	createReadTestProject(t, a, "game-main")
-	owned := []string{"forge-preview-build-forge-preview-change-" + fx.Change.String() + ":latest", "forge-preview-build-forge-preview-run-" + fx.Run.String() + "-web:latest"}
-	deployments := []string{"forge-preview-build-forge-env-game-main:latest", "forge-preview-build-forge-env-game-staging-g2-web:latest"}
-	inUse := "forge-preview-build-forge-preview-run-" + fx.Run.String() + ":latest"
+	owned := []string{"apptown-preview-build-apptown-preview-change-" + fx.Change.String() + ":latest", "apptown-preview-build-apptown-preview-run-" + fx.Run.String() + "-web:latest"}
+	deployments := []string{"apptown-preview-build-apptown-env-game-main:latest", "apptown-preview-build-apptown-env-game-staging-g2-web:latest"}
+	inUse := "apptown-preview-build-apptown-preview-run-" + fx.Run.String() + ":latest"
 	// game-main's web deployment; game's main deployment's web part would
 	// carry the same name, and another project's claim wins.
-	foreign := "forge-preview-build-forge-env-game-main-web:latest"
+	foreign := "apptown-preview-build-apptown-env-game-main-web:latest"
 	f.reply = func(args []string) (string, error, bool) {
 		call := strings.Join(args, " ")
 		switch {
-		case strings.HasPrefix(call, "image ls") && strings.Contains(call, "reference=forge-preview-build-forge-env-game-main "):
+		case strings.HasPrefix(call, "image ls") && strings.Contains(call, "reference=apptown-preview-build-apptown-env-game-main "):
 			return deployments[0] + "\n" + foreign, nil, true
-		case strings.HasPrefix(call, "image ls") && strings.Contains(call, "reference=forge-preview-build-forge-env-game-staging "):
+		case strings.HasPrefix(call, "image ls") && strings.Contains(call, "reference=apptown-preview-build-apptown-env-game-staging "):
 			return deployments[1], nil, true
-		case strings.HasPrefix(call, "image ls") && strings.Contains(call, "reference=forge-preview-build-forge-preview-change-"+fx.Change.String()+" "):
+		case strings.HasPrefix(call, "image ls") && strings.Contains(call, "reference=apptown-preview-build-apptown-preview-change-"+fx.Change.String()+" "):
 			return owned[0], nil, true
-		case strings.HasPrefix(call, "image ls") && strings.Contains(call, "reference=forge-preview-build-forge-preview-run-"+fx.Run.String()+" "):
+		case strings.HasPrefix(call, "image ls") && strings.Contains(call, "reference=apptown-preview-build-apptown-preview-run-"+fx.Run.String()+" "):
 			return owned[1] + "\n" + inUse, nil, true
 		case strings.HasPrefix(call, "image ls"):
 			return "", nil, true
@@ -876,7 +876,7 @@ func TestProjectDeletionWithRunningWorkTakesNothingDown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "container", ID: "forge-env-game-main", Name: "forge-env-game-main"}); err != nil {
+	if err := a.Deployment.Deployments.OwnerOf(env).Created(context.Background(), deploy.Owned{Kind: "container", ID: "apptown-env-game-main", Name: "apptown-env-game-main"}); err != nil {
 		t.Fatal(err)
 	}
 	if out := authzCall(a.Handler(), "boss", "DELETE", "/api/v1/projects/game", `{"confirm":"game"}`); out.Code != 409 {

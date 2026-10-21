@@ -23,11 +23,11 @@ func TestReapPreviewOrphansSparesDeploymentsAndSteps(t *testing.T) {
 			// must both stand.
 			return []byte("s1\tpv00000000-000c-7000-8000-000000000000\ns2\tpvsnap-change-7\ns3\tpvrel-letterbox-4\ns4\tenv-letterbox-main\ns5\t00000000-007b-7000-8000-000000000000\n"), nil, true
 		case strings.HasPrefix(call, "ps -a --filter label=forge.class=step --format"):
-			return []byte("i1\tpv00000000-000c-7000-8000-000000000000\ni2\tforge-step-99\n"), nil, true
+			return []byte("i1\tpv00000000-000c-7000-8000-000000000000\ni2\tapptown-step-99\n"), nil, true
 		case call == "network ls --format {{.Name}}":
-			return []byte("bridge\nforge-net-pv00000000-000c-7000-8000-000000000000\nforge-net-env-letterbox-main\nforge-net-00000000-007b-7000-8000-000000000000\nforge-net-pvsnap-change-7\n"), nil, true
+			return []byte("bridge\napptown-net-pv00000000-000c-7000-8000-000000000000\napptown-net-env-letterbox-main\napptown-net-00000000-007b-7000-8000-000000000000\napptown-net-pvsnap-change-7\n"), nil, true
 		case call == "volume ls -q":
-			return []byte("forge-cache\nforge-data-forge-preview-run-3\nforge-data-forge-env-letterbox-main\nforge-data-app\n"), nil, true
+			return []byte("forge-cache\napptown-data-apptown-preview-run-3\napptown-data-apptown-env-letterbox-main\napptown-data-app\n"), nil, true
 		}
 		return nil, nil, false
 	})
@@ -48,13 +48,13 @@ func TestReapPreviewOrphansSparesDeploymentsAndSteps(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"prev-1", "prev-2", "s1", "s2", "s3", "i1",
-		"forge-net-pv00000000-000c-7000-8000-000000000000", "forge-net-pvsnap-change-7", "forge-data-forge-preview-run-3"} {
+		"apptown-net-pv00000000-000c-7000-8000-000000000000", "apptown-net-pvsnap-change-7", "apptown-data-apptown-preview-run-3"} {
 		if !removed[want] {
 			t.Errorf("%s belongs to a preview and must be reaped; removed=%v", want, removed)
 		}
 	}
-	for _, keep := range []string{"s4", "s5", "i2", "bridge", "forge-net-env-letterbox-main", "forge-net-00000000-007b-7000-8000-000000000000",
-		"forge-cache", "forge-data-forge-env-letterbox-main", "forge-data-app"} {
+	for _, keep := range []string{"s4", "s5", "i2", "bridge", "apptown-net-env-letterbox-main", "apptown-net-00000000-007b-7000-8000-000000000000",
+		"forge-cache", "apptown-data-apptown-env-letterbox-main", "apptown-data-app"} {
 		if removed[keep] {
 			t.Errorf("%s is persistent or someone else's and must stand; removed=%v", keep, removed)
 		}

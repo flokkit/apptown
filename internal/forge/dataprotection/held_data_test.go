@@ -86,10 +86,10 @@ func TestADeploymentHoldsWhatItsReleaseDeclares(t *testing.T) {
 		t.Fatalf("plan: %+v %v", plan, err)
 	}
 	app, pg := plan[0], plan[1]
-	if app.Kind != "volume" || app.Volume != "forge-data-forge-env-bk-main" || app.File != "forge-data-forge-env-bk-main.tar.gz" {
+	if app.Kind != "volume" || app.Volume != "apptown-data-apptown-env-bk-main" || app.File != "apptown-data-apptown-env-bk-main.tar.gz" {
 		t.Fatalf("the app's volume: %+v", app)
 	}
-	if pg.Kind != "need" || pg.Name != "postgres" || pg.Volume != "forge-need-env-bk-main-postgres" || pg.File != "forge-need-env-bk-main-postgres.dump" ||
+	if pg.Kind != "need" || pg.Name != "postgres" || pg.Volume != "apptown-need-env-bk-main-postgres" || pg.File != "apptown-need-env-bk-main-postgres.dump" ||
 		!strings.Contains(pg.How, "pg_dump") || !strings.Contains(pg.Restore, "pg_restore") {
 		t.Fatalf("Postgres, dumped by its kind's copy: %+v", pg)
 	}
@@ -256,14 +256,14 @@ func twoOfEachWorld(t *testing.T, slug string, port int) (*both, *dockerfake.Dae
 	s, _, client, _, pid := backupWorld(t, slug, port)
 	dep := mainOf(t, s, pid)
 	record(t, s, dep,
-		deploy.Owned{Kind: "volume", ID: "forge-data-old", Data: true},
+		deploy.Owned{Kind: "volume", ID: "apptown-data-old", Data: true},
 		deploy.Owned{Kind: "container", ID: "c-oldpg", Need: "postgres"},
-		deploy.Owned{Kind: "volume", ID: "forge-need-old-postgres", Data: true, Need: "postgres"})
+		deploy.Owned{Kind: "volume", ID: "apptown-need-old-postgres", Data: true, Need: "postgres"})
 	client.SetRunning("c-oldpg", true)
 	stack := docker.StackID(slug, "main")
 	hostMounts(client, map[string]string{
-		"c-oldpg":                             "forge-need-old-postgres\t/var/lib/postgresql/data",
-		docker.ServiceName(stack, "postgres"): docker.NeedVolumeName(stack, "postgres") + "\t/var/lib/postgresql/data",
+		"c-oldpg": "apptown-need-old-postgres\t/var/lib/postgresql/data",
+		docker.Current.Service(stack, "postgres"): docker.Current.NeedVolume(stack, "postgres") + "\t/var/lib/postgresql/data",
 	}, nil)
 	h := &hostLog{}
 	h.answer(client)
@@ -304,10 +304,10 @@ func TestTwoVolumesOfOneRoleStayApart(t *testing.T) {
 	}
 	got := h.restored()
 	for _, want := range []string{
-		"copy of forge-data-old.tar.gz <- run --rm -i --entrypoint  --network none -v forge-data-old:/dst",
-		"copy of forge-data-forge-env-two-main.tar.gz <- run --rm -i --entrypoint  --network none -v forge-data-forge-env-two-main:/dst",
-		"copy of forge-need-old-postgres.dump <- exec -i " + pgConnection + " c-oldpg sh -c pg_restore",
-		"copy of forge-need-env-two-main-postgres.dump <- exec -i " + pgConnection + " forge-svc-env-two-main-postgres sh -c pg_restore",
+		"copy of apptown-data-old.tar.gz <- run --rm -i --entrypoint  --network none -v apptown-data-old:/dst",
+		"copy of apptown-data-apptown-env-two-main.tar.gz <- run --rm -i --entrypoint  --network none -v apptown-data-apptown-env-two-main:/dst",
+		"copy of apptown-need-old-postgres.dump <- exec -i " + pgConnection + " c-oldpg sh -c pg_restore",
+		"copy of apptown-need-env-two-main-postgres.dump <- exec -i " + pgConnection + " apptown-svc-env-two-main-postgres sh -c pg_restore",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("want %q among the restores:\n%s", want, got)
@@ -320,7 +320,7 @@ func TestTwoVolumesOfOneRoleStayApart(t *testing.T) {
 func legacySet(t *testing.T, s *both, dep *deployment.Deployment, slug string) *Backup {
 	t.Helper()
 	plan := []backupPlanItem{
-		{Kind: "volume", Name: "forge-data-gone", File: "data.tar.gz", Copy: CopyLiveFiles, Step: docker.Step{Image: "x"}},
+		{Kind: "volume", Name: "apptown-data-gone", File: "data.tar.gz", Copy: CopyLiveFiles, Step: docker.Step{Image: "x"}},
 		{Kind: "need", Name: "postgres", File: "postgres.dump", Restore: "pg_restore", Copy: CopyDeclared, Step: docker.Step{Exec: "x"}},
 	}
 	b, err := s.takeSet(context.Background(), docker.Scope{Client: s.hosts.Local().Client}, dep.ProjectID, slug, dep.Name, plan, "manual", "bls")
@@ -347,8 +347,8 @@ func TestARoleOnlySetRestoresOnlyWhenUnambiguous(t *testing.T) {
 		if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls"); err != nil {
 			t.Fatal(err)
 		}
-		if got := h.restored(); !strings.Contains(got, "copy of data.tar.gz <- run --rm -i --entrypoint  --network none -v forge-data-forge-env-leg-main:/dst") ||
-			!strings.Contains(got, "copy of postgres.dump <- exec -i "+pgConnection+" forge-svc-env-leg-main-postgres sh -c pg_restore") {
+		if got := h.restored(); !strings.Contains(got, "copy of data.tar.gz <- run --rm -i --entrypoint  --network none -v apptown-data-apptown-env-leg-main:/dst") ||
+			!strings.Contains(got, "copy of postgres.dump <- exec -i "+pgConnection+" apptown-svc-env-leg-main-postgres sh -c pg_restore") {
 			t.Fatalf("each copy into the one volume of its role:\n%s", got)
 		}
 	})
@@ -379,10 +379,10 @@ func TestAnAnonymousNeedVolumeIsPlannedOnce(t *testing.T) {
 	t.Parallel()
 	s, _, client, _, pid := backupWorld(t, "anon", 40024)
 	dep := mainOf(t, s, pid)
-	svc := docker.ServiceName(docker.StackID("anon", "main"), "postgres")
+	svc := docker.Current.Service(docker.StackID("anon", "main"), "postgres")
 	record(t, s, dep, deploy.Owned{Kind: "volume", ID: "4f9a", Data: true, Need: "postgres"}, deploy.Owned{Kind: "container", ID: svc, Need: "postgres"})
 	hostMounts(client, map[string]string{svc: "4f9a\t/var/lib/postgresql/data"}, func(line string) ([]byte, error, bool) {
-		if line == "volume inspect forge-need-env-anon-main-postgres" {
+		if line == "volume inspect apptown-need-env-anon-main-postgres" {
 			return []byte("Error: No such volume"), errors.New("exit 1"), true
 		}
 		return nil, nil, false
@@ -425,7 +425,7 @@ func TestANeedWithNoNamedDataIsNotCopiedAndNeverMerged(t *testing.T) {
 			releaseMain(t, s, slug, yaml)
 			// Older services: their named volumes absent, nothing mounted.
 			hostMounts(client, nil, func(line string) ([]byte, error, bool) {
-				if strings.HasPrefix(line, "volume inspect forge-need-") {
+				if strings.HasPrefix(line, "volume inspect apptown-need-") {
 					return []byte("Error: No such volume"), errors.New("exit 1"), true
 				}
 				return nil, nil, false
@@ -458,8 +458,8 @@ func TestANeedWithNoNamedDataIsNotCopiedAndNeverMerged(t *testing.T) {
 func TestACopyOfAnotherVolumeIsNotThisVolumesCopy(t *testing.T) {
 	t.Parallel()
 	s, _, client, _, pid := backupWorld(t, "rep", 40035)
-	svc := docker.ServiceName(docker.StackID("rep", "main"), "postgres")
-	named := docker.NeedVolumeName(docker.StackID("rep", "main"), "postgres")
+	svc := docker.Current.Service(docker.StackID("rep", "main"), "postgres")
+	named := docker.Current.NeedVolume(docker.StackID("rep", "main"), "postgres")
 	hostMounts(client, map[string]string{svc: "old-anon\t/var/lib/postgresql/data"}, func(line string) ([]byte, error, bool) {
 		if line == "volume inspect "+named {
 			return []byte("Error: No such volume"), errors.New("exit 1"), true

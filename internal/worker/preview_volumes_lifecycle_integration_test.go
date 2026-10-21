@@ -46,14 +46,14 @@ func TestIntegrationRemovingAWorkerPreviewRemovesItsAnonymousVolumes(t *testing.
 	if err != nil || !st.Running || st.Error != "" {
 		t.Fatalf("boot: %+v %v", st, err)
 	}
-	service := docker.ServiceName(w.stack, "cache")
+	service := docker.Current.Service(w.stack, "cache")
 	volumes := append(volumesOf(t, w.name), volumesOf(t, service)...)
 	t.Cleanup(func() {
 		for _, v := range volumes {
 			_ = exec.Command("docker", "volume", "rm", "-f", v).Run()
 		}
 	})
-	named := docker.DataVolumeName(w.name)
+	named := docker.Current.DataVolume(w.name)
 	anonymous := 0
 	for _, v := range volumes {
 		if v != named {
@@ -77,7 +77,7 @@ func TestIntegrationRemovingAWorkerPreviewRemovesItsAnonymousVolumes(t *testing.
 // fresh data; nothing the earlier one wrote carries over.
 func TestIntegrationAReplacedWorkerPreviewStartsWithFreshData(t *testing.T) {
 	w := startPreviewWorker(t)
-	t.Cleanup(func() { _ = exec.Command("docker", "volume", "rm", "-f", docker.DataVolumeName(w.name)).Run() })
+	t.Cleanup(func() { _ = exec.Command("docker", "volume", "rm", "-f", docker.Current.DataVolume(w.name)).Run() })
 	contract := "version: 1\napp:\n  web:\n    image: caddy:2-alpine\n    ports: [\"80\"]\n    public: true\n    dataDir: /data\n"
 	first := w.boot(t, "fresh-a", siteTree(t, contract, map[string]string{}))
 	if !first.Running || first.Error != "" {

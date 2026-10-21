@@ -38,7 +38,7 @@ func TestAWaitForAnUnquietTaskEndsWithItsRequest(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 		s := &Server{State: state, Docker: fake, Tasks: exitedAsAsked{cancel: cancel}}
-		if err := s.writeRecord(record{Key: "agent-1", Private: &privateSet{Network: "forge-private-agent-1", Services: []string{"forge-private-agent-1-postgres"}}}); err != nil {
+		if err := s.writeRecord(record{Key: "agent-1", Private: &privateSet{Network: "apptown-private-agent-1", Services: []string{"apptown-private-agent-1-postgres"}}}); err != nil {
 			t.Fatal(err)
 		}
 		req := httptest.NewRequest("GET", "/tasks/agent-1/wait", nil).WithContext(ctx)

@@ -57,9 +57,9 @@ func (s *Scanners) imageForCommit(ctx context.Context, projectID ids.ID, buildDi
 		return a.ID, "", "ok", nil
 	case c.PublicPart().Build != "":
 		// A tag cannot say "(none)": an unrecorded commit shares one tag.
-		tag := "forge-conform:unknown"
+		tag := "apptown-conform:unknown"
 		if strings.TrimSpace(sha) != "" {
-			tag = "forge-conform:" + strs.ShortSHA(sha)
+			tag = "apptown-conform:" + strs.ShortSHA(sha)
 		}
 		if a := s.exec.Image(ctx, execution.ImageRequest{Tag: tag}); a.Err == "" && a.ID != "" {
 			// A cache hit cannot say who put the image there: a build for the

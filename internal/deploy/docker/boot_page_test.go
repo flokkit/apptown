@@ -59,7 +59,7 @@ func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
 	}
 	boot := func(pageCheck bool, host string) (BootResult, error) {
 		return NewHost(Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(context.Background(), BootRequest{Docker: Scope{Client: pageClient{u.Port()}},
-			Name: "forge-preview-run-4", StackID: "pv4", Workspace: t.TempDir(), Slug: "shop", Deployment: "preview", Probe: time.Second,
+			Name: "apptown-preview-run-4", StackID: "pv4", Workspace: t.TempDir(), Slug: "shop", Deployment: "preview", Probe: time.Second,
 			Scratch: t.TempDir(), PageCheck: pageCheck, VisitorHost: host}, c)
 	}
 	// The check is witnessed whichever way it goes: the path that
@@ -102,7 +102,7 @@ func TestAStaticSiteBootRequiresTheForgesFileServer(t *testing.T) {
 	}
 	boot := func(probe Prober) error {
 		_, err := NewHost(Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Docker: Scope{Client: pageClient{"1"}},
-			Name: "forge-preview-run-5", StackID: "pv5", Workspace: t.TempDir(), Slug: "site", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c)
+			Name: "apptown-preview-run-5", StackID: "pv5", Workspace: t.TempDir(), Slug: "site", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c)
 		return err
 	}
 	if be := AsBootError(boot(pathProbe{refuses: "/_apptown/env.js"})); be == nil || be.Phase != PhaseProbe || !strings.Contains(be.Error(), "does not answer /_apptown/env.js") {
@@ -165,7 +165,7 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 			}}
 			var asked []RenderedProbe
 			_, err := NewHost(Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: witnessProbe{serves: tc.serves, asked: &asked}}).Boot(context.Background(), BootRequest{Docker: Scope{Client: client},
-				Name: "forge-env-site-main", StackID: "env-site-main", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
+				Name: "apptown-env-site-main", StackID: "env-site-main", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
 				Revision: tc.revision, Recorded: tc.recorded}, c)
 			if be := AsBootError(err); tc.wantErr != (err != nil) || (tc.wantErr && (be.Phase != PhaseProbe || !strings.Contains(be.Error(), appcontract.ReleasePath))) {
 				t.Fatalf("boot: %v", err)

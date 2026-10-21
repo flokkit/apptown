@@ -52,12 +52,12 @@ func takeDownWorldFor(t *testing.T, purpose project.Purpose, slug string) (*both
 		t.Fatal(err)
 	}
 	for _, o := range []deploy.Owned{
-		{Kind: "network", ID: "forge-net-env-" + slug + "-staging"},
-		{Kind: "container", ID: "c-pg", Name: "forge-svc-env-" + slug + "-staging-postgres", Need: "postgres"},
+		{Kind: "network", ID: "apptown-net-env-" + slug + "-staging"},
+		{Kind: "container", ID: "c-pg", Name: "apptown-svc-env-" + slug + "-staging-postgres", Need: "postgres"},
 		{Kind: "volume", ID: "v-pg", Data: true, Need: "postgres"},
-		{Kind: "container", ID: "c-worker", Name: "forge-svc-env-" + slug + "-staging-worker"},
-		{Kind: "volume", ID: "forge-data-forge-env-" + slug + "-staging", Data: true},
-		{Kind: "container", ID: "c-web", Name: "forge-env-" + slug + "-staging"},
+		{Kind: "container", ID: "c-worker", Name: "apptown-svc-env-" + slug + "-staging-worker"},
+		{Kind: "volume", ID: "apptown-data-apptown-env-" + slug + "-staging", Data: true},
+		{Kind: "container", ID: "c-web", Name: "apptown-env-" + slug + "-staging"},
 	} {
 		if err := s.Deployments.OwnerOf(dep).Created(context.Background(), o); err != nil {
 			t.Fatal(err)
@@ -121,7 +121,7 @@ func TestTakeDownBacksUpWhatTheDeploymentHoldsThenDeletesIt(t *testing.T) {
 		t.Fatalf("no final set: %+v", result)
 	}
 	b, err := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, result.FinalBackup.ID)
-	if err != nil || b.Trigger != TriggerTakeDown || b.Status != BackupOK || b.GoodCopy("need", "postgres") == nil || b.GoodCopy("volume", "forge-data-forge-env-fbk-staging") == nil {
+	if err != nil || b.Trigger != TriggerTakeDown || b.Status != BackupOK || b.GoodCopy("need", "postgres") == nil || b.GoodCopy("volume", "apptown-data-apptown-env-fbk-staging") == nil {
 		t.Fatalf("final set: %+v %v", b, err)
 	}
 	cmds := commandsOf(client)
@@ -141,7 +141,7 @@ func TestTakeDownBacksUpWhatTheDeploymentHoldsThenDeletesIt(t *testing.T) {
 			t.Fatalf("a container was removed with its unlisted volumes: %s", c)
 		}
 	}
-	for _, c := range []string{"volume rm v-pg", "volume rm forge-data-forge-env-fbk-staging", "rm -f c-pg", "network rm forge-net-env-fbk-staging"} {
+	for _, c := range []string{"volume rm v-pg", "volume rm apptown-data-apptown-env-fbk-staging", "rm -f c-pg", "network rm apptown-net-env-fbk-staging"} {
 		if i := indexOf(cmds, c); i < dump {
 			t.Fatalf("%s after the copy:\n%s", c, strings.Join(cmds, "\n"))
 		}
@@ -413,7 +413,7 @@ func TestAFinalSetRestoresIntoAnotherDeploymentByRole(t *testing.T) {
 				t.Fatalf("restore: %v %v", res, err)
 			}
 			joined := strings.Join(restores, "\n")
-			if !strings.Contains(joined, "-v forge-data-forge-env-frs-main:/dst") || !strings.Contains(joined, "exec -i "+pgConnection+" forge-svc-env-frs-main-postgres sh -c pg_restore") {
+			if !strings.Contains(joined, "-v apptown-data-apptown-env-frs-main:/dst") || !strings.Contains(joined, "exec -i "+pgConnection+" apptown-svc-env-frs-main-postgres sh -c pg_restore") {
 				t.Fatalf("restored into the wrong places:\n%s", joined)
 			}
 		})
@@ -624,7 +624,7 @@ func offListWorld(t *testing.T, slug string) (*both, *dockerfake.Daemon, *deploy
 	t.Helper()
 	s, client, dep := takeDownWorld(t, slug)
 	stack := docker.StackID(slug, "staging")
-	svc, vol := docker.ServiceName(stack, "redis"), docker.NeedVolumeName(stack, "redis")
+	svc, vol := docker.Current.Service(stack, "redis"), docker.Current.NeedVolume(stack, "redis")
 	standRelease(t, s, slug, "staging", "app:\n  web:\n    image: registry.example/"+slug+":1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  redis: {}\n")
 	client.SetRunning(svc, true)
 	hostMounts(client, map[string]string{"c-pg": "v-pg\t/var/lib/postgresql/data", svc: vol + "\t/data"}, nil)
@@ -723,7 +723,7 @@ func TestATakeDownRefusesToDeleteAContainerHoldingUncopiedData(t *testing.T) {
 				release = fmt.Sprintf(release, slug)
 			}
 			standRelease(t, s, slug, "staging", release)
-			svc := docker.ServiceName(docker.StackID(slug, "staging"), tc.need)
+			svc := docker.Current.Service(docker.StackID(slug, "staging"), tc.need)
 			client.SetRunning(svc, true)
 			if err := s.Deployments.OwnerOf(dep).Created(context.Background(), deploy.Owned{Kind: "container", ID: svc, Need: tc.need}); err != nil {
 				t.Fatal(err)
@@ -768,7 +768,7 @@ func TestOffListDataIsRetainedAsWhatTheHostHolds(t *testing.T) {
 	t.Run("container data", func(t *testing.T) {
 		t.Parallel()
 		s, client, dep, vol := offListWorld(t, "rtc")
-		svc := docker.ServiceName(docker.StackID("rtc", "staging"), "redis")
+		svc := docker.Current.Service(docker.StackID("rtc", "staging"), "redis")
 		hostMounts(client, map[string]string{"c-pg": "v-pg\t/var/lib/postgresql/data"}, func(line string) ([]byte, error, bool) {
 			if line == "volume inspect "+vol {
 				return []byte("Error: No such volume"), errors.New("exit 1"), true
@@ -793,7 +793,7 @@ func TestOffListDataIsRetainedAsWhatTheHostHolds(t *testing.T) {
 			slug := map[bool]string{true: "rtq", false: "rtn"}[there]
 			s, client, dep := takeDownWorld(t, slug)
 			standRelease(t, s, slug, "staging", "app:\n  web:\n    image: x:1\n    public: true\nneeds:\n  quantum: {}\n")
-			vol := docker.NeedVolumeName(docker.StackID(slug, "staging"), "quantum")
+			vol := docker.Current.NeedVolume(docker.StackID(slug, "staging"), "quantum")
 			hostReplies(client, func(line string) ([]byte, error, bool) {
 				if line == "volume inspect "+vol && !there {
 					return []byte("Error: No such volume"), errors.New("exit 1"), true

@@ -34,7 +34,7 @@ func attemptFixture(t *testing.T) (*Records, Admission) {
 		t.Fatal(err)
 	}
 	return New(db), Admission{Operation: "step-1-attempt-1", Invocation: ScriptInvocation, Owner: Owner{ProjectID: projectID, RunID: runID, StepID: stepID, Attempt: 1},
-		Backend: "docker", Container: "forge-task-step-1-attempt-1", Digest: "digest-a",
+		Backend: "docker", Container: "apptown-task-step-1-attempt-1", Digest: "digest-a",
 		Admitted: execution.Admission{Profile: "docker", Network: execution.NetworkNone, Limits: execution.Limits{CPUs: 1, WallClock: time.Minute}, Expires: time.Now().Add(time.Hour).Round(time.Microsecond)},
 		Deadline: time.Now().Add(time.Minute).Round(time.Microsecond)}
 }

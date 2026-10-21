@@ -60,7 +60,7 @@ func bootsOrReachesHere(call string) bool {
 	case "rm", "ps", "network", "volume":
 		return false
 	}
-	return strings.Contains(call, "forge-preview-")
+	return strings.Contains(call, "apptown-preview-")
 }
 
 // nothingRanHere fails when this machine's Docker was asked to boot, build,

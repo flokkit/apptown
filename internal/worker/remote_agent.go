@@ -179,7 +179,7 @@ func (a *RemoteAgent) Start(ctx context.Context, in console.Launch) error {
 
 // sendSource sends the change's branch for the chat's work tree.
 func (a *RemoteAgent) sendSource(ctx context.Context, in console.Launch) error {
-	dir, err := os.MkdirTemp("", "forge-chat-source-*")
+	dir, err := os.MkdirTemp("", "apptown-chat-source-*")
 	if err != nil {
 		return err
 	}

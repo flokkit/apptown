@@ -113,8 +113,8 @@ func TestStandingServicesRecordWhatTheyCreate(t *testing.T) {
 			t.Parallel()
 			h := newOwnedHost()
 			if existed {
-				h.objects["network forge-net-env-shop-main"] = true
-				h.objects["volume forge-need-env-shop-main-postgres"] = true
+				h.objects["network apptown-net-env-shop-main"] = true
+				h.objects["volume apptown-need-env-shop-main-postgres"] = true
 			}
 			var got ownedList
 			own := Ownership{Record: got.record, Needs: map[string]string{"postgres": "/var/lib/postgresql/data", "mailpit": ""}}
@@ -123,23 +123,23 @@ func TestStandingServicesRecordWhatTheyCreate(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := ownedList{
-				{Kind: "container", ID: strings.Repeat("1", 64), Name: "forge-svc-env-shop-main-postgres", Need: "postgres"},
-				{Kind: "container", ID: strings.Repeat("2", 64), Name: "forge-svc-env-shop-main-mailpit", Need: "mailpit"},
-				{Kind: "container", ID: strings.Repeat("3", 64), Name: "forge-svc-env-shop-main-worker"},
+				{Kind: "container", ID: strings.Repeat("1", 64), Name: "apptown-svc-env-shop-main-postgres", Need: "postgres"},
+				{Kind: "container", ID: strings.Repeat("2", 64), Name: "apptown-svc-env-shop-main-mailpit", Need: "mailpit"},
+				{Kind: "container", ID: strings.Repeat("3", 64), Name: "apptown-svc-env-shop-main-worker"},
 			}
 			if !existed {
 				want = append(ownedList{
-					{Kind: "network", ID: "forge-net-env-shop-main"},
-					{Kind: "volume", ID: "forge-need-env-shop-main-postgres", Data: true, Need: "postgres"},
+					{Kind: "network", ID: "apptown-net-env-shop-main"},
+					{Kind: "volume", ID: "apptown-need-env-shop-main-postgres", Data: true, Need: "postgres"},
 				}, want...)
 			}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("recorded\n%+v\nwant\n%+v", got, want)
 			}
-			if !strings.Contains(strings.Join(h.runs[0], " "), "-v forge-need-env-shop-main-postgres:/var/lib/postgresql/data") {
+			if !strings.Contains(strings.Join(h.runs[0], " "), "-v apptown-need-env-shop-main-postgres:/var/lib/postgresql/data") {
 				t.Fatalf("postgres does not keep its data in the named volume: %v", h.runs[0])
 			}
-			if !existed && !strings.Contains(strings.Join(h.created, "\n"), "volume create --label forge.owner=env-shop-main forge-need-env-shop-main-postgres") {
+			if !existed && !strings.Contains(strings.Join(h.created, "\n"), "volume create --label forge.owner=env-shop-main apptown-need-env-shop-main-postgres") {
 				t.Fatalf("the need's volume is not labelled with its stack: %v", h.created)
 			}
 		})
@@ -150,15 +150,15 @@ func TestStandingServicesRecordWhatTheyCreate(t *testing.T) {
 // recorded only when this boot created it.
 func TestTheAppDataVolumeIsRecordedOnlyWhenTheBootMadeIt(t *testing.T) {
 	t.Parallel()
-	h := newOwnedHost("volume forge-data-forge-env-shop-old")
+	h := newOwnedHost("volume apptown-data-apptown-env-shop-old")
 	var got ownedList
 	own := Ownership{Record: got.record}
-	for _, v := range []string{"forge-data-forge-env-shop-old", "forge-data-forge-env-shop-main"} {
+	for _, v := range []string{"apptown-data-apptown-env-shop-old", "apptown-data-apptown-env-shop-main"} {
 		if err := ensureVolume(context.Background(), h.scope(), v, "x", "", own); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if want := (ownedList{{Kind: "volume", ID: "forge-data-forge-env-shop-main", Data: true}}); !reflect.DeepEqual(got, want) {
+	if want := (ownedList{{Kind: "volume", ID: "apptown-data-apptown-env-shop-main", Data: true}}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("recorded %+v", got)
 	}
 }
@@ -174,25 +174,25 @@ func TestTearDownDeletesExactlyTheList(t *testing.T) {
 		{Kind: "image", ID: "reg/shop@sha256:bb"},
 		{Kind: "volume", ID: "anon-pg", Data: true, Need: "postgres"},
 		{Kind: "volume", ID: "unreachable", Data: true},
-		{Kind: "network", ID: "forge-net-env-shop-main"},
+		{Kind: "network", ID: "apptown-net-env-shop-main"},
 		{Kind: "container", ID: "serving"},
-		{Kind: "container", ID: "pg", Name: "forge-svc-env-shop-main-postgres", Need: "postgres"},
+		{Kind: "container", ID: "pg", Name: "apptown-svc-env-shop-main-postgres", Need: "postgres"},
 		{Kind: "container", ID: "replaced-long-ago"},
 		{Kind: "bucket", ID: "b"},
 	}
 	for _, backedUp := range []bool{true, false} {
 		t.Run(fmt.Sprintf("backed up %v", backedUp), func(t *testing.T) {
 			t.Parallel()
-			h := newOwnedHost("container pg", "network forge-net-env-shop-main", "volume anon-pg", "volume unreachable", "image reg/shop@sha256:aa", "image reg/shop@sha256:bb", "container someone-elses", "volume not-listed")
+			h := newOwnedHost("container pg", "network apptown-net-env-shop-main", "volume anon-pg", "volume unreachable", "image reg/shop@sha256:aa", "image reg/shop@sha256:bb", "container someone-elses", "volume not-listed")
 			h.unknown["volume unreachable"] = true // unknown is not gone
 			h.inUse["reg/shop@sha256:bb"] = true
-			h.refuse["network forge-net-env-shop-main"] = true
+			h.refuse["network apptown-net-env-shop-main"] = true
 			out := TearDownOwned(context.Background(), h.scope(), list, "serving", backedUp)
 			wantRemoved := []string{"container pg", "image reg/shop@sha256:aa"}
-			wantDeleted := []string{"container forge-svc-env-shop-main-postgres", "image reg/shop@sha256:aa"}
+			wantDeleted := []string{"container apptown-svc-env-shop-main-postgres", "image reg/shop@sha256:aa"}
 			if backedUp {
 				wantRemoved = []string{"container pg", "volume anon-pg", "image reg/shop@sha256:aa"}
-				wantDeleted = []string{"container forge-svc-env-shop-main-postgres", "volume anon-pg", "image reg/shop@sha256:aa"}
+				wantDeleted = []string{"container apptown-svc-env-shop-main-postgres", "volume anon-pg", "image reg/shop@sha256:aa"}
 			}
 			if !reflect.DeepEqual(h.removed, wantRemoved) || !reflect.DeepEqual(out.Deleted, wantDeleted) {
 				t.Fatalf("removed %v deleted %v", h.removed, out.Deleted)
@@ -204,7 +204,7 @@ func TestTearDownDeletesExactlyTheList(t *testing.T) {
 					t.Errorf("%s left without a reason", l.What)
 				}
 			}
-			wantLeft := []string{"network forge-net-env-shop-main data=false"}
+			wantLeft := []string{"network apptown-net-env-shop-main data=false"}
 			if !backedUp {
 				wantLeft = append(wantLeft, "volume anon-pg data=true")
 			}
@@ -228,9 +228,9 @@ func TestASyntheticResetDeletesOnlyARecordedNeedVolume(t *testing.T) {
 	for _, recorded := range []bool{false, true} {
 		t.Run(fmt.Sprintf("recorded %v", recorded), func(t *testing.T) {
 			t.Parallel()
-			cname := ServiceName("env-shop-main", "postgres")
-			vol := NeedVolumeName("env-shop-main", "postgres")
-			h := newOwnedHost("container "+cname, "volume "+vol, "network forge-net-env-shop-main")
+			cname := Current.Service("env-shop-main", "postgres")
+			vol := Current.NeedVolume("env-shop-main", "postgres")
+			h := newOwnedHost("container "+cname, "volume "+vol, "network apptown-net-env-shop-main")
 			dk := Scope{Client: &fakeClient{reply: func(req Command) ([]byte, error) {
 				if line := strings.Join(req.Args, " "); strings.Contains(line, "{{.Config.Image}}") {
 					return []byte("postgres:15\n"), nil // made from another image than declared now

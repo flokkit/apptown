@@ -26,7 +26,7 @@ func TestAClaimThatFailedAfterItsRenameKeepsTheBarrierAcrossARestart(t *testing.
 	if code := fencedDelete(t, p, "", "2", "1"); code != http.StatusNoContent {
 		t.Fatal(code)
 	}
-	name := "forge-preview-change-971"
+	name := "apptown-preview-change-971"
 	seedPreview(t, state, dk, name)
 	if err := reusePreview(t, p, name); err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestASuccessfulClaimEndsALostFence(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
-	name := "forge-preview-change-903"
+	name := "apptown-preview-change-903"
 	seedPreview(t, state, dk, name)
 	if err := os.Remove(filepath.Join(state, "previews", "fence.json")); err != nil {
 		t.Fatal(err)
@@ -90,20 +90,20 @@ func TestASuccessfulClaimEndsALostFence(t *testing.T) {
 	srv := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation), Session: "3"}
-	if code := fencedDelete(t, p, "/forge-preview-run-1", "3", "1"); code != http.StatusConflict {
+	if code := fencedDelete(t, p, "/apptown-preview-run-1", "3", "1"); code != http.StatusConflict {
 		t.Fatalf("a lost fence admitted a request: %d", code)
 	}
 	if code := fencedDelete(t, p, "", "3", "2"); code != http.StatusNoContent || exists(filepath.Join(dk, "running-"+name)) {
 		t.Fatalf("the recovery claim: %d", code)
 	}
-	if code := fencedDelete(t, p, "/forge-preview-run-1", "3", "3"); code != http.StatusNoContent {
+	if code := fencedDelete(t, p, "/apptown-preview-run-1", "3", "3"); code != http.StatusNoContent {
 		t.Fatalf("a request after the recovery claim: %d", code)
 	}
 	hs.Close()
 	restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
 	hs2 := workertest.StartServer(t, ca, restarted)
 	p.URL = hs2.URL
-	if code := fencedDelete(t, p, "/forge-preview-run-1", "3", "4"); code != http.StatusNoContent {
+	if code := fencedDelete(t, p, "/apptown-preview-run-1", "3", "4"); code != http.StatusNoContent {
 		t.Fatalf("a request after the worker started again: %d", code)
 	}
 }

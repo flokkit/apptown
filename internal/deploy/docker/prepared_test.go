@@ -100,7 +100,7 @@ const preparedContract = "version: 1\napp:\n  web:\n    build: .\n    ports: [\"
 func bootOnce(t *testing.T, deps Dependencies, c *appcontract.Contract, ws string) []string {
 	t.Helper()
 	client := &recordingClient{}
-	if _, err := NewHost(deps).Boot(context.Background(), BootRequest{Docker: Scope{Client: client}, Name: "forge-preview-change-1", StackID: "pvsnap-change-1",
+	if _, err := NewHost(deps).Boot(context.Background(), BootRequest{Docker: Scope{Client: client}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1",
 		Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c); err != nil {
 		t.Fatalf("boot: %v\n%s", err, strings.Join(client.calls, "\n"))
 	}
@@ -139,9 +139,9 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 		switch {
 		case strings.HasPrefix(call, "run -d") && strings.Contains(call, "--network-alias postgres") && !strings.Contains(call, "--health-cmd pg_isready"):
 			t.Fatalf("the declared service runs without its health check: %q", call)
-		case strings.HasPrefix(call, "inspect -f {{if .State.Health}}") && strings.HasSuffix(call, ServiceName("pvsnap-change-1", "postgres")):
+		case strings.HasPrefix(call, "inspect -f {{if .State.Health}}") && strings.HasSuffix(call, Current.Service("pvsnap-change-1", "postgres")):
 			asked = i
-		case strings.HasPrefix(call, "run --rm") && strings.Contains(call, InitName("pvsnap-change-1", "migrate")):
+		case strings.HasPrefix(call, "run --rm") && strings.Contains(call, Current.Init("pvsnap-change-1", "migrate")):
 			initRan = i
 		}
 	}
@@ -276,7 +276,7 @@ func TestPreparedValuesBelongToTheirContract(t *testing.T) {
 	if q.Public().Digest() == p.Public().Digest() {
 		t.Fatal("another contract with the same answers has the same digest")
 	}
-	_, err = NewHost(sent.Dependencies(upProbe{}, "", "")).Boot(context.Background(), BootRequest{Docker: Scope{Client: &recordingClient{}}, Name: "forge-preview-change-1",
+	_, err = NewHost(sent.Dependencies(upProbe{}, "", "")).Boot(context.Background(), BootRequest{Docker: Scope{Client: &recordingClient{}}, Name: "apptown-preview-change-1",
 		StackID: "pvsnap-change-1", Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, other)
 	if err == nil || AsBootError(err).Phase != PhaseSecrets {
 		t.Fatalf("another contract booted with these values: %v", err)

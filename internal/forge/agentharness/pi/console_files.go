@@ -13,7 +13,7 @@ import (
 
 // ConsoleFiles materializes the same generated Pi home for persistent consoles.
 func (home Preparer) ConsoleFiles(ctx context.Context, dataDir string, projectID ids.ID) (map[string]console.Staged, error) {
-	dir, err := os.MkdirTemp("", "forge-pi-home-")
+	dir, err := os.MkdirTemp("", "apptown-pi-home-")
 	if err != nil {
 		return nil, err
 	}

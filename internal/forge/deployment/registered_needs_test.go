@@ -136,7 +136,7 @@ func TestADeploymentGetsItsOwnKeyAndKeepsIt(t *testing.T) {
 	}
 	held, _ := integration.ParseHeldKey(owned[0].ID)
 	key := f.Keys()[held.Hash]
-	if key.Limit == nil || *key.Limit != 3 || key.Reset == nil || *key.Reset != "monthly" || key.Name != "forge-p-prod-"+itoa(dep.ID) {
+	if key.Limit == nil || *key.Limit != 3 || key.Reset == nil || *key.Reset != "monthly" || key.Name != "apptown-p-prod-"+itoa(dep.ID) {
 		t.Fatalf("key at OpenRouter: %+v", key)
 	}
 	runs := runCalls(client)

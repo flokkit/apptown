@@ -180,7 +180,7 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 
 func (p *Providers) dockerInventory(t *Target) (deploy.Inventorier, error) {
 	var also []string
-	if t.Origin == OriginBuiltIn {
+	if t.Origin == OriginBuiltIn && p.databaseContainer != "" {
 		also = []string{p.databaseContainer}
 	}
 	return docker.Inventory{Scope: func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) }, Also: also}, nil

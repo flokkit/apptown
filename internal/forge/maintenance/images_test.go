@@ -19,10 +19,10 @@ func TestImageSweepRequiresAValidExpiredAge(t *testing.T) {
 	daemon := dockerfake.New()
 	now := time.Now()
 	rows := []string{
-		"forge-conform:short\t?",
-		"forge-conform:missing",
-		"forge-conform:recent\t" + now.Add(-20*time.Hour).In(time.FixedZone("PST", -8*60*60)).Format("2006-01-02 15:04:05 -0700 MST"),
-		"forge-conform:old\t" + now.Add(-48*time.Hour).UTC().Format("2006-01-02 15:04:05 -0700 MST"),
+		"apptown-conform:short\t?",
+		"apptown-conform:missing",
+		"apptown-conform:recent\t" + now.Add(-20*time.Hour).In(time.FixedZone("PST", -8*60*60)).Format("2006-01-02 15:04:05 -0700 MST"),
+		"apptown-conform:old\t" + now.Add(-48*time.Hour).UTC().Format("2006-01-02 15:04:05 -0700 MST"),
 	}
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 1 && args[0] == "image" && args[1] == "ls" {
@@ -31,11 +31,11 @@ func TestImageSweepRequiresAValidExpiredAge(t *testing.T) {
 		return nil, nil, false
 	})
 	a := &Reaper{docker: docker.Scope{Client: daemon}}
-	if got := a.Images(context.Background(), false); len(got) != 1 || got[0] != "forge-conform:old" {
+	if got := a.Images(context.Background(), false); len(got) != 1 || got[0] != "apptown-conform:old" {
 		t.Fatalf("age selection: %v", got)
 	}
 	removed := daemon.Matching("rmi ")
-	if len(removed) != 1 || strings.Join(removed[0], " ") != "rmi forge-conform:old" {
+	if len(removed) != 1 || strings.Join(removed[0], " ") != "rmi apptown-conform:old" {
 		t.Fatalf("removed images: %v", removed)
 	}
 }
@@ -78,7 +78,7 @@ func TestImageSweepReapsImagesWhoseOwnerNoLongerExists(t *testing.T) {
 		daemon := dockerfake.New()
 		daemon.SetReply(func(args []string) ([]byte, error, bool) {
 			if len(args) > 1 && args[0] == "image" && args[1] == "ls" {
-				return []byte("forge-preview-build-forge-preview-run-00000000-002a-7000-8000-000000000000:latest\nforge-preview-build-forge-preview-change-00000000-0009-7000-8000-000000000000-web:latest"), nil, true
+				return []byte("apptown-preview-build-apptown-preview-run-00000000-002a-7000-8000-000000000000:latest\napptown-preview-build-apptown-preview-change-00000000-0009-7000-8000-000000000000-web:latest"), nil, true
 			}
 			return nil, nil, false
 		})
@@ -88,7 +88,7 @@ func TestImageSweepReapsImagesWhoseOwnerNoLongerExists(t *testing.T) {
 		}
 		r := &Reaper{db: db, docker: docker.Scope{Client: daemon}}
 		got := r.Images(context.Background(), false)
-		if readable && (len(got) != 1 || got[0] != "forge-preview-build-forge-preview-run-00000000-002a-7000-8000-000000000000:latest") || !readable && len(got) != 0 {
+		if readable && (len(got) != 1 || got[0] != "apptown-preview-build-apptown-preview-run-00000000-002a-7000-8000-000000000000:latest") || !readable && len(got) != 0 {
 			t.Fatalf("readable=%v: reaped %v", readable, got)
 		}
 	}
@@ -107,14 +107,14 @@ func TestAContainersAgeIsJudgedOnTheForgesClock(t *testing.T) {
 	daemon := dockerfake.New()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "ps" {
-			return []byte("forge-step-00000006-7932-7000-8000-000000000000\tstep\t" + created.Format(time.RFC3339) + "\t00000006-7932-7000-8000-000000000000\tc1\n" +
-				"forge-preview-p\tpreview\t" + created.Format(time.RFC3339) + "\tforge-preview-p\tc2"), nil, true
+			return []byte("apptown-step-00000006-7932-7000-8000-000000000000\tstep\t" + created.Format(time.RFC3339) + "\t00000006-7932-7000-8000-000000000000\tc1\n" +
+				"apptown-preview-p\tpreview\t" + created.Format(time.RFC3339) + "\tapptown-preview-p\tc2"), nil, true
 		}
 		return nil, nil, false
 	})
 	sessions := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: t.TempDir()}})
 	r := New(databaseSuite.New(t), Dependencies{Docker: docker.Scope{Client: daemon}, Sessions: sessions, Now: func() time.Time { return forgeNow }}, t.TempDir())
-	if got := r.Containers(context.Background(), true); len(got) != 1 || got[0] != "forge-step-00000006-7932-7000-8000-000000000000" {
+	if got := r.Containers(context.Background(), true); len(got) != 1 || got[0] != "apptown-step-00000006-7932-7000-8000-000000000000" {
 		t.Fatalf("would reap %v, want the step's container three hours old on AppTown's clock, and no preview", got)
 	}
 }
@@ -128,9 +128,9 @@ func TestAnImageInUseIsKeptQuietly(t *testing.T) {
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
 		case len(args) > 1 && args[0] == "image" && args[1] == "ls":
-			return []byte("forge-conform:used\t" + old), nil, true
+			return []byte("apptown-conform:used\t" + old), nil, true
 		case args[0] == "rmi":
-			return []byte("Error response from daemon: conflict: unable to remove repository reference \"forge-conform:used\" (must force) - container 0123abcd is using its referenced image 4567ef"), errors.New("exit status 1"), true
+			return []byte("Error response from daemon: conflict: unable to remove repository reference \"apptown-conform:used\" (must force) - container 0123abcd is using its referenced image 4567ef"), errors.New("exit status 1"), true
 		}
 		return nil, nil, false
 	})
@@ -156,8 +156,11 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		line := strings.Join(args, " ")
 		switch {
-		case strings.HasPrefix(line, "volume ls"):
-			return []byte("forge-cache-game\nforge-cache-console-c1\nforge-cache-shop\n"), nil, true
+		case strings.HasPrefix(line, "volume ls") && strings.Contains(line, "name=apptown-cache-"):
+			return []byte("apptown-cache-game\napptown-cache-console-c1\napptown-cache-shop\n"), nil, true
+		case strings.HasPrefix(line, "volume ls") && strings.Contains(line, "name=forge-cache-"):
+			// What a release before 1.0 left: swept by the same rule.
+			return []byte("forge-cache-old\nforge-cache-console-c0\n"), nil, true
 		case strings.HasSuffix(line, "ls /apptown-cache/mise/ws"):
 			for _, a := range args {
 				if strings.HasSuffix(a, ":/apptown-cache") {
@@ -170,7 +173,7 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 	})
 	r := &Reaper{docker: docker.Scope{Client: daemon}}
 	r.Cache(t.Context(), true)
-	if strings.Join(listed, ",") != "forge-cache,forge-cache-game,forge-cache-shop" {
+	if strings.Join(listed, ",") != "apptown-cache,apptown-cache-game,apptown-cache-shop,forge-cache,forge-cache-old" {
 		t.Fatalf("swept %v", listed)
 	}
 }
