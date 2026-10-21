@@ -58,17 +58,28 @@ type gateKind struct {
 }
 
 // recordingPreviews answers that no preview runs, and keeps every label it
-// was asked to open.
+// was asked to open and every change it was asked to boot; a boot fails with
+// bootErr.
 type recordingPreviews struct {
-	mu     sync.Mutex
-	labels []string
+	mu      sync.Mutex
+	labels  []string
+	boots   []preview.Change
+	bootErr error
+	openErr error
+}
+
+func (p *recordingPreviews) RehearseChange(_ context.Context, ch preview.Change, _ bool) (preview.Result, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.boots = append(p.boots, ch)
+	return preview.Result{}, p.bootErr
 }
 
 func (p *recordingPreviews) OpenPreview(_ context.Context, _ ids.ID, label string) (*preview.Served, bool, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.labels = append(p.labels, label)
-	return nil, false, nil
+	return nil, false, p.openErr
 }
 
 func (p *recordingPreviews) asked(label string) bool {
@@ -182,6 +193,108 @@ func TestGateRuntimeCheckWithoutAPreviewIsCannotAssess(t *testing.T) {
 		t.Fatalf("a remediation target that could not be judged is unmet, not silently met: %v", unmet)
 	}
 }
+
+// A landing has no boot step, so its gate boots the change's preview from the
+// pinned candidate itself, once however many runtime checks need it, and
+// judges only what it then finds proven to run that candidate. A boot that
+// fails, a preview not proven to run the candidate, or previews that could
+// not be asked about, leave the checks
+// cannot-assess, AppTown's fault, saying why, and those at or above failOn
+// hold the step (unjudged), with or without an acceptance scope naming them.
+// A candidate with no runtime contract has no app: nothing is booted or held.
+// A run with no candidate boots nothing (its own boot step provides the
+// preview).
+//
+// Kills: the boot removed (no boot asked); the boot pinned to anything but
+// the candidate; the boot error dropped from the reason; the landing's hold
+// removed (nothing unjudged); the no-contract exemption removed.
+func TestLandingBootsItsCandidatesPreview(t *testing.T) {
+	t.Parallel()
+	f := newScannerOwnerFixture(t)
+	created, err := database.Transact(t.Context(), f.DB, func(tx *database.Tx) (workflow.CreatedChange, error) {
+		return workflow.CreateChangeIn(t.Context(), tx, workflow.ChangeDraft{ProjectID: f.ProjectID, Title: "adopt"}, "bls", time.Now())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtimeCheck := func(name string) conformance.DeclaredCheck {
+		return conformance.DeclaredCheck{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{Name: name, Evaluator: "runtime", Probe: "readiness", Severity: "medium"}}
+	}
+	checks := []conformance.DeclaredCheck{runtimeCheck("front-page-answers"), runtimeCheck("readiness-redirect-safe")}
+	run := &workflow.Run{ID: idstest.N(7), ProjectID: f.ProjectID, ChangeID: created.Change.ID}
+	const candidate = "9b8540411489aaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	changeLabel := fmt.Sprintf("change-%d", created.Change.ID)
+
+	tree := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tree, ".apptown"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tree, ".apptown", "app.yaml"), []byte("apiVersion: apptown/v1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	previews := &recordingPreviews{bootErr: fmt.Errorf("the app did not come up")}
+	a := NewGuidance(GuidanceDependencies{DB: f.DB, Previews: previews})
+	res, _, unjudged := a.runRuntimeChecksForRun(t.Context(), run, checks, tree, "", "medium", candidate)
+	if len(unjudged) != len(checks) {
+		t.Fatalf("required checks a failed boot left unjudged hold the landing: unjudged %v", unjudged)
+	}
+	want := preview.Change{ID: created.Change.ID, ProjectID: f.ProjectID, Pinned: candidate}
+	if len(previews.boots) != 1 || previews.boots[0] != want {
+		t.Fatalf("the landing should boot the change pinned to its candidate once, asked %+v", previews.boots)
+	}
+	for _, r := range res {
+		if r.Verdict != workflow.VerdictCannotAssess || !r.ForgeFault || !strings.Contains(r.Detail, "the app did not come up") {
+			t.Errorf("a failed boot is cannot-assess, AppTown's fault, with its error: %+v", r)
+		}
+	}
+
+	previews = &recordingPreviews{}
+	a = NewGuidance(GuidanceDependencies{DB: f.DB, Previews: previews})
+	res, _, unjudged = a.runRuntimeChecksForRun(t.Context(), run, checks, tree, "", "medium", candidate)
+	if len(unjudged) != len(checks) {
+		t.Fatalf("required checks with no proven candidate preview hold the landing: unjudged %v", unjudged)
+	}
+	opened := 0
+	for _, l := range previews.labels {
+		if l == changeLabel {
+			opened++
+		}
+	}
+	if len(previews.boots) != 1 || opened != 2 {
+		t.Fatalf("after booting, the landing opens the change's preview again to prove what runs: boots %+v, opened %v", previews.boots, previews.labels)
+	}
+	for _, r := range res {
+		if r.Verdict != workflow.VerdictCannotAssess || !r.ForgeFault {
+			t.Errorf("a preview not proven to run the candidate is not judged: %+v", r)
+		}
+	}
+
+	previews = &recordingPreviews{openErr: fmt.Errorf("the worker did not answer")}
+	a = NewGuidance(GuidanceDependencies{DB: f.DB, Previews: previews})
+	if _, _, unjudged = a.runRuntimeChecksForRun(t.Context(), run, checks, tree, "", "medium", candidate); len(unjudged) != len(checks) {
+		t.Fatalf("required checks whose preview could not be asked about hold the landing: unjudged %v", unjudged)
+	}
+
+	previews = &recordingPreviews{}
+	a = NewGuidance(GuidanceDependencies{DB: f.DB, Previews: previews})
+	if _, _, unjudged = a.runRuntimeChecksForRun(t.Context(), run, checks, tree, "", "high", candidate); len(unjudged) != 0 {
+		t.Fatalf("checks below failOn do not hold the landing: %v", unjudged)
+	}
+
+	previews = &recordingPreviews{}
+	a = NewGuidance(GuidanceDependencies{DB: f.DB, Previews: previews})
+	if _, _, unjudged = a.runRuntimeChecksForRun(t.Context(), run, checks, t.TempDir(), "", "medium", candidate); len(unjudged) != 0 || len(previews.boots) != 0 {
+		t.Fatalf("a candidate with no runtime contract has no app to boot or hold: boots %+v, unjudged %v", previews.boots, unjudged)
+	}
+
+	previews = &recordingPreviews{}
+	a = NewGuidance(GuidanceDependencies{DB: f.DB, Previews: previews})
+	a.runRuntimeChecksForRun(t.Context(), run, checks, tree, "", "medium", "")
+	if len(previews.boots) != 0 {
+		t.Fatalf("a run with no landing candidate boots nothing from its gate: %+v", previews.boots)
+	}
+}
+
 func TestGateForgeFaultIsNotRework(t *testing.T) {
 	t.Parallel()
 	a := &Guidance{}

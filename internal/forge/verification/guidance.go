@@ -238,7 +238,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 			evidence["findings"] = unmet
 			if onlyForgeFaults(results, unmet) {
 				evidence["summary"] = "acceptance: AppTown could not judge the check this change exists to close"
-				evidence["reason"] = "AppTown could not probe the change (" + strings.Join(unmet, "; ") + ") — not the change's fault; re-run this step once the preview is up, or ask AppTown's operator"
+				evidence["reason"] = "AppTown could not probe the change (" + strings.Join(unmet, "; ") + ") — not the change's fault; run this step again, or ask AppTown's operator"
 				finish(workflow.StatusError, evidence)
 				return
 			}
@@ -270,8 +270,9 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	// A required runtime check AppTown probed and could not judge holds the
 	// step for a person: counting findings alone would let a static page
 	// served no values pass. An exception
-	// accepts a known finding, never an unknown. A lane with no preview to
-	// probe (the landing) records the check unjudged, as before.
+	// accepts a known finding, never an unknown. A landing boots its
+	// candidate's preview for these, and holds the same way when it cannot
+	// judge them; a lane with no preview to probe records them unjudged.
 	if len(unjudged) > 0 {
 		evidence["summary"] = fmt.Sprintf("guidance conformance: AppTown could not judge %d required runtime check(s)", len(unjudged))
 		evidence["findings"] = unjudged

@@ -38,9 +38,12 @@ type Guidance struct {
 }
 
 // PreviewOpener opens a change's or a run's running preview for probing,
-// wherever it runs (deployment.Service).
+// wherever it runs, and boots a landing's candidate when none runs it
+// (preview.Service): the trusted participant, since a landing gate is
+// AppTown executing a landing a person asked for.
 type PreviewOpener interface {
 	OpenPreview(ctx context.Context, projectID ids.ID, label string) (*preview.Served, bool, error)
+	RehearseChange(ctx context.Context, ch preview.Change, restart bool) (preview.Result, error)
 }
 type GuidanceDependencies struct {
 	DB          *database.DB

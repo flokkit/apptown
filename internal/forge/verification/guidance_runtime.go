@@ -2,6 +2,7 @@ package verification
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"flokkit.io/forge/internal/ids"
@@ -10,6 +11,7 @@ import (
 
 	"flokkit.io/forge/internal/check"
 	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/deploy/docker"
 	"flokkit.io/forge/internal/forge/conformance"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/workflow"
@@ -28,12 +30,17 @@ import (
 // A pinned landing (candidate set) probes only a preview AppTown recorded
 // booting from the candidate itself (a change being landed is previewed as
 // its candidate): any other may serve an earlier source or later edits. With
-// none, its runtime checks are not judged; the rules above decide whether
-// that holds the step.
+// none, the landing boots the change's preview from the candidate itself and
+// probes it once that proof holds; a failed boot leaves its runtime checks not
+// judged, with the boot's error, and those at or above failOn hold the step.
+// A candidate with no runtime contract has nothing to boot or hold.
 func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run, checks []conformance.DeclaredCheck, contractDir, commit, failOn, candidate string) (results Results, findings []conformance.Finding, unjudged []string) {
 	var target *Target
 	var served *preview.Served
 	var why string
+	// landing: a pinned landing that needs its candidate's preview, which
+	// holds the step on any required check it could not judge.
+	landing := false
 	resolved := false
 	resolve := func() {
 		if resolved {
@@ -47,6 +54,19 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 			why = "runtime checks need a change's preview; this run has no change"
 			return
 		}
+		// A pinned landing needs its candidate's app judged unless the
+		// candidate declares no runtime contract (the boot step's vacuous
+		// pass): decided from the checked tree first, so any failure below,
+		// a preview that could not be asked about included, holds the step.
+		if candidate != "" {
+			if contractDir != "" {
+				if _, err := docker.ReadSelectedContract(contractDir); errors.Is(err, docker.ErrNoContract) {
+					why = "the landing's candidate " + strs.ShortSHA(candidate) + " declares no runtime contract (.apptown/app.yaml), so there is no app to probe"
+					return
+				}
+			}
+			landing = true
+		}
 		ch, err := workflow.ReadChangeIn(ctx, a.db, run.ChangeID)
 		if err != nil {
 			why = "runtime checks need a change's preview; the change could not be read"
@@ -59,27 +79,46 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 		// that record, never today's settings or another tree. Prefer the
 		// run's.
 		other := false
-		for _, label := range []string{fmt.Sprintf("run-%d", run.ID), fmt.Sprintf("change-%d", ch.ID)} {
-			p, ok, err := a.previews.OpenPreview(ctx, run.ProjectID, label)
-			if err != nil {
-				why = "the change's preview could not be asked about: " + err.Error()
+		open := func(labels ...string) bool {
+			for _, label := range labels {
+				p, ok, err := a.previews.OpenPreview(ctx, run.ProjectID, label)
+				if err != nil {
+					why = "the change's preview could not be asked about: " + err.Error()
+					return false
+				}
+				if !ok {
+					continue
+				}
+				if commit == "" || p.Source != commit || p.Recorded == nil {
+					p.Close()
+					other = true
+					continue
+				}
+				served = p
+				break
+			}
+			return true
+		}
+		changeLabel := fmt.Sprintf("change-%d", ch.ID)
+		if !open(fmt.Sprintf("run-%d", run.ID), changeLabel) {
+			return
+		}
+		// A landing has no boot step: it boots the change's preview from
+		// its candidate itself, as a person's request would, and probes it
+		// only once the same proof holds of what then runs.
+		if served == nil && candidate != "" {
+			if _, err := a.previews.RehearseChange(ctx, preview.Change{ID: ch.ID, ProjectID: run.ProjectID, Pinned: candidate}, false); err != nil {
+				why = "AppTown booted the change's preview from the landing's candidate " + strs.ShortSHA(candidate) + " for its runtime checks, and the boot failed: " + err.Error()
 				return
 			}
-			if !ok {
-				continue
+			if !open(changeLabel) {
+				return
 			}
-			if commit == "" || p.Source != commit || p.Recorded == nil {
-				p.Close()
-				other = true
-				continue
-			}
-			served = p
-			break
 		}
 		if served == nil {
 			switch {
 			case candidate != "":
-				why = "no preview is proven to run the landing's candidate " + strs.ShortSHA(candidate) + "; boot the change's preview (apptown preview <change>, or restart on the change page: a request to boot it boots the candidate while the change is landing, opening a running one does not), then run this step again"
+				why = "AppTown booted the change's preview from the landing's candidate " + strs.ShortSHA(candidate) + ", and the preview it then found is not proven to run it; run this step again"
 			case other:
 				why = "the running preview is not the checked commit " + strs.ShortSHA(commit) + " as this AppTown booted it; boot it again to probe it"
 			default:
@@ -155,7 +194,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 				Source:      "guidance",
 			}})
 		}
-		if (target != nil || booted) && ev.Outcome != check.Conforms && ev.Outcome != check.DoesNotConform && check.SeverityRank(sc.Check.Severity) >= check.SeverityRank(failOn) {
+		if (target != nil || booted || (landing && !contractOnly)) && ev.Outcome != check.Conforms && ev.Outcome != check.DoesNotConform && check.SeverityRank(sc.Check.Severity) >= check.SeverityRank(failOn) {
 			unjudged = append(unjudged, sc.Block+"|"+sc.Check.Name+": "+ev.Detail)
 		}
 		res := resultOf(ev)

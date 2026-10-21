@@ -183,10 +183,11 @@ serves the files as they are, and builds again when they changed, so what
 opens is never an older build. The page says what a running preview was
 built from: the change's working files and when, or the commit when it
 was booted from one. (A chat on a worker that holds the change saves
-first, and the preview boots what it saved.) A landing boots no preview of
-its own, so its runtime checks (a page that loads, a readiness answer) are
-judged only against the candidate's preview: boot it, then run the gate
-again. Any other preview (the folder's, an earlier commit's) is not judged.
+first, and the preview boots what it saved.) A landing's runtime checks (a
+page that loads, a readiness answer) are judged only against the candidate's
+preview: when none runs, the landing's gate boots it, and if that boot fails
+the checks say so and are not judged. Any other preview (the folder's, an
+earlier commit's) is not judged.
 
 A chat can keep working while its landing runs; what it publishes later is
 not in that landing (and makes the landing refuse to merge a branch that

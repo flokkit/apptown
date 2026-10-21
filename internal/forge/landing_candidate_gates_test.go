@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,7 +140,11 @@ func TestARuntimeCheckIsNotAttributedToAnUnprovenPreview(t *testing.T) {
 	// This unrelated preview is not a deployment of the pinned tree. No
 	// revision/provenance ties its HTTP response to this landing.
 	daemon.markStartedWithBrowser(docker.PreviewChangeName(source.ChangeID), given)
+	refusePreviewBoots(daemon)
 	saved := reviewExecute(t, a, run, "guidance")
+	if saved.Status == workflow.StatusPass {
+		t.Fatalf("a landing that could not judge its candidate passed: %s", saved.Evidence)
+	}
 	var ev struct {
 		Candidate string
 		Checks    verification.Results
@@ -235,6 +240,20 @@ func landingWithAPage(t *testing.T, beforeLanding func(*App, ids.ID)) (*App, *fa
 	return a, daemon, run, source, given
 }
 
+// refusePreviewBoots makes every preview boot fail from here on. A landing
+// boots its candidate's preview itself when none is proven to run it, and
+// this daemon serves one page for every container: refused, the preview
+// already running is the only thing that could answer the landing's checks,
+// which is what the tests that use it judge.
+func refusePreviewBoots(daemon *fakeDocker) {
+	daemon.reply = func(args []string) (string, error, bool) {
+		if len(args) > 0 && args[0] == "run" && strings.Contains(strings.Join(args, " "), "preview") {
+			return "", errFakeExit, true
+		}
+		return "", nil, false
+	}
+}
+
 // landingVerdict runs the landing's guidance gate and answers the browser
 // values check's verdict and the candidate the gate names.
 func landingVerdict(t *testing.T, a *App, run *workflow.Run) (workflow.CheckVerdict, string, string) {
@@ -298,6 +317,7 @@ func TestALandingDoesNotJudgeTheChangesFolderPreview(t *testing.T) {
 		t.Fatalf("booted change %d's preview, landing %d", changeID, source.ChangeID)
 	}
 	daemon.markStartedWithBrowser(docker.PreviewChangeName(source.ChangeID), given)
+	refusePreviewBoots(daemon)
 	if verdict, _, detail := landingVerdict(t, a, run); verdict == workflow.VerdictPass {
 		t.Fatalf("the folder's preview was judged as the candidate: %s", detail)
 	}
