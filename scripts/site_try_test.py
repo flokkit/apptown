@@ -86,9 +86,13 @@ class TryScript(unittest.TestCase):
     def run_script(self, shell, arg='start', terminal_answer=None):
         source = (ROOT / 'site/try.sh').read_text()
         if terminal_answer is None:
+            # A session of its own: no controlling terminal, so the script's
+            # questions on /dev/tty go unanswered here even when the tests run
+            # in someone's terminal (they would otherwise wait for a reply).
             result = subprocess.run([shell, '-s', '--', arg], input=source,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    env=self.env, text=True, timeout=10)
+                                    env=self.env, text=True, timeout=10,
+                                    start_new_session=True)
             return result.returncode, result.stdout
         env = dict(self.env, SOURCE=str(ROOT / 'site/try.sh'), TEST_SHELL=shell)
         pid, master = pty.fork()

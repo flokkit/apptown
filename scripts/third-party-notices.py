@@ -24,6 +24,11 @@ MAINS = ["./cmd/apptownd", "./cmd/apptown", "./cmd/apptown-worker"]
 NOTICE_FILES = ("LICENSE", "LICENCE", "COPYING", "NOTICE", "COPYRIGHT")
 
 
+
+def read_text(path):
+    with open(path, errors="replace") as fh:
+        return fh.read()
+
 def notice_files(d):
     out = []
     for f in sorted(glob.glob(os.path.join(d, "*"))):
@@ -92,7 +97,8 @@ def readme_licence(d):
     for f in sorted(glob.glob(os.path.join(d, "*"))):
         if not os.path.basename(f).upper().startswith("README"):
             continue
-        lines = open(f, errors="replace").read().splitlines()
+        with open(f, errors="replace") as fh:
+            lines = fh.read().splitlines()
         for i, line in enumerate(lines):
             stripped = line.lstrip("#").strip().lower()
             level = len(line) - len(line.lstrip("#"))
@@ -137,7 +143,7 @@ def main():
     for path, (version, d) in sorted(go_modules(mains).items()):
         files = notice_files(d)
         extra = ""
-        if any("Mozilla Public License" in open(f, errors="replace").read() for f in files):
+        if any("Mozilla Public License" in read_text(f) for f in files):
             extra = f"Source code (MPL-2.0 section 3.2(a)): https://proxy.golang.org/{proxy_escape(path)}/@v/{proxy_escape(version)}.zip"
         emit(f"Go module {path} {version}", files, extra)
     pkgs = web_packages(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "web"))
