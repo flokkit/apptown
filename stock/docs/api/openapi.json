@@ -1272,6 +1272,16 @@
           "message": {
             "type": "string"
           },
+          "shipped": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShippedComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "type": "string"
           }
@@ -3091,6 +3101,29 @@
           "agentImageError",
           "openNonLoopback"
         ],
+        "type": "object"
+      },
+      "ShippedComparison": {
+        "properties": {
+          "commit": {
+            "type": "string"
+          },
+          "deployment": {
+            "type": "string"
+          },
+          "previous": {
+            "type": "integer"
+          },
+          "previousCommit": {
+            "type": "string"
+          },
+          "release": {
+            "type": "integer"
+          },
+          "since": {
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "State": {

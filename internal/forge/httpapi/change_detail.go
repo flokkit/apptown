@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -109,8 +110,16 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	head := ""
 	diffstat := ""
 	comparison := CommittedComparison{Status: "unavailable", Message: "No committed comparison is available yet."}
-	if item.Branch != "" && slug != "" {
-		hub := filepath.Join(h.dataDir, "workspaces", "project-"+slug)
+	hub := filepath.Join(h.dataDir, "workspaces", "project-"+slug)
+	if slug != "" && workflow.CarriesNoCode(item, history) && !branchPublished(r.Context(), hub, item.Branch) {
+		var diff scm.CommittedDiff
+		var ok bool
+		comparison, diff, ok = shippedComparison(r.Context(), h.deployment.Releases, hub, item)
+		if ok {
+			diffstat, head = diff.Stat, diff.Head
+			commits = commitsBetween(r.Context(), hub, diff.Base, diff.Head)
+		}
+	} else if item.Branch != "" && slug != "" {
 		workspace := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", id))
 		var diff scm.CommittedDiff
 		repo, readErr := scm.ComparisonRepository(r.Context(), hub, workspace)
@@ -126,14 +135,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 			}
 			diffstat = diff.Stat
 			head = diff.Head
-			if out, err := gitexec.Run(r.Context(), repo, "log", "--format=%h%x09%s%x09%cr", diff.Base+".."+diff.Head, "--", "."); err == nil {
-				for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-					parts := strings.SplitN(line, "\t", 3)
-					if len(parts) == 3 {
-						commits = append(commits, ChangeCommit{SHA: parts[0], Subject: parts[1], When: parts[2]})
-					}
-				}
-			}
+			commits = commitsBetween(r.Context(), repo, diff.Base, diff.Head)
 		}
 	}
 
@@ -275,12 +277,32 @@ type (
 		Subject string `json:"subject"`
 		When    string `json:"when"`
 	}
+	// CommittedComparison's Status is "changed", "empty", "unavailable", or
+	// "no-code": a change with no code of its own, which Shipped describes.
 	CommittedComparison struct {
-		Status  string `json:"status"`
-		Message string `json:"message,omitempty"`
+		Status  string             `json:"status"`
+		Message string             `json:"message,omitempty"`
+		Shipped *ShippedComparison `json:"shipped,omitempty"`
 	}
 	ChangeUsage struct {
 		Total      int64 `json:"total"`
 		CostMicros int64 `json:"costMicros"`
 	}
 )
+
+// commitsBetween is the commits after base up to head, newest first; none
+// when the log cannot be read (the comparison already said what it could).
+func commitsBetween(ctx context.Context, repo, base, head string) []ChangeCommit {
+	commits := []ChangeCommit{}
+	out, err := gitexec.Run(ctx, repo, "log", "--format=%h%x09%s%x09%cr", base+".."+head, "--", ".")
+	if err != nil {
+		return commits
+	}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) == 3 {
+			commits = append(commits, ChangeCommit{SHA: parts[0], Subject: parts[1], When: parts[2]})
+		}
+	}
+	return commits
+}

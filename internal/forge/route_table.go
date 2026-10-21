@@ -150,7 +150,7 @@ func appRoutes(a *App) []routeSpec {
 		workflowDrafts = httpapi.NewWorkflowDrafts(a.Projects, a.Ways, a.Adoption, draftAgentFor(a))
 		findings = httpapi.NewFindings(a.Projects, a.Work, a.conformance, a.DB, a.cfg.dataDir)
 		tiers = httpapi.NewTiers(a.Projects, a.Integrations, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir)
-		repositoryViews = httpapi.NewRepositoryViews(a.Projects, a.Access, a.DB, a.cfg.dataDir, repositoryedit.NewIntegrity(&a.repositories, a.processRunner, repositoryPublisher{secrets: a.Secrets, db: a.DB, dataDir: a.cfg.dataDir, now: a.cfg.clock.Now}, a.DB, a.cfg.dataDir, a.cfg.clock.Now))
+		repositoryViews = httpapi.NewRepositoryViews(a.Projects, a.Access, a.DB, a.cfg.dataDir, repositoryedit.NewIntegrity(&a.repositories, a.processRunner, repositoryPublisher{secrets: a.Secrets, db: a.DB, dataDir: a.cfg.dataDir, now: a.cfg.clock.Now}, a.DB, a.cfg.dataDir, a.cfg.clock.Now), a.Deployment.Releases)
 		releaseOperations = httpapi.NewReleaseOperations(a.Projects, a.Access, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, releaseTargetName, a.cfg.clock.Now)
 		projectAttachments = httpapi.NewProjectAttachments(a.Projects, a.Integrations, a.Access, a.changeActions, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
 		integrationListing = httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a), &a.docker, agentenv.RegistryFormats(), a.cfg.clock.Now)

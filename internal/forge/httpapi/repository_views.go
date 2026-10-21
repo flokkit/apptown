@@ -11,6 +11,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 
 	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/identity"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/repositoryedit"
@@ -25,10 +26,11 @@ type RepositoryViews struct {
 	db        *database.DB
 	dataDir   string
 	integrity *repositoryedit.Integrity
+	releases  *deployment.Releases
 }
 
-func NewRepositoryViews(projects *project.Projects, access *identity.Service, db *database.DB, dataDir string, integrity *repositoryedit.Integrity) RepositoryViews {
-	return RepositoryViews{projects: projects, access: access, db: db, dataDir: dataDir, integrity: integrity}
+func NewRepositoryViews(projects *project.Projects, access *identity.Service, db *database.DB, dataDir string, integrity *repositoryedit.Integrity, releases *deployment.Releases) RepositoryViews {
+	return RepositoryViews{projects: projects, access: access, db: db, dataDir: dataDir, integrity: integrity, releases: releases}
 }
 
 // RepoIntegrity: POST /api/v1/projects/{slug}/repo/integrity
@@ -146,6 +148,23 @@ func (h RepositoryViews) ChangeDiff(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// A change with no code of its own has no branch to compare: its diff
+	// is what its release put live that the release before it did not.
+	noCode, err := workflow.CarriesNoCodeIn(r.Context(), h.db, ch)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	hub := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+	if noCode && !branchPublished(r.Context(), hub, ch.Branch) {
+		cmp, comparison, read := shippedComparison(r.Context(), h.releases, hub, ch)
+		if !read {
+			WriteError(w, 404, "%s", cmp.Message)
+			return
+		}
+		h.writeDiff(w, r, hub, comparison)
+		return
+	}
 	if ch.Branch == "" {
 		WriteError(w, 404, "change has no branch")
 		return
@@ -159,12 +178,16 @@ func (h RepositoryViews) ChangeDiff(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 404, "branch %s is gone", ch.Branch)
 		return
 	}
-	hub := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
 	comparison, err := scm.ReadChangeDiff(r.Context(), hub, repo, p.DefaultBranch, ch.BaseSHA, ch.Branch)
 	if err != nil {
 		WriteFault(w, err)
 		return
 	}
+	h.writeDiff(w, r, repo, comparison)
+}
+
+// writeDiff writes a comparison's patch, cut at 512 KiB.
+func (h RepositoryViews) writeDiff(w http.ResponseWriter, r *http.Request, repo string, comparison scm.CommittedDiff) {
 	diff, err := comparison.Patch(r.Context(), repo)
 	if err != nil {
 		WriteFault(w, err)

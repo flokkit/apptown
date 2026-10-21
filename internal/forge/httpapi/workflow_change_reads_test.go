@@ -167,7 +167,7 @@ func TestHandleChangeDiffErrorPaths(t *testing.T) {
 		r := httptest.NewRequest("GET", "/api/v1/changes/"+id+"/diff", nil).WithContext(f.Context)
 		r.SetPathValue("id", id)
 		w := httptest.NewRecorder()
-		NewRepositoryViews(f.Projects, f.Access, f.DB, t.TempDir(), nil).ChangeDiff(w, r)
+		NewRepositoryViews(f.Projects, f.Access, f.DB, t.TempDir(), nil, nil).ChangeDiff(w, r)
 		return w
 	}
 	if w := call(fmt.Sprint(f.ChangeID)); w.Code != 404 || !strings.Contains(w.Body.String(), "no branch") {

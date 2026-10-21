@@ -207,6 +207,20 @@ func ReadCommittedDiff(ctx context.Context, repo, base, branch string) (Committe
 	if base == "" || branch == "" {
 		return CommittedDiff{}, fmt.Errorf("committed comparison needs the change's starting revision and branch")
 	}
+	return compareCommits(ctx, repo, base, "refs/heads/"+branch)
+}
+
+// ReadCommitsDiff compares two commits named by revision, as
+// ReadCommittedDiff compares a change's start with its branch: what the
+// later one holds that the earlier did not.
+func ReadCommitsDiff(ctx context.Context, repo, from, to string) (CommittedDiff, error) {
+	if from == "" || to == "" {
+		return CommittedDiff{}, fmt.Errorf("comparing commits needs both commits")
+	}
+	return compareCommits(ctx, repo, from, to)
+}
+
+func compareCommits(ctx context.Context, repo, base, head string) (CommittedDiff, error) {
 	run := func(args ...string) execution.Outcome {
 		return (execution.Runner{}).Run(ctx, execution.Local, execution.Request{Workspace: repo, Argv: append([]string{"git"}, args...), Timeout: time.Minute})
 	}
@@ -221,7 +235,7 @@ func ReadCommittedDiff(ctx context.Context, repo, base, branch string) (Committe
 	if err != nil {
 		return CommittedDiff{}, err
 	}
-	to, err := git("rev-parse", "--verify", "--end-of-options", "refs/heads/"+branch+"^{commit}")
+	to, err := git("rev-parse", "--verify", "--end-of-options", head+"^{commit}")
 	if err != nil {
 		return CommittedDiff{}, err
 	}

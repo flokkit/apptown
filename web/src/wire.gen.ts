@@ -1891,6 +1891,7 @@ export type ChangeCommit = {
 export type CommittedComparison = {
   status: string
   message?: string
+  shipped?: ShippedComparison | null
 }
 
 export type ChangeUsage = {
@@ -3817,6 +3818,15 @@ export type ChangeSummary = {
   stage: string
   runStatus: RunState | ""
   workflowName: string
+}
+
+export type ShippedComparison = {
+  deployment?: string
+  release?: number
+  commit?: string
+  previous?: number
+  previousCommit?: string
+  since?: number
 }
 
 export type TargetCapabilities = {

@@ -40,4 +40,16 @@ describe('change state and committed evidence', () => {
     expect(html).toContain('Branch unavailable')
     expect(footer(view('landing'))).not.toContain(empty)
   })
+  // A change with no code of its own says so, and reads its release's diff
+  // only when the comparison with the release before it was made.
+  it('says a change with no code of its own shipped main, without asking for a branch diff', () => {
+    const footer = (v: ChangeView) => renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><ChangesTab view={v} /></QueryClientProvider>)
+    const said = 'This change has no code of its own: it shipped main as it stood at 5b9ec68, as release #16 to main.'
+    const noCode = (since?: number) => ({ ...view('landing'), committedDiff: { status: 'no-code', message: said, shipped: { release: 16, since } } } as unknown as ChangeView)
+    const first = footer(noCode())
+    expect(first).toContain(said)
+    expect(first).not.toContain('the committed diff')
+    expect(first).not.toContain(empty)
+    expect(footer(noCode(15))).toContain('the committed diff')
+  })
 })

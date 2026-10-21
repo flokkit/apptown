@@ -7,7 +7,7 @@
 import type { ChangeState as WireChangeState, RunState, StepState } from './wire.gen'
 import { ENTRY_HEADER, noteServed } from './pageUpdate'
 import type { Artifact as WireArtifact, Change as WireChange, Project as WireProject, Run as WireRun, Step as WireStep } from './wire.gen'
-import type { ADRChangeSummary, ADRRecord, AdvanceResult as WireAdvanceResult, ChangeCockpit, ChangeRunSummary, CockpitEvidence, DashboardView, Event as WireEvent, ReleaseListed, RunSnapshot } from './wire.gen'
+import type { ADRChangeSummary, ADRRecord, AdvanceResult as WireAdvanceResult, ChangeCockpit, ChangeRunSummary, CockpitEvidence, DashboardView, Event as WireEvent, ReleaseListed, RunSnapshot, ShippedComparison } from './wire.gen'
 import type { Block, GuidanceBlockDetail, Import, ProjectGuidance as GeneratedProjectGuidance, ProjectWorkflowRow, steeringSection, workflowSummary } from './wire.gen'
 import type { LibraryWorkflow as GeneratedLibraryWorkflow } from './wire.gen'
 
@@ -171,11 +171,12 @@ export type RunLite = ChangeRunSummary
 export type ChangeEvidence = CockpitEvidence
 // The change page's payload (httpapi ChangeCockpit), with its run detail as
 // the page reads it, its state as a Doing word, and the committed comparison's
-// three outcomes named.
+// outcomes named ('no-code': a shipped change with no code of its own, which
+// shipped describes).
 export type ChangeView = Omit<ChangeCockpit, 'detail' | 'state' | 'committedDiff'> & {
   detail: RunDetail | null
   state: Doing | ''
-  committedDiff: { status: 'empty' | 'changed' | 'unavailable'; message?: string }
+  committedDiff: { status: 'empty' | 'changed' | 'unavailable' | 'no-code'; message?: string; shipped?: ShippedComparison | null }
 }
 
 // A security finding (design/subsystems/findings.md): the normalized view over a scan

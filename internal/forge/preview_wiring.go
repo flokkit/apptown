@@ -17,6 +17,7 @@ import (
 
 	"flokkit.io/forge/internal/forge/changeconsole"
 	"flokkit.io/forge/internal/forge/conversation"
+	"flokkit.io/forge/internal/forge/deployment"
 	"flokkit.io/forge/internal/forge/workflow"
 )
 
@@ -31,6 +32,7 @@ type previewSources struct {
 	sessions *console.Service
 	db       *database.DB
 	saves    *changeconsole.Saves
+	releases *deployment.Releases
 	dataDir  string
 }
 
@@ -44,6 +46,24 @@ func (d previewSources) Change(ctx context.Context, id ids.ID) (preview.Change, 
 		return preview.Change{}, err
 	}
 	out := previewChange(ch)
+	// A shipped change with no code of its own landed nothing: it is what
+	// its release shipped, main as it stood, never a folder it never had.
+	if ch.State == workflow.ChangeShipped && ch.LandedSHA == "" {
+		noCode, err := workflow.CarriesNoCodeIn(ctx, d.db, ch)
+		if err != nil {
+			return preview.Change{}, err
+		}
+		if noCode {
+			shipped, err := d.releases.ShippedBy(ctx, ch.ProjectID, ch.ID)
+			if err != nil {
+				return preview.Change{}, err
+			}
+			if shipped == nil || shipped.Commit == "" {
+				return preview.Change{}, fault.Wrap(fault.Conflict, fmt.Errorf("change %d has no code of its own and no release of it recorded what it shipped", ch.Number))
+			}
+			out.SourceRevision = shipped.Commit
+		}
+	}
 	if ch.State == workflow.ChangeLanding && !ch.RunID.IsZero() {
 		landing, pinned, err := workflow.LandingCandidateIn(ctx, d.db, ch.RunID)
 		switch {
@@ -110,7 +130,7 @@ func previewDependencies(a *App, changes workflow.Changes) preview.Dependencies 
 	}
 	return preview.Dependencies{
 		Authority: access.Checked{Authority: a.Access, Projects: a.Projects},
-		Sources:   previewSources{changes: changes, sessions: a.Console, db: a.DB, saves: a.chatSaves, dataDir: a.cfg.dataDir},
+		Sources:   previewSources{changes: changes, sessions: a.Console, db: a.DB, saves: a.chatSaves, releases: a.Deployment.Releases, dataDir: a.cfg.dataDir},
 		Worker:    worker, Hosts: a.hosts, Environment: a.environment,
 		Targets: a.targets, Deployments: a.deployments, Releases: a.Deployment.Releases, Bundles: a.Deployment.Bundles, Retained: a.Deployment.Retained,
 		Projects: a.Projects, Integrations: a.Integrations, DataDir: a.cfg.dataDir, Now: a.cfg.clock.Now,

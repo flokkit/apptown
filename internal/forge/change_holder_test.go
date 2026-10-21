@@ -309,6 +309,38 @@ func TestALandingLeavesTheChatHoldingTheChange(t *testing.T) {
 	if published := scm.Ref(t.Context(), w.a.projectRepoPath("game"), "refs/heads/"+w.change.Branch); published != tip {
 		t.Fatalf("the chat's commit was not published: %s, want %s", published, tip)
 	}
+	// The first landing has not merged yet. The chat's real code must stay
+	// visible while that landing is pending, including its missing-branch error.
+	assertCode := func(missing bool) {
+		t.Helper()
+		out := authzCall(w.a.Handler(), "owner", "GET", fmt.Sprintf("/api/v1/changes/%d", w.change.ID), "")
+		var view struct {
+			CommittedDiff struct{ Status, Message string }
+		}
+		if err := json.Unmarshal(out.Body.Bytes(), &view); err != nil {
+			t.Fatal(err)
+		}
+		want := "changed"
+		if missing {
+			want = "unavailable"
+		}
+		if out.Code != 200 || view.CommittedDiff.Status != want {
+			t.Errorf("chat code (missing=%v): %d %+v, want %s", missing, out.Code, view.CommittedDiff, want)
+		}
+		patch := authzCall(w.a.Handler(), "owner", "GET", fmt.Sprintf("/api/v1/changes/%d/diff", w.change.ID), "")
+		if !missing && (patch.Code != 200 || !strings.Contains(patch.Body.String(), "made in the chat")) {
+			t.Errorf("chat diff: %d %s", patch.Code, patch.Body.String())
+		}
+		if missing && (patch.Code == 200 || strings.Contains(patch.Body.String(), "no code of its own")) {
+			t.Errorf("missing chat branch: %d %s", patch.Code, patch.Body.String())
+		}
+	}
+	assertCode(false)
+	gittest.Run(t, w.a.projectRepoPath("game"), "branch", "-D", w.change.Branch)
+	if err := os.RemoveAll(w.folder); err != nil {
+		t.Fatal(err)
+	}
+	assertCode(true)
 }
 
 // legacyChat is a chat as the upgrade leaves it: opened through the console

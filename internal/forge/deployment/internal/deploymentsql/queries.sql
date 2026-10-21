@@ -75,6 +75,10 @@ SELECT * FROM releases WHERE project_id=$1 AND deployment=$2 ORDER BY number DES
 -- name: LatestReleasedOn :many
 SELECT r.* FROM releases r WHERE r.deployment=$1 AND r.state=$2 AND r.number=(SELECT MAX(number) FROM releases WHERE project_id=r.project_id AND deployment=r.deployment AND state=$2) ORDER BY r.project_id;
 
+-- The newest release on a deployment before number, in state.
+-- name: ReleasedBefore :one
+SELECT * FROM releases WHERE project_id=sqlc.arg(project_id) AND deployment=sqlc.arg(deployment) AND state=sqlc.arg(state) AND number<sqlc.arg(number) ORDER BY number DESC LIMIT 1;
+
 -- name: ReleasesForChange :many
 SELECT r.* FROM releases r JOIN release_changes rc ON rc.release_id=r.id WHERE rc.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 ORDER BY r.number DESC;
 

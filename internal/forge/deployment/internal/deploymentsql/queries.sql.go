@@ -2686,6 +2686,48 @@ func (q *Queries) ReleaseStartFrom(ctx context.Context, releaseID ids.ID) (ids.I
 	return start_from_backup, err
 }
 
+const releasedBefore = `-- name: ReleasedBefore :one
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash FROM releases WHERE project_id=$1 AND deployment=$2 AND state=$3 AND number<$4 ORDER BY number DESC LIMIT 1
+`
+
+type ReleasedBeforeParams struct {
+	ProjectID  ids.ID
+	Deployment string
+	State      string
+	Number     int64
+}
+
+// The newest release on a deployment before number, in state.
+func (q *Queries) ReleasedBefore(ctx context.Context, arg ReleasedBeforeParams) (Release, error) {
+	row := q.db.QueryRowContext(ctx, releasedBefore,
+		arg.ProjectID,
+		arg.Deployment,
+		arg.State,
+		arg.Number,
+	)
+	var i Release
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Number,
+		&i.State,
+		&i.Deployment,
+		&i.ExternalRef,
+		&i.ApprovedBy,
+		&i.RunID,
+		&i.CreatedAt,
+		&i.ReleasedAt,
+		&i.Notes,
+		&i.CommitSha,
+		&i.SourceSha,
+		&i.BundleID,
+		&i.DeploymentID,
+		&i.Generation,
+		&i.ArtifactHash,
+	)
+	return i, err
+}
+
 const releasedGeneration = `-- name: ReleasedGeneration :one
 SELECT id, number FROM releases WHERE project_id = $1 AND deployment_id = $2 AND generation = $3 AND state = $4
 `

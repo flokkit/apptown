@@ -216,15 +216,20 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
 // The Changes tab: what the change does to the code — the committed diff
 // against where it started, and its commits. A comparison that could not be
 // made says so; "no changes" is said only after a comparison that worked.
+// A change with no code of its own (only ever shipped main) has no branch:
+// it shows what its release put live that the release before it did not.
 export function ChangesTab({ view, run }: { view: ChangeView; run?: Run }) {
   const ch = view.change
   const commits = view.commits ?? []
+  const noCode = view.committedDiff?.status === 'no-code'
   return (
     <div>
+      {noCode && <p className="muted">{view.committedDiff.message}</p>}
+      {noCode && !!view.committedDiff.shipped?.since && <ChangeDiffBlock changeId={ch.id!} empty={`No difference from release #${view.committedDiff.shipped.since}.`} />}
       {view.committedDiff?.status === 'empty' && <p className="muted">{view.committedDiff.message}</p>}
       {view.committedDiff?.status === 'unavailable' && ch.branch && <p className="muted">{view.committedDiff.message}</p>}
-      {!ch.branch && <p className="muted">This change has no branch, so there is no diff to show.</p>}
-      {ch.branch && view.committedDiff?.status !== 'empty' && <ChangeDiffBlock changeId={ch.id!} />}
+      {!ch.branch && !noCode && <p className="muted">This change has no branch, so there is no diff to show.</p>}
+      {ch.branch && !noCode && view.committedDiff?.status !== 'empty' && <ChangeDiffBlock changeId={ch.id!} />}
       {commits.length > 0 && (
         <>
           <h3>Commits ({commits.length})</h3>
@@ -265,10 +270,10 @@ function RunDiffBody({ runId }: { runId: string }) {
   return <DiffBlock path={`/runs/${runId}/diff`} what="the diff" empty="(empty diff)" />
 }
 
-export function ChangeDiffBlock({ changeId }: { changeId: string }) {
+export function ChangeDiffBlock({ changeId, empty }: { changeId: string; empty?: string }) {
   // A shared read: the cockpit and its footer ask once, and an act on the
   // change refreshes it with the change.
-  return <DiffBlock path={`/changes/${changeId}/diff`} what="the committed diff" empty="No committed changes since this change started." />
+  return <DiffBlock path={`/changes/${changeId}/diff`} what="the committed diff" empty={empty ?? 'No committed changes since this change started.'} />
 }
 
 // DiffBlock is one diff read and shown: the status until it is read, a
