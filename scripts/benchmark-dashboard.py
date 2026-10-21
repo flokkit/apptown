@@ -38,7 +38,7 @@ try:
     INSERT INTO adrs(project_id,number,title,created_at,updated_at) SELECT p.id,n,'ADR '||n,timestamptz '2026-10-09 00:00:00+00'-n*interval '1 hour',timestamptz '2026-10-09 00:00:00+00'-n*interval '1 hour' FROM projects p CROSS JOIN generate_series(1,20) n;
     ANALYZE;
     """)
-    src=(root/'internal/forge/workflow/internal/workflowsql/queries.sql').read_text()
+    src=''.join(p.read_text() for p in sorted((root/'internal/forge/workflow/internal/workflowsql').glob('*.sql')))
     vals={'running_status':"'running'",'done_status':"'done'",'proposed_state':"'proposed'",'in_progress_state':"'in_progress'",'landing_state':"'landing'",'running':"'running'",'pending':"'pending'",'needs_human':"'needs_human'",'row_limit':'6'}
     for name in ['ProjectActivityReport','DashboardActiveRuns','RecentProjectIDs']:
         query=src.split('-- name: '+name+' :many\n')[1].split(';')[0]

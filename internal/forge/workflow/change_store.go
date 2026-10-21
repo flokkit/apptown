@@ -54,7 +54,7 @@ func changeRecord(row workflowsql.Change, err error) (*Change, error) {
 		TargetAdoptionID: row.TargetAdoptionID, AcceptanceJSON: string(row.AcceptanceJson),
 		ExpectedRevision: row.ExpectedRevision, AdoptedRevision: row.AdoptedRevision, TargetCandidateJSON: string(row.TargetCandidateJson),
 		EditRevision: row.EditRevision, OpenedBy: row.OpenedBy, OpenedByPrincipal: row.OpenedByPrincipal,
-		RequestMet: ParseRequestMet(row.RequestMet), RequestGap: row.RequestGap}, nil
+		RequestMet: parseRequestMet(row.RequestMet), RequestGap: row.RequestGap}, nil
 }
 
 func ReadChangeIn(ctx context.Context, db database.Queryer, id ids.ID) (*Change, error) {

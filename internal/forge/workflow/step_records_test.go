@@ -22,10 +22,10 @@ func TestStepStateRejectsInvalidStoredRecords(t *testing.T) {
 	if err != nil || changed != 1 {
 		t.Fatalf("store invalid step: changed=%d %v", changed, err)
 	}
-	if got, err := ReadStepIn(context.Background(), q.db, step.ID); got != nil || !errors.Is(err, ErrStepState) {
+	if got, err := ReadStepIn(context.Background(), q.db, step.ID); got != nil || !errors.Is(err, errStepState) {
 		t.Fatalf("invalid stored step escaped: %+v, %v", got, err)
 	}
-	if got, err := ReadStageStepsIn(context.Background(), q.db, run.ID, step.Stage); got != nil || !errors.Is(err, ErrStepState) {
+	if got, err := ReadStageStepsIn(context.Background(), q.db, run.ID, step.Stage); got != nil || !errors.Is(err, errStepState) {
 		t.Fatalf("invalid stored list escaped: %+v, %v", got, err)
 	}
 }
@@ -46,7 +46,7 @@ func TestStepAttemptCannotFinishWithNonOutcome(t *testing.T) {
 				t.Fatal(err)
 			}
 			err = attempts.Finish(context.Background(), step, StepOutcome{Status: state, Evidence: []byte(`{"Result":"invalid"}`)})
-			if !errors.Is(err, ErrStepState) && !errors.Is(err, ErrStepTransition) {
+			if !errors.Is(err, errStepState) && !errors.Is(err, errStepTransition) {
 				t.Fatalf("invalid outcome admitted: %v", err)
 			}
 			if s := wantStepState(t, q.db, step.ID, StatusRunning); s.Attempt != 1 || !jsonEqual(s.Evidence, `{}`) || s.FinishedAt.Valid {

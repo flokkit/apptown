@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-var ErrMergeOverride = errors.New("the recorded override is preserved, but the merge is still blocked; resolve the merge problem and recheck")
+var errMergeOverride = errors.New("the recorded override is preserved, but the merge is still blocked; resolve the merge problem and recheck")
 
 type mergeGateStore struct {
 	db *database.DB
@@ -85,7 +85,7 @@ func (p *preparedMergeGate) block(ctx context.Context, evidence MergeEvidence) (
 			// An exception is a standing human decision, not proof of a physical
 			// merge. Preserve it and return the refusal to the caller explicitly.
 			if current.OverrideBy != "" {
-				return nil, ErrMergeOverride
+				return nil, errMergeOverride
 			}
 			previous = current.Status
 		}

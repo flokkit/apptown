@@ -437,7 +437,7 @@ func TestAcceptanceRecordsOnlyTheLandingSentencesItShowed(t *testing.T) {
 		sentence = "a new landing sentence nobody was shown"
 		return a.Work.Approve(ctx, Approval{StepID: a.StepID, Decision: VoteApprove, Shown: shown})
 	}
-	if step, err := approve([]string{"the old landing sentence"}); !errors.Is(err, ErrLandingQuestionChanged) || step != nil {
+	if step, err := approve([]string{"the old landing sentence"}); !errors.Is(err, errLandingQuestionChanged) || step != nil {
 		t.Fatalf("an acceptance of changed words: %+v %v", step, err)
 	}
 	step, err := approve(nil)

@@ -38,7 +38,7 @@ func TestChatTitleClaimsExactlyOnceWithItsReceipt(t *testing.T) {
 	if winner < 0 {
 		t.Fatal("no first-message winner")
 	}
-	assertChangeTitle(t, db, ch.ID, fmt.Sprintf("message %d.", winner), TitleGenerated)
+	assertChangeTitle(t, db, ch.ID, fmt.Sprintf("message %d.", winner), titleGenerated)
 	receipts := changeReceipts(t, db, "change.titled", 1)
 	if receipts[0].Actor != fmt.Sprintf("person-%d", winner) || receipts[0].ProjectID != ch.ProjectID {
 		t.Fatalf("title attribution: %+v", receipts)
@@ -71,7 +71,7 @@ func TestChatTitleCannotUndoHumanOwnership(t *testing.T) {
 				}
 				return 0
 			})
-			assertChangeTitle(t, db, ch.ID, title, TitleHuman)
+			assertChangeTitle(t, db, ch.ID, title, titleHuman)
 		})
 	}
 }
@@ -108,7 +108,7 @@ func TestChatTitleRequiresItsCompleteTransaction(t *testing.T) {
 			if applied, err := (changeStore{db: db}).nameFromChat(context.Background(), ch.ProjectID, ch.ID, "first words", "alice"); err == nil || applied {
 				t.Fatalf("unrecorded title: %v %v", applied, err)
 			}
-			assertChangeTitle(t, db, ch.ID, "automatic", TitleAwaitingChat)
+			assertChangeTitle(t, db, ch.ID, "automatic", titleAwaitingChat)
 			changeReceipts(t, db, "change.titled", 0)
 		})
 	}
@@ -150,7 +150,7 @@ func TestChatTitleRequiresCurrentScopeAndCancellation(t *testing.T) {
 					t.Fatal("naming held cancelled lock wait")
 				}
 			}
-			assertChangeTitle(t, db, ch.ID, "automatic", TitleAwaitingChat)
+			assertChangeTitle(t, db, ch.ID, "automatic", titleAwaitingChat)
 			changeReceipts(t, db, "change.titled", 0)
 		})
 	}

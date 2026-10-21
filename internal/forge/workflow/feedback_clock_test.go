@@ -82,7 +82,7 @@ func TestTheLatestFeedbackIsTheNewestByTheForgesClock(t *testing.T) {
 		svc, run, stepIDs := feedbackClockFixture(t)
 		rejectForTest(t, svc, stepIDs["accept"], "not yet")
 		finishForTest(t, svc, stepIDs["review"], StatusFail)
-		got, err := LatestFeedbackIn(context.Background(), svc.db, RunRef{ID: run.ID, ProjectID: run.ProjectID})
+		got, err := latestFeedbackIn(context.Background(), svc.db, RunRef{ID: run.ID, ProjectID: run.ProjectID})
 		if err != nil || got == nil || got.ID != stepIDs["review"] {
 			t.Fatalf("latest feedback %s, want the review: %v", stepName(got), err)
 		}
@@ -92,7 +92,7 @@ func TestTheLatestFeedbackIsTheNewestByTheForgesClock(t *testing.T) {
 		svc, run, stepIDs := feedbackClockFixture(t)
 		finishForTest(t, svc, stepIDs["review"], StatusFail)
 		rejectForTest(t, svc, stepIDs["accept"], "not yet")
-		got, err := LatestFeedbackIn(context.Background(), svc.db, RunRef{ID: run.ID, ProjectID: run.ProjectID})
+		got, err := latestFeedbackIn(context.Background(), svc.db, RunRef{ID: run.ID, ProjectID: run.ProjectID})
 		if err != nil || got == nil || got.ID != stepIDs["accept"] {
 			t.Fatalf("latest feedback %s, want the approval: %v", stepName(got), err)
 		}

@@ -272,13 +272,13 @@ func TestChangeReadsRejectInvalidStoredState(t *testing.T) {
 	store, run, _ := completionFixture(t, "working")
 	testAccounts(t, store, "alice")
 	transitionScopeChange(t, store, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, State: "unexpected"})
-	if got, err := ReadChangeIn(context.Background(), store, run.ChangeID); got != nil || !errors.Is(err, ErrChangeState) {
+	if got, err := ReadChangeIn(context.Background(), store, run.ChangeID); got != nil || !errors.Is(err, errChangeState) {
 		t.Fatalf("invalid record escaped: %+v %v", got, err)
 	}
-	if got, err := New(context.Background(), store, Dependencies{Authority: changeTransitionAuthority{}}).Changes(changeTransitionContext(context.Background(), "alice"), run.ProjectID, ChangeList{}); got != nil || !errors.Is(err, ErrChangeState) {
+	if got, err := New(context.Background(), store, Dependencies{Authority: changeTransitionAuthority{}}).Changes(changeTransitionContext(context.Background(), "alice"), run.ProjectID, ChangeList{}); got != nil || !errors.Is(err, errChangeState) {
 		t.Fatalf("invalid list escaped: %+v %v", got, err)
 	}
-	if got, err := beginChangeAs(context.Background(), store, t.TempDir(), "alice", run.ChangeID); got != nil || !errors.Is(err, ErrChangeState) {
+	if got, err := beginChangeAs(context.Background(), store, t.TempDir(), "alice", run.ChangeID); got != nil || !errors.Is(err, errChangeState) {
 		t.Fatalf("invalid state started: %+v %v", got, err)
 	}
 	expect(t, auditCount(t, store, "", nil) == 0, "invalid state left a receipt")

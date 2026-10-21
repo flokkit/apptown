@@ -82,7 +82,23 @@ func save() { db.Exec(`UPDATE runs SET state='done'`); db.Exec(query) }
             leaf = root / 'internal/forge/workflow/internal/workflowsql'
             leaf.mkdir(parents=True)
             (leaf / 'queries.sql').write_text('-- name: Sneaky :one\nWITH x AS (DELETE FROM secret_values RETURNING id) SELECT * FROM x;\n')
+            (root / 'sqlc.yaml').write_text('sql:\n  - engine: postgresql\n    queries: internal/forge/workflow/internal/workflowsql/queries.sql\n')
             self.assertTrue(self.check(own.sql_items(root)))
+
+    def test_every_query_file_sqlc_reads_is_checked(self):
+        # A query directory: the gate reads what sqlc reads, whatever the files are called.
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            leaf = root / 'internal/forge/workflow/internal/workflowsql'
+            leaf.mkdir(parents=True)
+            (leaf / 'runs.sql').write_text('-- name: Fine :exec\nUPDATE runs SET id = 1;\n')
+            (leaf / 'steps.sql').write_text('-- name: Sneaky :exec\nDELETE FROM secret_values;\n')
+            (root / 'sqlc.yaml').write_text('sql:\n  - engine: postgresql\n    queries: internal/forge/workflow/internal/workflowsql\n')
+            items = own.sql_items(root)
+            self.assertEqual(sorted(x['declaration'] for x in items), ['Fine', 'Sneaky'])
+            errors = self.check(items, {'runs': 'workflow', 'secret_values': 'secret'})
+            self.assertEqual(len(errors), 1)
+            self.assertIn('secret_values', errors[0])
 
     def test_duplicate_or_unexplained_reviews_fail(self):
         item = dict(self.item('query'), dynamic=True)

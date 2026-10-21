@@ -76,9 +76,9 @@ func (s *Service) InAdvanceQuestion(ctx context.Context, projectID ids.ID) (InAd
 	return s.inAdvance.InAdvance(ctx, projectID)
 }
 
-// ErrInAdvanceNotAssent refuses a yes in advance from a way of acting that
+// errInAdvanceNotAssent refuses a yes in advance from a way of acting that
 // does not give the person's own assent (an agent's credential, a chat).
-var ErrInAdvanceNotAssent = fault.New(fault.Forbidden, "a yes in advance is a person's own: give it signed in or from your own command line, not through an agent")
+var errInAdvanceNotAssent = fault.New(fault.Forbidden, "a yes in advance is a person's own: give it signed in or from your own command line, not through an agent")
 
 // AdvanceYes is a person's yes given in advance on an adoption Change, as
 // recorded when they gave it.
@@ -107,7 +107,7 @@ func advanceYesFrom(ctx context.Context, q database.Queryer, who string, workflo
 		return nil, err
 	}
 	if actor.Principal.IsZero() || !actor.Assents() {
-		return nil, ErrInAdvanceNotAssent
+		return nil, errInAdvanceNotAssent
 	}
 	return &AdvanceYes{Approver: who, Principal: actor.Principal, Via: actor.Via, At: at, Workflow: workflow, Shown: slices.Clone(shown)}, nil
 }

@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-var ErrWorkspaceChanged = errors.New("workspace source changed; inspect and prepare again")
+var errWorkspaceChanged = errors.New("workspace source changed; inspect and prepare again")
 
 type ChangeRef struct{ ID, ProjectID ids.ID }
 
@@ -126,7 +126,7 @@ func recordChangeWorkspaceIn(ctx context.Context, tx *database.Tx, before change
 		return err
 	}
 	if current != before || tip == "" {
-		return ErrWorkspaceChanged
+		return errWorkspaceChanged
 	}
 	if before.BaseSHA != "" {
 		return nil
@@ -137,7 +137,7 @@ func recordChangeWorkspaceIn(ctx context.Context, tx *database.Tx, before change
 		return err
 	}
 	if n != 1 {
-		return ErrWorkspaceChanged
+		return errWorkspaceChanged
 	}
 	return nil
 }
@@ -233,7 +233,7 @@ func (w workspaces) PrepareRun(ctx context.Context, ref RunRef) error {
 			return err
 		}
 		if current != before || next != guard {
-			return ErrWorkspaceChanged
+			return errWorkspaceChanged
 		}
 		// A detached Run may already have a historical base. Preparation fills absence
 		// and does not rewrite that history merely because its directory was recreated.
@@ -244,7 +244,7 @@ func (w workspaces) PrepareRun(ctx context.Context, ref RunRef) error {
 				return err
 			}
 			if n != 1 {
-				return ErrWorkspaceChanged
+				return errWorkspaceChanged
 			}
 		}
 		if change != nil {
@@ -281,7 +281,7 @@ func recordRunChangeWorkspaceIn(ctx context.Context, tx *database.Tx, before cha
 	// Run admission may choose the canonical branch before an uplift has named one.
 	// Check the old snapshot before naming it, and join the same guarded base write.
 	if before.Branch != "" && before.Branch != branch {
-		return ErrWorkspaceChanged
+		return errWorkspaceChanged
 	}
 	if before.Branch == "" {
 		q := workflowsql.New(tx.SQL())
@@ -293,14 +293,14 @@ func recordRunChangeWorkspaceIn(ctx context.Context, tx *database.Tx, before cha
 			return err
 		}
 		if current != before {
-			return ErrWorkspaceChanged
+			return errWorkspaceChanged
 		}
 		n, err := q.NameChangeWorkspaceBranch(ctx, workflowsql.NameChangeWorkspaceBranchParams{Branch: branch, ChangeID: before.Ref.ID, ProjectID: before.Ref.ProjectID})
 		if err != nil {
 			return err
 		}
 		if n != 1 {
-			return ErrWorkspaceChanged
+			return errWorkspaceChanged
 		}
 		before.Branch = branch
 	}

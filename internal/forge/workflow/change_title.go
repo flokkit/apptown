@@ -15,30 +15,30 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-type TitleOwner uint8
+type titleOwner uint8
 
 const (
-	TitleHuman TitleOwner = iota + 1
-	TitleAwaitingChat
-	TitleGenerated
+	titleHuman titleOwner = iota + 1
+	titleAwaitingChat
+	titleGenerated
 )
 
-var ErrChangeTitle = errors.New("invalid Change title ownership")
+var errChangeTitle = errors.New("invalid Change title ownership")
 
-func (o TitleOwner) Value() (driver.Value, error) {
+func (o titleOwner) Value() (driver.Value, error) {
 	switch o {
-	case TitleHuman:
+	case titleHuman:
 		return "human", nil
-	case TitleAwaitingChat:
+	case titleAwaitingChat:
 		return "awaiting_chat", nil
-	case TitleGenerated:
+	case titleGenerated:
 		return "generated", nil
 	default:
-		return nil, ErrChangeTitle
+		return nil, errChangeTitle
 	}
 }
 
-func (o *TitleOwner) Scan(raw any) error {
+func (o *titleOwner) Scan(raw any) error {
 	var text string
 	switch raw := raw.(type) {
 	case string:
@@ -46,33 +46,33 @@ func (o *TitleOwner) Scan(raw any) error {
 	case []byte:
 		text = string(raw)
 	default:
-		return ErrChangeTitle
+		return errChangeTitle
 	}
-	for _, candidate := range []TitleOwner{TitleHuman, TitleAwaitingChat, TitleGenerated} {
+	for _, candidate := range []titleOwner{titleHuman, titleAwaitingChat, titleGenerated} {
 		value, _ := candidate.Value()
 		if value == text {
 			*o = candidate
 			return nil
 		}
 	}
-	return ErrChangeTitle
+	return errChangeTitle
 }
 
-type TitleAct uint8
+type titleAct uint8
 
 const (
-	PinTitle TitleAct = iota + 1
-	NameFromFirstMessage
-	ReviseTitle
+	pinTitle titleAct = iota + 1
+	nameFromFirstMessage
+	reviseTitle
 )
 
 type changeTitle struct {
 	words string
-	owner TitleOwner
+	owner titleOwner
 }
 
 type changeTitleEdit struct {
-	act             TitleAct
+	act             titleAct
 	words, observed string
 }
 
@@ -88,30 +88,30 @@ func (t changeTitle) decide(edit changeTitleEdit) (changeTitle, bool, error) {
 		return t, false, fmt.Errorf("invalid title text")
 	}
 	switch edit.act {
-	case PinTitle:
+	case pinTitle:
 		if words == "" {
 			return t, false, nil
 		}
-		return changeTitle{words, TitleHuman}, true, nil
-	case NameFromFirstMessage:
-		if t.owner != TitleAwaitingChat {
+		return changeTitle{words, titleHuman}, true, nil
+	case nameFromFirstMessage:
+		if t.owner != titleAwaitingChat {
 			return t, false, nil
 		}
 		words = firstMessageTitle(words)
 		if words == "" {
 			return t, false, nil
 		}
-		return changeTitle{words, TitleGenerated}, true, nil
-	case ReviseTitle:
-		if t.owner != TitleGenerated || t.words != edit.observed || words == "" {
+		return changeTitle{words, titleGenerated}, true, nil
+	case reviseTitle:
+		if t.owner != titleGenerated || t.words != edit.observed || words == "" {
 			return t, false, nil
 		}
 		if len(words) > 90 {
 			return t, false, fmt.Errorf("generated title exceeds its bound")
 		}
-		return changeTitle{words, TitleGenerated}, true, nil
+		return changeTitle{words, titleGenerated}, true, nil
 	default:
-		return t, false, ErrChangeTitle
+		return t, false, errChangeTitle
 	}
 }
 
@@ -156,7 +156,7 @@ func editChangeTitleIn(ctx context.Context, tx *database.Tx, projectID ids.ID, i
 		return false, err
 	}
 	if n != 1 {
-		return false, ErrChangeEditConflict
+		return false, errChangeEditConflict
 	}
 	return true, nil
 }
@@ -166,7 +166,7 @@ func (s changeStore) nameFromChat(ctx context.Context, projectID ids.ID, id ids.
 		if _, err := workflowsql.New(tx.SQL()).ProjectForUpdate(ctx, projectID); err != nil {
 			return false, err
 		}
-		applied, err := editChangeTitleIn(ctx, tx, projectID, id, changeTitleEdit{act: NameFromFirstMessage, words: text})
+		applied, err := editChangeTitleIn(ctx, tx, projectID, id, changeTitleEdit{act: nameFromFirstMessage, words: text})
 		if err != nil || !applied {
 			return false, err
 		}

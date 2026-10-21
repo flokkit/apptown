@@ -87,7 +87,7 @@ func TestAStageOpenedBeforeItsRulesSaysSoAndCanRunItsChecksAgain(t *testing.T) {
 		t.Fatalf("expected checks were not recorded: %+v %v", checks, err)
 	}
 	// Once there is nothing missing, a stage's checks are retried one by one.
-	if _, err := s.RecheckStage(ctx, run.ID); !errors.Is(err, ErrNothingToRecheck) {
+	if _, err := s.RecheckStage(ctx, run.ID); !errors.Is(err, errNothingToRecheck) {
 		t.Fatalf("second recheck: %v", err)
 	}
 	// The earlier results stay in the record.

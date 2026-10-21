@@ -8,9 +8,9 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-// DefaultAttemptWatch is how often Work looks at a running step's run while
+// defaultAttemptWatch is how often Work looks at a running step's run while
 // its runner runs.
-const DefaultAttemptWatch = 3 * time.Second
+const defaultAttemptWatch = 3 * time.Second
 
 // errRunnerReturned is the cause of a claimed execution's context once its
 // runner returned. The fenced writes still answer through it (fenceContext).

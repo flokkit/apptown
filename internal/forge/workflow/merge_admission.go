@@ -13,7 +13,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-var ErrMergeCaller = errors.New("merge requires a current workflow advancement or SCM assertion scope")
+var errMergeCaller = errors.New("merge requires a current workflow advancement or SCM assertion scope")
 
 type MergePurpose uint8
 
@@ -34,19 +34,19 @@ type MergeCall struct {
 
 func (c MergeCall) validate() error {
 	if c.Run.ID.IsZero() || c.Run.ProjectID.IsZero() || c.Source.RunID != c.Run.ID || c.Source.ProjectID != c.Run.ProjectID {
-		return ErrMergeCaller
+		return errMergeCaller
 	}
 	switch c.Purpose {
 	case MergeForAdvance:
 		if !c.Step.ID.IsZero() {
-			return ErrMergeCaller
+			return errMergeCaller
 		}
 	case MergeForAssertion:
 		if c.Step.ID.IsZero() || c.Step.RunID != c.Run.ID || c.Step.Type != "scm/merged" {
-			return ErrMergeCaller
+			return errMergeCaller
 		}
 	default:
-		return ErrMergeCaller
+		return errMergeCaller
 	}
 	return nil
 }
@@ -143,12 +143,12 @@ func (a MergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 			return result, err
 		}
 		if step.Type != "scm/merged" || step.OverrideBy != "" || !SameStep(step, &call.Step) || assertionEligible(run, step) != nil {
-			return result, ErrMergeCaller
+			return result, errMergeCaller
 		}
 	}
 	// Landing is an effect a person answers for (assent.go), whatever the
 	// project's source.
-	if err := assentEvidenceIn(ctx, tx, run.ID, run.ProjectID); errors.Is(err, ErrNoAssent) {
+	if err := assentEvidenceIn(ctx, tx, run.ID, run.ProjectID); errors.Is(err, errNoAssent) {
 		return MergePermission{Reason: err.Error()}, nil
 	} else if err != nil {
 		return result, err
@@ -172,7 +172,7 @@ func (a MergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 	// stage's required checks and the adoption it was worked under still
 	// decide whether it may complete (they were skipped for such projects).
 	if !run.ParentRunID.IsZero() || (call.Purpose == MergeForAdvance && !next.Merge) {
-		return result, ErrMergeCaller
+		return result, errMergeCaller
 	}
 	law, err := (lawStore{a.db, a.rules, a.clocked}).evaluateIn(ctx, tx, run, false)
 	if err != nil {
@@ -225,7 +225,7 @@ func (a MergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 // Context carries only this admitted Work snapshot. SCM revalidates it before effect.
 func (a *AdmittedMerge) Context(ctx context.Context, dataDir string) (context.Context, error) {
 	if a == nil || a.gate == nil || a.db == nil {
-		return nil, ErrMergeCaller
+		return nil, errMergeCaller
 	}
 	claim := (SCMWork{db: a.db, dataDir: dataDir, rules: a.rules, evals: a.evals, clocked: a.clocked}).claim(a.call.Run, a.call.Source, &a.call, a.attribution)
 	return context.WithValue(ctx, scmClaimKey{}, claim), nil

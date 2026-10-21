@@ -205,6 +205,35 @@ const query = "select * from records"
             self.assertEqual(len(self.shape.handwritten_items(json.loads(result.stdout))), 1)
 
 
+class WorkflowExportsTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location("shape", Path(__file__).with_name("shape-check.py"))
+        cls.shape = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.shape)
+
+    def test_counts_exported_top_level_names_once_each(self):
+        with tempfile.TemporaryDirectory() as d:
+            pkg = Path(d) / "internal/forge/workflow"
+            pkg.mkdir(parents=True)
+            (pkg / "a.go").write_text("""package workflow
+// Exported is not a declaration in a comment.
+type Run struct{ Name string }
+type step struct{}
+func (Run) Method() {}
+func New() Run { return Run{} }
+func private() {}
+const (
+	A, b = 1, 2
+	C    = "x"
+)
+var ErrX, errY error
+""")
+            (pkg / "a_test.go").write_text("package workflow\nfunc TestExported() {}\nvar Fixture = 1\n")
+            self.assertEqual(self.shape.workflow_exports(Path(d)),
+                             ["const A", "const C", "func New", "type Run", "var ErrX"])
+
+
 class TestSQLTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

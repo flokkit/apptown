@@ -186,12 +186,12 @@ func hasVotes(step *Step) bool {
 	return err != nil || len(document.evidence.Decisions) > 0
 }
 
-// LandingCandidateRefusal says why a landing may not merge its candidate yet:
+// landingCandidateRefusal says why a landing may not merge its candidate yet:
 // a source gate, override or approval that names another commit or none, a
 // passed check that cannot be bound to a candidate, or an approval the run
 // left behind undecided. Empty means everything the merge rests on names the
 // pinned candidate.
-func LandingCandidateRefusal(ctx context.Context, q database.Queryer, runID ids.ID, c LandingCandidate) (string, error) {
+func landingCandidateRefusal(ctx context.Context, q database.Queryer, runID ids.ID, c LandingCandidate) (string, error) {
 	run, err := readRun(ctx, q, runID)
 	if err != nil {
 		return "", err

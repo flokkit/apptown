@@ -26,13 +26,13 @@ const (
 var stepStateCodec = enum.Set[StepState]{
 	Names:     []string{"pending", "running", "pass", "fail", "needs_human", "error", "skipped"},
 	Invalid:   "invalid-step-state",
-	Err:       ErrStepState,
+	Err:       errStepState,
 	ScanLabel: "database value",
 }
 
 var (
-	ErrStepState      = errors.New("invalid step state")
-	ErrStepTransition = errors.New("invalid step transition")
+	errStepState      = errors.New("invalid step state")
+	errStepTransition = errors.New("invalid step transition")
 )
 
 type StepMove uint8
@@ -81,14 +81,14 @@ func (s StepState) Transition(move StepMove, next StepState) (StepState, error) 
 		allowed = (s == StatusPending || s == StatusError) && next == StatusSkipped
 	}
 	if !allowed {
-		return 0, fmt.Errorf("%w: operation %d cannot move %s to %s", ErrStepTransition, move, s, next)
+		return 0, fmt.Errorf("%w: operation %d cannot move %s to %s", errStepTransition, move, s, next)
 	}
 	return next, nil
 }
 
 func (s StepState) PassesGate() bool                 { return s == StatusPass || s == StatusSkipped }
 func (s StepState) String() string                   { return stepStateCodec.String(s) }
-func ParseStepState(text string) (StepState, error)  { return stepStateCodec.Parse(text) }
+func parseStepState(text string) (StepState, error)  { return stepStateCodec.Parse(text) }
 func (s StepState) Value() (driver.Value, error)     { return stepStateCodec.Value(s) }
 func (s *StepState) Scan(value any) error            { return stepStateCodec.Scan(s, value) }
 func (s StepState) MarshalJSON() ([]byte, error)     { return stepStateCodec.JSON(s) }

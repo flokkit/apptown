@@ -167,11 +167,11 @@ type TranscriptCapture struct {
 	At          time.Time // AppTown's time it was recorded
 }
 
-// RecordTranscript records a capture with the attempt's session receipt,
+// recordTranscript records a capture with the attempt's session receipt,
 // after its bytes are stored. The attempt's start receipt must name the
 // session. Each invocation's capture is its own record, written once: a
 // replay changes nothing. The attempt's history is its latest invocation's.
-func RecordTranscript(ctx context.Context, db *database.DB, c TranscriptCapture) error {
+func recordTranscript(ctx context.Context, db *database.DB, c TranscriptCapture) error {
 	if c.Run.ID.IsZero() || c.Run.ProjectID.IsZero() || c.StepID.IsZero() || c.Attempt <= 0 || c.Invocation <= 0 || c.Session == "" || c.At.IsZero() {
 		return fmt.Errorf("a transcript record needs its run, step, attempt, invocation and session")
 	}
@@ -197,7 +197,7 @@ func RecordTranscript(ctx context.Context, db *database.DB, c TranscriptCapture)
 
 // KeepTranscript keeps one invocation's history: raw stored by digest
 // (StoreTranscript), then the capture recorded with the attempt's receipt
-// (RecordTranscript), with no orphan removal in between. History that cannot
+// (recordTranscript), with no orphan removal in between. History that cannot
 // be kept (reason, or a failed store) is recorded as unavailable, with why;
 // only the record's failure is returned. Calling it again after a failed
 // record stores the bytes again, so a retry never records a digest whose
@@ -216,7 +216,7 @@ func KeepTranscript(ctx context.Context, db *database.DB, dataDir string, c Tran
 	if reason != "" {
 		c.Digest, c.Unavailable = "", reason
 	}
-	return RecordTranscript(ctx, db, c)
+	return recordTranscript(ctx, db, c)
 }
 
 // StepTranscriptIn is what an attempt of a step kept of its session's

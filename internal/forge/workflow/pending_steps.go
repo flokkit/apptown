@@ -49,7 +49,7 @@ func PendingStepsIn(ctx context.Context, q database.Queryer, refs []RunRef) (map
 		return nil, err
 	}
 	for _, row := range rows {
-		state, err := ParseStepState(row.Status)
+		state, err := parseStepState(row.Status)
 		if err != nil {
 			return nil, err
 		}

@@ -14,8 +14,8 @@ import (
 type StepStop func(context.Context, *Step) ([]string, error)
 
 var (
-	ErrStepNotInterruptible = fault.New(fault.Unprocessable, "only an agent or review step can be interrupted")
-	ErrStepNotRunning       = fault.New(fault.Conflict, "the step is not running")
+	errStepNotInterruptible = fault.New(fault.Unprocessable, "only an agent or review step can be interrupted")
+	errStepNotRunning       = fault.New(fault.Conflict, "the step is not running")
 )
 
 // InterruptStep stops a running agent or review step through the product.
@@ -33,10 +33,10 @@ func (s *Service) InterruptStep(ctx context.Context, stepID ids.ID, stop StepSto
 		return nil, err
 	}
 	if step.Type != "agent/pi" && step.Type != "agent/review" {
-		return nil, ErrStepNotInterruptible
+		return nil, errStepNotInterruptible
 	}
 	if step.Status != StatusRunning {
-		return nil, ErrStepNotRunning
+		return nil, errStepNotRunning
 	}
 	stopped, err := stop(ctx, step)
 	if err != nil {

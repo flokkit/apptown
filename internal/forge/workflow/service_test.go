@@ -87,7 +87,7 @@ func TestWorkServiceFiltersBeforeLimitsAndRefusesMixedBatch(t *testing.T) {
 	if out, err := s.Activities(ctx, []ids.ID{root.ID, foreign}); out != nil || !errors.As(err, &denied) {
 		t.Fatalf("foreign batch must fail at authority before decoding: %+v %v", out, err)
 	}
-	if out, err := s.Snapshot(ctx, foreign, DetailView); out != nil || err == nil || errors.Is(err, ErrRunState) {
+	if out, err := s.Snapshot(ctx, foreign, DetailView); out != nil || err == nil || errors.Is(err, errRunState) {
 		t.Fatalf("foreign record decoded before admission: %+v %v", out, err)
 	}
 	if out, err := s.Activities(ctx, []ids.ID{root.ID, idstest.N(99999)}); out != nil || !errors.Is(err, sql.ErrNoRows) {

@@ -34,7 +34,7 @@ func TestRunStateRejectsInvalidStoredRecords(t *testing.T) {
 	if n, err := workflowsql.New(db.SQL()).TransitionRun(context.Background(), workflowsql.TransitionRunParams{At: time.Now(), NextStage: run.CurrentStage, NextStatus: "failed", ID: run.ID, ExpectedStatus: run.Status.String(), CurrentStage: run.CurrentStage, RetryRevision: run.RetryRevision}); err != nil || n != 1 {
 		t.Fatalf("store invalid run state: %d %v", n, err)
 	}
-	if got, err := ReadRunIn(context.Background(), db, run.ID); got != nil || !errors.Is(err, ErrRunState) {
+	if got, err := ReadRunIn(context.Background(), db, run.ID); got != nil || !errors.Is(err, errRunState) {
 		t.Fatalf("invalid stored state escaped: %+v, %v", got, err)
 	}
 }
@@ -69,15 +69,15 @@ func TestRunStateEncodingIsStrict(t *testing.T) {
 	}
 	for _, value := range []any{nil, 1, "failed", []byte("")} {
 		got := RunDone
-		if err := got.Scan(value); !errors.Is(err, ErrRunState) || got != RunDone {
+		if err := got.Scan(value); !errors.Is(err, errRunState) || got != RunDone {
 			t.Fatalf("invalid %v changed state: %s, %v", value, got, err)
 		}
 	}
 	for _, state := range []RunState{0, 255} {
-		if _, err := json.Marshal(state); !errors.Is(err, ErrRunState) {
+		if _, err := json.Marshal(state); !errors.Is(err, errRunState) {
 			t.Fatalf("invalid state JSON: %v", err)
 		}
-		if _, err := state.Value(); !errors.Is(err, ErrRunState) {
+		if _, err := state.Value(); !errors.Is(err, errRunState) {
 			t.Fatalf("invalid database state: %v", err)
 		}
 	}

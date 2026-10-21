@@ -35,19 +35,19 @@ type DispatchPlan struct {
 	NeedsPreparation bool
 	AdvanceEmpty     bool
 }
-type DispatchState struct {
+type dispatchState struct {
 	Status           StepState
 	Orphaned, Active bool
 }
 
-func (s DispatchState) Runnable() bool { return s.Status == StatusPending || s.Orphaned }
-func (w dispatchPlans) State(ctx context.Context, runID, stepID ids.ID) (DispatchState, error) {
-	var state DispatchState
+func (s dispatchState) Runnable() bool { return s.Status == StatusPending || s.Orphaned }
+func (w dispatchPlans) State(ctx context.Context, runID, stepID ids.ID) (dispatchState, error) {
+	var state dispatchState
 	row, err := workflowsql.New(w.db.SQL()).DispatchStepState(ctx, workflowsql.DispatchStepStateParams{RunID: runID, ID: stepID})
 	if err != nil {
 		return state, err
 	}
-	state.Status, err = ParseStepState(row.Status)
+	state.Status, err = parseStepState(row.Status)
 	state.Orphaned, state.Active = row.Orphaned.Bool, row.Active.Bool
 	return state, err
 }

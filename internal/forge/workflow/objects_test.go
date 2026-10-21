@@ -101,7 +101,7 @@ func TestStepApproveReachesQuorum(t *testing.T) {
 		t.Fatalf("one of two: %+v err=%v", first, err)
 	}
 	step.Evidence = first.Evidence
-	if _, err := step.Approve(ApprovalVote{Approver: "ann", Decision: VoteApprove}, time.Now()); !errors.Is(err, ErrStepDecisionConflict) {
+	if _, err := step.Approve(ApprovalVote{Approver: "ann", Decision: VoteApprove}, time.Now()); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("one vote per person: %v", err)
 	}
 	second, err := step.Approve(ApprovalVote{Approver: "bob", Decision: VoteApprove}, time.Now())
@@ -114,11 +114,11 @@ func TestStepApproveReachesQuorum(t *testing.T) {
 	}
 
 	step.Status = StatusPass
-	if _, err := step.Approve(ApprovalVote{Approver: "bob", Decision: VoteApprove}, time.Now()); !errors.Is(err, ErrStepDecisionConflict) {
+	if _, err := step.Approve(ApprovalVote{Approver: "bob", Decision: VoteApprove}, time.Now()); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("decided steps take no votes: %v", err)
 	}
 	script := Step{Type: "script", Status: StatusFail}
-	if _, err := script.Approve(ApprovalVote{Approver: "ann", Decision: VoteApprove}, time.Now()); !errors.Is(err, ErrStepApprovalInput) {
+	if _, err := script.Approve(ApprovalVote{Approver: "ann", Decision: VoteApprove}, time.Now()); !errors.Is(err, errStepApprovalInput) {
 		t.Fatalf("only approval steps take votes: %v", err)
 	}
 }
@@ -126,21 +126,21 @@ func TestStepApproveReachesQuorum(t *testing.T) {
 func TestStepOverrideNeedsAReasonAndAPerson(t *testing.T) {
 	t.Parallel()
 	step := Step{ID: idstest.N(9), RunID: idstest.N(7), Stage: "review", Name: "tests", Type: "script", Status: StatusFail}
-	if _, err := step.Override("ann", "  "); !errors.Is(err, ErrOverrideReason) {
+	if _, err := step.Override("ann", "  "); !errors.Is(err, errOverrideReason) {
 		t.Fatalf("reason required: %v", err)
 	}
-	if _, err := step.Override("", "flaky"); !errors.Is(err, ErrStepDecisionCaller) {
+	if _, err := step.Override("", "flaky"); !errors.Is(err, errStepDecisionCaller) {
 		t.Fatalf("person required: %v", err)
 	}
 	if next, err := step.Override("ann", "flaky"); err != nil || next != StatusPass {
 		t.Fatalf("override passes: %v err=%v", next, err)
 	}
 	step.Status = StatusRunning
-	if _, err := step.Override("ann", "flaky"); !errors.Is(err, ErrStepDecisionConflict) {
+	if _, err := step.Override("ann", "flaky"); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("a running step cannot be overridden: %v", err)
 	}
 	step.Status, step.OverrideBy = StatusFail, "bob"
-	if _, err := step.Override("ann", "again"); !errors.Is(err, ErrStepDecisionConflict) {
+	if _, err := step.Override("ann", "again"); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("one override per step: %v", err)
 	}
 
@@ -149,7 +149,7 @@ func TestStepOverrideNeedsAReasonAndAPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.CurrentStage = "land"
-	if err := run.Decides(&step); !errors.Is(err, ErrStepDecisionConflict) {
+	if err := run.Decides(&step); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("a decision belongs to the current stage: %v", err)
 	}
 }

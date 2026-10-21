@@ -150,7 +150,8 @@ struct: `Bootstrap(in NewAccount)`, `SaveUser(in AccountChange)`. Keep simple
 identifier lookups idiomatic. Avoid a universal input with flags for unrelated
 operations. Validation errors get a name when callers need to distinguish them.
 
-**SQL is generated.** Named queries in `queries.sql`, bound through the
+**SQL is generated.** Named queries in `queries.sql` (or an owner's per-table
+query files), bound through the
 generated package. Hand-written SQL is not a style choice that lost; it is
 zero in production, and `handwritten` holds that boundary. `testwrites`
 separately counts undeclared setup bypasses; independent SQL assertions remain

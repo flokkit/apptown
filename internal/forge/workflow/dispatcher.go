@@ -18,7 +18,7 @@ import (
 )
 
 type dispatchRecords interface {
-	State(context.Context, ids.ID, ids.ID) (DispatchState, error)
+	State(context.Context, ids.ID, ids.ID) (dispatchState, error)
 	Skip(context.Context, ids.ID, ids.ID, string) error
 	Resume(context.Context, ids.ID, ids.ID) (bool, error)
 	RestartCandidates(context.Context) ([]ids.ID, error)

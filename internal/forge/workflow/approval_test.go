@@ -108,7 +108,7 @@ func TestApprovalDecisionAndConfigurationDecodeStrictly(t *testing.T) {
 			t.Fatalf("invalid %s changed vote: %s %v", raw, old, err)
 		}
 	}
-	if _, err := json.Marshal(ApprovalDecision(0)); !errors.Is(err, ErrApprovalDecision) {
+	if _, err := json.Marshal(ApprovalDecision(0)); !errors.Is(err, errApprovalDecision) {
 		t.Fatalf("invalid decision serialized: %v", err)
 	}
 	for _, raw := range []string{`{"quorum":"2"}`, `{"quorum":-1}`, `{"quorum":1.5}`, `{"approvers":"alice"}`, `{"means":false}`, `null`, `[]`} {
@@ -278,7 +278,7 @@ func TestAQuorumCountsPeopleNotNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err := first.cast(status, cfg, ApprovalVote{Approver: "alicia", Principal: alice, Via: "session", Decision: VoteApprove}); !errors.Is(err, ErrStepDecisionConflict) {
+	if _, _, _, err := first.cast(status, cfg, ApprovalVote{Approver: "alicia", Principal: alice, Via: "session", Decision: VoteApprove}); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("one person voted twice under two names: %v", err)
 	}
 	unresolved := ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "ghost", Decision: VoteApprove}}}

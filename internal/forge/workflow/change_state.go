@@ -28,13 +28,13 @@ const (
 var changeStateCodec = enum.Set[ChangeState]{
 	Names:     []string{"proposed", "in_progress", "landing", "shipped", "abandoned"},
 	Invalid:   "invalid-change-state",
-	Err:       ErrChangeState,
+	Err:       errChangeState,
 	ScanLabel: "database value",
 }
 
 var (
 	ErrChangeTransition = errors.New("invalid change transition")
-	ErrChangeState      = errors.New("invalid change state")
+	errChangeState      = errors.New("invalid change state")
 )
 
 func (s ChangeState) String() string { return changeStateCodec.String(s) }
@@ -173,8 +173,8 @@ const (
 	RequestMetUnknown RequestMet = "unknown"
 )
 
-// ParseRequestMet reads a stored or written answer; anything else is unknown.
-func ParseRequestMet(text string) RequestMet {
+// parseRequestMet reads a stored or written answer; anything else is unknown.
+func parseRequestMet(text string) RequestMet {
 	switch m := RequestMet(strings.ToLower(strings.TrimSpace(text))); m {
 	case RequestMetYes, RequestMetPartly, RequestMetNo:
 		return m

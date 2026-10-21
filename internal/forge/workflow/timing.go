@@ -85,7 +85,7 @@ func readTimingsIn(ctx context.Context, q database.Queryer, projects []ids.ID, i
 			out = append(out, run)
 		}
 		if !row.StepID.IsZero() {
-			state, err := ParseStepState(row.Status)
+			state, err := parseStepState(row.Status)
 			if err != nil {
 				return nil, err
 			}

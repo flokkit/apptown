@@ -76,11 +76,11 @@ func TestAgentPrerequisitesAndReopenedFeedbackAreScoped(t *testing.T) {
 	if err != nil || changed != 1 {
 		t.Fatalf("store reopened feedback: changed=%d %v", changed, err)
 	}
-	feedback, err := LatestFeedbackIn(ctx, q.db, RunRef{ID: run.ID, ProjectID: run.ProjectID})
+	feedback, err := latestFeedbackIn(ctx, q.db, RunRef{ID: run.ID, ProjectID: run.ProjectID})
 	if err != nil || feedback == nil || feedback.ID != step || feedback.Status != StatusPending || feedback.OwnedAttempt() != 0 {
 		t.Fatalf("feedback %+v: %v", feedback, err)
 	}
-	feedback, err = LatestFeedbackIn(ctx, q.db, RunRef{ID: run.ID, ProjectID: other})
+	feedback, err = latestFeedbackIn(ctx, q.db, RunRef{ID: run.ID, ProjectID: other})
 	if err != nil || feedback != nil {
 		t.Fatalf("foreign feedback %+v: %v", feedback, err)
 	}

@@ -47,7 +47,7 @@ func (p stepDecisionSnapshot) lock(ctx context.Context, tx *database.Tx) (*Run, 
 		return nil, nil, err
 	}
 	if !p.matches(run, step) {
-		return nil, nil, ErrStepDecisionConflict
+		return nil, nil, errStepDecisionConflict
 	}
 	return run, step, nil
 }
@@ -72,7 +72,7 @@ func (s stepDecisionStore) override(ctx context.Context, expected stepDecisionSn
 			return nil, err
 		}
 		if n != 1 {
-			return nil, ErrStepDecisionConflict
+			return nil, errStepDecisionConflict
 		}
 		if err := recordReceiptIn(ctx, tx, run.ID, "override", overrideReceipt{current.Name, who, reason, current.Attempt}, s.now()); err != nil {
 			return nil, err
@@ -104,7 +104,7 @@ func (s stepDecisionStore) approve(ctx context.Context, expected stepDecisionSna
 				return stepApprovalResult{}, err
 			}
 			if len(unfinished) > 0 {
-				return stepApprovalResult{}, &ApprovalTooEarly{Unfinished: unfinished}
+				return stepApprovalResult{}, &approvalTooEarly{Unfinished: unfinished}
 			}
 		}
 		// Current evidence can contain another eligible person's concurrent vote.

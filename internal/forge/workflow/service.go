@@ -119,7 +119,7 @@ type Dependencies struct {
 	StepContext func(ctx context.Context, projectID ids.ID) context.Context
 
 	// AttemptWatch is how often Work looks at a running step's run while its
-	// runner runs (lost_attempt.go); zero is DefaultAttemptWatch.
+	// runner runs (lost_attempt.go); zero is defaultAttemptWatch.
 	AttemptWatch time.Duration
 
 	// Now is AppTown's clock; nil is the real one.
@@ -149,7 +149,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	authority := commandAuthority{db: db, checked: deps.Authority, visibility: deps.Authority, clocked: clocked{deps.Now}}
 	s := &Service{life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.CheckPlacement, scripts: deps.TaskPlacement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
 	if s.attemptWatch <= 0 {
-		s.attemptWatch = DefaultAttemptWatch
+		s.attemptWatch = defaultAttemptWatch
 	}
 	s.stages = NewStages(deps.Scanners, isAutomatic)
 	s.abandonments = NewAbandonments(db, deps.Abandonment, deps.Repositories)
@@ -191,7 +191,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 		s.merges.placement, s.merges.evals, s.merges.clocked = deps.CheckPlacement, deps.EvalGate, s.clocked
 	}
 	var assertions MergeObserver
-	var checks AdvanceChecks
+	var checks advanceChecks
 	if s.merges != nil {
 		checks = s.merges
 		assertions = s.merges

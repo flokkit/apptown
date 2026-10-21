@@ -67,7 +67,7 @@ func TestANewLandingCandidateRerunsItsSourceGates(t *testing.T) {
 	}
 	finish(start("tests"), StatusPass, x)
 	finish(start("scan-source"), StatusFail, x)
-	if refusal, err := LandingCandidateRefusal(ctx, db, run.ID, LandingCandidate{Candidate: y}); err != nil || refusal == "" {
+	if refusal, err := landingCandidateRefusal(ctx, db, run.ID, LandingCandidate{Candidate: y}); err != nil || refusal == "" {
 		t.Fatalf("a gate that passed on another commit did not refuse the merge: %q %v", refusal, err)
 	}
 	if n, err := invalidateAndRetryForTest(ctx, db, run, "catch-up"); err != nil || n != 1 {
@@ -85,7 +85,7 @@ func TestANewLandingCandidateRerunsItsSourceGates(t *testing.T) {
 	}
 	finish(start("tests"), StatusPass, y)
 	finish(start("scan-source"), StatusPass, y)
-	if refusal, err := LandingCandidateRefusal(ctx, db, run.ID, LandingCandidate{Candidate: y}); err != nil || refusal != "" {
+	if refusal, err := landingCandidateRefusal(ctx, db, run.ID, LandingCandidate{Candidate: y}); err != nil || refusal != "" {
 		t.Fatalf("gates that all checked the candidate refused the merge: %q %v", refusal, err)
 	}
 	if _, err := invalidateAndRetryForTest(ctx, db, run, "catch-up"); err != nil {
@@ -175,7 +175,7 @@ func TestAMergeRefusesUnboundChecksAndApprovalsLeftBehind(t *testing.T) {
 		if err := attempts.Finish(ctx, claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`)}); err != nil {
 			t.Fatal(err)
 		}
-		if refusal, err := LandingCandidateRefusal(ctx, q.db, run.ID, pinned); err != nil || refusal == "" {
+		if refusal, err := landingCandidateRefusal(ctx, q.db, run.ID, pinned); err != nil || refusal == "" {
 			t.Fatalf("a passed agent review did not refuse the merge: %q %v", refusal, err)
 		}
 	})
@@ -188,7 +188,7 @@ func TestAMergeRefusesUnboundChecksAndApprovalsLeftBehind(t *testing.T) {
 		if _, err := q.db.Exec(`UPDATE runs SET current_stage='ship' WHERE id=?`, run.ID); err != nil {
 			t.Fatal(err)
 		}
-		if refusal, err := LandingCandidateRefusal(ctx, q.db, run.ID, pinned); err != nil || refusal == "" {
+		if refusal, err := landingCandidateRefusal(ctx, q.db, run.ID, pinned); err != nil || refusal == "" {
 			t.Fatalf("an approval left undecided behind the run did not refuse the merge: %q %v", refusal, err)
 		}
 	})

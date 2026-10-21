@@ -209,10 +209,10 @@ func (g GitWorkspace) commitLeftovers(ctx context.Context, workspace string) err
 	return err
 }
 
-// ErrNotUpgraded refuses new work on a repository that still keeps AppTown's
+// errNotUpgraded refuses new work on a repository that still keeps AppTown's
 // files in .forge/: the upgrade renames it once, for every project, and work
 // started before that would write the new folder beside the old one.
-var ErrNotUpgraded = fault.New(fault.Conflict, "this project's repository still keeps AppTown's files in .forge/; an administrator runs apptown upgrade once, then start again")
+var errNotUpgraded = fault.New(fault.Conflict, "this project's repository still keeps AppTown's files in .forge/; an administrator runs apptown upgrade once, then start again")
 
 func (g GitWorkspace) requireUpgraded(ctx context.Context, repository, commit string) error {
 	old, err := scm.PredatesRename(ctx, repository, commit)
@@ -220,7 +220,7 @@ func (g GitWorkspace) requireUpgraded(ctx context.Context, repository, commit st
 		return err
 	}
 	if old {
-		return ErrNotUpgraded
+		return errNotUpgraded
 	}
 	return nil
 }

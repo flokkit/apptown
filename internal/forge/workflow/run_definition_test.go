@@ -28,7 +28,7 @@ func TestPreparedRunFreezesDeclarationAndReceiptBytes(t *testing.T) {
 	if string(frozen.Events[0].Payload) != `{"precise":9007199254740993}` {
 		t.Fatalf("aliased receipt: %s", frozen.Events[0].Payload)
 	}
-	if def.Spec.V != 0 || frozen.Spec.V != DefinitionVersion {
+	if def.Spec.V != 0 || frozen.Spec.V != definitionVersion {
 		t.Fatal("version stamp mutated caller")
 	}
 	var stored struct {

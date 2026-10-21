@@ -50,14 +50,14 @@ func TestChangeEditAtomicFailures(t *testing.T) {
 			if err == nil || got != nil {
 				t.Fatalf("failed %s returned %+v, %v", failure, got, err)
 			}
-			if failure == "suppressed write" && !errors.Is(err, ErrChangeEditConflict) {
+			if failure == "suppressed write" && !errors.Is(err, errChangeEditConflict) {
 				t.Fatalf("suppressed write: %v", err)
 			}
 			got, err = readChange(context.Background(), w, ch.ID)
 			if err != nil || got.Title != "original" || got.Body != "brief" || got.ExternalRef != "ref" {
 				t.Fatalf("partial edit: %+v %v", got, err)
 			}
-			assertChangeTitle(t, w, ch.ID, "original", TitleGenerated)
+			assertChangeTitle(t, w, ch.ID, "original", titleGenerated)
 			changeReceipts(t, w, "change.edited", 0)
 		})
 	}
@@ -84,7 +84,7 @@ func TestChangeEditSelectedFieldsAndHumanTitle(t *testing.T) {
 	if got.Title != "automatic" || got.Body != body || got.ExternalRef != "issue-7" || got.State != ChangeShipped || !got.ClosedAt.Valid {
 		t.Fatalf("selected edit: %+v", got)
 	}
-	assertChangeTitle(t, w, ch.ID, "automatic", TitleGenerated)
+	assertChangeTitle(t, w, ch.ID, "automatic", titleGenerated)
 	title := "  Human words  "
 	got, err = editChangeAs(context.Background(), w, "bob", ChangeEdit{ProjectID: ch.ProjectID, ID: ch.ID, Title: &title, ExpectedRevision: revision(1)})
 	if err != nil {
@@ -93,7 +93,7 @@ func TestChangeEditSelectedFieldsAndHumanTitle(t *testing.T) {
 	if got.Title != "Human words" || got.Body != body || got.ExternalRef != "issue-7" {
 		t.Fatalf("omitted fields lost: %+v", got)
 	}
-	assertChangeTitle(t, w, ch.ID, "Human words", TitleHuman)
+	assertChangeTitle(t, w, ch.ID, "Human words", titleHuman)
 	empty := ""
 	got, err = editChangeAs(context.Background(), w, "carol", ChangeEdit{ProjectID: ch.ProjectID, ID: ch.ID, Body: &empty, ExternalRef: &empty, ExpectedRevision: revision(2)})
 	if err != nil || got.Body != "" || got.ExternalRef != "" || got.Title != "Human words" {
@@ -115,7 +115,7 @@ func TestChangeEditsFromOneRevisionOneWins(t *testing.T) {
 		title, body, ref := fmt.Sprintf("title-%d", i), fmt.Sprintf("body-%d", i), fmt.Sprintf("ref-%d", i)
 		got, err := editChangeAs(context.Background(), w, fmt.Sprintf("editor-%d", i), ChangeEdit{ProjectID: ch.ProjectID, ID: ch.ID, Title: &title, Body: &body, ExternalRef: &ref, ExpectedRevision: revision(0)})
 		switch {
-		case errors.Is(err, ErrChangeEditMoved):
+		case errors.Is(err, errChangeEditMoved):
 			return 1
 		case err != nil:
 			t.Errorf("edit: %v", err)
@@ -148,7 +148,7 @@ func TestChangeEditNeedsItsRevisionAndKeepsOmittedFields(t *testing.T) {
 	t.Parallel()
 	w, ch := changeEditFixture(t, ChangeDraft{Title: "original", Body: "brief", ExternalRef: "ref", TitleFromChat: true})
 	body := "new brief"
-	if _, err := editChangeAs(context.Background(), w, "alice", ChangeEdit{ProjectID: ch.ProjectID, ID: ch.ID, Body: &body}); !errors.Is(err, ErrChangeEditRevisionRequired) {
+	if _, err := editChangeAs(context.Background(), w, "alice", ChangeEdit{ProjectID: ch.ProjectID, ID: ch.ID, Body: &body}); !errors.Is(err, errChangeEditRevisionRequired) {
 		t.Fatalf("edit without a revision: %v", err)
 	}
 	for i, edit := range []ChangeEdit{{Body: &body}, {ExternalRef: &body}} {
@@ -209,7 +209,7 @@ func TestChangeEditScopeAndCancellation(t *testing.T) {
 					t.Fatal("edit did not release transaction")
 				}
 			}
-			assertChangeTitle(t, w, ch.ID, "original", TitleAwaitingChat)
+			assertChangeTitle(t, w, ch.ID, "original", titleAwaitingChat)
 			changeReceipts(t, w, "change.edited", 0)
 		})
 	}

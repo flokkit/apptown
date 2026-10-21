@@ -50,7 +50,7 @@ def go_items(root=ROOT):
 
 def sql_items(root=ROOT):
     result = []
-    for path in sorted((root / 'internal').rglob('queries.sql')):
+    for path in assembly.query_files(root):
         text = path.read_text()
         # The named query is the unit that owns its SQL, including any write CTEs.
         matches = list(re.finditer(r'^-- name: (\w+)\b.*$', text, re.M))

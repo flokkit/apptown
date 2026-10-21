@@ -139,7 +139,7 @@ func readWorkflowActivity(ctx context.Context, db database.Queryer, idList []ids
 			graph[row.ID] = node
 		}
 		if !row.StepID.IsZero() {
-			stepState, err := ParseStepState(row.StepStatus)
+			stepState, err := parseStepState(row.StepStatus)
 			if err != nil {
 				return nil, err
 			}

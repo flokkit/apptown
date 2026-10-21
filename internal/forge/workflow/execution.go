@@ -131,7 +131,7 @@ func (e *Execution) Claim() (*Step, error) {
 	// here, waiting on a person, and nothing is deployed.
 	if claim.Type == "deploy" {
 		if err := assentEvidenceIn(e.ctx, e.service.db, e.run.ID, e.run.ProjectID); err != nil {
-			if errors.Is(err, ErrNoAssent) {
+			if errors.Is(err, errNoAssent) {
 				outcome, encodeErr := EncodeOutcome(StatusNeedsHuman, map[string]string{"reason": err.Error()}, nil)
 				if finishErr := e.Finish(outcome, encodeErr); finishErr != nil {
 					return nil, finishErr

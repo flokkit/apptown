@@ -58,7 +58,7 @@ func TestSupersededChangeSummaryChecksScopeStateAndWrite(t *testing.T) {
 				}
 				wantEqual(t, "change summary", storedChange(t, q.db, run.ChangeID).Summary, "superseded")
 			} else {
-				if !errors.Is(err, ErrChangeEditConflict) {
+				if !errors.Is(err, errChangeEditConflict) {
 					t.Fatalf("invalid summary: %v", err)
 				}
 				wantEqual(t, "change summary", storedChange(t, q.db, run.ChangeID).Summary, "prior")
@@ -138,7 +138,7 @@ func TestUpliftAdoptionRequiresShippedScopeBeforeReplay(t *testing.T) {
 					t.Fatal(err)
 				}
 				wantEqual(t, "adopted revision", storedChange(t, q.db, run.ChangeID).AdoptedRevision, 0)
-			} else if !errors.Is(err, ErrChangeEditConflict) {
+			} else if !errors.Is(err, errChangeEditConflict) {
 				t.Fatalf("invalid stamp: %v", err)
 			}
 		})

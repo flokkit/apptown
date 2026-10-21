@@ -423,7 +423,7 @@ func (s *Service) ApprovalQuestion(ctx context.Context, id ids.ID) (ApprovalQues
 	}
 	step := read.Step
 	if step.Type != "approval" {
-		return ApprovalQuestion{}, fmt.Errorf("%w: step is not an approval", ErrStepApprovalInput)
+		return ApprovalQuestion{}, fmt.Errorf("%w: step is not an approval", errStepApprovalInput)
 	}
 	var cfg ApprovalConfig
 	if err := approvalObject(step.Config, &cfg); err != nil {

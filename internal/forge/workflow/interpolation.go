@@ -79,7 +79,7 @@ func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, it
 			// a reviewer's words, an approver's comment, or a failed boot
 			// gate's crash log — fed to the agent on re-run. This is the
 			// rejection loop: reject → re-run producing step → re-verify.
-			feedback, err := LatestFeedbackIn(ctx, q, RunRef{ID: run.ID, ProjectID: run.ProjectID})
+			feedback, err := latestFeedbackIn(ctx, q, RunRef{ID: run.ID, ProjectID: run.ProjectID})
 			if _, err := database.Lookup(err); err != nil {
 				log.Printf("read failed: %v", err)
 			}
@@ -133,7 +133,7 @@ func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, it
 			// Latest artifact of this kind across the whole project — the
 			// cross-run reference (e.g. an implement run consuming the spec
 			// accepted by an earlier product-spec run).
-			reports, err := ReadProjectArtifactsIn(ctx, q, run.ProjectID, ArtifactSelection{Kinds: []string{key}, Latest: true})
+			reports, err := readProjectArtifactsIn(ctx, q, run.ProjectID, ArtifactSelection{Kinds: []string{key}, Latest: true})
 			if _, err := database.Lookup(err); err != nil {
 				log.Printf("read failed: %v", err)
 			}

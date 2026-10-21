@@ -398,7 +398,7 @@ func TestANewWorkspaceIsRefusedUntilTheRepositoryIsUpgraded(t *testing.T) {
 	git("add", "-f", "-A")
 	git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "before")
 	wt := filepath.Join(g.DataDir, "workspaces", "change-1")
-	if _, err := g.EnsureClone(t.Context(), CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-1"}); !errors.Is(err, ErrNotUpgraded) {
+	if _, err := g.EnsureClone(t.Context(), CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-1"}); !errors.Is(err, errNotUpgraded) {
 		t.Fatalf("before the upgrade: %v, want ErrNotUpgraded", err)
 	}
 	if _, err := os.Stat(wt); !os.IsNotExist(err) {

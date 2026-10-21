@@ -27,12 +27,12 @@ const (
 	VerdictUnclear
 )
 
-var ErrCheckVerdict = errors.New("invalid check verdict")
+var errCheckVerdict = errors.New("invalid check verdict")
 
 var checkVerdictCodec = enum.Set[CheckVerdict]{
 	Names:     []string{"pass", "fail", "error", "cannot-assess", "skipped", "excepted", "unclear"},
 	Invalid:   "invalid-check-verdict",
-	Err:       ErrCheckVerdict,
+	Err:       errCheckVerdict,
 	ScanLabel: "value",
 }
 

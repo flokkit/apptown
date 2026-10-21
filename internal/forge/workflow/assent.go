@@ -38,11 +38,11 @@ import (
 // reach an effect before any required approval. That is a courtesy; the
 // effect check is the rule.
 
-// ErrNoAssent is a merge or deploy refused for want of either fact.
-var ErrNoAssent = errors.New("no person has approved this run, and it was not started by someone who may land this change; a person must approve it, or start the landing themselves")
+// errNoAssent is a merge or deploy refused for want of either fact.
+var errNoAssent = errors.New("no person has approved this run, and it was not started by someone who may land this change; a person must approve it, or start the landing themselves")
 
 // assentEvidenceIn answers whether run, in projectID, may merge or deploy
-// now: nil when it carries either fact, ErrNoAssent when it does not. An
+// now: nil when it carries either fact, errNoAssent when it does not. An
 // eval's authority is a fact only where projectID is a copy of that eval
 // (eval_authority.go); anywhere else it is none.
 func assentEvidenceIn(ctx context.Context, q database.Queryer, runID, projectID ids.ID) error {
@@ -74,7 +74,7 @@ func assentEvidenceIn(ctx context.Context, q database.Queryer, runID, projectID 
 		}
 		id = facts.ParentRunID
 	}
-	return ErrNoAssent
+	return errNoAssent
 }
 
 // approvedByAPerson: a passing approval decided by a person, by vote or by

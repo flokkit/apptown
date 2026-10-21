@@ -24,8 +24,8 @@ import (
 
 const evalAuthorityPrefix = "eval/"
 
-// EvalAuthority is the landing authority an eval's runs carry.
-func EvalAuthority(evalID ids.ID, startedBy string) string {
+// evalAuthorityOf is the landing authority an eval's runs carry.
+func evalAuthorityOf(evalID ids.ID, startedBy string) string {
 	return fmt.Sprintf("%s%d started by %s", evalAuthorityPrefix, evalID, startedBy)
 }
 
@@ -115,7 +115,7 @@ func (s *Service) StartEvalRun(ctx context.Context, in EvalRun) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	authority := EvalAuthority(in.EvalID, in.StartedBy)
+	authority := evalAuthorityOf(in.EvalID, in.StartedBy)
 	if holds, err := evalAuthorityHolds(ctx, s.db, authority, project); err != nil {
 		return nil, err
 	} else if !holds {
@@ -235,7 +235,7 @@ type evalAuthorisedReceipt struct {
 // and no approver or vote.
 func (s *Step) settleForEval(authority string, at time.Time) (ApprovalOutcome, error) {
 	if s.Type != "approval" || s.OverrideBy != "" || s.Status == StatusPass || s.Status == StatusFail {
-		return ApprovalOutcome{}, fmt.Errorf("step %q is not an undecided approval: %w", s.Name, ErrStepDecisionConflict)
+		return ApprovalOutcome{}, fmt.Errorf("step %q is not an undecided approval: %w", s.Name, errStepDecisionConflict)
 	}
 	cfg, err := ReadApprovalConfig(s.Config)
 	if err != nil {

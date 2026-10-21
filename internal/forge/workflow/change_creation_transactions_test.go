@@ -135,15 +135,15 @@ func TestChangeCreationKeepsTypedAcceptanceAttributionAndCommittedIdentity(t *te
 			if err := json.Unmarshal([]byte(ch.AcceptanceJSON), &acceptance); err != nil || !reflect.DeepEqual(acceptance, *draft.Acceptance) {
 				t.Fatalf("acceptance lost exact data: %s %v", ch.AcceptanceJSON, err)
 			}
-			expectedState, expectedOwner := ChangeInProgress, TitleHuman
+			expectedState, expectedOwner := ChangeInProgress, titleHuman
 			if mode == "backlog" {
 				expectedState = ChangeProposed
 			}
 			if mode == "chat" {
-				expectedOwner = TitleAwaitingChat
+				expectedOwner = titleAwaitingChat
 			}
 			stored := seenChange(t, c.records.db, ch.ID)
-			var owner TitleOwner
+			var owner titleOwner
 			if err := owner.Scan(stored.TitleOwnership); err != nil || stored.State != expectedState.String() || owner != expectedOwner {
 				t.Fatalf("stored change: %s %s %v", stored.State, stored.TitleOwnership, err)
 			}

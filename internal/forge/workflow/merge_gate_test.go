@@ -270,7 +270,7 @@ func TestMergeGatePreservesStandingOverrideWithoutInventingMerge(t *testing.T) {
 	}
 	p := prepareMergeGate(t, store.db, run)
 	got, err := p.block(context.Background(), MergeBlockEvidence([]string{"still conflicted"}, nil))
-	if got != nil || !errors.Is(err, ErrMergeOverride) {
+	if got != nil || !errors.Is(err, errMergeOverride) {
 		t.Fatalf("override became a physical merge: %+v %v", got, err)
 	}
 	if err := p.clear(context.Background()); err != nil {

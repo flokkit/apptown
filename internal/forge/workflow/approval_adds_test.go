@@ -160,7 +160,7 @@ func TestAVoteIsRefusedWhenItsListWasReadForAnotherCandidate(t *testing.T) {
 		})
 		return err
 	}
-	if err := vote("candidate-Y"); !errors.Is(err, ErrAddsChanged) {
+	if err := vote("candidate-Y"); !errors.Is(err, errAddsChanged) {
 		t.Fatalf("recorded a list read for another candidate: %v", err)
 	}
 	if err := vote("candidate-X"); err != nil {
@@ -204,14 +204,14 @@ func TestAnApprovalOfACommitRecordsWhatItAddsAsShown(t *testing.T) {
 	if err != nil || q.Adds == nil || q.Adds.Head != first {
 		t.Fatalf("an acceptance of a commit shows nothing of what it adds: %+v %v", q.Adds, err)
 	}
-	if _, err := a.Work.Approve(owner, Approval{StepID: a.StepID, Decision: VoteApprove}); !errors.Is(err, ErrAddsNotShown) {
+	if _, err := a.Work.Approve(owner, Approval{StepID: a.StepID, Decision: VoteApprove}); !errors.Is(err, errAddsNotShown) {
 		t.Fatalf("approved without the list: %v", err)
 	}
-	if _, err := a.Work.Approve(owner, Approval{StepID: a.StepID, Decision: VoteApprove, Adds: "not-the-list"}); !errors.Is(err, ErrAddsChanged) {
+	if _, err := a.Work.Approve(owner, Approval{StepID: a.StepID, Decision: VoteApprove, Adds: "not-the-list"}); !errors.Is(err, errAddsChanged) {
 		t.Fatalf("approved another list: %v", err)
 	}
 	head := commit("more declarations")
-	if _, err := a.Work.Approve(owner, Approval{StepID: a.StepID, Decision: VoteApprove, Adds: q.Adds.Digest}); !errors.Is(err, ErrAddsChanged) {
+	if _, err := a.Work.Approve(owner, Approval{StepID: a.StepID, Decision: VoteApprove, Adds: q.Adds.Digest}); !errors.Is(err, errAddsChanged) {
 		t.Fatalf("approved the list read before the branch moved: %v", err)
 	}
 	again, err := a.Work.ApprovalQuestion(owner, a.StepID)

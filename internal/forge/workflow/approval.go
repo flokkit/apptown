@@ -20,7 +20,7 @@ const (
 	VoteReject
 )
 
-var ErrApprovalDecision = fault.New(fault.Invalid, "decision must be approve or reject")
+var errApprovalDecision = fault.New(fault.Invalid, "decision must be approve or reject")
 
 func (d ApprovalDecision) String() string {
 	switch d {
@@ -39,12 +39,12 @@ func ParseApprovalDecision(text string) (ApprovalDecision, error) {
 	case "reject":
 		return VoteReject, nil
 	default:
-		return 0, ErrApprovalDecision
+		return 0, errApprovalDecision
 	}
 }
 func (d ApprovalDecision) MarshalJSON() ([]byte, error) {
 	if d != VoteApprove && d != VoteReject {
-		return nil, ErrApprovalDecision
+		return nil, errApprovalDecision
 	}
 	return json.Marshal(d.String())
 }
@@ -296,13 +296,13 @@ func (e ApprovalEvidence) clone() ApprovalEvidence {
 // state with the input. Storage commits it with the vote receipt and any rework.
 func (e ApprovalEvidence) cast(status StepState, cfg ApprovalConfig, vote ApprovalVote) (ApprovalEvidence, StepState, bool, error) {
 	if vote.Decision != VoteApprove && vote.Decision != VoteReject {
-		return ApprovalEvidence{}, 0, false, ErrApprovalDecision
+		return ApprovalEvidence{}, 0, false, errApprovalDecision
 	}
 	if strings.TrimSpace(vote.Approver) == "" {
-		return ApprovalEvidence{}, 0, false, ErrStepDecisionCaller
+		return ApprovalEvidence{}, 0, false, errStepDecisionCaller
 	}
 	if _, err := status.Transition(MoveStepVote, status); err != nil {
-		return ApprovalEvidence{}, 0, false, fmt.Errorf("this approval is already decided: %w: %w", ErrStepDecisionConflict, err)
+		return ApprovalEvidence{}, 0, false, fmt.Errorf("this approval is already decided: %w: %w", errStepDecisionConflict, err)
 	}
 	previous := status
 	cfg, _, err := e.openRound(cfg)
@@ -310,13 +310,13 @@ func (e ApprovalEvidence) cast(status StepState, cfg ApprovalConfig, vote Approv
 		return ApprovalEvidence{}, 0, false, err
 	}
 	if e.hasVoted(vote) {
-		return ApprovalEvidence{}, 0, false, fmt.Errorf("%s has already decided on this step: %w", vote.Approver, ErrStepDecisionConflict)
+		return ApprovalEvidence{}, 0, false, fmt.Errorf("%s has already decided on this step: %w", vote.Approver, errStepDecisionConflict)
 	}
 	for _, earlier := range e.Decisions {
 		// Approvals that form a quorum must all be for one commit. A
 		// rejection closes the round whatever the earlier votes named.
 		if vote.Decision == VoteApprove && earlier.Candidate != vote.Candidate {
-			return ApprovalEvidence{}, 0, false, fmt.Errorf("earlier votes on this approval were for another landing candidate; it must be asked again: %w", ErrStepDecisionConflict)
+			return ApprovalEvidence{}, 0, false, fmt.Errorf("earlier votes on this approval were for another landing candidate; it must be asked again: %w", errStepDecisionConflict)
 		}
 	}
 	next := e.clone()
@@ -387,7 +387,7 @@ func (e ApprovalEvidence) openRound(cfg ApprovalConfig) (ApprovalConfig, int, er
 		return cfg, 0, err
 	}
 	if e.Withdrawal != nil {
-		return cfg, 0, fmt.Errorf("this acceptance was withdrawn; reopen it before deciding: %w", ErrStepDecisionConflict)
+		return cfg, 0, fmt.Errorf("this acceptance was withdrawn; reopen it before deciding: %w", errStepDecisionConflict)
 	}
 	var err error
 	cfg, err = cfg.normalized()
@@ -396,12 +396,12 @@ func (e ApprovalEvidence) openRound(cfg ApprovalConfig) (ApprovalConfig, int, er
 	}
 	for _, saved := range e.Decisions {
 		if saved.Decision == VoteReject {
-			return cfg, 0, fmt.Errorf("this approval round was rejected; reopen it before deciding: %w", ErrStepDecisionConflict)
+			return cfg, 0, fmt.Errorf("this approval round was rejected; reopen it before deciding: %w", errStepDecisionConflict)
 		}
 	}
 	approvals := e.people()
 	if approvals >= cfg.Quorum {
-		return cfg, 0, fmt.Errorf("this approval already has its quorum: %w", ErrStepDecisionConflict)
+		return cfg, 0, fmt.Errorf("this approval already has its quorum: %w", errStepDecisionConflict)
 	}
 	return cfg, approvals, nil
 }

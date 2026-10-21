@@ -282,6 +282,18 @@ def aliases():
                          capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
+def workflow_exports(root=None):
+    """Workflow's exported top-level names. It is one owner of one aggregate, so
+    its surface is what other packages may depend on: keep a new name private
+    unless another package needs it."""
+    root = root or ROOT
+    d = os.path.join(root, "internal", "forge", "workflow")
+    files = [os.path.join(d, f) for f in sorted(os.listdir(d)) if f.endswith(".go") and not f.endswith("_test.go")]
+    out = subprocess.run(["go", "run", os.path.join(ROOT, "scripts", "shape-exports.go"), "--", *files],
+                         cwd=ROOT, capture_output=True, text=True, check=True)
+    return json.loads(out.stdout)
+
+
 def callbacks():
     files = [os.path.relpath(f, ROOT) for f in forge_files()]
     out = subprocess.run(["go", "run", "scripts/shape-callbacks.go", "--", *files],
@@ -509,6 +521,8 @@ ROOT_HINT = ("internal/forge is the composition root (design/architecture/layout
              "cross-owner guarantee, merge it into an existing root file or raise the baseline "
              "in scripts/shape-baseline.json in this commit and say why.")
 HINTS = {"rootfiles": ROOT_HINT, "roottests": ROOT_HINT,
+         "workflowexports": "a new exported name in internal/forge/workflow: keep it private unless another package needs it "
+                            "(a test in another package is not a reason: use the owner's operations). -v lists every exported name.",
          "droppederrors": "a dropped error from a decode (its zero value stands in for what was stored: an empty set, no pins, "
                           "no tests) or from a revocation, provider call or record write (a live credential or a fact silently lost). "
                           "Handle it; where dropping is safe, say why at the site and raise the baseline in this commit. -v lists the sites.",
@@ -760,7 +774,7 @@ def main():
     test_writes, test_reads = test_sql()
     agents = agent_boundaries()
     requests = request_boundaries()
-    counts = {"layering": layering(), "doors": doors(), "transport": transport(), "methods": methods(), "fields": fields(), "constructors": constructors(), "aliases": aliases(), "standalone": standalone(), "callbacks": callbacks(), "handwritten": handwritten(), "testwrites": test_writes, "testreads": test_reads, "agentpolicy": agents["policy"], "harnesswork": agents["settlement"], "testhomes": testhomes(), "harnessimports": harness_imports(), "jsondecode": requests["jsondecode"], "routepolicies": requests["routepolicies"], "rootfiles": root_files(), "roottests": root_files(tests=True), "transportaudit": transport_audit(), "transportdb": transport_db(), "hubpaths": hub_paths(), "kindbranches": kind_branches(), "historycomments": history_comments(), "testexecwrites": test_exec_writes(), "testexecfixtures": test_exec_fixtures(), "droppederrors": dropped_decodes()}
+    counts = {"layering": layering(), "doors": doors(), "transport": transport(), "methods": methods(), "fields": fields(), "constructors": constructors(), "aliases": aliases(), "standalone": standalone(), "callbacks": callbacks(), "handwritten": handwritten(), "testwrites": test_writes, "testreads": test_reads, "agentpolicy": agents["policy"], "harnesswork": agents["settlement"], "testhomes": testhomes(), "harnessimports": harness_imports(), "jsondecode": requests["jsondecode"], "routepolicies": requests["routepolicies"], "rootfiles": root_files(), "roottests": root_files(tests=True), "transportaudit": transport_audit(), "transportdb": transport_db(), "hubpaths": hub_paths(), "kindbranches": kind_branches(), "historycomments": history_comments(), "testexecwrites": test_exec_writes(), "testexecfixtures": test_exec_fixtures(), "droppederrors": dropped_decodes(), "workflowexports": workflow_exports()}
     path = os.path.join(ROOT, "scripts", "shape-baseline.json")
     baseline = json.load(open(path)) if os.path.exists(path) else {}
     ok = True

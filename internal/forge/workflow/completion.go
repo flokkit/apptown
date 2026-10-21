@@ -182,7 +182,7 @@ func recordCompletedChild(ctx context.Context, tx *database.Tx, child *Run, at t
 	if err != nil {
 		return err
 	}
-	callState, err := ParseStepState(call.Status)
+	callState, err := parseStepState(call.Status)
 	if err != nil {
 		return err
 	}

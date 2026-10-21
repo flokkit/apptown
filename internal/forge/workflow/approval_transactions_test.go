@@ -134,7 +134,7 @@ func TestStepApprovalFencesAuthoritySnapshot(t *testing.T) {
 				return "alice", nil
 			}), Runtime{})
 			result, err := service.Approve(context.Background(), Approval{StepID: id, Decision: VoteApprove, Comment: ""})
-			if result != nil || !errors.Is(err, ErrStepDecisionConflict) {
+			if result != nil || !errors.Is(err, errStepDecisionConflict) {
 				t.Fatalf("changed %s: %+v %v", change, result, err)
 			}
 			wantEventCount(t, store.db, 0, ofKind("approval"))
@@ -154,7 +154,7 @@ func TestAnApprovalWaitsForItsStagesWork(t *testing.T) {
 	service := newService(s.db, allowProject(run.ProjectID), Runtime{})
 	before := completionSnapshot(t, s.db)
 	_, err := service.Approve(context.Background(), Approval{StepID: approval, Decision: VoteApprove, Comment: "early"})
-	var early *ApprovalTooEarly
+	var early *approvalTooEarly
 	if !errors.As(err, &early) || len(early.Unfinished) != 1 || early.Unfinished[0] != "review" {
 		t.Fatalf("approval before the review ran: %v", err)
 	}

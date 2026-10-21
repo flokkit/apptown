@@ -22,8 +22,8 @@ type ArtifactSelection struct {
 	Latest bool
 }
 
-// ReadProjectArtifactsIn serves already-admitted cross-run agent references.
-func ReadProjectArtifactsIn(ctx context.Context, q database.Queryer, project ids.ID, in ArtifactSelection) ([]Artifact, error) {
+// readProjectArtifactsIn serves already-admitted cross-run agent references.
+func readProjectArtifactsIn(ctx context.Context, q database.Queryer, project ids.ID, in ArtifactSelection) ([]Artifact, error) {
 	if project.IsZero() {
 		return nil, fmt.Errorf("artifacts require project scope")
 	}

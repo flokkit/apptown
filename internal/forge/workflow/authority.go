@@ -178,7 +178,7 @@ func (w commandAuthority) requireDecision(ctx context.Context, pr access.Princip
 	case actionApproveStep:
 		capability = access.CapChangeApprove
 	default:
-		return "", ErrStepDecisionCaller
+		return "", errStepDecisionCaller
 	}
 	person := pr.Name
 	if pr.Instrument == "console" {

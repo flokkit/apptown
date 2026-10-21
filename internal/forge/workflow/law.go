@@ -35,10 +35,10 @@ type lawStore struct {
 	rules LawRules
 	clocked
 }
-type Laws struct{ records lawStore }
+type lawSet struct{ records lawStore }
 
-func NewLaws(db *database.DB, rules LawRules) Laws { return Laws{lawStore{db: db, rules: rules}} }
-func (l Laws) Refresh(ctx context.Context, run *Run) error {
+func newLaws(db *database.DB, rules LawRules) lawSet { return lawSet{lawStore{db: db, rules: rules}} }
+func (l lawSet) Refresh(ctx context.Context, run *Run) error {
 	_, err := l.records.evaluate(ctx, run, true)
 	return err
 }

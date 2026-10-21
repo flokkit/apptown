@@ -62,7 +62,7 @@ func TestAnEvalsAuthorityHoldsOnlyInACopyOfThatEval(t *testing.T) {
 	real := changeTestProject(t, db, "real")
 	evalCopyForTest(t, db, copy7, idstest.N(7))
 	evalCopyForTest(t, db, copy8, idstest.N(8))
-	eval7 := EvalAuthority(idstest.N(7), "bls")
+	eval7 := evalAuthorityOf(idstest.N(7), "bls")
 
 	for _, c := range []struct {
 		name    string
@@ -71,7 +71,7 @@ func TestAnEvalsAuthorityHoldsOnlyInACopyOfThatEval(t *testing.T) {
 	}{{"its own copy", copy7, true}, {"another eval's copy", copy8, false}, {"a real project", real, false}} {
 		run := evalRunForTest(t, db, c.project, ids.Nil, eval7)
 		err := assentEvidenceIn(ctx, db, run.ID, c.project)
-		if c.allowed != (err == nil) || (!c.allowed && !errors.Is(err, ErrNoAssent)) {
+		if c.allowed != (err == nil) || (!c.allowed && !errors.Is(err, errNoAssent)) {
 			t.Fatalf("%s: %v", c.name, err)
 		}
 	}
@@ -81,7 +81,7 @@ func TestAnEvalsAuthorityHoldsOnlyInACopyOfThatEval(t *testing.T) {
 	if err := assentEvidenceIn(ctx, db, child.ID, copy7); err != nil {
 		t.Fatalf("a child in the eval's copy: %v", err)
 	}
-	if err := assentEvidenceIn(ctx, db, child.ID, real); !errors.Is(err, ErrNoAssent) {
+	if err := assentEvidenceIn(ctx, db, child.ID, real); !errors.Is(err, errNoAssent) {
 		t.Fatalf("an effect outside the eval's copies: %v", err)
 	}
 	// A person's authority is no eval's and holds as before.
@@ -103,7 +103,7 @@ func TestAnEvalsApprovalIsSettledButIsNoPersonsApproval(t *testing.T) {
 	copy7 := changeTestProject(t, db, "copy-7")
 	real := changeTestProject(t, db, "real")
 	evalCopyForTest(t, db, copy7, idstest.N(7))
-	authority := EvalAuthority(idstest.N(7), "bls")
+	authority := evalAuthorityOf(idstest.N(7), "bls")
 	s := newLandings(db, nil)
 
 	run := evalRunForTest(t, db, copy7, ids.Nil, authority)
@@ -151,7 +151,7 @@ func TestALandingInAnEvalsCopyCarriesTheEvalsAuthority(t *testing.T) {
 	copy7 := changeTestProject(t, db, "copy-7")
 	real := changeTestProject(t, db, "real")
 	evalCopyForTest(t, db, copy7, idstest.N(7))
-	authority := EvalAuthority(idstest.N(7), "bls")
+	authority := evalAuthorityOf(idstest.N(7), "bls")
 	work := evalRunForTest(t, db, copy7, ids.Nil, authority)
 	if got, err := acceptedEvalAuthorityIn(ctx, db, StartRequest{ProjectID: copy7, AcceptedRunID: work.ID}); err != nil || got != authority {
 		t.Fatalf("in the copy: %q %v", got, err)

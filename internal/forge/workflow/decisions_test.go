@@ -45,7 +45,7 @@ func TestDecisionServiceOwnsEligibilityAndExactRoundReceipts(t *testing.T) {
 	if err != nil || result.Status != StatusPending {
 		t.Fatalf("first vote %+v %v", result, err)
 	}
-	if _, err := s.Approve(context.Background(), Approval{StepID: id, Decision: VoteApprove}); !errors.Is(err, ErrStepDecisionConflict) {
+	if _, err := s.Approve(context.Background(), Approval{StepID: id, Decision: VoteApprove}); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("duplicate vote %v", err)
 	}
 	identity = "second"

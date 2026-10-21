@@ -90,14 +90,19 @@ def _owner_of(relpath):
             return "forge"
     return rest[0]
 
+def _query_files(dirpath, filenames):
+    """A directory's sqlc query files: queries.sql, and any x.sql that sqlc has
+    generated x.sql.go from (an owner may keep its named SQL as several files)."""
+    return sorted(f for f in filenames if f.endswith(".sql") and (f == "queries.sql" or f + ".go" in filenames))
+
 def _sqlc_dirs():
-    """Directories that look sqlc-generated (a queries.sql beside generated .go),
+    """Directories that look sqlc-generated (query files beside generated .go),
     mapped to the package they belong to: the directory's own parent, unless that
     parent is itself named 'internal' (a subsystem's private sqlc folder), in
     which case the grandparent -- the subsystem -- owns it."""
     dirs = {}
     for dirpath, _, filenames in os.walk(os.path.join(ROOT, "internal")):
-        if "queries.sql" in filenames:
+        if _query_files(dirpath, filenames):
             rel = os.path.relpath(dirpath, ROOT)
             parts = rel.split(os.sep)
             parent = parts[-2] if len(parts) >= 2 else None
@@ -107,7 +112,7 @@ def _sqlc_dirs():
 
 def tables_written_from_many_packages():
     """For every INSERT/UPDATE/DELETE against a table -- hand SQL in Go source and
-    sqlc's queries.sql -- the packages that write it, grouped by table. Cannot see
+    sqlc's query files -- the packages that write it, grouped by table. Cannot see
     a table name built at runtime (string concatenation, a variable): only a
     literal identifier right after the SQL keyword. A sqlc directory's writes are
     attributed to the package that owns it, not to the generated package name."""
@@ -134,12 +139,11 @@ def tables_written_from_many_packages():
             by_table.setdefault(table, {}).setdefault(_owner_of(relpath), set()).add(f"{relpath}:{ln}")
 
     for d, owner in sqlc.items():
-        qsql = os.path.join(d, "queries.sql")
-        if not os.path.isfile(os.path.join(ROOT, qsql)):
-            continue
-        text = read(qsql)
-        for table, ln in _writes_in(text):
-            by_table.setdefault(table, {}).setdefault(owner or d, set()).add(f"{qsql}:{ln}")
+        for name in _query_files(d, os.listdir(os.path.join(ROOT, d))):
+            qsql = os.path.join(d, name)
+            text = read(qsql)
+            for table, ln in _writes_in(text):
+                by_table.setdefault(table, {}).setdefault(owner or d, set()).add(f"{qsql}:{ln}")
 
     items = []
     for table in sorted(by_table):

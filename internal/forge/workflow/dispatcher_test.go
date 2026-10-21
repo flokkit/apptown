@@ -17,7 +17,7 @@ import (
 type dispatchTestRecords struct {
 	mu       sync.Mutex
 	p        DispatchPlan
-	states   map[ids.ID]DispatchState
+	states   map[ids.ID]dispatchState
 	calls    []ids.ID
 	resumes  []ids.ID
 	advances int
@@ -25,7 +25,7 @@ type dispatchTestRecords struct {
 	readErr  error
 }
 
-func (s *dispatchTestRecords) State(_ context.Context, _, id ids.ID) (DispatchState, error) {
+func (s *dispatchTestRecords) State(_ context.Context, _, id ids.ID) (dispatchState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.states[id], s.readErr
@@ -38,7 +38,7 @@ func (s *dispatchTestRecords) Resume(_ context.Context, _ ids.ID, id ids.ID) (bo
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.resumes = append(s.resumes, id)
-	s.states[id] = DispatchState{Status: StatusPending, Active: true}
+	s.states[id] = dispatchState{Status: StatusPending, Active: true}
 	return true, nil
 }
 func (s *dispatchTestRecords) RestartCandidates(context.Context) ([]ids.ID, error) {
@@ -49,17 +49,17 @@ func (s *dispatchTestRecords) Plan(context.Context, ids.ID) (DispatchPlan, error
 func (s *dispatchTestRecords) set(id ids.ID, status StepState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.states[id] = DispatchState{Status: status, Active: true}
+	s.states[id] = dispatchState{Status: status, Active: true}
 }
 func (s *dispatchTestRecords) ran(id ids.ID, status StepState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.calls = append(s.calls, id)
-	s.states[id] = DispatchState{Status: status, Active: true}
+	s.states[id] = dispatchState{Status: status, Active: true}
 }
 
 func testDispatcher(steps []ReadyStep) (*dispatcher, *dispatchTestRecords) {
-	s := &dispatchTestRecords{p: DispatchPlan{RunID: idstest.N(7), Steps: steps}, states: map[ids.ID]DispatchState{}}
+	s := &dispatchTestRecords{p: DispatchPlan{RunID: idstest.N(7), Steps: steps}, states: map[ids.ID]dispatchState{}}
 	d := &dispatcher{
 		records: s, runners: map[string]func(ids.ID){},
 		advance: func(ids.ID) { s.mu.Lock(); s.advances++; s.mu.Unlock() },
@@ -104,7 +104,7 @@ func TestWorkflowDispatchRecoveryContinuesOrphansOnly(t *testing.T) {
 	t.Parallel()
 	d, s := testDispatcher([]ReadyStep{{idstest.N(1), "script", true, "done"}, {idstest.N(2), "agent/pi", true, "agent"}, {idstest.N(3), "script", false, "check"}})
 	s.set(idstest.N(1), StatusPass)
-	s.states[idstest.N(2)] = DispatchState{Status: StatusError, Orphaned: true, Active: true}
+	s.states[idstest.N(2)] = dispatchState{Status: StatusError, Orphaned: true, Active: true}
 	d.RestartPending(nil)
 	d.Wait()
 	if !reflect.DeepEqual(s.calls, []ids.ID{idstest.N(2), idstest.N(3)}) || !reflect.DeepEqual(s.resumes, []ids.ID{idstest.N(2)}) {
@@ -219,7 +219,7 @@ func TestWorkflowDispatchStopsOnReadFailureOrInactiveStage(t *testing.T) {
 		if readFailure {
 			s.readErr = errors.New("database unavailable")
 		} else {
-			s.states[idstest.N(1)] = DispatchState{Status: StatusPending, Active: false}
+			s.states[idstest.N(1)] = dispatchState{Status: StatusPending, Active: false}
 		}
 		d.Dispatch(s.p, false)
 		d.Wait()

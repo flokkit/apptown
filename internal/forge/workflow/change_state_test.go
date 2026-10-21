@@ -37,7 +37,7 @@ func TestChangeLifecycleActs(t *testing.T) {
 	}
 	for _, state := range []ChangeState{0, 255} {
 		for _, tc := range cases {
-			if next, err := state.Transition(tc.act); next != 0 || !errors.Is(err, ErrChangeState) {
+			if next, err := state.Transition(tc.act); next != 0 || !errors.Is(err, errChangeState) {
 				t.Fatalf("invalid stored state acted: %s %v", next, err)
 			}
 		}
@@ -74,15 +74,15 @@ func TestChangeStateEncodingAndAbsence(t *testing.T) {
 	}
 	for _, v := range []any{nil, 1, "running", []byte("")} {
 		got := ChangeShipped
-		if err := got.Scan(v); !errors.Is(err, ErrChangeState) || got != ChangeShipped {
+		if err := got.Scan(v); !errors.Is(err, errChangeState) || got != ChangeShipped {
 			t.Fatalf("invalid stored %v: %s %v", v, got, err)
 		}
 	}
 	for _, state := range []ChangeState{0, 255} {
-		if _, err := json.Marshal(state); !errors.Is(err, ErrChangeState) {
+		if _, err := json.Marshal(state); !errors.Is(err, errChangeState) {
 			t.Fatalf("invalid JSON state: %v", err)
 		}
-		if _, err := state.Value(); !errors.Is(err, ErrChangeState) {
+		if _, err := state.Value(); !errors.Is(err, errChangeState) {
 			t.Fatalf("invalid database state: %v", err)
 		}
 		if state.Closed() || state.CanRun() {

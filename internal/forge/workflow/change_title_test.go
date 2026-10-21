@@ -9,28 +9,28 @@ import (
 
 func TestChangeTitleOwnsItsStatesAndLegalActs(t *testing.T) {
 	t.Parallel()
-	for _, owner := range []TitleOwner{TitleHuman, TitleAwaitingChat, TitleGenerated} {
+	for _, owner := range []titleOwner{titleHuman, titleAwaitingChat, titleGenerated} {
 		value, err := owner.Value()
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, input := range []any{value, []byte(value.(string))} {
-			var decoded TitleOwner
+			var decoded titleOwner
 			if err := decoded.Scan(input); err != nil || decoded != owner {
 				t.Fatalf("codec: %v %v", decoded, err)
 			}
 		}
 		old := changeTitle{"before", owner}
-		for _, act := range []TitleAct{PinTitle, NameFromFirstMessage, ReviseTitle} {
+		for _, act := range []titleAct{pinTitle, nameFromFirstMessage, reviseTitle} {
 			next, applied, err := old.decide(changeTitleEdit{act, "new words", "before"})
-			wantApplied := act == PinTitle || act == NameFromFirstMessage && owner == TitleAwaitingChat || act == ReviseTitle && owner == TitleGenerated
+			wantApplied := act == pinTitle || act == nameFromFirstMessage && owner == titleAwaitingChat || act == reviseTitle && owner == titleGenerated
 			if err != nil || applied != wantApplied {
 				t.Fatalf("act %d owner %d: %+v %v %v", act, owner, next, applied, err)
 			}
 			if applied {
-				wantOwner := TitleGenerated
-				if act == PinTitle {
-					wantOwner = TitleHuman
+				wantOwner := titleGenerated
+				if act == pinTitle {
+					wantOwner = titleHuman
 				}
 				if next.words != "new words" || next.owner != wantOwner {
 					t.Fatalf("decision: %+v", next)
@@ -39,26 +39,26 @@ func TestChangeTitleOwnsItsStatesAndLegalActs(t *testing.T) {
 				t.Fatalf("refused act changed title: %+v", next)
 			}
 		}
-		if _, applied, err := old.decide(changeTitleEdit{act: PinTitle, words: " \n "}); err != nil || applied {
+		if _, applied, err := old.decide(changeTitleEdit{act: pinTitle, words: " \n "}); err != nil || applied {
 			t.Fatal("blank title pinned")
 		}
 	}
 	for _, raw := range []any{nil, 42, "", "unknown", "pending"} {
-		var owner TitleOwner
-		if err := owner.Scan(raw); !errors.Is(err, ErrChangeTitle) {
+		var owner titleOwner
+		if err := owner.Scan(raw); !errors.Is(err, errChangeTitle) {
 			t.Fatalf("accepted unknown %v: %v", raw, err)
 		}
 	}
-	if _, err := (TitleOwner(0)).Value(); !errors.Is(err, ErrChangeTitle) {
+	if _, err := (titleOwner(0)).Value(); !errors.Is(err, errChangeTitle) {
 		t.Fatal("zero is not a title state")
 	}
-	if _, _, err := (changeTitle{"words", 0}).decide(changeTitleEdit{act: PinTitle, words: "new"}); !errors.Is(err, ErrChangeTitle) {
+	if _, _, err := (changeTitle{"words", 0}).decide(changeTitleEdit{act: pinTitle, words: "new"}); !errors.Is(err, errChangeTitle) {
 		t.Fatal("invalid state admitted")
 	}
-	if _, _, err := (changeTitle{"words", TitleHuman}).decide(changeTitleEdit{}); !errors.Is(err, ErrChangeTitle) {
+	if _, _, err := (changeTitle{"words", titleHuman}).decide(changeTitleEdit{}); !errors.Is(err, errChangeTitle) {
 		t.Fatal("invalid act admitted")
 	}
-	if _, applied, err := (changeTitle{"newer", TitleGenerated}).decide(changeTitleEdit{ReviseTitle, "old result", "earlier"}); err != nil || applied {
+	if _, applied, err := (changeTitle{"newer", titleGenerated}).decide(changeTitleEdit{reviseTitle, "old result", "earlier"}); err != nil || applied {
 		t.Fatal("old model observation changed new words")
 	}
 	title := firstMessageTitle(strings.Repeat("界", 100))

@@ -42,7 +42,7 @@ func stepResult(row workflowsql.Step, err error) (*Step, error) {
 }
 
 func stepRecord(row workflowsql.Step) (*Step, error) {
-	state, err := ParseStepState(row.Status)
+	state, err := parseStepState(row.Status)
 	if err != nil {
 		return nil, err
 	}

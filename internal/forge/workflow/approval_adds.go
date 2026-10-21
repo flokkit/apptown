@@ -84,13 +84,13 @@ type AddsReader interface {
 }
 
 var (
-	// ErrAddsNotShown refuses an approving vote that does not say which
+	// errAddsNotShown refuses an approving vote that does not say which
 	// list of what the change adds it was shown.
-	ErrAddsNotShown error = addsRefusal{fault.Invalid, "adds-not-shown", "read what this change adds before approving it; the approval records the list you were shown"}
-	// ErrAddsChanged refuses an approving vote whose list is no longer what
+	errAddsNotShown error = addsRefusal{fault.Invalid, "adds-not-shown", "read what this change adds before approving it; the approval records the list you were shown"}
+	// errAddsChanged refuses an approving vote whose list is no longer what
 	// the change adds. It shares the question-changed code: the client
 	// reads the question again and shows the new list.
-	ErrAddsChanged error = addsRefusal{fault.Conflict, "question-changed", "what this change adds has changed since it was shown; read it again and decide"}
+	errAddsChanged error = addsRefusal{fault.Conflict, "question-changed", "what this change adds has changed since it was shown; read it again and decide"}
 )
 
 type addsRefusal struct {

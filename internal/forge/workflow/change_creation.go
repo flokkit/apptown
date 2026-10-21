@@ -125,12 +125,12 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 	if in.Type == "" {
 		in.Type = "feature"
 	}
-	state, owner := ChangeInProgress, TitleHuman
+	state, owner := ChangeInProgress, titleHuman
 	if in.Propose {
 		state = ChangeProposed
 	}
 	if in.TitleFromChat {
-		owner = TitleAwaitingChat
+		owner = titleAwaitingChat
 	}
 	acceptance := []byte("{}")
 	if in.Acceptance != nil {

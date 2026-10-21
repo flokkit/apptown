@@ -143,9 +143,9 @@ func freezeOutcome(in StepOutcome) (json.RawMessage, map[string]json.RawMessage,
 	return append(json.RawMessage(nil), evidence...), details, nil
 }
 
-// AbandonedWhileRunning is the reason a step ends with when its run was
+// abandonedWhileRunning is the reason a step ends with when its run was
 // abandoned while it ran.
-const AbandonedWhileRunning = "the run was abandoned while this step ran"
+const abandonedWhileRunning = "the run was abandoned while this step ran"
 
 // endAbandoned ends claim's attempt in error if its run has been abandoned
 // and the step is still running under that attempt; otherwise it does
@@ -170,7 +170,7 @@ func endAbandonedStepIn(ctx context.Context, tx *database.Tx, runID ids.ID, step
 	if err != nil {
 		return err
 	}
-	evidence, err := json.Marshal(map[string]string{"reason": AbandonedWhileRunning})
+	evidence, err := json.Marshal(map[string]string{"reason": abandonedWhileRunning})
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func endAbandonedStepIn(ctx context.Context, tx *database.Tx, runID ids.ID, step
 		Status  StepState `json:"status"`
 		Attempt int64     `json:"attempt"`
 		Reason  string    `json:"reason"`
-	}{step.Name, next, step.Attempt, AbandonedWhileRunning})
+	}{step.Name, next, step.Attempt, abandonedWhileRunning})
 	if err != nil {
 		return err
 	}

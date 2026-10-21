@@ -140,7 +140,7 @@ func (s reworkStore) approveIn(ctx context.Context, tx *database.Tx, run *Run, s
 				return result, err
 			}
 			if revising {
-				return result, fmt.Errorf("the agent is still revising this work; decide after it finishes: %w", ErrStepDecisionConflict)
+				return result, fmt.Errorf("the agent is still revising this work; decide after it finishes: %w", errStepDecisionConflict)
 			}
 		}
 	}
@@ -152,7 +152,7 @@ func (s reworkStore) approveIn(ctx context.Context, tx *database.Tx, run *Run, s
 		if vote.Adds != nil && vote.Adds.Head != c.Candidate {
 			// The list was read for another candidate than the one this
 			// vote would assent to.
-			return result, fmt.Errorf("the landing's candidate moved since what it adds was read: %w", ErrAddsChanged)
+			return result, fmt.Errorf("the landing's candidate moved since what it adds was read: %w", errAddsChanged)
 		}
 		vote.Candidate = c.Candidate
 	}
@@ -170,7 +170,7 @@ func (s reworkStore) approveIn(ctx context.Context, tx *database.Tx, run *Run, s
 		return result, err
 	}
 	if n != 1 {
-		return result, fmt.Errorf("this approval changed before the vote was recorded: %w", ErrStepDecisionConflict)
+		return result, fmt.Errorf("this approval changed before the vote was recorded: %w", errStepDecisionConflict)
 	}
 	payload := approvalReceipt{Step: step.Name, By: user, Via: vote.Via, Decision: decision}
 	if pending {

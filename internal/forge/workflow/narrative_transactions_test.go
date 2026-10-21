@@ -179,7 +179,7 @@ func TestNarrativePublicationPreservesConcurrentHumanTitle(t *testing.T) {
 		title := fmt.Sprintf("human-%d", i)
 		_, err := editChangeAs(context.Background(), owner.db, "alice", ChangeEdit{ID: source.Change.ID, Title: &title, ExpectedRevision: revision(0)})
 		switch {
-		case errors.Is(err, ErrChangeEditMoved):
+		case errors.Is(err, errChangeEditMoved):
 			return 2
 		case err != nil:
 			t.Error(err)
@@ -193,7 +193,7 @@ func TestNarrativePublicationPreservesConcurrentHumanTitle(t *testing.T) {
 	if err != nil || !strings.HasPrefix(fresh.Change.Title, "human-") || fresh.Change.Summary != "Generated note" {
 		t.Fatalf("human edit lost: %+v %v", fresh, err)
 	}
-	assertChangeTitle(t, owner.db, source.Change.ID, fresh.Change.Title, TitleHuman)
+	assertChangeTitle(t, owner.db, source.Change.ID, fresh.Change.Title, titleHuman)
 	entries := changeReceipts(t, owner.db, "change.narrative-updated", 2)
 	var receipt narrativeReceipt
 	if err := json.Unmarshal(entries[0].Payload, &receipt); err != nil {

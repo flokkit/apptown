@@ -23,14 +23,14 @@ const (
 var runStateCodec = enum.Set[RunState]{
 	Names:     []string{"running", "done", "abandoned"},
 	Invalid:   "invalid-run-state",
-	Err:       ErrRunState,
+	Err:       errRunState,
 	ScanLabel: "database value",
 }
 
 var (
-	ErrRunClosed     = errors.New("run is missing or already finished")
-	ErrRunTransition = errors.New("invalid run transition")
-	ErrRunState      = errors.New("invalid run state")
+	errRunClosed     = errors.New("run is missing or already finished")
+	errRunTransition = errors.New("invalid run transition")
+	errRunState      = errors.New("invalid run state")
 )
 
 func (s RunState) String() string { return runStateCodec.String(s) }
@@ -38,7 +38,7 @@ func (s RunState) String() string { return runStateCodec.String(s) }
 // RequireRunning admits work only while the run is active.
 func (s RunState) RequireRunning() error {
 	if s != RunRunning {
-		return ErrRunClosed
+		return errRunClosed
 	}
 	return nil
 }
@@ -55,7 +55,7 @@ func (s RunState) Transition(next RunState) (RunState, error) {
 	case RunRunning, RunDone, RunAbandoned:
 		return next, nil
 	default:
-		return 0, fmt.Errorf("%w: %s to %s", ErrRunTransition, s, next)
+		return 0, fmt.Errorf("%w: %s to %s", errRunTransition, s, next)
 	}
 }
 

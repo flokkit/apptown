@@ -44,7 +44,15 @@ func h() { tx.Exec(`INSERT INTO solo_table(a) VALUES(1)`) }
         self.w("internal/forge/deployment/shared.go", """package deployment
 func f() { tx.Exec(`UPDATE shared_rows SET a=1`) }
 """)
+        # an owner that keeps its named SQL as several generated files.
+        self.w("internal/forge/scm/internal/scmsql/merges.sql",
+               "-- name: Merge :exec\nUPDATE split_rows SET a=1;\n")
+        self.w("internal/forge/scm/internal/scmsql/merges.sql.go", "package scmsql\n")
+        self.w("internal/forge/preview/split.go", """package preview
+func f() { tx.Exec(`DELETE FROM split_rows`) }
+""")
         found = {it["table"]: set(it["packages"]) for it in shape.tables_written_from_many_packages()}
+        self.assertEqual(found.get("split_rows"), {"scm", "preview"})
         self.assertEqual(found.get("workflow_landings"), {"workflow", "remediation"})
         self.assertEqual(found.get("shared_rows"), {"access", "deployment"})
         self.assertNotIn("solo_table", found)

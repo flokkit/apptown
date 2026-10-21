@@ -22,7 +22,7 @@ func TestLawOwnerUsesLockedScopeAndTransaction(t *testing.T) {
 	fail := true
 	calls := 0
 	failure := errors.New("rules unavailable")
-	owner := NewLaws(q.db, lawRulesFunc(func(ctx context.Context, db database.Queryer, id ids.ID, spec *schema.Spec) ([]LawViolation, error) {
+	owner := newLaws(q.db, lawRulesFunc(func(ctx context.Context, db database.Queryer, id ids.ID, spec *schema.Spec) ([]LawViolation, error) {
 		calls++
 		if id != run.ProjectID {
 			t.Fatalf("project %d", id)

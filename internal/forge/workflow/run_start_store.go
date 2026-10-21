@@ -17,13 +17,13 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-// LandingOccupied refuses a landing while another change of the project is
+// landingOccupied refuses a landing while another change of the project is
 // landing: one landing at a time. A client that waits its turn reads the code.
-type LandingOccupied struct{}
+type landingOccupied struct{}
 
-func (LandingOccupied) Error() string         { return "one landing at a time: another change is landing" }
-func (LandingOccupied) FaultKind() fault.Kind { return fault.Conflict }
-func (LandingOccupied) FaultCode() string     { return "landing-occupied" }
+func (landingOccupied) Error() string         { return "one landing at a time: another change is landing" }
+func (landingOccupied) FaultKind() fault.Kind { return fault.Conflict }
+func (landingOccupied) FaultCode() string     { return "landing-occupied" }
 
 type runStartStore struct {
 	db     *database.DB
@@ -188,7 +188,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 			return nil, err
 		}
 		if occupied {
-			return nil, LandingOccupied{}
+			return nil, landingOccupied{}
 		}
 		if passed, err = mergedActiveLandingsIn(ctx, queries, req.ProjectID); err != nil {
 			return nil, err

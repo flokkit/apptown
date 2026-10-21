@@ -311,7 +311,7 @@ func TestWorkflowQueriesRejectInvalidStoredStatesWithoutPartialResults(t *testin
 	if err := requireAttemptWrite(workflowsql.New(q.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: step, Attempt: 0, ExpectedStatus: StatusPending.String(), Status: "unknown state", EvidenceJson: json.RawMessage(`{}`)})); err != nil {
 		t.Fatal(err)
 	}
-	if rows, err := q.list(context.Background(), RunQuery{ProjectID: root.ProjectID}); rows != nil || !errors.Is(err, ErrStepState) {
+	if rows, err := q.list(context.Background(), RunQuery{ProjectID: root.ProjectID}); rows != nil || !errors.Is(err, errStepState) {
 		t.Fatalf("invalid step produced partial list: %+v %v", rows, err)
 	}
 	if err := requireAttemptWrite(workflowsql.New(q.db.SQL()).ReopenApproval(context.Background(), workflowsql.ReopenApprovalParams{ID: step, Attempt: 0, EvidenceJson: json.RawMessage(`{}`)})); err != nil {
@@ -320,7 +320,7 @@ func TestWorkflowQueriesRejectInvalidStoredStatesWithoutPartialResults(t *testin
 	if err := requireRunWrite(workflowsql.New(q.db.SQL()).TransitionRun(context.Background(), workflowsql.TransitionRunParams{At: time.Now(), ID: root.ID, ExpectedStatus: root.Status.String(), CurrentStage: root.CurrentStage, RetryRevision: root.RetryRevision, NextStage: root.CurrentStage, NextStatus: "unknown state"})); err != nil {
 		t.Fatal(err)
 	}
-	if rows, err := q.list(context.Background(), RunQuery{ProjectID: root.ProjectID}); rows != nil || !errors.Is(err, ErrRunState) {
+	if rows, err := q.list(context.Background(), RunQuery{ProjectID: root.ProjectID}); rows != nil || !errors.Is(err, errRunState) {
 		t.Fatalf("invalid run produced partial list: %+v %v", rows, err)
 	}
 }

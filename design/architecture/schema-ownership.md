@@ -56,7 +56,8 @@ an initializer from its caller; the generic library does not import Forge.
 `python3 scripts/schema-ownership.py` checks literal INSERT, UPDATE and DELETE
 targets against the fragments. Go's parser reads string literals, so comments
 and generated Go query copies are not counted as extra writes. Named
-`queries.sql` statements are attributed to their enclosing owner, including
+statements in every query file `sqlc.yaml` gives sqlc are attributed to their
+enclosing owner, including
 writes inside CTEs. Unknown tables and writes by another package fail. Tests
 and testdata are excluded from this production check.
 

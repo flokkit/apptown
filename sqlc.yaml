@@ -139,7 +139,7 @@ sql:
       - internal/forge/scm/schema.sql
       - internal/forge/tasks/schema.sql
       - internal/forge/evals/schema.sql
-    queries: internal/forge/workflow/internal/workflowsql/queries.sql
+    queries: internal/forge/workflow/internal/workflowsql
     gen:
       go:
         package: workflowsql

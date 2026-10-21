@@ -25,6 +25,11 @@ it by Go's `internal` rule:
     internal/wow/internal/wowsql/queries.sql      the SQL, one file
     internal/wow/internal/wowsql/*.go             generated, never edited
 
+An owner whose SQL has grown large may keep it as several files in that
+directory, one per table it mainly touches (Workflow: `runs.sql`,
+`steps.sql`, `changes.sql`, ...); its `sqlc.yaml` block then names the
+directory. The gates read whatever sqlc reads. One file stays the default.
+
 `sqlc.yaml` at the repository root has one block per generated package;
 the block is the only place the mapping is declared. `make generate-sql`
 regenerates; `make check-generated` (part of `make check`) fails when the
@@ -156,6 +161,7 @@ receipt describing it never disagree by a second.
 
 - `queries.sql` reads top to bottom as the package's contract with its
   tables: records first, grouped by table; locks; writes; reports last.
+  Split by table, each file reads the same way for its tables.
 - The Go files hold rules and words, not SQL. `grep -c 'Exec(\`\|QueryRow(\`\|Query(\`\|InsertID(\`' *.go` is zero
   outside tests. `database.QueryRecords` and `RowScanner` are gone from
   the package.

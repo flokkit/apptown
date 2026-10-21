@@ -92,15 +92,15 @@ func TestStepStateEncodingIsStrict(t *testing.T) {
 	}
 	for _, value := range []any{nil, 3, "done", []byte("")} {
 		got := StatusPass
-		if err := got.Scan(value); !errors.Is(err, ErrStepState) || got != StatusPass {
+		if err := got.Scan(value); !errors.Is(err, errStepState) || got != StatusPass {
 			t.Fatalf("invalid %v changed state: %s, %v", value, got, err)
 		}
 	}
 	for _, state := range []StepState{0, 255} {
-		if _, err := json.Marshal(state); !errors.Is(err, ErrStepState) {
+		if _, err := json.Marshal(state); !errors.Is(err, errStepState) {
 			t.Fatalf("invalid JSON: %v", err)
 		}
-		if _, err := state.Value(); !errors.Is(err, ErrStepState) {
+		if _, err := state.Value(); !errors.Is(err, errStepState) {
 			t.Fatalf("invalid database state: %v", err)
 		}
 	}

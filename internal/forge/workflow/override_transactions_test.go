@@ -141,9 +141,9 @@ func TestStepOverrideRequiresAnUndecidedCurrentStage(t *testing.T) {
 				transitionStoredStepForTest(t, s.db, id, next)
 			}
 			step, err := s.Override(context.Background(), Override{StepID: id, Reason: "reviewed"})
-			want := ErrStepDecisionConflict
+			want := errStepDecisionConflict
 			if state == "invalid state" {
-				want = ErrStepState
+				want = errStepState
 			}
 			if step != nil || !errors.Is(err, want) {
 				t.Fatalf("%s admitted: %+v, %v", state, step, err)
@@ -161,7 +161,7 @@ func TestStepOverrideHasOneConcurrentWinner(t *testing.T) {
 		if err == nil {
 			return 1
 		}
-		if !errors.Is(err, ErrStepDecisionConflict) {
+		if !errors.Is(err, errStepDecisionConflict) {
 			t.Error(err)
 		}
 		return 0
@@ -239,7 +239,7 @@ func TestStepOverrideFencesChangesAfterAdmissionRead(t *testing.T) {
 				return who, err
 			})
 			step, err := s.Override(context.Background(), Override{StepID: id, Reason: "reviewed"})
-			if step != nil || !errors.Is(err, ErrStepDecisionConflict) {
+			if step != nil || !errors.Is(err, errStepDecisionConflict) {
 				t.Fatalf("changed %s accepted: %+v, %v", change, step, err)
 			}
 			expectOverrideRefused(t, s, id)

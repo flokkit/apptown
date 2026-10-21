@@ -79,10 +79,10 @@ func TestAdmittedMergeDetachesCallerAndRechecksBeforeEffect(t *testing.T) {
 		}
 	}
 	_, err = database.Transact(ctx, q.db, func(tx *database.Tx) (scm.Refusal, error) { return claim.CheckIn(ctx, tx, scm.NewEffect) })
-	if !errors.Is(err, ErrMergeCaller) {
+	if !errors.Is(err, errMergeCaller) {
 		t.Fatalf("stale effect admitted: %v", err)
 	}
-	if _, err = (&AdmittedMerge{}).Context(ctx, ""); !errors.Is(err, ErrMergeCaller) {
+	if _, err = (&AdmittedMerge{}).Context(ctx, ""); !errors.Is(err, errMergeCaller) {
 		t.Fatalf("empty claim minted: %v", err)
 	}
 }
@@ -168,7 +168,7 @@ func TestMergeAdmissionRejectsForeignOrWrongAssertionStep(t *testing.T) {
 			}
 			call := MergeCall{Purpose: MergeForAssertion, Run: *run, Step: *step, Source: source}
 			permission, err := NewMergeAdmission(q.db, nil, Placement{}).Prepare(context.Background(), call)
-			if permission.Admitted != nil || !errors.Is(err, ErrMergeCaller) {
+			if permission.Admitted != nil || !errors.Is(err, errMergeCaller) {
 				t.Fatalf("%s admitted: %+v %v", scenario, permission, err)
 			}
 			wantEventCount(t, q.db, 0, anyEvent)

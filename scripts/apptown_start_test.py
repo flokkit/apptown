@@ -72,7 +72,11 @@ class TrialEntrypoint(unittest.TestCase):
         e.update(PATH=self.stubs + os.pathsep + os.environ["PATH"], CALLS=self.calls, STUB_DIR=self.tmp,
                  APPTOWN_ROOT=os.path.join(self.tmp, "root"), APPTOWN_CGROUP=self.cgroup, FORGED_MODE="serve")
         e.update(env)
-        return subprocess.Popen(["sh", SCRIPT], env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        # Start the script with Ctrl-C at its default, as a terminal or `docker run`
+        # gives it. A shell cannot trap a signal ignored when it starts, and a
+        # gate that runs this test in the background ignores SIGINT.
+        return subprocess.Popen(["sh", SCRIPT], env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))
 
     def called(self):
         with open(self.calls) as f:

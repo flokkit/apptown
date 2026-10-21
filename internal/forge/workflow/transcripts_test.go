@@ -113,7 +113,7 @@ func (f *transcriptAgent) keep(t *testing.T, claim *Step, session string, invoca
 }
 
 func (f *transcriptAgent) record(claim *Step, session string, invocation int64, digest, unavailable string) error {
-	return RecordTranscript(context.Background(), f.db, TranscriptCapture{Run: f.ref(), StepID: f.step, Attempt: claim.Attempt, Session: session, Invocation: invocation, Digest: digest, Unavailable: unavailable, At: time.Now()})
+	return recordTranscript(context.Background(), f.db, TranscriptCapture{Run: f.ref(), StepID: f.step, Attempt: claim.Attempt, Session: session, Invocation: invocation, Digest: digest, Unavailable: unavailable, At: time.Now()})
 }
 
 // readsBytes asserts the attempt's receipt names exactly want.
@@ -313,8 +313,8 @@ func TestATranscriptIsRecordedOnlyForItsAttemptsSession(t *testing.T) {
 	}
 	for name, err := range map[string]error{
 		"another session":      f.record(claim, "step-1-a9", 1, digest, ""),
-		"an unstarted attempt": RecordTranscript(context.Background(), f.db, TranscriptCapture{Run: f.ref(), StepID: f.step, Attempt: claim.Attempt + 1, Session: session, Invocation: 1, Digest: digest, At: time.Now()}),
-		"another project":      RecordTranscript(context.Background(), f.db, TranscriptCapture{Run: RunRef{ID: f.run.ID, ProjectID: idstest.N(999999)}, StepID: f.step, Attempt: claim.Attempt, Session: session, Invocation: 1, Digest: digest, At: time.Now()}),
+		"an unstarted attempt": recordTranscript(context.Background(), f.db, TranscriptCapture{Run: f.ref(), StepID: f.step, Attempt: claim.Attempt + 1, Session: session, Invocation: 1, Digest: digest, At: time.Now()}),
+		"another project":      recordTranscript(context.Background(), f.db, TranscriptCapture{Run: RunRef{ID: f.run.ID, ProjectID: idstest.N(999999)}, StepID: f.step, Attempt: claim.Attempt, Session: session, Invocation: 1, Digest: digest, At: time.Now()}),
 		"both":                 f.record(claim, session, 1, digest, "and a reason"),
 		"neither":              f.record(claim, session, 1, "", ""),
 		"not a digest":         f.record(claim, session, 1, "abc", ""),

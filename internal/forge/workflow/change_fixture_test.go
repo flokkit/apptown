@@ -73,13 +73,13 @@ func nameChangeForTest(t *testing.T, db *database.DB, ch *Change, words string) 
 	}
 }
 
-func assertChangeTitle(t *testing.T, db *database.DB, id ids.ID, words string, owner TitleOwner) {
+func assertChangeTitle(t *testing.T, db *database.DB, id ids.ID, words string, owner titleOwner) {
 	t.Helper()
 	row, err := workflowsql.New(db.SQL()).ChangeByID(context.Background(), workflowsql.ChangeByIDParams{ID: id})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got TitleOwner
+	var got titleOwner
 	if err := got.Scan(row.TitleOwnership); err != nil {
 		t.Fatal(err)
 	}

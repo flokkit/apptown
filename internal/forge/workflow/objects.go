@@ -72,7 +72,7 @@ func (run *Run) currentStage() (*schema.Spec, *schema.Stage, error) {
 // stage it is in now.
 func (run *Run) Decides(step *Step) error {
 	if run.Status != RunRunning || step.RunID != run.ID || step.Stage != run.CurrentStage {
-		return ErrStepDecisionConflict
+		return errStepDecisionConflict
 	}
 	return nil
 }
@@ -133,13 +133,13 @@ type ApprovalOutcome struct {
 // vote carries none.
 func (s *Step) Approve(vote ApprovalVote, at time.Time) (ApprovalOutcome, error) {
 	if s.Type != "approval" {
-		return ApprovalOutcome{}, fmt.Errorf("step %q is not an approval step: %w", s.Name, ErrStepApprovalInput)
+		return ApprovalOutcome{}, fmt.Errorf("step %q is not an approval step: %w", s.Name, errStepApprovalInput)
 	}
 	if s.OverrideBy != "" {
-		return ApprovalOutcome{}, ErrStepDecisionConflict
+		return ApprovalOutcome{}, errStepDecisionConflict
 	}
 	if s.Status == StatusPass || s.Status == StatusFail {
-		return ApprovalOutcome{}, fmt.Errorf("this approval is already decided: %w", ErrStepDecisionConflict)
+		return ApprovalOutcome{}, fmt.Errorf("this approval is already decided: %w", errStepDecisionConflict)
 	}
 	cfg, err := ReadApprovalConfig(s.Config)
 	if err != nil {
@@ -167,17 +167,17 @@ func (s *Step) Approve(vote ApprovalVote, at time.Time) (ApprovalOutcome, error)
 // step not already overridden, and only from a state an override may leave.
 func (s *Step) Override(by, reason string) (StepState, error) {
 	if strings.TrimSpace(reason) == "" {
-		return 0, ErrOverrideReason
+		return 0, errOverrideReason
 	}
 	if strings.TrimSpace(by) == "" {
-		return 0, ErrStepDecisionCaller
+		return 0, errStepDecisionCaller
 	}
 	if s.OverrideBy != "" {
-		return 0, ErrStepDecisionConflict
+		return 0, errStepDecisionConflict
 	}
 	next, err := s.Status.Transition(MoveStepOverride, StatusPass)
 	if err != nil {
-		return 0, ErrStepDecisionConflict
+		return 0, errStepDecisionConflict
 	}
 	return next, nil
 }

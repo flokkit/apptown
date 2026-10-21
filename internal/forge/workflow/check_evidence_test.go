@@ -52,7 +52,7 @@ func TestCheckEvidenceReadsBackWhatWasWrittenAndRefusesWhatItCannotRead(t *testi
 			t.Errorf("the extension wrote %q past the typed facts", key)
 		}
 	}
-	if _, err := (CheckEvidence{Checks: []CheckReceipt{{Check: "health"}}}).Outcome(StatusPass, nil); !errors.Is(err, ErrCheckVerdict) {
+	if _, err := (CheckEvidence{Checks: []CheckReceipt{{Check: "health"}}}).Outcome(StatusPass, nil); !errors.Is(err, errCheckVerdict) {
 		t.Errorf("a receipt with no verdict was written: %v", err)
 	}
 }

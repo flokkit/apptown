@@ -12,21 +12,21 @@ import (
 )
 
 var (
-	ErrStepDecisionCaller   = fault.New(fault.Unauthenticated, "a verified caller is required for a step decision")
-	ErrStepDecisionConflict = fault.New(fault.Conflict, "step changed or is not awaiting a decision in the active run stage")
-	ErrOverrideReason       = fault.New(fault.Invalid, "an override requires a justification")
-	ErrStepApprovalInput    = fault.New(fault.Invalid, "invalid approval request")
+	errStepDecisionCaller   = fault.New(fault.Unauthenticated, "a verified caller is required for a step decision")
+	errStepDecisionConflict = fault.New(fault.Conflict, "step changed or is not awaiting a decision in the active run stage")
+	errOverrideReason       = fault.New(fault.Invalid, "an override requires a justification")
+	errStepApprovalInput    = fault.New(fault.Invalid, "invalid approval request")
 )
 
-// ApprovalTooEarly refuses an approval while its stage's work is still to
+// approvalTooEarly refuses an approval while its stage's work is still to
 // finish; it can be given once those steps have.
-type ApprovalTooEarly struct{ Unfinished []string }
+type approvalTooEarly struct{ Unfinished []string }
 
-func (e *ApprovalTooEarly) Error() string {
+func (e *approvalTooEarly) Error() string {
 	return "the stage's work has not finished (" + strings.Join(e.Unfinished, ", ") + "); approve once it has"
 }
-func (e *ApprovalTooEarly) FaultKind() fault.Kind { return fault.Conflict }
-func (e *ApprovalTooEarly) FaultCode() string     { return "stage-work-unfinished" }
+func (e *approvalTooEarly) FaultKind() fault.Kind { return fault.Conflict }
+func (e *approvalTooEarly) FaultCode() string     { return "stage-work-unfinished" }
 
 type DecisionDenied struct{ Code, Reason string }
 
@@ -54,10 +54,10 @@ type Approval struct {
 	Adds string
 }
 
-// ErrLandingQuestionChanged refuses an acceptance whose displayed landing
+// errLandingQuestionChanged refuses an acceptance whose displayed landing
 // sentences are no longer what the landing asks: the person agrees only to
 // words they read. It carries a code so a client can show the new words.
-var ErrLandingQuestionChanged error = landingQuestionChanged{}
+var errLandingQuestionChanged error = landingQuestionChanged{}
 
 type landingQuestionChanged struct{}
 
@@ -87,7 +87,7 @@ func (s *Service) prepareDecision(ctx context.Context, id ids.ID, action command
 	permission := operationPermission{Action: actionOverrideStep, ProjectID: expected.scope.ProjectID, ChangeID: expected.scope.ChangeID, RunID: expected.scope.RunID, StepID: expected.scope.StepID}
 	if action == actionApproveStep {
 		if expected.stepType != "approval" {
-			return expected, "", fmt.Errorf("%w: step is not an approval", ErrStepApprovalInput)
+			return expected, "", fmt.Errorf("%w: step is not an approval", errStepApprovalInput)
 		}
 		cfg, err := ReadApprovalConfig(expected.config)
 		if err != nil {
@@ -123,7 +123,7 @@ func (s *Service) MayCreateAndRun(ctx context.Context, projectID ids.ID) error {
 
 func (s *Service) Override(ctx context.Context, in Override) (*Step, error) {
 	if strings.TrimSpace(in.Reason) == "" {
-		return nil, ErrOverrideReason
+		return nil, errOverrideReason
 	}
 	expected, who, err := s.prepareDecision(ctx, in.StepID, actionOverrideStep)
 	if err != nil {
@@ -139,7 +139,7 @@ func (s *Service) Override(ctx context.Context, in Override) (*Step, error) {
 
 func (s *Service) Approve(ctx context.Context, in Approval) (*Step, error) {
 	if in.Decision != VoteApprove && in.Decision != VoteReject {
-		return nil, ErrApprovalDecision
+		return nil, errApprovalDecision
 	}
 	expected, who, err := s.prepareDecision(ctx, in.StepID, actionApproveStep)
 	if err != nil {
@@ -153,7 +153,7 @@ func (s *Service) Approve(ctx context.Context, in Approval) (*Step, error) {
 		// are still what the landing asks.
 		asks := s.landingMeansFor(ctx, expected.scope.RunID, expected.scope.StepID)
 		if !slices.Equal(in.Shown, asks) {
-			return nil, ErrLandingQuestionChanged
+			return nil, errLandingQuestionChanged
 		}
 		also = asks
 	}
@@ -172,9 +172,9 @@ func (s *Service) Approve(ctx context.Context, in Approval) (*Step, error) {
 		switch {
 		case shown == nil:
 		case in.Adds == "":
-			return nil, ErrAddsNotShown
+			return nil, errAddsNotShown
 		case in.Adds != shown.Digest:
-			return nil, ErrAddsChanged
+			return nil, errAddsChanged
 		}
 	}
 	var accepted string

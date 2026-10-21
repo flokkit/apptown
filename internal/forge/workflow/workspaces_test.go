@@ -384,7 +384,7 @@ func TestRunWorkspaceRejectsLateStateScopeAndRevision(t *testing.T) {
 				}
 				return out
 			})}
-			if err := w.PrepareRun(context.Background(), run); !errors.Is(err, ErrWorkspaceChanged) || !once {
+			if err := w.PrepareRun(context.Background(), run); !errors.Is(err, errWorkspaceChanged) || !once {
 				t.Fatalf("stale run: %v injected %v", err, once)
 			}
 			wantEqual(t, "run base", storedRunRow(t, w.db, run.ID).BaseSha, "")

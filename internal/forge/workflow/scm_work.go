@@ -114,7 +114,7 @@ func (c *scmClaim) CheckIn(ctx context.Context, tx *database.Tx, purpose scm.Pur
 			return scm.Refusal{Reason: ErrLandingUnpinned.Error()}, nil
 		}
 		if c.source.Landing.Candidate != "" {
-			reason, err := LandingCandidateRefusal(ctx, tx, run.ID, c.source.Landing)
+			reason, err := landingCandidateRefusal(ctx, tx, run.ID, c.source.Landing)
 			if err != nil || reason != "" {
 				return scm.Refusal{Reason: reason}, err
 			}

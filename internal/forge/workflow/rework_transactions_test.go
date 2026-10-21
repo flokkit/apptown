@@ -207,7 +207,7 @@ func TestWorkflowReworkRejectionHistoryAndConcurrentVotes(t *testing.T) {
 		if err == nil {
 			return 1
 		}
-		if !errors.Is(err, ErrStepDecisionConflict) {
+		if !errors.Is(err, errStepDecisionConflict) {
 			t.Error(err)
 		}
 		return 0
@@ -271,7 +271,7 @@ func TestWorkflowReworkRacesAbandonment(t *testing.T) {
 				} else {
 					if human {
 						_, err := newService(s.db, allowProject(run.ProjectID), Runtime{}).Approve(context.Background(), Approval{StepID: approval, Decision: VoteReject, Comment: "fix"})
-						if err != nil && !errors.Is(err, ErrStepDecisionConflict) {
+						if err != nil && !errors.Is(err, errStepDecisionConflict) {
 							t.Error(err)
 						}
 					} else {

@@ -190,7 +190,7 @@ func TestAssertionMergeResultRequiresItsPreparedScope(t *testing.T) {
 				return MergeObservation{Merged: true}, nil
 			})
 			result, err := s.Evaluate(context.Background(), Assertion{StepID: id})
-			if result != nil || !errors.Is(err, ErrAssertionChanged) {
+			if result != nil || !errors.Is(err, errAssertionChanged) {
 				t.Fatalf("stale %s accepted: %+v %v", name, result, err)
 			}
 			wantEventCount(t, s.db, 3, anyEvent)
@@ -245,7 +245,7 @@ func TestAssertionConcurrentMergeResultsHaveOneWinner(t *testing.T) {
 		err := <-results
 		if err == nil {
 			winners++
-		} else if !errors.Is(err, ErrAssertionChanged) {
+		} else if !errors.Is(err, errAssertionChanged) {
 			t.Fatal(err)
 		}
 	}
@@ -374,7 +374,7 @@ func TestAssertionMergeRefusesChangedSourceMetadata(t *testing.T) {
 				return MergeObservation{Merged: true}, nil
 			})
 			result, err := owner.Evaluate(context.Background(), Assertion{StepID: id})
-			if result != nil || !errors.Is(err, ErrAssertionChanged) {
+			if result != nil || !errors.Is(err, errAssertionChanged) {
 				t.Fatalf("stale source assertion: %+v %v", result, err)
 			}
 			wantStepCount(t, owner.db, 1, func(s *Step) bool { return s.Status == StatusPending && jsonEqual(s.Evidence, `{}`) })
@@ -407,7 +407,7 @@ func TestAssertionCommandFencesAuthorizedSnapshot(t *testing.T) {
 				}
 				return "alice", nil
 			}), Runtime{})
-			if step, err := s.Evaluate(context.Background(), id); step != nil || !errors.Is(err, ErrAssertionChanged) {
+			if step, err := s.Evaluate(context.Background(), id); step != nil || !errors.Is(err, errAssertionChanged) {
 				t.Fatalf("changed %s accepted: %+v %v", changed, step, err)
 			}
 			wantEventCount(t, owner.db, 0, ofKind("check.evaluated"))

@@ -31,10 +31,10 @@ func NewMerges(db *database.DB, dataDir string, rules LawRules, service *scm.Ser
 	return &Merges{db: db, dataDir: dataDir, rules: rules, service: service, effects: effects}
 }
 
-var _ AdvanceChecks = (*Merges)(nil)
+var _ advanceChecks = (*Merges)(nil)
 
 func (m *Merges) RefreshLaw(ctx context.Context, run *Run) error {
-	laws := NewLaws(m.db, m.rules)
+	laws := newLaws(m.db, m.rules)
 	laws.records.clocked = m.clocked
 	return laws.Refresh(ctx, run)
 }
@@ -48,7 +48,7 @@ func (m *Merges) Execute(ctx context.Context, call MergeCall) (MergeObservation,
 
 func (m *Merges) Merge(ctx context.Context, run *Run) (MergeResult, error) {
 	if run == nil {
-		return MergeResult{}, ErrMergeCaller
+		return MergeResult{}, errMergeCaller
 	}
 	snapshot := *run
 	run = &snapshot

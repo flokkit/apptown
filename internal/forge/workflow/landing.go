@@ -14,7 +14,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-var ErrLandingAcceptanceChanged = errors.New("accepted Work or its pinned landing handoff changed")
+var errLandingAcceptanceChanged = errors.New("accepted Work or its pinned landing handoff changed")
 
 type landings struct {
 	db        *database.DB
@@ -56,7 +56,7 @@ func acceptedWork(run *Run) error {
 		return err
 	}
 	if run.Status != RunDone || !run.ParentRunID.IsZero() || run.ChangeID.IsZero() || spec.Role != "working" {
-		return ErrLandingAcceptanceChanged
+		return errLandingAcceptanceChanged
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func (s landings) apply(ctx context.Context, workID, landingID ids.ID) (*Run, er
 		}
 		selected, applied := handoff.LandingRunID, handoff.AcceptanceApplied
 		if selected != landingID || landingID.Compare(workID) <= 0 {
-			return nil, ErrLandingAcceptanceChanged
+			return nil, errLandingAcceptanceChanged
 		}
 		landing, err := runRecord(workflowsql.New(tx.SQL()).RunForUpdate(ctx, landingID))
 		if err != nil {
@@ -104,7 +104,7 @@ func (s landings) apply(ctx context.Context, workID, landingID ids.ID) (*Run, er
 			return nil, err
 		}
 		if landing.ProjectID != work.ProjectID || landing.ChangeID != work.ChangeID || !landing.ParentRunID.IsZero() || spec.Role != "landing" || len(spec.Stages) == 0 {
-			return nil, ErrLandingAcceptanceChanged
+			return nil, errLandingAcceptanceChanged
 		}
 		change, err := q.ChangeForUpdate(ctx, workflowsql.ChangeForUpdateParams{ID: work.ChangeID})
 		if err != nil {
@@ -112,7 +112,7 @@ func (s landings) apply(ctx context.Context, workID, landingID ids.ID) (*Run, er
 		}
 		changeProject := change.ProjectID
 		if changeProject != work.ProjectID {
-			return nil, ErrLandingAcceptanceChanged
+			return nil, errLandingAcceptanceChanged
 		}
 		if applied {
 			return landingAcceptanceAdvanceIn(ctx, tx, work.ID, landing)
@@ -126,7 +126,7 @@ func (s landings) apply(ctx context.Context, workID, landingID ids.ID) (*Run, er
 			return nil, err
 		}
 		if count != 1 {
-			return nil, ErrLandingAcceptanceChanged
+			return nil, errLandingAcceptanceChanged
 		}
 		receipt := landingAcceptanceReceipt{accepted.Accepter, work.ID, spec.Stages[0].Name, landing.RetryRevision}
 		if err := recordReceiptIn(ctx, tx, landing.ID, "landing.autostarted", receipt, s.now()); err != nil {
@@ -204,7 +204,7 @@ func landingAcceptanceAdvanceIn(ctx context.Context, tx *database.Tx, workID ids
 		return nil, err
 	}
 	if receipt.WorkRun != workID || receipt.Stage == "" || receipt.AcceptedBy == "" || receipt.RetryRevision < 0 {
-		return nil, ErrLandingAcceptanceChanged
+		return nil, errLandingAcceptanceChanged
 	}
 	if landing.CurrentStage != receipt.Stage || landing.RetryRevision != receipt.RetryRevision {
 		return nil, nil

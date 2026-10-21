@@ -84,7 +84,7 @@ func pausedByLaw(t *testing.T, db *database.DB, run *Run) ids.ID {
 	return id
 }
 
-func projectLaws(db *database.DB) Laws { return NewLaws(db, policyLawRules{}) }
+func projectLaws(db *database.DB) lawSet { return newLaws(db, policyLawRules{}) }
 
 func TestPolicyRefreshFollowsCurrentRulesWithoutInventingGates(t *testing.T) {
 	t.Parallel()
@@ -175,7 +175,7 @@ func TestPolicyReadFailuresAndInvalidDeclarationsLeaveThePauseStanding(t *testin
 			case "gates":
 				dbtest.FailNextStatement(t, db, "name: StepsOfTypeForUpdate")
 			case "invalid declaration":
-				laws = NewLaws(db, lawRulesFunc(func(context.Context, database.Queryer, ids.ID, *schema.Spec) ([]LawViolation, error) {
+				laws = newLaws(db, lawRulesFunc(func(context.Context, database.Queryer, ids.ID, *schema.Spec) ([]LawViolation, error) {
 					return nil, wow.ErrPolicyDeclaration
 				}))
 			}

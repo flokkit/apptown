@@ -12,16 +12,16 @@ import (
 	"flokkit.io/forge/internal/database"
 )
 
-// AdvanceChecks supplies current policy and admitted SCM effects. Work keeps
+// advanceChecks supplies current policy and admitted SCM effects. Work keeps
 // all stage decisions, assertions, snapshots and settlement within its owner.
-type AdvanceChecks interface {
+type advanceChecks interface {
 	RefreshLaw(context.Context, *Run) error
 	Merge(context.Context, *Run) (MergeResult, error)
 }
 type advanceRuntime struct {
 	Stages     Stages
 	Assertions *Assertions
-	Checks     AdvanceChecks
+	Checks     advanceChecks
 	Completion CompletionRecorder
 	// Carry applies an accepted change's acceptance to the approvals waiting
 	// in a landing's current stage; nil carries nothing.

@@ -69,7 +69,7 @@ func TestANewCandidateNeedsFreshApproval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reason, err := LandingCandidateRefusal(ctx, db, run.ID, LandingCandidate{Candidate: "candidate-Y", Target: "main"})
+	reason, err := landingCandidateRefusal(ctx, db, run.ID, LandingCandidate{Candidate: "candidate-Y", Target: "main"})
 	if err != nil {
 		t.Fatal(err)
 	}

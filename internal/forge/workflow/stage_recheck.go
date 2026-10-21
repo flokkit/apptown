@@ -11,15 +11,15 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-// ErrNothingToRecheck refuses a re-run of a stage whose recorded checks are
+// errNothingToRecheck refuses a re-run of a stage whose recorded checks are
 // complete: its steps can be retried one by one instead.
-var ErrNothingToRecheck = fault.New(fault.Conflict, "this stage is not missing any evidence; retry a single step instead")
+var errNothingToRecheck = fault.New(fault.Conflict, "this stage is not missing any evidence; retry a single step instead")
 
-// ErrRecheckNotRunning refuses a re-run of a stage of a run that has ended.
-var ErrRecheckNotRunning = fault.New(fault.Conflict, "only a running run's stage can have its checks run again")
+// errRecheckNotRunning refuses a re-run of a stage of a run that has ended.
+var errRecheckNotRunning = fault.New(fault.Conflict, "only a running run's stage can have its checks run again")
 
-// ErrRecheckBusy refuses a re-run while a step of the stage is still running.
-var ErrRecheckBusy = fault.New(fault.Conflict, "wait for the stage's running steps to finish before running its checks again")
+// errRecheckBusy refuses a re-run while a step of the stage is still running.
+var errRecheckBusy = fault.New(fault.Conflict, "wait for the stage's running steps to finish before running its checks again")
 
 // Rechecked names the stage whose checks run again and what it was missing.
 type Rechecked struct {
@@ -68,7 +68,7 @@ func (s *Service) RecheckStage(ctx context.Context, runID ids.ID) (Rechecked, er
 			return Rechecked{}, ErrRunMoved
 		}
 		if run.Status != RunRunning {
-			return Rechecked{}, ErrRecheckNotRunning
+			return Rechecked{}, errRecheckNotRunning
 		}
 		_, stage, err := run.currentStage()
 		if err != nil {
@@ -80,7 +80,7 @@ func (s *Service) RecheckStage(ctx context.Context, runID ids.ID) (Rechecked, er
 		}
 		for _, step := range steps {
 			if step.Status == StatusRunning {
-				return Rechecked{}, ErrRecheckBusy
+				return Rechecked{}, errRecheckBusy
 			}
 		}
 		recorded, err := readStageChecks(ctx, tx, run.ID, run.CurrentStage)
@@ -92,7 +92,7 @@ func (s *Service) RecheckStage(ctx context.Context, runID ids.ID) (Rechecked, er
 			return Rechecked{}, err
 		}
 		if len(verdict.Missing) == 0 {
-			return Rechecked{}, ErrNothingToRecheck
+			return Rechecked{}, errNothingToRecheck
 		}
 		var scanners []Scanner
 		if s.stages.scanners != nil {

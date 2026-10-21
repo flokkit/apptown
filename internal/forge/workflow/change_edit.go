@@ -14,7 +14,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-var ErrChangeEditConflict = fault.New(fault.Conflict, "Change edit was not recorded")
+var errChangeEditConflict = fault.New(fault.Conflict, "Change edit was not recorded")
 
 type ChangeEdit struct {
 	ProjectID, ID            ids.ID
@@ -25,10 +25,10 @@ type ChangeEdit struct {
 }
 
 var (
-	ErrChangeEditRevisionRequired = fault.New(fault.Invalid, "send the edit revision the edit started from (expectedEditRevision)")
-	// ErrChangeEditMoved carries a code so a client can tell it from other
+	errChangeEditRevisionRequired = fault.New(fault.Invalid, "send the edit revision the edit started from (expectedEditRevision)")
+	// errChangeEditMoved carries a code so a client can tell it from other
 	// conflicts and offer the person the current text.
-	ErrChangeEditMoved error = changeEditMoved{}
+	errChangeEditMoved error = changeEditMoved{}
 )
 
 type changeEditMoved struct{}
@@ -63,13 +63,13 @@ func (s changeStore) edit(ctx context.Context, in ChangeEdit, who string) (*Chan
 			return nil, err
 		}
 		if in.ExpectedRevision == nil {
-			return nil, ErrChangeEditRevisionRequired
+			return nil, errChangeEditRevisionRequired
 		}
 		if *in.ExpectedRevision != held.EditRevision {
-			return nil, ErrChangeEditMoved
+			return nil, errChangeEditMoved
 		}
 		if in.Title != nil {
-			if _, err := editChangeTitleIn(ctx, tx, in.ProjectID, in.ID, changeTitleEdit{act: PinTitle, words: *in.Title}); err != nil {
+			if _, err := editChangeTitleIn(ctx, tx, in.ProjectID, in.ID, changeTitleEdit{act: pinTitle, words: *in.Title}); err != nil {
 				return nil, err
 			}
 		}
@@ -85,7 +85,7 @@ func (s changeStore) edit(ctx context.Context, in ChangeEdit, who string) (*Chan
 			return nil, err
 		}
 		if n != 1 {
-			return nil, ErrChangeEditConflict
+			return nil, errChangeEditConflict
 		}
 		if err := audit.At(s.now()).RecordIn(ctx, tx, who, in.ProjectID, "change.edited", fmt.Sprintf("change %d", in.ID), nil); err != nil {
 			return nil, err

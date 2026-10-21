@@ -58,7 +58,7 @@ func TestAStepRunningWhenItsRunIsAbandonedEndsWhenItsRunnerReturns(t *testing.T)
 			}
 			continue
 		}
-		if during != StatusRunning || got.Status != StatusError || evidence.Reason != AbandonedWhileRunning {
+		if during != StatusRunning || got.Status != StatusError || evidence.Reason != abandonedWhileRunning {
 			t.Fatalf("finishes=%v: while the runner ran %s; after it returned %s %s", finishes, during, got.Status, got.Evidence)
 		}
 	}

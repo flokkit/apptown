@@ -123,7 +123,7 @@ func TestStepAttemptObservationChecksScopeAttemptAndOwnerTogether(t *testing.T) 
 						t.Fatalf("stored run transition: rows=%d err=%v", rows, err)
 					}
 				}
-				wantErr = ErrRunState
+				wantErr = errRunState
 			case "cancelled":
 				cancel()
 				wantErr = context.Canceled

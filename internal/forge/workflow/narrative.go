@@ -72,7 +72,7 @@ func (s *Service) PublishNarrative(ctx context.Context, in NarrativePublication)
 
 var ErrNarrativeChanged = fault.New(fault.Conflict, "Change narrative source changed; refresh again")
 
-var ErrNarrativeEmpty = errors.New("model returned no narrative")
+var errNarrativeEmpty = errors.New("model returned no narrative")
 
 type narrativeReceipt struct {
 	Slot  string `json:"slot"`
@@ -98,14 +98,14 @@ func ParseNarrative(out string) (NarrativeDraft, error) {
 	if rest, ok := strings.CutPrefix(draft.Note, "ASKED:"); ok {
 		line, body, _ := strings.Cut(rest, "\n")
 		word, gap, _ := strings.Cut(strings.TrimSpace(line), " ")
-		draft.Met = ParseRequestMet(strings.Trim(word, ".,:;—-"))
+		draft.Met = parseRequestMet(strings.Trim(word, ".,:;—-"))
 		if draft.Met == RequestMetPartly || draft.Met == RequestMetNo {
 			draft.Gap = bound(strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(gap), "—–-:")), 400)
 		}
 		draft.Note = strings.TrimSpace(body)
 	}
 	if draft.Note == "" {
-		return NarrativeDraft{}, ErrNarrativeEmpty
+		return NarrativeDraft{}, errNarrativeEmpty
 	}
 	if !utf8.ValidString(draft.Title) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.Gap) {
 		return NarrativeDraft{}, fmt.Errorf("invalid narrative text")
@@ -245,7 +245,7 @@ func (s narratives) Publish(ctx context.Context, in NarrativePublication) error 
 		if project.Slug != source.Slug || project.DefaultBranch != source.DefaultBranch {
 			return ErrNarrativeChanged
 		}
-		met := ParseRequestMet(string(draft.Met))
+		met := parseRequestMet(string(draft.Met))
 		gap := ""
 		if met == RequestMetPartly || met == RequestMetNo {
 			gap = draft.Gap
@@ -257,7 +257,7 @@ func (s narratives) Publish(ctx context.Context, in NarrativePublication) error 
 		if n != 1 {
 			return ErrNarrativeChanged
 		}
-		if _, err := editChangeTitleIn(ctx, tx, ch.ProjectID, ch.ID, changeTitleEdit{act: ReviseTitle, words: draft.Title, observed: ch.Title}); err != nil {
+		if _, err := editChangeTitleIn(ctx, tx, ch.ProjectID, ch.ID, changeTitleEdit{act: reviseTitle, words: draft.Title, observed: ch.Title}); err != nil {
 			return err
 		}
 		if s.notes == nil {

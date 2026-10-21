@@ -11,7 +11,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 )
 
-func LatestFeedbackIn(ctx context.Context, q database.Queryer, ref RunRef) (*Step, error) {
+func latestFeedbackIn(ctx context.Context, q database.Queryer, ref RunRef) (*Step, error) {
 	if ref.ID.IsZero() || ref.ProjectID.IsZero() {
 		return nil, fmt.Errorf("feedback requires Run scope")
 	}

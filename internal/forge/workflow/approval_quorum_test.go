@@ -38,7 +38,7 @@ func TestApprovalQuorumUnderRace(t *testing.T) {
 	users := []string{"ann", "bob", "cy"}
 	errs := race(3, func(i int) int {
 		if _, err := voteForTest(db, stepID, users[i], VoteApprove, "ok"); err != nil {
-			if errors.Is(err, ErrStepDecisionConflict) {
+			if errors.Is(err, errStepDecisionConflict) {
 				return 1
 			}
 			return -1

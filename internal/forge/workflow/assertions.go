@@ -15,7 +15,7 @@ import (
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 )
 
-var ErrAssertionChanged = fault.New(fault.Conflict, "assertion changed or is outside the active run stage")
+var errAssertionChanged = fault.New(fault.Conflict, "assertion changed or is outside the active run stage")
 
 type Assertion struct{ StepID ids.ID }
 
@@ -71,7 +71,7 @@ func (s Assertions) evaluate(ctx context.Context, request Assertion, expected *a
 			return assertionScope{}, err
 		}
 		if expected != nil && !expected.matches(run, step) {
-			return assertionScope{}, ErrAssertionChanged
+			return assertionScope{}, errAssertionChanged
 		}
 		scope := assertionScope{run: run, step: step}
 		if step.Type == "scm/merged" && step.OverrideBy == "" {
@@ -108,7 +108,7 @@ func (s Assertions) evaluate(ctx context.Context, request Assertion, expected *a
 			return nil, err
 		}
 		if !prepared.matches(run, step) {
-			return nil, ErrAssertionChanged
+			return nil, errAssertionChanged
 		}
 		if step.Type == "scm/merged" {
 			source, err := readMergeSourceForRun(ctx, tx, run)
@@ -116,7 +116,7 @@ func (s Assertions) evaluate(ctx context.Context, request Assertion, expected *a
 				return nil, err
 			}
 			if source != prepared.source {
-				return nil, ErrAssertionChanged
+				return nil, errAssertionChanged
 			}
 		}
 		outcome, err := evaluateAssertionIn(ctx, tx, run, step, merged)
@@ -141,7 +141,7 @@ func (s Assertions) evaluate(ctx context.Context, request Assertion, expected *a
 			return nil, err
 		}
 		if n != 1 {
-			return nil, ErrAssertionChanged
+			return nil, errAssertionChanged
 		}
 		if next != step.Status {
 			receipt := stepEvaluationReceipt{step.Name, next}
@@ -189,7 +189,7 @@ func doesStageWork(kind string) bool { return kind != "approval" && !assertionKi
 
 func assertionEligible(run *Run, step *Step) error {
 	if step == nil || run == nil || step.RunID != run.ID || run.Status != RunRunning || run.CurrentStage != step.Stage {
-		return ErrAssertionChanged
+		return errAssertionChanged
 	}
 	if !step.isAssertion() {
 		return fmt.Errorf("step %q is not an assertion", step.Name)
@@ -198,7 +198,7 @@ func assertionEligible(run *Run, step *Step) error {
 		return nil
 	}
 	if _, err := step.Status.Transition(MoveStepEvaluate, StatusPass); err != nil {
-		return fmt.Errorf("%w: %w", ErrAssertionChanged, err)
+		return fmt.Errorf("%w: %w", errAssertionChanged, err)
 	}
 	return nil
 }

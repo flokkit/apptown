@@ -13,8 +13,8 @@ import (
 	"flokkit.io/forge/internal/forge/schema"
 )
 
-// DefinitionVersion is stored with every admitted Run declaration.
-const DefinitionVersion = 1
+// definitionVersion is stored with every admitted Run declaration.
+const definitionVersion = 1
 
 type StartRequest struct {
 	ReceiptActor string // verified receipt attribution, distinct from inference owner
@@ -92,7 +92,7 @@ func encodeRunDefinition(in PreparedRun) ([]byte, error) {
 		}
 	}
 	spec := in.Spec
-	spec.V = DefinitionVersion
+	spec.V = definitionVersion
 	return json.Marshal(spec)
 }
 func requireAttemptWrite(n int64, err error) error {
