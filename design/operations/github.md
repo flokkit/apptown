@@ -1,38 +1,64 @@
 # GitHub: CI and images
 
-The public repository, `github.com/flokkit/apptown`, tests every push and
-pull request with GitHub Actions and builds the container images on a
-release tag. The workflows are in `.github/workflows/`. The repository is
-exported from the maintainers' development repository, one commit per
-export, so its history starts fresh.
+The repository, `github.com/flokkit/apptown`, is where AppTown's code lives
+and changes. GitHub Actions tests every pull request and every commit on
+`main`, and builds the container images on a release tag. The workflows
+are in `.github/workflows/`.
+
+## How main changes
+
+`main` changes only by pull request, one per change, squash-merged. Its
+ruleset requires the pull request, allows only squash merges, forbids force
+pushes and deletion, and requires the `ci-ok` check on a branch that is up to
+date with `main`, so the run that passed tested exactly what `main` becomes.
+The squash commit takes the pull request's title and description, which are
+the change's public record. Opening a pull request is limited to the
+repository's collaborators ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
 ## GitHub Actions
 
-The repository is on GitHub's Free plan while private: about 2,000 Actions
-minutes a month on 2-core runners and 500 MB of package storage.
+The repository is public, so standard runners cost nothing.
 
-**`ci.yml`** runs on pull requests and by hand. Main changes only through
-merged pull requests whose commit sits on main's tip, so the pull request's
-run has tested what main becomes. A newer run cancels an older one on the
-same ref, and a change to only `design/`, `releases/`, root Markdown or
-`.claude/` runs nothing. Jobs:
+**`ci.yml`** runs on every pull request, a documentation-only one too, and by
+hand. A newer run cancels an older one on the same ref. Jobs:
 
 - `web`: npm ci, typecheck, Vite build, lint and unit tests; it passes
   `web/dist` to the Go jobs, since Go embeds it.
 - `checks`: gofmt and generated code, schema ownership, vet, staticcheck,
   the lint rules and their fixtures, the shape rules and the scripts' tests,
-  exec, sqlnow, reachability, govulncheck and the gate
-  runner's own test. The pinned analyzers are cached by the Makefile.
+  exec, sqlnow, reachability, the heavy runner's test, govulncheck and the
+  gate runner's own test. The pinned analyzers are cached by the Makefile.
 - `test`, four parts: the root package's two halves, the rest of
   `internal/forge`, and every other package. The database tests use the
   harness's own disposable PostgreSQL container (`internal/dbtest`), as a
   local `make check` does.
+- `public`: the public gate (`make check-public`, `scripts/public-check.py`):
+  the committed tree has nothing under `private/` and none of the
+  maintainers' root files, names none of their home-lab hosts (listed in
+  `scripts/public-check-names.txt` as hashes, so the list does not publish
+  them; a hash of an address is easy to reverse, and the point is only not
+  to advertise them), and gitleaks, pinned by version and SHA-256, finds no
+  secret.
+- `sql-writes`: the semgrep rule against silently discarded database writes
+  (`make check-sql`).
+- `ci-ok`: passes only when every job above succeeded; a failed, cancelled
+  or skipped job fails it. It is the one required check, so its `needs:`
+  list names every job, and a job added to `ci.yml` is added there too.
 
-Not on GitHub: the Docker integration, journey and opt-in tiers, the race
-detector and the semgrep SQL rule. Run them locally
-([testing](../architecture/testing.md) has each tier's command).
+**`heavy.yml`** runs the Docker integration tier, the journeys, the opt-in
+browser, pi and inference_docker tests (each must pass; a skip fails the
+job) and the race detector ([testing](../architecture/testing.md)). It runs
+on every push to `main`, so each merged commit gets its own result, on a
+pull request that carries the `heavy` label, and by hand on any branch or
+tag. It is not required for merging: a red run on `main` is fixed by the
+next change. The heavy tiers take from a few minutes (journeys) to about
+an hour (integration, at its limit).
 
-**`images.yml`** runs on a tag `v*` only. Every tag pushes each image to
+**`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`,
+asks the API for a successful `heavy.yml` run (on `main` or by hand) on the
+tagged commit and builds nothing without one: a red, missing or unreadable
+result is not evidence. Run `heavy.yml` on the tag by hand when its `main`
+run is missing, then re-run the workflow. Every tag pushes each image to
 GHCR by digest with BuildKit's provenance (`mode=max`) and SBOM attached,
 joined into one tag per version (`1.0.0`; also `1.0` and `latest` for a
 release that is not a pre-release). Each image is built natively on amd64

@@ -26,17 +26,22 @@ How a Flokkit release is made, in order. The release script is
 3. **The tour.** Run `make tour` and commit `site/tour`: the UI tour's
    screenshots, made from a small example team's AppTown (`site/tour/tour.yaml`
    lists the stops). It needs Playwright with Chromium
-   (`private/scripts/nightly-tiers.sh prepare`, or `APPTOWN_PLAYWRIGHT_MODULE`), and
+   (the version `deploy/ci-heavy/Dockerfile` pins, named by
+   `APPTOWN_PLAYWRIGHT_MODULE`), and
    compresses the shots when `oxipng` is installed. Look at the shots before
    committing them.
-4. **The tag.** `git tag -a v<version>` on that commit.
+4. **The tag.** `git tag -a v<version>` on that commit, once it is on
+   `main` (the notes and the tour land by their pull requests first), and
+   push the tag. Its images and archives are built only when `heavy.yml`
+   succeeded on that commit ([GitHub](github.md)); wait for that run, or
+   start one by hand, before pushing the tag.
 5. **The build.** `sh scripts/release.sh <version>` from a clean checkout at
    the tag. It refuses to build when the tour is older than the sources it
    shows (`site/tour/stamp.json`), checks the notes, runs the upgrade test again and writes the
    archives, `SHA256SUMS` and `RELEASE-NOTES.md` (the notes and the build's
    facts) under `dist/release/v<version>/`.
 6. **Freeze the release's AppTown** for the releases after it, at the tag, and
-   commit the result on main:
+   land the result on main by its own pull request:
    `go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>`.
    Before publishing, `sh scripts/stranger-install.sh <archive>` installs the
    archive in a fresh container, inside a
@@ -49,7 +54,6 @@ How a Flokkit release is made, in order. The release script is
 7. **Publish** the archives. This is a separate step: where they go is
    decided per release. The site, apptown.dev with its tour, is published by
    the release workflow's `site` job (design/operations/github.md).
-
 
 ## While a release candidate runs in production
 

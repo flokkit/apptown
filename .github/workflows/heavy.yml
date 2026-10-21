@@ -1,0 +1,113 @@
+# The heavy tiers (design/architecture/testing.md): the Docker integration
+# tier, the journeys, the opt-in browser, pi and inference_docker tiers, and
+# the race detector.
+#
+# They run on every push to main, so each landed commit gets its own result,
+# and a release tag's images are built only for a commit with a successful
+# run (images.yml, heavy-evidence). A red run does not block merging; the
+# next change fixes it first. On a pull request they run when it carries the
+# `heavy` label, and any branch can be run by hand.
+#
+# integration, journeys and opt-in-tiers run go test as root in the
+# apptown-ci-heavy image beside the runner's Docker daemon
+# (scripts/ci-heavy.sh, deploy/ci-heavy/Dockerfile); race runs on the runner
+# as its ordinary user, as make check does, because root reads files whatever
+# their mode and the permission-refusal tests would fail.
+name: heavy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+# A pull request's newer run replaces its older one. Main's runs are each
+# kept: every landed commit needs its own result.
+concurrency:
+  group: heavy-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  GOFLAGS: -buildvcs=false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  web:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'heavy')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+      - run: npx vite build
+        working-directory: web
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+          retention-days: 1
+          include-hidden-files: true
+
+  tier:
+    needs: web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: integration
+            args: -tags=integration ./internal/... -run '^TestIntegration' -count=1 -timeout 60m -v
+            require: ""
+          # The era-upgrade suite is not part of this run: it was retired
+          # with the SQLite format (design/architecture/testing-map.md §5).
+          - name: journeys
+            args: -tags=journey ./internal/forge/ -run TestJourney -count=1 -timeout 30m -v
+            require: ""
+          # The test image carries Playwright's Chromium and the pinned Pi.
+          # A skip is not evidence: the job fails unless each test passed.
+          - name: opt-in-tiers
+            args: -tags=browser,pi,inference_docker ./internal/forge/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -count=1 -timeout 20m -v
+            require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary
+    name: ${{ matrix.name }}
+    env:
+      CI_HEAVY_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.name }}
+      CI_HEAVY_REQUIRE: ${{ matrix.require }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+      - name: go test (${{ matrix.name }})
+        run: eval "sh scripts/ci-heavy.sh test ${{ matrix.args }}"
+      - if: always()
+        run: sh scripts/ci-heavy.sh cleanup
+
+  race:
+    needs: web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+      - run: make check-race

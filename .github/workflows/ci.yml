@@ -1,20 +1,19 @@
-# Tests of the published tree (design/operations/github.md).
+# The required checks of every pull request (design/operations/github.md).
 #
-# What runs: make check's web stages, its Go checker stages and the Go unit
-# tests, split four ways by package. What does not: the Docker integration,
-# journey and opt-in tiers and the race detector. They need a Docker daemon
-# and images for 10 to 60 minutes each, and run in the development
-# repository's CI and local gates, not here, to keep within the free plan's
-# minutes. The tests' PostgreSQL is the harness's own disposable container
-# (internal/dbtest), as for a local `make check`.
+# What runs: make check's web stages, its Go checker stages, the public gate,
+# the SQL-write rule and the Go unit tests, split four ways by package. The
+# Docker integration, journey and opt-in tiers and the race detector are
+# heavy.yml's: on every push to main, and on a pull request by the `heavy`
+# label or by hand. The tests' PostgreSQL is the harness's own disposable
+# container (internal/dbtest), as for a local `make check`.
 name: ci
 
-# Main changes only through merged pull requests whose commit sits on main's
-# tip, so the pull request's run has tested exactly what main becomes; a push
-# run would test it twice.
+# Main changes only through merged pull requests that are up to date with it
+# (the ruleset's strict rule), so the pull request's run has tested exactly
+# what main becomes; a push run would test it twice. Every pull request runs
+# every job, a documentation-only one too, so ci-ok always reports.
 on:
   pull_request:
-    paths-ignore: ["design/**", "releases/**", "*.md", ".claude/**"]
   workflow_dispatch:
 
 concurrency:
@@ -89,7 +88,7 @@ jobs:
           python3 scripts/gate.py
           check-go-source check-vet check-staticcheck check-lint-test check-lint
           check-shape check-exec check-sqlnow check-reachability
-          check-vuln
+          check-ci-heavy check-vuln
       - run: make check-gate
 
   # The Go unit tests, partitioned: the root package's two halves (as the
@@ -120,3 +119,45 @@ jobs:
           forge) go list ./internal/forge/... | grep -vx "$root" | xargs go test -count=1 ;;
           rest) go list ./... | grep -vE "^$root(/|\$)" | xargs go test -count=1 ;;
           esac
+
+  # The public gate (scripts/public-check.py): HEAD's tree has no private
+  # path or maintainers' root file, names none of their home-lab hosts, and
+  # gitleaks (pinned by version and SHA-256) finds nothing.
+  public:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          curl -fsSL -o /tmp/gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin" && tar -xzf /tmp/gitleaks.tgz -C "$HOME/.local/bin" gitleaks
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: make check-public
+
+  # The silent-DB-write rule (semgrep), as make precheck runs it.
+  sql-writes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: make check-sql
+
+  # The one required check (the main ruleset): it passes only when every job
+  # above succeeded, so a job added or renamed here cannot drop out of what
+  # a merge needs. It runs even when a job failed or was skipped, and then
+  # fails: skipped is not passed.
+  ci-ok:
+    if: always()
+    needs: [web, checks, test, public, sql-writes]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do [ "$r" = success ] || { echo "::error::a required job did not succeed ($r)"; exit 1; }; done

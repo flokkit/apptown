@@ -40,7 +40,6 @@ the unit tier under the race detector; the goroutine-heavy engine, chat and
 preview state earn it. It is slower than the unit tier, and `make check`
 does not run it; run it before changing concurrent code.
 
-
 **Integration** — `go test -tags=integration ./internal/... -run
 '^TestIntegration' -v`. Real containers through the production code paths:
 the static, build and service-backed preview boots, the deploy and boot
@@ -66,7 +65,6 @@ way a person or agent uses AppTown, with the fake pi as every agent
 the other tiers do not. Each has its own build tag. `pi` skips, saying
 why, when `APPTOWN_PI_MODULE` is unset, so read its `-v` output rather than
 trusting a pass; the other two fail without their prerequisites.
-
 
 - `browser` (`go test -tags=browser ./internal/forge/ -run
   TestBrowserSecurityChromium -v`): a real Chromium against
@@ -132,18 +130,39 @@ service, never a mock.
   be the demotion rather than the code, without changing its result. The
   remedy is to leave the game or take it out of full screen. CI's Linux jobs
   have no such band and skip the check.
-- The public repository's CI is `.github/workflows/ci.yml`, on GitHub
-  Actions, for every push to `main` and every pull request that changes
-  code. Its `web` job runs make check's web stages (`npm ci`, `tsc
-  --noEmit`, the Vite build, lint and vitest) and keeps the build; `checks`
-  runs make check's checker stages over that build (source formatting,
-  vet, staticcheck, the lint, shape, exec, SQL-clock, reachability and
-  public-export checks, and govulncheck), then `make check-gate`; `test`
-  runs the unit tier in four parts (the root package's two halves, the
-  rest of `internal/forge`, and everything else) with the harness's own
-  test PostgreSQL container. It does not run the race, integration,
-  journey or opt-in tiers, which need a Docker daemon and images for 10 to
-  60 minutes each; run those locally with the commands above.
+- CI is GitHub Actions. `.github/workflows/ci.yml` runs on every pull
+  request, documentation-only ones too, and its `ci-ok` job is the check
+  `main` requires: it passes only when every other job succeeded. `web` runs
+  make check's web stages (`npm ci`, `tsc --noEmit`, the Vite build, lint
+  and vitest) and keeps the build; `checks` runs make check's checker stages
+  over that build (source formatting, vet, staticcheck, the lint, shape,
+  exec, SQL-clock and reachability checks, the heavy runner's test, and
+  govulncheck), then `make check-gate`; `test` runs the unit tier in four
+  parts (the root package's two halves, the rest of `internal/forge`, and
+  everything else) with the harness's own test PostgreSQL container;
+  `public` runs the public gate (`make check-public`) and `sql-writes`
+  `make check-sql`.
+- `.github/workflows/heavy.yml` runs the integration, journey and opt-in
+  tiers and the race tier on every push to `main`, so each merged commit
+  has its own result, and on a pull request labelled `heavy` or by hand. A
+  red result does not block merging; the next change fixes it first. A
+  release tag's images and archives are built only for a commit with a
+  successful run (`images.yml`, `heavy-evidence`). The integration, journey
+  and opt-in jobs run `scripts/ci-heavy.sh`: it builds the `apptown-agent`
+  image from the checkout and the test image (`deploy/ci-heavy`: Go, Node,
+  the pinned Docker CLI, Playwright's Chromium and the Pi the agent image
+  pins), then runs `go test` in it as root, on the runner's network and
+  daemon, with the checkout (read-only) and a per-job temporary folder
+  mounted at their host paths. Root, because the containers AppTown starts
+  run as root and write into the folders it bind-mounts: a test run as the
+  runner's own user cannot read or remove what they leave, as a worker run
+  as an ordinary user could not (`design/operations/workers.md`). Docker
+  Desktop on a Mac hides this by giving such files the developer's
+  ownership. The opt-in job fails unless each of its three tests passed: a
+  skip there is a failure (`CI_HEAVY_REQUIRE` in `scripts/ci-heavy.sh`,
+  held by `make check-ci-heavy`). The race job runs `make check-race` as
+  the runner's ordinary user, since root opens files whatever their mode and
+  the permission-refusal tests would fail.
 - `make check-sql` and `make check-vuln` exist for ignored database writes
   and `govulncheck`.
 

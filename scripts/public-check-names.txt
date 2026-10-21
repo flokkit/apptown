@@ -1,0 +1,7 @@
+# The SHA-256 of each home-lab host name, domain and address the public tree
+# must never name (scripts/public-check.py). Hashes, so this file does not
+# publish them. The plain list is the maintainers' (private/scripts/home-names.txt);
+# python3 scripts/public-check.py --hash <name> prints a line for here.
+760e04a336739ef39a9ce859b4c59ffa4628d50e1b8525cc0c539afab22005e8
+c5cf83e268793b69acbdc1e5562fdb0f5e446f8b4eb1ad7290c835a3c031940a
+f966149e8a981beeff611313221e76c6077713c891f8b19db80e8a738887a3a9

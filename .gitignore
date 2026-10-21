@@ -21,6 +21,6 @@ node_modules/
 presso*
 /apptown-worker
 
-# DigitalOcean demo: keys, certificates, tokens and built binaries (scripts/do-demo)
-private/scripts/do-demo/.state/
+# The maintainers' private repository, checked out here (CLAUDE.md).
+/private/
 /dist/

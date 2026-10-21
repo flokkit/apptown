@@ -33,7 +33,6 @@ procedures.
 | Export telemetry and import dashboards | [Telemetry](../subsystems/telemetry.md), [AppTown dashboard](../../stock/observability/README.md) |
 | Change the database representation | [Schema ownership](../architecture/schema-ownership.md) |
 
-
 `cmd/apptownd/main.go` defines the daemon flags. `-db-url` / `APPTOWN_DB_URL` selects
 PostgreSQL; absent that setting the daemon starts its built-in database container.
 `-verify-only` is the read-serving verification mode, without recovery, workers
@@ -66,7 +65,6 @@ It does not change the account's role, and does not re-enable a disabled
 account. It cannot run with `-verify-only` or `-drain-local-docker`. Remove
 `APPTOWN_RESET_PASSWORD` from the environment afterwards if you set it there:
 while it is set, apptownd resets and exits instead of serving.
-
 
 ## Tokens made before purposes
 
@@ -101,4 +99,3 @@ running as recorded → deployed; gone → failed; host unreachable → still
 uncertain, so make the host reachable and press it again. Each press is in the
 ledger as `deployment.checked-again`. Do not edit the records by hand. See
 [uncertain outcomes and restart](../subsystems/deployment.md#uncertain-outcomes-and-restart).
-
