@@ -4,34 +4,28 @@ tags: deploy,integration,static,platform
 tier: platform
 checks: [{"name": "page-loads-browser-values", "expects": "a static app whose page AppTown gives values (an attached integration's public key or address) is served exactly those at /_apptown/env.js, and its HTML loads that file in <head> before any other script", "severity": "high", "evaluator": "runtime", "probe": "browser-env", "title": "Load the values AppTown gives the page"}]
 ---
-A static site cannot read environment variables: the files are served as
-they are. When the project is attached to a service a page can use (error
-reporting, a feedback widget), AppTown serves the values that are safe for
-any visitor to read at `/_apptown/env.js`, as `window.__APPTOWN_ENV__`. Secrets
-are never there.
+A static page cannot read environment variables. When the project is attached
+to a service a page uses (error reporting, a feedback widget), AppTown serves
+the values safe for any visitor at `/_apptown/env.js`, as
+`window.__APPTOWN_ENV__`. Secrets are never there.
 
-Load it exactly like this, as the first script in the page's `<head>`,
-before any other script, inline or not:
+Load it as the first script in `<head>`, before any other script, exactly:
 
     <head>
       <script src="/_apptown/env.js"></script>
       <script src="game.js"></script>
     </head>
 
-Write the path exactly `/_apptown/env.js`. Give that tag no attribute but
-`src` (a CSP `nonce` is fine): no `async`, `defer`, `nomodule`,
-`integrity`, `type` or `language`. Do not use
-`<base href>` in the page. AppTown checks this against the running
-preview; anything else is refused even where a browser might cope, because
-the check cannot tell which arrangements a browser would run. Data blocks
-such as `<script type="application/json">` may come before it.
+The path is exactly `/_apptown/env.js`; the tag has no attribute but `src` (a
+CSP `nonce` is fine): no `async`, `defer`, `nomodule`, `integrity`, `type` or
+`language`. No `<base href>` in the page. Data blocks such as
+`<script type="application/json">` may come before it.
 
-Read from it with a fallback, so the page works unchanged with nothing
-attached, in local development and from `file://`:
+Read it with a fallback, so the page works with nothing attached, locally and
+from `file://`:
 
     const env = window.__APPTOWN_ENV__ || {};
     if (env.SENTRY_DSN) { /* start error reporting */ }
 
-Never copy a value from it into the code: each deployment gets its own, and
-`/_apptown/` is AppTown's path, not the app's. A server app reads the same
-values from its environment instead.
+Never copy a value from it into code. A server app reads the same values from
+its environment.
