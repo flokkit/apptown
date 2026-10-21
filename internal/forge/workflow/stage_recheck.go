@@ -12,8 +12,9 @@ import (
 )
 
 // errNothingToRecheck refuses a re-run of a stage whose recorded checks are
-// complete: its steps can be retried one by one instead.
-var errNothingToRecheck = fault.New(fault.Conflict, "this stage is not missing any evidence; retry a single step instead")
+// complete: a failed step is run again on its own, and a landing's failed
+// gates all at once (RecheckLanding).
+var errNothingToRecheck = fault.New(fault.Conflict, "this stage is not missing any evidence: run a failed step again with apptown run-step <step-id>, or a landing's failed gates with apptown recheck <change-id>")
 
 // errRecheckNotRunning refuses a re-run of a stage of a run that has ended.
 var errRecheckNotRunning = fault.New(fault.Conflict, "only a running run's stage can have its checks run again")

@@ -501,3 +501,55 @@ func TestEveryContainerTheForgeStartsIsBounded(t *testing.T) {
 		t.Fatalf("given: runner %+v, tasks %+v, chats %+v", b.processRunner.Limits, b.tasks.Profile.Limits, b.cfg.chatLimits)
 	}
 }
+
+// hostInfoDocker answers docker info as a daemon with cpus CPUs, and nothing else.
+type hostInfoDocker struct{ cpus string }
+
+func (d hostInfoDocker) Run(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+	if len(req.Args) > 0 && req.Args[0] == "info" {
+		return []byte("4294967296\t" + d.cpus + "\t/var/lib/docker\n"), nil
+	}
+	return nil, errors.New("unexpected docker call")
+}
+
+// Steps and chats on AppTown's own Docker never ask for more CPUs than its
+// host has: Docker refuses such a container, so the default 4 on a 2-CPU
+// server refused every scan (one-server test, 22 Oct). A limit within the
+// host is kept, and steps on a worker are the worker's host's, not this
+// one's.
+//
+// Kills: the task limit passed to Docker as configured whatever the host.
+func TestStepLimitsFitTheDockerHostsCPUs(t *testing.T) {
+	t.Parallel()
+	small := Config{DockerClient: hostInfoDocker{"2"}}
+	small.FitLimitsToHost(t.Context())
+	if small.TaskLimits.CPUs != 2 || small.ChatLimits != (execution.Limits{}) {
+		t.Fatalf("on a 2-CPU host: steps %v CPUs, chats %+v (their default 2 fits)", small.TaskLimits.CPUs, small.ChatLimits)
+	}
+	tiny := Config{DockerClient: hostInfoDocker{"1"}}
+	tiny.FitLimitsToHost(t.Context())
+	if tiny.TaskLimits.CPUs != 1 || tiny.ChatLimits.CPUs != 1 {
+		t.Fatalf("on a 1-CPU host: steps %v, chats %v CPUs", tiny.TaskLimits.CPUs, tiny.ChatLimits.CPUs)
+	}
+	if small.TaskLimits.MemoryBytes != execution.DefaultTaskLimits.MemoryBytes {
+		t.Fatalf("fitting the CPUs changed the memory limit: %+v", small.TaskLimits)
+	}
+
+	explicit := Config{DockerClient: hostInfoDocker{"8"}, TaskLimits: execution.Limits{CPUs: 3, MemoryBytes: 1 << 30, PIDs: 10}}
+	explicit.FitLimitsToHost(t.Context())
+	if explicit.TaskLimits.CPUs != 3 {
+		t.Fatalf("a limit within the host was changed: %+v", explicit.TaskLimits)
+	}
+
+	onWorker := Config{DockerClient: hostInfoDocker{"1"}, Worker: &WorkerConfig{URL: "https://worker:8443"}}
+	onWorker.FitLimitsToHost(t.Context())
+	if onWorker.TaskLimits != (execution.Limits{}) {
+		t.Fatalf("steps on a worker were fitted to this host: %+v", onWorker.TaskLimits)
+	}
+
+	unread := Config{DockerClient: hostInfoDocker{"not a number"}}
+	unread.FitLimitsToHost(t.Context())
+	if unread.TaskLimits != (execution.Limits{}) {
+		t.Fatalf("a host that could not be read changed the limits: %+v", unread.TaskLimits)
+	}
+}

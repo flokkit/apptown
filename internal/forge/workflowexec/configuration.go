@@ -3,6 +3,7 @@ package workflowexec
 import (
 	"flokkit.io/forge/internal/execution"
 
+	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/forge/workflow"
 	"flokkit.io/forge/internal/forge/wow"
 )
@@ -12,12 +13,26 @@ type agentKnobs struct {
 	useDind                          bool
 }
 
+// agentModelRequest is the model an agent step asks for, before slot
+// resolution: the step's own, else the workflow's default; the definition's
+// catalog pin wins over both (an owner decision: the pin is part of the
+// evaluated definition). Run admission asks the same (ModelRefusal).
+func agentModelRequest(stepModel string, spec *schema.Spec, inputsJSON string) string {
+	model := stepModel
+	if model == "" && spec != nil {
+		model = spec.Defaults.Model
+	}
+	if ck := wow.CatalogKnobs(inputsJSON); ck != nil && ck.Model != "" {
+		model = ck.Model
+	}
+	return model
+}
+
 func (a *Executor) resolveAgentKnobs(run *workflow.Run, cfg *agentConfig) agentKnobs {
-	k := agentKnobs{model: cfg.Model, thinking: cfg.Thinking, executor: cfg.Executor, image: cfg.Image}
-	if spec, _ := run.Definition(); spec != nil {
-		if k.model == "" {
-			k.model = spec.Defaults.Model
-		}
+	k := agentKnobs{thinking: cfg.Thinking, executor: cfg.Executor, image: cfg.Image}
+	spec, _ := run.Definition()
+	k.model = agentModelRequest(cfg.Model, spec, run.InputsJSON)
+	if spec != nil {
 		if k.thinking == "" {
 			k.thinking = spec.Defaults.Thinking
 		}
@@ -28,14 +43,10 @@ func (a *Executor) resolveAgentKnobs(run *workflow.Run, cfg *agentConfig) agentK
 			k.image = spec.Defaults.Image
 		}
 	}
-	// Change-catalog knobs (design/decisions/change-catalog.md): the definition's
-	// model pin WINS over step config, workflow defaults, and project slots
-	// (an owner decision: the pin is part of the evaluated definition). Thinking
-	// and timeout are the whitelisted effort knobs; gates are untouchable.
+	// Change-catalog knobs (design/decisions/change-catalog.md): besides the
+	// model pin (agentModelRequest), thinking and timeout are the whitelisted
+	// effort knobs; gates are untouchable.
 	if ck := wow.CatalogKnobs(run.InputsJSON); ck != nil {
-		if ck.Model != "" {
-			k.model = ck.Model
-		}
 		if ck.Thinking != "" {
 			k.thinking = ck.Thinking
 		}

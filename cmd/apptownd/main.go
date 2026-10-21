@@ -106,7 +106,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.trustedProxies, "trusted-proxies", "", "comma-separated CIDRs of reverse proxies whose X-Real-IP/X-Forwarded-For name the caller (loopback and this host's own addresses are always trusted)")
 	fs.StringVar(&o.consoleCLI, "console-cli", "", "Linux apptown CLI artifact for containers (default: apptown-linux beside apptownd)")
 	fs.BoolVar(&o.hostScripts, "host-scripts", false, "experimental, for development: let a script step with executor: local run as a process on this host; off, a project's script runs only in a container")
-	fs.Float64Var(&o.taskCPUs, "task-cpus", execution.DefaultTaskLimits.CPUs, "CPUs for each step, check or task container, here or on the worker")
+	fs.Float64Var(&o.taskCPUs, "task-cpus", execution.DefaultTaskLimits.CPUs, "CPUs for each step, check or task container, here or on the worker (here, at most the CPUs this host's Docker has)")
 	fs.Int64Var(&o.taskMemoryMiB, "task-memory-mib", execution.DefaultTaskLimits.MemoryBytes>>20, "memory, swap included, in MiB, for each step, check or task container")
 	fs.Int64Var(&o.taskPIDs, "task-pids", execution.DefaultTaskLimits.PIDs, "processes for each step, check or task container")
 	fs.Float64Var(&o.chatCPUs, "chat-cpus", execution.DefaultChatLimits.CPUs, "CPUs for each chat's container on this host (a worker has its own -chat-cpus)")
@@ -241,6 +241,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
+	cfg.FitLimitsToHost(ctx)
 	app, err := forge.New(ctx, db, cfg)
 	if err != nil {
 		log.Fatal(err)

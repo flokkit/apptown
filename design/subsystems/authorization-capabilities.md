@@ -84,7 +84,10 @@ project's address reveals nothing about it.
   still constrain everyone else.
 - A token exercises root only when its ceiling permits it and its owner still
   holds root. OAuth and instrument bounds apply before root. Long-lived callers
-  re-read grants.
+  re-read grants. A command-line token made with no role takes its person's
+  role at that moment as its ceiling; an agent token's is member. A refusal
+  that the ceiling alone caused says so, so an administrator is not sent to
+  an administrator.
 - Initial setup creates authority explicitly. An empty administrator set grants
   nothing and never turns an absent caller into system work.
 - A missing caller or missing provenance is an authentication failure, never a

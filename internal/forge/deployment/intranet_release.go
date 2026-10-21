@@ -2,12 +2,14 @@ package deployment
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
 
+	"flokkit.io/forge/internal/fault"
 	"flokkit.io/forge/internal/ids"
 
 	"flokkit.io/forge/internal/database"
@@ -23,6 +25,11 @@ import (
 )
 
 const IntranetTargetName = "intranet"
+
+// ErrNoIntranet is a release to the intranet on an AppTown that records no
+// intranet target: one server's AppTown has none, and its landings deploy
+// main.
+var ErrNoIntranet = fault.New(fault.Conflict, "this AppTown has no intranet target: each landing deploys main; to release to another deployment, name it: apptown release <project> <deployment>")
 
 // relLog appends a timestamped line to a release's log — the permalink's
 // "what happened" record (a release should read like a log, not a
@@ -41,8 +48,11 @@ func (s *Service) relLog(relID ids.ID, format string, args ...any) {
 // recorded or names no domain.
 func (s *Service) IntranetConfig(ctx context.Context) (*portainer.Target, error) {
 	intranet, err := s.Targets.ByName(ctx, IntranetTargetName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNoIntranet
+	}
 	if err != nil {
-		return nil, fmt.Errorf("the intranet target is not recorded: %w", err)
+		return nil, fmt.Errorf("reading the intranet target: %w", err)
 	}
 	cfg, err := s.providers.PortainerConfig(ctx, intranet)
 	if err != nil {

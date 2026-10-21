@@ -124,16 +124,20 @@ func (h ConsoleChanges) ConsoleRecheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rechecked, err := h.work.RecheckLanding(conversation.Context(r.Context(), s), workflow.LandingRecheck{ChangeID: conversation.Of(s).ChangeID})
-	rerun := rechecked.Names
 	if err != nil {
 		WriteError(w, 422, "%v", err)
 		return
 	}
+	WriteJSON(w, 200, recheckStarted(rechecked))
+}
+
+// recheckStarted is a landing recheck's answer, from a chat or the change.
+func recheckStarted(rechecked workflow.LandingRechecked) RecheckStarted {
 	msg := "nothing to recheck — no failed gate on this change's landing"
-	if len(rerun) > 0 {
-		msg = fmt.Sprintf("re-running %d failed gate(s): %s — watch with apptown status", len(rerun), strings.Join(rerun, ", "))
+	if len(rechecked.Names) > 0 {
+		msg = fmt.Sprintf("re-running %d failed gate(s): %s — watch with apptown status", len(rechecked.Names), strings.Join(rechecked.Names, ", "))
 	}
-	WriteJSON(w, 200, RecheckStarted{Rerun: rerun, Message: msg})
+	return RecheckStarted{RunID: rechecked.RunID, Rerun: rechecked.Names, Message: msg}
 }
 
 // The chat's own-change responses.
@@ -158,6 +162,8 @@ type (
 	}
 	// RecheckStarted names the failed gates being run again.
 	RecheckStarted struct {
+		// RunID is the landing whose gates run again.
+		RunID   ids.ID   `json:"runId"`
 		Rerun   []string `json:"rerun"`
 		Message string   `json:"message"`
 	}

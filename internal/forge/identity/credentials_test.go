@@ -166,3 +166,48 @@ func TestRecordDecision(t *testing.T) {
 		t.Fatalf("an allowance leaves no ledger line: %+v", denied)
 	}
 }
+
+// A command-line token made with no role carries its person's own role as
+// it is made, so the guide's "acts as you" holds for an administrator; an
+// agent token stays member, and a role asked for is kept. The person is the
+// token's, not the issuer's: an administrator's token for a member is a
+// member's, and stays one when that member is promoted later.
+//
+// Kills: the member default, which gave the first administrator's CLI token
+// no administrator authority (one-server test, 22 Oct).
+func TestATokensDefaultCeilingIsItsPersonsRoleWhenMade(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	testAccounts(t, db, "alice", "ops")
+	svc := New(db, Config{OpenInstance: true})
+	testGrantRoot(t, svc, "ops")
+	ops := testOpenPrincipal("ops")
+	issue := func(name, user, role, purpose string) string {
+		t.Helper()
+		issued, err := svc.IssueToken(context.Background(), NewToken{Name: name, User: user, Role: role, Purpose: purpose}, ops)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return issued.Token.Role
+	}
+	for _, c := range []struct{ name, user, role, purpose, want string }{
+		{"ops-cli", "", "", access.TokenCLI, "admin"},
+		{"ops-agent", "", "", access.TokenAgent, "member"},
+		{"ops-narrow", "", "member", access.TokenCLI, "member"},
+		{"alice-cli", "alice", "", access.TokenCLI, "member"},
+	} {
+		if got := issue(c.name, c.user, c.role, c.purpose); got != c.want {
+			t.Errorf("%s: ceiling %q, want %q", c.name, got, c.want)
+		}
+	}
+	testGrantRoot(t, svc, "alice")
+	all, err := svc.Tokens(context.Background(), ops)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tok := range all {
+		if tok.Name == "alice-cli" && tok.Role != "member" {
+			t.Fatalf("promoting alice widened her earlier token: %+v", tok)
+		}
+	}
+}

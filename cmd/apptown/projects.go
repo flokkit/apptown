@@ -603,7 +603,7 @@ func cmdToken(args []string) error {
 	case "create":
 		fs := newFlags("token create")
 		u := fs.String("u", "", "token acts as this user (default: you)")
-		role := fs.String("r", "member", "member | admin")
+		role := fs.String("r", "", "member | admin (default: a cli token gets its person's own role, an agent token member)")
 		purpose := fs.String("purpose", "", "cli (your own command line; acts as you) | agent (a coding agent's MCP connection; may not approve, land or administer)")
 		pos := parseArgs(fs, args[1:])
 		if len(pos) < 1 || pos[0] == "" || *purpose == "" {

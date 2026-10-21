@@ -362,6 +362,32 @@ func TestARunKilledForMemoryIsNoAnswer(t *testing.T) {
 	}
 }
 
+// A run Docker refused to make (exit 125, and no container afterwards) did
+// not start, and says why in Docker's own words; a container that ran and
+// exited 125 is its command's answer.
+//
+// Kills: the refusal read as a failed inspect, whose "no such object" hid
+// "range of CPUs is from 0.01 to 2.00" (one-server test, 22 Oct).
+func TestARunDockerRefusedSaysDockersReason(t *testing.T) {
+	t.Parallel()
+	run := func(inspect string) Outcome {
+		t.Helper()
+		fake := filepath.Join(t.TempDir(), "docker")
+		script := "#!/bin/sh\ncase \"$1\" in\nrun) echo 'docker: Error response from daemon: range of CPUs is from 0.01 to 2.00, as there are only 2 CPUs available' >&2; echo \"Run 'docker run --help' for more information\" >&2; exit 125;;\ninspect) " + inspect + ";;\nesac\nexit 0\n"
+		writeFakeDocker(t, fake, script)
+		return (Runner{DockerBinary: fake, Limits: Limits{CPUs: 4}}).Run(context.Background(), Docker,
+			Request{Argv: []string{"osv-scanner"}, Image: "osv:test", Name: "scan-1", Timeout: time.Minute})
+	}
+	out := run("echo 'Error: No such object: scan-1' >&2; exit 1")
+	if out.Termination != LaunchFailed || out.Answered() || out.CleanupErr != nil || out.RunErr == nil ||
+		!strings.Contains(out.RunErr.Error(), "range of CPUs is from 0.01 to 2.00") {
+		t.Fatalf("a refused run: %+v", out)
+	}
+	if out := run("echo false"); !out.Answered() || out.ExitCode != 125 {
+		t.Fatalf("a container that exited 125: %+v", out)
+	}
+}
+
 // writeFakeDocker writes a local stand-in for the docker CLI: these tests'
 // guarantee is the process boundary itself (an exit code, what inspect
 // answers, cleanup after cancellation). No Docker daemon is used.

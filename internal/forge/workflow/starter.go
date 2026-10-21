@@ -10,6 +10,7 @@ import (
 	"flokkit.io/forge/internal/ids"
 
 	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/fault"
 	"flokkit.io/forge/internal/forge/schema"
 )
 
@@ -28,6 +29,9 @@ type startRuntime struct {
 	Source    func(context.Context, StartRequest) (StartSource, error)    // what the request starts from: its change, adoption, superseded runs
 	Supersede func(context.Context, RunRef, string) error                 // a failed landing the new run replaces
 	Missing   func(context.Context, ids.ID, *schema.Spec) (string, error) // an artifact the workflow needs and the project lacks
+	// NoModel says why a model step of the workflow would have no model
+	// (Dependencies.ModelRefusal); nil admits every definition.
+	NoModel   func(ctx context.Context, projectID ids.ID, spec *schema.Spec, inputsJSON string) string
 	Resolve   func(context.Context, StartRequest, StartSource) (PreparedRun, error)
 	Assent    func(context.Context, StartRequest, string) error // landing authority for an effect no approval precedes (assent.go)
 	LandingBy func(context.Context, StartRequest) string        // who admits the run holding change:land, "" when nobody
@@ -135,6 +139,13 @@ func (s *starter) definition(ctx context.Context, req StartRequest, source Start
 		}
 		if missing != "" {
 			return PreparedRun{}, fmt.Errorf("workflow %q needs a %q artifact and this project has none yet — accept one first (product-spec produces spec-final), then invoke again", req.WorkflowName, missing)
+		}
+	}
+	// A called workflow is asked too: its model steps need a model as much
+	// as its caller's do.
+	if s.runtime.NoModel != nil {
+		if why := s.runtime.NoModel(ctx, req.ProjectID, &def.Spec, req.InputsJSON); why != "" {
+			return PreparedRun{}, fault.Wrap(fault.Unprocessable, errors.New(why))
 		}
 	}
 	if !req.AcceptedRunID.IsZero() && (!req.ParentRunID.IsZero() || def.Spec.Role != "landing") {

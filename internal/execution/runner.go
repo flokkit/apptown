@@ -246,6 +246,15 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 				out.RunErr = fmt.Errorf("the container ran out of memory at its limit of %d MiB", r.limitsFor(req).MemoryBytes>>20)
 			case "false":
 			default:
+				if out.ExitCode == dockerRefused && noSuchContainer(string(answer)) {
+					// docker run exited 125 and no container exists: the
+					// daemon refused to make it (a CPU limit above the
+					// host's, a bad flag). The run never started, and
+					// Docker's own words say why.
+					out.Termination, out.ExitCode = LaunchFailed, -1
+					out.RunErr = fmt.Errorf("Docker refused to start the container: %s", dockerRefusal(out.Output))
+					break
+				}
 				out.CleanupErr = fmt.Errorf("reading how container %s ended: %v: %s", req.Name, err, strings.TrimSpace(string(answer)))
 			}
 		}
@@ -258,6 +267,25 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		}
 	}
 	return out
+}
+
+// dockerRefused is docker run's own exit when the daemon refuses a run; a
+// container that ran and exited 125 is told apart by existing afterwards.
+const dockerRefused = 125
+
+// dockerRefusal is the Docker client's sentence in a refused run's output:
+// its "docker:" line, or the last line when it printed none.
+func dockerRefusal(output []byte) string {
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		if line = strings.TrimSpace(line); strings.HasPrefix(line, "docker:") {
+			return line
+		}
+	}
+	if last := strings.TrimSpace(lines[len(lines)-1]); last != "" {
+		return last
+	}
+	return "it said nothing"
 }
 
 // limitsFor is the request's own limits, or the runner's.

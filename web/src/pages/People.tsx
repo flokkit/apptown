@@ -159,14 +159,14 @@ const tokenPurposes: Record<string, string> = {
   cli: 'command line: acts as its person',
   agent: 'coding agent: may not approve, land or administer',
 }
-function TokensCard() {
+export function TokensCard() {
   const tokensQ = useGet<TokenList>('/tokens')
   const usersQ = useGet<UserList>('/users')
   const tokens = tokensQ.data?.tokens ?? []
   const names = (usersQ.data?.users ?? []).map(u => u.username)
   const [name, setName] = useState('')
   const [actsAs, setActsAs] = useState('')
-  const [role, setRole] = useState('member')
+  const [role, setRole] = useState('')
   const [purpose, setPurpose] = useState('')
   const [minted, setMinted] = useState('')
   const { run, err } = useAction()
@@ -201,7 +201,8 @@ function TokensCard() {
           <option value="">acts as you</option>
           {names.map(n => <option key={n} value={n}>acts as {n}</option>)}
         </select>
-        <select value={role} onChange={e => setRole(e.target.value)}>
+        <select value={role} onChange={e => setRole(e.target.value)} title="the most the token may do: a command-line token takes its person's own role unless narrowed; an agent token is a member's">
+          <option value="">their own role</option>
           <option value="member">member</option>
           <option value="admin">admin</option>
         </select>
@@ -210,7 +211,7 @@ function TokensCard() {
           {Object.entries(tokenPurposes).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <button className="primary" disabled={!name || !purpose} onClick={async () => {
-          const r = await run(() => post<IssuedToken>('/tokens', { name, role, purpose, ...(actsAs ? { user: actsAs } : {}) }))
+          const r = await run(() => post<IssuedToken>('/tokens', { name, purpose, ...(role ? { role } : {}), ...(actsAs ? { user: actsAs } : {}) }))
           if (r) { setMinted(r.token); setName(''); setPurpose('') }
         }}>Mint token</button>
       </div>

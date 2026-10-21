@@ -299,8 +299,8 @@ func TestEveryMutatingRouteRefusesWhatItsRuleDoesNotGrant(t *testing.T) {
 // by the route that needs it and refused by the one that needs the other.
 //
 // Kills: distill gated by change:attach-evidence (its owner publishes a
-// narrative), and a chat's recheck gated by change:run-checks (its owner
-// requests landing).
+// narrative), and a chat's or a change's recheck gated by change:run-checks
+// (its owner requests landing).
 func TestRouteGatesSeparatePairedPermissions(t *testing.T) {
 	t.Parallel()
 	agent := consoletest.NewAgent()
@@ -344,6 +344,8 @@ func TestRouteGatesSeparatePairedPermissions(t *testing.T) {
 		{&authIdentity{User: "attacher", Via: "session"}, "/api/v1/changes/" + change + "/distill", 403},
 		{chat("lander"), "/api/v1/console/" + sid + "/recheck", 204},
 		{chat("checker"), "/api/v1/console/" + sid + "/recheck", 403},
+		{&authIdentity{User: "lander", Via: "session"}, "/api/v1/changes/" + change + "/recheck", 204},
+		{&authIdentity{User: "checker", Via: "session"}, "/api/v1/changes/" + change + "/recheck", 403},
 	} {
 		if w := callAs(t, mux, tc.who, "POST", tc.path, []byte(`{}`)); w.Code != tc.want {
 			t.Errorf("%s %s: %d %s, want %d", tc.who.User, tc.path, w.Code, w.Body.String(), tc.want)

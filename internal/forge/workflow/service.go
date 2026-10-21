@@ -10,6 +10,7 @@ import (
 
 	"flokkit.io/forge/internal/access"
 	"flokkit.io/forge/internal/database"
+	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/forge/scm"
 )
 
@@ -99,6 +100,11 @@ type Dependencies struct {
 	Repositories *scm.RepositoryLocks
 	Automatic    []string // step types that run without a person
 	DataDir      string
+
+	// ModelRefusal says why a run's definition cannot be admitted for want
+	// of a model ("" when it can: no model step, or every one has a model),
+	// asked before anything is written. nil admits every definition.
+	ModelRefusal func(ctx context.Context, projectID ids.ID, spec *schema.Spec, inputsJSON string) string
 
 	// EvalGate is an eval's "may this proceed?" for its copies, asked as
 	// each step is claimed (eval_authority.go); nil admits every step.
@@ -206,6 +212,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 			return err
 		},
 		Missing:   s.runAdmissions.MissingArtifact,
+		NoModel:   deps.ModelRefusal,
 		Resolve:   deps.Resolve,
 		Assent:    s.requireLanding,
 		LandingBy: s.landingBy,

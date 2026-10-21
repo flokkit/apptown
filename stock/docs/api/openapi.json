@@ -2528,6 +2528,32 @@
         ],
         "type": "string"
       },
+      "RecheckStarted": {
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "rerun": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "runId",
+          "rerun",
+          "message"
+        ],
+        "type": "object"
+      },
       "Release": {
         "properties": {
           "approvedBy": {
@@ -4823,6 +4849,46 @@
           "scope": "change"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/changes/{id}/recheck": {
+      "post": {
+        "operationId": "postChangesIdRecheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecheckStarted"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "changes"
+        ],
+        "x-apptown-access": {
+          "capability": "change:request-land",
+          "kind": "capability",
+          "scope": "change"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/changes/{id}/runs": {

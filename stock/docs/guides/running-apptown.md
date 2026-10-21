@@ -33,8 +33,23 @@ AppTown, its agents and its apps on one Linux machine with Docker. It suits
 one person or a small team whose projects are written by people trusted as
 much as the machine.
 
-You need Docker with Compose 2.23 or later, a domain name, and ports 80 and
-443 open to the internet.
+You need:
+
+- A Linux machine with at least 4 CPUs and 8 GB of memory (16 GB is
+  better; [Supported platforms](/docs/guides/platforms) has the sizes). On
+  a smaller machine AppTown still runs, and each step gets at most the
+  CPUs the machine has, so work is slower.
+- Docker with Compose 2.23 or later. On a fresh server, Docker's own
+  script installs both: `curl -fsSL https://get.docker.com | sh`
+  ([Docker's install guide](https://docs.docker.com/engine/install/) has
+  the other ways).
+- A domain name. For a trial without one, use the server's address under
+  `sslip.io`: for a server at `203.0.113.7`, the domain
+  `203-0-113-7.sslip.io` and every name under it already point at it,
+  and certificates work. Skip step 1 then.
+- Ports 80 and 443 open to the internet. AppTown's own port stays on
+  `127.0.0.1`. Where a firewall is on, open them, for example with
+  `ufw allow 80,443/tcp`.
 
 1. Point your domain, `*.preview.` your domain and `*.main.` your domain at
    the server (three DNS records).
@@ -49,7 +64,10 @@ You need Docker with Compose 2.23 or later, a domain name, and ports 80 and
 
 3. Open `https://apptown.example.com`, create the administrator with the
    setup token from `sudo cat /var/lib/apptown/setup-token`, then add an
-   Anthropic or OpenRouter key.
+   Anthropic or OpenRouter key on the Home page. Until a key is added,
+   AppTown refuses work that needs a model and says where to add one.
+   Without a browser: First administrator without a browser in [Setting
+   up a server](/docs/guides/server-setup).
 
 The compose file runs AppTown with Caddy in front, which gets each HTTPS
 certificate itself. To run `apptownd` under systemd from the release

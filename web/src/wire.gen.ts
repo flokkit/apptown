@@ -1173,6 +1173,7 @@ export type RecentWhatIfs = {
 }
 
 export type RecheckStarted = {
+  runId: string | null
   rerun: string[]
   message: string
 }

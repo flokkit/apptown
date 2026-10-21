@@ -81,6 +81,11 @@ func newJourney(t *testing.T, configs ...Config) *jHarness {
 	// The fake harness never calls inference. Environment preparation still
 	// receives a gateway URL, as every Docker agent does.
 	cfg.InferenceURL = "http://host.docker.internal:1"
+	// A model is set up, as on an AppTown with a key added: run admission
+	// refuses model work on one with none.
+	if cfg.AgentModel == "" {
+		cfg.AgentModel = "fake/model"
+	}
 	cfg.InferenceNetworks = []string{"127.0.0.1/32"}
 	a := constructApp(t, testDB(t), cfg)
 	// The journey creates projects, installs workflows and approves changes.

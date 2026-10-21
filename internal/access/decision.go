@@ -245,14 +245,24 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 	// 3–6. Grants at an applicable scope, through role expansion.
 	grants := facts.Grants(pr)
 	// Root reaches every project; credentials and instruments narrow it first.
+	// ceilingCut: the person is an administrator, but this token was made
+	// without administrator authority, so a refusal says so rather than
+	// sending an administrator to an administrator.
+	ceilingCut := false
 	if pr.Kind == "user" {
 		if g, root := RootGrant(grants); root && (pr.Via != "token" || pr.Role == "admin") {
 			return Decision{Allow: true, GrantIDs: []ids.ID{g.ID}, Roles: []string{g.RoleName},
 				Reason: fmt.Sprintf("%s may %s: Instance administrator", pr.Name, def.Description)}
+		} else if root {
+			ceilingCut = true
 		}
 	}
 	if rootOnly(c) {
-		return Decision{Code: DenyMissingCapability, Reason: "instance administrator authority is required"}
+		reason := "instance administrator authority is required"
+		if ceilingCut {
+			reason += " — " + tokenCeilingFix(pr)
+		}
+		return Decision{Code: DenyMissingCapability, Reason: reason}
 	}
 	var holders []Grant // grants that carry c at all
 	var applicable []Grant
@@ -267,6 +277,9 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 	}
 	if len(applicable) == 0 {
 		prose := denialProse(pr, c, res)
+		if ceilingCut {
+			prose = fmt.Sprintf("%s may not %s with this token — %s.", pr.Name, def.Description, tokenCeilingFix(pr))
+		}
 		if len(holders) == 0 {
 			return Decision{Code: DenyMissingCapability, Reason: prose}
 		}
@@ -342,6 +355,14 @@ func containsCap(xs []Capability, c Capability) bool {
 }
 
 // --- prose ----------------------------------------------------------------------
+
+// tokenCeilingFix is what an administrator refused through a token made
+// without administrator authority can do: that token cannot make a wider
+// one (identity administration refuses it too), so they sign in as
+// themselves and make one on the People page.
+func tokenCeilingFix(pr Principal) string {
+	return fmt.Sprintf("the token was made without administrator authority, which %s holds; sign in on the web and make a command-line token on People → API tokens (its role defaults to yours)", pr.Name)
+}
 
 // A refusal never names the project: the caller may not be able to read it,
 // and guessing an address must not reveal what it is called.

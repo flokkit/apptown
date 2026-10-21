@@ -184,11 +184,16 @@ The `apptown` CLI talks to the same AppTown over its API. It is
 `bin/apptown` in the release archive for your computer
 ([downloading a release](/docs/guides/server-setup)). It needs AppTown's
 address and a **command-line token**, which acts as you, with everything
-you yourself may do. An admin makes one, on **People → API tokens** or with:
+you yourself may do: it carries your role as it is when the token is made.
+An admin makes one, on **People → API tokens** or with:
 
 ```
 apptown token create laptop-cli --purpose cli -u <your username>
 ```
+
+`-r member` makes a narrower one. A token made while its person was a
+member stays a member's token after they become an administrator; they
+make a new one.
 
 The token is shown once. Put it, with the address, in
 `~/.config/apptown/credentials` (mode 0600), one `KEY=VALUE` per line:
