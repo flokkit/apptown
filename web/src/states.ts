@@ -27,6 +27,10 @@ export function chipFor(state: ChangeState | RunStatus | Doing | '' | undefined)
 // An abandoned change AppTown closed because its run found nothing to
 // change (closedAs, recorded by the engine) is closed, not abandoned.
 export function changeStateLabel(state: ChangeState, landed?: boolean, closedAs?: string): string {
+  // A change whose own landing merged but could not ship, settled when a
+  // later landing shipped main containing its merge (closedAs, recorded by
+  // the engine): its source shipped, its own deploy did not pass.
+  if (state === 'shipped' && closedAs === 'shipped-with') return 'shipped with a later change'
   if (state === 'shipped') return landed === false ? 'finished' : 'shipped'
   if (state === 'abandoned' && closedNothingToChange(closedAs)) return 'closed: nothing to change'
   return state.replace('_', ' ')

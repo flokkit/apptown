@@ -322,3 +322,46 @@ func TestInspectionDoesNotRelabelALocalIntentAsAProviderMerge(t *testing.T) {
 		t.Fatalf("local intent relabelled: %+v", completed[0])
 	}
 }
+
+// TestARecordedLandingNeverMergesAgain: a landing merges once. Once its merge
+// is recorded a later landing may pass it (the landing slot is released), so a
+// repinned candidate must not merge behind that landing's back — locally or
+// at the provider — and the recorded result is kept.
+func TestARecordedLandingNeverMergesAgain(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []PlanKind{LocalMerge, ProviderMerge, Existing} {
+		t.Run(fmt.Sprint(kind), func(t *testing.T) {
+			t.Parallel()
+			service, claim := serviceFixture(t)
+			ctx := authorized(NewEffect)
+			first := fixtureDriver{
+				prepare: func(context.Context, Source, string) (Prepared, error) {
+					return Prepared{Kind: LocalMerge, Expected: "base"}, nil
+				},
+				execute: func(context.Context, Source, Prepared, string) (Execution, error) {
+					return Execution{Result: "first"}, nil
+				},
+			}
+			if r, err := service.Merge(ctx, claim.source.RunID, first); err != nil || r.SHA != "first" {
+				t.Fatalf("first merge: %+v %v", r, err)
+			}
+			again := fixtureDriver{
+				prepare: func(context.Context, Source, string) (Prepared, error) {
+					// a repinned candidate: a new effect, not the recorded result
+					return Prepared{Kind: kind, Expected: "first", Result: "second"}, nil
+				},
+				execute: func(context.Context, Source, Prepared, string) (Execution, error) {
+					t.Error("a recorded landing merged again")
+					return Execution{Result: "second"}, nil
+				},
+			}
+			if _, err := service.Merge(ctx, claim.source.RunID, again); !errors.Is(err, ErrMergeFinal) {
+				t.Fatalf("second merge of a recorded landing: %v, want ErrMergeFinal", err)
+			}
+			record, err := service.Read(ctx, claim.source.RunID)
+			if err != nil || record.State != Recorded || record.Result != "first" {
+				t.Fatalf("recorded result changed: %+v %v", record, err)
+			}
+		})
+	}
+}

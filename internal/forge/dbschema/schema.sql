@@ -1177,7 +1177,7 @@ CREATE TABLE IF NOT EXISTS changes (
   -- engine's nothing-to-change close (an abandoned change whose run found
   -- nothing to change) is 'nothing-to-change'; '' otherwise. Only the
   -- engine writes it. Last, where migration 148 added it.
-  closed_as          TEXT NOT NULL DEFAULT '' CONSTRAINT change_closed_as CHECK(closed_as IN ('','nothing-to-change')),
+  closed_as          TEXT NOT NULL DEFAULT '' CONSTRAINT change_closed_as CHECK(closed_as IN ('','nothing-to-change','shipped-with')),
   UNIQUE(project_id, number)
 );
 -- The last number given to a change and to a run in each project. A

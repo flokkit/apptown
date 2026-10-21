@@ -123,6 +123,11 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 				if change.Type == "uplift" {
 					completed.Effects = append(completed.Effects, CompletionAdopt)
 				}
+				if spec.Role == "landing" {
+					if err := supersedePassedIn(ctx, tx, run, w.now()); err != nil {
+						return err
+					}
+				}
 				completed.Release, err = workflowsql.New(tx.SQL()).CompletionHasProductionDeploy(ctx, workflowsql.CompletionHasProductionDeployParams{RunID: run.ID, ProjectID: run.ProjectID, Status: StatusPass.String()})
 				if err != nil {
 					return err

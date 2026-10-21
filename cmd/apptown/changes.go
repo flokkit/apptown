@@ -126,6 +126,9 @@ func changeStateWords(state, closedAs string) string {
 	if state == "abandoned" && closedAs == "nothing-to-change" {
 		return "closed: nothing to change"
 	}
+	if state == "shipped" && closedAs == "shipped-with" {
+		return "shipped with a later change"
+	}
 	return state
 }
 

@@ -64,7 +64,8 @@ func (s *State) Scan(value any) error {
 	return fmt.Errorf("invalid stored merge state %q", text)
 }
 func (s State) transition(next State) (State, error) {
-	if (s == Idle || s == Recorded) && next == Pending || s == Pending && (next == Idle || next == Recorded) {
+	// Recorded is final: a landing merges once (ErrMergeFinal).
+	if s == Idle && next == Pending || s == Pending && (next == Idle || next == Recorded) {
 		return next, nil
 	}
 	return 0, fmt.Errorf("invalid merge transition %s to %s", s, next)

@@ -13,6 +13,8 @@ import (
 var (
 	ErrClosurePending  = errors.New("the merge's outcome must be inspected before this change can be closed")
 	ErrClosureRecorded = errors.New("this change is already on main; deploy it or fix forward, it cannot be abandoned")
+	// ErrMergeFinal: a landing whose merge is recorded cannot merge again.
+	ErrMergeFinal = errors.New("this landing already merged; its merge is final — fix forward in a new change")
 )
 
 // Closure serializes a decision to stop work against repository effects. Acquire

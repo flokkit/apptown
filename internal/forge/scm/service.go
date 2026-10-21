@@ -115,6 +115,18 @@ func (s *Service) Merge(ctx context.Context, runID ids.ID, driver Driver) (Resul
 	if err != nil {
 		return result, err
 	}
+	// A landing merges once. Once its merge is recorded it no longer holds
+	// the project's landing slot, so a later landing may pass it: it must
+	// not merge again (a repinned candidate) behind that landing's back.
+	// Confirming the recorded result again (a local reuse, or the provider
+	// reporting the same merged request at completion) is no new merge.
+	// Refused here, before the merge is executed or observed; preparing may
+	// already have refreshed the checkout or a request's branch, which moves
+	// no default branch.
+	reuse := plan.Kind == Existing && (plan.ReuseRecorded || plan.Result == prepared.intent.Result)
+	if prepared.intent.State == Recorded && plan.Kind != Empty && plan.Kind != Blocked && !reuse {
+		return result, ErrMergeFinal
+	}
 	if err := validatePlan(result.Source, plan); err != nil {
 		return result, err
 	}

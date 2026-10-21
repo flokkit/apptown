@@ -354,8 +354,8 @@ func TestMergeStateOwnsItsLifecycle(t *testing.T) {
 	if _, err := recorded.begin("one", "result"); err == nil {
 		t.Fatal("completed identity reused for another merge")
 	}
-	if _, err := recorded.begin("two", "result"); err != nil {
-		t.Fatal(err)
+	if _, err := recorded.begin("two", "result"); err == nil {
+		t.Fatal("a recorded merge must be final: a landing merges once")
 	}
 }
 

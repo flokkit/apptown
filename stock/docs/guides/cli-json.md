@@ -74,7 +74,7 @@ it refuses before starting anything.
 | `change` | `ChangeRef` | the change |
 | `title` | string | its title |
 | `state` | string | proposed, in_progress, landing, shipped or abandoned |
-| `closedAs` | string | nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; absent otherwise |
+| `closedAs` | string | nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; absent otherwise |
 | `stateDetail` | string | AppTown's sentence for where it is |
 | `branch` | string | its branch, empty before its first run |
 | `runs` | array of `RunDetail` | its runs, newest first |
@@ -175,7 +175,7 @@ it refuses before starting anything.
 | `change` | `ChangeRef` | the change |
 | `title` | string | its title |
 | `state` | string | its board column: proposed, in_progress, landing, shipped or abandoned |
-| `closedAs` | string | nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; absent otherwise |
+| `closedAs` | string | nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; absent otherwise |
 
 ### `Target`
 

@@ -2545,7 +2545,8 @@ func (q *Queries) FinishChildCall(ctx context.Context, arg FinishChildCallParams
 }
 
 const hasActiveLanding = `-- name: HasActiveLanding :one
-SELECT EXISTS(SELECT 1 FROM runs WHERE project_id=$1 AND parent_run_id IS NULL AND status=$2 AND definition_json @> '{"role":"landing"}')
+SELECT EXISTS(SELECT 1 FROM runs WHERE project_id=$1 AND parent_run_id IS NULL AND status=$2 AND definition_json @> '{"role":"landing"}'
+  AND NOT EXISTS(SELECT 1 FROM run_merges m WHERE m.run_id=runs.id AND m.state='merged'))
 `
 
 type HasActiveLandingParams struct {
@@ -2553,6 +2554,9 @@ type HasActiveLandingParams struct {
 	Status    string
 }
 
+// A landing whose merge SCM has recorded can no longer move main: what is
+// left of it is deploying a commit main already contains, so it no longer
+// holds the project's one landing slot (a fix-forward may land beside it).
 func (q *Queries) HasActiveLanding(ctx context.Context, arg HasActiveLandingParams) (bool, error) {
 	row := q.db.QueryRowContext(ctx, hasActiveLanding, arg.ProjectID, arg.Status)
 	var exists bool
@@ -3663,6 +3667,48 @@ func (q *Queries) MarkRunReady(ctx context.Context, runID ids.ID) (int64, error)
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const mergedActiveLandings = `-- name: MergedActiveLandings :many
+SELECT r.id, r.change_id, m.result FROM runs r JOIN run_merges m ON m.run_id=r.id AND m.state='merged'
+WHERE r.project_id=$1 AND r.parent_run_id IS NULL AND r.status=$2 AND r.definition_json @> '{"role":"landing"}'
+ORDER BY r.id
+`
+
+type MergedActiveLandingsParams struct {
+	ProjectID ids.ID
+	Status    string
+}
+
+type MergedActiveLandingsRow struct {
+	ID       ids.ID
+	ChangeID ids.ID
+	Result   string
+}
+
+// Running landings whose merge is recorded: a new landing is admitted beside
+// them and names them in its landing.passed receipt.
+func (q *Queries) MergedActiveLandings(ctx context.Context, arg MergedActiveLandingsParams) ([]MergedActiveLandingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, mergedActiveLandings, arg.ProjectID, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MergedActiveLandingsRow
+	for rows.Next() {
+		var i MergedActiveLandingsRow
+		if err := rows.Scan(&i.ID, &i.ChangeID, &i.Result); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const missingArtifactKinds = `-- name: MissingArtifactKinds :many

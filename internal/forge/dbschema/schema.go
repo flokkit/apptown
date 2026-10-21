@@ -110,6 +110,10 @@ var migrations = []migration{
 		"ALTER TABLE deployments ADD COLUMN IF NOT EXISTS host_prefix TEXT NOT NULL DEFAULT 'forge-'",
 		"ALTER TABLE deployments ALTER COLUMN host_prefix SET DEFAULT 'apptown-'",
 	}},
+	{n: 159, note: "a change whose landing merged but could not ship can be closed as shipped with the later landing that superseded it", stmts: []string{
+		"ALTER TABLE changes DROP CONSTRAINT IF EXISTS change_closed_as",
+		"ALTER TABLE changes ADD CONSTRAINT change_closed_as CHECK(closed_as IN ('','nothing-to-change','shipped-with'))",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

@@ -726,8 +726,19 @@ UNION SELECT r.id FROM run_starts st JOIN runs r ON r.id=st.run_id
 WHERE r.status='running' AND (NOT st.ready OR (r.parent_run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type=ANY($1::text[]))))
 ORDER BY id;
 
+-- A landing whose merge SCM has recorded can no longer move main: what is
+-- left of it is deploying a commit main already contains, so it no longer
+-- holds the project's one landing slot (a fix-forward may land beside it).
 -- name: HasActiveLanding :one
-SELECT EXISTS(SELECT 1 FROM runs WHERE project_id=$1 AND parent_run_id IS NULL AND status=$2 AND definition_json @> '{"role":"landing"}');
+SELECT EXISTS(SELECT 1 FROM runs WHERE project_id=$1 AND parent_run_id IS NULL AND status=$2 AND definition_json @> '{"role":"landing"}'
+  AND NOT EXISTS(SELECT 1 FROM run_merges m WHERE m.run_id=runs.id AND m.state='merged'));
+
+-- Running landings whose merge is recorded: a new landing is admitted beside
+-- them and names them in its landing.passed receipt.
+-- name: MergedActiveLandings :many
+SELECT r.id, r.change_id, m.result FROM runs r JOIN run_merges m ON m.run_id=r.id AND m.state='merged'
+WHERE r.project_id=$1 AND r.parent_run_id IS NULL AND r.status=$2 AND r.definition_json @> '{"role":"landing"}'
+ORDER BY r.id;
 
 -- name: IsAcceptedWorkingRun :one
 SELECT EXISTS(SELECT 1 FROM runs WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id) AND change_id IS NOT DISTINCT FROM sqlc.arg(change_id) AND parent_run_id IS NULL AND status=sqlc.arg(status) AND definition_json @> '{"role":"working"}');

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flokkit.io/forge/internal/ids"
 	"fmt"
 	"strings"
 	"testing"
@@ -260,5 +261,93 @@ spec:
 	if _, err := a.Work.StartRun(a.asForge(context.Background(), p.ID, "test"), workflow.StartChangeRun{ChangeID: second.ID, Workflow: "land"}); err == nil ||
 		fault.CodeOf(err) != "landing-occupied" || fault.KindOf(err) != fault.Conflict {
 		t.Fatalf("second landing not serialized: %v", err)
+	}
+}
+
+// TestMergedLandingDoesNotBlockFixForward: a landing whose merge is recorded
+// but which cannot ship (its deploy refused) no longer holds the project's
+// landing slot. A later change's landing is admitted beside it, names it,
+// and on shipping settles it: its run is superseded and its change ships with
+// the later one. A landing blocked before its merge still holds the slot.
+func TestMergedLandingDoesNotBlockFixForward(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	a := newApp(t, db)
+	p, err := a.lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "p", Name: "P", Actor: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	landYAML := `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: land, description: d}
+spec:
+  kind: pipeline
+  role: landing
+  stages:
+    - name: gates
+      steps:
+        - {name: ok, uses: approval, with: {approvers: [x], means: "the landing is ready"}}
+`
+	seedLibraryWorkflow(t, a, p.ID, "land", landYAML)
+	ctx := a.asForge(context.Background(), p.ID, "test")
+	mk := func(title string) *workflow.Change {
+		ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: p.ID, Type: "feature", Title: title})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ch
+	}
+	testAdministrator(t, a, "x")
+	stuck, blocker, fix := mk("stuck after merge"), mk("before merge"), mk("fix forward")
+	stuckRun, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: stuck.ID, Workflow: "land"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Before its merge is recorded the landing holds the slot.
+	if _, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: blocker.ID, Workflow: "land"}); fault.CodeOf(err) != "landing-occupied" {
+		t.Fatalf("a landing before its merge must hold the slot: %v", err)
+	}
+	// SCM records a merge only through a real Git merge of a published
+	// branch, which this guarantee does not need; the row is the fact
+	// HasActiveLanding reads (scm/schema.sql run_merges).
+	// sql-guarantee: record the stuck landing's merge as SCM would.
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO run_merges (run_id,state,operation,expected,result) VALUES ($1,'merged','merge','aaaa','bbbb')`, stuckRun.ID); err != nil {
+		t.Fatal(err)
+	}
+	fixRun, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: fix.ID, Workflow: "land"})
+	if err != nil {
+		t.Fatalf("a merged landing that cannot ship must not block the fix-forward: %v", err)
+	}
+	snap, err := a.Work.Snapshot(ctx, fixRun.ID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ok ids.ID
+	for _, s := range snap.Steps {
+		if s.Name == "ok" {
+			ok = s.ID
+		}
+	}
+	if _, err := a.Work.Approve(asPerson("x"), workflow.Approval{StepID: ok, Decision: workflow.VoteApprove, Adds: shownAdds(t, a, asPerson("x"), ok)}); err != nil {
+		t.Fatal(err)
+	}
+	var shipped *workflow.Change
+	eventually(t, "the stuck landing's change ships with the fix-forward", func() bool {
+		ch, err := a.Work.Change(ctx, stuck.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		shipped = ch
+		return ch.State == workflow.ChangeShipped
+	})
+	if want := workflow.ClosedShippedWith; shipped.ClosedAs != want {
+		t.Fatalf("superseded change closed as %q, want %q", shipped.ClosedAs, want)
+	}
+	old, err := a.Work.Snapshot(ctx, stuckRun.ID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if old.Run.Status != workflow.RunAbandoned {
+		t.Fatalf("the superseded landing is %s, want abandoned", old.Run.Status)
 	}
 }

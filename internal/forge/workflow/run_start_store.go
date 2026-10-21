@@ -181,6 +181,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 			return nil, err
 		}
 	}
+	var passed []passedLanding
 	if req.ParentRunID.IsZero() && def.Spec.Role == "landing" {
 		occupied, err := queries.HasActiveLanding(ctx, workflowsql.HasActiveLandingParams{ProjectID: req.ProjectID, Status: RunRunning.String()})
 		if err != nil {
@@ -188,6 +189,9 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		}
 		if occupied {
 			return nil, LandingOccupied{}
+		}
+		if passed, err = mergedActiveLandingsIn(ctx, queries, req.ProjectID); err != nil {
+			return nil, err
 		}
 	}
 	first := def.Spec.Stages[0].Name
@@ -204,6 +208,11 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		return nil, err
 	}
 	id := inserted.ID
+	if len(passed) > 0 {
+		if err := recordReceiptIn(ctx, tx, id, "landing.passed", landingPassedReceipt{Landings: passed}, at); err != nil {
+			return nil, err
+		}
+	}
 	if err := markLandingAuthorityIn(ctx, tx, id, req.landingBy); err != nil {
 		return nil, err
 	}
