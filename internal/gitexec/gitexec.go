@@ -32,6 +32,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -80,7 +81,7 @@ var RepositoryConfigOnly = []string{"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=
 // the whole group, as execution.Runner does: killing git alone would leave
 // a helper running, holding git's pipes or still talking to a remote.
 func Command(ctx context.Context, dir string, env []string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", append(slices.Clone(foreground), args...)...)
 	ownGroup(cmd)
 	// Only a cancellable call bounds its pipes. An uncancellable one waits for
 	// them as a plain exec would: a push can leave a helper holding a pipe
@@ -92,6 +93,16 @@ func Command(ctx context.Context, dir string, env []string, args ...string) *exe
 	cmd.Env = append([]string{}, env...)
 	return cmd
 }
+
+// foreground keeps git's automatic maintenance inside the command that
+// started it. A commit, merge or fetch ends with "git maintenance run
+// --auto", which by default detaches and outlives git: it would escape the
+// process group that cancellation kills, and it takes
+// objects/maintenance.lock in the repository after AppTown believes git is
+// done with it (a copy of the repository made then can catch the lock half
+// gone). Run in the foreground, maintenance still happens when the
+// repository needs it, and is over when git returns.
+var foreground = []string{"-c", "maintenance.autoDetach=false", "-c", "gc.autoDetach=false"}
 
 // command is git in dir with base, the environment it starts from, plus
 // env.

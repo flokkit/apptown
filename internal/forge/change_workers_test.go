@@ -366,8 +366,12 @@ func TestASyncKeepsTheFolderUntilItFinishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	gate := t.TempDir()
+	// AppTown's git starts with -c settings of its own (gitexec); the
+	// subcommand follows them.
 	shim := `#!/bin/sh
-if [ "$PWD" = "$REVIEW_FOLDER" ] && [ "$1" = fetch ] && mkdir "$REVIEW_GATE/entered" 2>/dev/null; then
+subcommand() { while [ "$1" = -c ]; do shift 2; done; echo "$1"; }
+sub=$(subcommand "$@")
+if [ "$PWD" = "$REVIEW_FOLDER" ] && [ "$sub" = fetch ] && mkdir "$REVIEW_GATE/entered" 2>/dev/null; then
   while [ ! -f "$REVIEW_GATE/release" ]; do sleep 0.01; done
 fi
 exec "$REVIEW_REAL_GIT" "$@"

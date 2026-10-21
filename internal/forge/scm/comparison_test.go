@@ -282,6 +282,12 @@ func TestBehindRunsNoGitInAFolderItWillNotTrust(t *testing.T) {
 			inside, _ := filepath.EvalSymlinks(folder)
 			for _, call := range strings.Split(strings.TrimSpace(string(log)), "\n") {
 				pwd, args, _ := strings.Cut(call, " ")
+				// AppTown's git starts with its own -c settings (gitexec);
+				// what it was asked to do follows them.
+				for strings.HasPrefix(args, "-c ") {
+					_, rest, _ := strings.Cut(strings.TrimPrefix(args, "-c "), " ")
+					args = rest
+				}
 				if at, _ := filepath.EvalSymlinks(pwd); strings.HasPrefix(at, inside) {
 					t.Fatalf("Git ran in a folder AppTown does not trust: %s", call)
 				}

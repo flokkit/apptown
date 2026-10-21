@@ -5,7 +5,7 @@
 # library only), so the build needs go.mod and those three packages, nothing
 # else; Dockerfile.dockerignore keeps the rest of the repository out of the
 # build context. A new import of the module's own packages goes in both.
-FROM golang:1.26.9 AS build
+FROM golang:1.26.10 AS build
 WORKDIR /src
 COPY go.mod ./
 COPY internal/clock/clock.go internal/clock/
