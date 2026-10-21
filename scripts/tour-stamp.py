@@ -16,7 +16,7 @@ import json
 import os
 import sys
 
-INPUTS = ["cmd", "internal", "stock", "go.mod", "go.sum", "web", "site/tour/tour.yaml", "site/tour/shoot.mjs", "site/tour/chat.jsonl"]
+INPUTS = ["cmd", "internal", "stock", "go.mod", "go.sum", "web", "site/tour/tour.yaml", "site/tour/shoot.mjs"]
 SKIP_DIRS = {"web/dist", "web/node_modules", ".git"}
 
 

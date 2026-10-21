@@ -12,6 +12,9 @@ const context = await browser.newContext({
   ignoreHTTPSErrors: true,
   viewport: { width: 1440, height: 900 },
   deviceScaleFactor: 2,
+  // The scene's times are UTC (TestTour), so every machine shoots the
+  // same clock times.
+  timezoneId: 'UTC',
 });
 context.setDefaultTimeout(20000);
 const page = await context.newPage();
