@@ -15,16 +15,22 @@
 capability: llm
 title: AI models
 icon: ✨
-description: "Experimental: no deployed app has used its own key yet. Lets the app call AI models (chat, summarising, extraction) through OpenRouter, with its own key and a spending limit. The app reads OPENROUTER_API_KEY and OPENROUTER_BASE_URL."
+description: "Experimental: no deployed app has used its own key yet. Lets the app call AI models (chat, summarising, extraction) through an OpenAI-compatible chat-completions API, with its own key and a spending limit; OpenRouter answers it today. The app reads LLM_API_KEY and LLM_BASE_URL."
 
-# The contract with the app, the same on every target and for a preview.
+# The parameters above, which have no default.
+parameters: [limit, limitReset]
+
+# The contract with the app, the same on every target and for a preview: an
+# API key and the base URL of an OpenAI-compatible chat-completions API (an
+# OpenAI SDK takes both as they are). The provider behind it is the
+# connector's, OpenRouter today, so the names do not say it.
 provides:
-  OPENROUTER_API_KEY: this deployment's (or preview's) own key, with its spending limit
-  OPENROUTER_BASE_URL: the API address to call
+  LLM_API_KEY: this deployment's (or preview's) own key, with its spending limit
+  LLM_BASE_URL: the base URL of the OpenAI-compatible API to call
 
 register:
   connector: openrouter     # capability=llm provider in the connector catalog
   adapter: openrouter-key   # creates one key per deployment or preview
   inject:
-    OPENROUTER_API_KEY: "${key}"
-    OPENROUTER_BASE_URL: "${base_url}"
+    LLM_API_KEY: "${key}"
+    LLM_BASE_URL: "${base_url}"

@@ -28,7 +28,7 @@ func TestDigitalOceanRendersCanonicalPortsAndScopedConnections(t *testing.T) {
 		return &Client{Base: server.URL, HTTP: server.Client()}, Config{Region: "syd", Registry: "forge-test"}, nil
 	}}, Options{PushImage: push})
 	c, err := appcontract.Parse([]byte(`app:
-  web: {image: app:1, public: true, environment: {PUBLIC_ONLY: web, DATABASE_URL: wrong, APPTOWN_ORIGINS: https://typed.example}}
+  web: {image: app:1, public: true, environment: {PUBLIC_ONLY: web, DATABASE_URL: wrong}}
   worker: {image: worker:1, environment: {WORKER_ONLY: worker, DATABASE_URL: wrong}}
 init:
   - {name: migrate, image: migrate:1, environment: {DATABASE_URL: wrong}}
@@ -36,6 +36,9 @@ init:
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The contract refuses APPTOWN_ORIGINS in environment; one stored from
+	// before that refusal may carry it, and AppTown's value must still win.
+	c.PublicPart().Env["APPTOWN_ORIGINS"] = "https://typed.example"
 	before, err := json.Marshal(c)
 	if err != nil {
 		t.Fatal(err)

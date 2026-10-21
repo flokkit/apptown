@@ -115,8 +115,8 @@ func TestAPreviewsKeyLivesWhileItBootsOrStands(t *testing.T) {
 		t.Fatalf("one key, kept: %+v %v, %d POSTs", held, err, f.CallsOf("POST"))
 	}
 	key := f.Keys()[held[0].Hash]
-	if *key.Limit != 1 || key.Reset != nil || prepared.Secrets["web"]["OPENROUTER_API_KEY"] != key.Value {
-		t.Fatalf("preview key: limit %v, given %q", *key.Limit, prepared.Secrets["web"]["OPENROUTER_API_KEY"])
+	if *key.Limit != 1 || key.Reset != nil || prepared.Secrets["web"]["LLM_API_KEY"] != key.Value {
+		t.Fatalf("preview key: limit %v, given %q", *key.Limit, prepared.Secrets["web"]["LLM_API_KEY"])
 	}
 
 	// Booting (held): kept. Neither booting nor standing: revoked.
@@ -186,7 +186,7 @@ func TestAChangePreviewBootsWithItsOwnKey(t *testing.T) {
 		t.Fatalf("the preview owns a key: %+v %v", held, err)
 	}
 	key := f.Keys()[held[0].Hash]
-	if !strings.Contains(runCalls(client), "OPENROUTER_API_KEY="+key.Value) || *key.Limit != 1 {
+	if !strings.Contains(runCalls(client), "LLM_API_KEY="+key.Value) || *key.Limit != 1 {
 		t.Fatalf("the preview is given its key:\n%s", runCalls(client))
 	}
 	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {

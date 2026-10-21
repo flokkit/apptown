@@ -644,10 +644,10 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 	// nothing is started for it (TestAnAgentIsToldOfTheNeedsAReleaseRefusesAndTestsRefuseThem).
 	for body, why := range map[string]string{
 		"needs: [unterminated\n": ".apptown/app.yaml does not parse",
-		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    database: [sourdough]\n":                    "needs: postgres: database: a parameter is a single value, not a list",
-		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties: sourdough\n":                    "needs: postgres: properties: a map of single values, not string",
-		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties:\n      database: [sourdough]\n": "needs: postgres: properties: database: a property is a single value, not a list",
-		"app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  mongodb: {}\n":                      "this app needs mongodb, which is not in the dependency catalog",
+		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    database: [sourdough]\n":           "needs: postgres: database: a parameter is a single value, not a list",
+		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    properties: {shared_buffers: 1}\n": "needs: postgres: properties: is not read",
+		"app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    shared_buffers: 256MB\n":           "the postgres need does not take shared_buffers",
+		"app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  mongodb: {}\n":             "this app needs mongodb, which is not in the dependency catalog",
 	} {
 		f := agentOnWorkerFixture(t, map[string]any{"needs": true})
 		f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": body})

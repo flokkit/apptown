@@ -69,7 +69,6 @@ type Part struct {
 	Port        int               // container port (from compose `ports:`)
 	Env         map[string]string // compose `environment:`
 	DataDir     string            // AppTown: a named volume that survives redeploys
-	Seed        string            // reserved: parsed, run nowhere (the validator says so)
 	Health      string            // LEGACY healthcheck shell command; exit 0 = healthy
 	Intent      *Health           // structured per-part health intent (design/subsystems/healthchecks.md); nil = none declared
 	Public      bool              // the front door the preview/deploy URL points at
@@ -107,6 +106,22 @@ const BrowserEnvVar = "APPTOWN_BROWSER_ENV"
 // witness that the part it deployed, in this release, is what answers. The
 // AppTown sets it.
 const ReleaseEnvVar = "APPTOWN_RELEASE"
+
+// AppTownSetEnv are the environment names AppTown alone sets on a part. An
+// app that set one would win over AppTown's value on one target and lose on
+// another, so the contract refuses it in a part's or a profile's
+// environment (the contract reference, "The environment an app gets").
+var AppTownSetEnv = []string{"PORT", "APPTOWN_ORIGINS", "DATA_DIR", ReleaseEnvVar, BrowserEnvVar}
+
+// setsAppTownEnv names the first of AppTownSetEnv that env sets, or "".
+func setsAppTownEnv(env map[string]any) string {
+	for _, name := range AppTownSetEnv {
+		if _, ok := env[name]; ok {
+			return name
+		}
+	}
+	return ""
+}
 
 // ReleasePath is where a static site's file server answers ReleaseEnvVar.
 const ReleasePath = "/_apptown/release"

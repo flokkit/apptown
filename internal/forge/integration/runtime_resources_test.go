@@ -62,7 +62,7 @@ func TestErrorReportingGivesWhatItsDefinitionLists(t *testing.T) {
 		t.Fatal(err)
 	}
 	stockList := strings.Join(s.ErrorsEnvironment(context.Background(), id), "\n")
-	if stockList != "GLITCHTIP_DSN=https://k:secret@errors.example/3\nSENTRY_DSN=https://k:secret@errors.example/3\nSENTRY_EXCEPTION_RESOLVER_ORDER=-2147483648" {
+	if stockList != "SENTRY_DSN=https://k:secret@errors.example/3" {
 		t.Fatalf("the stock definition's list: %q", stockList)
 	}
 	s.kinds = kindsWith{"SENTRY_DSN": "${dsn}", "MY_ERRORS_URL": "${dsn}", "SENTRY_ENVIRONMENT": "production"}
@@ -171,7 +171,7 @@ func TestBrowserEnvironmentGivesOnlyBrowserSafeValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"SENTRY_DSN": "https://key@errors.example/3", "GLITCHTIP_DSN": "https://key@errors.example/3", "MAILER_PUBLIC_URL": "https://mail.example"}
+	want := map[string]string{"SENTRY_DSN": "https://key@errors.example/3", "MAILER_PUBLIC_URL": "https://mail.example"}
 	if len(got) != len(want) {
 		t.Fatalf("browser values: %v", got)
 	}

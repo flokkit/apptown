@@ -21,8 +21,9 @@ owns stored values, application declarations and provider resolution.
    The runtime receives the values selected for that consumer. File-based secret
    delivery is not supported; see the Secret package for exact declaration rules.
 5. Error reporting's variables come from its stock definition
-   (`stock/dependencies/errors.yaml`, `register.inject`): today `SENTRY_DSN`,
-   `GLITCHTIP_DSN` and a Spring setting, each rendered with the attached DSN.
+   (`stock/dependencies/errors.yaml`, `register.inject`): today `SENTRY_DSN`
+   alone, rendered with the attached DSN (framework settings such as Spring's
+   resolver order belong to that framework's pack).
    Changing what apps are given is a data change there, not engine code; the
    browser is given only the entries that carry the DSN, in its public form.
 6. **A template that does not resolve is not given.** When a service kind's

@@ -54,8 +54,8 @@ For an app that declares `needs: { llm: … }`:
 - **A deployment's first deploy** makes an OpenRouter key named
   `forge-<project>-<deployment>-<id>`, with the declared limit and reset.
   AppTown records it on the deployment's list of what it owns, then keeps
-  the key in its built-in store. The app gets `OPENROUTER_API_KEY` and
-  `OPENROUTER_BASE_URL`.
+  the key in its built-in store. The app gets `LLM_API_KEY` and
+  `LLM_BASE_URL`.
 - **Every later deploy** keeps the same key and sets its limit and reset
   again, so a change in `.apptown/app.yaml` (including only the reset period)
   takes effect. If OpenRouter refuses the change, the deploy fails.

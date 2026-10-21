@@ -53,6 +53,21 @@ func TestAKindIsHeldToWhatItProvides(t *testing.T) {
 	}
 }
 
+// The words a later form naming two needs of one kind would use stay free:
+// no kind, stock or custom, may take them as a parameter.
+func TestNoKindTakesAWordKeptForNamingNeeds(t *testing.T) {
+	t.Parallel()
+	base := "capability: kv\nlocal:\n  image: kv:1\n  inject:\n    KV_URL: kv://{host}\nprovides:\n  KV_URL: the address\n"
+	for _, decl := range []string{"defaults:\n  prefix: KV_\n", "parameters: [as]\n", "parameters: [kind]\n"} {
+		if _, err := Parse(base + decl); !errors.Is(err, ErrSpec) || !strings.Contains(err.Error(), "a word kept for naming needs") {
+			t.Fatalf("%q: %v", decl, err)
+		}
+	}
+	if _, err := Parse(base + "parameters: [ttl]\n"); err != nil {
+		t.Fatalf("an ordinary parameter: %v", err)
+	}
+}
+
 // What the catalogue refuses in a contract's needs, the same wherever it is
 // asked: an integration under needs:, a value AppTown owns, and two needs
 // that give the app one variable. Two alternative kinds giving the same
@@ -79,6 +94,13 @@ func TestAContractsNeedsAreRefusedAsDeclared(t *testing.T) {
 		{name: "both alternatives", needs: []string{"postgres", "pg-alt"}, want: "DATABASE_URL is given by postgres and pg-alt"},
 		{name: "a password", needs: []string{"postgres"}, params: map[string]map[string]string{"postgres": {"password": "sourdough"}}, want: "AppTown sets the password of the postgres need"},
 		{name: "a mariadb password", needs: []string{"mariadb"}, params: map[string]map[string]string{"mariadb": {"password": "x"}}, want: "remove password from needs.mariadb"},
+		{name: "the llm limit", needs: []string{"llm"}, params: map[string]map[string]string{"llm": {"limit": "5", "limitReset": "monthly"}}},
+		{name: "disposable", needs: []string{"redis"}, params: map[string]map[string]string{"redis": {"disposable": "true"}}},
+		// A parameter the kind does not take would do nothing today and
+		// something once the kind learns it: refused, never ignored.
+		{name: "a parameter the kind does not take", needs: []string{"postgres"}, params: map[string]map[string]string{"postgres": {"shared_buffers": "256MB"}}, want: "the postgres need does not take shared_buffers: remove shared_buffers from needs.postgres in .apptown/app.yaml (it takes database, disposable, user, version, size and resources)"},
+		{name: "an s3 parameter", needs: []string{"s3"}, params: map[string]map[string]string{"s3": {"retention_days": "2555"}}, want: "the s3 need does not take retention_days"},
+		{name: "a word kept for naming needs", needs: []string{"postgres"}, params: map[string]map[string]string{"postgres": {"kind": "postgres", "prefix": "REPORTS_"}}, want: "does not take kind or prefix"},
 		{name: "error reporting", needs: []string{"errors"}, want: "errors is an integration, not a need"},
 		// Withdrawn before 1.0 (sso and telemetry): attached integrations
 		// give an app those values; the stock entries were never fulfilled.
@@ -202,7 +224,7 @@ func TestNeedReferencesAreHeldToWhatTheNeedGives(t *testing.T) {
 	if err != nil || !strings.Contains(why, "PGHOSTNAME") || !strings.Contains(why, "PGHOST,") || !strings.Contains(why, "environment: HOST") {
 		t.Fatalf("an undocumented variable: %q %v", why, err)
 	}
-	why, err = c.RefusesNeedRefs(ctx, []appcontract.NeedRef{{Part: "web", Key: "KEY", Need: "llm", Var: "OPENROUTER_API_KEY"}})
+	why, err = c.RefusesNeedRefs(ctx, []appcontract.NeedRef{{Part: "web", Key: "KEY", Need: "llm", Var: "LLM_API_KEY"}})
 	if err != nil || !strings.Contains(why, "cannot be referenced yet") {
 		t.Fatalf("a register-only need: %q %v", why, err)
 	}

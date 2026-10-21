@@ -14,7 +14,7 @@ func TestPreparedAppIsolatesConsumersAndBoots(t *testing.T) {
     public: true
     command: [serve, "two words"]
     environment: {PUBLIC_ONLY: web, DATABASE_URL: wrong}
-    health: {readiness: {exec: [check, original]}}
+    health: {liveness: {exec: [check, original]}}
   worker:
     image: worker:1
     environment: {WORKER_ONLY: worker, DATABASE_URL: wrong}
@@ -44,10 +44,10 @@ init:
 	}
 	plan.PublicPart().Env["PUBLIC_ONLY"] = "changed"
 	plan.PublicPart().Command[1] = "changed"
-	plan.PublicPart().Intent.Readiness.Exec[1] = "changed"
+	plan.PublicPart().Intent.Liveness.Exec[1] = "changed"
 	plan.Init[0].Env["INIT_ONLY"] = "changed"
 	plan.Init[0].Command[1] = "changed"
-	if contractJSON(t, c) != before || another.PublicPart().Env["PUBLIC_ONLY"] != "web" || another.PublicPart().Command[1] != "two words" || another.PublicPart().Intent.Readiness.Exec[1] != "original" || another.Init[0].Command[1] != "original" || connections["DATABASE_URL"] != "resolved" {
+	if contractJSON(t, c) != before || another.PublicPart().Env["PUBLIC_ONLY"] != "web" || another.PublicPart().Command[1] != "two words" || another.PublicPart().Intent.Liveness.Exec[1] != "original" || another.Init[0].Command[1] != "original" || connections["DATABASE_URL"] != "resolved" {
 		t.Fatal("execution plan mutated the declaration or another boot")
 	}
 }

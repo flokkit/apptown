@@ -25,7 +25,7 @@ import (
 //	  web:   { build: ., ports: ["8080"], public: true, dataDir: /data }
 //	  worker:{ build: ., command: ["node","worker.js"] }
 //	needs:
-//	  postgres: { version: "16", properties: { shared_buffers: 256MB } }
+//	  postgres: { version: "16" }
 
 type appYamlPart struct {
 	Build       string         `yaml:"build"`
@@ -35,11 +35,13 @@ type appYamlPart struct {
 	Ports       []string       `yaml:"ports"`
 	Environment map[string]any `yaml:"environment"`
 	DataDir     string         `yaml:"dataDir"`
-	Seed        string         `yaml:"seed"`        // reserved: parsed, run nowhere
-	Healthcheck string         `yaml:"healthcheck"` // LEGACY: a shell command; exit 0 = healthy (ECS healthCheck)
-	Health      *Health        `yaml:"health"`      // structured per-part health intent (design/subsystems/healthchecks.md); additive over Healthcheck
-	Public      bool           `yaml:"public"`
-	Replicas    any            `yaml:"replicas"` // omitted/null or 1; larger counts are not supported
+	// Seed is refused by name (no target runs it yet), so a target that
+	// learns to run it later changes no app that wrote it.
+	Seed        string  `yaml:"seed"`
+	Healthcheck string  `yaml:"healthcheck"` // a non-public part's container health check (a shell command; exit 0 = healthy); refused on the public part
+	Health      *Health `yaml:"health"`      // structured per-part health intent (design/subsystems/healthchecks.md)
+	Public      bool    `yaml:"public"`
+	Replicas    any     `yaml:"replicas"` // omitted/null or 1; larger counts are not supported
 	// Resources is the most the part may use (resources.go); none is no limit.
 	Resources *appYamlResources `yaml:"resources"`
 }
@@ -225,8 +227,19 @@ func Parse(raw []byte) (*Contract, error) {
 		if err := validateHealth(name, p.Health); err != nil {
 			return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 		}
-		if _, reserved := p.Environment[BrowserEnvVar]; reserved {
-			return nil, fmt.Errorf(".apptown/app.yaml: app part %q sets %s, which only AppTown sets", name, BrowserEnvVar)
+		// Refused rather than accepted and ignored: each would gain a meaning
+		// when a target learns it, and silently change the apps that wrote it.
+		if p.Seed != "" {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: seed: is not run by any target yet; remove it, and run the command as an init step (init:) if it must run at every deploy", name)
+		}
+		if p.Healthcheck != "" && p.Public {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: healthcheck: is not used on the public part; remove it and declare health: { readiness: { http: /your-path } }", name)
+		}
+		if p.DataDir != "" && !p.Public {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: dataDir: is kept only for the public part; keep durable files in the public part's dataDir or in a need", name)
+		}
+		if env := setsAppTownEnv(p.Environment); env != "" {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q sets %s in environment:, which only AppTown sets; remove it and read the value AppTown gives", name, env)
 		}
 		built, err := p.Static.staticBuild(name)
 		if err != nil {
@@ -244,7 +257,7 @@ func Parse(raw []byte) (*Contract, error) {
 		part := Part{
 			Resources: resources,
 			Name:      name, Build: p.Build, Image: p.Image, Static: p.Static.Folder, StaticBuild: built,
-			DataDir: p.DataDir, Seed: p.Seed, Health: p.Healthcheck, Intent: p.Health, Public: p.Public,
+			DataDir: p.DataDir, Health: p.Healthcheck, Intent: p.Health, Public: p.Public,
 			Command: partCommand(p.Command),
 			Env:     stringifyMap(p.Environment),
 		}
@@ -292,7 +305,7 @@ func Parse(raw []byte) (*Contract, error) {
 		})
 	}
 
-	// needs: a map of capability → {typed params + a properties escape hatch}.
+	// needs: a map of capability → its parameters (the catalogue says which a kind takes).
 	if err := parseAppYamlNeeds(doc.Needs, &c); err != nil {
 		return nil, fmt.Errorf(".apptown/app.yaml: needs: %w", err)
 	}
@@ -373,10 +386,10 @@ func ParseDataCheck(line string) (path string, expect int, err error) {
 	return "", 0, fmt.Errorf("%q: a data check is \"GET /path\" or \"GET /path expect <status>\"", line)
 }
 
-// parseAppYamlNeeds turns the needs map into c.Needs + c.NeedParams. Typed
-// scalar fields and scalar entries of the `properties:` escape hatch both become
-// interpolation params ({name} tokens); properties lets a need carry esoteric,
-// un-anticipated provisioning params without a schema change.
+// parseAppYamlNeeds turns the needs map into c.Needs + c.NeedParams: each
+// scalar field becomes an interpolation param ({name} token). Which params a
+// kind takes is the catalogue's (dependency.RefusesDeclaration); the old
+// properties: pass-through is refused here.
 func parseAppYamlNeeds(needs map[string]map[string]any, c *Contract) error {
 	if len(needs) == 0 {
 		return nil
@@ -414,29 +427,16 @@ func parseAppYamlNeeds(needs map[string]map[string]any, c *Contract) error {
 			}
 			c.NeedSizes[name] = NeedSize{Name: nameSize}
 		}
+		if _, present := spec["properties"]; present {
+			return fmt.Errorf("%s: properties: is not read; write each parameter the need takes directly under needs.%s", name, name)
+		}
 		for k, v := range spec {
-			if k == "properties" || k == "resources" || k == "size" {
+			if k == "resources" || k == "size" {
 				continue
 			}
 			s, ok := scalarString(v)
 			if !ok {
 				return fmt.Errorf(".apptown/app.yaml: needs: %s: %s: a parameter is a single value, not %s", name, k, shapeOf(v))
-			}
-			params[k] = s
-		}
-		// The escape hatch: properties: { k: v } — scalar values become params
-		// too (a property named the same as a typed field would override it).
-		props, ok := spec["properties"].(map[string]any)
-		if raw, present := spec["properties"]; present && raw != nil && !ok {
-			return fmt.Errorf(".apptown/app.yaml: needs: %s: properties: a map of single values, not %s", name, shapeOf(raw))
-		}
-		for k, v := range props {
-			if k == "size" {
-				return fmt.Errorf("needs: %s: size is selected directly, not through properties", name)
-			}
-			s, ok := scalarString(v)
-			if !ok {
-				return fmt.Errorf(".apptown/app.yaml: needs: %s: properties: %s: a property is a single value, not %s", name, k, shapeOf(v))
 			}
 			params[k] = s
 		}

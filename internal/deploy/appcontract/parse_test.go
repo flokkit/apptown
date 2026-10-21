@@ -22,8 +22,7 @@ app:
 needs:
   postgres:
     version: "16"
-    properties:
-      shared_buffers: 256MB
+    database: orders
   s3: {}
 `))
 	if err != nil {
@@ -36,12 +35,12 @@ needs:
 	if c.PublicPart().Build != "." || c.PublicPart().Port != 8080 || c.PublicPart().DataDir != "/data" {
 		t.Fatalf("incorrect public declaration: build=%q port=%d dataDir=%q", c.PublicPart().Build, c.PublicPart().Port, c.PublicPart().DataDir)
 	}
-	// needs: sorted, params from typed fields + properties escape hatch.
+	// needs: sorted, with their parameters.
 	if len(c.Needs) != 2 || c.Needs[0] != "postgres" || c.Needs[1] != "s3" {
 		t.Fatalf("needs not parsed: %+v", c.Needs)
 	}
-	if c.NeedParams["postgres"]["version"] != "16" || c.NeedParams["postgres"]["shared_buffers"] != "256MB" {
-		t.Fatalf("postgres params (typed + properties) wrong: %+v", c.NeedParams["postgres"])
+	if c.NeedParams["postgres"]["version"] != "16" || c.NeedParams["postgres"]["database"] != "orders" {
+		t.Fatalf("postgres params wrong: %+v", c.NeedParams["postgres"])
 	}
 }
 
@@ -68,7 +67,9 @@ app:
     build: .
     ports: ["8080"]
     public: true
-    healthcheck: "wget -qO- localhost:8080/health || exit 1"
+  worker:
+    build: .
+    healthcheck: "pgrep -f worker || exit 1"
 init:
   - name: migrate
     build: .
@@ -90,12 +91,12 @@ needs:
 	}
 	var web *appcontract.Part
 	for i := range c.Parts {
-		if c.Parts[i].Name == "web" {
+		if c.Parts[i].Name == "worker" {
 			web = &c.Parts[i]
 		}
 	}
 	if web == nil || web.Health == "" {
-		t.Fatalf("web healthcheck not parsed: %+v", web)
+		t.Fatalf("worker healthcheck not parsed: %+v", web)
 	}
 }
 
@@ -184,5 +185,32 @@ func TestRehearsalChecksAreGetLines(t *testing.T) {
 		if _, err := appcontract.Parse([]byte(head + bad + "\n")); err == nil || !strings.Contains(err.Error(), "rehearsal: checks") {
 			t.Errorf("%s: %v, want refused", bad, err)
 		}
+	}
+}
+
+// What no target uses, or what differs by target, is refused when the
+// contract is read, so a target that learns it later changes no app that
+// wrote it; each refusal names the field and what to write instead.
+func TestAppYamlRefusesWhatNoTargetUses(t *testing.T) {
+	base := "version: 2\napp:\n  web:\n    build: .\n    public: true\n"
+	for _, tc := range []struct{ name, yaml, want string }{
+		{"seed", base + "    seed: ./seed.sh\n", "seed: is not run by any target yet"},
+		{"dataDir on a worker", base + "  worker:\n    build: .\n    dataDir: /data\n", `app part "worker": dataDir: is kept only for the public part`},
+		{"PORT", base + "    environment: {PORT: \"8080\"}\n", "sets PORT in environment:, which only AppTown sets"},
+		{"APPTOWN_ORIGINS", base + "    environment: {APPTOWN_ORIGINS: https://x}\n", "sets APPTOWN_ORIGINS in environment:"},
+		{"DATA_DIR", base + "  worker:\n    build: .\n    environment: {DATA_DIR: /d}\n", `app part "worker" sets DATA_DIR`},
+		{"APPTOWN_RELEASE", base + "    environment: {APPTOWN_RELEASE: x}\n", "sets APPTOWN_RELEASE"},
+		{"PORT in a profile", base + "profiles:\n  big:\n    web:\n      environment: {PORT: \"1\"}\n", "profiles: big: web: sets PORT, which only AppTown sets"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := appcontract.Parse([]byte(tc.yaml))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("want a refusal containing %q, got %v", tc.want, err)
+			}
+		})
+	}
+	// The forms that work stay accepted.
+	if _, err := appcontract.Parse([]byte(base + "    dataDir: /data\n    environment: {MY_PORT: \"1\"}\n")); err != nil {
+		t.Fatalf("public dataDir and an ordinary variable refused: %v", err)
 	}
 }

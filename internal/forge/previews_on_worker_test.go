@@ -432,7 +432,7 @@ type gatePlace struct {
 // preview. It answers the saved gate and the check's detail.
 func runRuntimeGate(t *testing.T, place gatePlace) (*workflow.Step, string, string) {
 	t.Helper()
-	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
+	const given = `{"SENTRY_DSN":"https://key@errors.example/3"}`
 	const loads = `<html><head><script src="/_apptown/env.js"></script><script src="game.js"></script></head></html>`
 	page := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_apptown/env.js" {

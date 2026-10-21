@@ -29,19 +29,32 @@ func TestHealthSchemaValidation(t *testing.T) {
 
 	base := "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"
 
-	// Legacy string still works (additive).
-	ok(base + "    healthcheck: \"curl -f localhost:8080/ || exit 1\"\n")
+	worker := "  worker:\n    build: .\n"
 
-	// Structured intent parses.
-	ok(base + "    health:\n      readiness: { http: /healthz, expect: 200, checksDeps: true, startupGrace: 90s }\n      liveness: { tcp: 8080 }\n")
+	// The legacy string is a non-public part's container health check; on
+	// the public part no target reads it, so it is refused there.
+	ok(base + worker + "    healthcheck: \"pgrep -f worker || exit 1\"\n")
+	bad("healthcheck: is not used on the public part",
+		base+"    healthcheck: \"curl -f localhost:8080/ || exit 1\"\n")
 
-	// Guardrail: liveness.checksDeps is forbidden (restart-loop).
-	bad("liveness.checksDeps is forbidden",
-		base+"    health:\n      liveness: { tcp: 8080, checksDeps: true }\n")
+	// Structured intent parses: an http readiness, any liveness kind.
+	ok(base + "    health:\n      readiness: { http: /healthz, expect: 200, startupGrace: 90s, requestContext: direct }\n      liveness: { tcp: 8080 }\n")
+	ok(base + "    health:\n      readiness: { http: /healthz }\n      liveness: { exec: [\"true\"] }\n")
 
-	// Guardrail: exec readiness can't be frontDoor.
-	bad("exec readiness probe cannot be requestContext:frontDoor",
-		base+"    health:\n      readiness: { exec: [\"true\"], requestContext: frontDoor }\n")
+	// What no target uses yet is refused, not accepted and ignored.
+	bad(`a health probe has no field "intervl"`,
+		base+"    health:\n      readiness: { http: /healthz, intervl: 5s }\n")
+	bad("health.readiness is an http probe",
+		base+"    health:\n      readiness: { tcp: 8080 }\n")
+	bad("health.readiness is an http probe",
+		base+"    health:\n      readiness: { exec: [\"true\"] }\n")
+	for _, field := range []string{"period: 10s", "timeout: 3s", "failureThreshold: 3", "successThreshold: 2", "checksDeps: true",
+		// written at all is refused, a zero or false value included
+		"period: \"\"", "failureThreshold: 0", "successThreshold: 0", "checksDeps: false"} {
+		name := strings.SplitN(field, ":", 2)[0]
+		bad("health.liveness."+name+" is not used by any target yet",
+			base+"    health:\n      liveness: { http: /livez, "+field+" }\n")
+	}
 
 	// exactly one target.
 	bad("exactly one of http, tcp or exec",

@@ -132,10 +132,13 @@ func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Du
 // preview with no revision, keep the /_apptown/env.js check.
 func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n    environment:\n      APPTOWN_RELEASE: web@apptownd\n"))
+	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Refused in a contract read today; one stored from before the refusal
+	// may carry it, and AppTown's value must still win.
+	c.PublicPart().Env = map[string]string{"APPTOWN_RELEASE": "web@apptownd"}
 	const rev = "774273461cf5561e50896b409942cc67d14361ca"
 	for _, tc := range []struct {
 		name, serves, revision string

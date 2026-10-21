@@ -8,8 +8,7 @@ AI models (the `llm` need), when the app calls a model:
   AppTown gives each deployment and each preview its own key with a
   spending limit. Never ask for, paste or commit a key of your own.
 - Use an OpenAI-compatible client. Take the base URL from
-  `OPENROUTER_BASE_URL` and the key from `OPENROUTER_API_KEY`, and from
-  nowhere else. Name the model in the request (for example
+  `LLM_BASE_URL` and the key from `LLM_API_KEY`, and from nowhere else. Name the model in the request (for example
   `anthropic/claude-haiku-4.5`); keep the model name in one place.
 - Never log, print, return or store the key, including in error messages
   and debug output. Call the model from the server only: a browser must

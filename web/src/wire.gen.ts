@@ -425,6 +425,7 @@ export type DependencyKind = {
   description?: string
   provides?: Record<string, string>
   defaults?: Record<string, string>
+  parameters?: string[]
   credentials?: Record<string, string>
   generate?: string[]
   integration?: boolean

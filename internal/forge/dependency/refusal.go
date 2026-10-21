@@ -85,6 +85,19 @@ func (k *Kind) RefusesDeclaration(params map[string]string) string {
 		slices.Sort(owned)
 		return fmt.Sprintf("AppTown sets the %s of the %s need, and an app cannot: remove %s from needs.%s in .apptown/app.yaml and read the value from the variables the app is given", strings.Join(owned, " and "), k.Capability, strings.Join(owned, ", "), k.Capability)
 	}
+	// A parameter the kind does not take would do nothing today and
+	// something once the kind learns it: refused, never ignored.
+	accepted := k.AcceptedParameters()
+	var unknown []string
+	for name := range params {
+		if !slices.Contains(accepted, name) {
+			unknown = append(unknown, name)
+		}
+	}
+	if len(unknown) > 0 {
+		slices.Sort(unknown)
+		return fmt.Sprintf("the %s need does not take %s: remove %s from needs.%s in .apptown/app.yaml (it takes %s, size and resources)", k.Capability, strings.Join(unknown, " or "), strings.Join(unknown, ", "), k.Capability, strings.Join(accepted, ", "))
+	}
 	return ""
 }
 

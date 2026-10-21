@@ -34,8 +34,10 @@ AppTown provisions each need per deployment (a local container here, a
 managed resource in cloud) and injects its connection env — DATABASE_URL +
 PG* (postgres), REDIS_URL (redis), AWS_* and S3_BUCKET (s3), reachable at
 hostname = the capability name. READ that env; never hard-code a host or
-credentials. A need takes typed params plus a properties: {} escape hatch
-for esoteric provisioning params. Boot order is enforced: needs come up
+credentials. A need takes only the parameters its catalogue entry lists
+(postgres: version, database, user), plus disposable, size and resources;
+any other is refused. Leave PORT, APPTOWN_ORIGINS and DATA_DIR to AppTown:
+setting them in environment is refused. Boot order is enforced: needs come up
 healthy, then init containers run to completion, then the app parts start —
 so a migration in init sees a ready database.
 

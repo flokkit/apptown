@@ -281,7 +281,7 @@ func TestAnAppPlatformReleaseSaysWhichIntegrationsItDoesNotDeliver(t *testing.T)
 		t.Fatal(err)
 	}
 	rel, log := w.release("prod")
-	if rel.State != deployment.Released || !strings.Contains(log, "give an app on a Docker host GLITCHTIP_DSN, SENTRY_DSN") || !strings.Contains(log, "does not deliver them yet") || strings.Contains(log, "pub@errors.test") {
+	if rel.State != deployment.Released || !strings.Contains(log, "give an app on a Docker host SENTRY_DSN") || !strings.Contains(log, "does not deliver them yet") || strings.Contains(log, "pub@errors.test") {
 		t.Fatalf("release %s:\n%s", rel.State, log)
 	}
 }

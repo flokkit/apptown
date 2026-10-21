@@ -81,6 +81,12 @@ type Kind struct {
 	// these; both are interpolated as {name} tokens into the fulfillments
 	// (Tier-1 passthrough).
 	Defaults map[string]string `yaml:"defaults,omitempty" json:"defaults,omitempty"`
+	// Parameters are the parameters the kind takes that have no default
+	// (the llm kind's limit). A need takes only these, the keys of Defaults,
+	// and the ones every need takes (CommonParameters); anything else is
+	// refused (RefusesDeclaration), so a parameter a kind learns later
+	// changes no app that already wrote it.
+	Parameters []string `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	// Credentials are values AppTown sets and an app may not: interpolated
 	// as {name} like a parameter, after the app's parameters, and refused as a
 	// parameter (RefusesParams). A managed target makes its own, so an app
@@ -318,6 +324,9 @@ func Parse(y string) (*Kind, error) {
 	if err := d.checkGenerate(); err != nil {
 		return nil, err
 	}
+	if err := d.checkParameters(); err != nil {
+		return nil, err
+	}
 	if err := d.checkCopy(); err != nil {
 		return nil, err
 	}
@@ -384,6 +393,47 @@ func (k *Kind) checkGenerate() error {
 		return fmt.Errorf("%w: dependency %q generates credentials for each deployment, so its local service must set them again at every start (local.configAtStart: true)", ErrSpec, k.Capability)
 	}
 	return nil
+}
+
+// CommonParameters are the need parameters every kind takes, beside its
+// own. size and resources are read by the contract itself and never reach
+// the kind as parameters.
+var CommonParameters = []string{"disposable"}
+
+// ReservedParameters are words no kind may take as a parameter: a later
+// form naming two needs of one kind (needs: {reports: {kind: postgres,
+// prefix: REPORTS_}}) would use them, and it stays additive only while no
+// app can already have written them.
+var ReservedParameters = []string{"kind", "prefix", "as"}
+
+// checkParameters refuses a kind whose parameters claim a reserved word.
+func (k *Kind) checkParameters() error {
+	for _, name := range k.AcceptedParameters() {
+		if slices.Contains(ReservedParameters, name) {
+			return fmt.Errorf("%w: dependency %q takes the parameter %q, a word kept for naming needs (%s)", ErrSpec, k.Capability, name, strings.Join(ReservedParameters, ", "))
+		}
+	}
+	return nil
+}
+
+// AcceptedParameters are the parameters a need of this kind may set, sorted.
+func (k *Kind) AcceptedParameters() []string {
+	set := map[string]bool{}
+	for name := range k.Defaults {
+		set[name] = true
+	}
+	for _, name := range k.Parameters {
+		set[name] = true
+	}
+	for _, name := range CommonParameters {
+		set[name] = true
+	}
+	out := make([]string, 0, len(set))
+	for name := range set {
+		out = append(out, name)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // Names are the variables the kind gives an app: what it provides, or,

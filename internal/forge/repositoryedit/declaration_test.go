@@ -14,7 +14,7 @@ import (
 
 // A contract with everything the services editor must not touch: a public
 // app with per-part fields, an image worker, a raw sidecar, init containers,
-// and needs carrying typed values and `properties:`.
+// and needs carrying typed values.
 const richContract = `app:
   web:
     build: .
@@ -22,9 +22,9 @@ const richContract = `app:
     public: true
     environment: {K: v}
     dataDir: /data
-    healthcheck: "wget -qO- localhost:8080/health || exit 1"
   worker:
     image: worker:1
+    healthcheck: "pgrep work || exit 1"
     command: [work, "--queue", jobs]
     environment: {WORKER_ONLY: "1"}
   mail:
@@ -34,7 +34,7 @@ init:
 needs:
   postgres:
     version: 16
-    properties: {extensions: pgvector}
+    database: ledger
   redis: {version: "7"}
 `
 
@@ -61,7 +61,7 @@ func tree(t *testing.T, b []byte) map[string]any {
 
 // The form sends back what the GET gave it (parsed, stringified params) plus
 // the person's edits. Only the needs they changed may change; the app, init
-// and every untouched need entry stay as written, types and properties too.
+// and every untouched need entry stay as written, types too.
 func TestNeedEditsLeaveTheAppAndOtherNeedsAsWritten(t *testing.T) {
 	t.Parallel()
 	repo := writeContract(t, richContract)
@@ -154,23 +154,5 @@ func TestFirstNeedSynthesizesAContractAndNothingIsRefused(t *testing.T) {
 	}
 	if _, err := editDeclaration(writeContract(t, "app: [this is not a map]\n\t bad: : :"), []NeedSelection{{Capability: "redis"}}); err == nil {
 		t.Fatal("a malformed existing app.yaml must be rejected")
-	}
-}
-
-// A parameter kept under properties: is edited where it lives, since the
-// contract reads properties first; the edit takes effect.
-func TestEditingAParameterKeptInPropertiesTakesEffect(t *testing.T) {
-	t.Parallel()
-	repo := writeContract(t, "app:\n  web: {image: nginx, ports: [\"8080\"], public: true}\nneeds:\n  postgres:\n    properties: {version: \"16\", database: app}\n")
-	out, err := editDeclaration(repo, []NeedSelection{{Capability: "postgres", Params: map[string]any{"version": "17", "database": "app"}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	c, err := appcontract.Parse(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := c.NeedParams["postgres"]["version"]; got != "17" {
-		t.Fatalf("successful edit still deploys version %s:\n%s", got, out)
 	}
 }

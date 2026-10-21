@@ -102,8 +102,8 @@ kind has a `register:` block is not asked of the target (`refusesContract`,
 one adapter, `openrouter-key` (`llm`): the project must have
 attached AI models, or the boot is refused before any provider call; the
 deployment or preview then gets its own OpenRouter key, kept on its owned
-list, and the kind's `inject` templates render `OPENROUTER_API_KEY` and
-`OPENROUTER_BASE_URL` into every part's values. A Docker host registers as
+list, and the kind's `inject` templates render `LLM_API_KEY` and
+`LLM_BASE_URL` into every part's values. A Docker host registers as
 its boot reads the app's secrets; any other target gets the values with the
 release's secrets. The adapters the project attachment still fulfils
 (`glitchtip-project`, `authentik-oidc`, `otlp-endpoint`) are left as they

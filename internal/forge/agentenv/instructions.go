@@ -67,7 +67,7 @@ func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) s
 	}
 	return "\n## Error reporting (attached, generated)\n\n" +
 		"This project has Sentry-compatible error reporting. The DSN is injected\n" +
-		"into app containers as SENTRY_DSN / GLITCHTIP_DSN — initialize the SDK\n" +
+		"into app containers as SENTRY_DSN — initialize the SDK\n" +
 		"from that env var (never hardcode it). See the observability guidance.\n" +
 		"A static site cannot read env vars: its page loads /_apptown/env.js and\n" +
 		"reads window.__APPTOWN_ENV__.SENTRY_DSN (guidance deploy/browser-values);\n" +
@@ -92,11 +92,11 @@ func (s *Instructions) llmDocSection(ctx context.Context, projectID ids.ID) stri
 		return ""
 	}
 	return "\n## AI models (attached, generated)\n\n" +
-		"This project may give its app AI models through OpenRouter. Declare the\n" +
+		"This project may give its app AI models (an OpenAI-compatible API). Declare the\n" +
 		"need in .apptown/app.yaml: `needs: { llm: { limit: 5 } }` (US dollars;\n" +
 		"optional `limitReset: daily|weekly|monthly`; the connector sets the\n" +
 		"most allowed). Each deployment and each preview then gets its own key,\n" +
-		"injected as OPENROUTER_API_KEY and OPENROUTER_BASE_URL. Use an\n" +
+		"injected as LLM_API_KEY and LLM_BASE_URL. Use an\n" +
 		"OpenAI-compatible client with exactly those two. Never log, print,\n" +
 		"return or commit the key, and call models from the server only.\n" +
 		"Absent variables mean AI is off; HTTP 402 means the allowance is used\n" +

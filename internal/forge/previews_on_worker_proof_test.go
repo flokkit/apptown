@@ -127,7 +127,7 @@ func ownerConsole(a *App, id string, ch *workflow.Change) *console.Session {
 // each check's verdict and detail, by name.
 func proofGate(t *testing.T, fake *fakePreviewWorker, local *fakeDocker, afterBoot func()) (*workflow.Step, map[string][2]string, ids.ID) {
 	t.Helper()
-	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
+	const given = `{"SENTRY_DSN":"https://key@errors.example/3"}`
 	const loads = `<html><head><script src="/_apptown/env.js"></script><script src="game.js"></script></head></html>`
 	fake.app = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_apptown/env.js" {

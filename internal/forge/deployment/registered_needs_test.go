@@ -140,7 +140,7 @@ func TestADeploymentGetsItsOwnKeyAndKeepsIt(t *testing.T) {
 		t.Fatalf("key at OpenRouter: %+v", key)
 	}
 	runs := runCalls(client)
-	if !strings.Contains(runs, "OPENROUTER_API_KEY="+key.Value) || !strings.Contains(runs, "OPENROUTER_BASE_URL="+f.Base) {
+	if !strings.Contains(runs, "LLM_API_KEY="+key.Value) || !strings.Contains(runs, "LLM_BASE_URL="+f.Base) {
 		t.Fatalf("the app is given the key and base URL:\n%s", runs)
 	}
 	if strings.Contains(runs, llmProvisioningSentinel) {
@@ -148,7 +148,7 @@ func TestADeploymentGetsItsOwnKeyAndKeepsIt(t *testing.T) {
 	}
 	var named bool
 	for _, r := range res.Stack.Secrets.Receipts {
-		named = named || r.Name == "OPENROUTER_API_KEY"
+		named = named || r.Name == "LLM_API_KEY"
 		if strings.Contains(r.Version, key.Value) {
 			t.Fatal("a receipt carries the key")
 		}
@@ -208,7 +208,7 @@ func TestAttachedErrorReportingStillArrivesBesideAKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	runs := runCalls(client)
-	if !strings.Contains(runs, "--name forge-p-both") || strings.Count(runs, "SENTRY_DSN=https://pub@errors.test/7") < 2 || !strings.Contains(runs, "OPENROUTER_API_KEY=") || f.CallsOf("POST") != 1 {
+	if !strings.Contains(runs, "--name forge-p-both") || strings.Count(runs, "SENTRY_DSN=https://pub@errors.test/7") < 2 || !strings.Contains(runs, "LLM_API_KEY=") || f.CallsOf("POST") != 1 {
 		t.Fatalf("errors and llm:\n%s", runs)
 	}
 	if _, err := s.env.needs.Save(context.Background(), "capability: mystery\ntitle: Mystery\nregister:\n  connector: x\n  adapter: mystery-adapter\n", "admin"); err != nil {
@@ -237,8 +237,8 @@ func TestTargetsAreNotAskedForRegisteredNeeds(t *testing.T) {
 	if why, _ := s.env.RefusesContract(t.Context(), &Target{Name: "bucket", Kind: KindS3Bucket}, c); why == "" {
 		t.Fatal("a bucket refuses an app with needs")
 	}
-	given := registeredSecrets{inner: nil, env: map[string]string{"OPENROUTER_API_KEY": "k"}}
-	if given.EnvFor("web")["OPENROUTER_API_KEY"] != "k" {
+	given := registeredSecrets{inner: nil, env: map[string]string{"LLM_API_KEY": "k"}}
+	if given.EnvFor("web")["LLM_API_KEY"] != "k" {
 		t.Fatal("the release's values carry the key")
 	}
 }
@@ -302,7 +302,7 @@ func TestACloudDeploymentIsGivenItsKeyWithTheAppsSecrets(t *testing.T) {
 	}
 	state := provider.Snapshot()
 	spec := fmt.Sprint(state.Specs)
-	if !strings.Contains(spec, "OPENROUTER_API_KEY") || !strings.Contains(spec, key.Value) || !strings.Contains(spec, "OPENROUTER_BASE_URL") {
+	if !strings.Contains(spec, "LLM_API_KEY") || !strings.Contains(spec, key.Value) || !strings.Contains(spec, "LLM_BASE_URL") {
 		t.Fatalf("the app spec carries the key: %s", spec)
 	}
 	if strings.Contains(spec, llmProvisioningSentinel) {

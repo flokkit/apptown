@@ -53,6 +53,10 @@ cannot be fixed this way is recorded by a person (build/container-image).
   vars (`SERVER_PORT`, …).
 - **Trust the front door:** `server.forward-headers-strategy=framework` in
   `application.properties`, or redirects after a form post go to `http://`.
+- **Error reporting** (Sentry's Spring Boot starter, DSN from `SENTRY_DSN`):
+  set `sentry.exception-resolver-order=-2147483648` in
+  `application.properties`, or exceptions Spring's own resolvers handle
+  first are never reported.
 
 **Database from the environment.** A postgres need arrives as `PGHOST`,
 `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`. Build the datasource from them

@@ -115,13 +115,6 @@ func (h Configuration) ConfigValidate(w http.ResponseWriter, r *http.Request) {
 				errs = append(errs, "profile "+name+": "+err.Error())
 			}
 		}
-		// A field AppTown accepts but never runs must say so, not promise
-		// data.
-		for _, p := range c.Parts {
-			if p.Seed != "" {
-				warns = append(warns, "app part "+p.Name+" declares seed:, which AppTown does not run anywhere; put a command that must run before the app starts in an init step")
-			}
-		}
 		parts := make([]string, 0, len(c.Parts))
 		for _, p := range c.Parts {
 			tag := p.Name

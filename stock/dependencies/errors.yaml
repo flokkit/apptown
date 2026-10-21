@@ -12,9 +12,7 @@ description: Collects the app's uncaught errors in one place, with stack traces,
 # integration, and declaring it under needs: is refused.
 integration: true
 provides:
-  SENTRY_DSN: where the app reports errors, while error reporting is attached
-  GLITCHTIP_DSN: the same address, under GlitchTip's name
-  SENTRY_EXCEPTION_RESOLVER_ORDER: Spring's resolver order so every exception is captured; inert elsewhere
+  SENTRY_DSN: where the app reports errors, while error reporting is attached (any Sentry-compatible SDK reads it)
 
 register:
   connector: glitchtip           # capability=errors provider in the connector catalog
@@ -22,9 +20,6 @@ register:
   # The one list of what an app with error reporting is given (the browser is
   # given only the entries that carry the DSN, as its public form).
   inject:
+    # One standard name, whichever provider is attached; framework settings
+    # (Spring's resolver order) belong to that framework's pack.
     SENTRY_DSN: "${dsn}"
-    GLITCHTIP_DSN: "${dsn}"
-    # Spring: Sentry's MVC exception resolver at its default order never sees
-    # exceptions Spring's own resolvers handle first; capture fires only at
-    # the highest precedence. Inert for other frameworks.
-    SENTRY_EXCEPTION_RESOLVER_ORDER: "-2147483648"

@@ -91,15 +91,15 @@
           },
           "dataDir": {
             "type": "string",
-            "description": "A directory backed by a named volume that survives redeploys."
+            "description": "The public part only: a directory backed by a named volume that survives redeploys. Refused on any other part."
           },
           "seed": {
-            "type": "string",
-            "description": "Reserved. AppTown accepts this field but runs it nowhere: not in development, preview or deployment. Use an init step for a command that must run before the app starts."
+            "not": {},
+            "description": "Refused: no target runs it yet. Use an init step for a command that must run before the app starts."
           },
           "healthcheck": {
             "type": "string",
-            "description": "Legacy: a shell command; exit 0 means healthy. Prefer health."
+            "description": "A part that is not public only: a shell command run in its container, exit 0 means healthy (its container health check on a Docker host and Portainer). Refused on the public part: use health."
           },
           "public": {
             "type": "boolean",
@@ -113,26 +113,19 @@
               "readiness": {
                 "type": "object",
                 "additionalProperties": false,
-                "description": "One probe. Exactly one target: http, tcp or exec.",
+                "description": "One http probe: the path that answers when the part is ready.",
                 "properties": {
                   "http": {
                     "type": "string",
                     "description": "A request path, e.g. /healthz."
                   },
                   "tcp": {
-                    "type": "integer",
-                    "description": "A port; 0 infers it from the part."
+                    "not": {},
+                    "description": "Refused: readiness is an http probe; tcp is for liveness."
                   },
                   "exec": {
-                    "type": "array",
-                    "description": "A command run inside the container.",
-                    "items": {
-                      "type": [
-                        "string",
-                        "number",
-                        "boolean"
-                      ]
-                    }
+                    "not": {},
+                    "description": "Refused: readiness is an http probe; exec is for liveness."
                   },
                   "requestContext": {
                     "type": "string",
@@ -147,26 +140,28 @@
                     "description": "Readiness only: the HTTP status that means ready (default 200)."
                   },
                   "checksDeps": {
-                    "type": "boolean",
-                    "description": "Readiness only: the app asserts this probe checks its dependencies. Recorded, not proven."
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   },
                   "startupGrace": {
                     "type": "string",
                     "description": "A duration with a unit, e.g. 90s. The minimum wait before failures count."
                   },
                   "period": {
-                    "type": "string",
-                    "description": "A duration with a unit, e.g. 10s."
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   },
                   "timeout": {
-                    "type": "string",
-                    "description": "A duration with a unit, e.g. 5s."
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   },
                   "failureThreshold": {
-                    "type": "integer"
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   },
                   "successThreshold": {
-                    "type": "integer"
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   }
                 }
               },
@@ -207,26 +202,28 @@
                     "description": "Readiness only: the HTTP status that means ready (default 200)."
                   },
                   "checksDeps": {
-                    "type": "boolean",
-                    "description": "Readiness only: the app asserts this probe checks its dependencies. Recorded, not proven."
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   },
                   "startupGrace": {
                     "type": "string",
                     "description": "A duration with a unit, e.g. 90s. The minimum wait before failures count."
                   },
                   "period": {
-                    "type": "string",
-                    "description": "A duration with a unit, e.g. 10s."
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   },
                   "timeout": {
-                    "type": "string",
-                    "description": "A duration with a unit, e.g. 5s."
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   },
                   "failureThreshold": {
-                    "type": "integer"
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   },
                   "successThreshold": {
-                    "type": "integer"
+                    "not": {},
+                    "description": "Refused: no target uses it yet."
                   }
                 }
               }
@@ -302,19 +299,8 @@
       "type": "object",
       "additionalProperties": {
         "type": "object",
-        "description": "Typed params (version, database, flow, ...) vary by capability; each is a single value. 'properties' is an escape hatch for esoteric provisioning params not modelled ahead of time.",
+        "description": "The parameters the need's catalogue entry lists (version, database, ...), plus disposable, size and resources; each a single value. Any other is refused when the contract is checked; kind, prefix and as are kept for naming needs.",
         "properties": {
-          "properties": {
-            "type": "object",
-            "description": "Escape hatch: arbitrary key/value provisioning params, passed through to fulfillment. Names are un-schema'd on purpose; each value is a single value.",
-            "additionalProperties": {
-              "type": [
-                "string",
-                "number",
-                "boolean"
-              ]
-            }
-          },
           "resources": {
             "type": "object",
             "description": "The most this need's service may use, as a part's resources. A need that declares nothing has no limit. Not a parameter: the catalogue never sees it. Refused for a need whose kind runs no service.",

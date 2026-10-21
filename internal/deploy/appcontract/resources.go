@@ -229,8 +229,8 @@ func parseProfiles(doc map[string]map[string]appYamlProfilePart, c *Contract, v1
 			if in.Resources == nil && len(in.Environment) == 0 && size == "" {
 				return fmt.Errorf("profiles: %s: %s: changes neither resources nor environment", name, part)
 			}
-			if _, reserved := in.Environment[BrowserEnvVar]; reserved {
-				return fmt.Errorf("profiles: %s: %s: sets %s, which only AppTown sets", name, part, BrowserEnvVar)
+			if env := setsAppTownEnv(in.Environment); env != "" {
+				return fmt.Errorf("profiles: %s: %s: sets %s, which only AppTown sets", name, part, env)
 			}
 			r, err := in.Resources.parse(v1)
 			if err != nil {

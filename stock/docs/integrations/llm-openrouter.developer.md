@@ -25,15 +25,16 @@ the connector's preview limit.
 
 Each deployment and each preview has its own key. The app's parts receive:
 
-- `OPENROUTER_API_KEY` — the key.
-- `OPENROUTER_BASE_URL` — `https://openrouter.ai/api/v1`.
+- `LLM_API_KEY` — the key.
+- `LLM_BASE_URL` — the base URL of an OpenAI-compatible API
+  (`https://openrouter.ai/api/v1` with OpenRouter).
 
 ## What your code must do
 
 - Use an OpenAI-compatible client with exactly those two variables:
 
   ```js
-  const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: process.env.OPENROUTER_BASE_URL })
+  const client = new OpenAI({ apiKey: process.env.LLM_API_KEY, baseURL: process.env.LLM_BASE_URL })
   ```
 
 - Never log, print, return or commit the key, including in error messages.

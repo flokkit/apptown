@@ -23,9 +23,8 @@ import (
 // Change like any other source (an editor that wrote raw image parts could
 // delete every non-public image part it had not been sent, removing an
 // app's worker). A need already declared
-// keeps its entry as written, including `properties:` and value types, except
-// for the params sent with a value different from what the contract reads
-// now; a need not sent is removed. With no contract it authors a minimal
+// keeps its entry as written, including value types, except for the params
+// sent with a value different from what the contract reads now; a need not sent is removed. With no contract it authors a minimal
 // public part when the user declares a first need.
 func editDeclaration(repo string, needs []NeedSelection) ([]byte, error) {
 	var root map[string]any
@@ -61,23 +60,11 @@ func editDeclaration(repo string, needs []NeedSelection) ([]byte, error) {
 		if entry == nil {
 			entry = map[string]any{}
 		}
-		// A parameter kept under properties: is changed there: the contract
-		// reads properties over the entry's own fields, so writing beside it
-		// saved an edit that never took effect.
-		props, _ := entry["properties"].(map[string]any)
-		props = maps.Clone(props)
 		for k, v := range n.Params {
 			if was, ok := current.NeedParams[n.Capability][k]; ok && was == fmt.Sprint(v) {
 				continue
 			}
-			if _, inProps := props[k]; inProps {
-				props[k] = v
-				continue
-			}
 			entry[k] = v
-		}
-		if props != nil {
-			entry["properties"] = props
 		}
 		needMap[n.Capability] = entry
 	}

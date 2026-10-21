@@ -17,7 +17,7 @@ under Settings › Services opens it for you with **Wire it in →**.
 
 - A provider-side project (same name as yours) collecting errors, at
   the instance's GlitchTip.
-- `SENTRY_DSN` / `GLITCHTIP_DSN` in your app's public part on a Docker
+- `SENTRY_DSN` in your app's public part on a Docker
   host, in previews and deployments alike. Nothing to configure, nothing
   in the repo. Other parts, and deployments on Portainer or App Platform,
   do not receive them; [the app contract](/docs/guides/contract-reference)

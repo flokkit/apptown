@@ -22,7 +22,7 @@ func TestNeedSizeRefusesAmbiguousOrInvalidDeclarations(t *testing.T) {
 	base := "app:\n  web: {image: nginx, public: true}\n"
 	for name, spec := range map[string]string{
 		"number": "needs: {mariadb: {size: 2}}", "boolean": "needs: {mariadb: {size: true}}", "empty": "needs: {mariadb: {size: ''}}", "shape": "needs: {mariadb: {size: {name: small}}}",
-		"properties": "needs: {mariadb: {properties: {size: small}}}", "source conflict": "needs: {mariadb: {size: small, resources: {memory: 128M}}}",
+		"source conflict":     "needs: {mariadb: {size: small, resources: {memory: 128M}}}",
 		"inherited resources": "needs: {mariadb: {resources: {memory: 128M}}}\nprofiles: {preview: {mariadb: {size: small}}}",
 		"inherited size":      "needs: {mariadb: {size: small}}\nprofiles: {preview: {mariadb: {resources: {memory: 128M}}}}",
 		"part":                "profiles: {preview: {web: {size: small}}}", "profile scalar": "needs: {mariadb: {}}\nprofiles: {preview: {mariadb: {size: true}}}",

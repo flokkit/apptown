@@ -13,7 +13,11 @@ package appcontract
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // ParseHealthDuration accepts Go duration strings ("90s", "10s", "3s"); a plain
@@ -47,7 +51,44 @@ type Probe struct {
 	Timeout          string `yaml:"timeout" json:"timeout,omitempty"`
 	FailureThreshold int    `yaml:"failureThreshold" json:"failureThreshold,omitempty"`
 	SuccessThreshold int    `yaml:"successThreshold" json:"successThreshold,omitempty"`
+
+	// written are the keys the file wrote, so a field refused by name is
+	// refused when written at all, a zero or false value included.
+	written map[string]bool
 }
+
+// UnmarshalYAML decodes a probe and notes which keys it wrote.
+func (p *Probe) UnmarshalYAML(n *yaml.Node) error {
+	type plain Probe
+	if err := n.Decode((*plain)(p)); err != nil {
+		return err
+	}
+	if n.Kind == yaml.MappingNode {
+		p.written = map[string]bool{}
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			k := n.Content[i].Value
+			// A node decodes without the document's KnownFields: refuse
+			// unknown keys here, as the rest of the file does.
+			if !probeKeys[k] {
+				return fmt.Errorf("line %d: a health probe has no field %q", n.Content[i].Line, k)
+			}
+			p.written[k] = true
+		}
+	}
+	return nil
+}
+
+// probeKeys are the keys a probe may write (its yaml tags).
+var probeKeys = func() map[string]bool {
+	keys := map[string]bool{}
+	t := reflect.TypeOf(Probe{})
+	for i := range t.NumField() {
+		if tag := strings.Split(t.Field(i).Tag.Get("yaml"), ",")[0]; tag != "" && tag != "-" {
+			keys[tag] = true
+		}
+	}
+	return keys
+}()
 
 // Health is the per-part `health:` block.
 type Health struct {
@@ -67,17 +108,6 @@ func validateHealth(part string, h *Health) error {
 	}
 	if err := validateProbe(part, "readiness", h.Readiness); err != nil {
 		return err
-	}
-	// Guardrail (design §5.1): liveness drives RESTART and must never depend on
-	// a downstream service — a deps-checking liveness probe is a restart-loop.
-	if h.Liveness != nil && h.Liveness.ChecksDeps {
-		return fmt.Errorf("part %q: liveness.checksDeps is forbidden — a liveness probe drives restart and must not depend on other services (that is a readiness concern)", part)
-	}
-	// Guardrail (design §5.1): exec cannot be front-door-shaped — the render
-	// hands it no HTTP request (open question §10.2). Bar it explicitly rather
-	// than silently ignore requestContext.
-	if h.Readiness != nil && len(h.Readiness.Exec) > 0 && h.Readiness.RequestContext == "frontDoor" {
-		return fmt.Errorf("part %q: an exec readiness probe cannot be requestContext:frontDoor — AppTown cannot shape a command with a header; use http/tcp for a fronted probe", part)
 	}
 	return nil
 }
@@ -101,6 +131,16 @@ func validateProbe(part, which string, p *Probe) error {
 	}
 	if targets > 1 {
 		return fmt.Errorf("part %q: health.%s declares more than one of http/tcp/exec — pick one", part, which)
+	}
+	// Refused rather than accepted and ignored (no target uses them yet), so
+	// a target that learns them later changes no app that wrote them.
+	if which == "readiness" && p.HTTP == "" {
+		return fmt.Errorf("part %q: health.readiness is an http probe (a path); tcp and exec are for liveness", part)
+	}
+	for _, unused := range []string{"period", "timeout", "failureThreshold", "successThreshold", "checksDeps"} {
+		if p.written[unused] {
+			return fmt.Errorf("part %q: health.%s.%s is not used by any target yet; remove it", part, which, unused)
+		}
 	}
 	switch p.RequestContext {
 	case "", "frontDoor", "direct":

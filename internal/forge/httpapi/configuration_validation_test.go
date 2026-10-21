@@ -61,10 +61,10 @@ func TestConfigurationValidationHTTP(t *testing.T) {
 		t.Fatalf("a bad need must be reported: %d %s", c, b)
 	}
 	// A built worker runs wherever the app runs, so it earns no warning; a
-	// declared seed, which nothing runs, says so instead of promising data.
+	// declared seed, which nothing runs, is refused by name.
 	workerAndSeed := `{"appYaml":"app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    seed: ./load-fixtures\n  worker:\n    build: ./worker\n"}`
-	if c, b := post("/api/v1/config/validate", workerAndSeed); c != 200 || strings.Contains(b, "only the public part") || !strings.Contains(b, "declares seed:, which AppTown does not run anywhere") {
-		t.Fatalf("worker and seed warnings: %d %s", c, b)
+	if c, b := post("/api/v1/config/validate", workerAndSeed); c != 200 || strings.Contains(b, "only the public part") || !strings.Contains(b, "seed: is not run by any target yet") {
+		t.Fatalf("worker and seed: %d %s", c, b)
 	}
 	// secretspec.toml is judged by boot's own parser, so a shape boot would
 	// refuse fails validation first.

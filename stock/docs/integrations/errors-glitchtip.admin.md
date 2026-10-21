@@ -35,7 +35,7 @@ to" (`+ Error reporting`), or with
 creates a provider project named after the AppTown project (adopting it
 if it already exists), reads its DSN, and stores it as the attachment's
 resource. From then on the app's public part receives
-`SENTRY_DSN`/`GLITCHTIP_DSN` on a Docker host, in previews and
+`SENTRY_DSN` on a Docker host, in previews and
 deployments; Portainer and App Platform releases do not deliver them and
 record that they did not ([the app contract](/docs/guides/contract-reference)
 says where each value arrives). The agents of implementation steps receive

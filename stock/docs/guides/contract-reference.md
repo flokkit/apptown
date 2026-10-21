@@ -57,14 +57,28 @@ needs:
 - **`app`** names the parts. Each part declares exactly one of `build` (a
   Docker build context), `image` (an image to pull) or `static` (files to
   serve). Exactly one part is `public: true`: the one people reach.
-- A part may also declare `ports`, `command` (a list, or a string), `environment`,
-  `dataDir`, `health`, `resources` and `replicas`. `replicas` is `1` or left
-  out; a larger number is refused before anything is built.
+- A part may also declare `ports`, `command`, `environment`, `health`,
+  `resources` and `replicas`; the public part may declare `dataDir`, and
+  another part `healthcheck` (below). `replicas` is `1` or left out; a
+  larger number is refused before anything is built.
+- **`command`** is a list, run as written, or a string, run as
+  `sh -c "<string>"`: an image with a string `command` needs `/bin/sh`. On a
+  Docker host and on Portainer a list's arguments are kept as written; App
+  Platform takes a command as one line, its arguments joined by spaces, so
+  an argument holding a space is not kept there.
+- **`environment`** may not set `PORT`, `APPTOWN_ORIGINS`, `DATA_DIR`,
+  `APPTOWN_RELEASE` or `APPTOWN_BROWSER_ENV`: AppTown sets them (see "The
+  environment an app gets"), and an app's own value would win on one target
+  and lose on another.
 - **`init`** is an ordered list of steps that run to completion before the
   app starts (see "Startup order" below). Each declares `build` or
   `image`, and may declare `name`, `command` and `environment`.
 - **`needs`** names services from the catalogue (`postgres`, `mariadb`,
-  `redis`, `s3`, `llm`) with their parameters. Each parameter is one value.
+  `redis`, `s3`, `llm`) with their parameters. Each parameter is one value,
+  and a need takes only the parameters its catalogue entry lists (for
+  `postgres`: `version`, `database` and `user`), plus `disposable`, `size`
+  and `resources`; any other is refused. The words `kind`, `prefix` and `as`
+  are kept for naming two needs of one kind later.
   What each need gives the app is in
   [What each need gives the app](/docs/guides/services-and-data).
 - **`secrets`** chooses the `secretspec.toml` declaration and how values are
@@ -72,8 +86,11 @@ needs:
   delivery is refused.
 - **`profiles`** and **`resources`**: see "Resources and profiles" below.
 - **`rehearsal`**: see "Restore checks" below.
-- **`seed`** on a part is accepted and runs nowhere; the validator says so.
-  Put a command that must run before the app starts in `init`.
+- **Refused until a target uses them:** `seed` on a part (put a command
+  that must run before the app starts in `init`), `dataDir` on a part that
+  is not public, `healthcheck` on the public part, and the health fields
+  "Health" names below. Each is refused by name, so a later release can give
+  it a meaning without changing an app that already wrote it.
 
 The schema and validator are on every AppTown:
 
@@ -144,10 +161,9 @@ and run its workers and its deployment targets on it. App Platform runs
   give. Never hard-code `localhost` for them.
 - **A standing deployment restarts a part that exits.** A preview is
   thrown away when it stops.
-- **Only `dataDir` and needs keep data.** Anything else a container writes
-  is lost at the next deploy. On a Docker host only the public part's
-  `dataDir` is kept; on Portainer every part's `dataDir` is kept. App
-  Platform has no volumes and refuses an app that declares a `dataDir`.
+- **Only the public part's `dataDir` and needs keep data.** Anything else
+  a container writes is lost at the next deploy. App Platform has no
+  volumes and refuses an app that declares a `dataDir`.
 
 ## The environment an app gets
 
@@ -166,7 +182,8 @@ scope names. AppTown adds a few values of its own, which differ by target:
 So that an app runs the same everywhere:
 
 - read `PORT` if it is set, and fall back to the port you declared;
-- do not set `PORT`, `APPTOWN_ORIGINS` or `DATA_DIR` in `environment`;
+- leave `PORT`, `APPTOWN_ORIGINS` and `DATA_DIR` to AppTown (the contract
+  refuses them in `environment`);
 - read every connection value from the need's variables;
 - keep durable files in the public part's `dataDir` or in a need.
 
@@ -198,7 +215,7 @@ needs:
 - `$${needs.` writes the literal text `${needs.`. Nothing else in a value is
   special.
 - An `llm` need's values arrive by registration and cannot be referenced
-  yet: read `OPENROUTER_API_KEY` and its companions by their own names.
+  yet: read `LLM_API_KEY` and `LLM_BASE_URL` by their own names.
 - In process mode (`apptown dev`) every process shares one environment, so
   two parts that set one name from needs to different values are refused.
 
@@ -245,8 +262,13 @@ An attached Docker host routes through its own Traefik, and App Platform
 through DigitalOcean's; each sets the forwarding headers its own way.
 
 Use `APPTOWN_ORIGINS` for the trusted origins a framework checks forms and
-CSRF tokens against, not a typed host name. On a Docker host and Portainer
-it is a set of patterns that can cover more than this one deployment.
+CSRF tokens against, not a typed host name. Its syntax is stable: a
+comma-separated list of origins, each `scheme://host` or
+`scheme://host:port`, where a host may begin with `*.` to cover every name
+under it. On a Docker host and Portainer it holds patterns that can cover
+more than this one deployment; on App Platform, the app's own address. A
+later release may add entries (a custom domain, say), never change the
+syntax: split on commas, and treat a leading `*.` as a wildcard.
 
 ## Health
 
@@ -256,29 +278,34 @@ health:
   liveness:  { http: /livez }
 ```
 
-A probe names one target, `http` (a path), `tcp` (a port) or `exec` (a
-command run in the container), and may give `startupGrace`, `period`,
-`timeout`, `failureThreshold` and `successThreshold`. An `http` probe may
-give `expect` (a status). Readiness may also give `requestContext`
-(`frontDoor`, the default, or `direct`) and `checksDeps`. Liveness may not check other services: a
-liveness probe restarts the part, and restarting it for a database's
-fault makes things worse.
+Readiness is an `http` probe (a path). Liveness names one target: `http`
+(a path), `tcp` (a port) or `exec` (a command run in the container). Either
+may give `startupGrace`; an `http` probe may give `expect` (a status), and
+readiness `requestContext` (`frontDoor`, the default, or `direct`). A
+liveness probe restarts the part, so it should not check other services:
+restarting it for a database's fault makes things worse.
+
+`period`, `timeout`, `failureThreshold`, `successThreshold`, `checksDeps`,
+and a `tcp` or `exec` readiness are refused: no target uses them yet.
+
+A part that is not public may also declare `healthcheck:`, a shell command
+run in its container (exit 0 is healthy): its container health check on a
+Docker host and on Portainer. Its `health` block is used only on App
+Platform, as the readiness path of a part with a port.
 
 What each target uses:
 
 - **Docker host.** Readiness, checked at every boot, is an HTTP GET of the
   declared path, `/` when none is declared, sent as the front door would
-  send it unless `requestContext: direct`. A `tcp` or `exec` readiness is
-  checked as that GET. Liveness is watched on the public part of a
+  send it unless `requestContext: direct`. Liveness is watched on the public part of a
   standing deployment, which is restarted when it fails: an `http`
   liveness is a GET of its path, an `exec` liveness runs its command in the
   container (exit 0 is alive), and a `tcp` liveness, or none declared,
   connects to the part's port. For any HTTP probe, with `expect` the
   answer must be exactly that status, without it any HTTP answer counts,
-  and redirects are not followed. `startupGrace` is used; `period`,
-  `timeout` and the thresholds are not.
-- **Portainer.** No `health` block is used. A part's `healthcheck:` shell
-  command (exit 0 is healthy) is run on the other parts.
+  and redirects are not followed.
+- **Portainer.** No `health` block is used; another part's `healthcheck:`
+  is.
 - **App Platform.** The readiness path only, with the platform's fixed
   timings, and a port check when no path is declared. `expect` is not used.
 

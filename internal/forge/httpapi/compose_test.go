@@ -161,8 +161,10 @@ app:
     public: true
     command: ["serve", "--key", "pa$word"]
     environment: { SECRET_KEY: "x${HOME}$2a$$y" }
-    healthcheck: 'test "$PORT" = 8080'
     dataDir: /data/$tenant
+  worker:
+    build: .
+    healthcheck: 'test "$PORT" = 8080'
 init:
   - name: migrate
     build: .
@@ -198,11 +200,11 @@ init:
 		}
 		return strings.ReplaceAll(v, "$$", "$")
 	}
-	web, migrate := compose.Services["web"], compose.Services["migrate"]
+	web, worker, migrate := compose.Services["web"], compose.Services["worker"], compose.Services["migrate"]
 	for _, c := range []struct{ what, written, want string }{
 		{"web env", web.Environment["SECRET_KEY"], "x${HOME}$2a$$y"},
 		{"web command", strings.Join(web.Command, " "), "serve --key pa$word"},
-		{"web healthcheck", strings.Join(web.Healthcheck.Test, " "), `CMD-SHELL test "$PORT" = 8080`},
+		{"worker healthcheck", strings.Join(worker.Healthcheck.Test, " "), `CMD-SHELL test "$PORT" = 8080`},
 		{"migrate env", migrate.Environment["SECRET_KEY"], "x${HOME}$2a$$y"},
 		{"migrate command", strings.Join(migrate.Command, " "), "migrate pa$word"},
 		{"web data mount", strings.Join(web.Volumes, " "), "appdata-web:/data/$tenant"},

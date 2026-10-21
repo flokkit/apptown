@@ -30,7 +30,7 @@ import (
 // check unjudged.
 func TestTheGuidanceStepActsOnWhatTheBrowserCheckEstablishes(t *testing.T) {
 	t.Parallel()
-	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
+	const given = `{"SENTRY_DSN":"https://key@errors.example/3"}`
 	const loads = `<html><head><script src="/_apptown/env.js"></script><script src="game.js"></script></head></html>`
 	const never = `<html><script src="game.js"></script></html>`
 	booted, gone, lands := browserLane{boots: true, running: true}, browserLane{boots: true}, browserLane{}

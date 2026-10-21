@@ -11,9 +11,36 @@ Anything this page does not list is not promised.
 promises: `.apptown/app.yaml` with `version: 2`, and version 1 (or no
 version) read as version 1 always has been, what a build sees, the
 environment, the startup order, the front door and health, target by target
-as it states them. A higher version is refused by name, never guessed at.
-AppTown's contract is its own: a future importer or exporter for another
-format, such as [Score](https://score.dev), would not change it.
+as it states them, except the limits listed below. A higher version is
+refused by name, never guessed at. The names of the variables AppTown gives
+an app, and what they mean, are promised; their exact values (addresses,
+credentials) are not. AppTown's contract is its own: a future importer or
+exporter for another format, such as [Score](https://score.dev), would not
+change it.
+
+These limits of 1.0 may be lifted or corrected in a 1.x release, and nothing
+else in the contract will change that way:
+
+- **Fields refused today** may be accepted: health `period`, `timeout`,
+  `failureThreshold`, `successThreshold` and `checksDeps`; a `tcp` or `exec`
+  readiness; `seed`; `dataDir` on a part that is not public. A release that accepts one says what it does.
+- **Health settings accepted but not used everywhere** may start being used:
+  App Platform ignores `expect`, `requestContext` and `startupGrace`; a
+  `tcp` liveness on a Docker host connects to the public part's port, not a
+  port it names; liveness is used only on a Docker host, `health` not at all
+  on Portainer, and a non-public part's `health` only on App Platform; a
+  non-public part's `healthcheck` may be replaced by its `health` block, with
+  notice.
+- **Commands on App Platform** keeping a list's arguments as written.
+- **Startup order on Portainer:** init steps run one after another, and the
+  other parts wait for them, as on a Docker host.
+- **Where values arrive:** an attached integration's values given to parts
+  other than the public part, and on targets other than a Docker host and
+  a bucket website; `PORT` given to the public part on Portainer and App
+  Platform; App Platform's order of precedence made the same as the other
+  targets'.
+- **`APPTOWN_ORIGINS` gaining entries** (a custom domain, for example), in
+  the syntax the contract states.
 
 **What each need gives your app.** The variables each catalogue need gives an
 app, what they mean, and what the app may rely on, as
@@ -97,7 +124,7 @@ says so at the start of its description, wherever you choose it.
 **Supported**: shown to work on an AppTown like yours.
 
 - Packs: `go-small`, `django-htmx`, `frontend-only`, `rails`, `html-game`,
-  `conventions-only`, and the `forge` platform pack.
+  `conventions-only`, and the `apptown` platform pack.
 - Needs: `postgres`, `mariadb` and `s3` on a Docker host, and the `errors`
   integration (GlitchTip).
 - Targets: the Docker host, built in or attached over SSH.

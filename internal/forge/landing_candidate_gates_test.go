@@ -113,7 +113,7 @@ func TestAScriptGateInALandingChecksThePinnedCandidate(t *testing.T) {
 
 func TestARuntimeCheckIsNotAttributedToAnUnprovenPreview(t *testing.T) {
 	t.Parallel()
-	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
+	const given = `{"SENTRY_DSN":"https://key@errors.example/3"}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_apptown/env.js" {
 			w.Write([]byte(docker.BrowserEnvScript(given)))
@@ -209,7 +209,7 @@ func TestGuidanceScopeAndReworkEvidenceUseTheCandidate(t *testing.T) {
 // starts.
 func landingWithAPage(t *testing.T, beforeLanding func(*App, ids.ID)) (*App, *fakeDocker, *workflow.Run, workflow.MergeSource, string) {
 	t.Helper()
-	const given = `{"GLITCHTIP_DSN":"https://key@errors.example/3","SENTRY_DSN":"https://key@errors.example/3"}`
+	const given = `{"SENTRY_DSN":"https://key@errors.example/3"}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_apptown/env.js" {
 			w.Write([]byte(docker.BrowserEnvScript(given)))

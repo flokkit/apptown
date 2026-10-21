@@ -26,7 +26,7 @@ func TestTheReleaseWitnessIsTheSelectedPublicStaticPart(t *testing.T) {
 		name, contract, want string
 		witnessed            bool
 	}{
-		{"another service declares a release", "app:\n  api:\n    image: api:1\n    ports: [\"9000\"]\n    environment: {APPTOWN_RELEASE: previous-release}\n  web:\n    static: site\n    public: true\n", "web@selected-new", true},
+		{"another service declares a release", "app:\n  api:\n    image: api:1\n    ports: [\"9000\"]\n  web:\n    static: site\n    public: true\n", "web@selected-new", true},
 		{"a private static part behind a dynamic public one", "app:\n  assets:\n    static: site\n    ports: [\"8081\"]\n  web:\n    image: web:1\n    public: true\n", "", false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -34,6 +34,14 @@ func TestTheReleaseWitnessIsTheSelectedPublicStaticPart(t *testing.T) {
 			contract, err := appcontract.Parse([]byte(c.contract))
 			if err != nil {
 				t.Fatal(err)
+			}
+			// The contract refuses APPTOWN_RELEASE in a part's environment;
+			// a stored contract from before that refusal may still carry it,
+			// and it must not decide the witness.
+			for i := range contract.Parts {
+				if contract.Parts[i].Name == "api" {
+					contract.Parts[i].Env = map[string]string{"APPTOWN_RELEASE": "previous-release"}
+				}
 			}
 			images := map[string]string{}
 			for _, p := range contract.Parts {
@@ -103,6 +111,14 @@ func TestAppPlatformAsksTheFrontDoorOnlyWhenTheContractSaysWhat(t *testing.T) {
 			contract, err := appcontract.Parse([]byte(c.contract))
 			if err != nil {
 				t.Fatal(err)
+			}
+			// The contract refuses APPTOWN_RELEASE in a part's environment;
+			// a stored contract from before that refusal may still carry it,
+			// and it must not decide the witness.
+			for i := range contract.Parts {
+				if contract.Parts[i].Name == "api" {
+					contract.Parts[i].Env = map[string]string{"APPTOWN_RELEASE": "previous-release"}
+				}
 			}
 			src := deploy.Source{Images: map[string]string{"web": "local-web"}, Contract: contract, Revision: "r1"}
 			api := &dofake.API{}

@@ -33,27 +33,25 @@ app:
 	}
 }
 
-// A need's parameters and properties are single values: the scalar ones,
-// properties included, become parameters, and one that is a list or a map,
-// or properties that are not a map, refuse the contract naming the field,
-// rather than being dropped for the catalog's default.
+// A need's parameters are single values: one that is a list or a map
+// refuses the contract naming the field, rather than being dropped for the
+// catalog's default. The old properties: pass-through is refused: a need
+// takes only the parameters its kind declares (dependency.RefusesDeclaration).
 func TestNeedParametersAreSingleValues(t *testing.T) {
 	t.Parallel()
 	const app = "app:\n  web:\n    public: true\n    build: .\nneeds:\n  postgres:\n"
-	c, err := Parse([]byte(app + "    database: sourdough\n    properties: {shared_buffers: 256MB, max_connections: 20}\n"))
+	c, err := Parse([]byte(app + "    database: sourdough\n    version: 17\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := c.NeedParams["postgres"]; p["database"] != "sourdough" || p["shared_buffers"] != "256MB" || p["max_connections"] != "20" {
+	if p := c.NeedParams["postgres"]; p["database"] != "sourdough" || p["version"] != "17" {
 		t.Fatalf("params: %+v", c.NeedParams)
 	}
 	for need, want := range map[string]string{
-		"    database: [sourdough]\n":            "needs: postgres: database: a parameter is a single value, not a list",
-		"    database: {name: sourdough}\n":      "needs: postgres: database: a parameter is a single value, not a map",
-		"    database:\n":                        "needs: postgres: database: a parameter is a single value, not empty",
-		"    properties: sourdough\n":            "needs: postgres: properties: a map of single values, not string",
-		"    properties: [sourdough]\n":          "needs: postgres: properties: a map of single values, not a list",
-		"    properties:\n      database: [a]\n": "needs: postgres: properties: database: a property is a single value, not a list",
+		"    database: [sourdough]\n":           "needs: postgres: database: a parameter is a single value, not a list",
+		"    database: {name: sourdough}\n":     "needs: postgres: database: a parameter is a single value, not a map",
+		"    database:\n":                       "needs: postgres: database: a parameter is a single value, not empty",
+		"    properties: {shared_buffers: 1}\n": ".apptown/app.yaml: needs: postgres: properties: is not read; write each parameter the need takes directly under needs.postgres",
 	} {
 		if _, err := Parse([]byte(app + need)); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v (want %q)", need, err, want)

@@ -208,7 +208,7 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Key: "maxLimit", Label: "Most per key ($)", Type: "number", Placeholder: "20", Help: "The largest limit any one key may have, in US dollars. An app that asks for more is refused."},
 				{Key: "defaultLimit", Label: "Default limit ($)", Type: "number", Placeholder: "1", Help: "A deployment's key limit when the app declares none. Empty = $1."},
 				{Key: "previewLimit", Label: "Preview limit ($)", Type: "number", Placeholder: "1", Help: "Every preview's key limit, whatever the app declares. Empty = $1."},
-				{Key: "url", Label: "API URL", Type: "string", Placeholder: "https://openrouter.ai/api/v1", Help: "Empty = OpenRouter. Apps get it as OPENROUTER_BASE_URL."},
+				{Key: "url", Label: "API URL", Type: "string", Placeholder: "https://openrouter.ai/api/v1", Help: "Empty = OpenRouter. Apps get it as LLM_BASE_URL."},
 			},
 		},
 		{

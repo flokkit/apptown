@@ -74,7 +74,7 @@ func TestIntegrationInstructionsSayHowAnAppGetsAIModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	doc := NewInstructions(db, s).Integrations(t.Context(), id)
-	if !strings.Contains(doc, "AI models (attached, generated)") || !strings.Contains(doc, "OPENROUTER_API_KEY and OPENROUTER_BASE_URL") || !strings.Contains(doc, "needs: { llm:") {
+	if !strings.Contains(doc, "AI models (attached, generated)") || !strings.Contains(doc, "LLM_API_KEY and LLM_BASE_URL") || !strings.Contains(doc, "needs: { llm:") {
 		t.Fatalf("doc section:\n%s", doc)
 	}
 }
