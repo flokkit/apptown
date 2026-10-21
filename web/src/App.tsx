@@ -1,6 +1,7 @@
 import { PRODUCT } from './brand'
 import { NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './ErrorBoundary'
+import { UpdateNote } from './UpdateNote'
 import { StaleScope } from './ReadGate'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -168,6 +169,7 @@ export default function App() {
       </nav>
       <main className="main">
         {meQ.err && <div className="error small" style={{ marginBottom: 10 }}>{PRODUCT} could not say who you are: {meQ.err}</div>}
+        <UpdateNote />
         {!online && <div className="muted small" style={{ marginBottom: 10 }}>You are offline. Pages keep what they last read and refresh when the connection returns.</div>}
         {/* Keyed by identity as well: another person starts from fresh pages,
             with no draft or local state left from the one before. */}

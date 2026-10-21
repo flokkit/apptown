@@ -300,7 +300,7 @@ func (a *App) Handler() http.Handler {
 		if err != nil {
 			panic(err)
 		}
-		a.routes.handler = a.VHost(httpapi.CLIProtocol(a.browserSecurity(a.AuthMiddleware(tracedHandler(a.telemetry, mux)))))
+		a.routes.handler = web.WithEntry(a.VHost(httpapi.CLIProtocol(a.browserSecurity(a.AuthMiddleware(tracedHandler(a.telemetry, mux))))))
 		if routeTableBuilt != nil {
 			routeTableBuilt(a)
 		}

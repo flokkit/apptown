@@ -5,6 +5,7 @@
 // one where the UI reads it more precisely (a step's evidence by its type);
 // api-types.test.ts holds that rule.
 import type { ChangeState as WireChangeState, RunState, StepState } from './wire.gen'
+import { ENTRY_HEADER, noteServed } from './pageUpdate'
 import type { Artifact as WireArtifact, Change as WireChange, Project as WireProject, Run as WireRun, Step as WireStep } from './wire.gen'
 import type { ADRChangeSummary, ADRRecord, AdvanceResult as WireAdvanceResult, ChangeCockpit, ChangeRunSummary, CockpitEvidence, DashboardView, Event as WireEvent, ReleaseListed, RunSnapshot } from './wire.gen'
 import type { Block, GuidanceBlockDetail, Import, ProjectGuidance as GeneratedProjectGuidance, ProjectWorkflowRow, steeringSection, workflowSummary } from './wire.gen'
@@ -238,6 +239,7 @@ async function api<T>(path: string, opts?: RequestInit): Promise<T> {
   if (opts?.body instanceof Blob) headers['Content-Type'] = 'application/octet-stream'
   else if (!(opts?.body instanceof FormData)) headers['Content-Type'] = 'application/json'
   const res = await fetch(`/api/v1${path}`, { headers, ...opts })
+  noteServed(res.headers.get(ENTRY_HEADER))
   if (!res.ok) throw await failure(res)
   if (res.status === 204) return undefined as T
   const text = await res.text()
@@ -265,6 +267,7 @@ export const del = <T,>(p: string, body?: unknown) =>
 // A plain-text resource (a diff), same door as everything else.
 export async function getText(path: string, init?: { signal?: AbortSignal }): Promise<string> {
   const res = await fetch(`/api/v1${path}`, { headers: { 'X-AppTown-Actor': currentUser() }, signal: init?.signal })
+  noteServed(res.headers.get(ENTRY_HEADER))
   if (!res.ok) throw await failure(res)
   return res.text()
 }
