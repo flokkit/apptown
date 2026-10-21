@@ -84,6 +84,8 @@ type standingDaemon struct {
 	failUpdate   bool
 	failRun      bool // the daemon will not start the service again
 	unreadable   bool // the daemon cannot say whether the service exists
+	stopped      bool // the service exists but is not running
+	started      bool // a start was asked for
 }
 
 func (d *standingDaemon) reply(req Command) ([]byte, error) {
@@ -95,6 +97,10 @@ func (d *standingDaemon) reply(req Command) ([]byte, error) {
 		return []byte("Error response from daemon: Conflict"), errors.New("exit 125")
 	case len(a) > 0 && a[0] == "inspect" && slices.Contains(a, "--type"):
 		return fmt.Appendf(nil, "%d %d\n", d.memory, d.nano), nil
+	case len(a) > 0 && a[0] == "start":
+		d.started, d.stopped = true, false
+	case len(a) > 0 && a[0] == "inspect" && slices.Contains(a, "{{.State.Running}}"):
+		return []byte(fmt.Sprint(!d.stopped)), nil
 	case len(a) > 0 && a[0] == "inspect":
 		for _, x := range a {
 			if strings.Contains(x, "Config.Image") {

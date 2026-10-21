@@ -195,6 +195,12 @@ func waitStackHealthy(ctx context.Context, dk Scope, names Prefix, svcs []deploy
 		// started, so a deployment attempt ends failed, not in doubt. A
 		// status the daemon did not give stays unknown.
 		if status == "unhealthy" {
+			// An exited container keeps its last health status: one the
+			// daemon says is not running did not fail a check "after it
+			// started". An unreadable answer keeps Docker's verdict.
+			if dk.Text(ctx, "inspect", "-f", "{{.State.Running}}", cname) == "false" {
+				return declared, deploy.Terminal(fmt.Errorf("the %s service is not running, so it is not ready for the app and nothing of the app was started", svc.Name))
+			}
 			return declared, deploy.Terminal(fmt.Errorf("the %s service is unhealthy: it failed its health check after it started, so it is not ready for the app and nothing of the app was started", svc.Name))
 		}
 		if status == "" {
@@ -477,6 +483,13 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 					return network, fmt.Errorf("the standing %s service: %w", svc.Name, err)
 				}
 				if !recreate {
+					// Reused as it is: one that stopped (exited during its own
+					// start, or stopped by hand) is started again with every
+					// mount it has, so its storage stays. Unreadable is left
+					// for the health wait to judge.
+					if err := startIfStopped(ctx, dk, cname); err != nil {
+						return network, fmt.Errorf("the standing %s service: %w", svc.Name, err)
+					}
 					continue
 				}
 			} else {
@@ -650,6 +663,18 @@ func BuildFailure(operation string, output []byte, cause error) error {
 // it may not be (its data has no storage of its own to carry), and is
 // returned before anything stops. A failure is an error: a limit not
 // applied is never reported as applied.
+// startIfStopped starts a container the daemon says is not running. It
+// keeps the container and its mounts, so a need's data stays where it is.
+func startIfStopped(ctx context.Context, dk Scope, cname string) error {
+	if dk.Text(ctx, "inspect", "-f", "{{.State.Running}}", cname) != "false" {
+		return nil
+	}
+	if out, err := dk.Run(ctx, "start", cname); err != nil {
+		return fmt.Errorf("starting it again: %v: %s", err, strs.Truncate(strings.TrimSpace(string(out)), 200))
+	}
+	return nil
+}
+
 func holdServiceLimits(ctx context.Context, dk Scope, cname string, want appcontract.Resources, keep error) (recreate bool, err error) {
 	out, err := dk.Run(ctx, "inspect", "--type", "container", "--format", "{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}}", cname)
 	if err != nil {
