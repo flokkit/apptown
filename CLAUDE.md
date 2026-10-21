@@ -209,6 +209,10 @@ status headers or history; git history records what changed when. A reason
 that matters is written into the guide.
 
 For live operation, read the [Forge operating skill](.claude/skills/apptown/SKILL.md).
-Satisfy gates rather than working around them. Local code or passing tests do not
+Satisfy gates rather than working around them. Projects move through
+Changes: when AppTown's contract or a way of working changes, existing projects
+get governed Changes that a person accepts, not edits to their repositories or
+records behind the product's back. AppTown's own stored state moves through
+numbered migrations. Local code or passing tests do not
 authorize a production rollout; follow the operating procedure and the user's
 actual authorization.
