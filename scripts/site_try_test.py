@@ -114,6 +114,17 @@ class TryScript(unittest.TestCase):
                 done, candidate = os.waitpid(pid, os.WNOHANG)
                 if done:
                     status = candidate
+                    # The script can exit with its last line still in the
+                    # terminal's buffer, unread: read it to the end (the
+                    # read fails or returns nothing once it is empty).
+                    while select.select([master], [], [], 0.5)[0]:
+                        try:
+                            data = os.read(master, 65536)
+                        except OSError:
+                            break
+                        if not data:
+                            break
+                        out += data
                     break
             else:
                 os.kill(pid, 9)
