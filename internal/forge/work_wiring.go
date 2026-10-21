@@ -68,6 +68,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		Merge:        mergeEffectsFor(a),
 		Landings:     landingAdoptions{},
 		LandingMeans: workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle},
+		InAdvance:    workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle},
 		ChangeAdds:   changeadds.Comparer{},
 		Budget:       remediation.LandingRetryBudget{Now: a.cfg.clock.Now},
 		EvalGate:     evalStepGate{a.evalGate},

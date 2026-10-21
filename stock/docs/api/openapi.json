@@ -212,6 +212,43 @@
         ],
         "type": "object"
       },
+      "AdvanceYes": {
+        "properties": {
+          "approver": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "principal": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shown": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "via": {
+            "type": "string"
+          },
+          "workflow": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "approver",
+          "principal",
+          "at",
+          "workflow",
+          "shown"
+        ],
+        "type": "object"
+      },
       "ApprovalQuestion": {
         "properties": {
           "adds": {
@@ -3324,6 +3361,16 @@
       },
       "changeEvidence": {
         "properties": {
+          "inAdvance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdvanceYes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "merged": {
             "type": "boolean"
           },
@@ -8034,6 +8081,38 @@
         ],
         "x-apptown-access": {
           "capability": "project:select-way-of-working",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/adoption/in-advance": {
+      "get": {
+        "operationId": "getProjectsSlugAdoptionInAdvance",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
         },

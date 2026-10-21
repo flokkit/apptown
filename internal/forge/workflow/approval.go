@@ -85,6 +85,11 @@ type ApprovalVote struct {
 	// the accepter was shown it. Absent on rejections and on votes recorded
 	// before the list existed.
 	Adds *ChangeAdds `json:"adds,omitempty"`
+	// InAdvance is what this yes meant when it was given before the work
+	// existed: the step's declared inAdvance sentence, which the person was
+	// shown. Empty for a yes given to the work itself, which means the
+	// round's sentence (ApprovalEvidence.Means).
+	InAdvance string `json:"inAdvance,omitempty"`
 }
 
 // ApprovalRejection is the feedback retained when a rejected round reopens.
@@ -139,6 +144,10 @@ type ApprovalConfig struct {
 	Quorum    int      `json:"quorum"`
 	Means     string   `json:"means"`
 	Approvers []string `json:"approvers"`
+	// InAdvance is what a yes given before the work exists means, on the
+	// condition AppTown witnesses (in_advance.go). A step without it takes
+	// no yes in advance.
+	InAdvance string `json:"inAdvance,omitempty"`
 }
 
 func approvalObject(raw []byte, out any) error {

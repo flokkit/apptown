@@ -262,7 +262,7 @@ func TestSelectionCannotInstallPoliciesOrCreateAnInstallationTarget(t *testing.T
 	if !errors.Is(err, ErrPackApplication) {
 		t.Fatalf("installation escaped into target without its durable setup: %v", err)
 	}
-	if _, err := service.OpenUplift(adoptionTestCaller(), c.ProjectID, c, "alice", ""); !errors.Is(err, ErrPackApplication) {
+	if _, err := service.OpenUplift(adoptionTestCaller(), c.ProjectID, c, "alice", "", nil); !errors.Is(err, ErrPackApplication) {
 		t.Fatalf("installation admitted for uplift: %v", err)
 	}
 	if called != 0 {

@@ -371,6 +371,8 @@ func money(micros int64) string { return fmt.Sprintf("$%.2f", float64(micros)/1e
 func cmdWhatIfAdopt(args []string) error {
 	fs := newFlags("whatif adopt")
 	projects := fs.String("p", "", "the projects to adopt it on, comma-separated (required)")
+	inAdvance := fs.Bool("accept-in-advance", false, "accept now each adoption that turns out to need no code and passes every check, in the words each project shows")
+	yes := fs.Bool("y", false, "with --accept-in-advance: you have read the words; do not ask")
 	pos := parseArgs(fs, args)
 	var slugs []string
 	for _, s := range strings.Split(*projects, ",") {
@@ -385,6 +387,12 @@ func cmdWhatIfAdopt(args []string) error {
 	if err != nil {
 		return err
 	}
+	shown := map[string][]string{}
+	if *inAdvance {
+		if shown, err = askInAdvance(slugs, *yes); err != nil {
+			return err
+		}
+	}
 	opened := 0
 	for _, slug := range slugs {
 		var o struct {
@@ -393,7 +401,11 @@ func cmdWhatIfAdopt(args []string) error {
 			RunError   string
 			NotStarted string
 		}
-		err := api.post("/projects/"+slug+"/adoption/adopt", map[string]any{"fromWhatIf": id, "viaChange": true}, &o)
+		body := map[string]any{"fromWhatIf": id, "viaChange": true}
+		if words := shown[slug]; len(words) > 0 {
+			body["inAdvance"] = map[string]any{"shown": words}
+		}
+		err := api.post("/projects/"+slug+"/adoption/adopt", body, &o)
 		var refused *httpError
 		switch {
 		case err == nil:
@@ -417,4 +429,50 @@ func cmdWhatIfAdopt(args []string) error {
 	}
 	fmt.Printf("%s %d adoption Change%s opened, as assessed in what-if %s\n", green("✓"), opened, map[bool]string{true: "", false: "s"}[opened == 1], id)
 	return nil
+}
+
+// askInAdvance reads each project's question for a yes in advance, prints
+// its words (once for projects that share them) and why any project offers
+// none, and asks once unless the person said they read them. It returns the
+// words shown per project that offers a yes.
+func askInAdvance(slugs []string, read bool) (map[string][]string, error) {
+	shown := map[string][]string{}
+	var order []string
+	groups := map[string][]string{}
+	for _, slug := range slugs {
+		var q struct {
+			Acceptance string   `json:"acceptance"`
+			Landing    []string `json:"landing"`
+			NotOffered string   `json:"notOffered"`
+		}
+		if err := api.get("/projects/"+slug+"/adoption/in-advance", &q); err != nil {
+			return nil, fmt.Errorf("%s: reading what a yes in advance means: %w", slug, err)
+		}
+		if q.NotOffered != "" {
+			fmt.Printf("  %-18s no yes in advance: %s\n", slug, q.NotOffered)
+			continue
+		}
+		words := append([]string{q.Acceptance}, q.Landing...)
+		shown[slug] = words
+		key := strings.Join(words, "\n")
+		if _, ok := groups[key]; !ok {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], slug)
+	}
+	if len(shown) == 0 {
+		return shown, nil
+	}
+	for _, key := range order {
+		fmt.Printf("%s: you say yes now, meaning:\n", strings.Join(groups[key], ", "))
+		for _, line := range strings.Split(key, "\n") {
+			fmt.Printf("  “%s”\n", line)
+		}
+	}
+	if !read {
+		if ans := strings.ToLower(ask("say yes now, in these words? [y/N] ")); ans != "y" && ans != "yes" {
+			return nil, fmt.Errorf("no Change opened: the yes in advance was not given")
+		}
+	}
+	return shown, nil
 }

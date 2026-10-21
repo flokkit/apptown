@@ -106,12 +106,22 @@ func (s *Service) landingMeansFor(ctx context.Context, runID, stepID ids.ID) []s
 // sentence, the landing's checks brought no news since, and the accepter
 // could approve the step themselves. Without an eligibility check nothing is
 // carried.
-func (s landings) judgeCarry(ctx context.Context, run *Run, steps []*Step, accepted acceptance, news []string) (map[ids.ID]error, error) {
+func (s landings) judgeCarry(ctx context.Context, run *Run, steps, all []*Step, accepted acceptance, news []string) (map[ids.ID]error, error) {
 	accepter := accepted.Who
 	out := map[ids.ID]error{}
 	sourceRefusal, err := carryRefusalIn(ctx, s.db, run.ID, accepted.Source)
 	if err != nil {
 		return nil, err
+	}
+	if accepted.InAdvance && sourceRefusal == "" {
+		// A yes given in advance names the empty commit it was cast on; it
+		// counts only for a landing pinned to that commit, so the landing
+		// merges no code.
+		if _, pinned, err := LandingCandidateIn(ctx, s.db, run.ID); err != nil {
+			return nil, err
+		} else if !pinned {
+			sourceRefusal = "the landing has no pinned candidate to compare with the commit the yes was given on"
+		}
 	}
 	for _, step := range steps {
 		needed, err := completionNeedsVote(step, accepter)
@@ -125,9 +135,15 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps []*Step, accep
 		if err != nil {
 			return nil, err
 		}
-		if cfg.Means == "" || !slices.Contains(accepted.Shown, cfg.Means) {
+		means := cfg.Means
+		if accepted.InAdvance {
+			// A yes given in advance counts only for an approval that says
+			// what such a yes means, and the person was shown that.
+			means = cfg.InAdvance
+		}
+		if means == "" || !slices.Contains(accepted.Shown, means) {
 			// A yes counts only for a sentence the person read when they gave it.
-			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance did not show what this approval means (“%s”)", cfg.Means)}
+			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance did not show what this approval means (“%s”)", means)}
 			continue
 		}
 		if sourceRefusal != "" {
@@ -141,6 +157,14 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps []*Step, accep
 			// only where the landing's list is the same.
 			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: refusal}
 			continue
+		}
+		if accepted.InAdvance {
+			// Given before any of it existed, the yes holds only where every
+			// gate passed outright; news alone is not the bar.
+			if why := passedOutright(all); why != "" {
+				out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the yes was given in advance, on condition every gate passes outright: " + why}
+				continue
+			}
 		}
 		if len(news) > 0 {
 			// The yes was given before these existed; the person looks again.
@@ -237,14 +261,14 @@ type acceptanceWithheld struct {
 // carryVoteIn casts the accepter's vote on one landing approval, or records
 // why it was withheld so the waiting step explains itself. Either receipt
 // marks the step as judged. It reports whether a vote was cast.
-func (s landings) carryVoteIn(ctx context.Context, tx *database.Tx, landing *Run, step *Step, who access.Actor, adds *ChangeAdds, workID ids.ID, refused error) (bool, error) {
+func (s landings) carryVoteIn(ctx context.Context, tx *database.Tx, landing *Run, step *Step, who access.Actor, adds *ChangeAdds, workID ids.ID, refused error, inAdvance string) (bool, error) {
 	accepter := who.Name
 	if refused != nil {
 		return false, recordReceiptIn(ctx, tx, landing.ID, "landing.acceptance.withheld", acceptanceWithheld{step.ID, step.Name, accepter, workID, refused.Error()}, s.now())
 	}
 	// The carried vote is the accepter's: their principal and the way they
 	// accepted, so independence and assent judge the person, not the name.
-	if _, err := (reworkStore{s.db, s.clocked}).approveIn(ctx, tx, landing, step, ApprovalVote{Approver: accepter, Principal: who.Principal, Via: who.Via, Decision: VoteApprove, Comment: fmt.Sprintf("accepted at the change gate (run %d); landing rolls on — gates still enforce", workID), Adds: adds}); err != nil {
+	if _, err := (reworkStore{s.db, s.clocked}).approveIn(ctx, tx, landing, step, ApprovalVote{Approver: accepter, Principal: who.Principal, Via: who.Via, Decision: VoteApprove, Comment: fmt.Sprintf("accepted at the change gate (run %d); landing rolls on — gates still enforce", workID), Adds: adds, InAdvance: inAdvance}); err != nil {
 		return false, err
 	}
 	return true, recordReceiptIn(ctx, tx, landing.ID, "landing.acceptance.carried", acceptanceCarried{step.ID, step.Name, accepter, workID}, s.now())
@@ -302,7 +326,7 @@ func (s landings) carry(ctx context.Context, run *Run) (bool, error) {
 	}
 	// Judge before the vote's transaction: eligibility reads policy on other
 	// connections, which must not wait behind this one's locks.
-	decisions, err := s.judgeCarry(ctx, run, waiting, accepted, checkNews(steps))
+	decisions, err := s.judgeCarry(ctx, run, waiting, steps, accepted, checkNews(steps))
 	if err != nil || len(decisions) == 0 {
 		return false, err
 	}
@@ -338,6 +362,13 @@ func (s landings) carry(ctx context.Context, run *Run) (bool, error) {
 				}
 			}
 		}
+		if why := passedOutright(all); accepted.InAdvance && why != "" {
+			for id, refused := range decisions {
+				if refused == nil {
+					decisions[id] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the yes was given in advance, on condition every gate passes outright: " + why}
+				}
+			}
+		}
 		cast := false
 		for _, step := range locked {
 			refused, judged := decisions[step.ID]
@@ -350,7 +381,15 @@ func (s landings) carry(ctx context.Context, run *Run) (bool, error) {
 				}
 				continue
 			}
-			voted, err := s.carryVoteIn(ctx, tx, current, step, accepted.Who, accepted.Adds, workID, refused)
+			// A yes given in advance is carried as one, with the sentence
+			// this approval gives it.
+			inAdvance := ""
+			if accepted.InAdvance {
+				if cfg, err := ReadApprovalConfig(step.Config); err == nil {
+					inAdvance = cfg.InAdvance
+				}
+			}
+			voted, err := s.carryVoteIn(ctx, tx, current, step, accepted.Who, accepted.Adds, workID, refused, inAdvance)
 			if err != nil {
 				return false, err
 			}

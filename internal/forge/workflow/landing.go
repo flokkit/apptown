@@ -161,6 +161,10 @@ type acceptance struct {
 	// Adds is what the accepter was shown the change adds; nil for an
 	// acceptance recorded before the list existed.
 	Adds *ChangeAdds
+	// InAdvance is set when the yes was given in advance (in_advance.go):
+	// it counts only for approvals that say what such a yes means, and only
+	// where the landing passed outright.
+	InAdvance bool
 }
 
 func acceptanceIn(ctx context.Context, tx *database.Tx, workID ids.ID) (acceptance, error) {
@@ -181,7 +185,7 @@ func acceptanceIn(ctx context.Context, tx *database.Tx, workID ids.ID) (acceptan
 	out := acceptance{Accepter: evidence.Approver}
 	for _, vote := range evidence.Decisions {
 		if vote.Approver == evidence.Approver && vote.Decision == VoteApprove {
-			out.Shown, out.Source, out.Adds = vote.AlsoApproves, vote.Candidate, vote.Adds
+			out.Shown, out.Source, out.Adds, out.InAdvance = vote.AlsoApproves, vote.Candidate, vote.Adds, vote.InAdvance != ""
 			out.Who = access.Actor{Principal: vote.Principal, Name: vote.Approver, Via: vote.Via}
 		}
 	}

@@ -229,6 +229,9 @@ export function Evidence({ view, runs, workTab, extraErr }: {
         <h2>Evidence</h2>
         <span className="muted">{latest ? `Verification in the latest run: ${verificationSummary(latest.steps)}` : 'No run recorded yet.'}</span>
       </div>
+      {proof?.inAdvance && <p className="small" data-testid="in-advance">
+        <strong>Accepted in advance</strong> by {proof.inAdvance.approver}, {fmtStamp(proof.inAdvance.at)}: {proof.inAdvance.shown.join(' ')}
+      </p>}
       {!!proof?.targets.length && <details className="ch-targets">
         <summary>{proof.targets.length === 1 ? 'The requirement this change answers to' : `${proof.targets.length} requirements this change answers to`}</summary>
         {proof.targets.map(t => <div key={`${t.block}:${t.check}`} style={{ marginTop: 8 }}>

@@ -2576,6 +2576,33 @@ func (q *Queries) HasOpenUplift(ctx context.Context, arg HasOpenUpliftParams) (b
 	return exists, err
 }
 
+const inAdvanceConsidered = `-- name: InAdvanceConsidered :many
+SELECT (payload_json->>'stepId')::uuid AS step_id FROM run_events WHERE run_id=$1 AND kind IN ('acceptance.inadvance.applied','acceptance.inadvance.withheld') AND payload_json->>'stepId' IS NOT NULL
+`
+
+func (q *Queries) InAdvanceConsidered(ctx context.Context, runID ids.ID) ([]ids.ID, error) {
+	rows, err := q.db.QueryContext(ctx, inAdvanceConsidered, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ids.ID
+	for rows.Next() {
+		var step_id ids.ID
+		if err := rows.Scan(&step_id); err != nil {
+			return nil, err
+		}
+		items = append(items, step_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertBinaryArtifact = `-- name: InsertBinaryArtifact :one
 INSERT INTO artifacts(id, run_id,kind,name,ref,body,body_bytes,created_at)
 VALUES($1, $2,$3,$4,$5,'',$6,$7) RETURNING id, run_id, kind, name, ref, body, created_at, body_bytes

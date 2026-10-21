@@ -13,6 +13,9 @@ type changeEvidence struct {
 	Targets  []workflow.AcceptanceCheck `json:"targets"`
 	Merged   bool                       `json:"merged"`
 	Releases []changeRelease            `json:"releases"`
+	// InAdvance is the opener's yes given in advance on an adoption, when
+	// they gave one: who, when, and the sentences they said yes to.
+	InAdvance *workflow.AdvanceYes `json:"inAdvance,omitempty"`
 }
 
 type changeRelease struct {
@@ -32,8 +35,11 @@ type changeRelease struct {
 func (h ChangeDetail) evidenceForChange(ctx context.Context, ch *workflow.Change) (changeEvidence, error) {
 	out := changeEvidence{Targets: []workflow.AcceptanceCheck{}, Releases: []changeRelease{}}
 	var acc workflow.Acceptance
-	if json.Unmarshal([]byte(ch.AcceptanceJSON), &acc) == nil && len(acc.Checks) > 0 {
-		out.Targets = acc.Checks
+	if json.Unmarshal([]byte(ch.AcceptanceJSON), &acc) == nil {
+		if len(acc.Checks) > 0 {
+			out.Targets = acc.Checks
+		}
+		out.InAdvance = acc.InAdvance
 	}
 	var err error
 	out.Merged, err = workflow.ChangeMergedIn(ctx, h.db, ch.ProjectID, ch.ID)

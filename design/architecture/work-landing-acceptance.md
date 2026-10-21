@@ -54,6 +54,32 @@ carries nothing. The acceptance is the approval in the last stage of a
 change's working run; earlier approvals, such as a plan's, never count for a
 landing. Under a quorum a carried vote is one vote.
 
+## A yes given in advance
+
+A person opening an adoption Change may accept it in advance
+(`internal/forge/workflow/in_advance.go`). An approval says what such a yes
+means in its own `inAdvance` sentence; an approval without one takes none,
+so a workflow opts in through its data. The person is shown, per project,
+the sentences of the lane's acceptance and of the landing's approvals
+(`GET /projects/{slug}/adoption/in-advance`), sends back what they saw, and
+the Change keeps who gave it, how, when, and those sentences. A yes through
+an agent's token, OAuth or a chat is refused when the Change is opened.
+
+AppTown casts it as the person's vote on the working run's acceptance only
+where it witnesses, at the act: the change is empty against its base (read
+under the repository lock), every other step passed with no override or
+skip, every check receipt is a pass (a failure already on main, an excused,
+skipped, unclear or unassessed check is not), no review left a finding, the
+step's `inAdvance` sentence was shown, and the person could approve the step
+now. The vote names the empty commit and records `inAdvance`, the sentence
+it meant; the round's `means` is unchanged. It carries to the landing by the
+rules above, with two differences: the landing approval's `inAdvance`
+sentence must be among those shown, and the landing must pass outright by
+the same rule instead of `checkNews`. Carry's commit rule (the landing's
+pinned candidate is the commit the yes named) is what shows the landing
+merges no code. Otherwise a `acceptance.inadvance.withheld` or
+`landing.acceptance.withheld` receipt says why, and a person decides.
+
 ## When it is judged
 
 The engine calls `carry` whenever it advances a run, before reading the gate,

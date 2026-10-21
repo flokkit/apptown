@@ -3,6 +3,9 @@ package workcommands
 import (
 	"context"
 	"fmt"
+	"slices"
+
+	"flokkit.io/forge/internal/fault"
 
 	"flokkit.io/forge/internal/ids"
 
@@ -49,13 +52,53 @@ func (a Uplift) OpenUplift(ctx context.Context, in adoption.UpliftRequest) (adop
 		return adoption.UpliftChange{}, fmt.Errorf("adoption target recorder is unavailable")
 	}
 	c := in.Candidate
-	ch, err := a.Changes.Uplift(ctx, workflow.Uplift{ProjectID: c.ProjectID, ExpectedRevision: c.ExpectedRevision, Acceptance: workflow.Acceptance{TargetDigest: c.Digest, Checks: workAcceptanceChecks(c.NewChecks)}, Words: c.Words(), Target: upliftTarget{service: in.Target, candidate: c}, Basis: in.Basis})
+	given, err := a.inAdvance(ctx, c.ProjectID, in.InAdvance)
+	if err != nil {
+		return adoption.UpliftChange{}, err
+	}
+	ch, err := a.Changes.Uplift(ctx, workflow.Uplift{ProjectID: c.ProjectID, ExpectedRevision: c.ExpectedRevision, Acceptance: workflow.Acceptance{TargetDigest: c.Digest, Checks: workAcceptanceChecks(c.NewChecks)}, Words: c.Words(), Target: upliftTarget{service: in.Target, candidate: c}, Basis: in.Basis, InAdvance: given})
 	if err != nil {
 		return adoption.UpliftChange{}, err
 	}
 	out := adoption.UpliftChange{ID: ch.ID, Number: ch.Number}
 	a.start(ctx, ch.ProjectID, &out)
 	return out, nil
+}
+
+// ErrInAdvanceQuestionChanged refuses a yes in advance given to sentences
+// that are not what the project's adoption would ask now.
+var ErrInAdvanceQuestionChanged = fault.New(fault.Conflict, "what a yes in advance means on this project has changed since it was shown; read it again")
+
+// inAdvance checks a yes in advance against what the project's adoption
+// asks now: the same sentences, in order, as the person was shown, and a
+// question that offers one at all. Nothing shown is no yes.
+func (a Uplift) inAdvance(ctx context.Context, projectID ids.ID, shown []string) (*workflow.InAdvanceGiven, error) {
+	if len(shown) == 0 {
+		return nil, nil
+	}
+	if a.DB == nil || a.Lanes == nil {
+		return nil, fmt.Errorf("AppTown cannot read what a yes in advance means here")
+	}
+	p, err := project.ByIDIn(ctx, a.DB, projectID)
+	if err != nil {
+		return nil, err
+	}
+	q, err := inAdvanceQuestion(ctx, a.Lanes(), &p)
+	if err != nil {
+		return nil, err
+	}
+	return givenInAdvance(p.Slug, q, shown)
+}
+
+// givenInAdvance is the yes given to shown, if shown is what q asks.
+func givenInAdvance(slug string, q workflow.InAdvanceQuestion, shown []string) (*workflow.InAdvanceGiven, error) {
+	if q.NotOffered != "" {
+		return nil, fault.New(fault.Conflict, "no yes in advance on "+slug+": "+q.NotOffered)
+	}
+	if !slices.Equal(q.Shown(), shown) {
+		return nil, ErrInAdvanceQuestionChanged
+	}
+	return &workflow.InAdvanceGiven{Workflow: q.Workflow, Shown: slices.Clone(shown)}, nil
 }
 
 // start begins the Change's working run as the opener. The Change is

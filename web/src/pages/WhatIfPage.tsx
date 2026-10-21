@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { currentUser, HttpError, post } from '../api'
+import { currentUser, get, HttpError, post } from '../api'
 import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import type { AdoptionUpliftOpened, AuthzHoldings, PackHistory, WhatIf, WhatIfCheck, WhatIfFleetGap, WhatIfMove, WhatIfRow, WhatIfScore } from '../wire.gen'
+import type { AdoptionUpliftOpened, AuthzHoldings, InAdvanceQuestion, PackHistory, WhatIf, WhatIfCheck, WhatIfFleetGap, WhatIfMove, WhatIfRow, WhatIfScore } from '../wire.gen'
 
 // One what-if on a pack version (design/subsystems/conformance.md):
 // one row per project saying what taking the version would change, worst
@@ -195,6 +195,11 @@ function Table({ w }: { w: WhatIf }) {
   // already sent settle; the rest stay unasked.
   const here = useRef(true)
   useEffect(() => { here.current = true; return () => { here.current = false } }, [])
+  // A yes in advance: each chosen project's own question, read when the
+  // person opens the confirmation and shown there; what was shown is what
+  // each project's request sends back.
+  const [inAdvance, setInAdvance] = useState(false)
+  const asked = useRef<Record<string, InAdvanceQuestion>>({})
   const { run, busy } = useAction(undefined, { affects: ['/changes', '/projects'] })
   if (w.projects.length === 0) return <div className="muted small">No projects selected.</div>
   const chosen = w.projects.filter((p) => p.projectId && ticked.includes(p.projectId))
@@ -208,7 +213,9 @@ function Table({ w }: { w: WhatIf }) {
       if (!here.current || currentUser() !== who) return
       let r: Adopted
       try {
-        const o = await post<AdoptionUpliftOpened>(`/projects/${encodeURIComponent(p.projectSlug)}/adoption/adopt`, { fromWhatIf: w.id, viaChange: true })
+        const q = inAdvance ? asked.current[p.projectSlug] : undefined
+        const shown = q && !q.notOffered ? [q.acceptance, ...q.landing] : undefined
+        const o = await post<AdoptionUpliftOpened>(`/projects/${encodeURIComponent(p.projectSlug)}/adoption/adopt`, shown ? { fromWhatIf: w.id, viaChange: true, inAdvance: { shown } } : { fromWhatIf: w.id, viaChange: true })
         r = { changeId: o.changeId, changeNumber: o.changeNumber, slug: p.projectSlug, started: o.workflow ?? undefined, runError: o.runError ?? undefined, notStarted: o.notStarted ?? undefined }
       } catch (e) {
         r = e instanceof HttpError && e.status < 500 ? { refused: e.message } : { unknown: (e as Error).message }
@@ -222,8 +229,12 @@ function Table({ w }: { w: WhatIf }) {
       <div className="row" style={{ gap: 8, margin: '8px 0' }}>
         <QuietConfirm label={`Adopt v${w.version} on ${chosen.length} project${chosen.length === 1 ? '' : 's'}`} className="subtle" yes="Open the Changes"
           disabled={asking || chosen.length === 0}
-          ask={`Opens one adoption Change per project, taking ${w.pack} v${w.version}${(w.also ?? []).length > 0 ? ` with ${alsoWords(w)} where the project is on them` : ''} as assessed in this what-if${w.advanceWorkflows ? ", with each project's other workflows at the newest version" : ''}. Each lands through its own review.${backWords}`}
+          ask={`Opens one adoption Change per project, taking ${w.pack} v${w.version}${(w.also ?? []).length > 0 ? ` with ${alsoWords(w)} where the project is on them` : ''} as assessed in this what-if${w.advanceWorkflows ? ", with each project's other workflows at the newest version" : ''}. ${inAdvance ? 'Where a project offers it, you accept it now, in the words below; any other Change waits for a person.' : 'Each lands through its own review.'}${backWords}`}
+          prepare={inAdvance ? () => askInAdvance(chosen.map((p) => p.projectSlug), asked.current) : undefined}
           onYes={adopt} />
+        <label className="small muted" title="Accept now each adoption that turns out to need no code and passes every check; the rest wait for a person">
+          <input type="checkbox" checked={inAdvance} onChange={(e) => { asked.current = {}; setInAdvance(e.target.checked) }} disabled={asking} /> accept in advance if it needs no code
+        </label>
         {asking && <span className="muted small">asking each project in turn…</span>}
       </div>
       <div style={{ overflowX: 'auto' }}>
@@ -275,6 +286,28 @@ function Table({ w }: { w: WhatIf }) {
 // alsoWords names the other packs a what-if moved with its own.
 function alsoWords(w: WhatIf): string {
   return (w.also ?? []).map((a) => `${a.pack} v${a.version}`).join(', ')
+}
+
+// askInAdvance reads each project's question for a yes in advance into
+// asked and says it: the sentences once for the projects that share them,
+// and why each other project offers none.
+async function askInAdvance(slugs: string[], asked: Record<string, InAdvanceQuestion>) {
+  const groups = new Map<string, string[]>()
+  const none: string[] = []
+  for (const slug of slugs) {
+    const q = await get<InAdvanceQuestion>(`/projects/${encodeURIComponent(slug)}/adoption/in-advance`)
+    asked[slug] = q
+    if (q.notOffered) { none.push(`${slug}: ${q.notOffered}`); continue }
+    const words = [q.acceptance, ...q.landing].join('\n')
+    groups.set(words, [...(groups.get(words) ?? []), slug])
+  }
+  return <>
+    {[...groups].map(([words, who]) => <div key={words} data-testid="in-advance-words">
+      <strong>{who.join(', ')}</strong>: you say yes now, meaning:
+      {words.split('\n').map((line) => <div key={line}>“{line}”</div>)}
+    </div>)}
+    {none.length > 0 && <div>No yes in advance on {none.join('; ')}.</div>}
+  </>
 }
 
 function AdoptedCell({ a }: { a?: Adopted }) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"flokkit.io/forge/internal/ids"
 
@@ -37,6 +38,16 @@ type Uplift struct {
 	// Basis is what the decision to open it was taken on, said in one line
 	// of the brief (a what-if); empty when none was named.
 	Basis string
+	// InAdvance, when set, is the opener's yes given in advance: the lane
+	// the adoption will run and the sentences they were shown, checked
+	// against the current question by the caller (in_advance.go).
+	InAdvance *InAdvanceGiven
+}
+
+// InAdvanceGiven is what a person said yes to in advance.
+type InAdvanceGiven struct {
+	Workflow string
+	Shown    []string
 }
 
 func (s changeStore) openUplift(ctx context.Context, in Uplift, who string) (*Change, error) {
@@ -67,6 +78,14 @@ func (s changeStore) openUplift(ctx context.Context, in Uplift, who string) (*Ch
 		}
 		if open {
 			return nil, fmt.Errorf("an adoption change is already open; land or abandon it first")
+		}
+		if in.InAdvance != nil {
+			// The yes is the verified caller's own, given directly.
+			yes, err := advanceYesFrom(ctx, tx, who, in.InAdvance.Workflow, in.InAdvance.Shown, now.UTC().Format(time.RFC3339))
+			if err != nil {
+				return nil, err
+			}
+			in.Acceptance.InAdvance = yes
 		}
 		title, body := upliftBrief(in)
 		created, err := insertChangeIn(ctx, tx, ChangeDraft{ProjectID: in.ProjectID, Type: "uplift", Title: title, Body: body, Acceptance: &in.Acceptance}, who, current, changeOrigin{expectedRevision: in.ExpectedRevision}, now)

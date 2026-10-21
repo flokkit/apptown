@@ -254,6 +254,7 @@ export type CockpitEvidence = {
   targets: AcceptanceCheck[]
   merged: boolean
   releases: ChangeRelease[]
+  inAdvance?: AdvanceYes | null
 }
 
 export type ComplaintFiled = {
@@ -656,6 +657,13 @@ export type GuidanceBlockDetail = {
   versions: BlockVersion[]
   usedBy: BlockUse[]
   checks: Declaration[]
+}
+
+export type InAdvanceQuestion = {
+  workflow: string
+  acceptance: string
+  landing: string[]
+  notOffered?: string
 }
 
 export type InfrastructureTargets = {
@@ -1960,6 +1968,15 @@ export type AcceptanceCheck = {
   version?: number
   title?: string
   expects?: string
+}
+
+export type AdvanceYes = {
+  approver: string
+  principal: string | null
+  via?: string
+  at: string
+  workflow: string
+  shown: string[]
 }
 
 export type Complaint = {

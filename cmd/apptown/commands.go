@@ -146,7 +146,9 @@ var sections = []section{
                                         before apptown pack recommend
   whatif show <id>                      a what-if's answer again
   whatif adopt <id> -p p1[,p2]          open one adoption Change per named project, taking what the what-if
-                                        assessed for it (exit 0 only when every one opened)`, cmdWhatIf},
+                                        assessed for it (exit 0 only when every one opened); --accept-in-advance
+                                        accepts now each that needs no code and passes every check, in the words
+                                        each project shows (asks once; -y if you have read them)`, cmdWhatIf},
 			{[]string{"integrations"}, `  integrations [-p proj]                what the project is connected to, and whether it is wired in`, cmdIntegrations},
 			{[]string{"data"}, `  data -p <slug> <deployment>           how a cloud deployment's data is protected: copies, provider backups, last check
   data -p <slug> [-no-wait] copy|check|rehearse|test <deployment>

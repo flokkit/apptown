@@ -329,6 +329,18 @@ func validateApproval(stage string, s Step, strict bool) error {
 	if s.With == nil {
 		return nil
 	}
+	if v, declared := s.With["inAdvance"]; declared {
+		// What one person's yes given before the work means: a sentence,
+		// and an approval one person can settle.
+		if text, _ := v.(string); strings.TrimSpace(text) == "" {
+			return fmt.Errorf("stage %q step %q: inAdvance must say in one sentence what a yes given before the work means", stage, s.Name)
+		}
+		if q, ok := s.With["quorum"]; ok {
+			if n, isInt := asInt(q); !isInt || n != 1 {
+				return fmt.Errorf("stage %q step %q: inAdvance is one person's yes, so the approval's quorum must be 1 (got %v)", stage, s.Name, q)
+			}
+		}
+	}
 	q, present := s.With["quorum"]
 	if !present {
 		return nil

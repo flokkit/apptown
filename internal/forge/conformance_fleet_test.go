@@ -770,6 +770,11 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 		{"beside additions", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"additions":["loose"],"viaChange":true}`, got.ID), "name it alone", 400},
 		{"beside a revision", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"expectedRevision":%d,"viaChange":true}`, got.ID, assessed.AdoptionRevision), "name it alone", 400},
 		{"someone who may not configure alpha", "outsider", "alpha", from(got.ID), "", 403},
+		// A yes in advance names the sentences shown, rides on a Change, and
+		// is offered only where the project's lanes say what it means.
+		{"a yes in advance naming nothing", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"viaChange":true,"inAdvance":{"shown":[]}}`, got.ID), "names the sentences it was shown", 400},
+		{"a yes in advance without a Change", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"inAdvance":{"shown":["yes"]}}`, got.ID), "through a Change", 400},
+		{"a yes in advance where none is offered", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"viaChange":true,"inAdvance":{"shown":["yes"]}}`, got.ID), "no yes in advance on alpha: this project has no quick-change or implement workflow", 409},
 		// A page loaded before fromWhatIf sends the older move/expectedDigest request:
 		// refused, not read as adopting the current selection.
 		{"the old page's request", "boss", "alpha", fmt.Sprintf(`{"move":{"pack":"team","version":2},"expectedRevision":%d,"expectedDigest":%q,"viaChange":true}`, assessed.AdoptionRevision, assessed.CandidateDigest), "", 400},
@@ -777,6 +782,10 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 		if code, body := adoptFrom(c.who, c.slug, c.body); code != c.code || !strings.Contains(body, c.says) {
 			t.Fatalf("%s: %d %s", c.name, code, body)
 		}
+	}
+	// The question says why no yes in advance is offered on alpha.
+	if w := authzCall(h, "boss", "GET", "/api/v1/projects/alpha/adoption/in-advance", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"notOffered":"this project has no quick-change or implement workflow`) {
+		t.Fatalf("the in-advance question: %d %s", w.Code, w.Body.String())
 	}
 	// A candidate other than the one prepared now, at the same revision. No
 	// operation makes that state (a pack version's contents and the

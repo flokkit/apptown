@@ -3,6 +3,7 @@ package httpapi
 import (
 	"flokkit.io/forge/internal/forge/adoption"
 	"flokkit.io/forge/internal/forge/project"
+	"flokkit.io/forge/internal/forge/workflow"
 	"flokkit.io/forge/internal/forge/wow"
 	"flokkit.io/forge/internal/wiregen"
 )
@@ -11,6 +12,7 @@ import (
 func init() {
 	registerWire(
 		wiregen.Named{Name: "AdoptionUpliftOpened", Value: AdoptionUpliftOpened{}},
+		wiregen.Named{Name: "InAdvanceQuestion", Value: workflow.InAdvanceQuestion{}},
 		wiregen.Named{Name: "AdoptionApplied", Value: AdoptionApplied{}},
 		wiregen.Named{Name: "CatalogList", Value: CatalogList{}},
 		wiregen.Named{Name: "CatalogApplied", Value: CatalogApplied{}},

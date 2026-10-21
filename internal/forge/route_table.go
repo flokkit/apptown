@@ -409,6 +409,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/adoption", projectAdoption.ProjectAdoption, access.CapProjectRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/adoption/prepare", adoptionCommands.Prepare, access.CapProjectRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/adoption/adopt", adoptionCommands.Adopt, access.CapProjectWayOfWorking, "project-slug"),
+		requireRoute("GET /api/v1/projects/{slug}/adoption/in-advance", adoptionCommands.InAdvance, access.CapProjectRead, "project-slug"),
 		filteredRoute("GET /api/v1/wow", fleet.Fleet, "fleet.Fleet"),
 		ownerRoute("POST /api/v1/projects/{slug}/retained/{id}", retention.SettleRetained, "retention.SettleRetained"),
 		publicRoute("GET /api/v1/setup", setupStatus.Setup, "setupStatus.Setup: shared setup readiness projection"),

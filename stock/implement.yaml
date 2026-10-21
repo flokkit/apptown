@@ -182,4 +182,7 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "I read the report and the diff, and this is work I am willing to ship under my name."
+            # A yes given before the work exists (an adoption's opener can give
+            # one): what it means, on the condition AppTown witnesses.
+            inAdvance: "I accept this change before it is worked, on a condition AppTown checks: it changes no code, and every step of its run passes with every check passing, none excused."
             instructions: "Read VERIFY.md (the change as it stands) and the diff, and try the preview. To send it back, reject with a comment."

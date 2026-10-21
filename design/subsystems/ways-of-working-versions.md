@@ -62,6 +62,9 @@ why, while the Change stands. An adoption whose new checks
 already hold needs no code: the Change's working step passes empty with its
 account, a person accepts it, and the landing's conformance gate judges the
 target's acceptance checks on the tree before the landing moves the revision.
+The person opening it may accept it in advance, on the condition AppTown
+witnesses that it needs no code and every step and check passes outright
+([landing acceptance](../architecture/work-landing-acceptance.md)).
 
 Pack application can include repository and project setup. The Projectlifecycle
 facade coordinates that work; a catalog publication alone does not perform it.

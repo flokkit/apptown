@@ -70,7 +70,31 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 		ExpectedRevision int64  `json:"expectedRevision"`
 		FromWhatIf       ids.ID `json:"fromWhatIf"`
 		ViaChange        bool   `json:"viaChange"`
+		// InAdvance is the person's yes given in advance: the sentences of
+		// this project's InAdvance question they were shown.
+		InAdvance *struct {
+			Shown []string `json:"shown"`
+		} `json:"inAdvance"`
 	}) {
+		var inAdvance []string
+		if in.InAdvance != nil {
+			if !in.ViaChange {
+				WriteError(w, 400, "a yes in advance is for an adoption through a Change (viaChange)")
+				return
+			}
+			if len(in.InAdvance.Shown) == 0 {
+				WriteError(w, 400, "a yes in advance names the sentences it was shown: read them from /projects/%s/adoption/in-advance", p.Slug)
+				return
+			}
+			// Admission feedback only: the person must be able to accept
+			// changes here at all. The exact step's eligibility is asked
+			// again when the yes is cast.
+			if !h.holds(r.Context(), Principal(r), access.CapChangeApprove, access.Resource{Type: "project", ID: p.ID.String(), ProjectID: p.ID}) {
+				WriteError(w, 403, "a yes in advance is an acceptance, and you cannot accept changes on %s", p.Slug)
+				return
+			}
+			inAdvance = in.InAdvance.Shown
+		}
 		expectedDigest, basis := "", ""
 		if !in.FromWhatIf.IsZero() {
 			// Present at all, even empty, is a second source of what is adopted.
@@ -129,7 +153,7 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 			back = " Moves back: " + strings.Join(mb, ", ") + "."
 		}
 		if in.ViaChange {
-			ch, err := h.adoption.OpenUplift(r.Context(), p.ID, *c, who, strings.TrimSpace(basis+back))
+			ch, err := h.adoption.OpenUplift(r.Context(), p.ID, *c, who, strings.TrimSpace(basis+back), inAdvance)
 			if err != nil {
 				WriteFaultOr(w, err, 422)
 				return
@@ -144,6 +168,23 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 		}
 		WriteJSON(w, 200, AdoptionApplied{Revision: rev, Candidate: *c})
 	})
+}
+
+// InAdvance: GET /projects/{slug}/adoption/in-advance — what a yes given
+// in advance on an adoption of this project would mean, as its adoption
+// would run now: the lane, its acceptance's sentence and the landing's, or
+// why none is offered. A client shows these and sends back what it showed.
+func (h AdoptionCommands) InAdvance(w http.ResponseWriter, r *http.Request) {
+	p, ok := ProjectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	q, err := h.work.InAdvanceQuestion(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, q)
 }
 
 // assessed is what a what-if assessed for one project: its pack and

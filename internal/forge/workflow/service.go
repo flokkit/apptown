@@ -29,6 +29,7 @@ type Service struct {
 	authority   operationAuthority
 	wait        SlotWait
 	means       LandingMeans
+	inAdvance   InAdvanceQuestions
 	runners     map[string]Runner
 	// recoverers continue a running step's recorded work after a restart,
 	// in the step's place in its stage (ResumePending).
@@ -83,6 +84,7 @@ type Dependencies struct {
 	Merge        MergeEffects                                                          // the SCM driver and what happens after a merge
 	Landings     LandingAdoptions                                                      // Adoption's revision pair for a landing
 	LandingMeans LandingMeans                                                          // what the project's landing approvals would say
+	InAdvance    InAdvanceQuestions                                                    // what a yes given in advance on an adoption would mean
 	ChangeAdds   AddsReader                                                            // what an approval's commit brings into the app
 	Budget       LandingRetryBudget                                                    // charge for a landing retry
 	Narratives   NarrativeReleaseNotes                                                 // release notes filled by a model
@@ -145,7 +147,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	automatic := slices.Clone(deps.Automatic)
 	isAutomatic := func(kind string) bool { return slices.Contains(automatic, kind) }
 	authority := commandAuthority{db: db, checked: deps.Authority, visibility: deps.Authority, clocked: clocked{deps.Now}}
-	s := &Service{life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.CheckPlacement, scripts: deps.TaskPlacement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
+	s := &Service{life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.CheckPlacement, scripts: deps.TaskPlacement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
 	if s.attemptWatch <= 0 {
 		s.attemptWatch = DefaultAttemptWatch
 	}
@@ -196,7 +198,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	}
 	s.assertions = NewAssertions(db, assertions)
 	s.assertions.clocked = s.clocked
-	s.advancer = newAdvancer(db, advanceRuntime{Stages: s.stages, Assertions: s.assertions, Checks: checks, Completion: deps.Completion, Carry: s.landings.carryOrSettleForEval, EndNothing: s.endNothingToChange, Placement: deps.CheckPlacement, clocked: s.clocked})
+	s.advancer = newAdvancer(db, advanceRuntime{Stages: s.stages, Assertions: s.assertions, Checks: checks, Completion: deps.Completion, Carry: s.answerFromAcceptance, EndNothing: s.endNothingToChange, Placement: deps.CheckPlacement, clocked: s.clocked})
 	s.starter = newStarter(db, s.stages, deps.Chats, startRuntime{
 		Source: s.runAdmissions.Source,
 		Supersede: func(ctx context.Context, failed RunRef, next string) error {

@@ -1046,6 +1046,50 @@ func TestWhatIfAdoptOpensAChangePerNamedProject(t *testing.T) {
 	}
 }
 
+// apptown whatif adopt --accept-in-advance reads each project's words for
+// a yes in advance, prints them, and sends each project back exactly its
+// own; a project that offers none is opened without one, and the yes is
+// not given without the person's y. Kills: one project's words sent for
+// another; a yes sent where none was offered or none was given.
+func TestWhatIfAdoptSendsEachProjectItsOwnWordsInAdvance(t *testing.T) {
+	seen := fakeForge(t, func(method, path string) (int, string) {
+		switch {
+		case method == "GET" && path == "/projects/ledger/adoption/in-advance":
+			return 200, `{"workflow":"quick-change","acceptance":"I accept it now","landing":["I answer for it now"]}`
+		case method == "GET" && path == "/projects/shop/adoption/in-advance":
+			return 200, `{"workflow":"","acceptance":"","landing":[],"notOffered":"this project has no quick-change or implement workflow"}`
+		case method == "POST" && strings.HasSuffix(path, "/adoption/adopt"):
+			return 200, `{"changeId":"00000000-0029-7000-8000-000000000000","candidate":{},"workflow":"quick-change"}`
+		}
+		return 404, `{"error":"no"}`
+	})
+	typing(t, "n\n")
+	if _, err := run(t, "whatif", "adopt", "00000000-0007-7000-8000-000000000000", "-p", "ledger,shop", "--accept-in-advance"); err == nil || !strings.Contains(err.Error(), "not given") {
+		t.Fatalf("a yes in advance the person did not give: %v", err)
+	}
+	for _, r := range *seen {
+		if r.Method == "POST" {
+			t.Fatalf("a Change was opened without the yes: %+v", r)
+		}
+	}
+	out, err := run(t, "whatif", "adopt", "00000000-0007-7000-8000-000000000000", "-p", "ledger,shop", "--accept-in-advance", "-y")
+	if err != nil || !strings.Contains(out, "ledger: you say yes now, meaning:\n  “I accept it now”\n  “I answer for it now”") || !strings.Contains(out, "shop               no yes in advance: this project has no quick-change") {
+		t.Fatalf("the words were not shown: %v\n%s", err, out)
+	}
+	bodies := map[string]map[string]any{}
+	for _, r := range *seen {
+		if r.Method == "POST" {
+			bodies[strings.Split(r.Path, "/")[2]] = r.Body
+		}
+	}
+	if got := fmt.Sprint(bodies["ledger"]["inAdvance"]); got != "map[shown:[I accept it now I answer for it now]]" {
+		t.Fatalf("ledger was sent %s", got)
+	}
+	if _, sent := bodies["shop"]["inAdvance"]; sent || len(bodies) != 2 {
+		t.Fatalf("shop offers no yes in advance, but was sent %+v", bodies)
+	}
+}
+
 // A help flag anywhere among a command's arguments prints that command's
 // lines from apptown help and has no other effect; `apptown dev up --help` once
 // started a local boot. After "--" it is an argument like any other.

@@ -207,6 +207,44 @@ describe('the what-if page', () => {
     done()
   })
 
+  // A yes in advance: opening the confirmation reads each chosen project's
+  // own question and shows its words (once for projects that share them);
+  // each request sends back exactly what its project showed, and a project
+  // that offers none is opened without one.
+  it('shows each project its own words for a yes in advance and sends them back', async () => {
+    const posted: [string, unknown][] = []
+    const words: Record<string, unknown> = {
+      ledger: { workflow: 'quick-change', acceptance: 'I accept it now', landing: ['I answer for it now'] },
+      till: { workflow: 'quick-change', acceptance: 'I accept it now', landing: ['Ship it if clean'] },
+      shop: { workflow: '', acceptance: '', landing: [], notOffered: 'this project has no quick-change or implement workflow' },
+    }
+    const { el, client, done } = await render((url, init) => {
+      if (init?.method === 'POST') {
+        posted.push([url, JSON.parse(String(init.body))])
+        return { changeId: CHANGE, candidate: {}, workflow: 'quick-change', runId: RUN }
+      }
+      const asked = url.match(/projects\/([^/]+)\/adoption\/in-advance/)
+      if (asked) return words[asked[1]]
+      return url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf
+    })
+    const box = (slug: string) => el.querySelector(`input[aria-label="adopt on ${slug}"]`) as HTMLInputElement
+    for (const slug of ['ledger', 'till', 'shop']) await act(async () => { box(slug).click() })
+    const tick = [...el.querySelectorAll('label')].find((l) => l.textContent?.includes('accept in advance'))?.querySelector('input') as HTMLInputElement
+    await act(async () => { tick.click() })
+    await act(async () => { button(el, 'Adopt v2 on 3 projects').click() })
+    await vi.waitFor(() => expect(el.querySelectorAll('[data-testid="in-advance-words"]')).toHaveLength(2))
+    expect(el.textContent).toContain('ledger: you say yes now, meaning:“I accept it now”“I answer for it now”')
+    expect(el.textContent).toContain('till: you say yes now, meaning:“I accept it now”“Ship it if clean”')
+    expect(el.textContent).toContain('No yes in advance on shop: this project has no quick-change or implement workflow.')
+    await act(async () => { button(el, 'Open the Changes').click() })
+    await settled(client)
+    await vi.waitFor(() => expect(posted).toHaveLength(3))
+    expect(posted[0]).toEqual(['/api/v1/projects/ledger/adoption/adopt', { fromWhatIf: WHAT_IF, viaChange: true, inAdvance: { shown: ['I accept it now', 'I answer for it now'] } }])
+    expect(posted[1]).toEqual(['/api/v1/projects/till/adoption/adopt', { fromWhatIf: WHAT_IF, viaChange: true, inAdvance: { shown: ['I accept it now', 'Ship it if clean'] } }])
+    expect(posted[2]).toEqual(['/api/v1/projects/shop/adoption/adopt', { fromWhatIf: WHAT_IF, viaChange: true }])
+    done()
+  })
+
   // Opening an adoption Change starts its working run; when none could be
   // started the row says so and where to start one, never a bare link.
   it('says when an opened adoption Change has no run', async () => {

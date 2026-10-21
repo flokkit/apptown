@@ -61,6 +61,9 @@ type UpliftRequest struct {
 	// Basis is the line the Change's brief gives for why it was opened (the
 	// what-if it was decided on); empty when none.
 	Basis string
+	// InAdvance is the sentences the opener was shown and said yes to in
+	// advance (workflow's InAdvanceQuestion); empty when they gave none.
+	InAdvance []string
 }
 
 // Work retains the one transaction that opens a Change and records its target.
@@ -309,7 +312,9 @@ func (s *Service) requireCapabilities(ctx context.Context, q database.Queryer, p
 	return s.deps.Capabilities.HasCapabilitiesIn(ctx, q, projectID, required)
 }
 
-func (s *Service) OpenUplift(ctx context.Context, projectID ids.ID, c Candidate, who, basis string) (UpliftChange, error) {
+// OpenUplift opens the Change that carries an adoption. inAdvance, when
+// given, is the opener's yes in advance: the sentences they were shown.
+func (s *Service) OpenUplift(ctx context.Context, projectID ids.ID, c Candidate, who, basis string, inAdvance []string) (UpliftChange, error) {
 	if err := requireSelectionCandidate(c); err != nil {
 		return UpliftChange{}, err
 	}
@@ -325,7 +330,7 @@ func (s *Service) OpenUplift(ctx context.Context, projectID ids.ID, c Candidate,
 	if s.deps.Uplift == nil {
 		return UpliftChange{}, errors.New("adoption uplift is unavailable")
 	}
-	return s.deps.Uplift.OpenUplift(ctx, UpliftRequest{Candidate: c, Actor: who, Target: s, Basis: basis})
+	return s.deps.Uplift.OpenUplift(ctx, UpliftRequest{Candidate: c, Actor: who, Target: s, Basis: basis, InAdvance: inAdvance})
 }
 
 // RecordTargetIn is called after Work acquires its project-first admission lock.

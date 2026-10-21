@@ -47,6 +47,12 @@ projects adopt. They are under **Ways of working → Packs**.
   if a run could not be started and why. Each
   Change says which what-if it came from and what it moves back, and a
   project whose adoption moved since is refused (run the what-if again).
+  Tick **accept in advance if it needs no code** (or add
+  `--accept-in-advance`) to accept each Change now, in the words each
+  project shows: one that needs no code and passes every check, with every
+  check passing, lands without asking you again; any other waits for a
+  person. A project whose quick-change or landing does not say what such a
+  yes means offers none.
   Adopting takes the right to choose a project's way of working, which
   maintainers and owners hold. Recommending from the what-if
   page, or with `apptown pack recommend <pack> <version> --what-if <id>`,

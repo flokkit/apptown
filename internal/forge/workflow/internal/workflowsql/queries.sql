@@ -415,6 +415,9 @@ UNION ALL SELECT work_run_id FROM workflow_landings WHERE work_run_id=$1 LIMIT 1
 -- name: LandingAcceptanceConsidered :many
 SELECT (payload_json->>'stepId')::uuid AS step_id FROM run_events WHERE run_id=$1 AND kind IN ('landing.acceptance.carried','landing.acceptance.withheld') AND payload_json->>'stepId' IS NOT NULL;
 
+-- name: InAdvanceConsidered :many
+SELECT (payload_json->>'stepId')::uuid AS step_id FROM run_events WHERE run_id=$1 AND kind IN ('acceptance.inadvance.applied','acceptance.inadvance.withheld') AND payload_json->>'stepId' IS NOT NULL;
+
 -- name: LandingAcceptedWork :one
 SELECT work_run_id FROM workflow_landings WHERE landing_run_id IS NOT DISTINCT FROM $1 AND acceptance_applied;
 

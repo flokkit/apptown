@@ -62,6 +62,9 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "I am the human answerable for this landing: it merges and ships on my say-so."
+            # A yes given before the work exists (an adoption's opener can give
+            # one): what it means, on the condition AppTown witnesses.
+            inAdvance: "I answer for this landing before it runs, on a condition AppTown checks: it merges no code, and every gate passes with every check passing, none excused."
             instructions: "Read what changed (the summary and the diff) and the checks before you decide."
     - name: ship
       onEnter:
