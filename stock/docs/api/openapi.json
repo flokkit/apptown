@@ -192,6 +192,9 @@
             },
             "type": "array"
           },
+          "baseUnread": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },

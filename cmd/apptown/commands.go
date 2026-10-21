@@ -131,7 +131,7 @@ var sections = []section{
 			{[]string{"attach"}, `  attach <run-id> -k <kind> [-n name] [-r ref]
                                         attach an artifact to a run`, cmdAttach},
 			{[]string{"trace"}, `  trace <run-id> [--json]               full event trace of a run`, cmdTrace},
-			{[]string{"diff"}, `  diff <run-id>                         run branch diff vs the default branch`, cmdDiff},
+			{[]string{"diff"}, `  diff <change> · diff -r <run>         a change's (or a run's) code against the default branch`, cmdDiff},
 			{[]string{"watch"}, `  watch <run-id>                        follow a run live: step transitions + agent activity`, cmdWatch},
 			{[]string{"log"}, `  log [-p <slug>] [-k kind] [-n N]      project-state audit log (state changes outside runs)`, cmdLog},
 			{[]string{"findings"}, `  findings <run-id>                     a run's scan/review findings`, cmdFindings},

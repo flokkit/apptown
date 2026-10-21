@@ -104,3 +104,47 @@ func TestARunCommandTakesARunsFriendlyForm(t *testing.T) {
 		t.Fatalf("a run named by neither: %v", err)
 	}
 }
+
+// diff shows the change a person names, as show does: shop#7 is the change,
+// never shop's run 7. A run's diff is asked for by name with -r.
+func TestDiffShowsTheChangeItIsGiven(t *testing.T) {
+	const changeID = "00000000-000c-7000-8000-000000000000"
+	const runID = "00000000-0028-7000-8000-000000000000"
+	seen := fakeForge(t, func(_, path string) (int, string) {
+		switch path {
+		case "/changes/shop#7":
+			return 200, `{"projectSlug":"shop","change":{"id":"` + changeID + `","number":7}}`
+		case "/runs/shop#40":
+			return 200, `{"run":{"id":"` + runID + `","number":40}}`
+		case "/changes/" + changeID + "/diff":
+			return 200, "the change's diff"
+		case "/runs/" + runID + "/diff":
+			return 200, "the run's diff"
+		}
+		return 404, `{"error":"no"}`
+	})
+	t.Setenv("APPTOWN_PROJECT", "shop")
+	for _, c := range []struct {
+		args []string
+		path string
+		out  string
+	}{
+		{[]string{"diff", "shop#7"}, "/changes/" + changeID + "/diff", "the change's diff"},
+		{[]string{"diff", "7"}, "/changes/" + changeID + "/diff", "the change's diff"},
+		{[]string{"diff", "-r", "shop#40"}, "/runs/" + runID + "/diff", "the run's diff"},
+	} {
+		*seen = nil
+		out, err := run(t, c.args...)
+		if err != nil || len(*seen) == 0 || (*seen)[len(*seen)-1].Path != c.path || !strings.Contains(out, c.out) {
+			t.Fatalf("%v: %v, asked %+v, printed %q", c.args, err, *seen, out)
+		}
+		for _, r := range *seen {
+			if strings.HasPrefix(r.Path, "/runs/shop#7") {
+				t.Fatalf("%v read shop#7 as a run", c.args)
+			}
+		}
+	}
+	if _, err := run(t, "diff", "shop#7", "-r", "shop#40"); err == nil {
+		t.Fatal("a change and a run at once is not refused")
+	}
+}

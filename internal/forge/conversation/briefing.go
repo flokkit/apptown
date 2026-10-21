@@ -140,7 +140,7 @@ conversation. This console is **strictly read-only**.
 - apptown runs -p ` + p.Slug + ` [--status all|done|running]
 - apptown status <run-id>               — stages, current checks, step ids
 - apptown trace <run-id> [--json]       — full reflection trace: steps, evidence, events
-- apptown diff <run-id>                 — run branch diff vs the default branch
+- apptown diff <change>, diff -r <run>  — a change's (or a run's) code vs the default branch
 - apptown log -p ` + p.Slug + `         — audit log of state changes outside runs
 `})
 

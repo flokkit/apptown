@@ -43,12 +43,16 @@ type ChangeAdds struct {
 
 // AddsRow is one kind of declaration compared at two commits. Unknown says
 // why it could not be read; a row that could not be read lists nothing and
-// is never counted as adding nothing.
+// is never counted as adding nothing. BaseUnread says why main's side could
+// not be read while the change's could: Added is then everything the change
+// declares (some may already be on main) and what it removes is not known.
+// A change repairing a file AppTown refuses on main is the usual case.
 type AddsRow struct {
-	Name    string   `json:"name"`
-	Added   []string `json:"added"`
-	Removed []string `json:"removed"`
-	Unknown string   `json:"unknown,omitempty"`
+	Name       string   `json:"name"`
+	Added      []string `json:"added"`
+	Removed    []string `json:"removed"`
+	Unknown    string   `json:"unknown,omitempty"`
+	BaseUnread string   `json:"baseUnread,omitempty"`
 }
 
 // AddsLine is one line of the section: what is added, what is no longer
@@ -112,6 +116,11 @@ func (a ChangeAdds) finish() (ChangeAdds, error) {
 		if r.Unknown != "" {
 			// What could not be read lists nothing.
 			r.Added, r.Removed = []string{}, []string{}
+			r.BaseUnread = ""
+		}
+		if r.BaseUnread != "" {
+			// Main's side could not be read: nothing is known to go.
+			r.Removed = []string{}
 		}
 	}
 	body, err := json.Marshal(struct {
@@ -134,12 +143,21 @@ func (a ChangeAdds) finish() (ChangeAdds, error) {
 		read = append(read, r.Name)
 		if len(r.Added) > 0 {
 			added = true
-			a.Lines = append(a.Lines, AddsLine{"added", fmt.Sprintf("%s: %s", capital(r.Name), strings.Join(r.Added, ", "))})
+			text := fmt.Sprintf("%s: %s", capital(r.Name), strings.Join(r.Added, ", "))
+			if r.BaseUnread != "" {
+				text += " (everything the change declares; main's could not be read, so some may already be there)"
+			}
+			a.Lines = append(a.Lines, AddsLine{"added", text})
 		}
 	}
 	for _, r := range a.Rows {
 		if r.Unknown == "" && len(r.Removed) > 0 {
 			a.Lines = append(a.Lines, AddsLine{"removed", fmt.Sprintf("%s removed: %s", capital(r.Name), strings.Join(r.Removed, ", "))})
+		}
+	}
+	for _, r := range a.Rows {
+		if r.Unknown == "" && r.BaseUnread != "" {
+			a.Lines = append(a.Lines, AddsLine{"unknown", fmt.Sprintf("%s removed: unknown, %s", capital(r.Name), r.BaseUnread)})
 		}
 	}
 	for _, r := range a.Rows {
@@ -159,7 +177,7 @@ func (a ChangeAdds) finish() (ChangeAdds, error) {
 // unknowns, whatever commit they start from.
 func (a ChangeAdds) sameRows(b ChangeAdds) bool {
 	return slices.EqualFunc(a.Rows, b.Rows, func(x, y AddsRow) bool {
-		return x.Name == y.Name && x.Unknown == y.Unknown && slices.Equal(x.Added, y.Added) && slices.Equal(x.Removed, y.Removed)
+		return x.Name == y.Name && x.Unknown == y.Unknown && x.BaseUnread == y.BaseUnread && slices.Equal(x.Added, y.Added) && slices.Equal(x.Removed, y.Removed)
 	})
 }
 

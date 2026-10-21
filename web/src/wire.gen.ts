@@ -3806,6 +3806,7 @@ export type AddsRow = {
   added: string[]
   removed: string[]
   unknown?: string
+  baseUnread?: string
 }
 
 export type AddsLine = {

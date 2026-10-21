@@ -90,8 +90,15 @@ func unknownRows(reason string) []workflow.AddsRow {
 }
 
 func row(name string, base, head []string, baseErr, headErr error) workflow.AddsRow {
-	if err := errors.Join(baseErr, headErr); err != nil {
+	if headErr != nil {
+		err := errors.Join(baseErr, headErr)
 		return workflow.AddsRow{Name: name, Unknown: strings.ReplaceAll(err.Error(), "\n", "; ")}
+	}
+	if baseErr != nil {
+		// The change's side was read: what it declares is what the approver
+		// accepts, whatever main held (a change repairing a file main can no
+		// longer read is the usual case).
+		return workflow.AddsRow{Name: name, Added: minus(head, nil), Removed: []string{}, BaseUnread: baseErr.Error()}
 	}
 	return workflow.AddsRow{Name: name, Added: minus(head, base), Removed: minus(base, head)}
 }

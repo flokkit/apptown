@@ -720,7 +720,7 @@ func printDisputeOf(d loopRunDetail) bool {
 			fmt.Println(indentBody(art.Body, 76))
 		}
 	}
-	fmt.Printf("\n%s\n", dim(fmt.Sprintf("  the code itself: apptown diff %d", d.Run.ID)))
+	fmt.Printf("\n%s\n", dim(fmt.Sprintf("  the code itself: apptown diff -r %s", d.Run.ID)))
 	return true
 }
 

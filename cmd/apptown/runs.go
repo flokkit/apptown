@@ -880,15 +880,33 @@ func cmdTrace(args []string) error {
 	return nil
 }
 
-// cmdDiff prints the run branch's diff against the default branch.
+// cmdDiff prints a change's code against the default branch, or with -r a
+// run's. A change is named as everywhere else (its id, <project>#<n>, or its
+// number in the project); "-r" names a run. The two forms are never guessed
+// from the argument: snake#7 is a change, and only -r makes it a run.
 func cmdDiff(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown diff <run-id>")
+	fs := newFlags("diff")
+	project := fs.String("p", "", "project for a bare number")
+	runFlag := fs.String("r", "", "a run instead of a change")
+	pos := parseArgs(fs, args)
+	path := ""
+	switch {
+	case *runFlag != "" && len(pos) == 0:
+		id, err := runRef(*runFlag, *project)
+		if err != nil {
+			return err
+		}
+		path = "/runs/" + id.String() + "/diff"
+	case *runFlag == "" && len(pos) == 1:
+		id, err := changeRef(pos[0], *project)
+		if err != nil {
+			return err
+		}
+		path = "/changes/" + id.String() + "/diff"
+	default:
+		return fmt.Errorf("usage: apptown diff <change> | apptown diff -r <run>")
 	}
-	if err := runArg(args, ""); err != nil {
-		return err
-	}
-	diff, err := api.text("/runs/" + args[0] + "/diff")
+	diff, err := api.text(path)
 	if err != nil {
 		return err
 	}

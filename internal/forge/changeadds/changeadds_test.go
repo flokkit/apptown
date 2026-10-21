@@ -137,7 +137,7 @@ func TestADeclarationThatCannotBeReadIsUnknownNotEmpty(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			for _, rows := range [][]workflow.AddsRow{Compare(good.file, c.head.file, "b1", "h1"), Compare(c.head.file, good.file, "h1", "b1")} {
+			for _, rows := range [][]workflow.AddsRow{Compare(good.file, c.head.file, "b1", "h1"), Compare(c.head.file, c.head.file, "h1", "h1")} {
 				for _, r := range rows {
 					want := slices.Contains(c.unknown, r.Name)
 					if (r.Unknown != "") != want {
@@ -152,6 +152,34 @@ func TestADeclarationThatCannotBeReadIsUnknownNotEmpty(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// When only main's side cannot be read (a change repairing a file AppTown
+// now refuses), the change's own declarations are still what the approver
+// accepts: each row lists everything the change declares and names why
+// main's side is not known, instead of turning unknown.
+func TestAnUnreadableMainStillShowsWhatTheChangeDeclares(t *testing.T) {
+	good := tree{contractPath: []byte(contract), "secretspec.toml": []byte(spec)}
+	refused := tree{contractPath: []byte("app: [nope"), "secretspec.toml": []byte(spec)}
+	rows := Compare(refused.file, good.file, "b1", "h1")
+	for name, want := range map[string][]string{
+		Secrets:  {"STRIPE_KEY"},
+		Services: {"postgres"},
+		Parts:    {"part web", "web is the public part"},
+	} {
+		r := rowNamed(t, rows, name)
+		if r.Unknown != "" || r.BaseUnread == "" || !strings.Contains(r.BaseUnread, "b1") {
+			t.Errorf("%s: %+v; want read, with main's reason", name, r)
+		}
+		for _, w := range want {
+			if !slices.Contains(r.Added, w) {
+				t.Errorf("%s does not list %q: %+v", name, w, r.Added)
+			}
+		}
+		if len(r.Removed) != 0 {
+			t.Errorf("%s claims removals against an unreadable main: %+v", name, r.Removed)
+		}
 	}
 }
 

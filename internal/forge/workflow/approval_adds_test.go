@@ -54,6 +54,43 @@ func TestNothingNewNamesOnlyTheRowsItRead(t *testing.T) {
 	}
 }
 
+// A row read only on the change's side lists what the change declares,
+// says so, and says that what it removes is not known. A row that declares
+// nothing adds nothing whatever main holds, so it counts toward "nothing
+// new"; its removals are still unknown.
+func TestARowReadOnlyOnTheChangesSideSaysSo(t *testing.T) {
+	a := finished(t, ChangeAdds{Head: "h", Rows: []AddsRow{
+		{Name: "app parts", Added: []string{"part game"}, Removed: []string{"part old"}, BaseUnread: ".apptown/app.yaml at b does not parse"},
+		{Name: "services", BaseUnread: ".apptown/app.yaml at b does not parse"},
+	}})
+	if len(a.Rows[0].Removed) != 0 {
+		t.Fatalf("removals kept against an unreadable main: %+v", a.Rows[0])
+	}
+	want := []AddsLine{
+		{"added", "App parts: part game (everything the change declares; main's could not be read, so some may already be there)"},
+		{"unknown", "App parts removed: unknown, .apptown/app.yaml at b does not parse"},
+		{"unknown", "Services removed: unknown, .apptown/app.yaml at b does not parse"},
+	}
+	if len(a.Lines) != len(want) {
+		t.Fatalf("lines %+v, want %+v", a.Lines, want)
+	}
+	for i := range want {
+		if a.Lines[i] != want[i] {
+			t.Fatalf("line %d %+v, want %+v", i, a.Lines[i], want[i])
+		}
+	}
+	if a.ReadFrom != "app parts and services" || a.NothingNew != "" {
+		t.Fatalf("read %q nothing-new %q", a.ReadFrom, a.NothingNew)
+	}
+	none := finished(t, ChangeAdds{Head: "h", Rows: []AddsRow{{Name: "services", BaseUnread: "x"}}})
+	if none.NothingNew != "Nothing new in services" {
+		t.Fatalf("a row adding nothing against an unreadable main: %+v", none)
+	}
+	if finished(t, ChangeAdds{Head: "h", Rows: []AddsRow{{Name: "services", BaseUnread: "x"}}}).Digest == finished(t, ChangeAdds{Head: "h", Rows: []AddsRow{{Name: "services"}}}).Digest {
+		t.Fatal("main's side being unread is not part of the digest")
+	}
+}
+
 // The digest names the commits and the rows: a different base, head or
 // row is a different list. Rows that could not be read list nothing, so a
 // reader cannot record items beside an unknown.
