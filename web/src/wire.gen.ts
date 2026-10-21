@@ -423,6 +423,8 @@ export type DependencyKind = {
   title: string
   icon?: string
   description?: string
+  summary?: string
+  status?: string
   provides?: Record<string, string>
   defaults?: Record<string, string>
   parameters?: string[]

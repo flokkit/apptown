@@ -69,6 +69,13 @@ type Kind struct {
 	Title       string                    `yaml:"title" json:"title"`
 	Icon        string                    `yaml:"icon,omitempty" json:"icon,omitempty"`
 	Description string                    `yaml:"description,omitempty" json:"description,omitempty"`
+	// Summary is the kind in one line, for the tile that offers it; the
+	// description says the rest.
+	Summary string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	// Status is empty for a supported kind or StatusExperimental. It is
+	// held to the description, which says so first (compatibility guide):
+	// a badge and a paragraph that disagree would each mislead.
+	Status string `yaml:"status,omitempty" json:"status,omitempty"`
 	// Provides is the kind's contract with an app: every variable the app is
 	// given, by name, with what it means. It is the same on every target
 	// that fulfils the kind; a target expresses the values its own way (an
@@ -315,6 +322,9 @@ func Parse(y string) (*Kind, error) {
 	if err := yaml.Unmarshal([]byte(y), &legacy); err == nil && legacy.Local.Backup != nil {
 		return nil, fmt.Errorf("%w: dependency %q declares local.backup, which is now copy: (export, restore, restoreStopped, verify, ext, caveat)", ErrSpec, d.Capability)
 	}
+	if err := d.checkStatus(); err != nil {
+		return nil, err
+	}
 	if err := d.checkSizes(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSpec, err)
 	}
@@ -331,6 +341,38 @@ func Parse(y string) (*Kind, error) {
 		return nil, err
 	}
 	return &d, nil
+}
+
+// StatusExperimental marks a kind that is useful but not yet proven; its
+// description starts with ExperimentalPrefix and says what it lacks.
+const (
+	StatusExperimental = "experimental"
+	ExperimentalPrefix = "Experimental:"
+)
+
+// checkStatus refuses an unknown status, a status the description does not
+// state first, and a summary of more than one line. A description that
+// starts ExperimentalPrefix with no status is experimental: kinds saved
+// before the field (clones of a stock kind) keep reading, and keep their
+// badge.
+func (k *Kind) checkStatus() error {
+	says := strings.HasPrefix(strings.TrimSpace(k.Description), ExperimentalPrefix)
+	switch k.Status {
+	case "":
+		if says {
+			k.Status = StatusExperimental
+		}
+	case StatusExperimental:
+		if !says {
+			return fmt.Errorf("%w: dependency %q has status: %s, so its description starts %q and says what it lacks", ErrSpec, k.Capability, StatusExperimental, ExperimentalPrefix)
+		}
+	default:
+		return fmt.Errorf("%w: dependency %q: status %q is not one AppTown knows (leave it out, or %s)", ErrSpec, k.Capability, k.Status, StatusExperimental)
+	}
+	if strings.ContainsAny(k.Summary, "\r\n") {
+		return fmt.Errorf("%w: dependency %q: summary is one line", ErrSpec, k.Capability)
+	}
+	return nil
 }
 
 // checkProvides holds what a kind's fulfilments inject to its declared

@@ -4,6 +4,7 @@ resources: {memory: 256M}
 title: MariaDB
 icon: 🐬
 description: A deployment-owned relational database, reached with DB_* variables.
+summary: "A relational database of the app's own."
 defaults:
   version: "11.4.13"
   database: app

@@ -7,6 +7,8 @@ resources: {memory: 64M}
 title: Redis
 icon: ⚡
 description: "Experimental: no app has shipped with it yet. An in-memory cache / key-value store. The app connects with REDIS_URL."
+summary: "An in-memory cache and key-value store."
+status: experimental
 
 defaults:
   version: "7"

@@ -8,6 +8,7 @@ capability: s3
 title: Object storage (S3)
 icon: 🪣
 description: "A private object store the app reads and writes through an S3 API, with a bucket of its own. Not public file serving: serve objects through the app."
+summary: "A private object store with an S3 API (not public file serving)."
 
 # The contract with the app, the same on every target (the services-and-data guide, "What
 # each need gives the app"): the bucket exists before the app starts and is

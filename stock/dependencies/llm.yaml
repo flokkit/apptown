@@ -16,6 +16,8 @@ capability: llm
 title: AI models
 icon: ✨
 description: "Experimental: no deployed app has used its own key yet. Lets the app call AI models (chat, summarising, extraction) through an OpenAI-compatible chat-completions API. A need fulfilled through an integration: each deployment and each preview gets its own key with a spending limit, made through the attached OpenRouter integration. The app reads LLM_API_KEY and LLM_BASE_URL."
+summary: "Calls AI models through an OpenAI-compatible API, with a spending limit."
+status: experimental
 
 # The parameters above, which have no default.
 parameters: [limit, limitReset]

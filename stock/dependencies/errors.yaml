@@ -8,6 +8,7 @@ capability: errors
 title: Error reporting
 icon: 🐛
 description: Collects the app's uncaught errors in one place, with stack traces, grouped and counted. The app reads a DSN.
+summary: "Collects the app's uncaught errors, grouped and counted."
 
 # An integration, not a need: its values come from the project's attached
 # integration, and declaring it under needs: is refused.

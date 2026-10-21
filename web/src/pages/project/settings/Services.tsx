@@ -30,6 +30,10 @@ export const declarable = (k: DepKind) => !k.integration && (!!k.local?.image ||
 const VENDOR: Record<string, string> = { digitalocean: 'DigitalOcean' }
 const CONNECTOR: Record<string, string> = { openrouter: 'OpenRouter', glitchtip: 'GlitchTip' }
 
+// tileLine is the kind in one line: its summary, or its description when a
+// custom kind has none. The whole description is the tile's tooltip.
+export const tileLine = (k: DepKind) => k.summary || k.description || ''
+
 // fulfilledBy says what fulfils a need, read from its catalogue entry (the
 // owner's declaration), never inferred: a service AppTown runs beside the app,
 // each cloud's own kind, or a registration through an integration.
@@ -150,9 +154,8 @@ export function ServicesTab({ slug }: { slug: string }) {
       <StaleNote q={catQ} />
       <p className="muted small" style={{ maxWidth: 580 }}>
         The services this app uses: each is a need declared in the app's contract, fulfilled by the
-        deployment's target or through an integration. Saving opens a change you preview and land —
-        the app boots with the new service before it ships. A container that is not in this list is
-        part of the app: ask for it in a change.
+        deployment's target or through an integration. Saving opens a change you preview and land.
+        A container not in this list is part of the app. What each gives the app: <Link to="/docs/guides/services-and-data">Services and data</Link>.
         {contract === 'none' && <> <strong>No runtime contract yet</strong> — build the app first.</>}
       </p>
 
@@ -169,7 +172,8 @@ export function ServicesTab({ slug }: { slug: string }) {
               <span className="pick-mark" aria-hidden>{on ? '✓' : '+'}</span>
               <div className="pick-icon">{k.icon}</div>
               <div className="pick-title">{k.title}</div>
-              <div className="muted small">{k.description}</div>
+              {k.status === 'experimental' && <span className="chip" title="Useful, not yet proven: see its description">Experimental</span>}
+              <div className="muted small" title={k.description}>{tileLine(k)}</div>
               <ul className="muted small" aria-label="fulfilled by" style={{ margin: '6px 0 0', padding: 0, listStyle: 'none', fontSize: 'var(--fs-xs)' }}>
                 {fulfilledBy(k).map((line) => <li key={line}>{line}</li>)}
               </ul>

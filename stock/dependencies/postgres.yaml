@@ -9,6 +9,7 @@ resources: {memory: 256M}
 title: PostgreSQL
 icon: 🐘
 description: A relational database. The app connects with DATABASE_URL or the PG* vars.
+summary: "A relational database of the app's own."
 
 # Parameters the app may set; these are the assumed values when omitted. They
 # interpolate as {name} into the fulfillment below (Tier-1 passthrough), so a

@@ -3,6 +3,7 @@ package dependency
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -28,6 +29,77 @@ func TestParseRules(t *testing.T) {
 	}
 	if d, err := Parse(sso); err != nil || d.Register == nil || d.Register.Connector != "authentik" {
 		t.Fatalf("register-only kind: %v %+v", err, d)
+	}
+}
+
+// A kind is experimental in data and says so first in its description,
+// together: a badge and a paragraph that disagree would each mislead. An
+// unknown status and a summary of more than one line are refused.
+func TestAKindIsExperimentalInDataAndProseTogether(t *testing.T) {
+	t.Parallel()
+	for name, spec := range map[string]string{
+		"status without the prose": redis + "status: experimental\ndescription: An in-memory cache.\n",
+		"an unknown status":        redis + "status: beta\n",
+		"a two-line summary":       redis + "summary: \"one\\ntwo\"\n",
+	} {
+		if _, err := Parse(spec); !errors.Is(err, ErrSpec) {
+			t.Errorf("%s: want ErrSpec, got %v", name, err)
+		}
+	}
+	d, err := Parse(redis + "status: experimental\ndescription: \"Experimental: no app has shipped with it yet.\"\nsummary: A cache.\n")
+	if err != nil || d.Status != StatusExperimental || d.Summary != "A cache." {
+		t.Fatalf("experimental kind: %v %+v", err, d)
+	}
+}
+
+// A custom kind saved before status existed (a clone of a stock
+// experimental kind: the prefix, no status, no summary) is still listed,
+// still resolved for an app's need, and still experimental, so its tile
+// keeps its badge and shows its description.
+func TestASavedExperimentalKindWithoutStatusStaysReadableAndExperimental(t *testing.T) {
+	t.Parallel()
+	c := NewCatalog(testDB(t), nil)
+	ctx := context.Background()
+	spec := "capability: cache-clone\ntitle: Cache\ndescription: \"Experimental: no app has shipped with it yet.\"\nlocal:\n  image: redis:7\n  port: 6379\n"
+	if _, err := c.Save(ctx, spec, "sam"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	got, err := c.ByCapability(ctx, "cache-clone")
+	if err != nil || got.Status != StatusExperimental || got.Summary != "" {
+		t.Fatalf("lookup: %v %+v", err, got)
+	}
+	all, err := c.All(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, k := range all {
+		found = found || (k.Capability == "cache-clone" && k.Status == StatusExperimental)
+	}
+	if !found {
+		t.Fatal("the saved kind is missing from the catalogue, or lost its status")
+	}
+}
+
+// Every shipped kind has a one-line summary for the tile that offers it.
+func TestEveryShippedKindHasASummary(t *testing.T) {
+	t.Parallel()
+	entries, err := fs.ReadDir(stock.FS, "dependencies")
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("stock kinds: %v", err)
+	}
+	for _, e := range entries {
+		b, err := fs.ReadFile(stock.FS, "dependencies/"+e.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		d, err := Parse(string(b))
+		if err != nil {
+			t.Fatalf("%s: %v", e.Name(), err)
+		}
+		if strings.TrimSpace(d.Summary) == "" {
+			t.Errorf("%s has no summary", e.Name())
+		}
 	}
 }
 

@@ -165,3 +165,31 @@ it('says what fulfils each need and lists only declarable kinds', async () => {
   expect(fulfilledBy(llm)).toEqual(['through the OpenRouter integration (attach it under Connected to)'])
   expect([pg, llm, errors].filter(declarable).map((k) => k.capability)).toEqual(['postgres', 'llm'])
 })
+
+// A tile shows facts: an Experimental badge only on an experimental kind, and
+// the kind in one line (its summary, else its description); the whole
+// description is only the tooltip.
+it('a tile shows the Experimental badge from data and the kind in one line', async () => {
+  const client = newQueryClient()
+  const kinds = { dependencies: [
+    { capability: 'postgres', title: 'Postgres', summary: 'A database of its own.', description: 'A relational database. The app connects with DATABASE_URL.', local: { image: 'postgres:16' } },
+    { capability: 'redis', title: 'Redis', status: 'experimental', summary: 'A cache.', description: 'Experimental: no app has shipped with it yet. An in-memory cache.', local: { image: 'redis:7' } },
+    { capability: 'custom', title: 'Custom', description: 'A kind with no summary.', local: { image: 'custom:1' } },
+  ] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/dependencies') ? kinds
+    : { needs: [], contract: 'app.yaml', declaration: 'd' }))))
+  const f = mountServices(client)
+  try {
+    await vi.waitFor(() => expect(f.tile('Redis')).toBeTruthy())
+    expect(f.tile('Redis').textContent).toContain('Experimental')
+    expect(f.tile('Postgres').textContent).not.toContain('Experimental')
+    expect(f.tile('Redis').textContent).toContain('A cache.')
+    expect(f.tile('Redis').textContent).not.toContain('no app has shipped')
+    expect(f.tile('Postgres').querySelector('[title^="A relational database"]')).toBeTruthy()
+    expect(f.tile('Custom').textContent).toContain('A kind with no summary.')
+  } finally {
+    f.unmount()
+    client.clear()
+    vi.unstubAllGlobals()
+  }
+})
