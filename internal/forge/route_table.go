@@ -456,6 +456,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/changes/{id}/attachments/{name}", attachments.GetAttachment, access.CapChangeRead, "change"),
 		requireRoute("DELETE /api/v1/changes/{id}/attachments/{name}", attachments.DeleteAttachment, access.CapChangeAttach, "change"),
 		requireRoute("POST /api/v1/changes/{id}/land", changeAdmission.LandChange, access.CapChangeRequestLand, "change"),
+		requireRoute("POST /api/v1/changes/{id}/recheck", changeAdmission.RecheckLanding, access.CapChangeRequestLand, "change"),
 		requireRoute("POST /api/v1/changes/{id}/preview", changePreviews.ChangePreview, access.CapChangePreview, "change"),
 		requireRoute("GET /api/v1/changes/{id}/preview", changePreviewState.ChangePreviewState, access.CapChangeRead, "change"),
 		requireRoute("GET /api/v1/changes/{id}/worker-chats", changeWorkerChats.List, access.CapChangeRead, "change"),

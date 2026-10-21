@@ -340,7 +340,11 @@ A task or check AppTown sends a worker carries AppTown's task limits
 default), and the worker applies them to its container. A check request
 with none, from an older AppTown, runs under the same defaults. A run killed at
 its memory limit comes back as `out_of_memory`, never as an exit code: the
-step errors and names the limit.
+step errors and names the limit. The worker's host needs at least as many
+CPUs as `-task-cpus`: Docker refuses a container that asks for more, and
+the step then says Docker refused it, in Docker's words. An AppTown that
+runs its steps on its own Docker lowers the CPU limits to its host's count
+at start-up instead, and logs that it did.
 
 A container on a cloud host's Docker bridge reaches the provider's metadata
 service (169.254.169.254) unless the host blocks it. On a cloud worker, add

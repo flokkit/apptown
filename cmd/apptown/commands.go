@@ -114,6 +114,8 @@ var sections = []section{
 			{[]string{"timing"}, `  timing [<workflow>] [-days N] [-r <run-id>]
                                         where the time goes: per step across a workflow's runs, or one run's timeline`, cmdTiming},
 			{[]string{"advance"}, `  advance <run-id>                      request advance through the current gate`, cmdAdvance},
+			{[]string{"recheck"}, `  recheck <change-id> [-y] [--no-follow] after fixing what a landing gate rejected, run the landing's failed gates
+                                        again and follow it (bare, inside a change chat: that chat's change)`, cmdRecheck},
 			{[]string{"recheck-stage"}, `  recheck-stage <run-id>                run the current stage's checks again (when it is missing evidence)`, cmdRecheckStage},
 			{[]string{"abandon-run"}, `  abandon-run <run-id> [-m reason]      abandon a single run (terminal; child runs follow)`, cmdAbandonRun},
 			{[]string{"invite"}, `  invite <username> [--role member|admin] [--label text] [--days N]
@@ -182,7 +184,6 @@ var sections = []section{
 		heading: "not promised in 1.x, inside a change chat or agent step:",
 		commands: []command{
 			{[]string{"check"}, `  check [-c <change-id>] [--published]  run the change's declared checks against this folder's HEAD commit`, cmdCheck},
-			{[]string{"recheck"}, `  recheck                               re-run this change's failed landing gates`, cmdRecheck},
 		},
 	},
 	{

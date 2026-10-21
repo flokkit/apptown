@@ -534,20 +534,21 @@ func actOf(acts []nextAct, act string) (nextAct, bool) {
 // acts AppTown offers on it. The client picks no run and no step: the
 // override once landed on the working run while the landing was the one
 // wedged (complaint #68).
-func changeNext(changeID ids.ID) (runID ids.ID, acts []nextAct, err error) {
+func changeNext(changeID ids.ID) (runID ids.ID, acts []nextAct, landing bool, err error) {
 	var view struct {
+		Change struct{ State string }
 		Detail *struct {
 			Run  struct{ ID ids.ID }
 			Next []nextAct
 		}
 	}
 	if err = api.get(fmt.Sprintf("/changes/%d", changeID), &view); err != nil {
-		return ids.Nil, nil, err
+		return ids.Nil, nil, false, err
 	}
 	if view.Detail == nil {
-		return ids.Nil, nil, fmt.Errorf("change %d has no runs", changeID)
+		return ids.Nil, nil, false, fmt.Errorf("change %d has no runs", changeID)
 	}
-	return view.Detail.Run.ID, view.Detail.Next, nil
+	return view.Detail.Run.ID, view.Detail.Next, view.Change.State == "landing", nil
 }
 
 // cmdRetry: re-dispatch the stage's producing agent — the machine loop gets
@@ -572,7 +573,7 @@ func cmdRetry(args []string) error {
 	if err != nil {
 		return err
 	}
-	runID, acts, err := changeNext(changeID)
+	runID, acts, landing, err := changeNext(changeID)
 	if err != nil {
 		return err
 	}
@@ -588,7 +589,7 @@ func cmdRetry(args []string) error {
 			return sendBack(changeID, *msg, *yes, *noFollow)
 		}
 		blocker, _ := actOf(acts, "override")
-		return fmt.Errorf("%s", retryHint(changeID, runID, blocker.StepID, blocker.Step))
+		return fmt.Errorf("%s", retryHint(changeID, runID, blocker.StepID, blocker.Step, landing))
 	}
 	mode := ""
 	how := "fresh session, workspace as it stands"
@@ -658,7 +659,7 @@ func cmdOverride(args []string) error {
 	if err != nil {
 		return err
 	}
-	runID, acts, err := changeNext(changeID)
+	runID, acts, _, err := changeNext(changeID)
 	if err != nil {
 		return err
 	}
@@ -843,10 +844,21 @@ func previewLine(p previewStatus) string {
 }
 
 // retryHint says why retry cannot help — AppTown offers no agent round on
-// the run now — and names the door that can.
-func retryHint(changeID, runID, blockerID ids.ID, blockerName string) string {
+// the run now — and names the doors that can: on a landing, running its
+// failed gates again after a fix (apptown recheck); on any run, a send-back.
+func retryHint(changeID, runID, blockerID ids.ID, blockerName string, landing bool) string {
+	recheck := ""
+	if landing {
+		recheck = fmt.Sprintf("Once what failed is fixed, run the landing's failed gates again:\n  apptown recheck %d\nOr send", changeID)
+	}
 	if !blockerID.IsZero() {
-		return fmt.Sprintf("change %d is blocked at %s (%d) in run %d, and AppTown offers no agent round to retry there.\nSend it back with a note for the agent:\n  apptown sendback %d \"what to change\"", changeID, blockerName, blockerID, runID, changeID)
+		if recheck == "" {
+			recheck = "Send"
+		}
+		return fmt.Sprintf("change %d is blocked at %s (%d) in run %d, and AppTown offers no agent round to retry there.\n%s it back with a note for the agent:\n  apptown sendback %d \"what to change\"", changeID, blockerName, blockerID, runID, recheck, changeID)
+	}
+	if recheck != "" {
+		return fmt.Sprintf("AppTown offers no agent round to retry on run %d now (apptown status %d says what it is doing).\n%s the change back if it needs a code change:\n  apptown sendback %d \"what to change\"", runID, runID, recheck, changeID)
 	}
 	return fmt.Sprintf("AppTown offers no agent round to retry on run %d now (apptown status %d says what it is doing); if the change needs a code change, send it back:\n  apptown sendback %d \"what to change\"", runID, runID, changeID)
 }
@@ -935,22 +947,61 @@ func cmdStart(args []string) error {
 	return nil
 }
 
-// cmdRecheck: inside a change chat, after fixing what a landing gate
-// rejected, re-run this change's FAILED gates. The session token opens only
-// this one door; approvals stay with a person.
+// cmdRecheck: after fixing what a landing gate rejected, re-run the
+// change's FAILED landing gates and follow the landing as land does. Bare,
+// inside a change chat, it rechecks that chat's change through the chat's
+// door (the session token opens only that one). Approvals stay with a person.
 func cmdRecheck(args []string) error {
-	sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN")
-	if sid == "" || tok == "" {
-		return fmt.Errorf("apptown recheck runs inside a change chat (it re-runs that change's failed landing gates); elsewhere use apptown run-step <step-id>")
-	}
+	fs := newFlags("recheck")
+	yes := fs.Bool("y", false, "auto-approve landing gates")
+	noFollow := fs.Bool("no-follow", false, "start the recheck and return")
+	args = parseArgs(fs, args)
 	var out struct {
+		RunID   ids.ID   `json:"runId"`
 		Rerun   []string `json:"rerun"`
 		Message string   `json:"message"`
 	}
-	if err := api.post("/console/"+sid+"/recheck", map[string]any{}, &out); err != nil {
+	if len(args) == 0 {
+		sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN")
+		if sid == "" || tok == "" {
+			return fmt.Errorf("usage: apptown recheck <change-id> [-y] [--no-follow] (bare, inside a change chat)")
+		}
+		if err := api.post("/console/"+sid+"/recheck", map[string]any{}, &out); err != nil {
+			return err
+		}
+		fmt.Println(out.Message)
+		return nil
+	}
+	id, err := changeRef(args[0], "")
+	if err != nil {
+		return err
+	}
+	var view struct {
+		ProjectSlug string
+		Change      struct{ Number int64 }
+	}
+	_ = api.get(fmt.Sprintf("/changes/%s", id), &view)
+	name := changeName(view.ProjectSlug, view.Change.Number, id)
+	if err := api.post(fmt.Sprintf("/changes/%s/recheck", id), map[string]any{}, &out); err != nil {
 		return err
 	}
 	fmt.Println(out.Message)
+	if len(out.Rerun) == 0 {
+		return nil
+	}
+	if *noFollow {
+		fmt.Printf("  follow: apptown follow %s\n", name)
+		return nil
+	}
+	status, err := streamRunFor(out.RunID, id, *yes)
+	if err != nil {
+		return err
+	}
+	if status != "done" {
+		printLandingStopped(name, status)
+		return nil
+	}
+	printShipped(name, view.ProjectSlug, out.RunID)
 	return nil
 }
 
@@ -1033,12 +1084,13 @@ func cmdLand(args []string) error {
 // change. A blocked landing still holds it: the change stays landing until
 // the failed gate is fixed and rechecked, or the change is sent back. An
 // ended one (a branch behind main ends it) put the change back in progress.
-func printLandingStopped(name, status string) {
+func printLandingStopped(name, status string) { fmt.Println(landingStopped(name, status)) }
+
+func landingStopped(name, status string) string {
 	if status == "blocked" {
-		fmt.Printf("%s the change is still landing: fix what failed in its chat and run apptown recheck there, or send it back: apptown sendback %s \"what to change\"\n", yellow("⏸"), name)
-		return
+		return fmt.Sprintf("%s the change is still landing: fix what failed, then run its failed gates again: apptown recheck %s; or send it back: apptown sendback %s \"what to change\"", yellow("⏸"), name, name)
 	}
-	fmt.Printf("%s landing ended %s — the change is back in progress; land it again: apptown land %s\n", yellow("⏸"), status, name)
+	return fmt.Sprintf("%s landing ended %s — the change is back in progress; land it again: apptown land %s", yellow("⏸"), status, name)
 }
 
 func cmdInvoke(args []string) error {

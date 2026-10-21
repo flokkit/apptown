@@ -2,8 +2,10 @@ package forge
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/dbtest"
 	"flokkit.io/forge/internal/forge/conformance"
+	"flokkit.io/forge/internal/forge/httpapi"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/remediation"
 	"flokkit.io/forge/internal/forge/schema"
@@ -363,4 +366,32 @@ func recheckItem(t *testing.T, a *App, req workflow.LandingRecheck) remediation.
 		t.Fatal(err)
 	}
 	return item
+}
+
+// A blocked landing's failed gates run again from the change's own route,
+// the one apptown recheck <change> uses outside a chat: the failed ones are
+// named, the landing is the one answered, and they are dispatched.
+//
+// Kills: the chat's door as the only one, which left a person at the
+// command line with run-step, one step at a time (one-server test, 22 Oct).
+func TestAChangesLandingGatesRunAgainFromItsOwnRoute(t *testing.T) {
+	t.Parallel()
+	a, run, _ := landingRecheckFixture(t)
+	d := installDispatchFixture(t, a)
+	var calls atomic.Int32
+	for _, typ := range []string{"scan", "deploy", "tests"} {
+		d.runners[typ] = func(*workflow.Execution) { calls.Add(1) }
+	}
+	w := authzCall(a.Handler(), "alice", "POST", "/api/v1/changes/"+run.ChangeID.String()+"/recheck", "")
+	var got httpapi.RecheckStarted
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil {
+		t.Fatalf("recheck: %d %s", w.Code, w.Body.String())
+	}
+	if got.RunID != run.ID || !slices.Contains(got.Rerun, "image") || !slices.Contains(got.Rerun, "tests") || slices.Contains(got.Rerun, "passed") {
+		t.Fatalf("rechecked %+v, want the failed gates of run %s", got, run.ID)
+	}
+	d.wait()
+	if calls.Load() == 0 {
+		t.Fatal("the rechecked gates were not dispatched")
+	}
 }

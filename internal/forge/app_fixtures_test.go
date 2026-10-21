@@ -36,6 +36,26 @@ func newApp(t *testing.T, db *database.DB, configs ...Config) *App {
 	// A test AppTown is a developer's: its fixtures' script steps run on this
 	// host (-host-scripts), as they always have.
 	cfg.HostScripts = true
+	// A test AppTown has a model, as one with a key added does: run
+	// admission refuses model work on one with none. A test about an AppTown
+	// with no model uses noModelApp.
+	if cfg.AgentModel == "" {
+		cfg.AgentModel = "fake/model"
+	}
+	return startApp(t, db, cfg)
+}
+
+// noModelApp is a fresh AppTown before anyone has added a model key: no
+// -agent-model and no model slot.
+func noModelApp(t *testing.T, db *database.DB) *App {
+	t.Helper()
+	return startApp(t, db, Config{DataDir: t.TempDir(), HostScripts: true})
+}
+
+// startApp constructs an App from cfg as given, authorizes it, and drains
+// its background owners before its directory is removed.
+func startApp(t *testing.T, db *database.DB, cfg Config) *App {
+	t.Helper()
 	a := constructApp(t, db, cfg)
 	if err := a.runTok.Open(filepath.Join(a.cfg.dataDir, identity.RuntimeTokenKeyFile)); err != nil {
 		t.Fatal(err)

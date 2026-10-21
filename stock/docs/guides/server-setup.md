@@ -187,6 +187,26 @@ the first account exists the file is removed. Reading a file on the host is
 the proof of being its operator, so a stranger who finds the sign-in page
 first cannot claim AppTown.
 
+### First administrator without a browser
+
+An install script or a coding agent can make the first administrator, a
+command-line token and the model key through the API, with the setup token
+read on the host (`DOMAIN` is AppTown's address):
+
+```sh
+curl -fsS -c cookies -H 'Content-Type: application/json' https://DOMAIN/api/v1/auth/bootstrap \
+  -d '{"username":"you","password":"at least 8 characters","setupToken":"<from setup-token>"}'
+curl -fsS -b cookies -H 'Content-Type: application/json' https://DOMAIN/api/v1/tokens \
+  -d '{"name":"laptop-cli","purpose":"cli"}'
+curl -fsS -b cookies -H 'Content-Type: application/json' https://DOMAIN/api/v1/setup/model \
+  -d '{"provider":"anthropic","key":"<your API key>"}'
+```
+
+The first call signs you in (the cookie file holds the session); the
+second prints a command-line token with your role, shown once, for
+`APPTOWN_TOKEN`; the third is the Home page's key form (`openrouter` is the
+other provider). Remove the cookie file afterwards.
+
 The doors that take a secret (sign-in, the setup token, invites, OAuth codes
 and refresh tokens) allow ten quick attempts from one address, then one every
 six seconds; past that they answer 429 with `Retry-After`.

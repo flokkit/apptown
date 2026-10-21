@@ -5,10 +5,12 @@ A software factory for the rest of us.
 AppTown helps small teams keep the apps they make with AI coding agents. You
 run it yourself, on your own machine or server.
 
-Coding agents have dropped the cost of small custom apps to almost nothing,
-but owning an app that people can rely on is still a lot of work. Someone has
-to deploy it, back it up, keep it patched and still understand it a year
-later, usually after the person who made it has moved on.
+Even with coding agents, *owning* an app that people can rely on is still
+work. Someone has to deploy it, back it up, keep it patched and still
+understand it a year later, usually after the person who made it has moved on.
+Another issue is that coding agent setup is idiosyncratic; AppTown provides
+scaffolding so that future maintainers inherit a working agent environment and
+get consistent results.
 
 AppTown makes that handover boring and repeatable. You can bring in an app you
 made with a coding agent on your own computer, or have AppTown's own agents

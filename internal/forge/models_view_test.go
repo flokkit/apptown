@@ -14,7 +14,7 @@ import (
 
 func TestSeedModelSlotsInsertsDefault(t *testing.T) {
 	t.Parallel()
-	a := testApp(t)
+	a := noModelApp(t, testDB(t))
 	// No default model configured → nothing seeded.
 	a.SeedModelSlots(t.Context())
 	unseeded, err := a.Models.Cells(context.Background())

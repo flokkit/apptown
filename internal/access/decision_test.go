@@ -33,10 +33,12 @@ var (
 	inst    = access.Resource{Type: "instance"}
 	full    = access.Channel{Kind: "full-breadth"}
 
-	agentToken   = access.Principal{Kind: "user", Name: "alice", Via: "token", Role: "admin", Purpose: access.TokenAgent}
-	cliToken     = access.Principal{Kind: "user", Name: "alice", Via: "token", Role: "admin", Purpose: access.TokenCLI}
-	agentChannel = access.DelegationOf(agentToken)
-	rootFacts    = &fakeFacts{grants: map[string][]access.Grant{"alice": {role(1, "user", "alice", access.RoleInstanceAdmin, access.ScopeInstance, "")}}}
+	agentToken = access.Principal{Kind: "user", Name: "alice", Via: "token", Role: "admin", Purpose: access.TokenAgent}
+	cliToken   = access.Principal{Kind: "user", Name: "alice", Via: "token", Role: "admin", Purpose: access.TokenCLI}
+	// memberCLIToken: alice is an administrator, her token was made member.
+	memberCLIToken = access.Principal{Kind: "user", Name: "alice", Via: "token", Role: "member", Purpose: access.TokenCLI}
+	agentChannel   = access.DelegationOf(agentToken)
+	rootFacts      = &fakeFacts{grants: map[string][]access.Grant{"alice": {role(1, "user", "alice", access.RoleInstanceAdmin, access.ScopeInstance, "")}}}
 )
 
 func role(n uint64, subjectType, subject, name string, scope access.ScopeKind, scopeID string) access.Grant {
@@ -118,6 +120,11 @@ func TestDecideTable(t *testing.T) {
 		{"an administrator's agent token may not administer", agentToken, agentChannel, access.CapIdentityAuth, inst, access.Context{}, rootFacts, false, access.DenyDelegationNarrow, "agent token may not"},
 		{"an agent token does what a scope covers", agentToken, agentChannel, access.CapChangeRequestLand, change, access.Context{}, rootFacts, true, "", "Instance administrator"},
 		{"an administrator's cli token approves", cliToken, access.Channel{Kind: "legacy-token"}, access.CapChangeApprove, change, access.Context{}, rootFacts, true, "", "Instance administrator"},
+		// A token made without administrator authority does not carry its
+		// administrator's root; the refusal says so and how to get one,
+		// never "ask an administrator" (one-server test, 22 Oct).
+		{"an administrator's member cli token is told the token is the limit", memberCLIToken, access.Channel{Kind: "legacy-token"}, access.CapReleasePromote, change, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority, which alice holds; sign in on the web and make a command-line token on People"},
+		{"an administrator's member cli token on a root-only act", memberCLIToken, access.Channel{Kind: "legacy-token"}, access.CapIdentityAuth, inst, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority"},
 		{"anonymous with nothing", nobody, access.Channel{Kind: "anonymous"}, access.CapProjectRead, project, access.Context{}, &fakeFacts{}, false, access.DenyMissingCapability, "Someone who is not signed in"},
 	}
 	for _, tc := range cases {

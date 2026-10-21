@@ -14,14 +14,42 @@ import (
 // When the run in flight has no agent step, retry names the send-back
 // door and the wedged step, rather than only saying no.
 func TestRetryHintNamesSendBack(t *testing.T) {
-	hint := retryHint(idstest.N(308), idstest.N(444), idstest.N(3060), "catch-up-with-main")
+	hint := retryHint(idstest.N(308), idstest.N(444), idstest.N(3060), "catch-up-with-main", false)
 	for _, want := range []string{"change 00000000-0134-7000-8000-000000000000", "catch-up-with-main (00000000-0bf4-7000-8000-000000000000)", "run 00000000-01bc-7000-8000-000000000000", `apptown sendback 00000000-0134-7000-8000-000000000000 "what to change"`} {
 		if !strings.Contains(hint, want) {
 			t.Fatalf("hint lacks %q:\n%s", want, hint)
 		}
 	}
-	if !strings.Contains(retryHint(idstest.N(9), idstest.N(12), ids.Nil, ""), "apptown sendback 00000000-0009-7000-8000-000000000000") {
+	if !strings.Contains(retryHint(idstest.N(9), idstest.N(12), ids.Nil, "", false), "apptown sendback 00000000-0009-7000-8000-000000000000") {
 		t.Fatal("hint without a blocker still names the door")
+	}
+}
+
+// A blocked landing's next step from the command line is apptown recheck
+// <change>, which works outside a chat: retry and the landing's own blocked
+// line name it, and still name the send-back.
+//
+// Kills: "run apptown recheck there" (in a chat) and a retry hint naming
+// only the send-back, which left run-step one step at a time as the only
+// way on (one-server test, 22 Oct).
+func TestABlockedLandingNamesTheRecheckThatWorks(t *testing.T) {
+	change := idstest.N(308)
+	for _, hint := range []string{
+		retryHint(change, idstest.N(444), idstest.N(3060), "scan-source:osv", true),
+		retryHint(change, idstest.N(444), ids.Nil, "", true),
+	} {
+		for _, want := range []string{"apptown recheck " + change.String(), "apptown sendback " + change.String()} {
+			if !strings.Contains(hint, want) {
+				t.Errorf("hint lacks %q:\n%s", want, hint)
+			}
+		}
+	}
+	if hint := retryHint(change, idstest.N(444), idstest.N(3060), "tests", false); strings.Contains(hint, "recheck") {
+		t.Errorf("a run that is not a landing was offered a landing recheck:\n%s", hint)
+	}
+	line := landingStopped("hello-game#1", "blocked")
+	if !strings.Contains(line, "apptown recheck hello-game#1") || strings.Contains(line, "in its chat") {
+		t.Errorf("the blocked landing's line: %s", line)
 	}
 }
 

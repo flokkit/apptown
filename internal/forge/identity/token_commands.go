@@ -26,7 +26,10 @@ var (
 
 // NewToken is a token to make. Purpose is required and has no default: an
 // agent token is bounded like an OAuth connection, a cli token acts as its
-// person (access.CredentialCovers).
+// person (access.CredentialCovers). Role is the token's administrator
+// ceiling, "admin" or "member"; left empty, a cli token gets its person's
+// own role as it is made (it acts as them), and an agent token member (an
+// agent does not inherit its person's administration).
 type NewToken struct{ Name, User, Role, Purpose string }
 
 // IssuedToken releases plaintext only after the token and receipt commit.
@@ -49,7 +52,7 @@ func (in NewToken) prepare(pr access.Principal) (NewToken, error) {
 	if err := ValidName(in.User); err != nil {
 		return NewToken{}, err
 	}
-	if in.Role != "admin" {
+	if in.Role != "" && in.Role != "admin" {
 		in.Role = "member"
 	}
 	return in, nil
@@ -72,6 +75,21 @@ func (s *Service) IssueToken(ctx context.Context, in NewToken, pr access.Princip
 		prepared, err := in.prepare(pr)
 		if err != nil {
 			return err
+		}
+		if prepared.Role == "" {
+			// The ceiling is the person's role now: a member promoted later
+			// keeps a member token, and root still needs their current grant
+			// at each use (administratorFor, access.Decide).
+			prepared.Role = "member"
+			if prepared.Purpose == access.TokenCLI {
+				root, err := RootIn(ctx, tx, prepared.User, now)
+				if err != nil {
+					return err
+				}
+				if root {
+					prepared.Role = "admin"
+				}
+			}
 		}
 		issued, err = issueTokenIn(ctx, tx, prepared, pr.Name, now)
 		return err

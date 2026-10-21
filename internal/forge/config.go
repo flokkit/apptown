@@ -1,14 +1,17 @@
 package forge
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -381,4 +384,49 @@ func withDefaults(l, d execution.Limits) execution.Limits {
 		l.PIDs = d.PIDs
 	}
 	return l
+}
+
+// fitCPUs lowers a container CPU limit above the host's CPU count to that
+// count: Docker refuses a container that asks for more CPUs than its host
+// has, so a limit above it would refuse every step rather than bound it.
+// It reports whether it lowered the limit.
+func fitCPUs(l execution.Limits, hostCPUs int) (execution.Limits, bool) {
+	if hostCPUs <= 0 || l.CPUs <= float64(hostCPUs) {
+		return l, false
+	}
+	l.CPUs = float64(hostCPUs)
+	return l, true
+}
+
+// FitLimitsToHost fits the task and chat CPU limits to the Docker host this
+// AppTown runs its own steps and chats on, once at start-up (apptownd,
+// before New), saying so when it lowers one. An AppTown whose steps run on a
+// worker, or that has no Docker of its own, has no such host here. A host
+// that cannot be read now leaves the limits as configured; the start-up
+// check reports Docker unavailable.
+func (c *Config) FitLimitsToHost(ctx context.Context) {
+	if c.NoLocalDocker || c.Worker != nil {
+		return
+	}
+	client := c.DockerClient
+	if client == nil {
+		client = docker.CLI{}
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	host, err := docker.ReadHostInfo(ctx, docker.Scope{Client: client})
+	if err != nil {
+		return
+	}
+	for _, l := range []struct {
+		limits   *execution.Limits
+		defaults execution.Limits
+		what     string
+	}{{&c.TaskLimits, execution.DefaultTaskLimits, "steps"}, {&c.ChatLimits, execution.DefaultChatLimits, "chats"}} {
+		asked := withDefaults(*l.limits, l.defaults)
+		if fitted, lowered := fitCPUs(asked, host.CPUs); lowered {
+			*l.limits = fitted
+			log.Printf("%s get %d CPUs each, all this Docker host has (the limit asks for %s)", l.what, host.CPUs, strconv.FormatFloat(asked.CPUs, 'f', -1, 64))
+		}
+	}
 }

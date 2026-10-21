@@ -35,8 +35,9 @@ Accounts are on the **People** page.
   never puts the grant back. In open mode (`-auth open`, loopback only by
   default) anyone who can reach AppTown reads everything as well.
 - **Tokens.** `apptown token create <name> --purpose cli|agent` makes a
-  personal token. A `cli` token acts as its person; an `agent` token, for a
-  coding agent, may not approve, land or administer.
+  personal token. A `cli` token acts as its person, with the role they have
+  when it is made (`-r member` narrows it); an `agent` token, for a coding
+  agent, is a member's and may not approve, land or administer.
 - **Lost administrator password.** On AppTown's host, with its normal
   settings: `apptownd -reset-password <username>` prints a new password for
   that existing account, ends its sessions, and exits without serving.

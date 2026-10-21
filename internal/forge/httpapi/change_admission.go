@@ -85,6 +85,23 @@ func (h ChangeAdmission) LandChange(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 201, ChangeRun{Change: *ch, Run: *run})
 }
 
+// RecheckLanding: POST /api/v1/changes/{id}/recheck — after fixing what a
+// landing gate rejected, run the change's landing's failed automatic gates
+// again: what apptown recheck does in a change chat, from anywhere. It never
+// touches approvals; Work checks the caller may request the landing.
+func (h ChangeAdmission) RecheckLanding(w http.ResponseWriter, r *http.Request) {
+	ch, _, ok := ChangeAndProject(h.db, w, r)
+	if !ok {
+		return
+	}
+	rechecked, err := h.work.RecheckLanding(r.Context(), workflow.LandingRecheck{ChangeID: ch.ID})
+	if err != nil {
+		WriteFaultOr(w, err, 422)
+		return
+	}
+	WriteJSON(w, 200, recheckStarted(rechecked))
+}
+
 // CreatedChange is a new Change and the run started on it, if any.
 type CreatedChange struct {
 	Change workflow.Change `json:"change"`

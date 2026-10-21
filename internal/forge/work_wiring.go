@@ -83,6 +83,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		Git:          (workflow.GitWorkspace{DataDir: a.cfg.dataDir}),
 		Repositories: &a.repositories,
 		Automatic:    autoStepTypes(),
+		ModelRefusal: workflowexec.ModelRefusal(a.modelSelection),
 		DataDir:      a.cfg.dataDir,
 
 		CheckPlacement: checkPlacement(a.cfg),

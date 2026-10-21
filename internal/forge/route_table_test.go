@@ -527,6 +527,7 @@ var cliOperations = map[string]described{
 	"POST /api/v1/projects/{slug}/changes":                   {request: httpapi.ChangeRequest{}, status: 201, response: httpapi.CreatedChange{}},
 	"GET /api/v1/changes/{id}":                               {status: 200, response: httpapi.ChangeCockpit{}},
 	"POST /api/v1/changes/{id}/land":                         {status: 201, response: httpapi.ChangeRun{}},
+	"POST /api/v1/changes/{id}/recheck":                      {status: 200, response: httpapi.RecheckStarted{}},
 	"GET /api/v1/runs/{id}":                                  {status: 200, response: workflow.RunSnapshot{}},
 	"GET /api/v1/steps/{id}/question":                        {status: 200, response: workflow.ApprovalQuestion{}},
 	"POST /api/v1/steps/{id}/approve":                        {request: httpapi.StepDecision{}, status: 200, response: workflow.Step{}},

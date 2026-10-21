@@ -4,7 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
-import { AdminNetworksCard, InvitePerson, UsersCard } from './People'
+import { AdminNetworksCard, InvitePerson, TokensCard, UsersCard } from './People'
 import type { Account } from '../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -73,6 +73,9 @@ describe('inviting a person', () => {
     await type(name, 'kim')
     await type(label, 'Kim Lee')
     const select = el.querySelector('select') as HTMLSelectElement
+    // An invitation assigns a concrete account role; token ceilings do not apply.
+    expect([...select.options].map(o => o.value)).toEqual(['member', 'admin'])
+    expect(select.title).not.toContain('token')
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, 'admin')
       select.dispatchEvent(new Event('change', { bubbles: true }))
@@ -286,6 +289,41 @@ describe('a password reset link', () => {
     })
     expect(buttons(el).map((b) => b.textContent)).not.toContain('reset password')
     expect(el.textContent).toContain("Password reset links need AppTown's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.")
+    act(() => root.unmount())
+  })
+})
+
+describe('minting a token', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  // A token's role is left to AppTown unless narrowed: a command-line token
+  // then carries its person's own role (an administrator's can release), an
+  // agent token a member's. Kills: the page's old member default.
+  it('sends no role unless one is chosen', async () => {
+    const sent: { method: string; url: string; body?: unknown }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      sent.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined })
+      if (method === 'POST') return new Response(JSON.stringify({ token: 'apptown_t', name: 'laptop-cli', user: 'bls', role: 'admin', purpose: 'cli', note: '' }), { status: 201 })
+      if (url.includes('/users')) return new Response(JSON.stringify({ users: [] }))
+      return new Response(JSON.stringify({ tokens: [] }))
+    }))
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    await act(async () => { root.render(<QueryClientProvider client={newQueryClient()}><TokensCard /></QueryClientProvider>) })
+    const input = el.querySelector('input') as HTMLInputElement
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'laptop-cli')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const purpose = [...el.querySelectorAll('select')].find((s) => s.title === 'who will hold the token') as HTMLSelectElement
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(purpose, 'cli')
+      purpose.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await act(async () => { [...el.querySelectorAll('button')].find((b) => b.textContent === 'Mint token')!.click() })
+    expect(sent.find((s) => s.method === 'POST')).toEqual({ method: 'POST', url: '/api/v1/tokens', body: { name: 'laptop-cli', purpose: 'cli' } })
+    await vi.waitFor(() => expect(el.textContent).toContain('apptown_t'))
     act(() => root.unmount())
   })
 })
