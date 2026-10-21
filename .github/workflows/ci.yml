@@ -9,10 +9,10 @@
 # (internal/dbtest), as for a local `make check`.
 name: ci
 
+# Main changes only through merged pull requests whose commit sits on main's
+# tip, so the pull request's run has tested exactly what main becomes; a push
+# run would test it twice.
 on:
-  push:
-    branches: [main]
-    paths-ignore: ["design/**", "releases/**", "*.md", ".claude/**"]
   pull_request:
     paths-ignore: ["design/**", "releases/**", "*.md", ".claude/**"]
   workflow_dispatch:

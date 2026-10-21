@@ -85,6 +85,8 @@ ALLOWED = [
     ("install-path", r"^private/scripts/do-demo/install-(forge|worker)\.sh$", r"systemctl disable --now forge|/var/lib/forge-worker|rm -rf /opt/forge",
      "retires the daemon and worker installed before the rename"),
     ("command", r"^\.gitignore$", r"^/forged$", "a stray build of the old daemon is never committed again"),
+    ("command", r"^private/scripts/public-history-rebuild\.py$", r"STRAY_BUILDS|\"forged\"|macOS forged binary",
+     "the one-off history rebuild names the old daemon's builds and spellings to keep them out of older trees"),
     # AppTown's own acts recorded before the rename (actor "forge-system",
     # instrument and usage kind "forge") are kept identifiers; these readers
     # show them as AppTown (private/design/plans/rename-leftovers-2026-10-20.md).

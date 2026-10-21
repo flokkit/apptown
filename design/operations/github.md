@@ -11,9 +11,11 @@ export, so its history starts fresh.
 The repository is on GitHub's Free plan while private: about 2,000 Actions
 minutes a month on 2-core runners and 500 MB of package storage.
 
-**`ci.yml`** runs on a push to main, on pull requests and by hand; a newer
-run cancels an older one on the same ref, and a push that changes only
-`design/`, `releases/`, root Markdown or `.claude/` runs nothing. Jobs:
+**`ci.yml`** runs on pull requests and by hand. Main changes only through
+merged pull requests whose commit sits on main's tip, so the pull request's
+run has tested what main becomes. A newer run cancels an older one on the
+same ref, and a change to only `design/`, `releases/`, root Markdown or
+`.claude/` runs nothing. Jobs:
 
 - `web`: npm ci, typecheck, Vite build, lint and unit tests; it passes
   `web/dist` to the Go jobs, since Go embeds it.
