@@ -58,6 +58,13 @@ local:
   command: ["--innodb-buffer-pool-size=64M", "--max-connections=20", "--performance-schema=OFF"]
   health: healthcheck.sh --connect --innodb_initialized
   data: /var/lib/mysql
+  # How much data it holds, read before and after each release, from the
+  # catalogue's estimates, as the app's own user.
+  measure: >-
+    MYSQL_PWD="$MARIADB_PASSWORD" mariadb -u"$MARIADB_USER" -N -B "$MARIADB_DATABASE" -e "
+    select 'tables', count(*) from information_schema.tables where table_schema = database() and table_type = 'BASE TABLE'
+    union all select 'rows', coalesce(sum(table_rows), 0) from information_schema.tables where table_schema = database()
+    union all select 'bytes', coalesce(sum(data_length + index_length), 0) from information_schema.tables where table_schema = database()"
   env:
     MARIADB_DATABASE: "{database}"
     MARIADB_USER: "{user}"

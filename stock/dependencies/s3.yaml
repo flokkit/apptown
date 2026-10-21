@@ -57,6 +57,11 @@ generate: [user, password, root_key, root_secret]
 local:
   image: versity/versitygw:v1.8.0
   data: /data
+  # How much data it holds, read before and after each release: the
+  # objects' files and their size.
+  measure: |
+    echo "objects $(find /data -type f | wc -l)"
+    echo "bytes $(( $(du -sk /data | cut -f1) * 1024 ))"
   port: 9000
   configAtStart: true
   entrypoint: ["/bin/sh", "-c"]

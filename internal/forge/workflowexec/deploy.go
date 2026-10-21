@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"flokkit.io/forge/internal/deploy"
@@ -34,6 +35,9 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	var cfg struct {
 		Deployment string               `json:"deployment"`
 		Services   []deploy.ServiceSpec `json:"services"`
+		// AcceptUncopiedData is read by its exact key (acceptanceIn): JSON
+		// would take any casing of it.
+		AcceptUncopiedData json.RawMessage `json:"acceptUncopiedData,omitempty"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(step.Config))
 	decoder.DisallowUnknownFields()
@@ -148,6 +152,33 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 		return
 	}
 	logf("Preflight passed for %s on commit %s at %s; boot checks again", check.Deployment, check.Commit, check.CheckedAt.UTC().Format(time.RFC3339))
+	// The data it already holds is copied before anything is built or
+	// booted, and read so it can be checked afterwards.
+	dataClass := a.deploymentDataClass(task.Context(), run.ProjectID, cfg.Deployment)
+	var witness ReleaseWitness
+	if a.releaseData != nil {
+		logf("Copying the data %s holds before releasing onto it", cfg.Deployment)
+		w, err := a.releaseData.BeforeRelease(task.Context(), run.ProjectID, cfg.Deployment, dataClass == "synthetic")
+		copied, words := w != nil && w.Complete(), ""
+		switch {
+		case err != nil:
+			words = "the copy before this release could not be taken: " + err.Error()
+		case w != nil:
+			words = w.CopyWords()
+			witness = w
+		}
+		logf("%s", words)
+		if !copied {
+			accepted := acceptanceIn(step.Config)
+			if accepted != nil && accepted.Attempt != int64(step.Attempt) {
+				accepted = nil // given for another attempt
+			}
+			if refused := releaseOverUncopied(cfg.Deployment, dataClass, accepted, words, logf); refused != "" {
+				finish(workflow.StatusError, map[string]any{"reason": refused, "copy": words})
+				return
+			}
+		}
+	}
 	// On an AppTown with a worker the release is built there, published and
 	// committed as a digest bundle before anything is deployed; the host
 	// pulls it.
@@ -181,7 +212,7 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	out, err := a.deployment.RunLanding(task.Context(), task, deployment.LandingInput{
 		Log:    logf,
 		Start:  deployment.Start{DeploymentID: env.ID, TargetID: env.TargetID, Key: fmt.Sprintf("run-%d-deploy-%d-attempt-%d", run.ID, stepID, step.Attempt), Inputs: inputs},
-		Source: deploy.Source{Workspace: ws, Revision: relSHA, Slug: slug, Contract: c}, Services: cfg.Services, HostPort: hostPort, DataClass: a.deploymentDataClass(task.Context(), run.ProjectID, cfg.Deployment),
+		Source: deploy.Source{Workspace: ws, Revision: relSHA, Slug: slug, Contract: c}, Services: cfg.Services, HostPort: hostPort, DataClass: dataClass,
 		Bundle: bundle,
 	})
 	result := out.Execution
@@ -222,9 +253,56 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	}
 	recordEvent(task.Context(), a.db, run.ID, "release.deployed", map[string]any{"deployment": cfg.Deployment, "url": url, "digest": depEv.Digest}, deployed)
 	a.backups.AfterRelease(run.ProjectID, cfg.Deployment)
+	if witness != nil {
+		problems, notes := witness.After(task.Context(), selectedContract.Needs)
+		for _, n := range notes {
+			logf("Not compared: %s", n)
+		}
+		if len(problems) > 0 {
+			// The release is out; what is said is what is true.
+			finish(workflow.StatusError, map[string]any{"reason": fmt.Sprintf("release booted and is running at %s, but its data continuity check failed: %s. %s; this check restored nothing and changed no data", url, strings.Join(problems, "; "), witness.CopyWords()), "continuity": problems, "copy": witness.CopyWords()})
+			return
+		}
+		logf("The data its needs held before the release is still there")
+	}
 	audit.At(deployed).BestEffort(task.Context(), a.db, "apptown-system", run.ProjectID, "release.deployed", cfg.Deployment,
 		map[string]any{"runId": run.ID, "url": url, "image": depEv.Image, "digest": depEv.Digest})
 
 	logf("Deployment completed: %s", url)
 	finish(workflow.StatusPass, depEv)
+}
+
+// releaseOverUncopied is why a landing may not release over data the copy
+// before it did not hold ("" when it may): synthetic data may go, and a
+// person may accept releasing anyway on retrying the step.
+func releaseOverUncopied(deployment, dataClass string, accepted *workflow.UncopiedDataAcceptance, words string, logf func(string, ...any)) string {
+	switch {
+	case dataClass == "synthetic":
+		logf("Releasing anyway: %s holds synthetic data", deployment)
+		return ""
+	case accepted != nil:
+		logf("Releasing anyway: %s accepted releasing over data AppTown could not copy, at %s", accepted.By, accepted.At.Format(time.RFC3339))
+		return ""
+	}
+	return "release refused: " + words + ". AppTown will not release over data it could not copy. Make that data copyable (a volume no service mounts may be data a service made again left behind: look at it first), or a person retries this step accepting uncopied data (apptown retry <change> --accept-uncopied-data)"
+}
+
+// acceptanceIn is the acceptance a retry put in a deploy step's
+// configuration, under its exact key only: a JSON field would also take
+// "AcceptUncopiedData" or any other casing, which only a workflow could
+// have written.
+func acceptanceIn(config []byte) *workflow.UncopiedDataAcceptance {
+	var cfg map[string]json.RawMessage
+	if json.Unmarshal(config, &cfg) != nil {
+		return nil
+	}
+	raw, ok := cfg["acceptUncopiedData"]
+	if !ok {
+		return nil
+	}
+	var a workflow.UncopiedDataAcceptance
+	if json.Unmarshal(raw, &a) != nil || a.By == "" {
+		return nil
+	}
+	return &a
 }

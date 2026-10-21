@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"flokkit.io/forge/internal/forge/schema"
 )
@@ -42,6 +43,14 @@ func planStage(stage *schema.Stage, scanners []Scanner) ([]plannedStep, error) {
 	all := append(append([]schema.Step{}, stage.OnEnter...), stage.Steps...)
 	for i, step := range all {
 		onEnter := i < len(stage.OnEnter)
+		// A person's acceptance on retrying a deploy is never data a
+		// workflow declares (RetryCommand.AcceptUncopiedData).
+		// JSON reads keys in any casing, so every casing is refused.
+		for k := range step.With {
+			if strings.EqualFold(k, uncopiedDataKey) {
+				return nil, fmt.Errorf("check %q declares %s: that is a person's acceptance on retrying a deploy, which no workflow may declare", step.Name, k)
+			}
+		}
 		// The schema owns extension fields; freeze exact JSON before expanding them.
 		encoded, err := json.Marshal(step.With)
 		if err != nil {

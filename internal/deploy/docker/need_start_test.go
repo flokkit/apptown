@@ -46,6 +46,9 @@ func storeRelease(t *testing.T, class, health string) (*ownedHost, error) {
 			return []byte("ROOT_ACCESS_KEY_ID=local\n"), nil
 		case strings.Contains(line, ".State.Health"):
 			return []byte(health + "\n"), nil
+		case strings.Contains(line, ".Mounts"):
+			// Its objects are on its named volume.
+			return []byte("volume\t" + vol + "\t/x\t/data\n"), nil
 		case strings.HasPrefix(line, "image inspect --format {{.Id}}"):
 			return []byte("sha256:" + strings.Repeat("a", 64) + "\n"), nil
 		}
@@ -201,7 +204,7 @@ func TestAServiceThatKeepsItsImageIsNotRemadeForANewOne(t *testing.T) {
 				return nil, nil
 			}}
 			svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:17-alpine", ConfigAtStart: true, KeepsImage: c.keepsImage}
-			err := replaceDrifted(t.Context(), Scope{Client: client}, "env-shop-main", ServiceName("env-shop-main", "postgres"), svc, c.drift, "production", Ownership{})
+			_, err := replaceDrifted(t.Context(), Scope{Client: client}, "env-shop-main", ServiceName("env-shop-main", "postgres"), svc, c.drift, "production", Ownership{}, nil)
 			if c.remade {
 				if err != nil || len(removed) != 1 {
 					t.Fatalf("not remade on its volume: %v %v", err, removed)

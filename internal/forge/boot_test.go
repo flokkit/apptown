@@ -34,6 +34,7 @@ import (
 	"flokkit.io/forge/internal/ids/idstest"
 	"github.com/riverqueue/river/rivertype"
 
+	"flokkit.io/forge/internal/access"
 	"flokkit.io/forge/internal/deploy/docker"
 	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/forge/workflow"
@@ -1105,5 +1106,105 @@ func TestBuiltinDBStartsOnItsOwnOrANewVolume(t *testing.T) {
 				t.Errorf("volume created %v with an existing volume %v", created, label != nil)
 			}
 		})
+	}
+}
+
+// A landing copies the data a deployment holds before it releases onto it,
+// and does not release over data it could not copy: the step is refused
+// before anything is built or started, until a person retries it accepting
+// that, which the attempt records. An agent's connection cannot accept. A
+// first release has nothing to copy.
+func TestALandingDoesNotReleaseOverDataItCouldNotCopy(t *testing.T) {
+	t.Parallel()
+	a, f := bootWorld(t)
+	runID, stepID := deployRun(t, a)
+	// main holds production data.
+	attrs := deployment.Attributes{Feed: "landing", Audience: "team", DataClass: "production"}
+	target, err := a.Deployment.LandingTarget(t.Context(), idstest.N(1), "main", attrs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testAdministrator(t, a, "bls")
+	if _, err := a.Deployment.Configure(asPerson("bls"), deployment.ConfigureDeployment{ProjectID: idstest.N(1), Name: "main", Target: target.Name, Attributes: attrs}); err != nil {
+		t.Fatal(err)
+	}
+	engine := a.asEngine(context.Background())
+	a.Work.ExecuteStep(engine, stepID)
+	if s, err := workflow.ReadStepIn(t.Context(), a.DB, stepID); err != nil || s.Status != workflow.StatusPass {
+		t.Fatalf("the first release, with nothing released before it to copy: %+v %v\n%s", s, err, strings.Join(f.joined(), "\n"))
+	}
+
+	// Its database cannot be copied now.
+	f.reply = func(args []string) (string, error, bool) {
+		if len(args) > 0 && args[0] == "exec" && strings.Contains(strings.Join(args, " "), "pg_dump") {
+			return "pg_dump: connection to server failed", errFakeExit, true
+		}
+		return "", nil, false
+	}
+	app := docker.ContainerName("p", "main")
+	retry := func(ctx context.Context, accept bool) error {
+		_, err := a.Work.RunStep(ctx, workflow.RetryCommand{StepID: stepID, AcceptUncopiedData: accept})
+		if errors.Is(err, workflow.ErrDispatchStopped) {
+			err = nil
+		}
+		return err
+	}
+
+	f.reset()
+	if err := retry(asPerson("bls"), false); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.ExecuteStep(engine, stepID)
+	s, err := workflow.ReadStepIn(t.Context(), a.DB, stepID)
+	if err != nil || s.Status != workflow.StatusError || !strings.Contains(string(s.Evidence), "AppTown will not release over data it could not copy") {
+		t.Fatalf("released over data it could not copy: %+v %v", s, err)
+	}
+	for _, c := range f.joined() {
+		if strings.HasPrefix(c, "run ") || strings.HasPrefix(c, "build ") || strings.HasPrefix(c, "stop "+app) {
+			t.Fatalf("something was built or started before the refusal: %s", c)
+		}
+	}
+
+	// Acting for bls is not bls's decision: not an agent's connection, nor
+	// a chat that may otherwise retry the step.
+	for _, p := range []access.Principal{
+		{Kind: "user", Name: "bls", Via: "token", Purpose: access.TokenAgent, Credential: "token:robot"},
+		{Kind: "instrument", Name: "bls via console/c1", Person: "bls", Instrument: "console", Via: "console", ConsoleID: "c1", ProjectID: idstest.N(1)},
+	} {
+		if err := retry(verifiedContext(context.Background(), p), true); err == nil {
+			t.Fatalf("%+v accepted releasing over uncopied data", p)
+		}
+	}
+	if s, err := workflow.ReadStepIn(t.Context(), a.DB, stepID); err != nil || s.Status != workflow.StatusError {
+		t.Fatalf("a refused acceptance changed the step: %+v %v", s, err)
+	}
+
+	if err := retry(asPerson("bls"), true); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.ExecuteStep(engine, stepID)
+	s, err = workflow.ReadStepIn(t.Context(), a.DB, stepID)
+	if err != nil || s.Status != workflow.StatusPass {
+		t.Fatalf("a person's acceptance did not release: %+v %v", s, err)
+	}
+	logs, err := a.Work.RunArtifacts(asPerson("bls"), runID, workflow.ArtifactSelection{Kinds: []string{"agent-log"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted := false
+	for _, l := range logs {
+		accepted = accepted || strings.Contains(l.Body, "bls accepted releasing over data AppTown could not copy")
+	}
+	if !accepted {
+		t.Fatalf("the acceptance is not recorded with the attempt: %+v", logs)
+	}
+
+	// The acceptance was that attempt's: a later retry accepts nothing.
+	if err := retry(asPerson("bls"), false); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.ExecuteStep(engine, stepID)
+	if s, err := workflow.ReadStepIn(t.Context(), a.DB, stepID); err != nil || s.Status != workflow.StatusError {
+		t.Fatalf("an earlier acceptance carried over to a later attempt: %+v %v", s, err)
 	}
 }

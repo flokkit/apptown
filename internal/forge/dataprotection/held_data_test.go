@@ -151,7 +151,7 @@ func TestAHeldVolumeNothingCanCopyMakesTheSetPartial(t *testing.T) {
 	}
 	for _, row := range p.Items {
 		if row.Volume == "v-pg" {
-			if row.LastCopy != nil || row.Copy != CopyNone || !strings.Contains(row.CopyNote, "no running postgres container") {
+			if row.LastCopy != nil || row.Copy != CopyNone || !strings.Contains(row.CopyNote, "no running postgres container mounts it") || !strings.Contains(row.CopyNote, "look before deleting it") {
 				t.Fatalf("the uncopied volume's row: %+v", row)
 			}
 			// It is named as not assessed, never counted as covered.

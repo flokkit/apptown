@@ -445,6 +445,21 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 		if err != nil {
 			return network, fmt.Errorf("the standing %s service: %w", svc.Name, err)
 		}
+		// A need made again is made on the storage its data is in: a
+		// service made before needs had named volumes keeps it in its
+		// image's anonymous volume, and a new named one would be empty.
+		path := own.Needs[svc.Name]
+		var carry DataMount
+		var keep error // why it may not be made again, when it may not
+		reset := false
+		if there && path != "" {
+			if carry, err = DataMountAt(ctx, dk, cname, path); err != nil {
+				return network, fmt.Errorf("the standing %s service: reading where it keeps its data: %w", svc.Name, err)
+			}
+			if !carry.Found {
+				keep = fmt.Errorf("the standing %s service mounts nothing at %s, where its data belongs, so its data may be inside the container itself; AppTown will not make it again on empty storage — copy its data out first, then retire the deployment's services under Deployments", svc.Name, path)
+			}
+		}
 		if there {
 			drift, err := ServiceDrift(ctx, dk, cname, svc)
 			if err != nil {
@@ -453,8 +468,8 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			if len(drift) == 0 {
 				// Its declared size is held now, in place: data and container
 				// stay. Only a limit taken away needs the container made
-				// again (Docker cannot lift one in place); its volume stays.
-				recreate, err := holdServiceLimits(ctx, dk, cname, svc.Resources)
+				// again (Docker cannot lift one in place); its storage stays.
+				recreate, err := holdServiceLimits(ctx, dk, cname, svc.Resources, keep)
 				if err != nil {
 					return network, fmt.Errorf("the standing %s service: %w", svc.Name, err)
 				}
@@ -462,7 +477,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 					continue
 				}
 			} else {
-				if err := replaceDrifted(ctx, dk, stackID, cname, svc, drift, dataClass, own); err != nil {
+				if reset, err = replaceDrifted(ctx, dk, stackID, cname, svc, drift, dataClass, own, keep); err != nil {
 					return network, err
 				}
 			}
@@ -481,12 +496,19 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			args = append(args, healthArgs(svc.Health)...)
 			// A need keeps its data in a named volume of the deployment's,
 			// so take-down knows it, backs it up and deletes it.
-			if path := own.Needs[svc.Name]; path != "" {
+			if path != "" {
 				vol := NeedVolumeName(stackID, svc.Name)
-				if err := ensureVolume(ctx, dk, vol, stackID, svc.Name, own); err != nil {
-					return network, err
+				if carry.Found && !reset && carry.Spec() != vol {
+					// Its data stays where it was; nothing new is made or
+					// recorded for it.
+					log.Printf("deployment service %s: made again on the storage its data was in (%s)", cname, carry.Spec())
+					args = append(args, "-v", carry.Spec()+":"+path)
+				} else {
+					if err := ensureVolume(ctx, dk, vol, stackID, svc.Name, own); err != nil {
+						return network, err
+					}
+					args = append(args, "-v", vol+":"+path)
 				}
-				args = append(args, "-v", vol+":"+path)
 			}
 			args = append(args, svc.EntrypointFlag()...)
 			args = append(args, svc.Image)
@@ -621,9 +643,11 @@ func BuildFailure(operation string, output []byte, cause error) error {
 // standing service the declared ones, without touching its data: a limit
 // set or changed is applied in place (docker update); a limit taken away
 // cannot be lifted in place, so the container is stopped and removed, its
-// volume kept, and recreate says to make it again. A failure is an error:
-// a limit not applied is never reported as applied.
-func holdServiceLimits(ctx context.Context, dk Scope, cname string, want appcontract.Resources) (recreate bool, err error) {
+// storage kept, and recreate says to make it again; keep, when set, is why
+// it may not be (its data has no storage of its own to carry), and is
+// returned before anything stops. A failure is an error: a limit not
+// applied is never reported as applied.
+func holdServiceLimits(ctx context.Context, dk Scope, cname string, want appcontract.Resources, keep error) (recreate bool, err error) {
 	out, err := dk.Run(ctx, "inspect", "--type", "container", "--format", "{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}}", cname)
 	if err != nil {
 		return false, fmt.Errorf("reading its limits: %v: %s", err, strings.TrimSpace(string(out)))
@@ -637,6 +661,9 @@ func holdServiceLimits(ctx context.Context, dk Scope, cname string, want appcont
 		return false, nil
 	}
 	if (mem > 0 && want.MemoryBytes == 0) || (nano > 0 && wantNano == 0) {
+		if keep != nil {
+			return false, keep
+		}
 		if out, err := dk.Run(ctx, "stop", cname); err != nil {
 			return false, fmt.Errorf("stopping it to lift a limit: %v: %s", err, strings.TrimSpace(string(out)))
 		}
@@ -654,24 +681,30 @@ func holdServiceLimits(ctx context.Context, dk Scope, cname string, want appcont
 // replaceDrifted replaces a standing service whose declared parameters
 // moved, when its data may go: only data declared synthetic, in a volume
 // the deployment recorded making; anything else is refused with what to
-// do. Its size alone moving never comes here (holdServiceLimits).
-func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc deploy.ServiceSpec, drift []string, dataClass string, own Ownership) error {
+// do. Its size alone moving never comes here (holdServiceLimits). reset
+// says its data was let go (synthetic data only), so the service is made
+// on new storage; otherwise it is made again on the storage its data is in,
+// and keep, when set, is why it may not be (returned before anything stops).
+func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc deploy.ServiceSpec, drift []string, dataClass string, own Ownership, keep error) (reset bool, err error) {
 	// A service that sets everything it is configured with again at every
 	// start keeps nothing of the old configuration in its data: it is made
-	// again on its own volume, whatever the data, as a lifted limit is.
+	// again on the same storage, whatever the data, as a lifted limit is.
 	// Unless its data is in its image's own format and the image moved:
 	// that is not configuration, and the rule below holds.
 	if svc.ConfigAtStart && !(svc.KeepsImage && slices.Contains(drift, "image")) {
-		log.Printf("deployment service %s: declared parameters moved (%s) — remaking it on its own volume; it sets its configuration at every start", cname, strings.Join(drift, ", "))
+		if keep != nil {
+			return false, keep
+		}
+		log.Printf("deployment service %s: declared parameters moved (%s) — making it again on the storage its data is in; it sets its configuration at every start", cname, strings.Join(drift, ", "))
 		// Stopped first, so it shuts down as it would on a host's restart:
 		// a store that writes its data at shutdown (Redis's snapshot) keeps
 		// what it held, where a kill would lose what came after its last
 		// snapshot. A stop that fails is left to the removal below.
 		_, _ = dk.Run(ctx, "stop", cname)
 		if out, err := dk.Run(ctx, "rm", "-f", cname); err != nil {
-			return fmt.Errorf("removing the standing %s service to remake it: %v: %s", svc.Name, err, strs.Truncate(strings.TrimSpace(string(out)), 200))
+			return false, fmt.Errorf("removing the standing %s service to remake it: %v: %s", svc.Name, err, strs.Truncate(strings.TrimSpace(string(out)), 200))
 		}
-		return nil
+		return false, nil
 	}
 	// Only data declared synthetic is replaced; any other class, or
 	// none known, is someone's data.
@@ -682,7 +715,7 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 		} else {
 			class += " data"
 		}
-		return fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); this deployment holds %s, so AppTown will not replace it — retire the deployment's services under Deployments to recreate them from the contract",
+		return false, fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); this deployment holds %s, so AppTown will not replace it — retire the deployment's services under Deployments to recreate them from the contract",
 			svc.Name, strings.Join(drift, ", "), class)
 	}
 	vol := NeedVolumeName(stackID, svc.Name)
@@ -695,7 +728,7 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 			if err == nil {
 				err = errors.New("it was there before this deployment and is not on its records")
 			}
-			return fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); its data volume %s is not one this deployment recorded making (%v), so AppTown will not reset it — move or delete that volume yourself, or change the contract back",
+			return false, fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); its data volume %s is not one this deployment recorded making (%v), so AppTown will not reset it — move or delete that volume yourself, or change the contract back",
 				svc.Name, strings.Join(drift, ", "), vol, err)
 		}
 	}
@@ -706,5 +739,5 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 		// old parameters would keep them.
 		_ = dk.RemoveVolume(ctx, vol)
 	}
-	return nil
+	return true, nil
 }

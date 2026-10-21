@@ -399,7 +399,10 @@ func (s *core) needCopy(ctx context.Context, dk docker.Scope, owned []deploy.Own
 		}
 	}
 	if container == "" {
-		return backupPlanItem{}, fmt.Sprintf("the %s data in volume %s (no running %s container on the list mounts it)", vol.Need, vol.ID, vol.Need), nil
+		// Most often data a remade service left behind (before 21 Oct a
+		// service made again could start on new storage): it is someone's
+		// data until a person has looked.
+		return backupPlanItem{}, fmt.Sprintf("the %s data in volume %s (no running %s container mounts it, so AppTown cannot copy it; it may be data a service made again left behind, so look before deleting it)", vol.Need, vol.ID, vol.Need), nil
 	}
 	it := needItem(d, vol.Need, container)
 	it.Volume = vol.ID

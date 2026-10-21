@@ -29,6 +29,8 @@ provides:
 local:
   image: redis:{version}-alpine
   data: /data
+  # How much data it holds, read before and after each release.
+  measure: echo "keys $(redis-cli dbsize)"
   port: 6379
   # The password is read from standard input at every start, so it is not on
   # the server's command line, and a standing server takes a new one at its

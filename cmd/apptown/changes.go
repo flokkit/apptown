@@ -557,9 +557,10 @@ func cmdRetry(args []string) error {
 	msg := fs.String("m", "", "send-back note — what to change; becomes the resumed agent's feedback")
 	fs.BoolVar(cont, "c", *cont, "shorthand for --continue")
 	restart := fs.Bool("restart", false, "start over: reset the run's work to its base, fresh session")
+	acceptUncopied := fs.Bool("accept-uncopied-data", false, "a deploy refused because the copy taken before its release was incomplete: release anyway (the attempt records your choice)")
 	pos := parseArgs(fs, args)
 	if len(pos) < 1 {
-		return fmt.Errorf("usage: apptown retry <change-id> [-c|--continue | --restart] [-y] [--no-follow]")
+		return fmt.Errorf("usage: apptown retry <change-id> [-c|--continue | --restart | --accept-uncopied-data] [-y] [--no-follow]")
 	}
 	if *cont && *restart {
 		return fmt.Errorf("--continue and --restart cannot be used together")
@@ -571,6 +572,9 @@ func cmdRetry(args []string) error {
 	runID, acts, err := changeNext(changeID)
 	if err != nil {
 		return err
+	}
+	if *acceptUncopied {
+		return retryDeployAcceptingUncopiedData(changeID, runID, *yes, *noFollow)
 	}
 	rework, ok := actOf(acts, "rework")
 	if !ok {
@@ -607,6 +611,30 @@ func cmdRetry(args []string) error {
 	}
 	fmt.Printf("%s rework dispatched (%s)\n", green("↻"), how)
 	return followOrReturn(changeID, runID, *yes, *noFollow)
+}
+
+// retryDeployAcceptingUncopiedData retries the run's refused deploy step,
+// releasing over data AppTown could not copy before it: a person's own
+// choice, which AppTown records with the attempt.
+func retryDeployAcceptingUncopiedData(changeID, runID ids.ID, yes, noFollow bool) error {
+	var d runDetail
+	if err := api.get(fmt.Sprintf("/runs/%d", runID), &d); err != nil {
+		return err
+	}
+	var step ids.ID
+	for _, s := range d.Steps {
+		if s.Type == "deploy" && s.Status != "pass" && s.Status != "pending" && s.Status != "running" {
+			step = s.ID
+		}
+	}
+	if step.IsZero() {
+		return fmt.Errorf("change %d has no refused deploy step to retry accepting uncopied data", changeID)
+	}
+	if _, err := api.request("POST", fmt.Sprintf("/steps/%d/run", step), map[string]any{"acceptUncopiedData": true}); err != nil {
+		return err
+	}
+	fmt.Printf("%s deploy retried, releasing over data AppTown could not copy (recorded)\n", green("↻"))
+	return followOrReturn(changeID, runID, yes, noFollow)
 }
 
 // cmdOverride: a human overrules the blocking machine verdict, with a

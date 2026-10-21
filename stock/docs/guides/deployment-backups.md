@@ -67,3 +67,32 @@ projects; a production copy goes only into a production deployment. Without
 a store, production data on App Platform reads "not protected off-host" and
 a take-down keeps the cluster as before. `apptown data -p <project>
 <deployment>` prints the same.
+
+**Every release onto data is copied first, and checked after.** When a
+landing releases onto a deployment that already runs a release and holds
+data, AppTown takes a copy first (trigger `pre-release`). If that copy is
+incomplete or cannot be taken, the release is refused before anything is
+built or started, unless the data is synthetic. To release anyway, a
+person retries the deploy step accepting that
+(`apptown retry <change> --accept-uncopied-data`); the attempt records who
+and when, and a later retry accepts nothing. An agent's connection or a
+chat cannot accept. A first release, a deployment that holds no data and a
+target that keeps its own backups need no copy.
+
+After the release boots, AppTown reads each need's data again on a Docker
+host: the storage it is on, and its declared measure (Postgres tables,
+rows and size; S3 objects and size; Redis keys; MariaDB tables, rows and
+size). The step fails, saying the release is running, which copy to
+restore from, and that the check changed nothing, when the data is on
+other storage than before, when a measure that was at least its floor
+before fell by more than half (rows 20, objects 5, keys 5, tables 1, size
+1 MiB; tables going from some to none always counts), or when a measure
+that was read before cannot be read after. A deliberate reset of
+synthetic data is noted, not failed. A need with no measure, or on a
+target that is not a Docker host, is noted as not compared.
+
+**A volume no service mounts.** A backup reads partial when the
+deployment's records name a need volume that no running service mounts:
+"no running postgres container mounts it". Before 21 October 2026 a
+service made again could start on new storage and leave its data in such
+a volume. Look at it before deleting it.

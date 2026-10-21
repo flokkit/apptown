@@ -76,3 +76,64 @@ func TestIntegrationAnUpgradeKeepsAnExistingDatabase(t *testing.T) {
 		t.Fatalf("the reused database was recorded as made by this boot: %+v", owned)
 	}
 }
+
+// The 21 Oct incident, on a real daemon: a postgres service made before
+// needs had named volumes (data in its image's anonymous volume) whose
+// declared parameters moved is made again on that same volume, so a row
+// written before is there after, and no empty named volume is made.
+func TestIntegrationANeedMadeAgainKeepsItsAnonymousVolume(t *testing.T) {
+	dk := Scope{Client: CLI{Binary: "docker"}}
+	stack := fmt.Sprintf("env-itcarry%d-main", time.Now().UnixNano()%1_000_000)
+	cname := ServiceName(stack, "postgres")
+	svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:16-alpine", Health: "pg_isready -U app -d app", ConfigAtStart: true,
+		Env: map[string]string{"POSTGRES_USER": "app", "POSTGRES_PASSWORD": "old", "POSTGRES_DB": "app"}}
+	var anonymous string
+	t.Cleanup(func() {
+		_ = exec.Command("docker", "rm", "-f", cname).Run()
+		_ = exec.Command("docker", "network", "rm", NetworkName(stack)).Run()
+		_ = exec.Command("docker", "volume", "rm", NeedVolumeName(stack, "postgres")).Run()
+		if anonymous != "" {
+			_ = exec.Command("docker", "volume", "rm", anonymous).Run()
+		}
+	})
+	psql := func(sql string) string {
+		t.Helper()
+		var out []byte
+		var err error
+		if poll.Until(context.Background(), 60*time.Second, 300*time.Millisecond, func() bool {
+			out, err = exec.Command("docker", "exec", cname, "psql", "-U", "app", "-d", "app", "-tAc", sql).CombinedOutput()
+			return err == nil
+		}) {
+			return strings.TrimSpace(string(out))
+		}
+		t.Fatalf("psql %q: %v %s", sql, err, out)
+		return ""
+	}
+	// The boot before named volumes: no Needs, so no data mount.
+	if _, err := EnsureStandingServices(context.Background(), dk, stack, []deploy.ServiceSpec{svc}, "production", Ownership{}); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: the application's own database, inside its container, not AppTown's.
+	psql("CREATE TABLE kept (v text); INSERT INTO kept VALUES ('before the remake')")
+	m, err := DataMountAt(context.Background(), dk, cname, "/var/lib/postgresql/data")
+	if err != nil || m.Volume == "" {
+		t.Fatalf("the old service's data mount: %+v %v", m, err)
+	}
+	anonymous = m.Volume
+	before := dk.Text(context.Background(), "inspect", "-f", "{{.Id}}", cname)
+
+	svc.Env = map[string]string{"POSTGRES_USER": "app", "POSTGRES_PASSWORD": "new", "POSTGRES_DB": "app"}
+	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}}
+	if _, err := EnsureStandingServices(context.Background(), dk, stack, []deploy.ServiceSpec{svc}, "production", own); err != nil {
+		t.Fatal(err)
+	}
+	if after := dk.Text(context.Background(), "inspect", "-f", "{{.Id}}", cname); after == before {
+		t.Fatal("the service was not made again; the test proves nothing")
+	}
+	if got := psql("TABLE kept"); got != "before the remake" {
+		t.Fatalf("the row is gone after the remake: %q", got)
+	}
+	if dk.OK(context.Background(), "volume", "inspect", NeedVolumeName(stack, "postgres")) {
+		t.Fatal("an empty named volume was made beside the data")
+	}
+}

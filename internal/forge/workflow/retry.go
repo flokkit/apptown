@@ -12,6 +12,7 @@ import (
 
 	"flokkit.io/forge/internal/ids"
 
+	"flokkit.io/forge/internal/access"
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/fault"
 	"flokkit.io/forge/internal/forge/schema"
@@ -85,7 +86,23 @@ type RetryCommand struct {
 	StepID   ids.ID
 	Mode     RetryMode
 	Feedback string
+	// AcceptUncopiedData is a person's choice, on retrying a deploy step
+	// refused because the copy taken before its release was incomplete,
+	// to release anyway. It is bound to this attempt: a later retry
+	// without it accepts nothing.
+	AcceptUncopiedData bool
 }
+
+// UncopiedDataAcceptance is what a deploy step's configuration carries for
+// an attempt retried accepting uncopied data: who, and when.
+type UncopiedDataAcceptance struct {
+	By string    `json:"by"`
+	At time.Time `json:"at"`
+	// Attempt is the attempt it was given for: the step's next.
+	Attempt int64 `json:"attempt"`
+}
+
+const uncopiedDataKey = "acceptUncopiedData"
 
 type Retried struct{ RunID, StepID ids.ID }
 
@@ -116,6 +133,15 @@ func (s *Service) RetryStep(ctx context.Context, in RetryCommand) (Retried, erro
 	actor, err := s.requireActor(ctx, operationPermission{Action: actionRetryAttempt, ProjectID: p.scope.ProjectID, ChangeID: p.scope.ChangeID, RunID: p.scope.RunID})
 	if err != nil {
 		return Retried{}, err
+	}
+	// Releasing over data AppTown could not copy is a person's own
+	// decision, as an approval is: never through a chat, an agent's
+	// connection or a run step acting for them.
+	if in.AcceptUncopiedData {
+		c, _ := access.CallerFrom(ctx)
+		if who := c.Principal.Actor(); !c.Verified || !who.Assents() {
+			return Retried{}, &RetryError{RetryInvalid, fmt.Sprintf("releasing over data AppTown could not copy is a person's own decision, given in their browser or with their command-line token, not %s", wayWords(who))}
+		}
 	}
 	result, err := s.stepRetries.retryExpected(ctx, retryIntent{RetryCommand: in, RunID: p.scope.RunID, Actor: actor}, &p)
 	if err == nil {
@@ -185,6 +211,10 @@ func (s stepRetries) retryIn(ctx context.Context, tx *database.Tx, run *Run, ste
 	if step.Type != "agent/pi" && (req.Mode != RetryDefault || strings.TrimSpace(req.Feedback) != "") {
 		return &RetryError{RetryInvalid, "retry mode and feedback apply only to agent steps"}
 	}
+	// "deploy" is the landing's deploy step (workflowexec.DeployKind).
+	if req.AcceptUncopiedData && step.Type != "deploy" {
+		return &RetryError{RetryInvalid, "accepting uncopied data applies only to a deploy step"}
+	}
 	if step.Status == StatusPending || step.Status == StatusRunning {
 		return &RetryError{RetryConflict, "this step is already queued or running"}
 	}
@@ -220,6 +250,16 @@ func (s stepRetries) retryIn(ctx context.Context, tx *database.Tx, run *Run, ste
 	}
 	if step.Type == "agent/pi" && StartedUnderOldDockerRule(step.Config) {
 		return &RetryError{RetryInvalid, OldDockerRuleRefusal}
+	}
+	// An acceptance is this attempt's alone: every retry takes the earlier
+	// one away and records only its own.
+	delete(cfg, uncopiedDataKey)
+	if req.AcceptUncopiedData {
+		body, err := json.Marshal(UncopiedDataAcceptance{By: req.Actor.Receipt, At: now.UTC(), Attempt: int64(step.Attempt) + 1})
+		if err != nil {
+			return err
+		}
+		cfg[uncopiedDataKey] = body
 	}
 	if step.Type == "agent/pi" {
 		var previousFeedback string
@@ -295,6 +335,23 @@ func invalidateRetryDependentsIn(ctx context.Context, tx *database.Tx, stage *sc
 		}
 		if err := recordReceiptIn(ctx, tx, source.RunID, "step.invalidated", retryInvalidation{step.Name, step.ID, source.Name, step.Status, step.Evidence, step.OverrideBy}, at); err != nil {
 			return err
+		}
+		// An acceptance was for the attempt it was given with: a step reset
+		// through an earlier one is a new attempt, accepting nothing.
+		cfg, err := retryConfiguration(step.Config)
+		if err != nil {
+			return err
+		}
+		if _, ok := cfg[uncopiedDataKey]; ok {
+			delete(cfg, uncopiedDataKey)
+			config, err := json.Marshal(cfg)
+			if err != nil {
+				return err
+			}
+			if err := requireAttemptWrite(workflowsql.New(tx.SQL()).RetryStep(ctx, workflowsql.RetryStepParams{ConfigJson: config, ID: step.ID, Attempt: step.Attempt})); err != nil {
+				return err
+			}
+			continue
 		}
 		if err := requireAttemptWrite(workflowsql.New(tx.SQL()).InvalidateStep(ctx, workflowsql.InvalidateStepParams{ID: step.ID, Attempt: step.Attempt})); err != nil {
 			return err

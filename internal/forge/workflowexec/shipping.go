@@ -40,10 +40,13 @@ type Shipping struct {
 	checks     CompileCheck
 	progress   *progress.Feeds
 	backups    interface{ AfterRelease(ids.ID, string) }
-	builds     *ReleaseBuilds
-	shots      Screenshotter
-	cfg        ShippingConfig
-	clock      func() time.Time // AppTown's clock; nil is the real one
+	// releaseData copies and witnesses a deployment's data around a
+	// landing's release; nil takes no copy and witnesses nothing.
+	releaseData ReleaseData
+	builds      *ReleaseBuilds
+	shots       Screenshotter
+	cfg         ShippingConfig
+	clock       func() time.Time // AppTown's clock; nil is the real one
 }
 type ShippingConfig struct {
 	DataDir, Image string
@@ -59,6 +62,9 @@ type ShippingDependencies struct {
 	Checks   CompileCheck
 	Progress *progress.Feeds
 	Backups  interface{ AfterRelease(ids.ID, string) }
+	// ReleaseData copies a deployment's data before a landing releases
+	// onto it and witnesses it afterwards (dataprotection.BeforeRelease).
+	ReleaseData ReleaseData
 	// Builds, on an AppTown with a worker, is where its releases are built;
 	// nil builds each on its target (docker.PrepareImages), as before.
 	Builds *ReleaseBuilds
@@ -69,6 +75,21 @@ type ShippingDependencies struct {
 	// (verification.Screenshots); nil takes none, and the boot's evidence
 	// says so.
 	Screenshots Screenshotter
+}
+
+// ReleaseData is data protection's part in a landing's release: a copy
+// before it, and a witness of each need's data after it.
+type ReleaseData interface {
+	BeforeRelease(ctx context.Context, projectID ids.ID, deployment string, synthetic bool) (ReleaseWitness, error)
+}
+
+// ReleaseWitness is what was read before the release: whether the copy
+// holds all the data, in words, and the check made once it has booted
+// (problems fail the step; notes are what was not compared).
+type ReleaseWitness interface {
+	Complete() bool
+	CopyWords() string
+	After(ctx context.Context, declared []string) (problems, notes []string)
 }
 
 // Screenshotter takes AppTown's pictures of a preview's pages.
@@ -84,7 +105,7 @@ type CompileCheck struct {
 }
 
 func NewShipping(db *database.DB, d ShippingDependencies, cfg ShippingConfig) *Shipping {
-	return &Shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, backups: d.Backups, builds: d.Builds, shots: d.Screenshots, cfg: cfg, clock: d.Now}
+	return &Shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, backups: d.Backups, releaseData: d.ReleaseData, builds: d.Builds, shots: d.Screenshots, cfg: cfg, clock: d.Now}
 }
 func (a *Shipping) projectSlugOf(ctx context.Context, id ids.ID) string {
 	p, _ := project.ByIDIn(ctx, a.db, id)

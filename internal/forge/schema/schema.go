@@ -259,6 +259,13 @@ func (d *Doc) validate(strict bool) error {
 					return err
 				}
 			}
+			// A person's acceptance on retrying a deploy is never declared.
+			// JSON reads keys in any casing, so every casing is refused.
+			for k := range s.With {
+				if strings.EqualFold(k, "acceptUncopiedData") {
+					return fmt.Errorf("stage %q step %q: %s is a person's acceptance on retrying a deploy, which no workflow may declare", st.Name, s.Name, k)
+				}
+			}
 			if d, ok := s.With["docker"]; ok && s.Uses == "agent/pi" {
 				if _, isBool := d.(bool); !isBool {
 					return fmt.Errorf("stage %q step %q: docker must be true (a private Docker daemon for the agent) or false (got %v)", st.Name, s.Name, d)

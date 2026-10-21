@@ -73,7 +73,8 @@ var sections = []section{
 			{[]string{"follow"}, `  follow <change-id> [-y]               re-attach the loop to a change in flight`, cmdFollow},
 			{[]string{"retry"}, `  retry  <change-id> [-y]               blocked change: another round (fresh agent + feedback)
     retry -c / --continue               …same agent resumes its session, memory intact
-    retry --restart                     …wind the work back to the run's base and start over`, cmdRetry},
+    retry --restart                     …wind the work back to the run's base and start over
+    retry --accept-uncopied-data        …a deploy refused over data AppTown could not copy: release anyway (recorded)`, cmdRetry},
 			{[]string{"sendback", "send-back"}, `  sendback <change-id> "<note>"         blocked change: close the landing, rework from your note`, cmdSendBack},
 			{[]string{"override"}, `  override <change-id> "<why>"          blocked change: overrule the machine verdict (recorded)`, cmdOverride},
 			{[]string{"abandon"}, `  abandon <change-id> ["<why>"]         close a change (its record is kept)`, cmdAbandon},

@@ -100,6 +100,10 @@ func (d *standingDaemon) reply(req Command) ([]byte, error) {
 			if strings.Contains(x, "Config.Image") {
 				return []byte("postgres:16-alpine\n"), nil
 			}
+			// Its data is on its named volume.
+			if strings.Contains(x, ".Mounts") {
+				return []byte("volume\tforge-need-env-shop-main-postgres\t/x\t/var/lib/postgresql/data\n"), nil
+			}
 		}
 		return nil, nil
 	case len(a) > 0 && a[0] == "update":

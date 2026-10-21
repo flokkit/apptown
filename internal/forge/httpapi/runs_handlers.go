@@ -31,13 +31,17 @@ func (h Runs) StepRun(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{optional: true}, func(body struct {
 		Mode     string `json:"mode"`     // "", "continue", "restart" — agent/pi retries only
 		Feedback string `json:"feedback"` // human send-back note; becomes the resumed agent's message
+		// AcceptUncopiedData: a deploy step refused because the copy taken
+		// before its release was incomplete, retried by a person releasing
+		// anyway (recorded with the attempt).
+		AcceptUncopiedData bool `json:"acceptUncopiedData"`
 	}) {
 		mode, err := workflow.ParseRetryMode(body.Mode)
 		if err != nil {
 			WriteFaultOr(w, err, 500)
 			return
 		}
-		out, err := h.work.RunStep(r.Context(), workflow.RetryCommand{StepID: id, Mode: mode, Feedback: body.Feedback})
+		out, err := h.work.RunStep(r.Context(), workflow.RetryCommand{StepID: id, Mode: mode, Feedback: body.Feedback, AcceptUncopiedData: body.AcceptUncopiedData})
 		if err != nil {
 			WriteFault(w, err)
 			return

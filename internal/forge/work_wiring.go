@@ -43,7 +43,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 	if a.cfg.worker != nil {
 		builds = &workflowexec.ReleaseBuilds{Tasks: a.tasks, PrivateDocker: a.cfg.privateDocker}
 	}
-	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Backups: backupRequests{db: a.DB, life: a.life}, Builds: builds, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
+	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Backups: backupRequests{db: a.DB, life: a.life}, ReleaseData: releaseData{a.DataProtection}, Builds: builds, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
 	repositories := workflowexec.NewRepositories(a.DB, repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}, a.branches, workflowexec.RepositoryConfig{DataDir: a.cfg.dataDir, PublicHost: a.cfg.publicHost, Now: a.cfg.clock.Now})
 	runners := make(map[string]workflow.Runner)
 	runners[workflowexec.CallKind] = workflowexec.NewCalls(a.DB, jobReporter{}).Run
@@ -235,4 +235,16 @@ func screenshotsAuthority(t *console.LocalTLS) *verification.LocalAuthority {
 		return nil
 	}
 	return &verification.LocalAuthority{CACert: t.CACert, Prelude: console.LocalTLSPreludeAt(verification.LocalCAPath, *t)}
+}
+
+// releaseData hands a landing data protection's copy and witness around its
+// release (dataprotection.BeforeRelease).
+type releaseData struct{ data *dataprotection.Service }
+
+func (r releaseData) BeforeRelease(ctx context.Context, projectID ids.ID, deployment string, synthetic bool) (workflowexec.ReleaseWitness, error) {
+	w, err := r.data.BeforeRelease(ctx, projectID, deployment, synthetic)
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
 }

@@ -177,6 +177,48 @@ func TearDownOwned(ctx context.Context, dk Scope, owned []deploy.Owned, serving 
 	return out
 }
 
+// DataMount is where a container keeps what is at a path: a volume's name,
+// or a bind mount's source on the host. Found is false when nothing is
+// mounted there, so the container keeps it in its own layer.
+type DataMount struct {
+	Volume, Bind string
+	Found        bool
+}
+
+// Spec is the mount as `docker run -v` takes it, before ":path".
+func (m DataMount) Spec() string {
+	if m.Volume != "" {
+		return m.Volume
+	}
+	return m.Bind
+}
+
+// DataMountAt is what a container mounts at path, of either kind: how a
+// need service made again finds the storage its data is in.
+func DataMountAt(ctx context.Context, dk Scope, container, path string) (DataMount, error) {
+	out, err := dk.Run(ctx, "inspect", "-f", `{{range .Mounts}}{{.Type}}{{"\t"}}{{.Name}}{{"\t"}}{{.Source}}{{"\t"}}{{.Destination}}{{"\n"}}{{end}}`, container)
+	if err != nil {
+		return DataMount{}, fmt.Errorf("docker inspect %s: %v: %s", container, err, strings.TrimSpace(string(out)))
+	}
+	for _, l := range strings.Split(string(out), "\n") {
+		f := strings.Split(strings.TrimSpace(l), "\t")
+		if len(f) != 4 || strings.TrimRight(f[3], "/") != strings.TrimRight(path, "/") {
+			continue
+		}
+		switch f[0] {
+		case "volume":
+			if f[1] != "" {
+				return DataMount{Volume: f[1], Found: true}, nil
+			}
+		case "bind":
+			if f[2] != "" {
+				return DataMount{Bind: f[2], Found: true}, nil
+			}
+		}
+	}
+	return DataMount{}, nil
+}
+
 // VolumeAt is the volume mounted at path in a container, "" when none is:
 // how the one-time ownership inspection finds the data volume of a need
 // container made before needs had named volumes.

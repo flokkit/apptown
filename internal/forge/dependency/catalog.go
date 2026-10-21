@@ -132,6 +132,13 @@ type Kind struct {
 		// releases — a database that forgets everything on every release
 		// is not a database. Empty = ephemeral is fine (dynamodb-local).
 		Data string `yaml:"data,omitempty" json:"data,omitempty"`
+		// Measure is a shell command, run in the service's container, that
+		// only reads its data and prints "name value" lines (whole
+		// numbers): how much data it holds. A release compares it before
+		// and after (dataprotection.ReleaseWitness). It must not run
+		// anything that could write, such as a database's ANALYZE, which
+		// runs the application's index functions. Empty: not witnessed.
+		Measure string `yaml:"measure,omitempty" json:"measure,omitempty"`
 	} `yaml:"local" json:"local"`
 	// Copy is how this kind's data is copied, declared once wherever it
 	// runs (design/subsystems/deployment.md, "Backups and restore"): the
