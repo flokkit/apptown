@@ -1,15 +1,15 @@
 # Architecture decision records
 
 `internal/adrs` owns the ADR table, its state type, lifecycle decisions, private
-queries and required receipts. Forge supplies one authority port and composes
+queries and required receipts. AppTown supplies one authority port and composes
 post-commit Work assertion refresh. The package imports database/audit infrastructure
-and never imports Forge. No record, query or command crosses the boundary as an
+and never imports AppTown. No record, query or command crosses the boundary as an
 untyped map, SQL tail or generated database row.
 
 Public operations create a draft, edit selected fields, propose a successor, read
 a detail, list/filter records, summarize a Change or count selected projects.
 They require explicit caller authority. The port receives the operation and
-project scope and returns the verified receipt actor. Forge preserves capability,
+project scope and returns the verified receipt actor. AppTown preserves capability,
 account, OAuth/instrument scope and explicit unseeded-operator behavior. Minimal
 project-ID resolution exists for routing authorization; it does not return content.
 The wider Access kernel remains outside this domain.

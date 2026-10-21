@@ -73,7 +73,7 @@ all in one transaction, and answers `202` with where the deletion stands
 **What accepting a deletion means.** The receipt records the decision:
 take the deployments down (main last, each with its final copy where the
 AppTown takes one), keep the project read-only with its backups for the kept
-period, then purge it. Forge holds a scoped system binding
+period, then purge it. AppTown holds a scoped system binding
 (`identity.BindingDeletion`, `system_bindings`) for this project and this
 deletion only: it permits the deletion's take-downs and the purge, and
 nothing else. The deletion pass and the scheduled purge run under it

@@ -84,7 +84,7 @@ func TestWorkspacePreservesDefaultBaseStandaloneCloneAndHumanWork(t *testing.T) 
 	if got := workspaceGit(t, w.git, path, "config", "user.name"); got != "apptown helper" {
 		t.Fatal(got)
 	}
-	if got := workspaceGit(t, w.git, path, "config", "user.email"); got != "helper@forge.local" {
+	if got := workspaceGit(t, w.git, path, "config", "user.email"); got != "helper@apptown.local" {
 		t.Fatal(got)
 	}
 	object := filepath.Join(".git", "objects", base[:2], base[2:])

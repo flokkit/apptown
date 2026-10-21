@@ -9,8 +9,8 @@ TLS. Use a receiver address, not a Grafana UI URL. An empty endpoint installs
 no-op instruments and creates no exporters. The daemon configuration does not
 expose the library's optional exporter headers.
 
-Resources carry `service.name=apptownd`, `service.namespace=forge`, the build
-revision, and `forge.instance` when PublicHost is configured. Resource attributes
+Resources carry `service.name=apptownd`, `service.namespace=apptown`, the build
+revision, and `apptown.instance` when PublicHost is configured. Resource attributes
 are not automatically metric labels: the receiver's configuration determines
 that mapping.
 
@@ -51,22 +51,22 @@ trace identifier to establish workload authority.
 
 Admission-request to run and enqueue-request to job links are not implemented.
 There is no single request-to-settlement trace and no change-ID attribute. A run
-search finds related attempts through `forge.run`. Ended attempts are exported;
+search finds related attempts through `apptown.run`. Ended attempts are exported;
 this is not a replacement for live progress or durable workflow receipts.
 
 ## Dashboard and operator instructions
 
 The checked-in [dashboard and import guide](../../stock/observability/README.md)
-own installation, panel queries and receiver requirements. Forge does not provision
+own installation, panel queries and receiver requirements. AppTown does not provision
 Grafana or the collection stack. Counter start-time handling is a receiver concern;
 check the guide before interpreting first-event rate panels.
 
 The dashboard currently uses the metric `job` label as its variable named
-`instance`. Forge's default `forge/apptownd` job is shared across installations with
+`instance`. AppTown's default `apptown/apptownd` job is shared across installations with
 the same service/namespace, so this is not deployment isolation. Job-span panels
 filter service name and do not use that variable. Unique resource identity and
 receiver/query mapping need a follow-up before using this dashboard to distinguish
-multiple Forge installations. This limitation does not alter access policy.
+multiple AppTown installations. This limitation does not alter access policy.
 
 ## Limits and verification
 

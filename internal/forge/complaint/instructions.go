@@ -33,7 +33,7 @@ Say what it is about with -about (the default is apptown):
 
 // ConsoleRules: the chat-session variant, spliced into the console
 // steering's ground rules. Same discipline, plus the guarantee clause and
-// the by-hand fallback (a session whose forge CLI is broken must still be
+// the by-hand fallback (a session whose apptown CLI is broken must still be
 // able to say so).
 const ConsoleRules = `- A reasonable approach that nothing prohibits should WORK here. When
   it doesn't — a tool fails, a promise doesn't hold, you had to guess

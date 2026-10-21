@@ -1,4 +1,4 @@
-# Forge — Workflow & Policy Spec
+# AppTown — Workflow & Policy Spec
 
 For the formats as a team writes them (versions, strict keys, the served
 workflow schema, pinned policies), see the shipped

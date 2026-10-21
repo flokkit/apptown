@@ -36,10 +36,12 @@ import (
 
 // FolderUserName and FolderUserEmail are the identity AppTown's clone of a
 // folder is given (workflow's EnsureClone), and the only identity a folder's
-// config may hold.
+// config may hold. A folder cloned before the AppTown rename keeps the email
+// it was given, folderUserEmailBefore: its config is history, not rewritten.
 const (
-	FolderUserName  = "apptown helper"
-	FolderUserEmail = "helper@forge.local"
+	FolderUserName        = "apptown helper"
+	FolderUserEmail       = "helper@apptown.local"
+	folderUserEmailBefore = "helper@forge.local"
 )
 
 // ErrFolderRefused: the folder's Git metadata is not what AppTown's own
@@ -272,6 +274,9 @@ func checkConfig(ctx context.Context, folder, gitdir string, refuse func(string,
 		allowed["branch."+branch+".merge"] = "refs/heads/" + branch
 	}
 	for _, e := range entries {
+		if e.key == "user.email" && e.value == folderUserEmailBefore {
+			continue
+		}
 		if want, ok := allowed[e.key]; !ok || want != e.value {
 			return refuse("its config has %s=%q, which AppTown's clone does not write", e.key, e.value)
 		}

@@ -302,9 +302,9 @@ func (c *Service) RehearseSaved(ctx context.Context, s *console.Session, commit 
 			log.Printf("console %s: delivering the boot check failed: %v", s.ID, derr)
 			delivered = false
 		}
-		audit.At(c.saves.now()).BestEffort(ctx, c.db, "forge", scope.ProjectID, "change.boot-check", fmt.Sprintf("%d", scope.ChangeID), map[string]any{"ok": false, "error": bootErr.Error(), "delivered": delivered, "commit": commit})
+		audit.At(c.saves.now()).BestEffort(ctx, c.db, "apptown-system", scope.ProjectID, "change.boot-check", fmt.Sprintf("%d", scope.ChangeID), map[string]any{"ok": false, "error": bootErr.Error(), "delivered": delivered, "commit": commit})
 	} else {
-		audit.At(c.saves.now()).BestEffort(ctx, c.db, "forge", scope.ProjectID, "change.boot-check", fmt.Sprintf("%d", scope.ChangeID), map[string]any{"ok": true, "commit": commit})
+		audit.At(c.saves.now()).BestEffort(ctx, c.db, "apptown-system", scope.ProjectID, "change.boot-check", fmt.Sprintf("%d", scope.ChangeID), map[string]any{"ok": true, "commit": commit})
 	}
 	if delivered {
 		_ = os.WriteFile(marker, []byte(key+"\n"), 0o644)

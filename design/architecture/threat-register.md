@@ -1,4 +1,4 @@
-# Forge threat register
+# AppTown threat register
 
 Each entry names a threat, its attack and impact, its status, the control
 that answers it and how that control would be verified. A proposed control or
@@ -42,7 +42,7 @@ the enabling behavior is clear in source, not that a live exploit was run.
 | TM-05 | Workspace paths/symlinks cross host filesystem boundaries | P0 | I, T, E | High unsafe primitive; individual paths need tests | Partly mitigated |
 | TM-06 | Shared writable cache enables cross-workload poisoning | P1 | T, E, I | High | Partly mitigated |
 | TM-07 | Workloads or server requests reach private infrastructure | P1 | I, E | Medium; live reachability unverified | Open |
-| TM-08 | Active attachments execute with Forge web authority | P0 | S, E, I | High source evidence; browser test outstanding | Mitigated |
+| TM-08 | Active attachments execute with AppTown web authority | P0 | S, E, I | High source evidence; browser test outstanding | Mitigated |
 | TM-09 | Cross-origin requests exercise a victim's session | P0 | S, E | High missing controls; browser/edge dependent | Mitigated |
 | TM-10 | Authentication and revocation differ across doors | P1 | S, E | High mixed paths; matrix incomplete | Partly mitigated |
 | TM-11 | Broad reads violate assumed project privacy | P1 decision | I | High; confidentiality intent unresolved | Partly mitigated |
@@ -69,7 +69,7 @@ the enabling behavior is clear in source, not that a live exploit was run.
 ### TM-01 — reusable model-provider keys escape runtimes
 
 **Status: mitigated.** Provider keys stay on AppTown.
-Chats, steps and their delegates get only a Forge credential for the private
+Chats, steps and their delegates get only an AppTown credential for the private
 inference listener, local model execution is refused, and a known provider
 key passed back in through a step secret or an integration setting stops the
 runtime's preparation ([inference security](../subsystems/inference-security.md);
@@ -79,7 +79,7 @@ a runtime must still be rotated. Spending through the gateway is TM-02.
 
 **Attack and impact.** A package script, malicious tool, persuaded agent or
 person with shell access reads provider keys and exports them. The attacker
-can spend against the provider independently of Forge or its session lifetime.
+can spend against the provider independently of AppTown or its session lifetime.
 No container escape is required.
 
 **Proposed control.** Trusted inference gateway with reusable keys outside
@@ -149,7 +149,7 @@ Host compromise exposes its database, model keys and deployment authority.
 VMs; make the untrusted execution contract explicit. Do not permit local
 backend selection for untrusted work. Run workloads with the least privilege
 their class needs; evaluate rootless/build-service alternatives to privileged
-DinD. A non-root Forge user in the host Docker group is still effectively
+DinD. A non-root AppTown user in the host Docker group is still effectively
 Docker-host privileged and is not sufficient separation.
 
 **Verify.** Inventory runtime user, capabilities, mounts and host interfaces.
@@ -178,7 +178,7 @@ included. Whether each such tree is writable by project code was not
 established in this pass.
 
 **Attack and impact.** Code changes Git configuration/hooks or replaces the
-workspace's Git indirection before Forge runs status, add, stash, archive or
+workspace's Git indirection before AppTown runs status, add, stash, archive or
 commit. Git may invoke configured helpers, filters or hooks on the host.
 Potential impact is host execution under the daemon identity.
 
@@ -259,7 +259,7 @@ implemented) or server-side validation of integration destinations and
 redirects.
 
 **Attack and impact.** Workload code contacts host/LAN services directly; or
-an authorized configuration field persuades Forge to make a credential-bearing
+an authorized configuration field persuades AppTown to make a credential-bearing
 HTTP request to an unintended destination. Redirects and DNS changes can
 defeat naive URL checks. Consequences include credential disclosure and
 access to metadata, management or other project services.
@@ -317,7 +317,7 @@ bound to person, browser and request and consumed once
 `TestBrowserMutationOrigins`, `TestBrowserForgeryDoesNotMutate`,
 `TestTerminalRejectsOriginBeforeAttachment`, `TestProductionBrowserCookie`,
 and the Chromium test against a same-site sibling and an unrelated origin).
-Putting applications on a different registrable domain from Forge remains an
+Putting applications on a different registrable domain from AppTown remains an
 operator's choice (TM-28).
 
 **Attack and impact.** A hostile site, especially a sibling preview on the
@@ -329,7 +329,7 @@ client whose PKCE challenge the attacker chose.
 CSRF protection for browser mutations and session-bound, expiring, one-use
 consent state. Production `Secure` host-only cookies, preferably `__Host-`
 names with a deliberate local-HTTP development mode. Frame protection for
-consent/admin pages. Separate app and Forge registrable domains where possible.
+consent/admin pages. Separate app and AppTown registrable domains where possible.
 
 **Verify.** Browser tests from unrelated and same-site sibling origins must
 deny credentialed terminal connections, apptownd consent and state-changing
@@ -516,7 +516,7 @@ runtime](../subsystems/integration-runtime.md)). Need credentials are derived
 from the same key ([services and data](../../stock/docs/guides/services-and-data.md)).
 Open: AppTown's nightly dumps and its data directory (which holds
 `secrets.env`, `runtime-token-key` and attached hosts' SSH keys) are not
-encrypted by Forge, and protecting them is left to the operator
+encrypted by AppTown, and protecting them is left to the operator
 ([AppTown's own backups](../../stock/docs/guides/apptown-backups.md)); no guide describes invalidating sessions or tokens restored
 from a backup.
 
@@ -593,19 +593,19 @@ require new evidence. Check rollback identity as carefully as forward release.
 **Status: partly mitigated.** The agent image recipe pins
 every archive it fetches by version and SHA-256
 ([CONTRIBUTING](../../CONTRIBUTING.md#building-from-source)); source and
-image scans run as checks ([workers](../operations/workers.md)); a Forge
+image scans run as checks ([workers](../operations/workers.md)); an AppTown
 release is built from a tagged checkout into archives with `SHA256SUMS`
 ([releasing](../operations/releasing.md)). Remaining: apt packages and package
 managers' dependencies resolve when the image is built; project installs run
 project-selected code with whatever the container holds.
 
 **Attack and impact.** A compromised image, installer, package, mise backend
-or agent extension runs during a legitimate task or Forge deployment. Its
+or agent extension runs during a legitimate task or AppTown deployment. Its
 privilege is whatever the build/agent process already has.
 
 **Proposed control.** Pin/verify critical artifacts by digest or trusted
 signature/checksum; update deliberately. Use standard vulnerability and secret
-scanners, dependency review and provenance. Build Forge in a credential-poor
+scanners, dependency review and provenance. Build AppTown in a credential-poor
 build environment and deploy an identified artifact. Sandbox project installs
 even when dependencies are locked: pinning can pin malicious code too.
 
@@ -819,26 +819,26 @@ disconnect/restart without widening authorization or leaking bearer values.
 ### TM-28 — application hosting has unintended exposure and browser trust
 
 **Status: partly mitigated.** Application origins are not
-trusted for Forge mutations, and Forge's `__Host-` cookie cannot be set by a
+trusted for AppTown mutations, and AppTown's `__Host-` cookie cannot be set by a
 sibling application ([browser security](../subsystems/browser-security.md),
 [application ingress](../subsystems/ingress.md);
 `TestBrowserPolicyLeavesHostedAppPolicy`, `TestBrowserSecurityChromium`).
 Remaining: no guide describes a viewer gate for previews or deployments, so
 whoever reaches an application's address reaches the application; separating
-application domains from Forge's registrable domain is the operator's choice.
+application domains from AppTown's registrable domain is the operator's choice.
 
-**Attack and impact.** A sensitive preview is reachable without Forge login;
+**Attack and impact.** A sensitive preview is reachable without AppTown login;
 a hostile application phishes an owner, attacks same-site browser assumptions,
-exposes internal data, or uses Forge hosting/network capacity for abuse.
+exposes internal data, or uses AppTown hosting/network capacity for abuse.
 
 **Proposed control.** Decide preview visibility explicitly; add viewer gates
-where required. Isolate untrusted app domains from Forge and keep application
+where required. Isolate untrusted app domains from AppTown and keep application
 cookie/origin policy narrow. Strip/control forwarding headers at trusted hops,
 enforce exposure/resource policy and provide fast application quarantine.
 Avoid injecting broadly trusted sibling origins as an unexplained default.
 
 **Verify.** Anonymous access matches each preview/environment's declared
 visibility. Host-header variants cannot route to arbitrary containers. A
-malicious sibling app cannot set Forge's host-bound cookie or exercise its
+malicious sibling app cannot set AppTown's host-bound cookie or exercise its
 session; forwarded-header spoofing cannot change authority. Quarantining one
 app preserves the control plane and unrelated projects.

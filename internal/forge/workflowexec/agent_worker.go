@@ -606,7 +606,7 @@ func (a *Executor) attachmentsFor(changeID ids.ID) ([]steeringResource, error) {
 	return out, nil
 }
 
-// agentCLI is the packaged forge CLI agents run, as bytes. An agent on a
+// agentCLI is the packaged apptown CLI agents run, as bytes. An agent on a
 // worker is always sent it: its steering tells it to run apptown check.
 func (a *Executor) agentCLI() ([]byte, error) {
 	at, err := a.cli.Path()

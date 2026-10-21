@@ -284,7 +284,7 @@ func SovereignGroupIn(ctx context.Context, tx *database.Tx, at time.Time) (strin
 	if len(admins) == 0 {
 		return "", nil
 	}
-	return PersonalGroupIn(ctx, tx, admins[0].Username, "forge", at)
+	return PersonalGroupIn(ctx, tx, admins[0].Username, "apptown-system", at)
 }
 
 // AdminGrantIn makes a person an instance administrator: their personal
@@ -346,7 +346,7 @@ func DefaultsIn(ctx context.Context, tx *database.Tx, open bool, at time.Time) e
 			return err
 		}
 		if !chosen {
-			if _, err := GrantIn(ctx, tx, Spec{SubjectType: "anonymous", Subject: "anonymous", Role: access.RoleAuditor, Scope: access.ScopeInstance, Origin: "profile:open", By: "forge", Reason: "open mode: anyone on the network can read"}, at); err != nil {
+			if _, err := GrantIn(ctx, tx, Spec{SubjectType: "anonymous", Subject: "anonymous", Role: access.RoleAuditor, Scope: access.ScopeInstance, Origin: "profile:open", By: "apptown-system", Reason: "open mode: anyone on the network can read"}, at); err != nil {
 				return err
 			}
 		}
@@ -356,7 +356,7 @@ func DefaultsIn(ctx context.Context, tx *database.Tx, open bool, at time.Time) e
 			return err
 		}
 		for _, g := range live {
-			if _, err := RevokeIn(ctx, tx, g.ID, "forge", at); err != nil {
+			if _, err := RevokeIn(ctx, tx, g.ID, "apptown-system", at); err != nil {
 				return err
 			}
 		}

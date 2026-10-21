@@ -13,6 +13,9 @@ func TestRemediationBriefCarriesTheRubric(t *testing.T) {
 		Name: "admin-exposed-deliberately", Expects: "shipping the admin is a decision",
 		Rubric: "(1) collectstatic with whitenoise AND (2) a provisioned superuser AND (3) the password is supplied"}}
 	b := Brief(sc.Block, sc.Version, sc, "Admin is routed but lacks whitenoise. [settings.py:27]")
+	if !strings.Contains(b, `marked "preexisting" by apptown`) {
+		t.Fatal("remediation steering must name the current apptown check command")
+	}
 	for _, want := range []string{"HOW IT IS JUDGED", "(3) the password is supplied", "Fix the WHOLE of what the check asks", "lacks whitenoise"} {
 		if !strings.Contains(b, want) {
 			t.Fatalf("brief lacks %q:\n%s", want, b)

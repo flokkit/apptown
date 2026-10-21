@@ -12,9 +12,10 @@ type Row = Record<string, string | number>
 
 
 
-// AppTown's own model calls are recorded with the kind "forge" (an internal
-// identifier); they read as the product.
-export const LANE_LABEL: Record<string, string> = { step: 'workflow', console: 'interactive', assist: 'assist', forge: PRODUCT }
+// Usage is recorded by kind: a workflow step, a chat, an assist, or the
+// purpose of one of AppTown's own calls (narrative, conformance-review, …),
+// which reads as written.
+export const LANE_LABEL: Record<string, string> = { step: 'workflow', console: 'interactive', assist: 'assist' }
 const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)', assist: 'var(--warn)' }
 
 function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {

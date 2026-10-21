@@ -27,7 +27,7 @@ labels is never selected. Do not clear networks with `docker network prune`:
 it would also take a stopped deployment's network.
 
 One AppTown owns one Docker daemon. The labels name a class and an owner but not
-AppTown, and step IDs are numbered per forge, so two AppTown installations sharing a daemon
+AppTown, and step IDs are numbered per AppTown, so two AppTown installations sharing a daemon
 would each read the other's resources as their own and judge them against the
 wrong steps. That arrangement is not supported.
 
@@ -69,7 +69,7 @@ worker.
   preview (or eval) domain, or a boot of it: the open or restart button,
   `apptown preview`, a chat's rehearsal, a run's preview step, a release's
   look. Preview records the last one per preview (`preview_views`), on the
-  forge's clock, at most once a minute.
+  AppTown's clock, at most once a minute.
 - **Stopping** removes the whole stack: the app with its volumes and data
   volume, its services, parts and init leftovers, and its network
   (`docker.RemovePreview`). A change's discard, replacement and restart, a

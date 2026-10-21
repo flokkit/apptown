@@ -33,7 +33,7 @@ type Binding struct {
 }
 
 var (
-	ErrManaged  = fault.New(fault.Conflict, "a managed binding is forge's and re-syncs with its configuration; clone it under a new name")
+	ErrManaged  = fault.New(fault.Conflict, "a managed binding is AppTown's and re-syncs with its configuration; clone it under a new name")
 	ErrAttached = fault.New(fault.Conflict, "projects still reference the binding; detach them first")
 	ErrInUse    = fault.New(fault.Conflict, "projects still hold an integration of this kind; detach them first")
 	// ErrNoBinding and ErrNoServiceKind are the absence of what a caller

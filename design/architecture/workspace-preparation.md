@@ -1,6 +1,6 @@
 # Checked Work workspace preparation
 
-`internal/workflow` owns workspace source observations and preparation. Forge
+`internal/workflow` owns workspace source observations and preparation. AppTown
 supplies a database, Git execution value and the same repository-lock value used
 by SCM. There is no App dependency, global fake, replay job or workspace conversion.
 Consumers use thin adapters to the owned source record and private sqlc
@@ -48,7 +48,7 @@ A failed transaction can leave a complete standalone clone while leaving all dur
 bases/receipts unchanged. The error is explicit; retrying preparation uses the same
 Change/Run identity. Source conflicts require inspection. There is no automatic
 cleanup/recreation loop. SQL guards fence database facts and the lock serializes
-cooperating Forge writers; neither is a new fencing protocol for arbitrary external
+cooperating AppTown writers; neither is a new fencing protocol for arbitrary external
 Git or filesystem writers.
 
 Canonical attachments are copied after durable publication. Missing attachments are

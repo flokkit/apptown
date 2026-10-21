@@ -138,7 +138,7 @@ func TestALocalChatsOwnHistoryIsShownAfterAWorkerChat(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, _ := w.a.Projects.BySlug(ctx, "game")
-	if _, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner"); err != nil {
+	if _, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	gittest.Run(t, w.folder, "reset", "-q", "--hard", "HEAD~1")
@@ -163,7 +163,7 @@ func TestALocalChatsResetIsNotALaggingFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, _ := w.a.Projects.BySlug(context.Background(), "game")
-	if _, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner"); err != nil {
+	if _, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	gittest.Run(t, w.folder, "reset", "--hard", "HEAD~1")
@@ -258,7 +258,7 @@ func TestAFailedOpeningDoesNotHideSavedWork(t *testing.T) {
 		t.Fatalf("precondition: %d %s", before.Code, before.Body.String())
 	}
 	p, _ := w.a.Projects.BySlug(context.Background(), "game")
-	_, err = w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner")
+	_, err = w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner")
 	if err == nil {
 		t.Fatal("expected opening with locked folder to fail")
 	}
@@ -278,7 +278,7 @@ func TestAFailedOpeningDoesNotHideSavedWork(t *testing.T) {
 	if err := os.Remove(lock); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner"); err != nil {
+	if _, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	repaired := authzCall(w.a.Handler(), "owner", "GET", path, "")
@@ -374,7 +374,7 @@ func TestACaughtUpFolderIsReadAgain(t *testing.T) {
 			t.Fatal(err)
 		}
 		p, _ := w.a.Projects.BySlug(context.Background(), "game")
-		if _, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner"); err != nil {
+		if _, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner"); err != nil {
 			t.Fatal(err)
 		}
 		gittest.Run(t, w.folder, "reset", "--hard", "HEAD~1")
@@ -410,7 +410,7 @@ func TestALocalResetSurvivesTheHolderBeingReplaced(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			local, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner")
+			local, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -437,7 +437,7 @@ func TestALocalResetSurvivesTheHolderBeingReplaced(t *testing.T) {
 				if err := os.WriteFile(lock, []byte("interrupted git\n"), 0600); err != nil {
 					t.Fatal(err)
 				}
-				_, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner")
+				_, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner")
 				if err == nil {
 					t.Fatal("expected locked catch-up to fail")
 				}
@@ -590,7 +590,7 @@ func TestARepairedDivergenceIsNotBehind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	local, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner")
+	local, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -796,7 +796,7 @@ func TestADivergedFolderOffersTheChatOnTheForge(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "both moved") {
 		t.Fatalf("opening on the worker from a diverged folder: %v", err)
 	}
-	if fault.CodeOf(err) != conversation.CodeChatOnForge {
+	if fault.CodeOf(err) != conversation.CodeChatOnAppTown {
 		t.Fatalf("the refusal does not say the chat can open on AppTown: %q", fault.CodeOf(err))
 	}
 }

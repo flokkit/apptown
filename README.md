@@ -175,8 +175,8 @@ See [schema ownership](design/architecture/schema-ownership.md).
 ## Layout
 
 - `cmd/apptownd` — entrypoint (`apptownd [flags]`)
-- `internal/<x>` — libraries that know nothing of forge (`console`, `deploy`, `database`, ...)
-- `internal/forge/<x>` — forge's subsystems (`workflow`, `deployment`, `identity`, ...);
+- `internal/<x>` — libraries that know nothing of AppTown (`console`, `deploy`, `database`, ...)
+- `internal/forge/<x>` — AppTown's subsystems (`workflow`, `deployment`, `identity`, ...);
   see `design/architecture/domains.md`
 - `internal/forge` — the App: composes the subsystems, serves the HTTP API
 - `web` — React/TS frontend (Vite), embedded into the binary from `web/dist`

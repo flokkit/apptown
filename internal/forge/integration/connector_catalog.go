@@ -190,7 +190,7 @@ func ConnectorCatalog() []ConnectorSpec {
 			Fields: []ConnectorField{
 				{Key: "url", Label: "GlitchTip URL", Type: "string", Placeholder: "https://errors.example.com"},
 				{Key: "org", Label: "Organization slug", Type: "string", Placeholder: "myorg", Help: "Provider-side organization the projects are created in."},
-				{Key: "team", Label: "Team slug (optional)", Type: "string", Placeholder: "", Help: "Projects live under a team. Empty = use the org's first team, creating a 'forge' team if none exist."},
+				{Key: "team", Label: "Team slug (optional)", Type: "string", Placeholder: "", Help: "Projects live under a team. Empty = use the org's first team, creating an 'apptown' team if none exist."},
 				{Key: "tokenFrom", Label: "Admin API token", Type: "secretRef", Help: "GlitchTip auth token with project:read project:write team:read team:write org:read — resolved via the secrets capability, never stored."},
 			},
 			Presets: []ConnectorPreset{
@@ -237,7 +237,7 @@ func ConnectorCatalog() []ConnectorSpec {
 			Fields: []ConnectorField{
 				{Key: "tokenFrom", Label: "API token secret", Type: "secretRef", Placeholder: "DIGITALOCEAN_ACCESS_TOKEN", Help: "The name of the secret holding a DigitalOcean API token (apps, databases, registry)."},
 				{Key: "region", Label: "Region", Type: "select", Options: "syd,sgp,blr,nyc,sfo,tor,lon,fra,ams", Help: "The App Platform region; the database goes to its sibling region."},
-				{Key: "registry", Label: "Container registry", Type: "string", Placeholder: "forge", Help: "The DOCR registry name — created on first use if the account has none."},
+				{Key: "registry", Label: "Container registry", Type: "string", Placeholder: "apptown", Help: "The DOCR registry name — created on first use if the account has none."},
 				{Key: "instanceSize", Label: "Instance size", Type: "string", Placeholder: "basic-xxs", Help: "App Platform instance size slug for every part."},
 				{Key: "dbSize", Label: "Database size", Type: "string", Placeholder: "db-s-1vcpu-1gb", Help: "Managed database node size."},
 			},

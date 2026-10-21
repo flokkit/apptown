@@ -169,7 +169,7 @@ func TestAStartRefreshesTheBuiltInHostOnlyWhenItsFactsChange(t *testing.T) {
 		t.Fatalf("the built-in host kept stale facts: %v at revision %d", moved.Ingress, moved.SettingsRevision)
 	}
 	receipts := operationReceipts(t, w.s.db, "target.refreshed", ids.Nil)
-	if len(receipts) != 1 || receipts[0].Actor != "forge" {
+	if len(receipts) != 1 || receipts[0].Actor != "apptown-system" {
 		t.Fatalf("receipts: %+v", receipts)
 	}
 }
@@ -234,7 +234,7 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 	ctx := context.Background()
 	for name, c := range cases {
 		c.proposed.Name, c.proposed.Origin, c.proposed.Status = "sync-"+name, OriginAttached, TargetReady
-		created, err := w.s.Targets.Sync(ctx, c.proposed, "forge")
+		created, err := w.s.Targets.Sync(ctx, c.proposed, "apptown-system")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -243,7 +243,7 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if _, err := w.s.Targets.Sync(ctx, c.proposed, "forge"); err != nil {
+		if _, err := w.s.Targets.Sync(ctx, c.proposed, "apptown-system"); err != nil {
 			t.Fatal(err)
 		}
 		after := w.target(t, created.Name)
@@ -284,7 +284,7 @@ func TestSyncAndASettingsEditQueueInsteadOfDeadlocking(t *testing.T) {
 		previews := round%2 == 0
 		var syncErr, editErr error
 		var wg sync.WaitGroup
-		wg.Go(func() { _, syncErr = w.s.Targets.Sync(ctx, &proposed, "forge") })
+		wg.Go(func() { _, syncErr = w.s.Targets.Sync(ctx, &proposed, "apptown-system") })
 		wg.Go(func() {
 			_, editErr = w.s.Targets.EditSettings(ctx, "do-syd", TargetSettingsEdit{ExpectedRevision: &current.SettingsRevision, Previews: &previews}, "alice")
 		})

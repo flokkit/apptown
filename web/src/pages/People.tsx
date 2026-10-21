@@ -174,7 +174,7 @@ function TokensCard() {
     <div className="card" style={{ display: 'grid', gap: 10 }}>
       <b>API tokens</b>
       <div className="muted small">
-        A command-line token is for your own <code>forge</code> CLI (set <code>APPTOWN_TOKEN</code>).
+        A command-line token is for your own <code>apptown</code> CLI (set <code>APPTOWN_TOKEN</code>).
         An agent token is for a coding agent's MCP connection. A token is shown once.
       </div>
       {err && <div className="error small">{err}</div>}

@@ -1,6 +1,6 @@
 # What chats and workflow steps are provided
 
-This is the runtime contract for Forge's own
+This is the runtime contract for AppTown's own
 helpers and workflow execution, supporting requirements C2–C6 and C26.
 It describes the behaviour to preserve when changing the implementation.
 The [runtime guide](../../stock/docs/guides/runtime-environments.md) holds the
@@ -14,9 +14,9 @@ read-only snapshot and writable session scratch space. A change chat receives
 that change's writable worktree. A workflow agent receives the workspace chosen
 for its run. Giving a helper tools does not grant approval, administration or
 permission to bypass the landing workflow. An external agent connected through
-MCP uses its own runtime; connecting does not provision a Forge console for it.
+MCP uses its own runtime; connecting does not provision an AppTown console for it.
 
-**RE2 — The standard container supplies general development tools.** Forge's
+**RE2 — The standard container supplies general development tools.** AppTown's
 standard agent image supports shell work, Git, code search, browser checks,
 package management and installation of project-declared toolchains. Projects
 declare required tool versions in their repository. An installed Docker client
@@ -43,7 +43,7 @@ execution and records a Docker or builder setup failure in step progress.
 **RE5 — Services and credentials are supplied by purpose.** Declared step
 services and requested application needs are provisioned for Docker steps;
 previews and deployments provision their own contract-declared needs. Chats do
-not receive those services automatically. Helpers receive their Forge identity,
+not receive those services automatically. Helpers receive their AppTown identity,
 model access and the additional credentials granted to their execution path.
 Private Docker alone grants neither production secrets nor registry push access.
 The guide must explain the actual grants, including differences between chats
@@ -52,14 +52,14 @@ and steps, instead of describing a shared, unrestricted environment.
 **RE6 — Nested execution has a usable, documented connection model.** When
 private Docker is available, the helper and daemon see the same workspace path
 for bind mounts. Published ports have a documented address reachable from the
-helper. Forge configures the daemon's DNS and bound image mirror. Nested builds
+helper. AppTown configures the daemon's DNS and bound image mirror. Nested builds
 and containers require explicit environment inputs; they do not automatically
 inherit the helper's service connections or proxy settings. Package mirrors
 route traffic; they are not an enforced network allowlist.
 
 **RE7 — Persistence is described by resource.** Chat records and change files
 are distinct from disposable processes, container filesystems and nested Docker
-state. A Forge restart preserves console containers and their private daemons.
+state. An AppTown restart preserves console containers and their private daemons.
 Idle stopping retains their files and Docker state; session end or idle reaping
 can remove that runtime state. Reopening reconstructs missing resources from
 the session record. Step containers and step daemons are temporary. A cached
@@ -69,7 +69,7 @@ tool or image is an optimisation, never the only copy of a required input.
 console acquires changed Docker access when stopped or after its agent hands
 back the turn. Recovery validates sidecar ownership and the mounted workspace
 before adopting it. Console Docker control operations have deadlines and
-observe Forge shutdown cancellation; shutdown does not wait for the session's
+observe AppTown shutdown cancellation; shutdown does not wait for the session's
 jobs to finish. The shared daemon shutdown budget remains bounded. This is not
 a guarantee that every older external operation is individually canceled.
 
@@ -157,7 +157,7 @@ reduce setup work without allowing warm chat state to satisfy a cold-boot gate.
 
 ## RE10. Model access without provider credentials
 
-Model agents and their delegates must receive Forge session credentials rather
+Model agents and their delegates must receive AppTown session credentials rather
 than reusable upstream provider keys. Chat credentials last with the chat,
 including idle/restart; step credentials last with their current attempt. A
 continued chat has its own credential and retains run attribution. Inference

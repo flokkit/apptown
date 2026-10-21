@@ -28,7 +28,7 @@ is marked removed before its runtime is taken away and is kept, so a late
 start cannot bring an ended chat back; a removal succeeds only once Docker
 shows nothing of it. Stopping or rebuilding keeps the session; a chat is
 rebuilt only while it is stopped, by Docker's answer, so a new image, model or
-forge CLI (a new content-named blob, so a new mount)
+apptown CLI (a new content-named blob, so a new mount)
 reaches a running chat when it next stops. On a worker the chat runtime gives
 each session its own cache volume, removed with its runtime, the worker's
 tool cache (`tool_cache.go`) in its container, and the

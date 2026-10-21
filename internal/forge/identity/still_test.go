@@ -165,7 +165,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		if err := s.RequireStill(ctx, access.Principal{Kind: "user", Name: "alice", Via: "proxy", Credential: HeaderCredential("alice")}, read); !errors.Is(err, ErrCredentialGone) {
 			t.Fatalf("a disabled account: %v", err)
 		}
-		if err := s.RequireStill(ctx, access.Principal{Kind: "instrument", Name: "apptown-system", Instrument: "forge", Credential: "system:scheduled-copy"}, read); err != nil {
+		if err := s.RequireStill(ctx, access.Principal{Kind: "instrument", Name: "apptown-system", Instrument: access.SystemInstrument, Credential: "system:scheduled-copy"}, read); err != nil {
 			t.Fatalf("AppTown's own binding: %v", err)
 		}
 	})

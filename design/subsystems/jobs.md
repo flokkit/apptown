@@ -1,8 +1,8 @@
 # Background jobs
 
-Forge uses River OSS v0.47.0 in its existing PostgreSQL database and daemon.
+AppTown uses River OSS v0.47.0 in its existing PostgreSQL database and daemon.
 River owns admission, deduplication, claiming, retry timing, periodic scheduling,
-and rescue after a worker dies. Forge owns workflow gates, deployment attempts,
+and rescue after a worker dies. AppTown owns workflow gates, deployment attempts,
 release settlement and saved conversations. A queue result cannot override any
 of those domain records.
 
@@ -67,7 +67,7 @@ instead returns a terminal cancellation with useful error text, without wrapping
 `context.Canceled`. Interruption policy is persisted separately from River's
 mutable attempt limit: an explicit retry must not enable free shutdown retries.
 A killed process cannot report cancellation. At the next exclusive startup,
-Forge settles its running jobs before reading release ownership or starting
+AppTown settles its running jobs before reading release ownership or starting
 consumers. A recorded cancellation request wins; otherwise the saved
 `RetryOnInterrupt` flag chooses terminal cancellation with an explicit-rerun
 reason, or availability now with one attempt refunded. Increasing `MaxAttempts`
@@ -78,13 +78,13 @@ Startup must establish that the old daemon has exited. A different client ID
 alone is insufficient; overlapping daemons are unsupported. `apptownd` takes a
 Postgres advisory lock on its database before migrating and holds it for its
 life, so a second daemon on the same database refuses to start; only
-`-reset-password`, which may run beside a serving forge, skips it. A lost
+`-reset-password`, which may run beside a serving AppTown, skips it. A lost
 database connection releases the lock silently (accepted). Repair excludes the
 current client, foreign job kinds and non-running rows, and fails atomically on
 malformed requests or missing owner identities. Jobs' single version-pinned
 mutation joins step, release and review repair in the same transaction, with one
 required `jobs.interruption-settled` audit receipt per row. A repeated repair adds
-nothing. River remains the schema owner; this exception adds no Forge migration.
+nothing. River remains the schema owner; this exception adds no AppTown migration.
 The committed startup summary reports `river rows settled=N`.
 
 Delivery is at least once. Queue uniqueness does not stop an old, uncooperative
@@ -100,7 +100,7 @@ River's elected leader runs these schedules (`forgeJobSchedules` in
 
 | Schedule | When | What it does |
 | --- | --- | --- |
-| `db-backup` | 02:00 (`0 2 * * *`) | Dumps the built-in database to `<data>/backups/forge-<date>.sql.gz` and keeps the newest 14, auditing `db.backup` or `db.backup-failed`. A day's existing dump is not replaced. With an external database (`-db-url`) it does nothing and says so; that database's backups are its operator's. |
+| `db-backup` | 02:00 (`0 2 * * *`) | Dumps the built-in database to `<data>/backups/apptown-<date>.sql.gz` and keeps the newest 14, auditing `db.backup` or `db.backup-failed`. A day's existing dump is not replaced. With an external database (`-db-url`) it does nothing and says so; that database's backups are its operator's. |
 | `backup-sweep` | 03:00 (`0 3 * * *`) | Requests a `backup` job for each standing deployment with a container, starts the daily copies, moves sets to the backup store when one is attached and clears what interrupted rehearsals left. A take-down's final set is kept with its project; nothing here prunes it. |
 | `restored-copy-sweep` | every 5 minutes | Takes down restored copies whose time is up. |
 | `project-deletion-pass` | every 5 minutes (and queued for a project when its deletion is asked) | Moves each project being deleted one step: one take-down, main last, or deleted and kept ([project-deletion.md](project-deletion.md)). |
@@ -116,18 +116,18 @@ done, failed and stopped. Read/decoding failures are reported rather than
 silently dropping records.
 
 River owns terminal-job retention. Queue history is temporary; permanent domain
-receipts stay in Forge's stores and audit log. Retrying an old completed run only
+receipts stay in AppTown's stores and audit log. Retrying an old completed run only
 requeues follow-ups that are still retained. After retention, use the explicit
 domain action (for example redeployment); missing queue history never triggers
 automatic reconstruction.
 
 ## Testing and migration history
 
-Forge tests queue admission, exact argument preservation, transactional outcome
+AppTown tests queue admission, exact argument preservation, transactional outcome
 insertion, explicit retry and interruption policy. Domain tests own stale-attempt
 and duplicate-outcome checks. Daemon tests cover queue failure and bounded
 shutdown. The integration tier kills a real worker subprocess, confirms its exit,
-and checks both the unmodified restart gap and Forge's repair. The repair case
+and checks both the unmodified restart gap and AppTown's repair. The repair case
 covers cancellation precedence, explicit retry history, same-key admission and
 execution with original inputs. It does not wait for River's rescue horizon.
 Run the pinned contract and crash tests on every River upgrade, including patches:

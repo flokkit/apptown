@@ -38,7 +38,7 @@ export default function Console() {
 // ("take it to chat" made it server-side, continuing the lane agent) instead
 // of the remembered one.
 function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; changeId: string; forcedSession: string; kickoff: string }) {
-  const { session, list, openErr, forgeInstead, open, startFresh, end } = useConsoleSession({ slug, changeId, forcedSession })
+  const { session, list, openErr, appTownInstead, open, startFresh, end } = useConsoleSession({ slug, changeId, forcedSession })
   // The layering principle: bubbles are the story, the terminal is under
   // the hood. Same pi, same conversation, two zooms — remembered per person.
   const [zoom, setZoom] = useState<'chat' | 'terminal'>(
@@ -127,8 +127,8 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
       {openErr && (
         <div className="error">
           {openErr}
-          {forgeInstead && (
-            <> <button className="subtle" onClick={() => void open('forge')}>Open it on {PRODUCT} instead</button></>
+          {appTownInstead && (
+            <> <button className="subtle" onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button></>
           )}
         </div>
       )}

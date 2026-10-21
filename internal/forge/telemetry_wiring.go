@@ -52,11 +52,11 @@ func startInstrumentation(ctx context.Context, cfg configuration) (*instrumentat
 	endpoint, insecure := splitOTLPEndpoint(cfg.otlpEndpoint)
 	attrs := map[string]string{"service.version": buildRevision()}
 	if cfg.publicHost != "" {
-		attrs["forge.instance"] = cfg.publicHost
+		attrs["apptown.instance"] = cfg.publicHost
 	}
 	p, err := telemetry.Start(ctx, telemetry.Config{
 		Endpoint: endpoint, Protocol: cfg.otlpProtocol, Insecure: insecure,
-		ServiceName: "apptownd", ServiceNamespace: "forge", Attributes: attrs,
+		ServiceName: "apptownd", ServiceNamespace: "apptown", Attributes: attrs,
 	})
 	if err != nil {
 		return nil, err
@@ -179,15 +179,15 @@ func tracedHandler(in *instrumentation, next http.Handler) http.Handler {
 		span.SetName(pattern)
 		attrs := []attribute.KeyValue{attribute.String("http.route", pattern), attribute.Int("http.response.status_code", rec.status)}
 		if slug := routed.PathValue("slug"); slug != "" {
-			attrs = append(attrs, attribute.String("forge.project", slug))
+			attrs = append(attrs, attribute.String("apptown.project", slug))
 		}
 		// The auth layer above us attached the identity; the caller the route
 		// layer builds from it lives on a copy below us.
 		if id := identityFrom(routed); id != nil {
 			pr := principalOf(id, "")
-			attrs = append(attrs, attribute.String("forge.principal.kind", pr.Kind))
+			attrs = append(attrs, attribute.String("apptown.principal.kind", pr.Kind))
 			if pr.Instrument != "" {
-				attrs = append(attrs, attribute.String("forge.principal.instrument", pr.Instrument))
+				attrs = append(attrs, attribute.String("apptown.principal.instrument", pr.Instrument))
 			}
 		}
 		span.SetAttributes(attrs...)

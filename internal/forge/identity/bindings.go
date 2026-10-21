@@ -37,7 +37,7 @@ func BindingCredential(id ids.ID) string { return "system:binding/" + id.String(
 // BindingPrincipal is AppTown acting under a binding: its receipts name
 // AppTown, the binding and (as Person) who granted it.
 func BindingPrincipal(id ids.ID, grantedBy string) access.Principal {
-	return access.Principal{Kind: "instrument", Name: "apptown-system", Instrument: "forge", Person: grantedBy, Via: "binding", Credential: BindingCredential(id)}
+	return access.Principal{Kind: "instrument", Name: "apptown-system", Instrument: access.SystemInstrument, Person: grantedBy, Via: "binding", Credential: BindingCredential(id)}
 }
 
 // GrantBindingIn records a binding in the caller's transaction, with the

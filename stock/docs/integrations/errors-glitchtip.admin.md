@@ -18,7 +18,7 @@ choice. You need: the base URL, an organization, and an auth token created by an
 admin user (Profile → Auth Tokens) with scopes:
 `project:read project:write team:read team:write org:read`
 (team:write only exercised if the org has no team yet — AppTown then
-creates a 'forge' team; projects in GlitchTip live under teams). Store the token in the secrets backend (e.g.
+creates an 'apptown' team; projects in GlitchTip live under teams). Store the token in the secrets backend (e.g.
 `GLITCHTIP_TOKEN`) — never paste it anywhere.
 
 ## 2. Bind it
@@ -59,7 +59,7 @@ part and implementation-step agents receive the value.
 
 AppTown reports its own failures the same way it asks every app to.
 Attach the `apptown` project (Settings › Services on the `apptown` project, or
-`POST /projects/forge/integrations {"capability":"errors"}`): AppTown
+`POST /projects/apptown/integrations {"capability":"errors"}`): AppTown
 provisions a GlitchTip project named `apptown` and from then on apptownd
 sends there, tagged by run and step:
 

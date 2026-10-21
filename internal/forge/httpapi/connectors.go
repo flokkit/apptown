@@ -109,7 +109,7 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if b, err := h.integrations.Bindings.ByName(r.Context(), in.Name); err == nil && b.Managed {
-			WriteError(w, 409, "%q is managed by forge — clone it under a new name", in.Name)
+			WriteError(w, 409, "%q is managed by AppTown — clone it under a new name", in.Name)
 			return
 		}
 		// normalize command-ish fields

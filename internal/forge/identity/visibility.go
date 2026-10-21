@@ -40,7 +40,7 @@ func (s *Service) visibleProjects(ctx context.Context, q database.Queryer, pr ac
 			if pr.ProjectID.IsZero() {
 				return nil, &access.Denied{Code: access.DenyOutsideScope, Reason: "this session requires a bound project"}
 			}
-		case "forge":
+		case access.SystemInstrument:
 		default:
 			return nil, &access.Denied{Code: access.DenyOutsideScope, Reason: "unknown project instrument"}
 		}

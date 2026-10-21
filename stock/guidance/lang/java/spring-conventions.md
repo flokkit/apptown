@@ -17,7 +17,7 @@ Spring the boring way:
   `@RestControllerAdvice`.
 - Actuator health at `/actuator/health` is the deploy contract's probe.
 - TWO toolchain declarations, keep them consistent. `mise.toml` pins the
-  JDK the FORGE uses to build and test your app in its steps (dev/build time).
+  JDK AppTown uses to build and test your app in its steps (dev/build time).
   The `Dockerfile` is the DEPLOY artifact and carries its own JVM — a build
   stage (`maven:…-temurin-N`, recompiles cold at deploy) and a runtime stage
   (`eclipse-temurin:N-jre`, runs the jar). mise is NOT present at deploy. So the

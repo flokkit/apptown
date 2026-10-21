@@ -48,10 +48,11 @@ func TestForgeReportsItsOwnErrorsThroughItsAttachment(t *testing.T) {
 	admitted := func() int { a.selfErr.mu.Lock(); defer a.selfErr.mu.Unlock(); return a.selfErr.sent }
 	selfErrorsFor(a).Report("panic", "RunAgent", "boom", nil, "stack")
 	if n := admitted(); n != 0 {
-		t.Fatalf("nothing must be sent while the self-reporting project (forge) is unattached: %d sent", n)
+		t.Fatalf("nothing must be sent while the self-reporting project (apptown) is unattached: %d sent", n)
 	}
 
-	pid, _, _ := fleetRepo(t, a, selfErrorsProject, map[string]string{"README.md": "# forge"})
+	// The project a person attaches is the one the guide names: "apptown".
+	pid, _, _ := fleetRepo(t, a, "apptown", map[string]string{"README.md": "# apptown"})
 	if err := integration.NewAttachments(a.DB).Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://abc123@errors.example/7","providerProject":"forge"}`, integration.Provisioned, "fixture", map[string]any{"providerProject": "forge"}); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestBrowserErrorsFollowTheAttachment(t *testing.T) {
 	if b := get(); strings.Contains(b, "dsn") {
 		t.Fatalf("unattached: %s", b)
 	}
-	pid, _, _ := fleetRepo(t, a, selfErrorsProject, map[string]string{"README.md": "# forge"})
+	pid, _, _ := fleetRepo(t, a, selfErrorsProject, map[string]string{"README.md": "# apptown"})
 	if err := integration.NewAttachments(a.DB).Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://abc123@errors.example/7","providerProject":"forge"}`, integration.Provisioned, "fixture", map[string]any{"providerProject": "forge"}); err != nil {
 		t.Fatal(err)
 	}

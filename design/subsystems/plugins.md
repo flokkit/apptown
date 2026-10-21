@@ -1,6 +1,6 @@
 # Extension mechanisms
 
-Forge has several specific extension mechanisms rather than one general plugin
+AppTown has several specific extension mechanisms rather than one general plugin
 runtime. Workflows, guidance and packs are versioned content. Scanner/tool bindings
 invoke external tools. Service-kind declarations provide fields, templates and
 contributions; linked provisioning still needs a compiled provider adapter.

@@ -872,7 +872,7 @@ func (q *Queries) DeleteUserSessions(ctx context.Context, username string) (Dele
 }
 
 const ensureBuiltinGroup = `-- name: EnsureBuiltinGroup :one
-INSERT INTO groups (name, description, kind, created_by, created_at) VALUES ($1, $2, 'built-in', 'forge', $3)
+INSERT INTO groups (name, description, kind, created_by, created_at) VALUES ($1, $2, 'built-in', 'apptown-system', $3)
 ON CONFLICT (name) DO UPDATE SET name = excluded.name WHERE groups.kind = 'built-in' AND groups.retired_at IS NULL
 RETURNING name, description, kind, created_by, created_by_principal, created_by_via, retired_at, created_at
 `
@@ -2751,7 +2751,7 @@ INSERT INTO grants (id, subject_type, subject, role_name, capability,
                     scope_type, scope_id, origin, granted_by, reason, created_at)
 SELECT $1::uuid, 'group', $2::text, $3::text,
        '', 'instance', '', 'profile:transparent',
-       'forge', 'transparent structure: everyone signed in can read everything', $4::timestamptz
+       'apptown-system', 'transparent structure: everyone signed in can read everything', $4::timestamptz
 WHERE NOT EXISTS (
   SELECT 1 FROM grants
   WHERE subject_type = 'group' AND subject = $2::text

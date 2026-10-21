@@ -62,7 +62,7 @@ func fakeForgeHeaders(t *testing.T, reply func(method, path string) (int, http.H
 	t.Cleanup(srv.Close)
 	prev := api
 	api = &client{base: srv.URL, actor: "tester", http: srv.Client(), wait: func(time.Duration) {},
-		getenv: func(k string) string { return map[string]string{"APPTOWN_TOKEN": "forge_tok"}[k] }}
+		getenv: func(k string) string { return map[string]string{"APPTOWN_TOKEN": "apptown_tok"}[k] }}
 	t.Cleanup(func() { api = prev })
 	return seen
 }
@@ -227,7 +227,7 @@ func TestCommandsSendTheirRequests(t *testing.T) {
 	}
 	for i, w := range want {
 		got := (*seen)[i]
-		if got.Method != w.Method || got.Path != w.Path || got.Query != w.Query || got.Actor != "tester" || got.Auth != "Bearer forge_tok" {
+		if got.Method != w.Method || got.Path != w.Path || got.Query != w.Query || got.Actor != "tester" || got.Auth != "Bearer apptown_tok" {
 			t.Fatalf("request %d: got %+v, want %+v", i, got, w)
 		}
 		for k, v := range w.Body {

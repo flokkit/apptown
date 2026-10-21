@@ -88,8 +88,8 @@ type AttemptLinks interface {
 // forge's own work begins.
 func (o observer) begin(ctx context.Context, runID, stepID ids.ID, stepType, workflow string, projectID ids.ID) *stepAttempt {
 	ctx, span := o.tracer.Start(ctx, "workflow.step", trace.WithAttributes(
-		attribute.String("forge.step.type", stepType), attribute.String("forge.workflow", workflow),
-		attribute.String("forge.project", projectID.String()), attribute.String("forge.run", runID.String()), attribute.String("forge.step", stepID.String())))
+		attribute.String("apptown.step.type", stepType), attribute.String("apptown.workflow", workflow),
+		attribute.String("apptown.project", projectID.String()), attribute.String("apptown.run", runID.String()), attribute.String("apptown.step", stepID.String())))
 	return &stepAttempt{o: o, ctx: ctx, span: span, stepType: stepType, runID: runID, stepID: stepID, links: o.links}
 }
 
@@ -99,7 +99,7 @@ func (s *stepAttempt) claimed(attempt int64) {
 		return
 	}
 	s.attempt = attempt
-	s.span.SetAttributes(attribute.Int64("forge.attempt", attempt))
+	s.span.SetAttributes(attribute.Int64("apptown.attempt", attempt))
 	if s.links != nil {
 		s.links.Publish(s.runID, s.stepID, attempt, s.span.SpanContext())
 	}
@@ -111,7 +111,7 @@ func (s *stepAttempt) queued(from time.Time, binding string) {
 	if s == nil {
 		return
 	}
-	_, span := s.o.tracer.Start(s.ctx, "queued", trace.WithTimestamp(from), trace.WithAttributes(attribute.String("forge.binding", binding)))
+	_, span := s.o.tracer.Start(s.ctx, "queued", trace.WithTimestamp(from), trace.WithAttributes(attribute.String("apptown.binding", binding)))
 	span.End()
 	s.o.queued.Record(s.ctx, float64(s.o.now().Sub(from).Milliseconds()), metric.WithAttributes(attribute.String("step_type", s.stepType)))
 }
@@ -134,14 +134,14 @@ func (s *stepAttempt) harness(res piResult) {
 	}
 	outcome := attemptOutcome(res)
 	if s.running != nil {
-		s.running.SetAttributes(attribute.String("forge.harness.outcome", outcome))
+		s.running.SetAttributes(attribute.String("apptown.harness.outcome", outcome))
 		if attemptFailed(res) {
 			s.running.SetStatus(codes.Error, outcome)
 		}
 		s.running.End()
 		s.running = nil
 	}
-	s.span.SetAttributes(attribute.String("forge.harness.outcome", outcome))
+	s.span.SetAttributes(attribute.String("apptown.harness.outcome", outcome))
 }
 
 // settle closes the attempt with the step's recorded status. Every exit
@@ -160,7 +160,7 @@ func (s *stepAttempt) settle(status string) {
 				attribute.String("step_type", s.stepType), attribute.String("outcome", status)))
 		}
 		s.o.attempts.Add(s.ctx, 1, metric.WithAttributes(attribute.String("step_type", s.stepType), attribute.String("outcome", status)))
-		s.span.SetAttributes(attribute.String("forge.step.outcome", status))
+		s.span.SetAttributes(attribute.String("apptown.step.outcome", status))
 		if status != "pass" {
 			s.span.SetStatus(codes.Error, status)
 		}

@@ -1,6 +1,6 @@
 # Current package ownership
 
-Forge is assembled in [App.New](../../internal/forge/app.go). HTTP handlers in
+AppTown is assembled in [App.New](../../internal/forge/app.go). HTTP handlers in
 `httpapi` and tools in `mcpapi` translate requests into operations on concrete
 owners. They do not acquire unrestricted access to App through a replacement
 interface. Root retains authentication, routing, startup and cross-owner wiring.

@@ -175,7 +175,7 @@ INSERT INTO groups (name, description, kind, created_by, created_by_principal, c
 -- EnsureBuiltinGroup creates the built-in group once; a retired or
 -- differently-kinded row of that name is not touched and returns nothing.
 -- name: EnsureBuiltinGroup :one
-INSERT INTO groups (name, description, kind, created_by, created_at) VALUES ($1, $2, 'built-in', 'forge', $3)
+INSERT INTO groups (name, description, kind, created_by, created_at) VALUES ($1, $2, 'built-in', 'apptown-system', $3)
 ON CONFLICT (name) DO UPDATE SET name = excluded.name WHERE groups.kind = 'built-in' AND groups.retired_at IS NULL
 RETURNING *;
 
@@ -315,7 +315,7 @@ INSERT INTO grants (id, subject_type, subject, role_name, capability,
                     scope_type, scope_id, origin, granted_by, reason, created_at)
 SELECT sqlc.arg(id)::uuid, 'group', sqlc.arg(subject)::text, sqlc.arg(role_name)::text,
        '', 'instance', '', 'profile:transparent',
-       'forge', 'transparent structure: everyone signed in can read everything', sqlc.arg(at)::timestamptz
+       'apptown-system', 'transparent structure: everyone signed in can read everything', sqlc.arg(at)::timestamptz
 WHERE NOT EXISTS (
   SELECT 1 FROM grants
   WHERE subject_type = 'group' AND subject = sqlc.arg(subject)::text

@@ -1,9 +1,9 @@
 # Browser request security
 
-Root Forge applies browser security to Forge responses inside the virtual-host
+Root AppTown applies browser security to AppTown responses inside the virtual-host
 router. Hosted applications retain their own origin and security policy.
 
-Forge sets `nosniff`, frame denial, a limited CSP restricting ancestors/base/objects,
+AppTown sets `nosniff`, frame denial, a limited CSP restricting ancestors/base/objects,
 and a same-origin referrer policy. This is not a complete script-source CSP.
 Untrusted Markdown and file serving need their own content handling.
 

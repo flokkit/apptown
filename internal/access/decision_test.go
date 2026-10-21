@@ -75,11 +75,12 @@ func TestDecideTable(t *testing.T) {
 		{"a run reads instance lists its table names", access.Principal{Kind: "instrument", Name: "run/9", Instrument: "run", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapProjectRead, inst, access.Context{}, &fakeFacts{}, true, "", "step agent"},
 		{"a run still reads its own project's records", access.Principal{Kind: "instrument", Name: "run/9", Instrument: "run", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapAuditRead, project, access.Context{}, &fakeFacts{}, true, "", "step agent"},
 		{"a run may not open a change", access.Principal{Kind: "instrument", Name: "run/9", Instrument: "run", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "needs a person"},
-		{"AppTown's trigger opens a change", access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "schedule", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
-		{"AppTown's trigger starts a run", access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "webhook", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeInvokeLane, change, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
-		{"AppTown's engine advances a run", access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "engine", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapRunOperate, change, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
-		{"AppTown's trigger may not land", access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "schedule", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeLand, change, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "needs a person"},
-		{"AppTown's trigger stays in its project", access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "schedule", ProjectID: idstest.N(8)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "another project"},
+		{"AppTown's trigger opens a change", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
+		{"AppTown's trigger starts a run", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "webhook", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeInvokeLane, change, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
+		{"AppTown's engine advances a run", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapRunOperate, change, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
+		{"AppTown's trigger may not land", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeLand, change, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "needs a person"},
+		{"AppTown's trigger stays in its project", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: idstest.N(8)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "another project"},
+		{"the instrument name from before the AppTown rename carries nothing", access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "schedule", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "needs a person"},
 		{"a console acts as its person", access.Principal{Kind: "instrument", Name: "alice via console/x", Person: "alice", Instrument: "console", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{},
 			&fakeFacts{grants: map[string][]access.Grant{"alice": {role(1, "user", "alice", access.RoleProjectContrib, access.ScopeProject, p7)}}},
 			true, "", "Project contributor"},
@@ -241,7 +242,7 @@ func TestNoScopeCarriesRestore(t *testing.T) {
 		if access.CredentialCovers(access.Principal{Kind: "user", Name: "alice", Via: "oauth", Scopes: access.ScopeNames()}, c) {
 			t.Fatalf("an OAuth delegation with every scope covers %s", c)
 		}
-		for _, kind := range []string{"console", "run", "forge", "eval"} {
+		for _, kind := range []string{"console", "run", access.SystemInstrument, "eval"} {
 			if access.InstrumentMay(kind, c) {
 				t.Fatalf("a %s instrument may %s", kind, c)
 			}

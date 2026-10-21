@@ -1,4 +1,4 @@
-# Forge — State Model
+# AppTown — State Model
 
 What a project is, why a Change is a branch, where effects live, and how
 guidance steers the instance. Section numbers are stable because code and
@@ -220,7 +220,7 @@ person can resolve.
 A pack bundles guidance blocks at pinned versions, workflows at
 pinned library versions, policies, a toolchain, extensions and starter
 files. Packs have versions; a version is cut when the pins change. The
-platform pack `forge` carries what running behind AppTown asks of any
+platform pack `apptown` carries what running behind AppTown asks of any
 app and the system workflows; it is never offered in the wizard. Rival packs
 coexist (`go-small`, `conventions-only`, the game packs). Packs are not
 published across instances.

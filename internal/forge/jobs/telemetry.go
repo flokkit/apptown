@@ -32,8 +32,8 @@ func (m *jobSpans) Work(ctx context.Context, job *rivertype.JobRow, doInner func
 		name = "job." + job.Kind
 	}
 	ctx, span := m.tracer.Start(ctx, name, trace.WithAttributes(
-		attribute.String("forge.job.operation", req.Operation), attribute.String("forge.job.key", req.Key),
-		attribute.Int("forge.job.attempt", job.Attempt), attribute.Int64("forge.job.id", job.ID)))
+		attribute.String("apptown.job.operation", req.Operation), attribute.String("apptown.job.key", req.Key),
+		attribute.Int("apptown.job.attempt", job.Attempt), attribute.Int64("apptown.job.id", job.ID)))
 	defer span.End()
 	err := doInner(ctx)
 	if err != nil {

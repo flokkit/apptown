@@ -74,7 +74,7 @@ type piResult struct {
 
 // piInvoke runs pi once (twice on an empty turn when RetryEmpty) through the
 // executor. Every invocation carries the ambient build environment and the
-// forge CLI in its own PATH-first dir (agentenv.CLIDir) — by construction, so no
+// apptown CLI in its own PATH-first dir (agentenv.CLIDir) — by construction, so no
 // caller can forget them (a resumed review once lost the CLI it was given to
 // verify claims), and nothing can shadow it. Streams the transcript to the live
 // feed, records each invocation's token usage.

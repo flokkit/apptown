@@ -119,7 +119,7 @@ func mergeEffectsFor(a *App) workcommands.LandingEffects {
 // same principal in their owners). The receipt names the door;
 // the inference owner stays "system".
 func (a *App) asForge(ctx context.Context, projectID ids.ID, via string) context.Context {
-	return verifiedContext(ctx, access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: via, ProjectID: projectID})
+	return verifiedContext(ctx, access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: via, ProjectID: projectID})
 }
 
 // asEngine: AppTown's engine acting for itself in any project: recording a

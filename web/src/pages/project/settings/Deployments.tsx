@@ -423,7 +423,8 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
           {r.parts.map((p) => (
             <tr key={p.part || 'app'}>
               <td>{p.part || 'app'}{p.public && p.part ? <span className="muted"> (front door)</span> : null}{p.need ? <span className="muted"> (service)</span> : null}{p.suppliedService ? <span className="muted"> (workflow service)</span> : null}</td>
-              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'pack' ? `pack ${p.memoryDefault.name} v${p.memoryDefault.version}` : p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : p.memoryDefault.kind === 'forge' ? PRODUCT : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="chip pending">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
+              {/* 'forge' is AppTown's default as generations from before the AppTown rename recorded it. */}
+              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'pack' ? `pack ${p.memoryDefault.name} v${p.memoryDefault.version}` : p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : (p.memoryDefault.kind === 'apptown' || p.memoryDefault.kind === 'forge') ? PRODUCT : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="chip pending">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
               <td>{p.cpu}</td>
               <td>{p.observed.known ? fmtBytes(p.observed.usedBytes) : <span className="muted" title={p.observed.reason}>unknown</span>}</td>
               <td>

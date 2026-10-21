@@ -37,6 +37,12 @@ const (
 	DenyNotEligible       = "not_an_approver"
 )
 
+// SystemInstrument is the instrument AppTown acts under itself: its
+// scheduler, webhook trigger, engine, remediation, follow-ups, bindings and
+// system operations. Records from before the AppTown rename name it "forge";
+// those are history and keep that name, but no current caller carries it.
+const SystemInstrument = "apptown"
+
 // Principal is who is present, resolved from the authenticated identity.
 // Instruments (a console session, a step agent) are not people: they carry
 // the person behind them when there is one and are bounded by §11's tables.
@@ -48,7 +54,7 @@ type Principal struct {
 	Kind       string // user | anonymous | instrument
 	Name       string // username, "anonymous", or the instrument's own name
 	Person     string // for a console: the person wielding it; "" for a run
-	Instrument string // "" | console | run | forge
+	Instrument string // "" | console | run | eval | SystemInstrument
 	Via        string
 	ProjectID  ids.ID // the one project an instrument may act in
 	ConsoleID  string
@@ -157,8 +163,8 @@ type Facts interface {
 }
 
 // instrumentCaps is §11's table: what a console, a step agent or one of the
-// forge's own triggers may do at all, before the person's own authority is
-// consulted. Reads are implied. "forge" is the scheduler and the webhook
+// AppTown's own triggers may do at all, before the person's own authority is
+// consulted. Reads are implied. SystemInstrument is the scheduler and the webhook
 // trigger acting for AppTown itself, and the engine advancing a run whose
 // stage finished: the interim §11 names until worker identities exist.
 // Open a change, start its run, advance it, in one project.
@@ -167,7 +173,7 @@ var instrumentCaps = map[string][]Capability{
 		CapChangeCreate, CapChangeWriteRevision, CapChangeAttach},
 	"run": {CapChangeInvokeLane, CapChangePreview, CapChangeRunChecks, CapProjectRead, CapEvidenceAttach,
 		CapChangeWriteRevision},
-	"forge": {CapChangeCreate, CapChangeInvokeLane, CapRunOperate, CapProjectRead, CapChangeNarrative},
+	SystemInstrument: {CapChangeCreate, CapChangeInvokeLane, CapRunOperate, CapProjectRead, CapChangeNarrative},
 	// An eval's driver in one of its throwaway copies, bound to that copy:
 	// open the arm's Change, run it and land it under the eval's authority
 	// (which the landing guard judges against the copy record), take its
@@ -231,7 +237,7 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 			}
 			return Decision{Allow: true, Reason: "an eval's driver in one of its copies, within its table"}
 		}
-		if pr.Instrument == "forge" {
+		if pr.Instrument == SystemInstrument {
 			return Decision{Allow: true, Reason: "AppTown's own trigger, within its table"}
 		}
 		pr = Principal{ID: pr.ID, Kind: "user", Name: pr.Person, Via: pr.Via, Role: pr.Role}

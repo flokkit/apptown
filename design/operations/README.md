@@ -1,4 +1,4 @@
-# Operating Forge
+# Operating AppTown
 
 This page routes to operating contracts; it does not certify the state of a
 live instance.
@@ -49,7 +49,7 @@ Record the actual deployed revision and smoke results when rolling out.
 
 When nobody can sign in as an administrator (the password is lost, and no other
 administrator can set a new one from the People page), an operator on the
-forge's own host can give an existing account a new password:
+AppTown's own host can give an existing account a new password:
 
 ```sh
 umask 077; apptownd -reset-password <username> > new-password
@@ -57,9 +57,9 @@ umask 077; apptownd -reset-password <username> > new-password
 
 Run it as the user the apptown runs as, with AppTown's normal settings (the same
 flags or `APPTOWN_*` environment, including `-db-url`), because it opens the
-forge's database; the serving AppTown can stay up. It makes the same change an
+AppTown's database; the serving AppTown can stay up. It makes the same change an
 administrator's password edit makes: the account's sessions end and one
-`user.saved` receipt records it, with `forge-operator (host)` as the actor. It
+`user.saved` receipt records it, with `apptown-operator (host)` as the actor. It
 prints only the new random password on stdout (logs go to stderr) and exits
 without serving. It refuses an unknown username and never creates an account.
 It does not change the account's role, and does not re-enable a disabled

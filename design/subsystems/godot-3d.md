@@ -2,7 +2,7 @@
 
 The Godot seed and guidance provide a starting point for browser games. They use
 the same project, workflow, Docker build and deployment mechanisms as other apps;
-there is no Godot-specific execution engine in Forge.
+there is no Godot-specific execution engine in AppTown.
 
 The seed's Dockerfile imports and exports the project with a pinned Godot build
 image, checks for expected Web outputs, then serves them with Caddy. The export

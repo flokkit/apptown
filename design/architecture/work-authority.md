@@ -1,9 +1,9 @@
 # Work's internal API
 
 `internal/forge/workflow` owns Changes, Runs, Steps and their lifecycle operations.
-`Service` is the caller-facing entry point. Forge binds verified identity and
+`Service` is the caller-facing entry point. AppTown binds verified identity and
 assembles external effects. Stores and generated SQL are private. Work never
-imports Forge or a shared models package.
+imports AppTown or a shared models package.
 
 Work is not the only path to Work data: some consumers (Delivery, agent and
 console adapters, project handlers, MCP) read Work's SQL directly, and trusted
@@ -12,16 +12,16 @@ caller-authorized Service queries.
 
 ## Records and assertions
 
-Forge uses Work's Source, MergeSource, ReadyStep, DispatchPlan, Reworked and
+AppTown uses Work's Source, MergeSource, ReadyStep, DispatchPlan, Reworked and
 merge-result records directly, with no local conversions.
 
-Work connects Assertions to Merges itself; Forge does not relay merge assertions
+Work connects Assertions to Merges itself; AppTown does not relay merge assertions
 back into the same service. RefreshAssertions owns
 current-stage selection, evaluation, stale-check reset and redispatch, with current
 caller checks. Independent assertion failures are collected and returned while
 other eligible checks continue; failed reset transactions never trigger dispatch.
 
-Forge binds caller identity, supplies executors and cross-domain receipt
+AppTown binds caller identity, supplies executors and cross-domain receipt
 participants, and translates transport errors. The automatic executor
 implementations live outside Work, largely on App.
 
@@ -31,7 +31,7 @@ Service exposes typed Change creation/edit/import/uplift, Run start/landing/
 abandonment, Step retry, send-back, approval, override and advancement commands,
 and Change/Run detail/list/trace/activity/artifact queries, closed-Change history,
 open Changes without active Runs and running-Step observations. HTTP and MCP bind their
-verified caller through Forge's authorization adapter. A command's actor string is
+verified caller through AppTown's authorization adapter. A command's actor string is
 receipt attribution, never evidence of permission.
 
 The authority port receives an operation and its stored project/Change/Run/Step
@@ -158,7 +158,7 @@ advance a newer parent stage.
 Landings owns accepted-source handoff and its one-time acceptance/adoption
 receipts. It checks the selected Change/project before availability and uses the
 canonical Starter and Advancer. Continuation supersession and the original landing
-stage/revision fence prevent stale acceptance from advancing newer work. Forge
+stage/revision fence prevent stale acceptance from advancing newer work. AppTown
 supplies availability and dispatches the committed result.
 
 ## Dispatch and shutdown
@@ -179,10 +179,10 @@ Rework requests made by an active stage are coalesced and admitted after it retu
 Wait includes any next stage dispatched by accepted work.
 
 BeginStop closes admission synchronously and returns the single drain signal.
-Forge shares its existing shutdown deadline across dispatch and other workers.
+AppTown shares its existing shutdown deadline across dispatch and other workers.
 Already-running effects retain their own cancellation/timeout policy; joining them
 does not create an unbounded host shutdown. Panics retain stack diagnostics and
-Forge's incident reporting, and cannot advance the interrupted dispatch. There is
+AppTown's incident reporting, and cannot advance the interrupted dispatch. There is
 no additional recovery framework, polling loop or worker.
 
 ## Change narrative and external boundaries
@@ -193,7 +193,7 @@ titles remain protected. Delivery release notes join through a named transaction
 participant; any failed participant/audit write rolls back publication. Model calls,
 Git inspection and Delivery evidence remain external effects.
 
-Forge's workflow adapters contain no direct database calls. Adoption revision
+AppTown's workflow adapters contain no direct database calls. Adoption revision
 pairs use the Ways of Working owner twice in the supplied transaction, checking
 both project identities; its reader validates each adoption record, with no
 local SQL fallback.
@@ -214,7 +214,7 @@ revision/provenance checks and its adoption receipt in that same transaction.
 
 Inference observes its issued project/run scope, live step attempt and durable
 owner through one Work statement snapshot. Work owns lifecycle interpretation and
-run attribution; Forge retains runtime/network and disabled-account
+run attribution; AppTown retains runtime/network and disabled-account
 policy. Continued and long-lived consoles use their own lifecycle, without a Work
 run-liveness check or a new expiry.
 
@@ -228,6 +228,6 @@ to a display; they do not replace the locked settlement check.
 Overview reads enter Service, retain authorized project IDs in the final queries,
 and reject cross-project associations. Root-run history aggregates share one scan;
 child durations are excluded and merge receipts remain scoped to the Change.
-Forge owns display formatting and Git inspection. Read failures are reported,
+AppTown owns display formatting and Git inspection. Read failures are reported,
 not presented as empty activity.
 

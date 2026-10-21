@@ -60,8 +60,8 @@ func TestGatewayObservesRequestsWithoutCredentials(t *testing.T) {
 		t.Fatalf("inference span is not linked to its step attempt: %+v", spans[0].Links)
 	}
 	a := spans[0].Attributes
-	if a["forge.inference.provider"] != "paid" || a["forge.inference.model"] != "allowed" || a["forge.workload.kind"] != "step" || a["forge.project"] != idstest.N(3).String() || a["forge.run"] != idstest.N(9).String() ||
-		a["http.response.status_code"] != "200" || a["forge.inference.tokens.input"] != "8" || a["forge.inference.tokens.output"] != "3" {
+	if a["apptown.inference.provider"] != "paid" || a["apptown.inference.model"] != "allowed" || a["apptown.workload.kind"] != "step" || a["apptown.project"] != idstest.N(3).String() || a["apptown.run"] != idstest.N(9).String() ||
+		a["http.response.status_code"] != "200" || a["apptown.inference.tokens.input"] != "8" || a["apptown.inference.tokens.output"] != "3" {
 		t.Fatalf("span attributes: %+v", a)
 	}
 	var requests, tokens bool

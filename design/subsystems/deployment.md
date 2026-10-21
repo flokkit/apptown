@@ -114,7 +114,7 @@ card reads a key's allowance from OpenRouter on its own route
 ## Selected source and reproducibility
 
 The application declaration is native `.apptown/app.yaml`. Contract parsing and
-runtime preparation are separate operations. Missing inputs are errors; Forge
+runtime preparation are separate operations. Missing inputs are errors; AppTown
 does not infer them from an older format or current project head.
 
 Docker execution stages the selected committed tree and stores its prepared
@@ -180,7 +180,7 @@ It has one of two forms.
   when it is asked for, before any provider effect: no database, copy or
   app is made (`digitalocean.MultiImageRefusal`, checked with the bundle's
   other admission rules). The refusal says how many images it uses and to
-  deploy it to a Docker host target instead; Forge cannot put the images
+  deploy it to a Docker host target instead; AppTown cannot put the images
   in different repositories. The driver also refuses such a spec
   before asking for the app;
 - Portainer, by promotion: the stack names every part and init image by
@@ -188,7 +188,7 @@ It has one of two forms.
   deployment's card) or by the intranet release, it is the same stack: one
   builder (`Environment.portainerStack`) renders the app's needs as on a
   Docker host (each need's `provides:`, Postgres's ordinary owner with the
-  forge's password, data on a volume the deploy made and the deployment
+  AppTown's password, data on a volume the deploy made and the deployment
   owns), and the release asks for a backup once it is live. The named door
   also refuses images by ID and a platform that is unknown or not the
   bundle's. A project has one deployment on a Portainer target, named by the
@@ -211,7 +211,7 @@ error. A digest the registry confirms missing is refused, never rebuilt:
 registry retention decides how long a release can be redeployed. Docker
 hosts, App Platform and Portainer refuse a target whose platform is
 unknown or not the bundle's. Release previews do not check: they rely on
-the rule of one platform per forge (the worker's), as an accepted
+the rule of one platform per AppTown (the worker's), as an accepted
 limitation.
 Readable registry tags (`change-<id>-<image>`, `release-<n>-<image>`) are
 for people; the digest is the record. The operating details, refusals and
@@ -342,7 +342,7 @@ deployment records, `deployments.host_prefix`, so one made before 1.0 keeps
   (`preview.Service.ReleaseEndedPreviewKeys`, every minute). A revoke that
   fails becomes a retained row (`Retained.RecordPreviewKeyIn`) in the same
   transaction that forgets the key on `preview_owned`. The place is asked, not the
-  forge's in-memory record of what it served: the age reaper and project
+  AppTown's in-memory record of what it served: the age reaper and project
   deletion remove previews without touching that record (review LI-01).
   A place that cannot be asked keeps every key it might hold.
 
@@ -530,7 +530,7 @@ logs; it never keeps the older definition in use.
 Docker host's, through Portainer's Docker proxy for the environment
 (`/api/endpoints/<id>/docker`). `Providers.PortainerDataScope` serves that
 proxy on a private Unix socket (one per target and environment, for the
-forge's life): each request goes to Portainer with the target's key, read
+AppTown's life): each request goes to Portainer with the target's key, read
 at that moment, over Go's TLS, so the key is in no file, argument or
 environment variable. The environment is read first: one that is not a
 Docker environment, an edge agent in async mode (Portainer gives it no
@@ -796,7 +796,7 @@ one, and a host kept for evals or rehearsals takes nothing else
    app `apptown-rehearsal-<op>`), in `rehearsal_places` before making it;
 3. stream each copy from the store through AppTown's memory into that
    volume, held to the set's size and digest: the copy is never on the
-   forge's own disk, where a project's script steps run (review RB-01); then
+   AppTown's own disk, where a project's script steps run (review RB-01); then
    boot sealed (`docker.Sealed`): its own network,
    no published port, no ingress, the needs started empty and filled by the
    kind's `copy.import` and `copy.verify` on that network as the emulator's
@@ -1139,5 +1139,5 @@ failure it returns (`docker.Scope.Redact`, `Host.Boot`). Rotation is not
 built.
 The stock Postgres script makes the app's user an ordinary owner at every
 start (converting a server whose app user is the superuser) and sets the
-forge's password; the servers started beside AppTown's own steps make the user a
+AppTown's password; the servers started beside AppTown's own steps make the user a
 superuser (`stepEnv`, `dependency.LocalRuntime.Steps`).

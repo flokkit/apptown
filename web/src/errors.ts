@@ -31,7 +31,7 @@ export async function bootErrorReporting() {
 export function reportingOptions(dsn: string, release?: string): Sentry.BrowserOptions {
   return {
     dsn,
-    release: release ? `forge-ui@${release}` : undefined,
+    release: release ? `apptown-ui@${release}` : undefined,
     environment: window.location.hostname,
     sendDefaultPii: false,
     tracesSampleRate: 0,

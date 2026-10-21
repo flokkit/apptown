@@ -118,7 +118,7 @@ func (h ProjectAdoption) placementOf(ctx context.Context, p *project.Project, ad
 	}
 	if p.DefaultBranch != "" && !onForge {
 		view.Conditions = append(view.Conditions, placementCondition{Kind: "no-platform",
-			Sentence: "this project is not on the platform pack (forge): one of the platform blocks is missing from its guidance"})
+			Sentence: "this project is not on the platform pack (apptown): one of the platform blocks is missing from its guidance"})
 	}
 	drift := ""
 	state, err := h.adoption.Current(ctx, p.ID)

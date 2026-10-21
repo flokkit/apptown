@@ -173,7 +173,7 @@ build of a project's source on a daemon (`docker.Scope.Build`, which
 `docker`, so neither a builder alias with a saved remote builder nor an
 inherited `BUILDX_BUILDER` or `BUILDX_CONFIG` takes it elsewhere. Without
 buildx the daemon's legacy builder builds. The worker's task keeps its
-private `forge` builder. Recorded release images are
+private `apptown` builder. Recorded release images are
 never rebuilt.
 
 The file server answers two AppTown paths. `/_apptown/env.js` gives the page its
@@ -216,7 +216,7 @@ the project's registry ([release bundles](deployment.md#release-bundles)):
 | `portainer` | no | yes | never; the stack names each digest |
 
 Release previews boot a bundle by digest where change previews boot,
-without a platform check: they rely on one platform per forge (the
+without a platform check: they rely on one platform per AppTown (the
 worker's). Every release target's platform must be the bundle's: a Docker
 host's daemon answers it, App Platform is `linux/amd64`, Portainer's
 endpoint answers it; unknown or different is refused before any effect. In the no-local-Docker mode the
@@ -225,7 +225,7 @@ others.
 
 App Platform keeps the copies in the account's one DOCR registry, one
 repository per project, named after its slug. The repository is the
-forge's: the first copy creates it and AppTown records it per project and
+AppTown's: the first copy creates it and AppTown records it per project and
 connector. A repository of that name AppTown did
 not create refuses the release, at preflight and before any copy; the
 one-time ownership inspection can propose one an earlier release made, for

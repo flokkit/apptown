@@ -24,7 +24,7 @@ type Remote struct {
 	Pin string
 	// Password, when set, is offered to the server through GIT_ASKPASS from
 	// the helper's own environment: never in the URL, an argument, the
-	// repository's config or a log. The user name offered is "forge".
+	// repository's config or a log. The user name offered is "apptown".
 	Password string
 }
 
@@ -43,7 +43,7 @@ func remoteFlags(pin string) []string {
 
 // askpass is the helper git asks for a user name and a password. It reads
 // the password from its own environment, so the value is in no file.
-const askpass = "#!/bin/sh\ncase \"$1\" in\nUsername*) echo forge ;;\n*) printf '%s\\n' \"$APPTOWN_GIT_PASSWORD\" ;;\nesac\n"
+const askpass = "#!/bin/sh\ncase \"$1\" in\nUsername*) echo apptown ;;\n*) printf '%s\\n' \"$APPTOWN_GIT_PASSWORD\" ;;\nesac\n"
 
 // remoteCommand is git against r, hardened as the hub's commands are (only
 // PATH and an empty HOME from the environment, no system or global config),

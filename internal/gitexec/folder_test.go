@@ -195,6 +195,26 @@ func TestAnInertExtraKeyRefusesTheFolder(t *testing.T) {
 	sameTree(t, "the refused folder", before, tree(t, w.folder))
 }
 
+// A folder cloned before the AppTown rename was given the email
+// helper@forge.local; its config is history and the folder is still
+// AppTown's own clone. Any other email is not.
+func TestAFolderClonedBeforeTheRenameKeepsItsEmail(t *testing.T) {
+	t.Parallel()
+	w := newFolderWorld(t)
+	gitAt(t, w.folder, "config", "user.email", "helper@forge.local")
+	f := LockFolder(w.folder)
+	if err := f.FastForward(context.Background(), w.hub, "work"); err != nil {
+		t.Fatalf("a folder with the email from before the rename: %v", err)
+	}
+	f.Release()
+	gitAt(t, w.folder, "config", "user.email", "someone@example.com")
+	f = LockFolder(w.folder)
+	defer f.Release()
+	if err := f.FastForward(context.Background(), w.hub, "work"); !errors.Is(err, ErrFolderRefused) || !strings.Contains(err.Error(), "user.email") {
+		t.Fatalf("a folder with another email: %v", err)
+	}
+}
+
 // hostile is metadata a local writer can leave in a folder so that Git run
 // there would start a command of its choosing or read and write outside the
 // folder. Each is refused before any Git runs.

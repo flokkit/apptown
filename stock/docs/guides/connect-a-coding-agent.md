@@ -58,7 +58,7 @@ Add this to `~/.codex/config.toml`:
 url = "{apptown:mcp}"
 ```
 
-Run `codex mcp login forge` (or the equivalent your version offers; see
+Run `codex mcp login apptown` (or the equivalent your version offers; see
 `codex mcp --help`) to open the browser sign-in.
 
 ### What you are allowing
@@ -219,7 +219,7 @@ agent*, with the authorization decision behind it.
 - **401, "sign in through your coding agent"** — the agent has no valid
   credential: it never signed in, you disconnected it, or its personal
   token was revoked. Sign in again from the agent (or check the header is
-  exactly `Authorization: Bearer forge_…`).
+  exactly `Authorization: Bearer apptown_…`).
 - **"This AppTown runs in open mode"** — an open-mode AppTown has no identity
   to delegate. Switch it to internal auth (`-auth internal`) or SSO first.
 - **403, "session user mismatch"** — the agent is presenting a session that

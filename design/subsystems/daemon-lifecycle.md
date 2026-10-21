@@ -71,7 +71,7 @@ At expiry the coordinator stops waiting, reports unfinished components and retur
 to main. HTTP drains force-close ordinary connections. There is no subsequent
 unbounded database close or worker wait. An external command or goroutine that
 ignores cancellation may continue until process exit; a remote effect may outlive
-Forge entirely.
+AppTown entirely.
 
 ## Persisted work
 

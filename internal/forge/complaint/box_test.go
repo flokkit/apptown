@@ -239,7 +239,7 @@ func TestTheForgeQueueTakesOnlyAnEvalsComplaintsAboutTheForge(t *testing.T) {
 		key     string
 		project ids.ID
 		about   string
-	}{{"real-wow", real, AboutWayOfWorking}, {"real-default", real, ""}, {"copy-forge", copy, AboutForge}, {"copy-wow", copy, AboutWayOfWorking}, {"copy-project", copy, AboutProject}} {
+	}{{"real-wow", real, AboutWayOfWorking}, {"real-default", real, ""}, {"copy-forge", copy, AboutAppTown}, {"copy-wow", copy, AboutWayOfWorking}, {"copy-project", copy, AboutProject}} {
 		id, err := box.File(ctx, Entry{ProjectID: f.project, Source: "run", Text: f.key, About: f.about})
 		if err != nil {
 			t.Fatal(err)
@@ -264,10 +264,10 @@ func TestTheForgeQueueTakesOnlyAnEvalsComplaintsAboutTheForge(t *testing.T) {
 	if c := got[filed["real-wow"]]; c.About != AboutWayOfWorking || c.PackVersion != "go-small@4" || !c.EvalID.IsZero() {
 		t.Fatalf("a way-of-working complaint outside evals, with its packs: %+v", c)
 	}
-	if c := got[filed["real-default"]]; c.About != AboutForge {
+	if c := got[filed["real-default"]]; c.About != AboutAppTown {
 		t.Fatalf("about defaults to AppTown: %+v", c)
 	}
-	if c := got[filed["copy-forge"]]; c.EvalID != idstest.N(9) || c.About != AboutForge {
+	if c := got[filed["copy-forge"]]; c.EvalID != idstest.N(9) || c.About != AboutAppTown {
 		t.Fatalf("an eval's AppTown complaint reaches the queue marked with its eval: %+v", c)
 	}
 }

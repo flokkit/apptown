@@ -136,7 +136,7 @@ func (o *oauthStore) RegisterClient(ctx context.Context, name string, redirectUR
 		if _, err := queries(tx).InsertClient(ctx, accesssql.InsertClientParams{ClientID: c.ID, Name: c.Name, RedirectUris: uris, CreatedAt: at.UTC()}); err != nil {
 			return err
 		}
-		return audit.At(at).RecordIn(ctx, tx, "forge", ids.Nil, "oauth.client-registered", c.Name, map[string]any{"clientId": c.ID, "redirectUris": redirectURIs})
+		return audit.At(at).RecordIn(ctx, tx, "apptown-system", ids.Nil, "oauth.client-registered", c.Name, map[string]any{"clientId": c.ID, "redirectUris": redirectURIs})
 	})
 	return c, err
 }

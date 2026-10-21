@@ -25,7 +25,7 @@ owns lifecycle and settlement guarantees.
 
 A chat is a durable conversation with its own identity and workspace authority.
 It is not identical to its container or to a run. Project chats read a snapshot;
-change chats edit a worktree. Conversation composes Forge scope with Console's
+change chats edit a worktree. Conversation composes AppTown scope with Console's
 session lifecycle. See [chats and runtime](console.md).
 
 ## Shared standards and evidence

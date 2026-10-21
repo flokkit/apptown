@@ -1,13 +1,13 @@
 # Database initialization and upgrades
 
-Forge uses PostgreSQL. Each owner maintains its schema fragment and named queries;
+AppTown uses PostgreSQL. Each owner maintains its schema fragment and named queries;
 Dbschema embeds the generated schema bundle and applies central numbered migrations.
 River manages its own tables/migrations through the jobs integration.
 
 New databases are initialized from the assembled schema. Existing databases must
 meet the supported baseline before normal migrations run. The baseline is
 schema 147, the 1.0 baseline ([schema ownership](../architecture/schema-ownership.md));
-normal startup refuses an older database rather than upgrading it. Forge refuses
+normal startup refuses an older database rather than upgrading it. AppTown refuses
 SQLite data rather than silently starting a new database beside it.
 
 `-db-url` or `APPTOWN_DB_URL` selects an external database. With neither configured,

@@ -39,7 +39,7 @@ const BuiltInTargetName = "built-in-docker"
 // configuration owns and keeps what an administrator set; a change it makes
 // is receipted to AppTown itself.
 func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
-	const who = "forge"
+	const who = "apptown-system"
 	if !s.hosts.settings.NoLocalDocker { // with no local daemon there is no built-in host
 		_, err := s.Targets.Sync(ctx, &Target{
 			Name: s.hosts.settings.BuiltInTarget, Kind: KindDockerHost, Provider: "", Origin: OriginBuiltIn,

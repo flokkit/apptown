@@ -1,8 +1,8 @@
 {
   "title": "AppTown",
-  "uid": "forge-telemetry",
+  "uid": "apptown-telemetry",
   "tags": [
-    "forge"
+    "apptown"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -691,7 +691,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.service.name=\"apptownd\" && name=~\"job.*\"} | rate() by (span.forge.job.operation)",
+          "query": "{resource.service.name=\"apptownd\" && name=~\"job.*\"} | rate() by (span.apptown.job.operation)",
           "refId": "A",
           "limit": 20
         }
@@ -726,7 +726,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.service.name=\"apptownd\" && name=~\"job.*\"} | quantile_over_time(duration, .95) by (span.forge.job.operation)",
+          "query": "{resource.service.name=\"apptownd\" && name=~\"job.*\"} | quantile_over_time(duration, .95) by (span.apptown.job.operation)",
           "refId": "A",
           "limit": 20
         }
@@ -759,7 +759,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Every step and inference span carries the run id. Type one into the **run** box at the top, then open the traces for it:\n\n[Tempo: traces for run $run](${tempo_url}/explore?schemaVersion=1&panes=%7B%22f%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7Bresource.service.name%3D%5C%22forged%5C%22%20%26%26%20span.forge.run%3D$run%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D)\n\nEach `workflow.step` trace has a `queued` and a `running` child; each `inference.request` span links to the step attempt that made it."
+        "content": "Every step and inference span carries the run id. Type one into the **run** box at the top, then open the traces for it:\n\n[Tempo: traces for run $run](${tempo_url}/explore?schemaVersion=1&panes=%7B%22f%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7Bresource.service.name%3D%5C%22apptownd%5C%22%20%26%26%20span.apptown.run%3D$run%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D)\n\nEach `workflow.step` trace has a `queued` and a `running` child; each `inference.request` span links to the step attempt that made it."
       }
     }
   ]

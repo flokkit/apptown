@@ -93,7 +93,7 @@ Nothing you run there can see the host's Docker or other projects.
   proxies explicitly when a build needs them, e.g.
   ` + "`docker build --build-arg GOPROXY=$GOPROXY ...`" + ` (and read the
   matching ARG in the Dockerfile).
-- Multi-arch: a buildx builder named ` + "`forge`" + ` is preconfigured and
+- Multi-arch: a buildx builder named ` + "`apptown`" + ` is preconfigured and
   set as your default (network-host, mirror-aware — DNS works in RUN
   steps, unlike a self-created builder). One command:
   ` + "`docker buildx build --platform linux/amd64,linux/arm64 --push -t $IMAGE_REPO:tag .`" + `

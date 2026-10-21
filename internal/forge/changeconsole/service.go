@@ -179,9 +179,9 @@ func (c *Service) Rehearse(ctx context.Context, s *console.Session) {
 				log.Printf("console %s: delivering the boot check failed: %v", s.ID, derr)
 				delivered = false
 			}
-			audit.At(c.saves.now()).BestEffort(ctx, c.db, "forge", conversation.Of(s).ProjectID, "change.boot-check", fmt.Sprintf("%d", conversation.Of(s).ChangeID), map[string]any{"ok": false, "error": bootErr.Error(), "delivered": delivered})
+			audit.At(c.saves.now()).BestEffort(ctx, c.db, "apptown-system", conversation.Of(s).ProjectID, "change.boot-check", fmt.Sprintf("%d", conversation.Of(s).ChangeID), map[string]any{"ok": false, "error": bootErr.Error(), "delivered": delivered})
 		} else {
-			audit.At(c.saves.now()).BestEffort(ctx, c.db, "forge", conversation.Of(s).ProjectID, "change.boot-check", fmt.Sprintf("%d", conversation.Of(s).ChangeID), map[string]any{"ok": true})
+			audit.At(c.saves.now()).BestEffort(ctx, c.db, "apptown-system", conversation.Of(s).ProjectID, "change.boot-check", fmt.Sprintf("%d", conversation.Of(s).ChangeID), map[string]any{"ok": true})
 		}
 		if delivered {
 			rehearsed = fp

@@ -61,7 +61,7 @@ func (s *Service) stillPrincipal(ctx context.Context, c access.Principal) (acces
 		return access.Principal{}, fmt.Errorf("%w: %s", ErrCredentialGone, fmt.Sprintf(why, args...))
 	}
 	if kind == "system" {
-		if c.Kind != "instrument" || c.Instrument != "forge" {
+		if c.Kind != "instrument" || c.Instrument != access.SystemInstrument {
 			return gone("a system binding names no person")
 		}
 		return c, nil

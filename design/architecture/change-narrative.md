@@ -7,7 +7,7 @@ foreign-project rows and scan reports do not. Required read failures return no
 partial source. Run state uses Work's strict state type.
 
 The builder has three bound effects: model-slot resolution, live conversation/Git
-evidence, and model completion. It has no App dependency. Forge binds those effects;
+evidence, and model completion. It has no App dependency. AppTown binds those effects;
 no SQL transaction remains open during them. Chat evidence retains the last two
 substantial helper reports per matching session. Committed Git comparisons read
 the change workspace directly, falling back to the project repository only when

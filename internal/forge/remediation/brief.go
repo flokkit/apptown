@@ -48,7 +48,7 @@ lines, no refactors beside the fix. If something else MUST change for the fix
 to work, change it and explain it in your report under a heading "Also changed,
 and why" — one line per file, what and why — so the reviewer can judge it. A
 change that is neither needed for the fix nor explained there fails review.
-Other findings that already fail on main are marked "preexisting" by forge
+Other findings that already fail on main are marked "preexisting" by apptown
 check and the gate; they are not yours to fix here. Dependencies are not yours
 to move: install exactly what the lockfile says; never run an update, bump a
 version or remove a package (the gate refuses a remediation that did). You MAY

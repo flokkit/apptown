@@ -1,4 +1,4 @@
-// Package stock embeds the vendor workflow library shipped with forge.
+// Package stock embeds the vendor workflow library shipped with AppTown.
 // Synced into the instance library at startup (state-model §7.1: vendor
 // workflows version with the release).
 package stock

@@ -49,7 +49,7 @@ and digest. Uplift admission adds no workspace or generated branch.
 
 Change record and state, legal lifecycle acts, title ownership and decisions, the
 point read, creation, human edit and title participants are in
-`internal/workflow`, which never imports Forge; Forge has thin assembly adapters.
+`internal/workflow`, which never imports AppTown; AppTown has thin assembly adapters.
 The admission entries keep their composition guards and named
 transaction-participant contract; they are not an independently authorized
 public service.

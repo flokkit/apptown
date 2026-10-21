@@ -105,7 +105,7 @@ func TestAgentRequiresArtifactPreflight(t *testing.T) {
 	}
 	var settled bool
 	for _, sp := range receiver.Spans() {
-		if sp.Name == "workflow.step" && sp.Attributes["forge.step.type"] == "agent/pi" && sp.Attributes["forge.step.outcome"] == agentStep.Status.String() && agentStep.Status.String() == "fail" && sp.Attributes["forge.harness.outcome"] == "" {
+		if sp.Name == "workflow.step" && sp.Attributes["apptown.step.type"] == "agent/pi" && sp.Attributes["apptown.step.outcome"] == agentStep.Status.String() && agentStep.Status.String() == "fail" && sp.Attributes["apptown.harness.outcome"] == "" {
 			settled = true
 		}
 	}
@@ -153,9 +153,9 @@ func TestAgentPreflightSettlementFailureIsReportedAsSuch(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, sp := range receiver.Spans() {
-		if sp.Name == "workflow.step" && sp.Attributes["forge.step.type"] == "agent/pi" {
-			if sp.Attributes["forge.step.outcome"] != "settlement_error" {
-				t.Fatalf("a failed settlement was reported as %q", sp.Attributes["forge.step.outcome"])
+		if sp.Name == "workflow.step" && sp.Attributes["apptown.step.type"] == "agent/pi" {
+			if sp.Attributes["apptown.step.outcome"] != "settlement_error" {
+				t.Fatalf("a failed settlement was reported as %q", sp.Attributes["apptown.step.outcome"])
 			}
 			return
 		}

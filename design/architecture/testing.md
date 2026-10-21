@@ -70,7 +70,7 @@ trusting a pass; the other two fail without their prerequisites.
 
 - `browser` (`go test -tags=browser ./internal/forge/ -run
   TestBrowserSecurityChromium -v`): a real Chromium against
-  disposable Forge state — session cookies, cross-origin refusals, the
+  disposable AppTown state — session cookies, cross-origin refusals, the
   terminal's origin check. Needs node and Playwright, named by
   `APPTOWN_PLAYWRIGHT_MODULE` (its `index.mjs`). About 2 s.
 - `pi` (`go test -tags=pi ./internal/forge/ -run TestInferencePinnedPi -v`):
@@ -227,13 +227,13 @@ checks application/user ownership, so its presence alone does not require a
 serial test.
 
 River's own maintenance election and rescue machinery is not tested here; it
-would add a long wait to the default suite for River's behaviour, not Forge's.
-Forge's queue admission, atomic receipts, retries, attempt fencing and bounded
+would add a long wait to the default suite for River's behaviour, not AppTown's.
+AppTown's queue admission, atomic receipts, retries, attempt fencing and bounded
 shutdown are. The remediation shutdown test uses `testing/synctest` to exercise
 the real five-second cap with virtual time.
 
 An `integration`-tagged Jobs subprocess test checks the immediate process-death
-gap and Forge's exclusive-startup settlement. It kills a worker and waits for
+gap and AppTown's exclusive-startup settlement. It kills a worker and waits for
 confirmed exit, without waiting for rescue or shortening timeouts, and adds no
 subprocess to the default suite.
 

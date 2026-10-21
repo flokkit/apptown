@@ -151,7 +151,7 @@ The worker shares no files with AppTown.
    fetches the ref from it to repair the work.
 8. AppTown's workspace is fast-forwarded to the published commits. If it
    cannot be (it has its own commits, or its Git metadata is not the
-   forge's own clone), the branch still holds them, the workspace is left
+   AppTown's own clone), the branch still holds them, the workspace is left
    alone and readers read the branch.
 
 The worker's workspace is released only after the candidate or its refused
@@ -338,7 +338,7 @@ these.
 A task or check AppTown sends a worker carries AppTown's task limits
 (`apptownd -task-cpus`, `-task-memory-mib`, `-task-pids`; 4, 8192, 4096 by
 default), and the worker applies them to its container. A check request
-with none, from an older forge, runs under the same defaults. A run killed at
+with none, from an older AppTown, runs under the same defaults. A run killed at
 its memory limit comes back as `out_of_memory`, never as an exit code: the
 step errors and names the limit.
 
@@ -475,7 +475,7 @@ Every check result (tests, scan and guidance steps) records its placement:
 `{"worker": <address>, "role": "check"}` for the check worker (the role it
 reported at AppTown's start), `{"worker": <address>}` for the worker,
 shared with agents (its role is not read), or `{"local": true}` for the
-forge's own host. Script results record where scripts ran, the worker or
+AppTown's own host. Script results record where scripts ran, the worker or
 AppTown's host, never the check worker. Results recorded before this have
 none. With a check worker, a gate counts a passing check result only if the
 check worker produced it; any other is "not independently checked; rerun
@@ -508,7 +508,7 @@ on AppTown's Docker.
 
 **A preview domain is required.** Worker previews are reached only by name,
 at `change-N.<preview domain>` or `run-N.<preview domain>`, through the
-forge's preview proxy (`-tier-domain preview=<domain>`). An AppTown with a
+AppTown's preview proxy (`-tier-domain preview=<domain>`). An AppTown with a
 worker and no preview domain refuses previews, with that reason.
 
 **How a boot travels.**
@@ -534,7 +534,7 @@ change's preview keeps its build images thirty days after that. Every
 preview on a worker is reached through AppTown's preview proxy, so every
 request to one is a look. AppTown decides; the worker removes what it is
 asked to. The snapshot a change's preview was booted from stays on the
-forge; the tree uploaded to the worker goes with the preview, and a reopen
+AppTown; the tree uploaded to the worker goes with the preview, and a reopen
 uploads it again.
 
 **A chat on the worker** has its change previewed as saved. Once the
@@ -1019,7 +1019,7 @@ be a plain process on a droplet or a container with no Docker socket.
   project's registry. Nothing is built on a target.
 
 **Addresses.** Three connections cross machines:
-- **Forge to worker:** the worker URL, over mutual TLS.
+- **AppTown to worker:** the worker URL, over mutual TLS.
 - **Worker to AppTown:** a step's container reaches AppTown's console
   listener at `-console-url` and its inference listener at
   `-inference-url`. `-inference-networks` must name the addresses those
@@ -1027,7 +1027,7 @@ be a plain process on a droplet or a container with no Docker socket.
   proof those were Docker's default address pools only, without the test
   host's own LAN: name the pools step containers use, not the whole
   network the host sits on.
-- **Forge to attached host:** ssh, and the app's published port at the
+- **AppTown to attached host:** ssh, and the app's published port at the
   host's address, for the readiness probe. An attached host publishes an
   app's port on every interface; the host's firewall decides who else may
   reach it. On AppTown's own daemon, apps are published on loopback
@@ -1089,14 +1089,14 @@ Refused in the mode, each with its reason:
   than the one its images live on, App Platform, Portainer and release
   previews; and, for one recorded before releases named their target,
   manual promotion and missing-container recovery;
-- project chats, continuations and `placement=forge`.
+- project chats, continuations and `placement=apptown`.
 
 **Read views.** Whatever would have asked AppTown's own Docker says
 "unavailable" (the built-in host) or "unknown" (what AppTown cannot
 observe), never "not running". With the worker stopped, a change's preview
 reads "unavailable" with the worker's error.
 
-**Switching an existing forge.** An AppTown that ran with its own Docker
+**Switching an existing AppTown.** An AppTown that ran with its own Docker
 needs a drain before it starts in the mode; a fresh installation does not.
 See [switching an AppTown to no local Docker](#switching-an-apptown-to-no-local-docker).
 
@@ -1286,7 +1286,7 @@ fresh database. An upgraded database always needs a drain, even one that
 ran nothing: the upgrade cannot tell. Any start without the mode needs a new drain
 before the next start in it. The drain sees containers only: an agent run as
 a host process (`-agent-executor local`) is not observed, so stop such a
-forge's agents before draining.
+AppTown's agents before draining.
 
 ## What the tests show, and what is not verified
 

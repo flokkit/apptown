@@ -78,11 +78,11 @@ func TestObserverDescribesAStepAttempt(t *testing.T) {
 		t.Fatalf("spans: %+v", spans)
 	}
 	a := step.Attributes
-	if a["forge.step.type"] != "agent/pi" || a["forge.workflow"] != "quick-change" || a["forge.project"] != idstest.N(3).String() || a["forge.run"] != idstest.N(7).String() || a["forge.step"] != idstest.N(42).String() || a["forge.attempt"] != "2" ||
-		a["forge.harness.outcome"] != "ok" || a["forge.step.outcome"] != "fail" {
+	if a["apptown.step.type"] != "agent/pi" || a["apptown.workflow"] != "quick-change" || a["apptown.project"] != idstest.N(3).String() || a["apptown.run"] != idstest.N(7).String() || a["apptown.step"] != idstest.N(42).String() || a["apptown.attempt"] != "2" ||
+		a["apptown.harness.outcome"] != "ok" || a["apptown.step.outcome"] != "fail" {
 		t.Fatalf("step attributes: %+v", a)
 	}
-	if byName["queued"].Attributes["forge.binding"] != "paid" || byName["running"].Attributes["forge.harness.outcome"] != "ok" {
+	if byName["queued"].Attributes["apptown.binding"] != "paid" || byName["running"].Attributes["apptown.harness.outcome"] != "ok" {
 		t.Fatalf("children: %+v %+v", byName["queued"].Attributes, byName["running"].Attributes)
 	}
 	var duration, queued, counted bool
@@ -121,7 +121,7 @@ func TestObserverSettlesAnAttemptThatNeverRan(t *testing.T) {
 	_ = providers.Flush(context.Background())
 	_ = providers.Close(context.Background())
 	spans := receiver.Spans()
-	if len(spans) != 1 || spans[0].Name != "workflow.step" || spans[0].Attributes["forge.step.outcome"] != "error" || spans[0].Attributes["forge.harness.outcome"] != "" {
+	if len(spans) != 1 || spans[0].Name != "workflow.step" || spans[0].Attributes["apptown.step.outcome"] != "error" || spans[0].Attributes["apptown.harness.outcome"] != "" {
 		t.Fatalf("spans: %+v", spans)
 	}
 	// No harness ran, so no duration sample; the attempt is still counted.

@@ -58,7 +58,7 @@ func (a *Executor) mergeMainFirst(ctx context.Context, run *workflow.Run, step *
 		return scm.MainMerge{}
 	}
 	if len(merge.Conflicts) > 0 {
-		recordEvent(ctx, a.db, run.ID, repositoryedit.MainConflictNotice, map[string]any{"by": "forge", "step": step.Name, "change": source.ChangeID,
+		recordEvent(ctx, a.db, run.ID, repositoryedit.MainConflictNotice, map[string]any{"by": "apptown-system", "step": step.Name, "change": source.ChangeID,
 			"branch": source.Branch, "mainBranch": source.DefaultBranch, "main": merge.Main, "conflicts": merge.Conflicts}, a.now())
 		return scm.MainMerge{}
 	}

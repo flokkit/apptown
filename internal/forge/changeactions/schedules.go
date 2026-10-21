@@ -269,5 +269,5 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (Pr
 
 // asSchedule is AppTown acting for itself in a project, through a schedule.
 func asSchedule(ctx context.Context, projectID ids.ID) context.Context {
-	return access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "schedule", ProjectID: projectID}, Verified: true, Receipt: "system"})
+	return access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: projectID}, Verified: true, Receipt: "system"})
 }

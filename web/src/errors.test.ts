@@ -7,6 +7,10 @@ import { reportingOptions, scrubLinkTokens } from './errors'
 // captured while one is in the address bar or in a breadcrumb must not
 // carry it.
 describe('browser error reports', () => {
+  it('names newly emitted UI releases for AppTown', () => {
+    expect(reportingOptions('https://public@errors.example.test/1', 'deadbeef').release).toBe('apptown-ui@deadbeef')
+  })
+
   afterEach(async () => { await Sentry.close(); window.history.replaceState(null, '', '/') })
 
   it('carry no invite or password reset token', async () => {

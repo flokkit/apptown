@@ -1,4 +1,4 @@
-# Forge — Git-Backed State
+# AppTown — Git-Backed State
 
 The shipped version for operators and agents is Docs → "How changes reach
 main".

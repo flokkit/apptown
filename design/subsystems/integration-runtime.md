@@ -167,7 +167,7 @@ if the protection is removed afterwards (accepted).
 | Workflow step | Secret selects explicit `STEP_` values; execution owners can add scoped SCM, registry and integration grants. |
 | Tests step | Secret gives the app's `generate = true` secrets a throwaway value minted per run and its declared defaults; no deployed value or other credential. The evidence names what was and was not provided. |
 | Chat | Conversation and Agentenv prepare the session's permitted grants. A chat does not automatically receive every step or application secret. Private Docker does not grant registry push authority. |
-| Model inference | The runtime presents a Forge token to Inference. Provider-model keys remain in the gateway's private provider resolution. |
+| Model inference | The runtime presents an AppTown token to Inference. Provider-model keys remain in the gateway's private provider resolution. |
 
 The [runtime environment guide](../../stock/docs/guides/runtime-environments.md)
 owns the detailed grant and persistence tables. [Inference security](inference-security.md)

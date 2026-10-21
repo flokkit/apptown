@@ -67,8 +67,8 @@ type AdmissionDependencies struct {
 
 // Where a chat runs, as ProjectOpen.Placement names it.
 const (
-	PlaceOnForge  = "forge"
-	PlaceOnWorker = "worker"
+	PlaceOnAppTown = "apptown"
+	PlaceOnWorker  = "worker"
 )
 
 // WorkerPlacement is what opening a chat on the worker needs
@@ -332,11 +332,11 @@ func (c *Admission) onWorker(in ProjectOpen) (bool, error) {
 			return false, &AdmissionConflict{Err: cannot}
 		}
 		return false, nil
-	case PlaceOnForge:
+	case PlaceOnAppTown:
 		if c.noLocal {
 			return false, &AdmissionConflict{Err: fmt.Errorf("this AppTown runs no chats itself; open the chat on the worker")}
 		}
 		return false, nil
 	}
-	return false, &AdmissionConflict{Err: fmt.Errorf("unknown placement %q: %s or %s", in.Placement, PlaceOnForge, PlaceOnWorker)}
+	return false, &AdmissionConflict{Err: fmt.Errorf("unknown placement %q: %s or %s", in.Placement, PlaceOnAppTown, PlaceOnWorker)}
 }

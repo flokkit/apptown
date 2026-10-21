@@ -232,15 +232,15 @@ func TestPersonalGroup(t *testing.T) {
 	db := testDB(t)
 	addUser(t, db, "alice", "member")
 	g := NewGrants(db)
-	name, err := g.PersonalGroup(context.Background(), "alice", "forge")
+	name, err := g.PersonalGroup(context.Background(), "alice", "apptown-system")
 	if err != nil || name != "alice" {
 		t.Fatalf("first: %v %q", err, name)
 	}
-	if again, err := g.PersonalGroup(context.Background(), "alice", "forge"); err != nil || again != "alice" {
+	if again, err := g.PersonalGroup(context.Background(), "alice", "apptown-system"); err != nil || again != "alice" {
 		t.Fatalf("again: %v %q", err, again)
 	}
 	storeOrdinaryGroup(t, db, "bob")
-	if name, err := g.PersonalGroup(context.Background(), "bob", "forge"); err != nil || name != "bob-personal" {
+	if name, err := g.PersonalGroup(context.Background(), "bob", "apptown-system"); err != nil || name != "bob-personal" {
 		t.Fatalf("a taken name steps aside: %v %q", err, name)
 	}
 	recorded, err := queries(db).GrantsAtScope(context.Background(), accesssql.GrantsAtScopeParams{ScopeType: "group", ScopeID: "alice"})
@@ -248,11 +248,11 @@ func TestPersonalGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, grant := range recorded {
-		if changed, err := g.Revoke(context.Background(), grant.ID, "forge"); err != nil || !changed {
+		if changed, err := g.Revoke(context.Background(), grant.ID, "apptown-system"); err != nil || !changed {
 			t.Fatalf("revoke recorded choice: %v %v", changed, err)
 		}
 	}
-	if _, err := g.PersonalGroup(context.Background(), "alice", "forge"); err != nil {
+	if _, err := g.PersonalGroup(context.Background(), "alice", "apptown-system"); err != nil {
 		t.Fatalf("a revoked owner grant still names the group as recorded: %v", err)
 	}
 }

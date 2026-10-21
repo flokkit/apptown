@@ -132,7 +132,7 @@ func (w commandAuthority) Require(ctx context.Context, p operationPermission) (c
 		if !pr.ProjectID.IsZero() && p.ProjectID != pr.ProjectID {
 			return deny(access.DenyOutsideScope, "this session may access only its project's work")
 		}
-		if pr.ProjectID.IsZero() && pr.Instrument != "forge" {
+		if pr.ProjectID.IsZero() && pr.Instrument != access.SystemInstrument {
 			return deny(access.DenyOutsideScope, "this session may access only its project's work")
 		}
 	}

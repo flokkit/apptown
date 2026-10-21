@@ -76,7 +76,7 @@ func containerHost(t *testing.T) string {
 	return gateway
 }
 
-// The packaged forge CLI runs inside an agent step on the worker, from its
+// The packaged apptown CLI runs inside an agent step on the worker, from its
 // /apptown/in path, and AppTown's API admits it with the attempt's derived
 // token alone (on an AppTown that admits no one without credentials); the
 // same request with another token is refused.

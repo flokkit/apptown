@@ -61,7 +61,7 @@ its merge commit is in the
   an agent instead, because it is Maintainer on every project. One service
   account per project, with a rotated token, is a possible later affordance;
   it is not built.
-- **Names, not identities.** Merge requests and merge commits show forge
+- **Names, not identities.** Merge requests and merge commits show AppTown
   account names. GitLab does not link them to GitLab users, and a name that
   looks like an email address is withheld, in declared approvers too. An
   email address someone writes into a change's body is published as written,

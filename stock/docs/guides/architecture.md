@@ -26,7 +26,7 @@ outside its editor). All three ask the same API for the same records.
 flowchart TD
     subgraph People
         B[browser: web UI]
-        C[forge CLI]
+        C[apptown CLI]
         AG[coding agent on your computer]
     end
     subgraph apptownd["apptownd (AppTown's host)"]
@@ -257,7 +257,7 @@ flowchart TD
     CC -->|publishes its commits| BR
     SC -->|engine commits with run trailers| BR
     SC -->|outputs become artifacts| REC
-    CC -->|reads via forge CLI - read-only| REC
+    CC -->|reads via apptown CLI - read-only| REC
     REC -->|apptown check messages<br/>injected into the chat| CC
 ```
 
@@ -518,7 +518,7 @@ flowchart LR
   the images go to the project's container registry, and the bundle
   records each by digest; every target pulls those digests and nothing
   is built on a target. Without a worker, a landing's deploy builds on the
-  Docker host and records image IDs. An intranet release (`forge
+  Docker host and records image IDs. An intranet release (`apptown
   release`) of a landing without published digests builds a build or
   static contract again on AppTown's Docker and pushes to the project's
   container registry, for Portainer to pull.

@@ -162,7 +162,7 @@ describe('choosing a chat', () => {
 describe('a chat the worker refused', () => {
   const refused = async (code: string) => {
     const opens = forge(() => ({ body: { sessions: [] } }),
-      (b) => b.placement === 'forge'
+      (b) => b.placement === 'apptown'
         ? { status: 201, body: { session: chat('local', C1) } }
         : { status: 409, code, body: { error: 'the worker cannot take this chat: it cannot reach the registry npm; open it on AppTown' } })
     const r = await page(`?change=${C1}`)
@@ -170,11 +170,11 @@ describe('a chat the worker refused', () => {
     return { ...r, opens }
   }
   it('offers AppTown when the refusal is coded so, and opens it there', async () => {
-    const { el, opens, done } = await refused('chat-on-forge')
+    const { el, opens, done } = await refused('chat-on-apptown')
     const button = [...el.querySelectorAll('button')].find((b) => b.textContent === 'Open it on AppTown instead')!
     expect(button).toBeDefined()
     await act(async () => { button.click() })
-    await vi.waitFor(() => expect(opens).toEqual([{ changeId: C1 }, { changeId: C1, placement: 'forge' }]))
+    await vi.waitFor(() => expect(opens).toEqual([{ changeId: C1 }, { changeId: C1, placement: 'apptown' }]))
     done()
   })
   it('does not offer AppTown on the same sentence without the code', async () => {

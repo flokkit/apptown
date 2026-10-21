@@ -238,7 +238,7 @@ func dindMode(in console.Launch) string {
 // Stale: the container pins the image it was created from, the model its
 // run script names, the Docker mode its network was built for and its bind
 // mounts; if any moved, it should be rebuilt when safe. A worker sends the
-// forge CLI as a content-named blob, so a new CLI is a new mount that only a
+// apptown CLI as a content-named blob, so a new CLI is a new mount that only a
 // rebuilt container sees.
 func (r *Runtime) Stale(ctx context.Context, in console.Launch) (bool, error) {
 	cur, err := r.inspect(in.ID)

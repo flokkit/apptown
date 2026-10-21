@@ -3,7 +3,7 @@
 ## Implemented
 
 Agents run through the configured executor. Docker model execution uses prepared
-workspaces and generated configuration, with Forge runtime credentials for the
+workspaces and generated configuration, with AppTown runtime credentials for the
 private inference gateway. Local model execution is refused because filtering its
 environment cannot isolate a local process from daemon credentials.
 

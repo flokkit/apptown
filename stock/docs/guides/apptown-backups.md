@@ -4,7 +4,7 @@ AppTown shows that AppTown's own address there. -->
 # AppTown's own backups
 
 When AppTown uses its built-in database, it dumps it every night at 02:00
-(by the host's clock) into `<data directory>/backups/forge-<date>.sql.gz`
+(by the host's clock) into `<data directory>/backups/apptown-<date>.sql.gz`
 and keeps the newest 14. Each dump, or failure, is in the audit log
 (`db.backup`, `db.backup-failed`). With `-db-url` there is no nightly dump:
 back up that database yourself.

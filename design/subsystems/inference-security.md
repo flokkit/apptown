@@ -2,9 +2,9 @@
 
 ## The boundary
 
-Forge holds the provider credentials. Pi, its tools, installed packages and
+AppTown holds the provider credentials. Pi, its tools, installed packages and
 worker/scout delegates receive `APPTOWN_SESSION_TOKEN`. Generated `models.json`
-contains public model metadata, a Forge proxy URL and
+contains public model metadata, an AppTown proxy URL and
 `"apiKey": "$APPTOWN_SESSION_TOKEN"`. The dollar prefix tells the Pi adapter to use the environment value.
 There is no fallback that injects provider credentials when proxy access fails.
 
@@ -37,7 +37,7 @@ means “this credential's workload”, not “the named human intended these wo
 - A step credential is minted for its project, run, step and attempt, and revoked
   at completion. Work supplies one scoped observation of current run state,
   the live step attempt and the recorded inference owner. Admission rejects a
-  changed project, inactive run or stale attempt; Forge separately checks the
+  changed project, inactive run or stale attempt; AppTown separately checks the
   owner's account and the trusted network. Tokens live in daemon memory, so an
   interrupted step cannot reuse one after restart.
 - A continued chat receives its own chat identity and token, retaining the
@@ -93,7 +93,7 @@ backstops remain follow-up work under TM-02. Within the configured model set, an
 kind, project, chat or run/step/attempt, provider and requested model. Receipt
 creation failure denies dispatch. Completion records upstream status, outcome
 and provider-reported token counts observed on the response transport. Prompts,
-completions, provider keys and Forge tokens are not stored in these receipts.
+completions, provider keys and AppTown tokens are not stored in these receipts.
 
 Usage can be missing or partial after rejection, cancellation or provider
 failure. `observed: false` does not mean free inference. Native input/cache
@@ -112,7 +112,7 @@ worker-placed change chats when a worker is configured, and on the AppTown host'
 Docker otherwise, including project chats, step continuations and chats placed
 on AppTown (none of which exist under `-no-local-docker`). A local process
 can read the daemon's credential files/environment even if its own environment
-is filtered. Forge therefore refuses local model execution instead of presenting
+is filtered. AppTown therefore refuses local model execution instead of presenting
 it as isolated. On a worker, agents reach this listener across the network at
 `-inference-url`; provider credentials never leave AppTown host. The
 shared-host/privileged-DinD escape risk remains TM-03; this proxy is not a

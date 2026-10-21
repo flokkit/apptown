@@ -58,7 +58,7 @@ minutes.
 
 `--secret-for-git` names one of AppTown's own secrets, set with
 `apptown secret set` or under Integrations › Secrets. AppTown offers its
-value as the git password, with the user name `forge`. Only an
+value as the git password, with the user name `apptown`. Only an
 administrator may name one, because the value goes to whatever server the
 URL names.
 
@@ -98,7 +98,7 @@ Alternatively, use the **Download code** button under Settings › General ›
 Repository. The bundle holds the default branch, its tags, and a `HEAD` that
 names the default.
 
-On the destination forge:
+On the destination AppTown:
 
 ```sh
 apptown new <slug> --from <slug>.bundle [--pack P]

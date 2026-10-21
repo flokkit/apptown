@@ -84,7 +84,7 @@ type Complaint struct {
 	State               string     `json:"state"`
 	Project             string     `json:"project,omitempty"`
 	ProjectName         string     `json:"projectName,omitempty"`
-	// About is what the filer said it is about: AboutForge,
+	// About is what the filer said it is about: AboutAppTown,
 	// AboutWayOfWorking or AboutProject. PackVersion names the project's
 	// adopted packs when it is about the way of working.
 	About       string `json:"about"`
@@ -100,17 +100,17 @@ type Complaint struct {
 // eval's copy is the eval's whatever it is about, and only one about the
 // AppTown also reaches AppTown's queue.
 const (
-	AboutForge        = "apptown"
+	AboutAppTown      = "apptown"
 	AboutWayOfWorking = "way-of-working"
 	AboutProject      = "project"
 )
 
 // ValidAbout reports whether about is one of the three values.
 func ValidAbout(about string) bool {
-	return about == AboutForge || about == AboutWayOfWorking || about == AboutProject
+	return about == AboutAppTown || about == AboutWayOfWorking || about == AboutProject
 }
 
-// Entry is what a complaint is filed with. About defaults to AboutForge.
+// Entry is what a complaint is filed with. About defaults to AboutAppTown.
 type Entry struct {
 	ProjectID, RunID, ChangeID ids.ID
 	Source, Workflow, Step     string
@@ -166,7 +166,7 @@ func (b *Box) File(ctx context.Context, e Entry) (ids.ID, error) {
 		return ids.Nil, ErrText
 	}
 	if e.About == "" {
-		e.About = AboutForge
+		e.About = AboutAppTown
 	}
 	if !ValidAbout(e.About) {
 		return ids.Nil, ErrAbout

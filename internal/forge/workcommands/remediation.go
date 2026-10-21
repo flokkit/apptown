@@ -35,7 +35,7 @@ type RemediationStarts struct {
 }
 
 func remediationCaller(ctx context.Context, projectID ids.ID) context.Context {
-	principal := access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "remediation", ProjectID: projectID}
+	principal := access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "remediation", ProjectID: projectID}
 	return access.WithCaller(ctx, access.Caller{Principal: principal, Verified: true, Receipt: principal.Name})
 }
 

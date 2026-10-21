@@ -114,6 +114,13 @@ var migrations = []migration{
 		"ALTER TABLE changes DROP CONSTRAINT IF EXISTS change_closed_as",
 		"ALTER TABLE changes ADD CONSTRAINT change_closed_as CHECK(closed_as IN ('','nothing-to-change','shipped-with'))",
 	}},
+	// Categories that name AppTown are moved to its name. Actor and principal
+	// names in history (audit, grants, usage, approvals) keep the name they
+	// were recorded with: they are identifiers in the forensic record.
+	{n: 160, note: "the AppTown rename: the workload kind of AppTown's own model calls and what-ifs of the platform pack say apptown", stmts: []string{
+		"UPDATE inference_requests SET kind = 'apptown' WHERE kind = 'forge'",
+		"UPDATE what_if_reviews SET pack = 'apptown' WHERE pack = 'forge'",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

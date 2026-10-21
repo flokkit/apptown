@@ -52,7 +52,7 @@ func TestConsoleSteeringFrames(t *testing.T) {
 	}
 	// Every section the workshop keeps is in the front desk too: the
 	// workshop is a selection, never a second prompt.
-	for _, name := range []string{"## Your environment", "## forge CLI (read commands)", "## Ground rules"} {
+	for _, name := range []string{"## Your environment", "## apptown CLI (read commands)", "## Ground rules"} {
 		if !strings.Contains(desk, name) || !strings.Contains(shop, name) {
 			t.Errorf("shared section %q must appear in both prompts", name)
 		}

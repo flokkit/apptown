@@ -29,7 +29,7 @@ func (e *Environment) DefaultMemory(ctx context.Context, projectID ids.ID, c *ap
 		a.Parts = map[string]AppliedPart{}
 	}
 	amount := ForgeDefaultMemory
-	source := MemoryDefaultSource{Kind: "forge"}
+	source := MemoryDefaultSource{Kind: "apptown"}
 	if e.memoryDefaults != nil {
 		d, name, version, err := e.memoryDefaults.MemoryDefault(ctx, projectID)
 		if err != nil {
@@ -67,7 +67,7 @@ func (e *Environment) DefaultMemory(ctx context.Context, projectID ids.ID, c *ap
 			r.MemoryBytes = 0
 		} else if r.MemoryBytes == 0 {
 			b := ForgeDefaultMemory
-			src := MemoryDefaultSource{Kind: "forge"}
+			src := MemoryDefaultSource{Kind: "apptown"}
 			if e.needs != nil {
 				k, err := e.needs.ByCapability(ctx, n)
 				if err != nil {
@@ -117,7 +117,7 @@ func SuppliedServiceDefaults(c *appcontract.Contract, services []deploy.ServiceS
 		if s.Resources.MemoryBytes == 0 {
 			s.Resources.MemoryBytes = ForgeDefaultMemory
 			ap.Resources = s.Resources
-			ap.MemoryDefault = &MemoryDefaultSource{Kind: "forge"}
+			ap.MemoryDefault = &MemoryDefaultSource{Kind: "apptown"}
 		}
 		if s.Resources.MemoryBytes < appcontract.MinMemoryBytes || s.Resources.CPUs < 0 {
 			return nil, nil, fmt.Errorf("supplied service %s has invalid resources", s.Name)

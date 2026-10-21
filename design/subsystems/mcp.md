@@ -2,7 +2,7 @@
 
 The user MCP endpoint is `/mcp/user`. The official MCP Go SDK
 (`github.com/modelcontextprotocol/go-sdk`) handles JSON-RPC framing, the
-streamable HTTP transport, protocol-version negotiation and sessions. Root Forge
+streamable HTTP transport, protocol-version negotiation and sessions. Root AppTown
 decides which credential opens the door, whom a call acts as, the audit of each
 session and how tool outcomes are reported. `mcpapi` defines the tool catalog,
 inputs, responses and application calls. Tools receive authenticated context,
@@ -30,7 +30,7 @@ someone else's session id is refused. Each session is audited once, naming the
 client. DELETE ends a session. Session state is in memory and idle sessions
 close after a day; after a restart a client's session is unknown and it
 initializes again, as the transport specifies. Sessions are distinct from a
-persisted Forge console conversation. The SDK's loopback Host-header guard is
+persisted AppTown console conversation. The SDK's loopback Host-header guard is
 off because apptownd runs behind a reverse proxy and this door admits only bearer
 credentials.
 

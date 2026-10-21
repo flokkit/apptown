@@ -96,7 +96,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url); an AppTown that last ran with its own Docker first needs -drain-local-docker (Running AppTown: Workers and running without local Docker)")
 	fs.BoolVar(&o.drainLocalDocker, "drain-local-docker", false, "one-shot, with this AppTown's normal settings and its own Docker, while it is not serving: repair interrupted work, check that no local work or execution container is left, record the drain that admits a start with -no-local-docker, and exit (non-zero, naming what is left, otherwise)")
 	fs.BoolVar(&o.backfillMain, "backfill-recorded-main", false, "one-shot, with this AppTown's normal settings while no apptownd serves its database: record each repository-backed project's current main as where recording began (projects already recorded are kept, an unreadable main stays unknown), print the counts, and exit without serving (for projects created before AppTown recorded main)")
-	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names forge-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
+	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names apptown-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
 	fs.BoolVar(&o.verifyOnly, "verify-only", false, "start normally, which upgrades the database and the data directory to this build, then serve reads only: no recovery, no workers, no scheduler (the verification startup after a move or restore; not a dry run of an upgrade)")
 	fs.StringVar(&o.authMode, "auth", "open", "auth mode: open | internal | trusted-header (Running AppTown)")
 	fs.BoolVar(&o.openOnNetwork, "open-on-network", false, "with -auth open, serve on addresses other machines can reach; without it open mode refuses any listener but loopback, since in open mode a caller names itself")
@@ -104,7 +104,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.authSecretEnv, "auth-proxy-secret-env", "APPTOWN_PROXY_SECRET", "env var holding the proxy shared secret (trusted-header mode)")
 	fs.StringVar(&o.admins, "admins", "", "comma-separated usernames to seed/promote as admin")
 	fs.StringVar(&o.trustedProxies, "trusted-proxies", "", "comma-separated CIDRs of reverse proxies whose X-Real-IP/X-Forwarded-For name the caller (loopback and this host's own addresses are always trusted)")
-	fs.StringVar(&o.consoleCLI, "console-cli", "", "Linux forge CLI artifact for containers (default: apptown-linux beside apptownd)")
+	fs.StringVar(&o.consoleCLI, "console-cli", "", "Linux apptown CLI artifact for containers (default: apptown-linux beside apptownd)")
 	fs.BoolVar(&o.hostScripts, "host-scripts", false, "experimental, for development: let a script step with executor: local run as a process on this host; off, a project's script runs only in a container")
 	fs.Float64Var(&o.taskCPUs, "task-cpus", execution.DefaultTaskLimits.CPUs, "CPUs for each step, check or task container, here or on the worker")
 	fs.Int64Var(&o.taskMemoryMiB, "task-memory-mib", execution.DefaultTaskLimits.MemoryBytes>>20, "memory, swap included, in MiB, for each step, check or task container")
@@ -325,7 +325,7 @@ func main() {
 		if err != nil {
 			return fmt.Errorf("AppTown's id: %w", err)
 		}
-		log.Printf("forge %s", forgeID)
+		log.Printf("apptown instance %s", forgeID)
 		// After seeding: -admins completes setup, and then no token is due.
 		// The log says where the setup token is, never what it is.
 		if token, err := app.Access.EnsureSetupToken(ctx); err != nil {

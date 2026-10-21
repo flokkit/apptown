@@ -6,7 +6,7 @@ There are three configured authentication modes, selected by `apptownd --auth`:
 
 | Mode | Identity source |
 | --- | --- |
-| `internal` | Forge accounts, password login and session cookies; first-account setup is a separate explicit operation |
+| `internal` | AppTown accounts, password login and session cookies; first-account setup is a separate explicit operation |
 | `trusted-header` | A configured proxy username header plus the configured shared proxy secret |
 | `open` (default) | Caller-supplied `X-AppTown-Actor`, or anonymous attribution; this is not authentication of that name |
 
@@ -108,7 +108,7 @@ In internal mode an administrator adds a person by invite instead of choosing
 their password: People → Invite a person, `apptown invite <username> [--role …]`,
 or `POST /api/v1/invites`. An invite names one account that has no password
 yet, a role (member or admin), an optional label (a name or email address kept
-for the administrator; Forge sends no email) and a lifetime of 1 to 30 days,
+for the administrator; AppTown sends no email) and a lifetime of 1 to 30 days,
 seven by default. A member invite is refused for a name that already holds
 administrator authority (directly or through a group); make an admin invite
 instead, so the invite's role is what the person gets. The response carries the link `<public origin>/invite/<token>`
@@ -184,14 +184,14 @@ and pending invites are revoked in the same transaction; the
 `user.name-removed` receipt lists them. A later sighting of the name starts
 an account that holds none of them. Wherever authority is decided, a name with no
 account is refused like a disabled one, never treated as enabled; only the
-forge's own names (`system`, `apptown-system`, `run/<id>`) act without one. A
+AppTown's own names (`system`, `apptown-system`, `run/<id>`) act without one. A
 grant to a person records that person's account with it (never signed in,
 so it can still be removed), as the grant and member doors always did.
 
 Console sessions and running step attempts use lifecycle-scoped credentials;
 a console's idle process stop is not session deletion. The inference gateway
 rechecks workload authority while streaming. Provider credentials remain in the
-gateway's private provider resolution; they are not the runtime's Forge token.
+gateway's private provider resolution; they are not the runtime's AppTown token.
 See [the inference package guide](../../internal/forge/inference/README.md).
 
 ## Visible projects and aggregate reads

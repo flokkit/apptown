@@ -139,7 +139,7 @@ func (a *App) serveMCP(w http.ResponseWriter, r *http.Request) { a.mcpDoor.Serve
 // token-only too. A bad or missing token is a 401 with the realm named so a
 // client knows which credential to ask for.
 func (a *App) mcpIdentity(w http.ResponseWriter, r *http.Request) *authIdentity {
-	refusal := "sign in through your coding agent (it will open a browser), or use an agent token: Authorization: Bearer forge_…"
+	refusal := "sign in through your coding agent (it will open a browser), or use an agent token: Authorization: Bearer apptown_…"
 	if hasBearer(r) {
 		tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		// An OAuth access token audience-bound to this door (oauth.go) is the

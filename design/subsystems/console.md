@@ -94,7 +94,7 @@ the rule already admits several people acting on one chat.
 
 AppTown CLI is a packaged Linux executable: `apptown-linux` beside `apptownd`, or
 the path configured by `-console-cli` / `APPTOWN_CONSOLE_CLI`. Build it with
-`make console-cli`. Forge checks availability once per daemon process. A missing
+`make console-cli`. AppTown checks availability once per daemon process. A missing
 or non-executable artifact leaves sessions without the CLI; restart after fixing
 it. No session-time Go build occurs.
 
@@ -107,7 +107,7 @@ establish that every requested tool is available.
 The console API allows a restricted set of mutations under scoped credentials.
 Installed tools do not grant approval or deployment authority. Model access uses
 a live session token and an allowed worker network through the inference gateway;
-provider keys remain in Forge. See [inference access](inference-security.md).
+provider keys remain in AppTown. See [inference access](inference-security.md).
 Privileged DinD does not isolate hostile tenants from the host.
 
 ## What AppTown tells a chat
@@ -134,7 +134,7 @@ session admission before teardown, and is refused while one of the project's
 chats is being opened, is mid-conversation, or is ending (its last save needs
 the change the deletion removes).
 
-A Forge restart preserves console containers and files. Resume refreshes the
+An AppTown restart preserves console containers and files. Resume refreshes the
 environment and recreates missing runtime resources. It cannot restore an
 arbitrary tool process or nested container that has already disappeared. Session
 records, scratch, generated homes and change worktrees have separate retention

@@ -50,7 +50,7 @@ landing whose project has no container registry attaches the one
 container-registry connector AppTown has (a GitLab one by provisioning,
 any other as `<url>/<group>/<slug>`); with none or several it is refused,
 naming the choice. Detaching stops
-Forge contributions but does not itself revoke that provider-side token. Treat
+AppTown contributions but does not itself revoke that provider-side token. Treat
 staged client authentication as a credential available to its runtime, even when
 it is not an environment variable.
 
@@ -75,7 +75,7 @@ Platform from DigitalOcean's registry (DOCR), into which AppTown copies each
 digest. That DOCR repository, one per project and connector, is recorded as the
 deployment's own and emptied when the project's last App Platform deployment
 on that connector is taken down. A bucket website reads the site's files out
-of the release image. Forge never deletes from the project's own registry; its
+of the release image. AppTown never deletes from the project's own registry; its
 retention decides how long a release can be redeployed. Without a worker, a
 landing's deploy builds on the Docker host and records image IDs, with no
 registry. An intranet release (`apptown release`) of a landing without published

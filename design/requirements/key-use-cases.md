@@ -67,7 +67,7 @@ owner can create the place but not promote to it without that authority.
 ## K3. Adopting a new way of working
 
 **Roles:** standards administrator · owner · maintainer · the helper · the
-forge.
+AppTown.
 **Starts when:** a pack has a newer version, or the owner wants a block
 the project does not hold.
 
@@ -136,7 +136,7 @@ boundary:** two people by rule, and the clock.
 ## K6. Bringing a service into a project
 
 **Roles:** instance administrator · owner · the helper · maintainer · the
-forge.
+AppTown.
 **Starts when:** an app should report errors, take feedback, or use
 something the institution runs.
 
@@ -159,7 +159,7 @@ with the new connector taking the capability's one slot (B28).
 ## K7. Retiring a service, and the connector behind it
 
 **Roles:** owner · the helper · maintainer · instance administrator · the
-forge.
+AppTown.
 **Starts when:** a service is being switched off.
 
 1. **Owner** detaches it; contributions stop, nothing at the provider is

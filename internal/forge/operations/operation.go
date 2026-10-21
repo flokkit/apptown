@@ -126,7 +126,7 @@ func (a Authority) Actor() access.Actor {
 // System is AppTown acting for itself under a named binding (the
 // scheduled copies, the restored-copy sweep).
 func System(binding string) access.Principal {
-	return access.Principal{Kind: "instrument", Name: SystemActor, Instrument: "forge", Via: "system", Credential: "system:" + binding}
+	return access.Principal{Kind: "instrument", Name: SystemActor, Instrument: access.SystemInstrument, Via: "system", Credential: "system:" + binding}
 }
 
 // SystemActor is the name AppTown acts under for itself.

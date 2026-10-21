@@ -283,8 +283,8 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	spanCtx, span := g.tracer.Start(r.Context(), "inference.request", append(spanOpts, trace.WithAttributes(
-		attribute.String("forge.inference.provider", p.name), attribute.String("forge.inference.model", model), attribute.String("forge.inference.api", p.api),
-		attribute.String("forge.workload.kind", who.Kind), attribute.String("forge.project", who.ProjectID.String()), attribute.String("forge.run", who.RunID.String()), attribute.String("forge.step", who.StepID.String())))...)
+		attribute.String("apptown.inference.provider", p.name), attribute.String("apptown.inference.model", model), attribute.String("apptown.inference.api", p.api),
+		attribute.String("apptown.workload.kind", who.Kind), attribute.String("apptown.project", who.ProjectID.String()), attribute.String("apptown.run", who.RunID.String()), attribute.String("apptown.step", who.StepID.String())))...)
 	r = r.WithContext(spanCtx)
 	defer func() {
 		u := usage.result()
@@ -470,9 +470,9 @@ func (g *Gateway) Instrument(tracer trace.Tracer, meter metric.Meter) *Gateway {
 // observe closes the request's span and records its metrics. Never the
 // prompt, the completion or a credential: provider, model, outcome and counts.
 func (g *Gateway) observe(ctx context.Context, span trace.Span, provider, model string, status int, outcome string, u inferenceUsage, took time.Duration) {
-	span.SetAttributes(attribute.Int("http.response.status_code", status), attribute.String("forge.inference.outcome", outcome),
-		attribute.Int64("forge.inference.tokens.input", u.Input), attribute.Int64("forge.inference.tokens.output", u.Output),
-		attribute.Int64("forge.inference.tokens.cache_read", u.CacheRead), attribute.Int64("forge.inference.tokens.cache_write", u.CacheWrite))
+	span.SetAttributes(attribute.Int("http.response.status_code", status), attribute.String("apptown.inference.outcome", outcome),
+		attribute.Int64("apptown.inference.tokens.input", u.Input), attribute.Int64("apptown.inference.tokens.output", u.Output),
+		attribute.Int64("apptown.inference.tokens.cache_read", u.CacheRead), attribute.Int64("apptown.inference.tokens.cache_write", u.CacheWrite))
 	if status >= 500 || (status == 0 && outcome != "ok") {
 		span.SetStatus(codes.Error, outcome)
 	}

@@ -102,7 +102,7 @@ func PublishMainMerge(ctx context.Context, db *database.DB, dataDir string, bran
 		return fmt.Errorf("publishing the merge of %s into %s: %w", source.DefaultBranch, source.Branch, err)
 	}
 	workflow.RecordNoticeOrLog(ctx, db, run.ID, MainMergedNotice, map[string]any{
-		"by": "forge", "step": step.Name, "change": source.ChangeID, "branch": source.Branch,
+		"by": "apptown-system", "step": step.Name, "change": source.ChangeID, "branch": source.Branch,
 		"mainBranch": source.DefaultBranch, "main": merge.Main, "sha": merge.Commit}, at)
 	publisher.PushBranch(ctx, run.ProjectID, repo, source.Branch)
 	bringForward(ctx, db, run, step, folder, repo, source.Branch, merge.Commit, at)

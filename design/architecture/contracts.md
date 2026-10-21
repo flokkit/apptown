@@ -30,7 +30,7 @@ the native contract, not a second authored runtime contract. `mise.toml` or
 `.mise.toml` declares development toolchains; deployed images and Dockerfiles
 supply their own tools. See [toolchains](../../stock/docs/guides/toolchains.md).
 
-Forge owns host bindings, restart policy, volume placement and credentials, so
+AppTown owns host bindings, restart policy, volume placement and credentials, so
 full Compose is not accepted as the contract: it mixes app intent with host
 topology and permits unsafe controls. `.apptown/app.json` and
 `.apptown/compose.yaml` are not read. The [native-contract decision](../decisions/forge-native-contract.md)
@@ -88,12 +88,12 @@ What a promotion IS, mechanically, per target:
 
 - Always: ship the COMMITTED tree; the image digest is the receipt; the
   target platform's architecture is checked, not assumed.
-- Portainer/intranet: stack `forge-<slug>`, Traefik label conventions,
+- Portainer/intranet: stack `<prefix><slug>` (`apptown-`; a deployment made before 1.0 keeps its recorded `forge-`), Traefik label conventions,
   `apptown-data-<slug>` volumes, vanity domains as extra Host rules.
 - The boundary treaty: terraform owns the Docker host, Traefik, DNS, and pull
   credentials; AppTown owns released stacks and never touches
   /api/registries or UniFi. A new provider (AWS) would carry its own
-  treaty — e.g. terraform owns the account, roles, and network; forge
+  treaty — e.g. terraform owns the account, roles, and network; AppTown
   owns task definitions or whatever the unit of release is there. The
   treaty is part of the provider contract and is recorded where the
   provider is implemented.
@@ -129,6 +129,6 @@ Formality today: none. This is the newest and least-guarded type.
 `internal/dependency` owns the catalogued kinds: the `Kind` shape, the
 parse rules (a slug capability; fulfilled by PROVISION or REGISTER), the
 stock sync from `stock/dependencies/*.yaml` that never overwrites a custom
-kind, and `Save` with its receipt (a stock kind is refused). Forge keeps
+kind, and `Save` with its receipt (a stock kind is refused). AppTown keeps
 the fulfilment of declared needs (compose generation, targets, the
 services editor) and the doors.

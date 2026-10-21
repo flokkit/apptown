@@ -35,7 +35,7 @@ the block is the only place the mapping is declared. `make generate-sql`
 regenerates; `make check-generated` (part of `make check`) fails when the
 generated code and the SQL disagree. sqlc is pinned to v1.28.0.
 
-Only the owning package imports its generated package. Forge, pages and
+Only the owning package imports its generated package. AppTown, pages and
 other domains never see generated types; they call the package's doors and
 get the package's words. A generated package that already exists at the
 top level (`releasesql`, `projectsql`) stays where it is until its last

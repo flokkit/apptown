@@ -2,7 +2,7 @@
 
 `internal/scm` owns a run's merge operation. Its supported API is `Merge`, `Read`,
 `Inspect` and `InspectPending`; its store and transition methods are private.
-The package imports neither Forge, HTTP nor generated Work rows. Commands and
+The package imports neither AppTown, HTTP nor generated Work rows. Commands and
 results exchange typed values, with no untyped maps.
 
 ## State and receipts
@@ -69,14 +69,14 @@ process runner and one provider-client factory. It receives no App or database.
 Provider credentials are frozen for one operation, and the askpass helper is
 published atomically for concurrent project operations.
 
-Forge assembles the participants. After successful settlement it retains the
+AppTown assembles the participants. After successful settlement it retains the
 existing best-effort contract snapshot and remote mirror behavior; these do not
 turn a failed required receipt into success.
 
 ## Repository serialization and cancellation
 
 An injected `RepositoryLocks` value is shared by merge, adoption and drift
-resolution in one Forge instance. Writers of one project serialize; unrelated
+resolution in one AppTown instance. Writers of one project serialize; unrelated
 projects can proceed concurrently. Waiting honors cancellation and idle lock
 entries are removed. There is no process-global merge mutex.
 

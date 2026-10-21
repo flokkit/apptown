@@ -7,7 +7,7 @@
   step (also `apptown timing`).
 - **Telemetry.** With `-otlp-endpoint` (and `-otlp-protocol http|grpc`) AppTown sends its own traces, metrics and logs to an OpenTelemetry
   receiver. A Grafana dashboard for them is in the repository at
-  `stock/observability/forge-dashboard.json`, with a README on loading it.
+  `stock/observability/apptown-dashboard.json`, with a README on loading it.
 - **Errors.** Attach the `apptown` project to the error tracker and AppTown reports its own errors there; see the [error
   reporting](/docs/errors/glitchtip) Admin tab.
 - **Complaints** collects what got in agents' way.

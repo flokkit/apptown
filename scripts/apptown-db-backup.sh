@@ -6,7 +6,7 @@
 #
 #   apptown-db-backup.sh <container> <user> <database> <directory> <label>
 #
-# Writes <directory>/forge-pre-<label>-<UTC stamp>.sql.gz and prints its path
+# Writes <directory>/apptown-pre-<label>-<UTC stamp>.sql.gz and prints its path
 # and size. Exits non-zero, leaving no file behind, when pg_dump or gzip fails
 # or the dump is not a whole AppTown database. A pipeline without pipefail once
 # produced a 20-byte "backup" (gzip of nothing) and nobody noticed.
@@ -28,7 +28,7 @@ container=$1 user=$2 db=$3 dir=$4 label=$5
 min_tables=50
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-out=$dir/forge-pre-$label-$stamp.sql.gz
+out=$dir/apptown-pre-$label-$stamp.sql.gz
 partial=$out.partial
 mkdir -p "$dir"
 trap 'rm -f "$partial"' EXIT

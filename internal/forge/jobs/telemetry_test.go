@@ -49,7 +49,7 @@ func TestQueueDescribesEachJobAsASpanNamedByOperation(t *testing.T) {
 	}
 	_ = providers.Close(context.Background())
 	for _, s := range receiver.Spans() {
-		if s.Name == "job.probe" && s.Attributes["forge.job.operation"] == "probe" && s.Attributes["forge.job.key"] == "k1" && s.Attributes["forge.job.attempt"] == "1" {
+		if s.Name == "job.probe" && s.Attributes["apptown.job.operation"] == "probe" && s.Attributes["apptown.job.key"] == "k1" && s.Attributes["apptown.job.attempt"] == "1" {
 			return
 		}
 	}

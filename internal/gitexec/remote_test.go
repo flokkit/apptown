@@ -53,7 +53,7 @@ func TestARemoteFetchConnectsOnlyToThePinnedAddress(t *testing.T) {
 }
 
 // The password reaches git only through the askpass helper's environment:
-// not the URL, not an argument. The helper answers "forge" for the user.
+// not the URL, not an argument. The helper answers "apptown" for the user.
 func TestARemotePasswordIsInNoArgument(t *testing.T) {
 	t.Parallel()
 	const secret = "s3cret-value"
@@ -83,10 +83,10 @@ func TestARemotePasswordIsInNoArgument(t *testing.T) {
 		}
 		return strings.TrimSpace(string(out))
 	}
-	if got := ask("Username for 'https://example.com': "); got != "forge" {
+	if got := ask("Username for 'https://example.com': "); got != "apptown" {
 		t.Fatalf("user = %q", got)
 	}
-	if got := ask("Password for 'https://forge@example.com': "); got != secret {
+	if got := ask("Password for 'https://apptown@example.com': "); got != secret {
 		t.Fatalf("password = %q", got)
 	}
 	if envValue(cmd.Env, "GIT_TERMINAL_PROMPT") != "0" {

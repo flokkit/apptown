@@ -1,11 +1,11 @@
 # Application ingress
 
-Root Forge routes public hostnames through VHost. Deployment derives application
+Root AppTown routes public hostnames through VHost. Deployment derives application
 URLs and probe request headers from configured host/tier information. Provider
 renderers apply their own routing configuration.
 
-Application origins are separate from Forge's browser origin. An application
-subdomain does not gain permission to send browser mutations to Forge. Model
+Application origins are separate from AppTown's browser origin. An application
+subdomain does not gain permission to send browser mutations to AppTown. Model
 inference uses its private listener and worker-network policy rather than public
 application ingress.
 

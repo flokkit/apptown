@@ -91,7 +91,7 @@ field).
 update available; nothing says which binary versions a pack version is
 compatible with, and a project that never adopts keeps running until it
 does not.
-*Should be:* a compatibility declaration between the `forge` pack's
+*Should be:* a compatibility declaration between the `apptown` pack's
 versions and the binary, and forced contract changes opened as batch
 adoption changes (N7) by AppTown itself.
 

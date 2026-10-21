@@ -1,6 +1,6 @@
-# Forge documentation
+# AppTown documentation
 
-Start with the [project README](../README.md) to build and run Forge. Then read,
+Start with the [project README](../README.md) to build and run AppTown. Then read,
 in order:
 
 1. [How AppTown works](../stock/docs/guides/architecture.md), the overview
@@ -25,13 +25,13 @@ You should not need a plan to understand the current system.
 | How does work start, finish, retry and recover? | [Workflow](subsystems/workflow-domain.md), [Jobs](subsystems/jobs.md) and [daemon lifecycle](subsystems/daemon-lifecycle.md) |
 | What do chats and agent steps receive? | [Console ownership](subsystems/console.md) and [runtime environment guide](../stock/docs/guides/runtime-environments.md) |
 | How are models selected and usage recorded? | [Model package](../internal/forge/model/doc.go) and [Usage package](../internal/forge/usage/doc.go) |
-| How are reports about Forge handled? | [Complaint package](../internal/forge/complaint/doc.go) |
+| How are reports about AppTown handled? | [Complaint package](../internal/forge/complaint/doc.go) |
 | How are model credentials contained? | [Inference security](subsystems/inference-security.md) |
 | What do checks prove, and how do findings become work? | [Quality](subsystems/quality.md) |
 | How do integrations and secrets reach consumers? | [Integration and secret runtime](subsystems/integration-runtime.md) |
 | How do I package and deploy an app? | [Native contract](../stock/docs/guides/contract-reference.md), [toolchains](../stock/docs/guides/toolchains.md) and [deployment runtime](subsystems/deployment.md) |
 | What does a deployment own and remove? | [Removing a deployment](subsystems/deployment.md#removing-a-deployment), [deployment targets](subsystems/deploy-targets.md) and [deleting a project](subsystems/project-deletion.md) |
-| How do I operate and observe Forge? | [Operations](operations/README.md) and [telemetry](subsystems/telemetry.md) |
+| How do I operate and observe AppTown? | [Operations](operations/README.md) and [telemetry](subsystems/telemetry.md) |
 
 
 The architecture pages explain cross-package rules. Package comments (`doc.go`)

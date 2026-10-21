@@ -68,7 +68,7 @@ W1  Stack migration: project on pack A, running env → pull pack B
     (adds and removes) → porting change lands → env serves throughout.
 W2  Law changes mid-flight: a policy amended while a landing is parked
     (the current-rules pause, driven end to end).
-W3  Forge upgrades under load: the aged-instance corpus (§5).
+W3  AppTown upgrades under load: the aged-instance corpus (§5).
 W4  Multiplayer: internal auth, rosters, quorum approval with a
     rejection, override, permission grants — as one story.
 W5  Failure weather: reviewer rejects, rework rounds, merge conflict,

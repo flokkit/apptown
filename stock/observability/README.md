@@ -2,7 +2,7 @@
 
 Current signal semantics and limitations: [Telemetry](../../design/subsystems/telemetry.md).
 
-`forge-dashboard.json` is a Grafana dashboard for AppTown's own telemetry: what
+`apptown-dashboard.json` is a Grafana dashboard for AppTown's own telemetry: what
 apptownd exports when `--otlp-endpoint` is set. It is a file, not a feature:
 AppTown does not provision Grafana or manage this dashboard. Load it, change it
 in Grafana if you like, export it and commit it back; the commit is the record.
@@ -65,7 +65,7 @@ was on.
   them.
 
 The variable called `instance` filters the OpenTelemetry `job` label, normally
-`forge/apptownd`. It distinguishes jobs, not multiple AppTown installations with the
+`apptown/apptownd`. It distinguishes jobs, not multiple AppTown installations with the
 same namespace/service name. Tempo job panels only filter service name. Do not
 use this dashboard as proof of per-instance isolation until unique instance
 attributes are mapped by the receiver and applied consistently to its queries.

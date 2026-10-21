@@ -259,7 +259,7 @@ type Ambient struct {
 // cache volume — never image, user, or project files
 // (design/subsystems/registries.md §4). ws only names the workspace's own
 // mise installs; nothing reads or writes it.
-// CLIDir is a dedicated PATH dir holding ONLY the mounted forge CLI, put
+// CLIDir is a dedicated PATH dir holding ONLY the mounted apptown CLI, put
 // first in PATH so nothing (a mise shim, a project binary) can shadow `apptown`.
 const CLIDir = "/opt/apptown/bin"
 

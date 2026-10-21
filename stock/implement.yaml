@@ -55,7 +55,7 @@ spec:
               build is clear and keep it updated as you verify; a report that
               exists at 90% is worth more than a perfect one that never gets
               written. Also write the run contract to .apptown/app.yaml — the
-              forge-native contract with two sections. `app:` is a map of your
+              AppTown contract with two sections. `app:` is a map of your
               app's own containers (each with build:/image:/static:, ports,
               environment, command); exactly one part is `public: true` (the
               front door). `needs:` is a map of dependencies AppTown provisions

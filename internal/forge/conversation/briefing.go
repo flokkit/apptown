@@ -135,7 +135,7 @@ conversation. This console is **strictly read-only**.
 `, console.ScratchMount, console.UploadsMount, s.mutationsLine(workshop))
 	secs = append(secs, steerSection{name: "Your environment", body: env.String()})
 
-	secs = append(secs, steerSection{name: "forge CLI (read commands)", body: `- apptown projects                      — list projects
+	secs = append(secs, steerSection{name: "apptown CLI (read commands)", body: `- apptown projects                      — list projects
 - apptown workflows -p ` + p.Slug + `   — this project's workflows
 - apptown runs -p ` + p.Slug + ` [--status all|done|running]
 - apptown status <run-id>               — stages, current checks, step ids

@@ -18,7 +18,7 @@ func start(t *testing.T, r *otlpfake.Receiver, headers map[string]string) *telem
 	t.Helper()
 	p, err := telemetry.Start(t.Context(), telemetry.Config{
 		Endpoint: r.Endpoint(), Insecure: true, Headers: headers,
-		ServiceName: "forge-test", ServiceNamespace: "forge", Attributes: map[string]string{"forge.instance": "unit"},
+		ServiceName: "forge-test", ServiceNamespace: "forge", Attributes: map[string]string{"apptown.instance": "unit"},
 		MetricInterval: time.Hour, CloseTimeout: 2 * time.Second,
 	})
 	if err != nil {
@@ -36,12 +36,12 @@ func TestProvidersExportEverySignalWithTheResource(t *testing.T) {
 	ctx := t.Context()
 
 	_, span := p.Tracer.Tracer("test").Start(ctx, "unit.span")
-	span.SetAttributes(attribute.String("forge.project", "coin-flip"))
+	span.SetAttributes(attribute.String("apptown.project", "coin-flip"))
 	span.End()
 	counter, _ := p.Meter.Meter("test").Int64Counter("apptown_unit_events_total")
 	counter.Add(ctx, 2, metric.WithAttributes(attribute.String("kind", "test")))
 	logger := otelslog.NewLogger("test", otelslog.WithLoggerProvider(p.Logger))
-	logger.InfoContext(ctx, "unit log line", slog.String("forge.run", "42"))
+	logger.InfoContext(ctx, "unit log line", slog.String("apptown.run", "42"))
 
 	if err := p.Flush(ctx); err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestProvidersExportEverySignalWithTheResource(t *testing.T) {
 		t.Fatal(err)
 	}
 	spans, metrics, logs := r.Spans(), r.Metrics(), r.Logs()
-	if len(spans) != 1 || spans[0].Name != "unit.span" || spans[0].Attributes["forge.project"] != "coin-flip" {
+	if len(spans) != 1 || spans[0].Name != "unit.span" || spans[0].Attributes["apptown.project"] != "coin-flip" {
 		t.Fatalf("spans: %+v", spans)
 	}
 	// A cumulative counter is re-exported on shutdown; every export must say 2.
@@ -62,11 +62,11 @@ func TestProvidersExportEverySignalWithTheResource(t *testing.T) {
 			t.Fatalf("metrics: %+v", metrics)
 		}
 	}
-	if len(logs) != 1 || logs[0].Body != "unit log line" || logs[0].Attributes["forge.run"] != "42" {
+	if len(logs) != 1 || logs[0].Body != "unit log line" || logs[0].Attributes["apptown.run"] != "42" {
 		t.Fatalf("logs: %+v", logs)
 	}
 	for _, res := range []map[string]string{spans[0].Resource, metrics[0].Resource, logs[0].Resource} {
-		if res["service.name"] != "forge-test" || res["service.namespace"] != "forge" || res["forge.instance"] != "unit" {
+		if res["service.name"] != "forge-test" || res["service.namespace"] != "forge" || res["apptown.instance"] != "unit" {
 			t.Fatalf("resource: %+v", res)
 		}
 	}

@@ -79,7 +79,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 	if actor == "" {
 		actor = ForgeActor
 	}
-	who := identity.Workload{Kind: "forge", Actor: actor, ProjectID: call.ProjectID, RunID: call.RunID}
+	who := identity.Workload{Kind: "apptown", Actor: actor, ProjectID: call.ProjectID, RunID: call.RunID}
 	receipt, err := g.open(ctx, who, call.Purpose, p.name, id, g.timeout+settleWithin)
 	if err != nil {
 		return "", nil, fmt.Errorf("the model call was not sent: its spend could not be recorded first: %w", err)
@@ -87,8 +87,8 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 
 	started := g.now()
 	spanCtx, span := g.tracer.Start(ctx, "inference.ask", trace.WithAttributes(
-		attribute.String("forge.inference.provider", p.name), attribute.String("forge.inference.model", id), attribute.String("forge.inference.api", p.api),
-		attribute.String("forge.workload.kind", who.Kind), attribute.String("forge.inference.purpose", call.Purpose), attribute.String("forge.project", who.ProjectID.String()), attribute.String("forge.run", who.RunID.String())))
+		attribute.String("apptown.inference.provider", p.name), attribute.String("apptown.inference.model", id), attribute.String("apptown.inference.api", p.api),
+		attribute.String("apptown.workload.kind", who.Kind), attribute.String("apptown.inference.purpose", call.Purpose), attribute.String("apptown.project", who.ProjectID.String()), attribute.String("apptown.run", who.RunID.String())))
 	callCtx, cancel := context.WithTimeout(spanCtx, g.timeout)
 	defer cancel()
 	a := g.send(callCtx, p, path, raw)

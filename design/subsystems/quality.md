@@ -8,7 +8,7 @@ not silently change an existing project's selection. Conformance consumes those
 pinned declarations, including historical versions when comparing evidence.
 
 `internal/check` owns evaluator declarations, judgments, findings and provenance
-classification. It knows nothing of Forge's tables. Shell, tool, model and runtime
+classification. It knows nothing of AppTown's tables. Shell, tool, model and runtime
 checks provide different evidence; error or inability to assess is not success.
 An evaluator result alone is not an approval or an exception.
 

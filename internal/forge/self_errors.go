@@ -25,9 +25,9 @@ import (
 )
 
 // AppTown reports its own errors the way it asks every app to: through
-// the error-reporting connector, to the GlitchTip project of the "forge"
+// the error-reporting connector, to the GlitchTip project of the "apptown"
 // project on this instance. Attach AppTown project under Settings ›
-// Services (or POST /projects/forge/integrations {"capability":"errors"})
+// Services (or POST /projects/apptown/integrations {"capability":"errors"})
 // and apptownd starts sending its panics, errored steps, cut-short reviews
 // and failed deployment rebuilds there, tagged by run and step. Nothing
 // is sent while AppTown project is unattached; nothing is sent
@@ -35,7 +35,7 @@ import (
 // tracker.
 
 const (
-	selfErrorsProject = "forge"
+	selfErrorsProject = "apptown"
 	selfErrorsBurst   = 30 // events per minute, then dropped with one log line
 )
 

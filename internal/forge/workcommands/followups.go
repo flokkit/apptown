@@ -31,6 +31,6 @@ type FollowUps struct {
 }
 
 func engineCaller(ctx context.Context) context.Context {
-	principal := access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "engine"}
+	principal := access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine"}
 	return access.WithCaller(ctx, access.Caller{Principal: principal, Verified: true, Receipt: principal.Name})
 }

@@ -52,7 +52,7 @@ called.
 For an app that declares `needs: { llm: … }`:
 
 - **A deployment's first deploy** makes an OpenRouter key named
-  `forge-<project>-<deployment>-<id>`, with the declared limit and reset.
+  `apptown-<project>-<deployment>-<id>` (a key made before 1.0 keeps its `forge-` name), with the declared limit and reset.
   AppTown records it on the deployment's list of what it owns, then keeps
   the key in its built-in store. The app gets `LLM_API_KEY` and
   `LLM_BASE_URL`.

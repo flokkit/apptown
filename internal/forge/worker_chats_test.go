@@ -289,7 +289,7 @@ func TestAChangesChatCanBeOpenedOnTheForge(t *testing.T) {
 	t.Parallel()
 	w := newWorkerChatWorld(t)
 	p, _ := w.a.Projects.BySlug(context.Background(), "game")
-	s, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Placement: conversation.PlaceOnForge, Model: "fake/model"}, "owner")
+	s, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Placement: conversation.PlaceOnAppTown, Model: "fake/model"}, "owner")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +329,7 @@ func TestInTheNoLocalDockerModeChatsTheWorkerCannotTakeAreRefused(t *testing.T) 
 	}{
 		{conversation.ProjectOpen{}, "only a change's chat"},
 		{conversation.ProjectOpen{ChangeID: w.change.ID, ContinueStep: idstest.N(1)}, "continuing a step's agent"},
-		{conversation.ProjectOpen{ChangeID: w.change.ID, Placement: conversation.PlaceOnForge}, "open the chat on the worker"},
+		{conversation.ProjectOpen{ChangeID: w.change.ID, Placement: conversation.PlaceOnAppTown}, "open the chat on the worker"},
 	} {
 		_, err := open(c.in)
 		if err == nil || !strings.Contains(err.Error(), c.why) || !strings.Contains(err.Error(), "runs no chats itself") {
@@ -375,7 +375,7 @@ func TestOpeningOnTheWorkerPublishesTheFolderFirst(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "could not be published") {
 		t.Fatalf("opening on the worker from a folder whose work is refused: %v", err)
 	}
-	if fault.CodeOf(err) != conversation.CodeChatOnForge {
+	if fault.CodeOf(err) != conversation.CodeChatOnAppTown {
 		t.Fatalf("the refusal does not say the chat can open on AppTown: %q", fault.CodeOf(err))
 	}
 	if head := gittest.Run(t, v.folder, "rev-parse", "HEAD"); head != refused {
@@ -394,7 +394,7 @@ func TestAChatIsNotOpenedOnAWorkerThatCannotReachItsRegistry(t *testing.T) {
 		noLocal bool
 		code    string
 	}{
-		{"on an AppTown that runs chats", false, conversation.CodeChatOnForge},
+		{"on an AppTown that runs chats", false, conversation.CodeChatOnAppTown},
 		{"on an AppTown that runs none", true, ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -957,7 +957,7 @@ func TestAnExistingChatIsReturnedWhateverTheWorkerCanReach(t *testing.T) {
 	t.Parallel()
 	w := newWorkerChatWorld(t)
 	p, _ := w.a.Projects.BySlug(context.Background(), "game")
-	s, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner")
+	s, err := w.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: w.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1036,7 +1036,7 @@ func TestChecksOverMCPSaveAWorkerChatFirstToo(t *testing.T) {
 	// A change whose chat runs on AppTown is checked as before.
 	local := newWorkerChatWorld(t)
 	p, _ := local.a.Projects.BySlug(context.Background(), "game")
-	if _, err := local.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: local.change.ID, Model: "fake/model", Placement: conversation.PlaceOnForge}, "owner"); err != nil {
+	if _, err := local.a.consoleAdmission.Open(asPerson("owner"), &p, conversation.ProjectOpen{ChangeID: local.change.ID, Model: "fake/model", Placement: conversation.PlaceOnAppTown}, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	token = mcp_token(t, local.a, "local-check", "owner", "operator")

@@ -225,7 +225,7 @@ func TestMainThatConflictsIsRecordedForTheChangeUntilItCatchesUp(t *testing.T) {
 		t.Fatalf("a conflicting merge moved a ref:\n%s\nthen\n%s", refs, after)
 	}
 	notices := w.conflictNotices(t)
-	if len(notices) != 2 || notices[0]["main"] != main || notices[0]["by"] != "forge" || notices[0]["step"] != w.step.Name || !slices.Equal(notices[0]["conflicts"].([]any), []any{"README.md"}) {
+	if len(notices) != 2 || notices[0]["main"] != main || notices[0]["by"] != "apptown-system" || notices[0]["step"] != w.step.Name || !slices.Equal(notices[0]["conflicts"].([]any), []any{"README.md"}) {
 		t.Fatalf("the run's record of the conflict before each step: %+v", notices)
 	}
 

@@ -101,7 +101,7 @@ func (h Webhook) Webhook(w http.ResponseWriter, r *http.Request) {
 
 // webhookContext attributes a request only after the webhook credential check.
 func webhookContext(ctx context.Context, projectID ids.ID) context.Context {
-	return access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: "forge", Via: "webhook", ProjectID: projectID}, Verified: true, Receipt: "system"})
+	return access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "webhook", ProjectID: projectID}, Verified: true, Receipt: "system"})
 }
 
 // WebhookStarted names the Change and run a webhook started.

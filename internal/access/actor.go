@@ -48,7 +48,7 @@ func (pr Principal) Actor() Actor {
 		a.Via = ViaChat + ":" + pr.ConsoleID
 	case pr.Instrument == "run":
 		a.Via = ViaRunStep
-	case pr.Instrument == "forge" && pr.Via == "binding":
+	case pr.Instrument == SystemInstrument && pr.Via == "binding":
 		a.Via = ViaBinding + ":" + strings.TrimPrefix(pr.Credential, "system:binding/")
 	case pr.Via == "session":
 		a.Via = ViaSession

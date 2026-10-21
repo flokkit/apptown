@@ -1,6 +1,6 @@
-# Forge threat model
+# AppTown threat model
 
-This is the security model: what Forge must protect, from whom, and how each
+This is the security model: what AppTown must protect, from whom, and how each
 gap would be closed. Mitigations it describes as proposed are not implemented.
 Where each threat stands is the status column of the
 [threat register](threat-register.md); current identity and visibility
@@ -12,14 +12,14 @@ execution, credentials, networking or deployment changes.
 
 ## Assessment
 
-Forge's largest security risk is the proximity of two kinds of authority:
+AppTown's largest security risk is the proximity of two kinds of authority:
 it holds infrastructure credentials and makes consequential decisions, while
 also running arbitrary application code and agents that consume untrusted
 material. A helpful agent, a private Docker daemon and a successful conformance
 check do not separate those authorities by themselves.
 
 For a known-user installation, the first work should protect provider spend,
-the browser's Forge authority, and the control plane from workloads. The
+the browser's AppTown authority, and the control plane from workloads. The
 current design should not be offered as isolation between hostile tenants.
 That would require a different worker boundary, explicit confidentiality
 policy, and enforceable resource and spending limits.
@@ -44,7 +44,7 @@ malicious content introduced through otherwise legitimate work.
 | Deployment | Security expectation | Consequence for this model |
 |---|---|---|
 | Trusted small team | Members generally cooperate; accounts, packages and prompts can still be compromised | Credential theft, browser attacks, host compromise and accidental destructive operations remain material |
-| Known users with untrusted workloads (the working model) | Running a project must not confer authority over Forge or other projects | Enforce boundaries outside the agent and the project's code |
+| Known users with untrusted workloads (the working model) | Running a project must not confer authority over AppTown or other projects | Enforce boundaries outside the agent and the project's code |
 | Hostile public users or tenants | Assume deliberate, repeated attempts to escape and consume resources | Isolated workers, private-project authorization, admission controls and abuse operations are release prerequisites |
 
 In scope: browser UI and terminal; HTTP API; CLI, Git and MCP; internal and
@@ -118,11 +118,11 @@ describes no particular installation.
   `-auth internal` (the first administrator needs the setup token from the
   data directory) or `-auth trusted-header` behind an authenticating proxy.
 - **A worker listens on a private network address** and accepts only the
-  forge, by mutual TLS with certificates the operator issues. On a cloud
+  AppTown, by mutual TLS with certificates the operator issues. On a cloud
   host the operator blocks the provider's metadata address and checks it with
   `apptown-worker -check-metadata`.
 
-Forge does not verify these on a running installation, and it does not check
+AppTown does not verify these on a running installation, and it does not check
 edge rate limits and header stripping, firewall reachability from each worker
 network, outer container or hypervisor confinement, live secret-binding
 separation, remote-target privileges, backup encryption, access and
@@ -135,7 +135,7 @@ about these for application controls.
 |---|---|---|
 | Provider accounts and inference allowance | Keys, account scope, hard aggregate spending ceiling | Off-platform token theft or runaway authorized spending |
 | Human authority | Passwords, sessions, personal tokens, OAuth consent, grants | Impersonated approvals, secret reveal, administration or deployment |
-| Control plane | Forge process, host Docker, OS, database credentials, secret-store identity | Instance compromise, other projects and deployment targets compromised |
+| Control plane | AppTown process, host Docker, OS, database credentials, secret-store identity | Instance compromise, other projects and deployment targets compromised |
 | Source and private working material | Repositories, branches, prompts, uploads, logs, unmerged changes | Disclosure, silent modification or loss |
 | Production applications and data | Release credentials, runtime secrets, service volumes, target accounts | Data theft, destructive migrations, malicious releases |
 | Decision history | Approvals, check results, source identity, releases, audit receipts | False confidence about what was approved, tested or deployed |
@@ -151,7 +151,7 @@ Required security properties, proposed as acceptance criteria:
 3. A compromised runtime can spend only a bounded allowance, including its
    delegates and concurrent requests. Creating more sessions cannot bypass
    user/project/instance ceilings.
-4. Untrusted content cannot inherit a browser's Forge origin or turn a model
+4. Untrusted content cannot inherit a browser's AppTown origin or turn a model
    suggestion into an approval, grant, secret binding or release decision.
 5. A tested and approved source/artifact identity is the identity released.
    Agent-written success text is not independent execution evidence.
@@ -170,7 +170,7 @@ Required security properties, proposed as acceptance criteria:
 | Authenticated member or stolen member account | Normal project work, uploads, chats and whatever reads/grants policy allows | Reach another project, obtain secrets, influence approvals |
 | Repository/dependency/content attacker | Files, package scripts, tool output, documentation, images, web responses | Prompt injection or direct code execution inside a workload |
 | Compromised agent or application | Its filesystem, process environment, network and delegated tokens | Steal credentials, pivot to host/LAN, consume money, corrupt evidence |
-| Malicious preview visited by an owner | Script execution on the preview's web origin | Exercise the owner's Forge session, social-engineer OAuth or release |
+| Malicious preview visited by an owner | Script execution on the preview's web origin | Exercise the owner's AppTown session, social-engineer OAuth or release |
 | External MCP client | Its own OAuth grant or personal token | Exceed consent, confuse sessions, misuse tools or Git tickets |
 | Integration or supply-chain attacker | Provider responses, downloaded tools/images, mirror content | Introduce code, redirect credential-bearing requests, falsify results |
 | Administrator/operator | Legitimate broad configuration and recovery authority | Accidental overgrant, unsafe restore, bad deployment; malicious admin is a residual trust assumption |
@@ -194,7 +194,7 @@ flowchart TB
   client[CLI and external MCP client]
   content[Repositories, packages, uploads and remote content]
   edge[TLS edge and routing]
-  subgraph control[Trusted Forge control plane]
+  subgraph control[Trusted AppTown control plane]
     api[API, OAuth, Git and MCP authorization]
     engine[Workflow, console and deployment orchestration]
     db[(Database, grants, receipts and secret records)]
@@ -242,7 +242,7 @@ flowchart TB
 
 | Boundary | What crosses it | What must decide authority |
 |---|---|---|
-| Internet → edge → Forge | HTTP, identity headers, cookies, OAuth, uploads | Auth mode, trusted proxy contract, origin checks, bounded input |
+| Internet → edge → AppTown | HTTP, identity headers, cookies, OAuth, uploads | Auth mode, trusted proxy contract, origin checks, bounded input |
 | Person → instrument | Console/run/OAuth/Git grants | Current person authority intersected with purpose, resource and expiry |
 | Agent → shell/tool | Model-selected commands and arguments | Runtime sandbox and narrow tool APIs, independently of the prompt |
 | Workspace → host | Git commands, config reads, attachment sync, build context, mounts | Trusted Git metadata, filesystem containment, validated immutable input |
@@ -270,8 +270,8 @@ Important current distinctions:
 - The console API's GET-only wrapper has deliberate POST exceptions and
   rejects PTY access. It is useful defense in depth; authorization must hold
   on the main listener too.
-- App virtual-host proxying happens outside Forge API authentication. App
-  access control is separate. A private Forge project does not automatically
+- App virtual-host proxying happens outside AppTown API authentication. App
+  access control is separate. A private AppTown project does not automatically
   make its preview private.
 - Per-workspace mise paths reduce accidental collisions, but mounting the
   entire writable cache volume still exposes neighboring paths to code.
@@ -280,8 +280,8 @@ Important current distinctions:
 
 | Credential/data | Holder and delivery | Scope/lifetime and consequence |
 |---|---|---|
-| Model-provider key | Forge only; runtimes' generated model configuration names the session token, never the key | Reusable provider authority; any copy ever delivered into a runtime must be rotated |
-| Inference credential | Existing chat/step session token; provider keys remain on Forge | Lifecycle-bound, explicitly allowed worker peer AND token, restricted binding/models, concurrency limits and receipts; monetary budgets deferred |
+| Model-provider key | AppTown only; runtimes' generated model configuration names the session token, never the key | Reusable provider authority; any copy ever delivered into a runtime must be rotated |
+| Inference credential | Existing chat/step session token; provider keys remain on AppTown | Lifecycle-bound, explicitly allowed worker peer AND token, restricted binding/models, concurrency limits and receipts; monetary budgets deferred |
 | Console token | Console process and persisted session metadata | Project/instrument restrictions; lifetime follows session management rather than a hard independent token TTL |
 | Run token | Step env; derived from the step attempt under a key in the AppTown data folder (`runtime-token-key`), nothing stored per token | Run/project attribution; accepted at the inference gateway and the API only while the run is running, the attempt is the step's live attempt and the run owner's account is enabled; survives a daemon restart; no independent expiry, and anyone holding the key can mint tokens |
 | Browser session | HttpOnly cookie (`__Host-apptown_session`, Secure, over HTTPS); token hash in DB | 30-day session; SameSite=Lax, host-only; Secure follows the public origin, so a plain-HTTP development AppTown uses a separate, non-Secure cookie |
@@ -293,7 +293,7 @@ Important current distinctions:
 | Development-service credentials | Service client processes and generated config | Low value only with disposable data, unique credentials, isolated reachability and no production reuse |
 | Need credentials of a deployment or preview (Docker host, Portainer) | The need's container and the app's environment; Portainer's stack file | Derived per deployment, preview or rehearsal from the built-in store's key, never stored; redacted from a boot's failure before it is kept; AppTown's own step servers keep the catalogue's fixed values |
 | Application secrets | Broker → named app/init consumers through env | Environment bindings and consumer scopes; approved app code can necessarily read its own secret |
-| Deployment and secret-store credentials | Forge host/process and provider clients | High-value infrastructure authority; never appropriate ambient credentials for an ordinary chat or test |
+| Deployment and secret-store credentials | AppTown host/process and provider clients | High-value infrastructure authority; never appropriate ambient credentials for an ordinary chat or test |
 | Transcripts, files, logs and backups | Workspace, session directory, DB, retained artifacts and operational storage | May contain any of the above if tools print or copy them; retention outlives the originating process |
 
 The built-in store uses AES-GCM with its key stored in the same database.
@@ -320,7 +320,7 @@ not reports that an attacker has performed them.
 
 1. **Package → provider bill:** a legitimate task installs a malicious package;
    its script reads env or Pi configuration; it sends a reusable provider key
-   outside Forge; subsequent spending never reaches Forge's accounting ledger.
+   outside AppTown; subsequent spending never reaches AppTown's accounting ledger.
    Relevant: TM-01, TM-02, TM-19.
 2. **Attachment → owner authority:** a member uploads HTML; an owner opens the
    attachment URL; active content runs at AppTown origin and calls APIs with
@@ -331,7 +331,7 @@ not reports that an attacker has performed them.
    consent submission. Success depends on browser cookie/origin behavior and
    the target account's authority. Relevant: TM-09, TM-27, TM-28.
 4. **Workspace → host:** a workload changes a symlink or Git metadata later
-   consumed by Forge; a host write or Git hook/filter operation reaches beyond
+   consumed by AppTown; a host write or Git hook/filter operation reaches beyond
    the workspace under the root daemon identity. Relevant: TM-03–TM-05.
 5. **One project → another:** code modifies files elsewhere in the shared cache
    volume; another workload runs the modified tool or consumes poisoned data;
@@ -373,7 +373,7 @@ these enforceable boundaries; they should be directed by this model.
 ### Model gateway: chosen initial boundary
 
 The [inference security contract](../subsystems/inference-security.md) is the
-current decision and implementation reference. Forge holds reusable provider
+current decision and implementation reference. AppTown holds reusable provider
 keys and proxies permitted native inference operations. The existing chat or
 step token authenticates Pi. Admission also requires an explicitly allowed
 worker-network peer; forwarded headers are not trusted. Chats have no short
@@ -414,7 +414,7 @@ These are unresolved product and operational decisions, not tacit approvals:
   share their kernel? A gateway on the same compromised root host is not a
   protected credential boundary.
 - Should previews require viewer authorization by default? Can untrusted
-  applications move to a separate registrable domain from Forge?
+  applications move to a separate registrable domain from AppTown?
 - Which service data is permitted in development? Which secrets, if any,
   may intentionally be shared across environments? Who approves that exception?
 - What recovery-point and recovery-time objectives, backup retention, audit
@@ -478,7 +478,7 @@ the concrete attack paths.
    restricted access; do not copy live secrets into an incident issue.
 2. Disable new work and revoke affected sessions, delegates and grants.
    Stop or quarantine implicated runtimes with bounded operations. If provider
-   keys may have leaked, revoke them at the provider: Forge session revocation
+   keys may have leaked, revoke them at the provider: AppTown session revocation
    alone does not stop off-platform use.
 3. For possible host compromise, isolate the worker/control host and treat
    its reachable database, secret-store, registry, SCM and deployment

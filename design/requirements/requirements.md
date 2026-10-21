@@ -60,7 +60,7 @@ confuse. A **workflow** is a written procedure: stages of steps with
 gates, stored and versioned in the instance library. A **lane** is a
 workflow a project offers for working a change — quick-change, implement,
 fix-bug and the rest — chosen by the person who starts the change; the
-forge's own workflows (landing, shipping, wiring a service in or out) are
+AppTown's own workflows (landing, shipping, wiring a service in or out) are
 system workflows, never lanes. A **way of working** is everything a
 project has adopted: its packs, its guidance blocks, the lanes it offers,
 its policies. A **pack** is a published way of working that a project can

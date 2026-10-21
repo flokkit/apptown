@@ -49,7 +49,7 @@ one `baseline N` line at the last released version.
 The Go initializer and its supported migration baseline remain central. Startup
 changes each migration's DDL, data and version together. River's own migration
 and table lifecycle remain with the job library. `internal/dbtest` still takes
-an initializer from its caller; the generic library does not import Forge.
+an initializer from its caller; the generic library does not import AppTown.
 
 ## What the write gate proves
 

@@ -44,8 +44,8 @@ func TestForgedExportsRequestSpansAndLogsWhenConfigured(t *testing.T) {
 		if s.Attributes["url.path"] == "/" {
 			t.Fatalf("the SPA was traced: %+v", s)
 		}
-		if s.Name == "GET /api/v1/projects/{slug}" && s.Attributes["http.route"] == s.Name && s.Attributes["forge.project"] == "game" &&
-			s.Attributes["http.response.status_code"] == "200" && s.Attributes["forge.principal.kind"] == "user" {
+		if s.Name == "GET /api/v1/projects/{slug}" && s.Attributes["http.route"] == s.Name && s.Attributes["apptown.project"] == "game" &&
+			s.Attributes["http.response.status_code"] == "200" && s.Attributes["apptown.principal.kind"] == "user" {
 			routed = true
 		}
 	}

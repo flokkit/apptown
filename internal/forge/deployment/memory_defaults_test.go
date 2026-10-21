@@ -41,7 +41,7 @@ func TestFreshMemoryDefaultsKeepDeclarationsAndExplicitUnlimited(t *testing.T) {
 	if out.Parts[2].Resources.MemoryBytes != 0 || !applied.Parts["unlimited"].MemoryUnlimited || applied.Parts["unlimited"].MemoryDefault != nil {
 		t.Fatal("explicit unlimited became omitted/defaulted")
 	}
-	if out.NeedResources["db"].MemoryBytes != 512<<20 || applied.Parts["db"].MemoryDefault.Kind != "forge" {
+	if out.NeedResources["db"].MemoryBytes != 512<<20 || applied.Parts["db"].MemoryDefault.Kind != "apptown" {
 		t.Fatal("service need lost fallback")
 	}
 	if _, ok := out.NeedResources["key"]; ok {
@@ -89,7 +89,7 @@ func TestACatalogueDefaultIsOnlyForItsActualNeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if svcs[0].Resources.MemoryBytes != 512<<20 || record["db"].MemoryDefault.Kind != "forge" {
+	if svcs[0].Resources.MemoryBytes != 512<<20 || record["db"].MemoryDefault.Kind != "apptown" {
 		t.Fatal("supplied image/name was guessed as a catalogue capability")
 	}
 }
@@ -121,7 +121,7 @@ func TestALandingCapsAndRecordsSuppliedWorkflowServices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.Services["sidecar"].Resources.MemoryBytes != 512<<20 || a.Services["sidecar"].MemoryDefault.Kind != "forge" {
+	if a.Services["sidecar"].Resources.MemoryBytes != 512<<20 || a.Services["sidecar"].MemoryDefault.Kind != "apptown" {
 		t.Fatalf("unrecorded supplied service: %+v", a)
 	}
 	s.authority = &requestAuthority{}

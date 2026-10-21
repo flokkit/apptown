@@ -48,8 +48,8 @@ test can set it; production code never calls `time.Now`, `time.Since` or
 `time.Until` itself. A stored time a rule compares is written from that
 clock and passed to SQL, so both sides of the comparison are AppTown's.
 SQL reads no clock of its own: no `now()` or `CURRENT_TIMESTAMP` in a query,
-a column default, a trigger or a view, so every stamp is written by the
-forge (a column is `NOT NULL` without a default, or null where absence means
+a column default, a trigger or a view, so every stamp is written by
+AppTown (a column is `NOT NULL` without a default, or null where absence means
 something). Migrations already applied are history and are exempt;
 `make check-sqlnow` (`scripts/sqlnow-check.go`) fails on any read in the
 rest; `scripts/sqlnow-baseline.json` records only the number the
@@ -213,7 +213,7 @@ imitates**, named `<system>fake`, and is imported by everyone who needs it.
 
 `internal/deploy/digitalocean/dofake` is the worked example: a small server for
 `/v2/account`, `/v2/registry`, `/v2/apps` and `/v2/databases`, used by both the
-driver's own tests and the assembled Forge deployment tests. Its package comment
+driver's own tests and the assembled AppTown deployment tests. Its package comment
 states the boundary — *"It is not a deployment driver."*
 
 Its own package keeps the exported testing contract separate from the production
@@ -222,12 +222,12 @@ the fake exists to satisfy the same contract the driver speaks; when the API
 changes, both change together.
 
 A fake of something AppTown owns stays private to its package. There is no
-shared fixture package for forge's own types, and specifically none that
+shared fixture package for AppTown's own types, and specifically none that
 constructs the App — that reproduces the coupling the ownership work removed.
 
 Docker's reusable protocol fake is `internal/deploy/docker/dockerfake`.
 A fake shared by several packages belongs beside the driver; owner-private
-collaborator fakes remain in their tests. Do not export constructors for Forge's
+collaborator fakes remain in their tests. Do not export constructors for AppTown's
 owned records or build a shared App fixture package to make test moves easier.
 
 Every new harness and every new deploy provider wants a fake, and this
