@@ -12,18 +12,16 @@ into an issue. A security problem goes through private reporting instead
 
 ## Pull requests by arrangement
 
-This repository is exported from the maintainers' development repository, one
-commit per export, so a pull request cannot be merged here as it stands. If you
+Pull requests here are how the maintainers land their own changes, one per
+change. Opening one is limited to the repository's collaborators. If you
 would like to change something:
 
 1. **Open an issue first** and describe the change. Wait for a maintainer to
    agree before you put work into it.
-2. For a small fix, a maintainer may port it into the development repository
-   themselves, with credit to you in the commit, and it arrives here with the
-   next export.
-3. For anything larger, agree the approach in the issue first.
-
-A pull request opened without an issue may be closed with a pointer here.
+2. For a small fix, a maintainer may make the change themselves, with credit
+   to you in its pull request.
+3. For anything larger, agree the approach in the issue first; a maintainer
+   may then invite your pull request.
 
 ## Working on the code
 

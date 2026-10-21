@@ -32,7 +32,27 @@ defaults:
     shell: bash
 
 jobs:
+  # Images and archives are built only for a commit the heavy tiers passed
+  # on: a successful heavy.yml run on main or by hand whose commit is the
+  # tag's (heavy.yml). No run, a red one, or a lookup that fails is not
+  # evidence, and nothing is built. Run heavy.yml on the commit by hand first
+  # if its main run is missing.
+  heavy-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - run: |
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/heavy.yml/runs?head_sha=$GITHUB_SHA&status=success&per_page=100" \
+            --jq '[.workflow_runs[] | select(.event == "push" or .event == "workflow_dispatch") | .html_url]')
+          echo "successful heavy runs on $GITHUB_SHA: $runs"
+          [ "$runs" != "[]" ] || { echo "::error::no successful heavy.yml run on $GITHUB_SHA: run heavy.yml on the tag by hand (Actions, heavy, Run workflow), then re-run this workflow"; exit 1; }
+
   build:
+    needs: heavy-evidence
     name: build ${{ matrix.image.name }} ${{ matrix.platform.slug }}
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 90
@@ -147,6 +167,7 @@ jobs:
   # are. The notes are releases/<tag>.md when the repository has them.
   archives:
     name: release archives
+    needs: heavy-evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

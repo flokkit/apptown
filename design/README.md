@@ -33,7 +33,6 @@ You should not need a plan to understand the current system.
 | What does a deployment own and remove? | [Removing a deployment](subsystems/deployment.md#removing-a-deployment), [deployment targets](subsystems/deploy-targets.md) and [deleting a project](subsystems/project-deletion.md) |
 | How do I operate and observe AppTown? | [Operations](operations/README.md) and [telemetry](subsystems/telemetry.md) |
 
-
 The architecture pages explain cross-package rules. Package comments (`doc.go`)
 own a package's concepts, call sequence and invariants; exported API comments
 state authorization, effects, failure and concurrency contracts. Package READMEs
@@ -67,16 +66,14 @@ a contributor should not need a historical design to understand current rules.
 | Package `README.md` | Contributor navigation, principal call sequences and tests |
 | `stock/` | Shipped content, templates and importable artifacts with their usage instructions |
 
-
 [Requirements](requirements/requirements.md), [concepts](requirements/concepts.md),
 [key journeys](requirements/key-use-cases.md) and [unsupported scenarios](requirements/not-yet.md)
 state product intent. Where code and intent differ, document the gap rather than
 silently changing the promise.
 
-
-Makefile and CI define executable build/test commands. Plans and reviews are
-kept in the development repository and are not published with the public tree;
-a current guide never cites one.
+Makefile and CI define executable build/test commands. The maintainers' plans
+and reviews are kept in their own private repository, not here; a current
+guide never cites one.
 
 ## When implementing a change
 

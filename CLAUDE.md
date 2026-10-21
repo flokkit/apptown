@@ -149,12 +149,16 @@ API comments. Current code and tests establish implementation; the
 requirements (and the maintainers' position documents) establish intent. When they differ, identify the gap rather than
 silently changing the promise.
 
-Changes are planned and independently reviewed in the maintainers'
-development repository. The public repository is exported from it, one commit
-per export; plans, reviews and the review harness are not published with it.
+Changes land on `main` as one pull request per change, squash-merged after
+the required `ci-ok` check passes. The pull request's title and description
+are the public record: they say what changed and why, not how the work went.
+The maintainers plan and independently review changes in a separate private
+repository, checked out at `private/` and ignored here; when it is present,
+its working rules apply as well: @private/CLAUDE.md
 [CONTRIBUTING.md](CONTRIBUTING.md) says how to propose a change.
 
-[Makefile](Makefile), [CI configuration](.github/workflows/ci.yml) and
+[Makefile](Makefile), [CI configuration](.github/workflows/ci.yml),
+[the heavy tiers' CI](.github/workflows/heavy.yml) and
 [web package scripts](web/package.json) own executable commands and tool versions.
 `make build` builds the application; `make check` runs the local validation gate.
 Check the affected owner's requirements and the
@@ -185,7 +189,6 @@ of isolation, recovery or deployment. Keep local validation, deployment and live
 observation separate. Preserve architecture and reachability ratchets: tighten
 after removing debt and never disguise a bypass to keep a count flat. Exact
 rules and exceptions belong in the gate implementations and owning guides.
-
 
 ## Writing and maintaining guidance
 

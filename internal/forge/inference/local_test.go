@@ -31,7 +31,7 @@ func TestLocalDefaultsAllowThisDockersNetworksAndNotTheLAN(t *testing.T) {
 		{name: "docker0 with IPv6 only", interfaces: []Interface{iface("docker0", "fd00::1/64")}},
 		{
 			name:       "a LAN in 192.168.1.0/24 takes its /20 pool out",
-			interfaces: []Interface{iface("lo", "127.0.0.1/8"), iface("eth0", "192.168.1.223/24", "fe80::1/64"), iface("docker0", "172.17.0.1/16"), iface("veth12ab", "169.254.3.1/16")},
+			interfaces: []Interface{iface("lo", "127.0.0.1/8"), iface("eth0", "192.168.1.77/24", "fe80::1/64"), iface("docker0", "172.17.0.1/16"), iface("veth12ab", "169.254.3.1/16")},
 			ok:         true, addr: "172.17.0.1:7779",
 			has:   []string{"172.17.0.0/16", "172.18.0.0/16", "172.31.0.0/16", "192.168.16.0/20", "192.168.240.0/20"},
 			lacks: []string{"192.168.0.0/20", "169.254.0.0/16"},

@@ -139,8 +139,8 @@ trusted:
 - **New project bootstrap**: `apptown new` initialises a hub with a first
   commit; importing an existing repository clones it into the hub. Both
   work with no remote at all.
-- **AppTown's own repository** is on GitLab and uses GitLab CI
-  (`testing.md`); that is the only place GitLab is load-bearing.
+- **AppTown's own repository** is on GitHub and uses GitHub Actions
+  (`testing.md`); GitLab is load-bearing only for projects that attach it.
 
 ## 6. What lives in the repository (`.apptown/`)
 

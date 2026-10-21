@@ -1,4 +1,4 @@
-.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-docs tour
+.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-docs check-public check-ci-heavy tour
 
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
@@ -46,7 +46,7 @@ build: web go            ## build frontend then the single apptownd binary
 # fails if any stage fails, and prints that stage's log.
 GATE_GO_STAGES = check-test check-test-root-a check-test-root-b check-go-source check-vet check-staticcheck \
 	check-shape check-exec check-sqlnow check-lint-test check-lint \
-	check-reachability check-pins check-docs
+	check-reachability check-pins check-docs check-public check-ci-heavy
 GATE_WEB_STAGES = check-web-tsc check-web-lint check-web-test
 # Stages that run on a developer's machine and not in CI: landing, where the
 # migration lock is held to origin/main's.
@@ -69,13 +69,14 @@ check:                   ## run the fast CI gates locally
 # failed gate cycle; the gate's full run stays the witness. BASE is what the
 # branch will merge onto.
 BASE ?= origin/main
-PRECHECK_STAGES = check-pins check-docs check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-reachability check-migrations check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
+PRECHECK_STAGES = check-pins check-docs check-public check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-reachability check-migrations check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
 precheck:               ## the fast gates and the tests of affected packages, before the gate
 	@MAKE='$(MAKE)' python3 scripts/gate.py $(PRECHECK_STAGES)
 
-# The maintainers' own stages and commands (their deploys, demo, lab, nightly
-# runner and the public export), which append to the stage lists above. The
-# file is not in the published repository, and nothing public needs it.
+# The maintainers' own stages and commands (their deploys, demo, lab and
+# nightly runner), which append to the stage lists above. The file is in
+# their private repository, checked out at private/ when present; nothing
+# public needs it.
 -include private/scripts/maintainer.mk
 
 # The journey tier (build tag journey) runs the user stories end to end. CI
@@ -103,6 +104,16 @@ check-go-gate:          ## make check's Go and checker stages (CI's unit job)
 	@MAKE='$(MAKE)' python3 scripts/gate.py $(GATE_GO_STAGES)
 	@echo "== check-gate (alone, after the other stages) =="
 	@$(MAKE) --no-print-directory check-gate
+
+# The public gate (scripts/public-check.py): HEAD's committed tree, as a push
+# publishes it, has no private/ path or maintainers' root file, names none of
+# the maintainers' home-lab hosts, and gitleaks finds nothing. Needs gitleaks.
+check-public:           ## what a push publishes holds nothing private: paths, home-lab names, gitleaks
+	python3 scripts/public-check_test.py
+	python3 scripts/public-check.py
+
+check-ci-heavy:         ## the heavy tiers' runner: a required test that skipped or did not run fails the job
+	python3 scripts/ci_heavy_test.py
 
 check-pins:             ## the tools the apptown runs for projects have one version each: deploy/tool-pins.txt
 	python3 scripts/pins-check_test.py
@@ -220,8 +231,11 @@ check-race:              ## the race detector on the default tier (CI runs this)
 	# -race on CI's runner (11 Oct).
 	go test -race -count=1 -timeout 30m ./internal/... ./cmd/... $(GO_TEST_FLAGS)
 
+# The image CI runs the rule in (a local semgrep, when installed, runs it
+# instead); pinned by version and digest.
+SEMGREP_IMAGE = semgrep/semgrep:1.178.0@sha256:32e459968daabe7ab86968184a29109b9564aa00392401156f9788452b42786b
 check-sql:               ## the silent-DB-write rule (uses local semgrep or docker)
-	@if command -v semgrep >/dev/null; then 		semgrep --config .semgrep/no-silent-db-write.yml --error internal/ ; 	else 		echo "semgrep not on PATH — running it via docker"; 		docker run --rm -v "$$PWD:/src" -w /src semgrep/semgrep 			semgrep --config .semgrep/no-silent-db-write.yml --error internal/ ; 	fi
+	@if command -v semgrep >/dev/null; then 		semgrep --config .semgrep/no-silent-db-write.yml --error internal/ ; 	else 		echo "semgrep not on PATH — running it via docker"; 		docker run --rm -v "$$PWD:/src" -w /src $(SEMGREP_IMAGE) 			semgrep --config .semgrep/no-silent-db-write.yml --error internal/ ; 	fi
 
 check-vuln:              ## known-CVE scan of deps + the build toolchain (CI runs this)
 	@command -v govulncheck >/dev/null || { echo "govulncheck missing — run 'make tools'"; exit 1; }
