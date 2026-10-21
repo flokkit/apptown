@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write the third-party notices a Forge release carries: for every Go module
+"""Write the third-party notices an AppTown release carries: for every Go module
 compiled into its binaries and every package in its web bundle, the name,
 version and the licence, copyright and notice files it ships, verbatim.
 
@@ -131,8 +131,8 @@ def emit(title, files, extra=""):
 
 def main():
     mains = sys.argv[1:] or MAINS
-    print("Third-party software in this Forge release")
-    print("Forge itself is licensed under the Apache License 2.0 (LICENSE, NOTICE).")
+    print("Third-party software in this AppTown release")
+    print("AppTown itself is licensed under the Apache License 2.0 (LICENSE, NOTICE).")
     print()
     for path, (version, d) in sorted(go_modules(mains).items()):
         files = notice_files(d)
