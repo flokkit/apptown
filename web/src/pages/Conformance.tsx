@@ -15,6 +15,7 @@ import { ChecksList } from './conformance/Checks'
 import { RemediationsList } from './conformance/Remediations'
 import { RemediationPage } from './conformance/RemediationPage'
 import { FleetVersionsTab } from './conformance/FleetVersions'
+import { WhatIfsList } from './conformance/WhatIfs'
 
 // Conformance (design/subsystems/conformance-surface.md): projects first, reviews as
 // records, checks third. Every view is read through a LENS — the current
@@ -28,7 +29,7 @@ import { FleetVersionsTab } from './conformance/FleetVersions'
 
 // --- the page ---------------------------------------------------------------------------------------
 
-export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'ways' }) {
+export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'ways' | 'what-ifs' }) {
   const { reviewId, slug, remId } = useParams()
   const rid = reviewId ?? ''
   const base = rid ? `/conformance/reviews/${rid}` : '/conformance'
@@ -141,6 +142,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
         <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>
         {!readOnly && <Link to="/conformance/remediations" className={tabClass(active === 'remediations')}>Remediations</Link>}
         {!readOnly && <Link to="/conformance/ways" className={tabClass(active === 'ways')}>Ways of working</Link>}
+        {!readOnly && <Link to="/conformance/what-ifs" className={tabClass(active === 'what-ifs')}>What-ifs</Link>}
       </div>
 
       {!view && <ReadStatus q={viewQ} what="the conformance record" className="small" />}
@@ -152,6 +154,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       {view && tab === 'checks' && <ChecksList key={base} view={view} base={base} />}
       {tab === 'remediations' && <RemediationsList />}
       {tab === 'ways' && <FleetVersionsTab />}
+      {tab === 'what-ifs' && <WhatIfsList />}
       {tab === 'remediation' && remId && <RemediationPage id={remId} />}
     </div>
   )

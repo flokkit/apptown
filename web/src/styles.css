@@ -303,7 +303,7 @@ h3 { font-size: var(--fs-base); font-weight: var(--fw-strong); margin: 14px 0 6p
 .chip.draft { color: var(--muted); }
 /* A shown answer whose refresh failed: a quiet amber stamp, not a red
    line, so old data reads differently from an error with nothing shown. */
-.chip.out-of-date { color: var(--warn); border-color: var(--warn-mark); background: var(--warn-bg); font-weight: var(--fw-regular); }
+.chip.out-of-date, .chip.moves-back { color: var(--warn); border-color: var(--warn-mark); background: var(--warn-bg); font-weight: var(--fw-regular); }
 .stale-note { margin: 0 0 6px; }
 .warn-line.stale-notice { margin: 0 0 10px; }
 .chip.deprecated, .chip.superseded, .chip.skipped { color: var(--subtle); text-decoration: line-through; }

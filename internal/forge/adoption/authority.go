@@ -27,9 +27,9 @@ func (s *Service) require(ctx context.Context, p authorization) error {
 	}
 	var capability access.Capability
 	switch p.Operation {
-	case OperationSelect:
-		capability = access.CapProjectConfigure
-	case OperationApplyPack:
+	case OperationSelect, OperationApplyPack:
+		// Adopting a selection or applying a pack is choosing the project's
+		// way of working; ordinary metadata configuration does not carry it.
 		capability = access.CapProjectWayOfWorking
 	default:
 		return &access.Denied{Code: access.DenyOutsideScope, Reason: "unknown Adoption operation"}

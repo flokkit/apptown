@@ -132,3 +132,65 @@ func TestCandidateRequirementsSurviveTargetEncoding(t *testing.T) {
 		t.Fatalf("target encoding lost requirements or invented scope: %s", body)
 	}
 }
+
+// A candidate says every rule it moves, and an older version or a rule no
+// longer carried is moving back — listed apart from forward changes, never
+// silent. A person's workflow pin is a recorded procedure: a pack adoption
+// that does not pin it keeps it, and only a request that asks to advance
+// workflows moves it to the library's latest, which the candidate then
+// lists; a pack's pin still wins. Kills: an older version counted as an
+// update; a removed own block missing from what moves back; a workflow pin
+// advanced without being asked; AdvanceWorkflows ignored; a pack pin
+// overridden by AdvanceWorkflows.
+func TestACandidateSaysWhatMovesBackAndKeepsWorkflowPinsUnlessAsked(t *testing.T) {
+	t.Parallel()
+	review := func(v int) string { return "review v" + string(rune('0'+v)) }
+	cat := candidateCatalogFake{
+		blocks: map[ids.ID]wow.Block{idstest.N(1): {ID: idstest.N(1), Name: "house", LatestVersion: 2}, idstest.N(2): {ID: idstest.N(2), Name: "own", LatestVersion: 1}},
+		versions: map[ids.ID]map[int]wow.BlockObservation{
+			idstest.N(1): {1: {Version: 1, ChecksJSON: `[]`}, 2: {Version: 2, ChecksJSON: `[]`}},
+			idstest.N(2): {1: {Version: 1, ChecksJSON: `[]`}},
+		},
+		packs:            map[string]wow.PackVersion{"house": {SpecJSON: `{"guidance":["house"]}`, PinsJSON: `{"blocks":{"house":1}}`}},
+		workflows:        []wow.WorkflowEntry{{Name: "review", Version: 2, YAML: review(2), Doc: &schema.Doc{}}},
+		workflowVersions: map[string]map[int]string{"review": {1: review(1), 2: review(2)}},
+	}
+	// The project runs house v2 (newer than the pack's pin) and its own
+	// block, with review pinned at v1.
+	current := &RecordedRevision{ProjectID: idstest.N(7), Revision: 3, Receipt: Receipt{
+		Guidance:  []ReceiptBlock{{BlockID: idstest.N(1), Name: "house", Version: 2}, {BlockID: idstest.N(2), Name: "own", Version: 1, Position: 1}},
+		Workflows: []ReceiptWorkflow{{Name: "review", Version: 1}},
+	}}
+	memberships := []ProjectPackRecord{{Pack: "house", Version: 1, SpecJSON: `{"guidance":["house"]}`}}
+	builder := candidateBuilder{ways: cat}
+
+	c, err := builder.prepare(t.Context(), idstest.N(7), current, memberships, Request{Packs: []PackPick{{Pack: "house", Version: 1}}, Additions: []string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(c.Older, []string{"house v2→v1"}) || len(c.Changed) != 0 {
+		t.Fatalf("older %v changed %v: an older version is not an update", c.Older, c.Changed)
+	}
+	if !slices.Equal(c.MovesBack(), []string{"house v2→v1", "removes own (v1)"}) {
+		t.Fatalf("moves back %v", c.MovesBack())
+	}
+	if c.Receipt.Workflows[0].Version != 1 {
+		t.Fatalf("a pack adoption moved a person's workflow pin: %+v", c.Receipt.Workflows)
+	}
+
+	advanced, err := builder.prepare(t.Context(), idstest.N(7), current, memberships, Request{Packs: []PackPick{{Pack: "house", Version: 1}}, AdvanceWorkflows: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if advanced.Receipt.Workflows[0].Version != 2 || !slices.Contains(advanced.Changed, "workflow review v1→v2") ||
+		!slices.Contains(advanced.Moves, RuleMove{Rule: "workflow review", From: 1, To: 2}) || advanced.Digest == c.Digest {
+		t.Fatalf("asked to advance workflows: %+v", advanced)
+	}
+
+	pinned := cat
+	pinned.packs = map[string]wow.PackVersion{"house": {SpecJSON: `{"guidance":["house"],"workflows":["review"]}`, PinsJSON: `{"blocks":{"house":1},"workflows":{"review":1}}`}}
+	kept, err := (candidateBuilder{ways: pinned}).prepare(t.Context(), idstest.N(7), current, memberships, Request{Packs: []PackPick{{Pack: "house", Version: 1}}, AdvanceWorkflows: true})
+	if err != nil || kept.Receipt.Workflows[0].Version != 1 {
+		t.Fatalf("a pack's workflow pin lost to AdvanceWorkflows: %+v %v", kept, err)
+	}
+}

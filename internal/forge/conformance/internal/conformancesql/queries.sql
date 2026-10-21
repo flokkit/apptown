@@ -252,8 +252,8 @@ DELETE FROM conformance_reviews;
 
 -- The selection is sent as text, as InsertReview's is.
 -- name: InsertWhatIf :one
-INSERT INTO what_if_reviews(id, pack,pack_version,requested_by,requested_by_principal,requested_by_via,rubrics,spend_limit_micros,created_at,projects,state)
-VALUES(sqlc.arg(id), sqlc.arg(pack),sqlc.arg(pack_version),sqlc.arg(requested_by),sqlc.arg(requested_by_principal),sqlc.arg(requested_by_via),sqlc.arg(rubrics),sqlc.arg(spend_limit_micros),sqlc.arg(created_at),sqlc.arg(projects)::text::jsonb,'queued') RETURNING *;
+INSERT INTO what_if_reviews(id, pack,pack_version,requested_by,requested_by_principal,requested_by_via,rubrics,spend_limit_micros,advance_workflows,created_at,projects,state)
+VALUES(sqlc.arg(id), sqlc.arg(pack),sqlc.arg(pack_version),sqlc.arg(requested_by),sqlc.arg(requested_by_principal),sqlc.arg(requested_by_via),sqlc.arg(rubrics),sqlc.arg(spend_limit_micros),sqlc.arg(advance_workflows),sqlc.arg(created_at),sqlc.arg(projects)::text::jsonb,'queued') RETURNING *;
 
 -- One claimant wins: a what-if leaves queued once, for running.
 -- name: ClaimQueuedWhatIf :one
@@ -278,6 +278,10 @@ VALUES($19, $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18);
 
 -- name: WhatIfByID :one
 SELECT * FROM what_if_reviews WHERE id=$1;
+
+-- The most recent what-ifs, newest first, for the list under Conformance.
+-- name: RecentWhatIfs :many
+SELECT * FROM what_if_reviews ORDER BY id DESC LIMIT sqlc.arg(max_rows);
 
 -- name: LatestWhatIf :one
 SELECT * FROM what_if_reviews WHERE pack=$1 AND pack_version=$2 ORDER BY id DESC LIMIT 1;

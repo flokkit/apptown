@@ -65,7 +65,7 @@ func TestServiceAdoptInDeniedAuthorityLeavesNoSettlement(t *testing.T) {
 	calls := 0
 	s := New(db, Dependencies{Ways: wow.New(db, wow.Dependencies{}), Authority: serviceAuthorityFunc(func(_ context.Context, p access.Permission) error {
 		calls++
-		if p.Resource.ProjectID != pid || p.Capability != access.CapProjectConfigure {
+		if p.Resource.ProjectID != pid || p.Capability != access.CapProjectWayOfWorking {
 			t.Fatalf("wrong authority request: %+v", p)
 		}
 		return denied
@@ -120,7 +120,7 @@ func TestServiceAdoptInRecomputesErasedWeakening(t *testing.T) {
 	allow := false
 	calls := 0
 	s := New(db, Dependencies{Ways: wow.New(db, wow.Dependencies{}), Authority: serviceAuthorityFunc(func(_ context.Context, p access.Permission) error {
-		if p.Capability == access.CapProjectConfigure {
+		if p.Capability == access.CapProjectWayOfWorking {
 			return nil
 		}
 		calls++

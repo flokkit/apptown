@@ -56,7 +56,7 @@ describe('what-if panel', () => {
     expect(run.textContent).toBe('Run on 2 eligible projects')
     await act(async () => { run.click() })
     await settled(client)
-    expect(posted).toEqual([{ pack: 'team', version: 2, rubrics: false, spendLimitMicros: 0 }])
+    expect(posted).toEqual([{ pack: 'team', version: 2, rubrics: false, spendLimitMicros: 0, advanceWorkflows: false }])
     done()
   })
 
@@ -79,7 +79,7 @@ describe('what-if panel', () => {
     })
     await act(async () => { button(el, 'Run on').click() })
     await settled(client)
-    expect(posted).toEqual([{ pack: 'team', version: 2, rubrics: true, spendLimitMicros: 2500000 }])
+    expect(posted).toEqual([{ pack: 'team', version: 2, rubrics: true, spendLimitMicros: 2500000, advanceWorkflows: false }])
     done()
   })
 
@@ -135,7 +135,7 @@ describe('what-if panel', () => {
     expect(run.textContent).toBe('Run on 2 projects')
     await act(async () => { run.click() })
     await settled(client)
-    expect(posted).toEqual([{ pack: 'team', version: 2, projects: ['ledger', 'shop'], rubrics: true, spendLimitMicros: 500000 }])
+    expect(posted).toEqual([{ pack: 'team', version: 2, projects: ['ledger', 'shop'], rubrics: true, spendLimitMicros: 500000, advanceWorkflows: false }])
     done()
   })
 })

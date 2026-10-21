@@ -43,6 +43,7 @@ func init() {
 		wiregen.Named{Name: "EvalScorecard", Value: evals.Scorecard{}},
 		wiregen.Named{Name: "EvalStartForm", Value: evals.StartForm{}},
 		wiregen.Named{Name: "LatestWhatIf", Value: LatestWhatIf{}},
+		wiregen.Named{Name: "RecentWhatIfs", Value: RecentWhatIfs{}},
 		wiregen.Named{Name: "ConformanceHistory", Value: ConformanceHistory{}},
 		wiregen.Named{Name: "ConformanceFixList", Value: ConformanceFixList{}},
 		wiregen.Named{Name: "ConformanceHistoryCleared", Value: ConformanceHistoryCleared{}},

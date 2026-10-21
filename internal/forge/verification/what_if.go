@@ -180,7 +180,7 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 	if err != nil {
 		return nil, spend, err
 	}
-	cand, err := f.candidates.Prepare(ctx, p.ID, adoption.Request{Packs: picks})
+	cand, err := f.candidates.Prepare(ctx, p.ID, adoption.Request{Packs: picks, AdvanceWorkflows: in.AdvanceWorkflows})
 	if err != nil {
 		return whole(head.SHA, conformance.NotAssessedNotAdoptable, err.Error()), spend, nil
 	}
@@ -317,7 +317,15 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 		rows = append(rows, row)
 	}
 	if len(rows) == 0 {
-		return whole(head.SHA, conformance.NotAssessedNoEvaluator, "neither today's checks nor the version's apply to this project"), spend, nil
+		rows = whole(head.SHA, conformance.NotAssessedNoEvaluator, "neither today's checks nor the version's apply to this project")
+	}
+	// Every rule whose version the candidate changes is a row of its own, so
+	// a version that takes a rule back, drops it or moves a workflow is
+	// never read as "no new failures". A version fact never replaces the
+	// answer above that nothing could be judged.
+	for _, m := range cand.Moves {
+		rows = append(rows, conformance.WhatIfRow{ProjectID: p.ID, ProjectSlug: p.Slug, SHA: head.SHA, AdoptionRevision: cand.ExpectedRevision,
+			CandidateDigest: cand.Digest, Block: m.Rule, CurrentVersion: m.From, ProposedVersion: m.To, Result: conformance.RuleMoveResult(m.From, m.To), Joins: joins, Detail: m.String()})
 	}
 	return rows, spend, nil
 }

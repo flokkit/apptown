@@ -43,8 +43,9 @@ func cmdWhatIf(args []string) error {
 	projects := fs.String("p", "", "the projects to judge, comma-separated (default: every project on an earlier version)")
 	noFollow := fs.Bool("no-follow", false, "start the what-if and return")
 	rubrics := fs.String("rubrics", "", "include model rubrics, with this spend limit in dollars")
+	advance := fs.Bool("advance-workflows", false, "also move each project's workflows the pack does not pin to the newest version")
 	pos := parseArgs(fs, args)
-	usage := fmt.Errorf("usage: apptown whatif <pack> <version> [-p <project>[,<project>…]] [--rubrics <dollars>] [--no-follow]")
+	usage := fmt.Errorf("usage: apptown whatif <pack> <version> [-p <project>[,<project>…]] [--rubrics <dollars>] [--advance-workflows] [--no-follow]")
 	if len(pos) != 2 {
 		return usage
 	}
@@ -59,6 +60,9 @@ func cmdWhatIf(args []string) error {
 		}
 	}
 	body := map[string]any{"pack": pos[0], "version": version}
+	if *advance {
+		body["advanceWorkflows"] = true
+	}
 	limit := ""
 	if *rubrics != "" {
 		dollars, err := strconv.ParseFloat(strings.TrimPrefix(*rubrics, "$"), 64)
@@ -146,6 +150,7 @@ type whatIf struct {
 	SpendLimitMicros            int64
 	CostMicros                  int64
 	Incomplete                  int64
+	AdvanceWorkflows            bool
 	Rows                        []struct {
 		ProjectSlug, Block, Check, Result, Detail, Reason string
 	}
@@ -153,6 +158,7 @@ type whatIf struct {
 		ProjectSlug, SHA, Outcome string
 		Joins                     bool
 		Fixed                     int
+		Score                     struct{ MovesBack, CouldNotAssess, Checks int }
 		NewFailures               []struct {
 			Block, Check  string
 			ExceptedToday bool
@@ -160,6 +166,10 @@ type whatIf struct {
 		NotAssessed []struct{ Block, Check, Why string }
 	}
 }
+
+// ruleMoveWords says a rule-move row: a rule whose version the version
+// changes, not a check answer.
+var ruleMoveWords = map[string]string{"older-version": "moves back", "removed": "moves back", "newer-version": "moves forward", "added": "adds"}
 
 var whatIfOutcomeWords = map[string]string{
 	"new-failures": "new failures", "could-not-assess": "could not assess", "no-new-failures": "no new failures", "not-evaluated": "not evaluated", "not-yet-judged": "not yet judged",
@@ -178,6 +188,10 @@ func whatIfSummary(w whatIf) string {
 	for _, r := range w.Rows {
 		counts[r.Result]++
 		if r.Result == "unchanged" {
+			continue
+		}
+		if moved := ruleMoveWords[r.Result]; moved != "" {
+			lines = append(lines, fmt.Sprintf("    %s · %s: %s", r.ProjectSlug, moved, r.Detail))
 			continue
 		}
 		line := fmt.Sprintf("    %s · %s · %s", r.Result, r.ProjectSlug, r.Check)
@@ -219,6 +233,9 @@ func whatIfSummary(w whatIf) string {
 		fmt.Fprintf(&b, "partial: %d of %d projects judged before it ended: %s\n", w.ProjectsDone, w.ProjectsTotal, strings.Join(parts, ", "))
 	}
 	b.WriteString("  " + rubricSpend(w) + "\n")
+	if w.AdvanceWorkflows {
+		b.WriteString("  moves each project's other workflows to the newest version\n")
+	}
 	outcomes := map[string]int{}
 	for _, p := range w.Projects {
 		outcomes[p.Outcome]++
@@ -250,6 +267,9 @@ func whatIfSummary(w whatIf) string {
 		}
 		if p.Fixed > 0 {
 			what = append(what, fmt.Sprintf("%d fixed", p.Fixed))
+		}
+		if p.Score.MovesBack > 0 {
+			what = append(what, fmt.Sprintf("moves %d rule(s) back", p.Score.MovesBack))
 		}
 		line := fmt.Sprintf("  %-18s %-16s", p.ProjectSlug, whatIfOutcomeWords[p.Outcome])
 		if p.Joins {

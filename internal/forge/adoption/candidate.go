@@ -19,6 +19,11 @@ type Request struct {
 	RequiredCapabilities []string   `json:"requiredCapabilities,omitempty"`
 	Packs                []PackPick `json:"packs"`
 	Additions            []string   `json:"additions"`
+	// AdvanceWorkflows moves every selected workflow no candidate pack pins
+	// to the library's latest version. Without it such a workflow keeps the
+	// version the project's receipt pins: a person's recorded procedure
+	// moves only when asked.
+	AdvanceWorkflows bool `json:"advanceWorkflows,omitempty"`
 }
 
 // PlatformPack is the stock platform tier's name (stock/packs.yaml): every
@@ -38,21 +43,29 @@ type Installation struct {
 
 type Candidate struct {
 	applicationSeal      string
-	Installation         Installation   `json:"-"`
-	ProjectID            ids.ID         `json:"-"`
-	RequiredCapabilities []string       `json:"requiredCapabilities,omitempty"`
-	ExpectedRevision     int64          `json:"expectedRevision"`
-	Packs                []PackPick     `json:"packs"`
-	Additions            []string       `json:"additions"`
-	Receipt              Receipt        `json:"receipt"`
-	Digest               string         `json:"digest"`
-	Added                []string       `json:"added"`   // blocks newly in force (name@version)
-	Removed              []string       `json:"removed"` // blocks no longer in force
-	Changed              []string       `json:"changed"` // name v1→v2
-	LanesAdded           []string       `json:"lanesAdded"`
-	LanesRemoved         []string       `json:"lanesRemoved"`
-	NewChecks            []CheckSummary `json:"newChecks"` // checks the Candidate brings or changes — an uplift must pass these
-	Weakens              []string       `json:"weakens"`   // gating blocks a selected pack carries that the Candidate drops: needs the standards authority
+	Installation         Installation `json:"-"`
+	ProjectID            ids.ID       `json:"-"`
+	RequiredCapabilities []string     `json:"requiredCapabilities,omitempty"`
+	ExpectedRevision     int64        `json:"expectedRevision"`
+	Packs                []PackPick   `json:"packs"`
+	Additions            []string     `json:"additions"`
+	Receipt              Receipt      `json:"receipt"`
+	Digest               string       `json:"digest"`
+	Added                []string     `json:"added"`   // blocks newly in force (name@version)
+	Removed              []string     `json:"removed"` // blocks no longer in force
+	Changed              []string     `json:"changed"` // name v1→v2, forward only
+	// Older is every rule the candidate moves to an older version:
+	// "name v31→v27" and "workflow name v52→v40". Moves is every rule whose
+	// version it changes — added, newer, older, removed — one entry each.
+	// Going back is allowed and never silent: MovesBack says it wherever an
+	// adoption is confirmed or recorded, and a what-if records each move as
+	// a row.
+	Older        []string       `json:"older"`
+	Moves        []RuleMove     `json:"moves"`
+	LanesAdded   []string       `json:"lanesAdded"`
+	LanesRemoved []string       `json:"lanesRemoved"`
+	NewChecks    []CheckSummary `json:"newChecks"` // checks the Candidate brings or changes — an uplift must pass these
+	Weakens      []string       `json:"weakens"`   // gating blocks a selected pack carries that the Candidate drops: needs the standards authority
 	// Kept names workflows and policies the project's current packs supplied
 	// that the candidate's packs no longer carry. Adoption keeps a project's
 	// workflow selections and installed policies, so these stay after
@@ -63,6 +76,28 @@ type Candidate struct {
 }
 
 // CheckSummary is the acceptance a newly adopted check contributes to an uplift.
+// RuleMove is one rule whose version an adoption changes: a guidance block
+// by name, or "workflow <name>". From is zero when the rule is newly in
+// force, To when it is no longer carried.
+type RuleMove struct {
+	Rule string `json:"rule"`
+	From int    `json:"from"`
+	To   int    `json:"to"`
+}
+
+// Back says the move takes the rule to an older version or out of force.
+func (m RuleMove) Back() bool { return m.From != 0 && (m.To == 0 || m.To < m.From) }
+
+func (m RuleMove) String() string {
+	switch {
+	case m.From == 0:
+		return fmt.Sprintf("adds %s v%d", m.Rule, m.To)
+	case m.To == 0:
+		return fmt.Sprintf("removes %s (v%d)", m.Rule, m.From)
+	}
+	return fmt.Sprintf("%s v%d→v%d", m.Rule, m.From, m.To)
+}
+
 type CheckSummary struct {
 	Block   string `json:"block"`
 	Check   string `json:"check"`
@@ -110,7 +145,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 		return nil, err
 	}
 	c := &Candidate{ProjectID: projectID, RequiredCapabilities: slices.Clone(req.RequiredCapabilities), ExpectedRevision: cur.Revision, Packs: slices.Clone(req.Packs), Additions: slices.Clone(req.Additions),
-		Added: []string{}, Removed: []string{}, Changed: []string{}, LanesAdded: []string{}, LanesRemoved: []string{}, NewChecks: []CheckSummary{}, Weakens: []string{}, Problems: []string{}, Kept: []string{}}
+		Added: []string{}, Removed: []string{}, Changed: []string{}, Older: []string{}, Moves: []RuleMove{}, LanesAdded: []string{}, LanesRemoved: []string{}, NewChecks: []CheckSummary{}, Weakens: []string{}, Problems: []string{}, Kept: []string{}}
 	if c.Packs == nil {
 		for _, pp := range view.Packs {
 			c.Packs = append(c.Packs, PackPick{Pack: pp.Pack, Version: pp.Version})
@@ -272,7 +307,8 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 			continue
 		}
 		// A pack's pin wins; a lane no pack pins keeps the version the
-		// project is on; a lane new to the project comes at the library's latest.
+		// project is on, unless the request advances workflows; a lane new
+		// to the project comes at the library's latest.
 		version, yamlSrc := e.Version, e.YAML
 		if v, ok := laneVersion[e.Name]; ok {
 			y, err := a.workflowYAML(ctx, e.Name, v)
@@ -280,7 +316,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 				return nil, fmt.Errorf("pack workflow %s v%d is unavailable: %w", e.Name, v, err)
 			}
 			version, yamlSrc = v, y
-		} else {
+		} else if !req.AdvanceWorkflows {
 			for _, wf := range cur.Receipt.Workflows {
 				if wf.Name == e.Name && wf.Version != e.Version {
 					y, err := a.workflowYAML(ctx, e.Name, wf.Version)
@@ -311,8 +347,13 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 		switch {
 		case !had || (old.Disabled && !b.Disabled):
 			c.Added = append(c.Added, fmt.Sprintf("%s@%d", b.Name, b.Version))
+			c.Moves = append(c.Moves, RuleMove{Rule: b.Name, To: b.Version})
+		case old.Version > b.Version:
+			c.Older = append(c.Older, fmt.Sprintf("%s v%d→v%d", b.Name, old.Version, b.Version))
+			c.Moves = append(c.Moves, RuleMove{Rule: b.Name, From: old.Version, To: b.Version})
 		case old.Version != b.Version:
 			c.Changed = append(c.Changed, fmt.Sprintf("%s v%d→v%d", b.Name, old.Version, b.Version))
+			c.Moves = append(c.Moves, RuleMove{Rule: b.Name, From: old.Version, To: b.Version})
 		}
 	}
 	c.NewChecks, err = a.newChecks(ctx, cur.Receipt, c.Receipt)
@@ -323,6 +364,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 		b, still := now[old.Name]
 		if (!still || b.Disabled) && !old.Disabled {
 			c.Removed = append(c.Removed, fmt.Sprintf("%s@%d", old.Name, old.Version))
+			c.Moves = append(c.Moves, RuleMove{Rule: old.Name, From: old.Version})
 		}
 	}
 	c.Weakens, err = a.weakenings(ctx, cur, view.Carried, c.Receipt)
@@ -336,8 +378,13 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 	for _, wf := range wfs {
 		if v, had := oldLanes[wf.Name]; !had {
 			c.LanesAdded = append(c.LanesAdded, wf.Name)
+			c.Moves = append(c.Moves, RuleMove{Rule: "workflow " + wf.Name, To: wf.Version})
+		} else if v > wf.Version {
+			c.Older = append(c.Older, fmt.Sprintf("workflow %s v%d→v%d", wf.Name, v, wf.Version))
+			c.Moves = append(c.Moves, RuleMove{Rule: "workflow " + wf.Name, From: v, To: wf.Version})
 		} else if v != wf.Version {
 			c.Changed = append(c.Changed, fmt.Sprintf("workflow %s v%d→v%d", wf.Name, v, wf.Version))
+			c.Moves = append(c.Moves, RuleMove{Rule: "workflow " + wf.Name, From: v, To: wf.Version})
 		}
 	}
 	for _, wf := range cur.Receipt.Workflows {
@@ -349,6 +396,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 		}
 		if !found {
 			c.LanesRemoved = append(c.LanesRemoved, wf.Name)
+			c.Moves = append(c.Moves, RuleMove{Rule: "workflow " + wf.Name, From: wf.Version})
 		}
 	}
 	sort.Strings(c.Weakens)
@@ -589,6 +637,18 @@ func (a candidateBuilder) weakenings(ctx context.Context, prior *RecordedRevisio
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// MovesBack says every rule the candidate moves back, in words. Empty means
+// nothing goes back.
+func (c *Candidate) MovesBack() []string {
+	out := []string{}
+	for _, m := range c.Moves {
+		if m.Back() {
+			out = append(out, m.String())
+		}
+	}
+	return out
 }
 
 // Words says what the candidate brings, for a Change's title and body:

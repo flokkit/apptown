@@ -21,6 +21,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
   const [added, setAdded] = useState<string[]>([])
   const [left, setLeft] = useState<string[]>([])
   const [rubrics, setRubrics] = useState(false)
+  const [advance, setAdvance] = useState(false)
   const [limit, setLimit] = useState('0.50')
   const err = firstErr(actErr, q.err, fleetQ.err)
   const eligible = q.data?.eligible ?? null
@@ -33,7 +34,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
   const limitMicros = Math.round(parseFloat(limit) * 1e6)
   const limitOK = !rubrics || (Number.isFinite(limitMicros) && limitMicros > 0)
   const w = q.data?.whatIf
-  const start = () => run(() => post<WhatIfStarted>('/conformance/what-if', { pack, version, ...(choosing ? { projects: chosen } : {}), rubrics, spendLimitMicros: rubrics ? limitMicros : 0 }))
+  const start = () => run(() => post<WhatIfStarted>('/conformance/what-if', { pack, version, ...(choosing ? { projects: chosen } : {}), rubrics, spendLimitMicros: rubrics ? limitMicros : 0, advanceWorkflows: advance }))
 
   return (
     <div className="small" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
@@ -76,6 +77,10 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
             </>
           ))}
         <div style={{ marginTop: 6 }}>
+          <label><input type="checkbox" checked={advance} onChange={(e) => setAdvance(e.target.checked)} /> Also move each project's other workflows to the newest version</label>
+          <div className="muted">Workflows this pack does not pin otherwise keep the version each project is on.</div>
+        </div>
+        <div style={{ marginTop: 6 }}>
           <label><input type="checkbox" checked={rubrics} onChange={(e) => setRubrics(e.target.checked)} /> Include model rubrics (they cost money)</label>
           {rubrics && (
             <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
@@ -103,7 +108,7 @@ function Latest({ w }: { w: WhatIf }) {
   for (const p of w.projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
   return (
     <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-      <Link to={`/conformance/what-ifs/${w.id}`}>What-if, {relTime(w.createdAt)}</Link>
+      <Link to={`/conformance/what-ifs/${w.id}`}>Open the what-if</Link>
       {w.state === 'queued' && <span className="chip pending">queued</span>}
       {w.state === 'running' && <span className="chip pending">running · {w.projectsDone} of {w.projectsTotal} projects</span>}
       {w.state === 'error' && <span className="chip fail" title={w.detail}>stopped</span>}
@@ -111,6 +116,8 @@ function Latest({ w }: { w: WhatIf }) {
       <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
       {OUTCOME_ORDER.filter((o) => counts[o]).map((o) =>
         <span key={o} className={`chip ${OUTCOME_TONE[o]}`}>{counts[o]} {OUTCOME_WORDS[o]}</span>)}
+      {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
+      <Link to="/conformance/what-ifs" className="muted">all what-ifs</Link>
     </div>
   )
 }

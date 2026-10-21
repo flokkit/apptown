@@ -86,7 +86,7 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 				WriteFault(w, err)
 				return
 			}
-			in.Request, in.ExpectedRevision, expectedDigest, basis = adoption.Request{Packs: picks}, assessed.revision, assessed.digest, assessed.basis
+			in.Request, in.ExpectedRevision, expectedDigest, basis = adoption.Request{Packs: picks, AdvanceWorkflows: assessed.advance}, assessed.revision, assessed.digest, assessed.basis
 		}
 		c, err := h.adoption.Prepare(r.Context(), p.ID, in.Request)
 		if err != nil {
@@ -120,8 +120,14 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 409, "an adoption change is already open on %s — land or abandon it first", p.Slug)
 			return
 		}
+		// Going back is allowed, never silent: the Change's brief and the
+		// revision's reason both say what moves back.
+		back := ""
+		if mb := c.MovesBack(); len(mb) > 0 {
+			back = " Moves back: " + strings.Join(mb, ", ") + "."
+		}
 		if in.ViaChange {
-			ch, err := h.adoption.OpenUplift(r.Context(), p.ID, *c, who, basis)
+			ch, err := h.adoption.OpenUplift(r.Context(), p.ID, *c, who, strings.TrimSpace(basis+back))
 			if err != nil {
 				WriteFaultOr(w, err, 422)
 				return
@@ -129,7 +135,7 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 			WriteJSON(w, 200, AdoptionUpliftOpened{ChangeID: ch.ID, ChangeNumber: ch.Number, Candidate: *c})
 			return
 		}
-		rev, err := h.lifecycle.Adopt(r.Context(), p, c, who, "adopted under Settings › Guidance: "+strings.Join(c.Words(), ", "), adoption.OperationSelect)
+		rev, err := h.lifecycle.Adopt(r.Context(), p, c, who, "adopted under Settings › Guidance: "+strings.Join(c.Words(), ", ")+"."+back, adoption.OperationSelect)
 		if err != nil {
 			WriteFaultOr(w, err, 409)
 			return
@@ -145,6 +151,7 @@ type assessed struct {
 	pack              string
 	version, revision int64
 	digest, basis     string
+	advance           bool
 }
 
 // assessedIn reads what-if id's answer for the project. Reading it takes
@@ -163,7 +170,7 @@ func (h AdoptionCommands) assessedIn(r *http.Request, id, projectID ids.ID) (ass
 			continue
 		}
 		basis := fmt.Sprintf("Assessed in what-if #%d at %s: %s.", wi.ID, strs.ShortSHA(p.SHA), conformance.WhatIfOutcomeWords(p.Outcome))
-		return assessed{pack: wi.Pack, version: wi.Version, revision: p.AdoptionRevision, digest: p.CandidateDigest, basis: basis}, nil
+		return assessed{pack: wi.Pack, version: wi.Version, revision: p.AdoptionRevision, digest: p.CandidateDigest, basis: basis, advance: wi.AdvanceWorkflows}, nil
 	}
 	return assessed{}, fault.New(fault.Conflict, fmt.Sprintf("what-if #%d assessed no candidate for this project", id))
 }

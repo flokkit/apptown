@@ -58,7 +58,15 @@ scanner rule) still covers it. The read answers per project
 (`conformance.WhatIfByProject`), worst first: new failures (including excepted
 today, failing under the version), could not assess (something the version
 changes was not judged; one evaluation both sides share is not part of the
-change), no new failures, not evaluated. Adopting from a what-if is each project's own adopt door via a Change,
+change), no new failures, not evaluated. Beside the outcome each project has
+a score that splits its checks by the version's side (judged — passing or
+failing — could not assess, no longer required), its unjudged checks grouped
+by reason with what would make them assessable (`NotAssessed.Remedy`), and
+the rules the version moves: each is a row of its own (`added`,
+`newer-version`, `older-version`, `removed`; no check), never folded into the
+outcome. The what-if's fleet summary groups the unjudged checks by check and
+reason across projects, so a check that can never be judged stands out.
+Recent what-ifs are listed under Conformance. Adopting from a what-if is each project's own adopt door via a Change,
 naming the what-if (`fromWhatIf`): AppTown reads from it the pack, version,
 adoption revision and candidate it assessed for the project, refuses a
 what-if not `done` or with no candidate for the project, and refuses a

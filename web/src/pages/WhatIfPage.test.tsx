@@ -20,18 +20,25 @@ const MAIL = '00000000-0004-7000-8000-000000000000'
 
 const whatIf = {
   id: WHAT_IF, pack: 'team', version: 2, requestedBy: 'bls', state: 'interrupted', detail: 'AppTown restarted', projectsTotal: 4, projectsDone: 3,
-  createdAt: '2026-10-05T00:00:00Z', finishedAt: '', rubrics: true, spendLimitMicros: 500000, costMicros: 800000, incomplete: 1,
+  createdAt: '2026-10-05T00:00:00Z', finishedAt: '', rubrics: true, spendLimitMicros: 500000, costMicros: 800000, incomplete: 1, advanceWorkflows: true,
+  movesBackProjects: 1,
+  fleet: [{ block: 'img', check: 'scan', reason: 'no-image', words: 'no image of the app at this commit could be used', remedy: 'the app must ship an image', projects: 1 }],
   rows: [
+    { projectId: LEDGER, projectSlug: 'ledger', sha: '0123456789abcdef', adoptionRevision: 2, block: 'lang/django', check: '', result: 'older-version', currentVersion: 31, proposedVersion: 27, detail: 'lang/django v31→v27' },
     { projectId: LEDGER, projectSlug: 'ledger', sha: '0123456789abcdef', adoptionRevision: 2, block: 'docs', check: 'readme', result: 'would-fail', proposed: 'does-not-conform', detail: 'no README' },
     { projectId: LEDGER, projectSlug: 'ledger', sha: '0123456789abcdef', adoptionRevision: 2, block: 'hygiene', check: 'fixme', result: 'unchanged', current: 'conforms', proposed: 'conforms' },
   ],
   projects: [
     { projectId: LEDGER, projectSlug: 'ledger', sha: '0123456789abcdef', adoptionRevision: 2, candidateDigest: 'd1', outcome: 'new-failures', fixed: 0,
-      newFailures: [{ block: 'docs', check: 'readme' }, { block: 'deps', check: 'audit', exceptedToday: true }], notAssessed: [] },
+      newFailures: [{ block: 'docs', check: 'readme' }, { block: 'deps', check: 'audit', exceptedToday: true }], notAssessed: [], notAssessedBy: [],
+      score: { checks: 3, judged: 3, passed: 1, failing: 2, couldNotAssess: 0, noLongerRequired: 0, newFailures: 2, fixed: 0, movesBack: 1, ruleChanges: 2 },
+      moves: [{ rule: 'lang/django', from: 31, to: 27, back: true }, { rule: 'workflow implement', from: 40, to: 52, back: false }] },
     { projectId: TILL, projectSlug: 'till', sha: 'fedcba9876543210', adoptionRevision: 5, candidateDigest: 'd2', outcome: 'could-not-assess', fixed: 1, newFailures: [],
-      notAssessed: [{ block: 'img', check: 'scan', reason: 'no-image', why: 'no image of the app at this commit could be used' }] },
-    { projectId: SHOP, projectSlug: 'shop', sha: 'aaaaaaaaaaaaaaaa', adoptionRevision: 1, candidateDigest: 'd3', outcome: 'no-new-failures', fixed: 0, newFailures: [], notAssessed: [], joins: true },
-    { projectId: MAIL, projectSlug: 'mail', outcome: 'not-evaluated', fixed: 0, newFailures: [], notAssessed: [] },
+      notAssessed: [{ block: 'img', check: 'scan', reason: 'no-image', why: 'no image of the app at this commit could be used' }],
+      notAssessedBy: [{ reason: 'no-image', words: 'no image of the app at this commit could be used', remedy: 'the app must ship an image', count: 1 }],
+      score: { checks: 2, judged: 1, passed: 1, failing: 0, couldNotAssess: 1, noLongerRequired: 0, newFailures: 0, fixed: 1, movesBack: 0, ruleChanges: 0 }, moves: [] },
+    { projectId: SHOP, projectSlug: 'shop', sha: 'aaaaaaaaaaaaaaaa', adoptionRevision: 1, candidateDigest: 'd3', outcome: 'no-new-failures', fixed: 0, newFailures: [], notAssessed: [], notAssessedBy: [], score: { checks: 0, judged: 0, passed: 0, failing: 0, couldNotAssess: 0, noLongerRequired: 0, newFailures: 0, fixed: 0, movesBack: 0, ruleChanges: 0 }, moves: [], joins: true },
+    { projectId: MAIL, projectSlug: 'mail', outcome: 'not-evaluated', fixed: 0, newFailures: [], notAssessed: [], notAssessedBy: [], score: { checks: 0, judged: 0, passed: 0, failing: 0, couldNotAssess: 0, noLongerRequired: 0, newFailures: 0, fixed: 0, movesBack: 0, ruleChanges: 0 }, moves: [] },
   ],
 }
 
@@ -53,6 +60,9 @@ async function render(answer: (url: string, init?: RequestInit) => unknown) {
   return { el, client, done: () => { act(() => root.unmount()); client.clear() } }
 }
 
+// projectRows is the per-project table's rows.
+const projectRows = (el: HTMLElement) => [...el.querySelectorAll('tbody tr')]
+
 const button = (el: HTMLElement, text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent?.startsWith(text)) as HTMLButtonElement
 
 // A what-if's page is one row per project with its answer, worst first in
@@ -71,20 +81,30 @@ describe('the what-if page', () => {
     expect(text).toContain('What-if: team v2')
     expect(text).toContain('interrupted')
     expect(text).toContain('at least $0.80 of $0.50')
-    expect(text).toContain('4 projects1 new failures1 could not assess1 no new failures1 not evaluated')
-    const rows = [...el.querySelectorAll('tbody tr')].map((r) => r.textContent)
-    expect(rows[0]).toContain('ledgernew failuresdocs · readmedeps · audit (excepted today)')
+    expect(text).toContain('4 projects1 new failures1 could not assess1 no new failures1 not evaluated1 move rules back')
+    expect(text).toContain("moves each project's other workflows to the newest version")
+    // Across projects: the check, how many it is missing from, why, and what would make it assessable.
+    expect(text).toContain('img · scan 1 of 4 — no image of the app at this commit could be usedTo assess: the app must ship an image')
+    const rows = projectRows(el).map((r) => r.textContent)
+    expect(rows[0]).toContain('ledgernew failures3 checks · 1 pass · 2 faildocs · readmedeps · audit (excepted today)')
+    expect(rows[0]).toContain('moves 1 back1 forward')
     expect(rows[0]).toContain('0123456789')
-    expect(rows[1]).toContain('tillcould not assessimg · scan: no image of the app at this commit could be used1')
-    expect(rows[2]).toContain('shopwould joinno new failures')
+    expect(rows[1]).toContain('tillcould not assess2 checks · 1 pass · 1 could not assess1 fixed')
+    expect(rows[1]).toContain('1 need an image')
+    expect(projectRows(el)[1].querySelector('[title="no image of the app at this commit could be used. To assess: the app must ship an image"]')).not.toBeNull()
+    expect(rows[2]).toContain('shopwould joinno new failuresno checks')
     expect(rows[3]).toContain('mailnot evaluated')
     expect(button(el, 'Recommend v2').disabled).toBe(true)
     expect(text).toContain('needs standards:manage-packs')
     expect(el.querySelector('a[href="/evals/new?pack=team&version=2"]')).not.toBeNull()
-    await act(async () => { button(el, 'checks').click() })
+    await act(async () => { button(el, 'details').click() })
     expect(el.textContent).toContain('would fail')
     expect(el.textContent).toContain('no README')
     expect(el.textContent).not.toContain('hygiene · fixme')
+    // A rule move is its own line, the one going back first and marked; it is never shown as a check.
+    expect(el.textContent).toContain('Rule changesmoves back: lang/django v31 → v27workflow implement v40 → v52')
+    expect(el.textContent).not.toContain('lang/django · ')
+    expect(el.textContent).not.toContain('not required → this version: not required')
     done()
   })
 
@@ -168,19 +188,19 @@ describe('the what-if page', () => {
     expect(button(el, 'Adopt v2 on 0 projects').disabled).toBe(true)
     for (const slug of ['ledger', 'till', 'shop']) await act(async () => { box(slug).click() })
     await act(async () => { button(el, 'Adopt v2 on 3 projects').click() })
-    expect(el.textContent).toContain('Opens one adoption Change per project, taking team v2 as assessed in this what-if.')
+    expect(el.textContent).toContain("Opens one adoption Change per project, taking team v2 as assessed in this what-if, with each project's other workflows at the newest version. Each lands through its own review. 1 of 3 move rules back: ledger (lang/django v31 → v27).")
     await act(async () => { button(el, 'Open the Changes').click() })
     await settled(client)
     await vi.waitFor(() => expect(posted).toHaveLength(3))
     expect(posted[0]).toEqual(['/api/v1/projects/ledger/adoption/adopt', { fromWhatIf: WHAT_IF, viaChange: true }])
     expect(posted.map(([u]) => u.split('/')[4])).toEqual(['ledger', 'till', 'shop'])
     await vi.waitFor(() => expect(el.textContent).toContain('its Change'))
-    const rows = [...el.querySelectorAll('tbody tr')].map((r) => r.textContent)
+    const rows = projectRows(el).map((r) => r.textContent)
     expect(rows[0]).toContain('refused: the project is on revision 3, not 2 — prepare again')
     expect(rows[1]).toContain('not known whether it opened')
     expect(rows[1]).not.toContain('its Change')
     expect(rows[2]).toContain('its Change')
-    expect(el.querySelectorAll('tbody tr')[2].querySelector(`a[href="/changes/${CHANGE}"]`)).not.toBeNull()
+    expect(projectRows(el)[2].querySelector(`a[href="/changes/${CHANGE}"]`)).not.toBeNull()
     expect(box('shop').disabled).toBe(true)
     done()
   })
@@ -241,7 +261,7 @@ describe('the what-if page', () => {
   // reached is not yet judged, never "not evaluated", which says it ended.
   it('says a running what-if is running and its unreached projects not yet judged', async () => {
     const running = { ...whatIf, state: 'running', projectsDone: 1, projectsTotal: 4,
-      projects: whatIf.projects.map((p, i) => i === 0 ? p : { ...p, outcome: 'not-yet-judged', candidateDigest: undefined, newFailures: [], notAssessed: [] }) }
+      projects: whatIf.projects.map((p, i) => i === 0 ? p : { ...p, outcome: 'not-yet-judged', candidateDigest: undefined, newFailures: [], notAssessed: [], notAssessedBy: [] }) }
     const { el, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : running)
     expect(el.textContent).toContain('running · 1 of 4')
     expect(el.textContent).toContain('3 not yet judged')

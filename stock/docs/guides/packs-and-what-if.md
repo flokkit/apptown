@@ -19,12 +19,25 @@ projects adopt. They are under **Ways of working → Packs**.
   or not yet on it, with `-p <project>[,<project>…]`). Its checks run on
   each project's main branch beside what it adopted. Its page has one row
   per project: **new failures** (by check, including an exception that
-  would no longer cover one), **could not assess** (with why), **no new
-  failures**, or **not evaluated**. Recommend the version from there, or tick projects and
+  would no longer cover one), **could not assess**, **no new failures**, or
+  **not evaluated**; beside that, a score (how many checks pass, fail,
+  could not be assessed and why, and what would make them assessable) and
+  the rules the version moves. A rule taken to an **older version** or
+  **removed** is marked **moves back**: going back is allowed, never
+  silent, and the adoption Change says it too. The top of the page lists the
+  checks that could not be assessed across all the projects, so a check
+  that never can be stands out. Workflows the pack does not pin keep the
+  version each project is on unless you tick **Also move each project's
+  other workflows to the newest version** (`--advance-workflows`); that is
+  how a project on only the AppTown pack moves its workflows forward.
+  Every what-if is listed under **Conformance → What-ifs**. Recommend the
+  version from there, or tick projects and
   **Adopt** to open one adoption Change per project with exactly what was
   assessed (or `apptown whatif adopt <id> -p <project>[,<project>…]`); each
-  Change says which what-if it came from, and a project whose adoption moved
-  since is refused (run the what-if again). Recommending from the what-if
+  Change says which what-if it came from and what it moves back, and a
+  project whose adoption moved since is refused (run the what-if again).
+  Adopting takes the right to choose a project's way of working, which
+  maintainers and owners hold. Recommending from the what-if
   page, or with `apptown pack recommend <pack> <version> --what-if <id>`,
   records the what-if on the recommendation it makes; naming a what-if for
   the version already recommended is refused, as nothing would change. Model

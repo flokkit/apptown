@@ -31,12 +31,11 @@ func TestAdoptionAuthoritySeparatesIdentityAttributionAndCapabilities(t *testing
 	if err := authority.require(ctx, pack); err != nil {
 		t.Fatalf("existing pack selector refused: %v", err)
 	}
-	if err := authority.require(ctx, selection); err == nil {
-		t.Fatal("pack-selection capability admitted ordinary configuration")
-	}
-	policyGrant(t, auth, "user", "owner", "", string(access.CapProjectConfigure), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	// Adopting a selection is choosing the project's way of working: a
+	// maintainer holds that right, and ordinary metadata configuration alone
+	// does not carry it.
 	if err := authority.require(ctx, selection); err != nil {
-		t.Fatalf("configured owner refused: %v", err)
+		t.Fatalf("maintainer refused selecting the way of working: %v", err)
 	}
 	apptownd := selection
 	apptownd.Actor = "boss"
@@ -50,8 +49,13 @@ func TestAdoptionAuthoritySeparatesIdentityAttributionAndCapabilities(t *testing
 	if err := authority.require(unverified, selection); !errors.Is(err, access.ErrPrincipalRequired) {
 		t.Fatalf("unverified header after bootstrap: %v", err)
 	}
-	if err := authority.require(adoptionVerifiedContext("outsider"), authorization{Operation: OperationSelect, ProjectID: idstest.N(1), Actor: "outsider"}); err == nil {
+	outsider := authorization{Operation: OperationSelect, ProjectID: idstest.N(1), Actor: "outsider"}
+	if err := authority.require(adoptionVerifiedContext("outsider"), outsider); err == nil {
 		t.Fatal("outsider configured project")
+	}
+	policyGrant(t, auth, "user", "outsider", "", string(access.CapProjectConfigure), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	if err := authority.require(adoptionVerifiedContext("outsider"), outsider); err == nil {
+		t.Fatal("ordinary configuration admitted selecting the way of working")
 	}
 	selection.Weakens = true
 	if err := authority.require(ctx, selection); err == nil {

@@ -1008,6 +1008,10 @@ CREATE TABLE IF NOT EXISTS what_if_reviews (
   -- The selected project IDs (JSON null is the whole estate, [] none),
   -- read by the job that runs it.
   projects           JSONB NOT NULL DEFAULT 'null'::jsonb,
+  -- advance_workflows: each project's selected workflows that no pack of
+  -- the version pins move to the library's newest version (an explicit
+  -- choice; otherwise they keep the version the project is on).
+  advance_workflows  BOOLEAN NOT NULL DEFAULT false,
   -- queued: admitted, waiting for the conformance queue's worker.
   -- interrupted: AppTown stopped before it finished; it is not resumed.
   CONSTRAINT what_if_state CHECK (state IN ('queued','running','done','error','interrupted'))

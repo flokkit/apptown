@@ -5704,6 +5704,27 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/conformance/what-ifs": {
+      "get": {
+        "operationId": "getConformanceWhatIfs",
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "conformance"
+        ],
+        "x-apptown-access": {
+          "contract": "conformance.RecentWhatIfs: conformance read",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/console/{sid}": {
       "delete": {
         "operationId": "deleteConsoleSid",
@@ -7979,7 +8000,7 @@
           "projects"
         ],
         "x-apptown-access": {
-          "capability": "project:configure",
+          "capability": "project:select-way-of-working",
           "kind": "capability",
           "scope": "project-slug"
         },

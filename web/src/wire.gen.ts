@@ -1149,6 +1149,10 @@ export type PullPlan = {
   conflicting: string[]
 }
 
+export type RecentWhatIfs = {
+  whatIfs: WhatIf[]
+}
+
 export type RecheckStarted = {
   rerun: string[]
   message: string
@@ -1631,6 +1635,8 @@ export type Candidate = {
   added: string[]
   removed: string[]
   changed: string[]
+  older: string[]
+  moves: RuleMove[]
   lanesAdded: string[]
   lanesRemoved: string[]
   newChecks: CheckSummary[]
@@ -2769,10 +2775,13 @@ export type WhatIf = {
   finishedAt: string
   rubrics: boolean
   spendLimitMicros: number
+  advanceWorkflows: boolean
   costMicros: number
   incomplete: number
   rows: WhatIfRow[]
   projects: WhatIfProject[]
+  fleet: WhatIfFleetGap[]
+  movesBackProjects: number
 }
 
 export type LibraryWorkflowUse = {
@@ -3705,6 +3714,12 @@ export type Receipt = {
   extensions: string[]
 }
 
+export type RuleMove = {
+  rule: string
+  from: number
+  to: number
+}
+
 export type CheckSummary = {
   block: string
   check: string
@@ -4062,6 +4077,18 @@ export type WhatIfProject = {
   newFailures: WhatIfCheck[]
   notAssessed: WhatIfCheck[]
   fixed: number
+  score: WhatIfScore
+  notAssessedBy: WhatIfReasonCount[]
+  moves: WhatIfMove[]
+}
+
+export type WhatIfFleetGap = {
+  block: string
+  check: string
+  reason: string
+  words: string
+  remedy: string
+  projects: number
 }
 
 export type OpenVEXProduct = {
@@ -4331,6 +4358,33 @@ export type WhatIfCheck = {
   exceptedToday?: boolean
   reason?: string
   why?: string
+}
+
+export type WhatIfScore = {
+  checks: number
+  judged: number
+  passed: number
+  failing: number
+  couldNotAssess: number
+  noLongerRequired: number
+  newFailures: number
+  fixed: number
+  movesBack: number
+  ruleChanges: number
+}
+
+export type WhatIfReasonCount = {
+  reason: string
+  words: string
+  remedy: string
+  count: number
+}
+
+export type WhatIfMove = {
+  rule: string
+  from: number
+  to: number
+  back: boolean
 }
 
 export type workflowStepSummary = {

@@ -135,7 +135,7 @@ var sections = []section{
 			{[]string{"log"}, `  log [-p <slug>] [-k kind] [-n N]      project-state audit log (state changes outside runs)`, cmdLog},
 			{[]string{"findings"}, `  findings <run-id>                     a run's scan/review findings`, cmdFindings},
 			{[]string{"review"}, `  review [-p proj] [--no-follow]        check every project (or one) against its adopted ways of working`, cmdReview},
-			{[]string{"whatif"}, `  whatif <pack> <version> [-p p1[,p2]] [--rubrics <dollars>] [--no-follow]
+			{[]string{"whatif"}, `  whatif <pack> <version> [-p p1[,p2]] [--rubrics <dollars>] [--advance-workflows] [--no-follow]
                                         judge a published pack version's checks on projects' main beside what they
                                         adopted: every project on an earlier version, or those -p names; one line
                                         per project (new failures, could not assess and why). Never changes

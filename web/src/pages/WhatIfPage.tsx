@@ -5,12 +5,32 @@ import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import type { AdoptionUpliftOpened, AuthzHoldings, PackHistory, WhatIf, WhatIfCheck, WhatIfProject, WhatIfRow } from '../wire.gen'
+import type { AdoptionUpliftOpened, AuthzHoldings, PackHistory, WhatIf, WhatIfCheck, WhatIfFleetGap, WhatIfMove, WhatIfRow, WhatIfScore } from '../wire.gen'
 
 // One what-if on a pack version (design/subsystems/conformance.md):
 // one row per project saying what taking the version would change, worst
-// first, then the decision through the existing doors: recommend the
-// version, or try it in an eval. Unknown is never shown as clear.
+// first, with its score and every rule it moves, then the decision through
+// the existing doors: recommend the version, or try it in an eval. Unknown
+// is never shown as clear, and a rule moved back is never shown as nothing.
+
+// REASON_SHORT says why checks were not judged in a few words, for a
+// project's row; the fleet summary and the hover say it in full, with what
+// would make them assessable.
+const REASON_SHORT: Record<string, string> = {
+  error: 'could not answer',
+  'no-image': 'need an image',
+  'no-running-app': 'need the running app',
+  'rubrics-not-included': 'need model rubrics',
+  'spend-limit': 'past the spend limit',
+  'spend-unknown': 'spend unknown',
+  'judges-a-change': 'judge a change',
+  'no-evaluator': 'no evaluator',
+  'no-main': 'no main',
+  'not-adoptable': 'not adoptable',
+}
+
+// RULE_MOVES are the results that are rule moves, not check answers.
+const RULE_MOVES = new Set(['added', 'newer-version', 'older-version', 'removed'])
 
 export const OUTCOME_WORDS: Record<string, string> = {
   'new-failures': 'new failures',
@@ -31,7 +51,7 @@ export default function WhatIfPage() {
   if (!w) return <ReadStatus q={q} what="the what-if" />
   return (
     <div style={{ maxWidth: 1000 }}>
-      <div className="muted small"><Link to="/packs">Packs</Link> › <Link to={`/packs/${w.pack}`}>{w.pack}</Link></div>
+      <div className="muted small"><Link to="/conformance/what-ifs">What-ifs</Link> · <Link to="/packs">Packs</Link> › <Link to={`/packs/${w.pack}`}>{w.pack}</Link></div>
       <h1 style={{ marginBottom: 4 }}>What-if: {w.pack} v{w.version}</h1>
       <StaleNote q={q} />
       <div className="row small" style={{ flexWrap: 'wrap', gap: 8 }}>
@@ -42,9 +62,11 @@ export default function WhatIfPage() {
             ? `model rubrics: ${w.incomplete > 0 ? 'at least ' : ''}$${(w.costMicros / 1e6).toFixed(2)} of $${(w.spendLimitMicros / 1e6).toFixed(2)}`
             : 'model rubrics not included'}
         </span>
+        {w.advanceWorkflows && <span className="muted">moves each project's other workflows to the newest version</span>}
       </div>
       <Decide w={w} />
-      <Summary projects={w.projects} />
+      <Summary w={w} />
+      <Fleet gaps={w.fleet} projects={w.projects.length} />
       <Table w={w} />
     </div>
   )
@@ -89,13 +111,66 @@ function Decide({ w }: { w: WhatIf }) {
   )
 }
 
-function Summary({ projects }: { projects: WhatIfProject[] }) {
+function Summary({ w }: { w: WhatIf }) {
+  const projects = w.projects
   const counts: Record<string, number> = {}
   for (const p of projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
   return (
     <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
       <strong>{projects.length} project{projects.length === 1 ? '' : 's'}</strong>
       {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o} className={`chip ${OUTCOME_TONE[o]}`}>{counts[o]} {OUTCOME_WORDS[o]}</span>)}
+      {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
+    </div>
+  )
+}
+
+// Fleet is the checks the version could not judge, across projects, by
+// check and reason, most projects first: a check that can never be judged
+// stands out, with what would make it assessable.
+function Fleet({ gaps, projects }: { gaps: WhatIfFleetGap[], projects: number }) {
+  if (gaps.length === 0) return null
+  const shown = gaps.slice(0, 8)
+  return (
+    <details className="card" style={{ padding: '6px 10px', margin: '8px 0' }} open={gaps[0].projects > 1}>
+      <summary><strong>Could not assess, across projects</strong> <span className="muted small">{gaps.length} check{gaps.length === 1 ? '' : 's'}</span></summary>
+      {shown.map((g, i) => (
+        <div key={i} className="small" style={{ marginTop: 6 }}>
+          <div>{g.block ? <code style={{ overflowWrap: 'anywhere' }}>{g.block} · {g.check}</code> : <span>the whole project</span>} <strong>{g.projects} of {projects}</strong> <span className="muted">— {g.words}</span></div>
+          <div>To assess: {g.remedy}</div>
+        </div>
+      ))}
+      {gaps.length > shown.length && <div className="muted small">and {gaps.length - shown.length} more; each project's row lists its own.</div>}
+    </details>
+  )
+}
+
+// ScoreLine says the project's checks by the version's side.
+function ScoreLine({ s }: { s: WhatIfScore }) {
+  if (s.checks === 0) return <span className="muted">no checks</span>
+  const parts = [`${s.checks} check${s.checks === 1 ? '' : 's'}`, `${s.passed} pass`]
+  if (s.failing) parts.push(`${s.failing} fail${s.failing === 1 ? 's' : ''}`)
+  if (s.couldNotAssess) parts.push(`${s.couldNotAssess} could not assess`)
+  if (s.noLongerRequired) parts.push(`${s.noLongerRequired} no longer required`)
+  return <span>{parts.join(' · ')}</span>
+}
+
+function moveWords(m: WhatIfMove): string {
+  if (!m.from) return `adds ${m.rule} v${m.to}`
+  if (!m.to) return `removes ${m.rule} (v${m.from})`
+  return `${m.rule} v${m.from} → v${m.to}`
+}
+
+// Moves lists the rules a project's candidate moves, the ones going back
+// first and marked.
+function Moves({ moves }: { moves: WhatIfMove[] }) {
+  if (moves.length === 0) return null
+  const ordered = [...moves.filter((m) => m.back), ...moves.filter((m) => !m.back)]
+  return (
+    <div className="card" style={{ padding: '6px 10px', marginTop: 6 }}>
+      <strong>Rule changes</strong>
+      {ordered.map((m, i) => (
+        <div key={i} className={m.back ? 'warn-line' : 'muted'}>{m.back && 'moves back: '}<code>{moveWords(m)}</code></div>
+      ))}
     </div>
   )
 }
@@ -122,6 +197,9 @@ function Table({ w }: { w: WhatIf }) {
   const { run, busy } = useAction(undefined, { affects: ['/changes', '/projects'] })
   if (w.projects.length === 0) return <div className="muted small">No projects selected.</div>
   const chosen = w.projects.filter((p) => p.projectId && ticked.includes(p.projectId))
+  const back = chosen.filter((p) => p.score.movesBack > 0)
+  const backWords = back.length === 0 ? '' : ` ${back.length} of ${chosen.length} move rules back: ` +
+    back.map((p) => `${p.projectSlug} (${p.moves.filter((m) => m.back).map(moveWords).join(', ')})`).join('; ') + '.'
   const asking = busy
   const adopt = () => run(async () => {
     const who = currentUser()
@@ -143,18 +221,20 @@ function Table({ w }: { w: WhatIf }) {
       <div className="row" style={{ gap: 8, margin: '8px 0' }}>
         <QuietConfirm label={`Adopt v${w.version} on ${chosen.length} project${chosen.length === 1 ? '' : 's'}`} className="subtle" yes="Open the Changes"
           disabled={asking || chosen.length === 0}
-          ask={`Opens one adoption Change per project, taking ${w.pack} v${w.version} as assessed in this what-if. Each lands through its own review.`}
+          ask={`Opens one adoption Change per project, taking ${w.pack} v${w.version} as assessed in this what-if${w.advanceWorkflows ? ", with each project's other workflows at the newest version" : ''}. Each lands through its own review.${backWords}`}
           onYes={adopt} />
         {asking && <span className="muted small">asking each project in turn…</span>}
       </div>
+      <div style={{ overflowX: 'auto' }}>
       <table className="small" style={{ width: '100%' }}>
         <thead>
-          <tr><th /><th>Project</th><th>Answer</th><th>New failures</th><th>Could not assess</th><th>Fixed</th><th>Commit</th><th>Adoption</th><th /></tr>
+          <tr><th /><th>Project</th><th>Answer</th><th>Score</th><th>New failures</th><th>Could not assess</th><th>Rules</th><th>Commit</th><th>Adoption</th><th /></tr>
         </thead>
         <tbody>
           {w.projects.map((p) => {
             const pid = p.projectId ?? ''
-            const rows = w.rows.filter((r) => r.projectId === p.projectId && r.result !== 'unchanged')
+            const rows = w.rows.filter((r) => r.projectId === p.projectId && r.result !== 'unchanged' && !RULE_MOVES.has(r.result))
+            const back = p.moves.filter((m) => m.back).length
             const done = adopted[pid]
             const cannot = !p.candidateDigest ? (p.outcome === 'not-evaluated' || p.outcome === 'not-yet-judged' ? OUTCOME_WORDS[p.outcome] : 'no candidate was assessed') : done && 'changeId' in done ? 'its Change is open' : ''
             return (
@@ -164,21 +244,29 @@ function Table({ w }: { w: WhatIf }) {
                     checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} /></td>
                   <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="chip" style={{ marginLeft: 6 }}>would join</span>}</td>
                   <td><span className={`chip ${OUTCOME_TONE[p.outcome]}`}>{OUTCOME_WORDS[p.outcome] ?? p.outcome}</span></td>
+                  <td><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</td>
                   <td>{p.newFailures.map((c, i) => <div key={i}><Check c={c} />{c.exceptedToday && <span className="muted"> (excepted today)</span>}</div>)}</td>
-                  <td>{p.notAssessed.map((c, i) => <div key={i}><Check c={c} />: <span className="muted">{c.why}</span></div>)}</td>
-                  <td>{p.fixed || ''}</td>
+                  <td>
+                    {p.notAssessedBy.map((g) => <div key={g.reason} title={`${g.words}. To assess: ${g.remedy}`}>{g.count} {REASON_SHORT[g.reason] ?? g.words}</div>)}
+                    {p.notAssessed.filter((c) => !c.block).map((c, i) => <div key={`whole${i}`}>the project: <span className="muted">{c.why}</span></div>)}
+                  </td>
+                  <td>
+                    {back > 0 && <span className="chip moves-back">moves {back} back</span>}
+                    {p.moves.length - back > 0 && <div className="muted">{p.moves.length - back} forward</div>}
+                  </td>
                   <td>{p.sha ? <code title={`${p.sha} · adoption revision ${p.adoptionRevision}`}>{p.sha.slice(0, 10)}</code> : ''}</td>
                   <td><AdoptedCell a={done} /></td>
-                  <td>{rows.length > 0 && <button className="subtle" onClick={() => setOpen(open === pid ? null : pid)}>{open === pid ? 'hide' : 'checks'}</button>}</td>
+                  <td>{(rows.length > 0 || p.moves.length > 0) && <button className="subtle" onClick={() => setOpen(open === pid ? null : pid)}>{open === pid ? 'hide' : 'details'}</button>}</td>
                 </tr>
                 {open === pid && (
-                  <tr><td colSpan={9}>{rows.map((r, i) => <Row key={i} r={r} />)}</td></tr>
+                  <tr><td colSpan={10}><Moves moves={p.moves} />{rows.map((r, i) => <Row key={i} r={r} />)}</td></tr>
                 )}
               </Fragment>
             )
           })}
         </tbody>
       </table>
+      </div>
     </>
   )
 }

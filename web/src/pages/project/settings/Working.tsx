@@ -128,6 +128,7 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
           </div>
           {cand.problems.length > 0 && cand.problems.map((p, i) => <div key={i} className="small">⚠ {p}</div>)}
           {cand.weakens.length > 0 && <div className="small">⚠ drops {cand.weakens.join(', ')}, which a selected pack asks of this project — that takes the standards authority</div>}
+          {cand.moves.some((m) => m.to === 0 || m.to < m.from) && <div className="small warn-line">Moves back: {cand.moves.filter((m) => m.from > 0 && (m.to === 0 || m.to < m.from)).map((m) => m.to === 0 ? `removes ${m.rule} (v${m.from})` : `${m.rule} v${m.from}→v${m.to}`).join(', ')}</div>}
           {cand.kept.length > 0 && <div className="small">Still on this project after adopting: {cand.kept.join(', ')}. The new version no longer carries them; remove them here if you want them gone.</div>}
           <p className="small">
             {cand.added.length} guidance blocks added · {cand.changed.length} definitions updated · {cand.removed.length} removed.
@@ -145,10 +146,11 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
             <summary>View exact changes</summary>
             {cand.added.length > 0 && <div>Guidance added: {cand.added.join(', ')}</div>}
             {cand.changed.length > 0 && <div>Definitions updated: {cand.changed.join(', ')}</div>}
+            {cand.older.length > 0 && <div>Older versions: {cand.older.join(', ')}</div>}
             {cand.removed.length > 0 && <div>Guidance removed: {cand.removed.join(', ')}</div>}
             {cand.lanesAdded.length > 0 && <div>Workflows added: {cand.lanesAdded.join(', ')}</div>}
             {cand.lanesRemoved.length > 0 && <div>Workflows removed: {cand.lanesRemoved.join(', ')}</div>}
-            {cand.added.length + cand.changed.length + cand.removed.length + cand.lanesAdded.length + cand.lanesRemoved.length === 0 && <div>Nothing would change.</div>}
+            {cand.added.length + cand.changed.length + cand.older.length + cand.removed.length + cand.lanesAdded.length + cand.lanesRemoved.length === 0 && <div>Nothing would change.</div>}
           </details>
           <p className="small muted">Adopting selects these standards. A conformance review establishes whether the application meets them.</p>
           {cand.problems.length === 0 && (

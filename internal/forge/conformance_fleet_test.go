@@ -532,10 +532,15 @@ func TestWhatIfAuthority(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &started); err != nil || w.Code != 202 || started.ID.IsZero() {
 		t.Fatalf("start: %d %s", w.Code, w.Body.String())
 	}
-	for _, path := range []string{fmt.Sprintf("/api/v1/conformance/what-if/%d", started.ID), "/api/v1/conformance/what-if?pack=team&version=1"} {
+	for _, path := range []string{fmt.Sprintf("/api/v1/conformance/what-if/%d", started.ID), "/api/v1/conformance/what-if?pack=team&version=1", "/api/v1/conformance/what-ifs"} {
 		if w := authzCall(h, "boss", "GET", path, ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"pack":"team"`) {
 			t.Fatalf("read %s: %d %s", path, w.Code, w.Body.String())
 		}
+	}
+	// The list is read by the rule that reads one what-if.
+	one := authzCall(h, "outsider", "GET", fmt.Sprintf("/api/v1/conformance/what-if/%s", started.ID), "")
+	if list := authzCall(h, "outsider", "GET", "/api/v1/conformance/what-ifs", ""); list.Code != one.Code || (list.Code != 200 && strings.Contains(list.Body.String(), `"pack":"team"`)) {
+		t.Fatalf("an outsider's list read %d, one what-if %d: %s", list.Code, one.Code, list.Body.String())
 	}
 	reader := mcp_token(t, a, "boss-agent", "boss", "admin")
 	if res := mcp_call(t, a, reader, "get_what_if", map[string]any{"pack": "team", "version": 1}); res["isError"] == true {
@@ -1153,5 +1158,91 @@ func TestAWhatIfStoppedWhileItRunsEndsInterrupted(t *testing.T) {
 		if r.ProjectID != projects[0] {
 			t.Fatalf("a row of the project it did not finish: %+v", r)
 		}
+	}
+}
+
+// A what-if records every rule the version moves, as rows of their own: a
+// guidance block with no checks that the version takes back to an older
+// version is on the page and in the score, never read as "no new
+// failures", and the what-if keeps the choice to advance workflows. The
+// adoption Change opened from it says what moves back in its brief, and
+// the what-if is in the recent list. Asked to advance workflows, the
+// what-if and the Change both move a selected workflow the pack does not
+// pin. Kills: a checkless block's move missing from the rows; the advance
+// choice dropped on the way in, through the runner or at the adopt door;
+// the brief silent about going back; the list without the what-if.
+func TestAWhatIfRecordsTheRulesItMovesBack(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t)
+	tgLocalSh(t, a)
+	ctx := testConformanceContext("boss")
+	h := a.Handler()
+
+	alpha, _, _ := fleetRepo(t, a, "alpha", map[string]string{"a.txt": "a"})
+	if err := wow.NewLibrary(a.DB).StockInsert(ctx, wow.StockBlock{Name: "notes", Body: "v1", ChecksJSON: "[]"}); err != nil {
+		t.Fatal(err)
+	}
+	// team v1 pins notes v1; alpha then takes notes v2 as its own block.
+	if _, err := a.Ways.PublishPack(ctx, "team", "Team", `{"guidance":["notes"]}`, ""); err != nil {
+		t.Fatal(err)
+	}
+	adopt(t, a, alpha, "notes", 2, "[]")
+	// alpha selected review at v1; the library has since moved to v2.
+	v1 := strings.Replace(lifecycleYAML, "name: flow", "name: review", 1)
+	if _, _, err := a.Ways.PublishWorkflow(t.Context(), v1, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Adoption.SelectLane(t.Context(), alpha, "review", true, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := a.Ways.PublishWorkflow(t.Context(), strings.Replace(v1, "the direction is right", "the direction is right, v2", 1), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := fleetReviewsFor(a).StartWhatIf(ctx, conformance.WhatIfRequest{Pack: "team", Version: 1, Projects: []ids.ID{alpha}, AdvanceWorkflows: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := runWhatIf(t, a, ctx, id)
+	if got.State != conformance.WhatIfDone || !got.AdvanceWorkflows {
+		t.Fatalf("the what-if, with its advance choice: %+v", got)
+	}
+	var moved *conformance.WhatIfRow
+	for i, r := range got.Rows {
+		if r.Block == "notes" && r.Check == "" {
+			moved = &got.Rows[i]
+		}
+	}
+	if moved == nil || moved.Result != conformance.WhatIfOlderVersion || moved.CurrentVersion != 2 || moved.ProposedVersion != 1 || moved.CandidateDigest == "" {
+		t.Fatalf("notes v2→v1 is a row of its own: %+v in %+v", moved, got.Rows)
+	}
+	p := got.Projects[0]
+	if p.Score.MovesBack != 1 || got.MovesBackProjects != 1 || !slices.Contains(p.Moves, conformance.WhatIfMove{Rule: "notes", From: 2, To: 1, Back: true}) ||
+		!slices.Contains(p.Moves, conformance.WhatIfMove{Rule: "workflow review", From: 1, To: 2}) {
+		t.Fatalf("the project's answer says notes moves back: %+v", p)
+	}
+	if p.Outcome == conformance.WhatIfNoNewFailures && p.Score.Checks == 0 {
+		t.Fatalf("a rule move replaced the answer that nothing could be judged: %+v", p)
+	}
+
+	recent, err := a.conformance.RecentWhatIfs(ctx, 20)
+	if err != nil || len(recent) == 0 || recent[0].ID != id || recent[0].Projects[0].Score.MovesBack != 1 {
+		t.Fatalf("the recent list: %+v %v", recent, err)
+	}
+
+	w := authzCall(h, "boss", "POST", "/api/v1/projects/alpha/adoption/adopt", fmt.Sprintf(`{"fromWhatIf":%q,"viaChange":true}`, id))
+	var opened struct {
+		ChangeID ids.ID `json:"changeId"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &opened) != nil {
+		t.Fatalf("adopting from the what-if: %d %s", w.Code, w.Body.String())
+	}
+	ch, err := a.changeByID(context.Background(), opened.ChangeID)
+	if err != nil || !strings.Contains(ch.Body, "Moves back: notes v2→v1.") {
+		t.Fatalf("the brief says what moves back:\n%s %v", ch.Body, err)
+	}
+	target, err := a.Adoption.ByID(ctx, ch.TargetAdoptionID)
+	if err != nil || target.Digest != p.CandidateDigest {
+		t.Fatalf("the Change carries the candidate assessed, its workflow advance included: %+v %v", target, err)
 	}
 }

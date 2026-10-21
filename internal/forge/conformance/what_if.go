@@ -37,6 +37,10 @@ type WhatIfRequest struct {
 	// it (one project's checklist may overshoot it).
 	Rubrics          bool  `json:"rubrics,omitempty"`
 	SpendLimitMicros int64 `json:"spendLimitMicros,omitempty"`
+	// AdvanceWorkflows asks the candidate to move each project's selected
+	// workflows that no pack of the version pins to the library's newest
+	// version (adoption.Request). Adopting from the what-if asks the same.
+	AdvanceWorkflows bool `json:"advanceWorkflows,omitempty"`
 }
 
 // What-if states. Queued: admitted, waiting for the conformance queue's
@@ -65,7 +69,46 @@ const (
 	WhatIfUnchanged      = "unchanged"          // the same answer both ways
 	WhatIfNotAssessed    = "not-assessed"       // the version's side could not be judged
 	WhatIfNoLongerNeeded = "no-longer-required" // the version does not carry the check
+	// A rule (a guidance block, or "workflow <name>") whose version taking
+	// the version changes: Block names it, Check is empty, and
+	// CurrentVersion/ProposedVersion say from and to (zero: not in force).
+	// They are facts about the candidate, not check answers. Going back is
+	// allowed; these rows make it visible, never folded into "no new
+	// failures".
+	WhatIfRuleAdded    = "added"         // newly in force
+	WhatIfNewerVersion = "newer-version" // the rule's version goes up
+	WhatIfOlderVersion = "older-version" // the rule's version goes down
+	WhatIfRemoved      = "removed"       // the rule is no longer in force
 )
+
+// RuleMoveResult names a rule move from one version to another; zero is not
+// in force.
+func RuleMoveResult(from, to int) string {
+	switch {
+	case from == 0:
+		return WhatIfRuleAdded
+	case to == 0:
+		return WhatIfRemoved
+	case to < from:
+		return WhatIfOlderVersion
+	}
+	return WhatIfNewerVersion
+}
+
+// RuleMove says the row is a rule whose version the candidate changes, not
+// a check.
+func (r WhatIfRow) RuleMove() bool {
+	switch r.Result {
+	case WhatIfRuleAdded, WhatIfNewerVersion, WhatIfOlderVersion, WhatIfRemoved:
+		return true
+	}
+	return false
+}
+
+// MovesBack says the row takes a rule to an older version or out of force.
+func (r WhatIfRow) MovesBack() bool {
+	return r.Result == WhatIfOlderVersion || r.Result == WhatIfRemoved
+}
 
 // NotAssessed is why a check was not judged in a what-if or an eval's
 // comparison: one of a fixed set, so every surface says it the same way,
@@ -133,6 +176,32 @@ func (u NotAssessed) Words() string {
 		return "could not be adopted as proposed"
 	}
 	return string(u)
+}
+
+// Remedy says what would make a check with this reason assessable, so a
+// reason that keeps coming back points at what to change.
+func (u NotAssessed) Remedy() string {
+	switch u {
+	case NotAssessedError:
+		return "the check itself could not answer; if it keeps happening, the check needs fixing"
+	case NotAssessedNoImage:
+		return "the check needs the app's image of this commit; the app must ship one, within the what-if's build budget"
+	case NotAssessedNoRunningApp:
+		return "redeploy main so its deployment runs this commit, or run an eval"
+	case NotAssessedRubricsNotIncluded:
+		return "run the what-if again with model rubrics"
+	case NotAssessedSpendLimit, NotAssessedSpendUnknown:
+		return "run the what-if again with a higher spend limit"
+	case NotAssessedJudgesAChange:
+		return "an eval judges it on re-run work; a what-if cannot"
+	case NotAssessedNoEvaluator:
+		return "AppTown has no evaluator for this check; the check needs one"
+	case NotAssessedNoMain:
+		return "the project needs a committed main"
+	case NotAssessedNotAdoptable:
+		return "fix what stops the version being adopted (the detail says)"
+	}
+	return ""
 }
 
 // WhatIfResult classifies one check. A nil outcome is a check that side
@@ -207,14 +276,22 @@ type WhatIf struct {
 	FinishedAt           stamp.Time `json:"finishedAt"`
 	// Rubrics says model rubrics were included, under SpendLimitMicros;
 	// CostMicros is what they cost, "at least" when Incomplete > 0.
-	Rubrics          bool        `json:"rubrics"`
-	SpendLimitMicros int64       `json:"spendLimitMicros"`
+	Rubrics          bool  `json:"rubrics"`
+	SpendLimitMicros int64 `json:"spendLimitMicros"`
+	// AdvanceWorkflows: the candidates move each project's workflows no
+	// pack of the version pins to the newest version.
+	AdvanceWorkflows bool        `json:"advanceWorkflows"`
 	CostMicros       int64       `json:"costMicros"`
 	Incomplete       int64       `json:"incomplete"`
 	Rows             []WhatIfRow `json:"rows"`
 	// Projects is each selected project's answer, in selection order
 	// (WhatIfByProject).
 	Projects []WhatIfProject `json:"projects"`
+	// Fleet is the checks not judged across the projects, by check and
+	// reason, most projects first (WhatIfFleetGaps); MovesBackProjects
+	// counts the projects the version moves a rule back on.
+	Fleet             []WhatIfFleetGap `json:"fleet"`
+	MovesBackProjects int              `json:"movesBackProjects"`
 }
 
 // ErrNoWhatIf is the absence of a what-if a caller addressed.
@@ -263,7 +340,7 @@ func (s *Service) AdmitWhatIfIn(ctx context.Context, tx *database.Tx, in WhatIfR
 	if err != nil {
 		return ids.Nil, err
 	}
-	r, err := queries(tx).InsertWhatIf(ctx, conformancesql.InsertWhatIfParams{ID: ids.New(s.records.now().UTC()), Pack: in.Pack, PackVersion: in.Version, RequestedBy: who, RequestedByPrincipal: requester.Principal, RequestedByVia: requester.Via, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, CreatedAt: s.records.now().UTC(), Projects: string(projects)})
+	r, err := queries(tx).InsertWhatIf(ctx, conformancesql.InsertWhatIfParams{ID: ids.New(s.records.now().UTC()), Pack: in.Pack, PackVersion: in.Version, RequestedBy: who, RequestedByPrincipal: requester.Principal, RequestedByVia: requester.Via, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, AdvanceWorkflows: in.AdvanceWorkflows, CreatedAt: s.records.now().UTC(), Projects: string(projects)})
 	if err != nil {
 		return ids.Nil, err
 	}
@@ -282,7 +359,7 @@ func (s *Service) ClaimWhatIf(ctx context.Context, id ids.ID) (*WhatIfRun, WhatI
 	if err != nil {
 		return nil, WhatIfRequest{}, err
 	}
-	in := WhatIfRequest{Pack: r.Pack, Version: r.PackVersion, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros}
+	in := WhatIfRequest{Pack: r.Pack, Version: r.PackVersion, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, AdvanceWorkflows: r.AdvanceWorkflows}
 	if err := json.Unmarshal(r.Projects, &in.Projects); err != nil {
 		return nil, WhatIfRequest{}, fmt.Errorf("what-if %d's selection: %w", id, err)
 	}
@@ -390,6 +467,30 @@ func (s *Service) WhatIf(ctx context.Context, id ids.ID) (*WhatIf, error) {
 	})
 }
 
+// RecentWhatIfs is the most recent what-ifs, newest first, each with its
+// projects' answers, for the list under Conformance. Reading the fleet's
+// conformance is an instance grant.
+func (s *Service) RecentWhatIfs(ctx context.Context, max int) ([]WhatIf, error) {
+	if _, err := s.require(ctx, Permission{Action: ReadFleet}); err != nil {
+		return nil, err
+	}
+	return readConformance(ctx, s.db, func(db database.Queryer) ([]WhatIf, error) {
+		rs, err := queries(db).RecentWhatIfs(ctx, int32(max))
+		if err != nil {
+			return nil, err
+		}
+		out := make([]WhatIf, 0, len(rs))
+		for _, r := range rs {
+			w, err := whatIfWithRows(ctx, db, r)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, *w)
+		}
+		return out, nil
+	})
+}
+
 // LatestWhatIf is the newest what-if of a pack version, nil when none ran.
 func (s *Service) LatestWhatIf(ctx context.Context, pack string, version int64) (*WhatIf, error) {
 	if _, err := s.require(ctx, Permission{Action: ReadFleet}); err != nil {
@@ -410,7 +511,7 @@ func (s *Service) LatestWhatIf(ctx context.Context, pack string, version int64) 
 func whatIfWithRows(ctx context.Context, db database.Queryer, r conformancesql.WhatIfReview) (*WhatIf, error) {
 	out := &WhatIf{ID: r.ID, Pack: r.Pack, Version: r.PackVersion, RequestedBy: r.RequestedBy, RequestedByPrincipal: r.RequestedByPrincipal, State: r.State, Detail: r.Detail,
 		ProjectsTotal: r.ProjectsTotal, ProjectsDone: r.ProjectsDone, CreatedAt: stamp.Time{NullTime: sql.NullTime{Time: r.CreatedAt, Valid: true}},
-		FinishedAt: stamp.Time{NullTime: r.FinishedAt}, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, CostMicros: r.CostMicros, Incomplete: r.Incomplete, Rows: []WhatIfRow{}}
+		FinishedAt: stamp.Time{NullTime: r.FinishedAt}, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, AdvanceWorkflows: r.AdvanceWorkflows, CostMicros: r.CostMicros, Incomplete: r.Incomplete, Rows: []WhatIfRow{}}
 	rows, err := queries(db).WhatIfRows(ctx, r.ID)
 	if err != nil {
 		return nil, err
@@ -450,6 +551,7 @@ func whatIfWithRows(ctx context.Context, db database.Queryer, r conformancesql.W
 		}
 	}
 	out.Projects = WhatIfByProject(selected, out.Rows, slugs, r.State != WhatIfQueued && r.State != WhatIfRunning)
+	out.Fleet, out.MovesBackProjects = WhatIfFleetGaps(out.Rows), WhatIfMovesBackProjects(out.Projects)
 	return out, nil
 }
 

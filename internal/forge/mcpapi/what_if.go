@@ -21,7 +21,8 @@ func NewWhatIfReads(deps WhatIfReadsDependencies) []Tool {
 		Name:  "get_what_if",
 		order: 22,
 		Description: "Returns a what-if: what a pack version's checks would say about projects' committed main beside the checks they adopted, for projects on the pack or joining it. " +
-			"Each row is would-fail, would-pass, unchanged, not-assessed (with the reason it was not judged) or no-longer-required, with the brief a fix would start from and, when at least three past fixes exist, what they cost. " +
+			"Each check row is would-fail, would-pass, unchanged, not-assessed (with the reason it was not judged) or no-longer-required, with the brief a fix would start from and, when at least three past fixes exist, what they cost; " +
+			"each rule the version moves back is a row of its own, older-version or removed, with no check. Each project has a score, its unjudged checks grouped by reason with what would make them assessable, and what moves back; fleet groups unjudged checks across projects. " +
 			"Hypothetical: never a project's standing. Give its id, or a pack and version for that version's newest what-if.",
 		InputSchema: schemaObject(map[string]any{"id": schemaID("The what-if's number."), "pack": schemaString("A pack's name, with version."), "version": schemaInt("The pack version.")}),
 		command:     ownerCommand("what_if.getWhatIf", h.getWhatIf),

@@ -45,8 +45,9 @@ func (h WhatIfs) StartWhatIf(w http.ResponseWriter, r *http.Request) {
 		Projects         []string `json:"projects"`
 		Rubrics          bool     `json:"rubrics"`
 		SpendLimitMicros int64    `json:"spendLimitMicros"`
+		AdvanceWorkflows bool     `json:"advanceWorkflows"`
 	}) {
-		req := conformance.WhatIfRequest{Pack: strings.TrimSpace(in.Pack), Version: in.Version, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros}
+		req := conformance.WhatIfRequest{Pack: strings.TrimSpace(in.Pack), Version: in.Version, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, AdvanceWorkflows: in.AdvanceWorkflows}
 		if in.Projects != nil && len(in.Projects) == 0 {
 			WriteError(w, 400, "name the projects to run the what-if on, or leave projects out for every eligible one")
 			return
@@ -81,6 +82,25 @@ func (h WhatIfs) WhatIf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, 200, out)
+}
+
+// RecentWhatIfs: GET /api/v1/conformance/what-ifs — the most recent
+// what-ifs, newest first, with each project's answer.
+func (h WhatIfs) RecentWhatIfs(w http.ResponseWriter, r *http.Request) {
+	out, err := h.conformance.RecentWhatIfs(r.Context(), recentWhatIfs)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, RecentWhatIfs{WhatIfs: out})
+}
+
+// recentWhatIfs is how many the list shows.
+const recentWhatIfs = 20
+
+// RecentWhatIfs is the list under Conformance.
+type RecentWhatIfs struct {
+	WhatIfs []conformance.WhatIf `json:"whatIfs"`
 }
 
 // LatestWhatIf: GET /api/v1/conformance/what-if?pack=P&version=N — the

@@ -1,7 +1,10 @@
 package conformance
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
+	"slices"
 
 	"flokkit.io/forge/internal/ids"
 )
@@ -61,6 +64,121 @@ type WhatIfProject struct {
 	NotAssessed []WhatIfCheck `json:"notAssessed"`
 	// Fixed counts the checks that fail today and would pass.
 	Fixed int `json:"fixed"`
+	// Score counts the project's checks by what the what-if could say of
+	// them; the outcome above is its worst case, the score the whole of it.
+	Score WhatIfScore `json:"score"`
+	// NotAssessedBy groups the checks the version carries and could not
+	// judge by why, with what would make them assessable, in
+	// NotAssessedReasons order.
+	NotAssessedBy []WhatIfReasonCount `json:"notAssessedBy"`
+	// Moves is every rule whose version taking the version changes; those
+	// that go to an older version or out of force move it back. They sit
+	// beside the outcome, never folded into it.
+	Moves []WhatIfMove `json:"moves"`
+}
+
+// WhatIfScore counts one project's checks by the version's side:
+// Checks = Judged + CouldNotAssess + NoLongerRequired, and Judged = Passed +
+// Failing. NewFailures and Fixed compare with today. MovesBack and
+// RuleChanges count rules, not checks.
+type WhatIfScore struct {
+	Checks           int `json:"checks"`
+	Judged           int `json:"judged"`
+	Passed           int `json:"passed"`
+	Failing          int `json:"failing"`
+	CouldNotAssess   int `json:"couldNotAssess"`
+	NoLongerRequired int `json:"noLongerRequired"`
+	NewFailures      int `json:"newFailures"`
+	Fixed            int `json:"fixed"`
+	MovesBack        int `json:"movesBack"`
+	RuleChanges      int `json:"ruleChanges"`
+}
+
+// WhatIfReasonCount is how many checks one reason left unjudged, and what
+// would make them assessable.
+type WhatIfReasonCount struct {
+	Reason NotAssessed `json:"reason"`
+	Words  string      `json:"words"`
+	Remedy string      `json:"remedy"`
+	Count  int         `json:"count"`
+}
+
+// WhatIfMove is a rule whose version taking the version changes: From is
+// zero when it is newly in force, To when it is no longer in force. Back
+// says it goes to an older version or out of force.
+type WhatIfMove struct {
+	Rule string `json:"rule"`
+	From int    `json:"from"`
+	To   int    `json:"to"`
+	Back bool   `json:"back"`
+}
+
+// WhatIfFleetGap is one check one reason left unjudged, across the
+// projects of a what-if: a check that can never be judged stands out by
+// the number of projects it is missing from.
+type WhatIfFleetGap struct {
+	Block    string      `json:"block"`
+	Check    string      `json:"check"`
+	Reason   NotAssessed `json:"reason"`
+	Words    string      `json:"words"`
+	Remedy   string      `json:"remedy"`
+	Projects int         `json:"projects"`
+}
+
+// WhatIfFleetGaps groups, across projects, the checks the version carries
+// and could not judge, by check and reason, most projects first. A
+// whole-project row (no main, not adoptable, nothing to judge) is its own
+// entry with no block.
+func WhatIfFleetGaps(rows []WhatIfRow) []WhatIfFleetGap {
+	type key struct {
+		block, check string
+		reason       NotAssessed
+	}
+	seen := map[key]map[ids.ID]bool{}
+	for _, r := range rows {
+		whole := r.Block == "" && r.Result == WhatIfNotAssessed
+		if !whole && !versionSideUnjudged(r) {
+			continue
+		}
+		k := key{r.Block, r.Check, r.Reason}
+		if seen[k] == nil {
+			seen[k] = map[ids.ID]bool{}
+		}
+		seen[k][r.ProjectID] = true
+	}
+	out := make([]WhatIfFleetGap, 0, len(seen))
+	for k, projects := range seen {
+		out = append(out, WhatIfFleetGap{Block: k.block, Check: k.check, Reason: k.reason, Words: k.reason.Words(), Remedy: k.reason.Remedy(), Projects: len(projects)})
+	}
+	slices.SortFunc(out, func(a, b WhatIfFleetGap) int {
+		return cmp.Or(cmp.Compare(b.Projects, a.Projects), cmp.Compare(a.Block, b.Block), cmp.Compare(a.Check, b.Check), cmp.Compare(a.Reason, b.Reason))
+	})
+	return out
+}
+
+// WhatIfMovesBackProjects counts the projects the version moves a rule
+// back on.
+func WhatIfMovesBackProjects(projects []WhatIfProject) int {
+	n := 0
+	for _, p := range projects {
+		if p.Score.MovesBack > 0 {
+			n++
+		}
+	}
+	return n
+}
+
+func judgedOutcome(state string) bool {
+	return state == Conforms.String() || state == DoesNotConform.String() || state == Excepted.String()
+}
+
+// checkRow: a row that answers one check (not a rule move, not the whole
+// project).
+func checkRow(r WhatIfRow) bool { return r.Block != "" && r.Check != "" && !r.RuleMove() }
+
+// versionSideUnjudged: a check the version carries and could not judge.
+func versionSideUnjudged(r WhatIfRow) bool {
+	return checkRow(r) && r.Proposed != "" && !judgedOutcome(r.Proposed)
 }
 
 // WhatIfByProject is each selected project's answer, in selection order,
@@ -86,7 +204,7 @@ func WhatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]strin
 		if slug == "" {
 			slug = fmt.Sprintf("project #%d", id)
 		}
-		p := &WhatIfProject{ProjectID: id, ProjectSlug: slug, Outcome: pending, NewFailures: []WhatIfCheck{}, NotAssessed: []WhatIfCheck{}}
+		p := &WhatIfProject{ProjectID: id, ProjectSlug: slug, Outcome: pending, NewFailures: []WhatIfCheck{}, NotAssessed: []WhatIfCheck{}, NotAssessedBy: []WhatIfReasonCount{}, Moves: []WhatIfMove{}}
 		byID[id], order = p, append(order, id)
 		return p
 	}
@@ -94,6 +212,7 @@ func WhatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]strin
 		add(id, "")
 	}
 	answered := map[ids.ID]bool{}
+	reasons := map[ids.ID]map[NotAssessed]int{}
 	for _, r := range rows {
 		p := add(r.ProjectID, r.ProjectSlug)
 		p.ProjectSlug, p.SHA, p.AdoptionRevision, p.Joins = r.ProjectSlug, r.SHA, r.AdoptionRevision, r.Joins
@@ -101,6 +220,33 @@ func WhatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]strin
 			p.CandidateDigest = r.CandidateDigest
 		}
 		answered[r.ProjectID] = true
+		if r.RuleMove() {
+			p.Moves = append(p.Moves, WhatIfMove{Rule: r.Block, From: r.CurrentVersion, To: r.ProposedVersion, Back: r.MovesBack()})
+			p.Score.RuleChanges++
+			if r.MovesBack() {
+				p.Score.MovesBack++
+			}
+			continue
+		}
+		if checkRow(r) {
+			p.Score.Checks++
+			switch {
+			case r.Proposed == "":
+				p.Score.NoLongerRequired++
+			case r.Proposed == Conforms.String():
+				p.Score.Judged++
+				p.Score.Passed++
+			case judgedOutcome(r.Proposed):
+				p.Score.Judged++
+				p.Score.Failing++
+			default:
+				p.Score.CouldNotAssess++
+				if reasons[r.ProjectID] == nil {
+					reasons[r.ProjectID] = map[NotAssessed]int{}
+				}
+				reasons[r.ProjectID][r.Reason]++
+			}
+		}
 		c := WhatIfCheck{Block: r.Block, Check: r.Check}
 		switch {
 		case r.Result == WhatIfWouldFail:
@@ -118,6 +264,17 @@ func WhatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]strin
 	out := make([]WhatIfProject, 0, len(order))
 	for _, id := range order {
 		p := byID[id]
+		p.Score.NewFailures, p.Score.Fixed = len(p.NewFailures), p.Fixed
+		for _, reason := range NotAssessedReasons {
+			if n := reasons[id][reason]; n > 0 {
+				p.NotAssessedBy = append(p.NotAssessedBy, WhatIfReasonCount{Reason: reason, Words: reason.Words(), Remedy: reason.Remedy(), Count: n})
+				delete(reasons[id], reason)
+			}
+		}
+		// A reason outside the known set (an older row) is still counted.
+		for _, reason := range slices.Sorted(maps.Keys(reasons[id])) {
+			p.NotAssessedBy = append(p.NotAssessedBy, WhatIfReasonCount{Reason: reason, Words: reason.Words(), Remedy: reason.Remedy(), Count: reasons[id][reason]})
+		}
 		switch {
 		case !answered[id]:
 		case len(p.NewFailures) > 0:

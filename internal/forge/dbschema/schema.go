@@ -98,6 +98,9 @@ var migrations = []migration{
 		"ALTER TABLE project_main DROP CONSTRAINT project_main_tuple",
 		"ALTER TABLE project_main ADD CONSTRAINT project_main_tuple CHECK (branch<>'' AND sha<>'' AND via IN ('landing','init','seed','copy','genesis','integrity-adopt','backfill','upgrade'))",
 	}},
+	{n: 156, note: "a what-if records whether it moves each project's other workflows to the newest version", stmts: []string{
+		"ALTER TABLE what_if_reviews ADD COLUMN IF NOT EXISTS advance_workflows BOOLEAN NOT NULL DEFAULT false",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

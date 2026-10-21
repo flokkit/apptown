@@ -30,7 +30,15 @@ compatibility migration that amends the recommended publication
 the amended copy. Moving it cuts an unrecommended follow version
 of each pack that includes it without a pin. Adopting a version that drops a
 workflow or replaces a policy keeps the project's existing ones and says so;
-removing them is a project edit. A what-if judges a version's checks on
+removing them is a project edit. A selected workflow no pack of the
+candidate pins keeps the version the project's receipt pins, unless the
+request asks to advance workflows (`adoption.Request.AdvanceWorkflows`),
+which a what-if records and its adopt door repeats. A candidate lists every
+rule whose version it changes (`Candidate.Moves`); an older version or a rule
+no longer carried moves back, which is allowed and is said in the
+confirmation, the Change's brief and the revision's reason. Adopting
+(`adoption.OperationSelect`) and applying a pack take
+`project:select-way-of-working`. A what-if judges a version's checks on
 projects' main into Conformance's own tables, never standing, and an eval
 re-runs real Changes under the version in throwaway copies. Stock
 sync publishes available versions; projects change through adoption operations.

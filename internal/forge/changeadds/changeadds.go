@@ -208,6 +208,10 @@ func waysRow(raw json.RawMessage) workflow.AddsRow {
 	for _, l := range c.LanesRemoved {
 		removed = append(removed, "workflow "+l)
 	}
+	// An older version replaces a newer one: what goes is the newer one.
+	for _, o := range c.Older {
+		removed = append(removed, "moves back: "+o)
+	}
 	return workflow.AddsRow{Name: Ways, Added: minus(added, nil), Removed: minus(removed, nil)}
 }
 

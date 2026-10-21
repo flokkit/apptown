@@ -86,6 +86,7 @@ var policyEvidence = map[string]func(*testing.T){
 	"conformance.BeginWhatIf: the authority of a fleet review": TestWhatIfAuthority,
 	"conformance.LatestWhatIf: conformance read":               TestWhatIfAuthority,
 	"conformance.WhatIf: conformance read":                     TestWhatIfAuthority,
+	"conformance.RecentWhatIfs: conformance read":              TestWhatIfAuthority,
 	"evals.Start: standards:manage-packs and project:read on every source project":                              TestEvalRoutesAskTheEvalsOwner,
 	"evals.List: standards:read-evals":                                                                          TestEvalRoutesAskTheEvalsOwner,
 	"evals.StartForm: standards:manage-packs":                                                                   TestEvalRoutesAskTheEvalsOwner,

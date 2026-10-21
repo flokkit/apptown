@@ -191,6 +191,7 @@ export default function App() {
           <Route path="/conformance/reviews/:reviewId/checks" element={<InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate>} />
           <Route path="/conformance/reviews/:reviewId/projects/:slug" element={<InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate>} />
           <Route path="/conformance/projects/:slug" element={<InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate>} />
+          <Route path="/conformance/what-ifs" element={<InstanceGate page="conformance"><Conformance tab="what-ifs" /></InstanceGate>} />
           <Route path="/conformance/what-ifs/:id" element={<InstanceGate page="conformance"><WhatIfPage /></InstanceGate>} />
           <Route path="/conformance/remediations" element={<InstanceGate page="conformance"><Conformance tab="remediations" /></InstanceGate>} />
           <Route path="/conformance/ways" element={<InstanceGate page="conformance"><Conformance tab="ways" /></InstanceGate>} />
