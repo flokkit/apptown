@@ -86,8 +86,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		ModelRefusal: workflowexec.ModelRefusal(a.modelSelection),
 		DataDir:      a.cfg.dataDir,
 
-		CheckPlacement: checkPlacement(a.cfg),
-		TaskPlacement:  taskPlacement(a.cfg),
+		Placement: taskPlacement(a.cfg),
 		// AppTown's clock writes every time Work's rules compare: step
 		// finishes, Change closes, artifacts, votes and send-backs.
 		Now: a.cfg.clock.Now,
@@ -116,8 +115,8 @@ func mergeEffectsFor(a *App) workcommands.LandingEffects {
 // for policy.
 
 // asAppTown: AppTown acting for itself in one project through one of its
-// own doors (remediation, the engine; the scheduler and webhooks build the
-// same principal in their owners). The receipt names the door;
+// own doors (remediation, the engine; the scheduler builds the
+// same principal in its owner). The receipt names the door;
 // the inference owner stays "system".
 func (a *App) asAppTown(ctx context.Context, projectID ids.ID, via string) context.Context {
 	return verifiedContext(ctx, access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: via, ProjectID: projectID})

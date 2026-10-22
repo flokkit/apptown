@@ -113,11 +113,6 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 		t.Fatal(err)
 	}
 	read(testPrincipal("reader"), nil)
-	projects := project.New(db, s)
-	if err := projects.SetOwnerGroup(context.Background(), projectIDs[2], "elsewhere"); err != nil {
-		t.Fatal(err)
-	}
-	read(testPrincipal("group-reader"), projectIDs[:1])
 	disabled := true
 	if err := s.SaveUser(context.Background(), AccountChange{Username: "reader", Disabled: &disabled}, testPrincipal("boss")); err != nil {
 		t.Fatal(err)

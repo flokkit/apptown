@@ -32,7 +32,7 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 	work := workflow.New(context.Background(), db, workflow.Dependencies{Authority: access.Checked{Authority: accounts, Projects: projects}})
 	t.Cleanup(work.Stop)
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects})
-	handler := NewProjectAttachments(projects, integrations, accounts, changeactions.New(work, nil, db), db, "", nil)
+	handler := NewProjectAttachments(projects, integrations, accounts, changeactions.New(work, db), db, "", nil)
 	var projectIDs, changeIDs []ids.ID
 	for _, spec := range []struct{ slug, name string }{{"shop", "Shop"}, {"other", "Other"}} {
 		projectIDs = append(projectIDs, httpTestProject(t, db, spec.slug, spec.name))

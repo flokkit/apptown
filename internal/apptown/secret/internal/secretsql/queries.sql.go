@@ -244,47 +244,6 @@ func (q *Queries) DeleteUnboundSecretValues(ctx context.Context, arg DeleteUnbou
 	return i, err
 }
 
-const exportBindingNames = `-- name: ExportBindingNames :many
-SELECT deployment, name, store, generated FROM secret_bindings WHERE project_id = $1 ORDER BY deployment, name
-`
-
-type ExportBindingNamesRow struct {
-	Deployment string
-	Name       string
-	Store      string
-	Generated  int64
-}
-
-// Which secret names each deployment had bound, and where, for moving a
-// project to another AppTown: names only, never a value or a store's ref.
-func (q *Queries) ExportBindingNames(ctx context.Context, projectID ids.ID) ([]ExportBindingNamesRow, error) {
-	rows, err := q.db.QueryContext(ctx, exportBindingNames, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ExportBindingNamesRow
-	for rows.Next() {
-		var i ExportBindingNamesRow
-		if err := rows.Scan(
-			&i.Deployment,
-			&i.Name,
-			&i.Store,
-			&i.Generated,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const insertSecretValue = `-- name: InsertSecretValue :one
 
 INSERT INTO secret_values (id, scope, name, version, value, created_at, created_by, created_by_principal, created_by_via)

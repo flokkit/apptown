@@ -43,7 +43,7 @@ func TestConsoleLandingHTTPRechecksItsFailedGateAndKeepsHumanApproval(t *testing
 		t.Fatal(err)
 	}
 	sessions, _, session, _ := consoleHTTPFixture(t, map[string]string{conversation.ProjectLabel: fmt.Sprint(f.ProjectID), conversation.SlugLabel: "shop", conversation.ChangeLabel: fmt.Sprint(change.ID)})
-	h := NewConsoleChanges(sessions, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB)
+	h := NewConsoleChanges(sessions, f.Work, changeactions.New(f.Work, f.DB), f.DB)
 	call := func(handler http.HandlerFunc, token string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(fmt.Sprintf(`{"changeId":%q,"who":"apptownd-operator"}`, f.ChangeID))).WithContext(f.Context)
 		r.SetPathValue("sid", session.ID)
@@ -162,7 +162,7 @@ func TestConsoleLandingHTTPProjectChatCannotLandOrRecheck(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, true)
 	sessions, _, session, _ := consoleHTTPFixture(t, map[string]string{conversation.ProjectLabel: fmt.Sprint(f.ProjectID), conversation.SlugLabel: "shop"})
-	h := NewConsoleChanges(sessions, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB)
+	h := NewConsoleChanges(sessions, f.Work, changeactions.New(f.Work, f.DB), f.DB)
 	for _, handler := range []http.HandlerFunc{h.ConsoleLand, h.ConsoleRecheck} {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(fmt.Sprintf(`{"changeId":%q}`, f.ChangeID))).WithContext(f.Context)
 		r.SetPathValue("sid", session.ID)

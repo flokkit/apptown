@@ -1,0 +1,40 @@
+# The change catalog: prepared changes a person applies to a project with one
+# click (the project page's "Catalog change") or `apptown apply <name>`.
+# Each entry names the workflow that runs it, an optional prompt template
+# with {{param}} placeholders, and the change's title and type. A run
+# started from an entry records its name and this release.
+catalog:
+  - name: package/containerize
+    description: "Package the app for the intranet: write a production Dockerfile so releases can build it. No contract change."
+    definition:
+      workflow: quick-change
+      title: Package for the intranet
+      type: chore
+      prompt: ""
+
+  - name: uplift/deps
+    description: Bring dependencies to current patch/minor levels, verify, report
+    definition:
+      workflow: dependency-uplift
+      title: Dependency uplift
+      type: chore
+      prompt: ""
+
+  - name: uplift/go-version
+    description: Move a Go project to a target Go toolchain version, verify build and tests
+    definition:
+      workflow: quick-change
+      title: "Go toolchain uplift to {{goVersion}}"
+      type: chore
+      timeoutMinutes: 20
+      params:
+        - name: goVersion
+          description: target Go version, e.g. 1.27.1
+          required: true
+      prompt: |-
+        Move this project to Go {{goVersion}}. Exactly and only:
+        1. go.mod: set the go directive to {{goVersion}} (and the toolchain directive if one exists).
+        2. mise.toml / .mise.toml: set the go tool version to {{goVersion}} if the file exists.
+        3. Dockerfiles and CI configs: update any golang:<version> image references to {{goVersion}}.
+        4. Run a full build and the test suite with the new toolchain; fix anything the version bump itself broke (vet/deprecation errors), and NOTHING else. gofmt output changes from the new toolchain are fine and expected — apply them.
+        This is a toolchain move, not a refactor, and it must not change what the program IS: a CLI stays a CLI — do not add servers, serve modes, new entry points, or runtime-contract (.apptown/app.yaml) changes. Never edit AppTown-written files (.apptown/steering.md, .apptown/REPORT.md). If the target toolchain is not installable or tests fail for reasons unrelated to the bump, STOP and report the blocker rather than working around it.

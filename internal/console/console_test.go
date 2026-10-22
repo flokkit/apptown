@@ -385,7 +385,7 @@ func TestProvisionAndThePrompt(t *testing.T) {
 		t.Fatalf("the environment is asked at every wake, got %d", env.calls)
 	}
 	// Static answers the same thing every time: the standalone console.
-	standalone := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Environment: console.Static{Provision: console.Provision{Model: "m", Env: []string{"KEY=v"}}}, Config: console.Config{DataDir: t.TempDir()}})
+	standalone := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Environment: consoletest.Static{Provision: console.Provision{Model: "m", Env: []string{"KEY=v"}}}, Config: console.Config{DataDir: t.TempDir()}})
 	if _, err := standalone.Open(ctx, console.OpenRequest{Scope: "dir:/tmp/p", Workspace: console.Workspace{Path: "/tmp/p"}, Actor: "me"}); err != nil {
 		t.Fatal(err)
 	}

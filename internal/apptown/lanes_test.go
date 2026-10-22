@@ -168,18 +168,6 @@ func TestProjectWorkflowStoreIsRetired(t *testing.T) {
 	}
 
 	h := a.Handler()
-	get := func(path string) (int, string) {
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
-		return rec.Code, rec.Body.String()
-	}
-	code, body := get("/api/v1/projects/p/workflows/quick-change/history")
-	if code != 200 || !strings.Contains(body, `"version":`) || !strings.Contains(body, "quick-change") {
-		t.Fatalf("history must be the library's versions: %d %s", code, body)
-	}
-	if code, _ := get("/api/v1/projects/p/workflows/not-a-workflow/history"); code != 404 {
-		t.Fatalf("a name the library lacks has no history: %d", code)
-	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/v1/projects/p/workflows", strings.NewReader(`{"yaml":"x"}`)))
 	if rec.Code != 404 {

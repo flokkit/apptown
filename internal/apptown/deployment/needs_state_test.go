@@ -8,7 +8,7 @@ import (
 func TestNeedAndReconciliationWords(t *testing.T) {
 	t.Parallel()
 	var n NeedState
-	for _, word := range []string{"pending", "creating", "ready", "failed", "orphaned"} {
+	for _, word := range []string{"creating", "ready", "failed", "orphaned"} {
 		if err := n.Scan(word); err != nil || n.String() != word {
 			t.Fatalf("need scan %q: %s %v", word, n, err)
 		}

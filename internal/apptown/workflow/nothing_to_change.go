@@ -146,7 +146,7 @@ func (s *Service) endNothingToChange(ctx context.Context, expected *Run) error {
 		if err != nil {
 			return nil, err
 		}
-		decision, err := run.Advance(steps, checks, s.placement)
+		decision, err := run.Advance(steps, checks)
 		if err != nil {
 			return nil, err
 		}

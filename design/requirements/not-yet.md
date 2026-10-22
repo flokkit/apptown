@@ -138,8 +138,8 @@ sample data stays disposable.
 **N16. Sign in with an outside identity provider.** Internal accounts and
 a trusted-header proxy exist; there is no OIDC of AppTown's own.
 
-**N17. Transfer a project to another owner.** The route exists; no page
-or CLI verb reaches it.
+**N17. Transfer a project to another owner.** A project keeps the group
+it was created in.
 
 ## Seeing what happened (extends C the record)
 

@@ -25,7 +25,7 @@ import (
 func (a *App) consoleDependencies(agent console.Agent, remote *worker.RemoteAgent) console.Dependencies {
 	if a.cfg.noLocalDocker {
 		// An AppTown with no local Docker runs no chat here; the chats it
-		// once ran ended before its drain (DrainLocalDocker).
+		// once ran were ended before the switch (design/operations/workers.md).
 		agent = console.NoLocal{}
 	} else if agent == nil {
 		image := a.cfg.agentImage

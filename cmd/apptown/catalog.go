@@ -9,15 +9,11 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// The change catalog (design/decisions/change-catalog.md): named, versioned change
-// definitions. `apptown catalog` lists them; `apptown apply` runs one on a
-// project; `apptown catalog promote` is the admin act that admits a draft
-// with its evaluation receipts named.
+// The change catalog (design/decisions/change-catalog.md): named change
+// definitions the release ships. `apptown catalog` lists them, `apptown
+// catalog <name>` shows one, and `apptown apply` runs one on a project.
 
 func cmdCatalog(args []string) error {
-	if len(args) > 0 && args[0] == "promote" {
-		return cmdCatalogPromote(args[1:])
-	}
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		return cmdCatalogShow(args[0])
 	}
@@ -27,11 +23,8 @@ func cmdCatalog(args []string) error {
 	}
 	var out struct {
 		Catalog []struct {
-			Name          string `json:"name"`
-			Description   string `json:"description"`
-			LatestVersion int    `json:"latestVersion"`
-			Status        string `json:"status"`
-			PromotedBy    string `json:"promotedBy"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
 		} `json:"catalog"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
@@ -42,11 +35,7 @@ func cmdCatalog(args []string) error {
 		return nil
 	}
 	for _, c := range out.Catalog {
-		status := c.Status
-		if c.Status == "catalogued" {
-			status = "catalogued by " + c.PromotedBy
-		}
-		fmt.Printf("%-28s v%-3d %-24s %s\n", c.Name, c.LatestVersion, status, c.Description)
+		fmt.Printf("%-28s %s\n", c.Name, c.Description)
 	}
 	return nil
 }
@@ -58,14 +47,9 @@ func cmdCatalogShow(name string) error {
 	}
 	var out struct {
 		Change struct {
-			Name          string `json:"name"`
-			Description   string `json:"description"`
-			LatestVersion int    `json:"latestVersion"`
-			PromotedBy    string `json:"promotedBy"`
-			PromotedAt    string `json:"promotedAt"`
-			PromotionNote string `json:"promotionNote"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
 		} `json:"change"`
-		Status     string `json:"status"`
 		Definition struct {
 			Params []struct {
 				Name        string `json:"name"`
@@ -84,12 +68,8 @@ func cmdCatalogShow(name string) error {
 		return err
 	}
 	c, d := out.Change, out.Definition
-	fmt.Printf("%s v%d — %s\n", c.Name, c.LatestVersion, c.Description)
-	fmt.Printf("status: %s", out.Status)
-	if out.Status == "catalogued" {
-		fmt.Printf(" (by %s, %s — %s)", c.PromotedBy, c.PromotedAt, c.PromotionNote)
-	}
-	fmt.Printf("\nworkflow: %s", d.Workflow)
+	fmt.Printf("%s — %s\n", c.Name, c.Description)
+	fmt.Printf("workflow: %s", d.Workflow)
 	if d.Model != "" {
 		fmt.Printf(" · model pin: %s", d.Model)
 	}
@@ -113,31 +93,6 @@ func cmdCatalogShow(name string) error {
 	if strings.TrimSpace(d.Prompt) != "" {
 		fmt.Printf("\n--- prompt template ---\n%s\n", strings.TrimSpace(d.Prompt))
 	}
-	return nil
-}
-
-func cmdCatalogPromote(args []string) error {
-	fs := newFlags("catalog promote")
-	note := fs.String("m", "", "evaluation evidence, e.g. \"run 113 on scratch, gates green\"")
-	args = parseArgs(fs, args)
-	if len(args) == 0 {
-		return usagef("usage: apptown catalog promote <name> -m \"<evaluation evidence>\"")
-	}
-	raw, err := api.request("POST", "/catalog-promote/"+args[0], map[string]string{"note": *note})
-	if err != nil {
-		return err
-	}
-	var out struct {
-		Change struct {
-			Name          string `json:"name"`
-			LatestVersion int    `json:"latestVersion"`
-		} `json:"change"`
-		Status string `json:"status"`
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return err
-	}
-	fmt.Printf("%s v%d → %s\n", out.Change.Name, out.Change.LatestVersion, out.Status)
 	return nil
 }
 
@@ -186,19 +141,14 @@ func cmdApply(args []string) error {
 			ID     ids.ID
 			Number int64
 		}
-		Run           struct{ ID ids.ID }
-		Catalog       string `json:"catalog"`
-		CatalogStatus string `json:"catalogStatus"`
-		URL           string `json:"url"`
+		Run     struct{ ID ids.ID }
+		Catalog string `json:"catalog"`
+		URL     string `json:"url"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return err
 	}
-	note := ""
-	if out.CatalogStatus != "" && out.CatalogStatus != "catalogued" {
-		note = " (DRAFT — this run is an evaluation; receipts feed promotion)"
-	}
-	fmt.Printf("▶ %s on %s · change %s · run %s%s\n", args[0], slug, changeName(slug, out.Change.Number, out.Change.ID), out.Run.ID, note)
+	fmt.Printf("▶ %s on %s · change %s · run %s\n", args[0], slug, changeName(slug, out.Change.Number, out.Change.ID), out.Run.ID)
 	if out.URL != "" {
 		fmt.Printf("  link: %s\n", out.URL)
 	}

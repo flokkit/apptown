@@ -14,7 +14,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 	for flagName, env := range map[string]string{
 		"db-url": "APPTOWN_DB_URL", "console-cli": "APPTOWN_CONSOLE_CLI", "inference-addr": "APPTOWN_INFERENCE_ADDR",
 		"inference-url": "APPTOWN_INFERENCE_URL", "inference-networks": "APPTOWN_INFERENCE_NETWORKS",
-		"mirror-base": "APPTOWN_MIRROR_BASE", "features": "APPTOWN_FEATURES", "otlp-endpoint": "APPTOWN_OTLP_ENDPOINT",
+		"mirror-base": "APPTOWN_MIRROR_BASE", "otlp-endpoint": "APPTOWN_OTLP_ENDPOINT",
 		"otlp-protocol": "APPTOWN_OTLP_PROTOCOL", "errors-url": "APPTOWN_ERRORS_URL",
 	} {
 		if got := envName(flagName); got != env {
@@ -37,7 +37,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			v = "1.5"
 		case "task-memory-mib", "task-pids", "chat-memory-mib", "chat-pids":
 			v = "512"
-		case "verify-only", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "drain-local-docker", "git-import-allow-private", "open-on-network", "host-scripts":
+		case "verify-only", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network", "host-scripts":
 			v = "true"
 		case "tier-domain":
 			v = "preview=p.example,main=m.example"

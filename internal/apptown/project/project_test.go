@@ -2,7 +2,6 @@ package project
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sync/atomic"
 	"testing"
@@ -77,14 +76,11 @@ func TestTheProjectRecordIsStampedByItsClock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exported, err := ExportIn(context.Background(), db, id)
+	row, err := projects.ByID(context.Background(), id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var row struct {
-		CreatedAt time.Time `json:"created_at"`
-	}
-	if err := json.Unmarshal(exported, &row); err != nil || !row.CreatedAt.Equal(at) {
+	if created, err := time.Parse(time.RFC3339Nano, row.CreatedAt); err != nil || !created.Equal(at) {
 		t.Fatalf("created at %v, want the caller's %v: %v", row.CreatedAt, at, err)
 	}
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {

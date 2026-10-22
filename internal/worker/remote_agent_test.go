@@ -84,7 +84,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	if err := execfile.Write(cli, []byte("#!/bin/sh\necho forge\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	env := console.Static{Provision: console.Provision{Model: "m", Env: []string{"APPTOWN_URL=https://forge.example"},
+	env := consoletest.Static{Provision: console.Provision{Model: "m", Env: []string{"APPTOWN_URL=https://forge.example"},
 		Mounts: []string{cli + ":/opt/apptown/bin/apptown:ro"},
 		Files:  map[string]console.Staged{"pi-home/.pi/agent/models.json": {Data: []byte(`{"providers":{}}`)}}}}
 	c := startRemoteChats(t, env)
@@ -177,7 +177,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 // private Docker is sent none.
 func TestAWorkerChatGetsAppTownsMirror(t *testing.T) {
 	ctx := context.Background()
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	for _, docker := range []bool{true, false} {
 		s, err := c.service.Open(ctx, console.OpenRequest{Scope: "change:1", Workspace: console.Workspace{Path: t.TempDir(), Writable: true},
 			Actor: "alice", Model: "m", Docker: docker})
@@ -199,7 +199,7 @@ func TestAWorkerChatGetsAppTownsMirror(t *testing.T) {
 // cannot be reached does not end.
 func TestAChatWhoseWorkerCannotBeReachedIsUnavailable(t *testing.T) {
 	ctx := context.Background()
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	s := c.open(t)
 	if err := c.service.Warm(ctx, s.ID); err != nil {
 		t.Fatal(err)
@@ -224,7 +224,7 @@ func TestAChatWhoseWorkerCannotBeReachedIsUnavailable(t *testing.T) {
 // stopped.
 func TestAWorkerChatIsRebuiltOnlyWhileStopped(t *testing.T) {
 	ctx := context.Background()
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	s := c.open(t)
 	if err := c.service.Warm(ctx, s.ID); err != nil {
 		t.Fatal(err)
@@ -251,7 +251,7 @@ func TestAWorkerChatIsRebuiltOnlyWhileStopped(t *testing.T) {
 // a symbolic link.
 func TestAChatsFilesStayInsideItsDirectory(t *testing.T) {
 	ctx := context.Background()
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	s := c.open(t)
 	if err := c.service.Warm(ctx, s.ID); err != nil {
 		t.Fatal(err)
@@ -286,7 +286,7 @@ func TestAChatsFilesStayInsideItsDirectory(t *testing.T) {
 // named "content", and carries no symbolic links.
 func TestBlobsAreNamedByTheirContent(t *testing.T) {
 	ctx := context.Background()
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	good := tarOf(t, entry{name: "content", body: "binary"})
 	for name, body := range map[string][]byte{
 		"another name": tarOf(t, entry{name: "other", body: "x"}),
@@ -343,7 +343,7 @@ func chatSourceRepo(t *testing.T) (repo, commit string) {
 func TestAChatsWorkTreeIsMadeFromItsSource(t *testing.T) {
 	ctx := context.Background()
 	repo, commit := chatSourceRepo(t)
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	sent := 0
 	c.agent.Source = func(ctx context.Context, in console.Launch, dest string) (string, string, error) {
 		sent++
@@ -389,7 +389,7 @@ func TestAChatsWorkTreeIsMadeFromItsSource(t *testing.T) {
 func TestASaveIsTheChatsCommitsSinceItsBase(t *testing.T) {
 	ctx := context.Background()
 	repo, commit := chatSourceRepo(t)
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	c.agent.Source = func(ctx context.Context, in console.Launch, dest string) (string, string, error) {
 		return "change/7", commit, gitexec.BundleCommit(ctx, repo, commit, "change/7", dest)
 	}
@@ -429,7 +429,7 @@ func TestASaveIsTheChatsCommitsSinceItsBase(t *testing.T) {
 // handed back that it had not shown before, once per turn.
 func TestAHandedBackTurnTriggersASaveOnce(t *testing.T) {
 	ctx := context.Background()
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	var mu sync.Mutex
 	calls := 0
 	c.agent.HandedBack = func(string) { mu.Lock(); calls++; mu.Unlock() }
@@ -560,7 +560,7 @@ func TestTheAgentImageIsNamedByItsBuildContext(t *testing.T) {
 // answer does not, and only http and https addresses are tried.
 func TestTheWorkerSaysWhichRegistriesItCanReach(t *testing.T) {
 	ctx := context.Background()
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	listener, up := listenLocal(t)
 	registry := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusUnauthorized) })}
 	go registry.Serve(listener)
@@ -608,7 +608,7 @@ func recordAsOf(dir string) time.Time {
 // between a copy's truncation and its write would otherwise show the chat
 // as never copied.
 func TestTheRecordsCopyTimeNeverReadsAsNeverCopiedOnceItHasBeen(t *testing.T) {
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	c.agent.CopyEvery = time.Millisecond
 	s := c.open(t)
 	dir := filepath.Join(c.agent.Root, s.ID)

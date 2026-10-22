@@ -30,7 +30,7 @@ func TestWorkflowEvidenceViewsKeepOrderLimitsAndExactBodies(t *testing.T) {
 	binaryID := insertBinaryArtifactForTest(t, q.db, run.ID, "file", "historical", "", binary, time.Time{})
 	for _, view := range []ReadView{DetailView, TraceView} {
 		counted := &countedQueries{Handle: q.db.SQL()}
-		snapshot, err := readWorkflowSnapshot(context.Background(), counted, run.ID, view, nil, Placement{}, ids.Nil, nil)
+		snapshot, err := readWorkflowSnapshot(context.Background(), counted, run.ID, view, nil, ids.Nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -292,7 +292,7 @@ func TestTheSnapshotCarriesTheOwnersReadingOfCheckEvidence(t *testing.T) {
 	unreadable := settled("rubric", "guidance/conformance", `{"checks":[{"block":"b","version":1,"check":"tone","evaluator":"llm","verdict":""}]}`)
 	script := settled("build", "script", `{"placement":{"local":true}}`)
 	review := settled("review", "agent/review", `{"verdict":"pass"}`)
-	snapshot, err := readWorkflowSnapshot(context.Background(), q.db, run.ID, DetailView, nil, Placement{}, ids.Nil, nil)
+	snapshot, err := readWorkflowSnapshot(context.Background(), q.db, run.ID, DetailView, nil, ids.Nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

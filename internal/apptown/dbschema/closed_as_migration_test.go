@@ -105,7 +105,9 @@ func TestAnUpgradedAppTownHasTheFreshSchemasShape(t *testing.T) {
 	shape := func(db *database.DB) map[string]bool {
 		t.Helper()
 		out := map[string]bool{}
-		rows, err := db.Query(`SELECT 'column ' || table_name || '.' || column_name || ' #' || ordinal_position || ' ' || data_type || ' null=' || is_nullable || ' default=' || COALESCE(column_default, '')
+		// A column's place is its rank among the table's columns: a dropped
+		// column leaves a gap in ordinal_position that SELECT * never sees.
+		rows, err := db.Query(`SELECT 'column ' || table_name || '.' || column_name || ' #' || row_number() OVER (PARTITION BY table_name ORDER BY ordinal_position) || ' ' || data_type || ' null=' || is_nullable || ' default=' || COALESCE(column_default, '')
 FROM information_schema.columns WHERE table_schema = 'public'
 UNION ALL
 SELECT 'check ' || rel.relname || '.' || con.conname || ' ' || pg_get_constraintdef(con.oid)

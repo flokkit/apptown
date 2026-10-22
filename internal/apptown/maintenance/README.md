@@ -39,10 +39,5 @@ does not extend that deadline. This does not claim every underlying legacy
 command has stopped. Per-command cancellation throughout cleanup and the console
 runtime remains a separate hardening opportunity.
 
-`LocalWorkLeft` and `ExecutionContainers` answer what project work this host may
-still hold, from the same records and container labels: unsettled local task
-attempts, steps running with no task, unended chats placed on AppTown,
-unfinished project or workflow cleanups, and containers carrying an execution
-label. The root's `-drain-local-docker` startup asks both and keeps the mode
-record. `RemoveBuildImages` removes a preview's build images without force for
+`RemoveBuildImages` removes a preview's build images without force for
 project cleanup.

@@ -96,9 +96,10 @@ daemon".
 
 ## Switching to no local Docker
 
-An AppTown that last ran with its own Docker first runs once, stopped and with
-its normal settings, with `-drain-local-docker`: it checks that no local
-work or execution container is left, records that, and exits. A fresh
+An AppTown in this mode cannot see work it once ran on its own Docker. Before
+the first start with `-no-local-docker`, stop AppTown, end its chats and let
+its runs finish or abandon them, and check that no AppTown container other
+than releases and the built-in database is left on its Docker. A fresh
 installation does not need this.
 
 ## Limits and the metadata service

@@ -29,9 +29,8 @@ interrupting a running agent step (`workflow.Service.InterruptStep`). Anyone
 who can read the project may look at a chat. The record of each act names the
 person who did it, even when a chat runs with its opener's authority. An
 operation that spends on a model call before its effect asks for the effect's
-authority first: the one-box change asks Work whether the caller may open and
-start the change (`MayCreateAndRun`), and a narrative refresh's source read
-asks for the narrative's publication authority, `change:write-narrative`.
+authority first: a narrative refresh's source read asks for the narrative's
+publication authority, `change:write-narrative`.
 That capability reaches a change's "So far" summary (and a title nobody
 chose), never the person-written brief (`change:update-brief`). Contributors
 hold both; AppTown's own engine holds only the narrative one, so its

@@ -15,8 +15,8 @@ Reference slots, not models: `with: { model: review }`. Slot names route
 via the instance (or project override) mapping; a slash value
 (`gpu1/Qwen3.6`) is a concrete-pattern escape hatch you should rarely
 need. Stock vocabulary: default, plan, implement, review, security,
-fast, chat, worker, scout, draft — an unmapped slot degrades along its
-fallback chain (security → review, scout/draft → fast, the rest →
+fast, chat, worker, scout — an unmapped slot degrades along its
+fallback chain (security → review, scout → fast, the rest →
 default).
 
 ## What you can rely on

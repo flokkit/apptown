@@ -102,23 +102,8 @@ linters:
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'var root = context\.Background\(\)'
-      # apptown-check's main: one evaluation, then the process ends.
-      - path: '^cmd/apptown-check/main\.go$'
-        linters: [forbidigo]
-        text: 'forbidden because "context rule:'
-        source: 'ctx := context\.Background\(\)'
       # The worker process's root: it runs until the process is killed.
       - path: '^cmd/apptown-worker/main\.go$'
-        linters: [forbidigo]
-        text: 'forbidden because "context rule:'
-        source: 'ctx := context\.Background\(\)'
-      # apptown-deploy's main: one deploy, then the process ends.
-      - path: '^cmd/apptown-deploy/main\.go$'
-        linters: [forbidigo]
-        text: 'forbidden because "context rule:'
-        source: 'ctx := context\.Background\(\)'
-      # apptown-console's run is its main's body: one chat, then it ends.
-      - path: '^cmd/apptown-console/main\.go$'
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'ctx := context\.Background\(\)'

@@ -43,8 +43,6 @@ const (
 	CapInstanceReadPublic Capability = "instance:read-public"
 	CapInstitutionRead    Capability = "institution:read-structure"
 
-	CapGroupTransferProject Capability = "group:transfer-project"
-
 	CapProjectList          Capability = "project:list"
 	CapProjectRead          Capability = "project:read"
 	CapProjectCreate        Capability = "project:create"
@@ -75,14 +73,13 @@ const (
 
 	CapRunRead Capability = "run:read"
 
-	CapRunOperate       Capability = "run:operate"
-	CapEvidenceRead     Capability = "evidence:read"
-	CapEvidenceAttach   Capability = "evidence:attach"
-	CapConformanceRead  Capability = "conformance:read"
-	CapConformanceRev   Capability = "conformance:review"
-	CapConformanceClear Capability = "conformance:clear-history"
-	CapConformanceAI    Capability = "conformance:confirm-ai"
-	CapConformanceFix   Capability = "conformance:remediate"
+	CapRunOperate      Capability = "run:operate"
+	CapEvidenceRead    Capability = "evidence:read"
+	CapEvidenceAttach  Capability = "evidence:attach"
+	CapConformanceRead Capability = "conformance:read"
+	CapConformanceRev  Capability = "conformance:review"
+	CapConformanceAI   Capability = "conformance:confirm-ai"
+	CapConformanceFix  Capability = "conformance:remediate"
 
 	CapExceptionApprove Capability = "exception:approve"
 	CapExceptionRevoke  Capability = "exception:revoke"
@@ -91,7 +88,6 @@ const (
 	CapProjectGuidance     Capability = "project:configure-guidance"
 	CapProjectServices     Capability = "project:configure-services"
 	CapProjectIntegrations Capability = "project:configure-integrations"
-	CapProjectExtensions   Capability = "project:configure-extensions"
 	CapProjectModelProfile Capability = "project:configure-model-profile"
 	CapProjectWorkflow     Capability = "project:configure-workflow"
 	CapReleaseRead         Capability = "release:read"
@@ -107,12 +103,6 @@ const (
 	// checked in the copy's project and in the destination's; no scope
 	// carries it, so an agent never does.
 	CapDeploymentRestore Capability = "deployment:restore"
-	// CapDeploymentOpenRestored enters a restored copy of production through
-	// its AppTown gate (design/subsystems/deployment.md, "Restored copies"): it reads
-	// production rows through the app. It is held with restore but kept
-	// apart from it (a person may look without starting places), and it is
-	// not a read: no read role, scope or instrument carries it.
-	CapDeploymentOpenRestored Capability = "deployment:open-restored"
 
 	CapIdentityUsers  Capability = "identity:manage-users"
 	CapIdentityGroups Capability = "identity:manage-groups"
@@ -122,7 +112,6 @@ const (
 	CapStandardsGuidance Capability = "standards:manage-guidance"
 	CapStandardsPacks    Capability = "standards:manage-packs"
 	CapStandardsPolicies Capability = "standards:manage-policies"
-	CapStandardsCatalog  Capability = "standards:manage-catalog"
 	// CapStandardsEvals reads evals: how a model or pack version did against
 	// what projects run now. A read, so an agent may hold it through its
 	// person; starting one stays with standards:manage-packs.
@@ -156,8 +145,6 @@ var Definitions = map[Capability]Definition{
 	CapInstanceReadPublic: {"read the explicitly public instance surface", readInherits, "read"},
 	CapInstitutionRead:    {"see users, groups, roles and grants", nil, "read"},
 
-	CapGroupTransferProject: {"transfer a project between groups", nil, "admin"},
-
 	CapProjectList:          {"discover visible projects", readInherits, "read"},
 	CapProjectRead:          {"read one project's source-facing state", readInherits, "read"},
 	CapProjectCreate:        {"create a project for an allowed owning group", []ScopeKind{ScopeGroup}, "mutate"},
@@ -185,14 +172,13 @@ var Definitions = map[Capability]Definition{
 
 	CapRunRead: {"read a run", readInherits, "read"},
 
-	CapRunOperate:       {"advance, retry or stop a run", nil, "mutate"},
-	CapEvidenceRead:     {"read evidence", readInherits, "read"},
-	CapEvidenceAttach:   {"attach evidence to a run", nil, "mutate"},
-	CapConformanceRead:  {"read conformance", readInherits, "read"},
-	CapConformanceRev:   {"run a read-only conformance review", nil, "mutate"},
-	CapConformanceClear: {"clear conformance and remediation history", nil, "admin"},
-	CapConformanceAI:    {"confirm one exact AI verdict", nil, "approve"},
-	CapConformanceFix:   {"start a remediation", nil, "mutate"},
+	CapRunOperate:      {"advance, retry or stop a run", nil, "mutate"},
+	CapEvidenceRead:    {"read evidence", readInherits, "read"},
+	CapEvidenceAttach:  {"attach evidence to a run", nil, "mutate"},
+	CapConformanceRead: {"read conformance", readInherits, "read"},
+	CapConformanceRev:  {"run a read-only conformance review", nil, "mutate"},
+	CapConformanceAI:   {"confirm one exact AI verdict", nil, "approve"},
+	CapConformanceFix:  {"start a remediation", nil, "mutate"},
 
 	CapExceptionApprove: {"approve a conformance exception in a dimension", nil, "approve"},
 	CapExceptionRevoke:  {"revoke a conformance exception", nil, "approve"},
@@ -201,7 +187,6 @@ var Definitions = map[Capability]Definition{
 	CapProjectGuidance:     {"change what guidance the project adopts", nil, "execute"},
 	CapProjectServices:     {"change the project's attached services", nil, "execute"},
 	CapProjectIntegrations: {"attach or wire integrations to the project", nil, "execute"},
-	CapProjectExtensions:   {"enable extensions on the project", nil, "execute"},
 	CapProjectModelProfile: {"choose the project's model profile", nil, "execute"},
 	CapProjectWorkflow:     {"select or change the project's workflow copy", nil, "execute"},
 	CapReleaseRead:         {"read releases", readInherits, "read"},
@@ -214,7 +199,6 @@ var Definitions = map[Capability]Definition{
 	CapDeploymentRestore:   {"fill a deployment's data from a copy, or check a copy comes back", nil, "mutate"},
 	// Not "read": a read is carried by every scope and instrument, and this
 	// one shows production rows.
-	CapDeploymentOpenRestored: {"open a restored copy of production data through AppTown gate", nil, "mutate"},
 
 	CapIdentityUsers:  {"manage user accounts", nil, "admin"},
 	CapIdentityGroups: {"manage groups", nil, "admin"},
@@ -224,7 +208,6 @@ var Definitions = map[Capability]Definition{
 	CapStandardsGuidance: {"edit the guidance library", nil, "execute"},
 	CapStandardsPacks:    {"edit packs", nil, "execute"},
 	CapStandardsPolicies: {"edit policies and the policy library", nil, "execute"},
-	CapStandardsCatalog:  {"edit the change catalog", nil, "execute"},
 	CapStandardsEvals:    {"read evals of models and pack versions", nil, "read"},
 	CapExecWorkflows:     {"edit workflow definitions", nil, "execute"},
 
@@ -312,12 +295,12 @@ var (
 	MaintainerCaps = append(append([]Capability{}, ContributorCaps...),
 		CapChangeLand, CapChangeAbandon, CapChangeSendBack, CapRunOperate, CapDeploymentOperate,
 		CapProjectServices, CapProjectIntegrations, CapProjectGuidance, CapProjectWorkflow,
-		CapProjectWayOfWorking, CapProjectExtensions, CapProjectImport, CapConformanceFix, CapConformanceAI,
+		CapProjectWayOfWorking, CapProjectImport, CapConformanceFix, CapConformanceAI,
 		CapProjectManageMembers, CapSecretBind, CapDeploymentDeploy)
 	OwnerCaps = append(append([]Capability{}, MaintainerCaps...),
-		CapProjectConfigure, CapProjectDelete, CapProjectModelProfile, CapDeploymentBind, CapDeploymentTeardown, CapDeploymentRestore, CapDeploymentOpenRestored)
+		CapProjectConfigure, CapProjectDelete, CapProjectModelProfile, CapDeploymentBind, CapDeploymentTeardown, CapDeploymentRestore)
 	// Administration capabilities summarized by the account menu.
-	AmenderCaps = []Capability{CapStandardsGuidance, CapStandardsPacks, CapStandardsPolicies, CapStandardsCatalog,
+	AmenderCaps = []Capability{CapStandardsGuidance, CapStandardsPacks, CapStandardsPolicies,
 		CapExecWorkflows, CapIntegrationServices, CapIntegrationDeps}
 )
 
@@ -326,7 +309,7 @@ var StockRoles = []Role{
 		Description: "The sovereign: holds every capability on this instance.", Caps: AllCapabilities()},
 	{Name: RoleStandardsAdmin, Title: "Standards administrator", Scope: ScopeInstance,
 		Description: "Manages guidance, packs and policies (the amender).",
-		Caps:        []Capability{CapStandardsGuidance, CapStandardsPacks, CapStandardsPolicies, CapStandardsCatalog, CapStandardsEvals}},
+		Caps:        []Capability{CapStandardsGuidance, CapStandardsPacks, CapStandardsPolicies, CapStandardsEvals}},
 	{Name: RoleExecutionAdmin, Title: "Execution administrator", Scope: ScopeInstance,
 		Description: "Manages executable workflow definitions.",
 		Caps:        []Capability{CapExecWorkflows}},
@@ -353,8 +336,8 @@ var StockRoles = []Role{
 		Description: "Reserved group office; currently carries no operation permissions.",
 		Caps:        []Capability{}},
 	{Name: RoleGroupOwner, Title: "Group owner", Scope: ScopeGroup, Surfaced: true,
-		Description: "Creates and transfers projects for this group.",
-		Caps:        []Capability{CapGroupTransferProject, CapProjectCreate}},
+		Description: "Creates projects owned by the group.",
+		Caps:        []Capability{CapProjectCreate}},
 	{Name: RoleGroupAuditor, Title: "Group auditor", Scope: ScopeGroup,
 		Description: "Reads projects and evidence visible through this group.",
 		Caps:        append(append([]Capability{}, ReadCaps...), CapAuditRead)},

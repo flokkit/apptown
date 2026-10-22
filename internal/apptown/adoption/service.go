@@ -107,14 +107,13 @@ type Dependencies struct {
 
 // Service owns what each project has adopted, with its history and installed selections.
 type Service struct {
-	db         *database.DB
-	deps       Dependencies
-	adoptions  *adoptionStore
-	library    *libraryStore
-	policies   *policyStore
-	lanes      *laneStore
-	extensions *extensionStore
-	resolver   *resolver
+	db        *database.DB
+	deps      Dependencies
+	adoptions *adoptionStore
+	library   *libraryStore
+	policies  *policyStore
+	lanes     *laneStore
+	resolver  *resolver
 }
 
 func New(db *database.DB, deps Dependencies) *Service {
@@ -125,7 +124,7 @@ func New(db *database.DB, deps Dependencies) *Service {
 	policies.clock = deps.Now
 	library := newLibrary(db, deps.Ways)
 	library.clock = deps.Now
-	return &Service{db: db, deps: deps, adoptions: adoptions, library: library, policies: policies, lanes: newLanes(db), extensions: newExtensions(db), resolver: newResolver(db, deps.Ways)}
+	return &Service{db: db, deps: deps, adoptions: adoptions, library: library, policies: policies, lanes: newLanes(db), resolver: newResolver(db, deps.Ways)}
 }
 func (s *Service) CurrentReceipt(ctx context.Context, projectID ids.ID) (*RecordedRevision, error) {
 	return s.adoptions.Current(ctx, projectID)
@@ -144,9 +143,6 @@ func (s *Service) Advance(ctx context.Context, projectID ids.ID, kind AdoptionKi
 // membership move: it records a revision even when the receipt is unchanged.
 func (s *Service) Record(ctx context.Context, projectID ids.ID, kind AdoptionKind, reason, by string, resolve func(tx *database.Tx, prior *RecordedRevision, now time.Time) (Receipt, error)) (*RecordedRevision, error) {
 	return s.adoptions.Advance(ctx, projectID, kind, reason, by, true, resolve)
-}
-func (s *Service) SetExtension(ctx context.Context, projectID ids.ID, name string, on bool) error {
-	return s.extensions.Set(ctx, projectID, name, on)
 }
 func (s *Service) BlockUses(ctx context.Context, blockID ids.ID) ([]BlockUse, error) {
 	return s.library.UsedBy(ctx, blockID)

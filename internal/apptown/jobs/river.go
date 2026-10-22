@@ -328,14 +328,6 @@ func UnfinishedKeysIn(ctx context.Context, tx *sql.Tx, operation string) ([]stri
 	return jobsql.New(tx).UnfinishedKeys(ctx, operation)
 }
 
-// IncompleteKeysIn lists the keys of operation's jobs that have not
-// completed: queued, running, retrying, or given up (cancelled or discarded).
-// Where the job is the only record of an effect, only completion is its
-// receipt.
-func IncompleteKeysIn(ctx context.Context, tx *sql.Tx, operation string) ([]string, error) {
-	return jobsql.New(tx).IncompleteKeys(ctx, operation)
-}
-
 func middleware(opts Options) []rivertype.Middleware {
 	if opts.Tracer == nil {
 		return nil

@@ -71,21 +71,6 @@ func (h WorkflowLibrary) DeleteLibraryWorkflow(w http.ResponseWriter, r *http.Re
 	WriteJSON(w, 200, Done{OK: true})
 }
 
-// WorkflowHistory: GET /projects/{slug}/workflows/{name}/history — the
-// library's versions of the workflow, newest first. A project holds no
-// copies, so its workflow's history is the library's.
-func (h WorkflowLibrary) WorkflowHistory(w http.ResponseWriter, r *http.Request) {
-	if _, ok := ProjectFromPath(h.projects, w, r); !ok {
-		return
-	}
-	out, err := h.ways.WorkflowHistory(r.Context(), r.PathValue("name"))
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	WriteJSON(w, 200, out)
-}
-
 // WorkflowPublished names the workflow version a publish wrote.
 type WorkflowPublished struct {
 	Name    string `json:"name"`

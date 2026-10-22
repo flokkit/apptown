@@ -102,8 +102,3 @@ DELETE FROM secret_bindings WHERE project_id=$1;
 
 -- name: DeleteProjectProfiles :exec
 DELETE FROM secret_profiles WHERE project_id=$1;
-
--- Which secret names each deployment had bound, and where, for moving a
--- project to another AppTown: names only, never a value or a store's ref.
--- name: ExportBindingNames :many
-SELECT deployment, name, store, generated FROM secret_bindings WHERE project_id = $1 ORDER BY deployment, name;

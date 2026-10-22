@@ -625,33 +625,6 @@ func (q *Queries) ExecutingSteps(ctx context.Context, running string) ([]Executi
 	return items, nil
 }
 
-const exportSteps = `-- name: ExportSteps :many
-SELECT to_jsonb(s)::text FROM steps s JOIN runs r ON r.id = s.run_id WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY s.id
-`
-
-func (q *Queries) ExportSteps(ctx context.Context, projectID ids.ID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, exportSteps, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var column_1 string
-		if err := rows.Scan(&column_1); err != nil {
-			return nil, err
-		}
-		items = append(items, column_1)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const finishAttempt = `-- name: FinishAttempt :execrows
 UPDATE steps SET status=$1,evidence_json=$2,finished_at=$3::timestamptz,
   config_json=CASE WHEN type='agent/pi' AND $1::text='pass'
@@ -1411,40 +1384,6 @@ func (q *Queries) RunningSteps(ctx context.Context, arg RunningStepsParams) ([]R
 			&i.Type,
 			&i.StartedAt,
 		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const runningStepsMeta = `-- name: RunningStepsMeta :many
-SELECT id,run_id,type FROM steps WHERE status=$1 ORDER BY id
-`
-
-type RunningStepsMetaRow struct {
-	ID    ids.ID
-	RunID ids.ID
-	Type  string
-}
-
-// Identity only, every project: the startup precondition of -no-local-docker.
-func (q *Queries) RunningStepsMeta(ctx context.Context, running string) ([]RunningStepsMetaRow, error) {
-	rows, err := q.db.QueryContext(ctx, runningStepsMeta, running)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []RunningStepsMetaRow
-	for rows.Next() {
-		var i RunningStepsMetaRow
-		if err := rows.Scan(&i.ID, &i.RunID, &i.Type); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

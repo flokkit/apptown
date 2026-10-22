@@ -18,13 +18,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/flokkit/apptown/internal/version"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/version"
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/console/pi"
@@ -53,7 +54,6 @@ func main() {
 		exclusive     = flag.Bool("exclusive", false, "declare that this machine is the installation's alone: nothing else runs on it. Recorded in the worker's profile with every private-Docker attempt; it is not measured")
 		checkMetadata = flag.Bool("check-metadata", false, "say whether a container on this host reaches the cloud metadata service ("+metadataAddress+"), then exit; the install blocks it")
 		showVersion   = flag.Bool("version", false, "print this build's version and AppTown protocols it serves, and exit")
-		roleFlag      = flag.String("role", worker.RoleAgent, "agent: chats, tasks and previews; check: checks and nothing else. Fixed on the first start with an empty -state, never changed")
 	)
 	flag.Parse()
 	// The worker process's context: it runs until the process is killed.
@@ -87,11 +87,6 @@ func main() {
 	serviceLimits := execution.Limits{CPUs: *serviceCPUs, MemoryBytes: *serviceMemory << 20, PIDs: *servicePIDs}
 	// The worker's one clock: what it stamps and judges times by.
 	now := clock.Or(nil)
-	// The role is fixed before anything else touches the state directory.
-	role, err := worker.FixRole(*state, *roleFlag, now)
-	if err != nil {
-		log.Fatalf("apptown-worker: %v", err)
-	}
 	cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
 	if err != nil {
 		log.Fatalf("loading the worker's certificate: %v", err)
@@ -122,7 +117,7 @@ func main() {
 		Run:             pi.CLI(*docker),
 		Binary:          *docker, // saves and terminals run it directly
 		Image:           func() string { return "" },
-		Dind:            pi.DindConfig{Image: *dindImage, Mark: worker.PrivilegedMark(*state, role, now)},
+		Dind:            pi.DindConfig{Image: *dindImage},
 		CachePerSession: true,
 		Mounts:          []string{worker.ToolCacheVolume(toolCache)},
 		Limits:          &pi.Limits{CPUs: *chatCPUs, MemoryBytes: *chatMemory << 20, PIDs: *chatPIDs},
@@ -146,7 +141,7 @@ func main() {
 		log.Printf("apptown-worker: Docker is at %s, not on this machine; this worker runs no previews", host)
 		previews = nil
 	}
-	w := &worker.Server{Installation: *installation, Role: role, State: *state, Tasks: execution.DockerTasks{Binary: *docker, CallerAdmitsDisk: true}, Sessions: sessions,
+	w := &worker.Server{Installation: *installation, State: *state, Tasks: execution.DockerTasks{Binary: *docker, CallerAdmitsDisk: true}, Sessions: sessions,
 		Images: worker.DockerImages{Binary: *docker}, AgentImage: agentImage, ImageLabels: worker.DockerImages{Binary: *docker}, Checks: execution.Runner{DockerBinary: *docker, ServiceLimits: serviceLimits}, Previews: previews,
 		DindImage: *dindImage, Docker: dockercli.CLI{Binary: *docker}, ServiceLimits: serviceLimits, ToolCache: toolCache, Now: now}
 	// What a worker before 1.0 left on this Docker (checks, previews, chats,
@@ -157,12 +152,9 @@ func main() {
 	}
 	// What private Docker rests on is measured now, and reported with what
 	// the operator declares; AppTown records it with every attempt
-	// admitted with private Docker (worker/profile.go). A check worker runs
-	// none.
-	if role.Role == worker.RoleAgent {
-		w.Profile = w.MeasureProfile(ctx, *exclusive)
-		log.Printf("apptown-worker: profile %+v", w.Profile)
-	}
+	// admitted with private Docker (worker/profile.go).
+	w.Profile = w.MeasureProfile(ctx, *exclusive)
+	log.Printf("apptown-worker: profile %+v", w.Profile)
 	// A check the worker was running when it stopped is discarded, and each
 	// minute anything past its deadline goes (worker/checks.go); a preview
 	// whose boot the stop interrupted goes, and a failed removal is tried
@@ -188,7 +180,7 @@ func main() {
 		TLSConfig:         worker.TLSConfig(cert, pool),
 		ReadHeaderTimeout: 30 * time.Second,
 	}
-	log.Printf("apptown-worker (%s, since %s) serving installation %s on %s", role.Role, role.Since.Format(time.RFC3339), *installation, *listen)
+	log.Printf("apptown-worker serving installation %s on %s", *installation, *listen)
 	if err := srv.ListenAndServeTLS("", ""); !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}

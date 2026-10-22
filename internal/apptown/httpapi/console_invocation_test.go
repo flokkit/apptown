@@ -23,7 +23,7 @@ func TestConsoleInvokeHTTPBindsWorkAndProvenanceToItsAuthenticatedSession(t *tes
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _, _ = sessions.End(context.Background(), other.ID) })
-	h := NewConsoleInvocation(sessions, f.Projects, nil, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB, "forge.example", nil)
+	h := NewConsoleInvocation(sessions, f.Projects, nil, f.Work, changeactions.New(f.Work, f.DB), f.DB, "forge.example", nil)
 	call := func(sid, token, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
 		r.SetPathValue("sid", sid)
@@ -112,7 +112,7 @@ func TestConsoleInvokeHTTPChangeChatCannotCreateSiblingWork(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, true)
 	sessions, _, session, _ := consoleHTTPFixture(t, map[string]string{conversation.ProjectLabel: fmt.Sprint(f.ProjectID), conversation.SlugLabel: "shop", conversation.ChangeLabel: fmt.Sprint(f.ChangeID)})
-	h := NewConsoleInvocation(sessions, f.Projects, nil, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB, "forge.example", nil)
+	h := NewConsoleInvocation(sessions, f.Projects, nil, f.Work, changeactions.New(f.Work, f.DB), f.DB, "forge.example", nil)
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"title":"Escape the chat","workflow":"implementation"}`)).WithContext(f.Context)
 	r.SetPathValue("sid", session.ID)
 	r.Header.Set("X-AppTown-Session-Token", session.Token)

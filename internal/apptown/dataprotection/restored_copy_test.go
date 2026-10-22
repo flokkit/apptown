@@ -2,7 +2,6 @@ package dataprotection
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -339,6 +337,27 @@ func (w *restoredWorld) start(in RestoredCopyRequest) (*operations.Operation, *R
 	return op, &copies[0]
 }
 
+// standing starts a restore test whose take-down cannot list the
+// platform's apps, so the checked copy is left standing (as a start
+// AppTown stopped or whose take-down failed leaves one), then lets the
+// platform answer again.
+func (w *restoredWorld) standing() *RestoredCopy {
+	w.t.Helper()
+	w.platform.during = func(r *http.Request) bool {
+		if r.Header.Get("Cookie") == "" {
+			return false
+		}
+		w.api.Fail("GET", "/v2/apps", 500)
+		return true
+	}
+	op, c := w.start(RestoredCopyRequest{})
+	w.api.Fail("GET", "/v2/apps", 0)
+	if op.State != operations.Failed || c.EndedAt.Valid || c.Outcome != RehearsalPassedNoData {
+		w.t.Fatalf("the copy left standing %s: %s; %+v", op.State, op.Detail, c)
+	}
+	return c
+}
+
 // noSecretIn fails when a gate secret AppTown rendered, or a row the
 // app answered, appears in what a project reader sees.
 func (w *restoredWorld) noSecretIn(what string, v any) {
@@ -381,7 +400,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 	}
 	var filledWithApps = -1
 	w.clusters.atFill = func() { filledWithApps = len(w.api.Snapshot().Apps) }
-	op, c := w.start(RestoredCopyRequest{Test: true})
+	op, c := w.start(RestoredCopyRequest{})
 	if !endedAs(op, OperationVerified) {
 		t.Fatalf("restore test %s: %s\n%+v", op.State, op.Detail, op.Steps)
 	}
@@ -389,7 +408,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 		t.Fatalf("the copy's app existed when its data was filled (apps then: %d, prod's is 1)", filledWithApps)
 	}
 	// The copy ran prod's release on prod's target, from the set asked.
-	if c.Source != "prod" || c.Backup != w.set || c.Target != "do-syd" || !c.Test || c.Open || c.Outcome != RehearsalPassedNoData || !c.EndedAt.Valid {
+	if c.Source != "prod" || c.Backup != w.set || c.Target != "do-syd" || c.Outcome != RehearsalPassedNoData || !c.EndedAt.Valid {
 		t.Fatalf("the copy: %+v", c)
 	}
 	if c.Facts.Withheld[0] != "SMTP_PASSWORD" || c.Facts.Egress != egressNotBlocked {
@@ -420,13 +439,10 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 			t.Fatalf("no step for the gate check %q: %+v", ch.Name, op.Steps)
 		}
 	}
-	// AppTown's redemption is its own receipt, never a person's entry.
+	// AppTown's redemption is its own receipt.
 	checked := operationReceipts(t, w.db, "deployment.gate-checked", w.project)
 	if len(checked) != 1 || checked[0].Actor != operations.SystemActor || !strings.Contains(string(checked[0].Payload), "nobody entered") {
 		t.Fatalf("gate-checked receipts: %+v", checked)
-	}
-	if n := len(operationReceipts(t, w.db, "deployment.gate-entered", w.project)); n != 0 || len(c.Entries) != 0 {
-		t.Fatalf("AppTown's check was recorded as an entry: %d receipts, entries %+v", n, c.Entries)
 	}
 	// Its app had the gate as its only public component: the one app
 	// besides prod's (the copy's record went with its take-down).
@@ -490,156 +506,9 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 	}
 }
 
-// A gate ticket lasts its lifetime by AppTown's clock, which also judges
-// it at redemption: a ticket past its lifetime by that clock is refused and
-// one within it is let in, wherever the machine's clock is.
-func TestAGateTicketLastsByAppTownsClock(t *testing.T) {
-	t.Parallel()
-	w := newRestoredWorld(t, nil)
-	ctx := context.Background()
-	// AppTown's clock, two days ahead of the machine's and moved by the test.
-	var ahead atomic.Int64
-	ahead.Store(int64(48 * time.Hour))
-	w.s.clock = func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }
-	op, c := w.start(RestoredCopyRequest{Minutes: 120})
-	if !endedAs(op, OperationVerified) || !c.Open {
-		t.Fatalf("opened copy %s: %s; %+v", op.State, op.Detail, c)
-	}
-	secretOf := w.platform.secretFor(w.appOf(c.Deployment))
-	redeem := func(lasts time.Duration) error {
-		t.Helper()
-		w.auth.set("alice")
-		w.auth.via = "session"
-		w.s.restored.TicketFor = lasts
-		to, err := w.s.OpenRestoredCopy(ctx, w.project, c.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		ticket := to[strings.LastIndex(to, "=")+1:]
-		ahead.Add(int64(time.Minute)) // the gate redeems it a minute later, by AppTown's clock
-		_, err = w.s.RedeemGateTicket(ctx, secretOf, ticket)
-		return err
-	}
-	if err := redeem(30 * time.Second); !errors.Is(err, ErrTicket) {
-		t.Fatalf("a ticket a minute old that lasts 30 seconds: %v", err)
-	}
-	if err := redeem(2 * time.Minute); err != nil {
-		t.Fatalf("a ticket a minute old that lasts two: %v", err)
-	}
-	w.s.restored.TicketFor = 0
-}
-
-// An opened copy stays up for its lifetime, people who may see production
-// data enter it through AppTown, and each entry is witnessed when the
-// gate redeems its ticket: a ticket is single-use, of one copy, for a
-// minute, and its holder's grant is asked again at redemption. An Auditor
-// cannot open it, nor can a token, and opening is a browser's act.
-func TestAnOpenedCopyAdmitsOnlyPeopleAppTownLetsInAndWitnessesEachEntry(t *testing.T) {
-	t.Parallel()
-	w := newRestoredWorld(t, nil)
-	ctx := context.Background()
-	op, c := w.start(RestoredCopyRequest{Minutes: 120})
-	if !endedAs(op, OperationVerified) || !strings.HasPrefix(op.Detail, "open until ") || !c.Open || c.EndedAt.Valid {
-		t.Fatalf("opened copy %s: %s; %+v", op.State, op.Detail, c)
-	}
-	if len(w.api.Snapshot().Apps) != 2 {
-		t.Fatal("the opened copy's app is not standing")
-	}
-	secretOf := w.platform.secretFor(w.appOf(c.Deployment))
-
-	// A CLI token, or a caller with no browser session, gets no ticket.
-	w.auth.via = "token"
-	if _, err := w.s.OpenRestoredCopy(ctx, w.project, c.ID); !errors.Is(err, ErrBrowserOnly) {
-		t.Fatalf("a token opened the copy: %v", err)
-	}
-	// An Auditor (reads everything, holds no open-restored) gets none.
-	w.auth.set("auditor", "deployment:open-restored")
-	w.auth.via = "session"
-	if _, err := w.s.OpenRestoredCopy(ctx, w.project, c.ID); err == nil {
-		t.Fatal("an Auditor opened the copy")
-	}
-	w.auth.set("alice")
-	w.auth.via = "session"
-	to, err := w.s.OpenRestoredCopy(ctx, w.project, c.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ticket := strings.TrimPrefix(to, "https://"+w.appOf(c.Deployment)+"-abc.ondigitalocean.app"+gate.EnterPath+"?ticket=")
-	if ticket == to || len(ticket) != 64 {
-		t.Fatalf("the address Open sends the browser to: %s", to)
-	}
-	// Issuing is not an entry.
-	if n := len(operationReceipts(t, w.db, "deployment.gate-entered", w.project)); n != 0 {
-		t.Fatalf("an entry was recorded before the gate redeemed the ticket (%d)", n)
-	}
-	if _, err := w.s.RedeemGateTicket(ctx, strings.Repeat("0", 64), ticket); !errors.Is(err, ErrGateCredential) {
-		t.Fatalf("a ticket was redeemed by a gate without the copy's secret: %v", err)
-	}
-	// Two redemptions at once: one gets in.
-	var wins, losses int
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	for range 4 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			g, err := w.s.RedeemGateTicket(ctx, secretOf, ticket)
-			mu.Lock()
-			defer mu.Unlock()
-			if err == nil && g.Person == "alice" {
-				wins++
-			} else if errors.Is(err, ErrTicket) {
-				losses++
-			}
-		}()
-	}
-	wg.Wait()
-	if wins != 1 || losses != 3 {
-		t.Fatalf("redemptions of one ticket: %d in, %d refused", wins, losses)
-	}
-	entered := operationReceipts(t, w.db, "deployment.gate-entered", w.project)
-	if len(entered) != 1 || entered[0].Actor != "alice" || !strings.Contains(string(entered[0].Payload), "does not record signing in to the app") {
-		t.Fatalf("entry receipts: %+v", entered)
-	}
-	// The grant lasts an hour at most, and never past the copy's time.
-	w.auth.set("alice")
-	w.auth.via = "session"
-	to, _ = w.s.OpenRestoredCopy(ctx, w.project, c.ID)
-	ticket = to[strings.LastIndex(to, "=")+1:]
-	g, err := w.s.RedeemGateTicket(ctx, secretOf, ticket)
-	if err != nil || time.Until(g.Until) > GateSessionMost || time.Until(g.Until) < 50*time.Minute {
-		t.Fatalf("the grant: %+v %v", g, err)
-	}
-	// A grant removed between Open and the gate's redemption keeps her out.
-	to, _ = w.s.OpenRestoredCopy(ctx, w.project, c.ID)
-	ticket = to[strings.LastIndex(to, "=")+1:]
-	w.auth.set("alice", "deployment:open-restored")
-	if _, err := w.s.RedeemGateTicket(ctx, secretOf, ticket); err == nil {
-		t.Fatal("a person whose grant was removed after Open was let in")
-	}
-	// A ticket past its minute is refused.
-	w.auth.set("alice")
-	w.auth.via = "session"
-	var later atomic.Int64
-	w.s.clock = func() time.Time { return time.Now().Add(time.Duration(later.Load())) }
-	to, _ = w.s.OpenRestoredCopy(ctx, w.project, c.ID)
-	ticket = to[strings.LastIndex(to, "=")+1:]
-	later.Store(int64(2 * time.Minute)) // past the ticket's minute, by AppTown's clock
-	if _, err := w.s.RedeemGateTicket(ctx, secretOf, ticket); !errors.Is(err, ErrTicket) {
-		t.Fatalf("an expired ticket: %v", err)
-	}
-	w.s.restored.TicketFor = 0
-	copies, err := w.s.RestoredCopiesOf(ctx, w.prod, 5)
-	if err != nil || len(copies[0].Entries) != 2 || copies[0].Entries[0].Person != "alice" {
-		t.Fatalf("the card's entries: %+v %v", copies, err)
-	}
-	w.noSecretIn("the card", copies)
-	w.noSecretIn("the entries", entered)
-}
-
 // AppTown's check of a gate that does not hold fails the restore: the
 // check that caught it is recorded failed with its status, the copy is
-// taken down, and an opened copy is never left open behind such a gate.
+// taken down.
 //
 // Kills, by the case that catches it: the refusal checks not demanding
 // 404 or the entry checks 403 (soft refusal); not demanding the gate's own
@@ -649,7 +518,7 @@ func TestAnOpenedCopyAdmitsOnlyPeopleAppTownLetsInAndWitnessesEachEntry(t *testi
 // page); AppTown's own ticket not required to redirect (forwards) or to
 // give a session (no session, no AppTown); a second redemption not refused
 // (replays); the session's read not judged (forgets); a gate failure that
-// does not fail the copy, or leaves an opened copy open (every case).
+// does not fail the copy (every case).
 func TestARestoreFailsWhenItsGateDoesNotHold(t *testing.T) {
 	t.Parallel()
 	// An API whose root is not a page: readiness at /healthz, 404 at /.
@@ -686,10 +555,8 @@ func TestARestoreFailsWhenItsGateDoesNotHold(t *testing.T) {
 			for path, status := range tc.answer {
 				w.platform.answer[path] = status
 			}
-			// An opened copy, so a copy that answers is still taken down
-			// when its gate does not hold.
-			op, c := w.start(RestoredCopyRequest{Minutes: 60})
-			if op.State != operations.Failed || c.Outcome != RehearsalFailed || c.FailedAt != tc.step || c.Open || !c.EndedAt.Valid {
+			op, c := w.start(RestoredCopyRequest{})
+			if op.State != operations.Failed || c.Outcome != RehearsalFailed || c.FailedAt != tc.step || !c.EndedAt.Valid {
 				t.Fatalf("a gate that %s: %s %s; %+v", tc.name, op.State, op.Detail, c)
 			}
 			var failed []string
@@ -709,52 +576,20 @@ func TestARestoreFailsWhenItsGateDoesNotHold(t *testing.T) {
 	}
 }
 
-// A copy whose gate failed its check is never open to people, even when
-// its take-down could not remove it.
-//
-// Kills: Open (and so Open's tickets) that asks readiness but not the gate.
-func TestACopyWhoseGateFailedIsNeverOpen(t *testing.T) {
-	t.Parallel()
-	w := newRestoredWorld(t, nil)
-	ctx := context.Background()
-	w.platform.broken = gateLetsAnyoneIn
-	// Once the gate check begins, the platform cannot list apps, so the
-	// take-down leaves the copy standing.
-	w.platform.during = func(r *http.Request) bool {
-		if r.Header.Get(deploy.GateProbeHeader) != "" {
-			return false
-		}
-		w.api.Fail("GET", "/v2/apps", 500)
-		return true
-	}
-	op, c := w.start(RestoredCopyRequest{Minutes: 60})
-	if op.State != operations.Failed || c.EndedAt.Valid || !readinessPassed(c.Facts) {
-		t.Fatalf("the copy %s: %s; %+v", op.State, op.Detail, c)
-	}
-	if c.Open || c.Protection != "" {
-		t.Fatalf("a copy whose gate failed reads open: %+v", c)
-	}
-	w.auth.set("alice")
-	w.auth.via = "session"
-	if _, err := w.s.OpenRestoredCopy(ctx, w.project, c.ID); !errors.Is(err, ErrRestoredCopy) {
-		t.Fatalf("a copy whose gate failed was opened: %v", err)
-	}
-}
-
 // The ticket AppTown issues itself lets in only the check of the start
-// that issued it, while that start runs; and nobody's ticket opens a
-// restore test.
+// that issued it, while that start runs; a ticket naming no start lets
+// nobody in.
 //
 // Kills: a check ticket accepted after its start ended, or from another
-// copy's start; a person's ticket accepted on a copy that is not open.
+// copy's start; a ticket naming no start accepted.
 func TestAppTownsOwnTicketLetsInOnlyItsRunningCheck(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	_, opened := w.start(RestoredCopyRequest{Minutes: 60})
+	opened := w.standing()
 	secretOf := w.platform.secretFor(w.appOf(opened.Deployment))
-	if !opened.Open || len(opened.Entries) != 0 || secretOf == "" {
-		t.Fatalf("the opened copy: %+v", opened)
+	if secretOf == "" {
+		t.Fatalf("the standing copy has no gate secret: %+v", opened)
 	}
 	redeem := func(copyID ids.ID, holder string, checkOp ids.ID, secret string) error {
 		ticket, err := w.s.issueTicket(ctx, copyID, holder, checkOp)
@@ -769,8 +604,8 @@ func TestAppTownsOwnTicketLetsInOnlyItsRunningCheck(t *testing.T) {
 		t.Fatalf("a check ticket of an ended start: %v", err)
 	}
 	// While a restore test of prod runs: a check ticket naming its start
-	// does not open the other copy, and alice's ticket does not open the
-	// test.
+	// does not open the other copy, and a ticket naming no start does not
+	// open the test.
 	w.platform.during = func(*http.Request) bool {
 		copies, err := w.s.RestoredCopiesOf(ctx, w.prod, 5)
 		if err != nil || copies[0].ID == opened.ID {
@@ -782,28 +617,24 @@ func TestAppTownsOwnTicketLetsInOnlyItsRunningCheck(t *testing.T) {
 			t.Errorf("a check ticket of another copy's running start: %v", err)
 		}
 		if err := redeem(test.ID, "alice", ids.Nil, w.platform.secretFor(w.appOf(test.Deployment))); !errors.Is(err, ErrTicket) {
-			t.Errorf("a person's ticket on a restore test: %v", err)
+			t.Errorf("a ticket naming no start: %v", err)
 		}
 		return true
 	}
-	if op, _ := w.start(RestoredCopyRequest{Test: true}); !endedAs(op, OperationVerified) {
+	if op, _ := w.start(RestoredCopyRequest{}); !endedAs(op, OperationVerified) {
 		t.Fatalf("the restore test %s: %s", op.State, op.Detail)
-	}
-	if n := len(operationReceipts(t, w.db, "deployment.gate-entered", w.project)); n != 0 {
-		t.Fatalf("%d entries recorded", n)
 	}
 }
 
-// An opened copy's time is kept: an extension moves it, with a receipt
-// naming who; when it runs out the sweep takes the copy down (no final
-// copy), and prod is not taken down while a copy of it stands.
-func TestAnOpenedCopyIsTakenDownWhenItsTimeRunsOut(t *testing.T) {
+// A copy left standing holds its source: it is on prod's card only, prod
+// is not taken down while it stands, and it is not taken down as a
+// deployment. The sweep takes it down (no final copy), and then prod is
+// free.
+func TestAStandingCopyHoldsItsSourceUntilTheSweepTakesItDown(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	_, c := w.start(RestoredCopyRequest{Minutes: 30})
-	// While it stands it is on prod's card only, never among the project's
-	// deployments.
+	c := w.standing()
 	if listed, err := w.s.Deployments.ForProject(ctx, w.project); err != nil || len(listed) != 1 || listed[0].Name != "prod" {
 		t.Fatalf("listed while the copy stands: %v %v", listed, err)
 	}
@@ -813,18 +644,7 @@ func TestAnOpenedCopyIsTakenDownWhenItsTimeRunsOut(t *testing.T) {
 	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: c.Deployment}); !errors.Is(err, deployment.ErrRestoredCopyDoor) {
 		t.Fatalf("the copy was taken down as a deployment: %v", err)
 	}
-	extended, err := w.s.ExtendRestoredCopy(ctx, w.project, c.ID, 180)
-	if err != nil || extended.ExpiresAt.Time.Sub(c.ExpiresAt.Time) < 2*time.Hour {
-		t.Fatalf("extended: %+v %v", extended, err)
-	}
-	if got := operationReceipts(t, w.db, "deployment.restored-copy-extended", w.project); len(got) != 1 || got[0].Actor != "alice" {
-		t.Fatalf("extension receipts: %+v", got)
-	}
-	// Not due yet.
-	if n, _, err := w.s.sweepRestoredCopies(ctx, time.Now()); err != nil || n != 0 {
-		t.Fatalf("swept before its time: %d %v", n, err)
-	}
-	n, skipped, err := w.s.sweepRestoredCopies(ctx, time.Now().Add(4*time.Hour))
+	n, skipped, err := w.s.SweepRestoredCopies(ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("sweep: %d %v %v", n, skipped, err)
 	}
@@ -836,14 +656,11 @@ func TestAnOpenedCopyIsTakenDownWhenItsTimeRunsOut(t *testing.T) {
 		t.Fatalf("take-down %s: %s", done.State, done.Detail)
 	}
 	copies, _ := w.s.RestoredCopiesOf(ctx, w.prod, 5)
-	if !copies[0].EndedAt.Valid || copies[0].Open {
-		t.Fatalf("after its time: %+v", copies[0])
+	if !copies[0].EndedAt.Valid {
+		t.Fatalf("after the sweep: %+v", copies[0])
 	}
 	if state := w.api.Snapshot(); len(state.Apps) != 1 || len(state.DeletedClusters) != 1 || state.DeletedClusters[0] == w.source {
 		t.Fatalf("after the sweep: apps %d, deleted %v", len(state.Apps), state.DeletedClusters)
-	}
-	if _, err := w.s.ExtendRestoredCopy(ctx, w.project, c.ID, 60); err == nil {
-		t.Fatal("a copy taken down was extended")
 	}
 	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); errors.Is(err, ErrRestoredCopiesStand) {
 		t.Fatal("prod is still held by a copy taken down")
@@ -852,8 +669,8 @@ func TestAnOpenedCopyIsTakenDownWhenItsTimeRunsOut(t *testing.T) {
 
 // A copy that fails is taken down and says where it failed in safe words:
 // an import that fails names a row in its output, and that row reaches no
-// operation, card, receipt or record; a copy whose app is not ready is not
-// left open.
+// operation, card, receipt or record; a copy whose app is not ready is
+// taken down too.
 func TestARestoredCopyThatFailsIsTakenDownAndSaysOnlySafeFacts(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -861,11 +678,11 @@ func TestARestoredCopyThatFailsIsTakenDownAndSaysOnlySafeFacts(t *testing.T) {
 		t.Parallel()
 		w := newRestoredWorld(t, nil)
 		w.clusters.importSays = `ERROR: duplicate key value violates unique constraint "users_email_key" DETAIL: Key (email)=(carol@example.com) already exists.`
-		op, c := w.start(RestoredCopyRequest{Minutes: 60})
+		op, c := w.start(RestoredCopyRequest{})
 		if op.State != operations.Failed || !strings.Contains(op.Detail, "filling postgres from the copy failed") || !strings.Contains(op.Detail, "exit status 1") {
 			t.Fatalf("failed import %s: %s", op.State, op.Detail)
 		}
-		if !c.EndedAt.Valid || c.Open {
+		if !c.EndedAt.Valid {
 			t.Fatalf("the failed copy stands: %+v", c)
 		}
 		if state := w.api.Snapshot(); len(state.DeletedClusters) != 1 || state.DeletedClusters[0] == w.source {
@@ -882,8 +699,8 @@ func TestARestoredCopyThatFailsIsTakenDownAndSaysOnlySafeFacts(t *testing.T) {
 		t.Parallel()
 		w := newRestoredWorld(t, nil)
 		w.platform.answer["/"] = http.StatusServiceUnavailable
-		op, c := w.start(RestoredCopyRequest{Minutes: 60})
-		if op.State != operations.Failed || c.Open || !c.EndedAt.Valid || c.Outcome != RehearsalFailed {
+		op, c := w.start(RestoredCopyRequest{})
+		if op.State != operations.Failed || !c.EndedAt.Valid || c.Outcome != RehearsalFailed {
 			t.Fatalf("a copy not ready %s: %s; %+v", op.State, op.Detail, c)
 		}
 		if len(w.api.Snapshot().Apps) != 1 {
@@ -894,7 +711,7 @@ func TestARestoredCopyThatFailsIsTakenDownAndSaysOnlySafeFacts(t *testing.T) {
 		t.Parallel()
 		w := newRestoredWorld(t, []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\nrehearsal:\n  checks: [\"GET /healthz/data\"]\n"))
 		w.platform.answer["/healthz/data"] = http.StatusInternalServerError
-		op, c := w.start(RestoredCopyRequest{Test: true})
+		op, c := w.start(RestoredCopyRequest{})
 		if op.State != operations.Failed || c.Outcome != RehearsalFailed || !c.EndedAt.Valid {
 			t.Fatalf("a failed data check %s: %s; %+v", op.State, op.Detail, c)
 		}
@@ -920,26 +737,23 @@ func TestARestoredCopyIsRefusedBeforeAnythingIsMade(t *testing.T) {
 	ctx := context.Background()
 	apps := len(w.api.Snapshot().Apps)
 	w.auth.set("deployer", "deployment:restore")
-	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{Test: true}); err == nil {
+	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{}); err == nil {
 		t.Fatal("a caller without deployment:restore started a restored copy")
 	}
 	w.auth.set("alice")
-	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{Minutes: 5}); !errors.Is(err, ErrRestoredCopy) {
-		t.Fatalf("a five-minute copy: %v", err)
-	}
 	w.nameRunner("")
-	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{Test: true}); !errors.Is(err, deployment.ErrNoCopyRunner) {
+	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{}); !errors.Is(err, deployment.ErrNoCopyRunner) {
 		t.Fatalf("no copy runner: %v", err)
 	}
 	w.nameRunner("local")
 	keep := w.s.restored
 	w.s.restored.GateImage = ""
-	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{Test: true}); !errors.Is(err, ErrNoGate) {
+	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{}); !errors.Is(err, ErrNoGate) {
 		t.Fatalf("no gate image: %v", err)
 	}
 	w.s.restored = keep
 	w.s.restored.Secrets = copySecrets{inherits: true}
-	op, c := w.start(RestoredCopyRequest{Test: true})
+	op, c := w.start(RestoredCopyRequest{})
 	if op.State != operations.Failed || !strings.Contains(op.Detail, "inherits") || !c.EndedAt.Valid {
 		t.Fatalf("an inheriting profile %s: %s; %+v", op.State, op.Detail, c)
 	}
@@ -964,7 +778,7 @@ func TestARestoredCopyNeedsRoomForTheGatesRepository(t *testing.T) {
 	w := newRestoredWorld(t, nil)
 	w.api.SeedRegistry("forge-test", "basic", 2, "other", "ledger")
 	before := w.api.Snapshot()
-	op, c := w.start(RestoredCopyRequest{Test: true})
+	op, c := w.start(RestoredCopyRequest{})
 	if op.State != operations.Failed || c.FailedAt != "checking the target's room" || !strings.Contains(op.Detail, digitalocean.GateRepository) {
 		t.Fatalf("the copy %s at %q: %s", op.State, c.FailedAt, op.Detail)
 	}
@@ -993,7 +807,7 @@ func TestARestoredCopyOfAMultiImageReleaseIsRefusedWhenAskedFor(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := len(w.api.Snapshot().Requests)
-	_, err = w.s.RequestRestoredCopy(context.Background(), w.project, "prod", RestoredCopyRequest{Test: true})
+	_, err = w.s.RequestRestoredCopy(context.Background(), w.project, "prod", RestoredCopyRequest{})
 	if !errors.Is(err, deployment.ErrReleaseRefused) || !strings.HasSuffix(err.Error(), "App Platform runs one image per repository, and this release's parts and init steps use 2 different images in the project's one repository. Deploy it to a Docker host target instead.") {
 		t.Fatalf("a restored copy of a multi-image release: %v", err)
 	}
@@ -1013,7 +827,8 @@ func TestACopyAppTownStoppedStartingIsSweptAway(t *testing.T) {
 	ctx := context.Background()
 	// AppTown stops at the start's last request (the gate check's read
 	// with its session): the old start, which in life stopped with it, runs
-	// on here and leaves the copy open, as if it had ended unrecorded.
+	// on here, its end is not recorded, and (as in life) it does not take
+	// the copy down: the platform does not list apps to it.
 	w.platform.during = func(r *http.Request) bool {
 		if r.Header.Get("Cookie") == "" {
 			return false
@@ -1021,18 +836,20 @@ func TestACopyAppTownStoppedStartingIsSweptAway(t *testing.T) {
 		if _, err := w.restart(); err != nil {
 			t.Error(err)
 		}
+		w.api.Fail("GET", "/v2/apps", 500)
 		return true
 	}
-	op, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{Minutes: 240})
+	op, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, _ = w.ops.Run(ctx, op.ID) // its end is not recorded: the restart settled it
+	w.api.Fail("GET", "/v2/apps", 0)
 	got, err := w.ops.ByID(ctx, op.ID)
 	if err != nil || got.State != operations.Unknown {
 		t.Fatalf("the interrupted start: %+v %v", got, err)
 	}
-	if n, _, err := w.s.sweepRestoredCopies(ctx, time.Now()); err != nil || n != 1 {
+	if n, _, err := w.s.SweepRestoredCopies(ctx); err != nil || n != 1 {
 		t.Fatalf("the sweep did not take the copy down: %d %v", n, err)
 	}
 	copies, _ := w.s.RestoredCopiesOf(ctx, w.prod, 5)
@@ -1060,7 +877,7 @@ func TestACreationAppTownDidNotRecordIsStillTakenDown(t *testing.T) {
 			t.Parallel()
 			w := newRestoredWorld(t, nil)
 			dbtest.FailNextStatement(t, w.db, tc.statement)
-			_, c := w.start(RestoredCopyRequest{Test: true})
+			_, c := w.start(RestoredCopyRequest{})
 			state := w.api.Snapshot()
 			if len(state.Apps) != 1 || len(state.Databases) != 1 {
 				t.Fatalf("left at the platform: %d apps, %d clusters (prod's are 1 each); copy %+v", len(state.Apps), len(state.Databases), c)
@@ -1082,9 +899,9 @@ func TestACopyWhoseLeftoversCannotBeLookedUpStaysStanding(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	_, c := w.start(RestoredCopyRequest{Minutes: 30})
+	c := w.standing()
 	w.api.Fail("GET", "/v2/apps", 500)
-	n, _, err := w.s.sweepRestoredCopies(ctx, time.Now().Add(time.Hour))
+	n, _, err := w.s.SweepRestoredCopies(ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("sweep: %d %v", n, err)
 	}
@@ -1101,12 +918,12 @@ func TestACopyWhoseLeftoversCannotBeLookedUpStaysStanding(t *testing.T) {
 	}
 }
 
-// Every standing copy stays on its source's card, with its doors, however
-// many tests ended after it.
+// Every standing copy stays on its source's card however many tests ended
+// after it.
 //
 // The card reads stored copies, so the copies are stored records: one
-// open, checked and placed, then six ended tests, one more than the card's
-// history shows. The restored-copy lifecycle tests prove the operations
+// standing, checked and placed, then six ended tests, one more than the
+// card's history shows. The restored-copy lifecycle tests prove the operations
 // that make such records.
 func TestAStandingCopyStaysOnTheCardPastTheHistory(t *testing.T) {
 	t.Parallel()
@@ -1124,35 +941,35 @@ func TestAStandingCopyStaysOnTheCardPastTheHistory(t *testing.T) {
 	}
 	q := protectionsql.New(db.SQL())
 	now := time.Now()
-	store := func(test bool) ids.ID {
-		row, err := q.InsertRestoredCopy(ctx, protectionsql.InsertRestoredCopyParams{ID: ids.New(now), ProjectID: pid, Source: "prod", SourceID: prod.ID, OperationID: idstest.N(1), BackupID: idstest.N(1), IsTest: test, LifetimeMinutes: 240, AskedBy: "alice", At: now})
+	store := func() ids.ID {
+		row, err := q.InsertRestoredCopy(ctx, protectionsql.InsertRestoredCopyParams{ID: ids.New(now), ProjectID: pid, Source: "prod", SourceID: prod.ID, OperationID: idstest.N(1), BackupID: idstest.N(1), AskedBy: "alice", At: now})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return row.ID
 	}
-	opened := store(false)
+	standing := store()
 	facts, err := json.Marshal(RehearsalFacts{Checks: []RehearsalCheck{{Name: "readiness", Passed: true}}, Gate: []RehearsalCheck{{Name: "refuses", Passed: true}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, write := range []func() (int64, error){
 		func() (int64, error) {
-			return q.PlaceRestoredCopy(ctx, protectionsql.PlaceRestoredCopyParams{Deployment: "prod-copy-1", DeploymentID: idstest.N(999999), Target: "local", ExpiresAt: sql.NullTime{Time: now.Add(240 * time.Minute), Valid: true}, ID: opened})
+			return q.PlaceRestoredCopy(ctx, protectionsql.PlaceRestoredCopyParams{Deployment: "prod-copy-1", DeploymentID: idstest.N(999999), Target: "local", ID: standing})
 		},
 		func() (int64, error) {
-			return q.RecordRestoredCopyURL(ctx, protectionsql.RecordRestoredCopyURLParams{GateUrl: "https://copy.example", ID: opened})
+			return q.RecordRestoredCopyURL(ctx, protectionsql.RecordRestoredCopyURLParams{GateUrl: "https://copy.example", ID: standing})
 		},
 		func() (int64, error) {
-			return q.RecordRestoredCopyCheck(ctx, protectionsql.RecordRestoredCopyCheckParams{Outcome: "passed", FactsJson: facts, At: now, ID: opened})
+			return q.RecordRestoredCopyCheck(ctx, protectionsql.RecordRestoredCopyCheckParams{Outcome: "passed", FactsJson: facts, At: now, ID: standing})
 		},
 	} {
 		if n, err := write(); err != nil || n != 1 {
-			t.Fatalf("storing the open copy: %d %v", n, err)
+			t.Fatalf("storing the standing copy: %d %v", n, err)
 		}
 	}
 	for range 6 {
-		if n, err := q.EndRestoredCopy(ctx, protectionsql.EndRestoredCopyParams{ID: store(true), EndDetail: "taken down", At: now}); err != nil || n != 1 {
+		if n, err := q.EndRestoredCopy(ctx, protectionsql.EndRestoredCopyParams{ID: store(), EndDetail: "taken down", At: now}); err != nil || n != 1 {
 			t.Fatalf("ending a test: %d %v", n, err)
 		}
 	}
@@ -1162,69 +979,15 @@ func TestAStandingCopyStaysOnTheCardPastTheHistory(t *testing.T) {
 	}
 	found, ended := false, 0
 	for _, c := range p.RestoredCopies {
-		if c.ID == opened {
-			found = c.Open
+		if c.ID == standing {
+			found = !c.EndedAt.Valid
 		}
 		if c.EndedAt.Valid {
 			ended++
 		}
 	}
 	if !found || ended != 5 {
-		t.Fatalf("the open copy on the card %v, ended shown %d of 6", found, ended)
-	}
-}
-
-// A restored copy's time is AppTown's clock, written and judged: with
-// that clock two days off the wall clock, a copy just opened for 30 minutes
-// is open and not swept, and an hour later by the same clock it is closed
-// and swept.
-//
-// Kills: the expiry written from the wall clock (the copy reads as closed
-// at once), or judged by it (the copy stays open after its time).
-func TestARestoredCopysTimeIsAppTownsClock(t *testing.T) {
-	t.Parallel()
-	w := newRestoredWorld(t, nil)
-	ctx := context.Background()
-	var ahead atomic.Int64
-	ahead.Store(int64(48 * time.Hour))
-	w.s.clock = func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }
-	_, c := w.start(RestoredCopyRequest{Minutes: 30})
-	if !c.Open {
-		t.Fatalf("a copy just opened is not open by AppTown's clock: %+v", c)
-	}
-	if n, _, err := w.s.SweepRestoredCopies(ctx); err != nil || n != 0 {
-		t.Fatalf("swept before its time: %d %v", n, err)
-	}
-	ahead.Add(int64(time.Hour))
-	copies, err := w.s.RestoredCopiesOf(ctx, w.prod, 5)
-	if err != nil || len(copies) == 0 || copies[0].Open {
-		t.Fatalf("still open after its time by AppTown's clock: %+v %v", copies, err)
-	}
-	if n, _, err := w.s.SweepRestoredCopies(ctx); err != nil || n != 1 {
-		t.Fatalf("not swept after its time: %d %v", n, err)
-	}
-}
-
-// A ticket lets in the principal it was issued to and no one by name: one
-// issued to a name AppTown cannot tie to an account lets nobody in, so
-// a later account given that name could not borrow it.
-func TestAGateTicketNamingNoPrincipalLetsNobodyIn(t *testing.T) {
-	t.Parallel()
-	w := newRestoredWorld(t, nil)
-	ctx := context.Background()
-	op, c := w.start(RestoredCopyRequest{Minutes: 120})
-	if !endedAs(op, OperationVerified) || !c.Open {
-		t.Fatalf("opened copy %s: %s; %+v", op.State, op.Detail, c)
-	}
-	w.auth.set("zed")
-	w.auth.via = "session"
-	to, err := w.s.OpenRestoredCopy(ctx, w.project, c.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ticket := to[strings.LastIndex(to, "=")+1:]
-	if _, err := w.s.RedeemGateTicket(ctx, w.platform.secretFor(w.appOf(c.Deployment)), ticket); !errors.Is(err, ErrTicket) {
-		t.Fatalf("a ticket naming no principal: %v", err)
+		t.Fatalf("the standing copy on the card %v, ended shown %d of 6", found, ended)
 	}
 }
 

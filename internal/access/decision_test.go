@@ -78,7 +78,7 @@ func TestDecideTable(t *testing.T) {
 		{"a run still reads its own project's records", access.Principal{Kind: "instrument", Name: "run/9", Instrument: "run", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapAuditRead, project, access.Context{}, &fakeFacts{}, true, "", "step agent"},
 		{"a run may not open a change", access.Principal{Kind: "instrument", Name: "run/9", Instrument: "run", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "needs a person"},
 		{"AppTown's trigger opens a change", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
-		{"AppTown's trigger starts a run", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "webhook", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeInvokeLane, change, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
+		{"AppTown's trigger starts a run", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeInvokeLane, change, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
 		{"AppTown's engine advances a run", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapRunOperate, change, access.Context{}, &fakeFacts{}, true, "", "AppTown's own trigger"},
 		{"AppTown's trigger may not land", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: idstest.N(7)}, access.Channel{Kind: "instrument"}, access.CapChangeLand, change, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "needs a person"},
 		{"AppTown's trigger stays in its project", access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: idstest.N(8)}, access.Channel{Kind: "instrument"}, access.CapChangeCreate, project, access.Context{}, &fakeFacts{}, false, access.DenyDelegationNarrow, "another project"},
@@ -227,14 +227,13 @@ func TestInstrumentTable(t *testing.T) {
 	}
 }
 
-// Putting a copy's data into a deployment, and opening a restored copy of
-// production, are a person's acts: no scope an agent can be given carries
-// deployment:restore or deployment:open-restored, so neither an agent token
+// Putting a copy's data into a deployment is a person's act: no scope an
+// agent can be given carries deployment:restore, so neither an agent token
 // nor an OAuth delegation ever does, and no instrument (a chat, a step, an
-// eval, AppTown's trigger) holds them; a project owner does. Opening is
-// not a read: no read role (an Auditor, a viewer) carries it.
+// eval, AppTown's trigger) holds it; a project owner does. It is not a
+// read: no read role (an Auditor, a viewer) carries it.
 func TestNoScopeCarriesRestore(t *testing.T) {
-	for _, c := range []access.Capability{access.CapDeploymentRestore, access.CapDeploymentOpenRestored} {
+	for _, c := range []access.Capability{access.CapDeploymentRestore} {
 		for _, s := range access.Scopes {
 			for _, sc := range s.Caps {
 				if sc == c {

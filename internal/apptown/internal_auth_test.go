@@ -317,7 +317,7 @@ func TestProjectRosterGate(t *testing.T) {
 	// HTTP: kid-a cannot start a change; kid-b can; reads stay open.
 
 	h := a.Handler()
-	req := httptest.NewRequest("POST", "/api/v1/projects/game/changes/simple", strings.NewReader(`{"text":"pls"}`))
+	req := httptest.NewRequest("POST", "/api/v1/projects/game/changes", strings.NewReader(`{"title":"pls"}`))
 	req.Header.Set("X-AppTown-Actor", "kid-a")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)

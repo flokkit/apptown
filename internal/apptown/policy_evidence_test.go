@@ -39,7 +39,6 @@ var policyEvidence = map[string]func(*testing.T){
 
 	"adrs.GetADR":                                              checkFilteredHTTPPolicies,
 	"creation.Create":                                          checkCreationPolicy,
-	"projectTransfer.TransferProject":                          TestProjectTransferHTTPRequiresBothSidesAndKeepsHistory,
 	"conformance.Conformance":                                  checkConformancePolicies,
 	"conformance.ReviewDetail":                                 checkConformancePolicies,
 	"conformance.ListReviews":                                  checkConformancePolicies,
@@ -80,7 +79,6 @@ var policyEvidence = map[string]func(*testing.T){
 	"operations.Dismiss":                                       TestOperationRoutesAskTheOperationsOwner,
 	"projectlifecycle.Request":                                 TestProjectDeletionRoutesAskTheDeletionOwner,
 	"projectlifecycle.Cancel":                                  TestProjectDeletionRoutesAskTheDeletionOwner,
-	"projectlifecycle.RevokeBinding":                           TestProjectDeletionRoutesAskTheDeletionOwner,
 	"projectlifecycle.Restore":                                 TestProjectDeletionRoutesAskTheDeletionOwner,
 	"projectlifecycle.PurgeNow":                                TestProjectDeletionRoutesAskTheDeletionOwner,
 	"conformance.BeginWhatIf: the authority of a fleet review": TestWhatIfAuthority,

@@ -50,21 +50,18 @@ import (
 // app's needs, then a tests step: the agent builds an image and runs it,
 // runs a container with its tree at the same path, and reaches the need's
 // service by name; its work is published; the tests run over it and
-// satisfy the stage's gate, with their placement recorded. Without a
-// check worker they run on the same worker; with one, there and only
-// there. The implementation's evidence records the worker's profile and
+// satisfy the stage's gate, with their placement recorded: the same
+// worker. The implementation's evidence records the worker's profile and
 // "unqualified".
 //
 // With APPTOWN_QUAL_WORKER_URL (workertest.External), the worker is instead a
 // real apptown-worker process on another machine, sharing no files with this
-// one: the qualification's topology (plan step 6). The check-worker
-// variant then runs only with APPTOWN_QUAL_CHECK_WORKER_URL, and the
-// evidence must say the profile is qualified.
+// one: the qualification's topology, and the evidence must say the profile
+// is qualified.
 func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *testing.T) {
 	requireDocker(t)
 	agentContext, image := composedAgentImage(t)
 	external := workertest.LookupExternal(t)
-	variants := []bool{false, true}
 	var version []byte
 	if external == nil {
 		v, err := dockertest.Output("version", "--format", "{{.Server.Version}}")
@@ -78,19 +75,12 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 			t.Fatal(err)
 		}
 		version = []byte(profile.Docker)
-		if external.CheckURL == "" {
-			variants = variants[:1]
-		}
 	}
-	for _, checkWorker := range variants {
-		name := "checks on the same worker"
-		if checkWorker {
-			name = "checks on a check worker"
-		}
-		t.Run(name, func(t *testing.T) {
+	{
+		t.Run("checks on the same worker", func(t *testing.T) {
 			ctx := context.Background()
 			ca := workertest.NewCA(t)
-			var agentChecks, checkChecks atomic.Int64
+			var agentChecks atomic.Int64
 			counting := func(n *atomic.Int64) func(http.Handler) http.Handler {
 				return func(h http.Handler) http.Handler {
 					return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -102,31 +92,21 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 				}
 			}
 			cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", AgentContext: agentContext, ConsoleCLI: fixtureCLI(t), PrivateDocker: true}
-			checkURL := ""
 			if external != nil {
 				// Each variant is a new AppTown, whose task keys are its own:
 				// its workers are provisioned again for it.
 				t.Logf("the workers: %s", external.Ctl(t, "fresh"))
 				cfg.Worker = &WorkerConfig{URL: external.URL, Cert: external.Cert, Key: external.Key, CA: external.CA}
-				if checkWorker {
-					cfg.CheckWorker, checkURL = &WorkerConfig{URL: external.CheckURL, Cert: external.Cert, Key: external.Key, CA: external.CA}, external.CheckURL
-				}
 			} else {
 				namespace := "privproof" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", "")
 				removeTaskContainers(t, namespace)
-				agent := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Role: worker.Role{Role: worker.RoleAgent, Since: time.Now().Add(-time.Hour)},
+				agent := &worker.Server{Installation: workertest.Installation, State: t.TempDir(),
 					Tasks: execution.DockerTasks{Namespace: namespace}, AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"},
 					DindImage: "docker:27-dind", Docker: docker.CLI{Binary: "docker"}, Checks: execution.Runner{DockerBinary: "docker"}}
 				agent.Profile = agent.MeasureProfile(ctx, true)
 				removePrivateDockerOf(t, agent)
 				agentSrv := workertest.StartServerWith(t, ca, agent, counting(&agentChecks))
 				cfg.Worker = workerClientConfig(t, ca, agentSrv.URL)
-			}
-			if checkWorker && external == nil {
-				check := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Role: worker.Role{Role: worker.RoleCheck, Since: time.Now().Add(-time.Hour)},
-					Checks: execution.Runner{DockerBinary: "docker"}}
-				checkSrv := workertest.StartServerWith(t, ca, check, counting(&checkChecks))
-				cfg.CheckWorker, checkURL = workerClientConfig(t, ca, checkSrv.URL), checkSrv.URL
 			}
 			a := testApp(t, cfg)
 			a.tasks.Poll, a.tasks.Patience = 100*time.Millisecond, 2*time.Second
@@ -194,18 +174,13 @@ say "built, ran and reached the service"`,
 			}
 			tests := readStep(t, a, steps["tests"].ID)
 			want := workflow.Placement{Worker: a.cfg.worker.URL}
-			if checkWorker {
-				want = workflow.Placement{Worker: checkURL, Role: worker.RoleCheck}
-			}
 			if p := placementOf(t, tests); tests.Status != workflow.StatusPass || p == nil || *p != want {
 				t.Fatalf("the tests: %s %s", tests.Status, tests.Evidence)
 			}
 			switch {
 			case external != nil: // its requests are not counted here; the placement says where they ran
-			case !checkWorker && agentChecks.Load() == 0:
+			case agentChecks.Load() == 0:
 				t.Error("the tests did not run on the worker")
-			case checkWorker && (checkChecks.Load() == 0 || agentChecks.Load() != 0):
-				t.Errorf("checks on the check worker %d, on the agent worker %d", checkChecks.Load(), agentChecks.Load())
 			}
 			if out, err := a.Work.Advance(a.asEngine(ctx), run.ID); err != nil || len(out.Missing) != 0 || !out.Advanced {
 				t.Fatalf("the stage's gate: %+v %v", out, err)

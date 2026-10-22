@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/execfile"
 
 	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/console/pi"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
@@ -26,7 +27,7 @@ import (
 // writable folders at any time; replacing its files must not let such a link
 // carry a removal (or a write) outside the chat's directory.
 func TestReplacingAChatsFilesCannotFollowTheChatsLinks(t *testing.T) {
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	s := c.open(t)
 	ctx := context.Background()
 	if err := c.service.Warm(ctx, s.ID); err != nil {
@@ -64,7 +65,7 @@ func TestReplacingAChatsFilesCannotFollowTheChatsLinks(t *testing.T) {
 
 // A chat's record read by AppTown cannot be a worker file the chat links to.
 func TestAChatsRecordCannotShowTheWorkersFiles(t *testing.T) {
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	s := c.open(t)
 	ctx := context.Background()
 	if err := c.service.Warm(ctx, s.ID); err != nil {
@@ -93,7 +94,7 @@ func TestAChatsRecordCannotShowTheWorkersFiles(t *testing.T) {
 // that looks handed back, input typed on a terminal since closed); allowed
 // once it is stopped.
 func TestARebuildIsRefusedWhileTheChatRuns(t *testing.T) {
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	s := c.open(t)
 	ctx := context.Background()
 	if err := c.service.Warm(ctx, s.ID); err != nil {
@@ -226,7 +227,7 @@ func (f reviewTransport) RoundTrip(r *http.Request) (*http.Response, error) { re
 func TestAnIncompleteRecordCopyDoesNotEndTheChat(t *testing.T) {
 	for _, scenario := range []string{"short-read", "missing-file", "no-session-answer", "complete"} {
 		t.Run(scenario, func(t *testing.T) {
-			c := startRemoteChats(t, console.Static{})
+			c := startRemoteChats(t, consoletest.Static{})
 			s := c.open(t)
 			ctx := context.Background()
 			if err := c.service.Warm(ctx, s.ID); err != nil {
@@ -279,7 +280,7 @@ func TestAnIncompleteRecordCopyDoesNotEndTheChat(t *testing.T) {
 
 // From the review (F4): a terminal that ends on the worker ends for AppTown.
 func TestATerminalThatEndsOnTheWorkerEndsForAppTown(t *testing.T) {
-	c := startRemoteChats(t, console.Static{})
+	c := startRemoteChats(t, consoletest.Static{})
 	s := c.open(t)
 	if err := c.service.Warm(context.Background(), s.ID); err != nil {
 		t.Fatal(err)

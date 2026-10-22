@@ -48,13 +48,13 @@ func TestAStageOpenedBeforeItsRulesSaysSoAndCanRunItsChecksAgain(t *testing.T) {
 	}
 	// The list read judges from its own columns; the detail view from the
 	// steps it read.
-	graph, err := readWorkflowActivity(ctx, store, []ids.ID{run.ID}, Placement{})
+	graph, err := readWorkflowActivity(ctx, store, []ids.ID{run.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
 	listed, err := graph.classify(run.ID, nil, map[ids.ID]bool{})
 	blocked("list", graph.judgedByGate(run.ID, listed), err)
-	snapshot, err := readWorkflowSnapshot(ctx, store, run.ID, DetailView, nil, Placement{}, run.ProjectID, nil)
+	snapshot, err := readWorkflowSnapshot(ctx, store, run.ID, DetailView, nil, run.ProjectID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestAStageOpenedBeforeItsRulesSaysSoAndCanRunItsChecksAgain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if verdict, err := current.Advance(steps, checks, Placement{}); err != nil || !verdict.Passed() {
+	if verdict, err := current.Advance(steps, checks); err != nil || !verdict.Passed() {
 		t.Fatalf("after its checks ran again: %+v %v", verdict, err)
 	}
 }

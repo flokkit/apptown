@@ -50,8 +50,7 @@ func TestWorkloadAccountsFailClosed(t *testing.T) {
 		{identity.Workload{Actor: ""}, true},
 		{identity.Workload{Actor: "apptown-system"}, true},
 		{identity.Workload{Actor: "run/7"}, true},
-		{identity.Workload{Actor: "system", Person: "ghost"}, false},
-		{identity.Workload{Actor: "alice via console/c", Person: "alice", Principal: alice}, true},
+		{identity.Workload{Actor: "alice via console/c", Principal: alice}, true},
 	} {
 		if _, err := a.admitAccount(context.Background(), tc.who); (err == nil) != tc.admit {
 			t.Errorf("%+v: admitted=%v, want %v", tc.who, err == nil, tc.admit)
@@ -59,9 +58,9 @@ func TestWorkloadAccountsFailClosed(t *testing.T) {
 	}
 }
 
-// A workload acts for the principal that started or opened it: renamed,
-// that person's chat or step keeps working; a later account given the old
-// name lends it nothing once the original person is disabled.
+// A workload acts for the principal that started or opened it: a later
+// account given the person's name, once theirs is removed, lends it
+// nothing.
 func TestAWorkloadStaysThePersonItWasStartedBy(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
@@ -84,27 +83,20 @@ func TestAWorkloadStaysThePersonItWasStartedBy(t *testing.T) {
 	for _, kind := range []string{"step", "console"} {
 		who := identity.Workload{Kind: kind, Actor: "alice", Principal: alice.Principal}
 		if kind == "console" {
-			who = identity.Workload{Kind: kind, Actor: "alice via console/c", Person: "alice", Principal: alice.Principal}
+			who = identity.Workload{Kind: kind, Actor: "alice via console/c", Principal: alice.Principal}
 		}
 		if _, err := a.admitAccount(ctx, who); err != nil {
-			t.Fatalf("%s before the rename: %v", kind, err)
+			t.Fatalf("%s while she holds her name: %v", kind, err)
 		}
 	}
-	if err := dir.Rename(ctx, "alice", "alicia", ops); err != nil {
+	if err := dir.RemoveName(ctx, "alice", ops); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := dir.EnsureUser(ctx, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	started := identity.Workload{Kind: "step", Actor: "alice", Principal: alice.Principal}
-	if _, err := a.admitAccount(ctx, started); err != nil {
-		t.Fatalf("renamed, the person's step was refused: %v", err)
-	}
-	yes := true
-	if err := dir.SaveUser(ctx, identity.AccountChange{Username: "alicia", Disabled: &yes}, ops); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := a.admitAccount(ctx, started); err == nil {
-		t.Fatal("the disabled person's step was admitted on the new alice's account")
+		t.Fatal("the removed person's step was admitted on the new alice's account")
 	}
 }

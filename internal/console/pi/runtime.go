@@ -74,7 +74,7 @@ type Config struct {
 }
 
 // CLI is a Config.Run for a program with no daemon scope of its own
-// (apptown-console, apptown-worker): the docker binary, run directly against
+// (apptown-worker): the docker binary, run directly against
 // the daemon its environment names, with stdout and stderr together.
 func CLI(binary string) func(ctx context.Context, args ...string) ([]byte, error) {
 	return func(ctx context.Context, args ...string) ([]byte, error) {

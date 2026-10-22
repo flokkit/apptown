@@ -49,7 +49,7 @@ async function settled(client: ReturnType<typeof newQueryClient>) {
   await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
 }
 const button = (el: HTMLElement, label: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent === label)
-const doors = ['Copy now', 'Check it comes back', 'Test a restore here', 'Restore a copy to look at']
+const doors = ['Copy now', 'Check it comes back', 'Test a restore here']
 
 // The card's copy, check and restore buttons follow AppTown's own answer
 // of whether they can start: greyed with its sentence when they cannot (no

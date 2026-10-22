@@ -22,7 +22,7 @@ in Docker volumes, covered by [Deployment backups](/docs/guides/deployment-backu
 
 **AppTown's own id.** Every AppTown has a UUID, the instance setting
 `forge.id`, written once at its first start and never changed. It names this
-AppTown in its project exports and backup sets. It is in
+AppTown in its backup sets. It is in
 the database, so an AppTown restored from a dump keeps it; a copy restored
 alongside the original has the same id, so run only one of them.
 

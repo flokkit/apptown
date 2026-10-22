@@ -147,10 +147,4 @@ func TestTheAdoptionScopeAdmitsOnlyItsProjectsReview(t *testing.T) {
 	if _, err := a.conformance.Confirm(own, conformance.Confirmation{VerdictID: idstest.N(1)}); err == nil {
 		t.Fatal("the adoption scope confirmed a flag")
 	}
-	if err := a.DB.InTx(own, func(tx *database.Tx) error {
-		_, err := a.conformance.PrepareHistoryClearIn(own, tx)
-		return err
-	}); err == nil {
-		t.Fatal("the adoption scope cleared history")
-	}
 }

@@ -139,32 +139,13 @@ type (
 )
 
 // StartRestoredCopy: POST /projects/{slug}/deployments/{name}/restored-copies
-// {backup?, minutes?, test?} — a restore test, or a copy people may open
-// for a while, as an operation.
+// {backup?} — a restore test, as an operation: the copy is started,
+// checked and taken down.
 func (h DataProtection) StartRestoredCopy(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{optional: true, strict: true}, func(in dataprotection.RestoredCopyRequest) {
 		h.start(w, r, func(ctx context.Context, project ids.ID, name string) (*operations.Operation, error) {
 			return h.data.RequestRestoredCopy(ctx, project, name, in)
 		})
-	})
-}
-
-// ExtendRestoredCopy: POST /projects/{slug}/restored-copies/{id}/extend
-// {minutes} — keep an open copy open until now plus minutes.
-func (h DataProtection) ExtendRestoredCopy(w http.ResponseWriter, r *http.Request) {
-	p, id, ok := h.restoredCopyPath(w, r)
-	if !ok {
-		return
-	}
-	jsonCommand(w, r, jsonBody{strict: true}, func(in struct {
-		Minutes int64 `json:"minutes"`
-	}) {
-		c, err := h.data.ExtendRestoredCopy(r.Context(), p, id, in.Minutes)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		WriteJSON(w, 200, RestoredCopyState(*c))
 	})
 }
 
@@ -183,26 +164,6 @@ func (h DataProtection) TakeDownRestoredCopy(w http.ResponseWriter, r *http.Requ
 	WriteAdmitted(w, op)
 }
 
-// OpenRestoredCopy: POST /projects/{slug}/restored-copies/{id}/open — a
-// form a person submits from AppTown in their browser. The answer is a
-// redirect to the copy's gate carrying a one-use ticket; it is never a
-// page a GET can produce, so another site cannot open a copy in a
-// person's name.
-func (h DataProtection) OpenRestoredCopy(w http.ResponseWriter, r *http.Request) {
-	p, id, ok := h.restoredCopyPath(w, r)
-	if !ok {
-		return
-	}
-	to, err := h.data.OpenRestoredCopy(r.Context(), p, id)
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
-	http.Redirect(w, r, to, http.StatusSeeOther)
-}
-
 func (h DataProtection) restoredCopyPath(w http.ResponseWriter, r *http.Request) (ids.ID, ids.ID, bool) {
 	p, ok := ProjectFromPath(h.projects, w, r)
 	if !ok {
@@ -218,7 +179,7 @@ func (h DataProtection) restoredCopyPath(w http.ResponseWriter, r *http.Request)
 
 // RedeemGateTicket: POST /gate/redeem {ticket}, from a restored copy's
 // gate, which proves itself with its secret as a bearer credential. It
-// answers who to let in and until when, or 403.
+// answers until when to let AppTown's own gate check in, or 403.
 func (h DataProtection) RedeemGateTicket(w http.ResponseWriter, r *http.Request) {
 	secret, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok || secret == "" {

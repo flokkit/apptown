@@ -57,13 +57,12 @@ CREATE TABLE IF NOT EXISTS deployments (
   handle_json  JSONB NOT NULL DEFAULT '{}'::jsonb,
   desired_generation  BIGINT NOT NULL DEFAULT 0,
   observed_generation BIGINT NOT NULL DEFAULT 0,
-  readiness    TEXT NOT NULL DEFAULT 'reconciled', -- reconciled | needs-reconcile | reconciling | failed
+  readiness    TEXT NOT NULL DEFAULT 'reconciled', -- reconciled | reconciling | uncertain | failed
   feed         TEXT NOT NULL DEFAULT 'landing',    -- landing | promotion | schedule | manual
   audience     TEXT NOT NULL DEFAULT 'team',       -- team | organisation | partners | public
   data_class   TEXT NOT NULL DEFAULT 'synthetic',  -- synthetic | non-production | production
   promote_after TEXT NOT NULL DEFAULT '',
   url          TEXT NOT NULL DEFAULT '',
-  expires_at   TIMESTAMPTZ,
   -- A deployment started from a copy: the set its first release fills its
   -- data from, and when that was done (null until then).
   start_from_backup UUID,
@@ -109,8 +108,8 @@ CREATE TABLE IF NOT EXISTS release_bundles (
   init_json         JSONB NOT NULL DEFAULT '{}'::jsonb, -- init step -> image id, or <registry>@sha256:<hex>
   built_from_json   JSONB NOT NULL DEFAULT '{}'::jsonb, -- change, run, tree
   created_at        TIMESTAMPTZ NOT NULL,
-  -- the target whose daemon the image IDs were read from; 0 for a bundle
-  -- recorded before releases named their target, and for a digest bundle
+  -- the target whose daemon the image IDs were read from; NULL for a
+  -- digest bundle, and for a bundle that names no host
   target_id UUID,
   -- A digest bundle's repository, every image of it by digest there; ''
   -- for a bundle of daemon image IDs.
@@ -169,7 +168,7 @@ CREATE TABLE IF NOT EXISTS need_instances (
   binding_json     JSONB NOT NULL DEFAULT '{}'::jsonb,
   secret_refs_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   handle_json      JSONB NOT NULL DEFAULT '{}'::jsonb,
-  status           TEXT NOT NULL DEFAULT 'pending',  -- pending | ready | failed | orphaned
+  status           TEXT NOT NULL,  -- creating | ready | failed | orphaned
   updated_at       TIMESTAMPTZ NOT NULL,
   UNIQUE(deployment_id, need)
 );

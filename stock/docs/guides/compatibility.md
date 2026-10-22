@@ -127,13 +127,9 @@ release; work done after the new release's first write is not in them.
   Some routes still use older words: a chat's routes are under `/console/` and
   `/transcript/`, and a deployment's secrets under `/secrets/{deployment}`
   rather than `/deployments/{name}`.
-- **Project export.** An export is read only by the same AppTown build; it is a
-  copy of your project's records, not a format promised across releases.
 - **The backup-set manifest.** The file a backup set carries to describe
   itself (`flokkit.backup-set`) is AppTown's own record, not a promised
   format: restore a set with AppTown, which reads the sets it made.
-- **The inbound webhook.** A workflow's `on: webhook` trigger and its route,
-  `POST /api/v1/hooks/{project}/{workflow}`, are experimental.
 - **Approvals given in advance** (an approval's `inAdvance`), as the
   [formats guide](/docs/guides/ways-of-working-formats) says.
 - **Anything a guide marks experimental**, and the stock content listed under
@@ -176,7 +172,7 @@ use in production by the maintainers.
 | Targets Portainer, App Platform, bucket website | a qualification that released a real app to them |
 | Workflows `research`, `excavate`, `product-spec` | more use |
 | Customer feedback integration | more than one project, and a service that signs in |
-| `-agent-executor local`, `-host-scripts`, and the standalone `apptown-check`, `apptown-deploy` and `apptown-console` | they exist for development and to show the libraries stand alone |
+| `-agent-executor local`, `-host-scripts` | they exist for development |
 
 **No longer shipped.** A release can stop shipping a stock workflow, guidance
 block, policy or pack. On upgrade it is no longer offered: it leaves the

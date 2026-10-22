@@ -32,7 +32,6 @@ const (
 	ViaTicket     = "ticket"
 	ViaBinding    = "binding"
 	ViaSchedule   = "schedule"
-	ViaWebhook    = "webhook"
 	ViaEval       = "eval"
 	ViaWhatIf     = "what-if"
 	ViaAnonymous  = "anonymous"

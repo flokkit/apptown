@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
@@ -15,7 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
+func TestCatalogInvocationHTTPUsesTheNamedEntryAndParameters(t *testing.T) {
 	t.Parallel()
 	for _, surface := range []string{"project API", "console"} {
 		t.Run(surface, func(t *testing.T) {
@@ -24,18 +25,24 @@ func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
 			caller, _ := access.CallerFrom(f.Context)
 			caller.Receipt = "bls"
 			f.Context = access.WithCaller(f.Context, caller)
-			ways := wow.New(f.DB, wow.Dependencies{})
-			catalog, err := ways.CreateCatalogChange(f.Context, "repair/controls", "Repair input", wow.CatalogDef{Workflow: "old-workflow", Title: "Old title", Prompt: "Old brief"}, "bls")
+			ways := wow.New(f.DB, wow.Dependencies{Stock: catalogStock(`catalog:
+  - name: repair/controls
+    description: Repair input
+    definition:
+      workflow: repair
+      title: "Fix {{part}}"
+      prompt: "Repair {{part}} for {{device}}."
+      type: fix
+      model: fake/catalog-model
+      params:
+        - {name: part, required: true}
+        - {name: device, default: keyboard}
+`)})
+			catalog, err := ways.CatalogChange("repair/controls")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := ways.BumpCatalogChange(f.Context, catalog.ID, catalog.Name, wow.CatalogDef{
-				Workflow: "repair", Title: "Fix {{part}}", Prompt: "Repair {{part}} for {{device}}.", Type: "fix", Model: "fake/catalog-model",
-				Params: []wow.CatalogParam{{Name: "part", Required: true}, {Name: "device", Default: "keyboard"}},
-			}, "bls"); err != nil {
-				t.Fatal(err)
-			}
-			actions := changeactions.New(f.Work, ways, f.DB)
+			actions := changeactions.New(f.Work, f.DB)
 			web := NewCatalogChanges(ways, nil, f.Projects, f.Access, actions, "open")
 			call := func(name, body string) *httptest.ResponseRecorder {
 				r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(f.Context)
@@ -89,15 +96,15 @@ func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
 			}
 			w := call(catalog.Name, `{"project":"shop","params":{"part":"arrow keys"},"workflow":"payload-must-not-pick-this","title":"payload title"}`)
 			var out struct {
-				Change                      workflow.Change
-				Run                         workflow.Run
-				Catalog, CatalogStatus, URL string
+				Change       workflow.Change
+				Run          workflow.Run
+				Catalog, URL string
 			}
 			if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 201 || out.Change.ID == f.ChangeID || out.Change.ID.IsZero() || out.Change.ProjectID != f.ProjectID || out.Change.Type != "fix" || out.Change.Title != "Fix arrow keys" || out.Change.Body != "Repair arrow keys for keyboard." || out.Run.ID.IsZero() || out.Run.ChangeID != out.Change.ID || out.Run.WorkflowName != "repair" {
 				t.Fatalf("catalog admission: %d %s (%v)", w.Code, w.Body.String(), err)
 			}
-			if surface == "project API" && (out.Catalog != catalog.Name || out.CatalogStatus != "draft") {
-				t.Fatalf("draft catalog response: %+v", out)
+			if surface == "project API" && out.Catalog != catalog.Name {
+				t.Fatalf("catalog response: %+v", out)
 			}
 			if started != nil && (len(started()) != 1 || started()[0] != out.Change.ID || out.URL != fmt.Sprintf("https://forge.example/changes/%d", out.Change.ID)) {
 				t.Fatalf("console lost admitted work/link: %+v %v", out, started())
@@ -108,11 +115,11 @@ func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
 			}
 			var inputs struct {
 				Catalog struct {
-					Name, Status, Model string
-					Applied             map[string]string
+					Name, Release, Model string
+					Applied              map[string]string
 				}
 			}
-			if err := json.Unmarshal([]byte(snapshot.Run.InputsJSON), &inputs); err != nil || inputs.Catalog.Name != "repair/controls@2" || inputs.Catalog.Status != "draft" || inputs.Catalog.Model != "fake/catalog-model" || inputs.Catalog.Applied["part"] != "arrow keys" {
+			if err := json.Unmarshal([]byte(snapshot.Run.InputsJSON), &inputs); err != nil || inputs.Catalog.Name != "repair/controls" || inputs.Catalog.Release != wow.CatalogRelease() || inputs.Catalog.Model != "fake/catalog-model" || inputs.Catalog.Applied["part"] != "arrow keys" {
 				t.Fatalf("pinned catalog input: %s (%v)", snapshot.Run.InputsJSON, err)
 			}
 			var receipts int
@@ -121,11 +128,8 @@ func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
 					continue
 				}
 				receipts++
-				var receipt struct {
-					Catalog, By string
-					Version     int
-				}
-				if err := json.Unmarshal(event.Payload, &receipt); err != nil || receipt.Catalog != catalog.Name || receipt.Version != 2 || receipt.By != "bls" {
+				var receipt struct{ Catalog, Release, By string }
+				if err := json.Unmarshal(event.Payload, &receipt); err != nil || receipt.Catalog != catalog.Name || receipt.Release != wow.CatalogRelease() || receipt.By != "bls" {
 					t.Fatalf("catalog receipt: %s (%v)", event.Payload, err)
 				}
 			}
@@ -139,12 +143,16 @@ func TestCatalogInvocationHTTPUsesNamedVersionAndParameters(t *testing.T) {
 func TestCatalogApplyHTTPKeepsProjectMembershipAndCaller(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPAuthorityFixture(t)
-	ways := wow.New(f.DB, wow.Dependencies{})
-	catalog, err := ways.CreateCatalogChange(f.Context, "repair", "Repair", wow.CatalogDef{Workflow: "test", Title: "Repair controls", Prompt: "Keep existing behavior."}, "bls")
+	ways := wow.New(f.DB, wow.Dependencies{Stock: catalogStock(`catalog:
+  - name: repair
+    description: Repair
+    definition: {workflow: test, title: Repair controls, prompt: Keep existing behavior.}
+`)})
+	catalog, err := ways.CatalogChange("repair")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := NewCatalogChanges(ways, nil, f.Projects, f.Access, changeactions.New(f.Work, ways, f.DB), "open")
+	h := NewCatalogChanges(ways, nil, f.Projects, f.Access, changeactions.New(f.Work, f.DB), "open")
 	call := func(who, project string) *httptest.ResponseRecorder {
 		ctx := access.WithCaller(f.Context, access.Caller{Principal: access.Principal{Kind: "user", Name: who, Via: "session"}, Receipt: who, Verified: true})
 		r := httptest.NewRequest("POST", "/", strings.NewReader(fmt.Sprintf(`{"project":%q}`, project))).WithContext(ctx)
@@ -193,4 +201,9 @@ func TestCatalogApplyHTTPKeepsProjectMembershipAndCaller(t *testing.T) {
 	if receipts != 1 {
 		t.Fatalf("member receipt count: %d", receipts)
 	}
+}
+
+// catalogStock is a release whose catalog.yaml is body.
+func catalogStock(body string) fstest.MapFS {
+	return fstest.MapFS{"catalog.yaml": {Data: []byte(body)}}
 }

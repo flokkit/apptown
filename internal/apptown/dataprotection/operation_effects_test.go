@@ -279,7 +279,7 @@ func TestARestoredCopyAsksAgainBeforeItFillsAndDeploys(t *testing.T) {
 		}
 	}
 	w.mu.Unlock()
-	op, c := w.start(RestoredCopyRequest{Minutes: 30})
+	op, c := w.start(RestoredCopyRequest{})
 	withdrawn(t, op)
 	if filled || len(w.api.Snapshot().Apps) != apps || !c.EndedAt.Valid {
 		t.Fatalf("after authority was withdrawn: filled %v, apps %d (was %d), copy %+v", filled, len(w.api.Snapshot().Apps), apps, c)
@@ -295,7 +295,7 @@ func TestARestoredCopysTakeDownAsksBeforeEachRemoval(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	_, c := w.start(RestoredCopyRequest{Minutes: 30})
+	c := w.standing()
 	op, err := w.s.TakeDownRestoredCopy(ctx, w.project, c.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -348,7 +348,7 @@ func TestARestoredCopysFillAsksBeforeEachEffect(t *testing.T) {
 				}
 			}
 			w.mu.Unlock()
-			op, _ := w.start(RestoredCopyRequest{Minutes: 30})
+			op, _ := w.start(RestoredCopyRequest{})
 			withdrawn(t, op)
 			if !revoked || filled || made {
 				t.Fatalf("after authority was withdrawn %s: database made %v, filled %v", when, made, filled)

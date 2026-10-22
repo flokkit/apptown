@@ -45,7 +45,6 @@ type Deployment struct {
 	DataClass          string           `json:"data"`
 	PromoteAfter       string           `json:"promoteAfter,omitempty"`
 	URL                string           `json:"url"`
-	ExpiresAt          stamp.Time       `json:"expiresAt,omitzero"`
 	// The built-in host's handle, as columns (the Docker driver reads them).
 	HostPort  int    `json:"-"`
 	Container string `json:"-"`
@@ -176,7 +175,6 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		DataClass:          r.DataClass,
 		PromoteAfter:       r.PromoteAfter,
 		URL:                r.Url,
-		ExpiresAt:          stamp.Time{NullTime: r.ExpiresAt},
 		HostPort:           int(r.HostPort),
 		Container:          r.Container,
 		HostLabel:          r.HostLabel,

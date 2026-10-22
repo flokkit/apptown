@@ -33,7 +33,7 @@ func (s *Service) SyncStock(ctx context.Context) {
 // ---- workflows ---------------------------------------------------------------
 
 // readStockWorkflows reads the workflow files at the top of stock/. The
-// other top-level files (packs, policies, scanners) are other kinds' input.
+// other top-level files (packs, policies, scanners, catalog) are other kinds' input.
 func readStockWorkflows(fsys fs.FS) (items []SyncItem, skipped int) {
 	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
@@ -42,7 +42,7 @@ func readStockWorkflows(fsys fs.FS) (items []SyncItem, skipped int) {
 	}
 	for _, e := range entries {
 		n := e.Name()
-		if e.IsDir() || !strings.HasSuffix(n, ".yaml") || n == "packs.yaml" || n == "policies.yaml" || n == "scanners.yaml" {
+		if e.IsDir() || !strings.HasSuffix(n, ".yaml") || n == "packs.yaml" || n == "policies.yaml" || n == "scanners.yaml" || n == "catalog.yaml" {
 			continue
 		}
 		raw, err := fs.ReadFile(fsys, n)

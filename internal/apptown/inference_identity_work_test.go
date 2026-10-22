@@ -1,7 +1,6 @@
 package apptown
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // A step attempt's runtime token opens two doors, the inference gateway and
@@ -217,26 +215,4 @@ func stepTokenAPIDoor(h http.Handler, token string) (int, string) {
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	return w.Code, w.Body.String()
-}
-
-// Work owns historical run-owner lookup (including absent and blank records).
-// AppTown owns normalization and account admission after receiving that identity.
-func TestInferenceAttributionAllowsServiceIdentitiesAndNormalizesEmptyOwner(t *testing.T) {
-	t.Parallel()
-	a := testApp(t)
-	for actor, want := range map[string]string{"": "system", "run/123": "run/123"} {
-		token := a.runTok.Mint(identity.Workload{Kind: "assist", Actor: actor})
-		got, err := inferenceIdentityFor(a).Authenticate(context.Background(), token)
-		if err != nil || got.Actor != want {
-			t.Fatalf("attribution %q: %+v %v", actor, got, err)
-		}
-		a.runTok.Revoke(token)
-	}
-	// A process-local grant never stands in for a step: one naming a run
-	// would skip the step attempt's checks, so it is refused.
-	token := a.runTok.Mint(identity.Workload{Kind: "assist", Actor: "alice", RunID: idstest.N(1), ProjectID: idstest.N(1)})
-	defer a.runTok.Revoke(token)
-	if got, err := inferenceIdentityFor(a).Authenticate(context.Background(), token); err == nil {
-		t.Fatalf("a grant naming a run was admitted: %+v", got)
-	}
 }

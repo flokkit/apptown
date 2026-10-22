@@ -226,33 +226,6 @@ func (q *Queries) ExistingArtifactKinds(ctx context.Context, arg ExistingArtifac
 	return items, nil
 }
 
-const exportArtifacts = `-- name: ExportArtifacts :many
-SELECT to_jsonb(a)::text FROM artifacts a JOIN runs r ON r.id = a.run_id WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY a.id
-`
-
-func (q *Queries) ExportArtifacts(ctx context.Context, projectID ids.ID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, exportArtifacts, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var column_1 string
-		if err := rows.Scan(&column_1); err != nil {
-			return nil, err
-		}
-		items = append(items, column_1)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const insertBinaryArtifact = `-- name: InsertBinaryArtifact :one
 INSERT INTO artifacts(id, run_id,kind,name,ref,body,body_bytes,created_at)
 VALUES($1, $2,$3,$4,$5,'',$6,$7) RETURNING id, run_id, kind, name, ref, body, created_at, body_bytes

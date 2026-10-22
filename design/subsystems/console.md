@@ -73,14 +73,13 @@ listed in neither. A chat folder whose record or words cannot be read is not
 left out silently and does not stop the others: both reads return the chats
 they could read and say how many records on AppTown could not be read
 (`unreadable`; administrators also see the folders), because any of them may
-belong here. A project's export refuses instead, naming them. Pictures pasted into a chat stay visible with its words:
+belong here. Pictures pasted into a chat stay visible with its words:
 `GET /changes/{id}/transcript/{chat}/pictures/{name}` and
 `GET /projects/{slug}/transcript/{chat}/pictures/{name}`, with the same
 evidence read, name a picture by its chat and the name the chat's words give
 it (`console.Service.RecordedPicture`), only from a chat of that change or
 project, and list nothing. A deleted project's cleanup removes its ended
-chats' folders, words and pictures included (`console.Service.RemoveEnded`). A project's export reads its ended chats the same way,
-without registering or waking them, and refuses while one has not ended.
+chats' folders, words and pictures included (`console.Service.RemoveEnded`).
 
 Chats are shared, not yet multiplayer. The conversation does not say which
 person typed each message (the ledger does), and the agent is not told who is

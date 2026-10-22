@@ -17,9 +17,6 @@ func (s *Service) ChangeRecords(ctx context.Context, project ids.ID, idList []id
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return nil, err
 	}
-	if false {
-		return nil, fmt.Errorf("invalid project scope")
-	}
 	for _, id := range idList {
 		if id.IsZero() {
 			return nil, fmt.Errorf("Change IDs must be positive")

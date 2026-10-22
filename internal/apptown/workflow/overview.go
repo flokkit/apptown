@@ -17,9 +17,6 @@ import (
 // visibleProjects is shared by caller-facing lists after Identify. The final
 // query must retain these IDs as a scope fence, including on instance-wide reads.
 func (s *Service) visibleProjects(ctx context.Context, action commandAction, project ids.ID) ([]ids.ID, error) {
-	if false {
-		return nil, fmt.Errorf("invalid project scope")
-	}
 	if !project.IsZero() {
 		if _, err := s.require(ctx, operationPermission{Action: action, ProjectID: project}); err != nil {
 			return nil, err

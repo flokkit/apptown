@@ -74,7 +74,7 @@ func TestPrivateProjectHTTPReadRoutesEnforceDeclaredCapabilities(t *testing.T) {
 	for _, path := range []string{
 		"/api/v1/projects/game", "/api/v1/projects/game/workflows", "/api/v1/projects/game/lanes",
 		"/api/v1/projects/game/manifest", "/api/v1/projects/game/pack/pull-plan?pack=readable", "/api/v1/projects/game/adoption",
-		"/api/v1/projects/game/policies", "/api/v1/projects/game/services", "/api/v1/projects/game/extensions",
+		"/api/v1/projects/game/policies", "/api/v1/projects/game/services",
 		"/api/v1/projects/game/guidance", "/api/v1/projects/game/integrations", "/api/v1/projects/game/targets",
 		"/api/v1/projects/game/deployments/main/backups", "/api/v1/changes/" + fx.Change.String() + "/preview", "/api/v1/changes/" + fx.Change.String() + "/transcript",
 	} {
@@ -105,16 +105,13 @@ func TestPrivateHTTPAdministrativeReadRoutesEnforceDeclaredCapabilities(t *testi
 	if _, err := a.Deployment.Targets.Put(context.Background(), &deployment.Target{Name: "visible", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := a.Ways.PublishWorkflow(t.Context(), `{"kind":"Workflow","metadata":{"name":"history-fixture"},"spec":{"kind":"pipeline","stages":[{"name":"work","steps":[{"name":"wait","uses":"approval","with":{"means":"review"}}]}]}}`, "boss"); err != nil {
-		t.Fatal(err)
-	}
 	h := a.Handler()
 	for _, path := range []string{
 		"/api/v1/backups", "/api/v1/targets", "/api/v1/targets/visible", "/api/v1/retained", "/api/v1/infrastructure", "/api/v1/jobs",
 		// Usage, tiers and departures without a project are filtered reads
 		// (checkMemberScopedReads); naming another project is refused.
 		"/api/v1/model-slots", "/api/v1/usage?project=game", "/api/v1/tiers?project=game", "/api/v1/guidance/generated?project=game",
-		"/api/v1/projects/game/retained", "/api/v1/projects/game/members", "/api/v1/projects/game/workflows/history-fixture/history",
+		"/api/v1/projects/game/retained", "/api/v1/projects/game/members",
 	} {
 		t.Run(path, func(t *testing.T) {
 			w := authzCall(h, "outsider", "GET", path, "")

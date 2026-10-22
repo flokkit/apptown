@@ -51,9 +51,6 @@ UPDATE task_attempts SET desired='stop', updated_at=sqlc.arg(at) WHERE operation
 -- name: UnsettledAttempts :many
 SELECT * FROM task_attempts WHERE observed<>'settled' ORDER BY created_at, operation;
 
--- name: HeldAttempts :many
-SELECT * FROM task_attempts WHERE observed<>'settled' OR released_at IS NULL ORDER BY created_at, operation;
-
 -- name: UnsettledSteps :many
 SELECT DISTINCT step_id FROM task_attempts WHERE observed<>'settled' AND invocation<>sqlc.arg(not_continued) ORDER BY step_id;
 

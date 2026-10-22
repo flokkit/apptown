@@ -122,7 +122,7 @@ func (f *privateFixture) start() {
 		return
 	}
 	f.srv = &worker.Server{Installation: "inst-1", State: f.state, Tasks: execution.DockerTasks{Namespace: f.namespace},
-		DindImage: "docker:27-dind", Docker: f.docker, Role: worker.Role{Role: worker.RoleAgent}, Now: f.now}
+		DindImage: "docker:27-dind", Docker: f.docker, Now: f.now}
 	if f.profile.Name == "" {
 		f.profile = f.srv.MeasureProfile(context.Background(), false)
 	}

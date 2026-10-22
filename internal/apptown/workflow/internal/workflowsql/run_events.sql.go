@@ -243,33 +243,6 @@ func (q *Queries) EarliestRunEventOfKind(ctx context.Context, arg EarliestRunEve
 	return i, err
 }
 
-const exportRunEvents = `-- name: ExportRunEvents :many
-SELECT to_jsonb(e)::text FROM run_events e JOIN runs r ON r.id = e.run_id WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY e.id
-`
-
-func (q *Queries) ExportRunEvents(ctx context.Context, projectID ids.ID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, exportRunEvents, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var column_1 string
-		if err := rows.Scan(&column_1); err != nil {
-			return nil, err
-		}
-		items = append(items, column_1)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const inAdvanceConsidered = `-- name: InAdvanceConsidered :many
 SELECT (payload_json->>'stepId')::uuid AS step_id FROM run_events WHERE run_id=$1 AND kind IN ('acceptance.inadvance.applied','acceptance.inadvance.withheld') AND payload_json->>'stepId' IS NOT NULL
 `

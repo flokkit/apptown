@@ -261,10 +261,6 @@ FROM steps s JOIN runs r ON r.id=s.run_id JOIN projects p ON p.id=r.project_id
 LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
 WHERE s.status=sqlc.arg(running) AND s.type<>'workflow/call' ORDER BY s.started_at NULLS LAST,s.id;
 
--- Identity only, every project: the startup precondition of -no-local-docker.
--- name: RunningStepsMeta :many
-SELECT id,run_id,type FROM steps WHERE status=sqlc.arg(running) ORDER BY id;
-
 -- name: SendBackBusy :one
 SELECT EXISTS(SELECT 1 FROM steps s JOIN runs r ON r.id=s.run_id WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.status='running' AND s.status='running');
 
@@ -300,6 +296,3 @@ LEFT JOIN LATERAL (SELECT x.step_id,x.digest,x.unavailable FROM agent_transcript
 WHERE s.id=sqlc.arg(step_id) AND r.id=sqlc.arg(run_id) AND r.project_id=sqlc.arg(project_id)
 AND (sqlc.arg(attempt)::bigint=0 OR e.payload_json->>'attempt'=sqlc.arg(attempt)::bigint::text)
 ORDER BY e.id DESC LIMIT 1;
-
--- name: ExportSteps :many
-SELECT to_jsonb(s)::text FROM steps s JOIN runs r ON r.id = s.run_id WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY s.id;

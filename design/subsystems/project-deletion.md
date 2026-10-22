@@ -48,7 +48,7 @@ either commits first (and the deletion then sees its work) or refuses with
   while it is `deleting` or `deleted` (re-applied at startup before
   serving, `Deletion.HoldBlocks`): no chat on it is opened, identified or
   used, so no turn, save or landing comes from one.
-- Schedules, webhooks and remediation reach work only through these doors;
+- Schedules and remediation reach work only through these doors;
   the remediation pass and the fleet review skip a project that is not
   active.
 
@@ -79,9 +79,9 @@ deletion only: it permits the deletion's take-downs and the purge, and
 nothing else. The deletion pass and the scheduled purge run under it
 (`system:binding/<id>`, asked again before each effect through
 `RequireStill`), so the deleter's own session may expire meanwhile.
-Receipts name the binding, the deleter and the decision. Revoking it
-(`POST …/deletion/revoke`) stops the deletion or purge at its next step,
-and the page says so; Cancel and Restore revoke it.
+Receipts name the binding, the deleter and the decision. Cancel and
+Restore revoke it; a revoked binding stops the deletion or purge at its
+next step, and the page says so.
 
 **Cancel deletion** (`POST …/deletion/cancel`) returns the project to
 `active` only before its first take-down was admitted.

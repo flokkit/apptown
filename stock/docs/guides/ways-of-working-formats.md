@@ -53,8 +53,6 @@ step names, gates naming steps that exist).
   an approval, and every check, passed outright (no override, skip, error,
   excused finding or check it could not run). Such a yes is the person's one
   vote; it never stands in for another approval the workflow requires.
-- A workflow's `on: webhook` trigger, and the route that fires it
-  (`POST /api/v1/hooks/{project}/{workflow}`), are experimental.
 - `failOn`, on a `scan` or `guidance/conformance` step, is `low`, `medium`,
   `high` or `critical`; anything else is refused by name. Left out, a scan
   fails on every finding it may gate on (whatever its scanner looks at; the

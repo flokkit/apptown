@@ -19,7 +19,7 @@ import (
 const StandardProfile = "standard"
 
 // StockSlots are the purposes AppTown itself names, in page order.
-var StockSlots = []string{"default", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout", "draft"}
+var StockSlots = []string{"default", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout"}
 
 // Gloss: what each stock slot means, in ordinary words.
 var Gloss = map[string]string{
@@ -32,7 +32,6 @@ var Gloss = map[string]string{
 	"chat":      "the helper people talk to on a project page",
 	"worker":    "a helper's delegate that carries out a written brief",
 	"scout":     "a helper's delegate for quick read-only lookups",
-	"draft":     "the assistant that drafts workflow definitions",
 }
 
 // StockFallbacks: where an unmapped slot degrades to. Seeded as data so
@@ -41,7 +40,7 @@ var Gloss = map[string]string{
 var StockFallbacks = map[string]string{
 	"plan": "default", "implement": "default", "review": "default",
 	"security": "review", "fast": "default", "chat": "default",
-	"worker": "default", "scout": "fast", "draft": "fast",
+	"worker": "default", "scout": "fast",
 }
 
 var profileNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,23}$`)

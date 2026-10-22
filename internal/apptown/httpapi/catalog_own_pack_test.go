@@ -20,15 +20,11 @@ func TestCatalogOffersOnlyOwnPack(t *testing.T) {
 	if err := f.adoption.SetPack(t.Context(), f.projectID, "right-pack"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.ways.CreateCatalogChange(t.Context(), "uplift/x", "", wow.CatalogDef{
-		Workflow: "wanted-lane", Title: "t", Prompt: "b", Type: "chore",
-	}, "bls"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.ways.PromoteCatalogChange(t.Context(), "uplift/x", "fixture", "bls"); err != nil {
-		t.Fatal(err)
-	}
-	handler := NewCatalogChanges(f.ways, f.adoption, f.projects, f.identity, nil, "")
+	ways := wow.New(f.db, wow.Dependencies{Stock: catalogStock(`catalog:
+  - name: uplift/x
+    definition: {workflow: wanted-lane, title: t, prompt: b}
+`)})
+	handler := NewCatalogChanges(ways, f.adoption, f.projects, f.identity, nil, "")
 	call := func() *httptest.ResponseRecorder {
 		t.Helper()
 		w := httptest.NewRecorder()

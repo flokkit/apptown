@@ -17,9 +17,9 @@ TLS and receives the task's commits back. A task the worker cannot run or reach
 is refused or an error, never moved to the host. A step's or chat's container is
 configured with AppTown's console and inference listeners and a credential
 minted for it; that is not a network restriction, and what else it can reach on
-AppTown host or elsewhere depends on the operator's network and firewall. An
-optional check worker keeps checks off the machine agents use, so a gate's
-evidence did not run beside the agent it judges. With `-no-local-docker` the
+AppTown host or elsewhere depends on the operator's network and firewall.
+Checks run on the same worker as agents, so a gate's evidence may have run
+beside the agent it judges; each result records where it ran. With `-no-local-docker` the
 AppTown host has no Docker and runs no project process at all. Otherwise project
 chats, chats continuing a step's agent, and change chats placed on AppTown or
 already running there still run on the AppTown host. The operating guide

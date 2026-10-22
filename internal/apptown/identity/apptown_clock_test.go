@@ -389,15 +389,6 @@ func TestAnOperationsReceiptCarriesItsRecordsTime(t *testing.T) {
 	}
 	same("group.saved", reading, receiptAt("group.saved"))
 
-	if _, err := s.PutGrant(ctx, Spec{SubjectType: "user", Subject: "lee", Role: access.RoleProjectContrib, Scope: access.ScopeProject, ScopeID: idstest.N(7).String(), By: "ops"}); err != nil {
-		t.Fatal(err)
-	}
-	reading = clk.Next()
-	if n, err := s.RevokeProjectRoles(ctx, "user", "lee", idstest.N(7), "ops"); err != nil || n != 1 {
-		t.Fatalf("revoked %d: %v", n, err)
-	}
-	same("project.member-removed", reading, receiptAt("project.member-removed"))
-
 	reading = clk.Next()
 	if _, err := s.RegisterOAuthClient(ctx, Registration{Name: "agent", RedirectURIs: []string{"http://localhost:1/cb"}}); err != nil {
 		t.Fatal(err)

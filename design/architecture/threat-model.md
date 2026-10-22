@@ -166,7 +166,7 @@ Required security properties, proposed as acceptance criteria:
 
 | Actor | Initial capabilities | Representative objective |
 |---|---|---|
-| Unauthenticated Internet client | Public HTTP, OAuth registration, enabled webhook/intake surfaces, hosted apps | Account takeover, resource exhaustion, exploit a public app |
+| Unauthenticated Internet client | Public HTTP, OAuth registration, intake surfaces, hosted apps | Account takeover, resource exhaustion, exploit a public app |
 | Authenticated member or stolen member account | Normal project work, uploads, chats and whatever reads/grants policy allows | Reach another project, obtain secrets, influence approvals |
 | Repository/dependency/content attacker | Files, package scripts, tool output, documentation, images, web responses | Prompt injection or direct code execution inside a workload |
 | Compromised agent or application | Its filesystem, process environment, network and delegated tokens | Steal credentials, pivot to host/LAN, consume money, corrupt evidence |
@@ -359,7 +359,7 @@ stated preconditions to be verified.
 | A. Protect browser authority | Serve active uploads as safe downloads or on an isolated origin; exact origin checks for terminals and browser mutations; bind OAuth consent to the session; secure production cookies | TM-08, TM-09, TM-12, TM-27, TM-28 | Browser tests against sibling preview and unrelated origin; apptownd consent denied; safe file-serving tests |
 | B. Separate model credentials, then bound spend | First: private inference gateway using lifecycle tokens and explicit worker networks, no runtime provider keys, attribution and concurrency limits. Later: transactional budgets and provider-side backstop | TM-01, TM-02, TM-15 | Canary-secret runtime inspection, native Pi protocol tests, cancellation/restart/provider-failure tests; budget tests when that control is implemented |
 | C. Stop workspace-to-control-plane authority | Disable local execution for untrusted work; isolate worker hosts/VMs from control plane; remove trusted host operations over attacker-writable metadata and paths; separate cache mounts | TM-03–TM-07 | Harmless escape-attempt fixtures, cross-workload cache tests and measured worker-network reachability |
-| D. Make delegation consistent | Uniform principal/revocation checks on every transport; purpose/resource/lifetime bounds on instruments; explicit read policy; scoped webhook credentials | TM-10–TM-13, TM-21, TM-27 | Transport × principal × resource negative tests; live revocation of open sessions and instruments |
+| D. Make delegation consistent | Uniform principal/revocation checks on every transport; purpose/resource/lifetime bounds on instruments; explicit read policy | TM-10–TM-13, TM-27 | Transport × principal × resource negative tests; live revocation of open sessions and instruments |
 | E. Protect delivery and data | Environment-secret policy, isolated dev services, immutable release evidence, restricted target adapters, safe backup/restore and ownership-aware cleanup | TM-14, TM-16–TM-19, TM-22, TM-23, TM-25 | Preview cannot receive production canaries; artifact identity tests; disposable restore and target-scope exercises |
 | F. Bound operations and improve assurance | CPU/PID/disk/network/queue ceilings; runtime leases, bounded shutdown and expiry; external audit export, retention and incident exercises | TM-15, TM-20, TM-24, TM-26, TM-28 | Resource-exhaustion and restart tests; expired credential denied despite failed cleanup; restore/incident drill |
 

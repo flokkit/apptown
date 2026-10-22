@@ -3,9 +3,6 @@ package apptown
 import (
 	"context"
 	"database/sql"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -63,10 +60,6 @@ func savedLatestVerdict(a *App, id ids.ID, block string, version int, check stri
 		}
 	}
 	return conformance.Verdict{}, sql.ErrNoRows
-}
-
-func identifiedTestRequest(method, target string, body io.Reader) *http.Request {
-	return testRequestAs(httptest.NewRequest(method, target, body).WithContext(testConformanceContext("t")), "t")
 }
 
 // Conformance execution tests use an explicitly authorized operator. Tests of

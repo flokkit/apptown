@@ -17,11 +17,8 @@ func init() {
 		wiregen.Named{Name: "CatalogList", Value: CatalogList{}},
 		wiregen.Named{Name: "CatalogApplied", Value: CatalogApplied{}},
 		wiregen.Named{Name: "CatalogChangeDetail", Value: CatalogChangeDetail{}},
-		wiregen.Named{Name: "CatalogChangeStatus", Value: CatalogChangeStatus{}},
 		wiregen.Named{Name: "DocsIndex", Value: DocsIndex{}},
 		wiregen.Named{Name: "DocGuide", Value: DocGuide{}},
-		wiregen.Named{Name: "ExtensionList", Value: ExtensionList{}},
-		wiregen.Named{Name: "FeatureList", Value: FeatureList{}},
 		wiregen.Named{Name: "GuidanceBlockDetail", Value: GuidanceBlockDetail{}},
 		wiregen.Named{Name: "ProjectGuidance", Value: ProjectGuidance{}},
 		wiregen.Named{Name: "GeneratedGuidance", Value: GeneratedGuidance{}},
@@ -43,7 +40,6 @@ func init() {
 		wiregen.Named{Name: "ProjectManifestView", Value: ProjectManifestView{}},
 		wiregen.Named{Name: "ProjectOverviewView", Value: ProjectOverviewView{}},
 		wiregen.Named{Name: "ProjectPolicyList", Value: ProjectPolicyList{}},
-		wiregen.Named{Name: "ProjectTransferred", Value: ProjectTransferred{}},
 		wiregen.Named{Name: "ProjectPage", Value: ProjectPage{}},
 		wiregen.Named{Name: "ProjectRow", Value: ProjectRow{}},
 		wiregen.Named{Name: "ProjectDetail", Value: ProjectDetail{}},
@@ -58,7 +54,6 @@ func init() {
 		wiregen.Named{Name: "PackHistory", Value: wow.PackHistory{}},
 		wiregen.Named{Name: "WorkflowInvalid", Value: WorkflowInvalid{}},
 		wiregen.Named{Name: "WorkflowPreview", Value: WorkflowPreview{}},
-		wiregen.Named{Name: "WorkflowDraft", Value: WorkflowDraft{}},
 		wiregen.Named{Name: "WorkflowPublished", Value: WorkflowPublished{}},
 	)
 }

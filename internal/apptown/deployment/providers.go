@@ -596,7 +596,7 @@ func (p *Providers) RefusesBundle(ctx context.Context, b *ReleaseBundle, t *Targ
 	case t.Origin != OriginAttached:
 		return errBuiltInHostRefused
 	case b == nil || b.BuiltFrom.TargetID.IsZero():
-		return refused("this release was recorded before releases named their target; land the change again to release it in this mode")
+		return refused("this release does not say which Docker host its images are on; land the change again to release it in this mode")
 	case b.BuiltFrom.TargetID != t.ID:
 		name := fmt.Sprintf("target %d", b.BuiltFrom.TargetID)
 		if on, err := p.targets.ByID(ctx, b.BuiltFrom.TargetID); err == nil {

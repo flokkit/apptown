@@ -52,10 +52,9 @@ func (c MergeCall) validate() error {
 }
 
 type MergeAdmission struct {
-	db        *database.DB
-	rules     LawRules
-	placement Placement // with a check worker, the only place gates accept
-	evals     EvalGate  // an eval's rule for a merge into one of its copies; nil: none
+	db    *database.DB
+	rules LawRules
+	evals EvalGate // an eval's rule for a merge into one of its copies; nil: none
 	clocked
 }
 
@@ -66,8 +65,8 @@ func (a MergeAdmission) WithEvalGate(g EvalGate) MergeAdmission {
 	return a
 }
 
-func NewMergeAdmission(db *database.DB, rules LawRules, placement Placement) MergeAdmission {
-	return MergeAdmission{db: db, rules: rules, placement: placement}
+func NewMergeAdmission(db *database.DB, rules LawRules) MergeAdmission {
+	return MergeAdmission{db: db, rules: rules}
 }
 
 type AdmittedMerge struct {
@@ -189,7 +188,7 @@ func (a MergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 	if err != nil {
 		return result, err
 	}
-	required, err := evaluateGate(stage, checks, steps, a.placement)
+	required, err := evaluateGate(stage, checks, steps)
 	if err != nil {
 		return result, err
 	}

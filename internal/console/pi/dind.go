@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/dind"
@@ -21,10 +22,6 @@ import (
 // domains, and the launch's mirror (dind.DaemonOptions).
 type DindConfig struct {
 	Image string // the docker:dind image
-	// Mark runs before any privileged container is created or started: a
-	// worker records that it runs privileged agents (worker.PrivilegedMark).
-	// Its error creates nothing. Nil marks nothing.
-	Mark func() error
 }
 
 func dindName(id string) string { return "apptown-dind-console-" + id }
@@ -33,11 +30,6 @@ func dindName(id string) string { return "apptown-dind-console-" + id }
 // publication). It never replaces a surviving daemon: its nested images and
 // containers are session state. Missing resources are reconstructed.
 func (r *Runtime) ensureDind(in console.Launch) error {
-	if r.cfg.Dind.Mark != nil {
-		if err := r.cfg.Dind.Mark(); err != nil {
-			return fmt.Errorf("private Docker refused: %w", err)
-		}
-	}
 	ctx, cancel := context.WithTimeout(r.ctx, 60*time.Second)
 	defer cancel()
 	name := dindName(in.ID)

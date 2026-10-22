@@ -377,34 +377,6 @@ func (q *Queries) EditADR(ctx context.Context, arg EditADRParams) (int64, error)
 	return result.RowsAffected()
 }
 
-const exportADRs = `-- name: ExportADRs :many
-SELECT to_jsonb(a)::text FROM adrs a WHERE a.project_id = $1 ORDER BY a.number
-`
-
-// A project's ADRs, row by row, for moving it to another AppTown.
-func (q *Queries) ExportADRs(ctx context.Context, projectID ids.ID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, exportADRs, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var column_1 string
-		if err := rows.Scan(&column_1); err != nil {
-			return nil, err
-		}
-		items = append(items, column_1)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const insertADR = `-- name: InsertADR :one
 INSERT INTO adrs(id, project_id,number,title,status,body_md,tags,supersedes_id,change_id,created_at,updated_at)
 VALUES ($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$10) RETURNING id, project_id, number, title, status, body_md, tags, supersedes_id, change_id, created_at, updated_at

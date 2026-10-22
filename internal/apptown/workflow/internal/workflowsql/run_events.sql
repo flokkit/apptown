@@ -145,6 +145,3 @@ WHERE e.kind='step.started' AND COALESCE(e.payload_json->>'sessionId','')<>'' AN
 AND NOT EXISTS(SELECT 1 FROM agent_transcripts t WHERE t.step_id=s.id AND t.attempt=COALESCE((e.payload_json->>'attempt')::bigint,0))
 AND NOT (s.status='running' AND s.attempt=COALESCE((e.payload_json->>'attempt')::bigint,0))
 ORDER BY e.id LIMIT sqlc.arg(max_rows);
-
--- name: ExportRunEvents :many
-SELECT to_jsonb(e)::text FROM run_events e JOIN runs r ON r.id = e.run_id WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY e.id;

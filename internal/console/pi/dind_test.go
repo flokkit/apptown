@@ -17,7 +17,6 @@ import (
 	"github.com/flokkit/apptown/internal/execfile"
 
 	"github.com/flokkit/apptown/internal/console"
-	"github.com/flokkit/apptown/internal/worker"
 )
 
 // fakeDocker is the daemon as the runtime sees it through docker commands:
@@ -535,41 +534,6 @@ func TestProvisionUsesTheLaunchImageAfterTheOptions(t *testing.T) {
 	}
 	if !strings.HasSuffix(create, " -- apptown-agent:from-the-forge sleep infinity") {
 		t.Fatalf("create: %s", create)
-	}
-}
-
-// A worker's privileged-agents mark is written before any privileged
-// daemon is created, started or rebuilt (every path goes through
-// ensureDind): a creation that fails after it, as a crash there would,
-// leaves the mark, and a mark that cannot be written creates nothing.
-func TestTheMarkComesBeforeAnyPrivilegedDaemon(t *testing.T) {
-	state := t.TempDir()
-	r, in, f := fixture(t)
-	mark := worker.PrivilegedMark(state, worker.Role{Role: worker.RoleAgent}, nil)
-	r.cfg.Dind.Mark = func() error {
-		f.mu.Lock()
-		f.calls = append(f.calls, []string{"mark"})
-		f.mu.Unlock()
-		return mark()
-	}
-	f.fail = "--privileged"
-	if err := r.ensureDind(in); err == nil {
-		t.Fatal("the daemon's failed creation was not reported")
-	}
-	if len(f.calls) == 0 || f.calls[0][0] != "mark" {
-		t.Fatalf("Docker was asked before the mark: %v", f.calls)
-	}
-	if _, err := os.Stat(filepath.Join(state, "privileged-agents")); err != nil {
-		t.Fatalf("the mark did not outlast the failed creation: %v", err)
-	}
-
-	r, in, f = fixture(t)
-	r.cfg.Dind.Mark = func() error { return errors.New("no space left on device") }
-	if err := r.ensureDind(in); err == nil || !strings.Contains(err.Error(), "no space left") {
-		t.Fatalf("an unwritten mark: %v", err)
-	}
-	if len(f.calls) != 0 || f.network || f.daemon {
-		t.Fatalf("an unwritten mark created something: %v", f.calls)
 	}
 }
 

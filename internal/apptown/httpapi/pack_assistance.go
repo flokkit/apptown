@@ -21,55 +21,6 @@ func NewPackAssistance(ways *wow.Service, selection ModelSelection, completion m
 	return PackAssistance{ways: ways, selection: selection, completion: completion}
 }
 
-// PickPack: POST /packs/pick {description} — "pick one for me" on the
-// new-project wizard. The fast slot chooses a pack from the library given a
-// plain-words description of the project; no model → the house default.
-func (h PackAssistance) PickPack(w http.ResponseWriter, r *http.Request) {
-	jsonCommand(w, r, jsonBody{}, func(in struct {
-		Description string `json:"description"`
-	}) {
-		packs, err := h.ways.OfferedPacks(r.Context())
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		if len(packs) == 0 {
-			WriteError(w, 422, "no packs are turned on — turn one on under Ways of working")
-			return
-		}
-		pick, why := packs[0].Name, "the house default (no model available to choose)"
-		for _, p := range packs {
-			if p.Name == "go-small" {
-				pick = p.Name
-				break
-			}
-		}
-		if pattern, _, _ := h.selection.Resolve(r.Context(), ids.Nil, "fast"); pattern != "" && h.completion != nil &&
-			strings.TrimSpace(in.Description) != "" {
-			var opts strings.Builder
-			for _, p := range packs {
-				fmt.Fprintf(&opts, "- %s: %s\n", p.Name, p.Description)
-			}
-			system := `You pick ONE way-of-working pack for a new software project from this list:
-` + opts.String() + `
-Respond with ONLY a JSON object: {"pack": "<name from the list>", "why": "<one plain sentence anyone understands, no technology names>"}`
-			if out, _, err := h.completion.Ask(r.Context(), modelcall.Call{Purpose: "pack-assistance", Model: pattern, System: system, User: in.Description}); err == nil {
-				clean := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(out), "```json"), "```"), "```"))
-				var v struct{ Pack, Why string }
-				if json.Unmarshal([]byte(clean), &v) == nil {
-					for _, p := range packs {
-						if p.Name == v.Pack {
-							pick, why = v.Pack, v.Why
-							break
-						}
-					}
-				}
-			}
-		}
-		WriteJSON(w, 200, PackSuggestion{Pack: pick, Why: why})
-	})
-}
-
 // PackInterview: POST /packs/interview {description, answers?} — the
 // new-project wizard's short interview. Round one: the
 // fast model either decides the pack outright or asks AT MOST three
@@ -190,10 +141,4 @@ type PackInterviewPick struct {
 type PackInterviewQuestions struct {
 	Decided   bool     `json:"decided"`
 	Questions []string `json:"questions"`
-}
-
-// PackSuggestion is the pack picked for a described project, and why.
-type PackSuggestion struct {
-	Pack string `json:"pack"`
-	Why  string `json:"why"`
 }

@@ -39,21 +39,16 @@ import (
 
 // Restored copies (design/subsystems/deployment.md, "Restored copies"). A rehearsal
 // proves a copy comes back on a sealed Docker host; a restored copy proves
-// production comes back on its real runtime, and lets the people who may
-// see production data look at it as it was.
+// production comes back on its real runtime: it is a restore test.
 //
 // A restored copy is a temporary deployment (kind restored-copy) of a
 // production deployment's current release, by digest, on the source's own
 // target, started from a chosen copy, behind AppTown's access gate. The
 // gate is its only public component (deploy.Gate): it admits AppTown's
-// own checks, which carry the copy's gate secret, and people AppTown let
-// in with a one-use ticket from Open. The app's own sign-in still applies
-// behind it.
-//
-// A restore test is a restored copy with no lifetime: nobody is admitted,
-// and it is taken down as soon as its checks are recorded. An opened copy
-// has a lifetime and is taken down when it runs out (the sweep), or when a
-// person takes it down.
+// own checks, which carry the copy's gate secret, and the one-use ticket
+// AppTown issues itself to check the gate. Nobody else is admitted, and
+// the copy is taken down as soon as its checks are recorded; one a start
+// left standing is taken down by the sweep, or when a person takes it down.
 //
 // What AppTown records of a restored copy is safe to show anyone who may
 // read the project: step names, the platform's own sentences, status codes
@@ -61,14 +56,6 @@ import (
 // component's log or a response body: those can hold rows of production
 // data. The gate secret is never recorded: the row keeps its SHA-256, so a
 // gate's redemption can be told to be this copy's.
-
-// The lifetimes a restored copy may be given, and how long one Open lets a
-// person in before they open it again (and AppTown checks again).
-const (
-	RestoredCopyDefault = 4 * time.Hour
-	RestoredCopyMost    = 24 * time.Hour
-	GateSessionMost     = time.Hour
-)
 
 // RestoredCopyWarning is what the card says of what a restored copy can
 // still do outside: withholding secrets reduces outside effects, it does
@@ -79,7 +66,7 @@ const RestoredCopyWarning = "AppTown integration secrets are withheld and backgr
 const ProviderBoundary = "DigitalOcean team Owners and Members with console access can read this copy, its gate secret and its logs, as they can production's."
 
 var (
-	// ErrRestoredCopy: a restored copy cannot be made, opened or changed.
+	// ErrRestoredCopy: a restored copy cannot be made or changed.
 	ErrRestoredCopy = fault.New(fault.Conflict, "this restored copy cannot do that")
 	// ErrNoGate: this AppTown has no gate image, so it makes no restored copy.
 	ErrNoGate = fault.New(fault.Conflict, "this AppTown has no access gate image: start it with -restore-gate-image <ref@sha256:...> and its public address, so restored copies have a door only AppTown opens")
@@ -87,20 +74,17 @@ var (
 	// standing copy's gate.
 	ErrGateCredential = fault.New(fault.Forbidden, "not a restored copy's gate")
 	// ErrTicket refuses a ticket that was used, has expired, or is not this
-	// copy's.
-	ErrTicket = fault.New(fault.Forbidden, "this link was already used or has expired; press Open again in AppTown")
-	// ErrRestoreNotStopped: a restored copy's start runs to its end; what
-	// it made is taken down from the card, or when its time runs out.
-	ErrRestoreNotStopped = fault.New(fault.Conflict, "a restored copy's start is not stopped part way: take the copy down from the card once it has started")
+	// copy's running check's.
+	ErrTicket = fault.New(fault.Forbidden, "this ticket was already used, has expired or is not this copy's check")
+	// ErrRestoreNotStopped: a restored copy's start runs to its end, which
+	// takes down what it made.
+	ErrRestoreNotStopped = fault.New(fault.Conflict, "a restored copy's start is not stopped part way: it takes the copy down itself when its checks are recorded")
 	// ErrRestoredCopyEndNotStopped: a restored copy's take-down runs to its
 	// end; one stopped half way would leave production data standing.
 	ErrRestoredCopyEndNotStopped = fault.New(fault.Conflict, "a restored copy's take-down is not stopped part way: stopping it would leave production data standing")
 	// ErrRestoredCopiesStand: a deployment with a restored copy standing is
 	// not taken down.
 	ErrRestoredCopiesStand = fault.New(fault.Conflict, "restored copies of this deployment still stand")
-	// ErrBrowserOnly: a ticket is issued only to a person's browser
-	// session, never to a token or an agent.
-	ErrBrowserOnly = fault.New(fault.Forbidden, "a restored copy is opened from AppTown in a browser, as yourself")
 )
 
 // RestoredCopyDependencies is what restored copies ask of the world.
@@ -108,7 +92,8 @@ type RestoredCopyDependencies struct {
 	// GateImage is the access gate's image, pinned by digest; "" refuses
 	// restored copies.
 	GateImage string
-	// AppTown is AppTown's public origin, where gates redeem tickets.
+	// AppTown is AppTown's public origin, where a gate redeems the ticket
+	// of AppTown's own check.
 	AppTown string
 	// Secrets gives a restored copy only what its rehearsal profile names.
 	Secrets RestoredCopySecrets
@@ -116,7 +101,7 @@ type RestoredCopyDependencies struct {
 	HTTP *http.Client
 	// Grace is how long the checks wait for the app to answer; 0 is 3 minutes.
 	Grace time.Duration
-	// TicketFor is how long a ticket from Open lasts; 0 is a minute.
+	// TicketFor is how long the gate check's ticket lasts; 0 is a minute.
 	TicketFor time.Duration
 }
 
@@ -140,25 +125,19 @@ type RestoredCopy struct {
 	Backup     ids.ID `json:"backup"`
 	Release    int64  `json:"release,omitempty"`
 	Target     string `json:"target,omitempty"`
-	Test       bool   `json:"test"`
 	AskedBy    string `json:"askedBy"`
 	// AskedByPrincipal is the asker's principal; zero for AppTown, or one
 	// not resolved to a person.
 	AskedByPrincipal ids.ID     `json:"askedByPrincipal,omitzero"`
 	StartedAt        stamp.Time `json:"startedAt"`
-	ExpiresAt        stamp.Time `json:"expiresAt,omitzero"`
-	// Open says people may enter it now: it stands, it is not a test, its
-	// checks found it ready and its time has not run out.
-	Open      bool       `json:"open"`
-	Outcome   string     `json:"outcome,omitempty"`
-	FailedAt  string     `json:"failedStep,omitempty"`
-	CheckedAt stamp.Time `json:"checkedAt,omitzero"`
+	Outcome          string     `json:"outcome,omitempty"`
+	FailedAt         string     `json:"failedStep,omitempty"`
+	CheckedAt        stamp.Time `json:"checkedAt,omitzero"`
 	// EndedAt is when its take-down was seen to remove it; EndDetail says
 	// how it ended, or what a take-down left.
 	EndedAt   stamp.Time     `json:"endedAt,omitzero"`
 	EndDetail string         `json:"endDetail,omitempty"`
 	Facts     RehearsalFacts `json:"facts"`
-	Entries   []GateEntry    `json:"entries"`
 	Operation ids.ID         `json:"operation"`
 	// Warning and Boundary are said on every card of a copy.
 	Warning  string `json:"warning"`
@@ -168,36 +147,19 @@ type RestoredCopy struct {
 	Protection string `json:"protection,omitempty"`
 }
 
-// GateEntry is one person let in through the gate.
-type GateEntry struct {
-	Person string `json:"person"`
-	// PersonPrincipal is the person's principal; zero when not resolved to one.
-	PersonPrincipal ids.ID     `json:"personPrincipal,omitzero"`
-	At              stamp.Time `json:"at"`
-}
-
-func (s *Service) restoredCopyRecord(ctx context.Context, r protectionsql.RestoredCopy) (*RestoredCopy, error) {
+func restoredCopyRecord(r protectionsql.RestoredCopy) (*RestoredCopy, error) {
 	c := &RestoredCopy{ID: r.ID, Number: r.Number, Source: r.Source, Deployment: r.Deployment, Backup: r.BackupID, Release: r.ReleaseNumber, Target: r.Target,
-		Test: r.IsTest, AskedBy: r.AskedBy, AskedByPrincipal: r.AskedByPrincipal, StartedAt: stamp.Of(r.StartedAt), ExpiresAt: stamp.Time{NullTime: r.ExpiresAt},
+		AskedBy: r.AskedBy, AskedByPrincipal: r.AskedByPrincipal, StartedAt: stamp.Of(r.StartedAt),
 		Outcome: r.Outcome, FailedAt: r.FailedStep, CheckedAt: stamp.Time{NullTime: r.CheckedAt}, EndedAt: stamp.Time{NullTime: r.EndedAt},
-		EndDetail: r.EndDetail, Operation: r.OperationID, Entries: []GateEntry{}, Warning: RestoredCopyWarning, Boundary: ProviderBoundary}
+		EndDetail: r.EndDetail, Operation: r.OperationID, Warning: RestoredCopyWarning, Boundary: ProviderBoundary}
 	if err := json.Unmarshal(r.FactsJson, &c.Facts); err != nil {
 		return nil, fmt.Errorf("restored copy %d facts: %w", r.ID, err)
 	}
 	if c.Facts.Checks == nil {
 		c.Facts.Checks = []RehearsalCheck{}
 	}
-	c.Open = !r.IsTest && !r.EndedAt.Valid && r.CheckedAt.Valid && readinessPassed(c.Facts) && gateHeld(c.Facts) && r.GateUrl != "" &&
-		r.ExpiresAt.Valid && s.now().Before(r.ExpiresAt.Time)
 	if r.CheckedAt.Valid && readinessPassed(c.Facts) && gateHeld(c.Facts) {
 		c.Protection = "AppTown gate, then the app's own sign-in where it has one"
-	}
-	rows, err := protectionsql.New(s.db.SQL()).RestoredCopyEntries(ctx, r.ID)
-	if err != nil {
-		return nil, err
-	}
-	for _, e := range rows {
-		c.Entries = append(c.Entries, GateEntry{Person: e.Person, PersonPrincipal: e.PersonPrincipal, At: stamp.Time{NullTime: e.RedeemedAt}})
 	}
 	return c, nil
 }
@@ -225,7 +187,7 @@ func (s *Service) RestoredCopiesOf(ctx context.Context, dep *deployment.Deployme
 	}
 	out := []RestoredCopy{}
 	for _, r := range rows {
-		c, err := s.restoredCopyRecord(ctx, r)
+		c, err := restoredCopyRecord(r)
 		if err != nil {
 			return nil, err
 		}
@@ -245,16 +207,13 @@ func (s *Service) LastRestoreTest(ctx context.Context, dep *deployment.Deploymen
 	if err != nil {
 		return nil, err
 	}
-	return s.restoredCopyRecord(ctx, r)
+	return restoredCopyRecord(r)
 }
 
-// RestoredCopyRequest is what a person asks for: a copy (0: the newest
-// good one in the store) and how long it stays open (0: a restore test,
-// taken down as soon as it is checked).
+// RestoredCopyRequest is what a person asks for: the copy to restore (0:
+// the newest good one in the store).
 type RestoredCopyRequest struct {
-	Backup  ids.ID `json:"backup"`
-	Minutes int64  `json:"minutes"`
-	Test    bool   `json:"test"`
+	Backup ids.ID `json:"backup"`
 }
 
 // restoredPlan is what a restored copy starts from.
@@ -345,31 +304,12 @@ func (s *Service) planRestoredCopy(ctx context.Context, projectID ids.ID, name s
 	return p, nil
 }
 
-// lifetimeOf is how long a request keeps the copy open; 0 is a test.
-func lifetimeOf(in RestoredCopyRequest) (time.Duration, error) {
-	if in.Test {
-		return 0, nil
-	}
-	d := time.Duration(in.Minutes) * time.Minute
-	switch {
-	case in.Minutes == 0:
-		return RestoredCopyDefault, nil
-	case d < 15*time.Minute || d > RestoredCopyMost:
-		return 0, fmt.Errorf("%w: a restored copy stays open between 15 minutes and %s", ErrRestoredCopy, RestoredCopyMost)
-	}
-	return d, nil
-}
-
-// RequestRestoredCopy starts a restored copy of a standing production
-// deployment: a restore test, or a copy people can open for a while. It
-// spends money and puts production data somewhere new, so it needs
+// RequestRestoredCopy starts a restore test of a standing production
+// deployment: a restored copy, checked and taken down. It spends money and
+// puts production data somewhere new for a while, so it needs
 // deployment:restore in the project; no agent carries it.
 func (s *Service) RequestRestoredCopy(ctx context.Context, projectID ids.ID, name string, in RestoredCopyRequest) (*operations.Operation, error) {
 	actor, err := s.requireAuthority(ctx, access.CapDeploymentRestore, projectID, "deployment.restored-copy")
-	if err != nil {
-		return nil, err
-	}
-	life, err := lifetimeOf(in)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +320,7 @@ func (s *Service) RequestRestoredCopy(ctx context.Context, projectID ids.ID, nam
 	if err != nil {
 		return nil, err
 	}
-	return s.admit(ctx, p.dep, OperationRestore, actor, []string{deployment.DataHold(p.dep)}, map[string]any{"backup": p.set.ID, "minutes": int64(life / time.Minute), "test": in.Test}, nil)
+	return s.admit(ctx, p.dep, OperationRestore, actor, []string{deployment.DataHold(p.dep)}, map[string]any{"backup": p.set.ID}, nil)
 }
 
 // newGateSecret is 32 random bytes, as the gate reads them (64 hex).
@@ -403,10 +343,7 @@ func restoredCopyName(number int64) string { return fmt.Sprintf("copy-%d", numbe
 
 func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, map[string]any) {
 	set := inputID(t.op.Input, "backup")
-	minutes, _ := t.op.Input["minutes"].(float64)
-	test, _ := t.op.Input["test"].(bool)
 	result := map[string]any{"backup": set}
-	life := time.Duration(minutes) * time.Minute
 
 	t.begin(ctx, "choosing the copy and the release")
 	p, err := s.planRestoredCopy(ctx, t.op.ProjectID, t.op.Deployment, set)
@@ -427,7 +364,7 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 	}
 	asker := t.op.Authority.Actor()
 	row, err := q.InsertRestoredCopy(ctx, protectionsql.InsertRestoredCopyParams{ID: ids.New(s.now()), ProjectID: p.dep.ProjectID, Source: p.dep.Name, SourceID: p.dep.ID,
-		OperationID: t.op.ID, BackupID: p.set.ID, IsTest: test, LifetimeMinutes: int64(minutes), AskedBy: t.op.AskedBy, AskedByPrincipal: asker.Principal, AskedByVia: asker.Via, AppMarker: marker, At: s.now()})
+		OperationID: t.op.ID, BackupID: p.set.ID, AskedBy: t.op.AskedBy, AskedByPrincipal: asker.Principal, AskedByVia: asker.Via, AppMarker: marker, At: s.now()})
 	if err != nil {
 		return OperationFailed, "nothing was made: recording the copy: " + err.Error(), result
 	}
@@ -442,16 +379,15 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 
 	t.begin(ctx, "making the place")
 	placed := s.now()
-	expires := placed.UTC().Add(life)
 	dep, err := s.deployments.PlaceRestoredCopy(ctx, deployment.RestoredPlacement{ProjectID: p.dep.ProjectID,
-		Name: restoredCopyName(row.Number), TargetID: p.target.ID, DataClass: p.dep.DataClass, ExpiresAt: expires, BackupID: p.set.ID, At: placed})
+		Name: restoredCopyName(row.Number), TargetID: p.target.ID, DataClass: p.dep.DataClass, BackupID: p.set.ID, At: placed})
 	if err != nil {
 		s.endRestoredCopy(ctx, row.ID, "nothing was made: "+err.Error())
 		return OperationFailed, "nothing was made: making its deployment record: " + err.Error(), result
 	}
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
 		n, err := protectionsql.New(tx.SQL()).PlaceRestoredCopy(ctx, protectionsql.PlaceRestoredCopyParams{ID: row.ID, Deployment: dep.Name, DeploymentID: dep.ID, ReleaseNumber: p.release.Number,
-			Target: p.target.Name, ExpiresAt: sql.NullTime{Time: expires, Valid: true}, SecretSha256: digestOf(secret)})
+			Target: p.target.Name, SecretSha256: digestOf(secret)})
 		if err != nil {
 			return err
 		}
@@ -459,7 +395,7 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 			return errors.New("the copy's record changed")
 		}
 		return audit.At(placed).RecordIn(ctx, tx, t.op.AskedBy, p.dep.ProjectID, "deployment.restored-copy-started", p.dep.Name, map[string]any{
-			"copy": row.ID, "deployment": dep.Name, "backup": p.set.ID, "release": p.release.Number, "target": p.target.Name, "test": test, "expires": expires})
+			"copy": row.ID, "deployment": dep.Name, "backup": p.set.ID, "release": p.release.Number, "target": p.target.Name})
 	})
 	if err != nil {
 		return s.restoreFailed(ctx, t, row.ID, dep, "making the place", err, result)
@@ -507,7 +443,7 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 	}
 	if err := s.recordRestoredCheck(ctx, row.ID, outcome, failedStep, facts, func(tx *database.Tx) error {
 		return audit.At(s.now()).RecordIn(ctx, tx, t.op.AskedBy, p.dep.ProjectID, "deployment.restore-tested", p.dep.Name, map[string]any{
-			"copy": row.ID, "operation": t.op.ID, "outcome": outcome, "test": test, "backup": p.set.ID, "backupDigests": setDigests(p.set),
+			"copy": row.ID, "operation": t.op.ID, "outcome": outcome, "backup": p.set.ID, "backupDigests": setDigests(p.set),
 			"release": p.release.Number, "images": facts.Images, "target": p.target.Name, "checks": facts.Checks, "gate": facts.Gate,
 			"withheld": facts.Withheld, "notStarted": facts.NotStarted, "egress": facts.Egress})
 	}); err != nil {
@@ -515,27 +451,17 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 	}
 	result["outcome"] = outcome
 
-	// A test, a copy that is not ready, or one whose gate failed its check
-	// (it may let anyone in, or nobody) is taken down now; a copy that
-	// answers stays open for people to look, even when a data check failed
-	// (they may be looking for exactly that).
-	if test || !readinessPassed(facts) || !held {
-		left := s.takeDownRestored(ctx, t, row.ID, dep, nil)
-		detail := fmt.Sprintf("release %d on set %d's data on %s answered %s", p.release.Number, p.set.ID, p.target.Name, answers)
-		state := OperationVerified
-		if !passed {
-			state, detail = OperationFailed, "the restored copy did not pass: "+detail
-		}
-		if left != "" {
-			state, detail = OperationFailed, detail+"; "+left
-		}
-		return state, detail, result
-	}
-	detail := fmt.Sprintf("open until %s: release %d on set %d's data on %s answered %s", expires.Format("15:04 MST 2 Jan"), p.release.Number, p.set.ID, p.target.Name, answers)
+	// The copy is taken down as soon as its check is recorded.
+	left := s.takeDownRestored(ctx, t, row.ID, dep, nil)
+	detail := fmt.Sprintf("release %d on set %d's data on %s answered %s", p.release.Number, p.set.ID, p.target.Name, answers)
+	state := OperationVerified
 	if !passed {
-		return OperationNotVerified, detail + "; a data check failed", result
+		state, detail = OperationFailed, "the restored copy did not pass: "+detail
 	}
-	return OperationVerified, detail, result
+	if left != "" {
+		state, detail = OperationFailed, detail+"; "+left
+	}
+	return state, detail, result
 }
 
 func checkAnswers(f RehearsalFacts) string {
@@ -789,12 +715,12 @@ const gateCheckFor = 2 * time.Minute
 // proves the door as well as the app without a person signing in. At the
 // gate's public address it asks the readiness path with no token and with
 // a wrong one (each the gate's own empty 404, marked by the gate and not
-// to be stored), and enters with a made-up ticket (the gate's 403). Then it issues a ticket to itself, as Open issues a person's, and
+// to be stored), and enters with a made-up ticket (the gate's 403). Then it issues a one-use ticket to itself and
 // enters with it once: the gate redeems it with AppTown (RedeemGateTicket)
 // and answers with a session. The same ticket is refused a second time, and
 // the session is served the app's readiness path. The ticket lives only
 // here and is used up by the check; AppTown's redemption is its own
-// receipt, never a person's entry. Each answer is a step and a fact (status
+// receipt. Each answer is a step and a fact (status
 // codes only); it reports whether every one passed.
 func (s *Service) checkGate(ctx context.Context, t *tracker, url string, copyID ids.ID, c *appcontract.Contract, facts *RehearsalFacts) bool {
 	client := s.gateClient()
@@ -1251,89 +1177,10 @@ func (s *Service) runRestoredTakeDown(ctx context.Context, t *tracker) (runEnd, 
 	return OperationDone, "taken down; no final copy was taken (its data is a copy of a copy)", map[string]any{"copy": r.ID}
 }
 
-// ExtendRestoredCopy keeps an open restored copy open until now plus the
-// given minutes. It needs deployment:restore, as starting it did; the
-// receipt names who extended it and until when.
-func (s *Service) ExtendRestoredCopy(ctx context.Context, projectID ids.ID, id ids.ID, minutes int64) (*RestoredCopy, error) {
-	actor, err := s.requireAuthority(ctx, access.CapDeploymentRestore, projectID, "deployment.restored-copy.extend")
-	if err != nil {
-		return nil, err
-	}
-	life, err := lifetimeOf(RestoredCopyRequest{Minutes: minutes})
-	if err != nil {
-		return nil, err
-	}
-	r, err := s.restoredCopyIn(ctx, projectID, id)
-	if err != nil {
-		return nil, err
-	}
-	at := s.now()
-	until := at.UTC().Add(life)
-	err = s.db.InTx(ctx, func(tx *database.Tx) error {
-		q := protectionsql.New(tx.SQL())
-		n, err := q.ExtendRestoredCopy(ctx, protectionsql.ExtendRestoredCopyParams{ID: id, ExpiresAt: sql.NullTime{Time: until, Valid: true}})
-		if err != nil {
-			return err
-		}
-		if n != 1 {
-			return fmt.Errorf("%w: copy %d is a test or was taken down", ErrRestoredCopy, id)
-		}
-		if err := deployment.ExtendRestoredCopyIn(ctx, tx, r.DeploymentID, until); err != nil {
-			return err
-		}
-		return audit.At(at).RecordIn(ctx, tx, actor.Name, projectID, "deployment.restored-copy-extended", r.Source, map[string]any{"copy": id, "deployment": r.Deployment, "until": until})
-	})
-	if err != nil {
-		return nil, err
-	}
-	r, err = s.restoredCopyIn(ctx, projectID, id)
-	if err != nil {
-		return nil, err
-	}
-	return s.restoredCopyRecord(ctx, r)
-}
-
-// OpenRestoredCopy issues a one-use ticket for a person to enter an open
-// restored copy, and the address that redeems it at the copy's gate. Only
-// a person signed in to AppTown in a browser, who holds
-// deployment:open-restored in the project, gets one; the ticket is kept
-// as its SHA-256, is bound to that person and that copy, and lasts a
-// minute. Issuing it is not an entry: the entry is witnessed when the gate
-// redeems it (RedeemGateTicket).
-func (s *Service) OpenRestoredCopy(ctx context.Context, projectID ids.ID, id ids.ID) (string, error) {
-	if s.authority == nil {
-		return "", errors.New("restored copies are not configured")
-	}
-	caller, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentOpenRestored, Resource: projectResource(projectID),
-		Context: access.Context{Route: "deployment.restored-copy.open", Consequential: true}})
-	if err != nil {
-		return "", err
-	}
-	if caller.Principal.Name == "" || access.AgentCredential(caller.Principal) || (caller.Principal.Via != "session" && caller.Principal.Via != "proxy") {
-		return "", ErrBrowserOnly
-	}
-	r, err := s.restoredCopyIn(ctx, projectID, id)
-	if err != nil {
-		return "", err
-	}
-	c, err := s.restoredCopyRecord(ctx, r)
-	if err != nil {
-		return "", err
-	}
-	if !c.Open {
-		return "", fmt.Errorf("%w: copy %d is not open (a test, not ready, out of time or taken down)", ErrRestoredCopy, id)
-	}
-	ticket, err := s.issueTicket(ctx, id, caller.Principal.Name, ids.Nil)
-	if err != nil {
-		return "", err
-	}
-	return r.GateUrl + gate.EnterPath + "?ticket=" + ticket, nil
-}
-
 // issueTicket records a one-use ticket to a copy's gate for holder, kept
 // by its SHA-256 and lasting a minute (TicketFor), and answers it. checkOp
-// is 0 for a person's Open, or the copy's start operation when the ticket
-// is AppTown's own gate check (checkGate).
+// is the copy's start operation: the ticket lets in only AppTown's own gate
+// check (checkGate).
 func (s *Service) issueTicket(ctx context.Context, copyID ids.ID, holder string, checkOp ids.ID) (string, error) {
 	ticket, err := newGateSecret()
 	if err != nil {
@@ -1356,23 +1203,17 @@ func (s *Service) issueTicket(ctx context.Context, copyID ids.ID, holder string,
 }
 
 // GateEntryGrant is what a redeemed ticket lets the gate do: admit this
-// person until then.
+// holder until then.
 type GateEntryGrant struct {
 	Person string    `json:"person"`
 	Until  time.Time `json:"until"`
 }
 
-// RedeemGateTicket is a gate redeeming a person's ticket. The gate proves
-// it is a standing copy's by its secret, and the ticket must be that
-// copy's, unused and within its minute. The person's grant is checked
-// again now; then the ticket is used and the entry's receipt written in
-// one transaction, so of two redemptions at once at most one succeeds and
-// every entry has its receipt. The grant lasts until the copy's expiry or
-// an hour, whichever is sooner. The receipt says the gate let this person
-// in; it does not say they signed in to the app, or what they read.
-//
-// A ticket AppTown issued itself for checkGate is redeemed by the same
-// rule, and lets in only that check: see redeemCheckTicket.
+// RedeemGateTicket is a gate redeeming the ticket of AppTown's own gate
+// check. The gate proves it is a standing copy's by its secret, and the
+// ticket must be that copy's, unused and within its minute. The ticket is
+// used and the receipt written in one transaction, so of two redemptions
+// at once at most one succeeds: see redeemCheckTicket.
 func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (GateEntryGrant, error) {
 	if secret == "" || ticket == "" {
 		return GateEntryGrant{}, ErrGateCredential
@@ -1382,10 +1223,6 @@ func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (
 	if errors.Is(err, sql.ErrNoRows) {
 		return GateEntryGrant{}, ErrGateCredential
 	}
-	if err != nil {
-		return GateEntryGrant{}, err
-	}
-	c, err := s.restoredCopyRecord(ctx, r)
 	if err != nil {
 		return GateEntryGrant{}, err
 	}
@@ -1399,35 +1236,8 @@ func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (
 		if err != nil {
 			return err
 		}
-		if !used.CheckOperation.IsZero() {
-			grant, err = s.redeemCheckTicket(ctx, tx, r, used.CheckOperation, at)
-			return err
-		}
-		// A person enters only an open copy.
-		if !c.Open {
-			return ErrTicket
-		}
-		person := used.Person
-		// The person may have lost the grant since Open: ask again, as the
-		// principal the ticket was issued to, whatever their name is now; a
-		// ticket naming no principal lets nobody in. The ticket stays used
-		// either way.
-		if used.PersonPrincipal.IsZero() {
-			return ErrTicket
-		}
-		as := access.WithCaller(ctx, access.Caller{Principal: access.Principal{ID: used.PersonPrincipal, Kind: "user", Name: person, Via: "gate-ticket"}, Verified: true, Receipt: person})
-		if _, err := s.authority.Require(as, access.Permission{Capability: access.CapDeploymentOpenRestored, Resource: projectResource(r.ProjectID),
-			Context: access.Context{Route: "deployment.restored-copy.enter", Consequential: true}}); err != nil {
-			return err
-		}
-		until := at.UTC().Add(GateSessionMost)
-		if r.ExpiresAt.Time.Before(until) {
-			until = r.ExpiresAt.Time.UTC()
-		}
-		grant = GateEntryGrant{Person: person, Until: until}
-		return audit.At(at).RecordIn(as, tx, person, r.ProjectID, "deployment.gate-entered", r.Source, map[string]any{
-			"copy": r.ID, "deployment": r.Deployment, "backup": r.BackupID, "until": until,
-			"meaning": "AppTown gate admitted this person to the restored copy; it does not record signing in to the app or what was read"})
+		grant, err = s.redeemCheckTicket(ctx, tx, r, used.CheckOperation, at)
+		return err
 	})
 	return grant, err
 }
@@ -1436,8 +1246,7 @@ func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (
 // the ticket must have been issued by the copy's own start, and that start
 // must still be running. Nobody's grant is asked, because no person enters;
 // the session is AppTown's, for a couple of minutes, and the receipt
-// (deployment.gate-checked) names AppTown, never a person, and is not an
-// entry on the card.
+// (deployment.gate-checked) names AppTown.
 func (s *Service) redeemCheckTicket(ctx context.Context, tx *database.Tx, r protectionsql.RestoredCopy, checkOp ids.ID, at time.Time) (GateEntryGrant, error) {
 	if checkOp != r.OperationID || s.ops == nil {
 		return GateEntryGrant{}, ErrTicket
@@ -1458,15 +1267,11 @@ func (s *Service) redeemCheckTicket(ctx context.Context, tx *database.Tx, r prot
 		"meaning": "AppTown's own check of the restored copy's gate: a ticket its start issued to itself, redeemed once through the gate; nobody entered"})
 }
 
-// SweepRestoredCopies takes down every restored copy whose time is up, and
-// every one a start left standing (a test, or a start AppTown stopped in
-// the middle of or that failed): each by a take-down operation of its own.
-// A copy whose start made no deployment record made nothing, and is ended.
+// SweepRestoredCopies takes down every restored copy a start left standing
+// (one AppTown stopped in the middle of, or whose take-down failed): each
+// by a take-down operation of its own. A copy whose start made no
+// deployment record made nothing, and is ended.
 func (s *Service) SweepRestoredCopies(ctx context.Context) (started int, skipped []string, err error) {
-	return s.sweepRestoredCopies(ctx, s.now())
-}
-
-func (s *Service) sweepRestoredCopies(ctx context.Context, now time.Time) (started int, skipped []string, err error) {
 	if s.ops == nil {
 		return 0, nil, nil
 	}
@@ -1476,8 +1281,7 @@ func (s *Service) sweepRestoredCopies(ctx context.Context, now time.Time) (start
 		return 0, nil, err
 	}
 	for _, r := range open {
-		// A copy is due its take-down when its start has ended and its time
-		// is up, it was a test, or its start failed or is unknown.
+		// A copy is due its take-down once its start has ended.
 		start, err := s.ops.ByID(ctx, r.OperationID)
 		if errors.Is(err, operations.ErrMissing) {
 			start = nil
@@ -1485,10 +1289,6 @@ func (s *Service) sweepRestoredCopies(ctx context.Context, now time.Time) (start
 			return started, skipped, err
 		}
 		if start != nil && start.State.Live() {
-			continue
-		}
-		failed := start == nil || start.State == operations.Failed || start.State == operations.Unknown || start.State == operations.Cancelled
-		if !(failed || r.IsTest || !r.ExpiresAt.Valid || !r.ExpiresAt.Time.After(now)) {
 			continue
 		}
 		if r.DeploymentID.IsZero() {

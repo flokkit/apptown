@@ -61,10 +61,10 @@ func main() {
 			if !ok || fn.Body == nil {
 				continue
 			}
-			// The raw body contracts are the bounded opaque webhook payload and
-			// the Git bundle a project starts from, which its owner spools
-			// within the operator's limit (projectlifecycle.SeedFromBundle).
-			if base == "json_command.go" && fn.Name.Name == "jsonCommand" || base == "webhook.go" && fn.Name.Name == "Webhook" ||
+			// The raw body contract is the Git bundle a project starts from,
+			// which its owner spools within the operator's limit
+			// (projectlifecycle.SeedFromBundle).
+			if base == "json_command.go" && fn.Name.Name == "jsonCommand" ||
 				base == "repository_setup.go" && fn.Name.Name == "SeedFromBundle" {
 				continue
 			}

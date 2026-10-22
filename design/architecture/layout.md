@@ -93,8 +93,7 @@ authentication, instance startup/shutdown and protocol wiring are deliberate
 responsibilities. Remaining application operations must have a documented owner
 or a specific retained reason. Nothing arrives here by default.
 A protocol handler here keeps the protocol and asks the owner for the rule:
-the Git handler asks `workflow` what a step's token may push, and the
-`-drain-local-docker` startup asks `maintenance` what local work is left.
+the Git handler asks `workflow` what a step's token may push.
 A new file here raises `rootfiles` or `roottests`: retire one, or raise the
 baseline in the same commit and say why the file is assembly or a cross-owner
 guarantee.
@@ -128,9 +127,10 @@ Promote `internal/apptown/<x>` to `internal/<x>` when **all** hold:
 4. Something outside AppTown could plausibly use it, even if nothing does.
 
 `check` is the worked example: the judge was App code, then a subsystem, then a
-library with its own binary, because a rule evaluated against evidence never
-needed to know whose project it was. `deploy` is another: run a described app on
-a target, no records.
+library, because a rule evaluated against evidence never needed to know whose
+project it was. `deploy` is another: run a described app on a target, no
+records. The shape check's `standalone` rule lists what each library may not
+link, directly or through its imports.
 
 Do not promote for size. A large subsystem is a large subsystem. Promote when
 the product vocabulary genuinely drops out — and if removing it takes a

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/gitexec"
 
 	"github.com/flokkit/apptown/internal/poll"
@@ -196,7 +197,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	// message, then fails only on asking the model.
 	models := `{"providers":{"fake":{"baseUrl":"http://127.0.0.1:9/v1","api":"openai-completions","apiKey":"$APPTOWN_SESSION_TOKEN",` +
 		`"authHeader":true,"models":[{"id":"m1","contextWindow":32768,"maxTokens":1024}]}}}`
-	env := console.Static{Provision: console.Provision{Model: "fake/m1", Env: []string{"APPTOWN_SESSION_TOKEN=unused"},
+	env := consoletest.Static{Provision: console.Provision{Model: "fake/m1", Env: []string{"APPTOWN_SESSION_TOKEN=unused"},
 		Files: map[string]console.Staged{"pi-home/.pi/agent/models.json": {Data: []byte(models)}}}}
 	svc := console.New(console.Dependencies{Agent: agent, Environment: env, Config: console.Config{DataDir: data}})
 	s, err := svc.Open(ctx, console.OpenRequest{Scope: "change:1", Workspace: console.Workspace{Path: t.TempDir(), Writable: true},

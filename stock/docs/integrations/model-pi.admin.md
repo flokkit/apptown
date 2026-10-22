@@ -40,9 +40,9 @@ also need AppTown's private inference listener; setting it up is under
 Integrations → Model slots. Workflows say `model: review` (a slot
 name); the slot maps to a concrete pattern. Stock slots: default, plan,
 implement, review, security, fast, chat (the project chat), worker and
-scout (a helper's delegates), draft (the workflow-drafting assistant).
+scout (a helper's delegates).
 An unmapped slot falls back along a visible chain — security → review,
-scout and draft → fast, everything else → default — and every chain
+scout → fast, everything else → default — and every chain
 ends at default.
 
 The table has a column per **profile**: `standard` and `high` ship, and

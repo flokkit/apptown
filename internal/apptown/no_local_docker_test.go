@@ -11,19 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/apptown/jobs"
-	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
-	"github.com/flokkit/apptown/internal/dbtest"
-	"github.com/flokkit/apptown/internal/ids/idstest"
-
-	"github.com/flokkit/apptown/internal/apptown/conversation"
-	"github.com/flokkit/apptown/internal/apptown/maintenance"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
-	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
@@ -52,21 +43,6 @@ func modeApp(t *testing.T, db *database.DB, dataDir string) *App {
 	t.Helper()
 	return newApp(t, db, Config{DataDir: dataDir, NoLocalDocker: true, ConsoleCLI: fixtureCLI(t), DockerClient: ownDockerTripwire{t},
 		Worker: workerClientConfig(t, workertest.NewCA(t), "https://worker.invalid")})
-}
-
-// drainApp is AppTown with its own Docker on db and dataDir, run with
-// -drain-local-docker. Its Docker lists containers (each a line as the drain
-// asks docker ps for it: name, then its AppTown.class, apptown.task, apptown.step
-// and apptown.writes labels, tab-separated); it is asked nothing else.
-func drainApp(t *testing.T, db *database.DB, dataDir string, containers ...string) *App {
-	t.Helper()
-	return newApp(t, db, Config{DataDir: dataDir, DrainLocalDocker: true, ConsoleCLI: fixtureCLI(t), DockerClient: dockerClientFunc(func(_ context.Context, host string, req docker.Command) ([]byte, error) {
-		if host == "" && len(req.Args) > 0 && req.Args[0] == "ps" {
-			return []byte(strings.Join(containers, "\n")), nil
-		}
-		t.Errorf("the drain asked Docker: %s", strings.Join(req.Args, " "))
-		return nil, errors.New("not answered in this test")
-	})})
 }
 
 // The mode starts only with a worker and an external database: the built-in
@@ -115,199 +91,7 @@ func TestTheNoLocalDockerModeRefusesAppTownsOwnDockerAndProjectProcesses(t *test
 	}
 }
 
-// The drain into the mode is refused while the records hold local work,
-// naming it, before Docker is asked; nothing is marked stopped or cleaned.
-// Work on the worker alone does not stop it.
-func TestTheDrainIntoTheNoLocalDockerModeIsRefusedWhileLocalWorkIsLeft(t *testing.T) {
-	t.Parallel()
-	reserve := func(t *testing.T, a *App, step *workflow.Step, backend string) string {
-		t.Helper()
-		run, err := workflow.ReadRunIn(context.Background(), a.DB, step.RunID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		op := taskKeyOf(step)
-		if _, err := a.tasks.Records.Reserve(context.Background(), tasks.Admission{Operation: op, Owner: tasks.Owner{ProjectID: run.ProjectID, RunID: run.ID, StepID: step.ID, Attempt: 1},
-			Invocation: tasks.ScriptInvocation, Backend: backend, Container: "apptown-task-" + op, Digest: "d",
-			Admitted: execution.Admission{Profile: "fixture", Network: execution.NetworkDefault}, Deadline: time.Now().Add(time.Hour)}); err != nil {
-			t.Fatal(err)
-		}
-		return op
-	}
-	start := func(t *testing.T, a *App) error {
-		t.Helper()
-		return drainApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context())
-	}
-	t.Run("a local task", func(t *testing.T) {
-		t.Parallel()
-		a, _, step := fakeTaskFixture(t, false)
-		op := reserve(t, a, step, a.tasks.Backend)
-		if err := start(t, a); err == nil || !strings.Contains(err.Error(), "task "+op) || !strings.Contains(err.Error(), "without -no-local-docker") {
-			t.Fatalf("a drain with an unsettled local task: %v", err)
-		}
-		code := 0
-		if err := a.tasks.Records.Settle(context.Background(), op, &code, "done"); err != nil {
-			t.Fatal(err)
-		}
-		if err := start(t, a); err == nil || !strings.Contains(err.Error(), "task "+op) {
-			t.Fatalf("a drain with a settled local task not released: %v", err)
-		}
-		if err := a.tasks.Records.ConfirmRelease(context.Background(), op); err != nil {
-			t.Fatal(err)
-		}
-		if err := start(t, a); err != nil {
-			t.Fatalf("a drain once the task is released: %v", err)
-		}
-	})
-	t.Run("an outstanding workflow cleanup", func(t *testing.T) {
-		t.Parallel()
-		a := testApp(t)
-		if err := a.DB.InTx(context.Background(), func(tx *database.Tx) error {
-			return jobQueue{}.EnqueueIn(context.Background(), tx, jobs.Request{Operation: workflowCompletionJob, Key: "1/cleanup", Values: map[string]any{"runId": 1, "effect": "cleanup"}})
-		}); err != nil {
-			t.Fatal(err)
-		}
-		if err := start(t, a); err == nil || !strings.Contains(err.Error(), workflowCompletionJob+" 1/cleanup") {
-			t.Fatalf("a drain with an outstanding workflow cleanup: %v", err)
-		}
-	})
-	t.Run("work on the worker only", func(t *testing.T) {
-		t.Parallel()
-		a, _, step := scriptTaskFixtureIn(t, testApp(t, Config{ConsoleAgent: consoletest.NewAgent(), ConsoleCLI: fixtureCLI(t), InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}}), map[string]any{"run": "true"})
-		reserve(t, a, step, maintenance.WorkerBackend+"https://worker.example")
-		if _, err := a.Console.Open(context.Background(), console.OpenRequest{Scope: "change:1", Labels: map[string]string{conversation.PlacementLabel: conversation.OnWorker},
-			Workspace: console.Workspace{Path: t.TempDir()}, Actor: "bls"}); err != nil {
-			t.Fatal(err)
-		}
-		if live, err := a.Console.Unended(); err != nil || len(live) != 1 || !conversation.OnWorkerRecord(live[0]) {
-			t.Fatalf("the chat on the worker: %+v %v", live, err)
-		}
-		if err := start(t, a); err != nil {
-			t.Fatalf("a drain with work on the worker only: %v", err)
-		}
-	})
-}
-
-// An AppTown in the mode cannot see its own Docker, so an AppTown that last ran
-// with it is not admitted to the mode until a drain has witnessed that
-// Docker. An agent on an AppTown without a worker runs with no task attempt, so
-// a crash leaves only its step recorded running and its container: startup
-// repair ends the step, and the drain still refuses while Docker lists the
-// container, naming it. Once Docker lists no execution container (a release
-// container on the built-in target and the built-in database are not
-// writers), the drain is recorded and the mode starts.
-func TestTheDrainIntoTheNoLocalDockerModeWitnessesAppTownsOwnDocker(t *testing.T) {
-	t.Parallel()
-	a := agentTestApp(t)
-	if err := a.RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	_, stepID := admittedRunnerStep(t, a, "cutover", "agent", "agent/pi", false)
-	if held, err := a.tasks.Records.Held(context.Background()); err != nil || len(held) != 0 {
-		t.Fatalf("a local agent has no task attempt: %+v %v", held, err)
-	}
-	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "apptownd -drain-local-docker") {
-		t.Fatalf("a start in the mode with no drain: %v", err)
-	}
-	if step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID); err != nil || step.Status != workflow.StatusRunning {
-		t.Fatalf("the refused start changed the step: %+v %v", step, err)
-	}
-	agent := fmt.Sprintf("apptown-step-%d-agent\tstep\t\t%d\t/data/runs/1", stepID, stepID)
-	for _, left := range []string{agent, "apptown-task-ns-op\t\top\t\t", "forge-script\t\t\t7\t/data/runs/1"} {
-		name, _, _ := strings.Cut(left, "\t")
-		if err := drainApp(t, a.DB, a.cfg.dataDir, left).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), name) {
-			t.Fatalf("a drain with %s on AppTown's Docker: %v", name, err)
-		}
-		if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil {
-			t.Fatalf("the mode started after a drain that saw %s", name)
-		}
-	}
-	if step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID); err != nil || step.Status != workflow.StatusError {
-		t.Fatalf("startup repair of the step: %+v %v", step, err)
-	}
-	if err := drainApp(t, a.DB, a.cfg.dataDir, "apptown-env-game-main\tenv\t\t\t", "forge-db\tinfra\t\t\t", "someone-elses\t\t\t\t").RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatalf("a drain with no execution container left: %v", err)
-	}
-	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatalf("the start in the mode after the drain: %v", err)
-	}
-}
-
-// A Docker that cannot be asked witnesses nothing: no drain is recorded.
-func TestTheDrainIsNotRecordedWhenAppTownsDockerCannotBeAsked(t *testing.T) {
-	t.Parallel()
-	a := agentTestApp(t)
-	if err := a.RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	d := newApp(t, a.DB, Config{DataDir: a.cfg.dataDir, DrainLocalDocker: true, ConsoleCLI: fixtureCLI(t), DockerClient: dockerClientFunc(func(context.Context, string, docker.Command) ([]byte, error) {
-		return []byte("Cannot connect to the Docker daemon"), errors.New("exit status 1")
-	})})
-	if err := d.RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "could not be asked") {
-		t.Fatalf("a drain with no Docker to ask: %v", err)
-	}
-	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil {
-		t.Fatal("the mode started after a drain that could not ask Docker")
-	}
-}
-
-// A drain admits the switch into the mode, and restarts in it; a start with
-// local Docker after it needs another drain. The drain itself needs the
-// AppTown's own Docker, so it is refused in the mode.
-func TestADrainIsNeededAgainAfterAStartWithLocalDocker(t *testing.T) {
-	t.Parallel()
-	a := agentTestApp(t)
-	if err := a.RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	mode := func() error { return modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()) }
-	if err := mode(); err == nil {
-		t.Fatal("the mode started after a start with local Docker and no drain")
-	}
-	if err := drainApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	for range 2 {
-		if err := mode(); err != nil {
-			t.Fatalf("a start in the mode after the drain: %v", err)
-		}
-	}
-	if err := (Config{NoLocalDocker: true, DrainLocalDocker: true, Worker: workerClientConfig(t, workertest.NewCA(t), "https://worker.invalid")}).Validate(); err == nil || !strings.Contains(err.Error(), "without -no-local-docker") {
-		t.Fatalf("a drain in the mode: %v", err)
-	}
-	if err := a.RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if err := mode(); err == nil || !strings.Contains(err.Error(), "apptownd -drain-local-docker") {
-		t.Fatalf("the mode after a start with local Docker since the drain: %v", err)
-	}
-}
-
-// A local startup that fails after its repair has committed (here, recording
-// its Docker mode) has ended the step of a local agent without stopping it.
-// The switch into the mode stays refused: only a drain, which asks the
-// AppTown's own Docker, admits it.
-func TestAFailedLocalStartupLeavesTheSwitchIntoTheModeRefused(t *testing.T) {
-	t.Parallel()
-	a := agentTestApp(t)
-	if err := a.RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	_, stepID := admittedRunnerStep(t, a, "cutover", "agent", "agent/pi", false)
-	dbtest.FailNextStatement(t, a.DB, "INSERT INTO instance_settings")
-	if err := a.RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "recording the Docker mode") {
-		t.Fatalf("expected the local startup to fail: %v", err)
-	}
-	if step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID); err != nil || step.Status != workflow.StatusError {
-		t.Fatalf("repair state: %+v %v", step, err)
-	}
-	if err := modeApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "apptownd -drain-local-docker") {
-		t.Fatalf("the switch into the mode after a failed local startup: %v", err)
-	}
-}
-
-// A database no run was ever recorded in starts in the mode with no drain:
-// nothing local can have run.
+// A database no run was ever recorded in starts in the mode.
 func TestAFreshDatabaseStartsInTheNoLocalDockerMode(t *testing.T) {
 	t.Parallel()
 	if err := modeApp(t, testDB(t), "").RecoverInterruptedWork(t.Context()); err != nil {
@@ -338,40 +122,9 @@ func TestARestartInTheNoLocalDockerModeIsNotACutover(t *testing.T) {
 	}
 }
 
-// A deleted project's cleanup is outstanding until its owner records it
-// done: while pending, and once its attempts are spent and it waits for a
-// person, though its queued job has then completed.
-func TestTheNoLocalDockerCutoverRefusesCleanupNeedingAttention(t *testing.T) {
-	t.Parallel()
-	a, f, _ := purgeFixture(t)
-	fx := fixtureWork(t, a)
-	f.reply = func(args []string) (string, error, bool) {
-		if len(args) > 1 && args[0] == "rm" && args[len(args)-1] == docker.PreviewChangeName(fx.Change) {
-			return "permission denied", errors.New("exit status 1"), true
-		}
-		return "", nil, false
-	}
-	deleteProject(t, a, "game")
-	purgeProject(t, a, "game")
-	start := func() error { return drainApp(t, a.DB, a.cfg.dataDir).RecoverInterruptedWork(t.Context()) }
-	if err := start(); err == nil || !strings.Contains(err.Error(), "cleanup of deleted project game ("+idstest.N(1).String()+"), pending") {
-		t.Fatalf("a drain with a pending cleanup: %v", err)
-	}
-	for range projectlifecycle.CleanupAttempts {
-		runCleanup(t, a, idstest.N(1), 0)
-	}
-	if d, err := a.Projects.Deletion(context.Background(), idstest.N(1)); err != nil || d.State != project.CleanupNeedsAttention {
-		t.Fatalf("the spent cleanup: %+v %v", d, err)
-	}
-	if err := start(); err == nil || !strings.Contains(err.Error(), "cleanup of deleted project game ("+idstest.N(1).String()+"), needs-attention") {
-		t.Fatalf("a drain with a cleanup needing attention: %v", err)
-	}
-}
-
-// A chat AppTown ran keeps the drain into the mode refused until it has
-// ended. Then the drain is recorded and AppTown starts in the mode; the chat cannot be woken, its record stays,
-// and its change is handed to a workflow without asking Docker who writes
-// its folder.
+// A chat AppTown ran, ended before the switch, stays ended once AppTown starts
+// in the mode: it cannot be woken, its record stays, and its change is handed
+// to a workflow without asking Docker who writes its folder.
 func TestALocalChatIsEndedBeforeTheNoLocalDockerModeAndHandsItsChangeOn(t *testing.T) {
 	t.Parallel()
 	w := newHolderWorld(t)
@@ -379,14 +132,8 @@ func TestALocalChatIsEndedBeforeTheNoLocalDockerModeAndHandsItsChangeOn(t *testi
 	if code != 201 {
 		t.Fatalf("the chat: %d %s", code, body)
 	}
-	if err := drainApp(t, w.a.DB, w.a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), "chat "+id) {
-		t.Fatalf("a drain with a live local chat: %v", err)
-	}
 	if err := w.a.changeConsole.End(context.Background(), id, "owner"); err != nil {
 		t.Fatal(err)
-	}
-	if err := drainApp(t, w.a.DB, w.a.cfg.dataDir).RecoverInterruptedWork(t.Context()); err != nil {
-		t.Fatalf("a drain once the chat ended: %v", err)
 	}
 	b := modeApp(t, w.a.DB, w.a.cfg.dataDir)
 	if err := b.RecoverInterruptedWork(t.Context()); err != nil {

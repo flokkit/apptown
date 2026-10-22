@@ -15,7 +15,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
@@ -97,7 +96,7 @@ func newWiringFixture(t *testing.T) wiringFixture {
 		t.Fatal(err)
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: "operator", Via: "session"}, Receipt: "operator", Verified: true})
-	return wiringFixture{db: db, work: work, actions: New(work, wow.New(db, wow.Dependencies{}), db), project: id, ctx: ctx}
+	return wiringFixture{db: db, work: work, actions: New(work, db), project: id, ctx: ctx}
 }
 
 func (f wiringFixture) open(mode WiringMode) (*workflow.Change, *workflow.Run, error) {

@@ -33,24 +33,6 @@ func (q *Queries) AdvanceBlockVersion(ctx context.Context, arg AdvanceBlockVersi
 	return result.RowsAffected()
 }
 
-const advanceCatalogVersion = `-- name: AdvanceCatalogVersion :execrows
-UPDATE catalog_changes SET latest_version=$1,updated_at=$2 WHERE id=$3
-`
-
-type AdvanceCatalogVersionParams struct {
-	Version int64
-	At      time.Time
-	ID      ids.ID
-}
-
-func (q *Queries) AdvanceCatalogVersion(ctx context.Context, arg AdvanceCatalogVersionParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, advanceCatalogVersion, arg.Version, arg.At, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const advancePackVersion = `-- name: AdvancePackVersion :execrows
 UPDATE packs SET description=$1,spec_json=$2,updated_at=$3,latest_version=$4 WHERE id=$5
 `
@@ -364,140 +346,6 @@ func (q *Queries) BlocksMatchingMeta(ctx context.Context, arg BlocksMatchingMeta
 	return items, nil
 }
 
-const catalogByIDForUpdate = `-- name: CatalogByIDForUpdate :one
-SELECT id, name, description, latest_version, promoted_version, promoted_by, promoted_by_principal, promoted_by_via, promoted_at, promotion_note, created_at, updated_at FROM catalog_changes WHERE id=$1 FOR UPDATE
-`
-
-func (q *Queries) CatalogByIDForUpdate(ctx context.Context, id ids.ID) (CatalogChange, error) {
-	row := q.db.QueryRowContext(ctx, catalogByIDForUpdate, id)
-	var i CatalogChange
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Description,
-		&i.LatestVersion,
-		&i.PromotedVersion,
-		&i.PromotedBy,
-		&i.PromotedByPrincipal,
-		&i.PromotedByVia,
-		&i.PromotedAt,
-		&i.PromotionNote,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const catalogByName = `-- name: CatalogByName :one
-SELECT id, name, description, latest_version, promoted_version, promoted_by, promoted_by_principal, promoted_by_via, promoted_at, promotion_note, created_at, updated_at FROM catalog_changes WHERE name=$1
-`
-
-func (q *Queries) CatalogByName(ctx context.Context, name string) (CatalogChange, error) {
-	row := q.db.QueryRowContext(ctx, catalogByName, name)
-	var i CatalogChange
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Description,
-		&i.LatestVersion,
-		&i.PromotedVersion,
-		&i.PromotedBy,
-		&i.PromotedByPrincipal,
-		&i.PromotedByVia,
-		&i.PromotedAt,
-		&i.PromotionNote,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const catalogByNameForUpdate = `-- name: CatalogByNameForUpdate :one
-SELECT id, name, description, latest_version, promoted_version, promoted_by, promoted_by_principal, promoted_by_via, promoted_at, promotion_note, created_at, updated_at FROM catalog_changes WHERE name=$1 FOR UPDATE
-`
-
-func (q *Queries) CatalogByNameForUpdate(ctx context.Context, name string) (CatalogChange, error) {
-	row := q.db.QueryRowContext(ctx, catalogByNameForUpdate, name)
-	var i CatalogChange
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Description,
-		&i.LatestVersion,
-		&i.PromotedVersion,
-		&i.PromotedBy,
-		&i.PromotedByPrincipal,
-		&i.PromotedByVia,
-		&i.PromotedAt,
-		&i.PromotionNote,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const catalogChanges = `-- name: CatalogChanges :many
-SELECT id, name, description, latest_version, promoted_version, promoted_by, promoted_by_principal, promoted_by_via, promoted_at, promotion_note, created_at, updated_at FROM catalog_changes ORDER BY name
-`
-
-func (q *Queries) CatalogChanges(ctx context.Context) ([]CatalogChange, error) {
-	rows, err := q.db.QueryContext(ctx, catalogChanges)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []CatalogChange
-	for rows.Next() {
-		var i CatalogChange
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.LatestVersion,
-			&i.PromotedVersion,
-			&i.PromotedBy,
-			&i.PromotedByPrincipal,
-			&i.PromotedByVia,
-			&i.PromotedAt,
-			&i.PromotionNote,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const catalogVersion = `-- name: CatalogVersion :one
-SELECT id, catalog_id, version, definition_json, created_at FROM catalog_change_versions WHERE catalog_id=$1 AND version=$2
-`
-
-type CatalogVersionParams struct {
-	CatalogID ids.ID
-	Version   int64
-}
-
-func (q *Queries) CatalogVersion(ctx context.Context, arg CatalogVersionParams) (CatalogChangeVersion, error) {
-	row := q.db.QueryRowContext(ctx, catalogVersion, arg.CatalogID, arg.Version)
-	var i CatalogChangeVersion
-	err := row.Scan(
-		&i.ID,
-		&i.CatalogID,
-		&i.Version,
-		&i.DefinitionJson,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const checkDefinitionsAtVersions = `-- name: CheckDefinitionsAtVersions :many
 SELECT b.name,v.version,v.checks_json::text AS checks_json FROM guidance_blocks b
 JOIN guidance_block_versions v ON v.block_id=b.id
@@ -586,24 +434,6 @@ func (q *Queries) DeleteWorkflowVersions(ctx context.Context, libID ids.ID) (int
 	return result.RowsAffected()
 }
 
-const describeCatalogChange = `-- name: DescribeCatalogChange :execrows
-UPDATE catalog_changes SET description=$1,updated_at=$2 WHERE id=$3
-`
-
-type DescribeCatalogChangeParams struct {
-	Description string
-	At          time.Time
-	ID          ids.ID
-}
-
-func (q *Queries) DescribeCatalogChange(ctx context.Context, arg DescribeCatalogChangeParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, describeCatalogChange, arg.Description, arg.At, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const editLibraryPolicy = `-- name: EditLibraryPolicy :execrows
 UPDATE policy_library SET description=$1,rule=$2,config_json=$3,updated_at=$4 WHERE name=$5 AND origin=$6
 `
@@ -630,62 +460,6 @@ func (q *Queries) EditLibraryPolicy(ctx context.Context, arg EditLibraryPolicyPa
 		return 0, err
 	}
 	return result.RowsAffected()
-}
-
-const exportGuidanceVersion = `-- name: ExportGuidanceVersion :one
-SELECT jsonb_build_object('item', to_jsonb(b), 'version', to_jsonb(v))::text
-FROM guidance_blocks b JOIN guidance_block_versions v ON v.block_id = b.id
-WHERE b.name = $1 AND v.version = $2
-`
-
-type ExportGuidanceVersionParams struct {
-	Name    string
-	Version int64
-}
-
-// One library version's content, for moving a project that uses it to
-// another AppTown, where library numbering is local: the item and the version.
-func (q *Queries) ExportGuidanceVersion(ctx context.Context, arg ExportGuidanceVersionParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, exportGuidanceVersion, arg.Name, arg.Version)
-	var column_1 string
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const exportPackVersion = `-- name: ExportPackVersion :one
-SELECT jsonb_build_object('item', to_jsonb(p), 'version', to_jsonb(v))::text
-FROM packs p JOIN pack_versions v ON v.pack_id = p.id
-WHERE p.id = $1 AND v.version = $2
-`
-
-type ExportPackVersionParams struct {
-	ID      ids.ID
-	Version int64
-}
-
-func (q *Queries) ExportPackVersion(ctx context.Context, arg ExportPackVersionParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, exportPackVersion, arg.ID, arg.Version)
-	var column_1 string
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const exportWorkflowVersion = `-- name: ExportWorkflowVersion :one
-SELECT jsonb_build_object('item', to_jsonb(w), 'version', to_jsonb(v))::text
-FROM lib_workflows w JOIN lib_workflow_versions v ON v.lib_id = w.id
-WHERE w.name = $1 AND v.version = $2
-`
-
-type ExportWorkflowVersionParams struct {
-	Name    string
-	Version int64
-}
-
-func (q *Queries) ExportWorkflowVersion(ctx context.Context, arg ExportWorkflowVersionParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, exportWorkflowVersion, arg.Name, arg.Version)
-	var column_1 string
-	err := row.Scan(&column_1)
-	return column_1, err
 }
 
 const insertBlock = `-- name: InsertBlock :one
@@ -758,75 +532,6 @@ func (q *Queries) InsertBlockVersion(ctx context.Context, arg InsertBlockVersion
 		&i.Version,
 		&i.BodyMd,
 		&i.ChecksJson,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const insertCatalogChange = `-- name: InsertCatalogChange :one
-INSERT INTO catalog_changes(id, name,description,latest_version,promoted_version,promoted_by,promoted_at,promotion_note,created_at,updated_at)
-VALUES($1, $2,$3,1,0,'',NULL,'',$4,$4) RETURNING id, name, description, latest_version, promoted_version, promoted_by, promoted_by_principal, promoted_by_via, promoted_at, promotion_note, created_at, updated_at
-`
-
-type InsertCatalogChangeParams struct {
-	ID          ids.ID
-	Name        string
-	Description string
-	At          time.Time
-}
-
-func (q *Queries) InsertCatalogChange(ctx context.Context, arg InsertCatalogChangeParams) (CatalogChange, error) {
-	row := q.db.QueryRowContext(ctx, insertCatalogChange,
-		arg.ID,
-		arg.Name,
-		arg.Description,
-		arg.At,
-	)
-	var i CatalogChange
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Description,
-		&i.LatestVersion,
-		&i.PromotedVersion,
-		&i.PromotedBy,
-		&i.PromotedByPrincipal,
-		&i.PromotedByVia,
-		&i.PromotedAt,
-		&i.PromotionNote,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const insertCatalogVersion = `-- name: InsertCatalogVersion :one
-INSERT INTO catalog_change_versions(id, catalog_id,version,definition_json,created_at)
-VALUES($1, $2,$3,$4,$5) RETURNING id, catalog_id, version, definition_json, created_at
-`
-
-type InsertCatalogVersionParams struct {
-	ID         ids.ID
-	CatalogID  ids.ID
-	Version    int64
-	Definition json.RawMessage
-	At         time.Time
-}
-
-func (q *Queries) InsertCatalogVersion(ctx context.Context, arg InsertCatalogVersionParams) (CatalogChangeVersion, error) {
-	row := q.db.QueryRowContext(ctx, insertCatalogVersion,
-		arg.ID,
-		arg.CatalogID,
-		arg.Version,
-		arg.Definition,
-		arg.At,
-	)
-	var i CatalogChangeVersion
-	err := row.Scan(
-		&i.ID,
-		&i.CatalogID,
-		&i.Version,
-		&i.DefinitionJson,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -1410,36 +1115,6 @@ func (q *Queries) PacksIncluding(ctx context.Context, included string) ([]Pack, 
 		return nil, err
 	}
 	return items, nil
-}
-
-const promoteCatalogChange = `-- name: PromoteCatalogChange :execrows
-UPDATE catalog_changes SET promoted_version=$1,promoted_by=$2,promoted_by_principal=$3,promoted_by_via=$4,promoted_at=$5,promotion_note=$6,updated_at=$5 WHERE id=$7
-`
-
-type PromoteCatalogChangeParams struct {
-	Version        int64
-	Actor          string
-	ActorPrincipal ids.ID
-	ActorVia       string
-	At             sql.NullTime
-	Note           string
-	ID             ids.ID
-}
-
-func (q *Queries) PromoteCatalogChange(ctx context.Context, arg PromoteCatalogChangeParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, promoteCatalogChange,
-		arg.Version,
-		arg.Actor,
-		arg.ActorPrincipal,
-		arg.ActorVia,
-		arg.At,
-		arg.Note,
-		arg.ID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
 }
 
 const recommendPackVersion = `-- name: RecommendPackVersion :execrows

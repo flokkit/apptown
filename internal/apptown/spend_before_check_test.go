@@ -3,7 +3,6 @@ package apptown
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -25,28 +24,6 @@ func viewerAndContributor(t *testing.T, a *App) {
 		if a.addGrant("user", who, role, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "").IsZero() {
 			t.Fatalf("granting %s %s", who, role)
 		}
-	}
-}
-
-// The one-box change may spend on a model call to choose its title and
-// lane. A person who may not open and start the change is refused by that
-// authority before the choosing, not by the creation after it.
-func TestSimpleChangeRefusesAViewerBeforeChoosing(t *testing.T) {
-	t.Parallel()
-	a := authzFixture(t)
-	viewerAndContributor(t, a)
-	h := a.Handler()
-	w := authzCall(h, "vic", "POST", "/api/v1/projects/game/changes/simple", `{"text":"make the cat blue"}`)
-	if w.Code != 403 || w.Header().Get("X-AppTown-Deny-Code") == "" || !strings.Contains(w.Body.String(), "vic may not") {
-		t.Fatalf("a viewer's one-box change must be refused by authority: %d %s", w.Code, w.Body.String())
-	}
-	changes, err := a.Work.Changes(asPerson("owner"), idstest.N(1), workflow.ChangeList{})
-	if err != nil || len(changes) != 1 {
-		t.Fatalf("a refused one-box change opened a change: %+v %v", changes, err)
-	}
-	// Someone who may: past authority, to the project's lanes (none simple).
-	if w := authzCall(h, "jenny", "POST", "/api/v1/projects/game/changes/simple", `{"text":"make the cat blue"}`); w.Code != 422 {
-		t.Fatalf("a contributor's one-box change reaches the lane choice: %d %s", w.Code, w.Body.String())
 	}
 }
 

@@ -107,8 +107,7 @@ func jsonHas(t *testing.T, raw json.RawMessage, key string) bool {
 	return ok
 }
 
-// recordCounts is the owner's total of jobs, items and attempts (the count
-// history clearing reports).
+// recordCounts is the owner's total of jobs, items and attempts.
 func recordCounts(t *testing.T, db database.Queryer) remediationsql.RemediationRecordCountsRow {
 	t.Helper()
 	counts, err := queries(db).RemediationRecordCounts(context.Background())

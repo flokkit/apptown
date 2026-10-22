@@ -56,10 +56,6 @@ type Server struct {
 	// Installation is the only client identity the worker accepts: the
 	// Common Name of the client certificate.
 	Installation string
-	// Role is the role fixed when the worker was provisioned (role.go). A
-	// check worker serves checks, their images and its role, and refuses
-	// everything else.
-	Role Role
 	// State holds records and workspaces; nothing else on the machine is
 	// touched.
 	State string
@@ -196,18 +192,11 @@ func TLSConfig(cert tls.Certificate, clients *x509.CertPool) *tls.Config {
 // worker's installation.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/role", s.role)
 	mux.HandleFunc("GET /v1/version", s.version)
 	mux.HandleFunc("GET /v1/disks", s.disks)
 	mux.HandleFunc("POST /v1/checks", s.runCheck)
 	mux.HandleFunc("POST /v1/check-images", s.checkImage)
-	if s.Role.Role == RoleCheck {
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "this is a check worker: it runs checks and nothing else, no chats, agent or review tasks, previews or private Docker", http.StatusForbidden)
-		})
-	} else {
-		s.agentRoutes(mux)
-	}
+	s.agentRoutes(mux)
 	protocols := served(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0].Subject.CommonName != s.Installation {
@@ -218,7 +207,7 @@ func (s *Server) Handler() http.Handler {
 	})
 }
 
-// agentRoutes are what an agent worker serves beside checks.
+// agentRoutes are what a worker serves beside checks.
 func (s *Server) agentRoutes(mux *http.ServeMux) {
 	// Keys and session ids name files under State. A path value is known
 	// only once a route has matched, so each route checks its own.

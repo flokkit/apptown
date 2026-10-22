@@ -312,11 +312,7 @@ func (e *Execution) InAttempt(kind string, write func(tx *database.Tx, attempt i
 }
 
 func (s *Service) finishAttempt(ctx context.Context, claim *Step, outcome StepOutcome) error {
-	where := s.placement
-	if claim.Type == "script" {
-		where = s.scripts
-	}
-	evidence, err := where.placed(claim.Type, outcome.Evidence)
+	evidence, err := s.placement.placed(claim.Type, outcome.Evidence)
 	if err != nil {
 		return fmt.Errorf("recording where the step ran: %w", err)
 	}

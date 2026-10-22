@@ -925,10 +925,8 @@ removes the rest.
 `cmd/apptown-gate`). A restored copy is a temporary deployment (kind
 `restored-copy`) of a standing production deployment's current release, by
 digest, on the source's own target, started from a chosen store copy, behind
-AppTown's access gate. A **restore test** is one with no lifetime: nobody
-is admitted and it is taken down as soon as its checks are recorded. An
-**opened copy** stays for its lifetime (4 hours by default, 15 minutes to 24
-hours, extendable) and people may enter it.
+AppTown's access gate. Every restored copy is a **restore test**: nobody
+is admitted, and it is taken down as soon as its checks are recorded.
 - **Where.** App Platform targets that make their databases only: the
   renderer places the gate (an internal service has no route, and its health
   check runs on its private port). Anything else
@@ -962,34 +960,24 @@ hours, extendable) and people may enter it.
   so an app's 404 behind a gate that let the request through never passes
   (review GC-01). The 404s must also be empty and `no-store`; the entry
   refusal is 403. Only status codes and those facts are kept.
-  It then issues a ticket to itself by Open's path (same table, same
-  minute, `check_operation` naming the copy's start), enters with it once
+  It then issues a one-use ticket to itself (kept as its SHA-256, lasting
+  a minute, `check_operation` naming the copy's start), enters with it once
   through the gate, which redeems it at `POST /gate/redeem` (303 and a
   session), presents it again (403), and asks the readiness path with the
   session. The ticket lives only in the operation's memory and is used up
   by the check. Redeeming a check ticket asks nobody's grant: it lets in
   only while the start that issued it is running and only for that copy,
   for two minutes, and its receipt is `deployment.gate-checked` by
-  `apptown-system`, never an entry on the card. Each check is a step of the
+  `apptown-system`. Each check is a step of the
   operation and a fact (`facts.gate`) on the copy and the
   `deployment.restore-tested` receipt; the card's restore-test line says
   how many passed and names each that failed. Any failure fails the copy
   (step "checking the gate").
-- A copy whose readiness or gate check fails, and every test, is taken down
-  at once; an opened copy whose data check failed stays open, shown failed.
-  An opened copy is open only once its gate check passed.
-- **Opening** (`deployment:open-restored`, held with restore, carried by no
-  read role, scope or instrument): Open is a browser POST under AppTown's
-  mutation protection; it issues a one-use ticket (SHA-256 kept, one minute,
-  bound to the person and copy) and redirects to the gate's
-  `/_apptown/enter`. The gate redeems it at `POST /gate/redeem` with its
-  secret; AppTown asks the person's grant again, then uses the ticket and
-  writes `deployment.gate-entered` in one transaction. The gate's session
-  lasts until the copy's expiry or an hour, and its streams are closed then.
+- The copy is taken down as soon as its checks are recorded, whatever
+  they found.
 - **Take-down** (operation `deployment.restored-copy-end` on the copy, by a person with
   `deployment:restore`, or the `restored-copy-sweep` job every five minutes
-  for copies whose time is up, tests, and starts that failed or were
-  interrupted): the app by the identity its attempt recorded, the clusters
+  for every copy whose start has ended and left it standing): the app by the identity its attempt recorded, the clusters
   made for the copy (never one its source holds), then its records. No
   final copy. What a start made but never recorded is found by name and
   deleted only when it is provably the copy's: a cluster with the copy's
@@ -1005,8 +993,8 @@ hours, extendable) and people may enter it.
   are not fetched, and a fill's command output is not kept.
 - The card and `apptown data` show the last restore test apart from the last
   rehearsal, with AppTown's own check of its gate ("gate: N of M checks
-  passed", and each that failed with its path and status), each
-  standing copy ("open until … · opened by …"), what it can still do outside
+  passed", and each that failed with its path and status), each copy
+  still standing (being tested, or what its take-down left), what it can still do outside
   (`RestoredCopyWarning`) and who outside AppTown can read it
   (`ProviderBoundary`).
 

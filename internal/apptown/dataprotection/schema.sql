@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS rehearsal_places (
 -- deployment (kind restored-copy) of a production deployment's current
 -- release, started from a copy on the source's own target, behind the
 -- AppTown's access gate. The row outlives the deployment it made: it is the
--- evidence of the check, who opened it, and when it was taken down. It
+-- evidence of the check and of when it was taken down. It
 -- holds only safe facts (step names, status codes, names of what was
 -- withheld), never output, and the gate secret only as its SHA-256.
 -- app_marker is the copy's own random mark, written before anything is
@@ -117,9 +117,6 @@ CREATE TABLE IF NOT EXISTS restored_copies (
   backup_id UUID NOT NULL,
   release_number     BIGINT NOT NULL DEFAULT 0,
   target             TEXT NOT NULL DEFAULT '',
-  is_test            BOOLEAN NOT NULL,
-  lifetime_minutes   BIGINT NOT NULL DEFAULT 0,
-  expires_at         TIMESTAMPTZ,
   gate_url           TEXT NOT NULL DEFAULT '',
   gate_secret_sha256 TEXT NOT NULL DEFAULT '',
   app_marker         TEXT NOT NULL DEFAULT '',
@@ -137,12 +134,11 @@ CREATE TABLE IF NOT EXISTS restored_copies (
 );
 CREATE INDEX IF NOT EXISTS restored_copies_source ON restored_copies (source_id, id);
 CREATE UNIQUE INDEX IF NOT EXISTS restored_copies_number ON restored_copies (project_id, number);
--- A one-use ticket a person's Open issues for a restored copy's gate, kept
--- by its SHA-256 only. Redeeming it (within a minute, once) is the person's
--- entry: the redeemed rows with check_operation 0 are who opened the copy
--- and when. check_operation names the copy's own start when the ticket is
--- AppTown's check of its gate: issued to AppTown, redeemed by that
--- operation while it runs, and never a person's entry.
+-- A one-use ticket AppTown issues itself to check a restored copy's gate,
+-- kept by its SHA-256 only. check_operation names the copy's own start: the
+-- ticket is redeemed (within a minute, once) by that operation while it
+-- runs. Rows from before restored copies were only restore tests may name
+-- a person and no operation; they are history.
 CREATE TABLE IF NOT EXISTS restored_copy_tickets (
   ticket_sha256   TEXT PRIMARY KEY,
   copy_id UUID NOT NULL REFERENCES restored_copies(id) ON DELETE CASCADE,

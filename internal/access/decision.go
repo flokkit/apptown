@@ -38,7 +38,7 @@ const (
 )
 
 // SystemInstrument is the instrument AppTown acts under itself: its
-// scheduler, webhook trigger, engine, remediation, follow-ups, bindings and
+// scheduler, engine, remediation, follow-ups, bindings and
 // system operations. Records from before the AppTown rename name it "forge";
 // those are history and keep that name, but no current caller carries it.
 const SystemInstrument = "apptown"
@@ -164,8 +164,8 @@ type Facts interface {
 
 // instrumentCaps is §11's table: what a console, a step agent or one of the
 // AppTown's own triggers may do at all, before the person's own authority is
-// consulted. Reads are implied. SystemInstrument is the scheduler and the webhook
-// trigger acting for AppTown itself, and the engine advancing a run whose
+// consulted. Reads are implied. SystemInstrument is the scheduler acting for
+// AppTown itself, and the engine advancing a run whose
 // stage finished: the interim §11 names until worker identities exist.
 // Open a change, start its run, advance it, in one project.
 var instrumentCaps = map[string][]Capability{

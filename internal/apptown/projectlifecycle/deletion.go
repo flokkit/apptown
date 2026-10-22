@@ -413,29 +413,6 @@ func (d *Deletion) Restore(ctx context.Context, projectID ids.ID) (Status, error
 	return d.Status(ctx, projectID)
 }
 
-// RevokeBinding withdraws a deletion's authority: the deletion pass and
-// the purge stop at their next effect, and the page says so. Restoring or
-// re-confirming the deletion is what moves it on.
-func (d *Deletion) RevokeBinding(ctx context.Context, projectID ids.ID, why string) (Status, error) {
-	actor, err := d.require(ctx, projectID, "project.delete", access.CapProjectDelete)
-	if err != nil {
-		return Status{}, err
-	}
-	l, err := d.lifecycle.projects.Lifecycle(ctx, projectID)
-	if err != nil {
-		return Status{}, err
-	}
-	if l.BindingID.IsZero() {
-		return Status{}, fault.New(fault.Conflict, "the project's deletion holds no binding")
-	}
-	if err := d.lifecycle.db.InTx(ctx, func(tx *database.Tx) error {
-		return identity.RevokeBindingIn(ctx, tx, l.BindingID, actor.Name, why, d.now())
-	}); err != nil {
-		return Status{}, err
-	}
-	return d.Status(ctx, projectID)
-}
-
 // Status is where a project's deletion stands.
 func (d *Deletion) Status(ctx context.Context, projectID ids.ID) (Status, error) {
 	l, err := d.lifecycle.projects.Lifecycle(ctx, projectID)

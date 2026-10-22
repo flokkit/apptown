@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"slices"
 	"sort"
@@ -30,7 +31,7 @@ func NewCatalogChanges(ways *wow.Service, adoption *adoption.Service, projects *
 
 // CatalogList: GET /catalog
 func (h CatalogChanges) CatalogList(w http.ResponseWriter, r *http.Request) {
-	changes, err := h.ways.CatalogChanges(r.Context())
+	changes, err := h.ways.CatalogChanges()
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -39,12 +40,9 @@ func (h CatalogChanges) CatalogList(w http.ResponseWriter, r *http.Request) {
 	if slug := r.URL.Query().Get("project"); slug != "" {
 		proj, _ = h.projectBySlug(r.Context(), slug)
 	}
-	// Collect first, annotate after: nested queries while this result set
-	// is open misbehave on the small pool (store.go's standing warning —
-	// re-learned when a freshly installed workflow read as missing).
 	out := []CatalogEntry{}
 	for _, c := range changes {
-		out = append(out, CatalogEntry{c, c.State().String(), "", ""})
+		out = append(out, CatalogEntry{CatalogChange: c})
 	}
 	if proj != nil {
 		own := ""
@@ -79,11 +77,7 @@ func (h CatalogChanges) CatalogList(w http.ResponseWriter, r *http.Request) {
 			runnable[e.Name] = true
 		}
 		for i := range out {
-			def, err := h.ways.CatalogDefinition(r.Context(), out[i].ID, out[i].LatestVersion)
-			if err != nil {
-				continue
-			}
-			wf := def.Workflow
+			wf := out[i].Definition.Workflow
 			if wf == "" || runnable[wf] {
 				continue
 			}
@@ -101,13 +95,22 @@ func (h CatalogChanges) CatalogList(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, CatalogList{Catalog: out})
 }
 
-// CatalogApply: POST /catalog/{name...}/apply {project, params} — any
-// member. Drafts may be applied single-project (that is how they earn
-// receipts); the catalog listing is what promotion gates, not invocation.
-func (h CatalogChanges) CatalogApply(w http.ResponseWriter, r *http.Request) {
-	c, err := h.ways.CatalogChange(r.Context(), r.PathValue("name"))
+// CatalogGet: GET /catalog/{name...} — one entry with its definition.
+func (h CatalogChanges) CatalogGet(w http.ResponseWriter, r *http.Request) {
+	c, err := h.ways.CatalogChange(r.PathValue("name"))
 	if err != nil {
-		WriteError(w, 404, "%v", err)
+		writeCatalogFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, CatalogChangeDetail{Change: *c, Definition: c.Definition})
+}
+
+// CatalogApply: POST /catalog-apply/{name...} {project, params} — any
+// member of the project.
+func (h CatalogChanges) CatalogApply(w http.ResponseWriter, r *http.Request) {
+	c, err := h.ways.CatalogChange(r.PathValue("name"))
+	if err != nil {
+		writeCatalogFault(w, err)
 		return
 	}
 	jsonCommand(w, r, jsonBody{}, func(in struct {
@@ -127,8 +130,18 @@ func (h CatalogChanges) CatalogApply(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 422, "%v", err)
 			return
 		}
-		WriteJSON(w, 201, CatalogApplied{Change: *item, Run: *run, Catalog: c.Name, CatalogStatus: c.State().String()})
+		WriteJSON(w, 201, CatalogApplied{Change: *item, Run: *run, Catalog: c.Name})
 	})
+}
+
+// writeCatalogFault answers a catalog read: a name the catalog does not
+// have is not found; a catalog that cannot be read is AppTown's failure.
+func writeCatalogFault(w http.ResponseWriter, err error) {
+	if errors.Is(err, wow.ErrCatalogMissing) {
+		WriteError(w, 404, "%v", err)
+		return
+	}
+	WriteError(w, 500, "reading the change catalog: %v", err)
 }
 
 func (h CatalogChanges) projectBySlug(ctx context.Context, slug string) (*project.Project, error) {
@@ -139,11 +152,10 @@ func (h CatalogChanges) projectBySlug(ctx context.Context, slug string) (*projec
 	return &p, nil
 }
 
-// CatalogEntry is one catalog change with its status and, for a project,
-// whether it can run there.
+// CatalogEntry is one catalog change and, for a project, whether it can
+// run there.
 type CatalogEntry struct {
 	wow.CatalogChange
-	Status string `json:"status"`
 	// Per-project fit (?project=slug): a change whose workflow the
 	// project lacks is offered grayed, pointing at the pack that
 	// carries it — never a red error after the click.
@@ -158,8 +170,13 @@ type CatalogList struct {
 
 // CatalogApplied is the change and run a catalog change started.
 type CatalogApplied struct {
-	Change        workflow.Change `json:"change"`
-	Run           workflow.Run    `json:"run"`
-	Catalog       string          `json:"catalog"`
-	CatalogStatus string          `json:"catalogStatus"`
+	Change  workflow.Change `json:"change"`
+	Run     workflow.Run    `json:"run"`
+	Catalog string          `json:"catalog"`
+}
+
+// CatalogChangeDetail is one catalog change with its definition.
+type CatalogChangeDetail struct {
+	Change     wow.CatalogChange `json:"change"`
+	Definition wow.CatalogDef    `json:"definition"`
 }

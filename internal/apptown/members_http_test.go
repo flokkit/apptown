@@ -56,9 +56,6 @@ func TestMemberRoutesPreserveAuthorizationAndAttribution(t *testing.T) {
 	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/members", `{"grantee":"user:run/4","role":"project-viewer"}`); w.Code != 400 || accountExists(t, a, "run/4") {
 		t.Fatalf("an unusable member name: %d %s", w.Code, w.Body.String())
 	}
-	if w := authzCall(h, "owner", "DELETE", "/api/v1/projects/game/members/nobody-here", ""); w.Code != 404 {
-		t.Fatalf("missing member: %d %s", w.Code, w.Body.String())
-	}
 }
 
 func TestMemberRouteRejectsSpoofedProxyIdentity(t *testing.T) {

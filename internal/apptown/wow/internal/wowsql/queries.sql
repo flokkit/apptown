@@ -27,12 +27,6 @@ SELECT * FROM packs ORDER BY origin DESC,name;
 SELECT * FROM pack_versions WHERE pack_id=$1 AND version=$2;
 -- name: PackVersions :many
 SELECT * FROM pack_versions WHERE pack_id=$1 ORDER BY version DESC;
--- name: CatalogByName :one
-SELECT * FROM catalog_changes WHERE name=$1;
--- name: CatalogChanges :many
-SELECT * FROM catalog_changes ORDER BY name;
--- name: CatalogVersion :one
-SELECT * FROM catalog_change_versions WHERE catalog_id=$1 AND version=$2;
 -- name: LibraryPolicyByName :one
 SELECT * FROM policy_library WHERE name=$1;
 -- name: LibraryPolicies :many
@@ -48,10 +42,6 @@ SELECT * FROM lib_workflows WHERE name=$1 FOR UPDATE;
 SELECT * FROM packs WHERE name=$1 FOR UPDATE;
 -- name: LockPacks :exec
 LOCK TABLE packs IN SHARE ROW EXCLUSIVE MODE;
--- name: CatalogByIDForUpdate :one
-SELECT * FROM catalog_changes WHERE id=$1 FOR UPDATE;
--- name: CatalogByNameForUpdate :one
-SELECT * FROM catalog_changes WHERE name=$1 FOR UPDATE;
 -- name: InsertBlock :one
 INSERT INTO guidance_blocks(id, name,tags,latest_version,origin,created_at,updated_at,tier,conflicts)
 VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(tags),1,sqlc.arg(origin),sqlc.arg(at),sqlc.arg(at),sqlc.arg(tier),sqlc.arg(conflicts)) RETURNING *;
@@ -115,18 +105,6 @@ UPDATE packs SET description=$1 WHERE name=$2 AND origin='stock' AND description
 UPDATE packs SET enabled=sqlc.arg(enabled),updated_at=sqlc.arg(at) WHERE name=sqlc.arg(name);
 -- name: DeletePack :execrows
 DELETE FROM packs WHERE name=$1;
--- name: InsertCatalogChange :one
-INSERT INTO catalog_changes(id, name,description,latest_version,promoted_version,promoted_by,promoted_at,promotion_note,created_at,updated_at)
-VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(description),1,0,'',NULL,'',sqlc.arg(at),sqlc.arg(at)) RETURNING *;
--- name: InsertCatalogVersion :one
-INSERT INTO catalog_change_versions(id, catalog_id,version,definition_json,created_at)
-VALUES(sqlc.arg(id), sqlc.arg(catalog_id),sqlc.arg(version),sqlc.arg(definition),sqlc.arg(at)) RETURNING *;
--- name: DescribeCatalogChange :execrows
-UPDATE catalog_changes SET description=sqlc.arg(description),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
--- name: AdvanceCatalogVersion :execrows
-UPDATE catalog_changes SET latest_version=sqlc.arg(version),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
--- name: PromoteCatalogChange :execrows
-UPDATE catalog_changes SET promoted_version=sqlc.arg(version),promoted_by=sqlc.arg(actor),promoted_by_principal=sqlc.arg(actor_principal),promoted_by_via=sqlc.arg(actor_via),promoted_at=sqlc.arg(at),promotion_note=sqlc.arg(note),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
 -- name: InsertLibraryPolicy :one
 INSERT INTO policy_library(id, name,description,rule,config_json,origin,updated_at)
 VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(description),sqlc.arg(rule),sqlc.arg(config),sqlc.arg(origin),sqlc.arg(at)) RETURNING *;
@@ -166,20 +144,3 @@ LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=$2 WHERE p.name=$1;
 SELECT b.name,v.version,v.checks_json::text AS checks_json FROM guidance_blocks b
 JOIN guidance_block_versions v ON v.block_id=b.id
 WHERE (b.name,v.version) IN (SELECT unnest(sqlc.arg(blocks)::text[]),unnest(sqlc.arg(versions)::bigint[]));
-
--- One library version's content, for moving a project that uses it to
--- another AppTown, where library numbering is local: the item and the version.
--- name: ExportGuidanceVersion :one
-SELECT jsonb_build_object('item', to_jsonb(b), 'version', to_jsonb(v))::text
-FROM guidance_blocks b JOIN guidance_block_versions v ON v.block_id = b.id
-WHERE b.name = $1 AND v.version = $2;
-
--- name: ExportWorkflowVersion :one
-SELECT jsonb_build_object('item', to_jsonb(w), 'version', to_jsonb(v))::text
-FROM lib_workflows w JOIN lib_workflow_versions v ON v.lib_id = w.id
-WHERE w.name = $1 AND v.version = $2;
-
--- name: ExportPackVersion :one
-SELECT jsonb_build_object('item', to_jsonb(p), 'version', to_jsonb(v))::text
-FROM packs p JOIN pack_versions v ON v.pack_id = p.id
-WHERE p.id = $1 AND v.version = $2;

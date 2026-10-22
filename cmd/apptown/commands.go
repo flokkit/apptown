@@ -102,10 +102,9 @@ var sections = []section{
                                         naming the what-if it was decided on`, cmdPack},
 			{[]string{"workflows"}, `  workflows -p <slug>                   list a project's workflows`, cmdWorkflows},
 			{[]string{"schedules"}, `  schedules -p <slug>                   a project's schedules: cron, next and last firing (UTC)`, cmdSchedules},
-			{[]string{"catalog"}, `  catalog                               list the change catalog (canned, versioned change definitions)
-  catalog <name>                        show one catalog change: params, workflow, prompt
-  catalog promote <name> -m "<why>"     admin: admit the latest draft, naming its evaluation receipts`, cmdCatalog},
-			{[]string{"apply"}, `  apply  <name> [-p proj] [--param k=v] run a catalog change on a project (drafts run as evaluations)`, cmdApply},
+			{[]string{"catalog"}, `  catalog                               list the change catalog (prepared changes the release ships)
+  catalog <name>                        show one catalog change: params, workflow, prompt`, cmdCatalog},
+			{[]string{"apply"}, `  apply  <name> [-p proj] [--param k=v] run a catalog change on a project`, cmdApply},
 			{[]string{"start"}, `  start -p <slug> -t <title> [--type T] [--body B] [--ref R]
                                         open a change with its branch and no run yet`, cmdStart},
 			{[]string{"invoke"}, `  invoke -p <slug> -w <workflow> -t <title> [--type T] [--body B]
@@ -128,7 +127,6 @@ var sections = []section{
 			{[]string{"token"}, `  token create <name> --purpose cli|agent [-u user] [-r role] · token list · token revoke <name>
                                         personal access tokens (admin); cli = your own command line (APPTOWN_TOKEN),
                                         agent = a coding agent's MCP connection (may not approve, land or administer)`, cmdToken},
-			{[]string{"export-project"}, `  export-project -p <proj> > <file>     a project with its history and chats, to move it to another AppTown (admin)`, cmdExportProject},
 			{[]string{"secret"}, `  secret set <NAME> < file · secret remove <NAME>
                                         put a credential AppTown uses (a target's token) in its secrets file (admin);
                                         the value comes from standard input, never the command line`, cmdSecret},

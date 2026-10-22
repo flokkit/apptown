@@ -2,8 +2,6 @@ package deployment
 
 import (
 	"errors"
-	"os"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -140,87 +138,37 @@ func TestATenantsUseIsUnknownWhenAnyOfItIsUnread(t *testing.T) {
 	}
 }
 
-// The host's own use is known only on the built-in host, and only when the
-// daemon reads back the marker apptownd wrote and both see the same memory
-// total. Equal totals without the marker (a same-sized daemon elsewhere),
-// the marker with unequal totals (a virtualised view), an attached host and
-// an unreadable /proc each leave it unknown with the reason.
+// The host's own use is known only on the built-in host, and only when
+// apptownd and the daemon see the same memory total. Unequal totals (a
+// virtualised view, Docker Desktop's VM), an attached host and an
+// unreadable /proc each leave it unknown with the reason.
 //
-// Kills: host use from equal totals alone; from the marker alone; the
-// witness re-read on every view.
-func TestTheHostsOwnUseIsKnownOnlyWhereTheDaemonReadsAppTownsMarker(t *testing.T) {
+// Kills: host use with unequal totals; host use on an attached host.
+func TestTheHostsOwnUseIsKnownOnlyWhereTheTotalsAgree(t *testing.T) {
 	t.Parallel()
-	w := newDigestWorldWith(t, "", digestAppYAML, nil)
-	dk, err := w.s.hosts.DockerScope(t.Context(), w.lab)
-	if err != nil {
-		t.Fatal(err)
-	}
-	answer := "mark" // what the daemon reads at the marker's path: the file, or not
-	reads := 0
-	w.hosts.daemon("lab").SetReply(func(args []string) ([]byte, error, bool) {
-		if len(args) > 0 && args[0] == "run" && slices.Contains(args, "cat") {
-			reads++
-			for _, a := range args {
-				if src, ok := strings.CutPrefix(a, "type=bind,src="); ok {
-					path := strings.SplitN(src, ",", 2)[0]
-					switch answer {
-					case "mark":
-						b, err := os.ReadFile(path)
-						return b, err, true
-					case "other":
-						return []byte("someone else's"), nil, true
-					}
-					return []byte("invalid mount config: bind source path does not exist: " + path), errors.New("exit 125"), true
-				}
-			}
-		}
-		return nil, nil, false
-	})
-	w.s.capacity.host = func() (hostmem.Memory, error) {
+	s := &Service{}
+	s.capacity.host = func() (hostmem.Memory, error) {
 		return hostmem.Memory{TotalBytes: 8 << 30, AvailableBytes: 5 << 30}, nil
 	}
-	fresh := func() {
-		w.s.capacity.mu.Lock()
-		w.s.capacity.witness = nil
-		w.s.capacity.mu.Unlock()
+	builtin := &Target{Origin: OriginBuiltIn}
+	if host := s.hostUse(builtin, 8<<30); !host.Known || host.Value != 3<<30 {
+		t.Errorf("equal totals: %+v", host)
 	}
-	w.s.capacity.markDir = t.TempDir()
-	builtin := &Target{ID: w.lab.ID, Origin: OriginBuiltIn}
-
-	if host := w.s.hostUse(t.Context(), builtin, dk, 8<<30); !host.Known || host.Value != 3<<30 {
-		t.Errorf("witnessed: %+v", host)
+	if host := s.hostUse(builtin, 16<<30); host.Known || !strings.Contains(host.Reason, "bytes of memory") {
+		t.Errorf("unequal totals: %+v", host)
 	}
-	for range 3 {
-		w.s.hostUse(t.Context(), builtin, dk, 8<<30)
-	}
-	if reads != 1 {
-		t.Errorf("the marker was read %d times", reads)
-	}
-	for _, a := range []string{"absent", "other"} {
-		answer = a
-		fresh()
-		if host := w.s.hostUse(t.Context(), builtin, dk, 8<<30); host.Known || !strings.Contains(host.Reason, "does not run where this AppTown does") {
-			t.Errorf("%s marker with equal totals: %+v", a, host)
-		}
-	}
-	answer = "mark"
-	fresh()
-	if host := w.s.hostUse(t.Context(), builtin, dk, 16<<30); host.Known || !strings.Contains(host.Reason, "bytes of memory") {
-		t.Errorf("witnessed, unequal totals: %+v", host)
-	}
-	if host := w.s.hostUse(t.Context(), &Target{ID: w.lab.ID, Origin: OriginAttached}, dk, 8<<30); host.Known {
+	if host := s.hostUse(&Target{Origin: OriginAttached}, 8<<30); host.Known {
 		t.Errorf("attached host: %+v", host)
 	}
-	w.s.capacity.host = func() (hostmem.Memory, error) { return hostmem.Memory{}, errors.New("no /proc/meminfo") }
-	if host := w.s.hostUse(t.Context(), builtin, dk, 8<<30); host.Known {
+	s.capacity.host = func() (hostmem.Memory, error) { return hostmem.Memory{}, errors.New("no /proc/meminfo") }
+	if host := s.hostUse(builtin, 8<<30); host.Known {
 		t.Errorf("unreadable: %+v", host)
 	}
 }
 
 // apptownd's own memory is counted once wherever it runs (CV-C01): no tenant
 // adds it, so on the host it is part of the host's own use and in a
-// container (one that shares its temp folder with the host, so the marker
-// is read) it is that container's. AppTown's tenant is its own containers.
+// container it is that container's. AppTown's tenant is its own containers.
 //
 // Kills: apptownd's memory added to AppTown on top of the container that
 // holds it.

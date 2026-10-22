@@ -60,7 +60,7 @@ func TestConstructionHasNoDatabaseOrFilesystemEffects(t *testing.T) {
 
 func TestConfigurationIsAnIsolatedSnapshot(t *testing.T) {
 	t.Parallel()
-	input := Config{AuthMode: "internal", Features: "dev-tools", PublicHost: "first.example", ListenAddr: "0.0.0.0:7777",
+	input := Config{AuthMode: "internal", PublicHost: "first.example", ListenAddr: "0.0.0.0:7777",
 		TierDomains: []string{"preview=first.example"}, TrustedProxies: []string{"192.0.2.0/24"}, HostAddresses: []net.IP{net.IPv4(198, 18, 0, 1).To4()},
 		InferenceURL: "http://worker:7779", InferenceNetworks: []string{"198.51.100.0/24"},
 		Defaults: InstanceDefaults{MirrorBase: "https://mirror.example"}}
@@ -69,13 +69,10 @@ func TestConfigurationIsAnIsolatedSnapshot(t *testing.T) {
 	input.TierDomains[0] = "preview=second.example"
 	input.TrustedProxies[0] = "203.0.113.0/24"
 	input.InferenceNetworks[0] = "203.0.113.0/24"
-	input.Features, input.AuthMode = "", "open"
+	input.AuthMode = "open"
 	second := testApp(t, input)
 	if first.cfg.routing().PreviewURL("change-00000000-0001-7000-8000-000000000000", 42) != "https://change-00000000-0001-7000-8000-000000000000.first.example" || second.cfg.routing().PreviewURL("change-00000000-0001-7000-8000-000000000000", 42) != "https://change-00000000-0001-7000-8000-000000000000.second.example" {
 		t.Fatal("routing settings shared")
-	}
-	if !first.Feature("dev-tools") || second.Feature("dev-tools") {
-		t.Fatal("feature settings shared")
 	}
 	ip := net.ParseIP("192.0.2.1")
 	if !first.cfg.proxies.isTrustedProxy(ip) || second.cfg.proxies.isTrustedProxy(ip) {
@@ -120,7 +117,7 @@ func TestConfigurationIsAnIsolatedSnapshot(t *testing.T) {
 func TestInvalidConfigurationFailsBeforeConstruction(t *testing.T) {
 	t.Parallel()
 	for _, cfg := range []Config{
-		{AuthMode: "typo"}, {Features: "unknown"}, {TierDomains: []string{"bogus=example.com"}},
+		{AuthMode: "typo"}, {TierDomains: []string{"bogus=example.com"}},
 		{InferenceURL: "http://worker:7779", InferenceNetworks: []string{"0.0.0.0/0"}},
 		{InferenceURL: "https://worker/path", InferenceNetworks: []string{"192.0.2.0/24"}},
 	} {
@@ -351,7 +348,6 @@ var lazyOwners = map[string]func(*App) any{
 	"checksFor":             func(a *App) any { return checksFor(a) },
 	"connectorHealthFor":    func(a *App) any { return connectorHealthFor(a) },
 	"contributionsFor":      func(a *App) any { return contributionsFor(a) },
-	"draftAgentFor":         func(a *App) any { return draftAgentFor(a) },
 	"fleetReviewsFor":       func(a *App) any { return fleetReviewsFor(a) },
 	"holderPresenceFor":     func(a *App) any { return holderPresenceFor(a) },
 	"inferenceIdentityFor":  func(a *App) any { return inferenceIdentityFor(a) },

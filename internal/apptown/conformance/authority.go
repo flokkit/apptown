@@ -144,8 +144,6 @@ func (a commandAuthority) Require(ctx context.Context, permission Permission) (s
 		capability = access.CapConformanceRead
 	case RunReview, RunWhatIf:
 		capability = access.CapConformanceRev
-	case ClearHistory:
-		capability = access.CapConformanceClear
 	case ConfirmFlag:
 		capability = access.CapConformanceAI
 	case CreateException:

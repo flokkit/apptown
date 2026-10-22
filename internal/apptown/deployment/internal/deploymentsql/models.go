@@ -35,7 +35,6 @@ type Deployment struct {
 	DataClass          string
 	PromoteAfter       string
 	Url                string
-	ExpiresAt          sql.NullTime
 	StartFromBackup    ids.ID
 	StartedFromAt      sql.NullTime
 	HostPrefix         string

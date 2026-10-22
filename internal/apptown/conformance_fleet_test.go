@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -322,64 +321,6 @@ func TestFleetReviewReadOnly(t *testing.T) {
 
 // A review with no verdicts yet must come back as an empty list, never nil:
 // the page reads it as a list the moment a review starts.
-// The fresh start removes every review-derived record in one act with a
-// receipt, and refuses while a review is running.
-func TestClearConformanceHistory(t *testing.T) {
-	t.Parallel()
-	a := conformanceTestApp(t)
-	pid, _, _ := fleetRepo(t, a, "clr", map[string]string{"a.txt": "x"})
-	ctx := testConformanceContext("t")
-	execution, err := a.conformance.BeginReview(ctx, conformance.ReviewRequest{Trigger: "manual", Projects: []ids.ID{pid}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.Fixes.ClearHistory(ctx); err == nil {
-		t.Fatal("a running review must refuse the fresh start")
-	}
-	if _, err := execution.Finish(ctx, conformance.Completion{}, conformance.ReviewDone); err != nil {
-		t.Fatal(err)
-	}
-	counts, err := a.Fixes.ClearHistory(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if counts.Reviews != 1 {
-		t.Fatalf("expected the one review removed, got %v", counts)
-	}
-	var left int
-	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM conformance_reviews`).Scan(&left)
-	if left != 0 {
-		t.Fatalf("reviews left: %d", left)
-	}
-	var audits int
-	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE kind='conformance.history-cleared'`).Scan(&audits)
-	if audits != 1 {
-		t.Fatalf("expected one audit receipt, got %d", audits)
-	}
-}
-
-// The fresh start is a development convenience: refused unless the
-// dev-tools feature is on, and unknown feature names are refused at boot.
-func TestClearConformanceHistoryNeedsTheDevToolsFeature(t *testing.T) {
-	t.Parallel()
-	a := conformanceTestApp(t)
-	req := identifiedTestRequest("POST", "/api/v1/conformance/history/clear", nil)
-	rec := httptest.NewRecorder()
-	httpapi.NewConformanceMaintenance(a.Fixes, a.Feature("dev-tools")).ClearConformanceHistory(rec, req.WithContext(callerContext(req)))
-	if rec.Code != 404 {
-		t.Fatalf("without the feature: want 404, got %d %s", rec.Code, rec.Body.String())
-	}
-	a = conformanceTestApp(t, Config{Features: "dev-tools"})
-	rec = httptest.NewRecorder()
-	httpapi.NewConformanceMaintenance(a.Fixes, a.Feature("dev-tools")).ClearConformanceHistory(rec, req.WithContext(callerContext(req)))
-	if rec.Code != 200 {
-		t.Fatalf("with the feature: want 200, got %d %s", rec.Code, rec.Body.String())
-	}
-	if err := (Config{Features: "dev-tools,no-such-thing"}).Validate(); err == nil {
-		t.Fatal("an unknown feature name must be refused")
-	}
-}
-
 func TestReviewExecutesInferredDeclarationsAtTheirSavedSource(t *testing.T) {
 	t.Parallel()
 	a := conformanceTestApp(t)

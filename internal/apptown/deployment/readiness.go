@@ -12,8 +12,6 @@ import (
 // reconciled when the observed generation is the desired one, reconciling
 // while an attempt is admitted, uncertain when the attempt's runner was lost
 // before an outcome, failed when the last attempt ended in failure.
-// NeedsReconcile is a stored word from before attempts were recorded; it is
-// read as needing an attempt and never written again.
 type Readiness uint8
 
 const (
@@ -21,12 +19,11 @@ const (
 	Reconciling
 	ReadinessUncertain
 	ReadinessFailed
-	NeedsReconcile
 )
 
 // readinessCodec spells each Readiness in storage and JSON.
 var readinessCodec = enum.Set[Readiness]{
-	Names:     []string{"reconciled", "reconciling", "uncertain", "failed", "needs-reconcile"},
+	Names:     []string{"reconciled", "reconciling", "uncertain", "failed"},
 	Invalid:   "invalid-readiness",
 	Err:       ErrReadiness,
 	ScanLabel: "value",
@@ -42,7 +39,7 @@ func (s Readiness) String() string { return readinessCodec.String(s) }
 // Admitted is the rule when a new generation is admitted: whatever stood
 // before, the deployment is now reconciling toward it.
 func (s Readiness) Admitted() (Readiness, error) {
-	if s < Reconciled || s > NeedsReconcile {
+	if s < Reconciled || s > ReadinessFailed {
 		return 0, fmt.Errorf("%w: %d", ErrReadiness, s)
 	}
 	return Reconciling, nil
@@ -81,7 +78,7 @@ func (s Readiness) Lost() (Readiness, error) {
 // releasing after its attempt ended): whatever it read, its standing is
 // uncertain until a person has it observed (Service.CheckAgain).
 func (s Readiness) Doubted() (Readiness, error) {
-	if s < Reconciled || s > NeedsReconcile {
+	if s < Reconciled || s > ReadinessFailed {
 		return 0, fmt.Errorf("%w: %d", ErrReadiness, s)
 	}
 	return ReadinessUncertain, nil

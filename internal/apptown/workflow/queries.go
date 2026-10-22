@@ -16,9 +16,8 @@ import (
 // Work queries own list selection and derived activity. Their only runtime
 // collaborator observes a slot queue; it cannot read or mutate Work storage.
 type queries struct {
-	db        *database.DB
-	wait      SlotWait
-	placement Placement // where checks run now, which activity's gate judges by
+	db   *database.DB
+	wait SlotWait
 	// automatic: the step kinds that run without a person, which a step
 	// run accepts again (with assertions); nil for reads offering no acts.
 	automatic func(string) bool
@@ -56,7 +55,7 @@ func (q queries) list(ctx context.Context, query RunQuery) ([]RunSummary, error)
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	rows, err := readWorkflowSummaries(ctx, tx, query, q.wait, q.placement)
+	rows, err := readWorkflowSummaries(ctx, tx, query, q.wait)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +65,7 @@ func (q queries) list(ctx context.Context, query RunQuery) ([]RunSummary, error)
 	return rows, nil
 }
 
-func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQuery, wait SlotWait, placement Placement) ([]RunSummary, error) {
+func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQuery, wait SlotWait) ([]RunSummary, error) {
 	if query.Limit < 0 || query.Limit > math.MaxInt32 {
 		return nil, fmt.Errorf("invalid workflow list bounds")
 	}
@@ -95,7 +94,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 			idList = append(idList, row.ID)
 		}
 	}
-	graph, err := readWorkflowActivity(ctx, db, idList, placement)
+	graph, err := readWorkflowActivity(ctx, db, idList)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +115,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 // Recursion follows the current parent call attempt in the same project, not an
 // arbitrary childRunId supplied in evidence. The model also checks that evidence
 // selects an owned child before allowing its activity to bubble up.
-func readWorkflowActivity(ctx context.Context, db database.Queryer, idList []ids.ID, placement Placement) (workflowActivityGraph, error) {
+func readWorkflowActivity(ctx context.Context, db database.Queryer, idList []ids.ID) (workflowActivityGraph, error) {
 	graph := make(workflowActivityGraph)
 	if len(idList) == 0 {
 		return graph, nil
@@ -132,7 +131,7 @@ func readWorkflowActivity(ctx context.Context, db database.Queryer, idList []ids
 		}
 		node := graph[row.ID]
 		if node == nil {
-			node = &workflowActivityRun{id: row.ID, projectID: row.ProjectID, parentID: row.ParentRunID, parentStepID: row.ParentStepID, parentAttempt: row.ParentStepAttempt, state: state, abandonmentReason: row.AbandonmentReason, placement: placement, awaitingAcceptance: row.AwaitingAcceptance}
+			node = &workflowActivityRun{id: row.ID, projectID: row.ProjectID, parentID: row.ParentRunID, parentStepID: row.ParentStepID, parentAttempt: row.ParentStepAttempt, state: state, abandonmentReason: row.AbandonmentReason, awaitingAcceptance: row.AwaitingAcceptance}
 			if node.stage, node.checks, err = stageFacts(row.StageDeclaration, row.StageChecks); err != nil {
 				return nil, fmt.Errorf("run %d stage facts: %w", row.ID, err)
 			}

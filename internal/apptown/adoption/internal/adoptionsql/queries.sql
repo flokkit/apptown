@@ -42,8 +42,6 @@ DELETE FROM project_lanes WHERE project_id=$1;
 -- name: EnableProjectExtension :execrows
 -- Already-enabled membership is a successful no-op and returns no inserted row.
 INSERT INTO project_pi_extensions(project_id,name) VALUES($1,$2) ON CONFLICT DO NOTHING;
--- name: DisableProjectExtension :execrows
-DELETE FROM project_pi_extensions WHERE project_id=$1 AND name=$2;
 -- name: DeleteProjectExtensions :execrows
 DELETE FROM project_pi_extensions WHERE project_id=$1;
 -- name: DeleteProjectPacks :execrows
@@ -119,8 +117,6 @@ ORDER BY pk.id,p.slug;
 -- name: PolicyAdoptions :many
 SELECT DISTINCT pol.name,pol.project_id,pr.slug,pr.name AS project_name FROM policies pol JOIN projects pr ON pr.id=pol.project_id ORDER BY pr.name;
 
-
-
 -- name: EnabledExtensions :many
 SELECT name FROM project_pi_extensions WHERE project_id=$1 ORDER BY name;
 
@@ -157,28 +153,6 @@ FROM guidance_imports gi JOIN guidance_blocks b ON b.id=gi.block_id
 LEFT JOIN guidance_block_versions v ON v.block_id=gi.block_id AND v.version=gi.version
 WHERE gi.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND NOT gi.disabled
 ORDER BY gi.project_id,gi.position;
-
--- A project's adoption, row by row, for moving it to another AppTown.
--- name: ExportAdoptionCurrent :many
-SELECT to_jsonb(a)::text FROM adoptions a WHERE a.project_id = $1;
-
--- name: ExportAdoptionRevisions :many
-SELECT to_jsonb(a)::text FROM project_adoptions a WHERE a.project_id = $1 ORDER BY a.revision;
-
--- name: ExportProjectPacks :many
-SELECT to_jsonb(p)::text FROM project_packs p WHERE p.project_id = $1 ORDER BY p.id;
-
--- name: ExportPolicies :many
-SELECT to_jsonb(p)::text FROM policies p WHERE p.project_id = $1 ORDER BY p.id;
-
--- name: ExportGuidanceImports :many
-SELECT to_jsonb(g)::text FROM guidance_imports g WHERE g.project_id = $1 ORDER BY g.position;
-
--- name: ExportLanes :many
-SELECT to_jsonb(l)::text FROM project_lanes l WHERE l.project_id = $1 ORDER BY l.name;
-
--- name: ExportPiExtensions :many
-SELECT to_jsonb(e)::text FROM project_pi_extensions e WHERE e.project_id = $1 ORDER BY e.name;
 
 -- name: PrimaryPackMemoryDefault :one
 SELECT a.pack, COALESCE(pp.version,0)::bigint AS version, COALESCE(v.spec_json::text,'')::text AS spec

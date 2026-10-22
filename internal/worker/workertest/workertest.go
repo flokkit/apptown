@@ -438,15 +438,12 @@ func (w *Container) Restart() {
 //   - APPTOWN_QUAL_WORKER_CTL: a command run with sh -c and a verb appended,
 //     that acts on the worker's machine (restart: kill the worker by its
 //     recorded pid and start it again over the same state; fresh: start
-//     the worker, and a check worker, again on empty state, as a new
-//     AppTown's workers);
-//   - APPTOWN_QUAL_CHECK_WORKER_URL, optionally: a check worker there, with
-//     the same certificates.
+//     the worker again on empty state, as a new AppTown's worker).
 //
 // DOCKER_HOST must name the worker's Docker, so that what the test
 // observes is that machine's.
 type External struct {
-	URL, CheckURL, CA, Cert, Key, State, Control string
+	URL, CA, Cert, Key, State, Control string
 }
 
 // ExternalWorker is the worker the environment names; the test is skipped
@@ -463,7 +460,7 @@ func ExternalWorker(t *testing.T) *External {
 // LookupExternal is the worker the environment names, or nil.
 func LookupExternal(t *testing.T) *External {
 	t.Helper()
-	e := &External{URL: os.Getenv("APPTOWN_QUAL_WORKER_URL"), CheckURL: os.Getenv("APPTOWN_QUAL_CHECK_WORKER_URL"), CA: os.Getenv("APPTOWN_QUAL_WORKER_CA"),
+	e := &External{URL: os.Getenv("APPTOWN_QUAL_WORKER_URL"), CA: os.Getenv("APPTOWN_QUAL_WORKER_CA"),
 		Cert: os.Getenv("APPTOWN_QUAL_WORKER_CERT"), Key: os.Getenv("APPTOWN_QUAL_WORKER_KEY"), State: os.Getenv("APPTOWN_QUAL_WORKER_STATE"), Control: os.Getenv("APPTOWN_QUAL_WORKER_CTL")}
 	if e.URL == "" {
 		return nil

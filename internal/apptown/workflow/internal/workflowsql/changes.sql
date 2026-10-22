@@ -191,29 +191,6 @@ SELECT id FROM changes WHERE project_id=sqlc.arg(project_id) AND number=sqlc.arg
 -- name: ChangeIDForBranch :one
 SELECT id FROM changes WHERE project_id=sqlc.arg(project_id) AND branch=sqlc.arg(branch) ORDER BY number DESC LIMIT 1;
 
--- A project's Work, row by row, for moving it to another AppTown: each row
--- whole, as JSON, so the archive holds what the source held. Only landed
--- history moves: shipped changes, and the runs that are not
--- running and are on a shipped change or on none. Read in the export's
--- repeatable-read snapshot.
--- name: ExportChanges :many
-SELECT to_jsonb(c)::text FROM changes c WHERE c.project_id = $1 AND c.state = 'shipped' ORDER BY c.id;
-
--- The commits the moving rows name, which the bundle must carry.
--- name: ExportNamedCommits :many
-SELECT sha FROM (
-  SELECT c.base_sha AS sha FROM changes c WHERE c.project_id = $1 AND c.state = 'shipped'
-  UNION SELECT c.landed_sha FROM changes c WHERE c.project_id = $1 AND c.state = 'shipped'
-  UNION SELECT r.base_sha FROM runs r WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped'))
-) named WHERE sha <> '' ORDER BY sha;
-
--- What stays behind: each change not landed, and each run still running.
--- name: ExportSkipped :many
-SELECT 'change'::text AS kind, c.id, c.title, c.state FROM changes c WHERE c.project_id = $1 AND c.state <> 'shipped'
-UNION ALL
-SELECT 'run'::text, r.id, r.workflow_name, r.status FROM runs r WHERE r.project_id = $1 AND r.status = 'running'
-ORDER BY 1, 2;
-
 -- The recorded branches of a project's changes that are not finished.
 -- name: OpenChangeBranches :many
 SELECT c.number, c.branch FROM changes c

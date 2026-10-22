@@ -14,13 +14,11 @@ import (
 
 // NeedState is a managed need instance's standing: creating while the
 // provider makes it, ready once it answers, failed when the provider refused,
-// orphaned when its deployment went before the record did. Pending is the
-// column's default from before intent was recorded; read, never written.
+// orphaned when its deployment went before the record did.
 type NeedState uint8
 
 const (
-	NeedPending NeedState = iota + 1
-	NeedCreating
+	NeedCreating NeedState = iota + 1
 	NeedReady
 	NeedFailed
 	NeedOrphaned
@@ -28,7 +26,7 @@ const (
 
 // needStateCodec spells each NeedState in storage and JSON.
 var needStateCodec = enum.Set[NeedState]{
-	Names:     []string{"pending", "creating", "ready", "failed", "orphaned"},
+	Names:     []string{"creating", "ready", "failed", "orphaned"},
 	Invalid:   "invalid-need-state",
 	Err:       ErrNeedState,
 	ScanLabel: "value",

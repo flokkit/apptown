@@ -151,15 +151,9 @@ export function gateLine(c: RestoredCopy): string {
 }
 
 // copyHead is a standing restored copy in one line: what it is a copy of,
-// how long it stays, and who has been let in.
+// and how far its restore test has got.
 export function copyHead(c: RestoredCopy, source: string): string {
-  const parts = [`restored copy of ${source} from a backup set`]
-  if (c.test) parts.push('a restore test, taken down once checked')
-  else if (!c.checkedAt) parts.push('starting')
-  else if (c.expiresAt) parts.push(`${c.open ? 'open' : 'up'} until ${fmtWhen(c.expiresAt)}`)
-  const people = Array.from(new Set(c.entries.map((e) => e.person)))
-  parts.push(people.length ? `opened by ${people.join(', ')}` : 'not opened yet')
-  return parts.join(' · ')
+  return `restored copy of ${source} from a backup set · ${c.checkedAt ? 'checked, to be taken down' : 'being tested'}`
 }
 
 // CoverageLines is what the answer speaks for and what it does not, beside
@@ -258,10 +252,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
             <button className="subtle" disabled={busy || !ops.rehearsal.available} onClick={() => start('rehearsals')} title={ops.rehearsal.why || rehearseTitle}>Rehearse a restore</button>
           )}
           {p.dataClass === 'production' && applies(ops.restore) && (
-            <>
-              <button className="subtle" disabled={busy || !ops.restore.available} onClick={() => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/restored-copies`, { test: true }))} title={ops.restore.why || restoreTestTitle}>Test a restore here</button>
-              <button className="subtle" disabled={busy || !ops.restore.available} onClick={() => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/restored-copies`, { minutes: 240 }))} title={ops.restore.why || openCopyTitle}>Restore a copy to look at</button>
-            </>
+            <button className="subtle" disabled={busy || !ops.restore.available} onClick={() => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/restored-copies`, {}))} title={ops.restore.why || restoreTestTitle}>Test a restore here</button>
           )}
           {err && <span className="error small">{err}</span>}
         </div>
@@ -278,30 +269,21 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
 }
 
 const restoreTestTitle = `start its release from its newest copy on its own platform, behind ${PRODUCT}'s gate, check it through the gate, record the answer and take it down: about 10 to 20 minutes and a few cents on DigitalOcean`
-const openCopyTitle = `start its release from its newest copy on its own platform, behind ${PRODUCT}'s gate, for 4 hours: people who may see this production data can open it from here and sign in to the app; it costs well under a dollar on DigitalOcean`
 
 // RestoredCopyLines is one standing restored copy on its source's card:
-// what it is and until when, what it can still do outside and who else
-// can read it, and the doors to open, extend and take it down. Open is a
-// form the browser submits, so AppTown's mutation protection covers it
-// and the answer takes the browser to the copy's gate with a one-use ticket.
+// what it is, what it can still do outside and who else can read it, and
+// the door to take it down.
 function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; source: string; copy: RestoredCopy; asRead: string }) {
   const { run, busy, err } = useAction()
   return (
     <div style={{ marginTop: 4, marginLeft: 12 }}>
-      <div><span className={`chip ${c.open ? 'running' : 'pending'}`}>{c.open ? 'open' : c.test ? 'testing' : 'restored copy'}{asRead}</span> {copyHead(c, source)}</div>
+      <div><span className="chip pending">testing{asRead}</span> {copyHead(c, source)}</div>
       {c.outcome && <div className={c.outcome === 'failed' ? 'error' : 'muted'}>checked through the gate: {c.outcome}{c.facts.checks.length ? ` (${c.facts.checks.map((k) => `${k.path} ${k.status}`).join(', ')})` : ''}{gateLine(c) ? ` · ${gateLine(c)}` : ''}</div>}
       {c.protection && <div className="muted">protected by {c.protection}</div>}
       <div className="muted">{c.warning}</div>
       <div className="muted">{c.boundary}</div>
       {c.endDetail && <div className="error">{c.endDetail}</div>}
       <div className="row" style={{ gap: 6, marginTop: 4 }}>
-        {c.open && (
-          <form method="post" action={`/api/v1/projects/${slug}/restored-copies/${c.id}/open`} target="_blank" style={{ display: 'inline' }}>
-            <button className="subtle" type="submit" title={`open it in a new tab through ${PRODUCT}'s gate; the app's own sign-in follows`}>Open</button>
-          </form>
-        )}
-        {!c.test && c.checkedAt && <button className="subtle" disabled={busy} onClick={() => run(() => post(`/projects/${slug}/restored-copies/${c.id}/extend`, { minutes: 120 }))} title="keep it open for 2 hours from now">Extend 2 hours</button>}
         {c.checkedAt && <button className="subtle" disabled={busy} onClick={() => run(() => del(`/projects/${slug}/restored-copies/${c.id}`))} title="take it down now; no final copy is taken">Take down</button>}
         {err && <span className="error small">{err}</span>}
       </div>

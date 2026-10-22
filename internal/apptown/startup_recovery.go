@@ -29,14 +29,6 @@ func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 	if a.cfg.verifyOnly {
 		return fmt.Errorf("restart recovery is disabled in verify-only mode")
 	}
-	// The switch into -no-local-docker is
-	// admitted only after a witnessed drain, or on a restart in the mode: a
-	// AppTown in the mode cannot observe the Docker that local work ran on.
-	if a.cfg.noLocalDocker {
-		if err := switchAdmitted(ctx, a.DB); err != nil {
-			return err
-		}
-	}
 	// Step runtime tokens are derived under a key kept in the data
 	// directory, so an attempt keeps its token across a restart. It is a
 	// startup step, not construction work: a failure refuses the start, and
@@ -62,17 +54,6 @@ func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 	// block lives in memory, so it is taken again before serving.
 	if err := a.deletion.HoldBlocks(ctx); err != nil {
 		return fmt.Errorf("blocking the chats of projects being deleted: %w", err)
-	}
-	// Recorded once the start is admitted and before any work runs, so a
-	// start without the mode makes the next start in it check again. A drain
-	// records "drained" instead, and only once it has witnessed that nothing
-	// local is left.
-	if a.cfg.drainLocalDocker {
-		if err := drainLocalDocker(ctx, a.DB, a.tasks.Records, a.Console, a.Projects, a.docker); err != nil {
-			return err
-		}
-	} else if err := identity.RecordLocalDockerIn(ctx, a.DB, !a.cfg.noLocalDocker); err != nil {
-		return fmt.Errorf("recording the Docker mode of this start: %w", err)
 	}
 	log.Printf("startup repair: committed in %s; interrupted steps marked for recovery=%d, river rows settled=%d, orphaned releases failed=%d, interrupted reviews ended=%d, interrupted what-ifs settled=%d, operations settled unknown=%d, queued operations requeued=%d; preserved child workflow calls=%d, steps with recorded tasks=%d, releases owned by queued jobs or deployment attempts=%d", a.cfg.clock.Now().Sub(started).Round(time.Millisecond), report.steps, report.jobs.Settled, report.releases, report.reviews, report.whatIfs, report.operations.Settled, report.operations.Requeued, report.childCalls, report.taskSteps, report.durableReleases)
 	return nil

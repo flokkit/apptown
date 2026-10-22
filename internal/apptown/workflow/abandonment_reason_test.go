@@ -26,7 +26,7 @@ func TestAbandonmentReasonsProjectTheRecordedFailure(t *testing.T) {
 		t.Fatalf("run reason: %+v %v", snapshot, err)
 	}
 	// The batched projection used when reading a workflow tree agrees with detail.
-	graph, err := readWorkflowActivity(t.Context(), s.db, []ids.ID{run.ID}, Placement{})
+	graph, err := readWorkflowActivity(t.Context(), s.db, []ids.ID{run.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

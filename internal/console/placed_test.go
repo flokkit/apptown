@@ -96,9 +96,6 @@ func TestAnAppTownWithNoLocalChatsRefusesWakingOne(t *testing.T) {
 	if err := after.Resume(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if live, err := after.Unended(); err != nil || len(live) != 1 || live[0].ID != s.ID {
-		t.Fatalf("the unended chats: %+v %v", live, err)
-	}
 	_, attachErr := after.Attach(ctx, s.ID, console.Size{})
 	for what, err := range map[string]error{"warm": after.Warm(ctx, s.ID), "send": after.Send(ctx, s.ID, "hello"), "attach": attachErr} {
 		if !errors.Is(err, console.ErrNoLocalChats) {
@@ -113,8 +110,5 @@ func TestAnAppTownWithNoLocalChatsRefusesWakingOne(t *testing.T) {
 	}
 	if gone, err := after.Gone(ctx, s.ID); err != nil || !gone {
 		t.Fatalf("an ended chat on an AppTown with none: gone=%v %v", gone, err)
-	}
-	if live, err := after.Unended(); err != nil || len(live) != 0 {
-		t.Fatalf("after its end: %+v %v", live, err)
 	}
 }

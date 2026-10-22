@@ -87,14 +87,13 @@ func (d anyWorkspace) Ensure(ctx context.Context, spec execution.TaskSpec) (exec
 // A worker measures its profile when it starts and reports it: what docker
 // info says of the Docker it runs private Docker on, the private daemon's
 // image as it is on the worker (its local id, its repository digest, and
-// the version its dockerd reports), a privileged container probed (after
-// the privileged mark), and the operator's declaration. A check worker runs no
-// probe, and reports privilege as unknown.
+// the version its dockerd reports), a privileged container probed, and the
+// operator's declaration.
 func TestAWorkerReportsTheProfileItMeasured(t *testing.T) {
 	ctx := context.Background()
 	binary := newProfileDocker()
 	state := t.TempDir()
-	srv := &worker.Server{Installation: "inst-1", State: state, Tasks: &executionfake.Tasks{}, Docker: binary, DindImage: "docker:27-dind", Role: worker.Role{Role: worker.RoleAgent}}
+	srv := &worker.Server{Installation: "inst-1", State: state, Tasks: &executionfake.Tasks{}, Docker: binary, DindImage: "docker:27-dind"}
 	ca := workertest.NewCA(t)
 	driver := workertest.Driver(t, ca, workertest.StartServer(t, ca, srv))
 	if _, err := driver.Profile(ctx); err == nil {
@@ -112,9 +111,6 @@ func TestAWorkerReportsTheProfileItMeasured(t *testing.T) {
 	if got != want {
 		t.Fatalf("the profile:\n%+v, want\n%+v", got, want)
 	}
-	if _, err := os.Stat(filepath.Join(state, "privileged-agents")); err != nil {
-		t.Errorf("the privileged probe ran without the mark: %v", err)
-	}
 	if recorded := binary.made(); !strings.Contains(recorded, "run --rm --privileged") {
 		t.Errorf("no privileged container was probed:\n%s", recorded)
 	}
@@ -126,11 +122,6 @@ func TestAWorkerReportsTheProfileItMeasured(t *testing.T) {
 		!strings.Contains(p.DindVersion, "no dockerd here") || p.DindImageID != "sha256:d1d" {
 		t.Errorf("an image without a digest or a version: %+v", p)
 	}
-
-	check := &worker.Server{State: t.TempDir(), Docker: binary, DindImage: "docker:27-dind", Role: worker.Role{Role: worker.RoleCheck}}
-	if p := check.MeasureProfile(ctx, false); !strings.HasPrefix(p.Privileged, "unknown") {
-		t.Errorf("a check worker's privilege: %q", p.Privileged)
-	}
 }
 
 // Private Docker is made only on the profile it was admitted on. A request
@@ -140,7 +131,7 @@ func TestAWorkerReportsTheProfileItMeasured(t *testing.T) {
 func TestPrivateDockerIsRefusedOnAChangedProfile(t *testing.T) {
 	ctx := context.Background()
 	binary := newProfileDocker()
-	srv := &worker.Server{Installation: "inst-1", State: t.TempDir(), Tasks: anyWorkspace{&executionfake.Tasks{}}, Docker: binary, DindImage: "docker:27-dind", Role: worker.Role{Role: worker.RoleAgent}}
+	srv := &worker.Server{Installation: "inst-1", State: t.TempDir(), Tasks: anyWorkspace{&executionfake.Tasks{}}, Docker: binary, DindImage: "docker:27-dind"}
 	srv.Profile = srv.MeasureProfile(ctx, false)
 	ca := workertest.NewCA(t)
 	driver := workertest.Driver(t, ca, workertest.StartServer(t, ca, srv))
@@ -214,7 +205,7 @@ func TestPrivateDockerIsRefusedOnAChangedProfile(t *testing.T) {
 func TestPrivateDockerIsRefusedOnAnotherKernel(t *testing.T) {
 	ctx := context.Background()
 	binary := newProfileDocker()
-	srv := &worker.Server{Installation: "inst-1", State: t.TempDir(), Tasks: anyWorkspace{&executionfake.Tasks{}}, Docker: binary, DindImage: "docker:27-dind", Role: worker.Role{Role: worker.RoleAgent}}
+	srv := &worker.Server{Installation: "inst-1", State: t.TempDir(), Tasks: anyWorkspace{&executionfake.Tasks{}}, Docker: binary, DindImage: "docker:27-dind"}
 	admitted := srv.MeasureProfile(ctx, false)
 	srv.Profile = admitted
 	ca := workertest.NewCA(t)

@@ -21,8 +21,7 @@ type SCMWork struct {
 	db      *database.DB
 	dataDir string
 
-	placement Placement // with a check worker, the only place gates accept
-	evals     EvalGate
+	evals EvalGate
 	clocked
 }
 type scmClaim struct {
@@ -33,8 +32,7 @@ type scmClaim struct {
 	selected scm.Source
 	call     *MergeCall
 
-	placement Placement
-	evals     EvalGate
+	evals EvalGate
 	clocked
 }
 
@@ -85,7 +83,7 @@ func (w SCMWork) claim(run Run, source MergeSource, call *MergeCall, attribution
 	if source.RepoBacked() {
 		selected.Repository, selected.Workspace, selected.DefaultBranch = source.Repository(w.dataDir), source.Workspace(w.dataDir), source.DefaultBranch
 	}
-	return &scmClaim{w.rules, w.db, run, source, selected, call, w.placement, w.evals, w.clocked}
+	return &scmClaim{w.rules, w.db, run, source, selected, call, w.evals, w.clocked}
 }
 func (c *scmClaim) Source() scm.Source { return c.selected }
 func (c *scmClaim) CheckIn(ctx context.Context, tx *database.Tx, purpose scm.Purpose) (scm.Refusal, error) {
@@ -119,7 +117,7 @@ func (c *scmClaim) CheckIn(ctx context.Context, tx *database.Tx, purpose scm.Pur
 				return scm.Refusal{Reason: reason}, err
 			}
 		}
-		permission, err := (MergeAdmission{c.db, c.rules, c.placement, c.evals, c.clocked}).evaluateMergePermissionIn(ctx, tx, *c.call)
+		permission, err := (MergeAdmission{c.db, c.rules, c.evals, c.clocked}).evaluateMergePermissionIn(ctx, tx, *c.call)
 		refusal := scm.Refusal{Reason: permission.Reason}
 		if permission.Blocking != nil {
 			refusal.CheckID = permission.Blocking.ID

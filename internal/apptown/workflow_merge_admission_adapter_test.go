@@ -10,5 +10,5 @@ import (
 type workflowMergeAdmission struct{ db *database.DB }
 
 func (a workflowMergeAdmission) prepare(ctx context.Context, call workflow.MergeCall) (workflow.MergePermission, error) {
-	return workflow.NewMergeAdmission(a.db, workflowLawRules{}, workflow.Placement{}).Prepare(ctx, call)
+	return workflow.NewMergeAdmission(a.db, workflowLawRules{}).Prepare(ctx, call)
 }

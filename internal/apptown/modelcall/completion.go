@@ -1,5 +1,5 @@
 // Package modelcall is the vocabulary of AppTown's own model calls:
-// narratives, approval briefs, simple changes, pack assistance, checks and
+// narratives, approval briefs, pack assistance, checks and
 // the eval judge. The inference gateway answers them (inference.Gateway.Ask)
 // through the same provider resolution and admission as a runtime's request,
 // and writes their one spend line. Callers select a model and keep their
@@ -13,7 +13,7 @@ import "context"
 // Call is one single-turn question AppTown asks for itself.
 type Call struct {
 	// Purpose names what the call is for (narrative, approval-brief,
-	// simple-change, pack-assistance, guidance-checklist,
+	// pack-assistance, guidance-checklist,
 	// conformance-review, what-if, eval-score); it is the spend line's kind.
 	Purpose string
 	// ProjectID is the project the call is made for, 0 for none. A call for

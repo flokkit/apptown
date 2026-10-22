@@ -46,7 +46,6 @@ func init() {
 		wiregen.Named{Name: "RecentWhatIfs", Value: RecentWhatIfs{}},
 		wiregen.Named{Name: "ConformanceHistory", Value: ConformanceHistory{}},
 		wiregen.Named{Name: "ConformanceFixList", Value: ConformanceFixList{}},
-		wiregen.Named{Name: "ConformanceHistoryCleared", Value: ConformanceHistoryCleared{}},
 		wiregen.Named{Name: "DispositionCreated", Value: DispositionCreated{}},
 		wiregen.Named{Name: "DispositionList", Value: DispositionList{}},
 		wiregen.Named{Name: "OpenVEXDocument", Value: OpenVEXDocument{}},

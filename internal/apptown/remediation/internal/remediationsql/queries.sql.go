@@ -30,22 +30,6 @@ func (q *Queries) ActiveItemCounts(ctx context.Context, remediationID ids.ID) (A
 	return i, err
 }
 
-const activeRemediationExists = `-- name: ActiveRemediationExists :one
-SELECT EXISTS(SELECT 1 FROM remediations WHERE status IN ($1, $2))
-`
-
-type ActiveRemediationExistsParams struct {
-	Status   string
-	Status_2 string
-}
-
-func (q *Queries) ActiveRemediationExists(ctx context.Context, arg ActiveRemediationExistsParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, activeRemediationExists, arg.Status, arg.Status_2)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const attemptOutcome = `-- name: AttemptOutcome :one
 SELECT id, item_id, n, change_id, run_id, base_sha, outcome, cost_micros, reason, started_at, finished_at FROM remediation_attempts WHERE item_id = $1 AND n = $2 AND change_id IS NOT DISTINCT FROM $3 AND run_id = $4
 `
@@ -175,42 +159,6 @@ func (q *Queries) ChargeTransientRetry(ctx context.Context, arg ChargeTransientR
 		arg.TransientRetries_2,
 		arg.UpdatedAt,
 	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const deleteAllAttempts = `-- name: DeleteAllAttempts :execrows
-DELETE FROM remediation_attempts
-`
-
-func (q *Queries) DeleteAllAttempts(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAllAttempts)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const deleteAllItems = `-- name: DeleteAllItems :execrows
-DELETE FROM remediation_items
-`
-
-func (q *Queries) DeleteAllItems(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAllItems)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const deleteAllRemediations = `-- name: DeleteAllRemediations :execrows
-DELETE FROM remediations
-`
-
-func (q *Queries) DeleteAllRemediations(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAllRemediations)
 	if err != nil {
 		return 0, err
 	}
@@ -700,17 +648,6 @@ func (q *Queries) LockProjectForRemediation(ctx context.Context, id ids.ID) (ids
 	return id, err
 }
 
-const lockRemediationHistory = `-- name: LockRemediationHistory :exec
-
-LOCK TABLE remediations, remediation_items, remediation_attempts IN ACCESS EXCLUSIVE MODE NOWAIT
-`
-
-// ===== history maintenance ============================================
-func (q *Queries) LockRemediationHistory(ctx context.Context) error {
-	_, err := q.db.ExecContext(ctx, lockRemediationHistory)
-	return err
-}
-
 const nextRemediationNumber = `-- name: NextRemediationNumber :one
 
 INSERT INTO remediation_numbers (id, last) VALUES (true, 1)
@@ -947,6 +884,8 @@ func (q *Queries) RemediationIDByNumber(ctx context.Context, number int64) (ids.
 }
 
 const remediationRecordCounts = `-- name: RemediationRecordCounts :one
+
+
 SELECT (SELECT count(*) FROM remediation_attempts)::bigint AS attempts,
        (SELECT count(*) FROM remediation_items)::bigint AS items,
        (SELECT count(*) FROM remediations)::bigint AS remediations
@@ -958,6 +897,8 @@ type RemediationRecordCountsRow struct {
 	Remediations int64
 }
 
+// ===== tests' observations ==========================================
+// The owner's count of jobs, items and attempts; only tests use it.
 func (q *Queries) RemediationRecordCounts(ctx context.Context) (RemediationRecordCountsRow, error) {
 	row := q.db.QueryRowContext(ctx, remediationRecordCounts)
 	var i RemediationRecordCountsRow

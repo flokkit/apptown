@@ -344,7 +344,10 @@ func TestARevokedDeletionBindingStopsThePass(t *testing.T) {
 	if _, err := w.d.Request(context.Background(), w.project); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.d.RevokeBinding(context.Background(), w.project, "changed my mind"); err != nil {
+	l := w.lifecycle()
+	if err := w.db.InTx(context.Background(), func(tx *database.Tx) error {
+		return identity.RevokeBindingIn(context.Background(), tx, l.BindingID, "boss", "changed my mind", w.clock)
+	}); err != nil {
 		t.Fatal(err)
 	}
 	w.clock = w.clock.Add(DeletionGrace + time.Minute)

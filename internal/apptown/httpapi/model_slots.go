@@ -190,7 +190,6 @@ func (h ModelSlots) slotConsumers(ctx context.Context) (map[string][]string, err
 		"chat":    {"project chat"},
 		"worker":  {"delegate: carries out briefs (chat + steps)"},
 		"scout":   {"delegate: quick lookups (chat + steps)"},
-		"draft":   {"workflow drafting assistant"},
 		"fast":    {"change summaries", "briefs", "guidance checks", "setup probes"},
 	}
 	// Consumers are library workflows now (design/decisions/workflows-as-lanes.md);

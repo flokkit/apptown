@@ -55,7 +55,7 @@ the enabling behavior is clear in source, not that a live exploit was run.
 | TM-18 | Approved/tested identity differs from released artifact | P1 | T, E | Medium; release path dependent | Partly mitigated |
 | TM-19 | Toolchain or dependency supply chain introduces malicious code | P1 | T, E | High exposure; no specific compromise alleged | Partly mitigated |
 | TM-20 | Work/API traffic exhausts shared resources | P1 | D | High missing uniform limits; edge unknown | Partly mitigated |
-| TM-21 | Webhook secret reuse/replay creates unwanted work | P1 | S, D | High | Partly mitigated; shared token accepted for 1.0 |
+| TM-21 | Webhook secret reuse/replay creates unwanted work | — | S, D | None | Closed: AppTown has no inbound webhook |
 | TM-22 | Development services leak data or become infrastructure footholds | P1 | I, T, E, D | Medium; service/path dependent | Partly mitigated |
 | TM-23 | Deployment integrations expose broader target authority | P1 | E, I, T | Medium; live credentials unverified | Open |
 | TM-24 | Stop/restart leaves work or authority alive | P1 | D, E | High lifecycle concern; failure paths need tests | Partly mitigated |
@@ -541,9 +541,9 @@ branch and deploying need a person's approval or a run admitted by someone
 holding `change:land`, checked at the effect itself; agents, consoles, step
 runs and AppTown's triggers cannot approve or land
 ([authorization decisions](../subsystems/authorization-capabilities.md);
-`internal/apptown/workflow/assent.go`). An optional check worker keeps checks
-off the machine agents use, and a tests step answers only from a witnessed
-exit ([agent isolation limits](../subsystems/agent-sandbox.md);
+`internal/apptown/workflow/assent.go`). A tests step answers only from a
+witnessed exit, and its result records the machine it ran on, which agents
+may share ([agent isolation limits](../subsystems/agent-sandbox.md);
 [workers](../operations/workers.md)). Remaining: project-controlled tests and
 checks still decide what they test; a root administrator may approve their
 own change.
@@ -642,24 +642,10 @@ request. Legitimate long-running jobs retain bounded resource leases.
 
 ### TM-21 — webhook reuse or replay starts unwanted paid work
 
-**Status: partly mitigated; the shared token is accepted
-for 1.0.** The token is accepted only in the `X-AppTown-Token` header and
-compared in constant time; a token in the URL is refused. That one
-instance-wide token can fire any webhook workflow in any project, which is
-recorded as accepted for 1.0 ([triggers](../subsystems/triggers.md)). Open:
-there is no per-event replay protection.
-
-**Attack and impact.** A shared webhook token leaks from a URL/log or sender;
-an attacker replays requests or targets another enabled workflow. Consequences
-include attribution confusion, unwanted changes and model/service spending.
-
-**Proposed control.** Separate credentials by project/workflow/sender, prefer
-signed timestamped payloads or scoped bearer headers, reject duplicate event
-IDs, and enforce queue/spend limits. Do not carry long-lived secrets in URLs.
-
-**Verify.** Another workflow/project rejects the credential; old/repeated
-events do not duplicate work. Rotation is bounded and observable; retries of
-a legitimate event return the established result.
+**Status: closed.** AppTown has no inbound webhook, so there is no shared
+trigger token to leak or replay. A webhook trigger added later needs
+credentials scoped by project, workflow and sender, signed timestamped
+payloads, refusal of repeated event IDs, and spend limits.
 
 ### TM-22 — development services become data or network footholds
 

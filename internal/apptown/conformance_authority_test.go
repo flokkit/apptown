@@ -151,29 +151,6 @@ func TestReviewWithMissingRepositoryFailsExplicitly(t *testing.T) {
 	}
 }
 
-func TestHistoryMaintenanceRequiresItsOwnCapability(t *testing.T) {
-	t.Parallel()
-	a := authzFixture(t)
-	a.addGrant("user", "outsider", "", string(access.CapConformanceRev), access.ScopeInstance, "", "fixture", "boss", "")
-	ctx := verifiedContext(context.Background(), access.Principal{Kind: "user", Name: "outsider", Via: "token"})
-	review, err := a.conformance.BeginReview(ctx, conformance.ReviewRequest{Projects: []ids.ID{}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := a.Fixes.ClearHistory(ctx)
-	var denied *access.Denied
-	if !errors.As(err, &denied) || result != nil {
-		t.Fatalf("review authority became history deletion: %+v %v", result, err)
-	}
-	if _, err := review.Finish(context.Background(), conformance.Completion{}, conformance.ReviewDone); err != nil {
-		t.Fatal(err)
-	}
-	boss := verifiedContext(context.Background(), access.Principal{Kind: "user", Name: "boss", Via: "token", Role: "admin"})
-	if _, err := a.Fixes.ClearHistory(boss); err != nil {
-		t.Fatalf("instance administration refused: %v", err)
-	}
-}
-
 func TestExceptionRequiresApprovalBeforeTakingEffect(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)

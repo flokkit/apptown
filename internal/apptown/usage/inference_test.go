@@ -37,8 +37,8 @@ func TestRequestsLedger(t *testing.T) {
 }
 
 // A receipt records the actor its workload was admitted as, principal and
-// way: a run started by alice keeps naming her after she is renamed and her
-// old name is given to someone else.
+// way: a run started by alice keeps naming her after her name is removed
+// and given to someone else.
 func TestARequestRecordsTheAdmittedActor(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
@@ -57,7 +57,7 @@ func TestARequestRecordsTheAdmittedActor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := people.Rename(ctx, "alice", "alicia", access.Principal{Kind: "user", Name: "ops", Via: "session"}); err != nil {
+	if err := people.RemoveName(ctx, "alice", access.Principal{Kind: "user", Name: "ops", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := people.EnsureUser(ctx, "alice"); err != nil {

@@ -376,15 +376,6 @@ func copyRole(kind, name string) string {
 	return kind + ":" + name
 }
 
-// copyVolume is the volume a recorded copy was taken from. An app-volume
-// copy from before items named their volume names it as the item.
-func copyVolume(it BackupItem) string {
-	if it.Volume == "" && it.Kind == "volume" {
-		return it.Name
-	}
-	return it.Volume
-}
-
 // placeCopies puts each good copy of a set onto the held item it belongs
 // to: the item holding the volume it was taken from; or, when that volume
 // is not here (an older set, another deployment's), the one item of its
@@ -407,7 +398,7 @@ func placeCopies(items []BackupItem, held []backupPlanItem) (into map[int]int, u
 		if it.Error != "" {
 			continue
 		}
-		v := copyVolume(it)
+		v := it.Volume
 		found := -1
 		for j, p := range held {
 			if v != "" && p.Kind == it.Kind && p.Volume == v && !taken[j] {
@@ -437,7 +428,7 @@ func placeCopies(items []BackupItem, held []backupPlanItem) (into map[int]int, u
 			if it.Kind == "volume" {
 				what = "the app's data"
 			}
-			if v := copyVolume(it); v != "" {
+			if v := it.Volume; v != "" {
 				what += " (volume " + v + ")"
 			}
 			switch {

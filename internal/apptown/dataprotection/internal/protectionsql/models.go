@@ -100,9 +100,6 @@ type RestoredCopy struct {
 	BackupID         ids.ID
 	ReleaseNumber    int64
 	Target           string
-	IsTest           bool
-	LifetimeMinutes  int64
-	ExpiresAt        sql.NullTime
 	GateUrl          string
 	GateSecretSha256 string
 	AppMarker        string

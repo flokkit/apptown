@@ -7,7 +7,6 @@ package protectionsql
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -201,23 +200,6 @@ type EndRestoredCopyParams struct {
 
 func (q *Queries) EndRestoredCopy(ctx context.Context, arg EndRestoredCopyParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, endRestoredCopy, arg.At, arg.EndDetail, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const extendRestoredCopy = `-- name: ExtendRestoredCopy :execrows
-UPDATE restored_copies SET expires_at=$1 WHERE id=$2 AND ended_at IS NULL AND NOT is_test
-`
-
-type ExtendRestoredCopyParams struct {
-	ExpiresAt sql.NullTime
-	ID        ids.ID
-}
-
-func (q *Queries) ExtendRestoredCopy(ctx context.Context, arg ExtendRestoredCopyParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, extendRestoredCopy, arg.ExpiresAt, arg.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -502,9 +484,9 @@ func (q *Queries) InsertRestoreRehearsal(ctx context.Context, arg InsertRestoreR
 }
 
 const insertRestoredCopy = `-- name: InsertRestoredCopy :one
-INSERT INTO restored_copies (id, project_id, number, source, source_id, operation_id, backup_id, is_test, lifetime_minutes, asked_by, asked_by_principal, asked_by_via, app_marker, started_at)
-  VALUES ($1, $2, (SELECT COALESCE(MAX(number),0)+1 FROM restored_copies WHERE project_id=$2), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-  RETURNING id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, is_test, lifetime_minutes, expires_at, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail
+INSERT INTO restored_copies (id, project_id, number, source, source_id, operation_id, backup_id, asked_by, asked_by_principal, asked_by_via, app_marker, started_at)
+  VALUES ($1, $2, (SELECT COALESCE(MAX(number),0)+1 FROM restored_copies WHERE project_id=$2), $3, $4, $5, $6, $7, $8, $9, $10, $11)
+  RETURNING id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail
 `
 
 type InsertRestoredCopyParams struct {
@@ -514,8 +496,6 @@ type InsertRestoredCopyParams struct {
 	SourceID         ids.ID
 	OperationID      ids.ID
 	BackupID         ids.ID
-	IsTest           bool
-	LifetimeMinutes  int64
 	AskedBy          string
 	AskedByPrincipal ids.ID
 	AskedByVia       string
@@ -533,8 +513,6 @@ func (q *Queries) InsertRestoredCopy(ctx context.Context, arg InsertRestoredCopy
 		arg.SourceID,
 		arg.OperationID,
 		arg.BackupID,
-		arg.IsTest,
-		arg.LifetimeMinutes,
 		arg.AskedBy,
 		arg.AskedByPrincipal,
 		arg.AskedByVia,
@@ -554,9 +532,6 @@ func (q *Queries) InsertRestoredCopy(ctx context.Context, arg InsertRestoredCopy
 		&i.BackupID,
 		&i.ReleaseNumber,
 		&i.Target,
-		&i.IsTest,
-		&i.LifetimeMinutes,
-		&i.ExpiresAt,
 		&i.GateUrl,
 		&i.GateSecretSha256,
 		&i.AppMarker,
@@ -668,7 +643,7 @@ func (q *Queries) LatestRestoreRehearsal(ctx context.Context, deploymentID ids.I
 }
 
 const latestRestoreTest = `-- name: LatestRestoreTest :one
-SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, is_test, lifetime_minutes, expires_at, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE source_id=$1 AND is_test AND (outcome<>'' OR ended_at IS NOT NULL) ORDER BY id DESC LIMIT 1
+SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE source_id=$1 AND (outcome<>'' OR ended_at IS NOT NULL) ORDER BY id DESC LIMIT 1
 `
 
 func (q *Queries) LatestRestoreTest(ctx context.Context, sourceID ids.ID) (RestoredCopy, error) {
@@ -686,9 +661,6 @@ func (q *Queries) LatestRestoreTest(ctx context.Context, sourceID ids.ID) (Resto
 		&i.BackupID,
 		&i.ReleaseNumber,
 		&i.Target,
-		&i.IsTest,
-		&i.LifetimeMinutes,
-		&i.ExpiresAt,
 		&i.GateUrl,
 		&i.GateSecretSha256,
 		&i.AppMarker,
@@ -793,12 +765,12 @@ func (q *Queries) NoteRestoredCopyLeft(ctx context.Context, arg NoteRestoredCopy
 }
 
 const openRestoredCopies = `-- name: OpenRestoredCopies :many
-SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, is_test, lifetime_minutes, expires_at, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE ended_at IS NULL ORDER BY id
+SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE ended_at IS NULL ORDER BY id
 `
 
 // Restored copies not yet ended: the sweep reads each one's start from
-// the operations ledger and takes down those whose time is up or whose
-// start ended without taking them down.
+// the operations ledger and takes down those whose start ended without
+// taking them down.
 func (q *Queries) OpenRestoredCopies(ctx context.Context) ([]RestoredCopy, error) {
 	rows, err := q.db.QueryContext(ctx, openRestoredCopies)
 	if err != nil {
@@ -820,9 +792,6 @@ func (q *Queries) OpenRestoredCopies(ctx context.Context) ([]RestoredCopy, error
 			&i.BackupID,
 			&i.ReleaseNumber,
 			&i.Target,
-			&i.IsTest,
-			&i.LifetimeMinutes,
-			&i.ExpiresAt,
 			&i.GateUrl,
 			&i.GateSecretSha256,
 			&i.AppMarker,
@@ -908,8 +877,8 @@ func (q *Queries) OrphanBackupsDue(ctx context.Context, arg OrphanBackupsDuePara
 
 const placeRestoredCopy = `-- name: PlaceRestoredCopy :execrows
 UPDATE restored_copies SET deployment=$1, deployment_id=$2, release_number=$3,
-  target=$4, expires_at=$5, gate_secret_sha256=$6
-  WHERE id=$7 AND ended_at IS NULL
+  target=$4, gate_secret_sha256=$5
+  WHERE id=$6 AND ended_at IS NULL
 `
 
 type PlaceRestoredCopyParams struct {
@@ -917,7 +886,6 @@ type PlaceRestoredCopyParams struct {
 	DeploymentID  ids.ID
 	ReleaseNumber int64
 	Target        string
-	ExpiresAt     sql.NullTime
 	SecretSha256  string
 	ID            ids.ID
 }
@@ -928,7 +896,6 @@ func (q *Queries) PlaceRestoredCopy(ctx context.Context, arg PlaceRestoredCopyPa
 		arg.DeploymentID,
 		arg.ReleaseNumber,
 		arg.Target,
-		arg.ExpiresAt,
 		arg.SecretSha256,
 		arg.ID,
 	)
@@ -1337,7 +1304,7 @@ func (q *Queries) RemovePurgedBackups(ctx context.Context, arg RemovePurgedBacku
 }
 
 const restoredCopiesOf = `-- name: RestoredCopiesOf :many
-SELECT c.id, c.project_id, c.number, c.source, c.source_id, c.deployment, c.deployment_id, c.operation_id, c.backup_id, c.release_number, c.target, c.is_test, c.lifetime_minutes, c.expires_at, c.gate_url, c.gate_secret_sha256, c.app_marker, c.asked_by, c.asked_by_principal, c.asked_by_via, c.outcome, c.failed_step, c.facts_json, c.started_at, c.checked_at, c.ended_at, c.end_detail FROM restored_copies c WHERE c.source_id=$1::uuid AND (c.ended_at IS NULL OR c.id IN (
+SELECT c.id, c.project_id, c.number, c.source, c.source_id, c.deployment, c.deployment_id, c.operation_id, c.backup_id, c.release_number, c.target, c.gate_url, c.gate_secret_sha256, c.app_marker, c.asked_by, c.asked_by_principal, c.asked_by_via, c.outcome, c.failed_step, c.facts_json, c.started_at, c.checked_at, c.ended_at, c.end_detail FROM restored_copies c WHERE c.source_id=$1::uuid AND (c.ended_at IS NULL OR c.id IN (
   SELECT e.id FROM restored_copies e WHERE e.source_id=$1::uuid AND e.ended_at IS NOT NULL ORDER BY e.id DESC LIMIT $2::bigint))
   ORDER BY c.id DESC
 `
@@ -1371,9 +1338,6 @@ func (q *Queries) RestoredCopiesOf(ctx context.Context, arg RestoredCopiesOfPara
 			&i.BackupID,
 			&i.ReleaseNumber,
 			&i.Target,
-			&i.IsTest,
-			&i.LifetimeMinutes,
-			&i.ExpiresAt,
 			&i.GateUrl,
 			&i.GateSecretSha256,
 			&i.AppMarker,
@@ -1402,7 +1366,7 @@ func (q *Queries) RestoredCopiesOf(ctx context.Context, arg RestoredCopiesOfPara
 }
 
 const restoredCopyByDeployment = `-- name: RestoredCopyByDeployment :one
-SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, is_test, lifetime_minutes, expires_at, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE deployment_id=$1 AND deployment_id IS NOT NULL
+SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE deployment_id=$1 AND deployment_id IS NOT NULL
 `
 
 func (q *Queries) RestoredCopyByDeployment(ctx context.Context, deploymentID ids.ID) (RestoredCopy, error) {
@@ -1420,9 +1384,6 @@ func (q *Queries) RestoredCopyByDeployment(ctx context.Context, deploymentID ids
 		&i.BackupID,
 		&i.ReleaseNumber,
 		&i.Target,
-		&i.IsTest,
-		&i.LifetimeMinutes,
-		&i.ExpiresAt,
 		&i.GateUrl,
 		&i.GateSecretSha256,
 		&i.AppMarker,
@@ -1441,7 +1402,7 @@ func (q *Queries) RestoredCopyByDeployment(ctx context.Context, deploymentID ids
 }
 
 const restoredCopyByGateSecret = `-- name: RestoredCopyByGateSecret :one
-SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, is_test, lifetime_minutes, expires_at, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE gate_secret_sha256=$1 AND gate_secret_sha256<>'' AND ended_at IS NULL
+SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE gate_secret_sha256=$1 AND gate_secret_sha256<>'' AND ended_at IS NULL
 `
 
 func (q *Queries) RestoredCopyByGateSecret(ctx context.Context, secretSha256 string) (RestoredCopy, error) {
@@ -1459,9 +1420,6 @@ func (q *Queries) RestoredCopyByGateSecret(ctx context.Context, secretSha256 str
 		&i.BackupID,
 		&i.ReleaseNumber,
 		&i.Target,
-		&i.IsTest,
-		&i.LifetimeMinutes,
-		&i.ExpiresAt,
 		&i.GateUrl,
 		&i.GateSecretSha256,
 		&i.AppMarker,
@@ -1480,7 +1438,7 @@ func (q *Queries) RestoredCopyByGateSecret(ctx context.Context, secretSha256 str
 }
 
 const restoredCopyByID = `-- name: RestoredCopyByID :one
-SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, is_test, lifetime_minutes, expires_at, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE id=$1
+SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE id=$1
 `
 
 func (q *Queries) RestoredCopyByID(ctx context.Context, id ids.ID) (RestoredCopy, error) {
@@ -1498,9 +1456,6 @@ func (q *Queries) RestoredCopyByID(ctx context.Context, id ids.ID) (RestoredCopy
 		&i.BackupID,
 		&i.ReleaseNumber,
 		&i.Target,
-		&i.IsTest,
-		&i.LifetimeMinutes,
-		&i.ExpiresAt,
 		&i.GateUrl,
 		&i.GateSecretSha256,
 		&i.AppMarker,
@@ -1519,7 +1474,7 @@ func (q *Queries) RestoredCopyByID(ctx context.Context, id ids.ID) (RestoredCopy
 }
 
 const restoredCopyByOperation = `-- name: RestoredCopyByOperation :one
-SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, is_test, lifetime_minutes, expires_at, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE operation_id=$1
+SELECT id, project_id, number, source, source_id, deployment, deployment_id, operation_id, backup_id, release_number, target, gate_url, gate_secret_sha256, app_marker, asked_by, asked_by_principal, asked_by_via, outcome, failed_step, facts_json, started_at, checked_at, ended_at, end_detail FROM restored_copies WHERE operation_id=$1
 `
 
 func (q *Queries) RestoredCopyByOperation(ctx context.Context, operationID ids.ID) (RestoredCopy, error) {
@@ -1537,9 +1492,6 @@ func (q *Queries) RestoredCopyByOperation(ctx context.Context, operationID ids.I
 		&i.BackupID,
 		&i.ReleaseNumber,
 		&i.Target,
-		&i.IsTest,
-		&i.LifetimeMinutes,
-		&i.ExpiresAt,
 		&i.GateUrl,
 		&i.GateSecretSha256,
 		&i.AppMarker,
@@ -1555,40 +1507,6 @@ func (q *Queries) RestoredCopyByOperation(ctx context.Context, operationID ids.I
 		&i.EndDetail,
 	)
 	return i, err
-}
-
-const restoredCopyEntries = `-- name: RestoredCopyEntries :many
-SELECT person, person_principal, redeemed_at FROM restored_copy_tickets WHERE copy_id=$1 AND redeemed_at IS NOT NULL AND check_operation IS NULL ORDER BY redeemed_at
-`
-
-type RestoredCopyEntriesRow struct {
-	Person          string
-	PersonPrincipal ids.ID
-	RedeemedAt      sql.NullTime
-}
-
-// People let in: AppTown's own gate checks are not entries.
-func (q *Queries) RestoredCopyEntries(ctx context.Context, copyID ids.ID) ([]RestoredCopyEntriesRow, error) {
-	rows, err := q.db.QueryContext(ctx, restoredCopyEntries, copyID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []RestoredCopyEntriesRow
-	for rows.Next() {
-		var i RestoredCopyEntriesRow
-		if err := rows.Scan(&i.Person, &i.PersonPrincipal, &i.RedeemedAt); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const setsOnDisk = `-- name: SetsOnDisk :many

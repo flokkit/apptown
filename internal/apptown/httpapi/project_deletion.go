@@ -63,20 +63,6 @@ func (h ProjectDeletion) CancelProjectDeletion(w http.ResponseWriter, r *http.Re
 	h.answer(w, http.StatusOK)(h.deletion.Cancel(r.Context(), p.ID))
 }
 
-// RevokeProjectDeletion: POST /api/v1/projects/{slug}/deletion/revoke
-// {why} — withdraw the deletion's authority: the pass and the purge stop.
-func (h ProjectDeletion) RevokeProjectDeletion(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
-	if !ok {
-		return
-	}
-	jsonCommand(w, r, jsonBody{optional: true}, func(in struct {
-		Why string `json:"why"`
-	}) {
-		h.answer(w, http.StatusOK)(h.deletion.RevokeBinding(r.Context(), p.ID, in.Why))
-	})
-}
-
 // RestoreProject: POST /api/v1/projects/{slug}/restore — a deleted project
 // back to active, with no deployments, until its purge was admitted.
 func (h ProjectDeletion) RestoreProject(w http.ResponseWriter, r *http.Request) {

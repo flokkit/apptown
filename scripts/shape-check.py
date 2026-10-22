@@ -300,30 +300,34 @@ def callbacks():
                          cwd=ROOT, capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
-# Commands promised to stand alone: what they may not link. apptown-worker
-# links internal/console since it runs chats' runtimes: that
-# package depends on no AppTown domain or database, and the go list check
-# below still refuses anything that would bring one in. It links
-# internal/deploy since it boots previews with AppTown's own boot code
-# (private/design/plans/isolated-execution-previews-on-workers-2026-09-30.md): the
-# library, not the deployment subsystem, which stays refused.
-STANDALONE = {"apptown-deploy": {"apptown", "deployment", "preview", "dataprotection", "database", "workflow", "project", "conformance", "console", "wow", "adoption", "access"},
-              "apptown-console": {"apptown", "workflow", "project", "conformance", "deployment", "preview", "dataprotection", "deploy", "wow", "adoption", "access", "integration", "model"},
-              "apptown-worker": {"apptown", "database", "workflow", "project", "deployment", "preview", "dataprotection", "conformance", "wow", "adoption", "access",
-                               "integration", "model", "secret", "scm", "tasks", "identity", "usage", "dependency", "adrs", "complaint"},
-              "apptown-check": {"apptown", "conformance", "workflow", "project", "deployment", "preview", "dataprotection", "database", "console", "wow", "adoption", "access", "integration", "model", "secret", "scm", "usage", "dependency", "adrs", "complaint"}}
+# Packages promised to stand alone, as go list patterns: what they may not
+# link, directly or through anything they import. The check, deploy and
+# console libraries could be lifted into another program. apptown-worker
+# links internal/console since it runs chats' runtimes: that package depends
+# on no AppTown domain or database, and the go list check below still
+# refuses anything that would bring one in. It links internal/deploy since it
+# boots previews with AppTown's own boot code: the library, not the
+# deployment subsystem, which stays refused. A pattern that matches nothing
+# fails: a rule that checks nothing must not pass.
+STANDALONE = {"./internal/deploy/...": {"apptown", "deployment", "preview", "dataprotection", "database", "workflow", "project", "conformance", "console", "wow", "adoption", "access"},
+              "./internal/console/...": {"apptown", "workflow", "project", "conformance", "deployment", "preview", "dataprotection", "deploy", "wow", "adoption", "access", "integration", "model"},
+              "./cmd/apptown-worker": {"apptown", "database", "workflow", "project", "deployment", "preview", "dataprotection", "conformance", "wow", "adoption", "access",
+                                       "integration", "model", "secret", "scm", "tasks", "identity", "usage", "dependency", "adrs", "complaint"},
+              "./internal/check/...": {"apptown", "conformance", "workflow", "project", "deployment", "preview", "dataprotection", "database", "console", "wow", "adoption", "access", "integration", "model", "secret", "scm", "usage", "dependency", "adrs", "complaint"}}
+
+def standalone_violations(pattern, banned, listing):
+    """listing is go list -deps's result for pattern: (returncode, stdout, stderr)."""
+    code, stdout, stderr = listing
+    if code != 0 or not stdout.strip():
+        why = stderr.strip().splitlines()[-1] if stderr.strip() else "matches no package"
+        return [f"{pattern} does not build: {why}"]
+    return [f"{pattern} links internal/{d}" for d in sorted({top(l) for l in stdout.split() if l.startswith(MOD)}) if d in banned]
 
 def standalone():
     v = []
-    for cmd, banned in STANDALONE.items():
-        if not os.path.isdir(os.path.join(ROOT, "cmd", cmd)):
-            continue
-        out = subprocess.run(["go", "list", "-deps", "./cmd/" + cmd], cwd=ROOT, capture_output=True, text=True)
-        if out.returncode != 0:
-            v.append(f"cmd/{cmd} does not build: {out.stderr.strip().splitlines()[-1] if out.stderr.strip() else ''}"); continue
-        for d in sorted({top(l) for l in out.stdout.split() if l.startswith(MOD)}):
-            if d in banned:
-                v.append(f"cmd/{cmd} links internal/{d}")
+    for pattern, banned in STANDALONE.items():
+        out = subprocess.run(["go", "list", "-deps", pattern], cwd=ROOT, capture_output=True, text=True)
+        v += standalone_violations(pattern, banned, (out.returncode, out.stdout, out.stderr))
     return v
 
 # Statements a package writes by hand instead of naming in its query file

@@ -21,9 +21,7 @@ type Merges struct {
 	rules   LawRules
 	service *scm.Service
 	effects MergeEffects
-	// placement: with a check worker, the only place gates accept.
-	placement Placement
-	evals     EvalGate
+	evals   EvalGate
 	clocked
 }
 
@@ -89,7 +87,7 @@ func (m *Merges) execute(ctx context.Context, call MergeCall) (MergeObservation,
 	if m.effects == nil || m.service == nil {
 		return MergeObservation{}, nil, fmt.Errorf("merge runtime is unavailable")
 	}
-	admission := NewMergeAdmission(m.db, m.rules, m.placement).WithEvalGate(m.evals)
+	admission := NewMergeAdmission(m.db, m.rules).WithEvalGate(m.evals)
 	admission.clocked = m.clocked
 	permission, err := admission.Prepare(ctx, call)
 	if err != nil {

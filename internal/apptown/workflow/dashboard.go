@@ -58,7 +58,7 @@ func (s *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 		return Dashboard{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	out, err := readDashboard(ctx, tx, projects, s.wait, s.placement)
+	out, err := readDashboard(ctx, tx, projects, s.wait)
 	if err != nil {
 		return Dashboard{}, err
 	}
@@ -67,7 +67,7 @@ func (s *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 	}
 	return out, nil
 }
-func readDashboard(ctx context.Context, q database.Queryer, projects []ids.ID, wait SlotWait, placement Placement) (Dashboard, error) {
+func readDashboard(ctx context.Context, q database.Queryer, projects []ids.ID, wait SlotWait) (Dashboard, error) {
 	out := Dashboard{PendingApprovals: []PendingApproval{}, ActiveRuns: []ActiveRun{}}
 	if len(projects) == 0 {
 		return out, ctx.Err()
@@ -91,7 +91,7 @@ func readDashboard(ctx context.Context, q database.Queryer, projects []ids.ID, w
 	for _, run := range out.ActiveRuns {
 		idList = append(idList, run.RunID)
 	}
-	graph, err := readWorkflowActivity(ctx, q, idList, placement)
+	graph, err := readWorkflowActivity(ctx, q, idList)
 	if err != nil {
 		return Dashboard{}, err
 	}

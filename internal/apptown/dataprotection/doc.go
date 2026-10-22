@@ -21,8 +21,8 @@
 // selects its placement with [deployment.SelectRemovalIn] and settles it
 // with [deployment.RemoveRecordedIn] (retained resources, the release it
 // served, the row and the receipt, in one transaction, after rechecking the
-// placement is the one selected); a restored copy's placement is made and
-// extended with Deployment's operations. Data protection writes Deployment's
+// placement is the one selected); a restored copy's placement is made with
+// Deployment's operation. Data protection writes Deployment's
 // tables only through those participants.
 //
 // # Starting from a copy

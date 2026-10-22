@@ -137,11 +137,6 @@ type capacityCache struct {
 	disk map[ids.ID]diskReading
 	// host reads this machine's memory (nil: /proc/meminfo).
 	host func() (hostmem.Memory, error)
-	// witness is each built-in daemon's last answer to apptownd's marker,
-	// written once to markPath (capacity_tenants.go).
-	witness        map[ids.ID]witnessReading
-	markPath, mark string
-	markDir        string // where the marker is written ("": the temp folder)
 }
 
 type diskReading struct {
@@ -222,7 +217,7 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 	used, usedErr := docker.RunningMemoryUsage(ctx, dk)
 	out.Memory.InUse = inUseOf(limits, limitsErr, used, usedErr)
 	if out.Memory.Total.Known {
-		host := s.hostUse(ctx, t, dk, info.MemoryBytes)
+		host := s.hostUse(t, info.MemoryBytes)
 		out.Memory.HostUsed = &host
 	} else {
 		why := unknown("the daemon's total is not known, so this host's own use is not comparable")

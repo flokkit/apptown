@@ -380,12 +380,9 @@ WHERE d.kind<>'restored-copy' AND (sqlc.narg(project_ids)::uuid[] IS NULL OR d.p
 ORDER BY d.kind DESC,d.id;
 
 -- name: InsertRestoredCopyDeployment :one
-INSERT INTO deployments (id, project_id, name, kind, target_id, feed, audience, data_class, expires_at, start_from_backup, updated_at)
-  VALUES (sqlc.arg(id), sqlc.arg(project_id), sqlc.arg(name), 'restored-copy', sqlc.arg(target_id), 'promotion', 'team', sqlc.arg(data_class), sqlc.arg(expires_at), sqlc.arg(backup_id), sqlc.arg(at))
+INSERT INTO deployments (id, project_id, name, kind, target_id, feed, audience, data_class, start_from_backup, updated_at)
+  VALUES (sqlc.arg(id), sqlc.arg(project_id), sqlc.arg(name), 'restored-copy', sqlc.arg(target_id), 'promotion', 'team', sqlc.arg(data_class), sqlc.arg(backup_id), sqlc.arg(at))
   RETURNING *;
-
--- name: ExtendRestoredCopyDeployment :execrows
-UPDATE deployments SET expires_at=sqlc.arg(expires_at) WHERE id=sqlc.arg(id) AND kind='restored-copy';
 
 -- name: DeploymentOverrides :many
 SELECT * FROM deployment_overrides WHERE deployment_id = $1 ORDER BY part;

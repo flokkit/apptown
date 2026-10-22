@@ -385,7 +385,7 @@ func TestDeploymentDoorsAskTheProjectsLifecycle(t *testing.T) {
 		},
 		"rehearsal": func() error { _, err := w.s.RequestRehearsal(ctx, w.project, "prod", ids.Nil); return err },
 		"restored copy": func() error {
-			_, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{Minutes: 30})
+			_, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{})
 			return err
 		},
 	}
