@@ -18,6 +18,7 @@ import (
 	"flokkit.io/forge/internal/strs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgconn/ctxwatch"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/stdlib"
 )
@@ -75,6 +76,7 @@ func openRaw(url string, dial pgconn.DialFunc) (*sql.DB, error) {
 	if dial != nil {
 		cfg.DialFunc = dial
 	}
+	cfg.BuildContextWatcherHandler = markCancels
 	// Moments come back in UTC: AppTown
 	// has only ever recorded and shown UTC, and a plain string scan of a
 	// timestamptz must read "…Z", not the box's zone.
@@ -93,9 +95,46 @@ func openRaw(url string, dial pgconn.DialFunc) (*sql.DB, error) {
 		conn.TypeMap().RegisterType(jsonb)
 		conn.TypeMap().RegisterType(&pgtype.Type{Name: "_jsonb", OID: pgtype.JSONBArrayOID, Codec: &pgtype.ArrayCodec{ElementType: jsonb}})
 		return nil
-	}))
+	}), stdlib.OptionShouldPing(pingAfterCancel))
 	sdb.SetMaxOpenConns(10)
 	return sdb, nil
+}
+
+// A connection whose context was cancelled is pinged before it is used
+// again, and dropped if the ping fails. pgx (v5.10, v5.11) can leave such a
+// connection looking healthy with an error waiting in it: when a write is
+// slow (over 15 ms, as on a loaded machine) pgx starts a background read,
+// which can take the whole reply and wait on for more. A cancellation then
+// sets a deadline on the connection, the waiting read stops with "i/o
+// timeout", and that error is kept for whatever reads next: the next
+// query, which fails although nothing cancelled it. The ping reads it
+// instead, so the pool closes that connection and opens another.
+const cancelledKey = "apptown.cancelled"
+
+// cancelMarker is pgx's default handling of a cancelled context (a deadline
+// on the connection that interrupts its read), which also marks the
+// connection for a ping before its next use.
+type cancelMarker struct {
+	*pgconn.DeadlineContextWatcherHandler
+	cancelled *atomic.Bool
+}
+
+func (h cancelMarker) HandleCancel(ctx context.Context) {
+	h.cancelled.Store(true)
+	h.DeadlineContextWatcherHandler.HandleCancel(ctx)
+}
+
+func markCancels(pc *pgconn.PgConn) ctxwatch.Handler {
+	cancelled := new(atomic.Bool)
+	pc.CustomData()[cancelledKey] = cancelled
+	return cancelMarker{&pgconn.DeadlineContextWatcherHandler{Conn: pc.Conn()}, cancelled}
+}
+
+// pingAfterCancel pings a connection that was cancelled since its last use,
+// and one idle for over a second as pgx does by default.
+func pingAfterCancel(_ context.Context, p stdlib.ShouldPingParams) bool {
+	cancelled, _ := p.Conn.PgConn().CustomData()[cancelledKey].(*atomic.Bool)
+	return cancelled != nil && cancelled.Swap(false) || p.IdleDuration > time.Second
 }
 
 func (d *DB) Close() error { return d.raw.Close() }

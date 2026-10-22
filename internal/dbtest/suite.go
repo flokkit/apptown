@@ -99,6 +99,14 @@ func NewSuite(initialize func(context.Context, string) (*database.DB, error)) *S
 
 func (s *Suite) New(t testing.TB) *database.DB {
 	t.Helper()
+	return s.NewWith(t, nil)
+}
+
+// NewWith is New with each of the database's connections passed through
+// wrap (nil for none): for a test of how the pool copes with a connection
+// that behaves as one on a loaded machine does.
+func (s *Suite) NewWith(t testing.TB, wrap func(net.Conn) net.Conn) *database.DB {
+	t.Helper()
 	s.once.Do(s.setup)
 	if s.err != nil {
 		t.Fatalf("test database: %v", s.err)
@@ -127,7 +135,17 @@ func (s *Suite) New(t testing.TB) *database.DB {
 	})
 	// The template already carries schema and seeds. Re-running application
 	// initialization on every identical clone is unnecessary work and coupling.
-	opened, err := database.OpenWith(s.base+name+s.params, closeWithoutWaiting)
+	dial := closeWithoutWaiting
+	if wrap != nil {
+		dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			conn, err := closeWithoutWaiting(ctx, network, addr)
+			if err != nil {
+				return nil, err
+			}
+			return wrap(conn), nil
+		}
+	}
+	opened, err := database.OpenWith(s.base+name+s.params, dial)
 	if err != nil {
 		t.Fatalf("opening test database: %v", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"flokkit.io/forge/internal/console"
+	"flokkit.io/forge/internal/dockerlabel"
 	"flokkit.io/forge/internal/poll"
 )
 
@@ -135,7 +136,7 @@ func TestIntegrationACancelledScriptDoesNotOutliveItsChat(t *testing.T) {
 	}
 	docker("image", "inspect", "busybox:latest")
 	t.Cleanup(func() {
-		for _, cid := range strings.Fields(docker("ps", "-aq", "--filter", "label=forge.owner="+id)) {
+		for _, cid := range strings.Fields(docker("ps", "-aq", "--filter", "label="+dockerlabel.Owner+"="+id)) {
 			docker("rm", "-f", cid)
 		}
 	})
@@ -161,7 +162,7 @@ func TestIntegrationACancelledScriptDoesNotOutliveItsChat(t *testing.T) {
 	done := run(ctx)
 	cancel()
 	<-done
-	if left := docker("ps", "-aq", "--filter", "label=forge.owner="+id); left != "" {
+	if left := docker("ps", "-aq", "--filter", "label="+dockerlabel.Owner+"="+id); left != "" {
 		t.Fatalf("a cancelled script's container is still there: %s", left)
 	}
 	// One left running by a client that went away is removed by a stop,
@@ -169,7 +170,7 @@ func TestIntegrationACancelledScriptDoesNotOutliveItsChat(t *testing.T) {
 	if err := os.Remove(filepath.Join(in.Workspace.Path, "started")); err != nil {
 		t.Fatal(err)
 	}
-	docker("run", "-d", "--name", "forge-console-script-"+id, "--label", "forge.owner="+id, "-v", in.Workspace.Path+":/work", "busybox:latest", "sh", "-c", "while true; do sleep 1; done")
+	docker("run", "-d", "--name", scriptName(id), "--label", dockerlabel.Owner+"="+id, "-v", in.Workspace.Path+":/work", "busybox:latest", "sh", "-c", "while true; do sleep 1; done")
 	if st, err := r.Status(context.Background(), id); err != nil || !st.ScriptExists {
 		t.Fatalf("status with a script running: %+v %v", st, err)
 	}
@@ -179,7 +180,7 @@ func TestIntegrationACancelledScriptDoesNotOutliveItsChat(t *testing.T) {
 	if st, err := r.Status(context.Background(), id); err != nil || st.ScriptExists {
 		t.Fatalf("status after the stop: %+v %v", st, err)
 	}
-	if left := docker("ps", "-aq", "--filter", "label=forge.owner="+id); left != "" {
+	if left := docker("ps", "-aq", "--filter", "label="+dockerlabel.Owner+"="+id); left != "" {
 		t.Fatalf("a stop left the script's container: %s", left)
 	}
 }

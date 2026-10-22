@@ -183,6 +183,14 @@ func waitStackHealthy(ctx context.Context, dk Scope, names Prefix, svcs []deploy
 		// Docker's own verdict, unhealthy (its retries spent), ends the wait.
 		poll.Until(dk.lifetime(ctx), healthBound, time.Second, func() bool {
 			status = dk.Text(ctx, "inspect", "-f", "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}", cname)
+			// While Docker restarts a container under its restart policy it
+			// reports the health as unhealthy, because the checks stopped
+			// with the process. That is not a verdict: the service starts
+			// again with a new start period. A first database start on a
+			// busy host does this when the image's setup gives up and exits.
+			if status == "unhealthy" && dk.Text(ctx, "inspect", "-f", "{{.State.Restarting}}", cname) == "true" {
+				status = "restarting"
+			}
 			return status == "healthy" || status == "none" || status == "unhealthy"
 		})
 		if status == "healthy" || status == "none" {

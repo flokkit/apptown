@@ -26,15 +26,17 @@ provides:
 local:
   image: mariadb:{version}
   port: 3306
-  # The image makes the app's user, with its password, only in an empty data
-  # directory. So the start script sets that user's password again at every
-  # later start, through the server's own init file, which runs with every
-  # right and needs no root password (the image's root has a random one
-  # nobody keeps): a standing server takes a new password at its next deploy
-  # and keeps its data (configAtStart). Its data is in the image's own
-  # format, so a new image is not a reason to remake it (keepsImage). The
-  # command stays the server's own flags (sizes replace it): the script
-  # passes them on.
+  # The start script makes the server's data folder itself on the first
+  # start, and makes the app's database and user, with its password, at
+  # every start, through the server's own init file. That file runs with
+  # every right and needs no root password (root signs in only from inside
+  # the container). The image's own first-start setup is not used: it waits
+  # about 30 seconds for a temporary server and gives up on a busy host,
+  # leaving a server without the app's database. A standing server takes a
+  # new password at its next deploy and keeps its data (configAtStart). Its
+  # data is in the image's own format, so a new image is not a reason to
+  # remake it (keepsImage). The command stays the server's own flags (sizes
+  # replace it): the script passes them on.
   configAtStart: true
   keepsImage: true
   entrypoint:
@@ -42,19 +44,30 @@ local:
     - -c
     - |
       set -eu
-      if [ -d /var/lib/mysql/mysql ]; then
-        quoted() { printf "'%s'" "$(printf %s "$1" | sed -e 's/\\/\\\\/g' -e "s/'/\\\\'/g")"; }
-        user=$(quoted "$MARIADB_USER")
-        umask 077
-        {
-          echo "CREATE USER IF NOT EXISTS $user@'%';"
-          echo "ALTER USER $user@'%' IDENTIFIED BY $(quoted "$MARIADB_PASSWORD");"
-          echo "GRANT ALL PRIVILEGES ON \`$(printf %s "$MARIADB_DATABASE" | sed 's/`/``/g')\`.* TO $user@'%';"
-        } > /tmp/forge-init.sql
-        chown mysql:mysql /tmp/forge-init.sql
-        set -- --init-file=/tmp/forge-init.sql "$@"
+      quoted() { printf "'%s'" "$(printf %s "$1" | sed -e 's/\\/\\\\/g' -e "s/'/\\\\'/g")"; }
+      user=$(quoted "$MARIADB_USER")
+      database=$(printf %s "$MARIADB_DATABASE" | sed 's/`/``/g')
+      # A grant names its database as a pattern: \, _ and % are escaped there
+      # so that each matches only itself.
+      pattern=$(printf %s "$database" | sed -e 's/\\/\\\\/g' -e 's/[_%]/\\&/g')
+      umask 077
+      first=
+      if [ ! -d /var/lib/mysql/mysql ]; then
+        mariadb-install-db --user=mysql --datadir=/var/lib/mysql --skip-test-db --auth-root-authentication-method=socket > /dev/null
+        first=1
       fi
-      exec docker-entrypoint.sh mariadbd "$@"
+      {
+        printf '%s\n' "CREATE DATABASE IF NOT EXISTS \`$database\`;"
+        printf '%s\n' "CREATE USER IF NOT EXISTS $user@'%';"
+        printf '%s\n' "ALTER USER $user@'%' IDENTIFIED BY $(quoted "$MARIADB_PASSWORD");"
+        printf '%s\n' "GRANT ALL PRIVILEGES ON \`$pattern\`.* TO $user@'%';"
+        if [ -n "$first" ]; then
+          printf '%s\n' "USE mysql;"
+          mariadb-tzinfo-to-sql --skip-write-binlog /usr/share/zoneinfo 2> /dev/null
+        fi
+      } > /tmp/forge-init.sql
+      chown mysql:mysql /tmp/forge-init.sql
+      exec docker-entrypoint.sh mariadbd --init-file=/tmp/forge-init.sql "$@"
     - mariadb
   command: ["--innodb-buffer-pool-size=64M", "--max-connections=20", "--performance-schema=OFF"]
   health: healthcheck.sh --connect --innodb_initialized

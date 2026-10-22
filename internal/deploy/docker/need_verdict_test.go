@@ -48,6 +48,34 @@ func TestANeedThatIsNotRunningIsSaidSoNotUnhealthy(t *testing.T) {
 	}
 }
 
+// Docker reports a container it is restarting under its restart policy as
+// unhealthy, because the checks stopped with the process. That is not its
+// verdict: the wait goes on, and a need that then passes its check is
+// ready. (22 Oct: a first MariaDB start on a busy CI runner gave up its
+// setup, exited and was restarted; the gate failed the deployment while
+// the database became healthy 36 seconds later.)
+func TestANeedDockerIsRestartingIsNotJudgedUnhealthy(t *testing.T) {
+	t.Parallel()
+	svcs := []deploy.ServiceSpec{{Name: "mariadb", Health: "healthcheck.sh --connect"}}
+	asked := 0
+	dk := Scope{Client: &fakeClient{reply: func(c Command) ([]byte, error) {
+		switch {
+		case slices.Contains(c.Args, "{{.State.Restarting}}"):
+			return []byte("true"), nil
+		case slices.Contains(c.Args, "{{.State.Running}}"):
+			return []byte("true"), nil
+		}
+		asked++
+		if asked == 1 {
+			return []byte("unhealthy"), nil
+		}
+		return []byte("healthy"), nil
+	}}}
+	if _, err := waitStackHealthy(context.Background(), dk, Current, svcs, "s"); err != nil || asked != 2 {
+		t.Fatalf("a need Docker was restarting, then healthy (asked %d times): %v", asked, err)
+	}
+}
+
 // A reused need that stopped is started again where it is: the same
 // container and volume, nothing removed or made again. One that runs is
 // left alone. (21 Oct: greeting-api's exited postgres was judged unhealthy

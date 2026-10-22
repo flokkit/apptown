@@ -36,9 +36,9 @@
     },
     {
       "file": "internal/dbtest/suite.go",
-      "declaration": "Suite.New",
+      "declaration": "Suite.NewWith",
       "text": "fmt.Sprintf(`CREATE DATABASE %s TEMPLATE %s STRATEGY FILE_COPY`, name, s.template)",
-      "declaration_hash": "2944c10fda8736e561e1ae961741979ea0838230b4ce131791f1487e6b487f8b",
+      "declaration_hash": "bb9c47a50de01aa618381c9b123d9b0d79f457fce7dc88ae6e54828fe63668a9",
       "tables": [],
       "reason": "Test harness clones a private database, not application table DML."
     },

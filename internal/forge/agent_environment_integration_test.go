@@ -83,7 +83,7 @@ func TestIntegrationAgentEnvironmentConsoleLaunch(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	if out, err := (docker.CLI{}).Run(ctx, "", docker.Command{Args: []string{"exec", consolepi.ContainerName(s.ID), "forge", "help"}}); err != nil || !strings.Contains(string(out), "projects") {
+	if out, err := (docker.CLI{}).Run(ctx, "", docker.Command{Args: []string{"exec", consolepi.ContainerName(s.ID), "apptown", "help"}}); err != nil || !strings.Contains(string(out), "projects") {
 		t.Fatalf("CLI unavailable inside real console: %v: %s", err, out)
 	}
 	raw, err := os.ReadFile(filepath.Join(s.Dir, "pi-home", ".pi", "agent", "models.json"))

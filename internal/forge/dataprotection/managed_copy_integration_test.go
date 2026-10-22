@@ -55,6 +55,17 @@ func startManagedPostgres(t *testing.T) *managedPostgres {
 	}
 	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "-v", name) })
 	pg := &managedPostgres{t: t, container: name}
+	// The image sets the database up on a temporary server that takes no
+	// TCP connections, then stops it and starts the real one. Waiting for
+	// TCP waits for the real server; a command sent over the socket before
+	// then can be cut off when the temporary server stops ("terminating
+	// connection due to administrator command").
+	if !poll.Until(context.Background(), 60*time.Second, 300*time.Millisecond, func() bool {
+		return dockertest.Run("exec", name, "pg_isready", "-q", "-h", "127.0.0.1", "-p", "5432") == nil
+	}) {
+		logs, _ := dockertest.CombinedOutput("logs", name)
+		t.Fatalf("the stand-in Postgres never took TCP connections: %s", logs)
+	}
 	pg.admin("CREATE ROLE app LOGIN PASSWORD 'pw-app' NOSUPERUSER NOCREATEDB NOCREATEROLE")
 	// Every DigitalOcean cluster has defaultdb, which any user may connect to.
 	pg.admin("CREATE DATABASE defaultdb")
