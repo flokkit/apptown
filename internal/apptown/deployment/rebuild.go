@@ -153,7 +153,7 @@ func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan
 			return RebuildResult{}, err
 		}
 		source := *art.Source
-		source.Images, source.Init, source.SelfServing = parts, init, plan.bundle.BuiltFrom.SelfServing
+		source.Images, source.Init = parts, init
 		art.Source = &source
 		inputs.BundleID = plan.bundle.ID // the next recovery runs it too
 	}

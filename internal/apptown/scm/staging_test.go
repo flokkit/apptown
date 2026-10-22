@@ -45,10 +45,9 @@ func TestStageAllExcludesAppTownRuntime(t *testing.T) {
 	mustWrite(".apptown/app.yaml", "app:\n  web:\n    static: .\n    public: true\n")
 	mustWrite(".apptown/pi-home/.docker/config.json", `{"auths":{"reg":{"auth":"SECRET"}}}`)
 	mustWrite(".apptown/sessions/transcript.jsonl", `{"secret":"tokens"}`)
-	// A folder made before the AppTown rename: its runtime under .forge is
-	// retired, never source; its contract there is.
+	// .forge, the runtime folder's name before the AppTown rename, is
+	// retired and never source.
 	mustWrite(".forge/pi-home/.docker/config.json", `{"auths":{"reg":{"auth":"OLD"}}}`)
-	mustWrite(".forge/app.yaml", "app:\n  web:\n    static: .\n    public: true\n")
 
 	if err := StageAll(t.Context(), wt); err != nil {
 		t.Fatal(err)
@@ -62,8 +61,8 @@ func TestStageAllExcludesAppTownRuntime(t *testing.T) {
 	if !strings.Contains(staged, "main.go") || !strings.Contains(staged, ".gitignore") {
 		t.Fatalf("real work not staged:\n%s", staged)
 	}
-	if !strings.Contains(staged, ".apptown/app.yaml") || !strings.Contains(staged, ".forge/app.yaml") {
-		t.Fatalf("the contract, at either path, must be staged:\n%s", staged)
+	if !strings.Contains(staged, ".apptown/app.yaml") {
+		t.Fatalf("the contract must be staged:\n%s", staged)
 	}
 	if strings.Contains(staged, "pi-home") || strings.Contains(staged, "sessions") {
 		t.Fatalf("AppTown runtime leaked into the index:\n%s", staged)

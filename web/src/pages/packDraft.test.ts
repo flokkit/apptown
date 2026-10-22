@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { draftFrom, keptAsWritten, shownPolicy } from './packDraft'
+import { draftFrom, keptAsWritten } from './packDraft'
 
 // Saving a pack unchanged sends back everything its author wrote, including
 // what the form does not edit: an explicit clear is not lost (review PI-03).
@@ -16,16 +16,5 @@ describe('a pack draft', () => {
   })
   it('says which fields it keeps without editing them', () => {
     expect(keptAsWritten(draftFrom('t', '', declaration))).toEqual(['default memory 160M', 'no toolchain (cleared)', 'no services (cleared)', 'extensions lsp'])
-  })
-})
-
-describe('shownPolicy', () => {
-  const library = [{ name: 'deploy-requires-scan', description: 'now', rule: 'requireStepBefore', with: { uses: 'deploy', requires: 'tests' }, origin: 'stock' }]
-  it('shows the definition a version pinned, whatever the library says now', () => {
-    const pinned = { name: 'deploy-requires-scan', description: 'then', rule: 'requireStepBefore', with: { uses: 'deploy', requires: 'scan' } }
-    expect(shownPolicy(pinned, library)).toBe(pinned)
-  })
-  it('reads the library for a version that named the policy only', () => {
-    expect(shownPolicy({ name: 'deploy-requires-scan', description: '', rule: '', with: {} }, library).with).toEqual({ uses: 'deploy', requires: 'tests' })
   })
 })

@@ -39,21 +39,15 @@ func StageAll(ctx context.Context, wt string) error {
 	// exception). A contract on disk is force-added; with none, any the index
 	// still holds has its deletion staged (git add would refuse a path that
 	// matches nothing).
-	//
-	// A folder made before the AppTown rename can still hold its contract at
-	// the old path, .forge/app.yaml, until it catches up with the upgrade's
-	// commit; that file is source too, so an edit to it is committed rather
-	// than lost.
-	for _, contract := range []string{".apptown/app.yaml", ".forge/app.yaml"} {
-		args := []string{"add", "-f", "--", contract}
-		if _, err := os.Lstat(filepath.Join(wt, filepath.FromSlash(contract))); errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
-			args = []string{"rm", "--cached", "--ignore-unmatch", "--quiet", "--", contract}
-		} else if err != nil {
-			return fmt.Errorf("reading the folder's app contract: %w", err)
-		}
-		if out, err := gitexec.Run(ctx, wt, args...); err != nil {
-			return fmt.Errorf("staging the folder's app contract: %w: %s", err, out)
-		}
+	const contract = ".apptown/app.yaml"
+	args := []string{"add", "-f", "--", contract}
+	if _, err := os.Lstat(filepath.Join(wt, filepath.FromSlash(contract))); errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
+		args = []string{"rm", "--cached", "--ignore-unmatch", "--quiet", "--", contract}
+	} else if err != nil {
+		return fmt.Errorf("reading the folder's app contract: %w", err)
+	}
+	if out, err := gitexec.Run(ctx, wt, args...); err != nil {
+		return fmt.Errorf("staging the folder's app contract: %w: %s", err, out)
 	}
 	return nil
 }

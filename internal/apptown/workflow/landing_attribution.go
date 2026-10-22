@@ -101,12 +101,7 @@ func attributeStep(a *scm.Attribution, step *Step, landing bool) error {
 	if means == "" {
 		means = cfg.Means
 	}
-	votes := evidence.Decisions
-	if len(votes) == 0 && evidence.Approver != "" {
-		// A decision recorded before votes were kept separately.
-		votes = []ApprovalVote{{Approver: evidence.Approver, Decision: evidence.Decision, At: evidence.At, Candidate: evidence.Candidate}}
-	}
-	for _, vote := range votes {
+	for _, vote := range evidence.Decisions {
 		if vote.Decision != VoteApprove {
 			continue
 		}

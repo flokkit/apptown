@@ -43,23 +43,6 @@ func StaticOnly(c *appcontract.Contract) bool {
 	return c != nil && len(c.Parts) == 1 && c.Parts[0].Public && c.Parts[0].IsStatic() && len(c.Init) == 0 && len(c.Needs) == 0
 }
 
-// refusesEarlierStaticImage is the sentence for a static site's bundle of
-// the earlier form (its image holds only the files: BundleOrigin.SelfServing
-// unset) bound for App Platform, which runs an image as it is and would
-// serve the file server's default page; or "". A Docker host and Portainer
-// run such a bundle with the file server's command, as they always did.
-func refusesEarlierStaticImage(kind string, b *ReleaseBundle, c *appcontract.Contract) string {
-	if kind != KindDOApp || b == nil || b.BuiltFrom.SelfServing {
-		return ""
-	}
-	for _, p := range c.Parts {
-		if p.Static != "" || p.StaticBuild != nil {
-			return fmt.Sprintf("bundle %d's static site image (part %s) was built before static images served themselves (3 October 2026), and App Platform runs an image as it is; release again to get a self-serving image", b.ID, p.Name)
-		}
-	}
-	return ""
-}
-
 // refusal is a target's refusal sentence as an error, or nil for none.
 func refusal(why string) error {
 	if why == "" {

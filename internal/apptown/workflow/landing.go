@@ -151,15 +151,15 @@ func (s landings) apply(ctx context.Context, workID, landingID ids.ID) (*Run, er
 // would ask of them.
 type acceptance struct {
 	Accepter string
-	// Who is the person who accepted and Via how, from their vote; a vote
-	// recorded before principals has neither.
+	// Who is the person who accepted and Via how, from their vote; neither
+	// when AppTown could not tie the vote to a person.
 	Who   access.Actor
 	Shown []string
-	// Source is the commit the acceptance was given on; empty for one
-	// recorded before acceptances named their commit.
+	// Source is the commit the acceptance was given on; empty when it
+	// named none (a run that is not repository-backed).
 	Source string
-	// Adds is what the accepter was shown the change adds; nil for an
-	// acceptance recorded before the list existed.
+	// Adds is what the accepter was shown the change adds; nil when they
+	// were shown no list.
 	Adds *ChangeAdds
 	// InAdvance is set when the yes was given in advance (in_advance.go):
 	// it counts only for approvals that say what such a yes means, and only

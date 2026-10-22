@@ -130,8 +130,18 @@ func serve(t *testing.T, ca *CA, w *worker.Server, wrap func(http.Handler) http.
 	return srv
 }
 
-// Client presents a certificate naming name, or none when name is empty.
+// Client is AppTown's client to a test worker: it presents a certificate
+// naming name, or none when name is empty, and states AppTown's protocol.
 func Client(t *testing.T, ca *CA, name string) *http.Client {
+	t.Helper()
+	c := BareClient(t, ca, name)
+	c.Transport = worker.SpeakProtocol(c.Transport)
+	return c
+}
+
+// BareClient is Client without the protocol header, for a test that sets
+// its own.
+func BareClient(t *testing.T, ca *CA, name string) *http.Client {
 	t.Helper()
 	cfg := &tls.Config{RootCAs: ca.pool, MinVersion: tls.VersionTLS13}
 	if name != "" {
@@ -487,7 +497,7 @@ func (e *External) Driver(t *testing.T) execution.WorkerTasks {
 		t.Fatalf("%s holds no certificate", e.CA)
 	}
 	cfg := &tls.Config{RootCAs: pool, Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13}
-	return execution.WorkerTasks{URL: e.URL, Client: &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}, Timeout: time.Minute}}
+	return execution.WorkerTasks{URL: e.URL, Client: &http.Client{Transport: worker.SpeakProtocol(&http.Transport{TLSClientConfig: cfg}), Timeout: time.Minute}}
 }
 
 // OwnerLabel is the label the external worker puts on what it makes.

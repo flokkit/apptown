@@ -209,8 +209,8 @@ func (m DataMount) Spec() string {
 	return m.Bind
 }
 
-// DataMountAt is what a container mounts at path, of either kind: how a
-// need service made again finds the storage its data is in.
+// DataMountAt is what a container mounts at path, of either kind: where a
+// need service keeps its data.
 func DataMountAt(ctx context.Context, dk Scope, container, path string) (DataMount, error) {
 	out, err := dk.Run(ctx, "inspect", "-f", `{{range .Mounts}}{{.Type}}{{"\t"}}{{.Name}}{{"\t"}}{{.Source}}{{"\t"}}{{.Destination}}{{"\n"}}{{end}}`, container)
 	if err != nil {

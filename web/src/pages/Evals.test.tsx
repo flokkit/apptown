@@ -191,10 +191,9 @@ describe('starting an eval', () => {
     }
   })
 
-  // A change from before the AppTown rename is refused at the start, and
-  // the page shows AppTown's words naming it.
-  it('says which change predates the rename when the start is refused', async () => {
-    const refusal = 'shop#12 predates the AppTown rename (its code uses .forge/); evals start from changes made after 20 Oct'
+  // A start AppTown refuses shows AppTown's words naming the change.
+  it('says which change was refused when the start is refused', async () => {
+    const refusal = 'shop#12 is itself in an eval\'s copy'
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === 'POST') return new Response(JSON.stringify({ error: refusal }), { status: 400 })
       if (url.includes('/evals/start')) return new Response(JSON.stringify({ meaning: MEANING, profiles: ['standard', 'frontier'], packs: [], maxChanges: 5 }))
@@ -217,7 +216,7 @@ describe('starting an eval', () => {
       await act(async () => { (r.el.querySelector('input[type=checkbox]') as HTMLInputElement).click() })
       await act(async () => { [...r.el.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Review'))!.click() })
       await act(async () => { [...r.el.querySelectorAll('button')].find((b) => b.textContent === 'Start the eval')!.click() })
-      await r.settle(() => !!r.el.textContent?.includes('predates the AppTown rename'))
+      await r.settle(() => !!r.el.textContent?.includes('is itself in an eval'))
       expect(r.el.textContent).toContain(refusal)
     } finally {
       r.done()

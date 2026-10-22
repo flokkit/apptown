@@ -393,7 +393,6 @@ func TestALinkMadeBefore1Point0FindsItsRecord(t *testing.T) {
 	}
 	for path, want := range map[string]string{
 		"/changes/41?tab=work&run=42&step=43": "/changes/" + fx.Change.String() + "?run=" + fx.Run.String() + "&step=" + fx.Accept.String() + "&tab=work",
-		"/items/41":                           "/items/" + fx.Change.String(),
 		"/adrs/44":                            "/adrs/" + adr.ID.String(),
 		"/guidance/45":                        "/guidance/" + block.ID.String(),
 	} {

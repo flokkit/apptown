@@ -260,7 +260,7 @@ func (d *gitDriver) Inspect(ctx context.Context, source Source, record Record) (
 	return Inspection{Kind: Unresolved}, nil
 }
 func (d *gitDriver) mergeCommit(ctx context.Context, repo, branch, operation string) (string, error) {
-	out, err := d.git(ctx, repo, nil, "log", "--format=%H", "-n", "1", "--extended-regexp", "--grep=^("+trailer.Operation+"|"+trailer.OldOperation+"): "+regexp.QuoteMeta(operation)+"$", "refs/heads/"+branch)
+	out, err := d.git(ctx, repo, nil, "log", "--format=%H", "-n", "1", "--extended-regexp", "--grep=^"+trailer.Operation+": "+regexp.QuoteMeta(operation)+"$", "refs/heads/"+branch)
 	if err != nil {
 		return "", fmt.Errorf("inspecting merge operation: %w", err)
 	}
@@ -270,7 +270,7 @@ func (d *gitDriver) mergeCommit(ctx context.Context, repo, branch, operation str
 			return "", err
 		}
 		for _, line := range strings.Split(body, "\n") {
-			if line == trailer.Operation+": "+operation || line == trailer.OldOperation+": "+operation {
+			if line == trailer.Operation+": "+operation {
 				return sha, nil
 			}
 		}

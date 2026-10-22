@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -127,9 +128,10 @@ func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Du
 
 // A standing static deployment is told its release, as App Platform's is
 // (APPTOWN_RELEASE, set by AppTown after anything the contract says), and
-// a self-serving image is witnessed answering it at /_apptown/release; one
-// answering another release fails. An image of the earlier form, and a
-// preview with no revision, keep the /_apptown/env.js check.
+// its image is witnessed answering it at /_apptown/release; one answering
+// another release fails, and so does an image without AppTown's file server
+// configuration (the stock configuration answers nothing there). A preview
+// with no revision keeps the /_apptown/env.js check.
 func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 	t.Parallel()
 	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n"))
@@ -146,10 +148,10 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 		wantRelease            string // what the boot tells and witnesses; "" asks env.js
 		wantErr                bool
 	}{
-		{name: "self-serving", serves: "web@" + rev, revision: rev, recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}, SelfServing: true}, wantRelease: "web@" + rev},
+		{name: "self-serving", serves: "web@" + rev, revision: rev, recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}}, wantRelease: "web@" + rev},
 		{name: "built from source", serves: "web@" + rev, revision: rev, wantRelease: "web@" + rev},
-		{name: "another release", serves: "web@0ld", revision: rev, recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}, SelfServing: true}, wantRelease: "web@" + rev, wantErr: true},
-		{name: "earlier form", serves: "", revision: rev, recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}}},
+		{name: "another release", serves: "web@0ld", revision: rev, recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}}, wantRelease: "web@" + rev, wantErr: true},
+		{name: "without the configuration", serves: "", revision: rev, recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}}, wantRelease: "web@" + rev, wantErr: true},
 		{name: "preview", serves: ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -234,5 +236,62 @@ func TestAStaticFrontPageIsJudgedByItsAnswerNotItsMarkup(t *testing.T) {
 	}
 	if status, ok, why := staticPageServes(page.URL + "/missing/"); ok || status != 404 || !strings.Contains(why, "index.html") {
 		t.Fatalf("a missing page: %d %v %s", status, ok, why)
+	}
+}
+
+// A rehearsal's sealed boot of a static site asks for /_apptown/env.js too:
+// an image without AppTown's file server configuration runs the stock
+// configuration, which on port 80 answers 200 to "/" and would pass every
+// check a rehearsal makes by status.
+//
+// Kills: the sealed boot returning after readiness alone.
+func TestASealedStaticBootNeedsAppTownsFileServer(t *testing.T) {
+	t.Parallel()
+	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    public: true\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name    string
+		envJS   string
+		wantErr bool
+	}{
+		{"AppTown's file server", "200", false},
+		{"the stock configuration", "404", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var paths []string
+			client := &fakeClient{reply: func(req Command) ([]byte, error) {
+				switch req.Args[0] {
+				case "image":
+					return []byte(req.Args[len(req.Args)-1] + "\n"), nil
+				case "inspect":
+					if slices.Contains(req.Args, "{{.State.Running}}") {
+						return []byte("true\n"), nil
+					}
+				case "run":
+					for _, e := range req.Env {
+						if path, ok := strings.CutPrefix(e, "PROBE_PATH="); ok {
+							paths = append(paths, path)
+							if path == "/_apptown/env.js" {
+								return []byte(tc.envJS + "\n"), nil
+							}
+							return []byte("200\n"), nil
+						}
+					}
+				}
+				return nil, nil
+			}}
+			_, err := NewHost(Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}).Boot(context.Background(), BootRequest{Docker: Scope{Client: client},
+				Name: "apptown-rehearsal-site", StackID: "rehearsal-site", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
+				Sealed: &Sealed{ProbeImage: "probe", Host: "site.example"}, Recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}}}, c)
+			if !slices.Contains(paths, "/_apptown/env.js") {
+				t.Fatalf("the sealed boot never asked for /_apptown/env.js: %v (%v)", paths, err)
+			}
+			if be := AsBootError(err); tc.wantErr != (err != nil) || (tc.wantErr && (be.Phase != PhaseProbe || !strings.Contains(be.Error(), "file server configuration"))) {
+				t.Fatalf("boot: %v", err)
+			}
+		})
 	}
 }

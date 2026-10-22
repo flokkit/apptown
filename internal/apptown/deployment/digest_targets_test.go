@@ -312,40 +312,6 @@ func TestAStaticSiteOnAppPlatformIsWitnessedServingItsRelease(t *testing.T) {
 	}
 }
 
-// A static bundle of the earlier form (built before static images served
-// themselves; its record does not say self-serving) is refused for App
-// Platform when it is asked for, before any call to DigitalOcean, with the
-// next action: App Platform runs an image as it is, and this one would
-// serve the file server's default page.
-//
-// Kills: refusing only at readiness, after an app was made; refusing a
-// self-serving bundle.
-func TestAppPlatformRefusesAnEarlierFormStaticBundleBeforeAnyCall(t *testing.T) {
-	t.Parallel()
-	p := newPromotionTargetsWith(t, false, digestOneImageYAML)
-	b := p.land(t)
-	// sql-guarantee: no operation cuts an earlier-form bundle any more; such bundles exist only as records made before static images served themselves.
-	if _, err := p.db.Exec(`UPDATE release_bundles SET built_from_json = built_from_json - 'selfServing' WHERE id=?`, b.ID); err != nil {
-		t.Fatal(err)
-	}
-	earlier, err := p.s.Bundles.ByID(context.Background(), b.ID)
-	if err != nil || earlier.BuiltFrom.SelfServing {
-		t.Fatalf("the earlier-form bundle: %+v %v", earlier, err)
-	}
-	cloud := p.target(t, "do-syd")
-	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "cloud", cloud.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	before := len(p.do.Snapshot().Requests)
-	if _, err := p.s.RequestRelease(context.Background(), DeploySelection{ProjectID: p.project, DeploymentName: dep.Name, BundleID: earlier.ID}); err == nil || !strings.Contains(err.Error(), "release again to get a self-serving image") {
-		t.Fatalf("an earlier-form static bundle for App Platform: %v", err)
-	}
-	if after := p.do.Snapshot().Requests[before:]; len(after) != 0 {
-		t.Fatalf("the refusal called DigitalOcean: %v", after)
-	}
-}
-
 // A DOCR copy that fails fails the release before the app changes; the
 // same bundle, released again once DOCR answers, is released.
 //

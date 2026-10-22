@@ -33,9 +33,8 @@ func (w commandAuthority) mayApprove(ctx context.Context, run *Run, step *Step, 
 	if person == "" || person == "apptown-system" {
 		return &DecisionDenied{Code: access.DenyNotEligible, Reason: "no person accepted this change"}
 	}
-	// An acceptance AppTown cannot tie to a principal (recorded before
-	// principals, by an account it could not place) is not carried: its
-	// name could now be someone else's.
+	// An acceptance AppTown cannot tie to a principal (by an account it
+	// could not place) is not carried: its name could be someone else's.
 	if who.Principal.IsZero() {
 		return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance names %s but no account AppTown can tie it to; a person approves", person)}
 	}

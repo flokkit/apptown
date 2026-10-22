@@ -35,9 +35,6 @@ type Source struct {
 	Contract  *appcontract.Contract
 	Images    map[string]string // part -> image id, or image by digest, when the parts were built earlier
 	Init      map[string]string // init step -> image id, likewise
-	// SelfServing: the static images in Images carry their own command
-	// (the bundle records it); false is a bundle of the earlier form.
-	SelfServing bool
 	// Published: Images and Init are images by digest in a registry, built
 	// for Platform; false is image IDs that live only on the host that
 	// built them.

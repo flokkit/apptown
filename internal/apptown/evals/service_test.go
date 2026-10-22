@@ -347,7 +347,6 @@ type evalWorld struct {
 	// beforeCopy runs as each copy is about to be created.
 	beforeCopy func()
 	adoption   *fakeAdoption
-	origins    fakeOrigins
 	copiesMade int
 	// revisions is the source revision each copy started from.
 	revisions []int64
@@ -414,7 +413,7 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) Spend) 
 	w.service = New(db, Dependencies{
 		Authority: access.Checked{Authority: identity.Scoped(accounts, "evals"), Projects: projects},
 		Projects:  projects, Work: w.work, Copier: fakeCopier{db: db, before: &w.beforeCopy, adoption: w.adoption, made: &w.copiesMade, revisions: &w.revisions}, Models: fakeModels{}, Spend: spendOf(w, ledger), Adoption: w.adoption, AdoptionJobs: w.jobs,
-		Complaints: noComplaints{}, Deployments: noDeployments{}, Deleter: w.deleter, Origins: &w.origins,
+		Complaints: noComplaints{}, Deployments: noDeployments{}, Deleter: w.deleter,
 		InCopy:      func(ctx context.Context, evalID, projectID ids.ID) context.Context { return ctx },
 		RequestPass: func(context.Context) error { w.passes.Add(1); return nil },
 		Now: func() time.Time {
@@ -439,13 +438,6 @@ func (j *fakeAdoptionJobs) AdoptionEnded(_ context.Context, run ids.ID) (bool, s
 	defer j.mu.Unlock()
 	why, ok := j.ended[run]
 	return ok, why, nil
-}
-
-// fakeOrigins says which starting commits predate the AppTown rename.
-type fakeOrigins struct{ old map[string]bool }
-
-func (o *fakeOrigins) PredatesRename(_ context.Context, slug, commit string) (bool, error) {
-	return o.old[slug+"@"+commit], nil
 }
 
 func spendOf(w *evalWorld, ledger func(*database.DB) Spend) Spend {
@@ -551,27 +543,6 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
-}
-
-// A change whose starting commit predates the AppTown rename (its code
-// keeps .forge/) is refused at the start, by name: every arm would fail,
-// and old code is not converted on the fly (bls, 21 Oct).
-func TestAnEvalRefusesAChangeFromBeforeTheRename(t *testing.T) {
-	t.Parallel()
-	w := newEvalWorld(t, 2)
-	w.origins.old = map[string]bool{"shop@abc123": true}
-	_, err := w.service.Start(as("alice"), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 1, Shown: Meaning})
-	source, readErr := workflow.ReadChangeIn(context.Background(), w.db, w.sources[0])
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	want := fmt.Sprintf("shop#%d predates the AppTown rename (its code uses .forge/); evals start from changes made after 20 Oct", source.Number)
-	if err == nil || !contains(err.Error(), want) {
-		t.Fatalf("the refusal names the change: %v, want %q", err, want)
-	}
-	if n := w.passes.Load(); n != 0 {
-		t.Fatalf("a refused start asked for %d passes", n)
-	}
 }
 
 // At most two arms of an eval run at once; each starts in its own copy,

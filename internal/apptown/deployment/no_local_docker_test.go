@@ -359,16 +359,10 @@ func expectRecordedBoot(t *testing.T, w *noLocalWorld, b *ReleaseBundle, contain
 	}
 	for _, run := range w.daemon.verbs("run") {
 		if strings.Contains(run, "--name "+container+" ") {
-			// A self-serving bundle's static image carries its own command:
-			// the host adds none. One of the earlier form runs with the
-			// file server's command, as it always did. Either way the page
-			// is given its browser values.
-			want := " " + b.Parts["web"]
-			if !b.BuiltFrom.SelfServing {
-				want += " " + strings.Join(docker.StaticServerCommand(8080), " ")
-			}
-			if !strings.HasSuffix(run, want) || !strings.Contains(run, docker.BrowserEnvVar+"=") {
-				t.Fatalf("the static part is not run as its bundle says (self-serving %v): %s", b.BuiltFrom.SelfServing, run)
+			// The bundle's static image carries its own command: the host
+			// adds none. The page is given its browser values.
+			if !strings.HasSuffix(run, " "+b.Parts["web"]) || !strings.Contains(run, docker.BrowserEnvVar+"=") {
+				t.Fatalf("the static part is not run as its bundle says: %s", run)
 			}
 			// It is told the release it serves, answered at /_apptown/release.
 			if !strings.Contains(run, " -e "+appcontract.ReleaseEnvVar+"="+appcontract.ReleaseIdentity("web", b.ContractRevision)+" ") {

@@ -18,9 +18,6 @@ const (
 	// NextRetry runs a step that stopped the stage again
 	// (POST /steps/{id}/run).
 	NextRetry NextActKind = "retry"
-	// NextRecheck runs the stage's checks again to record the evidence its
-	// gate is missing (POST /runs/{id}/recheck).
-	NextRecheck NextActKind = "recheck"
 	// NextAdvance moves the run on from a stage that has all it needs
 	// (POST /runs/{id}/advance).
 	NextAdvance NextActKind = "advance"
@@ -99,10 +96,6 @@ func nextActs(run *Run, steps []*Step, a Activity, runnable func(string) bool, l
 	// gets here: the classifier calls its run queued.
 	if agent != nil && !running {
 		acts = append(acts, NextAct{Act: NextRework, StepID: agent.ID, Step: agent.Name})
-	}
-	// Missing evidence that running the checks again can record.
-	if a.State == ActivityBlocked && a.MissingEvidence {
-		acts = append(acts, NextAct{Act: NextRecheck})
 	}
 	if a.State == ActivityBlocked && rulesChanged {
 		acts = append(acts, NextAct{Act: NextRestartLanding})

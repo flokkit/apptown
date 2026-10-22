@@ -81,9 +81,6 @@ type PreviewSpec struct {
 type PreviewImages struct {
 	Parts map[string]string `json:"parts"`
 	Init  map[string]string `json:"init,omitempty"`
-	// SelfServing: the static images carry their own command; false is a
-	// release of the earlier form (docker.RecordedImages).
-	SelfServing bool `json:"selfServing,omitempty"`
 }
 
 // byDigest says whether every image is named by digest.
@@ -656,7 +653,7 @@ func (s *Server) bootPreview(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	var recorded *docker.RecordedImages
 	if spec.Images != nil {
-		recorded = &docker.RecordedImages{Parts: spec.Images.Parts, Init: spec.Images.Init, Login: prepared.Registry, Scratch: dir, SelfServing: spec.Images.SelfServing}
+		recorded = &docker.RecordedImages{Parts: spec.Images.Parts, Init: spec.Images.Init, Login: prepared.Registry, Scratch: dir}
 	}
 	res, err := docker.NewHost(prepared.Dependencies(&docker.Probe{}, "", check.ShImage)).Boot(bootLife, docker.BootRequest{
 		Docker: s.previewScope().WithLifetime(bootLife), Name: name, StackID: spec.StackID, Workspace: tree, Slug: spec.Slug,

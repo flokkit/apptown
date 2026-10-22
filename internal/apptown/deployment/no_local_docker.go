@@ -178,7 +178,7 @@ func (s *Service) recordedImages(ctx context.Context, b *ReleaseBundle, t *Targe
 	if err != nil {
 		return nil, err
 	}
-	images := &docker.RecordedImages{Parts: b.Parts, Init: b.Init, SelfServing: b.BuiltFrom.SelfServing}
+	images := &docker.RecordedImages{Parts: b.Parts, Init: b.Init}
 	if err := images.Present(ctx, dk); errors.Is(err, docker.ErrRecordedImageMissing) {
 		return nil, refused("this release's images live only on %s, which no longer has them (%v); land the change again", t.Name, err)
 	} else if err != nil {

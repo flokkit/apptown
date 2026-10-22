@@ -122,31 +122,6 @@ type RunsAbandoned struct {
 	Abandoned []ids.ID `json:"abandoned"`
 }
 
-// RecheckStage: POST /api/v1/runs/{id}/recheck — run the current stage's
-// checks again when its gate is missing evidence it can never get otherwise.
-// Every check and approval of the stage runs again; earlier results stay in
-// the run's record.
-func (h Runs) RecheckStage(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
-	if err != nil {
-		WriteError(w, 400, "bad id")
-		return
-	}
-	out, err := h.work.RecheckStage(r.Context(), id)
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	WriteJSON(w, 200, StageRechecked{RunID: out.RunID, Stage: out.Stage, Missing: out.Missing})
-}
-
-// StageRechecked names the stage whose checks run again and what it was missing.
-type StageRechecked struct {
-	RunID   ids.ID   `json:"runId"`
-	Stage   string   `json:"stage"`
-	Missing []string `json:"missing"`
-}
-
 // StepDecision is POST /steps/{id}/approve: a person's decision on an
 // approval step, with what the client showed them.
 type StepDecision struct {

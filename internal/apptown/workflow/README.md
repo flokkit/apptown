@@ -26,7 +26,6 @@ required receipts still commit in one project-locked transaction.
 | Approve or override | `Service.Approve`, `Service.Override` in [decisions.go](decisions.go) | [decision_store.go](decision_store.go), [approval.go](approval.go) |
 | Retry a Step | `Service.RetryStep` in [retry.go](retry.go) | The transaction and dispatch handoff are in the same file |
 | Send completed work back | `Service.SendBack` in [sendback.go](sendback.go) | The same file composes abandonment and retry in one transaction |
-| Run a stage's checks again | `Service.RecheckStage` in [stage_recheck.go](stage_recheck.go) | Only for a stage missing evidence; the gate's verdict in activity is in [gate_activity.go](gate_activity.go) |
 | Recheck a landing | `Service.RecheckLanding` in [landing_recheck.go](landing_recheck.go) | The same file selects and resets the checks |
 | Stop work | `Service.Abandon` in [abandonment.go](abandonment.go) | The same file owns the abandonment transaction |
 | Read a Run or its history | `Service.Run`, `Snapshot`, `Runs`, `ChangeRuns` in [scoped_reads.go](scoped_reads.go) | [queries.go](queries.go), [record_store.go](record_store.go) |

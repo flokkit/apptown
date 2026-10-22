@@ -3,11 +3,13 @@ package workflow
 import (
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func TestApprovalWithdrawalPreservesVotesAndReopensAsANewRound(t *testing.T) {
 	t.Parallel()
-	const raw = `{"identifier":9007199254740993,"decisions":[{"approver":"alice","decision":"approve","trace":9007199254740993}],"approvals":99}`
+	const raw = `{"identifier":9007199254740993,"decisions":[{"approver":"alice","principal":"00000000-0015-7000-8000-000000000000","via":"session","decision":"approve","trace":9007199254740993}],"approvals":99}`
 	document, err := readApprovalDocument([]byte(raw))
 	if err != nil {
 		t.Fatal(err)
@@ -20,14 +22,14 @@ func TestApprovalWithdrawalPreservesVotesAndReopensAsANewRound(t *testing.T) {
 	if document.evidence.Withdrawal != nil || document.evidence.Approvals != 99 {
 		t.Fatal("input evidence was changed")
 	}
-	if _, _, _, err := closed.cast(StatusPending, ApprovalConfig{Quorum: 2}, ApprovalVote{Approver: "bob", Decision: VoteApprove}); err == nil {
+	if _, _, _, err := closed.cast(StatusPending, ApprovalConfig{Quorum: 2}, ApprovalVote{Approver: "bob", Principal: idstest.N(22), Via: "session", Decision: VoteApprove}); err == nil {
 		t.Fatal("withdrawn round accepted a vote")
 	}
 	reopened, err := closed.reopen(status)
 	if err != nil || reopened.Withdrawal != nil || len(reopened.PreviousWithdrawals) != 1 || reopened.PreviousWithdrawals[0] != withdrawal || len(reopened.Decisions) != 0 || len(reopened.PreviousDecisions) != 1 || reopened.LastRejection != nil {
 		t.Fatalf("reopen: %+v %v", reopened, err)
 	}
-	fresh, status, pending, err := reopened.cast(StatusPending, ApprovalConfig{Quorum: 2}, ApprovalVote{Approver: "alice", Decision: VoteApprove})
+	fresh, status, pending, err := reopened.cast(StatusPending, ApprovalConfig{Quorum: 2}, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove})
 	if err != nil || !pending || status != StatusPending || fresh.Approvals != 1 {
 		t.Fatalf("new round: %+v %s %v", fresh, status, err)
 	}
@@ -52,9 +54,9 @@ func TestApprovalWithdrawalRefusesClosedOrInvalidRounds(t *testing.T) {
 	}
 	for _, evidence := range []ApprovalEvidence{
 		{Withdrawal: &valid},
-		{Decisions: []ApprovalVote{{Approver: "alice", Decision: VoteReject}}},
-		{Decisions: []ApprovalVote{{Approver: "alice", Decision: VoteApprove}}},
-		{Decisions: []ApprovalVote{{Approver: "alice", Decision: VoteApprove}, {Approver: "alice", Decision: VoteApprove}}},
+		{Decisions: []ApprovalVote{{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteReject}}},
+		{Decisions: []ApprovalVote{{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove}}},
+		{Decisions: []ApprovalVote{{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove}, {Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove}}},
 	} {
 		if _, _, err := evidence.withdraw(StatusPending, ApprovalConfig{}, valid); err == nil {
 			t.Fatalf("closed/corrupt round admitted: %+v", evidence)
@@ -74,7 +76,7 @@ func TestApprovalWithdrawalRefusesClosedOrInvalidRounds(t *testing.T) {
 
 func TestReopenedApprovalCanBeWithdrawnWithoutReusingItsOldVote(t *testing.T) {
 	t.Parallel()
-	old := ApprovalEvidence{Approver: "alice", Decision: VoteReject, Comment: "fix it", At: "old", Decisions: []ApprovalVote{{Approver: "alice", Decision: VoteReject, Comment: "fix it", At: "old"}}}
+	old := ApprovalEvidence{Approver: "alice", Decision: VoteReject, Comment: "fix it", At: "old", Decisions: []ApprovalVote{{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteReject, Comment: "fix it", At: "old"}}}
 	reopened, err := old.reopen(StatusFail)
 	if err != nil || reopened.Decision != 0 || reopened.Approver != "" || reopened.Comment != "" || reopened.LastRejection.Comment != "fix it" {
 		t.Fatalf("stale closing decision: %+v %v", reopened, err)

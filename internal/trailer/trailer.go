@@ -27,11 +27,6 @@ const (
 	Provenance       = "AppTown-Provenance"        // what kind of AppTown writer made it
 )
 
-// OldOperation is Operation as commits from before the AppTown rename spell
-// it. It is only read: scm finds a landing's merge by its operation, and a
-// landing admitted before the upgrade carries this key. Nothing writes it.
-const OldOperation = "Forge-Operation"
-
 // Keys is every key, for the test that refuses one written outside this list.
 var Keys = []string{RunID, Step, Workflow, Operation, ChangeID, ChangePage, OpenedBy, ApprovedBy, EvalAuthorised, LandingAuthority, Override, Actor, Provenance}
 

@@ -1403,12 +1403,6 @@ export type SpecStep = {
   with?: Record<string, unknown>
 }
 
-export type StageRechecked = {
-  runId: string | null
-  stage: string
-  missing: string[]
-}
-
 export type StepInterrupted = {
   ok: boolean
   stopped: string[]

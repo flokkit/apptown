@@ -224,7 +224,7 @@ func (h workReads) getWaitingOnYou(c *Call, args map[string]any) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if ev.HasVoted(c.principal().Name) {
+		if ev.HasVoted(c.principal().ID) {
 			continue
 		}
 		cfg, err := workflow.ReadApprovalConfig(pending.Step.Config)

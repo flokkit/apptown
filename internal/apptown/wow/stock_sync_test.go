@@ -437,3 +437,37 @@ func TestANewPackKeepsTheDefinitionItsLegacyParentHeld(t *testing.T) {
 		t.Fatalf("child v1 must install the parent's definition (scan): %+v %v", setup, err)
 	}
 }
+
+// Installing a pack version installs each policy as the version defines
+// it. A version that names a policy without its definition (cut while the
+// library lacked it) is refused by name, even once the library has that
+// policy again: the next cut publishes it with its definition.
+//
+// Kills: pack setup reading a named policy's definition from the library.
+func TestPackSetupRefusesAPolicyNamedWithoutItsDefinition(t *testing.T) {
+	t.Parallel()
+	s := New(testDB(t), Dependencies{})
+	ctx := t.Context()
+	gate := LibraryPolicy{Name: "gate", Description: "a gate", Rule: "requireStepBefore", With: map[string]any{"uses": "deploy", "requires": "scan"}}
+	if err := s.SaveLibraryPolicy(ctx, gate, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PublishPack(ctx, "parent", "", `{"policies":[{"name":"gate"}]}`, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteLibraryPolicy(ctx, "gate", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if recuts, err := s.CutPacksOnPinChange(ctx); err != nil || len(recuts) != 1 || recuts[0].Version != 2 {
+		t.Fatalf("the parent without its policy: %+v %v", recuts, err)
+	}
+	if err := s.SaveLibraryPolicy(ctx, gate, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PackSetupIn(ctx, s.db, "parent", 2); err == nil || !strings.Contains(err.Error(), "parent version 2 names policy gate without its definition") {
+		t.Fatalf("a version naming a policy without its definition: %v", err)
+	}
+	if setup, err := PackSetupIn(ctx, s.db, "parent", 1); err != nil || len(setup.Policies) != 1 || setup.Policies[0].Rule != "requireStepBefore" {
+		t.Fatalf("a version holding its policy's definition: %+v %v", setup, err)
+	}
+}

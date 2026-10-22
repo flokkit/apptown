@@ -158,11 +158,9 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 		}
 	}
 	// An inherited policy keeps the included publication's definition
-	// exactly, pinned by it (a publication from before policies were pinned
-	// may hold a definition with no pin). One it only named, with no
-	// definition, is pinned here at the library's current definition, so
-	// this new publication fixes what it installs; PackSetupIn tells the two
-	// apart the same way.
+	// exactly, pinned by it (or by the definition, where it holds no pin).
+	// One it only named, because the library lacked it then, is pinned here
+	// at the library's current definition if it has one now.
 	for i, p := range out.Policies {
 		switch v, pinned := inc.Pins.Policies[p.Name]; {
 		case pinned:

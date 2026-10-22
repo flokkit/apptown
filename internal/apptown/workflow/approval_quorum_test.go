@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -36,6 +37,7 @@ func TestApprovalQuorumUnderRace(t *testing.T) {
 	// lost vote.
 	stepID := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: runID, Stage: "finish", Name: "accept", Type: "approval", ConfigJson: []byte(`{"quorum":2}`), Status: StatusPending.String()})
 	users := []string{"ann", "bob", "cy"}
+	people(t, db, users...)
 	errs := race(3, func(i int) int {
 		if _, err := voteForTest(db, stepID, users[i], VoteApprove, "ok"); err != nil {
 			if errors.Is(err, errStepDecisionConflict) {
@@ -85,5 +87,17 @@ func TestApprovalRollsBackWhole(t *testing.T) {
 	}
 	if _, err := voteForTest(db, stepID, "ann", VoteApprove, "again"); err != nil {
 		t.Fatalf("the vote can be retried: %v", err)
+	}
+}
+
+// people gives each name an account, as a person who votes has: a vote is
+// counted by the principal its name resolves to.
+func people(t *testing.T, db *database.DB, names ...string) {
+	t.Helper()
+	directory := identity.New(db, identity.Config{})
+	for _, name := range names {
+		if _, err := directory.EnsurePerson(context.Background(), name); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS delegations (
   client_id           TEXT NOT NULL,
   client_name         TEXT NOT NULL DEFAULT '',
   audience            TEXT NOT NULL,                 -- /mcp/user | /mcp/admin
-  kind                TEXT NOT NULL DEFAULT 'oauth', -- oauth | full-breadth | legacy-token
+  kind                TEXT NOT NULL DEFAULT 'oauth', -- oauth, the only kind written
   scopes_json         JSONB NOT NULL DEFAULT '[]'::jsonb,
   group_bounds_json   JSONB NOT NULL DEFAULT '[]'::jsonb,
   project_bounds_json JSONB NOT NULL DEFAULT '[]'::jsonb,

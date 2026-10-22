@@ -20,7 +20,7 @@ import (
 func narrativeRun(t *testing.T, db *database.DB, ch *Change, name string, steps ...schema.Step) *Run {
 	t.Helper()
 	owner := newRunAdmissions(db, NewStages(nil, func(string) bool { return false }), nil)
-	run, err := owner.Create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: name, InputsJSON: "{}", RequestedBy: "test"}, PreparedRun{Workflow: DefinitionRef{Name: name, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "work", Steps: steps}}}})
+	run, err := owner.Create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: name, InputsJSON: "{}", RequestedBy: "test"}, PreparedRun{Workflow: DefinitionRef{Name: name, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: steps}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

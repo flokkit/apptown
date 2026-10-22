@@ -114,7 +114,7 @@ func TestWorkflowEngineGatesBeforeEffects(t *testing.T) {
 
 func TestWorkflowEngineRefreshesAssertionsAndHonorsGateSubset(t *testing.T) {
 	t.Parallel()
-	spec := schema.Spec{Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "evidence", Uses: "artifact/require"}, {Name: "approval", Uses: "approval"}, {Name: "optional", Uses: "script"}}, Gate: &schema.Gate{Require: []string{"evidence", "approval"}}}}}
+	spec := schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "evidence", Uses: "artifact/require"}, {Name: "approval", Uses: "approval"}, {Name: "optional", Uses: "script"}}, Gate: &schema.Gate{Require: []string{"evidence", "approval"}}}}}
 	w, s := testWorkflowEngine(t, spec, "check")
 	s.steps = []*Step{
 		{Name: "evidence", Type: "artifact/require", Status: StatusPending},
@@ -141,7 +141,6 @@ func TestWorkflowEngineMergeBoundaries(t *testing.T) {
 		parent                   ids.ID
 	}{
 		{"working completion", "working", "deploy", "", ids.Nil},
-		{"old definition", "", "deploy", "", ids.Nil},
 		{"child completion", "landing", "deploy", "", idstest.N(99)},
 		{"child deployment", "landing", "check", "", idstest.N(99)},
 		{"landing deployment", "landing", "check", "merge before deploy", ids.Nil},

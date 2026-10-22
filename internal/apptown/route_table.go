@@ -448,7 +448,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/runs/{id}/workspace/{path...}", workspaces.Workspace, access.CapEvidenceRead, "run"),
 		requireRoute("GET /api/v1/audit", auditLog.AuditLog, access.CapAuditRead, "instance"),
 		requireRoute("POST /api/v1/runs/{id}/advance", runs.Advance, access.CapRunOperate, "run"),
-		requireRoute("POST /api/v1/runs/{id}/recheck", runs.RecheckStage, access.CapRunOperate, "run"),
 		requireRoute("POST /api/v1/runs/{id}/artifacts", runs.AddArtifact, access.CapEvidenceAttach, "run"),
 		ownerRoute("GET /api/v1/artifacts/{id}", runs.GetArtifact, "runs.GetArtifact"),
 
@@ -576,7 +575,6 @@ func appRoutes(a *App) []routeSpec {
 		// A page linked before 1.0 by a record's former number moves to its id;
 		// any other address is the SPA's.
 		publicRoute("GET /changes/{id}", formerPage(former, audit.FormerChange), "formerPage: a redirect naming a record's id; reading it needs its authority"),
-		publicRoute("GET /items/{id}", formerPage(former, audit.FormerChange), "formerPage: a redirect naming a record's id; reading it needs its authority"),
 		publicRoute("GET /adrs/{id}", formerPage(former, audit.FormerADR), "formerPage: a redirect naming a record's id; reading it needs its authority"),
 		publicRoute("GET /guidance/{id}", formerPage(former, audit.FormerGuidanceBlock), "formerPage: a redirect naming a record's id; reading it needs its authority"),
 		publicRoute("/", webHandler(), "webHandler(): SPA assets and fallback; API authentication is independent"),

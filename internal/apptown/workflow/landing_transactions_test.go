@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
@@ -33,7 +34,7 @@ const landingMeans = "this merges and ships on my say-so"
 // acceptedShowing is a closed acceptance whose vote recorded what the landing
 // would ask.
 func acceptedShowing(shown ...string) string {
-	return mustJSON(map[string]any{"approver": "alice", "decisions": []map[string]any{{"approver": "alice", "decision": "approve", "alsoApproves": shown}}})
+	return mustJSON(map[string]any{"approver": "alice", "decisions": []map[string]any{{"approver": "alice", "principal": idstest.N(21).String(), "via": "session", "decision": "approve", "alsoApproves": shown}}})
 }
 
 func landingAcceptanceFixture(t *testing.T) (landings, *Run, *Run, []ids.ID) {

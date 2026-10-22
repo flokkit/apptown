@@ -13,19 +13,19 @@ import (
 )
 
 // A worker serves the AppTown installations whose protocol is in its range and refuses
-// any other by name. A request
-// that states no protocol comes from an AppTown built before protocols were
-// stated, and is served.
+// any other by name, and a request that states no protocol. Its version
+// answers any caller of its installation.
 //
-// Kills: a worker that serves any AppTown, whatever protocol it speaks.
+// Kills: a worker that serves any AppTown, whatever protocol it speaks, or
+// one that states none.
 func TestAWorkerServesOnlyAppTownProtocolsInItsRange(t *testing.T) {
 	t.Parallel()
 	ca := workertest.NewCA(t)
 	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir()})
-	client := workertest.Client(t, ca, workertest.Installation)
+	client := workertest.BareClient(t, ca, workertest.Installation)
 	get := func(protocol string) *http.Response {
 		t.Helper()
-		req, _ := http.NewRequest("GET", hs.URL+"/v1/version", nil)
+		req, _ := http.NewRequest("GET", hs.URL+"/v1/disks", nil)
 		if protocol != "" {
 			req.Header.Set(worker.ProtocolHeader, protocol)
 		}
@@ -36,12 +36,12 @@ func TestAWorkerServesOnlyAppTownProtocolsInItsRange(t *testing.T) {
 		t.Cleanup(func() { resp.Body.Close() })
 		return resp
 	}
-	for _, p := range []string{"", "1", "2"} {
+	for _, p := range []string{"1", "2"} {
 		if resp := get(p); resp.StatusCode != 200 {
 			t.Errorf("the worker refused protocol %q: %s", p, resp.Status)
 		}
 	}
-	for _, p := range []string{"3", "0", "x"} {
+	for _, p := range []string{"3", "0", "x", ""} {
 		resp := get(p)
 		raw, _ := io.ReadAll(resp.Body)
 		body := string(raw)

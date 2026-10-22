@@ -11310,38 +11310,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/runs/{id}/recheck": {
-      "post": {
-        "operationId": "postRunsIdRecheck",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "runs"
-        ],
-        "x-apptown-access": {
-          "capability": "run:operate",
-          "kind": "capability",
-          "scope": "run"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/runs/{id}/restart-landing": {
       "post": {
         "operationId": "postRunsIdRestartLanding",
@@ -12861,37 +12829,6 @@
         ],
         "x-apptown-access": {
           "contract": "httpapi.Health: up or down for a load balancer, nothing else",
-          "kind": "public"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/items/{id}": {
-      "get": {
-        "operationId": "getItemsId",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "outside /api/v1"
-        ],
-        "x-apptown-access": {
-          "contract": "formerPage: a redirect naming a record's id; reading it needs its authority",
           "kind": "public"
         },
         "x-apptown-stability": "experimental"

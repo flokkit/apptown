@@ -116,7 +116,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if source.Images != nil {
 		// The release's images, on this daemon or pulled by digest: run
 		// them, build nothing.
-		req.Recorded = &RecordedImages{Parts: source.Images, Init: source.Init, Scratch: d.Scratch, SelfServing: source.SelfServing}
+		req.Recorded = &RecordedImages{Parts: source.Images, Init: source.Init, Scratch: d.Scratch}
 		if d.Registry != nil {
 			req.Recorded.Login = d.Registry()
 		}

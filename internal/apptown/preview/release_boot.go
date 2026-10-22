@@ -80,7 +80,7 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	req := docker.BootRequest{Name: name, StackID: stackID, Workspace: staged,
 		Slug: p.Slug, Deployment: "preview", Docker: s.hosts.Local(), Probe: 90 * time.Second}
 	if b != nil {
-		req.Recorded = &docker.RecordedImages{Parts: b.Parts, Init: b.Init, Login: s.env.BundleLogin(ctx, selected.ProjectID, b), Scratch: s.hosts.BootScratch(), SelfServing: b.BuiltFrom.SelfServing}
+		req.Recorded = &docker.RecordedImages{Parts: b.Parts, Init: b.Init, Login: s.env.BundleLogin(ctx, selected.ProjectID, b), Scratch: s.hosts.BootScratch()}
 	} else {
 		req.ReleaseImage = selected.Image
 	}
@@ -116,7 +116,7 @@ func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slu
 	public := prepared.Public()
 	incarnation := fmt.Sprintf("bundle-%d+%s", b.ID, public.Digest())
 	if _, err := s.bootOnWorker(ctx, worker.PreviewSpec{Name: name, StackID: stackID, Slug: slug, Incarnation: incarnation, ProbeSeconds: 90,
-		Images: &worker.PreviewImages{Parts: b.Parts, Init: b.Init, SelfServing: b.BuiltFrom.SelfServing}}, prepared, tree); err != nil {
+		Images: &worker.PreviewImages{Parts: b.Parts, Init: b.Init}}, prepared, tree); err != nil {
 		return ReleaseResult{}, fmt.Errorf("could not start this version: %w", err)
 	}
 	if !s.recordServedSince(name, discards, servedRecord{Incarnation: incarnation, Source: revision, Public: public, At: s.now()}) {

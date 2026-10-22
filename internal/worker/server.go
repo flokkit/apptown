@@ -192,12 +192,15 @@ func TLSConfig(cert tls.Certificate, clients *x509.CertPool) *tls.Config {
 // worker's installation.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/version", s.version)
 	mux.HandleFunc("GET /v1/disks", s.disks)
 	mux.HandleFunc("POST /v1/checks", s.runCheck)
 	mux.HandleFunc("POST /v1/check-images", s.checkImage)
 	s.agentRoutes(mux)
-	protocols := served(mux)
+	// Its version is open to any caller of this installation, whatever it
+	// speaks: it is how an operator and the other side learn what it serves.
+	protocols := http.NewServeMux()
+	protocols.HandleFunc("GET /v1/version", s.version)
+	protocols.Handle("/", served(mux))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0].Subject.CommonName != s.Installation {
 			http.Error(w, "this worker serves another installation", http.StatusForbidden)

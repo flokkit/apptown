@@ -73,11 +73,10 @@ func TestSCMProviderCredentialsAreFrozenForOneOperation(t *testing.T) {
 	}
 }
 
-// A landing's merge is found by its exact Operation trailer, under either
-// spelling: AppTown-Operation, or Forge-Operation on a merge written before
-// the AppTown rename (a landing admitted then and recovered after).
+// A landing's merge is found by its exact Operation trailer.
 //
-// Kills: either spelling dropped from mergeCommit's search or its check.
+// Kills: mergeCommit matching a trailer that only starts with the
+// operation, or one not at the start of a line.
 func TestMergeOperationProofRequiresExactTrailer(t *testing.T) {
 	t.Parallel()
 	repo := t.TempDir()
@@ -87,12 +86,6 @@ func TestMergeOperationProofRequiresExactTrailer(t *testing.T) {
 	}
 	if sha, err := (&gitDriver{}).mergeCommit(context.Background(), repo, "main", "land-a.b"); err != nil || sha != "" {
 		t.Fatalf("unrelated commit certified operation: %s %v", sha, err)
-	}
-	gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", "merge\n\nForge-Operation: land-a.b")
-	expected := gittest.RunAsTester(t, repo, "rev-parse", "HEAD")
-	gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", "AppTown-Operation: land-a.b-extra")
-	if sha, err := (&gitDriver{}).mergeCommit(context.Background(), repo, "main", "land-a.b"); err != nil || sha != expected {
-		t.Fatalf("exact operation proof under the old key: %s %v", sha, err)
 	}
 	gittest.RunAsTester(t, repo, "commit", "--allow-empty", "-qm", "merge\n\nAppTown-Operation: land-c.d")
 	current := gittest.RunAsTester(t, repo, "rev-parse", "HEAD")

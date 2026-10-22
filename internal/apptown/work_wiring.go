@@ -145,19 +145,10 @@ func evalsDependencies(a *App) evals.Dependencies {
 		AdoptionJobs: evalAdoptionJobs{db: a.DB},
 		Comparer:     fleetReviewsFor(a),
 		Packs:        a.Ways,
-		Origins:      evalOrigins{dataDir: a.cfg.dataDir},
 		DataDir:      a.cfg.dataDir,
 		Now:          a.cfg.clock.Now,
 		RequestPass:  passRequests{db: a.DB, kind: evals.PassJob}.Request,
 	}
-}
-
-// evalOrigins reads a source Change's starting commit in its project's
-// repository.
-type evalOrigins struct{ dataDir string }
-
-func (o evalOrigins) PredatesRename(ctx context.Context, slug, commit string) (bool, error) {
-	return scm.PredatesRename(ctx, project.HubPath(o.dataDir, slug), commit)
 }
 
 // evalInCopy is an eval's driver acting in one of its copies: the eval

@@ -82,7 +82,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	}
 	prefix, base := portainer.StackNames(d.dep.ID, d.dep.HostPrefix, src.Slug)
 	compose, err := d.providers.env.portainerStack(ctx, portainerStackOf{Base: base, Prefix: prefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: src.Contract, Revision: src.Revision,
-		Images: stackImages{Parts: src.Images, Init: src.Init, SelfServing: src.SelfServing}, Secrets: secrets, Deployment: d.dep.ID}, logf)
+		Images: stackImages{Parts: src.Images, Init: src.Init}, Secrets: secrets, Deployment: d.dep.ID}, logf)
 	if err != nil {
 		return deploy.Artifact{}, err
 	}

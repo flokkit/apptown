@@ -13,14 +13,14 @@ func TestApprovalModelQuorumAndReopenedRounds(t *testing.T) {
 	t.Parallel()
 	cfg := ApprovalConfig{Quorum: 2, Means: "reviewed this revision"}
 	initial := ApprovalEvidence{Approvals: 999}
-	first, status, pending, err := initial.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Decision: VoteApprove, At: "first"})
+	first, status, pending, err := initial.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Principal: idstest.N(11), Via: "session", Decision: VoteApprove, At: "first"})
 	if err != nil || !pending || status != StatusPending || first.Approvals != 1 || first.Decision != 0 || first.Means != cfg.Means {
 		t.Fatalf("first vote: %+v %s %v %v", first, status, pending, err)
 	}
-	if initial.HasVoted("alice") || !first.HasVoted("alice") {
+	if initial.HasVoted(idstest.N(11)) || !first.HasVoted(idstest.N(11)) {
 		t.Fatal("vote mutated its input or was not saved")
 	}
-	rejected, status, pending, err := first.cast(status, cfg, ApprovalVote{Approver: "bob", Decision: VoteReject, Comment: "fix the bug", At: "second"})
+	rejected, status, pending, err := first.cast(status, cfg, ApprovalVote{Approver: "bob", Principal: idstest.N(12), Via: "session", Decision: VoteReject, Comment: "fix the bug", At: "second"})
 	if err != nil || pending || status != StatusFail || rejected.Approvals != 1 || rejected.Decision != VoteReject {
 		t.Fatalf("rejection: %+v %s %v %v", rejected, status, pending, err)
 	}
@@ -28,15 +28,15 @@ func TestApprovalModelQuorumAndReopenedRounds(t *testing.T) {
 	if err != nil || len(reopened.Decisions) != 0 || len(reopened.PreviousDecisions) != 2 || reopened.LastRejection.Comment != "fix the bug" || reopened.Approvals != 0 {
 		t.Fatalf("reopen: %+v %v", reopened, err)
 	}
-	next, status, pending, err := reopened.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Decision: VoteApprove, At: "third"})
+	next, status, pending, err := reopened.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Principal: idstest.N(11), Via: "session", Decision: VoteApprove, At: "third"})
 	if err != nil || !pending || next.Approvals != 1 {
 		t.Fatalf("fresh round: %+v %s %v %v", next, status, pending, err)
 	}
-	done, status, pending, err := next.cast(status, cfg, ApprovalVote{Approver: "bob", Decision: VoteApprove, At: "fourth"})
+	done, status, pending, err := next.cast(status, cfg, ApprovalVote{Approver: "bob", Principal: idstest.N(12), Via: "session", Decision: VoteApprove, At: "fourth"})
 	if err != nil || pending || status != StatusPass || done.Approvals != 2 || done.Approver != "bob" || done.Decision != VoteApprove || len(done.PreviousDecisions) != 2 {
 		t.Fatalf("quorum: %+v %s %v %v", done, status, pending, err)
 	}
-	if _, _, _, err := done.cast(status, cfg, ApprovalVote{Approver: "third", Decision: VoteReject}); err == nil {
+	if _, _, _, err := done.cast(status, cfg, ApprovalVote{Approver: "third", Principal: idstest.N(13), Via: "session", Decision: VoteReject}); err == nil {
 		t.Fatal("a closed round accepted another vote")
 	}
 	if _, err := done.reopen(status); err == nil {
@@ -54,7 +54,7 @@ func TestApprovalModelQuorumAndReopenedRounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, cfg := range []ApprovalConfig{named, {}} {
-		one, status, pending, err := ApprovalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "bls", Decision: VoteApprove, At: "only"})
+		one, status, pending, err := ApprovalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "bls", Principal: idstest.N(14), Via: "session", Decision: VoteApprove, At: "only"})
 		if err != nil || pending || status != StatusPass || one.Quorum != 1 || one.Approvals != 1 || one.Approver != "bls" {
 			t.Fatalf("default quorum %+v: %+v %s %v %v", cfg, one, status, pending, err)
 		}
@@ -63,7 +63,7 @@ func TestApprovalModelQuorumAndReopenedRounds(t *testing.T) {
 
 func TestApprovalModelRejectsInvalidVotesAndContradictoryRounds(t *testing.T) {
 	t.Parallel()
-	valid := ApprovalVote{Approver: "new", Decision: VoteApprove}
+	valid := ApprovalVote{Approver: "new", Principal: idstest.N(25), Via: "session", Decision: VoteApprove}
 	for _, tc := range []struct {
 		name     string
 		state    StepState
@@ -71,12 +71,12 @@ func TestApprovalModelRejectsInvalidVotesAndContradictoryRounds(t *testing.T) {
 		vote     ApprovalVote
 	}{
 		{"missing decision", StatusPending, ApprovalEvidence{}, ApprovalVote{Approver: "alice"}},
-		{"invalid decision", StatusPending, ApprovalEvidence{}, ApprovalVote{Approver: "alice", Decision: 255}},
+		{"invalid decision", StatusPending, ApprovalEvidence{}, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: 255}},
 		{"missing actor", StatusPending, ApprovalEvidence{}, ApprovalVote{Decision: VoteApprove}},
 		{"duplicate voter", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{valid}}, valid},
-		{"duplicate saved votes", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Decision: VoteApprove}, {Approver: "old", Decision: VoteApprove}}}, valid},
-		{"rejected current round", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Decision: VoteReject}}}, valid},
-		{"quorum already met", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Decision: VoteApprove}, {Approver: "other", Decision: VoteApprove}}}, valid},
+		{"duplicate saved votes", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}, {Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}}}, valid},
+		{"rejected current round", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteReject}}}, valid},
+		{"quorum already met", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}, {Approver: "other", Principal: idstest.N(24), Via: "session", Decision: VoteApprove}}}, valid},
 		{"running", StatusRunning, ApprovalEvidence{}, valid},
 		{"error", StatusError, ApprovalEvidence{}, valid},
 		{"skipped", StatusSkipped, ApprovalEvidence{}, valid},
@@ -130,7 +130,7 @@ func TestApprovalDecisionAndConfigurationDecodeStrictly(t *testing.T) {
 func TestApprovalCodecPreservesOpaqueMetadataAcrossRounds(t *testing.T) {
 	t.Parallel()
 	const number = "9007199254740993"
-	document, err := readApprovalDocument([]byte(`{"identifier":` + number + `,"decisions":[{"approver":"alice","decision":"reject","trace":` + number + `}],"approver":"alice","decision":"reject","comment":"fix"}`))
+	document, err := readApprovalDocument([]byte(`{"identifier":` + number + `,"decisions":[{"approver":"alice","principal":"00000000-0015-7000-8000-000000000000","via":"session","decision":"reject","trace":` + number + `}],"approver":"alice","principal":"00000000-0015-7000-8000-000000000000","via":"session","decision":"reject","comment":"fix"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestApprovalCodecPreservesOpaqueMetadataAcrossRounds(t *testing.T) {
 	if !strings.Contains(string(body), `"identifier":`+number) || !strings.Contains(string(body), `"trace":`+number) {
 		t.Fatalf("reopening lost exact metadata: %s", body)
 	}
-	next, _, _, err := reopened.cast(StatusPending, ApprovalConfig{Quorum: 2}, ApprovalVote{Approver: "alice", Decision: VoteApprove})
+	next, _, _, err := reopened.cast(StatusPending, ApprovalConfig{Quorum: 2}, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestApprovalCodecPreservesOpaqueMetadataAcrossRounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, _, _, err = document.evidence.cast(StatusPending, ApprovalConfig{Quorum: 2}, ApprovalVote{Approver: "alice", Decision: VoteApprove})
+	next, _, _, err = document.evidence.cast(StatusPending, ApprovalConfig{Quorum: 2}, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestApprovalCodecPreservesOpaqueMetadataAcrossRounds(t *testing.T) {
 // The typed shapes write exactly the keys the readers look for.
 func TestApprovalEvidenceWireShape(t *testing.T) {
 	t.Parallel()
-	ev := ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "bls", Decision: VoteApprove, Comment: "ok", At: "t1"}}, Quorum: 1, Approvals: 1,
+	ev := ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "bls", Principal: idstest.N(27), Via: "session", Decision: VoteApprove, Comment: "ok", At: "t1"}}, Quorum: 1, Approvals: 1,
 		Means: "I looked", Approver: "bls", Decision: VoteApprove, Comment: "ok", At: "t1"}
 	raw, err := json.Marshal(ev)
 	if err != nil {
@@ -223,14 +223,14 @@ func TestApprovalEvidenceWireShape(t *testing.T) {
 func TestApprovalQuorumIsForOneCommitButAnyRejectionCloses(t *testing.T) {
 	t.Parallel()
 	cfg := ApprovalConfig{Quorum: 2, Means: "reviewed this revision"}
-	first, status, _, err := ApprovalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Decision: VoteApprove, Candidate: "x"})
+	first, status, _, err := ApprovalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove, Candidate: "x"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err := first.cast(status, cfg, ApprovalVote{Approver: "bob", Decision: VoteApprove, Candidate: "y"}); err == nil {
+	if _, _, _, err := first.cast(status, cfg, ApprovalVote{Approver: "bob", Principal: idstest.N(22), Via: "session", Decision: VoteApprove, Candidate: "y"}); err == nil {
 		t.Fatal("a quorum formed from approvals of two commits")
 	}
-	rejected, status, pending, err := first.cast(status, cfg, ApprovalVote{Approver: "bob", Decision: VoteReject})
+	rejected, status, pending, err := first.cast(status, cfg, ApprovalVote{Approver: "bob", Principal: idstest.N(22), Via: "session", Decision: VoteReject})
 	if err != nil || pending || status != StatusFail {
 		t.Fatalf("a rejection naming no commit: %s %v %v", status, pending, err)
 	}
@@ -244,7 +244,7 @@ func TestApprovalQuorumIsForOneCommitButAnyRejectionCloses(t *testing.T) {
 // typed field, never carried over as opaque metadata.
 func TestAReopenedRoundRecordsTheCommitItApproved(t *testing.T) {
 	t.Parallel()
-	document, err := readApprovalDocument([]byte(`{"decisions":[{"approver":"alice","decision":"reject","candidate":"old"}],"approver":"alice","decision":"reject","candidate":"old","quorum":1}`))
+	document, err := readApprovalDocument([]byte(`{"decisions":[{"approver":"alice","principal":"00000000-0015-7000-8000-000000000000","via":"session","decision":"reject","candidate":"old"}],"approver":"alice","principal":"00000000-0015-7000-8000-000000000000","via":"session","decision":"reject","candidate":"old","quorum":1}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func TestAReopenedRoundRecordsTheCommitItApproved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, status, _, err := reopened.cast(StatusPending, ApprovalConfig{Quorum: 1}, ApprovalVote{Approver: "bob", Decision: VoteApprove, Candidate: "new"})
+	next, status, _, err := reopened.cast(StatusPending, ApprovalConfig{Quorum: 1}, ApprovalVote{Approver: "bob", Principal: idstest.N(22), Via: "session", Decision: VoteApprove, Candidate: "new"})
 	if err != nil || status != StatusPass {
 		t.Fatalf("approve: %s %v", status, err)
 	}
@@ -299,7 +299,8 @@ func TestAQuorumCountsPeopleNotNames(t *testing.T) {
 }
 
 // Assent is judged by the way a vote was given: a person's yes through a
-// chat is not their assent, the same person's through a session is.
+// chat is not their assent, the same person's through a session is, and a
+// vote that names no way is no one's.
 func TestAssentIsJudgedByTheWayAVoteWasGiven(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -309,7 +310,7 @@ func TestAssentIsJudgedByTheWayAVoteWasGiven(t *testing.T) {
 		{ApprovalVote{Approver: "alice", Principal: idstest.N(1), Via: "session"}, true},
 		{ApprovalVote{Approver: "alice", Principal: idstest.N(1), Via: "chat:x"}, false},
 		{ApprovalVote{Approver: "alice", Via: "session"}, false},
-		{ApprovalVote{Approver: "alice", Principal: idstest.N(1)}, true},
+		{ApprovalVote{Approver: "alice", Principal: idstest.N(1)}, false},
 		{ApprovalVote{Approver: "alice"}, false},
 		{ApprovalVote{Approver: "alice via console/c", Principal: idstest.N(1)}, false},
 	} {

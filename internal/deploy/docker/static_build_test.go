@@ -167,7 +167,7 @@ func TestAStandingStaticBuildIsPackedAndRunAsAnImage(t *testing.T) {
 	}
 
 	fake.args = nil
-	recorded := &RecordedImages{Parts: map[string]string{"web": "sha256:recorded"}, SelfServing: true}
+	recorded := &RecordedImages{Parts: map[string]string{"web": "sha256:recorded"}}
 	req.Recorded = recorded
 	fake.reply = func(req Command) ([]byte, error) { return []byte("sha256:recorded"), nil }
 	if _, err := NewHost(Dependencies{}).PrepareImages(t.Context(), req, appcontract.Prepare(c, nil)); err != nil {

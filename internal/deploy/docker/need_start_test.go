@@ -204,7 +204,7 @@ func TestAServiceThatKeepsItsImageIsNotRemadeForANewOne(t *testing.T) {
 				return nil, nil
 			}}
 			svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:17-alpine", ConfigAtStart: true, KeepsImage: c.keepsImage}
-			_, err := replaceDrifted(t.Context(), Scope{Client: client}, "env-shop-main", Current.Service("env-shop-main", "postgres"), svc, c.drift, "production", Ownership{}, nil)
+			err := replaceDrifted(t.Context(), Scope{Client: client}, "env-shop-main", Current.Service("env-shop-main", "postgres"), svc, c.drift, "production", Ownership{})
 			if c.remade {
 				if err != nil || len(removed) != 1 {
 					t.Fatalf("not remade on its volume: %v %v", err, removed)

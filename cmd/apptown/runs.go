@@ -612,30 +612,7 @@ func cmdAdvance(args []string) error {
 		for _, m := range res.Missing {
 			fmt.Printf("  missing evidence: %s\n", m)
 		}
-		if len(res.Missing) > 0 {
-			fmt.Printf("  next: apptown recheck-stage %s runs this stage's checks again\n", args[0])
-		}
 	}
-	return nil
-}
-
-// cmdRecheckStage runs a stage's checks again when its gate is missing evidence.
-func cmdRecheckStage(args []string) error {
-	if len(args) < 1 {
-		return usagef("usage: apptown recheck-stage <run-id>")
-	}
-	if err := runArg(args, ""); err != nil {
-		return err
-	}
-	var res struct {
-		Stage   string
-		Missing []string
-	}
-	if err := api.post("/runs/"+args[0]+"/recheck", map[string]any{}, &res); err != nil {
-		return err
-	}
-	fmt.Printf("stage %q runs its checks again (it was missing: %s); its approvals will ask again\n", res.Stage, strings.Join(res.Missing, ", "))
-	fmt.Printf("  watch: apptown status %s\n", args[0])
 	return nil
 }
 

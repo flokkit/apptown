@@ -185,7 +185,7 @@ func TestTheSnapshotOffersTheActsAPersonCanTakeNow(t *testing.T) {
 			[]NextAct{{Act: NextRetry, Step: "lint"}, {Act: NextRetry, Step: "merged"}, {Act: NextRework, Step: "work"}}},
 		{"a gate missing evidence", "", scan,
 			[]step{{"work", "agent/pi", StatusPass}, {"accept", "approval", StatusPending}},
-			[]NextAct{{Act: NextRework, Step: "work"}, {Act: NextRecheck}}},
+			[]NextAct{{Act: NextRework, Step: "work"}}},
 		{"ready to advance", "", nil,
 			[]step{{"work", "agent/pi", StatusPass}, {"accept", "approval", StatusPass}},
 			[]NextAct{{Act: NextAdvance}}},

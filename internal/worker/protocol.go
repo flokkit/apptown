@@ -37,20 +37,17 @@ type VersionReport struct {
 }
 
 // served refuses a request whose AppTown speaks a protocol outside this
-// worker's range, by name. A request without the header comes from an AppTown
-// built before protocols were stated, and is served.
+// worker's range, or states none, by name.
 func served(next http.Handler) http.Handler { return servedRange(ProtocolMin, ProtocolMax, next) }
 
 // servedRange is served for a worker serving min to max.
 func servedRange(min, max int, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if h := r.Header.Get(ProtocolHeader); h != "" {
-			n, err := strconv.Atoi(h)
-			if err != nil || n < min || n > max {
-				http.Error(w, fmt.Sprintf("this worker (%s) serves AppTown protocols %d to %d; AppTown speaks %q: install AppTown and its worker from the same release",
-					version.String(), min, max, h), http.StatusUpgradeRequired)
-				return
-			}
+		h := r.Header.Get(ProtocolHeader)
+		if n, err := strconv.Atoi(h); err != nil || n < min || n > max {
+			http.Error(w, fmt.Sprintf("this worker (%s) serves AppTown protocols %d to %d; AppTown speaks %q: install AppTown and its worker from the same release",
+				version.String(), min, max, h), http.StatusUpgradeRequired)
+			return
 		}
 		next.ServeHTTP(w, r)
 	})

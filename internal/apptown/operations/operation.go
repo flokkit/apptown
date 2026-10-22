@@ -82,8 +82,8 @@ type OperationStep struct {
 // its credential reference and its bounds. It holds no secret. It is the
 // ceiling an effect is checked against, never authority of its own.
 type Authority struct {
-	// PrincipalID is the person who answers for the operation; Nil for the
-	// AppTown and for an operation recorded before principals.
+	// PrincipalID is the person who answers for the operation; Nil for
+	// AppTown itself, or a caller not resolved to a person.
 	PrincipalID  ids.ID   `json:"principal,omitzero"`
 	Kind         string   `json:"kind"`
 	Name         string   `json:"name"`

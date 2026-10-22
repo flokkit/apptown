@@ -234,10 +234,8 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	// The bundle (§2.8): what this landing built, cut once, for every
 	// deployment of the project to run from now on. A bundle built on the
 	// worker was committed before the deploy.
-	// Its images were built by this boot (docker.PrepareImages), so its
-	// static images serve themselves.
 	if bundle == nil && cfg.Deployment == "main" && relSHA != "" {
-		if _, err := a.cutBundle(task, run.ProjectID, relSHA, out, raw, deployment.BundleOrigin{ChangeID: run.ChangeID, RunID: run.ID, SelfServing: true}); err != nil {
+		if _, err := a.cutBundle(task, run.ProjectID, relSHA, out, raw, deployment.BundleOrigin{ChangeID: run.ChangeID, RunID: run.ID}); err != nil {
 			log.Printf("run %d: cutting the release bundle: %v", run.ID, err)
 		}
 	}

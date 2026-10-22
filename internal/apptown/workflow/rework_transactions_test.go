@@ -194,6 +194,7 @@ func TestWorkflowReworkRoundLimit(t *testing.T) {
 func TestWorkflowReworkRejectionHistoryAndConcurrentVotes(t *testing.T) {
 	t.Parallel()
 	s, _, agent, _, approval := retryStageFixture(t)
+	people(t, s.db, "alice", "bob", "carol")
 	cast := func(who string, decision ApprovalDecision, comment string) error {
 		service := newService(s.db, authorityFunc(func(context.Context, operationPermission) (string, error) { return who, nil }), Runtime{})
 		_, err := service.Approve(context.Background(), Approval{StepID: approval, Decision: decision, Comment: comment})

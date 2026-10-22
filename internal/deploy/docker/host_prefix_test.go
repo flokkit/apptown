@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -85,4 +86,51 @@ func TestAStandingBootNamingNoPrefixIsRefused(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "names no host prefix") || len(client.args) != 0 {
 		t.Fatalf("a standing boot with no prefix ran: %v %v", err, client.args)
 	}
+}
+
+// carryDaemon is a daemon with a standing postgres service: its data is
+// mounted from mounts (as docker inspect's .Mounts lines print it, "" for
+// none), its environment is env and its memory limit is memory bytes.
+func carryDaemon(mounts, env string, memory string, mountsErr error) *fakeClient {
+	return &fakeClient{reply: func(req Command) ([]byte, error) {
+		args := strings.Join(req.Args, " ")
+		switch {
+		case strings.HasPrefix(args, "inspect") && strings.Contains(args, ".Mounts"):
+			return []byte(mounts), mountsErr
+		case strings.HasPrefix(args, "inspect") && strings.Contains(args, "Config.Env"):
+			return []byte(env), nil
+		case strings.HasPrefix(args, "inspect") && strings.Contains(args, "Config.Image"):
+			return []byte("postgres:16-alpine\n"), nil
+		case strings.HasPrefix(args, "inspect") && strings.Contains(args, "HostConfig.Memory"):
+			return []byte(memory + " 0\n"), nil
+		case strings.HasPrefix(args, "volume inspect"):
+			// No named volume yet: these services predate them.
+			return []byte("Error: No such volume: " + req.Args[len(req.Args)-1]), errors.New("exit status 1")
+		}
+		return nil, nil
+	}}
+}
+
+const (
+	carryPath = "/var/lib/postgresql/data"
+	oldEnv    = "POSTGRES_USER=app\nPOSTGRES_DB=app\nPOSTGRES_PASSWORD=old\n"
+)
+
+func carryService(configAtStart bool) deploy.ServiceSpec {
+	return deploy.ServiceSpec{Name: "postgres", Image: "postgres:16-alpine", ConfigAtStart: configAtStart,
+		Env: map[string]string{"POSTGRES_USER": "app", "POSTGRES_DB": "app", "POSTGRES_PASSWORD": "new"}}
+}
+
+func runMount(calls [][]string) string {
+	for _, args := range calls {
+		if len(args) > 1 && args[0] == "run" && args[1] == "-d" {
+			for i, a := range args {
+				if a == "-v" && i+1 < len(args) && strings.HasSuffix(args[i+1], ":"+carryPath) {
+					return strings.TrimSuffix(args[i+1], ":"+carryPath)
+				}
+			}
+			return "(none)"
+		}
+	}
+	return "(no run)"
 }
