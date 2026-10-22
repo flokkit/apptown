@@ -107,10 +107,10 @@ const docker = { slug: 'shelf', name: 'main' }
 describe('a deployment on a Docker host', () => {
   it('shows only what applies there, and its note as a fact, not an alarm', async () => {
     const elsewhere = (why: string) => ({ available: false, reason: 'not-on-this-platform', why })
-    const onDisk = { available: false, reason: 'on-apptown-disk', why: 'Rehearsals read copies from a backup store, and none is attached.' }
+    const onDisk = { available: false, reason: 'no-copy', why: 'There is no good backup of its data yet.' }
     const body = {
       deployment: 'main', dataClass: 'production', offHost: false, target: 'home', recent: [], running: null, restoredCopies: [], coverage,
-      keptOn: 'host', note: "Backups are kept on AppTown's own disk.", rehearsalNote: "not available while its backups are only on AppTown's own disk",
+      keptOn: 'host', note: "Backups are kept on AppTown's own disk.", rehearsalNote: 'never rehearsed',
       operations: { copy: { available: false, reason: 'backups-page', why: 'backed up daily' }, check: elsewhere('check: App Platform only'), restore: elsewhere('restore: App Platform only'), rehearsal: onDisk, startFromCopy: elsewhere('x'), finalCopy: yes },
       items: [{ need: 'postgres', where: 'on home', copy: 'fresh', copyNote: "kept on AppTown's own disk", lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }],
     }

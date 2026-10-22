@@ -485,7 +485,10 @@ check expecting 200, and passes only one that names the redirect's status
 (which then proves little). AppTown records only the status. Without a data
 check, a rehearsal reads "passed: booted and ready; no data check
 declared". In a rehearsal only the public part starts, on a network of its
-own that nobody outside reaches, and `APPTOWN_ORIGINS` holds the source
+own, with no published port and no address. Software on the host it runs
+on can still reach it: that is a host kept for rehearsals, or the app's own
+host when none is kept (see [Deployment backups](/docs/guides/deployment-backups),
+"Where restore rehearsals run"). `APPTOWN_ORIGINS` holds the source
 deployment's address, so the app accepts requests made as if to it. Which secrets a rehearsal gets is
 in [Secrets](/docs/guides/secrets).
 

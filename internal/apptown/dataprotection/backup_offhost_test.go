@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -139,16 +138,17 @@ func (w *offhostWorld) stagingEntries() []string {
 }
 
 // Without a store a Docker host's backups stay on AppTown's disk, and
-// its protection says losing that disk loses them; a rehearsal is refused
-// at its door with the sentence the card shows. With a store attached,
+// its protection says losing that disk loses them; a rehearsal is not
+// refused for want of a store (it reads the disk), and its door and card
+// agree. With a store attached,
 // every backup goes to the store: each copy held to its digest there, the
 // database's copy made by its kind's portable export, nothing left on the
 // AppTown's disk, and the deployment off-host.
 //
 // Kills: writing to the disk with a store attached; recording a format
 // without running the kind's export; recording a copy the store did not
-// take as it was made; leaving staging behind; a "never rehearsed" with no
-// store; a card and a door that disagree.
+// take as it was made; leaving staging behind; a card and a door that
+// disagree.
 func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 	t.Parallel()
 	w := newOffhostWorld(t, "oh", 40100)
@@ -158,13 +158,13 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 		t.Fatalf("without a store: %+v", disk)
 	}
 	p, err := w.s.DeploymentProtection(ctx, w.pid, "main")
-	if err != nil || p.OffHost || p.Note != OnAppTownDiskNote || p.Operations == nil || p.Operations.Rehearsal.Reason != "on-apptown-disk" || !strings.Contains(p.RehearsalNote, "backup store") {
+	if err != nil || p.OffHost || p.Note != OnAppTownDiskNote || p.Operations == nil || p.Operations.Rehearsal.Reason == "on-apptown-disk" || strings.Contains(p.RehearsalNote, "backup store") {
 		t.Fatalf("protection without a store: %+v %+v %v", p, p.Operations, err)
 	}
 	if len(p.Items) != 2 || p.Items[1].Copy != CopyFresh {
 		t.Fatalf("items without a store: %+v", p.Items)
 	}
-	if _, err := w.s.RequestRehearsal(ctx, w.pid, "main", ids.Nil); !errors.Is(err, ErrOnAppTownDisk) || err.Error() != p.Operations.Rehearsal.Why {
+	if _, err := w.s.RequestRehearsal(ctx, w.pid, "main", ids.Nil); (err == nil) != p.Operations.Rehearsal.Available || err != nil && err.Error() != p.Operations.Rehearsal.Why {
 		t.Fatalf("the rehearsal door without a store: %v (the card says %q)", err, p.Operations.Rehearsal.Why)
 	}
 	// Each door refuses a Docker host's deployment with the reason the card

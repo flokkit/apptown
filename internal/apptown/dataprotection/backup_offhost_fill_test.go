@@ -167,7 +167,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 		if !endedAs(got, OperationVerified) {
 			t.Fatalf("rehearsing set %d: %s %s", chosen, got.State, got.Detail)
 		}
-		place := placeOf(op.ID, "rehearse-1")
+		place := placeOf(op.ID, "rehearse-1", false)
 		data := docker.Current.DataVolume(place.App)
 		cmds := w.host.Commands()
 		unpack := slices.IndexFunc(cmds, func(c []string) bool {
@@ -196,7 +196,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 	w.host.mu.Unlock()
 	withdrawn(t, w.run(op))
 	for _, c := range w.host.Commands() {
-		if line := strings.Join(c, " "); strings.Contains(line, docker.Current.DataVolume(placeOf(op.ID, "rehearse-1").App)+":/dst") {
+		if line := strings.Join(c, " "); strings.Contains(line, docker.Current.DataVolume(placeOf(op.ID, "rehearse-1", false).App)+":/dst") {
 			t.Fatalf("the app's files were unpacked after authority was withdrawn: %s", line)
 		}
 	}

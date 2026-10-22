@@ -115,7 +115,7 @@ export function drillLine(it: ItemProtection): string {
 // a copy, from which set and release, where; or why there was none.
 export function rehearsalLine(r: RehearsalRef | null | undefined, note?: string): string {
   if (!r) return `last restore rehearsal: ${note || 'never rehearsed'}`
-  const from = [r.backup ? 'from a backup set' : '', r.release ? `release ${r.release}` : '', r.host ? `on ${r.host}` : ''].filter(Boolean).join(', ')
+  const from = [r.backup ? 'from a backup set' : '', r.release ? `release ${r.release}` : '', r.host ? `on ${r.host}` : '', r.host && r.facts?.sharedHost ? 'not kept for rehearsals' : ''].filter(Boolean).join(', ')
   if (r.outcome.startsWith('unknown')) return `last restore rehearsal ${fmtWhen(r.at)}: ${r.outcome}${from ? ` (${from})` : ''}`
   if (!r.passed) return `last restore rehearsal failed ${fmtWhen(r.at)} ${from}${r.failedStep ? `, while ${r.failedStep}` : ''}`
   return `last restore rehearsal ${r.outcome} ${fmtWhen(r.at)} ${from}`
@@ -175,7 +175,7 @@ export function CoverageLines({ c, unknown }: { c: Coverage; unknown?: boolean }
   )
 }
 
-const rehearseTitle = "boot the release it serves on its newest copy, on the host kept for rehearsals, ask the app its readiness, front page and data checks, then take it all down"
+const rehearseTitle = "boot the release it serves on its newest backup, on the host kept for rehearsals or, with none kept, on the app's own host beside it; ask the app its readiness, front page and data checks, then take it all down"
 
 // ProtectionLines is a cloud deployment's protection on its card: each
 // item, the running operation, and the doors to copy and check now.

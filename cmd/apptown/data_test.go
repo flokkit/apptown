@@ -77,6 +77,9 @@ func TestDataSaysTheLastRehearsal(t *testing.T) {
 			"last restore rehearsal: failed 2026-10-08T01:00:00Z from set 00000000-0004-7000-8000-000000000000, release 7, on rehearse-1, while asking the app"},
 		{`{"deployment":"prod","dataClass":"production","rehearsal":{"at":"2026-10-08T01:00:00Z","outcome":"unknown: AppTown stopped while it ran","operation":"00000000-000c-7000-8000-000000000000","facts":{"egress":"outbound network not blocked"}}}`,
 			"last restore rehearsal 2026-10-08T01:00:00Z: unknown: AppTown stopped while it ran (operation 00000000-000c-7000-8000-000000000000)"},
+		{`{"deployment":"home","dataClass":"production","rehearsal":{"at":"2026-10-08T01:00:00Z","outcome":"passed","passed":true,"backup":"00000000-0004-7000-8000-000000000000","release":7,"host":"server-1",
+			"facts":{"egress":"outbound network not blocked","sharedHost":true}}}`,
+			"last restore rehearsal: passed 2026-10-08T01:00:00Z from set 00000000-0004-7000-8000-000000000000, release 7, on server-1, not kept for rehearsals\n"},
 		{`{"deployment":"prod","dataClass":"production","rehearsalNote":"never rehearsed: no rehearsal place"}`, "last restore rehearsal: never rehearsed: no rehearsal place"},
 	} {
 		var p protection

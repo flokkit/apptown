@@ -9,11 +9,12 @@ for App Platform.
 
 **Where Docker-host backups are kept.** When a backup store is attached
 (below), every backup goes to the store; AppTown's disk holds a set only
-while it uploads. Postgres is copied by its portable export, so a copy in
-the store can also be rehearsed on another host. Without a store, backups
+while it uploads. Postgres is copied by its portable export, so a copy can
+also be rehearsed on another host. Without a store, backups
 stay on AppTown's own disk, and losing that disk loses them: the
-deployment's card reads "Backups kept on this host ⚠", the Backups page
-"Kept on: this host ⚠", and a restore rehearsal is unavailable. Once a
+deployment's card reads "Backups kept on this host ⚠" and the Backups page
+"Kept on: this host ⚠". A restore rehearsal still works from those
+backups. Once a
 store is attached,
 the nightly sweep moves the sets still on the disk into it, each checked
 against its recorded digest; a set that does not match stays on the disk
@@ -26,6 +27,22 @@ set's **Kept on** and path: a folder is safe to remove when the set with
 the same `<project>/<deployment>/<time>` is kept on "backup store". If the store cannot be reached, backups fail and read
 stale; AppTown does not fall back to its disk, a take-down deletes
 nothing, and a restore is refused before anything changes.
+
+**Where restore rehearsals run.** A restore rehearsal starts the app from a
+backup on a Docker host, checks it answers, and removes it. If a platform
+administrator keeps a Docker host for rehearsals (the target's settings,
+"kept for restore rehearsals"), every rehearsal runs there, and none runs
+while that host does not answer. That host runs nothing else, so the
+rehearsal shares it with no running app. If no host is kept, a rehearsal
+runs where the app's data already is: on the app's own Docker host, or on
+an App Platform target's copy runner. That works on a single server with no
+other setup. The rehearsal there has its own containers, network and
+volumes, publishes no port and has no address, but it shares the host's
+CPU, memory and disk while it runs: it holds the backup once as a file and
+once loaded into its own database, so a host that is nearly full can run out
+of disk. The rehearsal's line on the Data protection page says "not kept for
+rehearsals" when it ran on such a host. What a rehearsal can still do
+outside is in [Secrets](/docs/guides/secrets), "Restore rehearsals".
 
 **App Platform databases go to a backup store, off AppTown's host.** Two
 settings turn this on:
