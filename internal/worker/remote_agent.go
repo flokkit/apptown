@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/console"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/console"
 )
 
 // RemoteAgent is a chat runtime on a worker, for AppTown's chat service:
@@ -32,8 +32,8 @@ import (
 // any path on either machine. The chat's other files (settings, prompt,
 // pictures) are sent when they change. The chat's record is copied back to
 // the session's directory on AppTown, with the time of the last good copy
-// (RecordAsOf), so the conversation reads as it does for a chat on the
-// forge. Whether a rebuild is safe is the worker's answer, never the copy's.
+// (RecordAsOf), so the conversation reads as it does for a chat on
+// AppTown. Whether a rebuild is safe is the worker's answer, never the copy's.
 type RemoteAgent struct {
 	Sessions SessionClient
 	// Image is the agent image when a launch names none.
@@ -512,9 +512,9 @@ func RecordAsOf(dir string) time.Time {
 
 // --- tars ------------------------------------------------------------------------
 
-// forgeOnly are the session directory's names that stay on AppTown: the
+// apptownOnly are the session directory's names that stay on AppTown: the
 // record with its credential, and AppTown's copy of the chat's record.
-var forgeOnly = []string{console.MetaFile, console.EndedFile, RecordAsOfFile}
+var apptownOnly = []string{console.MetaFile, console.EndedFile, RecordAsOfFile}
 
 // filesTar is the chat's files as the worker receives them: the session
 // directory without the worker's own names or AppTown's. Names are
@@ -532,7 +532,7 @@ func filesTar(dir string) ([]byte, error) {
 		}
 		rel = filepath.ToSlash(rel)
 		top := strings.SplitN(rel, "/", 2)[0]
-		if slices.Contains(workerOwned, top) || slices.Contains(forgeOnly, top) || strings.HasSuffix(top, ".tmp") {
+		if slices.Contains(workerOwned, top) || slices.Contains(apptownOnly, top) || strings.HasSuffix(top, ".tmp") {
 			if d.IsDir() {
 				return filepath.SkipDir
 			}

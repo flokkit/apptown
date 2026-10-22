@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Actor is who an act is recorded against (design/decisions/mergeable-forge-data.md):
@@ -115,7 +115,7 @@ type Person struct {
 // the person's name today; "(then x)" when they were written as another
 // name; "disabled" for a disabled account; "former user (was: x)" for a
 // removed one. An act with no principal reads as it was written — the
-// forge's own names, an instrument — and as "unrecorded actor (written as:
+// AppTown's own names, an instrument — and as "unrecorded actor (written as:
 // x)" when it names a person AppTown never resolved.
 func (a Actor) Shown(now Person, systemName func(string) bool) string {
 	if a.Principal.IsZero() {

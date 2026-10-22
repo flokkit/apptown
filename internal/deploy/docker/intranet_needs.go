@@ -1,6 +1,6 @@
 package docker
 
-import "flokkit.io/forge/internal/deploy"
+import "github.com/flokkit/apptown/internal/deploy"
 
 // IntranetNeeds carries the resolved Docker emulators into the release renderer.
 func IntranetNeeds(resolved []ResolvedNeed) []deploy.IntranetNeed {

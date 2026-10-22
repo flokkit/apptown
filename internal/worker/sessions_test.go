@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/pi"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/pi"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // fakeSessions stands in for the chat runtime on the worker's Docker.

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 func TestInferenceConsoleMountBoundary(t *testing.T) {

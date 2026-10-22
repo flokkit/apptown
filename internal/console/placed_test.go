@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 )
 
 // Each session's runtime is the one its record places it on, for every
@@ -84,7 +84,7 @@ func TestTheRemoteRuntimeIsToldOnlyOfItsOwnSessions(t *testing.T) {
 // An AppTown that runs no chats (-no-local-docker) refuses waking a chat it
 // once ran, by name, while its record stays readable; ending it and judging
 // it gone ask nothing of a runtime there is not.
-func TestAForgeWithNoLocalChatsRefusesWakingOne(t *testing.T) {
+func TestAnAppTownWithNoLocalChatsRefusesWakingOne(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	before := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: dir}})

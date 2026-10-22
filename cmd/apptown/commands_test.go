@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // recorded is one request the fake apptownd saw.
@@ -28,19 +28,19 @@ type recorded struct {
 	Body                             map[string]any
 }
 
-// fakeForge answers every request with reply(method, path) and records it.
+// fakeAppTown answers every request with reply(method, path) and records it.
 // The package client points at it for the test.
-func fakeForge(t *testing.T, reply func(method, path string) (int, string)) *[]recorded {
+func fakeAppTown(t *testing.T, reply func(method, path string) (int, string)) *[]recorded {
 	t.Helper()
-	return fakeForgeHeaders(t, func(method, path string) (int, http.Header, string) {
+	return fakeAppTownHeaders(t, func(method, path string) (int, http.Header, string) {
 		code, body := reply(method, path)
 		return code, nil, body
 	})
 }
 
-// fakeForgeHeaders is fakeForge whose replies also carry headers, such as a
+// fakeAppTownHeaders is fakeAppTown whose replies also carry headers, such as a
 // refusal's code.
-func fakeForgeHeaders(t *testing.T, reply func(method, path string) (int, http.Header, string)) *[]recorded {
+func fakeAppTownHeaders(t *testing.T, reply func(method, path string) (int, http.Header, string)) *[]recorded {
 	t.Helper()
 	var mu sync.Mutex
 	seen := &[]recorded{}
@@ -136,7 +136,7 @@ func TestEveryCommandDispatchesAndIsInHelp(t *testing.T) {
 // A record id that is not a number is refused with the argument named, and
 // nothing reaches AppTown.
 func TestBadIDsFailBeforeAnythingIsSent(t *testing.T) {
-	seen := fakeForge(t, func(string, string) (int, string) { return 200, "{}" })
+	seen := fakeAppTown(t, func(string, string) (int, string) { return 200, "{}" })
 	for _, args := range [][]string{
 		{"show", "abc"}, {"follow", "abc"}, {"land", "abc"}, {"retry", "abc"}, {"override", "abc", "why"},
 		{"abandon", "abc"}, {"sendback", "abc", "note"}, {"status", "abc"}, {"advance", "abc"},
@@ -158,7 +158,7 @@ func TestBadIDsFailBeforeAnythingIsSent(t *testing.T) {
 // Representative commands send the request their docs promise, with the
 // caller's identity and credentials, and flags may follow the positionals.
 func TestCommandsSendTheirRequests(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case path == "/projects/shop/changes":
 			return 200, `{"change":{"id":"00000000-0005-7000-8000-000000000000","number":5,"branch":"change-00000000-0005-7000-8000-000000000000"},"run":{"id":"00000000-0009-7000-8000-000000000000"}}`
@@ -242,7 +242,7 @@ func TestCommandsSendTheirRequests(t *testing.T) {
 // asks again. A refusal reads as the server's own sentence.
 func TestClientRetriesARestartAndReportsTheServersWords(t *testing.T) {
 	calls := 0
-	fakeForge(t, func(string, path string) (int, string) {
+	fakeAppTown(t, func(string, path string) (int, string) {
 		calls++
 		if path == "/refused" {
 			return 409, `{"error":"the change is already landing"}`
@@ -269,7 +269,7 @@ func TestClientRetriesARestartAndReportsTheServersWords(t *testing.T) {
 func TestAnErrorsExitCodeSaysWhatKindItIs(t *testing.T) {
 	const change = "00000000-0c12-7000-8000-000000000000"
 	// AppTown not listening at all.
-	fakeForge(t, func(string, string) (int, string) { return 200, "{}" })
+	fakeAppTown(t, func(string, string) (int, string) { return 200, "{}" })
 	closed := httptest.NewServer(http.NotFoundHandler())
 	closed.Close()
 	api.base = closed.URL
@@ -277,7 +277,7 @@ func TestAnErrorsExitCodeSaysWhatKindItIs(t *testing.T) {
 		t.Fatalf("AppTown not listening: exit %d (%v), want %d", exitCode(err), err, exitUnreachable)
 	}
 	// AppTown behind its front door, unavailable through every retry.
-	fakeForge(t, func(string, string) (int, string) { return 503, `{"error":"restarting"}` })
+	fakeAppTown(t, func(string, string) (int, string) { return 503, `{"error":"restarting"}` })
 	for _, cmd := range []string{"show", "diff"} { // diff reads text, not JSON
 		if _, err := run(t, cmd, change); exitCode(err) != exitUnreachable {
 			t.Fatalf("%s while AppTown is unavailable: exit %d (%v), want %d", cmd, exitCode(err), err, exitUnreachable)
@@ -285,7 +285,7 @@ func TestAnErrorsExitCodeSaysWhatKindItIs(t *testing.T) {
 	}
 	// AppTown restarting, then gone: the retry's own failure is no answer
 	// either.
-	fakeForge(t, func(string, string) (int, string) { return 503, "" })
+	fakeAppTown(t, func(string, string) (int, string) { return 503, "" })
 	inner, calls := api.http.Transport, 0
 	api.http = &http.Client{Transport: roundTripper(func(r *http.Request) (*http.Response, error) {
 		if calls++; calls == 1 {
@@ -297,12 +297,12 @@ func TestAnErrorsExitCodeSaysWhatKindItIs(t *testing.T) {
 		t.Fatalf("AppTown restarting, then gone: exit %d (%v), want %d", exitCode(err), err, exitUnreachable)
 	}
 	// A refusal is AppTown's answer.
-	fakeForge(t, func(string, string) (int, string) { return 403, `{"error":"not yours"}` })
+	fakeAppTown(t, func(string, string) (int, string) { return 403, `{"error":"not yours"}` })
 	if _, err := run(t, "show", change); exitCode(err) != 1 {
 		t.Fatalf("a refusal: exit %d (%v), want 1", exitCode(err), err)
 	}
 	// A command line that is wrong sends nothing.
-	seen := fakeForge(t, func(string, string) (int, string) { return 200, "{}" })
+	seen := fakeAppTown(t, func(string, string) (int, string) { return 200, "{}" })
 	for _, args := range [][]string{{"wait"}, {"show", "shop#x"}, {"approve", "not-an-id"}, {"whatif", "go-small", "nonsense"}, {"pack", "recommend", "go-small", "latest"},
 		{"fix", "--json"}, {"quick", "--json"}, {"plan", "--json"}, {"build", "--json"}, {"complain", "--json"}, {"sendback", change}} {
 		if _, err := run(t, args...); exitCode(err) != exitUsage {
@@ -313,7 +313,7 @@ func TestAnErrorsExitCodeSaysWhatKindItIs(t *testing.T) {
 		t.Fatalf("a wrong command line sent %v", *seen)
 	}
 	// A change sent whose answer was lost.
-	fakeForge(t, func(string, string) (int, string) { return 502, "" })
+	fakeAppTown(t, func(string, string) (int, string) { return 502, "" })
 	if _, err := api.request("POST", "/projects/shop/changes", map[string]any{}); exitCode(err) != exitUnknown {
 		t.Fatalf("a lost answer: exit %d (%v), want %d", exitCode(err), err, exitUnknown)
 	}
@@ -329,17 +329,17 @@ func TestAFailedProjectLookupKeepsItsExitCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Chdir(dir)
-	fakeForge(t, func(string, string) (int, string) { return 200, `[{"slug":"shop"}]` })
+	fakeAppTown(t, func(string, string) (int, string) { return 200, `[{"slug":"shop"}]` })
 	if slug, err := resolveProject(""); err != nil || slug != "shop" {
 		t.Fatalf("the directory names the project: %q, %v", slug, err)
 	}
 	for status, want := range map[int]int{403: 1, 503: exitUnreachable} {
-		fakeForge(t, func(string, string) (int, string) { return status, `{"error":"refused or unavailable"}` })
+		fakeAppTown(t, func(string, string) (int, string) { return status, `{"error":"refused or unavailable"}` })
 		if _, err := run(t, "quick", "--json", "add a footer"); exitCode(err) != want {
 			t.Fatalf("lookup answered %d: exit %d (%v), want %d", status, exitCode(err), err, want)
 		}
 	}
-	fakeForge(t, func(string, string) (int, string) { return 200, `[{"slug":"other"}]` })
+	fakeAppTown(t, func(string, string) (int, string) { return 200, `[{"slug":"other"}]` })
 	if _, err := run(t, "quick", "--json", "add a footer"); exitCode(err) != exitUsage {
 		t.Fatalf("no project of this directory's name: exit %d (%v), want %d", exitCode(err), err, exitUsage)
 	}
@@ -350,7 +350,7 @@ func TestAFailedProjectLookupKeepsItsExitCode(t *testing.T) {
 func TestABrokenAnswerIsUnreachable(t *testing.T) {
 	const change = "00000000-0c12-7000-8000-000000000000"
 	for _, args := range [][]string{{"show", change}, {"diff", change}, {"wait", change, "-i", "0"}} {
-		fakeForgeHeaders(t, func(string, string) (int, http.Header, string) {
+		fakeAppTownHeaders(t, func(string, string) (int, http.Header, string) {
 			return 200, http.Header{"Content-Length": []string{"1000"}}, `{"change":`
 		})
 		if _, err := run(t, args...); exitCode(err) != exitUnreachable {
@@ -362,13 +362,13 @@ func TestABrokenAnswerIsUnreachable(t *testing.T) {
 // A download that breaks off is AppTown out of reach; one whose
 // destination fails (a closed pipe, a full disk) is a local failure.
 func TestADownloadTellsABrokenAnswerFromAFailedDestination(t *testing.T) {
-	fakeForgeHeaders(t, func(string, string) (int, http.Header, string) {
+	fakeAppTownHeaders(t, func(string, string) (int, http.Header, string) {
 		return 200, http.Header{"Content-Length": []string{"1000"}}, "partial bundle"
 	})
 	if _, err := api.download("/projects/shop/repo/bundle", io.Discard); exitCode(err) != exitUnreachable {
 		t.Fatalf("an answer that broke off: exit %d (%v), want %d", exitCode(err), err, exitUnreachable)
 	}
-	fakeForge(t, func(string, string) (int, string) { return 200, "complete bundle" })
+	fakeAppTown(t, func(string, string) (int, string) { return 200, "complete bundle" })
 	full := errors.New("no space left on device")
 	if _, err := api.download("/projects/shop/repo/bundle", failingWriter{full}); !errors.Is(err, full) || exitCode(err) != 1 {
 		t.Fatalf("a destination that failed: exit %d (%v), want 1 with its error", exitCode(err), err)
@@ -386,7 +386,7 @@ func (f failingWriter) Write([]byte) (int, error) { return 0, f.err }
 func TestClientNeverResendsAMutationThatGotAnAnswer(t *testing.T) {
 	for _, status := range []int{502, 503, 504} {
 		effects := 0
-		fakeForge(t, func(method, _ string) (int, string) {
+		fakeAppTown(t, func(method, _ string) (int, string) {
 			if method == "POST" {
 				effects++ // the effect happened; only its answer is lost
 			}
@@ -405,7 +405,7 @@ func TestClientNeverResendsAMutationThatGotAnAnswer(t *testing.T) {
 // written is an unknown outcome too.
 func TestClientResendsAMutationOnlyWhenItNeverLeft(t *testing.T) {
 	sent := 0
-	fakeForge(t, func(string, string) (int, string) { sent++; return 200, `{"ok":true}` })
+	fakeAppTown(t, func(string, string) (int, string) { sent++; return 200, `{"ok":true}` })
 	inner := api.http.Transport
 	refused := true
 	api.http = &http.Client{Transport: roundTripper(func(r *http.Request) (*http.Response, error) {
@@ -519,7 +519,7 @@ func TestParseArgsTakesFlagsAnywhere(t *testing.T) {
 // A trace names the run's change. The CLI once read a field apptownd did not
 // send and never showed it.
 func TestTraceNamesTheChange(t *testing.T) {
-	fakeForge(t, func(method, path string) (int, string) {
+	fakeAppTown(t, func(method, path string) (int, string) {
 		return 200, `{"run":{"id":"00000000-0007-7000-8000-000000000000","status":"done","workflowName":"quick-change"},"projectSlug":"shop",
 			"change":{"id":"00000000-000c-7000-8000-000000000000","number":12,"title":"add the cart"},"events":[]}`
 	})
@@ -577,7 +577,7 @@ func TestMarkdownBulletsAreTextAndMistypedFlagsAreErrors(t *testing.T) {
 // decision form shows it; for a change's acceptance that includes what the
 // landing would ask. Without a terminal to ask at, -y says it was read.
 func TestApproveShowsWhatItAgreesToBeforeSending(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		if path == "/steps/00000000-0007-7000-8000-000000000000/question" {
 			return 200, `{"step":"accept","status":"pending","means":"I read it","landingMeans":["it merges and ships on my say-so"]}`
 		}
@@ -614,7 +614,7 @@ func TestApproveShowsWhatItAgreesToBeforeSending(t *testing.T) {
 // landing instead of asking to start one, which AppTown refuses.
 func TestLoopFollowsTheLandingThatAcceptanceStarted(t *testing.T) {
 	var landingSeen bool
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/runs/00000000-000a-7000-8000-000000000000":
 			return 200, `{"run":{"id":"00000000-000a-7000-8000-000000000000","status":"done","currentStage":"accept"},"steps":[]}`
@@ -647,7 +647,7 @@ func TestLoopFollowsTheLandingThatAcceptanceStarted(t *testing.T) {
 // follow -y started landings 132 and 133 three seconds apart (sweep 7, C3).
 func TestLoopDoesNotStartASecondLandingAfterTheAcceptancesEnded(t *testing.T) {
 	pollEvery = 0
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/runs/00000000-0083-7000-8000-000000000000":
 			return 200, `{"run":{"id":"00000000-0083-7000-8000-000000000000","status":"done","currentStage":"build"},"steps":[]}`
@@ -672,13 +672,13 @@ func TestLoopDoesNotStartASecondLandingAfterTheAcceptancesEnded(t *testing.T) {
 }
 
 // Accepted work whose landing AppTown has queued is waited for, by the
-// forge's stated fact, and the landing it starts is followed, not landed a
+// AppTown's stated fact, and the landing it starts is followed, not landed a
 // second time.
-func TestLoopWaitsForTheLandingTheForgeQueued(t *testing.T) {
+func TestLoopWaitsForTheLandingAppTownQueued(t *testing.T) {
 	pollEvery = 0
 	reads := 0
 	followed := false
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/runs/00000000-0083-7000-8000-000000000000":
 			reads++
@@ -714,14 +714,14 @@ func TestLoopWaitsForTheLandingTheForgeQueued(t *testing.T) {
 
 // Finished work is offered a landing only when AppTown offers one (its
 // land act); otherwise the loop says so and sends nothing.
-func TestLoopOffersALandingOnlyWhenTheForgeDoes(t *testing.T) {
+func TestLoopOffersALandingOnlyWhenAppTownDoes(t *testing.T) {
 	pollEvery = 0
 	for _, offered := range []bool{true, false} {
 		next := `[]`
 		if offered {
 			next = `[{"act":"land","stepId":"00000000-0000-7000-8000-000000000000","step":""}]`
 		}
-		seen := fakeForge(t, func(method, path string) (int, string) {
+		seen := fakeAppTown(t, func(method, path string) (int, string) {
 			switch {
 			case path == "/runs/00000000-0083-7000-8000-000000000000":
 				return 200, `{"run":{"id":"00000000-0083-7000-8000-000000000000","status":"done","currentStage":"build"},"steps":[]}`
@@ -761,7 +761,7 @@ func TestALandingThatStoppedSaysWhereTheChangeIs(t *testing.T) {
 // loop's own words: a first change after `new`, following the change
 // after `invoke` (they once pointed at invoke flags and a run's status).
 func TestNewAndInvokeEndWithTheLoopsNextCommand(t *testing.T) {
-	seen := fakeForge(t, func(_, path string) (int, string) {
+	seen := fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/projects":
 			return 200, `{"slug":"shop"}`
@@ -813,7 +813,7 @@ func typing(t *testing.T, lines string) {
 func TestDeleteAsksForTheSlugAndFollowsTheDeletion(t *testing.T) {
 	pollEvery = 0
 	reads := 0
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case path == "/projects/shop/deployments":
 			return 200, `[{"name":"main"}]`
@@ -855,7 +855,7 @@ func TestDeleteAsksForTheSlugAndFollowsTheDeletion(t *testing.T) {
 func TestDeleteThatStopsSaysWhyAndHowToGoOn(t *testing.T) {
 	pollEvery = 0
 	stalled := "review could not be taken down: the final backup fell short"
-	fakeForge(t, func(method, path string) (int, string) {
+	fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case path == "/projects/shop/deployments":
 			return 200, `[{"name":"main"},{"name":"review"}]`
@@ -877,7 +877,7 @@ func TestDeleteThatStopsSaysWhyAndHowToGoOn(t *testing.T) {
 func TestReviewStartsAScopedReviewAndSummarisesIt(t *testing.T) {
 	pollEvery = 0
 	reads := 0
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case method == "POST" && path == "/conformance/review":
 			return 202, `{"id":"00000000-0011-7000-8000-000000000000","number":17,"status":"running"}`
@@ -915,7 +915,7 @@ func TestReviewStartsAScopedReviewAndSummarisesIt(t *testing.T) {
 func TestWhatIfJudgesAVersionOnNamedProjects(t *testing.T) {
 	pollEvery = 0
 	state, done := "done", 2
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case method == "POST" && path == "/conformance/what-if":
 			return 202, `{"id":"00000000-0009-7000-8000-000000000000"}`
@@ -963,7 +963,7 @@ func TestWhatIfAsksForTheEligibleProjectsAndSaysWhatEachWouldChange(t *testing.T
 	pollEvery = 0
 	reads := 0
 	state := "done"
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case method == "POST" && path == "/conformance/what-if":
 			return 202, `{"id":"00000000-0004-7000-8000-000000000000"}`
@@ -1008,7 +1008,7 @@ func TestWhatIfAsksForTheEligibleProjectsAndSaysWhatEachWouldChange(t *testing.T
 func TestWhatIfIncludesRubricsOnlyUnderASpendLimit(t *testing.T) {
 	pollEvery = 0
 	rubrics, refuse := true, false
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case method == "POST" && path == "/conformance/what-if" && refuse:
 			return 503, `{"error":"the queue is unavailable"}`
@@ -1058,7 +1058,7 @@ func TestWhatIfIncludesRubricsOnlyUnderASpendLimit(t *testing.T) {
 // anything is asked.
 func TestWhatIfMovesOtherPacksWithTheNamedOne(t *testing.T) {
 	pollEvery = 0
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case method == "GET" && path == "/conformance/what-if":
 			return 200, `{"whatIf":null,"eligible":[],"ownPacksNewest":[{"pack":"django-htmx","version":43},{"pack":"java-spring","version":38}]}`
@@ -1098,7 +1098,7 @@ func TestWhatIfMovesOtherPacksWithTheNamedOne(t *testing.T) {
 // an end; unreached projects printed as not evaluated while it runs.
 func TestWhatIfShowSaysQueuedAndRunningAsTheyAre(t *testing.T) {
 	state := "queued"
-	fakeForge(t, func(method, path string) (int, string) {
+	fakeAppTown(t, func(method, path string) (int, string) {
 		if path != "/conformance/what-if/00000000-0007-7000-8000-000000000000" {
 			return 404, `{"error":"no"}`
 		}
@@ -1132,7 +1132,7 @@ func TestWhatIfShowSaysQueuedAndRunningAsTheyAre(t *testing.T) {
 // one did not open; AppTown asked with values of the CLI's own.
 func TestWhatIfAdoptOpensAChangePerNamedProject(t *testing.T) {
 	refuseLedger := true
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case method == "POST" && path == "/projects/ledger/adoption/adopt" && refuseLedger:
 			return 409, `{"error":"the project is on revision 3, not 2 — prepare again"}`
@@ -1181,7 +1181,7 @@ func TestWhatIfAdoptOpensAChangePerNamedProject(t *testing.T) {
 // not given without the person's y. Kills: one project's words sent for
 // another; a yes sent where none was offered or none was given.
 func TestWhatIfAdoptSendsEachProjectItsOwnWordsInAdvance(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case method == "GET" && path == "/projects/ledger/adoption/in-advance":
 			return 200, `{"workflow":"quick-change","acceptance":"I accept it now","landing":["I answer for it now"]}`
@@ -1248,7 +1248,7 @@ const questionWithAdds = `{"step":"accept","status":"pending","means":"I read it
 // What the change adds is shown before an approval is sent, naming what was
 // read, and the approval sends back the digest of the list it showed.
 func TestApproveShowsAndSendsWhatTheChangeAdds(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		if path == "/steps/00000000-0007-7000-8000-000000000000/question" {
 			return 200, questionWithAdds
 		}
@@ -1277,7 +1277,7 @@ func TestShowSaysWhatTheWaitingApprovalAdds(t *testing.T) {
 		"unreadable":  {`{"stepId":"00000000-0007-7000-8000-000000000000","addsError":"git exploded"}`, "what the change adds could not be read: git exploded"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			fakeForge(t, func(method, path string) (int, string) {
+			fakeAppTown(t, func(method, path string) (int, string) {
 				if path == "/changes/00000000-0003-7000-8000-000000000000" {
 					return 200, `{"projectSlug":"shop","change":{"id":"00000000-0003-7000-8000-000000000000","title":"T","state":"in_progress"},"approval":` + approval.body + `}`
 				}
@@ -1302,7 +1302,7 @@ func TestPackRecommendAndVersions(t *testing.T) {
 	 {"version":3,"name":"follows go-small v4","basedOn":2,"includedPack":"go-small","includedVersion":4,"note":"follows go-small v4; go-small v4 changed deps/minimal-deps, which you replace"},
 	 {"version":2,"basedOn":1,"includedPack":"go-small","includedVersion":3,"note":"published contents"}]}`
 	alreadyRecommended := false
-	seen := fakeForge(t, func(_, path string) (int, string) {
+	seen := fakeAppTown(t, func(_, path string) (int, string) {
 		if path == "/packs/team/recommended" && alreadyRecommended {
 			return 409, `{"error":"that version is already recommended; nothing changed and the what-if was not recorded"}`
 		}
@@ -1352,7 +1352,7 @@ func TestPackRecommendAndVersions(t *testing.T) {
 // show` says the cost is "at least" what is known when some was not.
 func TestEvalStartShowsTheMeaningFirst(t *testing.T) {
 	const meaning = "I start this eval; its throwaway copies may land and deploy to the eval domain."
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case path == "/evals/start":
 			return 200, `{"meaning":"` + meaning + `","profiles":["standard","frontier"],"maxChanges":5}`
@@ -1391,7 +1391,7 @@ func TestEvalStartShowsTheMeaningFirst(t *testing.T) {
 // apptown schedules shows each schedule's cron, next and last firing in UTC,
 // says what the last firing did, and never shows a failed read as none.
 func TestSchedulesListsNextAndLastFiring(t *testing.T) {
-	fakeForge(t, func(method, path string) (int, string) {
+	fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/projects/shop/schedules":
 			return 200, `{"evalCopy":false,"schedules":[
@@ -1423,7 +1423,7 @@ func TestSchedulesListsNextAndLastFiring(t *testing.T) {
 func TestExecutingExitsThreeWhenSomethingWouldBeInterrupted(t *testing.T) {
 	run1, step1 := idstest.N(7), idstest.N(8)
 	executing := `{"executing":[],"operations":[]}`
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		if path != "/runs/executing" {
 			return 404, `{"error":"no"}`
 		}
@@ -1452,7 +1452,7 @@ func TestExecutingExitsThreeWhenSomethingWouldBeInterrupted(t *testing.T) {
 //
 // Kills: apptown executing reading only the steps (soak finding 56).
 func TestExecutingCountsARunningOperation(t *testing.T) {
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		if path != "/runs/executing" {
 			return 404, `{"error":"no"}`
 		}

@@ -5,11 +5,11 @@
 // state of the tree or a transition one change made. Evaluating one needs the
 // declaration, a source tree and three capabilities: run a command in a
 // container, ask a model a checklist, probe a URL. None of that is a project,
-// an adoption, a Change or a review, so none of it is forge's: this package
+// an adoption, a Change or a review, so none of it is AppTown's: this package
 // knows nothing of AppTown and could be lifted into another program
 // (design/architecture/layout.md, "When something becomes a library"). cmd/apptown-check is the proof that it stands alone.
 //
-// AppTown subsystem internal/forge/conformance wraps records and decisions
+// AppTown subsystem internal/apptown/conformance wraps records and decisions
 // around it: which declaration a project adopted, whose exception excuses a
 // finding, what the gate decides over head and base, and what a review recorded.
 package check

@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Client is the command transport consumed by a daemon scope. One client

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // evalScorecard is what `apptown eval show` reads (httpapi EvalScorecard).

@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // Git in AppTown's own repositories runs hardened: an override in the
-// forge's own environment (GIT_DIR, GIT_OBJECT_DIRECTORY) does not redirect
+// AppTown's own environment (GIT_DIR, GIT_OBJECT_DIRECTORY) does not redirect
 // it, a hook does not run, and a ref transaction moves the named ref in the
 // named repository only. Not parallel: it sets the process's environment.
 func TestGitInTheHubIgnoresTheEnvironmentAndHooks(t *testing.T) {

@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	dockercli "flokkit.io/forge/internal/deploy/docker"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 
-	"flokkit.io/forge/internal/worker"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 // Two commit tags can name the same cached build. Expiry must reclaim that

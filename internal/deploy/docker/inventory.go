@@ -2,15 +2,15 @@ package docker
 
 import (
 	"context"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // Inventory answers what a Docker host holds: the standing containers
-// named by Forge, its volumes and networks, and image references, as the daemon reports
+// named by AppTown, its volumes and networks, and image references, as the daemon reports
 // them, over the host's scope so an attached host answers for itself. It
 // is built for a target, not a deployment: it can look, never boot.
 type Inventory struct {
@@ -76,7 +76,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	// Volumes are listed whole: AppTown names data folders and need
 	// volumes, but an approved older service keeps Docker's anonymous name
 	// for its data (ownership_inspection.go), and a listing filtered by the
-	// forge's prefixes would call that present volume missing. A volume the
+	// AppTown's prefixes would call that present volume missing. A volume the
 	// AppTown did not name is reported only to confirm a record
 	// (deploy.TagConfirmsOnly), never offered as an orphan. A failed kind is
 	// not an empty kind: the cache retains the last complete answer with the

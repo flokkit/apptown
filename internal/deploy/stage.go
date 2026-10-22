@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 // SelectedSource is an explicit repository revision, never an inferred HEAD.

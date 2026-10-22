@@ -11,7 +11,7 @@ import NewProject from './NewProject'
 
 type Call = { method: string; path: string; body: unknown }
 
-function stubForge(admin: boolean) {
+function stubAppTown(admin: boolean) {
   const calls: Call[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const path = url.replace(/^\/api\/v1/, '')
@@ -69,7 +69,7 @@ describe('new project from existing code', () => {
   // repository is not made, and the secrets the code declares are named.
   // Create waits until a file is chosen.
   it('uploads the chosen bundle instead of starting empty', async () => {
-    const calls = stubForge(false)
+    const calls = stubAppTown(false)
     const { el, root } = await mount()
     await toStep3(el)
     await act(async () => { radio(el, 'Existing code').click() })
@@ -91,7 +91,7 @@ describe('new project from existing code', () => {
   // Only an administrator is offered a apptown secret as the git credential;
   // the URL door gets its name, never a value.
   it('offers the git credential to administrators only', async () => {
-    stubForge(false)
+    stubAppTown(false)
     let m = await mount()
     await toStep3(m.el)
     await act(async () => { radio(m.el, 'Existing code').click() })
@@ -99,7 +99,7 @@ describe('new project from existing code', () => {
     expect(m.el.querySelector('select[aria-label="git credential"]')).toBeNull()
     act(() => m.root.unmount()); document.body.innerHTML = ''; vi.unstubAllGlobals()
 
-    const calls = stubForge(true)
+    const calls = stubAppTown(true)
     m = await mount()
     await toStep3(m.el)
     await act(async () => { radio(m.el, 'Existing code').click() })

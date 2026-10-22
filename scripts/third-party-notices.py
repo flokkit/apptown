@@ -19,7 +19,7 @@ import os
 import subprocess
 import sys
 
-MODULE = "flokkit.io/forge"
+MODULE = "github.com/flokkit/apptown"
 MAINS = ["./cmd/apptownd", "./cmd/apptown", "./cmd/apptown-worker"]
 NOTICE_FILES = ("LICENSE", "LICENCE", "COPYING", "NOTICE", "COPYRIGHT")
 

@@ -91,11 +91,11 @@ func (s SelectedSource) Snapshot(ctx context.Context, destination string) (Sourc
 	if err != nil {
 		return SourceTree{}, err
 	}
-	forgeDir := filepath.Join(destination, ".apptown")
-	marker := filepath.Join(forgeDir, "snapshot-sha")
+	apptownDir := filepath.Join(destination, ".apptown")
+	marker := filepath.Join(apptownDir, "snapshot-sha")
 	// A marker copied from an untrusted tree must never redirect a cache read.
 	if root, err := os.Lstat(destination); err == nil && root.IsDir() {
-		if dir, err := os.Lstat(forgeDir); err == nil && dir.IsDir() {
+		if dir, err := os.Lstat(apptownDir); err == nil && dir.IsDir() {
 			if file, err := os.Lstat(marker); err == nil && file.Mode().IsRegular() {
 				if b, err := os.ReadFile(marker); err == nil && strings.TrimSpace(string(b)) == commit {
 					if err := ctx.Err(); err != nil {
@@ -114,16 +114,16 @@ func (s SelectedSource) Snapshot(ctx context.Context, destination string) (Sourc
 		return SourceTree{}, err
 	}
 	defer cleanup()
-	stagedForge := filepath.Join(tree.Directory, ".apptown")
-	if info, err := os.Lstat(stagedForge); err == nil && !info.IsDir() {
+	stagedAppTown := filepath.Join(tree.Directory, ".apptown")
+	if info, err := os.Lstat(stagedAppTown); err == nil && !info.IsDir() {
 		return SourceTree{}, errors.New("selected source .apptown must be a directory")
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return SourceTree{}, err
 	}
-	if err := os.MkdirAll(stagedForge, 0o755); err != nil {
+	if err := os.MkdirAll(stagedAppTown, 0o755); err != nil {
 		return SourceTree{}, err
 	}
-	stagedMarker := filepath.Join(stagedForge, "snapshot-sha")
+	stagedMarker := filepath.Join(stagedAppTown, "snapshot-sha")
 	if err := os.Remove(stagedMarker); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return SourceTree{}, err
 	}

@@ -7,7 +7,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // skewed is a clock a test sets: far from the real one, moved by hand.

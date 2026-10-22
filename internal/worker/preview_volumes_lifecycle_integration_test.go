@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/worker"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 // volumesOf names a container's volume mounts, anonymous and named.

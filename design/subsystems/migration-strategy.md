@@ -20,5 +20,5 @@ recovery procedure.
 ## Implementation references
 
 - [internal/deploy/appcontract/parse.go](../../internal/deploy/appcontract/parse.go)
-- [internal/forge/dbschema/schema.go](../../internal/forge/dbschema/schema.go)
-- [internal/forge/deployment/settlement_inputs.go](../../internal/forge/deployment/settlement_inputs.go)
+- [internal/apptown/dbschema/schema.go](../../internal/apptown/dbschema/schema.go)
+- [internal/apptown/deployment/settlement_inputs.go](../../internal/apptown/deployment/settlement_inputs.go)

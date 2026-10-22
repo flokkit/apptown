@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // answerOnce is a probe's wait for a test that reads only how an answer is

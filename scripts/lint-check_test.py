@@ -15,13 +15,13 @@ LINT = os.environ.get("GOLANGCI_LINT", "golangci-lint")
 class LintCheckTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.work = tempfile.TemporaryDirectory(prefix="forge-lint-check-")
+        cls.work = tempfile.TemporaryDirectory(prefix="apptown-lint-check-")
         cls.addClassCleanup(cls.work.cleanup)
         cls.binary = Path(cls.work.name) / "lint-check"
         subprocess.run(["go", "build", "-o", str(cls.binary), str(SCRIPTS / "lint-check.go")], check=True)
 
     def setUp(self):
-        self.tree = tempfile.TemporaryDirectory(prefix="forge-lint-tree-")
+        self.tree = tempfile.TemporaryDirectory(prefix="apptown-lint-tree-")
         self.addCleanup(self.tree.cleanup)
         self.root = Path(self.tree.name)
         self.write("go.mod", "module example.com/m\n\ngo 1.26\n")

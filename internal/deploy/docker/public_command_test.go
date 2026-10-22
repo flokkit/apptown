@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 func TestPublicAppCommandPreservesArguments(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // cmdPreview boots or reuses a change's preview and prints its address:

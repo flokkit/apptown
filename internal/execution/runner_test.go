@@ -18,9 +18,9 @@ import (
 	"testing/iotest"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // hangGuard bounds a run whose duration is not what the test checks: by the

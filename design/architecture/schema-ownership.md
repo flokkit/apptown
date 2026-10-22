@@ -1,11 +1,11 @@
 # Table ownership and schema assembly
 
-Each table is declared in its owner's `internal/forge/<owner>/schema.sql`.
+Each table is declared in its owner's `internal/apptown/<owner>/schema.sql`.
 Operational SQL writes belong to that owner, including its private generated
 query packages. The App composes operations and transaction participants; a
 facade does not gain permission to write its participants' tables directly.
 
-`internal/forge/dbschema/fragments.json` lists the current DDL fragments in
+`internal/apptown/dbschema/fragments.json` lists the current DDL fragments in
 foreign-key order. `dbschema/version.sql` owns only the schema stamp. The
 assembler concatenates the fragments into the checked-in `dbschema/schema.sql`
 bundle and supplies the same ordered schema list to each sqlc query entry.
@@ -35,7 +35,7 @@ than silently excluded from ownership.
 A new table's key is a UUIDv7 minted in Go
 ([mergeable apptown data](../decisions/mergeable-forge-data.md)), never an integer
 identity: `TestNoNewIntegerIdentity` refuses one, and
-`internal/forge/dbschema/integer-identity-baseline.txt` is empty: no integer
+`internal/apptown/dbschema/integer-identity-baseline.txt` is empty: no integer
 identity remains.
 
 The migration chain only appends. Schema 147 is the 1.0 baseline: the

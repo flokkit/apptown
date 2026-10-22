@@ -14,12 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/pi"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/pi"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // The chat may change links under its
@@ -141,7 +141,7 @@ func TestARebuildIsRefusedWhileTheChatRuns(t *testing.T) {
 // real PTY and viewers (only Docker's answers and the attached process are
 // stand-ins): stopping the chat ends the terminal AppTown has open on it,
 // and the stopped chat can then be rebuilt.
-func TestStoppingAChatEndsItsTerminalOnTheForge(t *testing.T) {
+func TestStoppingAChatEndsItsTerminalOnAppTown(t *testing.T) {
 	bin := t.TempDir()
 	if err := execfile.Write(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nexec /bin/cat\n"), 0o755); err != nil {
 		t.Fatal(err)
@@ -278,7 +278,7 @@ func TestAnIncompleteRecordCopyDoesNotEndTheChat(t *testing.T) {
 }
 
 // From the review (F4): a terminal that ends on the worker ends for AppTown.
-func TestATerminalThatEndsOnTheWorkerEndsForTheForge(t *testing.T) {
+func TestATerminalThatEndsOnTheWorkerEndsForAppTown(t *testing.T) {
 	c := startRemoteChats(t, console.Static{})
 	s := c.open(t)
 	if err := c.service.Warm(context.Background(), s.ID); err != nil {

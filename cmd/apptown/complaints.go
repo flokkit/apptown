@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // cmdComplain files a complaint about the platform.

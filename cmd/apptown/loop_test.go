@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/ids/idstest"
-	"flokkit.io/forge/stock"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 	"gopkg.in/yaml.v3"
 )
 
@@ -17,7 +17,7 @@ import (
 // a failed verdict AppTown is about to check again after a rework is
 // still working, and only AppTown's "blocked" and "waiting on you" stop
 // it (sweep 7, B1).
-func TestTheLoopMovesOnTheForgesState(t *testing.T) {
+func TestTheLoopMovesOnAppTownsState(t *testing.T) {
 	steps := `[{"id":"00000000-0001-7000-8000-000000000000","stage":"build","name":"work","type":"agent/pi","status":"pass"},
 		{"id":"00000000-0002-7000-8000-000000000000","stage":"build","name":"review","type":"agent/review","status":"fail"},
 		{"id":"00000000-0003-7000-8000-000000000000","stage":"build","name":"accept","type":"approval","status":"pending"},
@@ -55,10 +55,10 @@ func TestTheLoopMovesOnTheForgesState(t *testing.T) {
 // A run whose failed verdict AppTown is re-checking after a rework is
 // followed to its end, however many polls that takes; it is not called
 // blocked by the client (sweep 7, B1: blocked after ~6 s while reworking).
-func TestTheLoopWaitsOutAReworkTheForgeIsDoing(t *testing.T) {
+func TestTheLoopWaitsOutAReworkAppTownIsDoing(t *testing.T) {
 	pollEvery = 0
 	polls := 0
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		if path != "/runs/00000000-0028-7000-8000-000000000000" {
 			return 404, `{"error":"unexpected"}`
 		}
@@ -78,9 +78,9 @@ func TestTheLoopWaitsOutAReworkTheForgeIsDoing(t *testing.T) {
 }
 
 // AppTown's "blocked" stops the loop at once, with AppTown's words.
-func TestTheLoopStopsWhenTheForgeSaysBlocked(t *testing.T) {
+func TestTheLoopStopsWhenAppTownSaysBlocked(t *testing.T) {
 	pollEvery = 0
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		return 200, `{"run":{"id":"00000000-0029-7000-8000-000000000000","status":"running","currentStage":"gates"},"state":"blocked","stateDetail":"tests (fail)","steps":[{"id":"00000000-0001-7000-8000-000000000000","stage":"gates","name":"tests","type":"tests","status":"fail"}]}`
 	})
 	var status string
@@ -144,7 +144,7 @@ func TestTheShippedLineNamesTheFedDeploymentAndWhatWasObserved(t *testing.T) {
 // Without a terminal, a waiting approval names the change and step, the
 // exact commands that decide it, and the page — not "approve in the UI".
 func TestAnApprovalWithoutATerminalSaysExactlyHowToDecideIt(t *testing.T) {
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		if path == "/steps/00000000-004d-7000-8000-000000000000/question" {
 			return 200, `{"step":"accept","status":"pending","means":"I read it"}`
 		}
@@ -169,7 +169,7 @@ func TestAnApprovalWithoutATerminalSaysExactlyHowToDecideIt(t *testing.T) {
 // paragraphs are for a person deciding (sweep 7: three paragraphs on every
 // approval under -y).
 func TestAnApprovalUnderYesIsOneLine(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/steps/00000000-004d-7000-8000-000000000000/question":
 			return 200, `{"step":"accept","status":"pending","means":"I read it","landingMeans":["it ships on my say-so"],"instructions":"Read the report."}`
@@ -207,7 +207,7 @@ func TestAnApprovalOffersTheDocumentsItsStageRequires(t *testing.T) {
 	if strings.Join(docs, ",") != "plan" {
 		t.Fatalf("documents: %v", docs)
 	}
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		if path == "/artifacts/00000000-0008-7000-8000-000000000000" {
 			return 200, `{"body":"## Needs a human\n- nothing"}`
 		}
@@ -220,9 +220,9 @@ func TestAnApprovalOffersTheDocumentsItsStageRequires(t *testing.T) {
 }
 
 // A step's time is AppTown's record of it, whenever the loop attached.
-func TestAStepsTimeIsTheForgesRecord(t *testing.T) {
+func TestAStepsTimeIsAppTownsRecord(t *testing.T) {
 	pollEvery = 0
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		return 200, `{"run":{"id":"00000000-002a-7000-8000-000000000000","status":"done","currentStage":"build"},"steps":[
 			{"id":"00000000-0001-7000-8000-000000000000","stage":"build","name":"apply-change","type":"agent/pi","status":"pass","startedAt":"2026-10-02T10:00:00Z","finishedAt":"2026-10-02T10:07:30Z"},
 			{"id":"00000000-0002-7000-8000-000000000000","stage":"build","name":"report","type":"artifact/require","status":"pass","startedAt":"","finishedAt":"2026-10-02T10:07:31Z"}]}`
@@ -252,7 +252,7 @@ func TestALongSilentStepGetsAHeartbeat(t *testing.T) {
 	pollEvery, heartbeatEvery = 0, 0
 	t.Cleanup(func() { heartbeatEvery = 30 * time.Second })
 	polls := 0
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		polls++
 		if polls < 3 {
 			return 200, `{"run":{"id":"00000000-002b-7000-8000-000000000000","status":"running","currentStage":"ship"},"state":"working","stateDetail":"deploy","steps":[{"id":"00000000-0001-7000-8000-000000000000","stage":"ship","name":"deploy","type":"deploy","status":"running","startedAt":"2026-10-02T10:00:00Z"}]}`
@@ -268,7 +268,7 @@ func TestALongSilentStepGetsAHeartbeat(t *testing.T) {
 // A blocked run's moves include sending it back with a note.
 func TestABlockedRunsMovesIncludeSendBack(t *testing.T) {
 	pollEvery = 0
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/runs/00000000-0046-7000-8000-000000000000":
 			return 200, `{"run":{"id":"00000000-0046-7000-8000-000000000000","status":"running","currentStage":"build"},"state":"blocked","stateDetail":"review (fail)","steps":[]}`
@@ -286,7 +286,7 @@ func TestABlockedRunsMovesIncludeSendBack(t *testing.T) {
 // A request that is one word naming an AppTown command is asked about, not
 // opened as a change (`apptown quick -p shop follow` opened "follow").
 func TestAOneWordRequestThatIsACommandIsNotOpenedUnasked(t *testing.T) {
-	seen := fakeForge(t, func(string, string) (int, string) {
+	seen := fakeAppTown(t, func(string, string) (int, string) {
 		return 200, `{"change":{"id":"00000000-0005-7000-8000-000000000000"},"run":{"id":"00000000-0009-7000-8000-000000000000"}}`
 	})
 	_, err := run(t, "quick", "-p", "shop", "follow")
@@ -307,7 +307,7 @@ func TestAOneWordRequestThatIsACommandIsNotOpenedUnasked(t *testing.T) {
 // terminal names the change as well as the step.
 func TestLandAtAnApprovalWithoutATerminalNamesTheChange(t *testing.T) {
 	pollEvery = 0
-	fakeForge(t, func(method, path string) (int, string) {
+	fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/changes/00000000-0007-7000-8000-000000000000/land":
 			return 200, `{"run":{"id":"00000000-0050-7000-8000-000000000000"}}`
@@ -331,7 +331,7 @@ func TestLandAtAnApprovalWithoutATerminalNamesTheChange(t *testing.T) {
 // Under -y the briefing is skipped but what the commit adds is not: it is
 // what the approval accepts, and its digest goes back with the approval.
 func TestAnApprovalUnderYesStillShowsWhatTheChangeAdds(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/steps/00000000-004d-7000-8000-000000000000/question":
 			return 200, questionWithAdds
@@ -357,7 +357,7 @@ func TestAnApprovalUnderYesStillShowsWhatTheChangeAdds(t *testing.T) {
 // started meanwhile) is AppTown's answer: the approval no longer being
 // offered is no evidence it was decided.
 func TestARefusedVoteOnAStillPendingApprovalIsNotADecision(t *testing.T) {
-	fakeForge(t, func(method, path string) (int, string) {
+	fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/steps/00000000-004d-7000-8000-000000000000/question":
 			return 200, questionWithAdds

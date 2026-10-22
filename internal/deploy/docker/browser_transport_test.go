@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // Only AppTown sets a static part's browser values: a contract or secret
 // value of the same name never stands in for them.
-func TestNothingButTheForgeSetsAStaticPartsBrowserValues(t *testing.T) {
+func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 	t.Parallel()
 	for _, mode := range []string{"contract", "secret"} {
 		t.Run(mode, func(t *testing.T) {

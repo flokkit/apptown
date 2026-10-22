@@ -1,4 +1,4 @@
-// Package dockerlabel is the one list of the label keys Forge puts on the
+// Package dockerlabel is the one list of the label keys AppTown puts on the
 // containers, networks, volumes and images it makes, and reads back to find
 // and own them. Labels outlive a apptown build: a container started by one
 // build is found, inspected and removed by the next, so the keys are a
@@ -9,7 +9,7 @@
 // and are not listed here.
 package dockerlabel
 
-// The keys Forge writes when it makes something, and reads to find it.
+// The keys AppTown writes when it makes something, and reads to find it.
 const (
 	Class       = "forge.class"       // what kind of thing it is (see the Class values)
 	Owner       = "forge.owner"       // the stack, chat or step that owns it; removal is by owner
@@ -50,7 +50,7 @@ const (
 	GlabVersion        = "forge.glab.version"
 )
 
-// Keys is every key Forge writes or reads, for the test that refuses a key
+// Keys is every key AppTown writes or reads, for the test that refuses a key
 // spelled outside this list.
 var Keys = []string{
 	Class, Owner, Created, Expires, Deadline, Instance, Stack, Source, Incarnation, Writes, Step, Task,

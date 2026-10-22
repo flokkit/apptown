@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // A release build's images (design/operations/workers.md, "Releases built on
@@ -268,8 +268,8 @@ func (s *Server) imageFile(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
-	// The length is stated: a reply cut short is a transport error at the
-	// forge, never a shorter file.
+	// The length is stated: a reply cut short is a transport error at
+	// AppTown, never a shorter file.
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	_, _ = io.Copy(w, f)

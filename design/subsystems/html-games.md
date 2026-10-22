@@ -26,4 +26,4 @@ packaging.
 - [stock/seeds/html-game/Dockerfile](../../stock/seeds/html-game/Dockerfile)
 - [stock/seeds/html-game/index.html](../../stock/seeds/html-game/index.html)
 - [stock/seeds/video-game/Dockerfile](../../stock/seeds/video-game/Dockerfile)
-- [internal/forge/preview/command.go](../../internal/forge/preview/command.go)
+- [internal/apptown/preview/command.go](../../internal/apptown/preview/command.go)

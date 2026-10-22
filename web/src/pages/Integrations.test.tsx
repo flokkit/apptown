@@ -66,7 +66,7 @@ const catalog = [spec('scm', 'gitlab', 'GitLab', { multi: false, managed: true }
   spec('errors', 'glitchtip', 'Error reporting (GlitchTip)')]
 
 type Reply = (method: string, body: unknown) => Response | Promise<Response>
-function stubForge(routes: Record<string, Reply>) {
+function stubAppTown(routes: Record<string, Reply>) {
   const calls: { method: string; path: string; body: unknown }[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const path = url.replace(/^\/api\/v1/, '')
@@ -111,7 +111,7 @@ describe('the integrations list', () => {
   // Each row says what the service is and whether it works; a service the
   // AppTown has no check for reads as unknown, never as working.
   it('groups services by kind and keeps working, failing and unchecked apart', async () => {
-    stubForge({ 'GET /integrations': json({ integrations: [gitlab, scanner, sso, quiet] }), 'GET /integrations/catalog': json({ catalog }) })
+    stubAppTown({ 'GET /integrations': json({ integrations: [gitlab, scanner, sso, quiet] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations')
     await vi.waitFor(() => expect(page.text()).toContain('gitlab'))
     const groups = [...page.el.querySelectorAll('.int-group')].map((g) => g.textContent)
@@ -138,14 +138,14 @@ describe('the integrations list', () => {
   })
 
   it('says nothing is connected only when AppTown said so', async () => {
-    stubForge({ 'GET /integrations': json({ integrations: null }), 'GET /integrations/catalog': json({ catalog: [] }) })
+    stubAppTown({ 'GET /integrations': json({ integrations: null }), 'GET /integrations/catalog': json({ catalog: [] }) })
     const page = await mount('/integrations')
     await vi.waitFor(() => expect(page.text()).toContain('No services are connected yet.'))
     page.done()
   })
 
   it('shows a failed read as a failure, not as an empty list', async () => {
-    stubForge({ 'GET /integrations': json({ error: 'bad request' }, 400), 'GET /integrations/catalog': json({ catalog }) })
+    stubAppTown({ 'GET /integrations': json({ error: 'bad request' }, 400), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations')
     await vi.waitFor(() => expect(page.text()).toContain('The integrations could not be read: bad request'))
     expect(page.text()).not.toContain('No services are connected')
@@ -153,7 +153,7 @@ describe('the integrations list', () => {
   })
 
   it('shows a refused read as not available, not as a failure or an empty list', async () => {
-    stubForge({ 'GET /integrations': json({ error: 'forbidden' }, 403), 'GET /integrations/catalog': json({ catalog }) })
+    stubAppTown({ 'GET /integrations': json({ error: 'forbidden' }, 403), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations')
     await vi.waitFor(() => expect(page.text()).toContain('Not available to you'))
     expect(page.el.querySelector('.error')).toBeNull()
@@ -164,7 +164,7 @@ describe('the integrations list', () => {
   // When checking again fails, the states shown are the last answer, and say so.
   it('marks every state as old when checking again fails', async () => {
     let fail = false
-    stubForge({
+    stubAppTown({
       'GET /integrations': () => fail ? new Response(JSON.stringify({ error: 'AppTown unreachable' }), { status: 400 }) : new Response(JSON.stringify({ integrations: [gitlab] })),
       'GET /integrations/catalog': json({ catalog }),
     })
@@ -181,7 +181,7 @@ describe('the integrations list', () => {
   })
 
   it('opens an integration on its own page', async () => {
-    stubForge({ 'GET /integrations': json({ integrations: [gitlab, scanner] }), 'GET /integrations/catalog': json({ catalog }) })
+    stubAppTown({ 'GET /integrations': json({ integrations: [gitlab, scanner] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations')
     await vi.waitFor(() => expect(page.text()).toContain('gitlab'))
     await act(async () => { ([...page.el.querySelectorAll('tr.int-row')].find((r) => r.textContent!.includes('gitlab')) as HTMLElement).click() })
@@ -197,7 +197,7 @@ describe('one integration', () => {
   // The page names where each credential is read from, never a value, and
   // when the health it shows was read.
   it('shows its state, when it was checked, its credential sources and its settings', async () => {
-    stubForge({ 'GET /integrations': json({ integrations: [gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
+    stubAppTown({ 'GET /integrations': json({ integrations: [gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(page.text()).toContain('authenticated as forge-bot'))
     expect(page.text()).toMatch(/Checked by AppTown 5m ago \(\d{1,2}:\d\d/)
@@ -209,13 +209,13 @@ describe('one integration', () => {
     expect(config.textContent).toContain('PRIVATE-TOKEN')
     expect(config.textContent).not.toContain('tokenFrom')
     expect(page.text()).toContain('abc123def456')
-    // Forge-managed: no removing it.
+    // AppTown-managed: no removing it.
     expect(page.button('Remove')).toBeUndefined()
     page.done()
   })
 
   it('names the projects and deployments that use it, linked', async () => {
-    stubForge({ 'GET /integrations': json({ integrations: [scanner, gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
+    stubAppTown({ 'GET /integrations': json({ integrations: [scanner, gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/django-check')
     await vi.waitFor(() => expect(page.text()).toContain('Used by'))
     const used = [...page.el.querySelectorAll('section')].find((s) => s.querySelector('h2')?.textContent === 'Used by')!
@@ -233,7 +233,7 @@ describe('one integration', () => {
   // neither says it cannot be checked.
   it('says an unchecked kind that Test connection asks can be asked', async () => {
     const llm = binding('openrouter', 'llm', 'openrouter', { ok: false, detail: '', checked: false }, { testable: true })
-    stubForge({ 'GET /integrations': json({ integrations: [llm, sso] }), 'GET /integrations/catalog': json({ catalog }) })
+    stubAppTown({ 'GET /integrations': json({ integrations: [llm, sso] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/openrouter')
     await vi.waitFor(() => expect(page.text()).toContain('Test connection asks it now'))
     expect(page.text()).not.toContain('no live check')
@@ -244,7 +244,7 @@ describe('one integration', () => {
   })
 
   it('tests the connection and shows the answer', async () => {
-    const calls = stubForge({
+    const calls = stubAppTown({
       'GET /integrations': json({ integrations: [scanner] }), 'GET /integrations/catalog': json({ catalog }),
       'POST /integrations/test': json(checked(true, 'image pulled')),
     })
@@ -259,7 +259,7 @@ describe('one integration', () => {
 
   it('removes it after asking, and returns to the list', async () => {
     let gone = false
-    const calls = stubForge({
+    const calls = stubAppTown({
       'GET /integrations': () => new Response(JSON.stringify({ integrations: gone ? [] : [scanner] })),
       'GET /integrations/catalog': json({ catalog }),
       'DELETE /integrations/django-check': () => { gone = true; return new Response('{"ok":true}') },
@@ -275,7 +275,7 @@ describe('one integration', () => {
   })
 
   it('says so when no integration has the name', async () => {
-    stubForge({ 'GET /integrations': json({ integrations: [gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
+    stubAppTown({ 'GET /integrations': json({ integrations: [gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/nope')
     await vi.waitFor(() => expect(page.text()).toContain('No integration is called “nope”'))
     page.done()

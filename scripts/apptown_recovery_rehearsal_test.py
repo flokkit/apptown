@@ -2,6 +2,7 @@
 All remote paths and external effects live in a temporary local sandbox."""
 import json
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -63,7 +64,7 @@ sys.exit('unexpected fixture command '+name)
 
 class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
     def run_cleanup(self, expected=LOCK, actual=LOCK, original_status=0, **faults):
-        tmp = tempfile.TemporaryDirectory(prefix='forge-recovery-lock-')
+        tmp = tempfile.TemporaryDirectory(prefix='apptown-recovery-lock-')
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
         bindir = root/'bin';bindir.mkdir()
@@ -155,7 +156,7 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
 
 class RecoveryNeedsItsDestination(unittest.TestCase):
     def test_no_registry_refuses_with_the_usage_before_any_effect(self):
-        with tempfile.TemporaryDirectory(prefix='forge-recovery-registry-') as tmp:
+        with tempfile.TemporaryDirectory(prefix='apptown-recovery-registry-') as tmp:
             bindir=Path(tmp)/'bin';bindir.mkdir()
             calls=Path(tmp)/'calls'
             for name in ('ssh','mktemp'):
@@ -167,6 +168,44 @@ class RecoveryNeedsItsDestination(unittest.TestCase):
             self.assertIn('REGISTRY is not set',result.stderr)
             self.assertIn('Environment: REGISTRY (required',result.stderr)
             self.assertFalse(calls.exists(),'the script acted before refusing')
+
+
+class RecoveryUsesTheSourcesOwnDatabase(unittest.TestCase):
+    # The rehearsal dumps, restores and queries the database the source's
+    # db.env names: on an install made before 1.0 it is forge, on one made
+    # since apptown. Only the names come back from the source, never the password.
+    def names(self, dbenv):
+        with tempfile.TemporaryDirectory(prefix='apptown-recovery-db-') as tmp:
+            root = Path(tmp)
+            (root/'data').mkdir()
+            (root/'data'/'db.env').write_text(dbenv)
+            bindir = root/'bin'; bindir.mkdir()
+            ssh = bindir/'ssh'
+            ssh.write_text('#!/bin/sh\nshift\nexec /bin/sh -c "$*"\n'); ssh.chmod(0o755)
+            source = SCRIPT.read_text()
+            lookup = source[source.index("# The source's built-in database"):source.index("# end of the source's database")]
+            program = f'set -euo pipefail\nsrc=fixture srcdata={shlex.quote(str(root/"data"))}\n' + lookup + 'echo "$srcdb $dbname"\n'
+            env = {**os.environ, 'PATH': str(bindir)+os.pathsep+os.environ['PATH']}
+            return subprocess.run(['bash', '-s'], input=program, text=True, capture_output=True, env=env, timeout=60)
+
+    def test_an_install_made_before_1_0_and_one_made_since(self):
+        for container, name in (('forge-db', 'forge'), ('apptown-db', 'apptown')):
+            with self.subTest(name=name):
+                r = self.names(f'APPTOWN_DB_URL=postgres://postgres:s3cret@127.0.0.1:54321/{name}\nAPPTOWN_DB_PASSWORD=s3cret\n'
+                               f'APPTOWN_DB_CONTAINER={container}\nAPPTOWN_DB_VOLUME=v\n')
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual(r.stdout, f'{container} {name}\n')
+                self.assertNotIn('s3cret', r.stdout + r.stderr)
+
+    def test_every_dump_restore_and_query_uses_that_database(self):
+        source = SCRIPT.read_text()
+        self.assertNotRegex(source, r'-d forge\b|postgres forge\b')
+        self.assertEqual(len(re.findall(r'-d \$dbname|-d "\$name"|postgres "\$dbname"|-U postgres "\$name"', source)), 7)
+
+    def test_a_db_env_naming_no_database_stops_it(self):
+        r = self.names('APPTOWN_DB_CONTAINER=apptown-db\n')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn('names no built-in database container and database', r.stderr)
 
 
 if __name__=='__main__':unittest.main()

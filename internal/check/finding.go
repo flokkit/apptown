@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Structured findings (design/subsystems/findings.md): the three-layer model.
@@ -16,7 +16,7 @@ import (
 // Layer 2 is THIS FILE: a normalized view computed on read — per-FORMAT
 // normalizers (OSV, SARIF), never per-tool. Layer 3 is dispositions:
 // project-scoped, VEX-shaped acceptance state with justification and expiry.
-// Layer 3 is forge's: a disposition is a person's decision, and the library
+// Layer 3 is AppTown's: a disposition is a person's decision, and the library
 // never sees one. The scan verdict — actionable = findings − active
 // dispositions — is likewise the caller's.
 

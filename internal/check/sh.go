@@ -4,9 +4,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // The deterministic evaluator: a script in a pinned busybox-class image,

@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"testing"
 
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // A declared image is captured as a result file is read: a folder of

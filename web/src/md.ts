@@ -15,7 +15,7 @@ import DOMPurify from 'dompurify'
 //   2. Global RESTYLE — DOMPurify KEEPS <style>/<link> and inline `style` by
 //      default. An agent report that embeds a self-contained HTML page (a
 //      `<style>body{…}</style>` block) would otherwise leak its `body{}` rules
-//      into forge's global stylesheet and hijack the whole page's layout — this
+//      into AppTown's global stylesheet and hijack the whole page's layout — this
 //      is exactly what mangled change 146. Forbid the tags and attribute that
 //      let embedded HTML reach outside its own fragment.
 const SANITIZE = {

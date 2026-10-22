@@ -129,7 +129,7 @@ standing probes, asserted continuously and at the end:
 
 "Don't break people's stuff while changing AppTown" means: current binary,
 yesterday's data. Each release freezes an AppTown's data in
-`internal/forge/testdata/upgrade/<version>`, and `make upgrade-test` boots the
+`internal/apptown/testdata/upgrade/<version>`, and `make upgrade-test` boots the
 candidate against every one of them and checks that it upgrades and keeps its
 records ([releasing](../operations/releasing.md)).
 
@@ -150,7 +150,7 @@ holds itself to").
 ## The journeys
 
 ```
-go test -tags=journey ./internal/forge/ -run TestJourney -v
+go test -tags=journey ./internal/apptown/ -run TestJourney -v
 ```
 
 Journeys: **KidStory** (D1, sentence → shipped → serving) · **PackEvolution**

@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/dockerlabel"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/execution"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Labels tags a spawned container so the reaper (design/subsystems/container-lifecycle.md)
@@ -50,7 +50,7 @@ const TeardownBound = 2 * time.Minute
 func StartServices(ctx context.Context, dk Scope, id string, svcs []deploy.ServiceSpec) (string, func(), error) {
 	network := Current.Network(id)
 	// The teardown runs after the step, though its context has ended (a
-	// stopping forge), bounded so it cannot hang the step's end.
+	// stopping AppTown), bounded so it cannot hang the step's end.
 	cleanup := func() {
 		teardown, cancel := context.WithTimeout(context.WithoutCancel(ctx), TeardownBound)
 		defer cancel()

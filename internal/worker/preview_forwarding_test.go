@@ -14,8 +14,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // seen is what the preview's app was sent.
@@ -27,8 +27,8 @@ type seen struct {
 
 // forwardedPreview is an app on this machine's loopback that a fake Docker
 // reports as the preview apptown-preview-change-7's port, a worker over the
-// forge's authenticated connection, and AppTown's side forwarding to it.
-func forwardedPreview(t *testing.T) (forge *httptest.Server, workerURL string, client *http.Client, got func() seen, dk *fileDocker) {
+// AppTown's authenticated connection, and AppTown's side forwarding to it.
+func forwardedPreview(t *testing.T) (apptownServer *httptest.Server, workerURL string, client *http.Client, got func() seen, dk *fileDocker) {
 	t.Helper()
 	var mu sync.Mutex
 	var last seen
@@ -75,9 +75,9 @@ func forwardedPreview(t *testing.T) (forge *httptest.Server, workerURL string, c
 	}
 	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: state, Previews: dk})
 	client = workertest.Client(t, ca, workertest.Installation)
-	forge = httptest.NewServer(worker.Previews{URL: hs.URL, Client: client}.Forward("apptown-preview-change-7", "https"))
-	t.Cleanup(forge.Close)
-	return forge, hs.URL, client, func() seen { mu.Lock(); defer mu.Unlock(); return last }, dk
+	apptownServer = httptest.NewServer(worker.Previews{URL: hs.URL, Client: client}.Forward("apptown-preview-change-7", "https"))
+	t.Cleanup(apptownServer.Close)
+	return apptownServer, hs.URL, client, func() seen { mu.Lock(); defer mu.Unlock(); return last }, dk
 }
 
 // The two hops change nothing the app sees: its Host, its path and query as
@@ -85,8 +85,8 @@ func forwardedPreview(t *testing.T) (forge *httptest.Server, workerURL string, c
 // worker's routing headers do not reach the app.
 func TestAWorkerPreviewSeesTheVisitorsRequestThroughBothHops(t *testing.T) {
 	t.Parallel()
-	forge, _, _, got, _ := forwardedPreview(t)
-	req, _ := http.NewRequest(http.MethodGet, forge.URL+"/a%2Fb/c?x=1&y=%20z", nil)
+	apptownServer, _, _, got, _ := forwardedPreview(t)
+	req, _ := http.NewRequest(http.MethodGet, apptownServer.URL+"/a%2Fb/c?x=1&y=%20z", nil)
 	req.Host = "change-7.preview.example"
 	for h, v := range map[string]string{
 		"X-Forwarded-For": "6.6.6.6", "X-Forwarded-Host": "evil.example", "X-Forwarded-Proto": "http",
@@ -122,8 +122,8 @@ func TestAWorkerPreviewSeesTheVisitorsRequestThroughBothHops(t *testing.T) {
 // the worker's own paths reaches the app as sent, and never the worker.
 func TestAVisitorsPathNeverReachesTheWorker(t *testing.T) {
 	t.Parallel()
-	forge, _, _, got, _ := forwardedPreview(t)
-	conn, err := net.Dial("tcp", forge.Listener.Addr().String())
+	apptownServer, _, _, got, _ := forwardedPreview(t)
+	conn, err := net.Dial("tcp", apptownServer.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,8 +142,8 @@ func TestAVisitorsPathNeverReachesTheWorker(t *testing.T) {
 // Upgrades pass through both hops: a WebSocket reaches the app and talks.
 func TestAWorkerPreviewCarriesAWebSocket(t *testing.T) {
 	t.Parallel()
-	forge, _, _, got, _ := forwardedPreview(t)
-	u, _ := url.Parse(forge.URL)
+	apptownServer, _, _, got, _ := forwardedPreview(t)
+	u, _ := url.Parse(apptownServer.URL)
 	u.Scheme, u.Path = "ws", "/live"
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Origin": {"https://change-7.preview.example"}, "Host": {"change-7.preview.example"}})
 	if err != nil {

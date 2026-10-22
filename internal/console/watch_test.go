@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 )
 
 // Watching a chat's terminal shows its screen and changes nothing: it does

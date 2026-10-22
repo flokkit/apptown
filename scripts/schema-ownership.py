@@ -96,7 +96,7 @@ def check(items, owners, exceptions):
             continue
         for table in targets(item['text']):
             # Only the numbered migration declarations may contain foreign DML.
-            if item['file'] == 'internal/forge/dbschema/schema.go' and item['declaration'] == 'migrations':
+            if item['file'] == 'internal/apptown/dbschema/schema.go' and item['declaration'] == 'migrations':
                 continue
             literal_count += 1
             owner = owners.get(table)
@@ -116,7 +116,7 @@ def check(items, owners, exceptions):
 
 def main():
     owners = assembly.table_owners()
-    declared = set(re.findall(r'CREATE TABLE (?:IF NOT EXISTS )?(\w+)', (ROOT / 'internal/forge/dbschema/schema.sql').read_text()))
+    declared = set(re.findall(r'CREATE TABLE (?:IF NOT EXISTS )?(\w+)', (ROOT / 'internal/apptown/dbschema/schema.sql').read_text()))
     if declared != set(owners):
         raise SystemExit(f"schema owner inventory differs: missing {declared - set(owners)}, stale {set(owners) - declared}")
     exceptions = json.loads((ROOT / 'scripts/schema-write-exceptions.json').read_text())

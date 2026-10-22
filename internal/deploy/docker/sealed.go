@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // A sealed boot is a restore rehearsal's (design/subsystems/deployment.md,
 // "Restore rehearsals"): production data running somewhere new, so it has no
 // address outside its host. Its containers publish no port and join no
 // ingress; the app, its needs, its init steps, the copy's import and the
-// forge's probe share one network of its own, which nothing else joins.
+// AppTown's probe share one network of its own, which nothing else joins.
 // That is not isolation from the host: root, the Docker socket, any process
 // on the host and any container on the host's network can reach it. A
 // rehearsal host is therefore one that runs nothing whose users may not see

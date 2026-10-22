@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/digitalocean/dofake"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 )
 
 func TestTeardownChecksProviderSelectionAndDeletionOutcome(t *testing.T) {
@@ -143,7 +143,7 @@ func TestTheProjectsRepositoryIsMadeAndRecordedNeverAdopted(t *testing.T) {
 // deployment using it and AppTown made it: every image goes, and no
 // garbage collection is started (DOCR takes no pushes while one runs).
 // Someone else's is never touched; a delete that fails is left, with why.
-func TestTheLastTakeDownEmptiesTheForgesRepository(t *testing.T) {
+func TestTheLastTakeDownEmptiesAppTownsRepository(t *testing.T) {
 	for _, scenario := range []string{"last", "not last", "not ours", "delete fails"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()

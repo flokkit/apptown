@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"golang.org/x/term"
 )
@@ -193,7 +193,7 @@ func cmdLog(args []string) error {
 // remote attach, pack apply — plus the stock toolchain declaration.
 
 // importFailed says what a failed repository import left. Only the
-// forge's own refusal (a 4xx answer) shows the import did not happen, so
+// AppTown's own refusal (a 4xx answer) shows the import did not happen, so
 // only then is the project said to have no repository, to delete and try
 // again. Any other failure after the request was sent (a lost answer, a
 // broken connection, a 5xx) may have started it, so nothing destructive is

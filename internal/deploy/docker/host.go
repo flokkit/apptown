@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // Host is the built-in Docker host (architecture.md §5.6, §11): the one

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 )
 
 func writeContractAt(t *testing.T, root, rel, image string) {

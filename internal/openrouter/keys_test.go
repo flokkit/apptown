@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/openrouter"
-	"flokkit.io/forge/internal/openrouter/openrouterfake"
+	"github.com/flokkit/apptown/internal/openrouter"
+	"github.com/flokkit/apptown/internal/openrouter/openrouterfake"
 )
 
 const provisioning = "sk-or-v1-PROVISIONING-SENTINEL"

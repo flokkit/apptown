@@ -8,7 +8,7 @@ import { InstanceSecretsPanel, SecretNameStatus } from './InstanceSecrets'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-function stubForge(stores: Record<string, string>, unreadable?: { on: boolean }) {
+function stubAppTown(stores: Record<string, string>, unreadable?: { on: boolean }) {
   const calls: { method: string; path: string; body: unknown }[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const path = url.replace(/^\/api\/v1/, '')
@@ -59,7 +59,7 @@ describe('instance secrets', () => {
   // hold is set from a password field, the value sent once in the body and
   // never shown on the page; afterwards the name reads as held.
   it('sets a named secret AppTown does not hold, write-only', async () => {
-    const calls = stubForge({})
+    const calls = stubAppTown({})
     const { el, root } = await mount(<SecretNameStatus name="DIGITALOCEAN_ACCESS_TOKEN" />)
     expect(el.textContent).toContain('AppTown does not hold this yet')
     await act(async () => { button(el, 'set this secret now').click() })
@@ -77,7 +77,7 @@ describe('instance secrets', () => {
   // A name Infisical holds is not offered for setting here: AppTown
   // would refuse to shadow it, so the page says where to change it.
   it('sends a name Infisical holds to Infisical', async () => {
-    stubForge({ DIGITALOCEAN_ACCESS_TOKEN: 'infisical' })
+    stubAppTown({ DIGITALOCEAN_ACCESS_TOKEN: 'infisical' })
     const { el, root } = await mount(<SecretNameStatus name="DIGITALOCEAN_ACCESS_TOKEN" />)
     expect(el.textContent).toContain('held in Infisical')
     expect(el.textContent).toContain('change it in Infisical')
@@ -88,7 +88,7 @@ describe('instance secrets', () => {
   // The list shows each name and where it is held; one in AppTown's file
   // can be removed after a quiet confirmation.
   it('lists the secrets and removes one from the file', async () => {
-    const calls = stubForge({ DEMO_KEY: 'secrets.env', OPENROUTER_API_KEY: 'infisical' })
+    const calls = stubAppTown({ DEMO_KEY: 'secrets.env', OPENROUTER_API_KEY: 'infisical' })
     const { el, root } = await mount(<InstanceSecretsPanel />)
     expect(el.textContent).toContain('DEMO_KEY')
     expect(el.textContent).toContain('OPENROUTER_API_KEY')
@@ -102,7 +102,7 @@ describe('instance secrets', () => {
   // Secrets AppTown cannot read are unknown, never "none" or "not held":
   // neither the page nor a wizard field offers to set a value then.
   it('shows an unreadable store as unknown, not empty', async () => {
-    stubForge({}, { on: true })
+    stubAppTown({}, { on: true })
     const panel = await mount(<InstanceSecretsPanel />)
     await advance(retries - 1)
     expect(panel.el.textContent).not.toContain('Unknown')
@@ -123,7 +123,7 @@ describe('instance secrets', () => {
   // from before are not offered as current.
   it('does not offer a set on names kept from before a failed read', async () => {
     const unreadable = { on: false }
-    stubForge({}, unreadable)
+    stubAppTown({}, unreadable)
     const field = await mount(<SecretNameStatus name="DIGITALOCEAN_ACCESS_TOKEN" />)
     expect(field.el.textContent).toContain('AppTown does not hold this yet')
     unreadable.on = true

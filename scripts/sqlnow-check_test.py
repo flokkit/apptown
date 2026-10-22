@@ -10,14 +10,14 @@ from pathlib import Path
 class SQLNowCheckTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.work = tempfile.TemporaryDirectory(prefix="forge-sqlnow-check-")
+        cls.work = tempfile.TemporaryDirectory(prefix="apptown-sqlnow-check-")
         cls.addClassCleanup(cls.work.cleanup)
         cls.binary = Path(cls.work.name) / "sqlnow-check"
         source = Path(__file__).with_name("sqlnow-check.go")
         subprocess.run(["go", "build", "-o", str(cls.binary), str(source)], check=True)
 
     def setUp(self):
-        self.tree = tempfile.TemporaryDirectory(prefix="forge-sqlnow-tree-")
+        self.tree = tempfile.TemporaryDirectory(prefix="apptown-sqlnow-tree-")
         self.addCleanup(self.tree.cleanup)
         self.root = Path(self.tree.name)
         self.write("go.mod", "module example.com/m\n")

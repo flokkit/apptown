@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // gitAt runs git in dir for a fixture; an empty dir is refused, so a
@@ -136,7 +136,7 @@ func headOf(t *testing.T, folder string) string {
 
 // A folder cloned as AppTown clones it is brought forward, answers what
 // it holds, and resets with its clean, keeping what the caller keeps.
-func TestAForgeCloneIsBroughtForwardAndReset(t *testing.T) {
+func TestAnAppTownCloneIsBroughtForwardAndReset(t *testing.T) {
 	t.Parallel()
 	w := newFolderWorld(t)
 	if err := CheckFolder(t.Context(), w.folder); err != nil {
@@ -340,7 +340,7 @@ func TestAHostileFolderIsRefusedAndNothingRuns(t *testing.T) {
 // reach the folder's Git: a clean folder is brought forward and reset in
 // itself, and the repository they name does not change. The test sets the
 // process's environment, so it does not run in parallel.
-func TestTheForgesGitEnvironmentDoesNotReachTheFolder(t *testing.T) {
+func TestAppTownsGitEnvironmentDoesNotReachTheFolder(t *testing.T) {
 	for _, op := range []string{"fast-forward", "reset"} {
 		t.Run(op, func(t *testing.T) {
 			w := newFolderWorld(t)

@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/s3bucket"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/s3bucket"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // --- object storage (the s3 need): a Spaces bucket per deployment ------------------------

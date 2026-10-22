@@ -45,7 +45,7 @@ transaction and compared again at check-in. SCM renders it into the merge
 commit's trailers and, before a provider merge, into the merge request's
 description; a refused description write stops the attempt before the merge.
 It is a public copy of part of Work's record, never an input to a gate (see
-the [SCM package guide](../../internal/forge/scm/README.md#what-gitlab-is-told)).
+the [SCM package guide](../../internal/apptown/scm/README.md#what-gitlab-is-told)).
 
 ## Collaborators
 

@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Client speaks the part of the S3 API a static site needs, path-style,

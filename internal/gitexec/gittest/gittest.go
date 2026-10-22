@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 // Tester is the identity Run gives commits a test makes when the test says

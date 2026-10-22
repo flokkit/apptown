@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/console"
+	"github.com/flokkit/apptown/internal/console"
 )
 
 // A script the fake runs, standing in for one in a container, sees none of

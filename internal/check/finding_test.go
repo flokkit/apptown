@@ -3,7 +3,7 @@ package check_test
 import (
 	"testing"
 
-	"flokkit.io/forge/internal/check"
+	"github.com/flokkit/apptown/internal/check"
 )
 
 // Fixtures are trimmed real output: osv-scanner v2.2.4 against a Go module,

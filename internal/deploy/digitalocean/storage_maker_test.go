@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // A crash after both holdings and the secret were recorded must still be

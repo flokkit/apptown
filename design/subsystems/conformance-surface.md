@@ -20,7 +20,7 @@ for acting on findings.
 
 ## Implementation references
 
-- [internal/forge/conformance/fix.go](../../internal/forge/conformance/fix.go)
-- [internal/forge/conformance/exception_commands.go](../../internal/forge/conformance/exception_commands.go)
-- [internal/forge/conformance/service.go](../../internal/forge/conformance/service.go)
-- [internal/forge/httpapi/fleet.go](../../internal/forge/httpapi/fleet.go)
+- [internal/apptown/conformance/fix.go](../../internal/apptown/conformance/fix.go)
+- [internal/apptown/conformance/exception_commands.go](../../internal/apptown/conformance/exception_commands.go)
+- [internal/apptown/conformance/service.go](../../internal/apptown/conformance/service.go)
+- [internal/apptown/httpapi/fleet.go](../../internal/apptown/httpapi/fleet.go)

@@ -7,7 +7,7 @@ import (
 
 // apptown-deploy runs no dependency catalogue: an app with no needs boots,
 // and one with needs is refused, naming them.
-func TestForgeDeployRefusesNeedsByName(t *testing.T) {
+func TestAppTownDeployRefusesNeedsByName(t *testing.T) {
 	if svcs, env, err := (noNeeds{}).Fulfil(t.Context(), nil, nil); err != nil || svcs != nil || env != nil {
 		t.Fatalf("no needs: %v %v %v", svcs, env, err)
 	}

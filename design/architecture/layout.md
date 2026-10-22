@@ -19,7 +19,7 @@ subsystem construction outside App.New and forbidden App `sync.Once` fields; it
 does not prove that every object in every package is eagerly built. `callbacks`
 counts dependency bindings retaining App, including method values and closures.
 `rootfiles` and `roottests` count the production and test files in
-`internal/forge` itself; they catch a new root file, not growth inside an
+`internal/apptown` itself; they catch a new root file, not growth inside an
 existing one, and a merge that hides a concern is a bypass.
 The gates do not prove marker explanations, test ownership or semantic layering.
 
@@ -84,11 +84,11 @@ no tables, no vocabulary from the product. `access`, `check`, `clock`, `console`
 be read, tested and understood without knowing what a Change is.
 *Gate: `layering`.*
 
-**`internal/forge/<x>` — a subsystem.** Forge-specific. Usually owns tables,
-but **owning tables is not the entry requirement**: being forge-specific is. `httpapi` owns no tables and belongs here.
+**`internal/apptown/<x>` — a subsystem.** AppTown-specific. Usually owns tables,
+but **owning tables is not the entry requirement**: being AppTown-specific is. `httpapi` owns no tables and belongs here.
 *Gates: `doors`, `fields`, `transportaudit`, `transportdb`, `hubpaths`, `kindbranches`.*
 
-**`internal/forge` — the composition root.** Construction, route declarations,
+**`internal/apptown` — the composition root.** Construction, route declarations,
 authentication, instance startup/shutdown and protocol wiring are deliberate
 responsibilities. Remaining application operations must have a documented owner
 or a specific retained reason. Nothing arrives here by default.
@@ -119,7 +119,7 @@ which date, and cites the current guide rather than a plan.
 
 ## When something becomes a library
 
-Promote `internal/forge/<x>` to `internal/<x>` when **all** hold:
+Promote `internal/apptown/<x>` to `internal/<x>` when **all** hold:
 
 1. It names nothing from the product. No Change, Run, Project, Adoption — in
    its types, its errors, or its words.
@@ -138,7 +138,7 @@ find-and-replace, it had not dropped out.
 
 ## Inside a subsystem
 
-    internal/forge/<x>/
+    internal/apptown/<x>/
         <x>.go                  the Service, its construction, its doors
         <concept>.go            one concept per file
         <concept>_commands.go   named command inputs and the operations taking them
@@ -163,7 +163,7 @@ plain dependency inputs and value records have different responsibilities.
 
 ## Inside transport
 
-`internal/forge/httpapi` turns HTTP requests into domain operations. A handler
+`internal/apptown/httpapi` turns HTTP requests into domain operations. A handler
 group holds only the collaborators its handlers use — a handful should be explainable by one operation. A broad union of
 unrelated dependencies is a reason to revisit the grouping, not a fixed quota. It never holds the App, a runtime holder, or a callback
 bundle that gives equivalent reach. *Gates: `transport`, `doors`.*
@@ -186,7 +186,7 @@ whatever its caller count.
 `httpapi/timing.go` are handler logic kept on purpose. Review them when those
 features change; a projection does not automatically need another owner.
 
-Route declarations, authentication and guards stay in `internal/forge`.
+Route declarations, authentication and guards stay in `internal/apptown`.
 
 ## Filenames
 

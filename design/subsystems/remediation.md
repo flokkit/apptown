@@ -29,7 +29,7 @@ See [quality](quality.md) for the evaluation-to-remediation sequence and the
 
 ## Implementation references
 
-- [internal/forge/remediation/service.go](../../internal/forge/remediation/service.go)
-- [internal/forge/remediation/attempt_store.go](../../internal/forge/remediation/attempt_store.go)
-- [internal/forge/remediation/outcome_store.go](../../internal/forge/remediation/outcome_store.go)
-- [internal/forge/remediation/verify.go](../../internal/forge/remediation/verify.go)
+- [internal/apptown/remediation/service.go](../../internal/apptown/remediation/service.go)
+- [internal/apptown/remediation/attempt_store.go](../../internal/apptown/remediation/attempt_store.go)
+- [internal/apptown/remediation/outcome_store.go](../../internal/apptown/remediation/outcome_store.go)
+- [internal/apptown/remediation/verify.go](../../internal/apptown/remediation/verify.go)

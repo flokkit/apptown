@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 func TestDORecoveryRequiresExactIdentityAndCancelsPolling(t *testing.T) {

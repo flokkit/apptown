@@ -44,13 +44,13 @@ var presets = map[string]string{"trivy": "aquasec/trivy:0.66.0", "semgrep": "sem
 
 class PinsCheckTest(unittest.TestCase):
     def setUp(self):
-        self.tree = tempfile.TemporaryDirectory(prefix="forge-pins-check-")
+        self.tree = tempfile.TemporaryDirectory(prefix="apptown-pins-check-")
         self.addCleanup(self.tree.cleanup)
         self.root = Path(self.tree.name)
         self.write("deploy/tool-pins.txt", PINS)
         self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE)
         self.write("stock/scanners.yaml", SCANNERS)
-        self.write("internal/forge/integration/catalog.go", CATALOG)
+        self.write("internal/apptown/integration/catalog.go", CATALOG)
 
     def write(self, rel, text):
         p = self.root / rel
@@ -72,8 +72,8 @@ class PinsCheckTest(unittest.TestCase):
 
     # Kills: two versions of one tool, in two files.
     def test_a_second_version_of_a_tool_fails(self):
-        self.write("internal/forge/integration/catalog.go", CATALOG.replace("aquasec/trivy:0.66.0", "aquasec/trivy:0.58.1"))
-        self.assertFails("internal/forge/integration/catalog.go:3: trivy is pinned at 0.58.1")
+        self.write("internal/apptown/integration/catalog.go", CATALOG.replace("aquasec/trivy:0.66.0", "aquasec/trivy:0.58.1"))
+        self.assertFails("internal/apptown/integration/catalog.go:3: trivy is pinned at 0.58.1")
 
     # Kills: a variant suffix (-alpine, -python3.12-alpine) read as the version.
     def test_the_version_is_the_tag_before_its_variant(self):
@@ -101,8 +101,8 @@ class PinsCheckTest(unittest.TestCase):
     # Kills: test fixtures and seeds held to the list (they use arbitrary
     # versions, or belong to a project); and a tag that is not a version.
     def test_tests_testdata_and_seeds_are_not_read(self):
-        self.write("internal/forge/x_test.go", 'package forge\nconst img = "node:18-alpine"\n')
-        self.write("internal/forge/testdata/x.go", 'package testdata\nconst img = "node:18-alpine"\n')
+        self.write("internal/apptown/x_test.go", 'package forge\nconst img = "node:18-alpine"\n')
+        self.write("internal/apptown/testdata/x.go", 'package testdata\nconst img = "node:18-alpine"\n')
         self.write("stock/seeds/app/compose.yaml", "image: node:20-slim\n")
         out = self.run_check()
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
@@ -110,7 +110,7 @@ class PinsCheckTest(unittest.TestCase):
     # Kills: an example or history in a comment read as a pin.
     def test_a_full_line_comment_is_not_a_pin(self):
         self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE)
-        self.write("internal/forge/integration/catalog.go", CATALOG + "// trivy once ran as aquasec/trivy:0.58.1\n")
+        self.write("internal/apptown/integration/catalog.go", CATALOG + "// trivy once ran as aquasec/trivy:0.58.1\n")
         out = self.run_check()
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 
@@ -119,11 +119,11 @@ class PinsCheckTest(unittest.TestCase):
     def test_the_docker_cli_and_its_daemon_image_are_two_tools(self):
         self.write("deploy/tool-pins.txt", PINS + "docker-cli  27.5.1  arg DOCKER_VERSION\ndocker-dind  27  image docker\n")
         self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE + "ARG DOCKER_VERSION=27.5.1\n")
-        self.write("internal/forge/agentenv/workshop.go", 'package agentenv\nconst DindImage = "docker:27-dind"\n')
+        self.write("internal/apptown/agentenv/workshop.go", 'package agentenv\nconst DindImage = "docker:27-dind"\n')
         out = self.run_check()
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
-        self.write("internal/forge/agentenv/workshop.go", 'package agentenv\nconst DindImage = "docker:28-dind"\n')
-        self.assertFails("internal/forge/agentenv/workshop.go:2: docker-dind is pinned at 28")
+        self.write("internal/apptown/agentenv/workshop.go", 'package agentenv\nconst DindImage = "docker:28-dind"\n')
+        self.assertFails("internal/apptown/agentenv/workshop.go:2: docker-dind is pinned at 28")
 
     # Kills: a base image named by tag alone, which can be moved to other
     # contents; and an ARG default read past instead of through.

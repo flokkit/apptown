@@ -4,12 +4,12 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
 import type { DiskReadings } from '../wire.gen'
-import { ForgeDisks } from './InfrastructureHome'
+import { OwnDisks } from './InfrastructureHome'
 
 const render = (d: DiskReadings) => {
   const client = newQueryClient()
   client.setQueryData(getKey('/infrastructure/disks'), d)
-  return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ForgeDisks /></QueryClientProvider></MemoryRouter>)
+  return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><OwnDisks /></QueryClientProvider></MemoryRouter>)
 }
 
 // AppTown's own disks are each their own row, with where they are, when

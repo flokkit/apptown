@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 func inventoryFixture(t *testing.T, fail string) ([]deploy.Resource, error) {

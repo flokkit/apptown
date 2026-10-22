@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
+	"github.com/flokkit/apptown/internal/clock"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 	// no other site or subdomain can plant or widen it.
 	CookieName = "__Host-apptown-gate"
 	// RefusedHeader marks the gate's own refusals (RefusedValue), so the
-	// forge's check of the gate can tell a refusal from an app that answers
+	// AppTown's check of the gate can tell a refusal from an app that answers
 	// 404 or 403 behind a gate that let the request through. The gate
 	// strips it from every response the app sends, so the app cannot
 	// produce it.
@@ -81,7 +81,7 @@ type gate struct {
 func New(cfg Config, opts Options) http.Handler {
 	g := &gate{
 		secret:   []byte(cfg.Secret),
-		redeem:   cfg.Forge.JoinPath(RedeemPath).String(),
+		redeem:   cfg.AppTown.JoinPath(RedeemPath).String(),
 		client:   opts.Client,
 		now:      opts.Now,
 		sessions: map[string]session{},

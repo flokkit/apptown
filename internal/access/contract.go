@@ -3,7 +3,7 @@ package access
 import (
 	"context"
 
-	"flokkit.io/forge/internal/fault"
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 // Permission names an operation and the containing resource resolved by its

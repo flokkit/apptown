@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 const appYamlPath = ".apptown/app.yaml"

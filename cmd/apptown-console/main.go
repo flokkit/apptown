@@ -20,9 +20,9 @@ import (
 	"syscall"
 	"time"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/pi"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/pi"
+	"github.com/flokkit/apptown/internal/poll"
 
 	"golang.org/x/term"
 )

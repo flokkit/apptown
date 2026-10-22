@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func TestFeedOffsetsAndDetachedTail(t *testing.T) {

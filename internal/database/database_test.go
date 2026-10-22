@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/database"
-	"flokkit.io/forge/internal/dbtest"
-	"flokkit.io/forge/internal/stamp"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/stamp"
 )
 
 var suite = dbtest.NewSuite(func(_ context.Context, url string) (*database.DB, error) { return database.Open(url) })

@@ -12,7 +12,7 @@ classification. It knows nothing of AppTown's tables. Shell, tool, model and run
 checks provide different evidence; error or inability to assess is not success.
 An evaluator result alone is not an approval or an exception.
 
-`internal/forge/verification` supplies execution and comparison policy. Its
+`internal/apptown/verification` supplies execution and comparison policy. Its
 Evaluator invokes process/model/observation effects. Scanners prepare and run
 tools; Runtime observes deployment facts; Changes checks a selected change and
 its baseline. Fleet evaluates committed project source. Guidance and ScanSteps
@@ -65,7 +65,7 @@ and [remediation](remediation.md).
 
 ## Implementation references
 
-- [internal/forge/conformance/review.go](../../internal/forge/conformance/review.go)
-- [internal/forge/verification/evaluator.go](../../internal/forge/verification/evaluator.go)
-- [internal/forge/remediation/service.go](../../internal/forge/remediation/service.go)
+- [internal/apptown/conformance/review.go](../../internal/apptown/conformance/review.go)
+- [internal/apptown/verification/evaluator.go](../../internal/apptown/verification/evaluator.go)
+- [internal/apptown/remediation/service.go](../../internal/apptown/remediation/service.go)
 - [internal/check/evaluate.go](../../internal/check/evaluate.go)

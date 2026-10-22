@@ -14,7 +14,7 @@ import (
 //
 // Kills: protocol 1 kept while the observation changed meaning (review
 // CT-C05).
-func TestAWorkerThatCannotReportMemoryKillsRefusesThisForge(t *testing.T) {
+func TestAWorkerThatCannotReportMemoryKillsRefusesThisAppTown(t *testing.T) {
 	t.Parallel()
 	ok := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
 	ask := func(h http.Handler, protocol int) int {

@@ -50,7 +50,7 @@ it('does not offer editing from a held answer before its own read arrives', asyn
 describe('two editors on one decision', () => {
   afterEach(() => vi.unstubAllGlobals())
   type Rec = typeof held.adr
-  function forge(rec: Rec) {
+  function fakeAppTown(rec: Rec) {
     const sent: Record<string, unknown>[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       if ((init?.method ?? 'GET') === 'PATCH') {
@@ -89,7 +89,7 @@ describe('two editors on one decision', () => {
 
   it('keeps one person\'s rationale when the other changes only tags, and refuses a body save from replaced text', async () => {
     const rec = { ...held.adr, bodyMd: 'original rationale', tags: 'data' }
-    const sent = forge(rec)
+    const sent = fakeAppTown(rec)
     const a = await open()
     const b = await open()
     await setValue(a.el.querySelector('textarea')!, 'new rationale from A')

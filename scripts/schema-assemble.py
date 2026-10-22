@@ -10,11 +10,11 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MANIFEST = Path('internal/forge/dbschema/fragments.json')
-BUNDLE = Path('internal/forge/dbschema/schema.sql')
-# Library tables have compile-time read surfaces, never Forge migrations.
+MANIFEST = Path('internal/apptown/dbschema/fragments.json')
+BUNDLE = Path('internal/apptown/dbschema/schema.sql')
+# Library tables have compile-time read surfaces, never AppTown migrations.
 EXTERNAL_QUERIES = {
-    'internal/forge/jobs/internal/jobsql/queries.sql': ['internal/forge/jobs/internal/jobsql/river-schema.sql'],
+    'internal/apptown/jobs/internal/jobsql/queries.sql': ['internal/apptown/jobs/internal/jobsql/river-schema.sql'],
 }
 
 
@@ -24,8 +24,8 @@ def fragments(root=ROOT):
         raise ValueError('schema manifest must be a nonempty ordered list of paths')
     if len(paths) != len(set(paths)):
         raise ValueError('duplicate schema fragment')
-    expected = {str(p.relative_to(root)) for p in (root / 'internal/forge').rglob('schema.sql') if p != root / BUNDLE}
-    expected.add('internal/forge/dbschema/version.sql')
+    expected = {str(p.relative_to(root)) for p in (root / 'internal/apptown').rglob('schema.sql') if p != root / BUNDLE}
+    expected.add('internal/apptown/dbschema/version.sql')
     if set(paths) != expected:
         raise ValueError(f'schema fragments differ: unlisted {expected - set(paths)}, missing/invalid {set(paths) - expected}')
     for path in paths:

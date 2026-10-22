@@ -36,7 +36,7 @@ site).
 ## A request file
 
 Each file is one request, written as the person would write it: in their words,
-with their level of detail, not as a specification Forge would prefer. A short
+with their level of detail, not as a specification AppTown would prefer. A short
 header says who sent it and what it is for; the request itself follows the
 rule.
 
@@ -45,7 +45,7 @@ rule.
 from: Priya Raman, Dock operations lead
 size: short | medium | long
 kind: create | feature | fix | content | rule | cross-app | data | ops
-exercises: one line on what this request tests in Forge (for the test-set use)
+exercises: one line on what this request tests in AppTown (for the test-set use)
 ---
 
 The request text, exactly as it would be sent.
@@ -108,11 +108,11 @@ deployments, read from the API the web uses.
 
 ```sh
 export APPTOWN_EVAL_STATE=~/forge-eval-state   # or --state FILE on each command
-python3 eval/companies/run.py --forge https://forge.example --token-file ~/.forge-token \
+python3 eval/companies/run.py --apptown https://forge.example --token-file ~/.forge-token \
     create --wave 1 --target built-in-docker      # or --company NAME
-python3 eval/companies/run.py --forge … drive --target built-in-docker
-python3 eval/companies/run.py --forge … next      # one more request per app, in order
-python3 eval/companies/run.py --forge … report
+python3 eval/companies/run.py --apptown … drive --target built-in-docker
+python3 eval/companies/run.py --apptown … next      # one more request per app, in order
+python3 eval/companies/run.py --apptown … report
 ```
 
 - `create` makes each app's project with the pack `stacks.yaml` names and

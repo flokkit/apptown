@@ -3,7 +3,7 @@ package access_test
 import (
 	"testing"
 
-	"flokkit.io/forge/internal/access"
+	"github.com/flokkit/apptown/internal/access"
 )
 
 // The catalog is closed and consistent: every capability has a definition

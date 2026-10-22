@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"flokkit.io/forge/internal/stamp"
+	"github.com/flokkit/apptown/internal/stamp"
 )
 
 type Event struct{ Kind, Actor, Subject string }

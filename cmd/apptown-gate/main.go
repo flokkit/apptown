@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"flokkit.io/forge/internal/gate"
+	"github.com/flokkit/apptown/internal/gate"
 )
 
 func main() {

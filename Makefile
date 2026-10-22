@@ -85,7 +85,7 @@ precheck:               ## the fast gates and the tests of affected packages, be
 # shows here, not after landing. (The integration tier takes about ten minutes
 # and stays with CI and explicit runs.)
 check-journeys:         ## the journey tier: the user stories end to end (-tags journey)
-	GOMAXPROCS=$${GOMAXPROCS:-4} go test -tags journey ./internal/forge -run TestJourney -count=1 $(AFFECTED_TEST_FLAGS) $(GO_TEST_FLAGS)
+	GOMAXPROCS=$${GOMAXPROCS:-4} go test -tags journey ./internal/apptown -run TestJourney -count=1 $(AFFECTED_TEST_FLAGS) $(GO_TEST_FLAGS)
 
 # The affected tests can be most of the suite (a change to a central package),
 # and they share the test database with the gate: on a machine where several
@@ -136,7 +136,7 @@ check-docs:             ## current guides state the current rule: no dated names
 # tier's install: private/scripts/nightly-tiers.sh prepare). Local only, not CI; run
 # it and commit site/tour before tagging a release (release.sh checks).
 tour: web                ## the UI tour's screenshots and page, from site/tour/tour.yaml; commit site/tour before a release
-	go test -tags browser ./internal/forge -run '^TestTour$$' -count=1
+	go test -tags browser ./internal/apptown -run '^TestTour$$' -count=1
 	@if command -v oxipng >/dev/null 2>&1; then oxipng -q -o 4 --strip safe site/tour/*.png; else echo "tour: oxipng not on PATH; the shots are not compressed (brew install oxipng)"; fi
 	python3 scripts/tour-stamp.py write
 	python3 scripts/tour-check.py
@@ -192,28 +192,28 @@ check-staticcheck:
 	@staticcheck -version 2>/dev/null | grep -qF "($(STATICCHECK_VERSION:v%=%))" || { echo "staticcheck $(STATICCHECK_VERSION) required: run make tools"; exit 1; }
 	staticcheck ./internal/... ./cmd/... ./stock/...
 
-# The root package (internal/forge) runs as two test processes, its tests split
+# The root package (internal/apptown) runs as two test processes, its tests split
 # by name: ROOT_TESTS_A selects one half (-run) and the other half is exactly
 # what it does not select (-skip), so every test runs once. On macOS Go starts
 # a child process with fork, and frequent forks from a large process slow all
 # its other work; root tests start git thousands of times, so one large
 # process holding all of them is slower than two smaller ones
 # (design/architecture/testing.md).
-ROOT_PACKAGE = flokkit.io/forge/internal/forge
+ROOT_PACKAGE = github.com/flokkit/apptown/internal/apptown
 ROOT_TESTS_A = ^TestA
 
 check-test:
 	@echo "== go test (every package but the root, whose halves are their own stages) =="
 	# Start the longest remaining suite early while keeping the complete package set.
-	go test ./internal/forge/workflow $$(go list ./... | grep -vx '$(ROOT_PACKAGE)') -count=1 $(GO_TEST_FLAGS)
+	go test ./internal/apptown/workflow $$(go list ./... | grep -vx '$(ROOT_PACKAGE)') -count=1 $(GO_TEST_FLAGS)
 
 check-test-root-a:
-	@echo "== go test internal/forge, tests matching $(ROOT_TESTS_A) =="
-	go test ./internal/forge -run '$(ROOT_TESTS_A)' -count=1 $(GO_TEST_FLAGS)
+	@echo "== go test internal/apptown, tests matching $(ROOT_TESTS_A) =="
+	go test ./internal/apptown -run '$(ROOT_TESTS_A)' -count=1 $(GO_TEST_FLAGS)
 
 check-test-root-b:
-	@echo "== go test internal/forge, every other test =="
-	go test ./internal/forge -skip '$(ROOT_TESTS_A)' -count=1 $(GO_TEST_FLAGS)
+	@echo "== go test internal/apptown, every other test =="
+	go test ./internal/apptown -skip '$(ROOT_TESTS_A)' -count=1 $(GO_TEST_FLAGS)
 
 check-web: check-web-tsc check-web-build check-web-lint check-web-test
 
@@ -265,7 +265,7 @@ web:                     ## the web bundle (installs web/node_modules first when
 
 # The commit, stamped for builds Go's build information leaves unnamed (a
 # build in a git worktree): internal/version.
-REVISION_LDFLAGS = -ldflags "-X flokkit.io/forge/internal/version.Revision=$(shell git rev-parse --short=12 HEAD)$(shell git diff --quiet HEAD -- . 2>/dev/null || echo -modified)"
+REVISION_LDFLAGS = -ldflags "-X github.com/flokkit/apptown/internal/version.Revision=$(shell git rev-parse --short=12 HEAD)$(shell git diff --quiet HEAD -- . 2>/dev/null || echo -modified)"
 
 go: console-cli
 	go build $(REVISION_LDFLAGS) -o bin/apptownd ./cmd/apptownd
@@ -276,9 +276,9 @@ go: console-cli
 release:                 ## build a release's artifacts from a clean checkout at its tag: make release VERSION=1.0.0
 	sh scripts/release.sh $(VERSION)
 
-upgrade-test: web       ## each frozen release's AppTown (internal/forge/testdata/upgrade) upgrades to this commit and keeps its records: run on a release candidate before tagging it (builds web/dist, which Go embeds)
-	go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$$' -count=1
-	go test ./internal/forge/dbschema -run '^TestAMigrationOverAReleasesRecordsAppliesOrLeavesThemAlone$$' -count=1
+upgrade-test: web       ## each frozen release's AppTown (internal/apptown/testdata/upgrade) upgrades to this commit and keeps its records: run on a release candidate before tagging it (builds web/dist, which Go embeds)
+	go test ./internal/apptown -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$$' -count=1
+	go test ./internal/apptown/dbschema -run '^TestAMigrationOverAReleasesRecordsAppliesOrLeavesThemAlone$$' -count=1
 
 console-cli:             ## build the CLI artifact mounted into Linux containers
 	CGO_ENABLED=0 GOOS=linux go build $(REVISION_LDFLAGS) -o bin/apptown-linux ./cmd/apptown
@@ -287,18 +287,18 @@ console-cli:             ## build the CLI artifact mounted into Linux containers
 # choose open mode (no sign-in; apptownd's own default is internal), which
 # serves loopback only. Docker Desktop's host.docker.internal reaches the
 # host's loopback, so chats work as is. On native Linux it is the Docker
-# bridge: use CONSOLE_ADDR=172.17.0.1:7778 FORGED_FLAGS=-open-on-network (the
+# bridge: use CONSOLE_ADDR=172.17.0.1:7778 APPTOWND_FLAGS=-open-on-network (the
 # bridge is not loopback, so open mode needs the opt-in), or AUTH=internal.
 ADDR ?= 127.0.0.1:7777
 CONSOLE_ADDR ?= 127.0.0.1:7778
 AUTH ?= open
-FORGED_FLAGS ?=
+APPTOWND_FLAGS ?=
 
 run: build               ## build everything and serve on $(ADDR)
-	./bin/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) $(FORGED_FLAGS)
+	./bin/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) $(APPTOWND_FLAGS)
 
 dev-api: console-cli     ## backend only (uses last-built dist for static files)
-	go run ./cmd/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) -console-cli ./bin/apptown-linux $(FORGED_FLAGS)
+	go run ./cmd/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) -console-cli ./bin/apptown-linux $(APPTOWND_FLAGS)
 
 dev-web:                 ## vite dev server on :5173, proxies /api to :7777
 	cd web && npm run dev

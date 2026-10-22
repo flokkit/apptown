@@ -2,7 +2,7 @@
 // §5a: terminal = presentation, session files = record) read through one
 // parser, and the transcript projected from them as chat bubbles, with
 // the hand-back signal and the submit verification the runtime relies on.
-// The containers, the steering and the HTTP doors stay in forge; the words
+// The containers, the steering and the HTTP doors stay in internal/apptown; the words
 // are read here, the same way whether the session is live or long ended.
 package console
 
@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Usage is what an assistant entry says it cost: the accounting ledger's

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // The change catalog (design/decisions/change-catalog.md): named, versioned change

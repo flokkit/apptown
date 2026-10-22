@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // Harness adapts the suite to one driver. Spec returns a task that prints

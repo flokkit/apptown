@@ -157,9 +157,9 @@ failure, error containment, cancellation and revocation. Budget enforcement and 
 
 ## Implementation references
 
-- [internal/forge/inference/gateway.go](../../internal/forge/inference/gateway.go)
-- [internal/forge/inference/providers.go](../../internal/forge/inference/providers.go)
-- [internal/forge/identity/runtime_tokens.go](../../internal/forge/identity/runtime_tokens.go)
-- [internal/forge/usage/inference.go](../../internal/forge/usage/inference.go)
-- [internal/forge/agentharness/pi/models.go](../../internal/forge/agentharness/pi/models.go)
-- [internal/forge/inference/gateway_test.go](../../internal/forge/inference/gateway_test.go)
+- [internal/apptown/inference/gateway.go](../../internal/apptown/inference/gateway.go)
+- [internal/apptown/inference/providers.go](../../internal/apptown/inference/providers.go)
+- [internal/apptown/identity/runtime_tokens.go](../../internal/apptown/identity/runtime_tokens.go)
+- [internal/apptown/usage/inference.go](../../internal/apptown/usage/inference.go)
+- [internal/apptown/agentharness/pi/models.go](../../internal/apptown/agentharness/pi/models.go)
+- [internal/apptown/inference/gateway_test.go](../../internal/apptown/inference/gateway_test.go)

@@ -35,7 +35,7 @@ are history, not current routine operating instructions.
 
 ## Implementation references
 
-- [internal/forge/dbschema/schema.go](../../internal/forge/dbschema/schema.go)
-- [internal/forge/db.go](../../internal/forge/db.go)
-- [internal/forge/dbboot.go](../../internal/forge/dbboot.go)
+- [internal/apptown/dbschema/schema.go](../../internal/apptown/dbschema/schema.go)
+- [internal/apptown/db.go](../../internal/apptown/db.go)
+- [internal/apptown/dbboot.go](../../internal/apptown/dbboot.go)
 - [cmd/apptownd/main.go](../../cmd/apptownd/main.go)

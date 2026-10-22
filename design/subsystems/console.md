@@ -1,6 +1,6 @@
 # Chats and agent runtime
 
-Conversation prepares Forge-specific session scope and briefing. Console owns
+Conversation prepares AppTown-specific session scope and briefing. Console owns
 session persistence and process lifetime. Changeconsole owns what becomes of
 a change's chat's work: its saves, its end, the boot rehearsal of its work and
 the notices AppTown sends it. Agentenv prepares tools, registries and
@@ -254,11 +254,11 @@ instead.
 
 ## Implementation references
 
-- [internal/forge/conversation/admission.go](../../internal/forge/conversation/admission.go)
-- [internal/forge/conversation/acting.go](../../internal/forge/conversation/acting.go)
-- [internal/forge/conversation/environment.go](../../internal/forge/conversation/environment.go)
-- [internal/forge/changeconsole](../../internal/forge/changeconsole/service.go): rehearsal, ending, saves on the worker, worker placement and the change's worker chats
+- [internal/apptown/conversation/admission.go](../../internal/apptown/conversation/admission.go)
+- [internal/apptown/conversation/acting.go](../../internal/apptown/conversation/acting.go)
+- [internal/apptown/conversation/environment.go](../../internal/apptown/conversation/environment.go)
+- [internal/apptown/changeconsole](../../internal/apptown/changeconsole/service.go): rehearsal, ending, saves on the worker, worker placement and the change's worker chats
 - [internal/console/service.go](../../internal/console/service.go)
 - [internal/console/pi/runtime.go](../../internal/console/pi/runtime.go)
-- [internal/forge/agentenv/cli.go](../../internal/forge/agentenv/cli.go)
-- [internal/forge/workflowexec/environment.go](../../internal/forge/workflowexec/environment.go)
+- [internal/apptown/agentenv/cli.go](../../internal/apptown/agentenv/cli.go)
+- [internal/apptown/workflowexec/environment.go](../../internal/apptown/workflowexec/environment.go)

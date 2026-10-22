@@ -7,8 +7,8 @@ import (
 	neturl "net/url"
 	"time"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // RenderedProbe is one deployment's concrete readiness probe, derived from a

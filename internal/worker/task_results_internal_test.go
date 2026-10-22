@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // A declared result file is read as a check's report is: a regular file

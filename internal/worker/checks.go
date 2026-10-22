@@ -8,8 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"io"
 	"log"
 	"mime/multipart"
@@ -20,11 +20,11 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 // A check runs on the worker as one synchronous request, not a recorded
@@ -58,7 +58,7 @@ type CheckSpec struct {
 	// asks for it; otherwise it has none.
 	Egress bool `json:"egress,omitempty"`
 	// Limits bound the check's container (and so a test run in it); a
-	// request with none (an older forge) runs under the task defaults.
+	// request with none (an older AppTown) runs under the task defaults.
 	Limits         execution.Limits `json:"limits,omitzero"`
 	TimeoutSeconds int              `json:"timeoutSeconds"`
 	Writable       bool             `json:"writable,omitempty"`
@@ -226,7 +226,7 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 // receiveHistory makes a bare repository from the history bundle part: the
-// forge's own commits, fetched with the repository's hooks and
+// AppTown's own commits, fetched with the repository's hooks and
 // configuration out of reach of the check, which sees it read-only.
 func receiveHistory(ctx context.Context, mr *multipart.Reader, dir string) (string, error) {
 	part, err := mr.NextPart()

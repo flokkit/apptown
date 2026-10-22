@@ -216,7 +216,7 @@ export function TargetPage() {
 export const copyRunnerMeaning = 'A copy runner is a Docker host that runs the commands that copy this target’s databases to the backup store, check a copy comes back, and fill a restored copy.'
 
 // CopyRunnerLine is the copy runner an App Platform target names, or the
-// forge's own sentence for why backups and restore tests of deployments
+// AppTown's own sentence for why backups and restore tests of deployments
 // here cannot start without one.
 export function CopyRunnerLine({ t }: { t: TargetView }) {
   const runner = typeof t.address?.copyRunner === 'string' ? t.address.copyRunner : ''

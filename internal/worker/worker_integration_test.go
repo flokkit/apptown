@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executiontest"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 func busyboxSpec(key, output string, exit int, block bool) execution.TaskSpec {

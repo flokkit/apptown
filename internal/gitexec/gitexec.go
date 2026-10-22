@@ -13,7 +13,7 @@
 //
 // No GIT_* variable AppTown inherited reaches the git it starts, and
 // neither does the machine's system or global git config (Environ): the
-// forge's git reads only the repository's own config and what the caller
+// AppTown's git reads only the repository's own config and what the caller
 // passes on purpose, so a commit, a merge or a checkout behaves the same on
 // every host whatever the user the apptown runs as has configured (signing,
 // hooks, templates, line endings, merge drivers). An identity AppTown

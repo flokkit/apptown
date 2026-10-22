@@ -2,12 +2,12 @@ package docker
 
 import (
 	"context"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"regexp"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // What a standing deployment's boot creates on a Docker host is recorded as

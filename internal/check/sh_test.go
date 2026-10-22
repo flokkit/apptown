@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // The deterministic evaluator: exit 0 is a pass, exit 1 is a finding carrying

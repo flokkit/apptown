@@ -73,7 +73,7 @@ One table for the four target kinds. "Refused" means refused when the release
 is asked for, before anything is prepared or any provider is called, in the
 sentence the release page shows. The table is the rows of
 `TestEachTargetRefusesWhatItCannotRunBeforeAnyEffect`
-(`internal/forge/deployment/target_matrix_test.go`), exactly: it drives the
+(`internal/apptown/deployment/target_matrix_test.go`), exactly: it drives the
 rows the admission checks decide through those checks for each kind's stock
 capabilities (`StockCapabilities`), and fails if a cell here differs.
 
@@ -344,7 +344,7 @@ sentence.
 
 ## Implementation references
 
-- [internal/forge/deployment/target.go](../../internal/forge/deployment/target.go)
-- [internal/forge/deployment/target_state.go](../../internal/forge/deployment/target_state.go)
-- [internal/forge/deployment/target_providers.go](../../internal/forge/deployment/target_providers.go)
+- [internal/apptown/deployment/target.go](../../internal/apptown/deployment/target.go)
+- [internal/apptown/deployment/target_state.go](../../internal/apptown/deployment/target_state.go)
+- [internal/apptown/deployment/target_providers.go](../../internal/apptown/deployment/target_providers.go)
 - [internal/deploy/driver.go](../../internal/deploy/driver.go)

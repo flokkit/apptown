@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // The standalone run says what the gate would say: a tree that breaks a check
 // does not conform and the command exits 1; a tree that keeps it exits 0. The
 // scripts run in this test's own shell rather than a container, which is the
 // only seam — everything else is the library the gate uses.
-func TestForgeCheckReportsAndExits(t *testing.T) {
+func TestAppTownCheckReportsAndExits(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	checks := filepath.Join(dir, "checks.yaml")

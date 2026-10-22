@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // How long an sh check took is measured on the judge's clock.

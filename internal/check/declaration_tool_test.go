@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/check"
+	"github.com/flokkit/apptown/internal/check"
 )
 
 func TestValidateChecksTool(t *testing.T) {

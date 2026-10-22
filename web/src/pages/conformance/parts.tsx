@@ -9,7 +9,7 @@ import { useAction } from '../../data'
 import type { ConformanceObservation, ConformanceView, CheckDefinition, Adjudication, Disposition, Lanes, Review, RemediationStarted, Verdict as WireVerdict } from '../../wire.gen'
 import { fmtWhen } from '../../format'
 
-// --- types: generated from internal/forge/conformance (wire.gen.ts) ---------
+// --- types: generated from internal/apptown/conformance (wire.gen.ts) ---------
 
 export type Verdict = ConformanceObservation | WireVerdict
 // LiveReview is a review being followed: the review and its verdicts so far.

@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // fakeCheckDocker is the worker's Docker for checks: `run` finds the tree

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/version"
+	"github.com/flokkit/apptown/internal/version"
 )
 
 // The CLI states its protocol on every request, `apptown version` names this

@@ -87,11 +87,11 @@ Not every stock check follows this yet; do not assume one does. See
 
 ## Implementation references
 
-- [internal/forge/verification/guidance.go](../../internal/forge/verification/guidance.go)
-- [internal/forge/verification/changes.go](../../internal/forge/verification/changes.go) (`apptown check`)
-- [internal/forge/scm/scratch.go](../../internal/forge/scm/scratch.go) (scratch refs)
-- [internal/forge/verification/evaluator.go](../../internal/forge/verification/evaluator.go)
-- [internal/forge/verification/provenance_test.go](../../internal/forge/verification/provenance_test.go)
-- [internal/forge/verification/baseline.go](../../internal/forge/verification/baseline.go)
+- [internal/apptown/verification/guidance.go](../../internal/apptown/verification/guidance.go)
+- [internal/apptown/verification/changes.go](../../internal/apptown/verification/changes.go) (`apptown check`)
+- [internal/apptown/scm/scratch.go](../../internal/apptown/scm/scratch.go) (scratch refs)
+- [internal/apptown/verification/evaluator.go](../../internal/apptown/verification/evaluator.go)
+- [internal/apptown/verification/provenance_test.go](../../internal/apptown/verification/provenance_test.go)
+- [internal/apptown/verification/baseline.go](../../internal/apptown/verification/baseline.go)
 - [internal/check/provenance.go](../../internal/check/provenance.go)
-- [internal/forge/wow/check_versions.go](../../internal/forge/wow/check_versions.go)
+- [internal/apptown/wow/check_versions.go](../../internal/apptown/wow/check_versions.go)

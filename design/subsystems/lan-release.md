@@ -32,7 +32,7 @@ progress and successful settlement must not be conflated. Use the common
 
 ## Implementation references
 
-- [internal/forge/deployment/intranet_release.go](../../internal/forge/deployment/intranet_release.go)
-- [internal/forge/deployment/release_packaging.go](../../internal/forge/deployment/release_packaging.go)
-- [internal/forge/deployment/providers.go](../../internal/forge/deployment/providers.go)
-- [internal/forge/deployment/intranet_release_test.go](../../internal/forge/deployment/intranet_release_test.go)
+- [internal/apptown/deployment/intranet_release.go](../../internal/apptown/deployment/intranet_release.go)
+- [internal/apptown/deployment/release_packaging.go](../../internal/apptown/deployment/release_packaging.go)
+- [internal/apptown/deployment/providers.go](../../internal/apptown/deployment/providers.go)
+- [internal/apptown/deployment/intranet_release_test.go](../../internal/apptown/deployment/intranet_release_test.go)

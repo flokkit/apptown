@@ -3,7 +3,7 @@ package check
 import (
 	"time"
 
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // A Judge holds the three capabilities evaluating a check can need: run a

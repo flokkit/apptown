@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 func TestSourceArtifactUsesTheAlreadySelectedDeclaration(t *testing.T) {

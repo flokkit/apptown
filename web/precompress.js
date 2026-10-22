@@ -18,7 +18,7 @@ const gz = promisify(gzip)
 export default function precompress() {
   let outDir = 'dist'
   return {
-    name: 'forge-precompress',
+    name: 'apptown-precompress',
     apply: 'build',
     configResolved(config) { outDir = config.build.outDir },
     async writeBundle(_options, bundle) {

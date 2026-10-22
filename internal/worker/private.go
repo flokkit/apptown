@@ -3,8 +3,8 @@ package worker
 import (
 	"context"
 	"errors"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/dind"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dind"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // A task's private Docker, from the agent's start to its exit

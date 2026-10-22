@@ -15,7 +15,7 @@ vi.mock('mermaid', () => ({ default: { initialize: vi.fn(), run: vi.fn(async () 
 const index: DocsIndex = {
   groups: [
     { title: 'Start here', guides: [{ slug: 'quickstart', title: 'Quickstart' }] },
-    { title: 'How Forge works', guides: [{ slug: 'architecture', title: 'How AppTown works' }] },
+    { title: 'How AppTown works', guides: [{ slug: 'architecture', title: 'How AppTown works' }] },
   ],
   integrations: [{ capability: 'llm', provider: 'openrouter', title: 'AI models (OpenRouter)' }],
 }
@@ -55,9 +55,9 @@ describe('the docs page', () => {
       : json({ error: 'no' }, 404))
     await vi.waitFor(() => expect(where).toBe('/docs/guides/quickstart'))
     const headings = [...el.querySelectorAll('nav .docs-group-title')].map((h) => h.textContent)
-    expect(headings).toEqual(['Start here', 'How Forge works', 'Integrations'])
+    expect(headings).toEqual(['Start here', 'How AppTown works', 'Integrations'])
     const labels = [...el.querySelectorAll('select optgroup')].map((g) => g.getAttribute('label'))
-    expect(labels).toEqual(['Start here', 'How Forge works', 'Integrations'])
+    expect(labels).toEqual(['Start here', 'How AppTown works', 'Integrations'])
     await vi.waitFor(() => expect(el.querySelector('.md-doc')?.textContent).toContain('Install AppTown.'))
     act(() => root.unmount())
   })

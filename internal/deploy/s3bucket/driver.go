@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/staticsite"
-	"flokkit.io/forge/internal/oci"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/staticsite"
+	"github.com/flokkit/apptown/internal/oci"
 )
 
 // Config is a target's store: where its API and website addresses are and

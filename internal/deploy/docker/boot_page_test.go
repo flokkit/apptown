@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // pageClient is a daemon whose app container is published at an httptest
@@ -91,10 +91,10 @@ func (p pathProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Durat
 }
 
 // A static site that answers "/" but not /_apptown/env.js is not running the
-// forge's file server configuration (an image built before the image
+// AppTown's file server configuration (an image built before the image
 // carried it runs the file server's stock page): the boot fails saying so, rather than
 // calling the stock page the site.
-func TestAStaticSiteBootRequiresTheForgesFileServer(t *testing.T) {
+func TestAStaticSiteBootRequiresAppTownsFileServer(t *testing.T) {
 	t.Parallel()
 	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n"))
 	if err != nil {

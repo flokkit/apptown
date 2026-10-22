@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // apptown data says each item's copy state with its newest copy, the
@@ -44,7 +44,7 @@ func TestDataSaysHowEachItemIsProtected(t *testing.T) {
 }
 
 // apptown data says why copies, checks and restore tests cannot start, in the
-// forge's own sentence, and says nothing of it when they can.
+// AppTown's own sentence, and says nothing of it when they can.
 func TestDataSaysWhyItsOperationsCannotStart(t *testing.T) {
 	const why = "Backups and restore tests need a copy runner: a Docker host that runs the copy commands. An administrator can choose one in the target's settings."
 	for name, tc := range map[string]struct {
@@ -92,7 +92,7 @@ func TestDataSaysTheLastRehearsal(t *testing.T) {
 }
 
 // apptown data says the last restore test apart from the rehearsal, with the
-// forge's own check of its gate as the web card says it, and each
+// AppTown's own check of its gate as the web card says it, and each
 // standing restored copy: until when, who opened it, that it is opened from
 // AppTown in a browser, and what it can still do outside.
 func TestDataSaysTheLastRestoreTestAndStandingCopies(t *testing.T) {
@@ -140,7 +140,7 @@ func TestDataSaysTheLastRestoreTestAndStandingCopies(t *testing.T) {
 // passes --without-final-copy, naming the deployment.
 func TestDataTakeDownSendsTheChoiceOnlyWhenAsked(t *testing.T) {
 	const refused = "prod holds data AppTown cannot take a final copy of now."
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		if method == "DELETE" && path == "/projects/shop/deployments/prod" {
 			return 409, `{"error":"` + refused + `"}`
 		}

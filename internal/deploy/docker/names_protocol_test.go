@@ -3,7 +3,7 @@ package docker
 import (
 	"testing"
 
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // The names on a host are a protocol: a deployment made before 1.0 keeps

@@ -15,9 +15,9 @@ import (
 	"strings"
 	"sync"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 // SessionClient is AppTown's side of a worker's sessions. Its client must

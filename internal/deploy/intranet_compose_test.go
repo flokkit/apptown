@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"gopkg.in/yaml.v3"
 )
 
@@ -84,7 +84,7 @@ func (s staticSecrets) EnvFor(string) map[string]string { return s }
 // AppTown's own values in a stack (the release identity, DATA_DIR,
 // APPTOWN_ORIGINS) win over a contract's or a secret's of the same name, and
 // each key appears once: Compose refuses a mapping that repeats one.
-func TestAnIntranetStackSetsTheForgesValuesOnceAndLast(t *testing.T) {
+func TestAnIntranetStackSetsAppTownsValuesOnceAndLast(t *testing.T) {
 	t.Parallel()
 	declared := map[string]string{"APPTOWN_RELEASE": "web@declared", "DATA_DIR": "/elsewhere", "APPTOWN_ORIGINS": "https://declared"}
 	for name, st := range map[string]IntranetStack{

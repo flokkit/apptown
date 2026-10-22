@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // stepping is a clock far from the real one that moves on by step at each

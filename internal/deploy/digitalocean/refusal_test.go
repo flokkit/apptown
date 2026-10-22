@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/digitalocean/dofake"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 )
 
 // Only DigitalOcean saying no (a 4xx) is a refusal: the effect did not

@@ -32,7 +32,7 @@ export function disputeOf(d: RunDetail): Verdict[] {
       const [text, repeatText] = once(s.name, ev.summary || ev.reason)
       const [log, repeatLog] = once(s.name, ev.logTail)
       // A review the model passed and AppTown's file check failed is the
-      // forge's failure; the reviewer's pass is shown apart.
+      // AppTown's failure; the reviewer's pass is shown apart.
       const reviewerPassed = ev.reviewerSummary || undefined
       return {
         step: s, who: reviewerPassed ? `${PRODUCT}'s file check` : WHO[s.type] ?? 'machine check', text, log, reviewerPassed,

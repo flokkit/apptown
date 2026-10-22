@@ -54,7 +54,7 @@ export function InfrastructureHome() {
         <NavLink to="/infrastructure" end className={() => 'tab' + (tab === 'targets' ? ' active' : '')}>Deployment targets</NavLink>
         <NavLink to="/infrastructure/jobs" className={() => 'tab' + (tab === 'jobs' ? ' active' : '')}>Job queue</NavLink>
       </div>
-      {tab === 'targets' && <ForgeDisks />}
+      {tab === 'targets' && <OwnDisks />}
       {tab === 'targets' && <div style={{ marginTop: 16 }}><DeletedProjects /></div>}
       {tab === 'jobs' ? <JobQueue /> : <div className="infra-grid" style={{ marginTop: 16 }}>
         {live.map((t) => {
@@ -112,10 +112,10 @@ export function InfrastructureHome() {
   )
 }
 
-// ForgeDisks: the filesystems this AppTown and its worker write to, each its
+// OwnDisks: the filesystems this AppTown and its worker write to, each its
 // own reading with the time it was read, and what it means for new work.
 // A deployment target's own disk is on its page (its capacity).
-export function ForgeDisks() {
+export function OwnDisks() {
   const q = useGet<DiskReadings>('/infrastructure/disks', { poll: 60000 })
   if (!q.data) return <div style={{ marginTop: 16 }}><ReadStatus q={q} what={`${PRODUCT}'s disks`} className="small" /></div>
   return (

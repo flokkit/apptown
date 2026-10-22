@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // cmdChanges lists what's in flight, project-wide or everywhere; with

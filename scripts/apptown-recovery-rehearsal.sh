@@ -22,13 +22,10 @@
 # reach, e.g. registry.example.com), TARGET_DATA (/srv/forge-restore/data),
 # TARGET_PORT (47777), BLOCK_NAMES (space-separated host names sent to
 # 127.0.0.1 on the target, e.g. the source AppTown's own name and its Git,
-# error and telemetry hosts; none by default), SOURCE_DB_CONTAINER (the
-# source's built-in database container as its db.env records it,
-# APPTOWN_DB_CONTAINER; default forge-db, live's, made before 1.0),
-# RESET_TARGET=1 (first clean up
+# error and telemetry hosts; none by default), RESET_TARGET=1 (first clean up
 # what an earlier run left, by that run's own record).
 set -euo pipefail
-usage() { sed -n 2,29p "$0" >&2; exit 2; }
+usage() { sed -n 2,26p "$0" >&2; exit 2; }
 [ $# -eq 4 ] || usage
 [ -n "${REGISTRY:-}" ] || { echo "REGISTRY is not set: name the registry the redeploy pulls from" >&2; usage; }
 src=$1 srcdata=$2 tgt=$3 redeploy=$4
@@ -37,7 +34,14 @@ here=$(cd "$(dirname "$0")" && pwd)
 tdata=${TARGET_DATA:-/srv/forge-restore/data}
 port=${TARGET_PORT:-47777}
 registry=$REGISTRY
-srcdb=${SOURCE_DB_CONTAINER:-forge-db}
+# The source's built-in database, as the db.env in its data directory
+# records it: the container (APPTOWN_DB_CONTAINER) and the database
+# APPTOWN_DB_URL names (an install made before 1.0 keeps the names it was
+# made with). Only the two names leave the source, never the URL's password.
+srcdb=$(ssh "$src" "sed -n 's/^APPTOWN_DB_CONTAINER=//p' '$srcdata/db.env'")
+dbname=$(ssh "$src" "sed -n 's|^APPTOWN_DB_URL=.*/\\([^/?]*\\).*|\\1|p' '$srcdata/db.env'")
+[ -n "$srcdb" ] && [ -n "$dbname" ] || { echo "$srcdata/db.env on $src names no built-in database container and database" >&2; exit 1; }
+# end of the source's database
 block=${BLOCK_NAMES:-}
 work=$(mktemp -d)
 tgthost=${tgt#*@}
@@ -56,7 +60,7 @@ ssh "$tgt" "set -o noclobber; echo '$lock' > /root/.lab-lock" 2>/dev/null ||
 	{ echo "the target is in use: $(ssh "$tgt" cat /root/.lab-lock)" >&2; exit 1; }
 
 # end_rehearsal runs on the target, within this invocation's exclusive use:
-# stop the restored forge (only a process whose binary is the rehearsal's),
+# stop the restored AppTown (only a process whose binary is the rehearsal's),
 # remove what was created since this run's record of Docker
 # (/opt/forge-restore/before.*), and only when every observation succeeded
 # and none of it remains, retire the record, lift the cut and release the
@@ -75,7 +79,7 @@ p=$(cat $d/pid 2>/dev/null || true)
 if [ -n "$p" ] && [ "$(readlink /proc/$p/exe 2>/dev/null)" = "$d/apptownd" ]; then
 	kill "$p"; for _ in $(seq 1 60); do kill -0 "$p" 2>/dev/null || break; sleep 1; done
 fi
-for p in $(pgrep -x apptownd || true); do [ "$(readlink /proc/$p/exe)" = "$d/apptownd" ] && fail "the restored forge ($p) still runs"; done
+for p in $(pgrep -x apptownd || true); do [ "$(readlink /proc/$p/exe)" = "$d/apptownd" ] && fail "the restored AppTown ($p) still runs"; done
 for kind in container network volume; do
 	[ -f $d/before.$kind ] || fail "no record of the target's $kind""s before the rehearsal"
 	now=$(listing $kind) || fail "cannot list Docker $kind""s"
@@ -119,14 +123,14 @@ step "capture what the source holds (reads)"
 python3 "$here/apptown-restore-check.py" capture "$APPTOWN_URL" "$work/expected.json"
 # The redeployed app is proved against its recorded release: the revision
 # and artifact its deployment's current generation ran on the source.
-read -r rev art < <(ssh "$src" "docker exec $srcdb psql -U postgres -d forge -At -F ' ' -c \"SELECT i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.desired_generation JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname'\"")
+read -r rev art < <(ssh "$src" "docker exec $srcdb psql -U postgres -d $dbname -At -F ' ' -c \"SELECT i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.desired_generation JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname'\"")
 [ -n "${art:-}" ] || { echo "$redeploy has no recorded rebuild inputs on the source: pick another deployment" >&2; exit 1; }
 echo "$redeploy runs revision $rev, artifact $art"
 
 step "copy the source's apptownd and dump its database"
 version=$(ssh "$src" /opt/apptown/bin/apptownd -version)
 ssh "$src" cat /opt/apptown/bin/apptownd > "$work/apptownd"
-dump=$(ssh "$src" bash -s -- "$srcdb" postgres forge /root/backups recovery-rehearsal < "$here/apptown-db-backup.sh" | sed -n 's/^backup: \([^ ]*\) .*/\1/p')
+dump=$(ssh "$src" bash -s -- "$srcdb" postgres "$dbname" /root/backups recovery-rehearsal < "$here/apptown-db-backup.sh" | sed -n 's/^backup: \([^ ]*\) .*/\1/p')
 [ -n "$dump" ] || { echo "the dump did not complete" >&2; exit 1; }
 [ "$(ssh "$src" /opt/apptown/bin/apptownd -version)" = "$version" ] || { echo "the source was redeployed during the dump; run again" >&2; exit 1; }
 echo "source runs $version; dump $dump"
@@ -223,12 +227,12 @@ stop() { # AppTown process only; what it made stays until end_rehearsal
 step "make the built-in database, then load the dump into it"
 start -verify-only
 stop
-ssh "$tgt" bash -s -- "$srcdb" <<'EOF'
+ssh "$tgt" bash -s -- "$srcdb" "$dbname" <<'EOF'
 set -euo pipefail
-db=$1 # the restored data directory's database container, as the source's db.env names it
-docker exec "$db" dropdb -U postgres forge
-docker exec "$db" createdb -U postgres forge
-gunzip -c /opt/forge-restore/forge.sql.gz | docker exec -i "$db" psql -q -v ON_ERROR_STOP=1 -U postgres -d forge > /dev/null
+db=$1 name=$2 # the restored data directory's database container and database, as the source's db.env names them
+docker exec "$db" dropdb -U postgres "$name"
+docker exec "$db" createdb -U postgres "$name"
+gunzip -c /opt/forge-restore/forge.sql.gz | docker exec -i "$db" psql -q -v ON_ERROR_STOP=1 -U postgres -d "$name" > /dev/null
 EOF
 
 step "the key and secret files came across unchanged (names only; no contents)"
@@ -267,15 +271,15 @@ stop
 step "start normally; $redeploy runs again from its recorded release and answers"
 start
 # Three witnesses on the target, not the restored record's word: the restored
-# forge's own newest attempt for the deployment is a rebuild of the source's
+# AppTown's own newest attempt for the deployment is a rebuild of the source's
 # recorded revision and artifact, settled done; the container runs; it answers
 # HTTP on its published port.
 ok=""
 for _ in $(seq 1 60); do
-	attempt=$(ssh "$tgt" "docker exec $srcdb psql -U postgres -d forge -At -F ' ' -c \"SELECT a.status, i.rebuild, i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname' ORDER BY a.id DESC LIMIT 1\"" 2>/dev/null || true)
+	attempt=$(ssh "$tgt" "docker exec $srcdb psql -U postgres -d $dbname -At -F ' ' -c \"SELECT a.status, i.rebuild, i.revision, i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname' ORDER BY a.id DESC LIMIT 1\"" 2>/dev/null || true)
 	# The container the restored record serves from: under the names the
 	# deployment was made with (forge- for one made before 1.0).
-	container=$(ssh "$tgt" "docker exec $srcdb psql -U postgres -d forge -At -c \"SELECT d.container FROM deployments d JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\"" 2>/dev/null || true)
+	container=$(ssh "$tgt" "docker exec $srcdb psql -U postgres -d $dbname -At -c \"SELECT d.container FROM deployments d JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\"" 2>/dev/null || true)
 	hostport=$(ssh "$tgt" "docker port ${container:-none} 2>/dev/null | sed -n 's/.*127.0.0.1:\([0-9]*\)$/\1/p' | head -1" || true)
 	code=""
 	[ -n "$hostport" ] && code=$(ssh "$tgt" "curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:$hostport/" || true)
@@ -288,7 +292,7 @@ for _ in $(seq 1 60); do
 done
 [ -n "$ok" ] || { echo "$redeploy did not run again from its recorded release within 10 minutes (last attempt: ${attempt:-none}; HTTP ${code:-none})" >&2; exit 1; }
 
-step "clean up: stop the restored forge, remove what it made, lift the cut"
+step "clean up: stop the restored AppTown, remove what it made, lift the cut"
 end_rehearsal
 owned=""
 step "done: the restored AppTown and what it made are removed, its data kept under $tdata; the network cut is lifted"

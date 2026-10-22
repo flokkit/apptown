@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/fault"
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Dependencies is what Console needs and does not own.

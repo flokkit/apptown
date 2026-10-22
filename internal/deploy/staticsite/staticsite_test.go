@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/oci"
+	"github.com/flokkit/apptown/internal/oci"
 )
 
 var site = []oci.File{

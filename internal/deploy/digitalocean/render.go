@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // --- the renderer ---------------------------------------------------------------------------
@@ -364,7 +364,7 @@ func gatedRenderable(g *deploy.Gate, c *appcontract.Contract) error {
 		return errors.New("a gated app is rendered only while AppTown starts it, with its gate secret")
 	case !strings.Contains(g.Image, "@sha256:"):
 		return fmt.Errorf("the gate image %q is not pinned by digest", g.Image)
-	case g.Forge == "":
+	case g.AppTown == "":
 		return errors.New("the gate needs AppTown's public address to redeem tickets at")
 	case len(g.Marker) < 32:
 		return errors.New("a gated app is rendered only with the random mark AppTown recorded for it")
@@ -385,7 +385,7 @@ func gateComponent(img doImage, size string, g *deploy.Gate, upstream string, po
 	return Component{Name: GateComponent, Image: img, InstanceSizeSlug: size, InstanceCount: 1, HTTPPort: deploy.GatePort,
 		HealthCheck: &doHealthCheck{Port: deploy.GatePort, InitialDelaySeconds: 2, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 6},
 		Envs: []doEnv{
-			{Key: deploy.GateEnvForge, Value: g.Forge, Scope: "RUN_TIME", Type: "GENERAL"},
+			{Key: deploy.GateEnvAppTown, Value: g.AppTown, Scope: "RUN_TIME", Type: "GENERAL"},
 			{Key: deploy.GateEnvListen, Value: fmt.Sprintf(":%d", deploy.GatePort), Scope: "RUN_TIME", Type: "GENERAL"},
 			{Key: deploy.GateEnvMarker, Value: g.Marker, Scope: "RUN_TIME", Type: "GENERAL"},
 			{Key: deploy.GateEnvSecret, Value: g.Secret, Scope: "RUN_TIME", Type: "SECRET"},

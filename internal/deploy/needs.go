@@ -2,7 +2,7 @@ package deploy
 
 import (
 	"context"
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 	"time"
 )
 

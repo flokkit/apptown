@@ -5,7 +5,7 @@
 // bundles. No database and no AppTown package: a state directory, a Docker
 // daemon and certificates.
 //
-//	apptown-worker -installation forge-prod -state /var/lib/apptown-worker \
+//	apptown-worker -installation apptown-prod -state /var/lib/apptown-worker \
 //	  -cert worker.pem -key worker-key.pem -client-ca forge-ca.pem
 //
 // The Docker daemon is the one DOCKER_HOST names, or the local default.
@@ -17,8 +17,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"flag"
-	"flokkit.io/forge/internal/version"
 	"fmt"
+	"github.com/flokkit/apptown/internal/version"
 	"log"
 	"net/http"
 	"os"
@@ -26,11 +26,11 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/console/pi"
-	dockercli "flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/worker"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/console/pi"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 func main() {

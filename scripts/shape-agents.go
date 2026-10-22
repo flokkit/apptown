@@ -43,12 +43,12 @@ func main() {
 		}
 		for _, im := range f.Imports {
 			p, _ := strconv.Unquote(im.Path.Value)
-			if policy && (inside(p, "flokkit.io/forge/internal/forge/agentharness") || inside(p, "flokkit.io/forge/internal/console/pi")) {
+			if policy && (inside(p, "github.com/flokkit/apptown/internal/apptown/agentharness") || inside(p, "github.com/flokkit/apptown/internal/console/pi")) {
 				add(&result.Policy, im.Pos(), "environment imports harness "+p)
 			}
 			// Adapters consume public environment facts, not domain services or facades
 			// that could settle work on their behalf. An aliased/dot import is still an edge.
-			if harness && inside(p, "flokkit.io/forge/internal/forge") && !inside(p, "flokkit.io/forge/internal/forge/agentharness") && !inside(p, "flokkit.io/forge/internal/forge/agentenv") {
+			if harness && inside(p, "github.com/flokkit/apptown/internal/apptown") && !inside(p, "github.com/flokkit/apptown/internal/apptown/agentharness") && !inside(p, "github.com/flokkit/apptown/internal/apptown/agentenv") {
 				add(&result.Settlement, im.Pos(), "harness imports domain or composition owner "+p)
 			}
 		}

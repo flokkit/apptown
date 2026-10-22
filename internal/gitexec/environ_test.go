@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // fakeGit puts a git first on PATH that appends its environment, one
@@ -57,7 +57,7 @@ var inheritedGit = map[string]string{
 // repositories and folders, and a remote fetch. What a caller sets on
 // purpose does (GIT_OPTIONAL_LOCKS=0, RunEnv's variables, the hardened
 // commands' own). Not parallel: it sets the process's environment.
-func TestNoInheritedGitVariableReachesTheForgesGit(t *testing.T) {
+func TestNoInheritedGitVariableReachesAppTownsGit(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
 		t.Fatal(err)

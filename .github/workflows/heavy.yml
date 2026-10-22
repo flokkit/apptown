@@ -75,12 +75,12 @@ jobs:
           # The era-upgrade suite is not part of this run: it was retired
           # with the SQLite format (design/architecture/testing-map.md §5).
           - name: journeys
-            args: -tags=journey ./internal/forge/ -run TestJourney -count=1 -timeout 30m -v
+            args: -tags=journey ./internal/apptown/ -run TestJourney -count=1 -timeout 30m -v
             require: ""
           # The test image carries Playwright's Chromium and the pinned Pi.
           # A skip is not evidence: the job fails unless each test passed.
           - name: opt-in-tiers
-            args: -tags=browser,pi,inference_docker ./internal/forge/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -count=1 -timeout 20m -v
+            args: -tags=browser,pi,inference_docker ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -count=1 -timeout 20m -v
             require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary
     name: ${{ matrix.name }}
     env:

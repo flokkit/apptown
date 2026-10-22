@@ -7,13 +7,13 @@ import (
 	"sync"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // A step's services are torn down though the step's context has ended (a
-// stopping forge): the returned teardown runs on a context of its own.
+// stopping AppTown): the returned teardown runs on a context of its own.
 //
 // Kills: the teardown run on the setup's context.
 func TestStartedServicesAreTornDownAfterTheirContextEnds(t *testing.T) {

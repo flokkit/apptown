@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 )
 
 // The build context must carry the worktree's TRACKED state (committed +

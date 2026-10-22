@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // Losing the fence must not turn a preserved preview into an unfenced one.

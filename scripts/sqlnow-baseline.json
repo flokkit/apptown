@@ -1,6 +1,6 @@
 {
   "frozen": {
-    "file": "internal/forge/dbschema/schema.go",
+    "file": "internal/apptown/dbschema/schema.go",
     "through": 0,
     "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   }

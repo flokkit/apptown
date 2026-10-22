@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 )
 
 // A chat continuing a lane's agent from the record its owner kept writes

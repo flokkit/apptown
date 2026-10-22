@@ -21,7 +21,7 @@ See [quality](quality.md) for the complete evaluation and settlement sequence.
 
 ## Implementation references
 
-- [internal/forge/conformance/findings.go](../../internal/forge/conformance/findings.go)
-- [internal/forge/verification/scan_provenance.go](../../internal/forge/verification/scan_provenance.go)
-- [internal/forge/httpapi/findings.go](../../internal/forge/httpapi/findings.go)
-- [internal/forge/conformance/findings_test.go](../../internal/forge/conformance/findings_test.go)
+- [internal/apptown/conformance/findings.go](../../internal/apptown/conformance/findings.go)
+- [internal/apptown/verification/scan_provenance.go](../../internal/apptown/verification/scan_provenance.go)
+- [internal/apptown/httpapi/findings.go](../../internal/apptown/httpapi/findings.go)
+- [internal/apptown/conformance/findings_test.go](../../internal/apptown/conformance/findings_test.go)

@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/digitalocean/dofake"
-	"flokkit.io/forge/internal/oci"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
+	"github.com/flokkit/apptown/internal/oci"
 )
 
 // gateRepositoryDriver renders and deploys against api, recording the
@@ -56,7 +56,7 @@ func TestGatedAppNamesTheGateFromItsOwnRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := deploy.Placement{Name: "copy-1", Gate: &deploy.Gate{Image: gateRef, Secret: strings.Repeat("ab", 32), Forge: "https://forge.example", Marker: testMarker}}
+	p := deploy.Placement{Name: "copy-1", Gate: &deploy.Gate{Image: gateRef, Secret: strings.Repeat("ab", 32), AppTown: "https://forge.example", Marker: testMarker}}
 	art, err := d.Render(context.Background(), p, deploy.Source{Images: map[string]string{"web": web}, Contract: c, Revision: "selected"}, deploy.NeedBindings{}, scopedRenderSecrets{}, func(string, ...any) {})
 	if err != nil {
 		t.Fatal(err)
@@ -82,8 +82,8 @@ func TestGatedAppNamesTheGateFromItsOwnRepository(t *testing.T) {
 
 // A spec naming two versions of one DOCR repository is refused by the
 // driver before it asks App Platform to create the app, saying how many
-// images and the remedy Forge supports (a Docker host target, not other
-// repositories, which Forge cannot use): the platform would accept it at propose and refuse it
+// images and the remedy AppTown supports (a Docker host target, not other
+// repositories, which AppTown cannot use): the platform would accept it at propose and refuse it
 // at create, after the app's databases were made. The fake platform
 // refuses it as App Platform does, so the refusal is seen to be the
 // driver's.

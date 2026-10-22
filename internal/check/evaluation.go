@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Mode is what the evaluation is asked to say: a Gate judges one change's

@@ -121,7 +121,11 @@ stop_docker() {
 	fi
 }
 
-mkdir -p "$root/docker" "$root/forge"
+# AppTown's data folder on this volume: data on a new one; a volume made
+# before 1.0 keeps its folder, forge, so its data is found where it is.
+data_folder=data
+if [ -d "$root/forge" ]; then data_folder=forge; fi
+mkdir -p "$root/docker" "$root/$data_folder"
 say "starting Docker inside this container"
 # Docker's own dind wrapper prepares cgroup nesting (so containers get their
 # CPU, memory and process limits), mount propagation and securityfs. The
@@ -148,7 +152,7 @@ until docker version >/dev/null 2>&1; do
 done
 
 default_agent_image
-: "${APPTOWN_DATA:=$root/forge}"
+: "${APPTOWN_DATA:=$root/$data_folder}"
 : "${APPTOWN_AUTH:=internal}"
 # HTTPS from AppTown's own certificate authority (apptownd -local-tls), so
 # every app sees on a laptop what it sees on a server: requests arrive as

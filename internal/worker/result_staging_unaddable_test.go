@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executionfake"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executionfake"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // A scratch repository a task leaves under .apptown is runtime, not source:
@@ -17,7 +17,7 @@ import (
 // returns the ordinary source and the native contract, including on a
 // retry. (Unaddable content elsewhere still fails the collection with
 // git's reason: TestAStagingFailureFailsTheCollection.)
-func TestAScratchRepositoryUnderForgeIsLeftOut(t *testing.T) {
+func TestAScratchRepositoryUnderAppTownIsLeftOut(t *testing.T) {
 	for _, ignore := range []string{"", ".apptown/other-cache/\n", ".apptown/\n"} {
 		t.Run("ignore="+ignore, func(t *testing.T) {
 			ctx := context.Background()

@@ -19,8 +19,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"io"
 	"log"
 	"os"
@@ -30,11 +30,11 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/dind"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/dind"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Config is what the runtime needs from AppTown it runs in.

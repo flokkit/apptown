@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // The core loop's --json output (stock/docs/guides/cli-json.md). These types

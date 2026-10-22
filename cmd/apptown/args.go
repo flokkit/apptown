@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // parseArgs parses fs's flags wherever they appear among the positionals and

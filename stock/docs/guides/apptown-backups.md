@@ -28,12 +28,12 @@ alongside the original has the same id, so run only one of them.
 
 **Restoring the database.** This replaces the current database. If it is
 still readable, back it up first ([Upgrading](/docs/guides/upgrading), step 2). Stop `apptownd`, then, with
-`<db>` being the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made before 1.0, which keeps that name:
+`<db>` being the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made before 1.0, which keeps that name. `<name>` is the database at the end of `APPTOWN_DB_URL` in the same file: `apptown`, or `forge` on an install made before 1.0:
 
 ```sh
-docker exec <db> dropdb -U postgres forge
-docker exec <db> createdb -U postgres forge
-gunzip -c <file> | docker exec -i <db> psql -v ON_ERROR_STOP=1 -U postgres -d forge
+docker exec <db> dropdb -U postgres <name>
+docker exec <db> createdb -U postgres <name>
+gunzip -c <file> | docker exec -i <db> psql -v ON_ERROR_STOP=1 -U postgres -d <name>
 ```
 
 Start once with `-verify-only` to look before anything runs: it goes

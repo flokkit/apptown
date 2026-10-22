@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // buildSpec is a release build as AppTown may send it: its source, its

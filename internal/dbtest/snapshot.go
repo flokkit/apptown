@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"flokkit.io/forge/internal/database"
+	"github.com/flokkit/apptown/internal/database"
 )
 
 // Row is one table row as a release left it: the table and the row as JSON

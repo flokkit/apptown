@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/version"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/version"
 )
 
 // client is the apptownd API as the CLI speaks it: one base URL, one actor, the

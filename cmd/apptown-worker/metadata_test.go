@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	dockercli "flokkit.io/forge/internal/deploy/docker"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 type probeAnswer struct {
@@ -31,12 +31,12 @@ func TestTheMetadataCheckReadsWhatTheAddressSaid(t *testing.T) {
 		answer probeAnswer
 		want   string
 	}{
-		{probeAnswer{out: []byte("FORGE-EXIT=0\n")}, "reachable"},
-		{probeAnswer{out: []byte("Connecting to 169.254.169.254 (169.254.169.254:80)\nwget: server returned error: HTTP/1.1 401 Unauthorized\nFORGE-EXIT=1\n")}, "reachable"},
-		{probeAnswer{out: []byte("wget: server returned error: HTTP/1.1 404 Not Found\nFORGE-EXIT=1\n")}, "reachable"},
-		{probeAnswer{out: []byte("Connecting to 169.254.169.254 (169.254.169.254:80)\nwget: download timed out\nFORGE-EXIT=1\n")}, "not reachable"},
-		{probeAnswer{out: []byte("wget: can't connect to remote host (169.254.169.254): Network is unreachable\nFORGE-EXIT=1\n")}, "not reachable"},
-		{probeAnswer{out: []byte("wget: can't connect to remote host (169.254.169.254): Connection refused\nFORGE-EXIT=1\n")}, "could not tell"},
+		{probeAnswer{out: []byte("APPTOWN-EXIT=0\n")}, "reachable"},
+		{probeAnswer{out: []byte("Connecting to 169.254.169.254 (169.254.169.254:80)\nwget: server returned error: HTTP/1.1 401 Unauthorized\nAPPTOWN-EXIT=1\n")}, "reachable"},
+		{probeAnswer{out: []byte("wget: server returned error: HTTP/1.1 404 Not Found\nAPPTOWN-EXIT=1\n")}, "reachable"},
+		{probeAnswer{out: []byte("Connecting to 169.254.169.254 (169.254.169.254:80)\nwget: download timed out\nAPPTOWN-EXIT=1\n")}, "not reachable"},
+		{probeAnswer{out: []byte("wget: can't connect to remote host (169.254.169.254): Network is unreachable\nAPPTOWN-EXIT=1\n")}, "not reachable"},
+		{probeAnswer{out: []byte("wget: can't connect to remote host (169.254.169.254): Connection refused\nAPPTOWN-EXIT=1\n")}, "could not tell"},
 		{probeAnswer{out: []byte("Unable to find image"), err: errors.New("exit 125")}, "could not tell"},
 		{probeAnswer{out: []byte("")}, "could not tell"},
 	} {

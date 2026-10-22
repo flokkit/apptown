@@ -9,7 +9,7 @@ import { ReadStatus, StaleNote } from '../ReadGate'
 import type { ComplaintList, ComplaintSteeringText } from '../wire.gen'
 import { useHolds } from '../instancePages'
 
-// Review reports about Forge, answer them and archive resolved items. Filing a
+// Review reports about AppTown, answer them and archive resolved items. Filing a
 // complaint does not automatically start repair work.
 
 

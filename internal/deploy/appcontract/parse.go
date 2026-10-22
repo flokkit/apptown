@@ -18,7 +18,7 @@ import (
 // The source of truth: what the app IS (app: a map of parts) and what it DEPENDS
 // on (needs: a map of catalog capabilities). Compose is no longer the contract —
 // it is generated from this for local dev (compose_gen.go). No x- prefixes: the
-// whole file is forge's, so app parts use plain compose-style keys and forge
+// whole file is AppTown's, so app parts use plain compose-style keys and AppTown
 // concepts (dataDir, public) are plain fields.
 //
 //	app:
@@ -196,7 +196,7 @@ func Parse(raw []byte) (*Contract, error) {
 		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 	}
 	// Version rules: absent == 1 (pre-version files); explicit 0 is invalid;
-	// anything past what we know needs a newer forge.
+	// anything past what we know needs a newer AppTown.
 	switch {
 	case doc.Version == nil:
 		// pre-version file — treat as v1

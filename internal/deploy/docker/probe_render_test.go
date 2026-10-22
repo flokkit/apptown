@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // The cold-boot render turns a part's intent into a concrete probe, and — the

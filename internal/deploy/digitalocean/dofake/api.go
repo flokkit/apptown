@@ -1,5 +1,5 @@
 // Package dofake supplies the DigitalOcean HTTP API fixture shared by driver
-// tests and assembled Forge deployment tests. It is not a deployment driver.
+// tests and assembled AppTown deployment tests. It is not a deployment driver.
 package dofake
 
 import (
@@ -230,7 +230,7 @@ func (f *API) SeedDatabase(database map[string]any) {
 	f.state.Databases = append(f.state.Databases, clone(database))
 }
 
-// SeedApp selects provider state independently of Forge's persisted placement.
+// SeedApp selects provider state independently of AppTown's persisted placement.
 func (f *API) SeedApp(id, active, pending string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -250,7 +250,7 @@ func (f *API) ServeFrontDoor(stock bool) {
 	f.state.FrontDoor, f.state.FrontDoorStock = true, stock
 }
 
-// AdvanceDeployment models the provider accepting work before Forge records it.
+// AdvanceDeployment models the provider accepting work before AppTown records it.
 func (f *API) AdvanceDeployment(appID, deploymentID string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()

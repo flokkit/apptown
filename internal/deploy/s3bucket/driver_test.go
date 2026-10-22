@@ -22,11 +22,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/s3bucket/s3fake"
-	"flokkit.io/forge/internal/deploy/staticsite"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
+	"github.com/flokkit/apptown/internal/deploy/staticsite"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 const (

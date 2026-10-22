@@ -23,7 +23,7 @@ container=$1 user=$2 db=$3 dir=$4 label=$5
 # has about a hundred tables; an empty or wrong database dumps cleanly with a
 # footer but few or no COPY sections, so a minimum table count catches it. A
 # size floor would not: an empty AppTown schema is small, but so is a young
-# forge's whole database. schema_version is AppTown's own table, so its COPY
+# AppTown's whole database. schema_version is AppTown's own table, so its COPY
 # says this is AppTown's database rather than some other.
 min_tables=50
 

@@ -17,7 +17,7 @@ import os
 import subprocess
 import sys
 
-MODULE = "flokkit.io/forge"
+MODULE = "github.com/flokkit/apptown"
 SKIP = MODULE + "/web/node_modules"
 
 

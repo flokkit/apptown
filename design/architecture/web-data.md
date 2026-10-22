@@ -75,7 +75,7 @@ A form that saves server state follows these rules. General project settings
 
 On the server, the record carries an integer revision that every writer of
 the protected fields advances, checked and advanced in the write's own
-transaction (see `internal/forge/project/settings.go`). A write that names no
+transaction (see `internal/apptown/project/settings.go`). A write that names no
 revision is refused, so no client can save over changes it never saw.
 
 ## Acts

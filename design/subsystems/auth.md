@@ -91,8 +91,8 @@ internal authentication bootstrap also needs the setup token AppTown writes
 to `<data>/setup-token` (mode 0600) while no account exists
 (`identity/setup_token.go`); it is compared in constant time and removed once
 the first account commits. Open authentication refuses a listener other
-machines can reach unless `-open-on-network` (`forge.OpenExposure`). The
-credential doors share a per-client rate limit (`credentialLimiter.door` in `internal/forge/internal_auth.go`). Losing a
+machines can reach unless `-open-on-network` (`apptown.OpenExposure`). The
+credential doors share a per-client rate limit (`credentialLimiter.door` in `internal/apptown/internal_auth.go`). Losing a
 password or the last usable account does not reopen bootstrap. Administrator
 changes protect the last enabled administrator.
 
@@ -192,7 +192,7 @@ Console sessions and running step attempts use lifecycle-scoped credentials;
 a console's idle process stop is not session deletion. The inference gateway
 rechecks workload authority while streaming. Provider credentials remain in the
 gateway's private provider resolution; they are not the runtime's AppTown token.
-See [the inference package guide](../../internal/forge/inference/README.md).
+See [the inference package guide](../../internal/apptown/inference/README.md).
 
 ## Visible projects and aggregate reads
 
@@ -219,10 +219,10 @@ unimplemented controls.
 
 ## Implementation references
 
-- [internal/forge/auth.go](../../internal/forge/auth.go)
-- [internal/forge/identity/service.go](../../internal/forge/identity/service.go)
-- [internal/forge/identity/token_commands.go](../../internal/forge/identity/token_commands.go)
-- [internal/forge/identity/invites.go](../../internal/forge/identity/invites.go)
-- [internal/forge/identity/visibility.go](../../internal/forge/identity/visibility.go)
-- [internal/forge/routes.go](../../internal/forge/routes.go)
-- [internal/forge/route_table.go](../../internal/forge/route_table.go)
+- [internal/apptown/auth.go](../../internal/apptown/auth.go)
+- [internal/apptown/identity/service.go](../../internal/apptown/identity/service.go)
+- [internal/apptown/identity/token_commands.go](../../internal/apptown/identity/token_commands.go)
+- [internal/apptown/identity/invites.go](../../internal/apptown/identity/invites.go)
+- [internal/apptown/identity/visibility.go](../../internal/apptown/identity/visibility.go)
+- [internal/apptown/routes.go](../../internal/apptown/routes.go)
+- [internal/apptown/route_table.go](../../internal/apptown/route_table.go)

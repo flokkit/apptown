@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"flokkit.io/forge/internal/gitlab/gitlabtest"
+	"github.com/flokkit/apptown/internal/gitlab/gitlabtest"
 )
 
 // A merge request's description is replaced whole through the documented

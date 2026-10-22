@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // The selected source for the built-in host: a committed tree staged so

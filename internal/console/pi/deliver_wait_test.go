@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/console"
+	"github.com/flokkit/apptown/internal/console"
 )
 
 // Delivering words presses Enter until the session's record shows them;

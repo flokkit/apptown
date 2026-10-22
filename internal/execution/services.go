@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/dind"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/dind"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // serviceReadiness bounds the wait for a run's services to become healthy.

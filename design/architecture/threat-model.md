@@ -441,7 +441,7 @@ wording or count arbitrary patterns.
 A focused regression command for the trust boundaries:
 
 ```sh
-env -u APPTOWN_TEST_DB_URL go test ./internal/forge \
+env -u APPTOWN_TEST_DB_URL go test ./internal/apptown \
   -run 'Test(Authz|OAuth|InternalMode|BootstrapThenLogin|PasswordReset|ConsoleToken|ProjectRoster|RouteGuards|GitHTTP|MCP|SecretsDelivered|RevealSecret|StagedBuildContext)' \
   -count=1
 ```

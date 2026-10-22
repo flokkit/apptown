@@ -15,7 +15,7 @@ spec.loader.exec_module(shape)
 
 class ShapeReportTest(unittest.TestCase):
     def setUp(self):
-        tmp = tempfile.TemporaryDirectory(prefix="forge-shape-report-")
+        tmp = tempfile.TemporaryDirectory(prefix="apptown-shape-report-")
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
         old_root = shape.ROOT
@@ -28,27 +28,27 @@ class ShapeReportTest(unittest.TestCase):
         p.write_text(content)
 
     def test_tables_written_from_many_packages(self):
-        self.w("internal/forge/workflow/landing.go", """package workflow
+        self.w("internal/apptown/workflow/landing.go", """package workflow
 func f() { tx.Exec(`UPDATE workflow_landings SET x=1 WHERE id=$1`, 1) }
 """)
-        self.w("internal/forge/remediation/budget.go", """package remediation
+        self.w("internal/apptown/remediation/budget.go", """package remediation
 func g() { tx.Exec(`UPDATE workflow_landings SET y=2 WHERE id=$1`, 1) }
 """)
-        self.w("internal/forge/access/foo.go", """package access
+        self.w("internal/apptown/access/foo.go", """package access
 func h() { tx.Exec(`INSERT INTO solo_table(a) VALUES(1)`) }
 """)
         # a sqlc directory nested under a subsystem's own internal/ belongs to
         # that subsystem, not to a package named after the sqlc directory.
-        self.w("internal/forge/access/internal/accesssql/queries.sql",
+        self.w("internal/apptown/access/internal/accesssql/queries.sql",
                "-- name: Insert :exec\nINSERT INTO shared_rows(a) VALUES ($1);\n")
-        self.w("internal/forge/deployment/shared.go", """package deployment
+        self.w("internal/apptown/deployment/shared.go", """package deployment
 func f() { tx.Exec(`UPDATE shared_rows SET a=1`) }
 """)
         # an owner that keeps its named SQL as several generated files.
-        self.w("internal/forge/scm/internal/scmsql/merges.sql",
+        self.w("internal/apptown/scm/internal/scmsql/merges.sql",
                "-- name: Merge :exec\nUPDATE split_rows SET a=1;\n")
-        self.w("internal/forge/scm/internal/scmsql/merges.sql.go", "package scmsql\n")
-        self.w("internal/forge/preview/split.go", """package preview
+        self.w("internal/apptown/scm/internal/scmsql/merges.sql.go", "package scmsql\n")
+        self.w("internal/apptown/preview/split.go", """package preview
 func f() { tx.Exec(`DELETE FROM split_rows`) }
 """)
         found = {it["table"]: set(it["packages"]) for it in shape.tables_written_from_many_packages()}
@@ -58,12 +58,12 @@ func f() { tx.Exec(`DELETE FROM split_rows`) }
         self.assertNotIn("solo_table", found)
 
     def test_app_fields_that_are_parts(self):
-        self.w("internal/forge/foo/service.go", """package foo
+        self.w("internal/apptown/foo/service.go", """package foo
 type Service struct{}
 type Part struct{}
 """)
-        self.w("internal/forge/store.go", "package forge\ntype store struct{ db *sql.DB }\n")
-        self.w("internal/forge/app.go", """package forge
+        self.w("internal/apptown/store.go", "package apptown\ntype store struct{ db *sql.DB }\n")
+        self.w("internal/apptown/app.go", """package apptown
 type App struct {
 	Foo         *foo.Part
 	guardedOnce sync.Once
@@ -78,7 +78,7 @@ type App struct {
         self.assertIn(("store", "field type holds a db handle"), found)
 
     def test_matching_type_pairs(self):
-        self.w("internal/forge/one/a.go", """package one
+        self.w("internal/apptown/one/a.go", """package one
 type Thing struct {
 	Name      string
 	ID        int64
@@ -86,7 +86,7 @@ type Thing struct {
 	Kind      string
 }
 """)
-        self.w("internal/forge/two/b.go", """package two
+        self.w("internal/apptown/two/b.go", """package two
 type Other struct {
 	Name      string
 	ID        int64
@@ -95,17 +95,17 @@ type Other struct {
 }
 """)
         pairs = {(it["a"], it["b"]) for it in shape.matching_type_pairs()}
-        self.assertIn(("internal/forge/one.Thing", "internal/forge/two.Other"), pairs)
+        self.assertIn(("internal/apptown/one.Thing", "internal/apptown/two.Other"), pairs)
 
     def test_app_reach_per_package(self):
-        self.w("internal/forge/app.go", "package forge\ntype App struct {\n\tFoo *foo.Service\n}\n")
-        self.w("internal/forge/handler.go", """package forge
+        self.w("internal/apptown/app.go", "package apptown\ntype App struct {\n\tFoo *foo.Service\n}\n")
+        self.w("internal/apptown/handler.go", """package apptown
 func h(a *App) {
 	foo.Bar()
 	a.Foo.Baz()
 }
 """)
-        listed = subprocess.CompletedProcess([], 0, "flokkit.io/forge/internal/forge/foo\n", "")
+        listed = subprocess.CompletedProcess([], 0, "github.com/flokkit/apptown/internal/apptown/foo\n", "")
         with mock.patch.object(shape.subprocess, "run", return_value=listed):
             items = shape.app_reach_per_package()
         # app.go's own field type *foo.Service is itself a foo.Exported reference.
@@ -114,7 +114,7 @@ func h(a *App) {
         self.assertEqual(row["door_calls"], 1)
 
     def test_doors_with_an_actor_string(self):
-        self.w("internal/forge/access/service.go", """package access
+        self.w("internal/apptown/access/service.go", """package access
 func (s *Service) Revoke(id int64, by string) error { return nil }
 func (s *Service) internalHelper(by string) {}
 """)

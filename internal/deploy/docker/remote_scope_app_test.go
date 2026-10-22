@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 type remoteAppClient struct {
@@ -38,7 +38,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(ws, "Dockerfile"), []byte("FROM alpine:3.20\nUSER 10001\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
+	dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
 	c := &appcontract.Part{Build: ".", Port: 8080, DataDir: "/data"}
 	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Deployment: "main", Workspace: ws, Persistent: true, Names: Current}, c, "", nil)
 	if err != nil || port != 40001 {
@@ -46,19 +46,19 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 	var remote []string
 	for _, call := range client.calls {
-		if call.host != "ssh://forge-target-droplet" {
+		if call.host != "ssh://apptown-target-droplet" {
 			t.Fatalf("command escaped attached host: %+v", call)
 		}
 		remote = append(remote, call.host+" "+call.command)
 	}
 	joined := strings.Join(remote, "\n")
 	for _, want := range []string{
-		"ssh://forge-target-droplet build -t apptown-preview-build-apptown-env-waypoint-main",
+		"ssh://apptown-target-droplet build -t apptown-preview-build-apptown-env-waypoint-main",
 		"traefik.http.routers.apptown-waypoint.rule=Host(`waypoint.apps.example.com`)",
 		"traefik.http.services.apptown-waypoint.loadbalancer.server.port=8080",
 		"traefik.docker.network=traefik",
-		"ssh://forge-target-droplet network connect traefik apptown-env-waypoint-main",
-		"ssh://forge-target-droplet port apptown-env-waypoint-main 8080",
+		"ssh://apptown-target-droplet network connect traefik apptown-env-waypoint-main",
+		"ssh://apptown-target-droplet port apptown-env-waypoint-main 8080",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("missing %q in remote commands:\n%s", want, joined)
@@ -68,7 +68,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	// joins the traefik network, and only then starts.
 	order := func(prefix string) int {
 		for i, r := range remote {
-			if strings.HasPrefix(r, "ssh://forge-target-droplet "+prefix) {
+			if strings.HasPrefix(r, "ssh://apptown-target-droplet "+prefix) {
 				return i
 			}
 		}
@@ -78,13 +78,13 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	if c, n, s := order("create "), order("network connect traefik"), order("start apptown-env-waypoint-main"); !(c < n && n < s) {
 		t.Fatalf("create %d, connect %d, start %d: the container must join traefik before it starts:\n%s", c, n, s, joined)
 	}
-	if strings.Contains(joined, "ssh://forge-target-droplet run -d") {
+	if strings.Contains(joined, "ssh://apptown-target-droplet run -d") {
 		t.Fatalf("a routed app was started by run before joining traefik:\n%s", joined)
 	}
 }
 
 // AppTown's own daemon publishes an app's port on loopback only (the
-// forge's proxy is the front door); an attached host publishes it where
+// AppTown's proxy is the front door); an attached host publishes it where
 // AppTown's probe and the plain front door, both at the host's address,
 // reach it. A loopback bind there would leave the readiness probe
 // unanswered.
@@ -94,7 +94,7 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 		name, host, want, probe string
 	}{
 		{"AppTown's own daemon", "", "-p 127.0.0.1::8080 ", "http://127.0.0.1:40001"},
-		{"an attached host", "ssh://forge-target-lab", "-p 0.0.0.0::8080 ", "http://192.0.2.10:40001"},
+		{"an attached host", "ssh://apptown-target-lab", "-p 0.0.0.0::8080 ", "http://192.0.2.10:40001"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
@@ -134,7 +134,7 @@ func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
-			dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", tc.domain)
+			dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", tc.domain)
 			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil); err != nil {
 				t.Fatal(err)
@@ -194,7 +194,7 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 	started := map[string]string{}
 	for _, deployment := range []string{"main", "fresh"} {
 		client := &remoteAppClient{}
-		dk := (Scope{Client: client}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
+		dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
 		name := Current.Container("bkproof", deployment)
 		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Deployment: deployment, Workspace: t.TempDir(), Persistent: true, Names: Current},
 			&appcontract.Part{Image: "example/bkproof:1", Port: 8080}, "", nil); err != nil {
@@ -213,7 +213,7 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 		t.Fatalf("another deployment carries a Traefik route, so it can take main's visitors:\n%s", started["fresh"])
 	}
 	// The addresses AppTown shows and records agree with the route.
-	dk := (Scope{}).WithHost("ssh://forge-target-droplet", "droplet.example", "apps.example.com")
+	dk := (Scope{}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
 	if got := dk.FrontDoor("bkproof", "main", 40001); got != "https://bkproof.apps.example.com" {
 		t.Fatalf("main is shown at %s", got)
 	}

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/check"
+	"github.com/flokkit/apptown/internal/check"
 )
 
 // The runtime evaluator judges the app as it RUNS: the declared readiness path

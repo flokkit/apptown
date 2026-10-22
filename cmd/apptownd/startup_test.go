@@ -26,7 +26,7 @@ func TestRequiredRecoveryGatesWritableStartup(t *testing.T) {
 
 // Every start that may repair or settle work takes the one-daemon lock
 // before migrating; only a password reset, which the operations guide says
-// may run beside a serving forge, does not.
+// may run beside a serving AppTown, does not.
 func TestEveryStartButAPasswordResetHoldsTheDatabase(t *testing.T) {
 	t.Parallel()
 	for name, set := range map[string]func(*daemonFlags){
@@ -41,7 +41,7 @@ func TestEveryStartButAPasswordResetHoldsTheDatabase(t *testing.T) {
 		}
 	}
 	if (&daemonFlags{resetPassword: "alice"}).holdsDatabase() {
-		t.Error("-reset-password must run beside a serving forge")
+		t.Error("-reset-password must run beside a serving AppTown")
 	}
 }
 

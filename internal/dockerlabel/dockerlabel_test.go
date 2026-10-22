@@ -23,7 +23,7 @@ var notLabels = map[string]string{
 	"forge.operation":  "the job queue's kind for an operation",
 }
 
-var forgeName = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.-])(forge\.[a-z][a-z0-9.-]*[a-z0-9])`)
+var apptownName = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.-])(forge\.[a-z][a-z0-9.-]*[a-z0-9])`)
 
 // spelledLabels returns each AppTown.<name> written in a string literal of a Go
 // source, after unquoting, so an escaped "\"forge.class\"" in a --format
@@ -57,7 +57,7 @@ func spelledLabels(t *testing.T, name string, src []byte) []string {
 			if err != nil {
 				return true
 			}
-			for _, m := range forgeName.FindAllStringSubmatch(v, -1) {
+			for _, m := range apptownName.FindAllStringSubmatch(v, -1) {
 				if _, ok := notLabels[m[1]]; !ok {
 					found = append(found, fmt.Sprintf("%s: %s", fset.Position(n.Pos()), m[1]))
 				}
@@ -68,7 +68,7 @@ func spelledLabels(t *testing.T, name string, src []byte) []string {
 	return found
 }
 
-// Forge's label keys are spelled here only: an AppTown.<name> in a string
+// AppTown's label keys are spelled here only: a forge.<name> in a string
 // literal of production Go elsewhere, known key or not, would be a second
 // list that can drift from the containers already out in the world.
 //

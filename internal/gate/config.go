@@ -36,8 +36,8 @@ type Config struct {
 	// Secret is the copy's gate secret: probes present it, and the gate
 	// presents it to AppTown when redeeming a ticket. Never logged.
 	Secret string
-	// Forge is AppTown's public origin, where tickets are redeemed.
-	Forge *url.URL
+	// AppTown is AppTown's public origin, where tickets are redeemed.
+	AppTown *url.URL
 }
 
 // DefaultListen is the address used when GATE_LISTEN is not set.
@@ -66,11 +66,11 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	}
 	cfg.Secret = secret
 
-	forge, err := parseForge(getenv("GATE_APPTOWN"))
+	origin, err := parseAppTown(getenv("GATE_APPTOWN"))
 	if err != nil {
 		problems = append(problems, fmt.Errorf("GATE_APPTOWN: %w", err))
 	}
-	cfg.Forge = forge
+	cfg.AppTown = origin
 
 	if len(problems) > 0 {
 		return Config{}, errors.Join(problems...)
@@ -116,7 +116,7 @@ func checkSecret(s string) error {
 	return nil
 }
 
-func parseForge(raw string) (*url.URL, error) {
+func parseAppTown(raw string) (*url.URL, error) {
 	if raw == "" {
 		return nil, errors.New("required, AppTown's public origin such as https://forge.example")
 	}
@@ -125,7 +125,7 @@ func parseForge(raw string) (*url.URL, error) {
 		return nil, errors.New("must be an origin such as https://forge.example")
 	}
 	// The gate sends the secret to this address on every redemption, so it
-	// must travel over TLS. Plain http is allowed only for a loopback forge,
+	// must travel over TLS. Plain http is allowed only for a loopback AppTown,
 	// which is what tests use.
 	switch u.Scheme {
 	case "https":

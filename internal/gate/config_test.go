@@ -23,14 +23,14 @@ func TestConfigAcceptsTheDocumentedEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.Listen != DefaultListen || cfg.Upstream.String() != "http://web:8080" ||
-		cfg.Forge.String() != "https://forge.example" || cfg.Secret != testSecret {
+		cfg.AppTown.String() != "https://forge.example" || cfg.Secret != testSecret {
 		t.Fatalf("got %+v", cfg)
 	}
 	env := validEnv()
 	env["GATE_LISTEN"] = ":9090"
 	env["GATE_APPTOWN"] = "http://localhost:7777/"
 	cfg, err = ConfigFromEnv(envOf(env))
-	if err != nil || cfg.Listen != ":9090" || cfg.Forge.String() != "http://localhost:7777" {
+	if err != nil || cfg.Listen != ":9090" || cfg.AppTown.String() != "http://localhost:7777" {
 		t.Fatalf("got %+v %v", cfg, err)
 	}
 }

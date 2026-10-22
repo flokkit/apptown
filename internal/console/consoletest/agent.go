@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 type agent struct {

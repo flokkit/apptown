@@ -28,8 +28,8 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // ScanTimeout bounds one scanner run.

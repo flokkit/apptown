@@ -164,10 +164,12 @@ class NamesCheck(unittest.TestCase):
                 (self.root / path).unlink()
                 subprocess.run(["git", "-C", str(self.root), "rm", "--cached", "-q", path], check=True)
 
-    def test_kept_database_and_package_names_are_not_debt(self):
+    # An install made before 1.0 keeps its database forge, which the tests
+    # plant; the shape report reads history under internal/forge.
+    def test_kept_database_and_history_names_are_not_debt(self):
         examples = {
-            "internal/forge/dbboot.go": 'builtinDBName = "forge"\n',
-            "scripts/codebase-shape.py": 'parts = ["internal", "forge", *parts[1:]]\n',
+            "internal/apptown/db_test.go": 'want := builtinDBNames{Database: "forge"}\n',
+            "scripts/codebase-shape.py": 'if parts[:2] == ["internal", "forge"]:\n',
         }
         for path, text in examples.items():
             with self.subTest(path=path):
@@ -180,18 +182,20 @@ class NamesCheck(unittest.TestCase):
                     (self.root / path).unlink()
                     subprocess.run(["git", "-C", str(self.root), "rm", "--cached", "-q", path], check=True)
 
-    def test_kept_package_assertion_is_not_debt(self):
+    # The root package is apptown now, so a shape tool naming it forge again
+    # is an old name, not a kept one.
+    def test_the_root_package_named_forge_again_is_debt(self):
         self.baseline()
         self.write("scripts/shape-check_test.py",
-                   'self.assertEqual(self.shape.top("flokkit.io/forge/internal/forge"), "forge")')
+                   'self.assertEqual(self.shape.top("github.com/flokkit/apptown/internal/apptown"), "forge")')
         code, out = self.run_check()
-        self.assertEqual(code, 0, out)
+        self.assertEqual(code, 1, out)
 
     def test_frozen_release_history_is_not_debt(self):
         self.baseline()
-        self.write("internal/forge/testdata/upgrade/1.0.0-rc.5/release-schema.sql",
+        self.write("internal/apptown/testdata/upgrade/1.0.0-rc.5/release-schema.sql",
                    "about TEXT NOT NULL DEFAULT 'forge',\n")
-        self.write("internal/forge/testdata/upgrade/1.0.0-rc.5/reads.json",
+        self.write("internal/apptown/testdata/upgrade/1.0.0-rc.5/reads.json",
                    '{"branch":"forge/change-123", "path":".forge/app.yaml"}')
         code, out = self.run_check()
         self.assertEqual(code, 0, out)

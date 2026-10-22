@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // fakeDocker puts a docker first on PATH that prints its arguments and
@@ -25,7 +25,7 @@ func fakeDocker(t *testing.T) {
 // warnings; CombinedOutput has both; a failure says what docker said. The
 // docker started is AppTown's: an ambient Buildx builder does not reach
 // it. Not parallel: it sets the process's environment.
-func TestDockerStartsAsTheForgesWithTheOutputAsked(t *testing.T) {
+func TestDockerStartsAsAppTownsWithTheOutputAsked(t *testing.T) {
 	fakeDocker(t)
 	t.Setenv("BUILDX_BUILDER", "elsewhere")
 	out, err := Output("ps", "-q")

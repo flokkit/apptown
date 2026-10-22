@@ -31,8 +31,11 @@ trusted, so nothing locks you out. Trusting it once removes the warnings.
 First copy the certificate out of the container:
 
 ```sh
-docker cp apptown:/var/lib/apptown/forge/local-tls/ca.pem apptown-local-ca.pem
+docker cp apptown:/var/lib/apptown/data/local-tls/ca.pem apptown-local-ca.pem
 ```
+
+A trial volume made before 1.0 keeps its data in `/var/lib/apptown/forge`
+instead of `/var/lib/apptown/data`.
 
 **macOS** (Safari, Chrome and Firefox read the login keychain; it asks for
 your password):

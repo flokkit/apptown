@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // The worker judges expiries, deadlines and leases by its own clock
@@ -141,7 +141,7 @@ func TestAServicesMinuteIsTheWorkersClocks(t *testing.T) {
 }
 
 // An AppTown's session number is above its clock, and above the last one.
-func TestASessionNumberIsAboveTheForgesClock(t *testing.T) {
+func TestASessionNumberIsAboveAppTownsClock(t *testing.T) {
 	t.Parallel()
 	file := filepath.Join(t.TempDir(), "worker-session")
 	ahead := time.Now().Add(24 * time.Hour)

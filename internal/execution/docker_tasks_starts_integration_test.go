@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executiontest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 )
 
 // A real name conflict followed by a failed observation does not establish

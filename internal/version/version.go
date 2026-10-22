@@ -1,5 +1,5 @@
 // Package version says what build a binary is. A release build sets Release
-// with -ldflags "-X flokkit.io/forge/internal/version.Release=v1.0.0";
+// with -ldflags "-X github.com/flokkit/apptown/internal/version.Release=v1.0.0";
 // every other build names its commit from Go's build information.
 //
 // Which binaries work together is not decided by this string but by the

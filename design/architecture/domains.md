@@ -1,6 +1,6 @@
 # Current package ownership
 
-AppTown is assembled in [App.New](../../internal/forge/app.go). HTTP handlers in
+AppTown is assembled in [App.New](../../internal/apptown/app.go). HTTP handlers in
 `httpapi` and tools in `mcpapi` translate requests into operations on concrete
 owners. They do not acquire unrestricted access to App through a replacement
 interface. Root retains authentication, routing, startup and cross-owner wiring.
@@ -9,9 +9,9 @@ interface. Root retains authentication, routing, startup and cross-owner wiring.
 
 - `internal/<name>` is a product-independent library: access policy evaluation,
   process execution, Docker/cloud drivers, the task worker, console mechanics, database and telemetry.
-- `internal/forge/<name>` is Forge-specific, including table-owning domains,
+- `internal/apptown/<name>` is AppTown-specific, including table-owning domains,
   application composition and transport. Owning tables is not a prerequisite.
-- `internal/forge` assembles these parts. It still contains protocol handlers and
+- `internal/apptown` assembles these parts. It still contains protocol handlers and
   some application composition; its presence is not evidence that an extraction
   is unfinished. Do not use a target of zero App methods.
 
@@ -47,14 +47,14 @@ one-service-per-table prescription. For exact table ownership consult
 
 ## Following an operation
 
-Start with [the root guide](../../internal/forge/README.md), then a package guide:
-[Workflow](../../internal/forge/workflow/README.md),
-[work commands](../../internal/forge/workcommands/README.md),
-[execution](../../internal/forge/workflowexec/README.md),
-[Deployment](../../internal/forge/deployment/README.md),
-[SCM](../../internal/forge/scm/README.md),
-[Inference](../../internal/forge/inference/README.md), or
-[maintenance](../../internal/forge/maintenance/README.md).
+Start with [the root guide](../../internal/apptown/README.md), then a package guide:
+[Workflow](../../internal/apptown/workflow/README.md),
+[work commands](../../internal/apptown/workcommands/README.md),
+[execution](../../internal/apptown/workflowexec/README.md),
+[Deployment](../../internal/apptown/deployment/README.md),
+[SCM](../../internal/apptown/scm/README.md),
+[Inference](../../internal/apptown/inference/README.md), or
+[maintenance](../../internal/apptown/maintenance/README.md).
 
 Operations verify caller authority before effects. Owners control their own
 records and legal transitions. Named SQL queries live with the owner and generated

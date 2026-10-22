@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/dockerlabel"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // A real private daemon: the client sees the same /work, builds and runs an

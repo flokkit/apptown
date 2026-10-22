@@ -74,7 +74,7 @@ inference listener, local model execution is refused, and a known provider
 key passed back in through a step secret or an integration setting stops the
 runtime's preparation ([inference security](../subsystems/inference-security.md);
 `TestInferenceAdmissionAndCredentialBoundary` and the other tests in
-`internal/forge/inference/gateway_test.go`). A provider key ever delivered into
+`internal/apptown/inference/gateway_test.go`). A provider key ever delivered into
 a runtime must still be rotated. Spending through the gateway is TM-02.
 
 **Attack and impact.** A package script, malicious tool, persuaded agent or
@@ -201,7 +201,7 @@ output refuse symlinks and paths that leave the source tree
 `internal/deploy/docker/static_build_test.go`); image exports and runner
 results refuse links out of the tree (`internal/execution/images_test.go`,
 `internal/execution/runner_test.go`); the doors that serve workspace files
-open them through `os.Root` (`internal/forge/httpapi/workspaces.go`); chat
+open them through `os.Root` (`internal/apptown/httpapi/workspaces.go`); chat
 upload reads are confined to the upload directory
 ([inference security](../subsystems/inference-security.md)). Remaining:
 attachment synchronisation still writes `.apptown/attachments` into the
@@ -229,7 +229,7 @@ mounts. Expected denial must not alter the outside canary.
 checks mount a cache volume of their own, `apptown-cache-<project>`, and each
 chat has its own ([split install](../../stock/docs/guides/split-install.md),
 "Limits and the metadata service"; `TestAStepsCacheIsItsProjectsAlone`
-in `internal/forge/agentenv`). Remaining: a worker's mise download cache is
+in `internal/apptown/agentenv`). Remaining: a worker's mise download cache is
 one folder writable by every container on that worker, so one project's
 container can leave files another project's reads
 ([workers](../operations/workers.md), "The tool cache").
@@ -284,8 +284,8 @@ reach the disallowed destination.
 and chat history files are served as downloads (`application/octet-stream`,
 `Content-Disposition: attachment`) with `nosniff` and a `sandbox` CSP; only
 content that is really a picture is shown inline
-([untrusted_file.go](../../internal/forge/httpapi/untrusted_file.go);
-`TestUntrustedFileResponses` in `internal/forge/browser_security_test.go`).
+([untrusted_file.go](../../internal/apptown/httpapi/untrusted_file.go);
+`TestUntrustedFileResponses` in `internal/apptown/browser_security_test.go`).
 The optional browser tier (`TestBrowserSecurityChromium`, build tag `browser`)
 uploads a script disguised as a picture and checks in Chromium that it does
 not act at AppTown origin. Other raw-content routes were not reviewed in
@@ -302,7 +302,7 @@ origin. Allow inline display only for deliberately supported inert formats;
 active formats need isolation. Apply the same policy to artifacts and reports.
 
 **Verify.** Browser fixture uploads active HTML/SVG and opens each rendering
-route; no script gains Forge-origin API authority. Test misleading extensions,
+route; no script gains AppTown-origin API authority. Test misleading extensions,
 MIME sniffing, redirects and download filenames. Preserve ordinary image/PDF
 workflows through safe rendering.
 
@@ -370,7 +370,7 @@ is made: reads follow the caller's current read grants on each project;
 aggregate reads select readable projects before limits and counts; reads
 about the instance keep an instance capability; a refusal does not name the
 project ([authorization decisions](../subsystems/authorization-capabilities.md);
-`checkMemberScopedReads` in `internal/forge/member_views_http_test.go`). An
+`checkMemberScopedReads` in `internal/apptown/member_views_http_test.go`). An
 instance-wide read grant (the Auditor role) reads every project by design.
 Remaining: this pass did not show the same filtering on every representation
 the entry lists (Git, MCP, events, error metadata).
@@ -398,7 +398,7 @@ secret share a per-client rate limit; open sign-in refuses a listener other
 machines can reach unless `-open-on-network` is given
 ([authentication and authority](../subsystems/auth.md); [setting up a
 server](../../stock/docs/guides/server-setup.md)). Remaining: an empty
-administrator-network list still means anywhere (`internal/forge/adminnet.go`);
+administrator-network list still means anywhere (`internal/apptown/adminnet.go`);
 stripping identity and forwarding headers at the edge is the operator's job;
 there is no second factor.
 
@@ -541,7 +541,7 @@ branch and deploying need a person's approval or a run admitted by someone
 holding `change:land`, checked at the effect itself; agents, consoles, step
 runs and AppTown's triggers cannot approve or land
 ([authorization decisions](../subsystems/authorization-capabilities.md);
-`internal/forge/workflow/assent.go`). An optional check worker keeps checks
+`internal/apptown/workflow/assent.go`). An optional check worker keeps checks
 off the machine agents use, and a tests step answers only from a witnessed
 exit ([agent isolation limits](../subsystems/agent-sandbox.md);
 [workers](../operations/workers.md)). Remaining: project-controlled tests and
@@ -623,7 +623,7 @@ starts, on its host or a worker, has CPU, memory and PID limits
 beside tests and checks have their own limits ([workers](../operations/workers.md),
 "Limits on services"). The HTTP servers set header timeouts
 (`cmd/apptownd/main.go`) and the terminal WebSocket limits a frame to 1 MiB
-(`internal/forge/console_pty.go`). Remaining: no per-person, per-project or
+(`internal/apptown/console_pty.go`). Remaining: no per-person, per-project or
 instance admission quotas; no disk, image or log quotas.
 
 **Attack and impact.** Jobs fork processes, fill disk/cache/images, emit logs,
@@ -694,7 +694,7 @@ is a named apptown secret resolved on AppTown
 ([deployment targets](../../stock/docs/guides/deployment-targets.md); [deploy targets](../subsystems/deploy-targets.md)), but what each
 credential may do is decided at the provider, a Docker host's SSH key is
 host-wide, and SSH host keys are accepted on first use
-(`StrictHostKeyChecking accept-new` in `internal/forge/deployment/hosts.go`).
+(`StrictHostKeyChecking accept-new` in `internal/apptown/deployment/hosts.go`).
 
 **Attack and impact.** A compromised control plane or insufficiently bounded
 deployment request uses registry, SSH, Docker or cloud credentials to affect

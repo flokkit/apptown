@@ -9,8 +9,8 @@ baseline fails (a new old name); a count below it is reported, and
 The rename lowers the baselines push by push until the user-visible surfaces
 reach zero.
 
-Kept names (the Go module, database and Docker resource names, history) are
-not surfaces here; a kept name a surface pattern would still match is listed
+Kept names (database and Docker resource names, history) are not surfaces
+here; a kept name a surface pattern would still match is listed
 in ALLOWED with its reason, so keeping it is a decision, not an omission.
 
 Usage: names-check.py [--root DIR] [--tighten] [--show SURFACE] [--init]
@@ -61,11 +61,11 @@ SURFACES = {
 
 # Files that are history or this check itself: never counted. The upgrade
 # fixtures and the rc5 catalogue copies are earlier releases' frozen state
-# (internal/forge/boot_test.go, the dependency upgrade tests): they keep the
+# (internal/apptown/boot_test.go, the dependency upgrade tests): they keep the
 # names those releases wrote.
 SKIP = re.compile(
     r"^(web/dist/|.*node_modules/|releases/v1\.0\.0-rc\.[1-5]\.md$"
-    r"|internal/forge/testdata/upgrade/|internal/forge/dependency/testdata/rc5/"
+    r"|internal/apptown/testdata/upgrade/|internal/apptown/dependency/testdata/rc5/"
     r"|scripts/names-check\.py$|scripts/names-check_test\.py$|scripts/names-baseline\.json$)"
 )
 
@@ -74,34 +74,35 @@ SKIP = re.compile(
 ALLOWED = [
     ("cli-invocation", r"^internal/gitexec/folder(_test)?\.go$", r"\"forge helper\"",
      "the Git name of a change folder cloned before the rename: history in that folder's config, accepted, not rewritten"),
-    ("quoted-name", r"^internal/forge/dbboot\.go$", r"\bbuiltinDBName\s*=\s*\"forge\"",
-     "the built-in database's name: storage, kept (an existing install addresses it)"),
-    ("quoted-name", r"^scripts/(shape-check|shape-report|codebase-shape)\.py$|^scripts/shape-request-boundaries\.go$",
-     r".", "the shape tools name the Go package internal/forge, which is kept"),
-    ("quoted-name", r"^scripts/shape-check_test\.py$", r"flokkit\.io/forge/internal/forge",
-     "asserts the shape tool's name for the kept Go package internal/forge"),
     ("command", r"^\.gitignore$", r"^/forged$", "a stray build of the old daemon is never committed again"),
     # AppTown's own acts recorded before the rename (actor "forge-system",
     # instrument and usage kind "forge") are kept identifiers; these readers
     # show them as AppTown (private/design/plans/rename-leftovers-2026-10-20.md).
-    ("mount-and-builder", r"^internal/forge/identity/(principals\.go|apptown_rename_test\.go)$|^web/src/systemActors(\.test)?\.ts$",
+    ("mount-and-builder", r"^internal/apptown/identity/(principals\.go|apptown_rename_test\.go)$|^web/src/systemActors(\.test)?\.ts$",
      r"forge-system", "shows system actors recorded before the rename as AppTown"),
     ("cli-invocation", r"^web/src/brand\.test\.ts$", r"strayNames\(", "the web name test plants old names to show it catches them"),
     # History readers and the upgrade (push 4): revisions recorded before the
     # rename keep .forge/, refs/forge/ and forge/change-N; these read them or
     # move from them. Nothing writes the old names.
-    ("repo-folder", r"^internal/deploy/docker/contract_(bytes|history_test)\.go$|^internal/forge/changeadds/(changeadds|apptown_rename_test)\.go$"
-     r"|^internal/forge/repositoryedit/(scope|apptown_rename_test)\.go$|^internal/forge/scm/(repository|staging_test)\.go$"
-     r"|^internal/forge/workflow/workspace_git_test\.go$",
+    ("repo-folder", r"^internal/deploy/docker/contract_(bytes|history_test)\.go$|^internal/apptown/changeadds/(changeadds|apptown_rename_test)\.go$"
+     r"|^internal/apptown/repositoryedit/(scope|apptown_rename_test)\.go$|^internal/apptown/scm/(repository|staging_test)\.go$"
+     r"|^internal/apptown/workflow/workspace_git_test\.go$",
      r".", "reads or moves the contract folder as revisions before the rename hold it"),
-    ("branch", r"^internal/forge/projectlifecycle/(export|export_refs_test)\.go$", r".",
+    ("branch", r"^internal/apptown/projectlifecycle/(export|export_refs_test)\.go$", r".",
      "changes and runs from before the rename keep their recorded branch names"),
     # A db.env still using the keys from before the rename is refused as
     # incomplete; the test plants one.
-    ("env", r"^internal/forge/db_test\.go$", r"FORGE_DB_", "the test plants a db.env with the old keys to show it is refused"),
+    ("env", r"^internal/apptown/db_test\.go$", r"FORGE_DB_", "the test plants a db.env with the old keys to show it is refused"),
+    # An install made before 1.0 keeps its database forge and a trial volume its
+    # data folder forge; these tests plant them.
+    ("quoted-name", r"^internal/apptown/(database_dump|db)_test\.go$", r'Database: "forge"|"--no-owner", "forge"',
+     "the test plants the database an install made before 1.0 keeps"),
+    ("quoted-name", r"^scripts/apptown_start_test\.py$", r'"forge"', "the test plants the data folder a trial volume made before 1.0 keeps"),
+    ("quoted-name", r"^scripts/apptown_recovery_rehearsal_test\.py$", r"\('forge-db', 'forge'\)", "the test plants the database an install made before 1.0 keeps"),
+    ("quoted-name", r"^scripts/codebase-shape\.py$", r'\["internal", "forge"\]', "the shape report reads history under internal/forge, the root's folder before 2026-10-22"),
     # Evals do not convert code from before the rename; the refusal names the
     # old folder so a person sees why their change is not offered.
-    ("repo-folder", r"^internal/forge/scm/rename\.go$|^internal/forge/evals/service(_test)?\.go$|^web/src/pages/Evals\.test\.tsx$",
+    ("repo-folder", r"^internal/apptown/scm/rename\.go$|^internal/apptown/evals/service(_test)?\.go$|^web/src/pages/Evals\.test\.tsx$",
      r"\.forge/", "says a change predates the rename by the folder its code keeps"),
     # History readers (push 3): records written before the rename keep their
     # names, so these readers know the old spelling. Nothing writes it.
@@ -109,42 +110,40 @@ ALLOWED = [
      "scm finds a landing's merge from before the rename by its old Operation trailer"),
     ("trailer-or-header", r"^internal/trailer/trailer_test\.go$", r"Forge-Opened-by|\"Forge-Key: \"",
      "the trailer test's comments name the old spelling it guards against"),
-    ("mount-and-builder", r"^internal/forge/identity/enabled\.go$", r"forge-system",
+    ("mount-and-builder", r"^internal/apptown/identity/enabled\.go$", r"forge-system",
      "the system actor in records from before the rename is still a system actor, never a person"),
-    ("public-field", r"^internal/forge/dbschema/schema\.go$", r"WHERE store = 'forge-disk'",
+    ("public-field", r"^internal/apptown/dbschema/schema\.go$", r"WHERE store = 'forge-disk'",
      "migration 154 renames the stored value"),
-    ("public-field", r"^internal/forge/workflow/check_evidence\.go$", r"forgeFault",
+    ("public-field", r"^internal/apptown/workflow/check_evidence\.go$", r"forgeFault",
      "check evidence recorded before the rename keeps its platform fault"),
-    ("trailer-or-header", r"^internal/forge/scm/git_driver_test\.go$", r"Forge-Operation",
+    ("trailer-or-header", r"^internal/apptown/scm/git_driver_test\.go$", r"Forge-Operation",
      "the merge-proof test plants a merge written before the rename"),
-    ("token-or-cookie", r"^internal/forge/identity/refresh\.go$", r"forge_rt_",
+    ("token-or-cookie", r"^internal/apptown/identity/refresh\.go$", r"forge_rt_",
      "a refresh token from before the rename is refused; the comment names its prefix"),
-    ("token-or-cookie", r"^internal/forge/identity/apptown_rename_test\.go$", r"forge_rt_",
+    ("token-or-cookie", r"^internal/apptown/identity/apptown_rename_test\.go$", r"forge_rt_",
      "the test plants a refresh token from before the rename"),
-    ("scope", r"^internal/forge/identity/apptown_rename_test\.go$", r"forge:change:create",
+    ("scope", r"^internal/apptown/identity/apptown_rename_test\.go$", r"forge:change:create",
      "the test plants a delegation's stored scope from before the rename"),
-    ("mount-and-builder", r"^internal/forge/identity/directory_test\.go$", r"\"forge-system\": true",
+    ("mount-and-builder", r"^internal/apptown/identity/directory_test\.go$", r"\"forge-system\": true",
      "the system actor in records from before the rename stays a system actor"),
-    ("public-field", r"^internal/forge/(dbschema/apptown_rename_migration_test|workflow/apptown_rename_test)\.go$", r"forge-disk|forgeFault",
+    ("public-field", r"^internal/apptown/(dbschema/apptown_rename_migration_test|workflow/apptown_rename_test)\.go$", r"forge-disk|forgeFault",
      "migration and reader tests plant the stored values from before the rename"),
     # Push 5 (prose): what stays because a stored value or a kept resource
     # depends on the exact text.
-    ("cli-invocation", r"^internal/forge/deployment/(hosts\.go|docker_connection_test\.go)$", r"(BEGIN|END) forge target",
+    ("cli-invocation", r"^internal/apptown/deployment/(hosts\.go|docker_connection_test\.go)$", r"(BEGIN|END) forge target",
      "the block markers earlier releases wrote into the operator's SSH config; renaming them would leave old blocks unfound"),
-    ("cli-invocation", r"^internal/forge/secret/store\.go$", r"derivedPurpose = \"forge need credentials v1\"",
+    ("cli-invocation", r"^internal/apptown/secret/store\.go$", r"derivedPurpose = \"forge need credentials v1\"",
      "the key-derivation purpose of every generated need credential; changing it changes every deployment's passwords"),
     ("cli-invocation", r"^scripts/docs-current(_test)?\.py$", r"says forge for the product",
      "the docs check names the word it refuses"),
-    ("cli-invocation", r"^scripts/shape-check\.py$", r".", "the shape tools name the Go package internal/forge, which is kept"),
     ("cli-invocation", r"^web/src/brand\.test\.ts$", r"the forge command and its", "the web name test lists the old names it catches"),
     ("commit-subject", r"^web/src/brand\.test\.ts$", r"forge: PRODUCT|From another forge:", "the web name test plants old names to show it catches them"),
-    ("export-and-ticket", r"^internal/forge/project/contract_snapshots_test\.go$", r"x-forge-app", "plants a compose file from before the app contract to show it is not read as one"),
-    ("api-version", r"^internal/dockerlabel/dockerlabel_test\.go$|^internal/forge/schema/schema_test\.go$|^scripts/docs-current\.py$", r"forge\.flokkit\.io",
+    ("export-and-ticket", r"^internal/apptown/project/contract_snapshots_test\.go$", r"x-forge-app", "plants a compose file from before the app contract to show it is not read as one"),
+    ("api-version", r"^internal/dockerlabel/dockerlabel_test\.go$|^internal/apptown/schema/schema_test\.go$|^scripts/docs-current\.py$", r"forge\.flokkit\.io",
      "tests and the docs check name the old apiVersion host to show it is refused or not a product word"),
     ("env", r"^cmd/apptownd/flags_test\.go$", r"FORGE_DB_URL", "the test plants a setting spelled the old way to show it is not read"),
-    ("cli-invocation", r"^internal/forge/scm/main_record_test\.go$", r"forge then forge",
+    ("cli-invocation", r"^internal/apptown/scm/main_record_test\.go$", r"forge then forge",
      "the walk's pairs name the stored main-record kind \"forge\" (a quoted-name surface, renamed with the stored data)"),
-    ("cli-invocation", r"^internal/forge/(doc|store)\.go$", r"^// Package forge ", "the Go package internal/forge, which is kept, names itself"),
     ("cli-invocation", r"^scripts/docs-current_test\.py$", r".", "the docs check's test plants the old product name to show it is refused"),
     ("cli-invocation", r"^web/src/pages/console/Bubbles\.tsx$", r"\[forge check\]", "chats from before the rename keep their [forge check] messages as written"),
     # Host names (external-names plan, 21 Oct 2026): what a deployment or an
@@ -152,7 +151,7 @@ ALLOWED = [
     # these read or name them, and tests plant them.
     ("host-name", r"_test\.(go|py)$|\.test\.tsx?$", r".", "tests plant names a deployment or an install made before 1.0 keeps"),
     ("host-name", r"^internal/deploy/digitalocean/(inventory|storage)\.go$", r"forge-maker", "a maker key an older release left is still found and deleted"),
-    ("host-name", r"^internal/forge/maintenance/images\.go$", r"forge-conform:", "an older release's conformance images are still swept"),
+    ("host-name", r"^internal/apptown/maintenance/images\.go$", r"forge-conform:", "an older release's conformance images are still swept"),
     ("host-name", r"^internal/deploy/portainer/portainer\.go$", r"forge-env applied", "the platform's own Portainer environment name, not one AppTown makes"),
     ("host-name", r"^scripts/apptown-recovery-rehearsal\.sh$", r"forge-db", "live's built-in database, made before 1.0"),
     ("host-name", r"^stock/docs/guides/(apptown-backups|upgrading|server-setup)\.md$|^design/operations/README\.md$", r"forge-db", "says an install made before 1.0 keeps its database's name"),

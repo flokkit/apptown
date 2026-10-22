@@ -25,12 +25,12 @@
 # notes name no HTTP change, builds nothing.
 #
 # Before tagging, run `make upgrade-test` on the candidate commit: every
-# frozen release's AppTown (internal/forge/testdata/upgrade) upgrades
+# frozen release's AppTown (internal/apptown/testdata/upgrade) upgrades
 # to it and keeps its records. This script runs it again at the tag and
 # builds nothing when it fails.
 # After tagging, freeze the release's AppTown for the releases after it, at the
 # tag, and commit the result on main:
-#   go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>
+#   go test ./internal/apptown -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>
 set -eu
 version=${1:?usage: sh scripts/release.sh <version>  (the tag without its v)}
 tag=v$version
@@ -99,7 +99,7 @@ trap 'rm -rf "$work"' EXIT
 # for every archive.
 python3 scripts/third-party-notices.py > "$work/THIRD_PARTY_NOTICES"
 
-ldflags="-X flokkit.io/forge/internal/version.Release=$tag"
+ldflags="-X github.com/flokkit/apptown/internal/version.Release=$tag"
 for platform in linux/amd64 linux/arm64 darwin/arm64; do
 	os=${platform%/*} arch=${platform#*/}
 	name=apptown-$tag-$os-$arch

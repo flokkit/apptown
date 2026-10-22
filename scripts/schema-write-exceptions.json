@@ -1,7 +1,7 @@
 {
   "foreign": [
     {
-      "file": "internal/forge/jobs/internal/jobsql/queries.sql",
+      "file": "internal/apptown/jobs/internal/jobsql/queries.sql",
       "declaration": "SettleInterruptedOperation",
       "table": "river_job",
       "declaration_hash": "",
@@ -67,7 +67,7 @@
       "reason": "Cloud execution.Runner.Exec(ctx, request) is a process port, not database SQL."
     },
     {
-      "file": "internal/forge/dbschema/schema.go",
+      "file": "internal/apptown/dbschema/schema.go",
       "declaration": "Migrate",
       "text": "schemaSQL",
       "declaration_hash": "665970e0c52b53fb50db5e05347c6586295151e1ae6f66a82201753b7915c3be",
@@ -75,7 +75,7 @@
       "reason": "Executes the embedded canonical DDL for an empty database only."
     },
     {
-      "file": "internal/forge/dbschema/schema.go",
+      "file": "internal/apptown/dbschema/schema.go",
       "declaration": "applyMigration",
       "text": "q",
       "declaration_hash": "b9f5807283cd6e2535a7d4551d003e9aeee8125d8f8c042e686a95534e207ea5",

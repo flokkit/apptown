@@ -1,4 +1,4 @@
-// The tour's camera (make tour; internal/forge/tour_test.go starts it):
+// The tour's camera (make tour; internal/apptown/tour_test.go starts it):
 // signs in to the tour's AppTown and photographs each stop at 1440x900,
 // device scale 2, in the light and the dark theme, with animations and the
 // text caret off. Writes <out>/<id>-light.png and <id>-dark.png.

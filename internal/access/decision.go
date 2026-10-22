@@ -1,7 +1,7 @@
 // Package access is the authorization rule and its vocabulary: who is asking
 // (principal, caller), what they want (capability, resource, permission), the
 // catalog of capabilities and stock roles, the decision, and the denial. It
-// owns no tables, reads no database, and imports nothing of forge, so a
+// owns no tables, reads no database, and imports nothing of AppTown, so a
 // decision is testable on its own.
 package access
 
@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 
-	"flokkit.io/forge/internal/stamp"
+	"github.com/flokkit/apptown/internal/stamp"
 )
 
 // The authorization decision (authorization-capabilities.md §12). One rule
@@ -212,7 +212,7 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 	}
 	// 2. Instruments: bounded by §11's table and their one project. A console
 	// then also needs its person to hold the capability; a run token or the
-	// forge's own trigger has no person and holds exactly the table.
+	// AppTown's own trigger has no person and holds exactly the table.
 	if pr.Kind == "instrument" {
 		if !InstrumentMay(pr.Instrument, c) {
 			return Decision{Code: DenyDelegationNarrow,

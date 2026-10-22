@@ -82,13 +82,13 @@ required evidence and adoption history remain separate records.
 
 ## Implementation references
 
-- [internal/forge/wow/service.go](../../internal/forge/wow/service.go)
-- [internal/forge/wow/pack_inclusion.go](../../internal/forge/wow/pack_inclusion.go)
-- [internal/forge/wow/pack_recommendation.go](../../internal/forge/wow/pack_recommendation.go)
-- [internal/forge/conformance/what_if.go](../../internal/forge/conformance/what_if.go)
-- [internal/forge/verification/what_if.go](../../internal/forge/verification/what_if.go)
-- [internal/forge/wow/catalog_edit.go](../../internal/forge/wow/catalog_edit.go)
-- [internal/forge/adoption/service.go](../../internal/forge/adoption/service.go)
-- [internal/forge/adoption/adopt_transaction.go](../../internal/forge/adoption/adopt_transaction.go)
-- [internal/forge/adoption/target.go](../../internal/forge/adoption/target.go)
-- [internal/forge/projectlifecycle/packs.go](../../internal/forge/projectlifecycle/packs.go)
+- [internal/apptown/wow/service.go](../../internal/apptown/wow/service.go)
+- [internal/apptown/wow/pack_inclusion.go](../../internal/apptown/wow/pack_inclusion.go)
+- [internal/apptown/wow/pack_recommendation.go](../../internal/apptown/wow/pack_recommendation.go)
+- [internal/apptown/conformance/what_if.go](../../internal/apptown/conformance/what_if.go)
+- [internal/apptown/verification/what_if.go](../../internal/apptown/verification/what_if.go)
+- [internal/apptown/wow/catalog_edit.go](../../internal/apptown/wow/catalog_edit.go)
+- [internal/apptown/adoption/service.go](../../internal/apptown/adoption/service.go)
+- [internal/apptown/adoption/adopt_transaction.go](../../internal/apptown/adoption/adopt_transaction.go)
+- [internal/apptown/adoption/target.go](../../internal/apptown/adoption/target.go)
+- [internal/apptown/projectlifecycle/packs.go](../../internal/apptown/projectlifecycle/packs.go)

@@ -4,7 +4,7 @@ Setup for an AppTown's projects in a public gitlab.com group, following GitLab's
 published documentation. The operator does this setup on gitlab.com by hand;
 AppTown does not automate it. What AppTown writes on a merge request and
 its merge commit is in the
-[SCM package guide](../../internal/forge/scm/README.md#what-gitlab-is-told).
+[SCM package guide](../../internal/apptown/scm/README.md#what-gitlab-is-told).
 
 ## Setup
 

@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"flokkit.io/forge/internal/fault"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/strs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgconn/ctxwatch"

@@ -3,15 +3,15 @@ package docker
 import (
 	"context"
 	"errors"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/dind"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/dind"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Scope is which Docker daemon a command talks to: AppTown's own
@@ -346,7 +346,7 @@ func (dk Scope) RemoveBuildImagesOf(ctx context.Context, container string) (inUs
 }
 
 // BuildCacheBudget is how much unused build cache a daemon keeps: the
-// forge's own and a worker's alike.
+// AppTown's own and a worker's alike.
 const BuildCacheBudget = "4GB"
 
 // TrimBuildCache trims dk's unused build cache to BuildCacheBudget.

@@ -427,7 +427,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
 
 // Inviting a person: an administrator names the account and its role, and
 // gets a link to pass on. The person opens it, sets their own password and
-// is signed in. The link is shown once, here; Forge sends no email.
+// is signed in. The link is shown once, here; AppTown sends no email.
 export function InvitePerson() {
   const q = useGet<InviteList>('/invites')
   const pending = q.data?.invites ?? []

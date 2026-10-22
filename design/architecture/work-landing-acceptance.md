@@ -1,7 +1,7 @@
 # Carrying accepted Work into a landing
 
 Accepting a change can count as approving its landing. Whether it does is
-decided in one place, `landings.carry` in `internal/forge/workflow`, for each
+decided in one place, `landings.carry` in `internal/apptown/workflow`, for each
 approval step of the landing in turn.
 
 ## When the acceptance counts
@@ -22,7 +22,7 @@ counts only if all of these hold:
   the person read when they gave it.
 - **The accepter was shown the same list of what the change adds.** An
   approval of a commit shows what that commit adds to the app
-  (`workflow.ChangeAdds`, read by `internal/forge/changeadds` from the app's
+  (`workflow.ChangeAdds`, read by `internal/apptown/changeadds` from the app's
   declarations). Every
   approving vote sends back the digest of the list it showed, and the vote
   records the list with the commit; a missing digest is refused
@@ -57,7 +57,7 @@ landing. Under a quorum a carried vote is one vote.
 ## A yes given in advance
 
 A person opening an adoption Change may accept it in advance
-(`internal/forge/workflow/in_advance.go`). An approval says what such a yes
+(`internal/apptown/workflow/in_advance.go`). An approval says what such a yes
 means in its own `inAdvance` sentence; an approval without one takes none,
 so a workflow opts in through its data. The person is shown, per project,
 the sentences of the lane's acceptance and of the landing's approvals

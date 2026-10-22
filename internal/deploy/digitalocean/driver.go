@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/oci"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/oci"
 )
 
 // Driver is the App Platform target: renderer, reconciler and the

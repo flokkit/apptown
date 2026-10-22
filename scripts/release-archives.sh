@@ -30,7 +30,7 @@ cd "$repo"
 [ -f web/dist/index.html ] || { echo "web/dist is not built (cd web && npm ci && npm run build)" >&2; exit 1; }
 
 platforms="linux/amd64 linux/arm64 darwin/arm64 darwin/amd64"
-ld="-X flokkit.io/forge/internal/version.Release=v$version -X flokkit.io/forge/internal/version.Revision=$revision"
+ld="-X github.com/flokkit/apptown/internal/version.Release=v$version -X github.com/flokkit/apptown/internal/version.Revision=$revision"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$out"

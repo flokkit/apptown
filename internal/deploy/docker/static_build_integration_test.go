@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 func staticBuildTree(t *testing.T, dockerfile string) string {

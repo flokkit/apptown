@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
+	"github.com/flokkit/apptown/internal/clock"
 )
 
 // firstByteWait bounds how long a new connection may take to send its

@@ -3,8 +3,8 @@ package idstest_test
 import (
 	"testing"
 
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func TestNIsAStableOrderedID(t *testing.T) {

@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/worker"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 // fakeDocker is the daemon as the runtime sees it through docker commands:
@@ -574,7 +574,7 @@ func TestTheMarkComesBeforeAnyPrivilegedDaemon(t *testing.T) {
 }
 
 // A worker's chat (CachePerSession, Limits, Mounts, a mirror from its
-// forge): its own cache volume, labelled with it and mounted by its
+// AppTown): its own cache volume, labelled with it and mounted by its
 // container and its daemon, never apptown-cache; the worker's tool cache in
 // its container only; the same limits on both, and on its script;
 // the mirror in the daemon's flags and the builder's configuration. The
@@ -680,7 +680,7 @@ func TestAZeroChatLimitCreatesNothing(t *testing.T) {
 
 // On AppTown's own machine chats share apptown-cache, as before, and make
 // no volume of their own.
-func TestTheForgesChatsShareForgeCache(t *testing.T) {
+func TestAppTownsChatsShareAppTownCache(t *testing.T) {
 	r, in, f := fixture(t)
 	if err := r.provision(in); err != nil {
 		t.Fatal(err)

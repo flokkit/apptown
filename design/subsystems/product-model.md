@@ -85,8 +85,8 @@ For Go entry points and storage boundaries, continue with the
 
 ## Implementation references
 
-- [internal/forge/projectlifecycle/service.go](../../internal/forge/projectlifecycle/service.go)
-- [internal/forge/workflow/service.go](../../internal/forge/workflow/service.go)
-- [internal/forge/conversation/admission.go](../../internal/forge/conversation/admission.go)
-- [internal/forge/adoption/service.go](../../internal/forge/adoption/service.go)
-- [internal/forge/deployment/service.go](../../internal/forge/deployment/service.go)
+- [internal/apptown/projectlifecycle/service.go](../../internal/apptown/projectlifecycle/service.go)
+- [internal/apptown/workflow/service.go](../../internal/apptown/workflow/service.go)
+- [internal/apptown/conversation/admission.go](../../internal/apptown/conversation/admission.go)
+- [internal/apptown/adoption/service.go](../../internal/apptown/adoption/service.go)
+- [internal/apptown/deployment/service.go](../../internal/apptown/deployment/service.go)

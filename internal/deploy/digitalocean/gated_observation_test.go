@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // platformWithDeployment answers one app whose deployment ends in phase,
@@ -82,7 +82,7 @@ func TestGatedDeploymentFailureCopiesNoComponentLog(t *testing.T) {
 
 // The gate answers anyone without a credential 404, so a gated app is
 // never asked at its front door anonymously when it goes active: the
-// forge's own checks ask it through the gate. An ungated one still is.
+// AppTown's own checks ask it through the gate. An ungated one still is.
 func TestGatedDeploymentIsNotProbedAnonymously(t *testing.T) {
 	t.Parallel()
 	srv := platformWithDeployment(t, "ACTIVE", "")

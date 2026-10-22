@@ -1,9 +1,9 @@
 package deploy
 
-import "flokkit.io/forge/internal/ids"
+import "github.com/flokkit/apptown/internal/ids"
 
 // Placement is a standing deployment as a driver sees it: what it is
-// called and what the provider last said about it. Forge keeps a record
+// called and what the provider last said about it. AppTown keeps a record
 // of a deployment; a driver is handed this. Whose it is, the driver never
 // asks: its collaborators were built knowing.
 type Placement struct {
@@ -43,8 +43,8 @@ type Gate struct {
 	// provider's encrypted secret to the gate alone. Empty when AppTown
 	// only observes or takes the deployment down, which needs no secret.
 	Secret string
-	// Forge is AppTown's public origin, where the gate redeems tickets.
-	Forge string
+	// AppTown is AppTown's public origin, where the gate redeems tickets.
+	AppTown string
 	// Marker is this deployment's own random mark, recorded by AppTown
 	// before anything is made and rendered into the gate's environment. It
 	// is what proves an app found on the account by its name is this
@@ -57,7 +57,7 @@ type Gate struct {
 const (
 	GateEnvUpstream = "GATE_UPSTREAM"
 	GateEnvSecret   = "GATE_SECRET"
-	GateEnvForge    = "GATE_APPTOWN"
+	GateEnvAppTown  = "GATE_APPTOWN"
 	GateEnvListen   = "GATE_LISTEN"
 	// GateEnvMarker carries Gate.Marker in the gate's environment; the gate
 	// does not read it.

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {

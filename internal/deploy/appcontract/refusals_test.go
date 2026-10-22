@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 const publicWeb = "app:\n  web:\n    build: .\n    public: true\n"

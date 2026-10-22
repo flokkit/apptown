@@ -24,6 +24,6 @@ completion and restart behaviour.
 
 ## Implementation references
 
-- [internal/forge/workflow/change_create_run.go](../../internal/forge/workflow/change_create_run.go)
-- [internal/forge/workflow/execution.go](../../internal/forge/workflow/execution.go)
-- [internal/forge/scm/README.md](../../internal/forge/scm/README.md)
+- [internal/apptown/workflow/change_create_run.go](../../internal/apptown/workflow/change_create_run.go)
+- [internal/apptown/workflow/execution.go](../../internal/apptown/workflow/execution.go)
+- [internal/apptown/scm/README.md](../../internal/apptown/scm/README.md)

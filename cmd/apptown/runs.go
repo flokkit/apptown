@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // waitVerdict reads AppTown's own activity for a running run (the state
@@ -649,8 +649,8 @@ type approvalQuestion struct {
 	Adds *changeAdds
 }
 
-// changeAdds is AppTown's list of what a change adds, worded by the
-// forge; the client only lays it out.
+// changeAdds is AppTown's list of what a change adds, worded by
+// AppTown; the client only lays it out.
 type changeAdds struct {
 	Digest, ReadFrom, NothingNew string
 	Lines                        []struct{ Kind, Text string }

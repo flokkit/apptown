@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // Canceling a git kills what it started as well: a helper git left running

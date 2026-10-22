@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 // An agent's repository (execution.AgentGit) is an ordinary Git repository

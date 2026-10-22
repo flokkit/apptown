@@ -18,16 +18,16 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // remoteChats is AppTown's chat service running its chats on a worker:
@@ -175,7 +175,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 // AppTown's Docker Hub mirror goes to the worker as data with a chat that
 // has private Docker, and reaches the worker's runtime; a chat without
 // private Docker is sent none.
-func TestAWorkerChatGetsTheForgesMirror(t *testing.T) {
+func TestAWorkerChatGetsAppTownsMirror(t *testing.T) {
 	ctx := context.Background()
 	c := startRemoteChats(t, console.Static{})
 	for _, docker := range []bool{true, false} {
@@ -385,7 +385,7 @@ func TestAChatsWorkTreeIsMadeFromItsSource(t *testing.T) {
 
 // A save is the chat's commits since a base, bundled by the chat's own git
 // and naming its tip; with nothing new it is nothing. The bundle passes the
-// forge's checked import, which is what AppTown does with it.
+// AppTown's checked import, which is what AppTown does with it.
 func TestASaveIsTheChatsCommitsSinceItsBase(t *testing.T) {
 	ctx := context.Background()
 	repo, commit := chatSourceRepo(t)

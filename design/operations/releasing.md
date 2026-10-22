@@ -5,7 +5,7 @@ How a Flokkit release is made, in order. The release script is
 [What 1.0 promises](../../stock/docs/guides/compatibility.md).
 
 1. **The upgrade test.** On the candidate commit, run `make upgrade-test`.
-   Every earlier release's frozen AppTown (`internal/forge/testdata/upgrade`)
+   Every earlier release's frozen AppTown (`internal/apptown/testdata/upgrade`)
    must upgrade to it and keep its records.
 2. **The notes.** Write `releases/v<version>.md` and commit it. It says what
    the release is for, then has two sections the compatibility guide
@@ -42,7 +42,7 @@ How a Flokkit release is made, in order. The release script is
    facts) under `dist/release/v<version>/`.
 6. **Freeze the release's AppTown** for the releases after it, at the tag, and
    land the result on main by its own pull request:
-   `go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>`.
+   `go test ./internal/apptown -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>`.
    Before publishing, `sh scripts/stranger-install.sh <archive>` installs the
    archive in a fresh container, inside a
    Docker daemon of its own on any Linux machine that may run a privileged

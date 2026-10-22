@@ -78,16 +78,16 @@ def _writes_in(text):
 
 def _owner_of(relpath):
     """The writing package for an ordinary production file: the subsystem or
-    library directory (internal/forge/<x>/... -> x; internal/forge/*.go -> forge;
+    library directory (internal/apptown/<x>/... -> x; internal/apptown/*.go -> apptown;
     internal/<lib>/... -> lib), or cmd/<name> for a command."""
     parts = relpath.split(os.sep)
     if parts[0] == "cmd":
         return "cmd/" + parts[1]
     rest = parts[1:]
-    if rest[0] == "forge":
+    if rest[0] == "apptown":
         rest = rest[1:]
         if not rest or rest[0].endswith(".go"):
-            return "forge"
+            return "apptown"
     return rest[0]
 
 def _query_files(dirpath, filenames):
@@ -158,9 +158,9 @@ def tables_written_from_many_packages():
     return items
 
 def parse_app_struct():
-    """(name, type, line) for each field of internal/forge/app.go's App struct,
+    """(name, type, line) for each field of internal/apptown/app.go's App struct,
     in source order. Cannot see fields declared several to a line."""
-    relpath = "internal/forge/app.go"
+    relpath = "internal/apptown/app.go"
     text = read(relpath)
     m = re.search(r"^type App struct \{\n(.*?)^\}", text, re.M | re.S)
     if not m:
@@ -199,7 +199,7 @@ def app_fields_that_are_parts():
     proper door but this field reaches around it; (b) a sync.Once, paired with
     the field declared right after it (source order only -- may not be the field
     it actually guards); (c) an unexported struct type, defined at the top level
-    of internal/forge, that itself holds a db handle. Cannot see fields reached
+    of internal/apptown, that itself holds a db handle. Cannot see fields reached
     only through a further level of indirection (a struct holding the *pkg.X)."""
     fields = parse_app_struct()
     idx = package_index()
@@ -212,7 +212,7 @@ def app_fields_that_are_parts():
                 "kind": "part-typed field",
                 "field": name,
                 "reason": f"{typ} is a part of {m.group(1)}, which has a Service",
-                "evidence": [f"internal/forge/app.go:{ln}"],
+                "evidence": [f"internal/apptown/app.go:{ln}"],
             })
 
     for i, (name, typ, ln) in enumerate(fields):
@@ -222,12 +222,12 @@ def app_fields_that_are_parts():
                 "kind": "sync.Once field",
                 "field": name,
                 "reason": f"guards {guarded[0]} (the next field)" if guarded else "guards nothing after it",
-                "evidence": [f"internal/forge/app.go:{ln}"] + ([f"internal/forge/app.go:{guarded[2]}"] if guarded else []),
+                "evidence": [f"internal/apptown/app.go:{ln}"] + ([f"internal/apptown/app.go:{guarded[2]}"] if guarded else []),
             })
 
     app_field_types = {m.group(1) for _, typ, _ in fields for m in [re.match(r"^\*?(\w+)$", typ)] if m}
-    for relpath in production_files("internal/forge"):
-        if os.path.dirname(relpath) != "internal/forge":
+    for relpath in production_files("internal/apptown"):
+        if os.path.dirname(relpath) != "internal/apptown":
             continue
         text = read(relpath)
         for pat in (STRUCT_MULTI, STRUCT_ONE):
@@ -289,19 +289,19 @@ def matching_type_pairs():
     return items
 
 def app_reach_per_package():
-    """For every package internal/forge (the App) imports directly: how many
-    times its own top-level files (internal/forge/*.go, not its subsystem
+    """For every package internal/apptown (the App) imports directly: how many
+    times its own top-level files (internal/apptown/*.go, not its subsystem
     subdirectories) say pkg.Exported, in how many of those files, and how many
     times they call a door a.<Field>.<Method>( where <Field> is an App field of
     that package's Service. Sorted by references, most-referenced first. Cannot
     see a reference through a local alias or an embedded field. Evidence is
     sampled (first 5), not exhaustive, when a package runs to hundreds of hits."""
-    out = subprocess.run(["go", "list", "-f", '{{join .Imports "\\n"}}', "./internal/forge"],
+    out = subprocess.run(["go", "list", "-f", '{{join .Imports "\\n"}}', "./internal/apptown"],
                           cwd=ROOT, capture_output=True, text=True)
     imports = [l for l in out.stdout.split() if l.startswith(MOD)]
     fields = parse_app_struct()
 
-    top_level = [f for f in production_files("internal/forge") if os.path.dirname(f) == "internal/forge"]
+    top_level = [f for f in production_files("internal/apptown") if os.path.dirname(f) == "internal/apptown"]
     texts = {f: read(f) for f in top_level}
 
     items = []

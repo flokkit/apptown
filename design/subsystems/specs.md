@@ -24,4 +24,4 @@ or workflow engine.
 
 - [stock/product-spec.yaml](../../stock/product-spec.yaml)
 - [stock/guidance/skill/spec-development.md](../../stock/guidance/skill/spec-development.md)
-- [internal/forge/conformance/service.go](../../internal/forge/conformance/service.go)
+- [internal/apptown/conformance/service.go](../../internal/apptown/conformance/service.go)

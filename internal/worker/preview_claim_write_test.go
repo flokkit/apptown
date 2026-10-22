@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // A failed recovery claim must leave the lost-fence barrier intact. The
