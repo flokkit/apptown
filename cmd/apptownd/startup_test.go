@@ -30,10 +30,9 @@ func TestRequiredRecoveryGatesWritableStartup(t *testing.T) {
 func TestEveryStartButAPasswordResetHoldsTheDatabase(t *testing.T) {
 	t.Parallel()
 	for name, set := range map[string]func(*daemonFlags){
-		"serving":                 func(*daemonFlags) {},
-		"-verify-only":            func(o *daemonFlags) { o.verifyOnly = true },
-		"-drain-local-docker":     func(o *daemonFlags) { o.drainLocalDocker = true },
-		"-backfill-recorded-main": func(o *daemonFlags) { o.backfillMain = true },
+		"serving":             func(*daemonFlags) {},
+		"-verify-only":        func(o *daemonFlags) { o.verifyOnly = true },
+		"-drain-local-docker": func(o *daemonFlags) { o.drainLocalDocker = true },
 	} {
 		o := &daemonFlags{}
 		set(o)

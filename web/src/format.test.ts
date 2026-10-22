@@ -1,17 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { fmtCost, fmtDuration, fmtLastRead, fmtTokens, fmtWhen, relTime, utcDate } from './format'
+import { fmtCost, fmtDuration, fmtLastRead, fmtTokens, fmtWhen, relTime, stampDate } from './format'
 
 const NOW = Date.parse('2026-09-03T10:00:00Z')
 
-describe('utcDate', () => {
-  it('reads a bare server stamp as UTC, not local time', () => {
-    expect(utcDate('2026-09-03 09:00:00').toISOString()).toBe('2026-09-03T09:00:00.000Z')
-    expect(utcDate('2026-09-03T09:00:00').toISOString()).toBe('2026-09-03T09:00:00.000Z')
-  })
-  it('leaves a zoned stamp alone', () => {
-    expect(utcDate('2026-09-03T09:00:00Z').toISOString()).toBe('2026-09-03T09:00:00.000Z')
-    expect(utcDate('2026-09-03T19:00:00+10:00').toISOString()).toBe('2026-09-03T09:00:00.000Z')
-    expect(utcDate('2026-09-03T09:00:00.123456Z').toISOString()).toBe('2026-09-03T09:00:00.123Z')
+describe('stampDate', () => {
+  it('reads a stamp in its own zone', () => {
+    expect(stampDate('2026-09-03T09:00:00Z').toISOString()).toBe('2026-09-03T09:00:00.000Z')
+    expect(stampDate('2026-09-03T19:00:00+10:00').toISOString()).toBe('2026-09-03T09:00:00.000Z')
+    expect(stampDate('2026-09-03T09:00:00.123456Z').toISOString()).toBe('2026-09-03T09:00:00.123Z')
   })
 })
 

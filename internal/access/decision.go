@@ -477,9 +477,7 @@ func ScopeMeans(name string) string {
 	return ""
 }
 
-// Personal token purposes. A token without one is refused when presented:
-// tokens made before purposes existed are classified by hand, never
-// defaulted.
+// Personal token purposes: every token is made with one, never by default.
 const (
 	TokenCLI   = "cli"
 	TokenAgent = "agent"

@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -372,9 +371,9 @@ func TestAFolderEnsureCloneMakesIsOneTheForgeRunsGitIn(t *testing.T) {
 	}
 }
 
-// A repository that still keeps AppTown's files in .forge/ takes no new
-// workspace until the upgrade renames it; once .apptown/ is there, it does.
-func TestANewWorkspaceIsRefusedUntilTheRepositoryIsUpgraded(t *testing.T) {
+// A repository whose start commit holds a .forge/ folder is an ordinary
+// repository: a new workspace starts from it.
+func TestANewWorkspaceStartsFromACommitHoldingAForgeFolder(t *testing.T) {
 	t.Parallel()
 	g := GitWorkspace{DataDir: t.TempDir()}
 	repo := t.TempDir()
@@ -384,29 +383,17 @@ func TestANewWorkspaceIsRefusedUntilTheRepositoryIsUpgraded(t *testing.T) {
 			t.Fatalf("git %v: %v: %s", args, err, out)
 		}
 	}
-	write := func(rel string) {
-		t.Helper()
-		if err := os.MkdirAll(filepath.Join(repo, filepath.Dir(rel)), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(repo, rel), []byte("app: {}\n"), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.MkdirAll(filepath.Join(repo, ".forge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".forge", "app.yaml"), []byte("app: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 	git("init", "-q", "-b", "main")
-	write(".forge/app.yaml")
 	git("add", "-f", "-A")
-	git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "before")
+	git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "start")
 	wt := filepath.Join(g.DataDir, "workspaces", "change-1")
-	if _, err := g.EnsureClone(t.Context(), CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-1"}); !errors.Is(err, errNotUpgraded) {
-		t.Fatalf("before the upgrade: %v, want ErrNotUpgraded", err)
-	}
-	if _, err := os.Stat(wt); !os.IsNotExist(err) {
-		t.Fatalf("a refused workspace made a folder: %v", err)
-	}
-	git("mv", ".forge", ".apptown")
-	git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "upgrade")
 	if _, err := g.EnsureClone(t.Context(), CloneRequest{Repository: repo, Workspace: wt, Branch: "apptown/change-1"}); err != nil {
-		t.Fatalf("after the upgrade: %v", err)
+		t.Fatalf("a workspace from a commit holding .forge/: %v", err)
 	}
 }

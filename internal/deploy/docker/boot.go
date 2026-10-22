@@ -523,7 +523,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		}
 	case wasStatic || plan.PublicPart().ServesStatic:
 		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: "/_apptown/env.js", Expect: 200}); !up {
-			return res, &BootError{Phase: PhaseProbe, Err: errors.New("the static site's file server does not answer /_apptown/env.js: its image does not carry AppTown's file server configuration (an image built before 3 October 2026 does not); release it again to rebuild the image"), LogTail: logTail}
+			return res, &BootError{Phase: PhaseProbe, Err: errors.New("the static site's file server does not answer /_apptown/env.js: its image does not carry AppTown's file server configuration; release it again to rebuild the image"), LogTail: logTail}
 		}
 	}
 	if t.PageCheck {

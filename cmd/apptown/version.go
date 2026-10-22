@@ -34,7 +34,7 @@ func cmdVersion(args []string) error {
 	} else {
 		stated := v.AppTown.Version
 		if stated == "" {
-			stated = "unknown (an AppTown from before versions were stated)"
+			stated = "no version stated"
 		}
 		fmt.Printf("AppTown at %s: %s\n", api.base, stated)
 	}

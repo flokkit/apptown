@@ -15,7 +15,6 @@ import (
 
 	"flokkit.io/forge/internal/version"
 
-	"flokkit.io/forge/internal/clock"
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/execution"
 	"flokkit.io/forge/internal/forge/integration"
@@ -71,7 +70,6 @@ type daemonFlags struct {
 	localTLS                                         bool
 	drainLocalDocker                                 bool
 	resetPassword                                    string
-	backfillMain                                     bool
 	privateDocker                                    bool
 	tierDomains                                      []string
 	gitImportPrivate                                 bool
@@ -95,7 +93,6 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.BoolVar(&o.localTLS, "local-tls", false, "serve -addr over HTTPS from a certificate authority AppTown makes in <data>/local-tls, which vouches only for localhost names; plain HTTP there is sent to https. For the desktop trial: a server has its own TLS in front. Needs an https:// -public-host")
 	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url); an AppTown that last ran with its own Docker first needs -drain-local-docker (Running AppTown: Workers and running without local Docker)")
 	fs.BoolVar(&o.drainLocalDocker, "drain-local-docker", false, "one-shot, with this AppTown's normal settings and its own Docker, while it is not serving: repair interrupted work, check that no local work or execution container is left, record the drain that admits a start with -no-local-docker, and exit (non-zero, naming what is left, otherwise)")
-	fs.BoolVar(&o.backfillMain, "backfill-recorded-main", false, "one-shot, with this AppTown's normal settings while no apptownd serves its database: record each repository-backed project's current main as where recording began (projects already recorded are kept, an unreadable main stays unknown), print the counts, and exit without serving (for projects created before AppTown recorded main)")
 	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names apptown-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
 	fs.BoolVar(&o.verifyOnly, "verify-only", false, "start normally, which upgrades the database and the data directory to this build, then serve reads only: no recovery, no workers, no scheduler (the verification startup after a move or restore; not a dry run of an upgrade)")
 	fs.StringVar(&o.authMode, "auth", "open", "auth mode: open | internal | trusted-header (Running AppTown)")
@@ -203,9 +200,6 @@ func main() {
 	if flag.NArg() != 0 {
 		log.Fatalf("unexpected argument %q", flag.Arg(0))
 	}
-	if o.backfillMain && (o.verifyOnly || o.drainLocalDocker || o.resetPassword != "") {
-		log.Fatal("-backfill-recorded-main writes the record of each project's main; run it on its own, not with -verify-only, -drain-local-docker or -reset-password")
-	}
 	if o.resetPassword != "" && (o.verifyOnly || o.drainLocalDocker) {
 		log.Fatal("-reset-password changes an account; it cannot run with -verify-only or -drain-local-docker")
 	}
@@ -247,18 +241,6 @@ func main() {
 		log.Fatal(err)
 	}
 	defer forge.BridgeLogs(app)()
-	if o.backfillMain {
-		// The one-shot runs with no AppTown serving: its clock is the real one.
-		report, err := projectlifecycle.BackfillRecordedMain(ctx, db, dataDir, clock.Or(nil))
-		if err != nil {
-			log.Fatalf("backfill recorded main: %v", err)
-		}
-		fmt.Printf("recorded %d, already recorded %d, unknown %d\n", report.Recorded, report.Kept, report.Unknown)
-		for _, slug := range report.Unreadable {
-			fmt.Printf("unknown: %s (its main could not be read)\n", slug)
-		}
-		return
-	}
 	if o.resetPassword != "" {
 		// Stdout carries only the password, so it can go straight to a file.
 		password, err := app.Access.ResetPassword(ctx, o.resetPassword)
@@ -404,7 +386,7 @@ func (o *daemonFlags) forgeConfig(dataDir string) forge.Config {
 
 // holdsDatabase says whether this start takes the one-daemon lock: every
 // mode that may repair or settle work (serving, -verify-only,
-// -drain-local-docker, -backfill-recorded-main) does; only -reset-password,
+// -drain-local-docker) does; only -reset-password,
 // documented to run beside a serving forge, does not.
 func (o *daemonFlags) holdsDatabase() bool { return o.resetPassword == "" }
 

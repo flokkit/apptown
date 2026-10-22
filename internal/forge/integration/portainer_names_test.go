@@ -15,8 +15,7 @@ import (
 
 // The intranet's apps domain is the APPTOWN_APPS_DOMAIN secret: the stock
 // seed names it, so a boot's seed sync moves the managed binding to it as a
-// new version. A secret still named FORGE_APPS_DOMAIN resolves nothing, and
-// the refusal names the rename rather than only a missing name.
+// new version.
 func TestTheIntranetAppsDomainHasItsAppTownName(t *testing.T) {
 	t.Parallel()
 	var seeded string
@@ -37,10 +36,6 @@ func TestTheIntranetAppsDomainHasItsAppTownName(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte(env), 0o600); err != nil {
 			t.Fatal(err)
 		}
-	}
-	write("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=k\nFORGE_APPS_DOMAIN=apps.example\n")
-	if _, err := s.PortainerTarget(t.Context()); err == nil || !strings.Contains(err.Error(), "FORGE_APPS_DOMAIN is the name from before the AppTown rename") {
-		t.Fatalf("an old-named apps domain: %v", err)
 	}
 	write("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=k\nAPPTOWN_APPS_DOMAIN=apps.example\n")
 	if cfg, err := s.PortainerTarget(t.Context()); err != nil || cfg.AppsDomain != "apps.example" {

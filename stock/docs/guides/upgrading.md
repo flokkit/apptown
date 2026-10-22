@@ -4,9 +4,7 @@
    the operations (copies, restores, take-downs) a restart would interrupt;
    it exits 0 when there are none and 3 when there are some. A step cut off
    by a restart may be left in error and need a retry; an operation cut off
-   ends unknown with what it had done. When the running AppTown cannot
-   report its operations, `apptown executing` says so and fails: look at
-   AppTown's operations yourself, then upgrade without asking.
+   ends unknown with what it had done.
 2. **Stop AppTown, then copy it, and stop if a copy fails.** Stop
    `apptownd` (`docker compose stop apptown` on a one-server compose
    install; leave the database container running), so nobody writes between the two
@@ -57,16 +55,6 @@
    `GET /api/v1/ownership/inspection`, and approves what it proposes with
    `POST /api/v1/ownership/approvals`. Exactly what is approved is
    recorded.
-6. **From a release before 1.0's names (rc.5 or earlier), once.** When
-   nothing is running, an administrator runs `apptown upgrade`. In every
-   project it moves the repository folder `.forge/` to `.apptown/` on the
-   default branch and on each open change's branch (one commit each, naming
-   you), moves `refs/forge/` to `refs/apptown/`, gives your own guidance
-   blocks and workflows a version with the new names, and moves each
-   project's adoption to the newest version of what it already adopts. It
-   is refused while a run is open, and a project not yet upgraded takes no
-   new change. A branch holding both folders is left for a person and
-   named in the report. Running it again changes nothing.
 
 ## Rolling back
 
@@ -79,7 +67,7 @@ upgrades and any work done on it. The new build's first write is where work
 starts being lost, so roll back before people use it, or accept losing what
 they did. There is no other downgrade: an older build refuses a database or a
 data directory a newer one has upgraded. Each release's test suite upgrades
-every earlier release's AppTown and rolls it back this way
+frozen copies of earlier releases' AppTown and rolls them back this way
 (`make upgrade-test`).
 
 ## Versions

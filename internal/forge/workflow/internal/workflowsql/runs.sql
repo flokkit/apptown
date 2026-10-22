@@ -357,6 +357,3 @@ RETURNING runs;
 
 -- Every run still open anywhere, for an operation that must wait for none
 -- (the AppTown rename's upgrade).
--- name: OpenRunsEverywhere :many
-SELECT r.id, r.number, p.slug AS project FROM runs r JOIN projects p ON p.id = r.project_id
-WHERE r.status = sqlc.arg(running) ORDER BY p.slug, r.number;

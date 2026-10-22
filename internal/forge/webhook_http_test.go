@@ -105,21 +105,3 @@ spec:
 	}
 
 }
-
-// A token still named as before the AppTown rename opens nothing, and the
-// refusal names the rename, so the operator knows what to change.
-func TestWebhookRefusesTheOldTokenNameByName(t *testing.T) {
-	t.Parallel()
-	a := testApp(t)
-	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("FORGE_WEBHOOK_TOKEN=s3cret\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	plainTestProject(t, a.DB, "hooky", "H")
-	req := httptest.NewRequest("POST", "/api/v1/hooks/hooky/on-push", strings.NewReader(`{}`))
-	req.Header.Set("X-AppTown-Token", "s3cret")
-	w := httptest.NewRecorder()
-	a.Handler().ServeHTTP(w, req)
-	if w.Code != 403 || !strings.Contains(w.Body.String(), "rename it to APPTOWN_WEBHOOK_TOKEN") {
-		t.Fatalf("old token name: %d %s", w.Code, w.Body.String())
-	}
-}

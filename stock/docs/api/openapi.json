@@ -13078,28 +13078,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/upgrade/apptown": {
-      "post": {
-        "operationId": "postUpgradeApptown",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "upgrade"
-        ],
-        "x-apptown-access": {
-          "capability": "platform:operate",
-          "kind": "capability",
-          "scope": "instance"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/usage": {
       "get": {
         "operationId": "getUsage",

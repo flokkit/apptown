@@ -2,7 +2,6 @@ package identity
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"flokkit.io/forge/internal/ids"
@@ -19,9 +18,6 @@ import (
 var (
 	ErrTokenName    = fault.New(fault.Invalid, "name required")
 	ErrTokenPurpose = fault.New(fault.Invalid, "purpose required: cli (your own command line) or agent (a coding agent's connection)")
-	// ErrTokenUnclassified is a token made before purposes existed. It is
-	// refused until an operator records whether it is a cli or an agent token.
-	ErrTokenUnclassified = errors.New("the token has no purpose; an operator must record whether it is a cli or an agent token")
 )
 
 // NewToken is a token to make. Purpose is required and has no default: an

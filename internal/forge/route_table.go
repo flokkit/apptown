@@ -39,7 +39,6 @@ func appRoutes(a *App) []routeSpec {
 	var projectPolicies httpapi.ProjectPolicies
 	var policyLibrary httpapi.PolicyLibrary
 	var packLibrary httpapi.PackLibrary
-	var upgrade httpapi.Upgrade
 	var systemWorkflows httpapi.SystemWorkflows
 	docs := docsForRoutes("")
 	// The database former identities are read from; nil while routes are
@@ -242,7 +241,6 @@ func appRoutes(a *App) []routeSpec {
 		changes = httpapi.NewChanges(a.Work, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
 		systemWorkflows = httpapi.NewSystemWorkflows(a.Ways, a.Access)
 		packLibrary = httpapi.NewPackLibrary(a.Ways, a.conformance, a.Access, a.DB, a.cfg.clock.Now)
-		upgrade = httpapi.NewUpgrade(a.lifecycle, a.Work, a.Access)
 		policyLibrary = httpapi.NewPolicyLibrary(a.Ways, a.Adoption, a.DB)
 		projectPolicies = httpapi.NewProjectPolicies(a.Projects, a.Access, a.Ways, a.Adoption, a.DB)
 		jobs = httpapi.NewJobs(a.DB)
@@ -337,7 +335,6 @@ func appRoutes(a *App) []routeSpec {
 		publicRoute("POST /api/v1/packs/pick", packAssistance.PickPack, "packAssistance.PickPack: authenticated pack-selection assistance"),
 		publicRoute("POST /api/v1/packs/interview", packAssistance.PackInterview, "packAssistance.PackInterview: authenticated pack-selection assistance"),
 		requireRoute("POST /api/v1/packs", packLibrary.SavePack, access.CapStandardsPacks, "instance"),
-		requireRoute("POST /api/v1/upgrade/apptown", upgrade.UpgradeToAppTown, access.CapPlatformOperate, "instance"),
 		requireRoute("DELETE /api/v1/packs/{name}", packLibrary.DeletePack, access.CapStandardsPacks, "instance"),
 		requireRoute("POST /api/v1/packs/{name}/enabled", packLibrary.SetPackEnabled, access.CapStandardsPacks, "instance"),
 		requireRoute("POST /api/v1/packs/{name}/recommended", packLibrary.RecommendPackVersion, access.CapStandardsPacks, "instance"),

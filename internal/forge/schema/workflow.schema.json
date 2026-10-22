@@ -109,9 +109,6 @@
             },
             "webhook": {
               "type": "object"
-            },
-            "workItem": {
-              "type": "object"
             }
           }
         },

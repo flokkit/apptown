@@ -22,13 +22,6 @@ func envName(flagName string) string {
 	return "APPTOWN_" + settingName(flagName)
 }
 
-// oldEnvName is the spelling before the AppTown rename (FORGE_DB_URL). It is
-// never read: bindEnv refuses to start while one is set, so an env file half
-// moved to the new names cannot start on defaults without saying so.
-func oldEnvName(flagName string) string {
-	return "FORGE_" + settingName(flagName)
-}
-
 func settingName(flagName string) string {
 	return strings.ToUpper(strings.ReplaceAll(flagName, "-", "_"))
 }
@@ -46,9 +39,6 @@ func bindEnv(fs *flag.FlagSet, getenv func(string) string) error {
 		// and reaches apptownd with the rest of the environment.
 		if f.Name == "version" {
 			return
-		}
-		if err == nil && getenv(oldEnvName(f.Name)) != "" {
-			err = fmt.Errorf("%s is set: settings are named %s now (APPTOWN_ plus the flag's name); rename it", oldEnvName(f.Name), envName(f.Name))
 		}
 		if err != nil || onCommandLine[f.Name] {
 			return

@@ -70,7 +70,6 @@ on:
   manual: {}                                   # runnable from the UI, CLI, MCP
   schedule: { cron: "0 3 * * *", skipIfActive: true }
   webhook: {}                                  # POST with the instance's webhook token
-  workItem: { ... }                            # accepted by the schema; no behaviour
 ```
 
 Built: `manual` (always), `schedule` (30-second resolution, no backfill of
@@ -88,7 +87,7 @@ placeholders, substituted as text at step start:
 
 | Placeholder | Meaning |
 |---|---|
-| `${{workItem.title}}`, `${{workItem.body}}` | the change's title and body |
+| `${{change.title}}`, `${{change.body}}` | the change's title and body |
 | `${{run.id}}`, `${{project.slug}}` | identity |
 | `${{artifact.<kind>}}` | the body of this run's latest artifact of that kind |
 | `${{latest.<kind>}}` | the project's latest artifact of that kind, any run |
@@ -278,7 +277,7 @@ spec:
               feedback is: ${{feedback.latest}}
               WRITE a short change report to .apptown/CHANGE.md.
               --- CHANGE ---
-              ${{workItem.body}}
+              ${{change.body}}
         - name: boot
           uses: preview
       steps:

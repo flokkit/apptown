@@ -1,33 +1,9 @@
 package appcontract
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
-
-func TestReviewConversionPreservesLiteralEnvironmentValues(t *testing.T) {
-	for _, value := range []string{"memory: 512M", "${needs.future.value}", "${needs."} {
-		t.Run(value, func(t *testing.T) {
-			doc := fmt.Sprintf("app:\n  web:\n    image: x\n    public: true\n    environment:\n      CONFIG: %q\n", value)
-			out, changed, err := ConvertToV2(doc)
-			if err != nil || !changed {
-				t.Fatalf("conversion: %v, changed %v", err, changed)
-			}
-			c, err := Parse([]byte(out))
-			if err != nil {
-				t.Fatal(err)
-			}
-			plan, err := PrepareWired(c, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := plan.Parts[0].Env["CONFIG"]; got != value {
-				t.Fatalf("upgrade changed delivered value: %q -> %q", value, got)
-			}
-		})
-	}
-}
 
 const wiredDoc = `version: 2
 app:
@@ -105,82 +81,5 @@ func TestBadNeedReferencesAreRefusedAtParse(t *testing.T) {
 	plan, err := PrepareWired(c, nil)
 	if err != nil || plan.Parts[0].Env["A"] != "${needs.redis.X}" {
 		t.Errorf("version 1 value: %v %v", plan, err)
-	}
-}
-
-// Converting a version-1 contract to version 2 keeps every value delivered
-// byte for byte (a ${needs. becomes its escape) and writes memory in Mi/Gi;
-// running it again changes nothing.
-//
-// Kills: the ${needs. escape dropped; units not rewritten; the version not
-// set; a second conversion changing the file.
-func TestConvertingToVersionTwoKeepsEveryValue(t *testing.T) {
-	v1 := `# my app
-app:
-  web:
-    image: x
-    public: true
-    resources: { memory: 512M, cpu: 1 }
-    environment:
-      A: "${needs.postgres.PGHOST}"
-      B: "$${needs.postgres.PGHOST} $${HOME} $$${needs.x.Y} ${HOME}"
-profiles:
-  prod:
-    web: { resources: { memory: 2G } }
-init:
-  - { name: migrate, image: x, environment: { C: "${needs.postgres.PGHOST}" } }
-needs:
-  postgres: { resources: { memory: 256M }, version: "16" }
-`
-	before, err := Parse([]byte(v1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, changed, err := ConvertToV2(v1)
-	if err != nil || !changed || !strings.HasPrefix(out, "version: 2\n# my app") {
-		t.Fatalf("converted: %v %v\n%s", changed, err, out)
-	}
-	after, err := Parse([]byte(out))
-	if err != nil || after.Version != 2 {
-		t.Fatalf("converted contract: %v", err)
-	}
-	if after.Parts[0].Resources != before.Parts[0].Resources || after.NeedResources["postgres"] != before.NeedResources["postgres"] || after.Profiles["prod"]["web"].Resources != before.Profiles["prod"]["web"].Resources {
-		t.Errorf("resources changed meaning: %+v / %+v", after, before)
-	}
-	values := map[string]string{"PGHOST": "db"}
-	p1, err1 := PrepareWired(before, values)
-	p2, err2 := PrepareWired(after, values)
-	if err1 != nil || err2 != nil {
-		t.Fatal(err1, err2)
-	}
-	for _, k := range []string{"A", "B"} {
-		if p1.Parts[0].Env[k] != p2.Parts[0].Env[k] {
-			t.Errorf("%s delivered %q before, %q after", k, p1.Parts[0].Env[k], p2.Parts[0].Env[k])
-		}
-	}
-	if p1.Init[0].Env["C"] != p2.Init[0].Env["C"] {
-		t.Errorf("init value changed: %q -> %q", p1.Init[0].Env["C"], p2.Init[0].Env["C"])
-	}
-	again, changed, err := ConvertToV2(out)
-	if err != nil || changed || again != out {
-		t.Errorf("a second conversion must change nothing: %v %v", changed, err)
-	}
-}
-
-// A contract whose environment shares values through YAML anchors or
-// aliases is not converted in place (an edit could change a value nobody
-// meant to change): the conversion says so and leaves the text as it was.
-//
-// Kills: the anchor refusal removed (the aliased value or the command would
-// change silently).
-func TestAContractWithAnchorsIsLeftForAPerson(t *testing.T) {
-	for name, doc := range map[string]string{
-		"alias in the environment":  "app:\n  web:\n    image: x\n    public: true\n    command: [echo, &shared \"${needs.postgres.PGHOST}\"]\n    environment: { CONFIG: *shared }\nneeds:\n  postgres: {}\n",
-		"anchor in the environment": "app:\n  web:\n    image: x\n    public: true\n    environment: { CONFIG: &shared \"${needs.postgres.PGHOST}\" }\n    command: [echo, *shared]\nneeds:\n  postgres: {}\n",
-	} {
-		out, changed, err := ConvertToV2(doc)
-		if err == nil || changed || out != doc || !strings.Contains(err.Error(), "anchors") {
-			t.Errorf("%s: want a refusal naming anchors and the text unchanged, got %v %v", name, changed, err)
-		}
 	}
 }

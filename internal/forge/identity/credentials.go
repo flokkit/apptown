@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"flokkit.io/forge/internal/ids"
@@ -98,8 +97,8 @@ func (s *sessionStore) End(ctx context.Context, tok string) error {
 // the hash.
 type Token struct {
 	Name, User, Role, CreatedAt string
-	// Purpose is cli or agent; "" for a token made before purposes, which
-	// is refused until an operator classifies it.
+	// Purpose is cli or agent; "" only on a revoked token made before
+	// purposes existed.
 	Purpose             string
 	LastUsed, RevokedAt stamp.Time
 }
@@ -118,7 +117,6 @@ type tokenStore struct {
 // Resolve is the person, the role and the purpose a live token was minted
 // with, false for an unknown or revoked token; a use is stamped. The role
 // is the token's bound; the caller narrows it to the person's current role.
-// A token with no purpose is refused with ErrTokenUnclassified, unstamped.
 func (t *tokenStore) Resolve(ctx context.Context, tok string) (user, role, purpose string, ok bool, err error) {
 	row, ok, err := t.resolve(ctx, tok)
 	return row.Username, row.Role, row.Purpose, ok, err
@@ -130,9 +128,6 @@ func (t *tokenStore) resolve(ctx context.Context, tok string) (accesssql.AuthTok
 	found, err := database.Lookup(err)
 	if err != nil || !found || !token(row).live() {
 		return accesssql.AuthTokensNamed{}, false, err
-	}
-	if !access.ValidTokenPurpose(row.Purpose) {
-		return accesssql.AuthTokensNamed{}, false, fmt.Errorf("token %q: %w", row.Name, ErrTokenUnclassified)
 	}
 	return row, true, q.TouchAuthToken(ctx, accesssql.TouchAuthTokenParams{TokenHash: row.TokenHash, At: t.now().UTC()})
 }

@@ -294,16 +294,14 @@ func (w *Workshop) agentImageTar(ctx context.Context) (string, error) {
 // reapDindOrphans removes sidecars (and their networks) left behind by a
 // crashed apptownd — same safety-net shape as run-container reaping.
 func ReapWorkshops(ctx context.Context, dk docker.Scope) {
-	// Under every prefix a host may carry: an older release's are swept too.
-	for _, p := range docker.Prefixes {
-		out, _ := dk.Run(ctx, "ps", "-aq", "--filter", "name="+string(p)+"dind-step-")
-		for _, id := range strings.Fields(string(out)) {
-			_, _ = dk.Run(ctx, "rm", "-f", "-v", id)
-		}
-		nets, _ := dk.Run(ctx, "network", "ls", "-q", "--filter", "name="+string(p)+"dind-step-")
-		for _, id := range strings.Fields(string(nets)) {
-			_, _ = dk.Run(ctx, "network", "rm", id)
-		}
+	prefix := string(docker.Current) + "dind-step-"
+	out, _ := dk.Run(ctx, "ps", "-aq", "--filter", "name="+prefix)
+	for _, id := range strings.Fields(string(out)) {
+		_, _ = dk.Run(ctx, "rm", "-f", "-v", id)
+	}
+	nets, _ := dk.Run(ctx, "network", "ls", "-q", "--filter", "name="+prefix)
+	for _, id := range strings.Fields(string(nets)) {
+		_, _ = dk.Run(ctx, "network", "rm", id)
 	}
 }
 

@@ -110,8 +110,6 @@ var sections = []section{
                                         what an AppTown restart would interrupt; exit 0 none, 3 some`, cmdExecuting},
 			{[]string{"status"}, `  status                                your home: what is waiting on you and what is running
   status <run-id>                       run state: stages, current checks, step ids`, cmdStatusOrHome},
-			{[]string{"upgrade"}, `  upgrade                               admin, once, after AppTown 1.0 starts: rename .forge to .apptown in every
-                                        project and advance adoptions to the renamed content; refused while a run is open`, cmdUpgrade},
 			{[]string{"timing"}, `  timing [<workflow>] [-days N] [-r <run-id>]
                                         where the time goes: per step across a workflow's runs, or one run's timeline`, cmdTiming},
 			{[]string{"advance"}, `  advance <run-id>                      request advance through the current gate`, cmdAdvance},

@@ -296,59 +296,6 @@ func TestRepositorySetupAndStarterFilesRecordMain(t *testing.T) {
 	wantMainRecorded(t, f.db, f.lifecycle.dataDir, p.ID, scm.ViaGenesis)
 }
 
-// The offline backfill records each repository-backed project's current main
-// as backfill, keeps a project already recorded, leaves one whose main cannot
-// be read unknown, and changes nothing when run again.
-func TestBackfillRecordsCurrentMainOnce(t *testing.T) {
-	t.Parallel()
-	f := newOwnerFixture(t, true)
-	ctx := context.Background()
-	dataDir := f.lifecycle.dataDir
-	// A project set up before main was recorded: its hub and default branch,
-	// through the owners, with no record.
-	older, err := f.lifecycle.Create(ctx, Draft{Slug: "older", Name: "Older", Actor: "bls"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := scm.InitializeRepository(ctx, hubDir(dataDir, older.Slug), "main"); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.lifecycle.projects.SetDefaultBranch(ctx, older.ID, "main"); err != nil {
-		t.Fatal(err)
-	}
-	recorded, err := f.lifecycle.Create(ctx, Draft{Slug: "recorded", Name: "Recorded", Actor: "bls"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.lifecycle.InitializeRepository(ctx, recorded, "main", ""); err != nil {
-		t.Fatal(err)
-	}
-	lost, err := f.lifecycle.Create(ctx, Draft{Slug: "lost", Name: "Lost", Actor: "bls"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.lifecycle.projects.SetDefaultBranch(ctx, lost.ID, "main"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.lifecycle.Create(ctx, Draft{Slug: "no-repo", Name: "No repo", Actor: "bls"}); err != nil {
-		t.Fatal(err)
-	}
-	report, err := BackfillRecordedMain(ctx, f.db, dataDir, nil)
-	if err != nil || report.Recorded != 1 || report.Kept != 1 || report.Unknown != 1 || len(report.Unreadable) != 1 || report.Unreadable[0] != "lost" {
-		t.Fatalf("backfill: %+v %v", report, err)
-	}
-	wantMainRecorded(t, f.db, dataDir, older.ID, scm.ViaBackfill)
-	wantMainRecorded(t, f.db, dataDir, recorded.ID, scm.ViaInit)
-	if _, known, err := scm.ReadMain(ctx, f.db, lost.ID); err != nil || known {
-		t.Fatalf("an unreadable main was recorded: %v %v", known, err)
-	}
-	again, err := BackfillRecordedMain(ctx, f.db, dataDir, nil)
-	if err != nil || again.Recorded != 0 || again.Kept != 2 || again.Unknown != 1 {
-		t.Fatalf("second backfill: %+v %v", again, err)
-	}
-	wantMainRecorded(t, f.db, dataDir, older.ID, scm.ViaBackfill)
-}
-
 // Creating a project takes one reading of the lifecycle's clock for the
 // project and its receipt: on a clock months from the machine's that moves
 // on a second at every reading, the project's time is one of that clock's

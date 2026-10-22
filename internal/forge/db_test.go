@@ -63,53 +63,37 @@ func mustJSON(v any) string {
 	return text
 }
 
-// db.env holds the only copy of the built-in database's password. One
-// written before the AppTown rename — by a release before it (FORGE_DB_URL and
-// FORGE_DB_PASSWORD, as live's was) or by the rename's first pushes
-// (FORGE_DB_PASSWORD only) — is read with the same URL and password and
-// rewritten once under the APPTOWN_DB_ names at 0600, comments kept; an
-// incomplete or unreadable file stops with its path and is never replaced by
-// new credentials; an absent one is minted under the new name.
-func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
+// db.env holds the only copy of the built-in database's password and the
+// names of its container and volume. A file missing any of them, such as
+// one still using the FORGE_DB_ names, is refused naming what is missing and
+// left exactly as it was; an unreadable file stops with its path and is
+// never replaced by new credentials; an absent one is minted.
+func TestTheBuiltInDatabaseEnvFileIsReadWholeOrRefused(t *testing.T) {
 	t.Parallel()
+	complete := "# kept comment\nAPPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nAPPTOWN_DB_PASSWORD=pw\nAPPTOWN_DB_CONTAINER=forge-db\nAPPTOWN_DB_VOLUME=forge-data-forge-db\n"
 	dir := t.TempDir()
-	path := filepath.Join(dir, "db.env")
-	old := "# kept comment\nAPPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nFORGE_DB_PASSWORD=pw\n"
-	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "db.env"), []byte(complete), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for range 2 {
-		url, pw, names, err := builtinDBCredentials(dir)
-		if err != nil || pw != "pw" || url != "postgres://postgres:pw@127.0.0.1:5433/forge" || names != before1BuiltinDB {
-			t.Fatalf("reading the old file: %q %q %+v %v", url, pw, names, err)
-		}
-		raw, _ := os.ReadFile(path)
-		info, _ := os.Stat(path)
-		if string(raw) != "# kept comment\nAPPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nAPPTOWN_DB_PASSWORD=pw\n"+"APPTOWN_DB_CONTAINER=forge-db\nAPPTOWN_DB_VOLUME=forge-data-forge-db\n" || info.Mode().Perm() != 0o600 {
-			t.Fatalf("rewritten as %q, mode %v", raw, info.Mode().Perm())
-		}
+	url, pw, names, err := builtinDBCredentials(dir)
+	if err != nil || pw != "pw" || url != "postgres://postgres:pw@127.0.0.1:5433/forge" || names != (builtinDBNames{Container: "forge-db", Volume: "forge-data-forge-db"}) {
+		t.Fatalf("a complete file: %q %q %+v %v", url, pw, names, err)
 	}
 
-	// The file forged minted from 5 Sep 2026 until the rename.
-	released := t.TempDir()
-	comments := "# The forge's built-in database (design/postgres-migration.md §3.9).\n" +
-		"# Minted once by forged. If this file is lost while the data volume\n" +
-		"# survives, reset the password inside the container (docker exec\n" +
-		"# forge-db psql -U postgres -c \"ALTER USER postgres PASSWORD '...'\")\n" +
-		"# and write it here.\n"
-	wantURL := "postgres://postgres:ab12@127.0.0.1:5433/forge"
-	if err := os.WriteFile(filepath.Join(released, "db.env"), []byte(comments+"FORGE_DB_URL="+wantURL+"\nFORGE_DB_PASSWORD=ab12\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for range 2 {
-		url, pw, _, err := builtinDBCredentials(released)
-		if err != nil || pw != "ab12" || url != wantURL {
-			t.Fatalf("reading the released file: %q %q %v", url, pw, err)
+	for _, c := range []struct{ name, body, missing string }{
+		{"old names", "FORGE_DB_URL=postgres://postgres:pw@127.0.0.1:5433/forge\nFORGE_DB_PASSWORD=pw\n", "APPTOWN_DB_URL, APPTOWN_DB_PASSWORD, APPTOWN_DB_CONTAINER, APPTOWN_DB_VOLUME"},
+		{"no container", strings.Replace(complete, "APPTOWN_DB_CONTAINER=forge-db\n", "", 1), "it needs APPTOWN_DB_CONTAINER"},
+		{"no volume", strings.Replace(complete, "APPTOWN_DB_VOLUME=forge-data-forge-db\n", "", 1), "it needs APPTOWN_DB_VOLUME"},
+	} {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "db.env"), []byte(c.body), 0o600); err != nil {
+			t.Fatal(err)
 		}
-		raw, _ := os.ReadFile(filepath.Join(released, "db.env"))
-		info, _ := os.Stat(filepath.Join(released, "db.env"))
-		if string(raw) != comments+"APPTOWN_DB_URL="+wantURL+"\nAPPTOWN_DB_PASSWORD=ab12\n"+"APPTOWN_DB_CONTAINER=forge-db\nAPPTOWN_DB_VOLUME=forge-data-forge-db\n" || info.Mode().Perm() != 0o600 {
-			t.Fatalf("released file rewritten as %q, mode %v", raw, info.Mode().Perm())
+		if _, _, _, err := builtinDBCredentials(dir); err == nil || !strings.Contains(err.Error(), "db.env is present but incomplete; it needs") || !strings.Contains(err.Error(), c.missing) {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if raw, _ := os.ReadFile(filepath.Join(dir, "db.env")); string(raw) != c.body {
+			t.Fatalf("%s: the file was rewritten as %q", c.name, raw)
 		}
 	}
 
@@ -142,7 +126,7 @@ func TestTheBuiltInDatabaseEnvFileMovesToItsAppTownNameSafely(t *testing.T) {
 	if got, ok := readBuiltinDBNames(fresh); !ok || got != currentBuiltinDB {
 		t.Fatalf("read back %+v %v", got, ok)
 	}
-	if got, ok := readBuiltinDBNames(dir); !ok || got != before1BuiltinDB {
+	if got, ok := readBuiltinDBNames(dir); !ok || got.Container != "forge-db" || got.Volume != "forge-data-forge-db" {
 		t.Fatalf("an existing database's names read back %+v %v", got, ok)
 	}
 	if raw, _ := os.ReadFile(filepath.Join(fresh, "db.env")); !strings.Contains(string(raw), "\nAPPTOWN_DB_PASSWORD=") || strings.Contains(string(raw), "FORGE_") {

@@ -3,8 +3,9 @@ package identity
 import (
 	"context"
 	"errors"
-	"flokkit.io/forge/internal/access"
 	"testing"
+
+	"flokkit.io/forge/internal/access"
 )
 
 // A refresh token from before the AppTown rename is refused like an unknown

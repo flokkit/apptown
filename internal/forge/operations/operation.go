@@ -99,9 +99,6 @@ type Authority struct {
 	// session:<id>, oauth:<delegation id>, header:<user> for a request a
 	// trusted proxy or open mode attributed, or system:<binding>.
 	Credential string `json:"credential"`
-	// Legacy marks an operation carried over from deployment_operations:
-	// it named only who asked, so it carries no authority at all.
-	Legacy bool `json:"legacy,omitempty"`
 }
 
 // AuthorityOf captures a principal.

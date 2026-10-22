@@ -276,7 +276,7 @@ go: console-cli
 release:                 ## build a release's artifacts from a clean checkout at its tag: make release VERSION=1.0.0
 	sh scripts/release.sh $(VERSION)
 
-upgrade-test: web       ## every earlier release's frozen AppTown upgrades to this commit and keeps its records: run on a release candidate before tagging it (builds web/dist, which Go embeds)
+upgrade-test: web       ## each frozen release's AppTown (internal/forge/testdata/upgrade) upgrades to this commit and keeps its records: run on a release candidate before tagging it (builds web/dist, which Go embeds)
 	go test ./internal/forge -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$$' -count=1
 	go test ./internal/forge/dbschema -run '^TestAMigrationOverAReleasesRecordsAppliesOrLeavesThemAlone$$' -count=1
 

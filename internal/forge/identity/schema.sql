@@ -191,9 +191,9 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   created_at TIMESTAMPTZ NOT NULL,
   last_used  TIMESTAMPTZ,
   revoked_at TIMESTAMPTZ,
-  -- cli | agent, chosen when made; '' is a token made before purposes,
-  -- refused until it is classified by hand.
-  purpose    TEXT NOT NULL DEFAULT '' CONSTRAINT auth_token_purpose CHECK (purpose IN ('', 'cli', 'agent'))
+  -- cli | agent, chosen when made; '' only on a revoked token made before
+  -- purposes existed.
+  purpose    TEXT NOT NULL CONSTRAINT auth_token_purpose CHECK (purpose IN ('cli', 'agent') OR (purpose = '' AND revoked_at IS NOT NULL))
 );
 -- A project's read-only git tokens, one per environment given one. Only the
 -- token's hash is kept; the token itself is shown to that environment alone.
