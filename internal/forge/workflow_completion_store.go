@@ -30,7 +30,7 @@ func (w workflowCompletionEffects) RecordCompletionIn(ctx context.Context, tx *d
 		receipt = workflow.ReleaseReceipt{ID: release.ID, Number: release.Number}
 	}
 	for _, effect := range in.Effects {
-		if err := (jobQueue{}).EnqueueIn(ctx, tx, jobs.Request{Operation: workflowCompletionJob, Key: fmt.Sprintf("%d/%s", in.RunID, effect), Values: map[string]any{"runId": in.RunID, "effect": effect.String()}}); err != nil {
+		if err := (jobQueue{}).EnqueueIn(ctx, tx, jobs.Request{Operation: workflowCompletionJob, Key: completionKey(in.RunID, effect), Values: map[string]any{"runId": in.RunID, "effect": effect.String()}}); err != nil {
 			return receipt, err
 		}
 	}
@@ -42,4 +42,22 @@ func (w workflowCompletionEffects) RecordCompletionIn(ctx context.Context, tx *d
 func (w workflowCompletionEffects) RetryCompletionIn(ctx context.Context, tx *database.Tx, runID ids.ID) (bool, error) {
 	out, err := jobs.RetryRunOperationsIn(ctx, tx.Native(), jobs.RunOperations{Operation: workflowCompletionJob, RunID: runID})
 	return out.Pending, err
+}
+
+// completionKey names one completion effect's job for a run.
+func completionKey(runID ids.ID, effect workflow.CompletionEffect) string {
+	return fmt.Sprintf("%d/%s", runID, effect)
+}
+
+// evalAdoptionJobs reads a shipped adoption Change's settlement for an
+// eval: whether the shipping run's adopt job ended without succeeding,
+// with its last error. A job not found is not known, never ended.
+type evalAdoptionJobs struct{ db *database.DB }
+
+func (j evalAdoptionJobs) AdoptionEnded(ctx context.Context, landingRunID ids.ID) (bool, string, error) {
+	job, err := jobs.ByKey(ctx, j.db, workflowCompletionJob, completionKey(landingRunID, workflow.CompletionAdopt))
+	if found, err := database.Lookup(err); err != nil || !found {
+		return false, "", err
+	}
+	return job.Ended(), job.Error, nil
 }

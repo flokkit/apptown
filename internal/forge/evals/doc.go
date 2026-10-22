@@ -9,6 +9,24 @@
 // comparable. A person reads the scorecard; it decides nothing and is
 // never evidence.
 //
+// # Adoption Changes
+//
+// An adoption Change (workflow.Change.LandsWithoutCode) is re-run as one.
+// Its copies start on the receipt its project recorded when it was opened
+// (adoption.Service.PrepareCopyAt), and each arm opens an adoption Change
+// in its copy toward the arm's own way of working
+// (adoption.Service.PrepareCopyUplift, Work's Uplift), so its checks are
+// the ones that move brings and an empty change is a complete answer. Work
+// ships it first and then moves the copy, stamping AdoptedRevision: the arm
+// is scored only once stamped, and fails with the job's error when the
+// shipping run's adopt job ended without succeeding ([AdoptionJobs]).
+//
+// # Blocked runs
+//
+// A run Work classifies as blocked waits for a person to retry, override
+// or send it back, and nobody does that in an eval. Its arm fails saying
+// why, its Change is abandoned, and its running place goes to the next arm.
+//
 // # The comparison
 //
 // Once an arm lands, and before its deployment is taken down, the driver

@@ -67,6 +67,10 @@ projects adopt. They are under **Ways of working → Packs**.
   **Eval** of it (or `apptown eval start --pack <name@version>`): finished
   Changes are re-run in throwaway copies as their projects run now and with
   the version, and the eval page compares them side by side, check by check.
+  An adoption change is re-run as one: its copy starts on the way of working
+  the project had when the change was opened, and moves to the arm's. A run
+  that gets blocked in an eval is stopped and its arm marked failed, with
+  the reason, because no one can unblock it there.
   Evals are read by standards administrators and auditors and started by
   people who manage packs.
 

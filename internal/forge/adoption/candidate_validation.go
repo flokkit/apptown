@@ -106,6 +106,12 @@ func (s *Service) validateCandidateIn(ctx context.Context, q database.Queryer, p
 			return fmt.Errorf("%w: %s is no longer offered, so a project not already on it cannot take it", ErrPackNotOffered, pick.Pack)
 		}
 	}
+	if c.CopyOf != nil {
+		if err := s.validateCopyIn(ctx, q, projectID, c); err != nil {
+			return err
+		}
+		return s.validateInstallationIn(ctx, q, projectID, c)
+	}
 	seenPacks := map[string]bool{}
 	selectedPack := ""
 	for _, pick := range c.Packs {

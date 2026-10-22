@@ -9,6 +9,12 @@ SELECT id, (args->>'operation')::text AS operation, (args->>'key')::text AS key,
 FROM river_job WHERE kind='forge.operation'
 ORDER BY (state IN ('available','running','retryable','scheduled','pending')) DESC,id DESC LIMIT $1;
 
+-- name: OperationByKey :one
+SELECT id, state::text AS state, attempt,
+ COALESCE(errors[array_length(errors,1)]->>'error','')::text AS error
+FROM river_job WHERE kind='forge.operation' AND args->>'operation'=sqlc.arg(operation)::text AND args->>'key'=sqlc.arg(key)::text
+ORDER BY id DESC LIMIT 1;
+
 -- name: RunOperationsForUpdate :many
 SELECT id,state::text AS state FROM river_job
 WHERE kind=sqlc.arg(kind) AND args->>'operation'=sqlc.arg(operation)::text AND args->'values'->>'runId'=sqlc.arg(run_id)::text

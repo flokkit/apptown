@@ -83,14 +83,18 @@ func (s *Service) PicksWith(ctx context.Context, projectID ids.ID, pack string, 
 // receipt names, so the order is part of what is adopted. A project with
 // no adoption recorded yet has no first pack.
 func (s *Service) currentPicks(ctx context.Context, projectID ids.ID) ([]PackPick, error) {
+	return currentPicksIn(ctx, s.db, projectID)
+}
+
+func currentPicksIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]PackPick, error) {
 	primary := ""
-	current, err := s.CurrentReceipt(ctx, projectID)
+	current, err := CurrentReceiptIn(ctx, q, projectID)
 	if found, err := database.Lookup(err); err != nil {
 		return nil, fmt.Errorf("reading the project's adoption: %w", err)
 	} else if found {
 		primary = current.Receipt.Pack
 	}
-	memberships, err := ProjectPacksIn(ctx, s.db, projectID)
+	memberships, err := ProjectPacksIn(ctx, q, projectID)
 	if err != nil {
 		return nil, err
 	}

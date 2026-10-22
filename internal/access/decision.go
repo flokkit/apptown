@@ -177,9 +177,11 @@ var instrumentCaps = map[string][]Capability{
 	// An eval's driver in one of its throwaway copies, bound to that copy:
 	// open the arm's Change, run it and land it under the eval's authority
 	// (which the landing guard judges against the copy record), take its
-	// deployment down, abandon it.
+	// deployment down, abandon it. Re-running an adoption Change opens one
+	// in the copy, which chooses the copy's way of working: the driver
+	// already gave the copy its way of working when it made it.
 	"eval": {CapChangeCreate, CapChangeInvokeLane, CapChangeRequestLand, CapRunOperate, CapProjectRead, CapChangeNarrative,
-		CapChangeAbandon, CapDeploymentTeardown},
+		CapChangeAbandon, CapDeploymentTeardown, CapProjectWayOfWorking},
 }
 
 // InstrumentMay is §11's table as a question.

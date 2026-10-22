@@ -73,6 +73,10 @@ type Candidate struct {
 	// (design/subsystems/ways-of-working-versions.md).
 	Kept     []string `json:"kept"`
 	Problems []string `json:"problems"` // why it cannot be adopted as asked
+	// CopyOf, when set, is the recorded adoption this candidate reproduces
+	// in an eval's copy. A copy is checked against what its source
+	// recorded, not against its packs' pins (copy.go).
+	CopyOf *CopySource `json:"copyOf,omitempty"`
 }
 
 // CheckSummary is the acceptance a newly adopted check contributes to an uplift.
@@ -337,7 +341,24 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 	c.Receipt = receipt
 	c.Kept = keptFromPacks(view.Packs, lanes, carriedPolicies, receipt)
 	c.Digest = Digest(receipt)
-	// The diff, in words.
+	if err := a.describe(ctx, cur, view.Carried, c); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// describe says in words what c moves cur to: the blocks and lanes it adds,
+// changes, takes back and removes, the checks it brings and the gating
+// blocks it drops. It reads only cur, carried and c.Receipt, so a candidate
+// whose receipt was replaced (an eval copy's target) is described again.
+func (a candidateBuilder) describe(ctx context.Context, cur *RecordedRevision, carried map[string]bool, c *Candidate) error {
+	c.Added, c.Removed, c.Changed, c.Older, c.Moves, c.LanesAdded, c.LanesRemoved = []string{}, []string{}, []string{}, []string{}, []RuleMove{}, []string{}, []string{}
+	blocks, wfs := c.Receipt.Guidance, c.Receipt.Workflows
+	have := map[string]ReceiptBlock{}
+	for _, b := range cur.Receipt.Guidance {
+		have[b.Name] = b
+	}
+	var err error
 	now := map[string]ReceiptBlock{}
 	for _, b := range blocks {
 		now[b.Name] = b
@@ -358,7 +379,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 	}
 	c.NewChecks, err = a.newChecks(ctx, cur.Receipt, c.Receipt)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, old := range cur.Receipt.Guidance {
 		b, still := now[old.Name]
@@ -367,9 +388,9 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 			c.Moves = append(c.Moves, RuleMove{Rule: old.Name, From: old.Version})
 		}
 	}
-	c.Weakens, err = a.weakenings(ctx, cur, view.Carried, c.Receipt)
+	c.Weakens, err = a.weakenings(ctx, cur, carried, c.Receipt)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	oldLanes := map[string]int{}
 	for _, wf := range cur.Receipt.Workflows {
@@ -400,7 +421,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 		}
 	}
 	sort.Strings(c.Weakens)
-	return c, nil
+	return nil
 }
 
 func gating(sev string) bool { return sev == "high" || sev == "critical" }

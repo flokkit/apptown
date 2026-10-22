@@ -14,6 +14,35 @@ import (
 	"github.com/lib/pq"
 )
 
+const adoptionAtRevision = `-- name: AdoptionAtRevision :one
+SELECT id, project_id, revision, kind, reason, digest, created_by, created_by_principal, created_by_via, created_at, receipt_json, change_id FROM project_adoptions WHERE project_id=$1 AND revision=$2 AND revision<>0
+`
+
+type AdoptionAtRevisionParams struct {
+	ProjectID ids.ID
+	Revision  int64
+}
+
+func (q *Queries) AdoptionAtRevision(ctx context.Context, arg AdoptionAtRevisionParams) (ProjectAdoption, error) {
+	row := q.db.QueryRowContext(ctx, adoptionAtRevision, arg.ProjectID, arg.Revision)
+	var i ProjectAdoption
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Revision,
+		&i.Kind,
+		&i.Reason,
+		&i.Digest,
+		&i.CreatedBy,
+		&i.CreatedByPrincipal,
+		&i.CreatedByVia,
+		&i.CreatedAt,
+		&i.ReceiptJson,
+		&i.ChangeID,
+	)
+	return i, err
+}
+
 const adoptionByID = `-- name: AdoptionByID :one
 SELECT id, project_id, revision, kind, reason, digest, created_by, created_by_principal, created_by_via, created_at, receipt_json, change_id FROM project_adoptions WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2)
 `

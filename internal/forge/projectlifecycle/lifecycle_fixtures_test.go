@@ -42,7 +42,7 @@ func newOwnerFixtureOn(t *testing.T, syncStock bool, now func() time.Time) owner
 		ways.SyncStock(t.Context())
 	}
 	projects := project.New(db, nil)
-	adopt := adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(ids, "adoption"), Projects: projects}, Ways: ways})
+	adopt := adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(ids, "adoption"), Projects: projects}, Ways: ways, Copies: project.Copies{}})
 	locks := new(scm.RepositoryLocks)
 	lifecycle := New(db, Dependencies{Adoption: adopt, Projects: projects, Ways: ways, Repositories: locks, Publisher: noUpstream{}, Changes: workflow.NewChanges(db, access.Checked{Authority: identity.Scoped(ids, "work"), Projects: projects}, nil)}, Config{DataDir: t.TempDir(), Extensions: []string{"lsp"}, Now: now})
 	return ownerFixture{db: db, identity: ids, ways: ways, adoption: adopt, lifecycle: lifecycle}

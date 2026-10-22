@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -44,10 +46,46 @@ type fakeWork struct {
 	abandonErr error
 	// snapshots are the runs' snapshots by run id.
 	snapshots map[ids.ID]*workflow.RunSnapshot
+	// activities are Work's readings of runs by run id; a run not named is
+	// working.
+	activities map[ids.ID]workflow.Activity
+	// created counts ordinary Changes opened; uplifts are the adoption
+	// Changes opened, as asked.
+	created int
+	uplifts []workflow.Uplift
+}
+
+func (w *fakeWork) Activities(_ context.Context, runs []ids.ID) (map[ids.ID]workflow.Activity, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	out := map[ids.ID]workflow.Activity{}
+	for _, id := range runs {
+		out[id] = workflow.Activity{State: workflow.ActivityWorking}
+		if a, ok := w.activities[id]; ok {
+			out[id] = a
+		}
+	}
+	return out, nil
 }
 
 func (w *fakeWork) Create(ctx context.Context, in workflow.ChangeDraft) (*workflow.Change, error) {
+	w.mu.Lock()
+	w.created++
+	w.mu.Unlock()
 	return workflow.NewCreator(w.db, noPreparation).Create(ctx, in, "eval")
+}
+
+// Uplift opens an adoption Change as Work's admission would, without its
+// target record: the Change and the request it was opened with.
+func (w *fakeWork) Uplift(ctx context.Context, in workflow.Uplift) (*workflow.Change, error) {
+	ch, err := workflow.NewCreator(w.db, noPreparation).Create(ctx, workflow.ChangeDraft{ProjectID: in.ProjectID, Type: "uplift", Title: "Adopt the way of working: " + strings.Join(in.Words, ", "), Body: "bring it onto the target"}, "eval")
+	if err != nil {
+		return nil, err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.uplifts = append(w.uplifts, in)
+	return ch, nil
 }
 func (w *fakeWork) StartEvalRun(_ context.Context, in workflow.EvalRun) (*workflow.Run, error) {
 	w.mu.Lock()
@@ -95,6 +133,9 @@ type fakeCopier struct {
 	before   *func()
 	adoption *fakeAdoption
 	made     *int
+	// revisions is the source revision each copy was asked to start from
+	// (0: as the source is now).
+	revisions *[]int64
 }
 
 func (c fakeCopier) CreateCopy(ctx context.Context, in projectlifecycle.CopyDraft) (*project.Project, error) {
@@ -115,9 +156,31 @@ func (c fakeCopier) CreateCopy(ctx context.Context, in projectlifecycle.CopyDraf
 	})
 	if err == nil && c.adoption != nil {
 		*c.made++
-		err = c.adoption.give(p.ID, in.SourceID, in.Packs)
+		if c.revisions != nil {
+			*c.revisions = append(*c.revisions, in.Revision)
+		}
+		if in.Revision != 0 {
+			c.adoption.mu.Lock()
+			if c.adoption.copies == nil {
+				c.adoption.copies = map[ids.ID]adoption.Receipt{}
+			}
+			c.adoption.copies[p.ID] = beforeReceipt(in.Revision)
+			c.adoption.mu.Unlock()
+		} else {
+			err = c.adoption.give(p.ID, in.SourceID, in.Packs)
+		}
 	}
 	return &p, err
+}
+
+// beforeReceipt is what the source had adopted at revision: the house
+// pack's block one version back.
+func beforeReceipt(revision int64) adoption.Receipt {
+	r := adoption.EmptyReceipt()
+	r.Pack = "house"
+	r.Guidance = []adoption.ReceiptBlock{{Name: "house-rules", Version: int(-revision)}}
+	r.Workflows = []adoption.ReceiptWorkflow{{Name: "quick-change", Version: 1}}
+	return r
 }
 
 // fakeAdoption is the adoption owner as an eval sees it: the source is on
@@ -170,6 +233,26 @@ func (a *fakeAdoption) CurrentReceipt(ctx context.Context, projectID ids.ID) (*a
 	}
 	return &adoption.RecordedRevision{Receipt: r}, nil
 }
+func (a *fakeAdoption) ReceiptAt(_ context.Context, _ ids.ID, revision int64) (*adoption.RecordedRevision, error) {
+	if revision <= 0 {
+		return nil, adoption.ErrRevisionUnavailable
+	}
+	return &adoption.RecordedRevision{Revision: revision, Receipt: beforeReceipt(revision)}, nil
+}
+
+// PrepareCopyUplift is the target a copy of src would get with picks,
+// prepared for dst, with the one check the move brings.
+func (a *fakeAdoption) PrepareCopyUplift(ctx context.Context, dst, src ids.ID, picks []adoption.PackPick) (*adoption.Candidate, error) {
+	r, picks, err := a.CopyTarget(ctx, src, picks)
+	if err != nil {
+		return nil, err
+	}
+	return &adoption.Candidate{ExpectedRevision: 1, Packs: picks, Receipt: r, Digest: adoption.Digest(r), NewChecks: []adoption.CheckSummary{{Block: "house-rules", Check: "rules-hold", Version: 1}}}, nil
+}
+func (a *fakeAdoption) RecordTargetIn(context.Context, *database.Tx, adoption.Target) (adoption.ScopedTarget, error) {
+	return adoption.ScopedTarget{}, errors.New("the fake Work records no targets")
+}
+
 func (a *fakeAdoption) give(copyID, src ids.ID, picks []adoption.PackPick) error {
 	r, _, err := a.CopyTarget(context.Background(), src, picks)
 	if err != nil {
@@ -266,6 +349,9 @@ type evalWorld struct {
 	adoption   *fakeAdoption
 	origins    fakeOrigins
 	copiesMade int
+	// revisions is the source revision each copy started from.
+	revisions []int64
+	jobs      *fakeAdoptionJobs
 	// at is AppTown's clock, in Unix seconds; zero reads the real clock.
 	at atomic.Int64
 	// passes counts the passes asked of the job queue.
@@ -298,7 +384,8 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) Spend) 
 		}
 	}
 	projects := project.New(db, accounts)
-	w := &evalWorld{db: db, ids: accounts, work: &fakeWork{db: db, runs: map[ids.ID][]*workflow.Run{}, snapshots: map[ids.ID]*workflow.RunSnapshot{}}, spend: &fakeSpend{}, deleter: &recordingDeleter{}, projects: projects, adoption: &fakeAdoption{}}
+	w := &evalWorld{db: db, ids: accounts, work: &fakeWork{db: db, runs: map[ids.ID][]*workflow.Run{}, snapshots: map[ids.ID]*workflow.RunSnapshot{}}, spend: &fakeSpend{}, deleter: &recordingDeleter{}, projects: projects, adoption: &fakeAdoption{},
+		jobs: &fakeAdoptionJobs{ended: map[ids.ID]string{}}}
 	shop, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
 		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "shop", Name: "Shop"})
 	})
@@ -326,7 +413,7 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) Spend) 
 	}
 	w.service = New(db, Dependencies{
 		Authority: access.Checked{Authority: identity.Scoped(accounts, "evals"), Projects: projects},
-		Projects:  projects, Work: w.work, Copier: fakeCopier{db: db, before: &w.beforeCopy, adoption: w.adoption, made: &w.copiesMade}, Models: fakeModels{}, Spend: spendOf(w, ledger), Adoption: w.adoption,
+		Projects:  projects, Work: w.work, Copier: fakeCopier{db: db, before: &w.beforeCopy, adoption: w.adoption, made: &w.copiesMade, revisions: &w.revisions}, Models: fakeModels{}, Spend: spendOf(w, ledger), Adoption: w.adoption, AdoptionJobs: w.jobs,
 		Complaints: noComplaints{}, Deployments: noDeployments{}, Deleter: w.deleter, Origins: &w.origins,
 		InCopy:      func(ctx context.Context, evalID, projectID ids.ID) context.Context { return ctx },
 		RequestPass: func(context.Context) error { w.passes.Add(1); return nil },
@@ -338,6 +425,20 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) Spend) 
 		},
 	})
 	return w
+}
+
+// fakeAdoptionJobs is each landing run's adopt job that ended without
+// succeeding, with its error; any other is pending.
+type fakeAdoptionJobs struct {
+	mu    sync.Mutex
+	ended map[ids.ID]string
+}
+
+func (j *fakeAdoptionJobs) AdoptionEnded(_ context.Context, run ids.ID) (bool, string, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	why, ok := j.ended[run]
+	return ok, why, nil
 }
 
 // fakeOrigins says which starting commits predate the AppTown rename.
@@ -501,6 +602,55 @@ func TestAtMostTwoArmsRunAtOnce(t *testing.T) {
 		if r.EvalID != e.ID || r.StartedBy != "alice" || r.Workflow != "quick-change" {
 			t.Fatalf("started %+v", r)
 		}
+	}
+}
+
+// An arm whose run is blocked waits for a person, and nobody unblocks a run
+// in an eval: the arm fails saying why, its Change is abandoned, and its
+// running place goes to the next queued arm on the same pass. An arm whose
+// run is working is left alone.
+func TestABlockedArmFailsAndFreesItsPlace(t *testing.T) {
+	t.Parallel()
+	w := newEvalWorld(t, 2)
+	e := w.start(t, "alice")
+	if err := w.service.Pass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var blocked, working Arm
+	for _, a := range w.eval(t, e.ID).Arms {
+		if a.State != ArmWorking {
+			continue
+		}
+		w.work.runs[a.ChangeID] = []*workflow.Run{{ID: a.RunID, Status: workflow.RunRunning}}
+		if blocked.ID.IsZero() {
+			blocked = a
+		} else {
+			working = a
+		}
+	}
+	w.work.activities = map[ids.ID]workflow.Activity{blocked.RunID: {State: workflow.ActivityBlocked, Detail: "review (fail)"}}
+	if err := w.service.Pass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := w.eval(t, e.ID)
+	for _, a := range got.Arms {
+		switch a.ID {
+		case blocked.ID:
+			want := "its run was blocked: review (fail). No one can unblock a run in an eval, so AppTown abandoned its change."
+			if a.State != ArmFailed || a.Reason != want || a.FinishedAt == nil {
+				t.Fatalf("the blocked arm: %s %q, want failed %q", a.State, a.Reason, want)
+			}
+		case working.ID:
+			if a.State != ArmWorking {
+				t.Fatalf("the working arm became %s: %s", a.State, a.Reason)
+			}
+		}
+	}
+	if len(w.work.abandoned) != 1 || w.work.abandoned[0] != blocked.ChangeID {
+		t.Fatalf("abandoned %v, want only the blocked arm's change %v", w.work.abandoned, blocked.ChangeID)
+	}
+	if countArms(got, ArmWorking) != MaxRunning || len(w.work.started) != MaxRunning+1 {
+		t.Fatalf("the freed place was not taken: %+v, started %d", got.Arms, len(w.work.started))
 	}
 }
 
@@ -1120,5 +1270,118 @@ func TestAnEvalIsStampedByTheForgesClock(t *testing.T) {
 		if err != nil || len(lines) != 1 || lines[0].At != want.Format(time.RFC3339) {
 			t.Fatalf("%s receipt %+v %v, want it stamped %v", kind, lines, err, want)
 		}
+	}
+}
+
+// makeAdoptionChange turns a landed source Change into an adoption Change
+// opened at revision 3 of its project's way of working.
+func (w *evalWorld) makeAdoptionChange(t *testing.T, id ids.ID) {
+	t.Helper()
+	// sql-guarantee: an adoption Change needs a whole uplift admission and landing; the eval reads only its type, target and the revision it started from.
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE changes SET type='uplift', target_adoption_id=$2, expected_revision=3 WHERE id=$1`, id, idstest.N(77)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// shipAdoption marks an arm's Change shipped as an adoption Change, moved
+// to its target (adopted) or not yet, with its working and landing runs.
+func (w *evalWorld) shipAdoption(t *testing.T, a Arm, landing ids.ID, adopted int64) {
+	t.Helper()
+	// sql-guarantee: a shipped adoption Change needs a whole landing and settlement; the eval reads its state, target and stamp.
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE changes SET state='shipped', target_adoption_id=$2, adopted_revision=$3 WHERE id=$1`, a.ChangeID, idstest.N(78), adopted); err != nil {
+		t.Fatal(err)
+	}
+	def, _ := json.Marshal(schema.Spec{Kind: "pipeline", Role: "landing"})
+	w.work.mu.Lock()
+	w.work.runs[a.ChangeID] = []*workflow.Run{{ID: landing, WorkflowName: "land", DefinitionJSON: string(def), Status: workflow.RunDone}, {ID: a.RunID, Status: workflow.RunDone}}
+	w.work.mu.Unlock()
+}
+
+// An adoption Change is re-run as one: each copy starts on what its
+// project had adopted when the Change was opened, and the arm opens an
+// adoption Change moving it to the arm's way of working, with the checks
+// that move brings, run with the eval's authority. No ordinary Change is
+// opened.
+func TestAnAdoptionChangeIsReRunAsOne(t *testing.T) {
+	t.Parallel()
+	w := newEvalWorld(t, 1)
+	w.makeAdoptionChange(t, w.sources[0])
+	e := w.start(t, "alice")
+	if err := w.service.Pass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := w.eval(t, e.ID)
+	if countArms(got, ArmWorking) != 2 {
+		t.Fatalf("arms: %+v", got.Arms)
+	}
+	if !slices.Equal(w.revisions, []int64{3, 3}) {
+		t.Fatalf("copies started from revisions %v, want the change's own (3) for both", w.revisions)
+	}
+	if w.work.created != 0 || len(w.work.uplifts) != 2 || len(w.work.started) != 2 {
+		t.Fatalf("opened %d ordinary changes and %d adoption changes, started %d lanes", w.work.created, len(w.work.uplifts), len(w.work.started))
+	}
+	for i, a := range got.Arms {
+		plan, err := w.service.planOf(context.Background(), e.ID, a.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		up := w.work.uplifts[i]
+		if up.ProjectID != a.ProjectID || up.Acceptance.TargetDigest != plan.Adoption.Digest || len(up.Acceptance.Checks) != 1 || up.Target == nil {
+			t.Fatalf("arm %s opened %+v, want an adoption change to %s in its copy", a.Arm, up, plan.Adoption.Digest)
+		}
+	}
+}
+
+// An adoption arm is scored only once AppTown has moved its copy to the
+// arm's way of working: shipped and not yet moved, it waits, uncompared;
+// moved, it is scored; not moved and AppTown has stopped trying, it fails
+// with why and frees its place.
+func TestAnAdoptionArmIsScoredOnceItsCopyMoved(t *testing.T) {
+	t.Parallel()
+	w := newEvalWorld(t, 1)
+	w.makeAdoptionChange(t, w.sources[0])
+	e := w.start(t, "alice")
+	if err := w.service.Pass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	arms := w.eval(t, e.ID).Arms
+	moved, refused := arms[0], arms[1]
+	w.shipAdoption(t, moved, idstest.N(5001), 0)
+	w.shipAdoption(t, refused, idstest.N(5002), 0)
+	if err := w.service.Pass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range w.eval(t, e.ID).Arms {
+		if a.State != ArmLanding || a.Reason != waitingForAdoption || a.Score.Landed || a.Score.Compared != nil || a.Score.CompareError != "" {
+			t.Fatalf("arm %s before its copy moved: %s %q %+v", a.Arm, a.State, a.Reason, a.Score)
+		}
+	}
+	// AppTown moves one copy and stamps its Change; it gives up on the other.
+	if err := w.adoption.give(moved.ProjectID, moved.SourceProjectID, nil); err != nil {
+		t.Fatal(err)
+	}
+	w.shipAdoption(t, moved, idstest.N(5001), 2)
+	w.jobs.mu.Lock()
+	w.jobs.ended[idstest.N(5002)] = "the source's way of working changed since the copy was prepared"
+	w.jobs.mu.Unlock()
+	if err := w.service.Pass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := w.eval(t, e.ID)
+	for _, a := range got.Arms {
+		switch a.ID {
+		case moved.ID:
+			if a.State != ArmScored || a.Score.NotComparable || !a.Score.Landed || a.Reason != "" {
+				t.Fatalf("the moved arm: %s %q %+v", a.State, a.Reason, a.Score)
+			}
+		case refused.ID:
+			want := "it landed, but AppTown could not move the copy to its new way of working: the source's way of working changed since the copy was prepared"
+			if a.State != ArmFailed || a.Reason != want {
+				t.Fatalf("the arm AppTown could not move: %s %q, want failed %q", a.State, a.Reason, want)
+			}
+		}
+	}
+	if got.State != StateFinished {
+		t.Fatalf("the eval is %s with every arm ended", got.State)
 	}
 }

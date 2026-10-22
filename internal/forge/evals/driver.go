@@ -264,13 +264,23 @@ func (s *Service) startArm(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 		}
 	}
 	who := evalActor(e.ID)
-	p, err := s.deps.Copier.CreateCopy(ctx, projectlifecycle.CopyDraft{
+	draft := projectlifecycle.CopyDraft{
 		Slug: fmt.Sprintf("eval-%d-%d", e.ID, a.ID), Name: fmt.Sprintf("Eval %d %s: change %d", e.Number, a.Arm, a.SourceChangeNumber),
 		SourceID: a.SourceProjectID, Commit: source.BaseSHA, Who: who, Packs: picks,
 		Record: func(tx *database.Tx, projectID ids.ID) error {
 			return recordArmCopyIn(ctx, tx, projectID, Copy{EvalID: e.ID, ArmID: a.ID, Arm: a.Arm})
 		},
-	})
+	}
+	// An adoption Change's copy starts where the Change started; the arm's
+	// own Change moves it to the arm's adoption (startLane).
+	want := ""
+	if plan.Adoption != nil {
+		want = plan.Adoption.Digest
+	}
+	if plan.Before != nil {
+		draft.Packs, draft.Revision, want = nil, plan.Before.Revision, plan.Before.Digest
+	}
+	p, err := s.deps.Copier.CreateCopy(ctx, draft)
 	if errors.Is(err, ErrRefused) {
 		// The eval was deleted, held or stopped as its copy was made: no
 		// copy exists, and the arm waits or is settled with the eval.
@@ -282,12 +292,12 @@ func (s *Service) startArm(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 	if err != nil {
 		return fail("not comparable: the copy could not be made", err)
 	}
-	if plan.Adoption != nil {
+	if want != "" {
 		rev, err := s.deps.Adoption.CurrentReceipt(ctx, p.ID)
 		if err != nil {
 			return fail("reading the copy's adoption", err)
 		}
-		if adoption.Digest(rev.Receipt) != plan.Adoption.Digest {
+		if adoption.Digest(rev.Receipt) != want {
 			return fail("not comparable", errors.New("the copy's adoption is not the one the eval started with"))
 		}
 	}
@@ -329,8 +339,14 @@ func (s *Service) startLane(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 	a.State = ArmStarting
 	s.saveArm(ctx, a)
 	in := s.deps.InCopy(ctx, e.ID, p.ID)
-	ch, err := s.deps.Work.Create(in, workflow.ChangeDraft{ProjectID: p.ID, Type: source.Type, Title: source.Title, Body: source.Body})
+	var ch *workflow.Change
+	if plan.Before != nil {
+		ch, err = s.openAdoption(in, a, plan)
+	} else {
+		ch, err = s.deps.Work.Create(in, workflow.ChangeDraft{ProjectID: p.ID, Type: source.Type, Title: source.Title, Body: source.Body})
+	}
 	if err != nil {
+		a.Score.NotComparable = errors.Is(err, errNotComparable)
 		return fail("the Change could not be opened", err)
 	}
 	a.ChangeID = ch.ID
@@ -343,6 +359,46 @@ func (s *Service) startLane(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 	s.saveArm(ctx, a)
 	return a
 }
+
+// errNotComparable: the arm's setup is not the one the eval started with.
+var errNotComparable = errors.New("not comparable")
+
+// openAdoption opens the arm's adoption Change in its copy: from the
+// adoption the copy started on to the arm's own, with the checks that move
+// brings as its acceptance, through Work's admission of adoption Changes.
+func (s *Service) openAdoption(ctx context.Context, a Arm, plan armPlan) (*workflow.Change, error) {
+	c, err := s.deps.Adoption.PrepareCopyUplift(ctx, a.ProjectID, a.SourceProjectID, plan.Adoption.Picks)
+	if err != nil {
+		return nil, err
+	}
+	if c.Digest != plan.Adoption.Digest {
+		return nil, fmt.Errorf("%w: the way of working the change moves to is not the one the eval started with", errNotComparable)
+	}
+	checks := make([]workflow.AcceptanceCheck, 0, len(c.NewChecks))
+	for _, ch := range c.NewChecks {
+		checks = append(checks, workflow.AcceptanceCheck{Block: ch.Block, Check: ch.Check, Version: ch.Version, Title: ch.Title, Expects: ch.Expects})
+	}
+	return s.deps.Work.Uplift(ctx, workflow.Uplift{ProjectID: a.ProjectID, ExpectedRevision: c.ExpectedRevision, Acceptance: workflow.Acceptance{TargetDigest: c.Digest, Checks: checks},
+		Words: c.Words(), Target: copyTarget{adoption: s.deps.Adoption, candidate: *c, copy: a.ProjectID}})
+}
+
+// copyTarget records an adoption Change's target in a copy inside Work's
+// admission, with the authority the copy was given its adoption under:
+// the copy's own, which a variant that drops a gating block still needs.
+type copyTarget struct {
+	adoption  Adoption
+	candidate adoption.Candidate
+	copy      ids.ID
+}
+
+func (t copyTarget) RecordTargetIn(ctx context.Context, tx *database.Tx, in workflow.TargetChange) (workflow.RecordedTarget, error) {
+	r, err := t.adoption.RecordTargetIn(adoption.WithSystemAuthority(ctx, t.copy), tx, adoption.Target{ProjectID: in.ProjectID, ChangeID: in.ChangeID, Candidate: t.candidate, Actor: in.Actor})
+	return workflow.RecordedTarget{ID: r.ID, Candidate: r.Candidate}, err
+}
+
+// waitingForAdoption is an adoption arm's reason between its landing and
+// AppTown moving its copy to the arm's way of working.
+const waitingForAdoption = "landed; waiting for AppTown to move the copy to its new way of working"
 
 // observe reads a running arm's copy: its Change and its runs. An arm
 // whose working run finished is ready to land, and lands by its own
@@ -382,11 +438,29 @@ func (s *Service) observe(ctx context.Context, e evalssql.Eval, a Arm, arms []Ar
 		a.LandingRunID, changed = landing.ID, true
 	}
 	switch {
+	case ch.State == workflow.ChangeShipped && ch.LandsWithoutCode() && ch.AdoptedRevision == 0:
+		// An adoption Change ships first; AppTown then moves the copy to
+		// its target and stamps the Change. Scored only once stamped.
+		why, ended := s.adoptionEnded(ctx, a, landing)
+		if !ended {
+			if a.Reason != waitingForAdoption {
+				a.Reason, changed = waitingForAdoption, true
+			}
+			break
+		}
+		a.Score = s.score(in, a, ch, work, landing)
+		s.takeDown(ctx, e, a)
+		a.State, a.Reason, changed = ArmFailed, "it landed, but AppTown could not move the copy to its new way of working: "+why, true
 	case ch.State == workflow.ChangeShipped:
 		a.Score = s.score(in, a, ch, work, landing)
-		// Compared while its deployment still runs: the runtime probes
-		// read it. Then it is taken down.
-		a.Score.Compared, a.Score.CompareError = s.compare(ctx, e, a, arms)
+		a.Reason = ""
+		if why := s.notOnItsAdoption(ctx, e, a, ch); why != "" {
+			a.Score.NotComparable, a.Reason = true, why
+		} else {
+			// Compared while its deployment still runs: the runtime probes
+			// read it. Then it is taken down.
+			a.Score.Compared, a.Score.CompareError = s.compare(ctx, e, a, arms)
+		}
 		s.takeDown(ctx, e, a)
 		a.State, changed = ArmScored, true
 	case ch.State == workflow.ChangeAbandoned:
@@ -398,11 +472,84 @@ func (s *Service) observe(ctx context.Context, e evalssql.Eval, a Arm, arms []Ar
 	case landing != nil && landing.Status == workflow.RunAbandoned && ch.State != workflow.ChangeLanding:
 		a.Score = s.score(in, a, ch, work, landing)
 		a.State, a.Reason, changed = ArmFailed, "its landing ended without landing", true
+	default:
+		if why := s.stopIfBlocked(ctx, e, a, work, landing); why != "" {
+			a.Score = s.score(in, a, ch, work, landing)
+			a.State, a.Reason, changed = ArmFailed, why, true
+		}
 	}
 	if changed {
 		s.saveArm(ctx, a)
 	}
 	return a
+}
+
+// adoptionEnded is whether AppTown stopped trying to move a shipped
+// adoption arm's copy to its target, and why: its landing run's adopt job
+// ended without succeeding. Pending, unknown or unreadable is not ended:
+// the arm waits, and the next pass asks again.
+func (s *Service) adoptionEnded(ctx context.Context, a Arm, landing *workflow.Run) (string, bool) {
+	if s.deps.AdoptionJobs == nil || landing == nil {
+		return "", false
+	}
+	ended, why, err := s.deps.AdoptionJobs.AdoptionEnded(ctx, landing.ID)
+	if err != nil {
+		log.Printf("eval arm %d: reading its adoption job: %v", a.ID, err)
+		return "", false
+	}
+	return why, ended
+}
+
+// notOnItsAdoption is why a landed adoption arm is not comparable: its
+// copy did not end on the arm's way of working. "" for any other arm, and
+// for one that did.
+func (s *Service) notOnItsAdoption(ctx context.Context, e evalssql.Eval, a Arm, ch *workflow.Change) string {
+	if !ch.LandsWithoutCode() {
+		return ""
+	}
+	plan, err := s.planOf(ctx, e.ID, a.ID)
+	if err != nil || plan.Adoption == nil {
+		return "not comparable: the arm's way of working could not be read"
+	}
+	rev, err := s.deps.Adoption.CurrentReceipt(ctx, a.ProjectID)
+	if err != nil {
+		return "not comparable: the copy's way of working could not be read: " + err.Error()
+	}
+	if adoption.Digest(rev.Receipt) != plan.Adoption.Digest {
+		return "not comparable: the copy did not end on the way of working the eval started with"
+	}
+	return ""
+}
+
+// stopIfBlocked ends an arm whose current run (its landing while one runs,
+// else its working run) Work classifies as blocked: it waits for a person
+// to retry, override or send it back, and nobody does that in an eval, so
+// it would hold one of the eval's running places for ever. Rework is
+// committed with the failure it answers, so a blocked run is not about to
+// move by itself. Its Change is abandoned, as a spent budget's is. The
+// reason is why the arm failed; "" when the run is not blocked or its
+// activity could not be read (the next pass reads it again).
+func (s *Service) stopIfBlocked(ctx context.Context, e evalssql.Eval, a Arm, work, landing *workflow.Run) string {
+	current := work
+	if landing != nil && landing.Status == workflow.RunRunning {
+		current = landing
+	}
+	if current == nil || current.Status != workflow.RunRunning {
+		return ""
+	}
+	activity, err := s.deps.Work.Activities(s.deps.InCopy(ctx, e.ID, a.ProjectID), []ids.ID{current.ID})
+	if err != nil {
+		log.Printf("eval arm %d: reading its run's activity: %v", a.ID, err)
+		return ""
+	}
+	if activity[current.ID].State != workflow.ActivityBlocked {
+		return ""
+	}
+	why := "its run was blocked: " + activity[current.ID].Detail + ". No one can unblock a run in an eval"
+	if err := s.abandon(ctx, e, a, fmt.Sprintf("eval %d: its run was blocked", e.Number)); err != nil {
+		return why + ", and AppTown could not abandon its change (" + err.Error() + "). Deleting the eval abandons it."
+	}
+	return why + ", so AppTown abandoned its change."
 }
 
 func (s *Service) abandon(ctx context.Context, e evalssql.Eval, a Arm, why string) error {
