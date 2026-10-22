@@ -4002,6 +4002,7 @@ export type RehearsalFacts = {
   notStarted: string[]
   images: Record<string, string>
   egress: string
+  sharedHost?: boolean
   gate?: RehearsalCheck[]
 }
 

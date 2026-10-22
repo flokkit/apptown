@@ -192,6 +192,7 @@ type protection struct {
 			Withheld   []string `json:"withheld"`
 			NotStarted []string `json:"notStarted"`
 			Egress     string   `json:"egress"`
+			SharedHost bool     `json:"sharedHost"`
 		} `json:"facts"`
 	} `json:"rehearsal"`
 	RehearsalNote   string         `json:"rehearsalNote"`
@@ -316,6 +317,9 @@ func printProtection(w io.Writer, p protection) {
 	fmt.Fprintf(w, "  covers: %s\n", covers)
 	for _, n := range p.Coverage.NotAssessed {
 		fmt.Fprintf(w, "  not assessed: %s\n", n)
+	}
+	if r := p.Rehearsal; r != nil && r.Facts.SharedHost && r.Host != "" {
+		r.Host += ", not kept for rehearsals"
 	}
 	switch r := p.Rehearsal; {
 	case r == nil:

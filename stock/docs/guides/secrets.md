@@ -130,6 +130,16 @@ deployment's. Nothing is required, so a withheld secret never stops it; the
 rehearsal records which secrets it ran without. Leave payment, mail and
 webhook credentials out: the rehearsal does not block outbound network.
 
+Withholding secrets reduces what a rehearsal can do outside; it does not
+stop it. The restored data can hold credentials and webhook addresses of
+its own, a mail server may accept mail without a password, and the app
+believes it is at the production address, so links it makes point at the
+real app. An app that sends mail or calls other services on a schedule
+should give those settings stand-in values in its `rehearsal` profile and
+send nothing while it has them. This matters most when a rehearsal runs
+on the app's own host, beside the running app (see [Deployment backups](/docs/guides/deployment-backups),
+"Where restore rehearsals run").
+
 A restored copy (a restore test, or a copy people open to look at production
 as it was) follows the same rule with the same `rehearsal` profile. It runs on
 production's own platform, so remember that its data can still hold

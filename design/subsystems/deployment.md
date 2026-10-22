@@ -508,8 +508,7 @@ its data directory. **Where a set is kept:** in the backup store whenever one is
 attached (staged under `backups/.staging/take-*` while it uploads; each
 file is held to its size and digest there, and the manifest is written
 beside it once the set has its id); on AppTown's disk otherwise, where
-losing that disk loses it (the protection note and the rehearsal's
-`on-apptown-disk` reason say so). Retention counts a deployment's ordinary
+losing that disk loses it (the protection note says so). Retention counts a deployment's ordinary
 sets once across both places (`keepFor`: 14 production, 7 otherwise) and
 removes each where it is (`PruneSets`). An in-place restore of a store set
 reads every copy back to staging, held to its digest, before the safety
@@ -694,8 +693,9 @@ the release declares disposable empty; any other item fails it, by name.
   The deployment's protection reports, under `operations`, each operation
   as its own door would admit it now (`copy`, `check`, `restore`,
   `rehearsal`, `startFromCopy`, `finalCopy`), with the refusal's code and
-  sentence: a check also needs a copy in the store, and a rehearsal runs
-  on its own host and needs no copy runner. The target view reports
+  sentence: a check also needs a copy in the store, and a rehearsal reads
+  a set wherever it is kept and needs a copy runner only when it runs on
+  one. The target view reports
   `copies` the same way, so the card greys each button and the target page
   says why from AppTown's answer rather than guessing.
 - **A copy is only ever filled into a new, empty database** the provider
@@ -826,21 +826,37 @@ the release declares disposable empty; any other item fails it, by name.
 A rehearsal is a data operation on the deployment it rehearses
 (`rehearsal`), started on request only: it needs `deployment:restore` in
 that project, and no agent carries it. There is no scheduled rehearsal, and a
-take-down does not offer one. It runs only
-on the one attached Docker host a platform administrator keeps for
-rehearsals (`ingress.rehearsals`, set by a target edit whose receipt keeps
-`RehearsalHostMeaning`); the built-in host and provider targets never take
-one, and a host kept for evals or rehearsals takes nothing else
-(`Target.Reserved`). Steps:
-1. choose: the copy (newest good store set, or one named), the release the
-   deployment serves now (it must be a digest bundle: another host pulls its
-   images) and the host;
+take-down does not offer one. Where it runs (`rehearsalHost`):
+- on the one attached Docker host a platform administrator keeps for
+  rehearsals (`ingress.rehearsals`, set by a target edit whose receipt
+  keeps `RehearsalHostMeaning`), when one is kept. Whether a host is kept is
+  decided before its status: a kept host that does not answer refuses the
+  rehearsal, and several kept hosts refuse it too. The built-in host and
+  provider targets are never kept, and a host kept for evals or rehearsals
+  takes nothing else (`Target.Reserved`);
+- with none kept, where the deployment's data already is: a Docker-host
+  deployment's own host (the built-in host included), or an App Platform
+  target's copy runner. Anyone who controls that host can already read the
+  data, so the rehearsal adds no reader; it does share the host's CPU,
+  memory and disk while it runs. The record says so (`sharedHost`);
+- otherwise (a Portainer environment, a static bucket, App Platform with no
+  copy runner) nowhere: `ErrNoRehearsalHost`.
+
+Steps:
+1. choose, under the shared backups lock a restore takes: the copy (the
+   newest good set, in the store or on AppTown's disk, or one named), the
+   release the deployment serves now (a digest bundle, except on the host
+   the deployment runs on, which holds the release's images by ID) and the
+   host;
 2. record the place it will make, all of it on the rehearsal host (the
    volume `apptown-rehearsal-<op>-copy`, the stack `rehearsal-<op>` and the
-   app `apptown-rehearsal-<op>`), in `rehearsal_places` before making it;
-3. stream each copy from the store through AppTown's memory into that
-   volume, held to the set's size and digest: the copy is never on the
-   AppTown's own disk, where a project's script steps run (review RB-01); then
+   app `apptown-rehearsal-<op>`), in `rehearsal_places` before making it,
+   with whether the host is shared;
+3. stream each copy from the store, or from its set's folder on AppTown's
+   disk, through AppTown's memory into that volume, held to the set's size
+   and digest; the backups lock is released once every copy is staged. No
+   new copy is written to AppTown's own disk, where a project's script
+   steps run; then
    boot sealed (`docker.Sealed`): its own network,
    no published port, no ingress, the needs started empty and filled by the
    kind's `copy.import` and `copy.verify` on that network as the emulator's
@@ -857,8 +873,10 @@ one, and a host kept for evals or rehearsals takes nothing else
    same-host redirects, still to the rehearsal's container;
 5. record the outcome (`restore_rehearsals`, `deployment.rehearsed`):
    passed, passed without a data check, or failed with the step; each check's
-   status; what was withheld; the parts not started; and that outbound
-   network is not blocked;
+   status; what was withheld; the parts not started; that outbound
+   network is not blocked; and whether the host was shared (`sharedHost`,
+   false for a kept host, so records from before the fallback read as they
+   were made);
 6. take down the app with its volumes, the stack and its network, and the
    staged copy's volume; anything left is reported, and the operation is not
    marked cleared.
@@ -875,7 +893,11 @@ can reach the rehearsal. AppTown's part is to stream the copy through its
 memory. The protection answer gives the last rehearsal operation's answer:
 recorded, or failed or unknown when it ended without a record (an older
 recorded rehearsal is kept beside it as `previous`, never shown as the
-latest); or "never rehearsed" / "never rehearsed: no rehearsal place".
+latest, with `sharedHost` from its recorded place); or "never rehearsed" /
+"never rehearsed: no rehearsal place". On AppTown's start the preview reaper
+removes a rehearsal's app container on the built-in host (it is labelled as
+a preview); the rehearsal was already settled unknown, and the daily sweep
+removes the rest.
 
 **Restored copies** (`dataprotection/restored_copy.go`, `deploy.Gate`, `internal/gate`,
 `cmd/apptown-gate`). A restored copy is a temporary deployment (kind

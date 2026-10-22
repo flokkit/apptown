@@ -2,16 +2,21 @@ package dataprotection
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -29,7 +34,6 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/s3bucket"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/stamp"
 )
@@ -38,18 +42,24 @@ import (
 // rehearsals"). A drill
 // proves a copy comes back into a database; a rehearsal proves the app works
 // on it. It is an operation on the deployment it rehearses, which boots that
-// deployment's current release from a chosen copy on a Docker host kept for
-// rehearsals, asks the app its readiness, its front page and its declared
-// data checks, records the answer on the deployment, and takes everything it
-// made down again: the place is the operation's own, never a deployment, and
-// takes no final copy (its data is a copy of a copy).
+// deployment's current release from a chosen copy (in the backup store or on
+// AppTown's disk) on a Docker host, asks the app its readiness, its front
+// page and its declared data checks, records the answer on the deployment,
+// and takes everything it made down again: the place is the operation's
+// own, never a deployment, and takes no final copy (its data is a copy of a
+// copy).
+//
+// The host is the one a platform administrator keeps for rehearsals when
+// there is one. Otherwise it is where the deployment's data already is: its
+// own Docker host, or its App Platform target's copy runner. The record says
+// which, as sharedHost (rehearsalHost).
 //
 // The boundary is the host, not the container: the rehearsal publishes no
 // port and joins no ingress, and only AppTown's probe, inside its own
 // network, asks it anything (docker.Sealed). Root, the Docker socket, any
 // process on the host and any container on the host's network can still
-// reach it, so a platform administrator keeps a dedicated host for
-// rehearsals, told exactly that when marking it.
+// reach it. A host kept for rehearsals runs nothing else; on a shared host
+// those are the people and programs that can already reach the data.
 //
 // What AppTown records of a rehearsal is safe to show anyone who may read
 // the project: step names, the commands that ran and how they exited, status
@@ -58,8 +68,10 @@ import (
 // data.
 
 var (
-	// ErrNoRehearsalHost: no Docker host is kept for rehearsals.
-	ErrNoRehearsalHost = fault.New(fault.Conflict, "no Docker host is kept for restore rehearsals: a platform administrator marks a dedicated attached Docker host for them")
+	// ErrNoRehearsalHost: no Docker host is kept for rehearsals, and the
+	// deployment's data is on none AppTown reaches (a Portainer
+	// environment, a static bucket, App Platform without a copy runner).
+	ErrNoRehearsalHost = fault.New(fault.Conflict, "No host to rehearse this deployment on. A platform administrator can keep a Docker host for rehearsals in its target settings.")
 	// ErrRehearsalNotStopped: a rehearsal runs to its end and takes itself
 	// down; it is not stopped part way.
 	ErrRehearsalNotStopped = fault.New(fault.Conflict, "a restore rehearsal is not stopped part way: it takes everything it made down when it ends")
@@ -92,6 +104,11 @@ type RehearsalFacts struct {
 	Images     map[string]string `json:"images"`
 	// Egress is said every time: the rehearsal blocks no outbound network.
 	Egress string `json:"egress"`
+	// SharedHost: the rehearsal ran on a host not kept for rehearsals (the
+	// deployment's own, or its target's copy runner), beside whatever else
+	// runs there. False is a host kept for rehearsals, where every
+	// rehearsal ran before there was any other place.
+	SharedHost bool `json:"sharedHost,omitempty"`
 	// Gate is a restored copy's check of its own gate (checkGate): what it
 	// refused, and AppTown's own ticket let in once. A rehearsal has no
 	// gate and records none.
@@ -176,7 +193,7 @@ func (s *Service) lastRehearsalOf(ctx context.Context, dep *deployment.Deploymen
 	if place, err := s.recordedPlace(ctx, o.ID); err != nil {
 		return nil, err
 	} else {
-		ref.Host = place.Host
+		ref.Host, ref.Facts.SharedHost = place.Host, place.Shared
 	}
 	for _, st := range o.Steps {
 		if st.Failed {
@@ -187,29 +204,55 @@ func (s *Service) lastRehearsalOf(ctx context.Context, dep *deployment.Deploymen
 	return ref, nil
 }
 
-// rehearsalHost is the one Docker host kept for rehearsals.
-func (s *Service) rehearsalHost(ctx context.Context) (*deployment.Target, error) {
+// rehearsalHost is where a rehearsal of dep runs, and whether that host is
+// shared: the one Docker host kept for rehearsals when there is one (not
+// shared); otherwise where dep's data already is, a Docker-host
+// deployment's own host or an App Platform target's copy runner (shared:
+// other things run there). The data is already on either, so a rehearsal
+// there gives no one a new way to read it.
+func (s *Service) rehearsalHost(ctx context.Context, dep *deployment.Deployment) (*deployment.Target, bool, error) {
 	targets, err := s.targets.All(ctx)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
+	// Whether a host is kept is decided before whether it can take work: a
+	// kept host that is down refuses, and never sends the rehearsal beside
+	// production instead.
 	var kept []*deployment.Target
 	for _, t := range targets {
-		if t.ForRehearsals() && t.Status.Offerable() {
+		if t.ForRehearsals() && t.Status.Available() == nil {
 			kept = append(kept, t)
 		}
 	}
 	switch len(kept) {
 	case 0:
-		return nil, ErrNoRehearsalHost
 	case 1:
-		return kept[0], nil
+		if !kept[0].Status.Offerable() {
+			return nil, false, fault.New(fault.Conflict, fmt.Sprintf("The host kept for restore rehearsals, %s, is not reachable now (%s). Rehearsals run only there while it is kept.", kept[0].Name, kept[0].Status))
+		}
+		return kept[0], false, nil
+	default:
+		names := make([]string, len(kept))
+		for i, t := range kept {
+			names[i] = t.Name
+		}
+		return nil, false, fault.New(fault.Conflict, fmt.Sprintf("several Docker hosts are kept for restore rehearsals (%s); keep one", strings.Join(names, ", ")))
 	}
-	names := make([]string, len(kept))
-	for i, t := range kept {
-		names[i] = t.Name
+	own, err := s.targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return nil, false, err
 	}
-	return nil, fault.New(fault.Conflict, fmt.Sprintf("several Docker hosts are kept for restore rehearsals (%s); keep one", strings.Join(names, ", ")))
+	switch {
+	case own.DataAccess() == deployment.DataOnDockerHost:
+		return own, true, nil
+	case own.DataAccess() == deployment.DataOnManagedPlatform && own.CopyRunner() != "":
+		runner, err := s.targets.ByName(ctx, own.CopyRunner())
+		if err != nil || runner.DataAccess() != deployment.DataOnDockerHost {
+			return nil, false, ErrNoRehearsalHost
+		}
+		return runner, true, nil
+	}
+	return nil, false, ErrNoRehearsalHost
 }
 
 // rehearsalScope is how AppTown reaches a rehearsal host's daemon.
@@ -229,40 +272,20 @@ type rehearsalPlan struct {
 	release *deployment.Release
 	bundle  *deployment.ReleaseBundle
 	host    *deployment.Target
+	// shared: host is not one kept for rehearsals (rehearsalHost).
+	shared bool
 }
 
 // planRehearsal resolves what a rehearsal starts from, refusing with why.
-// set 0 is the deployment's newest good copy in the store.
+// set 0 is the deployment's newest good copy, wherever it is kept.
 func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name string, set ids.ID) (*rehearsalPlan, error) {
 	dep, err := s.deployments.ByName(ctx, projectID, name)
 	if err != nil || !dep.Standing() {
 		return nil, fault.New(fault.NotFound, fmt.Sprintf("no standing deployment named %q", name))
 	}
 	p := &rehearsalPlan{dep: dep}
-	// The backups AppTown takes itself (a Docker host's) are on its disk
-	// until a store is attached; a rehearsal reads only the store.
-	if t, err := s.targets.ByID(ctx, dep.TargetID); err == nil && t.HoldsBackups() == nil {
-		store, err := s.Store(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if store == nil {
-			return nil, ErrOnAppTownDisk
-		}
-	}
-	if set.IsZero() {
-		if p.set, err = s.newestStoreSet(ctx, projectID, name); err != nil {
-			return nil, err
-		}
-	} else {
-		// Which of the set's items the release can be filled from is
-		// decided when the release's contract is read (rehearse).
-		if p.set, err = s.storeSet(ctx, set, ErrRehearsalSource); err != nil {
-			return nil, err
-		}
-		if p.set.ProjectID != projectID || p.set.Deployment != name {
-			return nil, fmt.Errorf("%w: set %d is a copy of another deployment", ErrRehearsalSource, set)
-		}
+	if p.set, err = s.rehearsalSet(ctx, projectID, name, set); err != nil {
+		return nil, err
 	}
 	if p.set.DataClass == "production" && dep.DataClass != "production" {
 		return nil, deployment.ErrProductionCopy
@@ -282,11 +305,16 @@ func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name stri
 			return nil, err
 		}
 	}
-	if p.bundle == nil || !p.bundle.ByDigest() || p.bundle.ProjectID != projectID {
-		return nil, fmt.Errorf("%w: release %d was not published to a registry, so another host cannot run its images", ErrRehearsalSource, number)
+	if p.bundle == nil || p.bundle.ProjectID != projectID {
+		return nil, fmt.Errorf("%w: release %d records no images to run", ErrRehearsalSource, number)
 	}
-	if p.host, err = s.rehearsalHost(ctx); err != nil {
+	if p.host, p.shared, err = s.rehearsalHost(ctx, dep); err != nil {
 		return nil, err
+	}
+	// The host the release was deployed to holds its images by ID; any
+	// other host pulls them by digest from a registry.
+	if p.host.ID != dep.TargetID && !p.bundle.ByDigest() {
+		return nil, fmt.Errorf("%w: release %d was not published to a registry, so %s cannot run its images", ErrRehearsalSource, number, p.host.Name)
 	}
 	if _, err := rehearsalOrigin(dep); err != nil {
 		return nil, err
@@ -304,10 +332,47 @@ func rehearsalOrigin(dep *deployment.Deployment) (string, error) {
 	return u.Hostname(), nil
 }
 
+// rehearsalSet is the set a rehearsal of the deployment starts from: the
+// one named, or (0) its newest good set, in the backup store or on
+// AppTown's disk. A set on the disk is only read, never copied there.
+func (s *Service) rehearsalSet(ctx context.Context, projectID ids.ID, name string, id ids.ID) (*Backup, error) {
+	if id.IsZero() {
+		sets, err := s.backups.ForDeployment(ctx, projectID, name, 50)
+		if err != nil {
+			return nil, err
+		}
+		for i := range sets {
+			if sets[i].Status == BackupOK && (sets[i].Store == StoreBackupStore || sets[i].Store == StoreAppTownDisk) {
+				return &sets[i], nil
+			}
+		}
+		return nil, ErrNoSet
+	}
+	b, err := backupRecord(protectionsql.New(s.db.SQL()).BackupByIDAnywhere(ctx, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fault.New(fault.NotFound, fmt.Sprintf("no copy %d", id))
+	}
+	if err != nil {
+		return nil, err
+	}
+	if b.Status != BackupOK || (b.Store != StoreBackupStore && b.Store != StoreAppTownDisk) {
+		return nil, fmt.Errorf("%w: set %d is not a whole copy (%s, %s)", ErrRehearsalSource, b.ID, b.Store, b.Status)
+	}
+	// Which of the set's items the release can be filled from is decided
+	// when the release's contract is read (rehearse).
+	if b.ProjectID != projectID || b.Deployment != name {
+		return nil, fmt.Errorf("%w: set %d is a copy of another deployment", ErrRehearsalSource, id)
+	}
+	return &b, nil
+}
+
+// ErrNoSet: a deployment with no good set to rehearse from.
+var ErrNoSet error = &deployment.Unavailable{Reason: "no-copy", Why: "There is no good backup of its data yet."}
+
 // RequestRehearsal starts a restore rehearsal of a standing deployment from
-// set (0: its newest good copy in the store). Production data moves to
-// another host, so it needs deployment:restore in the deployment's project;
-// no agent carries it. The scheduled rehearsals start as AppTown.
+// set (0: its newest good copy). Production data may move to another
+// host, so it needs deployment:restore in the deployment's project; no
+// agent carries it.
 func (s *Service) RequestRehearsal(ctx context.Context, projectID ids.ID, name string, set ids.ID) (*operations.Operation, error) {
 	actor, err := s.requireAuthority(ctx, access.CapDeploymentRestore, projectID, "deployment.rehearse")
 	if err != nil {
@@ -334,12 +399,14 @@ type rehearsalPlace struct {
 	Host  string `json:"host"`
 	Stack string `json:"stack"`
 	App   string `json:"app"`
+	// Shared: the host is not one kept for rehearsals (RehearsalFacts).
+	Shared bool `json:"shared,omitempty"`
 }
 
-func placeOf(op ids.ID, host string) rehearsalPlace {
+func placeOf(op ids.ID, host string, shared bool) rehearsalPlace {
 	n := op.String()
 	pre := string(docker.Current)
-	return rehearsalPlace{Copy: pre + "rehearsal-" + n + "-copy", Host: host, Stack: "rehearsal-" + n, App: pre + "rehearsal-" + n}
+	return rehearsalPlace{Copy: pre + "rehearsal-" + n + "-copy", Host: host, Stack: "rehearsal-" + n, App: pre + "rehearsal-" + n, Shared: shared}
 }
 
 // copyMount is where a rehearsal's staged copy is mounted in the jobs that
@@ -524,13 +591,22 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 	result := map[string]any{"backup": set}
 	facts := RehearsalFacts{Egress: egressNotBlocked, Withheld: []string{}, NotStarted: []string{}, Checks: []RehearsalCheck{}}
 	t.begin(ctx, "choosing the copy, the release and the host")
+	// A set on AppTown's disk is read under the backups lock a restore
+	// reads under, from before it is chosen until its copies are staged on
+	// the host, so a prune or a move cannot remove it meanwhile.
+	files, err := LockBackupFiles(s.backupRoot(), false)
+	if err != nil {
+		return OperationFailed, "nothing was made: the backups on AppTown's disk could not be locked for reading: " + err.Error(), result
+	}
+	staged := sync.OnceFunc(func() { _ = files.Close() })
+	defer staged()
 	p, err := s.planRehearsal(ctx, t.op.ProjectID, t.op.Deployment, set)
 	if err != nil {
 		return OperationFailed, "nothing was made: " + err.Error(), result
 	}
-	place := placeOf(t.op.ID, p.host.Name)
-	facts.Images = p.bundle.Parts
-	t.end(ctx, fmt.Sprintf("set %d, release %d, on %s", p.set.ID, p.release.Number, p.host.Name), 0)
+	place := placeOf(t.op.ID, p.host.Name, p.shared)
+	facts.Images, facts.SharedHost = p.bundle.Parts, p.shared
+	t.end(ctx, fmt.Sprintf("set %d, release %d, on %s", p.set.ID, p.release.Number, hostWords(p.host.Name, p.shared)), 0)
 
 	if err := t.allowed(ctx); err != nil {
 		return OperationFailed, "nothing was made: " + err.Error(), result
@@ -545,7 +621,7 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 		return OperationFailed, "nothing was made: recording the rehearsal's place: " + err.Error(), result
 	}
 	result["place"] = place
-	state, failedStep, detail := s.rehearse(ctx, t, p, place, &facts)
+	state, failedStep, detail := s.rehearse(ctx, t, p, place, &facts, staged)
 
 	t.begin(ctx, "taking the rehearsal down")
 	// The rehearsal's place comes down though the operation was stopped.
@@ -585,7 +661,7 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 
 // rehearse fills, boots and checks; it says how it went, and the step a
 // failure was in, in safe words.
-func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, place rehearsalPlace, facts *RehearsalFacts) (runEnd, string, string) {
+func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, place rehearsalPlace, facts *RehearsalFacts, staged func()) (runEnd, string, string) {
 	fail := func(step, why string) (runEnd, string, string) {
 		t.fail(ctx, why)
 		return OperationFailed, step, fmt.Sprintf("the rehearsal of %s from set %d failed while %s: %s", p.dep.Name, p.set.ID, step, why)
@@ -666,21 +742,22 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	if err != nil {
 		return fail("reaching the host", fmt.Sprintf("%s could not be reached", host.Name))
 	}
-	c2, store, err := s.storeOf(ctx, p.set)
+	read, from, err := s.setReader(ctx, p.set)
 	if err != nil {
-		return fail("reading the copy back", "the backup store could not be reached: "+err.Error())
+		return fail("reading the copy back", err.Error())
 	}
 	for _, m := range moves {
-		step = fmt.Sprintf("copying set %d's copy of %s from the store to %s", p.set.ID, m.from.Name, host.Name)
+		step = fmt.Sprintf("copying set %d's copy of %s from %s to %s", p.set.ID, m.from.Name, from, host.Name)
 		if err := t.allowed(ctx); err != nil {
 			return OperationFailed, step, fmt.Sprintf("the rehearsal of %s stopped before %s: %v", p.dep.Name, step, err)
 		}
 		t.begin(ctx, step)
-		if err := s.stageOnHost(ctx, dk, c2, store.Bucket, p.set, m.from, place.Copy); err != nil {
+		if err := s.stageOnHost(ctx, dk, read, m.from, place.Copy); err != nil {
 			return fail(step, err.Error())
 		}
 		t.end(ctx, fmt.Sprintf("%d bytes, sha256 %s, as recorded", m.from.Bytes, shortDigest(m.from.SHA256)), m.from.Bytes)
 	}
+	staged() // the copies are on the host: the set may be pruned or moved
 
 	origin, _ := rehearsalOrigin(p.dep)
 	// The rehearsal's needs hold a copy of the deployment's data: they get
@@ -801,39 +878,82 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 		return fail(step, "not every check passed: "+strings.Join(answers, ", "))
 	}
 	t.end(ctx, strings.Join(answers, ", "), 0)
-	return OperationVerified, "", fmt.Sprintf("release %d ran on set %d's data on %s and answered %s", p.release.Number, p.set.ID, host.Name, strings.Join(answers, ", "))
+	return OperationVerified, "", fmt.Sprintf("release %d ran on set %d's data on %s and answered %s", p.release.Number, p.set.ID, hostWords(host.Name, p.shared), strings.Join(answers, ", "))
 }
 
-// stageOnHost streams an item of a store set into a new volume on the
-// rehearsal host, through AppTown's memory, never its disk, and holds it
-// to the set's record: its size and digest. A copy that does not match is
-// not used.
-func (s *Service) stageOnHost(ctx context.Context, dk docker.Scope, c *s3bucket.Client, bucket string, b *Backup, it *BackupItem, volume string) error {
+// readItem writes one item of a set to w and answers how many bytes it
+// wrote and their sha256.
+type readItem func(ctx context.Context, it *BackupItem, w io.Writer) (int64, string, error)
+
+// setReader reads the items of a set where it is kept, and names that
+// place: the backup store it was written to, or AppTown's disk. The caller
+// holds the backups lock (runRehearsal).
+func (s *Service) setReader(ctx context.Context, b *Backup) (readItem, string, error) {
+	if b.Store == StoreBackupStore {
+		c, store, err := s.storeOf(ctx, b)
+		if err != nil {
+			return nil, "", fmt.Errorf("the backup store could not be reached: %w", err)
+		}
+		return func(ctx context.Context, it *BackupItem, w io.Writer) (int64, string, error) {
+			return c.GetTo(ctx, store.Bucket, b.Path+"/"+it.File, w)
+		}, "the store", nil
+	}
+	dir, err := filepath.Abs(b.Path)
+	rel, rerr := filepath.Rel(s.backupRoot(), dir)
+	if err != nil || rerr != nil || rel == "." || !filepath.IsLocal(rel) {
+		return nil, "", fmt.Errorf("set %d's folder is not beneath the backup folder", b.ID)
+	}
+	return func(_ context.Context, it *BackupItem, w io.Writer) (int64, string, error) {
+		f, err := os.Open(filepath.Join(dir, it.File))
+		if err != nil {
+			return 0, "", fmt.Errorf("set %d's copy %s could not be read on AppTown's disk", b.ID, it.File)
+		}
+		defer f.Close()
+		h := sha256.New()
+		n, err := io.Copy(io.MultiWriter(w, h), f)
+		return n, hex.EncodeToString(h.Sum(nil)), err
+	}, "AppTown's disk", nil
+}
+
+// backupRoot is the folder the sets on AppTown's disk are beneath.
+func (s *Service) backupRoot() string {
+	root, err := filepath.Abs(filepath.Join(s.dataDir, "backups"))
+	if err != nil {
+		return filepath.Join(s.dataDir, "backups")
+	}
+	return root
+}
+
+// stageOnHost streams an item of a set into a new volume on the rehearsal
+// host, through AppTown's memory, never a new file on its disk, and holds
+// it to the set's record: its size and digest. A copy that does not match
+// is not used.
+func (s *Service) stageOnHost(ctx context.Context, dk docker.Scope, read readItem, it *BackupItem, volume string) error {
 	pr, pw := io.Pipe()
 	type got struct {
 		n   int64
 		sum string
 		err error
 	}
-	read := make(chan got, 1)
+	done := make(chan got, 1)
 	go func() {
-		n, sum, err := c.GetTo(ctx, bucket, b.Path+"/"+it.File, pw)
+		n, sum, err := read(ctx, it, pw)
 		pw.CloseWithError(err)
-		read <- got{n, sum, err}
+		done <- got{n, sum, err}
 	}()
 	args := []string{"run", "--rm", "-i", "--network", "none", "--entrypoint", "", "-v", volume + ":" + copyMount}
 	args = append(args, dk.Labels("step", "rehearsal-copy")...)
 	args = append(args, s.env.ChownImage(), "sh", "-c", "umask 077 && cat > "+copyMount+"/"+it.File)
 	_, werr := dk.Command(ctx, docker.Command{Args: args, Stdin: pr})
 	_ = pr.CloseWithError(werr)
-	r := <-read
+	r := <-done
 	switch {
 	case r.err != nil:
-		return r.err // the store's words
+		return r.err // the store's or the disk's words
 	case werr != nil:
 		return fmt.Errorf("the copy could not be written to the host (%s)", exitOf(werr))
 	case r.n != it.Bytes || r.sum != it.SHA256:
-		return fmt.Errorf("the store holds %d bytes with sha256 %s for %s; the set records %d bytes with sha256 %s", r.n, shortDigest(r.sum), it.File, it.Bytes, shortDigest(it.SHA256))
+		return fmt.Errorf("%d bytes with sha256 %s were read for %s; the set records %d bytes with sha256 %s", r.n, shortDigest(r.sum), it.File, it.Bytes, shortDigest(it.SHA256))
 	}
 	return nil
 }
@@ -854,8 +974,17 @@ func (s *Service) recordRehearsal(ctx context.Context, t *tracker, p *rehearsalP
 		return audit.At(at).RecordIn(ctx, tx, t.op.AskedBy, p.dep.ProjectID, "deployment.rehearsed", p.dep.Name, map[string]any{
 			"operation": t.op.ID, "outcome": outcome, "failedStep": failedStep, "backup": p.set.ID, "backupDigests": setDigests(p.set),
 			"release": p.release.Number, "images": facts.Images, "host": p.host.Name, "checks": facts.Checks,
-			"withheld": facts.Withheld, "notStarted": facts.NotStarted, "egress": facts.Egress})
+			"withheld": facts.Withheld, "notStarted": facts.NotStarted, "egress": facts.Egress, "sharedHost": facts.SharedHost})
 	})
+}
+
+// hostWords names the host a rehearsal ran on, and says when it was not
+// one kept for rehearsals.
+func hostWords(host string, shared bool) string {
+	if shared {
+		return host + ", not kept for rehearsals"
+	}
+	return host
 }
 
 // setDigests are each copy's digest in a set, by need.

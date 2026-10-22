@@ -304,7 +304,7 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
           </label>
         )}
         {t.kind === 'docker-host' && t.origin === 'attached' && (
-          <label className="small" title="restore rehearsals boot a deployment's release on a copy of its data here, check it and take it down">
+          <label className="small" title="restore rehearsals boot a deployment's release on a copy of its data here, check it and take it down. With no host kept, rehearsals run on the app's own host.">
             <input type="checkbox" checked={draft.rehearsals} disabled={busy} onChange={(e) => set('rehearsals', e.target.checked)} /> kept for restore rehearsals
           </label>
         )}

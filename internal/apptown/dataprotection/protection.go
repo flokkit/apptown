@@ -140,8 +140,8 @@ type Availability struct {
 
 // DataOperations is each operation on a deployment's data, as its own door
 // would admit it now. They share some prerequisites (a store, a copy
-// runner) but not all: a check needs a copy to check, a rehearsal runs on
-// its own host from a stored copy and needs no copy runner.
+// runner) but not all: a check needs a copy to check, a rehearsal reads a
+// copy wherever it is kept and needs a copy runner only when it runs on one.
 type DataOperations struct {
 	Copy  Availability `json:"copy"`
 	Check Availability `json:"check"`
@@ -312,7 +312,7 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	}
 	if out.Rehearsal == nil {
 		out.RehearsalNote = "never rehearsed"
-		if _, err := s.rehearsalHost(ctx); errors.Is(err, ErrNoRehearsalHost) {
+		if _, _, err := s.rehearsalHost(ctx, dep); errors.Is(err, ErrNoRehearsalHost) {
 			out.RehearsalNote = "never rehearsed: no rehearsal place"
 		}
 	}
@@ -490,12 +490,9 @@ type nativeRead struct {
 // shown before it is asked again.
 const NativeReadFor = 5 * time.Minute
 
-// Words for a Docker host's deployment whose backups cannot leave the
-// AppTown's disk, and for the operations only App Platform has so far.
+// Words for a Docker host's deployment's operations that run elsewhere,
+// and for the operations only App Platform has so far.
 var (
-	// ErrOnAppTownDisk: with no store attached a Docker host's backups stay
-	// on AppTown's own disk, which a rehearsal does not read from.
-	ErrOnAppTownDisk error = &deployment.Unavailable{Reason: "on-apptown-disk", Why: "A rehearsal needs a backup store."}
 	// ErrDockerBackupsPage: a Docker host's deployment is copied by its
 	// backups, from the Backups page, not by a copy operation.
 	ErrDockerBackupsPage error = &deployment.Unavailable{Reason: "backups-page", Why: "A Docker host's deployment is backed up daily and from the Backups page."}
@@ -600,9 +597,6 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 	// say the same thing.
 	ops := s.operationsOf(ctx, dep, t, nil, nil)
 	out.Operations = ops
-	if out.Rehearsal == nil && !ops.Rehearsal.Available && ops.Rehearsal.Reason == "on-apptown-disk" {
-		out.RehearsalNote = "needs a backup store: its backups are on this host"
-	}
 	if out.RestoreTest == nil {
 		out.RestoreTestNote = "App Platform only; a rehearsal checks a Docker host's copies"
 	}

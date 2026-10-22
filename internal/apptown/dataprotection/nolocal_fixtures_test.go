@@ -256,7 +256,7 @@ func (requestSecrets) ResolveRelease(context.Context, deployment.Application, st
 type requestQueue struct{}
 
 func (requestQueue) EnqueueReleaseIn(ctx context.Context, tx *database.Tx, id ids.ID) error {
-	var recorded int64
+	var recorded ids.ID
 	// sql-guarantee: requestQueue is a test-owned transactional port double whose insertion must share the release transaction for queue-veto rollback; production queries do not target test_release_queue.
 	return tx.SQL().QueryRowContext(ctx, `INSERT INTO test_release_queue(release_id) VALUES ($1) RETURNING release_id`, id).Scan(&recorded)
 }

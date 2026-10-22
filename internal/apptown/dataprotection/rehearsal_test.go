@@ -84,6 +84,8 @@ type rehearsalHost struct {
 	// afterStage, when set, runs once a copy has been staged on the host,
 	// outside the daemon's lock.
 	afterStage func()
+	// held are the images the host holds by ID (a release built on it).
+	held map[string]bool
 }
 
 // Run is the daemon's, after beforeImport.
@@ -138,10 +140,16 @@ func volumeOf(args []string) string {
 const planted = "alice.private@example.com"
 
 func newRehearsalHost() *rehearsalHost {
-	h := &rehearsalHost{Daemon: dockerfake.New(), status: map[string]string{"/signin": "302 /login"}, volumes: map[string]string{}, objects: map[string]fakeObject{}, failWith: map[string]bool{}, started: map[string]map[string]string{}}
+	h := &rehearsalHost{Daemon: dockerfake.New(), status: map[string]string{"/signin": "302 /login"}, volumes: map[string]string{}, objects: map[string]fakeObject{}, failWith: map[string]bool{}, started: map[string]map[string]string{}, held: map[string]bool{}}
 	h.SetReply(func(args []string) ([]byte, error, bool) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
+		if args[0] == "image" && len(args) == 5 && args[1] == "inspect" && args[3] == "{{.Id}}" {
+			if !h.held[args[4]] {
+				return []byte("Error response from daemon: No such image: " + args[4]), errors.New("exit status 1"), true
+			}
+			return []byte(args[4] + "\n"), nil, true
+		}
 		if args[0] == "image" && len(args) == 5 && args[1] == "inspect" {
 			ref := args[4]
 			return []byte(`sha256:` + strings.Repeat("b", 64) + ` ["` + ref + `"]`), nil, true
@@ -450,7 +458,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 			t.Errorf("not taken down: no %q", want)
 		}
 	}
-	if !strings.Contains(cmds, "volume rm "+placeOf(op.ID, "").Copy) {
+	if !strings.Contains(cmds, "volume rm "+placeOf(op.ID, "", false).Copy) {
 		t.Errorf("the staged copy's volume was not removed from the host")
 	}
 	if op.Result["cleared"] == nil {
@@ -599,11 +607,14 @@ func TestAFailedRehearsalRecordsOnlyStepsAndStatuses(t *testing.T) {
 
 // Who may rehearse, and where: deployment:restore in the deployment's
 // project; a host a platform administrator keeps for rehearsals, exactly
-// one, attached and Docker; and such a host takes nothing else.
+// one, attached and Docker, which takes nothing else, and which refuses
+// while it does not answer; with none kept, an App Platform deployment's
+// copy runner, and with no runner either, nowhere.
 //
 // Kills: a deploy grant sufficing; a built-in or provider target kept for
 // rehearsals; an ordinary deployment placed on a rehearsal host; picking one
-// of several kept hosts; marking a host without the meaning in its receipt.
+// of several kept hosts; marking a host without the meaning in its receipt;
+// falling back to a shared host while the kept one is down; no fallback.
 func TestARehearsalIsRefusedWithoutAuthorityOrAPlace(t *testing.T) {
 	t.Parallel()
 	w := newRehearsalWorld(t)
@@ -650,14 +661,37 @@ func TestARehearsalIsRefusedWithoutAuthorityOrAPlace(t *testing.T) {
 		t.Fatalf("two kept hosts: %v", err)
 	}
 	no := false
-	for _, name := range []string{"rehearse-1", "rehearse-2"} {
+	unmark := func(name string) {
+		t.Helper()
 		cur, _ := w.s.Targets.ByName(ctx, name)
 		if _, err := w.s.Targets.EditSettings(ctx, name, deployment.TargetSettingsEdit{ExpectedRevision: &cur.SettingsRevision, Rehearsals: &no}, "admin"); err != nil {
 			t.Fatal(err)
 		}
 	}
+	unmark("rehearse-1")
+
+	// The one kept host stops answering: the rehearsal is refused, and
+	// never sent to the shared host instead.
+	kept, _ := w.s.Targets.ByName(ctx, "rehearse-2")
+	if _, err := w.s.Targets.RecordCheck(ctx, kept, false, "admin", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.s.RequestRehearsal(ctx, w.project, "prod", ids.Nil); err == nil || !strings.Contains(err.Error(), "rehearse-2, is not reachable") {
+		t.Fatalf("an unreachable kept host: %v", err)
+	}
+	if p, err := w.s.planRehearsal(ctx, w.project, "prod", ids.Nil); err == nil {
+		t.Fatalf("an unreachable kept host planned a rehearsal on %s", p.host.Name)
+	}
+	unmark("rehearse-2")
+
+	// None kept: App Platform's data is rehearsed on its copy runner, a
+	// host not kept for rehearsals.
+	if p, err := w.s.planRehearsal(ctx, w.project, "prod", ids.Nil); err != nil || p.host.Name != "local" || !p.shared {
+		t.Fatalf("no kept host, a copy runner: %+v %v", p, err)
+	}
+	w.nameRunner("")
 	if _, err := w.s.RequestRehearsal(ctx, w.project, "prod", ids.Nil); !errors.Is(err, ErrNoRehearsalHost) {
-		t.Fatalf("no kept host: %v", err)
+		t.Fatalf("no kept host and no copy runner: %v", err)
 	}
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || prot.RehearsalNote != "never rehearsed: no rehearsal place" {
@@ -705,7 +739,7 @@ func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) 
 			if _, err := w.ops.Cancel(ctx, op.ID); !errors.Is(err, ErrRehearsalNotStopped) {
 				t.Errorf("cancelling a running rehearsal: %v", err)
 			}
-			place := placeOf(op.ID, "rehearse-1")
+			place := placeOf(op.ID, "rehearse-1", false)
 			w.host.mu.Lock()
 			staged := w.host.volumes[place.Copy+"/postgres.dump"]
 			w.host.mu.Unlock()
