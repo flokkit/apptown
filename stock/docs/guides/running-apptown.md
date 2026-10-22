@@ -74,6 +74,8 @@ certificate itself. To run `apptownd` under systemd from the release
 archive instead, or behind a proxy you already have, see [Setting up a
 server](/docs/guides/server-setup), which also says what one server does and
 does not protect.
+To check that the image and archives you download are the ones we released,
+see Check a release in [Setting up a server](/docs/guides/server-setup).
 
 ### 3. Split install
 

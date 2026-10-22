@@ -149,6 +149,7 @@ agent_image=$(echo "$facts" | sed -n 's/^AGENT_IMAGE=//p')
 	echo "- Worker protocol: $worker_protocol; CLI protocol: $cli_protocol (Upgrading, Versions)"
 	echo "- Agent image: \`ghcr.io/flokkit/apptown-agent:$version\`. On install and on each upgrade set \`APPTOWN_AGENT_IMAGE\` to it; AppTown pulls it when it is missing. Workers build their own from the recipe \`$agent_image\` (\`deploy/apptown-agent\` in the archive) when they start"
 	echo "- Platforms: linux/amd64, linux/arm64, darwin/arm64; checksums in SHA256SUMS"
+	echo "- Signatures: the images and SHA256SUMS are signed by the release workflow; Setting up a server, Check a release, has the cosign commands"
 	echo "- Licence: Apache-2.0 (LICENSE, NOTICE)"
 	echo
 	echo "Install: Running AppTown, Install, and Setting up a server. Upgrade: Upgrading."

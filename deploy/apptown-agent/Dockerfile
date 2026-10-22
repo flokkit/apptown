@@ -131,7 +131,11 @@ LABEL forge.compose.version=${COMPOSE_VERSION}
 ARG BIOME_VERSION=2.3.14
 ARG RUFF_VERSION=0.17.0
 COPY --from=gopls /out/gopls /usr/local/bin/gopls
-RUN npm install -g @biomejs/biome@${BIOME_VERSION} \
+# No npm package's install script runs while this image is built
+# (--ignore-scripts here, npm_config_ignore_scripts for pi install, which
+# runs npm); none of these tools needs one. A project's own npm installs in
+# the running container are not affected.
+RUN npm install -g --ignore-scripts @biomejs/biome@${BIOME_VERSION} \
     && UV_TOOL_BIN_DIR=/usr/local/bin uv tool install ruff==${RUFF_VERSION} \
     && npm cache clean --force && rm -rf /root/.cache/uv \
     && biome --version && ruff --version && gopls version
@@ -139,7 +143,7 @@ LABEL forge.lsp.servers=biome,ruff,gopls
 
 # pi itself
 ARG PI_VERSION=0.84.3
-RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
+RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
 # Runtime version surfaces in step evidence via this label (receipts).
 LABEL forge.pi.version=${PI_VERSION}
 
@@ -149,7 +153,7 @@ LABEL forge.pi.version=${PI_VERSION}
 # settings, so session start never touches the network. The label is how
 # apptownd learns the pinned version (and receipts record it).
 ARG PI_SUBAGENTS_VERSION=0.61.0
-RUN HOME=/opt/pi-baked pi install npm:pi-subagents@${PI_SUBAGENTS_VERSION}
+RUN npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:pi-subagents@${PI_SUBAGENTS_VERSION}
 # UPSTREAM PATCH (pi-subagents 0.61.0, complaint #7): child model verification
 # compares the alias we pin (claude-haiku-4-5) against the dated id the
 # provider reports (claude-haiku-4-5-20251001) and fails the run. The package
@@ -178,7 +182,7 @@ LABEL forge.pi-subagents.version=${PI_SUBAGENTS_VERSION}
 # gains npm:@narumitw/pi-lsp. Off by default — trust:never means a repo can't
 # enable it, only a blessed pack/setting can.
 ARG PI_LSP_VERSION=0.49.6
-RUN HOME=/opt/pi-baked pi install npm:@narumitw/pi-lsp@${PI_LSP_VERSION}
+RUN npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:@narumitw/pi-lsp@${PI_LSP_VERSION}
 LABEL forge.pi-lsp.version=${PI_LSP_VERSION}
 
 WORKDIR /work

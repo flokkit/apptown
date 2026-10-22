@@ -54,6 +54,42 @@ whether the name is one of its own, so made-up names get none. Each new
 preview is a new certificate; Caddy's issuers (Let's Encrypt, then ZeroSSL)
 allow far more than a small team's previews.
 
+## Check a release
+
+Since this repository became public, each release's images and its
+`SHA256SUMS` are signed by the workflow in this repository that builds them,
+using [Sigstore](https://www.sigstore.dev) with no long-lived key. A release
+made while the repository was private has no signature, so these checks
+fail for it. Install
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/), set
+`v` to the version (the `image:` line of `compose.yaml` names it), and check
+the image before you start it:
+
+```sh
+v=1.0.0
+cosign verify ghcr.io/flokkit/apptown:$v \
+  --certificate-identity "https://github.com/flokkit/apptown/.github/workflows/images.yml@refs/tags/v$v" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+The worker and agent images, `ghcr.io/flokkit/apptown-worker` and
+`ghcr.io/flokkit/apptown-agent`, are checked the same way. For the release
+archives, download `SHA256SUMS` and `SHA256SUMS.sigstore.json` from the
+release, check the sums' signature, then check your archive against them:
+
+```sh
+cosign verify-blob --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity "https://github.com/flokkit/apptown/.github/workflows/images.yml@refs/tags/v$v" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
+```
+
+`cosign verify` prints the image's digest when it passes; `verify-blob`
+prints `Verified OK`. A pass means the release workflow of
+`github.com/flokkit/apptown` signed that image or those sums while building
+tag `v$v`. It tells you nothing else about the code. If a check fails, don't
+install that release, and report it as the repository's `SECURITY.md` says.
+
 ## Under systemd instead
 
 The release archive runs `apptownd` as a systemd service on the host.
@@ -78,14 +114,7 @@ sha256sum --ignore-missing -c SHA256SUMS
 mkdir -p /opt/apptown && tar -xzf $a --strip-components=1 -C /opt/apptown
 ```
 
-`SHA256SUMS.sigstore.json` beside it is a keyless signature of the sums by
-the release workflow, for that tag:
-
-```sh
-cosign verify-blob --bundle SHA256SUMS.sigstore.json \
-  --certificate-identity "https://github.com/flokkit/apptown/.github/workflows/images.yml@refs/tags/v$v" \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com SHA256SUMS
-```
+To check that `SHA256SUMS` itself came from us, see Check a release, above.
 
 The archive holds `bin/apptownd`, `bin/apptown`,
 `bin/apptown-worker`, `bin/apptown-linux` (the CLI AppTown gives its
