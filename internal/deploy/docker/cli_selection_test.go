@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 func TestDockerCLISelectionStreamsAndCancellation(t *testing.T) {
@@ -38,7 +38,7 @@ func TestDockerCLISelectionStreamsAndCancellation(t *testing.T) {
 // An AppTown with no local Docker refuses every call to its own daemon before
 // any process starts; an admitted target's scope keeps the Docker CLI, with
 // that target's --host on every call. A scope given no host stays refused.
-func TestTheForgesOwnDockerRefusesWhileAnAttachedTargetKeepsItsHost(t *testing.T) {
+func TestAppTownsOwnDockerRefusesWhileAnAttachedTargetKeepsItsHost(t *testing.T) {
 	t.Parallel()
 	// The CLI's own --host argument is TestDockerCLISelectionStreamsAndCancellation's; here
 	// the attached client is asked with the target's host.
@@ -48,16 +48,16 @@ func TestTheForgesOwnDockerRefusesWhileAnAttachedTargetKeepsItsHost(t *testing.T
 			t.Fatalf("AppTown's own Docker answered %q %v", out, err)
 		}
 	}
-	target := own.WithHost("ssh://forge-target-lab", "lab.example", "")
-	if out, err := target.Run(context.Background(), "info"); err != nil || string(out) != "ssh://forge-target-lab info" || target.Absent() {
+	target := own.WithHost("ssh://apptown-target-lab", "lab.example", "")
+	if out, err := target.Run(context.Background(), "info"); err != nil || string(out) != "ssh://apptown-target-lab info" || target.Absent() {
 		t.Fatalf("the attached target: %q %v", out, err)
 	}
 }
 
 // The daemon AppTown selected builds its images: a builder named in the
-// forge's own environment (BUILDX_BUILDER) would take a plain docker build
+// AppTown's own environment (BUILDX_BUILDER) would take a plain docker build
 // elsewhere, with the project's source, so no command inherits it.
-func TestNoDockerCommandInheritsABuilderFromTheForgesEnvironment(t *testing.T) {
+func TestNoDockerCommandInheritsABuilderFromAppTownsEnvironment(t *testing.T) {
 	t.Setenv("BUILDX_BUILDER", "some-remote-builder")
 	t.Setenv("BUILDX_CONFIG", "/ambient/buildx")
 	t.Setenv("APPTOWN_PROBE_KEPT", "kept")

@@ -32,6 +32,6 @@ application operation, not an implementation of a general event bus.
 
 ## Implementation references
 
-- [internal/forge/triggers.go](../../internal/forge/triggers.go)
-- [internal/forge/httpapi/webhook.go](../../internal/forge/httpapi/webhook.go)
-- [internal/forge/changeactions/service.go](../../internal/forge/changeactions/service.go)
+- [internal/apptown/triggers.go](../../internal/apptown/triggers.go)
+- [internal/apptown/httpapi/webhook.go](../../internal/apptown/httpapi/webhook.go)
+- [internal/apptown/changeactions/service.go](../../internal/apptown/changeactions/service.go)

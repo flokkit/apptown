@@ -77,7 +77,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 
 // A FORGE_ variable is not a setting: apptownd starts, reading only the
 // APPTOWN_ names.
-func TestAForgeVariableIsNotASetting(t *testing.T) {
+func TestAnAppTownVariableIsNotASetting(t *testing.T) {
 	t.Parallel()
 	fs := flag.NewFlagSet("apptownd", flag.ContinueOnError)
 	o := defineFlags(fs)
@@ -119,9 +119,9 @@ func TestTheAPIServersCutOffSlowAndIdleClients(t *testing.T) {
 // -portainer-environment reaches AppTown's configuration, local unless
 // stated; APPTOWN_PORTAINER_ENVIRONMENT states it as well.
 //
-// Kills: the flag not carried into forge.Config, so live's environment name
+// Kills: the flag not carried into apptown.Config, so live's environment name
 // would be ignored and the default used.
-func TestThePortainerEnvironmentFlagReachesTheForgeConfig(t *testing.T) {
+func TestThePortainerEnvironmentFlagReachesAppTownConfig(t *testing.T) {
 	for _, c := range []struct {
 		args []string
 		env  map[string]string
@@ -139,7 +139,7 @@ func TestThePortainerEnvironmentFlagReachesTheForgeConfig(t *testing.T) {
 		if err := bindEnv(fs, func(k string) string { return c.env[k] }); err != nil {
 			t.Fatal(err)
 		}
-		if got := o.forgeConfig("/data").PortainerEnvironment; got != c.want {
+		if got := o.apptownConfig("/data").PortainerEnvironment; got != c.want {
 			t.Fatalf("%v %v: %q, want %q", c.args, c.env, got, c.want)
 		}
 	}

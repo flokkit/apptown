@@ -144,15 +144,15 @@ reduce setup work without allowing warm chat state to satisfy a cold-boot gate.
 ## Implementation references
 
 - [Agent image](../../deploy/apptown-agent/Dockerfile),
-  [toolchain and mirror setup](../../internal/forge/agentenv/registries.go).
+  [toolchain and mirror setup](../../internal/apptown/agentenv/registries.go).
 - [Chat provisioning](../../internal/console/pi/provision.go),
   [console DinD](../../internal/console/pi/dind.go),
   [console lifecycle](../subsystems/console.md).
-- [Agent eligibility, credentials and services](../../internal/forge/workflowexec/environment.go),
-  [step DinD](../../internal/forge/agentenv/workshop.go),
+- [Agent eligibility, credentials and services](../../internal/apptown/workflowexec/environment.go),
+  [step DinD](../../internal/apptown/agentenv/workshop.go),
   [process execution](../../internal/execution/runner.go).
-- [Console permissions](../../internal/forge/console.go),
-  [step secrets](../../internal/forge/secret/runtime.go) (`StepEnv`),
+- [Console permissions](../../internal/apptown/console.go),
+  [step secrets](../../internal/apptown/secret/runtime.go) (`StepEnv`),
   [bounded shutdown](../subsystems/daemon-lifecycle.md).
 
 ## RE10. Model access without provider credentials

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // A secret given to a container by name (`-e PGPASSWORD`) reaches the

@@ -120,16 +120,16 @@ Workflow's SQL queries map stored rows into typed records and projections.
 Lists and aggregates apply authorization scope before limits and counts. A read
 projection grants no execution or transition authority.
 
-The [package guide](../../internal/forge/workflow/README.md) lists the public
+The [package guide](../../internal/apptown/workflow/README.md) lists the public
 operations and their implementation files. Owner tests cover claims, stale
 attempts, atomic admission and completion, retry, send-back and parent handoff.
 Storage tests retain independent SQL assertions where representation matters.
 
 ## Implementation references
 
-- [internal/forge/workflow/service.go](../../internal/forge/workflow/service.go)
-- [internal/forge/workflow/run_admission.go](../../internal/forge/workflow/run_admission.go)
-- [internal/forge/workflow/execution.go](../../internal/forge/workflow/execution.go)
-- [internal/forge/workflow/change_create_run_test.go](../../internal/forge/workflow/change_create_run_test.go)
-- [internal/forge/workflow/retry_transactions_test.go](../../internal/forge/workflow/retry_transactions_test.go)
+- [internal/apptown/workflow/service.go](../../internal/apptown/workflow/service.go)
+- [internal/apptown/workflow/run_admission.go](../../internal/apptown/workflow/run_admission.go)
+- [internal/apptown/workflow/execution.go](../../internal/apptown/workflow/execution.go)
+- [internal/apptown/workflow/change_create_run_test.go](../../internal/apptown/workflow/change_create_run_test.go)
+- [internal/apptown/workflow/retry_transactions_test.go](../../internal/apptown/workflow/retry_transactions_test.go)
 

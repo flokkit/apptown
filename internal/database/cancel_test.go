@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // pgxReadsBehind is a connection whose writes, once armed, finish only

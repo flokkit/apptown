@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 )
 
 // A console from open to end, with a fake agent and no database: the whole

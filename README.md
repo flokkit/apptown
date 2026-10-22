@@ -144,7 +144,7 @@ The web UI, HTTP API, CLI and MCP tools call the same application owners.
 PostgreSQL stores the records; the Go daemon embeds the web frontend.
 
 For development, start with the [current package map](design/architecture/domains.md)
-and [code navigation](internal/forge/README.md). The [documentation index](design/README.md)
+and [code navigation](internal/apptown/README.md). The [documentation index](design/README.md)
 distinguishes current guides from accepted intent. Authentication and resource
 access are checked separately; an actor name is not permission.
 
@@ -162,7 +162,7 @@ make dev-web      # vite dev server on :5173 with /api proxied
 ```
 
 Run `make tools` to install the check tools, including the pinned sqlc version,
-then `make check`. Each owner declares its schema fragment; `internal/forge/dbschema/schema.sql`
+then `make check`. Each owner declares its schema fragment; `internal/apptown/dbschema/schema.sql`
 is the generated bundle embedded by the daemon. See [schema ownership](design/architecture/schema-ownership.md). Named queries live under each subsystem's `internal/*sql`.
 After editing a query or schema, run `make generate-sql` and commit the generated
 Go alongside the SQL. Local checks and CI use `sqlc diff` to reject stale output.
@@ -172,9 +172,9 @@ See [schema ownership](design/architecture/schema-ownership.md).
 
 - `cmd/apptownd` — entrypoint (`apptownd [flags]`)
 - `internal/<x>` — libraries that know nothing of AppTown (`console`, `deploy`, `database`, ...)
-- `internal/forge/<x>` — AppTown's subsystems (`workflow`, `deployment`, `identity`, ...);
+- `internal/apptown/<x>` — AppTown's subsystems (`workflow`, `deployment`, `identity`, ...);
   see `design/architecture/domains.md`
-- `internal/forge` — the App: composes the subsystems, serves the HTTP API
+- `internal/apptown` — the App: composes the subsystems, serves the HTTP API
 - `web` — React/TS frontend (Vite), embedded into the binary from `web/dist`
 - `design` — architecture and workflow spec documents
 

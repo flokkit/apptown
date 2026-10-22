@@ -27,7 +27,7 @@ const chat = (id: string, changeId: string | null = null) => ({ id, projectSlug:
 // AppTown answers the page's requests: `list` answers the project's chats (a
 // function, so a test can change its answer or hold it), every open is
 // recorded and answered with a new chat, and the other reads answer empty.
-function forge(list: () => Reply, openReply: (body: { changeId?: string; placement?: string }) => { status?: number; body: unknown; code?: string } = (b) => ({ status: 201, body: { session: chat('new-' + (b.changeId ?? 'desk'), b.changeId ?? null) } })) {
+function fakeAppTown(list: () => Reply, openReply: (body: { changeId?: string; placement?: string }) => { status?: number; body: unknown; code?: string } = (b) => ({ status: 201, body: { session: chat('new-' + (b.changeId ?? 'desk'), b.changeId ?? null) } })) {
   const opens: { changeId?: string; placement?: string }[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const u = String(url)
@@ -76,7 +76,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('choosing a chat', () => {
   it('opens no chat when the list of chats could not be read, and says so', async () => {
-    const opens = forge(() => ({ status: 400, body: { error: 'database unavailable' } }))
+    const opens = fakeAppTown(() => ({ status: 400, body: { error: 'database unavailable' } }))
     const { el, done } = await page(`?change=${C1}`)
     await vi.waitFor(() => expect(el.textContent).toContain("This project's chats could not be read: database unavailable"))
     await settle()
@@ -85,7 +85,7 @@ describe('choosing a chat', () => {
   })
 
   it('opens one chat when AppTown says this change has none', async () => {
-    const opens = forge(() => ({ body: { sessions: [chat('other', C2)] } }))
+    const opens = fakeAppTown(() => ({ body: { sessions: [chat('other', C2)] } }))
     const { done } = await page(`?change=${C1}`)
     await vi.waitFor(() => expect(opens).toEqual([{ changeId: C1 }]))
     await settle()
@@ -94,7 +94,7 @@ describe('choosing a chat', () => {
   })
 
   it("takes this change's chat when AppTown has one, opening none", async () => {
-    const opens = forge(() => ({ body: { sessions: [chat('mine', C1)] } }))
+    const opens = fakeAppTown(() => ({ body: { sessions: [chat('mine', C1)] } }))
     const { el, done } = await page(`?change=${C1}`)
     await vi.waitFor(() => expect(el.querySelector('[title="mine"]')).not.toBeNull())
     await settle()
@@ -104,7 +104,7 @@ describe('choosing a chat', () => {
 
   for (const [what, held] of [['an empty', []], ['a full', [chat('other', C2)]]] as const) {
     it(`opens no chat on ${what} old answer whose refresh failed, and says it may be old`, async () => {
-      const opens = forge(() => ({ status: 400, body: { error: 'database unavailable' } }))
+      const opens = fakeAppTown(() => ({ status: 400, body: { error: 'database unavailable' } }))
       const client = newQueryClient()
       client.setQueryData(getKey('/projects/p/console'), { sessions: held })
       const { el, done } = await page(`?change=${C1}`, client)
@@ -117,7 +117,7 @@ describe('choosing a chat', () => {
 
   it('shows a refused open and does not try again when the list is read again', async () => {
     let sessions: unknown[] = []
-    const opens = forge(() => ({ body: { sessions } }), () => ({ status: 409, body: { error: 'the worker cannot take this chat' } }))
+    const opens = fakeAppTown(() => ({ body: { sessions } }), () => ({ status: 409, body: { error: 'the worker cannot take this chat' } }))
     const { el, client, done } = await page(`?change=${C1}`)
     await vi.waitFor(() => expect(el.textContent).toContain('the worker cannot take this chat'))
     // A newer answer (another change's chat opened meanwhile) still holds
@@ -131,7 +131,7 @@ describe('choosing a chat', () => {
 
   it("moving to another change's chat waits for that address's own reading", async () => {
     let answer: Reply = { body: { sessions: [chat('one', C1)] } }
-    const opens = forge(() => answer)
+    const opens = fakeAppTown(() => answer)
     const { el, done } = await page(`?change=${C1}`)
     await vi.waitFor(() => expect(el.querySelector('[title="one"]')).not.toBeNull())
     // The next reading is on its way: the answer held from change 1's
@@ -161,7 +161,7 @@ describe('choosing a chat', () => {
 // AppTown instead of the worker that refused it.
 describe('a chat the worker refused', () => {
   const refused = async (code: string) => {
-    const opens = forge(() => ({ body: { sessions: [] } }),
+    const opens = fakeAppTown(() => ({ body: { sessions: [] } }),
       (b) => b.placement === 'apptown'
         ? { status: 201, body: { session: chat('local', C1) } }
         : { status: 409, code, body: { error: 'the worker cannot take this chat: it cannot reach the registry npm; open it on AppTown' } })

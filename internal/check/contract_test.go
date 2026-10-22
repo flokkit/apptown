@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 type oneScanner check.Scanner

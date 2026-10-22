@@ -2,12 +2,12 @@
 
 Deployment owns targets, named placements, releases, attempts and the
 resources their placements created or retained. Drivers perform external effects through `internal/deploy`. The
-[package documentation](../../internal/forge/deployment/doc.go) owns API and
-transaction contracts; the [package map](../../internal/forge/deployment/README.md)
+[package documentation](../../internal/apptown/deployment/doc.go) owns API and
+transaction contracts; the [package map](../../internal/apptown/deployment/README.md)
 shows where to change them.
 
 Previews of changes, runs and releases are the
-[preview](../../internal/forge/preview/doc.go) owner's:
+[preview](../../internal/apptown/preview/doc.go) owner's:
 boot admission and status, booting here or on the worker, what each preview
 serves, discarding and reconciling them, and their AI models keys
 (`preview_owned`). A change preview's placement row stays a Deployment row,
@@ -17,7 +17,7 @@ written through `Deployments.RecordPreview` and `ForgetPreview`. Deployment's
 and shared by both owners; none refers back to Deployment's `Service`.
 
 Copies, restores, drills, rehearsals, restored copies and take-down
-orchestration are the [dataprotection](../../internal/forge/dataprotection/doc.go)
+orchestration are the [dataprotection](../../internal/apptown/dataprotection/doc.go)
 owner's since DS-03 of the same proposal, with the backup, drill, rehearsal
 and restored-copy tables. A take-down's settlement (need instances and what
 the target left becoming retained resources, the release it served ending,
@@ -668,7 +668,7 @@ the release declares disposable empty; any other item fails it, by name.
   (`deployment.drill`), a take-down (`deployment.take-down`), a rehearsal
   (`deployment.rehearsal`) and a restored copy's start and end
   (`deployment.restored-copy`, `deployment.restored-copy-end`) are
-  operations in the operations ledger (`internal/forge/operations`). Deployment registers the kinds and
+  operations in the operations ledger (`internal/apptown/operations`). Deployment registers the kinds and
   admits each under the project's release lock, then the ledger's
   admission lock, then its own eligibility reads; the row, its River job
   and its receipt commit together, and a worker on the `operations` queue

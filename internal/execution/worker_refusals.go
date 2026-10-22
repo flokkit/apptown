@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"flokkit.io/forge/internal/diskspace"
+	"github.com/flokkit/apptown/internal/diskspace"
 )
 
 // A worker refusal AppTown acts on names its class with a code from a

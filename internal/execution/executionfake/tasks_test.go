@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executiontest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 )
 
 func fakeSpec(key, output string, exit int, block bool) execution.TaskSpec {

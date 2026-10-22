@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // The coding loop: intent verbs (fix, quick, plan, build, uplift, adopt,
@@ -345,7 +345,7 @@ func deploymentsLine(deps []shippedDeployment, landingRun ids.ID) string {
 }
 
 // loopRunDetail mirrors the run-detail payload, including artifacts and the
-// forge's own reading of what the run is doing (State, StateDetail: the
+// AppTown's own reading of what the run is doing (State, StateDetail: the
 // words the change page shows).
 type loopRunDetail struct {
 	Run struct {

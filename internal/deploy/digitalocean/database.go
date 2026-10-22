@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/fault"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/poll"
 	"github.com/jackc/pgx/v5"
 )
 

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // Docker's own verdict on a need ends a deployment attempt as a known

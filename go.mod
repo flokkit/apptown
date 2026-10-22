@@ -1,4 +1,4 @@
-module flokkit.io/forge
+module github.com/flokkit/apptown
 
 go 1.26.10
 

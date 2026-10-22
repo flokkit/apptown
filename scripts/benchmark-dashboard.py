@@ -16,7 +16,7 @@ import tempfile
 import time
 
 root=pathlib.Path(__file__).resolve().parent.parent
-out=pathlib.Path(tempfile.mkdtemp(prefix='forge-dashboard-plans-'))
+out=pathlib.Path(tempfile.mkdtemp(prefix='apptown-dashboard-plans-'))
 print('Execution plans:',out,flush=True)
 database_name='forge_dashboard_bench_'+str(time.time_ns())
 def sql(q,db=database_name):
@@ -26,7 +26,7 @@ def sql(q,db=database_name):
     return p.stdout
 sql('CREATE DATABASE '+database_name,'postgres')
 try:
-    sql((root/'internal/forge/dbschema/schema.sql').read_text())
+    sql((root/'internal/apptown/dbschema/schema.sql').read_text())
     sql("""
     INSERT INTO projects(slug,name,created_at) SELECT 'project-'||n,'Project '||n,timestamptz '2026-10-09 00:00:00+00' FROM generate_series(1,1000) n;
     INSERT INTO changes(project_id,type,title,state,created_at) SELECT p.id,'feature','Change '||n,'shipped',timestamptz '2026-10-09 00:00:00+00' FROM projects p CROSS JOIN generate_series(1,100) n;
@@ -38,7 +38,7 @@ try:
     INSERT INTO adrs(project_id,number,title,created_at,updated_at) SELECT p.id,n,'ADR '||n,timestamptz '2026-10-09 00:00:00+00'-n*interval '1 hour',timestamptz '2026-10-09 00:00:00+00'-n*interval '1 hour' FROM projects p CROSS JOIN generate_series(1,20) n;
     ANALYZE;
     """)
-    src=''.join(p.read_text() for p in sorted((root/'internal/forge/workflow/internal/workflowsql').glob('*.sql')))
+    src=''.join(p.read_text() for p in sorted((root/'internal/apptown/workflow/internal/workflowsql').glob('*.sql')))
     vals={'running_status':"'running'",'done_status':"'done'",'proposed_state':"'proposed'",'in_progress_state':"'in_progress'",'landing_state':"'landing'",'running':"'running'",'pending':"'pending'",'needs_human':"'needs_human'",'row_limit':'6'}
     for name in ['ProjectActivityReport','DashboardActiveRuns','RecentProjectIDs']:
         query=src.split('-- name: '+name+' :many\n')[1].split(';')[0]

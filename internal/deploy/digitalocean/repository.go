@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // The project's DOCR repository (design/subsystems/deployment.md, "Removing
@@ -20,7 +20,7 @@ import (
 // fail the next release. The space and the
 // empty repository's name, which DOCR lists until a collection runs, are
 // freed by a collection an operator runs or DigitalOcean schedules. An image someone else pushed into the
-// forge's repository goes with the rest: don't push to AppTown's
+// AppTown's repository goes with the rest: don't push to AppTown's
 // repositories.
 
 // RepositoryOwner records the project's repositories AppTown created on

@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"flokkit.io/forge/internal/database"
-	"flokkit.io/forge/internal/dbtest"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func TestTemplateInitializesOnceAndClonesAreIndependent(t *testing.T) {

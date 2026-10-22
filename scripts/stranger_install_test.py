@@ -120,7 +120,7 @@ else:
 
 class StrangerReadsTheAdmittedChange(unittest.TestCase):
     def run_inside(self, response, http_exit=0, page='Hello from a stranger.'):
-        tmp = tempfile.TemporaryDirectory(prefix='forge-stranger-inside-')
+        tmp = tempfile.TemporaryDirectory(prefix='apptown-stranger-inside-')
         self.addCleanup(tmp.cleanup)
         work = Path(tmp.name)
         bindir = work / 'path-bin'

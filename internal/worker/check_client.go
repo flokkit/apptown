@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Checks is AppTown's check executor on a worker

@@ -10,8 +10,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"flokkit.io/forge/internal/telemetry"
-	"flokkit.io/forge/internal/telemetry/otlpfake"
+	"github.com/flokkit/apptown/internal/telemetry"
+	"github.com/flokkit/apptown/internal/telemetry/otlpfake"
 )
 
 func start(t *testing.T, r *otlpfake.Receiver, headers map[string]string) *telemetry.Providers {

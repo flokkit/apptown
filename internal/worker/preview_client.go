@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flokkit.io/forge/internal/deploy/appcontract"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -19,8 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 // processSession is the session a Previews without its own uses: this

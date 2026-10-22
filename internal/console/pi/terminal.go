@@ -6,7 +6,7 @@ import (
 	"io"
 	"os/exec"
 
-	"flokkit.io/forge/internal/console"
+	"github.com/flokkit/apptown/internal/console"
 
 	"github.com/creack/pty"
 )

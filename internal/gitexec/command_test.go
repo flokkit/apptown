@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // scriptedGit puts a git first on PATH that runs script.

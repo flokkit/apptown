@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	dockercli "flokkit.io/forge/internal/deploy/docker"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 // metadataAddress is the cloud providers' instance metadata service.
@@ -15,7 +15,7 @@ const metadataAddress = "169.254.169.254"
 // metadataProbe asks for the address's root from a container and prints
 // wget's own words and its exit status after a marker: what the address
 // said, if anything, is read from them, not from success alone.
-var metadataProbe = fmt.Sprintf("wget -T 2 -O /dev/null http://%s/ 2>&1; echo FORGE-EXIT=$?", metadataAddress)
+var metadataProbe = fmt.Sprintf("wget -T 2 -O /dev/null http://%s/ 2>&1; echo APPTOWN-EXIT=$?", metadataAddress)
 
 // metadataReach says whether a container on this host's Docker reaches the
 // cloud metadata service: "reachable", "not reachable", or "could not tell"
@@ -38,9 +38,9 @@ func metadataReach(ctx context.Context, docker dockercli.Client, image string) s
 func readMetadataProbe(out string) string {
 	words := strings.ToLower(out)
 	switch {
-	case !strings.Contains(out, "FORGE-EXIT="):
+	case !strings.Contains(out, "APPTOWN-EXIT="):
 		return "could not tell: the probe gave no answer: " + strings.TrimSpace(out)
-	case strings.Contains(out, "FORGE-EXIT=0"), strings.Contains(words, "server returned error"):
+	case strings.Contains(out, "APPTOWN-EXIT=0"), strings.Contains(words, "server returned error"):
 		return "reachable"
 	case strings.Contains(words, "timed out"), strings.Contains(words, "no route"), strings.Contains(words, "network is unreachable"), strings.Contains(words, "host is unreachable"):
 		return "not reachable"

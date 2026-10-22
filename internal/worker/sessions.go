@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/console"
+	"github.com/flokkit/apptown/internal/console"
 )
 
 // A session is a chat that runs on this worker (design/operations/workers.md,

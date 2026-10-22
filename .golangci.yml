@@ -73,7 +73,7 @@ linters:
       # checked without what follows this line).
       # The script waits on gitexec's in-process folder mutex, which records
       # nothing while it waits: no owner fact says "waiting for the folder".
-      - path: '^internal/forge/folder_writers_test\.go$'
+      - path: '^internal/apptown/folder_writers_test\.go$'
         linters: [forbidigo]
         text: 'forbidden because "absence rule:'
         source: 'polltest\.Holds\(ctx, 300\*time\.Millisecond'

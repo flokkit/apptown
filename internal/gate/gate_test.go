@@ -51,8 +51,8 @@ func (a *fakeApp) seen() []seen {
 	return append([]seen(nil), a.requests...)
 }
 
-// fakeForge answers redemptions with answer and records what it was sent.
-type fakeForge struct {
+// fakeAppTown answers redemptions with answer and records what it was sent.
+type fakeAppTown struct {
 	mu       sync.Mutex
 	auth     []string
 	ctype    []string
@@ -61,7 +61,7 @@ type fakeForge struct {
 	response string
 }
 
-func (f *fakeForge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (f *fakeAppTown) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost || r.URL.Path != RedeemPath {
 		http.NotFound(w, r)
 		return
@@ -83,7 +83,7 @@ func (f *fakeForge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, response)
 }
 
-func (f *fakeForge) grant(until time.Time) {
+func (f *fakeAppTown) grant(until time.Time) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.status = http.StatusOK
@@ -92,7 +92,7 @@ func (f *fakeForge) grant(until time.Time) {
 
 type harness struct {
 	app     *fakeApp
-	apptown *fakeForge
+	apptown *fakeAppTown
 	gate    *httptest.Server
 	clock   *settable
 }
@@ -120,17 +120,17 @@ func (c *settable) set(t time.Time) {
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	h := &harness{app: &fakeApp{}, apptown: &fakeForge{}, clock: &settable{}}
+	h := &harness{app: &fakeApp{}, apptown: &fakeAppTown{}, clock: &settable{}}
 	appSrv := httptest.NewServer(h.app)
 	t.Cleanup(appSrv.Close)
-	forgeSrv := httptest.NewServer(h.apptown)
-	t.Cleanup(forgeSrv.Close)
+	apptownSrv := httptest.NewServer(h.apptown)
+	t.Cleanup(apptownSrv.Close)
 
 	cfg, err := ConfigFromEnv(func(k string) string {
 		return map[string]string{
 			"GATE_UPSTREAM": appSrv.URL,
 			"GATE_SECRET":   testSecret,
-			"GATE_APPTOWN":  forgeSrv.URL,
+			"GATE_APPTOWN":  apptownSrv.URL,
 		}[k]
 	})
 	if err != nil {
@@ -352,19 +352,19 @@ func TestEntryIsNeverForwardedEvenWithAValidCredential(t *testing.T) {
 }
 
 func TestFailedRedemptionIsRefusedWithoutASession(t *testing.T) {
-	cases := map[string]func(f *fakeForge){
+	cases := map[string]func(f *fakeAppTown){
 		// A refusal is a refusal even if its body looks like a grant.
-		"AppTown refuses": func(f *fakeForge) {
+		"AppTown refuses": func(f *fakeAppTown) {
 			f.grant(time.Now().Add(time.Hour))
 			f.status = http.StatusForbidden
 		},
-		"AppTown errors": func(f *fakeForge) { f.status, f.response = http.StatusInternalServerError, "" },
-		"bad json":       func(f *fakeForge) { f.status, f.response = http.StatusOK, `{"person":` },
-		"until passed": func(f *fakeForge) {
+		"AppTown errors": func(f *fakeAppTown) { f.status, f.response = http.StatusInternalServerError, "" },
+		"bad json":       func(f *fakeAppTown) { f.status, f.response = http.StatusOK, `{"person":` },
+		"until passed": func(f *fakeAppTown) {
 			f.status = http.StatusOK
 			f.response = `{"person":"ana","until":"` + time.Now().Add(-time.Minute).Format(time.RFC3339) + `"}`
 		},
-		"no person": func(f *fakeForge) {
+		"no person": func(f *fakeAppTown) {
 			f.status = http.StatusOK
 			f.response = `{"until":"` + time.Now().Add(time.Hour).Format(time.RFC3339) + `"}`
 		},
@@ -382,7 +382,7 @@ func TestFailedRedemptionIsRefusedWithoutASession(t *testing.T) {
 		dead := httptest.NewServer(http.NotFoundHandler())
 		deadURL, _ := url.Parse(dead.URL)
 		dead.Close()
-		cfg := Config{Upstream: mustURL(t, "http://127.0.0.1:1"), Secret: testSecret, Forge: deadURL}
+		cfg := Config{Upstream: mustURL(t, "http://127.0.0.1:1"), Secret: testSecret, AppTown: deadURL}
 		srv := httptest.NewServer(New(cfg, Options{}))
 		t.Cleanup(srv.Close)
 		h.gate = srv
@@ -497,7 +497,7 @@ func TestUpstreamFailureIsA502WithoutDetail(t *testing.T) {
 	dead := httptest.NewServer(http.NotFoundHandler())
 	deadURL := dead.URL
 	dead.Close()
-	cfg := Config{Upstream: mustURL(t, deadURL), Secret: testSecret, Forge: mustURL(t, "http://127.0.0.1:1")}
+	cfg := Config{Upstream: mustURL(t, deadURL), Secret: testSecret, AppTown: mustURL(t, "http://127.0.0.1:1")}
 	srv := httptest.NewServer(New(cfg, Options{}))
 	t.Cleanup(srv.Close)
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)

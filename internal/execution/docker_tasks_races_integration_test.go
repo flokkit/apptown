@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/execution/executiontest"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
+	"github.com/flokkit/apptown/internal/poll"
 
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // Exercise actual Docker CLI initialization failure, without contacting a daemon.

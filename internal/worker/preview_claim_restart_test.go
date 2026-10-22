@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // A failed post-rename recovery write must stay fail-closed after restart.

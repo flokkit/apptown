@@ -1,6 +1,6 @@
-// Generated from the Go response types by internal/forge/httpapi's
+// Generated from the Go response types by internal/apptown/httpapi's
 // TestWebTypesAreCurrent. Do not edit: change the Go type and run
-//   go test ./internal/forge/httpapi -run TestWebTypesAreCurrent -update-wire
+//   go test ./internal/apptown/httpapi -run TestWebTypesAreCurrent -update-wire
 
 export type ADRChangeSummary = {
   id: string | null

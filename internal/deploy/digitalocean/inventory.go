@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // Inventory lists the account's apps, database clusters, registry and

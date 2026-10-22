@@ -18,7 +18,7 @@ const dsn = "https://k@errors.example/3"
 // it was started with, and load /_apptown/env.js by the supported convention. A
 // server app, or a static site given nothing, is not judged. Anything the
 // AppTown supplies and cannot establish is its own fault, never the app's.
-func TestAStaticPageMustLoadTheValuesTheForgeGivesIt(t *testing.T) {
+func TestAStaticPageMustLoadTheValuesAppTownGivesIt(t *testing.T) {
 	t.Parallel()
 	values := map[string]string{"SENTRY_DSN": dsn}
 	given := BrowserExpectation{Static: true, Attached: values, Installed: values}

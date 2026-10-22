@@ -45,16 +45,19 @@ def git(repo, *args, input=None):
     return subprocess.run(["git", "-C", repo, *args], input=input, capture_output=True, check=True).stdout
 
 
-# Libraries sit at internal/<x>; forge's subsystems moved from there to
-# internal/forge/<x> on 2026-09-13. History is read under today's names so a
-# subsystem's series does not restart at zero when its directory moved.
+# Libraries sit at internal/<x>; AppTown's subsystems moved from there to
+# internal/forge/<x> on 2026-09-13, and internal/forge became internal/apptown
+# on 2026-10-22. History is read under today's names so a subsystem's series
+# does not restart at zero when its directory moved.
 LIBRARIES = {"console", "database", "dbtest", "deploy", "execution", "progress", "stamp"}
 def module_of(path):
     parts = path.split("/")
-    if parts[0] == "internal" and len(parts) > 2 and parts[1] not in LIBRARIES and parts[1] != "forge":
-        parts = ["internal", "forge", *parts[1:]]
-    if parts[:2] == ["internal", "forge"] and len(parts) > 3:
-        return "/".join(parts[:3])  # forge's subsystems, apart from the App's own files
+    if parts[:2] == ["internal", "forge"]:
+        parts = ["internal", "apptown", *parts[2:]]
+    if parts[0] == "internal" and len(parts) > 2 and parts[1] not in LIBRARIES and parts[1] != "apptown":
+        parts = ["internal", "apptown", *parts[1:]]
+    if parts[:2] == ["internal", "apptown"] and len(parts) > 3:
+        return "/".join(parts[:3])  # AppTown's subsystems, apart from the App's own files
     if parts[0] in ("internal", "cmd", "web") and len(parts) > 2:
         return "/".join(parts[:2]) if parts[0] != "web" else "web/src"
     return parts[0] if len(parts) > 1 else "(root)"

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 )
 
 // skewed is a clock a test moves: it starts far from the real one, so a

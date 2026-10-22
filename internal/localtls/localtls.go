@@ -6,7 +6,7 @@
 // see on a server; the person trusts the CA once. Even if its key leaked,
 // the CA could vouch for no real website.
 //
-// It touches no Forge state. The CA's files live in the folder it is given;
+// It touches no AppTown state. The CA's files live in the folder it is given;
 // issued certificates are kept in memory only.
 package localtls
 
@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
+	"github.com/flokkit/apptown/internal/clock"
 )
 
 // File names in the CA's folder. CertFile is the public certificate a

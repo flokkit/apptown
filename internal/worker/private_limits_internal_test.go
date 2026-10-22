@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // A task's private services run under the worker's service limits (its

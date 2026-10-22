@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/yamlkeys"
+	"github.com/flokkit/apptown/internal/yamlkeys"
 )
 
 // The served schema and the parser describe the same document: every key the

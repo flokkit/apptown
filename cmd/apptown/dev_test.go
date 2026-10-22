@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/docker/dockertest"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 )
 
 // apptown dev writes its compose file under .apptown/, but the file's relative

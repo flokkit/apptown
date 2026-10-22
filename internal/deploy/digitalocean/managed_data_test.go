@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/digitalocean/dofake"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 )
 
 // What AppTown asks of a managed cluster to protect its data: a new

@@ -3,12 +3,12 @@ package docker
 import (
 	"context"
 	"errors"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"regexp"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Preview names and the stacks that live and die with a preview. A "stack

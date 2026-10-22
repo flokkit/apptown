@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"flokkit.io/forge/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"strconv"
 )
 

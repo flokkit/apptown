@@ -87,8 +87,8 @@ one first if needed (`deployment/intranet_release.go`). See
 
 ## Implementation references
 
-- [internal/forge/integration/registry_bindings.go](../../internal/forge/integration/registry_bindings.go)
-- [internal/forge/integration/registry_integration.go](../../internal/forge/integration/registry_integration.go)
-- [internal/forge/agentenv/registries.go](../../internal/forge/agentenv/registries.go)
-- [internal/forge/agentenv/workshop.go](../../internal/forge/agentenv/workshop.go)
-- [internal/forge/deployment/release_publication.go](../../internal/forge/deployment/release_publication.go)
+- [internal/apptown/integration/registry_bindings.go](../../internal/apptown/integration/registry_bindings.go)
+- [internal/apptown/integration/registry_integration.go](../../internal/apptown/integration/registry_integration.go)
+- [internal/apptown/agentenv/registries.go](../../internal/apptown/agentenv/registries.go)
+- [internal/apptown/agentenv/workshop.go](../../internal/apptown/agentenv/workshop.go)
+- [internal/apptown/deployment/release_publication.go](../../internal/apptown/deployment/release_publication.go)

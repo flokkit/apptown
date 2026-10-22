@@ -7,8 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"flag"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"net"
 	"os"
 	"os/exec"
@@ -22,9 +22,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"flokkit.io/forge/internal/database"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 var templateSequence atomic.Uint64

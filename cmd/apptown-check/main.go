@@ -27,11 +27,11 @@ import (
 
 	yamlv3 "gopkg.in/yaml.v3"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // The program's one clock is the real one, taken here and passed down.

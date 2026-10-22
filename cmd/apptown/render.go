@@ -8,7 +8,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 var isTTY = func() bool {

@@ -1,8 +1,8 @@
 package progress
 
 import (
-	"flokkit.io/forge/internal/ids"
 	"fmt"
+	"github.com/flokkit/apptown/internal/ids"
 	"sync"
 	"time"
 )

@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // The public -docker option must select the binary for a chat's saves too.
@@ -25,7 +25,7 @@ func TestAWorkerChatSaveUsesTheConfiguredDocker(t *testing.T) {
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "apptown-worker")
 	if build := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
-		Argv: []string{"go", "build", "-p", "2", "-o", binary, "flokkit.io/forge/cmd/apptown-worker"}, Timeout: 10 * time.Minute,
+		Argv: []string{"go", "build", "-p", "2", "-o", binary, "github.com/flokkit/apptown/cmd/apptown-worker"}, Timeout: 10 * time.Minute,
 	}); build.RunErr != nil {
 		t.Fatalf("build: %v %s", build.RunErr, build.Output)
 	}

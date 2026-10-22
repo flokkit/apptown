@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // PackStaticBuild builds a declared static site on dk and packs its output

@@ -54,6 +54,6 @@ front-door checks and application interpretation are separate concerns. See
 
 ## Implementation references
 
-- [internal/forge/vhost.go](../../internal/forge/vhost.go)
-- [internal/forge/deployment/docker_runtime.go](../../internal/forge/deployment/docker_runtime.go)
-- [internal/forge/browser_security.go](../../internal/forge/browser_security.go)
+- [internal/apptown/vhost.go](../../internal/apptown/vhost.go)
+- [internal/apptown/deployment/docker_runtime.go](../../internal/apptown/deployment/docker_runtime.go)
+- [internal/apptown/browser_security.go](../../internal/apptown/browser_security.go)

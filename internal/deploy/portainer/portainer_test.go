@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // The endpoint is found by the environment's name; an unknown name is a
@@ -93,7 +93,7 @@ func (b *stackBook) Created(_ context.Context, o deploy.Owned) error {
 
 // A stack is recorded as AppTown's only when AppTown's own create made
 // it; updating one that was there records nothing.
-func TestOnlyAStackTheForgeCreatedIsRecorded(t *testing.T) {
+func TestOnlyAStackAppTownCreatedIsRecorded(t *testing.T) {
 	for _, existing := range []bool{false, true} {
 		t.Run(fmt.Sprintf("existing %v", existing), func(t *testing.T) {
 			t.Parallel()
@@ -135,7 +135,7 @@ func TestOnlyAStackTheForgeCreatedIsRecorded(t *testing.T) {
 // Take-down deletes the stack AppTown made and keeps its volumes, each
 // named for a person to delete; a stack Portainer would not delete fails
 // the take-down.
-func TestTakeDownDeletesTheForgesStackAndKeepsItsVolumes(t *testing.T) {
+func TestTakeDownDeletesAppTownsStackAndKeepsItsVolumes(t *testing.T) {
 	for _, scenario := range []string{"deleted", "refused"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()

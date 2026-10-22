@@ -2,8 +2,8 @@ package worker_test
 
 import (
 	"context"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/worker"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/worker"
 	"io"
 	"net/http"
 	"net/http/httptest"

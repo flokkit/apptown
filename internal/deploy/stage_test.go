@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 )
 
 func sourceGit(t *testing.T, repo string, args ...string) string {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/s3bucket/s3fake"
+	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 )
 
 // A backup store's object is written private, never with the website's

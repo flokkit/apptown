@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/console"
+	"github.com/flokkit/apptown/internal/console"
 )
 
 // What travels to a session besides its spec:
@@ -328,7 +328,7 @@ func extractBounded(r io.Reader, root *os.Root, links bool, maxBytes int64, maxE
 
 // putSource makes the chat's work tree from a bundle of the change's
 // branch, once, before the chat first runs. The worker's git clones the
-// forge's bundle into a new directory with hooks and configuration off; the
+// AppTown's bundle into a new directory with hooks and configuration off; the
 // work tree is then the chat's, and the worker's git never runs in it
 // again. Sending the same commit again changes nothing; another commit is
 // refused.

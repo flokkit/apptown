@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executionfake"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executionfake"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // A script may replace a source file with a directory or the reverse.

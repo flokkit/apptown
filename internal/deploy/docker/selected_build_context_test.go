@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 func TestDockerSelectedImagesUseLocalAndRemoteBuildContexts(t *testing.T) {

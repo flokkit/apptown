@@ -39,7 +39,7 @@ func TestTheDisagreementShowsEachOutputOnce(t *testing.T) {
 }
 
 // A review the model passed and AppTown's file check failed reads as the
-// forge's failure, with the reviewer's pass shown apart — never as
+// AppTown's failure, with the reviewer's pass shown apart — never as
 // "reviewer rejected" over a positive summary.
 func TestTheDisagreementKeepsTheFileCheckApartFromTheReviewer(t *testing.T) {
 	d := detailFrom(t, `{"run":{"id":"00000000-0005-7000-8000-000000000000","status":"running","currentStage":"build"},"steps":[
@@ -61,7 +61,7 @@ func TestShowNamesOnlyALivePreview(t *testing.T) {
 			t.Errorf("%s: %q, want %q", state, got, want)
 		}
 	}
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/changes/00000000-0024-7000-8000-000000000000":
 			return 200, `{"change":{"id":"00000000-0024-7000-8000-000000000000","title":"t","state":"in_progress"},"runs":[{"id":"00000000-0168-7000-8000-000000000000","status":"running"}]}`
@@ -82,7 +82,7 @@ func TestShowNamesOnlyALivePreview(t *testing.T) {
 // waiting on its reader says so, not the stage's name; --all adds the
 // recently shipped and abandoned, which are otherwise left out.
 func TestChangesSaysWhatEachChangeWaitsOn(t *testing.T) {
-	seen := fakeForge(t, func(_, path string) (int, string) {
+	seen := fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/projects/shop/board":
 			return 200, `{"columns":[
@@ -111,7 +111,7 @@ func TestChangesSaysWhatEachChangeWaitsOn(t *testing.T) {
 // show says what a change is doing in AppTown's words, with the move that
 // answers it, and names a closed change's story for what it became.
 func TestShowSaysWhatTheChangeIsDoing(t *testing.T) {
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/changes/00000000-0005-7000-8000-000000000000":
 			return 200, `{"change":{"id":"00000000-0005-7000-8000-000000000000","title":"add stats","state":"in_progress","summary":"stats added"},"state":"waiting on you","stateDetail":"accept","runs":[]}`
@@ -135,7 +135,7 @@ func TestShowSaysWhatTheChangeIsDoing(t *testing.T) {
 // abandonment, whatever its reason's words, still says abandoned.
 func TestAChangeClosedAsNothingToChangeSaysSo(t *testing.T) {
 	const closed, abandoned = "00000000-0008-7000-8000-000000000000", "00000000-0009-7000-8000-000000000000"
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/projects/speed/board":
 			return 200, `{"columns":[{"state":"abandoned","total":2,"items":[
@@ -186,7 +186,7 @@ func TestAChangeClosedAsNothingToChangeSaysSo(t *testing.T) {
 // apptown preview <change> boots or reuses that change's preview from any
 // terminal and prints its address; it once refused outside a chat.
 func TestPreviewAChangeFromAnyTerminal(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		if method == "POST" && path == "/changes/00000000-0024-7000-8000-000000000000/preview" {
 			return 200, `{"url":"https://change-00000000-0024-7000-8000-000000000000.preview.example.test","commit":"abc1234"}`
 		}

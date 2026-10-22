@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/oci"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/oci"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // --- the registry ----------------------------------------------------------------------------

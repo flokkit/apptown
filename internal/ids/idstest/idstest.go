@@ -5,7 +5,7 @@ package idstest
 import (
 	"testing"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // N is the id a test calls n: a valid version-7 UUID whose time field is n,

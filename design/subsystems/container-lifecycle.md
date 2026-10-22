@@ -105,9 +105,9 @@ bounded in size.
 
 ## Implementation references
 
-- [internal/forge/maintenance/containers.go](../../internal/forge/maintenance/containers.go)
-- [internal/forge/maintenance/workspaces.go](../../internal/forge/maintenance/workspaces.go)
-- [internal/forge/triggers.go](../../internal/forge/triggers.go)
-- [internal/forge/maintenance/README.md](../../internal/forge/maintenance/README.md)
-- [internal/forge/preview/worker.go](../../internal/forge/preview/worker.go)
-- [internal/forge/preview/looks.go](../../internal/forge/preview/looks.go)
+- [internal/apptown/maintenance/containers.go](../../internal/apptown/maintenance/containers.go)
+- [internal/apptown/maintenance/workspaces.go](../../internal/apptown/maintenance/workspaces.go)
+- [internal/apptown/triggers.go](../../internal/apptown/triggers.go)
+- [internal/apptown/maintenance/README.md](../../internal/apptown/maintenance/README.md)
+- [internal/apptown/preview/worker.go](../../internal/apptown/preview/worker.go)
+- [internal/apptown/preview/looks.go](../../internal/apptown/preview/looks.go)

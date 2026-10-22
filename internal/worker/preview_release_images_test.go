@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // A release's preview on the worker runs the release's images by digest:

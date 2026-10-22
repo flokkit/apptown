@@ -14,8 +14,8 @@ import (
 	"sort"
 	"strings"
 
-	"flokkit.io/forge/internal/strs"
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // AI-judged checks (design/subsystems/conformance-surface.md §2.2, §9): a rubric is judged
@@ -66,7 +66,7 @@ func LLMEvaluatorVersion(c Declaration) string {
 // --- evidence packing ---------------------------------------------------------
 
 // skipDirs are never walked for a glob: dependencies, build output and the
-// forge's own runtime state (.apptown holds agent sessions and staged reports).
+// AppTown's own runtime state (.apptown holds agent sessions and staged reports).
 // A file a check names by its exact path is still evidence wherever it lives
 // (namedFiles): the runtime contract is .apptown/app.yaml, and a rubric that
 // asks whether it is committed must see it, or it reports a false "missing

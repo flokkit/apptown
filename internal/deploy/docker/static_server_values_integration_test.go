@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // Values the page is given arrive intact through the real static server and

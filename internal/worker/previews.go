@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"io"
 	"log"
 	"maps"
@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 // Previews on the worker (design/operations/workers.md, "Previews on the worker"):

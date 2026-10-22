@@ -56,7 +56,7 @@ skips is how a tier rots into decoration. It takes several minutes.
 every package, not only the `TestIntegration` tests; some failures (the
 Docker-selection tests beside real containers) show only in that form.
 
-**Journeys** — `go test -tags=journey ./internal/forge/ -run TestJourney
+**Journeys** — `go test -tags=journey ./internal/apptown/ -run TestJourney
 -v`. Whole operational flows driven through the public API and CLI, the
 way a person or agent uses AppTown, with the fake pi as every agent
 (`testing-map.md`). About a minute.
@@ -66,12 +66,12 @@ the other tiers do not. Each has its own build tag. `pi` skips, saying
 why, when `APPTOWN_PI_MODULE` is unset, so read its `-v` output rather than
 trusting a pass; the other two fail without their prerequisites.
 
-- `browser` (`go test -tags=browser ./internal/forge/ -run
+- `browser` (`go test -tags=browser ./internal/apptown/ -run
   TestBrowserSecurityChromium -v`): a real Chromium against
   disposable AppTown state — session cookies, cross-origin refusals, the
   terminal's origin check. Needs node and Playwright, named by
   `APPTOWN_PLAYWRIGHT_MODULE` (its `index.mjs`). About 2 s.
-- `pi` (`go test -tags=pi ./internal/forge/ -run TestInferencePinnedPi -v`):
+- `pi` (`go test -tags=pi ./internal/apptown/ -run TestInferencePinnedPi -v`):
   the Pi version the agent image pins,
   through the inference gateway with each provider's native SDK; no real
   provider. Needs `APPTOWN_PI_MODULE`, that Pi package's directory. Under 1 s.
@@ -100,7 +100,7 @@ service, never a mock.
   one line per stage (exit, seconds), shows the log of any that failed, and
   fails if any did. Its length is the unit tier's, not the sum of the stages.
   The unit tier is three stages: every package but the root, and the root
-  package (`internal/forge`) as two test processes, split by name
+  package (`internal/apptown`) as two test processes, split by name
   (`ROOT_TESTS_A` with `-run`, the rest with `-skip`, so every test runs
   once). On macOS Go starts each child process with `fork`, and frequent forks
   from a larger process sharply cut the memory work its other goroutines get
@@ -138,7 +138,7 @@ service, never a mock.
   over that build (source formatting, vet, staticcheck, the lint, shape,
   exec, SQL-clock and reachability checks, the heavy runner's test, and
   govulncheck), then `make check-gate`; `test` runs the unit tier in four
-  parts (the root package's two halves, the rest of `internal/forge`, and
+  parts (the root package's two halves, the rest of `internal/apptown`, and
   everything else) with the harness's own test PostgreSQL container;
   `public` runs the public gate (`make check-public`) and `sql-writes`
   `make check-sql`.
@@ -260,7 +260,7 @@ Go's test cache is on everywhere except the gates of record. The push gate
 (`make check`), CI, the race tier and the integration and journey
 tiers run with `-count=1`: each push is witnessed fresh, and the tagged
 tiers exist to exercise Docker, PostgreSQL and Git, which the cache cannot
-see. Local and targeted runs (`go test ./internal/forge/scm`) use the cache;
+see. Local and targeted runs (`go test ./internal/apptown/scm`) use the cache;
 a stale pass there is caught by the push gate. Add `-count=1` locally only
 to re-run on purpose: chasing a flake, timing a run, or after changing
 something outside Go such as the installed `git` or the test database.
@@ -269,8 +269,8 @@ Use `make check` for the full local gate. Its dependency ordering also makes
 `make -j2 check` safe: Vite finishes replacing `web/dist` before Go compiles the
 embedded assets. These two builds cannot overlap; tests within Go still do.
 To check scheduling changes, run
-`go test -race -shuffle=on -count=1 ./internal/forge`. For timings, use
-`go test -json -count=1 ./internal/forge`, or `make check GO_TEST_FLAGS=-json`
+`go test -race -shuffle=on -count=1 ./internal/apptown`. For timings, use
+`go test -json -count=1 ./internal/apptown`, or `make check GO_TEST_FLAGS=-json`
 to retain the full gate while collecting timing events. Compare the package's elapsed time,
 not the sum of parallel tests' durations. Keep database-heavy benchmark runs
 separate so they do not compete for the same server.

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"flokkit.io/forge/internal/version"
+	"github.com/flokkit/apptown/internal/version"
 )
 
 // cmdVersion prints this CLI's version, then AppTown's as its answer

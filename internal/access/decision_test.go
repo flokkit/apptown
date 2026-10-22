@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/access"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // fakeFacts is a database-free reading of the world for one decision.

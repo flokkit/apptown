@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 func writeDockerContext(t *testing.T, configDir, name, host string) {

@@ -3,7 +3,7 @@
 # is (scripts/release.sh). Build from the repository root;
 # Dockerfile.dockerignore keeps the context to what the builds read:
 #
-#   docker build -f deploy/Dockerfile --target server --build-arg VERSION=v1.0.0 -t forge .
+#   docker build -f deploy/Dockerfile --target server --build-arg VERSION=v1.0.0 -t apptown .
 #   docker build -f deploy/Dockerfile --target worker --build-arg VERSION=v1.0.0 -t apptown-worker .
 #
 # The agent image is deploy/apptown-agent/Dockerfile, built from that folder.
@@ -34,8 +34,8 @@
 #   AppTown with no local Docker: it runs everything on a worker and needs an
 #   external database: APPTOWN_DB_URL, APPTOWN_WORKER_URL and the worker's
 #   certificates (APPTOWN_WORKER_CERT, _KEY, _CA), APPTOWN_AUTH and
-#   APPTOWN_PUBLIC_HOST; apptownd refuses to start without them (Running a
-#   forge, Workers and running without local Docker). Data is under
+#   APPTOWN_PUBLIC_HOST; apptownd refuses to start without them (Running an
+#   AppTown, Workers and running without local Docker). Data is under
 #   /var/lib/apptown. It cannot run work on a Docker it shares through the
 #   socket: it bind-mounts its own folders and bin/apptown-linux into the
 #   containers it starts, and from inside a container those are the
@@ -88,7 +88,7 @@ ARG VERSION=
 ARG REVISION=
 ENV CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GOFLAGS=-buildvcs=false
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    ld="-X flokkit.io/forge/internal/version.Release=$VERSION -X flokkit.io/forge/internal/version.Revision=$REVISION" \
+    ld="-X github.com/flokkit/apptown/internal/version.Release=$VERSION -X github.com/flokkit/apptown/internal/version.Revision=$REVISION" \
     && for c in apptownd apptown apptown-worker; do go build -trimpath -ldflags "$ld" -o /out/bin/$c ./cmd/$c; done \
     && cp /out/bin/apptown /out/bin/apptown-linux
 

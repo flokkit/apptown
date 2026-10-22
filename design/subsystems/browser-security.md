@@ -28,7 +28,7 @@ CSRF/XSS resistance across every hosted app. See [authentication](auth.md) and
 
 ## Implementation references
 
-- [internal/forge/browser_security.go](../../internal/forge/browser_security.go)
-- [internal/forge/console_pty.go](../../internal/forge/console_pty.go)
-- [internal/forge/oauth.go](../../internal/forge/oauth.go)
-- [internal/forge/oauth_consent.go](../../internal/forge/oauth_consent.go)
+- [internal/apptown/browser_security.go](../../internal/apptown/browser_security.go)
+- [internal/apptown/console_pty.go](../../internal/apptown/console_pty.go)
+- [internal/apptown/oauth.go](../../internal/apptown/oauth.go)
+- [internal/apptown/oauth_consent.go](../../internal/apptown/oauth_consent.go)

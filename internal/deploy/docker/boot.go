@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // The one boot sequence (deployment.md). Five paths used to assemble it by
@@ -502,8 +502,8 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	probeU := t.Docker.ProbeURL(hostPort)
 	// Render the cold-boot readiness probe from the public part's intent, shaped
 	// by AppTown's front-door signal (design/subsystems/healthchecks.md §4.3). cold-boot,
-	// preview and main all reach the app through forge's own reverse proxy, so
-	// the ingress env is `forge`.
+	// preview and main all reach the app through AppTown's own reverse proxy, so
+	// the ingress is AppTown's own.
 	probe := RenderColdBootProbe(plan.PublicPart(), h.frontDoor())
 	if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, probe); !up {
 		return res, &BootError{Phase: PhaseProbe, Err: errors.New("app did not come up in a cold container"), LogTail: logTail}

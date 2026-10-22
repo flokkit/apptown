@@ -18,6 +18,6 @@ rules. See [Workflow](workflow-domain.md) for execution and settlement ownership
 
 ## Implementation references
 
-- [internal/forge/workflowexec/call.go](../../internal/forge/workflowexec/call.go)
-- [internal/forge/workflow/execution.go](../../internal/forge/workflow/execution.go)
-- [internal/forge/startup_recovery.go](../../internal/forge/startup_recovery.go)
+- [internal/apptown/workflowexec/call.go](../../internal/apptown/workflowexec/call.go)
+- [internal/apptown/workflow/execution.go](../../internal/apptown/workflow/execution.go)
+- [internal/apptown/startup_recovery.go](../../internal/apptown/startup_recovery.go)

@@ -41,7 +41,7 @@ setup.
 
 ## Implementation references
 
-- [internal/forge/mcp_server.go](../../internal/forge/mcp_server.go)
-- [internal/forge/mcpapi/catalog.go](../../internal/forge/mcpapi/catalog.go)
-- [internal/forge/mcpapi/doc.go](../../internal/forge/mcpapi/doc.go)
-- [internal/forge/oauth.go](../../internal/forge/oauth.go)
+- [internal/apptown/mcp_server.go](../../internal/apptown/mcp_server.go)
+- [internal/apptown/mcpapi/catalog.go](../../internal/apptown/mcpapi/catalog.go)
+- [internal/apptown/mcpapi/doc.go](../../internal/apptown/mcpapi/doc.go)
+- [internal/apptown/oauth.go](../../internal/apptown/oauth.go)

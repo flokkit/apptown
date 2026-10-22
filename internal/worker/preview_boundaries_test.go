@@ -7,16 +7,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 func TestAVisitorsForwardingHeadersNeverReachTheApp(t *testing.T) {
-	forge, _, _, got, _ := forwardedPreview(t)
-	req, _ := http.NewRequest("GET", forge.URL+"/", nil)
+	apptownServer, _, _, got, _ := forwardedPreview(t)
+	req, _ := http.NewRequest("GET", apptownServer.URL+"/", nil)
 	req.Header.Set("X-Forwarded-Prefix", "/attacker")
 	req.Header.Set("X-Forwarded-Port", "12345")
 	req.Header["x-forwarded-ssl"] = []string{"on"} // sent as written
@@ -84,8 +84,8 @@ func TestRemovingEveryPreviewFailsWhenDockerCannotList(t *testing.T) {
 }
 
 func TestAnEmptyQuerySurvivesBothHops(t *testing.T) {
-	forge, _, _, got, _ := forwardedPreview(t)
-	req, _ := http.NewRequest("GET", forge.URL+"/path?", nil)
+	apptownServer, _, _, got, _ := forwardedPreview(t)
+	req, _ := http.NewRequest("GET", apptownServer.URL+"/path?", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)

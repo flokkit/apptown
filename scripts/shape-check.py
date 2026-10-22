@@ -2,25 +2,25 @@
 """The shape checker (design/architecture/layout.md, design/architecture/domains.md).
 
 Rules over the Go tree, each producing a count of violations:
-  layering      a library (internal/<x>) imports forge (internal/forge/...): libraries know
-                nothing of forge; forge's subsystems live under internal/forge/<x>
+  layering      a library (internal/<x>) imports the App (internal/apptown/...): libraries know
+                nothing of AppTown; AppTown's subsystems live under internal/apptown/<x>
   doors         a subsystem imports another subsystem where the architecture draws no arrow,
-                or anything imports the App (internal/forge)
-  transport     only forge or the same transport may import httpapi / mcpapi
+                or anything imports the App (internal/apptown)
+  transport     only the App or the same transport may import httpapi / mcpapi
   methods       production method declarations on App (pointer or value receiver)
   fields        a subsystem's Service struct exports a field: its parts are reached
                 only through operations (domains.md, principle 1)
-  constructors  a subsystem's constructor (<pkg>.New...( ) is called in forge outside app.go
-  aliases       forge aliases a subsystem's name (type x = pkg.X, or x = pkg.X in a const/var block)
-  rootfiles     production .go files in internal/forge itself, the composition root
-  roottests     _test.go files in internal/forge itself (the root went from 308 files on 20 September to 412 on 5 October with
+  constructors  a subsystem's constructor (<pkg>.New...( ) is called in the App outside app.go
+  aliases       the App aliases a subsystem's name (type x = pkg.X, or x = pkg.X in a const/var block)
+  rootfiles     production .go files in internal/apptown itself, the composition root
+  roottests     _test.go files in internal/apptown itself (the root went from 308 files on 20 September to 412 on 5 October with
                 every other rule flat, because none of them counts what lands in root)
   transportaudit  audit.BestEffort / audit.Recent calls in the root, httpapi and mcpapi: the
                 owner records its act in its own transaction
   transportdb   httpapi / mcpapi constructors (or dependency structs) taking the raw database
   hubpaths      the project repository path ("workspaces", "project-") spelled outside the
                 project owner
-  kindbranches  `.Kind == Kind...` comparisons in internal/forge/deployment, where the driver
+  kindbranches  `.Kind == Kind...` comparisons in internal/apptown/deployment, where the driver
                 should answer
   historycomments  production comments that narrate review history (reviewer, round, finding
                 id, date) or cite design/plans and design/reviews
@@ -33,8 +33,8 @@ or when the baseline is above the counts by more than zero and --tighten was not
 import json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOD = "flokkit.io/forge/internal/"
-APP = MOD + "forge"     # the App, the composition root; forge's subsystems live under it
+MOD = "github.com/flokkit/apptown/internal/"
+APP = MOD + "apptown"     # the App, the composition root; AppTown's subsystems live under it
 DOMAIN = APP + "/"
 # Libraries sit at internal/<x>: they know nothing of AppTown and could be lifted into another
 # program. A library may not import the App or anything under it.
@@ -99,18 +99,18 @@ ALLOWED = {
 }
 
 def top(pkg):
-    """internal/forge/deployment/docker -> deployment; internal/forge/wow/internal/wowsql -> wow;
-    internal/console/pi -> console; internal/forge -> forge (the App)"""
+    """internal/apptown/deployment/docker -> deployment; internal/apptown/wow/internal/wowsql -> wow;
+    internal/console/pi -> console; internal/apptown -> apptown (the App)"""
     rest = pkg[len(MOD):]
-    if rest == "forge":
-        return "forge"
-    if rest.startswith("forge/"):
-        rest = rest[len("forge/"):]
+    if rest == "apptown":
+        return "apptown"
+    if rest.startswith("apptown/"):
+        rest = rest[len("apptown/"):]
     return rest.split("/")[0]
 
 def pkg_dir(name):
-    """Where a named package lives: libraries at internal/<x>, the rest under internal/forge/."""
-    return os.path.join("internal", name) if name in LIBRARIES else os.path.join("internal", "forge", name)
+    """Where a named package lives: libraries at internal/<x>, the rest under internal/apptown/."""
+    return os.path.join("internal", name) if name in LIBRARIES else os.path.join("internal", "apptown", name)
 
 def go_imports(pkg):
     # Architecture arrows are direct dependencies. Work -> Adoption -> Ways
@@ -125,7 +125,7 @@ def go_imports(pkg):
 
 def inventory():
     """Every package under internal/ and its direct imports, tests included: a library
-    whose tests need forge's schema or fixtures is not a library."""
+    whose tests need AppTown's schema or fixtures is not a library."""
     out = subprocess.run(["go", "list", "-f",
                           '{{.ImportPath}} {{join .Imports " "}} {{join .TestImports " "}} {{join .XTestImports " "}}',
                           "./internal/..."],
@@ -134,37 +134,37 @@ def inventory():
         raise RuntimeError("cannot inspect internal packages: " + out.stderr.strip())
     return {line.split()[0]: line.split()[1:] for line in out.stdout.splitlines()}
 
-def forge_importers():
+def app_importers():
     # This rule applies even to a helper package that is not a named subsystem.
     return sorted(p for p, deps in inventory().items() if APP in deps)
 
 def layering():
     v = []
     for p, deps in sorted(inventory().items()):
-        if p[len(MOD):].split("/")[0] == "forge":
+        if p[len(MOD):].split("/")[0] == "apptown":
             continue
         for d in sorted(deps):
             if d == APP or d.startswith(DOMAIN):
-                v.append(f"{p} imports {d} (a library knows nothing of forge)")
+                v.append(f"{p} imports {d} (a library knows nothing of AppTown)")
     return v
 
 def doors():
-    v = [f"{p} imports internal/forge" for p in forge_importers()]
+    v = [f"{p} imports internal/apptown" for p in app_importers()]
     present = [p for p in sorted(set(SUBSYSTEMS + FACADES) | KERNELS) if os.path.isdir(os.path.join(ROOT, pkg_dir(p)))]
     for p in present:
         deps = go_imports(p)
         for d in sorted(deps):
             if d == p:
                 continue
-            if p in KERNELS and (d in set(SUBSYSTEMS + FACADES) - KERNELS or d not in LEAVES | KERNELS | LIBRARIES | {"forge"}):
+            if p in KERNELS and (d in set(SUBSYSTEMS + FACADES) - KERNELS or d not in LEAVES | KERNELS | LIBRARIES | {"apptown"}):
                 v.append(f"{p} -> {d} (a kernel may import only leaves and kernels)")
                 continue
             if d in LEAVES or d in KERNELS:
                 continue
-            if d == "forge":
+            if d == "apptown":
                 continue  # reported once by the whole-internal-package rule
             if p in FACADES:
-                # internal/console (a library) and internal/forge/console (a
+                # internal/console (a library) and internal/apptown/console (a
                 # subsystem) share a top name; the allowance lists it either way.
                 if d not in ALLOWED.get(p, set()) and not (d in LIBRARIES and d not in SUBSYSTEMS):
                     v.append(f"{p} -> {d} (not in the facade's import allowance)")
@@ -181,7 +181,7 @@ def transport():
     for name in ("httpapi", "mcpapi"):
         boundary = DOMAIN + name
         inside = lambda p: p == boundary or p.startswith(boundary + "/")
-        out.extend(f"{p} imports {d} ({name} transport may be imported only by forge or itself)"
+        out.extend(f"{p} imports {d} ({name} transport may be imported only by the App or itself)"
                    for p, deps in sorted(imports.items())
                    if p != APP and not inside(p)
                    for d in sorted(set(deps)) if inside(d))
@@ -198,7 +198,7 @@ def transport():
 # invisible there, and facades are exempt from arrow checks altogether. On
 # 17 September inference imported agentharness/pi to render Pi's models.json
 # and no gate noticed.
-HARNESS_IMPORTERS = {"forge", "agentharness", "workflowexec", "conversation"}
+HARNESS_IMPORTERS = {"apptown", "agentharness", "workflowexec", "conversation"}
 
 
 def harness_imports():
@@ -213,7 +213,7 @@ def harness_imports():
 def agent_boundaries():
     paths = []
     for package in ("agentenv", "agentharness"):
-        base = os.path.join(ROOT, "internal", "forge", package)
+        base = os.path.join(ROOT, "internal", "apptown", package)
         for directory, _, files in os.walk(base):
             paths.extend(os.path.join(directory, f) for f in sorted(files) if f.endswith(".go"))
     result = subprocess.run(["go", "run", "scripts/shape-agents.go", "--", *paths],
@@ -222,7 +222,7 @@ def agent_boundaries():
 
 
 def methods():
-    files = [os.path.relpath(f, ROOT) for f in forge_files()]
+    files = [os.path.relpath(f, ROOT) for f in app_files()]
     out = subprocess.run(["go", "run", "scripts/shape-methods.go", "--", *files],
                          cwd=ROOT, capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
@@ -250,14 +250,14 @@ def fields():
                     v.append(f"{p}: Service.{name}")
     return v
 
-def forge_files():
-    d = os.path.join(ROOT, "internal", "forge")
+def app_files():
+    d = os.path.join(ROOT, "internal", "apptown")
     return [os.path.join(d, f) for f in sorted(os.listdir(d)) if f.endswith(".go") and not f.endswith("_test.go")]
 
 def constructors():
     pat = re.compile(r"\b(" + "|".join(SUBSYSTEMS) + r")\.New\w*\(")
     v = []
-    for f in forge_files():
+    for f in app_files():
         if os.path.basename(f) == "app.go":
             with open(f) as source_file:
                 source = source_file.read()
@@ -265,7 +265,7 @@ def constructors():
             if app:
                 for field in re.findall(r"(\w+)\s+sync\.Once\b", app.group(1)):
                     if field not in {"consoleCLIOnce", "consoleStopOnce"}:
-                        v.append(f"internal/forge/app.go: App.{field} lazily constructs state")
+                        v.append(f"internal/apptown/app.go: App.{field} lazily constructs state")
             continue
         for i, line in enumerate(open(f), 1):
             m = pat.search(line)
@@ -276,7 +276,7 @@ def constructors():
 def aliases():
     # Parse declarations: regexes confuse assignments with aliases and miss
     # grouped type declarations. Keep the helper independent of Go type checks.
-    files = [os.path.relpath(f, ROOT) for f in forge_files()]
+    files = [os.path.relpath(f, ROOT) for f in app_files()]
     out = subprocess.run(["go", "run", "scripts/shape-aliases.go",
                           ",".join(SUBSYSTEMS + FACADES), *files], cwd=ROOT,
                          capture_output=True, text=True, check=True)
@@ -287,7 +287,7 @@ def workflow_exports(root=None):
     its surface is what other packages may depend on: keep a new name private
     unless another package needs it."""
     root = root or ROOT
-    d = os.path.join(root, "internal", "forge", "workflow")
+    d = os.path.join(root, "internal", "apptown", "workflow")
     files = [os.path.join(d, f) for f in sorted(os.listdir(d)) if f.endswith(".go") and not f.endswith("_test.go")]
     out = subprocess.run(["go", "run", os.path.join(ROOT, "scripts", "shape-exports.go"), "--", *files],
                          cwd=ROOT, capture_output=True, text=True, check=True)
@@ -295,7 +295,7 @@ def workflow_exports(root=None):
 
 
 def callbacks():
-    files = [os.path.relpath(f, ROOT) for f in forge_files()]
+    files = [os.path.relpath(f, ROOT) for f in app_files()]
     out = subprocess.run(["go", "run", "scripts/shape-callbacks.go", "--", *files],
                          cwd=ROOT, capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
@@ -307,11 +307,11 @@ def callbacks():
 # internal/deploy since it boots previews with AppTown's own boot code
 # (private/design/plans/isolated-execution-previews-on-workers-2026-09-30.md): the
 # library, not the deployment subsystem, which stays refused.
-STANDALONE = {"apptown-deploy": {"forge", "deployment", "preview", "dataprotection", "database", "workflow", "project", "conformance", "console", "wow", "adoption", "access"},
-              "apptown-console": {"forge", "workflow", "project", "conformance", "deployment", "preview", "dataprotection", "deploy", "wow", "adoption", "access", "integration", "model"},
-              "apptown-worker": {"forge", "database", "workflow", "project", "deployment", "preview", "dataprotection", "conformance", "wow", "adoption", "access",
+STANDALONE = {"apptown-deploy": {"apptown", "deployment", "preview", "dataprotection", "database", "workflow", "project", "conformance", "console", "wow", "adoption", "access"},
+              "apptown-console": {"apptown", "workflow", "project", "conformance", "deployment", "preview", "dataprotection", "deploy", "wow", "adoption", "access", "integration", "model"},
+              "apptown-worker": {"apptown", "database", "workflow", "project", "deployment", "preview", "dataprotection", "conformance", "wow", "adoption", "access",
                                "integration", "model", "secret", "scm", "tasks", "identity", "usage", "dependency", "adrs", "complaint"},
-              "apptown-check": {"forge", "conformance", "workflow", "project", "deployment", "preview", "dataprotection", "database", "console", "wow", "adoption", "access", "integration", "model", "secret", "scm", "usage", "dependency", "adrs", "complaint"}}
+              "apptown-check": {"apptown", "conformance", "workflow", "project", "deployment", "preview", "dataprotection", "database", "console", "wow", "adoption", "access", "integration", "model", "secret", "scm", "usage", "dependency", "adrs", "complaint"}}
 
 def standalone():
     v = []
@@ -330,7 +330,7 @@ def standalone():
 # (design/architecture/record-store-style.md). Three places are legitimately
 # raw and are not counted: dbschema writes the migrations, database is the
 # driver layer, dbtest creates and drops the databases a test runs in.
-HANDWRITTEN_EXEMPT = {"internal/forge/dbschema", "internal/database", "internal/dbtest"}
+HANDWRITTEN_EXEMPT = {"internal/apptown/dbschema", "internal/database", "internal/dbtest"}
 SQL_STATEMENT = re.compile(r"\b(SELECT\s|INSERT\s+INTO\s|UPDATE\s+[a-z_]+\s+SET|DELETE\s+FROM\s)", re.I)
 
 def handwritten():
@@ -448,7 +448,7 @@ def app_builders(_cache=[]):
     conformanceTestApp and completionReleaseScenario; the return type does not."""
     if not _cache:
         names = set()
-        root = os.path.join(ROOT, "internal", "forge")
+        root = os.path.join(ROOT, "internal", "apptown")
         if os.path.isdir(root):
             for name in os.listdir(root):
                 if not name.endswith("_test.go"):
@@ -460,12 +460,12 @@ def app_builders(_cache=[]):
                         names.add(decl.group(1))
         _cache.append(names)
     return _cache[0]
-TEST_DOMAIN_IMPORT = re.compile(r'flokkit\.io/forge/internal/forge/(\w+)"')
+TEST_DOMAIN_IMPORT = re.compile(r'github\.com/flokkit/apptown/internal/apptown/(\w+)"')
 
 
 def testhomes():
     v = []
-    root = os.path.join(ROOT, "internal", "forge")
+    root = os.path.join(ROOT, "internal", "apptown")
     for name in sorted(os.listdir(root)):
         if not name.endswith("_test.go"):
             continue
@@ -492,15 +492,15 @@ def testhomes():
         # this one's, however many root types happen to be called Service.
         if root_symbols() & set(re.findall(r"(?<![.\w])([A-Za-z_]\w*)\s*[({]", source)):
             continue
-        v.append(f"internal/forge/{name}: subject is not in this package")
+        v.append(f"internal/apptown/{name}: subject is not in this package")
     return v
 
 
 def root_symbols(_cache=[]):
-    """Every top-level name internal/forge's production files declare."""
+    """Every top-level name internal/apptown's production files declare."""
     if not _cache:
         names = set()
-        for path in forge_files():
+        for path in app_files():
             with open(path, encoding="utf-8", errors="ignore") as handle:
                 body = handle.read()
             names |= set(re.findall(r"^func (?:\([^)]*\)\s*)?([A-Za-z_]\w*)", body, re.M))
@@ -515,13 +515,13 @@ def root_symbols(_cache=[]):
 # owner tests that build an App passed all of them. These two are plain counts
 # at today's value: a new root file needs one retired, or a baseline raised in
 # the same commit where review can see it.
-ROOT_HINT = ("internal/forge is the composition root (design/architecture/layout.md, "
+ROOT_HINT = ("internal/apptown is the composition root (design/architecture/layout.md, "
              "\"The three places code lives\"). Put domain behaviour and its tests in the owner "
              "package, transport code in httpapi/mcpapi; if this file really is assembly or a "
              "cross-owner guarantee, merge it into an existing root file or raise the baseline "
              "in scripts/shape-baseline.json in this commit and say why.")
 HINTS = {"rootfiles": ROOT_HINT, "roottests": ROOT_HINT,
-         "workflowexports": "a new exported name in internal/forge/workflow: keep it private unless another package needs it "
+         "workflowexports": "a new exported name in internal/apptown/workflow: keep it private unless another package needs it "
                             "(a test in another package is not a reason: use the owner's operations). -v lists every exported name.",
          "droppederrors": "a dropped error from a decode (its zero value stands in for what was stored: an empty set, no pins, "
                           "no tests) or from a revocation, provider call or record write (a live credential or a fact silently lost). "
@@ -533,16 +533,16 @@ HINTS = {"rootfiles": ROOT_HINT, "roottests": ROOT_HINT,
 
 
 def root_files(root=None, tests=False):
-    d = os.path.join(root or ROOT, "internal", "forge")
-    return [f"internal/forge/{name}" for name in sorted(os.listdir(d))
+    d = os.path.join(root or ROOT, "internal", "apptown")
+    return [f"internal/apptown/{name}" for name in sorted(os.listdir(d))
             if name.endswith(".go") and name.endswith("_test.go") == tests
             and os.path.isfile(os.path.join(d, name))]
 
 
 def request_boundaries():
-    paths = list(forge_files())
+    paths = list(app_files())
     for package in ("httpapi", "mcpapi"):
-        directory = os.path.join(ROOT, "internal", "forge", package)
+        directory = os.path.join(ROOT, "internal", "apptown", package)
         paths.extend(os.path.join(directory, name) for name in os.listdir(directory)
                      if name.endswith(".go") and not name.endswith("_test.go"))
     result = subprocess.run(["go", "run", "scripts/shape-request-boundaries.go", "--", *paths],
@@ -600,8 +600,8 @@ def dropped_decodes(root=None):
     return out
 
 
-TRANSPORTS = (os.path.join("internal", "forge", "httpapi"), os.path.join("internal", "forge", "mcpapi"))
-APP_DIR = os.path.join("internal", "forge")
+TRANSPORTS = (os.path.join("internal", "apptown", "httpapi"), os.path.join("internal", "apptown", "mcpapi"))
+APP_DIR = os.path.join("internal", "apptown")
 AUDIT_IN_TRANSPORT = re.compile(r"\baudit\.(BestEffort|Recent)\(")
 
 
@@ -639,7 +639,7 @@ def transport_db(root=None):
 # Where a project's repository lives on disk is the project's to say. Every
 # other package spelling the path is a copy that drifts.
 HUB_PATH = re.compile(r'"workspaces",\s*"project-"')
-HUB_PATH_OWNER = os.path.join("internal", "forge", "project")
+HUB_PATH_OWNER = os.path.join("internal", "apptown", "project")
 
 
 def hub_paths(root=None):
@@ -657,7 +657,7 @@ KIND_BRANCH_DIRS = ["deployment", "dataprotection", "preview"]
 
 
 def kind_branches(root=None):
-    return [f"{f}:{i}: {m.group(0)}" for d in KIND_BRANCH_DIRS for f in go_sources(os.path.join("internal", "forge", d), root=root, recursive=True)
+    return [f"{f}:{i}: {m.group(0)}" for d in KIND_BRANCH_DIRS for f in go_sources(os.path.join("internal", "apptown", d), root=root, recursive=True)
             for i, line in code_lines(f, root) for m in KIND_BRANCH.finditer(line)]
 
 

@@ -13,16 +13,16 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/version"
+	"github.com/flokkit/apptown/internal/version"
 
-	"flokkit.io/forge/internal/database"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/forge/integration"
-	"flokkit.io/forge/internal/forge/projectlifecycle"
+	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/execution"
 
-	"flokkit.io/forge/internal/forge"
-	"flokkit.io/forge/internal/forge/verification"
-	"flokkit.io/forge/stock"
+	"github.com/flokkit/apptown/internal/apptown"
+	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/stock"
 )
 
 // daemonFlags is apptownd's command line. Every flag can also be set in the
@@ -159,10 +159,10 @@ func main() {
 	if o.taskCPUs <= 0 || o.taskMemoryMiB <= 0 || o.taskPIDs <= 0 || o.chatCPUs <= 0 || o.chatMemoryMiB <= 0 || o.chatPIDs <= 0 {
 		log.Fatal("-task-* and -chat-* limits must be above zero: no container runs unbounded")
 	}
-	cfg := o.forgeConfig(dataDir)
+	cfg := o.apptownConfig(dataDir)
 	cfg.LocalTLS = chatTLS
-	workerAt := func(url string) *forge.WorkerConfig {
-		return &forge.WorkerConfig{URL: url, Cert: o.workerCert, Key: o.workerKey, CA: o.workerCA}
+	workerAt := func(url string) *apptown.WorkerConfig {
+		return &apptown.WorkerConfig{URL: url, Cert: o.workerCert, Key: o.workerKey, CA: o.workerCA}
 	}
 	if o.workerURL != "" || o.checkWorker == "" && (o.workerCert != "" || o.workerKey != "" || o.workerCA != "") {
 		cfg.Worker = workerAt(o.workerURL)
@@ -194,7 +194,7 @@ func main() {
 	if err := cfg.Validate(); err != nil {
 		log.Fatal(err)
 	}
-	if err := forge.OpenExposure(o.authMode, o.addr, o.consoleAddr, o.openOnNetwork); err != nil {
+	if err := apptown.OpenExposure(o.authMode, o.addr, o.consoleAddr, o.openOnNetwork); err != nil {
 		log.Fatal(err)
 	}
 	if flag.NArg() != 0 {
@@ -208,7 +208,7 @@ func main() {
 	}
 	// The data directory's layout before anything reads or writes it: a
 	// newer build's directory is refused, not misread.
-	if err := forge.PrepareDataLayout(dataDir); err != nil {
+	if err := apptown.PrepareDataLayout(dataDir); err != nil {
 		log.Fatalf("data directory: %v", err)
 	}
 	// The process's context before the daemon serves (and for the
@@ -217,7 +217,7 @@ func main() {
 	// The built-in database comes up BEFORE the unmigrated check, so the
 	// refusal below can name a database that is already there to move into.
 	if o.dbURL == "" {
-		u, err := forge.EnsureBuiltinDB(ctx, dataDir)
+		u, err := apptown.EnsureBuiltinDB(ctx, dataDir)
 		if err != nil {
 			log.Fatalf("built-in database: %v", err)
 		}
@@ -226,21 +226,21 @@ func main() {
 	// One apptownd per database (design/subsystems/jobs.md): startup repair
 	// treats running work as interrupted, so a second daemon would end the
 	// first one's live work. The lock is taken before migrating and held for
-	// the process's life. -reset-password runs beside a serving forge
+	// the process's life. -reset-password runs beside a serving AppTown
 	// (design/operations/README.md) and does not take it.
 	if o.holdsDatabase() {
 		holdDatabase(ctx, o.dbURL)
 	}
-	db, err := forge.OpenURL(ctx, o.dbURL)
+	db, err := apptown.OpenURL(ctx, o.dbURL)
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
 	cfg.FitLimitsToHost(ctx)
-	app, err := forge.New(ctx, db, cfg)
+	app, err := apptown.New(ctx, db, cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer forge.BridgeLogs(app)()
+	defer apptown.BridgeLogs(app)()
 	if o.resetPassword != "" {
 		// Stdout carries only the password, so it can go straight to a file.
 		password, err := app.Access.ResetPassword(ctx, o.resetPassword)
@@ -254,7 +254,7 @@ func main() {
 	app.LogStartupConfiguration()
 	if o.noLocalDocker {
 		log.Printf("no local backend: this AppTown has no Docker of its own; agents, checks and previews run on the worker, releases on attached Docker hosts")
-	} else if o.agentExecutor == forge.ExecutorDocker && !app.DockerAvailable(ctx) {
+	} else if o.agentExecutor == apptown.ExecutorDocker && !app.DockerAvailable(ctx) {
 		log.Printf("WARNING: docker unavailable; model agents cannot run until Docker is available")
 	}
 
@@ -270,7 +270,7 @@ func main() {
 		// reads only, nothing recovered, resumed or scheduled, so the old
 		// database stays a lossless rollback until a person accepts.
 		log.Printf("apptownd listening on %s in VERIFY-ONLY mode (data: %s) — reads only; restart without -verify-only to accept", o.addr, dataDir)
-		if err := (daemonRuntime{servers: []*http.Server{servedAt(o.addr, forge.ReadOnly(app.Handler()))}}).serveWithSignals(); err != nil {
+		if err := (daemonRuntime{servers: []*http.Server{servedAt(o.addr, apptown.ReadOnly(app.Handler()))}}).serveWithSignals(); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -304,11 +304,11 @@ func main() {
 		}
 		// AppTown's UUID exists from its first start: exports, backups and
 		// the former ids a cutover keeps are named by it.
-		forgeID, err := app.Access.ForgeID(ctx)
+		apptownID, err := app.Access.AppTownID(ctx)
 		if err != nil {
 			return fmt.Errorf("AppTown's id: %w", err)
 		}
-		log.Printf("apptown instance %s", forgeID)
+		log.Printf("apptown instance %s", apptownID)
 		// After seeding: -admins completes setup, and then no token is due.
 		// The log says where the setup token is, never what it is.
 		if token, err := app.Access.EnsureSetupToken(ctx); err != nil {
@@ -339,7 +339,7 @@ func main() {
 			// last process left, without waiting for the schedule.
 			start: func() { app.Fixes.Wake(ctx) },
 			stop:  app.ShutdownBackground,
-			flush: func(ctx context.Context) error { return forge.CloseTelemetry(app, ctx) },
+			flush: func(ctx context.Context) error { return apptown.CloseTelemetry(app, ctx) },
 			tasks: []daemonTask{
 				{"jobs", app.Jobs().Run},
 				{"health controller", daemonLoop(app.RunHealthController)},
@@ -356,7 +356,7 @@ func main() {
 		if o.consoleAddr != "" {
 			// Console sandboxes use this GET-only listener; both listeners share
 			// the same shutdown deadline and failures stop the whole daemon.
-			runtime.servers = append(runtime.servers, servedAt(o.consoleAddr, forge.GETOnly(app.Handler())))
+			runtime.servers = append(runtime.servers, servedAt(o.consoleAddr, apptown.GETOnly(app.Handler())))
 			log.Printf("console read-only API on %s", o.consoleAddr)
 		}
 		log.Printf("apptownd listening on %s (data: %s)", o.addr, dataDir)
@@ -370,24 +370,24 @@ func main() {
 	// the shared deadline or close resources still used by timed-out work.
 }
 
-// forgeConfig is AppTown's configuration as the flags state it, before
+// apptownConfig is AppTown's configuration as the flags state it, before
 // the worker, console and inference settings main adds.
-func (o *daemonFlags) forgeConfig(dataDir string) forge.Config {
-	return forge.Config{
+func (o *daemonFlags) apptownConfig(dataDir string) apptown.Config {
+	return apptown.Config{
 		HostScripts: o.hostScripts,
 		TaskLimits:  execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
 		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, DrainLocalDocker: o.drainLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
 		AgentConcurrency: o.agentConc, AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, AgentModel: o.agentModel, PortainerEnvironment: o.portainerEnv,
 		Features: o.features, AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
 		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,
-		Defaults:     forge.InstanceDefaults{MirrorBase: o.mirrorBase, ErrorsURL: o.errorsURL},
+		Defaults:     apptown.InstanceDefaults{MirrorBase: o.mirrorBase, ErrorsURL: o.errorsURL},
 		OTLPEndpoint: o.otlpEndpoint, OTLPProtocol: o.otlpProtocol}
 }
 
 // holdsDatabase says whether this start takes the one-daemon lock: every
 // mode that may repair or settle work (serving, -verify-only,
 // -drain-local-docker) does; only -reset-password,
-// documented to run beside a serving forge, does not.
+// documented to run beside a serving AppTown, does not.
 func (o *daemonFlags) holdsDatabase() bool { return o.resetPassword == "" }
 
 // daemonLockKey is the advisory lock a serving apptownd holds on its database.

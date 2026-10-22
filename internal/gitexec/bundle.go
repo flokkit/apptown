@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Bundles move commits between AppTown and a machine it shares no files

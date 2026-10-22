@@ -6,15 +6,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executionfake"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executionfake"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // Ignoring the runtime directory must not prevent collecting project source,
 // including the explicitly supported native contract inside that directory.
-func TestACollectionWorksWhenTheProjectIgnoresForge(t *testing.T) {
+func TestACollectionWorksWhenTheProjectIgnoresAppTown(t *testing.T) {
 	for _, change := range []string{"ordinary output", "add contract", "edit contract", "delete contract"} {
 		t.Run(change, func(t *testing.T) {
 			ctx := context.Background()

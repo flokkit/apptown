@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // CLI runs the binary it names with the arguments given and answers its

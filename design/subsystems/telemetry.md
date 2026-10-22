@@ -82,7 +82,7 @@ information. Keep prompts, credentials and transcripts out of telemetry.
 ## Implementation references
 
 - [internal/telemetry/telemetry.go](../../internal/telemetry/telemetry.go)
-- [internal/forge/inference/gateway.go](../../internal/forge/inference/gateway.go)
-- [internal/forge/jobs/telemetry.go](../../internal/forge/jobs/telemetry.go)
+- [internal/apptown/inference/gateway.go](../../internal/apptown/inference/gateway.go)
+- [internal/apptown/jobs/telemetry.go](../../internal/apptown/jobs/telemetry.go)
 - [cmd/apptownd/runtime.go](../../cmd/apptownd/runtime.go)
 - [stock/observability/README.md](../../stock/observability/README.md)

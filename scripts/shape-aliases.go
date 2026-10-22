@@ -22,8 +22,8 @@ func main() {
 	}
 	subsystems := map[string]bool{}
 	for _, name := range strings.Split(os.Args[1], ",") {
-		subsystems["flokkit.io/forge/internal/"+name] = true       // a library (console)
-		subsystems["flokkit.io/forge/internal/forge/"+name] = true // an AppTown subsystem
+		subsystems["github.com/flokkit/apptown/internal/"+name] = true         // a library (console)
+		subsystems["github.com/flokkit/apptown/internal/apptown/"+name] = true // an AppTown subsystem
 	}
 	found := []string{}
 	fset := token.NewFileSet()

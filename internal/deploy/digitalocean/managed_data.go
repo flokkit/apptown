@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"errors"
-	"flokkit.io/forge/internal/deploy"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy"
 	"net/url"
 	"slices"
 	"strings"

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // A standing deployment made before needs had named volumes keeps its

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // A worker serves the AppTown installations whose protocol is in its range and refuses
@@ -19,7 +19,7 @@ import (
 // stated, and is served.
 //
 // Kills: a worker that serves any AppTown, whatever protocol it speaks.
-func TestAWorkerServesOnlyTheForgeProtocolsInItsRange(t *testing.T) {
+func TestAWorkerServesOnlyAppTownProtocolsInItsRange(t *testing.T) {
 	t.Parallel()
 	ca := workertest.NewCA(t)
 	for _, role := range []string{worker.RoleAgent, worker.RoleCheck} {
@@ -66,7 +66,7 @@ func TestAWorkerServesOnlyTheForgeProtocolsInItsRange(t *testing.T) {
 
 // An AppTown's transport to its worker states the protocol it speaks on every
 // request.
-func TestAForgeStatesItsProtocolToItsWorker(t *testing.T) {
+func TestAnAppTownStatesItsProtocolToItsWorker(t *testing.T) {
 	t.Parallel()
 	var got []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +90,7 @@ func TestAForgeStatesItsProtocolToItsWorker(t *testing.T) {
 // An AppTown that a check worker does not serve stops at startup with the
 // worker's own sentence: both protocols and what to install, not only the
 // HTTP status.
-func TestAForgeACheckWorkerDoesNotServeHearsWhyAtStartup(t *testing.T) {
+func TestAnAppTownACheckWorkerDoesNotServeHearsWhyAtStartup(t *testing.T) {
 	t.Parallel()
 	ca := workertest.NewCA(t)
 	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Role: worker.Role{Role: worker.RoleCheck}})

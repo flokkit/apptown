@@ -117,7 +117,7 @@ type ImageFiles interface {
 }
 
 // ImageLayout is one captured image of a task read file by file, as the
-// forge's publisher reads an OCI layout (oci.Layout): every file is opened
+// AppTown's publisher reads an OCI layout (oci.Layout): every file is opened
 // on the backend when it is read, and checked by the reader.
 type ImageLayout struct {
 	Files ImageFiles

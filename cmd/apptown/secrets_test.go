@@ -14,7 +14,7 @@ import (
 // Kills: the value taken from argv; the trailing newline of `echo` kept as
 // part of the value; a multi-line value sent.
 func TestSecretSetReadsTheValueFromStandardInput(t *testing.T) {
-	seen := fakeForge(t, func(string, string) (int, string) { return 200, `{"name":"DO_TOKEN","held":true}` })
+	seen := fakeAppTown(t, func(string, string) (int, string) { return 200, `{"name":"DO_TOKEN","held":true}` })
 	feed := func(content string) {
 		path := filepath.Join(t.TempDir(), "value")
 		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {

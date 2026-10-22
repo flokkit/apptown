@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
 // HostInfo is what a daemon says it can give containers: its memory and
@@ -48,12 +48,12 @@ type ContainerLimit struct {
 	// CPUUnread says a CPU constraint was set that AppTown could not
 	// read as a number of CPUs: never counted as no limit.
 	CPUUnread bool
-	// Forge says AppTown started it (it carries a class label); Class
+	// AppTown says AppTown started it (it carries a class label); Class
 	// and Owner are those labels, "" where absent, so a reader can say
 	// whose it is: a deployment's, a preview's, agent work, AppTown's own.
-	Forge bool
-	Class string
-	Owner string
+	AppTown bool
+	Class   string
+	Owner   string
 }
 
 // RunningLimits is the limits Docker enforces on every running container:
@@ -111,7 +111,7 @@ func parseContainerLimit(line string) (ContainerLimit, error) {
 		return v
 	}
 	l := ContainerLimit{Name: strings.TrimPrefix(f[0], "/"), MemoryBytes: mem, Class: label(f[6]), Owner: label(f[7])}
-	l.Forge = l.Class != ""
+	l.AppTown = l.Class != ""
 	tightest := func(c float64) {
 		if c > 0 && (l.CPUs == 0 || c < l.CPUs) {
 			l.CPUs = c

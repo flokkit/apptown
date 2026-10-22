@@ -26,12 +26,12 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/deploy/docker/dockertest"
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/worker"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 // Installation is the installation a test worker serves.
@@ -50,7 +50,7 @@ func NewCA(t *testing.T) *CA {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "test forge CA"}, NotBefore: time.Now().Add(-time.Hour),
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "test AppTown CA"}, NotBefore: time.Now().Add(-time.Hour),
 		NotAfter: time.Now().Add(time.Hour), IsCA: true, KeyUsage: x509.KeyUsageCertSign, BasicConstraintsValid: true}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {
@@ -196,7 +196,7 @@ func runDocker(t *testing.T, args ...string) string {
 func buildWorker(t *testing.T, binary string, env ...string) {
 	t.Helper()
 	run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
-		Argv: []string{"go", "build", "-o", binary, "flokkit.io/forge/cmd/apptown-worker"}, Env: env, Timeout: 10 * time.Minute})
+		Argv: []string{"go", "build", "-o", binary, "github.com/flokkit/apptown/cmd/apptown-worker"}, Env: env, Timeout: 10 * time.Minute})
 	if run.RunErr != nil {
 		t.Fatalf("building apptown-worker: %v\n%s", run.RunErr, run.Output)
 	}
@@ -439,7 +439,7 @@ func (w *Container) Restart() {
 //     that acts on the worker's machine (restart: kill the worker by its
 //     recorded pid and start it again over the same state; fresh: start
 //     the worker, and a check worker, again on empty state, as a new
-//     forge's workers);
+//     AppTown's workers);
 //   - APPTOWN_QUAL_CHECK_WORKER_URL, optionally: a check worker there, with
 //     the same certificates.
 //

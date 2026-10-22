@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // fileDocker is an in-process Docker whose state is files
@@ -316,7 +316,7 @@ func TestAnOlderRequestNeverUndoesALaterOne(t *testing.T) {
 // a reopen builds from them, and AppTown removes them when their keep is
 // over (DELETE .../images). A run's preview's images go with it: it is
 // never booted again. Another preview's images stay.
-func TestAChangesPreviewKeepsItsBuildImagesUntilTheForgeRemovesThem(t *testing.T) {
+func TestAChangesPreviewKeepsItsBuildImagesUntilAppTownRemovesThem(t *testing.T) {
 	t.Parallel()
 	binary, _ := sweepDocker(t)
 	binary.reply = func(args []string) ([]byte, error, bool) {

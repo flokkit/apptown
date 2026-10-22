@@ -30,7 +30,7 @@ hand. A newer run cancels an older one on the same ref. Jobs:
   image pins, the npm install-script rule, govulncheck and the
   gate runner's own test. The pinned analyzers are cached by the Makefile.
 - `test`, four parts: the root package's two halves, the rest of
-  `internal/forge`, and every other package. The database tests use the
+  `internal/apptown`, and every other package. The database tests use the
   harness's own disposable PostgreSQL container (`internal/dbtest`), as a
   local `make check` does.
 - `public`: the public gate (`make check-public`, `scripts/public-check.py`):

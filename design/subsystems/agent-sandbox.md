@@ -55,9 +55,9 @@ describes actual mounts, tools and grants.
 
 ## Implementation references
 
-- [internal/forge/agentenv/inference.go](../../internal/forge/agentenv/inference.go)
-- [internal/forge/agentenv/model_process.go](../../internal/forge/agentenv/model_process.go)
-- [internal/forge/agentenv/workshop.go](../../internal/forge/agentenv/workshop.go)
+- [internal/apptown/agentenv/inference.go](../../internal/apptown/agentenv/inference.go)
+- [internal/apptown/agentenv/model_process.go](../../internal/apptown/agentenv/model_process.go)
+- [internal/apptown/agentenv/workshop.go](../../internal/apptown/agentenv/workshop.go)
 - [internal/execution/README.md](../../internal/execution/README.md)
 - [internal/worker/README.md](../../internal/worker/README.md)
-- [internal/forge/no_local_docker.go](../../internal/forge/no_local_docker.go)
+- [internal/apptown/no_local_docker.go](../../internal/apptown/no_local_docker.go)

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executiontest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 )
 
 // A context rewritten between AppTown's selection and the CLI's call does
@@ -47,7 +47,7 @@ func TestIntegrationAContextRewrittenDuringACallDoesNotMoveIt(t *testing.T) {
 	t.Setenv("DOCKER_HOST", "")
 	t.Setenv("DOCKER_CONTEXT", "round5-race")
 	// Keep the unavailable Unix socket address within the platform length limit.
-	missingDir, err := os.MkdirTemp("", "forge-r5-")
+	missingDir, err := os.MkdirTemp("", "apptown-r5-")
 	if err != nil {
 		t.Fatal(err)
 	}

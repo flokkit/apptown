@@ -2,8 +2,8 @@ package check_test
 
 import (
 	"errors"
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/execution"
 	"testing"
 )
 

@@ -50,7 +50,7 @@
 //
 // Frozen migrations are history and are not counted. A database upgrades
 // through the numbered migrations in the baseline's frozen file
-// (internal/forge/dbschema/schema.go, its var migrations) once; a migration
+// (internal/apptown/dbschema/schema.go, its var migrations) once; a migration
 // already applied never runs again, so rewriting it changes nothing that
 // runs. The baseline records the number they are frozen through and a
 // digest of what they say: a migration numbered at or below it is exempt,

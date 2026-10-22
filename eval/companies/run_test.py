@@ -162,7 +162,7 @@ class Resume(unittest.TestCase):
             self.assertEqual(saved["intent"], "unknown")
             self.assertFalse(run.open_request(f, run.State(st.path), "acme/a", "s", r))
 
-    def test_intent_is_written_before_the_forge_is_asked(self):
+    def test_intent_is_written_before_apptown_is_asked(self):
         with tempfile.TemporaryDirectory() as tmp:
             st = state(tmp)
             seen = {}
@@ -185,7 +185,7 @@ class Resume(unittest.TestCase):
             run.cmd_reconcile(st, SimpleNamespace(app="acme/a", request="01-y", change="c9"))
             self.assertEqual(st.app("acme/a")["requests"]["01-y"]["change"], "c9")
 
-    def test_a_project_already_on_the_forge_is_adopted_not_created_again(self):
+    def test_a_project_already_on_apptown_is_adopted_not_created_again(self):
         with tempfile.TemporaryDirectory() as tmp:
             cos, st = company(tmp), state(tmp)
             f = Fake([(0, {"change": {"id": "c1"}}, "")], projects=["acme-a"])
@@ -224,7 +224,7 @@ class Driving(unittest.TestCase):
         self.assertEqual(a["requests"]["01-x"]["outcome"], "stopped")
         self.assertFalse(any(c[0] in ("override", "retry", "approve", "land") for c in calls))
 
-    def test_a_change_the_forge_closed_is_recorded_as_closed(self):
+    def test_a_change_apptown_closed_is_recorded_as_closed(self):
         a, _ = self.drive([(2, {"outcome": "ended"}, ""), (0, {"state": "abandoned", "closedAs": "nothing-to-change"}, "")])
         self.assertEqual(a["requests"]["01-x"]["outcome"], "closed")
 
@@ -260,7 +260,7 @@ class StateLocation(unittest.TestCase):
     def test_state_names_the_file(self):
         self.assertEqual(run.state_path("/x/s.json", "/d", "forge.example.com"), Path("/x/s.json"))
 
-    def test_the_environment_names_a_directory_with_a_file_per_forge(self):
+    def test_the_environment_names_a_directory_with_a_file_per_apptown(self):
         self.assertEqual(run.state_path(None, "/d", "forge.example.com"), Path("/d/forge.example.com.json"))
 
     def test_with_neither_the_runner_refuses(self):
@@ -305,7 +305,7 @@ class LostAnswers(unittest.TestCase):
             self.assertFalse(any(c[0] == "approve" for c in calls))
             self.assertIn("held", st.app("acme/a")["requests"]["01-tweak"])
 
-    def test_once_the_forge_has_moved_on_the_hold_is_released(self):
+    def test_once_apptown_has_moved_on_the_hold_is_released(self):
         with tempfile.TemporaryDirectory() as tmp:
             cos, st = self.setup(tmp)
             self.drive(st, [(2, {"outcome": "needs_decision", "step": "s1"}, ""), (4, None, "answer lost")])
@@ -411,9 +411,9 @@ class Message(unittest.TestCase):
 
 
 class Capacity(unittest.TestCase):
-    def cap(self, total, forge_use, other=0, known=True):
+    def cap(self, total, apptown_use, other=0, known=True):
         return {"memory": {"total": {"known": True, "value": total},
-                           "inUse": {"apptown": {"known": known, "value": forge_use}, "other": {"known": True, "value": other}}}}
+                           "inUse": {"apptown": {"known": known, "value": apptown_use}, "other": {"known": True, "value": other}}}}
 
     def test_apps_opened_but_not_running_count_against_the_room(self):
         total, used = 2048 * MIB, 1400 * MIB

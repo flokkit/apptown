@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 )
 
 // A handed-back turn triggers one save however many times its record is

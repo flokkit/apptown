@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Send the companies set (eval/companies) through an AppTown.
 
-    python3 eval/companies/run.py --forge URL --token-file F --state FILE [--company NAME|all] <command>
+    python3 eval/companies/run.py --apptown URL --token-file F --state FILE [--company NAME|all] <command>
 
 Commands:
   create [--wave N] [--limit N] [--app APP] [--target T] [--accept-capacity-risk WHY]
@@ -276,7 +276,7 @@ def capacity_ok(api, st, target, risk, admitting=1):
 
 # ---------------------------------------------------------------- AppTown
 
-class Forge:
+class AppTown:
     def __init__(self, url, token, cli):
         self.url, self.token, self.cli = url.rstrip("/"), token, cli
         self.env = {**os.environ, "APPTOWN_URL": self.url, "APPTOWN_TOKEN": token}
@@ -305,18 +305,18 @@ class Forge:
         return self.call("GET", path)
 
 
-def project_exists(forge, slug):
+def project_exists(apptown, slug):
     """AppTown's project list (the CLI's `projects` has no --json)."""
-    rows = forge.get("/api/v1/projects") or []
+    rows = apptown.get("/api/v1/projects") or []
     rows = rows.get("projects", rows) if isinstance(rows, dict) else rows
     return any(r.get("slug") == slug for r in rows)
 
 
-def observe_main(forge, slug):
+def observe_main(apptown, slug):
     """("running", url) | ("not running", None) | ("unknown", why). A failed
     read or a null `running` is unknown, never "not deployed"."""
     try:
-        rows = forge.get(f"/api/v1/projects/{slug}/deployments") or []
+        rows = apptown.get(f"/api/v1/projects/{slug}/deployments") or []
     except Exception as e:
         return "unknown", f"the deployments read failed: {e}"
     for d in rows:
@@ -329,11 +329,11 @@ def observe_main(forge, slug):
     return "not running", None
 
 
-def settle_create(forge, st, key, slug):
+def settle_create(apptown, st, key, slug):
     """Record a shipped create's deployment; it stops counting against the
     host only once AppTown observes it running."""
     a = st.app(key)
-    seen, x = observe_main(forge, slug)
+    seen, x = observe_main(apptown, slug)
     a["observed"] = seen
     a["deployed"] = x if seen == "running" else None
     if seen == "unknown":
@@ -345,7 +345,7 @@ def settle_create(forge, st, key, slug):
 
 # ---------------------------------------------------------------- commands
 
-def cmd_create(forge, st, companies, args, stacks=None):
+def cmd_create(apptown, st, companies, args, stacks=None):
     stacks = stacks if stacks is not None else load_stacks()
     made = 0
     for co, apps in companies.items():
@@ -357,7 +357,7 @@ def cmd_create(forge, st, companies, args, stacks=None):
             key, slug = f"{co}/{app}", slug_for(co, app)
             a = st.app(key)
             a["slug"] = slug
-            if a.get("project") in (None, "creating") and project_exists(forge, slug):
+            if a.get("project") in (None, "creating") and project_exists(apptown, slug):
                 # A lost `new`, or a lost state file: slugs are unique, so the
                 # project on AppTown is this app's.
                 a["project"] = "adopted"
@@ -367,7 +367,7 @@ def cmd_create(forge, st, companies, args, stacks=None):
                 if not chosen:
                     print(f"{key}: no entry in stacks.yaml: not created (the stack is chosen there, not by the picker)")
                     continue
-                ok, why = capacity_ok(forge, st, args.target, args.accept_capacity_risk)
+                ok, why = capacity_ok(apptown, st, args.target, args.accept_capacity_risk)
                 print(f"{key}: capacity: {why}")
                 if not ok:
                     st.save()
@@ -377,13 +377,13 @@ def cmd_create(forge, st, companies, args, stacks=None):
                 # The picker is measured, not used: its suggestion is recorded
                 # beside the pack stacks.yaml chose.
                 try:
-                    pick = forge.call("POST", "/api/v1/packs/pick", {"description": create["body"]})
+                    pick = apptown.call("POST", "/api/v1/packs/pick", {"description": create["body"]})
                 except Exception as e:
                     pick = {"pack": None, "why": f"the picker did not answer: {e}"}
                 a.update({"pack": chosen["pack"], "packWhy": chosen["why"],
                           "suggested": pick.get("pack"), "suggestedWhy": pick.get("why"), "project": "creating"})
                 st.save()
-                code, doc, err = forge.run("new", slug, "--pack", chosen["pack"], "--json")
+                code, doc, err = apptown.run("new", slug, "--pack", chosen["pack"], "--json")
                 if code == 0 and doc:
                     a["project"] = "created"
                 elif code == 4:
@@ -397,11 +397,11 @@ def cmd_create(forge, st, companies, args, stacks=None):
                     print(f"{key}: new refused: {err}")
                     continue
                 st.save()
-            if open_request(forge, st, key, slug, reqs[0]):
+            if open_request(apptown, st, key, slug, reqs[0]):
                 made += 1
 
 
-def open_request(forge, st, key, slug, req):
+def open_request(apptown, st, key, slug, req):
     """Open one request as a change; True when it opened. Intent is saved
     first; a lost answer leaves it unknown and never reopens it."""
     a = st.app(key)
@@ -412,7 +412,7 @@ def open_request(forge, st, key, slug, req):
     if req["kind"] == "create":
         a["pending"] = True
     st.save()
-    code, doc, err = forge.run(wf, "-p", slug, "--json", message(req))
+    code, doc, err = apptown.run(wf, "-p", slug, "--json", message(req))
     if code == 0 and doc and doc.get("change"):
         r.update({"intent": "opened", "change": doc["change"]["id"], "name": doc["change"].get("name")})
         print(f"{key}: opened {req['id']} as {r['name']} ({wf})")
@@ -428,11 +428,11 @@ def open_request(forge, st, key, slug, req):
     return code == 0
 
 
-def drive_one(forge, st, key, slug, rid, args, limit=40):
+def drive_one(apptown, st, key, slug, rid, args, limit=40):
     a = st.app(key)
     r = a["requests"][rid]
     for _ in range(limit):
-        code, doc, err = forge.run("wait", "-c", r["change"], "--json")
+        code, doc, err = apptown.run("wait", "-c", r["change"], "--json")
         outcome = (doc or {}).get("outcome")
         if doc is None:
             r["detail"] = f"wait gave no answer (exit {code}): {err}"
@@ -449,12 +449,12 @@ def drive_one(forge, st, key, slug, rid, args, limit=40):
                 r["held"] = f"the approval of step {step} was sent and its answer lost; it still asks"
                 st.save()
                 return
-            meaning = forge.text("approve", step)   # no terminal: prints what approving means, approves nothing
+            meaning = apptown.text("approve", step)   # no terminal: prints what approving means, approves nothing
             vote = {"step": step, "meaning": meaning[-1500:], "answer": None}
             r.setdefault("approvals", []).append(vote)
             st.save()
             note = getattr(args, "approval_note", None) or approval_note("")
-            c2, d2, e2 = forge.run("approve", step, "-y", "-m", note, "--json")
+            c2, d2, e2 = apptown.run("approve", step, "-y", "-m", note, "--json")
             if c2 == 0:
                 vote["answer"] = "approved"
                 r.pop("held", None)
@@ -471,7 +471,7 @@ def drive_one(forge, st, key, slug, rid, args, limit=40):
             continue
         r.pop("held", None)   # the run moved on: a lost approval answer was settled by AppTown
         if outcome in ("done", "shipped", "ended"):
-            c3, show, e3 = forge.run("show", r["change"], "--json")
+            c3, show, e3 = apptown.run("show", r["change"], "--json")
             state = (show or {}).get("state")
             if state == "shipped":
                 r["outcome"] = "shipped"
@@ -482,7 +482,7 @@ def drive_one(forge, st, key, slug, rid, args, limit=40):
             if state == "landing" or outcome == "needs_decision":
                 continue
             if r["kind"] == "create":
-                ok, why = capacity_ok(forge, st, args.target, args.accept_capacity_risk, admitting=0)
+                ok, why = capacity_ok(apptown, st, args.target, args.accept_capacity_risk, admitting=0)
                 if not ok:
                     r["detail"] = "held before landing: " + why
                     st.save()
@@ -490,7 +490,7 @@ def drive_one(forge, st, key, slug, rid, args, limit=40):
             r.setdefault("lands", 0)
             r["lands"] += 1
             st.save()
-            c4, d4, e4 = forge.run("land", r["change"], "--json")
+            c4, d4, e4 = apptown.run("land", r["change"], "--json")
             if c4 == 4:
                 r["detail"] = "land sent, answer lost: " + e4   # wait finds out what happened
             elif c4 != 0:
@@ -503,22 +503,22 @@ def drive_one(forge, st, key, slug, rid, args, limit=40):
         st.save()   # unknown, or needs_decision without a step: leave it for the next drive
         return
     if r["kind"] == "create" and r.get("outcome") == "shipped":
-        settle_create(forge, st, key, slug)
+        settle_create(apptown, st, key, slug)
     elif r["kind"] == "create" and r.get("outcome") in ("closed", "stopped"):
         a["pending"] = False   # nothing will be deployed for it
     st.save()
 
 
-def cli_user(forge):
+def cli_user(apptown):
     """Who AppTown says the token acts as, or "" when it does not say."""
     try:
-        return (forge.get("/api/v1/auth/me") or {}).get("user", "")
+        return (apptown.get("/api/v1/auth/me") or {}).get("user", "")
     except Exception:
         return ""
 
 
-def cmd_drive(forge, st, companies, args):
-    who = args.on_behalf_of if getattr(args, "on_behalf_of", None) is not None else cli_user(forge)
+def cmd_drive(apptown, st, companies, args):
+    who = args.on_behalf_of if getattr(args, "on_behalf_of", None) is not None else cli_user(apptown)
     args.approval_note = approval_note(who)
     jobs = []
     for co, apps in companies.items():
@@ -527,9 +527,9 @@ def cmd_drive(forge, st, companies, args):
             a = st.app(key)
             for rid, r in a["requests"].items():
                 if r.get("intent") == "opened" and not finished(r):
-                    jobs.append(threading.Thread(target=drive_one, args=(forge, st, key, a["slug"], rid, args)))
+                    jobs.append(threading.Thread(target=drive_one, args=(apptown, st, key, a["slug"], rid, args)))
                 elif rid.startswith("00-") and r.get("outcome") == "shipped" and a.get("observed") != "running":
-                    settle_create(forge, st, key, a["slug"])   # look again at an unsettled deployment
+                    settle_create(apptown, st, key, a["slug"])   # look again at an unsettled deployment
     for j in jobs:
         j.start()
     for j in jobs:
@@ -537,10 +537,10 @@ def cmd_drive(forge, st, companies, args):
     print(f"drove {len(jobs)} change(s)")
 
 
-def cmd_next(forge, st, companies, args):
+def cmd_next(apptown, st, companies, args):
     todo = next_requests(companies, st)
     for key, req in todo:
-        open_request(forge, st, key, st.app(key)["slug"], req)
+        open_request(apptown, st, key, st.app(key)["slug"], req)
     if not todo:
         print("nothing ready: creates still running, open requests unfinished, or all applied")
 
@@ -596,7 +596,7 @@ def state_path(state, state_dir, host):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    p.add_argument("--forge", required=True)
+    p.add_argument("--apptown", required=True)
     p.add_argument("--token-file", required=True)
     p.add_argument("--cli", default=os.environ.get("APPTOWN_CLI", "apptown"))
     p.add_argument("--company", default="all")
@@ -619,7 +619,7 @@ def main(argv=None):
     r.add_argument("request")
     r.add_argument("change")
     args = p.parse_args(argv)
-    host = urllib.parse.urlparse(args.forge).hostname
+    host = urllib.parse.urlparse(args.apptown).hostname
     st = State(state_path(args.state, os.environ.get("APPTOWN_EVAL_STATE"), host))
     only = args.company
     if getattr(args, "wave", None):
@@ -632,8 +632,8 @@ def main(argv=None):
         return cmd_report(st, companies)
     if args.cmd == "reconcile":
         return cmd_reconcile(st, args)
-    forge = Forge(args.forge, Path(args.token_file).read_text().strip(), args.cli)
-    {"create": cmd_create, "drive": cmd_drive, "next": cmd_next}[args.cmd](forge, st, companies, args)
+    apptown = AppTown(args.apptown, Path(args.token_file).read_text().strip(), args.cli)
+    {"create": cmd_create, "drive": cmd_drive, "next": cmd_next}[args.cmd](apptown, st, companies, args)
 
 
 if __name__ == "__main__":

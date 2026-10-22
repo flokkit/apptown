@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"flokkit.io/forge/internal/version"
+	"github.com/flokkit/apptown/internal/version"
 )
 
 // The worker protocol says which AppTown installations a worker serves

@@ -18,9 +18,9 @@ type exchange struct {
 	body                []byte
 }
 
-// codeForge answers like an AppTown that starts projects from code, recording
+// codeAppTown answers like an AppTown that starts projects from code, recording
 // every request with its raw body.
-func codeForge(t *testing.T, bundle []byte) *[]exchange {
+func codeAppTown(t *testing.T, bundle []byte) *[]exchange {
 	t.Helper()
 	var mu sync.Mutex
 	seen := &[]exchange{}
@@ -61,7 +61,7 @@ func codeForge(t *testing.T, bundle []byte) *[]exchange {
 // as well; --secret-for-git accepted with a bundle; a missing file found
 // only after the project exists.
 func TestNewFromABundleUploadsItAndNamesTheSecrets(t *testing.T) {
-	seen := codeForge(t, nil)
+	seen := codeAppTown(t, nil)
 	file := filepath.Join(t.TempDir(), "p.bundle")
 	content := []byte("# v2 git bundle\nnot really, but bytes are bytes\x00\x01")
 	if err := os.WriteFile(file, content, 0o644); err != nil {
@@ -95,7 +95,7 @@ func TestNewFromABundleUploadsItAndNamesTheSecrets(t *testing.T) {
 // `apptown new --from <https-url>` sends the URL and the secret's name, never
 // a value; AppTown fetches.
 func TestNewFromAURLNamesTheSecretOnly(t *testing.T) {
-	seen := codeForge(t, nil)
+	seen := codeAppTown(t, nil)
 	if _, err := run(t, "new", "moved", "--from", "https://gitlab.example/team/app.git", "--secret-for-git", "GITLAB_TOKEN", "--branch", "trunk"); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestNewFromAURLNamesTheSecretOnly(t *testing.T) {
 // `apptown bundle -p` writes the download's exact bytes to standard output.
 func TestBundleWritesTheDownload(t *testing.T) {
 	want := []byte("bundle bytes\x00\xff")
-	codeForge(t, want)
+	codeAppTown(t, want)
 	out, err := run(t, "bundle", "-p", "moved")
 	if err != nil || out != string(want) {
 		t.Fatalf("bundle = %q %v", out, err)

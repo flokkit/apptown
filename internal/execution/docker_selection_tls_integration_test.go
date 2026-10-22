@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executiontest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 )
 
 // With TLS asked for in the environment, the real CLI's default endpoint is

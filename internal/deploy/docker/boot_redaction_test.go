@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // credentialNeed is a catalog whose Postgres was given a generated

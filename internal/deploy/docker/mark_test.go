@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // The marker is read through a read-only --mount, so a daemon without the

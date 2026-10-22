@@ -1,7 +1,7 @@
 // Package ids is a record's identity: a UUIDv7 minted when the record is
 // made (design/decisions/mergeable-forge-data.md). It is the only identity
 // keys, references, URLs and payloads use; people see display numbers and
-// names instead. The package knows nothing of Forge.
+// names instead. The package knows nothing of AppTown.
 //
 // The zero ID is "no record": SQL NULL and JSON null, so an absent
 // reference is never a magic value.

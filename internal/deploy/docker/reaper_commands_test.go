@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 type reaperCommandFunc func(context.Context, string, Command) ([]byte, error)

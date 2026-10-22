@@ -1,14 +1,14 @@
 // Package progress owns bounded, ephemeral progress feeds. Persistence and HTTP
-// presentation belong to callers; feeds know nothing about Forge or its database.
+// presentation belong to callers; feeds know nothing about AppTown or its database.
 package progress
 
 import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 
-	"flokkit.io/forge/internal/clock"
+	"github.com/flokkit/apptown/internal/clock"
 )
 
 const MaxLines = 500

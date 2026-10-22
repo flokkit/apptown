@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 // Commit is one commit of a fixture repository: its message and the files it

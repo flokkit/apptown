@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 )
 
 // A scope's transcript says which of its chats have ended and hands back

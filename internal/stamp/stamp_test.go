@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/stamp"
+	"github.com/flokkit/apptown/internal/stamp"
 )
 
 func TestStampWireFormat(t *testing.T) {

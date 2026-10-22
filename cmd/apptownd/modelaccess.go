@@ -6,7 +6,7 @@ import (
 	"net/netip"
 	"strings"
 
-	"flokkit.io/forge/internal/forge/inference"
+	"github.com/flokkit/apptown/internal/apptown/inference"
 )
 
 // defaultModelAccess fills in the three model-access settings on a

@@ -1,7 +1,7 @@
 // Package access owns who may do what (design/subsystems/
 // authorization-capabilities.md): the capability catalog and the stock
 // roles as compiled data, the words for scopes and subjects, and, in the
-// slices that follow, the decision rule, grants and the directory. Forge
+// slices that follow, the decision rule, grants and the directory. AppTown
 // keeps the HTTP doors, the receipts' prose and the resource adapters.
 package access
 
@@ -268,7 +268,7 @@ func Inherits(c Capability, to ScopeKind) bool {
 	return false
 }
 
-// Role is a named capability bundle shipped with Forge.
+// Role is a named capability bundle shipped with AppTown.
 type Role struct {
 	Name        string
 	Title       string // the answerable office, in product words

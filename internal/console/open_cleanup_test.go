@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 )
 
 // startCancelling is the fake agent whose start fails because its caller

@@ -5,20 +5,20 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // A step AppTown gave no times is timed on the CLI's clock, from when the
 // loop saw it running to when it saw it pass.
-func TestAStepWithoutTheForgesTimesIsTimedOnTheCLIsClock(t *testing.T) {
+func TestAStepWithoutAppTownsTimesIsTimedOnTheCLIsClock(t *testing.T) {
 	pollEvery = 0
 	at := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
 	real := now
 	now = func() time.Time { return at }
 	t.Cleanup(func() { now = real })
 	polls := 0
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		polls++
 		if polls == 1 {
 			return 200, `{"run":{"id":"00000000-002c-7000-8000-000000000000","status":"running","currentStage":"build"},"steps":[{"id":"00000000-0001-7000-8000-000000000000","stage":"build","name":"apply","type":"script","status":"running"}]}`
@@ -41,7 +41,7 @@ func TestARunsHeartbeatIsDueByTheCLIsClock(t *testing.T) {
 	now = func() time.Time { return at }
 	t.Cleanup(func() { now = real })
 	polls := 0
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		polls++
 		if polls < 3 {
 			at = at.Add(40 * time.Second) // quiet for longer than heartbeatEvery, on the CLI's clock

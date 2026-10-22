@@ -10,14 +10,14 @@ from pathlib import Path
 class ExecCheckTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.work = tempfile.TemporaryDirectory(prefix="forge-exec-check-")
+        cls.work = tempfile.TemporaryDirectory(prefix="apptown-exec-check-")
         cls.addClassCleanup(cls.work.cleanup)
         cls.binary = Path(cls.work.name) / "exec-check"
         source = Path(__file__).with_name("exec-check.go")
         subprocess.run(["go", "build", "-o", str(cls.binary), str(source)], check=True)
 
     def setUp(self):
-        self.tree = tempfile.TemporaryDirectory(prefix="forge-exec-tree-")
+        self.tree = tempfile.TemporaryDirectory(prefix="apptown-exec-tree-")
         self.addCleanup(self.tree.cleanup)
         self.root = Path(self.tree.name)
         self.write("go.mod", "module example.com/m\n")

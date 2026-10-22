@@ -3,8 +3,8 @@ package access
 import (
 	"testing"
 
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // Every credential a request can carry becomes the way the act is recorded,

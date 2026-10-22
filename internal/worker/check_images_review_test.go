@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 func TestAnImageExportStaysInsideTheRequestTree(t *testing.T) {

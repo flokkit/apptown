@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 type cancellingRecorder struct{ cancel context.CancelFunc }

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // ownedHost models the objects a Docker host holds, by kind and name, so a

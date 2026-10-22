@@ -6,7 +6,7 @@ package appcontract
 // deployment, or refuses (design §4). This is ADDITIVE: the legacy
 // `healthcheck: <shell command>` (Part.Health) still works; a part that
 // declares nothing gets a synthesized default (design §8). Nothing here reaches
-// into topology or ingress — that is forge-owned (ingress.go, §4.2).
+// into topology or ingress — that is AppTown-owned (ingress.go, §4.2).
 //
 // This file is the schema + validation only. Rendering (cold-boot / docker) and
 // the health controller are separate slices.

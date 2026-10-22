@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 
-	"flokkit.io/forge/internal/forge/httpapi"
-	"flokkit.io/forge/internal/forge/verification"
+	"github.com/flokkit/apptown/internal/apptown/httpapi"
+	"github.com/flokkit/apptown/internal/apptown/verification"
 )
 
 // checkWorld is a folder with two commits and an AppTown that has only the
@@ -79,7 +79,7 @@ func newCheckWorld(t *testing.T, answerFor func(asked string) string) checkWorld
 		*w.bodies = append(*w.bodies, in)
 		asked, _ := in["commit"].(string)
 		if asked != "" && asked != w.published {
-			httpapi.WriteFault(rw, &verification.CommitNotOnForgeError{Commit: asked})
+			httpapi.WriteFault(rw, &verification.CommitNotOnAppTownError{Commit: asked})
 			return
 		}
 		checked := w.published // no commit named: the latest AppTown has
@@ -99,7 +99,7 @@ func newCheckWorld(t *testing.T, answerFor func(asked string) string) checkWorld
 // `apptown check` asks about this folder's HEAD and prints the commit the
 // result is for. A HEAD AppTown does not have is refused, naming it and
 // how to check the published commit, and no other commit's result is shown.
-func TestForgeCheckAsksAboutThisFoldersHead(t *testing.T) {
+func TestAppTownCheckAsksAboutThisFoldersHead(t *testing.T) {
 	w := newCheckWorld(t, nil)
 	if _, err := gittest.Command("reset", "-q", "--hard", w.published).CombinedOutput(); err != nil {
 		t.Fatal(err)
@@ -133,9 +133,9 @@ func TestForgeCheckAsksAboutThisFoldersHead(t *testing.T) {
 
 // --published asks for the published tip explicitly, exactly
 // {"published": true} and no commit (AppTown's route is tested with this
-// body in internal/forge), says what it checks, and prints the commit the
+// body in internal/apptown), says what it checks, and prints the commit the
 // AppTown checked as the published tip.
-func TestForgeCheckPublishedSaysWhatItChecks(t *testing.T) {
+func TestAppTownCheckPublishedSaysWhatItChecks(t *testing.T) {
 	w := newCheckWorld(t, nil)
 	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000", "--published")
 	if err != nil {
@@ -156,7 +156,7 @@ func TestForgeCheckPublishedSaysWhatItChecks(t *testing.T) {
 
 // An answer for another commit than the one asked about (an older green
 // result) is never shown as this work's result.
-func TestForgeCheckRefusesAnAnswerForAnotherCommit(t *testing.T) {
+func TestAppTownCheckRefusesAnAnswerForAnotherCommit(t *testing.T) {
 	w := newCheckWorld(t, func(string) string { return strings.Repeat("0", 40) })
 	if _, err := gittest.Command("reset", "-q", "--hard", w.published).CombinedOutput(); err != nil {
 		t.Fatal(err)
@@ -170,7 +170,7 @@ func TestForgeCheckRefusesAnAnswerForAnotherCommit(t *testing.T) {
 // Outside a Git repository nothing is named (the body is {}, not a request
 // for the published tip) and the output says AppTown checks the change's
 // latest commit.
-func TestForgeCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
+func TestAppTownCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 	w := newCheckWorld(t, nil)
 	withoutInheritedGit(t)
 	t.Chdir(t.TempDir())
@@ -188,7 +188,7 @@ func TestForgeCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 // with the step's token as a header (never in the URL), keeping the git
 // configuration the environment already carries; then it asks about that
 // commit, and says the answer is feedback only.
-func TestForgeCheckSendsTheStepsWorkToItsScratchRefFirst(t *testing.T) {
+func TestAppTownCheckSendsTheStepsWorkToItsScratchRefFirst(t *testing.T) {
 	w := newCheckWorld(t, nil)
 	head := w.unpublished // a commit AppTown does not have until it is sent
 	const ref = "refs/apptown/scratch/change-00000000-0007-7000-8000-000000000000/step-00000000-0003-7000-8000-000000000000-a1"
@@ -218,7 +218,7 @@ func TestForgeCheckSendsTheStepsWorkToItsScratchRefFirst(t *testing.T) {
 		_ = json.Unmarshal(raw, &in)
 		*w.bodies = append(*w.bodies, in)
 		if in["commit"] != sent() {
-			httpapi.WriteFault(rw, &verification.CommitNotOnForgeError{Commit: fmt.Sprint(in["commit"])})
+			httpapi.WriteFault(rw, &verification.CommitNotOnAppTownError{Commit: fmt.Sprint(in["commit"])})
 			return
 		}
 		httpapi.WriteJSON(rw, 200, map[string]any{"ok": true, "commit": head, "scratch": true, "feedbackOnly": true, "failOn": "high",
@@ -257,7 +257,7 @@ func TestForgeCheckSendsTheStepsWorkToItsScratchRefFirst(t *testing.T) {
 // The CLI's git is the person's: run from a Git hook, or with GIT_DIR set,
 // it reads the repository their environment names, not the folder's. Not
 // parallel: it sets the process's environment and folder.
-func TestForgeCheckReadsTheRepositoryThePersonsEnvironmentNames(t *testing.T) {
+func TestAppTownCheckReadsTheRepositoryThePersonsEnvironmentNames(t *testing.T) {
 	theirs := t.TempDir()
 	for _, args := range [][]string{{"init", "-q", "-b", "main"}, {"-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "theirs"}} {
 		cmd := gittest.Command(args...)
@@ -283,7 +283,7 @@ func TestForgeCheckReadsTheRepositoryThePersonsEnvironmentNames(t *testing.T) {
 // never does: with status.showUntrackedFiles=no in their global config, an
 // untracked file does not make their folder uncommitted work. Not
 // parallel: it sets the process's environment and folder.
-func TestForgeCheckReadsThePersonsOwnGitConfig(t *testing.T) {
+func TestAppTownCheckReadsThePersonsOwnGitConfig(t *testing.T) {
 	theirs := t.TempDir()
 	gittest.Repository(t, theirs, "main", gittest.Commit{Message: "theirs", Files: map[string]string{"a.txt": "a\n"}})
 	if err := os.WriteFile(filepath.Join(theirs, "untracked.txt"), []byte("theirs\n"), 0o644); err != nil {

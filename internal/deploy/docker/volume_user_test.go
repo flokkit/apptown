@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/check"
+	"github.com/flokkit/apptown/internal/check"
 )
 
 func TestStaleEndpointIsRecognised(t *testing.T) {

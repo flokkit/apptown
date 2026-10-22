@@ -93,7 +93,7 @@ jobs:
       - run: make check-gate
 
   # The Go unit tests, partitioned: the root package's two halves (as the
-  # gate splits it), the rest of internal/forge, and everything else.
+  # gate splits it), the rest of internal/apptown, and everything else.
   test:
     needs: web
     runs-on: ubuntu-24.04
@@ -101,7 +101,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [root-a, root-b, forge, rest]
+        part: [root-a, root-b, subsystems, rest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -113,11 +113,11 @@ jobs:
           path: web/dist/
       - name: go test (${{ matrix.part }})
         run: |
-          root=flokkit.io/forge/internal/forge
+          root=github.com/flokkit/apptown/internal/apptown
           case "${{ matrix.part }}" in
           root-a) make check-test-root-a ;;
           root-b) make check-test-root-b ;;
-          forge) go list ./internal/forge/... | grep -vx "$root" | xargs go test -count=1 ;;
+          subsystems) go list ./internal/apptown/... | grep -vx "$root" | xargs go test -count=1 ;;
           rest) go list ./... | grep -vE "^$root(/|\$)" | xargs go test -count=1 ;;
           esac
 

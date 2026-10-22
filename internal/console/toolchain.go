@@ -2,7 +2,7 @@ package console
 
 // The toolchain prelude is shared by every agent session: a workflow's agent
 // step (ToolchainArgs) and a chat's runtime (ToolchainPrelude), on the
-// forge's Docker or on a worker. One place, so no launcher can leave it out:
+// AppTown's Docker or on a worker. One place, so no launcher can leave it out:
 // a worker's chats once started without it and the project's declared Maven
 // was "command not found".
 

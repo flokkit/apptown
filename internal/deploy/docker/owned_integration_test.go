@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // On a real daemon: a standing deployment's services record their

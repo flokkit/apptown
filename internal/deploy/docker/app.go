@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/dockerlabel"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // stagedBuildContext stages tracked worktree edits without ignored or untracked

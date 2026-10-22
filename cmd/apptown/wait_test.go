@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // wait judges from AppTown's activity, not from step statuses: a failed
 // verdict AppTown is about to check again after a rework is working, not
 // wedged, and only AppTown's "blocked" and "waiting on you" stop the wait.
-func TestWaitJudgesFromTheForgesActivity(t *testing.T) {
+func TestWaitJudgesFromAppTownsActivity(t *testing.T) {
 	steps := `[{"id":"00000000-0001-7000-8000-000000000000","stage":"build","name":"work","type":"agent/pi","status":"pass"},
 		{"id":"00000000-0002-7000-8000-000000000000","stage":"build","name":"review","type":"agent/review","status":"fail"},
 		{"id":"00000000-0003-7000-8000-000000000000","stage":"build","name":"accept","type":"approval","status":"pending"},
@@ -68,7 +68,7 @@ func TestWaitPrintsAStateOnce(t *testing.T) {
 // out: wait asks once, and when the id is a change's, waits on the change
 // (it once only said to rerun with -c).
 func TestWaitForAMissingRunWaitsOnTheChangeItNames(t *testing.T) {
-	seen := fakeForge(t, func(_, path string) (int, string) {
+	seen := fakeAppTown(t, func(_, path string) (int, string) {
 		if path == "/changes/00000000-0514-7000-8000-000000000000" {
 			return 200, `{"change":{"id":"00000000-0514-7000-8000-000000000000","state":"shipped"}}`
 		}
@@ -88,7 +88,7 @@ func TestWaitForAMissingRunWaitsOnTheChangeItNames(t *testing.T) {
 		t.Fatalf("asked for the missing run %d times", runs)
 	}
 	// An id that names neither is AppTown's refusal.
-	fakeForge(t, func(_, path string) (int, string) { return 404, `{"error":"no such thing"}` })
+	fakeAppTown(t, func(_, path string) (int, string) { return 404, `{"error":"no such thing"}` })
 	if _, err := run(t, "wait", "00000000-0515-7000-8000-000000000000", "-i", "0"); err == nil || !strings.Contains(err.Error(), "no such thing") {
 		t.Fatalf("neither a run nor a change: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestWaitForAMissingRunWaitsOnTheChangeItNames(t *testing.T) {
 func TestWaitTakesAChangesNameAsTheChange(t *testing.T) {
 	const change = "00000000-0c12-7000-8000-000000000000"
 	for _, args := range [][]string{{"wait", "shop#12", "-i", "0"}, {"wait", "12", "-p", "shop", "-i", "0"}} {
-		seen := fakeForge(t, func(_, path string) (int, string) {
+		seen := fakeAppTown(t, func(_, path string) (int, string) {
 			switch path {
 			case "/changes/shop#12", "/changes/" + change:
 				return 200, `{"change":{"id":"` + change + `","state":"shipped"}}`
@@ -123,7 +123,7 @@ func TestWaitTakesAChangesNameAsTheChange(t *testing.T) {
 // and note asked for, and returns, as the other loop commands do, saying how
 // to come back.
 func TestRetryNoFollowDispatchesAndReturns(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case path == "/changes/00000000-0007-7000-8000-000000000000":
 			// AppTown's act names the step; the steps alone would point at
@@ -214,7 +214,7 @@ func TestWaitForAReleaseFollowsItsLogUntilItSettles(t *testing.T) {
 		wantErr bool
 	}{{"released", false}, {"failed", true}} {
 		polls := 0
-		fakeForge(t, func(_, path string) (int, string) {
+		fakeAppTown(t, func(_, path string) (int, string) {
 			if path != "/projects/demo-smoke/releases/4" {
 				return 404, `{"error":"no release"}`
 			}
@@ -232,7 +232,7 @@ func TestWaitForAReleaseFollowsItsLogUntilItSettles(t *testing.T) {
 			t.Fatalf("released: %s", out)
 		}
 	}
-	seen := fakeForge(t, func(_, path string) (int, string) { return 404, `{"error":"no release #9"}` })
+	seen := fakeAppTown(t, func(_, path string) (int, string) { return 404, `{"error":"no release #9"}` })
 	if _, err := run(t, "wait", "-p", "demo-smoke", "-r", "9", "-i", "0"); err == nil || len(*seen) != 1 {
 		t.Fatalf("a missing release was waited on: %v after %d asks", err, len(*seen))
 	}
@@ -242,9 +242,9 @@ func TestWaitForAReleaseFollowsItsLogUntilItSettles(t *testing.T) {
 }
 
 // watch and the bare status screen say what a running run is doing in the
-// forge's words, as the change page and wait do, not by its stage name.
+// AppTown's words, as the change page and wait do, not by its stage name.
 func TestWatchAndHomeSayWhatARunIsDoing(t *testing.T) {
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/runs/00000000-0046-7000-8000-000000000000":
 			return 200, `{"run":{"id":"00000000-0046-7000-8000-000000000000","status":"running","currentStage":"stage-2b"},"state":"waiting on you","stateDetail":"accept",
@@ -269,7 +269,7 @@ func TestWatchAndHomeSayWhatARunIsDoing(t *testing.T) {
 // the change's payload as the server sends it, with the files and the
 // catch-up for the change's chat.
 func TestWaitSaysMainThatConflictsWithTheChange(t *testing.T) {
-	fakeForge(t, func(_, path string) (int, string) {
+	fakeAppTown(t, func(_, path string) (int, string) {
 		return 200, `{"change":{"id":"00000000-0004-7000-8000-000000000000","state":"shipped"},"mainConflict":{"mainBranch":"main","main":"abc","step":"rework","files":["README.md","app.go"],` +
 			`"catchUp":"git fetch \"$APPTOWN_MAIN_REMOTE\" main && git merge --no-edit -m \"Merge main into change-00000000-0004-7000-8000-000000000000\" FETCH_HEAD"}}`
 	})
@@ -297,7 +297,7 @@ func TestWaitOperationExitsByHowItEnded(t *testing.T) {
 	} {
 		t.Run(c.state, func(t *testing.T) {
 			polls := 0
-			seen := fakeForge(t, func(_, path string) (int, string) {
+			seen := fakeAppTown(t, func(_, path string) (int, string) {
 				if path != "/operations/00000000-000c-7000-8000-000000000000" {
 					return 404, `{"error":"no such thing"}`
 				}
@@ -335,7 +335,7 @@ func TestReleaseGoesToTheNamedDeploymentOrTheIntranet(t *testing.T) {
 		{[]string{"release", "shop"}, "/projects/shop/release", "live: https://shop.intranet.example"},
 	} {
 		var posted []string
-		fakeForge(t, func(method, path string) (int, string) {
+		fakeAppTown(t, func(method, path string) (int, string) {
 			if method == "POST" {
 				posted = append(posted, path)
 				return 202, `{"ok":true,"number":5,"url":"https://shop.intranet.example"}`
@@ -352,7 +352,7 @@ func TestReleaseGoesToTheNamedDeploymentOrTheIntranet(t *testing.T) {
 	}
 	// -domain is the intranet's hostname; the deploy route has none, so with
 	// a deployment named it is refused before anything is sent.
-	seen := fakeForge(t, func(_, _ string) (int, string) { return 202, `{"ok":true,"number":5}` })
+	seen := fakeAppTown(t, func(_, _ string) (int, string) { return 202, `{"ok":true,"number":5}` })
 	if _, err := run(t, "release", "shop", "staging", "-domain", "x.example"); err == nil || !strings.Contains(err.Error(), "intranet's") || len(*seen) != 0 {
 		t.Fatalf("-domain with a named deployment: %v after %d requests", err, len(*seen))
 	}

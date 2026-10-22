@@ -14,12 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/gitexec"
 
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // The chat tests run apptown-worker as a process on this machine, driving its

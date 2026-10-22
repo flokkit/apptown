@@ -21,7 +21,7 @@ func TestCheckTakesAChangesFriendlyForm(t *testing.T) {
 
 // chat opens the change its friendly form or project number names.
 func TestChatTakesAChangesFriendlyForm(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch path {
 		case "/changes/shop#12":
 			return 200, `{"projectSlug":"shop","change":{"id":"00000000-000c-7000-8000-000000000000","number":12}}`
@@ -46,7 +46,7 @@ func TestChatTakesAChangesFriendlyForm(t *testing.T) {
 // id.
 func TestInterruptReachesWhatItIsTold(t *testing.T) {
 	const id = "00000000-0007-7000-8000-000000000000"
-	seen := fakeForge(t, func(string, string) (int, string) { return 200, `{"stopped":["c1"]}` })
+	seen := fakeAppTown(t, func(string, string) (int, string) { return 200, `{"stopped":["c1"]}` })
 	if _, err := run(t, "interrupt", "-step", id); err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestInterruptReachesWhatItIsTold(t *testing.T) {
 // A complaint names the run it was filed from by its UUID, and no run
 // (null) outside one or when the variable is not a run's id.
 func TestAComplaintNamesItsRunByID(t *testing.T) {
-	seen := fakeForge(t, func(string, string) (int, string) { return 201, `{"id":"00000000-0001-7000-8000-000000000000"}` })
+	seen := fakeAppTown(t, func(string, string) (int, string) { return 201, `{"id":"00000000-0001-7000-8000-000000000000"}` })
 	for env, want := range map[string]any{"": nil, "garbled": nil, "00000000-0046-7000-8000-000000000000": "00000000-0046-7000-8000-000000000000"} {
 		t.Setenv("APPTOWN_RUN_ID", env)
 		if _, err := run(t, "complain", "it was slow"); err != nil {
@@ -79,7 +79,7 @@ func TestAComplaintNamesItsRunByID(t *testing.T) {
 // asks for the run by the id it answered.
 func TestARunCommandTakesARunsFriendlyForm(t *testing.T) {
 	const runID = "00000000-0028-7000-8000-000000000000"
-	seen := fakeForge(t, func(_, path string) (int, string) {
+	seen := fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/runs/shop#40", "/runs/" + runID:
 			return 200, `{"run":{"id":"` + runID + `","number":40}}`
@@ -110,7 +110,7 @@ func TestARunCommandTakesARunsFriendlyForm(t *testing.T) {
 func TestDiffShowsTheChangeItIsGiven(t *testing.T) {
 	const changeID = "00000000-000c-7000-8000-000000000000"
 	const runID = "00000000-0028-7000-8000-000000000000"
-	seen := fakeForge(t, func(_, path string) (int, string) {
+	seen := fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/changes/shop#7":
 			return 200, `{"projectSlug":"shop","change":{"id":"` + changeID + `","number":7}}`

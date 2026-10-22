@@ -1,5 +1,5 @@
 // Package dockerfake models the small Docker daemon contract used by tests.
-// It is a recording daemon, not a deployment driver or Forge fixture.
+// It is a recording daemon, not a deployment driver or AppTown fixture.
 package dockerfake
 
 import (
@@ -14,7 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"flokkit.io/forge/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 type Daemon struct {

@@ -17,7 +17,7 @@ JavaScript into the interface is ruled out.
 
 ## Implementation references
 
-- [internal/forge/wow/service.go](../../internal/forge/wow/service.go)
-- [internal/forge/integration/environment.go](../../internal/forge/integration/environment.go)
-- [internal/forge/verification/scanners.go](../../internal/forge/verification/scanners.go)
+- [internal/apptown/wow/service.go](../../internal/apptown/wow/service.go)
+- [internal/apptown/integration/environment.go](../../internal/apptown/integration/environment.go)
+- [internal/apptown/verification/scanners.go](../../internal/apptown/verification/scanners.go)
 - [web/src/App.tsx](../../web/src/App.tsx)

@@ -11,11 +11,11 @@ spec.loader.exec_module(assembly)
 
 class AssemblyTests(unittest.TestCase):
     def fixture(self, root):
-        db = root / 'internal/forge/dbschema'
-        domain = root / 'internal/forge/project'
+        db = root / 'internal/apptown/dbschema'
+        domain = root / 'internal/apptown/project'
         db.mkdir(parents=True)
         domain.mkdir()
-        paths = ['internal/forge/dbschema/version.sql', 'internal/forge/project/schema.sql']
+        paths = ['internal/apptown/dbschema/version.sql', 'internal/apptown/project/schema.sql']
         (db / 'version.sql').write_text('CREATE TABLE schema_version (version bigint);\n')
         (domain / 'schema.sql').write_text('CREATE TABLE projects (id bigint);\n')
         (root / assembly.MANIFEST).write_text(json.dumps(paths))
@@ -42,8 +42,8 @@ class AssemblyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             self.fixture(root)
-            external = 'internal/forge/jobs/internal/jobsql/river-schema.sql'
-            query = 'internal/forge/jobs/internal/jobsql/queries.sql'
+            external = 'internal/apptown/jobs/internal/jobsql/river-schema.sql'
+            query = 'internal/apptown/jobs/internal/jobsql/queries.sql'
             path = root / external
             path.parent.mkdir(parents=True)
             path.write_text('CREATE TABLE river_job (id bigint);')
@@ -65,7 +65,7 @@ class AssemblyTests(unittest.TestCase):
                 elif change == 'duplicate':
                     (root / assembly.MANIFEST).write_text(json.dumps(paths + paths[:1]))
                 else:
-                    extra = root / 'internal/forge/extra'
+                    extra = root / 'internal/apptown/extra'
                     extra.mkdir()
                     (extra / 'schema.sql').write_text('CREATE TABLE extra (id bigint);')
                 with self.assertRaises(ValueError):
@@ -86,7 +86,7 @@ class AssemblyTests(unittest.TestCase):
             root = Path(d)
             self.fixture(root)
             self.assertEqual(assembly.table_owners(root), {'schema_version': 'dbschema', 'projects': 'project'})
-            (root / 'internal/forge/project/schema.sql').write_text('CREATE TABLE schema_version (id bigint);')
+            (root / 'internal/apptown/project/schema.sql').write_text('CREATE TABLE schema_version (id bigint);')
             with self.assertRaisesRegex(ValueError, 'declared by both'):
                 assembly.run(root)
 
@@ -94,6 +94,6 @@ class AssemblyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             self.fixture(root)
-            (root / 'internal/forge/project/schema.sql').write_text('CREATE TABLE "projects" (id bigint);')
+            (root / 'internal/apptown/project/schema.sql').write_text('CREATE TABLE "projects" (id bigint);')
             with self.assertRaisesRegex(ValueError, 'canonical'):
                 assembly.run(root)

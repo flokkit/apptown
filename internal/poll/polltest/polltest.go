@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // Holds checks cond at once and then every so often for d, and reports

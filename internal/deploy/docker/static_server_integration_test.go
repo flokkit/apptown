@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // The real static server, as every path runs it: the site from /srv, and

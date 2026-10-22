@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 func sourceCalls(f *fakeClient, prefix string) []string {

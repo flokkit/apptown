@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/check"
+	"github.com/flokkit/apptown/internal/check"
 )
 
 // The evaluator identity changes with the rubric, its files, or the

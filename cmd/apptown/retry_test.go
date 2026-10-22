@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // When the run in flight has no agent step, retry names the send-back
@@ -74,8 +74,8 @@ func TestTheDisputesClaimIsTheReportTheReviewerAudits(t *testing.T) {
 
 // override overrules the failed check AppTown names, with the reason; the
 // first failed step in the list is not the client's to pick.
-func TestOverrideOverrulesTheStepTheForgeNames(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+func TestOverrideOverrulesTheStepAppTownNames(t *testing.T) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case path == "/changes/00000000-0007-7000-8000-000000000000":
 			return 200, `{"detail":{"run":{"id":"00000000-0046-7000-8000-000000000000","status":"running","currentStage":"gates"},
@@ -101,7 +101,7 @@ func TestOverrideOverrulesTheStepTheForgeNames(t *testing.T) {
 // Without an override act there is nothing to overrule, whatever the steps
 // say: the run is refused by name and nothing is sent.
 func TestOverrideWithoutAnActSendsNothing(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		if path == "/changes/00000000-0007-7000-8000-000000000000" {
 			return 200, `{"detail":{"run":{"id":"00000000-0046-7000-8000-000000000000","status":"running","currentStage":"gates"},"next":[],
 				"steps":[{"id":"00000000-02c1-7000-8000-000000000000","stage":"gates","name":"tests","type":"tests","status":"fail"}]}}`
@@ -122,7 +122,7 @@ func TestLandingWaitsItsTurnOnTheCodeNotTheSentence(t *testing.T) {
 	landingRetryEvery = 0
 	busy := `{"error":"one landing at a time: another change is landing"}`
 	tries := 0
-	fakeForgeHeaders(t, func(method, path string) (int, http.Header, string) {
+	fakeAppTownHeaders(t, func(method, path string) (int, http.Header, string) {
 		tries++
 		if tries == 1 {
 			return 409, http.Header{"X-AppTown-Deny-Code": {"landing-occupied"}}, busy
@@ -135,7 +135,7 @@ func TestLandingWaitsItsTurnOnTheCodeNotTheSentence(t *testing.T) {
 		t.Fatalf("contended landing: %v after %d tries\n%s", err, tries, out)
 	}
 	tries = 0
-	fakeForge(t, func(method, path string) (int, string) { tries++; return 422, busy })
+	fakeAppTown(t, func(method, path string) (int, string) { tries++; return 422, busy })
 	if _, err := landWhenClear(idstest.N(7), os.Stdout); err == nil || tries != 1 {
 		t.Fatalf("an uncoded refusal was waited on: %v after %d tries", err, tries)
 	}
@@ -145,7 +145,7 @@ func TestLandingWaitsItsTurnOnTheCodeNotTheSentence(t *testing.T) {
 // progress for its person: the CLI says to push a fix and land again, and
 // follows nothing (no rework run started).
 func TestSendingBackAPersonsChangeSaysPushAndLandAgain(t *testing.T) {
-	seen := fakeForge(t, func(method, path string) (int, string) {
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
 		case method == "POST" && path == "/changes/00000000-0007-7000-8000-000000000000/sendback":
 			return 202, `{"runId":null,"stepId":null}`

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 type scopeClientFunc func(context.Context, string, docker.Command) ([]byte, error)

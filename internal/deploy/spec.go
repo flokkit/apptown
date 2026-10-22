@@ -1,6 +1,6 @@
 package deploy
 
-import "flokkit.io/forge/internal/deploy/appcontract"
+import "github.com/flokkit/apptown/internal/deploy/appcontract"
 
 // ServiceSpec is a container run beside an app: a sidecar for a step, a
 // need's emulator, a service a contract declares: started on the step's

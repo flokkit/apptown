@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/digitalocean/dofake"
-	"flokkit.io/forge/internal/oci"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
+	"github.com/flokkit/apptown/internal/oci"
 )
 
 // gatedDriver renders against the fake platform, recording each image copy
@@ -68,7 +68,7 @@ func TestGatedAppHasOnlyTheGatePublic(t *testing.T) {
 	t.Parallel()
 	d, _ := gatedDriver(t, nil)
 	secret := strings.Repeat("ab", 32)
-	art, err := renderGated(t, d, &deploy.Gate{Image: gateRef, Secret: secret, Forge: "https://forge.example", Marker: testMarker}, scopedRenderSecrets{"web": {"APP_KEY": "kept"}})
+	art, err := renderGated(t, d, &deploy.Gate{Image: gateRef, Secret: secret, AppTown: "https://forge.example", Marker: testMarker}, scopedRenderSecrets{"web": {"APP_KEY": "kept"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestGatedAppHasOnlyTheGatePublic(t *testing.T) {
 	if ge[deploy.GateEnvSecret].Value != secret || ge[deploy.GateEnvSecret].Type != "SECRET" {
 		t.Fatalf("the gate secret is not the gate's encrypted secret: %+v", ge[deploy.GateEnvSecret].Type)
 	}
-	if ge[deploy.GateEnvUpstream].Value != "http://web:8080" || ge[deploy.GateEnvForge].Value != "https://forge.example" || ge[deploy.GateEnvMarker].Value != testMarker {
+	if ge[deploy.GateEnvUpstream].Value != "http://web:8080" || ge[deploy.GateEnvAppTown].Value != "https://forge.example" || ge[deploy.GateEnvMarker].Value != testMarker {
 		t.Fatalf("gate wiring: %+v", ge)
 	}
 	for _, c := range append(append([]Component{}, spec.Services...), spec.Jobs...) {
@@ -149,10 +149,10 @@ func TestGatedRenderRefusesWhatItCannotGate(t *testing.T) {
 	d, copied := gatedDriver(t, nil)
 	secret := strings.Repeat("ab", 32)
 	for name, g := range map[string]*deploy.Gate{
-		"no secret":     {Image: gateRef, Forge: "https://forge.example", Marker: testMarker},
-		"not by digest": {Image: "registry.example/forge/gate:latest", Secret: secret, Forge: "https://forge.example", Marker: testMarker},
+		"no secret":     {Image: gateRef, AppTown: "https://forge.example", Marker: testMarker},
+		"not by digest": {Image: "registry.example/forge/gate:latest", Secret: secret, AppTown: "https://forge.example", Marker: testMarker},
 		"no AppTown":    {Image: gateRef, Secret: secret, Marker: testMarker},
-		"no mark":       {Image: gateRef, Secret: secret, Forge: "https://forge.example"},
+		"no mark":       {Image: gateRef, Secret: secret, AppTown: "https://forge.example"},
 	} {
 		if _, err := renderGated(t, d, g, scopedRenderSecrets{}); err == nil || !deploy.IsTerminal(err) {
 			t.Fatalf("%s: rendered (%v)", name, err)
@@ -175,7 +175,7 @@ func TestGateImageIsReadWithItsOwnCredential(t *testing.T) {
 		}
 		return oci.Credential{}
 	})
-	if _, err := renderGated(t, d, &deploy.Gate{Image: gateRef, Secret: strings.Repeat("ab", 32), Forge: "https://forge.example", Marker: testMarker}, scopedRenderSecrets{}); err != nil {
+	if _, err := renderGated(t, d, &deploy.Gate{Image: gateRef, Secret: strings.Repeat("ab", 32), AppTown: "https://forge.example", Marker: testMarker}, scopedRenderSecrets{}); err != nil {
 		t.Fatal(err)
 	}
 	found := false

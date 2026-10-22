@@ -10,10 +10,10 @@
    install; leave the database container running), so nobody writes between the two
    copies and they describe one moment. Take the database dump with the
    checked backup script, in `/opt/apptown/scripts` (the nightly dump may
-   be a day old). `<db>` is the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made before 1.0, which keeps that name:
+   be a day old). `<db>` is the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made before 1.0, which keeps that name. `<name>` is the database at the end of `APPTOWN_DB_URL` in the same file: `apptown`, or `forge` on an install made before 1.0:
 
    ```sh
-   bash /opt/apptown/scripts/apptown-db-backup.sh <db> postgres forge <directory> pre-upgrade
+   bash /opt/apptown/scripts/apptown-db-backup.sh <db> postgres <name> <directory> pre-upgrade
    ```
 
    On a one-server compose install the script is in the image; run it from
@@ -22,7 +22,7 @@
 
    ```sh
    docker compose run --rm --no-deps --entrypoint bash apptown \
-     /opt/apptown/scripts/apptown-db-backup.sh <db> postgres forge /var/lib/apptown/backups pre-upgrade
+     /opt/apptown/scripts/apptown-db-backup.sh <db> postgres <name> /var/lib/apptown/backups pre-upgrade
    ```
 
    It refuses, and leaves no file, unless `pg_dump` and `gzip` both

@@ -4,12 +4,12 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	"flokkit.io/forge/internal/execution"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // The tool cache is one folder on the worker that every task, check and
 // chat container mounts writable at execution.ToolCacheMount, where the
-// forge's environment points mise's download cache (MISE_CACHE_DIR). A
+// AppTown's environment points mise's download cache (MISE_CACHE_DIR). A
 // project's declared toolchain is installed in every container that needs
 // it; without a cache shared between them, each install asked GitHub's API
 // again for the same release listings and ran into its anonymous rate limit.

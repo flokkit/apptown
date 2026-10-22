@@ -3,8 +3,8 @@ package docker
 import (
 	"context"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 // ContractPath is where the app contract lives in a repository.

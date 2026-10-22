@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // --- the driver ------------------------------------------------------------------------------

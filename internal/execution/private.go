@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // PrivateDocker is what a task has of its own beside its container, from

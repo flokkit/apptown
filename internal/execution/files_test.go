@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // recordingDocker is a docker executable that records its arguments, and,

@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/check"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // The static site's image, built from StaticSiteDockerfile and run with no

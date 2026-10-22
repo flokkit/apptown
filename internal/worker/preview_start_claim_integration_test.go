@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/deploy/docker/dockertest"
-	"flokkit.io/forge/internal/dockerlabel"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // With real Docker: AppTown starting removes every preview, including a

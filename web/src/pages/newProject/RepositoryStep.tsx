@@ -27,7 +27,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
   const setRepo = (set: Extract<DraftAct, { type: 'repo' }>['set']) => act({ type: 'repo', set })
 
   // Or the repository starts from existing code: a Git bundle (another
-  // forge's Download code) or an https repository. Only its default branch
+  // AppTown's Download code) or an https repository. Only its default branch
   // and tags come; the project's changes and history here start fresh.
   // Naming a apptown secret as the git credential is for administrators: the
   // AppTown refuses anyone else, so only they are offered it.

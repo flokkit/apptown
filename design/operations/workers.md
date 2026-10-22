@@ -227,7 +227,7 @@ see "Agent and review steps on the worker".
 
 ```sh
 apptown-worker -installation <name> -state /var/lib/apptown-worker \
-  -cert worker.pem -key worker-key.pem -client-ca forge-client-ca.pem \
+  -cert worker.pem -key worker-key.pem -client-ca apptown-client-ca.pem \
   -listen :8443
 ```
 
@@ -240,7 +240,7 @@ Configure AppTown with:
 
 ```sh
 apptownd ... -worker-url https://worker.example:8443 \
-  -worker-cert forge-client.pem -worker-key forge-client-key.pem \
+  -worker-cert apptown-client.pem -worker-key apptown-client-key.pem \
   -worker-ca worker-ca.pem
 ```
 

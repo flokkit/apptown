@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/durable"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/durable"
 )
 
 // A worker's role is fixed when it is provisioned

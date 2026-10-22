@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // The runtime evaluator (design/subsystems/conformance.md §2 "runtime";

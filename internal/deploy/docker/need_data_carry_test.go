@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // carryDaemon is a daemon whose standing postgres service was made before

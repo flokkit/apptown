@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/poll"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // Qualification of the worker-vm profile (design/operations/workers.md,

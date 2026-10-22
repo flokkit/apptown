@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // oneDocument decodes stdout as exactly one JSON document into v, with no
@@ -42,7 +42,7 @@ const (
 // A loop command with --json opens the change and returns: one request, no
 // following, and a document naming the change and run by id and number.
 func TestLoopJSONOpensAndReturnsWithoutFollowing(t *testing.T) {
-	seen := jsonForge(t, func(method, path string) (int, string) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
 		if method == "POST" && path == "/projects/shop/changes" {
 			return 201, `{"change":{"id":"` + changeUUID + `","number":61},"run":{"id":"` + runUUID + `","number":812}}`
 		}
@@ -72,7 +72,7 @@ func TestLandJSONNamesTheLandingRun(t *testing.T) {
 	landingRetryEvery = 0
 	t.Cleanup(func() { landingRetryEvery = prev })
 	tries := 0
-	seen := jsonForgeHeaders(t, func(method, path string) (int, http.Header, string) {
+	seen := jsonAppTownHeaders(t, func(method, path string) (int, http.Header, string) {
 		switch {
 		case method == "GET" && path == "/changes/"+changeUUID:
 			return 200, nil, `{"projectSlug":"shop","change":{"id":"` + changeUUID + `","number":61}}`
@@ -98,7 +98,7 @@ func TestLandJSONNamesTheLandingRun(t *testing.T) {
 // show --json carries the change, its runs and commits, and the approval it
 // waits on.
 func TestShowJSONCarriesTheApprovalItWaitsOn(t *testing.T) {
-	jsonForge(t, func(method, path string) (int, string) {
+	jsonAppTown(t, func(method, path string) (int, string) {
 		return 200, `{"projectSlug":"shop","change":{"id":"` + changeUUID + `","number":61,"title":"footer","state":"in_progress","branch":"apptown/change-61"},
 			"state":"waiting on you","stateDetail":"accept",
 			"runs":[{"id":"` + runUUID + `","number":812,"workflowName":"quick-change","role":"working","status":"running","currentStage":"build"}],
@@ -125,7 +125,7 @@ func TestShowJSONCarriesTheApprovalItWaitsOn(t *testing.T) {
 func TestChangesJSONFailsOnAnUnreadableBoard(t *testing.T) {
 	board := `{"columns":[{"state":"in_progress","total":1,"items":[{"id":"` + changeUUID + `","number":61,"title":"footer"}]},
 		{"state":"shipped","total":1,"items":[{"id":"00000000-0060-7000-8000-000000000000","number":60,"title":"old"}]}]}`
-	jsonForge(t, func(_, path string) (int, string) { return 200, board })
+	jsonAppTown(t, func(_, path string) (int, string) { return 200, board })
 	out, err := run(t, "changes", "-p", "shop", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -136,14 +136,14 @@ func TestChangesJSONFailsOnAnUnreadableBoard(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 
-	jsonForge(t, func(_, path string) (int, string) { return 200, `{"columns":[]}` })
+	jsonAppTown(t, func(_, path string) (int, string) { return 200, `{"columns":[]}` })
 	if out, err := run(t, "changes", "-p", "shop", "--json"); err != nil || strings.TrimSpace(out) != `{
   "changes": []
 }` {
 		t.Fatalf("an empty board: %v\n%s", err, out)
 	}
 
-	jsonForge(t, func(_, path string) (int, string) { return 404, `{"error":"no project shpo"}` })
+	jsonAppTown(t, func(_, path string) (int, string) { return 404, `{"error":"no project shpo"}` })
 	out, err = run(t, "changes", "-p", "shpo", "--json")
 	if err == nil || !strings.Contains(err.Error(), "no project shpo") || out != "" {
 		t.Fatalf("an unreadable board: %v\n%s", err, out)
@@ -178,7 +178,7 @@ func TestWaitJSONGivesWhatAScriptActsOn(t *testing.T) {
 	}
 	ref := &RunRef{ID: mustID(t, runUUID), Number: 812}
 
-	jsonForge(t, func(_, path string) (int, string) { return 200, running("waiting on you") })
+	jsonAppTown(t, func(_, path string) (int, string) { return 200, running("waiting on you") })
 	got, code := waitJSON(t, runUUID)
 	var err error
 	if code != 2 || got.Outcome != "needs_decision" || got.Target != (Target{Kind: "run", ID: mustID(t, runUUID)}) ||
@@ -187,7 +187,7 @@ func TestWaitJSONGivesWhatAScriptActsOn(t *testing.T) {
 	}
 	// The approval's question carries what the commit adds: it is shown, on
 	// stderr, and stdout stays the one document.
-	seen := jsonForge(t, func(method, path string) (int, string) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
 		if method == "GET" {
 			return 200, `{"step":"accept","means":"the footer is right","adds":{"digest":"abc","readFrom":"committed tree","nothingNew":"No new requirements."}}`
 		}
@@ -211,14 +211,14 @@ func TestWaitJSONGivesWhatAScriptActsOn(t *testing.T) {
 		t.Fatalf("approve the step wait named: %+v after %v", decided, *seen)
 	}
 
-	jsonForge(t, func(_, path string) (int, string) { return 200, running("blocked") })
+	jsonAppTown(t, func(_, path string) (int, string) { return 200, running("blocked") })
 	got, code = waitJSON(t, runUUID)
 	if code != 1 || got.Outcome != "blocked" || got.Step == nil || *got.Step != mustID(t, "00000000-0002-7000-8000-000000000000") || got.Detail != "review" || !reflect.DeepEqual(got.Run, ref) {
 		t.Fatalf("a blocked run: exit %d, %+v", code, got)
 	}
 
 	const ending = "apptown/change-61 is behind main; catch up, then land again."
-	jsonForge(t, func(_, path string) (int, string) {
+	jsonAppTown(t, func(_, path string) (int, string) {
 		return 200, `{"change":{"id":"` + changeUUID + `","state":"in_progress"},"state":"in progress",
 			"detail":{"run":{"id":"` + runUUID + `","number":812,"status":"abandoned","workflowName":"land"},"ending":"` + ending + `"}}`
 	})
@@ -227,7 +227,7 @@ func TestWaitJSONGivesWhatAScriptActsOn(t *testing.T) {
 		t.Fatalf("a change with no run going: exit %d, %+v", code, got)
 	}
 
-	jsonForge(t, func(_, path string) (int, string) {
+	jsonAppTown(t, func(_, path string) (int, string) {
 		return 200, `{"run":{"id":"` + runUUID + `","number":812,"status":"done","workflowName":"quick-change"}}`
 	})
 	if got, code = waitJSON(t, runUUID); code != 0 || got.Outcome != "done" || got.Step != nil {
@@ -235,21 +235,21 @@ func TestWaitJSONGivesWhatAScriptActsOn(t *testing.T) {
 	}
 }
 
-// jsonForge is fakeForge for a --json command: when the test ends, every
+// jsonAppTown is fakeAppTown for a --json command: when the test ends, every
 // request it was sent must be a route the shipped API description
 // describes for the CLI (x-apptown-used-by: cli), so the description covers
 // what the stable commands call.
-func jsonForge(t *testing.T, reply func(method, path string) (int, string)) *[]recorded {
+func jsonAppTown(t *testing.T, reply func(method, path string) (int, string)) *[]recorded {
 	t.Helper()
-	return jsonForgeHeaders(t, func(method, path string) (int, http.Header, string) {
+	return jsonAppTownHeaders(t, func(method, path string) (int, http.Header, string) {
 		code, body := reply(method, path)
 		return code, nil, body
 	})
 }
 
-func jsonForgeHeaders(t *testing.T, reply func(method, path string) (int, http.Header, string)) *[]recorded {
+func jsonAppTownHeaders(t *testing.T, reply func(method, path string) (int, http.Header, string)) *[]recorded {
 	t.Helper()
-	seen := fakeForgeHeaders(t, reply)
+	seen := fakeAppTownHeaders(t, reply)
 	t.Cleanup(func() {
 		for _, r := range *seen {
 			if !describedForTheCLI(t, r.Method, "/api/v1"+r.Path) {
@@ -311,7 +311,7 @@ func captureStderr(t *testing.T, f func()) string {
 func TestABareChatLandingRefusesJSON(t *testing.T) {
 	t.Setenv("APPTOWN_SESSION_ID", "00000000-0007-7000-8000-000000000000")
 	t.Setenv("APPTOWN_SESSION_TOKEN", "tok")
-	seen := fakeForge(t, func(_, _ string) (int, string) {
+	seen := fakeAppTown(t, func(_, _ string) (int, string) {
 		return 202, `{"runId":"` + runUUID + `","message":"landing started"}`
 	})
 	out, err := run(t, "land", "--json")
@@ -338,7 +338,7 @@ func TestWaitJSONOnAnOperationReportsOnlyWhatItSaw(t *testing.T) {
 		{"cancelled", "failed", 1, false},
 		{"unknown", "unknown", exitUnknown, true},
 	} {
-		jsonForge(t, func(_, path string) (int, string) {
+		jsonAppTown(t, func(_, path string) (int, string) {
 			return 200, `{"id":"` + opUUID + `","kind":"deployment.copy","state":"` + c.state + `","detail":"copied 3 volumes","steps":[]}`
 		})
 		out, err := run(t, "wait", "operation", opUUID, "--json", "-i", "0")
@@ -350,7 +350,7 @@ func TestWaitJSONOnAnOperationReportsOnlyWhatItSaw(t *testing.T) {
 			t.Errorf("%s: %+v, %v", c.state, got, err)
 		}
 	}
-	jsonForge(t, func(_, _ string) (int, string) { return 403, `{"error":"you may not read this operation"}` })
+	jsonAppTown(t, func(_, _ string) (int, string) { return 403, `{"error":"you may not read this operation"}` })
 	out, err := run(t, "wait", "operation", opUUID, "--json", "-i", "0")
 	if err == nil || !strings.Contains(err.Error(), "may not read") || out != "" {
 		t.Fatalf("an unreadable operation: %v\n%s", err, out)
@@ -358,7 +358,7 @@ func TestWaitJSONOnAnOperationReportsOnlyWhatItSaw(t *testing.T) {
 }
 
 // new --json with each of its options prints the project, says what it did
-// on stderr, and calls only described routes (jsonForge).
+// on stderr, and calls only described routes (jsonAppTown).
 func TestNewJSONWithEveryOption(t *testing.T) {
 	const projectUUID = "00000000-0005-7000-8000-000000000000"
 	reply := func(method, path string) (int, string) {
@@ -378,7 +378,7 @@ func TestNewJSONWithEveryOption(t *testing.T) {
 		}
 		return 200, `{"defaultBranch":"main"}`
 	}
-	seen := jsonForge(t, reply)
+	seen := jsonAppTown(t, reply)
 	var out string
 	var err error
 	said := captureStderr(t, func() {
@@ -402,7 +402,7 @@ func TestNewJSONWithEveryOption(t *testing.T) {
 	if err := os.WriteFile(bundle, []byte("bundle"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	seen = jsonForge(t, reply)
+	seen = jsonAppTown(t, reply)
 	if out, err = run(t, "new", "shop", "--from", bundle, "--json"); err != nil || !slices.ContainsFunc(*seen, func(r recorded) bool { return r.Path == "/projects/shop/repo/from-bundle" }) {
 		t.Fatalf("new from a bundle: %v %v", err, *seen)
 	}
@@ -411,7 +411,7 @@ func TestNewJSONWithEveryOption(t *testing.T) {
 
 // approve --json never asks: without -y it refuses before sending anything.
 func TestApproveJSONNeedsYes(t *testing.T) {
-	seen := jsonForge(t, func(_, _ string) (int, string) { return 200, `{}` })
+	seen := jsonAppTown(t, func(_, _ string) (int, string) { return 200, `{}` })
 	if _, err := run(t, "approve", stepUUID, "--json"); err == nil || !strings.Contains(err.Error(), "-y") || len(*seen) != 0 {
 		t.Fatalf("approve --json without -y: %v, sent %v", err, *seen)
 	}
@@ -419,7 +419,7 @@ func TestApproveJSONNeedsYes(t *testing.T) {
 
 // release, complain, new and version print their documents.
 func TestTheOtherCoreCommandsPrintTheirDocuments(t *testing.T) {
-	jsonForge(t, func(_, _ string) (int, string) {
+	jsonAppTown(t, func(_, _ string) (int, string) {
 		return 202, `{"ok":true,"number":7,"url":"http://shop.lan","state":"releasing"}`
 	})
 	out, err := run(t, "release", "shop", "--json")
@@ -429,7 +429,7 @@ func TestTheOtherCoreCommandsPrintTheirDocuments(t *testing.T) {
 	}
 	// The named-deployment form answers through the deployment's deploy
 	// route, with the deployment named and no intranet address.
-	seen := jsonForge(t, func(_, _ string) (int, string) {
+	seen := jsonAppTown(t, func(_, _ string) (int, string) {
 		return 202, `{"ok":true,"number":8,"deployment":"cloud","state":"releasing"}`
 	})
 	out, err = run(t, "release", "shop", "cloud", "--json")
@@ -438,7 +438,7 @@ func TestTheOtherCoreCommandsPrintTheirDocuments(t *testing.T) {
 		t.Fatalf("release to a deployment: %v %+v %v", err, rel, *seen)
 	}
 
-	jsonForge(t, func(_, _ string) (int, string) { return 201, `{"id":"` + stepUUID + `"}` })
+	jsonAppTown(t, func(_, _ string) (int, string) { return 201, `{"id":"` + stepUUID + `"}` })
 	out, err = run(t, "complain", "--json", "slow")
 	var filed ComplaintFiled
 	if oneDocument(t, out, &filed); err != nil || filed.ID != mustID(t, stepUUID) {
@@ -446,7 +446,7 @@ func TestTheOtherCoreCommandsPrintTheirDocuments(t *testing.T) {
 	}
 
 	projectUUID := "00000000-0005-7000-8000-000000000000"
-	jsonForge(t, func(_, path string) (int, string) {
+	jsonAppTown(t, func(_, path string) (int, string) {
 		if path == "/projects" {
 			return 201, `{"id":"` + projectUUID + `","slug":"shop","name":"Shop"}`
 		}
@@ -458,7 +458,7 @@ func TestTheOtherCoreCommandsPrintTheirDocuments(t *testing.T) {
 		t.Fatalf("new: %v %+v", err, made)
 	}
 
-	jsonForge(t, func(_, _ string) (int, string) { return 200, `{}` })
+	jsonAppTown(t, func(_, _ string) (int, string) { return 200, `{}` })
 	out, err = run(t, "version", "--json")
 	var v Versions
 	if oneDocument(t, out, &v); err != nil || v.CLI.Version == "" || v.CLI.Protocol == 0 || !v.AppTown.Reached || v.AppTown.URL == "" {

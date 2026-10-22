@@ -1,4 +1,4 @@
-// Package worker is the execution side of a separated forge
+// Package worker is the execution side of a separated AppTown
 // (design/operations/workers.md): a small
 // program on a machine that shares no files with AppTown, which runs tasks
 // on its own Docker daemon for one registered installation.
@@ -36,14 +36,14 @@ import (
 	"sync"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/durable"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/durable"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // MaxBundleBytes bounds a source or result bundle in either direction.

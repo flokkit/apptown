@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/localtls"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/localtls"
 )
 
 // localTLSDir is where -local-tls keeps its certificate authority, under

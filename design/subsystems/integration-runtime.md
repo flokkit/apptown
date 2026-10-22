@@ -1,8 +1,8 @@
 # Integrations and runtime credentials
 
 This guide explains how configuration reaches applications and agents. The
-[integration package](../../internal/forge/integration/doc.go) owns bindings,
-attachments and service-kind rendering; the [secret package](../../internal/forge/secret/doc.go)
+[integration package](../../internal/apptown/integration/doc.go) owns bindings,
+attachments and service-kind rendering; the [secret package](../../internal/apptown/secret/doc.go)
 owns stored values, application declarations and provider resolution.
 
 ## From configuration to runtime
@@ -60,7 +60,7 @@ command, `changeactions.OpenWiring`. It is the only caller of the link.
   is refused. In chat mode a failed workspace preparation leaves the Change in
   progress and linked; the error names it.
 
-`internal/forge/changeactions/wiring_test.go` injects failures at the lock, the
+`internal/apptown/changeactions/wiring_test.go` injects failures at the lock, the
 link and the receipt, and after commit at preparation and dispatch, and checks
 the persisted records through the owners' reads.
 

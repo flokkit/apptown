@@ -9,7 +9,7 @@ import { Theme, applyTheme, currentTheme } from './theme'
 import type { ProjectDetail, ProjectPage } from './wire.gen'
 
 // The top bar (design/subsystems/ui-coherence.md § Top bar): one fixed strip that says
-// what you are doing, on every page, in the same place — forge › project ›
+// what you are doing, on every page, in the same place — AppTown › project ›
 // page · state. It replaced two ad-hoc sticky headers (the change page's
 // context strip, the chat's room header). Right side: find anything, the
 // theme, who you are. The sidebar is navigation and nothing else.
@@ -48,7 +48,7 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
   // itself cannot be read.
   const proj = useGet<ProjectDetail>(slug ? `/projects/${slug}` : null).data
 
-  // The sentence: forge › project › page · state.
+  // The sentence: AppTown › project › page · state.
   const crumbs: { label: string; to?: string }[] = []
   if (slug) crumbs.push({ label: `${proj?.icon ? proj.icon + ' ' : ''}${proj?.name ?? slug}`, to: `/projects/${slug}` })
   if (page.crumbs && page.crumbs.length > 0) {

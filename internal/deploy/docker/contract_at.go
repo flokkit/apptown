@@ -3,7 +3,7 @@ package docker
 import (
 	"context"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // ReadContractAt reads the canonical runtime declaration at an exact repository revision.

@@ -33,12 +33,12 @@ func main() {
 				if typ, ok := c.Type.(*ast.Ident); ok {
 					switch typ.Name {
 					case "routeSpec", "requiredPolicy", "memberPolicy", "administratorPolicy", "exceptionalPolicy":
-						forbidden = f.Name.Name == "forge" && base != "routes.go"
+						forbidden = f.Name.Name == "apptown" && base != "routes.go"
 					case "toolCommand":
 						forbidden = f.Name.Name == "mcpapi" && base != "catalog.go"
 					}
 				}
-				if typ, ok := c.Type.(*ast.ArrayType); ok && f.Name.Name == "forge" && base != "routes.go" {
+				if typ, ok := c.Type.(*ast.ArrayType); ok && f.Name.Name == "apptown" && base != "routes.go" {
 					if id, ok := typ.Elt.(*ast.Ident); ok && id.Name == "routeSpec" {
 						for _, e := range c.Elts {
 							if _, raw := e.(*ast.CompositeLit); raw {

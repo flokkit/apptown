@@ -1,8 +1,8 @@
 package deploy
 
-import "flokkit.io/forge/internal/ids"
+import "github.com/flokkit/apptown/internal/ids"
 
-import "flokkit.io/forge/internal/stamp"
+import "github.com/flokkit/apptown/internal/stamp"
 
 // Resource is one thing at a target, in the same words whatever the
 // provider. A driver reports what it sees; the caller lays its records over it.

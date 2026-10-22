@@ -1,5 +1,5 @@
 // Package s3fake is an in-memory S3-compatible store for the s3bucket
-// driver's tests and assembled Forge tests: the API, path-style, and each
+// driver's tests and assembled AppTown tests: the API, path-style, and each
 // bucket's website address. It is not a deployment driver.
 package s3fake
 

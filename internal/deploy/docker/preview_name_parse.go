@@ -3,7 +3,7 @@ package docker
 import (
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // ParsePreviewChangeID is the inverse of previewChangeName, under any

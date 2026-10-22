@@ -22,6 +22,6 @@ weakening authority remain with their respective application commands.
 
 ## Implementation references
 
-- [internal/forge/wow/policies.go](../../internal/forge/wow/policies.go)
-- [internal/forge/adoption/policies.go](../../internal/forge/adoption/policies.go)
-- [internal/forge/adoption/authority.go](../../internal/forge/adoption/authority.go)
+- [internal/apptown/wow/policies.go](../../internal/apptown/wow/policies.go)
+- [internal/apptown/adoption/policies.go](../../internal/apptown/adoption/policies.go)
+- [internal/apptown/adoption/authority.go](../../internal/apptown/adoption/authority.go)

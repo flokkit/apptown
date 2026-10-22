@@ -9,7 +9,7 @@ spec.loader.exec_module(own)
 
 
 class OwnershipTests(unittest.TestCase):
-    def item(self, sql, path='internal/forge/workflow/store.go', declaration='Save'):
+    def item(self, sql, path='internal/apptown/workflow/store.go', declaration='Save'):
         return dict(file=path, line=1, declaration=declaration, text=sql, declaration_hash='abc')
 
     def check(self, items, owners=None, exceptions=None):
@@ -28,17 +28,17 @@ class OwnershipTests(unittest.TestCase):
         self.assertEqual(own.targets('UPDATE "other"."runs" SET id=1'), ['other.runs'])
 
     def test_foreign_and_unknown_writes(self):
-        self.assertTrue(self.check([self.item('DELETE FROM runs', 'internal/forge/handler.go')]))
+        self.assertTrue(self.check([self.item('DELETE FROM runs', 'internal/apptown/handler.go')]))
         self.assertTrue(self.check([self.item('INSERT INTO surprises(id) VALUES(1)')]))
         self.assertFalse(self.check([self.item('UPDATE runs SET id=1')]))
 
     def test_generated_queries_belong_to_enclosing_owner(self):
-        self.assertEqual(own.writer('internal/forge/deployment/internal/releasesql/queries.sql'), 'deployment')
-        self.assertFalse(self.check([self.item('DELETE FROM releases', 'internal/forge/deployment/internal/releasesql/queries.sql')], {'releases': 'deployment'}))
-        self.assertTrue(self.check([self.item('DELETE FROM releases', 'internal/forge/releasesql/queries.sql')], {'releases': 'deployment'}))
+        self.assertEqual(own.writer('internal/apptown/deployment/internal/releasesql/queries.sql'), 'deployment')
+        self.assertFalse(self.check([self.item('DELETE FROM releases', 'internal/apptown/deployment/internal/releasesql/queries.sql')], {'releases': 'deployment'}))
+        self.assertTrue(self.check([self.item('DELETE FROM releases', 'internal/apptown/releasesql/queries.sql')], {'releases': 'deployment'}))
 
     def test_only_numbered_migrations_are_exempt(self):
-        path = 'internal/forge/dbschema/schema.go'
+        path = 'internal/apptown/dbschema/schema.go'
         self.assertFalse(self.check([self.item('DELETE FROM retired_table', path, 'migrations')]))
         self.assertTrue(self.check([self.item('DELETE FROM runs', path, 'runtimeRepair')]))
 
@@ -53,7 +53,7 @@ class OwnershipTests(unittest.TestCase):
         self.assertTrue(self.check([item], exceptions=exceptions))
 
     def test_foreign_exception_is_exact_and_must_remain_used(self):
-        item = self.item('DELETE FROM runs', 'internal/forge/handler.go')
+        item = self.item('DELETE FROM runs', 'internal/apptown/handler.go')
         ex = {'foreign': [dict(item, table='runs', owner='workflow', reason='temporary move')], 'dynamic': []}
         self.assertFalse(self.check([item], exceptions=ex))
         self.assertTrue(self.check([dict(item, declaration='Other')], exceptions=ex))
@@ -62,9 +62,9 @@ class OwnershipTests(unittest.TestCase):
     def test_go_parser_excludes_comments_tests_and_generated_code(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
-            (root / 'internal/forge/workflow').mkdir(parents=True)
+            (root / 'internal/apptown/workflow').mkdir(parents=True)
             (root / 'cmd').mkdir()
-            path = root / 'internal/forge/workflow/store.go'
+            path = root / 'internal/apptown/workflow/store.go'
             path.write_text('''package workflow
 // DELETE FROM secret_values
 func save() { db.Exec(`UPDATE runs SET state='done'`); db.Exec(query) }
@@ -79,21 +79,21 @@ func save() { db.Exec(`UPDATE runs SET state='done'`); db.Exec(query) }
     def test_named_query_cte_is_checked(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
-            leaf = root / 'internal/forge/workflow/internal/workflowsql'
+            leaf = root / 'internal/apptown/workflow/internal/workflowsql'
             leaf.mkdir(parents=True)
             (leaf / 'queries.sql').write_text('-- name: Sneaky :one\nWITH x AS (DELETE FROM secret_values RETURNING id) SELECT * FROM x;\n')
-            (root / 'sqlc.yaml').write_text('sql:\n  - engine: postgresql\n    queries: internal/forge/workflow/internal/workflowsql/queries.sql\n')
+            (root / 'sqlc.yaml').write_text('sql:\n  - engine: postgresql\n    queries: internal/apptown/workflow/internal/workflowsql/queries.sql\n')
             self.assertTrue(self.check(own.sql_items(root)))
 
     def test_every_query_file_sqlc_reads_is_checked(self):
         # A query directory: the gate reads what sqlc reads, whatever the files are called.
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
-            leaf = root / 'internal/forge/workflow/internal/workflowsql'
+            leaf = root / 'internal/apptown/workflow/internal/workflowsql'
             leaf.mkdir(parents=True)
             (leaf / 'runs.sql').write_text('-- name: Fine :exec\nUPDATE runs SET id = 1;\n')
             (leaf / 'steps.sql').write_text('-- name: Sneaky :exec\nDELETE FROM secret_values;\n')
-            (root / 'sqlc.yaml').write_text('sql:\n  - engine: postgresql\n    queries: internal/forge/workflow/internal/workflowsql\n')
+            (root / 'sqlc.yaml').write_text('sql:\n  - engine: postgresql\n    queries: internal/apptown/workflow/internal/workflowsql\n')
             items = own.sql_items(root)
             self.assertEqual(sorted(x['declaration'] for x in items), ['Fine', 'Sneaky'])
             errors = self.check(items, {'runs': 'workflow', 'secret_values': 'secret'})

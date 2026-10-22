@@ -153,7 +153,7 @@ func TestIsObjectIDAcceptsOnlyFullLowercaseHex(t *testing.T) {
 // agent working in it may be committing: the change page asks every few
 // seconds. A status read that refreshes the index takes .git/index.lock and
 // a commit landing at that moment fails with "index.lock exists". The
-// forge's git takes no optional locks, so its reads leave the index alone.
+// AppTown's git takes no optional locks, so its reads leave the index alone.
 func TestAStatusReadLeavesTheIndexAlone(t *testing.T) {
 	dir := repo(t)
 	// Stale stat information makes an ordinary status refresh and rewrite

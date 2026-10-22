@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // ErrNotConfigured: no GitLab connection is set up on this AppTown. That is

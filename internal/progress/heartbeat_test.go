@@ -3,7 +3,7 @@ package progress
 import (
 	"testing"
 
-	"flokkit.io/forge/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // A long, output-silent step gets a heartbeat feed: startHeartbeat opens a

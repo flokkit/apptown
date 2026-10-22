@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // A recovery claim already persisted on the worker must not be lowered by

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 func fencedDelete(t *testing.T, p worker.Previews, name, session, seq string) int {
@@ -283,7 +283,7 @@ func TestAClaimInFlightNeverUndoesItsRetryAndBoot(t *testing.T) {
 
 // An AppTown's session numbers keep growing across its starts, whatever the
 // clock says: each is greater than the last one kept in its file.
-func TestAForgesSessionsKeepGrowing(t *testing.T) {
+func TestAnAppTownsSessionsKeepGrowing(t *testing.T) {
 	t.Parallel()
 	file := filepath.Join(t.TempDir(), "worker-session")
 	ahead := time.Now().Add(time.Hour).UnixNano() // a start while the clock ran ahead

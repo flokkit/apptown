@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"golang.org/x/term"
 )

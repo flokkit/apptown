@@ -127,7 +127,7 @@ trusted:
   for people who review in GitLab, but the landing decides. A landing whose
   run records a merge request merges through it only when GitLab guarantees
   that what merges is exactly the checked candidate; otherwise it is refused
-  ([SCM package guide](../../internal/forge/scm/README.md)). There is no
+  ([SCM package guide](../../internal/apptown/scm/README.md)). There is no
   `scm/mr-check` and no commit status.
 
 ## 5. GitLab specifics

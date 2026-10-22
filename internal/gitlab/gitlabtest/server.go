@@ -17,7 +17,7 @@ import (
 	"sync"
 	"testing"
 
-	"flokkit.io/forge/internal/gitlab"
+	"github.com/flokkit/apptown/internal/gitlab"
 )
 
 // Token is the only token the fake accepts.

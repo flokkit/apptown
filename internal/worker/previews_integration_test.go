@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 type previewWorker struct {
@@ -76,9 +76,9 @@ func (w previewWorker) boot(t *testing.T, incarnation, tree string) worker.Previ
 // served is the page AppTown's forwarding returns for the preview now.
 func (w previewWorker) served(t *testing.T) string {
 	t.Helper()
-	forge := httptest.NewServer(w.previews.Forward(w.name, "https"))
-	defer forge.Close()
-	resp, err := http.Get(forge.URL + "/")
+	apptownServer := httptest.NewServer(w.previews.Forward(w.name, "https"))
+	defer apptownServer.Close()
+	resp, err := http.Get(apptownServer.URL + "/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,9 +192,9 @@ func TestIntegrationAWorkerPreviewBuildsAndServesADeclaredStaticSite(t *testing.
 	if err != nil || !strings.HasPrefix(string(mounts), "0 ") || strings.Contains(string(mounts), "caddy") {
 		t.Fatalf("the preview is not the packed image: %q %v", mounts, err)
 	}
-	forge := httptest.NewServer(w.previews.Forward(w.name, "https"))
-	defer forge.Close()
-	resp, err := http.Get(forge.URL + "/_apptown/env.js")
+	apptownServer := httptest.NewServer(w.previews.Forward(w.name, "https"))
+	defer apptownServer.Close()
+	resp, err := http.Get(apptownServer.URL + "/_apptown/env.js")
 	if err != nil {
 		t.Fatal(err)
 	}

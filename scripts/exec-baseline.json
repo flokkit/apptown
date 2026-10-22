@@ -35,15 +35,15 @@
       "count": 1,
       "why": "the fake runtime's Script streams a script's stdout alone to the caller, as the real runtime's container does; execution.Runner merges stderr into it"
     },
-    "internal/forge": {
+    "internal/apptown": {
       "count": 1,
       "why": "inference_pi_test runs the pinned Pi SDK with exactly PATH, HOME and its own variables, so no ambient provider key reaches it; execution.Runner passes the process's environment through"
     },
-    "internal/forge/jobs": {
+    "internal/apptown/jobs": {
       "count": 1,
       "why": "the River crash test starts this test binary as a child, reads its progress as it streams and kills it mid-job: a process it holds, which no owner's interface hands back"
     },
-    "internal/forge/workflowexec": {
+    "internal/apptown/workflowexec": {
       "count": 1,
       "why": "reconcile_guidance_test runs the chat's catch-up command with only the variables it names (no HOME, so no personal git config); execution.Runner would add the process's environment"
     },

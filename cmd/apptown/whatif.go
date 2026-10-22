@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // cmdWhatIf runs a what-if of a published pack version — the version's

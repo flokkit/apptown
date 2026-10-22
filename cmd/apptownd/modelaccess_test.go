@@ -4,7 +4,7 @@ import (
 	"net/netip"
 	"testing"
 
-	"flokkit.io/forge/internal/forge/inference"
+	"github.com/flokkit/apptown/internal/apptown/inference"
 )
 
 // The defaults apply only where nothing was said and this machine's Docker

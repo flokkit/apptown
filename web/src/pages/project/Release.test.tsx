@@ -46,7 +46,7 @@ describe('a release page', () => {
 it('reads a crash-loop note after successful release and marks a failed refresh', async () => {
   vi.useFakeTimers()
   focusManager.setFocused(true)
-  const note = 'After release: the app crash-looped (5 restarts in 10m0s); Forge stopped its container.'
+  const note = 'After release: the app crash-looped (5 restarts in 10m0s); AppTown stopped its container.'
   let calls = 0
   vi.stubGlobal('fetch', vi.fn(async () => {
     calls++

@@ -125,7 +125,8 @@ explain_trust() {
 trust_ca() {
 	mkdir -p "$CA_DIR"
 	new=$(mktemp)
-	if ! docker exec "$NAME" cat /var/lib/apptown/forge/local-tls/ca.pem >"$new" 2>/dev/null || [ ! -s "$new" ]; then
+	# The data folder is data; a trial volume made before 1.0 has it as forge.
+	if ! docker exec "$NAME" sh -c 'cat /var/lib/apptown/data/local-tls/ca.pem 2>/dev/null || cat /var/lib/apptown/forge/local-tls/ca.pem' >"$new" 2>/dev/null || [ ! -s "$new" ]; then
 		rm -f "$new"
 		say "could not read AppTown's certificate from the container; your browser will warn. Try: ... | sh -s -- trust"
 		return 0

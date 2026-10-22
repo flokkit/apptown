@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executionfake"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executionfake"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // agentSource is a hub whose main is at base and whose change branch adds

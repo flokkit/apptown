@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 func TestIntegrationRemovingAWorkerPreviewRemovesItsVolumes(t *testing.T) {

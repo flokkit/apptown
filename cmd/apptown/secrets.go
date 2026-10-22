@@ -10,7 +10,7 @@ import (
 )
 
 // cmdSecret: apptown secret set <NAME> | apptown secret remove <NAME> — the
-// forge's own credentials (a target's API token, an SSH key), administrator
+// AppTown's own credentials (a target's API token, an SSH key), administrator
 // only. The value is read from standard input, never from the command line
 // where the shell's history and the process list would keep it; at a
 // terminal it is asked for without echo.

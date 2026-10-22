@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 func TestAppYamlParse(t *testing.T) {
@@ -119,7 +119,7 @@ app:
 }
 
 // Only AppTown sets a static part's browser values; a contract cannot.
-func TestAContractCannotSetTheForgesBrowserValues(t *testing.T) {
+func TestAContractCannotSetAppTownsBrowserValues(t *testing.T) {
 	t.Parallel()
 	_, err := appcontract.Parse([]byte("app:\n  web:\n    static: .\n    public: true\n    environment: {APPTOWN_BROWSER_ENV: '{}'}\n"))
 	if err == nil || !strings.Contains(err.Error(), "only AppTown sets") {

@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/oci"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/oci"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Root is where a self-serving static image keeps its site.

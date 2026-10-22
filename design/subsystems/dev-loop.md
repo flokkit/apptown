@@ -21,7 +21,7 @@ UI layout and action wording are not part of the domain state machine.
 
 ## Implementation references
 
-- [internal/forge/changeactions/service.go](../../internal/forge/changeactions/service.go)
-- [internal/forge/conversation/continuation.go](../../internal/forge/conversation/continuation.go)
-- [internal/forge/workcommands/README.md](../../internal/forge/workcommands/README.md)
-- [internal/forge/preview/command.go](../../internal/forge/preview/command.go)
+- [internal/apptown/changeactions/service.go](../../internal/apptown/changeactions/service.go)
+- [internal/apptown/conversation/continuation.go](../../internal/apptown/conversation/continuation.go)
+- [internal/apptown/workcommands/README.md](../../internal/apptown/workcommands/README.md)
+- [internal/apptown/preview/command.go](../../internal/apptown/preview/command.go)

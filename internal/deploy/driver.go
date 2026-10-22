@@ -3,7 +3,7 @@ package deploy
 import (
 	"context"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // The words a target driver and its caller share: what to run, where,

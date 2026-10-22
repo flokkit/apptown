@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/deploy/appcontract"
-	"flokkit.io/forge/internal/diskspace"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/diskspace"
 )
 
 // needCatalog fulfils postgres as a service and llm as a key that runs
@@ -265,7 +265,7 @@ func TestEveryWayDockerCapsCPUsIsRead(t *testing.T) {
 		cpus         float64
 		unread       bool
 		mem          int64
-		forge        bool
+		apptown      bool
 		class, owner string
 	}{
 		{"/web\t536870912\t1500000000\t0\t0\t\tenv\tapptown-env-a-main", 1.5, false, 512 << 20, true, "env", "apptown-env-a-main"},
@@ -280,7 +280,7 @@ func TestEveryWayDockerCapsCPUsIsRead(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q: %v", c.line, err)
 		}
-		if l.CPUs != c.cpus || l.CPUUnread != c.unread || l.MemoryBytes != c.mem || l.Forge != c.forge || l.Class != c.class || l.Owner != c.owner {
+		if l.CPUs != c.cpus || l.CPUUnread != c.unread || l.MemoryBytes != c.mem || l.AppTown != c.apptown || l.Class != c.class || l.Owner != c.owner {
 			t.Errorf("%q read as %+v", c.line, l)
 		}
 	}

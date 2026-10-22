@@ -3,7 +3,7 @@ package dbtest
 import (
 	"testing"
 
-	"flokkit.io/forge/internal/database"
+	"github.com/flokkit/apptown/internal/database"
 )
 
 // FailNextStatement makes the next statement whose text contains fragment

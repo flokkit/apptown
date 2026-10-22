@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 type reviewBlockedBuild struct {

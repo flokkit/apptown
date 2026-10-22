@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // An existing service with changed declared parameters is recreated only when

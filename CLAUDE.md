@@ -105,12 +105,12 @@ do not invent synonyms or copy lifecycle enumerations into this guide.
 ## Ownership and implementation boundaries
 
 Libraries under `internal/` are independent of Forge's domain and tables.
-Subsystems under `internal/forge/` own product concepts and operations; not every
+Subsystems under `internal/apptown/` own product concepts and operations; not every
 subsystem owns tables. The composition root assembles collaborators and owns
 instance/protocol lifecycle. Wiring binds dependencies; domain behaviour belongs
 with its owner. The [layout guide](design/architecture/layout.md),
 [ownership map](design/architecture/domains.md) and
-[code navigation](internal/forge/README.md) contain the current package boundaries
+[code navigation](internal/apptown/README.md) contain the current package boundaries
 and call sequences.
 
 Transports translate requests into owner operations. They must not acquire the

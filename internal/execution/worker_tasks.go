@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/clock"
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/gitexec"
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/gitexec"
 )
 
 // WorkerTasks is the TaskDriver for a apptown-worker on another machine

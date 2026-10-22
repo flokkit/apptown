@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"flokkit.io/forge/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // The intranet release (design/subsystems/lan-release.md): the stack file
 // AppTown hands Portainer for one release of one app, and the plan a
 // release runs from, with every built part pointed at the recorded image.
-// Forge keeps the resolution of needs and secrets; this is the rendering.
+// AppTown keeps the resolution of needs and secrets; this is the rendering.
 
 // IntranetNeed is one fulfilled need as the stack runs it.
 type IntranetNeed struct {

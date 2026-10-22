@@ -21,10 +21,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"flokkit.io/forge/internal/deploy"
-	"flokkit.io/forge/internal/ids"
-	"flokkit.io/forge/internal/oci"
-	"flokkit.io/forge/internal/strs"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/oci"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Target is a Portainer environment as AppTown reaches it: the API and
@@ -292,7 +292,7 @@ func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 
 // Teardown deletes the stack AppTown recorded creating for the
 // deployment, and then each volume on the deployment's list (one the
-// forge's deploy made) when its data may go: a complete final backup
+// AppTown's deploy made) when its data may go: a complete final backup
 // covers it, or the data is synthetic. Every other volume the stack's file
 // declares, and a listed one whose data may not go, stays, reported Left
 // for a person. A stack AppTown did not record creating is its Portainer

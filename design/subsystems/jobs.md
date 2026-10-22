@@ -8,16 +8,16 @@ of those domain records.
 
 ## Boundary and admission
 
-`internal/forge/jobs/river.go` binds an immutable operation registry to River using
+`internal/apptown/jobs/river.go` binds an immutable operation registry to River using
 `riverdatabasesql`, the existing SQL pool and poll-only operation: four workers
 on the default queue, two on the `operations` queue that runs the
-operations ledger's work (`internal/forge/operations`), and one on the
+operations ledger's work (`internal/apptown/operations`), and one on the
 `conformance` queue that runs fleet reviews and what-ifs, so they run one at a
 time without holding up take-downs, one on the `remediation` queue, so two
 remediation passes never overlap, and one on the `evals` queue, so two eval
 passes never overlap. A kind's queue is recorded once
 (`jobQueues` in `job_wiring.go`) for both its registration and every enqueue.
-It has no import of the root App package. `internal/forge/job_wiring.go` supplies handlers, retry
+It has no import of the root App package. `internal/apptown/job_wiring.go` supplies handlers, retry
 policy and reporting.
 
 An open request is unique by operation and key. A duplicate preserves the first
@@ -95,7 +95,7 @@ information, not proof of a release or workflow outcome.
 
 ## Calendar duties and visibility
 
-River's elected leader runs these schedules (`forgeJobSchedules` in
+River's elected leader runs these schedules (`apptownJobSchedules` in
 `job_wiring.go`), each under the key `daily`, in the daemon's local timezone:
 
 | Schedule | When | What it does |
@@ -133,15 +133,15 @@ execution with original inputs. It does not wait for River's rescue horizon.
 Run the pinned contract and crash tests on every River upgrade, including patches:
 
 ```sh
-go test -race -tags=integration ./internal/forge/jobs
+go test -race -tags=integration ./internal/apptown/jobs
 ```
 
 See [database startup and migration](postgres-migration.md) for River's tables.
 
 ## Implementation references
 
-- [internal/forge/jobs/river.go](../../internal/forge/jobs/river.go)
-- [internal/forge/job_wiring.go](../../internal/forge/job_wiring.go)
-- [internal/forge/database_dump.go](../../internal/forge/database_dump.go)
-- [internal/forge/deployment/jobs.go](../../internal/forge/deployment/jobs.go)
-- [internal/forge/jobs/river_contract_test.go](../../internal/forge/jobs/river_contract_test.go)
+- [internal/apptown/jobs/river.go](../../internal/apptown/jobs/river.go)
+- [internal/apptown/job_wiring.go](../../internal/apptown/job_wiring.go)
+- [internal/apptown/database_dump.go](../../internal/apptown/database_dump.go)
+- [internal/apptown/deployment/jobs.go](../../internal/apptown/deployment/jobs.go)
+- [internal/apptown/jobs/river_contract_test.go](../../internal/apptown/jobs/river_contract_test.go)

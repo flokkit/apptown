@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/database"
+	"github.com/flokkit/apptown/internal/database"
 )
 
 // A suite run through Run drops its clones after their tests finish, off the

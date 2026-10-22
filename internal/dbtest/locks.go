@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/database"
-	"flokkit.io/forge/internal/poll"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // WaitForLock observes that the named statement is blocked in PostgreSQL.

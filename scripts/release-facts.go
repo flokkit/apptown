@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"os"
 
-	"flokkit.io/forge/internal/version"
-	"flokkit.io/forge/internal/worker"
+	"github.com/flokkit/apptown/internal/version"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 func main() {

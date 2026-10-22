@@ -1,5 +1,5 @@
 import { PRODUCT } from './brand'
-// One chip, one tooltip, everywhere something can be forge-shipped or
+// One chip, one tooltip, everywhere something can be AppTown-shipped or
 // yours (design/subsystems/ui-coherence.md — five copies became this).
 export function OriginChip({ origin, modified }: { origin?: string; modified?: boolean }) {
   const stock = origin === 'stock' || (origin ?? '').startsWith('stock/')

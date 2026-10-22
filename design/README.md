@@ -7,7 +7,7 @@ in order:
    shipped on the product's Docs page;
 2. [the product model](subsystems/product-model.md);
 3. [package ownership](architecture/domains.md);
-4. the [code navigation guide](../internal/forge/README.md).
+4. the [code navigation guide](../internal/apptown/README.md).
 
 You should not need a plan to understand the current system.
 
@@ -24,8 +24,8 @@ You should not need a plan to understand the current system.
 | Who may do what? | [Authentication and authority](subsystems/auth.md) |
 | How does work start, finish, retry and recover? | [Workflow](subsystems/workflow-domain.md), [Jobs](subsystems/jobs.md) and [daemon lifecycle](subsystems/daemon-lifecycle.md) |
 | What do chats and agent steps receive? | [Console ownership](subsystems/console.md) and [runtime environment guide](../stock/docs/guides/runtime-environments.md) |
-| How are models selected and usage recorded? | [Model package](../internal/forge/model/doc.go) and [Usage package](../internal/forge/usage/doc.go) |
-| How are reports about AppTown handled? | [Complaint package](../internal/forge/complaint/doc.go) |
+| How are models selected and usage recorded? | [Model package](../internal/apptown/model/doc.go) and [Usage package](../internal/apptown/usage/doc.go) |
+| How are reports about AppTown handled? | [Complaint package](../internal/apptown/complaint/doc.go) |
 | How are model credentials contained? | [Inference security](subsystems/inference-security.md) |
 | What do checks prove, and how do findings become work? | [Quality](subsystems/quality.md) |
 | How do integrations and secrets reach consumers? | [Integration and secret runtime](subsystems/integration-runtime.md) |
@@ -45,10 +45,10 @@ content is fully covered by package documentation, and update links to that owne
 For example, from the repository root:
 
 ```sh
-go doc ./internal/forge/model
-go doc ./internal/forge/model.Scheduler.Acquire
-go doc ./internal/forge/usage
-go doc ./internal/forge/complaint
+go doc ./internal/apptown/model
+go doc ./internal/apptown/model.Scheduler.Acquire
+go doc ./internal/apptown/usage
+go doc ./internal/apptown/complaint
 ```
 
 Keep the documentation proportional to the subject. Describe the normal call

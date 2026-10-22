@@ -38,7 +38,7 @@ esac""",
     "curl": r"""echo "$*" > "$STUB_DIR/curl-args"; [ -e "$STUB_DIR/apptownd-ready" ]""",
     "apptownd": r"""echo "apptownd data=$APPTOWN_DATA auth=${APPTOWN_AUTH:-} tier=${APPTOWN_TIER_DOMAIN:-} tls=${APPTOWN_LOCAL_TLS:-} public=${APPTOWN_PUBLIC_HOST:-}" >> "$CALLS"
 echo "settings addr=${APPTOWN_ADDR:-} console=${APPTOWN_CONSOLE_ADDR:-} cli=${APPTOWN_CONSOLE_CLI:-} tmp=${TMPDIR:-} agent=${APPTOWN_AGENT_IMAGE:-}" >> "$CALLS"
-case "$FORGED_MODE" in
+case "$APPTOWND_MODE" in
 exit37) exit 37 ;;
 serve)
 	mkdir -p "$APPTOWN_DATA/local-tls" && echo 0123abcd > "$APPTOWN_DATA/setup-token"
@@ -68,9 +68,9 @@ class TrialEntrypoint(unittest.TestCase):
         os.makedirs(self.cgroup)
 
     def start(self, **env):
-        e = {k: v for k, v in os.environ.items() if not k.startswith("FORGE_")}
+        e = {k: v for k, v in os.environ.items() if not k.startswith("APPTOWN_")}
         e.update(PATH=self.stubs + os.pathsep + os.environ["PATH"], CALLS=self.calls, STUB_DIR=self.tmp,
-                 APPTOWN_ROOT=os.path.join(self.tmp, "root"), APPTOWN_CGROUP=self.cgroup, FORGED_MODE="serve")
+                 APPTOWN_ROOT=os.path.join(self.tmp, "root"), APPTOWN_CGROUP=self.cgroup, APPTOWND_MODE="serve")
         e.update(env)
         # Start the script with Ctrl-C at its default, as a terminal or `docker run`
         # gives it. A shell cannot trap a signal ignored when it starts, and a
@@ -91,9 +91,9 @@ class TrialEntrypoint(unittest.TestCase):
     def docker_ready(self):
         open(os.path.join(self.tmp, "docker-ready"), "w").close()
 
-    def test_forged_ending_before_it_answers_fails_the_container(self):
+    def test_apptownd_ending_before_it_answers_fails_the_container(self):
         self.docker_ready()
-        p = self.start(FORGED_MODE="exit37")
+        p = self.start(APPTOWND_MODE="exit37")
         out, _ = p.communicate(timeout=HANG_GUARD)
         self.assertEqual(p.returncode, 37, out)
         self.assertIn("dind-term", self.called())
@@ -108,7 +108,7 @@ class TrialEntrypoint(unittest.TestCase):
         self.assertIn("dind-term", self.called())
         self.assertFalse(any(line.startswith("apptownd") for line in self.called()), self.called())
 
-    def test_a_stop_after_the_ready_line_ends_forged_then_docker(self):
+    def test_a_stop_after_the_ready_line_ends_apptownd_then_docker(self):
         self.docker_ready()
         p = self.start()
         line = ""
@@ -130,8 +130,26 @@ class TrialEntrypoint(unittest.TestCase):
         with open(os.path.join(self.tmp, "curl-args")) as f:
             self.assertRegex(f.read(), r"--cacert \S+/local-tls/ca\.pem https://localhost:7777/healthz")
 
-    def test_the_server_runs_forged_alone_with_its_own_data_directory(self):
-        p = self.start(APPTOWN_NO_LOCAL_DOCKER="true", FORGED_MODE="exit37")
+    def test_a_new_trial_volume_keeps_its_data_in_data_and_an_older_one_in_forge(self):
+        # A volume made before 1.0 has its data in forge; the entrypoint keeps
+        # using it, or that trial would start empty.
+        root = os.path.join(self.tmp, "root")
+        for made_before, folder in ((False, "data"), (True, "forge")):
+            with self.subTest(folder=folder):
+                shutil.rmtree(root, True)
+                open(self.calls, "w").close()
+                if made_before:
+                    os.makedirs(os.path.join(root, "forge"))
+                self.docker_ready()
+                p = self.start(APPTOWND_MODE="exit37")
+                out, _ = p.communicate(timeout=HANG_GUARD)
+                self.assertEqual(p.returncode, 37, out)
+                apptownd = [c for c in self.called() if c.startswith("apptownd data=")][0]
+                self.assertIn("data=" + os.path.join(root, folder) + " ", apptownd)
+                self.assertEqual(os.path.isdir(os.path.join(root, "data")), not made_before)
+
+    def test_the_server_runs_apptownd_alone_with_its_own_data_directory(self):
+        p = self.start(APPTOWN_NO_LOCAL_DOCKER="true", APPTOWND_MODE="exit37")
         out, _ = p.communicate(timeout=HANG_GUARD)
         self.assertEqual(p.returncode, 37, out)
         self.assertEqual([c for c in self.called() if c and not c.startswith("settings")], ["apptownd data=/var/lib/apptown auth= tier= tls= public="])
@@ -157,7 +175,7 @@ class TrialEntrypoint(unittest.TestCase):
             f.write("3 2 8:1 /var/lib/docker/containers/" + "ab" * 32 + "/hostname /etc/hostname rw - ext4 /dev/sda1 rw\n")
         self.docker_ready()
         base = dict(APPTOWN_ONE_SERVER="true", TMPDIR="", APPTOWN_DATA=data, APPTOWN_CLI_SOURCE=cli, APPTOWN_MOUNTINFO=mountinfo,
-                    STUB_MOUNT="bind " + data, FORGED_MODE="exit37")
+                    STUB_MOUNT="bind " + data, APPTOWND_MODE="exit37")
         base.update(env)
         p = self.start(**base)
         out, _ = p.communicate(timeout=HANG_GUARD)

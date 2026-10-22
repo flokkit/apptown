@@ -20,7 +20,7 @@ named engine feature.
 | **ship** | callable pipeline: scan source and image, deploy to `main`, require the release record (`workflow/call: ship`) | release artifact | **Shipped** (`ship.yaml`, a system workflow); `land` carries its own ship stage, and no stock workflow calls it today |
 | **dependency-uplift** | agent applies patch/minor updates → build+tests → dep scan → report → approve; majors surfaced, never applied | the auditor's "do you patch monthly?" answered by completed runs | **Shipped** (`dependency-uplift.yaml`) — scheduled monthly |
 | **security-triage** | CVE/advisory list → agent assesses applicability → patch (sub-workflow) or waive with ADR | waivers are ADRs; patches are runs | Sketch — `workflow/call` exists; the triage prompt does not |
-| **release** | promotion to the intranet: stage the committed tree, build, push, deploy the stack, numbered record with its log | release rows + release events | Not a workflow: built into AppTown (`internal/forge/deployment/intranet_release.go`, `apptown release`); an internet rung is not |
+| **release** | promotion to the intranet: stage the committed tree, build, push, deploy the stack, numbered record with its log | release rows + release events | Not a workflow: built into AppTown (`internal/apptown/deployment/intranet_release.go`, `apptown release`); an internet rung is not |
 
 ## Integrations
 

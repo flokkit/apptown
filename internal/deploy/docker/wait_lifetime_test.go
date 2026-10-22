@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // A stack whose services declare no healthcheck gets a blind grace before

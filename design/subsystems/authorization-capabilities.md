@@ -113,9 +113,9 @@ See [authentication and authority](auth.md) for modes and credential lifetime.
 ## Implementation references
 
 - [internal/access/decision.go](../../internal/access/decision.go)
-- [internal/forge/identity/authority.go](../../internal/forge/identity/authority.go)
-- [internal/forge/identity/visibility.go](../../internal/forge/identity/visibility.go)
-- [internal/forge/usage/service.go](../../internal/forge/usage/service.go)
-- [internal/forge/routes.go](../../internal/forge/routes.go)
-- [internal/forge/mcpapi/catalog.go](../../internal/forge/mcpapi/catalog.go)
+- [internal/apptown/identity/authority.go](../../internal/apptown/identity/authority.go)
+- [internal/apptown/identity/visibility.go](../../internal/apptown/identity/visibility.go)
+- [internal/apptown/usage/service.go](../../internal/apptown/usage/service.go)
+- [internal/apptown/routes.go](../../internal/apptown/routes.go)
+- [internal/apptown/mcpapi/catalog.go](../../internal/apptown/mcpapi/catalog.go)
 

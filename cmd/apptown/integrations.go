@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // cmdAdopt / cmdRetire: integration workflows with the attach/detach step folded in.

@@ -170,7 +170,7 @@ code, pre, kbd, samp { font-family: var(--font-mono); font-size: var(--fs-xs); }
 .sidebar .topbar-find input, .sidebar .topbar-find input:focus { width: 100%; }
 .sidebar .topbar-find-menu { left: 0; right: 0; min-width: 0; }
 
-/* The top bar: forge › project › page · state — the one fixed anchor. */
+/* The top bar: AppTown › project › page · state — the one fixed anchor. */
 .topbar {
   position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); z-index: 70;
   display: flex; align-items: center; gap: 6px; padding: 0 16px 0 14px;

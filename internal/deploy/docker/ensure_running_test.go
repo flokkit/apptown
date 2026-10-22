@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // A named service container is left running, started when stopped, created

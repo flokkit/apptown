@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // On a daemon with attached streams a step is the one command a Docker

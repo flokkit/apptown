@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/ids"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // apptown check [-c changeID] [--published] — run the change's declared gate
@@ -201,7 +201,7 @@ func folderHead() (head string, dirty bool, err error) {
 	// Git here is the person's: it sees their whole environment, GIT_*
 	// included (a hook's GIT_DIR, a worker's GIT_CONFIG_* granting
 	// safe.directory), and their own git config, neither of which the
-	// forge's own git reads.
+	// AppTown's own git reads.
 	theirs := os.Environ()
 	err = interruptible(root, func(ctx context.Context) error {
 		if inside, err := theirGit(ctx, cwd, theirs, "rev-parse", "--is-inside-work-tree"); err != nil || inside != "true" {

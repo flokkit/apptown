@@ -15,7 +15,7 @@ import (
 // Dockerfile and let through by its .dockerignore, or the image stops
 // building, as it did when the gate first imported internal/clock.
 func TestTheGateImageCopiesEveryModulePackageTheGateImports(t *testing.T) {
-	const module = "flokkit.io/forge/"
+	const module = "github.com/flokkit/apptown/"
 	root := filepath.Join("..", "..")
 	dockerfile, err := os.ReadFile("Dockerfile")
 	if err != nil {

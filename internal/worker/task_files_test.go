@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/console/consoletest"
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executionfake"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executionfake"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // mountsSeen is the worker's task driver, recording the mounts each task

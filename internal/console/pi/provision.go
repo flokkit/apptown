@@ -2,14 +2,14 @@ package pi
 
 import (
 	"context"
-	"flokkit.io/forge/internal/dockerlabel"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"flokkit.io/forge/internal/console"
-	"flokkit.io/forge/internal/dind"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/dind"
 )
 
 const (

@@ -12,16 +12,16 @@ import (
 	"testing"
 	"time"
 
-	"flokkit.io/forge/internal/diskspace"
-	"flokkit.io/forge/internal/execfile"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/execfile"
 
-	"flokkit.io/forge/internal/execution"
-	"flokkit.io/forge/internal/execution/executionfake"
-	"flokkit.io/forge/internal/execution/executiontest"
-	"flokkit.io/forge/internal/gitexec"
-	"flokkit.io/forge/internal/gitexec/gittest"
-	"flokkit.io/forge/internal/worker"
-	"flokkit.io/forge/internal/worker/workertest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/execution/executionfake"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 func fakeSpec(key, output string, exit int, block bool) execution.TaskSpec {

@@ -1,6 +1,6 @@
 # Work's internal API
 
-`internal/forge/workflow` owns Changes, Runs, Steps and their lifecycle operations.
+`internal/apptown/workflow` owns Changes, Runs, Steps and their lifecycle operations.
 `Service` is the caller-facing entry point. AppTown binds verified identity and
 assembles external effects. Stores and generated SQL are private. Work never
 imports AppTown or a shared models package.
