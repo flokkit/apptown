@@ -120,21 +120,6 @@ func (s *Projects) Deletions(ctx context.Context) ([]Deletion, error) {
 	return out, nil
 }
 
-// OutstandingDeletions lists every deleted project whose cleanup is not
-// done: pending, whatever became of its queued attempts, or waiting for a
-// person.
-func (s *Projects) OutstandingDeletions(ctx context.Context) ([]Deletion, error) {
-	rows, err := queries(s.db).OutstandingProjectDeletions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Deletion, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, deletionRecord(r))
-	}
-	return out, nil
-}
-
 // SettleDeletionAttempt records one cleanup attempt of a round. It applies
 // only to a pending cleanup of that round, and reports whether it did: a
 // stale job of an earlier round records nothing.

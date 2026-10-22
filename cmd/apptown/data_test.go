@@ -96,16 +96,16 @@ func TestDataSaysTheLastRehearsal(t *testing.T) {
 
 // apptown data says the last restore test apart from the rehearsal, with the
 // AppTown's own check of its gate as the web card says it, and each
-// standing restored copy: until when, who opened it, that it is opened from
-// AppTown in a browser, and what it can still do outside.
+// restored copy still standing: what its take-down left, and what it can
+// still do outside.
 func TestDataSaysTheLastRestoreTestAndStandingCopies(t *testing.T) {
 	var p protection
 	if err := json.Unmarshal([]byte(`{"deployment":"prod","dataClass":"production","rehearsalNote":"never rehearsed",
-		"restoreTest":{"id":"00000000-0003-7000-8000-000000000000","backup":"00000000-0029-7000-8000-000000000000","release":7,"target":"do-syd","test":true,"outcome":"passed","checkedAt":"2026-10-08T05:00:00Z","endedAt":"2026-10-08T05:02:00Z",
+		"restoreTest":{"id":"00000000-0003-7000-8000-000000000000","backup":"00000000-0029-7000-8000-000000000000","release":7,"target":"do-syd","outcome":"passed","checkedAt":"2026-10-08T05:00:00Z","endedAt":"2026-10-08T05:02:00Z",
 		  "facts":{"gate":[{"name":"refuses a request with no token","path":"/healthz","status":404,"passed":true},{"name":"lets AppTown's own ticket in","path":"/_apptown/enter","status":403,"passed":false}]}},
-		"restoredCopies":[{"id":"00000000-0004-7000-8000-000000000000","number":4,"backup":"00000000-0029-7000-8000-000000000000","target":"do-syd","open":true,"checkedAt":"2026-10-08T06:00:00Z","expiresAt":"2026-10-08T10:00:00Z",
-		  "warning":"Outbound calls are not blocked.","entries":[{"person":"bls"},{"person":"ana"},{"person":"bls"}]},
-		  {"id":"00000000-0003-7000-8000-000000000000","backup":"00000000-0029-7000-8000-000000000000","test":true,"endedAt":"2026-10-08T05:02:00Z"}]}`), &p); err != nil {
+		"restoredCopies":[{"id":"00000000-0004-7000-8000-000000000000","number":4,"backup":"00000000-0029-7000-8000-000000000000","target":"do-syd","checkedAt":"2026-10-08T06:00:00Z",
+		  "endDetail":"left standing: whether anything stands is unknown","warning":"Outbound calls are not blocked."},
+		  {"id":"00000000-0003-7000-8000-000000000000","backup":"00000000-0029-7000-8000-000000000000","endedAt":"2026-10-08T05:02:00Z"}]}`), &p); err != nil {
 		t.Fatal(err)
 	}
 	var out strings.Builder
@@ -113,7 +113,7 @@ func TestDataSaysTheLastRestoreTestAndStandingCopies(t *testing.T) {
 	for _, want := range []string{
 		"last restore rehearsal: never rehearsed",
 		"last restore test: passed 2026-10-08T05:00:00Z from set 00000000-0029-7000-8000-000000000000, release 7, on do-syd\n    gate: 1 of 2 checks passed; failed: lets AppTown's own ticket in (/_apptown/enter 403)\n",
-		"restored copy 4 of prod from set 00000000-0029-7000-8000-000000000000 · open until 2026-10-08T10:00:00Z · opened by bls, ana (open it from AppTown in a browser)",
+		"restored copy 4 of prod from set 00000000-0029-7000-8000-000000000000 · left standing: whether anything stands is unknown",
 		"Outbound calls are not blocked.",
 	} {
 		if !strings.Contains(out.String(), want) {

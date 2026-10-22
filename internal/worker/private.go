@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dind"
@@ -230,7 +231,7 @@ func (s *Server) makePrivate(ctx context.Context, rec record) error {
 	// (/work), its client state, and its builder's configuration: no cache,
 	// socket or other folder of the worker's.
 	daemon := dind.Daemon{Name: p.Daemon, Network: p.Network, Image: s.DindImage, OwnerLabel: taskLabel, Owner: key,
-		Options: dind.DaemonOptions(p.Spec.Mirror), Mark: PrivilegedMark(s.State, s.Role, s.Now),
+		Options: dind.DaemonOptions(p.Spec.Mirror),
 		Args: append(append(append(slices.Clone(labels), limitArgs(p.Limits)...), execution.LogFlags()...),
 			"-v", s.workspacePath(rec.Workspace)+":/work", "-v", client+":"+dockerClient, "-v", s.privateDir(key)+":/forge-dind:ro")}
 	if err := daemon.Create(ctx, s.command); err != nil {

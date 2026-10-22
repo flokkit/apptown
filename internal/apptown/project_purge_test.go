@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
@@ -899,7 +900,7 @@ func TestProjectDeletionWithRunningWorkTakesNothingDown(t *testing.T) {
 }
 
 // The deletion routes ask the deletion owner: a maintainer may not delete,
-// cancel, revoke, restore or purge; a project owner may delete, cancel and
+// cancel, restore or purge; a project owner may delete, cancel and
 // restore, but only an instance administrator purges now.
 func TestProjectDeletionRoutesAskTheDeletionOwner(t *testing.T) {
 	t.Parallel()
@@ -908,7 +909,6 @@ func TestProjectDeletionRoutesAskTheDeletionOwner(t *testing.T) {
 	for _, call := range []struct{ method, path, body string }{
 		{"DELETE", "/api/v1/projects/game", `{"confirm":"game"}`},
 		{"POST", "/api/v1/projects/game/deletion/cancel", ""},
-		{"POST", "/api/v1/projects/game/deletion/revoke", ""},
 		{"POST", "/api/v1/projects/game/restore", ""},
 		{"POST", "/api/v1/projects/game/purge", ""},
 	} {
@@ -928,9 +928,6 @@ func TestProjectDeletionRoutesAskTheDeletionOwner(t *testing.T) {
 	}
 	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/purge", ""); w.Code != 403 {
 		t.Fatalf("a project owner purged now: %d %s", w.Code, w.Body.String())
-	}
-	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/deletion/revoke", `{"why":"changed my mind"}`); w.Code != 200 || !strings.Contains(w.Body.String(), `"bindingRevoked":true`) {
-		t.Fatalf("a project owner revokes: %d %s", w.Code, w.Body.String())
 	}
 	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/restore", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"active"`) {
 		t.Fatalf("a project owner restores: %d %s", w.Code, w.Body.String())
@@ -1112,8 +1109,10 @@ func TestADeletionsDockerTakeDownIsAnOperationUnderItsBinding(t *testing.T) {
 	if err != nil || st.TakeDown == nil || st.TakeDown.Authority.Credential != identity.BindingCredential(st.BindingID) || st.TakeDown.Authority.Person != "boss" {
 		t.Fatalf("the take-down: %+v %v", st.TakeDown, err)
 	}
-	if w := authzCall(a.Handler(), "boss", "POST", "/api/v1/projects/game/deletion/revoke", `{"why":"stop"}`); w.Code != 200 {
-		t.Fatalf("revoke: %d %s", w.Code, w.Body.String())
+	if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
+		return identity.RevokeBindingIn(ctx, tx, st.BindingID, "boss", "stop", a.cfg.clock.Now())
+	}); err != nil {
+		t.Fatal(err)
 	}
 	op, err := a.operations.RunHere(ctx, st.TakeDown.ID)
 	if err != nil || op.State != operations.Failed || !strings.Contains(op.Detail, "authority withdrawn") {

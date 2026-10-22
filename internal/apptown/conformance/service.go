@@ -22,7 +22,6 @@ const (
 	ConfirmFlag
 	CreateException
 	RevokeException
-	ClearHistory
 	// RunWhatIf admits a what-if: the same grant as a review for a person,
 	// but a distinct act, so a scope that may request a project's standing
 	// review (an adoption's, a remediation's) cannot judge other versions.

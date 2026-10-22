@@ -341,11 +341,11 @@ func TestARestoredCopyFillsItsOwnBucketAndTakesItDown(t *testing.T) {
 			if scenario == "a start that fails" {
 				w.platform.answer["/"] = http.StatusServiceUnavailable
 			}
-			op, c := w.start(RestoredCopyRequest{Test: true})
+			op, c := w.start(RestoredCopyRequest{})
 			if scenario == "restore test" && !endedAs(op, OperationVerified) {
 				t.Fatalf("restore test %s: %s\n%+v", op.State, op.Detail, op.Steps)
 			}
-			if !c.EndedAt.Valid || c.Open {
+			if !c.EndedAt.Valid {
 				t.Fatalf("the copy stands: %+v", c)
 			}
 			var filled string

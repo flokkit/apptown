@@ -53,34 +53,6 @@ func (q *Queries) EvalCopyOf(ctx context.Context, projectID ids.ID) (ids.ID, err
 	return eval_id, err
 }
 
-const exportAgentTranscripts = `-- name: ExportAgentTranscripts :many
-SELECT to_jsonb(t)::text FROM agent_transcripts t JOIN runs r ON r.id = t.run_id
-WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY t.step_id, t.attempt, t.invocation
-`
-
-func (q *Queries) ExportAgentTranscripts(ctx context.Context, projectID ids.ID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, exportAgentTranscripts, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var column_1 string
-		if err := rows.Scan(&column_1); err != nil {
-			return nil, err
-		}
-		items = append(items, column_1)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const projectRemovalRemainder = `-- name: ProjectRemovalRemainder :one
 SELECT EXISTS(SELECT 1 FROM agent_transcripts t JOIN runs r ON r.id=t.run_id WHERE r.project_id=$1) AS transcripts,
  EXISTS(SELECT 1 FROM steps s JOIN runs r ON r.id=s.run_id WHERE r.project_id=$1) AS steps,

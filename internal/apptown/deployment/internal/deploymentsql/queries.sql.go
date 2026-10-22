@@ -477,7 +477,7 @@ func (q *Queries) DeleteDeploymentOverride(ctx context.Context, arg DeleteDeploy
 
 const deploymentByID = `-- name: DeploymentByID :one
 
-SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix FROM deployments WHERE id=$1
+SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix FROM deployments WHERE id=$1
 `
 
 // Record reads, grouped by table.
@@ -507,7 +507,6 @@ func (q *Queries) DeploymentByID(ctx context.Context, id ids.ID) (Deployment, er
 		&i.DataClass,
 		&i.PromoteAfter,
 		&i.Url,
-		&i.ExpiresAt,
 		&i.StartFromBackup,
 		&i.StartedFromAt,
 		&i.HostPrefix,
@@ -516,7 +515,7 @@ func (q *Queries) DeploymentByID(ctx context.Context, id ids.ID) (Deployment, er
 }
 
 const deploymentByName = `-- name: DeploymentByName :one
-SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix FROM deployments WHERE project_id=$1 AND name=$2
+SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix FROM deployments WHERE project_id=$1 AND name=$2
 `
 
 type DeploymentByNameParams struct {
@@ -550,7 +549,6 @@ func (q *Queries) DeploymentByName(ctx context.Context, arg DeploymentByNamePara
 		&i.DataClass,
 		&i.PromoteAfter,
 		&i.Url,
-		&i.ExpiresAt,
 		&i.StartFromBackup,
 		&i.StartedFromAt,
 		&i.HostPrefix,
@@ -560,7 +558,7 @@ func (q *Queries) DeploymentByName(ctx context.Context, arg DeploymentByNamePara
 
 const deploymentForUpdate = `-- name: DeploymentForUpdate :one
 
-SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix FROM deployments WHERE id=$1 FOR UPDATE
+SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix FROM deployments WHERE id=$1 FOR UPDATE
 `
 
 // Locks: the callers retain the transaction and lock order.
@@ -590,7 +588,6 @@ func (q *Queries) DeploymentForUpdate(ctx context.Context, id ids.ID) (Deploymen
 		&i.DataClass,
 		&i.PromoteAfter,
 		&i.Url,
-		&i.ExpiresAt,
 		&i.StartFromBackup,
 		&i.StartedFromAt,
 		&i.HostPrefix,
@@ -637,7 +634,7 @@ func (q *Queries) DeploymentOverrides(ctx context.Context, deploymentID ids.ID) 
 }
 
 const deploymentsForProject = `-- name: DeploymentsForProject :many
-SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix FROM deployments WHERE project_id=$1 AND kind<>'restored-copy' ORDER BY kind DESC,id
+SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix FROM deployments WHERE project_id=$1 AND kind<>'restored-copy' ORDER BY kind DESC,id
 `
 
 // A restored copy is not one of the project's deployments: it is shown on
@@ -675,7 +672,6 @@ func (q *Queries) DeploymentsForProject(ctx context.Context, projectID ids.ID) (
 			&i.DataClass,
 			&i.PromoteAfter,
 			&i.Url,
-			&i.ExpiresAt,
 			&i.StartFromBackup,
 			&i.StartedFromAt,
 			&i.HostPrefix,
@@ -772,7 +768,7 @@ INSERT INTO deployments (id, project_id, name, kind, target_id, feed, audience, 
   WHERE (deployments.desired_generation=0 AND deployments.observed_generation=0)
   OR (deployments.target_id=excluded.target_id AND
   (deployments.audience IN ('partners','public') OR deployments.data_class='production'
-  OR (excluded.audience NOT IN ('partners','public') AND excluded.data_class!='production'))) RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix
+  OR (excluded.audience NOT IN ('partners','public') AND excluded.data_class!='production'))) RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix
 `
 
 type EnsureStandingParams struct {
@@ -826,29 +822,11 @@ func (q *Queries) EnsureStanding(ctx context.Context, arg EnsureStandingParams) 
 		&i.DataClass,
 		&i.PromoteAfter,
 		&i.Url,
-		&i.ExpiresAt,
 		&i.StartFromBackup,
 		&i.StartedFromAt,
 		&i.HostPrefix,
 	)
 	return i, err
-}
-
-const extendRestoredCopyDeployment = `-- name: ExtendRestoredCopyDeployment :execrows
-UPDATE deployments SET expires_at=$1 WHERE id=$2 AND kind='restored-copy'
-`
-
-type ExtendRestoredCopyDeploymentParams struct {
-	ExpiresAt sql.NullTime
-	ID        ids.ID
-}
-
-func (q *Queries) ExtendRestoredCopyDeployment(ctx context.Context, arg ExtendRestoredCopyDeploymentParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, extendRestoredCopyDeployment, arg.ExpiresAt, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
 }
 
 const finishAttempt = `-- name: FinishAttempt :execrows
@@ -1161,9 +1139,9 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 }
 
 const insertRestoredCopyDeployment = `-- name: InsertRestoredCopyDeployment :one
-INSERT INTO deployments (id, project_id, name, kind, target_id, feed, audience, data_class, expires_at, start_from_backup, updated_at)
-  VALUES ($1, $2, $3, 'restored-copy', $4, 'promotion', 'team', $5, $6, $7, $8)
-  RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix
+INSERT INTO deployments (id, project_id, name, kind, target_id, feed, audience, data_class, start_from_backup, updated_at)
+  VALUES ($1, $2, $3, 'restored-copy', $4, 'promotion', 'team', $5, $6, $7)
+  RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix
 `
 
 type InsertRestoredCopyDeploymentParams struct {
@@ -1172,7 +1150,6 @@ type InsertRestoredCopyDeploymentParams struct {
 	Name      string
 	TargetID  ids.ID
 	DataClass string
-	ExpiresAt sql.NullTime
 	BackupID  ids.ID
 	At        time.Time
 }
@@ -1184,7 +1161,6 @@ func (q *Queries) InsertRestoredCopyDeployment(ctx context.Context, arg InsertRe
 		arg.Name,
 		arg.TargetID,
 		arg.DataClass,
-		arg.ExpiresAt,
 		arg.BackupID,
 		arg.At,
 	)
@@ -1212,7 +1188,6 @@ func (q *Queries) InsertRestoredCopyDeployment(ctx context.Context, arg InsertRe
 		&i.DataClass,
 		&i.PromoteAfter,
 		&i.Url,
-		&i.ExpiresAt,
 		&i.StartFromBackup,
 		&i.StartedFromAt,
 		&i.HostPrefix,
@@ -1812,7 +1787,7 @@ func (q *Queries) OwnedByDeployment(ctx context.Context, deploymentID ids.ID) ([
 
 const placements = `-- name: Placements :many
 
-SELECT e.id, e.project_id, e.name, e.host_label, e.host_port, e.container, e.release_run, e.updated_at, e.release_sha, e.image_digest, e.kind, e.change_id, e.target_id, e.handle_json, e.desired_generation, e.observed_generation, e.readiness, e.feed, e.audience, e.data_class, e.promote_after, e.url, e.expires_at, e.start_from_backup, e.started_from_at, e.host_prefix,p.slug FROM deployments e JOIN projects p ON p.id=e.project_id WHERE e.kind<>'restored-copy' AND (NOT $1::boolean OR e.target_id IS NOT DISTINCT FROM $2) AND (NOT $3::boolean OR e.name=$4) AND (NOT $5::boolean OR (e.kind=$6 AND NOT EXISTS(SELECT 1 FROM deployment_attempts a WHERE a.deployment_id=e.id AND a.status IN ($7,$8)))) ORDER BY p.slug,e.name
+SELECT e.id, e.project_id, e.name, e.host_label, e.host_port, e.container, e.release_run, e.updated_at, e.release_sha, e.image_digest, e.kind, e.change_id, e.target_id, e.handle_json, e.desired_generation, e.observed_generation, e.readiness, e.feed, e.audience, e.data_class, e.promote_after, e.url, e.start_from_backup, e.started_from_at, e.host_prefix,p.slug FROM deployments e JOIN projects p ON p.id=e.project_id WHERE e.kind<>'restored-copy' AND (NOT $1::boolean OR e.target_id IS NOT DISTINCT FROM $2) AND (NOT $3::boolean OR e.name=$4) AND (NOT $5::boolean OR (e.kind=$6 AND NOT EXISTS(SELECT 1 FROM deployment_attempts a WHERE a.deployment_id=e.id AND a.status IN ($7,$8)))) ORDER BY p.slug,e.name
 `
 
 type PlacementsParams struct {
@@ -1873,7 +1848,6 @@ func (q *Queries) Placements(ctx context.Context, arg PlacementsParams) ([]Place
 			&i.Deployment.DataClass,
 			&i.Deployment.PromoteAfter,
 			&i.Deployment.Url,
-			&i.Deployment.ExpiresAt,
 			&i.Deployment.StartFromBackup,
 			&i.Deployment.StartedFromAt,
 			&i.Deployment.HostPrefix,
@@ -1893,7 +1867,7 @@ func (q *Queries) Placements(ctx context.Context, arg PlacementsParams) ([]Place
 }
 
 const previewDeployments = `-- name: PreviewDeployments :many
-SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix FROM deployments WHERE kind=$1 ORDER BY id
+SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix FROM deployments WHERE kind=$1 ORDER BY id
 `
 
 func (q *Queries) PreviewDeployments(ctx context.Context, kind string) ([]Deployment, error) {
@@ -1928,7 +1902,6 @@ func (q *Queries) PreviewDeployments(ctx context.Context, kind string) ([]Deploy
 			&i.DataClass,
 			&i.PromoteAfter,
 			&i.Url,
-			&i.ExpiresAt,
 			&i.StartFromBackup,
 			&i.StartedFromAt,
 			&i.HostPrefix,
@@ -1947,7 +1920,7 @@ func (q *Queries) PreviewDeployments(ctx context.Context, kind string) ([]Deploy
 }
 
 const productionOnTargetKind = `-- name: ProductionOnTargetKind :many
-SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.promote_after, d.url, d.expires_at, d.start_from_backup, d.started_from_at, d.host_prefix FROM deployments d JOIN targets t ON t.id=d.target_id
+SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.promote_after, d.url, d.start_from_backup, d.started_from_at, d.host_prefix FROM deployments d JOIN targets t ON t.id=d.target_id
   WHERE d.kind=$1 AND t.kind=$2 AND d.data_class='production' ORDER BY d.id
 `
 
@@ -1988,7 +1961,6 @@ func (q *Queries) ProductionOnTargetKind(ctx context.Context, arg ProductionOnTa
 			&i.DataClass,
 			&i.PromoteAfter,
 			&i.Url,
-			&i.ExpiresAt,
 			&i.StartFromBackup,
 			&i.StartedFromAt,
 			&i.HostPrefix,
@@ -2488,7 +2460,7 @@ const recordPreview = `-- name: RecordPreview :one
 INSERT INTO deployments (id, project_id, name, kind, change_id, target_id, handle_json, host_port, container, url, feed, audience, data_class, observed_generation, desired_generation, updated_at)
   VALUES ($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,'landing','team','synthetic',1,1,$11)
   ON CONFLICT (project_id, name) DO UPDATE SET handle_json=excluded.handle_json, host_port=excluded.host_port, container=excluded.container,
-  url=excluded.url, desired_generation=deployments.desired_generation+1, observed_generation=deployments.desired_generation+1, updated_at=excluded.updated_at RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix
+  url=excluded.url, desired_generation=deployments.desired_generation+1, observed_generation=deployments.desired_generation+1, updated_at=excluded.updated_at RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix
 `
 
 type RecordPreviewParams struct {
@@ -2543,7 +2515,6 @@ func (q *Queries) RecordPreview(ctx context.Context, arg RecordPreviewParams) (D
 		&i.DataClass,
 		&i.PromoteAfter,
 		&i.Url,
-		&i.ExpiresAt,
 		&i.StartFromBackup,
 		&i.StartedFromAt,
 		&i.HostPrefix,
@@ -3079,7 +3050,7 @@ func (q *Queries) RequestedReleaseForUpdate(ctx context.Context, id ids.ID) (Req
 
 const reserveHostPort = `-- name: ReserveHostPort :one
 UPDATE deployments SET host_port=CASE WHEN host_port=0 THEN $1 ELSE host_port END,
-  container=$2, updated_at=$3 WHERE project_id=$4 AND name=$5 AND target_id IS NOT NULL RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, expires_at, start_from_backup, started_from_at, host_prefix
+  container=$2, updated_at=$3 WHERE project_id=$4 AND name=$5 AND target_id IS NOT NULL RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, host_prefix
 `
 
 type ReserveHostPortParams struct {
@@ -3122,7 +3093,6 @@ func (q *Queries) ReserveHostPort(ctx context.Context, arg ReserveHostPortParams
 		&i.DataClass,
 		&i.PromoteAfter,
 		&i.Url,
-		&i.ExpiresAt,
 		&i.StartFromBackup,
 		&i.StartedFromAt,
 		&i.HostPrefix,
@@ -3295,7 +3265,7 @@ func (q *Queries) RevokeOffer(ctx context.Context, arg RevokeOfferParams) (Targe
 }
 
 const runtimeDeployments = `-- name: RuntimeDeployments :many
-SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.promote_after, d.url, d.expires_at, d.start_from_backup, d.started_from_at, d.host_prefix, p.slug FROM deployments d JOIN projects p ON p.id=d.project_id
+SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.promote_after, d.url, d.start_from_backup, d.started_from_at, d.host_prefix, p.slug FROM deployments d JOIN projects p ON p.id=d.project_id
 WHERE d.kind<>'restored-copy' AND ($1::uuid[] IS NULL OR d.project_id=ANY($1::uuid[]))
 ORDER BY d.kind DESC,d.id
 `
@@ -3338,7 +3308,6 @@ func (q *Queries) RuntimeDeployments(ctx context.Context, projectIds []ids.ID) (
 			&i.Deployment.DataClass,
 			&i.Deployment.PromoteAfter,
 			&i.Deployment.Url,
-			&i.Deployment.ExpiresAt,
 			&i.Deployment.StartFromBackup,
 			&i.Deployment.StartedFromAt,
 			&i.Deployment.HostPrefix,

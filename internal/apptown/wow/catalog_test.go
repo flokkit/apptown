@@ -5,56 +5,57 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/fstest"
 
-	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/stock"
 )
 
-func TestCatalogVersionsAndPromotionWithReceipts(t *testing.T) {
+// The catalog the release ships reads, and every entry is one a person can
+// apply: named in the catalog's shape, with a workflow that ships too.
+func TestTheShippedCatalogReadsAndEachEntryValidates(t *testing.T) {
 	t.Parallel()
-	db := testDB(t)
-	cat := NewCatalog(db)
-	def := CatalogDef{Prompt: "Bump Go to {{version}}", Workflow: "quick-change", Params: []CatalogParam{{Name: "version", Required: true}}}
-	if _, err := cat.Create(t.Context(), "Bad Name", "", def, "alice"); !errors.Is(err, ErrCatalogName) {
-		t.Fatalf("a name outside the shape was accepted: %v", err)
+	entries, err := ReadStockCatalog(stock.FS)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("the shipped catalog: %d entries, %v", len(entries), err)
 	}
-	c, err := cat.Create(t.Context(), "uplift/go-version", "raise the Go version", def, "alice")
-	if err != nil || c.State() != CatalogDraft || c.LatestVersion != 1 {
-		t.Fatalf("create: %+v %v", c, err)
+	shipped, _ := readStockWorkflows(stock.FS)
+	workflows := map[string]bool{}
+	for _, w := range shipped {
+		workflows[w.Name] = true
 	}
-	if created := wowReceipts(t, db, "catalog.created", "uplift/go-version"); len(created) != 1 || created[0].Kind != "catalog.created" || created[0].Actor != "alice" {
-		t.Fatalf("create receipt: %+v", created)
+	for _, e := range entries {
+		if !workflows[e.Definition.Workflow] {
+			t.Errorf("%s runs %q, which the release does not ship", e.Name, e.Definition.Workflow)
+		}
 	}
+}
 
-	if _, err := cat.Promote(t.Context(), "uplift/go-version", "  ", "bob"); !errors.Is(err, ErrPromotionNote) {
-		t.Fatalf("a promotion without evidence was accepted: %v", err)
+// A catalog file that does not read is an error, never an empty catalog,
+// and an entry that would not apply is refused by name.
+func TestABrokenCatalogFileIsAnError(t *testing.T) {
+	t.Parallel()
+	for name, body := range map[string]string{
+		"missing":      "",
+		"unknown key":  "catalog:\n  - name: uplift/x\n    definition: {workflow: quick-change}\n    colour: red\n",
+		"bad name":     "catalog:\n  - name: Bad Name\n    definition: {workflow: quick-change}\n",
+		"no workflow":  "catalog:\n  - name: uplift/x\n    definition: {prompt: p}\n",
+		"listed twice": "catalog:\n  - name: uplift/x\n    definition: {workflow: quick-change}\n  - name: uplift/x\n    definition: {workflow: quick-change}\n",
+	} {
+		fsys := fstest.MapFS{}
+		if body != "" {
+			fsys["catalog.yaml"] = &fstest.MapFile{Data: []byte(body)}
+		}
+		if entries, err := ReadStockCatalog(fsys); err == nil {
+			t.Errorf("%s: read as %+v", name, entries)
+		}
 	}
-	if _, err := cat.Promote(t.Context(), "uplift/nobody", "run 9", "bob"); !errors.Is(err, ErrCatalogMissing) {
-		t.Fatalf("a missing change was promoted: %v", err)
+	s := New(nil, Dependencies{Stock: fstest.MapFS{}})
+	if _, err := s.CatalogChange("uplift/x"); err == nil {
+		t.Fatal("a catalog that cannot be read answered as if the entry existed")
 	}
-	c, err = cat.Promote(t.Context(), "uplift/go-version", "evaluated on run 9", "bob")
-	if err != nil || c.State() != Catalogued || c.PromotedVersion != 1 || c.PromotedBy != "bob" {
-		t.Fatalf("promote: %+v %v", c, err)
-	}
-	// A new version is a draft again until promoted; the receipt travels with it.
-	def.Prompt = "Bump Go to {{version}}, then run the tests"
-	if err := cat.Bump(t.Context(), c.ID, c.Name, def, "alice"); err != nil {
-		t.Fatal(err)
-	}
-	c, _ = cat.ByName(t.Context(), "uplift/go-version")
-	got, _ := cat.Definition(t.Context(), c.ID, 2)
-	if c.State() != CatalogDraft || c.LatestVersion != 2 || got == nil || got.Prompt != def.Prompt {
-		t.Fatalf("bump: %+v %+v", c, got)
-	}
-	// A promotion whose receipt cannot be written does not promote.
-	dbtest.FailNextStatement(t, db, "INSERT INTO audit_log")
-	if _, err := cat.Promote(t.Context(), "uplift/go-version", "run 10", "bob"); err == nil {
-		t.Fatal("a promotion without its receipt was reported as done")
-	}
-	if c, err := cat.ByName(t.Context(), "uplift/go-version"); err != nil || c.PromotedVersion != 1 {
-		t.Fatalf("a failed promotion moved the promoted version: %+v %v", c, err)
-	}
-	if receipts := wowReceipts(t, db, "catalog.", ""); len(receipts) != 3 {
-		t.Fatalf("catalog receipts: %+v", receipts)
+	s = New(nil, Dependencies{Stock: fstest.MapFS{"catalog.yaml": {Data: []byte("catalog: []\n")}}})
+	if _, err := s.CatalogChange("uplift/x"); !errors.Is(err, ErrCatalogMissing) {
+		t.Fatalf("a missing entry: %v", err)
 	}
 }
 
@@ -98,14 +99,16 @@ func TestCatalogKnobsRoundTrip(t *testing.T) {
 	if CatalogKnobs("") != nil || CatalogKnobs("{}") != nil {
 		t.Errorf("non-catalog runs must return nil")
 	}
-	c := &CatalogChange{Name: "bump-go", LatestVersion: 3, PromotedVersion: 3}
-	def := &CatalogDef{Model: "openrouter/openai/gpt-5.6-luna", TimeoutMinutes: 30}
-	raw, _ := json.Marshal(c.RunInputs(def, map[string]string{"goVersion": "1.27"}))
+	def := CatalogDef{Model: "openrouter/openai/gpt-5.6-luna", TimeoutMinutes: 30}
+	c := &CatalogChange{Name: "bump-go", Definition: def}
+	raw, _ := json.Marshal(c.RunInputs(map[string]string{"goVersion": "1.27"}))
 	k := CatalogKnobs(string(raw))
 	if k == nil || k.Model != def.Model || k.TimeoutMinutes != 30 || k.Thinking != "" {
 		t.Errorf("knobs not extracted: %+v", k)
 	}
-	if !strings.Contains(string(raw), `"name":"bump-go@3"`) || !strings.Contains(string(raw), `"status":"catalogued"`) {
-		t.Errorf("the inputs name the applied definition: %s", raw)
+	// The entry's name and the release whose catalog.yaml it came from name
+	// the exact definition that ran.
+	if !strings.Contains(string(raw), `"name":"bump-go"`) || !strings.Contains(string(raw), `"release":"`+CatalogRelease()+`"`) {
+		t.Errorf("the inputs name the applied definition and its release: %s", raw)
 	}
 }

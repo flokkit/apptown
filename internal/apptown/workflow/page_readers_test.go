@@ -113,7 +113,7 @@ func TestDashboardPartitionsVisibleCurrentStages(t *testing.T) {
 		}
 	}
 	counted := &countedQueries{Handle: q.db.SQL()}
-	if _, err := readDashboard(ctx, counted, []ids.ID{run.ProjectID, other}, nil, Placement{}); err != nil || counted.reads != 3 {
+	if _, err := readDashboard(ctx, counted, []ids.ID{run.ProjectID, other}, nil); err != nil || counted.reads != 3 {
 		t.Fatalf("dashboard reads %d: %v", counted.reads, err)
 	}
 }

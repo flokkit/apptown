@@ -60,10 +60,9 @@ type Service struct {
 	dispatcher      *dispatcher
 	merges          *Merges
 	advancer        *advancer
-	// placement is where checks run (placement.go): recorded on each check
-	// result, and with a check worker, the only place gates accept. Scripts
-	// run where tasks do, recorded on each script result.
-	placement, scripts Placement
+	// placement is where checks and scripts run (placement.go): recorded on
+	// each of their results.
+	placement Placement
 	// dataDir holds the project repositories: closing a change with nothing
 	// to change reads it (nothing_to_change.go).
 	dataDir string
@@ -110,9 +109,9 @@ type Dependencies struct {
 	// each step is claimed (eval_authority.go); nil admits every step.
 	EvalGate EvalGate
 
-	// CheckPlacement is where the check executor runs, TaskPlacement where
-	// scripts run: the worker or this machine (placement.go).
-	CheckPlacement, TaskPlacement Placement
+	// Placement is where checks and scripts run: the worker or this
+	// machine (placement.go).
+	Placement Placement
 
 	// Masker gives a function replacing known secret values in text Work
 	// records (a step's evidence), from one read of the stores for the whole
@@ -153,7 +152,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	automatic := slices.Clone(deps.Automatic)
 	isAutomatic := func(kind string) bool { return slices.Contains(automatic, kind) }
 	authority := commandAuthority{db: db, checked: deps.Authority, visibility: deps.Authority, clocked: clocked{deps.Now}}
-	s := &Service{life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.CheckPlacement, scripts: deps.TaskPlacement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
+	s := &Service{life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
 	if s.attemptWatch <= 0 {
 		s.attemptWatch = defaultAttemptWatch
 	}
@@ -191,10 +190,10 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	s.importer.creator.records.clocked = s.clocked
 	if deps.Merge != nil {
 		work := NewSCMWork(db, deps.DataDir, deps.Laws)
-		work.placement, work.evals, work.clocked = deps.CheckPlacement, deps.EvalGate, s.clocked
+		work.evals, work.clocked = deps.EvalGate, s.clocked
 		s.scmService = scm.New(db, work, deps.Repositories, s.clocked.clock)
 		s.merges = NewMerges(db, deps.DataDir, deps.Laws, s.scmService, deps.Merge)
-		s.merges.placement, s.merges.evals, s.merges.clocked = deps.CheckPlacement, deps.EvalGate, s.clocked
+		s.merges.evals, s.merges.clocked = deps.EvalGate, s.clocked
 	}
 	var assertions MergeObserver
 	var checks advanceChecks
@@ -204,7 +203,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	}
 	s.assertions = NewAssertions(db, assertions)
 	s.assertions.clocked = s.clocked
-	s.advancer = newAdvancer(db, advanceRuntime{Stages: s.stages, Assertions: s.assertions, Checks: checks, Completion: deps.Completion, Carry: s.answerFromAcceptance, EndNothing: s.endNothingToChange, Placement: deps.CheckPlacement, clocked: s.clocked})
+	s.advancer = newAdvancer(db, advanceRuntime{Stages: s.stages, Assertions: s.assertions, Checks: checks, Completion: deps.Completion, Carry: s.answerFromAcceptance, EndNothing: s.endNothingToChange, clocked: s.clocked})
 	s.starter = newStarter(db, s.stages, deps.Chats, startRuntime{
 		Source: s.runAdmissions.Source,
 		Supersede: func(ctx context.Context, failed RunRef, next string) error {

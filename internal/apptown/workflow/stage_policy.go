@@ -135,10 +135,8 @@ func (g stageGate) PermitsMerge() bool {
 
 // evaluateGate never interprets absent evidence as a successful check.
 // Scanner groups require their persisted expansion; no name-prefix guessing or
-// lookup of today's attached scanners is permitted here. With a check worker
-// (placement), a passing check result it did not produce, or a script's, is
-// missing evidence (placement.go).
-func evaluateGate(stage *schema.Stage, recorded []Check, steps []*Step, placement Placement) (stageGate, error) {
+// lookup of today's attached scanners is permitted here.
+func evaluateGate(stage *schema.Stage, recorded []Check, steps []*Step) (stageGate, error) {
 	var result stageGate
 	declared := map[string]schema.Step{}
 	for _, s := range append(append([]schema.Step{}, stage.OnEnter...), stage.Steps...) {
@@ -177,8 +175,6 @@ func evaluateGate(stage *schema.Stage, recorded []Check, steps []*Step, placemen
 	judge := func(s *Step) {
 		if !s.Status.PassesGate() {
 			result.Blocking = append(result.Blocking, s)
-		} else if why := placement.refuses(s); why != "" {
-			result.Missing = append(result.Missing, s.Name+why)
 		}
 	}
 	check := func(c Check) {

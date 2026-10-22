@@ -129,8 +129,8 @@ func TestTheLastHarvestRecordsSpendThoughTheCallerStopped(t *testing.T) {
 }
 
 // A chat's spend is its opener's, as the chat recorded them, and the chat
-// is how they spent it: harvested with no caller after alice is renamed and
-// her name given to someone else, it still names her.
+// is how they spent it: harvested with no caller after alice's name is
+// removed and given to someone else, it still names her.
 func TestHarvestedChatSpendIsTheOpeners(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
@@ -148,7 +148,7 @@ func TestHarvestedChatSpendIsTheOpeners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := people.Rename(ctx, "alice", "alicia", access.Principal{Kind: "user", Name: "ops", Via: "session"}); err != nil {
+	if err := people.RemoveName(ctx, "alice", access.Principal{Kind: "user", Name: "ops", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := people.EnsureUser(ctx, "alice"); err != nil {

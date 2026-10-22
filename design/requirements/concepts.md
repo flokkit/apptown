@@ -23,7 +23,7 @@ below use the first word in each row.
 | **lane** | workflow | a [workflow](#workflow) a project offers for working a change; see [lane](#lane). Not a [way of working](#way-of-working), which is the whole adopted set; AppTown's own workflows are [system workflows](#system-workflow), never lanes |
 | **pack** | way of working, stock pack, institution pack, platform pack | a published bundle; see [pack](#pack). "Way of working" glosses the pack in B Projects and B The project's way of working, and names the settings tab where the whole adopted set (packs plus a project's own blocks) is edited in B11 and B17 |
 | **project** | app (C Changes, B Services), repository; sometimes heard as "product" | one codebase AppTown governs; "app" is the running software; see [project](#project) |
-| **change** | ordinary change, catalogued change, uplift change, fix, work | the unit of work; see [change](#change) |
+| **change** | ordinary change, catalog change, uplift change, fix, work | the unit of work; see [change](#change) |
 | **helper** | AppTown's own coding agent, agent, agent session, chat, console, terminal, instrument | AppTown's agent acting for a person; the chat is where you talk to it; a console is its container; see [helper](#helper) |
 | **deployment** | environment, instance, standing environment | a project's app standing on one target under a name; see [deployment](#deployment). Not a [tier](#tier): its audience, data class and feed say who it serves. The act of putting a bundle on it is a [deploy](#deploy) |
 | **target** | place, host, endpoint, "the cloud" | where a deployment stands, reached through one [provider](#provider); see [target and offer](#target-and-offer). "Cloud" is also the name of a [tier](#tier), which is a different thing: the tier says who a release reaches, the target says where it runs |
@@ -143,7 +143,7 @@ the doors (a sentence, the chat, the detailed form, the catalog, an
 imported branch, a coding agent) and leaves only through the landing.
 *Lifecycle:* in progress, landing, then shipped or abandoned; the branch
 is kept for the record. Varieties named in the requirements: an
-**ordinary change**, a **catalogued change** (C3), an **uplift change**
+**ordinary change**, a **catalog change** (C3), an **uplift change**
 (B13), a **fix** or remediation change (B21, B23), a wiring change (B27),
 a retiring change (B30). *Rules:* nothing reaches `main` except through a
 change; a change is judged on what it introduced. *Appears:* C Changes and
@@ -259,8 +259,8 @@ Words sent back with a rejection, or a reviewer's findings, delivered to
 the producing step when it runs again. *Appears:* C7, the rules under C Changes.
 
 ### Catalog
-Canned, versioned change definitions that can be run on any project with
-parameters; a draft is promoted to the catalog after evaluation.
+Prepared change definitions that can be run on any project with
+parameters; the release ships them (`stock/catalog.yaml`).
 *Appears:* C3.
 
 ### Attachment

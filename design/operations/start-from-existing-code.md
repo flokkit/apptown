@@ -109,36 +109,6 @@ deployment targets the project needs. The project's history on the source
 AppTown stays there. When you no longer need the old project, delete it on
 the source.
 
-### Moving a project with its history and chats
-
-`apptown bundle` moves the code only. To keep the project's history (its
-changes, runs, evidence, ledger lines, spend and ended chats), an
-administrator exports the whole project:
-
-```sh
-apptown export-project -p <slug> > <slug>.apptown-export
-```
-
-Only landed history moves: landed changes with their runs, evidence,
-chats, attachments and branches, the project's ended chats with words (their
-record without the agent's credential or the host's paths, their messages
-and pasted pictures), the default branch and tags. A change not landed (open
-or abandoned), a run still running, a chat still live or on a change that
-stays, refused and candidate work, and a chat with no words stay on the
-source; the export's answer and the file's `owners/listed.json` name them.
-Secret values, release history, deployments, backups and conformance
-judgments stay too. The export refuses, naming why, for an eval copy, a
-chat's record or a change's attachments that cannot be read, a commit the
-moving records name that the moving refs lack, and carried history holding
-AppTown's runtime files (`.apptown`, which can hold an agent's credentials;
-a lane's committed report file such as `.apptown/REPORT.md` is prose and
-moves).
-The file is as sensitive as AppTown's database: logs, chats and artifacts
-are in it as they are. The source records `project.exported` with the
-file's hash.
-
-Importing the file on another AppTown is not built yet.
-
 ## When something fails
 
 A seed that fails leaves the project created, with no repository. Delete

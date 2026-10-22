@@ -49,7 +49,6 @@ func init() {
 		wiregen.Named{Name: "GrantList", Value: GrantList{}},
 		wiregen.Named{Name: "ApprovalBrief", Value: ApprovalBrief{}},
 		wiregen.Named{Name: "ApprovalPolicy", Value: ApprovalPolicy{}},
-		wiregen.Named{Name: "PackSuggestion", Value: PackSuggestion{}},
 	)
 }
 

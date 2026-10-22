@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -18,6 +17,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/deploy/docker"

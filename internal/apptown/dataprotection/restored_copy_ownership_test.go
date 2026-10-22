@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -52,7 +51,7 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 	}
 	before := len(w.api.Snapshot().Requests)
 	w.api.SeedDatabase(map[string]any{"id": "other-cluster", "name": "apptown-db-" + key, "engine": "pg", "version": "16", "status": "online", "tags": []string{"apptown", "apptown-project-ledger", "apptown-deployment-pay-copy-1"}})
-	w.start(RestoredCopyRequest{Test: true})
+	w.start(RestoredCopyRequest{})
 	for _, r := range w.api.Snapshot().Requests[before:] {
 		if (r.Method == "PUT") && r.Path == "/v2/apps/"+made.App.ID {
 			t.Fatalf("the copy changed the other project's app: %+v", r)
@@ -116,7 +115,7 @@ func TestADatabaseLookupFailureKeepsTheCopyUntilTheSweepSucceeds(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	_, c := w.start(RestoredCopyRequest{Minutes: 30})
+	c := w.standing()
 	w.api.Fail("GET", "/v2/databases", 500)
 	op, err := w.s.TakeDownRestoredCopy(ctx, w.project, c.ID)
 	if err != nil {
@@ -130,7 +129,7 @@ func TestADatabaseLookupFailureKeepsTheCopyUntilTheSweepSucceeds(t *testing.T) {
 		t.Fatalf("a lookup failure ended the copy: %v %v", copies, err)
 	}
 	w.api.Fail("GET", "/v2/databases", 0)
-	n, _, err := w.s.sweepRestoredCopies(ctx, time.Now().Add(time.Hour))
+	n, _, err := w.s.SweepRestoredCopies(ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("sweep: %d %v", n, err)
 	}

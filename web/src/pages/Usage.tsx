@@ -12,11 +12,11 @@ type Row = Record<string, string | number>
 
 
 
-// Usage is recorded by kind: a workflow step, a chat, an assist, or the
+// Usage is recorded by kind: a workflow step, a chat, or the
 // purpose of one of AppTown's own calls (narrative, conformance-review, …),
 // which reads as written.
-export const LANE_LABEL: Record<string, string> = { step: 'workflow', console: 'interactive', assist: 'assist' }
-const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)', assist: 'var(--warn)' }
+export const LANE_LABEL: Record<string, string> = { step: 'workflow', console: 'interactive' }
+const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)' }
 
 function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
@@ -118,7 +118,7 @@ export function TimingView({ days }: { days: number }) {
   )
 }
 
-type DayTotals = { step: number; console: number; assist: number; cost: number }
+type DayTotals = { step: number; console: number; cost: number }
 
 // The daily chart. Its numbers are readable without a mouse: one day is
 // always selected and spelled out under the chart (the latest day with use,
@@ -131,12 +131,12 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
   const at = Math.min(picked ?? lastUsed, days.length - 1)
   const day = days[at]
   const e = perDay.get(day)
-  const total = e ? e.step + e.console + e.assist : 0
-  const maxDay = Math.max(1, ...[...perDay.values()].map((x) => x.step + x.console + x.assist))
+  const total = e ? e.step + e.console : 0
+  const maxDay = Math.max(1, ...[...perDay.values()].map((x) => x.step + x.console))
   const label = new Date(day + 'T00:00:00Z').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' })
   const detail = !e ? `${label}: no use`
     : `${label}: ${fmtTokens(total)} tokens — ${LANE_LABEL.step} ${fmtTokens(e.step)}, ${LANE_LABEL.console} ${fmtTokens(e.console)}`
-      + (e.assist > 0 ? `, ${LANE_LABEL.assist} ${fmtTokens(e.assist)}` : '') + (e.cost > 0 ? ` · ${fmtCost(e.cost)}` : '')
+      + (e.cost > 0 ? ` · ${fmtCost(e.cost)}` : '')
   const pickAt = (el: HTMLElement, clientX: number) => {
     const r = el.getBoundingClientRect()
     setPicked(Math.max(0, Math.min(days.length - 1, Math.floor(((clientX - r.left) / r.width) * days.length))))
@@ -167,13 +167,12 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
         onKeyDown={(ev) => { if (key(ev.key)) ev.preventDefault() }}>
         {days.map((d, i) => {
           const x = perDay.get(d)
-          const t = x ? x.step + x.console + x.assist : 0
+          const t = x ? x.step + x.console : 0
           return (
             <div key={d} className={'usage-col' + (i === at ? ' on' : '')}>
               {x && (
                 <div className="usage-stack" style={{ height: `${Math.max(3, (t / maxDay) * 100)}%` }}>
                   {x.console > 0 && <div style={{ flex: x.console, background: LANE_COLOR.console }} />}
-                  {x.assist > 0 && <div style={{ flex: x.assist, background: LANE_COLOR.assist }} />}
                   {x.step > 0 && <div style={{ flex: x.step, background: LANE_COLOR.step }} />}
                 </div>
               )}
@@ -215,8 +214,8 @@ export function UsageView({ project }: { project?: string }) {
   }
   const perDay = new Map<string, DayTotals>()
   for (const r of data.byDayKind ?? []) {
-    const e = perDay.get(r.day) ?? { step: 0, console: 0, assist: 0, cost: 0 }
-    e[(r.kind as 'step' | 'console' | 'assist')] = (e[(r.kind as 'step' | 'console' | 'assist')] ?? 0) + r.total
+    const e = perDay.get(r.day) ?? { step: 0, console: 0, cost: 0 }
+    if (r.kind === 'step' || r.kind === 'console') e[r.kind] += r.total
     e.cost += r.costMicros
     perDay.set(r.day, e)
   }

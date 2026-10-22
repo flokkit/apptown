@@ -49,9 +49,6 @@ WHERE id=$1 AND status IN ($2, $3);
 -- name: RunningRemediationIDs :many
 SELECT id FROM remediations WHERE status = 'running' ORDER BY id;
 
--- name: ActiveRemediationExists :one
-SELECT EXISTS(SELECT 1 FROM remediations WHERE status IN ($1, $2));
-
 -- Counts and cost come from the same snapshot as the job: the lateral
 -- aggregate answers even for an empty job, without a query per job in Go.
 
@@ -245,24 +242,14 @@ SELECT COALESCE((SELECT p.count FROM worker_pools p WHERE p.kind = $1 AND p.coun
 -- name: LockProjectForRemediation :one
 SELECT id FROM projects WHERE id = $1 FOR UPDATE;
 
--- ===== history maintenance ============================================
+-- ===== tests' observations ==========================================
 
--- name: LockRemediationHistory :exec
-LOCK TABLE remediations, remediation_items, remediation_attempts IN ACCESS EXCLUSIVE MODE NOWAIT;
+-- The owner's count of jobs, items and attempts; only tests use it.
 
 -- name: RemediationRecordCounts :one
 SELECT (SELECT count(*) FROM remediation_attempts)::bigint AS attempts,
        (SELECT count(*) FROM remediation_items)::bigint AS items,
        (SELECT count(*) FROM remediations)::bigint AS remediations;
-
--- name: DeleteAllAttempts :execrows
-DELETE FROM remediation_attempts;
-
--- name: DeleteAllItems :execrows
-DELETE FROM remediation_items;
-
--- name: DeleteAllRemediations :execrows
-DELETE FROM remediations;
 
 -- name: SettledAttemptsForCheck :many
 -- Every settled attempt to fix one block's check, at any version.

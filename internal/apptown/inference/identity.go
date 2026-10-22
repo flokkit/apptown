@@ -35,13 +35,7 @@ func (a Identity) Authenticate(ctx context.Context, token string) (identity.Work
 	} else if _, _, ok := a.Tokens.StepAttempt(token); ok {
 		return a.AuthenticateStep(ctx, token)
 	} else {
-		// A process-local assist grant. It names no run; one that did would
-		// bypass the step checks, so it is refused. One asked through a
-		// console lasts only while that console does.
-		who, ok = a.Tokens.Lookup(token)
-		if !ok || !who.RunID.IsZero() || (who.SessionID != "" && !a.Console.Live(who.SessionID)) {
-			return identity.Workload{}, errDenied
-		}
+		return identity.Workload{}, errDenied
 	}
 	return a.admitAccount(ctx, who)
 }
@@ -75,9 +69,6 @@ func (a Identity) admitAccount(ctx context.Context, who identity.Workload) (iden
 	// are refused alike. Only AppTown's own names (identity.SystemActor)
 	// act without an account. SQL failures fail closed.
 	account := who.Actor
-	if who.Person != "" {
-		account = who.Person
-	}
 	if identity.SystemActor(account) {
 		return who, nil
 	}

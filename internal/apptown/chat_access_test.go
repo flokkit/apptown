@@ -398,8 +398,16 @@ func TestATerminalStopsTakingInputWhenItsTypistLosesTheRole(t *testing.T) {
 	if got, err := read(); err != nil || got != "+typed" {
 		t.Fatalf("a contributor types: %q %v", got, err)
 	}
-	if _, err := w.a.Access.RevokeProjectRoles(context.Background(), "user", "jenny", idstest.N(1), "boss"); err != nil {
+	grants, err := w.a.Access.GrantsAt(context.Background(), access.ScopeProject, idstest.N(1).String())
+	if err != nil {
 		t.Fatal(err)
+	}
+	for _, g := range grants {
+		if g.SubjectType == "user" && g.Subject == "jenny" {
+			if _, err := w.a.Access.Revoke(context.Background(), g.ID, "boss"); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	if w.a.addGrant("user", "jenny", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "").IsZero() {
 		t.Fatal("granting jenny viewer")

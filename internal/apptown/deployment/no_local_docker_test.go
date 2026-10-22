@@ -543,7 +543,7 @@ func TestNoLocalDockerRefusesOtherTargetsBeforeAnyBuild(t *testing.T) {
 	}
 }
 
-// A drained AppTown that ran with local Docker holds a bundle with no
+// An AppTown that once ran with local Docker holds a bundle with no
 // target and an attached deployment released from it. Started in the mode,
 // its manual promotion and its missing-container recovery are refused with
 // the next action, nothing is built or run, and the records stay. Outside
@@ -564,7 +564,7 @@ func TestNoLocalDockerRefusesReleasesRecordedBeforeTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const message = "this release was recorded before releases named their target; land the change again to release it in this mode"
+	const message = "this release does not say which Docker host its images are on; land the change again to release it in this mode"
 	s := w.service(true)
 	w.daemon.remove(hostNamesOf(t, s, w.project, "game", "staging").App())
 	w.daemon.ResetCommands()

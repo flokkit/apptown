@@ -98,7 +98,3 @@ SELECT COUNT(*)::bigint FROM token_usage WHERE project_id = ANY(sqlc.arg(project
 -- restart cut off.
 -- name: LockInAllPendingLines :execrows
 UPDATE token_usage SET incomplete=sqlc.arg(incomplete), pending_until=NULL WHERE pending_until IS NOT NULL;
-
--- A project's spend, row by row, for moving it to another AppTown.
--- name: ExportTokenUsage :many
-SELECT to_jsonb(u)::text FROM token_usage u WHERE u.project_id = $1 ORDER BY u.id;

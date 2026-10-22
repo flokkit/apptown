@@ -168,19 +168,7 @@ func TestGroups(t *testing.T) {
 	if groups, _ := d.Groups(context.Background()); len(groups) != 2 {
 		t.Fatal("deleted")
 	}
-	g := NewGrants(db)
-	for _, r := range []string{access.RoleProjectViewer, access.RoleProjectContrib} {
-		if _, err := g.Put(context.Background(), Spec{SubjectType: "user", Subject: "jude", Role: r, Scope: access.ScopeProject, ScopeID: idstest.N(5).String()}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if n, err := d.RevokeProjectRoles(context.Background(), "user", "jude", idstest.N(5), "ops"); err != nil || n != 2 {
-		t.Fatalf("roster revoke: %v %d", err, n)
-	}
-	if n, err := d.RevokeProjectRoles(context.Background(), "user", "jude", idstest.N(5), "ops"); err != nil || n != 0 {
-		t.Fatalf("nothing left to revoke: %v %d", err, n)
-	}
-	if receipts := len(ledger(t, db, "group.saved")) + len(ledger(t, db, "group.deleted")) + len(ledger(t, db, "project.member-removed")); receipts != 4 {
+	if receipts := len(ledger(t, db, "group.saved")) + len(ledger(t, db, "group.deleted")); receipts != 3 {
 		t.Fatalf("receipts: %d", receipts)
 	}
 }

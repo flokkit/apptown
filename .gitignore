@@ -16,7 +16,6 @@ node_modules/
 /forged
 /apptown
 /apptownd
-/apptown-check
 *.swp
 presso*
 /apptown-worker

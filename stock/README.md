@@ -46,8 +46,8 @@ named engine feature.
 
 | Workflow | Shape | Receipts / gates | Status |
 |---|---|---|---|
-| **bug-triage-batch** | scheduled: read public tracker → agent compiles/deduplicates complaints → batches into work units → human approves batch → implement sub-runs → track | triage decisions + per-unit runs | Partial — webhook trigger works today (`on: webhook` + POST /api/v1/hooks/{project}/{workflow}); needs batches (§5) + `workflow` step |
-| **incident-response** | monitoring webhook → agent diagnoses (reads free, effects gated) → proposed remediation → gated effect steps → postmortem doc | timeline is the run; postmortem is an artifact | Partial — webhook trigger works today; needs effect steps |
+| **bug-triage-batch** | scheduled: read public tracker → agent compiles/deduplicates complaints → batches into work units → human approves batch → implement sub-runs → track | triage decisions + per-unit runs | Not built — needs a webhook trigger, batches (§5) + `workflow` step |
+| **incident-response** | monitoring webhook → agent diagnoses (reads free, effects gated) → proposed remediation → gated effect steps → postmortem doc | timeline is the run; postmortem is an artifact | Not built — needs a webhook trigger and effect steps |
 | **email-batch** (reference) | ingest 1M elements → foreach transform (recorded) → aggregate gate (≥99.9% + failures triaged) → gated send (effect) | element table, aggregate evidence | Sketch — the state-model §5 exemplar |
 
 ## Conventions all stock workflows follow

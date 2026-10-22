@@ -27,7 +27,7 @@ import (
 //  2. secrets.env (the bootstrap file): holds the machine identity, plus any
 //     local overrides — file values win over Infisical.
 //
-// Engine/step split: engine secrets (GITLAB_TOKEN, APPTOWN_WEBHOOK_TOKEN, the
+// Engine/step split: engine secrets (GITLAB_TOKEN, the
 // Infisical identity itself) NEVER enter step processes. Only keys prefixed
 // STEP_ are injected into step environments, with the prefix stripped
 // (STEP_FOO=bar → FOO=bar in the container).

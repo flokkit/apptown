@@ -144,6 +144,34 @@ var migrations = []migration{
 		"CREATE UNIQUE INDEX deployments_host_key ON deployments ((right(id::text, 12)))",
 		"ALTER TABLE release_requests ADD COLUMN move_names BOOLEAN NOT NULL DEFAULT false",
 	}},
+	// Features nobody used are removed, and records only they wrote go with
+	// them. A restored copy is always a restore test now: one opened for
+	// people ran the same checks before it stayed up, so it counts as one.
+	// Old data the removed readers tolerated is rewritten to the current
+	// shape. Live grants of a removed capability are revoked on the day it
+	// was removed (SQL never reads the database's clock) and kept as history.
+	{n: 163, note: "removed features: the local-Docker start record, restored-copy lifetimes, the catalogue tables, the draft model slot; old deployment records in their current shape", stmts: []string{
+		"DELETE FROM instance_settings WHERE key = 'local_docker'",
+		"ALTER TABLE restored_copies DROP COLUMN expires_at, DROP COLUMN lifetime_minutes, DROP COLUMN is_test",
+		"ALTER TABLE deployments DROP COLUMN expires_at",
+		"DROP TABLE catalog_change_versions",
+		"DROP TABLE catalog_changes",
+		"DELETE FROM slot_fallbacks WHERE slot = 'draft'",
+		"DELETE FROM model_slots WHERE slot = 'draft'",
+		// A copy of the app's volume from before items named their volume
+		// names it as the item.
+		`UPDATE backups SET items_json = (
+  SELECT jsonb_agg(CASE WHEN e->>'kind' = 'volume' AND COALESCE(e->>'volume', '') = ''
+    THEN e || jsonb_build_object('volume', e->>'name') ELSE e END ORDER BY o)
+  FROM jsonb_array_elements(items_json) WITH ORDINALITY t(e, o))
+WHERE jsonb_typeof(items_json) = 'array' AND EXISTS (
+  SELECT 1 FROM jsonb_array_elements(items_json) e WHERE e->>'kind' = 'volume' AND COALESCE(e->>'volume', '') = '')`,
+		"UPDATE need_instances SET status = 'creating' WHERE status = 'pending'",
+		"ALTER TABLE need_instances ALTER COLUMN status DROP DEFAULT",
+		"UPDATE deployments SET readiness = 'uncertain' WHERE readiness = 'needs-reconcile'",
+		`UPDATE grants SET revoked_at = '2026-10-23T00:00:00Z' WHERE revoked_at IS NULL AND capability IN
+  ('conformance:clear-history', 'deployment:open-restored', 'standards:manage-catalog', 'project:configure-extensions', 'group:transfer-project')`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.
@@ -256,7 +284,3 @@ func Open(ctx context.Context, url string) (*database.DB, error) {
 	}
 	return db, nil
 }
-
-// LatestVersion is the schema version this build migrates to: what a move
-// file records of AppTown it came from.
-func LatestVersion() int { return latestSchemaVersion() }

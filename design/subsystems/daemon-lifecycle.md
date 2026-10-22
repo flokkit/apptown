@@ -34,20 +34,10 @@ the required-repair summary does not report those providers as recovered.
 
 Configuration validation runs before the database opens. `-no-local-docker`
 requires a worker (`-worker-url`) and an external database (`-db-url`), because
-the built-in database is a container on the local Docker. In that mode, required
-repair first checks that the switch is admitted: the previous start was also in
-the mode, a drain was recorded, or the database has no recorded start (a fresh
-installation). Every admitted start records its mode, so a
-start with local Docker makes the next start in the mode check again.
-
-`-drain-local-docker` is a one-shot start with AppTown's normal settings and its
-own Docker, while no other AppTown serves the database. It runs required repair,
-then requires that the records hold no local work and that the local Docker has
-no AppTown execution container; only then does it record the drain, and it exits
-without serving. It stops or removes nothing. It cannot be combined with
-`-no-local-docker` or `-verify-only`. See
-[workers](../operations/workers.md#switching-an-apptown-to-no-local-docker) for the
-procedure.
+the built-in database is a container on the local Docker. An AppTown in the mode
+cannot see work it once ran on its own Docker, so the switch into it is a
+procedure the operator follows before the first start in the mode; see
+[workers](../operations/workers.md#switching-an-apptown-to-no-local-docker).
 
 A bind failure closes listeners already opened. A running listener or required
 worker-loop failure stops the daemon. Verify-only mode serves its HTTP lifecycle

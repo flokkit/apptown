@@ -25,7 +25,7 @@ func TestANestedRunReadsTheSameInListAndDetail(t *testing.T) {
 	child := insertStoredRun(t, db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: parent.ProjectID, ChangeID: parent.ChangeID, ParentRunID: parent.ID, ParentStepID: call, WorkflowName: "child", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "inner", DefinitionJson: json.RawMessage(mustJSON(childSpec))})
 	recordStoredCallEvidence(t, db, call, 0, json.RawMessage(fmt.Sprintf(`{"childRunId":%q,"workflow":"child"}`, child.ID)))
 	insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: child.ID, Stage: "inner", Name: "scan:osv", Type: "scan", Status: StatusPass.String()})
-	graph, err := readWorkflowActivity(ctx, db, []ids.ID{parent.ID}, Placement{})
+	graph, err := readWorkflowActivity(ctx, db, []ids.ID{parent.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestANestedRunReadsTheSameInListAndDetail(t *testing.T) {
 		t.Fatal(err)
 	}
 	listed := graph.judgedByGate(parent.ID, activity)
-	detail, err := readWorkflowSnapshot(ctx, db, parent.ID, DetailView, nil, Placement{}, parent.ProjectID, nil)
+	detail, err := readWorkflowSnapshot(ctx, db, parent.ID, DetailView, nil, parent.ProjectID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

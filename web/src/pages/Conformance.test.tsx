@@ -39,7 +39,7 @@ describe('following a conformance review', () => {
         return new Response(JSON.stringify({ ...view, lens: { kind: 'current', review: done }, reviews: [done] }))
       }
       if (url.endsWith(`/conformance/reviews/${REVIEW}`)) return new Response(JSON.stringify({ review: done, verdicts: [] }))
-      return new Response('{"features":[]}')
+      return new Response('{}')
     }))
     const original = console.error
     vi.spyOn(console, 'error').mockImplementation((...args) => {
@@ -86,7 +86,7 @@ describe('a queued conformance review', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/conformance')) return new Response(JSON.stringify(view))
       if (url.endsWith(`/conformance/reviews/${REVIEW}`)) return new Response(JSON.stringify({ review, verdicts: [] }))
-      return new Response('{"features":[]}')
+      return new Response('{}')
     }))
     const el = document.createElement('div')
     const root = createRoot(el)
@@ -145,7 +145,6 @@ describe('a project page while its review refreshes', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       const m = /\/conformance\?review=00000000-(\d{4})-/.exec(url)
       if (m) return new Response(JSON.stringify(viewOf(Number(m[1]), judged)))
-      if (url.endsWith('/features')) return new Response('{"features":[]}')
       return new Response('{}')
     }))
     const router = createMemoryRouter([

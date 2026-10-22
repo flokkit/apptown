@@ -88,8 +88,6 @@ ALLOWED = [
      r"|^internal/apptown/repositoryedit/(scope|apptown_rename_test)\.go$|^internal/apptown/scm/(repository|staging_test)\.go$"
      r"|^internal/apptown/workflow/workspace_git_test\.go$",
      r".", "reads or moves the contract folder as revisions before the rename hold it"),
-    ("branch", r"^internal/apptown/projectlifecycle/(export|export_refs_test)\.go$", r".",
-     "changes and runs from before the rename keep their recorded branch names"),
     # A db.env still using the keys from before the rename is refused as
     # incomplete; the test plants one.
     ("env", r"^internal/apptown/db_test\.go$", r"FORGE_DB_", "the test plants a db.env with the old keys to show it is refused"),

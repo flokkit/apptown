@@ -10,10 +10,6 @@ AND (sqlc.arg(kind_prefix)::text='' OR a.kind LIKE sqlc.arg(kind_prefix)||'%')
 AND (sqlc.arg(subject)::text='' OR a.subject=sqlc.arg(subject))
 ORDER BY a.id DESC LIMIT sqlc.arg(row_limit);
 
--- A project's ledger lines, for moving it to another AppTown.
--- name: ExportProjectLedger :many
-SELECT to_jsonb(l)::text FROM audit_log l WHERE l.project_id = $1 ORDER BY l.id;
-
 -- Which of these people any ledger line names as its actor, directly or
 -- acting through something ("alice via console/<s>"): one pass over the
 -- ledger, whatever the number of names.

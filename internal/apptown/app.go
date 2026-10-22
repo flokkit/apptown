@@ -235,9 +235,6 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 		}
 		a.workerPreviews = &worker.Previews{URL: cfg.worker.URL, Client: cfg.worker.Client, Session: strconv.FormatInt(session, 10)}
 	}
-	if err := requireCheckWorker(ctx, cfg); err != nil {
-		return nil, err
-	}
 	if a.telemetry, err = startInstrumentation(ctx, cfg); err != nil {
 		return nil, err
 	}
@@ -321,7 +318,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Fixes = remediation.New(db, a.remediationDependencies())
 	a.Evals = evals.New(db, evalsDependencies(a))
 	a.briefing = conversation.NewBriefing(a.Ways, a.Adoption, conversation.BriefingConfig{DataDir: cfg.dataDir, PublicHost: cfg.publicHost, FrontDeskVerbs: consoleAllowedVerbs(false), WorkshopVerbs: consoleAllowedVerbs(true)})
-	a.changeActions = changeactions.New(a.Work, a.Ways, db)
+	a.changeActions = changeactions.New(a.Work, db)
 	a.repositoryEdits = repositoryedit.New(a.Work, a.Dependencies, repositoryPublisher{secrets: a.Secrets, db: db, dataDir: cfg.dataDir, now: cfg.clock.Now}, a.branches, a.lifecycle, db, cfg.dataDir)
 	a.narratives = narratives{builder: narrativeFor(a), db: db, engine: a.asEngine}
 	a.changeConsole = changeConsoleFor(a)

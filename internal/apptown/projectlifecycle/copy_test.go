@@ -313,14 +313,12 @@ func TestACreatedProjectsReceiptCarriesItsTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exported, err := project.ExportIn(context.Background(), f.db, p.ID)
+	read, err := project.New(f.db, nil).ByID(context.Background(), p.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var row struct {
-		CreatedAt time.Time `json:"created_at"`
-	}
-	if err := json.Unmarshal(exported, &row); err != nil {
+	var row struct{ CreatedAt time.Time }
+	if row.CreatedAt, err = time.Parse(time.RFC3339Nano, read.CreatedAt); err != nil {
 		t.Fatal(err)
 	}
 	// Provenance, not only agreement: the time is a reading the injected

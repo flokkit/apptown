@@ -50,7 +50,6 @@ type daemonFlags struct {
 	workerCert                                       string
 	workerKey                                        string
 	workerCA                                         string
-	checkWorker                                      string
 	consoleAddr                                      string
 	consoleURL                                       string
 	inferenceAddr                                    string
@@ -59,7 +58,6 @@ type daemonFlags struct {
 	publicHost                                       string
 	restoreGateImage                                 string
 	mirrorBase                                       string
-	features                                         string
 	otlpEndpoint                                     string
 	otlpProtocol                                     string
 	errorsURL                                        string
@@ -69,7 +67,6 @@ type daemonFlags struct {
 	noPrivateDocker                                  bool
 	noLocalDocker                                    bool
 	localTLS                                         bool
-	drainLocalDocker                                 bool
 	resetPassword                                    string
 	privateDocker                                    bool
 	tierDomains                                      []string
@@ -92,8 +89,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.BoolVar(&o.privateDocker, "private-docker", false, "admit agent steps that declare private Docker (docker: true) on the worker: the operator's opt-in; every such attempt records whether the worker's measured profile is qualified (Running AppTown: Workers and running without local Docker)")
 	fs.BoolVar(&o.noPrivateDocker, "no-private-docker", false, "refuse agent steps that declare private Docker (docker: true), and give change consoles none")
 	fs.BoolVar(&o.localTLS, "local-tls", false, "serve -addr over HTTPS from a certificate authority AppTown makes in <data>/local-tls, which vouches only for localhost names; plain HTTP there is sent to https. For the desktop trial: a server has its own TLS in front. Needs an https:// -public-host")
-	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url); an AppTown that last ran with its own Docker first needs -drain-local-docker (Running AppTown: Workers and running without local Docker)")
-	fs.BoolVar(&o.drainLocalDocker, "drain-local-docker", false, "one-shot, with this AppTown's normal settings and its own Docker, while it is not serving: repair interrupted work, check that no local work or execution container is left, record the drain that admits a start with -no-local-docker, and exit (non-zero, naming what is left, otherwise)")
+	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url) (Running AppTown: Workers and running without local Docker)")
 	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names apptown-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
 	fs.BoolVar(&o.verifyOnly, "verify-only", false, "start normally, which upgrades the database and the data directory to this build, then serve reads only: no recovery, no workers, no scheduler (the verification startup after a move or restore; not a dry run of an upgrade)")
 	fs.StringVar(&o.authMode, "auth", "internal", "sign-in: internal (AppTown's own accounts) | trusted-header (an authenticating proxy) | open (no sign-in: a caller names itself; loopback only unless -open-on-network) (Running AppTown)")
@@ -115,17 +111,15 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.inferenceAddr, "inference-addr", "", "private inference listener (empty = disabled; never route through public ingress)")
 	fs.StringVar(&o.inferenceURL, "inference-url", "", "inference origin reachable from worker containers")
 	fs.StringVar(&o.inferenceNetworks, "inference-networks", "", "explicit comma-separated worker CIDRs allowed to use inference; direct connection peers only")
-	fs.StringVar(&o.restoreGateImage, "restore-gate-image", "", "AppTown's access gate image, pinned by digest (<ref>@sha256:...), built with `make gate-image` and pushed where the deployment targets can read it: restored copies of production run behind it; empty = this AppTown makes no restored copy (it also needs a -public-host origin for the gate to redeem tickets at)")
+	fs.StringVar(&o.restoreGateImage, "restore-gate-image", "", "AppTown's access gate image, pinned by digest (<ref>@sha256:...), built with `make gate-image` and pushed where the deployment targets can read it: restore tests of production run behind it; empty = this AppTown makes no restore test (it also needs a -public-host origin, where the gate checks AppTown's own test ticket)")
 	fs.StringVar(&o.publicHost, "public-host", "", "AppTown's public hostname, or its whole origin (https://forge.example) to state how people reach it: only a stated origin is shown as a link in the guides (empty = localhost only); app ports stay on this host's loopback, so without a -tier-domain preview and deployment addresses answer on this host only, and the UI says so")
 	fs.StringVar(&o.mirrorBase, "mirror-base", "", "base URL of the artifact mirror the registry presets point at, e.g. https://nexus.example.com (env APPTOWN_MIRROR_BASE; empty = no suggestion)")
-	fs.StringVar(&o.features, "features", "", "comma-separated feature flags to turn on for this AppTown (env APPTOWN_FEATURES), e.g. dev-tools")
 	fs.StringVar(&o.otlpEndpoint, "otlp-endpoint", "", "OTLP receiver for apptownd's own traces, metrics and logs, host:port or URL (env APPTOWN_OTLP_ENDPOINT); empty sends nothing")
 	fs.StringVar(&o.otlpProtocol, "otlp-protocol", "", "OTLP transport: http (default) or grpc (env APPTOWN_OTLP_PROTOCOL)")
 	fs.StringVar(&o.workerURL, "worker-url", "", "a apptown-worker to run script tasks on, https://host:port; AppTown then runs no script on this host (Running AppTown: Workers and running without local Docker)")
 	fs.StringVar(&o.workerCert, "worker-cert", "", "this installation's client certificate for the worker (PEM)")
 	fs.StringVar(&o.workerKey, "worker-key", "", "the key for -worker-cert (PEM)")
 	fs.StringVar(&o.workerCA, "worker-ca", "", "the CA that signed the worker's certificate (PEM)")
-	fs.StringVar(&o.checkWorker, "check-worker", "", "a apptown-worker started with -role check, https://host:port, reached with -worker-cert, -worker-key and -worker-ca: checks run there and nowhere else, and gates accept only its results")
 	fs.StringVar(&o.errorsURL, "errors-url", "", "the org's error tracker the error-reporting preset points at (env APPTOWN_ERRORS_URL)")
 	fs.Func("tier-domain", "hostname routing for a tier: preview=<domain>, main=<domain> or eval=<domain> (repeatable, or comma-separated; e.g. preview=preview.example.com — change-97.preview.example.com then routes to that change's preview; eval copies are served on the eval domain and nowhere else)", func(v string) error {
 		for _, d := range strings.Split(v, ",") {
@@ -162,14 +156,8 @@ func main() {
 	}
 	cfg := o.apptownConfig(dataDir)
 	cfg.LocalTLS = chatTLS
-	workerAt := func(url string) *apptown.WorkerConfig {
-		return &apptown.WorkerConfig{URL: url, Cert: o.workerCert, Key: o.workerKey, CA: o.workerCA}
-	}
-	if o.workerURL != "" || o.checkWorker == "" && (o.workerCert != "" || o.workerKey != "" || o.workerCA != "") {
-		cfg.Worker = workerAt(o.workerURL)
-	}
-	if o.checkWorker != "" {
-		cfg.CheckWorker = workerAt(o.checkWorker)
+	if o.workerURL != "" || o.workerCert != "" || o.workerKey != "" || o.workerCA != "" {
+		cfg.Worker = &apptown.WorkerConfig{URL: o.workerURL, Cert: o.workerCert, Key: o.workerKey, CA: o.workerCA}
 	}
 	if o.consoleAddr != "" {
 		_, port, err := net.SplitHostPort(o.consoleAddr)
@@ -201,8 +189,8 @@ func main() {
 	if flag.NArg() != 0 {
 		log.Fatalf("unexpected argument %q", flag.Arg(0))
 	}
-	if o.resetPassword != "" && (o.verifyOnly || o.drainLocalDocker) {
-		log.Fatal("-reset-password changes an account; it cannot run with -verify-only or -drain-local-docker")
+	if o.resetPassword != "" && o.verifyOnly {
+		log.Fatal("-reset-password changes an account; it cannot run with -verify-only")
 	}
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		log.Fatal(err)
@@ -260,20 +248,13 @@ func main() {
 	}
 
 	// What an AppTown before 1.0 left on this machine's Docker that is
-	// disposable goes before any work is recovered or drained, a folder's
+	// disposable goes before any work is recovered, a folder's
 	// writers checked or a chat started (docker.SweepBefore1); one that
 	// cannot be removed stops the start. REMOVE-AFTER resource move.
 	if !o.verifyOnly && !o.noLocalDocker {
 		if err := docker.SweepBefore1(ctx, docker.Scope{Client: docker.CLI{}}); err != nil {
 			log.Fatal(err)
 		}
-	}
-	if o.drainLocalDocker {
-		if err := app.RecoverInterruptedWork(ctx); err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("drained: no local work or execution container is left on this AppTown's Docker; it may now start with -no-local-docker")
-		return
 	}
 	if o.verifyOnly {
 		// The verification startup (design/subsystems/postgres-migration.md §3.7):
@@ -296,8 +277,7 @@ func main() {
 	if err := recoverThenStart(func() error { return app.RecoverInterruptedWork(ctx) }, func() error {
 		app.InstallPanicReporter()
 		app.ReapPreviewOrphans(ctx)
-		// Publishing stock does not change a project's recorded adoption,
-		// except the one-time private-Docker migration, recorded as a revision.
+		// Publishing stock does not change a project's recorded adoption.
 		app.SyncStock(ctx)
 		app.RecoverAdoptions() // settle outstanding intents before verifying adoptions
 		app.VerifyAdoptions(ctx)
@@ -386,17 +366,17 @@ func (o *daemonFlags) apptownConfig(dataDir string) apptown.Config {
 	return apptown.Config{
 		HostScripts: o.hostScripts,
 		TaskLimits:  execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
-		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, DrainLocalDocker: o.drainLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
+		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
 		AgentConcurrency: o.agentConc, AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, AgentModel: o.agentModel, PortainerEnvironment: o.portainerEnv,
-		Features: o.features, AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
+		AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
 		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,
 		Defaults:     apptown.InstanceDefaults{MirrorBase: o.mirrorBase, ErrorsURL: o.errorsURL},
 		OTLPEndpoint: o.otlpEndpoint, OTLPProtocol: o.otlpProtocol}
 }
 
 // holdsDatabase says whether this start takes the one-daemon lock: every
-// mode that may repair or settle work (serving, -verify-only,
-// -drain-local-docker) does; only -reset-password,
+// mode that may repair or settle work (serving, -verify-only) does; only
+// -reset-password,
 // documented to run beside a serving AppTown, does not.
 func (o *daemonFlags) holdsDatabase() bool { return o.resetPassword == "" }
 

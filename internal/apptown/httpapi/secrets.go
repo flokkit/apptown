@@ -86,9 +86,6 @@ func (h Secrets) secretDeployments(ctx context.Context, projectID ids.ID) ([]str
 
 // The secrets routes' responses. Values appear only in SecretRevealed.
 type (
-	SecretStoreList struct {
-		Stores []secret.StoreInfo `json:"stores"`
-	}
 	// ProjectSecrets is a project's secret declaration and, per deployment,
 	// each secret's binding status. The declaration fields appear only once
 	// the app declares its secrets.
@@ -168,10 +165,6 @@ func nonNilStrings(xs []string) []string {
 		return []string{}
 	}
 	return xs
-}
-
-func (h Secrets) SecretStores(w http.ResponseWriter, r *http.Request) {
-	WriteJSON(w, 200, SecretStoreList{Stores: h.secrets.Stores()})
 }
 
 // handleProjectSecrets: GET /api/v1/projects/{slug}/secrets

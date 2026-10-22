@@ -28,9 +28,6 @@ SELECT * FROM principals WHERE id = $1;
 -- name: RemovePrincipal :execrows
 UPDATE principals SET removed_at = sqlc.arg(at)::timestamptz WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
--- name: RenamePrincipal :execrows
-UPDATE principals SET name = sqlc.arg(name) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
-
 -- name: UsersAll :many
 SELECT * FROM users ORDER BY username;
 
@@ -87,9 +84,6 @@ RETURNING *;
 SELECT username FROM sessions_named
 UNION SELECT username FROM delegations_named
 UNION SELECT username FROM auth_tokens_named WHERE last_used IS NOT NULL;
-
--- name: RenameUser :one
-UPDATE users SET username = sqlc.arg(new_name) WHERE username = sqlc.arg(old_name) RETURNING principal_id;
 
 -- name: DeleteUser :execrows
 DELETE FROM users WHERE username = $1;
@@ -305,10 +299,6 @@ UPDATE grants SET expires_at = CAST(sqlc.arg(expires_at)::text AS timestamptz) W
 -- that name's removal.
 -- name: LiveGrantIDsOfUser :many
 SELECT id FROM grants_named WHERE subject_type = 'user' AND subject = $1 AND revoked_at IS NULL ORDER BY id;
-
--- name: RevokeProjectGrants :execrows
-UPDATE grants SET revoked_at = sqlc.arg(at)::timestamptz
-WHERE subject_type = sqlc.arg(subject_type) AND subject = CASE WHEN sqlc.arg(subject_type)::text = 'user' THEN COALESCE((SELECT u.principal_id FROM users u WHERE u.username = sqlc.arg(subject)::text)::text, '') ELSE sqlc.arg(subject)::text END AND scope_type = 'project' AND scope_id = sqlc.arg(scope_id) AND revoked_at IS NULL;
 
 -- name: SeedTransparentReads :exec
 INSERT INTO grants (id, subject_type, subject, role_name, capability,

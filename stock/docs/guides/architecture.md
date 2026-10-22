@@ -434,7 +434,7 @@ platform; words the agent reads are content.
 
 Everything that spends tokens names its demand with a **slot** (a
 purpose: `default`, `plan`, `implement`, `review`, `security`, `fast`,
-`chat`, `worker`, `scout`, `draft`). A project declares a **profile**
+`chat`, `worker`, `scout`). A project declares a **profile**
 (how demanding its work is: `standard`, `high`).
 The instance maps (slot × profile) → model in one visible matrix;
 resolution is a lookup, never arithmetic, and the receipt records which

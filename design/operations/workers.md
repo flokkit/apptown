@@ -37,8 +37,7 @@ chats (see the sections on each below):
 - Every check runs on the worker: `apptown check`, guidance checks (shell and
   tool checks, exec-image checks), source and image scans with their
   baselines, a landing's history scan, and the landing's compile check. The
-  images they need are built or pulled there. `cmd/apptown-check`, a local
-  operator tool, stays on AppTown's host.
+  images they need are built or pulled there.
 - Every preview of a change or a run boots on the worker, and runtime checks
   probe it there. A preview of a release whose images were published to a
   registry boots there too, by digest; only a release recorded before then
@@ -80,11 +79,6 @@ releases recorded before releases were built on the worker, and intranet
 releases of a landing that has no published images. A landing's release
 images are built on the worker (see "Releases built on the worker"). A worker
 does not make AppTown safe to run untrusted projects.
-
-Workflow drafting ("AI assist") stays on AppTown and runs no container or
-process: it is one tool-free model call, made in-process through AppTown's
-gateway as the person who asked, on the `draft` slot's model. A worker
-isolates project code, and there is none here to isolate.
 
 ## How work travels
 
@@ -256,8 +250,7 @@ does not manage a CA.
 it serves; `GET /v1/version` answers the same. AppTown states the protocol
 it speaks on every request (`X-AppTown-Worker-Protocol`), and the worker refuses
 one outside its range with `426` and a sentence naming both and what to install,
-before any route runs; a check worker's refusal reaches AppTown's startup
-error with those words. A request stating none (an AppTown built before
+before any route runs. A request stating none (an AppTown built before
 protocols were stated) is served. A worker keeps serving the previous
 protocol for one release, so install the worker first, then AppTown
 (`internal/worker/protocol.go`). Serving a protocol means keeping its
@@ -450,51 +443,13 @@ the Go its `mise.toml` declares) is named from the agent build context (`Config.
 `deploy/apptown-agent`, relative to AppTown's working directory), as for
 chats.
 
-### A check worker
+### Where a result ran
 
-
-A worker has a role, `-role agent` (the default: chats, tasks, previews,
-checks) or `-role check` (checks and nothing else). The role is written to
-`<state>/role`, with the time, the first time the worker starts on an empty
-state directory, and is never changed:
-- a start with another role on the same state directory is refused;
-- a state directory from before roles, without `role`, is an agent worker's,
-  and can never become a check worker's. A check worker is provisioned
-  fresh, with a new state directory, from an image that never ran agents.
-
-A check worker answers `GET /v1/role`, `POST /v1/checks` and
-`POST /v1/check-images`, and refuses everything else (403) with its reason.
-An agent worker writes `<state>/privileged-agents` durably before it creates
-or starts any privileged container (a chat's private Docker); if the write
-fails, nothing is created. The mark is a guard, not an attestation.
-
-Configure AppTown with `-check-worker https://check.example:8443` (or
-`APPTOWN_CHECK_WORKER`), reached with the same `-worker-cert`, `-worker-key`
-and `-worker-ca`. At start AppTown records, under `<data>/workers-used`,
-when it first used each worker address, reads the check worker's role, and
-refuses to start unless it is `check`, fixed before that first use. Checks,
-tests steps and base reruns then run on the check worker.
-
-Every check result (tests, scan and guidance steps) records its placement:
-`{"worker": <address>, "role": "check"}` for the check worker (the role it
-reported at AppTown's start), `{"worker": <address>}` for the worker,
-shared with agents (its role is not read), or `{"local": true}` for the
-AppTown's own host. Script results record where scripts ran, the worker or
-AppTown's host, never the check worker. Results recorded before this have
-none. With a check worker, a gate counts a passing check result only if the
-check worker produced it; any other is "not independently checked; rerun
-required" when advancing or landing, and in the run's activity, and running
-the stage's checks again fixes it. A script's result counts for no gate:
-scripts run beside agents, so they are not independent checks; express such
-a check as a tests or guidance step. Running the stage's checks again
-cannot change that, so the run's activity says to revise the workflow and
-start a new run, and the change page offers no rerun for it. The earlier
-result is kept as it is.
-Approvals and a person's override keep their own meaning. Without a check
-worker, gates behave as before: the worker's checks and scripts satisfy
-them, and their placement shows they ran on a machine shared with agents.
-A check worker is an option, not a requirement for private Docker
-on a worker.
+Every check result (tests, scan and guidance steps) and every script result
+records its placement: `{"worker": <address>}` for the worker, shared with
+agents, or `{"local": true}` for AppTown's own host. Results recorded before
+this have none. Gates take a passing result wherever it ran; the placement
+shows when it ran on a machine shared with agents.
 
 ### Previews on the worker
 
@@ -843,11 +798,10 @@ installation's worker and its Docker. What it is:
   not separate one session (or project) of the same installation from
   another against a compromised privileged container: they share the
   worker's kernel and Docker;
-- checks on the same worker are labelled. Without a check worker, tests
-  steps and checks run on the same worker and still satisfy gates; their
-  placement (`{"worker": <address>}`) shows they ran on a machine shared
-  with privileged agents. A check worker is optional; with one, gates
-  accept only its results (see "A check worker").
+- checks on the same worker are labelled. Tests steps and checks run on the
+  same worker as agents and satisfy gates; their placement
+  (`{"worker": <address>}`) shows they ran on a machine shared with
+  privileged agents (see "Where a result ran").
 
 What it is not:
 - **egress is not contained.** The agent, its daemon, nested containers
@@ -876,7 +830,7 @@ shares the worker's tool cache (see "The tool cache"). A chat on the worker
 has its own cache, removed with it. No registry credential is sent; pulls from a private
 registry fail with the registry's own error.
 
-**Profile facts, and a changed profile.** An agent worker measures, when it
+**Profile facts, and a changed profile.** A worker measures, when it
 starts, and reports at `GET /v1/profile`:
 - OS and architecture, kernel, cgroup mode, Docker server version and
   storage driver, from `docker info`;
@@ -884,8 +838,7 @@ starts, and reports at `GET /v1/profile`:
   Docker's local id of it (`dindImageId`), its repository digest
   (`dindDigest`, from the registry it was pulled from) and the version its
   own `dockerd --version` reports (`dindVersion`), never read from the tag;
-- whether a privileged container runs (one is run, after the
-  privileged-agents mark is written);
+- whether a privileged container runs (one is run);
 - the `-exclusive` declaration, and "egress: not contained".
 
 A fact that cannot be measured is `unknown`, with the reason. AppTown
@@ -1013,8 +966,6 @@ be a plain process on a droplet or a container with no Docker socket.
 **What runs where.**
 - On the worker: script, tests, agent and review steps; checks and scans;
   change and run previews; change chats.
-- In AppTown's own process: drafting, as a model call through the
-  inference owner.
 - On the worker, in private Docker: a landing's release images, built
   once from the landed commit (see [releases built on the
   worker](#releases-built-on-the-worker)).
@@ -1091,8 +1042,8 @@ Refused in the mode, each with its reason:
 - for a release recorded before releases were built on the worker (its
   images are daemon image IDs, not digests): promotion to a target other
   than the one its images live on, App Platform, Portainer and release
-  previews; and, for one recorded before releases named their target,
-  manual promotion and missing-container recovery;
+  previews; and, for one that does not say which Docker host its images
+  are on, manual promotion and missing-container recovery;
 - project chats, continuations and `placement=apptown`.
 
 **Read views.** Whatever would have asked AppTown's own Docker says
@@ -1119,7 +1070,7 @@ The main tier, `get_project` and the conformance runtime check observe a
 
 On an AppTown with a worker, in the no-local-Docker mode or not, **every
 landing builds its release on the worker**. The deploy step fixes the
-commit and runs one `release-build` task on an agent worker in private
+commit and runs one `release-build` task on the worker in private
 Docker (`buildx`, one platform, no provenance or SBOM attestations). The
 task carries the commit and the generated build files only: no secrets,
 no environment, no registry credential and no build cache. A `FROM`
@@ -1142,8 +1093,7 @@ DOCR copies carry a commit-based tag. Images are named `part-<part>` and
 `init-<step>`.
 
 **What it needs.**
-- AppTown started with `-private-docker`, and an agent worker. A check
-  worker does not build releases.
+- AppTown started with `-private-docker`, and a worker.
 - A container registry for each shipping project: the one
   container-registry connector AppTown has, which a project's first
   landing attaches when it has none, or a registry attached to the project
@@ -1268,29 +1218,12 @@ rules (same-target reuse in the mode, a rebuild outside it).
 
 ### Switching an AppTown to no local Docker
 
-An AppTown started with `-no-local-docker` has no Docker of its own to look at,
-so it cannot tell whether work it once ran there is still writing. Switching
-into the mode is therefore a separate step, taken by AppTown while it still
-has its Docker.
-Stop AppTown, then run it once with its normal settings plus
-`-drain-local-docker` (or `APPTOWN_DRAIN_LOCAL_DOCKER=true`), without
-`-no-local-docker`. It serves nothing: it repairs interrupted work as a
-normal start does, refuses while its records hold local work (a local task
-not settled and released, a chat on AppTown not ended, a cleanup not
-done), then asks its Docker for containers carrying AppTown's execution
-labels (agents, reviews, scripts, tasks, chats, previews, services) and
-refuses while any is listed, naming them. Release containers of deployments
-on the built-in target and the built-in database are not counted. When
-nothing is left it records the drain and exits 0; then start AppTown with
-`-no-local-docker`. An AppTown that cannot ask its Docker records nothing.
-
-A start in the mode is admitted after a drain, after an earlier start in the
-mode (a restart with a merge or deploy step running is fine), or on a
-fresh database. An upgraded database always needs a drain, even one that
-ran nothing: the upgrade cannot tell. Any start without the mode needs a new drain
-before the next start in it. The drain sees containers only: an agent run as
-a host process (`-agent-executor local`) is not observed, so stop such a
-AppTown's agents before draining.
+An AppTown started with `-no-local-docker` has no Docker of its own to look
+at, so it cannot tell whether work it once ran there is still writing.
+Before the first start in the mode: stop AppTown, end its chats and let its
+runs finish or abandon them, check that no container with an `apptown.class`
+label other than `env` or `infra` is left on its Docker, then start it with
+`-no-local-docker`.
 
 ## What the tests show, and what is not verified
 
@@ -1307,8 +1240,7 @@ Integration tests (`-tags integration`) run real Docker through the worker:
   controlled model behind AppTown's gateway, settled once across an AppTown
   rebuild, with a settled attempt's token then refused
   (`TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse`);
-- an agent step with private Docker and a catalog service, then a tests step,
-  with and without a check worker
+- an agent step with private Docker and a catalog service, then a tests step
   (`TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker`);
 - a chat on the worker from opening to its end, across AppTown and worker
   restarts (`TestIntegrationAChatOnAWorkerFromOpeningToItsEnd`), and a chat

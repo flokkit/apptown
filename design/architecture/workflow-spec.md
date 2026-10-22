@@ -69,14 +69,13 @@ see §2.3.
 on:
   manual: {}                                   # runnable from the UI, CLI, MCP
   schedule: { cron: "0 3 * * *", skipIfActive: true }
-  webhook: {}                                  # POST with the instance's webhook token
 ```
 
 Built: `manual` (always), `schedule` (30-second resolution, no backfill of
 missed fires, `skipIfActive` default true, fires attributed to
-`apptown-system`), `webhook` (the JSON payload becomes the change body). A
-scheduled or webhook fire opens a change and its run so it is visible
-where people look. Not built: `scm` triggers (no SCM adapter) and
+`apptown-system`). A scheduled fire opens a change and its run so it is
+visible where people look. Not built: webhooks, `scm` triggers (no SCM
+adapter) and
 `workflow` as a trigger kind — calling a workflow from another is a
 *step* (§2.5 `workflow/call`), not a trigger.
 

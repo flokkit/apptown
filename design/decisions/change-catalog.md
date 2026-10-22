@@ -1,9 +1,10 @@
 # The change catalog
 
 A workflow cans the process of a change: how it is made and verified. A
-**catalog change** cans the change itself: a named, versioned definition of a
-specific piece of work and how to know it was done right. The catalog holds
-them; `apptown catalog` lists them and `apptown apply <catalog-change> -p <project>
+**catalog change** cans the change itself: a named definition of a specific
+piece of work and how to know it was done right. The release ships them in
+`stock/catalog.yaml`, like its workflows, packs and policies; `apptown
+catalog` lists them and `apptown apply <catalog-change> -p <project>
 [--param k=v]` runs one on a project.
 
 ## Terms
@@ -15,8 +16,8 @@ them; `apptown catalog` lists them and `apptown apply <catalog-change> -p <proje
 - **Change**: one instance, a catalog change or a free-text task applied to one
   repository, with its ordinary branch, gates, evidence and landing.
 
-The name claims only what is true by construction: written down, versioned and
-findable. It does not promise low risk or a verdict; the receipts do that. In
+The name claims only what is true by construction: written down, shipped with
+a release and findable. It does not promise low risk or a verdict; the receipts do that. In
 governance terms this is a standard change: pre-authorised, repeatable, with
 lighter ceremony per instance.
 
@@ -36,16 +37,11 @@ reconcile, build and report, not to make a mechanical edit by hand.
 
 ## Rules
 
-- **Draft, then catalogued.** A definition enters the catalog only after it has
-  run for real against at least one repository with its gates passed. Until
-  then it is a draft: invocable by hand, not listed. Promotion
-  (`apptown catalog promote`) is an administrator's act that names the
-  evaluation runs as evidence. An agent may prepare drafts and run evaluations;
-  it never promotes.
-- **The definition's model pin wins over project model slots.** The pinned
-  model is part of the versioned definition, so the evaluations that admitted
-  it were earned on that model; changing the pin is a new version that needs
-  evaluating again.
+- **The catalog is a file of the release.** An entry is added or changed by
+  changing `stock/catalog.yaml`, which is reviewed like any other change to
+  AppTown. A run started from an entry records the entry's name and the
+  release it came from, which together name the exact definition.
+- **The definition's model pin wins over project model slots.**
 - **Parameters can tune effort, never verification.** An invocation may set the
   prompt parameters and a short list of workflow knobs (`timeoutMinutes`,
   thinking level). Gates are not on that list.

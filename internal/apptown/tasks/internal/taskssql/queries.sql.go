@@ -142,57 +142,6 @@ func (q *Queries) ConfirmWorkspaceRelease(ctx context.Context, arg ConfirmWorksp
 	return result.RowsAffected()
 }
 
-const heldAttempts = `-- name: HeldAttempts :many
-SELECT operation, project_id, run_id, step_id, attempt, backend, container, digest, source, admission, deadline, invocation, workspace, provider_id, desired, observed, exit_code, timed_out, detail, created_at, updated_at, released_at, workspace_released_at FROM task_attempts WHERE observed<>'settled' OR released_at IS NULL ORDER BY created_at, operation
-`
-
-func (q *Queries) HeldAttempts(ctx context.Context) ([]TaskAttempt, error) {
-	rows, err := q.db.QueryContext(ctx, heldAttempts)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []TaskAttempt
-	for rows.Next() {
-		var i TaskAttempt
-		if err := rows.Scan(
-			&i.Operation,
-			&i.ProjectID,
-			&i.RunID,
-			&i.StepID,
-			&i.Attempt,
-			&i.Backend,
-			&i.Container,
-			&i.Digest,
-			&i.Source,
-			&i.Admission,
-			&i.Deadline,
-			&i.Invocation,
-			&i.Workspace,
-			&i.ProviderID,
-			&i.Desired,
-			&i.Observed,
-			&i.ExitCode,
-			&i.TimedOut,
-			&i.Detail,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleasedAt,
-			&i.WorkspaceReleasedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const holdAttempt = `-- name: HoldAttempt :execrows
 UPDATE task_attempts SET observed='held', detail=$1, updated_at=$2
 WHERE operation=$3 AND observed IN ('reserved','started','collecting','unknown')

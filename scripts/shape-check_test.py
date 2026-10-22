@@ -715,5 +715,24 @@ class FacadeAllowanceTest(unittest.TestCase):
         self.assertEqual([f for f in self.shape.FACADES if f not in self.shape.ALLOWED], [])
 
 
+class StandaloneTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location("shape", Path(__file__).with_name("shape-check.py"))
+        cls.shape = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.shape)
+
+    def test_a_pattern_that_matches_nothing_fails(self):
+        v = self.shape.standalone_violations("./internal/gone/...", {"apptown"}, (1, "", "go: matched no packages"))
+        self.assertEqual(len(v), 1)
+        self.assertEqual(self.shape.standalone_violations("./internal/gone/...", {"apptown"}, (0, "", "")),
+                         ["./internal/gone/... does not build: matches no package"])
+
+    def test_a_banned_link_through_a_dependency_is_named(self):
+        listing = (0, "fmt\ngithub.com/flokkit/apptown/internal/check\ngithub.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql\n", "")
+        self.assertEqual(self.shape.standalone_violations("./internal/check/...", {"workflow"}, listing),
+                         ["./internal/check/... links internal/workflow"])
+
+
 if __name__ == "__main__":
     unittest.main()

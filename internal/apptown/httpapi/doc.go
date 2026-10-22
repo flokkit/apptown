@@ -45,7 +45,7 @@
 // transports never turn an ID slice into authority. Fleet uses one bulk
 // Adoption observation alongside shared pack metadata. Visibility enumeration
 // and caller-filtered route admission do not record authorization receipts.
-// Atomic settings edits call projectlifecycle.UpdateSettings, wow.EditCatalog or
+// Atomic settings edits call projectlifecycle.UpdateSettings or
 // wow.EditBlock once, rather than coordinating independent persistence commands.
 // Groups consume
 // the access.Caller installed by assembly; attribution headers are not identity.

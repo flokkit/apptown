@@ -12,34 +12,6 @@ import (
 	"time"
 )
 
-const incompleteKeys = `-- name: IncompleteKeys :many
-SELECT (args->>'key')::text AS key FROM river_job
-WHERE args->>'operation'=$1::text AND state <> 'completed'
-`
-
-func (q *Queries) IncompleteKeys(ctx context.Context, dollar_1 string) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, incompleteKeys, dollar_1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var key string
-		if err := rows.Scan(&key); err != nil {
-			return nil, err
-		}
-		items = append(items, key)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const interruptedOperationsForUpdate = `-- name: InterruptedOperationsForUpdate :many
 SELECT id,args,attempt,
  COALESCE(attempted_by[array_length(attempted_by,1)],'')::text AS previous_client,

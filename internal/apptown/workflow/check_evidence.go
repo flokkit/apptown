@@ -100,8 +100,7 @@ func (c *CheckReceipt) UnmarshalJSON(data []byte) error {
 }
 
 // CheckEvidence is the part of a check step's evidence that owners other
-// than its runner judge: the acceptance carry, the check-worker gate, the
-// reviewer and the web. It is stored flat beside the runner's own keys, which
+// than its runner judge: the acceptance carry, the reviewer and the web. It is stored flat beside the runner's own keys, which
 // stay the runner's (the extension). Placement is workflow's own protected
 // write (placed); a runner never sets it.
 type CheckEvidence struct {
@@ -196,6 +195,9 @@ func readingOf(raw json.RawMessage) *CheckReading {
 // carriesCheckEvidence: the step types whose evidence holds check facts —
 // the check executor's kinds, and scripts, which record their placement.
 func carriesCheckEvidence(kind string) bool { return kind == "script" || isCheckKind(kind) }
+
+// checkKinds are the step types that run on the check executor.
+var checkKinds = []string{"tests", "scan", "guidance/conformance"}
 
 // isCheckKind reports whether steps of this type run on the check executor
 // and so carry check evidence.

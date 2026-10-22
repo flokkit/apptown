@@ -178,28 +178,6 @@ func ReadDisk(ctx context.Context, dk Scope, dataRoot string) (diskspace.Space, 
 	return diskspace.ParseDF(out)
 }
 
-// ReadMark says whether the daemon reads mark in the file at path, from
-// inside a throwaway container of DiskImage with no network that mounts it
-// read only: a caller that wrote path itself learns whether the daemon sees
-// its filesystem. --mount, not -v: a daemon that has no such path refuses
-// the mount, rather than creating an empty folder there. The answer is the
-// command's whole output, which may carry the CLI's own lines (an image
-// pull, a notice) beside the file's, so mark is looked for as a line of it,
-// as ParseDF reads its own line among others.
-func ReadMark(ctx context.Context, dk Scope, path, mark string) (bool, error) {
-	out, err := dk.Run(ctx, "run", "--rm", "--network", "none", "--read-only",
-		"--mount", "type=bind,src="+path+",dst=/m,readonly", DiskImage, "cat", "/m")
-	if err != nil {
-		return false, fmt.Errorf("reading the mark: %v: %s", err, strings.TrimSpace(string(out)))
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		if strings.TrimSpace(line) == mark {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // AdmitDisk refuses new disk-heavy work on a daemon (a boot's pulls, builds
 // and new containers) while its data folder's filesystem has less than its
 // floor free, or cannot be read (diskspace.Admit). It reads the disk now:

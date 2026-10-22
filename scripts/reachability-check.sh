@@ -9,7 +9,7 @@ DEADCODE="${DEADCODE:-$(go env GOPATH)/bin/deadcode}"
 [ -x "$DEADCODE" ] || { echo "deadcode not installed: run make tools"; exit 1; }
 BASE=scripts/reachability-baseline
 OUT=$(mktemp)
-"$DEADCODE" ./cmd/apptownd ./cmd/apptown-deploy ./cmd/apptown-console ./cmd/apptown-check ./cmd/apptown-worker ./cmd/apptown-gate > "$OUT" 2>/dev/null || true
+"$DEADCODE" ./cmd/apptownd ./cmd/apptown-worker ./cmd/apptown-gate > "$OUT" 2>/dev/null || true
 COUNT=$(grep -c "unreachable func" "$OUT" || true)
 if [ "$1" = "--tighten" ] || [ ! -f "$BASE" ]; then
   echo "$COUNT" > "$BASE"; echo "reachability baseline written: $COUNT"

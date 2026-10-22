@@ -3,17 +3,12 @@ package apptown
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -108,43 +103,5 @@ func TestConsoleRoutesIsolateProjectMessagesAndAttachments(t *testing.T) {
 	w = authzCall(h, "owner", "POST", base+"/interrupt", `{}`)
 	if w.Code != 200 || !agent.Interrupted(session.ID) {
 		t.Fatalf("owner interrupt: %d %s", w.Code, w.Body.String())
-	}
-}
-
-// A console owner's disabled account must be refused by drafting as it is
-// by a direct request through the inference gateway.
-func TestDraftingRefusesADisabledConsoleOwner(t *testing.T) {
-	t.Parallel()
-	var calls atomic.Int32
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls.Add(1)
-		fmt.Fprint(w, `{"content":[{"type":"text","text":"invalid workflow"}]}`)
-	}))
-	defer upstream.Close()
-	a := testApp(t, Config{AuthMode: "internal", ConsoleCLI: fixtureCLI(t), InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
-	if _, err := a.Integrations.Bindings.Save(context.Background(), "native", "model", "pi", mustJSON(map[string]any{"models": []string{"drafter"}, "providerDef": map[string]any{"baseUrl": upstream.URL, "api": "anthropic-messages", "apiKey": "fixture"}}), "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.Models.Set(context.Background(), "draft", ids.Nil, "", "standard", "native/drafter", "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	testAdministrator(t, a, "admin")
-	m := consoleMetaFor("disabled-owner", ids.Nil, ids.Nil)
-	m.Actor, m.Token = "alice", "review-console-token"
-	a.Console.Restore(m)
-	disabled := true
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "alice", Disabled: &disabled}, access.Principal{Kind: "user", Name: "admin", Via: "session"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.inference.Complete(context.Background(), m.Token, "native/drafter", "s", "p"); err == nil || calls.Load() != 0 {
-		t.Fatalf("direct inference should refuse: %v calls %d", err, calls.Load())
-	}
-	r := httptest.NewRequest("POST", "/api/v1/assist/workflow", strings.NewReader(`{"description":"draft a workflow"}`))
-	r.Header.Set("Content-Type", "application/json")
-	r.Header.Set("X-AppTown-Session-Token", m.Token)
-	w := httptest.NewRecorder()
-	a.Handler().ServeHTTP(w, r)
-	if calls.Load() != 0 {
-		t.Fatalf("disabled console owner made %d upstream drafting calls: HTTP %d %s", calls.Load(), w.Code, w.Body.String())
 	}
 }

@@ -142,7 +142,7 @@ func (s *Service) Snapshot(ctx context.Context, id ids.ID, view ReadView) (*RunS
 	if err != nil {
 		return nil, err
 	}
-	out, err := (queries{s.db, s.wait, s.placement, s.stepAttempts.automatic}).scopedSnapshot(ctx, id, view, project)
+	out, err := (queries{s.db, s.wait, s.stepAttempts.automatic}).scopedSnapshot(ctx, id, view, project)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (s *Service) Runs(ctx context.Context, in RunQuery) ([]RunSummary, error) {
 	if len(in.projects) == 0 {
 		return []RunSummary{}, nil
 	}
-	return (queries{db: s.db, wait: s.wait, placement: s.placement}).list(ctx, in)
+	return (queries{db: s.db, wait: s.wait}).list(ctx, in)
 }
 
 func (s *Service) Activities(ctx context.Context, idList []ids.ID) (map[ids.ID]Activity, error) {
@@ -249,7 +249,7 @@ func (s *Service) Activities(ctx context.Context, idList []ids.ID) (map[ids.ID]A
 			return nil, sql.ErrNoRows
 		}
 	}
-	graph, err := readWorkflowActivity(ctx, s.db, idList, s.placement)
+	graph, err := readWorkflowActivity(ctx, s.db, idList)
 	if err != nil {
 		return nil, err
 	}

@@ -140,9 +140,9 @@ send nothing while it has them. This matters most when a rehearsal runs
 on the app's own host, beside the running app (see [Deployment backups](/docs/guides/deployment-backups),
 "Where restore rehearsals run").
 
-A restored copy (a restore test, or a copy people open to look at production
-as it was) follows the same rule with the same `rehearsal` profile. It runs on
-production's own platform, so remember that its data can still hold
+A restore test, which starts production's release from a backup on
+production's own platform, follows the same rule with the same `rehearsal`
+profile. Remember that its data can still hold
 credentials and webhook addresses of its own: withholding secrets reduces
 what it can do outside, it does not stop it.
 

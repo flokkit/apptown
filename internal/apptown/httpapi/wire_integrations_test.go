@@ -28,7 +28,6 @@ func init() {
 		wiregen.Named{Name: "ServicesProposed", Value: ServicesProposed{}},
 		wiregen.Named{Name: "SecretNameList", Value: SecretNameList{}},
 		wiregen.Named{Name: "InstanceSecret", Value: InstanceSecret{}},
-		wiregen.Named{Name: "SecretStoreList", Value: SecretStoreList{}},
 		wiregen.Named{Name: "ProjectSecrets", Value: ProjectSecrets{}},
 		wiregen.Named{Name: "SecretProfileSet", Value: SecretProfileSet{}},
 		wiregen.Named{Name: "SecretBound", Value: SecretBound{}},

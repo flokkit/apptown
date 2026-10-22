@@ -79,9 +79,9 @@ func (h ConsoleInvocation) ConsoleInvoke(w http.ResponseWriter, r *http.Request)
 		var run *workflow.Run
 		ctx := conversation.Context(r.Context(), s)
 		if in.Catalog != "" {
-			c, cerr := h.ways.CatalogChange(ctx, in.Catalog)
+			c, cerr := h.ways.CatalogChange(in.Catalog)
 			if cerr != nil {
-				WriteError(w, 404, "%v", cerr)
+				writeCatalogFault(w, cerr)
 				return
 			}
 			item, run, err = h.actions.ApplyCatalog(ctx, &p, c, in.Params, s.Actor)

@@ -6,7 +6,6 @@ import (
 
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
 	"github.com/flokkit/apptown/internal/apptown/inference"
-	"github.com/flokkit/apptown/internal/apptown/workflowexec"
 )
 
 func inferenceIdentityFor(a *App) inference.Identity {
@@ -47,7 +46,4 @@ func piHomeFor(a *App) piharness.Preparer {
 		home = home.WithLabels(workerAgentLabels(a.life, a.cfg.worker))
 	}
 	return home
-}
-func draftAgentFor(a *App) workflowexec.Drafter {
-	return workflowexec.NewDrafter(&a.runTok, a.modelSelection, a.inference.Complete)
 }

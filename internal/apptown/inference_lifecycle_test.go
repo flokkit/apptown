@@ -124,17 +124,23 @@ func TestInferenceLifecycleAndTrustedReceipts(t *testing.T) {
 	if _, err := inferenceIdentityFor(a).AuthenticateStep(ctx, token); err == nil {
 		t.Fatal("a settled attempt kept API access")
 	}
-	assist := a.runTok.Mint(identity.Workload{Kind: "assist", Actor: "alice", Principal: testPrincipalOf(t, a.DB, "alice")})
-	defer a.runTok.Revoke(assist)
-	if _, err := inferenceIdentityFor(a).AuthenticateStep(ctx, assist); err == nil {
-		t.Fatal("draft inference grant acquired run API authority")
+	// A chat alice opened has inference until her account is disabled.
+	m := consoleMetaFor("alice-chat", run.ProjectID, ids.Nil)
+	m.Actor, m.Token = "alice", "alice-chat-secret"
+	m.Labels[conversation.OpenerLabel] = testPrincipalOf(t, a.DB, "alice").String()
+	chat := a.Console.Restore(m).Token
+	if _, err := inferenceIdentityFor(a).AuthenticateStep(ctx, chat); err == nil {
+		t.Fatal("a chat's token acquired run API authority")
+	}
+	if _, err := inferenceIdentityFor(a).Authenticate(ctx, chat); err != nil {
+		t.Fatalf("alice's chat was refused before her account was disabled: %v", err)
 	}
 	testAdministrator(t, a, "admin")
 	disabled := true
 	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "alice", Disabled: &disabled}, access.Principal{Kind: "user", Name: "admin", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := inferenceIdentityFor(a).Authenticate(ctx, assist); err == nil {
+	if _, err := inferenceIdentityFor(a).Authenticate(ctx, chat); err == nil {
 		t.Fatal("disabled user still has inference")
 	}
 }
@@ -179,7 +185,7 @@ func TestInferenceChatSurvivesIdleAndRecoveryButNotEnd(t *testing.T) {
 func TestInferenceRecoveryPreservesCompletedReceiptsAndConversationFiles(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
-	who := usage.Request{Kind: "assist", Actor: "alice", Provider: "paid", Model: "model"}
+	who := usage.Request{Kind: "console", Actor: "alice", Provider: "paid", Model: "model"}
 	openID, err := a.Usage.Requests.Begin(context.Background(), who)
 	if err != nil {
 		t.Fatal(err)

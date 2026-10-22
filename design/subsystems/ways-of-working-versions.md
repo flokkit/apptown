@@ -87,7 +87,6 @@ required evidence and adoption history remain separate records.
 - [internal/apptown/wow/pack_recommendation.go](../../internal/apptown/wow/pack_recommendation.go)
 - [internal/apptown/conformance/what_if.go](../../internal/apptown/conformance/what_if.go)
 - [internal/apptown/verification/what_if.go](../../internal/apptown/verification/what_if.go)
-- [internal/apptown/wow/catalog_edit.go](../../internal/apptown/wow/catalog_edit.go)
 - [internal/apptown/adoption/service.go](../../internal/apptown/adoption/service.go)
 - [internal/apptown/adoption/adopt_transaction.go](../../internal/apptown/adoption/adopt_transaction.go)
 - [internal/apptown/adoption/target.go](../../internal/apptown/adoption/target.go)

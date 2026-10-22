@@ -50,18 +50,3 @@ SELECT EXISTS(SELECT 1 FROM workflow_continuations WHERE source_run_id=$1);
 
 -- name: WasRunSentBack :one
 SELECT EXISTS(SELECT 1 FROM workflow_continuations WHERE source_run_id=$1);
-
--- name: ExportContinuations :many
-SELECT to_jsonb(w)::text FROM workflow_continuations w JOIN runs r ON r.id = w.source_run_id
-WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) AND w.run_id IN (SELECT r.id FROM runs r WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped'))) ORDER BY w.source_run_id;
-
--- name: ExportLandings :many
-SELECT to_jsonb(w)::text FROM workflow_landings w JOIN runs r ON r.id = w.work_run_id
-WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) AND (w.landing_run_id IS NULL OR w.landing_run_id IN (SELECT r.id FROM runs r WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')))) ORDER BY w.work_run_id;
-
--- The commits moving landings merged into the default branch: a read of
--- SCM's merge record, never a write. Each must be on the bundled default
--- branch.
--- name: ExportLandedCommits :many
-SELECT m.result FROM run_merges m JOIN runs r ON r.id = m.run_id
-WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) AND m.state = 'merged' AND m.result <> '' ORDER BY m.result;

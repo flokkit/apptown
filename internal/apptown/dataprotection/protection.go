@@ -563,7 +563,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 			// A restore may put another volume's copy into the one volume of
 			// its role; that is not a copy of this volume. Only a copy with
 			// no volume recorded is evidence by role.
-			if v := copyVolume(sets[k].Items[i]); v != "" && v != plan[j].Volume {
+			if v := sets[k].Items[i].Volume; v != "" && v != plan[j].Volume {
 				continue
 			}
 			copyFor[k][j] = &sets[k].Items[i]

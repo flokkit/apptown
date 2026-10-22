@@ -177,15 +177,6 @@ func (s *Service) Users(ctx context.Context) ([]Account, error) {
 	return s.directory.Users(ctx)
 }
 
-// Rename gives a person's account a new name. The person is the same
-// principal: their grants, memberships, credentials and authorship stay
-// theirs; receipts written before keep the name they were written with.
-func (s *Service) Rename(ctx context.Context, from, to string, pr access.Principal) error {
-	return s.administer(ctx, pr, access.CapIdentityUsers, func(tx *database.Tx, now time.Time) error {
-		return renameIn(ctx, tx, from, to, pr.Name, now)
-	})
-}
-
 func (s *Service) RemoveName(ctx context.Context, name string, pr access.Principal) error {
 	return s.administer(ctx, pr, access.CapIdentityUsers, func(tx *database.Tx, now time.Time) error {
 		return removeNameIn(ctx, tx, name, pr.Name, now)
@@ -208,10 +199,6 @@ func (s *Service) DeleteGroup(ctx context.Context, name string, pr access.Princi
 	return s.administer(ctx, pr, access.CapIdentityGroups, func(tx *database.Tx, at time.Time) error {
 		return deleteGroupIn(ctx, tx, name, pr.Name, at)
 	})
-}
-
-func (s *Service) RevokeProjectRoles(ctx context.Context, subjectType, subject string, projectID ids.ID, by string) (int64, error) {
-	return s.directory.RevokeProjectRoles(ctx, subjectType, subject, projectID, by)
 }
 
 // ActiveGrants reads current authority through the caller's context.

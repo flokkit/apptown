@@ -150,8 +150,6 @@ func summarizeWorkflow(yamlSrc string) *workflowSummary {
 	}
 	if doc.Spec.On.Schedule != nil {
 		sum.Trigger = "also runs on a schedule (" + doc.Spec.On.Schedule.Cron + ")"
-	} else if doc.Spec.On.Webhook != nil {
-		sum.Trigger = "can be fired by a webhook"
 	}
 	var flow []string
 	for _, st := range doc.Spec.Stages {

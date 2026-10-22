@@ -5,13 +5,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/execution"
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 type reviewS2Run func(context.Context, string, execution.Request) execution.Outcome

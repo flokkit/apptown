@@ -10,15 +10,12 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
-	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/complaint"
-	"github.com/flokkit/apptown/internal/apptown/dbschema"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
-	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/stock"
 )
@@ -49,7 +46,6 @@ func appRoutes(a *App) []routeSpec {
 	var workspaces httpapi.Workspaces
 	var auditLog httpapi.AuditLog
 	var deployments httpapi.Deployments
-	var features httpapi.Features
 	var health httpapi.Health
 	var configuration httpapi.Configuration
 	var secrets httpapi.Secrets
@@ -58,7 +54,6 @@ func appRoutes(a *App) []routeSpec {
 	var invites httpapi.Invites
 	var complaints httpapi.Complaints
 	var workflowLibrary httpapi.WorkflowLibrary
-	var catalogDeclarations httpapi.CatalogDeclarations
 	var adoptionCommands httpapi.AdoptionCommands
 	var fleet httpapi.Fleet
 	var packPull httpapi.PackPull
@@ -77,7 +72,6 @@ func appRoutes(a *App) []routeSpec {
 	var projectServices httpapi.ProjectServices
 	var consoleMessages httpapi.ConsoleMessages
 	var chatHistory httpapi.ChatHistory
-	var projectExport httpapi.ProjectExport
 	var complaintIntake httpapi.ComplaintIntake
 	var consoleSessions httpapi.ConsoleSessions
 	var consoleEnd httpapi.ConsoleEnd
@@ -88,7 +82,6 @@ func appRoutes(a *App) []routeSpec {
 	var changePreviews httpapi.ChangePreviews
 	var projectDeletion httpapi.ProjectDeletion
 	var projectViews httpapi.ProjectViews
-	var projectTransfer httpapi.ProjectTransfer
 	var projectSettings httpapi.ProjectSettings
 	var releaseHistory httpapi.ReleaseHistory
 	var modelSlots httpapi.ModelSlots
@@ -104,7 +97,6 @@ func appRoutes(a *App) []routeSpec {
 	var projectAdoption httpapi.ProjectAdoption
 	var changeNarratives httpapi.ChangeNarratives
 	var changePreviewState httpapi.ChangePreviewState
-	var webhook httpapi.Webhook
 	var landingRestart httpapi.LandingRestart
 	var backups httpapi.Backups
 	var dataProtection httpapi.DataProtection
@@ -115,15 +107,12 @@ func appRoutes(a *App) []routeSpec {
 	var disks httpapi.Disks
 	var setupStatus httpapi.SetupStatus
 	var setupModel httpapi.SetupModel
-	var extensions httpapi.Extensions
 	var browserErrors httpapi.BrowserErrors
 	var approvalBriefs httpapi.ApprovalBriefs
 	var packAssistance httpapi.PackAssistance
-	var simpleChanges httpapi.SimpleChanges
 	var conformanceReviews httpapi.ConformanceReviews
 	var whatIfs httpapi.WhatIfs
 	var evalRoutes httpapi.Evals
-	var conformanceMaintenance httpapi.ConformanceMaintenance
 	var remediationChanges httpapi.RemediationChanges
 	var scmRemotes httpapi.SCMRemotes
 	var connectors httpapi.Connectors
@@ -133,7 +122,6 @@ func appRoutes(a *App) []routeSpec {
 	var repositoryViews httpapi.RepositoryViews
 	var tiers httpapi.Tiers
 	var findings httpapi.Findings
-	var workflowDrafts httpapi.WorkflowDrafts
 	var runs httpapi.Runs
 	var members httpapi.Members
 	var creation httpapi.ProjectCreation
@@ -146,7 +134,6 @@ func appRoutes(a *App) []routeSpec {
 		former = a.DB
 		docs = docsForRoutes(a.cfg.browserSession().PublicOrigin)
 		runs = httpapi.NewRuns(a.Work, a.operations)
-		workflowDrafts = httpapi.NewWorkflowDrafts(a.Projects, a.Ways, a.Adoption, draftAgentFor(a))
 		findings = httpapi.NewFindings(a.Projects, a.Work, a.conformance, a.DB, a.cfg.dataDir)
 		tiers = httpapi.NewTiers(a.Projects, a.Integrations, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir)
 		repositoryViews = httpapi.NewRepositoryViews(a.Projects, a.Access, a.DB, a.cfg.dataDir, repositoryedit.NewIntegrity(&a.repositories, a.processRunner, repositoryPublisher{secrets: a.Secrets, db: a.DB, dataDir: a.cfg.dataDir, now: a.cfg.clock.Now}, a.DB, a.cfg.dataDir, a.cfg.clock.Now), a.Deployment.Releases)
@@ -156,15 +143,12 @@ func appRoutes(a *App) []routeSpec {
 		connectors = httpapi.NewConnectors(a.Integrations, a.Access, a.Deployment, connectorHealthFor(a), a.DB, agentenv.RegistryFormats(), integration.CatalogDefaults{MirrorBase: a.cfg.defaults.MirrorBase, ErrorsURL: a.cfg.defaults.ErrorsURL})
 		scmRemotes = httpapi.NewSCMRemotes(a.Projects, repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}, a.Secrets, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		remediationChanges = httpapi.NewRemediationChanges(a.Projects, a.Access, a.conformance, a.Work, a.lifecycle, a.DB, a.authModeName(), a.cfg.clock.Now)
-		conformanceMaintenance = httpapi.NewConformanceMaintenance(a.Fixes, a.Feature("dev-tools"))
 		conformanceReviews = httpapi.NewConformanceReviews(a.Projects, fleetReviewsFor(a))
 		whatIfs = httpapi.NewWhatIfs(a.Projects, a.conformance, fleetReviewsFor(a), a.Ways)
 		evalRoutes = httpapi.NewEvals(a.Evals)
-		simpleChanges = httpapi.NewSimpleChanges(a.Projects, a.Access, a.Work, a.Adoption, a.modelSelection, a.inference, a.DB, a.authModeName())
 		packAssistance = httpapi.NewPackAssistance(a.Ways, a.modelSelection, a.inference)
 		approvalBriefs = httpapi.NewApprovalBriefs(a.Work, a.modelSelection, a.inference, a.DB, a.cfg.dataDir)
 		browserErrors = httpapi.NewBrowserErrors(selfErrorsFor(a))
-		extensions = httpapi.NewExtensions(a.Projects, a.Adoption, a.Access, &a.docker, extensionCatalogForHTTP(), a.cfg.agentImage, a.authModeName(), a.DB, a.cfg.clock.Now)
 		setupModel = httpapi.NewSetupModel(a.Secrets, a.Integrations, a.Models, a.DB, a.cfg.clock.Now)
 		setupStatus = httpapi.NewSetupStatus(&a.setup, a.modelSelection, a.authModeName() == "open" && a.cfg.listenAddr != "" && !loopbackAddr(a.cfg.listenAddr))
 		infrastructure = httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Volume, deployment.IntranetTargetName, a.cfg.clock.Now)
@@ -175,7 +159,6 @@ func appRoutes(a *App) []routeSpec {
 		dataProtection = httpapi.NewDataProtection(a.Projects, a.DataProtection)
 		ops = httpapi.NewOperations(a.operations)
 		landingRestart = httpapi.NewLandingRestart(a.Projects, a.Work, a.lifecycle, a.DB, a.cfg.clock.Now)
-		webhook = httpapi.NewWebhook(a.Projects, a.Secrets, a.lifecycle, a.changeActions, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		changePreviewState = httpapi.NewChangePreviewState(a.DB, changePreviewViewsFor(a))
 		changeNarratives = httpapi.NewChangeNarratives(a.Work, a.Projects, a.Access, a.narratives, a.authModeName())
 		projectAdoption = httpapi.NewProjectAdoption(a.Projects, a.Adoption, a.Ways, a.DB)
@@ -191,13 +174,8 @@ func appRoutes(a *App) []routeSpec {
 		modelSlots = httpapi.NewModelSlots(a.Models, a.Projects, a.Ways, a.Access, a.DB, a.cfg.clock.Now)
 		releaseHistory = httpapi.NewReleaseHistory(a.Projects, a.Work, a.Deployment, a.DB)
 		projectSettings = httpapi.NewProjectSettings(a.Projects, a.Access, a.lifecycle)
-		projectTransfer = httpapi.NewProjectTransfer(a.Projects, a.Access, a.Work, a.Deployment, a.DB, a.cfg.clock.Now)
 		projectViews = httpapi.NewProjectViews(a.Projects, a.Work, a.ADRs, a.Deployment, a.processRunner, a.branches, a.cfg.dataDir)
 		projectDeletion = httpapi.NewProjectDeletion(a.Projects, a.Access, a.deletion)
-		projectExport = httpapi.NewProjectExport(a.Projects, a.Access, a.lifecycle, projectlifecycle.ExportSources{
-			Chats: a.Console, Deployments: a.Deployment.Deployments, Releases: a.Deployment.Releases,
-			ReportFile: repositoryedit.ReportArtifact,
-		}, buildRevision(), dbschema.LatestVersion(), a.cfg.clock.Now)
 		changePreviews = httpapi.NewChangePreviews(a.Preview, a.DB, a.cfg.clock.Now)
 		consolePreview = httpapi.NewConsolePreview(a.Console, a.Preview, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
 		consoleChanges = httpapi.NewConsoleChanges(a.Console, a.Work, a.changeActions, a.DB)
@@ -224,7 +202,6 @@ func appRoutes(a *App) []routeSpec {
 		packPull = httpapi.NewPackPull(a.Adoption, a.Projects, a.Access, a.Ways, a.DB, a.cfg.clock.Now)
 		fleet = httpapi.NewFleet(a.Adoption, a.Ways)
 		adoptionCommands = httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle)
-		catalogDeclarations = httpapi.NewCatalogDeclarations(a.Ways, a.Access)
 		workflowLibrary = httpapi.NewWorkflowLibrary(a.Ways, a.Access, a.Projects)
 		complaints = httpapi.NewComplaints(a.Complaints, a.Access, complaint.AgentInstructions, complaint.ConsoleRules)
 		accounts = httpapi.NewAccounts(a.Access)
@@ -232,7 +209,6 @@ func appRoutes(a *App) []routeSpec {
 		authorization = httpapi.NewAuthorization(a.Access, a.Projects)
 		secrets = httpapi.NewSecrets(a.Secrets, a.Integrations, a.Projects, a.Deployment, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		configuration = httpapi.NewConfiguration(a.Dependencies)
-		features = httpapi.NewFeatures(a.enabledFeatures())
 		health = httpapi.NewHealth(a.DB.Pool().PingContext)
 		deployments = httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects)
 		auditLog = httpapi.NewAuditLog(a.DB, a.Projects)
@@ -264,17 +240,14 @@ func appRoutes(a *App) []routeSpec {
 
 		filteredRoute("GET /api/v1/projects", projectViews.ListProjects, "projectViews.ListProjects"),
 		ownerRoute("POST /api/v1/projects", creation.Create, "creation.Create"), // decides inside: project:create at the owning group
-		ownerRoute("POST /api/v1/projects/{slug}/owner", projectTransfer.TransferProject, "projectTransfer.TransferProject"),
 		requireRoute("GET /api/v1/projects/{slug}", projectViews.GetProject, access.CapProjectRead, "project-slug"),
 		adminRoute("PATCH /api/v1/projects/{slug}", projectSettings.PatchProject),
 		requireRoute("PUT /api/v1/projects/{slug}/approval-policy", projectPolicies.ProjectApprovalPolicy, access.CapProjectConfigure, "project-slug"),
 		ownerRoute("DELETE /api/v1/projects/{slug}", projectDeletion.DeleteProject, "projectlifecycle.Request"),
 		requireRoute("GET /api/v1/projects/{slug}/deletion", projectDeletion.ProjectDeletionStatus, access.CapProjectRead, "project-slug"),
 		ownerRoute("POST /api/v1/projects/{slug}/deletion/cancel", projectDeletion.CancelProjectDeletion, "projectlifecycle.Cancel"),
-		ownerRoute("POST /api/v1/projects/{slug}/deletion/revoke", projectDeletion.RevokeProjectDeletion, "projectlifecycle.RevokeBinding"),
 		ownerRoute("POST /api/v1/projects/{slug}/restore", projectDeletion.RestoreProject, "projectlifecycle.Restore"),
 		ownerRoute("POST /api/v1/projects/{slug}/purge", projectDeletion.PurgeProject, "projectlifecycle.PurgeNow"),
-		adminRoute("GET /api/v1/projects/{slug}/export", projectExport.Export),
 		adminRoute("GET /api/v1/project-cleanups", projectDeletion.ProjectCleanups),
 		adminRoute("POST /api/v1/project-cleanups/{id}/retry", projectDeletion.RetryProjectCleanup),
 		requireRoute("POST /api/v1/projects/{slug}/repo", repositorySetup.Initialize, access.CapProjectImport, "project-slug"),
@@ -290,7 +263,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("PUT /api/v1/projects/{slug}/lanes", workflowSelection.PutProjectLane, access.CapProjectWorkflow, "project-slug"),
 		publicRoute("GET /api/v1/system-workflows", systemWorkflows.SystemWorkflows, "systemWorkflows.SystemWorkflows: shared system workflow declarations"),
 		requireRoute("PUT /api/v1/system-workflows", systemWorkflows.PutSystemWorkflow, access.CapExecWorkflows, "instance"),
-		requireRoute("GET /api/v1/projects/{slug}/workflows/{name}/history", workflowLibrary.WorkflowHistory, access.CapProjectRead, "project-slug"),
 		ownerRoute("GET /api/v1/conformance", conformance.Conformance, "conformance.Conformance"),
 		adminRoute("POST /api/v1/conformance/review", conformanceReviews.RunConformanceReview),
 		ownerRoute("POST /api/v1/conformance/what-if", whatIfs.StartWhatIf, "conformance.BeginWhatIf: the authority of a fleet review"),
@@ -306,12 +278,10 @@ func appRoutes(a *App) []routeSpec {
 		ownerRoute("DELETE /api/v1/evals/{id}", byNumber(func(ctx context.Context, n int64) (ids.ID, error) { return a.Evals.IDByNumber(ctx, n) }, evalRoutes.DeleteEval), "evals.Delete: an administrator, or the starter still a standards manager"),
 		ownerRoute("GET /api/v1/conformance/reviews/{id}", byNumber(func(ctx context.Context, n int64) (ids.ID, error) { return a.conformance.ReviewIDByNumber(ctx, n) }, conformance.ReviewDetail), "conformance.ReviewDetail"),
 		ownerRoute("GET /api/v1/conformance/reviews", conformance.ListReviews, "conformance.ListReviews"),
-		adminRoute("POST /api/v1/conformance/history/clear", conformanceMaintenance.ClearConformanceHistory),
 		publicRoute("GET /tls/ask", func(w http.ResponseWriter, r *http.Request) {
 			certificateNames{publicHost: a.cfg.publicHost, tiers: a.cfg.tierDomains, rules: a.vhostRules, projects: a.Projects, deployment: a.Deployment}.ask(w, r)
 		}, "certificateNames.ask: a TLS proxy on this machine asks whether a name may have a certificate; answers loopback callers only, names bounded by AppTown's records; outside /api/ so no sign-in mode stands in front of it, as /healthz"),
 		publicRoute("GET /healthz", health.Healthz, "httpapi.Health: up or down for a load balancer, nothing else"),
-		publicRoute("GET /api/v1/features", features.List, "features.List: shared instance feature flags"),
 		publicRoute("GET /api/v1/errors/browser", browserErrors.BrowserErrors, "browserErrors.BrowserErrors: shared browser diagnostic configuration"),
 		memberRoute("GET /api/v1/conformance/projects/{slug}/history", conformance.ProjectConformanceHistory, "project-slug"),
 		ownerRoute("POST /api/v1/conformance/verdicts/{id}/confirm", conformance.ConfirmVerdict, "conformance.ConfirmVerdict"),
@@ -332,7 +302,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/workflows/library", workflowLibrary.PutLibraryWorkflow, access.CapExecWorkflows, "instance"),
 		requireRoute("DELETE /api/v1/workflows/library/{name}", workflowLibrary.DeleteLibraryWorkflow, access.CapExecWorkflows, "instance"),
 		publicRoute("GET /api/v1/packs", packs.Packs, "packs.Packs: shared published pack library"),
-		publicRoute("POST /api/v1/packs/pick", packAssistance.PickPack, "packAssistance.PickPack: authenticated pack-selection assistance"),
 		publicRoute("POST /api/v1/packs/interview", packAssistance.PackInterview, "packAssistance.PackInterview: authenticated pack-selection assistance"),
 		requireRoute("POST /api/v1/packs", packLibrary.SavePack, access.CapStandardsPacks, "instance"),
 		requireRoute("DELETE /api/v1/packs/{name}", packLibrary.DeletePack, access.CapStandardsPacks, "instance"),
@@ -354,7 +323,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/manifest", projectManifest.ProjectManifest, access.CapProjectRead, "project-slug"),
 		publicRoute("GET /api/v1/workflows/schema", workflowCatalog.WorkflowSchema, "workflowCatalog.WorkflowSchema: shared workflow format schema"),
 		publicRoute("POST /api/v1/workflows/validate", workflowCatalog.ValidateWorkflow, "workflowCatalog.ValidateWorkflow: validate caller-supplied workflow without publication"),
-		publicRoute("POST /api/v1/assist/workflow", workflowDrafts.AssistWorkflow, "workflowDrafts.AssistWorkflow: authenticated drafting assistance without publication"),
 		requireRoute("GET /api/v1/projects/{slug}/board", changes.Board, access.CapProjectRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/deployments", deploymentListing.Deployments, access.CapDeploymentRead, "project-slug"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments", deployments.CreateDeployment, "deployments.CreateDeployment"),
@@ -379,9 +347,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/projects/{slug}/deployments/{name}/drills", dataProtection.Drill, access.CapDeploymentRestore, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/deployments/{name}/rehearsals", dataProtection.Rehearse, access.CapDeploymentRestore, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/deployments/{name}/restored-copies", dataProtection.StartRestoredCopy, access.CapDeploymentRestore, "project-slug"),
-		requireRoute("POST /api/v1/projects/{slug}/restored-copies/{id}/extend", dataProtection.ExtendRestoredCopy, access.CapDeploymentRestore, "project-slug"),
 		requireRoute("DELETE /api/v1/projects/{slug}/restored-copies/{id}", dataProtection.TakeDownRestoredCopy, access.CapDeploymentRestore, "project-slug"),
-		requireRoute("POST /api/v1/projects/{slug}/restored-copies/{id}/open", dataProtection.OpenRestoredCopy, access.CapDeploymentOpenRestored, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/final-copies", dataProtection.FinalCopies, access.CapDeploymentRead, "project-slug"),
 		ownerRoute("GET /api/v1/operations/{id}", byNumber(func(ctx context.Context, n int64) (ids.ID, error) { return a.operations.IDByNumber(ctx, n) }, ops.Get), "operations.Get"),
 		ownerRoute("POST /api/v1/operations/{id}/cancel", byNumber(func(ctx context.Context, n int64) (ids.ID, error) { return a.operations.IDByNumber(ctx, n) }, ops.Cancel), "operations.Cancel"),
@@ -426,9 +392,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/changes", changes.ListChanges, access.CapChangeList, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/members", members.ListMembers, access.CapProjectRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/members", members.Add, access.CapProjectManageMembers, "project-slug"),
-		requireRoute("DELETE /api/v1/projects/{slug}/members/{grantee}", members.Remove, access.CapProjectManageMembers, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/changes", changeAdmission.CreateChange, access.CapChangeCreate, "project-slug"),
-		requireRoute("POST /api/v1/projects/{slug}/changes/simple", simpleChanges.CreateChangeSimple, access.CapChangeCreate, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/releases", releaseHistory.ListReleases, access.CapReleaseRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/release", releaseOperations.LANRelease, access.CapReleasePromote, "release"),
 		requireRoute("GET /api/v1/projects/{slug}/release/plan", releaseOperations.ReleasePlan, access.CapReleaseRead, "project-slug"),
@@ -483,7 +447,6 @@ func appRoutes(a *App) []routeSpec {
 		filteredRoute("GET /api/v1/policy-library/{name}/usage", policyLibrary.PolicyUsage, "policyLibrary.PolicyUsage"),
 		requireRoute("GET /api/v1/runs/{id}/workspace/{path...}", workspaces.Workspace, access.CapEvidenceRead, "run"),
 		requireRoute("GET /api/v1/audit", auditLog.AuditLog, access.CapAuditRead, "instance"),
-		protocolRoute("POST /api/v1/hooks/{slug}/{workflow}", webhook.Webhook, "webhook.Webhook: credential verification"),
 		requireRoute("POST /api/v1/runs/{id}/advance", runs.Advance, access.CapRunOperate, "run"),
 		requireRoute("POST /api/v1/runs/{id}/recheck", runs.RecheckStage, access.CapRunOperate, "run"),
 		requireRoute("POST /api/v1/runs/{id}/artifacts", runs.AddArtifact, access.CapEvidenceAttach, "run"),
@@ -498,11 +461,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/steps/{id}/override", runs.Override, access.CapChangeOverride, "step"),
 
 		publicRoute("GET /api/v1/catalog", catalogChanges.CatalogList, "catalogChanges.CatalogList: shared published change templates"),
-		requireRoute("POST /api/v1/catalog", catalogDeclarations.CatalogCreate, access.CapStandardsCatalog, "instance"),
-		publicRoute("GET /api/v1/catalog/{name...}", catalogDeclarations.CatalogGet, "catalogDeclarations.CatalogGet: shared change-template definition"),
-		requireRoute("PATCH /api/v1/catalog/{name...}", catalogDeclarations.CatalogPatch, access.CapStandardsCatalog, "instance"),
+		publicRoute("GET /api/v1/catalog/{name...}", catalogChanges.CatalogGet, "catalogChanges.CatalogGet: shared change-template definition"),
 		ownerRoute("POST /api/v1/catalog-apply/{name...}", catalogChanges.CatalogApply, "catalogChanges.CatalogApply"),
-		requireRoute("POST /api/v1/catalog-promote/{name...}", catalogDeclarations.CatalogPromote, access.CapStandardsCatalog, "instance"),
 		publicRoute("GET /api/v1/guidance/blocks", guidanceBlocks.ListBlocks, "guidanceBlocks.ListBlocks: shared guidance library"),
 		ownerRoute("GET /api/v1/guidance/generated", guidance.GeneratedGuidance, "guidance.GeneratedGuidance"), // a named project needs project:read
 		publicRoute("GET /api/v1/me", a.handleMe, "a.handleMe: current verified caller self-view"),
@@ -513,7 +473,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/users", accounts.ListUsers, access.CapInstitutionRead, "instance"),
 		requireRoute("POST /api/v1/users", accounts.SaveUser, access.CapIdentityUsers, "instance"),
 		requireRoute("DELETE /api/v1/users/{name}", accounts.DeleteUser, access.CapIdentityUsers, "instance"),
-		requireRoute("POST /api/v1/users/{name}/rename", accounts.RenameUser, access.CapIdentityUsers, "instance"),
 		requireRoute("POST /api/v1/invites", invites.CreateInvite, access.CapIdentityUsers, "instance"),
 		requireRoute("POST /api/v1/password-links", invites.CreatePasswordLink, access.CapIdentityUsers, "instance"),
 		requireRoute("GET /api/v1/invites", invites.ListInvites, access.CapIdentityUsers, "instance"),
@@ -556,8 +515,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("PATCH /api/v1/guidance/blocks/{id}", guidanceBlocks.PatchBlock, access.CapStandardsGuidance, "instance"),
 		requireRoute("GET /api/v1/projects/{slug}/services", projectServices.ListProjectServices, access.CapProjectRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/services", projectServices.SetProjectServices, access.CapProjectServices, "project-slug"),
-		requireRoute("GET /api/v1/projects/{slug}/extensions", extensions.ListExtensions, access.CapProjectRead, "project-slug"),
-		requireRoute("POST /api/v1/projects/{slug}/extensions", extensions.SetExtension, access.CapProjectExtensions, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/guidance", guidance.GetProjectGuidance, access.CapProjectRead, "project-slug"),
 		// Secrets: declarations and bindings, never values.
 		requireRoute("GET /api/v1/projects/{slug}/secrets", secrets.ProjectSecrets, access.CapSecretRead, "project-slug"),
@@ -565,7 +522,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("PUT /api/v1/projects/{slug}/secrets/{deployment}/{name}", secrets.BindSecret, access.CapSecretBind, "project-slug"),
 		requireRoute("DELETE /api/v1/projects/{slug}/secrets/{deployment}/{name}", secrets.UnbindSecret, access.CapSecretBind, "project-slug"),
 		adminRoute("GET /api/v1/projects/{slug}/secrets/{deployment}/{name}/reveal", secrets.RevealSecret),
-		publicRoute("GET /api/v1/secrets/stores", secrets.SecretStores, "secrets.SecretStores: shared store discovery, not secret values"),
 		requireRoute("PUT /api/v1/projects/{slug}/guidance", guidance.PutProjectGuidance, access.CapProjectGuidance, "project-slug"),
 
 		requireRoute("GET /api/v1/integrations", integrationListing.ListIntegrations, access.CapProjectRead, "instance"),
@@ -633,12 +589,4 @@ func docsForRoutes(origin string) httpapi.Docs {
 		docs = append(docs, httpapi.DocIntegration{Capability: c.Capability, Provider: c.Provider, Title: c.Title})
 	}
 	return httpapi.NewDocs(docs, origin)
-}
-
-func extensionCatalogForHTTP() []httpapi.CuratedExtension {
-	out := make([]httpapi.CuratedExtension, 0, len(piharness.Extensions()))
-	for _, e := range piharness.Extensions() {
-		out = append(out, httpapi.CuratedExtension{Name: e.Name, Package: e.Package, Label: e.Label, Description: e.Desc})
-	}
-	return out
 }

@@ -269,7 +269,10 @@ func TestARevokedBindingStopsThePurge(t *testing.T) {
 	if _, err := w.d.PurgePass(context.Background(), "", nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.d.RevokeBinding(context.Background(), w.project, "keep it after all"); err != nil {
+	l := w.lifecycle()
+	if err := w.db.InTx(context.Background(), func(tx *database.Tx) error {
+		return identity.RevokeBindingIn(context.Background(), tx, l.BindingID, "boss", "keep it after all", w.clock)
+	}); err != nil {
 		t.Fatal(err)
 	}
 	st, err := w.d.Status(context.Background(), w.project)

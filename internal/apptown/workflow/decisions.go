@@ -109,18 +109,6 @@ func (s *Service) MayApprove(ctx context.Context, id ids.ID) error {
 	return err
 }
 
-// MayCreateAndRun answers whether the caller could open a Change in the
-// project and start its first Run, by the checks CreateAndRun makes, without
-// doing either. A caller about to spend on choosing what to create asks
-// first. It records no authorization receipt.
-func (s *Service) MayCreateAndRun(ctx context.Context, projectID ids.ID) error {
-	if _, err := s.requireActor(ctx, operationPermission{Action: actionCreateChange, ProjectID: projectID}); err != nil {
-		return err
-	}
-	_, err := s.requireActor(ctx, operationPermission{Action: actionStartRun, ProjectID: projectID})
-	return err
-}
-
 func (s *Service) Override(ctx context.Context, in Override) (*Step, error) {
 	if strings.TrimSpace(in.Reason) == "" {
 		return nil, errOverrideReason

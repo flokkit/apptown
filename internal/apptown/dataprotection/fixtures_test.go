@@ -236,19 +236,6 @@ func bySubject(subject string) func(audit.Entry) bool {
 	return func(e audit.Entry) bool { return e.Subject == subject }
 }
 
-func newestReceiptAt(t *testing.T, db *database.DB, kind string) time.Time {
-	t.Helper()
-	got, err := audit.Recent(context.Background(), db, audit.Filter{KindPrefix: kind})
-	if err != nil || len(got) == 0 {
-		t.Fatalf("%s receipts: %+v %v", kind, got, err)
-	}
-	at, err := time.Parse(time.RFC3339Nano, got[0].At)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return at
-}
-
 type recoveryJobFollowups struct{}
 
 func (recoveryJobFollowups) EnqueueIn(ctx context.Context, tx *database.Tx, r jobs.Request) error {

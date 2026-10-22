@@ -154,13 +154,8 @@ spec:
 	check(1, "review")
 	publish(strings.Replace(source, "name: review", "name: finish", 1), 2)
 	check(2, "finish")
-	w := authzCall(h, "owner", "GET", "/api/v1/projects/game/workflows/custom-review/history", "")
-	var history []struct {
-		Version int
-		YAML    string
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &history); err != nil || w.Code != 200 || len(history) != 2 || history[0].Version != 2 || history[1].Version != 1 || !strings.Contains(history[1].YAML, "name: review") {
-		t.Fatalf("history: %d %s %v", w.Code, w.Body.String(), err)
+	if v, yaml, err := a.Ways.WorkflowVersion(t.Context(), "custom-review", 1); err != nil || v != 1 || !strings.Contains(yaml, "name: review") {
+		t.Fatalf("the first version is kept: %d %v", v, err)
 	}
 	if w := authzCall(h, "outsider", "DELETE", "/api/v1/workflows/library/custom-review", ""); w.Code != 403 {
 		t.Fatalf("foreign delete: %d", w.Code)
@@ -181,8 +176,5 @@ spec:
 	// about the store to answer it.
 	if w := authzCall(h, "boss", "DELETE", "/api/v1/workflows/library/custom-review", ""); w.Code != 404 {
 		t.Fatalf("deleting twice: %d %s", w.Code, w.Body.String())
-	}
-	if w := authzCall(h, "owner", "GET", "/api/v1/projects/game/workflows/custom-review/history", ""); w.Code != 404 {
-		t.Fatalf("history of a deleted workflow: %d %s", w.Code, w.Body.String())
 	}
 }

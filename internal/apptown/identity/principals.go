@@ -4,14 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity/internal/accesssql"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -38,32 +35,6 @@ func recordPersonIn(ctx context.Context, tx *database.Tx, name string, at time.T
 		return err
 	}
 	return queries(tx).RecordUser(ctx, accesssql.RecordUserParams{Username: name, PrincipalID: person, CreatedAt: at.UTC()})
-}
-
-// ErrNameTaken is a rename to a name a live principal holds.
-var ErrNameTaken = fault.New(fault.Conflict, "that name is taken")
-
-func renameIn(ctx context.Context, tx *database.Tx, from, to, by string, at time.Time) error {
-	if err := ValidName(to); err != nil {
-		return err
-	}
-	q := queries(tx)
-	if _, err := q.LivePersonByName(ctx, to); err == nil {
-		return fmt.Errorf("%w: %s", ErrNameTaken, to)
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-	person, err := q.RenameUser(ctx, accesssql.RenameUserParams{NewName: to, OldName: from})
-	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w: %s", ErrNoSuchName, from)
-	}
-	if err != nil {
-		return err
-	}
-	if _, err := q.RenamePrincipal(ctx, accesssql.RenamePrincipalParams{ID: person, Name: to}); err != nil {
-		return err
-	}
-	return audit.At(at).RecordIn(ctx, tx, by, ids.Nil, "user.renamed", to, map[string]any{"from": from, "principal": person})
 }
 
 // ActorIn is the actor an act by name is recorded against (access.ActorFrom),

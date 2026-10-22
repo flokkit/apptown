@@ -37,7 +37,7 @@ func ParseSubject(grantee string) (subjectType, subject string) {
 // AddProjectMember records an explicit role and its informational event. The
 // transport must authorize project membership management before calling it.
 // User registration and the event remain best-effort; the grant is required.
-// Removal uses RevokeProjectRoles, whose receipt is transactional.
+// Removing a member is revoking their grant (DELETE /authz/grants/{id}).
 func (s *Service) AddProjectMember(ctx context.Context, projectID ids.ID, grantee, role, by string) error {
 	if strings.TrimSpace(grantee) == "" {
 		return ErrMemberGrantee

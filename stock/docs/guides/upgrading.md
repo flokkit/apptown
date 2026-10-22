@@ -46,9 +46,9 @@
    `apptownd` upgrades the database and the data directory's layout when it
    starts, including with `-verify-only`. (A source build rebuilds with `make
    build` and its own agent image: the repository's `CONTRIBUTING.md`.)
-4. **Switching to no local Docker** at the same time: run once with
-   `-drain-local-docker` before the first start with `-no-local-docker`
-   ([Split install](/docs/guides/split-install)).
+4. **Switching to no local Docker** at the same time: follow
+   [Split install](/docs/guides/split-install), "Switching to no local
+   Docker", before the first start with `-no-local-docker`.
 
 ## Rolling back
 

@@ -31,7 +31,7 @@ func (a Advancement) Passed() bool { return len(a.Missing) == 0 && len(a.Blocked
 
 // Advance judges the run's current stage: are the declared checks recorded
 // and passing, and if so what follows. Only a running run can be judged.
-func (run *Run) Advance(steps []*Step, recorded []Check, placement Placement) (Advancement, error) {
+func (run *Run) Advance(steps []*Step, recorded []Check) (Advancement, error) {
 	if run.Status != RunRunning {
 		return Advancement{}, fmt.Errorf("run %d is %s, not running", run.ID, run.Status)
 	}
@@ -39,7 +39,7 @@ func (run *Run) Advance(steps []*Step, recorded []Check, placement Placement) (A
 	if err != nil {
 		return Advancement{}, err
 	}
-	gate, err := evaluateGate(stage, recorded, steps, placement)
+	gate, err := evaluateGate(stage, recorded, steps)
 	if err != nil {
 		return Advancement{}, err
 	}

@@ -313,58 +313,15 @@ func (q *Queries) CurrentVerdicts(ctx context.Context, arg CurrentVerdictsParams
 	return items, nil
 }
 
-const deleteAllAdjudications = `-- name: DeleteAllAdjudications :execrows
-DELETE FROM conformance_adjudications
-`
-
-func (q *Queries) DeleteAllAdjudications(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAllAdjudications)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const deleteAllFixes = `-- name: DeleteAllFixes :execrows
-DELETE FROM conformance_fixes
-`
-
-func (q *Queries) DeleteAllFixes(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAllFixes)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const deleteAllReviewExceptions = `-- name: DeleteAllReviewExceptions :execrows
-DELETE FROM conformance_review_exceptions
-`
-
-func (q *Queries) DeleteAllReviewExceptions(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAllReviewExceptions)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const deleteAllReviews = `-- name: DeleteAllReviews :execrows
-DELETE FROM conformance_reviews
-`
-
-func (q *Queries) DeleteAllReviews(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAllReviews)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const deleteAllVerdicts = `-- name: DeleteAllVerdicts :execrows
+
+
 DELETE FROM conformance_verdicts
 `
 
+// ===== history maintenance ============================================
+// NOWAIT refuses concurrent readers and writers rather than queueing; the
+// locks are held until the caller's transaction ends.
 func (q *Queries) DeleteAllVerdicts(ctx context.Context) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteAllVerdicts)
 	if err != nil {
@@ -1233,21 +1190,6 @@ func (q *Queries) LatestWhatIf(ctx context.Context, arg LatestWhatIfParams) (Wha
 	return i, err
 }
 
-const lockConformanceHistory = `-- name: LockConformanceHistory :exec
-
-
-LOCK TABLE conformance_reviews, conformance_verdicts, conformance_adjudications,
-  conformance_review_exceptions, conformance_fixes IN ACCESS EXCLUSIVE MODE NOWAIT
-`
-
-// ===== history maintenance ============================================
-// NOWAIT refuses concurrent readers and writers rather than queueing; the
-// locks are held until the caller's transaction ends.
-func (q *Queries) LockConformanceHistory(ctx context.Context) error {
-	_, err := q.db.ExecContext(ctx, lockConformanceHistory)
-	return err
-}
-
 const lockProjectForReceipt = `-- name: LockProjectForReceipt :one
 SELECT id FROM projects WHERE id = $1 FOR UPDATE
 `
@@ -1704,22 +1646,6 @@ func (q *Queries) ReviewsTouchingProject(ctx context.Context, arg ReviewsTouchin
 		return nil, err
 	}
 	return items, nil
-}
-
-const unfinishedReviewExists = `-- name: UnfinishedReviewExists :one
-SELECT EXISTS(SELECT 1 FROM conformance_reviews WHERE status IN ($1, $2))
-`
-
-type UnfinishedReviewExistsParams struct {
-	Queued  string
-	Running string
-}
-
-func (q *Queries) UnfinishedReviewExists(ctx context.Context, arg UnfinishedReviewExistsParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, unfinishedReviewExists, arg.Queued, arg.Running)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
 }
 
 const updateReviewProgress = `-- name: UpdateReviewProgress :execrows

@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/execution"
 )
@@ -24,9 +25,8 @@ import (
 // MeasureProfile measures the worker's profile, with what the operator
 // declares (exclusive). The private daemon's image is pulled when it is not
 // on the worker, so its id, repository digest and daemon version are known.
-// Whether a privileged container runs is probed by running one, on an
-// agent worker only, after the privileged mark is written; a check worker
-// runs none. What cannot be measured is "unknown", with the reason.
+// Whether a privileged container runs is probed by running one. What cannot
+// be measured is "unknown", with the reason.
 func (s *Server) MeasureProfile(ctx context.Context, exclusive bool) execution.WorkerProfile {
 	if s.DindImage != "" {
 		if _, err := s.command(ctx, "image", "inspect", "--format", "{{.Id}}", s.DindImage); err != nil {
@@ -52,15 +52,10 @@ func (s *Server) MeasureProfile(ctx context.Context, exclusive bool) execution.W
 // says whether it ran.
 func (s *Server) probePrivileged(ctx context.Context, measured bool) string {
 	switch {
-	case s.Role.Role == RoleCheck:
-		return "unknown: a check worker runs no privileged container"
 	case s.DindImage == "":
 		return "unknown: this worker runs no private daemon"
 	case !measured:
 		return "unknown: Docker could not be measured"
-	}
-	if err := PrivilegedMark(s.State, s.Role, s.Now)(); err != nil {
-		return "unknown: the privileged mark could not be written: " + err.Error()
 	}
 	if _, err := s.command(ctx, "run", "--rm", "--privileged", "--network", "none", "--label", dockerlabel.Class+"=profile-probe", "--entrypoint", "true", s.DindImage); err != nil {
 		return "no: " + err.Error()

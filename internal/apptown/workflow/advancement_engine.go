@@ -33,7 +33,6 @@ type advanceEngine struct {
 	// of asking anyone to accept it (Advancement.NothingToChange); nil ends
 	// nothing.
 	endNothing func(context.Context, *Run) error
-	placement  Placement
 }
 
 // allowed is separate from blocking: a merge remains refused even when the
@@ -130,7 +129,7 @@ func (w advanceEngine) advanceRun(ctx context.Context, run *Run, who string) (*A
 		return nil, err
 	}
 	// The run judges; the engine records the judgement and does what it named.
-	decision, err := run.Advance(steps, recorded, w.placement)
+	decision, err := run.Advance(steps, recorded)
 	if err != nil {
 		return nil, err
 	}

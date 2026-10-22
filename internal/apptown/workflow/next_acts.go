@@ -101,7 +101,7 @@ func nextActs(run *Run, steps []*Step, a Activity, runnable func(string) bool, l
 		acts = append(acts, NextAct{Act: NextRework, StepID: agent.ID, Step: agent.Name})
 	}
 	// Missing evidence that running the checks again can record.
-	if a.State == ActivityBlocked && a.MissingEvidence && !a.NeedsRevision {
+	if a.State == ActivityBlocked && a.MissingEvidence {
 		acts = append(acts, NextAct{Act: NextRecheck})
 	}
 	if a.State == ActivityBlocked && rulesChanged {

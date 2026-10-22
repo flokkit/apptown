@@ -110,14 +110,7 @@ type Staged struct {
 
 // Environment answers what a session's launch gets, at every wake, because
 // the answer moves (a model follows a slot, a binding is renamed). The
-// system that opened the console implements it; Static answers the same
-// thing every time.
+// system that opened the console implements it.
 type Environment interface {
 	Prepare(ctx context.Context, s *Session) (Provision, error)
 }
-
-// Static is an Environment with one fixed answer: a console with nothing
-// but a model, a key and a workspace.
-type Static struct{ Provision Provision }
-
-func (e Static) Prepare(context.Context, *Session) (Provision, error) { return e.Provision, nil }

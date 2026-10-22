@@ -35,4 +35,4 @@ export const capsWords = (c: OfferCaps | undefined) => {
 }
 
 export const readinessChip = (r?: string) =>
-  r === 'reconciled' ? 'pass' : r === 'failed' ? 'fail' : r === 'reconciling' ? 'running' : r === 'needs-reconcile' ? 'pending' : ''
+  r === 'reconciled' ? 'pass' : r === 'failed' ? 'fail' : r === 'reconciling' ? 'running' : ''

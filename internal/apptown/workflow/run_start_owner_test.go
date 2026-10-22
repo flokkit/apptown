@@ -11,9 +11,8 @@ import (
 )
 
 // A run started from a chat is owned by the chat's opener as the chat
-// recorded them, and through the chat: renamed, with their old name given
-// to someone else, the run still names them, so its runtime credential is
-// judged on their account. A chat that recorded no opener owns its run
+// recorded them (their principal, not their name), and through the chat,
+// so its runtime credential is judged on their account. A chat that recorded no opener owns its run
 // unresolved, never by the name.
 func TestAChatStartedRunIsOwnedByTheChatsOpener(t *testing.T) {
 	t.Parallel()
@@ -21,12 +20,6 @@ func TestAChatStartedRunIsOwnedByTheChatsOpener(t *testing.T) {
 	ctx := context.Background()
 	owner, err := identity.ActorIn(ctx, a.DB, "owner")
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := a.Access.Rename(ctx, "owner", "olive", access.Principal{Kind: "user", Name: "boss", Role: "admin", Via: "session"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.Access.EnsureUser(ctx, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	spec := schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}

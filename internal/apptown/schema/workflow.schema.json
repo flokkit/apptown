@@ -106,9 +106,6 @@
                   "type": "boolean"
                 }
               }
-            },
-            "webhook": {
-              "type": "object"
             }
           }
         },

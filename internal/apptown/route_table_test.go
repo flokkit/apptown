@@ -144,7 +144,7 @@ func TestRouteTablePreservesOuterAndProtocolAuthentication(t *testing.T) {
 		status       int
 	}{
 		{"GET", "/.well-known/oauth-authorization-server", 200},
-		{"GET", "/api/v1/features", 401},
+		{"GET", "/api/v1/model-catalog", 401},
 		{"POST", mcpPath, 401},
 		{"GET", "/git/game/info/refs?service=git-upload-pack", 401},
 		{"GET", "/", 200},
@@ -172,7 +172,6 @@ func TestRouteTableMissingProjectIsNotFound(t *testing.T) {
 	h := a.Handler()
 	for _, path := range []string{
 		"POST /api/v1/projects/missing/members",
-		"DELETE /api/v1/projects/missing/members/someone",
 		"POST /api/v1/projects/missing/deployments/main/backups/1/restore",
 	} {
 		method, path, _ := strings.Cut(path, " ")
@@ -425,49 +424,20 @@ func TestRouteResolutionHonorsRequestCancellation(t *testing.T) {
 	}
 }
 
-// Opening a restored copy of production is a person's act in their
-// browser: the only door that issues a ticket is a POST, held to
-// deployment:open-restored, so AppTown's mutation protection covers it
-// and no link another site shows can open a copy in a person's name. A GET
-// of the same path reaches no handler of it. The gate's redemption is a
-// protocol door outside the API, authenticated by the copy's gate secret.
-func TestOpeningARestoredCopyIsABrowserPostOnly(t *testing.T) {
+// A restored copy's gate redeems the ticket of AppTown's own gate check
+// through a protocol door outside the API, authenticated by the copy's
+// gate secret.
+func TestTheGateRedemptionIsAProtocolDoor(t *testing.T) {
 	t.Parallel()
-	const open = "/api/v1/projects/{slug}/restored-copies/{id}/open"
-	var found, redeem bool
+	redeem := false
 	for _, route := range appRoutes(nil) {
-		method, path, _ := strings.Cut(route.pattern, " ")
-		if path == open {
-			p, ok := route.policy.(requiredPolicy)
-			if method != http.MethodPost || !ok || p.capability != access.CapDeploymentOpenRestored {
-				t.Fatalf("the open door is %s with %+v", route.pattern, route.policy)
-			}
-			found = true
-		}
 		if route.pattern == "POST "+gate.RedeemPath {
 			p, ok := route.policy.(exceptionalPolicy)
 			redeem = ok && p.kind == "protocol"
 		}
 	}
-	if !found || !redeem {
-		t.Fatalf("open door %v, redemption door %v", found, redeem)
-	}
-	if got := servedPattern("/api/v1/projects/ledger/restored-copies/1/open"); strings.Contains(got, "/open") {
-		t.Fatalf("a GET reaches the open door: %q", got)
-	}
-	// A cross-site form, or a sibling preview, is refused before any door.
-	a := &App{cfg: testConfig(t, Config{PublicHost: "https://forge.example.test", TierDomains: []string{"preview=preview.example.test"}})}
-	reached := false
-	h := a.browserSecurity(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached = true }))
-	for _, origin := range []string{"https://evil.other.test", "https://app.preview.example.test"} {
-		r := httptest.NewRequest(http.MethodPost, "https://forge.example.test/api/v1/projects/ledger/restored-copies/1/open", nil)
-		r.Header.Set("Origin", origin)
-		r.Header.Set("Sec-Fetch-Site", "cross-site")
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		if w.Code != http.StatusForbidden || reached {
-			t.Fatalf("a POST from %s: %d (reached %v)", origin, w.Code, reached)
-		}
+	if !redeem {
+		t.Fatal("the redemption door is not a protocol door")
 	}
 }
 
@@ -553,8 +523,6 @@ type failureResult struct {
 var failureResults = []failureResult{
 	{handler: "writeBackupTaken", routes: []string{"POST /api/v1/projects/{slug}/deployments/{name}/backups"},
 		status: 502, body: httpapi.BackupTaken{}, why: "a backup that failed is recorded; the answer is that record, ok false"},
-	{handler: "ProjectExport.Export", routes: []string{"GET /api/v1/projects/{slug}/export"},
-		status: 409, body: httpapi.ProjectExportRefused{}, why: "a refused export lists each reason"},
 	{handler: "ProjectDeletion.answer", status: 0, why: "writes the 200 or 202 its callers name; not a failure"},
 }
 

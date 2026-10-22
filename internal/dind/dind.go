@@ -71,19 +71,11 @@ type Daemon struct {
 	Args []string
 	// Options are the daemon's own flags: DNS, search domains, the mirror.
 	Options []string
-	// Mark runs before the privileged container is created
-	// (worker.PrivilegedMark); its error creates nothing. Nil marks nothing.
-	Mark func() error
 }
 
 // Create runs the daemon's container. Its plain-TCP listener is reached
 // only on the owner's network.
 func (d Daemon) Create(ctx context.Context, run Run) error {
-	if d.Mark != nil {
-		if err := d.Mark(); err != nil {
-			return fmt.Errorf("private Docker refused: %w", err)
-		}
-	}
 	args := append([]string{"run", "-d", "--privileged", "--name", d.Name, "--network", d.Network, "--network-alias", "dind",
 		"--label", d.OwnerLabel + "=" + d.Owner,
 		// ZFS_MODULE_TIMEOUT=0: containerd's zfs probe would otherwise stall

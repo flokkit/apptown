@@ -1487,17 +1487,6 @@
           "desiredGeneration": {
             "type": "integer"
           },
-          "expiresAt": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "const": ""
-              }
-            ]
-          },
           "feed": {
             "type": "string"
           },
@@ -2219,9 +2208,6 @@
           "local": {
             "type": "boolean"
           },
-          "role": {
-            "type": "string"
-          },
           "worker": {
             "type": "string"
           }
@@ -2303,24 +2289,6 @@
             "type": "string"
           }
         },
-        "type": "object"
-      },
-      "ProjectExportRefused": {
-        "properties": {
-          "error": {
-            "type": "string"
-          },
-          "reasons": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "error",
-          "reasons"
-        ],
         "type": "object"
       },
       "ProjectPage": {
@@ -2523,8 +2491,7 @@
           "reconciled",
           "reconciling",
           "uncertain",
-          "failed",
-          "needs-reconcile"
+          "failed"
         ],
         "type": "string"
       },
@@ -3007,9 +2974,6 @@
             "type": "array"
           },
           "landingQueued": {
-            "type": "boolean"
-          },
-          "needsRevision": {
             "type": "boolean"
           },
           "next": {
@@ -3742,27 +3706,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/assist/workflow": {
-      "post": {
-        "operationId": "postAssistWorkflow",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "assist"
-        ],
-        "x-apptown-access": {
-          "contract": "workflowDrafts.AssistWorkflow: authenticated drafting assistance without publication",
-          "kind": "public"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/attachables": {
       "get": {
         "operationId": "getAttachables",
@@ -4229,26 +4172,6 @@
           "kind": "public"
         },
         "x-apptown-stability": "experimental"
-      },
-      "post": {
-        "operationId": "postCatalog",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "catalog"
-        ],
-        "x-apptown-access": {
-          "capability": "standards:manage-catalog",
-          "kind": "capability",
-          "scope": "instance"
-        },
-        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/catalog-apply/{name}": {
@@ -4283,39 +4206,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/catalog-promote/{name}": {
-      "post": {
-        "operationId": "postCatalogPromoteName",
-        "parameters": [
-          {
-            "description": "the rest of the path, which may contain /",
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "catalog-promote"
-        ],
-        "x-apptown-access": {
-          "capability": "standards:manage-catalog",
-          "kind": "capability",
-          "scope": "instance"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/catalog/{name}": {
       "get": {
         "operationId": "getCatalogName",
@@ -4342,39 +4232,8 @@
           "catalog"
         ],
         "x-apptown-access": {
-          "contract": "catalogDeclarations.CatalogGet: shared change-template definition",
+          "contract": "catalogChanges.CatalogGet: shared change-template definition",
           "kind": "public"
-        },
-        "x-apptown-stability": "experimental"
-      },
-      "patch": {
-        "operationId": "patchCatalogName",
-        "parameters": [
-          {
-            "description": "the rest of the path, which may contain /",
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "catalog"
-        ],
-        "x-apptown-access": {
-          "capability": "standards:manage-catalog",
-          "kind": "capability",
-          "scope": "instance"
         },
         "x-apptown-stability": "experimental"
       }
@@ -5410,26 +5269,6 @@
         "x-apptown-access": {
           "contract": "conformance.Conformance",
           "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/conformance/history/clear": {
-      "post": {
-        "operationId": "postConformanceHistoryClear",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "conformance"
-        ],
-        "x-apptown-access": {
-          "kind": "administrator"
         },
         "x-apptown-stability": "experimental"
       }
@@ -6657,27 +6496,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/features": {
-      "get": {
-        "operationId": "getFeatures",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "features"
-        ],
-        "x-apptown-access": {
-          "contract": "features.List: shared instance feature flags",
-          "kind": "public"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/groups": {
       "get": {
         "operationId": "getGroups",
@@ -6871,42 +6689,6 @@
         "x-apptown-access": {
           "contract": "guidance.GeneratedGuidance",
           "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/hooks/{slug}/{workflow}": {
-      "post": {
-        "operationId": "postHooksSlugWorkflow",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "workflow",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": "this route speaks its protocol (webhook.Webhook: credential verification), not AppTown's JSON"
-          }
-        },
-        "tags": [
-          "hooks"
-        ],
-        "x-apptown-access": {
-          "contract": "webhook.Webhook: credential verification",
-          "kind": "protocol"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7524,27 +7306,6 @@
         ],
         "x-apptown-access": {
           "contract": "packAssistance.PackInterview: authenticated pack-selection assistance",
-          "kind": "public"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/packs/pick": {
-      "post": {
-        "operationId": "postPacksPick",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "packs"
-        ],
-        "x-apptown-access": {
-          "contract": "packAssistance.PickPack: authenticated pack-selection assistance",
           "kind": "public"
         },
         "x-apptown-stability": "experimental"
@@ -8390,38 +8151,6 @@
         "x-apptown-used-by": "cli"
       }
     },
-    "/api/v1/projects/{slug}/changes/simple": {
-      "post": {
-        "operationId": "postProjectsSlugChangesSimple",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "capability": "change:create",
-          "kind": "capability",
-          "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/projects/{slug}/console": {
       "get": {
         "operationId": "getProjectsSlugConsole",
@@ -8543,37 +8272,6 @@
         ],
         "x-apptown-access": {
           "contract": "projectlifecycle.Cancel",
-          "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/projects/{slug}/deletion/revoke": {
-      "post": {
-        "operationId": "postProjectsSlugDeletionRevoke",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "contract": "projectlifecycle.RevokeBinding",
           "kind": "owner"
         },
         "x-apptown-stability": "experimental"
@@ -9503,108 +9201,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/projects/{slug}/export": {
-      "get": {
-        "operationId": "getProjectsSlugExport",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProjectExportRefused"
-                }
-              }
-            },
-            "description": "a refused export lists each reason"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "kind": "administrator"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/projects/{slug}/extensions": {
-      "get": {
-        "operationId": "getProjectsSlugExtensions",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "capability": "project:read",
-          "kind": "capability",
-          "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      },
-      "post": {
-        "operationId": "postProjectsSlugExtensions",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "capability": "project:configure-extensions",
-          "kind": "capability",
-          "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/projects/{slug}/final-copies": {
       "get": {
         "operationId": "getProjectsSlugFinalCopies",
@@ -10061,46 +9657,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/projects/{slug}/members/{grantee}": {
-      "delete": {
-        "operationId": "deleteProjectsSlugMembersGrantee",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "grantee",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "capability": "project:manage-members",
-          "kind": "capability",
-          "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/projects/{slug}/model-profile": {
       "put": {
         "operationId": "putProjectsSlugModelProfile",
@@ -10161,37 +9717,6 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/projects/{slug}/owner": {
-      "post": {
-        "operationId": "postProjectsSlugOwner",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "contract": "projectTransfer.TransferProject",
-          "kind": "owner"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10941,86 +10466,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/projects/{slug}/restored-copies/{id}/extend": {
-      "post": {
-        "operationId": "postProjectsSlugRestoredCopiesIdExtend",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "capability": "deployment:restore",
-          "kind": "capability",
-          "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/projects/{slug}/restored-copies/{id}/open": {
-      "post": {
-        "operationId": "postProjectsSlugRestoredCopiesIdOpen",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "capability": "deployment:open-restored",
-          "kind": "capability",
-          "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/projects/{slug}/retained": {
       "get": {
         "operationId": "getProjectsSlugRetained",
@@ -11600,46 +11045,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/projects/{slug}/workflows/{name}/history": {
-      "get": {
-        "operationId": "getProjectsSlugWorkflowsNameHistory",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "capability": "project:read",
-          "kind": "capability",
-          "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/retained": {
       "get": {
         "operationId": "getRetained",
@@ -12169,27 +11574,6 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "instance"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/secrets/stores": {
-      "get": {
-        "operationId": "getSecretsStores",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "secrets"
-        ],
-        "x-apptown-access": {
-          "contract": "secrets.SecretStores: shared store discovery, not secret values",
-          "kind": "public"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13139,38 +12523,6 @@
     "/api/v1/users/{name}": {
       "delete": {
         "operationId": "deleteUsersName",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "users"
-        ],
-        "x-apptown-access": {
-          "capability": "identity:manage-users",
-          "kind": "capability",
-          "scope": "instance"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/users/{name}/rename": {
-      "post": {
-        "operationId": "postUsersNameRename",
         "parameters": [
           {
             "in": "path",

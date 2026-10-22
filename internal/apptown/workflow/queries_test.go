@@ -57,7 +57,7 @@ func TestWorkflowListUsesTwoReadsRegardlessOfRunCount(t *testing.T) {
 				}
 			}
 			counted := &countedQueries{Handle: q.db.SQL()}
-			rows, err := readWorkflowSummaries(context.Background(), counted, RunQuery{ProjectID: root.ProjectID, State: RunRunning, RootsOnly: true}, nil, Placement{})
+			rows, err := readWorkflowSummaries(context.Background(), counted, RunQuery{ProjectID: root.ProjectID, State: RunRunning, RootsOnly: true}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -73,7 +73,7 @@ func TestWorkflowListUsesTwoReadsRegardlessOfRunCount(t *testing.T) {
 				return // the empty result does not depend on the fixture's size
 			}
 			counted.reads = 0
-			rows, err = readWorkflowSummaries(context.Background(), counted, RunQuery{ProjectSlug: "absent"}, nil, Placement{})
+			rows, err = readWorkflowSummaries(context.Background(), counted, RunQuery{ProjectSlug: "absent"}, nil)
 			if err != nil || rows == nil || len(rows) != 0 || counted.reads != 1 {
 				t.Fatalf("empty result: %+v %v reads=%d", rows, err, counted.reads)
 			}
@@ -149,7 +149,7 @@ func TestWorkflowActivityBatchesNestedCallsAndChecksOwnership(t *testing.T) {
 				recordStoredCallEvidence(t, q.db, call, 2, json.RawMessage(body))
 			}
 			counted := &countedQueries{Handle: q.db.SQL()}
-			graph, err := readWorkflowActivity(context.Background(), counted, []ids.ID{root.ID}, Placement{})
+			graph, err := readWorkflowActivity(context.Background(), counted, []ids.ID{root.ID})
 			if err != nil {
 				t.Fatal(err)
 			}

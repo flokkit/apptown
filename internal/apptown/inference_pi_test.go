@@ -14,8 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // Uses the pinned harness's actual model runtime and native SDKs, not a
@@ -36,13 +39,15 @@ func TestInferencePinnedPi(t *testing.T) {
 		http.Error(w, "upstream-canary", 418)
 	}))
 	defer upstream.Close()
-	a := testApp(t, Config{InferenceURL: "http://placeholder:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
+	a := testApp(t, Config{InferenceURL: "http://placeholder:7779", InferenceNetworks: []string{"127.0.0.1/32"}, ConsoleAgent: consoletest.NewAgent()})
 
 	// The gateway admits a person's workload only for the principal it was
 	// started by, whose account is enabled.
 	testAccounts(t, a.DB, "test")
-	token = a.runTok.Mint(identity.Workload{Kind: "assist", Actor: "test", Principal: testPrincipalOf(t, a.DB, "test")})
-	defer a.runTok.Revoke(token)
+	m := consoleMetaFor("pi-chat", idstest.N(7), ids.Nil)
+	m.Actor, m.Token = "test", "pi-chat-secret"
+	m.Labels[conversation.OpenerLabel] = testPrincipalOf(t, a.DB, "test").String()
+	token = a.Console.Restore(m).Token
 	configs := map[string]string{"openrouter": "openai-completions", "openai": "openai-responses", "anthropic": "anthropic-messages", "google": "google-generative-ai", "custom": "openai-completions"}
 	for name, api := range configs {
 		cfg := map[string]any{"model": name + "/*", "providerDef": map[string]any{"baseUrl": upstream.URL, "api": api, "apiKey": "upstream-canary"}}

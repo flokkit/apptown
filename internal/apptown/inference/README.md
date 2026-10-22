@@ -19,12 +19,8 @@ completion records the outcome even on disconnect or provider failure. A bounded
 watcher rechecks authority while the stream lives. No provider credential reaches
 a harness, client response or receipt.
 
-`Gateway.Complete` is the same admission for a trusted caller inside
-AppTown (workflow drafting): one tool-free, non-streaming call in the binding's
-own dialect, as the workload its token names. It skips only the network check.
-
 `Gateway.Ask` is the one path for AppTown's own model calls (narratives,
-approval briefs, simple changes, pack assistance, checks, what-ifs and the eval
+approval briefs, pack assistance, checks, what-ifs and the eval
 judge; `modelcall.Call`). It resolves the binding the model names, requires the
 model to be enabled in it, asks the eval model choice for a project's call (or,
 for `Judge`, the judge's door, `ChooseJudge`, instead), takes a concurrency slot

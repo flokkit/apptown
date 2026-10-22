@@ -108,23 +108,6 @@ func (h Accounts) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, Done{OK: true})
 }
 
-// RenameRequest is a rename's new name.
-type RenameRequest struct {
-	Name string `json:"name"`
-}
-
-// RenameUser: POST /api/v1/users/{name}/rename {name} — the person keeps
-// everything they hold under the new name.
-func (h Accounts) RenameUser(w http.ResponseWriter, r *http.Request) {
-	jsonCommand(w, r, jsonBody{errorText: "the new name is required"}, func(in RenameRequest) {
-		if err := h.access.Rename(r.Context(), r.PathValue("name"), in.Name, Principal(r)); err != nil {
-			WriteFault(w, err)
-			return
-		}
-		WriteJSON(w, 200, Done{OK: true})
-	})
-}
-
 // ListGroups: GET /api/v1/groups
 func (h Accounts) ListGroups(w http.ResponseWriter, r *http.Request) {
 	groups, err := h.access.Groups(r.Context())

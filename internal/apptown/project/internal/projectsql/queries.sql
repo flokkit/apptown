@@ -22,9 +22,6 @@ VALUES (sqlc.arg(id), sqlc.arg(slug), sqlc.arg(name), sqlc.arg(namespace), sqlc.
 -- name: ProjectPurpose :one
 SELECT purpose FROM projects WHERE id = $1;
 
--- name: SetProjectOwnerGroup :exec
-UPDATE projects SET owner_group = $2 WHERE id=$1;
-
 -- name: SetProjectReleaseDomain :exec
 UPDATE projects SET release_domain = $2 WHERE id=$1;
 
@@ -94,9 +91,6 @@ SELECT * FROM project_deletions WHERE project_id=$1;
 -- name: ProjectDeletions :many
 SELECT * FROM project_deletions ORDER BY requested_at DESC, project_id DESC LIMIT 100;
 
--- name: OutstandingProjectDeletions :many
-SELECT * FROM project_deletions WHERE state <> 'done' ORDER BY project_id;
-
 -- name: SettleProjectDeletionAttempt :execrows
 UPDATE project_deletions SET attempts=attempts+1, state=sqlc.arg(state), detail=sqlc.arg(detail),
  finished_at=CASE WHEN sqlc.arg(state)::text='pending' THEN NULL ELSE sqlc.arg(at)::timestamptz END
@@ -150,7 +144,3 @@ SELECT * FROM project_lifecycle WHERE state = 'deleted' AND kept_until <= sqlc.a
 
 -- name: LifecyclesOf :many
 SELECT sqlc.embed(l), p.slug, p.name FROM project_lifecycle l JOIN projects p ON p.id = l.project_id ORDER BY l.project_id;
-
--- A project's own row, for moving it to another AppTown.
--- name: ExportProjectRow :one
-SELECT to_jsonb(p)::text FROM projects p WHERE p.id = $1;

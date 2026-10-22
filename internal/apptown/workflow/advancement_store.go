@@ -14,7 +14,6 @@ type advanceStore struct {
 	db         *database.DB
 	stages     Stages
 	completion CompletionRecorder
-	placement  Placement
 	clocked
 }
 
@@ -29,7 +28,7 @@ func (w advanceStore) stageChecks(ctx context.Context, id ids.ID, stage string) 
 }
 func (w advanceStore) transition(ctx context.Context, run *Run, next, who string) ([]ReadyStep, error) {
 	return database.Transact(ctx, w.db, func(tx *database.Tx) ([]ReadyStep, error) {
-		spec, err := settleAdvanceIn(ctx, tx, run, stageSuccessor{Stage: next}, w.placement, w.now())
+		spec, err := settleAdvanceIn(ctx, tx, run, stageSuccessor{Stage: next}, w.now())
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +45,7 @@ type stageAdvanceReceipt struct {
 	By   string `json:"by"`
 }
 
-func settleAdvanceIn(ctx context.Context, tx *database.Tx, expected *Run, next stageSuccessor, placement Placement, at time.Time) (*schema.Spec, error) {
+func settleAdvanceIn(ctx context.Context, tx *database.Tx, expected *Run, next stageSuccessor, at time.Time) (*schema.Spec, error) {
 	run, err := lockCurrentRunIn(ctx, tx, expected)
 	if err != nil {
 		return nil, err
@@ -81,7 +80,7 @@ func settleAdvanceIn(ctx context.Context, tx *database.Tx, expected *Run, next s
 	if err != nil {
 		return nil, err
 	}
-	gate, err := evaluateGate(stage, checks, steps, placement)
+	gate, err := evaluateGate(stage, checks, steps)
 	if err != nil {
 		return nil, err
 	}

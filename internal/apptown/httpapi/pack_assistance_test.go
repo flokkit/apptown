@@ -12,7 +12,7 @@ func TestPackAssistanceWithoutModelSelectsOnlyOfferedPacks(t *testing.T) {
 	t.Parallel()
 	f := newPackPullFixture(t)
 	h := NewPackAssistance(f.ways, noBriefModel{}, nil)
-	for _, handler := range []http.HandlerFunc{h.PickPack, h.PackInterview} {
+	for _, handler := range []http.HandlerFunc{h.PackInterview} {
 		w := httptest.NewRecorder()
 		handler(w, httptest.NewRequest("POST", "/", strings.NewReader(`{"description":"a game"}`)))
 		if w.Code != 422 {
@@ -33,7 +33,7 @@ func TestPackAssistanceWithoutModelSelectsOnlyOfferedPacks(t *testing.T) {
 		for _, handler := range []struct {
 			name string
 			call http.HandlerFunc
-		}{{"pick", h.PickPack}, {"interview", h.PackInterview}} {
+		}{{"interview", h.PackInterview}} {
 			w := httptest.NewRecorder()
 			handler.call(w, httptest.NewRequest("POST", "/", strings.NewReader(`{"description":"a game"}`)))
 			var out struct {

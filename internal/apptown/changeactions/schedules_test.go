@@ -55,7 +55,7 @@ func newScheduleWorld(t *testing.T) scheduleWorld {
 		Git: workflow.GitWorkspace{DataDir: dataDir}, DataDir: dataDir})
 	t.Cleanup(work.Stop)
 	engine := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine"}, Verified: true, Receipt: "system"})
-	return scheduleWorld{schedules: changeactions.Schedules{Actions: changeactions.New(work, ways, db), Adoption: adopt, Projects: projects, DB: db},
+	return scheduleWorld{schedules: changeactions.Schedules{Actions: changeactions.New(work, db), Adoption: adopt, Projects: projects, DB: db},
 		work: work, ways: ways, adoption: adopt, project: *p, engine: engine}
 }
 

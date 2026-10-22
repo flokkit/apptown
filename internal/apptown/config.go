@@ -87,9 +87,6 @@ type Config struct {
 	// (design/operations/workers.md, "Running AppTown without a local Docker
 	// daemon").
 	NoLocalDocker bool
-	// DrainLocalDocker makes startup repair the witnessed switch into the
-	// no-local-docker mode (-drain-local-docker): see drainLocalDocker.
-	DrainLocalDocker bool
 	// LocalTLS is this AppTown serving itself over HTTPS from its own local
 	// certificate authority (-local-tls, the desktop trial); nil otherwise.
 	LocalTLS   *console.LocalTLS
@@ -97,7 +94,8 @@ type Config struct {
 	PublicHost string
 	// RestoreGateImage is the access gate's image by digest
 	// (-restore-gate-image): without it, and a -public-host origin for the
-	// gate to redeem tickets at, AppTown makes no restored copy.
+	// gate to redeem AppTown's own check ticket at, AppTown makes no
+	// restored copy.
 	RestoreGateImage string
 	ListenAddr       string
 	ConsoleAPIURL    string
@@ -120,7 +118,6 @@ type Config struct {
 	// target releases to (the portainer-deploy binding's environment). ""
 	// is integration.DefaultPortainerEnvironment.
 	PortainerEnvironment string
-	Features             string
 	TierDomains          []string
 	TrustedProxies       []string
 	Defaults             InstanceDefaults
@@ -145,10 +142,6 @@ type Config struct {
 	// isolated: script steps run only on the worker, never on AppTown's own
 	// host.
 	Worker *WorkerConfig
-	// CheckWorker, when set, is a worker provisioned with the check role:
-	// every check runs there, and gates accept only its results
-	// (design/operations/workers.md, "A check worker").
-	CheckWorker *WorkerConfig
 }
 
 // WorkerConfig reaches a apptown-worker: its address, the installation's
@@ -185,32 +178,30 @@ func (w WorkerConfig) client() (*execution.WorkerTasks, error) {
 }
 
 type configuration struct {
-	verifyOnly, usingBuiltinDB                                      bool
-	seeding                                                         projectlifecycle.Seeding
-	noPrivateDocker, privateDocker, noLocalDocker, drainLocalDocker bool
-	dataDir, publicHost, listenAddr, consoleAPIURL                  string
-	publicHostScheme                                                string // as -public-host stated it; empty for a bare name
-	restoreGateImage                                                string
-	sshConfigPath                                                   string
-	consoleCLI                                                      string
-	authMode, authHeader, authProxySecret                           string
-	agentExecutor, agentImage, agentModel                           string
-	agentContext                                                    string
-	agentConcurrency                                                int
-	portainerEnvironment                                            string
-	taskLimits, chatLimits                                          execution.Limits
-	hostScripts                                                     bool
-	localTLS                                                        *console.LocalTLS
-	features                                                        map[string]bool
-	tierDomains                                                     map[string]tierDomain
-	proxies                                                         proxyPolicy
-	defaults                                                        InstanceDefaults
-	inferenceURL                                                    string
-	otlpEndpoint, otlpProtocol                                      string
-	inferenceNetworks                                               []netip.Prefix
-	worker                                                          *execution.WorkerTasks // nil: tasks run on this host
-	checkWorker                                                     *execution.WorkerTasks // nil: checks run where tasks do
-	clock                                                           *apptownClock
+	verifyOnly, usingBuiltinDB                     bool
+	seeding                                        projectlifecycle.Seeding
+	noPrivateDocker, privateDocker, noLocalDocker  bool
+	dataDir, publicHost, listenAddr, consoleAPIURL string
+	publicHostScheme                               string // as -public-host stated it; empty for a bare name
+	restoreGateImage                               string
+	sshConfigPath                                  string
+	consoleCLI                                     string
+	authMode, authHeader, authProxySecret          string
+	agentExecutor, agentImage, agentModel          string
+	agentContext                                   string
+	agentConcurrency                               int
+	portainerEnvironment                           string
+	taskLimits, chatLimits                         execution.Limits
+	hostScripts                                    bool
+	localTLS                                       *console.LocalTLS
+	tierDomains                                    map[string]tierDomain
+	proxies                                        proxyPolicy
+	defaults                                       InstanceDefaults
+	inferenceURL                                   string
+	otlpEndpoint, otlpProtocol                     string
+	inferenceNetworks                              []netip.Prefix
+	worker                                         *execution.WorkerTasks // nil: tasks run on this host
+	clock                                          *apptownClock
 }
 
 // apptownClock is AppTown's clock, which the owners whose rules store a
@@ -269,10 +260,6 @@ func (c Config) prepare() (configuration, error) {
 	if c.ConsoleAPIURL == "" {
 		c.ConsoleAPIURL = "http://host.docker.internal:7778"
 	}
-	features, err := parseFeatures(c.Features)
-	if err != nil {
-		return configuration{}, err
-	}
 	publicHostScheme, publicHost, err := parsePublicHost(c.PublicHost)
 	if err != nil {
 		return configuration{}, err
@@ -291,32 +278,23 @@ func (c Config) prepare() (configuration, error) {
 			return configuration{}, err
 		}
 	}
-	if c.DrainLocalDocker && (c.NoLocalDocker || c.VerifyOnly) {
-		return configuration{}, fmt.Errorf("-drain-local-docker observes AppTown's own Docker: run it without -no-local-docker or -verify-only")
-	}
 	if c.NoLocalDocker && (c.Worker == nil || c.UsingBuiltinDB) {
 		return configuration{}, fmt.Errorf("-no-local-docker needs a worker (-worker-url) and an external database (-db-url): this AppTown runs nothing on its own Docker, and the built-in database is a container there")
 	}
 	// The worker drivers judge a task's expiry on the clock that wrote it.
 	clock := &apptownClock{}
-	var worker, checkWorker *execution.WorkerTasks
+	var worker *execution.WorkerTasks
 	if c.Worker != nil {
 		if worker, err = c.Worker.client(); err != nil {
 			return configuration{}, err
 		}
 		worker.Now = clock.Now
 	}
-	if c.CheckWorker != nil {
-		if checkWorker, err = c.CheckWorker.client(); err != nil {
-			return configuration{}, err
-		}
-		checkWorker.Now = clock.Now
-	}
-	return configuration{clock: clock, worker: worker, checkWorker: checkWorker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, drainLocalDocker: c.DrainLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
+	return configuration{clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
 		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, agentModel: c.AgentModel, agentConcurrency: c.AgentConcurrency, portainerEnvironment: c.PortainerEnvironment,
 		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits), hostScripts: c.HostScripts,
-		features: features, tierDomains: tiers, proxies: proxyPolicy{networks: parseCIDRs(c.TrustedProxies)}, defaults: c.Defaults,
+		tierDomains: tiers, proxies: proxyPolicy{networks: parseCIDRs(c.TrustedProxies)}, defaults: c.Defaults,
 		inferenceURL: c.InferenceURL, inferenceNetworks: networks, otlpEndpoint: strings.TrimSpace(c.OTLPEndpoint), otlpProtocol: strings.ToLower(strings.TrimSpace(c.OTLPProtocol))}, nil
 }
 

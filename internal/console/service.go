@@ -784,17 +784,6 @@ func (s *Service) Identity(token string) (RuntimeIdentity, bool) {
 	return RuntimeIdentity{}, false
 }
 
-// Live reports whether the session id would still identify its holder, as
-// Identity requires of a token's session: registered, not ended, and not on
-// a project being deleted. It is for work done on the session's behalf,
-// which ends when the session does; it does not touch the idle clock.
-func (s *Service) Live(id string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	sess := s.sessions[id]
-	return sess != nil && !s.isBlocked(sess.Meta) && !sess.ended()
-}
-
 // Busy: a session the match selects is watched or was used within the window.
 func (s *Service) Busy(ctx context.Context, m Match, within time.Duration) bool {
 	now := s.now()
@@ -950,28 +939,6 @@ func (s *Service) RecordsMatching(m Match) (records []Recording, unreadable []st
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out, unreadable, nil
-}
-
-// Unended is every session recorded as live on disk, whether or not this
-// process has restored it. A live record that cannot be read is listed by
-// its folder's name alone: it is not known to have ended.
-func (s *Service) Unended() ([]Meta, error) {
-	entries, err := os.ReadDir(s.root())
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-	var out []Meta
-	for _, e := range entries {
-		meta, err := readMeta(filepath.Join(s.root(), e.Name()))
-		switch {
-		case !e.IsDir() || os.IsNotExist(err):
-			continue
-		case err != nil:
-			meta = Meta{ID: e.Name()}
-		}
-		out = append(out, meta)
-	}
-	return out, nil
 }
 
 // --- admission: opening and deleting -------------------------------------------

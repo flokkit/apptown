@@ -33,25 +33,25 @@ func TestRunAdvanceJudgesItsStage(t *testing.T) {
 		{Stage: "review", Name: "approve", Type: "approval", Status: StatusNeedsHuman},
 	}
 
-	d, err := run.Advance(steps, nil, Placement{})
+	d, err := run.Advance(steps, nil)
 	if err != nil || d.Passed() || len(d.Blocked) != 1 || d.Blocked[0].Name != "approve" || d.Next != "" || d.Merge || d.Complete {
 		t.Fatalf("blocked by the approval: %+v err=%v", d, err)
 	}
 
 	steps[1].Status = StatusPass
-	d, err = run.Advance(steps, nil, Placement{})
+	d, err = run.Advance(steps, nil)
 	if err != nil || !d.Passed() || d.Next != "land" || !d.Merge || d.Complete {
 		t.Fatalf("review passed on a landing run merges then enters land: %+v err=%v", d, err)
 	}
 
 	run.CurrentStage = "land"
-	d, err = run.Advance([]*Step{{Stage: "land", Name: "ship", Type: "script", Status: StatusPass}}, nil, Placement{})
+	d, err = run.Advance([]*Step{{Stage: "land", Name: "ship", Type: "script", Status: StatusPass}}, nil)
 	if err != nil || !d.Complete || d.Next != "" {
 		t.Fatalf("last stage passed completes the run: %+v err=%v", d, err)
 	}
 
 	run.Status = RunDone
-	if _, err := run.Advance(nil, nil, Placement{}); err == nil {
+	if _, err := run.Advance(nil, nil); err == nil {
 		t.Fatal("a finished run has nothing to advance")
 	}
 }

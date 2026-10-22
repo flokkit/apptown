@@ -68,9 +68,6 @@ type RunSnapshot struct {
 	Steps       []*Step       `json:"steps"`
 	State       ActivityState `json:"state,omitempty"`
 	StateDetail string        `json:"stateDetail,omitempty"`
-	// NeedsRevision: running the stage's checks again cannot unblock it
-	// (Activity.NeedsRevision).
-	NeedsRevision bool `json:"needsRevision,omitempty"`
 	// Ending is why an abandoned run ended (runEnding); empty for any
 	// other run.
 	Ending    string     `json:"ending,omitempty"`
@@ -97,7 +94,7 @@ func (q queries) scopedSnapshot(ctx context.Context, id ids.ID, view ReadView, p
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	snapshot, err := readWorkflowSnapshot(ctx, tx, id, view, q.wait, q.placement, project, q.automatic)
+	snapshot, err := readWorkflowSnapshot(ctx, tx, id, view, q.wait, project, q.automatic)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +103,7 @@ func (q queries) scopedSnapshot(ctx context.Context, id ids.ID, view ReadView, p
 	}
 	return snapshot, nil
 }
-func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, view ReadView, wait SlotWait, placement Placement, project ids.ID, automatic func(string) bool) (*RunSnapshot, error) {
+func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, view ReadView, wait SlotWait, project ids.ID, automatic func(string) bool) (*RunSnapshot, error) {
 	run, err := readScopedRun(ctx, db, id, project)
 	if err != nil {
 		return nil, err
@@ -126,11 +123,11 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 	}
 	out := &RunSnapshot{Run: run, Definition: spec, Stages: spec.StageNames(), Steps: steps, Artifacts: []Artifact{}, Next: []NextAct{}}
 	if view == DetailView && (run.Status == RunRunning || run.Status == RunAbandoned) {
-		activity, err := readWorkflowSnapshotActivity(ctx, db, run, steps, wait, placement)
+		activity, err := readWorkflowSnapshotActivity(ctx, db, run, steps, wait)
 		if err != nil {
 			return nil, err
 		}
-		out.State, out.StateDetail, out.NeedsRevision = activity.State, activity.Detail, activity.NeedsRevision
+		out.State, out.StateDetail = activity.State, activity.Detail
 		runnable := func(kind string) bool { return assertionKind(kind) || automatic != nil && automatic(kind) }
 		out.Next = nextActs(run, steps, activity, runnable, spec.Role == "landing")
 		if run.Status == RunAbandoned {
@@ -196,18 +193,18 @@ func runEnding(reason string, run *Run, steps []*Step) string {
 
 // Most detail reads already have every fact required to classify activity. Only
 // a running child call needs a graph query, in this same database snapshot.
-func readWorkflowSnapshotActivity(ctx context.Context, db database.Queryer, run *Run, steps []*Step, wait SlotWait, placement Placement) (Activity, error) {
+func readWorkflowSnapshotActivity(ctx context.Context, db database.Queryer, run *Run, steps []*Step, wait SlotWait) (Activity, error) {
 	if run.Status == RunAbandoned {
 		reason, err := workflowsql.New(db.SQL()).RunAbandonmentReason(ctx, run.ID)
 		return Activity{State: ActivityAbandoned, Detail: reason}, err
 	}
-	node := &workflowActivityRun{id: run.ID, projectID: run.ProjectID, state: run.Status, parentID: run.ParentRunID, parentStepID: run.ParentStepID, parentAttempt: run.ParentStepAttempt, placement: placement}
+	node := &workflowActivityRun{id: run.ID, projectID: run.ProjectID, state: run.Status, parentID: run.ParentRunID, parentStepID: run.ParentStepID, parentAttempt: run.ParentStepAttempt}
 	for _, step := range steps {
 		if step.Stage != run.CurrentStage {
 			continue
 		}
 		if step.Type == "workflow/call" && step.Status == StatusRunning {
-			graph, err := readWorkflowActivity(ctx, db, []ids.ID{run.ID}, placement)
+			graph, err := readWorkflowActivity(ctx, db, []ids.ID{run.ID})
 			if err != nil {
 				return Activity{}, err
 			}
@@ -228,7 +225,7 @@ func readWorkflowSnapshotActivity(ctx context.Context, db database.Queryer, run 
 	if err != nil {
 		return Activity{}, err
 	}
-	return judgedByGateInSnapshot(ctx, db, run, steps, activity, placement)
+	return judgedByGateInSnapshot(ctx, db, run, steps, activity)
 }
 func readWorkflowEvents(ctx context.Context, db database.Queryer, runID ids.ID, view ReadView) ([]Event, error) {
 	var limit int32

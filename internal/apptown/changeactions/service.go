@@ -6,9 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -19,26 +20,22 @@ import (
 
 type Service struct {
 	work *workflow.Service
-	ways *wow.Service
 	db   *database.DB
 }
 
 // now is AppTown's clock as Work holds it.
 func (s *Service) now() time.Time { return s.work.Now() }
 
-func New(work *workflow.Service, ways *wow.Service, db *database.DB) *Service {
-	return &Service{work: work, ways: ways, db: db}
+func New(work *workflow.Service, db *database.DB) *Service {
+	return &Service{work: work, db: db}
 }
 
-// ApplyCatalog applies a catalog change — render the
-// pinned definition, open a Change, start its run, record provenance. Shared
-// by the API handler and the console actuator (project chats kick off catalog
-// changes as one of their sanctioned mutations).
+// ApplyCatalog applies a catalog change — render its definition, open a
+// Change, start its run, record provenance. Shared by the API handler and
+// the console actuator (project chats kick off catalog changes as one of
+// their sanctioned mutations).
 func (s *Service) ApplyCatalog(ctx context.Context, p *project.Project, c *wow.CatalogChange, params map[string]string, who string) (*workflow.Change, *workflow.Run, error) {
-	def, err := s.ways.CatalogDefinition(ctx, c.ID, c.LatestVersion)
-	if err != nil {
-		return nil, nil, err
-	}
+	def := c.Definition
 	body, err := def.Render(def.Prompt, params)
 	if err != nil {
 		return nil, nil, err
@@ -50,7 +47,7 @@ func (s *Service) ApplyCatalog(ctx context.Context, p *project.Project, c *wow.C
 	if title, err = def.Render(title, params); err != nil {
 		return nil, nil, err
 	}
-	inputs := c.RunInputs(def, params)
+	inputs := c.RunInputs(params)
 	item, run, err := s.work.CreateAndRun(ctx, workflow.InvokeChange{
 		Change:   workflow.ChangeDraft{ProjectID: p.ID, Type: def.Type, Title: title, Body: body},
 		Workflow: def.Workflow, Inputs: json.RawMessage(encodedJSON(inputs)),
@@ -60,7 +57,7 @@ func (s *Service) ApplyCatalog(ctx context.Context, p *project.Project, c *wow.C
 	}
 	// The run is made: its notice is written though the caller has gone.
 	workflow.RecordNoticeOrLog(context.WithoutCancel(ctx), s.db, run.ID, "catalog.applied", map[string]any{
-		"catalog": c.Name, "version": c.LatestVersion, "status": c.State().String(),
+		"catalog": c.Name, "release": wow.CatalogRelease(),
 		"params": params, "by": who}, s.now())
 	return item, run, nil
 }

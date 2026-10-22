@@ -45,9 +45,9 @@ type BundleOrigin struct {
 	RunID    ids.ID `json:"runId,omitzero"`
 	Tree     string `json:"tree"`
 	// TargetID is the target whose daemon the image IDs were read from:
-	// they exist there and nowhere else. 0 is a bundle recorded before
-	// releases named their target (its IDs were read from AppTown's own
-	// daemon), or a digest bundle. Kept in its own column.
+	// they exist there and nowhere else. 0 for a digest bundle, and for a
+	// bundle that names no host, which no-local-Docker mode refuses to
+	// release. Kept in its own column.
 	TargetID ids.ID `json:"targetId,omitzero"`
 	// Registry is a digest bundle's repository, which holds every one of
 	// its images; Platform the os/arch they were built for; Build where.

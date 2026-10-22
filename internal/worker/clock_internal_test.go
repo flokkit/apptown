@@ -154,18 +154,3 @@ func TestASessionNumberIsAboveAppTownsClock(t *testing.T) {
 		t.Fatalf("a session with the clock behind the last: %d %v, want %d", again, err, next+1)
 	}
 }
-
-// A worker's role, and an AppTown's first use of a worker, are stamped on the
-// clock each is given: those two times are compared (RequireCheckWorker).
-func TestARoleAndAFirstUseAreStampedOnTheirClocks(t *testing.T) {
-	t.Parallel()
-	since := time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)
-	role, err := FixRole(t.TempDir(), RoleCheck, func() time.Time { return since })
-	if err != nil || !role.Since.Equal(since) {
-		t.Fatalf("a role fixed on a clock at %s: %+v %v", since, role, err)
-	}
-	first, err := FirstUse(t.TempDir(), "https://w1:8443", func() time.Time { return since })
-	if err != nil || !first.Equal(since) {
-		t.Fatalf("a first use on a clock at %s: %s %v", since, first, err)
-	}
-}

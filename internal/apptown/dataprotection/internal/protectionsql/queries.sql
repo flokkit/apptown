@@ -95,8 +95,8 @@ SELECT sqlc.embed(b),p.slug FROM backups b JOIN projects p ON p.id=b.project_id 
 -- name: InsertRestoredCopy :one
 -- The copy's number is the project's next; a concurrent copy of the same
 -- project is refused by the unique number and fails before anything is made.
-INSERT INTO restored_copies (id, project_id, number, source, source_id, operation_id, backup_id, is_test, lifetime_minutes, asked_by, asked_by_principal, asked_by_via, app_marker, started_at)
-  VALUES (sqlc.arg(id), sqlc.arg(project_id), (SELECT COALESCE(MAX(number),0)+1 FROM restored_copies WHERE project_id=sqlc.arg(project_id)), sqlc.arg(source), sqlc.arg(source_id), sqlc.arg(operation_id), sqlc.arg(backup_id), sqlc.arg(is_test), sqlc.arg(lifetime_minutes), sqlc.arg(asked_by), sqlc.arg(asked_by_principal), sqlc.arg(asked_by_via), sqlc.arg(app_marker), sqlc.arg(at))
+INSERT INTO restored_copies (id, project_id, number, source, source_id, operation_id, backup_id, asked_by, asked_by_principal, asked_by_via, app_marker, started_at)
+  VALUES (sqlc.arg(id), sqlc.arg(project_id), (SELECT COALESCE(MAX(number),0)+1 FROM restored_copies WHERE project_id=sqlc.arg(project_id)), sqlc.arg(source), sqlc.arg(source_id), sqlc.arg(operation_id), sqlc.arg(backup_id), sqlc.arg(asked_by), sqlc.arg(asked_by_principal), sqlc.arg(asked_by_via), sqlc.arg(app_marker), sqlc.arg(at))
   RETURNING *;
 
 -- name: RestoredCopyByID :one
@@ -120,22 +120,18 @@ SELECT c.* FROM restored_copies c WHERE c.source_id=sqlc.arg(source_id)::uuid AN
   ORDER BY c.id DESC;
 
 -- name: LatestRestoreTest :one
-SELECT * FROM restored_copies WHERE source_id=sqlc.arg(source_id) AND is_test AND (outcome<>'' OR ended_at IS NOT NULL) ORDER BY id DESC LIMIT 1;
+SELECT * FROM restored_copies WHERE source_id=sqlc.arg(source_id) AND (outcome<>'' OR ended_at IS NOT NULL) ORDER BY id DESC LIMIT 1;
 
 -- name: PlaceRestoredCopy :execrows
 UPDATE restored_copies SET deployment=sqlc.arg(deployment), deployment_id=sqlc.arg(deployment_id), release_number=sqlc.arg(release_number),
-  target=sqlc.arg(target), expires_at=sqlc.arg(expires_at), gate_secret_sha256=sqlc.arg(secret_sha256)
+  target=sqlc.arg(target), gate_secret_sha256=sqlc.arg(secret_sha256)
   WHERE id=sqlc.arg(id) AND ended_at IS NULL;
-
 -- name: RecordRestoredCopyURL :execrows
 UPDATE restored_copies SET gate_url=sqlc.arg(gate_url) WHERE id=sqlc.arg(id) AND ended_at IS NULL;
 
 -- name: RecordRestoredCopyCheck :execrows
 UPDATE restored_copies SET outcome=sqlc.arg(outcome), failed_step=sqlc.arg(failed_step), facts_json=sqlc.arg(facts_json), checked_at=sqlc.arg(at)::timestamptz
   WHERE id=sqlc.arg(id);
-
--- name: ExtendRestoredCopy :execrows
-UPDATE restored_copies SET expires_at=sqlc.arg(expires_at) WHERE id=sqlc.arg(id) AND ended_at IS NULL AND NOT is_test;
 
 -- name: EndRestoredCopy :execrows
 UPDATE restored_copies SET ended_at=sqlc.arg(at)::timestamptz, end_detail=sqlc.arg(end_detail), gate_secret_sha256='' WHERE id=sqlc.arg(id) AND ended_at IS NULL;
@@ -144,8 +140,8 @@ UPDATE restored_copies SET ended_at=sqlc.arg(at)::timestamptz, end_detail=sqlc.a
 UPDATE restored_copies SET end_detail=sqlc.arg(end_detail) WHERE id=sqlc.arg(id) AND ended_at IS NULL;
 
 -- Restored copies not yet ended: the sweep reads each one's start from
--- the operations ledger and takes down those whose time is up or whose
--- start ended without taking them down.
+-- the operations ledger and takes down those whose start ended without
+-- taking them down.
 -- name: OpenRestoredCopies :many
 SELECT * FROM restored_copies WHERE ended_at IS NULL ORDER BY id;
 
@@ -161,10 +157,6 @@ INSERT INTO restored_copy_tickets (ticket_sha256, copy_id, person, person_princi
 UPDATE restored_copy_tickets SET redeemed_at=sqlc.arg(at)::timestamptz
   WHERE ticket_sha256=sqlc.arg(ticket_sha256) AND copy_id=sqlc.arg(copy_id) AND redeemed_at IS NULL AND expires_at>sqlc.arg(at)::timestamptz
   RETURNING person, person_principal, check_operation;
-
--- People let in: AppTown's own gate checks are not entries.
--- name: RestoredCopyEntries :many
-SELECT person, person_principal, redeemed_at FROM restored_copy_tickets WHERE copy_id=$1 AND redeemed_at IS NOT NULL AND check_operation IS NULL ORDER BY redeemed_at;
 
 -- name: StandingRestoredCopies :one
 SELECT count(*) FROM restored_copies WHERE source_id=$1 AND ended_at IS NULL;

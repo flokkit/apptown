@@ -88,7 +88,7 @@ func (s *Service) RecheckStage(ctx context.Context, runID ids.ID) (Rechecked, er
 		if err != nil {
 			return Rechecked{}, err
 		}
-		verdict, err := run.Advance(steps, recorded, s.placement)
+		verdict, err := run.Advance(steps, recorded)
 		if err != nil {
 			return Rechecked{}, err
 		}
@@ -165,7 +165,7 @@ func evidenceEmpty(raw json.RawMessage) bool {
 // activeCallee follows a run's running workflow call to the child it waits
 // on, as deep as calls go; a run with no running call is itself.
 func activeCallee(ctx context.Context, q database.Queryer, runID ids.ID) (ids.ID, error) {
-	graph, err := readWorkflowActivity(ctx, q, []ids.ID{runID}, Placement{})
+	graph, err := readWorkflowActivity(ctx, q, []ids.ID{runID})
 	if err != nil {
 		return ids.Nil, err
 	}

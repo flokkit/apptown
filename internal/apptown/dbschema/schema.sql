@@ -712,29 +712,6 @@ CREATE TABLE IF NOT EXISTS policy_library (
   origin      TEXT NOT NULL DEFAULT '',
   updated_at  TIMESTAMPTZ NOT NULL
 );
-CREATE TABLE IF NOT EXISTS catalog_changes (
-  id UUID PRIMARY KEY,
-  name             TEXT NOT NULL UNIQUE,
-  description      TEXT NOT NULL DEFAULT '',
-  latest_version   BIGINT NOT NULL DEFAULT 1,
-  promoted_version BIGINT NOT NULL DEFAULT 0,
-  promoted_by      TEXT NOT NULL DEFAULT '',
-  -- The promoter's principal and way of acting (access.Actor); NULL when not resolved to a person.
-  promoted_by_principal UUID,
-  promoted_by_via TEXT NOT NULL DEFAULT '',
-  promoted_at      TIMESTAMPTZ,
-  promotion_note   TEXT NOT NULL DEFAULT '',
-  created_at       TIMESTAMPTZ NOT NULL,
-  updated_at       TIMESTAMPTZ NOT NULL
-);
-CREATE TABLE IF NOT EXISTS catalog_change_versions (
-  id UUID PRIMARY KEY,
-  catalog_id UUID NOT NULL REFERENCES catalog_changes(id) ON DELETE CASCADE,
-  version         BIGINT NOT NULL,
-  definition_json JSONB NOT NULL,
-  created_at      TIMESTAMPTZ NOT NULL,
-  UNIQUE(catalog_id, version)
-);
 CREATE TABLE IF NOT EXISTS guidance_blocks (
   id UUID PRIMARY KEY,
   name           TEXT NOT NULL UNIQUE,
@@ -1382,13 +1359,12 @@ CREATE TABLE IF NOT EXISTS deployments (
   handle_json  JSONB NOT NULL DEFAULT '{}'::jsonb,
   desired_generation  BIGINT NOT NULL DEFAULT 0,
   observed_generation BIGINT NOT NULL DEFAULT 0,
-  readiness    TEXT NOT NULL DEFAULT 'reconciled', -- reconciled | needs-reconcile | reconciling | failed
+  readiness    TEXT NOT NULL DEFAULT 'reconciled', -- reconciled | reconciling | uncertain | failed
   feed         TEXT NOT NULL DEFAULT 'landing',    -- landing | promotion | schedule | manual
   audience     TEXT NOT NULL DEFAULT 'team',       -- team | organisation | partners | public
   data_class   TEXT NOT NULL DEFAULT 'synthetic',  -- synthetic | non-production | production
   promote_after TEXT NOT NULL DEFAULT '',
   url          TEXT NOT NULL DEFAULT '',
-  expires_at   TIMESTAMPTZ,
   -- A deployment started from a copy: the set its first release fills its
   -- data from, and when that was done (null until then).
   start_from_backup UUID,
@@ -1434,8 +1410,8 @@ CREATE TABLE IF NOT EXISTS release_bundles (
   init_json         JSONB NOT NULL DEFAULT '{}'::jsonb, -- init step -> image id, or <registry>@sha256:<hex>
   built_from_json   JSONB NOT NULL DEFAULT '{}'::jsonb, -- change, run, tree
   created_at        TIMESTAMPTZ NOT NULL,
-  -- the target whose daemon the image IDs were read from; 0 for a bundle
-  -- recorded before releases named their target, and for a digest bundle
+  -- the target whose daemon the image IDs were read from; NULL for a
+  -- digest bundle, and for a bundle that names no host
   target_id UUID,
   -- A digest bundle's repository, every image of it by digest there; ''
   -- for a bundle of daemon image IDs.
@@ -1494,7 +1470,7 @@ CREATE TABLE IF NOT EXISTS need_instances (
   binding_json     JSONB NOT NULL DEFAULT '{}'::jsonb,
   secret_refs_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   handle_json      JSONB NOT NULL DEFAULT '{}'::jsonb,
-  status           TEXT NOT NULL DEFAULT 'pending',  -- pending | ready | failed | orphaned
+  status           TEXT NOT NULL,  -- creating | ready | failed | orphaned
   updated_at       TIMESTAMPTZ NOT NULL,
   UNIQUE(deployment_id, need)
 );
@@ -1766,7 +1742,7 @@ CREATE TABLE IF NOT EXISTS rehearsal_places (
 -- deployment (kind restored-copy) of a production deployment's current
 -- release, started from a copy on the source's own target, behind the
 -- AppTown's access gate. The row outlives the deployment it made: it is the
--- evidence of the check, who opened it, and when it was taken down. It
+-- evidence of the check and of when it was taken down. It
 -- holds only safe facts (step names, status codes, names of what was
 -- withheld), never output, and the gate secret only as its SHA-256.
 -- app_marker is the copy's own random mark, written before anything is
@@ -1786,9 +1762,6 @@ CREATE TABLE IF NOT EXISTS restored_copies (
   backup_id UUID NOT NULL,
   release_number     BIGINT NOT NULL DEFAULT 0,
   target             TEXT NOT NULL DEFAULT '',
-  is_test            BOOLEAN NOT NULL,
-  lifetime_minutes   BIGINT NOT NULL DEFAULT 0,
-  expires_at         TIMESTAMPTZ,
   gate_url           TEXT NOT NULL DEFAULT '',
   gate_secret_sha256 TEXT NOT NULL DEFAULT '',
   app_marker         TEXT NOT NULL DEFAULT '',
@@ -1806,12 +1779,11 @@ CREATE TABLE IF NOT EXISTS restored_copies (
 );
 CREATE INDEX IF NOT EXISTS restored_copies_source ON restored_copies (source_id, id);
 CREATE UNIQUE INDEX IF NOT EXISTS restored_copies_number ON restored_copies (project_id, number);
--- A one-use ticket a person's Open issues for a restored copy's gate, kept
--- by its SHA-256 only. Redeeming it (within a minute, once) is the person's
--- entry: the redeemed rows with check_operation 0 are who opened the copy
--- and when. check_operation names the copy's own start when the ticket is
--- AppTown's check of its gate: issued to AppTown, redeemed by that
--- operation while it runs, and never a person's entry.
+-- A one-use ticket AppTown issues itself to check a restored copy's gate,
+-- kept by its SHA-256 only. check_operation names the copy's own start: the
+-- ticket is redeemed (within a minute, once) by that operation while it
+-- runs. Rows from before restored copies were only restore tests may name
+-- a person and no operation; they are history.
 CREATE TABLE IF NOT EXISTS restored_copy_tickets (
   ticket_sha256   TEXT PRIMARY KEY,
   copy_id UUID NOT NULL REFERENCES restored_copies(id) ON DELETE CASCADE,

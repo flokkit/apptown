@@ -28,11 +28,6 @@ const (
 type Activity struct {
 	State  ActivityState
 	Detail string
-	// NeedsRevision: the stage is blocked by what its workflow declares,
-	// which running its checks again cannot change (a script where a
-	// check worker requires an independent check). Only a revised workflow,
-	// in a new run, can pass it.
-	NeedsRevision bool
 	// Approval is the approval step the activity waits on when it reads
 	// "waiting on you": the run's own, or a called workflow's when the
 	// waiting is carried up from it. Zero otherwise.
@@ -66,7 +61,6 @@ type workflowActivityRun struct {
 	steps             []workflowActivityStep
 	stage             *schema.Stage // current stage's pinned declaration, running runs only
 	checks            []Check       // its stage.entered receipt; nil before receipts named checks
-	placement         Placement     // where checks run now, which its gate judges by
 	// awaitingAcceptance: a landing started from accepted work that has not
 	// yet taken that acceptance; its approvals are about to be judged.
 	awaitingAcceptance bool

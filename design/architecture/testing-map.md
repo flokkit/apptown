@@ -20,10 +20,10 @@ vocabulary grows) instead of a document that rots.
 Every piece of work enters one way and leaves one way:
 
 ```
-D1  simple change      (one sentence; the first-time user's flow)
+D1  quick change       (one sentence, `apptown quick`; the first-time user's flow)
 D2  chat change        (a chat session on a change — the workshop)
 D3  detailed change    (title, lane and body by hand)
-D4  catalog change     (prepared, parameterised, promoted)
+D4  catalog change     (prepared, parameterised, shipped with the release)
 D5  import branch      (adopt existing work)
 D6  coding agent       (a connected agent over MCP opens and drives a change)
     → change lifecycle: preview → gates → approval → LAND

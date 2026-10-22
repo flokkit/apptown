@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -13,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
-	"github.com/flokkit/apptown/internal/database"
 )
 
 // ProjectDeployment is a deployment listed with the project it belongs to,
@@ -264,19 +262,12 @@ func (s *Deployments) OthersOnConnector(ctx context.Context, dep *Deployment, t 
 type RestoredPlacement struct {
 	ProjectID, TargetID, BackupID ids.ID
 	Name, DataClass               string
-	ExpiresAt, At                 time.Time
+	At                            time.Time
 }
 
 // PlaceRestoredCopy records a restored copy's placement row (kind
-// restored-copy), which starts from its set and expires with it.
+// restored-copy), which starts from its set.
 func (s *Deployments) PlaceRestoredCopy(ctx context.Context, p RestoredPlacement) (*Deployment, error) {
 	return deploymentRecord(deploymentsql.New(s.db.SQL()).InsertRestoredCopyDeployment(ctx, deploymentsql.InsertRestoredCopyDeploymentParams{ID: ids.New(p.At), ProjectID: p.ProjectID,
-		Name: p.Name, TargetID: p.TargetID, DataClass: p.DataClass, ExpiresAt: sql.NullTime{Time: p.ExpiresAt, Valid: true}, BackupID: p.BackupID, At: p.At}))
-}
-
-// ExtendRestoredCopyIn moves a restored copy's placement's expiry in the
-// caller's transaction, the one that extends the copy's own record.
-func ExtendRestoredCopyIn(ctx context.Context, tx *database.Tx, deploymentID ids.ID, until time.Time) error {
-	_, err := deploymentsql.New(tx.SQL()).ExtendRestoredCopyDeployment(ctx, deploymentsql.ExtendRestoredCopyDeploymentParams{ID: deploymentID, ExpiresAt: sql.NullTime{Time: until, Valid: true}})
-	return err
+		Name: p.Name, TargetID: p.TargetID, DataClass: p.DataClass, BackupID: p.BackupID, At: p.At}))
 }

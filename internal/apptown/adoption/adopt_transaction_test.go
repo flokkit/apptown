@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/adoption/internal/adoptionsql"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
@@ -150,7 +151,7 @@ func TestAdoptInChecksExtensionMembershipAfterSuppressedInsert(t *testing.T) {
 	if _, err := db.Exec(`DROP TRIGGER suppress_adopt_extension ON project_pi_extensions`); err != nil {
 		t.Fatal(err)
 	}
-	if err := newExtensions(db).Set(t.Context(), pid, "addon", true); err != nil {
+	if _, err := adoptionsql.New(db.SQL()).EnableProjectExtension(t.Context(), adoptionsql.EnableProjectExtensionParams{ProjectID: pid, Name: "addon"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`CREATE TRIGGER suppress_adopt_extension BEFORE INSERT ON project_pi_extensions FOR EACH ROW EXECUTE FUNCTION suppress_adopt_extension()`); err != nil {

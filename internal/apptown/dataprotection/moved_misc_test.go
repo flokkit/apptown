@@ -10,13 +10,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
-	"github.com/flokkit/apptown/internal/clock/clocktest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -163,24 +161,6 @@ func TestACopysImagesGoWithItsLastDeployment(t *testing.T) {
 		if gone == (err == nil) {
 			t.Errorf("%s: gone=%v wanted, head error %v", ref, gone, err)
 		}
-	}
-}
-
-// A restored copy's extension takes one reading: the copy's new end is
-// that reading and the added lifetime, and the receipt carries the same
-// reading. (The copy is started on the real clock: its gate's own check
-// redeems a ticket the stepping clock would age out.)
-func TestARestoredCopysExtensionReceiptCarriesTheReadingItsEndIsFrom(t *testing.T) {
-	t.Parallel()
-	w := newRestoredWorld(t, nil)
-	_, c := w.start(RestoredCopyRequest{Minutes: 30})
-	w.s.clock = clocktest.NewStepping(time.Now().Truncate(time.Second), time.Second).Now
-	extended, err := w.s.ExtendRestoredCopy(context.Background(), w.project, c.ID, 180)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if at := newestReceiptAt(t, w.db, "deployment.restored-copy-extended"); !extended.ExpiresAt.Time.Add(-180 * time.Minute).Equal(at) {
-		t.Errorf("a copy extended to %v has its extension's receipt at %v", extended.ExpiresAt.Time, at)
 	}
 }
 

@@ -193,26 +193,6 @@ func TestMCPCreateProject(t *testing.T) {
 	if p, err := a.Projects.BySlug(context.Background(), "nope"); err == nil {
 		t.Fatalf("denied project persisted: %+v", p)
 	}
-	// Transfer a young project (no changes) between groups in one call.
-	res2 := mcp_call(t, a, boss, "create_project", map[string]any{"slug": "young", "name": "Young"})
-	if res2["isError"] == true {
-		t.Fatal(res2)
-	}
-	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "platform"}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
-		t.Fatal(err)
-	}
-	w := authzCall(a.Handler(), "boss", "POST", "/api/v1/projects/young/owner", `{"group":"platform"}`)
-	if w.Code != 200 {
-		t.Fatalf("transfer: %d %s", w.Code, w.Body.String())
-	}
-	py, _ := a.Projects.BySlug(context.Background(), "young")
-	if py.OwnerGroup != "platform" {
-		t.Error("the young project should now belong to platform")
-	}
-	w = authzCall(a.Handler(), "boss", "POST", "/api/v1/projects/snake/owner", `{"group":"platform"}`)
-	if w.Code != 409 {
-		t.Errorf("a project with history is not moved by this button: %d", w.Code)
-	}
 }
 
 // A change acted on whose re-read then fails is an error saying the act

@@ -84,34 +84,6 @@ func (q *Queries) AppendReceipt(ctx context.Context, arg AppendReceiptParams) (i
 	return result.RowsAffected()
 }
 
-const exportProjectLedger = `-- name: ExportProjectLedger :many
-SELECT to_jsonb(l)::text FROM audit_log l WHERE l.project_id = $1 ORDER BY l.id
-`
-
-// A project's ledger lines, for moving it to another AppTown.
-func (q *Queries) ExportProjectLedger(ctx context.Context, projectID ids.ID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, exportProjectLedger, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var column_1 string
-		if err := rows.Scan(&column_1); err != nil {
-			return nil, err
-		}
-		items = append(items, column_1)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const formerID = `-- name: FormerID :one
 SELECT id FROM former_ids WHERE forge = $1 AND kind = $2 AND old = $3
 `

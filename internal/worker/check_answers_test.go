@@ -2,8 +2,6 @@ package worker_test
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/execution"
-	"github.com/flokkit/apptown/internal/worker"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 func TestAnIncompleteAnswerIsNoAnswer(t *testing.T) {

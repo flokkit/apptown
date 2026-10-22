@@ -61,7 +61,7 @@ administrator's password edit makes: the account's sessions end and one
 prints only the new random password on stdout (logs go to stderr) and exits
 without serving. It refuses an unknown username and never creates an account.
 It does not change the account's role, and does not re-enable a disabled
-account. It cannot run with `-verify-only` or `-drain-local-docker`. Remove
+account. It cannot run with `-verify-only`. Remove
 `APPTOWN_RESET_PASSWORD` from the environment afterwards if you set it there:
 while it is set, apptownd resets and exits instead of serving.
 

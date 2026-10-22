@@ -86,7 +86,7 @@ services (each with the worker's service limits, by default 1 CPU, 1 GiB
 and 256 processes, waited on until healthy)
 and the daemon (`internal/dind`: the task's own limits, its tree at the same
 path, its client state in `/apptown/state/docker`, no cache or socket of the
-worker's, the privileged mark first) when it first starts, and never again.
+worker's) when it first starts, and never again.
 A failed start removes what it made and is refused with the reason. When
 the task exits its daemon and services are stopped, confirmed by Docker,
 before it reads as exited and its results are captured; until then it reads
@@ -111,12 +111,12 @@ the accepted race. An image capture that would leave the state folder
 under its floor is recorded refused, not copied.
 `GET /v1/disks` reports both readings.
 
-An agent worker measures its profile when it starts (`profile.go`): what
+A worker measures its profile when it starts (`profile.go`): what
 `docker info` says of its Docker (OS, architecture, kernel, cgroup mode,
 version, storage driver), the private daemon's image (pulled first if
 absent): its tag, Docker's local id of it, its repository digest and the
 version its own `dockerd --version` reports, whether a privileged container
-runs (probed, after the privileged mark), and the operator's `-exclusive`
+runs (probed), and the operator's `-exclusive`
 declaration. `GET /v1/profile` reports it; AppTown records it with each
 attempt admitted with private Docker and sends it in the request. A new
 task's ensure, and its first start, measure Docker again and refuse private

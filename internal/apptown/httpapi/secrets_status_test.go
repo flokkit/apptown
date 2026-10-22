@@ -61,7 +61,6 @@ secrets:
 	mux.HandleFunc("PUT /api/v1/projects/{slug}/secrets/{deployment}/{name}", h.BindSecret)
 	mux.HandleFunc("PUT /api/v1/projects/{slug}/secrets/{deployment}", h.SetSecretProfile)
 	mux.HandleFunc("DELETE /api/v1/projects/{slug}/secrets/{deployment}/{name}", h.UnbindSecret)
-	mux.HandleFunc("GET /api/v1/secrets/stores", h.SecretStores)
 	call := func(method, path, body string) (int, map[string]any) {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req = req.WithContext(access.WithCaller(req.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true, Receipt: "bls"}))
@@ -130,8 +129,8 @@ secrets:
 	if code, _ = call(http.MethodPut, "/api/v1/projects/p/secrets/prod/X", `{"value":"x"}`); code != 404 {
 		t.Fatalf("unknown env: %d", code)
 	}
-	// The stores list is honest about the built-in store.
-	code, out = call(http.MethodGet, "/api/v1/secrets/stores", "")
+	// The project's stores list is honest about the built-in store.
+	code, out = call(http.MethodGet, "/api/v1/projects/p/secrets", "")
 	if code != 200 || !strings.Contains(secretStatusJSON(out), "not a vault") {
 		t.Fatalf("stores: %d %s", code, secretStatusJSON(out))
 	}

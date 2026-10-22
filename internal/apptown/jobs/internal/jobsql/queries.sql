@@ -24,10 +24,6 @@ ORDER BY id FOR UPDATE;
 SELECT (args->>'key')::text AS key FROM river_job
 WHERE args->>'operation'=$1::text AND state NOT IN ('completed','cancelled','discarded');
 
--- name: IncompleteKeys :many
-SELECT (args->>'key')::text AS key FROM river_job
-WHERE args->>'operation'=$1::text AND state <> 'completed';
-
 -- name: InterruptedOperationsForUpdate :many
 SELECT id,args,attempt,
  COALESCE(attempted_by[array_length(attempted_by,1)],'')::text AS previous_client,

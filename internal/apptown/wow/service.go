@@ -2,6 +2,7 @@ package wow
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"time"
 
@@ -39,34 +40,33 @@ type Service struct {
 	workflows *Workflows
 	packs     *Packs
 	policies  *Policies
-	catalog   *Catalog
 	// shippedNames is the release's stock names, read once (withdrawn.go).
 	shippedNames shippedOnce
 }
 
 func New(db *database.DB, deps Dependencies) *Service {
-	s := &Service{db: db, deps: deps, library: NewLibrary(db), workflows: NewWorkflows(db), packs: NewPacks(db), policies: NewPolicies(db), catalog: NewCatalog(db)}
-	s.library.clock, s.workflows.clock, s.packs.clock, s.policies.clock, s.catalog.clock = deps.Now, deps.Now, deps.Now, deps.Now, deps.Now
+	s := &Service{db: db, deps: deps, library: NewLibrary(db), workflows: NewWorkflows(db), packs: NewPacks(db), policies: NewPolicies(db)}
+	s.library.clock, s.workflows.clock, s.packs.clock, s.policies.clock = deps.Now, deps.Now, deps.Now, deps.Now
 	return s
 }
 
-func (s *Service) CatalogChange(ctx context.Context, name string) (*CatalogChange, error) {
-	return s.catalog.ByName(ctx, name)
+// CatalogChange is the shipped catalog's entry of that name.
+func (s *Service) CatalogChange(name string) (*CatalogChange, error) {
+	all, err := s.CatalogChanges()
+	if err != nil {
+		return nil, err
+	}
+	for i := range all {
+		if all[i].Name == name {
+			return &all[i], nil
+		}
+	}
+	return nil, fmt.Errorf("%w %q", ErrCatalogMissing, name)
 }
-func (s *Service) CatalogChanges(ctx context.Context) ([]CatalogChange, error) {
-	return s.catalog.All(ctx)
-}
-func (s *Service) CatalogDefinition(ctx context.Context, id ids.ID, version int) (*CatalogDef, error) {
-	return s.catalog.Definition(ctx, id, version)
-}
-func (s *Service) CreateCatalogChange(ctx context.Context, name, description string, def CatalogDef, who string) (*CatalogChange, error) {
-	return s.catalog.Create(ctx, name, description, def, who)
-}
-func (s *Service) BumpCatalogChange(ctx context.Context, id ids.ID, name string, def CatalogDef, who string) error {
-	return s.catalog.Bump(ctx, id, name, def, who)
-}
-func (s *Service) PromoteCatalogChange(ctx context.Context, name, note, who string) (*CatalogChange, error) {
-	return s.catalog.Promote(ctx, name, note, who)
+
+// CatalogChanges is the shipped catalog, in the file's order.
+func (s *Service) CatalogChanges() ([]CatalogChange, error) {
+	return ReadStockCatalog(s.deps.Stock)
 }
 func (s *Service) BlockByID(ctx context.Context, id ids.ID) (*Block, error) {
 	return s.marked(s.library.ByID(ctx, id))
@@ -229,9 +229,6 @@ func (s *Service) Workflows(ctx context.Context) ([]WorkflowEntry, error) {
 }
 func (s *Service) CustomWorkflowNames(ctx context.Context) ([]string, error) {
 	return s.workflows.CustomNames(ctx)
-}
-func (s *Service) WorkflowHistory(ctx context.Context, name string) ([]WorkflowVersion, error) {
-	return s.workflows.History(ctx, name)
 }
 func (s *Service) PublishWorkflow(ctx context.Context, yamlSrc, who string) (name string, version int, err error) {
 	return s.workflows.Put(ctx, yamlSrc, who)

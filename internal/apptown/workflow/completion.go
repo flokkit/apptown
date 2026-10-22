@@ -102,7 +102,7 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 		return fmt.Errorf("completion effects are unavailable")
 	}
 	return w.db.InTx(ctx, func(tx *database.Tx) error {
-		spec, err := settleAdvanceIn(ctx, tx, run, stageSuccessor{Completing: true}, w.placement, w.now())
+		spec, err := settleAdvanceIn(ctx, tx, run, stageSuccessor{Completing: true}, w.now())
 		if err != nil {
 			return err
 		}

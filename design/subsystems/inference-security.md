@@ -11,11 +11,7 @@ There is no fallback that injects provider credentials when proxy access fails.
 Inference requires **both** a live runtime credential and a connection from
 an explicitly allowed worker network. The inference handler has its own
 listener and is absent from the public web handler and the console API handler.
-It accepts console and step credentials, plus an ephemeral inference-only
-credential for the workflow drafting helper, which AppTown uses in-process
-(`Gateway.Complete`: the same admission, binding, model, receipt and
-cancellation checks, without the network check, as the caller is AppTown
-itself). Browser sessions, personal access
+It accepts console and step credentials. Browser sessions, personal access
 tokens and the mere ability to reach the listener do not grant inference.
 
 Source checks use `RemoteAddr`, the actual TCP peer. `X-Forwarded-For`,
@@ -43,8 +39,6 @@ means “this credential's workload”, not “the named human intended these wo
 - A continued chat receives its own chat identity and token, retaining the
   originating run, producing step and attempt as attribution. Its inference
   does not depend on the old run remaining active.
-- The drafting helper gets an in-memory credential for its request, revoked
-  when it finishes. It carries no run API authority.
 - Delegates share their parent runtime's credential, attribution and concurrency
   allowance. They receive no separate provider key.
 

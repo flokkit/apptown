@@ -4,8 +4,6 @@ Workflow owns admission, claims, state transitions and settlement. This package
 orders the external work performed by selected runners and records its results
 through `workflow.Execution`.
 
-- `Drafter` drafts a workflow with one tool-free model call through the
-  inference owner (`inference.Gateway.Complete`); it starts no process.
 - `Executor` runs agents and reviews. Its constructor takes the model,
   scoped credentials, environment, harness and accounting collaborators it needs.
 - `Commands` runs scripts and tests. Its constructor takes a process runner,

@@ -84,6 +84,3 @@ SELECT (sqlc.arg(kinds)::text[])[i]::text AS kind
 FROM generate_subscripts(sqlc.arg(kinds)::text[],1) AS requested(i)
 WHERE NOT EXISTS(SELECT 1 FROM artifacts a JOIN runs r ON r.id=a.run_id
  WHERE r.project_id=sqlc.arg(project_id) AND a.kind=(sqlc.arg(kinds)::text[])[i]) ORDER BY i;
-
--- name: ExportArtifacts :many
-SELECT to_jsonb(a)::text FROM artifacts a JOIN runs r ON r.id = a.run_id WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY a.id;

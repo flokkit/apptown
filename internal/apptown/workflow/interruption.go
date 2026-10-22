@@ -54,24 +54,3 @@ func InterruptStepsIn(ctx context.Context, tx *database.Tx, preserve []ids.ID, e
 	}
 	return out, nil
 }
-
-// StepLeftRunning names a step recorded running when AppTown starts.
-type StepLeftRunning struct {
-	ID, RunID ids.ID
-	Type      string
-}
-
-// RunningStepsIn lists every step recorded running, in any project: what
-// startup repair would end unless a recorded task or a live child run keeps
-// it.
-func RunningStepsIn(ctx context.Context, q database.Queryer) ([]StepLeftRunning, error) {
-	rows, err := workflowsql.New(q.SQL()).RunningStepsMeta(ctx, StatusRunning.String())
-	if err != nil {
-		return nil, err
-	}
-	out := make([]StepLeftRunning, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, StepLeftRunning{ID: r.ID, RunID: r.RunID, Type: r.Type})
-	}
-	return out, nil
-}

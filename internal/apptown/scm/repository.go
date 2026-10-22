@@ -80,23 +80,13 @@ func nonSourceIn(ctx context.Context, repo string, revs ...string) ([]string, er
 	return paths, nil
 }
 
-// NonSourceIn lists AppTown's runtime paths (RuntimeOnly) any commit
-// the revisions select adds or changes, read commit by commit: what a move
-// must never carry, by the same rule a publication applies.
-func NonSourceIn(ctx context.Context, repo string, revs ...string) ([]string, error) {
-	if len(revs) == 0 {
-		return nil, nil
-	}
-	return nonSourceIn(ctx, repo, revs...)
-}
-
 // RuntimeOnly reports whether path is AppTown's runtime state in a working
 // copy (.apptown, whatever its case), never source. The one exception is
 // the application's native contract, .apptown/app.yaml, which is source.
 // .forge, the folder's name before the AppTown rename, is held to the same
 // rule for good: an old runtime file anywhere in history stays non-source,
 // while the historical contract .forge/app.yaml stays source, so history
-// from before the upgrade still publishes and exports.
+// from before the upgrade still publishes.
 func RuntimeOnly(path string) bool {
 	top, _, _ := strings.Cut(path, "/")
 	switch {

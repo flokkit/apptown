@@ -287,10 +287,9 @@ lanes; the checks the app would newly be held to — then adopts now, or
 adopts through an uplift change: an ordinary change that must pass the
 new checks and moves the project when it lands. *Same → Updates available.*
 
-**B14 Run a lane on a schedule or from a webhook.** A lane may declare a
-cron schedule (the monthly dependency uplift) or accept a webhook; each
-fire opens a change attributed to the schedule or the caller. *Workflow
-YAML `on:`; `POST /hooks/{project}/{workflow}`.*
+**B14 Run a lane on a schedule.** A lane may declare a cron schedule (the
+monthly dependency uplift); each fire opens a change attributed to the
+schedule. *Workflow YAML `on:`.*
 
 **B15 Record a decision.** An owner starts a decision (ADR) as a draft,
 proposes and accepts it, supersedes it later; agents read accepted
@@ -418,8 +417,8 @@ read the report and the diff, and accept or send back. *Project → Chat;
 Change page.*
 
 **C3 Run a prepared change from the catalog.** A maintainer picks a
-catalogued change (a fix the institution has tested before) and runs it
-with its parameters. Done as C2. *Project → Overview → Change ▸
+catalog change (a prepared change the release ships) and runs it with
+its parameters. Done as C2. *Project → Overview → Change ▸
 catalog.*
 
 **C4 Choose the lane.** A maintainer starts a specific lane:

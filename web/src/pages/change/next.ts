@@ -248,7 +248,6 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
       return {
         tone: 'bad', stamp: 'blocked', headline: "This stage can't finish as recorded",
         sentence: view.stateDetail, primary: offered(d.next, 'recheck') ? 'recheck' : 'none',
-        waitingOn: d.needsRevision ? 'a revised workflow, in a new run' : undefined,
       }
     }
     // Once the landing has merged, the work is on main: it cannot be sent

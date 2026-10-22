@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -237,4 +238,39 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		}
 		onlyTheWorker(t, calls, "--init --name apptown-check-", image+" sh -c", "go build ./...")
 	})
+}
+
+func placementOf(t *testing.T, s *workflow.Step) *workflow.Placement {
+	t.Helper()
+	var ev struct{ Placement *workflow.Placement }
+	if err := json.Unmarshal(s.Evidence, &ev); err != nil {
+		t.Fatal(err)
+	}
+	return ev.Placement
+}
+
+func readStep(t *testing.T, a *App, id ids.ID) *workflow.Step {
+	t.Helper()
+	s, err := workflow.ReadStepIn(context.Background(), a.DB, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// With a worker, checks run there and a passing tests gate lands: its result
+// records the worker it ran on.
+func TestWithAWorkerAPassingGateLands(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	calls := onWorkerWithATripwire(t, a)
+	run, source := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests"}}, map[string]string{"go.mod": "module example\n"}, nil)
+	step := reviewExecute(t, a, run, "tests")
+	if p := placementOf(t, step); step.Status != workflow.StatusPass || p == nil || *p != (workflow.Placement{Worker: a.cfg.worker.URL}) {
+		t.Fatalf("the tests gate on the worker: %s %s", step.Status, step.Evidence)
+	}
+	onlyTheWorker(t, calls, "go test -json ./...")
+	if obs, err := mergeEffectForTest(t, a, source); err != nil || !obs.Merged {
+		t.Fatalf("a passing gate on the worker did not land: %+v %v", obs, err)
+	}
 }

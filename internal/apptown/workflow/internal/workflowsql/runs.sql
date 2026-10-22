@@ -332,17 +332,6 @@ UPDATE runs SET landing_authority = sqlc.arg(by), landing_authority_principal = 
 -- name: RunLandingAuthority :one
 SELECT parent_run_id, landing_authority FROM runs WHERE id = $1;
 
--- name: ExportRuns :many
-SELECT to_jsonb(r)::text FROM runs r WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY r.id;
-
--- name: ExportRunInferenceOwners :many
-SELECT to_jsonb(o)::text FROM run_inference_owners o JOIN runs r ON r.id = o.run_id WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY o.run_id;
-
--- The runs that stay: running, or on a change not landed. Their ledger
--- lines stay with them.
--- name: ExportStayingRuns :many
-SELECT r.id FROM runs r WHERE r.project_id = $1 AND NOT (r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped'))) ORDER BY r.id;
-
 -- name: NextChangeNumber :one
 -- A change's number within its project, allocated in its creating transaction.
 INSERT INTO project_numbers (project_id, changes) VALUES (sqlc.arg(project_id), 1)

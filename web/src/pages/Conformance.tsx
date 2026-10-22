@@ -1,11 +1,9 @@
-import { PRODUCT } from '../brand'
 import { useEffect, useMemo, useState } from 'react'
-import { QuietConfirm } from '../QuietConfirm'
 import { Link, useParams } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import type { ConformanceReviewDetail, ConformanceView, Review, FeatureList } from '../wire.gen'
+import type { ConformanceReviewDetail, ConformanceView, Review } from '../wire.gen'
 import { fmtWhen } from '../format'
 import { type LiveReview, isUnfinished, LensBanner, ReviewFeed, ReviewProgress, tabClass, useStartRemediation } from './conformance/parts'
 import { ProjectsList } from './conformance/Projects'
@@ -69,10 +67,6 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   const running = isRunning(view?.lens.review) ? view?.lens.review : view?.reviews?.find(isRunning)
   if (running?.id && !following) setFollowing(running.id)
 
-  const featuresQ = useGet<FeatureList>('/features')
-  const features = featuresQ.data?.features ?? []
-  const startClean = async () => { await act(() => post('/conformance/history/clear', {})) }
-
   const run = async (projects?: string[]) => {
     const rev = await act(() => post<Review>('/conformance/review', projects ? { projects, build: true } : { build: true }))
     if (rev?.id) setFollowing(rev.id)
@@ -123,9 +117,6 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
               : <span className="row" style={{ gap: 'var(--space-2)' }}>
                   {s && s.findings > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix all findings</button>}
                   <button className="primary" disabled={busy} onClick={() => run()}>{busy ? 'Starting…' : 'Run a review now'}</button>
-                  {features.includes('dev-tools') && <QuietConfirm label="Start clean…" title={`Remove every review, verdict, AI flag, exception, fix record and remediation job in ${PRODUCT}, recorded in the audit log. Scanner suppressions on each project's Security page are kept.`}
-                    ask="Delete all conformance history? Every review and everything derived from one goes; the next review starts from nothing. Recorded in the audit log."
-                    disabled={busy} onYes={startClean} />}
                 </span>}
           </div>
         </div>
@@ -134,7 +125,6 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       {shownErr && <div className="error small mb-3">{shownErr}</div>}
       <StaleNote q={[viewQ, liveQ]} />
       {following !== '' && <ReadStatus q={liveQ} what="the running review" className="small" />}
-      {!featuresQ.data && featuresQ.err && <ReadStatus q={featuresQ} what={`${PRODUCT}'s features`} className="small" />}
 
       <div className="tabs">
         <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>

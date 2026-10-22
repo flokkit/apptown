@@ -97,9 +97,8 @@ our norms"). It is shown when deciding and recorded with the decision.
 **Pacing** — how a workflow advances. "Paced by people" waits at gates for a
 human; "runs straight through" advances on its own when checks pass.
 
-**Catalog change** — a canned, versioned change definition that can be run
-on any project, with parameters. Starts as a draft; promoted to the catalog
-after evaluation.
+**Catalog change** — a prepared change that can be run on any project, with
+parameters. AppTown ships them with each release.
 
 ## Shipping
 

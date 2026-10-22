@@ -63,12 +63,8 @@ func TestImmediateAdmissionCallersUseAtomicWorkAndPreserveInputs(t *testing.T) {
 				},
 			})
 			t.Cleanup(work.Stop)
-			ways := wow.New(db, wow.Dependencies{})
-			s := New(work, ways, db)
-			c, err := ways.CreateCatalogChange(t.Context(), "test/admit", "test", wow.CatalogDef{Workflow: "test", Title: "Fix {{part}}", Prompt: "Repair {{part}}", Model: "provider/model", Params: []wow.CatalogParam{{Name: "part", Required: true}}}, "operator")
-			if err != nil {
-				t.Fatal(err)
-			}
+			s := New(work, db)
+			c := &wow.CatalogChange{Name: "test/admit", Description: "test", Definition: wow.CatalogDef{Workflow: "test", Title: "Fix {{part}}", Prompt: "Repair {{part}}", Model: "provider/model", Params: []wow.CatalogParam{{Name: "part", Required: true}}}}
 			ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: "operator", Via: "session"}, Receipt: "operator", Verified: true})
 			call := func() (*workflow.Change, *workflow.Run, error) {
 				if catalog {

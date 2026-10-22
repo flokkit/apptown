@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -47,8 +46,7 @@ func (a *App) resolveSession(r *http.Request) *authIdentity {
 }
 
 // authOpenPaths are reachable without identity in internal mode: the login
-// door itself, and the two inert intake surfaces (complaints attribute
-// from run/console context; webhooks carry their own token).
+// door itself, and the stateless local-compose rendering.
 func authOpenPath(method, path string) bool {
 	switch {
 	case path == "/api/v1/auth/login", path == "/api/v1/auth/me",
@@ -71,8 +69,6 @@ func authOpenPath(method, path string) bool {
 	// docker-compose for rehearsal — a stateless computation the container-mode
 	// guidance tells every coding agent to run, writing nothing (complaint 44).
 	case method == "POST" && path == "/api/v1/dev-compose":
-		return true
-	case strings.HasPrefix(path, "/api/v1/hooks/"):
 		return true
 	}
 	return false

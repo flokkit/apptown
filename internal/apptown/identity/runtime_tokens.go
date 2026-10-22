@@ -21,13 +21,9 @@ import (
 )
 
 // Workload identifies the admitted work a runtime credential represents.
-// Actor is receipt attribution. Person, when set, is the account whose
-// authority the workload exercises: a draft asked through a console is
-// attributed to "alice via console/<id>" but acts as alice, and SessionID
-// then names that console, whose lifecycle it also needs.
+// Actor is receipt attribution.
 type Workload struct {
-	Actor  string
-	Person string
+	Actor string
 	// Principal is the person the workload acts for (a run's owner, a
 	// chat's opener), judged by ID; zero when it acts for AppTown or for
 	// no principal AppTown could tie it to.
@@ -50,10 +46,6 @@ func (w Workload) Who() access.Actor {
 		a.Via = access.ViaRunStep
 	case "console":
 		a.Via = access.ViaChat + ":" + w.SessionID
-	case "assist":
-		if w.SessionID != "" {
-			a.Via = access.ViaChat + ":" + w.SessionID
-		}
 	}
 	return a
 }
@@ -83,13 +75,9 @@ const (
 // validation both doors use (inference.Identity.AuthenticateStep). There is
 // no revocation list: a settled, cancelled or superseded attempt is refused
 // by its state.
-//
-// Draft-assist grants are not step attempts: they stay process-local, minted
-// and revoked around one assist call, and never reach the API door.
 type RuntimeTokens struct {
-	key  []byte
-	mu   sync.Mutex
-	byTk map[string]Workload // assist token -> workload identity
+	key []byte
+	mu  sync.Mutex
 }
 
 // Open loads the step-token key from file, creating it (32 random bytes,
@@ -173,32 +161,4 @@ func (tokens *RuntimeTokens) stepKey() []byte {
 	tokens.mu.Lock()
 	defer tokens.mu.Unlock()
 	return tokens.key
-}
-
-// Mint issues a process-local token for a non-step workload (a draft
-// assist); Revoke ends it.
-func (tokens *RuntimeTokens) Mint(who Workload) string {
-	buf := make([]byte, 24)
-	_, _ = rand.Read(buf)
-	tok := "run_" + hex.EncodeToString(buf)
-	tokens.mu.Lock()
-	if tokens.byTk == nil {
-		tokens.byTk = map[string]Workload{}
-	}
-	tokens.byTk[tok] = who
-	tokens.mu.Unlock()
-	return tok
-}
-
-func (tokens *RuntimeTokens) Revoke(tok string) {
-	tokens.mu.Lock()
-	delete(tokens.byTk, tok)
-	tokens.mu.Unlock()
-}
-
-func (tokens *RuntimeTokens) Lookup(token string) (Workload, bool) {
-	tokens.mu.Lock()
-	defer tokens.mu.Unlock()
-	who, ok := tokens.byTk[token]
-	return who, ok
 }

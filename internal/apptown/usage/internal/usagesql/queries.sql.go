@@ -86,34 +86,6 @@ func (q *Queries) Cursor(ctx context.Context, path string) (UsageCursor, error) 
 	return i, err
 }
 
-const exportTokenUsage = `-- name: ExportTokenUsage :many
-SELECT to_jsonb(u)::text FROM token_usage u WHERE u.project_id = $1 ORDER BY u.id
-`
-
-// A project's spend, row by row, for moving it to another AppTown.
-func (q *Queries) ExportTokenUsage(ctx context.Context, projectID ids.ID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, exportTokenUsage, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var column_1 string
-		if err := rows.Scan(&column_1); err != nil {
-			return nil, err
-		}
-		items = append(items, column_1)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const finishRequest = `-- name: FinishRequest :exec
 UPDATE inference_requests SET finished_at=$1,http_status=$2::bigint::integer,outcome=$3,usage_json=$4 WHERE id=$5
 `

@@ -50,14 +50,11 @@ down, is in [Previews and deployments](/docs/guides/container-lifecycle).
   links to it. Small holders of a kind fold into "N more".
 
   The host's own use, and free memory, are known only on the built-in host,
-  and only when the daemon sees `apptownd`'s files and the same memory total:
-  `apptownd` writes a random marker into a file of its temp folder, the daemon
-  reads it back through a read-only mount in the same small pinned image as
-  the disk read (at most every five minutes), and both report the same total.
-  `apptownd`'s memory figures are then taken as the daemon machine's. The case
-  this cannot tell is two machines of equal memory sharing `apptownd`'s temp
-  folder over a network filesystem. Otherwise the rest of the bar is hatched
-  "not read", never free. Attached hosts do not
+  and only when `apptownd` and the daemon report the same memory total.
+  `apptownd`'s memory figures are then taken as the daemon machine's. A
+  remote daemon on a machine with exactly the same memory as `apptownd`'s
+  would be read wrongly. Otherwise the rest of the bar is hatched "not read",
+  never free. Attached hosts do not
   report the host's own use in 1.0; per-deployment disk use is not shown.
 
   **A Portainer endpoint** shows what it can give containers, and the limits

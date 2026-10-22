@@ -41,9 +41,6 @@ WHERE id=$1 AND status = $9;
 UPDATE conformance_reviews SET status = sqlc.arg(status), finished_at = sqlc.arg(at)::timestamptz, current_project = ''
 WHERE status IN (sqlc.arg(queued), sqlc.arg(running));
 
--- name: UnfinishedReviewExists :one
-SELECT EXISTS(SELECT 1 FROM conformance_reviews WHERE status IN (sqlc.arg(queued), sqlc.arg(running)));
-
 -- name: PriorReviewBefore :one
 SELECT * FROM conformance_reviews WHERE id < $1 AND status = $2 ORDER BY id DESC LIMIT 1;
 
@@ -231,24 +228,8 @@ SELECT id FROM projects WHERE id=ANY($1::uuid[]) ORDER BY id FOR KEY SHARE;
 -- NOWAIT refuses concurrent readers and writers rather than queueing; the
 -- locks are held until the caller's transaction ends.
 
--- name: LockConformanceHistory :exec
-LOCK TABLE conformance_reviews, conformance_verdicts, conformance_adjudications,
-  conformance_review_exceptions, conformance_fixes IN ACCESS EXCLUSIVE MODE NOWAIT;
-
--- name: DeleteAllFixes :execrows
-DELETE FROM conformance_fixes;
-
--- name: DeleteAllReviewExceptions :execrows
-DELETE FROM conformance_review_exceptions;
-
--- name: DeleteAllAdjudications :execrows
-DELETE FROM conformance_adjudications;
-
 -- name: DeleteAllVerdicts :execrows
 DELETE FROM conformance_verdicts;
-
--- name: DeleteAllReviews :execrows
-DELETE FROM conformance_reviews;
 
 -- The selection is sent as text, as InsertReview's is.
 -- name: InsertWhatIf :one

@@ -54,7 +54,6 @@ func TestServiceRequiresCallerBeforeReadingOrWriting(t *testing.T) {
 	service := newServiceWithAuthority(nil, testAuthority{}, nil)
 	ctx := context.Background()
 	operations := []func() error{
-		func() error { _, e := service.PrepareHistoryClearIn(ctx, nil); return e },
 		func() error { _, e := service.BeginReview(ctx, ReviewRequest{}); return e },
 		func() error { _, e := service.Reviews(ctx, 10); return e },
 		func() error { _, e := service.Review(ctx, idstest.N(1)); return e },

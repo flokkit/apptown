@@ -41,13 +41,6 @@ func (e WorkflowEntry) OriginRef() string {
 	return fmt.Sprintf("%s/%s@%d", prefix, e.Name, e.Version)
 }
 
-// WorkflowVersion is one entry of a workflow's history.
-type WorkflowVersion struct {
-	Version   int    `json:"version"`
-	YAML      string `json:"yaml"`
-	CreatedAt string `json:"createdAt"`
-}
-
 // StockSystemWorkflows are AppTown's own jobs an instance may stand in for.
 var StockSystemWorkflows = []string{"land", "ship", "adopt-integration", "retire-integration"}
 
@@ -129,22 +122,6 @@ func (s *Workflows) CustomNames(ctx context.Context) ([]string, error) {
 		}
 	}
 	sort.Strings(out)
-	return out, err
-}
-
-// History is a workflow's versions, newest first; an unknown name is
-// ErrNoWorkflow.
-func (s *Workflows) History(ctx context.Context, name string) ([]WorkflowVersion, error) {
-	q := wowsql.New(s.db.SQL())
-	w, err := workflowByNameIn(ctx, q, name)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := q.WorkflowVersions(ctx, w.ID)
-	out := make([]WorkflowVersion, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, WorkflowVersion{Version: int(r.Version), YAML: r.Yaml, CreatedAt: r.CreatedAt.Format(time.RFC3339Nano)})
-	}
 	return out, err
 }
 

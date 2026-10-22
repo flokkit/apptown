@@ -14,7 +14,7 @@ import (
 func TestCreateChangeHTTPFailedAdmissionLeavesNoChange(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, true)
-	h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB, "open")
+	h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, f.DB), f.DB, "open")
 	clear := f.DB.FailNextStatement("INSERT INTO steps")
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"title":"do not orphan","workflow":"test"}`)).WithContext(f.Context)
 	r.SetPathValue("slug", "shop")
@@ -37,7 +37,7 @@ func TestCreateChangeHTTPPostCommitFailureNamesTheAdmittedWork(t *testing.T) {
 		t.Run(failure, func(t *testing.T) {
 			t.Parallel()
 			f := newWorkflowHTTPFixture(t, true)
-			h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB, "open")
+			h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, f.DB), f.DB, "open")
 			if failure == "preparation" {
 				t.Cleanup(f.DB.FailNextStatement("UPDATE run_starts SET ready"))
 			} else {

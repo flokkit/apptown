@@ -111,7 +111,7 @@ export function BigChangeBox({ slug }: { slug: string }) {
         <SplitButton icon="💬" label="Change" sub="describe what you want changed"
           primary={!buildFirst} busy={busy} onMain={startChat}
           items={[
-            { label: '📋 Catalog change', hint: 'run one of the catalogued changes', onClick: () => setCatalogOpen(true) },
+            { label: '📋 Catalog change', hint: 'run one of the prepared changes', onClick: () => setCatalogOpen(true) },
             { label: '✏️ New change, detailed', hint: 'pick the title and workflow yourself', onClick: () => setDetailedOpen(true) },
           ]} />
         {canRelease && (
@@ -132,8 +132,8 @@ export function BigChangeBox({ slug }: { slug: string }) {
   )
 }
 
-// The catalog picker: our canned changes, one click plus params. Drafts are
-// runnable but say so (a draft run is an evaluation).
+// The catalog picker: the prepared changes the release ships, one click
+// plus params.
 export type CatalogEntry = GeneratedCatalogEntry
 
 export type CatalogDefT = CatalogDef
@@ -182,7 +182,6 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
           <div key={e.name} className="card" style={{ opacity: 0.6 }}>
             <div className="row">
               <strong><code>{e.name}</code></strong>
-              <span className="muted small">v{e.latestVersion}</span>
             </div>
             <div className="small" style={{ marginTop: 4 }}>{e.description}</div>
             <div className="small" style={{ marginTop: 6 }}>
@@ -201,10 +200,6 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
           }} onClick={() => setPicked(picked?.name === e.name ? null : e)}>
             <div className="row">
               <strong><code>{e.name}</code></strong>
-              <span className={`chip ${e.status === 'catalogued' ? 'pass' : 'pending'}`}>
-                {e.status === 'catalogued' ? 'catalogued' : 'draft — this run is an evaluation'}
-              </span>
-              <span className="muted small">v{e.latestVersion}</span>
             </div>
             <div className="small" style={{ marginTop: 4 }}>{e.description}</div>
             {picked?.name === e.name && <ReadStatus q={defQ} what="the change's definition" className="small" />}

@@ -22,7 +22,7 @@ func TestLandChangeHTTPReturnsTheSelectedChangesLanding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, nil, f.DB), f.DB, "open")
+	h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, f.DB), f.DB, "open")
 	call := func(id string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/", nil).WithContext(f.Context)
 		r.SetPathValue("id", id)

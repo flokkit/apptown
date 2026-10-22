@@ -55,29 +55,6 @@ CREATE TABLE IF NOT EXISTS policy_library (
   origin      TEXT NOT NULL DEFAULT '',
   updated_at  TIMESTAMPTZ NOT NULL
 );
-CREATE TABLE IF NOT EXISTS catalog_changes (
-  id UUID PRIMARY KEY,
-  name             TEXT NOT NULL UNIQUE,
-  description      TEXT NOT NULL DEFAULT '',
-  latest_version   BIGINT NOT NULL DEFAULT 1,
-  promoted_version BIGINT NOT NULL DEFAULT 0,
-  promoted_by      TEXT NOT NULL DEFAULT '',
-  -- The promoter's principal and way of acting (access.Actor); NULL when not resolved to a person.
-  promoted_by_principal UUID,
-  promoted_by_via TEXT NOT NULL DEFAULT '',
-  promoted_at      TIMESTAMPTZ,
-  promotion_note   TEXT NOT NULL DEFAULT '',
-  created_at       TIMESTAMPTZ NOT NULL,
-  updated_at       TIMESTAMPTZ NOT NULL
-);
-CREATE TABLE IF NOT EXISTS catalog_change_versions (
-  id UUID PRIMARY KEY,
-  catalog_id UUID NOT NULL REFERENCES catalog_changes(id) ON DELETE CASCADE,
-  version         BIGINT NOT NULL,
-  definition_json JSONB NOT NULL,
-  created_at      TIMESTAMPTZ NOT NULL,
-  UNIQUE(catalog_id, version)
-);
 CREATE TABLE IF NOT EXISTS guidance_blocks (
   id UUID PRIMARY KEY,
   name           TEXT NOT NULL UNIQUE,

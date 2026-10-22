@@ -31,8 +31,8 @@
 // Data protection (copies, restores, restored copies and take-downs) is the
 // dataprotection package's. It settles what it removes through
 // [SelectRemovalIn] and [RemoveRecordedIn] (and [RemoveRestoredIn] for a
-// restored copy), places and extends a restored copy through
-// [Deployments.PlaceRestoredCopy] and [ExtendRestoredCopyIn], and fills a
+// restored copy), places a restored copy through
+// [Deployments.PlaceRestoredCopy], and fills a
 // deployment started from a copy as this package's [CopyStarter], which
 // Deployment is given at construction; the start itself is recorded here
 // ([Deployments.RecordStartedFrom]). Deployment imports no data protection

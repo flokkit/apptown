@@ -18,8 +18,7 @@ import (
 // "check", "rehearse" and "test" start a copy to the backup store, a check
 // that the newest copy comes back, a restore rehearsal of the app on it, or
 // a restore test on the deployment's own platform behind AppTown gate,
-// and follow it to its end. A restored copy is opened from AppTown in a
-// browser, never from here.
+// and follow it to its end.
 func cmdData(args []string) error {
 	fs := newFlags("data")
 	proj := fs.String("p", os.Getenv("APPTOWN_PROJECT"), "project slug (default: $APPTOWN_PROJECT)")
@@ -212,20 +211,14 @@ type restoredCopy struct {
 	Backup     ids.ID `json:"backup"`
 	Release    int64  `json:"release"`
 	Target     string `json:"target"`
-	Test       bool   `json:"test"`
 	StartedAt  string `json:"startedAt"`
-	ExpiresAt  string `json:"expiresAt"`
 	CheckedAt  string `json:"checkedAt"`
 	EndedAt    string `json:"endedAt"`
 	EndDetail  string `json:"endDetail"`
-	Open       bool   `json:"open"`
 	Outcome    string `json:"outcome"`
 	FailedStep string `json:"failedStep"`
 	Warning    string `json:"warning"`
-	Entries    []struct {
-		Person string `json:"person"`
-	} `json:"entries"`
-	Facts struct {
+	Facts      struct {
 		Gate []struct {
 			Name   string `json:"name"`
 			Path   string `json:"path"`
@@ -354,30 +347,17 @@ func printProtection(w io.Writer, p protection) {
 	if c := p.RestoreTest; c != nil && c.gateLine() != "" {
 		fmt.Fprintf(w, "    %s\n", c.gateLine())
 	}
+	// A copy still standing: its test is running, or its take-down left
+	// something and the sweep tries again.
 	for _, c := range p.RestoredCopies {
-		if c.EndedAt != "" || c.Test {
+		if c.EndedAt != "" {
 			continue
 		}
-		var who []string
-		seen := map[string]bool{}
-		for _, e := range c.Entries {
-			if !seen[e.Person] {
-				seen[e.Person] = true
-				who = append(who, e.Person)
-			}
+		state := "being tested"
+		if c.EndDetail != "" {
+			state = c.EndDetail
 		}
-		opened := "not opened yet"
-		if len(who) > 0 {
-			opened = "opened by " + strings.Join(who, ", ")
-		}
-		state := "starting"
-		if c.CheckedAt != "" {
-			state = "up until " + c.ExpiresAt
-			if c.Open {
-				state = "open until " + c.ExpiresAt
-			}
-		}
-		fmt.Fprintf(w, "  restored copy %d of %s from set %s · %s · %s (open it from AppTown in a browser)\n", c.Number, p.Deployment, c.Backup, state, opened)
+		fmt.Fprintf(w, "  restored copy %d of %s from set %s · %s\n", c.Number, p.Deployment, c.Backup, state)
 		fmt.Fprintf(w, "    %s\n", c.Warning)
 	}
 	if op := p.Running; op != nil {

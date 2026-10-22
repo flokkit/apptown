@@ -659,38 +659,6 @@ func TestLoginDuringAnUncommittedPasswordChangeWaitsAndIsRefused(t *testing.T) {
 	}
 }
 
-// A password link is for the person it was made for: renamed, they still
-// use it; someone later given their old name is not touched by it.
-func TestAPasswordLinkFollowsItsPersonThroughARename(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	s := testInviteService(t)
-	ops := testPrincipal("ops")
-	if err := s.SaveUser(ctx, AccountChange{Username: "kim", Password: "kims-old-password"}, ops); err != nil {
-		t.Fatal(err)
-	}
-	issued, err := s.PasswordLink(ctx, NewPasswordLink{Username: "kim"}, ops)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Rename(ctx, "kim", "kimberly", ops); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SaveUser(ctx, AccountChange{Username: "kim", Password: "another-persons-password"}, ops); err != nil {
-		t.Fatal(err)
-	}
-	signed, err := s.AcceptInvite(ctx, InviteAcceptance{Token: issued.Token, Password: "kimberlys-new-password"})
-	if err != nil || signed.Principal.Name != "kimberly" {
-		t.Fatalf("the link signed in %+v: %v", signed.Principal, err)
-	}
-	if _, err := s.SignIn(ctx, PasswordLogin{Username: "kim", Password: "another-persons-password"}); err != nil {
-		t.Fatalf("the new kim's password changed: %v", err)
-	}
-	if _, err := s.SignIn(ctx, PasswordLogin{Username: "kimberly", Password: "kimberlys-new-password"}); err != nil {
-		t.Fatalf("kimberly's new password: %v", err)
-	}
-}
-
 // A link the identity cutover could not tie to its person, or to its maker,
 // acts on no one: it never falls back to whoever holds the name now.
 func TestALinkNamingNoPrincipalActsOnNoOne(t *testing.T) {
@@ -721,8 +689,7 @@ func TestALinkNamingNoPrincipalActsOnNoOne(t *testing.T) {
 }
 
 // The administrator an admin invite makes is granted by the invite's maker
-// as the invite recorded them, though they were renamed and their old name
-// given to someone else before it was used.
+// as the invite recorded them.
 func TestAnAdminInvitesGrantNamesItsMaker(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -734,12 +701,6 @@ func TestAnAdminInvitesGrantNamesItsMaker(t *testing.T) {
 	}
 	issued, err := s.Invite(ctx, NewInvite{Username: "newadmin", Role: "admin"}, access.Principal{ID: maker.PrincipalID, Kind: "user", Name: "alice", Via: "session", Role: "admin"})
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Rename(ctx, "alice", "alicia", testPrincipal("ops")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.EnsureUser(ctx, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: issued.Token, Password: "long-enough"}); err != nil {

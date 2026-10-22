@@ -2,12 +2,8 @@ package deployment
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"os"
 	"sort"
-	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/hostmem"
@@ -161,20 +157,15 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr er
 }
 
 // hostUse reads this host's own memory, for the built-in target only and
-// only when the daemon reads back a marker apptownd wrote (sameMachine) and
-// both see the same memory total. That witnesses that the daemon sees
-// apptownd's files at the same path and the same total, and apptownd's
-// /proc/meminfo is then taken as the daemon machine's: an AppTown in a
-// container reads the kernel's figures (unless they are virtualised, when
-// the totals differ). The case it cannot tell is two machines of equal
-// memory sharing apptownd's temp folder over a network filesystem, accepted
-// in the plan. Otherwise unknown with the reason.
-func (s *Service) hostUse(ctx context.Context, t *Target, dk docker.Scope, daemonTotal int64) Figure {
+// only when apptownd's /proc/meminfo and the daemon report the same memory
+// total. apptownd's figures are then taken as the daemon machine's: an
+// AppTown in a container reads the kernel's figures (unless they are
+// virtualised, when the totals differ), and Docker Desktop's VM has a total
+// of its own. A remote daemon whose machine has the same total as
+// apptownd's is not told apart. Otherwise unknown with the reason.
+func (s *Service) hostUse(t *Target, daemonTotal int64) Figure {
 	if t.Origin != OriginBuiltIn {
 		return unknown("the host's own use is not read on an attached host in 1.0")
-	}
-	if same, why := s.sameMachine(ctx, t.ID, dk); !same {
-		return unknown(why)
 	}
 	read := s.capacity.host
 	if read == nil {
@@ -188,72 +179,6 @@ func (s *Service) hostUse(ctx context.Context, t *Target, dk docker.Scope, daemo
 		return unknown(fmt.Sprintf("this AppTown sees %d bytes of memory and the daemon %d", m.TotalBytes, daemonTotal))
 	}
 	return known(float64(m.UsedBytes()))
-}
-
-// sameMachine says whether the daemon sees apptownd's filesystem: apptownd
-// writes a random marker into a file of its own temp folder, and the
-// daemon mounts that path into a throwaway container and prints it. A
-// remote daemon has no such path (its mount is refused); a apptownd in a
-// container wrote the marker where the daemon does not look. Read at most
-// every diskFresh, as the disk is.
-func (s *Service) sameMachine(ctx context.Context, targetID ids.ID, dk docker.Scope) (bool, string) {
-	now := s.now()
-	s.capacity.mu.Lock()
-	if w, ok := s.capacity.witness[targetID]; ok && now.Sub(w.at) < diskFresh {
-		s.capacity.mu.Unlock()
-		return w.same, w.why
-	}
-	path, mark, err := s.capacity.marker()
-	s.capacity.mu.Unlock()
-	same, why := false, ""
-	switch read, rerr := docker.ReadMark(ctx, dk, path, mark); {
-	case err != nil:
-		why = "AppTown could not write its marker: " + err.Error()
-	case rerr != nil:
-		why = "the daemon does not run where this AppTown does, as far as AppTown can witness (it could not read AppTown's marker)"
-	case !read:
-		why = "the daemon does not run where this AppTown does, as far as AppTown can witness (it read a different marker)"
-	default:
-		same = true
-	}
-	s.capacity.mu.Lock()
-	if s.capacity.witness == nil {
-		s.capacity.witness = map[ids.ID]witnessReading{}
-	}
-	s.capacity.witness[targetID] = witnessReading{at: now, same: same, why: why}
-	s.capacity.mu.Unlock()
-	return same, why
-}
-
-type witnessReading struct {
-	at   time.Time
-	same bool
-	why  string
-}
-
-// marker is the file apptownd's marker is in, written once; the caller holds mu.
-func (c *capacityCache) marker() (string, string, error) {
-	if c.markPath != "" {
-		return c.markPath, c.mark, nil
-	}
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", "", err
-	}
-	f, err := os.CreateTemp(c.markDir, "apptown-host-mark-*")
-	if err != nil {
-		return "", "", err
-	}
-	mark := hex.EncodeToString(b[:])
-	_, werr := f.WriteString(mark)
-	if cerr := f.Close(); werr == nil {
-		werr = cerr
-	}
-	if werr != nil {
-		return "", "", werr
-	}
-	c.markPath, c.mark = f.Name(), mark
-	return c.markPath, c.mark, nil
 }
 
 // dockerTenants is who holds a Docker host, from the readings capacity

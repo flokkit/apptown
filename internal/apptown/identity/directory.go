@@ -550,27 +550,6 @@ func deleteGroupIn(ctx context.Context, tx *database.Tx, name, by string, at tim
 	return audit.At(at).RecordIn(ctx, tx, by, ids.Nil, "group.deleted", name, nil)
 }
 
-// RevokeProjectRoles revokes every live project-scoped grant a subject
-// holds on one project, with the roster receipt; zero means the subject
-// held nothing there.
-func (d *directoryStore) RevokeProjectRoles(ctx context.Context, subjectType, subject string, projectID ids.ID, by string) (int64, error) {
-	var count int64
-	err := d.db.InTx(ctx, func(tx *database.Tx) error {
-		var err error
-		at := d.now()
-		count, err = queries(tx).RevokeProjectGrants(ctx, accesssql.RevokeProjectGrantsParams{SubjectType: subjectType, Subject: subject, ScopeID: projectID.String(), At: at.UTC()})
-		if err != nil || count == 0 {
-			return err
-		}
-		grantee := subject
-		if subjectType != "user" {
-			grantee = subjectType + ":" + subject
-		}
-		return audit.At(at).RecordIn(ctx, tx, by, projectID, "project.member-removed", grantee, map[string]any{"grants": count})
-	})
-	return count, err
-}
-
 // RoleIn reads the current account role inside the caller's checked
 // observation, its grants judged live as of at.
 func RoleIn(ctx context.Context, q database.Queryer, username string, at time.Time) (string, bool, error) {

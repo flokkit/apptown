@@ -11,8 +11,7 @@ import (
 
 // What the ways of working store is stamped by AppTown's clock, not the
 // wall clock or the database's: on a clock ninety days behind, the stock a
-// release seeds, a person's block and its edit, a catalog change and its
-// promotion, and a pack's publication all carry that clock's time. An
+// release seeds, a person's block and its edit, and a pack's publication all carry that clock's time. An
 // adoption resolves a block as of its revision's time by the same clock.
 func TestAppTownsClockStampsTheWaysOfWorking(t *testing.T) {
 	t.Parallel()
@@ -50,33 +49,6 @@ func TestAppTownsClockStampsTheWaysOfWorking(t *testing.T) {
 				t.Fatalf("block %s version %d stamped %s, not %s", b.Name, v.Version, v.CreatedAt, stamped)
 			}
 		}
-	}
-
-	workflows, err := s.Workflows(ctx)
-	if err != nil || len(workflows) == 0 {
-		t.Fatalf("stock workflows: %d %v", len(workflows), err)
-	}
-	for _, w := range workflows {
-		history, err := s.WorkflowHistory(ctx, w.Name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, v := range history {
-			if v.CreatedAt != stamped {
-				t.Fatalf("workflow %s version %d stamped %s, not %s", w.Name, v.Version, v.CreatedAt, stamped)
-			}
-		}
-	}
-
-	c, err := s.CreateCatalogChange(ctx, "clocked", "", CatalogDef{Workflow: "implement", Type: "chore", Prompt: "p"}, "alice")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c, err = s.PromoteCatalogChange(ctx, c.Name, "verified", "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if c.CreatedAt != stamped || c.UpdatedAt != stamped || !c.PromotedAt.Time.Equal(at) {
-		t.Fatalf("catalog change stamped %+v, not %s", c, stamped)
 	}
 
 	spec, err := json.Marshal(PackSpec{Guidance: []string{"house/clocked"}})

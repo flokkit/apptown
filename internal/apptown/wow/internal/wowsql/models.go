@@ -5,35 +5,11 @@
 package wowsql
 
 import (
-	"database/sql"
 	"encoding/json"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 )
-
-type CatalogChange struct {
-	ID                  ids.ID
-	Name                string
-	Description         string
-	LatestVersion       int64
-	PromotedVersion     int64
-	PromotedBy          string
-	PromotedByPrincipal ids.ID
-	PromotedByVia       string
-	PromotedAt          sql.NullTime
-	PromotionNote       string
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-}
-
-type CatalogChangeVersion struct {
-	ID             ids.ID
-	CatalogID      ids.ID
-	Version        int64
-	DefinitionJson json.RawMessage
-	CreatedAt      time.Time
-}
 
 type GuidanceBlock struct {
 	ID            ids.ID

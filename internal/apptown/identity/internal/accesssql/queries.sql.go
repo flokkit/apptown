@@ -2332,39 +2332,6 @@ func (q *Queries) RemovePrincipal(ctx context.Context, arg RemovePrincipalParams
 	return result.RowsAffected()
 }
 
-const renamePrincipal = `-- name: RenamePrincipal :execrows
-UPDATE principals SET name = $1 WHERE id = $2 AND removed_at IS NULL
-`
-
-type RenamePrincipalParams struct {
-	Name string
-	ID   ids.ID
-}
-
-func (q *Queries) RenamePrincipal(ctx context.Context, arg RenamePrincipalParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, renamePrincipal, arg.Name, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const renameUser = `-- name: RenameUser :one
-UPDATE users SET username = $1 WHERE username = $2 RETURNING principal_id
-`
-
-type RenameUserParams struct {
-	NewName string
-	OldName string
-}
-
-func (q *Queries) RenameUser(ctx context.Context, arg RenameUserParams) (ids.ID, error) {
-	row := q.db.QueryRowContext(ctx, renameUser, arg.NewName, arg.OldName)
-	var principal_id ids.ID
-	err := row.Scan(&principal_id)
-	return principal_id, err
-}
-
 const revokeAuthToken = `-- name: RevokeAuthToken :one
 UPDATE auth_tokens SET revoked_at = $1
 WHERE name = $2 AND revoked_at IS NULL RETURNING name
@@ -2490,31 +2457,6 @@ func (q *Queries) RevokeGrant(ctx context.Context, arg RevokeGrantParams) (ids.I
 	var id ids.ID
 	err := row.Scan(&id)
 	return id, err
-}
-
-const revokeProjectGrants = `-- name: RevokeProjectGrants :execrows
-UPDATE grants SET revoked_at = $1::timestamptz
-WHERE subject_type = $2 AND subject = CASE WHEN $2::text = 'user' THEN COALESCE((SELECT u.principal_id FROM users u WHERE u.username = $3::text)::text, '') ELSE $3::text END AND scope_type = 'project' AND scope_id = $4 AND revoked_at IS NULL
-`
-
-type RevokeProjectGrantsParams struct {
-	At          time.Time
-	SubjectType string
-	Subject     string
-	ScopeID     string
-}
-
-func (q *Queries) RevokeProjectGrants(ctx context.Context, arg RevokeProjectGrantsParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, revokeProjectGrants,
-		arg.At,
-		arg.SubjectType,
-		arg.Subject,
-		arg.ScopeID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
 }
 
 const revokeRefreshToken = `-- name: RevokeRefreshToken :execrows

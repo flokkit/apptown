@@ -359,3 +359,11 @@ func (t *terminal) Close() error {
 	}
 	return nil
 }
+
+// Static is a console.Environment with one fixed answer: a console with
+// nothing but a model, a key and a workspace.
+type Static struct{ Provision console.Provision }
+
+func (e Static) Prepare(context.Context, *console.Session) (console.Provision, error) {
+	return e.Provision, nil
+}

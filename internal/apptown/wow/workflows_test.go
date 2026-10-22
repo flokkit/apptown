@@ -45,8 +45,8 @@ func TestWorkflowLibraryVersionsAndStockProtection(t *testing.T) {
 	if _, y, err := wf.Version(t.Context(), "ours/tidy", 0); err != nil || y != src("ours/tidy", "second", "") {
 		t.Fatalf("latest: %v", err)
 	}
-	if history, _ := wf.History(t.Context(), "ours/tidy"); len(history) != 2 || history[0].Version != 2 {
-		t.Fatalf("history newest first: %+v", history)
+	if _, y, err := wf.Version(t.Context(), "ours/tidy", 1); err != nil || y != src("ours/tidy", "first", "") {
+		t.Fatalf("the first version is kept: %v", err)
 	}
 	if receipts := wowReceipts(t, db, "library.workflow.", "ours/tidy"); len(receipts) != 2 {
 		t.Fatalf("workflow receipts: %+v", receipts)
@@ -63,9 +63,6 @@ func TestWorkflowLibraryVersionsAndStockProtection(t *testing.T) {
 	}
 	if err := wf.Delete(t.Context(), "nobody", "alice"); !errors.Is(err, ErrNoWorkflow) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("absence: %v", err)
-	}
-	if _, err := wf.History(t.Context(), "nobody"); !errors.Is(err, ErrNoWorkflow) || fault.KindOf(err) != fault.NotFound {
-		t.Fatalf("history of an unknown workflow: %v", err)
 	}
 	if names, _ := wf.CustomNames(t.Context()); len(names) != 1 || names[0] != "ours/tidy" {
 		t.Fatalf("custom names: %v", names)

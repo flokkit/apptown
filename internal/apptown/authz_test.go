@@ -16,7 +16,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/operations"
-	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
@@ -427,7 +426,7 @@ func TestAuthorizationRequiresExplicitGrantsBeforeBootstrap(t *testing.T) {
 	}
 }
 
-func TestMembersKeepExplicitGroupGrantsAndRevokeAtomically(t *testing.T) {
+func TestAddingAMemberKeepsExplicitGroupGrants(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
 	h := a.Handler()
@@ -441,15 +440,6 @@ func TestMembersKeepExplicitGroupGrantsAndRevokeAtomically(t *testing.T) {
 	w = authzCall(h, "boss", "POST", "/api/v1/projects/open/members", `{"grantee":"kid","role":"migrated-project-member"}`)
 	if w.Code != 400 || len(mustRecords(a.Access.GrantsAt(context.Background(), access.ScopeProject, idstest.N(2).String()))) != before+1 {
 		t.Fatal("invalid role changed grants")
-	}
-	dbtest.FailNextStatement(t, a.DB, "INSERT INTO audit_log")
-	w = authzCall(h, "boss", "DELETE", "/api/v1/projects/open/members/kid", "")
-	if w.Code != 500 || len(mustRecords(a.Access.GrantsAt(context.Background(), access.ScopeProject, idstest.N(2).String()))) != before+1 {
-		t.Fatal("failed removal partially revoked authority")
-	}
-	w = authzCall(h, "boss", "DELETE", "/api/v1/projects/open/members/kid", "")
-	if w.Code != 200 || len(mustRecords(a.Access.GrantsAt(context.Background(), access.ScopeProject, idstest.N(2).String()))) != before {
-		t.Fatalf("removal failed: %d %s", w.Code, w.Body.String())
 	}
 }
 

@@ -177,7 +177,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 		"copy":  {p.Operations.Copy, func() error { _, err := w.s.RequestCopy(ctx, w.pid, "main"); return err }},
 		"check": {p.Operations.Check, func() error { _, err := w.s.RequestDrill(ctx, w.pid, "main"); return err }},
 		"restore test": {p.Operations.Restore, func() error {
-			_, err := w.s.RequestRestoredCopy(ctx, w.pid, "main", RestoredCopyRequest{Test: true})
+			_, err := w.s.RequestRestoredCopy(ctx, w.pid, "main", RestoredCopyRequest{})
 			return err
 		}},
 	}

@@ -521,7 +521,7 @@ func TestAnIntranetReleaseRefusesAnUnknownOrOtherPlatform(t *testing.T) {
 }
 
 // In an AppTown with no local Docker a digest bundle goes by promotion to App
-// Platform and to Portainer, and the built-in host (a drained AppTown's) is
+// Platform and to Portainer, and the built-in host (of an AppTown that once had local Docker) is
 // still refused.
 //
 // Kills: 8a's refusal of every Portainer and App Platform release kept for

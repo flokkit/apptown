@@ -15,10 +15,6 @@
       "count": 2,
       "why": "apptown dev runs the person's docker client (compose, and dev up's static-site builds) on their terminal with their whole environment, their Buildx builder included (docker.CLI drops it, as AppTown's own builds must), from one place, dockerCLI; dev_test runs compose config in a project folder, as dev up does"
     },
-    "cmd/apptown-check": {
-      "count": 1,
-      "why": "the checklist completer gives the prompt to the person's command on stdin and passes its stderr to their terminal; execution.Runner takes no stdin and merges the streams"
-    },
     "cmd/apptown-worker": {
       "count": 1,
       "why": "the -docker test starts the built apptown-worker as a server with a PATH holding only the fake docker, and stops it by its pid"
@@ -26,14 +22,6 @@
     "cmd/apptownd": {
       "count": 1,
       "why": "the SIGTERM test runs this test binary as a child and signals it"
-    },
-    "internal/console": {
-      "count": 1,
-      "why": "toolchain_test reads the command's stdout and stderr apart, with a PATH of its own first; execution.Runner merges them"
-    },
-    "internal/console/consoletest": {
-      "count": 1,
-      "why": "the fake runtime's Script streams a script's stdout alone to the caller, as the real runtime's container does; execution.Runner merges stderr into it"
     },
     "internal/apptown": {
       "count": 1,
@@ -46,6 +34,14 @@
     "internal/apptown/workflowexec": {
       "count": 1,
       "why": "reconcile_guidance_test runs the chat's catch-up command with only the variables it names (no HOME, so no personal git config); execution.Runner would add the process's environment"
+    },
+    "internal/console": {
+      "count": 1,
+      "why": "toolchain_test reads the command's stdout and stderr apart, with a PATH of its own first; execution.Runner merges them"
+    },
+    "internal/console/consoletest": {
+      "count": 1,
+      "why": "the fake runtime's Script streams a script's stdout alone to the caller, as the real runtime's container does; execution.Runner merges stderr into it"
     },
     "internal/worker/workertest": {
       "count": 1,

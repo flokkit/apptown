@@ -7,7 +7,7 @@ import (
 
 func TestReadinessFollowsTheAttempt(t *testing.T) {
 	t.Parallel()
-	for _, from := range []Readiness{Reconciled, Reconciling, ReadinessUncertain, ReadinessFailed, NeedsReconcile} {
+	for _, from := range []Readiness{Reconciled, Reconciling, ReadinessUncertain, ReadinessFailed} {
 		if got, err := from.Admitted(); err != nil || got != Reconciling {
 			t.Fatalf("admitting from %s: %s %v", from, got, err)
 		}
@@ -26,7 +26,7 @@ func TestReadinessFollowsTheAttempt(t *testing.T) {
 			t.Fatalf("a superseded attempt settles nothing: %v", err)
 		}
 	}
-	for _, idle := range []Readiness{Reconciled, ReadinessFailed, NeedsReconcile} {
+	for _, idle := range []Readiness{Reconciled, ReadinessFailed} {
 		if _, err := idle.Settled(AttemptDone); !errors.Is(err, ErrReadinessTransition) {
 			t.Fatalf("%s has no attempt to settle: %v", idle, err)
 		}
@@ -43,7 +43,7 @@ func TestReadinessStorage(t *testing.T) {
 		t.Fatalf("the zero value cannot be stored: %v", err)
 	}
 	var s Readiness
-	for _, word := range []string{"reconciled", "reconciling", "uncertain", "failed", "needs-reconcile"} {
+	for _, word := range []string{"reconciled", "reconciling", "uncertain", "failed"} {
 		if err := s.Scan(word); err != nil || s.String() != word {
 			t.Fatalf("scan %q: %s %v", word, s, err)
 		}

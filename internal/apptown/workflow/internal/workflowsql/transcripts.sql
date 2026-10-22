@@ -46,7 +46,3 @@ SELECT EXISTS(SELECT 1 FROM agent_transcripts WHERE digest=$1);
 -- table, never a write (scripts/schema-ownership.py).
 -- name: EvalCopyOf :one
 SELECT eval_id FROM eval_copies WHERE project_id = $1;
-
--- name: ExportAgentTranscripts :many
-SELECT to_jsonb(t)::text FROM agent_transcripts t JOIN runs r ON r.id = t.run_id
-WHERE r.project_id = $1 AND r.status <> 'running' AND (r.change_id IS NULL OR r.change_id IN (SELECT m.id FROM changes m WHERE m.project_id = $1 AND m.state = 'shipped')) ORDER BY t.step_id, t.attempt, t.invocation;

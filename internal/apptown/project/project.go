@@ -171,9 +171,6 @@ func CreateAt(ctx context.Context, tx *database.Tx, at time.Time, in Spec) (ids.
 	return r.ID, nil
 }
 
-func (s *Projects) SetOwnerGroup(ctx context.Context, id ids.ID, group string) error {
-	return queries(s.db).SetProjectOwnerGroup(ctx, projectsql.SetProjectOwnerGroupParams{ID: id, OwnerGroup: group})
-}
 func (s *Projects) SetReleaseDomain(ctx context.Context, id ids.ID, domain string) error {
 	return queries(s.db).SetProjectReleaseDomain(ctx, projectsql.SetProjectReleaseDomainParams{ID: id, ReleaseDomain: domain})
 }

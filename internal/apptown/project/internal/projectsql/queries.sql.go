@@ -97,18 +97,6 @@ func (q *Queries) DeletingProjects(ctx context.Context) ([]ProjectLifecycle, err
 	return items, nil
 }
 
-const exportProjectRow = `-- name: ExportProjectRow :one
-SELECT to_jsonb(p)::text FROM projects p WHERE p.id = $1
-`
-
-// A project's own row, for moving it to another AppTown.
-func (q *Queries) ExportProjectRow(ctx context.Context, id ids.ID) (string, error) {
-	row := q.db.QueryRowContext(ctx, exportProjectRow, id)
-	var column_1 string
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
 const insertProject = `-- name: InsertProject :one
 INSERT INTO projects (id, slug, name, namespace, blurb, icon, owner_group, default_approvers, created_at, purpose)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose
@@ -299,46 +287,6 @@ func (q *Queries) NoteTakeDownsStarted(ctx context.Context, projectID ids.ID) (i
 		return 0, err
 	}
 	return result.RowsAffected()
-}
-
-const outstandingProjectDeletions = `-- name: OutstandingProjectDeletions :many
-SELECT project_id, slug, requested_by, requested_by_principal, requested_by_via, requested_at, plan, state, detail, attempts, round, finished_at FROM project_deletions WHERE state <> 'done' ORDER BY project_id
-`
-
-func (q *Queries) OutstandingProjectDeletions(ctx context.Context) ([]ProjectDeletion, error) {
-	rows, err := q.db.QueryContext(ctx, outstandingProjectDeletions)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ProjectDeletion
-	for rows.Next() {
-		var i ProjectDeletion
-		if err := rows.Scan(
-			&i.ProjectID,
-			&i.Slug,
-			&i.RequestedBy,
-			&i.RequestedByPrincipal,
-			&i.RequestedByVia,
-			&i.RequestedAt,
-			&i.Plan,
-			&i.State,
-			&i.Detail,
-			&i.Attempts,
-			&i.Round,
-			&i.FinishedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const projectAuthorityCatalogue = `-- name: ProjectAuthorityCatalogue :many
@@ -895,20 +843,6 @@ type SetProjectModelProfileParams struct {
 
 func (q *Queries) SetProjectModelProfile(ctx context.Context, arg SetProjectModelProfileParams) error {
 	_, err := q.db.ExecContext(ctx, setProjectModelProfile, arg.ID, arg.ModelProfile)
-	return err
-}
-
-const setProjectOwnerGroup = `-- name: SetProjectOwnerGroup :exec
-UPDATE projects SET owner_group = $2 WHERE id=$1
-`
-
-type SetProjectOwnerGroupParams struct {
-	ID         ids.ID
-	OwnerGroup string
-}
-
-func (q *Queries) SetProjectOwnerGroup(ctx context.Context, arg SetProjectOwnerGroupParams) error {
-	_, err := q.db.ExecContext(ctx, setProjectOwnerGroup, arg.ID, arg.OwnerGroup)
 	return err
 }
 

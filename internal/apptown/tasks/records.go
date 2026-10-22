@@ -386,16 +386,6 @@ func (r *Records) ConfirmWorkspaceRelease(ctx context.Context, backend, workspac
 	return nil // released before, or no task ever named it
 }
 
-// Held lists every attempt not settled and released, on any backend: what a
-// backend may still hold.
-func (r *Records) Held(ctx context.Context) ([]Attempt, error) {
-	rows, err := taskssql.New(r.db.SQL()).HeldAttempts(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return attemptsOf(rows)
-}
-
 // Unsettled lists attempts a restarted AppTown must observe.
 func (r *Records) Unsettled(ctx context.Context) ([]Attempt, error) { return UnsettledIn(ctx, r.db) }
 

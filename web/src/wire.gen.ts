@@ -157,19 +157,11 @@ export type CatalogApplied = {
   change: Change
   run: Run
   catalog: string
-  catalogStatus: string
 }
 
 export type CatalogChangeDetail = {
   change: CatalogChange
-  status: string
-  shownVersion: number
   definition: CatalogDef
-}
-
-export type CatalogChangeStatus = {
-  change: CatalogChange
-  status: string
 }
 
 export type CatalogList = {
@@ -283,11 +275,6 @@ export type ConformanceFixList = {
 
 export type ConformanceHistory = {
   history: HistoryPoint[]
-}
-
-export type ConformanceHistoryCleared = {
-  ok: boolean
-  removed: ClearedHistory | null
 }
 
 export type ConformanceObservation = {
@@ -620,14 +607,6 @@ export type EvalStartForm = {
   maxChanges: number
 }
 
-export type ExtensionList = {
-  extensions: ExtensionRow[]
-}
-
-export type FeatureList = {
-  features: string[]
-}
-
 export type FinalCopies = {
   copies: FinalCopy[]
 }
@@ -901,11 +880,6 @@ export type PackSaved = {
   warnings: string[]
 }
 
-export type PackSuggestion = {
-  pack: string
-  why: string
-}
-
 export type PackView = {
   apiVersion?: string
   resources?: MemoryDefault
@@ -1123,12 +1097,6 @@ export type ProjectServiceList = {
 export type ProjectTargets = {
   targets: OfferedTarget[]
   group: string
-}
-
-export type ProjectTransferred = {
-  ok: boolean
-  from: string
-  to: string
 }
 
 export type ProjectWorkflowRow = {
@@ -1373,10 +1341,6 @@ export type SecretStoreInfo = {
   note: string
 }
 
-export type SecretStoreList = {
-  stores: SecretStoreInfo[]
-}
-
 export type SendBackAccepted = {
   runId: string | null
   stepId: string | null
@@ -1420,12 +1384,6 @@ export type SignedInAs = {
   ok: boolean
   user: string
   role: string
-}
-
-export type SimpleChange = {
-  change: Change
-  run: Run
-  picked: SimpleChoice
 }
 
 export type SpecGate = {
@@ -1587,11 +1545,6 @@ export type UserList = {
   users: Account[]
 }
 
-export type WebhookStarted = {
-  changeId: string | null
-  runId: string | null
-}
-
 export type WhatIfStarted = {
   id: string | null
 }
@@ -1602,11 +1555,6 @@ export type WorkerChatList = {
 
 export type WorkerPools = {
   pools: WorkerPool[]
-}
-
-export type WorkflowDraft = {
-  yaml: string
-  attempts: number
 }
 
 export type WorkflowInvalid = {
@@ -1820,17 +1768,8 @@ export type Run = {
 }
 
 export type CatalogChange = {
-  id: string | null
   name: string
   description: string
-  latestVersion: number
-  promotedVersion: number
-  promotedBy?: string
-  promotedByPrincipal?: string | null
-  promotedAt?: string
-  promotionNote?: string
-  createdAt: string
-  updatedAt: string
 }
 
 export type CatalogDef = {
@@ -1845,18 +1784,8 @@ export type CatalogDef = {
 }
 
 export type CatalogEntry = {
-  id: string | null
   name: string
   description: string
-  latestVersion: number
-  promotedVersion: number
-  promotedBy?: string
-  promotedByPrincipal?: string | null
-  promotedAt?: string
-  promotionNote?: string
-  createdAt: string
-  updatedAt: string
-  status: string
   missingWorkflow?: string
   fromPack?: string
 }
@@ -1873,7 +1802,6 @@ export type RunSnapshot = {
   steps: (Step | null)[]
   state?: string
   stateDetail?: string
-  needsRevision?: boolean
   ending?: string
   events: Event[]
   artifacts: Artifact[]
@@ -2022,17 +1950,6 @@ export type HistoryPoint = {
   broken: number
   total: number
   standing: string
-}
-
-export type ClearedHistory = {
-  conformanceReviews: number
-  conformanceVerdicts: number
-  conformanceAdjudications: number
-  conformanceReviewExceptions: number
-  conformanceFixes: number
-  remediationAttempts: number
-  remediationItems: number
-  remediations: number
 }
 
 export type Outcome = "conforms" | "does-not-conform" | "excepted" | "not-applicable" | "cannot-assess" | "error"
@@ -2412,19 +2329,15 @@ export type RestoredCopy = {
   backup: string | null
   release?: number
   target?: string
-  test: boolean
   askedBy: string
   askedByPrincipal?: string | null
   startedAt: string
-  expiresAt?: string
-  open: boolean
   outcome?: string
   failedStep?: string
   checkedAt?: string
   endedAt?: string
   endDetail?: string
   facts: RehearsalFacts
-  entries: GateEntry[]
   operation: string | null
   warning: string
   boundary: string
@@ -2588,14 +2501,6 @@ export type PackChoice = {
   name: string
   latest: number
   recommended: number
-}
-
-export type ExtensionRow = {
-  name: string
-  package: string
-  description: string
-  enabled: boolean
-  version: string
 }
 
 export type FinalCopy = {
@@ -3493,13 +3398,6 @@ export type NeedSelection = {
   params: Record<string, unknown>
 }
 
-export type SimpleChoice = {
-  title: string
-  type: string
-  workflow: string
-  why: string
-}
-
 export type StepState = "pending" | "running" | "pass" | "fail" | "needs_human" | "error" | "skipped"
 
 export type SystemWorkflowBinding = {
@@ -4006,12 +3904,6 @@ export type RehearsalFacts = {
   gate?: RehearsalCheck[]
 }
 
-export type GateEntry = {
-  person: string
-  personPrincipal?: string | null
-  at: string
-}
-
 export type MemoryDefaultSource = {
   kind: string
   name?: string
@@ -4324,7 +4216,6 @@ export type CheckReceipt = {
 
 export type Placement = {
   worker?: string
-  role?: string
   local?: boolean
 }
 
@@ -4432,7 +4323,6 @@ export type workflowStepSummary = {
 export type On = {
   manual?: Record<string, unknown>
   schedule?: ScheduleTrigger | null
-  webhook?: Record<string, unknown>
 }
 
 export type Defaults = {

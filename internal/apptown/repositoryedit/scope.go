@@ -394,15 +394,9 @@ func targetIsAboutDependencies(t workflow.AcceptanceScope) bool {
 // build report at .apptown/REPORT.md), and rewriting it is a change like any
 // other.
 //
-// Commits from before the AppTown rename hold the same reports under .forge,
-// and history does not change: export still reads them as prose.
+// Commits from before the AppTown rename hold the same reports under .forge.
 var reportArtifacts = map[string]bool{".apptown/CHANGE.md": true, ".apptown/REPORT.md": true, ".apptown/VERIFY.md": true, ".apptown/review.json": true,
 	".forge/CHANGE.md": true, ".forge/REPORT.md": true, ".forge/VERIFY.md": true, ".forge/review.json": true}
-
-// ReportArtifact reports whether path is one of the files a lane asks the
-// agent to write as its report: prose AppTown collects, never the agent's
-// runtime state.
-func ReportArtifact(path string) bool { return reportArtifacts[path] }
 
 // UnclaimedChanges lists the changed files the implementer's report never
 // names — by path, by basename, or by naming a directory that holds them.

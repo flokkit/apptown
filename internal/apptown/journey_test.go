@@ -387,7 +387,7 @@ func TestJourneyKidStory(t *testing.T) {
 	var created struct {
 		Change struct{ ID ids.ID }
 	}
-	h.mustCall("POST", "/projects/"+slug+"/changes/simple", map[string]string{"text": sentence}, &created)
+	h.mustCall("POST", "/projects/"+slug+"/changes", map[string]string{"title": "make the cat blue", "body": sentence, "workflow": "quick-change"}, &created)
 	chID := created.Change.ID
 	if chID.IsZero() {
 		t.Fatal("no change created")
@@ -508,12 +508,7 @@ func TestJourneyPackEvolution(t *testing.T) {
 	h.mustCall("POST", "/projects/"+slug+"/repo", map[string]string{}, nil)
 	h.mustCall("POST", "/projects/"+slug+"/pack", map[string]string{"name": "jp"}, nil)
 
-	// A promoted catalog change that needs the missing workflow.
-	h.mustCall("POST", "/catalog", map[string]any{
-		"name": "uplift/j", "description": "journey uplift",
-		"definition": map[string]any{"workflow": "dependency-uplift", "title": "uplift", "type": "chore",
-			"body": "bring dependencies current"}}, nil)
-	h.mustCall("POST", "/catalog-promote/uplift/j", map[string]string{"note": "journey"}, nil)
+	// The shipped catalog's uplift/deps needs the missing workflow.
 
 	type catEntry struct {
 		Name            string `json:"name"`
@@ -529,7 +524,7 @@ func TestJourneyPackEvolution(t *testing.T) {
 		}
 		h.mustCall("GET", "/catalog?project="+slug, nil, &cat)
 		for _, e := range cat.Catalog {
-			if e.Name == "uplift/j" {
+			if e.Name == "uplift/deps" {
 				return e
 			}
 		}
@@ -575,7 +570,7 @@ func TestJourneyPackEvolution(t *testing.T) {
 		Change struct{ ID ids.ID }
 		Run    struct{ ID ids.ID }
 	}
-	h.mustCall("POST", "/catalog-apply/uplift/j", map[string]any{"project": slug, "params": map[string]string{}}, &applied)
+	h.mustCall("POST", "/catalog-apply/uplift/deps", map[string]any{"project": slug, "params": map[string]string{}}, &applied)
 	if applied.Change.ID.IsZero() || applied.Run.ID.IsZero() {
 		t.Fatalf("catalog apply must open a change with a run: %+v", applied)
 	}
@@ -723,11 +718,11 @@ var journeyLedger = map[string]string{
 	"pack/deprecate": "gap:packs have no deprecation — tracked",
 	"pack/remove":    "journey:TestJourneyStackMigration",
 
-	"catalog-entry/create":    "journey:TestJourneyPackEvolution",
+	"catalog-entry/create":    "unit:TestTheShippedCatalogReadsAndEachEntryValidates (entries ship in stock/catalog.yaml)",
 	"catalog-entry/adopt":     "collapsed:door/catalog",
-	"catalog-entry/amend":     "unit:catalog_test",
-	"catalog-entry/deprecate": "collapsed:catalog-entry/amend (draft/promoted states)",
-	"catalog-entry/remove":    "unit:catalog_test",
+	"catalog-entry/amend":     "collapsed:catalog-entry/create (a release changes the file)",
+	"catalog-entry/deprecate": "collapsed:catalog-entry/remove",
+	"catalog-entry/remove":    "collapsed:catalog-entry/create (a release changes the file)",
 
 	"integration/create":    "unit:services_test + secrets_test",
 	"integration/adopt":     "unit:TestProjectRosterGate (attach path) — journey needs backing services",
@@ -889,7 +884,7 @@ func TestJourneyMultiplayer(t *testing.T) {
 	}
 
 	// The kid is outside the roster: starting work is refused plainly.
-	if code := kid.call("POST", "/projects/"+slug+"/changes/simple", map[string]string{"text": "let me in"}, nil); code != 403 {
+	if code := kid.call("POST", "/projects/"+slug+"/changes", map[string]string{"title": "let me in"}, nil); code != 403 {
 		t.Fatalf("non-member starting work must 403, got %d", code)
 	}
 
@@ -898,7 +893,7 @@ func TestJourneyMultiplayer(t *testing.T) {
 	var created struct {
 		Change struct{ ID ids.ID }
 	}
-	ana.mustCall("POST", "/projects/"+slug+"/changes/simple", map[string]string{"text": sentence}, &created)
+	ana.mustCall("POST", "/projects/"+slug+"/changes", map[string]string{"title": "team page", "body": sentence, "workflow": "quick-change"}, &created)
 	chID := created.Change.ID
 
 	var acceptID ids.ID
@@ -971,7 +966,7 @@ func TestJourneyStackMigration(t *testing.T) {
 		var created struct {
 			Change struct{ ID ids.ID }
 		}
-		h.mustCall("POST", "/projects/"+slug+"/changes/simple", map[string]string{"text": sentence}, &created)
+		h.mustCall("POST", "/projects/"+slug+"/changes", map[string]string{"title": marker, "body": sentence, "workflow": "quick-change"}, &created)
 		var acceptID ids.ID
 		h.until("the gate for "+marker, 60*time.Second, func() bool {
 			v := h.changeView(created.Change.ID)
