@@ -188,8 +188,16 @@ func waitStackHealthy(ctx context.Context, dk Scope, names Prefix, svcs []deploy
 			// with the process. That is not a verdict: the service starts
 			// again with a new start period. A first database start on a
 			// busy host does this when the image's setup gives up and exits.
-			if status == "unhealthy" && dk.Text(ctx, "inspect", "-f", "{{.State.Restarting}}", cname) == "true" {
-				status = "restarting"
+			// Whether it is restarting is read together with its health: a
+			// container started again between two reads is no longer
+			// restarting, and the first read's unhealthy is then stale.
+			if status == "unhealthy" {
+				switch now := dk.Text(ctx, "inspect", "-f", "{{.State.Restarting}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}", cname); {
+				case strings.HasPrefix(now, "true "):
+					status = "restarting"
+				case strings.HasPrefix(now, "false "):
+					status = strings.TrimPrefix(now, "false ")
+				}
 			}
 			return status == "healthy" || status == "none" || status == "unhealthy"
 		})

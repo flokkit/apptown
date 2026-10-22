@@ -73,7 +73,9 @@ func mariadbStartsItself(t *testing.T, kind *Kind, creds map[string]string) {
 				"CREATE TABLE IF NOT EXISTS seen (n int)", database)
 			return err == nil
 		}) {
-			t.Fatalf("the app cannot use its database: %v %s", err, out)
+			state, _ := dockertest.CombinedOutput("inspect", "-f", "{{json .State}}", name)
+			logs, _ := dockertest.CombinedOutput("logs", "--tail", "80", name)
+			t.Fatalf("the app cannot use its database: %v %s\nits state: %s\nits log:\n%s", err, out, state, logs)
 		}
 	}
 	appUses()

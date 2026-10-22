@@ -54,9 +54,15 @@ local:
       umask 077
       first=
       if [ ! -d /var/lib/mysql/mysql ]; then
-        mariadb-install-db --user=mysql --datadir=/var/lib/mysql --skip-test-db --auth-root-authentication-method=socket > /dev/null
+        # The server's own flags (sizes) go to the setup's server too: with
+        # the default buffer pool it does not fit a small need's memory.
+        mariadb-install-db --user=mysql --datadir=/var/lib/mysql --skip-test-db --auth-root-authentication-method=socket "$@" > /dev/null
         first=1
       fi
+      # The last start's file is the server's (chowned below). Linux refuses
+      # root a write to another user's file in the shared /tmp
+      # (fs.protected_regular, on by default), so it is removed and made anew.
+      rm -f /tmp/forge-init.sql
       {
         printf '%s\n' "CREATE DATABASE IF NOT EXISTS \`$database\`;"
         printf '%s\n' "CREATE USER IF NOT EXISTS $user@'%';"

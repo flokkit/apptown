@@ -53,26 +53,37 @@ func TestANeedThatIsNotRunningIsSaidSoNotUnhealthy(t *testing.T) {
 // verdict: the wait goes on, and a need that then passes its check is
 // ready. (22 Oct: a first MariaDB start on a busy CI runner gave up its
 // setup, exited and was restarted; the gate failed the deployment while
-// the database became healthy 36 seconds later.)
+// the database became healthy 36 seconds later.) The restart may also end
+// between the gate's two reads: the second read, of both, then says the
+// need is starting again, and the first read's unhealthy is not a verdict
+// either.
 func TestANeedDockerIsRestartingIsNotJudgedUnhealthy(t *testing.T) {
 	t.Parallel()
-	svcs := []deploy.ServiceSpec{{Name: "mariadb", Health: "healthcheck.sh --connect"}}
-	asked := 0
-	dk := Scope{Client: &fakeClient{reply: func(c Command) ([]byte, error) {
-		switch {
-		case slices.Contains(c.Args, "{{.State.Restarting}}"):
-			return []byte("true"), nil
-		case slices.Contains(c.Args, "{{.State.Running}}"):
-			return []byte("true"), nil
-		}
-		asked++
-		if asked == 1 {
-			return []byte("unhealthy"), nil
-		}
-		return []byte("healthy"), nil
-	}}}
-	if _, err := waitStackHealthy(context.Background(), dk, Current, svcs, "s"); err != nil || asked != 2 {
-		t.Fatalf("a need Docker was restarting, then healthy (asked %d times): %v", asked, err)
+	for name, second := range map[string]string{"still restarting": "true unhealthy", "started again": "false starting"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			svcs := []deploy.ServiceSpec{{Name: "mariadb", Health: "healthcheck.sh --connect"}}
+			asked := 0
+			dk := Scope{Client: &fakeClient{reply: func(c Command) ([]byte, error) {
+				switch {
+				case slices.Contains(c.Args, "{{.State.Restarting}}"):
+					// What a read of restarting alone would see now.
+					return []byte(strings.Fields(second)[0]), nil
+				case slices.ContainsFunc(c.Args, func(a string) bool { return strings.HasPrefix(a, "{{.State.Restarting}} ") }):
+					return []byte(second), nil
+				case slices.Contains(c.Args, "{{.State.Running}}"):
+					return []byte("true"), nil
+				}
+				asked++
+				if asked == 1 {
+					return []byte("unhealthy"), nil
+				}
+				return []byte("healthy"), nil
+			}}}
+			if _, err := waitStackHealthy(context.Background(), dk, Current, svcs, "s"); err != nil || asked != 2 {
+				t.Fatalf("a need Docker was restarting, then healthy (asked %d times): %v", asked, err)
+			}
+		})
 	}
 }
 
