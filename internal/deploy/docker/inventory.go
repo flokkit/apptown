@@ -32,48 +32,48 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	// Under every prefix a host may carry: a deployment made before 1.0
 	// keeps its forge- names until it is moved. A deployment's app is
 	// dep-<key> (env-<slug>-<name> before its move).
-	var filters [][]string
+	// One listing for all of them: Docker ORs repeated name filters, and
+	// each listing is an ssh round trip to an attached host, so a listing
+	// per name ran past the read's deadline on a small, busy host.
+	args := []string{"ps", "-a"}
 	for _, p := range Prefixes {
 		for _, kind := range []string{keyStackPrefix, beforeStackPrefix, "svc-", "preview-", "init-"} {
-			filters = append(filters, []string{"--filter", "name=^" + string(p) + kind})
+			args = append(args, "--filter", "name=^"+string(p)+kind)
 		}
 	}
 	for _, name := range i.Also {
-		filters = append(filters, []string{"--filter", "name=^" + name + "$"})
+		args = append(args, "--filter", "name=^"+name+"$")
+	}
+	// The labels say who made a thing (apptown.owner, or forge.owner on
+	// a thing made before 1.0 not yet moved) and which compose stack it
+	// belongs to; the page attributes leftovers by them.
+	args = append(args, "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}\t"+labelEither(dockerlabel.Owner)+"\t{{.Label \"com.docker.compose.project\"}}")
+	out, err := dk.Run(ctx, args...)
+	if err != nil {
+		// The error itself too: an ssh that failed before docker said
+		// anything left only "docker ps: " to go on.
+		return nil, fmt.Errorf("listing containers: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	var res []deploy.Resource
 	seen := map[string]bool{}
-	for _, filter := range filters {
-		args := append([]string{"ps", "-a"}, filter...)
-		// The labels say who made a thing (apptown.owner, or forge.owner on
-		// a thing made before 1.0 not yet moved) and which compose stack it
-		// belongs to; the page attributes leftovers by them.
-		args = append(args, "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}\t"+labelEither(dockerlabel.Owner)+"\t{{.Label \"com.docker.compose.project\"}}")
-		out, err := dk.Run(ctx, args...)
-		if err != nil {
-			// The error itself too: an ssh that failed before docker said
-			// anything left only "docker ps: " to go on.
-			return nil, fmt.Errorf("listing containers: %w: %s", err, strings.TrimSpace(string(out)))
+	for _, l := range strings.Split(strings.TrimRight(string(out), "\r\n"), "\n") {
+		f := strings.Split(l, "\t")
+		if len(f) < 2 || f[0] == "" || seen[f[0]] {
+			continue
 		}
-		for _, l := range strings.Split(strings.TrimRight(string(out), "\r\n"), "\n") {
-			f := strings.Split(l, "\t")
-			if len(f) < 2 || f[0] == "" || seen[f[0]] {
-				continue
-			}
-			seen[f[0]] = true
-			status := "stopped"
-			if strings.HasPrefix(f[1], "Up") {
-				status = "active"
-			}
-			r := deploy.Resource{Kind: "container", Name: f[0], Status: status, Detail: f[1]}
-			if len(f) >= 3 {
-				r.Version = f[2]
-			}
-			if len(f) >= 5 {
-				r.Owner, r.Stack = strings.TrimSpace(f[3]), strings.TrimSpace(f[4])
-			}
-			res = append(res, r)
+		seen[f[0]] = true
+		status := "stopped"
+		if strings.HasPrefix(f[1], "Up") {
+			status = "active"
 		}
+		r := deploy.Resource{Kind: "container", Name: f[0], Status: status, Detail: f[1]}
+		if len(f) >= 3 {
+			r.Version = f[2]
+		}
+		if len(f) >= 5 {
+			r.Owner, r.Stack = strings.TrimSpace(f[3]), strings.TrimSpace(f[4])
+		}
+		res = append(res, r)
 	}
 	// Volumes are listed whole: AppTown names data folders and need
 	// volumes, but an approved older service keeps Docker's anonymous name
@@ -116,7 +116,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	// image. Tags cannot confirm an immutable digest. Local build ownership
 	// also records tags, so report those separately. Reconciliation exposes
 	// only recorded images, not unrelated host images as cleanup candidates.
-	out, err := dk.Run(ctx, "image", "ls", "--digests", "--no-trunc", "--format", "{{.Repository}}\t{{.Tag}}\t{{.Digest}}")
+	out, err = dk.Run(ctx, "image", "ls", "--digests", "--no-trunc", "--format", "{{.Repository}}\t{{.Tag}}\t{{.Digest}}")
 	if err != nil {
 		return nil, fmt.Errorf("listing images: %w: %s", err, strings.TrimSpace(string(out)))
 	}

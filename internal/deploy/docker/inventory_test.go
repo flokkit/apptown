@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"errors"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -101,5 +102,63 @@ func TestInventoryEmptyHostIsAnAnswer(t *testing.T) {
 	out, err := (Inventory{Scope: func(context.Context) (Scope, error) { return Scope{Client: &fakeClient{}}, nil }}).Inventory(t.Context())
 	if err != nil || len(out) != 0 {
 		t.Fatalf("%+v %v", out, err)
+	}
+}
+
+// Each container listing is an ssh round trip to an attached host; one per
+// name ran past the read's deadline on a small, busy host. The fake answers
+// as Docker does: every name filter is a regular expression, and repeated
+// name filters are ORed.
+func TestInventoryListsContainersOnceWithEveryName(t *testing.T) {
+	t.Parallel()
+	host := []string{
+		"apptown-dep-k1-app", "apptown-env-shop-main", "apptown-svc-shop-db", "apptown-preview-shop-7", "apptown-init-shop",
+		"forge-dep-k2-app", "forge-env-old-main", "forge-svc-old-db", "forge-preview-old-3", "forge-init-old",
+		"apptown-postgres",
+		// Not AppTown's: a prefix mid-name, a longer name than the one asked for, another kind.
+		"my-apptown-dep-k1", "apptown-postgres-2", "apptown-other",
+	}
+	psCalls := 0
+	client := &fakeClient{reply: func(req Command) ([]byte, error) {
+		if len(req.Args) < 2 || req.Args[0] != "ps" {
+			return nil, nil
+		}
+		psCalls++
+		var names []*regexp.Regexp
+		for i, a := range req.Args {
+			if a == "--filter" && i+1 < len(req.Args) && strings.HasPrefix(req.Args[i+1], "name=") {
+				names = append(names, regexp.MustCompile(strings.TrimPrefix(req.Args[i+1], "name=")))
+			}
+		}
+		var out strings.Builder
+		for _, name := range host {
+			if slices.ContainsFunc(names, func(re *regexp.Regexp) bool { return re.MatchString(name) }) {
+				out.WriteString(name + "\tUp 1 hour\timg\towner\tstack\n")
+			}
+		}
+		return []byte(out.String()), nil
+	}}
+	inv := Inventory{
+		Scope: func(context.Context) (Scope, error) { return Scope{Client: client, Host: "ssh://target"}, nil },
+		Also:  []string{"apptown-postgres"},
+	}
+	out, err := inv.Inventory(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if psCalls != 1 {
+		t.Errorf("listed containers %d times, want once", psCalls)
+	}
+	var got []string
+	for _, r := range out {
+		if r.Kind == "container" {
+			got = append(got, r.Name)
+		}
+	}
+	slices.Sort(got)
+	want := slices.Clone(host[:11])
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Errorf("containers %v, want %v", got, want)
 	}
 }
