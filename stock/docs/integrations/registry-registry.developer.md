@@ -32,9 +32,9 @@ project's release images is separate; see
   from. (Moving instances/orgs then costs zero repo changes.)
 - Dockerfiles and CI configs you write do NOT inherit the ambient
   wiring — propagate it explicitly (`ARG NPM_CONFIG_REGISTRY` etc.).
-  In an implementation step your private docker daemon does pull
-  Docker Hub images through the mirror by itself; only the build's
-  RUN steps need the env passed in.
+  In a step that declares `docker: true`, the private Docker daemon
+  pulls Docker Hub images through the mirror by itself; only the
+  build's RUN steps need the env passed in.
 - A slow or failing pull from a public registry usually means that
   ecosystem's mirror isn't bound. Ask the instance admin to bind the
   format so it resolves through the local mirror.

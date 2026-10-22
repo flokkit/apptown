@@ -24,10 +24,7 @@ recommended version: what new projects get, what applying the pack installs
 and sets up, and what projects on other versions are offered. Saving never
 moves it, a release's stock versions included, so a what-if can judge a
 version before projects are offered it; a person does
-(`standards:manage-packs`, no agent credential). The one exception is a
-compatibility migration that amends the recommended publication
-(`Packs.Amend`, the private-Docker declaration): the recommendation moves to
-the amended copy. Moving it cuts an unrecommended follow version
+(`standards:manage-packs`, no agent credential). Moving it cuts an unrecommended follow version
 of each pack that includes it without a pin. Adopting a version that drops a
 workflow or replaces a policy keeps the project's existing ones and says so;
 removing them is a project edit. A selected workflow no pack of the

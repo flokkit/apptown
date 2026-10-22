@@ -99,7 +99,7 @@ or non-executable artifact leaves sessions without the CLI; restart after fixing
 it. No session-time Go build occurs.
 
 Writable change chats can receive private Docker. Project chats do not. Eligible
-steps request Docker through the implementation skill. Chats do not automatically
+steps request it with `docker: true`. Chats do not automatically
 receive application databases or production secrets. Some toolchain and Docker
 preparation failures have degraded paths, so successful agent startup does not
 establish that every requested tool is available.

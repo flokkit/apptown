@@ -184,9 +184,6 @@ func (s *Service) PackPublications(ctx context.Context, packID ids.ID) ([]Public
 func (s *Service) PublishPack(ctx context.Context, name, description, spec, origin string) (int, error) {
 	return s.packs.Publish(ctx, name, description, spec, origin)
 }
-func (s *Service) AmendPack(ctx context.Context, name string, from int64, pins, who string) (int64, error) {
-	return s.packs.Amend(ctx, name, from, pins, who)
-}
 func (s *Service) CutPacksOnPinChange(ctx context.Context) ([]Recut, error) {
 	return s.packs.CutOnPinChange(ctx)
 }

@@ -16,14 +16,9 @@ import (
 // library: the rule a project adopted stays pinned forever, but the
 // sentence describing it tracks the library, so improved wording appears
 // on every surface at once. main and the journey harness call this so
-// tests and production use the same stock. Between the workflows and the
-// packs, private Docker is declared where skill/implementation gave it
-// (adoption.DeclarePrivateDocker), so a pack pins the declared versions.
+// tests and production use the same stock.
 func (a *App) SyncStock(ctx context.Context) {
 	a.Ways.SyncStockWorkflows(ctx)
-	if err := a.Adoption.DeclarePrivateDocker(ctx, a.Ways); err != nil {
-		log.Printf("declaring private Docker in workflows: %v", err)
-	}
 	a.Ways.SyncStockGuidance(ctx)
 	a.Ways.SyncStockPolicies(ctx)
 	a.Ways.SyncStockPacks(ctx)

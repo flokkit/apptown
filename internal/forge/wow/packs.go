@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -407,59 +405,6 @@ func (l libraryPins) PolicyPin(ctx context.Context, name string) (PackPolicy, bo
 		return PackPolicy{}, false
 	}
 	return PackPolicy{Name: lp.Name, Description: lp.Description, Rule: lp.Rule, With: lp.With}, true
-}
-
-// Amend records a publication of a pack with publication from's spec and
-// pins as its pins, for a migration, and returns its version. An amendment
-// of the latest publication is the next version and becomes the latest. One
-// of an older publication, which projects still select, reuses a publication
-// that reads the same, or is added after every other without moving the
-// latest. Existing publications are never changed.
-func (s *Packs) Amend(ctx context.Context, name string, from int64, pins, who string) (version int64, err error) {
-	now := s.now().UTC()
-	err = s.db.InTx(ctx, func(tx *database.Tx) error {
-		q := wowsql.New(tx.SQL())
-		p, err := q.PackByNameForUpdate(ctx, name)
-		if err != nil {
-			return err
-		}
-		rows, err := q.PackVersions(ctx, p.ID)
-		if err != nil {
-			return err
-		}
-		i := slices.IndexFunc(rows, func(v wowsql.PackVersion) bool { return v.Version == from })
-		if i < 0 {
-			return fmt.Errorf("%s has no version %d", name, from)
-		}
-		spec, latest := rows[i].SpecJson, from == p.LatestVersion
-		for _, v := range rows {
-			if !latest && canonJSON(string(v.SpecJson)) == canonJSON(string(spec)) && canonJSON(string(v.PinsJson)) == canonJSON(pins) {
-				version = v.Version
-				return nil
-			}
-		}
-		version = rows[0].Version + 1
-		source := rows[i]
-		if _, err := q.InsertPackVersion(ctx, wowsql.InsertPackVersionParams{ID: ids.New(now), PackID: p.ID, Version: version, Spec: spec, Pins: []byte(pins),
-			Declaration: source.DeclarationJson, IncludedPack: source.IncludedPack, IncludedVersion: source.IncludedVersion, Note: "amends version " + strconv.FormatInt(source.Version, 10),
-			BasedOn: source.Version, At: now}); err != nil {
-			return err
-		}
-		if latest {
-			if _, err := q.AdvancePackVersion(ctx, wowsql.AdvancePackVersionParams{ID: p.ID, Version: version, Description: p.Description, Spec: spec, At: now}); err != nil {
-				return err
-			}
-		}
-		// A migration of the recommended version carries the recommendation:
-		// new projects get what the migrated ones are on.
-		if from == p.RecommendedVersion {
-			if err := s.recommendIn(ctx, tx, now, name, version, who, ids.Nil); err != nil {
-				return err
-			}
-		}
-		return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "pack.published", name, map[string]any{"version": version, "amends": from})
-	})
-	return version, err
 }
 
 // Describe refreshes a stock pack's words without a new version.

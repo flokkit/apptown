@@ -145,7 +145,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	// draws a slot from the pool of the binding its model runs on
 	// (model_slots.go), and queues only when that backend is full.
 	k := a.resolveAgentKnobs(run, &cfg)
-	if reason := a.dockerRefusal(step, k); reason != "" {
+	if reason := a.dockerRefusal(k); reason != "" {
 		if _, claimErr := task.Claim(); claimErr == nil {
 			fail(workflow.StatusError, map[string]any{"reason": reason})
 		}

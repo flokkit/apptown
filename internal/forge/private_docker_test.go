@@ -2,20 +2,18 @@ package forge
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
 	"flokkit.io/forge/internal/deploy/docker"
-	"flokkit.io/forge/internal/forge/adoption"
-	"flokkit.io/forge/internal/forge/projectlifecycle"
 	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/forge/workflow"
+	"flokkit.io/forge/internal/forge/wow"
 )
 
 // A step has private Docker when it declares docker: true, whatever its
-// skills; skill/implementation with docker: false, or no declaration, gives
-// none. The three steps share one run and run in turn.
+// skills; skill/implementation with docker: false, or with no declaration,
+// gives none, and the step runs. The steps share one run and run in turn.
 func TestAStepHasPrivateDockerOnlyWhenItDeclaresIt(t *testing.T) {
 	t.Parallel()
 	a := agentTestApp(t)
@@ -28,9 +26,10 @@ func TestAStepHasPrivateDockerOnlyWhenItDeclaresIt(t *testing.T) {
 	daemon := newSurvivingContainers()
 	daemon.allowRemoval()
 	a.docker = docker.Scope{Client: daemon}
-	want := map[string]bool{"declared": true, "implementation-declared-false": false, "not-declared": false}
+	want := map[string]bool{"declared": true, "implementation-declared-false": false, "implementation-not-declared": false, "not-declared": false}
 	runID, _ := admittedAgentStep(t, a, `{"prompt":"do it","docker":true}`,
 		schema.Step{Name: "implementation-declared-false", Uses: "agent/pi", With: map[string]any{"prompt": "do it", "skills": []string{"skill/implementation"}, "docker": false}},
+		schema.Step{Name: "implementation-not-declared", Uses: "agent/pi", With: map[string]any{"prompt": "do it", "skills": []string{"skill/implementation"}}},
 		schema.Step{Name: "not-declared", Uses: "agent/pi", With: map[string]any{"prompt": "do it"}})
 	snapshot, err := a.Work.Snapshot(asPerson("alice"), runID, workflow.DetailView)
 	if err != nil {
@@ -76,110 +75,22 @@ func TestNoPrivateDockerRefusesADeclaringStep(t *testing.T) {
 	}
 }
 
-// A run admitted under the old rule (skill/implementation, no docker key)
-// keeps its definition through the migration, and its pending implementation
-// step and a retry of it are refused with the reason.
-func TestAnOldRunsImplementationStepIsRefusedOnDispatchAndRetry(t *testing.T) {
-	t.Parallel()
-	a := agentTestApp(t)
-	a.cfg.agentExecutor = ExecutorDocker
-	if _, err := a.Ways.CreateBlock(t.Context(), "skill/implementation", "Implement.", "", "alice"); err != nil {
-		t.Fatal(err)
-	}
-	runID, stepID := admittedAgentStep(t, a, `{"prompt":"do it","skills":["skill/implementation"]}`)
-	before, err := workflow.ReadRunIn(context.Background(), a.DB, runID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a.SyncStock(t.Context())
-	after, err := workflow.ReadRunIn(context.Background(), a.DB, runID)
-	if err != nil || after.DefinitionJSON != before.DefinitionJSON {
-		t.Fatalf("the run's definition changed: %v\n%s\n%s", err, before.DefinitionJSON, after.DefinitionJSON)
-	}
-	f := installFakePi(t, a, func(int, ExecRequest) ExecOutcome { return ExecOutcome{Output: piSays("done")} })
-	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
-	if status, ev := stepStatus(t, a, stepID); status != workflow.StatusError || ev["reason"] != workflow.OldDockerRuleRefusal {
-		t.Fatalf("step %s: %v", status, ev)
-	}
-	if len(f.requests()) != 0 {
-		t.Fatal("the agent was started")
-	}
-	if _, err := a.Work.RetryStep(asPerson("alice"), workflow.RetryCommand{StepID: stepID}); err == nil || !strings.Contains(err.Error(), workflow.OldDockerRuleRefusal) {
-		t.Fatalf("retry: %v", err)
-	}
-}
-
-// A project that keeps a custom pack in its next adoption after the
-// migration, on an older publication of the pack, starts new runs with the
-// declaration: the pack's pins moved with the migration.
-func TestANewRunAfterKeepingAnOlderPackDeclaresPrivateDocker(t *testing.T) {
+// A workflow that uses skill/implementation and says nothing of docker is
+// kept as written when AppTown starts: no version declaring private Docker
+// is added for it.
+func TestStartingAppTownLeavesAWorkflowsDockerDeclarationAsWritten(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
-	lane := func(prompt string) string {
-		return "apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata:\n  name: build\nspec:\n  kind: pipeline\n  role: working\n  stages:\n    - name: work\n      steps:\n        - name: build\n          uses: agent/pi\n          with:\n            prompt: " + prompt + "\n            skills: [skill/implementation]\n"
-	}
-	if _, _, err := a.Ways.PublishWorkflow(t.Context(), lane("first"), "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.Ways.PublishPack(t.Context(), "team", "", `{"workflows":["build"]}`, ""); err != nil {
-		t.Fatal(err)
-	}
-	p, err := a.lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "p", Name: "p", Actor: "alice"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := a.lifecycle.InitializeRepository(t.Context(), p, "", ""); err != nil {
-		t.Fatal(err)
-	}
-	adopt := func(req adoption.Request) {
-		t.Helper()
-		c, err := a.Adoption.Prepare(t.Context(), p.ID, req)
-		if err != nil || len(c.Problems) != 0 {
-			t.Fatalf("prepare: %v %+v", err, c)
-		}
-		if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), p.ID), p, c, "alice", "keep team", adoption.OperationSelect); err != nil {
-			t.Fatal(err)
-		}
-	}
-	members, err := adoption.ProjectPacksIn(t.Context(), a.DB, p.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	picks := []adoption.PackPick{{Pack: "team", Version: 1}}
-	for _, m := range members {
-		picks = append(picks, adoption.PackPick{Pack: m.Pack, Version: m.Version})
-	}
-	adopt(adoption.Request{Packs: picks})
-	// team moves on to v2; the project stays on v1.
-	if _, _, err := a.Ways.PublishWorkflow(t.Context(), lane("second"), "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.Ways.CutPacksOnPinChange(t.Context()); err != nil {
+	src := "apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata:\n  name: build\nspec:\n  kind: pipeline\n  role: working\n  stages:\n    - name: work\n      steps:\n        - name: build\n          uses: agent/pi\n          with:\n            prompt: build it\n            skills: [skill/implementation]\n"
+	if _, _, err := a.Ways.PublishWorkflow(t.Context(), src, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	a.SyncStock(t.Context())
-	// The migration added team v3 for the project's v1 without moving the
-	// latest; the packs' sync then publishes the declared latest after it.
-	if team, err := a.Ways.Pack(t.Context(), "team"); err != nil || team.LatestVersion != 4 {
-		t.Fatalf("team: %+v %v", team, err)
-	}
-	adopt(adoption.Request{})
-
-	a.Work.Stop()
-	ctx := asPerson("alice")
-	change, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: p.ID, Title: "build"})
+	w, err := a.Ways.Workflow(t.Context(), wow.WorkflowRef{Name: "build"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: change.ID, Workflow: "build"})
-	if !errors.Is(err, workflow.ErrDispatchStopped) {
-		t.Fatal(err)
-	}
-	started, err := workflow.ReadRunIn(context.Background(), a.DB, run.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if definition := strings.ReplaceAll(started.DefinitionJSON, " ", ""); !strings.Contains(definition, `"docker":true`) || !strings.Contains(definition, `"prompt":"first"`) {
-		t.Fatalf("the new run's definition: %s", started.DefinitionJSON)
+	if w.Version != 1 || w.YAML != src {
+		t.Fatalf("after a start the workflow is v%d:\n%s", w.Version, w.YAML)
 	}
 }

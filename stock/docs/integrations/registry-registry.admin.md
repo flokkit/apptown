@@ -51,10 +51,12 @@ used in step evidence, and renders the live inventory into agent
 steering. Bindings point tools at the mirror; they do not block the
 public upstreams — a build that can't reach a mirror falls back to the
 real registry rather than failing. (Enforced egress containment is a
-separate concern, not a per-binding flag.) The private docker
-daemon each implementation step gets pulls Docker Hub images through
-the `docker-hub` binding when one exists. You never configure a repo or
-a workflow for any of this.
+separate concern, not a per-binding flag.) A step that declares
+`docker: true` gets a private Docker daemon ([runtime
+environments](/docs/guides/runtime-environments)); that daemon pulls
+Docker Hub images through the `docker-hub` binding when one exists. The
+mirror wiring needs no configuration in a repository or workflow; the
+daemon itself is the workflow's choice.
 
 ## 4. When the mirror itself is the problem
 
