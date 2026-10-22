@@ -1,9 +1,9 @@
-import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { fmtCost, fmtDuration, fmtTokens } from '../format'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { TimingReport, UsageReport } from '../wire.gen'
+import { PageHead } from '../PageHead'
 
 // Usage reports summarize observed harness tokens and estimated costs by time,
 // project, model and workflow. They are not reconciled provider invoices.
@@ -283,12 +283,7 @@ export function UsageView({ project }: { project?: string }) {
 export default function UsagePage() {
   return (
     <div>
-      <h1>Usage</h1>
-      <div className="muted small" style={{ marginBottom: 14 }}>
-        Token accounting for the projects you can read (the whole of {PRODUCT}, if you read it
-        all) — workflow (batch) and interactive (chat) use, by model and project. Costs are
-        pi's own per-message pricing; local backends are $0.
-      </div>
+      <PageHead page="usage" />
       <UsageView />
     </div>
   )

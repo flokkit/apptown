@@ -14,6 +14,7 @@ import { RemediationsList } from './conformance/Remediations'
 import { RemediationPage } from './conformance/RemediationPage'
 import { FleetVersionsTab } from './conformance/FleetVersions'
 import { WhatIfsList } from './conformance/WhatIfs'
+import { PageHead } from '../PageHead'
 
 // Conformance (design/subsystems/conformance-surface.md): projects first, reviews as
 // records, checks third. Every view is read through a LENS — the current
@@ -88,11 +89,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
 
   return (
     <div>
-      <h1 className="mb-1">Conformance</h1>
-      <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-        Which of our apps meet the ways of working they have <strong>adopted</strong>. A review judges each project's committed <span className="mono">main</span>, read-only;
-        a project's standing is what a person would have to do about it.
-      </p>
+      <PageHead page="conformance" />
 
       {view && <LensBanner view={view} />}
 

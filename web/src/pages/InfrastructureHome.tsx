@@ -7,6 +7,7 @@ import { DeletedProjects, useRefreshInfrastructure } from './Infrastructure'
 import { Glyph } from '../parts/Glyph'
 import type { AllBackups, DiskReadings, InfrastructureTargets, Job, JobList, Reading, TargetList } from '../wire.gen'
 import { FAMILY_TITLE, familyRank } from '../targets'
+import { PageHead } from '../PageHead'
 
 // Infrastructure: every deployment target, one card each, with its
 // inventory — deployments, resources at the provider, unrecorded resources,
@@ -43,12 +44,8 @@ export function InfrastructureHome() {
   return (
     <div>
       <StaleNote q={[infra, targets, backups]} />
-      <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>
-        <h1 style={{ margin: 0 }}>Infrastructure</h1>
-        <span className="muted">{tab === 'jobs' ? `${PRODUCT}'s own background jobs` : 'deployment targets and their inventory'}</span>
-        <span style={{ flex: 1 }} />
-        {tab === 'targets' && <button className="subtle" onClick={refresh} disabled={refreshing}>{refreshing ? 'refreshing…' : 'Refresh all'}</button>}
-      </div>
+      <PageHead page="infrastructure"
+        actions={tab === 'targets' && <button className="subtle" onClick={refresh} disabled={refreshing}>{refreshing ? 'refreshing…' : 'Refresh all'}</button>} />
       {refreshErr && <div className="error">The inventory could not be refreshed: {refreshErr}</div>}
       <div className="tabs" style={{ marginTop: 10 }}>
         <NavLink to="/infrastructure" end className={() => 'tab' + (tab === 'targets' ? ' active' : '')}>Deployment targets</NavLink>
@@ -159,7 +156,7 @@ function JobQueue() {
   return (
     <div style={{ marginTop: 14 }}>
       <StaleNote q={jobs} />
-      <p className="muted small" style={{ margin: '0 0 8px', maxWidth: 760 }}>Background work, including backups, inventories and workflow follow-ups. Safe operations can retry; stopped or failed work may need an explicit rerun. {open > 0 ? `${open} open now.` : 'Nothing open now.'}</p>
+      <p className="muted small" style={{ margin: '0 0 8px', maxWidth: 760 }}>{open > 0 ? `${open} open now.` : 'Nothing open now.'}</p>
       {jobs.data.jobs.length === 0
         ? <div className="muted small">No jobs yet.</div>
         : (

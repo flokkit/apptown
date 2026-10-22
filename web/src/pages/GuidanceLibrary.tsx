@@ -87,8 +87,7 @@ export default function GuidanceLibrary() {
   return (
     <div>
       <p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
-        Nothing here affects a run until a project takes it in. To change a block that ships with {PRODUCT}, write your own and
-        swap it in through a pack.
+        A block affects runs only in projects that adopt it.
       </p>
       <div className="row" style={{ marginBottom: 16 }}>
         <input placeholder="search name & body…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 260 }} />

@@ -129,7 +129,7 @@ export default function Packs() {
   return (
     <div>
       <div className="row" style={{ marginBottom: 12 }}>
-        <span className="muted small">Choose what new projects can start with. Existing projects keep the versions they adopted.</span>
+        <span className="muted small">Existing projects keep the versions they adopted.</span>
         <span style={{ flex: 1 }} />
         <button className="primary" onClick={() => setEditing({ draft: blank(), existing: false })}>New pack</button>
       </div>

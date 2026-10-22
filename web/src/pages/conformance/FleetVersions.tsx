@@ -19,8 +19,7 @@ export function FleetVersionsTab() {
     <div>
       <StaleNote q={q} />
       <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-        A pack is a way of working someone publishes in versions; a project is on one or more.
-        A release cuts a new version and stops there — a project moves only when its owner prepares and adopts the update under its Settings.
+        A project moves to a new version only when its owner adopts it under Settings.
         {behind > 0 ? ` ${behind} project${behind === 1 ? ' is' : 's are'} on a version other than the recommended one.` : ' Every project is on its recommended version.'}
       </p>
       <div style={{ overflowX: 'auto' }}>
