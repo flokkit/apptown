@@ -49,12 +49,6 @@
 4. **Switching to no local Docker** at the same time: run once with
    `-drain-local-docker` before the first start with `-no-local-docker`
    ([Split install](/docs/guides/split-install)).
-5. **Deployments made before ownership was recorded.** AppTown deletes
-   only what it recorded creating for a deployment. For older deployments,
-   an administrator runs the one-time inspection,
-   `GET /api/v1/ownership/inspection`, and approves what it proposes with
-   `POST /api/v1/ownership/approvals`. Exactly what is approved is
-   recorded.
 
 ## Rolling back
 

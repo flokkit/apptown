@@ -21,7 +21,7 @@ import (
 
 func checkContainers(t *testing.T) string {
 	t.Helper()
-	out, err := exec.Command("docker", "ps", "-aq", "--filter", "label=forge.class=check").Output()
+	out, err := exec.Command("docker", "ps", "-aq", "--filter", "label=apptown.class=check").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,8 +78,8 @@ func runCheckContainer(t *testing.T, owner string) string {
 	// The id is docker's standard output alone: a pull of alpine:3 is
 	// reported on standard error and is not part of it.
 	var stderr strings.Builder
-	cmd := exec.Command("docker", "run", "-d", "--label", "forge.class=check", "--label", owner,
-		"--label", "forge.deadline="+future, "alpine:3", "sleep", "300")
+	cmd := exec.Command("docker", "run", "-d", "--label", "apptown.class=check", "--label", owner,
+		"--label", "apptown.deadline="+future, "alpine:3", "sleep", "300")
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -93,5 +93,5 @@ func runCheckContainer(t *testing.T, owner string) string {
 // otherWorkersCheck is a running check of another worker on the same Docker.
 func otherWorkersCheck(t *testing.T) string {
 	t.Helper()
-	return runCheckContainer(t, "forge.worker=another-worker-"+strconv.FormatInt(time.Now().UnixNano(), 10))
+	return runCheckContainer(t, "apptown.worker=another-worker-"+strconv.FormatInt(time.Now().UnixNano(), 10))
 }

@@ -154,11 +154,11 @@ func (s *core) releaseContract(ctx context.Context, dep *deployment.Deployment) 
 // by volume and each asked of the host. named says whether either source
 // names data. An error is a host that could not be asked.
 func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *deployment.Deployment, owned []deploy.Owned, c *appcontract.Contract) ([]backupPlanItem, bool, error) {
-	stackID := docker.StackID(slug, dep.Name)
-	names, err := dep.HostNames()
+	hostNames, err := dep.HostNames(slug)
 	if err != nil {
 		return nil, false, err
 	}
+	names, stackID := hostNames.Prefix(), hostNames.Stack()
 	named := false
 	type want struct {
 		need   string // "" is the app's own data
@@ -176,7 +176,7 @@ func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *
 	if c != nil {
 		if pub := c.PublicPart(); pub != nil && pub.DataDir != "" {
 			named = true
-			wants = append(wants, want{volume: names.DataVolume(names.Container(slug, dep.Name))})
+			wants = append(wants, want{volume: hostNames.DataVolume()})
 		}
 		for _, need := range c.Needs {
 			d, err := s.catalog.ByCapability(ctx, need)

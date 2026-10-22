@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -16,7 +17,41 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-const bucketOfProd = "apptown-ledger-prod-b0b0b0b0"
+// bucketOf is the bucket the deployment name of the world's project has
+// on Spaces: named by its key, with the store's fixed suffix.
+func bucketOf(w *dataWorld, name string) string {
+	w.t.Helper()
+	return "apptown-" + deploy.HostKey(depOf(w, name).ID) + "-b0b0b0b0"
+}
+
+// clusterOf is the managed cluster the deployment name holds its database in.
+func clusterOf(w *dataWorld, name string) string {
+	w.t.Helper()
+	return "apptown-db-" + deploy.HostKey(depOf(w, name).ID)
+}
+
+// depOf is the world's deployment name, as first read: a take-down
+// removes its record, and a test still names its bucket afterwards.
+func depOf(w *dataWorld, name string) *deployment.Deployment {
+	w.t.Helper()
+	key := seenDeployment{w, name}
+	if dep, ok := seenDeployments.Load(key); ok {
+		return dep.(*deployment.Deployment)
+	}
+	dep, err := w.s.Deployments.ByName(context.Background(), w.project, name)
+	if err != nil {
+		w.t.Fatalf("deployment %s: %v", name, err)
+	}
+	seenDeployments.Store(key, dep)
+	return dep
+}
+
+type seenDeployment struct {
+	w    *dataWorld
+	name string
+}
+
+var seenDeployments sync.Map
 
 // heldOnAppPlatform releases prod, needing what contract declares, on the
 // App Platform target, its data production.
@@ -32,8 +67,6 @@ func heldOnAppPlatform(t *testing.T, contract string) *dataWorld {
 	}
 	return w
 }
-
-const bucketOfCopy = "apptown-ledger-copy-b0b0b0b0"
 
 // putObjects puts objects in a bucket at the account's Spaces, as the app
 // would.
@@ -53,7 +86,7 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 	t.Parallel()
 	w := heldOnAppPlatform(t, "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\n  s3: {}\n")
 	ctx := context.Background()
-	putObjects(w, bucketOfProd)
+	putObjects(w, bucketOf(w, "prod"))
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)
@@ -66,14 +99,14 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 	}
 	// Not yet copied, and assessed like the database: no "AppTown takes
 	// no copy" caveat any more.
-	if len(prot.Items) != 2 || bucketRow == nil || bucketRow.Copy != CopyNone || !strings.Contains(bucketRow.Where, bucketOfProd) || strings.Contains(bucketRow.CopyNote, "takes no copy") {
+	if len(prot.Items) != 2 || bucketRow == nil || bucketRow.Copy != CopyNone || !strings.Contains(bucketRow.Where, bucketOf(w, "prod")) || strings.Contains(bucketRow.CopyNote, "takes no copy") {
 		t.Fatalf("the data view: %+v", prot)
 	}
 	list, err := w.s.List(ctx, w.project)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.ContainsFunc(list[0].Needs, func(n deployment.NeedSummary) bool { return n.Need == "s3" && n.Name == bucketOfProd }) {
+	if !slices.ContainsFunc(list[0].Needs, func(n deployment.NeedSummary) bool { return n.Need == "s3" && n.Name == bucketOf(w, "prod") }) {
 		t.Fatalf("the listing's needs: %+v", list[0].Needs)
 	}
 
@@ -100,7 +133,7 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 			t.Fatalf("the check filled %s, not a new store", j.env["S3_HOST"])
 		}
 	}
-	if got := w.store.Buckets(); slices.Contains(got, bucketOfProd) {
+	if got := w.store.Buckets(); slices.Contains(got, bucketOf(w, "prod")) {
 		t.Fatalf("the bucket stayed though its copy came back: %v", got)
 	}
 	if keys := w.api.Snapshot().SpacesKeys; len(keys) != 0 {
@@ -109,7 +142,7 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 	retained, err := w.s.Retained.ForProject(ctx, w.project)
 	if err != nil || slices.ContainsFunc(retained, func(r deployment.RetainedResource) bool {
 		name, _ := r.Handle["name"].(string)
-		return name == bucketOfProd
+		return name == bucketOf(w, "prod")
 	}) {
 		t.Fatalf("retained: %+v %v", retained, err)
 	}
@@ -118,7 +151,7 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 		t.Fatalf("final copies: %+v %v", finals, err)
 	}
 	set, err := w.s.backups.InProject(ctx, w.project, finals[0].Backup)
-	if err != nil || set.GoodCopy("need", "s3") == nil || set.GoodCopy("need", "s3").Bucket != bucketOfProd || set.GoodCopy("need", "s3").Format != "s3-objects" {
+	if err != nil || set.GoodCopy("need", "s3") == nil || set.GoodCopy("need", "s3").Bucket != bucketOf(w, "prod") || set.GoodCopy("need", "s3").Format != "s3-objects" {
 		t.Fatalf("the final set: %+v %v", set, err)
 	}
 
@@ -133,7 +166,7 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 	}
 	want := map[string]string{"invoices/1.pdf": "application/pdf", "logo.png": "image/png"}
 	for key, contentType := range want {
-		if got, ok := w.store.Get(bucketOfCopy, key); !ok || got.ContentType != contentType {
+		if got, ok := w.store.Get(bucketOf(w, "copy"), key); !ok || got.ContentType != contentType {
 			t.Fatalf("the new bucket's %s: %+v %v", key, got, ok)
 		}
 	}
@@ -148,7 +181,7 @@ func TestATakeDownKeepsABucketWhoseCopyFellShort(t *testing.T) {
 			t.Parallel()
 			w := heldOnAppPlatform(t, "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  s3: {}\n")
 			ctx := context.Background()
-			putObjects(w, bucketOfProd)
+			putObjects(w, bucketOf(w, "prod"))
 			w.buckets.failExport, w.buckets.failCheck = failure == "export", failure == "check"
 			res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
 			if err != nil || res.Operation == nil {
@@ -158,7 +191,7 @@ func TestATakeDownKeepsABucketWhoseCopyFellShort(t *testing.T) {
 			if endedAs(op, OperationVerified) || !strings.Contains(op.Detail, "data kept") {
 				t.Fatalf("take-down %s: %s", op.State, op.Detail)
 			}
-			if _, ok := w.store.Get(bucketOfProd, "logo.png"); !ok {
+			if _, ok := w.store.Get(bucketOf(w, "prod"), "logo.png"); !ok {
 				t.Fatal("the bucket's objects went")
 			}
 			if keys := w.api.Snapshot().SpacesKeys; len(keys) != 1 {
@@ -221,7 +254,9 @@ func TestABucketIsNoManagedNeedInstance(t *testing.T) {
 		t.Fatalf("need instances %+v %v", insts, err)
 	}
 	owned, err := w.s.Deployments.Owned(context.Background(), dep.ID)
-	if err != nil || !slices.ContainsFunc(owned, func(o deploy.Owned) bool { return o.Kind == digitalocean.KindBucket && o.ID == bucketOfProd && o.Data }) {
+	if err != nil || !slices.ContainsFunc(owned, func(o deploy.Owned) bool {
+		return o.Kind == digitalocean.KindBucket && o.ID == bucketOf(w, "prod") && o.Data
+	}) {
 		t.Fatalf("owned %+v %v", owned, err)
 	}
 }
@@ -242,12 +277,12 @@ func TestAnObjectOnlyDeploymentWithNoStoreKeepsItsBucket(t *testing.T) {
 	}
 	ctx := context.Background()
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
-	if err != nil || len(prot.Items) != 1 || prot.Items[0].Need != "s3" || !strings.Contains(prot.Items[0].Where, bucketOfProd) {
+	if err != nil || len(prot.Items) != 1 || prot.Items[0].Need != "s3" || !strings.Contains(prot.Items[0].Where, bucketOf(w, "prod")) {
 		t.Fatalf("the data view: %+v %v", prot, err)
 	}
 	recorded, err := w.s.Inventory.Recorded(ctx, w.target)
 	if err != nil || !slices.ContainsFunc(recorded, func(r deploy.Resource) bool {
-		return r.Kind == digitalocean.KindSpacesKey && strings.Contains(r.Detail, bucketOfProd)
+		return r.Kind == digitalocean.KindSpacesKey && strings.Contains(r.Detail, bucketOf(w, "prod"))
 	}) {
 		t.Fatalf("the recorded inventory: %+v %v", recorded, err)
 	}
@@ -255,14 +290,14 @@ func TestAnObjectOnlyDeploymentWithNoStoreKeepsItsBucket(t *testing.T) {
 	if err != nil || res.Removed == nil {
 		t.Fatalf("take-down: %+v %v", res, err)
 	}
-	if got := w.store.Buckets(); !slices.Contains(got, bucketOfProd) || len(w.api.Snapshot().SpacesKeys) != 0 {
+	if got := w.store.Buckets(); !slices.Contains(got, bucketOf(w, "prod")) || len(w.api.Snapshot().SpacesKeys) != 0 {
 		t.Fatalf("after the take-down: buckets %v keys %v", got, w.api.Snapshot().SpacesKeys)
 	}
 	retained, err := w.s.Retained.ForProject(ctx, w.project)
 	if err != nil || !slices.ContainsFunc(retained, func(r deployment.RetainedResource) bool {
 		name, _ := r.Handle["name"].(string)
 		why, _ := r.Handle["why"].(string)
-		return name == bucketOfProd && strings.Contains(why, "no final copy")
+		return name == bucketOf(w, "prod") && strings.Contains(why, "no final copy")
 	}) {
 		t.Fatalf("retained: %+v %v", retained, err)
 	}
@@ -295,7 +330,7 @@ func TestARestoredCopyFillsItsOwnBucketAndTakesItDown(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			w := newRestoredWorld(t, []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\n  s3: {}\n"))
-			putObjects(w.dataWorld, bucketOfProd)
+			putObjects(w.dataWorld, bucketOf(w.dataWorld, "prod"))
 			op, err := w.s.RequestCopy(context.Background(), w.project, "prod")
 			if err != nil {
 				t.Fatal(err)
@@ -319,17 +354,17 @@ func TestARestoredCopyFillsItsOwnBucketAndTakesItDown(t *testing.T) {
 					filled = j.env["S3_BUCKET"]
 				}
 			}
-			if filled == "" || filled == bucketOfProd {
+			if filled == "" || filled == bucketOf(w.dataWorld, "prod") {
 				t.Fatalf("the copy filled %q", filled)
 			}
 			if slices.Contains(w.store.Buckets(), filled) {
 				t.Fatalf("the copy's bucket %s stands after its take-down", filled)
 			}
-			if _, ok := w.store.Get(bucketOfProd, "logo.png"); !ok {
+			if _, ok := w.store.Get(bucketOf(w.dataWorld, "prod"), "logo.png"); !ok {
 				t.Fatal("prod's objects went with the copy")
 			}
 			keys := w.api.Snapshot().SpacesKeys
-			if len(keys) != 1 || keys[0]["name"] != "apptown-ledger-prod" {
+			if len(keys) != 1 || keys[0]["name"] != "apptown-app-"+deploy.HostKey(depOf(w.dataWorld, "prod").ID) {
 				t.Fatalf("the keys left: %v", keys)
 			}
 		})
@@ -341,12 +376,13 @@ func TestARestoredCopyFillsItsOwnBucketAndTakesItDown(t *testing.T) {
 // does not delete it on that copy's word.
 func TestACopyOfAnotherBucketDoesNotCoverThisOne(t *testing.T) {
 	t.Parallel()
-	items := []backupPlanItem{{Kind: "need", Name: "s3", Bucket: bucketOfProd}}
-	other := &Backup{Status: BackupOK, Items: []BackupItem{{Kind: "need", Name: "s3", Bucket: "forge-ledger-old-a1a1a1a1", File: "s3.tar"}}}
-	if why := other.uncoveredManaged(items); !strings.Contains(why, bucketOfProd) {
+	const bucket = "apptown-0c0c0c0c0c0c-b0b0b0b0"
+	items := []backupPlanItem{{Kind: "need", Name: "s3", Bucket: bucket}}
+	other := &Backup{Status: BackupOK, Items: []BackupItem{{Kind: "need", Name: "s3", Bucket: "apptown-0a0a0a0a0a0a-a1a1a1a1", File: "s3.tar"}}}
+	if why := other.uncoveredManaged(items); !strings.Contains(why, bucket) {
 		t.Fatalf("a copy of another bucket covers this one: %q", why)
 	}
-	own := &Backup{Status: BackupOK, Items: []BackupItem{{Kind: "need", Name: "s3", Bucket: bucketOfProd, File: "s3.tar"}}}
+	own := &Backup{Status: BackupOK, Items: []BackupItem{{Kind: "need", Name: "s3", Bucket: bucket, File: "s3.tar"}}}
 	if why := own.uncoveredManaged(items); why != "" {
 		t.Fatalf("its own copy: %q", why)
 	}
@@ -362,7 +398,7 @@ func TestABucketsTakeDownAsksAgainBeforeDeletingIt(t *testing.T) {
 			t.Parallel()
 			w := heldOnAppPlatform(t, "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  s3: {}\n")
 			ctx := context.Background()
-			putObjects(w, bucketOfProd)
+			putObjects(w, bucketOf(w, "prod"))
 			res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
 			if err != nil || res.Operation == nil {
 				t.Fatalf("take-down door: %+v %v", res, err)
@@ -380,7 +416,7 @@ func TestABucketsTakeDownAsksAgainBeforeDeletingIt(t *testing.T) {
 			} else if got.State != operations.Cancelled || !strings.Contains(got.Detail, "stopped as asked before deleting the bucket") {
 				t.Fatalf("a take-down asked to stop: %s %q", got.State, got.Detail)
 			}
-			if _, ok := w.store.Get(bucketOfProd, "logo.png"); !ok {
+			if _, ok := w.store.Get(bucketOf(w, "prod"), "logo.png"); !ok {
 				t.Fatal("the bucket's objects went")
 			}
 			if keys := w.api.Snapshot().SpacesKeys; len(keys) != 1 {
@@ -406,7 +442,7 @@ func TestEachItemSaysWhereItsOwnCopyCameBack(t *testing.T) {
 	t.Parallel()
 	w := heldOnAppPlatform(t, "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\n  s3: {}\n")
 	ctx := context.Background()
-	putObjects(w, bucketOfProd)
+	putObjects(w, bucketOf(w, "prod"))
 	op, err := w.s.RequestCopy(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)

@@ -299,7 +299,7 @@ func normalised(calls []string) string {
 		if call == "context show" {
 			continue // a prepared boot asks, for its own configuration
 		}
-		words := strings.Fields(created.ReplaceAllString(config.ReplaceAllString(call, ""), "forge.created"))
+		words := strings.Fields(created.ReplaceAllString(config.ReplaceAllString(call, ""), "apptown.created"))
 		sort.Strings(words)
 		out = append(out, strings.Join(words, " "))
 	}

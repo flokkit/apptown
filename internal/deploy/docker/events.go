@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
@@ -67,7 +68,7 @@ func ParseContainerEvents(out []byte) ([]ContainerEvent, error) {
 			return nil, fmt.Errorf("docker events reported %s with no container name or time", e.Action)
 		}
 		ev := ContainerEvent{Container: name, Action: e.Action, At: time.Unix(0, e.TimeNano).UTC(),
-			Deployment: e.Actor.Attributes[dockerlabel.Deployment], Generation: e.Actor.Attributes[dockerlabel.Generation]}
+			Deployment: deploy.IdentityLabels(e.Actor.Attributes)[dockerlabel.Deployment], Generation: deploy.IdentityLabels(e.Actor.Attributes)[dockerlabel.Generation]}
 		if e.Action == "die" {
 			if code, err := strconv.Atoi(e.Actor.Attributes["exitCode"]); err == nil {
 				ev.ExitCode = &code

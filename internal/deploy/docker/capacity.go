@@ -70,7 +70,7 @@ func RunningLimits(ctx context.Context, dk Scope) ([]ContainerLimit, error) {
 	if len(running) == 0 {
 		return nil, nil
 	}
-	format := "{{.Name}}\t{{.HostConfig.Memory}}\t{{.HostConfig.NanoCpus}}\t{{.HostConfig.CpuQuota}}\t{{.HostConfig.CpuPeriod}}\t{{.HostConfig.CpusetCpus}}\t{{index .Config.Labels \"" + dockerlabel.Class + "\"}}\t{{index .Config.Labels \"" + dockerlabel.Owner + "\"}}"
+	format := "{{.Name}}\t{{.HostConfig.Memory}}\t{{.HostConfig.NanoCpus}}\t{{.HostConfig.CpuQuota}}\t{{.HostConfig.CpuPeriod}}\t{{.HostConfig.CpusetCpus}}\t" + ConfigLabelEither(dockerlabel.Class) + "\t" + ConfigLabelEither(dockerlabel.Owner)
 	out, err = dk.Run(ctx, append([]string{"inspect", "--type", "container", "--format", format}, running...)...)
 	if err != nil {
 		return nil, fmt.Errorf("docker inspect: %v: %s", err, strings.TrimSpace(string(out)))

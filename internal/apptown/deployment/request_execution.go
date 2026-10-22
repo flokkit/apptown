@@ -128,7 +128,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if why := refusesEarlierStaticImage(t.Kind, bundle, c); why != "" {
 		return fail(refusal(why))
 	}
-	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, SelfServing: bundle.BuiltFrom.SelfServing, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration}
+	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, SelfServing: bundle.BuiltFrom.SelfServing, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration, MoveNames: placement.MoveNames}
 	var staged string
 	var cleanup func()
 	docked := false // a standing deployment on a Docker host: booted at its recorded port
@@ -213,11 +213,11 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	// keeps a port it was given at every start, and picks a port it chose
 	// again (StablePort).
 	if docked {
-		names, err := dep.HostNames()
+		names, err := dep.HostNames(project.Slug)
 		if err != nil {
 			return fail(err)
 		}
-		if dep.HostPort, err = s.Deployments.StablePort(ctx, rel.ProjectID, dep.Name, names.Container(project.Slug, dep.Name)); err != nil {
+		if dep.HostPort, err = s.Deployments.StablePort(ctx, rel.ProjectID, dep.Name, names.App()); err != nil {
 			return fail(fmt.Errorf("reserving the deployment's host port: %w", err))
 		}
 	}

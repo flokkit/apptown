@@ -100,8 +100,8 @@ func LocalWorkLeft(ctx context.Context, db *database.DB, records *tasks.Records,
 
 // ExecutionContainers lists the containers on AppTown's own Docker that
 // ran or run project work: those carrying a label AppTown's execution
-// owners and reapers use (forge.class, a task's forge.task, a step's
-// forge.step, a folder writer's forge.writes), stopped or not. Two classes
+// owners and reapers use (apptown.class, a task's apptown.task, a step's
+// apptown.step, a folder writer's apptown.writes), stopped or not. Two classes
 // are not writers and are left out: env, the release containers of
 // deployments on the built-in target (out of the mode's scope, which refuses
 // releasing there), and infra, the built-in database. Containers of another

@@ -322,7 +322,7 @@ func TestARequestToAPreviewIsALook(t *testing.T) {
 	f := newFakeDocker()
 	looked, unseen := "apptown-preview-shop-release-3", "apptown-preview-shop-release-2"
 	f.reply = func(args []string) (string, error, bool) {
-		if args[0] == "ps" && slices.Contains(args, "label=forge.class=preview") {
+		if args[0] == "ps" && slices.Contains(args, "label=apptown.class=preview") {
 			return looked + "\tpvrel-shop-3\n" + unseen + "\tpvrel-shop-2\n", nil, true
 		}
 		return "", nil, false

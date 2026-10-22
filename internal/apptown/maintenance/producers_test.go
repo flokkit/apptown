@@ -52,8 +52,8 @@ func TestAStepsContainersAgeOnAppTownsClock(t *testing.T) {
 	dind := labelsOf(dindRun)
 	mu.Unlock()
 	rows := []string{
-		strings.Join([]string{step.Name, "step", labelValue(step.Labels, "forge.created"), labelValue(step.Labels, "forge.owner"), "c-step"}, "\t"),
-		strings.Join([]string{"apptown-dind-step-00000000-03e7-7000-8000-000000000000", "dind", labelValue(dind, "forge.created"), labelValue(dind, "forge.owner"), "c-dind"}, "\t"),
+		strings.Join([]string{step.Name, "step", labelValue(step.Labels, "apptown.created"), labelValue(step.Labels, "apptown.owner"), "c-step"}, "\t"),
+		strings.Join([]string{"apptown-dind-step-00000000-03e7-7000-8000-000000000000", "dind", labelValue(dind, "apptown.created"), labelValue(dind, "apptown.owner"), "c-dind"}, "\t"),
 	}
 	daemon := dockerfake.New()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
@@ -132,7 +132,7 @@ func TestAStepsNetworksCarryTheOwnerTheReaperReads(t *testing.T) {
 		if !ok {
 			t.Fatalf("network %s was not made by this step: %v", n, made)
 		}
-		rows = append(rows, strings.Join([]string{"id-" + n, n, labelValue(labels, "forge.class"), labelValue(labels, "forge.owner")}, "\t"))
+		rows = append(rows, strings.Join([]string{"id-" + n, n, labelValue(labels, "apptown.class"), labelValue(labels, "apptown.owner")}, "\t"))
 	}
 	mu.Unlock()
 	daemon := dockerfake.New()

@@ -31,7 +31,10 @@ type Application struct {
 
 // preparedRelease is one deploy, ready to admit.
 type preparedRelease struct {
-	Bundle *ReleaseBundle // the bundle the source was cut from, for the record; nil for a staged tree
+	// MoveNames moves the deployment to its names by key in this release's
+	// attempt (move_names.go). REMOVE-AFTER resource move.
+	MoveNames bool
+	Bundle    *ReleaseBundle // the bundle the source was cut from, for the record; nil for a staged tree
 	// Source.Contract is the effective contract: Committed under the
 	// deployment's profile and overrides, as Applied records it.
 	Source    deploy.Source
@@ -72,6 +75,12 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	d, err := s.providers.Driver(ctx, t, dep)
 	if err != nil {
 		return ExecutionResult{}, fail("%v", err)
+	}
+	if req.MoveNames {
+		if err := s.moveDriver(d, dep); err != nil {
+			return ExecutionResult{}, fail("%v", err)
+		}
+		logf("this release moves %s from the names it was made with to its names by key first", dep.Name)
 	}
 	// A target that can tell from its own limits that this release cannot
 	// go through says so before anything is made on it.

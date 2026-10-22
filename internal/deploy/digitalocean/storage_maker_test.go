@@ -20,7 +20,7 @@ func TestALeftMakerKeyIsDeletedByTheNextReleaseOrTakeDown(t *testing.T) {
 				t.Fatal(err)
 			}
 			ctx := context.Background()
-			leaked, err := a.driver.mintKey(ctx, mustClient(t, a), "forge-maker-shop-main", spacesGrant{Permission: "fullaccess"})
+			leaked, err := a.driver.mintKey(ctx, mustClient(t, a), "apptown-maker-3b89d1da8075", spacesGrant{Permission: "fullaccess"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -30,7 +30,7 @@ func TestALeftMakerKeyIsDeletedByTheNextReleaseOrTakeDown(t *testing.T) {
 				}
 			} else {
 				owned, _ := a.holdings.Owned(ctx)
-				if _, err := a.driver.Teardown(ctx, deploy.Placement{Name: "main"}, 0, deploy.TakeDown{Owned: owned}); err != nil {
+				if _, err := a.driver.Teardown(ctx, shopMain, 0, deploy.TakeDown{Owned: owned}); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -53,11 +53,11 @@ func TestATakeDownReportsAMakerKeyItCouldNotDelete(t *testing.T) {
 	access := fmt.Sprintf("DOFAKE%d", a.api.Snapshot().SpacesKeysMade+1)
 	a.api.Fail("DELETE", "/v2/spaces/keys/"+access, 500)
 	owned, _ := a.holdings.Owned(context.Background())
-	taken, err := a.driver.Teardown(context.Background(), deploy.Placement{Name: "main"}, 0, deploy.TakeDown{Owned: owned, Synthetic: true})
+	taken, err := a.driver.Teardown(context.Background(), shopMain, 0, deploy.TakeDown{Owned: owned, Synthetic: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(a.keyNames()) != 1 || a.keyNames()[0] != "apptown-maker-shop-main" {
+	if len(a.keyNames()) != 1 || a.keyNames()[0] != "apptown-maker-3b89d1da8075" {
 		t.Fatalf("expected the failed deletion to leave a maker key, got %v", a.keyNames())
 	}
 	if !slices.ContainsFunc(taken.Left, func(l deploy.Left) bool { return l.Handle["name"] == access }) {
@@ -73,13 +73,13 @@ func TestAKeptBucketsTakeDownReportsALeftMakerKeyItCannotDelete(t *testing.T) {
 	if _, _, err := a.fulfil(t); err != nil {
 		t.Fatal(err)
 	}
-	k, err := a.driver.mintKey(context.Background(), mustClient(t, a), "forge-maker-shop-main", spacesGrant{Permission: "fullaccess"})
+	k, err := a.driver.mintKey(context.Background(), mustClient(t, a), "apptown-maker-3b89d1da8075", spacesGrant{Permission: "fullaccess"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	a.api.Fail("DELETE", "/v2/spaces/keys/"+k.AccessKey, 500)
 	owned, _ := a.holdings.Owned(context.Background())
-	taken, err := a.driver.Teardown(context.Background(), deploy.Placement{Name: "main"}, 0, deploy.TakeDown{Owned: owned})
+	taken, err := a.driver.Teardown(context.Background(), shopMain, 0, deploy.TakeDown{Owned: owned})
 	if err != nil {
 		t.Fatal(err)
 	}

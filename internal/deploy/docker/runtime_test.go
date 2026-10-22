@@ -45,7 +45,7 @@ func TestTheRuntimeFormatReadsTheDaemonsProcessState(t *testing.T) {
 	}}).Parse(RuntimeFormat))
 	container := map[string]any{
 		"Id": "c0ffee", "Image": "sha256:app", "RestartCount": 4,
-		"Config":     map[string]any{"Labels": map[string]string{"forge.generation": "3"}},
+		"Config":     map[string]any{"Labels": map[string]string{"apptown.generation": "3"}},
 		"HostConfig": map[string]any{"Memory": 268435456},
 		"State": map[string]any{"Status": "exited", "Running": false, "OOMKilled": true, "ExitCode": 137,
 			"StartedAt": "2026-10-16T01:02:03.5Z", "FinishedAt": "2026-10-16T01:04:05Z"},
@@ -67,7 +67,7 @@ func TestTheRuntimeFormatReadsTheDaemonsProcessState(t *testing.T) {
 		!st.StartedAt.Equal(time.Date(2026, 10, 16, 1, 2, 3, 5e8, time.UTC)) || !st.FinishedAt.Equal(time.Date(2026, 10, 16, 1, 4, 5, 0, time.UTC)) {
 		t.Fatalf("the process state: %+v", st)
 	}
-	if rt.ID != "c0ffee" || rt.Running || rt.MemoryLimit != 268435456 || rt.Labels["forge.generation"] != "3" {
+	if rt.ID != "c0ffee" || rt.Running || rt.MemoryLimit != 268435456 || rt.Labels["apptown.generation"] != "3" {
 		t.Fatalf("identity and limit: %+v", rt)
 	}
 	container["State"].(map[string]any)["Health"] = map[string]any{"Status": "unhealthy", "Log": []any{map[string]any{"Output": "secret-bearing probe output"}}}

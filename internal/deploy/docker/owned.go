@@ -32,6 +32,12 @@ type Ownership struct {
 	// Names is what the stack's host names begin with: a standing
 	// deployment's recorded prefix. "" is Current (previews, runs).
 	Names Prefix
+	// Persistent is a standing deployment's stack: its parts live with it
+	// (class env, restarted with the host), never idle-reaped.
+	Persistent bool
+	// Info is the informational labels a standing deployment's things carry
+	// for people (dockerlabel.Informational); nil for previews and runs.
+	Info []string
 }
 
 func (o Ownership) names() Prefix {
@@ -82,7 +88,7 @@ func ensureNetwork(ctx context.Context, dk Scope, network string, own Ownership)
 	if dk.OK(ctx, "network", "inspect", network) {
 		return nil
 	}
-	if out, err := dk.Run(ctx, "network", "create", network); err != nil {
+	if out, err := dk.Run(ctx, append(append([]string{"network", "create"}, own.Info...), network)...); err != nil {
 		if dk.OK(ctx, "network", "inspect", network) {
 			return nil // another boot made it: not ours to record
 		}
@@ -112,7 +118,7 @@ func ensureVolume(ctx context.Context, dk Scope, volume, stackID, need string, o
 	if dk.OK(ctx, "volume", "inspect", volume) {
 		return nil
 	}
-	if out, err := dk.Run(ctx, "volume", "create", "--label", dockerlabel.Owner+"="+stackID, volume); err != nil {
+	if out, err := dk.Run(ctx, append(append([]string{"volume", "create", "--label", dockerlabel.Owner + "=" + stackID}, own.Info...), volume)...); err != nil {
 		return fmt.Errorf("volume create %s: %v: %s", volume, err, strings.TrimSpace(string(out)))
 	}
 	return own.created(deploy.Owned{Kind: "volume", ID: volume, Data: true, Need: need})
@@ -230,8 +236,7 @@ func DataMountAt(ctx context.Context, dk Scope, container, path string) (DataMou
 }
 
 // VolumeAt is the volume mounted at path in a container, "" when none is:
-// how the one-time ownership inspection finds the data volume of a need
-// container made before needs had named volumes.
+// where a need container keeps its data, named or anonymous.
 func VolumeAt(ctx context.Context, dk Scope, container, path string) (string, error) {
 	out, err := dk.Run(ctx, "inspect", "-f", `{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\t"}}{{.Destination}}{{"\n"}}{{end}}{{end}}`, container)
 	if err != nil {

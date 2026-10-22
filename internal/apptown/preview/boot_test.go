@@ -155,7 +155,7 @@ func TestPreviewReuseAsksTheContainerWhatItServes(t *testing.T) {
 	name := docker.PreviewChangeName(idstest.N(9))
 	served := docker.WorktreeFingerprint(ws) + "+an-older-digest"
 	client.SetReply(func(args []string) ([]byte, error, bool) {
-		if args[0] == "inspect" && args[len(args)-1] == name && strings.Contains(strings.Join(args, " "), "forge.incarnation") {
+		if args[0] == "inspect" && args[len(args)-1] == name && strings.Contains(strings.Join(args, " "), "apptown.incarnation") {
 			return []byte(served + "\n"), nil, true
 		}
 		return nil, nil, false
@@ -167,7 +167,7 @@ func TestPreviewReuseAsksTheContainerWhatItServes(t *testing.T) {
 	}
 	calls := previewCommands(client)
 	rm, run := previewCommandIndex(calls, "rm -f "+name), previewCommandIndex(calls, "run -d --name "+name)
-	if rm < 0 || run < 0 || rm > run || !strings.Contains(calls[run], "forge.incarnation="+out.Incarnation) ||
+	if rm < 0 || run < 0 || rm > run || !strings.Contains(calls[run], "apptown.incarnation="+out.Incarnation) ||
 		out.Public == nil || out.Incarnation != docker.WorktreeFingerprint(ws)+"+"+out.Public.Digest() {
 		t.Fatalf("a preview with other prepared values was not reaped then restamped (%s): %v", out.Incarnation, calls)
 	}
@@ -244,7 +244,7 @@ func TestACancelledReuseProbeLeavesThePreviewRunning(t *testing.T) {
 	served := ""
 	var cancel context.CancelFunc
 	client.SetReply(func(args []string) ([]byte, error, bool) {
-		if args[0] == "inspect" && args[len(args)-1] == name && strings.Contains(strings.Join(args, " "), "forge.incarnation") {
+		if args[0] == "inspect" && args[len(args)-1] == name && strings.Contains(strings.Join(args, " "), "apptown.incarnation") {
 			return []byte(served + "\n"), nil, true
 		}
 		if args[0] == "port" && cancel != nil {
@@ -378,7 +378,7 @@ func requireNothingOfPreview(t *testing.T, client *dockerfake.Daemon, id ids.ID)
 	for _, args := range client.Matching("run ") {
 		call := strings.Join(args, " ")
 		for i := range args {
-			if args[i] == "--name" && i+1 < len(args) && client.Running(args[i+1]) && (args[i+1] == name || strings.Contains(call, "forge.owner="+stack)) {
+			if args[i] == "--name" && i+1 < len(args) && client.Running(args[i+1]) && (args[i+1] == name || strings.Contains(call, "apptown.owner="+stack)) {
 				t.Fatalf("%s of the preview still runs", args[i+1])
 			}
 		}

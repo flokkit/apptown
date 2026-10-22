@@ -13,4 +13,4 @@ RUN cd /tmp && HOME=/opt/pi-baked PI_SKIP_VERSION_CHECK=1 \
       timeout 90 pi --session-dir /tmp/warm --session-id warm \
       --no-context-files --print warm-cache >/dev/null 2>&1 || true; \
     rm -rf /tmp/warm /tmp/pi-subagents-uid-0; test -d /tmp/jiti
-LABEL forge.pi-subagents.version=${PI_SUBAGENTS_VERSION}
+LABEL apptown.pi-subagents.version=${PI_SUBAGENTS_VERSION}

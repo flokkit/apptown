@@ -56,9 +56,9 @@ const subagentsTestImage = "apptown-agent:s5-subagents-test"
 func TestIntegrationDelegatedUsageOnTheWorker(t *testing.T) {
 	t.Parallel()
 	requireDocker(t)
-	label, err := dockertest.Output("image", "inspect", "--format", `{{index .Config.Labels "forge.pi-subagents.version"}}`, subagentsTestImage)
+	label, err := dockertest.Output("image", "inspect", "--format", `{{index .Config.Labels "apptown.pi-subagents.version"}}`, subagentsTestImage)
 	if err != nil || strings.TrimSpace(string(label)) == "" {
-		t.Skipf("pending: the pinned subagent runtime (%s, labelled forge.pi-subagents.version) is not on this machine's Docker; build it from deploy/apptown-agent or internal/apptown/testdata/subagents.Dockerfile", subagentsTestImage)
+		t.Skipf("pending: the pinned subagent runtime (%s, labelled apptown.pi-subagents.version) is not on this machine's Docker; build it from deploy/apptown-agent or internal/apptown/testdata/subagents.Dockerfile", subagentsTestImage)
 	}
 	t.Run("foreground", func(t *testing.T) {
 		t.Parallel()

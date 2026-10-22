@@ -51,7 +51,7 @@ func TestBootAndIntranetUseScopedPreparedEnvironments(t *testing.T) {
 			extras = append(extras, part)
 		}
 	}
-	raw := deploy.IntranetCompose(deploy.IntranetStack{Secrets: secret.Delivery{}, Slug: "p", Hosts: []string{"p.example.test"}, Domain: "example.test", Image: "app:1", Port: 8080, Env: plan.PublicPart().Env, Init: plan.Init, Parts: extras, Needs: docker.IntranetNeeds(result.Stack.Needs)})
+	raw := deploy.IntranetCompose(deploy.IntranetStack{Secrets: secret.Delivery{}, Base: "p", Hosts: []string{"p.example.test"}, Domain: "example.test", Image: "app:1", Port: 8080, Env: plan.PublicPart().Env, Init: plan.Init, Parts: extras, Needs: docker.IntranetNeeds(result.Stack.Needs)})
 	var compose struct {
 		Services map[string]struct{ Environment map[string]string }
 	}

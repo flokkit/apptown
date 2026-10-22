@@ -223,30 +223,6 @@ func TestAFullDOCRRegistryRefusesANewProjectBeforeAnythingIsMade(t *testing.T) {
 	})
 }
 
-// A project that released to App Platform before AppTown recorded its
-// repository finds its own repository refused, until the one-time
-// inspection proposes it and a person approves it; then it releases.
-func TestAnApprovedRepositoryReleasesAgain(t *testing.T) {
-	t.Parallel()
-	w := newDOCRWorld(t)
-	w.api.SeedRegistry("forge-test", "basic", 5)
-	w.api.SeedManifests("expense", "sha256:from-before")
-	_, dep := w.cloud(t)
-	if got := w.release(t, dep).State; got != ReleaseFailed {
-		t.Fatalf("an unrecorded repository was used: %s", got)
-	}
-	inspection, err := w.s.InspectOwnership(context.Background())
-	if err != nil || len(inspection.Unknown) != 0 || len(inspection.Proposals) != 1 || inspection.Proposals[0].Repository != "forge-test/expense" {
-		t.Fatalf("inspection: %+v %v", inspection, err)
-	}
-	if _, err := w.s.ApproveOwnership(context.Background(), []string{inspection.Proposals[0].Key}, "bls"); err != nil {
-		t.Fatal(err)
-	}
-	if got := w.release(t, dep).State; got != Released {
-		t.Fatalf("the approved repository: %s", got)
-	}
-}
-
 // An App Platform target's check reads its registry's plan and how many of
 // its repositories are used, from DigitalOcean, and says when it is full;
 // a registry it cannot read is unknown, with why, never full or empty.

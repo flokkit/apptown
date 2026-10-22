@@ -131,6 +131,19 @@ var migrations = []migration{
 		"ALTER TABLE auth_tokens DROP CONSTRAINT auth_token_purpose",
 		"ALTER TABLE auth_tokens ADD CONSTRAINT auth_token_purpose CHECK (purpose IN ('cli', 'agent') OR (purpose = '' AND revoked_at IS NOT NULL))",
 	}},
+	// A deployment's things on a host are named by its key, the last 12
+	// hex digits of its id (deploy.HostKey), unique by this index. One made
+	// before keeps its recorded prefix until it is moved (apptown
+	// move-names); '' is names by
+	// key. A deployment no Docker host or Portainer runs has no such names.
+	{n: 162, note: "deployments are named on their hosts by their key; the prefix is recorded only for one not yet moved", stmts: []string{
+		"ALTER TABLE deployments ALTER COLUMN host_prefix SET DEFAULT ''",
+		`UPDATE deployments d SET host_prefix = '' WHERE d.kind <> 'standing'
+  OR NOT EXISTS (SELECT 1 FROM targets t WHERE t.id = d.target_id AND t.kind IN ('docker-host', 'portainer'))`,
+		"ALTER TABLE deployments ADD CONSTRAINT deployment_host_prefix CHECK (host_prefix IN ('', 'apptown-', 'forge-'))",
+		"CREATE UNIQUE INDEX deployments_host_key ON deployments ((right(id::text, 12)))",
+		"ALTER TABLE release_requests ADD COLUMN move_names BOOLEAN NOT NULL DEFAULT false",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

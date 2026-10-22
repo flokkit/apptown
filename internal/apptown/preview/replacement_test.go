@@ -35,7 +35,7 @@ func TestAPreviewThatCannotBeRemovedIsNeverRelabelled(t *testing.T) {
 		if args[0] == "inspect" && args[len(args)-1] == name && strings.Contains(strings.Join(args, " "), "State.Running") {
 			return []byte("true\n"), nil, true
 		}
-		if args[0] == "inspect" && args[len(args)-1] == name && strings.Contains(strings.Join(args, " "), "forge.incarnation") {
+		if args[0] == "inspect" && args[len(args)-1] == name && strings.Contains(strings.Join(args, " "), "apptown.incarnation") {
 			return []byte("old-incarnation\n"), nil, true
 		}
 		if args[0] == "rm" && args[len(args)-1] == name {

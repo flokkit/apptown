@@ -95,7 +95,7 @@ func TestImageSweepReapsImagesWhoseOwnerNoLongerExists(t *testing.T) {
 }
 
 // A container's age is judged on AppTown's clock, which stamped its
-// forge.created label: a step's container AppTown labelled ahead of this
+// apptown.created label: a step's container AppTown labelled ahead of this
 // machine's clock is reaped once AppTown's clock is past the idle limit,
 // whatever the machine's says. (Its step, 424242, does not exist: finished.)
 // A preview of the same age is not the age reaper's: the last look at it

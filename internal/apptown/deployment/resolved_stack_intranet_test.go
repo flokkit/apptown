@@ -58,7 +58,7 @@ func TestResolveStackIsWhatTheReleaseRenders(t *testing.T) {
 	if c.PublicPart().Env["DATABASE_URL"] != "" {
 		t.Fatal("resolving must not mutate the input contract")
 	}
-	compose := deploy.IntranetCompose(deploy.IntranetStack{Prefix: "apptown-", Secrets: secret.Delivery{}, Slug: "letterbox", Hosts: []string{"letterbox.apps.example.com"}, Domain: "apps.example.com",
+	compose := deploy.IntranetCompose(deploy.IntranetStack{Prefix: "apptown-", Secrets: secret.Delivery{}, Base: "letterbox", Hosts: []string{"letterbox.apps.example.com"}, Domain: "apps.example.com",
 		Image: "reg/letterbox:r5", Port: c.PublicPart().Port, Env: rs.Plan.PublicPart().Env, Needs: docker.IntranetNeeds(rs.Needs), Init: rs.Plan.Init})
 	for _, want := range []string{
 		"  postgres:\n    image: postgres:16-alpine\n",

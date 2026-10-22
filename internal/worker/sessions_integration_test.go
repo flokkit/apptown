@@ -35,8 +35,8 @@ func removeSessionLeftovers(t *testing.T, id func() string) {
 		if id() == "" {
 			return
 		}
-		for _, list := range [][]string{{"ps", "-aq", "--filter", "label=forge.owner=" + id()}, {"network", "ls", "-q", "--filter", "label=forge.console=" + id()},
-			{"volume", "ls", "-q", "--filter", "label=forge.console=" + id()}} {
+		for _, list := range [][]string{{"ps", "-aq", "--filter", "label=apptown.owner=" + id()}, {"network", "ls", "-q", "--filter", "label=apptown.console=" + id()},
+			{"volume", "ls", "-q", "--filter", "label=apptown.console=" + id()}} {
 			out, _ := exec.Command("docker", list...).Output()
 			for _, obj := range strings.Fields(string(out)) {
 				rm := map[string][]string{"ps": {"rm", "-f", "-v"}, "network": {"network", "rm"}, "volume": {"volume", "rm"}}[list[0]]
@@ -80,7 +80,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 			t.Fatalf("%s is not running on the worker: %s", name, running)
 		}
 	}
-	if owner := w.Docker("volume", "inspect", "--format", `{{index .Labels "forge.console"}}`, cache); owner != id {
+	if owner := w.Docker("volume", "inspect", "--format", `{{index .Labels "apptown.console"}}`, cache); owner != id {
 		t.Fatalf("the session's cache volume is labelled %q", owner)
 	}
 	for _, name := range []string{chat, daemon} {
@@ -135,7 +135,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 		t.Fatalf("stopped: %+v %v", st, err)
 	}
 
-	if still := w.Docker("ps", "--filter", "label=forge.owner="+id, "--format", "{{.Names}}"); still != "" {
+	if still := w.Docker("ps", "--filter", "label=apptown.owner="+id, "--format", "{{.Names}}"); still != "" {
 		t.Fatalf("running after the stop: %s", still)
 	}
 
@@ -152,13 +152,13 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	if err != nil || !st.Gone() {
 		t.Fatalf("removed: %+v %v", st, err)
 	}
-	if left := w.Docker("volume", "ls", "--filter", "label=forge.console="+id, "--format", "{{.Name}}"); left != "" {
+	if left := w.Docker("volume", "ls", "--filter", "label=apptown.console="+id, "--format", "{{.Name}}"); left != "" {
 		t.Fatalf("the session's cache outlived it: %s", left)
 	}
-	if left := w.Docker("ps", "-a", "--filter", "label=forge.owner="+id, "--format", "{{.Names}}"); left != "" {
+	if left := w.Docker("ps", "-a", "--filter", "label=apptown.owner="+id, "--format", "{{.Names}}"); left != "" {
 		t.Fatalf("left on the worker's Docker: %s", left)
 	}
-	if left := w.Docker("network", "ls", "--filter", "label=forge.console="+id, "--format", "{{.Name}}"); left != "" {
+	if left := w.Docker("network", "ls", "--filter", "label=apptown.console="+id, "--format", "{{.Name}}"); left != "" {
 		t.Fatalf("network left on the worker's Docker: %s", left)
 	}
 	if _, err := client.Start(ctx, id); !errors.Is(err, worker.ErrSessionRemoved) {
@@ -262,7 +262,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	var last string
 	agent.Ending = func(ctx context.Context, id string) error {
 		for _, class := range []string{"console", "console-dind"} {
-			if running := w.Docker("ps", "--filter", "label=forge.owner="+id, "--filter", "label=forge.class="+class, "--format", "{{.Names}}"); running != "" {
+			if running := w.Docker("ps", "--filter", "label=apptown.owner="+id, "--filter", "label=apptown.class="+class, "--format", "{{.Names}}"); running != "" {
 				t.Errorf("the last save began while the chat's %s ran: %s", class, running)
 			}
 		}
@@ -292,10 +292,10 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 	if last == "" || last == tip {
 		t.Fatalf("no last save with the leftovers: %q", last)
 	}
-	if left := w.Docker("ps", "-a", "--filter", "label=forge.owner="+s.ID, "--format", "{{.Names}}"); left != "" {
+	if left := w.Docker("ps", "-a", "--filter", "label=apptown.owner="+s.ID, "--format", "{{.Names}}"); left != "" {
 		t.Fatalf("left on the worker's Docker: %s", left)
 	}
-	if left := w.Docker("volume", "ls", "--filter", "label=forge.console="+s.ID, "--format", "{{.Name}}"); left != "" {
+	if left := w.Docker("volume", "ls", "--filter", "label=apptown.console="+s.ID, "--format", "{{.Name}}"); left != "" {
 		t.Fatalf("the chat's cache outlived it: %s", left)
 	}
 }

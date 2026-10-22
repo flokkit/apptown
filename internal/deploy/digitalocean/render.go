@@ -82,8 +82,10 @@ type doIngressRule struct {
 // the platform's default ingress), resolved by the platform at run time.
 const appURL = "${APP_URL}"
 
-// doAppName is the app's name on the platform: the environment's handle.
-func doAppName(slug, env string) string { return slug + "-" + env }
+// doAppName is the app's name on the platform: the deployment's key
+// (deploy.HostKey), which no other deployment shares. App Platform allows
+// 32 characters; this is 20.
+func doAppName(key string) string { return "apptown-" + key }
 
 // Render produces the app spec from the release's images. They are put in
 // DOCR first, so the spec names digests DOCR holds.
@@ -161,7 +163,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		pushed[local] = img
 		return img, nil
 	}
-	spec := AppSpec{Name: doAppName(slug, p.Name), Region: cfg.Region}
+	spec := AppSpec{Name: doAppName(deploy.HostKey(p.ID)), Region: cfg.Region}
 	// Each consumer gets its own environment, resolved need connections,
 	// then the secrets its scope names. Public-part values are never global.
 	base, needSecrets := map[string]string{}, map[string]string{}

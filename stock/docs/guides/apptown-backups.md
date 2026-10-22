@@ -56,12 +56,12 @@ Copied backup sets are not restored by themselves.
 So, before stopping `apptownd` on the old host, for each such deployment:
 
 1. **Stop every application part, and keep it stopped.** On the host, a
-   deployment's containers are named from its project and deployment:
-   the public part is `apptown-env-<project>-<deployment>`, and every other
-   part and every need is `apptown-svc-env-<project>-<deployment>-<name>`
-   (a deployment made before 1.0 keeps `forge-` in place of `apptown-`),
-   where `<name>` is the part's name under `app:` or the need's name under
-   `needs:` in `.apptown/app.yaml`. `docker stop` the public part and each
+   deployment's containers are named from its key, which AppTown's
+   Infrastructure page shows with each container's project and deployment
+   (`docker ps --filter label=apptown.project=<project>` lists them too):
+   the public part is `apptown-dep-<key>`, and every other part and every
+   need is `apptown-svc-dep-<key>-<name>`, where `<name>` is the part's name
+   under `app:` or the need's name under `needs:` in `.apptown/app.yaml`. `docker stop` the public part and each
    other part (a background worker writes too). Leave the need containers
    running: their copies are taken inside them.
 2. **Back up now.** The set is written under the data directory, so it

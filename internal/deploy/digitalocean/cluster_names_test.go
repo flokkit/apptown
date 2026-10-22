@@ -100,20 +100,23 @@ func TestAnEstablishedNeedKeepsTheClusterItsRecordNames(t *testing.T) {
 	}
 }
 
-// A need asked for the first time is named and tagged under the current
-// prefix.
-func TestANewNeedsClusterIsNamedApptown(t *testing.T) {
+// A need asked for the first time is named by the deployment's key, and
+// tagged with its project and deployment for people.
+//
+// Kills: a cluster named from the slug and the deployment's name, which two
+// deployments can share (shop/eu-main and shop-eu/main).
+func TestANewNeedsClusterIsNamedByTheDeploymentsKey(t *testing.T) {
 	t.Parallel()
 	server, _, made := clusterAPI(t, "db-1", "")
 	rec := &heldRecorder{}
-	if _, _, err := clusterDriver(server, rec).FulfilNeed(context.Background(), deploy.Placement{ID: idstest.N(7), Name: "main"}, "postgres", nil, func(string, ...any) {}); err != nil {
+	if _, _, err := clusterDriver(server, rec).FulfilNeed(context.Background(), deploy.Placement{ID: shopMain.ID, Name: "main"}, "postgres", nil, func(string, ...any) {}); err != nil {
 		t.Fatal(err)
 	}
-	if len(*made) != 1 || (*made)[0]["name"] != "apptown-demo-main" {
+	if len(*made) != 1 || (*made)[0]["name"] != "apptown-db-3b89d1da8075" {
 		t.Fatalf("made %v", *made)
 	}
 	tags, _ := (*made)[0]["tags"].([]any)
-	if len(tags) != 3 || tags[0] != "apptown" || tags[1] != "apptown-project-demo" || tags[2] != "apptown-env-main" {
+	if len(tags) != 3 || tags[0] != "apptown" || tags[1] != "apptown-project-demo" || tags[2] != "apptown-deployment-main" {
 		t.Fatalf("tags %v", tags)
 	}
 }

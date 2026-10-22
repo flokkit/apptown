@@ -122,7 +122,7 @@ func New(cfg Config) *Runtime {
 	return &Runtime{cfg: cfg, ctx: ctx, cancel: cancel, sessions: map[string]*state{}}
 }
 
-// created is a container's forge.created label: the runtime's clock, UTC.
+// created is a container's apptown.created label: the runtime's clock, UTC.
 func (r *Runtime) created() string { return r.cfg.Now().UTC().Format(time.RFC3339) }
 
 // Close cancels every control operation for a process stop. Containers and

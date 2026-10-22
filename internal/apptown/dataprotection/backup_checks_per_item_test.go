@@ -21,7 +21,7 @@ func TestTheWeeklyCheckIsDueWhileAnyItemsLastCheckFailed(t *testing.T) {
 	t.Parallel()
 	w := heldOnAppPlatform(t, postgresAndBucket)
 	ctx := context.Background()
-	putObjects(w, bucketOfProd)
+	putObjects(w, bucketOf(w, "prod"))
 	dep, err := w.s.Deployments.ByName(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestAStartFromACopyWhoseDatabaseDidNotComeBackAsksAPerson(t *testing.T) {
 	t.Parallel()
 	w := heldOnAppPlatform(t, postgresAndBucket)
 	ctx := context.Background()
-	putObjects(w, bucketOfProd)
+	putObjects(w, bucketOf(w, "prod"))
 	dep, err := w.s.Deployments.ByName(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)

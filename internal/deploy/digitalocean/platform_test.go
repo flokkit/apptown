@@ -15,7 +15,7 @@ func TestDriverWords(t *testing.T) {
 	if doDBRegion("syd") != "syd1" || doDBRegion("syd1") != "syd1" || doDBRegion("nyc") != "nyc3" {
 		t.Fatalf("database regions: %s %s %s", doDBRegion("syd"), doDBRegion("syd1"), doDBRegion("nyc"))
 	}
-	if doAppName("coin-flip", "cloud") != "coin-flip-cloud" {
+	if doAppName("3b89d1da8075") != "apptown-3b89d1da8075" {
 		t.Fatal("app name")
 	}
 	out := redactToken("login failed for dop_v1_secret at registry", "dop_v1_secret")

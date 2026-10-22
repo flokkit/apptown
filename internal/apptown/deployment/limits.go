@@ -179,17 +179,16 @@ func (s *Service) ownersOn(ctx context.Context, deps []ProjectDeployment) (conta
 				public = name
 			}
 		}
-		place := d.Placement().Name
-		names, err := d.HostNames()
+		names, err := d.HostNames(d.Project)
 		if err != nil {
 			return o, err
 		}
-		for _, c := range []string{d.Container, names.Container(d.Project, place)} {
+		for _, c := range []string{d.Container, names.App()} {
 			if c != "" {
 				o.exact[c] = partOf{deployment: d.ID, part: public}
 			}
 		}
-		o.services[names.Service(docker.StackID(d.Project, place), "")] = d.ID
+		o.services[names.Service("")] = d.ID
 	}
 	return o, nil
 }

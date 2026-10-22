@@ -43,7 +43,7 @@ func TestEveryStockNeedReachesPortainerAsItsCatalogueStartsIt(t *testing.T) {
 			t.Fatal(err)
 		}
 		s := k.ResolveLocal(nil, "", generated)
-		out := deploy.IntranetCompose(deploy.IntranetStack{Slug: "p", Hosts: []string{"p.example.test"}, Domain: "example.test", Image: "app:1", Port: 8080, PublicPart: "web", Secrets: consumerEnv{},
+		out := deploy.IntranetCompose(deploy.IntranetStack{Base: "p", Hosts: []string{"p.example.test"}, Domain: "example.test", Image: "app:1", Port: 8080, PublicPart: "web", Secrets: consumerEnv{},
 			Needs: []deploy.IntranetNeed{{Name: s.Name, Image: s.Image, Command: s.Command, Entrypoint: s.Entrypoint, Env: s.Env, Health: s.Health, Data: s.Data}}})
 		var doc struct {
 			Services map[string]struct {

@@ -47,20 +47,24 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 	}
 	host, _ := d.Targets.ByName(t.Context(), "forge")
 	cloud, _ := d.Targets.ByName(t.Context(), "do-syd")
-	if _, err := d.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", cloud.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
-		t.Fatal(err)
-	}
-	slugs, err := h.projectSlugs(t.Context())
+	cloudDep, err := d.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", cloud.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s, e, ok := docker.OwnerDeployment(docker.StackID(p.Slug, "cloud"), slugs); !ok || s != p.Slug || e != "cloud" {
-		t.Fatalf("owner label parses to the deployment: %s %s %v", s, e, ok)
+	lan, _ := d.Targets.ByName(t.Context(), "lan")
+	lanDep, err := d.Deployments.EnsureStanding(t.Context(), p.ID, "lan", lan.ID, deployment.Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
+	if err != nil {
+		t.Fatal(err)
 	}
+	names, err := cloudDep.HostNames(p.Slug)
+	if err != nil || !names.ByKeyNow() {
+		t.Fatalf("a deployment made now is named by its key: %v %v", names, err)
+	}
+	stack := portainer.StackName(portainer.StackNames(lanDep.ID, lanDep.HostPrefix, p.Slug))
 	res := []deploy.Resource{
-		{Kind: "container", Name: "apptown-svc-env-" + p.Slug + "-cloud-postgres", Record: "unrecorded", Owner: docker.StackID(p.Slug, "cloud")},
-		{Kind: "volume", Name: portainer.StackName("apptown-", p.Slug) + "_apptown-data-" + p.Slug, Record: "unrecorded", Stack: portainer.StackName("apptown-", p.Slug)},
-		{Kind: "container", Name: "apptown-env-" + p.Slug + "-main", Record: "recorded"},
+		{Kind: "container", Name: names.Service("postgres"), Record: "unrecorded", Owner: names.Stack()},
+		{Kind: "volume", Name: stack + "_apptown-data-x", Record: "unrecorded", Stack: stack},
+		{Kind: "container", Name: names.App(), Record: "recorded"},
 	}
 	out, note, err := h.attributeLeftovers(t.Context(), host, res)
 	if err != nil {
@@ -74,6 +78,60 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 	}
 	if out[0].Record != "unrecorded" {
 		t.Fatal("a leftover stays removable")
+	}
+}
+
+// A leftover is attributed by its owner label to the deployment whose stack
+// it names: dep-<key> for one named by its key, and, while live and the
+// demo move, env-<slug>-<name> for one still on the names it was made with.
+// An owner no deployment has is left unattributed, never guessed.
+//
+// Kills: an owner label matched by its shape rather than by a deployment's
+// recorded names; the legacy reader dropped before the move.
+func TestALeftoverIsAttributedToTheDeploymentItsOwnerLabelNames(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	projects := project.New(db, nil)
+	id, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "shop", Name: "Shop"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := deployment.New(context.Background(), db, deployment.Dependencies{})
+	host, err := d.Targets.Put(context.Background(), &deployment.Target{Name: "built-in-docker", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := d.Deployments.EnsureStanding(t.Context(), id, "eu-main", host.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := dep.HostNames("shop")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := Infrastructure{deployment: d, projects: projects, db: db, intranet: "lan"}
+	res := []deploy.Resource{
+		{Kind: "container", Name: names.Service("postgres"), Record: "unrecorded", Owner: names.Stack()},
+		{Kind: "volume", Name: names.DataVolume(), Record: "unrecorded", Owner: names.App()},
+		{Kind: "volume", Name: "forge-need-env-shop-eu-main-postgres", Record: "unrecorded", Owner: "env-shop-eu-main"},
+		{Kind: "container", Name: "apptown-svc-dep-000000000000-x", Record: "unrecorded", Owner: "dep-000000000000"},
+	}
+	out, _, err := h.attributeLeftovers(t.Context(), host, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 4 {
+		t.Fatalf("every leftover is shown: %+v", out)
+	}
+	for i := range 3 {
+		if r := out[i].Retained; r == nil || r.Project != "shop" || r.Deployment != "eu-main" {
+			t.Errorf("%s (owner %s) is not attributed to shop/eu-main: %+v", out[i].Name, out[i].Owner, r)
+		}
+	}
+	if out[3].Retained != nil {
+		t.Errorf("an owner no deployment has is attributed: %+v", out[3].Retained)
 	}
 }
 

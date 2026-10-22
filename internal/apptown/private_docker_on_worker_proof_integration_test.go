@@ -226,7 +226,7 @@ say "built, ran and reached the service"`,
 func composedAgentImage(t *testing.T) (dir, image string) {
 	t.Helper()
 	dir = t.TempDir()
-	files := map[string]string{"Dockerfile": "FROM docker:27-cli\nLABEL forge.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n", "pi": fakePiScript}
+	files := map[string]string{"Dockerfile": "FROM docker:27-cli\nLABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n", "pi": fakePiScript}
 	for name, body := range files {
 		if err := execfile.Write(filepath.Join(dir, name), []byte(body), 0o755); err != nil {
 			t.Fatal(err)
@@ -332,7 +332,7 @@ func TestIntegrationPrivateDockerIsRemovedWhenATestFails(t *testing.T) {
 		workertest.StartServerWith(t, workertest.NewCA(t), server, nil)
 		owner := server.CheckOwnerLabel()
 		fmt.Printf("private-docker-owner=%s\n", owner)
-		if out, err := dockertest.CombinedOutput("network", "create", "--label", owner, "apptown-private-cleanup-"+strings.TrimPrefix(owner, "forge.worker=")); err != nil {
+		if out, err := dockertest.CombinedOutput("network", "create", "--label", owner, "apptown-private-cleanup-"+strings.TrimPrefix(owner, "apptown.worker=")); err != nil {
 			t.Fatalf("network: %v %s", err, out)
 		}
 		if out, err := dockertest.CombinedOutput("run", "-d", "--label", owner, "busybox:1.37", "sleep", "300"); err != nil {

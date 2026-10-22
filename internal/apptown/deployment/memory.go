@@ -351,18 +351,18 @@ func partContainers(d *Deployment, slug string, applied AppliedProfile) map[stri
 	out := map[string]string{}
 	// A prefix the record does not know names nothing: no container is
 	// guessed under another one.
-	names, err := d.HostNames()
+	names, err := d.HostNames(slug)
 	if err != nil {
 		return out
 	}
 	for n := range applied.Services {
-		out[n] = names.Service(docker.StackID(slug, d.Placement().Name), n)
+		out[n] = names.Service(n)
 	}
 	for p, ap := range applied.Parts {
 		if ap.Public {
 			out[p] = d.Container
 		} else {
-			out[p] = names.Service(docker.StackID(slug, d.Placement().Name), p)
+			out[p] = names.Service(p)
 		}
 	}
 	return out

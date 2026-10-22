@@ -86,10 +86,10 @@ func TestADeploymentHoldsWhatItsReleaseDeclares(t *testing.T) {
 		t.Fatalf("plan: %+v %v", plan, err)
 	}
 	app, pg := plan[0], plan[1]
-	if app.Kind != "volume" || app.Volume != "apptown-data-apptown-env-bk-main" || app.File != "apptown-data-apptown-env-bk-main.tar.gz" {
+	if app.Kind != "volume" || app.Volume != deployedNames(t, s, pid, "main", "bk").DataVolume() || app.File != deployedNames(t, s, pid, "main", "bk").DataVolume()+".tar.gz" {
 		t.Fatalf("the app's volume: %+v", app)
 	}
-	if pg.Kind != "need" || pg.Name != "postgres" || pg.Volume != "apptown-need-env-bk-main-postgres" || pg.File != "apptown-need-env-bk-main-postgres.dump" ||
+	if pg.Kind != "need" || pg.Name != "postgres" || pg.Volume != deployedNames(t, s, pid, "main", "bk").NeedVolume("postgres") || pg.File != deployedNames(t, s, pid, "main", "bk").NeedVolume("postgres")+".dump" ||
 		!strings.Contains(pg.How, "pg_dump") || !strings.Contains(pg.Restore, "pg_restore") {
 		t.Fatalf("Postgres, dumped by its kind's copy: %+v", pg)
 	}
@@ -260,10 +260,10 @@ func twoOfEachWorld(t *testing.T, slug string, port int) (*both, *dockerfake.Dae
 		deploy.Owned{Kind: "container", ID: "c-oldpg", Need: "postgres"},
 		deploy.Owned{Kind: "volume", ID: "apptown-need-old-postgres", Data: true, Need: "postgres"})
 	client.SetRunning("c-oldpg", true)
-	stack := docker.StackID(slug, "main")
+	names := hostNamesOf(t, dep, slug)
 	hostMounts(client, map[string]string{
-		"c-oldpg": "apptown-need-old-postgres\t/var/lib/postgresql/data",
-		docker.Current.Service(stack, "postgres"): docker.Current.NeedVolume(stack, "postgres") + "\t/var/lib/postgresql/data",
+		"c-oldpg":                 "apptown-need-old-postgres\t/var/lib/postgresql/data",
+		names.Service("postgres"): names.NeedVolume("postgres") + "\t/var/lib/postgresql/data",
 	}, nil)
 	h := &hostLog{}
 	h.answer(client)
@@ -305,9 +305,9 @@ func TestTwoVolumesOfOneRoleStayApart(t *testing.T) {
 	got := h.restored()
 	for _, want := range []string{
 		"copy of apptown-data-old.tar.gz <- run --rm -i --entrypoint  --network none -v apptown-data-old:/dst",
-		"copy of apptown-data-apptown-env-two-main.tar.gz <- run --rm -i --entrypoint  --network none -v apptown-data-apptown-env-two-main:/dst",
+		"copy of " + hostNamesOf(t, dep, "two").DataVolume() + ".tar.gz <- run --rm -i --entrypoint  --network none -v " + hostNamesOf(t, dep, "two").DataVolume() + ":/dst",
 		"copy of apptown-need-old-postgres.dump <- exec -i " + pgConnection + " c-oldpg sh -c pg_restore",
-		"copy of apptown-need-env-two-main-postgres.dump <- exec -i " + pgConnection + " apptown-svc-env-two-main-postgres sh -c pg_restore",
+		"copy of " + hostNamesOf(t, dep, "two").NeedVolume("postgres") + ".dump <- exec -i " + pgConnection + " " + hostNamesOf(t, dep, "two").Service("postgres") + " sh -c pg_restore",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("want %q among the restores:\n%s", want, got)
@@ -347,8 +347,8 @@ func TestARoleOnlySetRestoresOnlyWhenUnambiguous(t *testing.T) {
 		if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls"); err != nil {
 			t.Fatal(err)
 		}
-		if got := h.restored(); !strings.Contains(got, "copy of data.tar.gz <- run --rm -i --entrypoint  --network none -v apptown-data-apptown-env-leg-main:/dst") ||
-			!strings.Contains(got, "copy of postgres.dump <- exec -i "+pgConnection+" apptown-svc-env-leg-main-postgres sh -c pg_restore") {
+		if got := h.restored(); !strings.Contains(got, "copy of data.tar.gz <- run --rm -i --entrypoint  --network none -v "+deployedNames(t, s, pid, "main", "leg").DataVolume()+":/dst") ||
+			!strings.Contains(got, "copy of postgres.dump <- exec -i "+pgConnection+" "+deployedNames(t, s, pid, "main", "leg").Service("postgres")+" sh -c pg_restore") {
 			t.Fatalf("each copy into the one volume of its role:\n%s", got)
 		}
 	})
@@ -379,10 +379,10 @@ func TestAnAnonymousNeedVolumeIsPlannedOnce(t *testing.T) {
 	t.Parallel()
 	s, _, client, _, pid := backupWorld(t, "anon", 40024)
 	dep := mainOf(t, s, pid)
-	svc := docker.Current.Service(docker.StackID("anon", "main"), "postgres")
+	svc := deployedNames(t, s, pid, "main", "anon").Service("postgres")
 	record(t, s, dep, deploy.Owned{Kind: "volume", ID: "4f9a", Data: true, Need: "postgres"}, deploy.Owned{Kind: "container", ID: svc, Need: "postgres"})
 	hostMounts(client, map[string]string{svc: "4f9a\t/var/lib/postgresql/data"}, func(line string) ([]byte, error, bool) {
-		if line == "volume inspect apptown-need-env-anon-main-postgres" {
+		if line == "volume inspect "+deployedNames(t, s, pid, "main", "anon").NeedVolume("postgres") {
 			return []byte("Error: No such volume"), errors.New("exit 1"), true
 		}
 		return nil, nil, false
@@ -458,8 +458,8 @@ func TestANeedWithNoNamedDataIsNotCopiedAndNeverMerged(t *testing.T) {
 func TestACopyOfAnotherVolumeIsNotThisVolumesCopy(t *testing.T) {
 	t.Parallel()
 	s, _, client, _, pid := backupWorld(t, "rep", 40035)
-	svc := docker.Current.Service(docker.StackID("rep", "main"), "postgres")
-	named := docker.Current.NeedVolume(docker.StackID("rep", "main"), "postgres")
+	svc := deployedNames(t, s, pid, "main", "rep").Service("postgres")
+	named := deployedNames(t, s, pid, "main", "rep").NeedVolume("postgres")
 	hostMounts(client, map[string]string{svc: "old-anon\t/var/lib/postgresql/data"}, func(line string) ([]byte, error, bool) {
 		if line == "volume inspect "+named {
 			return []byte("Error: No such volume"), errors.New("exit 1"), true
@@ -496,4 +496,25 @@ func TestACopyOfAnotherVolumeIsNotThisVolumesCopy(t *testing.T) {
 	if r := row(); r.LastCopy == nil {
 		t.Fatalf("a role-only copy of the one Postgres volume: %+v", r)
 	}
+}
+
+// hostNamesOf is what dep's things are called on its host.
+func hostNamesOf(t *testing.T, dep *deployment.Deployment, slug string) docker.Names {
+	t.Helper()
+	n, err := dep.HostNames(slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// deployedNames is what the deployment name of project pid is called on
+// its host.
+func deployedNames(t *testing.T, s *both, pid ids.ID, name, slug string) docker.Names {
+	t.Helper()
+	dep, err := s.Deployments.ByName(t.Context(), pid, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return hostNamesOf(t, dep, slug)
 }

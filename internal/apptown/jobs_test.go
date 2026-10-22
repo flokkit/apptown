@@ -101,10 +101,11 @@ func TestBackupSweepEnqueues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", target.ID, deployment.Attributes{}.WithDefaults()); err != nil {
+	main, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", docker.Current.Container("p", "main"), 45678); err != nil {
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", docker.ByKey(main.ID).App(), 45678); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := dataJobsForTest(a).Sweep(context.Background(), "daily", nil); err != nil {

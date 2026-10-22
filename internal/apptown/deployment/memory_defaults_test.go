@@ -109,7 +109,7 @@ func TestALandingCapsAndRecordsSuppliedWorkflowServices(t *testing.T) {
 	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
 		t.Fatalf("landing: %+v %v", out, err)
 	}
-	container := docker.Current.Service(docker.StackID("game", "main"), "sidecar")
+	container := hostNamesOf(t, s, w.project, "game", "main").Service("sidecar")
 	if memory, _ := w.daemon.Limits(container); memory != 512<<20 {
 		t.Fatalf("supplied standing service limit: %d commands%v", memory, w.daemon.Commands())
 	}
@@ -230,7 +230,7 @@ func TestExplicitUnlimitedOverrideIsAnActDistinctFromClear(t *testing.T) {
 	if !a.Parts["web"].MemoryUnlimited || a.Parts["web"].Resources.MemoryBytes != 0 {
 		t.Fatalf("applied unlimited: %+v", a)
 	}
-	cmd := ranWith(t, w, "lab", docker.Current.Container("p", "prod"), len(w.hosts.ran("lab"))-1)
+	cmd := ranWith(t, w, "lab", w.names(t, "prod").App(), len(w.hosts.ran("lab"))-1)
 	if strings.Contains(cmd, "--memory ") {
 		t.Fatalf("unlimited was defaulted: %s", cmd)
 	}

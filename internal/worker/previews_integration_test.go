@@ -150,7 +150,7 @@ func TestIntegrationAFailedWorkerBootLeavesNothing(t *testing.T) {
 	if st.Running || st.Error == "" || st.Phase == "" {
 		t.Fatalf("a failed boot answered %+v", st)
 	}
-	for _, filter := range []string{"name=" + w.name, "label=forge.owner=" + w.stack} {
+	for _, filter := range []string{"name=" + w.name, "label=apptown.owner=" + w.stack} {
 		if left := containersNamed(t, filter); left != "" {
 			t.Fatalf("left by a failed boot (%s): %s", filter, left)
 		}

@@ -180,6 +180,7 @@ type ReleaseRequest struct {
 	AttributesJson  json.RawMessage
 	ClaimedAt       sql.NullTime
 	StartFromBackup ids.ID
+	MoveNames       bool
 }
 
 type RetainedResource struct {

@@ -250,7 +250,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 		switch {
 		case strings.Contains(joined, piharness.SubagentsLabel):
 			return []byte(hostSubagents), nil, true
-		case strings.Contains(joined, "forge.pi-lsp.version"):
+		case strings.Contains(joined, "apptown.pi-lsp.version"):
 			return []byte("host-lsp-1"), nil, true
 		}
 		return nil, nil, true
@@ -262,7 +262,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 		t.Fatal(err)
 	}
 	worker := &agentWorkerDriver{t: t, imageAllowed: true, image: execution.AgentImage{Name: workerAgentImageName,
-		Labels: map[string]string{piharness.SubagentsLabel: workerSubagents, "forge.pi.version": "0.9"}}}
+		Labels: map[string]string{piharness.SubagentsLabel: workerSubagents, "apptown.pi.version": "0.9"}}}
 	e := New(db, Dependencies{
 		Adoption:     adoptions,
 		Integrations: integrations,
@@ -543,7 +543,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 // files: /apptown/in for what AppTown sends, /apptown/state for Pi's own.
 func TestAnAgentOnAWorkerIsSteeredToItsOwnPaths(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil, "lsp")
-	f.worker.image.Labels["forge.pi-lsp.version"] = "worker-lsp-3"
+	f.worker.image.Labels["apptown.pi-lsp.version"] = "worker-lsp-3"
 	req := f.build(t)
 	steering := req.steering.Text
 	// A change's step on a worker is told AppTown merges main in for it

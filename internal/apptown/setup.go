@@ -78,7 +78,8 @@ func OpenExposure(authMode, addr, consoleAddr string, allowed bool) error {
 }
 
 // EnsureAgentImage checks for AppTown-agent image and builds it from
-// deploy/apptown-agent in the background when missing — a fresh machine gets
+// deploy/apptown-agent in the background when missing, or when it lacks
+// AppTown's version label — a fresh machine gets
 // a working executor without reading a single doc. Skipped when docker is
 // unavailable or the build context isn't shipped alongside the binary.
 func (a *App) EnsureAgentImage() {
@@ -94,7 +95,10 @@ func (a *App) EnsureAgentImage() {
 		a.setup.mu.Unlock()
 		return
 	}
-	if a.docker.ImageExists(a.life, a.cfg.agentImage) {
+	// An image without AppTown's version label was not built from this
+	// release's recipe (one built before 1.0 carries forge.pi.version): it
+	// is fetched again, so every step records which tools it ran.
+	if v := a.docker.AgentRuntimeVersion(a.life, a.cfg.agentImage); a.docker.ImageExists(a.life, a.cfg.agentImage) && v != "" && v != "<no value>" {
 		a.setup.mu.Lock()
 		a.setup.agentImage = "present"
 		a.setup.mu.Unlock()

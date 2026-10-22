@@ -77,7 +77,7 @@ RUN arch=$(dpkg --print-architecture) \
     && sha "$HIVEMIND_SHA256_AMD64" "$HIVEMIND_SHA256_ARM64" /tmp/hivemind.gz \
     && gunzip -c /tmp/hivemind.gz > /usr/local/bin/hivemind && rm /tmp/hivemind.gz \
     && chmod +x /usr/local/bin/hivemind && hivemind --version
-LABEL forge.hivemind.version=${HIVEMIND_VERSION}
+LABEL apptown.hivemind.version=${HIVEMIND_VERSION}
 
 # glab: GitLab CLI for steps granted scoped SCM access (with: {scm: true}).
 # Auth arrives purely via env (GITLAB_HOST/GITLAB_TOKEN) at step time.
@@ -89,7 +89,7 @@ RUN arch=$(dpkg --print-architecture) \
     && curl -fsSL "${GITLAB_MIRROR}/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.deb" -o /tmp/glab.deb \
     && sha "$GLAB_SHA256_AMD64" "$GLAB_SHA256_ARM64" /tmp/glab.deb \
     && dpkg -i /tmp/glab.deb && rm /tmp/glab.deb && glab --version
-LABEL forge.glab.version=${GLAB_VERSION}
+LABEL apptown.glab.version=${GLAB_VERSION}
 
 # docker client + buildx + compose: implementation steps and writable change
 # consoles get a PRIVATE daemon sidecar (DOCKER_HOST points at it).
@@ -120,8 +120,8 @@ RUN arch=$(dpkg --print-architecture) && case "$arch" in amd64) d=x86_64;; arm64
     && sha "$COMPOSE_SHA256_AMD64" "$COMPOSE_SHA256_ARM64" /usr/local/libexec/docker/cli-plugins/docker-compose \
     && chmod +x /usr/local/libexec/docker/cli-plugins/docker-compose \
     && docker --version && docker compose version
-LABEL forge.docker.version=${DOCKER_VERSION}
-LABEL forge.compose.version=${COMPOSE_VERSION}
+LABEL apptown.docker.version=${DOCKER_VERSION}
+LABEL apptown.compose.version=${COMPOSE_VERSION}
 
 # Language servers for pi-lsp (the opt-in real-time-diagnostics extension baked
 # below). pi-lsp expects the servers on PATH and skips any that are missing, so
@@ -139,13 +139,13 @@ RUN npm install -g --ignore-scripts @biomejs/biome@${BIOME_VERSION} \
     && UV_TOOL_BIN_DIR=/usr/local/bin uv tool install ruff==${RUFF_VERSION} \
     && npm cache clean --force && rm -rf /root/.cache/uv \
     && biome --version && ruff --version && gopls version
-LABEL forge.lsp.servers=biome,ruff,gopls
+LABEL apptown.lsp.servers=biome,ruff,gopls
 
 # pi itself
 ARG PI_VERSION=0.84.3
 RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
 # Runtime version surfaces in step evidence via this label (receipts).
-LABEL forge.pi.version=${PI_VERSION}
+LABEL apptown.pi.version=${PI_VERSION}
 
 # pi-subagents: the one extension AppTown blesses (delegation to cheaper
 # model slots). Installed into a baked HOME at build time; each session's
@@ -174,7 +174,7 @@ RUN cd /tmp && HOME=/opt/pi-baked PI_SKIP_VERSION_CHECK=1 \
       timeout 90 pi --session-dir /tmp/warm --session-id warm \
       --no-context-files --print warm-cache >/dev/null 2>&1 || true; \
     rm -rf /tmp/warm /tmp/pi-subagents-uid-0; test -d /tmp/jiti
-LABEL forge.pi-subagents.version=${PI_SUBAGENTS_VERSION}
+LABEL apptown.pi-subagents.version=${PI_SUBAGENTS_VERSION}
 
 # pi-lsp: an OPT-IN extension (design: AppTown blesses baked extensions and
 # enables them per project). Baked into the same /opt/pi-baked HOME as
@@ -183,6 +183,6 @@ LABEL forge.pi-subagents.version=${PI_SUBAGENTS_VERSION}
 # enable it, only a blessed pack/setting can.
 ARG PI_LSP_VERSION=0.49.6
 RUN npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:@narumitw/pi-lsp@${PI_LSP_VERSION}
-LABEL forge.pi-lsp.version=${PI_LSP_VERSION}
+LABEL apptown.pi-lsp.version=${PI_LSP_VERSION}
 
 WORKDIR /work

@@ -36,7 +36,7 @@ func (h Infrastructure) recordedResources(ctx context.Context, t *deployment.Tar
 }
 
 // attributeLeftovers reads the labels on a Docker host's unrecorded
-// resources. One made by AppTown for a deployment (forge.owner) is
+// resources. One made by AppTown for a deployment (apptown.owner) is
 // "left behind" by that deployment, with the reason, and stays removable.
 // One that belongs to an intranet stack (the compose project label names
 // a project's stack) is the intranet target's, not this host's: the
@@ -47,6 +47,21 @@ func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Ta
 	if err != nil {
 		return nil, "", err
 	}
+	// A deployment's things carry its stack (its services, network, need
+	// volumes) or its app container's name (its data volume) as owner.
+	deployments, err := h.deployment.Deployments.All(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	owners := map[string][2]string{}
+	stacks := map[string]bool{} // the intranet stacks' names, as compose projects
+	for _, d := range deployments {
+		if n, err := d.HostNames(d.Project); err == nil {
+			owners[n.Stack()] = [2]string{d.Project, d.Name}
+			owners[n.App()] = [2]string{d.Project, d.Name}
+		}
+		stacks[portainer.StackName(portainer.StackNames(d.ID, d.HostPrefix, d.Project))] = true
+	}
 	_, noIntranet := h.deployment.Targets.ByName(ctx, h.intranet)
 	var out []deploy.Resource
 	shared := 0
@@ -55,11 +70,15 @@ func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Ta
 			out = append(out, r)
 			continue
 		}
-		if _, ok := stackProject(r.Stack, slugs); ok && noIntranet == nil && t.Name != h.intranet {
+		if r.Stack != "" && stacks[r.Stack] && noIntranet == nil && t.Name != h.intranet {
 			shared++
 			continue
 		}
-		if slug, env, ok := docker.OwnerDeployment(r.Owner, slugs); ok {
+		if d, ok := owners[r.Owner]; ok {
+			r.Retained = &deploy.RetainedNote{Project: d[0], Deployment: d[1], Reason: h.leftoverReason(ctx, t, d[0], d[1])}
+		} else if slug, env, ok := docker.BeforeKeyOwner(r.Owner, slugs); ok {
+			// REMOVE-AFTER resource move: a thing a deployment named before
+			// its names were by key left behind.
 			r.Retained = &deploy.RetainedNote{Project: slug, Deployment: env, Reason: h.leftoverReason(ctx, t, slug, env)}
 		}
 		out = append(out, r)
@@ -292,21 +311,6 @@ func hostsWords(hs []deploy.ResourceHost) string {
 		parts = append(parts, h.Project+"/"+h.Deployment)
 	}
 	return strings.Join(parts, ", ")
-}
-
-// stackProject: which project an intranet compose stack belongs to.
-func stackProject(stack string, slugs []string) (string, bool) {
-	if stack == "" {
-		return "", false
-	}
-	for _, s := range slugs {
-		for _, p := range docker.Prefixes {
-			if stack == portainer.StackName(string(p), s) {
-				return s, true
-			}
-		}
-	}
-	return "", false
 }
 
 type InfrastructureView struct {

@@ -56,8 +56,8 @@ func modeApp(t *testing.T, db *database.DB, dataDir string) *App {
 
 // drainApp is AppTown with its own Docker on db and dataDir, run with
 // -drain-local-docker. Its Docker lists containers (each a line as the drain
-// asks docker ps for it: name, then its AppTown.class, forge.task, forge.step
-// and forge.writes labels, tab-separated); it is asked nothing else.
+// asks docker ps for it: name, then its AppTown.class, apptown.task, apptown.step
+// and apptown.writes labels, tab-separated); it is asked nothing else.
 func drainApp(t *testing.T, db *database.DB, dataDir string, containers ...string) *App {
 	t.Helper()
 	return newApp(t, db, Config{DataDir: dataDir, DrainLocalDocker: true, ConsoleCLI: fixtureCLI(t), DockerClient: dockerClientFunc(func(_ context.Context, host string, req docker.Command) ([]byte, error) {

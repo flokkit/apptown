@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -77,7 +78,7 @@ type BootRequest struct {
 	ReleaseImage string // Recorded public artifact for a historical release preview.
 	// Incarnation names what the boot serves, for a preview: its source and
 	// the digest of its prepared public values. It is labelled on the app
-	// container (forge.incarnation), and a reuse matches it. "" is none.
+	// container (apptown.incarnation), and a reuse matches it. "" is none.
 	Incarnation string
 	// Scratch is the boot's own folder, where a prepared boot keeps its
 	// Docker configuration; its owner sweeps it (SweepBootConfigs). A
@@ -107,6 +108,10 @@ type BootRequest struct {
 	// own network, its needs filled before any init step, and only the
 	// public part (Sealed). nil boots as before.
 	Sealed *Sealed
+	// move moves a standing deployment made before its names were by key to
+	// them before anything starts (move.go); nil boots as usual. Name,
+	// Names and StackID are the new names.
+	move *bootMove
 	// release is PublicRelease(Revision), set by Boot.
 	release string
 	// own is Record with the needs' data paths, set by Boot.
@@ -176,6 +181,7 @@ func (r BootResult) Image() string { return r.Stack.Plan.PublicPart().Image }
 // — the step evidence, the button's sentence and the rebuild log all differ.
 const (
 	PhaseResolve = "resolve" // an unknown need: refused at the door
+	PhaseMove    = "move"    // moving a deployment to its names by key (move.go)
 	PhaseSecrets = "secrets" // a declared secret nothing provides, or a broken declaration
 	PhaseConfig  = "config"  // the values a browser may be given could not be read
 	PhaseNeeds   = "needs"   // the stack did not start
@@ -190,6 +196,9 @@ type BootError struct {
 	Phase   string
 	Err     error
 	LogTail string
+	// Known is a failure whose effects were put back as they were (a move
+	// that restarted the old stack, move.go): its outcome is known.
+	Known bool
 }
 
 func (e *BootError) Error() string { return e.Err.Error() }
@@ -200,7 +209,11 @@ func (e *BootError) Error() string { return e.Err.Error() }
 func (e *BootError) BeforeEffects() bool {
 	return e.Phase == PhaseResolve || e.Phase == PhaseSecrets || e.Phase == PhaseConfig
 }
-func (e *BootError) Unwrap() error { return e.Err }
+
+// KnownOutcome says the attempt's outcome is known: nothing changed, or
+// what changed was put back as it was (Known).
+func (e *BootError) KnownOutcome() bool { return e.BeforeEffects() || e.Known }
+func (e *BootError) Unwrap() error      { return e.Err }
 
 // asBootError: the phase-carrying error behind a boot failure; any other
 // error comes back wrapped with no phase.
@@ -385,7 +398,10 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseSecrets, Err: err}
 	}
 	res.Stack = rs
-	t.own = Ownership{Record: t.Record, Needs: map[string]string{}, Recorded: t.Owned, Names: t.names()}
+	t.own = Ownership{Record: t.Record, Needs: map[string]string{}, Recorded: t.Owned, Names: t.names(), Persistent: t.Persistent}
+	if t.Persistent {
+		t.own.Info = dockerlabel.Informational(t.Slug, t.Deployment)
+	}
 	for _, n := range rs.Needs {
 		t.own.Needs[n.Name] = n.Data
 	}
@@ -424,6 +440,14 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		}
 	}
 
+	if t.move != nil {
+		if err := h.moveStack(ctx, &t, plan.PublicPart().DataDir); err != nil {
+			if be := AsBootError(err); be.Phase == PhaseMove {
+				return res, be
+			}
+			return res, &BootError{Phase: PhaseMove, Err: err}
+		}
+	}
 	network := ""
 	if len(rs.Services) > 0 {
 		t.logf("Starting or reusing %d dependency services", len(rs.Services))

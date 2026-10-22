@@ -1365,7 +1365,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   id UUID PRIMARY KEY,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
-  -- The name the deployment carries on its host (forge.environment labels,
+  -- The name the deployment carries on its host (apptown.deployment labels,
   -- boot proofs): its old integer for a deployment made before the identity
   -- cutover, kept because its containers carry it; '' for one made after,
   -- which uses its UUID.
@@ -1393,12 +1393,14 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- data from, and when that was done (null until then).
   start_from_backup UUID,
   started_from_at   TIMESTAMPTZ,
-  -- What its names on a Docker host or Portainer environment begin with,
-  -- fixed when it is made: 'forge-' for one made before 1.0, which keeps
-  -- them for good, so nothing it made is looked up under another name.
-  host_prefix TEXT NOT NULL DEFAULT 'apptown-',
+  -- '' when its things on a Docker host or Portainer environment are named
+  -- by its key (the last 12 hex digits of its id, unique by
+  -- deployments_host_key); for one made before and not yet moved, the
+  -- prefix its names were made with, so its data is found where it is.
+  host_prefix TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_host_prefix CHECK (host_prefix IN ('', 'apptown-', 'forge-')),
   UNIQUE(project_id, name)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
 -- A target (design/subsystems/deployment.md §2.2): a reusable place AppTown can
 -- deploy to, reached through one provider (an integration name, '' for
 -- the built-in host). Absent by default except the built-in Docker host.
@@ -1513,8 +1515,8 @@ CREATE TABLE IF NOT EXISTS reconciliations (
 -- What AppTown created for a deployment at its target, recorded when the
 -- provider confirmed the creation (design/subsystems/deployment.md).
 -- Take-down deletes exactly these; nothing found, reused or adopted is
--- listed. note is '' for a creation AppTown saw, and says who approved
--- an entry recorded later by the one-time inspection.
+-- listed. note is '' for a creation AppTown saw; an entry an earlier
+-- release's one-time inspection recorded says who approved it.
 CREATE TABLE IF NOT EXISTS deployment_owned (
   id UUID PRIMARY KEY,
   deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
@@ -1531,7 +1533,8 @@ CREATE TABLE IF NOT EXISTS deployment_owned (
 -- account (its connector): App Platform's DOCR repository, named after the
 -- project. AppTown uses only one it recorded creating, and empties it
 -- when the project's last deployment on that account is taken down. note
--- says who approved an entry the one-time inspection recorded.
+-- says who approved an entry an earlier release's one-time inspection
+-- recorded.
 CREATE TABLE IF NOT EXISTS owned_repositories (
   id UUID PRIMARY KEY,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -1592,7 +1595,10 @@ CREATE TABLE IF NOT EXISTS release_requests (
   claimed_at TIMESTAMPTZ,
   -- The copy the release's caller was authorised to fill a new deployment
   -- from (0: none); the release fills that copy or nothing.
-  start_from_backup UUID
+  start_from_backup UUID,
+  -- The release moves the deployment to its names by key first
+  -- (apptown move-names; REMOVE-AFTER resource move).
+  move_names BOOLEAN NOT NULL DEFAULT false
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,

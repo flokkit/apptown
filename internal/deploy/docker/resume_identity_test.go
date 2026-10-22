@@ -20,11 +20,11 @@ func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {
 			noted["dockerReady"] = deploy.Observation{Generation: 7, Rollout: "active", Health: "healthy", ImageDigest: "sha256:selected", URL: "https://selected", Handle: map[string]any{"container": "selected-container", "hostPort": 1234}}
 			switch scenario {
 			case "wrong-generation":
-				runtime.Labels["forge.generation"] = "8"
+				runtime.Labels["apptown.generation"] = "8"
 			case "wrong-environment":
-				runtime.Labels["forge.environment"] = "5"
+				runtime.Labels["apptown.deployment"] = "5"
 			case "wrong-artifact":
-				runtime.Labels["forge.artifact"] = "different"
+				runtime.Labels["apptown.artifact"] = "different"
 			case "wrong-image":
 				runtime.Image = "sha256:different"
 			case "not-running":

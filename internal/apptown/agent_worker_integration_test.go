@@ -104,7 +104,7 @@ func fakePiGitImage(t *testing.T) string {
 func fakePiImageFrom(t *testing.T, fakePiBuild *fakePiBuilt, base string) string {
 	t.Helper()
 	fakePiBuild.once.Do(func() {
-		dockerfile := base + "LABEL forge.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n"
+		dockerfile := base + "LABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n"
 		sum := sha256.Sum256([]byte(dockerfile + fakePiScript))
 		image := "forge-it-fake-pi:" + hex.EncodeToString(sum[:])[:12]
 		if dockertest.Run("image", "inspect", image) == nil {
@@ -423,8 +423,8 @@ func TestIntegrationAnAgentStepWithPrivateDockerRunsOnTheWorker(t *testing.T) {
 	}
 	// This worker's: tests running beside it have invocations of the same
 	// key on workers of their own.
-	out, err := dockertest.CombinedOutput("ps", "-a", "--filter", "label=forge.class=private-docker", "--filter", "label="+w.worker.CheckOwnerLabel(),
-		"--filter", "label=forge.task="+invocations[0].Operation, "--format", "{{.Names}}")
+	out, err := dockertest.CombinedOutput("ps", "-a", "--filter", "label=apptown.class=private-docker", "--filter", "label="+w.worker.CheckOwnerLabel(),
+		"--filter", "label=apptown.task="+invocations[0].Operation, "--format", "{{.Names}}")
 	if err != nil || strings.TrimSpace(string(out)) != "" {
 		t.Errorf("released, the invocation left %s %v", out, err)
 	}

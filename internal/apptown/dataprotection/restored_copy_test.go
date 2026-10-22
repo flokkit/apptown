@@ -428,10 +428,11 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 	if n := len(operationReceipts(t, w.db, "deployment.gate-entered", w.project)); n != 0 || len(c.Entries) != 0 {
 		t.Fatalf("AppTown's check was recorded as an entry: %d receipts, entries %+v", n, c.Entries)
 	}
-	// Its app had the gate as its only public component.
+	// Its app had the gate as its only public component: the one app
+	// besides prod's (the copy's record went with its take-down).
 	var spec map[string]any
 	for _, s := range w.api.Snapshot().Specs {
-		if s["name"] == "ledger-"+c.Deployment {
+		if s["name"] != w.appOf("prod") {
 			spec = s
 		}
 	}
@@ -504,7 +505,7 @@ func TestAGateTicketLastsByAppTownsClock(t *testing.T) {
 	if !endedAs(op, OperationVerified) || !c.Open {
 		t.Fatalf("opened copy %s: %s; %+v", op.State, op.Detail, c)
 	}
-	secretOf := w.platform.secretFor("ledger-" + c.Deployment)
+	secretOf := w.platform.secretFor(w.appOf(c.Deployment))
 	redeem := func(lasts time.Duration) error {
 		t.Helper()
 		w.auth.set("alice")
@@ -544,7 +545,7 @@ func TestAnOpenedCopyAdmitsOnlyPeopleAppTownLetsInAndWitnessesEachEntry(t *testi
 	if len(w.api.Snapshot().Apps) != 2 {
 		t.Fatal("the opened copy's app is not standing")
 	}
-	secretOf := w.platform.secretFor("ledger-" + c.Deployment)
+	secretOf := w.platform.secretFor(w.appOf(c.Deployment))
 
 	// A CLI token, or a caller with no browser session, gets no ticket.
 	w.auth.via = "token"
@@ -563,7 +564,7 @@ func TestAnOpenedCopyAdmitsOnlyPeopleAppTownLetsInAndWitnessesEachEntry(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	ticket := strings.TrimPrefix(to, "https://ledger-"+c.Deployment+"-abc.ondigitalocean.app"+gate.EnterPath+"?ticket=")
+	ticket := strings.TrimPrefix(to, "https://"+w.appOf(c.Deployment)+"-abc.ondigitalocean.app"+gate.EnterPath+"?ticket=")
 	if ticket == to || len(ticket) != 64 {
 		t.Fatalf("the address Open sends the browser to: %s", to)
 	}
@@ -751,7 +752,7 @@ func TestAppTownsOwnTicketLetsInOnlyItsRunningCheck(t *testing.T) {
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
 	_, opened := w.start(RestoredCopyRequest{Minutes: 60})
-	secretOf := w.platform.secretFor("ledger-" + opened.Deployment)
+	secretOf := w.platform.secretFor(w.appOf(opened.Deployment))
 	if !opened.Open || len(opened.Entries) != 0 || secretOf == "" {
 		t.Fatalf("the opened copy: %+v", opened)
 	}
@@ -780,7 +781,7 @@ func TestAppTownsOwnTicketLetsInOnlyItsRunningCheck(t *testing.T) {
 		if err := redeem(opened.ID, operations.SystemActor, test.Operation, secretOf); !errors.Is(err, ErrTicket) {
 			t.Errorf("a check ticket of another copy's running start: %v", err)
 		}
-		if err := redeem(test.ID, "alice", ids.Nil, w.platform.secretFor("ledger-"+test.Deployment)); !errors.Is(err, ErrTicket) {
+		if err := redeem(test.ID, "alice", ids.Nil, w.platform.secretFor(w.appOf(test.Deployment))); !errors.Is(err, ErrTicket) {
 			t.Errorf("a person's ticket on a restore test: %v", err)
 		}
 		return true
@@ -1222,7 +1223,14 @@ func TestAGateTicketNamingNoPrincipalLetsNobodyIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	ticket := to[strings.LastIndex(to, "=")+1:]
-	if _, err := w.s.RedeemGateTicket(ctx, w.platform.secretFor("ledger-"+c.Deployment), ticket); !errors.Is(err, ErrTicket) {
+	if _, err := w.s.RedeemGateTicket(ctx, w.platform.secretFor(w.appOf(c.Deployment)), ticket); !errors.Is(err, ErrTicket) {
 		t.Fatalf("a ticket naming no principal: %v", err)
 	}
+}
+
+// appOf is the App Platform app the world's deployment name runs as: named
+// by its key, read while its record stands (and remembered after).
+func (w *restoredWorld) appOf(name string) string {
+	w.t.Helper()
+	return "apptown-" + deploy.HostKey(depOf(w.dataWorld, name).ID)
 }

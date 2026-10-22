@@ -33,10 +33,10 @@ type bakedLabels struct{}
 
 func (bakedLabels) Run(_ context.Context, _ string, command docker.Command) ([]byte, error) {
 	args := strings.Join(command.Args, " ")
-	if strings.Contains(args, "forge.pi-subagents.version") {
+	if strings.Contains(args, "apptown.pi-subagents.version") {
 		return []byte("1.0"), nil
 	}
-	if strings.Contains(args, "forge.pi-lsp.version") {
+	if strings.Contains(args, "apptown.pi-lsp.version") {
 		return []byte("2.0"), nil
 	}
 	return nil, errors.New("unexpected image query")

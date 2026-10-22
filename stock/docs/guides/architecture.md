@@ -554,9 +554,7 @@ else: on a Docker host its containers, network, data volumes and images;
 on App Platform the app and AppTown's registry repository; on Portainer
 the stack and the volumes its deploys made; on a bucket website the bucket; and any AI-model key made for
 the app. Finding something already there, or matching its name, never
-makes it the deployment's. The one exception is explicit: for deployments
-made before ownership was recorded, an administrator can approve what a
-one-time inspection proposes, and exactly what is approved is recorded.
+makes it the deployment's.
 
 **Taking a deployment down** deletes what it owns. Data goes only after
 a backup: on a Docker host AppTown stops the app, copies every data

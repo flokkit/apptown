@@ -8,14 +8,16 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
-// A deployment made before 1.0 is booted under the names it was made with:
-// the driver hands the boot its recorded prefix, never the current one, so
-// its app, stack and data are looked for where they are. One with no
-// recorded prefix is refused before anything is touched.
-func TestADeploymentIsBootedUnderTheNamesItWasMadeWith(t *testing.T) {
+// A deployment is booted under the names its record gives: by its key when
+// it records no prefix, and, until it is moved, under the names it was made
+// with when it records one. A prefix AppTown never named with is refused
+// before anything is touched.
+//
+// Kills: a placement with no prefix booted under slug names, or a recorded
+// prefix ignored.
+func TestADeploymentIsBootedUnderTheNamesItsRecordGives(t *testing.T) {
 	t.Parallel()
 	c, err := appcontract.Parse([]byte("app:\n  game:\n    static: .\n    public: true\n"))
 	if err != nil {
@@ -24,23 +26,24 @@ func TestADeploymentIsBootedUnderTheNamesItWasMadeWith(t *testing.T) {
 	body := []byte(`{"version":1,"revision":"abc"}`)
 	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 		Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c}}
-	for prefix, want := range map[string]string{"forge-": "forge-env-game-main", "apptown-": "apptown-env-game-main", "": ""} {
+	id := keyed(7)
+	for prefix, want := range map[string]string{"": ByKey(id).App(), "forge-": "forge-env-game-main", "apptown-": "apptown-env-game-main", "other-": ""} {
 		boot := &fakeBoot{daemon: &fakeDaemon{}}
 		d := &Driver{Scope: func(context.Context) (Scope, error) { return Scope{Client: boot.daemon}, nil }, Boot: boot,
 			URL: func(_, _ string, port int) string { return fmt.Sprintf("http://127.0.0.1:%d", port) }, AfterRelease: func(deploy.Placement) {}}
-		place := deploy.Placement{HostPrefix: prefix, ID: idstest.N(7), Label: "7", Name: "main"}
+		place := deploy.Placement{HostPrefix: prefix, ID: id, Label: "7", Name: "main"}
 		_, err := d.Reconcile(context.Background(), place, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 		if want == "" {
 			if err == nil || !strings.Contains(err.Error(), "not a prefix") || boot.req.Name != "" {
-				t.Fatalf("a placement with no recorded prefix was booted: %v %+v", err, boot.req)
+				t.Fatalf("a placement with an unknown prefix was booted: %v %+v", err, boot.req)
 			}
 			continue
 		}
 		if err != nil {
 			t.Fatal(err)
 		}
-		if boot.req.Name != want || string(boot.req.Names) != prefix {
-			t.Fatalf("a deployment recorded %q was booted as %q under %q", prefix, boot.req.Name, boot.req.Names)
+		if boot.req.Name != want || boot.req.StackID != strings.TrimPrefix(want, string(boot.req.Names)) {
+			t.Fatalf("a deployment recorded %q was booted as %q (stack %q) under %q", prefix, boot.req.Name, boot.req.StackID, boot.req.Names)
 		}
 	}
 }

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -103,7 +104,12 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	call := func(body string) (int, map[string]any) {
 		return targetCall(t, w.infra.RemoveInfrastructure, "POST", "/api/v1/infrastructure/"+targetTestBuiltin+"/remove", body, map[string]string{"target": targetTestBuiltin})
 	}
-	if code, out := call(`{"kind":"container","name":"apptown-env-ri-main","confirm":"apptown-env-ri-main"}`); code != 409 || !strings.Contains(out["error"].(string), "ri/main") {
+	names, err := env.HostNames("ri")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := names.App() // what the deployment's app is called on its host, recorded or not
+	if code, out := call(fmt.Sprintf(`{"kind":"container","name":%q,"confirm":%q}`, app, app)); code != 409 || !strings.Contains(out["error"].(string), "ri/main") {
 		t.Fatalf("recorded container: %d %v", code, out)
 	}
 	if code, out := call(`{"kind":"volume","name":"apptown-need-env-ri-main-postgres","confirm":"apptown-need-env-ri-main-postgres"}`); code != 409 || !strings.Contains(out["error"].(string), "ri/main") {
@@ -111,7 +117,7 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	}
 	// Display normalization must not strip immutable IDs from the claims
 	// used by this consequential door.
-	if err := w.deployment.Deployments.OwnerOf(env).Created(t.Context(), deploy.Owned{Kind: "container", ID: "immutable-incarnation", Name: "apptown-env-ri-main"}); err != nil {
+	if err := w.deployment.Deployments.OwnerOf(env).Created(t.Context(), deploy.Owned{Kind: "container", ID: "immutable-incarnation", Name: app}); err != nil {
 		t.Fatal(err)
 	}
 	if code, out := call(`{"kind":"container","name":"alias","id":"immutable-incarnation","confirm":"alias"}`); code != 409 {

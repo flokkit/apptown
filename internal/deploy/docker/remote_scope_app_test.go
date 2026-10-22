@@ -40,7 +40,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 	dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
 	c := &appcontract.Part{Build: ".", Port: 8080, DataDir: "/data"}
-	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Deployment: "main", Workspace: ws, Persistent: true, Names: Current}, c, "", nil)
+	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: ws, Persistent: true, Names: Current}, c, "", nil)
 	if err != nil || port != 40001 {
 		t.Fatalf("start on the attached host: port=%d err=%v calls=%v", port, err, client.calls)
 	}
@@ -54,8 +54,8 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	joined := strings.Join(remote, "\n")
 	for _, want := range []string{
 		"ssh://apptown-target-droplet build -t apptown-preview-build-apptown-env-waypoint-main",
-		"traefik.http.routers.apptown-waypoint.rule=Host(`waypoint.apps.example.com`)",
-		"traefik.http.services.apptown-waypoint.loadbalancer.server.port=8080",
+		"traefik.http.routers.apptown-env-waypoint-main.rule=Host(`waypoint.apps.example.com`)",
+		"traefik.http.services.apptown-env-waypoint-main.loadbalancer.server.port=8080",
 		"traefik.docker.network=traefik",
 		"ssh://apptown-target-droplet network connect traefik apptown-env-waypoint-main",
 		"ssh://apptown-target-droplet port apptown-env-waypoint-main 8080",
@@ -99,7 +99,7 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost(tc.host, "192.0.2.10", "")
-			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-site-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
+			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-site-main", Slug: "site", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -135,7 +135,7 @@ func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", tc.domain)
-			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
+			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil); err != nil {
 				t.Fatal(err)
 			}
@@ -175,7 +175,7 @@ func TestAFailedStartKeepsTheEndOfTheDaemonsAnswer(t *testing.T) {
 				return nil, nil
 			}}
 			dk := (Scope{Client: client}).WithHost("ssh://h", "h.example", c.domain)
-			_, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-shop-main", Deployment: "main", Workspace: t.TempDir()}, &appcontract.Part{Image: "shop:1", Port: 8080}, "", nil)
+			_, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-shop-main", Slug: "shop", Deployment: "main", Workspace: t.TempDir()}, &appcontract.Part{Image: "shop:1", Port: 8080}, "", nil)
 			if err == nil || !strings.Contains(err.Error(), "docker "+c.fails+": …(") || !strings.HasSuffix(err.Error(), "Error: port 8080 is already allocated") || len(err.Error()) > startFailureTail+100 {
 				t.Fatalf("start failure (%d bytes): %v", len(fmt.Sprint(err)), err)
 			}
@@ -195,8 +195,8 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 	for _, deployment := range []string{"main", "fresh"} {
 		client := &remoteAppClient{}
 		dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
-		name := Current.Container("bkproof", deployment)
-		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Deployment: deployment, Workspace: t.TempDir(), Persistent: true, Names: Current},
+		name := ByKey(keyed(byte(len(started) + 1))).App()
+		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Slug: "bkproof", Deployment: deployment, Workspace: t.TempDir(), Persistent: true, Names: Current},
 			&appcontract.Part{Image: "example/bkproof:1", Port: 8080}, "", nil); err != nil {
 			t.Fatal(err)
 		}
@@ -206,7 +206,7 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(started["main"], "traefik.http.routers.apptown-bkproof.rule=Host(`bkproof.apps.example.com`)") {
+	if !strings.Contains(started["main"], "traefik.http.routers."+ByKey(keyed(1)).App()+".rule=Host(`bkproof.apps.example.com`)") {
 		t.Fatalf("main is not routed at the project's name:\n%s", started["main"])
 	}
 	if strings.Contains(started["fresh"], "traefik.") {

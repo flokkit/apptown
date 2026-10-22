@@ -45,7 +45,7 @@ func TestIntegrationReaperRetainsActiveExecution(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 	daemon := docker.Scope{Client: docker.CLI{}}
-	args := []string{"run", "-d", "--entrypoint", "/bin/sh", "--label", label, "--label", "forge.class=step", "--label", fmt.Sprintf("forge.owner=apptown-step-%d-smoke", step.ID), "--label", "forge.created=" + time.Now().Add(-3*time.Hour).UTC().Format(time.RFC3339), "apptown-agent", "-c", "sleep 300"}
+	args := []string{"run", "-d", "--entrypoint", "/bin/sh", "--label", label, "--label", "apptown.class=step", "--label", fmt.Sprintf("apptown.owner=apptown-step-%d-smoke", step.ID), "--label", "apptown.created=" + time.Now().Add(-3*time.Hour).UTC().Format(time.RFC3339), "apptown-agent", "-c", "sleep 300"}
 	output, err := daemon.Command(ctx, docker.Command{Args: args})
 	if err != nil {
 		t.Fatalf("start smoke container: %s: %v", output, err)

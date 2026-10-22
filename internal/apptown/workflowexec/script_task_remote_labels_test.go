@@ -20,7 +20,7 @@ func (remoteStub) Collect(context.Context, string, string, string, string) (stri
 // (the worker makes its own checkout), keeps its step label, and leaves the
 // local request's labels as they were.
 func TestARemoteTaskDoesNotClaimAppTownsFolder(t *testing.T) {
-	plan := scriptPlan{repository: "repo", request: execution.Request{Workspace: "/controller/change", Mounts: []string{"/host:/container"}, ExtraHosts: []string{"host:1.2.3.4"}, Labels: []string{"forge.writes=/controller/change", "forge.step=42"}}}
+	plan := scriptPlan{repository: "repo", request: execution.Request{Workspace: "/controller/change", Mounts: []string{"/host:/container"}, ExtraHosts: []string{"host:1.2.3.4"}, Labels: []string{"apptown.writes=/controller/change", "apptown.step=42"}}}
 	a := Commands{tasks: &TaskRunner{Remote: remoteStub{}}}
 	attempt := tasks.Attempt{}
 	attempt.Source = "commit"
@@ -28,10 +28,10 @@ func TestARemoteTaskDoesNotClaimAppTownsFolder(t *testing.T) {
 	if got.Workspace != "" || len(got.Mounts) > 0 || len(got.ExtraHosts) > 0 || got.Source == nil || got.Source.Commit != "commit" {
 		t.Fatalf("remote request: %+v", got)
 	}
-	if slices.ContainsFunc(got.Labels, func(l string) bool { return strings.HasPrefix(l, "forge.writes=") }) || !slices.Contains(got.Labels, "forge.step=42") {
+	if slices.ContainsFunc(got.Labels, func(l string) bool { return strings.HasPrefix(l, "apptown.writes=") }) || !slices.Contains(got.Labels, "apptown.step=42") {
 		t.Fatalf("labels: %v", got.Labels)
 	}
-	if !slices.Contains(plan.request.Labels, "forge.writes=/controller/change") {
+	if !slices.Contains(plan.request.Labels, "apptown.writes=/controller/change") {
 		t.Fatal("mutated source labels")
 	}
 }

@@ -9,7 +9,7 @@ import (
 )
 
 // What the runtime stamps comes from its clock, not the real one: the
-// containers' forge.created labels and the pinned session file's name and
+// containers' apptown.created labels and the pinned session file's name and
 // header.
 func TestTheRuntimeStampsFromItsClock(t *testing.T) {
 	t.Parallel()
@@ -25,8 +25,8 @@ func TestTheRuntimeStampsFromItsClock(t *testing.T) {
 	labelled := 0
 	for _, args := range f.calls {
 		call := strings.Join(args, " ")
-		if (args[0] == "create" || args[0] == "run") && strings.Contains(call, "forge.created=") {
-			if !strings.Contains(call, "forge.created=2031-03-01T09:00:00Z") {
+		if (args[0] == "create" || args[0] == "run") && strings.Contains(call, "apptown.created=") {
+			if !strings.Contains(call, "apptown.created=2031-03-01T09:00:00Z") {
 				t.Fatalf("a container labelled off the runtime's clock: %s", call)
 			}
 			labelled++

@@ -265,16 +265,21 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	// A deployment not yet released has no handle: its stack is named for
-	// the project, as the intranet release names it.
+	// A deployment not yet released has no handle: its stack is named as
+	// the intranet release names it (StackNames).
 	stack, _ := p.Handle["stack"].(string)
-	if stack == "" && art.Source != nil && art.Source.Slug != "" && p.HostPrefix != "" {
-		stack = StackName(p.HostPrefix, art.Source.Slug)
+	slug := ""
+	if art.Source != nil {
+		slug = art.Source.Slug
+	}
+	prefix, base := StackNames(p.ID, p.HostPrefix, slug)
+	if stack == "" && base != "" && !p.ID.IsZero() {
+		stack = StackName(prefix, base)
 	}
 	if stack == "" {
 		return deploy.Observation{}, deploy.Terminal(errors.New("the deployment's handle names no stack"))
 	}
-	return (Execution{Config: *cfg, EndpointID: endpointID, Stack: stack, Prefix: p.HostPrefix, Compose: string(art.Body),
+	return (Execution{Config: *cfg, EndpointID: endpointID, Stack: stack, Prefix: prefix, Compose: string(art.Body),
 		URL: p.URL, Handle: p.Handle, Log: logf, Owner: d.Owner}).Execute(ctx, generation, checkpoint)
 }
 

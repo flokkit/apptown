@@ -30,10 +30,10 @@ func TestRemovingAPreviewTakesItsWholeStackByOwnerLabel(t *testing.T) {
 	})}
 	reply = func(args []string) (string, error, bool) {
 		call := strings.Join(args, " ")
-		if strings.HasPrefix(call, "ps -aq --filter label=forge.class=service --filter label=forge.owner=pvsnap-change-00000000-0007-7000-8000-000000000000") {
+		if strings.HasPrefix(call, "ps -aq --filter label=apptown.class=service --filter label=apptown.owner=pvsnap-change-00000000-0007-7000-8000-000000000000") {
 			return "svc-a\nsvc-b\n", nil, true
 		}
-		if strings.HasPrefix(call, "ps -aq --filter label=forge.class=step --filter label=forge.owner=pvsnap-change-00000000-0007-7000-8000-000000000000") {
+		if strings.HasPrefix(call, "ps -aq --filter label=apptown.class=step --filter label=apptown.owner=pvsnap-change-00000000-0007-7000-8000-000000000000") {
 			return "init-a\n", nil, true
 		}
 		return "", nil, false
@@ -44,12 +44,12 @@ func TestRemovingAPreviewTakesItsWholeStackByOwnerLabel(t *testing.T) {
 	want := []string{
 		"rm -f -v apptown-preview-change-00000000-0007-7000-8000-000000000000",
 		"volume rm apptown-data-apptown-preview-change-00000000-0007-7000-8000-000000000000",
-		"ps -aq --filter label=forge.class=service --filter label=forge.owner=pvsnap-change-00000000-0007-7000-8000-000000000000",
+		"ps -aq --filter label=apptown.class=service --filter label=apptown.owner=pvsnap-change-00000000-0007-7000-8000-000000000000",
 		"rm -f -v svc-a",
 		"volume rm apptown-data-svc-a",
 		"rm -f -v svc-b",
 		"volume rm apptown-data-svc-b",
-		"ps -aq --filter label=forge.class=step --filter label=forge.owner=pvsnap-change-00000000-0007-7000-8000-000000000000",
+		"ps -aq --filter label=apptown.class=step --filter label=apptown.owner=pvsnap-change-00000000-0007-7000-8000-000000000000",
 		"rm -f -v init-a",
 		"volume rm apptown-data-init-a",
 		"network rm apptown-net-pvsnap-change-00000000-0007-7000-8000-000000000000",
@@ -81,7 +81,7 @@ func TestDockerRemoveLogsOnlyRealFailures(t *testing.T) {
 			return "Error response from daemon: No such container: gone\n", errors.New("exit status 1"), true
 		case "rm -f stuck":
 			return "Error response from daemon: cannot remove: permission denied\n", errors.New("exit status 1"), true
-		case "ps -aq --filter label=forge.class=service --filter label=forge.owner=pv1":
+		case "ps -aq --filter label=apptown.class=service --filter label=apptown.owner=pv1":
 			return "Cannot connect to the Docker daemon\n", errors.New("exit status 1"), true
 		}
 		return "", nil, false

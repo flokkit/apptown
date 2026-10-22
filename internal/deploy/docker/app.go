@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -55,6 +56,11 @@ func StagedBuildContext(ctx context.Context, ws, buildContext string) (string, f
 
 func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontract.Part, network string, secretEnv map[string]string) (int, error) {
 	dk, name, ws, hostPort, persistent := t.Docker, t.Name, t.Workspace, t.HostPort, t.Persistent
+	// The host's ingress routes main by its project's slug, which the boot
+	// is told: refused before anything is replaced.
+	if dk.Remote() && dk.RoutesDeployment(t.Deployment) && t.Slug == "" && t.Sealed == nil {
+		return 0, errors.New("a deployment routed by the host's ingress is booted without its project's slug")
+	}
 	// A static part's browser values are read before anything is replaced:
 	// an attachment that cannot be read fails the boot while the running
 	// container still serves.
@@ -137,6 +143,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		appClass = "env"
 	}
 	args = append(args, dk.Labels(appClass, name)...)
+	args = append(args, t.own.Info...)
 	args = append(args, ResourceArgs(c.Resources)...)
 	args = append(args, execution.LogFlags()...)
 	if !persistent && t.StackID != "" {
@@ -206,13 +213,14 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// container, main's (design/subsystems/ingress.md): the labels are
 		// the contract, entrypoint websecure, resolver letsencrypt, and the
 		// container joins the network named traefik before it starts, which
-		// Traefik is told to use when the container is on several.
-		slugName := strings.TrimSuffix(strings.TrimPrefix(name, string(t.names())+"env-"), "-"+t.Deployment)
-		router := string(t.names()) + slugName
+		// Traefik is told to use when the container is on several. The
+		// router is named after the container, which no other deployment's
+		// shares; the host name is the project's slug, as the boot is told it.
+		router := name
 		args = append(args,
 			"-l", "traefik.enable=true",
 			"-l", "traefik.docker.network=traefik",
-			"-l", fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", router, slugName, dk.Domain),
+			"-l", fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", router, t.Slug, dk.Domain),
 			"-l", fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", router),
 			"-l", fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=letsencrypt", router),
 			"-l", fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=%d", router, c.Port),

@@ -25,7 +25,7 @@ procedures.
 | Back up and restore AppTown's own database; move an AppTown to another host | [AppTown's own backups](../../stock/docs/guides/apptown-backups.md) |
 | Deployment backups, take-down and final backups | [Deployment backups](../../stock/docs/guides/deployment-backups.md), [Deployment runtime](../subsystems/deployment.md) |
 | Upgrade an AppTown | [Upgrading](../../stock/docs/guides/upgrading.md) |
-| Approve ownership for deployments made before ownership was recorded | [Deployment runtime](../subsystems/deployment.md) (the one-time inspection) |
+| Move a deployment made before 1.0 to its names by key | [Deployment runtime](../subsystems/deployment.md) (Names on a host) |
 | Manage packs: offer, recommend a version, what-if | [Packs, versions and what-if](../../stock/docs/guides/packs-and-what-if.md), [Ways-of-working versions](../subsystems/ways-of-working-versions.md) |
 | A deployment reads "uncertain" or the ledger says `deployment.needs-attention` | [A deployment needs attention](#a-deployment-needs-attention) |
 | Diagnose chat tools, private Docker and retained session state | [Runtime guide](../../stock/docs/guides/runtime-environments.md) |

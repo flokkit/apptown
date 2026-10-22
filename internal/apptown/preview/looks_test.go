@@ -214,7 +214,7 @@ func TestALocalReleaseLookBesideAWorkerIsStoppedWhereItIs(t *testing.T) {
 	s.clock = clock.Now
 	name, stack := docker.PreviewLabelName(docker.ReleasePreviewLabel("p", 3)), docker.ReleaseStackID("p", 3)
 	if _, err := w.client.Run(context.Background(), "", docker.Command{Args: []string{"run", "-d", "--name", name,
-		"--label", "forge.class=preview", "--label", docker.StackLabel + "=" + stack, "img"}}); err != nil {
+		"--label", "apptown.class=preview", "--label", docker.StackLabel + "=" + stack, "img"}}); err != nil {
 		t.Fatal(err)
 	}
 	s.Tend(context.Background(), false)
@@ -312,7 +312,7 @@ func TestABuildWithNoLookGoesUnlessItsPreviewIsThere(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := w.client.Run(context.Background(), "", docker.Command{Args: []string{"run", "-d", "--name", docker.PreviewChangeName(idstest.N(6)), "--label", "forge.class=preview", "img"}}); err != nil {
+	if _, err := w.client.Run(context.Background(), "", docker.Command{Args: []string{"run", "-d", "--name", docker.PreviewChangeName(idstest.N(6)), "--label", "apptown.class=preview", "img"}}); err != nil {
 		t.Fatal(err)
 	}
 	s.Tend(context.Background(), false)

@@ -32,7 +32,7 @@ type Scope struct {
 	// command still running is stopped (a boot's lifetime, WithLifetime). nil
 	// is no bound beyond each command's own.
 	Lifetime context.Context
-	// Now is the clock a container's forge.created label is stamped from,
+	// Now is the clock a container's apptown.created label is stamped from,
 	// which the reaper judges a container's age by; nil is the real one.
 	Now func() time.Time
 	// NoStreams is a daemon reached through a proxy that carries plain
@@ -432,7 +432,7 @@ func loopbackURL(port int) string {
 }
 
 // WritesLabel marks a container that mounts a host folder writable:
-// forge.writes=<host path>. Whoever starts such a container labels it, so the
+// apptown.writes=<host path>. Whoever starts such a container labels it, so the
 // folder's writers can be listed without knowing who started them.
 const WritesLabel = dockerlabel.Writes
 

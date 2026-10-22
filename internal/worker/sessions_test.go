@@ -478,7 +478,7 @@ func TestPrivateDockerCleanupFailuresAreNotSuccess(t *testing.T) {
 								if !agent {
 									return missing()
 								}
-								return []byte(fmt.Sprintf(`%t 2026-09-30T00:00:00Z img {"forge.console.dind":"1","forge.console.model":"m"}`, running)), nil
+								return []byte(fmt.Sprintf(`%t 2026-09-30T00:00:00Z img {"apptown.console.dind":"1","apptown.console.model":"m"}`, running)), nil
 							}
 							if !daemon {
 								return missing()

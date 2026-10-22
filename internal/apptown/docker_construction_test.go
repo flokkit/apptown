@@ -10,13 +10,13 @@ func TestDockerClientReachesOwnersAndRemainsLocalToItsApp(t *testing.T) {
 	t.Parallel()
 	firstDaemon, secondDaemon := newFakeDocker(), newFakeDocker()
 	firstDaemon.reply = func(args []string) (string, error, bool) {
-		if strings.Contains(strings.Join(args, " "), "forge.pi-subagents.version") {
+		if strings.Contains(strings.Join(args, " "), "apptown.pi-subagents.version") {
 			return "0.61.0", nil, true
 		}
 		return "", nil, false
 	}
 	secondDaemon.reply = func(args []string) (string, error, bool) {
-		if strings.Contains(strings.Join(args, " "), "forge.pi-subagents.version") {
+		if strings.Contains(strings.Join(args, " "), "apptown.pi-subagents.version") {
 			return "", nil, true
 		}
 		return "", nil, false

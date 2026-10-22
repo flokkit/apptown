@@ -486,7 +486,7 @@ func TestARehearsalFillsTheNewStoreFromTheBucketsCopy(t *testing.T) {
 	for _, scenario := range []string{"App Platform's copy", "a Docker host's copy", "a store that does not hold it"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
-			w := newRehearsalWorldWith(t, contract, newDataWorldWith(t, dataWorldOptions{contract: []byte(prod)}), func(dw *dataWorld) { putObjects(dw, bucketOfProd) })
+			w := newRehearsalWorldWith(t, contract, newDataWorldWith(t, dataWorldOptions{contract: []byte(prod)}), func(dw *dataWorld) { putObjects(dw, bucketOf(dw, "prod")) })
 			want := map[string]fakeObject{"invoices/1.pdf": {Key: "invoices/1.pdf", Type: "application/pdf", Body: []byte("%PDF one")}, "logo.png": {Key: "logo.png", Type: "image/png", Body: []byte("PNG")}}
 			if scenario == "a Docker host's copy" {
 				// A newer set of prod's, taken as a Docker host takes one: its

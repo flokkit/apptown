@@ -160,7 +160,7 @@ func TestStoppingAChatEndsItsTerminalOnAppTown(t *testing.T) {
 			if !exists {
 				return []byte("Error response from daemon: No such container: x"), errors.New("absent")
 			}
-			return []byte(fmt.Sprintf(`%t 2026-09-30T00:00:00Z image0 {"forge.console.dind":"0"}`, running)), nil
+			return []byte(fmt.Sprintf(`%t 2026-09-30T00:00:00Z image0 {"apptown.console.dind":"0"}`, running)), nil
 		case "image":
 			return []byte("image0"), nil
 		case "stop":

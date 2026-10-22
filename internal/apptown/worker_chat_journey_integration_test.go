@@ -152,7 +152,7 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 	if err := b.changeConsole.End(ctx, id, "owner"); err != nil {
 		t.Fatal(err)
 	}
-	if left := w.Docker("ps", "-a", "--filter", "label=forge.owner="+id, "--format", "{{.Names}}"); left != "" {
+	if left := w.Docker("ps", "-a", "--filter", "label=apptown.owner="+id, "--format", "{{.Names}}"); left != "" {
 		t.Fatalf("left on the worker's Docker: %s", left)
 	}
 	if gone, err := b.Console.Gone(ctx, id); err != nil || !gone {

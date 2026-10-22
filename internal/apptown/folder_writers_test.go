@@ -981,7 +981,7 @@ func TestAWriterWhoseStepIsGoneIsRemovedOrRefusesTheAttempt(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			d.survive(ExecRequest{Name: "orphan-writer", Labels: []string{docker.WritesLabel + "=" + source.Workspace(a.cfg.dataDir), "forge.step=9999999"}})
+			d.survive(ExecRequest{Name: "orphan-writer", Labels: []string{docker.WritesLabel + "=" + source.Workspace(a.cfg.dataDir), "apptown.step=9999999"}})
 			calls := 0
 			installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome { calls++; return ExecOutcome{Output: piSays("done")} })
 			if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
@@ -1182,7 +1182,7 @@ func TestAScriptTaskIsLabelledAsItsFoldersWriter(t *testing.T) {
 	if s.Workspace == "" || s.WorkspaceRO {
 		t.Fatalf("fixture did not mount writable folder: %+v", s)
 	}
-	for _, want := range []string{docker.WritesLabel + "=" + s.Workspace, fmt.Sprintf("forge.step=%d", step.ID)} {
+	for _, want := range []string{docker.WritesLabel + "=" + s.Workspace, fmt.Sprintf("apptown.step=%d", step.ID)} {
 		if !slices.Contains(s.Labels, want) {
 			t.Errorf("writable script task omits %q; labels=%v", want, s.Labels)
 		}
@@ -1362,7 +1362,7 @@ func newSurvivingContainers() *survivingContainers {
 func (d *survivingContainers) survive(req ExecRequest) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.live[req.Name] = append([]string{"forge.class=step"}, req.Labels...)
+	d.live[req.Name] = append([]string{"apptown.class=step"}, req.Labels...)
 }
 
 func (d *survivingContainers) allowRemoval() {

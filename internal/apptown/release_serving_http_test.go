@@ -14,7 +14,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 // A release is "serving" when a running environment records it as the
@@ -41,7 +40,7 @@ func TestReleaseServingFollowsTheRunningDeployment(t *testing.T) {
 	// Work execution starts the fake container while creating the real records;
 	// stop that provider-side fixture so the view can observe the transition.
 	f.mu.Lock()
-	delete(f.started, docker.Current.Container("p", "main"))
+	delete(f.started, mainNames(t, a).App())
 	f.mu.Unlock()
 	h := a.Handler()
 	serving := func() bool {
@@ -53,7 +52,7 @@ func TestReleaseServingFollowsTheRunningDeployment(t *testing.T) {
 	if serving() {
 		t.Fatal("nothing runs yet: not serving")
 	}
-	f.markStarted(docker.Current.Container("p", "main"))
+	f.markStarted(mainNames(t, a).App())
 	if !serving() {
 		t.Fatal("the environment runs the release's landing run: serving")
 	}

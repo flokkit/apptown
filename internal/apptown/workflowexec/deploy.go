@@ -128,12 +128,12 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": "naming the deployment: " + err.Error()})
 		return
 	}
-	names, err := env.HostNames()
+	names, err := env.HostNames(slug)
 	if err != nil {
 		finish(workflow.StatusError, map[string]any{"reason": "naming the deployment: " + err.Error()})
 		return
 	}
-	name := names.Container(slug, cfg.Deployment)
+	name := names.App()
 	raw, _ := os.ReadFile(filepath.Join(selectedTree, ".apptown", "app.yaml"))
 	// What the deployment would refuse at boot for this commit (a missing
 	// setting, a contract its target cannot run) is refused here, before a

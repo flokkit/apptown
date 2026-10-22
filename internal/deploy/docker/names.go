@@ -3,6 +3,9 @@ package docker
 import (
 	"fmt"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Names on the host are a protocol: the vhost router turns a hostname into
@@ -10,18 +13,19 @@ import (
 // the live fleet carries these exact strings. Every name a deployment on
 // the built-in host uses is built here, with its inverse.
 //
-// Prefix begins every name. A standing deployment keeps the prefix it was
-// made with (deployments.host_prefix): one made before 1.0 carries "forge-"
-// for good, so nothing it made — above all a volume holding its data — is
-// ever looked up under another name. Previews and everything disposable
-// use Current.
+// Prefix begins every name. Everything made now is named under Current.
+// Previews and everything disposable are named by the id of what they serve
+// (a change, a run, a step, a chat); a standing deployment by its key
+// (Names).
 type Prefix string
 
 const (
 	// Current is what everything made from 1.0 on is named with.
 	Current Prefix = "apptown-"
-	// Before1 is the prefix of deployments made before 1.0, recorded on
-	// their rows; their names never change.
+	// Before1 is the prefix of deployments made before 1.0 that have not yet
+	// been moved to their names by key (deployments.host_prefix).
+	//
+	// REMOVE-AFTER resource move.
 	Before1 Prefix = "forge-"
 )
 
@@ -40,16 +44,84 @@ func ParsePrefix(s string) (Prefix, error) {
 	return "", fmt.Errorf("%q is not a prefix AppTown names things with", s)
 }
 
-const deploymentStackPrefix = "env-"
+// keyStackPrefix begins a standing deployment's stack id: dep-<key>
+// (deploy.HostKey). Not a bare id (the reaper reads one as a step's) and
+// not pv… (a preview's).
+const keyStackPrefix = "dep-"
 
-// Container: a standing deployment's app container (<prefix>env-<slug>-main).
-func (p Prefix) Container(slug, env string) string {
-	return string(p) + "env-" + slug + "-" + env
+// beforeStackPrefix began the stack id of a deployment made before its
+// names were by key: env-<slug>-<deployment>, which two deployments could
+// share (shop/eu-main and shop-eu/main).
+//
+// REMOVE-AFTER resource move.
+const beforeStackPrefix = "env-"
+
+// Names are what one standing deployment's things on a host are called:
+// its stack id (the owner label of its services, init containers and
+// network), and every name built from it under its prefix.
+type Names struct {
+	prefix Prefix
+	stack  string
 }
 
-// StackID: the owner id of a standing deployment's persistent stack. It
-// carries no prefix: it is a label value, and labels keep their keys.
-func StackID(slug, env string) string { return deploymentStackPrefix + slug + "-" + env }
+// ByKey names a deployment by its key: apptown-dep-<key>,
+// apptown-svc-dep-<key>-<service>, and so on.
+func ByKey(id ids.ID) Names {
+	return Names{prefix: Current, stack: keyStackPrefix + deploy.HostKey(id)}
+}
+
+// BeforeKey names a deployment not yet moved to its names by key, as it
+// was made: <prefix>env-<slug>-<deployment>.
+//
+// REMOVE-AFTER resource move.
+func BeforeKey(prefix Prefix, slug, deployment string) Names {
+	return Names{prefix: prefix, stack: beforeStackPrefix + slug + "-" + deployment}
+}
+
+// NamesOf is the names of a deployment from its record: by key when it
+// records no prefix, else as it was made.
+func NamesOf(id ids.ID, recordedPrefix, slug, deployment string) (Names, error) {
+	if recordedPrefix == "" {
+		if id.IsZero() {
+			return Names{}, fmt.Errorf("deployment %s has no id to name its things by", deployment)
+		}
+		return ByKey(id), nil
+	}
+	p, err := ParsePrefix(recordedPrefix)
+	if err != nil {
+		return Names{}, err
+	}
+	return BeforeKey(p, slug, deployment), nil
+}
+
+// ByKeyNow says whether these are names by key (not a deployment still on
+// the names it was made with before 1.0).
+func (n Names) ByKeyNow() bool { return strings.HasPrefix(n.stack, keyStackPrefix) }
+
+// Prefix is what every one of these names begins with.
+func (n Names) Prefix() Prefix { return n.prefix }
+
+// Stack is the deployment's stack id: the owner label value of its
+// services, init containers and network.
+func (n Names) Stack() string { return n.stack }
+
+// App is the public app container.
+func (n Names) App() string { return string(n.prefix) + n.stack }
+
+// Service is a need's or a non-public part's container.
+func (n Names) Service(service string) string { return n.prefix.Service(n.stack, service) }
+
+// Init is an init container.
+func (n Names) Init(name string) string { return n.prefix.Init(n.stack, name) }
+
+// Network is the stack's network.
+func (n Names) Network() string { return n.prefix.Network(n.stack) }
+
+// NeedVolume is the volume a need keeps its data in.
+func (n Names) NeedVolume(need string) string { return n.prefix.NeedVolume(n.stack, need) }
+
+// DataVolume is the app's data volume.
+func (n Names) DataVolume() string { return n.prefix.DataVolume(n.App()) }
 
 // Service: a service container on a stack (<prefix>svc-<stack>-<service>).
 func (p Prefix) Service(stackID, service string) string {
@@ -140,18 +212,4 @@ func IsLocalBuildTag(image string) bool {
 		}
 	}
 	return false
-}
-
-// OwnerDeployment reads an AppTown.owner label of the form env-<slug>-<name>.
-func OwnerDeployment(owner string, slugs []string) (slug, env string, ok bool) {
-	rest, isEnv := strings.CutPrefix(owner, deploymentStackPrefix)
-	if !isEnv {
-		return "", "", false
-	}
-	for _, s := range slugs {
-		if e, found := strings.CutPrefix(rest, s+"-"); found && e != "" {
-			return s, e, true
-		}
-	}
-	return "", "", false
 }

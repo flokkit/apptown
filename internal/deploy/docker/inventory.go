@@ -30,10 +30,11 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	// missing under a label filter. AppTown's own database is asked for
 	// by its name too.
 	// Under every prefix a host may carry: a deployment made before 1.0
-	// keeps its forge- names.
+	// keeps its forge- names until it is moved. A deployment's app is
+	// dep-<key> (env-<slug>-<name> before its move).
 	var filters [][]string
 	for _, p := range Prefixes {
-		for _, kind := range []string{"env-", "svc-", "preview-", "init-"} {
+		for _, kind := range []string{keyStackPrefix, beforeStackPrefix, "svc-", "preview-", "init-"} {
 			filters = append(filters, []string{"--filter", "name=^" + string(p) + kind})
 		}
 	}
@@ -44,9 +45,10 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	seen := map[string]bool{}
 	for _, filter := range filters {
 		args := append([]string{"ps", "-a"}, filter...)
-		// The labels say who made a thing (forge.owner) and which compose
-		// stack it belongs to; the page attributes leftovers by them.
-		args = append(args, "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Label \""+dockerlabel.Owner+"\"}}\t{{.Label \"com.docker.compose.project\"}}")
+		// The labels say who made a thing (apptown.owner, or forge.owner on
+		// a thing made before 1.0 not yet moved) and which compose stack it
+		// belongs to; the page attributes leftovers by them.
+		args = append(args, "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}\t"+labelEither(dockerlabel.Owner)+"\t{{.Label \"com.docker.compose.project\"}}")
 		out, err := dk.Run(ctx, args...)
 		if err != nil {
 			// The error itself too: an ssh that failed before docker said
@@ -89,7 +91,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 				args = append(args, "--filter", "name="+string(p)+list.filter)
 			}
 		}
-		args = append(args, "--format", "{{.Name}}\t{{.Label \""+dockerlabel.Owner+"\"}}\t{{.Label \"com.docker.compose.project\"}}")
+		args = append(args, "--format", "{{.Name}}\t"+labelEither(dockerlabel.Owner)+"\t{{.Label \"com.docker.compose.project\"}}")
 		out, err := dk.Run(ctx, args...)
 		if err != nil {
 			return nil, fmt.Errorf("listing %ss: %w: %s", list.kind, err, strings.TrimSpace(string(out)))

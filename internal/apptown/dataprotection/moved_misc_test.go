@@ -101,7 +101,7 @@ func TestACopysTakeDownDeletesItsDataWithoutABackup(t *testing.T) {
 	if slices.IndexFunc(cmds, func(c string) bool { return strings.Contains(c, "c-pg sh -c pg_dump") }) >= 0 {
 		t.Fatalf("the copy's data was dumped:\n%s", strings.Join(cmds, "\n"))
 	}
-	for _, c := range []string{"volume rm v-pg", "volume rm apptown-data-apptown-env-fbe-staging"} {
+	for _, c := range []string{"volume rm v-pg", "volume rm " + hostNamesOf(t, dep, "fbe").DataVolume()} {
 		if indexOf(cmds, c) < 0 {
 			t.Fatalf("%s missing:\n%s", c, strings.Join(cmds, "\n"))
 		}

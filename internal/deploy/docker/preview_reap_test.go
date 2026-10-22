@@ -15,14 +15,14 @@ func TestReapPreviewOrphansSparesDeploymentsAndSteps(t *testing.T) {
 	f.SetReply(func(args []string) ([]byte, error, bool) {
 		call := strings.Join(args, " ")
 		switch {
-		case call == "ps -aq --filter label=forge.class=preview":
+		case call == "ps -aq --filter label=apptown.class=preview":
 			return []byte("prev-1\nprev-2\n"), nil, true
-		case strings.HasPrefix(call, "ps -a --filter label=forge.class=service --format"):
+		case strings.HasPrefix(call, "ps -a --filter label=apptown.class=service --format"):
 			// a run preview's postgres, a change preview's, a release look's —
 			// and an environment's postgres and an agent step's sidecar, which
 			// must both stand.
 			return []byte("s1\tpv00000000-000c-7000-8000-000000000000\ns2\tpvsnap-change-7\ns3\tpvrel-letterbox-4\ns4\tenv-letterbox-main\ns5\t00000000-007b-7000-8000-000000000000\n"), nil, true
-		case strings.HasPrefix(call, "ps -a --filter label=forge.class=step --format"):
+		case strings.HasPrefix(call, "ps -a --filter label=apptown.class=step --format"):
 			return []byte("i1\tpv00000000-000c-7000-8000-000000000000\ni2\tapptown-step-99\n"), nil, true
 		case call == "network ls --format {{.Name}}":
 			return []byte("bridge\napptown-net-pv00000000-000c-7000-8000-000000000000\napptown-net-env-letterbox-main\napptown-net-00000000-007b-7000-8000-000000000000\napptown-net-pvsnap-change-7\n"), nil, true
@@ -69,7 +69,7 @@ func TestTheStartUpSweepRemovesAPreviewStacksServiceAndLeavesADeployments(t *tes
 	scope := docker.Scope{Client: f}
 	for name, owner := range map[string]string{"svc-preview": "pvsnap-change-7", "svc-main": "env-letterbox-main"} {
 		if _, err := f.Run(context.Background(), "", docker.Command{Args: []string{"run", "-d", "--name", name,
-			"--label", "forge.class=service", "--label", "forge.owner=" + owner, "postgres:16"}}); err != nil {
+			"--label", "apptown.class=service", "--label", "apptown.owner=" + owner, "postgres:16"}}); err != nil {
 			t.Fatal(err)
 		}
 	}
