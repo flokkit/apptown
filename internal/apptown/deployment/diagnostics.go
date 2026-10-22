@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/fault"
@@ -366,10 +367,11 @@ func (s *Service) readPart(ctx context.Context, dk docker.Scope, dep *Deployment
 // labelledGeneration is the generation a container's identity labels name
 // when they name this deployment, nil otherwise.
 func labelledGeneration(dep *Deployment, rt docker.Runtime) *int64 {
-	if rt.Labels[dockerlabel.Deployment] != string(dep.Label()) {
+	carried := deploy.IdentityLabels(rt.Labels)
+	if carried[dockerlabel.Deployment] != string(dep.Label()) {
 		return nil
 	}
-	g, err := strconv.ParseInt(rt.Labels[dockerlabel.Generation], 10, 64)
+	g, err := strconv.ParseInt(carried[dockerlabel.Generation], 10, 64)
 	if err != nil || g <= 0 {
 		return nil
 	}

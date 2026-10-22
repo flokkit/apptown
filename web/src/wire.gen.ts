@@ -856,16 +856,6 @@ export type OverrideResult = {
   notYet?: string
 }
 
-export type OwnershipApproved = {
-  ok: boolean
-  approved: OwnershipProposal[]
-}
-
-export type OwnershipInspected = {
-  proposals: OwnershipProposal[]
-  unknown: string[]
-}
-
 export type PackHistory = {
   name: string
   description: string
@@ -2897,16 +2887,6 @@ export type RedeployNumber = {
   deployment: string
 }
 
-export type OwnershipProposal = {
-  key: string
-  project: string
-  deployment?: string
-  target: string
-  owned?: Owned | null
-  repository?: string
-  evidence: string
-}
-
 export type PackSpec = {
   resources?: MemoryDefault
   platform?: boolean
@@ -4158,14 +4138,6 @@ export type OpenVEXProduct = {
 export type Resources = {
   memoryBytes?: number
   cpus?: number
-}
-
-export type Owned = {
-  kind: string
-  id: string
-  name?: string
-  data?: boolean
-  need?: string
 }
 
 export type PinSet = {

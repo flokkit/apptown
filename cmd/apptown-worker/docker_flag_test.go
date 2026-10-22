@@ -30,7 +30,7 @@ func TestAWorkerChatSaveUsesTheConfiguredDocker(t *testing.T) {
 		t.Fatalf("build: %v %s", build.RunErr, build.Output)
 	}
 	fake := filepath.Join(dir, "chosen-docker")
-	script := "#!/bin/sh\ncase \"$1\" in\ninspect) echo 'Error: No such object: absent'; exit 1;;\nrm|ps) exit 0;;\nrun) exit 3;;\n*) echo unexpected >&2; exit 1;;\nesac\n"
+	script := "#!/bin/sh\ncase \"$1\" in\ninspect) echo 'Error: No such object: absent'; exit 1;;\nrm|ps|network|volume) exit 0;;\nrun) exit 3;;\n*) echo unexpected >&2; exit 1;;\nesac\n"
 	if err := execfile.Write(fake, []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}

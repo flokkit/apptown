@@ -26,7 +26,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 	"github.com/flokkit/apptown/internal/deploy/staticsite"
-	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 const (
@@ -113,7 +113,7 @@ func source(t *testing.T, ref, revision string) deploy.Source {
 }
 
 func (w *world) placement() deploy.Placement {
-	return deploy.Placement{ID: idstest.N(7), Name: "main", Generation: w.gen, Handle: w.handle}
+	return deploy.Placement{ID: siteMainID, Name: "main", Generation: w.gen, Handle: w.handle}
 }
 
 func (w *world) logf(format string, args ...any) {
@@ -160,7 +160,7 @@ func TestTheFirstReleaseOwnsABucketAndPublishesInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bucket := "apptown-game-site-main-aaaa0001"
+	bucket := "apptown-3b89d1da8075-aaaa0001"
 	if !slices.Equal(w.owned, []string{bucket}) || o.Handle.(map[string]any)["bucket"] != bucket {
 		t.Fatalf("owned %v, handle %v", w.owned, o.Handle)
 	}
@@ -295,12 +295,12 @@ func TestAnUnwitnessedPublicationIsUncertainAndResumeOnlyLooks(t *testing.T) {
 // written to it.
 func TestATakenBucketNameIsNeverAdopted(t *testing.T) {
 	w := newWorld(t)
-	w.store.AddBucket("apptown-game-site-main-aaaa0001")
+	w.store.AddBucket("apptown-3b89d1da8075-aaaa0001")
 	_, err := w.release(v1Files, "abc")
 	if !deploy.IsTerminal(err) || !strings.Contains(err.Error(), "never adopts") {
 		t.Fatalf("err = %v", err)
 	}
-	if len(w.owned) != 0 || len(w.store.Keys("apptown-game-site-main-aaaa0001")) != 0 {
+	if len(w.owned) != 0 || len(w.store.Keys("apptown-3b89d1da8075-aaaa0001")) != 0 {
 		t.Fatal("the taken bucket was recorded or written to")
 	}
 }
@@ -358,7 +358,7 @@ func TestTheKeyPairIsNeverShown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.store.Fail("PUT", "apptown-game-site-main-aaaa0001", "", 500)
+	w.store.Fail("PUT", "apptown-3b89d1da8075-aaaa0001", "", 500)
 	_, err = d.Reconcile(context.Background(), w.placement(), 1, art, "k", w.logf, func(map[string]any) error { return nil })
 	text := strings.Join(w.logs, "\n") + string(art.Body) + err.Error()
 	if strings.Contains(text, secretKey) || strings.Contains(text, accessKey) {
@@ -413,3 +413,13 @@ func TestObservingAsksTheAddressForThisPublication(t *testing.T) {
 		t.Fatalf("observed %+v, %v", o, err)
 	}
 }
+
+// siteMainID is the deployment these tests' bucket is made for: the bucket
+// is named by its key, 3b89d1da8075.
+var siteMainID = func() ids.ID {
+	id, err := ids.Parse("01a15e84-c8f1-7000-b757-3b89d1da8075")
+	if err != nil {
+		panic(err)
+	}
+	return id
+}()

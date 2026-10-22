@@ -24,6 +24,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func main() {
@@ -31,8 +32,7 @@ func main() {
 		slug       = flag.String("app", "", "the application's slug, for naming on the host")
 		name       = flag.String("deployment", "main", "which standing deployment of it")
 		tree       = flag.String("tree", "", "a staged, self-contained checkout to run")
-		id         = flag.String("id", "1", "the placement's name on the host (its labels)")
-		prefix     = flag.String("prefix", string(docker.Current), "what its host names begin with (forge- for a deployment made before 1.0)")
+		id         = flag.String("id", "", "the deployment's id (a UUID): its names on the host are made from it, and its labels carry it")
 		generation = flag.Int64("generation", 1, "the generation to run, observe or tear down")
 		port       = flag.Int("port", 0, "pin the published port; 0 lets the host pick")
 		host       = flag.String("host", "", "an attached host's DOCKER_HOST (ssh://...); empty is the local daemon")
@@ -64,12 +64,12 @@ func main() {
 		AfterRelease: func(deploy.Placement) {},
 	}
 	ctx := context.Background()
-	names, err := docker.ParsePrefix(*prefix)
-	if err != nil {
-		fail("%v", err)
+	depID, err := ids.Parse(*id)
+	if err != nil || depID.IsZero() {
+		fail("-id must be the deployment's id, a UUID: %q", *id)
 	}
-	container := names.Container(*slug, *name)
-	place := deploy.Placement{Label: deploy.HostLabel(*id), Name: *name, HostPort: *port, Container: container, Generation: *generation, HostPrefix: string(names)}
+	container := docker.ByKey(depID).App()
+	place := deploy.Placement{ID: depID, Label: deploy.HostLabel(depID.String()), Name: *name, HostPort: *port, Container: container, Generation: *generation}
 	logf := func(format string, args ...any) { fmt.Printf(format+"\n", args...) }
 
 	switch {

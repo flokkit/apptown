@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
 // ownedHost models the objects a Docker host holds, by kind and name, so a
@@ -139,7 +140,7 @@ func TestStandingServicesRecordWhatTheyCreate(t *testing.T) {
 			if !strings.Contains(strings.Join(h.runs[0], " "), "-v apptown-need-env-shop-main-postgres:/var/lib/postgresql/data") {
 				t.Fatalf("postgres does not keep its data in the named volume: %v", h.runs[0])
 			}
-			if !existed && !strings.Contains(strings.Join(h.created, "\n"), "volume create --label forge.owner=env-shop-main apptown-need-env-shop-main-postgres") {
+			if !existed && !strings.Contains(strings.Join(h.created, "\n"), "volume create --label apptown.owner=env-shop-main apptown-need-env-shop-main-postgres") {
 				t.Fatalf("the need's volume is not labelled with its stack: %v", h.created)
 			}
 		})
@@ -258,5 +259,29 @@ func TestASyntheticResetDeletesOnlyARecordedNeedVolume(t *testing.T) {
 				t.Fatalf("the recorded synthetic volume was not reset: %v", h.removed)
 			}
 		})
+	}
+}
+
+// A standing deployment's network, need volume and service containers say,
+// for a person reading `docker ps` and `docker volume ls`, which project and
+// deployment they are for (dockerlabel.Informational).
+//
+// Kills: the informational labels left off any of them.
+func TestAStandingStackSaysWhichProjectAndDeploymentItIsFor(t *testing.T) {
+	t.Parallel()
+	h := newOwnedHost()
+	info := dockerlabel.Informational("shop", "main")
+	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}, Info: info}
+	if _, err := EnsureStandingServices(context.Background(), h.scope(), "dep-3b89d1da8075", []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16"}}, "synthetic", own); err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Join(info, " ")
+	for _, c := range h.created {
+		if !strings.Contains(c, want) {
+			t.Errorf("made without saying whose it is: %s", c)
+		}
+	}
+	if len(h.created) != 2 || len(h.runs) != 1 || !strings.Contains(strings.Join(h.runs[0], " "), want) {
+		t.Fatalf("made %v, ran %v", h.created, h.runs)
 	}
 }

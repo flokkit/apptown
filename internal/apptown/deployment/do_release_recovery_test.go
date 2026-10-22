@@ -189,7 +189,9 @@ func TestDeploymentProviderCheckpointFailureStopsBeforeObservation(t *testing.T)
 func TestDigitalOceanRefusesSomebodyElsesCluster(t *testing.T) {
 	t.Parallel()
 	service, provider, _, pid, dep, bundle := doReleaseWorld(t)
-	provider.SeedDatabase(map[string]any{"id": "db-x", "name": "apptown-expense-cloud", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online", "tags": []string{"someone-elses"}})
+	// A cluster under the very name this deployment's key gives, made by
+	// someone else.
+	provider.SeedDatabase(map[string]any{"id": "db-x", "name": "apptown-db-" + deploy.HostKey(dep.ID), "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online", "tags": []string{"someone-elses"}})
 	accepted := doAcceptRelease(t, service, pid, dep, bundle)
 	_ = service.ExecuteRelease(context.Background(), accepted.ID)
 	release, err := service.Releases.ByNumber(context.Background(), pid, accepted.Number)

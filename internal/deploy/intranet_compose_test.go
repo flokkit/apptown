@@ -16,7 +16,7 @@ func (noSecrets) EnvFor(string) map[string]string { return nil }
 
 func TestLanCompose(t *testing.T) {
 	t.Parallel()
-	one := IntranetCompose(IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Slug: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
+	one := IntranetCompose(IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Base: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
 		Image: "reg/app@sha256:x", Port: 8080})
 	if !strings.Contains(one, "Host(`app.apps.example.com`)") ||
 		strings.Contains(one, "||") || strings.Contains(one, "APPTOWN_RELEASE") || strings.Contains(one, "volumes:") || strings.Contains(one, "depends_on") {
@@ -24,7 +24,7 @@ func TestLanCompose(t *testing.T) {
 	}
 	// Vanity domain: both hosts on one router, extra cert domain, and the
 	// dataDir volume + DATA_DIR env (the first server app on the intranet).
-	two := IntranetCompose(IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Slug: "app", Hosts: []string{"app.apps.example.com", "feedback.example.com"},
+	two := IntranetCompose(IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Base: "app", Hosts: []string{"app.apps.example.com", "feedback.example.com"},
 		Domain: "apps.example.com", Image: "reg/app@sha256:x", Port: 8080,
 		Env: map[string]string{"LOG": "info"}, DataDir: "/data", Origins: "https://*.apps.example.com", Release: "web@abc"})
 	for _, want := range []string{
@@ -45,7 +45,7 @@ func TestLanCompose(t *testing.T) {
 	// A need-backed app with an init step (Letterbox): the need runs with a
 	// persistent volume and a healthcheck, the init step waits for it, the
 	// app waits for both — the same order main uses, enforced by compose.
-	three := IntranetCompose(IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Slug: "letterbox", Hosts: []string{"letterbox.apps.example.com"}, Domain: "apps.example.com",
+	three := IntranetCompose(IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Base: "letterbox", Hosts: []string{"letterbox.apps.example.com"}, Domain: "apps.example.com",
 		Image: "reg/letterbox:r4", Port: 8080,
 		Env: map[string]string{"DATABASE_URL": "postgres://app:app@postgres:5432/app"},
 		Needs: []IntranetNeed{{Name: "postgres", Image: "postgres:16-alpine",
@@ -92,7 +92,7 @@ func TestAnIntranetStackSetsAppTownsValuesOnceAndLast(t *testing.T) {
 		"secret":   {Secrets: staticSecrets(declared)},
 	} {
 		t.Run(name, func(t *testing.T) {
-			st.Slug, st.Hosts, st.Domain, st.Image, st.Port = "app", []string{"app.apps.example.com"}, "apps.example.com", "reg/app@sha256:x", 8080
+			st.Base, st.Hosts, st.Domain, st.Image, st.Port = "app", []string{"app.apps.example.com"}, "apps.example.com", "reg/app@sha256:x", 8080
 			st.PublicPart, st.Release, st.DataDir, st.Origins = "web", "web@selected", "/data", "https://*.apps.example.com"
 			var stack struct {
 				Services map[string]struct {
@@ -116,7 +116,7 @@ func TestAnIntranetStackSetsAppTownsValuesOnceAndLast(t *testing.T) {
 // and leaves an undeclared part or need without a limit.
 func TestAnIntranetStackHoldsEachPartToItsDeclaredResources(t *testing.T) {
 	t.Parallel()
-	st := IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Slug: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
+	st := IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Base: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
 		Image: "reg/app@sha256:x", Port: 8080, PublicPart: "web",
 		Resources: appcontract.Resources{MemoryBytes: 512 << 20, CPUs: 0.5},
 		Needs: []IntranetNeed{{Name: "postgres", Image: "postgres:16", Resources: appcontract.Resources{MemoryBytes: 256 << 20, CPUs: 1}},
@@ -154,7 +154,7 @@ func TestAnIntranetStackHoldsEachPartToItsDeclaredResources(t *testing.T) {
 func TestAnIntranetStackStartsANeedByItsScript(t *testing.T) {
 	t.Parallel()
 	script := "set -eu\ngateway=$!\nwait \"$gateway\"\n"
-	st := IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Slug: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
+	st := IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Base: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
 		Image: "reg/app@sha256:x", Port: 8080, PublicPart: "web",
 		Needs: []IntranetNeed{{Name: "s3", Image: "versity/versitygw:v1.8.0", Entrypoint: []string{"/bin/sh", "-c"}, Command: []string{script},
 			Health: "test -f /tmp/forge-ready", Data: "/data"}}}
@@ -215,7 +215,7 @@ func TestAnIntranetStackKeepsEveryDollarLiteral(t *testing.T) {
 	for _, v := range dollarValues {
 		t.Run(v, func(t *testing.T) {
 			t.Parallel()
-			st := IntranetStack{Prefix: "forge-", Slug: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
+			st := IntranetStack{Prefix: "forge-", Base: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
 				Image: "reg/app:" + v, Port: 8080, PublicPart: "web", DataDir: "/data/" + v,
 				Env:     map[string]string{"FROM_CONTRACT": v},
 				Secrets: staticSecrets{"FROM_SECRET": v},

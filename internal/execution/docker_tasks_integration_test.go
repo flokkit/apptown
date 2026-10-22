@@ -19,7 +19,7 @@ func dockerSpec(key, output string, exit int, block bool) execution.TaskSpec {
 	if block {
 		script = "sleep 300"
 	}
-	return execution.TaskSpec{Key: key, Image: "busybox:latest", Argv: []string{"sh", "-c", script}, Labels: []string{"forge.class=test"},
+	return execution.TaskSpec{Key: key, Image: "busybox:latest", Argv: []string{"sh", "-c", script}, Labels: []string{"apptown.class=test"},
 		Admission: execution.Admission{Profile: "local-docker", Network: execution.NetworkNone, Limits: execution.Limits{CPUs: 1, MemoryBytes: 64 << 20, PIDs: 64}}}
 }
 

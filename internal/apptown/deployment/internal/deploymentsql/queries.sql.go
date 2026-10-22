@@ -901,6 +901,18 @@ func (q *Queries) FinishSupersededAttempt(ctx context.Context, arg FinishSuperse
 	return result.RowsAffected()
 }
 
+const forgetHostResources = `-- name: ForgetHostResources :execrows
+DELETE FROM deployment_owned WHERE deployment_id=$1 AND kind IN ('container','network','volume')
+`
+
+func (q *Queries) ForgetHostResources(ctx context.Context, deploymentID ids.ID) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetHostResources, deploymentID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const forgetOwned = `-- name: ForgetOwned :execrows
 DELETE FROM deployment_owned WHERE deployment_id=$1 AND kind=$2 AND ident=$3
 `
@@ -1113,8 +1125,8 @@ func (q *Queries) InsertReconciliation(ctx context.Context, arg InsertReconcilia
 }
 
 const insertReleaseRequest = `-- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup)
-VALUES ($1,$2,$3,$4,$5) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,move_names)
+VALUES ($1,$2,$3,$4,$5,$6) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup, move_names
 `
 
 type InsertReleaseRequestParams struct {
@@ -1123,6 +1135,7 @@ type InsertReleaseRequestParams struct {
 	BaseGeneration  int64
 	AttributesJson  json.RawMessage
 	StartFromBackup ids.ID
+	MoveNames       bool
 }
 
 func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseRequestParams) (ReleaseRequest, error) {
@@ -1132,6 +1145,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		arg.BaseGeneration,
 		arg.AttributesJson,
 		arg.StartFromBackup,
+		arg.MoveNames,
 	)
 	var i ReleaseRequest
 	err := row.Scan(
@@ -1141,6 +1155,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		&i.AttributesJson,
 		&i.ClaimedAt,
 		&i.StartFromBackup,
+		&i.MoveNames,
 	)
 	return i, err
 }
@@ -3021,7 +3036,7 @@ func (q *Queries) RepositoryOwned(ctx context.Context, arg RepositoryOwnedParams
 }
 
 const requestedReleaseForUpdate = `-- name: RequestedReleaseForUpdate :one
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup FROM releases r JOIN release_requests q ON q.release_id=r.id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.move_names FROM releases r JOIN release_requests q ON q.release_id=r.id
 WHERE r.id=$1 FOR UPDATE OF q
 `
 
@@ -3057,6 +3072,7 @@ func (q *Queries) RequestedReleaseForUpdate(ctx context.Context, id ids.ID) (Req
 		&i.ReleaseRequest.AttributesJson,
 		&i.ReleaseRequest.ClaimedAt,
 		&i.ReleaseRequest.StartFromBackup,
+		&i.ReleaseRequest.MoveNames,
 	)
 	return i, err
 }
@@ -3455,6 +3471,24 @@ func (q *Queries) SupersedeAttempts(ctx context.Context, arg SupersedeAttemptsPa
 		arg.RunningState,
 		arg.ID,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const switchToKeyNames = `-- name: SwitchToKeyNames :execrows
+UPDATE deployments SET host_prefix='', host_label='', updated_at=$1
+  WHERE id=$2 AND host_prefix<>''
+`
+
+type SwitchToKeyNamesParams struct {
+	UpdatedAt time.Time
+	ID        ids.ID
+}
+
+func (q *Queries) SwitchToKeyNames(ctx context.Context, arg SwitchToKeyNamesParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, switchToKeyNames, arg.UpdatedAt, arg.ID)
 	if err != nil {
 		return 0, err
 	}

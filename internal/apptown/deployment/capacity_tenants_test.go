@@ -41,11 +41,11 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 	}
 	owners := containerOwners{
 		exact:    map[string]partOf{"apptown-env-shop-main": {deployment: shop, part: "web"}, "apptown-preview-7": {deployment: pv, part: "web"}},
-		services: map[string]ids.ID{docker.Current.Service(docker.StackID("shop", "main"), ""): shop},
+		services: map[string]ids.ID{docker.BeforeKey(docker.Current, "shop", "main").Service(""): shop},
 	}
 	limits := []docker.ContainerLimit{
 		{Name: "apptown-env-shop-main", MemoryBytes: 256 << 20, CPUs: 1, AppTown: true, Class: "env"},
-		{Name: docker.Current.Service(docker.StackID("shop", "main"), "postgres"), AppTown: true, Class: "env"},
+		{Name: docker.BeforeKey(docker.Current, "shop", "main").Service("postgres"), AppTown: true, Class: "env"},
 		{Name: "apptown-preview-7", MemoryBytes: 128 << 20, AppTown: true, Class: "preview"},
 		{Name: "apptown-svc-pv-redis", MemoryBytes: 64 << 20, AppTown: true, Class: "service"},
 		{Name: "apptown-step-1", MemoryBytes: 2 << 30, CPUs: 2, AppTown: true, Class: "step"},

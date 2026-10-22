@@ -9,7 +9,7 @@ It cannot reach App or unrelated application operations.
   observed container IDs for execution cleanup. Previews are not its: Preview
   stops them by the last look (`preview.Service.Tend`). It also removes a finished
   execution's step and private-daemon networks, selected by the same
-  `forge.class`/`forge.owner` labels as its containers and removed by their
+  `apptown.class`/`apptown.owner` labels as its containers and removed by their
   listed ID; an unlabelled network (a deployment's, or one made before the
   labels) is never selected. Idle console eviction retains
   the saved session and its identity.

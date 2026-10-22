@@ -103,7 +103,7 @@ func (d *Driver) FulfilNeed(ctx context.Context, p deploy.Placement, need string
 	if err != nil {
 		return deploy.NeedBinding{}, nil, fmt.Errorf("reading the need's record: %w", err)
 	}
-	name := clusterName(slug, p.Name)
+	name := clusterName(deploy.HostKey(p.ID))
 	if held, _ := recorded["name"].(string); held != "" {
 		name = held
 	} else if asked, _ := recorded["requested"].(map[string]any); asked != nil {
@@ -166,7 +166,7 @@ func (d *Driver) FulfilNeed(ctx context.Context, p deploy.Placement, need string
 			Database doDatabase `json:"database"`
 		}
 		body := map[string]any{"name": name, "engine": "pg", "version": version, "region": doDBRegion(cfg.Region),
-			"size": cfg.DBSize, "num_nodes": 1, "tags": clusterTags(name, slug, p.Name)}
+			"size": cfg.DBSize, "num_nodes": 1, "tags": clusterTags(slug, p.Name)}
 		if err := c.Call(ctx, "POST", "/v2/databases", body, &made); err != nil {
 			return deploy.NeedBinding{}, nil, fmt.Errorf("creating the database cluster: %w", err)
 		}
@@ -243,31 +243,21 @@ func (d *Driver) validateDiscovered(db *doDatabase, name, version, slug, deploym
 	if major := strings.SplitN(db.Version, ".", 2)[0]; major != version {
 		return fmt.Sprintf("it runs Postgres %s, the contract asks for %s", db.Version, version)
 	}
-	want := clusterTags(name, slug, deploymentName)
+	want := clusterTags(slug, deploymentName)
 	if byName && (!containsString(db.Tags, want[1]) || !containsString(db.Tags, want[2])) {
 		return "it does not carry this AppTown deployment's tags (" + want[1] + ", " + want[2] + ")"
 	}
 	return ""
 }
 
-// clusterPrefixes are the prefixes a deployment's cluster may be named
-// with: the current one, and the one clusters made before 1.0 keep.
-var clusterPrefixes = []string{"apptown-", "forge-"}
+// clusterName is a new need's cluster: apptown-db-<key> (deploy.HostKey).
+func clusterName(key string) string { return "apptown-db-" + key }
 
-// clusterName is a new need's cluster: apptown-<project>-<deployment>.
-func clusterName(slug, deployment string) string { return clusterPrefixes[0] + slug + "-" + deployment }
-
-// clusterTags are the tags a cluster named name carries: its prefix's
-// mark, project and deployment (forge, forge-project-<slug>, … for one
-// made before 1.0).
-func clusterTags(name, slug, deployment string) []string {
-	pre := clusterPrefixes[0]
-	for _, p := range clusterPrefixes {
-		if name == p+slug+"-"+deployment {
-			pre = p
-		}
-	}
-	return []string{strings.TrimSuffix(pre, "-"), pre + "project-" + slug, pre + "env-" + deployment}
+// clusterTags are the tags a deployment's cluster carries: AppTown's mark,
+// and its project and deployment, for people and for the check that a
+// cluster found by name is this deployment's.
+func clusterTags(slug, deployment string) []string {
+	return []string{"apptown", "apptown-project-" + slug, "apptown-deployment-" + deployment}
 }
 
 func (d *Driver) findDatabase(ctx context.Context, c *Client, name string) (*doDatabase, error) {

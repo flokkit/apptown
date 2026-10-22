@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/poll"
 )
 
@@ -157,5 +159,44 @@ func TestAMissingBareAgentImageIsBuilt(t *testing.T) {
 	}
 	if got := rec.seen(); len(got) != 1 || got[0] != "build -t apptown-agent ../../deploy/apptown-agent" {
 		t.Fatalf("commands: %v", got)
+	}
+}
+
+// labelledImageDocker is a daemon holding the agent image, with or without
+// AppTown's version label, that records every command.
+type labelledImageDocker struct {
+	recordingDocker
+	version string // "" is an image without apptown.pi.version
+}
+
+func (d *labelledImageDocker) Run(ctx context.Context, binary string, req docker.Command) ([]byte, error) {
+	_, _ = d.recordingDocker.Run(ctx, binary, req)
+	args := strings.Join(req.Args, " ")
+	switch {
+	case strings.HasPrefix(args, "info"):
+		return []byte("ok"), nil
+	case strings.HasPrefix(args, "image inspect -f") && strings.Contains(args, dockerlabel.PiVersion):
+		return []byte(d.version), nil
+	}
+	return nil, nil
+}
+
+// The agent image is fetched again when it lacks AppTown's version label
+// (one built before 1.0 carries forge.pi.version, so every step would
+// record no versions); one that carries it is left as it is.
+//
+// Kills: an image that exists taken as present whatever it carries.
+func TestAnAgentImageWithoutAppTownsVersionLabelIsFetchedAgain(t *testing.T) {
+	t.Parallel()
+	const image = "ghcr.io/flokkit/apptown-agent:1.0.0"
+	for version, fetched := range map[string]bool{"": true, "0.71.0": false} {
+		d := &labelledImageDocker{version: version}
+		a := testApp(t, Config{DockerClient: d, AgentImage: image})
+		a.EnsureAgentImage()
+		state, _ := agentImageSettled(t, &a.setup)
+		pulled := slices.Contains(d.seen(), "pull "+image)
+		if pulled != fetched || state != "present" {
+			t.Errorf("an image with version label %q: pulled %v, state %q (%v)", version, pulled, state, d.seen())
+		}
 	}
 }

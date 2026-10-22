@@ -90,7 +90,7 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	body := []byte(`{"version":1,"revision":"abc"}`)
 	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 		Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c}}
-	place := deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "main"}
+	place := deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}
 	ctx := context.Background()
 	quiet := func(string, ...any) {}
 
@@ -107,7 +107,7 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	if o.Rollout != "active" || o.Health != "healthy" || o.Generation != 1 || o.URL != "http://127.0.0.1:41233" || o.ImageDigest != "sha256:game" {
 		t.Fatalf("observation after boot: %+v", o)
 	}
-	name := Current.Container("game", "main")
+	name := ByKey(idstest.N(7)).App()
 	if boot.req.Name != name || boot.req.Deployment != "main" || !boot.req.Persistent || boot.req.Identity.Deployment != "7" || boot.req.Revision != "abc" || boot.req.DataClass != "production" {
 		t.Fatalf("the boot request names the placement and the revision it serves: %+v", boot.req)
 	}
@@ -197,7 +197,7 @@ func TestTeardownUsesVerifiedContainerIDAndPropagatesFailures(t *testing.T) {
 			defer cancel()
 			switch scenario {
 			case "replacement":
-				f.runtime.Labels["forge.generation"] = "4"
+				f.runtime.Labels["apptown.generation"] = "4"
 			case "unlabelled":
 				f.runtime.Labels = nil
 			case "no-id":
@@ -360,7 +360,7 @@ func TestARecordedBootWithAMissingImageChangesNothing(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	_, err = NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Name: "apptown-env-game-main", StackID: StackID("game", "main"), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true, Names: Current,
+	_, err = NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true, Names: Current,
 		Identity: &deploy.DockerIdentity{Deployment: "7", Generation: 2}, Recorded: &RecordedImages{Parts: map[string]string{"game": "sha256:gone"}}}, c)
 	if !errors.Is(err, ErrRecordedImageMissing) || !AsBootError(err).BeforeEffects() {
 		t.Fatalf("a missing recorded image: %v", err)

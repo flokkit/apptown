@@ -216,7 +216,7 @@ func (noSecrets) EnvFor(string) map[string]string { return nil }
 // data protection reads is the path Compose mounts.
 func TestTheLayoutFindsADataFolderAtThePathTheAppWasGiven(t *testing.T) {
 	t.Parallel()
-	compose := deploy.IntranetCompose(deploy.IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Slug: "app", Hosts: []string{"app.apps.example.com"},
+	compose := deploy.IntranetCompose(deploy.IntranetStack{Secrets: noSecrets{}, Prefix: "forge-", Base: "app", Hosts: []string{"app.apps.example.com"},
 		Domain: "apps.example.com", Image: "reg/app@sha256:x", Port: 8080, PublicPart: "web", DataDir: "/data/$tenant",
 		Needs: []deploy.IntranetNeed{{Name: "postgres", Image: "postgres:16", Data: "/pg/$$x"}}})
 	layout, err := ReadLayout("forge-app", "app", compose)

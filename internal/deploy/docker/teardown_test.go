@@ -61,7 +61,7 @@ func TestFailedServicesStartRemovesAnEarlierAttemptsContainerBeforeTheNetwork(t 
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		cmd := strings.Join(args, " ")
 		switch {
-		case strings.HasPrefix(cmd, "ps -aq --filter label=forge.class=service --filter label=forge.owner=817"):
+		case strings.HasPrefix(cmd, "ps -aq --filter label=apptown.class=service --filter label=apptown.owner=817"):
 			return []byte("left-by-earlier-attempt\n"), nil, true
 		case strings.HasPrefix(cmd, "run ") && strings.Contains(cmd, "--name apptown-svc-817-db"):
 			return []byte(`Conflict. The container name "/apptown-svc-817-db" is already in use`), errors.New("exit status 125"), true

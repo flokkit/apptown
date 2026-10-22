@@ -62,17 +62,18 @@ func needWorld(t *testing.T, need string) (*both, ids.ID, map[string]string) {
 	}
 	containerOf := map[string]string{}
 	for _, name := range []string{"main", "fresh"} {
-		stack := docker.StackID(slug, name)
-		containerOf[name] = docker.Current.Service(stack, need)
-		t.Cleanup(func() {
-			_ = dockertest.Run("rm", "-f", docker.Current.Service(stack, need))
-			_ = dockertest.Run("volume", "rm", docker.Current.NeedVolume(stack, need))
-			_ = dockertest.Run("network", "rm", docker.Current.Network(stack))
-		})
 		dep, err := s.Deployments.EnsureStanding(t.Context(), pid, name, target.ID, deployment.Attributes{}.WithDefaults())
 		if err != nil {
 			t.Fatal(err)
 		}
+		names := hostNamesOf(t, dep, slug)
+		stack := names.Stack()
+		containerOf[name] = names.Service(need)
+		t.Cleanup(func() {
+			_ = dockertest.Run("rm", "-f", names.Service(need))
+			_ = dockertest.Run("volume", "rm", names.NeedVolume(need))
+			_ = dockertest.Run("network", "rm", names.Network())
+		})
 		runRelease(t, s, dep, "r1", yaml)
 		// Started as a release starts it: with the deployment's own
 		// credentials, so the two deployments' differ.

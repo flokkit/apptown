@@ -12,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -64,16 +63,16 @@ func standRelease(t *testing.T, s *both, slug, deployment, yaml string) string {
 		return revision // a release whose contract cannot be read runs nothing the host is told of
 	}
 	client := s.hosts.Local().Client.(*dockerfake.Daemon)
-	stack := docker.StackID(slug, deployment)
+	names := hostNamesOf(t, dep, slug)
 	mounts, started := map[string]string{}, map[string]string{}
 	for _, need := range c.Needs {
 		d, err := s.catalog.ByCapability(t.Context(), need)
 		if err != nil || d.Local.Data == "" {
 			continue
 		}
-		svc := docker.Current.Service(stack, need)
+		svc := names.Service(need)
 		client.SetRunning(svc, true)
-		mounts[svc] = docker.Current.NeedVolume(stack, need) + "\t" + d.Local.Data
+		mounts[svc] = names.NeedVolume(need) + "\t" + d.Local.Data
 		// Started as a release starts it: the release's params and the
 		// deployment's own generated credentials.
 		generated, err := d.Generated(t.Context(), s.Service.env.NeedCredentials(deploymentNeedScope(dep.ID)))

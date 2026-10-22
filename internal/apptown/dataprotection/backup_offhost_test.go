@@ -37,6 +37,7 @@ type offhostWorld struct {
 	dir    string
 	pid    ids.ID
 	slug   string
+	names  docker.Names // what main is called on its host
 
 	mu       sync.Mutex
 	restored []string // "<file>: <bytes>" each restore read on its stdin
@@ -60,10 +61,12 @@ func newOffhostWorld(t *testing.T, slug string, port int) *offhostWorld {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.pid, "main", target.ID, deployment.Attributes{DataClass: "production"}.WithDefaults()); err != nil {
+	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.pid, "main", target.ID, deployment.Attributes{DataClass: "production"}.WithDefaults())
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.s.Deployments.ReserveHostPort(t.Context(), w.pid, "main", docker.Current.Container(slug, "main"), port); err != nil {
+	w.names = hostNamesOf(t, dep, slug)
+	if _, err := w.s.Deployments.ReserveHostPort(t.Context(), w.pid, "main", w.names.App(), port); err != nil {
 		t.Fatal(err)
 	}
 	repo := filepath.Join(w.dir, "workspaces", "project-"+slug, ".apptown")
@@ -205,7 +208,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 	}
 	exported := false
 	for _, c := range commandsOf(w.client) {
-		exported = exported || strings.HasSuffix(c, "apptown-svc-env-oh-main-postgres sh -c pg_dump -Fc --no-owner")
+		exported = exported || strings.HasSuffix(c, w.names.Service("postgres")+" sh -c pg_dump -Fc --no-owner")
 	}
 	if !exported {
 		t.Fatalf("the copy was not made by the kind's export:\n%s", strings.Join(commandsOf(w.client), "\n"))
@@ -265,13 +268,13 @@ func TestADockerSetInTheStoreRestoresInPlace(t *testing.T) {
 	if err != nil || res.Status != RestoreNotVerified || len(res.Items) != 2 {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
-	if got := strings.Join(w.restored, "\n"); !strings.Contains(got, "back-apptown-need-env-ohr-main-postgres.dump: copy of apptown-need-env-ohr-main-postgres.dump") || !strings.Contains(got, "back-apptown-data-apptown-env-ohr-main.tar.gz: copy of apptown-data-apptown-env-ohr-main.tar.gz") {
+	if got := strings.Join(w.restored, "\n"); !strings.Contains(got, "back-"+w.names.NeedVolume("postgres")+".dump: copy of "+w.names.NeedVolume("postgres")+".dump") || !strings.Contains(got, "back-"+w.names.DataVolume()+".tar.gz: copy of "+w.names.DataVolume()+".tar.gz") {
 		t.Fatalf("what was restored:\n%s", got)
 	}
 	before, stops := len(w.sets()), w.stops
-	o, _ := w.store.Get("forge-copies", b.Path+"/apptown-need-env-ohr-main-postgres.dump")
+	o, _ := w.store.Get("forge-copies", b.Path+"/"+w.names.NeedVolume("postgres")+".dump")
 	o.Body = []byte("changed")
-	w.store.Put("forge-copies", b.Path+"/apptown-need-env-ohr-main-postgres.dump", o)
+	w.store.Put("forge-copies", b.Path+"/"+w.names.NeedVolume("postgres")+".dump", o)
 	if _, err := w.s.restoreBackup(context.Background(), nil, w.pid, "main", b.ID, "alice"); err == nil || !strings.Contains(err.Error(), "nothing was restored") {
 		t.Fatalf("a tampered copy: %v", err)
 	}
@@ -360,7 +363,7 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(mismatched.Path, "apptown-need-env-ohm-main-postgres.dump"), []byte("changed on the disk"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(mismatched.Path, w.names.NeedVolume("postgres")+".dump"), []byte("changed on the disk"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	w.attach()

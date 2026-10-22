@@ -36,7 +36,7 @@ type Workshop struct {
 }
 
 // now is AppTown's clock, which stamps a workshop container's
-// forge.created label.
+// apptown.created label.
 func NewWorkshop(scope *docker.Scope, integrations *integration.Service, feeds *progress.Feeds, dataDir, image string, now func() time.Time) *Workshop {
 	return &Workshop{docker: scope, integrations: integrations, progress: feeds, dataDir: dataDir, image: image, clock: now}
 }

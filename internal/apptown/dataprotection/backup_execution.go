@@ -482,12 +482,12 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		return nil, fmt.Errorf("the safety set %d is %s (%s); nothing was restored", safety.ID, safety.Status, strings.Join(missing, "; "))
 	}
 	rec.end(ctx, fmt.Sprintf("set %d", safety.ID))
-	names, err := dep.HostNames()
+	names, err := dep.HostNames(slug)
 	if err != nil {
 		return nil, fmt.Errorf("naming %s on its host: %w; nothing was restored", deploymentName, err)
 	}
 	if container == "" {
-		container = names.Container(slug, deploymentName)
+		container = names.App()
 	}
 	// Nothing writes the data while it is put back: every application part
 	// is stopped first, as for a final backup. The deployment's list says
@@ -503,7 +503,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	if c != nil {
 		for _, p := range c.Parts {
 			if !p.Public {
-				name := names.Service(docker.StackID(slug, deploymentName), p.Name)
+				name := names.Service(p.Name)
 				writers = append(writers, deploy.Owned{Kind: "container", ID: name, Name: name})
 			}
 		}

@@ -182,7 +182,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		if step := reviewExecute(t, a, run, "guidance"); step.Status != workflow.StatusPass {
 			t.Fatalf("the guidance step on the worker: %s %s", step.Status, step.Evidence)
 		}
-		onlyTheWorker(t, calls, "worker build --label forge.class=check -t apptown-conform:", "--init --name apptown-check-", "python manage.py check", "semgrep --sarif")
+		onlyTheWorker(t, calls, "worker build --label apptown.class=check -t apptown-conform:", "--init --name apptown-check-", "python manage.py check", "semgrep --sarif")
 	})
 	t.Run("a landing's gates", func(t *testing.T) {
 		t.Parallel()

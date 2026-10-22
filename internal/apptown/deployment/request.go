@@ -34,6 +34,10 @@ type DeploySelection struct {
 	// was not shown to come back by its last check (CopyStarter.UncheckedStart);
 	// the release records it with who and which items.
 	AcceptUncheckedCopy bool
+	// MoveNames releases the bundle the deployment runs, moving it from the
+	// names it was made with to its names by key first (move_names.go).
+	// REMOVE-AFTER resource move.
+	MoveNames bool
 }
 type ReleaseProject struct {
 	Application
@@ -129,6 +133,25 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 	}
 	if actor.Principal.Name == "" {
 		return AcceptedRelease{}, errors.New("release caller required")
+	}
+	// A move is a release of the bundle the deployment runs (a landing-fed
+	// one takes that by hand too).
+	if in.MoveNames {
+		t, err := s.Targets.ByID(ctx, dep.TargetID)
+		if err != nil {
+			return AcceptedRelease{}, fmt.Errorf("%w: %w", ErrNoTarget, err)
+		}
+		if why := refusesMove(dep, t); why != "" {
+			return AcceptedRelease{}, fault.New(fault.Unprocessable, why)
+		}
+		running, err := s.runningBundle(ctx, dep)
+		if err != nil {
+			return AcceptedRelease{}, err
+		}
+		if running.IsZero() {
+			return AcceptedRelease{}, errNothingToMove
+		}
+		in.BundleID = running
 	}
 	// A landing-fed deployment may still take the bundle it runs, named
 	// explicitly; that is decided once the bundle is known
@@ -261,7 +284,7 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		if err != nil {
 			return err
 		}
-		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom}); err != nil {
+		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, MoveNames: in.MoveNames}); err != nil {
 			return err
 		}
 		if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {

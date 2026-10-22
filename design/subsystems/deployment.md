@@ -312,10 +312,8 @@ A deployment owns what AppTown recorded creating for it. Each creation is record
 
 - **Docker host**: the containers its boot ran (by ID), the stack's network
   when the boot made it, the app's data volume and each need's named data
-  volume (`apptown-need-<stack>-<need>`; every name carries the prefix the
-deployment records, `deployments.host_prefix`, so one made before 1.0 keeps
-`forge-` for good) when the boot created them, and the
-  release images it pulled or built.
+  volume (`apptown-need-dep-<key>-<need>`) when the boot created them, and
+  the release images it pulled or built. See **Names on a host** below.
 - **App Platform**: the app (its recorded handle) and, per project and
   connector, the DOCR repository the first copy created (`owned_repositories`).
   A repository of the project's name AppTown did not create refuses the
@@ -347,10 +345,56 @@ deployment records, `deployments.host_prefix`, so one made before 1.0 keeps
   A place that cannot be asked keeps every key it might hold.
 
 Nothing found, reused or matched by name is recorded, so it is never
-deleted. Deployments made before then got entries only through the one-time
-inspection (`GET /api/v1/ownership/inspection`, then
-`POST /api/v1/ownership/approvals` with the approved keys; platform
-administrators), which records exactly what a person approved.
+deleted. A deployment made before 1.0 has its list completed when it is
+moved to its names by key: the move records the volumes it copies into,
+and its boot records what it makes.
+
+### Names on a host
+
+What AppTown makes for a deployment on a Docker host, a Portainer
+environment, App Platform or an S3 bucket is named from the deployment's
+**key**: the last 12 hex digits of its id, which a unique index keeps
+unique within an AppTown. Two deployments never share a name, whatever
+their project and deployment names (`shop`/`eu-main` and `shop-eu`/`main`
+once did), and a deployment made again under an old name gets new
+resources. On a Docker host its stack is `dep-<key>`: the app container
+`apptown-dep-<key>`, services `apptown-svc-dep-<key>-<name>`, init containers
+`apptown-init-dep-<key>-<name>`, the network `apptown-net-dep-<key>`, need
+volumes `apptown-need-dep-<key>-<need>`, the app's data volume
+`apptown-data-apptown-dep-<key>`. A Portainer stack is `apptown-dep-<key>`;
+an App Platform app `apptown-<key>`, its cluster `apptown-db-<key>`
+(tagged with the project and deployment), its Spaces keys
+`apptown-maker-<key>` and `apptown-app-<key>`; a bucket
+`apptown-<key>-<suffix>`. The Infrastructure page names each resource's
+project and deployment. Every Docker label key is `apptown.*`. A standing
+deployment's app container, services, network and volumes also carry
+`apptown.project=<slug>` and `apptown.deployment.name=<name>`, so a person
+reading `docker ps` or `docker volume ls` can tell whose they are. They are
+for people only: AppTown never reads them for identity, ownership or
+removal, which go by the deployment's id and key.
+
+A deployment made before 1.0 records the prefix it was made with
+(`deployments.host_prefix`, `forge-` or `apptown-`) and keeps its names
+(`<prefix>env-<project>-<deployment>` and so on, labels `forge.*`) until a
+person moves it: `apptown move-names <project> <deployment>`
+(`POST …/deployments/{name}/move-names`, the deploy grant; not promised).
+That is a release of the bundle the deployment runs. Inside its admitted
+attempt, before any service starts, AppTown finds the volume each need
+keeps its data in (named or anonymous; a host folder is refused), stops
+the app and its stack, copies each volume and the app's data volume into
+the new names and checks every file, owner, mode and link of the copy, then
+switches the record in one transaction, removes the old containers and
+network, and boots under the new names. The old volumes stay on the host,
+listed in the release's log, for a person to delete. A failure before the
+switch starts the old stack again; one after it is any failed release of
+the deployment, and the attempt may be uncertain. Portainer deployments are
+not moved: take one down and release it again. Keep an app quiet (no
+landing, release or data operation) while it moves. While any deployment
+is on its old names, AppTown reads the `forge.*` identity labels of its
+app container, and the built-in database's `forge.instance`; at each start
+it removes what an AppTown before 1.0 left that is disposable (previews,
+steps, chats, checks, tasks: anything labelled `forge.*` whose class is
+not `env` or `infra`) and does not start if it cannot.
 
 `DELETE /api/v1/projects/{slug}/deployments/{name}` (`deployment:teardown`)
 takes the deployment down. An App Platform deployment holding a managed

@@ -56,14 +56,14 @@ func TestSecretsBoundToInfisical(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	res, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: "apptown-env-p-main", StackID: docker.StackID("p", "main"), Workspace: ws,
+	res, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", Persistent: true, Names: docker.Current, Probe: 2 * time.Second}, c)
 	if err != nil {
 		t.Fatalf("boot: %v", err)
 	}
 	var app string
 	for _, r := range containersRun(f) {
-		if r.name == "apptown-env-p-main" {
+		if r.name == secretsNames.App() {
 			app = r.call
 		}
 	}
@@ -82,7 +82,7 @@ func TestSecretsBoundToInfisical(t *testing.T) {
 	}
 	// A binding to a key Infisical does not have is a clear refusal, not a silent blank.
 	_ = a.Secrets.Bindings.Put(t.Context(), idstest.N(1), secret.Binding{Deployment: "main", Name: "STRIPE_API_KEY", Store: secret.StoreInfisical, Ref: "NOPE", Version: "infisical"})
-	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: "apptown-env-p-main", StackID: docker.StackID("p", "main"), Workspace: ws,
+	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", Persistent: true, Names: docker.Current, Probe: 2 * time.Second}, c); err == nil || !strings.Contains(err.Error(), "NOPE") {
 		t.Fatalf("missing Infisical key: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	res, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: "apptown-env-p-main", StackID: docker.StackID("p", "main"), Workspace: ws,
+	res, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", HostPort: 0, Persistent: true, Names: docker.Current, Probe: 2 * time.Second}, c)
 	if err != nil {
 		t.Fatalf("boot: %v\n%s", err, strings.Join(f.joined(), "\n"))
@@ -163,9 +163,9 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 	for _, r := range runs {
 		byName[r.name] = r.call
 	}
-	app := byName["apptown-env-p-main"]
-	init := byName[docker.Current.Init(docker.StackID("p", "main"), "migrate")]
-	worker := byName[docker.Current.Service(docker.StackID("p", "main"), "worker")]
+	app := byName[secretsNames.App()]
+	init := byName[secretsNames.Init("migrate")]
+	worker := byName[secretsNames.Service("worker")]
 	if app == "" || init == "" || worker == "" {
 		t.Fatalf("containers: %v", byName)
 	}
@@ -193,7 +193,7 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 	first := a.Secrets.BindingsFor(t.Context(), idstest.N(1), "main")["SECRET_KEY_BASE"]
 	keyBefore, _, _ := a.Secrets.Stored(t.Context(), first.Ref, "SECRET_KEY_BASE")
 	f.reset()
-	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: "apptown-env-p-main", StackID: docker.StackID("p", "main"), Workspace: ws,
+	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", Persistent: true, Names: docker.Current, Probe: 2 * time.Second}, c); err != nil {
 		t.Fatal(err)
 	}
@@ -221,3 +221,7 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 		t.Fatal("preview and main must not share a generated key")
 	}
 }
+
+// secretsNames are the names these boots run under: a standing
+// deployment's, by its key.
+var secretsNames = docker.ByKey(idstest.N(1))

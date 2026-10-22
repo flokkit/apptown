@@ -50,7 +50,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
-	db := docker.Current.Service(docker.StackID("p", "prod"), "postgres")
+	db := w.names(t, "prod").Service("postgres")
 	if run := ranWith(t, w, "lab", db, 0); !strings.Contains(run, "--memory 268435456 --memory-swap 268435456") {
 		t.Fatalf("the database was started without its size: %s", run)
 	}
@@ -111,7 +111,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 	// A rebuild of that generation (its front door gone, as after a host
 	// was wiped of it) runs the database at the size it recorded: nothing
 	// to change, so the database is not touched.
-	if _, err := w.hosts.daemon("lab").Run(t.Context(), "", docker.Command{Args: []string{"rm", docker.Current.Container("p", "prod")}}); err != nil {
+	if _, err := w.hosts.daemon("lab").Run(t.Context(), "", docker.Command{Args: []string{"rm", w.names(t, "prod").App()}}); err != nil {
 		t.Fatal(err)
 	}
 	seen, ranBefore := len(w.hosts.commands("lab")), len(w.hosts.ran("lab"))
@@ -212,8 +212,8 @@ func TestLimitEventsAreRecordedForEveryStandingDeployment(t *testing.T) {
 	// precision. Keep the fixture at that precision so the exact overlap
 	// assertion below tests the window rather than the clock's precision.
 	t0 := time.Now().Add(-10 * time.Minute).UTC().Truncate(time.Microsecond)
-	prodWeb, prodWorker := docker.Current.Container("p", "prod"), docker.Current.Service(docker.StackID("p", "prod"), "worker")
-	stageWeb := docker.Current.Container("p", "stage")
+	prodWeb, prodWorker := w.names(t, "prod").App(), w.names(t, "prod").Service("worker")
+	stageWeb := w.names(t, "stage").App()
 	lab := eventLine("oom", stageWeb, t0, 0) + // stage: killed while its release runs
 		eventLine("die", stageWeb, t0.Add(time.Second), 137) + // that kill's exit
 		eventLine("die", prodWorker, t0.Add(2*time.Minute), 1) + // prod's worker exits on its own
@@ -331,7 +331,7 @@ func TestAContainerBelongsToTheLongestStackItsNameBegins(t *testing.T) {
 	t.Parallel()
 	main, eu := idstest.N(1), idstest.N(2)
 	o := containerOwners{exact: map[string]partOf{"apptown-env-shop-main": {deployment: main, part: "web"}},
-		services: map[string]ids.ID{docker.Current.Service(docker.StackID("shop", "main"), ""): main, docker.Current.Service(docker.StackID("shop", "main-eu"), ""): eu}}
+		services: map[string]ids.ID{docker.BeforeKey(docker.Current, "shop", "main").Service(""): main, docker.BeforeKey(docker.Current, "shop", "main-eu").Service(""): eu}}
 	for name, want := range map[string]partOf{
 		"apptown-env-shop-main":                 {deployment: main, part: "web"},
 		"apptown-svc-env-shop-main-postgres":    {deployment: main, part: "postgres"},
@@ -604,10 +604,10 @@ func TestAFirstReleasesKillIsRecordedBeforeAnythingSettles(t *testing.T) {
 		t.Fatalf("opening the first release: %v %v", created, err)
 	}
 	at := time.Now().Add(-time.Minute).UTC()
-	db := docker.Current.Service(docker.StackID("p", "first"), "postgres")
+	db := w.names(t, "first").Service("postgres")
 	w.hosts.daemon("lab2").SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "events" {
-			return []byte(eventLine("oom", docker.Current.Container("p", "first"), at, 0) + eventLine("oom", db, at.Add(time.Second), 0)), nil, true
+			return []byte(eventLine("oom", w.names(t, "first").App(), at, 0) + eventLine("oom", db, at.Add(time.Second), 0)), nil, true
 		}
 		return nil, nil, false
 	})
@@ -634,7 +634,7 @@ func TestAStoppedContainersExitIsNeverRecordedAsItsOwn(t *testing.T) {
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
-	stack := docker.StackID("p", "prod")
+	stack := w.names(t, "prod").Stack()
 	a, bb, cc := docker.Current.Service(stack, "a"), docker.Current.Service(stack, "b"), docker.Current.Service(stack, "c")
 	t0 := time.Now().Add(-10 * time.Minute).UTC().Truncate(time.Second)
 	lab := eventLine("kill", a, t0, 0) + // A is stopped

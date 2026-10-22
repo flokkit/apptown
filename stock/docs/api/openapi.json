@@ -7467,50 +7467,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/ownership/approvals": {
-      "post": {
-        "operationId": "postOwnershipApprovals",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "ownership"
-        ],
-        "x-apptown-access": {
-          "capability": "platform:manage-deploy-targets",
-          "kind": "capability",
-          "scope": "instance"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/ownership/inspection": {
-      "get": {
-        "operationId": "getOwnershipInspection",
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "ownership"
-        ],
-        "x-apptown-access": {
-          "capability": "platform:manage-deploy-targets",
-          "kind": "capability",
-          "scope": "instance"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/packs": {
       "get": {
         "operationId": "getPacks",
@@ -9176,6 +9132,45 @@
         ],
         "x-apptown-access": {
           "contract": "deployments.DeploymentLog",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/deployments/{name}/move-names": {
+      "post": {
+        "operationId": "postProjectsSlugDeploymentsNameMoveNames",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.MoveNames",
           "kind": "owner"
         },
         "x-apptown-stability": "experimental"

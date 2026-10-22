@@ -32,8 +32,8 @@ func (l StackLayout) MountOf(volume string) (Mount, bool) {
 func (l StackLayout) IsNeed(service string) bool { return l.needs[service] }
 
 // ReadLayout reads a stack's compose file.
-func ReadLayout(stack, slug, compose string) (StackLayout, error) {
-	vols, err := ComposeVolumes(stack, slug, compose)
+func ReadLayout(stack, base, compose string) (StackLayout, error) {
+	vols, err := ComposeVolumes(stack, base, compose)
 	if err != nil {
 		return StackLayout{}, err
 	}

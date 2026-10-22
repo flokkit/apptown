@@ -360,7 +360,8 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	// Portainer registry entry, both managed by the platform's operators.
 	// AppTown never touches /api/registries (admin-only, and AppTown does not
 	// hold Portainer admin). The credential just exists.
-	stackName := portainer.StackName(dep.HostPrefix, p.Slug)
+	stackPrefix, stackBase := portainer.StackNames(dep.ID, dep.HostPrefix, p.Slug)
+	stackName := portainer.StackName(stackPrefix, stackBase)
 	hosts, _ := portainerAddress(p.Slug, cfg.AppsDomain, vanity)
 	if vanity != "" {
 		s.relLog(relID, "also answering on %s (DNS for it is platform-owned — needs its record applied)", vanity)
@@ -385,7 +386,7 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 		images = stackImages{Parts: bundle.Parts, Init: bundle.Init, SelfServing: bundle.BuiltFrom.SelfServing}
 	}
 	logf := func(format string, args ...any) { s.relLog(relID, format, args...) }
-	compose, err := s.env.portainerStack(ctx, portainerStackOf{Slug: p.Slug, Prefix: dep.HostPrefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: c, Revision: head, Images: images, Secrets: secrets, Deployment: dep.ID}, logf)
+	compose, err := s.env.portainerStack(ctx, portainerStackOf{Base: stackBase, Prefix: stackPrefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: c, Revision: head, Images: images, Secrets: secrets, Deployment: dep.ID}, logf)
 	if err != nil {
 		fail("%v", err)
 		return
@@ -397,7 +398,7 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	result, err := (Runner{Store: store, Applied: s.applied}).Run(ctx,
 		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("release-%d", relID), Inputs: inputs},
 		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
-			return (portainer.Execution{Config: *cfg, EndpointID: endpointID, Stack: stackName, Prefix: dep.HostPrefix, Compose: compose, URL: url, Owner: s.Deployments.OwnerOf(dep),
+			return (portainer.Execution{Config: *cfg, EndpointID: endpointID, Stack: stackName, Prefix: stackPrefix, Compose: compose, URL: url, Owner: s.Deployments.OwnerOf(dep),
 				Log: func(format string, args ...any) { s.relLog(relID, format, args...) }}).Execute(ctx, at.Generation, checkpoint)
 		})
 	if err != nil {
@@ -451,8 +452,10 @@ type stackImages struct {
 
 // portainerStackOf is everything a Portainer deployment's stack is made of.
 type portainerStackOf struct {
-	Slug     string
-	Prefix   string // the deployment's recorded host prefix
+	// Prefix and Base begin the stack's name and its volume keys
+	// (portainer.StackNames).
+	Base     string
+	Prefix   string
 	Hosts    []string
 	Domain   string
 	Contract *appcontract.Contract // the effective contract
@@ -470,10 +473,10 @@ type portainerStackOf struct {
 // needs are resolved by the code a Docker host boots from (boot.go); the
 // stack renders that, never resolving needs again.
 func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, logf func(string, ...any)) (string, error) {
-	// The stack's names carry its deployment's recorded prefix: a stack
-	// rendered without one would name its volumes anew, away from its data.
-	if _, err := docker.ParsePrefix(in.Prefix); err != nil {
-		return "", fmt.Errorf("the deployment's host names: %w", err)
+	// The stack's names are its deployment's: a stack rendered without
+	// them would name its volumes anew, away from its data.
+	if _, err := docker.ParsePrefix(in.Prefix); err != nil || in.Base == "" {
+		return "", fmt.Errorf("the deployment's names on Portainer: prefix %q, base %q", in.Prefix, in.Base)
 	}
 	c := in.Contract
 	rs, err := e.ResolveDockerStack(ctx, c, nil, e.NeedCredentials(NeedSecretsScope(in.Deployment)))
@@ -491,7 +494,7 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 	if err != nil {
 		return "", err
 	}
-	st := deploy.IntranetStack{Slug: in.Slug, Prefix: in.Prefix, Hosts: in.Hosts, Domain: in.Domain, Image: image, Command: plan.PublicPart().Command, Resources: plan.PublicPart().Resources, Port: c.PublicPart().Port,
+	st := deploy.IntranetStack{Base: in.Base, Prefix: in.Prefix, Hosts: in.Hosts, Domain: in.Domain, Image: image, Command: plan.PublicPart().Command, Resources: plan.PublicPart().Resources, Port: c.PublicPart().Port,
 		Env: plan.PublicPart().Env, DataDir: plan.PublicPart().DataDir, Origins: e.PublicOrigins(ctx), Init: plan.Init, Needs: docker.IntranetNeeds(rs.Needs),
 		Secrets: in.Secrets, PublicPart: c.PublicPart().Name, Release: c.PublicRelease(strings.TrimSpace(in.Revision))}
 	for _, part := range plan.Parts {

@@ -46,7 +46,7 @@
       "file": "internal/dbtest/suite.go",
       "declaration": "Suite.setup",
       "text": "fmt.Sprintf(`CREATE DATABASE %s`, s.template)",
-      "declaration_hash": "24fc6b1c2074baba494c4a2f6088418c25c6470d4d9351295152ad567ce37059",
+      "declaration_hash": "5743c76ec8ac5fc652235e7bfc11d02cc7492a7885cec1dcc692b3fb8eea9bff",
       "tables": [],
       "reason": "Test harness creates its private template database."
     },

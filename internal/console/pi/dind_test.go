@@ -55,7 +55,7 @@ func (f *fakeDocker) run(ctx context.Context, args ...string) ([]byte, error) {
 			f.volumes = map[string]string{}
 		}
 		if _, ok := f.volumes[args[len(args)-1]]; !ok {
-			f.volumes[args[len(args)-1]] = strings.TrimPrefix(args[5], "forge.console=")
+			f.volumes[args[len(args)-1]] = strings.TrimPrefix(args[5], "apptown.console=")
 		}
 	case args[0] == "volume" && args[1] == "inspect":
 		owner, ok := f.volumes[args[len(args)-1]]
@@ -90,7 +90,7 @@ func (f *fakeDocker) run(ctx context.Context, args ...string) ([]byte, error) {
 			if !f.console {
 				return missing()
 			}
-			return []byte(`false 0001-01-01T00:00:00Z img {"forge.console.dind":"1","forge.console.model":"m"}`), nil
+			return []byte(`false 0001-01-01T00:00:00Z img {"apptown.console.dind":"1","apptown.console.model":"m"}`), nil
 		}
 		if !f.daemon {
 			if f.network && !strings.Contains(call, "--type container") {
@@ -158,7 +158,7 @@ func TestDindRecoveryAndDisposal(t *testing.T) {
 		if args[0] == "run" {
 			runs++
 			call := strings.Join(args, " ")
-			for _, want := range []string{"--privileged", "forge.class=console-dind", "--network-alias dind", in.Workspace.Path + ":/work", "ZFS_MODULE_TIMEOUT=0", "--tls=false"} {
+			for _, want := range []string{"--privileged", "apptown.class=console-dind", "--network-alias dind", in.Workspace.Path + ":/work", "ZFS_MODULE_TIMEOUT=0", "--tls=false"} {
 				if !strings.Contains(call, want) {
 					t.Errorf("missing %s: %s", want, call)
 				}
@@ -360,7 +360,7 @@ func TestProvisioning(t *testing.T) {
 			if create == "" {
 				t.Fatal("console was not created")
 			}
-			for _, want := range []string{in.Dir + ":/console:ro", "APPTOWN_URL=http://host.docker.internal:7778", "/tools/apptown:/opt/apptown/bin/apptown:ro", "forge.console.model=m"} {
+			for _, want := range []string{in.Dir + ":/console:ro", "APPTOWN_URL=http://host.docker.internal:7778", "/tools/apptown:/opt/apptown/bin/apptown:ro", "apptown.console.model=m"} {
 				if !strings.Contains(create, want) {
 					t.Errorf("create missing %s: %s", want, create)
 				}
@@ -371,7 +371,7 @@ func TestProvisioning(t *testing.T) {
 				}
 			}
 			if mode == "change" {
-				for _, want := range []string{"--network " + dindName(in.ID), "DOCKER_HOST=tcp://dind:2375", "DOCKER_CONFIG=/console/docker-client", "BUILDX_BUILDER=apptown", "forge.console.dind=1", in.Workspace.Path + ":/work "} {
+				for _, want := range []string{"--network " + dindName(in.ID), "DOCKER_HOST=tcp://dind:2375", "DOCKER_CONFIG=/console/docker-client", "BUILDX_BUILDER=apptown", "apptown.console.dind=1", in.Workspace.Path + ":/work "} {
 					if !strings.Contains(create, want) {
 						t.Errorf("client missing %s", want)
 					}
@@ -424,7 +424,7 @@ func TestStaleReadsTheLabels(t *testing.T) {
 	}
 	r.cfg.Run = func(ctx context.Context, args ...string) ([]byte, error) {
 		if args[0] == "inspect" && args[len(args)-1] == ContainerName(in.ID) {
-			return []byte(`true 2026-09-09T00:00:00Z img {"forge.console.dind":"1","forge.console.model":"m","forge.console.mounts":"` + r.mountsDigest(in) + `"}`), nil
+			return []byte(`true 2026-09-09T00:00:00Z img {"apptown.console.dind":"1","apptown.console.model":"m","apptown.console.mounts":"` + r.mountsDigest(in) + `"}`), nil
 		}
 		if args[0] == "image" {
 			return []byte("img"), nil
@@ -492,7 +492,7 @@ func TestANewCLIMountMakesTheChatStale(t *testing.T) {
 				t.Fatal("a container pinning the old CLI is current")
 			}
 			in.Mounts = []string{"/blobs/cli-a:/opt/apptown/bin/apptown:ro"}
-			delete(labels, "forge.console.mounts")
+			delete(labels, "apptown.console.mounts")
 			if !stale() {
 				t.Fatal("a container from before the mounts label is current")
 			}

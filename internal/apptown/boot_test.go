@@ -38,6 +38,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/gitexec"
 )
 
@@ -119,7 +120,7 @@ func containersRun(f *fakeDocker) []ran {
 			continue
 		}
 		out = append(out, ran{
-			name: containerNameOf(c), class: labelOf(c, "forge.class"), owner: labelOf(c, "forge.owner"),
+			name: containerNameOf(c), class: labelOf(c, "apptown.class"), owner: labelOf(c, "apptown.owner"),
 			restart: strings.Contains(c, "--restart unless-stopped"), rm: hasArg(c, "--rm"), call: c,
 		})
 	}
@@ -287,6 +288,35 @@ func deployRun(t *testing.T, a *App) (runID, stepID ids.ID) {
 	return runID, stepID
 }
 
+// mainNames are project p's main deployment's names on its host, from its
+// record: by its key.
+func mainNames(t *testing.T, a *App) docker.Names {
+	t.Helper()
+	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := env.HostNames("p")
+	if err != nil || !names.ByKeyNow() {
+		t.Fatalf("p/main's names: %+v %v", names, err)
+	}
+	return names
+}
+
+// standingMain makes p's main deployment on the built-in host before its
+// first release, and answers its names.
+func standingMain(t *testing.T, a *App) docker.Names {
+	t.Helper()
+	target, err := a.Deployment.Targets.ByName(t.Context(), deployment.BuiltInTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", target.ID, deployment.Attributes{}.WithDefaults()); err != nil {
+		t.Fatal(err)
+	}
+	return mainNames(t, a)
+}
+
 func TestRunDeploySequence(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
@@ -298,13 +328,23 @@ func TestRunDeploySequence(t *testing.T) {
 	if err != nil || step.Status != workflow.StatusPass {
 		t.Fatalf("deploy step: %+v %v\ncalls:\n%s", step, err, strings.Join(f.joined(), "\n"))
 	}
-	runs := expectBootSequence(t, f, docker.StackID("p", "main"), docker.Current.Container("p", "main"), true)
+	names := mainNames(t, a)
+	runs := expectBootSequence(t, f, names.Stack(), names.App(), true)
 	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
-	if err != nil || env.Container != docker.Current.Container("p", "main") || env.ReleaseRun != runID || env.HostPort == 0 {
+	if err != nil || env.Container != names.App() || env.ReleaseRun != runID || env.HostPort == 0 {
 		t.Fatalf("environment record: %+v %v", env, err)
 	}
 	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(env.HostPort)+":8080") {
 		t.Fatalf("a standing deployment publishes its stable port: %s", runs[3].call)
+	}
+	// Its app container says, for people, which project and deployment it
+	// is for; previews do not carry these.
+	p, err := a.Projects.ByID(t.Context(), idstest.N(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info := strings.Join(dockerlabel.Informational(p.Slug, "main"), " "); !strings.Contains(runs[3].call, info) {
+		t.Fatalf("the app container does not say whose it is (%s): %s", info, runs[3].call)
 	}
 }
 
@@ -312,7 +352,8 @@ func TestRunDeployReusesStandingNeeds(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
 	_, stepID := deployRun(t, a)
-	pg := docker.Current.Service(docker.StackID("p", "main"), "postgres")
+	names := standingMain(t, a)
+	pg := names.Service("postgres")
 	kind, err := a.Dependencies.ByCapability(t.Context(), "postgres")
 	if err != nil {
 		t.Fatal(err)
@@ -332,7 +373,7 @@ func TestRunDeployReusesStandingNeeds(t *testing.T) {
 	}
 	// ...but still waited healthy before the init step runs against it.
 	hi := f.indexOf("inspect -f {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} " + pg)
-	ii := f.indexOf("run --rm --init --name " + docker.Current.Init(docker.StackID("p", "main"), "migrate"))
+	ii := f.indexOf("run --rm --init --name " + names.Init("migrate"))
 	if hi < 0 || ii < 0 || hi > ii {
 		t.Fatalf("init must wait for the reused need's health (inspect at %d, init at %d)", hi, ii)
 	}
@@ -366,7 +407,8 @@ func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	a.ensureDeploymentsOnce(context.Background()) // the container is not running: a rebuild job is asked for
 	runQueuedJobForTest(t, a, "rebuild", "p/main")
 
-	runs := expectBootSequence(t, f, docker.StackID("p", "main"), docker.Current.Container("p", "main"), true)
+	names := mainNames(t, a)
+	runs := expectBootSequence(t, f, names.Stack(), names.App(), true)
 	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(reservedPort)+":8080") {
 		t.Fatalf("a rebuilt environment keeps its stable port: %s", runs[3].call)
 	}
@@ -419,7 +461,7 @@ func TestAStoppedPreviewLosesItsRow(t *testing.T) {
 		}
 	}
 	f.reply = func(args []string) (string, error, bool) {
-		if args[0] == "ps" && slices.Contains(args, "label=forge.class=preview") {
+		if args[0] == "ps" && slices.Contains(args, "label=apptown.class=preview") {
 			return name + "\t" + docker.ChangeStackID(idstest.N(41)) + "\n", nil, true
 		}
 		return "", nil, false
@@ -1141,7 +1183,7 @@ func TestALandingDoesNotReleaseOverDataItCouldNotCopy(t *testing.T) {
 		}
 		return "", nil, false
 	}
-	app := docker.Current.Container("p", "main")
+	app := mainNames(t, a).App()
 	retry := func(ctx context.Context, accept bool) error {
 		_, err := a.Work.RunStep(ctx, workflow.RetryCommand{StepID: stepID, AcceptUncopiedData: accept})
 		if errors.Is(err, workflow.ErrDispatchStopped) {

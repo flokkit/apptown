@@ -104,8 +104,8 @@ func TestACheckRunsOnTheWorkerAndAnswersLikeTheLocalRunner(t *testing.T) {
 	recorded, _ := os.ReadFile(calls)
 	// Labelled as a check of this worker, so this worker's sweep, and no
 	// other's, finds it.
-	if !strings.Contains(string(recorded), "--network none") || !strings.Contains(string(recorded), "forge.class=check") ||
-		!strings.Contains(string(recorded), srv.CheckOwnerLabel()) || !strings.Contains(string(recorded), "forge.deadline=") {
+	if !strings.Contains(string(recorded), "--network none") || !strings.Contains(string(recorded), "apptown.class=check") ||
+		!strings.Contains(string(recorded), srv.CheckOwnerLabel()) || !strings.Contains(string(recorded), "apptown.deadline=") {
 		t.Fatalf("the check container was not confined and labelled: %s", recorded)
 	}
 }
@@ -136,12 +136,12 @@ func TestACheckWithServicesRunsBesideThemOnTheWorker(t *testing.T) {
 		return ""
 	}
 	network := find("network create")
-	if !strings.Contains(network, "--internal") || !strings.Contains(network, "forge.class=check") || !strings.Contains(network, srv.CheckOwnerLabel()) {
+	if !strings.Contains(network, "--internal") || !strings.Contains(network, "apptown.class=check") || !strings.Contains(network, srv.CheckOwnerLabel()) {
 		t.Fatalf("the check's network: %s", network)
 	}
 	name := network[strings.LastIndex(network, " ")+1:]
 	svc := find("run -d")
-	if !strings.Contains(svc, "--network "+name+" --network-alias postgres") || !strings.Contains(svc, "POSTGRES_DB=app") || !strings.Contains(svc, "forge.deadline=") {
+	if !strings.Contains(svc, "--network "+name+" --network-alias postgres") || !strings.Contains(svc, "POSTGRES_DB=app") || !strings.Contains(svc, "apptown.deadline=") {
 		t.Fatalf("the service: %s", svc)
 	}
 	// Bounded, so one project's test database cannot starve the worker:

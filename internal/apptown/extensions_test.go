@@ -8,7 +8,7 @@ import (
 
 func TestOptInExtensions(t *testing.T) {
 	t.Parallel()
-	a := testApp(t, Config{DockerClient: fakeAgentLabels(map[string]string{"forge.pi-lsp.version": "0.49.6", "forge.pi-subagents.version": "0.61.0"})})
+	a := testApp(t, Config{DockerClient: fakeAgentLabels(map[string]string{"apptown.pi-lsp.version": "0.49.6", "apptown.pi-subagents.version": "0.61.0"})})
 	testAdministrator(t, a, "bls")
 	pid := plainTestProject(t, a.DB, "p", "P")
 

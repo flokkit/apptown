@@ -13,7 +13,7 @@ import (
 
 // Preview names and the stacks that live and die with a preview. A "stack
 // id" is the owner of a throwaway or standing service stack: the value the
-// forge.owner label carries on its services and init containers, and the
+// apptown.owner label carries on its services and init containers, and the
 // suffix of its network:
 //
 //	pvsnap-change-<id>  the try-it preview of a change

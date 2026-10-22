@@ -186,7 +186,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	}
 	bucket, _ := p.Handle["bucket"].(string)
 	if bucket == "" {
-		if bucket, err = d.create(ctx, c, p.Name, logf); err != nil {
+		if bucket, err = d.create(ctx, c, deploy.HostKey(p.ID), logf); err != nil {
 			return deploy.Observation{}, err
 		}
 	}
@@ -232,8 +232,8 @@ func observed(generation int64, bucket, address, identity string, keys []string)
 // create makes the deployment's bucket and records it before anything
 // else touches it. A taken name is refused, never adopted; a create whose
 // outcome is unknown is left for a person.
-func (d *Driver) create(ctx context.Context, c *Client, deployment string, logf func(string, ...any)) (string, error) {
-	bucket := BucketName(d.Slug, deployment, d.options.Suffix())
+func (d *Driver) create(ctx context.Context, c *Client, key string, logf func(string, ...any)) (string, error) {
+	bucket := BucketName(key, d.options.Suffix())
 	err := c.CreateBucket(ctx, bucket)
 	var refusal *Error
 	switch {
@@ -397,9 +397,10 @@ func (d *Driver) Controls() deploy.Controls { return deploy.Controls{Liveness: t
 
 var nameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 
-// BucketName is a deployment's bucket: forge-<project>-<deployment>-<suffix>,
-// lowercase, DNS-valid and at most 63 characters.
-func BucketName(slug, deployment, suffix string) string {
+// BucketName is a deployment's bucket: apptown-<key>-<suffix>, from its
+// key (deploy.HostKey), which no other deployment shares; lowercase,
+// DNS-valid and at most 63 characters.
+func BucketName(key, suffix string) string {
 	clean := func(s string, n int) string {
 		s = strings.Trim(nameChars.ReplaceAllString(strings.ToLower(s), "-"), "-")
 		if len(s) > n {
@@ -407,5 +408,5 @@ func BucketName(slug, deployment, suffix string) string {
 		}
 		return s
 	}
-	return "apptown-" + clean(slug, 28) + "-" + clean(deployment, 16) + "-" + clean(suffix, 8)
+	return "apptown-" + clean(key, 12) + "-" + clean(suffix, 8)
 }

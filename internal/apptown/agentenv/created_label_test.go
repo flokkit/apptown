@@ -10,7 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 )
 
-// A step container's forge.created label is AppTown's time it was given:
+// A step container's apptown.created label is AppTown's time it was given:
 // maintenance judges a container's age by AppTown's clock, so the label
 // must be on that clock too.
 //
@@ -19,7 +19,7 @@ func TestAStepContainersCreatedLabelIsAppTownsTime(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2031, 1, 2, 3, 4, 5, 0, time.UTC)
 	req := Decorate(execution.Request{Name: "step"}, at, "")
-	if want := "forge.created=" + at.Format(time.RFC3339); !slices.Contains(req.Labels, want) {
+	if want := "apptown.created=" + at.Format(time.RFC3339); !slices.Contains(req.Labels, want) {
 		t.Fatalf("labels %v, want %s", req.Labels, want)
 	}
 }

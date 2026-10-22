@@ -65,12 +65,12 @@ func TestReapRunContainersReapsOnlyThatRun(t *testing.T) {
 	if calls[1] != "volume rm "+docker.Current.DataVolume(docker.PreviewRunName(runA)) {
 		t.Fatalf("second call must remove run A's data volume, got %q", calls[1])
 	}
-	ownerA := "label=forge.owner=" + docker.RunStepStackID(stepA)
-	ownerB := "label=forge.owner=" + docker.RunStepStackID(stepB)
+	ownerA := "label=apptown.owner=" + docker.RunStepStackID(stepA)
+	ownerB := "label=apptown.owner=" + docker.RunStepStackID(stepB)
 	var sawA bool
 	for _, c := range calls {
 		if strings.HasPrefix(c, "ps") {
-			if !strings.Contains(c, "label=forge.owner=") {
+			if !strings.Contains(c, "label=apptown.owner=") {
 				t.Fatalf("an unscoped listing sweeps every stack on the box: %s", c)
 			}
 			if strings.Contains(c, ownerA) {
@@ -269,7 +269,7 @@ func TestReaperKeepsLongRunningExecutionResources(t *testing.T) {
 			// carry the label; without it, every network, unlabelled ones
 			// with empty label columns.
 			listed := networks
-			if strings.Contains(strings.Join(args, " "), "--filter label=forge.class") {
+			if strings.Contains(strings.Join(args, " "), "--filter label=apptown.class") {
 				listed = nil
 				for _, n := range networks {
 					if parts := strings.Split(n, "\t"); len(parts) > 2 && parts[2] != "" {

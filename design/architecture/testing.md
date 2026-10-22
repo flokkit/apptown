@@ -6,14 +6,14 @@ own receipts come from.
 ## The tiers
 
 **Unit** — `go test ./...`, AppTown suite plus the domain and infrastructure
-packages. Requires Go, a `git` binary and a **Docker daemon**: the harness starts (or reuses) a `forge-test-db`
-container on port 54329 and clones a template database per test, so every
+packages. Requires Go, a `git` binary and a **Docker daemon**: the harness starts (or reuses) an `apptown-test-db`
+container on port 54330 and clones a template database per test, so every
 DB-shaped test runs against real Postgres with the real migrations
 (`APPTOWN_TEST_DB_URL` points it at a database of your own instead). That
 container keeps its data in memory and runs with durability off (no fsync,
 no synchronous commit, minimal WAL): nothing in it outlives a test binary,
 and crash safety would cost the suite about a quarter of its wall clock. The
-settings apply when the container is created; `docker rm -f forge-test-db`
+settings apply when the container is created; `docker rm -f apptown-test-db`
 makes the next run create it afresh. A database of your own
 should be configured the same way, through `ALTER SYSTEM`, or it will be
 the slow one. The

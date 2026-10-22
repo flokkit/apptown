@@ -196,6 +196,13 @@ INSERT INTO deployment_owned (id, deployment_id, kind, ident, name, holds_data, 
   VALUES (sqlc.arg(id), sqlc.arg(deployment_id),sqlc.arg(kind),sqlc.arg(ident),sqlc.arg(name),sqlc.arg(holds_data),sqlc.arg(need),sqlc.arg(recorded_at),sqlc.arg(note))
   ON CONFLICT (deployment_id, kind, ident) DO NOTHING;
 
+-- name: SwitchToKeyNames :execrows
+UPDATE deployments SET host_prefix='', host_label='', updated_at=sqlc.arg(updated_at)
+  WHERE id=sqlc.arg(id) AND host_prefix<>'';
+
+-- name: ForgetHostResources :execrows
+DELETE FROM deployment_owned WHERE deployment_id=sqlc.arg(deployment_id) AND kind IN ('container','network','volume');
+
 -- name: ForgetOwned :execrows
 DELETE FROM deployment_owned WHERE deployment_id=sqlc.arg(deployment_id) AND kind=sqlc.arg(kind) AND ident=sqlc.arg(ident);
 
@@ -350,8 +357,8 @@ SELECT COUNT(*) FROM deployments WHERE project_id=sqlc.arg(project_id) AND targe
 SELECT COUNT(*) FROM retained_resources WHERE target_id=sqlc.arg(target_id) AND disposition=sqlc.arg(disposition);
 
 -- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup)
-VALUES ($1,$2,$3,$4,$5) RETURNING *;
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,move_names)
+VALUES ($1,$2,$3,$4,$5,$6) RETURNING *;
 
 -- name: ReleaseStartFrom :one
 SELECT start_from_backup FROM release_requests WHERE release_id=sqlc.arg(release_id);

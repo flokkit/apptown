@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -57,23 +56,23 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 		switch t.Kind {
 		case KindDockerHost:
 			// What it is called on the host is what it was made with.
-			names, err := e.HostNames()
+			names, err := e.HostNames(e.Project)
 			if err != nil {
 				return nil, fmt.Errorf("naming %s/%s on its host: %w", e.Project, e.Name, err)
 			}
 			name := e.Container
 			if name == "" {
-				name = names.Container(e.Project, e.Name)
+				name = names.App()
 			}
 			out = append(out, deploy.Resource{Kind: "container", Name: name, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 			if d, ok := inv.declared.Declared(e.Project); ok {
 				if d.KeepsData {
-					out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(name), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
+					out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 				}
 				for _, need := range d.Needs {
 					h := host
 					h.Need = need
-					out = append(out, deploy.Resource{Kind: "container", Name: names.Service(docker.StackID(e.Project, e.Name), need), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{h}})
+					out = append(out, deploy.Resource{Kind: "container", Name: names.Service(need), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{h}})
 				}
 			}
 			// What the deployment recorded creating is its own: the

@@ -702,7 +702,7 @@ func TestALandingBuildsOnTheWorkerPublishesAndPullsByDigest(t *testing.T) {
 		}
 	}
 	expectPulledOnly(t, w, "lab", b)
-	if browser := w.hosts.daemon("lab").browser[docker.Current.Container("p", "main")]; browser == "" {
+	if browser := w.hosts.daemon("lab").browser[mainNames(t, w.a).App()]; browser == "" {
 		t.Errorf("the static part was not given its browser values")
 	}
 	if configs := w.hosts.daemon("lab").joined(); len(configs) == 0 {
@@ -1109,13 +1109,14 @@ func TestARestartAfterTheDeploySettledAppliesNothingAgain(t *testing.T) {
 	t.Parallel()
 	w := newReleaseWorld(t, nil)
 	w.mainOn(t, w.lab)
+	mainApp := mainNames(t, w.a).App()
 	run, stepID := w.landingRun(t)
 	// The landing's evidence is read from the host once its deployment has
 	// settled: AppTown dies there, before its step settles.
 	died, resume := make(chan struct{}), make(chan struct{})
 	var once sync.Once
 	hook := func(host string, args []string) {
-		if host == hostOf("lab") && strings.Join(args, " ") == "inspect -f {{.Config.Image}} "+docker.Current.Container("p", "main") {
+		if host == hostOf("lab") && strings.Join(args, " ") == "inspect -f {{.Config.Image}} "+mainApp {
 			once.Do(func() { close(died); <-resume })
 		}
 	}

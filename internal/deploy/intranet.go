@@ -37,11 +37,12 @@ type ConsumerSecrets interface {
 
 // IntranetStack is everything the stack file says.
 type IntranetStack struct {
-	Slug string
-	// Prefix is what the stack's names begin with: the deployment's
-	// recorded host prefix, so a stack made before 1.0 keeps its name,
-	// router and volumes (forge-) for good.
+	// Prefix and Base begin the stack's name, router and volume keys
+	// (portainer.StackNames): apptown- and dep-<key>, or, for a stack made
+	// before its names were by key and not yet moved, its recorded prefix
+	// and its project's slug.
 	Prefix string
+	Base   string
 	Hosts  []string
 	Domain string
 	Image  string // the selected public release image
@@ -166,8 +167,8 @@ func IntranetCompose(st IntranetStack) string {
 	writeEnv(appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart)), [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release})
 	if st.DataDir != "" {
 		b.WriteString("    volumes:\n")
-		fmt.Fprintf(&b, "      - %s:%s\n", st.dataVolume(st.Slug), ComposeLiteral(st.DataDir))
-		volumes = append(volumes, st.dataVolume(st.Slug))
+		fmt.Fprintf(&b, "      - %s:%s\n", st.dataVolume(st.Base), ComposeLiteral(st.DataDir))
+		volumes = append(volumes, st.dataVolume(st.Base))
 	}
 	deps := needsReady()
 	for _, it := range st.Init {
@@ -243,7 +244,7 @@ func IntranetCompose(st IntranetStack) string {
 		writeEnv(env)
 		writeHealth(p.Health)
 		if p.DataDir != "" {
-			vol := st.dataVolume(st.Slug + "-" + p.Name)
+			vol := st.dataVolume(st.Base + "-" + p.Name)
 			b.WriteString("    volumes:\n")
 			fmt.Fprintf(&b, "      - %s:%s\n", vol, ComposeLiteral(p.DataDir))
 			volumes = append(volumes, vol)
@@ -308,8 +309,8 @@ func PreparedReleaseApp(c *appcontract.Plan, image string) (*appcontract.Plan, e
 // Traefik router and service.
 func (st IntranetStack) dataVolume(container string) string { return st.Prefix + "data-" + container }
 
-func (st IntranetStack) stackName() string { return st.Prefix + st.Slug }
+func (st IntranetStack) stackName() string { return st.Prefix + st.Base }
 
 func (st IntranetStack) needVolume(need string) string {
-	return st.Prefix + "need-" + st.Slug + "-" + need
+	return st.Prefix + "need-" + st.Base + "-" + need
 }

@@ -223,7 +223,7 @@ func TestInTheNoLocalDockerModeALandedProjectIsDeletedAndItsMainTornDown(t *test
 	}
 	remote.markStarted("apptown-env-game-main")
 	remote.mu.Lock()
-	remote.labels = map[string]map[string]string{"apptown-env-game-main": {"forge.environment": fmt.Sprint(env.ID), "forge.generation": "0"}}
+	remote.labels = map[string]map[string]string{"apptown-env-game-main": {"apptown.deployment": fmt.Sprint(env.ID), "apptown.generation": "0"}}
 	remote.mu.Unlock()
 	var unreachable atomic.Bool
 	unreachable.Store(true)

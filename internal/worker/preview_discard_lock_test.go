@@ -27,7 +27,7 @@ func TestRemovingEveryPreviewWaitsForABootsLock(t *testing.T) {
 			<-release
 		case args[0] == "rm":
 			removedNew.Store(true)
-		case args[0] == "ps" && strings.Contains(strings.Join(args, " "), "forge.class=preview"):
+		case args[0] == "ps" && strings.Contains(strings.Join(args, " "), "apptown.class=preview"):
 			return []byte("apptown-preview-change-2\n"), nil
 		}
 		return nil, nil

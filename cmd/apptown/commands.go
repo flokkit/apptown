@@ -74,6 +74,9 @@ var sections = []section{
 			{[]string{"excavate"}, `  excavate [-p proj] ["<focus>"]        reverse-engineer the codebase into REQUIREMENTS.md (excavate workflow)`, verb("excavate")},
 			{[]string{"adopt"}, `  adopt  <capability> [-p proj]         attach an integration and wire it in`, cmdAdopt},
 			{[]string{"retire"}, `  retire <capability> [-p proj]         unwire an integration, then detach it`, cmdRetire},
+			{[]string{"move-names"}, `  move-names <project-slug> <deployment>
+                                        release what a deployment made before 1.0 runs, moving it to its names
+                                        by key first: its data is copied and checked, its old volumes kept`, cmdMoveNames},
 			{[]string{"follow"}, `  follow <change-id> [-y]               re-attach the loop to a change in flight`, cmdFollow},
 			{[]string{"retry"}, `  retry  <change-id> [-y]               blocked change: another round (fresh agent + feedback)
     retry -c / --continue               …same agent resumes its session, memory intact

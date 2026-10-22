@@ -103,7 +103,7 @@ func TestACheckImageIsPreparedOnTheWorker(t *testing.T) {
 	if _, err := os.Stat(login); !os.IsNotExist(err) {
 		t.Fatal("the request's Docker configuration outlived it")
 	}
-	if !strings.Contains(string(recorded), "build --label forge.class=check -t apptown-conform:abc") {
+	if !strings.Contains(string(recorded), "build --label apptown.class=check -t apptown-conform:abc") {
 		t.Fatalf("a check image is not labelled for the sweep: %s", recorded)
 	}
 }

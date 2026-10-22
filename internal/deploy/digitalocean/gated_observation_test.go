@@ -106,12 +106,12 @@ func TestGatedDeploymentIsNotProbedAnonymously(t *testing.T) {
 }
 
 // An app found by its name is a gated deployment's only when it carries
-// that deployment's own mark: two projects' names can join into the same
-// app name, and an app without the mark is reported, never taken as ours.
+// that deployment's own mark: an app without the mark is reported, never
+// taken as ours.
 func TestFindMadeTakesOnlyAnAppCarryingTheMark(t *testing.T) {
 	t.Parallel()
 	app := func(marker string) map[string]any {
-		return map[string]any{"id": "app-7", "spec": map[string]any{"name": "orders-copy-3", "services": []map[string]any{
+		return map[string]any{"id": "app-7", "spec": map[string]any{"name": "apptown-3b89d1da8075", "services": []map[string]any{
 			{"name": GateComponent, "envs": []map[string]any{{"key": deploy.GateEnvMarker, "value": marker}}}}}}
 	}
 	for _, tc := range []struct {
@@ -122,7 +122,7 @@ func TestFindMadeTakesOnlyAnAppCarryingTheMark(t *testing.T) {
 	}{
 		{"its mark", app("mine-0123456789abcdef0123456789ab"), "mine-0123456789abcdef0123456789ab", true},
 		{"another mark", app("theirs-123456789abcdef0123456789"), "mine-0123456789abcdef0123456789ab", false},
-		{"no mark at all", map[string]any{"id": "app-7", "spec": map[string]any{"name": "orders-copy-3"}}, "mine-0123456789abcdef0123456789ab", false},
+		{"no mark at all", map[string]any{"id": "app-7", "spec": map[string]any{"name": "apptown-3b89d1da8075"}}, "mine-0123456789abcdef0123456789ab", false},
 		{"no mark recorded", app(""), "", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -142,7 +142,7 @@ func TestFindMadeTakesOnlyAnAppCarryingTheMark(t *testing.T) {
 			d := NewDriver(Dependencies{Slug: "orders", Client: func(context.Context) (*Client, Config, error) {
 				return &Client{Base: srv.URL, HTTP: srv.Client()}, Config{Region: "syd"}, nil
 			}}, Options{})
-			made, err := d.FindMade(context.Background(), deploy.Placement{Name: "copy-3", Gate: &deploy.Gate{Marker: tc.marker}})
+			made, err := d.FindMade(context.Background(), deploy.Placement{ID: shopMain.ID, Name: "copy-3", Gate: &deploy.Gate{Marker: tc.marker}})
 			if err != nil {
 				t.Fatal(err)
 			}

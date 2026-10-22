@@ -16,7 +16,7 @@ execution cleanup. Private console daemons are cleaned up with their session
 rather than independently by age.
 
 A step's services network and its private daemon's network carry the same
-`forge.class` and `forge.owner` labels as their containers, set when the
+`apptown.class` and `apptown.owner` labels as their containers, set when the
 network is made. The reaper selects networks by those labels, never by name,
 and removes one, by listed ID, once its execution owner has finished, under the
 same rule as the containers: an unknown owner or a failed read keeps it. Docker

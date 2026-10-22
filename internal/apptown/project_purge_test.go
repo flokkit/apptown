@@ -749,7 +749,7 @@ func TestProjectCleanupRemovesPreviewStacks(t *testing.T) {
 	f.markStarted(sidecar)
 	f.reply = func(args []string) (string, error, bool) {
 		call := strings.Join(args, " ")
-		if strings.Contains(call, "label=forge.class=service") && strings.Contains(call, "label=forge.owner=pvsnap-change-"+fx.Change.String()) {
+		if strings.Contains(call, "label=apptown.class=service") && strings.Contains(call, "label=apptown.owner=pvsnap-change-"+fx.Change.String()) {
 			return sidecar + "\n", nil, true
 		}
 		return "", nil, false

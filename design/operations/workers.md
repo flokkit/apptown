@@ -408,7 +408,7 @@ task:
   sends the tree. A landing's history scan also sends a bundle of the
   landing's commits.
 - The worker runs one container on a scratch copy, labelled
-  `forge.class=check` with its deadline, and with no network unless the
+  `apptown.class=check` with its deadline, and with no network unless the
   scanner binding asks for egress.
 - It answers with the exit code, the output and the one report the check
   declares. The report is read only as a regular file inside the tree.
@@ -431,7 +431,7 @@ What a check leaves on the worker:
 - **Leftovers.** Every minute the worker sweeps its check containers and
   folders past their deadline, and all of its own when it starts. A check
   interrupted by a restart is discarded; asked again, it runs again. A
-  worker's check containers carry its own label (`forge.worker=`, from its
+  worker's check containers carry its own label (`apptown.worker=`, from its
   installation and state folder), and its sweep removes only those: another
   worker's checks on the same Docker are left alone.
 - **Built images.** Images checks built are removed a day after their last
@@ -925,7 +925,7 @@ A chat on the worker runs under the same rules as a task's private Docker:
   worker starts; it never means "unlimited". Disk is not limited per chat:
   the daemon's images and volumes share the worker's disk.
 - **Caches.** Each chat has its own cache volume
-  (`apptown-cache-console-<session>`, labelled `forge.console=<session>`),
+  (`apptown-cache-console-<session>`, labelled `apptown.console=<session>`),
   mounted at `/apptown-cache` in its container and its daemon. It is removed
   with the chat's runtime: when the chat ends, when it is rebuilt, and by the
   worker's clean-up at start for a session it has no live record of. The

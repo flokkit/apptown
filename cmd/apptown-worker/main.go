@@ -149,6 +149,12 @@ func main() {
 	w := &worker.Server{Installation: *installation, Role: role, State: *state, Tasks: execution.DockerTasks{Binary: *docker, CallerAdmitsDisk: true}, Sessions: sessions,
 		Images: worker.DockerImages{Binary: *docker}, AgentImage: agentImage, ImageLabels: worker.DockerImages{Binary: *docker}, Checks: execution.Runner{DockerBinary: *docker, ServiceLimits: serviceLimits}, Previews: previews,
 		DindImage: *dindImage, Docker: dockercli.CLI{Binary: *docker}, ServiceLimits: serviceLimits, ToolCache: toolCache, Now: now}
+	// What a worker before 1.0 left on this Docker (checks, previews, chats,
+	// private Docker, tasks) is removed before anything else runs here
+	// (REMOVE-AFTER resource move).
+	if err := dockercli.SweepBefore1(ctx, dockercli.Scope{Client: dockercli.CLI{Binary: *docker}}); err != nil {
+		log.Fatal(err)
+	}
 	// What private Docker rests on is measured now, and reported with what
 	// the operator declares; AppTown records it with every attempt
 	// admitted with private Docker (worker/profile.go). A check worker runs

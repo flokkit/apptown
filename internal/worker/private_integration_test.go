@@ -186,7 +186,7 @@ const loadImage = `docker load -q -i /work/image.tar >/dev/null || { echo "loadi
 
 // names are a task's private resources as the worker names them.
 func (f *privateFixture) names(key string) (network, daemon string) {
-	network = "apptown-private-" + strings.TrimPrefix(f.srv.CheckOwnerLabel(), "forge.worker=") + "-" + key
+	network = "apptown-private-" + strings.TrimPrefix(f.srv.CheckOwnerLabel(), "apptown.worker=") + "-" + key
 	return network, network + "-dind"
 }
 
@@ -210,7 +210,7 @@ func labelled(t *testing.T, key string) []string {
 	t.Helper()
 	var all []string
 	for _, args := range [][]string{{"ps", "-a", "--format", "{{.Names}}"}, {"network", "ls", "--format", "{{.Name}}"}} {
-		out, err := exec.Command("docker", append(args, "--filter", "label=forge.class=private-docker", "--filter", "label=forge.task="+key)...).CombinedOutput()
+		out, err := exec.Command("docker", append(args, "--filter", "label=apptown.class=private-docker", "--filter", "label=apptown.task="+key)...).CombinedOutput()
 		if err != nil {
 			t.Fatalf("docker %v: %v: %s", args, err, out)
 		}

@@ -87,8 +87,9 @@ func VerifyIdentity(id deploy.DockerIdentity, runtime Runtime, image string) err
 	if id.Deployment == "" || id.Generation <= 0 || id.Artifact == "" {
 		return errors.New("deployment has incomplete Docker identity")
 	}
+	carried := deploy.IdentityLabels(runtime.Labels)
 	for label, value := range id.Labels() {
-		if runtime.Labels[label] != value {
+		if carried[label] != value {
 			return fmt.Errorf("container does not belong to the selected deployment (%s differs)", label)
 		}
 	}

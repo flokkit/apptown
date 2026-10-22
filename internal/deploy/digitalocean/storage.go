@@ -77,15 +77,11 @@ func SpacesEndpoint(region string) string {
 	return "https://" + region + ".digitaloceanspaces.com"
 }
 
-func makerKeyName(slug, deployment string) string { return "apptown-maker-" + slug + "-" + deployment }
-
-// makerKeyNames are every name a deployment's maker key may carry: a
-// release before 1.0 named it forge-maker-…, and the sweep deletes one
-// such a release left as it deletes its own.
-func makerKeyNames(slug, deployment string) []string {
-	return []string{makerKeyName(slug, deployment), "forge-maker-" + slug + "-" + deployment}
-}
-func appKeyName(slug, deployment string) string { return "apptown-" + slug + "-" + deployment }
+// A deployment's Spaces keys are named by its key (deploy.HostKey), which
+// no other deployment shares: its full-access maker key, and the app's own
+// key to its bucket.
+func makerKeyName(key string) string { return "apptown-maker-" + key }
+func appKeyName(key string) string   { return "apptown-app-" + key }
 
 func (d *Driver) mintKey(ctx context.Context, c *Client, name string, grant spacesGrant) (spacesKey, error) {
 	var made struct {
@@ -123,14 +119,14 @@ type maker struct {
 // release that fulfils s3 and every take-down of its storage sweeps, so the
 // promise a left key's warning makes holds. Keys it could not delete are
 // returned, named; a list that could not be read is the error.
-func (d *Driver) sweepMakers(ctx context.Context, c *Client, deployment string, logf func(string, ...any)) (left []deploy.Left, err error) {
-	names := makerKeyNames(d.Slug, deployment)
+func (d *Driver) sweepMakers(ctx context.Context, c *Client, key string, logf func(string, ...any)) (left []deploy.Left, err error) {
+	name := makerKeyName(key)
 	keys, err := spacesKeys(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("reading the account's Spaces keys: %w", err)
 	}
 	for _, k := range keys {
-		if !slices.Contains(names, k.Name) {
+		if k.Name != name {
 			continue
 		}
 		if err := d.deleteKey(ctx, c, k.AccessKey); err != nil {
@@ -153,14 +149,14 @@ func makerLeft(k spacesKey, err error) deploy.Left {
 // after sweeping any of that name left before. The key is deleted when f
 // returns, whatever happened; one whose deletion fails is answered as
 // left (a live credential, which the next release or take-down sweeps).
-func (d *Driver) withMaker(ctx context.Context, c *Client, region, deployment string, logf func(string, ...any), f func(m maker) error) (left []deploy.Left, err error) {
-	if left, err = d.sweepMakers(ctx, c, deployment, logf); err != nil || len(left) > 0 {
+func (d *Driver) withMaker(ctx context.Context, c *Client, region, key string, logf func(string, ...any), f func(m maker) error) (left []deploy.Left, err error) {
+	if left, err = d.sweepMakers(ctx, c, key, logf); err != nil || len(left) > 0 {
 		if err == nil {
 			err = fmt.Errorf("a full-access maker key an earlier operation left could not be deleted: %s", left[0].Why)
 		}
 		return left, err
 	}
-	name := makerKeyName(d.Slug, deployment)
+	name := makerKeyName(key)
 	k, err := d.mintKey(ctx, c, name, spacesGrant{Bucket: "", Permission: "fullaccess"})
 	if err != nil {
 		return nil, fmt.Errorf("making a full-access Spaces key to make the bucket with: %w", err)
@@ -209,9 +205,9 @@ func (d *Driver) fulfilStorage(ctx context.Context, p deploy.Placement, logf fun
 		}
 	}
 	if !haveBucket || !haveKey || secret == "" {
-		_, err := d.withMaker(ctx, c, region, p.Name, logf, func(m maker) error {
+		_, err := d.withMaker(ctx, c, region, deploy.HostKey(p.ID), logf, func(m maker) error {
 			if !haveBucket {
-				name, err := d.makeBucket(ctx, m.client, p.Name, logf)
+				name, err := d.makeBucket(ctx, m.client, deploy.HostKey(p.ID), logf)
 				if err != nil {
 					return err
 				}
@@ -233,7 +229,7 @@ func (d *Driver) fulfilStorage(ctx context.Context, p deploy.Placement, logf fun
 				haveKey = false
 			}
 			if !haveKey {
-				k, err := d.mintBucketKey(ctx, c, p.Name, bucket.ID)
+				k, err := d.mintBucketKey(ctx, c, deploy.HostKey(p.ID), bucket.ID)
 				if err != nil {
 					return err
 				}
@@ -255,7 +251,7 @@ func (d *Driver) fulfilStorage(ctx context.Context, p deploy.Placement, logf fun
 	} else {
 		// Nothing to make: still sweep a maker key an earlier operation
 		// left, as its warning promised.
-		left, err := d.sweepMakers(ctx, c, p.Name, logf)
+		left, err := d.sweepMakers(ctx, c, deploy.HostKey(p.ID), logf)
 		if err != nil {
 			return deploy.NeedBinding{}, nil, err
 		}
@@ -279,8 +275,8 @@ func (d *Driver) fulfilStorage(ctx context.Context, p deploy.Placement, logf fun
 // makeBucket makes a new bucket for the deployment. A taken name is
 // refused, never adopted; an answer that does not say whether the bucket
 // was made is left for a person, as the bucket target does.
-func (d *Driver) makeBucket(ctx context.Context, s3 *s3bucket.Client, deployment string, logf func(string, ...any)) (string, error) {
-	name := s3bucket.BucketName(d.Slug, deployment, d.options.BucketSuffix())
+func (d *Driver) makeBucket(ctx context.Context, s3 *s3bucket.Client, key string, logf func(string, ...any)) (string, error) {
+	name := s3bucket.BucketName(key, d.options.BucketSuffix())
 	err := s3.CreateBucket(ctx, name)
 	var refusal *s3bucket.Error
 	switch {
@@ -299,10 +295,10 @@ func (d *Driver) makeBucket(ctx context.Context, s3 *s3bucket.Client, deployment
 // mintBucketKey mints the deployment's readwrite key for bucket. A bucket
 // made a moment ago can be refused a grant for a while ("invalid grant"),
 // so a refusal is asked again until GrantWait passes.
-func (d *Driver) mintBucketKey(ctx context.Context, c *Client, deployment, bucket string) (spacesKey, error) {
+func (d *Driver) mintBucketKey(ctx context.Context, c *Client, key, bucket string) (spacesKey, error) {
 	deadline := d.options.Now().Add(d.options.GrantWait)
 	for {
-		k, err := d.mintKey(ctx, c, appKeyName(d.Slug, deployment), spacesGrant{Bucket: bucket, Permission: "readwrite"})
+		k, err := d.mintKey(ctx, c, appKeyName(key), spacesGrant{Bucket: bucket, Permission: "readwrite"})
 		// Only "invalid grant" (403) is asked again: the new bucket is not
 		// yet seen by the keys API.
 		if err == nil || !IsStatus(err, 403) || d.options.Now().After(deadline) {
@@ -397,7 +393,7 @@ func (d *Driver) tearDownStorage(ctx context.Context, p deploy.Placement, td dep
 		}
 		return nil, left
 	}
-	swept, err := d.sweepMakers(ctx, c, p.Name, func(string, ...any) {})
+	swept, err := d.sweepMakers(ctx, c, deploy.HostKey(p.ID), func(string, ...any) {})
 	if err != nil {
 		for _, o := range append(keys, buckets...) {
 			left = append(left, storageLeft(o, "the account's keys could not be read: "+err.Error()))
@@ -427,7 +423,7 @@ func (d *Driver) tearDownStorage(ctx context.Context, p deploy.Placement, td dep
 		return deleted, left
 	}
 	region := spacesRegion(cfg.Region)
-	makers, err := d.withMaker(ctx, c, region, p.Name, func(string, ...any) {}, func(m maker) error {
+	makers, err := d.withMaker(ctx, c, region, deploy.HostKey(p.ID), func(string, ...any) {}, func(m maker) error {
 		for _, b := range buckets {
 			if err := emptyAndDelete(ctx, m.client, b.ID); err != nil {
 				left = append(left, storageLeft(b, "deleting it failed: "+err.Error()))

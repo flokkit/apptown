@@ -190,7 +190,7 @@ asks (`Presence`); anything unknown has not ended:
 
 Then, whoever held it, nothing may still be writing the folder. Every
 container that mounts a change's folder writable is labelled with it
-(`forge.writes=<folder>`): an agent, a review's wrap-up, a script task, the
+(`apptown.writes=<folder>`): an agent, a review's wrap-up, a script task, the
 agent's private Docker daemon (and with it anything the agent started
 there), a chat and the chat's daemon. The holder has ended only once Docker,
 asked at that moment, lists no such container; any it lists are removed
@@ -203,7 +203,7 @@ Docker, and remove nothing.
 
 Within a run, each attempt of an agent or review step starts only once
 nothing is left writing the folder but the containers of other steps at
-work now, running in their run's current stage (`forge.step=<id>` says
+work now, running in their run's current stage (`apptown.step=<id>` says
 whose; a step that cannot be read refuses the attempt): an earlier attempt of this step,
 its private Docker daemon, or a sibling step's container that outlived it
 is removed first, or the attempt fails. Steps that write one folder do not overlap: an agent, review or script

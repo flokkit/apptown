@@ -23,7 +23,7 @@ import (
 
 // Labels tags a spawned container so the reaper (design/subsystems/container-lifecycle.md)
 // identifies it by class + owner without name-parsing, and judges its age
-// by forge.created, stamped from the scope's clock. class is one of
+// by apptown.created, stamped from the scope's clock. class is one of
 // preview|service|step|dind|console|env; env/infra are never reaped.
 func (dk Scope) Labels(class, owner string) []string {
 	return []string{
@@ -107,6 +107,7 @@ func runServiceContainersWith(ctx context.Context, dk Scope, id, network string,
 			args = append(args, "--rm")
 		}
 		args = append(args, dk.Labels(opts.class, id)...)
+		args = append(args, own.Info...)
 		args = append(args, ResourceArgs(svc.Resources)...)
 		args = append(args, execution.LogFlags()...)
 		for k, v := range svc.Env {
@@ -372,7 +373,7 @@ func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c
 		// class env (never idle-reaped) and restart unless-stopped. Preview
 		// and run stacks stay throwaway.
 		opts := serviceRunOptions{class: "service"}
-		if strings.HasPrefix(id, deploymentStackPrefix) {
+		if own.Persistent {
 			opts = serviceRunOptions{class: "env", persistent: true}
 		}
 		if err := runServiceContainersWith(ctx, dk, id, network, extra, opts, own); err != nil {
@@ -520,6 +521,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			// class=env: a deployed deployment's own service — persistent,
 			// never idle-reaped (it lives with the env).
 			args = append(args, dk.Labels("env", stackID)...)
+			args = append(args, own.Info...)
 			args = append(args, ResourceArgs(svc.Resources)...)
 			args = append(args, execution.LogFlags()...)
 			for k, v := range svc.Env {

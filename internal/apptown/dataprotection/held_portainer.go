@@ -143,7 +143,8 @@ func (s *core) portainerLayout(ctx context.Context, t *deployment.Target, dep *d
 	if err != nil {
 		return portainer.StackLayout{}, fmt.Errorf("reading its list: %v", err)
 	}
-	name, id := portainer.StackName(dep.HostPrefix, slug), ""
+	prefix, base := portainer.StackNames(dep.ID, dep.HostPrefix, slug)
+	name, id := portainer.StackName(prefix, base), ""
 	for _, o := range owned {
 		if o.Kind == "stack" {
 			name, id = o.Name, o.ID
@@ -171,5 +172,5 @@ func (s *core) portainerLayout(ctx context.Context, t *deployment.Target, dep *d
 	if err != nil {
 		return portainer.StackLayout{}, fmt.Errorf("reading the stack %s: %v", name, err)
 	}
-	return portainer.ReadLayout(name, slug, compose)
+	return portainer.ReadLayout(name, base, compose)
 }

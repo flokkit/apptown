@@ -382,10 +382,9 @@ func (p *Providers) newS3BucketDriver(ctx context.Context, t *Target, dep *Deplo
 	}, p.s3Bucket), nil
 }
 
-// driverProject is the project a provider driver names its resources
-// after. A driver is never built without it: with an empty slug a
-// DigitalOcean driver would name clusters "forge--<name>" and act on
-// resources that are not this project's.
+// driverProject is the project a provider driver tags its resources
+// with. A driver is never built without it: with an empty slug a
+// DigitalOcean driver would tag clusters as no project's.
 func (p *Providers) driverProject(ctx context.Context, dep *Deployment) (project.Project, error) {
 	proj, err := p.projects.ByID(ctx, dep.ProjectID)
 	if err != nil {

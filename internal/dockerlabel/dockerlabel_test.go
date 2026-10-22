@@ -13,19 +13,24 @@ import (
 	"testing"
 )
 
-// Names in string literals that share AppTown. prefix but are not labels:
+// Names in string literals that share a label prefix but are not labels:
 // each is refused as a label key elsewhere by this list's reason.
 var notLabels = map[string]string{
-	"forge.example":    "an example hostname in help and errors",
-	"forge.local":      "a hostname",
-	"forge.flokkit.io": "a hostname",
-	"forge.id":         "AppTown's identity setting",
-	"forge.operation":  "the job queue's kind for an operation",
+	"forge.example":     "an example hostname in help and errors",
+	"forge.local":       "a hostname",
+	"forge.flokkit.io":  "a hostname",
+	"forge.id":          "AppTown's identity setting",
+	"forge.operation":   "the job queue's kind for an operation",
+	"apptown.dev":       "AppTown's site, in schema ids and links",
+	"apptown.local":     "a hostname",
+	"apptown.cancelled": "a database driver's reason for a cancelled query",
 }
 
-var apptownName = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.-])(forge\.[a-z][a-z0-9.-]*[a-z0-9])`)
+// A label key, as AppTown writes it now (apptown.) or wrote it before 1.0
+// (forge.): either spelled outside this package is a second list.
+var apptownName = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.-])((?:apptown|forge)\.[a-z][a-z0-9.-]*[a-z0-9])`)
 
-// spelledLabels returns each AppTown.<name> written in a string literal of a Go
+// spelledLabels returns each apptown.<name> or forge.<name> written in a string literal of a Go
 // source, after unquoting, so an escaped "\"forge.class\"" in a --format
 // template is seen as a raw-string one is. Telemetry attribute names are not
 // labels: literals inside attribute.X(...) calls and attrs[...] are skipped.
@@ -68,7 +73,7 @@ func spelledLabels(t *testing.T, name string, src []byte) []string {
 	return found
 }
 
-// AppTown's label keys are spelled here only: a forge.<name> in a string
+// AppTown's label keys are spelled here only: an apptown.<name> or forge.<name> in a string
 // literal of production Go elsewhere, known key or not, would be a second
 // list that can drift from the containers already out in the world.
 //
@@ -103,23 +108,24 @@ func TestTheLabelScanSeesEverySpelling(t *testing.T) {
 	src := []byte(`package p
 
 func f(attrs map[string]string) []string {
-	attrs["forge.instance"] = "x"
-	_ = attribute.String("forge.project", "x")
+	attrs["apptown.instance"] = "x"
+	_ = attribute.String("apptown.project", "x")
 	return []string{
-		"{{.Names}}\t{{.Label \"forge.class\"}}\t{{.Label \"forge.created\"}}",
-		"forge.inferenc=1",
-		` + "`{{index .Config.Labels \"forge.owner\"}}`" + `,
+		"{{.Names}}\t{{.Label \"apptown.class\"}}\t{{.Label \"apptown.created\"}}",
+		"apptown.inferenc=1",
+		` + "`{{index .Config.Labels \"apptown.owner\"}}`" + `,
+		"forge.environment",
 		"forge.example",
 	}
 }
 `)
 	got := strings.Join(spelledLabels(t, "p.go", src), "\n")
-	for _, want := range []string{"forge.class", "forge.created", "forge.inferenc", "forge.owner"} {
+	for _, want := range []string{"apptown.class", "apptown.created", "apptown.inferenc", "apptown.owner", "forge.environment"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("not seen: %s\n%s", want, got)
 		}
 	}
-	for _, not := range []string{"forge.instance", "forge.project", "forge.example"} {
+	for _, not := range []string{"apptown.instance", "apptown.project", "forge.example"} {
 		if strings.Contains(got, not) {
 			t.Errorf("not a label, but refused: %s\n%s", not, got)
 		}
@@ -144,7 +150,7 @@ func TestTheAgentImageWritesEveryImageKey(t *testing.T) {
 
 // Keys are lowercase and dotted, and none is listed twice.
 func TestKeysAreOneCaseAndDistinct(t *testing.T) {
-	shape := regexp.MustCompile(`^forge(\.[a-z][a-z-]*)+$`)
+	shape := regexp.MustCompile(`^apptown(\.[a-z][a-z-]*)+$`)
 	seen := map[string]bool{}
 	for _, k := range Keys {
 		if !shape.MatchString(k) || seen[k] {
@@ -155,6 +161,49 @@ func TestKeysAreOneCaseAndDistinct(t *testing.T) {
 	for _, k := range ImageKeys {
 		if !seen[k] {
 			t.Errorf("image key %s is not in Keys", k)
+		}
+	}
+}
+
+// A thing made before 1.0 carries forge.<name>; the readers that must still
+// recognise it ask Before1 for that key, and only for a key AppTown has.
+//
+// Kills: a Before1 that answers the new key, or that loses the word
+// environment the deployment key had.
+func TestBefore1IsTheKeyThingsMadeBefore1Carry(t *testing.T) {
+	want := map[string]string{Class: "forge.class", Owner: "forge.owner", Instance: "forge.instance",
+		Deployment: "forge.environment", Generation: "forge.generation", ConsoleDind: "forge.console.dind"}
+	for k, w := range want {
+		if got := Before1(k); got != w {
+			t.Errorf("Before1(%s) = %s, want %s", k, got, w)
+		}
+	}
+}
+
+// The informational labels are for people: nothing outside this package
+// names Project or DeploymentName, so nothing can read them for identity,
+// ownership or removal; they are only written, through Informational.
+//
+// Kills: a reader, filter or template keyed on a project or deployment name.
+func TestNothingReadsTheInformationalLabels(t *testing.T) {
+	root := filepath.Join("..", "..")
+	use := regexp.MustCompile(`\bdockerlabel\.(Project|DeploymentName)\b`)
+	for _, dir := range []string{"internal", "cmd"} {
+		err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") || strings.Contains(p, filepath.Join("internal", "dockerlabel")) {
+				return err
+			}
+			src, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			if m := use.Find(src); m != nil {
+				t.Errorf("%s names %s: the informational labels are written only through Informational", p, m)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }

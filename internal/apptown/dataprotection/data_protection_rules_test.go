@@ -147,7 +147,7 @@ func TestATakeDownNeverDeletesAClusterHoldingOtherData(t *testing.T) {
 			switch other {
 			case "a retained database":
 				// sql-guarantee: a standing restore leaves the displaced database retained on its cluster; that is the next slice, so no operation makes this row yet.
-				if _, err := w.db.Exec(`INSERT INTO retained_resources (id,project_id, deployment, target_id, need, handle_json, retained_by, holds_data, retained_at) VALUES ($1,$2, 'prod', $3, 'postgres', $4, 'alice', true, '2026-10-01')`, ids.New(time.Now()), w.project, w.target.ID, fmt.Sprintf(`{"id":%q,"name":"apptown-ledger-prod","database":"app_before_restore"}`, id)); err != nil {
+				if _, err := w.db.Exec(`INSERT INTO retained_resources (id,project_id, deployment, target_id, need, handle_json, retained_by, holds_data, retained_at) VALUES ($1,$2, 'prod', $3, 'postgres', $4, 'alice', true, '2026-10-01')`, ids.New(time.Now()), w.project, w.target.ID, fmt.Sprintf(`{"id":%q,"name":%q,"database":"app_before_restore"}`, id, clusterOf(w, "prod"))); err != nil {
 					t.Fatal(err)
 				}
 				rows, err := w.s.Retained.ForProject(ctx, w.project)
@@ -181,7 +181,7 @@ func TestATakeDownNeverDeletesAClusterHoldingOtherData(t *testing.T) {
 				t.Fatalf("take-down: %+v %v", res, err)
 			}
 			op := w.run(res.Operation)
-			if op.State != operations.Failed || !strings.Contains(op.Detail, "app removed, data kept; deploy again to serve") || !strings.Contains(op.Detail, "the cluster apptown-ledger-prod stays") {
+			if op.State != operations.Failed || !strings.Contains(op.Detail, "app removed, data kept; deploy again to serve") || !strings.Contains(op.Detail, "the cluster "+clusterOf(w, "prod")+" stays") {
 				t.Fatalf("take-down %s: %s", op.State, op.Detail)
 			}
 			if state := w.api.Snapshot(); len(state.DeletedClusters) != 0 || len(state.Apps) != 0 {

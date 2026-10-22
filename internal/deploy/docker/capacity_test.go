@@ -227,7 +227,7 @@ func TestAStandingNeedTakesItsNewSizeWithoutLosingItsData(t *testing.T) {
 func TestAContainerEventIsReadAsDockerReportsIt(t *testing.T) {
 	t.Parallel()
 	out := []byte(`{"status":"oom","id":"a1","Type":"container","Action":"oom","Actor":{"ID":"a1","Attributes":{"name":"apptown-env-shop-main","image":"x"}},"time":1760000000,"timeNano":1760000000123456789}
-{"status":"die","id":"a1","Type":"container","Action":"die","Actor":{"ID":"a1","Attributes":{"name":"apptown-env-shop-main","exitCode":"137","forge.environment":"01a1","forge.generation":"4"}},"time":1760000000,"timeNano":1760000000200000000}
+{"status":"die","id":"a1","Type":"container","Action":"die","Actor":{"ID":"a1","Attributes":{"name":"apptown-env-shop-main","exitCode":"137","apptown.deployment":"01a1","apptown.generation":"4"}},"time":1760000000,"timeNano":1760000000200000000}
 {"status":"kill","id":"b2","Type":"container","Action":"kill","Actor":{"ID":"b2","Attributes":{"name":"apptown-svc-env-shop-main-postgres","signal":"15"}},"time":1760000001,"timeNano":1760000001000000000}
 `)
 	events, err := ParseContainerEvents(out)

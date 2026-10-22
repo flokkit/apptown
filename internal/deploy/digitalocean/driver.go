@@ -236,7 +236,7 @@ func (d *Driver) FindMade(ctx context.Context, p deploy.Placement) (Made, error)
 	if err != nil {
 		return out, err
 	}
-	appName := doAppName(d.Slug, p.Name)
+	appName := doAppName(deploy.HostKey(p.ID))
 	app, err := d.findApp(ctx, c, appName)
 	if err != nil {
 		return out, fmt.Errorf("looking for the app by name: %w", err)
@@ -250,19 +250,16 @@ func (d *Driver) FindMade(ctx context.Context, p deploy.Placement) (Made, error)
 	default:
 		out.NotOurs = append(out.NotOurs, fmt.Sprintf("an app named %s (%s) without this copy's mark", appName, app.ID))
 	}
-	// Under either name a cluster may have been made with.
-	for _, pre := range clusterPrefixes {
-		name := pre + d.Slug + "-" + p.Name
-		db, err := d.findDatabase(ctx, c, name)
-		if err != nil {
-			return out, fmt.Errorf("looking for the cluster by name: %w", err)
-		}
-		// A cluster of that name without this deployment's markers is not
-		// AppTown's to delete.
-		tags := clusterTags(name, d.Slug, p.Name)
-		if db != nil && containsString(db.Tags, tags[1]) && containsString(db.Tags, tags[2]) {
-			out.Clusters = append(out.Clusters, MadeCluster{ID: db.ID, Name: db.Name})
-		}
+	name := clusterName(deploy.HostKey(p.ID))
+	db, err := d.findDatabase(ctx, c, name)
+	if err != nil {
+		return out, fmt.Errorf("looking for the cluster by name: %w", err)
+	}
+	// A cluster of that name without this deployment's markers is not
+	// AppTown's to delete.
+	tags := clusterTags(d.Slug, p.Name)
+	if db != nil && containsString(db.Tags, tags[1]) && containsString(db.Tags, tags[2]) {
+		out.Clusters = append(out.Clusters, MadeCluster{ID: db.ID, Name: db.Name})
 	}
 	return out, nil
 }

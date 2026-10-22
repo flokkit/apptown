@@ -30,7 +30,7 @@ func (noExtensions) EnabledExtensions(context.Context, ids.ID) ([]string, error)
 
 func TestPiAgentSurfaceWithBakedExtension(t *testing.T) {
 	t.Parallel()
-	slots, home := piSurface(testDB(t), map[string]string{"forge.pi-subagents.version": "0.61.0"})
+	slots, home := piSurface(testDB(t), map[string]string{"apptown.pi-subagents.version": "0.61.0"})
 	// This test exercises the stock slot fallback policy.
 	if err := slots.SeedFallbacks(context.Background()); err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestPiAgentSurfaceWithBakedExtension(t *testing.T) {
 func TestPiAgentSurfaceProjectSlotOverride(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	slots, home := piSurface(db, map[string]string{"forge.pi-subagents.version": "0.61.0"})
+	slots, home := piSurface(db, map[string]string{"apptown.pi-subagents.version": "0.61.0"})
 	plainTestProject(t, db, "p", "P")
 	for _, cell := range []struct {
 		projectID     ids.ID

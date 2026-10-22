@@ -11,16 +11,16 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // A restored copy's take-down deletes only what is provably its own (round
 // 2 of the build review, RTB2-01). Project "ledger-pay"'s copy-1 and
-// project "ledger"'s standing "pay-copy-1" join into the same App Platform
-// app name, ledger-pay-copy-1. The copy's start is refused at the other
-// deployment's cluster (its tags are not the copy's) before any app is
-// made, and its take-down finds the other project's app by that name: it
-// does not carry the copy's mark, so it is left standing and said, never
-// deleted.
+// project "ledger"'s standing "pay-copy-1" once joined into the same App
+// Platform app and cluster names. Names are now made from each
+// deployment's key, so the copy is named apart from the other project's
+// deployment, and its start and take-down never touch the other's app or
+// cluster.
 func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
@@ -33,9 +33,11 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 		t.Fatal(err)
 	}
 	other := createTestProject(t, w.db, "ledger", "Other Ledger")
-	if _, err := w.bind(other, "pay-copy-1", "synthetic", ids.Nil); err != nil {
+	otherDep, err := w.bind(other, "pay-copy-1", "synthetic", ids.Nil)
+	if err != nil {
 		t.Fatal(err)
 	}
+	key := deploy.HostKey(otherDep.ID)
 	client, err := w.cloudClient(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -45,18 +47,15 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"app"`
 	}
-	if err := client.Call(ctx, "POST", "/v2/apps", map[string]any{"spec": map[string]any{"name": "ledger-pay-copy-1"}}, &made); err != nil {
+	if err := client.Call(ctx, "POST", "/v2/apps", map[string]any{"spec": map[string]any{"name": "apptown-" + key}}, &made); err != nil {
 		t.Fatal(err)
 	}
 	before := len(w.api.Snapshot().Requests)
-	w.api.SeedDatabase(map[string]any{"id": "other-cluster", "name": "apptown-ledger-pay-copy-1", "engine": "pg", "version": "16", "status": "online", "tags": []string{"apptown-project-ledger", "apptown-env-pay-copy-1"}})
-	op, c := w.start(RestoredCopyRequest{Test: true})
-	if op.State != operations.Failed || !strings.Contains(op.Detail, "does not carry this AppTown deployment") {
-		t.Fatalf("start = %s: %s", op.State, op.Detail)
-	}
+	w.api.SeedDatabase(map[string]any{"id": "other-cluster", "name": "apptown-db-" + key, "engine": "pg", "version": "16", "status": "online", "tags": []string{"apptown", "apptown-project-ledger", "apptown-deployment-pay-copy-1"}})
+	w.start(RestoredCopyRequest{Test: true})
 	for _, r := range w.api.Snapshot().Requests[before:] {
-		if (r.Method == "POST" || r.Method == "PUT") && strings.HasPrefix(r.Path, "/v2/apps") {
-			t.Fatalf("the copy made an app: %+v", r)
+		if (r.Method == "PUT") && r.Path == "/v2/apps/"+made.App.ID {
+			t.Fatalf("the copy changed the other project's app: %+v", r)
 		}
 		if r.Method == "DELETE" && (r.Path == "/v2/apps/"+made.App.ID || r.Path == "/v2/databases/other-cluster") {
 			t.Fatalf("the copy deleted the other project's %s", r.Path)
@@ -69,9 +68,6 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 	if !found {
 		t.Fatal("the other project's app was deleted")
 	}
-	if !strings.Contains(c.EndDetail, "found and left alone, as not this copy's: an app named ledger-pay-copy-1") {
-		t.Fatalf("the copy's end does not say what it left alone: %+v", c)
-	}
 }
 
 // Cluster lookup takes a cluster only with both of the copy's tags, and app
@@ -79,17 +75,21 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 // (reviewer's boundary check, kept).
 func TestFindMadeTakesOnlyMarkedClustersAndApps(t *testing.T) {
 	t.Parallel()
-	for _, tags := range [][]string{nil, {"apptown-project-ledger"}, {"apptown-env-copy-1"}, {"apptown-project-other", "apptown-env-copy-1"}, {"apptown-project-ledger", "apptown-env-other"}, {"apptown-project-ledger", "apptown-env-copy-1"}} {
+	id := idstest.N(4242)
+	key := deploy.HostKey(id)
+	for _, tags := range [][]string{nil, {"apptown-project-ledger"}, {"apptown-deployment-copy-1"}, {"apptown-project-other", "apptown-deployment-copy-1"}, {"apptown-project-ledger", "apptown-deployment-other"}, {"apptown-project-ledger", "apptown-deployment-copy-1"}} {
 		t.Run(fmt.Sprint(tags), func(t *testing.T) {
 			t.Parallel()
 			w := newRestoredWorld(t, nil)
 			ctx := context.Background()
-			w.api.SeedDatabase(map[string]any{"id": "candidate", "name": "apptown-ledger-copy-1", "tags": tags})
+			w.api.SeedDatabase(map[string]any{"id": "candidate", "name": "apptown-db-" + key, "tags": tags})
 			client, err := w.cloudClient(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, name := range []string{"ledger-copy-1", "other-ledger-copy-1", "ledger-copy-10", "ledger-copy-1-extra"} {
+			// The app named by the copy's key, and names that only begin or
+			// end like it.
+			for _, name := range []string{"apptown-" + key, "x-apptown-" + key, "apptown-" + key + "0", "apptown-" + key + "-extra"} {
 				if err := client.Call(ctx, "POST", "/v2/apps", map[string]any{"spec": map[string]any{"name": name}}, nil); err != nil {
 					t.Fatal(err)
 				}
@@ -98,11 +98,11 @@ func TestFindMadeTakesOnlyMarkedClustersAndApps(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			made, err := driver.(*digitalocean.Driver).FindMade(ctx, deploy.Placement{HostPrefix: "apptown-", Name: "copy-1", Gate: &deploy.Gate{Marker: strings.Repeat("c", 64)}})
+			made, err := driver.(*digitalocean.Driver).FindMade(ctx, deploy.Placement{ID: id, Name: "copy-1", Gate: &deploy.Gate{Marker: strings.Repeat("c", 64)}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			expected := len(tags) == 2 && tags[0] == "apptown-project-ledger" && tags[1] == "apptown-env-copy-1"
+			expected := len(tags) == 2 && tags[0] == "apptown-project-ledger" && tags[1] == "apptown-deployment-copy-1"
 			if (len(made.Clusters) == 1) != expected || made.AppID != "" || len(made.NotOurs) != 1 {
 				t.Fatalf("lookup = %+v", made)
 			}

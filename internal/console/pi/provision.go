@@ -123,7 +123,7 @@ func (r *Runtime) provision(in console.Launch) error {
 }
 
 // writesLabel marks a container that mounts the session's workspace
-// writable (forge.writes=<host path>, docker.WritesLabel), so whoever next
+// writable (apptown.writes=<host path>, docker.WritesLabel), so whoever next
 // works in that folder can find it without knowing this session.
 func writesLabel(w console.Workspace) []string {
 	if !w.Writable {

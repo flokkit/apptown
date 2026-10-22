@@ -127,8 +127,8 @@ witnessed outcomes):
 
 A target's inventory compares recorded resource claims with a complete scoped
 Docker observation: AppTown-named containers, application (`apptown-data-`) and need
-(`apptown-need-`) volumes, AppTown networks (under `forge-` for a deployment made
-before 1.0), and recorded image references. Immutable
+(`apptown-need-`) volumes, AppTown networks (named by the deployment's key, or under `forge-` for a
+deployment made before 1.0 that has not been moved), and recorded image references. Immutable
 repository/digest references require an exact alias from Docker; local-build tags
 are observed separately and cannot confirm a digest. Unclaimed host images are
 not listed as orphan cleanup candidates. The page adds no image/network removal
@@ -227,9 +227,7 @@ App Platform keeps the copies in the account's one DOCR registry, one
 repository per project, named after its slug. The repository is the
 AppTown's: the first copy creates it and AppTown records it per project and
 connector. A repository of that name AppTown did
-not create refuses the release, at preflight and before any copy; the
-one-time ownership inspection can propose one an earlier release made, for
-an administrator to approve. When the project's last deployment on that
+not create refuses the release, at preflight and before any copy. When the project's last deployment on that
 connector, on any App Platform target, is taken down, every image in the
 repository is deleted. AppTown starts no garbage collection: while one runs
 DOCR takes no pushes, so one started by a take-down would fail the next

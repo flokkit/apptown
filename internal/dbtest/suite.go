@@ -51,8 +51,10 @@ func closeWithoutWaiting(ctx context.Context, network, addr string) (net.Conn, e
 	return conn, nil
 }
 
-const container = "forge-test-db"
-const port = "54329"
+// The harness's own Postgres. Before 1.0 it was forge-test-db on 54329;
+// a lane still on that code keeps using that one, beside this.
+const container = "apptown-test-db"
+const port = "54330"
 
 type Suite struct {
 	once                     sync.Once
@@ -161,7 +163,7 @@ func (s *Suite) setup() {
 			s.err = err
 			return
 		}
-		base = "postgres://postgres:forge@127.0.0.1:" + port + "/"
+		base = "postgres://postgres:apptown@127.0.0.1:" + port + "/"
 		// The private server is local and disposable, so it is reached
 		// without TLS. Otherwise every connection first tries a TLS
 		// handshake across Docker's port forwarder, which drops it under
@@ -202,7 +204,7 @@ func (s *Suite) setup() {
 	if s.params != "" {
 		s.sweepOrphans()
 	}
-	s.template = fmt.Sprintf("forge_tpl_%d_%d_%d", os.Getpid(), time.Now().UnixNano(), templateSequence.Add(1))
+	s.template = fmt.Sprintf("apptown_tpl_%d_%d_%d", os.Getpid(), time.Now().UnixNano(), templateSequence.Add(1))
 	if _, err := admin.Exec(fmt.Sprintf(`CREATE DATABASE %s`, s.template)); err != nil {
 		s.err = fmt.Errorf("create template (the account needs CREATEDB): %w", err)
 		return
@@ -220,14 +222,14 @@ func (s *Suite) setup() {
 // package could just have started; a name conflict means inspect/reuse it.
 // The settings below apply when the container is created. A container made
 // by an earlier version of this file keeps its old settings until someone
-// removes it once (`docker rm -f forge-test-db`); the harness never does.
+// removes it once (`docker rm -f apptown-test-db`); the harness never does.
 func startServer(ctx context.Context) error {
 	if _, err := exec.LookPath("docker"); err != nil {
 		return fmt.Errorf("docker is unavailable and APPTOWN_TEST_DB_URL is not set")
 	}
 	err := docker.Scope{Client: docker.CLI{}}.EnsureRunning(ctx, container, []string{"-d", "--name", container, "-p", "127.0.0.1:" + port + ":5432",
-		"-e", "POSTGRES_PASSWORD=forge", "-e", "POSTGRES_INITDB_ARGS=--locale=C.UTF-8",
-		"--label", dockerlabel.Class + "=infra", "--label", dockerlabel.Owner + "=forge-test-db",
+		"-e", "POSTGRES_PASSWORD=apptown", "-e", "POSTGRES_INITDB_ARGS=--locale=C.UTF-8",
+		"--label", dockerlabel.Class + "=infra", "--label", dockerlabel.Owner + "=" + container,
 		// The data directory lives in memory. Every test clones a template
 		// database and drops it, and nothing in it outlives the test binary;
 		// a stopped container comes back empty and initialises again.
@@ -272,7 +274,7 @@ func (s *Suite) dropInBackground() {
 // A live process (or a reused id) keeps its databases. The sweep is
 // housekeeping: a failure leaves the orphan for the next binary to retry.
 func (s *Suite) sweepOrphans() {
-	rows, err := s.admin.Query(`SELECT datname FROM pg_database WHERE datname LIKE 'forge_tpl_%'`)
+	rows, err := s.admin.Query(`SELECT datname FROM pg_database WHERE datname LIKE 'apptown_tpl_%'`)
 	if err != nil {
 		return
 	}
@@ -283,7 +285,7 @@ func (s *Suite) sweepOrphans() {
 			continue
 		}
 		var pid int
-		if _, err := fmt.Sscanf(strings.TrimPrefix(name, "forge_tpl_"), "%d_", &pid); err != nil || pid <= 0 {
+		if _, err := fmt.Sscanf(strings.TrimPrefix(name, "apptown_tpl_"), "%d_", &pid); err != nil || pid <= 0 {
 			continue
 		}
 		if syscall.Kill(pid, 0) == syscall.ESRCH {

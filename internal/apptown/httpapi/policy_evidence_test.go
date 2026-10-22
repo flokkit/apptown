@@ -24,6 +24,7 @@ var policyEvidence = map[string]func(*testing.T){
 	"deployments.CreateDeployment":      TestDeploymentConfigurationHTTP,
 	"deployments.DeleteDeployment":      TestDeploymentRemovalChecksAuthorityAndHTTPOutcome,
 	"deployments.DeployDeployment":      TestDeploymentConfigurationHTTP,
+	"deployments.MoveNames":             TestDeploymentConfigurationHTTP,
 	"deployments.DeploymentResources":   TestDeploymentResourcesHTTP,
 	"deployments.DeploymentDiagnostics": TestDeploymentDiagnosticsHTTP,
 	"deployments.DeploymentLog":         TestDeploymentDiagnosticsHTTP,

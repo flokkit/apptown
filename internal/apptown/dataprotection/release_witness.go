@@ -152,8 +152,7 @@ func (s *Service) readNeeds(ctx context.Context, w *ReleaseWitness, dep *deploym
 	if err != nil {
 		return err
 	}
-	stack := docker.StackID(p.Slug, dep.Name)
-	names, err := dep.HostNames()
+	names, err := dep.HostNames(p.Slug)
 	if err != nil {
 		return err
 	}
@@ -162,7 +161,7 @@ func (s *Service) readNeeds(ctx context.Context, w *ReleaseWitness, dep *deploym
 		if err != nil || kind == nil || kind.Local.Data == "" {
 			continue
 		}
-		f := needFacts{need: need, container: names.Service(stack, need), path: kind.Local.Data, measure: kind.Local.Measure}
+		f := needFacts{need: need, container: names.Service(need), path: kind.Local.Data, measure: kind.Local.Measure}
 		there, err := dk.Exists(ctx, "inspect", f.container)
 		if err != nil {
 			return fmt.Errorf("the %s service: %v", need, err)
