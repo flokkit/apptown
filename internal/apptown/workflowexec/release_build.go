@@ -152,7 +152,7 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 	if len(images) == 0 {
 		// Every image is declared by reference: nothing to build, only
 		// copies for AppTown to make.
-		return a.publishRelease(task, publication)
+		return a.publishBuilt(task, publication)
 	}
 	agentImage, err := driver.AgentImage(ctx)
 	if err != nil {
@@ -220,20 +220,32 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 		built[img.Name] = execution.ImageLayout{Files: driver, Ref: ref, Image: img.Name}
 	}
 	publication.Built = built
-	return a.publishRelease(task, publication)
+	return a.publishBuilt(task, publication)
 }
 
-// publishRelease publishes under the step's ownership: a transfer under way
-// when the step stops being this attempt's is ended, and nothing is
-// committed (PublishRelease checks again before each image and at the
-// commit). A failed publication or commit errors the step, before any
-// target effect.
-func (a *Shipping) publishRelease(task *workflow.Execution, in deployment.ReleasePublication) (*deployment.ReleaseBundle, bool) {
+// publishBuilt publishes what the worker built; a failed publication or
+// commit errors the step, before any target effect.
+func (a *Shipping) publishBuilt(task *workflow.Execution, in deployment.ReleasePublication) (*deployment.ReleaseBundle, bool) {
+	bundle, err := a.publishRelease(task, func(ctx context.Context) (*deployment.ReleaseBundle, error) {
+		return a.deployment.PublishRelease(ctx, in)
+	})
+	if err != nil {
+		finishError(task, err.Error())
+		return nil, false
+	}
+	return bundle, true
+}
+
+// publishRelease publishes under the step's ownership, wherever the release
+// was built: a transfer under way when the step stops being this attempt's
+// is ended, and nothing is committed (PublishRelease checks again before
+// each image and at the commit).
+func (a *Shipping) publishRelease(task *workflow.Execution, publish func(context.Context) (*deployment.ReleaseBundle, error)) (*deployment.ReleaseBundle, error) {
 	ctx, cancel := context.WithCancel(context.WithoutCancel(task.Context()))
 	watched := make(chan struct{})
 	go func() {
 		defer close(watched)
-		tick := time.NewTicker(a.builds.Tasks.poll())
+		tick := time.NewTicker(a.publicationWatch())
 		defer tick.Stop()
 		for {
 			select {
@@ -247,14 +259,19 @@ func (a *Shipping) publishRelease(task *workflow.Execution, in deployment.Releas
 			}
 		}
 	}()
-	bundle, err := a.deployment.PublishRelease(ctx, in)
+	bundle, err := publish(ctx)
 	cancel()
 	<-watched
-	if err != nil {
-		finishError(task, err.Error())
-		return nil, false
+	return bundle, err
+}
+
+// publicationWatch is how often a publication asks whether its step is
+// still this attempt's: as often as a worker's task is watched.
+func (a *Shipping) publicationWatch() time.Duration {
+	if a.builds != nil && a.builds.Tasks != nil {
+		return a.builds.Tasks.poll()
 	}
-	return bundle, true
+	return (&TaskRunner{}).poll()
 }
 
 // releaseBuildRequest is the build's script, its generated files and the

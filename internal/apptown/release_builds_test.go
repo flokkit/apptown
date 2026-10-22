@@ -1,6 +1,7 @@
 package apptown
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -12,11 +13,13 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -208,6 +211,7 @@ type releaseHosts struct {
 	held     map[string]map[string]bool // host -> references by digest it holds
 	platform string                     // what `docker info` answers
 	onPull   func(host, ref string)
+	saved    map[string]string // image ID -> the manifest digest `docker save` packed
 	// onCommand, if set, sees each command before it is answered.
 	onCommand atomic.Pointer[func(host string, args []string)]
 }
@@ -240,6 +244,9 @@ func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command)
 	if hook := h.onCommand.Load(); hook != nil {
 		(*hook)(host, args)
 	}
+	if len(args) == 2 && args[0] == "save" && req.Stdout != nil {
+		return nil, h.save(host, args[1], req.Stdout)
+	}
 	out, err := d.Run(ctx, "", req) // recorded, as the daemon saw it
 	switch {
 	case len(args) >= 2 && args[0] == "context" && args[1] == "show":
@@ -251,6 +258,19 @@ func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command)
 		return []byte(h.platform + "\n"), nil
 	case len(args) == 2 && args[0] == "pull":
 		return h.pull(host, config, args[1])
+	case len(args) == 5 && args[0] == "image" && args[1] == "inspect" && args[3] == "{{.Id}}" && strings.HasPrefix(args[4], "apptown-preview-build-"):
+		// Each image a host built has its own ID, which `docker save`
+		// packs and a container started from it runs.
+		sum := sha256.Sum256([]byte(host + " " + args[4]))
+		return []byte("sha256:" + hex.EncodeToString(sum[:]) + "\n"), nil
+	case len(args) == 5 && args[0] == "image" && args[1] == "inspect" && args[3] == "{{.Id}}" && len(args[4]) == len("sha256:")+64 && strings.HasPrefix(args[4], "sha256:"):
+		return []byte(args[4] + "\n"), nil // an image's ID names it
+	case len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat && err == nil:
+		var runtime docker.Runtime
+		if json.Unmarshal(out, &runtime) == nil {
+			runtime.Image = d.ranImage(args[3], runtime.Image)
+			return json.Marshal(runtime)
+		}
 	case len(args) >= 3 && args[0] == "image" && args[1] == "inspect" && docker.IsDigestReference(args[len(args)-1]):
 		ref := args[len(args)-1]
 		h.mu.Lock()
@@ -267,17 +287,18 @@ func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command)
 // pull answers as Docker does: the registry's own refusal, or the image
 // held under its digest.
 func (h *releaseHosts) pull(host, config, ref string) ([]byte, error) {
-	d, err := name.NewDigest(ref)
+	d, err := name.ParseReference(ref)
 	if err != nil {
 		return []byte("invalid reference format"), errFakeExit
 	}
+	_, byDigest := d.(name.Digest)
 	var cfg struct {
 		Auths map[string]struct{ Auth string }
 	}
 	raw, _ := os.ReadFile(filepath.Join(config, "config.json"))
 	_ = json.Unmarshal(raw, &cfg)
 	var opts []remote.Option
-	if a := cfg.Auths[d.RegistryStr()].Auth; a != "" {
+	if a := cfg.Auths[d.Context().RegistryStr()].Auth; a != "" {
 		plain, _ := base64.StdEncoding.DecodeString(a)
 		user, pass, _ := strings.Cut(string(plain), ":")
 		opts = append(opts, remote.WithAuth(&authn.Basic{Username: user, Password: pass}))
@@ -291,10 +312,10 @@ func (h *releaseHosts) pull(host, config, ref string) ([]byte, error) {
 	case errors.As(err, &te) && te.StatusCode == http.StatusNotFound:
 		return []byte("Error response from daemon: manifest for " + ref + " not found: manifest unknown: manifest unknown"), errFakeExit
 	case errors.As(err, &te) && te.StatusCode == http.StatusUnauthorized:
-		return []byte("Error response from daemon: Head \"https://" + d.RegistryStr() + "/v2/\": unauthorized: authentication required"), errFakeExit
+		return []byte("Error response from daemon: Head \"https://" + d.Context().RegistryStr() + "/v2/\": unauthorized: authentication required"), errFakeExit
 	case err != nil:
 		return []byte("Error response from daemon: " + err.Error()), errFakeExit
-	case desc.Digest.String() != d.DigestStr():
+	case byDigest && desc.Digest.String() != d.Identifier():
 		return []byte("Error response from daemon: the registry answered another digest"), errFakeExit
 	}
 	h.mu.Lock()
@@ -304,6 +325,63 @@ func (h *releaseHosts) pull(host, config, ref string) ([]byte, error) {
 	h.held[host][ref] = true
 	h.mu.Unlock()
 	return []byte("Status: Downloaded newer image for " + ref), nil
+}
+
+// ranImage is the image ID container was last run from, or was when it
+// was run from none of the built images' own IDs.
+func (f *fakeDocker) ranImage(container, was string) string {
+	for _, c := range slices.Backward(f.joined()) {
+		if !strings.HasPrefix(c, "run ") || containerNameOf(c) != container {
+			continue
+		}
+		for _, arg := range strings.Fields(c) {
+			if strings.HasPrefix(arg, "sha256:") && len(arg) == len("sha256:")+64 {
+				return arg
+			}
+		}
+		return was
+	}
+	return was
+}
+
+// save answers `docker save <id>` as Docker 25 and later do: the image's
+// OCI layout in a tar, for the hosts' platform. It records the manifest
+// digest it packed for the ID.
+func (h *releaseHosts) save(host, id string, to io.Writer) error {
+	osType, arch, _ := strings.Cut(h.platform, " ")
+	platform, err := oci.Platform(osType, arch)
+	if err != nil {
+		return err
+	}
+	files := imageLayout(h.t, platform, "saved "+host+" "+id)
+	var index struct{ Manifests []struct{ Digest string } }
+	if err := json.Unmarshal(files["index.json"], &index); err != nil {
+		return err
+	}
+	h.mu.Lock()
+	if h.saved == nil {
+		h.saved = map[string]string{}
+	}
+	h.saved[id] = index.Manifests[0].Digest
+	h.mu.Unlock()
+	w := tar.NewWriter(to)
+	names := slices.Sorted(maps.Keys(files))
+	for _, name := range names {
+		if err := w.WriteHeader(&tar.Header{Name: name, Typeflag: tar.TypeReg, Mode: 0o644, Size: int64(len(files[name]))}); err != nil {
+			return err
+		}
+		if _, err := w.Write(files[name]); err != nil {
+			return err
+		}
+	}
+	return w.Close()
+}
+
+// savedDigests are the manifest digests the hosts packed, by image ID.
+func (h *releaseHosts) savedDigests() map[string]string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return maps.Clone(h.saved)
 }
 
 // pulled and built are the pulls and builds a host was asked for.
@@ -1836,5 +1914,148 @@ func TestAManualDeployMissingASettingIsRefusedBeforeAnyEffect(t *testing.T) {
 	}
 	if pulled, runs := w.hosts.pulled("lab2"), containersRun(w.hosts.daemon("lab2")); len(pulled)+len(runs) != 0 {
 		t.Errorf("a refused deploy reached its host: %v %v", pulled, runs)
+	}
+}
+
+// Releases built on AppTown's Docker hosts, with no worker: a worker
+// changes where a release is built, never what it produces. With a
+// container registry the landing publishes what its host built, as the
+// worker's build is published; without one it records the host's image
+// IDs, as before.
+
+// localReleaseWorld is the release world with no worker, landing an app
+// whose every image is built (image-only declarations are copied by the
+// same publication as on the worker, covered there).
+func localReleaseWorld(t *testing.T) *releaseWorld {
+	t.Helper()
+	w := newReleaseWorld(t, func(c *Config) { c.Worker, c.PrivateDocker = nil, false })
+	w.appYAML = `app:
+  web:
+    public: true
+    static: site
+    ports: ["8080"]
+  worker:
+    build: worker
+init:
+  - name: migrate
+    build: migrations
+`
+	return w
+}
+
+// A landing built on its host is published to the project's registry: the
+// bundle names, by the digest the registry answers, exactly the image the
+// host saved for each built part and init step, for the host's platform,
+// built on that host; the step's evidence names the bundle, and another host takes the release
+// by pulling those digests and building nothing.
+func TestALandingBuiltOnItsHostIsPublishedAsOnTheWorker(t *testing.T) {
+	t.Parallel()
+	w := localReleaseWorld(t)
+	w.mainOn(t, w.lab)
+	run, stepID := w.landingRun(t)
+	w.a.Work.ExecuteStep(w.a.asEngine(context.Background()), stepID)
+	step := w.step(t, stepID)
+	if step.Status != workflow.StatusPass {
+		t.Fatalf("deploy step: %s %s", step.Status, step.Evidence)
+	}
+	if sent := w.worker.requests(); len(sent) != 0 {
+		t.Fatalf("an AppTown with no worker sent %d tasks", len(sent))
+	}
+	if len(w.hosts.built("lab")) == 0 {
+		t.Fatal("the landing did not build on its host")
+	}
+	b, err := w.a.Deployment.Bundles.OfRun(context.Background(), idstest.N(1), run.ID)
+	if err != nil || b == nil || !b.ByDigest() {
+		t.Fatalf("the landing's bundle: %+v %v", b, err)
+	}
+	if b.BuiltFrom.Registry != w.registry.host+"/team/p" || b.BuiltFrom.Platform != releasePlatform || b.BuiltFrom.Build.Worker != "lab" || b.BuiltFrom.Build.Role != "docker-host" || b.BuiltFrom.StepID != stepID || !b.BuiltFrom.TargetID.IsZero() {
+		t.Errorf("the bundle's origin: %+v", b.BuiltFrom)
+	}
+	// Compare each bundle entry with the image its own container ran.
+	// Comparing sets alone would accept swapped parts and init steps.
+	dep, err := w.a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := dep.HostNames("p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exported := w.hosts.savedDigests()
+	for container, recorded := range map[string]string{
+		names.App(): b.Parts["web"], names.Service("worker"): b.Parts["worker"], names.Init("migrate"): b.Init["migrate"],
+	} {
+		id := w.hosts.daemon("lab").ranImage(container, "")
+		if digest := exported[id]; digest == "" || recorded != w.registry.host+"/team/p@"+digest {
+			t.Errorf("%s ran image %s, exported as %s, but the bundle names %s", container, id, digest, recorded)
+		}
+	}
+	saved := map[string]bool{}
+	for _, digest := range w.hosts.savedDigests() {
+		saved[w.registry.host+"/team/p@"+digest] = true
+	}
+	built := map[string]bool{b.Parts["web"]: true, b.Parts["worker"]: true, b.Init["migrate"]: true}
+	if len(saved) != 3 || len(built) != 3 {
+		t.Fatalf("the host saved %v; the bundle's built images are %v", saved, built)
+	}
+	for ref := range built {
+		if !saved[ref] {
+			t.Errorf("the bundle names %s, which is not an image the host saved: %v", ref, saved)
+		}
+	}
+	if answer := w.registry.digestOf(t, fmt.Sprintf("%s/team/p:change-%d-part-web", w.registry.host, run.ChangeID)); b.Parts["web"] != w.registry.host+"/team/p@"+answer {
+		t.Errorf("the bundle's web is %s; the registry answers %q", b.Parts["web"], answer)
+	}
+	var evidence struct{ Bundle ids.ID }
+	if err := json.Unmarshal(step.Evidence, &evidence); err != nil || evidence.Bundle != b.ID {
+		t.Errorf("the step's evidence names bundle %d, want %d: %s", evidence.Bundle, b.ID, step.Evidence)
+	}
+	if rel, err := w.promote(t, b.ID, "staging", w.lab2); err != nil || rel.State != deployment.Released {
+		t.Fatalf("promoting the bundle to lab2: %+v %v", rel, err)
+	}
+	expectPulledOnly(t, w, "lab2", b)
+}
+
+// With no container registry a landing built on its host records the
+// host's image IDs, as before, and saves nothing.
+func TestALandingWithNoRegistryKeepsItsHostsImages(t *testing.T) {
+	t.Parallel()
+	w := localReleaseWorld(t)
+	if err := w.a.Integrations.Attachments.Detach(t.Context(), idstest.N(1), "container-registry"); err != nil {
+		t.Fatal(err)
+	}
+	w.mainOn(t, w.lab)
+	run, stepID := w.landingRun(t)
+	w.a.Work.ExecuteStep(w.a.asEngine(context.Background()), stepID)
+	if step := w.step(t, stepID); step.Status != workflow.StatusPass {
+		t.Fatalf("deploy step: %s %s", step.Status, step.Evidence)
+	}
+	b, err := w.a.Deployment.Bundles.OfRun(context.Background(), idstest.N(1), run.ID)
+	if err != nil || b == nil || b.ByDigest() || b.BuiltFrom.TargetID != w.lab.ID {
+		t.Fatalf("the landing's bundle: %+v %v", b, err)
+	}
+	if saved := w.hosts.savedDigests(); len(saved) != 0 {
+		t.Errorf("the host saved %v with no registry to publish to", saved)
+	}
+}
+
+// A registry that refuses the publication ends the step with an error that
+// says the new version is running and was not published; no bundle is
+// recorded, of either form.
+func TestAFailedLocalPublicationSaysTheVersionIsRunning(t *testing.T) {
+	t.Parallel()
+	w := localReleaseWorld(t)
+	w.mainOn(t, w.lab)
+	run, stepID := w.landingRun(t)
+	w.registry.refusing.Store(true)
+	w.a.Work.ExecuteStep(w.a.asEngine(context.Background()), stepID)
+	step := w.step(t, stepID)
+	var evidence struct{ Reason, URL string }
+	_ = json.Unmarshal(step.Evidence, &evidence)
+	if step.Status != workflow.StatusError || evidence.URL == "" || !strings.Contains(evidence.Reason, "is running at "+evidence.URL) || !strings.Contains(evidence.Reason, "was not published") {
+		t.Fatalf("deploy step: %s %s", step.Status, step.Evidence)
+	}
+	if b, err := w.a.Deployment.Bundles.OfRun(context.Background(), idstest.N(1), run.ID); err != nil || b != nil {
+		t.Errorf("a failed publication recorded bundle %+v %v", b, err)
 	}
 }

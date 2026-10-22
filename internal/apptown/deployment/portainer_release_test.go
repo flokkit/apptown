@@ -309,7 +309,7 @@ func TestANamedPortainerReleaseRefusesImagesItCannotRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := d.(*portainerRelease)
-	if _, err := r.Render(t.Context(), mustDeployment(t, p.digestWorld, "lan").Placement(), sourceOf(t, p, &byID), nil, nil, func(string, ...any) {}); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "this release was not published there") {
+	if _, err := r.Render(t.Context(), mustDeployment(t, p.digestWorld, "lan").Placement(), sourceOf(t, p, &byID), nil, nil, func(string, ...any) {}); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "this release was not published there. Attach a container registry to the project") {
 		t.Fatalf("images by ID: %v", err)
 	}
 }

@@ -569,7 +569,7 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 // recorded on: Portainer and App Platform need its images in a registry.
 func (p *Providers) RefusesBundle(ctx context.Context, b *ReleaseBundle, t *Target) error {
 	if t.Kind == KindS3Bucket && (b == nil || !b.ByDigest()) {
-		return refused("%s publishes a site's files from its release image in the project's registry, and this release was not published there; land the change again on an AppTown with a worker", t.Name)
+		return refused("%s publishes a site's files from its release image in the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change", t.Name)
 	}
 	appPlatform := t.Kind == KindDOApp
 	if b != nil && appPlatform {

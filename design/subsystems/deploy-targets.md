@@ -200,7 +200,8 @@ answer `/_apptown/release`; on Portainer nothing checks it.
 
 ## Where a release comes from
 
-On an AppTown with a worker, every target runs a release bundle by digest from
+A landing whose project has a container registry, built on a worker or on its
+Docker host, makes a release bundle by digest, and every target runs it from
 the project's registry ([release bundles](deployment.md#release-bundles)):
 
 | Kind | Receives a landing | Receives a promotion | Builds |
@@ -253,9 +254,10 @@ the refusing answer's host (DOCR's registry or its token service), not from
 the step the copy was in: the copy reads the source's layers while it
 pushes. A refusal by the release's own registry is said as it is.
 
-On an AppTown without a worker, Docker hosts build from the committed tree and
-record image IDs; such a bundle is reused only on the target its images live
-on.
+On an AppTown without a worker, Docker hosts build from the committed tree.
+With a container registry the images are then published, as above. With
+none, the bundle records image IDs and is reused only on the target its
+images live on.
 
 ## Object storage on App Platform
 

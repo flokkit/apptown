@@ -77,8 +77,9 @@ deployment's own and emptied when the project's last App Platform deployment
 on that connector is taken down. A bucket website reads the site's files out
 of the release image. AppTown never deletes from the project's own registry; its
 retention decides how long a release can be redeployed. Without a worker, a
-landing's deploy builds on the Docker host and records image IDs, with no
-registry. An intranet release (`apptown release`) of a landing without published
+landing's deploy builds on the Docker host. When the project has a container
+registry, AppTown saves each image the host booted and publishes it as above,
+so the bundle is by digest. With no registry attached it records image IDs. An intranet release (`apptown release`) of a landing without published
 digests, with or without a worker as long as AppTown has local Docker, builds
 a build or static contract on AppTown's Docker and pushes to the project's container registry, attaching
 one first if needed (`deployment/intranet_release.go`). See

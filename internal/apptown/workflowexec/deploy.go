@@ -2,6 +2,7 @@ package workflowexec
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -187,6 +188,21 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 			return
 		}
 	}
+	// Built here instead, the release is published to the project's
+	// container registry when it has one, as on the worker: a registry
+	// that cannot be used is refused before anything is built.
+	publish := false
+	if a.builds == nil && cfg.Deployment == "main" && relSHA != "" {
+		var err error
+		publish, err = a.deployment.PublishesLanding(task.Context(), run.ProjectID)
+		if errors.Is(err, deployment.ErrReleaseRefused) {
+			finish(workflow.StatusError, map[string]any{"reason": "release refused: " + strings.TrimPrefix(err.Error(), deployment.ErrReleaseRefused.Error()+": ")})
+			return
+		} else if err != nil {
+			finish(workflow.StatusError, map[string]any{"reason": "reading the project's container registry: " + err.Error()})
+			return
+		}
+	}
 
 	// Reserve a port only after the deployment has an explicit target.
 	hostPort, err := a.deployment.Deployments.StablePort(task.Context(), run.ProjectID, cfg.Deployment, name)
@@ -234,7 +250,18 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 	// The bundle (§2.8): what this landing built, cut once, for every
 	// deployment of the project to run from now on. A bundle built on the
 	// worker was committed before the deploy.
-	if bundle == nil && cfg.Deployment == "main" && relSHA != "" {
+	if publish {
+		logf("Publishing the release to the project's container registry")
+		published, err := a.publishRelease(task, func(ctx context.Context) (*deployment.ReleaseBundle, error) {
+			return a.deployment.PublishLanded(ctx, out, deployment.ReleasePublication{Log: logf, By: task, ChangeID: run.ChangeID,
+				Tree: relSHA, Contract: raw, Plan: deployment.PlanRelease(selectedContract)})
+		})
+		if err != nil {
+			finish(workflow.StatusError, map[string]any{"reason": fmt.Sprintf("the new version is running at %s, but it was not published to the project's container registry: %v. Retrying this step builds, deploys and publishes it again", url, err), "url": url})
+			return
+		}
+		bundle = published
+	} else if bundle == nil && cfg.Deployment == "main" && relSHA != "" {
 		if _, err := a.cutBundle(task, run.ProjectID, relSHA, out, raw, deployment.BundleOrigin{ChangeID: run.ChangeID, RunID: run.ID}); err != nil {
 			log.Printf("run %d: cutting the release bundle: %v", run.ID, err)
 		}

@@ -566,12 +566,13 @@ the same denial as a direct API caller.
 
 ### TM-18 — released bits differ from reviewed or tested bits
 
-**Status: partly mitigated.** On an AppTown with a worker,
+**Status: partly mitigated.** When a project has a container registry,
 a landing's images are built once from the landed commit and recorded by
 digest in a bundle that never changes; every later release, preview and
 promotion uses those digests and builds nothing
 ([deployment](../subsystems/deployment.md), "Release bundles"). Remaining:
-without a worker, bundles record image IDs built on the target; dependency
+a project with no registry on an AppTown without a worker records image
+IDs built on the target; dependency
 resolution at build time is not pinned; this pass did not show that the
 commit the checks ran against is bound to the digests released.
 
