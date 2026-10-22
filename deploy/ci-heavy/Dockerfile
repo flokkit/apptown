@@ -5,8 +5,8 @@
 # every AppTown that runs containers on Linux). scripts/ci-heavy.sh builds it
 # with no context. Every pin is an ARG default here, the one place it is set;
 # the bases and the npm registry are the public upstreams.
-ARG GO_IMAGE=golang:1.26.10
-ARG NODE_IMAGE=node:24
+ARG GO_IMAGE=golang:1.26.10-trixie@sha256:9ba7dc6d09ebf6e9317263973174bbf44e15bdf58cb0103747d7376f7cfa2d2f
+ARG NODE_IMAGE=node:24@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a
 FROM ${GO_IMAGE} AS go
 
 # node: a test reads the static server's values back in JavaScript. The
@@ -38,15 +38,17 @@ RUN set -e; plugins=/usr/local/lib/docker/cli-plugins; mkdir -p "$plugins" \
 # Chromium and the libraries Chromium needs, and the Pi the agent image pins
 # (ci-heavy.sh passes PI_VERSION from deploy/apptown-agent/Dockerfile). The
 # nightly's prepare installs the same Playwright version, read from here.
+# No package's install script runs (--ignore-scripts): Chromium comes from
+# the explicit playwright install, and Pi needs none.
 ARG PLAYWRIGHT_VERSION=1.60.0
 ARG PI_VERSION
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 RUN set -e; test -n "${PI_VERSION}" \
     && mkdir -p /opt/apptown-tiers/playwright /opt/apptown-tiers/pi \
     && cd /opt/apptown-tiers/playwright \
-    && npm install --no-audit --no-fund --registry "${NPM_REGISTRY}" "playwright@${PLAYWRIGHT_VERSION}" \
+    && npm install --ignore-scripts --no-audit --no-fund --registry "${NPM_REGISTRY}" "playwright@${PLAYWRIGHT_VERSION}" \
     && npx --no-install playwright install --with-deps chromium \
     && cd /opt/apptown-tiers/pi \
-    && npm install --no-audit --no-fund --registry "${NPM_REGISTRY}" "@earendil-works/pi-coding-agent@${PI_VERSION}"
+    && npm install --ignore-scripts --no-audit --no-fund --registry "${NPM_REGISTRY}" "@earendil-works/pi-coding-agent@${PI_VERSION}"
 ENV APPTOWN_PLAYWRIGHT_MODULE=/opt/apptown-tiers/playwright/node_modules/playwright/index.mjs \
     APPTOWN_PI_MODULE=/opt/apptown-tiers/pi/node_modules/@earendil-works/pi-coding-agent

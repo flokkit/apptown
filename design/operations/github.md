@@ -26,7 +26,8 @@ hand. A newer run cancels an older one on the same ref. Jobs:
   `web/dist` to the Go jobs, since Go embeds it.
 - `checks`: gofmt and generated code, schema ownership, vet, staticcheck,
   the lint rules and their fixtures, the shape rules and the scripts' tests,
-  exec, sqlnow, reachability, the heavy runner's test, govulncheck and the
+  exec, sqlnow, reachability, the heavy runner's test, the tool and base
+  image pins, the npm install-script rule, govulncheck and the
   gate runner's own test. The pinned analyzers are cached by the Makefile.
 - `test`, four parts: the root package's two halves, the rest of
   `internal/forge`, and every other package. The database tests use the

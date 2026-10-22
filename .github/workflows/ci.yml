@@ -59,8 +59,9 @@ jobs:
           retention-days: 1
           include-hidden-files: true
 
-  # The checker stages of make check-go-gate, and govulncheck. Vet and every
-  # analyzer load web/, which embeds web/dist, so this needs the web build.
+  # The checker stages of make check-go-gate, the pin and npm install-script
+  # checks, and govulncheck. Vet and every analyzer load web/, which embeds
+  # web/dist, so this needs the web build.
   checks:
     needs: web
     runs-on: ubuntu-24.04
@@ -88,7 +89,7 @@ jobs:
           python3 scripts/gate.py
           check-go-source check-vet check-staticcheck check-lint-test check-lint
           check-shape check-exec check-sqlnow check-reachability
-          check-ci-heavy check-vuln
+          check-ci-heavy check-pins check-npm-scripts check-vuln
       - run: make check-gate
 
   # The Go unit tests, partitioned: the root package's two halves (as the

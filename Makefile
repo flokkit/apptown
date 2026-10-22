@@ -1,4 +1,4 @@
-.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-docs check-public check-ci-heavy tour
+.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-npm-scripts check-docs check-public check-ci-heavy tour
 
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
@@ -46,7 +46,7 @@ build: web go            ## build frontend then the single apptownd binary
 # fails if any stage fails, and prints that stage's log.
 GATE_GO_STAGES = check-test check-test-root-a check-test-root-b check-go-source check-vet check-staticcheck \
 	check-shape check-exec check-sqlnow check-lint-test check-lint \
-	check-reachability check-pins check-docs check-public check-ci-heavy
+	check-reachability check-pins check-npm-scripts check-docs check-public check-ci-heavy
 GATE_WEB_STAGES = check-web-tsc check-web-lint check-web-test
 # Stages that run on a developer's machine and not in CI: landing, where the
 # migration lock is held to origin/main's.
@@ -69,7 +69,7 @@ check:                   ## run the fast CI gates locally
 # failed gate cycle; the gate's full run stays the witness. BASE is what the
 # branch will merge onto.
 BASE ?= origin/main
-PRECHECK_STAGES = check-pins check-docs check-public check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-reachability check-migrations check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
+PRECHECK_STAGES = check-pins check-npm-scripts check-docs check-public check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-reachability check-migrations check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
 precheck:               ## the fast gates and the tests of affected packages, before the gate
 	@MAKE='$(MAKE)' python3 scripts/gate.py $(PRECHECK_STAGES)
 
@@ -115,9 +115,13 @@ check-public:           ## what a push publishes holds nothing private: paths, h
 check-ci-heavy:         ## the heavy tiers' runner: a required test that skipped or did not run fails the job
 	python3 scripts/ci_heavy_test.py
 
-check-pins:             ## the tools the apptown runs for projects have one version each: deploy/tool-pins.txt
+check-pins:             ## the tools the apptown runs for projects have one version each (deploy/tool-pins.txt), and AppTown's own Dockerfiles name every base image by digest
 	python3 scripts/pins-check_test.py
 	python3 scripts/pins-check.py
+
+check-npm-scripts:      ## no dependency's install script runs in AppTown's own npm installs: web/.npmrc, web/install-scripts.txt
+	python3 scripts/npm-scripts-check_test.py
+	python3 scripts/npm-scripts-check.py
 
 check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; the tour is complete; the names people see only lose their old spelling (names-check)
 	python3 scripts/docs-current_test.py

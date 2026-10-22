@@ -125,5 +125,26 @@ class PinsCheckTest(unittest.TestCase):
         self.write("internal/forge/agentenv/workshop.go", 'package agentenv\nconst DindImage = "docker:28-dind"\n')
         self.assertFails("internal/forge/agentenv/workshop.go:2: docker-dind is pinned at 28")
 
+    # Kills: a base image named by tag alone, which can be moved to other
+    # contents; and an ARG default read past instead of through.
+    def test_a_base_image_without_a_digest_fails(self):
+        self.write("cmd/gate/Dockerfile", "FROM golang:1.26.10 AS build\nFROM scratch\nCOPY --from=build /x /x\n")
+        self.write("deploy/ci/Dockerfile", "ARG GO_IMAGE=golang:1.26.10\nFROM ${GO_IMAGE} AS go\nFROM $UNSET\n")
+        self.assertFails("cmd/gate/Dockerfile:1: the base image golang:1.26.10 names no digest",
+                         "deploy/ci/Dockerfile:1: the base image golang:1.26.10 names no digest",
+                         "deploy/ci/Dockerfile:3: FROM $UNSET has no ARG default")
+
+    # scratch, an earlier stage, --platform and a pinned ARG default pass;
+    # seeds and testdata are not AppTown's own builds.
+    def test_pinned_bases_stages_and_scratch_pass(self):
+        self.write("deploy/Dockerfile", "FROM --platform=$BUILDPLATFORM golang:1.26.10@sha256:9ba7 AS go\n"
+                   "FROM go AS notices\nFROM scratch\n")
+        self.write("deploy/ci/Dockerfile", "ARG NODE_IMAGE=node:24@sha256:6449\nFROM ${NODE_IMAGE}\n")
+        self.write("stock/seeds/app/Dockerfile", "FROM node:24-slim\n")
+        self.write("internal/x/testdata/app/Dockerfile", "FROM postgres:16-alpine\n")
+        self.write("internal/x/testdata/sub.Dockerfile", "FROM apptown-agent:latest\n")
+        out = self.run_check()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+
 if __name__ == "__main__":
     unittest.main()

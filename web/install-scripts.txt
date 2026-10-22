@@ -1,0 +1,6 @@
+# The packages in package-lock.json that have an install script. .npmrc sets
+# ignore-scripts=true, so none of these scripts runs. Each line names the
+# package and why it works without its script. make check-npm-scripts fails
+# when the lockfile gains a package with a script that is not listed here,
+# or keeps a line for one that no longer has one.
+esbuild  its binary comes from the @esbuild/<platform> optional dependency, which it finds at run time; the script only checks that binary and swaps it in for a faster start

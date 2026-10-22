@@ -6,8 +6,12 @@ where the agent Dockerfile or stock/scanners.yaml pins a tool the list does
 not name, and where a listed tool is pinned nowhere. The list's own header
 says what each line means.
 
+Also fails where a Dockerfile AppTown builds itself starts FROM an image
+without a digest: a tag can be moved to other contents, a digest cannot.
+
     python3 scripts/pins-check.py [root]
 """
+import os
 import re
 import sys
 from pathlib import Path
@@ -81,6 +85,50 @@ def repository(ref):
     return head if head and "/" not in tail else ref
 
 
+def own_dockerfiles(root):
+    """The Dockerfiles AppTown builds itself. Seeds belong to the projects made
+    from them, testdata holds fixtures, and private/ is not in the public
+    repository, whose CI must check the same files a maintainer does."""
+    skip = {"node_modules", "testdata", ".git", "private"}
+    found = []
+    for d, dirs, files in os.walk(root):
+        rel = Path(d).relative_to(root)
+        dirs[:] = sorted(x for x in dirs if x not in skip and (rel / x).parts[:2] != ("stock", "seeds"))
+        found += [Path(d) / f for f in files if "Dockerfile" in f and not f.endswith(".dockerignore")]
+    return sorted(found)
+
+
+def unpinned_bases(root):
+    """Every FROM that names no digest. scratch and an earlier stage's name
+    are not images; FROM ${NAME} is read through the file's ARG NAME= default."""
+    errors = []
+    for p in own_dockerfiles(root):
+        rel = p.relative_to(root)
+        args, stages = {}, set()
+        for n, raw in enumerate(p.read_text().splitlines(), 1):
+            raw = raw.strip()
+            m = re.match(r"ARG\s+(\w+)=(\S+)", raw)
+            if m:
+                args[m.group(1)] = (m.group(2), n)
+                continue
+            m = re.match(r"FROM\s+(?:--\S+\s+)*(\S+)(?:\s+AS\s+(\S+))?", raw, re.IGNORECASE)
+            if not m:
+                continue
+            ref, line = m.group(1), n
+            v = re.fullmatch(r"\$\{?(\w+)\}?", ref)
+            if v:
+                if v.group(1) not in args:
+                    errors.append(f"{rel}:{n}: FROM {ref} has no ARG default to read a digest from")
+                    ref = None
+                else:
+                    ref, line = args[v.group(1)]
+            if ref is not None and ref != "scratch" and ref not in stages and "@sha256:" not in ref:
+                errors.append(f"{rel}:{line}: the base image {ref} names no digest; pin it as {ref}@sha256:<digest>")
+            if m.group(2):
+                stages.add(m.group(2))
+    return errors
+
+
 def check(root):
     tools, errors = load_pins(root)
     texts = {p: p.read_text() for p in scanned(root)}
@@ -123,6 +171,7 @@ def check(root):
         m = re.match(r"\s*image:\s*[\"']?([^\s\"'#]+)", raw)
         if m and repository(m.group(1)) not in images:
             errors.append(f"{SCANNERS}:{line}: the image {repository(m.group(1))} is not in {PINS}")
+    errors += unpinned_bases(root)
     return errors
 
 
@@ -132,7 +181,7 @@ def main(argv):
     for e in errors:
         print(e)
     if errors:
-        print(f"{len(errors)} tool version(s) disagree with {PINS}")
+        print(f"{len(errors)} problem(s): tool versions that disagree with {PINS}, or base images without a digest")
         return 1
     return 0
 
