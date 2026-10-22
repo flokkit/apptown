@@ -26,8 +26,10 @@ import (
 // (the landing built on its target) names the target whose daemon holds
 // them. A digest bundle names every image as <registry>@sha256:<hex> in one
 // registry, as that registry answered for it, built for one platform on a
-// recorded worker (design/operations/workers.md, "Releases built on the
-// worker"). Docker hosts pull a digest bundle's images by digest, wherever it goes.
+// recorded worker or Docker host (design/operations/workers.md, "Releases
+// built on the worker"). A landing makes a digest bundle whenever the
+// project has a container registry, wherever it built. Docker hosts pull a
+// digest bundle's images by digest, wherever it goes.
 
 type ReleaseBundle struct {
 	ID               ids.ID            `json:"id"`
@@ -69,8 +71,9 @@ type BundleOrigin struct {
 func (b *ReleaseBundle) ByDigest() bool { return b.BuiltFrom.Registry != "" }
 
 // BundleBuild is where a digest bundle's images were built: the worker by
-// its address and role, and the qualified profile it ran under, by its
-// qualification record, or "" when unqualified.
+// its address and role ("agent"), and the qualified profile it ran under,
+// by its qualification record, or "" when unqualified; or a Docker host
+// target by its name, role "docker-host".
 type BundleBuild struct {
 	Worker        string `json:"worker,omitempty"`
 	Role          string `json:"role,omitempty"`

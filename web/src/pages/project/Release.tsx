@@ -1,4 +1,3 @@
-import { PRODUCT } from '../../brand'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { openAfter, post } from '../../api'
@@ -220,7 +219,7 @@ export function BundleFacts({ bundle }: { bundle: ReleaseBundleView }) {
         : <div className="small">
             <span className="chip">by image ID</span>{' '}
             The images exist only on the Docker daemon that built them, not in a registry. App Platform and Portainer take a
-            release by digest; land a change again once {PRODUCT} has a worker to build one.
+            release by digest. Attach a container registry to the project, then land a change to make one.
           </div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 14, rowGap: 4, marginTop: 8 }}>
         {images.map((i) => (

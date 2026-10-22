@@ -1,9 +1,12 @@
 package deployment
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -291,4 +294,76 @@ func sourceCredential(withheld bool, login *docker.RegistryCredential, repo oci.
 		return oci.Credential{}
 	}
 	return repo.Credential
+}
+
+// PublishesLanding says whether a landing of projectID built on a Docker
+// host is published (PublishLanded): when the project has a container
+// registry. None is false; a registry that cannot be used (a credential
+// named but not held) is the refusal, before anything is built.
+func (s *Service) PublishesLanding(ctx context.Context, projectID ids.ID) (bool, error) {
+	_, err := s.env.ReleaseRepository(ctx, projectID)
+	if errors.Is(err, ErrNoReleaseRegistry) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// PublishLanded publishes what a landing built on its Docker host, as
+// PublishRelease publishes what the worker built: a worker changes where a
+// release is built, never what it produces. Each image of in.Plan that is
+// built from the tree is the one the boot ran (LandingResult.Images),
+// saved from the host's daemon (`docker save`, an OCI layout in a tar);
+// image-only declarations are copied by PublishRelease as on the worker.
+// The bundle names the host as where its images were built, for the
+// platform its daemon runs. The saved files are removed before it returns.
+func (s *Service) PublishLanded(ctx context.Context, landed LandingResult, in ReleasePublication) (*ReleaseBundle, error) {
+	t, err := s.Targets.ByID(ctx, landed.TargetID)
+	if err != nil {
+		return nil, fmt.Errorf("reading the landing's target: %w", err)
+	}
+	if in.Platform, err = s.TargetPlatform(ctx, t); err != nil {
+		return nil, err
+	}
+	in.Build = BundleBuild{Worker: t.Name, Role: "docker-host"}
+	dk, err := s.hosts.DockerScope(ctx, t)
+	if err != nil {
+		return nil, err
+	}
+	ran := map[string]string{} // image name -> the image the boot ran
+	parts, init := landed.Images(ctx)
+	for part, img := range in.Plan.Parts {
+		ran[img] = cmp.Or(ran[img], parts[part])
+	}
+	for step, img := range in.Plan.Init {
+		ran[img] = cmp.Or(ran[img], init[step])
+	}
+	dir, err := os.MkdirTemp("", "apptown-release-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	in.Built = map[string]oci.Layout{}
+	for _, img := range in.Plan.Images {
+		if img.Source != "" {
+			continue
+		}
+		id := ran[img.Name]
+		if id == "" {
+			return nil, fmt.Errorf("the landing ran no image %s", img.Name)
+		}
+		if in.Log != nil {
+			in.Log("Saving release image %s from %s", img.Name, t.Name)
+		}
+		file := filepath.Join(dir, img.Name+".tar")
+		if err := dk.ToFile(ctx, file, "save", id); err != nil {
+			return nil, fmt.Errorf("saving the release's image %s from %s: %w", img.Name, t.Name, err)
+		}
+		layout, err := oci.OpenTarLayout(file)
+		if err != nil {
+			return nil, fmt.Errorf("reading the release's image %s as saved: %w", img.Name, err)
+		}
+		defer layout.Close()
+		in.Built[img.Name] = layout
+	}
+	return s.PublishRelease(ctx, in)
 }

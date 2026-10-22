@@ -1092,6 +1092,12 @@ bundle goes live. The landing's own release carries only the change tag;
 DOCR copies carry a commit-based tag. Images are named `part-<part>` and
 `init-<step>`.
 
+On an AppTown without a worker the landing builds on its Docker host. When
+the project has a container registry, AppTown saves each image the host
+booted (`docker save`) and publishes it through the same publication, after
+the boot. The bundle names the Docker host where the worker would be. A
+worker changes where a release is built, not what it produces.
+
 **What it needs.**
 - AppTown started with `-private-docker`, and a worker.
 - A container registry for each shipping project: the one

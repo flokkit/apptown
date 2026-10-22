@@ -145,21 +145,29 @@ are not streamed by these phase messages.
 A release bundle is what a landing produced and every later release ships.
 It has one of two forms.
 
-- **By digest** (an AppTown with a worker). The landing's
+- **By digest** (an AppTown with a worker, or a project with a container
+  registry on an AppTown without one). With a worker, the landing's
   deploy step has the worker build every image once, from the landed commit,
-  in private Docker. AppTown, not the worker, publishes each image to the
+  in private Docker. Without one, the landing builds on its Docker host as
+  below, and AppTown saves each image it booted (`docker save`) and
+  publishes it the same way. A worker changes where a release is built, not
+  what it produces. AppTown, not the worker, publishes each image to the
   project's container-registry attachment (the one container-registry
   connector, attached at that landing, when the project has none) and reads
   it back; the bundle
   records each part and init image as `<repository>@sha256:<digest>` with
   the repository, the platform (`os/arch`), where it was built and the
-  qualification of that worker's profile, and the run, step and attempt.
+  qualification of that worker's profile (or the Docker host's name, role
+  `docker-host`), and the run, step and attempt.
   It is committed once, in a transaction that checks the attempt still owns
   the step, and never changes afterwards. Landing deployment inputs carry
   the bundle's ID, so a generation runs exactly the bundle it was admitted
-  with.
-- **By image ID** (an AppTown without a worker, and every bundle recorded
-  before). The images are built on the target and the bundle records the
+  with. A landing built on its Docker host publishes after the boot, so its
+  generation names the run, not the bundle. If that publication fails, the
+  step ends with an error that says the new version is running and was not
+  published, and no bundle is recorded.
+- **By image ID** (an AppTown without a worker whose project has no
+  container registry, and every bundle recorded before). The images are built on the target and the bundle records the
   daemon-local image IDs and the target they were read on.
 
 **Consumers of a digest bundle**, all by digest, none building:
