@@ -1,75 +1,142 @@
 # Flokkit AppTown
 
-A software factory for the rest of us.
+AppTown gives your team, or your clients, a ready-made place to build apps
+with AI coding agents. There's nothing to install on their side. Each app
+follows a way of working you choose, and they're all checked, deployed and
+backed up the same way, so looking after many apps doesn't mean looking after
+many different setups. You run AppTown yourself, on your own computer or
+server.
 
-AppTown helps small teams keep the apps they make with AI coding agents. You
-run it yourself, on your own machine or server.
+**1.0 release candidate** · [Tour](https://apptown.dev/tour/) · [Install on a server](#install-on-a-server) · [Release notes](releases/) · [Apache-2.0](LICENSE)
 
-Even with coding agents, *owning* an app that people can rely on is still
-work. Someone has to deploy it, back it up, keep it patched and still
-understand it a year later, usually after the person who made it has moved on.
+## Try it now
 
-AppTown makes that handover boring and repeatable. You can bring in an app you
-made with a coding agent on your own computer, or have AppTown's own agents
-build it, and AppTown looks after it from there. Every app gets the habits of a
-careful engineering team: AppTown runs the tests itself instead of taking the
-agent's word for it, a person looks at each change before it goes live, you can
-try it on a preview first, and there's a record of who asked for what and
-what's running now.
+On an Apple Silicon Mac with Docker Desktop, or Linux with Docker Engine:
 
-Coding agent setups are also idiosyncratic. AppTown gives every app the same
-working agent environment, so whoever maintains it next gets the same results
-as whoever made it.
+```sh
+curl -fsSL https://apptown.dev/try | sh
+```
 
-Those habits come from a way of working. It's a team's engineering
-conventions written down, such as the language and framework, the linter, the
-checks that run on every change, and the guidance the agents follow. A team
-can have several, say one for Python web apps and one for static sites. Each
-project adopts one, and takes up newer versions when someone on the project
-accepts them.
+The first start takes a few minutes, then AppTown opens in your browser.
+Create the administrator, add an Anthropic or OpenRouter API key on the Home
+page, and start a project. Give Docker 4 CPUs, at least 8 GB of memory and
+30 GB of free disk. You can [read the script](site/try.sh) first.
 
-One or more admins run AppTown for everyone else. They set it up and keep it
-going. They invite people, connect the places apps get deployed to (a Docker
-host, a Portainer environment or DigitalOcean), plug in the AI model provider,
-and choose the way of working new projects start with. They don't approve
-other people's changes. Each project's own people do that.
+The trial is for your own computer: it has full control of your Docker.
+[The desktop trial](stock/docs/guides/trial.md) explains what it does, and
+how to stop or remove it. To run it for a team, see
+[Install on a server](#install-on-a-server).
 
-What comes out is ordinary software: a git repository and a container image
-you can take somewhere else. It's open source (Apache-2.0).
+![A change in AppTown: the checks that ran, the one that failed, and the approval it is waiting for](site/tour/change-light.png)
 
-It's a 1.0 release candidate. Release notes are in [releases/](releases/).
+More screenshots are in [the tour](https://apptown.dev/tour/).
+
+## What you get
+
+**For the people you set it up for**
+
+- **People who don't use a coding agent** work entirely in the browser. They
+  describe what they want, an agent makes it in a container on your server
+  using the model key you provide, and they try it on a preview link. Nothing
+  to install, no API keys, and no deploy tooling to set up.
+- **People who already use a coding agent** keep using their own. They
+  connect it to AppTown and push their work as a change. AppTown then checks
+  that work itself: it runs the tests, and it checks the change follows your
+  way of working.
+- In a team, you decide who approves changes and who can release them.
+
+**For you, keeping it all running**
+
+- Every app follows the way of working you choose: the language and
+  framework, the checks, and the guidance the agents follow. Apps on the same
+  way of working look alike, even when different people built them months
+  apart.
+- Apps get deployed with HTTPS, databases (Postgres, MariaDB, S3) and backups
+  included.
+- Maintenance arrives as ready-made changes. Library updates and
+  improvements to your way of working are made, built and tested for you, so
+  keeping apps current is mostly a matter of reviewing.
+- There's a record of who asked for what, what was checked, who approved it
+  and what's running now.
+- It's ordinary software underneath: a git repository and a container image
+  you can take anywhere.
 
 ## What it's good for
 
-Primarily, web applications: the ordinary software a team runs for itself,
-such as an internal tool, a form, a dashboard, a small API or a static site. The ways of
-working it ships are proven for Go, Django, Rails and plain front-end
-projects. Java, Node, .NET, Rust, WordPress and games work, but are less
-proven.
+Small web apps a team or household runs for itself: internal tools,
+dashboards, small APIs, static sites, browser games, etc.
 
-Apps run on a Docker host. Roughly, if you can express it in a Compose stack,
-you can ship it in AppTown. The difference is that you don't run your own
-database or storage containers: the app says it needs Postgres, MariaDB or S3,
-and AppTown provides them and backs them up. Portainer, DigitalOcean App
-Platform and static bucket websites also work, but haven't yet released a
-real app in our testing.
+It works best with Go, Django, Rails and plain web front ends, deployed to a
+Docker host. Other languages and deploy targets work too, but are less
+tested: see [toolchains](stock/docs/guides/toolchains.md) and
+[supported platforms](stock/docs/guides/platforms.md).
 
-It isn't built for mobile apps, for large systems with many services and
-teams, or for hosting software for paying customers at scale. It isn't
-low-code, and it doesn't replace your Git host or ticket tracker.
+It isn't for mobile apps, large multi-team systems, or hosting for paying
+customers at scale, and it doesn't replace your Git host. Single sign-on and
+high availability [aren't in 1.0](stock/docs/guides/compatibility.md#not-in-10).
 
-## Reading about it
+## Why
 
-- [What it is for](stock/docs/guides/what-apptown-is-for.md): the problems it
-  addresses and what it is not.
-- [How it works](stock/docs/guides/architecture.md): the pieces, as built.
-- [What 1.0 promises](stock/docs/guides/compatibility.md), and
-  [what is not in 1.0](stock/docs/guides/compatibility.md#not-in-10).
-- [Running one](stock/docs/guides/running-apptown.md): installing and
-  operating AppTown, including model-backed agents.
+AppTown started at home, vibe coding games with the kids. Agents can quickly
+bring ideas to life, but the overall experience was still frustrating. "Why
+can't my friend see it?" "Now I want it to be multiplayer!" "What's git?"
+Getting there meant git setup, deploy keys on a kid's laptop or pipelines,
+permissions, integrations, hosting, DNS. Once the games were up, there was no good way
+to manage them, and keeping them secure and up to date was a job in itself.
+
+Teams have the same problem with internal tools. Getting it right today means
+wiring together many separate tools: a coding agent set up on each person's
+computer, CI, a deploy pipeline, a secrets store, backups and approval rules.
+AppTown does all of that in a simple and opinionated way, in one place.
+
+The bigger cost comes later. A year on, someone has to understand and patch
+each app, often after the person who made it has moved on. Because every app
+follows conventions you set and keeps a record of how it got here, you look
+after one system instead of dozens of one-offs.
+
+You set those conventions as a way of working: the language and framework,
+the linter, the checks that run on every change, and the guidance the agents
+follow. You can have several, say one for Python web apps and one for static
+sites. Each project adopts one, and takes up newer versions when someone on
+the project accepts them. Apps someone made with a coding agent on their own
+computer can be brought in and adopt one too.
+
+## Install on a server
+
+One or more admins run AppTown for everyone else. They invite people,
+connect the places apps get deployed to, add the AI model key, and choose
+the way of working new projects start with. They don't approve other
+people's changes. Each project's own people do that.
+
+On one Linux server with Docker (Compose 2.23 or later) and a domain name:
+
+```sh
+mkdir -p /opt/apptown && cd /opt/apptown
+curl -fsSLO https://apptown.dev/compose.yaml
+echo APPTOWN_DOMAIN=apptown.example.com > .env
+docker compose up -d
+```
+
+First point the domain, `*.preview.` the domain and `*.main.` the domain at
+the server, and open ports 80 and 443. One server suits a small team that
+trusts everyone who writes projects. The agents' code runs in containers on
+the machine that holds AppTown's records, and a container is not a strong
+sandbox. A split install puts the agents and the apps on other machines,
+and takes more setup. [Running AppTown](stock/docs/guides/running-apptown.md)
+covers both, and which one to choose.
+
+## Read more
+
+- [The tour](https://apptown.dev/tour/): AppTown's main pages, with screenshots.
+- [Start here](stock/docs/guides/quickstart.md): making your first app, and
+  [connecting your own coding agent](stock/docs/guides/connect-a-coding-agent.md).
+- [What it is for](stock/docs/guides/what-apptown-is-for.md) and
+  [how it works](stock/docs/guides/architecture.md).
 - [Supported platforms and system requirements](stock/docs/guides/platforms.md).
-- [The tour](https://apptown.dev/tour/): AppTown's main pages, with
-  screenshots (the pictures are in [site/tour](site/tour)).
+- [What 1.0 promises](stock/docs/guides/compatibility.md).
+- [CONTRIBUTING.md](CONTRIBUTING.md): issues are welcome; pull requests by
+  arrangement.
+- [SECURITY.md](SECURITY.md): how to report a vulnerability privately.
 
 ## What is here
 
@@ -83,83 +150,11 @@ and [code navigation](internal/forge/README.md). The [documentation index](desig
 distinguishes current guides from accepted intent. Authentication and resource
 access are checked separately; an actor name is not permission.
 
-## Desktop trial
-
-To try AppTown on your own computer you need Docker (Docker Desktop on a
-Mac, or Docker Engine on Linux) and a model-provider key (Anthropic or
-OpenRouter). Run:
-
-```sh
-docker run --name apptown --privileged -p 127.0.0.1:7777:7777 -v apptown:/var/lib/apptown ghcr.io/flokkit/apptown:<version>
-```
-
-and open the link it prints when it says `AppTown is ready`. The first start
-takes a few minutes. Create the administrator (the link fills in the
-one-time setup token), give your model key, and start a project from the
-dashboard. AppTown and your apps are served over HTTPS at
-`https://localhost:7777` and `https://*.preview.localhost:7777`, from a
-certificate authority the trial makes for itself that can vouch only for
-`localhost` names. Your browser warns about these addresses until you trust
-it once: [The desktop trial](stock/docs/guides/trial.md) says how
-("Trust the trial's certificate"). What it runs on is in
-[Supported platforms and system requirements](stock/docs/guides/platforms.md).
-
-**This is for trying AppTown on your own computer.** It has full control of
-your Docker (`--privileged` is root on a Linux machine, and root in Docker
-Desktop's VM on a Mac), and the agents and apps it runs are containers on
-this machine. Only port 7777 is published, on this computer's own address.
-The link it prints carries the setup token, so that token is in the
-container's log until you create the administrator. For a server, or
-anything other people use, follow
-[Running AppTown](stock/docs/guides/running-apptown.md).
-
-Stop it with Ctrl-C (or `docker stop apptown`); `docker start -a apptown`
-starts it again with everything kept. To remove it and everything it made:
-
-```sh
-docker rm -f apptown
-docker volume rm apptown
-```
-
-If something looks stuck:
-
-- `docker logs apptown` is AppTown's own log.
-- `docker exec apptown docker ps` lists what it started. AppTown runs its
-  own Docker inside its container, so these containers do not show in
-  Docker Desktop or in your own `docker ps`.
-
-A hosted demo is available by invitation from the maintainers.
-
-## Installing on a server
-
-There are two ways to install AppTown on a server.
-
-A single-server install puts AppTown, its agents and its apps on one
-machine. It is quick to set up and suits a small team that trusts everyone
-who writes projects. The agents' code runs in containers on the machine
-that holds AppTown's records, and a container is not a strong sandbox.
-
-A split install puts AppTown on its own machine, the agents on a
-separate worker, and the apps on separate Docker hosts or a cloud. The
-agents' code and your apps don't run where AppTown keeps its records. It
-takes more setup: a worker with its own certificates, a PostgreSQL
-database, a preview domain and a container registry.
-
-[Running AppTown](stock/docs/guides/running-apptown.md) covers both, and
-which one to choose.
-
 ## From source
 
 Building AppTown from the repository, for working on it, is in
 [CONTRIBUTING.md](CONTRIBUTING.md#building-from-source). To run it, use a
 release: [Running AppTown](stock/docs/guides/running-apptown.md).
-
-## Security and contributing
-
-- [SECURITY.md](SECURITY.md): how to report a vulnerability privately, and the
-  trust model in short.
-- [CONTRIBUTING.md](CONTRIBUTING.md): issues are welcome; pull requests by
-  arrangement.
 
 ## Development
 
