@@ -64,7 +64,7 @@ SURFACES = {
 # (internal/forge/boot_test.go, the dependency upgrade tests): they keep the
 # names those releases wrote.
 SKIP = re.compile(
-    r"^(private/design/plans/|private/design/reviews/|web/dist/|.*node_modules/|releases/v1\.0\.0-rc\.[1-5]\.md$"
+    r"^(web/dist/|.*node_modules/|releases/v1\.0\.0-rc\.[1-5]\.md$"
     r"|internal/forge/testdata/upgrade/|internal/forge/dependency/testdata/rc5/"
     r"|scripts/names-check\.py$|scripts/names-check_test\.py$|scripts/names-baseline\.json$)"
 )
@@ -78,15 +78,7 @@ ALLOWED = [
      r".", "the shape tools name the Go package internal/forge, which is kept"),
     ("quoted-name", r"^scripts/shape-check_test\.py$", r"flokkit\.io/forge/internal/forge",
      "asserts the shape tool's name for the kept Go package internal/forge"),
-    # The demo's installs retire the units installed before the rename, so
-    # they name them, once, by their old names.
-    ("command", r"^private/scripts/do-demo/install-(forge|worker)\.sh$", r"before the AppTown rename|systemctl disable --now forge|/var/lib/forge-worker|rm -rf /opt/forge",
-     "retires the daemon and worker installed before the rename"),
-    ("install-path", r"^private/scripts/do-demo/install-(forge|worker)\.sh$", r"systemctl disable --now forge|/var/lib/forge-worker|rm -rf /opt/forge",
-     "retires the daemon and worker installed before the rename"),
     ("command", r"^\.gitignore$", r"^/forged$", "a stray build of the old daemon is never committed again"),
-    ("command", r"^private/scripts/public-history-rebuild\.py$", r"STRAY_BUILDS|\"forged\"|macOS forged binary",
-     "the one-off history rebuild names the old daemon's builds and spellings to keep them out of older trees"),
     # AppTown's own acts recorded before the rename (actor "forge-system",
     # instrument and usage kind "forge") are kept identifiers; these readers
     # show them as AppTown (private/design/plans/rename-leftovers-2026-10-20.md).
@@ -94,9 +86,6 @@ ALLOWED = [
      r"forge-system", "shows system actors recorded before the rename as AppTown"),
     ("commit-subject", r"^web/src/pages/Usage\.tsx$", r"forge: PRODUCT",
      "labels the kept usage kind forge (AppTown's own model calls) as AppTown"),
-    ("env", r"^private/scripts/deploy-ct\.sh$", r"\^FORGE_", "refuses a CT whose settings still use the old prefix"),
-    ("env", r"^private/scripts/deploy_ct_names_test\.py$", r"FORGE_(DB_URL|URL)=",
-     "the CT check's test plants an old daemon setting and a kept CLI variable"),
     ("cli-invocation", r"^web/src/(pages/console/Bubbles\.tsx|brand\.test\.ts)$", r"apptown\\?\|forge\\?\) check",
      "chats from before the rename keep their [forge check] messages as written"),
     ("cli-invocation", r"^web/src/brand\.test\.ts$", r"strayNames\(", "the web name test plants old names to show it catches them"),
@@ -157,11 +146,6 @@ ALLOWED = [
      "the block markers earlier releases wrote into the operator's SSH config; renaming them would leave old blocks unfound"),
     ("cli-invocation", r"^internal/forge/secret/store\.go$", r"derivedPurpose = \"forge need credentials v1\"",
      "the key-derivation purpose of every generated need credential; changing it changes every deployment's passwords"),
-    ("cli-invocation", r"^private/scripts/do-demo/provision\.sh$", r"for f in forge worker dockerhost rehearsal",
-     "the demo droplets' kept names"),
-    ("cli-invocation", r"^private/scripts/lab-no-local-docker-proof-journey\.sh$", r"ctl forge (crash|restart)",
-     "the lab proof's kept container role name"),
-    ("scope", r"^private/scripts/do-demo/lib\.sh$", r"chown forge:forge", "the demo host's kept system user"),
     ("cli-invocation", r"^scripts/docs-current(_test)?\.py$", r"says forge for the product",
      "the docs check names the word it refuses"),
     ("cli-invocation", r"^scripts/shape-check\.py$", r".", "the shape tools name the Go package internal/forge, which is kept"),
@@ -188,7 +172,7 @@ ALLOWED = [
     ("host-name", r"^internal/deploy/digitalocean/(inventory|storage)\.go$", r"forge-maker", "a maker key an older release left is still found and deleted"),
     ("host-name", r"^internal/forge/maintenance/images\.go$", r"forge-conform:", "an older release's conformance images are still swept"),
     ("host-name", r"^internal/deploy/portainer/portainer\.go$", r"forge-env applied", "the platform's own Portainer environment name, not one AppTown makes"),
-    ("host-name", r"^private/scripts/deploy-ct\.sh$|^scripts/apptown-recovery-rehearsal\.sh$", r"forge-db", "live's built-in database, made before 1.0"),
+    ("host-name", r"^scripts/apptown-recovery-rehearsal\.sh$", r"forge-db", "live's built-in database, made before 1.0"),
     ("host-name", r"^stock/docs/guides/(apptown-backups|upgrading|server-setup)\.md$|^design/operations/README\.md$", r"forge-db", "says an install made before 1.0 keeps its database's name"),
 ]
 
@@ -237,7 +221,7 @@ def main(argv):
     for s in SURFACES:
         n, held = len(hits[s]), baseline.get(s, 0)
         if n > held:
-            print(f"names {s:18} {n:5}  baseline {held:5}  WORSE: say AppTown (private/design/plans/name-rename-2026-10-20.md)")
+            print(f"names {s:18} {n:5}  baseline {held:5}  WORSE: say AppTown")
             for f, ln, text in hits[s][:20]:
                 print(f"    {f}:{ln}: {text[:140]}")
             ok = False

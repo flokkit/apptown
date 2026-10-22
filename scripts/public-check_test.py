@@ -59,6 +59,24 @@ class PublicCheck(unittest.TestCase):
                 self.assertEqual(code, 1, out)
                 self.assertIn(f"{rel}: private material", out)
 
+    # The private repository added by mistake is a gitlink: no file in an
+    # archive, but a push publishes it.
+    def test_a_committed_private_repository_link_is_refused(self):
+        root = self.repo(self.CLEAN)
+        sub = root / "private"
+        sub.mkdir()
+        g = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com"]
+        subprocess.run(g + ["-C", str(sub), "init", "-q"], check=True)
+        (sub / "plan.md").write_text("plan\n")
+        subprocess.run(g + ["-C", str(sub), "add", "-A"], check=True)
+        subprocess.run(g + ["-C", str(sub), "commit", "-q", "-m", "p"], check=True)
+        subprocess.run(g + ["-C", str(root), "add", "private"], check=True, capture_output=True)
+        subprocess.run(g + ["-C", str(root), "commit", "-q", "-m", "oops"], check=True)
+        r = subprocess.run([sys.executable, str(CHECK), "--root", str(root), "--names", str(self.names)],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("private: private material", r.stderr)
+
     def test_a_home_lab_name_its_subdomains_and_addresses_are_refused(self):
         for text in [f"host {HOME}\n", f"https://git.{HOME.upper()}/x.git\n", "ssh root@10.9.8.7\n", "on lab-box.\n"]:
             with self.subTest(text):

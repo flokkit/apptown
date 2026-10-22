@@ -52,11 +52,12 @@ class DocsCurrent(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(out.count("links into private/"), 4, out)
 
-    def test_a_link_into_private_inside_a_private_block_passes(self):
-        # CLAUDE.md keeps the maintainers' navigation in private blocks, which
-        # the public export drops.
+    # Private blocks are gone: a marker fails, and does not exempt a link.
+    def test_a_private_block_fails_and_does_not_exempt_its_link(self):
         code, out = run({"CLAUDE.md": "# Guide\n<!-- private -->\n[position](private/design/position/position.md)\n<!-- /private -->\n"})
-        self.assertEqual(code, 0, out)
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.count("a private block marker"), 2, out)
+        self.assertIn("links into private/", out)
 
     def test_ordinary_markdown_link_forms_into_working_papers_fail(self):
         cases = {

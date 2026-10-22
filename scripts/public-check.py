@@ -7,8 +7,11 @@ mistake is the only way it reaches a commit: a forced add, a copied file, a
 host name pasted into a comment. This check reads the committed tree of HEAD
 (git archive HEAD, so exactly what a push publishes) and refuses it when:
 
-1. a path is under private/, or is one of the files the maintainers keep
-   beside it (.gitlab-ci.yml, notes.txt, presso* at the root);
+1. a path in HEAD's tree is private or under private/, or is one of the
+   files the maintainers keep beside it (.gitlab-ci.yml, notes.txt, presso*
+   at the root). The tree's entries, not the archive's files: the private
+   repository added by mistake is a gitlink named private, which an archive
+   leaves out but a push publishes;
 2. a text file names one of the maintainers' home-lab hosts or addresses.
    scripts/public-check-names.txt lists their SHA-256, not the names, so this
    check does not publish what it keeps out. Every host-name-like token, each
@@ -33,7 +36,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-EXCLUDED = re.compile(r"^(private/|\.gitlab-ci\.yml$|notes\.txt$|presso[^/]*$)")
+EXCLUDED = re.compile(r"^(private(/|$)|\.gitlab-ci\.yml$|notes\.txt$|presso[^/]*$)")
 TOKEN = re.compile(rb"[a-z0-9][a-z0-9.-]*[a-z0-9]|[a-z0-9]")
 
 
@@ -107,8 +110,13 @@ def main():
         subprocess.run(["tar", "-x", "-C", str(tree)], input=archive.stdout, check=True)
         files = sorted(str(p.relative_to(tree)) for p in tree.rglob("*") if p.is_file() and not p.is_symlink())
 
+        entries = subprocess.run(["git", "-C", str(root), "ls-tree", "-r", "--name-only", "-z", "HEAD"],
+                                 capture_output=True, text=True)
+        if entries.returncode != 0:
+            print(f"public check: cannot list HEAD's tree: {entries.stderr.strip()}", file=sys.stderr)
+            return 1
         problems = [f"{f}: private material is never committed here (it belongs in the private repository)"
-                    for f in files if EXCLUDED.match(f)]
+                    for f in entries.stdout.split("\0") if f and EXCLUDED.match(f)]
         problems += home_names(tree, files, names)
         leaks = subprocess.run([gitleaks, "dir", "--no-banner", "--no-color", "--verbose", "--redact", "--exit-code", "1", str(tree)],
                                capture_output=True, text=True)

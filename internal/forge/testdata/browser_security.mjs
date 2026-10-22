@@ -110,7 +110,7 @@ try {
     }, { forge, request });
     const popup = await popupPromise;
     await popup.waitForLoadState();
-    assert.match(await popup.locator('body').innerText(), /open Forge directly/);
+    assert.match(await popup.locator('body').innerText(), /open AppTown directly/);
     assert.ok(!popup.url().includes('code='));
     await popup.close();
 
