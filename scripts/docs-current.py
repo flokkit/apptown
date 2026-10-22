@@ -5,10 +5,11 @@ Under design/, in stock/docs/ (the guides AppTown ships) and in CLAUDE.md,
 this fails, naming the file and line, on:
 
   - a file or folder name with a date in it (2026-10-19, 2026-10, 20261019);
-  - a Markdown link into private/ (plans, reviews and everything else the
-    public export leaves out), outside a <!-- private --> block: the
-    maintainers' navigation inside such a block is fine, since the export
-    drops the block;
+  - a Markdown link into private/, where the maintainers' own repository
+    (plans, reviews, their scripts) is checked out: it is not here, so a
+    public reader's link would lead nowhere;
+  - a <!-- private --> or <!-- /private --> marker line: private blocks are
+    gone, and a guide is public as a whole;
   - a line starting "Status:" or "> Superseded".
 
 In stock/docs/ and in the guidance AppTown gives agents (stock/guidance/, the
@@ -31,7 +32,7 @@ DATED = re.compile(r"(?<!\d)(20\d\d-\d\d(-\d\d)?|20\d{6})(?!\d)")
 LINK = re.compile(r"\]\(\s*<?([^)\s>]+)>?(?:\s+[\"'(][^)]*)?\)")
 REFERENCE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?")
 STATUS = re.compile(r"^(Status:|> Superseded)")
-PRIVATE_OPEN, PRIVATE_CLOSE = "<!-- private -->", "<!-- /private -->"
+PRIVATE_MARKERS = ("<!-- private -->", "<!-- /private -->")
 
 
 # The old product name as a word in prose, across a line break too.
@@ -80,20 +81,15 @@ def problems(root):
         if rel.startswith("stock/docs/"):
             for n in old_names(path.read_text()):
                 out.append(f"{rel}:{n}: says forge for the product; write AppTown, or put the command in backticks")
-        in_private = False
         for n, line in enumerate(path.read_text().splitlines(), 1):
-            if line.strip() == PRIVATE_OPEN:
-                in_private = True
-            elif line.strip() == PRIVATE_CLOSE:
-                in_private = False
+            if line.strip() in PRIVATE_MARKERS:
+                out.append(f"{rel}:{n}: a private block marker; private blocks are gone (the maintainers' material is in their own repository), so write the guide for public readers")
             if STATUS.match(line):
                 out.append(f"{rel}:{n}: a status line; state the current rule instead")
-            if in_private:
-                continue
             for target in LINK.findall(line) + REFERENCE.findall(line):
                 to = link_target(path, target, root)
                 if to and (to == "private" or to.startswith("private/")):
-                    out.append(f"{rel}:{n}: links into private/ ({to}), which is not published; write the reason into the guide, or put the link in a <!-- private --> block")
+                    out.append(f"{rel}:{n}: links into private/ ({to}), which is not in this repository; write the reason into the guide")
     guidance = root / "stock" / "guidance"
     if guidance.exists():
         for path in sorted(guidance.rglob("*.md")):

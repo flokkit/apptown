@@ -80,7 +80,6 @@ class NamesCheck(unittest.TestCase):
     # History (plans, reviews, earlier release notes) is not counted.
     def test_history_is_not_counted(self):
         self.baseline()
-        self.write("private/design/plans/old-2026-09-01.md", "run forged with FORGE_DATA")
         self.write("releases/v1.0.0-rc.5.md", "forge check")
         code, out = self.run_check()
         self.assertEqual(code, 0, out)
