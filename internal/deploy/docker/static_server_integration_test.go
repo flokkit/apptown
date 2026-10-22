@@ -39,9 +39,11 @@ func TestIntegrationStaticServerGivesThePageItsValues(t *testing.T) {
 		}
 		id := strings.TrimSpace(string(out))
 		t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", id).Run() })
-		port, err := exec.Command("docker", "port", id, "8080/tcp").Output()
+		port, err := exec.Command("docker", "port", id, "8080/tcp").CombinedOutput()
 		if err != nil {
-			t.Fatalf("docker port: %v", err)
+			state, _ := exec.Command("docker", "inspect", "-f", "{{json .State}} {{json .NetworkSettings.Ports}}", id).CombinedOutput()
+			logs, _ := exec.Command("docker", "logs", id).CombinedOutput()
+			t.Fatalf("docker port: %v %s\nthe server's state: %s\nits log:\n%s", err, port, state, logs)
 		}
 		base := "http://" + strings.TrimSpace(strings.Split(string(port), "\n")[0])
 		if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
