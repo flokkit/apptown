@@ -29,6 +29,11 @@ func compare(typ reflect.Type, node map[string]any, at string, problems *[]strin
 	for typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
+	// A yaml.Node holds a value as written, of any shape: the parser
+	// judges it itself, so it has no keys to compare.
+	if typ.PkgPath() == "gopkg.in/yaml.v3" && typ.Name() == "Node" {
+		return
+	}
 	switch typ.Kind() {
 	case reflect.Struct:
 		props, _ := node["properties"].(map[string]any)

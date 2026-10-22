@@ -186,14 +186,14 @@ func TestAPublicationStopsWhenItsAttemptIsSuperseded(t *testing.T) {
 	}
 }
 
-// A part and an init step whose names would meet (a part named
-// init-migrate, an init step migrate) are different images, one built and
-// one image-only; each keeps its own published digest through
-// publication, and neither is committed as the other.
+// A part and an init step are different images, one built and one
+// image-only; each keeps its own published digest through publication, and
+// neither is committed as the other. (Names that would meet, a part named
+// init-migrate beside an init step migrate, are refused by the contract.)
 //
 // Kills: one namespace for parts and init steps (the init image's copy
-// overwriting the part's publication under the same name).
-func TestAPartAndAnInitStepKeepTheirOwnImagesWhateverTheirNames(t *testing.T) {
+// overwriting the part's publication).
+func TestAPartAndAnInitStepKeepTheirOwnImages(t *testing.T) {
 	w := noLocalDockerWorld(t, multipartApp)
 	s := w.service(false)
 	reg := httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
@@ -206,7 +206,7 @@ func TestAPartAndAnInitStepKeepTheirOwnImagesWhateverTheirNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw := []byte("app:\n  init-migrate:\n    public: true\n    build: app\ninit:\n  - name: migrate\n    image: " + initImage.Reference() + "\n")
+	raw := []byte("app:\n  web:\n    public: true\n    build: app\ninit:\n  - name: migrate\n    image: " + initImage.Reference() + "\n")
 	c, err := appcontract.Parse(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -232,7 +232,7 @@ func TestAPartAndAnInitStepKeepTheirOwnImagesWhateverTheirNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.Parts["init-migrate"] != appImage.Reference() || b.Init["migrate"] != initImage.Reference() {
-		t.Fatalf("distinct images collapsed: app=%s init=%s; expected app=%s init=%s", b.Parts["init-migrate"], b.Init["migrate"], appImage.Reference(), initImage.Reference())
+	if b.Parts["web"] != appImage.Reference() || b.Init["migrate"] != initImage.Reference() {
+		t.Fatalf("distinct images collapsed: app=%s init=%s; expected app=%s init=%s", b.Parts["web"], b.Init["migrate"], appImage.Reference(), initImage.Reference())
 	}
 }

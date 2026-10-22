@@ -75,19 +75,25 @@
           "ports": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9]+(/tcp)?$"
             },
-            "description": "Compose-style ports; AppTown assigns the host port, so the container port is what matters (e.g. [\"8080\"])."
+            "description": "The one port the part listens on (e.g. [\"8080\"]); AppTown chooses where it is published.",
+            "maxItems": 1
           },
           "environment": {
             "type": "object",
             "additionalProperties": {
               "type": [
                 "string",
-                "number",
+                "integer",
                 "boolean"
               ]
-            }
+            },
+            "propertyNames": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "description": "Values reach the app as written: text, a whole number or true/false. Quote anything else. Names starting APPTOWN_ are AppTown's."
           },
           "dataDir": {
             "type": "string",
@@ -249,6 +255,19 @@
             }
           }
         }
+      },
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]{0,30}[a-z0-9]$",
+        "not": {
+          "anyOf": [
+            {
+              "const": "app"
+            },
+            {
+              "pattern": "^(init|apptown)-"
+            }
+          ]
+        }
       }
     },
     "init": {
@@ -256,10 +275,15 @@
       "type": "array",
       "items": {
         "type": "object",
+        "required": [
+          "name"
+        ],
         "additionalProperties": false,
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,30}[a-z0-9]$",
+            "description": "Required and unique; not the name of a part or a need, not app, and not starting init- or apptown-."
           },
           "build": {
             "type": "string",
@@ -286,10 +310,14 @@
             "additionalProperties": {
               "type": [
                 "string",
-                "number",
+                "integer",
                 "boolean"
               ]
-            }
+            },
+            "propertyNames": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "description": "Values reach the app as written: text, a whole number or true/false. Quote anything else. Names starting APPTOWN_ are AppTown's."
           }
         }
       }
@@ -429,9 +457,12 @@
               "additionalProperties": {
                 "type": [
                   "string",
-                  "number",
+                  "integer",
                   "boolean"
                 ]
+              },
+              "propertyNames": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
               }
             },
             "size": {

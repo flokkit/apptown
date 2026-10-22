@@ -39,12 +39,18 @@ func TestPackLibraryHTTPWarningsProtectionAndManifest(t *testing.T) {
 	}
 	// The editor's shape: a picked policy is its name with an empty rule
 	// and options, and the draft carries versionName and the inclusion fields.
+	// A version pins what it names, so items the library lacks are refused
+	// by name; an unknown toolchain, a starter file, is only a warning.
 	w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"custom-pack","description":"Demo setup","versionName":"","includes":"","replaces":{},"drops":[],"guidance":["missing-guide"],"workflows":["missing-flow"],"policies":[{"name":"missing-policy","description":"","rule":"","with":{}}],"toolchain":"missing-tool"}`)
+	if w.Code != 400 || !strings.Contains(w.Body.String(), "missing-guide") || !strings.Contains(w.Body.String(), "missing-flow") || !strings.Contains(w.Body.String(), "missing-policy") {
+		t.Fatalf("missing items: %d %s", w.Code, w.Body.String())
+	}
+	w = authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"custom-pack","description":"Demo setup","versionName":"","includes":"","replaces":{},"drops":[],"guidance":[],"workflows":[],"policies":[],"toolchain":"missing-tool"}`)
 	var saved struct {
 		OK       bool
 		Warnings []string
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &saved); err != nil || w.Code != 200 || !saved.OK || len(saved.Warnings) != 4 {
+	if err := json.Unmarshal(w.Body.Bytes(), &saved); err != nil || w.Code != 200 || !saved.OK || len(saved.Warnings) != 1 {
 		t.Fatalf("warnings: %d %s %v", w.Code, w.Body.String(), err)
 	}
 	// Update to usable contents before application. Version pinning and later

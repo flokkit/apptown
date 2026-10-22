@@ -57,10 +57,18 @@ needs:
 - **`app`** names the parts. Each part declares exactly one of `build` (a
   Docker build context), `image` (an image to pull) or `static` (files to
   serve). Exactly one part is `public: true`: the one people reach.
+- **Names.** A part's or init step's name is 2 to 32 lower-case letters,
+  digits and hyphens, starting with a letter and not ending with a hyphen.
+  Parts, init steps and needs share one set of names, because every target
+  runs them side by side. `app`, and names starting `init-` or `apptown-`,
+  are the ones targets give their own services, so they are refused.
 - A part may also declare `ports`, `command`, `environment`, `health`,
   `resources` and `replicas`; the public part may declare `dataDir`, and
   another part `healthcheck` (below). `replicas` is `1` or left out; a
-  larger number is refused before anything is built.
+  larger number is refused before anything is built. `ports` lists the one
+  port the part listens on (`["8080"]`); a second entry, or a host port
+  (`"3000:8080"`), is refused, because AppTown chooses where a part is
+  published.
 - **`command`** is a list, run as written, or a string, run as
   `sh -c "<string>"`: an image with a string `command` needs `/bin/sh`. On a
   Docker host and on Portainer a list's arguments are kept as written; App
@@ -69,10 +77,16 @@ needs:
 - **`environment`** may not set `PORT`, `APPTOWN_ORIGINS`, `DATA_DIR`,
   `APPTOWN_RELEASE` or `APPTOWN_BROWSER_ENV`: AppTown sets them (see "The
   environment an app gets"), and an app's own value would win on one target
-  and lose on another.
+  and lose on another. Names starting `APPTOWN_` are AppTown's, in parts,
+  init steps, profiles and secrets: a variable AppTown adds later takes one.
+  A name is letters, digits and `_`, not starting with a digit. A value
+  reaches the app exactly as written, so it is text, a whole number or
+  `true`/`false`; anything else is refused and should be quoted: `"3.10"`
+  (unquoted it would be the number 3.1), `""` for an empty value, a date.
 - **`init`** is an ordered list of steps that run to completion before the
-  app starts (see "Startup order" below). Each declares `build` or
-  `image`, and may declare `name`, `command` and `environment`.
+  app starts (see "Startup order" below). Each declares `name` and either
+  `build` or `image`, and may declare `command` and `environment`. A secret
+  is scoped to an init step by its name, so every step has one.
 - **`needs`** names services from the catalogue (`postgres`, `mariadb`,
   `redis`, `s3`, `llm`) with their parameters. Each parameter is one value,
   and a need takes only the parameters its catalogue entry lists (for
@@ -81,7 +95,8 @@ needs:
   are kept for naming two needs of one kind later.
   What each need gives the app is in
   [What each need gives the app](/docs/guides/services-and-data).
-- **`secrets`** chooses the `secretspec.toml` declaration and how values are
+- **`secrets`** chooses the `secretspec.toml` declaration (`spec`, a file
+  inside the project, written relative) and how values are
   generated and delivered. Delivery is by environment variable; `file`
   delivery is refused.
 - **`profiles`** and **`resources`**: see "Resources and profiles" below.
@@ -315,7 +330,9 @@ checks for that.
 ## Static sites
 
 A `static` part serves files with AppTown's file server. It runs no code of
-yours and reads no environment.
+yours and reads no environment, so `environment` (in the part or a
+profile), `command`, `dataDir` and `healthcheck` are refused on it; its
+readiness is `health`, and `resources` and `ports` apply as to any part.
 
 ```yaml
 app:

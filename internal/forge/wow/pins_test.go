@@ -2,6 +2,7 @@ package wow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -38,7 +39,7 @@ func TestPinsAndCutOnPinChange(t *testing.T) {
 	if !strings.Contains(platform, `"land":1`) {
 		t.Fatalf("the platform pack pins system workflows: %s", platform)
 	}
-	v, err := packs.Publish(t.Context(), "go", "Go", spec, "stock")
+	v, err := packs.Publish(t.Context(), "go", "Go", `{"guidance":["lang/go"],"workflows":["build","land"]}`, "stock")
 	if err != nil || v != 1 {
 		t.Fatalf("publish: %v %d", err, v)
 	}
@@ -60,5 +61,32 @@ func TestPinsAndCutOnPinChange(t *testing.T) {
 	have, _ := packs.LatestPins(context.Background(), *rec)
 	if !strings.Contains(canonJSON(have), `"lang/go":2`) {
 		t.Fatalf("the new publication names the new version: %s", have)
+	}
+}
+
+// A pack version keeps what it pinned, so a save may name only what the
+// library has: an item it could not pin would be whatever later takes the
+// name, in every project on that version. A system workflow a language
+// pack lists is known and left for the platform pack to pin, not missing.
+func TestAPackVersionNamesOnlyWhatItCanPin(t *testing.T) {
+	t.Parallel()
+	s := New(testDB(t), Dependencies{})
+	if _, err := s.library.Create(t.Context(), "lang/go", "Go rules", "lang", "bls"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.workflows.StockInsert(t.Context(), "land", "the landing", fmt.Sprintf(laneYAML, "land", "the landing", "  system: true\n")); err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range []string{
+		`{"guidance":["lang/go","missing/block"]}`,
+		`{"workflows":["nope"]}`,
+		`{"policies":[{"name":"nowhere"}]}`,
+	} {
+		if _, err := s.PublishPack(t.Context(), "go", "Go", spec, ""); !errors.Is(err, ErrUnpinned) {
+			t.Errorf("%s: %v", spec, err)
+		}
+	}
+	if _, err := s.PublishPack(t.Context(), "go", "Go", `{"guidance":["lang/go"],"workflows":["land"]}`, ""); err != nil {
+		t.Fatalf("a pack of known items, with a system workflow: %v", err)
 	}
 }

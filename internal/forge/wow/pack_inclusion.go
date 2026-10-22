@@ -28,6 +28,11 @@ import (
 // ErrInclusion is a declaration that cannot be resolved.
 var ErrInclusion = fault.New(fault.Invalid, "the pack's inclusion cannot be resolved")
 
+// ErrUnpinned refuses a pack version that names an item the library does
+// not have: it could not pin it, and a later item of that name would take
+// its place in every project on the version.
+var ErrUnpinned = fault.New(fault.Invalid, "a pack version names only items it can pin")
+
 // IncludeRef splits "name" or "name@4". Version 0 follows the included
 // pack's offered version.
 func IncludeRef(includes string) (name string, version int64, err error) {
@@ -72,6 +77,11 @@ type resolution struct {
 	// not carry. Saving a declaration refuses them; a cut made for the pack
 	// records them in its note.
 	Gone []string
+	// Missing names the pack's own items the library does not have, which
+	// the publication could not pin. A person's save or a stock sync is
+	// refused for them (a version pins what it names); a recut, made for
+	// the pack at boot, keeps them by name as before.
+	Missing []string
 }
 
 // resolveDeclaration is the one resolution rule: deterministic for equal
@@ -80,8 +90,9 @@ type resolution struct {
 // drops, then replacements, then adds the pack's own items.
 func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublication, lib pinSource) (resolution, error) {
 	pins := PinSet{Blocks: map[string]int{}, Workflows: map[string]int{}, Policies: map[string]string{}}
+	var missing []string
 	// An own policy is stored with the library's definition now, pinned by
-	// it; one the library lacks keeps its name, unpinned (prepare says so).
+	// it; one the library lacks keeps its name, unpinned (unpinnedPolicies).
 	own := func(name string) PackPolicy {
 		def, ok := lib.PolicyPin(ctx, name)
 		if !ok {
@@ -99,14 +110,22 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 		for _, g := range d.Guidance {
 			if v, ok := lib.BlockPin(ctx, g); ok {
 				pins.Blocks[g] = v
+			} else {
+				missing = append(missing, "guidance block "+g)
 			}
 		}
+		// A system workflow a language pack lists is known but left for the
+		// platform pack to pin; only an unknown one is missing.
 		for _, w := range d.Workflows {
-			if v, pinned, ok := lib.WorkflowPin(ctx, w, d.Platform); ok && pinned {
+			v, pinned, ok := lib.WorkflowPin(ctx, w, d.Platform)
+			switch {
+			case !ok:
+				missing = append(missing, "workflow "+w)
+			case pinned:
 				pins.Workflows[w] = v
 			}
 		}
-		return resolution{Spec: d, Pins: pins}, nil
+		return resolution{Spec: d, Pins: pins, Missing: append(missing, unpinnedPolicies(d.Policies, pins)...)}, nil
 	}
 	if inc == nil {
 		return resolution{}, fmt.Errorf("%w: %s has no publication to include", ErrInclusion, d.Includes)
@@ -282,7 +301,20 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 			out.Requires = append(out.Requires, c)
 		}
 	}
-	return resolution{Spec: out, Pins: pins, Included: inc, Gone: gone}, nil
+	return resolution{Spec: out, Pins: pins, Included: inc, Gone: gone, Missing: unpinnedPolicies(out.Policies, pins)}, nil
+}
+
+// unpinnedPolicies names the policies a resolved pack holds with neither a
+// pin nor a definition: judged on the final contents, so one the pack
+// dropped or replaced is not counted.
+func unpinnedPolicies(policies []PackPolicy, pins PinSet) []string {
+	var out []string
+	for _, p := range policies {
+		if _, pinned := pins.Policies[p.Name]; !pinned && p.Rule == "" {
+			out = append(out, "policy "+p.Name)
+		}
+	}
+	return out
 }
 
 // removeItem drops a named block, workflow or policy from a resolved pack.

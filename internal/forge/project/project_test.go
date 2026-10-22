@@ -42,15 +42,6 @@ func TestProjectRecordRules(t *testing.T) {
 		t.Fatalf("a taken slug: %v", err)
 	}
 	other, _ := create(Spec{Slug: "other"})
-	if err := ps.Rename(context.Background(), other, "coin-flip", "Other"); !errors.Is(err, ErrSlugTaken) {
-		t.Fatalf("renaming onto a taken slug: %v", err)
-	}
-	if err := ps.Rename(context.Background(), other, "other-one", "Other One"); err != nil {
-		t.Fatal(err)
-	}
-	if got, _ := ps.BySlug(context.Background(), "other-one"); got.ID != other || got.Name != "Other One" {
-		t.Fatalf("renamed: %+v", got)
-	}
 	if err := ps.Remove(context.Background(), other); err != nil {
 		t.Fatal(err)
 	}

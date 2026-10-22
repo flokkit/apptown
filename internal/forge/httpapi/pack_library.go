@@ -51,9 +51,9 @@ func (h PackLibrary) SetPackEnabled(w http.ResponseWriter, r *http.Request) {
 
 // SavePack: POST /api/v1/packs — create or update a CUSTOM pack's
 // declaration (stock packs are read-only; include one in a pack of your
-// own). A declaration that cannot be resolved is refused. Validates policy
-// rules hard; missing guidance/workflows come back as warnings — packs may
-// reference library content that arrives later.
+// own). A declaration that cannot be resolved, or that names a block,
+// workflow or policy the library does not have, is refused; an unknown
+// toolchain is only a warning (a starter file, not pinned).
 func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 	if _, ok := AuthorizeRequest(h.access, w, r, access.CapStandardsPacks, access.Resource{Type: "instance"}, access.Context{}); !ok {
 		return
@@ -90,22 +90,10 @@ func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		// A block, workflow or policy the library lacks is refused by the
+		// publication (wow.ErrUnpinned). A toolchain is a starter file,
+		// not pinned, so a missing one is only a warning.
 		var warnings []string
-		for _, g := range in.Guidance {
-			if _, err := h.ways.BlockByName(r.Context(), g); err != nil {
-				warnings = append(warnings, "guidance block not in store: "+g)
-			}
-		}
-		for _, wf := range in.Workflows {
-			if _, _, err := h.ways.WorkflowVersion(r.Context(), wf, 0); err != nil {
-				warnings = append(warnings, "workflow not in library: "+wf)
-			}
-		}
-		for _, pol := range in.Policies {
-			if pol.Rule == "" && h.ways.LibraryPolicy(r.Context(), pol.Name) == nil {
-				warnings = append(warnings, "policy not in library: "+pol.Name)
-			}
-		}
 		if in.Toolchain != "" {
 			if _, err := stock.FS.ReadFile("toolchains/" + in.Toolchain + ".toml"); err != nil {
 				warnings = append(warnings, "no stock toolchain: "+in.Toolchain)

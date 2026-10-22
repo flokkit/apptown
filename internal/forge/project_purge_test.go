@@ -304,10 +304,6 @@ func TestProjectPurgeReceiptPrecedesCleanupAndPreservesAccounting(t *testing.T) 
 			if _, err := a.lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "game", Name: "Replacement", Actor: "boss"}); err == nil {
 				t.Fatal("name reused while old cleanup still owns paths")
 			}
-			renamed := authzCall(a.Handler(), "boss", "PATCH", "/api/v1/projects/open", `{"slug":"game","expectedRevision":0}`)
-			if renamed.Code != 409 {
-				t.Fatalf("rename into cleanup namespace: %d %s", renamed.Code, renamed.Body.String())
-			}
 
 			pending := 0
 			for _, e := range ledgerEntries(t, a, ids.Nil, "project.deleted") {
@@ -961,7 +957,6 @@ func TestEveryWorkDoorRefusesAProjectThatIsNotActive(t *testing.T) {
 		{"POST", "/api/v1/projects/game/changes", func(*App) string { return `{"type":"feature","title":"more"}` }, 201},
 		{"POST", "/api/v1/changes/{change}/start", func(*App) string { return "" }, 200},
 		{"PATCH", "/api/v1/projects/game", func(a *App) string { return fmt.Sprintf(`{"name":"Renamed","expectedRevision":%d}`, revision(a)) }, 200},
-		{"PATCH", "/api/v1/projects/game", func(a *App) string { return fmt.Sprintf(`{"slug":"game-two","expectedRevision":%d}`, revision(a)) }, 200},
 	}
 	// Each state has one AppTown: a refused door changes nothing, so every
 	// door meets the same project.

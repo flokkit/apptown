@@ -2,6 +2,7 @@ package secret
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -69,12 +70,38 @@ func TestSecretSpecParse(t *testing.T) {
 	}
 }
 
-// Only AppTown sets a static part's browser values; no secret may be named
-// for them.
-func TestASecretCannotBeNamedForTheForgesBrowserValues(t *testing.T) {
+// No secret may be named like a variable AppTown sets (it would win on a
+// Docker host and lose elsewhere), or start APPTOWN_, which is kept for the
+// variables AppTown adds later. A secret's own name is still fine.
+func TestASecretCannotTakeANameAppTownKeeps(t *testing.T) {
 	t.Parallel()
-	_, err := ParseSpec([]byte("[project]\nname = \"app\"\nrevision = \"1.0\"\n\n[profiles.default]\nAPPTOWN_BROWSER_ENV = { description = \"no\", required = true }\n"))
-	if err == nil || !strings.Contains(err.Error(), "set by AppTown alone") {
-		t.Fatalf("a secret named for the reserved variable: %v", err)
+	declare := func(name string) error {
+		_, err := ParseSpec([]byte("[project]\nname = \"app\"\nrevision = \"1.0\"\n\n[profiles.default]\n" + name + " = { description = \"x\", required = true }\n"))
+		return err
+	}
+	for _, name := range []string{"APPTOWN_BROWSER_ENV", "PORT", "DATA_DIR", "APPTOWN_ORIGINS", "APPTOWN_NEXT_THING"} {
+		if err := declare(name); err == nil || !strings.Contains(err.Error(), "is AppTown's") {
+			t.Errorf("a secret named %s: %v", name, err)
+		}
+	}
+	if err := declare("APP_PORT"); err != nil {
+		t.Errorf("an app's own name: %v", err)
+	}
+}
+
+// The declaration is read from the project's own tree: a secrets.spec path
+// that leaves it is refused before anything is read.
+func TestASpecOutsideTheProjectIsNotRead(t *testing.T) {
+	t.Parallel()
+	ws := t.TempDir()
+	outside := filepath.Join(filepath.Dir(ws), "secretspec.toml")
+	if err := os.WriteFile(outside, []byte("[project]\nname = \"x\"\nrevision = \"1.0\"\n\n[profiles.default]\nA = { description = \"a\" }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove(outside) })
+	for _, path := range []string{"../secretspec.toml", outside} {
+		if spec, _, err := ReadSpec(ws, path); err == nil || spec != nil {
+			t.Errorf("secrets.spec %s: %+v %v", path, spec, err)
+		}
 	}
 }

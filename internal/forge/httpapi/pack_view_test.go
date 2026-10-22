@@ -24,6 +24,9 @@ func TestPinnedPackReadersShareExactContents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := wow.NewLibrary(db).Create(t.Context(), "rule", "A rule.", "", "alice"); err != nil {
+		t.Fatal(err)
+	}
 	catalogPacks := wow.NewPacks(db)
 	for version := 1; version <= 2; version++ {
 		got, err := catalogPacks.Publish(t.Context(), "pinned", "Pinned", encodedJSON(wow.PackSpec{Platform: version == 1, Guidance: []string{"rule"}}), "")

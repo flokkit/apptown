@@ -11,7 +11,6 @@ import (
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/dbtest"
 	"flokkit.io/forge/internal/forge/adoption"
-	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 	"flokkit.io/forge/internal/ids"
 )
@@ -391,15 +390,6 @@ func TestMergeGateClearRollsBackEarlierGateAndReceipt(t *testing.T) {
 func TestMergeGateRefusesChangedSourceMetadata(t *testing.T) {
 	t.Parallel()
 	for name, mutation := range map[string]func(*database.DB, *Run){
-		"project slug": func(db *database.DB, run *Run) {
-			current, err := project.New(db, nil).ByID(context.Background(), run.ProjectID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := project.New(db, nil).Rename(context.Background(), run.ProjectID, "renamed", current.Name); err != nil {
-				t.Fatal(err)
-			}
-		},
 		"default branch": func(db *database.DB, run *Run) { setMergeSourceDefaultBranch(t, db, run.ProjectID, "trunk") },
 		"adoption": func(db *database.DB, run *Run) {
 			if err := db.InTx(context.Background(), func(tx *database.Tx) error {

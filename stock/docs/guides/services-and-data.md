@@ -23,6 +23,16 @@ A need is fulfilled either by the deployment's target (postgres runs beside the 
 
 Error reporting and other integrations are not needs: they are attached to the project under **Settings › Services › Connected to**, the app is given their variables while they are attached (where they arrive, by target and part, is in [the app contract](/docs/guides/contract-reference)), and it must run without them. Declaring one under `needs:` is refused.
 
+A need declared without a `version` gets its default, which stays the same in every 1.x release:
+
+| Need | Default `version` |
+| --- | --- |
+| `postgres` | `16` |
+| `mariadb` | `11.4.13` |
+| `redis` | `7` |
+
+Write `version:` to choose another. On a Docker host, a standing deployment whose service holds real data refuses a changed version rather than start another server on its data.
+
 ## What each need gives the app
 
 Each need has one contract, the same on every target that fulfils it and in a preview. The rules for every need:

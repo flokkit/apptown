@@ -128,7 +128,7 @@ profiles:
   prod:
     web: { resources: { memory: 2G } }
 init:
-  - { name: m, image: x, environment: { C: "${needs.postgres.PGHOST}" } }
+  - { name: migrate, image: x, environment: { C: "${needs.postgres.PGHOST}" } }
 needs:
   postgres: { resources: { memory: 256M }, version: "16" }
 `

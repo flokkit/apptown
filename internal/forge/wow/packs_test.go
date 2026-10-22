@@ -14,7 +14,12 @@ func TestPacksPublishVersionsAndTheSwitch(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	packs := NewPacks(db)
-	spec := `{"guidance":["lang/go"],"workflows":["quick-change"]}`
+	lib := NewLibrary(db)
+	block, err := lib.Create(t.Context(), "lang/go", "Use Go.", "", "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := `{"guidance":["lang/go"]}`
 	v, err := packs.Publish(t.Context(), "go-small", "small Go service", spec, "stock")
 	if err != nil || v != 1 {
 		t.Fatalf("first publication: %d %v", v, err)
@@ -24,7 +29,7 @@ func TestPacksPublishVersionsAndTheSwitch(t *testing.T) {
 		t.Fatalf("unchanged contents: %d %v", v, err)
 	}
 	// Pins moved: a new version, because a publication names exact contents.
-	if _, err := NewLibrary(db).Create(t.Context(), "lang/go", "Use Go.", "", "alice"); err != nil {
+	if err := lib.Bump(t.Context(), block.ID, "Use Go, revised.", "[]", "alice", "lang/go"); err != nil {
 		t.Fatal(err)
 	}
 	if v, err = packs.Publish(t.Context(), "go-small", "small Go service", spec, "stock"); err != nil || v != 2 {

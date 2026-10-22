@@ -131,11 +131,11 @@ export function LifecycleNote({ slug, lifecycle }: { slug: string; lifecycle?: L
 // a branch, and deleting it. Everything about the project AS a thing, in
 // one place — the header stays a header.
 
-type Face = { name: string; slug: string; namespace: string; icon: string; blurb: string }
-const faceOf = (p: ProjectT): Face => ({ name: p.name, slug: p.slug, namespace: p.namespace ?? '', icon: p.icon ?? '', blurb: p.blurb ?? '' })
+type Face = { name: string; namespace: string; icon: string; blurb: string }
+const faceOf = (p: ProjectT): Face => ({ name: p.name, namespace: p.namespace ?? '', icon: p.icon ?? '', blurb: p.blurb ?? '' })
 // said quotes a value for a sentence, and names an empty one.
 const said = (v: string) => (v === '' ? 'empty' : `“${v}”`)
-const faceLabels: Record<keyof Face, string> = { name: 'Name', icon: 'Icon', blurb: 'One line about it', namespace: 'Group', slug: 'Address' }
+const faceLabels: Record<keyof Face, string> = { name: 'Name', icon: 'Icon', blurb: 'One line about it', namespace: 'Group' }
 
 // The form follows the project as the page reads it until someone edits a
 // field; from then on the draft is theirs and survives refreshes and failed
@@ -155,7 +155,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
   const [msg, setMsg] = useState('')
   useEffect(() => {
     if (!current || draft) return
-    setBase((held) => (held && held.face.slug === project.slug && held.revision > project.settingsRevision) ? held : { face: faceOf(project), revision: project.settingsRevision })
+    setBase((held) => (held && held.revision > project.settingsRevision) ? held : { face: faceOf(project), revision: project.settingsRevision })
   }, [project, current, draft])
   const shown = draft ?? base?.face ?? null
   const edit = (field: keyof Face) => (v: string) => {
@@ -185,8 +185,8 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
     client.setQueryData(getKey(`/projects/${p.slug}`), p)
     setBase({ face: faceOf(p), revision: p.settingsRevision })
     setDraft(null)
-    if (p.slug !== project.slug) nav(`/projects/${p.slug}/settings/general`, { replace: true })
-    else { setMsg('saved'); onChanged() }
+    setMsg('saved')
+    onChanged()
   }
   // A refused save means the page's reading is old: read the settings again
   // so the person sees what changed before choosing.
@@ -224,8 +224,8 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
           <FieldRow label="Group" help="how projects are grouped on the front page">
             <input value={shown?.namespace ?? ''} onChange={(e) => edit('namespace')(e.target.value)} list="known-namespaces" placeholder="(none)" style={{ width: 200 }} />
           </FieldRow>
-          <FieldRow label="Address" help="the short name in links; changing it moves the project">
-            <input value={shown?.slug ?? ''} onChange={(e) => edit('slug')(e.target.value)} style={{ width: 200 }} />
+          <FieldRow label="Address" help="the short name in links, fixed when the project was made">
+            <code>{project.slug}</code>
           </FieldRow>
         </div>
         </fieldset>

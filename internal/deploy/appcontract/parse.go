@@ -28,13 +28,13 @@ import (
 //	  postgres: { version: "16" }
 
 type appYamlPart struct {
-	Build       string         `yaml:"build"`
-	Image       string         `yaml:"image"`
-	Static      appYamlStatic  `yaml:"static"`
-	Command     any            `yaml:"command"` // string or []string (compose)
-	Ports       []string       `yaml:"ports"`
-	Environment map[string]any `yaml:"environment"`
-	DataDir     string         `yaml:"dataDir"`
+	Build       string        `yaml:"build"`
+	Image       string        `yaml:"image"`
+	Static      appYamlStatic `yaml:"static"`
+	Command     any           `yaml:"command"` // string or []string (compose)
+	Ports       []string      `yaml:"ports"`
+	Environment environment   `yaml:"environment"`
+	DataDir     string        `yaml:"dataDir"`
 	// Seed is refused by name (no target runs it yet), so a target that
 	// learns to run it later changes no app that wrote it.
 	Seed        string  `yaml:"seed"`
@@ -105,11 +105,11 @@ func (s appYamlStatic) staticBuild(part string) (*StaticBuild, error) {
 // the app parts depending on the last one; to compose as one-shot services the
 // app depends_on with condition: service_completed_successfully.
 type appYamlInit struct {
-	Name        string         `yaml:"name"`
-	Build       string         `yaml:"build"`
-	Image       string         `yaml:"image"`
-	Command     any            `yaml:"command"`
-	Environment map[string]any `yaml:"environment"`
+	Name        string      `yaml:"name"`
+	Build       string      `yaml:"build"`
+	Image       string      `yaml:"image"`
+	Command     any         `yaml:"command"`
+	Environment environment `yaml:"environment"`
 }
 
 type appYamlDoc struct {
@@ -162,6 +162,27 @@ const currentContractVersion = 2
 
 var secretNameRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
+// partNameRe is the name of a part or an init step: App Platform's
+// component name rule, the strictest of the targets (parts are its services
+// and workers, init steps its jobs, under these names).
+var partNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}[a-z0-9]$`)
+
+// checkPartName refuses a part or init step name no target can carry, or
+// one a target already gives something of its own: Portainer's service for
+// the public part is app and its init services are init-<name>, and
+// AppTown's own components (App Platform's apptown-gate) start apptown-.
+func checkPartName(kind, name string) error {
+	switch {
+	case !partNameRe.MatchString(name):
+		return fmt.Errorf("%s %q: a name is 2 to 32 lower-case letters, digits and hyphens, starting with a letter and not ending with a hyphen", kind, name)
+	case name == "app":
+		return fmt.Errorf("%s %q: app is the name a target gives the public part; choose another", kind, name)
+	case strings.HasPrefix(name, "init-"), strings.HasPrefix(name, "apptown-"):
+		return fmt.Errorf("%s %q: names starting init- or apptown- are the ones a target gives its own services; choose another", kind, name)
+	}
+	return nil
+}
+
 // Parse parses .apptown/app.yaml into the internal contract. Errors
 // name the offending field and are written for a human or an agent to fix.
 func Parse(raw []byte) (*Contract, error) {
@@ -203,6 +224,9 @@ func Parse(raw []byte) (*Contract, error) {
 	publicCount := 0
 	for _, name := range names {
 		p := doc.App[name]
+		if err := checkPartName("app part", name); err != nil {
+			return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
+		}
 		if p.Replicas != nil {
 			replicas, ok := p.Replicas.(int)
 			if !ok || replicas < 1 {
@@ -241,6 +265,22 @@ func Parse(raw []byte) (*Contract, error) {
 		if env := setsAppTownEnv(p.Environment); env != "" {
 			return nil, fmt.Errorf(".apptown/app.yaml: app part %q sets %s in environment:, which only AppTown sets; remove it and read the value AppTown gives", name, env)
 		}
+		if p.Static.declared() {
+			// AppTown's file server serves a static site: it reads none of
+			// these, so each would be a setting that silently does nothing.
+			for _, f := range []struct {
+				field string
+				set   bool
+			}{{"environment", len(p.Environment) > 0}, {"command", p.Command != nil}, {"dataDir", p.DataDir != ""}, {"healthcheck", p.Healthcheck != ""}} {
+				if f.set {
+					return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %s: is not used by a static site (AppTown's file server serves its files); remove it", name, f.field)
+				}
+			}
+		}
+		env, err := p.Environment.read(true)
+		if err != nil {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %w", name, err)
+		}
 		built, err := p.Static.staticBuild(name)
 		if err != nil {
 			return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
@@ -259,7 +299,7 @@ func Parse(raw []byte) (*Contract, error) {
 			Name:      name, Build: p.Build, Image: p.Image, Static: p.Static.Folder, StaticBuild: built,
 			DataDir: p.DataDir, Health: p.Healthcheck, Intent: p.Health, Public: p.Public,
 			Command: partCommand(p.Command),
-			Env:     stringifyMap(p.Environment),
+			Env:     env,
 		}
 		port, err := containerPort(p.Ports)
 		if err != nil {
@@ -285,10 +325,24 @@ func Parse(raw []byte) (*Contract, error) {
 
 	// init: ordered run-to-completion containers that must succeed before the
 	// app parts start.
+	initNames := map[string]bool{}
 	for i, it := range doc.Init {
 		name := it.Name
+		// A name is required: a secret scoped to an init step names it, and a
+		// name given by position would move to another step when one is
+		// added above it.
 		if name == "" {
-			name = fmt.Sprintf("init-%d", i+1)
+			return nil, fmt.Errorf(".apptown/app.yaml: init step %d has no name: give it one (name: migrate)", i+1)
+		}
+		if err := checkPartName("init step", name); err != nil {
+			return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
+		}
+		if initNames[name] {
+			return nil, fmt.Errorf(".apptown/app.yaml: two init steps are named %q", name)
+		}
+		initNames[name] = true
+		if _, ok := doc.App[name]; ok {
+			return nil, fmt.Errorf(".apptown/app.yaml: %q is both a part under app: and an init step: rename one", name)
 		}
 		sources := 0
 		for _, s := range []string{it.Build, it.Image} {
@@ -299,9 +353,13 @@ func Parse(raw []byte) (*Contract, error) {
 		if sources != 1 {
 			return nil, fmt.Errorf(".apptown/app.yaml: init %q must declare exactly one of build: or image:", name)
 		}
+		env, err := it.Environment.read(false)
+		if err != nil {
+			return nil, fmt.Errorf(".apptown/app.yaml: init step %q: %w", name, err)
+		}
 		c.Init = append(c.Init, InitContainer{
 			Name: name, Build: it.Build, Image: it.Image,
-			Command: partCommand(it.Command), Env: stringifyMap(it.Environment),
+			Command: partCommand(it.Command), Env: env,
 		})
 	}
 
@@ -316,11 +374,22 @@ func Parse(raw []byte) (*Contract, error) {
 			return nil, fmt.Errorf(".apptown/app.yaml: %q is both a part under app: and a need: rename the part", p.Name)
 		}
 	}
+	for _, it := range c.Init {
+		if slices.Contains(c.Needs, it.Name) {
+			return nil, fmt.Errorf(".apptown/app.yaml: %q is both an init step and a need: rename the init step", it.Name)
+		}
+	}
 	if doc.Secrets != nil {
+		if err := CheckSpecPath(doc.Secrets.Spec); err != nil {
+			return nil, fmt.Errorf(".apptown/app.yaml: secrets: spec: %w", err)
+		}
 		c.SecretSpecPath = doc.Secrets.Spec
 		for name, domain := range doc.Secrets.Generate {
 			if !secretNameRe.MatchString(name) {
 				return nil, fmt.Errorf(".apptown/app.yaml: secrets: generate: %q is not an environment variable name", name)
+			}
+			if why := ReservedEnvName(name); why != "" {
+				return nil, fmt.Errorf(".apptown/app.yaml: secrets: generate: %s is AppTown's (%s); name the secret something else", name, why)
 			}
 			if domain == "environment" {
 				return nil, fmt.Errorf(".apptown/app.yaml: secrets: generate: %s: the stability domain once called environment is now called deployment: write %s: deployment", name, name)
@@ -456,16 +525,21 @@ func parseAppYamlNeeds(needs map[string]map[string]any, c *Contract) error {
 	return nil
 }
 
-// containerPort pulls the container port from a compose-style ports list
-// ("8080" or "3000:8080" → 8080). Empty is allowed (a static site, or the
-// house default fills in).
+// containerPort reads the one port a part listens on ("8080", or
+// "8080/tcp"). Empty is allowed (a static site, or the house default fills
+// in). A part has one port, and AppTown chooses where it is published, so a
+// second entry or a host half ("3000:8080") would be a setting that does
+// nothing.
 func containerPort(ports []string) (int, error) {
 	if len(ports) == 0 {
 		return 0, nil
 	}
+	if len(ports) > 1 {
+		return 0, fmt.Errorf("ports: a part listens on one port; list only that one (got %d)", len(ports))
+	}
 	spec := ports[0]
-	if i := strings.LastIndex(spec, ":"); i >= 0 {
-		spec = spec[i+1:]
+	if strings.Contains(spec, ":") {
+		return 0, fmt.Errorf("ports: %q names a host port, and AppTown chooses where a part is published; write the port the part listens on alone", spec)
 	}
 	spec = strings.TrimSuffix(strings.TrimSpace(spec), "/tcp")
 	n, err := strconv.Atoi(spec)
@@ -494,15 +568,14 @@ func partCommand(v any) []string {
 	return nil
 }
 
-func stringifyMap(m map[string]any) map[string]string {
-	if len(m) == 0 {
-		return nil
+// CheckSpecPath refuses a secrets.spec path that is absolute or leaves the
+// project's tree: the declaration is read from the app's own source.
+func CheckSpecPath(path string) error {
+	clean := filepath.ToSlash(filepath.Clean(path))
+	if filepath.IsAbs(path) || strings.HasPrefix(path, "/") || clean == ".." || strings.HasPrefix(clean, "../") {
+		return fmt.Errorf("%q must be a file inside the project, written relative (secretspec.toml)", path)
 	}
-	out := make(map[string]string, len(m))
-	for k, v := range m {
-		out[k] = fmt.Sprint(v)
-	}
-	return out
+	return nil
 }
 
 // scalarString reports whether v is one of the scalars YAML decodes to

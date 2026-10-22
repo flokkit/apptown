@@ -2,7 +2,6 @@ package project
 
 import (
 	"context"
-	"errors"
 	"flokkit.io/forge/internal/ids"
 
 	"flokkit.io/forge/internal/database"
@@ -26,6 +25,12 @@ type SettingsChange struct{ Before, After Project }
 var (
 	ErrSettingsChanged          = fault.New(fault.Conflict, "project name changed; retry the edit")
 	ErrSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
+	// ErrSlugFixed refuses a new slug for a project that exists. The slug is
+	// the project's address inside AppTown and out: its repository's folder,
+	// and the names of its containers, volumes and backups. Moving those is
+	// not built, so a rename would leave them behind for the next project to
+	// take that slug. The display name is free to change.
+	ErrSlugFixed = fault.New(fault.Invalid, "a project's address (its slug) is fixed when the project is made; change its name instead")
 	// ErrSettingsMoved carries a code so a client can tell it from other
 	// conflicts, such as a taken slug, and offer the person the new values.
 	ErrSettingsMoved error = settingsMoved{}
@@ -39,7 +44,7 @@ func (settingsMoved) Error() string {
 func (settingsMoved) FaultKind() fault.Kind { return fault.Conflict }
 func (settingsMoved) FaultCode() string     { return "settings-moved" }
 
-// UpdateSettingsIn joins lifecycle's transaction after it reserves both names.
+// UpdateSettingsIn joins lifecycle's transaction after it reserves the name.
 // The row lock makes the patch apply to the current record; fields omitted by
 // the caller are not overwritten with an earlier snapshot. The patch must name
 // the settings revision it started from; a record that has moved on since is
@@ -67,11 +72,10 @@ func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedS
 	if *in.ExpectedRevision != held.SettingsRevision {
 		return result, ErrSettingsMoved
 	}
-	if in.Slug != nil {
-		if !ValidSlug(*in.Slug) {
-			return result, ErrSlug
-		}
-		held.Slug = *in.Slug
+	// A patch may repeat the slug (a form sends what it shows); it may not
+	// change it.
+	if in.Slug != nil && *in.Slug != held.Slug {
+		return result, ErrSlugFixed
 	}
 	if in.Name != nil && *in.Name != "" {
 		held.Name = *in.Name
@@ -90,17 +94,8 @@ func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedS
 		return result, nil
 	}
 	updated, err := q.UpdateProjectSettings(ctx, projectsql.UpdateProjectSettingsParams{ID: id, Slug: held.Slug, Name: held.Name, Icon: held.Icon, Blurb: held.Blurb, Namespace: held.Namespace})
-	var state interface{ SQLState() string }
-	if errors.As(err, &state) && state.SQLState() == "23505" {
-		return result, ErrSlugTaken
-	}
 	if err != nil {
 		return result, err
-	}
-	if updated.Slug != result.Before.Slug {
-		if err := requireSlugFreeIn(ctx, tx, updated.Slug); err != nil {
-			return result, err
-		}
 	}
 	result.After = record(updated)
 	return result, nil

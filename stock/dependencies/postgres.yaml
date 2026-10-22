@@ -15,6 +15,7 @@ summary: "A relational database of the app's own."
 # interpolate as {name} into the fulfillment below (Tier-1 passthrough), so a
 # pinned version or named database flows through without a schema.
 defaults:
+  # Fixed for every 1.x release (dependency.defaultVersions1x).
   version: "16"
   database: app
   user: app
