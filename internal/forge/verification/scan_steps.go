@@ -19,6 +19,7 @@ import (
 	"flokkit.io/forge/internal/forge/conformance"
 	"flokkit.io/forge/internal/forge/integration"
 	"flokkit.io/forge/internal/forge/workflow"
+	"flokkit.io/forge/internal/gitexec"
 	"flokkit.io/forge/internal/progress"
 	"flokkit.io/forge/internal/strs"
 )
@@ -238,12 +239,24 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			finish(workflow.StatusError, evidence)
 			return
 		}
+		repository := source.Repository(a.dataDir)
+		// The scanner reads the range with its own git, and gitleaks reports
+		// a range git cannot read as "no leaks found". So the range is read
+		// here first, in the repository the scanner is given: one that does
+		// not resolve is an error, never a clean scan.
+		count, err := gitexec.Run(task.Context(), repository, "rev-list", "--count", commits, "--")
+		if err != nil {
+			evidence["reason"] = fmt.Sprintf("reading the commits this landing adds (%s) in the project's repository: %s", commits, strs.Truncate(err.Error(), 200))
+			finish(workflow.StatusError, evidence)
+			return
+		}
 		argv = nil
 		for _, arg := range m.HistoryCommand {
 			argv = append(argv, strings.ReplaceAll(arg, "${HISTORY_RANGE}", commits))
 		}
-		history = &execution.History{Repository: source.Repository(a.dataDir), Commits: strings.Split(commits, "..")}
+		history = &execution.History{Repository: repository, Commits: strings.Split(commits, "..")}
 		evidence["history"] = commits
+		evidence["historyCommits"] = strings.TrimSpace(count)
 	}
 	start := a.now()
 	outcome := a.exec.Run(task.Context(), execution.Request{
@@ -314,10 +327,17 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		// create them (and never a bypass: they stay on the project's record).
 		var base scanBase
 		compared := true
-		switch m.Looks() {
-		case "source":
+		switch {
+		case history != nil:
+			// A history scan reads only the commits main does not have, so
+			// each finding is in what this landing publishes. Comparing it
+			// with main's tree would class a new token that replaces an old
+			// one in the same file as carried debt.
+			base.Note = "found in the commits this landing adds to main"
+			compared = false
+		case m.Looks() == "source":
 			base = a.scanners.baseScanFingerprints(task.Context(), ws, WorkflowProvenanceBase(task.Context(), a.dataDir, source), m, binding, fmt.Sprintf("apptown-scan-%d", stepID))
-		case "image":
+		case m.Looks() == "image":
 			base = imageBase
 		default:
 			compared = false

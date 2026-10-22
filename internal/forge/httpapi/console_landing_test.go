@@ -178,3 +178,14 @@ func TestConsoleLandingHTTPProjectChatCannotLandOrRecheck(t *testing.T) {
 		t.Fatalf("project chat altered work: %+v %v", runs, err)
 	}
 }
+
+// A recheck's sentence counts the gates that failed. The catch-up it runs
+// again to check the branch as it is now passed, and is not called failed
+// (it was, after the one-server test of 22 October).
+func TestARechecksSentenceNamesOnlyTheGatesThatFailed(t *testing.T) {
+	t.Parallel()
+	got := recheckStarted(workflow.LandingRechecked{Names: []string{"catch-up-with-main", "scan-source:gitleaks"}, Failed: []string{"scan-source:gitleaks"}})
+	if want := "re-running 1 failed gate(s): scan-source:gitleaks (after catching up with main again) — watch with apptown status"; got.Message != want || len(got.Rerun) != 2 {
+		t.Fatalf("recheck answer: %+v, want %q", got, want)
+	}
+}

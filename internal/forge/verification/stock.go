@@ -27,17 +27,18 @@ func loadScannerManifests(fsys fs.FS) []check.Scanner {
 }
 
 // SyncStockScanners upserts the stock scanner manifests as scanner-capability
-// bindings (provider "tool"). Config edits bump versions like any binding.
+// bindings (provider "tool"), each with its whole manifest as its config.
+// Config edits bump versions like any binding.
 func SyncStockScanners(ctx context.Context, integrations *integration.Service, fsys fs.FS) {
 	for _, m := range loadScannerManifests(fsys) {
 		if err := integrations.MarkScannerManaged(ctx, m.Name); err != nil {
 			log.Printf("marking scanner %s managed: %v", m.Name, err)
 		}
-		config, err := strs.JSON(map[string]any{
-			"description": m.Description, "image": m.Image, "command": m.Command,
-			"report": m.Report, "network": m.Network, "format": m.Format, "kind": m.Kind,
-			"artifactKind": m.ArtifactKind, "target": m.Target, "manual": m.Manual,
-		})
+		// The binding holds the manifest as declared: its JSON keys are the
+		// binding's config keys, so no declared field is left behind. A
+		// hand-copied list once dropped historyCommand, and every landing
+		// scanned only its final tree.
+		config, err := strs.JSON(m)
 		if err == nil {
 			_, err = integrations.Bindings.Upsert(ctx, m.Name, ScannerCapability, "tool", config, true)
 		}

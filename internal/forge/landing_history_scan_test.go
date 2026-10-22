@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -14,10 +15,12 @@ import (
 
 	"flokkit.io/forge/internal/execution"
 	"flokkit.io/forge/internal/forge/schema"
+	"flokkit.io/forge/internal/forge/verification"
 	"flokkit.io/forge/internal/forge/workflow"
 	"flokkit.io/forge/internal/gitexec/gittest"
 	"flokkit.io/forge/internal/worker"
 	"flokkit.io/forge/internal/worker/workertest"
+	"flokkit.io/forge/stock"
 )
 
 // A landing's secret scan checks every commit the landing brings to the
@@ -26,12 +29,17 @@ import (
 // range from the target the landing was checked against to its candidate.
 // A secret committed and then deleted is in that range though not in the
 // tree: the stock gitleaks command's history mode finds such a secret, its
-// tree mode does not.
+// tree mode does not. The scanner is the stock gitleaks as AppTown binds it
+// at start-up (the binding once lost its history command, so production
+// landings scanned only their tree). A history finding is judged as found:
+// main's tree holding the same rule in the same file (an old token the
+// change replaces, then deletes) does not make the new one carried debt.
 func TestALandingsSecretScanChecksEveryCommitItAdds(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	// The Docker the scan runs through: it records the command and writes
-	// the scanner's report with one finding, as gitleaks does.
+	// the scanner's report with one finding, as gitleaks does, for every
+	// scan: the history's and, were it asked, main's tree's.
 	dir := t.TempDir()
 	calls := filepath.Join(dir, "calls")
 	fake := filepath.Join(dir, "docker")
@@ -45,7 +53,7 @@ for arg in "$@"; do
   prev="$arg"
 done
 mkdir -p "$work/.apptown"
-cat > "$work/.apptown/secrets.sarif" <<'EOF'
+cat > "$work/.apptown/gitleaks-report.sarif" <<'EOF'
 {"version":"2.1.0","runs":[{"tool":{"driver":{"name":"gitleaks","rules":[{"id":"github-pat"}]}},"results":[{"ruleId":"github-pat","level":"error","message":{"text":"a GitHub token"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"cfg.js"},"region":{"startLine":1}}}]}]}]}
 EOF
 exit 1
@@ -53,20 +61,26 @@ exit 1
 	if err := execfile.Write(fake, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	attachScanner(t, a, "secrets", map[string]any{
-		"image": "gitleaks:test", "command": []string{"detect", "--source", "/work", "--no-git"},
-		"historyCommand": []string{"git", "/history", "--log-opts", "${HISTORY_RANGE}"},
-		"report":         ".apptown/secrets.sarif", "format": "sarif", "kind": "secret", "target": "source",
-	})
-	run, source := reviewLanding(t, a, []schema.Step{{Name: "secrets", Uses: "scan", With: map[string]any{"scanner": "secrets"}}}, map[string]string{"work.txt": "the change\n"}, nil)
+	verification.SyncStockScanners(t.Context(), a.Integrations, stock.FS)
+	run, source := reviewLanding(t, a, []schema.Step{{Name: "secrets", Uses: "scan", With: map[string]any{"scanner": "gitleaks"}}}, map[string]string{"work.txt": "the change\n"}, nil)
+	// Every scan goes through the fake, main's tree's included, so a
+	// comparison with main would find the same finding there.
 	a.processRunner = execution.Runner{DockerBinary: fake}
+	a.evaluator = verification.NewEffects(checksFor(a).Run, runtimeFor(a), a.inference)
+	a.scanners = scannersFor(a)
 	a.scanSteps = scanStepsFor(a)
 	rebuildWork(t, a, func(*workflow.Dependencies) {})
 	a.Work.Stop()
 
 	scan := reviewExecute(t, a, run, "secrets")
-	if scan.Status != workflow.StatusFail {
-		t.Fatalf("the scan's finding did not fail the gate: %s %s", scan.Status, scan.Evidence)
+	// The evidence names the range and how many commits AppTown read in it
+	// before the scanner did (gitleaks calls a range it cannot read clean).
+	var judged struct {
+		Findings       struct{ Failing, Carried int }
+		HistoryCommits string
+	}
+	if err := json.Unmarshal(scan.Evidence, &judged); err != nil || scan.Status != workflow.StatusFail || judged.Findings.Failing != 1 || judged.Findings.Carried != 0 || judged.HistoryCommits != "1" {
+		t.Fatalf("the history's finding did not fail the gate as found: %s %s (%v)", scan.Status, scan.Evidence, err)
 	}
 	recorded, err := os.ReadFile(calls)
 	if err != nil {

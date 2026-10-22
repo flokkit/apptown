@@ -864,8 +864,9 @@ func retryHint(changeID, runID, blockerID ids.ID, blockerName string, landing bo
 }
 
 // cmdSendBack: the CLI's twin of the page's "Send it back with a note".
-// The server closes a wedged landing, puts the change back in progress and
-// starts a rework round with the note as the agent's brief.
+// The server closes a wedged landing and puts the change back in progress;
+// an agent's change gets a rework round with the note as its brief, a
+// person's is theirs again to push a fix to.
 func cmdSendBack(args []string) error {
 	fs := newFlags("sendback")
 	yes := fs.Bool("y", false, "auto-approve gates and landing")
@@ -876,7 +877,7 @@ func cmdSendBack(args []string) error {
 	}
 	note := strings.TrimSpace(strings.Join(pos[1:], " "))
 	if note == "" {
-		return fmt.Errorf(`say what to change — the note is what the agent works from: apptown sendback <change-id> "<note>"`)
+		return fmt.Errorf(`say what to change — the note is what the change's agent works from, and the record of why: apptown sendback <change-id> "<note>"`)
 	}
 	changeID, err := changeRef(pos[0], "")
 	if err != nil {
@@ -895,8 +896,25 @@ func sendBack(changeID ids.ID, note string, yes, noFollow bool) error {
 		return err
 	}
 	_ = json.Unmarshal(raw, &out)
+	// No rework run: no agent works on the change, and it is back in
+	// progress for its person.
+	if out.RunID.IsZero() {
+		var view struct {
+			ProjectSlug string
+			Change      struct{ Number int64 }
+		}
+		_ = api.get(fmt.Sprintf("/changes/%s", changeID), &view)
+		fmt.Println(sentBackToPerson(changeName(view.ProjectSlug, view.Change.Number, changeID)))
+		return nil
+	}
 	fmt.Printf("%s sent back — rework run %d started from your note\n", green("↩"), out.RunID)
 	return followOrReturn(changeID, out.RunID, yes, noFollow)
+}
+
+// sentBackToPerson is what a send-back of a change no agent works on did:
+// there is no round to follow, so it says what the person does next.
+func sentBackToPerson(name string) string {
+	return fmt.Sprintf("%s sent back — the landing stopped and %s is back in progress; push your fix to its branch, then land it again: apptown land %s", green("↩"), name, name)
 }
 
 // followOrReturn stays with the change, as every loop command does, unless

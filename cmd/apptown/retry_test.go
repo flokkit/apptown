@@ -140,3 +140,36 @@ func TestLandingWaitsItsTurnOnTheCodeNotTheSentence(t *testing.T) {
 		t.Fatalf("an uncoded refusal was waited on: %v after %d tries", err, tries)
 	}
 }
+
+// A change no agent works on, sent back from a blocked landing, is back in
+// progress for its person: the CLI says to push a fix and land again, and
+// follows nothing (no rework run started).
+func TestSendingBackAPersonsChangeSaysPushAndLandAgain(t *testing.T) {
+	seen := fakeForge(t, func(method, path string) (int, string) {
+		switch {
+		case method == "POST" && path == "/changes/00000000-0007-7000-8000-000000000000/sendback":
+			return 202, `{"runId":null,"stepId":null}`
+		case method == "GET" && path == "/changes/00000000-0007-7000-8000-000000000000":
+			return 200, `{"projectSlug":"hello-game","change":{"number":2}}`
+		}
+		return 404, `{"error":"unexpected"}`
+	})
+	out, err := run(t, "sendback", "00000000-0007-7000-8000-000000000000", "take the token out of the history")
+	if err != nil || !strings.Contains(out, "hello-game#2 is back in progress; push your fix to its branch, then land it again: apptown land hello-game#2") {
+		t.Fatalf("sendback of a person's change: %v\n%s", err, out)
+	}
+	if len(*seen) != 2 {
+		t.Fatalf("followed a run that does not exist: %+v", *seen)
+	}
+}
+
+// After apptown new, the next step offered is one this AppTown can do: with
+// no model, the person's own change, not apptown quick.
+func TestTheFirstChangeHintNeedsNoModelWhenThereIsNone(t *testing.T) {
+	if hint := firstChangeHint("hello-game", true); !strings.Contains(hint, "apptown start -p hello-game") || strings.Contains(strings.SplitN(hint, "\n", 2)[0], "apptown quick") {
+		t.Fatalf("with no model: %s", hint)
+	}
+	if hint := firstChangeHint("hello-game", false); !strings.Contains(hint, `apptown quick -p hello-game "<what to change>"`) {
+		t.Fatalf("with a model: %s", hint)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"flokkit.io/forge/internal/fault"
 	"flokkit.io/forge/internal/forge/wow"
 	"flokkit.io/forge/internal/ids/idstest"
 	"flokkit.io/forge/internal/stamp"
@@ -67,6 +68,11 @@ func TestRuntimeSourcesUseExactPinsAndRejectForeignReceipts(t *testing.T) {
 	}
 	if version, yaml, err := s.WorkflowVersion(t.Context(), source, "build"); err != nil || version != 1 || yaml != "old workflow" {
 		t.Fatalf("pinned procedure: %d %q %v", version, yaml, err)
+	}
+	// A workflow the project has not adopted is refused in the asker's
+	// words (apptown plan on a pack with no planning workflow).
+	if _, _, err := s.WorkflowVersion(t.Context(), source, "plan-execute"); err == nil || err.Error() != `"plan-execute" is not one of this project's ways of working: Settings › Way of working lists the workflows its packs offer` || fault.KindOf(err) != fault.Unprocessable {
+		t.Fatalf("a workflow the adoption does not have: %v", err)
 	}
 	for _, invalid := range []Source{{ProjectID: idstest.N(3)}, {ProjectID: idstest.N(4), Revision: revision}} {
 		beforeBlocks, beforeWorkflows := len(cat.blockReads), len(cat.workflowReads)

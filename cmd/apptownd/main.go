@@ -347,9 +347,8 @@ func main() {
 		if err := app.RecoverConsoles(ctx); err != nil {
 			return fmt.Errorf("console recovery: %w", err)
 		}
-		app.ResumePendingAutoSteps(ctx)
+		resumeWork(ctx, func(ctx context.Context) { verification.SyncStockScanners(ctx, app.Integrations, stock.FS) }, app.ResumePendingAutoSteps)
 		app.EnsureDeployments(ctx)
-		verification.SyncStockScanners(ctx, app.Integrations, stock.FS)
 		app.SyncStockDependencies(ctx)
 		runtime := daemonRuntime{
 			servers:  []*http.Server{servedAt(o.addr, app.Handler())},

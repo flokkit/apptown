@@ -38,6 +38,27 @@ can't pollute findings. Findings normalize into severity buckets;
 verdicts are actionable = findings − active suppressions; suppressions
 are VEX-shaped with justification and expiry, exportable as OpenVEX.
 
+## What a landing's secret scan covers
+
+At a landing, a source scanner that declares a `historyCommand` (stock
+gitleaks does) reads every commit the landing will publish to main — the
+commits between main as the landing checked it and the change's candidate,
+including merges, each against its parents — not only the final tree.
+AppTown first reads that range in the project's repository; a range it
+cannot read is a scan error, never a clean pass. Each finding there is in
+what main would gain, so it gates as found: it is not compared with main's
+tree, where an older secret of the same kind in the same file would hide
+it. Outside a landing, and for a scanner with no history command, only the
+committed tree is read.
+
+A secret committed and deleted later in the same change therefore fails
+the landing: deleting it does not take it out of the history a merge
+publishes. Rewrite the change's branch without the commit that added it,
+or suppress the finding with a justification. AppTown reads the range
+first because gitleaks reports a range its Git cannot read as clean; a
+failure of the scanner's own Git after that, inside its container, is not
+detected.
+
 ## Policy hooks
 
 `scanner-bound` requires the capability bound; `deploy-requires-scan`

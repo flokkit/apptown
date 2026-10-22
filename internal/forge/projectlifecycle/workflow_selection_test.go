@@ -31,7 +31,7 @@ func TestResolveWorkflowFromLibrary(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A lane the project has not selected is refused, in plain words.
-	if _, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "quick-change"); err == nil || !strings.Contains(err.Error(), "not recorded") {
+	if _, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "quick-change"); err == nil || !strings.Contains(err.Error(), `"quick-change" is not one of this project's ways of working`) {
 		t.Fatalf("unselected lane must be refused: %v", err)
 	}
 	// Selected → the library's latest, with a stock origin receipt.
@@ -62,7 +62,7 @@ func TestResolveWorkflowFromLibrary(t *testing.T) {
 		t.Fatal("an explicit disabled lane must win")
 	}
 	// An unknown workflow cannot resolve.
-	if _, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "only-here"); err == nil || !strings.Contains(err.Error(), "not recorded") {
+	if _, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "only-here"); err == nil || !strings.Contains(err.Error(), `"only-here" is not one of this project's ways of working`) {
 		t.Fatalf("an unknown workflow must not resolve: %v", err)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"flokkit.io/forge/internal/fault"
 	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/forge/wow"
 )
@@ -193,7 +194,10 @@ func (s *Service) WorkflowVersion(ctx context.Context, source Source, name strin
 		}
 		return w.Version, wf.YAML, nil
 	}
-	return 0, "", fmt.Errorf("workflow %q is not recorded in adoption revision %d", name, revision.Revision)
+	// Said for the person who asked for the workflow (apptown plan on a pack
+	// with no planning workflow, or a lane not selected), not in the
+	// receipt's terms.
+	return 0, "", fault.New(fault.Unprocessable, fmt.Sprintf("%q is not one of this project's ways of working: Settings › Way of working lists the workflows its packs offer", name))
 }
 
 type WorkflowRequest struct {

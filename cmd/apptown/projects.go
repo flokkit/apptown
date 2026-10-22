@@ -309,7 +309,12 @@ func cmdNew(args []string) error {
 	if *from != "" {
 		printDeclaredSecrets(slug)
 	}
-	fmt.Printf("\n%s is ready. ask for a first change: apptown quick -p %s \"<what to change>\"\n", slug, slug)
+	var setup struct {
+		NeedsModel bool `json:"needsModel"`
+	}
+	// Unread, the hint is today's: the model work most AppTowns can do.
+	_ = api.get("/setup", &setup)
+	fmt.Printf("\n%s\n", firstChangeHint(slug, setup.NeedsModel))
 	if *asJSON {
 		return printJSON(ProjectCreated{ID: proj.ID, Slug: proj.Slug, Name: proj.Name})
 	}
@@ -802,4 +807,15 @@ func cmdSchedules(args []string) error {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Source.Workflow, s.Cron, next, last)
 	}
 	return w.Flush()
+}
+
+// firstChangeHint is the next step after apptown new that works on this
+// AppTown: asking for a change needs a model, and with none set up a
+// person makes the first change and lands it.
+func firstChangeHint(slug string, needsModel bool) string {
+	if needsModel {
+		return fmt.Sprintf("%[1]s is ready. No AI model is set up on this AppTown yet, so make the first change yourself: apptown start -p %[1]s -t \"<title>\", push your work to its branch, then land it with apptown land.\n"+
+			"(Once an administrator adds an Anthropic or OpenRouter API key on the Home page, ask for changes: apptown quick -p %[1]s \"<what to change>\")", slug)
+	}
+	return fmt.Sprintf("%[1]s is ready. ask for a first change: apptown quick -p %[1]s \"<what to change>\"", slug)
 }

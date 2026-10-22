@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -42,5 +43,19 @@ func TestEveryStartButAPasswordResetHoldsTheDatabase(t *testing.T) {
 	}
 	if (&daemonFlags{resetPassword: "alice"}).holdsDatabase() {
 		t.Error("-reset-password must run beside a serving forge")
+	}
+}
+
+// The shipped scanner bindings are synced before recovered work resumes: a
+// scan resumed across an upgrade reads its binding when it starts, and must
+// read the new one.
+func TestStockScannersAreSyncedBeforeWorkResumes(t *testing.T) {
+	t.Parallel()
+	var order []string
+	resumeWork(context.Background(),
+		func(context.Context) { order = append(order, "sync stock scanners") },
+		func(context.Context) { order = append(order, "resume pending steps") })
+	if want := []string{"sync stock scanners", "resume pending steps"}; !reflect.DeepEqual(order, want) {
+		t.Fatalf("start-up order: %v, want %v", order, want)
 	}
 }

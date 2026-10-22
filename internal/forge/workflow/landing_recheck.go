@@ -28,9 +28,14 @@ type LandingRetry struct {
 	Reason           string
 }
 
+// LandingRechecked names every step a recheck runs again (Names) and,
+// of those, the gates that had failed (Failed). A recheck also runs the
+// passed catch-up step again, so it checks the branch as it is now; that
+// step is in Names, not in Failed.
 type LandingRechecked struct {
-	RunID ids.ID
-	Names []string
+	RunID  ids.ID
+	Names  []string
+	Failed []string
 }
 
 // LandingWork publishes a change folder's committed work under its
@@ -181,6 +186,9 @@ func (s landingRechecks) recheckIn(ctx context.Context, tx *database.Tx, req Lan
 	}
 	if len(selected) == 0 {
 		return result, nil
+	}
+	for _, step := range selected {
+		result.Failed = append(result.Failed, step.Name)
 	}
 	// A recheck always catches up again, so it checks the change as it is
 	// now: catch-up pins the candidate, and a new candidate reruns the gates

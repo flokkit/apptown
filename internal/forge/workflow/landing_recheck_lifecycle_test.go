@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"flokkit.io/forge/internal/access"
@@ -10,15 +11,27 @@ import (
 )
 
 // Rechecking a landing re-arms only failed automatic gates, never an approval.
+// It also runs the passed catch-up again, so it checks the branch as it is
+// now; that step is not reported as one that failed.
 func TestRecheckLandingRearmsFailedGatesOnly(t *testing.T) {
 	t.Parallel()
 	a := stepAuthorityRunnerFixture(t, schema.Spec{
 		Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{
+			{Name: "catch-up-with-main", Uses: "reconcile"},
 			{Name: "tests", Uses: "tests"},
 			{Name: "scan-source:semgrep", Uses: "scan", With: map[string]any{"scanner": "nope"}},
 			{Name: "approve-landing", Uses: "approval", With: map[string]any{"approvers": []string{"owner"}}},
 		}}},
 	}, map[string]Runner{
+		"reconcile": func(task *Execution) {
+			if _, err := task.Claim(); err != nil {
+				t.Error(err)
+				return
+			}
+			if err := task.Finish(StepOutcome{Status: StatusPass}, nil); err != nil {
+				t.Error(err)
+			}
+		},
 		"tests": func(task *Execution) {
 			if _, err := task.Claim(); err != nil {
 				t.Error(err)
@@ -46,15 +59,15 @@ func TestRecheckLandingRearmsFailedGatesOnly(t *testing.T) {
 	}
 
 	snapshot, err := a.Work.Snapshot(ctx, run.ID, DetailView)
-	if err != nil || len(snapshot.Steps) != 3 {
+	if err != nil || len(snapshot.Steps) != 4 {
 		t.Fatalf("landing steps: %+v %v", snapshot, err)
 	}
-	for _, step := range snapshot.Steps[:2] {
+	for _, step := range snapshot.Steps[:3] {
 		if err := a.Work.ExecuteStep(ctx, step.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := a.Work.Approve(ctx, Approval{StepID: snapshot.Steps[2].ID, Decision: VoteReject}); err != nil {
+	if _, err := a.Work.Approve(ctx, Approval{StepID: snapshot.Steps[3].ID, Decision: VoteReject}); err != nil {
 		t.Fatal(err)
 	}
 	rechecked, err := a.Work.RecheckLanding(ctx, LandingRecheck{ChangeID: a.ChangeID})
@@ -62,8 +75,8 @@ func TestRecheckLandingRearmsFailedGatesOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.Work.Wait()
-	if len(rechecked.Names) != 1 || rechecked.Names[0] != "scan-source:semgrep" {
-		t.Fatalf("only the failed scan should be re-run, got %v", rechecked.Names)
+	if !slices.Equal(rechecked.Names, []string{"catch-up-with-main", "scan-source:semgrep"}) || !slices.Equal(rechecked.Failed, []string{"scan-source:semgrep"}) {
+		t.Fatalf("the failed scan and the catch-up should be re-run, only the scan named failed: %v, failed %v", rechecked.Names, rechecked.Failed)
 	}
 	fresh, err := a.Work.Snapshot(ctx, run.ID, DetailView)
 	if err != nil {
