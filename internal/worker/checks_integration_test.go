@@ -75,10 +75,15 @@ func TestIntegrationTheStartSweepRemovesAnInterruptedCheck(t *testing.T) {
 func runCheckContainer(t *testing.T, owner string) string {
 	t.Helper()
 	future := strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10)
-	out, err := exec.Command("docker", "run", "-d", "--label", "forge.class=check", "--label", owner,
-		"--label", "forge.deadline="+future, "alpine:3", "sleep", "300").CombinedOutput()
+	// The id is docker's standard output alone: a pull of alpine:3 is
+	// reported on standard error and is not part of it.
+	var stderr strings.Builder
+	cmd := exec.Command("docker", "run", "-d", "--label", "forge.class=check", "--label", owner,
+		"--label", "forge.deadline="+future, "alpine:3", "sleep", "300")
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("%v: %s", err, out)
+		t.Fatalf("%v: %s", err, stderr.String())
 	}
 	id := strings.TrimSpace(string(out))
 	t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", id).Run() })

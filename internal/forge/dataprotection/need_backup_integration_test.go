@@ -98,18 +98,22 @@ func TestIntegrationPostgresBackupRestoresInPlaceAndIsVerified(t *testing.T) {
 	}
 }
 
-// waitForPostgres polls a just-started Postgres until it accepts
-// connections over TCP, with a deadline: the image's first-start server
-// listens on its socket only, and stops once its setup is done.
+// waitForPostgres waits, with a deadline, until the need passes its own
+// health check, which is what a release's boot waits for
+// (EnsureStandingServices starts a need and does not wait). Answering on
+// TCP is not enough: the stock start script takes connections before it
+// has made the app's user the owner of its schema, and only marks itself
+// ready after (22 Oct: a table made in that gap was refused, "permission
+// denied for schema public").
 func waitForPostgres(t *testing.T, container string) {
 	t.Helper()
 	var out []byte
-	if !poll.Until(context.Background(), 60*time.Second, 200*time.Millisecond, func() bool {
-		var err error
-		out, err = dockertest.CombinedOutput("exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "app", "-d", "app")
-		return err == nil
+	if !poll.Until(context.Background(), 2*time.Minute, 200*time.Millisecond, func() bool {
+		out, _ = dockertest.CombinedOutput("inspect", "-f", "{{.State.Health.Status}}", container)
+		return strings.TrimSpace(string(out)) == "healthy"
 	}) {
-		t.Fatalf("postgres in %s did not answer: %q", container, out)
+		logs, _ := dockertest.CombinedOutput("logs", "--tail", "40", container)
+		t.Fatalf("postgres in %s did not become healthy: %q\n%s", container, out, logs)
 	}
 }
 
