@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -21,7 +20,6 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -147,27 +145,20 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 	wantCount(t, "attempts admitted with the selected revision", ran, 1)
 }
 
-// Portainer runs a bundle's static image as the bundle records it: a
-// self-serving image with no command, one of the earlier form with the
-// file server's command, as it always ran.
+// Portainer runs a bundle's static image with no command of its own: the
+// image carries the command that serves it.
 func TestAnIntranetBundleRunsItsStaticImageAsItsRecordSays(t *testing.T) {
 	t.Parallel()
 	c, err := appcontract.Parse([]byte("app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, self := range []bool{true, false} {
-		b := &ReleaseBundle{ID: idstest.N(3), Parts: map[string]string{"web": "registry.example/p@sha256:" + strings.Repeat("a", 64)}, BuiltFrom: BundleOrigin{SelfServing: self}}
-		plan, err := bundleApp(appcontract.Prepare(c, nil), stackImages{Parts: b.Parts, Init: b.Init, SelfServing: b.BuiltFrom.SelfServing})
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := []string(nil)
-		if !self {
-			want = docker.StaticServerCommand(8080)
-		}
-		if web := plan.PublicPart(); !web.ServesStatic || web.Image != b.Parts["web"] || !slices.Equal(web.Command, want) {
-			t.Fatalf("self-serving %v: %+v", self, web)
-		}
+	b := &ReleaseBundle{ID: idstest.N(3), Parts: map[string]string{"web": "registry.example/p@sha256:" + strings.Repeat("a", 64)}}
+	plan, err := bundleApp(appcontract.Prepare(c, nil), stackImages{Parts: b.Parts, Init: b.Init})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if web := plan.PublicPart(); !web.ServesStatic || web.Image != b.Parts["web"] || len(web.Command) != 0 {
+		t.Fatalf("the static part: %+v", web)
 	}
 }

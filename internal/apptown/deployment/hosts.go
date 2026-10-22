@@ -109,15 +109,13 @@ func ParseSSHAddress(s string) (SSHAddress, error) {
 }
 
 // sshAlias is the Host alias AppTown's ssh config carries for a target. It
-// is worked out on every use and never recorded; a block written before 1.0
-// under forge-target-<name> is replaced by the next use.
+// is worked out on every use and never recorded.
 func sshAlias(targetName string) string { return "apptown-target-" + targetName }
 
-// sshStanza renders the config block for one target, between markers the
-// AppTown owns so it can replace exactly its own block later. The markers
-// keep the words earlier releases wrote, so their blocks are found.
+// sshStanza renders the config block for one target, between markers
+// AppTown owns so it can replace exactly its own block later.
 func sshStanza(targetName string, addr SSHAddress, keyPath string) string {
-	return fmt.Sprintf("# BEGIN forge target %s\nHost %s\n  HostName %s\n  User %s\n  Port %d\n  IdentityFile %s\n  IdentitiesOnly yes\n  StrictHostKeyChecking accept-new\n  ConnectTimeout 15\n# END forge target %s\n",
+	return fmt.Sprintf("# BEGIN apptown target %s\nHost %s\n  HostName %s\n  User %s\n  Port %d\n  IdentityFile %s\n  IdentitiesOnly yes\n  StrictHostKeyChecking accept-new\n  ConnectTimeout 15\n# END apptown target %s\n",
 		targetName, sshAlias(targetName), addr.Host, addr.User, addr.Port, keyPath, targetName)
 }
 
@@ -128,7 +126,7 @@ func upsertSSHStanza(configPath, targetName, stanza string) error {
 	sshFiles.Lock()
 	defer sshFiles.Unlock()
 	raw, _ := os.ReadFile(configPath)
-	begin, end := "# BEGIN forge target "+targetName+"\n", "# END forge target "+targetName+"\n"
+	begin, end := "# BEGIN apptown target "+targetName+"\n", "# END apptown target "+targetName+"\n"
 	s := string(raw)
 	if i := strings.Index(s, begin); i >= 0 {
 		if j := strings.Index(s[i:], end); j >= 0 {

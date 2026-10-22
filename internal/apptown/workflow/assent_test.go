@@ -7,6 +7,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/stock"
+
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // Every shipped workflow is judged by what it declares: the landing that
@@ -104,23 +106,29 @@ func stockCallee(t *testing.T) calleeSpec {
 }
 
 // Only a person's decision is assent: AppTown itself, a step run or a chat
-// recorded as approver is not, and neither is a pending or failed approval.
+// recorded as approver is not, and neither is a pending or failed approval,
+// nor a decision recorded without its votes.
 func TestOnlyAPersonsApprovalIsAssent(t *testing.T) {
-	step := func(status StepState, approver, override string) *Step {
-		evidence := []byte(`{"decisions":[],"quorum":1,"approvals":1,"approver":"` + approver + `"}`)
+	step := func(status StepState, approver, principal, via, override string) *Step {
+		evidence := []byte(`{"decisions":[],"quorum":1,"approvals":1}`)
+		if approver != "" {
+			evidence = []byte(`{"decisions":[{"approver":"` + approver + `"` + principal + `,"via":"` + via + `","decision":"approve"}],"quorum":1,"approvals":1,"approver":"` + approver + `","decision":"approve"}`)
+		}
 		return &Step{Type: "approval", Status: status, Evidence: evidence, OverrideBy: override}
 	}
+	bls := `,"principal":"` + idstest.N(1).String() + `"`
 	cases := []struct {
 		name string
 		step *Step
 		want bool
 	}{
-		{"a person's approval", step(StatusPass, "bls", ""), true},
-		{"a person's override", step(StatusPass, "", "bls"), true},
-		{"AppTown itself", step(StatusPass, "apptown-system", ""), false},
-		{"a step run", step(StatusPass, "run/3", ""), false},
-		{"a chat", step(StatusPass, "bls via console/x", ""), false},
-		{"pending", step(StatusPending, "bls", ""), false},
+		{"a person's approval", step(StatusPass, "bls", bls, "session", ""), true},
+		{"a person's override", step(StatusPass, "", "", "", "bls"), true},
+		{"AppTown itself", step(StatusPass, "apptown-system", "", "binding:x", ""), false},
+		{"a step run", step(StatusPass, "run/3", "", "run-step", ""), false},
+		{"a chat", step(StatusPass, "bls via console/x", bls, "chat:x", ""), false},
+		{"a decision without its votes", &Step{Type: "approval", Status: StatusPass, Evidence: []byte(`{"decisions":[],"quorum":1,"approvals":1,"approver":"bls","decision":"approve"}`)}, false},
+		{"pending", step(StatusPending, "bls", bls, "session", ""), false},
 		{"not an approval", &Step{Type: "script", Status: StatusPass}, false},
 	}
 	for _, tc := range cases {

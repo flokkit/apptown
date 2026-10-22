@@ -144,12 +144,6 @@ type Comparer interface {
 	CompareArm(ctx context.Context, in verification.ArmComparison) (*verification.ArmCompared, error)
 }
 
-// Origins reads a change's starting commit: whether it predates the AppTown
-// rename (keeps .forge/), which evals do not convert (scm.PredatesRename).
-type Origins interface {
-	PredatesRename(ctx context.Context, projectSlug, commit string) (bool, error)
-}
-
 // Packs lists the packs a pack-version eval may vary.
 type Packs interface {
 	Packs(ctx context.Context) ([]wow.Pack, error)
@@ -187,7 +181,6 @@ type Dependencies struct {
 	AdoptionJobs AdoptionJobs
 	Comparer     Comparer
 	Packs        Packs
-	Origins      Origins
 	// DataDir is where projects' repositories live: an arm's diff is read
 	// from its copy's.
 	DataDir string
@@ -343,17 +336,6 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 		}
 		if p.DefaultBranch == "" {
 			return nil, fault.New(fault.Unprocessable, fmt.Sprintf("%s's project is not repo-backed", name))
-		}
-		// Old code is not converted on the fly: a change whose starting
-		// commit keeps .forge/ would fail in every arm, so it is refused
-		// here by name.
-		if s.deps.Origins == nil {
-			return nil, errors.New("starting an eval needs a reader of changes' starting commits")
-		}
-		if old, err := s.deps.Origins.PredatesRename(ctx, p.Slug, ch.BaseSHA); err != nil {
-			return nil, fmt.Errorf("reading %s's starting commit: %w", name, err)
-		} else if old {
-			return nil, fault.New(fault.Invalid, fmt.Sprintf("%s#%d predates the AppTown rename (its code uses .forge/); evals start from changes made after 20 Oct", p.Slug, ch.Number))
 		}
 		lane, err := s.originalLane(ctx, ch.ID, name)
 		if err != nil {

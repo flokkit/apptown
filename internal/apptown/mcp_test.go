@@ -462,6 +462,16 @@ func TestMCPChangesAndRuns(t *testing.T) {
 	if len(res["structuredContent"].(map[string]any)["waiting"].([]any)) != 0 {
 		t.Fatalf("a voted approval must not be listed: %v", res)
 	}
+	// Another approver who has not voted still sees it: a vote counts for
+	// the person who cast it, by principal.
+	if _, err := a.Access.PutGrant(context.Background(), identity.Spec{SubjectType: "user", Subject: "ann", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(pid), Origin: "test", By: "bls"}); err != nil {
+		t.Fatal(err)
+	}
+	annTok := mcp_token(t, a, "ann-laptop", "ann", "member")
+	res = mcp_call(t, a, annTok, "get_waiting_on_you", map[string]any{"slug": "shop"})
+	if items := res["structuredContent"].(map[string]any)["waiting"].([]any); len(items) != 1 || items[0].(map[string]any)["stepId"] != stepID.String() {
+		t.Fatalf("an approval waiting on another person must be listed for them: %v", res)
+	}
 }
 
 func TestMCPProtocolErrors(t *testing.T) {

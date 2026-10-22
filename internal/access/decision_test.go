@@ -119,12 +119,12 @@ func TestDecideTable(t *testing.T) {
 		{"an administrator's agent token may not land", agentToken, agentChannel, access.CapChangeLand, change, access.Context{}, rootFacts, false, access.DenyDelegationNarrow, "agent token may not"},
 		{"an administrator's agent token may not administer", agentToken, agentChannel, access.CapIdentityAuth, inst, access.Context{}, rootFacts, false, access.DenyDelegationNarrow, "agent token may not"},
 		{"an agent token does what a scope covers", agentToken, agentChannel, access.CapChangeRequestLand, change, access.Context{}, rootFacts, true, "", "Instance administrator"},
-		{"an administrator's cli token approves", cliToken, access.Channel{Kind: "legacy-token"}, access.CapChangeApprove, change, access.Context{}, rootFacts, true, "", "Instance administrator"},
+		{"an administrator's cli token approves", cliToken, access.Channel{Kind: "cli-token"}, access.CapChangeApprove, change, access.Context{}, rootFacts, true, "", "Instance administrator"},
 		// A token made without administrator authority does not carry its
 		// administrator's root; the refusal says so and how to get one,
 		// never "ask an administrator" (one-server test, 22 Oct).
-		{"an administrator's member cli token is told the token is the limit", memberCLIToken, access.Channel{Kind: "legacy-token"}, access.CapReleasePromote, change, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority, which alice holds; sign in on the web and make a command-line token on People"},
-		{"an administrator's member cli token on a root-only act", memberCLIToken, access.Channel{Kind: "legacy-token"}, access.CapIdentityAuth, inst, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority"},
+		{"an administrator's member cli token is told the token is the limit", memberCLIToken, access.Channel{Kind: "cli-token"}, access.CapReleasePromote, change, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority, which alice holds; sign in on the web and make a command-line token on People"},
+		{"an administrator's member cli token on a root-only act", memberCLIToken, access.Channel{Kind: "cli-token"}, access.CapIdentityAuth, inst, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority"},
 		{"anonymous with nothing", nobody, access.Channel{Kind: "anonymous"}, access.CapProjectRead, project, access.Context{}, &fakeFacts{}, false, access.DenyMissingCapability, "Someone who is not signed in"},
 	}
 	for _, tc := range cases {
@@ -175,8 +175,8 @@ func TestDecideReadsOnlyWhatItNeeds(t *testing.T) {
 
 func TestDelegationOf(t *testing.T) {
 	if access.DelegationOf(alice).Kind != "full-breadth" || access.DelegationOf(nobody).Kind != "anonymous" ||
-		access.DelegationOf(access.Principal{Kind: "user", Name: "a", Via: "token"}).Kind != "legacy-token" ||
-		access.DelegationOf(cliToken).Kind != "legacy-token" || access.DelegationOf(agentToken).Kind != "agent-token" ||
+		access.DelegationOf(access.Principal{Kind: "user", Name: "a", Via: "token"}).Kind != "cli-token" ||
+		access.DelegationOf(cliToken).Kind != "cli-token" || access.DelegationOf(agentToken).Kind != "agent-token" ||
 		access.DelegationOf(access.Principal{Kind: "user", Name: "a", Via: "oauth", DelegationID: idstest.N(4)}).ID != idstest.N(4).String() ||
 		access.DelegationOf(access.Principal{Kind: "instrument", Name: "run/1"}).ID != "run/1" {
 		t.Fatal("delegation words wrong")

@@ -25,9 +25,9 @@ func TestParseSSHAddressAndStanza(t *testing.T) {
 	}
 	dir := t.TempDir()
 	cfg := filepath.Join(dir, "config")
-	// A block an earlier release wrote, under the alias it used then.
-	before1 := "# BEGIN forge target box\nHost forge-target-box\n  IdentityFile /k/zero\n# END forge target box\n"
-	if err := os.WriteFile(cfg, []byte("Host mine\n  User me\n\n"+before1), 0o600); err != nil {
+	// A block AppTown wrote before, with another key.
+	earlier := "# BEGIN apptown target box\nHost apptown-target-box\n  IdentityFile /k/zero\n# END apptown target box\n"
+	if err := os.WriteFile(cfg, []byte("Host mine\n  User me\n\n"+earlier), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := upsertSSHStanza(cfg, "box", sshStanza("box", a, "/k/one")); err != nil {
@@ -38,11 +38,11 @@ func TestParseSSHAddressAndStanza(t *testing.T) {
 	}
 	got, _ := os.ReadFile(cfg)
 	s := string(got)
-	if strings.Count(s, "BEGIN forge target box") != 1 || !strings.Contains(s, "IdentityFile /k/two") || strings.Contains(s, "/k/one") || !strings.HasPrefix(s, "Host mine\n  User me\n") {
+	if strings.Count(s, "BEGIN apptown target box") != 1 || !strings.Contains(s, "IdentityFile /k/two") || strings.Contains(s, "/k/one") || !strings.HasPrefix(s, "Host mine\n  User me\n") {
 		t.Fatalf("AppTown replaces exactly its own block and keeps the rest:\n%s", s)
 	}
-	if strings.Contains(s, "forge-target-box") || strings.Contains(s, "/k/zero") || !strings.Contains(s, "\nHost apptown-target-box\n") {
-		t.Fatalf("the earlier release's block is not replaced by one under the current alias:\n%s", s)
+	if strings.Contains(s, "/k/zero") || !strings.Contains(s, "\nHost apptown-target-box\n") {
+		t.Fatalf("the earlier block is not replaced:\n%s", s)
 	}
 }
 
@@ -90,7 +90,7 @@ func TestTheSSHConfigIsReplacedWholeAndOnlyWhenItChanges(t *testing.T) {
 	wg.Wait()
 	got, _ := os.ReadFile(cfg)
 	for i := range 16 {
-		if !strings.Contains(string(got), fmt.Sprintf("# BEGIN forge target host-%d\n", i)) {
+		if !strings.Contains(string(got), fmt.Sprintf("# BEGIN apptown target host-%d\n", i)) {
 			t.Fatalf("host-%d's block was lost to a concurrent edit:\n%s", i, got)
 		}
 	}

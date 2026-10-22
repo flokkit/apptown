@@ -143,7 +143,7 @@ type Change struct {
 	// empty when no receipt recorded it.
 	OpenedBy string `json:"openedBy,omitempty"`
 	// OpenedByPrincipal is the person who opened it, by principal; Nil when
-	// the opener was not resolved to a person (AppTown, an old record).
+	// the opener was not resolved to a person (AppTown).
 	OpenedByPrincipal ids.ID `json:"openedByPrincipal,omitzero"`
 	// RequestMet is whether the change does what was asked, as its narrative
 	// read the request against the work; RequestGap says what falls short.

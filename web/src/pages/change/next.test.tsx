@@ -113,11 +113,6 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
     primary: 'pick-up', headline: /interrupted$/, button: 'Pick it back up',
   },
   {
-    name: 'a gate missing evidence that a rerun records',
-    v: view({ state: 'blocked', stateDetail: 'The “gates” stage is missing evidence.', next: act('recheck') }),
-    primary: 'recheck', headline: /can't finish/, button: 'Run the checks again',
-  },
-  {
     name: 'finished work not yet landed',
     v: view({ runStatus: 'done', changeNext: act('land') }),
     primary: 'land', headline: /has not landed/, button: 'Check and land', waitingOn: /someone to land it/,
@@ -191,7 +186,7 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
     primary: 'send-back', headline: /^Landing stopped/, button: 'Send it back with a note',
   },
   {
-    name: 'missing evidence AppTown offers no recheck for',
+    name: 'a stage that cannot finish as recorded',
     v: view({ state: 'blocked', stateDetail: 'AppTown cannot judge this stage: no gate' }),
     primary: 'none', headline: /can't finish/,
   },

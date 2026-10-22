@@ -244,9 +244,6 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, in.ProjectID, contract); err != nil || why != "" {
 		return AcceptedRelease{}, errors.Join(err, refusal(why))
 	}
-	if why := refusesEarlierStaticImage(t.Kind, bundle, contract); why != "" {
-		return AcceptedRelease{}, refusal(why)
-	}
 	refused, accepted, err := s.uncopiedData(ctx, dep, t, bundle.ID, in.AcceptUncopiedData, actor.Principal.Name)
 	if err != nil {
 		return AcceptedRelease{}, err

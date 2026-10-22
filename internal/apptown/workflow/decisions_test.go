@@ -29,6 +29,7 @@ func TestDecisionServiceOwnsEligibilityAndExactRoundReceipts(t *testing.T) {
 	if rows, err := workflowsql.New(store.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, ExpectedStatus: StatusPending.String(), Status: StatusPending.String(), EvidenceJson: []byte(`{"n":9007199254740993}`)}); err != nil || rows != 1 {
 		t.Fatalf("stored evidence: rows=%d err=%v", rows, err)
 	}
+	people(t, store.db, "first", "second")
 	var identity string
 	s := newService(store.db, authorityFunc(func(_ context.Context, p operationPermission) (string, error) {
 		if p.Action != actionIdentify {

@@ -109,7 +109,7 @@ func source(t *testing.T, ref, revision string) deploy.Source {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return deploy.Source{Revision: revision, Contract: c, Images: map[string]string{"web": ref}, SelfServing: true}
+	return deploy.Source{Revision: revision, Contract: c, Images: map[string]string{"web": ref}}
 }
 
 func (w *world) placement() deploy.Placement {

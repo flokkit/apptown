@@ -95,22 +95,15 @@ func approvedByAPerson(step *Step) bool {
 			return true
 		}
 	}
-	return len(evidence.Decisions) == 0 && isPerson(evidence.Approver)
+	return false
 }
 
 // votedInPerson is whether a vote is a person's own assent: a vote by a
-// principal, judged by the way it was given (access.Actor.Assents) when
-// that was recorded, so a yes through a chat or an agent is not one. A vote
-// recorded before ways were (Via empty) is judged by its name, as it was
-// then. A vote naming no principal is no one's assent now.
+// principal, judged by the way it was given (access.Actor.Assents), so a yes
+// through a chat or an agent is not one. A vote naming no principal or no
+// way is no one's assent.
 func votedInPerson(vote ApprovalVote) bool {
-	if vote.Principal.IsZero() {
-		return false
-	}
-	if vote.Via != "" {
-		return access.Actor{Principal: vote.Principal, Via: vote.Via}.Assents()
-	}
-	return isPerson(vote.Approver)
+	return !vote.Principal.IsZero() && vote.Via != "" && access.Actor{Principal: vote.Principal, Via: vote.Via}.Assents()
 }
 
 // isPerson: attribution naming a person, not AppTown itself, a step run

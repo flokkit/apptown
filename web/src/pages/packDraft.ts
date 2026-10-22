@@ -1,4 +1,4 @@
-import type { PackDrop, PackPolicy, PackSpec } from '../wire.gen'
+import type { PackDrop, PackSpec } from '../wire.gen'
 
 // Draft is a pack's declaration as the editor sends it (httpapi PackSave):
 // every field the author wrote, so a field the form does not edit (clears,
@@ -24,12 +24,4 @@ export function keptAsWritten(d: Draft): string[] {
   if ((d.services ?? []).length > 0) out.push(`services ${(d.services ?? []).map((s) => s.name).join(', ')}`)
   if ((d.extensions ?? []).length > 0) out.push(`extensions ${(d.extensions ?? []).join(', ')}`)
   return out
-}
-
-// shownPolicy is the definition applying a pack version installs: the one
-// the version pinned, or, for a version from before policies were pinned
-// (a name alone), the library's, as pack setup reads it.
-export function shownPolicy<P extends PackPolicy>(pinned: PackPolicy, library: P[]): PackPolicy | P {
-  if (pinned.rule) return pinned
-  return library.find((lp) => lp.name === pinned.name) ?? pinned
 }

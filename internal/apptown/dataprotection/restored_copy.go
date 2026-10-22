@@ -573,7 +573,7 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	if err != nil {
 		return "", c, "starting it", err
 	}
-	src := deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: p.bundle.Parts, Init: p.bundle.Init, SelfServing: p.bundle.BuiltFrom.SelfServing, Workspace: tree.Directory}
+	src := deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: p.bundle.Parts, Init: p.bundle.Init, Workspace: tree.Directory}
 	// Each line the target and the fill log is a step of the operation:
 	// they are the platform's and AppTown's own words.
 	logf := func(format string, args ...any) { t.begin(ctx, fmt.Sprintf(format, args...)) }

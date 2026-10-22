@@ -86,7 +86,6 @@ capabilities (`StockCapabilities`), and fails if a cell here differs.
 | Object storage (s3) | yes, a local store: its bucket made before the app starts, a key for it alone | yes, a local store, as on a Docker host | yes, a Spaces bucket of its own and a key for it alone | refused: static-only |
 | Another need with a local emulator (redis) | yes, a local emulator | yes, a local emulator | refused: cannot provide it as a managed service | refused: static-only |
 | A data directory | yes, a named volume | yes, a named volume | refused: no persistent volumes | refused: static-only |
-| A static site from an earlier-form bundle | yes, served with the file server's command | yes, as on a Docker host | refused: release again for a self-serving image | yes, its files are published |
 | A static site given browser values by an integration | yes, as /_apptown/env.js | refused: cannot deliver browser values yet | refused: cannot deliver browser values yet | yes, published as /_apptown/env.js |
 | Secrets | each part's environment | each part's environment | each component's environment | none: a site has no runtime |
 | Declared resources | exact: each part's container gets its memory (swap included) and cpus | exact: each part's service gets mem_limit, memswap_limit and cpus | rounded up to the cheapest current instance size that covers each part; one no size covers is refused before any effect | none: a site has no runtime |
@@ -190,19 +189,14 @@ What each target's readiness witnesses:
 
 | Kind | Witnessed |
 | --- | --- |
-| `docker-host` | the container AppTown started, by its labels and port. For a static site served from a revision (a landing, a promotion, a recovery) whose image serves itself, that `/_apptown/release` answers this release's identity, as on App Platform. For an earlier-form bundle, or a preview of a worktree (no revision), that `/_apptown/env.js` answers (only AppTown's file server configuration serves it) |
+| `docker-host` | the container AppTown started, by its labels and port. For a static site served from a revision (a landing, a promotion, a recovery), that `/_apptown/release` answers this release's identity, as on App Platform. For a preview of a worktree (no revision), and for a restore rehearsal, that `/_apptown/env.js` answers (only AppTown's file server configuration serves it) |
 | `do-app` | the platform's deployment for this generation is active (the platform's own probe); AppTown asks the front door only when the contract declares an HTTP readiness path, and, when the public part is a static site, that `/_apptown/release` answers this release's identity. Otherwise the release log says which release answers is not witnessed |
 | `portainer` | the stack was accepted; health is unknown. `/_apptown/release` answers, but nothing asks it |
 
-Every bundle cut since then records that its static images serve themselves
-(`selfServing` in the bundle's origin). A bundle without that record is the
-earlier form: its static image holds only the files. A Docker host and
-Portainer run it with `docker.StaticServerCommand`, as they always did, so
-recovering or redeploying an old static release still works. App Platform
-runs an image as it is, so it refuses an earlier-form static bundle when the
-release is asked for, before any call to DigitalOcean: release again to get
-a self-serving image. Both forms serve `/_apptown/env.js`, which a Docker host
-boot of an earlier-form static site requires.
+A bundle cut before 3 October 2026 holds only the site's files, without
+that configuration. Released again, it fails its readiness check on a Docker
+host and on App Platform, because the file server's stock page does not
+answer `/_apptown/release`; on Portainer nothing checks it.
 
 ## Where a release comes from
 

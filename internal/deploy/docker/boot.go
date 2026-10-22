@@ -520,6 +520,18 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		if !t.Sealed.awaitReady(ctx, t.Docker, network, t.Name, plan.PublicPart().Port, rp, wait) {
 			return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("the app did not answer %s on its own network", strs.FirstNonBlank(rp.Path, "/"))}
 		}
+		// A static site must answer through AppTown's file server
+		// configuration here too (below): the stock configuration answers
+		// its default page to "/", which a rehearsal would read as the app.
+		if wasStatic || plan.PublicPart().ServesStatic {
+			status, err := t.Sealed.Get(ctx, t.Docker, network, t.Name, plan.PublicPart().Port, "/_apptown/env.js")
+			if err != nil {
+				return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("asking the static site for /_apptown/env.js on its own network: %w", err)}
+			}
+			if status != 200 {
+				return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("the static site's file server answers %d for /_apptown/env.js: its image does not carry AppTown's file server configuration", status)}
+			}
+		}
 		return res, nil
 	}
 
@@ -533,21 +545,20 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseProbe, Err: errors.New("app did not come up in a cold container"), LogTail: logTail}
 	}
 	// A static site answers through AppTown's file server configuration,
-	// which its image carries (StaticSiteDockerfile). An image built before
-	// the image carried it has none (the command was added at boot then): run
-	// as it is, the file server's stock configuration answers its default
-	// page to every probe of "/". A self-serving image told its release is
-	// witnessed answering it at ReleasePath, as App Platform witnesses it;
-	// otherwise only that configuration answers /_apptown/env.js.
-	selfServing := t.Recorded == nil || t.Recorded.SelfServing
+	// which its image carries (StaticSiteDockerfile). An image without it
+	// runs the file server's stock configuration, which answers its default
+	// page to every probe of "/".
+	// An image told its release is witnessed answering it at ReleasePath, as
+	// App Platform witnesses it; otherwise only that configuration answers
+	// /_apptown/env.js.
 	switch {
-	case t.release != "" && selfServing:
+	case t.release != "":
 		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: appcontract.ReleasePath, Expect: 200, Body: t.release}); !up {
 			return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("the static site's file server does not answer %s with this release (%s): its image does not carry AppTown's file server configuration, or it serves another release", appcontract.ReleasePath, t.release), LogTail: logTail}
 		}
 	case wasStatic || plan.PublicPart().ServesStatic:
 		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: "/_apptown/env.js", Expect: 200}); !up {
-			return res, &BootError{Phase: PhaseProbe, Err: errors.New("the static site's file server does not answer /_apptown/env.js: its image does not carry AppTown's file server configuration; release it again to rebuild the image"), LogTail: logTail}
+			return res, &BootError{Phase: PhaseProbe, Err: errors.New("the static site's file server does not answer /_apptown/env.js: its image does not carry AppTown's file server configuration"), LogTail: logTail}
 		}
 	}
 	if t.PageCheck {

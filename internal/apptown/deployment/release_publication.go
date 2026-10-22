@@ -273,7 +273,7 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 		in.Log("Recording the published release bundle")
 	}
 	id, err := s.Bundles.Cut(ctx, projectID, in.Tree, parts, init, in.Contract, BundleOrigin{ChangeID: in.ChangeID, RunID: runID,
-		Registry: registry, Platform: in.Platform, Build: in.Build, By: in.By, SelfServing: true}) // built from ReleaseImage.Dockerfile
+		Registry: registry, Platform: in.Platform, Build: in.Build, By: in.By})
 	if err != nil {
 		return nil, fmt.Errorf("committing the release bundle: %w", err)
 	}

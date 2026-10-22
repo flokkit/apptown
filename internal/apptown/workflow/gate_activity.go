@@ -34,7 +34,7 @@ func judgedByGate(a Activity, stage *schema.Stage, checks []Check, steps []*Step
 			}
 			missing = append(missing, m)
 		}
-		return Activity{State: ActivityBlocked, Detail: "The “" + stage.Name + "” stage is missing evidence. " + strings.Join(missing, "; ") + ". Run its checks again.", MissingEvidence: true}
+		return Activity{State: ActivityBlocked, Detail: "The “" + stage.Name + "” stage is missing evidence. " + strings.Join(missing, "; ") + ". This run cannot advance as recorded: abandon it."}
 	}
 	// A person's approval still to come is what "waiting on you" already says.
 	if a.State == ActivityWaiting || len(gate.Blocking) == 0 {

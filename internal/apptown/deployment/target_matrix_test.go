@@ -66,11 +66,6 @@ var targetMatrix = []matrixRow{
 		app:      "app:\n  web:\n    image: reg/x:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n",
 		want:     map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "no persistent volumes", KindS3Bucket: "static-only"},
 		pinnedBy: []string{"TestTargetRefusesContract", "TestRequestReleaseRefusesUnreadableOrIncompatibleContract"}},
-	{row: "A static site from an earlier-form bundle",
-		cells:  [4]string{"yes, served with the file server's command", "yes, as on a Docker host", "refused: release again for a self-serving image", "yes, its files are published"},
-		app:    "app:\n  site:\n    static: public\n    public: true\n",
-		bundle: &ReleaseBundle{ID: idstest.N(3), Parts: map[string]string{"site": "reg/site:1"}},
-		want:   map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "built before static images served themselves", KindS3Bucket: ""}},
 	{row: "A static site given browser values by an integration",
 		cells:    [4]string{"yes, as /_apptown/env.js", "refused: cannot deliver browser values yet", "refused: cannot deliver browser values yet", "yes, published as /_apptown/env.js"},
 		pinnedBy: []string{"TestRequestReleaseRefusesUnreadableOrIncompatibleContract"}},
@@ -130,8 +125,7 @@ func renderTargetMatrix() string {
 // Each target refuses what it cannot run before any effect, in the words
 // of the guide's table, and runs the rest. The rows the admission checks
 // decide are driven through the checks the release path calls before
-// anything is prepared (RefusesContract, refusesEarlierStaticImage,
-// RefusesBundle), for a target of each kind with its stock capabilities;
+// anything is prepared (RefusesContract, RefusesBundle), for a target of each kind with its stock capabilities;
 // the guide's table is this test's rows, exactly; and every test a row
 // names as its owner exists.
 //
@@ -160,9 +154,6 @@ func TestEachTargetRefusesWhatItCannotRunBeforeAnyEffect(t *testing.T) {
 			}
 			tg := targets[kind]
 			why := tg.RefusesContract(c)
-			if why == "" {
-				why = refusesEarlierStaticImage(kind, r.bundle, c)
-			}
 			if why == "" && r.bundle != nil && kind == KindDOApp {
 				if err := providers.RefusesBundle(context.Background(), r.bundle, tg); err != nil {
 					why = err.Error()

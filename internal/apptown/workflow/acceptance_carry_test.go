@@ -18,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func denyStep(name string) approvalEligibility {
@@ -479,7 +480,7 @@ func TestAnAcceptanceCarriesOnlyWithTheListItWasShown(t *testing.T) {
 				t.Fatal(err)
 			}
 			recordScopeStep(t, store.db, workflowsql.RecordApprovalParams{At: time.Now(), ID: stepNamed(t, store, work.ID, "accept").ID, Status: StatusPass.String(),
-				EvidenceJson: json.RawMessage(mustJSON(map[string]any{"approver": "alice", "decisions": []map[string]any{{"approver": "alice", "decision": "approve", "alsoApproves": []string{landingMeans}, "candidate": candidate, "adds": accepted}}}))})
+				EvidenceJson: json.RawMessage(mustJSON(map[string]any{"approver": "alice", "decisions": []map[string]any{{"approver": "alice", "principal": idstest.N(21).String(), "via": "session", "decision": "approve", "alsoApproves": []string{landingMeans}, "candidate": candidate, "adds": accepted}}}))})
 			if err := store.db.InTx(ctx, func(tx *database.Tx) error {
 				return recordReceiptIn(ctx, tx, landing.ID, landingCandidateEvent, LandingCandidate{Candidate: candidate, Target: "2222222222222222222222222222222222222222", By: "catch-up"}, time.Now())
 			}); err != nil {

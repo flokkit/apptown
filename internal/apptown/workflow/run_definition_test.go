@@ -63,3 +63,17 @@ func TestRunAndFirstStageUseSameFrozenDeclaration(t *testing.T) {
 		return s.RunID == run.ID && s.Name == "check:source" && hasFields(s.Config, "precise", "9007199254740993")
 	})
 }
+
+// A run's definition is read as it was stored: a role it does not name is
+// not given one.
+//
+// Kills: Definition defaulting a missing role to "working".
+func TestARunsDefinitionIsReadAsStored(t *testing.T) {
+	t.Parallel()
+	for stored, want := range map[string]string{`{"kind":"pipeline"}`: "", `{"kind":"pipeline","role":"landing"}`: "landing"} {
+		spec, err := (&Run{DefinitionJSON: stored}).Definition()
+		if err != nil || spec.Role != want {
+			t.Fatalf("%s: role %q, want %q (%v)", stored, spec.Role, want, err)
+		}
+	}
+}

@@ -64,26 +64,3 @@ func TestANestedRunShowsItsChildsGate(t *testing.T) {
 		t.Fatalf("parent hides child's actual gate refusal: parent=%+v child=%+v", got, want)
 	}
 }
-
-// Running the checks again from the parent reaches the child whose stage is
-// missing evidence; the parent's call step is running and has none to redo.
-func TestRecheckStageFromAParentReachesTheChildItWaitsOn(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	spec := schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "outer", Steps: []schema.Step{{Name: "call", Uses: "workflow/call"}}}}}
-	db, parent := settlementFixture(t, spec)
-	call := insertStoredCall(t, db, parent.ID, "outer", "call", 0, nil)
-	childSpec := schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "inner", Steps: []schema.Step{{Name: "scan", Uses: "scan", With: map[string]any{"on": "source"}}}}}}
-	child := insertStoredRun(t, db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: parent.ProjectID, ChangeID: parent.ChangeID, ParentRunID: parent.ID, ParentStepID: call, WorkflowName: "child", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "inner", DefinitionJson: json.RawMessage(mustJSON(childSpec))})
-	recordStoredCallEvidence(t, db, call, 0, json.RawMessage(fmt.Sprintf(`{"childRunId":%q,"workflow":"child"}`, child.ID)))
-	insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: child.ID, Stage: "inner", Name: "scan:osv", Type: "scan", Status: StatusPass.String()})
-	allow := actorAuthorityFunc(func(context.Context, operationPermission) (commandActor, error) {
-		return commandActor{Receipt: "bls"}, nil
-	})
-	s := newServiceWithAuthority(db, Dependencies{Scanners: recordedScanners{{Name: "osv", Target: "source"}}}, allow)
-	s.dispatcher.Stop()
-	out, err := s.RecheckStage(ctx, parent.ID)
-	if err != nil || out.RunID != child.ID || out.Stage != "inner" {
-		t.Fatalf("recheck from the parent: %+v %v", out, err)
-	}
-}

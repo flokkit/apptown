@@ -9,7 +9,7 @@ import { QuietConfirm } from '../QuietConfirm'
 import { firstErr, useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { GuidanceBlockDetail, LibraryWorkflow, PackPolicy, PackSaved, PolicyLibraryList, PackView } from '../wire.gen'
-import { type Draft, draftFrom, keptAsWritten, shownPolicy } from './packDraft'
+import { type Draft, draftFrom, keptAsWritten } from './packDraft'
 
 // Ways of working: the pack store. Stock packs are read-only; a pack of
 // your own may include one and replace, drop or add items. Custom packs are built here
@@ -32,18 +32,16 @@ export type InspectablePack = {
 export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose: () => void }) {
   const blocksQ = useGet<BlockMeta[]>('/guidance/blocks', { kind: 'config' })
   const workflowsQ = useGet<LibraryWorkflow[]>('/workflows/library', { kind: 'config' })
-  const policiesQ = useGet<PolicyLibraryList>('/policy-library', { kind: 'config' })
   const blocks = blocksQ.data ?? []
   const workflows = Array.isArray(workflowsQ.data) ? workflowsQ.data : []
-  const policies = policiesQ.data?.library ?? []
-  const loadErr = firstErr(blocksQ.err, workflowsQ.err, policiesQ.err)
+  const loadErr = firstErr(blocksQ.err, workflowsQ.err)
   const [openBlock, setOpenBlock] = useState<string | null>(null)
   const [openWf, setOpenWf] = useState<string | null>(null)
 
   const showBlock = (id: string) => setOpenBlock(openBlock === id ? null : id)
 
   const packWf = pack.workflows.map((n) => workflows.find((w) => w.name === n) ?? { name: n, kind: '?', description: '(not in library)', stages: [], yaml: '', latestVersion: 0 })
-  const packPol = (pack.policies ?? []).map((pp) => shownPolicy(pp, policies))
+  const packPol = pack.policies ?? []
   const packBytes = pack.guidance.reduce((n, name) => n + (blocks.find((x) => x.name === name)?.bytes ?? 0), 0)
 
   return (

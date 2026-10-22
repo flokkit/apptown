@@ -75,10 +75,10 @@ type Principal struct {
 }
 
 // Channel bounds what the channel may exercise of the person's authority.
-// Sessions and legacy personal tokens are "full breadth" (§1): no narrowing
-// beyond current grants.
+// Sessions are "full breadth" (§1): no narrowing beyond current grants. A
+// command-line token is bounded by the role it was made with.
 type Channel struct {
-	Kind string // full-breadth | legacy-token | instrument | anonymous | oauth
+	Kind string // full-breadth | cli-token | agent-token | instrument | anonymous | oauth
 	ID   string
 }
 
@@ -94,7 +94,7 @@ func DelegationOf(pr Principal) Channel {
 	case AgentToken(pr):
 		return Channel{Kind: "agent-token"}
 	case pr.Via == "token":
-		return Channel{Kind: "legacy-token"}
+		return Channel{Kind: "cli-token"}
 	}
 	return Channel{Kind: "full-breadth"}
 }

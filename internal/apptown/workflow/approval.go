@@ -66,7 +66,7 @@ type ApprovalVote struct {
 	original json.RawMessage
 	Approver string `json:"approver"`
 	// Principal is the person who voted and Via how (access.Actor); a vote
-	// recorded before principals has neither and is matched by its name.
+	// AppTown could not tie to a person has neither and counts for no one.
 	Principal ids.ID           `json:"principal,omitzero"`
 	Via       string           `json:"via,omitempty"`
 	Decision  ApprovalDecision `json:"decision"`
@@ -224,49 +224,39 @@ func (e ApprovalEvidence) validate() error {
 	}
 	return nil
 }
-func (e ApprovalEvidence) HasVoted(who string) bool {
-	return e.hasVoted(ApprovalVote{Approver: who})
+
+// HasVoted is whether the person has voted in this round.
+func (e ApprovalEvidence) HasVoted(person ids.ID) bool {
+	return e.hasVoted(ApprovalVote{Principal: person})
 }
 
 // hasVoted is whether the vote's person has voted in this round: the same
-// principal, whatever name either vote was written with, or, for a vote
-// without one, the same name.
+// principal, whatever name either vote was written with. A vote AppTown
+// could not tie to a person matches no one.
 func (e ApprovalEvidence) hasVoted(vote ApprovalVote) bool {
+	if vote.Principal.IsZero() {
+		return false
+	}
 	for _, earlier := range e.Decisions {
-		if !vote.Principal.IsZero() && !earlier.Principal.IsZero() {
-			if earlier.Principal == vote.Principal {
-				return true
-			}
-			continue
-		}
-		if earlier.Approver == vote.Approver {
+		if earlier.Principal == vote.Principal {
 			return true
 		}
 	}
 	return false
 }
 
-// people is how many distinct people have approved in this round. Where
-// votes name principals, it counts principals: a vote whose name AppTown
-// could not resolve to one (an account removed before principals, a chat's
-// label) may be any of them, so it is not counted as another person. A
-// round recorded before principals, where no vote names one, counts names.
+// people is how many distinct people have approved in this round, by
+// principal. A vote whose name AppTown could not tie to a person (a chat's
+// label, an account it could not place) may be anyone's, so it does not
+// count as a person.
 func (e ApprovalEvidence) people() int {
-	principals, names := map[ids.ID]bool{}, map[string]bool{}
+	principals := map[ids.ID]bool{}
 	for _, vote := range e.Decisions {
-		if vote.Decision != VoteApprove {
-			continue
-		}
-		if vote.Principal.IsZero() {
-			names[vote.Approver] = true
-		} else {
+		if vote.Decision == VoteApprove && !vote.Principal.IsZero() {
 			principals[vote.Principal] = true
 		}
 	}
-	if len(principals) > 0 {
-		return len(principals)
-	}
-	return len(names)
+	return len(principals)
 }
 
 func (e ApprovalEvidence) clone() ApprovalEvidence {

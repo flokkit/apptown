@@ -98,14 +98,8 @@ ALLOWED = [
     ("quoted-name", r"^scripts/apptown_start_test\.py$", r'"forge"', "the test plants the data folder a trial volume made before 1.0 keeps"),
     ("quoted-name", r"^scripts/apptown_recovery_rehearsal_test\.py$", r"\('forge-db', 'forge'\)", "the test plants the database an install made before 1.0 keeps"),
     ("quoted-name", r"^scripts/codebase-shape\.py$", r'\["internal", "forge"\]', "the shape report reads history under internal/forge, the root's folder before 2026-10-22"),
-    # Evals do not convert code from before the rename; the refusal names the
-    # old folder so a person sees why their change is not offered.
-    ("repo-folder", r"^internal/apptown/scm/rename\.go$|^internal/apptown/evals/service(_test)?\.go$|^web/src/pages/Evals\.test\.tsx$",
-     r"\.forge/", "says a change predates the rename by the folder its code keeps"),
     # History readers (push 3): records written before the rename keep their
     # names, so these readers know the old spelling. Nothing writes it.
-    ("trailer-or-header", r"^internal/trailer/trailer\.go$", r"OldOperation = \"Forge-Operation\"",
-     "scm finds a landing's merge from before the rename by its old Operation trailer"),
     ("trailer-or-header", r"^internal/trailer/trailer_test\.go$", r"Forge-Opened-by|\"Forge-Key: \"",
      "the trailer test's comments name the old spelling it guards against"),
     ("mount-and-builder", r"^internal/apptown/identity/enabled\.go$", r"forge-system",
@@ -114,22 +108,12 @@ ALLOWED = [
      "migration 154 renames the stored value"),
     ("public-field", r"^internal/apptown/workflow/check_evidence\.go$", r"forgeFault",
      "check evidence recorded before the rename keeps its platform fault"),
-    ("trailer-or-header", r"^internal/apptown/scm/git_driver_test\.go$", r"Forge-Operation",
-     "the merge-proof test plants a merge written before the rename"),
-    ("token-or-cookie", r"^internal/apptown/identity/refresh\.go$", r"forge_rt_",
-     "a refresh token from before the rename is refused; the comment names its prefix"),
-    ("token-or-cookie", r"^internal/apptown/identity/apptown_rename_test\.go$", r"forge_rt_",
-     "the test plants a refresh token from before the rename"),
-    ("scope", r"^internal/apptown/identity/apptown_rename_test\.go$", r"forge:change:create",
-     "the test plants a delegation's stored scope from before the rename"),
     ("mount-and-builder", r"^internal/apptown/identity/directory_test\.go$", r"\"forge-system\": true",
      "the system actor in records from before the rename stays a system actor"),
     ("public-field", r"^internal/apptown/(dbschema/apptown_rename_migration_test|workflow/apptown_rename_test)\.go$", r"forge-disk|forgeFault",
      "migration and reader tests plant the stored values from before the rename"),
     # Push 5 (prose): what stays because a stored value or a kept resource
     # depends on the exact text.
-    ("cli-invocation", r"^internal/apptown/deployment/(hosts\.go|docker_connection_test\.go)$", r"(BEGIN|END) forge target",
-     "the block markers earlier releases wrote into the operator's SSH config; renaming them would leave old blocks unfound"),
     ("cli-invocation", r"^internal/apptown/secret/store\.go$", r"derivedPurpose = \"forge need credentials v1\"",
      "the key-derivation purpose of every generated need credential; changing it changes every deployment's passwords"),
     ("cli-invocation", r"^scripts/docs-current(_test)?\.py$", r"says forge for the product",

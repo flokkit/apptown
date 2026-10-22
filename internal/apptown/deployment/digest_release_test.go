@@ -63,11 +63,8 @@ func TestADigestBundleIsPromotedAndRecoveredWithoutABuild(t *testing.T) {
 		t.Fatalf("promotion: %+v %v\nlab2: %s", rel, err, strings.Join(w.hosts.commands("lab2"), "\n"))
 	}
 	expectPulledOnly(t, w, "lab2", b)
-	// The bundle records that its static image serves itself, and the
-	// host runs it with no command of its own.
-	if !b.BuiltFrom.SelfServing {
-		t.Fatalf("a bundle built on the worker is not recorded self-serving: %+v", b.BuiltFrom)
-	}
+	// The bundle's static image serves itself: the host runs it with no
+	// command of its own.
 	ranApp := false
 	for _, line := range w.hosts.ran("lab2") {
 		if strings.Contains(line, "--name "+w.names(t, "staging").App()+" ") {

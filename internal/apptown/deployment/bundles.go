@@ -60,12 +60,6 @@ type BundleOrigin struct {
 	// columns.
 	StepID  ids.ID `json:"stepId,omitzero"`
 	Attempt int64  `json:"attempt,omitempty"`
-	// SelfServing says the bundle's static images carry the command that
-	// serves them (docker.StaticSiteDockerfile), as every image built now
-	// does. A bundle without it is the earlier form: its
-	// static image holds only the files, and a target runs it with
-	// docker.StaticServerCommand, as it always did. Kept in built_from_json.
-	SelfServing bool `json:"selfServing,omitempty"`
 	// By is the claimed deploy step attempt committing the bundle (Cut).
 	// Never stored or read back.
 	By AttemptClaim `json:"-"`

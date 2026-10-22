@@ -56,7 +56,7 @@ A running run's detail snapshot lists its next acts (`RunSnapshot.Next`):
 `approve` for the approvals it waits on, `override` for failed or errored checks
 blocking its stage, `retry` for stopped steps a step run accepts again, and
 `rework` for another round of the stage agent, each naming its step; and the
-run acts `recheck` (missing evidence a rerun can record), `advance` and
+run acts `advance` and
 `restart-landing` (a landing whose rules changed). The change page's projection
 carries the change acts from `ChangeActs`: `land` (in progress, nothing
 running, no landing queued) and `send-back` (open, blocked, not merged). A
@@ -84,13 +84,9 @@ judges an older stage more loosely, and its scan steps never stand in for the
 record of which scanners it expected. A stage that cannot pass as recorded
 (its gate names missing evidence) is shown as blocked with that reason wherever
 the run's activity appears, and while it would otherwise ask a person to
-approve. `RecheckStage` is its way on: it plans the stage again from the
-run's pinned definition, records a new receipt of expected checks, and starts a
-new attempt of every check and approval in the stage, keeping the earlier
-results in `step.invalidated` receipts. It refuses a stage with nothing missing;
-single steps are retried instead. Without it, a stage entered before the
-record of its expected scanners existed would wait forever as "ready to
-advance".
+approve. Every stage records its expected checks when it is entered, so in
+normal use nothing is missing. A run whose stage is missing evidence cannot
+advance: abandon it.
 
 Durable completion/abandonment effects run through Jobs and `workcommands` after
 commit. Queue delivery is not proof of a successful domain outcome. Repeated

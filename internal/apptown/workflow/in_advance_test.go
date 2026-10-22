@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // A yes given in advance holds only where every step passed outright: a
@@ -99,7 +100,7 @@ func inAdvanceLandingFixture(t *testing.T, declared string, gates ...*Step) (lan
 		t.Fatal(err)
 	}
 	accepted := insertStoredStep(t, store, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: work.ID, Stage: "finish", Name: "accept", Type: "approval", Status: StatusPending.String()})
-	vote := mustJSON(map[string]any{"approver": "alice", "decisions": []map[string]any{{"approver": "alice", "decision": "approve", "alsoApproves": []string{landingInAdvance}, "candidate": "c1", "inAdvance": "I accept it in advance"}}})
+	vote := mustJSON(map[string]any{"approver": "alice", "decisions": []map[string]any{{"approver": "alice", "principal": idstest.N(21).String(), "via": "session", "decision": "approve", "alsoApproves": []string{landingInAdvance}, "candidate": "c1", "inAdvance": "I accept it in advance"}}})
 	if changed, err := workflowsql.New(store.SQL()).RecordApproval(ctx, workflowsql.RecordApprovalParams{At: time.Now(), Status: StatusPass.String(), EvidenceJson: json.RawMessage(vote), ID: accepted, ExpectedStatus: StatusPending.String()}); err != nil || changed != 1 {
 		t.Fatalf("stored acceptance: changed=%d %v", changed, err)
 	}

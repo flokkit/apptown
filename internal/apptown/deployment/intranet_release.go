@@ -383,7 +383,7 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	}
 	images := stackImages{Public: imageRef}
 	if bundle != nil {
-		images = stackImages{Parts: bundle.Parts, Init: bundle.Init, SelfServing: bundle.BuiltFrom.SelfServing}
+		images = stackImages{Parts: bundle.Parts, Init: bundle.Init}
 	}
 	logf := func(format string, args ...any) { s.relLog(relID, format, args...) }
 	compose, err := s.env.portainerStack(ctx, portainerStackOf{Base: stackBase, Prefix: stackPrefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: c, Revision: head, Images: images, Secrets: secrets, Deployment: dep.ID}, logf)
@@ -446,7 +446,6 @@ func portainerAddress(slug, appsDomain, releaseDomain string) (hosts []string, u
 // branch head here, the one public image.
 type stackImages struct {
 	Parts, Init map[string]string
-	SelfServing bool
 	Public      string
 }
 
@@ -523,9 +522,7 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 
 // bundleApp is plan with every part and init step running its image from a
 // published bundle, by digest. A static part's image carries the command
-// that serves it (docker.StaticSiteDockerfile) when the bundle records so;
-// one of the earlier form holds only the files and runs with the file
-// server's command, as it always did. Either is still a static site.
+// that serves it (docker.StaticSiteDockerfile); it is still a static site.
 func bundleApp(plan *appcontract.Plan, b stackImages) (*appcontract.Plan, error) {
 	cc := *plan
 	cc.Parts = append([]appcontract.Part(nil), plan.Parts...)
@@ -535,9 +532,6 @@ func bundleApp(plan *appcontract.Plan, b stackImages) (*appcontract.Plan, error)
 		ref := b.Parts[p.Name]
 		if ref == "" {
 			return nil, fmt.Errorf("the release has no image for part %s", p.Name)
-		}
-		if (p.Static != "" || p.StaticBuild != nil) && !b.SelfServing {
-			p.Command = docker.StaticServerCommand(p.Port)
 		}
 		p.ServesStatic = p.IsStatic()
 		p.Image, p.Build, p.Static, p.StaticBuild = ref, "", "", nil

@@ -107,10 +107,6 @@ func TestLandingDeployRecordsDeploymentGenerationAndBundle(t *testing.T) {
 	if b.BuiltFrom.TargetID != bi.ID || b.BuiltFrom.RunID.IsZero() {
 		t.Fatalf("the bundle names the target its images were read from: %+v", b.BuiltFrom)
 	}
-	// The landing built its images now, so a static one serves itself.
-	if !b.BuiltFrom.SelfServing {
-		t.Fatalf("a landing's bundle is not recorded self-serving: %+v", b.BuiltFrom)
-	}
 	// It was committed by the deploy step attempt that landed it, inside
 	// Work's ownership fence.
 	if b.BuiltFrom.StepID != stepID2 || b.BuiltFrom.Attempt != 1 {

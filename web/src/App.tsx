@@ -202,7 +202,6 @@ export default function App() {
           <Route path="/projects/:slug/:tab" element={<Project />} />
           <Route path="/projects/:slug/:tab/:stab" element={<Project />} />
           <Route path="/changes/:id" element={<ChangePage />} />
-          <Route path="/items/:id" element={<ChangePage />} />
           <Route path="/adrs/:id" element={<AdrPage />} />
           <Route path="/guidance" element={<WaysOfWorking tab="guidance" />} />
           <Route path="/guidance/:id" element={<GuidanceBlockPage />} />

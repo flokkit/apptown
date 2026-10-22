@@ -48,6 +48,7 @@ func TestApprovalMalformedConfigurationOrEvidenceCannotRecordAVote(t *testing.T)
 func TestWorkflowPartialApprovalRequiresVoteWrite(t *testing.T) {
 	t.Parallel()
 	store, run, _, _, approval := retryStageFixture(t)
+	people(t, store.db, "verified-person")
 	completionExec(t, store.db, `CREATE FUNCTION veto_vote() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	completionExec(t, store.db, `CREATE TRIGGER veto_vote BEFORE UPDATE ON steps FOR EACH ROW EXECUTE FUNCTION veto_vote()`)
 	before := completionSnapshot(t, store.db)

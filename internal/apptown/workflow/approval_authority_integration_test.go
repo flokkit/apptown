@@ -509,7 +509,7 @@ func TestMayApproveAsksTheVoteRulesWithoutVoting(t *testing.T) {
 		t.Fatalf("asking decided the step: %+v %v", got.Step, err)
 	}
 	evidence, err := ReadApprovalEvidence(got.Step.Evidence)
-	if err != nil || evidence.HasVoted("owner") {
+	if err != nil || len(evidence.Decisions) != 0 {
 		t.Fatalf("asking voted: %+v %v", evidence, err)
 	}
 }

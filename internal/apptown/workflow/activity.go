@@ -32,9 +32,6 @@ type Activity struct {
 	// "waiting on you": the run's own, or a called workflow's when the
 	// waiting is carried up from it. Zero otherwise.
 	Approval ids.ID
-	// MissingEvidence: the stage is blocked because its gate is missing
-	// evidence (judgedByGate), not by a failed step.
-	MissingEvidence bool
 }
 
 func (a Activity) Active() bool {

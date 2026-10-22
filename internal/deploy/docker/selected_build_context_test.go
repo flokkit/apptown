@@ -118,12 +118,11 @@ func TestRecordedImagesBootAsRecordedAndBuildNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, scenario := range []string{"present", "present-earlier-form", "missing", "unreachable"} {
+	for _, scenario := range []string{"present", "missing", "unreachable"} {
 		t.Run(scenario, func(t *testing.T) {
 			recorded := &RecordedImages{
-				Parts:       map[string]string{"web": "sha256:web", "worker": "sha256:worker", "cache": "sha256:cache"},
-				Init:        map[string]string{"migrate": "sha256:migrate", "seed": "sha256:seed"},
-				SelfServing: scenario != "present-earlier-form",
+				Parts: map[string]string{"web": "sha256:web", "worker": "sha256:worker", "cache": "sha256:cache"},
+				Init:  map[string]string{"migrate": "sha256:migrate", "seed": "sha256:seed"},
 			}
 			fake := &fakeClient{}
 			fake.reply = func(req Command) ([]byte, error) {
@@ -176,16 +175,11 @@ func TestRecordedImagesBootAsRecordedAndBuildNothing(t *testing.T) {
 				}
 			}
 			web := got.PublicPart()
-			// A self-serving release's static image carries its own command
-			// (StaticSiteDockerfile): the host adds none. One of the earlier
-			// form holds only the files and runs with the file server's
-			// command, as it always did. Either is still a static site.
-			want := []string(nil)
-			if !recorded.SelfServing {
-				want = StaticServerCommand(8080)
-			}
-			if !web.ServesStatic || strings.Join(web.Command, " ") != strings.Join(want, " ") {
-				t.Fatalf("the static part's command (self-serving %v): %+v", recorded.SelfServing, web)
+			// A release's static image carries its own command
+			// (StaticSiteDockerfile): the host adds none. It is still a
+			// static site.
+			if !web.ServesStatic || len(web.Command) != 0 {
+				t.Fatalf("the static part's command: %+v", web)
 			}
 			for _, it := range got.Init {
 				if it.Image != recorded.Init[it.Name] || it.Build != "" {

@@ -96,15 +96,16 @@ func TestStepApproveReachesQuorum(t *testing.T) {
 	step := Step{ID: idstest.N(9), RunID: idstest.N(7), Stage: "review", Name: "approve", Type: "approval", Status: StatusNeedsHuman,
 		Config: json.RawMessage(`{"quorum":2,"approvers":["ann","bob"]}`)}
 
-	first, err := step.Approve(ApprovalVote{Approver: "ann", Decision: VoteApprove}, time.Now())
+	ann, bob := ApprovalVote{Approver: "ann", Principal: idstest.N(1), Via: "session", Decision: VoteApprove}, ApprovalVote{Approver: "bob", Principal: idstest.N(2), Via: "session", Decision: VoteApprove}
+	first, err := step.Approve(ann, time.Now())
 	if err != nil || !first.Pending || first.Status != StatusNeedsHuman || first.Round.Approvals != 1 {
 		t.Fatalf("one of two: %+v err=%v", first, err)
 	}
 	step.Evidence = first.Evidence
-	if _, err := step.Approve(ApprovalVote{Approver: "ann", Decision: VoteApprove}, time.Now()); !errors.Is(err, errStepDecisionConflict) {
+	if _, err := step.Approve(ann, time.Now()); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("one vote per person: %v", err)
 	}
-	second, err := step.Approve(ApprovalVote{Approver: "bob", Decision: VoteApprove}, time.Now())
+	second, err := step.Approve(bob, time.Now())
 	if err != nil || second.Pending || second.Status != StatusPass || second.Round.Approvals != 2 {
 		t.Fatalf("quorum passes the step: %+v err=%v", second, err)
 	}

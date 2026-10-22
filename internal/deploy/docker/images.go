@@ -103,13 +103,8 @@ func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.
 		if err != nil {
 			return nil, err
 		}
-		// A static part's image built now carries its own command
-		// (StaticSiteDockerfile), and so does a recorded release's that
-		// says so; an earlier release's holds only the files, and runs
-		// with the command, as it always did. It is still a static site.
-		if (p.Static != "" || p.StaticBuild != nil) && t.Recorded != nil && !t.Recorded.SelfServing {
-			p.Command = StaticServerCommand(p.Port)
-		}
+		// A static part's image carries its own command
+		// (StaticSiteDockerfile); it is still a static site.
 		p.ServesStatic = p.IsStatic()
 		p.Image, p.Build, p.Static, p.StaticBuild = id, "", "", nil
 	}
@@ -138,10 +133,6 @@ type RecordedImages struct {
 	// it. nil pulls anonymously.
 	Login   *RegistryCredential
 	Scratch string
-	// SelfServing: the release's static images carry their own command
-	// (StaticSiteDockerfile). False is a release recorded before that, whose
-	// static image the host runs with StaticServerCommand, as it always did.
-	SelfServing bool
 }
 
 // ErrRecordedImageMissing is a recorded image the daemon no longer has, or

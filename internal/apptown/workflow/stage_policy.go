@@ -194,12 +194,6 @@ func evaluateGate(stage *schema.Stage, recorded []Check, steps []*Step) (stageGa
 		}
 		if scanTarget(d) == "" {
 			check(Check{name, name, d.Uses})
-		} else if len(expanded[name]) == 0 && recorded == nil {
-			// The stage opened before stages recorded their expected scanners.
-			// Its scan steps cannot stand in for that record: a scanner that
-			// never ran leaves no step. The way on is to run the stage's checks
-			// again (RecheckStage), never a looser rule for older stages.
-			result.Missing = append(result.Missing, name+" (the stage opened before AppTown recorded which scanners it expects)")
 		} else if len(expanded[name]) == 0 {
 			result.Missing = append(result.Missing, name+" (expected scanners were not recorded)")
 		} else {

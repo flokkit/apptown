@@ -20,7 +20,6 @@ export type Primary =
   | 'pick-up'          // run an interrupted step again
   | 'try-again'        // run a failed step again, the only way on once the landing merged
   | 'send-back'        // send the work back to its agent with a note
-  | 'recheck'          // run the stage's checks again to record what is missing
   | 'restart-landing'  // land again under the current rules
   | 'continue'         // advance a stage that has everything it needs
   | 'land'             // start landing finished work
@@ -247,7 +246,7 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
     if (!failing) {
       return {
         tone: 'bad', stamp: 'blocked', headline: "This stage can't finish as recorded",
-        sentence: view.stateDetail, primary: offered(d.next, 'recheck') ? 'recheck' : 'none',
+        sentence: view.stateDetail, primary: 'none',
       }
     }
     // Once the landing has merged, the work is on main: it cannot be sent

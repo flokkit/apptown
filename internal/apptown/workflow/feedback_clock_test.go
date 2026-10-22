@@ -155,6 +155,7 @@ func TestANoteInALaterStageIsNewerThanAnEarlierRejection(t *testing.T) {
 	svc := newServiceWithAuthority(q.db, Dependencies{Now: steppingClock(), Automatic: []string{"agent/pi", "agent/review"}}, allowProject(run.ProjectID))
 	svc.dispatcher.Stop()
 	ctx := context.Background()
+	people(t, q.db, "verified-person")
 	plan, accept := admittedStepID(t, q, run, "write-plan"), admittedStepID(t, q, run, "accept-plan")
 	finishForTest(t, svc, plan, StatusPass)
 	rejectForTest(t, svc, accept, "the rejection")

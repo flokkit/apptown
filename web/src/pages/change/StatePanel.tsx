@@ -186,16 +186,6 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
       )
       quiet = <>{step && <Link className="small" to={workTab(step.id)}>Which rules changed</Link>}{abandon}</>
       break
-    case 'recheck':
-      if (!run) break
-      body = (
-        <div className="row ch-primary">
-          <button className="primary" disabled={busy} onClick={() => act(() => post(`/runs/${run.id}/recheck`, {}))}>Run the checks again</button>
-          <span className="muted small">Running them again repeats this stage's checks and asks its approvals again; earlier results stay in the record.</span>
-        </div>
-      )
-      quiet = <>{abandon}{stopAttempt}</>
-      break
     case 'continue':
       if (!run) break
       body = (
@@ -205,10 +195,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
           {advance && !advance.advanced && !!advance.blocking?.length && (
             <span className="error small">Blocked by: {advance.blocking.map((b) => `${b.name} (${b.status})`).join(', ')}</span>
           )}
-          {!!advance?.missing?.length && <>
-            <span className="error small">Missing required checks: {advance.missing.join(', ')}.</span>
-            <button onClick={() => act(() => post(`/runs/${run.id}/recheck`, {}))}>Run the checks again</button>
-          </>}
+          {!!advance?.missing?.length && <span className="error small">Missing required checks: {advance.missing.join(', ')}.</span>}
           {advance?.advanced && <span className="muted small">Moved on.</span>}
         </div>
       )

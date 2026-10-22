@@ -125,10 +125,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, rel.ProjectID, c); err != nil || why != "" {
 		return fail(errors.Join(err, refusal(why)))
 	}
-	if why := refusesEarlierStaticImage(t.Kind, bundle, c); why != "" {
-		return fail(refusal(why))
-	}
-	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, SelfServing: bundle.BuiltFrom.SelfServing, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration, MoveNames: placement.MoveNames}
+	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration, MoveNames: placement.MoveNames}
 	var staged string
 	var cleanup func()
 	docked := false // a standing deployment on a Docker host: booted at its recorded port

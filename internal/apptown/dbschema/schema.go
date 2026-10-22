@@ -172,6 +172,21 @@ WHERE jsonb_typeof(items_json) = 'array' AND EXISTS (
 		`UPDATE grants SET revoked_at = '2026-10-23T00:00:00Z' WHERE revoked_at IS NULL AND capability IN
   ('conformance:clear-history', 'deployment:open-restored', 'standards:manage-catalog', 'project:configure-extensions', 'group:transfer-project')`,
 	}},
+	// A pack version published before policies were pinned names a policy
+	// without its definition, and installing it read the library's. Each
+	// such entry is given the library's definition now, the one installing
+	// it would read, so a publication always holds what it installs. A name
+	// the library lacks is left as it is.
+	{n: 164, note: "pack versions published before policies were pinned hold the library's definition of each policy they name", stmts: []string{
+		`UPDATE pack_versions v SET spec_json = jsonb_set(v.spec_json, '{policies}', (
+  SELECT jsonb_agg(CASE WHEN COALESCE(t.x->>'rule', '') = '' AND l.name IS NOT NULL
+      THEN jsonb_build_object('name', l.name, 'description', l.description, 'rule', l.rule, 'with', l.config_json)
+      ELSE t.x END ORDER BY t.ord)
+  FROM jsonb_array_elements(v.spec_json->'policies') WITH ORDINALITY AS t(x, ord)
+  LEFT JOIN policy_library l ON l.name = t.x->>'name'))
+WHERE jsonb_typeof(v.spec_json->'policies') = 'array'
+  AND EXISTS (SELECT 1 FROM jsonb_array_elements(v.spec_json->'policies') x WHERE COALESCE(x->>'rule', '') = '')`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.
