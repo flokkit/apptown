@@ -3,6 +3,14 @@
 A pack is a way of working: workflows, guidance, policies and checks that
 projects adopt. They are under **Ways of working → Packs**.
 
+Workflows come in three tiers. **Core** is the short list most projects
+use. **Extras** are for particular situations. **System** workflows are
+the ones AppTown runs itself, such as landing. Packs, workflows, guidance
+and policies marked **AppTown** come with AppTown. A new AppTown release
+adds new versions of them. A project moves to a new version only when it
+adopts the update under **Settings → Way of working**, where it also
+chooses its workflows.
+
 - **Stop offering** a pack and new projects cannot pick it; projects on it
   keep it. Stock packs cannot be deleted. To change a stock pack, **Include
   in a new pack** and change your copy.

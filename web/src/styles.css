@@ -1398,3 +1398,31 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
   .cap-sum { text-align: left; }
   .cap-table { display: block; overflow-x: auto; }
 }
+
+/* A page's title, its one line, and the "?" that opens the longer
+   explanation (PageHead.tsx). The popover hangs from the title row's left
+   edge rather than the "?", so it stays on screen at phone width. */
+.page-head { margin-bottom: 14px; }
+.page-head-row { position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.page-head-row h1 { margin: 0; }
+.page-head-line { margin: 4px 0 0; max-width: 680px; color: var(--muted); font-size: var(--fs-sm); }
+button.page-help-q {
+  width: 24px; height: 24px; padding: 0; border-radius: 50%;
+  font-size: var(--fs-sm); font-weight: var(--fw-strong); line-height: 1;
+  color: var(--muted); background: transparent; border: 1px solid var(--border-strong);
+}
+button.page-help-q:hover, button.page-help-q[aria-expanded="true"] { color: var(--text); border-color: var(--text); }
+.page-help-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+  width: min(440px, 100%); box-sizing: border-box;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-pop); padding: 12px 14px;
+  font-size: var(--fs-sm); line-height: var(--lh-body); color: var(--text);
+}
+.page-help-pop p { margin: 0 0 8px; }
+.page-help-pop ul { margin: 0 0 8px; padding-left: 18px; }
+.page-help-pop li { margin: 2px 0; }
+/* The app's touch-size rule makes it 44px wide there; keep it round. */
+@media (max-width: 800px), (pointer: coarse) {
+  button.page-help-q { width: 44px; height: 44px; }
+}

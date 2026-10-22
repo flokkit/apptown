@@ -20,6 +20,7 @@ import type { ProjectRow } from '../wire.gen'
 // could leave on a wall monitor; ENVIRONMENTS — the fleet as a table.
 
 import type { Departures, TierApp, TierMap, TierView as Tier } from '../wire.gen'
+import { PageHead } from '../PageHead'
 
 type Row = { slug: string; name: string; icon?: string; cells: Record<string, TierApp[]> }
 type Show = 'all' | 'running' | 'stopped' | 'nowhere'
@@ -37,11 +38,7 @@ export default function Deployments() {
   const instanceTab = tab === 'infrastructure' || tab === 'backups'
   return (
     <div>
-      <h1 style={{ marginBottom: 4 }}>Deployments</h1>
-      <p className="muted" style={{ maxWidth: 720, marginTop: 0 }}>
-        Where your apps run: a preview while a change is being worked on, each project's
-        standing deployment of its main branch, and any further deployment it is released to.
-      </p>
+      <PageHead page="deployments" />
       <div className="tabs">
         <NavLink to="/deployments/departures" className={() => 'tab' + (tab === 'departures' ? ' active' : '')}>Departures</NavLink>
         <NavLink to="/deployments/table" className={() => 'tab' + (tab === 'table' ? ' active' : '')}>Deployments</NavLink>

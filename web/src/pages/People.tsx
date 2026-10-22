@@ -8,6 +8,7 @@ import { QuietConfirm, QuietPrompt } from '../QuietConfirm'
 import type { AuthMe, Account, AdministratorNetworksView, DelegationList, GrantList, GrantView, Group, GroupList, InviteLink, InviteList, IssuedToken, RoleCatalog, RoleView, TokenList, UserList } from '../wire.gen'
 import { useHolds } from '../instancePages'
 import { grantTitle, subjectLabel } from '../parts/grants'
+import { PageHead } from '../PageHead'
 
 // The server's shapes, generated from its Go types (wire.gen.ts).
 export type Role = RoleView
@@ -39,14 +40,7 @@ export default function People() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 20, maxWidth: 860 }}>
-      <div>
-        <h1 style={{ margin: 0 }}>People</h1>
-        <div className="muted small">
-          Accounts on this instance, and groups that can be named as approvers
-          (write <code>group:name</code> in a workflow's approver list — any
-          member's approval counts, and the record keeps the person's name).
-        </div>
-      </div>
+      <PageHead page="people" />
       {err && <div className="card error">{err}</div>}
 
       {!canEdit && !canUsers && !canGroups && !canGrants && (

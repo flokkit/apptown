@@ -71,7 +71,7 @@ spec:
   return (
     <div>
       <div className="row" style={{ marginBottom: 12 }}>
-        <span className="muted small">Projects choose the workflows they use under Settings › Way of working. A run uses the version its project has adopted and records which one ran.</span>
+        <span className="muted small">Each run uses the version its project adopted, and records which one ran.</span>
         <span style={{ flex: 1 }} />
         {!editor && <button className="primary" onClick={() => { setSaveErr(''); setEditor({ yaml: NEW_TEMPLATE }) }}>New workflow</button>}
       </div>

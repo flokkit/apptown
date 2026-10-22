@@ -6,6 +6,7 @@ import { useAction, useGet, useGetText } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import type { Arm, CheckRow, Complaint, Eval, EvalList, EvalScorecard, EvalStartForm, ProjectRow, Tally } from '../wire.gen'
+import { PageHead } from '../PageHead'
 
 // Evals: is a model profile, or a pack version, better
 // or worse than what projects run now? Finished Changes are re-run in
@@ -29,12 +30,7 @@ export function EvalsPage() {
   const q = useGet<EvalList>('/evals', { poll: 10000 })
   return (
     <div>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Evals</h2>
-        <span style={{ flex: 1 }} />
-        <Link className="button" to="/evals/new">Start an eval</Link>
-      </div>
-      <p className="muted small" style={{ marginTop: 0 }}>Re-run finished Changes as their projects run now and with another model profile or pack version, then compare. A person reads the result; it approves nothing.</p>
+      <PageHead page="evals" actions={<Link className="button" to="/evals/new">Start an eval</Link>} />
       <ReadStatus q={q} what="the evals" denied={EVALS_DENIED} />
       <StaleNote q={q} />
       {q.data && q.data.evals.length === 0 && <div className="muted">No evals yet.</div>}
