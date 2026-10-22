@@ -8,17 +8,18 @@ run it yourself, on your own machine or server.
 Even with coding agents, *owning* an app that people can rely on is still
 work. Someone has to deploy it, back it up, keep it patched and still
 understand it a year later, usually after the person who made it has moved on.
-Another issue is that coding agent setup is idiosyncratic; AppTown provides
-scaffolding so that future maintainers inherit a working agent environment and
-get consistent results.
 
 AppTown makes that handover boring and repeatable. You can bring in an app you
 made with a coding agent on your own computer, or have AppTown's own agents
-build it, and AppTown looks after it from there. Every app gets the habits of
-a careful engineering team: AppTown runs the tests itself instead of taking
-the agent's word for it, a person looks at each change before it goes live,
-you can try it on a preview first, and there's a record of who asked for what
-and what's running now.
+build it, and AppTown looks after it from there. Every app gets the habits of a
+careful engineering team: AppTown runs the tests itself instead of taking the
+agent's word for it, a person looks at each change before it goes live, you can
+try it on a preview first, and there's a record of who asked for what and
+what's running now.
+
+Coding agent setups are also idiosyncratic. AppTown gives every app the same
+working agent environment, so whoever maintains it next gets the same results
+as whoever made it.
 
 Those habits come from a way of working. It's a team's engineering
 conventions written down, such as the language and framework, the linter, the
