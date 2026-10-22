@@ -283,20 +283,22 @@ upgrade-test: web       ## each frozen release's AppTown (internal/forge/testdat
 console-cli:             ## build the CLI artifact mounted into Linux containers
 	CGO_ENABLED=0 GOOS=linux go build $(REVISION_LDFLAGS) -o bin/apptown-linux ./cmd/apptown
 
-# Where `make run` and `make dev-api` listen. Open mode (the default) serves
-# loopback only. Docker Desktop's host.docker.internal reaches the host's
-# loopback, so chats work as is. On native Linux it is the Docker bridge: use
-# CONSOLE_ADDR=172.17.0.1:7778 FORGED_FLAGS=-open-on-network (the bridge is
-# not loopback, so open mode needs the opt-in), or -auth internal.
+# Where `make run` and `make dev-api` listen, and how they sign in. They
+# choose open mode (no sign-in; apptownd's own default is internal), which
+# serves loopback only. Docker Desktop's host.docker.internal reaches the
+# host's loopback, so chats work as is. On native Linux it is the Docker
+# bridge: use CONSOLE_ADDR=172.17.0.1:7778 FORGED_FLAGS=-open-on-network (the
+# bridge is not loopback, so open mode needs the opt-in), or AUTH=internal.
 ADDR ?= 127.0.0.1:7777
 CONSOLE_ADDR ?= 127.0.0.1:7778
+AUTH ?= open
 FORGED_FLAGS ?=
 
 run: build               ## build everything and serve on $(ADDR)
-	./bin/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) $(FORGED_FLAGS)
+	./bin/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) $(FORGED_FLAGS)
 
 dev-api: console-cli     ## backend only (uses last-built dist for static files)
-	go run ./cmd/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -console-cli ./bin/apptown-linux $(FORGED_FLAGS)
+	go run ./cmd/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) -console-cli ./bin/apptown-linux $(FORGED_FLAGS)
 
 dev-web:                 ## vite dev server on :5173, proxies /api to :7777
 	cd web && npm run dev

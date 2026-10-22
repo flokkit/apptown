@@ -23,10 +23,10 @@ func cmdExportProject(args []string) error {
 	project := fs.String("p", "", "project slug")
 	parseArgs(fs, args)
 	if *project == "" {
-		return fmt.Errorf("usage: apptown export-project -p <project> > <file>")
+		return usagef("usage: apptown export-project -p <project> > <file>")
 	}
 	if term.IsTerminal(int(os.Stdout.Fd())) {
-		return fmt.Errorf("the export is a file: send it somewhere, e.g. apptown export-project -p %s > %s.apptown-export", *project, *project)
+		return usagef("the export is a file: send it somewhere, e.g. apptown export-project -p %s > %s.apptown-export", *project, *project)
 	}
 	return exportProject(*project, os.Stdout, os.Stderr)
 }

@@ -20,7 +20,7 @@ func cmdComplain(args []string) error {
 	// Text and flags in any order (agents write text first, naturally).
 	text := strings.TrimSpace(strings.Join(parseArgs(fs, args), " "))
 	if text == "" {
-		return fmt.Errorf(`usage: apptown complain "what happened" [-why "why it slowed you down"] [-wish "what you wish had been true"] [-about apptown|way-of-working|project]`)
+		return usagef(`usage: apptown complain "what happened" [-why "why it slowed you down"] [-wish "what you wish had been true"] [-about apptown|way-of-working|project]`)
 	}
 	// Set in run containers; absent or malformed elsewhere, which files the
 	// complaint without a run (Nil, sent as null).
@@ -50,7 +50,7 @@ func cmdComplaints(args []string) error {
 		msg := fs.String("m", "", "the answer — what was done about it")
 		pos := parseArgs(fs, args[1:])
 		if len(pos) < 1 || *msg == "" {
-			return fmt.Errorf(`usage: apptown complaints answer <id> -m "<what was done>"`)
+			return usagef(`usage: apptown complaints answer <id> -m "<what was done>"`)
 		}
 		if err := numberedArg(pos, "complaint"); err != nil {
 			return err

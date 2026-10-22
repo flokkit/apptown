@@ -15,7 +15,7 @@ import (
 // where the shell's history and the process list would keep it; at a
 // terminal it is asked for without echo.
 func cmdSecret(args []string) error {
-	usage := fmt.Errorf("usage: apptown secret set <NAME> < value-file  ·  apptown secret remove <NAME>")
+	usage := usagef("usage: apptown secret set <NAME> < value-file  ·  apptown secret remove <NAME>")
 	if len(args) != 2 {
 		return usage
 	}

@@ -102,11 +102,14 @@ type Config struct {
 	ListenAddr       string
 	ConsoleAPIURL    string
 	ConsoleCLI       string
-	AuthMode         string
-	AuthHeader       string
-	AuthProxySecret  string
-	AgentExecutor    string
-	AgentImage       string
+	// AuthMode is open, internal or trusted-header. apptownd always sets it
+	// from -auth, which defaults to internal; "" is open only for the
+	// in-process tests that build a Config by hand.
+	AuthMode        string
+	AuthHeader      string
+	AuthProxySecret string
+	AgentExecutor   string
+	AgentImage      string
 	// AgentContext is the agent image's build context, relative to the
 	// forge's working directory: AppTown builds it, and a worker's image
 	// is named by it (worker.AgentImage). "" is deploy/apptown-agent.

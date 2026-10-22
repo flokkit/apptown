@@ -85,7 +85,7 @@ func (c *client) failed(method, path string, err error) error {
 	if !safeToRepeat(method, path) && !neverLeft(err) {
 		return &unknownOutcome{Method: method, Path: path, Lost: err}
 	}
-	return fmt.Errorf("%s %s: %w (is apptownd running at %s?)", method, path, err, c.base)
+	return &unreachable{fmt.Errorf("%s %s: %w (is apptownd running at %s?)", method, path, err, c.base)}
 }
 
 // once is the HTTP client for a mutation: c.http over HTTP/1.1 only. Go's
@@ -141,7 +141,7 @@ func (c *client) afterGateway(res *http.Response, method, path string, attempt f
 		res, err = attempt()
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%s %s: %w (is apptownd running at %s?)", method, path, err, c.base)
+		return nil, &unreachable{fmt.Errorf("%s %s: %w (is apptownd running at %s?)", method, path, err, c.base)}
 	}
 	return res, nil
 }
@@ -215,15 +215,23 @@ func (c *client) answer(res *http.Response, method, path string) (json.RawMessag
 			// not known from here.
 			return nil, &unknownOutcome{Method: method, Path: path, Status: res.StatusCode, Lost: err}
 		}
-		return nil, err
+		// A read whose answer broke off observed nothing.
+		return nil, &unreachable{fmt.Errorf("%s %s: the answer broke off: %w", method, path, err)}
 	}
 	if res.StatusCode >= 400 {
 		code := res.Header.Get("X-AppTown-Deny-Code")
 		var e struct{ Error string }
+		refused := &httpError{Status: res.StatusCode, Code: code, msg: fmt.Sprintf("%s %s: HTTP %d", method, path, res.StatusCode)}
 		if json.Unmarshal(raw, &e) == nil && e.Error != "" {
-			return nil, &httpError{Status: res.StatusCode, Code: code, msg: e.Error}
+			refused.msg = e.Error
 		}
-		return nil, &httpError{Status: res.StatusCode, Code: code, msg: fmt.Sprintf("%s %s: HTTP %d", method, path, res.StatusCode)}
+		if gatewayFailure(res.StatusCode) {
+			// A read still unavailable after send's retries: no answer
+			// from AppTown itself. (A mutation's gateway status is an
+			// unknown outcome before it gets here.)
+			return nil, &unreachable{refused}
+		}
+		return nil, refused
 	}
 	return raw, nil
 }
@@ -303,11 +311,33 @@ func (c *client) download(path string, w io.Writer) (int64, error) {
 		_, err := c.answer(res, "GET", path)
 		return 0, err
 	}
-	n, err := io.Copy(w, res.Body)
-	if err != nil {
-		return n, fmt.Errorf("the download broke off after %d bytes: %w", n, err)
+	body := &bodyReader{r: res.Body}
+	n, err := io.Copy(w, body)
+	switch {
+	case err != nil && body.err != nil:
+		// AppTown's answer broke off: nothing more was observed.
+		return n, &unreachable{fmt.Errorf("the download broke off after %d bytes: %w", n, err)}
+	case err != nil:
+		// Where it was going failed (a closed pipe, a full disk): a local
+		// failure, not AppTown's.
+		return n, fmt.Errorf("writing the download failed after %d bytes: %w", n, err)
 	}
 	return n, nil
+}
+
+// bodyReader remembers a failed read, so a copy can tell its source's
+// failure from its destination's.
+type bodyReader struct {
+	r   io.Reader
+	err error
+}
+
+func (b *bodyReader) Read(p []byte) (int, error) {
+	n, err := b.r.Read(p)
+	if err != nil && err != io.EOF {
+		b.err = err
+	}
+	return n, err
 }
 
 func (c *client) post(path string, body, out any) error {
@@ -338,10 +368,15 @@ func (c *client) text(path string) (string, error) {
 	defer res.Body.Close()
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return "", &unreachable{fmt.Errorf("GET %s: the answer broke off: %w", path, err)}
 	}
 	if res.StatusCode >= 400 {
-		return "", fmt.Errorf("%s", strings.TrimSpace(string(raw)))
+		// Classified as answer classifies, with AppTown's own text.
+		refused := &httpError{Status: res.StatusCode, msg: strings.TrimSpace(string(raw))}
+		if gatewayFailure(res.StatusCode) {
+			return "", &unreachable{refused}
+		}
+		return "", refused
 	}
 	return string(raw), nil
 }

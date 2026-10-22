@@ -5,13 +5,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -261,6 +261,124 @@ func TestClientRetriesARestartAndReportsTheServersWords(t *testing.T) {
 	}
 }
 
+// A command's error ends the CLI with a code that says what kind of error
+// it was, never one of a command's outcome codes: a command line that is
+// wrong is 64, an AppTown out of reach 69, a refusal 1, a change whose
+// answer was lost 4. wait's 2 ("needs a person") and 1 ("failed") are
+// never a typo or an outage.
+func TestAnErrorsExitCodeSaysWhatKindItIs(t *testing.T) {
+	const change = "00000000-0c12-7000-8000-000000000000"
+	// AppTown not listening at all.
+	fakeForge(t, func(string, string) (int, string) { return 200, "{}" })
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closed.Close()
+	api.base = closed.URL
+	if _, err := run(t, "wait", change, "-i", "0"); exitCode(err) != exitUnreachable {
+		t.Fatalf("AppTown not listening: exit %d (%v), want %d", exitCode(err), err, exitUnreachable)
+	}
+	// AppTown behind its front door, unavailable through every retry.
+	fakeForge(t, func(string, string) (int, string) { return 503, `{"error":"restarting"}` })
+	for _, cmd := range []string{"show", "diff"} { // diff reads text, not JSON
+		if _, err := run(t, cmd, change); exitCode(err) != exitUnreachable {
+			t.Fatalf("%s while AppTown is unavailable: exit %d (%v), want %d", cmd, exitCode(err), err, exitUnreachable)
+		}
+	}
+	// AppTown restarting, then gone: the retry's own failure is no answer
+	// either.
+	fakeForge(t, func(string, string) (int, string) { return 503, "" })
+	inner, calls := api.http.Transport, 0
+	api.http = &http.Client{Transport: roundTripper(func(r *http.Request) (*http.Response, error) {
+		if calls++; calls == 1 {
+			return inner.RoundTrip(r)
+		}
+		return nil, &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}
+	})}
+	if _, err := run(t, "show", change); exitCode(err) != exitUnreachable {
+		t.Fatalf("AppTown restarting, then gone: exit %d (%v), want %d", exitCode(err), err, exitUnreachable)
+	}
+	// A refusal is AppTown's answer.
+	fakeForge(t, func(string, string) (int, string) { return 403, `{"error":"not yours"}` })
+	if _, err := run(t, "show", change); exitCode(err) != 1 {
+		t.Fatalf("a refusal: exit %d (%v), want 1", exitCode(err), err)
+	}
+	// A command line that is wrong sends nothing.
+	seen := fakeForge(t, func(string, string) (int, string) { return 200, "{}" })
+	for _, args := range [][]string{{"wait"}, {"show", "shop#x"}, {"approve", "not-an-id"}, {"whatif", "go-small", "nonsense"}, {"pack", "recommend", "go-small", "latest"},
+		{"fix", "--json"}, {"quick", "--json"}, {"plan", "--json"}, {"build", "--json"}, {"complain", "--json"}, {"sendback", change}} {
+		if _, err := run(t, args...); exitCode(err) != exitUsage {
+			t.Fatalf("%v: exit %d (%v), want %d", args, exitCode(err), err, exitUsage)
+		}
+	}
+	if len(*seen) != 0 {
+		t.Fatalf("a wrong command line sent %v", *seen)
+	}
+	// A change sent whose answer was lost.
+	fakeForge(t, func(string, string) (int, string) { return 502, "" })
+	if _, err := api.request("POST", "/projects/shop/changes", map[string]any{}); exitCode(err) != exitUnknown {
+		t.Fatalf("a lost answer: exit %d (%v), want %d", exitCode(err), err, exitUnknown)
+	}
+}
+
+// Inside a project's directory the CLI asks AppTown which project it is.
+// A lookup AppTown refused or could not answer keeps its kind: it is not a
+// command line that named no project.
+func TestAFailedProjectLookupKeepsItsExitCode(t *testing.T) {
+	t.Setenv("APPTOWN_PROJECT", "")
+	dir := filepath.Join(t.TempDir(), "shop")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	fakeForge(t, func(string, string) (int, string) { return 200, `[{"slug":"shop"}]` })
+	if slug, err := resolveProject(""); err != nil || slug != "shop" {
+		t.Fatalf("the directory names the project: %q, %v", slug, err)
+	}
+	for status, want := range map[int]int{403: 1, 503: exitUnreachable} {
+		fakeForge(t, func(string, string) (int, string) { return status, `{"error":"refused or unavailable"}` })
+		if _, err := run(t, "quick", "--json", "add a footer"); exitCode(err) != want {
+			t.Fatalf("lookup answered %d: exit %d (%v), want %d", status, exitCode(err), err, want)
+		}
+	}
+	fakeForge(t, func(string, string) (int, string) { return 200, `[{"slug":"other"}]` })
+	if _, err := run(t, "quick", "--json", "add a footer"); exitCode(err) != exitUsage {
+		t.Fatalf("no project of this directory's name: exit %d (%v), want %d", exitCode(err), err, exitUsage)
+	}
+}
+
+// An answer that breaks off after its headers (AppTown restarting mid
+// reply) is no observation: AppTown out of reach, never "failed".
+func TestABrokenAnswerIsUnreachable(t *testing.T) {
+	const change = "00000000-0c12-7000-8000-000000000000"
+	for _, args := range [][]string{{"show", change}, {"diff", change}, {"wait", change, "-i", "0"}} {
+		fakeForgeHeaders(t, func(string, string) (int, http.Header, string) {
+			return 200, http.Header{"Content-Length": []string{"1000"}}, `{"change":`
+		})
+		if _, err := run(t, args...); exitCode(err) != exitUnreachable {
+			t.Fatalf("%v cut off: exit %d (%v), want %d", args, exitCode(err), err, exitUnreachable)
+		}
+	}
+}
+
+// A download that breaks off is AppTown out of reach; one whose
+// destination fails (a closed pipe, a full disk) is a local failure.
+func TestADownloadTellsABrokenAnswerFromAFailedDestination(t *testing.T) {
+	fakeForgeHeaders(t, func(string, string) (int, http.Header, string) {
+		return 200, http.Header{"Content-Length": []string{"1000"}}, "partial bundle"
+	})
+	if _, err := api.download("/projects/shop/repo/bundle", io.Discard); exitCode(err) != exitUnreachable {
+		t.Fatalf("an answer that broke off: exit %d (%v), want %d", exitCode(err), err, exitUnreachable)
+	}
+	fakeForge(t, func(string, string) (int, string) { return 200, "complete bundle" })
+	full := errors.New("no space left on device")
+	if _, err := api.download("/projects/shop/repo/bundle", failingWriter{full}); !errors.Is(err, full) || exitCode(err) != 1 {
+		t.Fatalf("a destination that failed: exit %d (%v), want 1 with its error", exitCode(err), err)
+	}
+}
+
+type failingWriter struct{ err error }
+
+func (f failingWriter) Write([]byte) (int, error) { return 0, f.err }
+
 // A 502, 503 or 504 after a mutation was sent says nothing about whether
 // apptownd acted: a proxy answers so when apptownd did the work and the answer
 // was lost on the way back. The mutation is never sent again; its outcome
@@ -434,13 +552,24 @@ func TestMarkdownBulletsAreTextAndMistypedFlagsAreErrors(t *testing.T) {
 	if *qp != "shop" || strings.Join(pos, "|") != "-p is literal|--projet" {
 		t.Fatalf("after --: p=%q pos=%v", *qp, pos)
 	}
+	// A mistyped flag is refused with exit 64, a usage error: never 2,
+	// which wait means "needs a person", nor 1, "failed". -h exits 0.
+	code := -1
+	prev := exitProcess
+	exitProcess = func(c int) { code = c }
+	t.Cleanup(func() { exitProcess = prev })
 	var said bytes.Buffer
-	strict := flag.NewFlagSet("t", flag.ContinueOnError)
+	strict := newFlags("t")
 	strict.SetOutput(&said)
 	strict.String("project", "", "")
 	pos = parseArgs(strict, []string{"add stats", "--projet", "x"})
-	if !strings.Contains(said.String(), "flag provided but not defined: -projet") {
-		t.Fatalf("a mistyped flag must be refused, got %q with %v", said.String(), pos)
+	if !strings.Contains(said.String(), "flag provided but not defined: -projet") || code != exitUsage {
+		t.Fatalf("a mistyped flag must be refused with exit %d, got %q, exit %d, with %v", exitUsage, said.String(), code, pos)
+	}
+	code = -1
+	parseArgs(strict, []string{"-h"})
+	if code != 0 {
+		t.Fatalf("-h exits %d, want 0", code)
 	}
 }
 

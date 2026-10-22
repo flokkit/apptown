@@ -72,6 +72,8 @@ SKIP = re.compile(
 # Kept names a surface pattern still matches: (surface, path regex, line
 # regex, reason). Each entry is narrow: the same name elsewhere still counts.
 ALLOWED = [
+    ("cli-invocation", r"^internal/gitexec/folder(_test)?\.go$", r"\"forge helper\"",
+     "the Git name of a change folder cloned before the rename: history in that folder's config, accepted, not rewritten"),
     ("quoted-name", r"^internal/forge/dbboot\.go$", r"\bbuiltinDBName\s*=\s*\"forge\"",
      "the built-in database's name: storage, kept (an existing install addresses it)"),
     ("quoted-name", r"^scripts/(shape-check|shape-report|codebase-shape)\.py$|^scripts/shape-request-boundaries\.go$",

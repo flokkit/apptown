@@ -43,7 +43,7 @@ git clone https://github.com/flokkit/apptown.git
 cd apptown
 npm ci --prefix web   # the web interface's dependencies (make build also does this when they are missing)
 make build            # web/dist, then bin/apptownd, bin/apptown, bin/apptown-worker and bin/apptown-linux
-./bin/apptownd -addr 127.0.0.1:7777 -console-addr '' -admins trial
+./bin/apptownd -addr 127.0.0.1:7777 -console-addr '' -auth open -admins trial
 ```
 
 `sh scripts/release-archives.sh <version> <commit> <out-dir>` makes the
@@ -53,7 +53,7 @@ web`.
 Then open <http://127.0.0.1:7777>. The data directory is `./_data` unless
 `-data` names another.
 
-This is a web-only trial in the default `open` authentication mode: the browser
+This is a web-only trial in `open` authentication mode, chosen with `-auth open`: the browser
 says who it is (`trial`, until you change the name), and `-admins trial` makes
 that name an administrator. Open mode trusts that name, so keep it on
 `127.0.0.1` and never expose it; use `-auth internal` for anything shared.

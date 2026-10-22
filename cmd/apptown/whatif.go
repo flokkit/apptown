@@ -29,7 +29,7 @@ func cmdWhatIf(args []string) error {
 	if len(args) > 0 && args[0] == "show" {
 		pos := parseArgs(newFlags("whatif show"), args[1:])
 		if len(pos) != 1 {
-			return fmt.Errorf("usage: apptown whatif show <id>")
+			return usagef("usage: apptown whatif show <id>")
 		}
 		if err := idArg(pos, "what-if id"); err != nil {
 			return err
@@ -48,13 +48,13 @@ func cmdWhatIf(args []string) error {
 	alsoFlag := fs.String("also", "", "other pack versions to move with it, for projects already on them: pack@version,…")
 	ownPacks := fs.String("own-packs", "", "newest: also move each project's own pack to its newest version (the versions are printed and recorded)")
 	pos := parseArgs(fs, args)
-	usage := fmt.Errorf("usage: apptown whatif <pack> <version> [-p <project>[,<project>…]] [--rubrics <dollars>] [--advance-workflows] [--also <pack@version,…> | --own-packs newest] [--no-follow]")
+	usage := usagef("usage: apptown whatif <pack> <version> [-p <project>[,<project>…]] [--rubrics <dollars>] [--advance-workflows] [--also <pack@version,…> | --own-packs newest] [--no-follow]")
 	if len(pos) != 2 {
 		return usage
 	}
 	version, err := strconv.ParseInt(pos[1], 10, 64)
 	if err != nil || version < 1 {
-		return fmt.Errorf("the version is a positive number, not %q", pos[1])
+		return usagef("the version is a positive number, not %q", pos[1])
 	}
 	var slugs []string
 	for _, s := range strings.Split(*projects, ",") {
@@ -83,7 +83,7 @@ func cmdWhatIf(args []string) error {
 		dollars, err := strconv.ParseFloat(strings.TrimPrefix(*rubrics, "$"), 64)
 		micros := int64(dollars*1e6 + 0.5)
 		if err != nil || micros <= 0 {
-			return fmt.Errorf("--rubrics is a spend limit in dollars above zero, not %q", *rubrics)
+			return usagef("--rubrics is a spend limit in dollars above zero, not %q", *rubrics)
 		}
 		body["rubrics"], body["spendLimitMicros"] = true, micros
 		limit = money(micros)
@@ -145,9 +145,9 @@ type packVersion struct {
 func whatIfAlso(pack string, version int64, explicit, own string) ([]packVersion, error) {
 	switch {
 	case explicit != "" && own != "":
-		return nil, fmt.Errorf("--also and --own-packs both say which other packs to move; give one")
+		return nil, usagef("--also and --own-packs both say which other packs to move; give one")
 	case own != "" && own != "newest":
-		return nil, fmt.Errorf("--own-packs takes newest, not %q", own)
+		return nil, usagef("--own-packs takes newest, not %q", own)
 	case own == "newest":
 		var latest struct {
 			OwnPacksNewest []packVersion `json:"ownPacksNewest"`
@@ -165,7 +165,7 @@ func whatIfAlso(pack string, version int64, explicit, own string) ([]packVersion
 		name, v, ok := strings.Cut(part, "@")
 		n, err := strconv.ParseInt(v, 10, 64)
 		if !ok || err != nil || n < 1 || strings.TrimSpace(name) == "" {
-			return nil, fmt.Errorf("--also is pack@version, comma-separated, not %q", part)
+			return nil, usagef("--also is pack@version, comma-separated, not %q", part)
 		}
 		out = append(out, packVersion{Pack: strings.TrimSpace(name), Version: n})
 	}
@@ -381,7 +381,7 @@ func cmdWhatIfAdopt(args []string) error {
 		}
 	}
 	if len(pos) != 1 || len(slugs) == 0 {
-		return fmt.Errorf("usage: apptown whatif adopt <id> -p <project>[,<project>…]")
+		return usagef("usage: apptown whatif adopt <id> -p <project>[,<project>…]")
 	}
 	id, err := parseID(pos[0], "what-if id")
 	if err != nil {

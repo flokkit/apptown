@@ -51,7 +51,7 @@ func cmdCheck(args []string) error {
 		cid, _ = ids.Parse(os.Getenv("APPTOWN_CHANGE"))
 	}
 	if cid.IsZero() {
-		return fmt.Errorf("no change: pass -c <id> (or run inside an agent step, where $APPTOWN_CHANGE is set)")
+		return usagef("no change: pass -c <id> (or run inside an agent step, where $APPTOWN_CHANGE is set)")
 	}
 
 	body := map[string]any{}

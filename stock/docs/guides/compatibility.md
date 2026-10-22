@@ -60,34 +60,48 @@ definitions it pinned; a run keeps the workflow version it was admitted under.
 
 **The command line's core loop.** The command names and their arguments for
 `new`, `fix`, `quick`, `plan`, `build`, `land`, `show`, `changes`, `wait`,
-`approve`, `release`, `complain` and `version`, and their exit codes:
+`approve`, `release`, `complain`, `executing` and `version`, and their exit codes:
 
 | Command | Exit codes |
 | --- | --- |
 | `apptown wait` (a run or change) | 0 finished, 1 failed, 2 needs a person |
 | `apptown wait operation` | 0 succeeded, 1 failed or cancelled, 4 unknown: look before asking again |
-| `apptown executing` | 0 nothing would be interrupted, 3 something would (a step or a running operation), 1 AppTown cannot say |
+| `apptown executing` | 0 nothing would be interrupted, 3 something would (a step or a running operation), any other code: AppTown cannot say |
 | any command that sends a change | 4 the change was sent but the answer was lost: look before trying again |
+| any command | 64 the command line was wrong (an unknown command or flag, a missing argument, an argument of the wrong shape), and no change was sent; 69 AppTown could not be reached; 1 any other error |
 
-Each of these commands takes `--json`: it prints one JSON document whose field
-names [The command line's JSON](/docs/guides/cli-json) lists, never follows or
-asks, and keeps the exit codes above. Those fields are stable; a field may be
-added. What a command prints for a person may change, so a script reads
-`--json` and exit codes, not printed text.
+`release` is promised in the form `release <slug> <deployment>`. Bare
+`release <slug>` and its `-domain` release to the intranet, which is
+Portainer, an experimental target: they are experimental too.
+
+Each of these commands except `executing` takes `--json`: it prints one JSON
+document whose field names [The command line's JSON](/docs/guides/cli-json)
+lists, never follows or asks, and keeps the exit codes above. Those fields are stable; a field may be
+added. A field whose values the guide lists (a state, an outcome) may gain
+values: a script treats one it does not know as "look at the change". What a
+command prints for a person may change, so a script reads `--json` and exit
+codes, not printed text.
 
 **The MCP tools.** The tool names a coding agent sees (`list_projects`,
 `get_project`, `create_change`, `get_change`, `request_change_landing` and the
-rest AppTown lists), their required arguments and what their answers mean.
-New optional arguments and new tools may appear.
+rest AppTown lists), their required arguments, and what each tool's
+description says it does and answers. The fields of an answer are not
+promised: an agent reads them as the description explains, and they may
+change in a 1.x release. `get_eval` and `get_what_if` are experimental, as
+evals and what-ifs are. New optional arguments and new tools may appear.
 
 **Record identities and links.** Every record (a change, a run, a chat, a
 release, an operation) is identified by a UUID, and a link to a record uses
 it. A project's changes and runs are also numbered within the project and
 shown as `slug#12`; you can type that form where a change or a run is expected.
-A project's slug is fixed when the project is made (its display name can
-change), so a `slug#12` written down keeps naming the same record. Names
-AppTown has already given things outside itself (branches, backup paths,
-containers) keep the names they were given.
+Where a command takes either (`apptown wait`), the form names a change; give a
+run by its UUID. A project's slug is fixed when the project is made (its
+display name can change), so a `slug#12` written down keeps naming the same
+record. Names AppTown has already given things outside itself (branches,
+backup paths, containers) keep the names they were given. How AppTown names
+and labels what it makes from now on (containers, volumes, networks,
+Portainer stacks, Docker labels, App Platform apps, buckets) is not promised:
+find them through AppTown, not by their names.
 
 **Which versions work together.** Two protocol numbers decide it, as
 the "Versions" section of [Upgrading](/docs/guides/upgrading)
@@ -115,6 +129,13 @@ release; work done after the new release's first write is not in them.
   rather than `/deployments/{name}`.
 - **Project export.** An export is read only by the same AppTown build; it is a
   copy of your project's records, not a format promised across releases.
+- **The backup-set manifest.** The file a backup set carries to describe
+  itself (`flokkit.backup-set`) is AppTown's own record, not a promised
+  format: restore a set with AppTown, which reads the sets it made.
+- **The inbound webhook.** A workflow's `on: webhook` trigger and its route,
+  `POST /api/v1/hooks/{project}/{workflow}`, are experimental.
+- **Approvals given in advance** (an approval's `inAdvance`), as the
+  [formats guide](/docs/guides/ways-of-working-formats) says.
 - **Anything a guide marks experimental**, and the stock content listed under
   "Stock content in 1.0" below as Experimental.
 - **Commands outside the core loop.** `apptown help` lists them under "Not

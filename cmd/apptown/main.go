@@ -7,7 +7,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -70,22 +69,16 @@ func main() {
 	loadCredentials()
 	if len(os.Args) < 2 {
 		usage()
-		os.Exit(2)
+		os.Exit(exitUsage)
 	}
 	c := lookup(os.Args[1])
 	if c == nil {
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", os.Args[1])
 		usage()
-		os.Exit(2)
+		os.Exit(exitUsage)
 	}
 	if err := c.invoke(os.Args[2:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
-		if unknown := (*unknownOutcome)(nil); errors.As(err, &unknown) {
-			os.Exit(exitUnknown)
-		}
-		if unknown := (*operationUnknown)(nil); errors.As(err, &unknown) {
-			os.Exit(exitUnknown)
-		}
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
 }

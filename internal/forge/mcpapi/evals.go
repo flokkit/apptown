@@ -19,10 +19,10 @@ func NewEvalReads(deps EvalReadsDependencies) []Tool {
 	return []Tool{{
 		Name:  "get_eval",
 		order: 23,
-		Description: "Returns an eval's scorecard: landed Changes re-run in throwaway copies as their projects run now and with one thing varied (a model profile or a pack version), " +
+		Description: "Experimental. Returns an eval's scorecard: landed Changes re-run in throwaway copies as their projects run now and with one thing varied (a model profile or a pack version), " +
 			"each arm's checks compared with the Change's base finding by finding (new, fixed, already there, or not comparable with why), and the variant against the baseline measure by measure. " +
 			"A person reads it; it decides nothing and is never evidence. Give its id, or a pack and version for that version's newest eval.",
-		InputSchema: schemaObject(map[string]any{"id": schemaID("The eval's number."), "pack": schemaString("A pack's name, with version."), "version": schemaInt("The pack version.")}),
+		InputSchema: schemaObject(map[string]any{"id": schemaID("The eval's id."), "pack": schemaString("A pack's name, with version."), "version": schemaInt("The pack version.")}),
 		command:     ownerCommand("evals.getEval", h.getEval),
 	}}
 }

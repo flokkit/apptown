@@ -189,7 +189,7 @@ scope names. AppTown adds a few values of its own, which differ by target:
 | `PORT` | every part that has a port | other parts that declare a port; not the public part | not set by AppTown |
 | `APPTOWN_ORIGINS` | public part: the address patterns browsers use, as wildcards (`https://*.apps.example.com`) | public part, the same | public part: the app's own address |
 | `DATA_DIR` | public part, when it has a `dataDir`, set last | public part, the same | — (no `dataDir`) |
-| attached integrations (error reporting's DSN and the like) | public part | not delivered; the release records it | not delivered; the release records it |
+| attached integrations: `SENTRY_DSN` (error reporting); `FEEDBACK_URL` and `FEEDBACK_APP_KEY` (customer feedback, Experimental) | public part | not delivered; the release records it | not delivered; the release records it |
 | order of precedence | secrets over connections over the part's own `environment` | the same | the same, then the needs' credentials over the part's secrets |
 
 So that an app runs the same everywhere:
@@ -372,6 +372,12 @@ keeps its own server with `build:`. The file server also answers:
 
 `/_apptown/` is AppTown's path: AppTown supplies those two files in place of
 any the app ships, so keep the app's own files out of it.
+
+The same holds for every app, not only a static site: AppTown may answer
+paths under `/_apptown/` in front of any app (an access gate in front of a
+deployment signs visitors in at `/_apptown/enter`), and may add paths there
+in a 1.x release. The one path an
+app serves under it is error reporting's test hook, `/_apptown/boom`.
 
 An app whose only part is one public `static` part, with no `init` and no
 `needs`, can also be deployed to a bucket website

@@ -125,9 +125,9 @@ Twelve tools that read:
 | `get_change_evidence` | what the run recorded step by step, and the artifacts it produced |
 | `get_run` | one run with its steps |
 | `get_waiting_on_you` | the approvals waiting on you, each with what saying OK would mean |
-| `get_what_if` | what a pack version's checks would say about projects' `main`, beside the checks they adopted; hypothetical, never a project's standing |
+| `get_what_if` | experimental: what a pack version's checks would say about projects' `main`, beside the checks they adopted; hypothetical, never a project's standing |
 | `get_operation` | how a long operation stands (a data copy, a restore check, a take-down): queued, running, succeeded, failed, unknown or cancelled, with its steps; verification is a separate fact, and unknown means look before asking again |
-| `get_eval` | an eval's scorecard: finished Changes re-run as their projects run now and with a model profile or pack version varied, compared finding by finding; read with your person's read of evals |
+| `get_eval` | experimental: an eval's scorecard: finished Changes re-run as their projects run now and with a model profile or pack version varied, compared finding by finding; read with your person's read of evals |
 
 And nine that act, each recorded as *you, via the named agent*:
 

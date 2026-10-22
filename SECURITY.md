@@ -20,11 +20,10 @@ Release notes are in [releases/](releases/).
 ## Limits to know before you share it
 
 - **Open mode is for one computer.** In `open` mode there is no sign-in:
-  anyone who can reach AppTown can say they are anyone. It is the default only
-  when you run `apptownd` yourself; the container image (and so the trial and
-  the one-server install) uses `internal` sign-in. Keep an open-mode AppTown on
-  `127.0.0.1`; use `-auth internal` (or a trusted sign-in proxy) for anything
-  shared.
+  anyone who can reach AppTown can say they are anyone. It is never the
+  default: `apptownd` signs people in (`-auth internal`) unless you start it
+  with `-auth open`. Keep an open-mode AppTown on `127.0.0.1`; use
+  `-auth internal` (or a trusted sign-in proxy) for anything shared.
 - **The built-in secret store obfuscates; it is not a vault.** Anyone who can
   read AppTown's database and data directory can read its values. For a team,
   or any value that matters, use an external store

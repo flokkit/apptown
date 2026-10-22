@@ -45,7 +45,7 @@ func cmdWorkVerb(verb string, args []string) error {
 	asJSON := fs.Bool("json", false, "print what was opened as JSON and return (no following, no questions)")
 	body := strings.TrimSpace(strings.Join(parseArgs(fs, args), " "))
 	if spec.needsBody && body == "" {
-		return fmt.Errorf(`usage: apptown %s [-p project] "<describe the %s>"`, verb, verb)
+		return usagef(`usage: apptown %s [-p project] "<describe the %s>"`, verb, verb)
 	}
 	if err := confirmCommandWord(verb, body, !*asJSON); err != nil {
 		return err
@@ -87,10 +87,10 @@ func confirmCommandWord(verb, body string, mayAsk bool) error {
 		return nil
 	}
 	if !isTTY || !mayAsk {
-		return fmt.Errorf("%q is an AppTown command: for that, run apptown %s …; to ask for a change, describe it in more than one word", body, body)
+		return usagef("%q is an AppTown command: for that, run apptown %s …; to ask for a change, describe it in more than one word", body, body)
 	}
 	if ans := ask(fmt.Sprintf("%q is also an AppTown command (apptown %s). open a %s change asking just %q? [y/N] ", body, body, verb, body)); !strings.EqualFold(ans, "y") {
-		return fmt.Errorf("nothing opened; for the command, run apptown %s …", body)
+		return usagef("nothing opened; for the command, run apptown %s …", body)
 	}
 	return nil
 }
@@ -706,7 +706,7 @@ func cmdFollow(args []string) error {
 	yes := fs.Bool("y", false, "auto-approve gates and landing")
 	args = parseArgs(fs, args)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown follow <change-id> [-y]")
+		return usagef("usage: apptown follow <change-id> [-y]")
 	}
 	id, err := changeRef(args[0], "")
 	if err != nil {

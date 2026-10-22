@@ -46,6 +46,15 @@ step names, gates naming steps that exist).
   every kind's). Any other key is refused by name, in any casing; `minApprovals`
   is not `quorum`. Where an option's value is data (a script's `env`, a called
   workflow's `with`) its keys are yours.
+- An approval's `inAdvance` is experimental. It lets the person opening an
+  adoption change say now that their yes counts if the change turns out to
+  need no code. Whatever sentence the author writes, AppTown casts that yes
+  only when the change is empty against its base and every step other than
+  an approval, and every check, passed outright (no override, skip, error,
+  excused finding or check it could not run). Such a yes is the person's one
+  vote; it never stands in for another approval the workflow requires.
+- A workflow's `on: webhook` trigger, and the route that fires it
+  (`POST /api/v1/hooks/{project}/{workflow}`), are experimental.
 - `failOn`, on a `scan` or `guidance/conformance` step, is `low`, `medium`,
   `high` or `critical`; anything else is refused by name. Left out, a scan
   fails on every finding it may gate on (whatever its scanner looks at; the
@@ -72,6 +81,12 @@ a version, and each policy's definition as it was when the version was
 published. Changing a library policy later does not change an existing pack
 version; AppTown publishes a new version of each pack that names it, which
 you recommend when you are ready.
+
+A pack's toolchain is a starter `mise.toml` copied into a new project when
+the pack is applied to it; a project that already has commits keeps its own.
+The pack version does not pin the file: a later release's toolchain of that
+name is what a later project gets, and once copied the file is the
+project's own.
 
 `requires` names instance capabilities a project on the pack needs (a scanner);
 adopting the pack is refused until each is attached.
@@ -106,6 +121,14 @@ the block and its checks; leaving it out means the same. Its checks are a JSON a
 evaluator: `sh` (a script), `llm` (a rubric), `runtime` (a probe of the running
 app) or `tool` (a scanner binding). The [conformance guide](/docs/guides/conformance) says
 what each evaluator proves.
+
+An `sh` check is a script run with `sh -c` in a container, with the
+project's files read-only, no network, and at most 60 seconds. Exit 0 means
+the project conforms; exit 1 is a finding, and what the script printed is the
+finding's text. Any other exit, a timeout, or no answer means the check
+could not assess the project: an error, shown as such and never a pass. The
+container image (today `alpine/git` with a shell and Git) is not promised:
+use only POSIX shell and Git.
 
 ## What stays readable
 

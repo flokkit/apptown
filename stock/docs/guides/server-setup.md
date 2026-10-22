@@ -200,13 +200,14 @@ and selects a default model. Saving a key does not test it: try a short chat
 first. Model choice per job is on the [model providers and
 slots](/docs/model/pi) integration's Admin tab.
 
-The default sign-in mode, `-auth open`, trusts whatever name a caller gives,
-so in open mode `apptownd` refuses to start on an address another machine can
-reach (the main or the console listener): bind both to `127.0.0.1`, or pass
-`-open-on-network` to accept that anyone who reaches the port has full
-control. Before sharing AppTown, start it with `-auth internal` (AppTown's own
-accounts and passwords; `-admins` names accounts to make administrators) or
-`-auth trusted-header` behind an authenticating proxy.
+AppTown signs people in by default: `-auth internal` is AppTown's own
+accounts and passwords (`-admins` names accounts to make administrators), and
+`-auth trusted-header` trusts an authenticating proxy in front of it.
+`-auth open`, for one computer only, has no sign-in and trusts whatever name a
+caller gives, so in open mode `apptownd` refuses to start on an address
+another machine can reach (the main or the console listener): bind both to
+`127.0.0.1`, or pass `-open-on-network` to accept that anyone who reaches the
+port has full control.
 
 Under `-auth internal`, the first account is the administrator, and making it
 needs the setup token: while no account exists, AppTown writes a random

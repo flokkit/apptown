@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -16,7 +17,8 @@ import (
 // stops at the first positional, which once swallowed trailing flags INTO a
 // change body. A flag that takes a value consumes the next argument; "--"
 // ends flags; an argument beginning "- " is a markdown bullet, never a flag.
-// fs is ExitOnError, so a bad flag reports and exits 2.
+// A bad flag is reported with the command's flags and exits 64 (exitUsage);
+// -h prints them and exits 0.
 func parseArgs(fs *flag.FlagSet, args []string) []string {
 	var flags, positionals []string
 	for i := 0; i < len(args); i++ {
@@ -42,7 +44,14 @@ func parseArgs(fs *flag.FlagSet, args []string) []string {
 			flags = append(flags, args[i])
 		}
 	}
-	_ = fs.Parse(flags) // ExitOnError: a parse error has already exited
+	if err := fs.Parse(flags); err != nil {
+		// The flag package has printed the error and the flags.
+		if errors.Is(err, flag.ErrHelp) {
+			exitProcess(0)
+		} else {
+			exitProcess(exitUsage)
+		}
+	}
 	return positionals
 }
 
@@ -51,9 +60,8 @@ func isBoolFlag(f *flag.Flag) bool {
 	return ok && b.IsBoolFlag()
 }
 
-// newFlags is a command's flag set. A bad flag prints the command's flags
-// and exits 2, as every command always has.
-func newFlags(name string) *flag.FlagSet { return flag.NewFlagSet(name, flag.ExitOnError) }
+// newFlags is a command's flag set; parseArgs ends the CLI on a bad flag.
+func newFlags(name string) *flag.FlagSet { return flag.NewFlagSet(name, flag.ContinueOnError) }
 
 // idFlag is a flag naming a record by its id; absent is Nil.
 func idFlag(fs *flag.FlagSet, name, usage string) *ids.ID {
@@ -67,7 +75,7 @@ func idFlag(fs *flag.FlagSet, name, usage string) *ids.ID {
 func parseID(s, what string) (ids.ID, error) {
 	id, err := ids.Parse(strings.TrimSpace(s))
 	if err != nil || id.IsZero() {
-		return ids.Nil, fmt.Errorf("%s must be an id, got %q", what, s)
+		return ids.Nil, usagef("%s must be an id, got %q", what, s)
 	}
 	return id, nil
 }
@@ -77,7 +85,7 @@ func parseID(s, what string) (ids.ID, error) {
 func parseNumber(s, what string) (int64, error) {
 	n, err := strconv.ParseInt(strings.TrimPrefix(s, "#"), 10, 64)
 	if err != nil || n <= 0 {
-		return 0, fmt.Errorf("%s must be a number, got %q", what, s)
+		return 0, usagef("%s must be a number, got %q", what, s)
 	}
 	return n, nil
 }
@@ -101,7 +109,7 @@ func changeRef(s, project string) (ids.ID, error) {
 	}
 	slug, digits, found := strings.Cut(s, "#")
 	if n, err := strconv.ParseInt(digits, 10, 64); !found || slug == "" || err != nil || n <= 0 {
-		return ids.Nil, fmt.Errorf("a change is its id or <project>#<number>, got %q", s)
+		return ids.Nil, usagef("a change is its id or <project>#<number>, got %q", s)
 	}
 	var view struct{ Change struct{ ID ids.ID } }
 	if err := api.get("/changes/"+url.PathEscape(s), &view); err != nil {
@@ -127,7 +135,7 @@ func runRef(s, project string) (ids.ID, error) {
 	}
 	slug, digits, found := strings.Cut(s, "#")
 	if n, err := strconv.ParseInt(digits, 10, 64); !found || slug == "" || err != nil || n <= 0 {
-		return ids.Nil, fmt.Errorf("a run is its id or <project>#<number>, got %q", s)
+		return ids.Nil, usagef("a run is its id or <project>#<number>, got %q", s)
 	}
 	var view struct{ Run struct{ ID ids.ID } }
 	if err := api.get("/runs/"+url.PathEscape(s), &view); err != nil {
