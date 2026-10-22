@@ -112,15 +112,26 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 		memory = resolved.NeedResources["mariadb"].MemoryBytes
 		local.Command = resolved.NeedSizes["mariadb"].Command
 	}
-	args := []string{"run", "-d", "--name", db, "--network", network, "--network-alias", "mariadb", "--memory", fmt.Sprint(memory), "--memory-swap", fmt.Sprint(memory)}
-	for k, v := range local.Env {
-		args = append(args, "-e", k+"="+v)
+	// Each need as AppTown starts it: its own start script, then its flags.
+	startNeed := func(svc *LocalService, name string, extra ...string) {
+		t.Helper()
+		args := append([]string{"run", "-d", "--name", name, "--network", network, "--network-alias", svc.Name}, extra...)
+		for k, v := range svc.Env {
+			args = append(args, "-e", k+"="+v)
+		}
+		if len(svc.Entrypoint) > 0 {
+			args = append(args, "--entrypoint", svc.Entrypoint[0])
+		}
+		args = append(args, svc.Image)
+		if len(svc.Entrypoint) > 1 {
+			args = append(args, svc.Entrypoint[1:]...)
+		}
+		args = append(args, svc.Command...)
+		must(args...)
 	}
-	args = append(args, local.Image)
-	args = append(args, local.Command...)
-	must(args...)
+	startNeed(local, db, "--memory", fmt.Sprint(memory), "--memory-swap", fmt.Sprint(memory))
 	if !poll.Until(ctx, 90*time.Second, 250*time.Millisecond, func() bool { _, err := run(nil, "exec", db, "sh", "-c", local.Health); return err == nil }) {
-		t.Fatal("MariaDB never became ready")
+		t.Fatalf("MariaDB never became ready: %s", must("logs", db))
 	}
 
 	if cap := must("inspect", "-f", "{{.HostConfig.Memory}}", db); cap != fmt.Sprint(memory) {
@@ -147,17 +158,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 	// the app's key before it says it is healthy. Nothing here makes a bucket
 	// or a policy; the app's key owns the bucket and nothing is public.
 	store := catalogued("s3")
-	args = []string{"run", "-d", "--name", s3, "--network", network, "--network-alias", "s3", "--memory", "128m", "-v", store.Data}
-	for k, v := range store.Env {
-		args = append(args, "-e", k+"="+v)
-	}
-	if len(store.Entrypoint) > 0 {
-		args = append(args, "--entrypoint", store.Entrypoint[0])
-	}
-	args = append(args, store.Image)
-	args = append(args, store.Entrypoint[1:]...)
-	args = append(args, store.Command...)
-	must(args...)
+	startNeed(store, s3, "--memory", "128m", "-v", store.Data)
 	if !poll.Until(ctx, 60*time.Second, 250*time.Millisecond, func() bool { _, err := run(nil, "exec", s3, "sh", "-c", store.Health); return err == nil }) {
 		t.Fatalf("the s3 store never became ready: %s", must("logs", s3))
 	}

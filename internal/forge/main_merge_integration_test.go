@@ -74,7 +74,7 @@ func TestIntegrationTheForgeMergesMainBeforeAWorkerStep(t *testing.T) {
 			merged = append(merged, payload)
 		}
 	}
-	if len(merged) != 1 || merged[0]["by"] != "forge" || merged[0]["main"] != main || merged[0]["sha"] != given || merged[0]["step"] != w.step.Name {
+	if len(merged) != 1 || merged[0]["by"] != "apptown-system" || merged[0]["main"] != main || merged[0]["sha"] != given || merged[0]["step"] != w.step.Name {
 		t.Fatalf("the run's record of the merge: %+v", merged)
 	}
 }
