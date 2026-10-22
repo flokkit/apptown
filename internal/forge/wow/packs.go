@@ -245,6 +245,11 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 	if how.refuseGone && len(res.Gone) > 0 {
 		return 0, fmt.Errorf("%w: %s does not carry %s, which this pack replaces or drops", ErrInclusion, res.Included.Pack, strings.Join(res.Gone, ", "))
 	}
+	// A version keeps what it pinned; an item it cannot pin would be
+	// whatever later takes the name, so a save names only what exists.
+	if how.refuseGone && len(res.Missing) > 0 {
+		return 0, fmt.Errorf("%w: the library has no %s; add it first, or leave it out of the pack", ErrUnpinned, strings.Join(res.Missing, ", "))
+	}
 	// A version stores the resolved contents: inherited items from the
 	// included publication, and every policy with the definition it pins.
 	// A declaration that does not decode (a historical representation) is

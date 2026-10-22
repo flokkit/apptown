@@ -74,14 +74,10 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	run := task.Run()
 	var cfg scanConfig
 	cfgErr := workflow.DecodeStepConfig(step.Config, &cfg)
-	// An image scan of a stock base image lists dozens of OS CVEs, most
-	// with no fix, none actionable by the app. Unless the point says otherwise, an image
-	// scan fails on HIGH and above — the source scanners keep "any".
-	if cfg.FailOn == "" {
-		if _, m, _, _, err := a.scanners.binding(task.Context(), cfg.Scanner); err == nil && m.Looks() == "image" {
-			cfg.FailOn = "high"
-		}
-	}
+	// No failOn means every actionable finding fails, whatever the bound
+	// scanner looks at: a policy ceiling reads the step, not the binding,
+	// so the step's words must be the whole threshold. The stock image
+	// scans write failOn: high.
 	finish := func(status workflow.StepState, evidence map[string]any) {
 		task.Settle(workflow.EncodeOutcome(status, evidence, nil))
 	}
@@ -348,7 +344,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		bySev := map[string]int{}
 		for _, f := range gating {
 			bySev[f.Severity]++
-			if cfg.FailOn == "" || check.SeverityRank(f.Severity) >= check.SeverityRank(cfg.FailOn) {
+			if check.FailsAt(cfg.FailOn, f.Severity) {
 				failing++
 				failingFindings = append(failingFindings, f)
 			}

@@ -168,7 +168,7 @@ func (r *appYamlResources) parse(v1 bool) (Resources, error) {
 type appYamlProfilePart struct {
 	Size        any               `yaml:"size"`
 	Resources   *appYamlResources `yaml:"resources"`
-	Environment map[string]any    `yaml:"environment"`
+	Environment environment       `yaml:"environment"`
 }
 
 // ProfilePart is one profile's change to one part.
@@ -190,9 +190,10 @@ func parseProfiles(doc map[string]map[string]appYamlProfilePart, c *Contract, v1
 	if len(doc) == 0 {
 		return nil
 	}
-	parts := map[string]bool{}
+	parts, static := map[string]bool{}, map[string]bool{}
 	for _, p := range c.Parts {
 		parts[p.Name] = true
+		static[p.Name] = p.IsStatic()
 	}
 	needs := map[string]bool{}
 	for _, n := range c.Needs {
@@ -215,6 +216,9 @@ func parseProfiles(doc map[string]map[string]appYamlProfilePart, c *Contract, v1
 			if needs[part] && len(in.Environment) > 0 {
 				return fmt.Errorf("profiles: %s: %s: a need's environment is the catalogue's; a profile changes only its resources", name, part)
 			}
+			if static[part] && len(in.Environment) > 0 {
+				return fmt.Errorf("profiles: %s: %s: a static site has no environment; AppTown's file server serves its files", name, part)
+			}
 			var size string
 			if in.Size != nil {
 				if !needs[part] {
@@ -236,7 +240,11 @@ func parseProfiles(doc map[string]map[string]appYamlProfilePart, c *Contract, v1
 			if err != nil {
 				return fmt.Errorf("profiles: %s: %s: %w", name, part, err)
 			}
-			c.Profiles[name][part] = ProfilePart{Size: size, Resources: r, Env: stringifyMap(in.Environment)}
+			env, err := in.Environment.read(true)
+			if err != nil {
+				return fmt.Errorf("profiles: %s: %s: %w", name, part, err)
+			}
+			c.Profiles[name][part] = ProfilePart{Size: size, Resources: r, Env: env}
 		}
 	}
 	return nil

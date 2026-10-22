@@ -67,5 +67,15 @@ func checkOptions(stage string, s Step) error {
 		}
 		return fmt.Errorf("stage %q step %q: %s has no option %s (options: %s)", stage, s.Name, s.Uses, k, strings.Join(allowed, ", "))
 	}
+	if v, ok := s.With["failOn"]; ok {
+		if severity, isText := v.(string); !isText || !slices.Contains(FailOnValues, severity) {
+			return fmt.Errorf("stage %q step %q: failOn %v is not a severity (%s)", stage, s.Name, v, strings.Join(FailOnValues, ", "))
+		}
+	}
 	return nil
 }
+
+// FailOnValues are the severities a step's failOn may name. A typo would
+// otherwise gate at a threshold nobody chose, so a save refuses it; leaving
+// failOn out is its own setting (the step kind's default).
+var FailOnValues = []string{"low", "medium", "high", "critical"}

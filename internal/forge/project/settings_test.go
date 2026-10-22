@@ -41,8 +41,8 @@ func TestSettingsPatchIsAtomicAndPreservesOmissions(t *testing.T) {
 	ctx := context.Background()
 	rev := int64(0)
 	changed, taken := "new", "taken"
-	if err := patchSettings(db, id, "settings", SettingsPatch{ExpectedRevision: &rev, Slug: &taken, Icon: &changed, Blurb: &changed}); !errors.Is(err, ErrSlugTaken) {
-		t.Fatalf("conflicting rename: %v", err)
+	if err := patchSettings(db, id, "settings", SettingsPatch{ExpectedRevision: &rev, Slug: &taken, Icon: &changed, Blurb: &changed}); !errors.Is(err, ErrSlugFixed) {
+		t.Fatalf("a rename: %v", err)
 	}
 	before, err := ByIDIn(ctx, db, id)
 	if err != nil || before.Icon != "old" || before.Blurb != "old" || before.Slug != "settings" || before.SettingsRevision != 0 {
@@ -125,12 +125,5 @@ func TestSettingsEditNeedsItsRevision(t *testing.T) {
 	}
 	if after, err := ByIDIn(context.Background(), db, id); err != nil || after.Icon != "old" || after.SettingsRevision != 0 {
 		t.Fatalf("refused edit wrote: %+v %v", after, err)
-	}
-	// Rename, the other writer of these fields, advances the revision too.
-	if err := New(db, nil).Rename(context.Background(), id, "renamed", "Renamed"); err != nil {
-		t.Fatal(err)
-	}
-	if after, err := ByIDIn(context.Background(), db, id); err != nil || after.SettingsRevision != 1 {
-		t.Fatalf("rename kept the revision: %+v %v", after, err)
 	}
 }

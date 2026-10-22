@@ -34,9 +34,6 @@ UPDATE projects SET model_profile = $2 WHERE id=$1;
 -- name: SetProjectDefaultBranch :exec
 UPDATE projects SET default_branch = $2 WHERE id=$1;
 
--- name: RenameProject :exec
-UPDATE projects SET slug = sqlc.arg(slug), name = sqlc.arg(name), settings_revision = settings_revision + 1 WHERE id=sqlc.arg(id);
-
 -- name: SetIndependentApproval :one
 UPDATE projects SET require_independent_approval = $2 WHERE id=$1 RETURNING *;
 

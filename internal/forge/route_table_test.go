@@ -300,10 +300,10 @@ func TestAChangeIsFoundByItsFriendlyForm(t *testing.T) {
 	}
 }
 
-// A run's friendly form names it wherever its id does, read with the
-// project's current slug: after a rename the numbers stay with the records
-// and the old slug no longer resolves (compatibility.md).
-func TestARunIsFoundByItsFriendlyFormAndARenameKeepsTheNumbers(t *testing.T) {
+// A run's friendly form names it wherever its id does. A project's slug is
+// fixed (compatibility.md), so a slug#n written down keeps naming the same
+// record: a patch that would change the slug is refused.
+func TestARunIsFoundByItsFriendlyFormAndItsSlugStays(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
 	fx := fixtureWork(t, a)
@@ -323,19 +323,11 @@ func TestARunIsFoundByItsFriendlyFormAndARenameKeepsTheNumbers(t *testing.T) {
 	if w := authzCall(h, "boss", "GET", "/api/v1/runs/game%2399", ""); w.Code != 404 || !strings.Contains(w.Body.String(), "no run game#99") {
 		t.Fatalf("run game#99: %d %s", w.Code, w.Body.String())
 	}
-	if w := authzCall(h, "boss", "PATCH", "/api/v1/projects/game", `{"slug":"arcade","expectedRevision":0}`); w.Code != 200 {
-		t.Fatalf("rename: %d %s", w.Code, w.Body.String())
+	if w := authzCall(h, "boss", "PATCH", "/api/v1/projects/game", `{"slug":"arcade","expectedRevision":0}`); w.Code != 400 {
+		t.Fatalf("a slug change: %d %s", w.Code, w.Body.String())
 	}
-	if code, got := read("/api/v1/runs/arcade%231"); code != 200 || !strings.Contains(got, fx.Run.String()) {
-		t.Fatalf("run arcade#1 after the rename: %d %s", code, got)
-	}
-	if code, got := read("/api/v1/changes/arcade%231"); code != 200 || !strings.Contains(got, fx.Change.String()) {
-		t.Fatalf("change arcade#1 after the rename: %d %s", code, got)
-	}
-	for _, old := range []string{"/api/v1/runs/game%231", "/api/v1/changes/game%231"} {
-		if code, _ := read(old); code != 404 {
-			t.Fatalf("%s after the rename: %d; the old slug does not resolve", old, code)
-		}
+	if code, got := read("/api/v1/changes/game%231"); code != 200 || !strings.Contains(got, fx.Change.String()) {
+		t.Fatalf("change game#1: %d %s", code, got)
 	}
 }
 

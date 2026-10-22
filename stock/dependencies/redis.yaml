@@ -11,6 +11,7 @@ summary: "An in-memory cache and key-value store."
 status: experimental
 
 defaults:
+  # Fixed for every 1.x release (dependency.defaultVersions1x).
   version: "7"
 
 # AppTown sets the password (requirepass), and an app cannot. Each

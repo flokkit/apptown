@@ -39,6 +39,10 @@ secrets = ["SECRET_KEY_BASE"]
   for it, else `preview` for a preview when either file declares it, else
   `default`. When this file does not declare that profile it uses its own
   `default`, or, if it has none, its first profile in name order.
+- A secret's name is AppTown's to set when AppTown sets that variable on
+  a part (`PORT`, `DATA_DIR`, `APPTOWN_ORIGINS`, `APPTOWN_RELEASE`,
+  `APPTOWN_BROWSER_ENV`) or when it starts `APPTOWN_`; such a secret is
+  refused, so a value cannot win on one target and lose on another.
 - A **scope** names a part of the app (by its name in `app.yaml`, or an
   init step as `init-<name>`) and the secrets it receives. With no
   scopes, every part receives every secret. With scopes, a part gets

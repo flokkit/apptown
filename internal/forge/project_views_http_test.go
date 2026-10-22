@@ -28,7 +28,8 @@ func TestProjectHTTPSettingsRejectBeforeWritingAndReturnSavedMetadata(t *testing
 	}{
 		{"owner", `{"expectedRevision":0,"name":"Unauthorized"}`, "", 403}, {"boss", `{`, "", 400},
 		{"boss", `{"expectedRevision":0,"slug":"INVALID","icon":"changed","blurb":"changed"}`, "", 400},
-		{"boss", `{"expectedRevision":0,"slug":"open","icon":"changed","namespace":"changed"}`, "", 409},
+		// A project's slug is fixed: a patch that changes it is refused whole.
+		{"boss", `{"expectedRevision":0,"slug":"open","icon":"changed","namespace":"changed"}`, "", 400},
 		// An edit must say which reading it started from, and that reading must be current.
 		{"boss", `{"icon":"changed"}`, "", 400},
 		{"boss", `{"expectedRevision":7,"icon":"changed"}`, "settings-moved", 409},

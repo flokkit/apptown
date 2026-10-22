@@ -208,7 +208,7 @@ func TestWorkspaceRefusesPointerMetadataAndDifferentCheckout(t *testing.T) {
 }
 func TestWorkspaceRechecksChangeAndProjectAfterGit(t *testing.T) {
 	t.Parallel()
-	for _, mutation := range []string{"slug", "default branch", "branch", "base", "selected source", "state", "attached run", "deleted"} {
+	for _, mutation := range []string{"default branch", "branch", "base", "selected source", "state", "attached run", "deleted"} {
 		t.Run(mutation, func(t *testing.T) {
 			t.Parallel()
 			w, ref, _ := workspaceFixture(t)
@@ -218,10 +218,6 @@ func TestWorkspaceRechecksChangeAndProjectAfterGit(t *testing.T) {
 				if !once && in.Argv[1] == "rev-parse" && strings.Contains(in.Workspace, ".forge-preparing-") && out.RunErr == nil {
 					once = true
 					switch mutation {
-					case "slug":
-						if err := project.New(w.db, nil).Rename(ctx, ref.ProjectID, "renamed", "History"); err != nil {
-							t.Fatal(err)
-						}
 					case "default branch":
 						if err := project.New(w.db, nil).SetDefaultBranch(ctx, ref.ProjectID, "new-main"); err != nil {
 							t.Fatal(err)

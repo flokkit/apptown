@@ -10,7 +10,6 @@ import (
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/dbtest"
 	"flokkit.io/forge/internal/forge/adoption"
-	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/forge/scm"
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
@@ -285,7 +284,6 @@ func TestSettlingAPendingMergeRequiresItsAdmittedScope(t *testing.T) {
 		`UPDATE runs SET current_stage='moved'`,
 		// sql-guarantee: close only the run status during inspection; Abandon/TransitionRun also change UpdatedAt and would mask the status check.
 		`UPDATE runs SET status='abandoned'`,
-		"project renamed",
 		// sql-guarantee: move only the Change branch during inspection; Work's workspace commands also change selected bases.
 		`UPDATE changes SET branch='another'`,
 		// sql-guarantee: replace only the pinned declaration during inspection; admission creates a new run and no mutation rewrites definition_json.
@@ -306,14 +304,6 @@ func TestSettlingAPendingMergeRequiresItsAdmittedScope(t *testing.T) {
 			inspecting := gitDriver{t: t, inspect: func() (scm.Inspection, error) {
 				switch mutation {
 				case "":
-				case "project renamed":
-					current, err := project.ByIDIn(context.Background(), l.db, l.run.ProjectID)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if err := project.New(l.db, nil).Rename(context.Background(), l.run.ProjectID, "renamed", current.Name); err != nil {
-						t.Fatal(err)
-					}
 				default:
 					completionExec(t, l.db, mutation)
 				}

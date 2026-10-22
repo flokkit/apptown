@@ -114,7 +114,7 @@ const ReleaseEnvVar = "APPTOWN_RELEASE"
 var AppTownSetEnv = []string{"PORT", "APPTOWN_ORIGINS", "DATA_DIR", ReleaseEnvVar, BrowserEnvVar}
 
 // setsAppTownEnv names the first of AppTownSetEnv that env sets, or "".
-func setsAppTownEnv(env map[string]any) string {
+func setsAppTownEnv(env environment) string {
 	for _, name := range AppTownSetEnv {
 		if _, ok := env[name]; ok {
 			return name

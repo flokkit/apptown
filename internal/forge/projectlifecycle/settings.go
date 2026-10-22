@@ -13,18 +13,11 @@ import (
 // UpdateSettings is the complete settings edit. Its caller authorizes the edit;
 // lifecycle coordinates names with creation and purge, project owns persistence.
 func (s *Service) UpdateSettings(ctx context.Context, id ids.ID, in project.SettingsPatch, actor string) (*project.Project, error) {
-	if in.Slug != nil && !project.ValidSlug(*in.Slug) {
-		return nil, project.ErrSlug
-	}
 	observed, err := s.projects.ByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	names := []string{observed.Slug}
-	if in.Slug != nil {
-		names = append(names, *in.Slug)
-	}
-	release, err := s.ReserveNames(names...)
+	release, err := s.ReserveNames(observed.Slug)
 	if err != nil {
 		return nil, err
 	}
@@ -42,9 +35,6 @@ func (s *Service) UpdateSettings(ctx context.Context, id ids.ID, in project.Sett
 	details := map[string]any{}
 	if before.Name != after.Name {
 		details["name"] = map[string]string{"from": before.Name, "to": after.Name}
-	}
-	if before.Slug != after.Slug {
-		details["slug"] = map[string]string{"from": before.Slug, "to": after.Slug}
 	}
 	if in.Icon != nil {
 		details["icon"] = after.Icon

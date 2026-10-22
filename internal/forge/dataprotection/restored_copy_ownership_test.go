@@ -10,7 +10,6 @@ import (
 	"flokkit.io/forge/internal/deploy"
 	"flokkit.io/forge/internal/deploy/digitalocean"
 	"flokkit.io/forge/internal/forge/operations"
-	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/ids"
 )
 
@@ -26,7 +25,11 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	if err := project.New(w.db, nil).Rename(ctx, w.project, "ledger-pay", "Ledger Pay"); err != nil {
+	// A project's slug is fixed when it is made, and this world makes
+	// "ledger"; the collision needs the hyphenated slug, which no operation
+	// gives an existing project any more.
+	// sql-guarantee: the world's project takes the colliding slug directly.
+	if _, err := w.db.Exec(`UPDATE projects SET slug='ledger-pay' WHERE id=$1`, w.project); err != nil {
 		t.Fatal(err)
 	}
 	other := createTestProject(t, w.db, "ledger", "Other Ledger")

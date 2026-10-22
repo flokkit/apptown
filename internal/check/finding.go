@@ -100,6 +100,14 @@ func secSeverityBucket(s string) string {
 	return ""
 }
 
+// FailsAt says whether a finding of severity fails a scan whose failOn is
+// failOn: every finding when failOn is empty, otherwise one ranked at or
+// above it. It is the one meaning of a scan's failOn; a policy ceiling
+// (wow.FailOnLooseness) orders thresholds by it.
+func FailsAt(failOn, severity string) bool {
+	return failOn == "" || SeverityRank(severity) >= SeverityRank(failOn)
+}
+
 // SeverityRank orders severities for failOn thresholds. Unknown ranks as
 // high: a finding nobody scored is not a finding you may silently ship. A
 // note was scored, as the lowest level a check declaration may take.

@@ -13,6 +13,7 @@ import (
 func TestCatalogOffersOnlyOwnPack(t *testing.T) {
 	t.Parallel()
 	f := newPackPullFixture(t)
+	f.publishWorkflow(t, "wanted-lane", false)
 	f.publishPack(t, "aaa-wrong-pack", []string{"wanted-lane"})
 	f.publishPack(t, "right-pack", []string{"wanted-lane"})
 	f.publishPack(t, "empty-pack", nil)

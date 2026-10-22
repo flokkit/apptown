@@ -46,7 +46,11 @@ else in the contract will change that way:
 app, what they mean, and what the app may rely on, as
 [What each need gives the app](/docs/guides/services-and-data) lists them. A
 target may learn to fulfil a need it refuses today; a need's variables and
-their meaning do not change.
+their meaning do not change. A need declared without a `version` gets the
+default its catalogue entry has in 1.0 (PostgreSQL 16, MariaDB 11.4.13,
+Redis 7) in every 1.x release: a newer default arrives only with a new major
+version of AppTown, so a deployment's data never meets a newer server it did
+not ask for. Write `version:` to choose another.
 
 **Your ways of working.** Workflows (`apiVersion: apptown.dev/v1`), packs,
 policies, guidance blocks and their checks, in the shapes the
@@ -80,10 +84,10 @@ New optional arguments and new tools may appear.
 release, an operation) is identified by a UUID, and a link to a record uses
 it. A project's changes and runs are also numbered within the project and
 shown as `slug#12`; you can type that form where a change or a run is expected.
-It is read with the project's current name: a renamed project's records keep
-their numbers, and the old name no longer resolves. Names AppTown has already
-given things outside itself (branches, backup paths, containers) keep the
-names they were given.
+A project's slug is fixed when the project is made (its display name can
+change), so a `slug#12` written down keeps naming the same record. Names
+AppTown has already given things outside itself (branches, backup paths,
+containers) keep the names they were given.
 
 **Which versions work together.** Two protocol numbers decide it, as
 the "Versions" section of [Upgrading](/docs/guides/upgrading)

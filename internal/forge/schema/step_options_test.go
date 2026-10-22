@@ -54,6 +54,31 @@ func TestAStoredWorkflowWithAnUnknownOptionStaysReadable(t *testing.T) {
 	}
 }
 
+// failOn names a severity. A typo used to read as high (check.SeverityRank's
+// fallback) while a policy ceiling read it as the loosest: refused at save,
+// it can mean neither. A stored definition stays readable.
+func TestASaveRefusesAFailOnThatIsNotASeverity(t *testing.T) {
+	t.Parallel()
+	for _, src := range []string{
+		workflowWithStep("scan", "{on: source, failOn: hihg}"),
+		workflowWithStep("scan", "{on: image, failOn: \"\"}"),
+		workflowWithStep("scan", "{on: image, failOn: 3}"),
+		workflowWithStep("guidance/conformance", "{failOn: High}"),
+	} {
+		if _, err := ParseWorkflow([]byte(src)); err == nil || !strings.Contains(err.Error(), "is not a severity") {
+			t.Errorf("%s: %v", src, err)
+		}
+	}
+	for _, v := range FailOnValues {
+		if _, err := ParseWorkflow([]byte(workflowWithStep("scan", "{on: image, failOn: "+v+"}"))); err != nil {
+			t.Errorf("failOn %s: %v", v, err)
+		}
+	}
+	if _, err := ParseWorkflowStored([]byte(workflowWithStep("scan", "{on: source, failOn: hihg}"))); err != nil {
+		t.Fatalf("a stored definition: %v", err)
+	}
+}
+
 // Where an option's value is data, its contents are not options: a script's
 // environment and a called workflow's inputs take any names.
 func TestDataValuedOptionsTakeAnyKeys(t *testing.T) {

@@ -19,8 +19,9 @@ import (
 	"flokkit.io/forge/internal/strs"
 )
 
-// imageFailOn is the image scan point's default threshold (RunScan): a
-// stock base image lists dozens of OS CVEs, most with no fix.
+// imageFailOn is the stock landing's image scan threshold (its scan-image
+// step writes failOn: high): a stock base image lists dozens of OS CVEs,
+// most with no fix.
 const imageFailOn = "high"
 
 // firstReleaseNote is the base note of a project that has never released:

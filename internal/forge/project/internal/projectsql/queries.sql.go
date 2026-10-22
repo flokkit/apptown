@@ -796,21 +796,6 @@ func (q *Queries) ReconfirmDeletion(ctx context.Context, arg ReconfirmDeletionPa
 	return result.RowsAffected()
 }
 
-const renameProject = `-- name: RenameProject :exec
-UPDATE projects SET slug = $1, name = $2, settings_revision = settings_revision + 1 WHERE id=$3
-`
-
-type RenameProjectParams struct {
-	Slug string
-	Name string
-	ID   ids.ID
-}
-
-func (q *Queries) RenameProject(ctx context.Context, arg RenameProjectParams) error {
-	_, err := q.db.ExecContext(ctx, renameProject, arg.Slug, arg.Name, arg.ID)
-	return err
-}
-
 const restartProjectDeletion = `-- name: RestartProjectDeletion :one
 UPDATE project_deletions SET state='pending', attempts=0, round=round+1, detail='', finished_at=NULL
 WHERE project_id=$1 AND state<>'done' RETURNING round

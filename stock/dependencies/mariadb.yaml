@@ -6,6 +6,7 @@ icon: 🐬
 description: A deployment-owned relational database, reached with DB_* variables.
 summary: "A relational database of the app's own."
 defaults:
+  # Fixed for every 1.x release (dependency.defaultVersions1x).
   version: "11.4.13"
   database: app
   user: app

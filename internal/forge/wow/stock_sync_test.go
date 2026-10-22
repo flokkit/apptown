@@ -27,6 +27,19 @@ func stockService(t *testing.T) *Service {
 	return New(testDB(t), Dependencies{Stock: stock.FS})
 }
 
+// stockLibrary is stockService with the stock workflows, guidance and
+// policies in the library, as boot syncs them before the packs that pin them.
+func stockLibrary(t *testing.T) *Service {
+	t.Helper()
+	s := stockService(t)
+	for _, c := range []SyncCounts{s.SyncStockWorkflows(t.Context()), s.SyncStockGuidance(t.Context()), s.SyncStockPolicies(t.Context())} {
+		if c.Errors != 0 {
+			t.Fatalf("%s: %+v", c.Kind, c)
+		}
+	}
+	return s
+}
+
 func TestStockSyncIsIdempotent(t *testing.T) {
 	t.Parallel()
 	s := stockService(t)
@@ -38,12 +51,12 @@ func TestStockSyncIsIdempotent(t *testing.T) {
 	if again.Added != 0 || again.Updated != 0 || again.Unchanged != first.Added {
 		t.Fatalf("re-sync of unchanged stock must change nothing: %+v", again)
 	}
-	for _, c := range []SyncCounts{s.SyncStockPacks(t.Context()), s.SyncStockPolicies(t.Context()), s.SyncStockGuidance(t.Context())} {
+	for _, c := range []SyncCounts{s.SyncStockPolicies(t.Context()), s.SyncStockGuidance(t.Context()), s.SyncStockPacks(t.Context())} {
 		if c.Errors != 0 || c.Added == 0 {
 			t.Fatalf("%s: first sync must seed cleanly: %+v", c.Kind, c)
 		}
 	}
-	for _, c := range []SyncCounts{s.SyncStockPacks(t.Context()), s.SyncStockPolicies(t.Context()), s.SyncStockGuidance(t.Context())} {
+	for _, c := range []SyncCounts{s.SyncStockPolicies(t.Context()), s.SyncStockGuidance(t.Context()), s.SyncStockPacks(t.Context())} {
 		if c.Added != 0 || c.Updated != 0 || c.Errors != 0 {
 			t.Fatalf("%s: re-sync of unchanged stock must change nothing: %+v", c.Kind, c)
 		}
@@ -103,7 +116,7 @@ func TestStockSyncKeepsYours(t *testing.T) {
 		t.Fatalf("the release ships packs: %v", err)
 	}
 	stockPack := packs[0].Name
-	if _, err := s.PublishPack(t.Context(), stockPack, "mine", `{"workflows":["quick-change"]}`, ""); err != nil {
+	if _, err := s.PublishPack(t.Context(), stockPack, "mine", `{"guidance":[]}`, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SaveLibraryPolicy(t.Context(), LibraryPolicy{Name: "scan-failon-ceiling", Description: "mine", Rule: "scanFailOnCeiling", With: map[string]any{"max": "critical"}}, "bls"); err != nil {
@@ -115,7 +128,7 @@ func TestStockSyncKeepsYours(t *testing.T) {
 	if _, err := s.CreateBlock(t.Context(), "prose/terse-style", "Our own terseness.", "prose", "bls"); err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range []SyncCounts{s.SyncStockPacks(t.Context()), s.SyncStockPolicies(t.Context()), s.SyncStockWorkflows(t.Context()), s.SyncStockGuidance(t.Context())} {
+	for _, c := range []SyncCounts{s.SyncStockWorkflows(t.Context()), s.SyncStockGuidance(t.Context()), s.SyncStockPolicies(t.Context()), s.SyncStockPacks(t.Context())} {
 		if c.Kept != 1 || c.Errors != 0 {
 			t.Fatalf("%s: the custom row under a stock name must be kept, once: %+v", c.Kind, c)
 		}
@@ -139,7 +152,7 @@ func TestStockSyncKeepsYours(t *testing.T) {
 // switch (enabled) across syncs.
 func TestStockSyncOverwritesUnversioned(t *testing.T) {
 	t.Parallel()
-	s := stockService(t)
+	s := stockLibrary(t)
 	s.SyncStockPacks(t.Context())
 	packs, _ := ReadStockPacks(stock.FS)
 	name := packs[0].Name
@@ -172,7 +185,7 @@ func TestStockSyncOverwritesUnversioned(t *testing.T) {
 // A release publishes a changed stock pack without rewriting its history.
 func TestStockPackReleasesCutVersions(t *testing.T) {
 	t.Parallel()
-	s := stockService(t)
+	s := stockLibrary(t)
 	const older = `{"name":"go-small","guidance":[]}`
 	if version, err := s.PublishPack(t.Context(), "go-small", "old release", older, "stock"); err != nil || version != 1 {
 		t.Fatalf("old stock: version=%d %v", version, err)
@@ -210,7 +223,7 @@ func TestStockPackReleasesCutVersions(t *testing.T) {
 // for words alone, and every page reading the pack shows the new words.
 func TestStockPackRewordingRefreshesInPlace(t *testing.T) {
 	t.Parallel()
-	s := stockService(t)
+	s := stockLibrary(t)
 	s.SyncStock(t.Context())
 	packs, err := ReadStockPacks(stock.FS)
 	if err != nil {
@@ -326,18 +339,28 @@ func TestANewPackPinsAPolicyItsLegacyParentOnlyNamed(t *testing.T) {
 	t.Parallel()
 	s := New(testDB(t), Dependencies{})
 	ctx := t.Context()
-	// The parent is published while its policy is not in the library yet,
-	// so it names it unpinned: what a publication before pinning held.
+	policy := func(requires string) LibraryPolicy {
+		return LibraryPolicy{Name: "gate", Description: "a gate", Rule: "requireStepBefore", With: map[string]any{"uses": "deploy", "requires": requires}}
+	}
+	// A save names only what the library has, so the parent is published
+	// with its policy, which then leaves the library: the recut keeps the
+	// name unpinned, as a publication from before pinning held it.
+	if err := s.SaveLibraryPolicy(ctx, policy("old"), "alice"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.PublishPack(ctx, "parent", "", `{"policies":[{"name":"gate"}]}`, ""); err != nil {
 		t.Fatal(err)
 	}
-	policy := func(requires string) LibraryPolicy {
-		return LibraryPolicy{Name: "gate", Description: "a gate", Rule: "requireStepBefore", With: map[string]any{"uses": "deploy", "requires": requires}}
+	if err := s.DeleteLibraryPolicy(ctx, "gate", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if recuts, err := s.CutPacksOnPinChange(ctx); err != nil || len(recuts) != 1 || recuts[0].Version != 2 {
+		t.Fatalf("the parent without its policy: %+v %v", recuts, err)
 	}
 	if err := s.SaveLibraryPolicy(ctx, policy("scan"), "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.PublishPack(ctx, "ours", "", `{"includes":"parent@1"}`, ""); err != nil {
+	if _, err := s.PublishPack(ctx, "ours", "", `{"includes":"parent@2"}`, ""); err != nil {
 		t.Fatal(err)
 	}
 	installs := func(pack string, version int64) any {

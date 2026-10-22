@@ -178,25 +178,6 @@ func (s *Projects) SetReleaseDomain(ctx context.Context, id ids.ID, domain strin
 	return queries(s.db).SetProjectReleaseDomain(ctx, projectsql.SetProjectReleaseDomainParams{ID: id, ReleaseDomain: domain})
 }
 
-// Rename changes the slug and the name together and advances the settings
-// revision; a taken slug is ErrSlugTaken.
-func (s *Projects) Rename(ctx context.Context, id ids.ID, slug, name string) error {
-	if !slugRe.MatchString(slug) {
-		return fmt.Errorf("%w (%s)", ErrSlug, SlugShape)
-	}
-	return s.db.InTx(ctx, func(tx *database.Tx) error {
-		err := queries(tx).RenameProject(ctx, projectsql.RenameProjectParams{ID: id, Slug: slug, Name: name})
-		var state interface{ SQLState() string }
-		if errors.As(err, &state) && state.SQLState() == "23505" {
-			return ErrSlugTaken
-		}
-		if err != nil {
-			return err
-		}
-		return requireSlugFreeIn(ctx, tx, slug)
-	})
-}
-
 // Remove deletes the row once every domain has purged its own; a row
 // that was not there is ErrNotDeleted, never a silent success.
 func (s *Projects) Remove(ctx context.Context, id ids.ID) error {

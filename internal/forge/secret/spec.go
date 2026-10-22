@@ -92,6 +92,9 @@ func ReadSpec(ws, path string) (spec *Spec, present bool, err error) {
 	if path == "" {
 		path = SpecFile
 	}
+	if err := appcontract.CheckSpecPath(path); err != nil {
+		return nil, true, fault.Wrap(fault.Invalid, fmt.Errorf("secrets: spec: %w", err))
+	}
 	raw, err := os.ReadFile(filepath.Join(ws, filepath.Clean(path)))
 	if os.IsNotExist(err) {
 		return nil, false, nil
@@ -163,8 +166,11 @@ func ParseSpec(raw []byte) (*Spec, error) {
 			if !secretNameRe.MatchString(sname) {
 				return nil, fmt.Errorf("[profiles.%s] %q is not an environment variable name (A-Z, 0-9, _)", pname, sname)
 			}
-			if sname == appcontract.BrowserEnvVar {
-				return nil, fmt.Errorf("[profiles.%s] %s is set by AppTown alone; name the secret something else", pname, sname)
+			// A secret named like a variable AppTown sets would win on one
+			// target and lose on another; APPTOWN_ names are kept for
+			// variables AppTown adds later.
+			if why := appcontract.ReservedEnvName(sname); why != "" {
+				return nil, fmt.Errorf("[profiles.%s] %s is AppTown's (%s); name the secret something else", pname, sname, why)
 			}
 			rp.entries[sname] = e
 		}

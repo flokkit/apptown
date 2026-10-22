@@ -46,6 +46,11 @@ step names, gates naming steps that exist).
   every kind's). Any other key is refused by name, in any casing; `minApprovals`
   is not `quorum`. Where an option's value is data (a script's `env`, a called
   workflow's `with`) its keys are yours.
+- `failOn`, on a `scan` or `guidance/conformance` step, is `low`, `medium`,
+  `high` or `critical`; anything else is refused by name. Left out, a scan
+  fails on every finding it may gate on (whatever its scanner looks at; the
+  stock image scans write `failOn: high`), and a conformance check fails at
+  `high`.
 - Steps read the change as `${{change.title}}`, `${{change.body}}`,
   `${{change.type}}` and `${{change.id}}`. `${{workItem.*}}` is refused in a
   save.
@@ -56,7 +61,11 @@ A pack names guidance blocks, workflows and policies from the library, and can
 include another pack with items replaced or dropped. It may state
 `apiVersion: apptown.dev/v1`; leaving it out means the same, and any other value
 is refused by name. Stating it does not make a new version. A pack names policies; it
-does not define them: add a policy to the library first, then pick it.
+does not define them: add a policy to the library first, then pick it. Every
+block, workflow and policy a pack names must be in the library when you save
+it, so its version can pin it; one that is not is refused by name. (A
+language pack lists system workflows such as `land` without pinning them:
+the platform pack pins those.)
 
 Each saved version records exactly what it contains: each block and workflow at
 a version, and each policy's definition as it was when the version was
