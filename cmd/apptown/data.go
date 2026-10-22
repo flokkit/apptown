@@ -27,7 +27,7 @@ func cmdData(args []string) error {
 	without := fs.Bool("without-final-copy", false, "take-down: go without a final copy when none can be taken; the data stays at the provider as a retained resource")
 	args = parseArgs(fs, args)
 	if *proj == "" {
-		return fmt.Errorf("no project: pass -p <slug>")
+		return usagef("no project: pass -p <slug>")
 	}
 	if len(args) == 2 && args[0] == "take-down" {
 		return takeDown(os.Stdout, *proj, args[1], *without)
@@ -49,7 +49,7 @@ func cmdData(args []string) error {
 		return followOperation(os.Stdout, out.OperationID, 2*time.Second)
 	}
 	if len(args) != 1 {
-		return fmt.Errorf("usage: apptown data -p <slug> <deployment> · apptown data -p <slug> copy|check|rehearse|test <deployment> · apptown data -p <slug> take-down <deployment> [--without-final-copy]")
+		return usagef("usage: apptown data -p <slug> <deployment> · apptown data -p <slug> copy|check|rehearse|test <deployment> · apptown data -p <slug> take-down <deployment> [--without-final-copy]")
 	}
 	var p protection
 	if err := api.get("/projects/"+*proj+"/deployments/"+args[0]+"/protection", &p); err != nil {

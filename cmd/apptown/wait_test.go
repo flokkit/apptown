@@ -94,6 +94,31 @@ func TestWaitForAMissingRunWaitsOnTheChangeItNames(t *testing.T) {
 	}
 }
 
+// A change's name (shop#12) is what a script passes to wait: wait takes
+// that form, and a bare number in a project, as the change, never as the
+// run with the same number.
+func TestWaitTakesAChangesNameAsTheChange(t *testing.T) {
+	const change = "00000000-0c12-7000-8000-000000000000"
+	for _, args := range [][]string{{"wait", "shop#12", "-i", "0"}, {"wait", "12", "-p", "shop", "-i", "0"}} {
+		seen := fakeForge(t, func(_, path string) (int, string) {
+			switch path {
+			case "/changes/shop#12", "/changes/" + change:
+				return 200, `{"change":{"id":"` + change + `","state":"shipped"}}`
+			}
+			return 404, `{"error":"no such thing"}`
+		})
+		out, err := run(t, args...)
+		if err != nil || !strings.Contains(out, "change "+change+" shipped") {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		for _, r := range *seen {
+			if strings.HasPrefix(r.Path, "/runs/") {
+				t.Fatalf("%v asked for a run: %s", args, r.Path)
+			}
+		}
+	}
+}
+
 // retry --no-follow dispatches the rework AppTown offers, with the mode
 // and note asked for, and returns, as the other loop commands do, saying how
 // to come back.

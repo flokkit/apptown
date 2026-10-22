@@ -26,7 +26,7 @@ func readLocalAppYaml() (string, error) {
 // apptown config schema|validate
 func cmdConfig(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: apptown config schema | apptown config validate [path]")
+		return usagef("usage: apptown config schema | apptown config validate [path]")
 	}
 	switch args[0] {
 	case "schema":
@@ -77,7 +77,7 @@ func cmdConfig(args []string) error {
 		}
 		return fmt.Errorf("%s is not valid", path)
 	}
-	return fmt.Errorf("unknown config subcommand %q", args[0])
+	return usagef("unknown config subcommand %q", args[0])
 }
 
 // apptown dev — local development in two gears (design/decisions/forge-native-contract.md):
@@ -164,7 +164,7 @@ func cmdDev(args []string) error {
 	case "down":
 		return runDocker("down", "-v")
 	}
-	return fmt.Errorf("usage: apptown dev [ | up | generate | down]")
+	return usagef("usage: apptown dev [ | up | generate | down]")
 }
 
 // devStaticBuild is a static site's build that `apptown dev up` runs before

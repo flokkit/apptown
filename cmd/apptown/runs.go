@@ -84,9 +84,9 @@ var exitProcess = os.Exit
 
 func cmdWait(args []string) error {
 	fs := newFlags("wait")
-	change := fs.Bool("c", false, "the id is a change id, not a run id")
+	change := fs.Bool("c", false, "the id is a change's, not a run's (<project>#<number> always names a change)")
 	release := fs.Bool("r", false, "the id is a release number of the project named by -p")
-	project := fs.String("p", "", "the project a bare number names a run, change or release (-r) in")
+	project := fs.String("p", "", "the project a bare number names a change or a release (-r) in")
 	operation := fs.Bool("o", false, "the id is an operation's (a copy, a check, a take-down)")
 	interval := fs.Int("i", 10, "poll interval in seconds")
 	asJSON := fs.Bool("json", false, "print how the wait ended as JSON (exit codes unchanged)")
@@ -95,7 +95,7 @@ func cmdWait(args []string) error {
 		*operation, args = true, args[1:]
 	}
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown wait [-c] <run|change> [-i seconds] (an id or <project>#<number>), apptown wait -p <slug> -r <release-number>, or apptown wait operation <id>")
+		return usagef("usage: apptown wait [-c] <change|run-id> [-i seconds] (a change's id or <project>#<number>, or a run's id), apptown wait -p <slug> -r <release-number>, or apptown wait operation <id>")
 	}
 	if *operation {
 		id, err := parseID(args[0], "operation id")
@@ -126,9 +126,15 @@ func cmdWait(args []string) error {
 	}
 	if *release {
 		if *asJSON {
-			return fmt.Errorf("--json covers waiting on a run, a change or an operation, not a release")
+			return usagef("--json covers waiting on a run, a change or an operation, not a release")
 		}
 		return waitRelease(*project, args[0], time.Duration(*interval)*time.Second)
+	}
+	// A change's name (<project>#<number>, or a bare number in a project)
+	// is what a script holds: wait takes that form as the change, never as
+	// the run with the same number. A run is named by its id.
+	if id, err := ids.Parse(strings.TrimSpace(args[0])); err != nil || id.IsZero() {
+		*change = true
 	}
 	resolve := func(args []string) error { return runArg(args, *project) }
 	if *change {
@@ -285,7 +291,7 @@ func endedDetail(state string, last *runDetail) string {
 // the project is required.
 func waitRelease(project, arg string, interval time.Duration) error {
 	if project == "" {
-		return fmt.Errorf("usage: apptown wait -p <slug> -r <release-number>: a release is numbered within its project")
+		return usagef("usage: apptown wait -p <slug> -r <release-number>: a release is numbered within its project")
 	}
 	number, err := parseNumber(strings.TrimPrefix(arg, "r"), "release number")
 	if err != nil {
@@ -368,7 +374,7 @@ func isChange(id string) bool {
 // actually found, without leaving the terminal.
 func cmdFindings(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown findings <run-id>")
+		return usagef("usage: apptown findings <run-id>")
 	}
 	var out struct {
 		Findings []struct {
@@ -466,7 +472,7 @@ type runDetail struct {
 
 func cmdStatus(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown status <run-id>")
+		return usagef("usage: apptown status <run-id>")
 	}
 	if err := runArg(args, ""); err != nil {
 		return err
@@ -568,7 +574,7 @@ func testsLines(runs []runDetail) []string {
 
 func cmdAdvance(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown advance <run-id>")
+		return usagef("usage: apptown advance <run-id>")
 	}
 	if err := runArg(args, ""); err != nil {
 		return err
@@ -616,7 +622,7 @@ func cmdAdvance(args []string) error {
 // cmdRecheckStage runs a stage's checks again when its gate is missing evidence.
 func cmdRecheckStage(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown recheck-stage <run-id>")
+		return usagef("usage: apptown recheck-stage <run-id>")
 	}
 	if err := runArg(args, ""); err != nil {
 		return err
@@ -728,10 +734,10 @@ func cmdDecide(args []string, decision string) error {
 	asJSON := fs.Bool("json", false, "print the decision as JSON (needs -y: --json never asks)")
 	args = parseArgs(fs, args)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown %s <step-id> [-m comment]", decision)
+		return usagef("usage: apptown %s <step-id> [-m comment]", decision)
 	}
 	if *asJSON && decision == "approve" && !*yes {
-		return fmt.Errorf("--json never asks: read what approving means (apptown approve %s), then rerun with -y --json", args[0])
+		return usagef("--json never asks: read what approving means (apptown approve %s), then rerun with -y --json", args[0])
 	}
 	if err := idArg(args, "step id"); err != nil {
 		return err
@@ -750,7 +756,7 @@ func cmdDecide(args []string, decision string) error {
 		shown, adds = q.LandingMeans, q.addsDigest()
 		if !*yes {
 			if !isTTY {
-				return fmt.Errorf("read what approving %q means above, then rerun with -y (stdin is not a terminal)", q.Step)
+				return usagef("read what approving %q means above, then rerun with -y (stdin is not a terminal)", q.Step)
 			}
 			if ans := strings.ToLower(ask("  approve? [y/N]: ")); ans != "y" && ans != "yes" {
 				fmt.Println("left pending")
@@ -781,7 +787,7 @@ func cmdDecide(args []string, decision string) error {
 
 func cmdRunStep(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown run-step <step-id>")
+		return usagef("usage: apptown run-step <step-id>")
 	}
 	if err := idArg(args, "step id"); err != nil {
 		return err
@@ -807,13 +813,13 @@ func cmdAttach(args []string) error {
 	ref := fs.String("r", "", "url or reference")
 	args = parseArgs(fs, args)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown attach <run-id> -k <kind> [-n name] [-r ref]")
+		return usagef("usage: apptown attach <run-id> -k <kind> [-n name] [-r ref]")
 	}
 	if err := runArg(args, ""); err != nil {
 		return err
 	}
 	if *kind == "" {
-		return fmt.Errorf("-k <kind> is required")
+		return usagef("-k <kind> is required")
 	}
 	_, err := api.request("POST", "/runs/"+args[0]+"/artifacts",
 		map[string]string{"kind": *kind, "name": *name, "ref": *ref})
@@ -829,7 +835,7 @@ func cmdTrace(args []string) error {
 	asJSON := fs.Bool("json", false, "raw JSON (for agents)")
 	args = parseArgs(fs, args)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown trace <run-id> [--json]")
+		return usagef("usage: apptown trace <run-id> [--json]")
 	}
 	if err := runArg(args, ""); err != nil {
 		return err
@@ -904,7 +910,7 @@ func cmdDiff(args []string) error {
 		}
 		path = "/changes/" + id.String() + "/diff"
 	default:
-		return fmt.Errorf("usage: apptown diff <change> | apptown diff -r <run>")
+		return usagef("usage: apptown diff <change> | apptown diff -r <run>")
 	}
 	diff, err := api.text(path)
 	if err != nil {
@@ -918,7 +924,7 @@ func cmdDiff(args []string) error {
 // agent activity lines. Exits when the run is terminal or blocked on humans.
 func cmdWatch(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown watch <run-id>")
+		return usagef("usage: apptown watch <run-id>")
 	}
 	if err := runArg(args, ""); err != nil {
 		return err
@@ -1060,7 +1066,7 @@ func cmdAbandonRun(args []string) error {
 	reason := fs.String("m", "", "reason")
 	args = parseArgs(fs, args)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown abandon-run <run-id> [-m reason]")
+		return usagef("usage: apptown abandon-run <run-id> [-m reason]")
 	}
 	if err := runArg(args, ""); err != nil {
 		return err

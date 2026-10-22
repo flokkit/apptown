@@ -29,15 +29,18 @@ func resolveProject(flagVal string) (string, error) {
 	if err == nil {
 		base := filepath.Base(cwd)
 		var ps []struct{ Slug string }
-		if api.get("/projects", &ps) == nil {
-			for _, p := range ps {
-				if p.Slug == base {
-					return base, nil
-				}
+		// A lookup AppTown refused or could not answer is that error, not
+		// a command line without a project.
+		if err := api.get("/projects", &ps); err != nil {
+			return "", fmt.Errorf("finding the project named after this directory: %w", err)
+		}
+		for _, p := range ps {
+			if p.Slug == base {
+				return base, nil
 			}
 		}
 	}
-	return "", fmt.Errorf("no project: pass -p <slug>, set APPTOWN_PROJECT, or run from a directory named after the project")
+	return "", usagef("no project: pass -p <slug>, set APPTOWN_PROJECT, or run from a directory named after the project")
 }
 
 func cmdProjects() error {
@@ -66,7 +69,7 @@ func cmdWorkflows(args []string) error {
 	project := fs.String("p", "", "project slug")
 	pos := append(parseArgs(fs, args), "")
 	if *project == "" {
-		return fmt.Errorf("-p <slug> is required")
+		return usagef("-p <slug> is required")
 	}
 	type summary struct {
 		Description string `json:"description"`
@@ -216,11 +219,11 @@ func cmdNew(args []string) error {
 	asJSON := fs.Bool("json", false, "print the project as JSON; what is said along the way goes to stderr")
 	args = parseArgs(fs, args)
 	if len(args) < 1 || args[0] == "" {
-		return fmt.Errorf("usage: apptown new <slug> [--from <https-url|bundle-file> [--secret-for-git NAME] [--branch B]] [--name N] [--pack P] [--toolchain T] [--remote]")
+		return usagef("usage: apptown new <slug> [--from <https-url|bundle-file> [--secret-for-git NAME] [--branch B]] [--name N] [--pack P] [--toolchain T] [--remote]")
 	}
 	slug := args[0]
 	if *gitSecret != "" && !strings.HasPrefix(*from, "https://") {
-		return fmt.Errorf("--secret-for-git goes with an https --from URL")
+		return usagef("--secret-for-git goes with an https --from URL")
 	}
 	var bundle *os.File
 	if *from != "" && !strings.HasPrefix(*from, "https://") {
@@ -228,7 +231,7 @@ func cmdNew(args []string) error {
 		// leave an empty project behind.
 		f, err := os.Open(*from)
 		if err != nil {
-			return fmt.Errorf("--from is neither an https URL nor a readable bundle file: %w", err)
+			return usagef("--from is neither an https URL nor a readable bundle file: %v", err)
 		}
 		defer f.Close()
 		bundle = f
@@ -359,10 +362,10 @@ func cmdBundle(args []string) error {
 	project := fs.String("p", "", "project slug")
 	parseArgs(fs, args)
 	if *project == "" {
-		return fmt.Errorf("usage: apptown bundle -p <slug> > <slug>.bundle")
+		return usagef("usage: apptown bundle -p <slug> > <slug>.bundle")
 	}
 	if term.IsTerminal(int(os.Stdout.Fd())) {
-		return fmt.Errorf("the bundle is binary: send it to a file, apptown bundle -p %s > %s.bundle", *project, *project)
+		return usagef("the bundle is binary: send it to a file, apptown bundle -p %s > %s.bundle", *project, *project)
 	}
 	n, err := api.download("/projects/"+*project+"/repo/bundle", os.Stdout)
 	if err != nil {
@@ -384,7 +387,7 @@ func cmdDelete(args []string) error {
 	noWait := fs.Bool("no-wait", false, "ask for the deletion and print where it stands, without following it")
 	pos := parseArgs(fs, args)
 	if len(pos) != 1 || pos[0] == "" {
-		return fmt.Errorf("usage: apptown delete <project-slug> [--cancel] [--no-wait]")
+		return usagef("usage: apptown delete <project-slug> [--cancel] [--no-wait]")
 	}
 	slug := pos[0]
 	if *cancel {
@@ -471,7 +474,7 @@ func followDeletion(slug string) error {
 func cmdRestore(args []string) error {
 	pos := parseArgs(newFlags("restore"), args)
 	if len(pos) != 1 || pos[0] == "" {
-		return fmt.Errorf("usage: apptown restore <project-slug>")
+		return usagef("usage: apptown restore <project-slug>")
 	}
 	if _, err := api.request("POST", "/projects/"+pos[0]+"/restore", map[string]string{}); err != nil {
 		return err
@@ -487,7 +490,7 @@ func cmdPurge(args []string) error {
 	noWait := fs.Bool("no-wait", false, "print the purge's link without following it")
 	pos := parseArgs(fs, args)
 	if len(pos) != 1 || pos[0] == "" {
-		return fmt.Errorf("usage: apptown purge <project-slug> [--no-wait]")
+		return usagef("usage: apptown purge <project-slug> [--no-wait]")
 	}
 	slug := pos[0]
 	if ans := ask(fmt.Sprintf("purging removes %s's backups, repository and records for good; type %q to purge it: ", slug, slug)); ans != slug {
@@ -523,7 +526,7 @@ func cmdPack(args []string) error {
 	slug := fs.String("p", "", "project slug")
 	pos := parseArgs(fs, args)
 	if *slug == "" || len(pos) != 1 {
-		return fmt.Errorf("usage: apptown pack -p <slug> <pack-name>")
+		return usagef("usage: apptown pack -p <slug> <pack-name>")
 	}
 	return applyPack(*slug, pos[0])
 }
@@ -564,7 +567,7 @@ func cmdInvite(args []string) error {
 	days := fs.Int("days", 0, "how many days the link lasts (default 7, at most 30)")
 	pos := parseArgs(fs, args)
 	if len(pos) != 1 || pos[0] == "" {
-		return fmt.Errorf("usage: apptown invite <username> [--role member|admin] [--label text] [--days N]")
+		return usagef("usage: apptown invite <username> [--role member|admin] [--label text] [--days N]")
 	}
 	var res struct {
 		Link   string
@@ -586,7 +589,7 @@ func cmdPasswordLink(args []string) error {
 	days := fs.Int("days", 0, "how many days the link lasts (default 3, at most 30)")
 	pos := parseArgs(fs, args)
 	if len(pos) != 1 || pos[0] == "" {
-		return fmt.Errorf("usage: apptown password-link <username> [--days N]")
+		return usagef("usage: apptown password-link <username> [--days N]")
 	}
 	var res struct {
 		Link   string
@@ -602,7 +605,7 @@ func cmdPasswordLink(args []string) error {
 
 func cmdToken(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown token create|list|revoke")
+		return usagef("usage: apptown token create|list|revoke")
 	}
 	switch args[0] {
 	case "create":
@@ -612,7 +615,7 @@ func cmdToken(args []string) error {
 		purpose := fs.String("purpose", "", "cli (your own command line; acts as you) | agent (a coding agent's MCP connection; may not approve, land or administer)")
 		pos := parseArgs(fs, args[1:])
 		if len(pos) < 1 || pos[0] == "" || *purpose == "" {
-			return fmt.Errorf("usage: apptown token create <name> --purpose cli|agent [-u user] [-r role]")
+			return usagef("usage: apptown token create <name> --purpose cli|agent [-u user] [-r role]")
 		}
 		var res struct{ Token, Name, User, Role, Purpose, Note string }
 		if err := api.post("/tokens", map[string]any{"name": pos[0], "user": *u, "role": *role, "purpose": *purpose}, &res); err != nil {
@@ -639,7 +642,7 @@ func cmdToken(args []string) error {
 		return w.Flush()
 	case "revoke":
 		if len(args) < 2 {
-			return fmt.Errorf("usage: apptown token revoke <name>")
+			return usagef("usage: apptown token revoke <name>")
 		}
 		if _, err := api.request("DELETE", "/tokens/"+args[1], nil); err != nil {
 			return err
@@ -647,7 +650,7 @@ func cmdToken(args []string) error {
 		fmt.Println("revoked", args[1])
 		return nil
 	}
-	return fmt.Errorf("unknown token subcommand %q", args[0])
+	return usagef("unknown token subcommand %q", args[0])
 }
 
 // packHistory is the pack page's read: GET /packs/{name}.
@@ -668,7 +671,7 @@ type packHistory struct {
 
 func cmdPackVersions(args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("usage: apptown pack versions <pack>")
+		return usagef("usage: apptown pack versions <pack>")
 	}
 	var h packHistory
 	if err := api.get("/packs/"+args[0], &h); err != nil {
@@ -713,11 +716,11 @@ func cmdPackRecommend(args []string) error {
 	whatIf := fs.String("what-if", "", "the what-if of this version the recommendation was decided on")
 	pos := parseArgs(fs, args)
 	if len(pos) != 2 {
-		return fmt.Errorf("usage: apptown pack recommend <pack> <version> [--what-if <id>]")
+		return usagef("usage: apptown pack recommend <pack> <version> [--what-if <id>]")
 	}
 	version, err := strconv.ParseInt(strings.TrimPrefix(pos[1], "v"), 10, 64)
 	if err != nil || version < 1 {
-		return fmt.Errorf("version must be a number such as 3 or v3, not %q", pos[1])
+		return usagef("version must be a number such as 3 or v3, not %q", pos[1])
 	}
 	body := map[string]any{"version": version}
 	basis := ""
@@ -744,7 +747,7 @@ func cmdSchedules(args []string) error {
 	project := fs.String("p", "", "project slug")
 	parseArgs(fs, args)
 	if *project == "" {
-		return fmt.Errorf("-p <slug> is required")
+		return usagef("-p <slug> is required")
 	}
 	var list struct {
 		EvalCopy  bool `json:"evalCopy"`

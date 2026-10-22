@@ -35,7 +35,7 @@ func cmdPreview(args []string) error {
 	}
 	sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN")
 	if sid == "" || tok == "" {
-		return fmt.Errorf("usage: apptown preview <change-id> (inside a change chat, bare apptown preview previews that chat's change)")
+		return usagef("usage: apptown preview <change-id> (inside a change chat, bare apptown preview previews that chat's change)")
 	}
 	var out struct {
 		URL          string `json:"url"`
@@ -53,7 +53,7 @@ func cmdPreview(args []string) error {
 // detector (the one that gates the boot rehearsal), not a guess.
 func cmdWaitChat(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown wait-chat <session-id>")
+		return usagef("usage: apptown wait-chat <session-id>")
 	}
 	for {
 		var out struct {
@@ -80,7 +80,7 @@ func cmdChat(args []string) error {
 	step := idFlag(fs, "step", "a stopped step to take to chat: its run stops (a landing ends, and the change goes back to work), and the chat continues from it")
 	parseArgs(fs, args)
 	if *project == "" || (!step.IsZero() && *change == "") {
-		return fmt.Errorf("usage: apptown chat -p <project> [-c <change> [-step <step-id>]]")
+		return usagef("usage: apptown chat -p <project> [-c <change> [-step <step-id>]]")
 	}
 	changeID := new(ids.ID)
 	if *change != "" {
@@ -110,7 +110,7 @@ func cmdChat(args []string) error {
 // cmdSay: deliver one message to a chat session's helper.
 func cmdSay(args []string) error {
 	if len(args) < 2 {
-		return fmt.Errorf("usage: apptown say <session-id> \"message\"")
+		return usagef("usage: apptown say <session-id> \"message\"")
 	}
 	if err := api.post("/console/"+args[0]+"/say", map[string]any{"text": strings.Join(args[1:], " ")}, nil); err != nil {
 		return err
@@ -126,7 +126,7 @@ func cmdInterrupt(args []string) error {
 	step := fs.Bool("step", false, "the id is a running agent or review step's, not a chat's")
 	args = parseArgs(fs, args)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown interrupt <chat-id>, or apptown interrupt -step <step-id>")
+		return usagef("usage: apptown interrupt <chat-id>, or apptown interrupt -step <step-id>")
 	}
 	// Chats and steps both have UUIDs: the caller says which it means. A
 	// running agent or review step is stopped through the product and re-run
@@ -157,7 +157,7 @@ func cmdTranscript(args []string) error {
 	from := fs.Int("from", 0, "message offset to start at")
 	args = parseArgs(fs, args)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown transcript <session-id> [-from N]")
+		return usagef("usage: apptown transcript <session-id> [-from N]")
 	}
 	var out struct {
 		Messages []struct {

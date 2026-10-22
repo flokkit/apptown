@@ -199,7 +199,7 @@ func cmdShow(args []string) error {
 	asJSON := fs.Bool("json", false, "print the change as JSON")
 	args = parseArgs(fs, args)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: apptown show <change-id> [--json]")
+		return usagef("usage: apptown show <change-id> [--json]")
 	}
 	id, err := changeRef(args[0], "")
 	if err != nil {
@@ -453,7 +453,7 @@ func cmdImport(args []string) error {
 	title := fs.String("t", "", "change title (default: import <branch>)")
 	pos := parseArgs(fs, args)
 	if len(pos) < 1 {
-		return fmt.Errorf("usage: apptown import <branch> [-p project] [-t title]")
+		return usagef("usage: apptown import <branch> [-p project] [-t title]")
 	}
 	branch := pos[0]
 	slug, err := resolveProject(*project)
@@ -564,10 +564,10 @@ func cmdRetry(args []string) error {
 	acceptUncopied := fs.Bool("accept-uncopied-data", false, "a deploy refused because the copy taken before its release was incomplete: release anyway (the attempt records your choice)")
 	pos := parseArgs(fs, args)
 	if len(pos) < 1 {
-		return fmt.Errorf("usage: apptown retry <change-id> [-c|--continue | --restart | --accept-uncopied-data] [-y] [--no-follow]")
+		return usagef("usage: apptown retry <change-id> [-c|--continue | --restart | --accept-uncopied-data] [-y] [--no-follow]")
 	}
 	if *cont && *restart {
-		return fmt.Errorf("--continue and --restart cannot be used together")
+		return usagef("--continue and --restart cannot be used together")
 	}
 	changeID, err := changeRef(pos[0], "")
 	if err != nil {
@@ -649,11 +649,11 @@ func cmdOverride(args []string) error {
 	noFollow := fs.Bool("no-follow", false, "record the override and return")
 	pos := parseArgs(fs, args)
 	if len(pos) < 1 {
-		return fmt.Errorf(`usage: apptown override <change-id> "<justification>" [-y] [--no-follow]`)
+		return usagef(`usage: apptown override <change-id> "<justification>" [-y] [--no-follow]`)
 	}
 	reason := strings.TrimSpace(strings.Join(pos[1:], " "))
 	if reason == "" {
-		return fmt.Errorf(`an override requires a justification: apptown override <change-id> "<why>"`)
+		return usagef(`an override requires a justification: apptown override <change-id> "<why>"`)
 	}
 	changeID, err := changeRef(pos[0], "")
 	if err != nil {
@@ -680,7 +680,7 @@ func cmdOverride(args []string) error {
 func cmdAbandon(args []string) error {
 	pos := parseArgs(newFlags("abandon"), args)
 	if len(pos) < 1 {
-		return fmt.Errorf(`usage: apptown abandon <change-id> ["<reason>"]`)
+		return usagef(`usage: apptown abandon <change-id> ["<reason>"]`)
 	}
 	reason := strings.TrimSpace(strings.Join(pos[1:], " "))
 	changeID, err := changeRef(pos[0], "")
@@ -873,11 +873,11 @@ func cmdSendBack(args []string) error {
 	noFollow := fs.Bool("no-follow", false, "send it back and return")
 	pos := parseArgs(fs, args)
 	if len(pos) < 1 {
-		return fmt.Errorf(`usage: apptown sendback <change-id> "<what to change>" [-y] [--no-follow]`)
+		return usagef(`usage: apptown sendback <change-id> "<what to change>" [-y] [--no-follow]`)
 	}
 	note := strings.TrimSpace(strings.Join(pos[1:], " "))
 	if note == "" {
-		return fmt.Errorf(`say what to change — the note is what the change's agent works from, and the record of why: apptown sendback <change-id> "<note>"`)
+		return usagef(`say what to change — the note is what the change's agent works from, and the record of why: apptown sendback <change-id> "<note>"`)
 	}
 	changeID, err := changeRef(pos[0], "")
 	if err != nil {
@@ -939,7 +939,7 @@ func cmdStart(args []string) error {
 	ref := fs.String("ref", "", "external reference (Jira key, ticket URL)")
 	parseArgs(fs, args)
 	if *project == "" || *title == "" {
-		return fmt.Errorf("-p and -t are required")
+		return usagef("-p and -t are required")
 	}
 	raw, err := api.request("POST", "/projects/"+*project+"/changes",
 		map[string]string{"title": *title, "type": *typ, "body": *body, "externalRef": *ref})
@@ -982,7 +982,7 @@ func cmdRecheck(args []string) error {
 	if len(args) == 0 {
 		sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN")
 		if sid == "" || tok == "" {
-			return fmt.Errorf("usage: apptown recheck <change-id> [-y] [--no-follow] (bare, inside a change chat)")
+			return usagef("usage: apptown recheck <change-id> [-y] [--no-follow] (bare, inside a change chat)")
 		}
 		if err := api.post("/console/"+sid+"/recheck", map[string]any{}, &out); err != nil {
 			return err
@@ -1040,7 +1040,7 @@ func cmdLand(args []string) error {
 			// change; --json names both, so it is refused here, before
 			// anything starts, rather than printed half.
 			if *asJSON {
-				return fmt.Errorf("a bare apptown land in a chat answers in words, not --json: its door names the landing run but not the change; run it without --json")
+				return usagef("a bare apptown land in a chat answers in words, not --json: its door names the landing run but not the change; run it without --json")
 			}
 			if err := api.post("/console/"+sid+"/land", map[string]any{}, nil); err != nil {
 				return err
@@ -1048,7 +1048,7 @@ func cmdLand(args []string) error {
 			fmt.Println("landing started — AppTown runs its checks, then asks a person for the final OK")
 			return nil
 		}
-		return fmt.Errorf("usage: apptown land <change-id> [-y] [--no-follow]")
+		return usagef("usage: apptown land <change-id> [-y] [--no-follow]")
 	}
 	id, err := changeRef(args[0], "")
 	if err != nil {
@@ -1123,7 +1123,7 @@ func cmdInvoke(args []string) error {
 	parseArgs(fs, args)
 	if *changeID != "" {
 		if *workflow == "" {
-			return fmt.Errorf("-w is required with -c")
+			return usagef("-w is required with -c")
 		}
 		id, err := changeRef(*changeID, *project)
 		if err != nil {
@@ -1147,7 +1147,7 @@ func cmdInvoke(args []string) error {
 		return nil
 	}
 	if *project == "" || *workflow == "" || *title == "" {
-		return fmt.Errorf("-p, -w and -t are required")
+		return usagef("-p, -w and -t are required")
 	}
 	// Inside a console session, invoke goes through the session's scoped
 	// actuator endpoint (the read-only port rejects the general one).

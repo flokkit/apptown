@@ -16,7 +16,7 @@ func cmdAdopt(args []string) error {
 	yes := fs.Bool("y", false, "auto-approve gates and landing")
 	pos := parseArgs(fs, args)
 	if len(pos) < 1 {
-		return fmt.Errorf("usage: apptown adopt <capability> [-p project] [--via connector]")
+		return usagef("usage: apptown adopt <capability> [-p project] [--via connector]")
 	}
 	capability := pos[0]
 	slug, err := resolveProject(*project)
@@ -49,7 +49,7 @@ func cmdRetire(args []string) error {
 	yes := fs.Bool("y", false, "auto-approve gates and landing")
 	pos := parseArgs(fs, args)
 	if len(pos) < 1 {
-		return fmt.Errorf("usage: apptown retire <capability> [-p project]")
+		return usagef("usage: apptown retire <capability> [-p project]")
 	}
 	capability := pos[0]
 	slug, err := resolveProject(*project)
@@ -81,7 +81,7 @@ func cmdIntegrations(args []string) error {
 	proj := fs.String("p", os.Getenv("APPTOWN_PROJECT"), "project slug (default: $APPTOWN_PROJECT, set in agent steps)")
 	parseArgs(fs, args)
 	if *proj == "" {
-		return fmt.Errorf("no project: pass -p <slug> (or run inside an agent step, where $APPTOWN_PROJECT is set)")
+		return usagef("no project: pass -p <slug> (or run inside an agent step, where $APPTOWN_PROJECT is set)")
 	}
 	var out struct {
 		Attachments []struct {

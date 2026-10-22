@@ -4,7 +4,9 @@ The core-loop commands (`new`, `fix`, `quick`, `plan`, `build`, `land`,
 `show`, `changes`, `wait`, `approve`, `release`, `complain` and `version`)
 take `--json`. A script reads these fields; they are stable through 1.x, as
 [What 1.0 promises](/docs/guides/compatibility) says. A field may be added;
-none is renamed or removed.
+none is renamed or removed. A field whose values are listed below (a
+`state`, an `outcome`) may gain values: treat one you do not know as "look at
+the change", never as success.
 
 With `--json` a command:
 
@@ -18,12 +20,14 @@ With `--json` a command:
   for every outcome it waited to, including the ones that exit non-zero. A
   command that fails before it has an answer (a record that does not exist, an
   AppTown out of reach, a refusal) prints no document and says why on standard
-  error, with the exit code it has without `--json` (1, or 4 when a change was
-  sent but the answer was lost).
+  error, with the exit code it has without `--json`: 64 when the command line
+  was wrong (no change was sent), 69 when AppTown could not be reached, 4 when
+  a change was sent but the answer was lost, and 1 otherwise.
 
 A change or run is named by its UUID (`id`) and its number within its project
 (`number`); a change also by `name`, the `slug#number` you can type anywhere
-the CLI takes a change. For example:
+the CLI takes a change, `apptown wait` included (there that form always
+names a change; a run is given by its `id`). For example:
 
 ```sh
 change=$(apptown quick -p shop --json "add a footer" | jq -r .change.id)

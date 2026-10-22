@@ -22,14 +22,14 @@ func cmdRelease(args []string) error {
 	acceptUnchecked := fs.Bool("accept-unchecked-copy", false, "a deployment's first release that starts from a copy: fill it though an item of the copy was not shown to come back by its last check (the release records your choice)")
 	args = parseArgs(fs, args)
 	if len(args) < 1 || len(args) > 2 {
-		return fmt.Errorf("usage: apptown release <project-slug> <deployment>, or apptown release <project-slug> [-domain host] for the intranet (either with --json)")
+		return usagef("usage: apptown release <project-slug> <deployment>, or apptown release <project-slug> [-domain host] for the intranet (either with --json)")
 	}
 	slug := args[0]
 	var number int64
 	var where, url, state string
 	if len(args) == 2 {
 		if *domain != "" {
-			return fmt.Errorf("-domain is the intranet's; a named deployment keeps its own address")
+			return usagef("-domain is the intranet's; a named deployment keeps its own address")
 		}
 		where = args[1]
 		var out struct {
@@ -55,7 +55,7 @@ func cmdRelease(args []string) error {
 			State  string `json:"state"`
 		}
 		if *acceptUnchecked {
-			return fmt.Errorf("--accept-unchecked-copy is for a deployment that starts from a copy; the intranet does not")
+			return usagef("--accept-unchecked-copy is for a deployment that starts from a copy; the intranet does not")
 		}
 		body := map[string]any{"domain": *domain}
 		if *acceptUncopied {

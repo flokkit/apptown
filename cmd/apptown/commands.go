@@ -46,20 +46,24 @@ var sections = []section{
 			{[]string{"land"}, `  land   <change-id> [-y]               gates → approval → merge → deploy → release`, cmdLand},
 			{[]string{"show"}, `  show   <change-id>                    the cockpit in the terminal`, cmdShow},
 			{[]string{"changes"}, `  changes [-p proj] [--all]             what's in flight and what each waits on (--all: shipped too)`, cmdChanges},
-			{[]string{"wait"}, `  wait [-c] <run-id|change-id> [-i secs]
+			{[]string{"wait"}, `  wait [-c] <change|run-id> [-i secs]
   wait -p <slug> -r <release-number>    (a release: follow its log until released or failed)
   wait operation <id> [-i secs]         (an operation: a copy, a check, a take-down; exit 0 succeeded,
                                         1 failed or cancelled, 4 unknown: look before asking again)
                                         block until it finishes, fails, or needs a person (exit 0/1/2);
-                                        a number that names no run but a change waits on the change;
+                                        <project>#<number> or a bare number is a change, a run is named by its id;
+                                        a run id that names no run but a change waits on the change;
                                         a run that ended without finishing is named with why and what next`, cmdWait},
 			{[]string{"approve"}, `  approve <step-id> [-m comment] [-y]   show what approving means, then approve`, func(args []string) error { return cmdDecide(args, "approve") }},
 			{[]string{"release"}, `  release <project-slug> <deployment>   release what landed on main to that deployment and follow its log` + "\n" +
 				`                                        (--accept-uncopied-data: release though AppTown cannot copy the data it holds now;` + "\n" +
 				`                                        --accept-unchecked-copy: fill a deployment that starts from a copy not shown to come back whole)` + "\n" +
-				`  release <project-slug> [-domain host] release what landed on main to the intranet and follow its log`, cmdRelease},
+				`  release <project-slug> [-domain host] release what landed on main to the intranet and follow its log` + "\n" +
+				`                                        (experimental, not promised: the intranet is Portainer, an experimental target)`, cmdRelease},
 			{[]string{"complain"}, `  complain "<what happened>" [-why W] [-wish W] [-about apptown|way-of-working|project]
                                         file a complaint (default: about AppTown itself, platform friction)`, cmdComplain},
+			{[]string{"executing"}, `  executing                             steps and operations executing right now, in every project (admin):
+                                        what an AppTown restart would interrupt; exit 0 none, 3 some`, cmdExecuting},
 			{[]string{"version", "-version", "--version"}, `  version                               this CLI's version and AppTown's`, cmdVersion},
 		},
 	},
@@ -106,8 +110,6 @@ var sections = []section{
   invoke -c <change-id> -w <workflow>   start a run on an existing change`, cmdInvoke},
 			{[]string{"runs"}, `  runs [-p <slug>] [--status all|done|running]
                                         list runs (default: running)`, cmdRuns},
-			{[]string{"executing"}, `  executing                             steps and operations executing right now, in every project (admin):
-                                        what an AppTown restart would interrupt; exit 0 none, 3 some`, cmdExecuting},
 			{[]string{"status"}, `  status                                your home: what is waiting on you and what is running
   status <run-id>                       run state: stages, current checks, step ids`, cmdStatusOrHome},
 			{[]string{"timing"}, `  timing [<workflow>] [-days N] [-r <run-id>]
@@ -269,5 +271,6 @@ func helpText() string {
 	}
 	b.WriteString("\nenvironment: APPTOWN_URL (default http://localhost:7777), APPTOWN_USER (default $USER)\n")
 	b.WriteString("exit 4: a change was sent but its outcome is unknown (the answer was lost); look before trying again\n")
+	b.WriteString("exit 64: the command line was wrong, no change was sent; exit 69: AppTown could not be reached\n")
 	return b.String()
 }

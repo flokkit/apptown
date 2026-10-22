@@ -121,7 +121,7 @@ func cmdCatalogPromote(args []string) error {
 	note := fs.String("m", "", "evaluation evidence, e.g. \"run 113 on scratch, gates green\"")
 	args = parseArgs(fs, args)
 	if len(args) == 0 {
-		return fmt.Errorf("usage: apptown catalog promote <name> -m \"<evaluation evidence>\"")
+		return usagef("usage: apptown catalog promote <name> -m \"<evaluation evidence>\"")
 	}
 	raw, err := api.request("POST", "/catalog-promote/"+args[0], map[string]string{"note": *note})
 	if err != nil {
@@ -149,7 +149,7 @@ func (p paramFlags) String() string { return "" }
 func (p paramFlags) Set(v string) error {
 	k, val, ok := strings.Cut(v, "=")
 	if !ok {
-		return fmt.Errorf("--param wants k=v, got %q", v)
+		return usagef("--param wants k=v, got %q", v)
 	}
 	p[k] = val
 	return nil
@@ -162,7 +162,7 @@ func cmdApply(args []string) error {
 	fs.Var(params, "param", "parameter k=v (repeatable)")
 	args = parseArgs(fs, args)
 	if len(args) == 0 {
-		return fmt.Errorf("usage: apptown apply <catalog-change> [-p proj] [--param k=v]")
+		return usagef("usage: apptown apply <catalog-change> [-p proj] [--param k=v]")
 	}
 	slug, err := resolveProject(*project)
 	if err != nil {

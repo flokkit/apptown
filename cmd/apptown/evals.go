@@ -75,7 +75,7 @@ func dollars(micros int64, incomplete int64) string {
 // continue a held one, or delete one.
 func cmdEval(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: apptown eval start|show|continue|delete …")
+		return usagef("usage: apptown eval start|show|continue|delete …")
 	}
 	switch args[0] {
 	case "start":
@@ -108,7 +108,7 @@ func cmdEval(args []string) error {
 		fmt.Printf("eval %s deleted\n", pos[0])
 		return nil
 	}
-	return fmt.Errorf("usage: apptown eval start|show|continue|delete …")
+	return usagef("usage: apptown eval start|show|continue|delete …")
 }
 
 func cmdEvalStart(args []string) error {
@@ -130,7 +130,7 @@ func cmdEvalStart(args []string) error {
 		}
 		idList = append(idList, id)
 	}
-	usage := fmt.Errorf("usage: apptown eval start --changes shop#12,shop#15 (--model <profile> | --pack <name@version>) --budget <dollars>")
+	usage := usagef("usage: apptown eval start --changes shop#12,shop#15 (--model <profile> | --pack <name@version>) --budget <dollars>")
 	if len(idList) == 0 || (*profile == "") == (*packVersion == "") || *budget <= 0 {
 		return usage
 	}
