@@ -20,7 +20,9 @@ import (
 // record says; anywhere else it is no authority at all. Approval steps in
 // such a run are settled by it and shown as eval-authorised: no person
 // approved them, approvedByAPerson stays false, and they are never carried
-// as acceptance to other work.
+// as acceptance to other work. In a checked landing a settled approval names
+// the landing's candidate, as a person's vote does, so the merge's check
+// that every approval assented to the commit it lands applies unchanged.
 
 const evalAuthorityPrefix = "eval/"
 
@@ -197,13 +199,22 @@ func (s landings) settleForEval(ctx context.Context, run *Run) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		// In a checked landing an approval is assent to the pinned
+		// candidate, as a person's vote is (approveIn): the merge asks that
+		// every approval names the commit it lands.
+		candidate := ""
+		if c, pinned, err := LandingCandidateIn(ctx, tx, current.ID); err != nil {
+			return false, err
+		} else if pinned {
+			candidate = c.Candidate
+		}
 		settledAny := false
 		for _, step := range locked {
 			if step.Type != "approval" || step.Status != StatusPending || step.OverrideBy != "" {
 				continue
 			}
 			at := s.now()
-			outcome, err := step.settleForEval(authority, at)
+			outcome, err := step.settleForEval(authority, candidate, at)
 			if err != nil {
 				return false, err
 			}
@@ -231,9 +242,9 @@ type evalAuthorisedReceipt struct {
 }
 
 // settleForEval passes an undecided approval on an eval's authority: the
-// round closes approved with the step's stated meaning, the authority named
-// and no approver or vote.
-func (s *Step) settleForEval(authority string, at time.Time) (ApprovalOutcome, error) {
+// round closes approved with the step's stated meaning, the authority named,
+// the landing's candidate when it has one, and no approver or vote.
+func (s *Step) settleForEval(authority, candidate string, at time.Time) (ApprovalOutcome, error) {
 	if s.Type != "approval" || s.OverrideBy != "" || s.Status == StatusPass || s.Status == StatusFail {
 		return ApprovalOutcome{}, fmt.Errorf("step %q is not an undecided approval: %w", s.Name, errStepDecisionConflict)
 	}
@@ -250,7 +261,7 @@ func (s *Step) settleForEval(authority string, at time.Time) (ApprovalOutcome, e
 	}
 	next := document.evidence.clone()
 	next.Quorum, next.Means = cfg.Quorum, cfg.Means
-	next.Approver, next.Comment, next.Candidate = "", "", ""
+	next.Approver, next.Comment, next.Candidate = "", "", candidate
 	next.Decision, next.At, next.EvalAuthorised = VoteApprove, at.UTC().Format(time.RFC3339Nano), authority
 	body, err := document.encode(next)
 	if err != nil {

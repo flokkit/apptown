@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -139,6 +140,61 @@ func TestAnEvalsApprovalIsSettledButIsNoPersonsApproval(t *testing.T) {
 	outside := evalRunForTest(t, db, real, ids.Nil, authority)
 	if settled, err := s.carryOrSettleForEval(ctx, outside); err != nil || settled {
 		t.Fatalf("outside the eval's copies nothing is settled: %v %v", settled, err)
+	}
+}
+
+// In a checked landing an eval's settled approval is assent to the pinned
+// candidate, as a person's vote is: it names that commit, so the merge's own
+// check of what every approval assented to passes.
+func TestAnEvalsSettledApprovalNamesTheLandingsCandidate(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	ctx := context.Background()
+	copy7 := changeTestProject(t, db, "copy-7")
+	evalCopyForTest(t, db, copy7, idstest.N(7))
+	run := evalRunForTest(t, db, copy7, ids.Nil, evalAuthorityOf(idstest.N(7), "bls"))
+	const candidate = "0c54822890d8aaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	// The start events Work's admission records for a pinned landing; this
+	// fixture stores its run directly, below admission.
+	if err := db.InTx(ctx, func(tx *database.Tx) error {
+		if err := recordReceiptIn(ctx, tx, run.ID, landingPinRequiredEvent, struct{}{}, time.Now()); err != nil {
+			return err
+		}
+		return recordReceiptIn(ctx, tx, run.ID, landingCandidateEvent, LandingCandidate{Candidate: candidate, Target: "1111111111111111111111111111111111111111", By: "catch-up"}, time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	steps, err := readSteps(ctx, db, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range steps {
+		if step.Name == "review-change" {
+			// The stage's check passed on the candidate, as a landing gate records.
+			recordScopeStep(t, db, workflowsql.RecordApprovalParams{At: time.Now(), ID: step.ID, Status: StatusPass.String(), EvidenceJson: json.RawMessage(`{"candidate":"` + candidate + `"}`)})
+		}
+	}
+	if settled, err := newLandings(db, nil).carryOrSettleForEval(ctx, run); err != nil || !settled {
+		t.Fatalf("settled: %v %v", settled, err)
+	}
+	if steps, err = readSteps(ctx, db, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range steps {
+		if step.Name != "accept" {
+			continue
+		}
+		evidence, err := ReadApprovalEvidence(step.Evidence)
+		if err != nil || evidence.Candidate != candidate {
+			t.Fatalf("the settled approval names %q, want the landing's candidate: %v", evidence.Candidate, err)
+		}
+	}
+	c, _, err := LandingCandidateIn(ctx, db, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refusal, err := landingCandidateRefusal(ctx, db, run.ID, c); err != nil || refusal != "" {
+		t.Fatalf("the merge's check refuses: %q %v", refusal, err)
 	}
 }
 
