@@ -1,8 +1,8 @@
 # Flokkit AppTown
 
 AppTown gives your team, household or clients a ready-made place to build
-small web apps with AI coding agents, in the browser or from their own coding
-agent. Each app follows a way of working you choose and is checked and
+small web apps with AI coding agents, in the browser or from a desktop agent
+via MCP. Each app follows a way of working you choose and is checked and
 deployed the same way, so looking after many apps doesn't mean looking after
 many different setups. You run AppTown yourself, on your own computer or
 server.
