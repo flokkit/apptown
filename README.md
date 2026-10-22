@@ -1,13 +1,41 @@
 # Flokkit AppTown
 
-AppTown gives your team, or your clients, a ready-made place to build apps
-with AI coding agents. There's nothing to install on their side. Each app
-follows a way of working you choose, and they're all checked, deployed and
-backed up the same way, so looking after many apps doesn't mean looking after
+AppTown gives your team, household or clients a ready-made place to build
+small web apps with AI coding agents, in the browser or from their own coding
+agent. Each app follows a way of working you choose and is checked and
+deployed the same way, so looking after many apps doesn't mean looking after
 many different setups. You run AppTown yourself, on your own computer or
 server.
 
 **1.0 release candidate** · [Tour](https://apptown.dev/tour/) · [Install on a server](#install-on-a-server) · [Release notes](releases/) · [Apache-2.0](LICENSE)
+
+## What you get
+
+**For the people you set it up for**
+
+- **People who don't use a coding agent** work entirely in the browser. They
+  describe what they want, an agent makes it in a container on your server
+  using the model key you provide, and they try it on a preview link. Nothing
+  to install, no API keys, and no deploy tooling to set up.
+- **People who already use a coding agent** keep using their own. They
+  connect it to AppTown and push their work as a change. AppTown then checks
+  that work itself: it runs the tests, and it checks the change follows your
+  way of working.
+- In a team, you decide who approves changes and who can release them.
+
+**For you, keeping it all running**
+
+- You choose each app's language, framework, checks and agent guidance as a
+  way of working. Projects can share one, so different people build on the
+  same conventions.
+- AppTown manages HTTPS, databases and object storage, with backups on
+  supported deployment targets.
+- Library updates and way-of-working updates come to you as changes that are
+  already built and tested.
+- There's a record of who asked for what, what was checked, who approved it
+  and what's running now.
+- It's ordinary software underneath: a git repository and a container image
+  you can take anywhere.
 
 ## Try it now
 
@@ -30,36 +58,6 @@ how to stop or remove it. To run it for a team, see
 ![A change in AppTown: the checks that ran, the one that failed, and the approval it is waiting for](site/tour/change-light.png)
 
 More screenshots are in [the tour](https://apptown.dev/tour/).
-
-## What you get
-
-**For the people you set it up for**
-
-- **People who don't use a coding agent** work entirely in the browser. They
-  describe what they want, an agent makes it in a container on your server
-  using the model key you provide, and they try it on a preview link. Nothing
-  to install, no API keys, and no deploy tooling to set up.
-- **People who already use a coding agent** keep using their own. They
-  connect it to AppTown and push their work as a change. AppTown then checks
-  that work itself: it runs the tests, and it checks the change follows your
-  way of working.
-- In a team, you decide who approves changes and who can release them.
-
-**For you, keeping it all running**
-
-- Every app follows the way of working you choose: the language and
-  framework, the checks, and the guidance the agents follow. Apps on the same
-  way of working look alike, even when different people built them months
-  apart.
-- Apps get deployed with HTTPS, databases (Postgres, MariaDB, S3) and backups
-  included.
-- Maintenance arrives as ready-made changes. Library updates and
-  improvements to your way of working are made, built and tested for you, so
-  keeping apps current is mostly a matter of reviewing.
-- There's a record of who asked for what, what was checked, who approved it
-  and what's running now.
-- It's ordinary software underneath: a git repository and a container image
-  you can take anywhere.
 
 ## What it's good for
 
@@ -105,8 +103,8 @@ computer can be brought in and adopt one too.
 
 One or more admins run AppTown for everyone else. They invite people,
 connect the places apps get deployed to, add the AI model key, and choose
-the way of working new projects start with. They don't approve other
-people's changes. Each project's own people do that.
+the way of working new projects start with. Each project sets its own
+approval rules. Administrators can also approve changes.
 
 On one Linux server with Docker (Compose 2.23 or later) and a domain name:
 
