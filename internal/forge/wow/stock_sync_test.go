@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"flokkit.io/forge/internal/forge/wow/internal/wowsql"
+	"flokkit.io/forge/internal/ids"
 
 	"flokkit.io/forge/stock"
 )
@@ -384,11 +385,22 @@ func TestANewPackKeepsTheDefinitionItsLegacyParentHeld(t *testing.T) {
 	if _, err := s.PublishPack(ctx, "parent", "", `{"policies":[{"name":"gate"}]}`, ""); err != nil {
 		t.Fatal(err)
 	}
-	// An amendment republishes v1's contents (the definition requiring
-	// scan) with pins that hold no policies: a publication from before
-	// policies were pinned.
-	legacy, err := s.AmendPack(ctx, "parent", 1, `{"blocks":{},"workflows":{}}`, "alice")
+	// v2 repeats v1's contents (the definition requiring scan) with pins
+	// that hold no policies: a publication from before policies were
+	// pinned. No operation makes one any more, so it is written directly.
+	q := libraryRows(s.db)
+	parent, err := q.PackByName(ctx, "parent")
 	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := q.PackVersions(ctx, parent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const legacy = 2
+	v1 := rows[len(rows)-1]
+	if _, err := q.InsertPackVersion(ctx, wowsql.InsertPackVersionParams{ID: ids.New(time.Now()), PackID: parent.ID, Version: legacy, Spec: v1.SpecJson, Pins: []byte(`{"blocks":{},"workflows":{}}`),
+		Declaration: v1.DeclarationJson, IncludedPack: v1.IncludedPack, IncludedVersion: v1.IncludedVersion, BasedOn: v1.Version, At: time.Now().UTC()}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SaveLibraryPolicy(ctx, policy("tests"), "alice"); err != nil {

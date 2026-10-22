@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -315,15 +314,6 @@ func (s *Spec) Stage(name string) (*Stage, int) {
 		}
 	}
 	return nil, -1
-}
-
-// UsesOldDockerRule: an agent step's with: that uses skill/implementation and
-// says nothing of docker. Private Docker was given to such a step until steps
-// declared it with docker: true.
-func UsesOldDockerRule(with map[string]any) bool {
-	_, declared := with["docker"]
-	skills, _ := with["skills"].([]any)
-	return !declared && slices.Contains(skills, any("skill/implementation"))
 }
 
 // validateApproval checks approval-step config the engine will later trust:

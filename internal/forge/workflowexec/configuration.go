@@ -68,14 +68,10 @@ func (a *Executor) resolveAgentKnobs(run *workflow.Run, cfg *agentConfig) agentK
 	return k
 }
 
-// dockerRefusal is why the step is not started, before any effect: a step of
-// a run admitted under the old private-Docker rule, or private Docker
-// declared on an AppTown started with -no-private-docker.
-func (a *Executor) dockerRefusal(step *workflow.Step, k agentKnobs) string {
-	switch {
-	case workflow.StartedUnderOldDockerRule(step.Config):
-		return workflow.OldDockerRuleRefusal
-	case k.useDind && a.cfg.NoPrivateDocker:
+// dockerRefusal is why the step is not started, before any effect: private
+// Docker declared on an AppTown started with -no-private-docker.
+func (a *Executor) dockerRefusal(k agentKnobs) string {
+	if k.useDind && a.cfg.NoPrivateDocker {
 		return "this step declares private Docker (docker: true), and this AppTown was started with -no-private-docker"
 	}
 	return ""

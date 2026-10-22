@@ -33,7 +33,7 @@ a complete, immutable inventory of every executable installed during a session.
 
 **RE4 — Private Docker has an explicit eligibility and failure policy.** With
 private Docker enabled, writable change chats receive a daemon belonging to
-their session. Docker-executed agent steps requesting the implementation skill
+their session. Docker-executed agent steps that declare `docker: true`
 are eligible for a temporary daemon. Read-only project chats and other step
 types receive no automatic daemon. The administrator can disable this feature.
 A new or upgraded change console must prepare its daemon and builder before

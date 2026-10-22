@@ -248,9 +248,6 @@ func (s stepRetries) retryIn(ctx context.Context, tx *database.Tx, run *Run, ste
 	if err != nil {
 		return err
 	}
-	if step.Type == "agent/pi" && StartedUnderOldDockerRule(step.Config) {
-		return &RetryError{RetryInvalid, OldDockerRuleRefusal}
-	}
 	// An acceptance is this attempt's alone: every retry takes the earlier
 	// one away and records only its own.
 	delete(cfg, uncopiedDataKey)
@@ -413,16 +410,4 @@ func invalidateRunDecisionIn(ctx context.Context, tx *database.Tx, run *Run, at 
 		return ErrRunMoved
 	}
 	return nil
-}
-
-// OldDockerRuleRefusal is said of an agent step admitted while private Docker
-// was given to every skill/implementation step, before steps declared it.
-const OldDockerRuleRefusal = "this run was started under the old private-Docker rule; start a new run"
-
-// StartedUnderOldDockerRule: the step's frozen configuration is one the old
-// rule gave private Docker (schema.UsesOldDockerRule). Its run is not
-// rewritten, and it is not run under a rule it was not admitted with.
-func StartedUnderOldDockerRule(config json.RawMessage) bool {
-	var with map[string]any
-	return json.Unmarshal(config, &with) == nil && schema.UsesOldDockerRule(with)
 }
