@@ -24,6 +24,8 @@ type fakeDaemon struct {
 	running bool
 	image   string
 	labels  map[string]string
+	// unreachable answers every inspection as a daemon that cannot be asked.
+	unreachable bool
 }
 
 func (f *fakeDaemon) Run(_ context.Context, _ string, req Command) ([]byte, error) {
@@ -33,6 +35,8 @@ func (f *fakeDaemon) Run(_ context.Context, _ string, req Command) ([]byte, erro
 	}
 	args := req.Args
 	switch {
+	case args[0] == "inspect" && f.unreachable:
+		return []byte("Cannot connect to the Docker daemon"), errors.New("exit status 1")
 	case args[0] == "inspect" && args[1] == "--format": // identity and liveness
 		name := args[len(args)-1]
 		if !f.exists {
@@ -189,15 +193,20 @@ func (f *removalDaemon) Run(_ context.Context, _ string, req Command) ([]byte, e
 	return nil, errors.New("unexpected command")
 }
 func TestTeardownUsesVerifiedContainerIDAndPropagatesFailures(t *testing.T) {
-	for _, scenario := range []string{"success", "replacement", "unlabelled", "no-id", "inspect-error", "remove-error", "cancelled"} {
+	// Kills: a take-down that refuses the container a failed release left.
+	for _, scenario := range []string{"success", "failed-release", "another-deployment", "unlabelled", "no-id", "inspect-error", "remove-error", "cancelled"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			f := &removalDaemon{runtime: Runtime{ID: "old-immutable-id", Labels: deploy.DockerIdentity{Deployment: "7", Generation: 3}.Labels()}}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			switch scenario {
-			case "replacement":
+			case "failed-release":
+				// A failed release of generation 4 started its container
+				// under the name: it is this deployment's, and goes.
 				f.runtime.Labels["apptown.generation"] = "4"
+			case "another-deployment":
+				f.runtime.Labels["apptown.deployment"] = "8"
 			case "unlabelled":
 				f.runtime.Labels = nil
 			case "no-id":
@@ -212,17 +221,18 @@ func TestTeardownUsesVerifiedContainerIDAndPropagatesFailures(t *testing.T) {
 			d := Driver{Scope: func(context.Context) (Scope, error) { return Scope{Client: f}, nil }}
 			owned := []deploy.Owned{{Kind: "network", ID: "apptown-net-env-shop-main"}}
 			_, err := d.Teardown(ctx, deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Generation: 3, Container: "reusable-name"}, 3, deploy.TakeDown{Owned: owned})
-			if (err == nil) != (scenario == "success") {
+			removes := scenario == "success" || scenario == "failed-release"
+			if (err == nil) != removes {
 				t.Fatalf("teardown: %v", err)
 			}
 			// The rest of the list is touched only once the serving container is gone.
-			if (len(f.others) > 0) != (scenario == "success") {
+			if (len(f.others) > 0) != removes {
 				t.Fatalf("the rest of the list after %s: %v", scenario, f.others)
 			}
 			if slices.Contains(f.rmArgs, "-v") {
 				t.Fatalf("the serving container was removed with its unlisted volumes: %v", f.rmArgs)
 			}
-			if scenario == "success" || scenario == "remove-error" {
+			if removes || scenario == "remove-error" {
 				if f.removed != "old-immutable-id" {
 					t.Fatalf("removed name or wrong identity: %q", f.removed)
 				}
@@ -266,16 +276,23 @@ func TestObserveDistinguishesUnavailableFromStopped(t *testing.T) {
 	}
 }
 
-// A boot that failed before touching Docker is a known outcome: the driver
-// says so, so the attempt settles failed and a fixed cause can be retried. A
-// failure after effects stays unknown.
-func TestADriverBootThatChangedNothingIsAKnownFailure(t *testing.T) {
+// A boot that reports failing in any phase is a known outcome, whether or
+// not it touched Docker first: the attempt settles failed, and releasing
+// again (or a take-down) removes what it left. Only an error no boot phase
+// reported stays unknown.
+//
+// Kills: a phase (needs, parts, app, ...) left out of the known outcomes.
+func TestAFailedBootIsAKnownFailure(t *testing.T) {
 	t.Parallel()
-	for phase, terminal := range map[string]bool{PhaseResolve: true, PhaseSecrets: true, PhaseConfig: true, PhaseNeeds: false, PhaseParts: false, PhaseApp: false} {
+	phases := map[string]bool{"": false}
+	for _, p := range []string{PhaseResolve, PhaseMove, PhaseSecrets, PhaseConfig, PhaseNeeds, PhaseFill, PhaseParts, PhaseApp, PhaseProbe, PhasePage} {
+		phases[p] = true
+	}
+	for phase, terminal := range phases {
 		t.Run(phase, func(t *testing.T) {
 			d := &Driver{
 				Scope: func(context.Context) (Scope, error) { return Scope{Client: &fakeDaemon{}}, nil },
-				Boot:  failingBoot{&BootError{Phase: phase, Err: errors.New("it failed")}},
+				Boot:  failingBoot{phasedErr(phase)},
 				URL:   func(_, _ string, port int) string { return "" },
 			}
 			c, err := appcontract.Parse([]byte("app:\n  game:\n    static: .\n    public: true\n"))
@@ -313,6 +330,14 @@ func TestADriverBootWhoseNeedDockerCalledUnhealthyIsAKnownFailure(t *testing.T) 
 	if err == nil || !deploy.IsTerminal(err) {
 		t.Fatalf("an unhealthy need's boot is not a known failure: %v", err)
 	}
+}
+
+// phasedErr is a boot failure in phase, or one no phase reported ("").
+func phasedErr(phase string) error {
+	if phase == "" {
+		return errors.New("it failed")
+	}
+	return &BootError{Phase: phase, Err: errors.New("it failed")}
 }
 
 type failingBoot struct{ err error }

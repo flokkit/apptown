@@ -99,7 +99,7 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		return Attempt{}, false, err
 	}
 	if !uncertainID.IsZero() {
-		return Attempt{}, false, fmt.Errorf("%w: deployment %d attempt %d needs observation or operator resolution", ErrUncertain, deploymentID, uncertainID)
+		return Attempt{}, false, fmt.Errorf("%w: AppTown doesn't know how this deployment's last attempt (%s) ended. Press Check again on the deployment to find out", ErrUncertain, uncertainID)
 	}
 	if !in.Inputs.ReleaseID.IsZero() {
 		r, err := deploymentReleaseIn(ctx, tx, in.Inputs.ReleaseID)

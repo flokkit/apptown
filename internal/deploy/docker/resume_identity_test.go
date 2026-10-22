@@ -10,6 +10,11 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
+// Recovery accepts only the container the attempt recorded booting, running
+// as recorded. Anything else the host answers, and an attempt with no record
+// of a healthy boot, is a known failure.
+//
+// Kills: a mismatch or a missing record left unknown (the attempt stuck).
 func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {
 	t.Parallel()
 	id := deploy.DockerIdentity{Deployment: "4", Generation: 7, Artifact: "selected-artifact"}
@@ -54,13 +59,17 @@ func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {
 				if err != nil || o.Health != "unknown" || o.ImageDigest != "sha256:selected" {
 					t.Fatalf("valid recovery %+v %v", o, err)
 				}
-			case scenario == "gone":
-				// The daemon says the booted container is gone: a known failure.
-				if !deploy.IsTerminal(err) {
-					t.Fatalf("a gone container is not a known failure: %v", err)
+			case scenario == "cancelled":
+				// Nothing was asked: still unknown.
+				if err == nil || deploy.IsTerminal(err) {
+					t.Fatalf("a cancelled look settled the attempt: %+v %v", o, err)
 				}
-			case err == nil || deploy.IsTerminal(err):
-				t.Fatalf("unknown outcome incorrectly accepted/rejected: %+v %v", o, err)
+			default:
+				// The host answered, or there is no record of a healthy
+				// boot: the attempt failed, and settles.
+				if !deploy.IsTerminal(err) {
+					t.Fatalf("%s is not a known failure: %+v %v", scenario, o, err)
+				}
 			}
 			if scenario == "no-boot-proof" && calls != 0 {
 				t.Fatal("missing boot proof must not inspect a guessed container")
