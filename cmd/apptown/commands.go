@@ -75,7 +75,8 @@ var sections = []section{
     retry -c / --continue               …same agent resumes its session, memory intact
     retry --restart                     …wind the work back to the run's base and start over
     retry --accept-uncopied-data        …a deploy refused over data AppTown could not copy: release anyway (recorded)`, cmdRetry},
-			{[]string{"sendback", "send-back"}, `  sendback <change-id> "<note>"         blocked change: close the landing, rework from your note`, cmdSendBack},
+			{[]string{"sendback", "send-back"}, `  sendback <change-id> "<note>"         blocked change: close the landing; its agent reworks from your note
+                                        (a change with no agent is back in progress for you to push a fix)`, cmdSendBack},
 			{[]string{"override"}, `  override <change-id> "<why>"          blocked change: overrule the machine verdict (recorded)`, cmdOverride},
 			{[]string{"abandon"}, `  abandon <change-id> ["<why>"]         close a change (its record is kept)`, cmdAbandon},
 			{[]string{"import"}, `  import <branch> [-p proj]             import an outside branch as a change (commits only, no run history)`, cmdImport},

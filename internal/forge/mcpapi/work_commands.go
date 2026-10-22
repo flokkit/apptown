@@ -81,8 +81,11 @@ func (h workCommands) sendChangeBack(c *Call, args map[string]any) (any, error) 
 	if err != nil {
 		return nil, refuse("%v", err)
 	}
-	return map[string]any{"changeId": ch.ID, "runId": runID, "stepId": stepID, "webUrl": c.changeURL(ch.ID),
-		"next": "the agent is reworking it; get_change shows its progress"}, nil
+	next := "the agent is reworking it; get_change shows its progress"
+	if runID.IsZero() {
+		next = "no agent works on this change: its landing stopped and it is back in progress; push the fix to its branch, then land it again"
+	}
+	return map[string]any{"changeId": ch.ID, "runId": runID, "stepId": stepID, "webUrl": c.changeURL(ch.ID), "next": next}, nil
 }
 func (h workCommands) abandonChange(c *Call, args map[string]any) (any, error) {
 	ch, _, err := h.scope.changeForWrite(h.work, c, args)

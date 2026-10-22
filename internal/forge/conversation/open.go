@@ -86,13 +86,19 @@ func NewAdmission(db *database.DB, deps AdmissionDependencies, dataDir string) *
 	return &Admission{work: deps.Work, sessions: deps.Sessions, models: deps.Models, steering: deps.Briefing, harness: deps.Harness, effects: deps.Effects, db: db, dataDir: dataDir, presence: deps.Presence, workers: deps.Workers, noLocal: deps.NoLocal, clock: deps.Now}
 }
 func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen, who string) (*console.Session, error) {
-	model, pinned := in.Model, in.Model != ""
-	if model == "" {
+	chosen, pinned := in.Model, in.Model != ""
+	if chosen == "" {
 		// Chat gets its own slot: quality-per-word matters most here, while
 		// mechanical lanes stay on the cheap slot.
-		model, _, _ = c.models.Resolve(ctx, p.ID, "chat")
-		if model == "" {
-			model, _, _ = c.models.Resolve(ctx, ids.Nil, "")
+		chosen, _, _ = c.models.Resolve(ctx, p.ID, "chat")
+		if chosen == "" {
+			chosen, _, _ = c.models.Resolve(ctx, ids.Nil, "")
+		}
+		// No model at all: the chat's agent would start and fail every
+		// message. Refused before anything is reserved or started, with
+		// the sentence workflow admission uses.
+		if chosen == "" {
+			return nil, &AdmissionConflict{Err: errors.New(model.NoModelRefusal)}
 		}
 	}
 	onWorker, err := c.onWorker(in)
@@ -191,7 +197,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 	// The checkout: a change console mounts the change's worktree itself;
 	// a project console gets a read-only snapshot clone of the default
 	// branch, so the mount never races live runs.
-	req := console.OpenRequest{ID: id, Scope: Key(p.ID, in.ChangeID), Labels: LabelsFor(p, change), Actor: who, Model: model, Pinned: pinned}
+	req := console.OpenRequest{ID: id, Scope: Key(p.ID, in.ChangeID), Labels: LabelsFor(p, change), Actor: who, Model: chosen, Pinned: pinned}
 	if onWorker {
 		req.Labels[PlacementLabel] = OnWorker
 	}

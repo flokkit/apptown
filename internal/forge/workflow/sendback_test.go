@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"flokkit.io/forge/internal/forge/audit"
+	"flokkit.io/forge/internal/forge/schema"
+	"flokkit.io/forge/internal/forge/scm"
 	"flokkit.io/forge/internal/forge/workflow/internal/workflowsql"
 	"flokkit.io/forge/internal/ids"
 	"flokkit.io/forge/internal/ids/idstest"
@@ -145,5 +149,62 @@ func TestASentBackRunsPersonFeedbackIsTheNote(t *testing.T) {
 	brief, err := readApprovalBriefIn(ctx, tx, ref, accept)
 	if err != nil || brief.Asked == nil || brief.Asked.Note != "also upgrade the logging library" || brief.Asked.By != "alice" {
 		t.Fatalf("the continued run's approval brief: %+v %v", brief.Asked, err)
+	}
+}
+
+// A change a person works on, with no agent (opened by apptown start, no
+// run), whose landing stopped at a failed gate: sending it back stops the
+// landing and gives the change back to its person, in progress, to push a
+// fix and land again. No run starts, and the note is recorded with who sent
+// it back. With no landing running, nothing is sent back: the change is
+// already theirs.
+func TestSendingBackAPersonsBlockedLandingReturnsTheChangeToThem(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	admissions, req, def := runAdmissionFixture(t)
+	db := admissions.records.db
+	req.WorkflowName = "land"
+	def.Workflow = DefinitionRef{Name: "land", Version: 1}
+	def.Spec = schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{{Name: "scan-source:gitleaks", Uses: "scan"}}}}}
+	store := runStartStore{db: db, stages: NewStages(nil, func(kind string) bool { return kind == "scan" })}
+	landing, err := store.create(ctx, req, def)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.prepared(ctx, landing.ID); err != nil {
+		t.Fatal(err)
+	}
+	recordScopeRunSteps(t, db, landing.ID, "fail")
+	s := sendBackStore{db: db, automatic: []string{"scan"}, abandonments: NewAbandonments(db, abandonRecorderFunc(noAbandonEffects), &scm.RepositoryLocks{})}
+	if change, err := ReadChangeIn(ctx, db, req.ChangeID); err != nil || change.State != ChangeLanding {
+		t.Fatalf("fixture change: %+v %v", change, err)
+	}
+
+	sent, err := s.sendBack(ctx, req.ChangeID, "take the token out of the branch's history", "alice", "", req.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sent.RunID.IsZero() || !sent.StepID.IsZero() {
+		t.Fatalf("a change no agent works on was sent back as %+v", sent)
+	}
+	if change, err := ReadChangeIn(ctx, db, req.ChangeID); err != nil || change.State != ChangeInProgress {
+		t.Fatalf("the change is not back in progress: %+v %v", change, err)
+	}
+	if stopped, err := readRun(ctx, db, landing.ID); err != nil || stopped.Status != RunAbandoned {
+		t.Fatalf("the landing was not stopped: %+v %v", stopped, err)
+	}
+	runs, err := workflowsql.New(db.SQL()).ChangeRuns(ctx, workflowsql.ChangeRunsParams{ProjectID: req.ProjectID, ChangeID: req.ChangeID})
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("a send-back to a person started work: %+v %v", runs, err)
+	}
+	receipts, err := audit.Recent(ctx, db, audit.Filter{ProjectID: req.ProjectID, KindPrefix: "change.sendback"})
+	if err != nil || len(receipts) != 1 || receipts[0].Actor != "alice" || !strings.Contains(string(receipts[0].Payload), "take the token out") || !strings.Contains(string(receipts[0].Payload), landing.ID.String()) {
+		t.Fatalf("send-back record: %+v %v", receipts, err)
+	}
+
+	_, err = s.sendBack(ctx, req.ChangeID, "again", "alice", "", req.ProjectID)
+	var refused *RetryError
+	if !errors.As(err, &refused) || !strings.Contains(err.Error(), "push your fix to its branch, then land it") {
+		t.Fatalf("an in-progress change nothing runs on: %v", err)
 	}
 }

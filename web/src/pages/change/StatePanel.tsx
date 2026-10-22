@@ -381,9 +381,10 @@ export function KeepWorking({ runId, view }: { runId: string; view: ChangeView }
   )
 }
 
-// SendBack: a person sends a change back to its agent with words. The note
-// is what the agent works from; a wedged landing is abandoned so the change
-// can land again afterwards.
+// SendBack: a person sends a change back to work with words. A wedged
+// landing is abandoned so the change can land again afterwards; the change's
+// agent works from the note, and a change no agent works on is back in
+// progress for its person to push a fix.
 export function SendBack({ changeId, onDone, primary }: { changeId: string; onDone: () => void; primary?: boolean }) {
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState('')
@@ -391,7 +392,7 @@ export function SendBack({ changeId, onDone, primary }: { changeId: string; onDo
   if (!open) {
     return primary
       ? <div className="row ch-primary"><button className="primary" onClick={() => setOpen(true)}>Send it back with a note</button>
-          <span className="muted small">the agent picks up where it left off and works from your words</span></div>
+          <span className="muted small">the landing stops and the change goes back to work with your words</span></div>
       : <button className="subtle" onClick={() => setOpen(true)}>Send it back with a note</button>
   }
   return (

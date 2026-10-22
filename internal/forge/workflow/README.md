@@ -299,9 +299,11 @@ in the landing and in workflows it calls, check copies of the candidate.
 Agent steps and workflow calls cannot be bound to the candidate, so a
 passed one refuses the merge ([scm](../scm/README.md#checked-landing)). A
 source scanner that declares a `historyCommand`, as stock gitleaks does,
-checks every commit the landing adds, from target to candidate; a tree-only
-scanner sees only the candidate's files, and a scan point with no scanner
-attached passes. A merge request may land it only when GitLab guarantees the
+checks every commit the landing adds, from target to candidate, after
+verification reads that range in the project's repository (a range it
+cannot read errors the scan); its findings gate as found, with no
+comparison against main's tree. A tree-only scanner sees only the
+candidate's files, and a scan point with no scanner attached passes. A merge request may land it only when GitLab guarantees the
 candidate lands exactly (see `scm`).
 
 Change-level comparisons (the change's diff, commits and narrative) read the

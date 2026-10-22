@@ -9,6 +9,12 @@ import (
 	"flokkit.io/forge/internal/forge/project"
 )
 
+// NoModelRefusal is why model work is not started when its model resolves
+// to nothing: on a fresh AppTown nobody has added a key yet, and an agent
+// would start only to fail with its own advice. Workflow admission (a run
+// with a model step) and chat admission both refuse with it.
+const NoModelRefusal = "no AI model is set up on this AppTown yet: an administrator adds an Anthropic or OpenRouter API key on the Home page, then start this again"
+
 // Selection combines the project's current profile with slot fallback policy.
 // The instance fallback is immutable; project and slot changes are read on use.
 type Selection struct {

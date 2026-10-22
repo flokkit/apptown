@@ -135,7 +135,11 @@ func (h ConsoleChanges) ConsoleRecheck(w http.ResponseWriter, r *http.Request) {
 func recheckStarted(rechecked workflow.LandingRechecked) RecheckStarted {
 	msg := "nothing to recheck — no failed gate on this change's landing"
 	if len(rechecked.Names) > 0 {
-		msg = fmt.Sprintf("re-running %d failed gate(s): %s — watch with apptown status", len(rechecked.Names), strings.Join(rechecked.Names, ", "))
+		msg = fmt.Sprintf("re-running %d failed gate(s): %s", len(rechecked.Failed), strings.Join(rechecked.Failed, ", "))
+		if len(rechecked.Names) > len(rechecked.Failed) {
+			msg += " (after catching up with main again)"
+		}
+		msg += " — watch with apptown status"
 	}
 	return RecheckStarted{RunID: rechecked.RunID, Rerun: rechecked.Names, Message: msg}
 }

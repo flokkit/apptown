@@ -114,6 +114,8 @@ func TestSendBackHTTPDeliversFeedbackToTheReturnedWork(t *testing.T) {
 	}
 }
 
+// A change nothing runs on and no agent works on is already its person's:
+// the refusal says to push a fix and land it.
 func TestSendBackHTTPExplainsMissingWorkingRun(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, false)
@@ -121,7 +123,7 @@ func TestSendBackHTTPExplainsMissingWorkingRun(t *testing.T) {
 	r.SetPathValue("id", fmt.Sprint(f.ChangeID))
 	w := httptest.NewRecorder()
 	NewChanges(f.Work, f.Projects, f.Access, f.DB, nil).SendBack(w, r)
-	if w.Code != 422 || !strings.Contains(w.Body.String(), "no working run") {
+	if w.Code != 422 || !strings.Contains(w.Body.String(), "push your fix to its branch, then land it") {
 		t.Fatalf("runless change: %d %s", w.Code, w.Body.String())
 	}
 	runs, err := f.Work.ChangeRuns(f.Context, f.ChangeID, workflow.ChangeRuns{})

@@ -131,7 +131,8 @@ func (h Changes) PatchChange(w http.ResponseWriter, r *http.Request) {
 // under Details). The latest working run's agent continues its own
 // session with the note; a landing wedged on failed gates is abandoned
 // so the change returns to work and can land again afterwards. The
-// change page follows the working run.
+// change page follows the working run. A change no agent works on (a
+// person's) has its landing stopped and is back in progress for a push.
 func (h Changes) SendBack(w http.ResponseWriter, r *http.Request) {
 	ch, ok := ChangeFromPath(h.db, w, r)
 	if !ok {
@@ -201,6 +202,8 @@ type (
 		Change workflow.Change `json:"change"`
 	}
 	// SendBackAccepted names the run and step that took a send-back note.
+	// Both are null when no agent works on the change: its landing stopped
+	// and it is back in progress for its person, with no rework run.
 	SendBackAccepted struct {
 		RunID  ids.ID `json:"runId"`
 		StepID ids.ID `json:"stepId"`
