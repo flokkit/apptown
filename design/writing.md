@@ -23,6 +23,9 @@ Read it aloud. If a person wouldn't say it to a colleague, rewrite it.
 5. **One idea per sentence.** Cut chains of semicolons and dashes. Cut
    "in short", "note that", "simply", "just".
 6. **No clever lines.** No metaphors, no sayings, no rhythm for its own sake.
+   Say what is true, not what isn't: don't set up a claim nobody made just to
+   deny it ("It isn't X. It's Y."). Avoid groups of three by habit and a short
+   punchline at the end of a paragraph.
 7. **Never make it sound safer or surer than it is.** A rewrite keeps every
    failure, approval, limit and "we don't know" that the original had.
    Unknown stays different from failed, and failed from not run.
@@ -72,6 +75,11 @@ All "before" lines are real.
   this target are unavailable.
 - After: Backups are off for this target. Choose where backup jobs run to
   turn them on.
+
+**Who approves**
+- Before: They don't approve other people's changes. Each project's own
+  people do that.
+- After: Each project sets its own approval rules.
 
 **Chat with no model key**
 - Before: the helper's screen never accepted the message — wait a few seconds
