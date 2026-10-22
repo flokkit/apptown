@@ -192,6 +192,8 @@ rules and exceptions belong in the gate implementations and owning guides.
 
 ## Writing and maintaining guidance
 
+Text a person reads (screens, messages, errors, guides) follows
+[How AppTown writes](design/writing.md).
 Use plain, concrete language and literal names. Lead product surfaces with the
 current state and useful next action; put detail behind them without hiding
 required approvals, failures or uncertainty. Unknown and stale must remain
