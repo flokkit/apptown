@@ -155,6 +155,35 @@ func (f *privateFixture) spec(name, script string, private *execution.PrivateDoc
 		Source:    &execution.TaskSource{Repository: f.hub, Commit: f.base}, Private: private, Results: results}
 }
 
+// withHostImage commits the host's copy of image to f's source as
+// image.tar and returns that commit, for nested work that loads it (docker
+// load -i /work/image.tar) rather than pulling it: a fresh private daemon
+// has no images, and a pull depends on a registry that may not answer
+// (22 Oct: Docker Hub's token request timed out, the nested memory hog
+// never ran, and the test reported the daemon's memory limit as not
+// holding).
+func (f *privateFixture) withHostImage(image string) string {
+	f.t.Helper()
+	if out, err := exec.Command("docker", "save", "-o", filepath.Join(f.hub, "image.tar"), image).CombinedOutput(); err != nil {
+		f.t.Fatalf("docker save %s: %v %s", image, err, out)
+	}
+	for _, args := range [][]string{{"add", "image.tar"}, {"-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-q", "-m", "the nested work's image"}} {
+		if out, err := gitexec.Run(f.t.Context(), f.hub, args...); err != nil {
+			f.t.Fatal(err, out)
+		}
+	}
+	commit, err := gitexec.Output(f.t.Context(), f.hub, "rev-parse", "HEAD")
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return strings.TrimSpace(commit)
+}
+
+// loadImage is the nested script's first line after withHostImage: the
+// image is loaded from the source, and a failure ends the script saying so.
+const loadImage = `docker load -q -i /work/image.tar >/dev/null || { echo "loading the nested image failed"; exit 1; }
+`
+
 // names are a task's private resources as the worker names them.
 func (f *privateFixture) names(key string) (network, daemon string) {
 	network = "apptown-private-" + strings.TrimPrefix(f.srv.CheckOwnerLabel(), "forge.worker=") + "-" + key
@@ -499,13 +528,14 @@ func limitsHold(t *testing.T, f *privateFixture) {
 	ctx := context.Background()
 	// The nested work: a memory hog past the daemon's 512 MiB, processes
 	// past its 512, then four busy loops, announced once they run.
-	script := `docker run --rm busybox:1.37 sh -c 'head -c 700m /dev/zero | tail > /dev/null'; echo "memory hog exit $?"
+	script := loadImage + `docker run --rm busybox:1.37 sh -c 'head -c 700m /dev/zero | tail > /dev/null'; echo "memory hog exit $?"
 docker run --rm busybox:1.37 sh -c '` + forkProbe(700) + `'
 docker run -d busybox:1.37 sh -c '` + spinners + `; sleep 60' >/dev/null
 echo nested-spinning
 sleep 30
 echo done`
 	spec := f.spec("limits", script, &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: "busybox:1.37", Command: []string{"sleep", "3600"}}}})
+	spec.Source.Commit = f.withHostImage("busybox:1.37")
 	created, err := f.driver.Ensure(ctx, spec)
 	if err != nil {
 		t.Fatal(err)
@@ -570,7 +600,7 @@ const spinners = `for i in 1 2 3 4; do (while :; do :; done) & done`
 func TestIntegrationPrivateDockerCombinedLoadStaysWithinTheAggregate(t *testing.T) {
 	f := newPrivateFixture(t)
 	ctx := context.Background()
-	script := `head -c 300m /dev/zero | tail >/dev/null
+	script := loadImage + `head -c 300m /dev/zero | tail >/dev/null
 docker run -d -v /work:/work busybox:1.37 sh -c 'head -c 300m /dev/zero | tail >/dev/null; cat /sys/fs/cgroup/memory.peak > /work/nested-peak; touch /work/nested-loaded; ` + spinners + `; sleep 60' >/dev/null
 ` + spinners + `
 while [ ! -e /work/nested-loaded ]; do sleep 0.5; done
@@ -578,6 +608,7 @@ echo "nested container's own memory peak $(cat /work/nested-peak)"
 echo all-under-load
 sleep 30`
 	spec := f.spec("aggregate", script, &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: "busybox:1.37", Command: []string{"sleep", "3600"}}}})
+	spec.Source.Commit = f.withHostImage("busybox:1.37")
 	spec.Admission.Limits = execution.Limits{CPUs: 0.25, MemoryBytes: 512 << 20, PIDs: 512}
 	created, err := f.driver.Ensure(ctx, spec)
 	if err != nil {
