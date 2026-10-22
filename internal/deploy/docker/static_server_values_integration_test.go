@@ -35,12 +35,7 @@ func TestIntegrationStaticServerKeepsValuesIntact(t *testing.T) {
 			}
 			args = append(args, StaticServerImage)
 			args = append(args, StaticServerCommand(8080)...)
-			output, err := exec.Command("docker", args...).CombinedOutput()
-			if err != nil {
-				t.Fatalf("launch: %s %v", output, err)
-			}
-			id := strings.TrimSpace(string(output))
-			defer exec.Command("docker", "rm", "-f", id).Run()
+			id := runDetached(t, args...)
 			port, err := exec.Command("docker", "port", id, "8080/tcp").Output()
 			if err != nil {
 				t.Fatal(err)

@@ -129,11 +129,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 func TestIntegrationTakeDownKeepsAContainersUnrecordedAnonymousVolume(t *testing.T) {
 	dk := Scope{Client: CLI{Binary: "docker"}}
 	name := fmt.Sprintf("itown-anon-%d", time.Now().UnixNano()%1_000_000)
-	out, err := exec.Command("docker", "run", "-d", "--name", name, "-v", "/unrecorded", "alpine:3", "sleep", "3600").CombinedOutput()
-	if err != nil {
-		t.Fatalf("docker run: %v %s", err, out)
-	}
-	id := strings.TrimSpace(string(out))
+	id := runDetached(t, "run", "-d", "--name", name, "-v", "/unrecorded", "alpine:3", "sleep", "3600")
 	vol := strings.TrimSpace(dk.Text(context.Background(), "inspect", "-f", `{{range .Mounts}}{{.Name}}{{end}}`, id))
 	t.Cleanup(func() {
 		_ = exec.Command("docker", "rm", "-f", id).Run()

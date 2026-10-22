@@ -33,12 +33,7 @@ func TestIntegrationStaticServerGivesThePageItsValues(t *testing.T) {
 		}
 		args = append(args, StaticServerImage)
 		args = append(args, StaticServerCommand(8080)...)
-		out, err := exec.Command("docker", args...).CombinedOutput()
-		if err != nil {
-			t.Fatalf("docker run: %s", out)
-		}
-		id := strings.TrimSpace(string(out))
-		t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", id).Run() })
+		id := runDetached(t, args...)
 		port, err := exec.Command("docker", "port", id, "8080/tcp").CombinedOutput()
 		if err != nil {
 			state, _ := exec.Command("docker", "inspect", "-f", "{{json .State}} {{json .NetworkSettings.Ports}}", id).CombinedOutput()
@@ -86,12 +81,7 @@ func TestIntegrationStaticServerStartsWithoutWarnings(t *testing.T) {
 		t.Fatal(err)
 	}
 	args := append([]string{"run", "-d", "-v", site + ":/srv:ro", StaticServerImage}, StaticServerCommand(8080)...)
-	out, err := exec.Command("docker", args...).CombinedOutput()
-	if err != nil {
-		t.Fatalf("docker run: %s", out)
-	}
-	id := strings.TrimSpace(string(out))
-	t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", id).Run() })
+	id := runDetached(t, args...)
 	var logs []byte
 	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
 		logs, _ = exec.Command("docker", "logs", id).CombinedOutput()
@@ -104,4 +94,23 @@ func TestIntegrationStaticServerStartsWithoutWarnings(t *testing.T) {
 			t.Errorf("the static server logged: %s", line)
 		}
 	}
+}
+
+// runDetached runs docker with args (a "run -d") and returns the new
+// container's id, removed when the test ends. The id is docker's standard
+// output alone: when the image is not here yet, docker reports its pull on
+// standard error, and that text is not part of the id (22 Oct: the pull's
+// lines were read as the id, and docker port answered "page not found").
+func runDetached(t *testing.T, args ...string) string {
+	t.Helper()
+	var stderr strings.Builder
+	cmd := exec.Command("docker", args...)
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("docker %s: %v %s", strings.Join(args, " "), err, stderr.String())
+	}
+	id := strings.TrimSpace(string(out))
+	t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", id).Run() })
+	return id
 }
