@@ -9,6 +9,8 @@ SELECT r.* FROM project_adoptions r WHERE r.project_id=$1 AND r.revision<>0
  AND r.revision=(SELECT a.revision FROM adoptions a WHERE a.project_id=$1);
 -- name: AdoptionHistory :many
 SELECT * FROM project_adoptions WHERE project_id=$1 ORDER BY revision DESC LIMIT $2;
+-- name: AdoptionAtRevision :one
+SELECT * FROM project_adoptions WHERE project_id=$1 AND revision=$2 AND revision<>0;
 -- name: PolicyByID :one
 SELECT * FROM policies WHERE id=$1;
 -- name: ProjectPolicies :many

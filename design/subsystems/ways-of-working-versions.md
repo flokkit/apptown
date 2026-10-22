@@ -44,7 +44,12 @@ confirmation, the Change's brief and the revision's reason. Adopting
 (`adoption.OperationSelect`) and applying a pack take
 `project:select-way-of-working`. A what-if judges a version's checks on
 projects' main into Conformance's own tables, never standing, and an eval
-re-runs real Changes under the version in throwaway copies. Stock
+re-runs real Changes under the version in throwaway copies. A copy takes
+exactly a receipt its source recorded (`Candidate.CopyOf`): it is checked
+against that receipt, not against its packs' pins, because a project
+advanced to the newest block versions keeps its pack memberships and no
+longer carries those pins. Only an eval's copy takes a way of working that
+way. Stock
 sync publishes available versions; projects change through adoption operations.
 A running workflow retains its prepared definition and receipt rather than reading
 new library content as it advances.

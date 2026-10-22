@@ -87,6 +87,37 @@ func (q *Queries) InterruptedOperationsForUpdate(ctx context.Context, currentCli
 	return items, nil
 }
 
+const operationByKey = `-- name: OperationByKey :one
+SELECT id, state::text AS state, attempt,
+ COALESCE(errors[array_length(errors,1)]->>'error','')::text AS error
+FROM river_job WHERE kind='forge.operation' AND args->>'operation'=$1::text AND args->>'key'=$2::text
+ORDER BY id DESC LIMIT 1
+`
+
+type OperationByKeyParams struct {
+	Operation string
+	Key       string
+}
+
+type OperationByKeyRow struct {
+	ID      int64
+	State   string
+	Attempt int16
+	Error   string
+}
+
+func (q *Queries) OperationByKey(ctx context.Context, arg OperationByKeyParams) (OperationByKeyRow, error) {
+	row := q.db.QueryRowContext(ctx, operationByKey, arg.Operation, arg.Key)
+	var i OperationByKeyRow
+	err := row.Scan(
+		&i.ID,
+		&i.State,
+		&i.Attempt,
+		&i.Error,
+	)
+	return i, err
+}
+
 const recentOperationsMeta = `-- name: RecentOperationsMeta :many
 SELECT id, (args->>'operation')::text AS operation, (args->>'key')::text AS key, state::text AS state, attempt,
  COALESCE(errors[array_length(errors,1)]->>'error','')::text AS error,

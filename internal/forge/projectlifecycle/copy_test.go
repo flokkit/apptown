@@ -3,6 +3,7 @@ package projectlifecycle
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,8 +14,11 @@ import (
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/forge/adoption"
 	"flokkit.io/forge/internal/forge/audit"
+	"flokkit.io/forge/internal/forge/identity"
 	"flokkit.io/forge/internal/forge/project"
 	"flokkit.io/forge/internal/forge/scm"
+	"flokkit.io/forge/internal/forge/workflow"
+	"flokkit.io/forge/internal/forge/wow"
 	"flokkit.io/forge/internal/gitexec/gittest"
 	"flokkit.io/forge/internal/ids"
 )
@@ -22,10 +26,189 @@ import (
 // An eval's copy is its source as it was at one commit, with exactly the
 // way of working the source is on now: its history up to the commit and
 // nothing after, the same adoption receipt (packs, blocks, lanes, policies,
-// extensions), no members, and its copy record written with it.
+// extensions), no members, and its copy record written with it. That holds
+// when the source's blocks were advanced past its pack's pins (an upgrade
+// moves blocks and leaves the pack version alone): the copy reproduces what
+// the source recorded. Only an eval's copy takes a way of working that way.
 func TestACopyIsTheSourceAtOneCommitWithItsWayOfWorking(t *testing.T) {
 	t.Parallel()
 	f := newOwnerFixture(t, true)
+	ctx := context.Background()
+	src, base := copySource(t, f)
+	applied, err := f.adoption.CurrentReceipt(ctx, src.ID)
+	if err != nil || len(applied.Receipt.Guidance) == 0 {
+		t.Fatalf("the pack gave no guidance: %+v %v", applied, err)
+	}
+	moved := applied.Receipt.Guidance[0]
+	if err := wow.NewLibrary(f.db).Bump(ctx, moved.BlockID, "a newer version", "", "bls", moved.Name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.adoption.AdvanceToLatest(ctx, src.ID, "upgrade to 1.0", "bls"); err != nil {
+		t.Fatal(err)
+	}
+
+	var recorded ids.ID
+	copy, err := f.lifecycle.CreateCopy(ctx, CopyDraft{Slug: "eval-1-1", Name: "Eval 1 baseline", SourceID: src.ID, Commit: base, Who: "eval/1",
+		Record: func(_ *database.Tx, projectID ids.ID) error { recorded = projectID; return nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recorded != copy.ID {
+		t.Fatalf("the copy record names %d, the copy is %d", recorded, copy.ID)
+	}
+	if got, err := project.PurposeIn(ctx, f.db, copy.ID); err != nil || got != project.EvalCopy {
+		t.Fatalf("the copy's purpose is %q (%v), want an eval copy", got, err)
+	}
+	hub := filepath.Join(f.lifecycle.dataDir, "workspaces", "project-"+copy.Slug)
+	if head := gittest.RunAsTester(t, hub, "rev-parse", "HEAD"); head != base {
+		t.Fatalf("the copy's main is %s, want the base %s", head, base)
+	}
+	wantMainRecorded(t, f.db, f.lifecycle.dataDir, copy.ID, scm.ViaCopy)
+	if _, err := os.Stat(filepath.Join(hub, "LATER.md")); !os.IsNotExist(err) {
+		t.Fatalf("work done after the base is in the copy: %v", err)
+	}
+	want, err := f.adoption.CurrentReceipt(ctx, src.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want.Receipt.Guidance[0].Version <= moved.Version {
+		t.Fatalf("the source's %s stayed at v%d", moved.Name, want.Receipt.Guidance[0].Version)
+	}
+	got, err := f.adoption.CurrentReceipt(ctx, copy.ID)
+	if err != nil || adoption.Digest(got.Receipt) != adoption.Digest(want.Receipt) || len(got.Receipt.Guidance) == 0 {
+		t.Fatalf("the copy's way of working differs:\n got %+v\nwant %+v\n%v", got, want, err)
+	}
+	other, err := f.lifecycle.Create(ctx, Draft{Slug: "other", Name: "Other", Actor: "bls"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := f.adoption.PrepareCopy(ctx, other.ID, src.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.lifecycle.Adopt(adoption.WithSystemAuthority(ctx, other.ID), other, c, "bls", "copied", adoption.OperationApplyPack); !errors.Is(err, adoption.ErrNotACopy) {
+		t.Fatalf("a project that is not an eval's copy took a copy's way of working: %v", err)
+	}
+	grants, err := f.identity.GrantsAt(ctx, access.ScopeProject, copy.ID.String())
+	if err != nil || len(grants) != 0 {
+		t.Fatalf("the copy has members: %+v %v", grants, err)
+	}
+}
+
+// An eval re-runs an adoption Change from where it started: a copy takes
+// the receipt its source recorded at that revision, an adoption Change in
+// the copy toward the source's way of working now carries the checks that
+// move brings, and its settlement (the real one, after the Change ships)
+// moves the copy onto exactly the source's receipt and stamps the Change.
+func TestACopyStartsWhereAnAdoptionChangeStartedAndSettlesOnItsTarget(t *testing.T) {
+	t.Parallel()
+	f := newOwnerFixture(t, true)
+	ctx := context.Background()
+	src, base := copySource(t, f)
+	before, err := f.adoption.CurrentReceipt(ctx, src.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// One of the pack's blocks gets a newer version with the same checks,
+	// and the source advances to it: the move the adoption Change made.
+	var moved *wow.BlockObservation
+	for _, b := range before.Receipt.Guidance {
+		obs, err := f.ways.Block(ctx, wow.BlockRef{ID: b.BlockID, Version: b.Version})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if obs.ChecksJSON != "" && obs.ChecksJSON != "[]" {
+			moved = &obs
+			break
+		}
+	}
+	if moved == nil {
+		t.Fatal("the pack has no block with checks")
+	}
+	if err := wow.NewLibrary(f.db).Bump(ctx, moved.Block.ID, moved.Body+"\nrevised", moved.ChecksJSON, "bls", moved.Block.Name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.adoption.AdvanceToLatest(ctx, src.ID, "upgrade to 1.0", "bls"); err != nil {
+		t.Fatal(err)
+	}
+	now, err := f.adoption.CurrentReceipt(ctx, src.ID)
+	if err != nil || now.Revision == before.Revision {
+		t.Fatalf("the source did not move: %+v %v", now, err)
+	}
+
+	copy, err := f.lifecycle.CreateCopy(ctx, CopyDraft{Slug: "eval-1-1", Name: "Eval 1 baseline", SourceID: src.ID, Commit: base, Who: "eval/1", Revision: before.Revision,
+		Record: func(*database.Tx, ids.ID) error { return nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := f.adoption.CurrentReceipt(ctx, copy.ID); err != nil || adoption.Digest(got.Receipt) != adoption.Digest(before.Receipt) {
+		t.Fatalf("the copy did not start where the change started: %+v %v", got, err)
+	}
+	target, err := f.adoption.PrepareCopyUplift(ctx, copy.ID, src.ID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.Digest != adoption.Digest(now.Receipt) || len(target.NewChecks) == 0 {
+		t.Fatalf("the target is %s with checks %+v, want the source's now (%s) with the moved block's checks", target.Digest, target.NewChecks, adoption.Digest(now.Receipt))
+	}
+	driver := access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: "eval", Via: "eval/1", ProjectID: copy.ID}, Verified: true, Receipt: "eval/1"})
+	changes := workflow.NewChanges(f.db, access.Checked{Authority: identity.Scoped(f.identity, "work"), Projects: project.New(f.db, nil)}, nil)
+	checks := []workflow.AcceptanceCheck{}
+	for _, c := range target.NewChecks {
+		checks = append(checks, workflow.AcceptanceCheck{Block: c.Block, Check: c.Check, Version: c.Version})
+	}
+	ch, err := changes.Uplift(driver, workflow.Uplift{ProjectID: copy.ID, ExpectedRevision: target.ExpectedRevision, Acceptance: workflow.Acceptance{TargetDigest: target.Digest, Checks: checks},
+		Words: target.Words(), Target: copyTargetRecorder{adoption: f.adoption, candidate: *target, copy: copy.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ch.LandsWithoutCode() {
+		t.Fatalf("the copy's change is not an adoption change: %+v", ch)
+	}
+	// sql-guarantee: shipping needs a whole landing; settlement reads only that the Change shipped.
+	if _, err := f.db.SQL().ExecContext(ctx, `UPDATE changes SET state='shipped' WHERE id=$1`, ch.ID); err != nil {
+		t.Fatal(err)
+	}
+	shipped, err := workflow.ReadChangeIn(ctx, f.db, ch.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recorded adoption.Candidate
+	if err := json.Unmarshal([]byte(shipped.TargetCandidateJSON), &recorded); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.adoption.CheckTarget(ctx, copy.ID, ch.ID, shipped.TargetAdoptionID, shipped.ExpectedRevision, recorded); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.lifecycle.SettleUplift(adoption.WithSystemAuthority(ctx, copy.ID), copy, &recorded, "apptown-system", "landed", ch.ID); err != nil {
+		t.Fatal(err)
+	}
+	if settled, err := workflow.ReadChangeIn(ctx, f.db, ch.ID); err != nil || settled.AdoptedRevision == 0 {
+		t.Fatalf("the change was not stamped: %+v %v", settled, err)
+	}
+	if got, err := f.adoption.CurrentReceipt(ctx, copy.ID); err != nil || adoption.Digest(got.Receipt) != adoption.Digest(now.Receipt) {
+		t.Fatalf("the copy did not end on the source's way of working: %+v %v", got, err)
+	}
+}
+
+// copyTargetRecorder records an adoption Change's target in a copy inside
+// Work's admission, as an eval's driver does, with the copy's own
+// authority.
+type copyTargetRecorder struct {
+	adoption  *adoption.Service
+	candidate adoption.Candidate
+	copy      ids.ID
+}
+
+func (r copyTargetRecorder) RecordTargetIn(ctx context.Context, tx *database.Tx, in workflow.TargetChange) (workflow.RecordedTarget, error) {
+	out, err := r.adoption.RecordTargetIn(adoption.WithSystemAuthority(ctx, r.copy), tx, adoption.Target{ProjectID: in.ProjectID, ChangeID: in.ChangeID, Candidate: r.candidate, Actor: in.Actor})
+	return workflow.RecordedTarget{ID: out.ID, Candidate: out.Candidate}, err
+}
+
+// copySource is project "shop" on the go-small pack, its repository seeded
+// with two commits: the base it returns, and one after it.
+func copySource(t *testing.T, f ownerFixture) (*project.Project, string) {
+	t.Helper()
 	ctx := context.Background()
 	src, err := f.lifecycle.Create(ctx, Draft{Slug: "shop", Name: "Shop", Actor: "bls"})
 	if err != nil {
@@ -66,39 +249,7 @@ func TestACopyIsTheSourceAtOneCommitWithItsWayOfWorking(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantMainRecorded(t, f.db, f.lifecycle.dataDir, src.ID, scm.ViaSeed)
-
-	var recorded ids.ID
-	copy, err := f.lifecycle.CreateCopy(ctx, CopyDraft{Slug: "eval-1-1", Name: "Eval 1 baseline", SourceID: src.ID, Commit: base, Who: "eval/1",
-		Record: func(_ *database.Tx, projectID ids.ID) error { recorded = projectID; return nil }})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if recorded != copy.ID {
-		t.Fatalf("the copy record names %d, the copy is %d", recorded, copy.ID)
-	}
-	if got, err := project.PurposeIn(ctx, f.db, copy.ID); err != nil || got != project.EvalCopy {
-		t.Fatalf("the copy's purpose is %q (%v), want an eval copy", got, err)
-	}
-	hub := filepath.Join(f.lifecycle.dataDir, "workspaces", "project-"+copy.Slug)
-	if head := gittest.RunAsTester(t, hub, "rev-parse", "HEAD"); head != base {
-		t.Fatalf("the copy's main is %s, want the base %s", head, base)
-	}
-	wantMainRecorded(t, f.db, f.lifecycle.dataDir, copy.ID, scm.ViaCopy)
-	if _, err := os.Stat(filepath.Join(hub, "LATER.md")); !os.IsNotExist(err) {
-		t.Fatalf("work done after the base is in the copy: %v", err)
-	}
-	want, err := f.adoption.CurrentReceipt(ctx, src.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := f.adoption.CurrentReceipt(ctx, copy.ID)
-	if err != nil || adoption.Digest(got.Receipt) != adoption.Digest(want.Receipt) || len(got.Receipt.Guidance) == 0 {
-		t.Fatalf("the copy's way of working differs:\n got %+v\nwant %+v\n%v", got, want, err)
-	}
-	grants, err := f.identity.GrantsAt(ctx, access.ScopeProject, copy.ID.String())
-	if err != nil || len(grants) != 0 {
-		t.Fatalf("the copy has members: %+v %v", grants, err)
-	}
+	return src, base
 }
 
 // wantMainRecorded: AppTown's record of a project's main is its hub's main,

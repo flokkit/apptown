@@ -36,6 +36,11 @@ type CopyDraft struct {
 	// with them (adoption.Service.PrepareCopyWith); nil is the source's
 	// adoption as it is now.
 	Packs []adoption.PackPick
+	// Revision, with no Packs, is the source's recorded adoption revision
+	// the copy reproduces instead of its current one
+	// (adoption.Service.PrepareCopyAt): where an adoption Change it
+	// re-runs started.
+	Revision int64
 }
 
 // CreateCopy makes a throwaway copy of a project: a new project with no
@@ -118,7 +123,12 @@ func (s *Service) CreateCopy(ctx context.Context, in CopyDraft) (*project.Projec
 	if err != nil {
 		return &p, err
 	}
-	c, err := s.adoption.PrepareCopyWith(ctx, p.ID, source.ID, in.Packs)
+	var c *adoption.Candidate
+	if in.Revision != 0 && in.Packs == nil {
+		c, err = s.adoption.PrepareCopyAt(ctx, p.ID, source.ID, in.Revision)
+	} else {
+		c, err = s.adoption.PrepareCopyWith(ctx, p.ID, source.ID, in.Packs)
+	}
 	if err != nil {
 		return &seeded, err
 	}

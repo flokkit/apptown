@@ -91,6 +91,11 @@ type Dependencies struct {
 	Ways         Catalog
 	Capabilities CapabilityLocker
 	Uplift       UpliftOpener
+	// Copies says whether a project is an eval's throwaway copy (Project's
+	// purpose), read through the caller's transaction: only a copy takes
+	// another project's recorded way of working (copy.go). Nil refuses
+	// every copy.
+	Copies CopyPurpose
 	// Reviews admits a conformance review of a project whose adoption a
 	// transaction changed, in that transaction. The composition root wires
 	// it; nil requests none (owner tests that are not about it).

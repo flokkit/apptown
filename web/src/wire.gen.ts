@@ -1663,6 +1663,7 @@ export type Candidate = {
   weakens: string[]
   kept: string[]
   problems: string[]
+  copyOf?: CopySource | null
 }
 
 export type RunState = "running" | "done" | "abandoned"
@@ -3770,6 +3771,11 @@ export type CheckSummary = {
   version?: number
   title?: string
   expects?: string
+}
+
+export type CopySource = {
+  project: string | null
+  revision?: number
 }
 
 export type CheckReading = {

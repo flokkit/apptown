@@ -2,6 +2,8 @@ package jobs_test
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"slices"
 	"testing"
 	"time"
@@ -67,5 +69,31 @@ func TestQueueReadAdapterPreservesReceiptsOrderingAndUnfinishedSelection(t *test
 	}
 	if rows, err := jobs.List(context.Background(), db, 50); err == nil || rows == nil || len(rows) != 0 {
 		t.Fatalf("corrupt receipt returned partial results: %+v %v", rows, err)
+	}
+}
+
+// ByKey reads the newest job of one operation and key, with its last
+// error: a newer pending job is pending though an older one ended, another
+// key's failure is not this key's, a job whose attempts ended without
+// succeeding says so with its error, and no job is not found (never ended).
+func TestByKeyReadsTheNewestJobOfOneKey(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	ctx := context.Background()
+	insertJob(t, db, "complete", "r1/adopt", idstest.N(1), rivertype.JobStateDiscarded)
+	insertJob(t, db, "complete", "r1/adopt", idstest.N(1), rivertype.JobStateAvailable)
+	insertJob(t, db, "complete", "r1/cleanup", idstest.N(1), rivertype.JobStateDiscarded)
+	ended := insertJob(t, db, "complete", "r2/adopt", idstest.N(2), rivertype.JobStateDiscarded)
+	if _, err := riverdatabasesql.New(db.Pool()).GetExecutor().JobUpdateFull(ctx, &riverdriver.JobUpdateFullParams{ID: ended, ErrorsDoUpdate: true, Errors: [][]byte{[]byte(`{"error":"first"}`), []byte(`{"error":"the source changed"}`)}}); err != nil {
+		t.Fatal(err)
+	}
+	if k, err := jobs.ByKey(ctx, db, "complete", "r1/adopt"); err != nil || k.State != "available" || k.Ended() {
+		t.Fatalf("the newer pending job: %+v %v", k, err)
+	}
+	if k, err := jobs.ByKey(ctx, db, "complete", "r2/adopt"); err != nil || !k.Ended() || k.Error != "the source changed" {
+		t.Fatalf("the ended job: %+v %v", k, err)
+	}
+	if _, err := jobs.ByKey(ctx, db, "complete", "r3/adopt"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("no job: %v", err)
 	}
 }

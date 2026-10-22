@@ -91,9 +91,14 @@ var (
 // copy.
 type Work interface {
 	Create(ctx context.Context, in workflow.ChangeDraft) (*workflow.Change, error)
+	// Uplift opens an adoption Change: how an eval re-runs one in a copy.
+	Uplift(ctx context.Context, in workflow.Uplift) (*workflow.Change, error)
 	StartEvalRun(ctx context.Context, in workflow.EvalRun) (*workflow.Run, error)
 	ChangeRuns(ctx context.Context, id ids.ID, in workflow.ChangeRuns) ([]*workflow.Run, error)
 	Snapshot(ctx context.Context, id ids.ID, view workflow.ReadView) (*workflow.RunSnapshot, error)
+	// Activities is Work's one reading of what runs are doing: working,
+	// waiting on a person, blocked.
+	Activities(ctx context.Context, runs []ids.ID) (map[ids.ID]workflow.Activity, error)
 	Abandon(ctx context.Context, in workflow.StopWork) (*workflow.Abandoned, error)
 	Changes(ctx context.Context, project ids.ID, in workflow.ChangeList) ([]workflow.ChangeSummary, error)
 }
@@ -113,11 +118,24 @@ type Models interface {
 }
 
 // Adoption is the adoption owner's part: what a copy adopts, the
-// candidate a pack version would be for a project, and a copy's receipt.
+// candidate a pack version would be for a project, a copy's receipt, the
+// receipt a project recorded at a revision, and the target of an adoption
+// Change re-run in a copy, recorded in Work's admission.
 type Adoption interface {
 	CopyTarget(ctx context.Context, src ids.ID, picks []adoption.PackPick) (adoption.Receipt, []adoption.PackPick, error)
 	PicksWith(ctx context.Context, projectID ids.ID, pack string, version int64, also ...adoption.PackPick) ([]adoption.PackPick, error)
 	CurrentReceipt(ctx context.Context, projectID ids.ID) (*adoption.RecordedRevision, error)
+	ReceiptAt(ctx context.Context, projectID ids.ID, revision int64) (*adoption.RecordedRevision, error)
+	PrepareCopyUplift(ctx context.Context, dst, src ids.ID, picks []adoption.PackPick) (*adoption.Candidate, error)
+	RecordTargetIn(ctx context.Context, tx *database.Tx, in adoption.Target) (adoption.ScopedTarget, error)
+}
+
+// AdoptionJobs reads whether AppTown's move of a shipped adoption Change's
+// project to its target has stopped trying: the shipping run's adopt
+// completion job ended without succeeding, and why. Pending, or no record
+// of the job, is not ended.
+type AdoptionJobs interface {
+	AdoptionEnded(ctx context.Context, landingRunID ids.ID) (ended bool, why string, err error)
 }
 
 // Comparer judges an arm's landed work against its Change's base over both
@@ -164,9 +182,12 @@ type Dependencies struct {
 	Deployments Deployments
 	Deleter     Deleter
 	Adoption    Adoption
-	Comparer    Comparer
-	Packs       Packs
-	Origins     Origins
+	// AdoptionJobs reads an adoption arm's settlement job (nil: arms wait
+	// for the stamp alone).
+	AdoptionJobs AdoptionJobs
+	Comparer     Comparer
+	Packs        Packs
+	Origins      Origins
 	// DataDir is where projects' repositories live: an arm's diff is read
 	// from its copy's.
 	DataDir string
@@ -294,6 +315,7 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 		lane     string
 		baseline armAdoption
 		variant  armAdoption
+		before   *armBefore
 	}
 	var sources []source
 	for _, id := range in.Changes {
@@ -351,7 +373,17 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 				return nil, err
 			}
 		}
-		sources = append(sources, source{ch, lane, baseline, variant})
+		// An adoption Change is re-run as one: its copies start on what
+		// its project had adopted when it was opened.
+		var before *armBefore
+		if ch.LandsWithoutCode() {
+			rev, err := s.deps.Adoption.ReceiptAt(ctx, ch.ProjectID, ch.ExpectedRevision)
+			if err != nil {
+				return nil, fault.New(fault.Invalid, fmt.Sprintf("%s is an adoption change, and the way of working it started from (revision %d) cannot be read: %v", name, ch.ExpectedRevision, err))
+			}
+			before = &armBefore{Revision: ch.ExpectedRevision, Digest: adoption.Digest(rev.Receipt)}
+		}
+		sources = append(sources, source{ch, lane, baseline, variant, before})
 	}
 	who := caller.Principal.Name
 	var out *Eval
@@ -402,7 +434,7 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 					return err
 				}
 				raw, _ := json.Marshal(armPlan{Slots: slots, Lane: src.lane, Adoption: &adopted, Judge: baselineSlots["fast"],
-					Union: unionBlocks(src.baseline.Blocks, src.variant.Blocks)})
+					Union: unionBlocks(src.baseline.Blocks, src.variant.Blocks), Before: src.before})
 				if _, err := q.InsertArm(ctx, evalssql.InsertArmParams{ID: ids.New(now), EvalID: e.ID, SourceProjectID: src.change.ProjectID, SourceChangeID: src.change.ID, Arm: arm, Profile: profile, ModelsJson: raw}); err != nil {
 					return err
 				}
@@ -425,13 +457,23 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 // armPlan is what an arm was started with: the slots it runs, the lane
 // that re-runs its Change, the adoption its copy takes, the checks both of
 // its Change's arms declare, and the one model that judges both arms'
-// rubrics when they are compared. All are fixed at start.
+// rubrics when they are compared. All are fixed at start. Before is set
+// when the Change is an adoption Change: the copy starts there, and the
+// arm's Change moves it to Adoption.
 type armPlan struct {
 	Slots    map[string]string          `json:"slots"`
 	Lane     string                     `json:"lane"`
 	Adoption *armAdoption               `json:"adoption,omitempty"`
 	Union    []conformance.CheckVersion `json:"union,omitempty"`
 	Judge    string                     `json:"judge,omitempty"`
+	Before   *armBefore                 `json:"before,omitempty"`
+}
+
+// armBefore is the adoption an adoption Change started from: the source's
+// recorded revision and its receipt's digest, which the copy must have.
+type armBefore struct {
+	Revision int64  `json:"revision"`
+	Digest   string `json:"digest"`
 }
 
 // armAdoption is what an arm's copy adopts: the pack picks (none: the

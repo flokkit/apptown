@@ -76,3 +76,13 @@ func PurposeIn(ctx context.Context, q database.Queryer, id ids.ID) (Purpose, err
 func (s *Projects) Purpose(ctx context.Context, id ids.ID) (Purpose, error) {
 	return PurposeIn(ctx, s.db, id)
 }
+
+// Copies answers adoption whether a project is an eval's copy
+// (adoption.CopyPurpose).
+type Copies struct{}
+
+// IsEvalCopyIn reads the project's purpose through q.
+func (Copies) IsEvalCopyIn(ctx context.Context, q database.Queryer, id ids.ID) (bool, error) {
+	p, err := PurposeIn(ctx, q, id)
+	return p == EvalCopy, err
+}
