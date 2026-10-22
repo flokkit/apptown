@@ -196,9 +196,6 @@ type BootError struct {
 	Phase   string
 	Err     error
 	LogTail string
-	// Known is a failure whose effects were put back as they were (a move
-	// that restarted the old stack, move.go): its outcome is known.
-	Known bool
 }
 
 func (e *BootError) Error() string { return e.Err.Error() }
@@ -210,9 +207,12 @@ func (e *BootError) BeforeEffects() bool {
 	return e.Phase == PhaseResolve || e.Phase == PhaseSecrets || e.Phase == PhaseConfig
 }
 
-// KnownOutcome says the attempt's outcome is known: nothing changed, or
-// what changed was put back as it was (Known).
-func (e *BootError) KnownOutcome() bool { return e.BeforeEffects() || e.Known }
+// KnownOutcome says the attempt's outcome is known: the boot ran and
+// reported, in a phase, that the new version did not come up. It failed.
+// What it left on the host is on the deployment's list (Ownership), so the
+// next release or a take-down removes it. Only an error with no phase (one
+// a boot did not report) leaves the outcome unknown.
+func (e *BootError) KnownOutcome() bool { return e.Phase != "" }
 func (e *BootError) Unwrap() error      { return e.Err }
 
 // asBootError: the phase-carrying error behind a boot failure; any other

@@ -50,8 +50,7 @@ type moveSource struct {
 
 // moveStack runs the move (steps 1–6 of the plan) for the boot t, whose
 // names are already the new ones. A failure before the record is switched
-// leaves, or puts back, the old stack running; that outcome is known
-// (BootError.Known). A failure to put it back is not.
+// leaves, or puts back, the old stack running.
 func (h *Host) moveStack(ctx context.Context, t *BootRequest, dataDir string) error {
 	dk, m := t.Docker, t.move
 	to := Names{prefix: t.names(), stack: t.StackID}
@@ -207,10 +206,9 @@ func (h *Host) moveStack(ctx context.Context, t *BootRequest, dataDir string) er
 	return nil
 }
 
-// movedNothing is a move that failed with the old stack running as before:
-// a known outcome.
+// movedNothing is a move that failed with the old stack running as before.
 func movedNothing(err error) error {
-	return &BootError{Phase: PhaseMove, Err: err, Known: true}
+	return &BootError{Phase: PhaseMove, Err: err}
 }
 
 // copyAndCheck copies /from into /to, the top folder's owner and mode

@@ -228,6 +228,27 @@ uses `Resume` on the recorded identity; it cannot recreate or reapply a missing
 deployment. [Job retry limits](jobs.md) bound automatic observation attempts.
 Exhausting them does not prove the provider failed.
 
+On a Docker host, a release whose boot fails in any step ends failed: a
+service that never gets healthy, a migration that exits non-zero, an app
+container that does not start, a readiness probe or front-page check that
+does not pass. The boot may have changed the host before it failed (stopped
+the old app, started services, run a migration), and failing does not undo
+that. Releasing again replaces the failed app container and runs the boot
+again, reusing standing services and their data. A take-down removes the
+container under the deployment's name whichever generation started it, and
+handles everything else on the deployment's list under its usual rules.
+
+A Docker attempt becomes uncertain only when AppTown lost track of it: it
+stopped mid-boot, the host stopped answering, or the outcome could not be
+written. `Resume` then settles it from the boot record and what the host
+says. The container the attempt recorded starting healthy, running as
+recorded, settles it applied. No record of a healthy start, or that
+container gone, replaced or stopped, settles it failed. Only a host that
+cannot be asked (or whose answer cannot be read) leaves it uncertain for a
+later look. One case reads wrong: if AppTown stops after a healthy boot but
+before writing its record, the attempt settles failed while the new
+container runs. The next release replaces it.
+
 A new App Platform app's provider-issued name (`*.ondigitalocean.app`) can be
 missing from DNS for minutes after the app goes active, and a resolver that
 asked too early keeps that answer for the zone's negative-cache time (the
@@ -274,9 +295,10 @@ go on. Only a failure to read the records, or to record the mark, stops it.
 button on an uncertain deployment's card; `deployment:operate`) is the
 person's repair. It observes; it never deploys. An uncertain attempt is
 observed as recovery observes it (`Resume` on the recorded boot proof): the
-container it booted running with the recorded image settles it applied, that
-container gone settles it failed, and a host that cannot be asked leaves it
-uncertain, still needing attention. A release left releasing follows its
+container it booted running with the recorded image settles it applied; no
+record of a healthy start, or that container gone, replaced or stopped,
+settles it failed; and a host that cannot be asked leaves it uncertain,
+still needing attention. A release left releasing follows its
 attempt: failed or superseded fails it, an attempt a newer generation
 replaced is superseded, and a done attempt of the current generation is
 observed the same way. Settlement is the usual one, with its release receipts;

@@ -183,3 +183,71 @@ func TestCheckAgainSettlesWhatItObserves(t *testing.T) {
 		})
 	}
 }
+
+// A release whose boot fails after it started changing the host (here its
+// migration exits non-zero) ends failed, not uncertain: nothing is left in
+// doubt, so the next release is admitted and Check again has nothing to do.
+//
+// Kills: a needs/parts/app phase failure left uncertain on the landing path.
+func TestAReleaseWhoseMigrationFailsEndsFailed(t *testing.T) {
+	t.Parallel()
+	a, fake := bootWorld(t)
+	testAdministrator(t, a, "alice")
+	_, stepID := deployRun(t, a)
+	fake.reply = func(args []string) (string, error, bool) {
+		if len(args) > 0 && args[0] == "run" && strings.Contains(strings.Join(args, " "), "--rm --init --name ") && strings.Contains(strings.Join(args, " "), "migrate") {
+			return "migration failed", errFakeExit, true
+		}
+		return "", nil, false
+	}
+	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if env.Readiness == deployment.ReadinessUncertain || len(openAttempts(t, a)) != 0 {
+		t.Fatalf("a failed migration left the deployment in doubt: readiness %s, open %v", env.Readiness, openAttempts(t, a))
+	}
+	if _, err := a.Deployment.CheckAgain(asPerson("alice"), env.ProjectID, env.Name); err == nil {
+		t.Fatal("Check again found something in doubt after a failed release")
+	}
+}
+
+// An attempt left uncertain with no record that its new version came up
+// (the host stopped answering right after the boot, as when AppTown stops
+// mid-boot) is settled failed by Check again once the host answers, and
+// the deployment takes a new release.
+//
+// Kills: Resume leaving an attempt without a boot record uncertain forever.
+func TestCheckAgainFailsAnAttemptWithNoRecordOfItsBoot(t *testing.T) {
+	t.Parallel()
+	a, fake := bootWorld(t)
+	testAdministrator(t, a, "alice")
+	_, stepID := deployRun(t, a)
+	unreachable := true
+	fake.reply = func(args []string) (string, error, bool) {
+		if unreachable && len(args) > 2 && args[0] == "inspect" && args[2] == dockerhost.RuntimeFormat {
+			return "Cannot connect to the Docker daemon", errFakeExit, true
+		}
+		return "", nil, false
+	}
+	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+	if err != nil || env.Readiness != deployment.ReadinessUncertain {
+		t.Fatalf("fixture: the attempt is not in doubt: %+v %v", env, err)
+	}
+	unreachable = false
+	result, err := a.Deployment.CheckAgain(asPerson("alice"), env.ProjectID, env.Name)
+	if err != nil || len(result.Checked) != 1 {
+		t.Fatalf("check again: %+v %v", result, err)
+	}
+	if status := attemptStatus(t, a, result.Checked[0].Attempt); status != deployment.AttemptFailed {
+		t.Fatalf("an attempt with no boot record: %s (%+v)", status, result.Checked[0])
+	}
+	if r := readinessOf(t, a, env); r == deployment.ReadinessUncertain {
+		t.Fatalf("readiness still %s", r)
+	}
+	if _, _, err := a.Deployment.Outcomes.Admit(context.Background(), deploymentStartFor(env, "after", "after")); err != nil {
+		t.Fatalf("the next release is refused: %v", err)
+	}
+}

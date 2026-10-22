@@ -22,14 +22,20 @@ type dockerClientFunc func(context.Context, string, docker.Command) ([]byte, err
 func (f dockerClientFunc) Run(ctx context.Context, host string, c docker.Command) ([]byte, error) {
 	return f(ctx, host, c)
 }
+
+// Every boot failure a phase reported ends the landing's attempt failed, as
+// on the release path; only an unreported one stays unknown.
+//
+// Kills: the landing path keeping its own shorter list of known phases.
 func TestLandingExecutorPreservesBootPolicyAndFailureClassification(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		phase    string
 		terminal bool
 	}{
-		{docker.PhaseResolve, true}, {docker.PhaseSecrets, true}, {docker.PhaseNeeds, false},
-		{docker.PhaseParts, false}, {docker.PhaseApp, false}, {docker.PhaseProbe, true}, {docker.PhasePage, true},
+		{docker.PhaseResolve, true}, {docker.PhaseSecrets, true}, {docker.PhaseConfig, true}, {docker.PhaseMove, true},
+		{docker.PhaseNeeds, true}, {docker.PhaseFill, true}, {docker.PhaseParts, true}, {docker.PhaseApp, true},
+		{docker.PhaseProbe, true}, {docker.PhasePage, true}, {"", false},
 	} {
 		t.Run(tc.phase, func(t *testing.T) {
 			c := &appcontract.Contract{}

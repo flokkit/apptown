@@ -75,7 +75,10 @@ while its attempt is uncertain.
 
 Press **Check again** on its card (a project maintainer or owner, or an
 administrator). AppTown asks the deployment's host what runs and settles it:
-running as recorded → deployed; gone → failed; host unreachable → still
-uncertain, so make the host reachable and press it again. Each press is in the
+running as recorded → deployed; gone, replaced, stopped, or never recorded
+as started → failed; host unreachable → still uncertain, so make the host
+reachable and press it again. After a failed attempt, release again (it
+replaces the failed app container and reuses standing services and their
+data) or take the deployment down. Each press is in the
 ledger as `deployment.checked-again`. Do not edit the records by hand. See
 [uncertain outcomes and restart](../subsystems/deployment.md#uncertain-outcomes-and-restart).

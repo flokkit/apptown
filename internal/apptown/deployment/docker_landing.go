@@ -47,11 +47,10 @@ func (e *landingDeploymentExecution) execute(ctx context.Context, at Attempt, ch
 		return deploy.Observation{}, err
 	}
 	if e.result.Err != nil {
-		// Terminal is a confirmed outcome: nothing started, or it started and
-		// is known to have failed. An unreadable browser setting is the first,
-		// so it never strands the deployment as uncertain.
-		be := docker.AsBootError(e.result.Err)
-		if be.BeforeEffects() || be.Phase == docker.PhaseProbe || be.Phase == docker.PhasePage {
+		// Terminal is a confirmed outcome: the boot reported, in a phase,
+		// that the new version did not come up. The release path classifies
+		// it the same way (docker.Driver.Reconcile).
+		if docker.AsBootError(e.result.Err).KnownOutcome() {
 			return deploy.Observation{}, deploy.Terminal(e.result.Err)
 		}
 		return deploy.Observation{}, e.result.Err

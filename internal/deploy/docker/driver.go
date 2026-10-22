@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/flokkit/apptown/internal/dockerlabel"
-	"strconv"
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
@@ -124,7 +123,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	}
 	res, err := d.Boot.Boot(ctx, req, c)
 	if err != nil && AsBootError(err).KnownOutcome() {
-		return deploy.Observation{}, deploy.Terminal(err) // nothing changed, or it was put back: the outcome is known
+		return deploy.Observation{}, deploy.Terminal(err) // the boot said the new version did not come up
 	}
 	if err != nil {
 		return deploy.Observation{}, err
@@ -187,7 +186,7 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 	if err != nil {
 		return out, err
 	}
-	serving, err := removeServing(ctx, dk, p, generation)
+	serving, err := removeServing(ctx, dk, p)
 	if err != nil {
 		return out, err
 	}
@@ -202,7 +201,7 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 
 // removeServing removes the deployment's app container and answers its ID,
 // "" when it was already gone.
-func removeServing(ctx context.Context, dk Scope, p deploy.Placement, generation int64) (string, error) {
+func removeServing(ctx context.Context, dk Scope, p deploy.Placement) (string, error) {
 	if p.Container == "" {
 		return "", nil
 	}
@@ -213,10 +212,13 @@ func removeServing(ctx context.Context, dk Scope, p deploy.Placement, generation
 	if err != nil {
 		return "", err
 	}
-	// A name can now belong to a replacement container. Verify the recorded
-	// identity, then delete the immutable ID so a later rename cannot retarget rm.
-	if runtime.ID == "" || deploy.IdentityLabels(runtime.Labels)[dockerlabel.Deployment] != string(p.Label) || deploy.IdentityLabels(runtime.Labels)[dockerlabel.Generation] != strconv.FormatInt(generation, 10) {
-		return "", errors.New("container identity differs from the recorded deployment; refusing removal")
+	// The name can hold a container of another generation of this
+	// deployment: one a failed release started. It is the deployment's to
+	// remove, and no newer attempt can be starting one, because a take-down
+	// is refused while an attempt is open. A container of anything else is
+	// refused. The immutable ID is deleted so a later rename cannot retarget rm.
+	if runtime.ID == "" || deploy.IdentityLabels(runtime.Labels)[dockerlabel.Deployment] != string(p.Label) {
+		return "", errors.New("the container under the deployment's name belongs to something else; refusing removal")
 	}
 	// Without -v: a container's anonymous volumes are not on the list, and
 	// only what the list names is ever deleted.
