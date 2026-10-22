@@ -1,12 +1,7 @@
 package main
 
 import (
-	"errors"
 	"flag"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -42,7 +37,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			v = "1.5"
 		case "task-memory-mib", "task-pids", "chat-memory-mib", "chat-pids":
 			v = "512"
-		case "verify-only", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "drain-local-docker", "git-import-allow-private", "backfill-recorded-main", "open-on-network", "host-scripts":
+		case "verify-only", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "drain-local-docker", "git-import-allow-private", "open-on-network", "host-scripts":
 			v = "true"
 		case "tier-domain":
 			v = "preview=p.example,main=m.example"
@@ -80,17 +75,18 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 	}
 }
 
-// A setting still spelled the old way (FORGE_DB_URL) stops the daemon with
-// the new spelling named, rather than starting on defaults: an env file half
-// moved to the AppTown names would otherwise lose its settings silently.
-func TestAnOldSettingNameStopsTheDaemon(t *testing.T) {
+// A FORGE_ variable is not a setting: apptownd starts, reading only the
+// APPTOWN_ names.
+func TestAForgeVariableIsNotASetting(t *testing.T) {
 	t.Parallel()
 	fs := flag.NewFlagSet("apptownd", flag.ContinueOnError)
-	defineFlags(fs)
+	o := defineFlags(fs)
 	_ = fs.Parse(nil)
-	err := bindEnv(fs, func(k string) string { return map[string]string{"FORGE_DB_URL": "postgres://x"}[k] })
-	if err == nil || !strings.Contains(err.Error(), "FORGE_DB_URL") || !strings.Contains(err.Error(), "APPTOWN_DB_URL") {
-		t.Fatalf("old setting: %v", err)
+	if err := bindEnv(fs, func(k string) string { return map[string]string{"FORGE_DB_URL": "postgres://x"}[k] }); err != nil {
+		t.Fatalf("a FORGE_ variable stopped apptownd: %v", err)
+	}
+	if o.dbURL != "" {
+		t.Fatalf("FORGE_DB_URL was read: %q", o.dbURL)
 	}
 }
 
@@ -146,34 +142,5 @@ func TestThePortainerEnvironmentFlagReachesTheForgeConfig(t *testing.T) {
 		if got := o.forgeConfig("/data").PortainerEnvironment; got != c.want {
 			t.Fatalf("%v %v: %q, want %q", c.args, c.env, got, c.want)
 		}
-	}
-}
-
-// private/scripts/deploy-ct.sh refuses a CT whose settings still use an old
-// FORGE_<FLAG> name, and only those (the CLI's FORGE_ variables may stay).
-// Its list is this daemon's flags, so a new flag cannot slip past it.
-func TestTheCTDeployKnowsEveryDaemonSetting(t *testing.T) {
-	t.Parallel()
-	src, err := os.ReadFile(filepath.Join("..", "..", "private", "scripts", "deploy-ct.sh"))
-	if errors.Is(err, fs.ErrNotExist) {
-		t.Skip("the maintainers' deploy script is not in the public tree")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	var listed []string
-	for _, line := range strings.Split(string(src), "\n") {
-		if v, ok := strings.CutPrefix(line, "daemon_settings="); ok {
-			listed = strings.Split(strings.Trim(v, `"`), "|")
-		}
-	}
-	fs := flag.NewFlagSet("apptownd", flag.ContinueOnError)
-	defineFlags(fs)
-	var want []string
-	fs.VisitAll(func(f *flag.Flag) { want = append(want, settingName(f.Name)) })
-	slices.Sort(listed)
-	slices.Sort(want)
-	if !slices.Equal(listed, want) {
-		t.Fatalf("deploy-ct.sh's daemon_settings:\n%v\nthe daemon's flags:\n%v", listed, want)
 	}
 }

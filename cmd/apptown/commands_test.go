@@ -1343,22 +1343,3 @@ func TestExecutingCountsARunningOperation(t *testing.T) {
 		}
 	}
 }
-
-// An AppTown from before operations were reported answers steps only: with
-// no step running, whether an operation runs is not known, which is an
-// error, never "nothing is executing" (plan review R3).
-//
-// Kills: reading an absent operations list as an empty one.
-func TestExecutingOnAForgeThatDoesNotReportOperationsIsNotIdle(t *testing.T) {
-	fakeForge(t, func(_, path string) (int, string) {
-		return 200, `{"executing":[]}`
-	})
-	code := -1
-	prev := exitProcess
-	exitProcess = func(c int) { code = c }
-	t.Cleanup(func() { exitProcess = prev })
-	out, err := run(t, "executing")
-	if err == nil || code != -1 || strings.Contains(out, "nothing is executing") || !strings.Contains(err.Error(), "does not report its operations") {
-		t.Fatalf("an old AppTown's answer: %v exit %d %q", err, code, out)
-	}
-}

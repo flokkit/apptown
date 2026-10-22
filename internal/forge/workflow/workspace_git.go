@@ -71,9 +71,6 @@ func (g GitWorkspace) EnsureClone(ctx context.Context, in CloneRequest) (out Wor
 	if err != nil {
 		return out, err
 	}
-	if err := g.requireUpgraded(ctx, in.Repository, start); err != nil {
-		return out, err
-	}
 	if err := os.MkdirAll(filepath.Dir(in.Workspace), 0755); err != nil {
 		return out, err
 	}
@@ -207,20 +204,4 @@ func (g GitWorkspace) commitLeftovers(ctx context.Context, workspace string) err
 	}
 	_, err := g.git(ctx, workspace, "-c", "user.name=apptown", "-c", "user.email=apptown@localhost", "commit", "--quiet", "-m", leftoverMessage)
 	return err
-}
-
-// errNotUpgraded refuses new work on a repository that still keeps AppTown's
-// files in .forge/: the upgrade renames it once, for every project, and work
-// started before that would write the new folder beside the old one.
-var errNotUpgraded = fault.New(fault.Conflict, "this project's repository still keeps AppTown's files in .forge/; an administrator runs apptown upgrade once, then start again")
-
-func (g GitWorkspace) requireUpgraded(ctx context.Context, repository, commit string) error {
-	old, err := scm.PredatesRename(ctx, repository, commit)
-	if err != nil {
-		return err
-	}
-	if old {
-		return errNotUpgraded
-	}
-	return nil
 }

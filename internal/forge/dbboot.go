@@ -46,9 +46,6 @@ type builtinDBNames struct{ Container, Volume string }
 var (
 	// currentBuiltinDB names a built-in database made now.
 	currentBuiltinDB = builtinDBNames{Container: "apptown-db", Volume: "apptown-data-apptown-db"}
-	// before1BuiltinDB is what one made before 1.0 is called; its db.env
-	// is given these names once, at the first start that reads it.
-	before1BuiltinDB = builtinDBNames{Container: "forge-db", Volume: "forge-data-forge-db"}
 )
 
 const (
@@ -147,10 +144,9 @@ func builtinDBCredentials(dataDir string) (url, password string, names builtinDB
 	path := filepath.Join(dataDir, "db.env")
 	raw, err := os.ReadFile(path)
 	if err == nil {
-		// Releases before the AppTown rename wrote FORGE_DB_URL and
-		// FORGE_DB_PASSWORD. A key missing under its new name is taken from
-		// its old one and the file is rewritten once, whole or not at all
-		// (it holds the only copy of the database's password).
+		// Each key is required: db.env holds the only copy of the database's
+		// password, and its names say where the data is. A file missing one
+		// is refused as it is, never rewritten or replaced.
 		values := map[string]string{}
 		for _, line := range strings.Split(string(raw), "\n") {
 			if k, v, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
@@ -159,34 +155,16 @@ func builtinDBCredentials(dataDir string) (url, password string, names builtinDB
 		}
 		url, password = values["APPTOWN_DB_URL"], values["APPTOWN_DB_PASSWORD"]
 		names = builtinDBNames{Container: values["APPTOWN_DB_CONTAINER"], Volume: values["APPTOWN_DB_VOLUME"]}
-		renames := map[string]string{}
-		if old, ok := values["FORGE_DB_URL"]; ok && url == "" && old != "" {
-			url, renames["FORGE_DB_URL"] = old, "APPTOWN_DB_URL"
-		}
-		if old, ok := values["FORGE_DB_PASSWORD"]; ok && password == "" && old != "" {
-			password, renames["FORGE_DB_PASSWORD"] = old, "APPTOWN_DB_PASSWORD"
-		}
-		// A database made before 1.0 has a db.env without its names: it is
-		// given the names it was made with, once, in the same rewrite.
-		var add []string
-		if names.Container == "" {
-			names.Container = before1BuiltinDB.Container
-			add = append(add, "APPTOWN_DB_CONTAINER="+names.Container)
-		}
-		if names.Volume == "" {
-			names.Volume = before1BuiltinDB.Volume
-			add = append(add, "APPTOWN_DB_VOLUME="+names.Volume)
-		}
-		if url != "" && password != "" && (len(renames) > 0 || len(add) > 0) {
-			if err := migrateDBEnv(dataDir, string(raw), renames, add); err != nil {
-				return "", "", names, fmt.Errorf("bringing %s up to date: %w", path, err)
+		var missing []string
+		for _, k := range []string{"APPTOWN_DB_URL", "APPTOWN_DB_PASSWORD", "APPTOWN_DB_CONTAINER", "APPTOWN_DB_VOLUME"} {
+			if values[k] == "" {
+				missing = append(missing, k)
 			}
-			log.Printf("built-in database: %s now uses the APPTOWN_DB_ names and records the container %s and volume %s", path, names.Container, names.Volume)
 		}
-		if url != "" && password != "" {
-			return url, password, names, nil
+		if len(missing) > 0 {
+			return "", "", names, fmt.Errorf("%s is present but incomplete; it needs %s", path, strings.Join(missing, ", "))
 		}
-		return "", "", names, fmt.Errorf("%s is present but incomplete; it needs APPTOWN_DB_URL and APPTOWN_DB_PASSWORD", path)
+		return url, password, names, nil
 	}
 	if !errors.Is(err, fs.ErrNotExist) {
 		// Unreadable is not absent: minting would replace the only copy of
@@ -245,22 +223,6 @@ func readBuiltinDBNames(dataDir string) (builtinDBNames, bool) {
 		}
 	}
 	return n, n.Container != "" && n.Volume != ""
-}
-
-// migrateDBEnv rewrites db.env with each old key in renames keyed by its
-// new name, the lines in add appended and everything else as it was,
-// atomically at 0600.
-func migrateDBEnv(dataDir, raw string, renames map[string]string, add []string) error {
-	lines := strings.Split(strings.TrimRight(raw, "\n"), "\n")
-	for i, line := range lines {
-		if k, v, ok := strings.Cut(strings.TrimSpace(line), "="); ok && renames[k] != "" {
-			lines[i] = renames[k] + "=" + v
-		}
-	}
-	lines = append(lines, add...)
-	lines = append(lines, "")
-	_, err := durable.Write(dataDir, "db.env", []byte(strings.Join(lines, "\n")), 0o600, false)
-	return err
 }
 
 func instanceID(dataDir string) (string, error) {

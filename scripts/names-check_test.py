@@ -148,8 +148,8 @@ class NamesCheck(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.write("internal/console/pi/runtime.go",
                    'func ContainerName(id string) string { return "apptown-console-" + id }')
-        self.write("internal/forge/dbboot.go",
-                   'before1BuiltinDB = builtinDBNames{Container: "forge-db", Volume: "forge-data-forge-db"}')
+        self.write("scripts/apptown-recovery-rehearsal.sh",
+                   'docker exec forge-db pg_dump -U postgres forge')
         code, out = self.run_check()
         self.assertEqual(code, 0, out)
 

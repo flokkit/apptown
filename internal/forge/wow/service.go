@@ -236,9 +236,6 @@ func (s *Service) WorkflowHistory(ctx context.Context, name string) ([]WorkflowV
 func (s *Service) PublishWorkflow(ctx context.Context, yamlSrc, who string) (name string, version int, err error) {
 	return s.workflows.Put(ctx, yamlSrc, who)
 }
-func (s *Service) AmendWorkflow(ctx context.Context, name string, from int, yamlSrc, who string) (int, error) {
-	return s.workflows.Amend(ctx, name, from, yamlSrc, who)
-}
 func (s *Service) DeleteWorkflow(ctx context.Context, name, who string) error {
 	return s.workflows.Delete(ctx, name, who)
 }

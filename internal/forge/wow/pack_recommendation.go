@@ -23,9 +23,7 @@ import (
 // what new projects get and what projects already on a pack are offered as
 // the update. Publishing never moves it, a stock pack's included, so a
 // what-if can judge a release's new version first; a person moves it with
-// standards:manage-packs, which no agent credential carries. The one other
-// move is a compatibility migration's amendment of the recommended
-// publication (Amend), which carries the recommendation to the amended copy. Moving it cuts a follow version of each pack
+// standards:manage-packs, which no agent credential carries. Moving it cuts a follow version of each pack
 // that includes this one without a pin. A follow version is not
 // recommended, so nothing cascades until a person moves the next pointer,
 // and no project moves: adopting stays a separate act.

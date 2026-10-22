@@ -121,6 +121,16 @@ var migrations = []migration{
 		"UPDATE inference_requests SET kind = 'apptown' WHERE kind = 'forge'",
 		"UPDATE what_if_reviews SET pack = 'apptown' WHERE pack = 'forge'",
 	}},
+	// A token made before purposes authenticated nothing (it was refused
+	// until classified by hand). Each is revoked, on the day they were
+	// retired, and kept: a used one is its account's evidence of signing in.
+	// The time is written here because SQL never reads the database's clock.
+	{n: 161, note: "tokens made before purposes are revoked; a token without a purpose must be a revoked one", stmts: []string{
+		"UPDATE auth_tokens SET revoked_at = '2026-10-22T00:00:00Z' WHERE purpose = '' AND revoked_at IS NULL",
+		"ALTER TABLE auth_tokens ALTER COLUMN purpose DROP DEFAULT",
+		"ALTER TABLE auth_tokens DROP CONSTRAINT auth_token_purpose",
+		"ALTER TABLE auth_tokens ADD CONSTRAINT auth_token_purpose CHECK (purpose IN ('cli', 'agent') OR (purpose = '' AND revoked_at IS NOT NULL))",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

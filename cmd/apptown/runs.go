@@ -1093,9 +1093,7 @@ func cmdExecuting(args []string) error {
 			Type     string
 			ElapsedS int
 		}
-		// Operations is nil from an older forge, which does not report
-		// them: only its steps are known.
-		Operations *[]struct {
+		Operations []struct {
 			Number     int64
 			Kind       string
 			Deployment string
@@ -1107,13 +1105,7 @@ func cmdExecuting(args []string) error {
 	if err := api.get("/runs/executing", &out); err != nil {
 		return err
 	}
-	// An older AppTown answers steps only: what its operations are doing is
-	// not known, which is not idle.
-	ops := -1
-	if out.Operations != nil {
-		ops = len(*out.Operations)
-	}
-	if len(out.Executing) == 0 && ops == 0 {
+	if len(out.Executing) == 0 && len(out.Operations) == 0 {
 		fmt.Println("nothing is executing")
 		return nil
 	}
@@ -1124,73 +1116,18 @@ func cmdExecuting(args []string) error {
 			fmt.Fprintf(w, "%s\t%d\t%s (%d)\t%s\t%s\t%s\n", s.Project, s.RunID, s.Step, s.StepID, s.Type, time.Duration(s.ElapsedS)*time.Second, s.Title)
 		}
 	}
-	if ops > 0 {
+	if len(out.Operations) > 0 {
 		if len(out.Executing) > 0 {
 			fmt.Fprintln(w)
 		}
 		fmt.Fprintln(w, "OPERATION\tKIND\tDEPLOYMENT\tSTEP\tFOR\tASKED BY")
-		for _, o := range *out.Operations {
+		for _, o := range out.Operations {
 			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n", o.Number, o.Kind, o.Deployment, o.Step, time.Duration(o.ElapsedS)*time.Second, o.AskedBy)
 		}
 	}
 	if err := w.Flush(); err != nil {
 		return err
 	}
-	if ops < 0 && len(out.Executing) == 0 {
-		return errors.New("no step is executing, but this AppTown does not report its operations (copies, restores, take-downs), so whether one is running is not known")
-	}
 	exitProcess(3)
-	return nil
-}
-
-// cmdUpgrade runs the AppTown rename's one-time upgrade and prints what it
-// did, project by project.
-func cmdUpgrade(args []string) error {
-	fs := newFlags("upgrade")
-	parseArgs(fs, args)
-	var out struct {
-		Projects []struct {
-			Slug     string
-			Renamed  []string
-			Refused  map[string]string
-			Refs     int
-			Adoption int64
-			Error    string
-		}
-		Library []string
-	}
-	if err := api.post("/upgrade/apptown", struct{}{}, &out); err != nil {
-		return err
-	}
-	for _, l := range out.Library {
-		fmt.Printf("library: renamed %s\n", l)
-	}
-	failed := 0
-	for _, p := range out.Projects {
-		var parts []string
-		if len(p.Renamed) > 0 {
-			parts = append(parts, "renamed on "+strings.Join(p.Renamed, ", "))
-		}
-		if p.Refs > 0 {
-			parts = append(parts, fmt.Sprintf("%d refs moved", p.Refs))
-		}
-		if p.Adoption > 0 {
-			parts = append(parts, fmt.Sprintf("adoption at revision %d", p.Adoption))
-		}
-		for b, why := range p.Refused {
-			parts = append(parts, fmt.Sprintf("%s left as it was: %s", b, why))
-		}
-		if p.Error != "" {
-			failed++
-			parts = append(parts, "FAILED: "+p.Error)
-		}
-		if len(parts) == 0 {
-			parts = append(parts, "nothing to do")
-		}
-		fmt.Printf("%s: %s\n", p.Slug, strings.Join(parts, "; "))
-	}
-	if failed > 0 {
-		return fmt.Errorf("%d projects failed; fix them and run apptown upgrade again", failed)
-	}
 	return nil
 }

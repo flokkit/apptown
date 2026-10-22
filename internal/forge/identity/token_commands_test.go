@@ -113,9 +113,8 @@ func TestTokenCommandsCheckCurrentAdministrator(t *testing.T) {
 }
 
 // A token is made for a command line or for an agent, never by default; the
-// purpose is kept, reported, carried into the principal the token resolves
-// to, and a token without one (made before purposes) is refused until an
-// operator classifies it.
+// purpose is kept, reported, and carried into the principal the token
+// resolves to.
 func TestTokenPurposeIsChosenKeptAndRequired(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -144,17 +143,6 @@ func TestTokenPurposeIsChosenKeptAndRequired(t *testing.T) {
 		if err != nil || len(receipts) != 1 || !strings.Contains(string(receipts[0].Payload), `"purpose":"`+purpose+`"`) {
 			t.Fatalf("the %s receipt names its purpose: %+v %v", purpose, receipts, err)
 		}
-	}
-	old, err := s.IssueToken(ctx, NewToken{Name: "old", Purpose: access.TokenCLI}, pr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// sql-guarantee: a token from before purposes existed; no operation makes one now.
-	if _, err := s.db.Exec(`UPDATE auth_tokens SET purpose='' WHERE name='old'`); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := s.PersonalTokenIdentity(ctx, old.Plaintext, nil); !errors.Is(err, ErrTokenUnclassified) || got.Name != "" {
-		t.Fatalf("an unclassified token was admitted: %+v %v", got, err)
 	}
 }
 

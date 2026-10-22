@@ -18,7 +18,6 @@ procedures.
 | Run steps, checks, previews, change chats and release builds on a separate worker machine | [Workers](workers.md) |
 | Run an AppTown with no local Docker daemon | [Workers: running an AppTown without a local Docker daemon](workers.md#running-apptown-without-a-local-docker-daemon) |
 | Recover a lost administrator password | [Locked out of the admin account](#locked-out-of-the-admin-account) |
-| A personal token is refused with "the token has no purpose" | [Tokens made before purposes](#tokens-made-before-purposes) |
 | Start a project from existing code, or move one to another AppTown | [Starting from existing code](start-from-existing-code.md) |
 | Keep projects in a public gitlab.com group, with attributed merge requests | [An AppTown on a public gitlab.com group](gitlab-com.md) |
 | Add deployment targets (Docker host, Portainer, App Platform, bucket website) | [Deployment targets](../../stock/docs/guides/deployment-targets.md), [Deploy targets](../subsystems/deploy-targets.md) |
@@ -65,25 +64,6 @@ It does not change the account's role, and does not re-enable a disabled
 account. It cannot run with `-verify-only` or `-drain-local-docker`. Remove
 `APPTOWN_RESET_PASSWORD` from the environment afterwards if you set it there:
 while it is set, apptownd resets and exits instead of serving.
-
-## Tokens made before purposes
-
-Every personal token is made for a command line (`cli`, acts as its person)
-or a coding agent (`agent`, bounded like an OAuth connection: it may not
-approve, land or administer). Tokens made before purposes existed have none
-and are refused at both `/api/` and `/mcp/user`; AppTown logs "the token has
-no purpose". Nothing guesses which ones agents hold. Either:
-
-- **Replace them (no database access needed).** An administrator signs in with
-  their password (browser sessions and trusted-proxy sign-in never depended on
-  a token), mints replacements on the People page or with
-  `apptown token create <name> --purpose cli|agent`, and revokes the old ones. If
-  the administrator password is lost too, use
-  [Locked out of the admin account](#locked-out-of-the-admin-account) first.
-- **Classify them in place.** With a database dump taken first:
-  `UPDATE auth_tokens SET purpose='cli' WHERE name IN (…)`, and `'agent'`
-  for the tokens coding agents hold. List them with
-  `SELECT name, username, role, last_used FROM auth_tokens WHERE revoked_at IS NULL AND purpose=''`.
 
 ## A deployment needs attention
 

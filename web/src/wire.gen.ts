@@ -4460,7 +4460,6 @@ export type On = {
   manual?: Record<string, unknown>
   schedule?: ScheduleTrigger | null
   webhook?: Record<string, unknown>
-  workItem?: Record<string, unknown>
 }
 
 export type Defaults = {

@@ -30,8 +30,7 @@ type PackRecord struct {
 	Enabled       bool
 	LatestVersion int64
 	// RecommendedVersion is what new projects get and what projects are
-	// offered as the update; only a person moves it (and a compatibility
-	// migration's amendment carries it, Amend).
+	// offered as the update; only a person moves it.
 	RecommendedVersion int64
 }
 

@@ -25,7 +25,7 @@
 # notes name no HTTP change, builds nothing.
 #
 # Before tagging, run `make upgrade-test` on the candidate commit: every
-# earlier release's frozen forge (internal/forge/testdata/upgrade) upgrades
+# frozen release's AppTown (internal/forge/testdata/upgrade) upgrades
 # to it and keeps its records. This script runs it again at the tag and
 # builds nothing when it fails.
 # After tagging, freeze the release's AppTown for the releases after it, at the

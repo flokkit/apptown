@@ -86,8 +86,6 @@ type On struct {
 	// Webhook presence enables POST /api/v1/hooks/{project}/{workflow}
 	// (authenticated by APPTOWN_WEBHOOK_TOKEN from secrets.env).
 	Webhook map[string]any `yaml:"webhook,omitempty" json:"webhook,omitempty"`
-	// WorkItem is informational in v0 (work items already start runs).
-	WorkItem map[string]any `yaml:"workItem,omitempty" json:"workItem,omitempty"`
 }
 
 type ScheduleTrigger struct {

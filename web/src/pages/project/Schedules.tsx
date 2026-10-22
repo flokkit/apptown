@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { fmtStamp, utcDate } from '../../format'
+import { fmtStamp, stampDate } from '../../format'
 import type { ScheduleList, ScheduleView } from '../../wire.gen'
 
 // A project's schedules on its overview: what fires, when next, and what
@@ -28,7 +28,7 @@ export function cadenceWords(cron: string, next?: string): string {
   if (f.length !== 5) return raw
   const [mi, h, dom, mon, dow] = f
   if (f.every((x) => x === '*')) return 'every minute'
-  const at = next ? utcDate(next) : null
+  const at = next ? stampDate(next) : null
   if (!at || isNaN(at.getTime())) return raw
   const num = (x: string) => /^\d+$/.test(x)
   if (mon !== '*' || !num(mi)) return raw

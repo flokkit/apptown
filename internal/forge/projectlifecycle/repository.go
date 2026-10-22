@@ -2,11 +2,8 @@ package projectlifecycle
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
-	"time"
 
-	"flokkit.io/forge/internal/clock"
 	"flokkit.io/forge/internal/database"
 	"flokkit.io/forge/internal/forge/audit"
 	"flokkit.io/forge/internal/forge/project"
@@ -67,51 +64,4 @@ func (s *Service) initializeHeld(ctx context.Context, p *project.Project, defaul
 
 func hubDir(dataDir, slug string) string {
 	return filepath.Join(dataDir, "workspaces", "project-"+slug)
-}
-
-// BackfillReport counts what BackfillRecordedMain did.
-type BackfillReport struct {
-	Recorded, Kept, Unknown int
-	Unreadable              []string // slugs whose main could not be read
-}
-
-// BackfillRecordedMain gives every repository-backed project without a
-// recorded main the hub's current main, as backfill: "this is where main was
-// when recording began", not a witnessed landing. A project already recorded
-// is kept; one whose main cannot be read stays unknown. It takes no
-// repository lock, which is per process: run it only while no apptownd serves
-// this database (internal/forge/scm/README.md, the recorded main).
-// now is AppTown's clock; nil is the real one.
-func BackfillRecordedMain(ctx context.Context, db *database.DB, dataDir string, now func() time.Time) (BackfillReport, error) {
-	at := clock.Or(now)()
-	var report BackfillReport
-	projects, err := project.New(db, nil).All(ctx)
-	if err != nil {
-		return report, err
-	}
-	for _, p := range projects {
-		if p.DefaultBranch == "" {
-			continue
-		}
-		if _, known, err := scm.ReadMain(ctx, db, p.ID); err != nil {
-			return report, err
-		} else if known {
-			report.Kept++
-			continue
-		}
-		move, err := scm.PrepareMainMove(ctx, db, hubDir(dataDir, p.Slug), p.ID, p.DefaultBranch)
-		if err != nil {
-			return report, err
-		}
-		if move.Read() == "" {
-			report.Unknown++
-			report.Unreadable = append(report.Unreadable, p.Slug)
-			continue
-		}
-		if err := db.InTx(ctx, func(tx *database.Tx) error { return move.RecordIn(ctx, tx, scm.ViaBackfill, ids.Nil, at) }); err != nil {
-			return report, fmt.Errorf("recording %s's main: %w", p.Slug, err)
-		}
-		report.Recorded++
-	}
-	return report, nil
 }

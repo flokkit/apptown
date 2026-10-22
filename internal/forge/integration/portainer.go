@@ -38,11 +38,6 @@ func (s *Service) PortainerTarget(ctx context.Context) (*portainer.Target, error
 		ref("appsDomainFrom", "APPTOWN_APPS_DOMAIN"): cfg.AppsDomain,
 	} {
 		if v == "" {
-			// The apps domain's name before the AppTown rename is named,
-			// so an operator who kept it knows what to rename.
-			if k == "APPTOWN_APPS_DOMAIN" && values["FORGE_APPS_DOMAIN"] != "" {
-				k = "APPTOWN_APPS_DOMAIN (FORGE_APPS_DOMAIN is the name from before the AppTown rename: rename it)"
-			}
 			missing = append(missing, k)
 		}
 	}

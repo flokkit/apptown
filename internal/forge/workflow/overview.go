@@ -164,30 +164,6 @@ func (s *Service) ExecutingSteps(ctx context.Context) ([]RunningStep, error) {
 	return out, nil
 }
 
-// OpenRun is a run not yet finished, anywhere on this AppTown.
-type OpenRun struct {
-	ID      ids.ID
-	Number  int64
-	Project string // slug
-}
-
-// OpenRunsEverywhere lists every run still open, for an instance operation
-// that must not change repositories under one (apptown upgrade).
-func (s *Service) OpenRunsEverywhere(ctx context.Context) ([]OpenRun, error) {
-	if _, err := s.require(ctx, operationPermission{Action: actionReadRun}); err != nil {
-		return nil, err
-	}
-	rows, err := workflowsql.New(s.db.SQL()).OpenRunsEverywhere(ctx, RunRunning.String())
-	if err != nil {
-		return nil, err
-	}
-	out := make([]OpenRun, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, OpenRun{ID: row.ID, Number: row.Number, Project: row.Project})
-	}
-	return out, nil
-}
-
 // OpenChangeBranches is the recorded branch of each unfinished change of a
 // project, keyed by change number.
 func (s *Service) OpenChangeBranches(ctx context.Context, project ids.ID) (map[int64]string, error) {

@@ -50,9 +50,7 @@ needs:
 
 - **`version`** is `2`. A file with `version: 1`, or none, is still read as
   version 1, which differs in two ways: memory written as `M` or `G` means
-  MiB or GiB, and environment values never read need references. `apptown
-  upgrade` writes a project's contract as version 2 without changing what it
-  means. Another version, an explicit `0`, and any field the format does not
+  MiB or GiB, and environment values never read need references. Another version, an explicit `0`, and any field the format does not
   have are errors that name it.
 - **`app`** names the parts. Each part declares exactly one of `build` (a
   Docker build context), `image` (an image to pull) or `static` (files to

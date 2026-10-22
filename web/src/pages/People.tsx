@@ -189,7 +189,7 @@ export function TokensCard() {
       {tokens.filter(t => !t.RevokedAt).map(t => (
         <div key={t.Name} className="row small">
           <span className="chip">{t.Name}</span>
-          <span className="muted">{t.User} · {t.Role} · {tokenPurposes[t.Purpose] ?? 'no purpose: refused until an operator classifies it'} · last used {t.LastUsed ? t.LastUsed.slice(0, 10) : 'never'}</span>
+          <span className="muted">{t.User} · {t.Role} · {tokenPurposes[t.Purpose] ?? 'no purpose'} · last used {t.LastUsed ? t.LastUsed.slice(0, 10) : 'never'}</span>
           <span style={{ flex: 1 }} />
           <QuietConfirm label="revoke" ask={`Revoke token ${t.Name}? Anything using it stops working.`}
             onYes={() => { void run(() => del(`/tokens/${t.Name}`)) }} />

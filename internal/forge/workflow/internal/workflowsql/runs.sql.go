@@ -1008,42 +1008,6 @@ func (q *Queries) NextRunNumber(ctx context.Context, projectID ids.ID) (int64, e
 	return runs, err
 }
 
-const openRunsEverywhere = `-- name: OpenRunsEverywhere :many
-SELECT r.id, r.number, p.slug AS project FROM runs r JOIN projects p ON p.id = r.project_id
-WHERE r.status = $1 ORDER BY p.slug, r.number
-`
-
-type OpenRunsEverywhereRow struct {
-	ID      ids.ID
-	Number  int64
-	Project string
-}
-
-// Every run still open anywhere, for an operation that must wait for none
-// (the AppTown rename's upgrade).
-func (q *Queries) OpenRunsEverywhere(ctx context.Context, running string) ([]OpenRunsEverywhereRow, error) {
-	rows, err := q.db.QueryContext(ctx, openRunsEverywhere, running)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []OpenRunsEverywhereRow
-	for rows.Next() {
-		var i OpenRunsEverywhereRow
-		if err := rows.Scan(&i.ID, &i.Number, &i.Project); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const parentCallForUpdate = `-- name: ParentCallForUpdate :one
 SELECT s.name,s.evidence_json,s.status,s.stage,s.attempt,r.project_id AS parent_project_id,r.status AS parent_status,r.current_stage AS parent_stage
 FROM runs r JOIN steps s ON s.run_id=r.id WHERE r.id=$1 AND s.id=$2 FOR UPDATE OF r,s

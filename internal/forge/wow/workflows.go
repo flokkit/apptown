@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -20,7 +19,6 @@ import (
 	"flokkit.io/forge/internal/forge/audit"
 	"flokkit.io/forge/internal/forge/schema"
 	"flokkit.io/forge/internal/forge/wow/internal/wowsql"
-	yamlv3 "gopkg.in/yaml.v3"
 )
 
 // WorkflowEntry is a library workflow at one version, parsed.
@@ -198,49 +196,6 @@ func (s *Workflows) Put(ctx context.Context, yamlSrc, who string) (name string, 
 		return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "library.workflow.updated", name, map[string]any{"version": version})
 	})
 	return name, version, err
-}
-
-// Amend records yamlSrc as the amendment of version from of a workflow,
-// stock or custom, for a migration, and returns its version. An amendment of
-// the latest version is the next version and becomes the latest. One of an
-// older version, which projects still pin, reuses a version that reads the
-// same, or is added after every other without moving the latest.
-func (s *Workflows) Amend(ctx context.Context, name string, from int, yamlSrc, who string) (version int, err error) {
-	now := s.now().UTC()
-	var want any
-	if err := yamlv3.Unmarshal([]byte(yamlSrc), &want); err != nil {
-		return 0, err
-	}
-	err = s.db.InTx(ctx, func(tx *database.Tx) error {
-		q := wowsql.New(tx.SQL())
-		r, err := q.WorkflowByNameForUpdate(ctx, name)
-		if err != nil {
-			return err
-		}
-		rows, err := q.WorkflowVersions(ctx, r.ID)
-		if err != nil {
-			return err
-		}
-		latest := from == int(r.LatestVersion)
-		for _, v := range rows {
-			var have any
-			if !latest && yamlv3.Unmarshal([]byte(v.Yaml), &have) == nil && reflect.DeepEqual(have, want) {
-				version = int(v.Version)
-				return nil
-			}
-		}
-		version = nextVersion(rows)
-		if _, err := q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: int64(version), Yaml: yamlSrc, At: now}); err != nil {
-			return err
-		}
-		if latest {
-			if _, err := q.AdvanceWorkflowVersion(ctx, wowsql.AdvanceWorkflowVersionParams{ID: r.ID, Version: int64(version), Description: r.Description, At: now}); err != nil {
-				return err
-			}
-		}
-		return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "library.workflow.updated", name, map[string]any{"version": version, "amends": from})
-	})
-	return version, err
 }
 
 // nextVersion follows every version, newest first, including an amendment

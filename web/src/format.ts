@@ -1,14 +1,10 @@
 // The formatters, once (debt review, finding 27: four relative-time
 // formatters and two token formatters had drifted apart).
 
-// Timestamps from the server are UTC. Most carry a zone marker (Z or an
-// offset); SQLite-born ones ("2026-09-02 10:11:12" or "…T10:11:12") do not,
-// and a bare stamp would be read as LOCAL time — hours off on a Sydney
-// screen. Append Z only when nothing says the zone.
-export function utcDate(ts: string): Date {
-  const t = ts.trim().replace(' ', 'T')
-  const zoned = /(Z|[+-]\d\d:?\d\d)$/i.test(t)
-  return new Date(zoned ? t : t + 'Z')
+// Timestamps from the server are RFC 3339 and carry their zone (Z or an
+// offset).
+export function stampDate(ts: string): Date {
+  return new Date(ts.trim())
 }
 
 // "just now", "5m ago", "3h ago", "2d ago". Empty for anything unparseable
@@ -16,7 +12,7 @@ export function utcDate(ts: string): Date {
 // yet").
 export function relTime(ts: string, now = Date.now()): string {
   if (!ts) return ''
-  const d = (now - utcDate(ts).getTime()) / 1000
+  const d = (now - stampDate(ts).getTime()) / 1000
   if (!(d >= 0)) return ''
   if (d < 90) return 'just now'
   if (d < 3600) return `${Math.round(d / 60)}m ago`
@@ -27,7 +23,7 @@ export function relTime(ts: string, now = Date.now()): string {
 // Relative inside a day, then the date: "09-02 10:11". For tables where a
 // week-old row should say when, not how long ago.
 export function fmtWhen(iso: string, now = Date.now()): string {
-  const mins = (now - utcDate(iso).getTime()) / 60000
+  const mins = (now - stampDate(iso).getTime()) / 60000
   if (mins >= 0 && mins < 60) return `${Math.max(1, Math.round(mins))}m ago`
   if (mins >= 0 && mins < 60 * 24) return `${Math.round(mins / 60)}h ago`
   return iso.slice(5, 16).replace('T', ' ')
@@ -61,7 +57,7 @@ export const sizeTitle = (bytes: number): string => `${bytes.toLocaleString()} b
 // person plans by (kept until). Empty for no time.
 export function fmtDay(ts: string): string {
   if (!ts) return ''
-  const d = utcDate(ts)
+  const d = stampDate(ts)
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -69,7 +65,7 @@ export function fmtDay(ts: string): string {
 // record a person reads (a change opened, a check ran). Empty for no time.
 export function fmtStamp(ts: string): string {
   if (!ts) return ''
-  const d = utcDate(ts)
+  const d = stampDate(ts)
   if (isNaN(d.getTime())) return ''
   const day = d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
   const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })

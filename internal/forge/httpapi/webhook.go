@@ -40,12 +40,6 @@ func NewWebhook(projects *project.Projects, secrets *secret.Service, lifecycle *
 func (h Webhook) Webhook(w http.ResponseWriter, r *http.Request) {
 	expected := h.secrets.Value(r.Context(), "APPTOWN_WEBHOOK_TOKEN")
 	if expected == "" {
-		// The name before the AppTown rename is refused by name, not
-		// ignored: an operator who kept it sees what to rename.
-		if h.secrets.Value(r.Context(), "FORGE_WEBHOOK_TOKEN") != "" {
-			WriteError(w, 403, "webhooks disabled: FORGE_WEBHOOK_TOKEN is the name from before the AppTown rename; rename it to APPTOWN_WEBHOOK_TOKEN in %s/secrets.env or the secrets store", h.dataDir)
-			return
-		}
 		WriteError(w, 403, "webhooks disabled: set APPTOWN_WEBHOOK_TOKEN in %s/secrets.env", h.dataDir)
 		return
 	}

@@ -66,10 +66,7 @@ says nothing; otherwise "main is N commits ahead of AppTown's record",
 where main stands" or "could not read main". It says what differs, never who
 moved main. With an `origin`, it also compares the record with the last fetched
 `refs/remotes/origin/<branch>` (ahead and behind counts, without a network
-call; a missing tracking ref is unknown, not equal). A project created before
-AppTown recorded main has no record; `apptownd -backfill-recorded-main`, run
-once while no apptownd serves the database, records each such project's current
-main as where recording began (a backfill, not a witnessed landing).
+call; a missing tracking ref is unknown, not equal).
 
 ## Branch publication
 
