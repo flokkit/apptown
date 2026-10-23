@@ -55,7 +55,7 @@ func (a *Executor) resolveAgentKnobs(run *workflow.Run, cfg *agentConfig) agentK
 		}
 	}
 	// No explicit model on the step: leave empty so slot resolution walks
-	// default slot -> fallbacks -> the -agent-model flag LAST.
+	// default slot -> fallbacks.
 	if k.executor == "" {
 		k.executor = a.cfg.Backend
 	}

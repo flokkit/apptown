@@ -56,8 +56,12 @@ func testExecutor(db *database.DB, dir string, process Process) *Executor {
 	if err := tokens.Open(filepath.Join(dir, identity.RuntimeTokenKeyFile)); err != nil {
 		panic(err)
 	}
+	slots := model.New(db)
+	if err := slots.SetDefault(context.Background(), "fake/model"); err != nil {
+		panic(err)
+	}
 	return New(db, Dependencies{
-		Models:   model.NewSelection(model.New(db), "fake/model"),
+		Models:   model.NewSelection(slots),
 		Capacity: model.NewScheduler(nil, 1),
 		Tokens:   tokens,
 		Progress: &progress.Feeds{},

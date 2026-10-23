@@ -13,11 +13,11 @@ an AppTown secret; set it there, or with `apptown secret set <NAME> < file`.
 
 The intranet target is the Portainer environment AppTown is configured
 with rather than one added here: it appears when the secrets `PORTAINER_URL`,
-`PORTAINER_API_KEY` and `APPTOWN_APPS_DOMAIN` are set, and releases to the
-environment `apptownd -portainer-environment` names (`APPTOWN_PORTAINER_ENVIRONMENT`;
-default `local`, the name Portainer gives the Docker it is installed on). AppTown records the setting in the `portainer-deploy` integration at every
-start, so starting without it sends intranet releases to the environment
-named `local`, or has them refused when that Portainer has none.
+`PORTAINER_API_KEY` and `APPTOWN_APPS_DOMAIN` are set. It releases to the
+Portainer environment named `local`, the name Portainer gives the Docker it
+is installed on. If your Portainer calls it something else, an administrator
+changes **Portainer environment** under **Edit target** on the target's page.
+The next release goes there; AppTown does not need a restart.
 
 A project's deployments are made on the project's **Settings → Deployments**.
 What each kind runs, and what a deployment owns and deletes when taken

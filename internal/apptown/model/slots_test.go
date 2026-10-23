@@ -26,21 +26,18 @@ func TestResolveWalksMostSpecificFirst(t *testing.T) {
 	if err := project.New(db, nil).SetModelProfile(context.Background(), pid, "heavy"); err != nil {
 		t.Fatal(err)
 	}
-	// A slash pattern passes through; nothing mapped falls to the instance default.
-	if p, slot, prof := s.Resolve(t.Context(), pid, "heavy", "openrouter/x", "local/default"); p != "openrouter/x" || slot != "" || prof != "" {
+	// A slash pattern passes through; nothing mapped resolves to no model.
+	if p, slot, prof := s.Resolve(t.Context(), pid, "heavy", "openrouter/x"); p != "openrouter/x" || slot != "" || prof != "" {
 		t.Fatalf("pass-through: %s %s %s", p, slot, prof)
 	}
-	if p, slot, prof := s.Resolve(t.Context(), pid, "heavy", "review", "local/default"); p != "local/default" || slot != "default" || prof != "" {
+	if p, slot, prof := s.Resolve(t.Context(), pid, "heavy", "review"); p != "" || slot != "default" || prof != "" {
 		t.Fatalf("unmapped: %s %s %s", p, slot, prof)
 	}
-	if err := s.SeedDefault(t.Context(), "local/std"); err != nil {
+	if err := s.SetDefault(t.Context(), "local/std"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SeedDefault(t.Context(), "local/other"); err != nil {
-		t.Fatal(err)
-	}
-	if p, _, prof := s.Resolve(t.Context(), ids.Nil, "", "", "x"); p != "local/std" || prof != StandardProfile {
-		t.Fatalf("the seed is insert-if-absent: %s %s", p, prof)
+	if p, _, prof := s.Resolve(t.Context(), ids.Nil, "", ""); p != "local/std" || prof != StandardProfile {
+		t.Fatalf("the default slot: %s %s", p, prof)
 	}
 	// The chain: security → review → default (from the stock fallbacks).
 	if err := s.SeedFallbacks(context.Background()); err != nil {
@@ -49,26 +46,26 @@ func TestResolveWalksMostSpecificFirst(t *testing.T) {
 	if err := s.Set(context.Background(), "review", ids.Nil, "", StandardProfile, "cloud/reviewer", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if p, slot, prof := s.Resolve(t.Context(), pid, "heavy", "security", "x"); p != "cloud/reviewer" || slot != "review" || prof != StandardProfile {
+	if p, slot, prof := s.Resolve(t.Context(), pid, "heavy", "security"); p != "cloud/reviewer" || slot != "review" || prof != StandardProfile {
 		t.Fatalf("fallback chain: %s %s %s", p, slot, prof)
 	}
 	// The project's profile column beats standard; a project override beats both.
 	if err := s.Set(context.Background(), "review", ids.Nil, "", "heavy", "cloud/heavy-reviewer", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if p, _, prof := s.Resolve(t.Context(), pid, "heavy", "review", "x"); p != "cloud/heavy-reviewer" || prof != "heavy" {
+	if p, _, prof := s.Resolve(t.Context(), pid, "heavy", "review"); p != "cloud/heavy-reviewer" || prof != "heavy" {
 		t.Fatalf("profile cell: %s %s", p, prof)
 	}
 	if err := s.Set(context.Background(), "review", pid, "p", "", "local/mine", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if p, _, prof := s.Resolve(t.Context(), pid, "heavy", "review", "x"); p != "local/mine" || prof != "override" {
+	if p, _, prof := s.Resolve(t.Context(), pid, "heavy", "review"); p != "local/mine" || prof != "override" {
 		t.Fatalf("override: %s %s", p, prof)
 	}
 	if err := s.Set(context.Background(), "review", pid, "p", "", "", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if p, _, _ := s.Resolve(t.Context(), pid, "heavy", "review", "x"); p != "cloud/heavy-reviewer" {
+	if p, _, _ := s.Resolve(t.Context(), pid, "heavy", "review"); p != "cloud/heavy-reviewer" {
 		t.Fatalf("cleared override: %s", p)
 	}
 	if err := s.Set(context.Background(), "review", ids.Nil, "", "Bad Profile", "z", "alice"); !errors.Is(err, ErrProfileName) {

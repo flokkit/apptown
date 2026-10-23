@@ -182,7 +182,7 @@ func TestAStartRefreshesTheBuiltInHostOnlyWhenItsFactsChange(t *testing.T) {
 // edit without being kept.
 func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 	t.Parallel()
-	off, on, empty, mode, runner := false, true, "", "register", "runner"
+	off, on, empty, mode, runner, office := false, true, "", "register", "runner", "office"
 	cases := map[string]struct {
 		proposed *Target
 		edit     TargetSettingsEdit
@@ -217,6 +217,11 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 			proposed: &Target{Kind: KindDockerHost},
 			edit:     TargetSettingsEdit{Rehearsals: &on},
 			kept:     func(t *Target) bool { return t.ForRehearsals() },
+		},
+		"Environment": {
+			proposed: &Target{Kind: KindPortainer, Address: map[string]any{AddressEnvironment: DefaultPortainerEnvironment}},
+			edit:     TargetSettingsEdit{Environment: &office},
+			kept:     func(t *Target) bool { return t.Address[AddressEnvironment] == office },
 		},
 		"CopyRunner": {
 			proposed: &Target{Kind: KindDOApp, NeedsMode: "managed"},

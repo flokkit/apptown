@@ -12,7 +12,7 @@ import type { InfrastructureView } from '../../wire.gen'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const target = (domain: string, disks: boolean, settingsRevision = 0) => ({
-  name: 'lan', ingress: { domain }, needsMode: 'emulators', settingsRevision,
+  name: 'lan', ingress: { domain }, needsMode: 'emulators', settingsRevision, kindInfo: { environment: false },
   capabilities: { persistentVolumes: disks, previews: false },
 } as unknown as TargetView)
 
@@ -85,6 +85,43 @@ describe('the target editor', () => {
     await act(async () => { button('Save').click() })
     expect(sent[1]).toEqual({ expectedRevision: 3, persistentVolumes: true })
     act(() => root.unmount())
+  })
+
+  // A Portainer target's environment is set here; a Docker host has none.
+  it('edits the Portainer environment of a Portainer target only', async () => {
+    const sent: Record<string, unknown>[] = []
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      sent.push(JSON.parse(String(init?.body)))
+      return new Response('{"ok":true}')
+    }))
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    const client = newQueryClient()
+    const render = (t: TargetView) => act(async () => {
+      root.render(<QueryClientProvider client={client}><EditTarget t={t} onSaved={() => {}} /></QueryClientProvider>)
+    })
+    const button = (text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === text)!
+    const field = () => [...el.querySelectorAll('label')].find((l) => l.textContent?.includes('Portainer environment'))?.querySelector('input') as HTMLInputElement | undefined
+    await render({ ...target('apps.example', false, 4), kind: 'docker-host', address: {} } as unknown as TargetView)
+    await act(async () => { button('Edit target').click() })
+    expect(field()).toBeUndefined()
+    act(() => root.unmount())
+
+    const root2 = createRoot(el)
+    await act(async () => {
+      root2.render(<QueryClientProvider client={client}><EditTarget t={{ ...target('apps.example', false, 4), kind: 'portainer', kindInfo: { environment: true }, address: { environment: 'prd-forge' } } as unknown as TargetView} onSaved={() => {}} /></QueryClientProvider>)
+    })
+    await act(async () => { button('Edit target').click() })
+    expect(field()!.value).toBe('prd-forge')
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+    // Typed a key at a time: a space inside the name stays.
+    await act(async () => { setValue.call(field()!, ''); field()!.dispatchEvent(new Event('input', { bubbles: true })) })
+    for (const key of 'Production Docker') {
+      await act(async () => { setValue.call(field()!, field()!.value + key); field()!.dispatchEvent(new Event('input', { bubbles: true })) })
+    }
+    await act(async () => { button('Save').click() })
+    expect(sent[0]).toEqual({ expectedRevision: 4, environment: 'Production Docker' })
+    act(() => root2.unmount())
   })
 })
 

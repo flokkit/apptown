@@ -130,7 +130,7 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		t.Fatal(err)
 	}
 	if _, err := p.s.Targets.Put(context.Background(), &Target{Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached,
-		Address:      map[string]any{"url": cfg.PortainerURL, "environment": cfg.EnvName, "tier": cfg.ReleaseDeployment},
+		Address:      map[string]any{"url": cfg.PortainerURL, AddressEnvironment: DefaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},
 		Capabilities: TargetCapabilities{PersistentVolumes: true, OwnLiveness: true, Rollout: []string{"replace"}},
 		Ingress:      map[string]any{"binding": "traefik", "domain": cfg.AppsDomain},
 		NeedsMode:    "emulators", SecretsDelivery: "inject", Status: TargetReady}); err != nil {

@@ -35,7 +35,7 @@ func (s Selection) ArmSlots(ctx context.Context, projectID ids.ID, profile strin
 		if !projectID.IsZero() {
 			pattern, _, _ = s.Resolve(ctx, projectID, slot)
 		} else {
-			pattern, _, _ = s.slots.Resolve(ctx, ids.Nil, profile, slot, s.defaultModel)
+			pattern, _, _ = s.slots.Resolve(ctx, ids.Nil, profile, slot)
 		}
 		out[slot] = pattern
 	}

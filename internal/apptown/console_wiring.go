@@ -68,7 +68,7 @@ func (a *App) consoleDependencies(agent console.Agent, remote *worker.RemoteAgen
 	}
 	return console.Dependencies{
 		Agent:       agent,
-		Environment: conversation.NewEnvironment(a.DB, conversation.EnvironmentDependencies{Projects: a.Projects, Models: a.modelSelection, Bindings: a.Integrations.Bindings, Instructions: a.steering, Home: piHomeFor(a), CLI: a.cli, Credentials: a.providers, Identity: a.Access, Now: a.cfg.clock.Now}, conversation.EnvironmentConfig{DataDir: a.cfg.dataDir, APIURL: a.cfg.consoleAPIURL, DefaultModel: a.cfg.agentModel, InferenceEnabled: a.cfg.inferenceURL != "", NoPrivateDocker: a.cfg.noPrivateDocker}),
+		Environment: conversation.NewEnvironment(a.DB, conversation.EnvironmentDependencies{Projects: a.Projects, Models: a.modelSelection, Bindings: a.Integrations.Bindings, Instructions: a.steering, Home: piHomeFor(a), CLI: a.cli, Credentials: a.providers, Identity: a.Access, Now: a.cfg.clock.Now}, conversation.EnvironmentConfig{DataDir: a.cfg.dataDir, APIURL: a.cfg.consoleAPIURL, InferenceEnabled: a.cfg.inferenceURL != "", NoPrivateDocker: a.cfg.noPrivateDocker}),
 		Config:      console.Config{DataDir: a.cfg.dataDir, NoDind: a.cfg.noPrivateDocker, Mirror: a.workshop.Mirror, Now: a.cfg.clock.Now},
 	}
 }

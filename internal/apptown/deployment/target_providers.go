@@ -57,7 +57,7 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 	if cfg, err := s.env.integrations.PortainerTarget(ctx); err == nil {
 		if _, err := s.Targets.Sync(ctx, &Target{
 			Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached,
-			Address:      map[string]any{"url": cfg.PortainerURL, "environment": cfg.EnvName, "tier": cfg.ReleaseDeployment},
+			Address:      map[string]any{"url": cfg.PortainerURL, AddressEnvironment: DefaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},
 			Capabilities: StockCapabilities(KindPortainer, s.env.needs.EmulatorKinds(ctx)),
 			Ingress:      map[string]any{"binding": "traefik", "domain": cfg.AppsDomain},
 			NeedsMode:    stockNeedsMode(KindPortainer), SecretsDelivery: "inject", Status: TargetReady,

@@ -288,9 +288,10 @@ func (h Targets) EditTarget(w http.ResponseWriter, r *http.Request) {
 		Evals             *bool   `json:"evals"`
 		Rehearsals        *bool   `json:"rehearsals"`
 		CopyRunner        *string `json:"copyRunner"`
+		Environment       *string `json:"environment"`
 	}) {
 		saved, err := h.deployment.Targets.EditSettings(r.Context(), r.PathValue("name"), deployment.TargetSettingsEdit{
-			ExpectedRevision: in.ExpectedRevision, Domain: in.Domain, PersistentVolumes: in.PersistentVolumes, Previews: in.Previews, NeedsMode: in.NeedsMode, Evals: in.Evals, Rehearsals: in.Rehearsals, CopyRunner: in.CopyRunner,
+			ExpectedRevision: in.ExpectedRevision, Domain: in.Domain, PersistentVolumes: in.PersistentVolumes, Previews: in.Previews, NeedsMode: in.NeedsMode, Evals: in.Evals, Rehearsals: in.Rehearsals, CopyRunner: in.CopyRunner, Environment: in.Environment,
 		}, Actor(r))
 		if err != nil {
 			WriteFault(w, err)

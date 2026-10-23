@@ -19,8 +19,8 @@ import (
 func TestOnlyAModelStepWithNoModelIsRefused(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
-	none := ModelRefusal(model.NewSelection(model.New(db), ""))
-	withDefault := ModelRefusal(model.NewSelection(model.New(db), "anthropic/claude-sonnet"))
+	none := ModelRefusal(model.NewSelection(model.New(db)))
+	withDefault := ModelRefusal(selectionWithDefault(t, databaseSuite.New(t), "anthropic/claude-sonnet"))
 	spec := func(defaults string, steps ...schema.Step) *schema.Spec {
 		return &schema.Spec{Defaults: schema.Defaults{Model: defaults}, Stages: []schema.Stage{{Name: "work", Steps: steps}}}
 	}

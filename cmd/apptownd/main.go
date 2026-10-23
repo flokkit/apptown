@@ -15,7 +15,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/version"
 
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -37,7 +36,6 @@ type daemonFlags struct {
 	data                                             string
 	agentExecutor                                    string
 	agentImage                                       string
-	agentModel                                       string
 	dbURL                                            string
 	authMode                                         string
 	openOnNetwork                                    bool
@@ -57,13 +55,10 @@ type daemonFlags struct {
 	inferenceNetworks                                string
 	publicHost                                       string
 	restoreGateImage                                 string
-	mirrorBase                                       string
 	otlpEndpoint                                     string
 	otlpProtocol                                     string
-	errorsURL                                        string
-	agentConc                                        int
-	portainerEnv                                     string
 	verifyOnly                                       bool
+	reap                                             bool
 	noPrivateDocker                                  bool
 	noLocalDocker                                    bool
 	localTLS                                         bool
@@ -78,11 +73,8 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	o := &daemonFlags{}
 	fs.StringVar(&o.addr, "addr", ":7777", "listen address")
 	fs.StringVar(&o.data, "data", "./_data", "data directory (db, workspaces)")
-	fs.IntVar(&o.agentConc, "agent-concurrency", 1, "max concurrent agent/pi steps (match your model backend's stream capacity)")
 	fs.StringVar(&o.agentExecutor, "agent-executor", "docker", "default executor for agent/pi steps: docker | local (local is experimental, for development)")
 	fs.StringVar(&o.agentImage, "agent-image", "apptown-agent", "docker image for containerized steps")
-	fs.StringVar(&o.agentModel, "agent-model", "", "default model for agent/pi steps, e.g. gpu1/Qwen3.6 (empty = pi's default)")
-	fs.StringVar(&o.portainerEnv, "portainer-environment", integration.DefaultPortainerEnvironment, "the Portainer environment the intranet target releases to, when the Portainer secrets (PORTAINER_URL, PORTAINER_API_KEY, APPTOWN_APPS_DOMAIN) are set; recorded in the portainer-deploy integration at every start")
 	fs.StringVar(&o.dbURL, "db-url", "", "Postgres URL for AppTown's own database (env APPTOWN_DB_URL; empty = the built-in container on this host)")
 	fs.BoolVar(&o.gitImportPrivate, "git-import-allow-private", false, "let a project that starts from an https repository fetch from private, loopback and link-local addresses (an internal GitLab); by default only public addresses are fetched")
 	fs.Int64Var(&o.bundleMaxBytes, "import-bundle-max-bytes", projectlifecycle.DefaultBundleMaxBytes, "the largest Git bundle a project that starts from existing code may upload")
@@ -91,6 +83,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.BoolVar(&o.localTLS, "local-tls", false, "serve -addr over HTTPS from a certificate authority AppTown makes in <data>/local-tls, which vouches only for localhost names; plain HTTP there is sent to https. For the desktop trial: a server has its own TLS in front. Needs an https:// -public-host")
 	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url) (Running AppTown: Workers and running without local Docker)")
 	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names apptown-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
+	fs.BoolVar(&o.reap, "reap", false, "remove what AppTown made and nothing uses any more (step, service and chat containers, previews nobody looks at, images, caches, folders) instead of only logging it; set it only when this Docker is used by this AppTown alone: the sweep does not ask other AppTowns what they still use")
 	fs.BoolVar(&o.verifyOnly, "verify-only", false, "start normally, which upgrades the database and the data directory to this build, then serve reads only: no recovery, no workers, no scheduler (the verification startup after a move or restore; not a dry run of an upgrade)")
 	fs.StringVar(&o.authMode, "auth", "internal", "sign-in: internal (AppTown's own accounts) | trusted-header (an authenticating proxy) | open (no sign-in: a caller names itself; loopback only unless -open-on-network) (Running AppTown)")
 	fs.BoolVar(&o.openOnNetwork, "open-on-network", false, "with -auth open, serve on addresses other machines can reach; without it open mode refuses any listener but loopback, since in open mode a caller names itself")
@@ -113,14 +106,12 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.inferenceNetworks, "inference-networks", "", "explicit comma-separated worker CIDRs allowed to use inference; direct connection peers only")
 	fs.StringVar(&o.restoreGateImage, "restore-gate-image", "", "AppTown's access gate image, pinned by digest (<ref>@sha256:...), built with `make gate-image` and pushed where the deployment targets can read it: restore tests of production run behind it; empty = this AppTown makes no restore test (it also needs a -public-host origin, where the gate checks AppTown's own test ticket)")
 	fs.StringVar(&o.publicHost, "public-host", "", "AppTown's public hostname, or its whole origin (https://forge.example) to state how people reach it: only a stated origin is shown as a link in the guides (empty = localhost only); app ports stay on this host's loopback, so without a -tier-domain preview and deployment addresses answer on this host only, and the UI says so")
-	fs.StringVar(&o.mirrorBase, "mirror-base", "", "base URL of the artifact mirror the registry presets point at, e.g. https://nexus.example.com (env APPTOWN_MIRROR_BASE; empty = no suggestion)")
 	fs.StringVar(&o.otlpEndpoint, "otlp-endpoint", "", "OTLP receiver for apptownd's own traces, metrics and logs, host:port or URL (env APPTOWN_OTLP_ENDPOINT); empty sends nothing")
 	fs.StringVar(&o.otlpProtocol, "otlp-protocol", "", "OTLP transport: http (default) or grpc (env APPTOWN_OTLP_PROTOCOL)")
 	fs.StringVar(&o.workerURL, "worker-url", "", "a apptown-worker to run script tasks on, https://host:port; AppTown then runs no script on this host (Running AppTown: Workers and running without local Docker)")
 	fs.StringVar(&o.workerCert, "worker-cert", "", "this installation's client certificate for the worker (PEM)")
 	fs.StringVar(&o.workerKey, "worker-key", "", "the key for -worker-cert (PEM)")
 	fs.StringVar(&o.workerCA, "worker-ca", "", "the CA that signed the worker's certificate (PEM)")
-	fs.StringVar(&o.errorsURL, "errors-url", "", "the org's error tracker the error-reporting preset points at (env APPTOWN_ERRORS_URL)")
 	fs.Func("tier-domain", "hostname routing for a tier: preview=<domain>, main=<domain> or eval=<domain> (repeatable, or comma-separated; e.g. preview=preview.example.com — change-97.preview.example.com then routes to that change's preview; eval copies are served on the eval domain and nowhere else)", func(v string) error {
 		for _, d := range strings.Split(v, ",") {
 			if d = strings.TrimSpace(d); d != "" {
@@ -287,7 +278,6 @@ func main() {
 			log.Printf("no-push hooks: some project hubs accept pushes:\n%v", err)
 		}
 		app.SyncSeedIntegrations(ctx)
-		app.SeedModelSlots(ctx)
 		app.SeedAdministrators(ctx, strings.Split(o.admins, ","))
 		if err := app.EnsureAuthorization(ctx); err != nil {
 			return fmt.Errorf("authorization setup: %w", err)
@@ -367,10 +357,9 @@ func (o *daemonFlags) apptownConfig(dataDir string) apptown.Config {
 		HostScripts: o.hostScripts,
 		TaskLimits:  execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
 		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
-		AgentConcurrency: o.agentConc, AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, AgentModel: o.agentModel, PortainerEnvironment: o.portainerEnv,
+		AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, Reap: o.reap,
 		AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
 		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,
-		Defaults:     apptown.InstanceDefaults{MirrorBase: o.mirrorBase, ErrorsURL: o.errorsURL},
 		OTLPEndpoint: o.otlpEndpoint, OTLPProtocol: o.otlpProtocol}
 }
 

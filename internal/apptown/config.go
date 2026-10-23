@@ -19,7 +19,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/clock"
 
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
@@ -111,18 +110,14 @@ type Config struct {
 	// AgentContext is the agent image's build context, relative to the
 	// AppTown's working directory: AppTown builds it, and a worker's image
 	// is named by it (worker.AgentImage). "" is deploy/apptown-agent.
-	AgentContext     string
-	AgentModel       string
-	AgentConcurrency int
-	// PortainerEnvironment is the Portainer environment the seeded intranet
-	// target releases to (the portainer-deploy binding's environment). ""
-	// is integration.DefaultPortainerEnvironment.
-	PortainerEnvironment string
-	TierDomains          []string
-	TrustedProxies       []string
-	Defaults             InstanceDefaults
-	InferenceURL         string
-	InferenceNetworks    []string
+	AgentContext string
+	// Reap lets the maintenance sweep remove what nothing uses any more;
+	// off, it only logs what it would remove (apptownd -reap).
+	Reap              bool
+	TierDomains       []string
+	TrustedProxies    []string
+	InferenceURL      string
+	InferenceNetworks []string
 	// OTLPEndpoint turns apptownd's own telemetry on: host:port, or a URL whose
 	// scheme says whether the receiver speaks TLS. Empty means nothing is sent.
 	OTLPEndpoint string
@@ -187,16 +182,14 @@ type configuration struct {
 	sshConfigPath                                  string
 	consoleCLI                                     string
 	authMode, authHeader, authProxySecret          string
-	agentExecutor, agentImage, agentModel          string
+	agentExecutor, agentImage                      string
 	agentContext                                   string
-	agentConcurrency                               int
-	portainerEnvironment                           string
+	reap                                           bool
 	taskLimits, chatLimits                         execution.Limits
 	hostScripts                                    bool
 	localTLS                                       *console.LocalTLS
 	tierDomains                                    map[string]tierDomain
 	proxies                                        proxyPolicy
-	defaults                                       InstanceDefaults
 	inferenceURL                                   string
 	otlpEndpoint, otlpProtocol                     string
 	inferenceNetworks                              []netip.Prefix
@@ -248,15 +241,6 @@ func (c Config) prepare() (configuration, error) {
 	if c.AgentImage == "" {
 		c.AgentImage = "apptown-agent"
 	}
-	if c.PortainerEnvironment == "" {
-		c.PortainerEnvironment = integration.DefaultPortainerEnvironment
-	}
-	if c.AgentConcurrency == 0 {
-		c.AgentConcurrency = 2
-	}
-	if c.AgentConcurrency < 1 {
-		c.AgentConcurrency = 1
-	}
 	if c.ConsoleAPIURL == "" {
 		c.ConsoleAPIURL = "http://host.docker.internal:7778"
 	}
@@ -292,9 +276,9 @@ func (c Config) prepare() (configuration, error) {
 	}
 	return configuration{clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
-		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, agentModel: c.AgentModel, agentConcurrency: c.AgentConcurrency, portainerEnvironment: c.PortainerEnvironment,
+		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, reap: c.Reap,
 		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits), hostScripts: c.HostScripts,
-		tierDomains: tiers, proxies: proxyPolicy{networks: parseCIDRs(c.TrustedProxies)}, defaults: c.Defaults,
+		tierDomains: tiers, proxies: proxyPolicy{networks: parseCIDRs(c.TrustedProxies)},
 		inferenceURL: c.InferenceURL, inferenceNetworks: networks, otlpEndpoint: strings.TrimSpace(c.OTLPEndpoint), otlpProtocol: strings.ToLower(strings.TrimSpace(c.OTLPProtocol))}, nil
 }
 
@@ -342,15 +326,6 @@ func (c configuration) routing() deployment.Routing {
 	}
 	return deployment.Routing{PublicHost: c.publicHost, Scheme: scheme, PreviewScheme: preview.Scheme, PreviewDomain: preview.Domain, MainScheme: main.Scheme, MainDomain: main.Domain,
 		EvalScheme: eval.Scheme, EvalDomain: eval.Domain}
-}
-
-// InstanceDefaults: the facts that vary per installation and used to be
-// compiled into the catalog — one installation's mirror and error-tracker
-// hostnames showed on the first screen of every other instance. Set from
-// apptownd's flags; empty means "no suggestion".
-type InstanceDefaults struct {
-	MirrorBase string // e.g. https://nexus.example.com — presets carry only the repository path
-	ErrorsURL  string // the org's error tracker, e.g. https://errors.example.com
 }
 
 // withDefaults fills each zero field of l from d.

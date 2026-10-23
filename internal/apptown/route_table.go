@@ -140,7 +140,7 @@ func appRoutes(a *App) []routeSpec {
 		releaseOperations = httpapi.NewReleaseOperations(a.Projects, a.Access, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, releaseTargetName, a.cfg.clock.Now)
 		projectAttachments = httpapi.NewProjectAttachments(a.Projects, a.Integrations, a.Access, a.changeActions, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
 		integrationListing = httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a), &a.docker, agentenv.RegistryFormats(), a.cfg.clock.Now)
-		connectors = httpapi.NewConnectors(a.Integrations, a.Access, a.Deployment, connectorHealthFor(a), a.DB, agentenv.RegistryFormats(), integration.CatalogDefaults{MirrorBase: a.cfg.defaults.MirrorBase, ErrorsURL: a.cfg.defaults.ErrorsURL})
+		connectors = httpapi.NewConnectors(a.Integrations, a.Access, a.Deployment, connectorHealthFor(a), a.DB, agentenv.RegistryFormats())
 		scmRemotes = httpapi.NewSCMRemotes(a.Projects, repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}, a.Secrets, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		remediationChanges = httpapi.NewRemediationChanges(a.Projects, a.Access, a.conformance, a.Work, a.lifecycle, a.DB, a.authModeName(), a.cfg.clock.Now)
 		conformanceReviews = httpapi.NewConformanceReviews(a.Projects, fleetReviewsFor(a))

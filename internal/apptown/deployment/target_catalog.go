@@ -11,11 +11,14 @@ type KindInfo struct {
 	Family                string `json:"family"`   // built-in | attached | intranet | cloud
 	Vendor                string `json:"vendor"`   // DigitalOcean, AWS, Google Cloud — for the icon and the sentence
 	Region                string `json:"region"`   // the address key that names where it is, "" if placeless
+	// Environment says the target releases into one of its provider's
+	// environments, named by the administrator (AddressEnvironment).
+	Environment bool `json:"environment"`
 }
 
 var kindCatalog = []KindInfo{
 	{ContainerMemoryLimits: true, Kind: KindDockerHost, Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
-	{ContainerMemoryLimits: true, Kind: KindPortainer, Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "the intranet"},
+	{ContainerMemoryLimits: true, Kind: KindPortainer, Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "the intranet", Environment: true},
 	{Kind: KindDOApp, Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region"},
 	{Kind: KindS3Bucket, Title: "Bucket website", Family: "cloud", Vendor: "S3-compatible storage", Region: "region"},
 	// AWS (ECS) and Google Cloud (Cloud Run) land here as one line each

@@ -278,13 +278,14 @@ func TestMCPToolsList(t *testing.T) {
 		}
 		sort.Strings(required)
 		if got := strings.Join(required, ","); got != wantRequired[tl.Name] {
-			t.Errorf("%s requires %q, want %q: a required argument is renamed or added only in a new tool (compatibility.md)", tl.Name, got, wantRequired[tl.Name])
+			t.Errorf("%s requires %q, want %q: a changed required argument is a change to name in the release notes (compatibility.md): update this list with it", tl.Name, got, wantRequired[tl.Name])
 		}
 	}
 }
 
-// wantRequired is each MCP tool's required arguments, which 1.x keeps: a
-// tool may gain optional arguments, never a renamed or a new required one.
+// wantRequired is each MCP tool's required arguments. The MCP tools are
+// experimental in 1.0 (compatibility.md), so they may change, but never by
+// accident: a change here is one the release notes name.
 var wantRequired = map[string]string{
 	"abandon_change": "id,reason", "checkout_change": "id", "create_change": "slug,title", "create_project": "name,slug",
 	"file_complaint": "text", "get_application_contract": "slug", "get_change": "id", "get_change_diff": "id",

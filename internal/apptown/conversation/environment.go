@@ -60,9 +60,9 @@ type EnvironmentDependencies struct {
 	Now func() time.Time
 }
 type EnvironmentConfig struct {
-	DataDir, APIURL, DefaultModel string
-	InferenceEnabled              bool
-	NoPrivateDocker               bool
+	DataDir, APIURL  string
+	InferenceEnabled bool
+	NoPrivateDocker  bool
 }
 
 func NewEnvironment(db *database.DB, deps EnvironmentDependencies, cfg EnvironmentConfig) *Environment {
@@ -100,8 +100,8 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 		model = want
 	}
 	// A model may name a binding that no longer exists (renamed since the
-	// session was created): fall back to the instance default rather than
-	// resuming into a dead provider.
+	// session was created): name no model rather than resuming into a dead
+	// provider.
 	if model != "" {
 		prefix := model
 		if i := strings.IndexByte(prefix, '/'); i > 0 {
@@ -112,7 +112,7 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 			return console.Provision{}, err
 		}
 		if n == 0 {
-			model = e.cfg.DefaultModel
+			model = ""
 		}
 	}
 

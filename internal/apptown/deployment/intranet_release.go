@@ -26,6 +26,11 @@ import (
 
 const IntranetTargetName = "intranet"
 
+// DefaultPortainerEnvironment is the environment name Portainer gives the
+// Docker it runs on when installed with its defaults: the intranet target's
+// environment until an administrator changes it on the target.
+const DefaultPortainerEnvironment = "local"
+
 // ErrNoIntranet is a release to the intranet on an AppTown that records no
 // intranet target: one server's AppTown has none, and its landings deploy
 // main.

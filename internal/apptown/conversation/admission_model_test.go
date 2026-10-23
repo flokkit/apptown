@@ -16,7 +16,7 @@ import (
 // workspace owners to reach, so getting past it would fail differently.
 func TestAChatIsRefusedWhenNoModelIsSetUp(t *testing.T) {
 	t.Parallel()
-	admission := &Admission{models: model.NewSelection(model.New(databaseSuite.New(t)), "")}
+	admission := &Admission{models: model.NewSelection(model.New(databaseSuite.New(t)))}
 	_, err := admission.Open(t.Context(), &project.Project{ID: idstest.N(1), Slug: "game"}, ProjectOpen{}, "owner")
 	var refused *AdmissionConflict
 	if !errors.As(err, &refused) || err.Error() != model.NoModelRefusal {

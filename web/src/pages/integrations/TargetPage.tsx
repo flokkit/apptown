@@ -233,12 +233,13 @@ export function CopyRunnerLine({ t }: { t: TargetView }) {
 // may bind, how needs are met. Each save is an audit row with before and after.
 // said quotes a value for a sentence, and names an empty one.
 const said = (v: string) => (v === '' ? 'empty' : `“${v}”`)
-type TargetSettings = { domain: string; persistentVolumes: boolean; previews: boolean; needsMode: string; copyRunner: string; rehearsals: boolean }
+type TargetSettings = { domain: string; persistentVolumes: boolean; previews: boolean; needsMode: string; copyRunner: string; rehearsals: boolean; environment: string }
 const settingsOf = (t: TargetView): TargetSettings => ({
   domain: typeof t.ingress?.domain === 'string' ? t.ingress.domain : '',
   persistentVolumes: t.capabilities.persistentVolumes, previews: t.capabilities.previews, needsMode: t.needsMode,
   copyRunner: typeof t.address?.copyRunner === 'string' ? t.address.copyRunner : '',
   rehearsals: t.ingress?.rehearsals === true,
+  environment: typeof t.address?.environment === 'string' ? t.address.environment : '',
 })
 
 // What keeping a host for restore rehearsals means, shown to the platform
@@ -301,6 +302,11 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
         {t.copies && (
           <label className="small" title={copyRunnerMeaning}>
             copy runner <input value={draft.copyRunner} disabled={busy} onChange={(e) => set('copyRunner', e.target.value.trim())} placeholder="a Docker host target" style={{ width: 160 }} />
+          </label>
+        )}
+        {t.kindInfo.environment && (
+          <label className="small" title="The Portainer environment this target releases to, as Portainer lists it.">
+            Portainer environment <input value={draft.environment} disabled={busy} onChange={(e) => set('environment', e.target.value)} placeholder="local" style={{ width: 140 }} />
           </label>
         )}
         {t.kind === 'docker-host' && t.origin === 'attached' && (

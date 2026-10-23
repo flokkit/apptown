@@ -32,6 +32,36 @@ func TestPresetURLsComeFromCatalogDefaults(t *testing.T) {
 	}
 }
 
+// The mirror suggestion is the address of a mirror already added whose URL
+// is that address plus its own preset's path; a mirror elsewhere suggests
+// nothing, and the URL an administrator gives a mirror is what is suggested.
+func TestTheMirrorSuggestionComesFromAMirrorAlreadyAdded(t *testing.T) {
+	t.Parallel()
+	s := NewService(testDB(t), Dependencies{})
+	save := func(name, format, url string) {
+		t.Helper()
+		if _, err := s.Bindings.Save(t.Context(), name, CapRegistry, "registry", `{"format":"`+format+`","url":"`+url+`"}`, "fixture"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := s.CatalogDefaults(t.Context()); got.MirrorBase != "" {
+		t.Fatalf("no mirror suggested %q", got.MirrorBase)
+	}
+	save("a-docker", "docker-hub", "http://nexus.example.com:8082")
+	save("b-npm", "npm", "https://elsewhere.example.com/npm/")
+	if got := s.CatalogDefaults(t.Context()); got.MirrorBase != "" {
+		t.Fatalf("mirrors off their preset paths suggested %q", got.MirrorBase)
+	}
+	save("c-go", "go-proxy", "https://nexus.example.com/repository/go-proxy")
+	if got := s.CatalogDefaults(t.Context()); got.MirrorBase != "https://nexus.example.com" {
+		t.Fatalf("suggestion %q, want https://nexus.example.com", got.MirrorBase)
+	}
+	save("c-go", "go-proxy", "https://mirror.example.org/repository/go-proxy/")
+	if got := s.CatalogDefaults(t.Context()); got.MirrorBase != "https://mirror.example.org" {
+		t.Fatalf("after the edit the suggestion is %q", got.MirrorBase)
+	}
+}
+
 func TestServiceConnectorSpecDerivation(t *testing.T) {
 	t.Parallel()
 	k := &Definition{Capability: "mailer", Title: "Mail Relay", Description: "sends mail", Icon: "mail"}

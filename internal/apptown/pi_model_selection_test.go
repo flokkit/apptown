@@ -21,7 +21,7 @@ import (
 // writes no models.json.
 func piSurface(db *database.DB, labels map[string]string) (*model.Slots, piharness.Preparer) {
 	slots := model.New(db)
-	return slots, piharness.NewPreparer(nil, model.NewSelection(slots, ""), noExtensions{}, &docker.Scope{Client: fakeAgentLabels(labels)}, "apptown-agent")
+	return slots, piharness.NewPreparer(nil, model.NewSelection(slots), noExtensions{}, &docker.Scope{Client: fakeAgentLabels(labels)}, "apptown-agent")
 }
 
 type noExtensions struct{}

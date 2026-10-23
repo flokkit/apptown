@@ -257,8 +257,10 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.evalGate = evals.NewGate(db, a.Usage.Ledger)
 	a.Models = model.New(db)
 	a.Models.Now = cfg.clock.Now
-	a.modelSelection = model.NewSelection(a.Models, cfg.agentModel)
-	a.capacity = model.NewScheduler(model.BindingCapacity{Bindings: a.Integrations.Bindings}, cfg.agentConcurrency)
+	a.modelSelection = model.NewSelection(a.Models)
+	// Each model provider states its own steps at once (Integrations); one
+	// AppTown cannot read runs a step at a time.
+	a.capacity = model.NewScheduler(model.BindingCapacity{Bindings: a.Integrations.Bindings}, 1)
 	a.Complaints = complaint.NewBox(db, complaintPackVersions{db}, cfg.clock.Now)
 	a.Ways = wow.New(db, wow.Dependencies{Stock: stock.FS, Importers: waysImporters{db}, Checks: waysChecks{}, Now: cfg.clock.Now})
 	changes := workflow.NewChanges(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, cfg.clock.Now)

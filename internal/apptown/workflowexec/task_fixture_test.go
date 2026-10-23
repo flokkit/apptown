@@ -221,7 +221,7 @@ func (f *taskAppTown) agentExecutor(t *testing.T) *Executor {
 	secrets := secret.NewService(f.db, secret.Config{DataDir: f.dir})
 	integrations := integration.NewService(f.db, integration.Dependencies{Projects: project.New(f.db, nil), Secrets: secrets})
 	adoptions := adoption.New(f.db, adoption.Dependencies{Ways: agentCatalog{}})
-	models := model.NewSelection(model.New(f.db), "fake/model")
+	models := selectionWithDefault(t, f.db, "fake/model")
 	return New(f.db, Dependencies{
 		Adoption: adoptions, Integrations: integrations, Secrets: secrets, Catalog: dependency.NewCatalog(f.db, nil),
 		Models: models, Capacity: model.NewScheduler(nil, 1), Progress: feeds, Tokens: tokens, Docker: scope,

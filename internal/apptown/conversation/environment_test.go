@@ -15,7 +15,7 @@ func TestUnpinnedChatFollowsTheSlot(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
 	slots := model.New(db)
-	env := Environment{models: model.NewSelection(slots, "")}
+	env := Environment{models: model.NewSelection(slots)}
 	if err := slots.Set(context.Background(), "chat", ids.Nil, "", "standard", "openrouter/openai/gpt-5.6-luna", "fixture"); err != nil {
 		t.Fatal(err)
 	}
