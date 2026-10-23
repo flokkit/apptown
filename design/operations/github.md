@@ -150,6 +150,52 @@ distribution are made by `tf/products/apptown/site` in the maintainers'
 infrastructure repository. A maintainer with AWS credentials can still publish
 by hand with the same script, after `make tour`.
 
+## Homebrew
+
+`brew install flokkit/tap/apptown` installs the CLI from the tap
+repository `github.com/flokkit/homebrew-tap`, which holds one file,
+`Formula/apptown.rb`. The formula takes `bin/apptown` from the release
+archive for the computer's system and processor, checked against its
+sha256, and its test runs `apptown version`.
+
+`images.yml`'s `homebrew` job writes that file on a final release tag
+(`vX.Y.Z`, no `-`), once the `archives` job has published the release:
+`scripts/homebrew-formula.py` fills `deploy/homebrew/apptown.rb.in` with
+the version and each archive's sha256 from the release's own `SHA256SUMS`,
+and the job commits it to the tap as `apptown <version>` and pushes it.
+Edit the template here, never the tap's copy. A re-run with an unchanged
+formula pushes nothing. A release candidate or test tag skips the job, so
+the formula only ever names a final release: release candidates are run by
+the maintainers from the archive, and a second formula for them would
+install the same `apptown` command and conflict with the first.
+
+The push uses an SSH deploy key with write access to the tap alone,
+belonging to no person. Its private half is the secret
+`HOMEBREW_TAP_DEPLOY_KEY` of this repository's `homebrew-tap` environment,
+which only `v*` tags may deploy to, so a workflow run on a branch cannot
+read it. GitHub's host key is pinned in the job. Without the secret the job
+fails with an error naming it, and the tap is not updated.
+
+One-time setup, by an organisation admin with `gh` signed in:
+
+```sh
+gh repo create flokkit/homebrew-tap --public --add-readme \
+  --description "Homebrew formulae for Flokkit AppTown"
+ssh-keygen -t ed25519 -N '' -C 'apptown release workflow' -f ./homebrew-tap-key
+gh repo deploy-key add ./homebrew-tap-key.pub -R flokkit/homebrew-tap \
+  --allow-write --title 'apptown release workflow'
+gh api -X PUT repos/flokkit/apptown/environments/homebrew-tap \
+  -F 'deployment_branch_policy[protected_branches]=false' \
+  -F 'deployment_branch_policy[custom_branch_policies]=true'
+gh api -X POST repos/flokkit/apptown/environments/homebrew-tap/deployment-branch-policies \
+  -f name='v*' -f type=tag
+gh secret set HOMEBREW_TAP_DEPLOY_KEY --env homebrew-tap -R flokkit/apptown < ./homebrew-tap-key
+rm ./homebrew-tap-key ./homebrew-tap-key.pub
+```
+
+To replace the key, make a new pair, add it as a deploy key, set the
+secret again and delete the old deploy key from the tap's settings.
+
 ## The images
 
 | Image | Built from | Runs |

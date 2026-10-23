@@ -185,8 +185,16 @@ checked, never taken on trust.
 
 ## The `apptown` command line
 
-The `apptown` CLI talks to the same AppTown over its API. It is
-`bin/apptown` in the release archive for your computer
+The `apptown` CLI talks to the same AppTown over its API. On macOS or
+Linux, install it with [Homebrew](https://brew.sh):
+
+```
+brew install flokkit/tap/apptown
+```
+
+and keep it current with `brew upgrade apptown`. The tap carries final
+releases, not release candidates. Without Homebrew, it is `bin/apptown` in
+the release archive for your computer
 ([downloading a release](server-setup.md)). It needs AppTown's
 address and a **command-line token**, which acts as you, with everything
 you yourself may do: it carries your role as it is when the token is made.

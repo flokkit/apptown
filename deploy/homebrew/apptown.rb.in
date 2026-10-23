@@ -1,0 +1,38 @@
+# The apptown command line, from AppTown's release archives. Generated for
+# each release by scripts/homebrew-formula.py from deploy/homebrew/apptown.rb.in
+# in github.com/flokkit/apptown; edit the template there, not this file.
+class Apptown < Formula
+  desc "Command-line client for Flokkit AppTown"
+  homepage "https://apptown.dev"
+  license "Apache-2.0"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/flokkit/apptown/releases/download/v@VERSION@/apptown-@VERSION@-darwin-arm64.tar.gz"
+      sha256 "@darwin-arm64@"
+    end
+    on_intel do
+      url "https://github.com/flokkit/apptown/releases/download/v@VERSION@/apptown-@VERSION@-darwin-amd64.tar.gz"
+      sha256 "@darwin-amd64@"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://github.com/flokkit/apptown/releases/download/v@VERSION@/apptown-@VERSION@-linux-arm64.tar.gz"
+      sha256 "@linux-arm64@"
+    end
+    on_intel do
+      url "https://github.com/flokkit/apptown/releases/download/v@VERSION@/apptown-@VERSION@-linux-amd64.tar.gz"
+      sha256 "@linux-amd64@"
+    end
+  end
+
+  def install
+    bin.install "bin/apptown"
+  end
+
+  test do
+    assert_match "apptown CLI v#{version}", shell_output("#{bin}/apptown version")
+  end
+end
