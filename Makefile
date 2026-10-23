@@ -153,6 +153,7 @@ check-migrations:       ## a released migration keeps its number and statements:
 	sh scripts/migrations-append-only.sh
 
 check-reachability:     ## what apptownd's main can never reach, against scripts/reachability-baseline
+	python3 scripts/reachability-check_test.py
 	sh scripts/reachability-check.sh
 
 check-exec:             ## process starts outside their owners, against scripts/exec-baseline.json

@@ -18,28 +18,68 @@ import (
 // bundle), and answers main.
 func (w *digestWorld) mainOf(t *testing.T, b *ReleaseBundle) *Deployment {
 	t.Helper()
+	out, err := w.landMain(t, context.Background(), b)
+	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
+		t.Fatalf("main on lab: %+v %v %v\nlab: %s", out.Execution, err, out.Boot.Err, strings.Join(w.hosts.commands("lab"), "\n"))
+	}
+	dep, err := w.s.Deployments.ByName(t.Context(), w.project, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dep
+}
+
+// landMain is the deploy step's RunLanding of b on "main" on lab, under
+// the step's ctx.
+func (w *digestWorld) landMain(t *testing.T, ctx context.Context, b *ReleaseBundle) (LandingResult, error) {
+	t.Helper()
 	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "main", w.lab.ID, Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
-	art, cleanup, err := docker.PrepareSource(ctx, w.repo, w.revision, "p", nil)
+	art, cleanup, err := docker.PrepareSource(t.Context(), w.repo, w.revision, "p", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cleanup()
 	runID := b.BuiltFrom.RunID
-	out, err := w.s.RunLanding(ctx, landingClaim{w.project, runID}, LandingInput{
+	return w.s.RunLanding(ctx, landingClaim{w.project, runID}, LandingInput{
 		Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("run-%d-deploy", runID), Inputs: Inputs{ReleaseRun: runID, Revision: w.revision, ArtifactHash: art.Hash, DockerSource: string(art.Body), BundleID: b.ID}},
 		Source: *art.Source, DataClass: "synthetic", Bundle: b,
 	})
-	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
-		t.Fatalf("main on lab: %+v %v %v\nlab: %s", out.Execution, err, out.Boot.Err, strings.Join(w.hosts.commands("lab"), "\n"))
+}
+
+// A landing whose step is interrupted once its deploy is admitted (its run
+// abandoned while the host pulls the bundle) deploys to the end and
+// settles by the deploy's own outcome: main is left with no attempt that
+// only a recovery observation could end.
+func TestAnInterruptedLandingSettlesByItsDeploysOutcome(t *testing.T) {
+	t.Parallel()
+	w := newDigestWorld(t, "", nil)
+	b := w.publish(t)
+	ctx, interrupt := context.WithCancel(context.Background())
+	defer interrupt()
+	hook := func(host string) {
+		if host == digestHostOf("lab") {
+			interrupt()
+		}
 	}
-	if dep, err = w.s.Deployments.ByName(ctx, w.project, "main"); err != nil {
+	w.hosts.onPull.Store(&hook)
+	out, err := w.landMain(t, ctx, b)
+	w.hosts.onPull.Store(nil)
+	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
+		t.Fatalf("the interrupted landing: %+v %v %v", out.Execution, err, out.Boot.Err)
+	}
+	if ctx.Err() == nil {
+		t.Fatal("the landing pulled nothing on lab: it was never interrupted")
+	}
+	dep, err := w.s.Deployments.ByName(t.Context(), w.project, "main")
+	if err != nil {
 		t.Fatal(err)
 	}
-	return dep
+	if open, err := w.s.Outcomes.HasOpenAttempt(t.Context(), dep.ID); err != nil || open {
+		t.Errorf("main's attempt is left open: %v %v", open, err)
+	}
 }
 
 // removeContainer is a host losing a deployment's container.

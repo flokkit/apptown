@@ -132,6 +132,17 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 	request.VisitorHost = docker.VisitorHost(reached(in.HostPort))
 	executor := landingDeploymentExecution{label: dep.Label(), target: request, contract: effective, artifact: in.Start.Inputs.ArtifactHash, boot: s.env.Host(projectID, s.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(s.db, s.clock, dep, slug) }).Boot,
 		url: reached}
+	// ctx bounds what comes before admission. Once admitted, the attempt
+	// runs to its own outcome: the step's interruption (its run abandoned)
+	// does not cut the deploy short into an outcome no one knows, which
+	// would leave the deployment refusing releases until it is observed.
+	// The step returns once the deploy has settled. AppTown stopping leaves
+	// the attempt running, for startup recovery. Reassigned here, ctx
+	// detaches the callbacks above that close over it too.
+	if err := ctx.Err(); err != nil {
+		return fail(err)
+	}
+	ctx = context.WithoutCancel(ctx)
 	result, err := (Runner{Store: s.Outcomes, Applied: s.applied}).Run(ctx, in.Start, executor.execute)
 	out := LandingResult{Execution: result, Boot: executor.result, Docker: dk, TargetID: target.ID}
 	if err == nil && result.Created && result.Outcome == Applied {

@@ -9,7 +9,18 @@ DEADCODE="${DEADCODE:-$(go env GOPATH)/bin/deadcode}"
 [ -x "$DEADCODE" ] || { echo "deadcode not installed: run make tools"; exit 1; }
 BASE=scripts/reachability-baseline
 OUT=$(mktemp)
-"$DEADCODE" ./cmd/apptownd ./cmd/apptown-worker ./cmd/apptown-gate > "$OUT" 2>/dev/null || true
+ERR=$(mktemp)
+# A deadcode that did not finish has counted nothing: fail with its error,
+# before the baseline is read or written.
+STATUS=0
+"$DEADCODE" ./cmd/apptownd ./cmd/apptown-worker ./cmd/apptown-gate > "$OUT" 2> "$ERR" || STATUS=$?
+if [ "$STATUS" -ne 0 ]; then
+  echo "reachability: deadcode failed (exit $STATUS):" >&2
+  cat "$ERR" >&2
+  rm -f "$OUT" "$ERR"
+  exit 1
+fi
+rm -f "$ERR"
 COUNT=$(grep -c "unreachable func" "$OUT" || true)
 if [ "$1" = "--tighten" ] || [ ! -f "$BASE" ]; then
   echo "$COUNT" > "$BASE"; echo "reachability baseline written: $COUNT"
