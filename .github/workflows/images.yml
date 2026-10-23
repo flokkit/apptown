@@ -33,23 +33,22 @@ defaults:
 
 jobs:
   # Images and archives are built only for a commit the heavy tiers passed
-  # on: a successful heavy.yml run on main or by hand whose commit is the
-  # tag's (heavy.yml). No run, a red one, or a lookup that fails is not
-  # evidence, and nothing is built. Run heavy.yml on the commit by hand first
-  # if its main run is missing.
+  # on first time: a heavy.yml run on main or by hand on the tag's commit
+  # whose first attempt succeeded (scripts/heavy-evidence.py). A run that
+  # passed only on a re-run, no run, a red one, or a lookup that fails is not
+  # evidence, and nothing is built. Fix the cause in a new commit, or start a
+  # new heavy.yml run by hand on the commit, then re-run this workflow.
   heavy-evidence:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: read
+      contents: read
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - run: |
-          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/heavy.yml/runs?head_sha=$GITHUB_SHA&status=success&per_page=100" \
-            --jq '[.workflow_runs[] | select(.event == "push" or .event == "workflow_dispatch") | .html_url]')
-          echo "successful heavy runs on $GITHUB_SHA: $runs"
-          [ "$runs" != "[]" ] || { echo "::error::no successful heavy.yml run on $GITHUB_SHA: run heavy.yml on the tag by hand (Actions, heavy, Run workflow), then re-run this workflow"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python3 scripts/heavy-evidence.py "$GITHUB_REPOSITORY" "$GITHUB_SHA"
 
   build:
     needs: heavy-evidence

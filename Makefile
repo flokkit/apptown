@@ -112,8 +112,9 @@ check-public:           ## what a push publishes holds nothing private: paths, h
 	python3 scripts/public-check_test.py
 	python3 scripts/public-check.py
 
-check-ci-heavy:         ## the heavy tiers' runner: a required test that skipped or did not run fails the job
+check-ci-heavy:         ## the heavy tiers' runner: a required test that skipped or did not run fails the job; a release's heavy evidence is a run that passed first time
 	python3 scripts/ci_heavy_test.py
+	python3 scripts/heavy-evidence_test.py
 
 check-pins:             ## the tools the apptown runs for projects have one version each (deploy/tool-pins.txt), and AppTown's own Dockerfiles name every base image by digest
 	python3 scripts/pins-check_test.py

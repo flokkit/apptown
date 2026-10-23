@@ -143,13 +143,13 @@ service, never a mock.
   `public` runs the public gate (`make check-public`) and `sql-writes`
   `make check-sql`.
 - `.github/workflows/heavy.yml` runs the integration, journey and opt-in
-  tiers and the race tier on every push to `main`, so each merged commit
-  has its own result, and on a pull request labelled `heavy` or by hand. A
-  red result does not block merging; the next change fixes it first. A
-  release tag's images and archives are built only for a commit with a
-  successful run (`images.yml`, `heavy-evidence`). The integration, journey
-  and opt-in jobs run `scripts/ci-heavy.sh`: it builds the `apptown-agent`
-  image from the checkout and the test image (`deploy/ci-heavy`: Go, Node,
+  tiers and the race tier on every pull request to `main`, on every push to
+  `main`, so each merged commit has its own result, and by hand. A red
+  result does not block merging; the next change fixes it first. A release
+  tag's images and archives are built only for a commit with a run that
+  passed on its first attempt (`images.yml`, `heavy-evidence`). The
+  integration, journey and opt-in jobs run `scripts/ci-heavy.sh`: it builds
+  the `apptown-agent` image from the checkout and the test image (`deploy/ci-heavy`: Go, Node,
   the pinned Docker CLI, Playwright's Chromium and the Pi the agent image
   pins), then runs `go test` in it as root, on the runner's network and
   daemon, with the checkout (read-only) and a per-job temporary folder

@@ -2,11 +2,12 @@
 # tier, the journeys, the opt-in browser, pi and inference_docker tiers, and
 # the race detector.
 #
-# They run on every push to main, so each landed commit gets its own result,
-# and a release tag's images are built only for a commit with a successful
-# run (images.yml, heavy-evidence). A red run does not block merging; the
-# next change fixes it first. On a pull request they run when it carries the
-# `heavy` label, and any branch can be run by hand.
+# They run on every pull request to main, once per pushed commit, and on
+# every push to main, so each landed commit gets its own result; any branch
+# can be run by hand. A release tag's images are built only for a commit
+# with a run that passed on its first attempt (images.yml, heavy-evidence).
+# A red run does not block merging; the next change fixes it first. No
+# label changes what runs.
 #
 # integration, journeys and opt-in-tiers run go test as root in the
 # apptown-ci-heavy image beside the runner's Docker daemon
@@ -19,7 +20,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    branches: [main]
   workflow_dispatch:
 
 # A pull request's newer run replaces its older one. Main's runs are each
@@ -40,7 +41,6 @@ defaults:
 
 jobs:
   web:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'heavy')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
