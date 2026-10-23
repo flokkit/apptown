@@ -774,7 +774,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 					return &safeFailure{"authority withdrawn before " + step}
 				}
 				t.begin(ctx, step)
-				args := []string{"run", "--rm", "--network", "none", "--entrypoint", "", "-v", place.Copy + ":" + copyMount + ":ro", "-v", docker.PrefixOf(place.App).DataVolume(place.App) + ":/dst"}
+				args := []string{"run", "--rm", "--network", "none", "--entrypoint", "", "-v", place.Copy + ":" + copyMount + ":ro", "-v", docker.Current.DataVolume(place.App) + ":/dst"}
 				args = append(args, dk.Labels("step", "rehearsal-files")...)
 				args = append(args, s.env.ChownImage(), "sh", "-c", "find /dst -mindepth 1 -delete && tar xz -C /dst < "+copyMount+"/"+m.from.File)
 				if _, err := dk.Command(ctx, docker.Command{Args: args}); err != nil {

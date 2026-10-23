@@ -37,7 +37,6 @@ type Deployment struct {
 	Url                string
 	StartFromBackup    ids.ID
 	StartedFromAt      sql.NullTime
-	HostPrefix         string
 	RestoreCheck       string
 }
 
@@ -181,7 +180,6 @@ type ReleaseRequest struct {
 	AttributesJson  json.RawMessage
 	ClaimedAt       sql.NullTime
 	StartFromBackup ids.ID
-	MoveNames       bool
 }
 
 type RetainedResource struct {

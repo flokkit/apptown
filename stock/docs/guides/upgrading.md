@@ -10,7 +10,7 @@
    install; leave the database container running), so nobody writes between the two
    copies and they describe one moment. Take the database dump with the
    checked backup script, in `/opt/apptown/scripts` (the nightly dump may
-   be a day old). `<db>` is the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made before 1.0, which keeps that name. `<name>` is the database at the end of `APPTOWN_DB_URL` in the same file: `apptown`, or `forge` on an install made before 1.0:
+   be a day old). `<db>` is the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`. `<name>` is the database at the end of `APPTOWN_DB_URL` in the same file: `apptown`, or `forge` on an install made before 1.0:
 
    ```sh
    bash /opt/apptown/scripts/apptown-db-backup.sh <db> postgres <name> <directory> pre-upgrade
@@ -49,6 +49,18 @@
 4. **Switching to no local Docker** at the same time: follow
    [Split install](split-install.md), "Switching to no local
    Docker", before the first start with `-no-local-docker`.
+
+## From a release candidate
+
+An upgrade from 1.0.0-rc.6 needs every deployment named by its key first.
+The upgrade stops, changing nothing, while a deployment still holds a
+container, a Portainer stack or anything else on a host under the names it
+was made with before 1.0, and names each one. Under rc.6, move one on a
+Docker host with `apptown move-names <project> <deployment>`; take one on
+Portainer down and release it again (its data is not carried over: copy it
+first, and a stack AppTown did not record creating is taken down in
+Portainer by its owner). Upgrading from a release before rc.6 is not
+supported.
 
 ## Rolling back
 

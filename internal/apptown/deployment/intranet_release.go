@@ -267,7 +267,7 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	// Portainer registry entry, both managed by the platform's operators.
 	// AppTown never touches /api/registries (admin-only, and AppTown does not
 	// hold Portainer admin). The credential just exists.
-	stackPrefix, stackBase := portainer.StackNames(dep.ID, dep.HostPrefix, p.Slug)
+	stackPrefix, stackBase := portainer.StackNames(dep.ID)
 	stackName := portainer.StackName(stackPrefix, stackBase)
 	hosts, _ := portainerAddress(p.Slug, cfg.AppsDomain, vanity)
 	if vanity != "" {
@@ -375,7 +375,7 @@ type portainerStackOf struct {
 func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, logf func(string, ...any)) (string, error) {
 	// The stack's names are its deployment's: a stack rendered without
 	// them would name its volumes anew, away from its data.
-	if _, err := docker.ParsePrefix(in.Prefix); err != nil || in.Base == "" {
+	if in.Prefix == "" || in.Base == "" {
 		return "", fmt.Errorf("the deployment's names on Portainer: prefix %q, base %q", in.Prefix, in.Base)
 	}
 	c := in.Contract

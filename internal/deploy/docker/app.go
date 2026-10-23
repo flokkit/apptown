@@ -80,7 +80,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// Build only an explicit build declaration. An image remains the selected
 	// recipe even when unrelated Dockerfiles exist in the source tree.
 	if t.Identity == nil && c.Build != "" && c.Image == "" {
-		tag := t.names().BuildTag(name)
+		tag := Current.BuildTag(name)
 		buildDir, cleanup, err := StagedBuildContext(ctx, ws, c.Build)
 		if err != nil {
 			return 0, err
@@ -95,7 +95,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// preview, as a build: part is just above; a standing deployment's was
 	// packed by PrepareImages. Either way it then runs as an image.
 	if t.Identity == nil && c.StaticBuild != nil && c.Image == "" {
-		tag := t.names().BuildTag(name)
+		tag := Current.BuildTag(name)
 		buildDir, cleanup, err := StagedBuildContext(ctx, ws, c.StaticBuild.Context)
 		if err != nil {
 			return 0, err
@@ -191,17 +191,17 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	}
 	if c.DataDir != "" {
 		if t.own.Record != nil {
-			if err := ensureVolume(ctx, dk, t.names().DataVolume(name), name, "", t.own); err != nil {
+			if err := ensureVolume(ctx, dk, Current.DataVolume(name), name, "", t.own); err != nil {
 				return 0, err
 			}
 		}
-		args = append(args, "-v", t.names().DataVolume(name)+":"+c.DataDir)
+		args = append(args, "-v", Current.DataVolume(name)+":"+c.DataDir)
 		// The volume belongs to the image's own user before the app starts,
 		// so a container that drops to an unprivileged USER can write its
 		// data without a root entrypoint to chown it first. An image with no USER, or one
 		// AppTown cannot resolve, is left as it was.
 		if c.Image != "" {
-			HandVolumeToImageUser(ctx, dk, t.names().DataVolume(name), c.Image, h.chownImage())
+			HandVolumeToImageUser(ctx, dk, Current.DataVolume(name), c.Image, h.chownImage())
 		}
 	}
 	args = append(args, "--add-host", "host.internal:host-gateway")

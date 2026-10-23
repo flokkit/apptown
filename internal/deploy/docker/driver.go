@@ -35,10 +35,6 @@ type Driver struct {
 	// "synthetic" lets a standing service be replaced when its declared
 	// parameters move. "" is unknown, and protected.
 	DataClass string
-	// Move, when set, moves the deployment from the names it was made with
-	// to its names by key in this release's attempt, before its boot starts
-	// anything (move.go). REMOVE-AFTER resource move.
-	Move *Move
 	// Fill, when set, puts the deployment's data back in this boot, after
 	// its needs and before anything of the app starts (BootRequest.Fill):
 	// a rebuild after AppTown was restored.
@@ -70,24 +66,12 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	}
 	source := art.Source
 	slug, ws, c := source.Slug, source.Workspace, source.Contract
-	names, err := NamesOf(p.ID, p.HostPrefix, slug, p.Name)
+	names, err := NamesOf(p.ID, p.Name)
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the deployment's host names: %w", err))
 	}
-	label := p.Label
-	var move *bootMove
-	if d.Move != nil {
-		// A move boots under the names by key and the deployment's UUID as
-		// its identity from the first checkpoint: the switch it makes does
-		// not change this placement.
-		if names.ByKeyNow() {
-			return deploy.Observation{}, deploy.Terminal(fmt.Errorf("%s is already named by its key", p.Name))
-		}
-		move = &bootMove{Move: *d.Move, from: names}
-		names, label = ByKey(p.ID), deploy.HostLabel(p.ID.String())
-	}
 	name := names.App()
-	id := deploy.DockerIdentity{Deployment: label, Generation: generation, Artifact: art.Hash}
+	id := deploy.DockerIdentity{Deployment: p.Label, Generation: generation, Artifact: art.Hash}
 	if err := checkpoint(id.Checkpoint(name)); err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
@@ -105,9 +89,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	}
 	req := BootRequest{
 		Log:  logf,
-		Name: name, Names: names.Prefix(), StackID: names.Stack(), Slug: slug, Workspace: ws,
+		Name: name, StackID: names.Stack(), Slug: slug, Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
-		Identity: &id, Services: SourceServices(art), Revision: source.Revision, move: move, Fill: d.Fill,
+		Identity: &id, Services: SourceServices(art), Revision: source.Revision, Fill: d.Fill,
 	}
 	if d.Owner != nil {
 		req.Record = func(o deploy.Owned) error { return d.Owner.Created(ctx, o) }
@@ -221,7 +205,7 @@ func removeServing(ctx context.Context, dk Scope, p deploy.Placement) (string, e
 	// remove, and no newer attempt can be starting one, because a take-down
 	// is refused while an attempt is open. A container of anything else is
 	// refused. The immutable ID is deleted so a later rename cannot retarget rm.
-	if runtime.ID == "" || deploy.IdentityLabels(runtime.Labels)[dockerlabel.Deployment] != string(p.Label) {
+	if runtime.ID == "" || runtime.Labels[dockerlabel.Deployment] != string(p.Label) {
 		return "", errors.New("the container under the deployment's name belongs to something else; refusing removal")
 	}
 	// Without -v: a container's anonymous volumes are not on the list, and

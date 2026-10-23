@@ -15,7 +15,7 @@ func hostNamesOf(t *testing.T, s *Service, project ids.ID, slug, name string) do
 	if err != nil {
 		t.Fatalf("reading deployment %s: %v", name, err)
 	}
-	n, err := d.HostNames(slug)
+	n, err := d.HostNames()
 	if err != nil {
 		t.Fatal(err)
 	}

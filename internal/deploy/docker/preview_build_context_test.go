@@ -37,7 +37,7 @@ init:
 		t.Fatal(err)
 	}
 	plan := appcontract.Prepare(c, nil)
-	if err := PreparePreviewBuilds(t.Context(), Scope{Client: client}, Current, ws, "apptown-preview-test", plan); err != nil {
+	if err := PreparePreviewBuilds(t.Context(), Scope{Client: client}, ws, "apptown-preview-test", plan); err != nil {
 		t.Fatal(err)
 	}
 	var builds [][]string

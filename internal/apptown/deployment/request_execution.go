@@ -137,7 +137,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, rel.ProjectID, c); err != nil || why != "" {
 		return fail(errors.Join(err, refusal(why)))
 	}
-	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration, MoveNames: placement.MoveNames}
+	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration}
 	var staged string
 	var cleanup func()
 	docked := false // a standing deployment on a Docker host: booted at its recorded port
@@ -223,7 +223,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	// keeps a port it was given at every start, and picks a port it chose
 	// again (StablePort).
 	if docked {
-		names, err := dep.HostNames(project.Slug)
+		names, err := dep.HostNames()
 		if err != nil {
 			return fail(err)
 		}

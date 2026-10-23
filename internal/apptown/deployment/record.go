@@ -50,10 +50,7 @@ type Deployment struct {
 	Container string `json:"-"`
 	// HostLabel is the name it carries on its host when that predates the
 	// identity cutover (its old integer); "" means its UUID (Label).
-	HostLabel string `json:"-"`
-	// HostPrefix is what its names on a Docker host or Portainer
-	// environment begin with, fixed when it was made (docker.Prefix).
-	HostPrefix  string `json:"-"`
+	HostLabel   string `json:"-"`
 	ReleaseRun  ids.ID `json:"releaseRun,omitzero"`
 	ReleaseSHA  string `json:"releaseSha,omitempty"`
 	ImageDigest string `json:"imageDigest,omitempty"`
@@ -83,7 +80,7 @@ func (e *Deployment) Label() deploy.HostLabel {
 
 func (e *Deployment) Placement() deploy.Placement {
 	p := deploy.Placement{ID: e.ID, Label: e.Label(), Name: e.Name, Generation: e.ObservedGeneration,
-		URL: e.URL, Handle: e.Handle, Container: e.Container, HostPort: e.HostPort, HostPrefix: e.HostPrefix}
+		URL: e.URL, Handle: e.Handle, Container: e.Container, HostPort: e.HostPort}
 	if e.Kind == Restored {
 		p.Gate = &deploy.Gate{}
 	}
@@ -181,7 +178,6 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		HostPort:           int(r.HostPort),
 		Container:          r.Container,
 		HostLabel:          r.HostLabel,
-		HostPrefix:         r.HostPrefix,
 		ReleaseRun:         r.ReleaseRun,
 		ReleaseSHA:         r.ReleaseSha,
 		ImageDigest:        r.ImageDigest,

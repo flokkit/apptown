@@ -71,11 +71,6 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- data from, and when that was done (null until then).
   start_from_backup UUID,
   started_from_at   TIMESTAMPTZ,
-  -- '' when its things on a Docker host or Portainer environment are named
-  -- by its key (the last 12 hex digits of its id, unique by
-  -- deployments_host_key); for one made before and not yet moved, the
-  -- prefix its names were made with, so its data is found where it is.
-  host_prefix TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_host_prefix CHECK (host_prefix IN ('', 'apptown-', 'forge-')),
   -- After AppTown was restored, an App Platform or Portainer deployment is
   -- not acted on until its provider says what it runs: unconfirmed until
   -- then, gone when the provider has no such app. A built-in deployment is
@@ -278,10 +273,7 @@ CREATE TABLE IF NOT EXISTS release_requests (
   claimed_at TIMESTAMPTZ,
   -- The copy the release's caller was authorised to fill a new deployment
   -- from (0: none); the release fills that copy or nothing.
-  start_from_backup UUID,
-  -- The release moves the deployment to its names by key first
-  -- (apptown move-names; REMOVE-AFTER resource move).
-  move_names BOOLEAN NOT NULL DEFAULT false
+  start_from_backup UUID
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,

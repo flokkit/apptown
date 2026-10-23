@@ -139,23 +139,6 @@ func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// MoveNames: POST /projects/{slug}/deployments/{name}/move-names — release
-// what the deployment runs, moving it from the names it was made with to
-// its names by key first (deployment/move_names.go). Not promised: it goes
-// once live and the demo are moved (REMOVE-AFTER resource move).
-func (h Deployments) MoveNames(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
-	if !ok {
-		return
-	}
-	accepted, err := h.deployment.RequestRelease(r.Context(), deployment.DeploySelection{ProjectID: p.ID, DeploymentName: r.PathValue("name"), MoveNames: true})
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	WriteJSON(w, 202, ReleaseRequested{OK: true, Number: accepted.Number, Deployment: accepted.Deployment, State: accepted.State})
-}
-
 // CheckAgain: POST /projects/{slug}/deployments/{name}/check — a person's
 // repair of a deployment that needs attention: AppTown observes it on its
 // target and settles what it observes (deployment.Service.CheckAgain). It

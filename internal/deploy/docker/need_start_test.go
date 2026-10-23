@@ -30,9 +30,9 @@ func (storeNeed) Data(context.Context, string) (string, error) { return "/data",
 // (an older s3.yaml), with health answering health.
 func storeRelease(t *testing.T, class, health string) (*ownedHost, error) {
 	t.Helper()
-	cname := Current.Service("env-shop-main", "s3")
-	vol := Current.NeedVolume("env-shop-main", "s3")
-	h := newOwnedHost("container "+cname, "volume "+vol, "network apptown-net-env-shop-main")
+	cname := Current.Service(ByKey(idstest.N(7)).Stack(), "s3")
+	vol := Current.NeedVolume(ByKey(idstest.N(7)).Stack(), "s3")
+	h := newOwnedHost("container "+cname, "volume "+vol, "network "+ByKey(idstest.N(7)).Network())
 	client := &fakeClient{reply: func(req Command) ([]byte, error) {
 		line := strings.Join(req.Args, " ")
 		switch {
@@ -71,7 +71,7 @@ func storeRelease(t *testing.T, class, health string) (*ownedHost, error) {
 	body := []byte(`{"version":1,"revision":"abc"}`)
 	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 		Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "shop", Contract: c}}
-	_, err = d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "main"}, 2, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+	_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 2, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 	return h, err
 }
 
@@ -89,8 +89,8 @@ func TestAStoreThatSetsItsConfigurationAtStartIsRemadeOnItsVolume(t *testing.T) 
 			if err != nil && AsBootError(err).Phase == PhaseNeeds {
 				t.Fatalf("the store was not remade: %v", err)
 			}
-			cname := Current.Service("env-shop-main", "s3")
-			if !slices.Contains(h.removed, "container "+cname) || slices.Contains(h.removed, "volume "+Current.NeedVolume("env-shop-main", "s3")) {
+			cname := Current.Service(ByKey(idstest.N(7)).Stack(), "s3")
+			if !slices.Contains(h.removed, "container "+cname) || slices.Contains(h.removed, "volume "+Current.NeedVolume(ByKey(idstest.N(7)).Stack(), "s3")) {
 				t.Fatalf("remade %v: the container goes, the volume stays", h.removed)
 			}
 			var store []string
@@ -100,7 +100,7 @@ func TestAStoreThatSetsItsConfigurationAtStartIsRemadeOnItsVolume(t *testing.T) 
 				}
 			}
 			line := strings.Join(store, " ")
-			if !strings.Contains(line, "--entrypoint /bin/sh") || !strings.HasSuffix(line, "gateway:2 -c start the store") || !strings.Contains(line, "-v "+Current.NeedVolume("env-shop-main", "s3")+":/data") {
+			if !strings.Contains(line, "--entrypoint /bin/sh") || !strings.HasSuffix(line, "gateway:2 -c start the store") || !strings.Contains(line, "-v "+Current.NeedVolume(ByKey(idstest.N(7)).Stack(), "s3")+":/data") {
 				t.Fatalf("the store's start: %v", store)
 			}
 		})

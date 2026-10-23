@@ -351,7 +351,7 @@ func partContainers(d *Deployment, slug string, applied AppliedProfile) map[stri
 	out := map[string]string{}
 	// A prefix the record does not know names nothing: no container is
 	// guessed under another one.
-	names, err := d.HostNames(slug)
+	names, err := d.HostNames()
 	if err != nil {
 		return out
 	}

@@ -104,7 +104,7 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	call := func(body string) (int, map[string]any) {
 		return targetCall(t, w.infra.RemoveInfrastructure, "POST", "/api/v1/infrastructure/"+targetTestBuiltin+"/remove", body, map[string]string{"target": targetTestBuiltin})
 	}
-	names, err := env.HostNames("ri")
+	names, err := env.HostNames()
 	if err != nil {
 		t.Fatal(err)
 	}

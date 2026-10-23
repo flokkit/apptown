@@ -47,11 +47,11 @@ func TestAnAppsContainersAndBuildsAreGivenTheExtraCertificates(t *testing.T) {
 	}
 	start := func(dk Scope) string {
 		client := dk.Client.(*remoteAppClient)
-		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-w-main", Slug: "w", Deployment: "main", Workspace: ws, Names: Current}, &appcontract.Part{Build: ".", Port: 8080}, "", nil); err != nil {
+		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-w-main", Slug: "w", Deployment: "main", Workspace: ws}, &appcontract.Part{Build: ".", Port: 8080}, "", nil); err != nil {
 			t.Fatal(err)
 		}
 		plan := &appcontract.Plan{Init: []appcontract.InitContainer{{Name: "migrate", Image: "app:1"}}}
-		if err := runInitContainers(t.Context(), dk, Current, "id", "net", plan, Delivery{Env: func(string) map[string]string { return nil }}); err != nil {
+		if err := runInitContainers(t.Context(), dk, "id", "net", plan, Delivery{Env: func(string) map[string]string { return nil }}); err != nil {
 			t.Fatal(err)
 		}
 		if err := runServiceContainersWith(t.Context(), dk, "id", "net", []deploy.ServiceSpec{{Name: "worker", Image: "app:1", AppPart: true}, {Name: "db", Image: "postgres:16"}}, serviceRunOptions{class: "service"}, Ownership{}); err != nil {

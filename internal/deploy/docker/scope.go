@@ -317,15 +317,15 @@ func (dk Scope) RemoveWithVolumes(ctx context.Context, container string) error {
 // deleted project's deployment) with its anonymous volumes and its named
 // data volume: nothing of it carries over to the next one of its name.
 func (dk Scope) RemoveDisposable(ctx context.Context, container string) error {
-	return errors.Join(dk.RemoveWithVolumes(ctx, container), dk.RemoveVolume(ctx, PrefixOf(container).DataVolume(container)))
+	return errors.Join(dk.RemoveWithVolumes(ctx, container), dk.RemoveVolume(ctx, Current.DataVolume(container)))
 }
 
 // BuildImages lists the local build images made for one container: its own
 // (its BuildTag) and its parts' and release generations' (its BuildTag
-// +"-…"), under the prefix the container's own name carries. The caller decides which belong to it: the
+// +"-…"). The caller decides which belong to it: the
 // "-…" form can also match another owner's longer name.
 func (dk Scope) BuildImages(ctx context.Context, container string) ([]string, error) {
-	tag := PrefixOf(container).BuildTag(container)
+	tag := Current.BuildTag(container)
 	return dk.List(ctx, "image", "ls", "--format", "{{.Repository}}:{{.Tag}}", "--filter", "reference="+tag, "--filter", "reference="+tag+"-*")
 }
 

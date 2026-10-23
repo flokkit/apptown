@@ -56,7 +56,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 		switch t.Kind {
 		case KindDockerHost:
 			// What it is called on the host is what it was made with.
-			names, err := e.HostNames(e.Project)
+			names, err := e.HostNames()
 			if err != nil {
 				return nil, fmt.Errorf("naming %s/%s on its host: %w", e.Project, e.Name, err)
 			}

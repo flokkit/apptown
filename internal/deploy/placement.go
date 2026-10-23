@@ -15,10 +15,6 @@ type Placement struct {
 	Handle     map[string]any // the provider's own identifiers
 	Container  string         // the built-in host's container, when it has one
 	HostPort   int            // the built-in host's port, when it has one
-	// HostPrefix is what the deployment's names on a Docker host or a
-	// Portainer environment begin with, recorded when it was made and never
-	// changed: what it made is always found under the names it made it with.
-	HostPrefix string
 	// Gate, when set, puts the deployment behind AppTown's access gate
 	// (design/subsystems/deployment.md, "Restored copies"): it holds production data
 	// that only people AppTown admits may reach.

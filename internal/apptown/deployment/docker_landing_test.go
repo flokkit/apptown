@@ -33,14 +33,14 @@ func TestLandingExecutorPreservesBootPolicyAndFailureClassification(t *testing.T
 		phase    string
 		terminal bool
 	}{
-		{docker.PhaseResolve, true}, {docker.PhaseSecrets, true}, {docker.PhaseConfig, true}, {docker.PhaseMove, true},
+		{docker.PhaseResolve, true}, {docker.PhaseSecrets, true}, {docker.PhaseConfig, true},
 		{docker.PhaseNeeds, true}, {docker.PhaseFill, true}, {docker.PhaseParts, true}, {docker.PhaseApp, true},
 		{docker.PhaseProbe, true}, {docker.PhasePage, true}, {"", false},
 	} {
 		t.Run(tc.phase, func(t *testing.T) {
 			c := &appcontract.Contract{}
 			checkpointed := false
-			e := landingDeploymentExecution{label: "3", target: docker.BootRequest{Name: "app", Deployment: "main", Persistent: true, Names: docker.Current, PageCheck: true, Probe: 90 * time.Second, Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16"}}}, contract: c, artifact: "selected",
+			e := landingDeploymentExecution{label: "3", target: docker.BootRequest{Name: "app", Deployment: "main", Persistent: true, PageCheck: true, Probe: 90 * time.Second, Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16"}}}, contract: c, artifact: "selected",
 				url: func(port int) string { return fmt.Sprintf("http://app:%d", port) },
 				boot: func(_ context.Context, target docker.BootRequest, got *appcontract.Contract) (docker.BootResult, error) {
 					if !checkpointed || got != c || !target.Persistent || !target.PageCheck || target.Probe != 90*time.Second || len(target.Services) != 1 || target.Identity == nil || target.Identity.Deployment != "3" || target.Identity.Generation != 2 || target.Identity.Artifact != "selected" {
@@ -156,7 +156,7 @@ func TestAnUnreadableBrowserSettingFailsTheAttemptWithoutStrandingIt(t *testing.
 	host := docker.NewHost(docker.Dependencies{Needs: noNeeds{}, Secrets: noSecrets{}, Integrations: unreadableBrowser{}})
 	raw := `{"version":1,"revision":"selected-revision"}`
 	start := Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "browser-failed", Inputs: Inputs{Revision: "selected-revision", ArtifactHash: deploy.ConfigHash(raw), DockerSource: raw}}
-	e := landingDeploymentExecution{label: dep.Label(), target: docker.BootRequest{Name: "serving", Workspace: t.TempDir(), Persistent: true, Names: docker.Current, Docker: scope}, contract: c, artifact: start.Inputs.ArtifactHash, boot: host.Boot, url: func(int) string { return "http://app" }}
+	e := landingDeploymentExecution{label: dep.Label(), target: docker.BootRequest{Name: "serving", Workspace: t.TempDir(), Persistent: true, Docker: scope}, contract: c, artifact: start.Inputs.ArtifactHash, boot: host.Boot, url: func(int) string { return "http://app" }}
 	result, err := (Runner{Store: f.outcomes}).Run(context.Background(), start, e.execute)
 	if err == nil || !strings.Contains(err.Error(), "browser attachment unavailable") {
 		t.Fatalf("expected browser attachment failure, got %v", err)

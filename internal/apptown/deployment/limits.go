@@ -179,7 +179,7 @@ func (s *Service) ownersOn(ctx context.Context, deps []ProjectDeployment) (conta
 				public = name
 			}
 		}
-		names, err := d.HostNames(d.Project)
+		names, err := d.HostNames()
 		if err != nil {
 			return o, err
 		}

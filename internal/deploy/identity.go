@@ -50,25 +50,6 @@ func (id DockerIdentity) Labels() map[string]string {
 // name made from it is too.
 func HostKey(id ids.ID) string { return hex.EncodeToString(id[10:]) }
 
-// IdentityLabels are a container's identity labels (deployment,
-// generation, artifact) by their current keys. A container made before 1.0
-// carries them under forge.* (dockerlabel.Before1); one that carries
-// neither key reads "" for it.
-//
-// REMOVE-AFTER resource move: once every deployment has been moved, its
-// containers carry only the current keys and this is labels itself.
-func IdentityLabels(labels map[string]string) map[string]string {
-	out := map[string]string{}
-	for _, k := range []string{dockerlabel.Deployment, dockerlabel.Generation, dockerlabel.Artifact} {
-		v, ok := labels[k]
-		if !ok {
-			v = labels[dockerlabel.Before1(k)]
-		}
-		out[k] = v
-	}
-	return out
-}
-
 func (id DockerIdentity) Checkpoint(name string) map[string]any {
 	return map[string]any{"container": name, "docker": id}
 }

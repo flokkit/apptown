@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
@@ -43,10 +41,6 @@ func (h Infrastructure) recordedResources(ctx context.Context, t *deployment.Tar
 // intranet's Portainer environment runs on this same daemon, so it is left
 // out here and said in words.
 func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Target, res []deploy.Resource) ([]deploy.Resource, string, error) {
-	slugs, err := h.projectSlugs(ctx)
-	if err != nil {
-		return nil, "", err
-	}
 	// A deployment's things carry its stack (its services, network, need
 	// volumes) or its app container's name (its data volume) as owner.
 	deployments, err := h.deployment.Deployments.All(ctx)
@@ -56,11 +50,11 @@ func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Ta
 	owners := map[string][2]string{}
 	stacks := map[string]bool{} // the intranet stacks' names, as compose projects
 	for _, d := range deployments {
-		if n, err := d.HostNames(d.Project); err == nil {
+		if n, err := d.HostNames(); err == nil {
 			owners[n.Stack()] = [2]string{d.Project, d.Name}
 			owners[n.App()] = [2]string{d.Project, d.Name}
 		}
-		stacks[portainer.StackName(portainer.StackNames(d.ID, d.HostPrefix, d.Project))] = true
+		stacks[portainer.StackName(portainer.StackNames(d.ID))] = true
 	}
 	_, noIntranet := h.deployment.Targets.ByName(ctx, h.intranet)
 	var out []deploy.Resource
@@ -76,10 +70,6 @@ func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Ta
 		}
 		if d, ok := owners[r.Owner]; ok {
 			r.Retained = &deploy.RetainedNote{Project: d[0], Deployment: d[1], Reason: h.leftoverReason(ctx, t, d[0], d[1])}
-		} else if slug, env, ok := docker.BeforeKeyOwner(r.Owner, slugs); ok {
-			// REMOVE-AFTER resource move: a thing a deployment named before
-			// its names were by key left behind.
-			r.Retained = &deploy.RetainedNote{Project: slug, Deployment: env, Reason: h.leftoverReason(ctx, t, slug, env)}
 		}
 		out = append(out, r)
 	}
@@ -92,17 +82,6 @@ func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Ta
 		note = fmt.Sprintf("%d %s to the intranet's stacks: its Portainer environment runs on this same daemon. It is on the intranet's page.", shared, word)
 	}
 	return out, note, nil
-}
-
-// projectSlugs: every project's slug, longest first so a slug that is a
-// prefix of another (app, app-api) never wins by accident.
-func (h Infrastructure) projectSlugs(ctx context.Context) ([]string, error) {
-	out, err := project.SlugsIn(ctx, h.db)
-	if err != nil {
-		return nil, err
-	}
-	sort.Slice(out, func(i, j int) bool { return len(out[i]) > len(out[j]) })
-	return out, nil
 }
 
 // leftoverReason says why a deployment no longer records a resource it

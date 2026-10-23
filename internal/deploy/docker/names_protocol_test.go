@@ -17,13 +17,11 @@ func keyed(n byte) ids.ID {
 }
 
 // The names on a host are a protocol: a deployment is named by its key
-// under Current; one made before its names were by key keeps every name it
-// was made with, byte for byte, until it is moved.
+// under Current, byte for byte.
 func TestDockerNamesArePinned(t *testing.T) {
 	t.Parallel()
 	id := idstest.Parse(t, "01a15e84-c8f1-7000-b757-3b89d1da8075")
 	now := ByKey(id)
-	reading := BeforeKey(Before1, "reading-list", "main")
 	pins := map[string]string{
 		PreviewChangeName(idstest.N(7)):                                                "apptown-preview-change-00000000-0007-7000-8000-000000000000",
 		PreviewRunName(idstest.N(56)):                                                  "apptown-preview-run-00000000-0038-7000-8000-000000000000",
@@ -46,41 +44,19 @@ func TestDockerNamesArePinned(t *testing.T) {
 		now.Network():              "apptown-net-dep-3b89d1da8075",
 		now.NeedVolume("postgres"): "apptown-need-dep-3b89d1da8075-postgres",
 		now.DataVolume():           "apptown-data-apptown-dep-3b89d1da8075",
-		// A deployment made before 1.0, not yet moved: today's live names.
-		reading.Stack():                "env-reading-list-main",
-		reading.App():                  "forge-env-reading-list-main",
-		reading.Service("postgres"):    "forge-svc-env-reading-list-main-postgres",
-		reading.Network():              "forge-net-env-reading-list-main",
-		reading.Init("migrate"):        "forge-init-env-reading-list-main-migrate",
-		reading.NeedVolume("postgres"): "forge-need-env-reading-list-main-postgres",
-		reading.DataVolume():           "forge-data-forge-env-reading-list-main",
-		Before1.BuildTag("forge-env-reading-list-main-g12-web"): "forge-preview-build-forge-env-reading-list-main-g12-web",
 	}
 	for got, want := range pins {
 		if got != want {
 			t.Errorf("name drifted: got %q, want %q", got, want)
 		}
 	}
-	for _, p := range Prefixes {
-		if got, err := ParsePrefix(string(p)); err != nil || got != p {
-			t.Errorf("ParsePrefix(%q) = %q, %v", p, got, err)
-		}
+	// The record decides: a deployment is named by its key, and one with no
+	// id yet has no names.
+	if n, err := NamesOf(id, "main"); err != nil || n != now {
+		t.Errorf("NamesOf: %+v %v", n, err)
 	}
-	for _, bad := range []string{"", "forge", "apptown", "other-"} {
-		if _, err := ParsePrefix(bad); err == nil {
-			t.Errorf("ParsePrefix accepted %q", bad)
-		}
-	}
-	// The record decides: no prefix is names by key, a recorded one the
-	// names it was made with, anything else refused.
-	if n, err := NamesOf(id, "", "reading-list", "main"); err != nil || n != now {
-		t.Errorf("NamesOf with no prefix: %+v %v", n, err)
-	}
-	if n, err := NamesOf(id, "forge-", "reading-list", "main"); err != nil || n != reading {
-		t.Errorf("NamesOf with forge-: %+v %v", n, err)
-	}
-	if _, err := NamesOf(id, "other-", "reading-list", "main"); err == nil {
-		t.Error("NamesOf accepted a prefix AppTown never named with")
+	if _, err := NamesOf(ids.Nil, "main"); err == nil {
+		t.Error("NamesOf named a deployment with no id")
 	}
 }
 
@@ -94,9 +70,6 @@ func TestDockerNamesArePinned(t *testing.T) {
 func TestTwoDeploymentsWhoseNamesJoinAlikeShareNoName(t *testing.T) {
 	t.Parallel()
 	a, b := ByKey(keyed(1)), ByKey(keyed(2))
-	if BeforeKey(Current, "shop", "eu-main").App() != BeforeKey(Current, "shop-eu", "main").App() {
-		t.Fatal("the reproduction no longer reproduces: the old names do not collide")
-	}
 	pairs := [][2]string{{a.App(), b.App()}, {a.Stack(), b.Stack()}, {a.Service("postgres"), b.Service("postgres")},
 		{a.Network(), b.Network()}, {a.NeedVolume("postgres"), b.NeedVolume("postgres")}, {a.DataVolume(), b.DataVolume()}, {a.Init("m"), b.Init("m")}}
 	for _, p := range pairs {
@@ -111,41 +84,56 @@ func TestTwoDeploymentsWhoseNamesJoinAlikeShareNoName(t *testing.T) {
 	}
 }
 
+// The inverses read names AppTown gives now, and only those: a name made
+// before 1.0 (forge-…) is not AppTown's.
+//
+// Kills: an inverse that still reads the forge- prefix.
 func TestDockerNameInverses(t *testing.T) {
 	t.Parallel()
-	if id, ok := ParsePreviewChangeID("forge-preview-change-00000000-0061-7000-8000-000000000000"); !ok || id != idstest.N(97) {
+	if id, ok := ParsePreviewChangeID("apptown-preview-change-00000000-0061-7000-8000-000000000000"); !ok || id != idstest.N(97) {
 		t.Fatalf("parsePreviewChangeID: %s %v", id, ok)
 	}
-	for _, bad := range []string{"forge-preview-change-", "forge-preview-change-7", "forge-preview-change-00000000-0007-7000-8000-000000000000x", "forge-preview-run-00000000-0007-7000-8000-000000000000",
-		"forge-preview-change-00000000-0007-7000-8000-000000000000-old", "xforge-preview-change-00000000-0007-7000-8000-000000000000", "forge-preview-change-00000000-0000-0000-0000-000000000000"} {
+	for _, bad := range []string{"apptown-preview-change-", "apptown-preview-change-7", "apptown-preview-change-00000000-0007-7000-8000-000000000000x", "apptown-preview-run-00000000-0007-7000-8000-000000000000",
+		"apptown-preview-change-00000000-0007-7000-8000-000000000000-old", "xapptown-preview-change-00000000-0007-7000-8000-000000000000", "apptown-preview-change-00000000-0000-0000-0000-000000000000",
+		"forge-preview-change-00000000-0061-7000-8000-000000000000"} {
 		if _, ok := ParsePreviewChangeID(bad); ok {
 			t.Errorf("parsePreviewChangeID accepted %q", bad)
 		}
 	}
-	if s, ok := StackOfNetwork("forge-net-pvsnap-change-00000000-0007-7000-8000-000000000000"); !ok || s != "pvsnap-change-00000000-0007-7000-8000-000000000000" {
+	if s, ok := StackOfNetwork("apptown-net-pvsnap-change-00000000-0007-7000-8000-000000000000"); !ok || s != "pvsnap-change-00000000-0007-7000-8000-000000000000" {
 		t.Fatalf("stackOfNetwork: %q %v", s, ok)
 	}
-	if _, ok := StackOfNetwork("bridge"); ok {
-		t.Error("bridge is not an AppTown network")
+	for _, bad := range []string{"bridge", "forge-net-pvsnap-change-00000000-0007-7000-8000-000000000000"} {
+		if _, ok := StackOfNetwork(bad); ok {
+			t.Errorf("%s is not an AppTown network", bad)
+		}
 	}
-	if c, ok := ContainerOfDataVolume("forge-data-forge-preview-run-00000000-0038-7000-8000-000000000000"); !ok || c != "forge-preview-run-00000000-0038-7000-8000-000000000000" {
+	if c, ok := ContainerOfDataVolume("apptown-data-apptown-preview-run-00000000-0038-7000-8000-000000000000"); !ok || c != "apptown-preview-run-00000000-0038-7000-8000-000000000000" {
 		t.Fatalf("containerOfDataVolume: %q %v", c, ok)
 	}
-	if !IsLocalBuildTag("forge-preview-build-change-7") || IsLocalBuildTag("registry.example/app:1") {
+	if _, ok := ContainerOfDataVolume("forge-data-forge-preview-run-00000000-0038-7000-8000-000000000000"); ok {
+		t.Error("containerOfDataVolume read a forge- volume")
+	}
+	if !IsLocalBuildTag("apptown-preview-build-change-7") || IsLocalBuildTag("registry.example/app:1") || IsLocalBuildTag("forge-preview-build-change-7") {
 		t.Error("isLocalBuildTag")
+	}
+	if !IsNamedVolume("apptown-need-dep-3b89d1da8075-postgres") || IsNamedVolume("forge-need-env-shop-main-postgres") || !Named("apptown-dep-3b89d1da8075") || Named("forge-env-shop-main") {
+		t.Error("IsNamedVolume or Named")
 	}
 }
 
 func TestNameInverses(t *testing.T) {
 	t.Parallel()
-	if l, ok := previewLabel("forge-preview-letterbox-release-4"); !ok || l != "letterbox-release-4" {
+	if l, ok := previewLabel("apptown-preview-letterbox-release-4"); !ok || l != "letterbox-release-4" {
 		t.Fatalf("previewLabel: %q %v", l, ok)
 	}
-	if _, ok := previewLabel("forge-preview-"); ok {
-		t.Error("an empty label is not a preview")
+	for _, bad := range []string{"apptown-preview-", "forge-preview-letterbox-release-4"} {
+		if _, ok := previewLabel(bad); ok {
+			t.Errorf("%q is not a preview", bad)
+		}
 	}
-	if !IsPreviewName("forge-preview-run-1") || IsPreviewName("forge-env-x-main") || IsPreviewName("forge-preview-build-x") == false {
-		// forge-preview-build-* is an IMAGE tag, never a container name, so
+	if !IsPreviewName("apptown-preview-run-1") || IsPreviewName("apptown-dep-3b89d1da8075") || IsPreviewName("apptown-preview-build-x") == false {
+		// apptown-preview-build-* is an IMAGE tag, never a container name, so
 		// the prefix test is fine as a container predicate.
 		t.Error("IsPreviewName")
 	}
@@ -156,7 +144,7 @@ func TestNameInverses(t *testing.T) {
 			t.Errorf("%q must be a preview stack", id)
 		}
 	}
-	for _, id := range []string{"env-reading-list-main", "123", "pv", "pvx", "pv12a", "env-pv1-main"} {
+	for _, id := range []string{"dep-3b89d1da8075", "123", "pv", "pvx", "pv12a", "env-pv1-main"} {
 		if isPreviewStackID(id) {
 			t.Errorf("%q must not be a preview stack", id)
 		}

@@ -120,7 +120,7 @@ init:
 	if _, err := EnsureStandingServices(t.Context(), dk, "envtest", []deploy.ServiceSpec{{Name: "db", Image: "need:standing"}}, "", Ownership{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := runInitContainers(t.Context(), dk, Current, "pvtest", "net", plan, Delivery{}); err != nil {
+	if err := runInitContainers(t.Context(), dk, "pvtest", "net", plan, Delivery{}); err != nil {
 		t.Fatal(err)
 	}
 	runs := map[string][]string{}

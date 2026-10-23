@@ -54,10 +54,7 @@ func (s *Outcomes) Checkpoint(ctx context.Context, at Attempt) deploy.Checkpoint
 			if err != nil {
 				return err
 			}
-			// The deployment as its record labels it, or by its UUID: a move
-			// to names by key (move_names.go) boots under the UUID from its
-			// first checkpoint, before its switch clears an old label.
-			if (identity.Deployment != dep.Label() && identity.Deployment != deploy.HostLabel(dep.ID.String())) || identity.Generation != at.Generation || identity.Artifact == "" || identity.Artifact != inputs.ArtifactHash || inputs.DockerSource == "" {
+			if identity.Deployment != dep.Label() || identity.Generation != at.Generation || identity.Artifact == "" || identity.Artifact != inputs.ArtifactHash || inputs.DockerSource == "" {
 				return errors.New("Docker checkpoint differs from admitted source identity")
 			}
 		}

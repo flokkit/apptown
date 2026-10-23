@@ -1977,7 +1977,7 @@ func TestALandingBuiltOnItsHostIsPublishedAsOnTheWorker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	names, err := dep.HostNames("p")
+	names, err := dep.HostNames()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -268,12 +268,8 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	// A deployment not yet released has no handle: its stack is named as
 	// the intranet release names it (StackNames).
 	stack, _ := p.Handle["stack"].(string)
-	slug := ""
-	if art.Source != nil {
-		slug = art.Source.Slug
-	}
-	prefix, base := StackNames(p.ID, p.HostPrefix, slug)
-	if stack == "" && base != "" && !p.ID.IsZero() {
+	prefix, base := StackNames(p.ID)
+	if stack == "" && !p.ID.IsZero() {
 		stack = StackName(prefix, base)
 	}
 	if stack == "" {

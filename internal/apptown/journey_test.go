@@ -64,7 +64,7 @@ func (h *jHarness) removeMainAppAtCleanup(slug string) {
 		if err != nil {
 			return
 		}
-		if names, err := dep.HostNames(slug); err == nil {
+		if names, err := dep.HostNames(); err == nil {
 			_ = dockertest.Run("rm", "-f", names.App())
 		}
 	})

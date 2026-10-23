@@ -331,7 +331,7 @@ func TestAContainerBelongsToTheLongestStackItsNameBegins(t *testing.T) {
 	t.Parallel()
 	main, eu := idstest.N(1), idstest.N(2)
 	o := containerOwners{exact: map[string]partOf{"apptown-env-shop-main": {deployment: main, part: "web"}},
-		services: map[string]ids.ID{docker.BeforeKey(docker.Current, "shop", "main").Service(""): main, docker.BeforeKey(docker.Current, "shop", "main-eu").Service(""): eu}}
+		services: map[string]ids.ID{docker.Current.Service("env-shop-main", ""): main, docker.Current.Service("env-shop-main-eu", ""): eu}}
 	for name, want := range map[string]partOf{
 		"apptown-env-shop-main":                 {deployment: main, part: "web"},
 		"apptown-svc-env-shop-main-postgres":    {deployment: main, part: "postgres"},

@@ -207,6 +207,29 @@ WHERE jsonb_typeof(v.spec_json->'policies') = 'array'
   updated_at TIMESTAMPTZ NOT NULL
 )`,
 	}},
+	// Every deployment is named by its key: the move from the names a
+	// deployment was made with before 1.0 is over, and its record and
+	// door go. A deployment still on those names that made something on a
+	// host (its app container, a Portainer stack, which an update records
+	// only on the handle, or anything on its list) would be looked for
+	// under names it does not have, so the upgrade stops and says which,
+	// and how to move each first. One that never made anything has no
+	// names on a host to lose.
+	{n: 167, note: "every deployment is named by its key: the recorded host prefix and the move flag go", stmts: []string{
+		`DO $$
+DECLARE held text;
+BEGIN
+  SELECT string_agg(p.slug || '/' || d.name, ', ' ORDER BY p.slug, d.name) INTO held
+  FROM deployments d JOIN projects p ON p.id = d.project_id
+  WHERE d.host_prefix <> '' AND (d.container <> '' OR COALESCE(d.handle_json->>'stack', '') <> ''
+    OR EXISTS (SELECT 1 FROM deployment_owned o WHERE o.deployment_id = d.id));
+  IF held IS NOT NULL THEN
+    RAISE EXCEPTION 'these deployments are still on the names they were made with before 1.0: %. Under AppTown 1.0.0-rc.6 first, move one on a Docker host with apptown move-names; take one on Portainer down and release it again (its data is not carried over: copy it first), then upgrade', held;
+  END IF;
+END $$`,
+		"ALTER TABLE deployments DROP COLUMN host_prefix",
+		"ALTER TABLE release_requests DROP COLUMN move_names",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

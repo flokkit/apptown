@@ -501,7 +501,7 @@ func TestACopyOfAnotherVolumeIsNotThisVolumesCopy(t *testing.T) {
 // hostNamesOf is what dep's things are called on its host.
 func hostNamesOf(t *testing.T, dep *deployment.Deployment, slug string) docker.Names {
 	t.Helper()
-	n, err := dep.HostNames(slug)
+	n, err := dep.HostNames()
 	if err != nil {
 		t.Fatal(err)
 	}

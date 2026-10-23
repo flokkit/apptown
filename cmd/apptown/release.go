@@ -130,34 +130,3 @@ func followRelease(slug string, number int64, interval time.Duration) (string, e
 		pause(interval)
 	}
 }
-
-// cmdMoveNames moves a deployment made before its names were by key to
-// them: AppTown releases what it runs again, stopping it, copying and
-// checking its data into new volumes, and booting it under the new names.
-// The old volumes stay on the host. Not promised: it goes once every
-// deployment has moved (REMOVE-AFTER resource move).
-func cmdMoveNames(args []string) error {
-	fs := newFlags("move-names")
-	args = parseArgs(fs, args)
-	if len(args) != 2 {
-		return usagef("usage: apptown move-names <project-slug> <deployment>")
-	}
-	slug, where := args[0], args[1]
-	var out struct {
-		Number int64 `json:"number"`
-	}
-	if err := api.post("/projects/"+slug+"/deployments/"+where+"/move-names", map[string]any{}, &out); err != nil {
-		return err
-	}
-	fmt.Printf("%s release r%d moves %s to its names by key; following its log:\n", bold("▶"), out.Number, where)
-	state, err := followRelease(slug, out.Number, 2*time.Second)
-	switch {
-	case err != nil:
-		return err
-	case state == "released":
-		fmt.Printf("%s moved and released to %s\n", bold("✓"), where)
-		return nil
-	default:
-		return fmt.Errorf("the move failed — the log above shows where it stopped and what is on the host")
-	}
-}

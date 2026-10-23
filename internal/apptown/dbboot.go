@@ -76,14 +76,18 @@ func EnsureBuiltinDB(ctx context.Context, dataDir string) (string, error) {
 // ensureBuiltinDB is EnsureBuiltinDB's Docker part, with the daemon and the
 // wait for the database given, so a test can run it against a fake.
 func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, password, instance string, names builtinDBNames, waitForDB func(context.Context, string) error) (string, error) {
-	// An installation made before 1.0 labelled its database forge.instance
-	// until it is made again (REMOVE-AFTER resource move).
-	if out, err := dk.Run(ctx, "inspect", "-f", `{{.State.Running}} `+docker.ConfigLabelEither(dockerlabel.Instance), names.Container); err == nil {
-		fields := strings.Fields(string(out))
-		if len(fields) == 2 && fields[1] != instance {
-			return "", fmt.Errorf("container %s belongs to another AppTown installation (instance %s, this one is %s); remove it or point -db-url elsewhere", names.Container, fields[1], instance)
+	// The container is this installation's only if it carries this
+	// installation's id, as the volume must.
+	if out, err := dk.Run(ctx, "inspect", "-f", `{{.State.Running}}`+"\t"+`{{index .Config.Labels "`+dockerlabel.Instance+`"}}`, names.Container); err == nil {
+		running, owner, _ := strings.Cut(strings.TrimRight(string(out), "\r\n"), "\t")
+		if owner = strings.TrimSpace(owner); owner != instance {
+			whose := "has no installation label"
+			if owner != "" {
+				whose = fmt.Sprintf("belongs to another AppTown installation (instance %s)", owner)
+			}
+			return "", fmt.Errorf("container %s %s, and this one is %s; remove it or point -db-url elsewhere", names.Container, whose, instance)
 		}
-		if len(fields) >= 1 && fields[0] == "true" {
+		if strings.TrimSpace(running) == "true" {
 			return url, waitForDB(ctx, url)
 		}
 		if out, err := dk.Run(ctx, "start", names.Container); err == nil {
@@ -105,7 +109,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 	// pgdata, so using it would run on another AppTown's database (and fail on
 	// its password). apptownd has always labelled the volume, so an unlabelled
 	// one is not this installation's either.
-	if out, err := dk.Run(ctx, "volume", "inspect", "-f", docker.VolumeLabelEither(dockerlabel.Instance)+"\t"+`{{index .Options "device"}}`, names.Volume); err == nil {
+	if out, err := dk.Run(ctx, "volume", "inspect", "-f", `{{index .Labels "`+dockerlabel.Instance+`"}}`+"\t"+`{{index .Options "device"}}`, names.Volume); err == nil {
 		// Split before trimming: an unlabelled volume's line starts with the tab.
 		owner, folder, _ := strings.Cut(string(out), "\t")
 		owner = strings.TrimSpace(owner)

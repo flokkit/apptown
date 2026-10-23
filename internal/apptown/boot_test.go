@@ -296,8 +296,8 @@ func mainNames(t *testing.T, a *App) docker.Names {
 	if err != nil {
 		t.Fatal(err)
 	}
-	names, err := env.HostNames("p")
-	if err != nil || !names.ByKeyNow() {
+	names, err := env.HostNames()
+	if err != nil || !strings.HasPrefix(names.Stack(), "dep-") {
 		t.Fatalf("p/main's names: %+v %v", names, err)
 	}
 	return names
@@ -1124,6 +1124,46 @@ func TestBuiltinDBRefusesAVolumeOfAnotherInstallation(t *testing.T) {
 			}
 			if ranContainer(d) || waited {
 				t.Errorf("a container was started on the refused volume (ran %v, waited %v)", ranContainer(d), waited)
+			}
+		})
+	}
+}
+
+// A running built-in database container is this installation's only when it
+// carries this installation's id under apptown.instance. One that carries
+// only the key an AppTown before 1.0 wrote (forge.instance), or another
+// installation's id, is refused before the database is waited for.
+//
+// Kills: a container check that reads forge.instance, or that lets an
+// absent apptown.instance through.
+func TestBuiltinDBUsesARunningContainerOnlyWhenItIsThisInstallations(t *testing.T) {
+	for name, c := range map[string]struct {
+		labels string
+		ok     bool
+	}{
+		"this installation's":            {"th1s1nstall", true},
+		"only the label from before 1.0": {"", false},
+		"another installation's":         {"0ther1nstall", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			d := dockerfake.New()
+			d.SetReply(func(args []string) ([]byte, error, bool) {
+				if len(args) == 4 && args[0] == "inspect" && args[1] == "-f" && args[3] == currentBuiltinDB.Container {
+					if strings.Contains(args[2], "forge.instance") {
+						return []byte("true\tth1s1nstall\n"), nil, true
+					}
+					return []byte("true\t" + c.labels + "\n"), nil, true
+				}
+				return nil, nil, false
+			})
+			waited := false
+			_, err := ensureBuiltinDB(context.Background(), docker.Scope{Client: d}, t.TempDir(), "postgres://db", "pw", "th1s1nstall", currentBuiltinDB,
+				func(context.Context, string) error { waited = true; return nil })
+			if c.ok != (err == nil) || waited != c.ok {
+				t.Fatalf("container labelled %q: err %v, waited %v", c.labels, err, waited)
+			}
+			if !c.ok && !strings.Contains(err.Error(), currentBuiltinDB.Container) {
+				t.Errorf("the refusal does not name the container: %v", err)
 			}
 		})
 	}
