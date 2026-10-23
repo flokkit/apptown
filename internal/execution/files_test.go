@@ -23,7 +23,9 @@ func recordingDocker(t *testing.T) (binary, calls string) {
 	calls = filepath.Join(dir, "calls")
 	binary = filepath.Join(dir, "docker")
 	// A run's own inspection says it was not killed. The disk read answers
-	// what dir/df holds, fails while dir/unread exists, and otherwise
+	// what dir/df holds, fails while dir/unread exists, records a probe
+	// container and prints nothing on stdout while dir/silent exists, fails
+	// before recording one while dir/uncreated exists, and otherwise
 	// answers a disk with room; a task inspected is
 	// one already created while dir/exists exists, cannot be asked about
 	// while dir/offline exists, and is absent otherwise.
@@ -33,6 +35,8 @@ func recordingDocker(t *testing.T) (binary, calls string) {
 [ "$1" = info ] && { echo /var/lib/docker; exit 0; }
 case "$*" in *" df -Pk /d")
   [ -f "` + dir + `/unread" ] && exit 125
+  [ -f "` + dir + `/silent" ] && { [ "$2" = --cidfile ] && printf probe-c1 > "$3"; echo "a notice on stderr" >&2; exit 0; }
+  [ -f "` + dir + `/uncreated" ] && { echo "docker: Error response from daemon: no space for the probe" >&2; exit 125; }
   [ -f "` + dir + `/df" ] && { cat "` + dir + `/df"; exit 0; }
   printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10%% /d\n'; exit 0;;
 esac
@@ -50,6 +54,45 @@ exit 0
 		t.Fatal(err)
 	}
 	return binary, calls
+}
+
+// A disk read that gives no usable answer refuses the task, and the
+// refusal says what the docker call showed: its exit code, stdout and
+// stderr apart, how long it took, and the probe container it recorded (or
+// that it recorded none), so an occurrence can be diagnosed from it alone.
+//
+// Kills: the probe's evidence dropped from the refusal; stdout and stderr
+// combined again; a missing container ID reported as no container made.
+func TestADiskReadWithNoAnswerSaysWhatTheProbeShowed(t *testing.T) {
+	t.Parallel()
+	binary, calls := recordingDocker(t)
+	dir := filepath.Dir(calls)
+	d := DockerTasks{Binary: binary, Namespace: "test"}
+	spec := TaskSpec{Key: "script-1", Image: "alpine:3", Argv: []string{"true"}, Admission: Admission{Profile: "local", Network: NetworkDefault}}
+	for _, tc := range []struct {
+		flag string
+		want []string
+	}{
+		{"silent", []string{`df answered ""`, "docker exited 0 after ", `stdout ""`, `stderr "a notice on stderr"`, "probe container probe-c1: removed"}},
+		{"uncreated", []string{"docker exited 125 after ", `stdout ""`, `stderr "docker: Error response from daemon: no space for the probe"`, "no probe container ID recorded"}},
+	} {
+		flag := filepath.Join(dir, tc.flag)
+		if err := os.WriteFile(flag, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, err := d.Ensure(context.Background(), spec)
+		if !errors.Is(err, diskspace.ErrRefused) {
+			t.Fatalf("%s: a disk read with no answer: %v", tc.flag, err)
+		}
+		for _, w := range tc.want {
+			if !strings.Contains(err.Error(), w) {
+				t.Errorf("%s: the refusal does not say %q: %v", tc.flag, w, err)
+			}
+		}
+		if err := os.Remove(flag); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 // A new local task is refused, with nothing created, while its Docker's
