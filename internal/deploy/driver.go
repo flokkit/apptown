@@ -202,6 +202,14 @@ type Inventorier interface {
 	Inventory(ctx context.Context) ([]Resource, error)
 }
 
+// FleetObserver is a target's inventory that can observe every listed
+// deployment on the target with one look at the provider, rather than one
+// per deployment. The answer is in the order of ps; an error is the whole
+// look's, and no deployment's state is known from it.
+type FleetObserver interface {
+	ObserveAll(ctx context.Context, ps []Placement) ([]Observation, error)
+}
+
 // Inspector is a driver that can say whether a deployment's container is
 // running as a fact, distinct from not being able to ask: absent is
 // (false, nil); a host that cannot be reached is an error, and a rebuild

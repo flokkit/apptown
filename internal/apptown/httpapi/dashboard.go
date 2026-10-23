@@ -29,8 +29,8 @@ func (h Dashboard) Dashboard(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	// The operations the caller asked for that have ended wait on them
-	// until they put them away: they are the caller's own.
+	// The operations the caller asked for that failed, or whose outcome is
+	// not known, wait on them until they put them away.
 	ended, err := h.operations.EndedFor(r.Context(), Actor(r))
 	if err != nil {
 		WriteFault(w, err)
@@ -46,6 +46,7 @@ type DashboardView struct {
 	ActiveRuns       []workflow.ActiveRun       `json:"activeRuns"`
 	RecentADRs       []adrs.Record              `json:"recentAdrs"`
 	// EndedOperations are the caller's own data operations (a copy, a
-	// check, a take-down) that ended and that they have not put away.
+	// check, a take-down) that failed or whose outcome is not known, and
+	// that they have not put away.
 	EndedOperations []operations.Operation `json:"endedOperations"`
 }

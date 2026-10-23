@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"os"
+	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -785,5 +787,41 @@ func TestAnOperationIsStampedByTheLedgersClock(t *testing.T) {
 	}
 	if d := w.read(op.ID).DismissedAt; !d.Time.Equal(ran) {
 		t.Errorf("dismissed at %v, want %v", d, ran)
+	}
+}
+
+// What waits on the asker is an operation that failed or whose outcome is
+// not known. A success, verified or not, and a cancellation need nobody, so
+// the Home page's "Needs you" never lists them.
+func TestOnlyFailedAndUnknownOperationsWaitOnTheAsker(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	outcomes := map[string]operations.Outcome{
+		"verified":     {State: operations.Succeeded, Verification: operations.Verified},
+		"not-verified": {State: operations.Succeeded, Verification: operations.NotVerified},
+		"cancelled":    {State: operations.Cancelled},
+		"failed":       {State: operations.Failed, Detail: "it broke"},
+		"unknown":      {State: operations.Unknown},
+	}
+	w.body = func(_ context.Context, op operations.Operation, _ *operations.StepLog) operations.Outcome {
+		return outcomes[strings.TrimPrefix(op.Subject, "project:7/")]
+	}
+	for name := range outcomes {
+		op := w.mustAdmit("project:7/" + name)
+		if _, err := w.ops.Run(context.Background(), op.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ended, err := w.ops.EndedFor(context.Background(), "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, op := range ended {
+		got = append(got, op.State.String())
+	}
+	sort.Strings(got)
+	if want := []string{"failed", "unknown"}; !slices.Equal(got, want) {
+		t.Fatalf("waiting on the asker: %v, want %v", got, want)
 	}
 }

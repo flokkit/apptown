@@ -606,7 +606,7 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 	}
 	place := placeOf(t.op.ID, p.host.Name, p.shared)
 	facts.Images, facts.SharedHost = p.bundle.Parts, p.shared
-	t.end(ctx, fmt.Sprintf("set %d, release %d, on %s", p.set.ID, p.release.Number, hostWords(p.host.Name, p.shared)), 0)
+	t.end(ctx, fmt.Sprintf("%s, release %d, on %s", setWords(p.set), p.release.Number, hostWords(p.host.Name, p.shared)), 0)
 
 	if err := t.allowed(ctx); err != nil {
 		return OperationFailed, "nothing was made: " + err.Error(), result
@@ -878,7 +878,9 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 		return fail(step, "not every check passed: "+strings.Join(answers, ", "))
 	}
 	t.end(ctx, strings.Join(answers, ", "), 0)
-	return OperationVerified, "", fmt.Sprintf("release %d ran on set %d's data on %s and answered %s", p.release.Number, p.set.ID, hostWords(host.Name, p.shared), strings.Join(answers, ", "))
+	// The paths and status codes are in the step above and in the record;
+	// the sentence a person reads first says what was asked.
+	return OperationVerified, "", fmt.Sprintf("Release %d started from %s on %s and answered %s.", p.release.Number, setWords(p.set), hostWords(host.Name, p.shared), checkWords(facts.Checks))
 }
 
 // readItem writes one item of a set to w and answers how many bytes it
@@ -979,12 +981,51 @@ func (s *Service) recordRehearsal(ctx context.Context, t *tracker, p *rehearsalP
 }
 
 // hostWords names the host a rehearsal ran on, and says when it was not
-// one kept for rehearsals.
+// one set aside for rehearsals: the deployment's own Docker host, or an App
+// Platform target's copy runner.
 func hostWords(host string, shared bool) string {
 	if shared {
-		return host + ", not kept for rehearsals"
+		return host + " (shared, not set aside for rehearsals)"
 	}
 	return host
+}
+
+// setWords names a backup set by when it was taken, in UTC: the sentence is
+// stored and read in any time zone. A set whose time cannot be read is
+// named by its ID.
+func setWords(b *Backup) string {
+	taken, err := time.Parse(time.RFC3339Nano, b.TakenAt)
+	if err != nil {
+		return "backup set " + b.ID.String()
+	}
+	return "the backup taken " + taken.UTC().Format("2 Jan 15:04 UTC")
+}
+
+// checkWords says what a rehearsal asked the app, by kind of check.
+func checkWords(checks []RehearsalCheck) string {
+	var words []string
+	data := 0
+	for _, c := range checks {
+		switch {
+		case c.Name == "readiness":
+			words = append(words, "its health check")
+		case c.Name == "page":
+			words = append(words, "its home page")
+		default:
+			data++
+		}
+	}
+	switch data {
+	case 0:
+	case 1:
+		words = append(words, "1 data check")
+	default:
+		words = append(words, fmt.Sprintf("%d data checks", data))
+	}
+	if len(words) <= 1 {
+		return strings.Join(words, "")
+	}
+	return strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1]
 }
 
 // setDigests are each copy's digest in a set, by need.

@@ -131,7 +131,7 @@ func TestWithNoHostKeptARehearsalRunsOnTheAppsOwnHostAndSaysSo(t *testing.T) {
 	if !endedAs(op, OperationVerified) {
 		t.Fatalf("rehearsal %s: %s", op.State, op.Detail)
 	}
-	if !strings.Contains(op.Detail, "on remote, not kept for rehearsals") {
+	if !strings.Contains(op.Detail, "on remote (shared, not set aside for rehearsals)") {
 		t.Fatalf("the operation does not say where it ran: %s", op.Detail)
 	}
 	// The set's copy reached the host from AppTown's disk, as recorded.

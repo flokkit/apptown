@@ -25,9 +25,21 @@ export function runtimeChip(o: { observation: string, observationStale: boolean 
   return o.observation === 'running' ? 'pass' : ''
 }
 
+// runtimeLabel is a badge's words: the state alone while the reading is
+// current, since every badge would otherwise repeat "checked just now". A
+// reading that is out of date says so and how old it is. The full sentence,
+// with when it was checked and whether a refresh failed, is the badge's
+// title; the unknown style marks both stale and never-checked badges.
+export function runtimeLabel(o: RuntimeObservation): string {
+  if (!o.observedAt) return 'not checked yet'
+  const state = o.observation === 'unknown' ? 'status unknown' : o.observation
+  if (!o.observationStale) return state
+  return `last known: ${state} · ${relTime(o.observedAt)}`
+}
+
 export function RuntimeStatus({ observation }: { observation: RuntimeObservation }) {
-  return <span className={`chip ${runtimeChip(observation)}`}>
-    {runtimeDescription(observation)}
+  return <span className={`chip ${runtimeChip(observation)}`} title={runtimeDescription(observation)}>
+    {runtimeLabel(observation)}
   </span>
 }
 

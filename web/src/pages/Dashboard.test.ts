@@ -26,7 +26,7 @@ describe('the home status sentence', () => {
       dep('c', { observationStale: true }), dep('d', { running: null, observation: 'unknown' }),
       dep('e', { running: false, observation: 'stopped' }),
     ] })
-    expect(s).toMatch(/\b2 changes need you/)
+    expect(s).toMatch(/^2 needs you/)
     expect(s).toMatch(/\b2 apps live/)
     // c is stale and d unknown: neither live nor stopped.
     expect(s).toMatch(/\b2 apps status unknown/)
@@ -51,6 +51,15 @@ describe('the home sections', () => {
     expect(s.needsYouCount).toBe(2)
     // The blocked change shows as its blocked run alone.
     expect(s.waiting.map((a) => a.changeId)).toEqual([id(12), id(12)])
+  })
+
+  // The sentence above "Needs you" counts what the list holds: a failed
+  // operation waiting on the person is not "All quiet".
+  it('counts an operation that waits on the person, in the list and the sentence', () => {
+    const s = homeSections([], [], [{ id: id(20), state: 'failed' }])
+    expect(s.needsYouCount).toBe(1)
+    const sentence = homeStatus({ needsYou: s.needsYouCount, running: 0, deployments: [dep('a')] })
+    expect(sentence).toBe('1 needs you · 1 app live')
   })
 
   it('does not ask for an approval on a change whose run is working again', () => {

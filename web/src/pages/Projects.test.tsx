@@ -77,11 +77,13 @@ it('shows only icons projects chose, and leaves finding to the top bar', async (
 
 // A project with nothing deployed has no runtime stamp: there is nothing to
 // say is running, stopped or unknown. A deployed one nobody has observed
-// still says it is unknown.
+// still says it has not been checked, in the unknown style.
 it('stamps only the projects that have a deployment', async () => {
   const el = await listing()
   const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!
   expect(card('plain').querySelector('.chip')).toBeNull()
   expect(card('plain').textContent).not.toContain('deployed')
-  expect(card('boat').querySelector('.chip.unknown')?.textContent).toMatch(/unknown/)
+  const stamp = card('boat').querySelector('.chip.unknown')
+  expect(stamp?.textContent).toBe('not checked yet')
+  expect(stamp?.getAttribute('title')).toMatch(/status unknown/)
 })
