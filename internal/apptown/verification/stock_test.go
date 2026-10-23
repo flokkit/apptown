@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/stock"
 )
@@ -195,6 +196,98 @@ func TestRunsAsNonRootReadsTheFinalStage(t *testing.T) {
 		got := results[0].Verdict == workflow.VerdictPass
 		if got != c.pass || errs != 0 {
 			t.Fatalf("%s: want pass=%v, got %+v", c.name, c.pass, results)
+		}
+	}
+}
+
+// build/container-image: a VOLUME in the image makes Docker create a new
+// unnamed volume for every container started from it (checks, previews,
+// releases), which AppTown does not back up or move. Only the public part's
+// dataDir, where AppTown mounts the app's named data volume, may be one. The
+// final stage is read as Docker reads it; app.yaml's dataDir in either form.
+func TestNoVolumeOutsideDataDirReadsTheFinalStage(t *testing.T) {
+	t.Parallel()
+	evaluator := NewEvaluator(localChecks{}, nil)
+	check := sourcedNamed(t, "build/container-image", "no-volume-outside-data-dir")
+	const blockDataDir = "version: 2\napp:\n  web:\n    build: .\n    public: true\n    dataDir: /data # uploads\n"
+	cases := []struct {
+		name, df, app string
+		pass          bool
+		names         string // the path a failure names
+	}{
+		{"no dockerfile", "", "", true, ""},
+		{"no volume", "FROM alpine:3.20\nCMD [\"/app\"]\n", "", true, ""},
+		{"a volume, no app.yaml", "FROM alpine:3.20\nVOLUME /data\n", "", false, "VOLUME /data and .apptown/app.yaml declares no dataDir"},
+		{"a volume, no dataDir", "FROM alpine:3.20\nVOLUME /data\n", "version: 2\napp:\n  web:\n    build: .\n    public: true\n", false, "declare dataDir: /data"},
+		{"a dataDir only in a comment", "FROM alpine:3.20\nVOLUME /data\n", "app:\n  web:\n    build: .\n    # dataDir: /data\n    public: true\n", false, "VOLUME /data"},
+		{"the dataDir, JSON form", "FROM alpine:3.20\nVOLUME [\"/data\"]\n", blockDataDir, true, ""},
+		{"the dataDir, quoted, trailing slash", "FROM alpine:3.20\nVOLUME /data/\n", "app:\n  web:\n    build: .\n    public: true\n    dataDir: \"/data\"\n", true, ""},
+		{"a part in braces that names no dataDir", "FROM alpine:3.20\nVOLUME /data\n", "app:\n  web: { build: ., public: true, environment: { LABEL: 'a # b' } }\n", false, "VOLUME /data and"},
+		{"the dataDir and another path", "FROM alpine:3.20\nVOLUME /data /cache\n", blockDataDir, false, "VOLUME /cache, which is not the app's dataDir (/data)"},
+		{"a JSON list with the dataDir and another path", "FROM alpine:3.20\nVOLUME [\"/data\", \"/cache\"]\n", blockDataDir, false, "VOLUME /cache, which"},
+		{"CRLF, the dataDir", "FROM alpine:3.20\r\nVOLUME [\"/data\"]\r\n", strings.ReplaceAll(blockDataDir, "\n", "\r\n"), true, ""},
+		{"the dataDir in a later part", "FROM alpine:3.20\nVOLUME /data\n", "app:\n  worker:\n    build: .\n  web:\n    build: .\n    public: true\n    environment: { A: b }\n    dataDir: /data\n", true, ""},
+		// Only the part's own dataDir field counts: the same words in its
+		// environment, as a key or inside a value, declare nothing.
+		{"dataDir as an environment key", "FROM alpine:3.20\nVOLUME /cache\n", "version: 2\napp:\n  web:\n    build: .\n    public: true\n    environment:\n      dataDir: /cache\n", false, "VOLUME /cache and"},
+		{"dataDir inside an environment value", "FROM alpine:3.20\nVOLUME /cache\n", "version: 2\napp:\n  web:\n    build: .\n    public: true\n    environment:\n      CONFIG: |\n        dataDir: /cache\n", false, "VOLUME /cache and"},
+		{"a comment inside a continued VOLUME", "FROM alpine:3.20\nVOLUME /data \\\n# the uploads\n    /data/\n", blockDataDir, true, ""},
+		{"lower case, CRLF, JSON list", "FROM alpine:3.20\r\nvolume [\"/data\", \"/cache\"]\r\n", strings.ReplaceAll(blockDataDir, "\n", "\r\n"), false, "VOLUME /cache"},
+		{"only in a build stage", "FROM golang:1.25 AS build\nVOLUME /cache\nRUN go build\nFROM alpine:3.20\nCOPY --from=build /out /app\n", "", true, ""},
+		{"in a stage the final stage starts from", "FROM alpine:3.20 AS base\nVOLUME /cache\nFROM base\nCMD [\"/app\"]\n", "", false, "VOLUME /cache"},
+		{"a continued VOLUME", "FROM alpine:3.20\nVOLUME \\\n    /cache\n", "", false, "VOLUME /cache"},
+		{"a commented VOLUME", "FROM alpine:3.20\n# VOLUME /cache\n", "", true, ""},
+		{"VOLUME in a heredoc body", "FROM alpine:3.20\nCOPY <<EOF /notes\nVOLUME /cache\nEOF\n", "", true, ""},
+	}
+	for _, c := range cases {
+		dir := t.TempDir()
+		files := map[string]string{}
+		if c.df != "" {
+			files["Dockerfile"] = c.df
+		}
+		if c.app != "" {
+			files[".apptown/app.yaml"] = c.app
+		}
+		if c.app != "" {
+			// Every fixture is a contract AppTown accepts.
+			if _, err := appcontract.Parse([]byte(c.app)); err != nil {
+				t.Fatalf("%s: the fixture is not a valid contract: %v", c.name, err)
+			}
+		}
+		writeTree(t, dir, files)
+		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-volume")
+		got := results[0].Verdict == workflow.VerdictPass
+		if got != c.pass || errs != 0 || !strings.Contains(results[0].Output, c.names) {
+			t.Fatalf("%s: want pass=%v naming %q, got %+v", c.name, c.pass, c.names, results)
+		}
+		if !c.pass && strings.Contains(results[0].Output, "VOLUME /data,") {
+			t.Fatalf("%s: the dataDir itself is named as a finding: %+v", c.name, results)
+		}
+	}
+	// A path given by a variable, a contract this reader cannot follow, or a
+	// heredoc whose end cannot be found, is not judged: an error, never a
+	// pass or a finding.
+	for name, tree := range map[string]map[string]string{
+		"a variable path":            {"Dockerfile": "FROM alpine:3.20\nENV DATA=/data\nVOLUME $DATA\n", ".apptown/app.yaml": blockDataDir},
+		"an app section on one line": {"Dockerfile": "FROM alpine:3.20\nVOLUME /data\n", ".apptown/app.yaml": "app: { web: { build: ., public: true, dataDir: /data } }\n"},
+		// The dataDir is read in block form only: a part in braces that
+		// names it is not judged, whether the field or a value holds it.
+		"a part in braces with a dataDir": {"Dockerfile": "FROM alpine:3.20\nVOLUME /data\n", ".apptown/app.yaml": "app:\n  web: { build: ., public: true, environment: { LABEL: 'a # b' }, dataDir: /data }\n"},
+		"dataDir in a braced environment": {"Dockerfile": "FROM alpine:3.20\nVOLUME /cache\n", ".apptown/app.yaml": "app:\n  web: { build: ., public: true, environment: { TEMPLATE_END: '}}', dataDir: /cache, OTHER: x } }\n"},
+		"a part in braces across lines":   {"Dockerfile": "FROM alpine:3.20\nVOLUME /data\n", ".apptown/app.yaml": "app:\n  web: { build: ., public: true,\n    dataDir: /data }\n"},
+		"an unfinished heredoc":           {"Dockerfile": "FROM alpine:3.20\nRUN echo 'cat <<EOF' > /s.sh\nVOLUME /cache\n"},
+		"two heredocs":                    {"Dockerfile": "FROM alpine:3.20\nCOPY <<FIRST <<SECOND /\na\nFIRST\nb\nSECOND\nVOLUME /cache\n"},
+	} {
+		if app, ok := tree[".apptown/app.yaml"]; ok {
+			if _, err := appcontract.Parse([]byte(app)); err != nil {
+				t.Fatalf("%s: the fixture is not a valid contract: %v", name, err)
+			}
+		}
+		dir := t.TempDir()
+		writeTree(t, dir, tree)
+		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-volume-not-judged")
+		if errs != 1 || results[0].Verdict == workflow.VerdictPass || results[0].Verdict == workflow.VerdictFail || !strings.Contains(results[0].Output, "not judged") {
+			t.Fatalf("%s: %d errors, %+v", name, errs, results)
 		}
 	}
 }
