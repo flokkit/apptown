@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -299,5 +300,19 @@ func TestAppTownCheckReadsThePersonsOwnGitConfig(t *testing.T) {
 	t.Chdir(theirs)
 	if head, dirty, err := folderHead(); err != nil || head == "" || dirty {
 		t.Fatalf("read %q (dirty %v, %v): the person's own config did not reach their git", head, dirty, err)
+	}
+}
+
+// A push AppTown refuses by size is said in words: git names only the
+// HTTP status. Any other failure keeps git's own output.
+func TestASendRefusedBySizeSaysSo(t *testing.T) {
+	t.Parallel()
+	err := sendFailure(errors.New("exit status 1"), "error: RPC failed; HTTP 413 curl 22 The requested URL returned error: 413\nsend-pack: unexpected disconnect while reading sideband packet\n")
+	if !strings.Contains(err.Error(), "larger than this AppTown accepts") || !strings.Contains(err.Error(), "-import-bundle-max-bytes") {
+		t.Fatalf("a refusal by size: %v", err)
+	}
+	err = sendFailure(errors.New("exit status 128"), "fatal: unable to access: Could not resolve host\n")
+	if err.Error() != "exit status 128: fatal: unable to access: Could not resolve host" {
+		t.Fatalf("another failure: %v", err)
 	}
 }

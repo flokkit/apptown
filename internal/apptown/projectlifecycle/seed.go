@@ -35,6 +35,15 @@ type Seeding struct {
 // DefaultBundleMaxBytes is the upload limit when the operator sets none.
 const DefaultBundleMaxBytes int64 = 2 << 30
 
+// BundleLimit is the largest Git data a client may upload: a bundle that
+// starts a project, or one push or fetch request to the Git endpoint.
+func (s Seeding) BundleLimit() int64 {
+	if s.BundleMaxBytes <= 0 {
+		return DefaultBundleMaxBytes
+	}
+	return s.BundleMaxBytes
+}
+
 // Secrets reads AppTown's own secrets, for a git credential named by an
 // administrator.
 type Secrets interface {
@@ -86,10 +95,7 @@ func (s *Service) SeedFromURL(ctx context.Context, p *project.Project, in FromUR
 // SeedFromBundle starts p's repository from an uploaded bundle, read from
 // body to a spool file within the operator's limit.
 func (s *Service) SeedFromBundle(ctx context.Context, p *project.Project, body io.Reader, branch, who string) error {
-	limit := s.seeding.BundleMaxBytes
-	if limit <= 0 {
-		limit = DefaultBundleMaxBytes
-	}
+	limit := s.seeding.BundleLimit()
 	spool := filepath.Join(s.dataDir, "spool")
 	if err := os.MkdirAll(spool, 0o700); err != nil {
 		return err

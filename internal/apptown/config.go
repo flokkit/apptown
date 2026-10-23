@@ -63,7 +63,8 @@ type Config struct {
 	// this input later does not replace a constructed App's client.
 	SecretsHTTPClient secret.HTTPClient
 	// Seeding is what a project that starts from existing code may fetch
-	// and upload (-git-import-allow-private, -import-bundle-max-bytes).
+	// and upload (-git-import-allow-private, -import-bundle-max-bytes); the
+	// upload limit bounds each request to the Git endpoint too.
 	Seeding projectlifecycle.Seeding
 	// VerifyOnly refuses startup repair; the daemon also serves reads only.
 	VerifyOnly bool

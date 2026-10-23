@@ -41,11 +41,18 @@ type Prepared struct {
 	NeedData map[string]string            `json:"needData,omitempty"`
 	// Env is the attached integrations' server environment: it may hold
 	// secrets, and is never public.
-	Env        []string            `json:"env,omitempty"`
-	BrowserEnv string              `json:"browserEnv"`
-	FrontDoor  map[string]string   `json:"frontDoor,omitempty"`
-	Origins    string              `json:"origins,omitempty"`
-	Registry   *RegistryCredential `json:"registry,omitempty"`
+	Env []string `json:"env,omitempty"`
+	// SecretsFingerprint identifies Secrets and Env without revealing them:
+	// a keyed digest the caller that holds the key sets ("" when both are
+	// empty). A secret's version does not always change with its value (an
+	// Infisical value, a built-in one set again), so the values themselves
+	// are what a changed secret or integration value changes, and with it
+	// the preview's identity.
+	SecretsFingerprint string              `json:"secretsFingerprint,omitempty"`
+	BrowserEnv         string              `json:"browserEnv"`
+	FrontDoor          map[string]string   `json:"frontDoor,omitempty"`
+	Origins            string              `json:"origins,omitempty"`
+	Registry           *RegistryCredential `json:"registry,omitempty"`
 }
 
 // RegistryCredential is the project's one registry login, for one boot.
@@ -54,24 +61,31 @@ type RegistryCredential struct {
 }
 
 // PublicPrepared is the part of a prepared boot that is not secret: what a
-// preview's record keeps, and what its identity is a digest of.
+// preview's record keeps, and what its identity is a digest of. The secret
+// receipts (names, stores and versions, no values) and the fingerprint of the
+// secret values and integration environment are in it, so a changed binding,
+// secret or integration value is a new identity and a running preview is not
+// kept with the old one.
 type PublicPrepared struct {
-	Version    int                   `json:"version"`
-	Contract   *appcontract.Contract `json:"contract"`
-	Services   []deploy.ServiceSpec  `json:"services,omitempty"`
-	Profile    string                `json:"profile,omitempty"`
-	Needs      []deploy.ServiceSpec  `json:"needs,omitempty"`
-	NeedEnv    map[string]string     `json:"needEnv,omitempty"`
-	NeedData   map[string]string     `json:"needData,omitempty"`
-	BrowserEnv string                `json:"browserEnv"`
-	FrontDoor  map[string]string     `json:"frontDoor,omitempty"`
-	Origins    string                `json:"origins,omitempty"`
+	Version            int                   `json:"version"`
+	Contract           *appcontract.Contract `json:"contract"`
+	Services           []deploy.ServiceSpec  `json:"services,omitempty"`
+	Receipts           []SecretReceipt       `json:"receipts,omitempty"`
+	Profile            string                `json:"profile,omitempty"`
+	SecretsFingerprint string                `json:"secretsFingerprint,omitempty"`
+	Needs              []deploy.ServiceSpec  `json:"needs,omitempty"`
+	NeedEnv            map[string]string     `json:"needEnv,omitempty"`
+	NeedData           map[string]string     `json:"needData,omitempty"`
+	BrowserEnv         string                `json:"browserEnv"`
+	FrontDoor          map[string]string     `json:"frontDoor,omitempty"`
+	Origins            string                `json:"origins,omitempty"`
 }
 
-// Public is the prepared boot without its secrets, integration environment
-// or login.
+// Public is the prepared boot without its secret values, integration
+// environment or login.
 func (p Prepared) Public() PublicPrepared {
-	return PublicPrepared{Version: p.Version, Contract: p.Contract, Services: p.Services, Profile: p.Profile, Needs: p.Needs, NeedEnv: p.NeedEnv, NeedData: p.NeedData,
+	return PublicPrepared{Version: p.Version, Contract: p.Contract, Services: p.Services, Receipts: p.Receipts, Profile: p.Profile, SecretsFingerprint: p.SecretsFingerprint,
+		Needs: p.Needs, NeedEnv: p.NeedEnv, NeedData: p.NeedData,
 		BrowserEnv: p.BrowserEnv, FrontDoor: p.FrontDoor, Origins: p.Origins}
 }
 
