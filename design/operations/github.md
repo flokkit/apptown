@@ -22,7 +22,9 @@ The repository is public, so standard runners cost nothing.
 **`ci.yml`** runs on every pull request, a documentation-only one too, and by
 hand. A newer run cancels an older one on the same ref. Jobs:
 
-- `web`: npm ci, typecheck, Vite build, lint and unit tests, and the npm
+- `web`: npm ci, the guides' checks (`make check-docs`, which renders
+  links with the Docs page's Markdown library from `web/`), typecheck, Vite
+  build, lint and unit tests, and the npm
   audit (`make check-npm-audit`, `scripts/npm-audit-check.py`): a high or
   critical advisory in what `web/` ships (dev dependencies left out) or in
   any starter seed's lockfile (dev dependencies included, since every new
@@ -59,17 +61,27 @@ hand. A newer run cancels an older one on the same ref. Jobs:
 **`heavy.yml`** runs the Docker integration tier, the journeys, the opt-in
 browser, pi and inference_docker tests (each must pass; a skip fails the
 job) and the race detector ([testing](../architecture/testing.md)). It runs
-on every push to `main`, so each merged commit gets its own result, on a
-pull request that carries the `heavy` label, and by hand on any branch or
-tag. It is not required for merging: a red run on `main` is fixed by the
-next change. The heavy tiers take from a few minutes (journeys) to about
+on every pull request to `main`, once for each commit pushed to it (a newer
+commit's run cancels the older one), on every push to `main`, so each
+merged commit gets its own result, and by hand on any branch or tag. No
+label changes what runs: the repository's `heavy` label has no effect, and
+is deleted. It is not
+required for merging: a red run on `main` is fixed by the next change. The heavy tiers take from a few minutes (journeys) to about
 an hour (integration, at its limit).
 
-**`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`,
-asks the API for a successful `heavy.yml` run (on `main` or by hand) on the
-tagged commit and builds nothing without one: a red, missing or unreadable
-result is not evidence. Run `heavy.yml` on the tag by hand when its `main`
-run is missing, then re-run the workflow. Every tag pushes each image to
+**`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`
+(`scripts/heavy-evidence.py`), asks the API for a `heavy.yml` run (on
+`main` or by hand) on the tagged commit that passed on its first attempt,
+and builds nothing without one: CI must pass, not pass eventually. A run
+that failed and then passed on a re-run is not evidence, nor is a red,
+missing or unreadable result. A re-run of failed jobs keeps the green jobs'
+results and replaces the failure inside the same run; a new run by hand is
+a complete run of its own, with the red run left beside it. So when heavy
+failed, fix the cause in a new commit and tag that, or, when the failure
+was not the code's (a lost runner, a registry outage), start a new run by
+hand on the commit (Actions, heavy, Run workflow; not "Re-run"). Then
+re-run `images.yml`. The job's log lists the red runs on the commit beside
+the one it accepts. Every tag pushes each image to
 GHCR by digest with BuildKit's provenance (`mode=max`) and SBOM attached,
 joined into one tag per version (`1.0.0`; also `1.0` and `latest` for a
 release that is not a pre-release). Each image is built natively on amd64

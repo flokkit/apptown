@@ -35,9 +35,12 @@ How a Flokkit release is made, in order. The release script is
    committing them.
 4. **The tag.** `git tag -a v<version>` on that commit, once it is on
    `main` (the notes and the tour land by their pull requests first), and
-   push the tag. Its images and archives are built only when `heavy.yml`
-   succeeded on that commit ([GitHub](github.md)); wait for that run, or
-   start one by hand, before pushing the tag.
+   push the tag. Its images and archives are built only when a `heavy.yml`
+   run on that commit passed on its first attempt ([GitHub](github.md)); a
+   run that passed only on a re-run does not count. Wait for main's run
+   before pushing the tag. When it failed, fix the cause in a new commit,
+   or, when the failure was not the code's, start a new run by hand on the
+   commit (not a re-run).
 5. **The build.** `sh scripts/release.sh <version>` from a clean checkout at
    the tag. It refuses to build when the tour is older than the sources it
    shows (`site/tour/stamp.json`), checks the notes, runs the upgrade test again and writes the

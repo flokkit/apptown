@@ -1,10 +1,10 @@
 # The required checks of every pull request (design/operations/github.md).
 #
-# What runs: make check's web stages, its Go checker stages, the public gate,
-# the SQL-write rule and the Go unit tests, split four ways by package. The
-# Docker integration, journey and opt-in tiers and the race detector are
-# heavy.yml's: on every push to main, and on a pull request by the `heavy`
-# label or by hand. The tests' PostgreSQL is the harness's own disposable
+# What runs: make check's web stages, its docs checks, its Go checker
+# stages, the public gate, the SQL-write rule and the Go unit tests, split
+# four ways by package. The Docker integration, journey and opt-in tiers and
+# the race detector are heavy.yml's: on every pull request and every push to
+# main, and by hand. The tests' PostgreSQL is the harness's own disposable
 # container (internal/dbtest), as for a local `make check`.
 name: ci
 
@@ -44,6 +44,8 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
         working-directory: web
+      # The guides' checks: docs-links.py reads Markdown with web/'s library.
+      - run: make check-docs
       - run: npx tsc --noEmit
         working-directory: web
       - run: npx vite build
