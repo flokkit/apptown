@@ -51,8 +51,8 @@ async function listing(): Promise<HTMLElement> {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     if (url.includes('/project-cleanups')) return new Response(JSON.stringify({ cleanups: [] }))
     return new Response(JSON.stringify({ projects: [
-      { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '' },
-      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: '', icon: '⛵' },
+      { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '', deployed: false, observation: 'unknown', observationStale: true },
+      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: '', icon: '⛵', deployed: true, observation: 'unknown', observationStale: true },
     ], total: 2 }))
   }))
   const client = newQueryClient()
@@ -73,4 +73,15 @@ it('shows only icons projects chose, and leaves finding to the top bar', async (
   expect(el.textContent).not.toContain('🛠️')
   expect(el.textContent).toContain('⛵')
   expect(el.querySelector('#find-projects')).toBeNull()
+})
+
+// A project with nothing deployed has no runtime stamp: there is nothing to
+// say is running, stopped or unknown. A deployed one nobody has observed
+// still says it is unknown.
+it('stamps only the projects that have a deployment', async () => {
+  const el = await listing()
+  const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!
+  expect(card('plain').querySelector('.chip')).toBeNull()
+  expect(card('plain').textContent).not.toContain('deployed')
+  expect(card('boat').querySelector('.chip.unknown')?.textContent).toMatch(/unknown/)
 })

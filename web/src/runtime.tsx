@@ -11,30 +11,21 @@ export type RuntimeObservation = {
   observationStale: boolean
 }
 
-// An observation from a reader that also says whether anything is deployed
-// (the projects list). false: there is nothing to observe. Absent: the
-// reader did not say, and the observation decides.
-export type ProjectRuntime = RuntimeObservation & { deployed?: boolean }
-
-export function runtimeDescription(o: ProjectRuntime): string {
-  if (o.deployed === false) return 'not deployed yet'
+export function runtimeDescription(o: RuntimeObservation): string {
   if (!o.observedAt) return 'status unknown · not checked yet'
   const state = o.observation === 'unknown' ? 'status unknown' : o.observation
   return `${o.observationStale ? 'Last known: ' : ''}${state} · checked ${relTime(o.observedAt)}${o.observationIssue ? ' · refresh unavailable' : ''}`
 }
 
-// The chip tone for a runtime observation. Not deployed yet is a plain
-// neutral stamp: nothing is meant to be running, so nothing is unknown.
-// Only a current observation is
+// The chip tone for a runtime observation. Only a current observation is
 // drawn as running (pass) or stopped (neutral); a stale or unknown one gets
 // the unknown stamp, so "nobody knows" never looks like "stopped".
-export function runtimeChip(o: { observation: string, observationStale: boolean, deployed?: boolean }): string {
-  if (o.deployed === false) return ''
+export function runtimeChip(o: { observation: string, observationStale: boolean }): string {
   if (o.observationStale || o.observation === 'unknown') return 'unknown'
   return o.observation === 'running' ? 'pass' : ''
 }
 
-export function RuntimeStatus({ observation }: { observation: ProjectRuntime }) {
+export function RuntimeStatus({ observation }: { observation: RuntimeObservation }) {
   return <span className={`chip ${runtimeChip(observation)}`}>
     {runtimeDescription(observation)}
   </span>

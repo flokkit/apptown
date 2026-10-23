@@ -37,7 +37,7 @@ A project's checks sort into lanes, and the lanes decide its standing:
 | Lane | Meaning | What to do |
 |---|---|---|
 | Findings | the app does not meet the check | fix it, or record an exception |
-| Check errored | the evaluator broke, not the app | look at the error; the app is not judged |
+| Couldn't run | the check itself failed to run, so the app is not judged | look at the error, fix what the check needs, and review again |
 | Flagged by AI review | a rubric judged this, no person has yet | read the evidence; confirm it, or record it as a false positive |
 | Excepted | it fails, but an exception accepts it on the record | nothing, until the exception expires |
 | Not yet judged | no verdict yet, or the app moved since the last one | run a review |

@@ -81,3 +81,9 @@ export function fmtLastRead(ms: number, now = Date.now()): string {
   if (d.toDateString() === new Date(now).toDateString()) return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   return fmtStamp(d.toISOString())
 }
+
+// count says how many of a thing: "1 run", "2 runs". many is the plural
+// when adding an s is wrong.
+export function count(n: number, one: string, many = one + 's'): string {
+  return `${n} ${n === 1 ? one : many}`
+}

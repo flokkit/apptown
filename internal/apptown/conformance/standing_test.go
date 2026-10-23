@@ -166,3 +166,16 @@ func TestProjectionJSONUsesOwnedVocabulary(t *testing.T) {
 		t.Fatalf("fix vocabulary: %s", b)
 	}
 }
+
+// A check that could not run leaves the review incomplete: the sentence says
+// so in words, and says the check, not the app, is what failed.
+func TestABrokenCheckReadsAsAnIncompleteReview(t *testing.T) {
+	t.Parallel()
+	standing, sentence := standingFor(Lanes{Conforms: 5, Broken: 1}, 0, 6)
+	if standing != StandingBroken || sentence != "Review incomplete · 1 check couldn't run" {
+		t.Fatal(standing, sentence)
+	}
+	if _, sentence := standingFor(Lanes{Broken: 2}, 0, 2); sentence != "Review incomplete · 2 checks couldn't run" {
+		t.Fatal(sentence)
+	}
+}

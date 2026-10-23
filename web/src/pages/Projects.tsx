@@ -135,7 +135,7 @@ export default function Projects() {
                     {p.blurb && <div className="small" style={{ marginTop: 2, maxWidth: 260 }}>{p.blurb}</div>}
                   </span>
                   <span style={{ flex: 1 }} />
-                  <RuntimeStatus observation={p} />
+                  {p.deployed !== false && <RuntimeStatus observation={p} />}
                 </div>
                 <div className="row" style={{ padding: '2px 14px 10px', gap: 6 }}>
                   {(p.toolchain ?? []).map((t) => (

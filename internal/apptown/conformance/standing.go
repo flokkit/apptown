@@ -121,7 +121,7 @@ func standingFor(l Lanes, high, total int) (Standing, string) {
 		}
 		return StandingDoesNot, s
 	case l.Broken > 0:
-		return StandingBroken, "Review broken · " + plural(l.Broken, "check errored", "checks errored")
+		return StandingBroken, "Review incomplete · " + plural(l.Broken, "check couldn't run", "checks couldn't run")
 	case l.Flagged > 0:
 		return StandingNeedsLook, "Needs a look · " + plural(l.Flagged, "AI flag", "AI flags")
 	case l.Unassessed > 0:
