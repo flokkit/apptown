@@ -13,7 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 )
 
-func TestReleasePlanHTTPProjectsActualHeadContractAndConfiguration(t *testing.T) {
+func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
 	h := a.Handler()
@@ -29,47 +29,41 @@ func TestReleasePlanHTTPProjectsActualHeadContractAndConfiguration(t *testing.T)
 		return authzCall(h, "owner", "GET", "/api/v1/projects/game/release/plan", "")
 	}
 	var plan struct {
-		Configured                                            bool
-		Deployment, Contract, URL, ConfigError, ContractError string
-		Head                                                  struct{ SHA, Subject string }
-		ChangesSinceLast                                      []json.RawMessage
+		Configured                   bool
+		Published                    *bool
+		Deployment, URL, ConfigError string
+		Head                         struct{ SHA, Subject string }
+		ChangesSinceLast             []json.RawMessage
 	}
+	// Nothing published: the plan says so (the field is present, never
+	// left out), and the head is main's.
 	w := read()
-	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || plan.Configured || plan.ConfigError == "" || plan.Contract != "none" || plan.Head.SHA != head || plan.ChangesSinceLast == nil || len(plan.ChangesSinceLast) != 0 {
+	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || plan.Configured || plan.ConfigError == "" || plan.Published == nil || *plan.Published || plan.Head.SHA != head || plan.ChangesSinceLast == nil || len(plan.ChangesSinceLast) != 0 {
 		t.Fatalf("unconfigured plan: %d %s %v", w.Code, w.Body.String(), err)
+	}
+	// A bundle of image IDs is not published either.
+	game, err := a.Projects.BySlug(t.Context(), "game")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Bundles.Cut(t.Context(), game.ID, head, map[string]string{"web": "sha256:web"}, nil, []byte("contract"), deployment.BundleOrigin{}); err != nil {
+		t.Fatal(err)
+	}
+	plan.Published = nil
+	if w := read(); json.Unmarshal(w.Body.Bytes(), &plan) != nil || plan.Published == nil || *plan.Published {
+		t.Fatalf("a plan over a bundle of image IDs: %d %s", w.Code, w.Body.String())
 	}
 	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=never-expose-this-key\nAPPTOWN_APPS_DOMAIN=apps.example\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	a.SeedTargets(t.Context()) // a restart records the intranet target from the configuration
-	dir := filepath.Join(repo, ".apptown")
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatal(err)
+	w = read()
+	plan.ConfigError = ""
+	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || !plan.Configured || plan.Deployment != "lan" || plan.URL != "https://game.apps.example" {
+		t.Fatalf("configured plan: %d %s %v", w.Code, w.Body.String(), err)
 	}
-	for _, tc := range []struct{ yaml, dockerfile, want string }{
-		{"app:\n  web:\n    image: app:1\n    ports: [\"8080\"]\n    public: true\n", "", "image"},
-		{"app:\n  web:\n    static: public\n    public: true\n", "", "from-source"},
-		{"app:\n  web:\n    static: public\n    public: true\n", "FROM scratch\n", "static"},
-		{"app: [broken", "", "invalid"},
-	} {
-		if err := os.WriteFile(filepath.Join(dir, "app.yaml"), []byte(tc.yaml), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if tc.dockerfile != "" {
-			if err := os.WriteFile(filepath.Join(repo, "Dockerfile"), []byte(tc.dockerfile), 0644); err != nil {
-				t.Fatal(err)
-			}
-		} else {
-			_ = os.Remove(filepath.Join(repo, "Dockerfile"))
-		}
-		w = read()
-		plan.ConfigError = ""
-		if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || !plan.Configured || plan.Deployment != "lan" || plan.URL != "https://game.apps.example" || plan.Contract != tc.want {
-			t.Fatalf("%s plan: %d %s %v", tc.want, w.Code, w.Body.String(), err)
-		}
-		if strings.Contains(w.Body.String(), "never-expose-this-key") {
-			t.Fatal("plan leaked provider key")
-		}
+	if strings.Contains(w.Body.String(), "never-expose-this-key") {
+		t.Fatal("plan leaked provider key")
 	}
 	// The plan promises the intranet target's domain, as the release uses
 	// it: an edited domain, kept when a restart reads configuration naming

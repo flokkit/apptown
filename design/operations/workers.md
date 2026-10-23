@@ -74,9 +74,8 @@ chats (see the sections on each below):
 
 Everything else still runs on AppTown's host exactly as before: project
 chats, chats continuing a step's agent, chats the person opens on AppTown,
-the containers of deployments on the built-in Docker host, previews of
-releases recorded before releases were built on the worker, and intranet
-releases of a landing that has no published images. A landing's release
+the containers of deployments on the built-in Docker host, and previews of
+releases recorded before releases were built on the worker. A landing's release
 images are built on the worker (see "Releases built on the worker"). A worker
 does not make AppTown safe to run untrusted projects.
 
@@ -588,7 +587,10 @@ With a worker configured, every agent step (`agent/pi`) and review step
   run holds the change. The record is what a person reads: the change
   page's state and `apptown wait -c` say which files conflict and give the
   catch-up command for the change's chat, until the branch contains that
-  `main`. The steering tells the agent it need not catch up itself. The
+  `main`. The steering tells the agent it need not catch up itself. An
+  agent step on AppTown's own machine is caught up the same way, and its
+  folder must then hold the merge: one that cannot be brought to it (an
+  uncommitted file in the way) ends the step before the agent starts. The
   same rule holds before every such step, so a rework after a landing that
   stopped behind `main` starts from `main`; the landing still checks on
   AppTown that the branch contains `main`. A step is never given

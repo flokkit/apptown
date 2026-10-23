@@ -52,7 +52,15 @@ type IntranetStack struct {
 	// Resources is the public part's; each non-public part carries its own.
 	Resources appcontract.Resources
 	Env       map[string]string // the public part's prepared environment
-	Secrets   ConsumerSecrets
+	// Integrations are the project's attached integrations' values for the
+	// public part, as a Docker host gives them: under its environment and
+	// secrets.
+	Integrations map[string]string
+	// BrowserEnv is a static public part's browser values, the JSON its
+	// file server answers at /_apptown/env.js ("{}" for none); "" for a
+	// server app, which is not given them.
+	BrowserEnv string
+	Secrets    ConsumerSecrets
 	// PublicPart names the public part, the consumer the app service is.
 	PublicPart string
 	DataDir    string
@@ -84,7 +92,7 @@ func IntranetCompose(st IntranetStack) string {
 	var volumes []string
 
 	// writeEnv writes one environment mapping. AppTown's own values
-	// (extra: DATA_DIR, APPTOWN_ORIGINS, APPTOWN_RELEASE) are set last into
+	// (extra: DATA_DIR, APPTOWN_ORIGINS, APPTOWN_RELEASE, APPTOWN_BROWSER_ENV) are set last into
 	// the same map, so each key appears once and theirs wins over a
 	// contract's or a secret's of the same name, as the last -e does on a
 	// Docker host; Compose refuses a mapping that repeats a key.
@@ -164,7 +172,7 @@ func IntranetCompose(st IntranetStack) string {
 	b.WriteString("    restart: unless-stopped\n")
 	writeResources(st.Resources)
 	writeCommand(st.Command)
-	writeEnv(appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart)), [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release})
+	writeEnv(appcontract.MergeEnv(st.Integrations, appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart))), [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release}, [2]string{appcontract.BrowserEnvVar, st.BrowserEnv})
 	if st.DataDir != "" {
 		b.WriteString("    volumes:\n")
 		fmt.Fprintf(&b, "      - %s:%s\n", st.dataVolume(st.Base), ComposeLiteral(st.DataDir))

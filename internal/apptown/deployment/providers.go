@@ -566,7 +566,9 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 // host's and Portainer's platform are asked where they are released), but
 // never, in an AppTown with no local Docker, to the built-in host. In that
 // mode a bundle of image IDs goes only to the attached Docker host it was
-// recorded on: Portainer and App Platform need its images in a registry.
+// recorded on: Portainer and App Platform need its images in a registry. A
+// bucket needs them there in every mode, and Portainer's driver refuses
+// them unpublished in every mode too.
 func (p *Providers) RefusesBundle(ctx context.Context, b *ReleaseBundle, t *Target) error {
 	if t.Kind == KindS3Bucket && (b == nil || !b.ByDigest()) {
 		return refused("%s publishes a site's files from its release image in the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change", t.Name)
@@ -592,7 +594,7 @@ func (p *Providers) RefusesBundle(ctx context.Context, b *ReleaseBundle, t *Targ
 	case !p.hosts.settings.NoLocalDocker:
 		return nil
 	case t.Kind != KindDockerHost:
-		return refused("releasing to %s (%s) needs this release's images in the project's registry, and this release was not published there; land the change again to release it in this mode", t.Name, t.Kind)
+		return refused("releasing to %s (%s) needs this release's images in the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change", t.Name, t.Kind)
 	case t.Origin != OriginAttached:
 		return errBuiltInHostRefused
 	case b == nil || b.BuiltFrom.TargetID.IsZero():

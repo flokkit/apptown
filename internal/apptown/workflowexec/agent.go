@@ -213,6 +213,12 @@ func (a *Executor) Run(task *workflow.Execution) {
 			return
 		}
 	}
+	// AppTown merges main in first when the branch is behind it, as before
+	// a step on a worker (main_merge.go), and the agent works on it here.
+	if err := a.mergeMainInFolder(task.Context(), run, step, source, folder); err != nil {
+		fail(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
 	// The step's report from its earlier attempt is put back where it was
 	// declared, unless the folder still holds it (ownEarlierReport).
 	earlier, err := a.ownEarlierReport(task.Context(), run, source, step, &cfg)

@@ -2,13 +2,13 @@ package agentenv
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
@@ -96,7 +96,7 @@ Nothing you run there can see the host's Docker or other projects.
 - Multi-arch: a buildx builder named ` + "`apptown`" + ` is preconfigured and
   set as your default (network-host, mirror-aware — DNS works in RUN
   steps, unlike a self-created builder). One command:
-  ` + "`docker buildx build --platform linux/amd64,linux/arm64 --push -t $IMAGE_REPO:tag .`" + `
+  ` + "`docker buildx build --platform linux/amd64,linux/arm64 .`" + `
   Make the Dockerfile cross-compile (FROM --platform=$BUILDPLATFORM +
   TARGETOS/TARGETARCH) so nothing emulates. Do NOT create your own
   builder.
@@ -104,21 +104,21 @@ Nothing you run there can see the host's Docker or other projects.
   way production will (cold container, only the repo and its declared
   toolchains) and hit its endpoints. The engine repeats the same
   rehearsal as a gate afterwards — a crash there loops back to you.
+- Don't push images to a registry: this daemon is logged in to none.
+  AppTown builds and publishes the release images when the change lands.
 
 `
 
 // startDind launches the sidecar and returns env for the step container
-// (DOCKER_HOST, plus REGISTRY/IMAGE_REPO when a registry is attached), the
-// network the step container must join, and a cleanup. If existingNet is
-// non-empty (services already made one) the sidecar joins it; otherwise a
-// network is created and owned by the cleanup. When reg is non-nil the
-// ENGINE logs the daemon into the registry — the agent can push without
-// the credential ever entering its environment.
+// (DOCKER_HOST), the network the step container must join, and a cleanup.
+// If existingNet is non-empty (services already made one) the sidecar joins
+// it; otherwise a network is created and owned by the cleanup. The daemon
+// and its client are logged in to no registry, on AppTown's host as on a
+// worker: release images are built and published by the landing.
 // teardownBound bounds a step sandbox's teardown, which outlives its setup.
 const teardownBound = docker.TeardownBound
 
-func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet, clientConfigDir string, reg *integration.Registry) ([]string, string, func(), error) {
-	stageDockerAuth(filepath.Join(ws, clientConfigDir), reg)
+func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet, clientConfigDir string) ([]string, string, func(), error) {
 	name := fmt.Sprintf("apptown-dind-step-%d", stepID)
 	network := existingNet
 	ownNet := false
@@ -238,11 +238,7 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 		w.progress.Append(stepID, "buildx builder not provisioned: "+strs.Truncate(string(out), 120))
 	}
 
-	env := []string{"DOCKER_HOST=tcp://dind:2375"}
-	if reg != nil {
-		env = append(env, "REGISTRY="+reg.Host, "IMAGE_REPO="+reg.Repo)
-	}
-	return env, network, cleanup, nil
+	return []string{"DOCKER_HOST=tcp://dind:2375"}, network, cleanup, nil
 }
 
 // Mirror returns the bound docker-hub mirror URL, or "". Stored on the
@@ -303,23 +299,4 @@ func ReapWorkshops(ctx context.Context, dk docker.Scope) {
 	for _, id := range strings.Fields(string(nets)) {
 		_, _ = dk.Run(ctx, "network", "rm", id)
 	}
-}
-
-// stageDockerAuth writes the registry credential into the STEP container's
-// docker client config. Registry auth is a
-// CLIENT concern — the daemon never holds it for remote clients; the CLI
-// sends it per push. Without it an agent builds a clean image, gets
-// `denied` on push against a logged-in daemon, and burns its timeout
-// hunting for credentials. Project-scoped deploy token, same
-// exposure class as the scm step token.
-func stageDockerAuth(dir string, reg *integration.Registry) {
-	if reg == nil || reg.Username == "" || reg.Token == "" {
-		return
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return
-	}
-	auth := base64.StdEncoding.EncodeToString([]byte(reg.Username + ":" + reg.Token))
-	cfg := fmt.Sprintf(`{"auths":{"%s":{"auth":"%s"}}}`, reg.Host, auth)
-	_ = os.WriteFile(filepath.Join(dir, "config.json"), []byte(cfg), 0o600)
 }

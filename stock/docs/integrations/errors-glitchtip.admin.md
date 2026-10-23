@@ -35,8 +35,8 @@ to" (`+ Error reporting`), or with
 creates a provider project named after the AppTown project (adopting it
 if it already exists), reads its DSN, and stores it as the attachment's
 resource. From then on the app's public part receives
-`SENTRY_DSN` on a Docker host, in previews and
-deployments; Portainer and App Platform releases do not deliver them and
+`SENTRY_DSN` on a Docker host and on Portainer, in previews and
+deployments; App Platform releases do not deliver it and
 record that they did not ([the app contract](/docs/guides/contract-reference)
 says where each value arrives). The agents of implementation steps receive
 them too, so they can fire the test hook; agent steering

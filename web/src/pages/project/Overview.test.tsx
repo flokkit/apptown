@@ -15,7 +15,7 @@ afterEach(() => { vi.unstubAllGlobals() })
 async function doors(runtimeForm: string, intranet = false): Promise<string> {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     if (url.endsWith('/projects/p')) return new Response(JSON.stringify({ id: '00000000-0001-7000-8000-000000000000', slug: 'p', name: 'P', blurb: '', runtimeForm, intranetReady: true }))
-    if (url.endsWith('/projects/p/release/plan')) return new Response(JSON.stringify({ configured: intranet, deployment: 'lan', contract: 'image', changesSinceLast: [] }))
+    if (url.endsWith('/projects/p/release/plan')) return new Response(JSON.stringify({ configured: intranet, deployment: 'lan', published: true, changesSinceLast: [] }))
     return new Response('[]') // no deployments
   }))
   const client = newQueryClient()

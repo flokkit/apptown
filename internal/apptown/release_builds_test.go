@@ -2059,3 +2059,25 @@ func TestAFailedLocalPublicationSaysTheVersionIsRunning(t *testing.T) {
 		t.Errorf("a failed publication recorded bundle %+v %v", b, err)
 	}
 }
+
+// The release plan says a landing's bundle is published once the landing
+// publishes it, and the commit it would ship is the bundle's.
+func TestTheReleasePlanShipsTheLandingsPublishedBundle(t *testing.T) {
+	t.Parallel()
+	w := newReleaseWorld(t, nil)
+	w.mainOn(t, w.lab)
+	run, stepID := w.landingRun(t)
+	w.a.Work.ExecuteStep(w.a.asEngine(context.Background()), stepID)
+	b, err := w.a.Deployment.Bundles.OfRun(context.Background(), idstest.N(1), run.ID)
+	if err != nil || b == nil || !b.ByDigest() {
+		t.Fatalf("the landing's bundle: %+v %v", b, err)
+	}
+	out := authzCall(w.a.Handler(), "boss", "GET", "/api/v1/projects/p/release/plan", "")
+	var plan struct {
+		Published *bool
+		Head      struct{ SHA string }
+	}
+	if err := json.Unmarshal(out.Body.Bytes(), &plan); err != nil || out.Code != 200 || plan.Published == nil || !*plan.Published || plan.Head.SHA != b.ContractRevision {
+		t.Fatalf("the plan: %d %s %v", out.Code, out.Body.String(), err)
+	}
+}

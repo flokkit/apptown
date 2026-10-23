@@ -89,7 +89,7 @@ with `apptownd`'s start-up flags.
 | | Where project code runs | What stays on AppTown's own host |
 |---|---|---|
 | no worker | AppTown's own host: agents, checks, previews, chats and script steps in containers on its Docker; a script step runs as a plain process on the host only under `-host-scripts` | everything |
-| `-worker-url` | `apptown-worker`, a separate machine with its own Docker: agent, review, tests and script steps, checks, change previews, and new change chats by default | project chats, chats that continue a step's agent, change chats opened on AppTown or already running there, deployments on the built-in Docker host, and intranet releases of a landing that has no published images |
+| `-worker-url` | `apptown-worker`, a separate machine with its own Docker: agent, review, tests and script steps, checks, change previews, and new change chats by default | project chats, chats that continue a step's agent, change chats opened on AppTown or already running there, and deployments on the built-in Docker host |
 | `-no-local-docker` (needs a worker and an external database) | the worker | nothing: the host has no Docker and runs no project process; what the worker cannot run (project chats, continuations) is refused, and releases go to attached targets |
 
 With a worker, a step the worker cannot run is refused, not moved to AppTown's host, and a worker that cannot be reached is an error. The two
@@ -518,10 +518,11 @@ flowchart LR
   the images go to the project's container registry, and the bundle
   records each by digest; every target pulls those digests and nothing
   is built on a target. Without a worker, a landing's deploy builds on the
-  Docker host and records image IDs. An intranet release (`apptown
-  release`) of a landing without published digests builds a build or
-  static contract again on AppTown's Docker and pushes to the project's
-  container registry, for Portainer to pull.
+  Docker host. With a container registry attached, AppTown publishes the
+  images it booted there and records them by digest; without one it
+  records image IDs. An intranet release (`apptown release`) ships only a
+  release published by digest, which Portainer pulls; nothing is built at
+  release.
 - **Rebuild and recovery**: a release by digest comes back from its
   recorded images. A release built on a Docker host without digests is
   rebuilt from its recorded commit's inputs, not today's source, so it

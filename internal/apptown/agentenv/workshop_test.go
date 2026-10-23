@@ -95,7 +95,7 @@ func TestWorkshopCleanupOwnsOnlyItsNetwork(t *testing.T) {
 				if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				_, got, cleanup, err := workshop.StartStep(t.Context(), idstest.N(91), ws, network, ".apptown/custom-home/.docker", nil)
+				_, got, cleanup, err := workshop.StartStep(t.Context(), idstest.N(91), ws, network, ".apptown/custom-home/.docker")
 				if fail {
 					if err == nil || cleanup != nil {
 						t.Fatal("failed provision did not dispose its resources")
@@ -143,7 +143,7 @@ func TestAWorkshopIsTornDownAfterItsContextEnds(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
-	_, _, cleanup, err := workshop.StartStep(ctx, idstest.N(92), ws, "", ".apptown/home/.docker", nil)
+	_, _, cleanup, err := workshop.StartStep(ctx, idstest.N(92), ws, "", ".apptown/home/.docker")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestAStepsPrivateDockerIsBoundedAndSharesOnlyItsProjectsCache(t *testing.T)
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	_, _, cleanup, err := workshop.StartStep(WithCacheScope(t.Context(), "game"), idstest.N(92), ws, "", ".apptown/home/.docker", nil)
+	_, _, cleanup, err := workshop.StartStep(WithCacheScope(t.Context(), "game"), idstest.N(92), ws, "", ".apptown/home/.docker")
 	if err != nil {
 		t.Fatal(err)
 	}

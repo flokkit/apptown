@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
@@ -145,6 +147,25 @@ func storedBundleFixture(t *testing.T, db *database.DB, p deploymentsql.InsertBu
 	return row.ID
 }
 
+// publishedBundleFixture records a bundle of parts by digest in a registry,
+// built for linux/amd64, at revision. Written directly: publishing one
+// needs a registry and a deploy step's attempt, which the tests using this
+// do not exercise.
+func publishedBundleFixture(t *testing.T, db *database.DB, projectID ids.ID, revision string, parts map[string]string) *ReleaseBundle {
+	t.Helper()
+	raw, err := json.Marshal(parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := storedBundleFixture(t, db, deploymentsql.InsertBundleParams{ID: ids.New(time.Now()), ProjectID: projectID, ContractRevision: revision, PartsJson: raw,
+		Registry: "registry.example/team/app", Platform: "linux/amd64", StepID: ids.New(time.Now()), Attempt: 1})
+	b, err := NewBundles(db).ByID(t.Context(), id)
+	if err != nil || !b.ByDigest() {
+		t.Fatalf("the published bundle fixture: %+v %v", b, err)
+	}
+	return b
+}
+
 // Preserve all unselected fields, including the timestamp, in fence probes.
 func mutateStoredDeployment(t *testing.T, db *database.DB, projectID ids.ID, name string, mutate func(*deploymentsql.Deployment)) {
 	t.Helper()
@@ -198,3 +219,8 @@ func shippedChangeAt(t *testing.T, db *database.DB, projectID ids.ID, at time.Ti
 var fixtureNumbers atomic.Int64
 
 func fixtureNumber() int64 { return 1000 + fixtureNumbers.Add(1) }
+
+// releaseGit runs git in a test's repository.
+func releaseGit(ctx context.Context, repo string, args ...string) (string, error) {
+	return gitexec.Run(ctx, repo, args...)
+}

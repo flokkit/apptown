@@ -111,9 +111,10 @@ another way:
   running stack as it was. It fails in its own boot phase, `config`, which the
   landing and the Docker driver settle as a known failure (as they do an
   unknown need or a missing secret), so a fixed setting can be deployed again. An earlier release's preview image is the file
-  server and keeps `ServesStatic`, so it is given its values too. AppTown's own Docker host delivers them; intranet and DigitalOcean
-  deploys do not, so a deploy there of a static site whose page is given values
-  is refused before any effect, naming the values.
+  server and keeps `ServesStatic`, so it is given its values too. A Docker host and a Portainer stack deliver them (the stack sets
+  `APPTOWN_BROWSER_ENV` on the public service, last); DigitalOcean deploys do
+  not, so a deploy there of a static site whose page is given values is
+  refused before any effect, naming the values.
 - **Checked where it runs, against trusted facts.** The platform guidance block
   `deploy/browser-values` declares the runtime check `browser-env`. Whether it
   applies comes from the contract the target runs: the change's tree at the

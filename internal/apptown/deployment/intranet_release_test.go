@@ -118,7 +118,8 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 	if cut.Number != 1 {
 		t.Fatalf("first release number: %d", cut.Number)
 	}
-	owner.runLANRelease(context.Background(), cut.ID, p, cfg, "alice", selected, cut.Number, "https://p.apps.example", "", nil)
+	bundle := publishedBundleFixture(t, db, p.ID, selected, map[string]string{"web": "registry.example/team/app@sha256:" + strings.Repeat("a", 64)})
+	owner.runLANRelease(context.Background(), cut.ID, p, cfg, "alice", selected, cut.Number, "https://p.apps.example", "", bundle)
 	composeMu.Lock()
 	defer composeMu.Unlock()
 	if !strings.Contains(compose, "original") || strings.Contains(compose, "later") {

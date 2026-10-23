@@ -5,7 +5,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 )
 
@@ -33,14 +32,4 @@ func (a *Executor) stepEnv(ctx context.Context, projectID ids.ID) ([]string, err
 		return nil, err
 	}
 	return a.secrets.StepEnv(ctx), nil
-}
-
-// stepRegistry is the registry an agent's private Docker is logged in to:
-// none for an eval copy, whose releases AppTown publishes itself.
-func (a *Executor) stepRegistry(ctx context.Context, projectID ids.ID) (*integration.Registry, error) {
-	given, err := a.givenInstanceValues(ctx, projectID)
-	if err != nil || !given {
-		return nil, err
-	}
-	return a.integrations.RegistryFor(ctx, projectID), nil
 }

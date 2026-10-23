@@ -51,9 +51,8 @@ registries](/docs/registry/registry) Admin tab).
 
 A worker does not take all project work off AppTown's host. These still
 run there: project chats, chats that continue a step's agent, change chats
-opened on AppTown or already running there, the containers of deployments
-on the built-in Docker host, and intranet releases of a landing that has no
-published images. Nor is a worker a strong sandbox: code on it can reach
+opened on AppTown or already running there, and the containers of
+deployments on the built-in Docker host. Nor is a worker a strong sandbox: code on it can reach
 the network, and the private Docker a step or chat may get is not a
 boundary against hostile code. Only `-no-local-docker` keeps every project
 process off AppTown's host. The `ghcr.io/flokkit/apptown` image runs this way

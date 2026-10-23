@@ -223,7 +223,7 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 	if d, err := s.providers.Driver(ctx, t, dep); err != nil {
 		return AcceptedRelease{}, err
 	} else if r, ok := d.(releaseRefuser); ok {
-		if err := r.refusesRelease(); err != nil {
+		if err := r.refusesRelease(bundle); err != nil {
 			return AcceptedRelease{}, err
 		}
 	}

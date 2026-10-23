@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,7 +22,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/gitexec"
 )
 
@@ -45,13 +43,16 @@ func NewReleaseOperations(projects *project.Projects, access *identity.Service, 
 
 // ReleasePlan is what would ship if the release button were pressed now.
 type ReleasePlan struct {
-	Configured       bool            `json:"configured"`
-	Deployment       string          `json:"deployment"`
-	ConfigError      string          `json:"configError,omitempty"`
-	URL              string          `json:"url,omitempty"`
+	Configured  bool   `json:"configured"`
+	Deployment  string `json:"deployment"`
+	ConfigError string `json:"configError,omitempty"`
+	URL         string `json:"url,omitempty"`
+	// Published is whether the project's latest bundle is in its container
+	// registry by digest: only such a bundle is released to the intranet.
+	Published bool `json:"published"`
+	// Head is the commit the release would ship: the published bundle's,
+	// or main's tip when there is none.
 	Head             *ReleaseHead    `json:"head,omitempty"`
-	Contract         string          `json:"contract"`
-	ContractError    string          `json:"contractError,omitempty"`
 	LastRelease      *LastRelease    `json:"lastRelease,omitempty"`
 	ChangesSinceLast []ShippedChange `json:"changesSinceLast"`
 }
@@ -91,37 +92,22 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 		out.Deployment = cfg.ReleaseDeployment
 		out.URL = "https://" + p.Slug + "." + cfg.AppsDomain
 	}
-	repo := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
-	if head, err := gitexec.Run(r.Context(), repo, "log", "-1", "--format=%H%x00%s", p.DefaultBranch); err == nil {
-		if sha, subject, ok := strings.Cut(head, "\x00"); ok {
-			out.Head = &ReleaseHead{SHA: sha, Subject: subject}
-		}
+	bundle, err := h.deployment.Bundles.Latest(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
 	}
-	if c, err := docker.ReadWorkspaceContract(repo); err == nil {
-		switch {
-		case c.PublicPart().Static != "":
-			out.Contract = "static"
-			if _, derr := os.Stat(filepath.Join(repo, "Dockerfile")); derr != nil {
-				out.Contract = "from-source" // same refusal + affordance: land a Dockerfile
-			}
-		case c.PublicPart().StaticBuild != nil:
-			out.Contract = "static"
-			if _, derr := docker.SelectedPath(repo, filepath.Join(c.PublicPart().StaticBuild.Context, "Dockerfile")); derr != nil {
-				out.Contract = "from-source"
-			}
-		case c.PublicPart().Image != "":
-			out.Contract = "image"
-		default:
-			out.Contract = "from-source"
-			if _, derr := os.Stat(filepath.Join(repo, "Dockerfile")); derr == nil {
-				out.Contract = "source-packaged" // AppTown builds its Dockerfile at release
+	rev := p.DefaultBranch
+	if bundle != nil && bundle.ByDigest() {
+		out.Published, rev = true, bundle.ContractRevision
+	}
+	repo := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+	if rev != "" {
+		if head, err := gitexec.Run(r.Context(), repo, "log", "-1", "--format=%H%x00%s", rev, "--"); err == nil {
+			if sha, subject, ok := strings.Cut(head, "\x00"); ok {
+				out.Head = &ReleaseHead{SHA: sha, Subject: subject}
 			}
 		}
-	} else if err == docker.ErrNoContract {
-		out.Contract = "none"
-	} else {
-		out.Contract = "invalid"
-		out.ContractError = err.Error()
 	}
 	relEnv := out.Deployment
 	var lastNum int64
