@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // A suite run through Run drops its clones after their tests finish, off the
@@ -29,6 +31,14 @@ func TestBackgroundDropsAreFinishedAndFailuresReportedByClose(t *testing.T) {
 		}
 	})
 	prefix := suite.template
+	defer func() {
+		if suite.admin == nil {
+			return // setup failed before opening it
+		}
+		if err := suite.admin.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	// A drop that fails in the background is reported by Close, never lost:
 	// a database the server refuses to drop stays behind and fills the disk.
 	suite.drops <- `"no such database" CASCADE`
@@ -61,6 +71,14 @@ func TestFinishedTestsWaitWhenDropsFallBehind(t *testing.T) {
 	if suite.err != nil {
 		t.Fatal(suite.err)
 	}
+	// Close leaves the admin pool open: Run's suite lives as long as the
+	// binary. A test that makes its own suite closes the pool, or under -count
+	// every run leaves its connections open until the server refuses clients.
+	t.Cleanup(func() {
+		if err := suite.admin.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	// A transaction that has commented on a database holds a lock on it that
 	// DROP DATABASE waits for: the drops of these clones stall until it ends.
 	holder, err := sql.Open("pgx", suite.adminURL)
@@ -98,25 +116,36 @@ func TestFinishedTestsWaitWhenDropsFallBehind(t *testing.T) {
 			}
 		})
 	}()
-	// Each test's cleanup gets a bounded chance to hand its clone over; the
-	// tests stop advancing at one whose cleanup is waiting for a drop.
+	// The tests stop at one whose cleanup is waiting to hand its clone over.
+	// That wait is read from the goroutines themselves, not inferred from a
+	// pause: making a clone forces a checkpoint, and on a loaded machine one
+	// clone takes longer than any pause a test could choose. The deadline only
+	// bounds a failure.
+	var done bool
+	if !poll.Until(context.Background(), time.Minute, 10*time.Millisecond, func() bool {
+		select {
+		case <-finished:
+			done = true
+			return true
+		default:
+			return cleanupWaitsToHandOver()
+		}
+	}) {
+		t.Fatalf("no finished test waited to hand its clone over while drops were held")
+	}
+	if done {
+		t.Fatalf("all %d tests finished while none of their clones could be dropped", tests)
+	}
 	last := -1
-	for stalled := false; !stalled; {
+	for reported := true; reported; {
 		select {
 		case last = <-cleaning:
-		case <-finished:
-			t.Fatalf("all %d tests finished while none of their clones could be dropped", tests)
-		case <-time.After(300 * time.Millisecond):
-			stalled = true
+		default:
+			reported = false
 		}
 	}
 	if last < 0 || last == tests-1 {
 		t.Fatalf("the tests stopped at %d of %d; one should wait while drops are held", last, tests)
-	}
-	select {
-	case <-finished:
-		t.Fatalf("all %d tests finished while none of their clones could be dropped", tests)
-	default:
 	}
 	released.Store(true)
 	if err := hold.Rollback(); err != nil {
@@ -134,4 +163,29 @@ func TestFinishedTestsWaitWhenDropsFallBehind(t *testing.T) {
 	if left != 0 {
 		t.Fatalf("%d databases of the suite remain after Close", left)
 	}
+}
+
+// cleanupWaitsToHandOver reports whether a test's cleanup is blocked sending
+// its clone to the drop queue: a goroutine in a channel send, running a test
+// cleanup through NewWith's. A send from a goroutine the cleanup started does
+// not run testing's cleanup, and the test's own cleaning channel never blocks.
+func cleanupWaitsToHandOver() bool {
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+	for _, g := range strings.Split(string(buf), "\n\n") {
+		header, _, _ := strings.Cut(g, "\n")
+		if strings.Contains(header, "[chan send") &&
+			strings.Contains(g, "dbtest.(*Suite).NewWith.func") &&
+			strings.Contains(g, "testing.(*common).runCleanup") {
+			return true
+		}
+	}
+	return false
 }
