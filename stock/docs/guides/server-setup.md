@@ -334,12 +334,24 @@ does nothing, so a Dockerfile written this way builds and runs anywhere.
 Running it sets `SSL_CERT_FILE` and the other variables programs read (each
 to the image's own roots plus the extras), apt's setting, a copy of Java's
 store named in `JAVA_TOOL_OPTIONS`, and Chromium's store; as root, outside a
-build, it also adds them to the system store.
+build, it also adds them to the system store. `APPTOWN_TRUST_CERTS` names a
+file of the extra certificates alone.
+
+An app image with no shell (distroless, `scratch`) cannot run the script.
+The go-small starter's build writes the certificates into its distroless
+image instead, in `/etc/ssl/certs` beside the image's own roots, where Go
+reads them (`stock/guidance/build/container-image.md` shows how). Such an
+image holds the certificates it was built with: a changed set reaches the
+app at its next build, not at a redeploy of the same image, and the image
+trusts them wherever it runs. Builds are given the certificates' checksum as
+the build argument `APPTOWN_TRUST_SUM`, which such a Dockerfile declares so
+that a rebuild of unchanged source does not keep the ones an earlier build
+cached.
 
 What it cannot reach:
 
-- An app image with no shell (distroless, `scratch`), such as the go-small
-  starter's runtime, cannot run the script; it trusts only its own roots.
+- An app image with no shell whose build does not write the certificates in,
+  as go-small's does, trusts only its own roots.
 - A host's own Docker daemon pulls images with what that host trusts. Give
   it the authority once: copy the certificate to
   `/etc/docker/certs.d/<registry host>/ca.crt` for each registry (or into the

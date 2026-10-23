@@ -2,10 +2,13 @@ package workflowexec
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -55,7 +58,9 @@ func TestAppTownsStepCommandsRunTheExtraCertificatesFirst(t *testing.T) {
 
 // Every build a release task runs (a static site's export and its packing,
 // an app's image) is given the extra certificates as its secret, from the
-// task's own variable: none when the task has none.
+// task's own variable, with their SHA-256 as the build argument
+// APPTOWN_TRUST_SUM (as trust.BuildArgs gives it): none when the task has
+// none.
 func TestEveryReleaseBuildIsGivenTheExtraCertificatesAsItsSecret(t *testing.T) {
 	t.Parallel()
 	tree := t.TempDir()
@@ -72,7 +77,7 @@ func TestEveryReleaseBuildIsGivenTheExtraCertificatesAsItsSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	secret := "${" + trust.EnvVar + ":+--secret id=" + trust.SecretID + ",env=" + trust.EnvVar + "}"
+	secret := "${" + trust.EnvVar + ":+--secret id=" + trust.SecretID + ",env=" + trust.EnvVar + " --build-arg " + trust.SumArg + "}"
 	builds := 0
 	for _, line := range strings.Split(script, "\n") {
 		if !strings.HasPrefix(line, "'docker' 'buildx' 'build'") {
@@ -85,5 +90,23 @@ func TestEveryReleaseBuildIsGivenTheExtraCertificatesAsItsSecret(t *testing.T) {
 	}
 	if builds != 3 {
 		t.Fatalf("%d builds in:\n%s", builds, script)
+	}
+	// The script's own lines before its builds, run with and without the
+	// task's variable, leave the sum of exactly that value, or none.
+	prelude := script[:strings.Index(script, "'docker' 'buildx' 'build'")]
+	const value = "apptown_trust() { :; }\napptown_trust"
+	for _, env := range [][]string{{trust.EnvVar + "=" + value}, nil} {
+		out := execution.Runner{}.Run(context.Background(), execution.Local, execution.Request{
+			Workspace: t.TempDir(), Timeout: time.Minute,
+			Argv: []string{"sh", "-c", prelude + "echo \"sum=${" + trust.SumArg + ":-}\""},
+			Env:  append([]string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin"}, env...),
+		})
+		want := "sum="
+		if env != nil {
+			want += fmt.Sprintf("%x", sha256.Sum256([]byte(value)))
+		}
+		if out.RunErr != nil || out.ExitCode != 0 || strings.TrimSpace(string(out.Output)) != want {
+			t.Fatalf("with %v: %v (exit %d) %q, want %q", env, out.RunErr, out.ExitCode, out.Output, want)
+		}
 	}
 }

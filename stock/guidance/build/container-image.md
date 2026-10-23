@@ -72,8 +72,28 @@ CMD ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "node", "serv
 
 A `RUN` as a user other than root adds `,mode=0444` to the mount. A
 `command:` in `.apptown/app.yaml` replaces `CMD` and runs the line itself if
-the app calls out. A final stage with no shell (distroless, `scratch`)
-cannot run it.
+the app calls out.
+
+A final stage with no shell (distroless, `scratch`) cannot run the script, so
+the build stage writes the certificates into the image instead: after the
+script, `APPTOWN_TRUST_CERTS` names a file of them alone. Copy it in the same
+`RUN` (the file goes when that line ends) to where the runtime reads extra
+roots; Go reads every file in `/etc/ssl/certs`. Declare
+`ARG APPTOWN_TRUST_SUM` before that line: AppTown sets it to the
+certificates' checksum, and a secret is not part of the build cache's key, so
+without it a rebuild keeps the certificates an earlier build cached. The
+go-small starter does this:
+
+```dockerfile
+ARG APPTOWN_TRUST_SUM
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; mkdir -p /trust && if [ -n "${APPTOWN_TRUST_CERTS:-}" ]; then install -m 644 "$APPTOWN_TRUST_CERTS" /trust/apptown-trust.pem; fi
+# in the final stage
+COPY --from=build /trust/ /etc/ssl/certs/
+```
+
+With nothing configured `/trust` is empty and the image keeps only its own
+roots. The image holds the certificates it was built with: a change reaches
+it at its next build.
 
 **A finding that cannot be fixed** (no fixed release, or not applicable) is
 recorded as an exception by a person on the project's Security tab. Report it

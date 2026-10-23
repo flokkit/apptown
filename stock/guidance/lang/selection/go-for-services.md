@@ -11,7 +11,9 @@ safety as hard requirement → Rust via the innovation token, with ADR.
 
 Build in a stage `FROM golang` with `CGO_ENABLED=0` and ship only the
 binary on `gcr.io/distroless/static-debian12:nonroot` (the go-small
-seed: about 15 MB, no shell, no package manager). Use `alpine` or
+seed: about 15 MB, no shell, no package manager; its build writes the
+extra certificate authorities into `/etc/ssl/certs`, as build/container-image
+says). Use `alpine` or
 `debian:bookworm-slim` when the app needs a shell or cgo. Never run from
 the `golang` image: it is the compiler, its module cache and a full
 Debian.

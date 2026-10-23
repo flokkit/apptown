@@ -3,10 +3,16 @@
 package docker
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"io/fs"
+	"maps"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/trust/trusttest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // emptyPackages is the SHA-256 of an empty file: an apt index with no
@@ -104,4 +111,108 @@ func TestIntegrationAnAppsContainerTrustsTheExtraCertificates(t *testing.T) {
 	if out, err := dk.Run(context.Background(), args...); err != nil || strings.TrimSpace(string(out)) != "ok" {
 		t.Fatalf("%v: %s", err, out)
 	}
+}
+
+// The go-small starter's shipped Dockerfile, built through the real build
+// (Scope.Build), gives its Go app the extra certificates although the
+// distroless runtime has no shell to run the installer: its build writes
+// them into /etc/ssl/certs, beside the image's own roots, which stay the
+// runtime's. With nothing configured the image holds only its own roots.
+// The same source rebuilt on the same builder, with its cache, after the
+// certificates change or are removed holds the current ones, not the cached.
+// Not parallel: it installs the process's trust.
+func TestIntegrationTheGoStartersImageTrustsTheExtraCertificates(t *testing.T) {
+	a, b := trusttest.New(t, "Company Inspecting CA A"), trusttest.New(t, "Company Inspecting CA B")
+	servers := map[*trusttest.Authority]string{
+		a: fmt.Sprintf("https://host.docker.internal:%d/", a.Serve(t, trusttest.OK)),
+		b: fmt.Sprintf("https://host.docker.internal:%d/", b.Serve(t, trusttest.OK)),
+	}
+	dockerfile, err := fs.ReadFile(stock.FS, "seeds/go-small/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	dk := Scope{Client: CLI{Binary: "docker"}}
+	dir := t.TempDir()
+	for name, body := range map[string]string{
+		"Dockerfile": string(dockerfile),
+		"go.mod":     "module probe\n\ngo 1.22\n",
+		// The app: one HTTPS request to its argument.
+		"main.go": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"os\"\n)\n\n" +
+			"func main() {\n\tr, err := http.Get(os.Args[1])\n\tif err != nil {\n\t\tfmt.Println(err)\n\t\tos.Exit(1)\n\t}\n\tfmt.Println(r.Status)\n}\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// certs is an image's /etc/ssl/certs, file by file.
+	certs := func(img string) map[string]string {
+		out, err := dk.Run(ctx, "create", "-q", img, "/app")
+		if err != nil {
+			t.Fatalf("creating a container of %s: %v\n%s", img, err, out)
+		}
+		id := strings.TrimSpace(string(out))
+		defer func() { _, _ = dk.Run(context.Background(), "rm", "-f", id) }()
+		var tarball bytes.Buffer
+		if out, err := dk.Command(ctx, Command{Args: []string{"cp", id + ":/etc/ssl/certs", "-"}, Stdout: &tarball}); err != nil {
+			t.Fatalf("reading %s's certificates: %v\n%s", img, err, out)
+		}
+		files := map[string]string{}
+		r := tar.NewReader(&tarball)
+		for {
+			h, err := r.Next()
+			if err == io.EOF {
+				return files
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if h.Typeflag == tar.TypeReg {
+				body, _ := io.ReadAll(r)
+				files[path.Base(h.Name)] = string(body)
+			}
+		}
+	}
+	base := certs("gcr.io/distroless/static-debian12:nonroot")
+	if len(base) != 1 || base["ca-certificates.crt"] == "" {
+		t.Fatalf("the runtime image's own certificates are not one ca-certificates.crt: %v", keys(base))
+	}
+
+	// Each build of the same source with these extras (none, A, B, none)
+	// trusts exactly them, beside the runtime's own roots.
+	for i, extras := range []*trusttest.Authority{nil, a, b, nil} {
+		trust.Install(nil)
+		if extras != nil {
+			trusttest.Install(t, extras.Bundle(t), trust.Bundle{})
+		}
+		tag := "apptown-trust-go:" + strings.ToLower(ids.New(time.Now()).String())
+		t.Cleanup(func() { _, _ = dk.Run(context.Background(), "rmi", "-f", tag) })
+		if out, err := dk.Build(ctx, "-q", "-t", tag, dir); err != nil {
+			t.Fatalf("build %d: the go-small Dockerfile: %v\n%s", i, err, out)
+		}
+		for authority, server := range servers {
+			out, err := dk.Run(ctx, "run", "--rm", "--add-host", "host.docker.internal:host-gateway", tag, "/app", server)
+			reached := err == nil && strings.TrimSpace(string(out)) == "200 OK"
+			if reached != (authority == extras) {
+				t.Fatalf("build %d: the app reached %s: %v, want %v\n%s", i, server, reached, authority == extras, out)
+			}
+		}
+		got := certs(tag)
+		want := map[string]string{"ca-certificates.crt": base["ca-certificates.crt"]}
+		if extras != nil {
+			want["apptown-trust.pem"] = strings.TrimSpace(string(extras.PEM()))
+			got["apptown-trust.pem"] = strings.TrimSpace(got["apptown-trust.pem"])
+		}
+		if !maps.Equal(got, want) {
+			t.Fatalf("build %d: the image's certificates are %v, not its own roots and the extras beside them", i, keys(got))
+		}
+	}
+}
+
+func keys(m map[string]string) []string {
+	var ks []string
+	for k := range m {
+		ks = append(ks, k)
+	}
+	return ks
 }

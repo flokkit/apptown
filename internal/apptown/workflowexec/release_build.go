@@ -281,11 +281,14 @@ func (a *Shipping) publicationWatch() time.Duration {
 // the workspace's state. Each folder built is the tree's own (no link out
 // of it); image-only declarations are not built, but copied by AppTown.
 func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform string) (string, []execution.File, []execution.ImageResult, error) {
-	lines := []string{"set -e"}
 	// The extra certificates this machine's containers trust reach each
 	// build as its secret (internal/trust), from the task's own variable:
-	// the worker's, never this machine's. None when it has none.
-	buildSecret := ` ${` + trust.EnvVar + `:+--secret id=` + trust.SecretID + `,env=` + trust.EnvVar + `} `
+	// the worker's, never this machine's. None when it has none. Their
+	// SHA-256 goes with them as a build argument by name, as
+	// trust.BuildArgs gives it, for a Dockerfile that writes them into the
+	// image.
+	lines := []string{"set -e", `[ -z "${` + trust.EnvVar + `:-}" ] || export ` + trust.SumArg + `="$(printf '%s' "$` + trust.EnvVar + `" | sha256sum | cut -d ' ' -f 1)"`}
+	buildSecret := ` ${` + trust.EnvVar + `:+--secret id=` + trust.SecretID + `,env=` + trust.EnvVar + ` --build-arg ` + trust.SumArg + `} `
 	var files []execution.File
 	var images []execution.ImageResult
 	quote := func(args []string) string {
