@@ -262,7 +262,7 @@ func (s *Service) runExecution(ctx context.Context, step *Step, scope RunRef) er
 	if runner == nil {
 		return fmt.Errorf("no runner for %s", step.Type)
 	}
-	stepCtx, unwatch := s.watchAttempt(s.stepContext(ctx, run.ProjectID), step.ID)
+	stepCtx, unwatch := s.watchAttempt(s.stepContext(ctx, run.ProjectID), run.ID, step.ID)
 	execution := &Execution{service: s, ctx: stepCtx, step: step, run: run}
 	defer func() { unwatch(execution.claim != nil) }()
 	runner(execution)
@@ -358,7 +358,7 @@ func (s *Service) recoverRunner(ctx context.Context, stepID ids.ID, kind string)
 		return err
 	}
 	var unwatch func(bool)
-	execution.ctx, unwatch = s.watchAttempt(execution.ctx, stepID)
+	execution.ctx, unwatch = s.watchAttempt(execution.ctx, execution.run.ID, stepID)
 	defer unwatch(true) // a recovered execution is claimed
 	s.recoverers[kind](execution)
 	s.endAbandonedAttempt(execution)

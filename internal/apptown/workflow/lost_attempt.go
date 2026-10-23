@@ -30,7 +30,7 @@ var errRunnerReturned = errors.New("the step's runner returned")
 // errRunnerReturned: work that waits on it stops, and an outcome recorded
 // later by whoever kept the execution still reaches the fence. An execution
 // returned unclaimed keeps its context, so whoever holds it may still run it.
-func (s *Service) watchAttempt(parent context.Context, stepID ids.ID) (_ context.Context, unwatch func(release bool)) {
+func (s *Service) watchAttempt(parent context.Context, runID, stepID ids.ID) (_ context.Context, unwatch func(release bool)) {
 	ctx, cancel := context.WithCancelCause(parent)
 	done := make(chan struct{})
 	go func() {
@@ -43,7 +43,7 @@ func (s *Service) watchAttempt(parent context.Context, stepID ids.ID) (_ context
 			case <-ctx.Done():
 				return
 			case <-tick.C:
-				if s.leftInEndedRun(context.WithoutCancel(ctx), stepID) {
+				if s.leftInEndedRun(context.WithoutCancel(ctx), runID, stepID) {
 					cancel(ErrStepAttemptLost)
 					return
 				}
@@ -59,12 +59,18 @@ func (s *Service) watchAttempt(parent context.Context, stepID ids.ID) (_ context
 }
 
 // leftInEndedRun reports whether the step is still pending or running while
-// its run is no longer running.
-func (s *Service) leftInEndedRun(ctx context.Context, stepID ids.ID) bool {
-	step, err := ReadStepIn(ctx, s.db, stepID)
-	if err != nil || (step.Status != StatusPending && step.Status != StatusRunning) {
+// its run is no longer running. The two reads are separate statements, so
+// the run is read first: a run that has ended never runs again
+// (RunState.Transition), so it is still ended when the step is read after
+// it. Read the other way round, a step read as running just before its
+// outcome commits, and its run read as ended just after (the run was then
+// completed or abandoned), would cancel as lost a runner whose step has
+// finished.
+func (s *Service) leftInEndedRun(ctx context.Context, runID, stepID ids.ID) bool {
+	run, err := ReadRunIn(ctx, s.db, runID)
+	if err != nil || run.Status == RunRunning {
 		return false
 	}
-	run, err := ReadRunIn(ctx, s.db, step.RunID)
-	return err == nil && run.Status != RunRunning
+	step, err := ReadStepIn(ctx, s.db, stepID)
+	return err == nil && (step.Status == StatusPending || step.Status == StatusRunning)
 }
