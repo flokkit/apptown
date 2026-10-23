@@ -17,10 +17,12 @@ own environment and secrets, and a static public part its browser values
 (`APPTOWN_BROWSER_ENV`); other parts and init steps are given neither. Target-specific domains, volumes and
 networking are rendered by the Portainer/Docker implementation.
 
-The Portainer environment is `apptownd -portainer-environment` (default `local`),
-recorded in the managed `portainer-deploy` binding at every start
-(`integration.Seeds`); the seeded `intranet` target reads it from the binding
-at use time, so a start with another setting moves later releases there.
+The Portainer environment is a setting of the `intranet` target
+(`deployment.AddressEnvironment`): a start creates the target with `local`
+and keeps an administrator's edit after that (`Target.keepSettings`).
+`Providers.PortainerConfig` reads it from the target at use time, as it does
+for a Portainer target attached by hand, and refuses a target that names
+none.
 
 Every value the stack carries means what it says, as with `docker run` on a
 Docker host: Compose interpolates `$` in a stack file, so the renderer writes

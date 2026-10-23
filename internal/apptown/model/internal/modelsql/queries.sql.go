@@ -58,23 +58,6 @@ func (q *Queries) Fallbacks(ctx context.Context) ([]SlotFallback, error) {
 	return items, nil
 }
 
-const insertDefaultSlot = `-- name: InsertDefaultSlot :exec
-INSERT INTO model_slots (slot, project_id, profile, pattern, updated_at)
-VALUES ('default', NULL, $1, $2, $3)
-ON CONFLICT DO NOTHING
-`
-
-type InsertDefaultSlotParams struct {
-	Profile   string
-	Pattern   string
-	UpdatedAt time.Time
-}
-
-func (q *Queries) InsertDefaultSlot(ctx context.Context, arg InsertDefaultSlotParams) error {
-	_, err := q.db.ExecContext(ctx, insertDefaultSlot, arg.Profile, arg.Pattern, arg.UpdatedAt)
-	return err
-}
-
 const insertFallback = `-- name: InsertFallback :exec
 INSERT INTO slot_fallbacks (slot, fallback) VALUES ($1, $2)
 ON CONFLICT (slot) DO NOTHING

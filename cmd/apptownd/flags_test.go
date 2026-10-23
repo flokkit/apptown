@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"strings"
 	"testing"
 )
@@ -14,8 +15,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 	for flagName, env := range map[string]string{
 		"db-url": "APPTOWN_DB_URL", "console-cli": "APPTOWN_CONSOLE_CLI", "inference-addr": "APPTOWN_INFERENCE_ADDR",
 		"inference-url": "APPTOWN_INFERENCE_URL", "inference-networks": "APPTOWN_INFERENCE_NETWORKS",
-		"mirror-base": "APPTOWN_MIRROR_BASE", "otlp-endpoint": "APPTOWN_OTLP_ENDPOINT",
-		"otlp-protocol": "APPTOWN_OTLP_PROTOCOL", "errors-url": "APPTOWN_ERRORS_URL",
+		"otlp-endpoint": "APPTOWN_OTLP_ENDPOINT", "otlp-protocol": "APPTOWN_OTLP_PROTOCOL", "reap": "APPTOWN_REAP",
 	} {
 		if got := envName(flagName); got != env {
 			t.Fatalf("%s reads %s, want %s", flagName, got, env)
@@ -29,15 +29,13 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 		count++
 		v := "from-env"
 		switch f.Name {
-		case "agent-concurrency":
-			v = "3"
 		case "import-bundle-max-bytes":
 			v = "1048576"
 		case "task-cpus", "chat-cpus":
 			v = "1.5"
 		case "task-memory-mib", "task-pids", "chat-memory-mib", "chat-pids":
 			v = "512"
-		case "verify-only", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network", "host-scripts":
+		case "verify-only", "reap", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network", "host-scripts":
 			v = "true"
 		case "tier-domain":
 			v = "preview=p.example,main=m.example"
@@ -62,15 +60,15 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			t.Fatalf("%s: %q, want %q from %s", f.Name, f.Value.String(), want, envName(f.Name))
 		}
 	})
-	if count < 25 || o.agentConc != 3 || !o.verifyOnly || strings.Join(o.tierDomains, " ") != "preview=p.example main=m.example" {
-		t.Fatalf("%d flags; concurrency %d, verify %v, tiers %v", count, o.agentConc, o.verifyOnly, o.tierDomains)
+	if count < 25 || o.taskPIDs != 512 || !o.verifyOnly || !o.apptownConfig("/data").Reap || strings.Join(o.tierDomains, " ") != "preview=p.example main=m.example" {
+		t.Fatalf("%d flags; pids %d, verify %v, reap %v, tiers %v", count, o.taskPIDs, o.verifyOnly, o.reap, o.tierDomains)
 	}
 	// A malformed value names the variable instead of starting half-configured.
 	fs = flag.NewFlagSet("apptownd", flag.ContinueOnError)
 	defineFlags(fs)
 	_ = fs.Parse(nil)
-	err := bindEnv(fs, func(k string) string { return map[string]string{"APPTOWN_AGENT_CONCURRENCY": "lots"}[k] })
-	if err == nil || !strings.Contains(err.Error(), "APPTOWN_AGENT_CONCURRENCY") {
+	err := bindEnv(fs, func(k string) string { return map[string]string{"APPTOWN_REAP": "on"}[k] })
+	if err == nil || !strings.Contains(err.Error(), "APPTOWN_REAP") {
 		t.Fatalf("malformed value: %v", err)
 	}
 }
@@ -116,31 +114,17 @@ func TestTheAPIServersCutOffSlowAndIdleClients(t *testing.T) {
 	}
 }
 
-// -portainer-environment reaches AppTown's configuration, local unless
-// stated; APPTOWN_PORTAINER_ENVIRONMENT states it as well.
-//
-// Kills: the flag not carried into apptown.Config, so live's environment name
-// would be ignored and the default used.
-func TestThePortainerEnvironmentFlagReachesAppTownConfig(t *testing.T) {
-	for _, c := range []struct {
-		args []string
-		env  map[string]string
-		want string
-	}{
-		{nil, nil, "local"},
-		{[]string{"-portainer-environment", "office"}, nil, "office"},
-		{nil, map[string]string{"APPTOWN_PORTAINER_ENVIRONMENT": "office"}, "office"},
-	} {
+// The settings an administrator now changes in AppTown itself, or that it
+// no longer has, are not flags: a command line that still passes one stops
+// apptownd at start instead of being quietly ignored.
+func TestSettingsMovedIntoAppTownAreNotFlags(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"agent-model", "agent-concurrency", "errors-url", "mirror-base", "portainer-environment"} {
 		fs := flag.NewFlagSet("apptownd", flag.ContinueOnError)
-		o := defineFlags(fs)
-		if err := fs.Parse(c.args); err != nil {
-			t.Fatal(err)
-		}
-		if err := bindEnv(fs, func(k string) string { return c.env[k] }); err != nil {
-			t.Fatal(err)
-		}
-		if got := o.apptownConfig("/data").PortainerEnvironment; got != c.want {
-			t.Fatalf("%v %v: %q, want %q", c.args, c.env, got, c.want)
+		fs.SetOutput(io.Discard)
+		defineFlags(fs)
+		if err := fs.Parse([]string{"-" + name, "x"}); err == nil {
+			t.Errorf("-%s is still a flag", name)
 		}
 	}
 }

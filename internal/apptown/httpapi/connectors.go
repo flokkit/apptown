@@ -22,11 +22,10 @@ type Connectors struct {
 	health       ConnectorHealth
 	db           *database.DB
 	formats      []string
-	defaults     integration.CatalogDefaults
 }
 
-func NewConnectors(integrations *integration.Service, access *identity.Service, deployment *deployment.Service, health ConnectorHealth, db *database.DB, formats []string, defaults integration.CatalogDefaults) Connectors {
-	return Connectors{integrations: integrations, access: access, deployment: deployment, health: health, db: db, formats: slices.Clone(formats), defaults: defaults}
+func NewConnectors(integrations *integration.Service, access *identity.Service, deployment *deployment.Service, health ConnectorHealth, db *database.DB, formats []string) Connectors {
+	return Connectors{integrations: integrations, access: access, deployment: deployment, health: health, db: db, formats: slices.Clone(formats)}
 }
 
 // The connector routes' responses.
@@ -51,9 +50,10 @@ type (
 // connectors for new kinds through the same generic form).
 func (h Connectors) ConnectorCatalog(w http.ResponseWriter, r *http.Request) {
 	out := make([]ConnectorEntry, 0, len(integration.ConnectorCatalog()))
+	defaults := h.integrations.CatalogDefaults(r.Context())
 	for _, c := range integration.ConnectorCatalog() {
 		_, err := stock.FS.ReadFile("docs/integrations/" + c.Capability + "-" + c.Provider + ".admin.md")
-		out = append(out, ConnectorEntry{integration.InstancePresets(c, h.defaults), err == nil})
+		out = append(out, ConnectorEntry{integration.InstancePresets(c, defaults), err == nil})
 	}
 	for _, k := range h.integrations.Definitions(r.Context()) {
 		if len(k.Connector.Fields) > 0 {

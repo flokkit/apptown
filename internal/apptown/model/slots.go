@@ -93,11 +93,11 @@ func (s *Slots) cell(ctx context.Context, slot string, projectID ids.ID, profile
 //
 // It returns the pattern, the slot that won (for receipts), and which
 // profile column decided. A slash-pattern passes through with slot "";
-// when nothing is mapped, the instance's default model wins as `default`.
-// Empty requested selects the default slot. Cycles terminate at defaultModel.
+// when nothing is mapped the pattern is "" with slot `default`: no model is
+// set up. Empty requested selects the default slot. Cycles end the same way.
 // A cell read failure skips that cell; a fallback read failure ends the walk.
 // The result therefore does not establish that configuration reads succeeded.
-func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, requested, defaultModel string) (pattern, slot, profile string) {
+func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, requested string) (pattern, slot, profile string) {
 	if requested != "" && !IsSlot(requested) {
 		return requested, "", ""
 	}
@@ -134,18 +134,7 @@ func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, r
 			break
 		}
 	}
-	return defaultModel, "default", ""
-}
-
-// SeedDefault records the instance's default model as the `default`
-// slot's standard cell, only when none is recorded: the row is the
-// source of truth thereafter.
-func (s *Slots) SeedDefault(ctx context.Context, defaultModel string) error {
-	if defaultModel == "" {
-		return nil
-	}
-	err := queries(s.db).InsertDefaultSlot(ctx, modelsql.InsertDefaultSlotParams{Profile: StandardProfile, Pattern: defaultModel, UpdatedAt: s.now().UTC()})
-	return err
+	return "", "default", ""
 }
 
 // SeedFallbacks records the stock chain as data, only where no row says

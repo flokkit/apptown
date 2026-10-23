@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"strings"
 )
 
 // Integrations I1: name the seam. A binding is an instance-level named
@@ -30,17 +29,8 @@ const (
 
 // SeedConfig is AppTown runtime configuration the seed bindings record.
 type SeedConfig struct {
-	AgentImage       string
-	AgentModel       string // provider/model; its provider names the model binding
-	AgentConcurrency int
-	// PortainerEnvironment is the Portainer environment the intranet
-	// releases to (apptownd -portainer-environment).
-	PortainerEnvironment string
+	AgentImage string
 }
-
-// DefaultPortainerEnvironment is the environment name Portainer gives the
-// Docker it runs on when installed with its defaults.
-const DefaultPortainerEnvironment = "local"
 
 func seedJSON(v any) string {
 	b, err := json.Marshal(v)
@@ -89,11 +79,11 @@ func Seeds(cfg SeedConfig) []Seed {
 		// The intranet (design/subsystems/lan-release.md): the second deploy target.
 		// Same shape as every seam — provider named, secrets referenced by
 		// NAME (resolved through the secrets capability at use time),
-		// environment and stack conventions stated where an operator can
-		// see them.
+		// stack conventions stated where an operator can see them. The
+		// Portainer environment is the intranet target's own setting.
 		mk("portainer-deploy", CapDeploy, "portainer", map[string]any{
 			"urlFrom": "PORTAINER_URL", "apiKeyFrom": "PORTAINER_API_KEY",
-			"appsDomainFrom": "APPTOWN_APPS_DOMAIN", "environment": cfg.PortainerEnvironment,
+			"appsDomainFrom": "APPTOWN_APPS_DOMAIN",
 			// releaseDeployment: the tier name release rows carry and the
 			// DEFAULT target of the big Release button (the button's face is
 			// the default; other targets live behind the chevron).
@@ -103,18 +93,12 @@ func Seeds(cfg SeedConfig) []Seed {
 	}
 }
 
-// SeedModelBinding records the model binding named by the agent model's
-// provider, once. Model bindings are UNMANAGED: the row is the source of
-// truth for the provider definition (endpoint, models, secret refs). The flag
-// only seeds the initial row — overwriting on boot clobbers user edits (and
-// did: each restart wiped providerDef, re-triggering the host import).
-func (s *Service) SeedModelBinding(ctx context.Context, cfg SeedConfig) {
-	modelName := "pi-default"
-	if cfg.AgentModel != "" {
-		if i := strings.IndexByte(cfg.AgentModel, '/'); i > 0 {
-			modelName = cfg.AgentModel[:i]
-		}
-	}
+// SeedModelBinding records the pi-default model binding once, one step at
+// a time. Model bindings are UNMANAGED: the row is the source of truth for
+// the provider definition (endpoint, models, secret refs, steps at once),
+// and overwriting it on boot would clobber an administrator's edits.
+func (s *Service) SeedModelBinding(ctx context.Context) {
+	const modelName = "pi-default"
 	haveModel, err := s.Bindings.Count(ctx, modelName, CapModel)
 	if err != nil {
 		log.Printf("read failed: %v", err)
@@ -123,7 +107,7 @@ func (s *Service) SeedModelBinding(ctx context.Context, cfg SeedConfig) {
 		// Unmanaged from the first insert: the provider definition is binding
 		// config, not flag-derived.
 		if _, err := s.Bindings.Upsert(ctx, modelName, CapModel, "pi", seedJSON(map[string]any{
-			"model": cfg.AgentModel, "concurrency": cfg.AgentConcurrency,
+			"model": "", "concurrency": 1,
 		}), false); err != nil {
 			log.Printf("integration %s: recording its configuration: %v", modelName, err)
 		}

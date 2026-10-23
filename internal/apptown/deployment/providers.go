@@ -234,24 +234,28 @@ func (p *Providers) DigitalOceanClient(ctx context.Context, cfg digitalocean.Con
 // PortainerConfig is a Portainer target's own configuration: the secret
 // names its row carries (a target attached by hand), resolved at use time;
 // a target with none — the seeded intranet — reads its connection from the
-// portainer-deploy binding. The apps domain is always the target's own
-// setting: configuration names it only when the target is created, and an
-// administrator owns it after (Target.keepSettings). "" when it names none.
+// portainer-deploy binding. The apps domain and the Portainer environment are
+// always the target's own settings: configuration names them only when the
+// target is created, and an administrator owns them after
+// (Target.keepSettings). A target that names no environment is refused.
 func (p *Providers) PortainerConfig(ctx context.Context, t *Target) (*portainer.Target, error) {
 	urlFrom, _ := t.Address["urlFrom"].(string)
 	keyFrom, _ := t.Address["apiKeyFrom"].(string)
 	domain, _ := t.Ingress["domain"].(string)
+	endpointName, _ := t.Address[AddressEnvironment].(string)
 	if urlFrom == "" || keyFrom == "" {
 		configured, err := p.integrations.PortainerTarget(ctx)
 		if err != nil {
 			return nil, err
 		}
 		cfg := *configured
-		cfg.AppsDomain = domain
+		cfg.AppsDomain, cfg.EnvName = domain, endpointName
+		if cfg.EnvName == "" {
+			return nil, errNoPortainerEnvironment
+		}
 		return &cfg, nil
 	}
 	secrets := p.secrets.All(ctx)
-	endpointName, _ := t.Address["environment"].(string)
 	cfg := &portainer.Target{PortainerURL: strings.TrimRight(secrets[urlFrom], "/"), PortainerKey: secrets[keyFrom], AppsDomain: domain, EnvName: endpointName}
 	var missing []string
 	if cfg.PortainerURL == "" {
@@ -264,7 +268,7 @@ func (p *Providers) PortainerConfig(ctx context.Context, t *Target) (*portainer.
 		return nil, fmt.Errorf("these secret names don't resolve: %s (add them in Infisical or secrets.env)", strings.Join(missing, ", "))
 	}
 	if cfg.EnvName == "" {
-		return nil, fmt.Errorf("the target names no Portainer environment")
+		return nil, errNoPortainerEnvironment
 	}
 	return cfg, nil
 }

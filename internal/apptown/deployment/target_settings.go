@@ -38,11 +38,16 @@ type TargetSettingsEdit struct {
 	// none): the copy runner (design/subsystems/deployment.md, "Protecting
 	// data off-host").
 	CopyRunner *string
+	// Environment is the Portainer environment a Portainer target releases
+	// to: a name Portainer lists, such as local.
+	Environment *string
 }
 
 var (
 	ErrTargetSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
-	ErrTargetEditEmpty                = fault.New(fault.Invalid, "nothing to change: send domain, persistentVolumes, previews, needsMode, evals, rehearsals or copyRunner")
+	ErrTargetEditEmpty                = fault.New(fault.Invalid, "nothing to change: send domain, persistentVolumes, previews, needsMode, evals, rehearsals, copyRunner or environment")
+	ErrTargetEnvironment              = fault.New(fault.Invalid, "only a Portainer target has a Portainer environment, and it needs a name, such as local")
+	errNoPortainerEnvironment         = fault.New(fault.Invalid, "this Portainer target names no Portainer environment: set one on the target's page")
 	ErrTargetRehearsals               = fault.New(fault.Invalid, "only an attached Docker host can be kept for restore rehearsals, and not one kept for evals")
 	ErrTargetCopyRunner               = fault.New(fault.Invalid, "a copy runner is a Docker host target AppTown reaches, named on an App Platform target")
 	ErrTargetEvals                    = fault.New(fault.Invalid, "only an attached Docker host with a domain can be kept for evals: its domain is the eval domain")
@@ -55,6 +60,10 @@ var (
 
 // AddressCopyRunner is where a target's record names its copy runner.
 const AddressCopyRunner = "copyRunner"
+
+// AddressEnvironment is where a Portainer target's record names the
+// Portainer environment it releases to.
+const AddressEnvironment = "environment"
 
 // CopyRunner is the Docker host named to run this target's copy jobs, ""
 // when none is.
@@ -69,13 +78,14 @@ func (t *Target) CopyRunner() string {
 // intranet's Portainer — and Targets.Sync refreshes it. Its settings are what
 // an administrator states through EditSettings, and only these: the domain,
 // evals and rehearsals marks in ingress, persistentVolumes and previews in
-// capabilities, the needs mode, and the copy runner in address. A sync
+// capabilities, the needs mode, and the copy runner and Portainer
+// environment in address. A sync
 // supplies a setting's first value when it creates the target; after that
 // the setting is the administrator's and no sync changes it. The built-in
 // host takes no edits, so every fact of its record is AppTown's own.
 var (
 	settingIngressKeys = []string{"domain", IngressEvals, IngressRehearsals}
-	settingAddressKeys = []string{AddressCopyRunner}
+	settingAddressKeys = []string{AddressCopyRunner, AddressEnvironment}
 )
 
 // keepSettings carries the stored record's settings into t, the record a
@@ -227,6 +237,17 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 			} else {
 				t.Address[AddressCopyRunner] = name
 			}
+		}
+		if in.Environment != nil {
+			env := strings.TrimSpace(*in.Environment)
+			if !DescribeKind(t.Kind).Environment || env == "" {
+				return nil, ErrTargetEnvironment
+			}
+			if t.Address == nil {
+				t.Address = map[string]any{}
+			}
+			before["environment"], after["environment"] = t.Address[AddressEnvironment], env
+			t.Address[AddressEnvironment] = env
 		}
 		if domain, _ := t.Ingress["domain"].(string); t.Ingress[IngressEvals] == true && (t.Kind != KindDockerHost || domain == "") {
 			return nil, ErrTargetEvals

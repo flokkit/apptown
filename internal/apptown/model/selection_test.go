@@ -14,7 +14,7 @@ func TestResolveModelSlot(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	slots := New(db)
-	selection := NewSelection(slots, "")
+	selection := NewSelection(slots)
 	projectID, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
 		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "p", Name: "P"})
 	})
@@ -49,7 +49,7 @@ func TestModelProfileResolution(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	models := New(db)
-	selection := NewSelection(models, "")
+	selection := NewSelection(models)
 	projects := project.New(db, nil)
 	create := func(slug, name string) ids.ID {
 		t.Helper()

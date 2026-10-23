@@ -62,8 +62,7 @@ func TestConfigurationIsAnIsolatedSnapshot(t *testing.T) {
 	t.Parallel()
 	input := Config{AuthMode: "internal", PublicHost: "first.example", ListenAddr: "0.0.0.0:7777",
 		TierDomains: []string{"preview=first.example"}, TrustedProxies: []string{"192.0.2.0/24"}, HostAddresses: []net.IP{net.IPv4(198, 18, 0, 1).To4()},
-		InferenceURL: "http://worker:7779", InferenceNetworks: []string{"198.51.100.0/24"},
-		Defaults: InstanceDefaults{MirrorBase: "https://mirror.example"}}
+		InferenceURL: "http://worker:7779", InferenceNetworks: []string{"198.51.100.0/24"}}
 	first := testApp(t, input)
 	input.HostAddresses[0][3] = 2
 	input.TierDomains[0] = "preview=second.example"
@@ -547,5 +546,19 @@ func TestStepLimitsFitTheDockerHostsCPUs(t *testing.T) {
 	unread.FitLimitsToHost(t.Context())
 	if unread.TaskLimits != (execution.Limits{}) {
 		t.Fatalf("a host that could not be read changed the limits: %+v", unread.TaskLimits)
+	}
+}
+
+// The maintenance sweep removes leftovers only when the machine's owner
+// started AppTown with -reap; otherwise it only logs them.
+//
+// Kills: Config.Reap not carried into the configuration the scheduler reads.
+func TestTheSweepRemovesOnlyWhenStartedWithReap(t *testing.T) {
+	t.Parallel()
+	if testApp(t).cfg.reap {
+		t.Fatal("an AppTown started without -reap removes leftovers")
+	}
+	if !testApp(t, Config{Reap: true}).cfg.reap {
+		t.Fatal("an AppTown started with -reap only logs leftovers")
 	}
 }

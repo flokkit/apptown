@@ -42,7 +42,7 @@ func TestSetupModelWritesSecrets(t *testing.T) {
 	if fi, _ := os.Stat(envPath); fi.Mode().Perm() != 0o600 {
 		t.Fatalf("secrets.env must be 0600, is %v", fi.Mode().Perm())
 	}
-	if slot, _, _ := model.NewSelection(models, "").Resolve(req.Context(), ids.Nil, ""); slot == "" {
+	if slot, _, _ := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); slot == "" {
 		t.Fatal("a default model slot should exist after setup")
 	}
 }
@@ -82,7 +82,7 @@ func TestSetupModelDefaultsOpenRouterToWhereItsLatestSonnetPoints(t *testing.T) 
 			if w.Code != 200 {
 				t.Fatalf("setup: %d %s", w.Code, w.Body.String())
 			}
-			if slot, _, _ := model.NewSelection(models, "").Resolve(req.Context(), ids.Nil, ""); slot != c.want {
+			if slot, _, _ := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); slot != c.want {
 				t.Fatalf("the default model is %q, want %q", slot, c.want)
 			}
 		})
@@ -125,7 +125,7 @@ func TestSetupModelDefaultsAnthropicToItsNewestListedSonnet(t *testing.T) {
 			if w.Code != 200 {
 				t.Fatalf("setup: %d %s", w.Code, w.Body.String())
 			}
-			if slot, _, _ := model.NewSelection(models, "").Resolve(req.Context(), ids.Nil, ""); slot != c.want {
+			if slot, _, _ := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); slot != c.want {
 				t.Fatalf("the default model is %q, want %q", slot, c.want)
 			}
 		})

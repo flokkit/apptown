@@ -1,6 +1,10 @@
 package integration
 
 import (
+	"context"
+	"encoding/json"
+	"log"
+	"slices"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
@@ -196,7 +200,7 @@ func ConnectorCatalog() []ConnectorSpec {
 			Presets: []ConnectorPreset{
 				{Name: "glitchtip", Title: "GlitchTip", Icon: "errors", Suggest: "glitchtip",
 					Description: "Self-hosted Sentry-compatible error tracking.",
-					Config:      map[string]any{"url": "", "org": "", "tokenFrom": []string{"GLITCHTIP_TOKEN"}, "instanceURL": "errors"}},
+					Config:      map[string]any{"url": "", "org": "", "tokenFrom": []string{"GLITCHTIP_TOKEN"}}},
 			},
 		},
 		{
@@ -247,17 +251,53 @@ func ConnectorCatalog() []ConnectorSpec {
 }
 
 // CatalogDefaults: the facts that vary per installation and used to be
-// compiled into the catalog — one installation's mirror and error-tracker
-// hostnames showed on the first screen of every other instance. Set from apptownd's flags; empty means "no suggestion".
+// compiled into the catalog. Empty means "no suggestion".
 type CatalogDefaults struct {
 	MirrorBase string // e.g. https://nexus.example.com — presets carry only the repository path
-	ErrorsURL  string // the org's error tracker, e.g. https://errors.example.com
 }
 
-// InstancePresets fills a connector's preset URLs from the instance
-// defaults: a registry preset's "path" becomes MirrorBase/path; a preset
-// marked instanceURL: errors gets ErrorsURL. With nothing configured the
-// URL stays empty and the form's placeholder does the suggesting.
+// CatalogDefaults suggests a mirror for the package-mirror presets: the
+// address of a mirror already added whose URL is that address followed by its
+// own preset's path, first by name. An administrator changes it by changing
+// that mirror's URL. A read failure suggests nothing.
+func (s *Service) CatalogDefaults(ctx context.Context) CatalogDefaults {
+	bindings, err := s.Bindings.All(ctx)
+	if err != nil {
+		log.Printf("integrations: reading the mirrors for the catalog's suggestion: %v", err)
+		return CatalogDefaults{}
+	}
+	paths := map[string]string{}
+	for _, c := range ConnectorCatalog() {
+		if c.Capability != CapRegistry {
+			continue
+		}
+		for _, p := range c.Presets {
+			format, _ := p.Config["format"].(string)
+			if path, ok := p.Config["path"].(string); ok && format != "" {
+				paths[format] = strings.TrimSuffix(path, "/")
+			}
+		}
+	}
+	slices.SortFunc(bindings, func(a, b Binding) int { return strings.Compare(a.Name, b.Name) })
+	for _, b := range bindings {
+		if b.Capability != CapRegistry {
+			continue
+		}
+		var cfg struct{ Format, URL string }
+		if json.Unmarshal([]byte(b.ConfigJSON), &cfg) != nil {
+			continue
+		}
+		path, known := paths[cfg.Format]
+		if base, ok := strings.CutSuffix(strings.TrimSuffix(cfg.URL, "/"), "/"+path); known && ok && base != "" {
+			return CatalogDefaults{MirrorBase: base}
+		}
+	}
+	return CatalogDefaults{}
+}
+
+// InstancePresets fills a registry preset's URL from the instance defaults:
+// its "path" becomes MirrorBase/path. With nothing suggested the URL stays
+// empty and the form's placeholder does the suggesting.
 func InstancePresets(c ConnectorSpec, defaults CatalogDefaults) ConnectorSpec {
 	if len(c.Presets) == 0 {
 		return c
@@ -275,10 +315,6 @@ func InstancePresets(c ConnectorSpec, defaults CatalogDefaults) ConnectorSpec {
 			} else {
 				cfg["url"] = ""
 			}
-		}
-		if cfg["instanceURL"] == "errors" {
-			cfg["url"] = defaults.ErrorsURL
-			delete(cfg, "instanceURL")
 		}
 		p.Config = cfg
 		cc.Presets[i] = p

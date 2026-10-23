@@ -16,14 +16,13 @@ import (
 const NoModelRefusal = "no AI model is set up on this AppTown yet: an administrator adds an Anthropic or OpenRouter API key on the Home page, then start this again"
 
 // Selection combines the project's current profile with slot fallback policy.
-// The instance fallback is immutable; project and slot changes are read on use.
+// Project and slot changes are read on use.
 type Selection struct {
-	slots        *Slots
-	defaultModel string
+	slots *Slots
 }
 
-func NewSelection(slots *Slots, defaultModel string) Selection {
-	return Selection{slots: slots, defaultModel: defaultModel}
+func NewSelection(slots *Slots) Selection {
+	return Selection{slots: slots}
 }
 
 func (s Selection) profile(ctx context.Context, projectID ids.ID) string {
@@ -41,5 +40,5 @@ func (s Selection) profile(ctx context.Context, projectID ids.ID) string {
 // A missing or unreadable project uses the standard profile; read errors are logged.
 // The returned values have the same meaning and fallback rules as [Slots.Resolve].
 func (s Selection) Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string) {
-	return s.slots.Resolve(ctx, projectID, s.profile(ctx, projectID), requested, s.defaultModel)
+	return s.slots.Resolve(ctx, projectID, s.profile(ctx, projectID), requested)
 }

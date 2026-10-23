@@ -23,6 +23,11 @@ AppTown questions in plain terms: *which projects are there, what is
 waiting on me, what did Change 42 do, did its checks pass?* — and get real
 answers from the same records the web pages show.
 
+The MCP tools are experimental in 1.0: a 1.x release may change their names,
+arguments and answers, and its release notes say what changed (see
+[What 1.0 promises](/docs/guides/compatibility)). For scripts, use the
+`apptown` command line.
+
 The agent can also **do governed work in your name**: open a Change,
 put AppTown's own agent on it, run its checks, boot its preview, hand it
 off for approval, send it back with a note, or abandon it. It can ask for

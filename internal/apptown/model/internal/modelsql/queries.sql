@@ -22,11 +22,6 @@ SELECT DISTINCT profile AS profile_name FROM model_slots WHERE project_id IS NUL
 UNION SELECT DISTINCT model_profile AS profile_name FROM projects WHERE model_profile != ''
 ORDER BY profile_name;
 
--- name: InsertDefaultSlot :exec
-INSERT INTO model_slots (slot, project_id, profile, pattern, updated_at)
-VALUES ('default', NULL, sqlc.arg(profile), sqlc.arg(pattern), sqlc.arg(updated_at))
-ON CONFLICT DO NOTHING;
-
 -- name: InsertFallback :exec
 INSERT INTO slot_fallbacks (slot, fallback) VALUES (sqlc.arg(slot), sqlc.arg(fallback))
 ON CONFLICT (slot) DO NOTHING;

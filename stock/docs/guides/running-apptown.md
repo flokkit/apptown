@@ -8,6 +8,12 @@ on is in [Supported platforms and system requirements](/docs/guides/platforms).
 `apptownd -h` lists every start-up flag. Each flag can also be set as an
 environment variable: `-db-url` is `APPTOWN_DB_URL`, `-tier-domain` is
 `APPTOWN_TIER_DOMAIN` (comma-separated), and a flag on the command line wins.
+These are what AppTown needs to start and what only the machine's owner
+should decide: addresses, sign-in, the database, the worker, Docker and
+limits. What an administrator changes while AppTown runs is set in AppTown
+itself and needs no restart: the default model and model providers (Home and
+Integrations), package mirrors and other integrations, and deployment targets
+and their settings (Infrastructure).
 
 ## Install
 

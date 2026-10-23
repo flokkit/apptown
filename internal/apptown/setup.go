@@ -199,7 +199,7 @@ func (a *App) tierDomainNames() []string {
 // stock kind, under the same contract as the ways of working (wow.Sync),
 // then seeds the model binding. Call after agent defaults are set (main).
 func (a *App) SyncSeedIntegrations(ctx context.Context) wow.SyncCounts {
-	cfg := integration.SeedConfig{AgentImage: a.cfg.agentImage, AgentModel: a.cfg.agentModel, AgentConcurrency: a.cfg.agentConcurrency, PortainerEnvironment: a.cfg.portainerEnvironment}
+	cfg := integration.SeedConfig{AgentImage: a.cfg.agentImage}
 	var items []wow.SyncItem
 	for _, s := range integration.Seeds(cfg) {
 		items = append(items, wow.SyncItem{Name: s.Name, Content: s.Config, Data: s})
@@ -226,6 +226,6 @@ func (a *App) SyncSeedIntegrations(ctx context.Context) wow.SyncCounts {
 		audit.At(a.cfg.clock.Now()).BestEffort(ctx, db, "apptown-system", ids.Nil, k, name, payload)
 	})
 	log.Print(c)
-	a.Integrations.SeedModelBinding(ctx, cfg)
+	a.Integrations.SeedModelBinding(ctx)
 	return c
 }

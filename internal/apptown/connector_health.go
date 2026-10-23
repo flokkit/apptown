@@ -3,7 +3,6 @@ package apptown
 import (
 	"context"
 	"os/exec"
-	"strconv"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
@@ -16,18 +15,16 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/strs"
 
-	models "github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 )
 
 type connectorHealth struct {
-	secrets                *secret.Service
-	docker                 *docker.Scope
-	capacity               *models.Scheduler
-	deployment             *deployment.Service
-	providers              *deployment.Providers
-	integrations           *integration.Service
-	agentImage, agentModel string
+	secrets      *secret.Service
+	docker       *docker.Scope
+	deployment   *deployment.Service
+	providers    *deployment.Providers
+	integrations *integration.Service
+	agentImage   string
 	// With no local Docker, the worker answers for the agent image and
 	// pulls a scanner's image.
 	worker *execution.WorkerTasks
@@ -36,7 +33,7 @@ type connectorHealth struct {
 }
 
 func connectorHealthFor(a *App) connectorHealth {
-	return connectorHealth{secrets: a.Secrets, docker: &a.docker, capacity: a.capacity, deployment: a.Deployment, providers: a.targetProviders, integrations: a.Integrations, agentImage: a.cfg.agentImage, agentModel: a.cfg.agentModel,
+	return connectorHealth{secrets: a.Secrets, docker: &a.docker, deployment: a.Deployment, providers: a.targetProviders, integrations: a.Integrations, agentImage: a.cfg.agentImage,
 		worker: a.cfg.worker, images: checksFor(a).Image, now: a.cfg.clock.Now}
 }
 
@@ -116,10 +113,7 @@ func (h connectorHealth) check(ctx context.Context, capability, provider string,
 		if len(cfgSecretEnv) > 0 {
 			return h.integrations.CheckModelCredentials(ctx, cfgSecretEnv), true
 		}
-		if h.agentModel == "" {
-			return integration.Health{OK: true, Detail: "pi default (no override)"}, true
-		}
-		return integration.Health{OK: true, Detail: h.agentModel + " · " + strconv.Itoa(h.capacity.Capacity(ctx, models.BindingOfPattern(h.agentModel))) + " slot(s)"}, true
+		return integration.Health{OK: true, Detail: "pi default (no override)"}, true
 	}
 	return integration.Health{}, false
 }

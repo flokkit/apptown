@@ -3476,6 +3476,7 @@ export type KindInfo = {
   family: string
   vendor: string
   region: string
+  environment: boolean
 }
 
 export type Offer = {

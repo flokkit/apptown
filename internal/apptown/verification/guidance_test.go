@@ -121,7 +121,7 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 	}
 	previews := &recordingPreviews{}
 	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil), Previews: previews,
-		Selection: model.NewSelection(model.New(f.DB), "openrouter/test-model")})
+		Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
 	kinds := map[string]gateKind{
 		"sh": {check.Declaration{Name: "script", Expects: "a readme", Sh: "test -f README.md", Severity: "high"}, "pass",
 			func() bool { return f.Effects.ran(check.ShImage) }},
@@ -323,7 +323,7 @@ func TestAChecklistAnswerOutsideItsWordsIsUnclear(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil),
-		Selection: model.NewSelection(model.New(f.DB), "openrouter/test-model")})
+		Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
 	var checks []conformance.DeclaredCheck
 	for _, name := range []string{"one", "two", "three", "four", "five"} {
 		checks = append(checks, conformance.DeclaredCheck{Block: "style", Version: 1, Check: check.Declaration{Name: name, Evaluator: "llm", Rubric: name, Scope: check.ScopeTree, Files: []string{"README.md"}}})
@@ -340,7 +340,7 @@ func TestAChecklistAnswerOutsideItsWordsIsUnclear(t *testing.T) {
 
 func TestLLMChecklistSkipsWithoutModel(t *testing.T) {
 	t.Parallel()
-	a := &Guidance{selection: model.NewSelection(model.New(testDB(t)), ""), evaluator: NewEvaluator(nil, nil)}
+	a := &Guidance{selection: model.NewSelection(model.New(testDB(t))), evaluator: NewEvaluator(nil, nil)}
 	source := workflow.Source{RunID: idstest.N(1), ProjectID: ids.Nil}
 	checks := []conformance.DeclaredCheck{
 		{Block: "style", Version: 1, Check: conformance.CheckDeclaration{Name: "tone", Evaluator: "llm", Rubric: "kind wording"}},

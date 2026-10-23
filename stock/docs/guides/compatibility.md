@@ -82,13 +82,30 @@ values: a script treats one it does not know as "look at the change". What a
 command prints for a person may change, so a script reads `--json` and exit
 codes, not printed text.
 
-**The MCP tools.** The tool names a coding agent sees (`list_projects`,
-`get_project`, `create_change`, `get_change`, `request_change_landing` and the
-rest AppTown lists), their required arguments, and what each tool's
-description says it does and answers. The fields of an answer are not
-promised: an agent reads them as the description explains, and they may
-change in a 1.x release. `get_eval` and `get_what_if` are experimental, as
-evals and what-ifs are. New optional arguments and new tools may appear.
+**apptownd's settings.** The flags below, what `apptownd -h` says each
+does, and each one's environment variable (`APPTOWN_` and the flag's name in
+capitals, `-` as `_`: `-db-url` is `APPTOWN_DB_URL`); a flag on the command
+line wins over its variable. These are what AppTown needs to start and what
+only the machine's owner decides. What an administrator changes while
+AppTown runs is set in AppTown itself, not here.
+
+`-addr`, `-data`, `-db-url`, `-auth`, `-auth-header`, `-auth-proxy-secret-env`,
+`-open-on-network`, `-trusted-proxies`, `-local-tls`, `-admins`,
+`-public-host`, `-tier-domain`, `-console-addr`, `-console-url`,
+`-console-cli`, `-inference-addr`, `-inference-url`, `-inference-networks`,
+`-worker-url`, `-worker-cert`, `-worker-key`, `-worker-ca`,
+`-no-local-docker`, `-private-docker`, `-no-private-docker`,
+`-git-import-allow-private`, `-agent-image`, `-agent-executor`,
+`-restore-gate-image`, `-task-cpus`, `-task-memory-mib`, `-task-pids`,
+`-chat-cpus`, `-chat-memory-mib`, `-chat-pids`, `-import-bundle-max-bytes`,
+`-otlp-endpoint`, `-otlp-protocol`, `-reap`, `-verify-only` and
+`-reset-password`. `-version` is promised too, on the command line only:
+`APPTOWN_VERSION` names the release the install scripts and the one-server
+compose file use, and does not make apptownd print its version.
+
+`-host-scripts` and `-agent-executor local` are experimental (see the table
+below). In the one-server compose file, `APPTOWN_DOMAIN` and
+`APPTOWN_VERSION` in `.env` are promised too.
 
 **Record identities and links.** Every record (a change, a run, a chat, a
 release, an operation) is identified by a UUID, and a link to a record uses
@@ -123,10 +140,13 @@ release; work done after the new release's first write is not in them.
   1.x release. The release notes name each change (a release is not built
   without them). Every route is described,
   marked experimental, in the OpenAPI document AppTown serves at
-  `/api/v1/openapi.json`. Build on the CLI and the MCP tools where you can.
+  `/api/v1/openapi.json`. Build on the CLI where you can.
   Some routes still use older words: a chat's routes are under `/console/` and
   `/transcript/`, and a deployment's secrets under `/secrets/{deployment}`
   rather than `/deployments/{name}`.
+- **The MCP tools** a coding agent reaches at `/mcp/user`: their names,
+  arguments, descriptions and answers may change in a 1.x release. The
+  release notes name each change.
 - **The backup-set manifest.** The file a backup set carries to describe
   itself (`flokkit.backup-set`) is AppTown's own record, not a promised
   format: restore a set with AppTown, which reads the sets it made.

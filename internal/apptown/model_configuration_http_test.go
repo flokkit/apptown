@@ -24,8 +24,9 @@ func TestModelConfigurationHTTPKeepsProfileCellsAndProjectOverridesSeparate(t *t
 			t.Fatalf("invalid binding: %d %s", w.Code, w.Body.String())
 		}
 	}
+	// Only the test AppTown's own default model is set.
 	before, err := a.Models.Cells(context.Background())
-	if err != nil || len(before) != 0 {
+	if err != nil || len(before) != 1 || len(before["default"]) != 1 {
 		t.Fatalf("rejection created cells: %+v %v", before, err)
 	}
 	for _, body := range []string{`{"slot":"chat","pattern":"default-model"}`, `{"slot":"chat","profile":"economy","pattern":"small-model"}`, `{"slot":"chat","project":"game","profile":"ignored","pattern":"project-model"}`} {
