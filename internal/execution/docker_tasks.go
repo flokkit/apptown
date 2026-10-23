@@ -298,12 +298,73 @@ func (d DockerTasks) DataDisk(ctx context.Context) (root string, space diskspace
 	if err != nil || root == "" || strings.ContainsAny(root, "\n:") {
 		return "", diskspace.Space{}, fmt.Errorf("where Docker keeps its data: %v: %s", err, strs.Truncate(root, 200))
 	}
-	out, err := d.run(ctx, diskspace.DockerDFArgs(root)...)
-	if err != nil {
-		return root, diskspace.Space{}, fmt.Errorf("reading its disk: %v: %s", err, strs.Truncate(out, 200))
-	}
-	space, err = diskspace.ParseDF([]byte(out))
+	space, err = d.probeDisk(ctx, root)
 	return root, space, err
+}
+
+// probeDisk runs the throwaway df container on root and reads its answer.
+// When it gives none that can be read, the error carries what the docker
+// call showed, so a refusal that follows explains itself: its exit code,
+// stdout and stderr apart, how long it took, and the probe container's ID
+// and state where the CLI recorded one (--cidfile). An ID not recorded is
+// not proof that none was made: a daemon can create one whose reply is
+// lost. Nothing is retried.
+func (d DockerTasks) probeDisk(ctx context.Context, root string) (diskspace.Space, error) {
+	dir, err := os.MkdirTemp("", "apptown-df-")
+	if err != nil {
+		return diskspace.Space{}, fmt.Errorf("reading its disk: a folder for the probe's container ID: %w", err)
+	}
+	defer os.RemoveAll(dir)
+	cidFile := filepath.Join(dir, "cid")
+	args := diskspace.DockerDFArgs(root)
+	cmd, err := d.command(ctx, append([]string{args[0], "--cidfile", cidFile}, args[1:]...)...)
+	if err != nil {
+		return diskspace.Space{}, fmt.Errorf("reading its disk: %w", err)
+	}
+	var stdout, stderr strings.Builder
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	now := clock.Or(d.Now)
+	start := now()
+	runErr := cmd.Run()
+	elapsed := now().Sub(start)
+	if runErr == nil {
+		space, err := diskspace.ParseDF([]byte(stdout.String()))
+		if err == nil {
+			return space, nil
+		}
+		runErr = err
+	}
+	exit := "did not start"
+	if cmd.ProcessState != nil {
+		exit = "exited " + strconv.Itoa(cmd.ProcessState.ExitCode())
+	}
+	return diskspace.Space{}, fmt.Errorf("reading its disk: %v; docker %s after %s; stdout %q; stderr %q; %s",
+		runErr, exit, elapsed.Round(time.Millisecond),
+		strs.Truncate(strings.TrimSpace(stdout.String()), 200), strs.Truncate(strings.TrimSpace(stderr.String()), 200),
+		d.probeContainer(ctx, cidFile))
+}
+
+// probeContainer says what is known of the probe container the CLI
+// recorded in cidFile: its ID and state, "removed" when Docker answers
+// there is no such container (as --rm leaves it), or that no ID was
+// recorded.
+func (d DockerTasks) probeContainer(ctx context.Context, cidFile string) string {
+	b, err := os.ReadFile(cidFile)
+	id := strings.TrimSpace(string(b))
+	switch {
+	case err != nil && !errors.Is(err, os.ErrNotExist):
+		return fmt.Sprintf("no probe container ID recorded (%v)", err)
+	case id == "":
+		return "no probe container ID recorded"
+	}
+	out, err := d.run(ctx, "inspect", "--type", "container", "--format", "{{.State.Status}} {{.State.ExitCode}}", id)
+	switch {
+	case err == nil:
+		return "probe container " + id + ": " + strs.Truncate(out, 200)
+	case noSuchContainer(out):
+		return "probe container " + id + ": removed"
+	}
+	return fmt.Sprintf("probe container %s: state unknown: %v: %s", id, err, strs.Truncate(out, 200))
 }
 
 // Start starts a task that has never run. Starting one that runs or has run

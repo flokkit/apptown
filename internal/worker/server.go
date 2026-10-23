@@ -759,7 +759,13 @@ func (s *Server) admitNew(ctx context.Context) error {
 	}
 	if d, ok := s.Tasks.(dataDisk); ok {
 		root, space, err := d.DataDisk(ctx)
-		return diskspace.Admit("the worker's Docker data folder ("+root+")", space, err)
+		refusal := diskspace.Admit("the worker's Docker data folder ("+root+")", space, err)
+		if refusal != nil {
+			// The refusal goes to the caller; the log keeps it here too,
+			// with what the disk read showed, should the caller's copy be lost.
+			log.Printf("worker: refusing new work: %v", refusal)
+		}
+		return refusal
 	}
 	return nil
 }
