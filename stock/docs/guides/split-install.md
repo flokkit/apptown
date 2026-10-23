@@ -24,7 +24,7 @@ on AppTown's machine, such as project chats and the apps on the built-in
 Docker host. The full list is in "Workers and running without local Docker" below.
 
 A split install starts with the steps in [Setting up a
-server](/docs/guides/server-setup), with the differences given in each; this
+server](server-setup.md), with the differences given in each; this
 page then says what to add, in order.
 
 **Moving a single server to a split install later** means moving the
@@ -47,7 +47,7 @@ default, and each landing's release images are built there. A step the worker ca
 not moved back to AppTown. Previews on a worker need a preview domain
 (`-tier-domain preview=<domain>`), and release builds need `-private-docker`
 and a container registry for each project (see the [package
-registries](/docs/registry/registry) Admin tab).
+registries](../integrations/registry-registry.admin.md) Admin tab).
 
 A worker does not take all project work off AppTown's host. These still
 run there: project chats, chats that continue a step's agent, change chats
@@ -71,7 +71,7 @@ the split install.
    `-db-url`.
 2. **The worker.** A machine with Docker, running `apptown-worker` as root.
    Unpack the same release archive to `/opt/apptown-worker` ([downloading a
-   release](/docs/guides/server-setup)); its example unit is
+   release](server-setup.md)); its example unit is
    `deploy/systemd/apptown-worker.service`.
    You issue its server certificate and AppTown's client certificate; the
    client certificate's Common Name is the worker's `-installation`. On a
@@ -79,15 +79,15 @@ the split install.
 3. **AppTown.** Start `apptownd` with `-no-local-docker`, `-db-url`,
    `-worker-url`, `-worker-cert`, `-worker-key` and `-worker-ca`, the
    addresses from "Configure model access" in [Setting up a
-   server](/docs/guides/server-setup), a preview domain
+   server](server-setup.md), a preview domain
    (`-tier-domain preview=<domain>`) and `-private-docker`, so that
    release images can be built on the worker.
 4. **An app host.** Attach a Docker host and offer it to the projects that
-   may use it ([Deployment targets](/docs/guides/deployment-targets)). A project's first landing
+   may use it ([Deployment targets](deployment-targets.md)). A project's first landing
    creates its `main` deployment there.
 5. **A registry for each project.** Each landing publishes its images to
    the project's container registry, and the Docker host pulls them from
-   there (see the [package registries](/docs/registry/registry) Admin tab).
+   there (see the [package registries](../integrations/registry-registry.admin.md) Admin tab).
 
 The full procedure, with the API calls, is in the repository at
 `design/operations/workers.md`, "Running an AppTown without a local Docker
@@ -117,6 +117,6 @@ On a cloud host, a container can reach the provider's metadata service
 `design/operations/workers.md`) and check it with
 `apptown-worker -check-metadata`.
 
-What runs where is in [How AppTown works](/docs/guides/architecture).
+What runs where is in [How AppTown works](architecture.md).
 Certificates, limits and each kind of work on a worker are in the
 repository at `design/operations/workers.md`.

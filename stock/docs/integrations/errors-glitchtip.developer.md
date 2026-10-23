@@ -20,7 +20,7 @@ under Settings › Services opens it for you with **Wire it in →**.
 - `SENTRY_DSN` in your app's public part on a Docker
   host, in previews and deployments alike. Nothing to configure, nothing
   in the repo. Other parts, and deployments on Portainer or App Platform,
-  do not receive them; [the app contract](/docs/guides/contract-reference)
+  do not receive them; [the app contract](../guides/contract-reference.md)
   says where each value arrives.
 - The same DSN in the environment of implementation-step agents, so the
   agent wiring it in can fire the test hook and check the provider

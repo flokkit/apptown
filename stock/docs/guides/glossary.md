@@ -112,7 +112,7 @@ commit, and the image digest it shipped.
 **Runtime contract** — the file `.apptown/app.yaml`: `app:`, the app's own
 containers, each `build:`/`image:`/`static:`, one `public: true`; and
 `needs:`, the services (postgres, s3, …) provided per deployment. No
-contract, no deploy. [The app contract](/docs/guides/contract-reference)
+contract, no deploy. [The app contract](contract-reference.md)
 says what it promises.
 
 **Capacity** — how full a deployment target is. A fixed host shows what it can
@@ -308,6 +308,6 @@ contributor.
 Members**). Nothing is implied: a power nobody was granted, nobody holds.
 A new AppTown grants every signed-in person the Auditor role, which reads
 everything; revoking that grant makes each project readable by its members
-only ([People, invites, roles and grants](/docs/guides/people-and-roles)).
+only ([People, invites, roles and grants](people-and-roles.md)).
 
 **Member (project)** — a person or group granted a role on a project.

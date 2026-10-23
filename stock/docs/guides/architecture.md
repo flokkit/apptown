@@ -199,7 +199,7 @@ end — no matter which door the work came through. The third door is not a
 looser one: an outside agent cannot approve, administer or write `main`.
 It can do the work and ask for a landing; a person approves it.
 
-See [Connect a coding agent](/docs/guides/connect-a-coding-agent) for the setup.
+See [Connect a coding agent](connect-a-coding-agent.md) for the setup.
 
 ## Anatomy of a chat turn
 
@@ -268,7 +268,7 @@ Three lanes, nothing else:
   contract) — visible to both, owned by whoever wrote it.
 - **Git**: the branch is the durable handoff. Work travels as commits: a
   landing takes what is committed and published to the branch, never
-  uncommitted files ([How changes reach main](/docs/guides/changes-and-main)),
+  uncommitted files ([How changes reach main](changes-and-main.md)),
   so the gates run on exactly what will merge; step commits carry run
   trailers. The history reads as an attributed conversation between
   the two surfaces.
@@ -314,7 +314,7 @@ Step types, by what gates them:
 | `preview` / boot gate | the app cold-boots from the workspace | it came up and looks like an app |
 | `guidance/conformance` | the project's guidance checks run against the committed tree | every gating check passed |
 | `artifact/require` | a required document exists | it is attached to the run |
-| `reconcile` | the branch already contains main; it changes neither branch ([How changes reach main](/docs/guides/changes-and-main)) | contains main, and the candidate is pinned |
+| `reconcile` | the branch already contains main; it changes neither branch ([How changes reach main](changes-and-main.md)) | contains main, and the candidate is pinned |
 | `scm/merged` | the landing merge | merged clean — or blocked with the reason in plain words |
 | `policy/current` | law re-checked at merge time | today's rules still allow this landing |
 
@@ -390,7 +390,7 @@ Consequences, each deliberate:
 
 ## Step execution: what a step container sees
 
-The [runtime environment guide](/docs/guides/runtime-environments) compares
+The [runtime environment guide](runtime-environments.md) compares
 chat and step capabilities, including toolchains, private Docker, services,
 credential grants and persistence. These depend on the task and executor;
 the presence of a CLI alone does not imply access to its service.
@@ -477,7 +477,7 @@ flowchart LR
 
 ## From code to running app
 
-Every app carries [the app contract](/docs/guides/contract-reference),
+Every app carries [the app contract](contract-reference.md),
 `.apptown/app.yaml`: `app:` (the containers the app is, one marked
 `public: true`) and `needs:` (the services it uses). Each part declares
 one of `build`, `image` or `static`. AppTown never writes packaging: it
@@ -527,7 +527,7 @@ flowchart LR
   recorded images. A release built on a Docker host without digests is
   rebuilt from its recorded commit's inputs, not today's source, so it
   needs its build inputs (base images, package registries) to be
-  reachable; [AppTown's own backups](/docs/guides/apptown-backups) says what
+  reachable; [AppTown's own backups](apptown-backups.md) says what
   comes back by itself.
 
 Previews favour freshness (the folder, rebuilt as it changes); releases
@@ -572,7 +572,7 @@ project stops its new work at once, takes each of its deployments down
 this way, `main` last, and stops, naming the deployment, if one is
 refused. The deleted project is then kept, read-only, with its backups,
 for 30 days, and can be restored until its purge starts. See
-[how long things run](/docs/guides/container-lifecycle) for the practical
+[how long things run](container-lifecycle.md) for the practical
 side.
 
 ## Keeping the estate in line
@@ -605,7 +605,7 @@ back channel for compliance. And the estate is judged as it actually runs, not
 only as it is written: a runtime check probes the deployed app through the same
 front door its users come through.
 
-See [Conformance](/docs/guides/conformance) for what the page shows and how to
+See [Conformance](conformance.md) for what the page shows and how to
 bring a project back.
 
 ## What is written down, where

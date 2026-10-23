@@ -25,7 +25,7 @@ default).
   "the cop ran on the security tier" is checkable, not folklore.
 - No step or chat holds a provider key: they reach models through
   AppTown's inference gateway with a token of their own, and the keys stay
-  with AppTown ([What chats and steps can use](/docs/guides/runtime-environments)).
+  with AppTown ([What chats and steps can use](../guides/runtime-environments.md)).
 - The project chat runs the `chat` slot (falling back to default);
   delegates it spawns run `worker` and `scout`. Paid models are
   available there when bound.

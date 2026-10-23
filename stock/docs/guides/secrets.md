@@ -35,7 +35,7 @@ secrets = ["SECRET_KEY_BASE"]
 - A **profile** is a set of expectations. `default` is the baseline;
   other profiles inherit it and change what they need to. Each deployment
   and each preview uses one profile, the same one `app.yaml`'s profiles use
-  ([Resources and profiles](/docs/guides/contract-reference)): the one chosen
+  ([Resources and profiles](contract-reference.md)): the one chosen
   for it, else `preview` for a preview when either file declares it, else
   `default`. When this file does not declare that profile it uses its own
   `default`, or, if it has none, its first profile in name order.
@@ -137,7 +137,7 @@ believes it is at the production address, so links it makes point at the
 real app. An app that sends mail or calls other services on a schedule
 should give those settings stand-in values in its `rehearsal` profile and
 send nothing while it has them. This matters most when a rehearsal runs
-on the app's own host, beside the running app (see [Deployment backups](/docs/guides/deployment-backups),
+on the app's own host, beside the running app (see [Deployment backups](deployment-backups.md),
 "Where restore rehearsals run").
 
 A restore test, which starts production's release from a backup on

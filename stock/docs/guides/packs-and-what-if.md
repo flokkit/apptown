@@ -83,4 +83,4 @@ chooses its workflows.
   people who manage packs.
 
 How projects measure up against what they adopted is in
-[Conformance](/docs/guides/conformance).
+[Conformance](conformance.md).

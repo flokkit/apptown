@@ -17,11 +17,11 @@ needs:
   redis: { version: "7" }
 ```
 
-The catalog includes Postgres, MariaDB (see the [WordPress guide](/docs/guides/wordpress)), Redis, S3-compatible object storage (locally, the [Versity S3 Gateway](https://github.com/versity/versitygw) keeping each bucket as a folder of plain files), and AI models (`llm`). AI models are not run by AppTown: each deployment and each preview gets its own OpenRouter key with a spending limit, once the project has AI models attached; see the [AI models guide](/docs/llm/openrouter). Each target fulfils a declared need using its available provider and gives the app the variables below. A target that cannot fulfil a need refuses the release before anything is made, in a sentence; see [Previews and deployments](/docs/guides/container-lifecycle) for what each target runs.
+The catalog includes Postgres, MariaDB (see the [WordPress guide](wordpress.md)), Redis, S3-compatible object storage (locally, the [Versity S3 Gateway](https://github.com/versity/versitygw) keeping each bucket as a folder of plain files), and AI models (`llm`). AI models are not run by AppTown: each deployment and each preview gets its own OpenRouter key with a spending limit, once the project has AI models attached; see the [AI models guide](../integrations/llm-openrouter.admin.md). Each target fulfils a declared need using its available provider and gives the app the variables below. A target that cannot fulfil a need refuses the release before anything is made, in a sentence; see [Previews and deployments](container-lifecycle.md) for what each target runs.
 
 A need is fulfilled either by the deployment's target (postgres runs beside the app on a Docker host; App Platform makes a managed database) or through an integration: `llm` is a need the app declares, fulfilled through the attached OpenRouter integration, and each deployment and each preview gets its own key and spending limit. The app reads the same variables either way.
 
-Error reporting and other integrations are not needs: they are attached to the project under **Settings › Services › Connected to**, the app is given their variables while they are attached (where they arrive, by target and part, is in [the app contract](/docs/guides/contract-reference)), and it must run without them. Declaring one under `needs:` is refused.
+Error reporting and other integrations are not needs: they are attached to the project under **Settings › Services › Connected to**, the app is given their variables while they are attached (where they arrive, by target and part, is in [the app contract](contract-reference.md)), and it must run without them. Declaring one under `needs:` is refused.
 
 A need declared without a `version` gets its default, which stays the same in every 1.x release:
 
@@ -38,7 +38,7 @@ Write `version:` to choose another. On a Docker host, a standing deployment whos
 Each need has one contract, the same on every target that fulfils it and in a preview. The rules for every need:
 
 - **Read what you are given.** Every connection value comes from these variables. Never hard-code a host, name or credential, and never set a need's credential: a `password` under `needs:` is refused. Values differ between targets and may change between releases.
-- **Another name for a value:** an image that expects its own names (`WORDPRESS_DB_HOST`) can be given one in `environment`, as `${needs.<need>.<VARIABLE>}` with a variable from the table below (version-2 contracts; see [the app contract](/docs/guides/contract-reference)). The variable keeps its own name as well.
+- **Another name for a value:** an image that expects its own names (`WORDPRESS_DB_HOST`) can be given one in `environment`, as `${needs.<need>.<VARIABLE>}` with a variable from the table below (version-2 contracts; see [the app contract](contract-reference.md)). The variable keeps its own name as well.
 - **The credential reaches only this deployment's own database, bucket or store.**
 - **It exists before the app's first init step starts**, ready for that credential. The app never creates its database or bucket.
 - **A preview gets its own, empty**, never the deployment's data or credentials.
@@ -60,13 +60,13 @@ Object storage on a Docker host, on Portainer and in a preview: the store makes 
 
 Object storage on App Platform: the deployment gets a DigitalOcean Spaces bucket of its own, named `apptown-<project>-<deployment>-<random>`, made before the app starts, in the target's region (`syd1` for `syd`), and a Spaces key for that bucket alone. The key's secret is kept in AppTown's secret store and given to the app as an App Platform secret. AppTown copies the bucket's objects with the deployment's other data, from the target's copy runner into the backup store, and checks each copy by filling a new store with it; a restore test, a rehearsal and a start from a copy fill a new bucket from it. Taking the deployment down copies and checks the bucket first and then deletes it and its key; a take-down without a final copy deletes the key and keeps the bucket, listed under retained resources until a person deletes or keeps it (an evaluation's synthetic data is deleted with it). The key can make an object public with a `public-read` ACL, which publishes it at Spaces' address; that is outside the contract, so do not.
 
-For a container outside the catalog, declare an `app:` part with `image:`. That part belongs to the app, like its code; it is different from a catalog need, and you change it through a change like any other source. The Services page edits `needs:` only and leaves every `app:` part as written. Credentials are declared separately, in `secretspec.toml` ([Secrets](/docs/guides/secrets)); every file AppTown reads is listed in [the app contract](/docs/guides/contract-reference).
+For a container outside the catalog, declare an `app:` part with `image:`. That part belongs to the app, like its code; it is different from a catalog need, and you change it through a change like any other source. The Services page edits `needs:` only and leaves every `app:` part as written. Credentials are declared separately, in `secretspec.toml` ([Secrets](secrets.md)); every file AppTown reads is listed in [the app contract](contract-reference.md).
 
 In the project UI, **Settings › Services › Runs against** shows the declared catalog needs. Adding or changing one saves a Change that updates `.apptown/app.yaml`; review and preview that Change before landing it. The Change touches only the needs you changed: a need you left alone keeps its entry as written. If the app's services change on `main` while you are editing, the save is refused and the page shows what changed, so you can keep your edits on top or discard them. **Connected to** lists integrations, such as error reporting, which are attached in AppTown rather than declared as app dependencies. At project creation, choosing a pack can preselect services from the same catalog; you can adjust that selection, and it is written as the new project's first commit. The pack's starter files and its suggested services are independent, so check that the resulting app boots with the services it actually uses.
 
 ## Initialization and data
 
-Put a migration, or any command that must finish before the app starts, in `init:`. When init steps run, in what order, and what waits for them differs by target: see "Startup order" in [the app contract](/docs/guides/contract-reference). Init steps run for previews and deployments alike, so put there only what is right for both.
+Put a migration, or any command that must finish before the app starts, in `init:`. When init steps run, in what order, and what waits for them differs by target: see "Startup order" in [the app contract](contract-reference.md). Init steps run for previews and deployments alike, so put there only what is right for both.
 
 A preview's services start empty and are thrown away; a deployment keeps its own. A preview is not a copy of production data.
 
@@ -74,7 +74,7 @@ A preview's services start empty and are thrown away; a deployment keeps its own
 
 One table for what a deployment runs and keeps. A deployment owns what it
 creates: taking it down deletes everything rebuildable, and its data is kept or
-deleted by an explicit choice ([Previews and deployments](/docs/guides/container-lifecycle)).
+deleted by an explicit choice ([Previews and deployments](container-lifecycle.md)).
 
 | Resource | Created by | Owned by | Sized by | Backed up | Deleted when |
 | --- | --- | --- | --- | --- | --- |
@@ -94,7 +94,7 @@ on.
 
 AppTown backs up each need that keeps data the way its catalogue entry
 declares, on a Docker host and on Portainer
-([Backups and restore](/docs/guides/container-lifecycle) says what each
+([Backups and restore](container-lifecycle.md) says what each
 target gets):
 
 | Need | Backup | Restore |

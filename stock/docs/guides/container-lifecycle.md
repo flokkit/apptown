@@ -5,7 +5,7 @@ A **preview** is a temporary copy of your app, booted to try a change. A
 target: `main`, fed by every landing, and any others the project adds. This
 guide covers where each runs, how long it lasts, taking a deployment down,
 and backups. The containers behind chats and workflow steps have their own
-rules, in [What chats and steps can use](/docs/guides/runtime-environments).
+rules, in [What chats and steps can use](runtime-environments.md).
 
 ## Previews
 
@@ -27,7 +27,7 @@ its snapshot for thirty days after the last look, so booting it again is
 quick. Either way, **Try it** boots it again from the contract.
 
 A preview's services and data are disposable. It is not a copy of
-production data; see [Services and data](/docs/guides/services-and-data).
+production data; see [Services and data](services-and-data.md).
 
 ## Deployments
 
@@ -70,7 +70,7 @@ A bucket website takes an app with exactly one public `static` part, no
 `init` steps and no `needs`; anything else is refused, with the reason.
 Each such deployment owns one bucket AppTown creates. Don't keep anything
 else in it: taking the deployment down deletes it. A bucket website has no custom domain. See
-[the app contract](/docs/guides/contract-reference) for declaring a static
+[the app contract](contract-reference.md) for declaring a static
 site.
 
 **Where the release is built.** On an AppTown with a worker, a landing builds
@@ -120,9 +120,9 @@ never deleted. An administrator can purge sooner.
 
 AppTown backs up a deployment's data: its public part's `dataDir` and each
 need that keeps data. How each need is copied, and what its copy leaves out,
-is in [Services and data](/docs/guides/services-and-data). Setting up a
+is in [Services and data](services-and-data.md). Setting up a
 backup store and a copy runner is in
-[Deployment backups](/docs/guides/deployment-backups).
+[Deployment backups](deployment-backups.md).
 
 | Target | What is copied |
 | --- | --- |

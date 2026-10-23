@@ -6,16 +6,20 @@ import { describe, expect, it } from 'vitest'
 import appSource from './App.tsx?raw'
 import { renderMd } from './md'
 import { fillLiveLinks } from './liveLinks'
+import { routeDocLinks } from './docRoutes'
 import type { DocLinks } from './wire.gen'
 
 // The Docs page renders each shipped doc with renderMd at
-// /docs/guides/<slug> or /docs/<capability>/<provider>, and a link in it is a
-// plain <a href> the browser resolves against that page's address. So a link
-// written for the repository ("toolchains.md", "../../../design/...")
-// resolves to a page the product does not serve, and a heading anchor
-// points nowhere: the rendered headings have no ids. This test renders every
-// shipped doc the way the page does and checks each rendered link: a web
-// address, a shipped doc's route, or a route the app defines (App.tsx).
+// /docs/guides/<slug> or /docs/<capability>/<provider>, and points a link to
+// another shipped doc's file ("toolchains.md") at that doc's route
+// (docRoutes.ts). Any other link is a plain <a href> the browser resolves
+// against the page's address: a link to a file that is not a shipped doc
+// ("../../../design/...") resolves to a page the product does not serve, and
+// a heading anchor points nowhere: the rendered headings have no ids. This
+// test renders every shipped doc the way the page does and checks each
+// rendered link: a web address, a shipped doc's route, or a route the app
+// defines (App.tsx). That the link also works on GitHub is
+// scripts/docs-links.py's (make check-docs).
 
 // Every shipped doc, as the binary embeds them (stock/embed.go:
 // docs/guides/*.md and docs/integrations/*.md). Read from disk: the docs
@@ -33,6 +37,7 @@ for (const dir of ['guides', 'integrations']) {
 // leaves this list with that change.
 const knownBroken: Record<string, string> = {}
 
+// file is the doc's path under stock/docs, as the page passes it to MdDoc.
 type Doc = { file: string; route: string; body: string }
 
 function shippedDocs(): Doc[] {
@@ -68,6 +73,7 @@ const liveLinks: DocLinks = {
 // are served without AppTown's addresses).
 function linkProblems(doc: Doc, served: Set<string>): string[] {
   const html = new DOMParser().parseFromString(renderMd(doc.body), 'text/html')
+  routeDocLinks(html.body, doc.file)
   if (doc.route.startsWith('/docs/guides/')) fillLiveLinks(html.body, liveLinks)
   const problems: string[] = []
   for (const m of (html.body.textContent ?? '').matchAll(/\{apptown:[^}]*\}/g)) {
@@ -112,12 +118,14 @@ describe('shipped docs', () => {
   // The check reads links as the renderer makes them: valid Markdown forms
   // pass, broken ones in any form fail, and code is not a link.
   it('reads links the way the renderer does', () => {
-    const page = (body: string) => linkProblems({ file: 'probe.md', route: '/docs/guides/probe', body }, served)
+    const page = (body: string) => linkProblems({ file: 'guides/probe.md', route: '/docs/guides/probe', body }, served)
     expect(page('[a](/docs/guides/quickstart) [b](</docs/guides/quickstart>) [c](/docs/guides/quickstart?from=x) [d](quickstart)')).toEqual([])
+    expect(page('[j](toolchains.md) [n](<toolchains.md>) [o](./toolchains.md) [p](../integrations/registry-registry.admin.md)')).toEqual([])
     expect(page('[e](https://example.com/x.md) [f](/projects/demo) [g](/docs/llm/openrouter)')).toEqual([])
     expect(page('`[h](relative.md)`\n\n```\n[i](relative.md)\n```')).toEqual([])
     expect(page('[Missing][t]\n\n[t]: /docs/guides/does-not-exist')).toHaveLength(1)
-    expect(page('[j](toolchains.md)')).toHaveLength(1)
+    expect(page('[q](no-such-guide.md)')).toHaveLength(1)
+    expect(page('[r](quickstart.md#make-something)')).toHaveLength(1)
     expect(page('[k](/docs/guides/quickstart#make-something)')).toHaveLength(1)
     expect(page('[l](../../../design/subsystems/x.md)')).toHaveLength(1)
     expect(page('[m](/no-such-product-page)')).toHaveLength(1)
@@ -126,7 +134,7 @@ describe('shipped docs', () => {
   // Live links are filled before links are checked; a name AppTown does
   // not fill is a problem wherever it appears, and integration docs get none.
   it('reject live links AppTown does not fill', () => {
-    const page = (body: string, route = '/docs/guides/probe') => linkProblems({ file: 'probe.md', route, body }, served)
+    const page = (body: string, route = '/docs/guides/probe') => linkProblems({ file: 'guides/probe.md', route, body }, served)
     expect(page('Connect at {apptown:mcp}; `APPTOWN_URL={apptown:origin}`\n\n```\ngit clone {apptown:git}/demo\n```')).toEqual([])
     expect(page('Connect at {apptown:mpc}')).toHaveLength(1)
     expect(page('`{apptown:url}`')).toHaveLength(1)

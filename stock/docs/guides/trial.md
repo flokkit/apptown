@@ -1,7 +1,7 @@
 # The desktop trial
 
 `curl -fsSL https://apptown.dev/try | sh` starts AppTown on your own computer
-([Running AppTown](/docs/guides/running-apptown)); the script is in the
+([Running AppTown](running-apptown.md)); the script is in the
 repository's `site/try.sh`, to read before running. `sh -s -- stop` stops it
 with its data kept, and `sh -s -- uninstall` removes the container, its data,
 its image and, on macOS, the trust in its certificate.

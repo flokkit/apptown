@@ -18,7 +18,7 @@ version of the directory's own layout (a build refuses a directory written by
 a newer one, by name, rather than misread it). Back that
 directory up as well, for example with the host's file-system snapshots.
 The live data of deployments on the built-in Docker host is not in it: it is
-in Docker volumes, covered by [Deployment backups](/docs/guides/deployment-backups).
+in Docker volumes, covered by [Deployment backups](deployment-backups.md).
 
 **AppTown's own id.** Every AppTown has a UUID, the instance setting
 `forge.id`, written once at its first start and never changed. It names this
@@ -27,7 +27,7 @@ the database, so an AppTown restored from a dump keeps it; a copy restored
 alongside the original has the same id, so run only one of them.
 
 **Restoring the database.** This replaces the current database. If it is
-still readable, back it up first ([Upgrading](/docs/guides/upgrading), step 2). Stop `apptownd`, then, with
+still readable, back it up first ([Upgrading](upgrading.md), step 2). Stop `apptownd`, then, with
 `<db>` being the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made before 1.0, which keeps that name. `<name>` is the database at the end of `APPTOWN_DB_URL` in the same file: `apptown`, or `forge` on an install made before 1.0:
 
 ```sh
@@ -73,7 +73,7 @@ So, before stopping `apptownd` on the old host, for each such deployment:
    not there is named as not started.
 
 What each need's copy carries over, and what it leaves out, is in
-[Services and data](/docs/guides/services-and-data); the `dataDir` volume of
+[Services and data](services-and-data.md); the `dataDir` volume of
 the public part is copied whole and put back.
 
 Keep the old host until each restore has succeeded. Deployments on
@@ -139,7 +139,7 @@ bundle>}`. Any other bundle, even one at the same revision, is refused: landing
 deploys it.
 Deployments on attached hosts, Portainer, App Platform and
 bucket websites stay where they are. Their data comes back through deployment
-backups ([Deployment backups](/docs/guides/deployment-backups)), not by itself.
+backups ([Deployment backups](deployment-backups.md)), not by itself.
 
 **A rehearsal is cut off from the outside.** A restored AppTown holds the
 credentials of everything it manages: upstream Git, cloud accounts, attached

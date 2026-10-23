@@ -1,9 +1,9 @@
 # Running AppTown
 
 This page is for the person who installs and looks after AppTown. Building
-apps on it is in [Start here](/docs/guides/quickstart); how the parts fit
-together is in [How AppTown works](/docs/guides/architecture); what it runs
-on is in [Supported platforms and system requirements](/docs/guides/platforms).
+apps on it is in [Start here](quickstart.md); how the parts fit
+together is in [How AppTown works](architecture.md); what it runs
+on is in [Supported platforms and system requirements](platforms.md).
 
 `apptownd -h` lists every start-up flag. Each flag can also be set as an
 environment variable: `-db-url` is `APPTOWN_DB_URL`, `-tier-domain` is
@@ -31,7 +31,7 @@ apps at `https://…localhost:7777` addresses from its own certificate
 authority; on macOS the script explains this and asks before trusting it, and
 on Linux it links the steps. `sh -s -- stop` stops it with its data kept;
 `sh -s -- uninstall` removes it, its data and the trust. Details: [The desktop
-trial](/docs/guides/trial).
+trial](trial.md).
 
 ### 2. One server
 
@@ -42,7 +42,7 @@ much as the machine.
 You need:
 
 - A Linux machine with at least 4 CPUs and 8 GB of memory (16 GB is
-  better; [Supported platforms](/docs/guides/platforms) has the sizes). On
+  better; [Supported platforms](platforms.md) has the sizes). On
   a smaller machine AppTown still runs, and each step gets at most the
   CPUs the machine has, so work is slower.
 - Docker with Compose 2.23 or later. On a fresh server, Docker's own
@@ -73,22 +73,22 @@ You need:
    Anthropic or OpenRouter key on the Home page. Until a key is added,
    AppTown refuses work that needs a model and says where to add one.
    Without a browser: First administrator without a browser in [Setting
-   up a server](/docs/guides/server-setup).
+   up a server](server-setup.md).
 
 The compose file runs AppTown with Caddy in front, which gets each HTTPS
 certificate itself. To run `apptownd` under systemd from the release
 archive instead, or behind a proxy you already have, see [Setting up a
-server](/docs/guides/server-setup), which also says what one server does and
+server](server-setup.md), which also says what one server does and
 does not protect.
 To check that the image and archives you download are the ones we released,
-see Check a release in [Setting up a server](/docs/guides/server-setup).
+see Check a release in [Setting up a server](server-setup.md).
 
 ### 3. Split install
 
 AppTown on its own machine, agents on a worker, apps on separate Docker
 hosts or a cloud, and a PostgreSQL you provide. The agents' code and your
 apps don't run where AppTown keeps its records. It takes more setup:
-[Split install](/docs/guides/split-install).
+[Split install](split-install.md).
 
 ### Which one
 
@@ -97,18 +97,18 @@ they differ in which machines run your projects' code. Start with one server if 
 everyone who writes projects. Use a split install if a misbehaving agent or
 app must not reach AppTown's records, or once other people depend on the
 apps. Choose before the first project if you can: moving later is in [Split
-install](/docs/guides/split-install).
+install](split-install.md).
 
 ## Looking after it
 
-- [Deployment targets](/docs/guides/deployment-targets): where apps run, how
+- [Deployment targets](deployment-targets.md): where apps run, how
   full each target is, disk space, logs and diagnostics.
-- [People, invites, roles and grants](/docs/guides/people-and-roles).
-- [AppTown's own backups](/docs/guides/apptown-backups): its database and
+- [People, invites, roles and grants](people-and-roles.md).
+- [AppTown's own backups](apptown-backups.md): its database and
   data directory, restoring, moving and recovering AppTown.
-- [Deployment backups](/docs/guides/deployment-backups): where apps' backups
+- [Deployment backups](deployment-backups.md): where apps' backups
   are kept, and App Platform databases.
-- [Upgrading](/docs/guides/upgrading), rolling back, and which versions work
+- [Upgrading](upgrading.md), rolling back, and which versions work
   together.
-- [Packs, versions and what-if](/docs/guides/packs-and-what-if).
-- [Monitoring and integrations](/docs/guides/monitoring).
+- [Packs, versions and what-if](packs-and-what-if.md).
+- [Monitoring and integrations](monitoring.md).

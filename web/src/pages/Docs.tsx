@@ -8,21 +8,25 @@ import { ReadStatus, StaleNote } from '../ReadGate'
 import type { DocGuide, DocLinks, DocsIndex, IntegrationDocs } from '../wire.gen'
 import { useDarkTheme } from '../theme'
 import { fillLiveLinks } from '../liveLinks'
+import { routeDocLinks } from '../docRoutes'
 
 // Shipped documentation: guides plus the per-integration admin/developer
 // documents. Everything renders from markdown embedded in the apptownd binary,
 // so docs version with the release.
 
-// MdDoc renders markdown, fills a guide's live links with this AppTown's own
-// addresses (liveLinks.ts), and then draws any ```mermaid fences as
+// MdDoc renders markdown, points its links to other shipped docs (written as
+// their files, for GitHub) at their routes here (docRoutes.ts; file is the
+// doc's path under stock/docs), fills a guide's live links with this
+// AppTown's own addresses (liveLinks.ts), and then draws any ```mermaid fences as
 // diagrams, in the page's own theme (redrawn when a person switches it).
-export function MdDoc({ content, links }: { content: string; links?: DocLinks }) {
+export function MdDoc({ content, file, links }: { content: string; file: string; links?: DocLinks }) {
   const ref = useRef<HTMLDivElement>(null)
   const dark = useDarkTheme()
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.innerHTML = renderMd(content)
+    routeDocLinks(el, file)
     if (links) fillLiveLinks(el, links)
     el.querySelectorAll('code.language-mermaid').forEach((code) => {
       const holder = document.createElement('pre')
@@ -36,7 +40,7 @@ export function MdDoc({ content, links }: { content: string; links?: DocLinks })
       mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'neutral', securityLevel: 'strict' })
       mermaid.run({ nodes }).catch(() => { /* a broken diagram shows its own error box */ })
     }
-  }, [content, links, dark])
+  }, [content, file, links, dark])
   return <div className="md-doc" ref={ref} />
 }
 
@@ -124,7 +128,7 @@ function GuideDoc({ slug }: { slug: string }) {
   if (!data) return <ReadStatus q={q} what="this guide" />
   return <>
     <StaleNote q={q} />
-    <MdDoc content={data.content} links={data.links} />
+    <MdDoc content={data.content} file={`guides/${slug}.md`} links={data.links} />
   </>
 }
 
@@ -140,7 +144,7 @@ function IntegrationDoc({ capability, provider }: { capability: string; provider
         <button className={'tab' + (tab === 'developer' ? ' active' : '')} onClick={() => setTab('developer')}>Developer</button>
         <button className={'tab' + (tab === 'admin' ? ' active' : '')} onClick={() => setTab('admin')}>Admin</button>
       </div>
-      <MdDoc content={tab === 'admin' ? docs.admin : docs.developer} />
+      <MdDoc content={tab === 'admin' ? docs.admin : docs.developer} file={`integrations/${capability}-${provider}.${tab}.md`} />
     </div>
   )
 }

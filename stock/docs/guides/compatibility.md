@@ -7,7 +7,7 @@ Anything this page does not list is not promised.
 
 ## Stable through 1.x
 
-**Your app's contract.** Everything [the app contract](/docs/guides/contract-reference)
+**Your app's contract.** Everything [the app contract](contract-reference.md)
 promises: `.apptown/app.yaml` with `version: 2`, and version 1 (or no
 version) read as version 1 always has been, what a build sees, the
 environment, the startup order, the front door and health, target by target
@@ -44,7 +44,7 @@ else in the contract will change that way:
 
 **What each need gives your app.** The variables each catalogue need gives an
 app, what they mean, and what the app may rely on, as
-[What each need gives the app](/docs/guides/services-and-data) lists them. A
+[What each need gives the app](services-and-data.md) lists them. A
 target may learn to fulfil a need it refuses today; a need's variables and
 their meaning do not change. A need declared without a `version` gets the
 default its catalogue entry has in 1.0 (PostgreSQL 16, MariaDB 11.4.13,
@@ -54,7 +54,7 @@ not ask for. Write `version:` to choose another.
 
 **Your ways of working.** Workflows (`apiVersion: apptown.dev/v1`), packs,
 policies, guidance blocks and their checks, in the shapes the
-[formats guide](/docs/guides/ways-of-working-formats) gives. A version you saved is read
+[formats guide](ways-of-working-formats.md) gives. A version you saved is read
 as it was saved: a pack version keeps the blocks, workflows and policy
 definitions it pinned; a run keeps the workflow version it was admitted under.
 
@@ -75,7 +75,7 @@ definitions it pinned; a run keeps the workflow version it was admitted under.
 Portainer, an experimental target: they are experimental too.
 
 Each of these commands except `executing` takes `--json`: it prints one JSON
-document whose field names [The command line's JSON](/docs/guides/cli-json)
+document whose field names [The command line's JSON](cli-json.md)
 lists, never follows or asks, and keeps the exit codes above. Those fields are stable; a field may be
 added. A field whose values the guide lists (a state, an outcome) may gain
 values: a script treats one it does not know as "look at the change". What a
@@ -121,7 +121,7 @@ Portainer stacks, Docker labels, App Platform apps, buckets) is not promised:
 find them through AppTown, not by their names.
 
 **Which versions work together.** Two protocol numbers decide it, as
-the "Versions" section of [Upgrading](/docs/guides/upgrading)
+the "Versions" section of [Upgrading](upgrading.md)
 explains: AppTown refuses a CLI, and a worker refuses an AppTown, outside the
 supported range, with a sentence naming both sides and what to install. A
 worker keeps serving the previous protocol for one release, so a worker can be
@@ -129,7 +129,7 @@ upgraded first.
 
 **Your data across upgrades.** Every 1.x release upgrades the database and data
 directory of the previous 1.x release in place, through the upgrade that
-[Upgrading](/docs/guides/upgrading) describes. The way back is the database dump and
+[Upgrading](upgrading.md) describes. The way back is the database dump and
 the data-directory copy taken before the upgrade, restored with the previous
 release; work done after the new release's first write is not in them.
 
@@ -151,7 +151,7 @@ release; work done after the new release's first write is not in them.
   itself (`flokkit.backup-set`) is AppTown's own record, not a promised
   format: restore a set with AppTown, which reads the sets it made.
 - **Approvals given in advance** (an approval's `inAdvance`), as the
-  [formats guide](/docs/guides/ways-of-working-formats) says.
+  [formats guide](ways-of-working-formats.md) says.
 - **Anything a guide marks experimental**, and the stock content listed under
   "Stock content in 1.0" below as Experimental.
 - **Commands outside the core loop.** `apptown help` lists them under "Not
@@ -173,7 +173,7 @@ says so at the start of its description, wherever you choose it.
   `retire-integration`.
 - Integrations: error reporting (GlitchTip), GitLab, the pi agent harness and its model providers, the
   built-in secret store (its key is kept in the same database as the values,
-  so it is not a vault: see [Secrets](/docs/guides/secrets)) and the Infisical secret store, package-registry mirrors, container
+  so it is not a vault: see [Secrets](secrets.md)) and the Infisical secret store, package-registry mirrors, container
   registries, and the automatic scanners (osv, gitleaks, sbom, trivy,
   trivy-license).
 

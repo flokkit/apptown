@@ -13,7 +13,7 @@ release; "experimental" means it may work and is not yet tested.
 
 One AppTown uses one CPU architecture for everything it builds and runs:
 its workers and deployment targets run the same one (the [app
-contract](/docs/guides/contract-reference), "One architecture").
+contract](contract-reference.md), "One architecture").
 
 ## The desktop trial
 
@@ -27,7 +27,7 @@ The trial serves its apps at `https://….localhost` addresses. Chrome,
 Edge and Firefox reach those names on every supported system. Safari
 reaches them only from macOS 26; on an older macOS use Chrome or Firefox for
 the trial. The trial's certificate is trusted once per computer ([The desktop
-trial](/docs/guides/trial), "Trust the trial's certificate").
+trial](trial.md), "Trust the trial's certificate").
 
 ## Browsers
 
@@ -37,7 +37,7 @@ The current versions of Chrome, Edge, Firefox and Safari.
 
 A Docker host, built in or attached over SSH, is supported. Portainer,
 DigitalOcean App Platform and bucket websites are experimental ([What 1.0
-promises](/docs/guides/compatibility)).
+promises](compatibility.md)).
 
 ## System requirements
 
