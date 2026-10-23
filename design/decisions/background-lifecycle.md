@@ -1,6 +1,6 @@
 # Background work ownership, and why not DSKit
 
-Forge keeps its own lifecycle convention for background work. It does not add a
+AppTown keeps its own lifecycle convention for background work. It does not add a
 service manager such as DSKit beside it.
 
 ## The convention
@@ -20,7 +20,7 @@ of goroutines launched behind its back.
 ## Why not DSKit
 
 `github.com/grafana/dskit/services` can signal every service and wait with a
-bound, but its listeners only observe state; they do not stop siblings. Forge
+bound, but its listeners only observe state; they do not stop siblings. AppTown
 would still have to distinguish a fatal producer failure from an optional
 refresh failure, and adopting it for narratives alone would keep the daemon's
 coordinator and App's sequencing while adding an adapter and several module

@@ -11,6 +11,8 @@ CHECK = Path(__file__).with_name("docs-current.py")
 def run(files):
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
+        # The check reads the Markdown Git would see; the files stay untracked.
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
         for name, text in files.items():
             p = root / name
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -133,9 +135,44 @@ class DocsCurrent(unittest.TestCase):
         code, out = run({"stock/guidance/deploy/a.md": block % ("Front door", "Run `apptown dev` in `.apptown/`.\n")})
         self.assertEqual(code, 0, out)
 
-    def test_design_guides_are_not_held_to_the_product_name(self):
-        code, out = run({"design/subsystems/a.md": "The forge's engine runs steps.\n"})
+    def test_every_public_markdown_file_is_held_to_the_product_name(self):
+        for name in ("design/subsystems/a.md", "CLAUDE.md", ".claude/skills/x/SKILL.md", "README.md",
+                     "stock/seeds/s/README.md"):
+            with self.subTest(name=name):
+                code, out = run({name: "The forge's engine runs steps.\n"})
+                self.assertEqual(code, 1, out)
+                self.assertIn(f"{name}:1: says forge for the product", out)
+
+    def test_history_and_the_maintainers_repository_are_not_held_to_the_product_name(self):
+        code, out = run({"releases/v1.0.0-rc.5.md": "Forge renamed.\n",
+                         "private/design/plans/a.md": "Forge, as it was.\n"})
         self.assertEqual(code, 0, out)
+        code, out = run({"releases/v1.0.1.md": "Forge renamed.\n"})
+        self.assertEqual(code, 1, out)
+
+    # What Git would not add (local data, dependencies) is not read; what is
+    # staged is.
+    def test_ignored_files_are_not_read_and_staged_ones_are(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / ".gitignore").write_text("/_data/\n")
+            (root / "_data").mkdir()
+            (root / "_data" / "a.md").write_text("Forge data.\n")
+            (root / "b.md").write_text("Forge staged.\n")
+            subprocess.run(["git", "-C", str(root), "add", "b.md"], check=True)
+            r = subprocess.run([sys.executable, str(CHECK), str(root)], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("b.md:1: says forge", r.stdout)
+        self.assertNotIn("_data", r.stdout)
+
+    def test_outside_a_git_repository_the_check_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "a.md").write_text("Forge.\n")
+            r = subprocess.run([sys.executable, str(CHECK), d], capture_output=True, text=True,
+                               env={"GIT_CEILING_DIRECTORIES": str(Path(d).parent), "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("cannot list the repository's files", r.stderr)
 
     def test_product_names_before_sentence_punctuation_are_checked(self):
         for text in ("Install Forge.\n", "This is the forge.\n", "Configure Forge:\n"):

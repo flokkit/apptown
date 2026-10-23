@@ -1,6 +1,6 @@
 # Interrupted work: prefer explicit reruns
 
-Forge prefers simple code and explicit reruns to making interruptions
+AppTown prefers simple code and explicit reruns to making interruptions
 transparent. Automatic recovery must justify its complexity with a concrete
 benefit to the person using it.
 

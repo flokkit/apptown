@@ -5,7 +5,9 @@ checks: [{"name":"runtime-stage-not-build-image","expects":"the final Docker sta
 ---
 Use the seeded Bedrock layout: Composer's committed `composer.lock` installs
 WordPress core in `web/wp`, plugins in `web/app/plugins`, and the owned theme
-lives in `web/app/themes/forge-site`. The public document root is `web`.
+lives in `web/app/themes/`: `apptown-site` in a project started from this
+starter now, while a project started earlier keeps the theme it was given.
+The public document root is `web`.
 Code changes, core/plugin upgrades and theme changes are reviewed image builds.
 Never install code from the dashboard or edit a running container. The runtime
 is non-root and cannot write application source; `/tmp` remains writable.

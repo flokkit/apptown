@@ -22,4 +22,4 @@ else
 fi
 # Initial starter enablement is idempotent; no users, options or content are reset.
 bin/wp plugin activate s3-uploads
-bin/wp theme activate forge-site
+bin/wp theme activate apptown-site

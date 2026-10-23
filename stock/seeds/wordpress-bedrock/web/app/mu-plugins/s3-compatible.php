@@ -21,7 +21,7 @@ add_action('plugins_loaded', static function (): void {
                 unset($command['ACL']);
                 return $command;
             }),
-            'forge-no-object-acl'
+            'apptown-no-object-acl'
         );
     }
 });

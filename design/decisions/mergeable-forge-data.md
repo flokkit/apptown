@@ -42,7 +42,7 @@ keeps the name it was given, and only what is created afterwards is named by UUI
    including the digests of what it includes, separate from the record that
    published it.
 5. **Each AppTown has a UUID.** A record or principal from another AppTown keeps
-   its origin forge's UUID and its original display number. A host name is
+   its origin AppTown's UUID and its original display number. A host name is
    where an AppTown is, not who it is.
 
 A UUID identifies a record; it does not make it trusted or make an act human
