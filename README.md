@@ -123,6 +123,20 @@ sandbox. A split install puts the agents and the apps on other machines,
 and takes more setup. [Running AppTown](stock/docs/guides/running-apptown.md)
 covers both, and which one to choose.
 
+### The command line
+
+The `apptown` command line works with any AppTown, from your own computer.
+On macOS or Linux, with [Homebrew](https://brew.sh):
+
+```sh
+brew install flokkit/tap/apptown
+```
+
+The tap carries final releases only. The CLI is also `bin/apptown` in each
+[release archive](https://github.com/flokkit/apptown/releases).
+[Connecting a coding agent](stock/docs/guides/connect-a-coding-agent.md#the-apptown-command-line)
+says how to give it a token.
+
 ## Read more
 
 - [The tour](https://apptown.dev/tour/): AppTown's main pages, with screenshots.

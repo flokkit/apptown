@@ -56,6 +56,14 @@ How a Flokkit release is made, in order. The release script is
    with those screenshots, with no further approval. The screenshots are not
    committed.
 
+   A final release (`vX.Y.Z`, no `-`) also updates the Homebrew formula:
+   the workflow's `homebrew` job writes `Formula/apptown.rb` from the
+   release's SHA256SUMS and pushes it to `flokkit/homebrew-tap`
+   ([GitHub](github.md)). A release candidate or test tag leaves the tap
+   alone, so `brew install flokkit/tap/apptown` never installs one. After
+   the run, `brew update && brew info flokkit/tap/apptown` names the new
+   version; a failed `homebrew` job is re-run once its cause is fixed.
+
    To look at the tour before a release, push a test tag (`-test.N`): the
    `tour` job runs and the site is left alone; the run's `tour` artifact
    holds the screenshots and the page (open `index.html` from the

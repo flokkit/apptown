@@ -2,8 +2,9 @@
 #   ghcr.io/flokkit/apptown         AppTown server (deploy/Dockerfile, target server)
 #   ghcr.io/flokkit/apptown-worker  the worker (deploy/Dockerfile, target worker)
 #   ghcr.io/flokkit/apptown-agent   the agent image (deploy/apptown-agent)
-# the release archives on a GitHub Release (the archives job below), and the
-# UI tour, published with apptown.dev (the tour and site jobs).
+# the release archives on a GitHub Release (the archives job below), the
+# Homebrew formula for a final release (the homebrew job), and the UI tour,
+# published with apptown.dev (the tour and site jobs).
 #
 # Every tag pushes: each image is pushed by digest with BuildKit's provenance
 # (mode=max) and SBOM, and joined into one tag per version. PUBLIC (below)
@@ -214,6 +215,55 @@ jobs:
           else
             gh release create "$TAG" dist/* "$kind" --verify-tag --title "AppTown $TAG" --notes-file "$notes"
           fi
+
+  # The Homebrew formula (brew install flokkit/tap/apptown): on a final
+  # release tag (vX.Y.Z, no "-"), scripts/homebrew-formula.py writes
+  # Formula/apptown.rb from the release's own SHA256SUMS and the job pushes it
+  # to github.com/flokkit/homebrew-tap. Release candidates and test tags
+  # skip it and leave the tap's formula where it was. The push uses a deploy
+  # key with write access to the tap alone, a secret of the homebrew-tap
+  # environment, which only v* tags may deploy to (design/operations/github.md
+  # has the one-time setup). Without the secret the job fails.
+  homebrew:
+    name: Homebrew formula
+    needs: archives
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: homebrew-tap
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+      DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::HOMEBREW_TAP_DEPLOY_KEY is not set in this repository's homebrew-tap environment, so the tap was not updated (design/operations/github.md, Homebrew)"
+            exit 1
+          fi
+          t=$RUNNER_TEMP
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$t/release"
+          python3 scripts/homebrew-formula.py "${TAG#v}" "$t/release/SHA256SUMS" >"$t/apptown.rb"
+          ruby -c "$t/apptown.rb"
+          (umask 077 && printf '%s\n' "$DEPLOY_KEY" >"$t/tap-key")
+          # GitHub's published ed25519 host key (api.github.com/meta), not a keyscan.
+          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >"$t/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $t/tap-key -o IdentitiesOnly=yes -o UserKnownHostsFile=$t/known_hosts -o StrictHostKeyChecking=yes"
+          git clone -q --depth 1 git@github.com:flokkit/homebrew-tap.git "$t/tap"
+          mkdir -p "$t/tap/Formula"
+          cp "$t/apptown.rb" "$t/tap/Formula/apptown.rb"
+          cd "$t/tap"
+          git add Formula/apptown.rb
+          if git diff --cached --quiet; then
+            echo "the tap's formula is already apptown ${TAG#v}"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -m "apptown ${TAG#v}" -m "From $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG"
+          git push -q origin HEAD
 
   # The UI tour (site/tour): make tour in the ci-heavy image
   # (scripts/ci-heavy.sh tour), from the tag's own source, once the images
