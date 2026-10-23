@@ -209,6 +209,8 @@ type digestHosts struct {
 	// told keeps the last release identity a `run` gave a static part
 	// (APPTOWN_RELEASE): what AppTown's file server answers.
 	told atomic.Pointer[string]
+	// onPull, if set, sees each pull before it is answered.
+	onPull atomic.Pointer[func(host string)]
 }
 
 func (h *digestHosts) daemon(target string) *dockerfake.Daemon {
@@ -238,6 +240,9 @@ func (h *digestHosts) Run(ctx context.Context, host string, req docker.Command) 
 	case len(args) >= 1 && args[0] == "info":
 		return []byte(h.platform + "\n"), nil
 	case len(args) == 2 && args[0] == "pull":
+		if hook := h.onPull.Load(); hook != nil {
+			(*hook)(host)
+		}
 		return h.pull(host, config, args[1])
 	case len(args) >= 3 && args[0] == "image" && args[1] == "inspect" && docker.IsDigestReference(args[len(args)-1]):
 		ref := args[len(args)-1]

@@ -140,6 +140,13 @@ history: a daemon crash can lose the in-memory tail, and restart settlement and
 provider observations remain authoritative. Detailed BuildKit and container output
 are not streamed by these phase messages.
 
+Once a landing's deploy attempt is admitted, it runs to its own outcome.
+Abandoning the change while it deploys does not cut the deploy short into an
+outcome no one knows: the deploy finishes and settles applied or failed, and
+the step's own outcome is then refused because its run has ended. A step whose
+interruption is noticed before admission deploys nothing. A deploy under way when AppTown
+stops is found still running at startup and observed.
+
 ## Release bundles
 
 A release bundle is what a landing produced and every later release ships.
