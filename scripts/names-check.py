@@ -56,6 +56,10 @@ SURFACES = {
     # A deployment made before keeps its forge- names by its record
     # (deployments.host_prefix), so the readers that know them are listed
     # below; the Docker label keys forge.* stay, and are not this surface.
+    # What a stock starter gives a new project: its WordPress theme, its
+    # Composer package and its S3 middleware. A project started earlier keeps
+    # what it was given; these count only in AppTown's own tree.
+    "starter": r"\bforge-site\b|\bforge_site_|\bforge/wordpress-bedrock\b|\bforge-no-object-acl\b",
     "host-name": r"(?<![\w./-])forge-(?:env|svc|net|init|data|need|preview|cache|step|tests|review|scan|conform|dind|task|console|check|maker|db|rehearsal|registry|private|shots|exec|eval|what-if|fleet|cleanbuild)\b",
 }
 

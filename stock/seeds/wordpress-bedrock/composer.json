@@ -1,5 +1,5 @@
 {
-  "name": "forge/wordpress-bedrock",
+  "name": "apptown/wordpress-bedrock",
   "type": "project",
   "description": "Immutable WordPress starter following Roots Bedrock 1.31.7 layout",
   "require": {

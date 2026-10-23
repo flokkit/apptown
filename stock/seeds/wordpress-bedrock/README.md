@@ -39,7 +39,7 @@ profile excludes indexing without changing the database's production setting.
 
 ## Changes and checks
 
-Edit web/app/themes/forge-site. Change composer.json and resolve its lock with:
+Edit web/app/themes/apptown-site. Change composer.json and resolve its lock with:
 
     docker run --rm -v "$PWD:/app" -w /app composer:2.10.3 update --no-dev --no-install
     docker build -t wordpress-starter .

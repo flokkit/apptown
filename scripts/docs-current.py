@@ -12,11 +12,15 @@ this fails, naming the file and line, on:
     gone, and a guide is public as a whole;
   - a line starting "Status:" or "> Superseded".
 
-In stock/docs/ and in the guidance AppTown gives agents (stock/guidance/, the
-body and its checks) it also fails on the old product name in prose: "the forge",
-"this forge", "a forge", "forge's" or "Forge". The product is AppTown; the
-command `apptown`, `.apptown/`, `FORGE_*` and the like are code and are written
-in backticks, which this skips, as it skips fenced and indented code.
+In every Markdown file of the repository (the guides, CLAUDE.md, the agent
+skill, the shipped docs and the guidance AppTown gives agents, with its checks)
+it also fails on the old product name in prose: "the forge", "this forge",
+"a forge", "forge's" or "Forge". The product is AppTown; the command `apptown`,
+`.apptown/`, `FORGE_*` and the like are code and are written in backticks,
+which this skips, as it skips fenced and indented code. The files are the ones
+Git tracks or would add (so local data and node_modules are never read), less
+the earlier releases' notes, which are history, and private/, the maintainers'
+own repository.
 
 The reading of a guide for history in its sentences stays a reviewer's job;
 this holds only the parts a machine can see.
@@ -24,6 +28,7 @@ this holds only the parts a machine can see.
     python3 scripts/docs-current.py [root]
 """
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -54,6 +59,20 @@ def current_guides(root):
         yield claude
 
 
+# History, and the maintainers' repository: not held to the product name.
+NAME_EXEMPT = re.compile(r"^(private/|releases/v1\.0\.0-rc\.[1-6]\.md$)")
+
+
+def markdown_files(root):
+    """The Markdown Git tracks or would add under root. A Git failure stops the
+    check: an empty list would pass everything unread."""
+    r = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"docs-current: cannot list the repository's files: {r.stderr.strip()}")
+    return sorted({f for f in r.stdout.split("\0") if f and not NAME_EXEMPT.match(f) and (root / f).is_file()})
+
+
 def link_target(source, target, root):
     target = target.split("#", 1)[0]
     if not target or "://" in target or target.startswith("mailto:"):
@@ -78,9 +97,6 @@ def problems(root):
             out.append(f"{rel}: a current guide's name has a date in it; git history dates it")
         if path.is_dir() or path.suffix != ".md":
             continue
-        if rel.startswith("stock/docs/"):
-            for n in old_names(path.read_text()):
-                out.append(f"{rel}:{n}: says forge for the product; write AppTown, or put the command in backticks")
         for n, line in enumerate(path.read_text().splitlines(), 1):
             if line.strip() in PRIVATE_MARKERS:
                 out.append(f"{rel}:{n}: a private block marker; private blocks are gone (the maintainers' material is in their own repository), so write the guide for public readers")
@@ -90,12 +106,9 @@ def problems(root):
                 to = link_target(path, target, root)
                 if to and (to == "private" or to.startswith("private/")):
                     out.append(f"{rel}:{n}: links into private/ ({to}), which is not in this repository; write the reason into the guide")
-    guidance = root / "stock" / "guidance"
-    if guidance.exists():
-        for path in sorted(guidance.rglob("*.md")):
-            rel = path.relative_to(root).as_posix()
-            for n in old_names(path.read_text()):
-                out.append(f"{rel}:{n}: says forge for the product; write AppTown, or put the command in backticks")
+    for rel in markdown_files(root):
+        for n in old_names((root / rel).read_text()):
+            out.append(f"{rel}:{n}: says forge for the product; write AppTown, or put the command in backticks")
     return out
 
 

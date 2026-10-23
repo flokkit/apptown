@@ -39,7 +39,7 @@ func TestIntegrationWordPressSeedKeepsDataAndMediaOutsideTheWebContainer(t *test
 func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 	ctx, cancel := context.WithTimeout(t.Context(), 12*time.Minute)
 	defer cancel()
-	name := fmt.Sprintf("forge-wp-it-%d-%d", os.Getpid(), time.Now().UnixNano())
+	name := fmt.Sprintf("apptown-wp-it-%d-%d", os.Getpid(), time.Now().UnixNano())
 	image, network, db, s3, web := name+":test", name+"-net", name+"-db", name+"-s3", name+"-web"
 	dir := t.TempDir()
 	if err := fs.WalkDir(stock.FS, "seeds/wordpress-bedrock", func(path string, d fs.DirEntry, err error) error {
@@ -260,7 +260,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 	checkPage := func() {
 		t.Helper()
 		body := must("exec", web, "curl", "-fsS", "http://blog.site.test:8080/")
-		if !strings.Contains(body, "Persistent story") || !strings.Contains(body, "forge-site") {
+		if !strings.Contains(body, "Persistent story") || !strings.Contains(body, "apptown-site") {
 			t.Fatalf("theme/front page failed: %.300s", body)
 		}
 		if !strings.Contains(body, `href="http://blog.site.test:8080/persistent-story/"`) {
@@ -392,7 +392,7 @@ echo json_encode($seen);`)
 	if puts < 3 || copies != 1 {
 		t.Fatalf("the probe did not write, make a folder and copy (%d PUTs, %d copies): %s", puts, copies, probe)
 	}
-	for _, path := range []string{"/app/config/application.php", "/app/web/app/themes/forge-site/style.css", "/app/web/app/plugins/probe.php"} {
+	for _, path := range []string{"/app/config/application.php", "/app/web/app/themes/apptown-site/style.css", "/app/web/app/plugins/probe.php"} {
 		if _, err := run(nil, "exec", web, "sh", "-c", `printf bad >> "$1"`, "sh", path); err == nil {
 			t.Fatalf("runtime can write source: %s", path)
 		}

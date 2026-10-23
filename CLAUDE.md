@@ -5,11 +5,11 @@ on durable product intent, design boundaries and working rules. Current feature
 inventories, versions, configuration, commands and rollout status belong with
 their owning code or guide.
 
-## What Forge is for
+## What AppTown is for
 
-Forge (product name Flokkit AppTown) is the accountable home for a team's internal
+AppTown (Flokkit AppTown) is the accountable home for a team's internal
 software and the changes made to it. Coding agents make producing code cheap;
-owning software remains expensive. Forge addresses four problems: unauditable
+owning software remains expensive. AppTown addresses four problems: unauditable
 work, inconsistent applications, organisational knowledge that does not reliably
 steer changes, and more code than humans can understand by reading diffs.
 
@@ -20,11 +20,11 @@ and fleet maintenance make a portfolio manageable after its original makers
 have moved on. A feature should serve one of those problems.
 
 The intended applications are ordinary, load-bearing institutional software.
-Consistency and maintainability matter more than novelty. Work on Forge itself
+Consistency and maintainability matter more than novelty. Work on AppTown itself
 may explore new designs; that does not waive its authority, evidence or quality
 requirements.
 
-The output remains ordinary, portable software. Forge supplies the institution
+The output remains ordinary, portable software. AppTown supplies the institution
 around it. It is not a general agent-orchestration framework, a replacement SCM
 or ticket tracker, a low-code platform, or a pursuit of maximum autonomy.
 
@@ -32,7 +32,7 @@ The [product model](design/subsystems/product-model.md) explains the main bounda
 
 ## Ways of working are data
 
-Forge provides a design language of reusable affordances: guidance, workflows,
+AppTown provides a design language of reusable affordances: guidance, workflows,
 policies, checks, approvals, execution, artifacts, configuration delivery and
 deployment. A way of working composes those affordances as versioned data.
 Projects adopt that data explicitly; the record identifies what governed the work.
@@ -40,7 +40,7 @@ Projects adopt that data explicitly; the record identifies what governed the wor
 A team can prescribe a framework, toolchain, architecture or review practice
 through packs and their declarations. That knowledge belongs in the adopted
 content, including executable checks and build instructions where supported.
-Adding or revising a way of working should normally require no change to Forge's
+Adding or revising a way of working should normally require no change to AppTown's
 implementation. Stock content uses the same supported language as other content;
 avoid hidden privileges or engine branches keyed to a particular stock pack.
 
@@ -51,7 +51,7 @@ project uses Vite, apply these special deployment rules” encodes a particular
 way of working in the engine. Deployment mechanisms consume declared artifacts
 and runtime requirements; framework conventions belong in data.
 
-This is deliberate, bounded extensibility, not arbitrary hooks into Forge.
+This is deliberate, bounded extensibility, not arbitrary hooks into AppTown.
 Core code owns schema validation, authority, isolation, lifecycle, evidence
 admissibility and provider mechanisms. Data cannot grant itself privileges,
 bypass a gate or turn an assertion into trusted evidence. Prefer a small coherent
@@ -90,8 +90,8 @@ language over a new configuration switch or special case for every application.
   collapsing distinct decisions or losing their receipts.
 - **Keep the language deliberate.** Core schemas and a bounded policy vocabulary
   make shared conventions dependable. Use standards at external interchange
-  boundaries where they fit; retain Forge's own domain meaning inside them.
-- **Apply shared rules to Forge too.** Validate shipped ways of working through
+  boundaries where they fit; retain AppTown's own domain meaning inside them.
+- **Apply shared rules to AppTown too.** Validate shipped ways of working through
   the supported contracts. Recurring application problems should improve shared
   guidance, checks or affordances rather than accumulate unrelated local patches.
 
@@ -104,7 +104,7 @@ do not invent synonyms or copy lifecycle enumerations into this guide.
 
 ## Ownership and implementation boundaries
 
-Libraries under `internal/` are independent of Forge's domain and tables.
+Libraries under `internal/` are independent of AppTown's domain and tables.
 Subsystems under `internal/apptown/` own product concepts and operations; not every
 subsystem owns tables. The composition root assembles collaborators and owns
 instance/protocol lifecycle. Wiring binds dependencies; domain behaviour belongs
@@ -177,7 +177,7 @@ storage writes only when no operation can produce the required state, with the
 reason recorded at the site. Preserve independent persistence assertions when
 storage representation is the guarantee. Journeys exercise public interfaces.
 
-Shared fakes of external systems belong beside their adapters. Fakes of Forge's
+Shared fakes of external systems belong beside their adapters. Fakes of AppTown's
 own collaborators remain private to the owning package; do not build a shared
 application fixture to work around ownership. Isolate resources, clean them up,
 poll with deadlines, and make concurrency choices visible at each test rather
@@ -213,7 +213,7 @@ Current guides state the current rule in the present tense, without dates,
 status headers or history; git history records what changed when. A reason
 that matters is written into the guide.
 
-For live operation, read the [Forge operating skill](.claude/skills/apptown/SKILL.md).
+For live operation, read the [AppTown operating skill](.claude/skills/apptown/SKILL.md).
 Satisfy gates rather than working around them. Projects move through
 Changes: when AppTown's contract or a way of working changes, existing projects
 get governed Changes that a person accepts, not edits to their repositories or

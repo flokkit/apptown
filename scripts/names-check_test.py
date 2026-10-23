@@ -68,6 +68,7 @@ class NamesCheck(unittest.TestCase):
             "mount-and-builder": "/forge/in/token",
             "public-field": "forgeFault",
             "host-name": "docker volume inspect forge-need-env-shop-main-postgres",
+            "starter": "bin/wp theme activate forge-site",
         }
         self.assertEqual(set(planted), set(names.SURFACES))
         self.baseline()
@@ -129,6 +130,10 @@ class NamesCheck(unittest.TestCase):
             'store=forge-disk',
             'trusts-forge-front-door',
             'capacity.forge',
+            'web/app/themes/forge-site/style.css',
+            "'fallback_cb' => 'forge_site_navigation_fallback'",
+            '"name": "forge/wordpress-bedrock"',
+            "'forge-no-object-acl'",
         ]
         for example in examples:
             with self.subTest(example=example):

@@ -22,5 +22,6 @@
  "gate": 0,
  "skill": 0,
  "agent-recipe": 0,
+ "starter": 0,
  "host-name": 0
 }
