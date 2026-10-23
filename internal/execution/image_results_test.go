@@ -18,7 +18,7 @@ import (
 // buildSpec is a release build as AppTown may send it: its source, its
 // generated build file and its private daemon, and nothing else.
 func buildSpec() execution.TaskSpec {
-	return execution.TaskSpec{Key: "build-1", Image: "docker:27-cli", Argv: []string{"docker", "buildx", "build", "."},
+	return execution.TaskSpec{Key: "build-1", Image: "docker:27-dind", Argv: []string{"docker", "buildx", "build", "."},
 		Admission: execution.Admission{Profile: "worker-vm", Network: execution.NetworkDefault,
 			Limits: execution.Limits{CPUs: 1, MemoryBytes: 1 << 30, PIDs: 512}, Expires: time.Now().Add(time.Hour)},
 		Source:  &execution.TaskSource{Repository: "/repo", Commit: strings.Repeat("a", 40)},

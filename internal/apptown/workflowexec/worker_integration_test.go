@@ -21,7 +21,7 @@ import (
 func TestIntegrationAScriptStepRunsOnAWorkerInItsOwnContainer(t *testing.T) {
 	ca := workertest.NewCA(t)
 	w := workertest.StartInContainer(t, ca)
-	a, _, step := scriptTaskFixture(t, map[string]any{"run": "echo made on the worker > made.txt", "executor": "docker", "image": "busybox:latest"})
+	a, _, step := scriptTaskFixture(t, map[string]any{"run": "echo made on the worker > made.txt", "executor": "docker", "image": workertest.LoadedBusybox})
 	driver := execution.WorkerTasks{URL: w.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	a.tasks.Driver, a.tasks.Remote, a.tasks.Profile.Name, a.tasks.Backend = driver, driver, "worker", "worker at "+w.URL
 	run, err := workflow.ReadRunIn(context.Background(), a.db, step.RunID)

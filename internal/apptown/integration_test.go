@@ -22,6 +22,7 @@ import (
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
@@ -184,7 +185,7 @@ func TestIntegrationBuildContractBoots(t *testing.T) {
 	ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", chID))
 	_ = os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755)
 	_ = os.WriteFile(filepath.Join(ws, "Dockerfile"),
-		[]byte("FROM busybox\nRUN echo 'build contract lives' > /index.html\nEXPOSE 8080\nCMD [\"httpd\",\"-f\",\"-p\",\"8080\",\"-h\",\"/\"]\n"), 0o644)
+		[]byte("FROM "+diskspace.DFImage+"\nRUN echo 'build contract lives' > /index.html\nEXPOSE 8080\nCMD [\"httpd\",\"-f\",\"-p\",\"8080\",\"-h\",\"/\"]\n"), 0o644)
 	_ = os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(`
 app:
   web:

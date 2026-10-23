@@ -78,8 +78,8 @@ func TestIntegrationTheInstallerAddsToTheImagesOwnRoots(t *testing.T) {
 
 	// The system store, for curl-less Python (SSL_CERT_FILE), as root and
 	// as an unprivileged user.
-	py := image(t, own, "FROM python:3.13-slim-trixie\nCOPY image-ca.pem /image-ca.pem\n"+
-		"RUN cat /image-ca.pem >> /etc/ssl/certs/ca-certificates.crt && useradd -u 10001 app\n", map[string]string{})
+	py := image(t, own, "FROM python:3.13.16-alpine3.24\nCOPY image-ca.pem /image-ca.pem\n"+
+		"RUN cat /image-ca.pem >> /etc/ssl/certs/ca-certificates.crt && adduser -D -u 10001 app\n", map[string]string{})
 	get := `python3 -c 'import sys, urllib.request; [urllib.request.urlopen(u) for u in sys.argv[1:]]' ` + ownURL + " " + companyURL
 	// curl reading the file the image itself names (CURL_CA_BUNDLE), which
 	// holds only the image's authority.
@@ -91,7 +91,7 @@ func TestIntegrationTheInstallerAddsToTheImagesOwnRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	jvm := image(t, own, "FROM eclipse-temurin:21-jdk\nCOPY image-ca.pem Get.java /\n"+
+	jvm := image(t, own, "FROM eclipse-temurin:21.0.12.1_1-jdk\nCOPY image-ca.pem Get.java /\n"+
 		"RUN cp \"$JAVA_HOME/lib/security/cacerts\" \"$JAVA_HOME/lib/security/jssecacerts\" && "+
 		"keytool -importcert -noprompt -keystore \"$JAVA_HOME/lib/security/jssecacerts\" -storepass changeit -alias image -file /image-ca.pem && "+
 		"sha256sum \"$JAVA_HOME/lib/security/jssecacerts\" > /jssecacerts.sum\n", map[string]string{"Get.java": string(java)})
@@ -101,12 +101,12 @@ func TestIntegrationTheInstallerAddsToTheImagesOwnRoots(t *testing.T) {
 	fails(t, "python", run(t, py, get))
 	fails(t, "curl", run(t, curl, curlBoth))
 	fails(t, "java", run(t, jvm, javaBoth))
-	fails(t, "node", run(t, "node:22-slim", `node -e 'fetch(process.argv[1]).then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))' `+companyURL))
+	fails(t, "node", run(t, "node:24-slim", `node -e 'fetch(process.argv[1]).then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))' `+companyURL))
 
 	trusttest.Install(t, company.Bundle(t), trust.Bundle{})
 	ok(t, "python as root", run(t, py, trust.Run+"; "+get))
 	ok(t, "python as a user", run(t, py, `su app -s /bin/sh -c '`+strings.ReplaceAll(trust.Run+"; "+get, "'", `'\''`)+`'`))
 	ok(t, "curl with the image's own bundle", run(t, curl, trust.Run+"; "+curlBoth))
 	ok(t, "java with the image's own jssecacerts", run(t, jvm, trust.Run+"; "+javaBoth))
-	ok(t, "node", run(t, "node:22-slim", trust.Run+`; node -e 'fetch(process.argv[1]).then(r => process.exit(r.ok ? 0 : 1), e => { console.error(e); process.exit(1) })' `+companyURL))
+	ok(t, "node", run(t, "node:24-slim", trust.Run+`; node -e 'fetch(process.argv[1]).then(r => process.exit(r.ok ? 0 : 1), e => { console.error(e); process.exit(1) })' `+companyURL))
 }

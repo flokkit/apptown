@@ -19,7 +19,7 @@ import (
 func TestIntegrationAWorkerTaskFinishedDuringARestartIsCollected(t *testing.T) {
 	ca := workertest.NewCA(t)
 	worker := workertest.StartInContainer(t, ca)
-	a, _, step := scriptTaskFixture(t, map[string]any{"run": "echo ran >> count.txt", "executor": "docker", "image": "busybox:latest"})
+	a, _, step := scriptTaskFixture(t, map[string]any{"run": "echo ran >> count.txt", "executor": "docker", "image": workertest.LoadedBusybox})
 	driver := execution.WorkerTasks{URL: worker.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	a.tasks.Driver, a.tasks.Remote, a.tasks.Profile.Name, a.tasks.Backend = driver, driver, "worker", "worker at "+driver.URL
 	a.tasks.AbandonAt = func(stage string) bool { return stage == "started" }

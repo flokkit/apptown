@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execfile"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -120,11 +121,11 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 				{Name: "implement", Uses: "agent/pi", With: map[string]any{"prompt": "build it", "executor": "docker", "docker": true, "needs": true}},
 				{Name: "tests", Uses: "tests", With: map[string]any{"command": `grep -q "hello from a nested build" built.txt && grep -q nested nested.txt && grep -q reached kv.txt && echo "the agent's work holds"`}},
 			}, map[string]string{
-				"Dockerfile":        "FROM busybox:1.37\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
+				"Dockerfile":        "FROM " + diskspace.DFImage + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
 				"greeting.txt":      "hello from a nested build\n",
 				".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  kv:\n    flavour: sourdough\n",
 				"fake-pi.sh": `docker build -q -t composed-greeting /work >/dev/null 2>build.log && docker run --rm composed-greeting > built.txt
-docker run --rm -v /work:/work busybox:1.37 sh -c 'echo nested > /work/nested.txt'
+docker run --rm -v /work:/work ` + diskspace.DFImage + ` sh -c 'echo nested > /work/nested.txt'
 nc -z kv 6379 && echo reached > kv.txt
 echo "$KV_URL" > url.txt
 say "built, ran and reached the service"`,
@@ -201,7 +202,7 @@ say "built, ran and reached the service"`,
 func composedAgentImage(t *testing.T) (dir, image string) {
 	t.Helper()
 	dir = t.TempDir()
-	files := map[string]string{"Dockerfile": "FROM docker:27-cli\nLABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n", "pi": fakePiScript}
+	files := map[string]string{"Dockerfile": "FROM docker:27-dind\nENTRYPOINT [\"docker-entrypoint.sh\"]\nLABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n", "pi": fakePiScript}
 	for name, body := range files {
 		if err := execfile.Write(filepath.Join(dir, name), []byte(body), 0o755); err != nil {
 			t.Fatal(err)
@@ -310,7 +311,7 @@ func TestIntegrationPrivateDockerIsRemovedWhenATestFails(t *testing.T) {
 		if out, err := dockertest.CombinedOutput("network", "create", "--label", owner, "apptown-private-cleanup-"+strings.TrimPrefix(owner, "apptown.worker=")); err != nil {
 			t.Fatalf("network: %v %s", err, out)
 		}
-		if out, err := dockertest.CombinedOutput("run", "-d", "--label", owner, "busybox:1.37", "sleep", "300"); err != nil {
+		if out, err := dockertest.CombinedOutput("run", "-d", "--label", owner, diskspace.DFImage, "sleep", "300"); err != nil {
 			t.Fatalf("container: %v %s", err, out)
 		}
 		t.Fatal("the test fails after its worker made private Docker")

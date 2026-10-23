@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/worker"
@@ -67,7 +68,7 @@ func TestIntegrationAWorkerRestartKeepsItsTasksFiles(t *testing.T) {
 	base = strings.TrimSpace(base)
 	task := func(key, script string) (execution.TaskSpec, execution.TaskRef) {
 		t.Helper()
-		spec := execution.TaskSpec{Key: key, Image: "alpine:3", Argv: []string{"sh", "-c", script},
+		spec := execution.TaskSpec{Key: key, Image: diskspace.DFImage, Argv: []string{"sh", "-c", script},
 			Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 			Files:     []execution.File{config}, Source: &execution.TaskSource{Repository: hub, Commit: base}}
 		created, err := driver.Ensure(ctx, spec)

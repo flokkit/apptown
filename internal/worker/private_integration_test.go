@@ -17,6 +17,7 @@ import (
 	"time"
 
 	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/diskspace"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/execution"
@@ -71,7 +72,7 @@ func newPrivateFixtureOn(t *testing.T, external *workertest.External) *privateFi
 	removeNamespace(t, f.namespace)
 	f.hub = t.TempDir()
 	files := map[string]string{
-		"Dockerfile":   "FROM busybox:1.37\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
+		"Dockerfile":   "FROM " + diskspace.DFImage + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
 		"greeting.txt": "hello from a nested build\n",
 	}
 	for name, body := range files {
@@ -150,7 +151,7 @@ func (f *privateFixture) spec(name, script string, private *execution.PrivateDoc
 		profile := f.profile
 		private.Profile = &profile
 	}
-	return execution.TaskSpec{Key: f.namespace + "-" + name, Image: "docker:27-cli", Argv: []string{"sh", "-c", script},
+	return execution.TaskSpec{Key: f.namespace + "-" + name, Image: "docker:27-dind", Argv: []string{"sh", "-c", script},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkDefault, Limits: privateLimits, Expires: time.Now().Add(15 * time.Minute)},
 		Source:    &execution.TaskSource{Repository: f.hub, Commit: f.base}, Private: private, Results: results}
 }
@@ -179,9 +180,11 @@ func (f *privateFixture) withHostImage(image string) string {
 	return strings.TrimSpace(commit)
 }
 
-// loadImage is the nested script's first line after withHostImage: the
-// image is loaded from the source, and a failure ends the script saying so.
-const loadImage = `docker load -q -i /work/image.tar >/dev/null || { echo "loading the nested image failed"; exit 1; }
+// loadImage is the nested script's first line after withHostImage of the
+// pinned busybox: the image is loaded from the source and named
+// workertest.LoadedBusybox (it loads untagged), and a failure ends the
+// script saying so.
+const loadImage = `loaded=$(docker load -q -i /work/image.tar | sed -n 's/^Loaded image[^:]*: //p') && [ -n "$loaded" ] && docker tag "$loaded" ` + workertest.LoadedBusybox + ` || { echo "loading the nested image failed"; exit 1; }
 `
 
 // names are a task's private resources as the worker names them.
@@ -237,7 +240,7 @@ func TestIntegrationATaskHasItsOwnDockerAndServices(t *testing.T) {
 echo "same path $$" > /work/marker
 docker build -q -t nested-greeting /work >/dev/null
 docker run --rm nested-greeting
-docker run --rm -v /work:/work busybox:1.37 sh -c 'cat /work/marker; echo nested wrote > /work/from-nested'
+docker run --rm -v /work:/work ` + diskspace.DFImage + ` sh -c 'cat /work/marker; echo nested wrote > /work/from-nested'
 cat /work/from-nested
 nc -z cache 6379 && echo "reached the cache"
 test -S /var/run/docker.sock && echo "HOST SOCKET"
@@ -361,7 +364,7 @@ func TestIntegrationNothingWritesAfterCaptureAndReleaseIsFinal(t *testing.T) {
 	f.restart()
 	ctx := context.Background()
 	script := `set -e
-docker run -d -v /work:/work busybox:1.37 sh -c 'while true; do echo tick >> /work/ticks.txt; sleep 0.05; done' >/dev/null
+docker run -d -v /work:/work ` + diskspace.DFImage + ` sh -c 'while true; do echo tick >> /work/ticks.txt; sleep 0.05; done' >/dev/null
 sleep 1
 echo exiting while the writer writes`
 	spec := f.spec("writer", script, &execution.PrivateDocker{Daemon: true}, execution.Result{Name: "ticks", Path: "/work/ticks.txt", Max: 1 << 20})
@@ -453,8 +456,8 @@ func TestIntegrationPrivateDockerIsRefusedOrCleanedUp(t *testing.T) {
 	f := newPrivateFixture(t)
 	ctx := context.Background()
 	for name, private := range map[string]*execution.PrivateDocker{
-		"dind":      {Services: []deploy.ServiceSpec{{Name: "dind", Image: "busybox:1.37"}}},
-		"duplicate": {Services: []deploy.ServiceSpec{{Name: "db", Image: "busybox:1.37"}, {Name: "db", Image: "busybox:1.37"}}},
+		"dind":      {Services: []deploy.ServiceSpec{{Name: "dind", Image: diskspace.DFImage}}},
+		"duplicate": {Services: []deploy.ServiceSpec{{Name: "db", Image: diskspace.DFImage}, {Name: "db", Image: diskspace.DFImage}}},
 	} {
 		spec := f.spec("refused-"+name, "true", private)
 		// Sent as AppTown would not send it: straight to the worker.
@@ -487,7 +490,7 @@ func TestIntegrationPrivateDockerIsRefusedOrCleanedUp(t *testing.T) {
 
 	// The second service exits at once: the first, made, is removed.
 	spec := f.spec("partial", "true", &execution.PrivateDocker{Services: []deploy.ServiceSpec{
-		{Name: "cache", Image: "redis:7-alpine"}, {Name: "broken", Image: "busybox:1.37", Command: []string{"false"}}}})
+		{Name: "cache", Image: "redis:7-alpine"}, {Name: "broken", Image: diskspace.DFImage, Command: []string{"false"}}}})
 	created, err := f.driver.Ensure(ctx, spec)
 	if err != nil {
 		t.Fatal(err)
@@ -528,14 +531,14 @@ func limitsHold(t *testing.T, f *privateFixture) {
 	ctx := context.Background()
 	// The nested work: a memory hog past the daemon's 512 MiB, processes
 	// past its 512, then four busy loops, announced once they run.
-	script := loadImage + `docker run --rm busybox:1.37 sh -c 'head -c 700m /dev/zero | tail > /dev/null'; echo "memory hog exit $?"
-docker run --rm busybox:1.37 sh -c '` + forkProbe(700) + `'
-docker run -d busybox:1.37 sh -c '` + spinners + `; sleep 60' >/dev/null
+	script := loadImage + `docker run --rm ` + workertest.LoadedBusybox + ` sh -c 'head -c 700m /dev/zero | tail > /dev/null'; echo "memory hog exit $?"
+docker run --rm ` + workertest.LoadedBusybox + ` sh -c '` + forkProbe(700) + `'
+docker run -d ` + workertest.LoadedBusybox + ` sh -c '` + spinners + `; sleep 60' >/dev/null
 echo nested-spinning
 sleep 30
 echo done`
-	spec := f.spec("limits", script, &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: "busybox:1.37", Command: []string{"sleep", "3600"}}}})
-	spec.Source.Commit = f.withHostImage("busybox:1.37")
+	spec := f.spec("limits", script, &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: diskspace.DFImage, Command: []string{"sleep", "3600"}}}})
+	spec.Source.Commit = f.withHostImage(diskspace.DFImage)
 	created, err := f.driver.Ensure(ctx, spec)
 	if err != nil {
 		t.Fatal(err)
@@ -610,14 +613,14 @@ func TestIntegrationPrivateDockerCombinedLoadStaysWithinTheAggregate(t *testing.
 	f := newPrivateFixture(t)
 	ctx := context.Background()
 	script := loadImage + `head -c 300m /dev/zero | tail >/dev/null
-docker run -d -v /work:/work busybox:1.37 sh -c 'head -c 300m /dev/zero | tail >/dev/null; cat /sys/fs/cgroup/memory.peak > /work/nested-peak; touch /work/nested-loaded; ` + spinners + `; sleep 60' >/dev/null
+docker run -d -v /work:/work ` + workertest.LoadedBusybox + ` sh -c 'head -c 300m /dev/zero | tail >/dev/null; cat /sys/fs/cgroup/memory.peak > /work/nested-peak; touch /work/nested-loaded; ` + spinners + `; sleep 60' >/dev/null
 ` + spinners + `
 while [ ! -e /work/nested-loaded ]; do sleep 0.5; done
 echo "nested container's own memory peak $(cat /work/nested-peak)"
 echo all-under-load
 sleep 30`
-	spec := f.spec("aggregate", script, &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: "busybox:1.37", Command: []string{"sleep", "3600"}}}})
-	spec.Source.Commit = f.withHostImage("busybox:1.37")
+	spec := f.spec("aggregate", script, &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: diskspace.DFImage, Command: []string{"sleep", "3600"}}}})
+	spec.Source.Commit = f.withHostImage(diskspace.DFImage)
 	spec.Admission.Limits = execution.Limits{CPUs: 0.25, MemoryBytes: 512 << 20, PIDs: 512}
 	created, err := f.driver.Ensure(ctx, spec)
 	if err != nil {
@@ -710,7 +713,7 @@ done
 sample() { read up _ < /proc/uptime; echo "at $up"; for d in $dirs; do awk '/^usage_usec/{u=$2} /^nr_throttled/{n=$2} END{print "cpu", u, n}' $d/cpu.stat; done; }
 sample; sleep ` + strconv.FormatFloat(window.Seconds(), 'f', -1, 64) + `; sample
 for d in $dirs; do echo "mem $(cat $d/memory.peak) $(cat $d/memory.max) $(tr ' ' / < $d/cpu.max)"; done`
-	out, err := exec.Command("docker", "run", "--rm", "--cgroupns", "host", "-v", "/sys/fs/cgroup:/cg:ro", "busybox:1.37", "sh", "-c", script).CombinedOutput()
+	out, err := exec.Command("docker", "run", "--rm", "--cgroupns", "host", "-v", "/sys/fs/cgroup:/cg:ro", diskspace.DFImage, "sh", "-c", script).CombinedOutput()
 	if err != nil {
 		t.Fatalf("measuring cgroups: %v\n%s", err, out)
 	}
@@ -868,7 +871,7 @@ func TestIntegrationPrivateDockerSurvivesLostRepliesAndRestarts(t *testing.T) {
 
 	// Expired, with no AppTown asking: the sweep stops it and removes its
 	// private Docker; the record stays for AppTown to collect.
-	expiring := f.spec("expiring", "sleep 120", &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: "busybox:1.37", Command: []string{"sleep", "3600"}}}})
+	expiring := f.spec("expiring", "sleep 120", &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: diskspace.DFImage, Command: []string{"sleep", "3600"}}}})
 	// Far enough ahead that a slow start cannot pass it before the first
 	// sweep; the skew below moves the worker's clock past it.
 	expiring.Admission.Expires = time.Now().Add(10 * time.Minute)
@@ -915,7 +918,7 @@ func TestIntegrationAStopCoversThePrivateDockerAndFencesCollection(t *testing.T)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	spec := f.spec("stop", `set -e
-docker run -d -v /work:/work busybox:1.37 sh -c 'while true; do echo tick >> /work/ticks.txt; sleep 0.1; done'
+docker run -d -v /work:/work `+diskspace.DFImage+` sh -c 'while true; do echo tick >> /work/ticks.txt; sleep 0.1; done'
 echo writer-ready
 sleep 120`, &execution.PrivateDocker{Daemon: true}, execution.Result{Name: "ticks", Path: "/work/ticks.txt", Max: 1 << 20})
 	made, err := f.driver.Ensure(ctx, spec)
@@ -991,7 +994,7 @@ func TestIntegrationAWorkerStoppedBetweenADecisionAndItsEffectRecovers(t *testin
 	f := newPrivateFixture(t)
 	ctx := context.Background()
 	private := func() *execution.PrivateDocker {
-		return &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: "busybox:1.37", Command: []string{"sleep", "3600"}}}}
+		return &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: diskspace.DFImage, Command: []string{"sleep", "3600"}}}}
 	}
 	result := execution.Result{Name: "up", Path: "/work/up.txt", Max: 64}
 	const script = `docker info >/dev/null && echo up > /work/up.txt`

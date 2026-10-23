@@ -13,6 +13,7 @@ import (
 	"time"
 
 	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/diskspace"
 
 	"github.com/flokkit/apptown/internal/worker"
 )
@@ -87,7 +88,7 @@ func TestIntegrationAnExpiredImageInUseIsKept(t *testing.T) {
 	nonce := fmt.Sprintf("%d-%d", os.Getpid(), time.Now().UnixNano())
 	tag := "apptown-review-step4:" + nonce + "-used"
 	tree := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tree, "Dockerfile"), []byte("FROM alpine:3\nLABEL apptown.class=check review.test="+nonce+"\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tree, "Dockerfile"), []byte("FROM "+diskspace.DFImage+"\nLABEL apptown.class=check review.test="+nonce+"\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	cli("build", "-q", "-t", tag, tree)

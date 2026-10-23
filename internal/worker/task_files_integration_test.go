@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
@@ -28,7 +29,7 @@ func TestIntegrationAWorkerTaskAndCheckReadTheirGeneratedFiles(t *testing.T) {
 	config := execution.File{Path: "/etc/mise/config.toml", Content: []byte("[settings]\nnode.mirror_url = \"https://mirror.invalid/node/\"\n"), Mode: 0o644}
 
 	key := fmt.Sprintf("files-%d", time.Now().UnixNano()%1_000_000_000)
-	spec := execution.TaskSpec{Key: key, Image: "alpine:3", Argv: []string{"sh", "-c", "cat /etc/mise/config.toml; echo changed > /etc/mise/config.toml && echo writable"},
+	spec := execution.TaskSpec{Key: key, Image: diskspace.DFImage, Argv: []string{"sh", "-c", "cat /etc/mise/config.toml; echo changed > /etc/mise/config.toml && echo writable"},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)}, Files: []execution.File{config}}
 	created, err := driver.Ensure(ctx, spec)
 	if err != nil {
@@ -51,7 +52,7 @@ func TestIntegrationAWorkerTaskAndCheckReadTheirGeneratedFiles(t *testing.T) {
 	}
 
 	checks := worker.Checks{URL: hs.URL, Client: client}
-	out := checks.Run(ctx, execution.Request{Workspace: t.TempDir(), Image: "alpine:3", Argv: []string{"cat", "/etc/mise/config.toml"},
+	out := checks.Run(ctx, execution.Request{Workspace: t.TempDir(), Image: diskspace.DFImage, Argv: []string{"cat", "/etc/mise/config.toml"},
 		Network: "none", Timeout: time.Minute, Name: "files", Files: []execution.File{config}})
 	if !out.Exited0() || !strings.Contains(string(out.Output), "node.mirror_url") {
 		t.Fatalf("the check's output: %+v %s", out, out.Output)

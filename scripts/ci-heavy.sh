@@ -55,8 +55,9 @@ tmp=/tmp/$name
 cleanup() {
 	docker rm -f "$name" >/dev/null 2>&1 || true
 	# What the tests' containers wrote is root's; only a root container
-	# removes it. busybox:1.37 is one the integration tests pull anyway.
-	docker run --rm -v /tmp:/host-tmp busybox:1.37 rm -rf "/host-tmp/$name"
+	# removes it. The pinned busybox (diskspace.DFImage) is one the
+	# integration tests pull anyway.
+	docker run --rm -v /tmp:/host-tmp busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e rm -rf "/host-tmp/$name"
 }
 
 case "${1:-}" in

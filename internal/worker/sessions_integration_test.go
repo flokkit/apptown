@@ -16,6 +16,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/gitexec"
 
 	"github.com/flokkit/apptown/internal/poll"
@@ -119,8 +120,8 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	}
 	// A nested container: this machine's resolvers, and the daemon's PID
 	// limit holds what it starts.
-	loadNested(t, daemon, "busybox:1.37")
-	nested := w.Docker("exec", "-e", "DOCKER_HOST=tcp://localhost:2375", daemon, "docker", "run", "--rm", "busybox:1.37", "sh", "-c",
+	loadNested(t, daemon, diskspace.DFImage, workertest.LoadedBusybox)
+	nested := w.Docker("exec", "-e", "DOCKER_HOST=tcp://localhost:2375", daemon, "docker", "run", "--rm", workertest.LoadedBusybox, "sh", "-c",
 		"cat /etc/resolv.conf; i=0; while [ $i -lt 700 ]; do sleep 30 & i=$((i+1)); done 2>&1 | tail -1; echo started")
 	for _, ns := range resolvers(t, "nameserver") {
 		if !strings.Contains(nested, "nameserver "+ns) {
@@ -319,8 +320,9 @@ func resolvers(t *testing.T, field string) []string {
 	return out
 }
 
-// loadNested copies an image from this machine's Docker into a private daemon.
-func loadNested(t *testing.T, daemon, image string) {
+// loadNested copies an image from this machine's Docker into a private
+// daemon, as name (an image named by digest loads untagged).
+func loadNested(t *testing.T, daemon, image, name string) {
 	t.Helper()
 	save := exec.Command("docker", "save", image)
 	load := exec.Command("docker", "exec", "-i", "-e", "DOCKER_HOST=tcp://localhost:2375", daemon, "docker", "load")
@@ -332,11 +334,19 @@ func loadNested(t *testing.T, daemon, image string) {
 	if err := save.Start(); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := load.CombinedOutput(); err != nil {
+	out, err := load.CombinedOutput()
+	if err != nil {
 		t.Fatalf("loading %s into %s: %v\n%s", image, daemon, err, out)
 	}
 	if err := save.Wait(); err != nil {
 		t.Fatal(err)
+	}
+	loaded := workertest.LoadedImage(string(out))
+	if loaded == "" {
+		t.Fatalf("loading %s into %s named no image:\n%s", image, daemon, out)
+	}
+	if out, err := exec.Command("docker", "exec", "-e", "DOCKER_HOST=tcp://localhost:2375", daemon, "docker", "tag", loaded, name).CombinedOutput(); err != nil {
+		t.Fatalf("naming %s in %s: %v\n%s", image, daemon, err, out)
 	}
 }
 

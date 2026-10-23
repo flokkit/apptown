@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/poll"
 )
 
@@ -59,7 +60,7 @@ func TestIntegrationAFreshDatabaseGetsItsStartupBound(t *testing.T) {
 func TestIntegrationANeedThatRestartsWhileItStartsGetsItsStartupBound(t *testing.T) {
 	dk := Scope{Client: CLI{Binary: "docker"}}
 	stack := fmt.Sprintf("need-restarts-%d", time.Now().UnixNano())
-	svc := deploy.ServiceSpec{Name: "flaky", Image: "busybox:1.37", Health: "test -f /tmp/ready", Entrypoint: []string{"sh", "-c"},
+	svc := deploy.ServiceSpec{Name: "flaky", Image: diskspace.DFImage, Health: "test -f /tmp/ready", Entrypoint: []string{"sh", "-c"},
 		Command: []string{`n=$(cat /starts 2>/dev/null || echo 0); echo $((n+1)) > /starts; [ "$n" -ge 5 ] || exit 1; touch /tmp/ready; exec sleep 600`}}
 	cname := Current.Service(stack, svc.Name)
 	t.Cleanup(func() {

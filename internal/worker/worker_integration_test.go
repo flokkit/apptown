@@ -21,7 +21,7 @@ func busyboxSpec(key, output string, exit int, block bool) execution.TaskSpec {
 	if block {
 		script = "sleep 300"
 	}
-	return execution.TaskSpec{Key: key, Image: "busybox:latest", Argv: []string{"sh", "-c", script},
+	return execution.TaskSpec{Key: key, Image: workertest.LoadedBusybox, Argv: []string{"sh", "-c", script},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Limits: execution.Limits{CPUs: 1, MemoryBytes: 64 << 20, PIDs: 64}, Expires: time.Now().Add(time.Hour)}}
 }
 
